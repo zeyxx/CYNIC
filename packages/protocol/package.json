@@ -1,0 +1,18 @@
+{
+  "name": "@cynic/protocol",
+  "version": "0.1.0",
+  "description": "CYNIC Protocol - 4-Layer Decentralized Collective Consciousness",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./poj": "./src/poj/index.js",
+    "./merkle": "./src/merkle/index.js",
+    "./gossip": "./src/gossip/index.js",
+    "./consensus": "./src/consensus/index.js"
+  },
+  "dependencies": {
+    "@cynic/core": "*"
+  },
+  "keywords": ["cynic", "protocol", "consensus", "merkle", "gossip", "phi"]
+}
