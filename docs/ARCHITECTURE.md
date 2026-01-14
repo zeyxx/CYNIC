@@ -1,6 +1,6 @@
-# CYNIC Architecture - Conscience Collective Décentralisée
+# CYNIC Architecture - Decentralized Collective Consciousness
 
-> **"φ qui se méfie de φ"** - κυνικός
+> **"φ distrusts φ"** - κυνικός
 >
 > **Mantra**: "Increase bandwidth, reduce latency"
 
@@ -8,41 +8,41 @@
 
 ## 1. Vision
 
-CYNIC est une **conscience collective décentralisée** - un réseau de noeuds interconnectés qui:
-- Jugent de manière autonome
-- Partagent leurs apprentissages
-- Convergent vers la vérité via consensus φ-pondéré
+CYNIC is a **decentralized collective consciousness** - a network of interconnected nodes that:
+- Judge autonomously
+- Share their learnings
+- Converge toward truth via φ-weighted consensus
 
-**Ce n'est PAS** un serveur MCP centralisé. C'est un **protocole**.
+**This is NOT** a centralized MCP server. It's a **protocol**.
 
 ---
 
-## 2. Principes Fondateurs
+## 2. Founding Principles
 
 ### 2.1 Privacy Opt-In
 ```
-Par défaut: RIEN n'est partagé
-Opt-in explicite: L'opérateur choisit ce qu'il contribue
-PII: TOUJOURS hashé avant transmission (φ-salted SHA-256)
+By default: NOTHING is shared
+Explicit opt-in: Operator chooses what to contribute
+PII: ALWAYS hashed before transmission (φ-salted SHA-256)
 ```
 
 ### 2.2 Security by Design
 ```
-Zero Trust: Chaque message est signé cryptographiquement
-Verification: "Don't trust, verify" - tout est vérifiable
-Isolation: Chaque noeud peut fonctionner offline
+Zero Trust: Every message is cryptographically signed
+Verification: "Don't trust, verify" - everything is verifiable
+Isolation: Each node can operate offline
 ```
 
 ### 2.3 Scalability by Design
 ```
-Horizontal: Ajouter des noeuds = plus de bandwidth
-Gossip O(log n): Propagation Fibonacci fanout
-Sharding: Knowledge partitionné par axiom (PHI/VERIFY/CULTURE/BURN)
+Horizontal: Adding nodes = more bandwidth
+Gossip O(log n): Fibonacci fanout propagation
+Sharding: Knowledge partitioned by axiom (PHI/VERIFY/CULTURE/BURN)
 ```
 
 ---
 
-## 3. Architecture 4 Couches (Solana-Inspired)
+## 3. 4-Layer Architecture (Solana-Inspired)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -51,12 +51,12 @@ Sharding: Knowledge partitionné par axiom (PHI/VERIFY/CULTURE/BURN)
 │                                                                  │
 │  LAYER 1: PROOF OF JUDGMENT (PoJ)                               │
 │  ════════════════════════════════                               │
-│  • Chaque jugement = event dans log cryptographique             │
-│  • SHA-256 chain (comme Proof of History)                       │
-│  • Timestamps φ-aligned (slots de 61.8s)                        │
-│  • Signature Ed25519 de l'opérateur                             │
+│  • Each judgment = event in cryptographic log                   │
+│  • SHA-256 chain (like Proof of History)                        │
+│  • φ-aligned timestamps (61.8s slots)                           │
+│  • Ed25519 operator signature                                   │
 │                                                                  │
-│  Format Block:                                                   │
+│  Block Format:                                                   │
 │  {                                                               │
 │    "slot": 12345,                                               │
 │    "prev_hash": "abc123...",                                    │
@@ -68,56 +68,56 @@ Sharding: Knowledge partitionné par axiom (PHI/VERIFY/CULTURE/BURN)
 │                                                                  │
 │  LAYER 2: MERKLE KNOWLEDGE TREE                                 │
 │  ═════════════════════════════                                  │
-│  • Patterns et learnings stockés en Merkle tree                 │
-│  • Sync sélectif (pull/push des branches modifiées)             │
-│  • Proof of inclusion pour vérification                         │
-│  • Weekly snapshots (root hash on-chain optionnel)              │
+│  • Patterns and learnings stored in Merkle tree                 │
+│  • Selective sync (pull/push modified branches only)            │
+│  • Proof of inclusion for verification                          │
+│  • Weekly snapshots (root hash on-chain optional)               │
 │                                                                  │
 │  Structure:                                                      │
 │  root/                                                           │
-│  ├── PHI/          # Axiom PHI patterns                         │
+│  ├── PHI/          # PHI axiom patterns                         │
 │  │   ├── dimensions/                                            │
 │  │   └── thresholds/                                            │
-│  ├── VERIFY/       # Axiom VERIFY patterns                      │
-│  ├── CULTURE/      # Axiom CULTURE patterns                     │
-│  └── BURN/         # Axiom BURN patterns                        │
+│  ├── VERIFY/       # VERIFY axiom patterns                      │
+│  ├── CULTURE/      # CULTURE axiom patterns                     │
+│  └── BURN/         # BURN axiom patterns                        │
 │                                                                  │
 │  LAYER 3: GOSSIP PROPAGATION                                    │
 │  ═══════════════════════════                                    │
-│  • Fanout = Fib(7) = 13 peers par hop                           │
-│  • Propagation totale: O(log₁₃ n) hops                          │
-│  • Erasure coding (Reed-Solomon) pour redondance                │
-│  • Push-pull hybrid: push nouveautés, pull catch-up             │
+│  • Fanout = Fib(7) = 13 peers per hop                           │
+│  • Total propagation: O(log₁₃ n) hops                           │
+│  • Erasure coding (Reed-Solomon) for redundancy                 │
+│  • Push-pull hybrid: push new items, pull to catch up           │
 │                                                                  │
-│  Exemple (1000 noeuds):                                          │
-│  Hop 1: 1 → 13 noeuds                                           │
-│  Hop 2: 13 → 169 noeuds                                         │
-│  Hop 3: 169 → 1000+ noeuds (saturé)                             │
-│  Latence totale: ~3 × network_latency                           │
+│  Example (1000 nodes):                                           │
+│  Hop 1: 1 → 13 nodes                                            │
+│  Hop 2: 13 → 169 nodes                                          │
+│  Hop 3: 169 → 1000+ nodes (saturated)                           │
+│  Total latency: ~3 × network_latency                            │
 │                                                                  │
 │  LAYER 4: φ-BFT CONSENSUS                                       │
 │  ═══════════════════════════                                    │
-│  • Votes pondérés par E-Score de l'opérateur                    │
-│  • Seuil consensus = φ⁻¹ (61.8%) des votes weighted             │
-│  • Lockout exponentiel: vote X → locked φⁿ slots                │
-│  • Soft consensus (jugements) vs Hard consensus (governance)    │
+│  • Votes weighted by operator E-Score                           │
+│  • Consensus threshold = φ⁻¹ (61.8%) of weighted votes          │
+│  • Exponential lockout: vote X → locked φⁿ slots                │
+│  • Soft consensus (judgments) vs Hard consensus (governance)    │
 │                                                                  │
 │  Soft Consensus (daily):                                         │
-│  - Jugements partagés sans vote global                          │
-│  - Patterns émergent si ≥3 sources indépendantes                │
-│  - Chaque noeud vérifie localement                              │
+│  - Judgments shared without global vote                         │
+│  - Patterns emerge if ≥3 independent sources                    │
+│  - Each node verifies locally                                   │
 │                                                                  │
 │  Hard Consensus (governance):                                    │
-│  - Nouvelles dimensions                                          │
-│  - Changements de seuils                                         │
-│  - Require φ⁻¹ supermajority                                    │
+│  - New dimensions                                                │
+│  - Threshold changes                                             │
+│  - Requires φ⁻¹ supermajority                                   │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 4. Structure des Blocks
+## 4. Block Structures
 
 ### 4.1 Judgment Block
 ```javascript
@@ -164,9 +164,9 @@ Sharding: Knowledge partitionné par axiom (PHI/VERIFY/CULTURE/BURN)
   patterns: [
     {
       id: "pat_xxx",
-      content_hash: "sha256:...",  // Content hashé
+      content_hash: "sha256:...",  // Content hashed
       strength: 0.85,
-      sources: 5,                  // Nombre de noeuds indépendants
+      sources: 5,                  // Number of independent nodes
       axiom: "VERIFY"
     }
   ],
@@ -212,7 +212,7 @@ Sharding: Knowledge partitionné par axiom (PHI/VERIFY/CULTURE/BURN)
     {
       voter: "ed25519:pubkey",
       vote: "APPROVE",
-      e_score: 85,           // Weight du vote
+      e_score: 85,           // Vote weight
       sig: "ed25519:..."
     }
   ],
@@ -228,12 +228,12 @@ Sharding: Knowledge partitionné par axiom (PHI/VERIFY/CULTURE/BURN)
 
 ---
 
-## 5. Flux de Données
+## 5. Data Flow
 
 ```
-NOEUD A                              NOEUD B                    NOEUD C
+NODE A                               NODE B                     NODE C
    │                                    │                          │
-   │ 1. Jugement local                  │                          │
+   │ 1. Local judgment                  │                          │
    ▼                                    │                          │
 [Create Judgment]                       │                          │
    │                                    │                          │
@@ -266,7 +266,7 @@ NOEUD A                              NOEUD B                    NOEUD C
 
 ---
 
-## 6. Consensus φ-BFT Détaillé
+## 6. φ-BFT Consensus Details
 
 ### 6.1 Vote Weighting (BURN, NOT STAKE)
 ```
@@ -274,45 +274,45 @@ Vote Weight = E-Score × Burn-Multiplier × Uptime
 
 E-Score: 0-100 (7-dimension φ-weighted calculation)
 Burn-Multiplier: log_φ(total_burned + 1) - rewards contribution, not extraction
-Uptime: 0-1 (disponibilité du noeud)
+Uptime: 0-1 (node availability)
 
-Exemple:
-- Noeud A: E-Score=85, Burned=50, Uptime=0.99 → Weight=85 × 8.15 × 0.99 ≈ 686
-- Noeud B: E-Score=60, Burned=10, Uptime=0.95 → Weight=60 × 4.78 × 0.95 ≈ 272
-- Noeud C: E-Score=92, Burned=100, Uptime=0.80 → Weight=92 × 9.62 × 0.80 ≈ 708
+Example:
+- Node A: E-Score=85, Burned=50, Uptime=0.99 → Weight=85 × 8.15 × 0.99 ≈ 686
+- Node B: E-Score=60, Burned=10, Uptime=0.95 → Weight=60 × 4.78 × 0.95 ≈ 272
+- Node C: E-Score=92, Burned=100, Uptime=0.80 → Weight=92 × 9.62 × 0.80 ≈ 708
 ```
 
-**Philosophie**: "Don't extract, burn" - tu ne stakes pas pour extraire des rewards,
-tu BURN pour contribuer et gagner du poids dans le consensus.
+**Philosophy**: "Don't extract, burn" - you don't stake to extract rewards,
+you BURN to contribute and gain weight in consensus.
 
-### 6.2 Lockout Exponentiel
+### 6.2 Exponential Lockout
 ```
-Si tu votes pour block X au slot S:
-- Tu ne peux pas voter contre X pendant φ^k slots
-- k = nombre de confirmations successives
+If you vote for block X at slot S:
+- You cannot vote against X for φ^k slots
+- k = number of successive confirmations
 
-Exemple:
-- Vote X au slot 100
+Example:
+- Vote X at slot 100
 - Confirmation 1 (slot 101): locked 1.618 slots
 - Confirmation 2 (slot 102): locked 2.618 slots
 - Confirmation 3 (slot 103): locked 4.236 slots
 - ...
 - Confirmation 10: locked 122.99 slots
 
-Cela garantit la finalité probabiliste.
+This guarantees probabilistic finality.
 ```
 
-### 6.3 Seuils
+### 6.3 Thresholds
 ```
 Soft Consensus (judgments):
-- Pas de vote global requis
-- Pattern confirmé si ≥3 sources indépendantes
-- Chaque noeud vérifie localement
+- No global vote required
+- Pattern confirmed if ≥3 independent sources
+- Each node verifies locally
 
 Hard Consensus (governance):
-- Require φ⁻¹ (61.8%) du total vote weight
-- Voting period: 1000 slots (~61.8 secondes)
-- Quorum minimum: 5 noeuds
+- Requires φ⁻¹ (61.8%) of total vote weight
+- Voting period: 1000 slots (~61.8 seconds)
+- Minimum quorum: 5 nodes
 ```
 
 ---
@@ -321,8 +321,8 @@ Hard Consensus (governance):
 
 ### 7.1 Data Classification
 ```
-PUBLIC (partagé par défaut):
-- Judgment verdicts (sans contenu)
+PUBLIC (shared by default):
+- Judgment verdicts (without content)
 - Pattern strengths
 - Merkle roots
 - Block headers
@@ -330,7 +330,7 @@ PUBLIC (partagé par défaut):
 PRIVATE (opt-in only):
 - Judgment content details
 - Learning content
-- Operator identity (hashé par défaut)
+- Operator identity (hashed by default)
 
 NEVER SHARED:
 - Raw PII
@@ -346,7 +346,7 @@ function hashForSharing(data, purpose) {
   return sha256(salt + JSON.stringify(data));
 }
 
-// Deterministic pour lookup, random pour storage
+// Deterministic for lookup, random for storage
 function hashPII(value, mode) {
   if (mode === 'lookup') {
     return sha256(GLOBAL_PII_SALT + value);  // Consistent
@@ -362,7 +362,7 @@ function hashPII(value, mode) {
 
 ### 8.1 Horizontal Scaling
 ```
-Noeuds actifs    Bandwidth total    Latence (3 hops)
+Active nodes    Total bandwidth    Latency (3 hops)
 ─────────────────────────────────────────────────────
 10               10 × B             ~150ms
 100              100 × B            ~150ms
@@ -372,22 +372,22 @@ Noeuds actifs    Bandwidth total    Latence (3 hops)
 
 ### 8.2 Knowledge Sharding
 ```
-Chaque noeud peut choisir de stocker:
-- FULL: Tout le knowledge tree
-- AXIOM: Un seul axiom (PHI, VERIFY, CULTURE, BURN)
+Each node can choose to store:
+- FULL: Entire knowledge tree
+- AXIOM: Single axiom only (PHI, VERIFY, CULTURE, BURN)
 - LIGHT: Headers + Merkle proofs only
 
 Routing:
-- Query pour PHI → route vers noeuds PHI
+- Query for PHI → route to PHI nodes
 - Cross-axiom queries → parallel fetch + merge
 ```
 
 ### 8.3 Bandwidth Optimization
 ```
-1. Delta sync: Seulement les changements
-2. Compression: zstd pour les blocks
-3. Erasure coding: 2/3 redondance (récupération partielle)
-4. Bloom filters: Skip known blocks rapidement
+1. Delta sync: Changes only
+2. Compression: zstd for blocks
+3. Erasure coding: 2/3 redundancy (partial recovery)
+4. Bloom filters: Skip known blocks quickly
 ```
 
 ---
@@ -406,7 +406,7 @@ Routing:
 ### Phase 2: Two Nodes (Proof of Concept)
 ```
 [ ] P2P connection (libp2p)
-[ ] Gossip protocol basic
+[ ] Basic gossip protocol
 [ ] Block propagation
 [ ] State sync
 ```
@@ -416,7 +416,7 @@ Routing:
 [ ] Discovery protocol
 [ ] φ-BFT consensus
 [ ] Governance votes
-[ ] Dashboard multi-node
+[ ] Multi-node dashboard
 ```
 
 ### Phase 4: Production
@@ -429,7 +429,7 @@ Routing:
 
 ---
 
-## 10. Timing Architecture (Scalabilité Infinie)
+## 10. Timing Architecture (Infinite Scalability)
 
 > "Increase bandwidth, reduce latency" - Solana mantra
 
@@ -474,7 +474,7 @@ T_slot > 270ms + 100ms + 30ms = 400ms minimum
 │                                                                  │
 │  Level    │ Formula        │ Duration  │ Purpose                │
 │  ─────────┼────────────────┼───────────┼─────────────────────── │
-│  TICK     │ φ⁻³ × 100ms    │ 23.6ms    │ Heartbeat minimal      │
+│  TICK     │ φ⁻³ × 100ms    │ 23.6ms    │ Minimal heartbeat      │
 │  MICRO    │ φ⁻² × 100ms    │ 38.2ms    │ Quick judgment ACK     │
 │  SLOT     │ φ⁻¹ × 100ms    │ 61.8ms    │ Judgment slot          │
 │  BLOCK    │ 1   × 100ms    │ 100ms     │ Block production       │
@@ -543,7 +543,7 @@ const EPOCHS_PER_CYCLE = 13;            // Fib(7)
 
 ---
 
-## 11. Mapping Solana → CYNIC
+## 11. Solana → CYNIC Mapping
 
 | Solana | CYNIC | Purpose |
 |--------|-------|---------|
@@ -749,7 +749,7 @@ Where:
 ### 14.3 Why BURN not STAKE?
 
 ```
-STAKE model (extracted):
+STAKE model (extractive):
 ├── User locks tokens
 ├── User earns rewards
 ├── Protocol inflates
@@ -766,38 +766,38 @@ BURN model ($asdfasdfa):
 
 ## 15. Dimension Architecture (N = ∞)
 
-> "L'INNOMMABLE existe avant d'être nommé" - ResidualDetector
+> "THE UNNAMEABLE exists before being named" - ResidualDetector
 
-### 15.1 Principe Fondamental
+### 15.1 Fundamental Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  DIMENSIONS = f(4 AXIOMS) → N (INFINI)                          │
+│  DIMENSIONS = f(4 AXIOMS) → N (INFINITE)                        │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  4 AXIOMS = FIXES (derived from φ)                              │
-│  ├── φ (PHI)      - Le Ratio      - ATZILUT (Essence)          │
-│  ├── VERIFY       - La Vérité     - BERIAH (Création)          │
-│  ├── CULTURE      - Le Moat       - YETZIRAH (Formation)       │
-│  └── BURN         - La Singularité- ASSIAH (Action)            │
+│  4 AXIOMS = FIXED (derived from φ)                              │
+│  ├── φ (PHI)      - The Ratio     - ATZILUT (Essence)          │
+│  ├── VERIFY       - The Truth     - BERIAH (Creation)          │
+│  ├── CULTURE      - The Moat      - YETZIRAH (Formation)       │
+│  └── BURN         - The Singularity- ASSIAH (Action)           │
 │                                                                  │
-│  DIMENSIONS PAR AXIOM = N (discovered, infinite)                │
-│  ├── Seed: dimensions initiales connues                         │
-│  ├── Growth: ResidualDetector découvre quand residual > 38.2%  │
-│  └── Convergence: asymptote vers compréhension totale          │
+│  DIMENSIONS PER AXIOM = N (discovered, infinite)                │
+│  ├── Seed: initial known dimensions                             │
+│  ├── Growth: ResidualDetector discovers when residual > 38.2%  │
+│  └── Convergence: asymptote toward total understanding         │
 │                                                                  │
-│  "24+1" = SNAPSHOT ACTUEL, PAS UNE LIMITE                       │
+│  "24+1" = CURRENT SNAPSHOT, NOT A LIMIT                         │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 15.2 Structure Dimension
+### 15.2 Dimension Structure
 
 ```javascript
-// Chaque dimension appartient à exactement 1 axiom
+// Each dimension belongs to exactly 1 axiom
 {
   name: "COHERENCE",
-  axiom: "PHI",                    // 1 des 4 axioms
+  axiom: "PHI",                    // 1 of 4 axioms
   weight: PHI,                     // φ^k, k ∈ {..., -2, -1, 0, 1, 2, ...}
   threshold: {
     accept: PHI_INV,               // 61.8%
@@ -810,7 +810,7 @@ BURN model ($asdfasdfa):
 }
 ```
 
-### 15.3 Les 4 Axioms et leurs Dimensions (Seed)
+### 15.3 The 4 Axioms and their Dimensions (Seed)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -886,7 +886,7 @@ BURN model ($asdfasdfa):
 ├─────────────────────────────────────────────────────────────────┤
 │  • DOUBT          │ ALL  │ Min 38.2% uncertainty always         │
 │  • LEARNING       │ ALL  │ Improvement from feedback            │
-│  • HUMILITY       │ ALL  │ "φ qui se méfie de φ"               │
+│  • HUMILITY       │ ALL  │ "φ distrusts φ"                      │
 │                                                                  │
 │  META dimensions are SPECIAL:                                    │
 │  - They apply to ALL judgments                                  │
@@ -895,7 +895,7 @@ BURN model ($asdfasdfa):
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 15.5 L'INNOMMABLE (Discovery Process)
+### 15.5 THE UNNAMEABLE (Discovery Process)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -912,8 +912,8 @@ BURN model ($asdfasdfa):
 │  8. Human validates and names (or rejects)                      │
 │  9. If accepted → dimension joins its AXIOM                     │
 │                                                                  │
-│  "L'INNOMMABLE existe avant d'être nommé.                       │
-│   ResidualDetector le capture, humain le nomme."                │
+│  "THE UNNAMEABLE exists before being named.                     │
+│   ResidualDetector captures it, human names it."                │
 │                                                                  │
 │  Process:                                                        │
 │  CHAOS → RESIDUAL → CLUSTER → PROPOSE → VALIDATE → DIMENSION   │

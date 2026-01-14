@@ -1,24 +1,24 @@
-# CYNIC - Conscience Collective Décentralisée
+# CYNIC - Decentralized Collective Consciousness
 
-> **"φ qui se méfie de φ"** - κυνικός (kunikos) = "comme un chien"
+> **"φ distrusts φ"** - κυνικός (kunikos) = "like a dog"
 
 ---
 
 ## Vision
 
-CYNIC est une **conscience collective décentralisée** - un réseau de noeuds interconnectés qui:
-- Jugent de manière autonome
-- Partagent leurs apprentissages
-- Convergent vers la vérité via consensus φ-pondéré
+CYNIC is a **decentralized collective consciousness** - a network of interconnected nodes that:
+- Judge autonomously
+- Share their learnings
+- Converge toward truth via φ-weighted consensus
 
-**Ce n'est PAS** un serveur centralisé. C'est un **protocole**.
+**This is NOT** a centralized server. It's a **protocol**.
 
 ---
 
-## Les 4 Axioms
+## The 4 Axioms
 
-| Axiom | Symbol | Principe | Monde |
-|-------|--------|----------|-------|
+| Axiom | Symbol | Principle | World |
+|-------|--------|-----------|-------|
 | **PHI** | φ | All ratios derive from 1.618... | ATZILUT |
 | **VERIFY** | ✓ | Don't trust, verify | BERIAH |
 | **CULTURE** | ⛩ | Culture is a moat | YETZIRAH |
@@ -26,7 +26,7 @@ CYNIC est une **conscience collective décentralisée** - un réseau de noeuds i
 
 ---
 
-## Architecture 4 Couches
+## 4-Layer Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -52,7 +52,7 @@ CYNIC est une **conscience collective décentralisée** - un réseau de noeuds i
 
 ---
 
-## Scalabilité Infinie
+## Infinite Scalability
 
 ```
 ┌──────────────┬─────────────┬─────────────┐
@@ -94,10 +94,10 @@ PHI_INV_2 = 0.381966011250105  // φ⁻² = 38.2% (min doubt)
 
 ## Dimensions = N (∞)
 
-- **4 Axioms** = FIXES (PHI, VERIFY, CULTURE, BURN)
-- **Dimensions par axiom** = N (infinies, découvertes via ResidualDetector)
-- **"24+1"** = snapshot actuel, PAS une limite
-- **L'INNOMMABLE** = ce qui existe avant d'être nommé
+- **4 Axioms** = FIXED (PHI, VERIFY, CULTURE, BURN)
+- **Dimensions per axiom** = N (infinite, discovered via ResidualDetector)
+- **"24+1"** = current snapshot, NOT a limit
+- **THE UNNAMEABLE** = what exists before being named
 
 ---
 
