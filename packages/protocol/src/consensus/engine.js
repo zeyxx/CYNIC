@@ -85,6 +85,7 @@ export class ConsensusEngine extends EventEmitter {
     // Block tracking
     this.blocks = new Map(); // blockHash -> BlockRecord
     this.slotBlocks = new Map(); // slot -> Set<blockHash>
+    this.slotProposals = new Map(); // slot -> Map<proposer, blockHash> (equivocation detection)
     this.lastFinalizedSlot = 0;
     this.lastFinalizedBlock = null;
 
@@ -217,6 +218,12 @@ export class ConsensusEngine extends EventEmitter {
     }
     this.slotBlocks.get(slot).add(blockHash);
 
+    // Track proposal for equivocation detection
+    if (!this.slotProposals.has(slot)) {
+      this.slotProposals.set(slot, new Map());
+    }
+    this.slotProposals.get(slot).set(record.proposer, blockHash);
+
     // Initialize vote tracking
     this.votes.set(blockHash, new Map());
 
@@ -255,6 +262,28 @@ export class ConsensusEngine extends EventEmitter {
       return;
     }
 
+    // Equivocation detection: check if proposer already proposed for this slot
+    const proposer = block.proposer;
+    const slotProposals = this.slotProposals.get(slot);
+    if (slotProposals && slotProposals.has(proposer)) {
+      const existingBlockHash = slotProposals.get(proposer);
+      if (existingBlockHash !== blockHash) {
+        // EQUIVOCATION DETECTED: same proposer, same slot, different block
+        this.emit('block:equivocation', {
+          slot,
+          proposer,
+          existingBlock: existingBlockHash,
+          conflictingBlock: blockHash,
+          fromPeer,
+        });
+        this.emit('block:rejected', {
+          blockHash,
+          reason: `Equivocation: proposer already proposed block ${existingBlockHash.slice(0, 16)}... for slot ${slot}`,
+        });
+        return;
+      }
+    }
+
     // Create record
     const record = {
       hash: blockHash,
@@ -277,6 +306,12 @@ export class ConsensusEngine extends EventEmitter {
       this.slotBlocks.set(slot, new Set());
     }
     this.slotBlocks.get(slot).add(blockHash);
+
+    // Track proposal for equivocation detection
+    if (!this.slotProposals.has(slot)) {
+      this.slotProposals.set(slot, new Map());
+    }
+    this.slotProposals.get(slot).set(proposer, blockHash);
 
     this.votes.set(blockHash, new Map());
 
@@ -672,18 +707,23 @@ export class ConsensusEngine extends EventEmitter {
     const blockVotes = this.votes.get(record.hash);
     if (!blockVotes) return;
 
-    // Replace existing vote from same voter
+    // Reject duplicate votes (vote immutability for Byzantine safety)
     const existing = blockVotes.get(vote.voter);
     if (existing) {
-      // Update weights
-      if (existing.vote === VoteType.APPROVE) {
-        record.approveWeight -= existing.weight || 1;
-      } else if (existing.vote === VoteType.REJECT) {
-        record.rejectWeight -= existing.weight || 1;
+      // Already voted - reject the new vote
+      // This prevents double-voting attacks
+      if (existing.vote !== vote.vote) {
+        this.emit('vote:double-vote-attempt', {
+          blockHash: record.hash,
+          voter: vote.voter,
+          existingVote: existing.vote,
+          attemptedVote: vote.vote,
+        });
       }
+      return; // Ignore duplicate vote
     }
 
-    // Add new vote
+    // Add new vote (first vote only)
     blockVotes.set(vote.voter, vote);
     record.votes.set(vote.voter, vote);
 
