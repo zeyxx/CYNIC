@@ -221,7 +221,13 @@ export class ConsensusEngine extends EventEmitter {
     this.votes.set(blockHash, new Map());
 
     this.stats.blocksProposed++;
-    this.emit('block:proposed', { blockHash, slot, proposer: record.proposer });
+    this.emit('block:proposed', {
+      event: 'block:proposed',
+      blockHash,
+      slot,
+      block,
+      proposer: record.proposer,
+    });
 
     // Self-vote (approve own block)
     this._submitVote(blockHash, VoteType.APPROVE);
@@ -363,6 +369,26 @@ export class ConsensusEngine extends EventEmitter {
   }
 
   /**
+   * Get consensus state summary
+   * @returns {Object} State summary
+   */
+  getState() {
+    return {
+      state: this.state,
+      currentSlot: this.currentSlot,
+      latestSlot: this.currentSlot,
+      finalizedSlot: this.lastFinalizedSlot,
+      pendingBlocks: Array.from(this.blocks.values()).filter(
+        (b) => b.status === BlockStatus.VOTING || b.status === BlockStatus.PROPOSED
+      ).length,
+      confirmedBlocks: Array.from(this.blocks.values()).filter(
+        (b) => b.status === BlockStatus.CONFIRMED
+      ).length,
+      validators: this.validators.size,
+    };
+  }
+
+  /**
    * Get consensus statistics
    * @returns {Object} Statistics
    */
@@ -490,7 +516,16 @@ export class ConsensusEngine extends EventEmitter {
     }
 
     this.stats.votesSubmitted++;
-    this.emit('vote:submitted', { blockHash, voteType, vote });
+
+    // Emit vote:cast for gossip broadcast
+    this.emit('vote:cast', {
+      event: 'vote:cast',
+      blockHash,
+      slot: this.currentSlot,
+      decision: voteType,
+      weight: vote.weight,
+      vote,
+    });
 
     return vote;
   }
@@ -683,9 +718,12 @@ export class ConsensusEngine extends EventEmitter {
 
           this.stats.blocksFinalized++;
           this.emit('block:finalized', {
+            event: 'block:finalized',
             blockHash: record.hash,
             slot: record.slot,
             confirmations: record.confirmations,
+            status: 'FINALIZED',
+            probability: 1.0,
           });
         }
       }
