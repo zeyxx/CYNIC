@@ -68,6 +68,13 @@ export {
   createSyncResponse,
   createHeartbeat,
   createPeerAnnounce,
+  // Consensus gossip messages
+  createConsensusBlockProposal,
+  createConsensusVote,
+  createConsensusVoteAggregate,
+  createConsensusFinality,
+  createConsensusSlotStatus,
+  isConsensusGossipMessage,
   // Peers
   PeerStatus,
   createPeerInfo,
@@ -138,6 +145,8 @@ export {
   createValidatorJoin,
   validateMessage,
   isConsensusMessage,
+  // Gossip Bridge
+  ConsensusGossip,
 } from './consensus/index.js';
 
 // Crypto utilities

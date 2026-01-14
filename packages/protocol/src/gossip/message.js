@@ -30,6 +30,13 @@ export const MessageType = {
   // Control messages
   HEARTBEAT: 'HEARTBEAT', // Peer alive signal
   PEER_ANNOUNCE: 'PEER_ANNOUNCE', // New peer announcement
+
+  // Consensus messages (Layer 4)
+  CONSENSUS_BLOCK_PROPOSAL: 'CONSENSUS_BLOCK_PROPOSAL', // Block proposal
+  CONSENSUS_VOTE: 'CONSENSUS_VOTE', // Vote on block
+  CONSENSUS_VOTE_AGGREGATE: 'CONSENSUS_VOTE_AGGREGATE', // Aggregated votes
+  CONSENSUS_FINALITY: 'CONSENSUS_FINALITY', // Finality notification
+  CONSENSUS_SLOT_STATUS: 'CONSENSUS_SLOT_STATUS', // Slot status update
 };
 
 /**
@@ -209,6 +216,104 @@ export function createPeerAnnounce(peerInfo, sender, privateKey) {
   });
 }
 
+// ===========================================
+// Consensus Message Helpers (Layer 4)
+// ===========================================
+
+/**
+ * Create consensus block proposal message
+ * @param {Object} proposal - Block proposal
+ * @param {string} sender - Sender public key
+ * @param {string} privateKey - Sender private key
+ * @returns {Object} Consensus block proposal message
+ */
+export function createConsensusBlockProposal(proposal, sender, privateKey) {
+  return createMessage({
+    type: MessageType.CONSENSUS_BLOCK_PROPOSAL,
+    payload: proposal,
+    sender,
+    privateKey,
+    ttl: 3, // Propagate widely
+  });
+}
+
+/**
+ * Create consensus vote message
+ * @param {Object} vote - Vote data
+ * @param {string} sender - Sender public key
+ * @param {string} privateKey - Sender private key
+ * @returns {Object} Consensus vote message
+ */
+export function createConsensusVote(vote, sender, privateKey) {
+  return createMessage({
+    type: MessageType.CONSENSUS_VOTE,
+    payload: vote,
+    sender,
+    privateKey,
+    ttl: 3, // Propagate widely
+  });
+}
+
+/**
+ * Create consensus vote aggregate message
+ * @param {Object} aggregate - Vote aggregate
+ * @param {string} sender - Sender public key
+ * @param {string} privateKey - Sender private key
+ * @returns {Object} Consensus vote aggregate message
+ */
+export function createConsensusVoteAggregate(aggregate, sender, privateKey) {
+  return createMessage({
+    type: MessageType.CONSENSUS_VOTE_AGGREGATE,
+    payload: aggregate,
+    sender,
+    privateKey,
+    ttl: 2, // Limited relay
+  });
+}
+
+/**
+ * Create consensus finality notification message
+ * @param {Object} finality - Finality data
+ * @param {string} sender - Sender public key
+ * @param {string} privateKey - Sender private key
+ * @returns {Object} Consensus finality message
+ */
+export function createConsensusFinality(finality, sender, privateKey) {
+  return createMessage({
+    type: MessageType.CONSENSUS_FINALITY,
+    payload: finality,
+    sender,
+    privateKey,
+    ttl: 3, // Propagate widely
+  });
+}
+
+/**
+ * Create consensus slot status message
+ * @param {Object} status - Slot status
+ * @param {string} sender - Sender public key
+ * @param {string} privateKey - Sender private key
+ * @returns {Object} Consensus slot status message
+ */
+export function createConsensusSlotStatus(status, sender, privateKey) {
+  return createMessage({
+    type: MessageType.CONSENSUS_SLOT_STATUS,
+    payload: status,
+    sender,
+    privateKey,
+    ttl: 2, // Limited relay
+  });
+}
+
+/**
+ * Check if message is a consensus message
+ * @param {string} type - Message type
+ * @returns {boolean} True if consensus message
+ */
+export function isConsensusGossipMessage(type) {
+  return type && type.startsWith('CONSENSUS_');
+}
+
 export default {
   MessageType,
   generateMessageId,
@@ -221,4 +326,11 @@ export default {
   createSyncResponse,
   createHeartbeat,
   createPeerAnnounce,
+  // Consensus messages
+  createConsensusBlockProposal,
+  createConsensusVote,
+  createConsensusVoteAggregate,
+  createConsensusFinality,
+  createConsensusSlotStatus,
+  isConsensusGossipMessage,
 };

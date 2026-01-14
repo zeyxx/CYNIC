@@ -13,7 +13,14 @@ import path from 'path';
 import readline from 'readline';
 import chalk from 'chalk';
 import { WebSocketTransport } from '../../transport/index.js';
-import { GossipProtocol, generateKeypair, createPeerInfo } from '@cynic/protocol';
+import {
+  GossipProtocol,
+  generateKeypair,
+  createPeerInfo,
+  ConsensusEngine,
+  ConsensusGossip,
+  SlotManager,
+} from '@cynic/protocol';
 
 /**
  * Format bytes to human readable
@@ -96,6 +103,45 @@ export async function startCommand(options) {
     },
   });
 
+  // Create consensus engine (Layer 4: φ-BFT)
+  const consensus = new ConsensusEngine({
+    publicKey: keypair.publicKey,
+    privateKey: keypair.privateKey,
+    eScore: 0.5, // Default E-Score
+    burned: 0, // Default burn
+    uptime: 1.0, // Full uptime initially
+  });
+
+  // Create slot manager for leader selection
+  const slotManager = new SlotManager();
+
+  // Create consensus-gossip bridge
+  const consensusGossip = new ConsensusGossip({
+    consensus,
+    gossip,
+  });
+
+  // Wire consensus events
+  consensus.on('block:proposed', (event) => {
+    if (verbose) {
+      console.log(chalk.yellow(`  [PROP] `) + `Block proposed: ${chalk.cyan(event.blockHash.slice(0, 16))}... slot ${event.slot}`);
+    }
+  });
+
+  consensus.on('block:finalized', (event) => {
+    console.log(chalk.green(`  [FIN]  `) + `Block finalized: ${chalk.cyan(event.blockHash.slice(0, 16))}...`);
+  });
+
+  consensus.on('vote:cast', (event) => {
+    if (verbose) {
+      console.log(chalk.magenta(`  [VOTE] `) + `Voted ${event.decision} on ${chalk.cyan(event.blockHash.slice(0, 16))}...`);
+    }
+  });
+
+  consensusGossip.on('error', ({ source, error }) => {
+    console.log(chalk.red(`  [C-ERR] `) + `${source}: ${error}`);
+  });
+
   // Wire events
   transport.on('peer:connected', ({ peerId, publicKey, inbound }) => {
     const direction = inbound ? chalk.magenta('←') : chalk.green('→');
@@ -126,6 +172,10 @@ export async function startCommand(options) {
     try {
       await transport.startServer();
       console.log(chalk.green('  [OK]   ') + `Server listening on ${chalk.bold(`${host}:${port}`)}`);
+
+      // Start consensus-gossip bridge
+      consensusGossip.start();
+      console.log(chalk.green('  [OK]   ') + `Consensus bridge started`);
     } catch (err) {
       console.error(chalk.red('  [FAIL] ') + `Could not start server: ${err.message}`);
       process.exit(1);
@@ -157,6 +207,8 @@ export async function startCommand(options) {
   console.log(chalk.bold('  Commands:'));
   console.log(chalk.gray('    /peers    ') + 'List connected peers');
   console.log(chalk.gray('    /stats    ') + 'Show statistics');
+  console.log(chalk.gray('    /slot     ') + 'Show current slot info');
+  console.log(chalk.gray('    /consensus') + 'Show consensus status');
   console.log(chalk.gray('    /connect <addr>  ') + 'Connect to peer');
   console.log(chalk.gray('    /broadcast <msg> ') + 'Broadcast message');
   console.log(chalk.gray('    /quit     ') + 'Shutdown node');
@@ -207,6 +259,33 @@ export async function startCommand(options) {
           break;
         }
 
+        case 'slot': {
+          const slotInfo = slotManager.getSlotInfo();
+          console.log(chalk.bold('\n  Slot Information:'));
+          console.log(chalk.gray('    Current Slot:     ') + chalk.yellow(slotInfo.slot));
+          console.log(chalk.gray('    Epoch:            ') + slotInfo.epoch);
+          console.log(chalk.gray('    Slot in Epoch:    ') + `${slotInfo.slotInEpoch}/${slotInfo.slotsPerEpoch}`);
+          console.log(chalk.gray('    Time to Next:     ') + `${slotInfo.msUntilNext}ms`);
+          console.log();
+          break;
+        }
+
+        case 'consensus': {
+          const cStats = consensusGossip.getStats();
+          const cState = consensus.getState();
+          console.log(chalk.bold('\n  Consensus Status:'));
+          console.log(chalk.gray('    State:            ') + chalk.yellow(cState.state));
+          console.log(chalk.gray('    Latest Slot:      ') + cState.latestSlot);
+          console.log(chalk.gray('    Finalized Slot:   ') + cState.finalizedSlot);
+          console.log(chalk.gray('    Pending Blocks:   ') + cState.pendingBlocks);
+          console.log(chalk.bold('  Bridge Statistics:'));
+          console.log(chalk.gray('    Proposals:        ') + `${cStats.proposalsBroadcast} sent, ${cStats.proposalsReceived} received`);
+          console.log(chalk.gray('    Votes:            ') + `${cStats.votesBroadcast} sent, ${cStats.votesReceived} received`);
+          console.log(chalk.gray('    Finality:         ') + `${cStats.finalityBroadcast} sent, ${cStats.finalityReceived} received`);
+          console.log();
+          break;
+        }
+
         case 'connect': {
           if (args.length === 0) {
             console.log(chalk.red('  Usage: /connect <address>'));
@@ -243,6 +322,7 @@ export async function startCommand(options) {
         case 'exit':
         case 'q': {
           console.log(chalk.yellow('\n  Shutting down...'));
+          consensusGossip.stop();
           await transport.stopServer();
           console.log(chalk.green('  Goodbye!\n'));
           process.exit(0);
@@ -261,6 +341,7 @@ export async function startCommand(options) {
 
   rl.on('close', async () => {
     console.log(chalk.yellow('\n  Shutting down...'));
+    consensusGossip.stop();
     await transport.stopServer();
     process.exit(0);
   });
@@ -268,11 +349,13 @@ export async function startCommand(options) {
   // Graceful shutdown
   process.on('SIGINT', async () => {
     console.log(chalk.yellow('\n  Received SIGINT, shutting down...'));
+    consensusGossip.stop();
     await transport.stopServer();
     process.exit(0);
   });
 
   process.on('SIGTERM', async () => {
+    consensusGossip.stop();
     await transport.stopServer();
     process.exit(0);
   });

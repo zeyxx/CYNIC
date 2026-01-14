@@ -19,6 +19,11 @@ import {
   verifyMessage,
   shouldRelay,
   prepareRelay,
+  createConsensusBlockProposal,
+  createConsensusVote,
+  createConsensusVoteAggregate,
+  createConsensusFinality,
+  isConsensusGossipMessage,
 } from './message.js';
 
 /**
@@ -93,8 +98,20 @@ export class GossipProtocol {
       case MessageType.PEER_ANNOUNCE:
         this._handlePeerAnnounce(message);
         break;
+      // Consensus messages (Layer 4)
+      case MessageType.CONSENSUS_BLOCK_PROPOSAL:
+      case MessageType.CONSENSUS_VOTE:
+      case MessageType.CONSENSUS_VOTE_AGGREGATE:
+      case MessageType.CONSENSUS_FINALITY:
+      case MessageType.CONSENSUS_SLOT_STATUS:
+        // Consensus messages are delegated to onMessage callback
+        // The ConsensusGossip bridge will handle them
+        break;
       default:
-        console.warn(`Unknown message type: ${message.type}`);
+        // Check if it's a consensus message we don't explicitly handle
+        if (!isConsensusGossipMessage(message.type)) {
+          console.warn(`Unknown message type: ${message.type}`);
+        }
     }
 
     // Relay if appropriate
@@ -330,6 +347,50 @@ export class GossipProtocol {
       fanout: GOSSIP_FANOUT,
       estimatedReachTime: PeerManager.calculatePropagationTime(peerStats.total),
     };
+  }
+
+  // ===========================================
+  // Consensus Message Broadcasting (Layer 4)
+  // ===========================================
+
+  /**
+   * Broadcast a consensus block proposal
+   * @param {Object} proposal - Block proposal data
+   * @returns {Promise<number>} Number of peers sent to
+   */
+  async broadcastBlockProposal(proposal) {
+    const message = createConsensusBlockProposal(proposal, this.publicKey, this.privateKey);
+    return this.broadcast(message);
+  }
+
+  /**
+   * Broadcast a consensus vote
+   * @param {Object} vote - Vote data
+   * @returns {Promise<number>} Number of peers sent to
+   */
+  async broadcastVote(vote) {
+    const message = createConsensusVote(vote, this.publicKey, this.privateKey);
+    return this.broadcast(message);
+  }
+
+  /**
+   * Broadcast a vote aggregate
+   * @param {Object} aggregate - Vote aggregate data
+   * @returns {Promise<number>} Number of peers sent to
+   */
+  async broadcastVoteAggregate(aggregate) {
+    const message = createConsensusVoteAggregate(aggregate, this.publicKey, this.privateKey);
+    return this.broadcast(message);
+  }
+
+  /**
+   * Broadcast a finality notification
+   * @param {Object} finality - Finality data
+   * @returns {Promise<number>} Number of peers sent to
+   */
+  async broadcastFinality(finality) {
+    const message = createConsensusFinality(finality, this.publicKey, this.privateKey);
+    return this.broadcast(message);
   }
 }
 
