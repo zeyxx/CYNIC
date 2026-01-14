@@ -1,0 +1,13 @@
+{
+  "name": "@cynic/core",
+  "version": "0.1.0",
+  "description": "Core constants and axioms - φ derives all",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./axioms": "./src/axioms/index.js",
+    "./timing": "./src/timing/index.js"
+  },
+  "license": "MIT"
+}

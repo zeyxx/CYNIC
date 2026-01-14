@@ -1,0 +1,39 @@
+{
+  "name": "cynic",
+  "version": "0.1.0",
+  "description": "Conscience Collective Décentralisée - φ qui se méfie de φ",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "lint": "eslint .",
+    "build": "echo 'No build step - pure JavaScript'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zeyxx/CYNIC.git"
+  },
+  "keywords": [
+    "cynic",
+    "phi",
+    "golden-ratio",
+    "consensus",
+    "decentralized",
+    "collective-intelligence"
+  ],
+  "author": "asdfasdfa",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "_philosophy": {
+    "axioms": ["PHI", "VERIFY", "CULTURE", "BURN"],
+    "maxConfidence": 0.618,
+    "minDoubt": 0.382,
+    "greek": "κυνικός",
+    "meaning": "comme un chien"
+  }
+}
