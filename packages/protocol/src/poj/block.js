@@ -82,6 +82,7 @@ export function createJudgmentBlock({
   operatorPublicKey,
   operatorPrivateKey,
   stateRoot = null,
+  timestamp = Date.now(),
 }) {
   // Hash each judgment
   const judgmentHashes = judgments.map((j) => hashObject(j));
@@ -90,7 +91,7 @@ export function createJudgmentBlock({
   const block = {
     slot,
     prev_hash: prevHash,
-    timestamp: Date.now(),
+    timestamp,
     type: BlockType.JUDGMENT,
     judgments,
     operator: formatPublicKey(operatorPublicKey),
@@ -120,6 +121,7 @@ export function createKnowledgeBlock({
   learnings,
   operatorPublicKey,
   operatorPrivateKey,
+  timestamp = Date.now(),
 }) {
   const patternHashes = patterns.map((p) => hashObject(p));
   const learningHashes = learnings.map((l) => hashObject(l));
@@ -127,7 +129,7 @@ export function createKnowledgeBlock({
   const block = {
     slot,
     prev_hash: prevHash,
-    timestamp: Date.now(),
+    timestamp,
     type: BlockType.KNOWLEDGE,
     patterns,
     learnings,
@@ -158,6 +160,7 @@ export function createGovernanceBlock({
   votes,
   operatorPublicKey,
   operatorPrivateKey,
+  timestamp = Date.now(),
 }) {
   // Calculate vote result
   const totalWeight = votes.reduce((sum, v) => sum + (v.e_score || 1), 0);
@@ -169,7 +172,7 @@ export function createGovernanceBlock({
   const block = {
     slot,
     prev_hash: prevHash,
-    timestamp: Date.now(),
+    timestamp,
     type: BlockType.GOVERNANCE,
     proposal,
     votes,

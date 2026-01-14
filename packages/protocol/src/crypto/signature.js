@@ -88,16 +88,16 @@ export function signBlock(block, privateKeyHex) {
  * @returns {boolean} True if valid
  */
 export function verifyBlock(block) {
-  const { operator_sig, operator, ...signableContent } = block;
+  const { operator_sig, ...signableContent } = block;
 
-  if (!operator_sig || !operator) {
+  if (!operator_sig || !block.operator) {
     return false;
   }
 
   // Extract public key from ed25519:pubkey format
-  const publicKeyHex = operator.startsWith('ed25519:')
-    ? operator.slice(8)
-    : operator;
+  const publicKeyHex = block.operator.startsWith('ed25519:')
+    ? block.operator.slice(8)
+    : block.operator;
 
   const contentHash = sha256(JSON.stringify(signableContent, Object.keys(signableContent).sort()));
   return verifySignature(contentHash, operator_sig, publicKeyHex);

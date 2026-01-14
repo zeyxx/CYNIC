@@ -85,12 +85,33 @@ export function merkleRoot(hashes) {
 }
 
 /**
+ * Deep sort an object for deterministic JSON serialization
+ * @param {*} obj - Object to sort
+ * @returns {*} Sorted object
+ */
+function deepSort(obj) {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(deepSort);
+  }
+
+  const sorted = {};
+  for (const key of Object.keys(obj).sort()) {
+    sorted[key] = deepSort(obj[key]);
+  }
+  return sorted;
+}
+
+/**
  * Hash an object (deterministic JSON serialization)
  * @param {Object} obj - Object to hash
  * @returns {string} Hash of object
  */
 export function hashObject(obj) {
-  const sorted = JSON.stringify(obj, Object.keys(obj).sort());
+  const sorted = JSON.stringify(deepSort(obj));
   return sha256(sorted);
 }
 

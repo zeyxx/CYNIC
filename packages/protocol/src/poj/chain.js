@@ -77,6 +77,26 @@ export class PoJChain {
   }
 
   /**
+   * Get next available slot (at least one more than head)
+   * @returns {number} Next slot number
+   */
+  getNextSlot() {
+    const currentSlot = this.getCurrentSlot();
+    const minSlot = this.head ? this.head.slot + 1 : 0;
+    return Math.max(currentSlot, minSlot);
+  }
+
+  /**
+   * Get next valid timestamp (must be greater than head)
+   * @returns {number} Next timestamp
+   */
+  getNextTimestamp() {
+    const now = Date.now();
+    const minTimestamp = this.head ? this.head.timestamp + 1 : now;
+    return Math.max(now, minTimestamp);
+  }
+
+  /**
    * Get head block
    * @returns {Object} Head block
    */
@@ -125,8 +145,9 @@ export class PoJChain {
    * @returns {Object} Created block
    */
   addJudgmentBlock(judgments, stateRoot = null) {
-    const slot = this.getCurrentSlot();
+    const slot = this.getNextSlot();
     const prevHash = this.getHeadHash();
+    const timestamp = this.getNextTimestamp();
 
     const block = createJudgmentBlock({
       slot,
@@ -135,6 +156,7 @@ export class PoJChain {
       operatorPublicKey: this.operatorPublicKey,
       operatorPrivateKey: this.operatorPrivateKey,
       stateRoot,
+      timestamp,
     });
 
     // Validate before adding
@@ -154,8 +176,9 @@ export class PoJChain {
    * @returns {Object} Created block
    */
   addKnowledgeBlock(patterns, learnings) {
-    const slot = this.getCurrentSlot();
+    const slot = this.getNextSlot();
     const prevHash = this.getHeadHash();
+    const timestamp = this.getNextTimestamp();
 
     const block = createKnowledgeBlock({
       slot,
@@ -164,6 +187,7 @@ export class PoJChain {
       learnings,
       operatorPublicKey: this.operatorPublicKey,
       operatorPrivateKey: this.operatorPrivateKey,
+      timestamp,
     });
 
     const validation = validateBlockChain(block, this.head);
@@ -182,8 +206,9 @@ export class PoJChain {
    * @returns {Object} Created block
    */
   addGovernanceBlock(proposal, votes) {
-    const slot = this.getCurrentSlot();
+    const slot = this.getNextSlot();
     const prevHash = this.getHeadHash();
+    const timestamp = this.getNextTimestamp();
 
     const block = createGovernanceBlock({
       slot,
@@ -192,6 +217,7 @@ export class PoJChain {
       votes,
       operatorPublicKey: this.operatorPublicKey,
       operatorPrivateKey: this.operatorPrivateKey,
+      timestamp,
     });
 
     const validation = validateBlockChain(block, this.head);

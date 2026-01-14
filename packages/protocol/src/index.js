@@ -58,8 +58,11 @@ export {
 // Layer 3: Gossip Propagation
 export {
   MessageType,
+  generateMessageId,
   createMessage,
   verifyMessage,
+  shouldRelay,
+  prepareRelay,
   createBlockMessage,
   createSyncRequest,
   createSyncResponse,
@@ -79,10 +82,12 @@ export {
   VoteType,
   ConsensusType,
   calculateVoteWeight,
+  generateVoteId,
   createVote,
   verifyVote,
   calculateConsensus,
   checkSoftConsensus,
+  aggregateVoteRounds,
   // Lockout
   VoterLockout,
   LockoutManager,
@@ -91,6 +96,7 @@ export {
   // Proposals
   ProposalAction,
   ProposalStatus,
+  generateProposalId,
   createProposal,
   verifyProposal,
   validateProposal,

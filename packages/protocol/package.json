@@ -11,6 +11,9 @@
     "./gossip": "./src/gossip/index.js",
     "./consensus": "./src/consensus/index.js"
   },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
   "dependencies": {
     "@cynic/core": "*"
   },
