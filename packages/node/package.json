@@ -4,20 +4,35 @@
   "description": "CYNIC Node - Decentralized Collective Consciousness Node",
   "type": "module",
   "main": "src/index.js",
+  "bin": {
+    "cynic": "./bin/cynic.js"
+  },
   "exports": {
     ".": "./src/index.js",
     "./operator": "./src/operator/index.js",
     "./judge": "./src/judge/index.js",
     "./state": "./src/state/index.js",
-    "./transport": "./src/transport/index.js"
+    "./transport": "./src/transport/index.js",
+    "./cli": "./src/cli/index.js"
   },
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "start": "node bin/cynic.js start"
   },
   "dependencies": {
     "@cynic/core": "*",
     "@cynic/protocol": "*",
+    "chalk": "^5.6.2",
+    "commander": "^14.0.2",
     "ws": "^8.18.0"
   },
-  "keywords": ["cynic", "node", "consciousness", "decentralized", "phi", "websocket", "p2p"]
+  "keywords": [
+    "cynic",
+    "node",
+    "consciousness",
+    "decentralized",
+    "phi",
+    "websocket",
+    "p2p"
+  ]
 }
