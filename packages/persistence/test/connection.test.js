@@ -39,7 +39,7 @@ describe('Persistence Connections', () => {
 
     it('should report health', { skip: !hasPostgres }, async () => {
       const health = await db.health();
-      assert.ok(health.connected, 'Should be connected');
+      assert.strictEqual(health.status, 'healthy', 'Should be healthy');
       assert.ok(typeof health.latency === 'number', 'Should have latency');
       assert.ok(health.pool, 'Should have pool info');
     });
@@ -72,7 +72,7 @@ describe('Persistence Connections', () => {
 
     it('should report health', { skip: !hasRedis }, async () => {
       const health = await redis.health();
-      assert.ok(health.connected, 'Should be connected');
+      assert.strictEqual(health.status, 'healthy', 'Should be healthy');
       assert.ok(typeof health.latency === 'number', 'Should have latency');
     });
   });

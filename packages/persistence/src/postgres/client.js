@@ -23,10 +23,23 @@ const DEFAULT_CONFIG = {
   idleTimeoutMillis: 61800,   // φ⁻¹ × 100000 - idle timeout
   connectionTimeoutMillis: 3820, // φ⁻² × 10000 - connection timeout
   allowExitOnIdle: true,
-  ssl: {
-    rejectUnauthorized: false,  // Render uses self-signed certs
-  },
 };
+
+/**
+ * Determine SSL config based on connection string
+ * @param {string} connectionString - Database URL
+ * @returns {Object|boolean} SSL config or false
+ */
+function getSSLConfig(connectionString) {
+  // Disable SSL for local connections or explicit sslmode=disable
+  if (connectionString.includes('localhost') ||
+      connectionString.includes('127.0.0.1') ||
+      connectionString.includes('sslmode=disable')) {
+    return false;
+  }
+  // Enable SSL with relaxed cert validation for cloud deployments
+  return { rejectUnauthorized: false };
+}
 
 /**
  * PostgreSQL Client wrapper
@@ -51,6 +64,7 @@ export class PostgresClient {
     this.pool = new Pool({
       connectionString: this.connectionString,
       ...this.config,
+      ssl: this.config.ssl !== undefined ? this.config.ssl : getSSLConfig(this.connectionString),
     });
 
     // Test connection
