@@ -85,6 +85,8 @@ export class CYNICNode {
 
     // Pending patterns (observations before they become patterns)
     this._pendingObservations = new Map();
+    this._maxPendingItems = options.maxPendingItems || 1000;
+    this._maxObservationsPerItem = options.maxObservationsPerItem || 50;
   }
 
   /**
@@ -231,10 +233,34 @@ export class CYNICNode {
   async _handleJudgment(judgment) {
     // Record observation
     const itemHash = judgment.item_hash;
-    if (!this._pendingObservations.has(itemHash)) {
-      this._pendingObservations.set(itemHash, []);
+
+    // Evict LRU entry if at capacity (before adding new key)
+    if (!this._pendingObservations.has(itemHash) &&
+        this._pendingObservations.size >= this._maxPendingItems) {
+      let oldestKey = null;
+      let oldestTime = Infinity;
+      for (const [key, entry] of this._pendingObservations) {
+        if (entry.lastUpdated < oldestTime) {
+          oldestTime = entry.lastUpdated;
+          oldestKey = key;
+        }
+      }
+      if (oldestKey) this._pendingObservations.delete(oldestKey);
     }
-    this._pendingObservations.get(itemHash).push({
+
+    if (!this._pendingObservations.has(itemHash)) {
+      this._pendingObservations.set(itemHash, { observations: [], lastUpdated: Date.now() });
+    }
+
+    const entry = this._pendingObservations.get(itemHash);
+    entry.lastUpdated = Date.now();
+
+    // Enforce per-item observation limit (FIFO eviction)
+    while (entry.observations.length >= this._maxObservationsPerItem) {
+      entry.observations.shift();
+    }
+
+    entry.observations.push({
       ...judgment,
       source: judgment.source || 'external',
     });
@@ -254,7 +280,8 @@ export class CYNICNode {
    * @private
    */
   _checkPatternEmergence() {
-    for (const [itemHash, observations] of this._pendingObservations) {
+    for (const [itemHash, entry] of this._pendingObservations) {
+      const observations = entry.observations;
       const result = checkPatternFormation(observations);
 
       if (result.isPattern) {
