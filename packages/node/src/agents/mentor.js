@@ -224,26 +224,27 @@ export class Mentor extends BaseAgent {
 
     // Track errors
     if (event.error || event.success === false) {
+      // Enforce bounds before pushing (FIFO eviction)
+      while (this.sessionContext.errors.length >= 20) {
+        this.sessionContext.errors.shift();
+      }
       this.sessionContext.errors.push({
         error: event.error || 'Unknown error',
         timestamp: Date.now(),
         context: event.tool || event.type,
       });
-      // Keep only recent errors
-      if (this.sessionContext.errors.length > 20) {
-        this.sessionContext.errors = this.sessionContext.errors.slice(-20);
-      }
     }
 
     // Track successes
     if (event.success === true) {
+      // Enforce bounds before pushing (FIFO eviction)
+      while (this.sessionContext.successes.length >= 20) {
+        this.sessionContext.successes.shift();
+      }
       this.sessionContext.successes.push({
         timestamp: Date.now(),
         context: event.tool || event.type,
       });
-      if (this.sessionContext.successes.length > 20) {
-        this.sessionContext.successes = this.sessionContext.successes.slice(-20);
-      }
     }
 
     // Track topics
