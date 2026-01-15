@@ -20,10 +20,17 @@
 import 'dotenv/config';
 
 import { MCPServer } from '../src/server.js';
+import { logConfigStatus, getMcpConfig, detectEnvironment } from '@cynic/core';
+
+// Log configuration status (never logs actual secrets)
+logConfigStatus();
+
+// Get MCP configuration
+const { mode: configMode, port: configPort } = getMcpConfig();
 
 // Determine mode: http if PORT is set or MCP_MODE=http
-const port = parseInt(process.env.PORT || process.env.MCP_PORT || '3000', 10);
-const mode = process.env.MCP_MODE || (process.env.PORT ? 'http' : 'stdio');
+const port = configPort;
+const mode = configMode || (process.env.PORT ? 'http' : 'stdio');
 
 // Start MCP server
 const server = new MCPServer({

@@ -23,3 +23,6 @@ export * from './identity/index.js';
 
 // 4 Worlds (Kabbalah framework)
 export * from './worlds/index.js';
+
+// Configuration management (security by design)
+export * from './config/index.js';

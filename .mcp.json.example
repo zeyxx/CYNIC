@@ -4,7 +4,10 @@
       "command": "node",
       "args": ["packages/mcp/bin/mcp.js"],
       "cwd": "/workspaces/CYNIC-new",
-      "env": {}
+      "env": {
+        "MCP_MODE": "stdio",
+        "NODE_ENV": "development"
+      }
     }
   }
 }

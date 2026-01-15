@@ -24,3 +24,13 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+
+# MCP Configuration (may contain secrets)
+.mcp.json
+
+# Secret files
+*.secret
+*.secrets
+secrets/
+credentials.json
+service-account.json
