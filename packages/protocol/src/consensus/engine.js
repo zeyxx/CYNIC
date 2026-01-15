@@ -68,6 +68,7 @@ export class ConsensusEngine extends EventEmitter {
    * @param {number} [options.confirmationsForFinality=32] - Confirmations needed
    * @param {number} [options.maxPendingVotes=10000] - Max queued votes for unknown blocks
    * @param {number} [options.pendingVoteMaxAge=100] - Max slots a pending vote can wait
+   * @param {number} [options.maxBlockHistory=1000] - Max slots of block history to retain
    */
   constructor(options) {
     super();
@@ -80,6 +81,7 @@ export class ConsensusEngine extends EventEmitter {
     this.confirmationsForFinality = options.confirmationsForFinality || 32;
     this.maxPendingVotes = options.maxPendingVotes || 10000;
     this.pendingVoteMaxAge = options.pendingVoteMaxAge || 100;
+    this.maxBlockHistory = options.maxBlockHistory || 1000;
 
     // State
     this.state = ConsensusState.INITIALIZING;
@@ -898,6 +900,8 @@ export class ConsensusEngine extends EventEmitter {
    * @private
    */
   _checkFinality() {
+    let newlyFinalized = false;
+
     for (const record of this.blocks.values()) {
       if (record.status === BlockStatus.CONFIRMED) {
         // Check if enough confirmations for finality
@@ -915,6 +919,7 @@ export class ConsensusEngine extends EventEmitter {
           this._orphanConflictingBlocks(record);
 
           this.stats.blocksFinalized++;
+          newlyFinalized = true;
           this.emit('block:finalized', {
             event: 'block:finalized',
             blockHash: record.hash,
@@ -925,6 +930,11 @@ export class ConsensusEngine extends EventEmitter {
           });
         }
       }
+    }
+
+    // Prune old data after finalization to bound memory usage
+    if (newlyFinalized) {
+      this._pruneOldData();
     }
   }
 
@@ -944,6 +954,56 @@ export class ConsensusEngine extends EventEmitter {
           this.emit('block:orphaned', { blockHash, slot: record.slot });
         }
       }
+    }
+  }
+
+  /**
+   * Prune old block data to prevent unbounded memory growth
+   * Removes blocks, votes, and slot indices older than maxBlockHistory
+   * @private
+   */
+  _pruneOldData() {
+    const cutoffSlot = this.lastFinalizedSlot - this.maxBlockHistory;
+    if (cutoffSlot <= 0) return;
+
+    let pruned = 0;
+
+    // Collect block hashes to remove
+    const blocksToRemove = [];
+    for (const [blockHash, record] of this.blocks) {
+      if (record.slot < cutoffSlot) {
+        blocksToRemove.push(blockHash);
+      }
+    }
+
+    // Remove blocks and their votes
+    for (const blockHash of blocksToRemove) {
+      this.blocks.delete(blockHash);
+      this.votes.delete(blockHash);
+      pruned++;
+    }
+
+    // Remove old slot indices
+    for (const slot of this.slotBlocks.keys()) {
+      if (slot < cutoffSlot) {
+        this.slotBlocks.delete(slot);
+      }
+    }
+
+    // Remove old slot proposals
+    for (const slot of this.slotProposals.keys()) {
+      if (slot < cutoffSlot) {
+        this.slotProposals.delete(slot);
+      }
+    }
+
+    if (pruned > 0) {
+      this.emit('consensus:pruned', {
+        event: 'consensus:pruned',
+        prunedBlocks: pruned,
+        cutoffSlot,
+        remainingBlocks: this.blocks.size,
+      });
     }
   }
 
