@@ -178,16 +178,15 @@ export class BaseAgent {
    * @param {Object} pattern - Pattern data
    */
   recordPattern(pattern) {
+    // Enforce bounds before pushing (FIFO eviction)
+    while (this.stats.patterns.length >= 100) {
+      this.stats.patterns.shift();
+    }
     this.stats.patterns.push({
       ...pattern,
       timestamp: Date.now(),
       agent: this.name,
     });
-
-    // Keep only last 100 patterns
-    if (this.stats.patterns.length > 100) {
-      this.stats.patterns = this.stats.patterns.slice(-100);
-    }
   }
 
   /**
