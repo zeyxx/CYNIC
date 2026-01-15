@@ -62,20 +62,12 @@ async function main() {
     // Format the awakening message
     const message = cynic.formatEcosystemStatus(ecosystem, profile);
 
-    // Output result for Claude
-    const result = {
-      continue: true,
-      message: message
-    };
-
-    console.log(JSON.stringify(result));
+    // Output directly to stdout (like asdf-brain) for banner display
+    console.log(message);
 
   } catch (error) {
-    // Silent failure - don't break the session
-    console.log(JSON.stringify({
-      continue: true,
-      message: `🧠 CYNIC awakening... *yawn*`
-    }));
+    // Minimal output on error
+    console.log('🧠 CYNIC awakening... *yawn*');
   }
 }
 

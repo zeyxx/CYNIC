@@ -175,18 +175,12 @@ async function main() {
     // Format message
     const message = formatDigestMessage(profile, analysis, insights);
 
-    // Output
-    console.log(JSON.stringify({
-      continue: true,
-      message: message
-    }));
+    // Output directly to stdout for banner display (like awaken.cjs)
+    console.log(message);
 
   } catch (error) {
     // Graceful exit even on error
-    console.log(JSON.stringify({
-      continue: true,
-      message: '*yawn* Session complete. φ remembers.'
-    }));
+    console.log('*yawn* Session complete. φ remembers.');
   }
 }
 
