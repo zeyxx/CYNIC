@@ -24,6 +24,7 @@ import {
   calculateVoteWeight,
 } from './voting.js';
 import { LockoutManager, calculateTotalLockout } from './lockout.js';
+import { verifyProposal } from './proposal.js';
 
 /**
  * Consensus state
@@ -258,6 +259,16 @@ export class ConsensusEngine extends EventEmitter {
 
     // Already have this block
     if (this.blocks.has(blockHash)) {
+      return;
+    }
+
+    // SECURITY: Verify block signature before any processing
+    if (!verifyProposal(block)) {
+      this.emit('block:invalid', {
+        blockHash,
+        reason: 'invalid_signature',
+        fromPeer,
+      });
       return;
     }
 
