@@ -4,6 +4,8 @@
  * "φ distrusts φ" - κυνικός
  */
 
+/* global global */
+
 import { describe, it, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { CYNICClient, createHolDexClient } from '../src/index.js';

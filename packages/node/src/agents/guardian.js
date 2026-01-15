@@ -59,7 +59,7 @@ export class Guardian extends BaseAgent {
     // Blocked patterns (always block)
     this.blockedPatterns = [
       // Destructive commands
-      /rm\s+-rf?\s+[\/~]/,           // rm -rf /
+      /rm\s+-rf?\s+[/~]/,            // rm -rf /
       /rm\s+-rf?\s+\*/,              // rm -rf *
       /:\s*\(\)\s*\{\s*:\|:\s*&\s*\}\s*;/,  // Fork bomb
       /dd\s+if=.*of=\/dev\//,        // dd to device
@@ -315,7 +315,7 @@ export class Guardian extends BaseAgent {
     if (input.path) paths.push(input.path);
     if (input.command) {
       // Extract paths from bash command
-      const matches = input.command.match(/[\/~][\w\/.~-]+/g) || [];
+      const matches = input.command.match(/[/~][\w/.~-]+/g) || [];
       paths.push(...matches);
     }
 

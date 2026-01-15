@@ -256,7 +256,7 @@ export function calculateQScoreFromAxioms(axiomScores) {
 export function getVerdict(Q) {
   // Calculate confidence based on distance from threshold
   const distanceFromThreshold = Math.abs(Q - 50) / 100;
-  let rawConfidence = 0.5 + distanceFromThreshold * 0.5;
+  const rawConfidence = 0.5 + distanceFromThreshold * 0.5;
 
   // Apply phi ceiling - never exceed 61.8%
   const confidence = Math.min(rawConfidence, PHI_INV);
