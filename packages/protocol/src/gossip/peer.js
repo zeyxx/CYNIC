@@ -51,14 +51,18 @@ export class PeerManager {
    * @param {Object} [options] - Manager options
    * @param {number} [options.maxPeers=100] - Maximum peers to track
    * @param {number} [options.inactiveThresholdMs=300000] - Inactive threshold (5 min)
+   * @param {number} [options.maxSeenMessages=100000] - Max messages to track for dedup
+   * @param {number} [options.messageExpireMs=60000] - Message expiration time
    */
   constructor(options = {}) {
     this.maxPeers = options.maxPeers || 100;
     this.inactiveThresholdMs = options.inactiveThresholdMs || 300000;
+    this.maxSeenMessages = options.maxSeenMessages || 100000;
+    this.messageExpireMs = options.messageExpireMs || 60000; // 1 minute
     this.peers = new Map();
     this.bannedPeers = new Set();
-    this.seenMessages = new Set();
-    this.messageExpireMs = 60000; // 1 minute
+    // Use Map with timestamps for bounded dedup with LRU eviction
+    this.seenMessages = new Map(); // messageId -> timestamp
   }
 
   /**
@@ -229,7 +233,15 @@ export class PeerManager {
    * @returns {boolean} True if seen
    */
   hasSeenMessage(messageId) {
-    return this.seenMessages.has(messageId);
+    const timestamp = this.seenMessages.get(messageId);
+    if (!timestamp) return false;
+
+    // Check if expired (wall-clock based, not setTimeout)
+    if (Date.now() - timestamp > this.messageExpireMs) {
+      this.seenMessages.delete(messageId);
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -237,12 +249,18 @@ export class PeerManager {
    * @param {string} messageId - Message ID
    */
   markMessageSeen(messageId) {
-    this.seenMessages.add(messageId);
+    // Evict oldest entries if at capacity (FIFO eviction)
+    if (this.seenMessages.size >= this.maxSeenMessages) {
+      // Delete oldest entries (first 10% to amortize eviction cost)
+      const evictCount = Math.max(1, Math.floor(this.maxSeenMessages * 0.1));
+      const iterator = this.seenMessages.keys();
+      for (let i = 0; i < evictCount; i++) {
+        const key = iterator.next().value;
+        if (key) this.seenMessages.delete(key);
+      }
+    }
 
-    // Schedule expiration
-    setTimeout(() => {
-      this.seenMessages.delete(messageId);
-    }, this.messageExpireMs);
+    this.seenMessages.set(messageId, Date.now());
   }
 
   /**
