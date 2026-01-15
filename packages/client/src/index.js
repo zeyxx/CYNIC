@@ -32,15 +32,15 @@ export class CYNICClient {
   /**
    * Create CYNIC client
    * @param {Object} options - Client options
-   * @param {string} [options.endpoint='http://localhost:3000'] - API endpoint
+   * @param {string} [options.endpoint] - API endpoint (default: CYNIC_ENDPOINT env or http://localhost:3000)
    * @param {string} [options.apiKey] - API key for authentication
    * @param {number} [options.timeout=30000] - Request timeout in ms
    * @param {number} [options.retries=3] - Number of retries
    * @param {boolean} [options.verbose=false] - Enable verbose logging
    */
   constructor(options = {}) {
-    this.endpoint = options.endpoint || 'http://localhost:3000';
-    this.apiKey = options.apiKey || null;
+    this.endpoint = options.endpoint || process.env.CYNIC_ENDPOINT || 'http://localhost:3000';
+    this.apiKey = options.apiKey || process.env.CYNIC_API_KEY || null;
     this.timeout = options.timeout || 30000;
     this.retries = options.retries || 3;
     this.verbose = options.verbose || false;

@@ -21,13 +21,13 @@ export class APIServer {
    * Create API server
    * @param {Object} options - Server options
    * @param {CYNICNode} options.node - CYNIC node instance
-   * @param {number} [options.port=3000] - Listen port
+   * @param {number} [options.port] - Listen port (default: PORT or CYNIC_API_PORT env, or 3000)
    * @param {string} [options.apiKey] - Optional API key for auth
    */
   constructor(options = {}) {
     this.node = options.node;
-    this.port = options.port || 3000;
-    this.apiKey = options.apiKey;
+    this.port = options.port || parseInt(process.env.PORT || process.env.CYNIC_API_PORT, 10) || 3000;
+    this.apiKey = options.apiKey || process.env.CYNIC_API_KEY;
 
     // Express app
     this.app = express();

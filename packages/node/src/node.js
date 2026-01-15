@@ -70,7 +70,7 @@ export class CYNICNode {
     this.gossip = new GossipProtocol({
       publicKey: this.operator.publicKey,
       privateKey: this.operator.privateKey,
-      address: options.address || 'localhost',
+      address: options.address || process.env.CYNIC_ADDRESS || 'localhost',
       onMessage: this._handleMessage.bind(this),
       sendFn: options.sendFn || (async () => {}),
     });
