@@ -384,22 +384,23 @@ export class Guardian extends BaseAgent {
 
     switch (type) {
       case 'blocked':
-        this.blockedOps.push(record);
-        if (this.blockedOps.length > this.maxOpsHistory) {
-          this.blockedOps = this.blockedOps.slice(-this.maxOpsHistory);
+        // Enforce bounds before pushing (FIFO eviction)
+        while (this.blockedOps.length >= this.maxOpsHistory) {
+          this.blockedOps.shift();
         }
+        this.blockedOps.push(record);
         break;
       case 'warned':
-        this.warnedOps.push(record);
-        if (this.warnedOps.length > this.maxOpsHistory) {
-          this.warnedOps = this.warnedOps.slice(-this.maxOpsHistory);
+        while (this.warnedOps.length >= this.maxOpsHistory) {
+          this.warnedOps.shift();
         }
+        this.warnedOps.push(record);
         break;
       case 'allowed':
-        this.allowedOps.push(record);
-        if (this.allowedOps.length > this.maxOpsHistory) {
-          this.allowedOps = this.allowedOps.slice(-this.maxOpsHistory);
+        while (this.allowedOps.length >= this.maxOpsHistory) {
+          this.allowedOps.shift();
         }
+        this.allowedOps.push(record);
         break;
     }
   }
