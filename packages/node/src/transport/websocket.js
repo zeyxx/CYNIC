@@ -445,7 +445,7 @@ export class WebSocketTransport extends EventEmitter {
    * Send message to peer
    * @param {Object} peer - Peer info (from gossip layer, has id and publicKey)
    * @param {Object} message - Message to send
-   * @returns {Promise<boolean>} True if sent
+   * @returns {Promise<boolean>} True if sent or queued
    */
   async send(peer, message) {
     // Use publicKey for connection lookup since that's how connections are keyed
@@ -458,12 +458,24 @@ export class WebSocketTransport extends EventEmitter {
       peerId = remappedId;
     }
 
-    const conn = this.connections.get(peerId);
+    let conn = this.connections.get(peerId);
 
     if (!conn) {
       // Not connected, try to connect first
-      await this.connect({ ...peer, id: peerId });
-      return this.send(peer, message);
+      try {
+        await this.connect({ ...peer, id: peerId });
+      } catch (err) {
+        this.emit('send:error', { peerId, error: err, reason: 'connect_failed' });
+        return false;
+      }
+
+      // Re-fetch connection after connect attempt
+      conn = this.connections.get(peerId);
+      if (!conn) {
+        // Connection failed to establish (e.g., duplicate detection closed it)
+        this.emit('send:error', { peerId, error: new Error('Connection not established'), reason: 'no_connection' });
+        return false;
+      }
     }
 
     const data = serialize(message);
@@ -476,6 +488,7 @@ export class WebSocketTransport extends EventEmitter {
         conn.queue.push(data);
         return true;
       }
+      this.emit('send:error', { peerId, error: new Error('Queue full'), reason: 'queue_full' });
       return false;
     }
   }
