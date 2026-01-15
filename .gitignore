@@ -34,3 +34,6 @@ Thumbs.db
 secrets/
 credentials.json
 service-account.json
+
+# CYNIC data (user profiles, collective memory)
+.cynic/
