@@ -40,6 +40,14 @@ export class JudgmentRepository {
     const judgmentId = generateJudgmentId();
     const itemHash = hashContent(judgment.item?.content || judgment.itemContent);
 
+    // Build searchable content: include description + content for better search
+    const item = judgment.item || {};
+    const contentParts = [];
+    if (item.description) contentParts.push(item.description);
+    if (item.content) contentParts.push(item.content);
+    if (item.name) contentParts.push(item.name);
+    const searchableContent = contentParts.join('\n') || judgment.itemContent || '';
+
     const { rows } = await this.db.query(`
       INSERT INTO judgments (
         judgment_id, user_id, session_id,
@@ -54,7 +62,7 @@ export class JudgmentRepository {
       judgment.userId || null,
       judgment.sessionId || null,
       judgment.item?.type || judgment.itemType || 'unknown',
-      judgment.item?.content || judgment.itemContent || '',
+      searchableContent,
       itemHash,
       judgment.qScore || judgment.q_score,
       judgment.globalScore || judgment.global_score || judgment.qScore || judgment.q_score,
@@ -113,6 +121,8 @@ export class JudgmentRepository {
     if (query) {
       sql += ` AND (
         item_content ILIKE $${paramIndex} OR
+        item_type ILIKE $${paramIndex} OR
+        verdict ILIKE $${paramIndex} OR
         context::text ILIKE $${paramIndex}
       )`;
       params.push(`%${query}%`);
