@@ -19,6 +19,9 @@ const path = require('path');
 const libPath = path.join(__dirname, '..', 'lib', 'cynic-core.cjs');
 const cynic = require(libPath);
 
+// Load security watchdog
+const watchdog = require(path.join(__dirname, '..', 'lib', 'watchdog.cjs'));
+
 // =============================================================================
 // DANGER PATTERNS
 // =============================================================================
@@ -89,6 +92,13 @@ const BASH_DANGER_PATTERNS = [
     severity: 'high',
     message: 'TRUNCATE removes all data',
     action: 'warn'
+  },
+  // Security watchdog triggers
+  {
+    pattern: /git\s+(commit|add\s+-A|add\s+\.)/,
+    severity: 'audit',
+    message: 'Git commit/add - scanning for secrets',
+    action: 'scan'
   }
 ];
 
@@ -133,6 +143,27 @@ function analyzeWritePath(filePath) {
   }
 
   return issues;
+}
+
+/**
+ * Scan staged files for secrets before git operations
+ * @returns {Object} Scan result with issues
+ */
+function scanForSecrets() {
+  const results = watchdog.scanStagedFiles();
+  const verdict = watchdog.calculateVerdict(results);
+
+  if (verdict.findings.length === 0) {
+    return { issues: [], verdict };
+  }
+
+  const issues = verdict.findings.map(f => ({
+    severity: f.severity,
+    message: `${f.description} in ${f.file}${f.line ? ':' + f.line : ''}`,
+    action: f.severity === 'critical' ? 'block' : 'warn'
+  }));
+
+  return { issues, verdict };
 }
 
 function formatGuardianResponse(issues, toolName, profile) {
@@ -191,17 +222,48 @@ async function main() {
 
     // Analyze based on tool type
     let issues = [];
+    let securityVerdict = null;
 
     if (toolName === 'Bash') {
       const command = toolInput.command || '';
       issues = analyzeBashCommand(command);
+
+      // Check if this is a git operation that needs security scan
+      const needsScan = issues.some(i => i.action === 'scan');
+      if (needsScan) {
+        const scanResult = scanForSecrets();
+        securityVerdict = scanResult.verdict;
+
+        // Replace scan action with actual findings
+        issues = issues.filter(i => i.action !== 'scan');
+        issues = issues.concat(scanResult.issues);
+      }
     } else if (toolName === 'Write' || toolName === 'Edit') {
       const filePath = toolInput.file_path || toolInput.filePath || '';
       issues = analyzeWritePath(filePath);
+
+      // Also scan the content being written for secrets
+      const content = toolInput.content || '';
+      if (content.length > 0) {
+        const contentFindings = watchdog.scanContent(content, filePath);
+        issues = issues.concat(contentFindings.map(f => ({
+          severity: f.severity,
+          message: `${f.description}`,
+          action: f.severity === 'critical' ? 'block' : 'warn'
+        })));
+      }
     }
 
     // No issues found - continue
     if (issues.length === 0) {
+      // If we did a security scan and it passed, log it
+      if (securityVerdict && securityVerdict.verdict === 'WAG') {
+        console.log(JSON.stringify({
+          continue: true,
+          message: '*sniff* Security scan passed. No secrets in staged files.'
+        }));
+        return;
+      }
       console.log(JSON.stringify({ continue: true }));
       return;
     }

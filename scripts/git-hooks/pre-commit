@@ -1,0 +1,36 @@
+#!/bin/sh
+#
+# CYNIC Pre-Commit Security Hook
+#
+# "Le chien garde" - The dog guards
+#
+# This hook runs before every commit to scan for secrets.
+# Install with: scripts/install-hooks.sh
+#
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# Run the security scan on staged files
+echo "🐕 CYNIC Security Guard - Pre-commit scan"
+echo ""
+
+node "$PROJECT_ROOT/scripts/hooks/security-scan.cjs" --staged 2>/dev/null
+
+# Capture exit code
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -ne 0 ]; then
+    echo ""
+    echo "╔══════════════════════════════════════════════════════════╗"
+    echo "║  *GROWL* Commit blocked! Secrets detected in staged files ║"
+    echo "║                                                           ║"
+    echo "║  Fix the issues above, then try again.                   ║"
+    echo "║  To bypass (NOT RECOMMENDED): git commit --no-verify     ║"
+    echo "╚══════════════════════════════════════════════════════════╝"
+    exit 1
+fi
+
+echo "*tail wag* Pre-commit scan passed."
+exit 0
