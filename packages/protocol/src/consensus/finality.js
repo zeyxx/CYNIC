@@ -217,15 +217,15 @@ export class FinalityTracker {
 
     existing.current = finality;
     existing.lastUpdated = Date.now();
+
+    // Enforce bounds before pushing (FIFO eviction)
+    while (existing.history.length >= 100) {
+      existing.history.shift();
+    }
     existing.history.push({
       timestamp: Date.now(),
       ...finality,
     });
-
-    // Trim history
-    if (existing.history.length > 100) {
-      existing.history = existing.history.slice(-100);
-    }
 
     this.blocks.set(blockHash, existing);
 
