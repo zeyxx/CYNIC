@@ -39,17 +39,21 @@ export class GossipProtocol {
    * @param {string} params.address - Node network address
    * @param {Function} [params.onMessage] - Message handler callback
    * @param {Function} [params.sendFn] - Function to send messages to peers
+   * @param {number} [params.maxPendingRequests=1000] - Max concurrent pending requests
+   * @param {number} [params.requestMaxAgeMs=60000] - Max age for pending requests before cleanup
    */
-  constructor({ publicKey, privateKey, address, onMessage, sendFn }) {
+  constructor({ publicKey, privateKey, address, onMessage, sendFn, maxPendingRequests, requestMaxAgeMs }) {
     this.publicKey = publicKey;
     this.privateKey = privateKey;
     this.address = address;
     this.onMessage = onMessage || (() => {});
     this.sendFn = sendFn || (() => Promise.resolve());
+    this.maxPendingRequests = maxPendingRequests || 1000;
+    this.requestMaxAgeMs = requestMaxAgeMs || 60000; // 1 minute
 
     this.peerManager = new PeerManager();
     this.messageQueue = [];
-    this.pendingRequests = new Map();
+    this.pendingRequests = new Map(); // requestId -> { resolve, reject, createdAt }
   }
 
   /**
@@ -299,12 +303,15 @@ export class GossipProtocol {
         reject(new Error('Sync request timeout'));
       }, timeoutMs);
 
-      this.pendingRequests.set(request.id, {
+      this._addPendingRequest(request.id, {
         resolve: (blocks) => {
           clearTimeout(timeout);
           resolve(blocks);
         },
-        reject,
+        reject: (err) => {
+          clearTimeout(timeout);
+          reject(err);
+        },
       });
 
       this.sendFn(peer, request).catch((err) => {
@@ -360,7 +367,40 @@ export class GossipProtocol {
       ...peerStats,
       fanout: GOSSIP_FANOUT,
       estimatedReachTime: PeerManager.calculatePropagationTime(peerStats.total),
+      pendingRequests: this.pendingRequests.size,
     };
+  }
+
+  /**
+   * Add a pending request with bounds enforcement
+   * @private
+   * @param {string} requestId - Request ID
+   * @param {Object} resolver - { resolve, reject } functions
+   */
+  _addPendingRequest(requestId, resolver) {
+    // Clean up stale requests first
+    const now = Date.now();
+    for (const [id, req] of this.pendingRequests) {
+      if (now - req.createdAt > this.requestMaxAgeMs) {
+        req.reject(new Error('Request expired (cleanup)'));
+        this.pendingRequests.delete(id);
+      }
+    }
+
+    // Evict oldest if at capacity
+    if (this.pendingRequests.size >= this.maxPendingRequests) {
+      const oldest = this.pendingRequests.keys().next().value;
+      if (oldest) {
+        const req = this.pendingRequests.get(oldest);
+        if (req) req.reject(new Error('Request evicted (queue full)'));
+        this.pendingRequests.delete(oldest);
+      }
+    }
+
+    this.pendingRequests.set(requestId, {
+      ...resolver,
+      createdAt: now,
+    });
   }
 
   // ===========================================
@@ -438,12 +478,15 @@ export class GossipProtocol {
         reject(new Error('State sync request timeout'));
       }, timeoutMs);
 
-      this.pendingRequests.set(requestId, {
+      this._addPendingRequest(requestId, {
         resolve: (response) => {
           clearTimeout(timeout);
           resolve(response);
         },
-        reject,
+        reject: (err) => {
+          clearTimeout(timeout);
+          reject(err);
+        },
       });
 
       this.sendFn(peer, request).catch((err) => {
