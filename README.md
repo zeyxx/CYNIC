@@ -116,6 +116,67 @@ CYNIC/
 
 ---
 
+## Running a Node
+
+### Basic Setup
+
+```javascript
+import { WebSocketTransport } from '@cynic/node';
+import { generateKeypair } from '@cynic/protocol';
+
+const keypair = generateKeypair();
+
+const transport = new WebSocketTransport({
+  port: 8618,
+  publicKey: keypair.publicKey,
+  privateKey: keypair.privateKey,
+});
+
+await transport.startServer();
+```
+
+### Secure WebSocket (WSS) for Production
+
+For production deployments outside a VPN/private network, enable TLS:
+
+```javascript
+const transport = new WebSocketTransport({
+  port: 8618,
+  publicKey: keypair.publicKey,
+  privateKey: keypair.privateKey,
+  ssl: {
+    key: '/path/to/privkey.pem',
+    cert: '/path/to/fullchain.pem',
+    ca: '/path/to/chain.pem',  // optional
+  },
+});
+
+await transport.startServer();
+// Server now accepts wss:// connections
+```
+
+**Certificate Setup (Let's Encrypt example):**
+
+```bash
+# Install certbot
+sudo apt install certbot
+
+# Get certificate
+sudo certbot certonly --standalone -d your-node.example.com
+
+# Certificate files will be at:
+# /etc/letsencrypt/live/your-node.example.com/privkey.pem
+# /etc/letsencrypt/live/your-node.example.com/fullchain.pem
+```
+
+**Security Notes:**
+- `ws://` (unencrypted) is acceptable for private networks/VPNs
+- `wss://` (TLS) required for public internet deployments
+- Identity verification uses Ed25519 signatures (always enabled)
+- Heartbeats contain only timestamps (no fingerprinting data)
+
+---
+
 ## Philosophy
 
 ```
