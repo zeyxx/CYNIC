@@ -27,6 +27,16 @@ const DEFAULT_CONFIG = {
 
 /**
  * Determine SSL config based on connection string
+ *
+ * SECURITY NOTE: For cloud databases (Render, Railway, etc.), we use
+ * rejectUnauthorized: false because these services use self-signed or
+ * dynamically provisioned certificates. This is acceptable for:
+ * - Managed database services with network-level security
+ * - Development/staging environments
+ *
+ * For production with custom certificates, set ssl config explicitly
+ * in the constructor options with proper CA certificates.
+ *
  * @param {string} connectionString - Database URL
  * @returns {Object|boolean} SSL config or false
  */
@@ -38,6 +48,7 @@ function getSSLConfig(connectionString) {
     return false;
   }
   // Enable SSL with relaxed cert validation for cloud deployments
+  // See security note above for rationale
   return { rejectUnauthorized: false };
 }
 
