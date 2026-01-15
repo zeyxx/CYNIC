@@ -19,7 +19,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { EventEmitter } from 'events';
 import { serialize, deserialize } from './serializer.js';
 import { PHI, PHI_INV } from '@cynic/core';
-import { createHeartbeat } from '@cynic/protocol';
+import { createHeartbeat, signData, verifySignature } from '@cynic/protocol';
 
 /**
  * Connection state
@@ -298,18 +298,54 @@ export class WebSocketTransport extends EventEmitter {
   }
 
   /**
-   * Handle identity message
+   * Handle identity message with signature verification
    * @private
    */
   _handleIdentity(message, tempPeerId) {
-    const { publicKey, address } = message.payload;
+    const { publicKey, address, timestamp, signature } = message.payload;
+
+    const conn = this.connections.get(tempPeerId);
+    if (!conn) return;
+
+    // SECURITY: Verify the identity signature to prevent spoofing
+    if (!signature || !timestamp) {
+      this.emit('peer:identity_invalid', {
+        tempPeerId,
+        reason: 'missing_signature',
+      });
+      conn.ws?.close(1008, 'identity_verification_failed');
+      this.connections.delete(tempPeerId);
+      return;
+    }
+
+    // Verify timestamp is recent (within 5 minutes) to prevent replay attacks
+    const age = Date.now() - timestamp;
+    if (age < 0 || age > 300000) {
+      this.emit('peer:identity_invalid', {
+        tempPeerId,
+        reason: 'timestamp_invalid',
+        age,
+      });
+      conn.ws?.close(1008, 'identity_verification_failed');
+      this.connections.delete(tempPeerId);
+      return;
+    }
+
+    // Verify signature proves ownership of the public key
+    const challenge = `${publicKey}:${timestamp}`;
+    if (!verifySignature(challenge, signature, publicKey)) {
+      this.emit('peer:identity_invalid', {
+        tempPeerId,
+        reason: 'signature_invalid',
+      });
+      conn.ws?.close(1008, 'identity_verification_failed');
+      this.connections.delete(tempPeerId);
+      return;
+    }
 
     // Calculate real peer ID (hash of public key)
     // For now, use publicKey as ID - will be replaced by proper hash
     const realPeerId = publicKey;
-
-    const conn = this.connections.get(tempPeerId);
-    if (!conn) return;
 
     const wasPendingIdentity = conn.pendingIdentity;
 
@@ -376,17 +412,24 @@ export class WebSocketTransport extends EventEmitter {
   }
 
   /**
-   * Send identity to peer
+   * Send identity to peer with cryptographic proof
    * @private
    */
   _sendIdentity(conn) {
+    const timestamp = Date.now();
+    const challenge = `${this.publicKey}:${timestamp}`;
+
+    // SECURITY: Sign the identity to prove ownership of the public key
+    const signature = signData(challenge, this.privateKey);
+
     const identity = {
       type: 'IDENTITY',
       payload: {
         publicKey: this.publicKey,
         address: `${this.host}:${this.port}`,
+        timestamp,
+        signature,
       },
-      timestamp: Date.now(),
     };
 
     this._sendRaw(conn, serialize(identity));
