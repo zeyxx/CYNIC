@@ -558,6 +558,7 @@ export class MCPServer {
       try {
         await this.persistence.storeJudgment({
           ...result,
+          qScore: result.score,  // Map score -> qScore for repository
           item: args.item,
           context: args.context,
         });
