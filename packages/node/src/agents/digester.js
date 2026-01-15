@@ -487,11 +487,11 @@ export class Digester extends BaseAgent {
    * @private
    */
   _storeDigest(digest) {
-    this.digests.push(digest);
-
-    if (this.digests.length > this.maxDigests) {
-      this.digests = this.digests.slice(-this.maxDigests);
+    // Enforce bounds before pushing (FIFO eviction)
+    while (this.digests.length >= this.maxDigests) {
+      this.digests.shift();
     }
+    this.digests.push(digest);
   }
 
   /**
