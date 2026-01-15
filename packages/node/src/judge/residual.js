@@ -25,18 +25,24 @@ export class ResidualDetector {
    * @param {Object} [options] - Detector options
    * @param {number} [options.threshold] - Anomaly threshold (default: φ⁻²)
    * @param {number} [options.minSamples] - Min samples for pattern (default: 3)
+   * @param {number} [options.maxAnomalies] - Max anomalies to store (default: 1000)
+   * @param {number} [options.maxCandidates] - Max candidates to store (default: 100)
+   * @param {number} [options.maxDiscoveries] - Max discoveries to store (default: 100)
    */
   constructor(options = {}) {
     this.threshold = options.threshold || PHI_INV_2;
     this.minSamples = options.minSamples || MIN_PATTERN_SOURCES;
+    this.maxAnomalies = options.maxAnomalies || 1000;
+    this.maxCandidates = options.maxCandidates || 100;
+    this.maxDiscoveries = options.maxDiscoveries || 100;
 
-    // Anomaly storage
+    // Anomaly storage (bounded)
     this.anomalies = [];
 
-    // Candidate dimensions
+    // Candidate dimensions (bounded)
     this.candidates = new Map();
 
-    // Discovery history
+    // Discovery history (bounded)
     this.discoveries = [];
   }
 
@@ -80,7 +86,7 @@ export class ResidualDetector {
     this.anomalies.push(anomaly);
 
     // Keep bounded
-    if (this.anomalies.length > 1000) {
+    if (this.anomalies.length > this.maxAnomalies) {
       this.anomalies.shift();
     }
 
@@ -141,7 +147,8 @@ export class ResidualDetector {
    * @private
    */
   _evaluateCandidate(cluster) {
-    const key = `candidate_${cluster.key}_${Date.now()}`;
+    // Use stable key based on cluster pattern (not timestamp)
+    const key = `candidate_${cluster.key}`;
 
     // Calculate average residual
     const avgResidual =
@@ -152,18 +159,45 @@ export class ResidualDetector {
       return;
     }
 
+    const existing = this.candidates.get(key);
     const candidate = {
       key,
       weakDimensions: cluster.weakDimensions,
       sampleCount: cluster.samples.length,
       avgResidual,
       suggestedAxiom: this._suggestAxiom(cluster),
-      suggestedName: this._suggestName(cluster),
+      suggestedName: existing?.suggestedName || this._suggestName(cluster),
       confidence: Math.min(cluster.samples.length / 10, PHI_INV),
-      detectedAt: Date.now(),
+      detectedAt: existing?.detectedAt || Date.now(),
+      updatedAt: Date.now(),
     };
 
     this.candidates.set(key, candidate);
+
+    // Evict oldest candidates if over limit
+    if (this.candidates.size > this.maxCandidates) {
+      this._evictOldestCandidate();
+    }
+  }
+
+  /**
+   * Evict oldest candidate by detectedAt timestamp
+   * @private
+   */
+  _evictOldestCandidate() {
+    let oldestKey = null;
+    let oldestTime = Infinity;
+
+    for (const [key, candidate] of this.candidates) {
+      if (candidate.detectedAt < oldestTime) {
+        oldestTime = candidate.detectedAt;
+        oldestKey = key;
+      }
+    }
+
+    if (oldestKey) {
+      this.candidates.delete(oldestKey);
+    }
   }
 
   /**
@@ -261,6 +295,11 @@ export class ResidualDetector {
     };
     this.discoveries.push(discovery);
 
+    // Keep discoveries bounded
+    if (this.discoveries.length > this.maxDiscoveries) {
+      this.discoveries.shift();
+    }
+
     // Remove candidate
     this.candidates.delete(candidateKey);
 
@@ -293,6 +332,11 @@ export class ResidualDetector {
       candidateCount: this.candidates.size,
       discoveryCount: this.discoveries.length,
       threshold: this.threshold,
+      bounds: {
+        maxAnomalies: this.maxAnomalies,
+        maxCandidates: this.maxCandidates,
+        maxDiscoveries: this.maxDiscoveries,
+      },
     };
   }
 
