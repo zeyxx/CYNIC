@@ -63,3 +63,24 @@ export {
 
 // API
 export { APIServer } from './api/index.js';
+
+// Agents - The Four Dogs
+export {
+  BaseAgent,
+  AgentTrigger,
+  AgentBehavior,
+  AgentResponse,
+  Observer,
+  PatternType,
+  Digester,
+  KnowledgeType,
+  DigestQuality,
+  Guardian,
+  RiskLevel,
+  RiskCategory,
+  Mentor,
+  WisdomType,
+  ContextSignal,
+  AgentManager,
+  createAgentPack,
+} from './agents/index.js';
