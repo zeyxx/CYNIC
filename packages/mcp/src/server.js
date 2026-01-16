@@ -528,6 +528,21 @@ export class MCPServer {
 
       return { jsonrpc: '2.0', id, result };
     } catch (err) {
+      // 🐕 MENTOR: Share wisdom when errors occur
+      this.agents.process({
+        type: 'ContextAware',
+        signal: 'error',
+        message: err.message,
+        method,
+        timestamp: Date.now(),
+      }).then(mentorResult => {
+        if (mentorResult.mentor?.action && mentorResult.mentor?.wisdom) {
+          console.error(`🐕 Mentor wisdom: ${mentorResult.mentor.wisdom.message || mentorResult.mentor.message}`);
+        }
+      }).catch(() => {
+        // Mentor is non-blocking - ignore errors
+      });
+
       return {
         jsonrpc: '2.0',
         id,
@@ -749,7 +764,7 @@ export class MCPServer {
     const result = await tool.handler(args);
     const duration = Date.now() - startTime;
 
-    // 🐕 Observer: PostToolUse logging (non-blocking, silent)
+    // 🐕 Observer: PostToolUse - ACTIVELY detecting and persisting patterns
     // Observer watches the meta - repeated failures, unusual sequences, emerging patterns
     this.agents.process({
       type: 'PostToolUse',
@@ -759,6 +774,47 @@ export class MCPServer {
       duration,
       success: true,
       timestamp: Date.now(),
+    }).then(async (observerResult) => {
+      // 🐕 OBSERVER IS AWAKE: Persist detected patterns
+      if (observerResult.observer?.patterns?.length > 0 && this.persistence?.patterns) {
+        for (const pattern of observerResult.observer.patterns) {
+          try {
+            await this.persistence.patterns.upsert({
+              category: pattern.type || 'tool_usage',
+              name: pattern.message?.slice(0, 100) || `${pattern.type}_pattern`,
+              description: pattern.message,
+              confidence: pattern.strength || 0.5,
+              data: {
+                tool: pattern.tool,
+                subtype: pattern.subtype,
+                count: pattern.count,
+                sequence: pattern.sequence,
+                detectedAt: Date.now(),
+              },
+              tags: [pattern.type, name].filter(Boolean),
+            });
+            console.error(`🐕 Observer persisted: ${pattern.type} (${(pattern.strength * 100).toFixed(0)}%)`);
+          } catch (err) {
+            console.error(`🐕 Observer persist error: ${err.message}`);
+          }
+        }
+      }
+
+      // 🐕 DIGESTER: Trigger on significant tool outputs (judgments, digests)
+      if (['brain_cynic_judge', 'brain_cynic_digest'].includes(name) && result) {
+        this.agents.process({
+          type: 'PostConversation',
+          content: typeof result === 'string' ? result : JSON.stringify(result),
+          tool: name,
+          timestamp: Date.now(),
+        }).then(digesterResult => {
+          if (digesterResult.digester?.action) {
+            console.error(`🐕 Digester extracted: ${digesterResult.digester.message || 'knowledge'}`);
+          }
+        }).catch(err => {
+          console.error(`🐕 Digester error: ${err.message}`);
+        });
+      }
     }).catch(err => {
       // Observer is non-blocking - log but don't fail the request
       console.error(`🐕 Observer error: ${err.message}`);
