@@ -1025,8 +1025,8 @@ export function createPoJChainTool(pojChainManager, persistence = null) {
       properties: {
         action: {
           type: 'string',
-          enum: ['status', 'verify', 'head', 'block', 'recent', 'stats', 'export', 'flush', 'relink', 'reset'],
-          description: 'Action: status (chain state), verify (check integrity), head (latest block), block (get by number), recent (last N blocks), stats (chain stats), export (export chain), flush (force create block), relink (repair orphaned judgments), reset (⚠️ DESTRUCTIVE: clear all data)',
+          enum: ['status', 'verify', 'head', 'block', 'recent', 'stats', 'export', 'flush', 'relink', 'adopt', 'reset'],
+          description: 'Action: status (chain state), verify (check integrity), head (latest block), block (get by number), recent (last N blocks), stats (chain stats), export (export chain), flush (force create block), relink (repair orphaned judgments), adopt (create recovery block for orphans), reset (⚠️ DESTRUCTIVE: clear all data)',
         },
         blockNumber: {
           type: 'number',
@@ -1274,6 +1274,24 @@ export function createPoJChainTool(pojChainManager, persistence = null) {
           };
         }
 
+        case 'adopt': {
+          // Create recovery block for orphaned judgments that were never added to any block
+          if (!persistence?.pojBlocks) {
+            return {
+              error: 'Persistence not available',
+              timestamp: Date.now(),
+            };
+          }
+
+          const result = await persistence.pojBlocks.adoptOrphanedJudgments();
+
+          return {
+            action: 'adopt',
+            ...result,
+            timestamp: Date.now(),
+          };
+        }
+
         case 'reset': {
           // ⚠️ DESTRUCTIVE: Clear all chain data
           if (!persistence?.pojBlocks) {
@@ -1321,7 +1339,7 @@ export function createPoJChainTool(pojChainManager, persistence = null) {
         default:
           return {
             error: `Unknown action: ${action}`,
-            validActions: ['status', 'verify', 'head', 'block', 'recent', 'stats', 'export', 'flush', 'relink', 'reset'],
+            validActions: ['status', 'verify', 'head', 'block', 'recent', 'stats', 'export', 'flush', 'relink', 'adopt', 'reset'],
             timestamp: Date.now(),
           };
       }

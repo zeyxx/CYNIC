@@ -11,6 +11,7 @@
 
 'use strict';
 
+import crypto from 'crypto';
 import { getPool } from '../client.js';
 
 export class PoJBlockRepository {
@@ -281,6 +282,99 @@ export class PoJBlockRepository {
       SELECT COUNT(*) FROM judgments WHERE block_hash IS NULL
     `);
     return parseInt(rows[0].count);
+  }
+
+  /**
+   * Adopt orphaned judgments into a new recovery block
+   * Creates a special block to include judgments that were never added to any block
+   * @returns {Promise<Object>} Adoption result
+   */
+  async adoptOrphanedJudgments() {
+    // Find all orphaned judgments
+    const { rows: orphans } = await this.db.query(`
+      SELECT judgment_id, q_score, verdict, created_at
+      FROM judgments
+      WHERE block_hash IS NULL
+      ORDER BY created_at ASC
+    `);
+
+    if (orphans.length === 0) {
+      return {
+        adopted: 0,
+        block: null,
+        message: 'No orphaned judgments to adopt',
+      };
+    }
+
+    // Get current head block
+    const head = await this.getHead();
+    const prevHash = head?.block_hash || '0'.repeat(64);
+    const nextSlot = head ? parseInt(head.block_number) + 1 : 0;
+
+    // Build judgment data for merkle root
+    const judgmentIds = orphans.map(j => j.judgment_id);
+    const judgmentsData = orphans.map(j => ({
+      id: j.judgment_id,
+      q_score: parseFloat(j.q_score),
+      verdict: j.verdict,
+    }));
+
+    // Calculate merkle root (simple hash of all judgment IDs)
+    const merkleRoot = crypto
+      .createHash('sha256')
+      .update(judgmentIds.join('|'))
+      .digest('hex');
+
+    // Create block hash
+    const blockData = `${nextSlot}|${prevHash}|${merkleRoot}|${Date.now()}`;
+    const blockHash = crypto
+      .createHash('sha256')
+      .update(blockData)
+      .digest('hex');
+
+    // Create the recovery block
+    const { rows: blockRows } = await this.db.query(`
+      INSERT INTO poj_blocks (
+        block_number, block_hash, prev_hash, merkle_root,
+        judgment_count, judgment_ids, timestamp
+      ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      RETURNING *
+    `, [
+      nextSlot,
+      blockHash,
+      prevHash,
+      merkleRoot,
+      judgmentIds.length,
+      judgmentIds,
+    ]);
+
+    const block = blockRows[0];
+
+    // Link orphaned judgments to this block
+    const { rowCount } = await this.db.query(`
+      UPDATE judgments
+      SET block_hash = $1,
+          block_number = $2,
+          prev_hash = $3
+      WHERE judgment_id = ANY($4)
+    `, [
+      blockHash,
+      nextSlot,
+      prevHash,
+      judgmentIds,
+    ]);
+
+    return {
+      adopted: rowCount,
+      block: {
+        slot: nextSlot,
+        hash: blockHash.slice(0, 16) + '...',
+        prevHash: prevHash.slice(0, 16) + '...',
+        judgmentCount: judgmentIds.length,
+      },
+      judgments: judgmentIds,
+      message: `*tail wag* Adopted ${rowCount} orphans into recovery block ${nextSlot}`,
+    };
   }
 
   /**
