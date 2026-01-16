@@ -20,9 +20,11 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# Environment
+# Environment (secrets - never commit!)
 .env
 .env.local
+.env.test
+.env.production
 .env.*.local
 
 # MCP Configuration (may contain secrets)

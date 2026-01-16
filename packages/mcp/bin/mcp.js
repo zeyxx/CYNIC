@@ -20,7 +20,15 @@
 import 'dotenv/config';
 
 import { MCPServer } from '../src/server.js';
-import { logConfigStatus, getMcpConfig, detectEnvironment } from '@cynic/core';
+import { logConfigStatus, getMcpConfig, validateStartupConfig } from '@cynic/core';
+
+// Validate configuration at startup (throws in production if misconfigured)
+try {
+  validateStartupConfig();
+} catch (err) {
+  console.error(err.message);
+  process.exit(1);
+}
 
 // Log configuration status (never logs actual secrets)
 logConfigStatus();
