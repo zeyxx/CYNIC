@@ -1017,8 +1017,8 @@ export function createPoJChainTool(pojChainManager, persistence = null) {
       properties: {
         action: {
           type: 'string',
-          enum: ['status', 'verify', 'head', 'block', 'recent', 'stats', 'export', 'flush', 'relink'],
-          description: 'Action: status (chain state), verify (check integrity), head (latest block), block (get by number), recent (last N blocks), stats (chain stats), export (export chain), flush (force create block), relink (repair orphaned judgments)',
+          enum: ['status', 'verify', 'head', 'block', 'recent', 'stats', 'export', 'flush', 'relink', 'reset'],
+          description: 'Action: status (chain state), verify (check integrity), head (latest block), block (get by number), recent (last N blocks), stats (chain stats), export (export chain), flush (force create block), relink (repair orphaned judgments), reset (⚠️ DESTRUCTIVE: clear all data)',
         },
         blockNumber: {
           type: 'number',
@@ -1032,10 +1032,14 @@ export function createPoJChainTool(pojChainManager, persistence = null) {
           type: 'number',
           description: 'Starting block for verify/export (default 0)',
         },
+        confirm: {
+          type: 'string',
+          description: 'Confirmation phrase for destructive actions. Use "BURN_IT_ALL" for reset.',
+        },
       },
     },
     handler: async (params) => {
-      const { action = 'status', blockNumber, limit = 10, fromBlock = 0 } = params;
+      const { action = 'status', blockNumber, limit = 10, fromBlock = 0, confirm } = params;
 
       if (!pojChainManager) {
         return {
@@ -1262,10 +1266,54 @@ export function createPoJChainTool(pojChainManager, persistence = null) {
           };
         }
 
+        case 'reset': {
+          // ⚠️ DESTRUCTIVE: Clear all chain data
+          if (!persistence?.pojBlocks) {
+            return {
+              error: 'Persistence not available',
+              timestamp: Date.now(),
+            };
+          }
+
+          if (confirm !== 'BURN_IT_ALL') {
+            return {
+              action: 'reset',
+              error: 'Reset requires confirmation',
+              hint: 'Set confirm="BURN_IT_ALL" to proceed with reset',
+              warning: '⚠️ This will DELETE ALL judgments, blocks, patterns, knowledge, sessions, and feedback!',
+              timestamp: Date.now(),
+            };
+          }
+
+          try {
+            const result = await persistence.pojBlocks.resetAll(confirm);
+
+            // Also reset the chain manager state
+            if (pojChainManager) {
+              pojChainManager._head = null;
+              pojChainManager._pendingJudgments = [];
+              pojChainManager._initialized = false;
+            }
+
+            return {
+              action: 'reset',
+              ...result,
+              message: `*HOWL* 🔥 BURN complete! All data cleared. Chain reset to genesis.`,
+              timestamp: Date.now(),
+            };
+          } catch (err) {
+            return {
+              action: 'reset',
+              error: err.message,
+              timestamp: Date.now(),
+            };
+          }
+        }
+
         default:
           return {
             error: `Unknown action: ${action}`,
-            validActions: ['status', 'verify', 'head', 'block', 'recent', 'stats', 'export', 'flush', 'relink'],
+            validActions: ['status', 'verify', 'head', 'block', 'recent', 'stats', 'export', 'flush', 'relink', 'reset'],
             timestamp: Date.now(),
           };
       }

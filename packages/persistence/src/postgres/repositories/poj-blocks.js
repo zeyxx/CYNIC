@@ -284,6 +284,43 @@ export class PoJBlockRepository {
   }
 
   /**
+   * Reset the entire PoJ chain and related data
+   * ⚠️ DESTRUCTIVE: Clears all judgments, blocks, patterns, knowledge
+   * @param {string} confirmPhrase - Must be "BURN_IT_ALL" to confirm
+   * @returns {Promise<Object>} Reset result with counts
+   */
+  async resetAll(confirmPhrase) {
+    if (confirmPhrase !== 'BURN_IT_ALL') {
+      throw new Error('Reset requires confirmation phrase: BURN_IT_ALL');
+    }
+
+    // Get counts before reset
+    const beforeCounts = {};
+    const tables = ['judgments', 'poj_blocks', 'patterns', 'knowledge', 'sessions', 'feedback'];
+
+    for (const table of tables) {
+      try {
+        const { rows } = await this.db.query(`SELECT COUNT(*) FROM ${table}`);
+        beforeCounts[table] = parseInt(rows[0].count);
+      } catch (e) {
+        beforeCounts[table] = 0;
+      }
+    }
+
+    // Truncate in correct order (foreign key safe)
+    await this.db.query(`
+      TRUNCATE judgments, poj_blocks, patterns, knowledge, sessions, feedback RESTART IDENTITY CASCADE
+    `);
+
+    return {
+      reset: true,
+      tablesCleared: tables,
+      beforeCounts,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
    * Convert database row to block format
    * @private
    */
