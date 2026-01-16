@@ -801,13 +801,17 @@ export class MCPServer {
       }
 
       // 🐕 DIGESTER: Trigger on significant tool outputs (judgments, digests)
-      if (['brain_cynic_judge', 'brain_cynic_digest'].includes(name) && result) {
+      const isDigestableTool = ['brain_cynic_judge', 'brain_cynic_digest'].includes(name);
+      console.error(`🐕 Digester check: tool=${name}, isDigestable=${isDigestableTool}, hasResult=${!!result}`);
+      if (isDigestableTool && result) {
+        console.error(`🐕 Digester triggering PostConversation for ${name}`);
         this.agents.process({
           type: 'PostConversation',
           content: typeof result === 'string' ? result : JSON.stringify(result),
           tool: name,
           timestamp: Date.now(),
         }).then(digesterResult => {
+          console.error(`🐕 Digester response: hasDigester=${!!digesterResult.digester}, action=${digesterResult.digester?.action}`);
           if (digesterResult.digester?.action) {
             console.error(`🐕 Digester extracted: ${digesterResult.digester.message || 'knowledge'}`);
           }
