@@ -79,7 +79,7 @@ export function analyzeVocabulary(message) {
     /api|rest|graphql|endpoint/i,
     /docker|kubernetes|k8s|container/i,
     /git|commit|branch|merge|rebase/i,
-    /database|sql|query|index/i,
+    /database|sql|nosql|query|index/i,
     /algorithm|complexity|optimization/i,
     /architecture|pattern|design/i,
     /component|module|service|layer/i,
@@ -87,6 +87,13 @@ export function analyzeVocabulary(message) {
     /concurrency|thread|mutex|lock/i,
     /encryption|hash|authentication/i,
     /deployment|ci\/cd|pipeline/i,
+    // Infrastructure & caching
+    /redis|memcached|cache|caching/i,
+    /microservice|distributed|scalab/i,
+    /availability|fault.?toleran|resilien/i,
+    // Trade-off terminology
+    /trade-?off|versus|comparison/i,
+    /implement|latency|throughput/i,
   ];
 
   // Count technical terms
@@ -115,7 +122,10 @@ export function analyzeVocabulary(message) {
 /**
  * Classify question depth
  *
- * what → why → how → trade-offs
+ * what → why → how → trade-offs → architecture
+ *
+ * IMPORTANT: Check specific patterns BEFORE generic patterns!
+ * "What are the trade-offs..." should match 'tradeoff', not 'what'
  *
  * @param {string} message - User message
  * @returns {{ depth: number, type: string }} Depth score and type
@@ -127,36 +137,7 @@ export function classifyQuestion(message) {
 
   const lower = message.toLowerCase();
 
-  // Level 1: Basic "what" questions
-  if (/^(what|qui|quoi|c'est quoi|what's|what is|define|explain what)/i.test(lower)) {
-    return { depth: 25, type: 'what' };
-  }
-
-  // Level 2: "Why" questions - understanding motivation
-  if (/^(why|pourquoi|why does|why is|reason|purpose)/i.test(lower)) {
-    return { depth: 50, type: 'why' };
-  }
-
-  // Level 3: "How" questions - implementation
-  if (/^(how|comment|how do|how to|how can|implement)/i.test(lower)) {
-    return { depth: 65, type: 'how' };
-  }
-
-  // Level 4: Trade-off questions - expert level
-  const tradeoffPatterns = [
-    /trade-?off/i,
-    /vs\.?|versus/i,
-    /better|worse|prefer/i,
-    /pros.*cons|cons.*pros/i,
-    /when.*should.*use/i,
-    /compare|comparison/i,
-    /advantages.*disadvantages/i,
-    /performance.*versus|versus.*performance/i,
-  ];
-
-  if (tradeoffPatterns.some(p => p.test(lower))) {
-    return { depth: 85, type: 'tradeoff' };
-  }
+  // Check SPECIFIC patterns FIRST (before generic what/why/how)
 
   // Level 5: Architecture/design questions - master level
   const architecturePatterns = [
@@ -172,6 +153,38 @@ export function classifyQuestion(message) {
 
   if (architecturePatterns.some(p => p.test(lower))) {
     return { depth: 95, type: 'architecture' };
+  }
+
+  // Level 4: Trade-off questions - expert level
+  const tradeoffPatterns = [
+    /trade-?off/i,
+    /vs\.?|versus/i,
+    /pros.*cons|cons.*pros/i,
+    /when.*should.*use/i,
+    /compare|comparison/i,
+    /advantages.*disadvantages/i,
+    /performance.*versus|versus.*performance/i,
+  ];
+
+  if (tradeoffPatterns.some(p => p.test(lower))) {
+    return { depth: 85, type: 'tradeoff' };
+  }
+
+  // Now check GENERIC patterns
+
+  // Level 1: Basic "what" questions (simple definition requests)
+  if (/^(what|qui|quoi|c'est quoi|what's|what is|define|explain what)/i.test(lower)) {
+    return { depth: 25, type: 'what' };
+  }
+
+  // Level 2: "Why" questions - understanding motivation
+  if (/^(why|pourquoi|why does|why is|reason|purpose)/i.test(lower)) {
+    return { depth: 50, type: 'why' };
+  }
+
+  // Level 3: "How" questions - implementation
+  if (/^(how|comment|how do|how to|how can|implement)/i.test(lower)) {
+    return { depth: 65, type: 'how' };
   }
 
   // Default: statement or unknown question type
@@ -259,12 +272,13 @@ export function calculateLinguisticSignal(message, history = []) {
   const technicalDensity = calculateTechnicalDensity(message);
   const selfCorrection = detectSelfCorrection(history);
 
-  // Weighted combination
+  // Weighted combination - questionDepth is the strongest indicator of expertise
+  // Weights: vocabulary 25%, questionDepth 50%, technicalDensity 15%, selfCorrection 10%
   const score = Math.round(
-    vocabularyScore * 0.3 +
-    questionDepth * 0.4 +
-    technicalDensity * 100 * 0.2 +
-    selfCorrection * 100 * 0.1
+    vocabularyScore * 0.25 +
+    questionDepth * 0.50 +
+    technicalDensity * 100 * 0.15 +
+    selfCorrection * 100 * 0.10
   );
 
   return {
@@ -606,44 +620,62 @@ export function analyzeTestingAwareness(code) {
     return { hasTests: false, score: 30, framework: null };
   }
 
-  const frameworks = {
-    jest: /describe\s*\(|it\s*\(|test\s*\(|expect\s*\(/,
-    mocha: /describe\s*\(|it\s*\(|beforeEach|afterEach/,
-    vitest: /describe\s*\(|it\s*\(|vi\.|expect\s*\(/,
-    nodeTest: /import.*node:test|from\s+'node:test'/,
-    pytest: /def\s+test_|@pytest/,
-    unittest: /class\s+\w+.*TestCase|self\.assert/,
-  };
+  // Check SPECIFIC frameworks FIRST before generic patterns
+  // Node test runner uses describe/it like Jest but imports from 'node:test'
+  // Order matters: specific imports → specific globals → generic patterns
 
-  let detectedFramework = null;
-  let score = 30;
-
-  for (const [name, pattern] of Object.entries(frameworks)) {
-    if (pattern.test(code)) {
-      detectedFramework = name;
-      score = 70;
-      break;
-    }
+  // First: Check for specific imports (most reliable)
+  if (/import.*['"]node:test['"]|from\s*['"]node:test['"]/.test(code)) {
+    return checkTestQuality(code, 'nodeTest');
   }
 
-  if (detectedFramework) {
+  // Vitest has specific vi. global
+  if (/\bvi\.\w+/.test(code)) {
+    return checkTestQuality(code, 'vitest');
+  }
+
+  // Jest has specific jest. global
+  if (/\bjest\.\w+/.test(code)) {
+    return checkTestQuality(code, 'jest');
+  }
+
+  // Python frameworks
+  if (/def\s+test_|@pytest/.test(code)) {
+    return checkTestQuality(code, 'pytest');
+  }
+
+  if (/class\s+\w+.*TestCase|self\.assert/.test(code)) {
+    return checkTestQuality(code, 'unittest');
+  }
+
+  // Generic describe/it/test patterns (could be Jest, Mocha, or others)
+  if (/describe\s*\(|it\s*\(|test\s*\(/.test(code)) {
+    // Default to 'jest' for generic JS test syntax
+    return checkTestQuality(code, 'jest');
+  }
+
+  return { hasTests: false, score: 30, framework: null };
+
+  function checkTestQuality(code, framework) {
+    let score = 70;
+
     // Additional test quality indicators
     if (/beforeEach|afterEach|setUp|tearDown/.test(code)) {
       score += 10;
     }
-    if (/mock|Mock|stub|spy|jest\.fn/.test(code)) {
+    if (/mock|Mock|stub|spy|jest\.fn|vi\.fn/.test(code)) {
       score += 10;
     }
     if (/assert\w+|expect\s*\(.*\)\.(to|not)/.test(code)) {
       score += 10;
     }
-  }
 
-  return {
-    hasTests: detectedFramework !== null,
-    score: Math.min(100, score),
-    framework: detectedFramework,
-  };
+    return {
+      hasTests: true,
+      score: Math.min(100, score),
+      framework,
+    };
+  }
 }
 
 /**

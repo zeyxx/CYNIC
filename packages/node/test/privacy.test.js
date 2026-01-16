@@ -801,8 +801,13 @@ describe('Data Flow Security', () => {
 
     const result = aggregator.commitProfile('user1', 8);
 
-    // Commitment should NOT reveal level
-    assert.ok(!result.commitment.includes('8'));
+    // Commitment should be a valid 64-char hex hash (SHA256)
+    assert.strictEqual(result.commitment.length, 64);
+    assert.ok(/^[0-9a-f]+$/i.test(result.commitment));
+
+    // Same level for different users should produce different commitments (hiding property)
+    const result2 = aggregator.commitProfile('user2', 8);
+    assert.notStrictEqual(result.commitment, result2.commitment);
 
     // But range proof can verify level >= N
     const proof = aggregator.proveMinProfileLevel('user1', 5);

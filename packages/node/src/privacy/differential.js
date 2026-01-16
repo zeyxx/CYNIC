@@ -145,8 +145,9 @@ export class DifferentialPrivacy {
     const scale = (s / this.epsilon) * PRIVACY_CONSTANTS.NOISE_MULTIPLIER;
     const noise = laplacianNoise(scale);
 
-    // Track budget usage
-    this.budgetUsed += s / this.epsilon;
+    // Track budget usage - scale so that MAX_QUERIES uses full budget
+    // Each query consumes epsilon / MAX_QUERIES_PER_PERIOD of budget
+    this.budgetUsed += (s * this.epsilon) / PRIVACY_CONSTANTS.MAX_QUERIES_PER_PERIOD;
     this.queryCount++;
 
     // Apply minimum noise floor
