@@ -363,8 +363,8 @@ export function calculateErrorRecovery(events) {
     return { score: 50, avgRecoveryTime: null };
   }
 
-  let errorStarts = [];
-  let recoveryTimes = [];
+  const errorStarts = [];
+  const recoveryTimes = [];
 
   for (let i = 0; i < events.length; i++) {
     const event = events[i];
@@ -470,7 +470,7 @@ export function analyzeAbstractionLevel(code) {
       /Reflect\./,
       /Object\.defineProperty/,
       /decorator/i,
-      /@\w+\s*[\(\n]/,
+      /@\w+\s*[(\n]/,
     ],
     // Generics/types (high)
     generics: [
