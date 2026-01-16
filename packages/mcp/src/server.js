@@ -733,6 +733,9 @@ export class MCPServer {
   async _handleToolsCall(params) {
     const { name, arguments: args = {} } = params;
 
+    // DEBUG: Log at very start of tool call
+    console.log(`🐕 [TOOL_CALL] ${name} called at ${new Date().toISOString()}`);
+
     const tool = this.tools[name];
     if (!tool) {
       throw new Error(`Tool not found: ${name}`);
@@ -765,7 +768,7 @@ export class MCPServer {
     const duration = Date.now() - startTime;
 
     // DEBUG: Verify this code path is reached
-    console.error(`🐕 [SYNC] Tool "${name}" completed in ${duration}ms, calling Observer...`);
+    console.log(`🐕 [SYNC] Tool "${name}" completed in ${duration}ms, calling Observer...`);
 
     // 🐕 Observer: PostToolUse - ACTIVELY detecting and persisting patterns
     // Observer watches the meta - repeated failures, unusual sequences, emerging patterns
@@ -779,7 +782,7 @@ export class MCPServer {
       timestamp: Date.now(),
     }).then(async (observerResult) => {
       // DEBUG: Callback entered
-      console.error(`🐕 [CALLBACK] Observer callback entered! Has observer: ${!!observerResult?.observer}, patterns: ${observerResult?.observer?.patterns?.length || 0}`);
+      console.log(`🐕 [CALLBACK] Observer callback entered! Has observer: ${!!observerResult?.observer}, patterns: ${observerResult?.observer?.patterns?.length || 0}`);
 
       // 🐕 OBSERVER IS AWAKE: Persist detected patterns
       if (observerResult.observer?.patterns?.length > 0 && this.persistence?.patterns) {
