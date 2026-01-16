@@ -49,6 +49,26 @@ export default [
       'no-var': 'error',
     },
   },
+  // CommonJS files (.cjs) need different configuration
+  {
+    files: ['**/*.cjs'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: {
+        require: 'readonly',
+        module: 'readonly',
+        exports: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        console: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+      },
+    },
+    rules: {
+      'no-useless-escape': 'off', // Regex patterns may have valid escapes
+    },
+  },
   // Relaxed rules for test and example files
   {
     files: ['**/test/**', '**/examples/**', '**/*.test.js'],
