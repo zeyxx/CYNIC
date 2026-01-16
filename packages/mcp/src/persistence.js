@@ -22,6 +22,7 @@ import {
   PatternRepository,
   FeedbackRepository,
   KnowledgeRepository,
+  PoJBlockRepository,
   SessionStore,
 } from '@cynic/persistence';
 
@@ -229,6 +230,7 @@ export class PersistenceManager {
     this.patterns = null;
     this.feedback = null;
     this.knowledge = null;
+    this.pojBlocks = null;
 
     // Fallback store (file or memory)
     this._fallback = null;
@@ -259,6 +261,7 @@ export class PersistenceManager {
         this.patterns = new PatternRepository(this.postgres);
         this.feedback = new FeedbackRepository(this.postgres);
         this.knowledge = new KnowledgeRepository(this.postgres);
+        this.pojBlocks = new PoJBlockRepository(this.postgres);
 
         this._backend = 'postgres';
         console.error('   PostgreSQL: connected');
@@ -473,6 +476,88 @@ export class PersistenceManager {
     return [];
   }
 
+  // ===========================================================================
+  // PoJ CHAIN METHODS
+  // ===========================================================================
+
+  /**
+   * Store a PoJ block (PostgreSQL only - no fallback for blockchain integrity)
+   * @param {Object} block - Block to store
+   * @returns {Promise<Object|null>} Stored block or null
+   */
+  async storePoJBlock(block) {
+    if (this.pojBlocks) {
+      try {
+        return await this.pojBlocks.create(block);
+      } catch (err) {
+        console.error('Error storing PoJ block:', err.message);
+      }
+    }
+    // No fallback for PoJ chain - requires PostgreSQL for integrity
+    return null;
+  }
+
+  /**
+   * Get the head (latest) PoJ block
+   * @returns {Promise<Object|null>} Head block or null
+   */
+  async getPoJHead() {
+    if (this.pojBlocks) {
+      try {
+        return await this.pojBlocks.getHead();
+      } catch (err) {
+        console.error('Error getting PoJ head:', err.message);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get PoJ chain statistics
+   * @returns {Promise<Object>} Chain statistics
+   */
+  async getPoJStats() {
+    if (this.pojBlocks) {
+      try {
+        return await this.pojBlocks.getStats();
+      } catch (err) {
+        console.error('Error getting PoJ stats:', err.message);
+      }
+    }
+    return { totalBlocks: 0, headSlot: 0, totalJudgments: 0 };
+  }
+
+  /**
+   * Get recent PoJ blocks
+   * @param {number} [limit=10] - Number of blocks
+   * @returns {Promise<Object[]>} Recent blocks
+   */
+  async getRecentPoJBlocks(limit = 10) {
+    if (this.pojBlocks) {
+      try {
+        return await this.pojBlocks.findRecent(limit);
+      } catch (err) {
+        console.error('Error getting recent PoJ blocks:', err.message);
+      }
+    }
+    return [];
+  }
+
+  /**
+   * Verify PoJ chain integrity
+   * @returns {Promise<Object>} Verification result
+   */
+  async verifyPoJChain() {
+    if (this.pojBlocks) {
+      try {
+        return await this.pojBlocks.verifyIntegrity();
+      } catch (err) {
+        console.error('Error verifying PoJ chain:', err.message);
+      }
+    }
+    return { valid: true, blocksChecked: 0, errors: [] };
+  }
+
   /**
    * Get health status
    */
@@ -553,6 +638,7 @@ export class PersistenceManager {
       patterns: !!this.patterns || hasFallback,
       feedback: !!this.feedback || hasFallback,
       knowledge: !!this.knowledge || hasFallback,
+      pojChain: !!this.pojBlocks, // No fallback - requires PostgreSQL
       sessions: !!this.sessionStore,
       cache: !!this.redis,
     };

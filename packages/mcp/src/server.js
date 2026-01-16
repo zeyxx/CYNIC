@@ -18,6 +18,7 @@ import { CYNICJudge, AgentManager } from '@cynic/node';
 import { createAllTools } from './tools/index.js';
 import { PersistenceManager } from './persistence.js';
 import { SessionManager } from './session-manager.js';
+import { PoJChainManager } from './poj-chain-manager.js';
 
 /**
  * MCP Server for CYNIC
@@ -38,6 +39,7 @@ export class MCPServer {
    * @param {Object} [options.judge] - CYNICJudge instance
    * @param {Object} [options.persistence] - PersistenceManager instance
    * @param {Object} [options.sessionManager] - SessionManager instance (for multi-user sessions)
+   * @param {Object} [options.pojChainManager] - PoJChainManager instance (for PoJ blockchain)
    * @param {Object} [options.agents] - AgentManager instance (The Four Dogs)
    * @param {string} [options.dataDir] - Data directory for file-based persistence fallback
    * @param {string} [options.mode] - Transport mode: 'stdio' (default) or 'http'
@@ -67,6 +69,9 @@ export class MCPServer {
 
     // Session manager for multi-user isolation (created after persistence)
     this.sessionManager = options.sessionManager || null;
+
+    // PoJ Chain manager for Proof of Judgment blockchain
+    this.pojChainManager = options.pojChainManager || null;
 
     // Agent manager - The Four Dogs (Guardian, Observer, Digester, Mentor)
     this.agents = options.agents || new AgentManager();
@@ -108,6 +113,12 @@ export class MCPServer {
       this.sessionManager = new SessionManager(this.persistence);
     }
 
+    // Initialize PoJ Chain manager for blockchain
+    if (!this.pojChainManager) {
+      this.pojChainManager = new PoJChainManager(this.persistence);
+      await this.pojChainManager.initialize();
+    }
+
     // Register tools with current instances
     this.tools = createAllTools({
       judge: this.judge,
@@ -115,6 +126,7 @@ export class MCPServer {
       persistence: this.persistence,
       agents: this.agents,
       sessionManager: this.sessionManager,
+      pojChainManager: this.pojChainManager,
     });
   }
 
@@ -392,6 +404,15 @@ export class MCPServer {
       });
     }
 
+    // Flush PoJ chain (create final block from pending judgments)
+    if (this.pojChainManager) {
+      try {
+        await this.pojChainManager.close();
+      } catch (e) {
+        console.error('Error closing PoJ chain:', e.message);
+      }
+    }
+
     // Close persistence connections (handles file-based save automatically)
     if (this.persistence) {
       try {
@@ -632,6 +653,8 @@ export class MCPServer {
       agents: this.agents.getSummary(),
       // Multi-user sessions
       sessions: this.sessionManager?.getSummary() || { activeCount: 0 },
+      // PoJ Chain status
+      pojChain: this.pojChainManager?.getStatus() || { initialized: false },
     };
   }
 }

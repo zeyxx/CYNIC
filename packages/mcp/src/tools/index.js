@@ -17,9 +17,10 @@ import { PHI_INV, PHI_INV_2, IDENTITY, getVerdictFromScore } from '@cynic/core';
  * @param {Object} judge - CYNICJudge instance
  * @param {Object} [persistence] - PersistenceManager instance (for storing judgments)
  * @param {Object} [sessionManager] - SessionManager instance (for user/session context)
+ * @param {Object} [pojChainManager] - PoJChainManager instance (for blockchain)
  * @returns {Object} Tool definition
  */
-export function createJudgeTool(judge, persistence = null, sessionManager = null) {
+export function createJudgeTool(judge, persistence = null, sessionManager = null, pojChainManager = null) {
   return {
     name: 'brain_cynic_judge',
     description: `Judge an item using CYNIC's 25-dimension evaluation across 4 axioms (PHI, VERIFY, CULTURE, BURN). Returns Q-Score (0-100), verdict (HOWL/WAG/GROWL/BARK), confidence (max ${(PHI_INV * 100).toFixed(1)}%), and dimension breakdown.`,
@@ -63,7 +64,7 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
       // Store judgment in persistence (PostgreSQL → File → Memory fallback)
       if (persistence) {
         try {
-          await persistence.storeJudgment({
+          const stored = await persistence.storeJudgment({
             item,
             itemType: item.type || 'unknown',
             itemContent: typeof item.content === 'string' ? item.content : JSON.stringify(item),
@@ -79,6 +80,16 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
             userId: sessionContext.userId || null,
             sessionId: sessionContext.sessionId || null,
           });
+
+          // Add to PoJ chain (batched block creation)
+          if (pojChainManager && stored) {
+            await pojChainManager.addJudgment({
+              judgment_id: stored.judgment_id,
+              q_score: result.score,
+              verdict: result.verdict,
+              created_at: stored.created_at,
+            });
+          }
 
           // Increment session counter
           if (sessionManager) {
@@ -697,13 +708,20 @@ export function createSessionEndTool(sessionManager) {
  * @returns {Object} All tools keyed by name
  */
 export function createAllTools(options = {}) {
-  const { judge, node = null, persistence = null, agents = null, sessionManager = null } = options;
+  const {
+    judge,
+    node = null,
+    persistence = null,
+    agents = null,
+    sessionManager = null,
+    pojChainManager = null,
+  } = options;
 
   if (!judge) throw new Error('judge is required');
 
   const tools = {};
   const toolDefs = [
-    createJudgeTool(judge, persistence, sessionManager),
+    createJudgeTool(judge, persistence, sessionManager, pojChainManager),
     createDigestTool(persistence, sessionManager),
     createHealthTool(node, judge, persistence),
     createSearchTool(persistence),

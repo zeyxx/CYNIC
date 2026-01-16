@@ -79,12 +79,12 @@ describe('MCPServer', () => {
   });
 
   describe('tools/list', () => {
-    it('returns all 7 tools', async () => {
+    it('returns all 9 tools', async () => {
       const response = await sendRequest(input, output, 'tools/list');
 
       assert.ok(response.result);
       assert.ok(Array.isArray(response.result.tools));
-      assert.equal(response.result.tools.length, 7);
+      assert.equal(response.result.tools.length, 9);
 
       const toolNames = response.result.tools.map(t => t.name);
       assert.ok(toolNames.includes('brain_cynic_judge'));
@@ -94,6 +94,9 @@ describe('MCPServer', () => {
       assert.ok(toolNames.includes('brain_patterns'));
       assert.ok(toolNames.includes('brain_cynic_feedback'));
       assert.ok(toolNames.includes('brain_agents_status'));
+      // Session management tools (GAP #2)
+      assert.ok(toolNames.includes('brain_session_start'));
+      assert.ok(toolNames.includes('brain_session_end'));
     });
   });
 
