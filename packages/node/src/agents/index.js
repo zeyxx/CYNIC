@@ -1,13 +1,22 @@
 /**
- * CYNIC Agents - The Four Dogs
+ * CYNIC Agents
  *
  * "φ distrusts φ" - κυνικός
  *
- * The pack that guards your AI interactions:
+ * Two packs available:
+ *
+ * LEGACY: The Four Dogs (v1)
  * - Observer: Silent watcher (PostToolUse, silent)
  * - Digester: Archivist (PostConversation, non-blocking)
  * - Guardian: Watchdog (PreToolUse, blocking)
  * - Mentor: Wise elder (ContextAware, non-blocking)
+ *
+ * COLLECTIVE: The Five Dogs (v2) - Fib(5)
+ * - Guardian (Gevurah): Enhanced watchdog with learning
+ * - Analyst (Binah): Observer + Auditor, profile signals
+ * - Scholar (Daat): Librarian + Digester, privacy-aware
+ * - Architect (Chesed): Design review, consensus
+ * - Sage (Chochmah): Mentor + Guide, adaptive teaching
  *
  * @module @cynic/node/agents
  */
@@ -22,17 +31,88 @@ export {
   AgentResponse,
 } from './base.js';
 
-// The Four Dogs
+// Event system
+export {
+  EVENT_CONSTANTS,
+  AgentEvent,
+  EventPriority,
+  AgentId,
+  ConsensusVote,
+  AgentEventMessage,
+  PatternDetectedEvent,
+  AnomalyDetectedEvent,
+  ThreatBlockedEvent,
+  KnowledgeExtractedEvent,
+  WisdomSharedEvent,
+  ConsensusRequestEvent,
+  ConsensusResponseEvent,
+  ProfileUpdatedEvent,
+} from './events.js';
+
+// Event bus
+export {
+  AgentEventBus,
+} from './event-bus.js';
+
+// Legacy Four Dogs (v1) - Keep original names for backward compatibility
 export { Observer, PatternType } from './observer.js';
-export { Digester, KnowledgeType, DigestQuality } from './digester.js';
-export { Guardian, RiskLevel, RiskCategory } from './guardian.js';
-export { Mentor, WisdomType, ContextSignal } from './mentor.js';
+export { Digester, DigestQuality } from './digester.js';
+export { Guardian } from './guardian.js';
+export { Mentor, ContextSignal } from './mentor.js';
+
+// Legacy types (aliased for v2 compatibility)
+export {
+  KnowledgeType as LegacyKnowledgeType,
+} from './digester.js';
+export {
+  RiskLevel as LegacyRiskLevel,
+  RiskCategory as LegacyRiskCategory,
+} from './guardian.js';
+export {
+  WisdomType as LegacyWisdomType,
+} from './mentor.js';
+
+// Collective Five Dogs (v2)
+export {
+  CollectivePack,
+  createCollectivePack,
+  CollectiveGuardian,
+  CollectiveAnalyst,
+  CollectiveScholar,
+  CollectiveArchitect,
+  CollectiveSage,
+  createGuardian,
+  createAnalyst,
+  createScholar,
+  createArchitect,
+  createSage,
+  COLLECTIVE_CONSTANTS,
+  RiskLevel,
+  RiskCategory,
+  PatternCategory,
+  AnomalyType,
+  KnowledgeType,
+  ReviewCategory,
+  FeedbackType,
+  WisdomType,
+} from './collective/index.js';
 
 // Convenience imports for default exports
 import Observer from './observer.js';
 import Digester from './digester.js';
 import Guardian from './guardian.js';
 import Mentor from './mentor.js';
+
+// Import collective agents for default export
+import {
+  CollectivePack,
+  createCollectivePack,
+  CollectiveGuardian,
+  CollectiveAnalyst,
+  CollectiveScholar,
+  CollectiveArchitect,
+  CollectiveSage,
+} from './collective/index.js';
 
 /**
  * Create all four agents with shared options
@@ -197,10 +277,20 @@ export class AgentManager {
 
 // Default exports
 export default {
+  // Legacy Four Dogs (v1)
   Observer,
   Digester,
   Guardian,
   Mentor,
   AgentManager,
   createAgentPack,
+
+  // Collective Five Dogs (v2)
+  CollectivePack,
+  createCollectivePack,
+  CollectiveGuardian,
+  CollectiveAnalyst,
+  CollectiveScholar,
+  CollectiveArchitect,
+  CollectiveSage,
 };
