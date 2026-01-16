@@ -43,50 +43,44 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
       if (!item) throw new Error('Missing required parameter: item');
 
       const judgment = judge.judge(item, context);
-      const judgmentId = `jdg_${Date.now().toString(36)}`;
+
+      // Generate fallback ID (used if persistence unavailable)
+      let judgmentId = `jdg_${Date.now().toString(36)}`;
 
       // Get session context for user isolation
       const sessionContext = sessionManager?.getSessionContext() || {};
 
-      const result = {
-        requestId: judgmentId,
-        score: judgment.qScore,
-        globalScore: judgment.global_score,
-        verdict: judgment.qVerdict?.verdict || judgment.verdict,
-        confidence: Math.round(judgment.confidence * 1000) / 1000,
-        axiomScores: judgment.axiomScores,
-        weaknesses: judgment.weaknesses,
-        finalScore: judgment.finalScore || null,
-        phi: { maxConfidence: PHI_INV, minDoubt: PHI_INV_2 },
-        timestamp: Date.now(),
-      };
-
-      // Store judgment in persistence (PostgreSQL → File → Memory fallback)
+      // Store judgment in persistence FIRST to get the real DB ID
       if (persistence) {
         try {
           const stored = await persistence.storeJudgment({
             item,
             itemType: item.type || 'unknown',
             itemContent: typeof item.content === 'string' ? item.content : JSON.stringify(item),
-            qScore: result.score,
-            globalScore: result.globalScore,
-            confidence: result.confidence,
-            verdict: result.verdict,
-            axiomScores: result.axiomScores,
+            qScore: judgment.qScore,
+            globalScore: judgment.global_score,
+            confidence: Math.round(judgment.confidence * 1000) / 1000,
+            verdict: judgment.qVerdict?.verdict || judgment.verdict,
+            axiomScores: judgment.axiomScores,
             dimensionScores: judgment.dimensionScores || null,
-            weaknesses: result.weaknesses,
+            weaknesses: judgment.weaknesses,
             context,
             // Session context for multi-user isolation
             userId: sessionContext.userId || null,
             sessionId: sessionContext.sessionId || null,
           });
 
+          // Use the DB-generated ID for consistency
+          if (stored?.judgment_id) {
+            judgmentId = stored.judgment_id;
+          }
+
           // Add to PoJ chain (batched block creation)
           if (pojChainManager && stored) {
             await pojChainManager.addJudgment({
               judgment_id: stored.judgment_id,
-              q_score: result.score,
-              verdict: result.verdict,
+              q_score: judgment.qScore,
+              verdict: judgment.qVerdict?.verdict || judgment.verdict,
               created_at: stored.created_at,
             });
           }
@@ -100,6 +94,20 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
           console.error('Error persisting judgment:', e.message);
         }
       }
+
+      // Build response with consistent ID
+      const result = {
+        requestId: judgmentId,
+        score: judgment.qScore,
+        globalScore: judgment.global_score,
+        verdict: judgment.qVerdict?.verdict || judgment.verdict,
+        confidence: Math.round(judgment.confidence * 1000) / 1000,
+        axiomScores: judgment.axiomScores,
+        weaknesses: judgment.weaknesses,
+        finalScore: judgment.finalScore || null,
+        phi: { maxConfidence: PHI_INV, minDoubt: PHI_INV_2 },
+        timestamp: Date.now(),
+      };
 
       return result;
     },
