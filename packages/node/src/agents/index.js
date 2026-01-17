@@ -165,24 +165,43 @@ export class AgentManager {
     // Route to appropriate agents based on event type
     const agentsToRun = this._selectAgents(type, event);
 
+    // DEBUG: Track which agents are selected for this event
+    const agentNames = Object.keys(agentsToRun);
+    if (agentNames.includes('digester')) {
+      // Track that digester was at least selected
+      if (!this._debugDigesterSelections) {
+        this._debugDigesterSelections = 0;
+      }
+      this._debugDigesterSelections++;
+    }
+
     for (const [name, agent] of Object.entries(agentsToRun)) {
-      if (agent.shouldTrigger(event)) {
-        this.stats.agentInvocations++;
-        results[name] = await agent.process(event, context);
+      try {
+        // DEBUG: Log every agent check
+        const shouldRun = agent.shouldTrigger(event);
 
-        // Track blocks and warnings
-        if (results[name].response === 'block') {
-          this.stats.blocks++;
-        } else if (results[name].response === 'warn') {
-          this.stats.warnings++;
-        }
+        if (shouldRun) {
+          this.stats.agentInvocations++;
+          results[name] = await agent.process(event, context);
 
-        // If any agent blocks, stop processing
-        if (results[name].response === 'block') {
-          results._blocked = true;
-          results._blockedBy = name;
-          break;
+          // Track blocks and warnings
+          if (results[name].response === 'block') {
+            this.stats.blocks++;
+          } else if (results[name].response === 'warn') {
+            this.stats.warnings++;
+          }
+
+          // If any agent blocks, stop processing
+          if (results[name].response === 'block') {
+            results._blocked = true;
+            results._blockedBy = name;
+            break;
+          }
         }
+      } catch (err) {
+        // Log any errors during agent processing
+        console.error(`[AgentManager] Error processing ${name}:`, err.message);
+        results[name] = { error: err.message, response: 'error' };
       }
     }
 
@@ -249,6 +268,10 @@ export class AgentManager {
     return {
       enabled: this.enabled,
       stats: this.stats,
+      // DEBUG: Include digester selection count
+      _debug: {
+        digesterSelections: this._debugDigesterSelections || 0,
+      },
       agents: {
         observer: this.agents.observer.getSummary(),
         digester: this.agents.digester.getSummary(),
