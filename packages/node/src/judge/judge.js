@@ -40,6 +40,7 @@ import {
   getAxiomTotalWeight,
   dimensionRegistry,
 } from './dimensions.js';
+import { createRealScorer } from './scorers.js';
 
 /**
  * CYNIC Judge - The judgment engine
@@ -52,14 +53,19 @@ export class CYNICJudge {
    * @param {Function} [options.scorer] - Custom scoring function
    * @param {import('./learning-service.js').LearningService} [options.learningService] - RLHF learning service
    * @param {import('./self-skeptic.js').SelfSkeptic} [options.selfSkeptic] - φ distrusts φ skepticism service
+   * @param {import('./residual.js').ResidualDetector} [options.residualDetector] - THE_UNNAMEABLE dimension discovery
    * @param {boolean} [options.applySkepticism=true] - Whether to automatically apply skepticism to judgments
+   * @param {boolean} [options.includeUnnameable=true] - Whether to include THE_UNNAMEABLE in dimensions
    */
   constructor(options = {}) {
     this.customDimensions = options.customDimensions || {};
-    this.customScorer = options.scorer || null;
+    // Use real scorer by default, allow custom override
+    this.customScorer = options.scorer !== undefined ? options.scorer : createRealScorer();
     this.learningService = options.learningService || null;
     this.selfSkeptic = options.selfSkeptic || null;
+    this.residualDetector = options.residualDetector || null;
     this.applySkepticism = options.applySkepticism !== false; // Default true
+    this.includeUnnameable = options.includeUnnameable !== false; // Default true
 
     // Stats tracking
     this.stats = {
@@ -88,6 +94,15 @@ export class CYNICJudge {
    */
   setSelfSkeptic(selfSkeptic) {
     this.selfSkeptic = selfSkeptic;
+  }
+
+  /**
+   * Set residual detector (for post-construction injection)
+   * THE_UNNAMEABLE - discovers new dimensions from unexplained variance
+   * @param {import('./residual.js').ResidualDetector} residualDetector
+   */
+  setResidualDetector(residualDetector) {
+    this.residualDetector = residualDetector;
   }
 
   /**
@@ -530,12 +545,37 @@ export class CYNICJudge {
 
   /**
    * Record anomaly for ResidualDetector
+   * THE_UNNAMEABLE - tracks unexplained variance for dimension discovery
    * @private
    */
   _recordAnomaly(judgment, item) {
     this.stats.anomaliesDetected++;
 
     const residual = calculateResidual(judgment);
+
+    // Add THE_UNNAMEABLE score to judgment if not present
+    if (judgment.dimensions && !judgment.dimensions.THE_UNNAMEABLE) {
+      judgment.dimensions.THE_UNNAMEABLE = Math.round((1 - residual) * 100);
+    }
+
+    // Feed to ResidualDetector for dimension discovery
+    if (this.residualDetector) {
+      const analysis = this.residualDetector.analyze(judgment, {
+        item: { type: item.type, id: item.id },
+        residual,
+      });
+
+      // If anomaly detected, add to judgment metadata
+      if (analysis.isAnomaly) {
+        judgment.anomaly = {
+          detected: true,
+          residual: analysis.residual,
+          potentialNewDimension: true,
+        };
+      }
+    }
+
+    // Also maintain local buffer for quick access
     this.anomalyBuffer.push({
       judgmentId: judgment.id,
       residual,
@@ -598,6 +638,68 @@ export class CYNICJudge {
    */
   getAnomalyCandidates() {
     return this.anomalyBuffer.filter((a) => a.residual > PHI_INV_2);
+  }
+
+  /**
+   * Get candidate dimensions discovered by ResidualDetector
+   * THE_UNNAMEABLE reveals patterns that current dimensions don't capture
+   * @returns {Object[]} Candidate dimensions (empty if no detector)
+   */
+  getCandidateDimensions() {
+    if (!this.residualDetector) {
+      return [];
+    }
+    return this.residualDetector.getCandidates();
+  }
+
+  /**
+   * Accept a candidate dimension (promotes it to actual dimension)
+   * Requires governance - humans must approve new dimensions
+   * @param {string} candidateKey - Candidate key from getCandidateDimensions()
+   * @param {Object} params - Acceptance parameters
+   * @param {string} params.name - Final dimension name (e.g., 'SUSTAINABILITY')
+   * @param {string} params.axiom - Axiom to add to (PHI, VERIFY, CULTURE, BURN)
+   * @param {number} [params.weight] - Dimension weight (default: 1.0)
+   * @param {number} [params.threshold] - Score threshold (default: 50)
+   * @returns {Object|null} Accepted dimension or null if no detector
+   */
+  acceptCandidateDimension(candidateKey, params) {
+    if (!this.residualDetector) {
+      return null;
+    }
+    return this.residualDetector.acceptCandidate(candidateKey, params);
+  }
+
+  /**
+   * Reject a candidate dimension
+   * @param {string} candidateKey - Candidate key to reject
+   */
+  rejectCandidateDimension(candidateKey) {
+    if (this.residualDetector) {
+      this.residualDetector.rejectCandidate(candidateKey);
+    }
+  }
+
+  /**
+   * Get discovered dimensions history
+   * @returns {Object[]} Previously accepted dimensions
+   */
+  getDiscoveredDimensions() {
+    if (!this.residualDetector) {
+      return [];
+    }
+    return this.residualDetector.getDiscoveries();
+  }
+
+  /**
+   * Get ResidualDetector statistics
+   * @returns {Object|null} Stats or null if no detector
+   */
+  getResidualStats() {
+    if (!this.residualDetector) {
+      return null;
+    }
+    return this.residualDetector.getStats();
   }
 
   /**

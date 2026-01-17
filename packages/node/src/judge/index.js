@@ -8,6 +8,7 @@
 
 export * from './dimensions.js';
 export * from './judge.js';
+export * from './scorers.js';
 export * from './residual.js';
 export * from './graph-integration.js';
 export * from './learning-service.js';
