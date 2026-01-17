@@ -79,22 +79,26 @@ export class PoJChainManager {
   }
 
   /**
-   * Initialize chain manager (load head from DB)
+   * Initialize chain manager (load head from DB or fallback)
+   * "φ distrusts φ" - the chain must exist for CYNIC to verify itself
    */
   async initialize() {
     if (this._initialized) return;
 
-    // Load current head from persistence
-    if (this.persistence?.pojBlocks) {
+    // Check if PoJ chain is available (PostgreSQL or fallback)
+    const hasPoJCapability = this.persistence?.capabilities?.pojChain;
+
+    if (hasPoJCapability) {
       this._head = await this.persistence.getPoJHead();
       if (this._head) {
-        console.error(`   PoJ Chain: resumed at slot ${this._head.slot} (${this._head.judgment_count} judgments)`);
+        const backend = this.persistence.pojBlocks ? 'PostgreSQL' : 'fallback';
+        console.error(`   PoJ Chain: resumed at slot ${this._head.slot} (${this._head.judgment_count || 0} judgments) [${backend}]`);
       } else {
         // Create genesis block
         await this._createGenesisBlock();
       }
     } else {
-      console.error('   PoJ Chain: PostgreSQL required (skipping)');
+      console.error('   PoJ Chain: no persistence available (CYNIC cannot verify itself!)');
     }
 
     this._initialized = true;
@@ -127,7 +131,8 @@ export class PoJChainManager {
    * @param {Object} judgment - Judgment to add (must have judgment_id)
    */
   async addJudgment(judgment) {
-    if (!this.persistence?.pojBlocks) {
+    // Check if PoJ chain is available (PostgreSQL or fallback)
+    if (!this.persistence?.capabilities?.pojChain) {
       return; // PoJ chain not available (no persistence)
     }
 
@@ -258,35 +263,39 @@ export class PoJChainManager {
   }
 
   /**
-   * Verify chain integrity
+   * Verify chain integrity (PostgreSQL or fallback)
    */
   async verifyIntegrity() {
-    if (!this.persistence?.pojBlocks) {
+    if (!this.persistence?.capabilities?.pojChain) {
       return { valid: true, blocksChecked: 0, errors: [] };
     }
     return await this.persistence.verifyPoJChain();
   }
 
   /**
-   * Export chain data for backup
+   * Export chain data for backup (PostgreSQL or fallback)
    * @param {Object} [options] - Export options
    * @returns {Promise<Object>} Exportable chain data
    */
   async exportChain(options = {}) {
     const { fromBlock = 0, limit = 1000 } = options;
 
-    if (!this.persistence?.pojBlocks) {
+    if (!this.persistence?.capabilities?.pojChain) {
       return { error: 'Persistence not available', blocks: [] };
     }
 
-    const blocks = await this.persistence.pojBlocks.findSince(fromBlock, limit);
-    const stats = await this.persistence.pojBlocks.getStats();
+    // Use PersistenceManager methods which handle fallback internally
+    const blocks = await this.persistence.getRecentPoJBlocks(limit);
+    const stats = await this.persistence.getPoJStats();
+
+    // Filter blocks by fromBlock slot
+    const filteredBlocks = blocks.filter(b => b.slot >= fromBlock);
 
     return {
       version: '1.0.0',
       exportedAt: new Date().toISOString(),
       chainStats: stats,
-      blocks: blocks.map(b => ({
+      blocks: filteredBlocks.map(b => ({
         slot: b.slot,
         hash: b.hash || b.block_hash,
         prevHash: b.prev_hash,
@@ -295,12 +304,12 @@ export class PoJChainManager {
         judgmentIds: b.judgment_ids,
         timestamp: b.timestamp instanceof Date ? b.timestamp.toISOString() : b.timestamp,
       })),
-      totalBlocks: blocks.length,
+      totalBlocks: filteredBlocks.length,
     };
   }
 
   /**
-   * Import chain data from backup
+   * Import chain data from backup (PostgreSQL or fallback)
    * @param {Object} chainData - Exported chain data
    * @param {Object} [options] - Import options
    * @returns {Promise<Object>} Import result
@@ -308,7 +317,7 @@ export class PoJChainManager {
   async importChain(chainData, options = {}) {
     const { validateLinks = true, skipExisting = true } = options;
 
-    if (!this.persistence?.pojBlocks) {
+    if (!this.persistence?.capabilities?.pojChain) {
       return { error: 'Persistence not available', imported: 0 };
     }
 
@@ -346,20 +355,20 @@ export class PoJChainManager {
       }
     }
 
-    // Import blocks
+    // Import blocks using PersistenceManager methods
     for (const block of sortedBlocks) {
       try {
         // Check if exists
         if (skipExisting) {
-          const existing = await this.persistence.pojBlocks.findByNumber(block.slot);
+          const existing = await this.persistence.getPoJBlockBySlot(block.slot);
           if (existing) {
             results.skipped++;
             continue;
           }
         }
 
-        // Store block
-        await this.persistence.pojBlocks.create({
+        // Store block using PersistenceManager method
+        await this.persistence.storePoJBlock({
           slot: block.slot,
           hash: block.hash,
           block_hash: block.hash,

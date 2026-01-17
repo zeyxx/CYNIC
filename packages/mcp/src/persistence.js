@@ -37,6 +37,7 @@ class MemoryStore {
     this.patterns = [];
     this.feedback = [];
     this.knowledge = [];
+    this.pojBlocks = [];
   }
 
   async storeJudgment(judgment) {
@@ -131,6 +132,7 @@ class MemoryStore {
       patterns: this.patterns,
       feedback: this.feedback,
       knowledge: this.knowledge,
+      pojBlocks: this.pojBlocks,
     };
   }
 
@@ -139,6 +141,100 @@ class MemoryStore {
     if (data.patterns) this.patterns = data.patterns;
     if (data.feedback) this.feedback = data.feedback;
     if (data.knowledge) this.knowledge = data.knowledge;
+    if (data.pojBlocks) this.pojBlocks = data.pojBlocks;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PoJ CHAIN FALLBACK METHODS
+  // "φ distrusts φ" - the chain must exist even without PostgreSQL
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  async storePoJBlock(block) {
+    // Validate chain integrity before storing
+    if (this.pojBlocks.length > 0) {
+      const head = this.pojBlocks[this.pojBlocks.length - 1];
+      const expectedPrevHash = head.hash || head.block_hash;
+      if (block.prev_hash !== expectedPrevHash) {
+        throw new Error(`Chain integrity violation: expected prev_hash ${expectedPrevHash}, got ${block.prev_hash}`);
+      }
+      if (block.slot !== head.slot + 1) {
+        throw new Error(`Slot mismatch: expected ${head.slot + 1}, got ${block.slot}`);
+      }
+    }
+
+    const stored = {
+      ...block,
+      block_hash: block.hash,
+      judgment_count: block.judgments?.length || 0,
+      judgment_ids: block.judgments?.map(j => j.judgment_id) || [],
+      created_at: new Date(),
+    };
+    this.pojBlocks.push(stored);
+
+    // Keep bounded (but generous for chain integrity)
+    if (this.pojBlocks.length > 10000) {
+      // Archive old blocks - for memory, just remove oldest
+      this.pojBlocks = this.pojBlocks.slice(-5000);
+    }
+
+    return stored;
+  }
+
+  async getPoJHead() {
+    if (this.pojBlocks.length === 0) return null;
+    return this.pojBlocks[this.pojBlocks.length - 1];
+  }
+
+  async getPoJStats() {
+    const total = this.pojBlocks.length;
+    if (total === 0) return { totalBlocks: 0, headSlot: 0, totalJudgments: 0 };
+
+    const head = this.pojBlocks[total - 1];
+    const totalJudgments = this.pojBlocks.reduce((sum, b) => sum + (b.judgment_count || 0), 0);
+
+    return {
+      totalBlocks: total,
+      headSlot: head.slot,
+      totalJudgments,
+    };
+  }
+
+  async getRecentPoJBlocks(limit = 10) {
+    return this.pojBlocks.slice(-limit).reverse();
+  }
+
+  async getPoJBlockBySlot(slot) {
+    return this.pojBlocks.find(b => b.slot === slot) || null;
+  }
+
+  async verifyPoJChain() {
+    const errors = [];
+
+    for (let i = 1; i < this.pojBlocks.length; i++) {
+      const block = this.pojBlocks[i];
+      const prevBlock = this.pojBlocks[i - 1];
+      const expectedPrevHash = prevBlock.hash || prevBlock.block_hash;
+
+      if (block.prev_hash !== expectedPrevHash) {
+        errors.push({
+          slot: block.slot,
+          error: `Invalid prev_hash: expected ${expectedPrevHash}, got ${block.prev_hash}`,
+        });
+      }
+
+      if (block.slot !== prevBlock.slot + 1) {
+        errors.push({
+          slot: block.slot,
+          error: `Slot gap: expected ${prevBlock.slot + 1}, got ${block.slot}`,
+        });
+      }
+    }
+
+    return {
+      valid: errors.length === 0,
+      blocksChecked: this.pojBlocks.length,
+      errors,
+    };
   }
 }
 
@@ -190,6 +286,14 @@ class FileStore extends MemoryStore {
   async upsertPattern(pattern) {
     const result = await super.upsertPattern(pattern);
     this._dirty = true;
+    return result;
+  }
+
+  async storePoJBlock(block) {
+    const result = await super.storePoJBlock(block);
+    this._dirty = true;
+    // Force immediate save for PoJ chain integrity
+    await this.save();
     return result;
   }
 
@@ -483,27 +587,37 @@ export class PersistenceManager {
 
   // ===========================================================================
   // PoJ CHAIN METHODS
+  // "φ distrusts φ" - the chain must exist for CYNIC to verify itself
+  // Fallback chain: PostgreSQL → File → Memory
   // ===========================================================================
 
   /**
-   * Store a PoJ block (PostgreSQL only - no fallback for blockchain integrity)
+   * Store a PoJ block (PostgreSQL or fallback)
    * @param {Object} block - Block to store
    * @returns {Promise<Object|null>} Stored block or null
    */
   async storePoJBlock(block) {
+    // Use PostgreSQL if available
     if (this.pojBlocks) {
       try {
         return await this.pojBlocks.create(block);
       } catch (err) {
-        console.error('Error storing PoJ block:', err.message);
+        console.error('Error storing PoJ block to PostgreSQL:', err.message);
       }
     }
-    // No fallback for PoJ chain - requires PostgreSQL for integrity
+    // Fallback to file/memory
+    if (this._fallback) {
+      try {
+        return await this._fallback.storePoJBlock(block);
+      } catch (err) {
+        console.error('Error storing PoJ block to fallback:', err.message);
+      }
+    }
     return null;
   }
 
   /**
-   * Get the head (latest) PoJ block
+   * Get the head (latest) PoJ block (PostgreSQL or fallback)
    * @returns {Promise<Object|null>} Head block or null
    */
   async getPoJHead() {
@@ -514,11 +628,14 @@ export class PersistenceManager {
         console.error('Error getting PoJ head:', err.message);
       }
     }
+    if (this._fallback) {
+      return await this._fallback.getPoJHead();
+    }
     return null;
   }
 
   /**
-   * Get PoJ chain statistics
+   * Get PoJ chain statistics (PostgreSQL or fallback)
    * @returns {Promise<Object>} Chain statistics
    */
   async getPoJStats() {
@@ -529,11 +646,14 @@ export class PersistenceManager {
         console.error('Error getting PoJ stats:', err.message);
       }
     }
+    if (this._fallback) {
+      return await this._fallback.getPoJStats();
+    }
     return { totalBlocks: 0, headSlot: 0, totalJudgments: 0 };
   }
 
   /**
-   * Get recent PoJ blocks
+   * Get recent PoJ blocks (PostgreSQL or fallback)
    * @param {number} [limit=10] - Number of blocks
    * @returns {Promise<Object[]>} Recent blocks
    */
@@ -545,11 +665,33 @@ export class PersistenceManager {
         console.error('Error getting recent PoJ blocks:', err.message);
       }
     }
+    if (this._fallback) {
+      return await this._fallback.getRecentPoJBlocks(limit);
+    }
     return [];
   }
 
   /**
-   * Verify PoJ chain integrity
+   * Get PoJ block by slot number (PostgreSQL or fallback)
+   * @param {number} slot - Slot number
+   * @returns {Promise<Object|null>} Block or null
+   */
+  async getPoJBlockBySlot(slot) {
+    if (this.pojBlocks) {
+      try {
+        return await this.pojBlocks.findByNumber(slot);
+      } catch (err) {
+        console.error('Error getting PoJ block by slot:', err.message);
+      }
+    }
+    if (this._fallback) {
+      return await this._fallback.getPoJBlockBySlot(slot);
+    }
+    return null;
+  }
+
+  /**
+   * Verify PoJ chain integrity (PostgreSQL or fallback)
    * @returns {Promise<Object>} Verification result
    */
   async verifyPoJChain() {
@@ -559,6 +701,9 @@ export class PersistenceManager {
       } catch (err) {
         console.error('Error verifying PoJ chain:', err.message);
       }
+    }
+    if (this._fallback) {
+      return await this._fallback.verifyPoJChain();
     }
     return { valid: true, blocksChecked: 0, errors: [] };
   }
@@ -755,14 +900,14 @@ export class PersistenceManager {
    * Check if specific features are available
    */
   get capabilities() {
-    // With fallback, all features are always available
+    // With fallback, most features are always available
     const hasFallback = !!this._fallback;
     return {
       judgments: !!this.judgments || hasFallback,
       patterns: !!this.patterns || hasFallback,
       feedback: !!this.feedback || hasFallback,
       knowledge: !!this.knowledge || hasFallback,
-      pojChain: !!this.pojBlocks, // No fallback - requires PostgreSQL
+      pojChain: !!this.pojBlocks || hasFallback, // Now has fallback - CYNIC must verify itself
       libraryCache: !!this.libraryCache, // No fallback - requires PostgreSQL
       sessions: !!this.sessionStore,
       cache: !!this.redis,
