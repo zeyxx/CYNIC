@@ -180,19 +180,28 @@ export const CYNIC_ARCHITECTURE = {
       },
     },
     v2_collective: {
+      // The Five Dogs (Original)
       guardian: { name: 'CollectiveGuardian', sephirah: 'Gevurah', status: 'IMPLEMENTED' },
       analyst: { name: 'CollectiveAnalyst', sephirah: 'Binah', status: 'IMPLEMENTED' },
       scholar: { name: 'CollectiveScholar', sephirah: 'Daat', status: 'IMPLEMENTED' },
       architect: { name: 'CollectiveArchitect', sephirah: 'Chesed', status: 'IMPLEMENTED' },
       sage: { name: 'CollectiveSage', sephirah: 'Chochmah', status: 'IMPLEMENTED' },
+      // The Hidden Dog (Keter)
+      cynic: { name: 'CollectiveCynic', sephirah: 'Keter', status: 'IMPLEMENTED' },
+      // The Additional Dogs (Complete Sefirot Tree)
+      janitor: { name: 'CollectiveJanitor', sephirah: 'Yesod', status: 'IMPLEMENTED' },
+      scout: { name: 'CollectiveScout', sephirah: 'Netzach', status: 'IMPLEMENTED' },
+      cartographer: { name: 'CollectiveCartographer', sephirah: 'Malkhut', status: 'IMPLEMENTED' },
+      oracle: { name: 'CollectiveOracle', sephirah: 'Tiferet', status: 'IMPLEMENTED' },
+      deployer: { name: 'CollectiveDeployer', sephirah: 'Hod', status: 'IMPLEMENTED' },
     },
-    missing: {
-      // From ARCHITECTURE-MISSING-DOGS.md
-      hunter: { name: 'Hunter', purpose: 'Proactive information retrieval', status: 'SPEC_ONLY' },
-      shepherd: { name: 'Shepherd', purpose: 'Multi-session coherence', status: 'SPEC_ONLY' },
-      herald: { name: 'Herald', purpose: 'External notifications', status: 'SPEC_ONLY' },
-      tracker: { name: 'Tracker', purpose: 'Long-term goal persistence', status: 'SPEC_ONLY' },
-      sentinel: { name: 'Sentinel', purpose: 'Background monitoring', status: 'SPEC_ONLY' },
+    // Legacy names mapped to current implementations (GAP-004 COMPLETE)
+    legacy_mapping: {
+      hunter: { renamed_to: 'scout', purpose: 'Proactive information retrieval', status: 'RENAMED' },
+      shepherd: { renamed_to: 'sage', purpose: 'Multi-session coherence', status: 'RENAMED' },
+      herald: { renamed_to: 'oracle', purpose: 'External notifications', status: 'RENAMED' },
+      tracker: { renamed_to: 'cartographer', purpose: 'Long-term goal persistence', status: 'RENAMED' },
+      sentinel: { renamed_to: 'guardian', purpose: 'Background monitoring', status: 'RENAMED' },
     },
   },
 
@@ -262,20 +271,22 @@ export const CYNIC_ARCHITECTURE = {
         packages: ['node', 'protocol'],
       },
       {
-        id: 'GAP-004',
-        area: 'Agents',
-        title: '5 Missing Dogs',
-        description: 'Hunter, Shepherd, Herald, Tracker, Sentinel not implemented',
-        priority: 'MEDIUM',
-        packages: ['node'],
-      },
-      {
         id: 'GAP-005',
         area: 'Distributed',
         title: 'Multi-Node Consensus',
         description: 'Consensus engine implemented but not tested in multi-node setup',
         priority: 'MEDIUM',
         packages: ['protocol', 'node'],
+      },
+    ],
+    completed: [
+      {
+        id: 'GAP-004',
+        area: 'Agents',
+        title: '11 Dogs Complete',
+        description: 'All Sefirot dogs implemented: Guardian, Analyst, Scholar, Architect, Sage, CYNIC, Janitor, Scout, Cartographer, Oracle, Deployer',
+        completedAt: '2026-01-17',
+        packages: ['node'],
       },
     ],
     wishlist: [
@@ -518,18 +529,18 @@ export class MetaDashboard {
     const nextSteps = [
       {
         step: 1,
-        action: 'Test multi-node consensus',
-        description: 'Deploy 3+ nodes and verify φ-BFT consensus',
-      },
-      {
-        step: 2,
         action: 'Connect HolDex K-Score flow',
         description: 'Wire client.submitKScore() to live HolDex API',
       },
       {
+        step: 2,
+        action: 'Implement GASdf gasless transactions',
+        description: 'Fee delegation for token burns',
+      },
+      {
         step: 3,
-        action: 'Implement Hunter dog',
-        description: 'Proactive information retrieval agent',
+        action: 'Test multi-node consensus',
+        description: 'Deploy 3+ nodes and verify φ-BFT consensus',
       },
       {
         step: 4,
