@@ -13,6 +13,7 @@ import {
   VOICE,
   VERDICTS,
   LOCALE,
+  THE_DOGS,
   FOUR_DOGS,
   getVoice,
   getVerdictFromScore,
@@ -94,8 +95,42 @@ describe('CYNIC Identity', () => {
     });
   });
 
-  describe('FOUR_DOGS', () => {
-    it('has 4 agents', () => {
+  describe('THE_DOGS (11 Sefirot)', () => {
+    it('has 11 dogs for 11 Sefirot', () => {
+      assert.strictEqual(Object.keys(THE_DOGS).length, 11);
+    });
+
+    it('includes all 11 Sefirot-aligned dogs', () => {
+      const expectedDogs = [
+        'Cynic', 'Sage', 'Scholar', 'Guardian', 'Analyst',
+        'Oracle', 'Architect', 'Scout', 'Janitor', 'Deployer', 'Cartographer',
+      ];
+      for (const dog of expectedDogs) {
+        assert.ok(THE_DOGS[dog], `Missing dog: ${dog}`);
+      }
+    });
+
+    it('each dog has Sefirot mapping', () => {
+      for (const [name, dog] of Object.entries(THE_DOGS)) {
+        assert.ok(dog.sefira, `${name} missing sefira`);
+        assert.ok(dog.meaning, `${name} missing meaning`);
+        assert.ok(dog.personality, `${name} missing personality`);
+        assert.ok(dog.emoji, `${name} missing emoji`);
+      }
+    });
+
+    it('Guardian is BLOCKING', () => {
+      assert.strictEqual(THE_DOGS.Guardian.behavior, 'BLOCKING');
+    });
+
+    it('Cynic is Keter (Crown)', () => {
+      assert.strictEqual(THE_DOGS.Cynic.sefira, 'Keter');
+      assert.strictEqual(THE_DOGS.Cynic.meaning, 'Crown');
+    });
+  });
+
+  describe('FOUR_DOGS (legacy alias)', () => {
+    it('has 4 agents for backwards compatibility', () => {
       assert.strictEqual(Object.keys(FOUR_DOGS).length, 4);
     });
 
@@ -104,6 +139,13 @@ describe('CYNIC Identity', () => {
       assert.ok(FOUR_DOGS.Digester);
       assert.ok(FOUR_DOGS.Guardian);
       assert.ok(FOUR_DOGS.Mentor);
+    });
+
+    it('aliases map to THE_DOGS', () => {
+      assert.strictEqual(FOUR_DOGS.Observer, THE_DOGS.Analyst);
+      assert.strictEqual(FOUR_DOGS.Digester, THE_DOGS.Scholar);
+      assert.strictEqual(FOUR_DOGS.Guardian, THE_DOGS.Guardian);
+      assert.strictEqual(FOUR_DOGS.Mentor, THE_DOGS.Sage);
     });
 
     it('Guardian is BLOCKING', () => {

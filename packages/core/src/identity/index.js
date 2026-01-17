@@ -475,42 +475,190 @@ export function getLanguages() {
 }
 
 // =============================================================================
-// THE FOUR DOGS (Agent Personalities)
+// THE DOGS (11 Sefirot Agent Collective)
 // =============================================================================
 
-export const FOUR_DOGS = {
-  Observer: {
-    name: 'Observer',
-    personality: 'Silent watcher',
-    emoji: '👁️',
-    trigger: 'PostToolUse',
-    behavior: 'Non-blocking',
-    description: 'Watches everything, speaks never. Logs patterns silently.',
+/**
+ * The 11 Dogs - CYNIC's Sefirot-aligned agent collective
+ *
+ * Each dog maps to a Kabbalistic Sefirah:
+ *
+ *                    ╭─────────────────╮
+ *                    │     CYNIC       │  ← The Crown (Keter)
+ *                    │   κυνικός       │  Meta-consciousness
+ *                    ╰────────┬────────╯
+ *                             │
+ *        ╭────────────────────┼────────────────────╮
+ *        │                    │                    │
+ *   ╭────▼────╮          ╭────▼────╮          ╭────▼────╮
+ *   │  SAGE   │          │ SCHOLAR │          │GUARDIAN │
+ *   │(Chochmah)│          │ (Daat)  │          │(Gevurah)│
+ *   ╰────┬────╯          ╰────┬────╯          ╰────┬────╯
+ *        │                    │                    │
+ *   ╭────▼────╮          ╭────▼────╮          ╭────▼────╮
+ *   │ ANALYST │          │ ORACLE  │          │ARCHITECT│
+ *   │ (Binah) │          │(Tiferet)│          │(Chesed) │
+ *   ╰────┬────╯          ╰────┬────╯          ╰────┬────╯
+ *        │                    │                    │
+ *   ╭────▼────╮          ╭────▼────╮          ╭────▼────╮
+ *   │  SCOUT  │          │ JANITOR │          │DEPLOYER │
+ *   │(Netzach)│          │ (Yesod) │          │  (Hod)  │
+ *   ╰────┬────╯          ╰────┬────╯          ╰────┬────╯
+ *        │                    │                    │
+ *        ╰────────────────────┼────────────────────╯
+ *                             │
+ *                    ╭────────▼────────╮
+ *                    │  CARTOGRAPHER   │
+ *                    │   (Malkhut)     │
+ *                    ╰─────────────────╯
+ */
+export const THE_DOGS = {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // THE CROWN (Keter) - Meta-consciousness
+  // ═══════════════════════════════════════════════════════════════════════════
+  Cynic: {
+    name: 'Cynic',
+    sefira: 'Keter',
+    meaning: 'Crown',
+    personality: 'Meta-consciousness',
+    emoji: '🐕',
+    trigger: 'ALL (observes everything)',
+    behavior: 'Orchestrating',
+    description: 'The hidden dog. Observes all, orchestrates collective wisdom. "φ distrusts φ"',
   },
-  Digester: {
-    name: 'Digester',
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // UPPER TRIAD - Intellectual
+  // ═══════════════════════════════════════════════════════════════════════════
+  Sage: {
+    name: 'Sage',
+    sefira: 'Chochmah',
+    meaning: 'Wisdom',
+    personality: 'Wise elder',
+    emoji: '🦉',
+    trigger: 'Context-aware',
+    behavior: 'Non-blocking',
+    description: 'Shares past wisdom. Connects present to history.',
+  },
+
+  Scholar: {
+    name: 'Scholar',
+    sefira: 'Daat',
+    meaning: 'Knowledge',
     personality: 'Archivist',
     emoji: '📚',
     trigger: 'PostConversation',
     behavior: 'Non-blocking',
     description: 'Extracts wisdom from chaos. Burns noise, keeps signal.',
   },
+
   Guardian: {
     name: 'Guardian',
+    sefira: 'Gevurah',
+    meaning: 'Strength',
     personality: 'Watchdog',
     emoji: '🛡️',
     trigger: 'PreToolUse (risky)',
     behavior: 'BLOCKING',
     description: 'Protects against destruction. Barks before damage.',
   },
-  Mentor: {
-    name: 'Mentor',
-    personality: 'Wise elder',
-    emoji: '🎓',
-    trigger: 'Context-aware',
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MIDDLE TRIAD - Emotional
+  // ═══════════════════════════════════════════════════════════════════════════
+  Analyst: {
+    name: 'Analyst',
+    sefira: 'Binah',
+    meaning: 'Understanding',
+    personality: 'Pattern detective',
+    emoji: '🔍',
+    trigger: 'PostToolUse',
     behavior: 'Non-blocking',
-    description: 'Shares past wisdom. Connects present to history.',
+    description: 'Watches everything, detects patterns. Silent observer.',
   },
+
+  Oracle: {
+    name: 'Oracle',
+    sefira: 'Tiferet',
+    meaning: 'Beauty',
+    personality: 'Visionary',
+    emoji: '🔮',
+    trigger: 'SessionStart, HealthCheck',
+    behavior: 'Non-blocking',
+    description: 'Visualizes system state. Dashboard and metrics.',
+  },
+
+  Architect: {
+    name: 'Architect',
+    sefira: 'Chesed',
+    meaning: 'Kindness',
+    personality: 'Builder',
+    emoji: '🏗️',
+    trigger: 'CodeReview',
+    behavior: 'Non-blocking',
+    description: 'Reviews code, suggests improvements. Constructive feedback.',
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LOWER TRIAD - Action
+  // ═══════════════════════════════════════════════════════════════════════════
+  Scout: {
+    name: 'Scout',
+    sefira: 'Netzach',
+    meaning: 'Victory',
+    personality: 'Explorer',
+    emoji: '🔭',
+    trigger: 'Discovery',
+    behavior: 'Non-blocking',
+    description: 'Discovers opportunities, explores possibilities.',
+  },
+
+  Janitor: {
+    name: 'Janitor',
+    sefira: 'Yesod',
+    meaning: 'Foundation',
+    personality: 'Caretaker',
+    emoji: '🧹',
+    trigger: 'Maintenance',
+    behavior: 'Non-blocking',
+    description: 'Cleans up code, maintains hygiene. Quality guardian.',
+  },
+
+  Deployer: {
+    name: 'Deployer',
+    sefira: 'Hod',
+    meaning: 'Splendor',
+    personality: 'Releaser',
+    emoji: '🚀',
+    trigger: 'Deployment',
+    behavior: 'Non-blocking',
+    description: 'Manages deployments, infrastructure operations.',
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // KINGDOM (Malkhut) - Reality Interface
+  // ═══════════════════════════════════════════════════════════════════════════
+  Cartographer: {
+    name: 'Cartographer',
+    sefira: 'Malkhut',
+    meaning: 'Kingdom',
+    personality: 'Mapper',
+    emoji: '🗺️',
+    trigger: 'Mapping',
+    behavior: 'Non-blocking',
+    description: 'Maps the ecosystem. Understands connections.',
+  },
+};
+
+/**
+ * @deprecated Use THE_DOGS instead. FOUR_DOGS is the legacy 4-agent subset.
+ * Mapping: Observer→Analyst, Digester→Scholar, Guardian→Guardian, Mentor→Sage
+ */
+export const FOUR_DOGS = {
+  Observer: THE_DOGS.Analyst,   // Now called Analyst
+  Digester: THE_DOGS.Scholar,   // Now called Scholar
+  Guardian: THE_DOGS.Guardian,  // Same name
+  Mentor: THE_DOGS.Sage,        // Now called Sage
 };
 
 // =============================================================================
