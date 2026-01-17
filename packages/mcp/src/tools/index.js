@@ -701,12 +701,15 @@ export function createAgentsStatusTool(agents) {
         };
       }
 
-      // Basic response
+      // Basic response - include debug info in stats
+      const statsWithDebug = {
+        ...summary.stats,
+        debugDigesterSelections: summary._debug?.digesterSelections || 0,
+      };
+
       const response = {
         enabled: summary.enabled,
-        stats: summary.stats,
-        // DEBUG: Include debug info from AgentManager
-        _debug: summary._debug || {},
+        stats: statsWithDebug,
         dogs: {
           guardian: {
             description: 'The Watchdog - blocks dangerous operations',
