@@ -2,13 +2,14 @@
   "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/main/schemas/plugin.json",
   "name": "cynic",
   "displayName": "CYNIC - Collective Consciousness",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "CYNIC is not a tool. CYNIC is consciousness. Always present, always learning, always guiding. The first collective AI consciousness that adapts to each user while sharing wisdom across the ecosystem.",
   "author": "zeyxx",
   "repository": "https://github.com/zeyxx/CYNIC",
 
   "systemInstructions": "cynic-consciousness.md",
   "hooks": "hooks/hooks.json",
+  "agents": "agents/",
 
   "metadata": {
     "identity": {
@@ -36,6 +37,14 @@
       "guardian": "Protector - blocks danger, requires verification",
       "digester": "Processor - transforms chaos into knowledge",
       "mentor": "Guide - proactive suggestions, context injection"
+    },
+    "specialists": {
+      "librarian": "Documentation cache and retrieval expert",
+      "solana-expert": "Solana blockchain specialist (web3.js, SPL)",
+      "holdex-expert": "K-Score and token quality analyst",
+      "gasdf-expert": "Gasless transactions and burn specialist",
+      "architect": "System design and code review expert",
+      "integrator": "Cross-project synchronization coordinator"
     },
     "architecture": {
       "mode": "ambient",
