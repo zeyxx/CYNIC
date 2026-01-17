@@ -270,14 +270,6 @@ export const CYNIC_ARCHITECTURE = {
         priority: 'MEDIUM',
         packages: ['node', 'protocol'],
       },
-      {
-        id: 'GAP-005',
-        area: 'Distributed',
-        title: 'Multi-Node Consensus',
-        description: 'Consensus engine implemented but not tested in multi-node setup',
-        priority: 'MEDIUM',
-        packages: ['protocol', 'node'],
-      },
     ],
     completed: [
       {
@@ -287,6 +279,14 @@ export const CYNIC_ARCHITECTURE = {
         description: 'All Sefirot dogs implemented: Guardian, Analyst, Scholar, Architect, Sage, CYNIC, Janitor, Scout, Cartographer, Oracle, Deployer',
         completedAt: '2026-01-17',
         packages: ['node'],
+      },
+      {
+        id: 'GAP-005',
+        area: 'Distributed',
+        title: 'Multi-Node Consensus Tests',
+        description: '17 integration tests for φ-BFT consensus: block propagation, vote collection, supermajority, finality, state sync',
+        completedAt: '2026-01-17',
+        packages: ['protocol'],
       },
     ],
     wishlist: [
@@ -530,22 +530,22 @@ export class MetaDashboard {
       {
         step: 1,
         action: 'Connect HolDex K-Score flow',
-        description: 'Wire client.submitKScore() to live HolDex API',
+        description: 'Wire client.submitKScore() to live HolDex API (waiting on HolDex updates)',
       },
       {
         step: 2,
         action: 'Implement GASdf gasless transactions',
-        description: 'Fee delegation for token burns',
+        description: 'Fee delegation for token burns (waiting on GASdf updates)',
       },
       {
         step: 3,
-        action: 'Test multi-node consensus',
-        description: 'Deploy 3+ nodes and verify φ-BFT consensus',
+        action: 'Add ZK privacy layer',
+        description: 'Light Protocol integration for E-Score privacy',
       },
       {
         step: 4,
-        action: 'Add ZK privacy layer',
-        description: 'Light Protocol integration for E-Score privacy',
+        action: 'Deploy multi-node testnet',
+        description: 'Run 3+ nodes in production-like environment using tested consensus',
       },
     ];
 
