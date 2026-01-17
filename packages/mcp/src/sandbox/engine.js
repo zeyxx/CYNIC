@@ -576,13 +576,16 @@ const CYNICEngine = {
   async searchCodebase(query) {
     CYNICConsole.log(`Searching: "${query}"...`, 'system');
 
-    const result = await this.callTool('brain_codebase', {
+    const response = await this.callTool('brain_codebase', {
       action: 'search',
       query: query
     });
 
-    if (result.error) {
-      CYNICConsole.log(`Search error: ${result.error}`, 'error');
+    // Handle wrapped response: { success, result: {...} }
+    const result = response.result || response;
+
+    if (response.error || result.error) {
+      CYNICConsole.log(`Search error: ${response.error || result.error}`, 'error');
       return;
     }
 
