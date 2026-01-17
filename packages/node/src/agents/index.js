@@ -47,6 +47,12 @@ export {
   ConsensusRequestEvent,
   ConsensusResponseEvent,
   ProfileUpdatedEvent,
+  // CYNIC events
+  CynicDecisionEvent,
+  CynicOverrideEvent,
+  CynicGuidanceEvent,
+  CynicAwakeningEvent,
+  CynicIntrospectionEvent,
 } from './events.js';
 
 // Event bus
@@ -72,21 +78,28 @@ export {
   WisdomType as LegacyWisdomType,
 } from './mentor.js';
 
-// Collective Five Dogs (v2)
+// Collective Five Dogs + CYNIC (v2)
 export {
   CollectivePack,
   createCollectivePack,
+  // The Five Dogs
   CollectiveGuardian,
   CollectiveAnalyst,
   CollectiveScholar,
   CollectiveArchitect,
   CollectiveSage,
+  // The Hidden 6th Dog (Keter)
+  CollectiveCynic,
+  // Factory functions
   createGuardian,
   createAnalyst,
   createScholar,
   createArchitect,
   createSage,
+  createCynic,
+  // Constants
   COLLECTIVE_CONSTANTS,
+  // Types
   RiskLevel,
   RiskCategory,
   PatternCategory,
@@ -95,6 +108,11 @@ export {
   ReviewCategory,
   FeedbackType,
   WisdomType,
+  // CYNIC types
+  CYNIC_CONSTANTS,
+  CynicDecisionType,
+  CynicGuidanceType,
+  MetaState,
 } from './collective/index.js';
 
 // Convenience imports for default exports
@@ -112,6 +130,7 @@ import {
   CollectiveScholar,
   CollectiveArchitect,
   CollectiveSage,
+  CollectiveCynic,
 } from './collective/index.js';
 
 /**
@@ -308,7 +327,7 @@ export default {
   AgentManager,
   createAgentPack,
 
-  // Collective Five Dogs (v2)
+  // Collective Five Dogs + CYNIC (v2)
   CollectivePack,
   createCollectivePack,
   CollectiveGuardian,
@@ -316,4 +335,5 @@ export default {
   CollectiveScholar,
   CollectiveArchitect,
   CollectiveSage,
+  CollectiveCynic, // The Hidden 6th Dog (Keter)
 };

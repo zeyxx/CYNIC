@@ -1,13 +1,14 @@
 /**
  * @cynic/node - Collective Agents
  *
- * The Five Dogs (Fib(5)): A harmonious collective consciousness.
+ * The Five Dogs (Fib(5)) + CYNIC (Keter): A harmonious collective consciousness.
  *
  * Inspired by Kabbalah's Sefirot, implemented with professional naming:
  *
  *                    ╭─────────────────╮
- *                    │     KETER       │  (Crown - Future)
- *                    │   Collective    │
+ *                    │     CYNIC       │  ← The Hidden 6th Dog
+ *                    │    (Keter)      │  Meta-consciousness
+ *                    │   κυνικός       │  "Loyal to truth"
  *                    ╰────────┬────────╯
  *                             │
  *        ╭────────────────────┼────────────────────╮
@@ -28,6 +29,10 @@
  *│Understand│            │  987 events│            │ Kindness │
  *╰─────────╯            ╰───────────╯            ╰──────────╯
  *
+ * CYNIC observes ALL events and orchestrates the collective.
+ * φ⁻¹ (61.8%) = consensus threshold, max confidence
+ * φ⁻² (38.2%) = veto threshold, override threshold
+ *
  * "φ distrusts φ" - κυνικός
  *
  * @module @cynic/node/agents/collective
@@ -42,12 +47,21 @@ import { ProfileCalculator, ProfileLevel } from '../../profile/calculator.js';
 import { OrganicSignals } from '../../profile/organic-signals.js';
 import { LocalStore } from '../../privacy/local-store.js';
 
-// Import collective agents
+// Import collective agents (The Five Dogs)
 import { CollectiveGuardian, RiskLevel, RiskCategory } from './guardian.js';
 import { CollectiveAnalyst, PatternCategory, AnomalyType } from './analyst.js';
 import { CollectiveScholar, KnowledgeType } from './scholar.js';
 import { CollectiveArchitect, ReviewCategory, FeedbackType } from './architect.js';
 import { CollectiveSage, WisdomType } from './sage.js';
+
+// Import CYNIC - The Hidden Sixth Dog (Keter)
+import {
+  CollectiveCynic,
+  CYNIC_CONSTANTS,
+  CynicDecisionType,
+  CynicGuidanceType,
+  MetaState,
+} from './cynic.js';
 
 // Re-export agents
 export {
@@ -56,6 +70,7 @@ export {
   CollectiveScholar,
   CollectiveArchitect,
   CollectiveSage,
+  CollectiveCynic,
 };
 
 // Re-export types
@@ -68,14 +83,22 @@ export {
   ReviewCategory,
   FeedbackType,
   WisdomType,
+  // CYNIC types
+  CYNIC_CONSTANTS,
+  CynicDecisionType,
+  CynicGuidanceType,
+  MetaState,
 };
 
 /**
  * φ-aligned constants for collective
  */
 export const COLLECTIVE_CONSTANTS = {
-  /** Number of agents (Fib(5)) */
-  AGENT_COUNT: 5,
+  /** Number of dogs (Fib(5) = 5) */
+  DOG_COUNT: 5,
+
+  /** Total agents including CYNIC (Fib(5) + 1 = 6) */
+  AGENT_COUNT: 6,
 
   /** Max collective confidence (φ⁻¹) */
   MAX_CONFIDENCE: PHI_INV,
@@ -116,6 +139,7 @@ export class CollectivePack {
     this.eventBus.registerAgent(AgentId.SCHOLAR);
     this.eventBus.registerAgent(AgentId.ARCHITECT);
     this.eventBus.registerAgent(AgentId.SAGE);
+    this.eventBus.registerAgent(AgentId.CYNIC); // The Hidden 6th Dog (Keter)
     this.eventBus.registerAgent('collective'); // For pack-level subscriptions
 
     // Create agents with shared infrastructure
@@ -156,13 +180,22 @@ export class CollectivePack {
       state: options.state,
     });
 
-    // Agent map for lookup
+    // CYNIC - The Hidden 6th Dog (Keter) - Meta-consciousness
+    this.cynic = new CollectiveCynic({
+      eventBus: this.eventBus,
+      profileLevel: this.profileLevel,
+      judge: options.judge,
+      state: options.state,
+    });
+
+    // Agent map for lookup (5 Dogs + CYNIC)
     this.agents = new Map([
       [AgentId.GUARDIAN, this.guardian],
       [AgentId.ANALYST, this.analyst],
       [AgentId.SCHOLAR, this.scholar],
       [AgentId.ARCHITECT, this.architect],
       [AgentId.SAGE, this.sage],
+      [AgentId.CYNIC, this.cynic], // Keter - The Crown
     ]);
 
     // Stats
@@ -196,12 +229,13 @@ export class CollectivePack {
   _handleProfileUpdate(event) {
     const { newLevel } = event.payload;
 
-    // Update all agents
+    // Update all agents (5 Dogs + CYNIC)
     this.profileLevel = newLevel;
     this.guardian.setProfileLevel(newLevel);
     this.scholar.setProfileLevel(newLevel);
     this.architect.setProfileLevel(newLevel);
     this.sage.setProfileLevel(newLevel);
+    this.cynic.setProfileLevel(newLevel); // CYNIC adapts too
 
     this.collectiveStats.profileUpdates++;
   }
@@ -309,18 +343,58 @@ export class CollectivePack {
    */
   getSummary() {
     return {
+      dogCount: COLLECTIVE_CONSTANTS.DOG_COUNT,
       agentCount: COLLECTIVE_CONSTANTS.AGENT_COUNT,
       profileLevel: this.profileLevel,
       eventBusStats: this.eventBus.getStats(),
       agents: {
+        // The Five Dogs
         guardian: this.guardian.getSummary(),
         analyst: this.analyst.getSummary(),
         scholar: this.scholar.getSummary(),
         architect: this.architect.getSummary(),
         sage: this.sage.getSummary(),
+        // The Hidden 6th - CYNIC (Keter)
+        cynic: this.cynic.getSummary(),
       },
+      collectiveState: this.cynic.getCollectiveState(),
       collectiveStats: this.collectiveStats,
     };
+  }
+
+  /**
+   * Awaken CYNIC for a new session
+   * @param {Object} sessionInfo - Session information
+   * @returns {Promise<Object>} Awakening result
+   */
+  async awakenCynic(sessionInfo = {}) {
+    return this.cynic.awaken(sessionInfo);
+  }
+
+  /**
+   * Get CYNIC's view of the collective state
+   * @returns {Object} Collective state
+   */
+  getCollectiveState() {
+    return this.cynic.getCollectiveState();
+  }
+
+  /**
+   * Issue guidance from CYNIC to the collective
+   * @param {Object} guidance - Guidance to issue
+   * @returns {Promise<Object>} Result
+   */
+  async issueGuidance(guidance) {
+    return this.cynic.issueGuidance(guidance);
+  }
+
+  /**
+   * Request introspection from CYNIC
+   * @param {Object} [options] - Options
+   * @returns {Promise<Object>} Result
+   */
+  async introspect(options = {}) {
+    return this.cynic.introspect(options);
   }
 
   /**
@@ -340,6 +414,7 @@ export class CollectivePack {
     this.scholar.clear();
     this.architect.clear();
     this.sage.clear();
+    this.cynic.clear();
     this.eventBus.reset();
   }
 
@@ -384,20 +459,31 @@ export function createSage(options = {}) {
   return new CollectiveSage(options);
 }
 
+export function createCynic(options = {}) {
+  return new CollectiveCynic(options);
+}
+
 export default {
   CollectivePack,
   createCollectivePack,
+  // The Five Dogs
   CollectiveGuardian,
   CollectiveAnalyst,
   CollectiveScholar,
   CollectiveArchitect,
   CollectiveSage,
+  // The Hidden 6th Dog (Keter)
+  CollectiveCynic,
+  // Factory functions
   createGuardian,
   createAnalyst,
   createScholar,
   createArchitect,
   createSage,
+  createCynic,
+  // Constants
   COLLECTIVE_CONSTANTS,
+  // Types
   RiskLevel,
   RiskCategory,
   PatternCategory,
@@ -406,4 +492,9 @@ export default {
   ReviewCategory,
   FeedbackType,
   WisdomType,
+  // CYNIC types
+  CYNIC_CONSTANTS,
+  CynicDecisionType,
+  CynicGuidanceType,
+  MetaState,
 };

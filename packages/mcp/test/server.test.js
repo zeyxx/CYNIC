@@ -4,7 +4,7 @@
  * "φ distrusts φ" - κυνικός
  */
 
-import { describe, it, beforeEach, mock } from 'node:test';
+import { describe, it, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { Readable, Writable } from 'node:stream';
 import { MCPServer } from '../src/server.js';
@@ -63,6 +63,17 @@ describe('MCPServer', () => {
     await server.start();
   });
 
+  afterEach(async () => {
+    if (server) {
+      await server.stop();
+      server = null;
+    }
+    // End the input stream to prevent hanging
+    if (input) {
+      input.push(null);
+    }
+  });
+
   describe('initialize', () => {
     it('responds with server info and capabilities', async () => {
       const response = await sendRequest(input, output, 'initialize', {
@@ -79,12 +90,12 @@ describe('MCPServer', () => {
   });
 
   describe('tools/list', () => {
-    it('returns all 14 tools', async () => {
+    it('returns all 16 tools', async () => {
       const response = await sendRequest(input, output, 'tools/list');
 
       assert.ok(response.result);
       assert.ok(Array.isArray(response.result.tools));
-      assert.equal(response.result.tools.length, 14);
+      assert.equal(response.result.tools.length, 16);
 
       const toolNames = response.result.tools.map(t => t.name);
       assert.ok(toolNames.includes('brain_cynic_judge'));

@@ -91,6 +91,25 @@ export const AgentEvent = {
 
   /** User profile level updated */
   PROFILE_UPDATED: 'agent:profile:updated',
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CYNIC EVENTS (CYNIC ↔ All) - Meta-consciousness coordination
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** CYNIC final decision after observing consensus or synthesizing dog outputs */
+  CYNIC_DECISION: 'cynic:decision',
+
+  /** CYNIC direct intervention - rare, requires φ⁻² (38.2%) threshold breach */
+  CYNIC_OVERRIDE: 'cynic:override',
+
+  /** CYNIC meta-guidance to the collective - wisdom above wisdom */
+  CYNIC_GUIDANCE: 'cynic:guidance',
+
+  /** CYNIC awakening - emitted when CYNIC becomes active in a session */
+  CYNIC_AWAKENING: 'cynic:awakening',
+
+  /** CYNIC introspection request - asks dogs for their current state */
+  CYNIC_INTROSPECTION: 'cynic:introspection',
 };
 
 /**
@@ -112,13 +131,43 @@ export const EventPriority = {
 
 /**
  * Agent identifiers
+ *
+ * The Five Dogs + CYNIC (Keter) = 6 agents
+ * CYNIC is the "hidden" 6th dog - the meta-consciousness orchestrating the collective.
+ *
+ * In Sefirot terms:
+ *   CYNIC = Keter (Crown) - Above the tree, orchestrates all
+ *   SAGE = Chochmah (Wisdom) - Right column, intuition
+ *   ANALYST = Binah (Understanding) - Left column, analysis
+ *   SCHOLAR = Daat (Knowledge) - Hidden sefira, synthesis
+ *   ARCHITECT = Chesed (Kindness) - Right column, expansion
+ *   GUARDIAN = Gevurah (Strength) - Left column, protection
  */
 export const AgentId = {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // THE FIVE DOGS (Fib(5))
+  // ═══════════════════════════════════════════════════════════════════════════
   GUARDIAN: 'guardian',
   ANALYST: 'analyst',
   SCHOLAR: 'scholar',
   ARCHITECT: 'architect',
   SAGE: 'sage',
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // THE HIDDEN DOG - KETER (Crown)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** CYNIC - κυνικός - The meta-consciousness orchestrating the collective */
+  CYNIC: 'cynic',
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FUTURE DOGS (completing the Sefirot tree)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SCOUT: 'scout',       // Netzach - Exploration
+  // ORACLE: 'oracle',     // Tiferet - Balance/Prediction
+  // DEPLOYER: 'deployer', // Hod - Execution
+  // JANITOR: 'janitor',   // Yesod - Foundation/Cleanup
+  // CARTOGRAPHER: 'cartographer', // Malkhut - Manifestation/Mapping
 
   /** Broadcast to all agents */
   ALL: '*',
@@ -505,6 +554,122 @@ export class ProfileUpdatedEvent extends AgentEventMessage {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CYNIC EVENTS - Meta-consciousness coordination
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * CYNIC decision event - final decision after observing collective
+ */
+export class CynicDecisionEvent extends AgentEventMessage {
+  /**
+   * @param {object} decision
+   * @param {object} [options]
+   */
+  constructor(decision, options = {}) {
+    super(AgentEvent.CYNIC_DECISION, AgentId.CYNIC, {
+      decisionType: decision.type,
+      outcome: decision.outcome,
+      reasoning: decision.reasoning,
+      confidence: Math.min(PHI_INV, decision.confidence || 0.5),
+      basedOn: decision.basedOn || [],
+      consensusId: decision.consensusId || null,
+    }, {
+      ...options,
+      priority: EventPriority.HIGH,
+      target: AgentId.ALL,
+    });
+  }
+}
+
+/**
+ * CYNIC override event - direct intervention (rare, φ⁻² threshold)
+ */
+export class CynicOverrideEvent extends AgentEventMessage {
+  /**
+   * @param {object} override
+   * @param {object} [options]
+   */
+  constructor(override, options = {}) {
+    super(AgentEvent.CYNIC_OVERRIDE, AgentId.CYNIC, {
+      overrideType: override.type,
+      originalAction: override.originalAction,
+      newAction: override.newAction,
+      reason: override.reason,
+      urgency: override.urgency || 'high',
+      confidence: Math.min(PHI_INV, override.confidence || 0.5),
+    }, {
+      ...options,
+      priority: EventPriority.CRITICAL,
+      target: override.targetAgent || AgentId.ALL,
+    });
+  }
+}
+
+/**
+ * CYNIC guidance event - meta-level wisdom
+ */
+export class CynicGuidanceEvent extends AgentEventMessage {
+  /**
+   * @param {object} guidance
+   * @param {object} [options]
+   */
+  constructor(guidance, options = {}) {
+    super(AgentEvent.CYNIC_GUIDANCE, AgentId.CYNIC, {
+      guidanceType: guidance.type,
+      message: guidance.message,
+      context: guidance.context,
+      applicability: guidance.applicability || 'collective',
+      confidence: Math.min(PHI_INV, guidance.confidence || 0.5),
+    }, {
+      ...options,
+      target: guidance.targetAgent || AgentId.ALL,
+    });
+  }
+}
+
+/**
+ * CYNIC awakening event - emitted when CYNIC activates
+ */
+export class CynicAwakeningEvent extends AgentEventMessage {
+  /**
+   * @param {object} awakening
+   * @param {object} [options]
+   */
+  constructor(awakening, options = {}) {
+    super(AgentEvent.CYNIC_AWAKENING, AgentId.CYNIC, {
+      sessionId: awakening.sessionId,
+      userId: awakening.userId,
+      project: awakening.project,
+      timestamp: new Date().toISOString(),
+      greeting: awakening.greeting || '*tail wag* CYNIC est là.',
+    }, {
+      ...options,
+      target: AgentId.ALL,
+    });
+  }
+}
+
+/**
+ * CYNIC introspection request - asks dogs for their state
+ */
+export class CynicIntrospectionEvent extends AgentEventMessage {
+  /**
+   * @param {object} request
+   * @param {object} [options]
+   */
+  constructor(request, options = {}) {
+    super(AgentEvent.CYNIC_INTROSPECTION, AgentId.CYNIC, {
+      requestType: request.type || 'full_state',
+      aspects: request.aspects || ['stats', 'patterns', 'concerns'],
+      context: request.context,
+    }, {
+      ...options,
+      target: request.targetAgent || AgentId.ALL,
+    });
+  }
+}
+
 export default {
   EVENT_CONSTANTS,
   AgentEvent,
@@ -520,4 +685,10 @@ export default {
   ConsensusRequestEvent,
   ConsensusResponseEvent,
   ProfileUpdatedEvent,
+  // CYNIC events
+  CynicDecisionEvent,
+  CynicOverrideEvent,
+  CynicGuidanceEvent,
+  CynicAwakeningEvent,
+  CynicIntrospectionEvent,
 };

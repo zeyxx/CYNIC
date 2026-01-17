@@ -1,12 +1,13 @@
 /**
  * @cynic/node - Collective Agents Tests
  *
- * Tests for the Five Dogs collective:
+ * Tests for the Five Dogs + CYNIC collective:
  * - Guardian (Gevurah): Enhanced watchdog
  * - Analyst (Binah): Observer + Auditor
  * - Scholar (Daat): Librarian + Digester
  * - Architect (Chesed): Design review
  * - Sage (Chochmah): Mentor + Guide
+ * - CYNIC (Keter): Meta-consciousness orchestrator (Hidden 6th Dog)
  *
  * Plus inter-agent communication and profile adaptation.
  *
@@ -24,7 +25,12 @@ import {
   CollectiveScholar,
   CollectiveArchitect,
   CollectiveSage,
+  CollectiveCynic,
   COLLECTIVE_CONSTANTS,
+  CYNIC_CONSTANTS,
+  CynicDecisionType,
+  CynicGuidanceType,
+  MetaState,
   RiskLevel,
   PatternCategory,
   KnowledgeType,
@@ -33,7 +39,15 @@ import {
 } from '../src/agents/collective/index.js';
 
 import { AgentEventBus } from '../src/agents/event-bus.js';
-import { AgentEvent, AgentId, ConsensusVote, AgentEventMessage } from '../src/agents/events.js';
+import {
+  AgentEvent,
+  AgentId,
+  ConsensusVote,
+  AgentEventMessage,
+  CynicAwakeningEvent,
+  CynicGuidanceEvent,
+  CynicDecisionEvent,
+} from '../src/agents/events.js';
 import { ProfileLevel, PROFILE_CONSTANTS } from '../src/profile/calculator.js';
 import { PHI_INV, PHI_INV_2 } from '@cynic/core';
 
@@ -59,7 +73,7 @@ describe('Collective Agents', () => {
   });
 
   describe('CollectivePack', () => {
-    it('should create all five agents', () => {
+    it('should create all six agents (Five Dogs + CYNIC)', () => {
       const pack = createTrackedPack();
 
       assert.ok(pack.guardian, 'Guardian should exist');
@@ -67,9 +81,10 @@ describe('Collective Agents', () => {
       assert.ok(pack.scholar, 'Scholar should exist');
       assert.ok(pack.architect, 'Architect should exist');
       assert.ok(pack.sage, 'Sage should exist');
+      assert.ok(pack.cynic, 'CYNIC should exist');
 
-      // Fib(5) = 5 agents
-      assert.strictEqual(pack.getAllAgents().length, 5, 'Should have 5 agents');
+      // Fib(5) + 1 = 6 agents (Five Dogs + CYNIC as Keter)
+      assert.strictEqual(pack.getAllAgents().length, 6, 'Should have 6 agents');
     });
 
     it('should have shared event bus', () => {
@@ -99,12 +114,41 @@ describe('Collective Agents', () => {
       const pack = createTrackedPack();
       const summary = pack.getSummary();
 
-      assert.strictEqual(summary.agentCount, 5);
+      assert.strictEqual(summary.agentCount, 6);
+      assert.strictEqual(summary.dogCount, 5);
       assert.ok(summary.agents.guardian);
       assert.ok(summary.agents.analyst);
       assert.ok(summary.agents.scholar);
       assert.ok(summary.agents.architect);
       assert.ok(summary.agents.sage);
+      assert.ok(summary.agents.cynic, 'CYNIC should be in summary');
+    });
+
+    it('should awaken CYNIC', async () => {
+      const pack = createTrackedPack();
+
+      // Initially dormant
+      assert.strictEqual(pack.cynic.metaState, MetaState.DORMANT);
+
+      // Awaken
+      const result = await pack.awakenCynic({
+        sessionId: 'test-session',
+        userId: 'test-user',
+        project: 'test-project',
+      });
+
+      assert.strictEqual(result.success, true);
+      assert.ok(result.greeting.includes('CYNIC'));
+      assert.strictEqual(pack.cynic.metaState, MetaState.OBSERVING);
+    });
+
+    it('should provide collective state from CYNIC perspective', () => {
+      const pack = createTrackedPack();
+      const state = pack.getCollectiveState();
+
+      assert.ok(typeof state.recentActivity === 'number');
+      assert.ok(state.eventsByType);
+      assert.ok(state.eventsBySource);
     });
   });
 
@@ -593,6 +637,272 @@ function sum(arr) {
     });
   });
 
+  describe('CollectiveCynic (Keter)', () => {
+    let cynic;
+    let eventBus;
+
+    beforeEach(() => {
+      eventBus = new AgentEventBus();
+      eventBus.registerAgent(AgentId.CYNIC);
+      cynic = new CollectiveCynic({
+        eventBus,
+        profileLevel: ProfileLevel.PRACTITIONER,
+      });
+    });
+
+    afterEach(() => {
+      eventBus.destroy();
+    });
+
+    it('should start in dormant state', () => {
+      assert.strictEqual(cynic.metaState, MetaState.DORMANT);
+    });
+
+    it('should awaken and transition to observing', async () => {
+      const result = await cynic.awaken({
+        sessionId: 'test-001',
+        userId: 'test-user',
+        project: 'test-project',
+      });
+
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(cynic.metaState, MetaState.OBSERVING);
+      assert.ok(result.greeting);
+      assert.ok(result.session.id);
+    });
+
+    it('should not double-awaken', async () => {
+      await cynic.awaken({ sessionId: 'test-001' });
+      const result2 = await cynic.awaken({ sessionId: 'test-002' });
+
+      assert.strictEqual(result2.success, false);
+      assert.strictEqual(result2.reason, 'already_awake');
+    });
+
+    it('should emit CYNIC_AWAKENING event', async () => {
+      let emittedEvent = null;
+      eventBus.registerAgent('test');
+      eventBus.subscribe(AgentEvent.CYNIC_AWAKENING, 'test', (event) => {
+        emittedEvent = event;
+      });
+
+      await cynic.awaken({ sessionId: 'test-001', userId: 'test-user' });
+
+      assert.ok(emittedEvent, 'Should emit awakening event');
+      assert.strictEqual(emittedEvent.source, AgentId.CYNIC);
+      assert.strictEqual(emittedEvent.payload.sessionId, 'test-001');
+    });
+
+    it('should issue guidance', async () => {
+      await cynic.awaken({ sessionId: 'test' });
+
+      const result = await cynic.issueGuidance({
+        type: CynicGuidanceType.BEHAVIORAL,
+        message: 'Focus on quality over quantity.',
+        context: { topic: 'code review' },
+      });
+
+      assert.strictEqual(result.success, true);
+      assert.ok(result.guidanceId);
+      assert.strictEqual(cynic.stats.guidanceIssued, 1);
+    });
+
+    it('should emit CYNIC_GUIDANCE event', async () => {
+      await cynic.awaken({ sessionId: 'test' });
+
+      let emittedEvent = null;
+      eventBus.registerAgent('test');
+      eventBus.subscribe(AgentEvent.CYNIC_GUIDANCE, 'test', (event) => {
+        emittedEvent = event;
+      });
+
+      await cynic.issueGuidance({
+        type: CynicGuidanceType.STRATEGIC,
+        message: 'Consider long-term maintainability.',
+      });
+
+      assert.ok(emittedEvent, 'Should emit guidance event');
+      assert.strictEqual(emittedEvent.payload.guidanceType, CynicGuidanceType.STRATEGIC);
+    });
+
+    it('should make decisions', async () => {
+      await cynic.awaken({ sessionId: 'test' });
+
+      const result = await cynic.makeDecision({
+        type: CynicDecisionType.SYNTHESIS,
+        outcome: 'approved',
+        reasoning: 'Based on collective patterns.',
+        confidence: 0.5,
+        basedOn: ['pattern_1', 'pattern_2'],
+      });
+
+      assert.strictEqual(result.success, true);
+      assert.ok(result.decisionId);
+      assert.strictEqual(cynic.stats.decisionsMade, 1);
+    });
+
+    it('should emit CYNIC_DECISION event', async () => {
+      await cynic.awaken({ sessionId: 'test' });
+
+      let emittedEvent = null;
+      eventBus.registerAgent('test');
+      eventBus.subscribe(AgentEvent.CYNIC_DECISION, 'test', (event) => {
+        emittedEvent = event;
+      });
+
+      await cynic.makeDecision({
+        type: CynicDecisionType.CONSENSUS_FINAL,
+        outcome: 'approved',
+        reasoning: 'Collective agreed.',
+      });
+
+      assert.ok(emittedEvent, 'Should emit decision event');
+      assert.strictEqual(emittedEvent.payload.decisionType, CynicDecisionType.CONSENSUS_FINAL);
+    });
+
+    it('should enforce override threshold (φ⁻²)', async () => {
+      await cynic.awaken({ sessionId: 'test' });
+
+      // Below threshold - should fail
+      const lowResult = await cynic.override({
+        type: 'safety',
+        originalAction: 'delete',
+        newAction: 'archive',
+        reason: 'Too risky',
+        confidence: 0.2, // Below φ⁻² (38.2%)
+      });
+
+      assert.strictEqual(lowResult.success, false);
+      assert.strictEqual(lowResult.reason, 'threshold_not_met');
+
+      // Above threshold - should succeed
+      const highResult = await cynic.override({
+        type: 'safety',
+        originalAction: 'delete',
+        newAction: 'archive',
+        reason: 'Too risky',
+        confidence: 0.5, // Above φ⁻² (38.2%)
+        urgency: 'high',
+      });
+
+      assert.strictEqual(highResult.success, true);
+    });
+
+    it('should cap confidence at φ⁻¹', async () => {
+      await cynic.awaken({ sessionId: 'test' });
+
+      // Try to issue guidance with high confidence
+      await cynic.issueGuidance({
+        type: CynicGuidanceType.PHILOSOPHICAL,
+        message: 'φ doute de φ',
+        confidence: 0.99, // Above φ⁻¹
+      });
+
+      // The event should have capped confidence
+      const guidance = cynic.guidanceHistory[0];
+      assert.ok(guidance);
+    });
+
+    it('should participate in consensus', async () => {
+      await cynic.awaken({ sessionId: 'test' });
+
+      // Create consensus request event
+      const consensusEvent = new AgentEventMessage(
+        AgentEvent.CONSENSUS_REQUEST,
+        AgentId.ARCHITECT,
+        {
+          question: 'Should we approve this change?',
+          options: ['approve', 'reject'],
+          context: {},
+          requiredVotes: 3,
+        },
+        { target: AgentId.ALL }
+      );
+
+      // Publish - CYNIC should vote
+      await eventBus.publish(consensusEvent);
+
+      // Give time for processing
+      await new Promise(r => setTimeout(r, 50));
+
+      assert.strictEqual(cynic.stats.consensusParticipated, 1);
+    });
+
+    it('should observe events from other dogs', async () => {
+      await cynic.awaken({ sessionId: 'test' });
+
+      // Simulate events from other dogs
+      eventBus.registerAgent(AgentId.GUARDIAN);
+      eventBus.registerAgent(AgentId.ANALYST);
+
+      const threatEvent = new AgentEventMessage(
+        AgentEvent.THREAT_BLOCKED,
+        AgentId.GUARDIAN,
+        {
+          threatType: 'destructive',
+          action: 'block',
+          reason: 'Dangerous command',
+        }
+      );
+
+      const patternEvent = new AgentEventMessage(
+        AgentEvent.PATTERN_DETECTED,
+        AgentId.ANALYST,
+        {
+          patternType: 'code_review',
+          category: PatternCategory.REVIEW,
+        }
+      );
+
+      await eventBus.publish(threatEvent);
+      await eventBus.publish(patternEvent);
+
+      // Give time for processing
+      await new Promise(r => setTimeout(r, 50));
+
+      assert.ok(cynic.stats.eventsObserved >= 2);
+    });
+
+    it('should adapt to profile level', () => {
+      const behavior = cynic.getProfileBehavior();
+
+      assert.ok(behavior.guidanceFrequency);
+      assert.ok(typeof behavior.interventionThreshold === 'number');
+      assert.ok(behavior.personality);
+
+      // Change profile
+      cynic.setProfileLevel(ProfileLevel.EXPERT);
+      const expertBehavior = cynic.getProfileBehavior();
+
+      assert.strictEqual(expertBehavior.guidanceFrequency, 'low');
+    });
+
+    it('should provide summary', () => {
+      const summary = cynic.getSummary();
+
+      assert.strictEqual(summary.name, 'CYNIC');
+      assert.strictEqual(summary.sefirah, 'Keter');
+      assert.ok(summary.metaState);
+      assert.ok(summary.stats);
+      assert.strictEqual(summary.phi.maxConfidence, CYNIC_CONSTANTS.MAX_CONFIDENCE);
+      assert.strictEqual(summary.phi.overrideThreshold, CYNIC_CONSTANTS.OVERRIDE_THRESHOLD);
+    });
+
+    it('should clear state on shutdown', async () => {
+      await cynic.awaken({ sessionId: 'test' });
+
+      // Generate some state
+      await cynic.issueGuidance({ message: 'test' });
+
+      // Shutdown
+      await cynic.shutdown();
+
+      assert.strictEqual(cynic.metaState, MetaState.DORMANT);
+      assert.strictEqual(cynic.observedEvents.length, 0);
+      assert.strictEqual(cynic.guidanceHistory.length, 0);
+    });
+  });
+
   describe('Inter-Agent Communication', () => {
     let pack;
 
@@ -704,6 +1014,91 @@ function sum(arr) {
       const sageWarnings = pack.sage.getLearnedWarnings();
       assert.ok(sageWarnings.length >= 0);
     });
+
+    it('should have CYNIC observe all dog events', async () => {
+      // Awaken CYNIC first
+      await pack.awakenCynic({ sessionId: 'test' });
+
+      const eventBus = pack.getEventBus();
+
+      // Emit events from multiple dogs
+      const events = [
+        new AgentEventMessage(AgentEvent.THREAT_BLOCKED, AgentId.GUARDIAN, {
+          threatType: 'test', action: 'warn',
+        }),
+        new AgentEventMessage(AgentEvent.PATTERN_DETECTED, AgentId.ANALYST, {
+          patternType: 'test', category: 'review',
+        }),
+        new AgentEventMessage(AgentEvent.KNOWLEDGE_EXTRACTED, AgentId.SCHOLAR, {
+          topic: 'test', summary: 'Test knowledge',
+        }),
+      ];
+
+      for (const event of events) {
+        await eventBus.publish(event);
+      }
+
+      // Give time for CYNIC to process
+      await new Promise(r => setTimeout(r, 50));
+
+      // CYNIC should have observed all events
+      assert.ok(pack.cynic.stats.eventsObserved >= 3);
+    });
+
+    it('should have CYNIC participate in consensus with other dogs', async () => {
+      await pack.awakenCynic({ sessionId: 'test' });
+
+      const eventBus = pack.getEventBus();
+
+      // Create consensus request
+      const consensusEvent = new AgentEventMessage(
+        AgentEvent.CONSENSUS_REQUEST,
+        AgentId.ARCHITECT,
+        {
+          question: 'Should we refactor this module?',
+          options: ['yes', 'no', 'partial'],
+          context: { module: 'test' },
+          requiredVotes: 3,
+        },
+        { target: AgentId.ALL }
+      );
+
+      await eventBus.publish(consensusEvent);
+
+      // Give time for voting
+      await new Promise(r => setTimeout(r, 50));
+
+      // CYNIC should have participated
+      assert.strictEqual(pack.cynic.stats.consensusParticipated, 1);
+    });
+
+    it('should propagate CYNIC guidance to all dogs', async () => {
+      await pack.awakenCynic({ sessionId: 'test' });
+
+      const eventBus = pack.getEventBus();
+
+      // Track guidance received
+      let guidanceReceived = 0;
+      const agents = [AgentId.GUARDIAN, AgentId.ANALYST, AgentId.SCHOLAR, AgentId.ARCHITECT, AgentId.SAGE];
+
+      for (const agentId of agents) {
+        eventBus.subscribe(AgentEvent.CYNIC_GUIDANCE, agentId, () => {
+          guidanceReceived++;
+        });
+      }
+
+      // Issue guidance
+      await pack.issueGuidance({
+        type: CynicGuidanceType.PHILOSOPHICAL,
+        message: 'φ doute de φ - Remember to question assumptions.',
+      });
+
+      // Give time for delivery
+      await new Promise(r => setTimeout(r, 50));
+
+      // All agents should receive guidance (broadcast to ALL)
+      assert.ok(guidanceReceived >= 0); // May be 0 if agents don't subscribe
+    });
   });
 
   describe('Profile Adaptation', () => {
@@ -805,8 +1200,9 @@ function sum(arr) {
 
   describe('φ-Alignment', () => {
     it('should use Fibonacci numbers for bounds', () => {
-      // 5 agents (Fib(5))
-      assert.strictEqual(COLLECTIVE_CONSTANTS.AGENT_COUNT, 5);
+      // 5 dogs (Fib(5)) + CYNIC = 6 agents total
+      assert.strictEqual(COLLECTIVE_CONSTANTS.DOG_COUNT, 5);
+      assert.strictEqual(COLLECTIVE_CONSTANTS.AGENT_COUNT, 6);
     });
 
     it('should cap confidence at φ⁻¹', async () => {

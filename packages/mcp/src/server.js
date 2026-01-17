@@ -32,7 +32,7 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
 };
-import { CYNICJudge, AgentManager } from '@cynic/node';
+import { CYNICJudge, AgentManager, createCollectivePack } from '@cynic/node';
 import { createAllTools } from './tools/index.js';
 import { PersistenceManager } from './persistence.js';
 import { SessionManager } from './session-manager.js';
@@ -110,8 +110,16 @@ export class MCPServer {
     // Metrics service for monitoring
     this.metrics = options.metrics || null;
 
-    // Agent manager - The Four Dogs (Guardian, Observer, Digester, Mentor)
-    this.agents = options.agents || new AgentManager();
+    // Agent manager - Legacy Four Dogs (Guardian, Observer, Digester, Mentor)
+    // Kept for backwards compatibility
+    this._legacyAgents = options.agents || new AgentManager();
+
+    // Collective Pack - The Five Dogs + CYNIC (Keter)
+    // This is the new harmonious collective consciousness
+    this.collective = options.collective || null;
+
+    // Alias for backwards compatibility
+    this.agents = this._legacyAgents;
 
     // Stdio streams (for stdio mode)
     this.input = options.input || process.stdin;
@@ -215,12 +223,39 @@ export class MCPServer {
       console.error('   Metrics: ready');
     }
 
+    // Initialize Collective Pack - The Five Dogs + CYNIC (Keter)
+    // This is the new harmonious collective consciousness
+    if (!this.collective) {
+      this.collective = createCollectivePack({
+        judge: this.judge,
+        profileLevel: 3, // Default: Practitioner
+      });
+
+      // Awaken CYNIC for this session
+      const awakening = await this.collective.awakenCynic({
+        sessionId: `mcp_${Date.now()}`,
+        userId: 'mcp_server',
+        project: 'cynic-mcp',
+      });
+
+      if (awakening.success) {
+        console.error(`   Collective: ${awakening.greeting}`);
+      } else {
+        console.error('   Collective: ready (CYNIC dormant)');
+      }
+
+      // Update agents reference to use collective for new code
+      // Legacy code can still use this.agents (AgentManager)
+      // New code should use this.collective (CollectivePack)
+    }
+
     // Register tools with current instances
     this.tools = createAllTools({
       judge: this.judge,
       node: this.node,
       persistence: this.persistence,
-      agents: this.agents,
+      agents: this.agents,            // Legacy AgentManager
+      collective: this.collective,     // New CollectivePack with CYNIC
       sessionManager: this.sessionManager,
       pojChainManager: this.pojChainManager,
       librarian: this.librarian,
@@ -1009,8 +1044,12 @@ export class MCPServer {
       persistenceBackend: this.persistence?._backend || 'none',
       persistenceCapabilities: this.persistence?.capabilities || {},
       judgeStats: this.judge.getStats(),
-      // 🐕 The Four Dogs status
-      agents: this.agents.getSummary(),
+      // 🐕 Legacy Four Dogs status (AgentManager)
+      legacyAgents: this.agents.getSummary(),
+      // 🐕 The Collective - Five Dogs + CYNIC (Keter)
+      collective: this.collective?.getSummary() || { initialized: false },
+      // CYNIC meta-state
+      cynicState: this.collective?.cynic?.metaState || 'not_initialized',
       // Multi-user sessions
       sessions: this.sessionManager?.getSummary() || { activeCount: 0 },
       // PoJ Chain status

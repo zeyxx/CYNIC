@@ -64,7 +64,7 @@ export {
 // API
 export { APIServer } from './api/index.js';
 
-// Agents - The Four Dogs
+// Agents - The Four Dogs (Legacy v1)
 export {
   BaseAgent,
   AgentTrigger,
@@ -83,4 +83,30 @@ export {
   ContextSignal,
   AgentManager,
   createAgentPack,
+} from './agents/index.js';
+
+// Agents - The Collective (Five Dogs + CYNIC - v2)
+export {
+  CollectivePack,
+  createCollectivePack,
+  CollectiveGuardian,
+  CollectiveAnalyst,
+  CollectiveScholar,
+  CollectiveArchitect,
+  CollectiveSage,
+  CollectiveCynic,
+  COLLECTIVE_CONSTANTS,
+  CYNIC_CONSTANTS,
+  CynicDecisionType,
+  CynicGuidanceType,
+  MetaState,
+} from './agents/index.js';
+
+// Event system (for inter-agent communication)
+export {
+  AgentEventBus,
+  AgentEvent,
+  AgentId,
+  EventPriority,
+  ConsensusVote,
 } from './agents/index.js';
