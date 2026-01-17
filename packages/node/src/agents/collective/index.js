@@ -54,6 +54,9 @@ import { CollectiveScholar, KnowledgeType } from './scholar.js';
 import { CollectiveArchitect, ReviewCategory, FeedbackType } from './architect.js';
 import { CollectiveSage, WisdomType } from './sage.js';
 
+// Import additional dogs (completing the Sefirot tree)
+import { CollectiveJanitor, JANITOR_CONSTANTS, QualitySeverity, IssueType } from './janitor.js';
+
 // Import CYNIC - The Hidden Sixth Dog (Keter)
 import {
   CollectiveCynic,
@@ -71,6 +74,8 @@ export {
   CollectiveArchitect,
   CollectiveSage,
   CollectiveCynic,
+  // Additional dogs
+  CollectiveJanitor,
 };
 
 // Re-export types
@@ -88,17 +93,25 @@ export {
   CynicDecisionType,
   CynicGuidanceType,
   MetaState,
+  // Janitor types
+  JANITOR_CONSTANTS,
+  QualitySeverity,
+  IssueType,
 };
 
 /**
  * φ-aligned constants for collective
+ *
+ * Dogs progress toward 10 (Sefirot):
+ * - Current: 5 original + 1 CYNIC + 1 Janitor = 7
+ * - Planned: +Scout, +Cartographer, +Oracle, +Deployer = 11 total
  */
 export const COLLECTIVE_CONSTANTS = {
-  /** Number of dogs (Fib(5) = 5) */
+  /** Number of original dogs (Fib(5) = 5) */
   DOG_COUNT: 5,
 
-  /** Total agents including CYNIC (Fib(5) + 1 = 6) */
-  AGENT_COUNT: 6,
+  /** Total agents including CYNIC + Janitor (5 + 2 = 7) */
+  AGENT_COUNT: 7,
 
   /** Max collective confidence (φ⁻¹) */
   MAX_CONFIDENCE: PHI_INV,
@@ -139,7 +152,8 @@ export class CollectivePack {
     this.eventBus.registerAgent(AgentId.SCHOLAR);
     this.eventBus.registerAgent(AgentId.ARCHITECT);
     this.eventBus.registerAgent(AgentId.SAGE);
-    this.eventBus.registerAgent(AgentId.CYNIC); // The Hidden 6th Dog (Keter)
+    this.eventBus.registerAgent(AgentId.CYNIC); // The Hidden Dog (Keter)
+    this.eventBus.registerAgent(AgentId.JANITOR); // Foundation (Yesod)
     this.eventBus.registerAgent('collective'); // For pack-level subscriptions
 
     // Create agents with shared infrastructure
@@ -180,7 +194,7 @@ export class CollectivePack {
       state: options.state,
     });
 
-    // CYNIC - The Hidden 6th Dog (Keter) - Meta-consciousness
+    // CYNIC - The Hidden Dog (Keter) - Meta-consciousness
     this.cynic = new CollectiveCynic({
       eventBus: this.eventBus,
       profileLevel: this.profileLevel,
@@ -188,7 +202,13 @@ export class CollectivePack {
       state: options.state,
     });
 
-    // Agent map for lookup (5 Dogs + CYNIC)
+    // Janitor - Foundation (Yesod) - Code quality & hygiene
+    this.janitor = new CollectiveJanitor({
+      eventBus: this.eventBus,
+      profileLevel: this.profileLevel,
+    });
+
+    // Agent map for lookup (5 original Dogs + CYNIC + Janitor)
     this.agents = new Map([
       [AgentId.GUARDIAN, this.guardian],
       [AgentId.ANALYST, this.analyst],
@@ -196,6 +216,7 @@ export class CollectivePack {
       [AgentId.ARCHITECT, this.architect],
       [AgentId.SAGE, this.sage],
       [AgentId.CYNIC, this.cynic], // Keter - The Crown
+      [AgentId.JANITOR, this.janitor], // Yesod - Foundation
     ]);
 
     // Stats
@@ -229,13 +250,14 @@ export class CollectivePack {
   _handleProfileUpdate(event) {
     const { newLevel } = event.payload;
 
-    // Update all agents (5 Dogs + CYNIC)
+    // Update all agents
     this.profileLevel = newLevel;
     this.guardian.setProfileLevel(newLevel);
     this.scholar.setProfileLevel(newLevel);
     this.architect.setProfileLevel(newLevel);
     this.sage.setProfileLevel(newLevel);
-    this.cynic.setProfileLevel(newLevel); // CYNIC adapts too
+    this.cynic.setProfileLevel(newLevel);
+    this.janitor.profileLevel = newLevel; // Janitor uses direct property
 
     this.collectiveStats.profileUpdates++;
   }
@@ -354,8 +376,10 @@ export class CollectivePack {
         scholar: this.scholar.getSummary(),
         architect: this.architect.getSummary(),
         sage: this.sage.getSummary(),
-        // The Hidden 6th - CYNIC (Keter)
+        // The Hidden Dog - CYNIC (Keter)
         cynic: this.cynic.getSummary(),
+        // Additional Dogs
+        janitor: this.janitor.getSummary(),
       },
       collectiveState: this.cynic.getCollectiveState(),
       collectiveStats: this.collectiveStats,
@@ -463,6 +487,10 @@ export function createCynic(options = {}) {
   return new CollectiveCynic(options);
 }
 
+export function createJanitor(options = {}) {
+  return new CollectiveJanitor(options);
+}
+
 export default {
   CollectivePack,
   createCollectivePack,
@@ -472,8 +500,10 @@ export default {
   CollectiveScholar,
   CollectiveArchitect,
   CollectiveSage,
-  // The Hidden 6th Dog (Keter)
+  // The Hidden Dog (Keter)
   CollectiveCynic,
+  // Additional Dogs (Sefirot)
+  CollectiveJanitor,
   // Factory functions
   createGuardian,
   createAnalyst,
@@ -481,6 +511,7 @@ export default {
   createArchitect,
   createSage,
   createCynic,
+  createJanitor,
   // Constants
   COLLECTIVE_CONSTANTS,
   // Types
@@ -497,4 +528,8 @@ export default {
   CynicDecisionType,
   CynicGuidanceType,
   MetaState,
+  // Janitor types
+  JANITOR_CONSTANTS,
+  QualitySeverity,
+  IssueType,
 };

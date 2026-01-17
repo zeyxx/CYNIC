@@ -78,7 +78,7 @@ export {
   WisdomType as LegacyWisdomType,
 } from './mentor.js';
 
-// Collective Five Dogs + CYNIC (v2)
+// Collective Dogs + CYNIC (v2)
 export {
   CollectivePack,
   createCollectivePack,
@@ -88,8 +88,10 @@ export {
   CollectiveScholar,
   CollectiveArchitect,
   CollectiveSage,
-  // The Hidden 6th Dog (Keter)
+  // The Hidden Dog (Keter)
   CollectiveCynic,
+  // Additional Dogs (Sefirot)
+  CollectiveJanitor,
   // Factory functions
   createGuardian,
   createAnalyst,
@@ -97,6 +99,7 @@ export {
   createArchitect,
   createSage,
   createCynic,
+  createJanitor,
   // Constants
   COLLECTIVE_CONSTANTS,
   // Types
@@ -113,6 +116,10 @@ export {
   CynicDecisionType,
   CynicGuidanceType,
   MetaState,
+  // Janitor types
+  JANITOR_CONSTANTS,
+  QualitySeverity,
+  IssueType,
 } from './collective/index.js';
 
 // Convenience imports for default exports
@@ -131,6 +138,7 @@ import {
   CollectiveArchitect,
   CollectiveSage,
   CollectiveCynic,
+  CollectiveJanitor,
 } from './collective/index.js';
 
 /**
@@ -327,7 +335,7 @@ export default {
   AgentManager,
   createAgentPack,
 
-  // Collective Five Dogs + CYNIC (v2)
+  // Collective Dogs + CYNIC (v2)
   CollectivePack,
   createCollectivePack,
   CollectiveGuardian,
@@ -335,5 +343,6 @@ export default {
   CollectiveScholar,
   CollectiveArchitect,
   CollectiveSage,
-  CollectiveCynic, // The Hidden 6th Dog (Keter)
+  CollectiveCynic, // The Hidden Dog (Keter)
+  CollectiveJanitor, // Foundation (Yesod)
 };
