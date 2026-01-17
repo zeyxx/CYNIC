@@ -58,6 +58,7 @@ import { CollectiveSage, WisdomType } from './sage.js';
 import { CollectiveJanitor, JANITOR_CONSTANTS, QualitySeverity, IssueType } from './janitor.js';
 import { CollectiveScout, SCOUT_CONSTANTS, DiscoveryType, OpportunityType } from './scout.js';
 import { CollectiveCartographer, CARTOGRAPHER_CONSTANTS, RepoType, ConnectionType, MapIssueType } from './cartographer.js';
+import { CollectiveOracle, ORACLE_CONSTANTS, ViewType, MetricType, AlertSeverity } from './oracle.js';
 
 // Import CYNIC - The Hidden Sixth Dog (Keter)
 import {
@@ -80,6 +81,7 @@ export {
   CollectiveJanitor,
   CollectiveScout,
   CollectiveCartographer,
+  CollectiveOracle,
 };
 
 // Re-export types
@@ -110,6 +112,11 @@ export {
   RepoType,
   ConnectionType,
   MapIssueType,
+  // Oracle types
+  ORACLE_CONSTANTS,
+  ViewType,
+  MetricType,
+  AlertSeverity,
 };
 
 /**
@@ -123,8 +130,8 @@ export const COLLECTIVE_CONSTANTS = {
   /** Number of original dogs (Fib(5) = 5) */
   DOG_COUNT: 5,
 
-  /** Total agents including CYNIC + Janitor + Scout + Cartographer (5 + 4 = 9) */
-  AGENT_COUNT: 9,
+  /** Total agents including CYNIC + Janitor + Scout + Cartographer + Oracle (5 + 5 = 10) */
+  AGENT_COUNT: 10,
 
   /** Max collective confidence (φ⁻¹) */
   MAX_CONFIDENCE: PHI_INV,
@@ -169,6 +176,7 @@ export class CollectivePack {
     this.eventBus.registerAgent(AgentId.JANITOR); // Foundation (Yesod)
     this.eventBus.registerAgent(AgentId.SCOUT); // Victory (Netzach)
     this.eventBus.registerAgent(AgentId.CARTOGRAPHER); // Kingdom (Malkhut)
+    this.eventBus.registerAgent(AgentId.ORACLE); // Beauty (Tiferet)
     this.eventBus.registerAgent('collective'); // For pack-level subscriptions
 
     // Create agents with shared infrastructure
@@ -235,7 +243,13 @@ export class CollectivePack {
       profileLevel: this.profileLevel,
     });
 
-    // Agent map for lookup (5 original Dogs + CYNIC + Janitor + Scout + Cartographer)
+    // Oracle - Beauty (Tiferet) - Visualization & monitoring
+    this.oracle = new CollectiveOracle({
+      eventBus: this.eventBus,
+      profileLevel: this.profileLevel,
+    });
+
+    // Agent map for lookup (5 original Dogs + CYNIC + Janitor + Scout + Cartographer + Oracle)
     this.agents = new Map([
       [AgentId.GUARDIAN, this.guardian],
       [AgentId.ANALYST, this.analyst],
@@ -246,6 +260,7 @@ export class CollectivePack {
       [AgentId.JANITOR, this.janitor], // Yesod - Foundation
       [AgentId.SCOUT, this.scout], // Netzach - Victory
       [AgentId.CARTOGRAPHER, this.cartographer], // Malkhut - Kingdom
+      [AgentId.ORACLE, this.oracle], // Tiferet - Beauty
     ]);
 
     // Stats
@@ -289,6 +304,7 @@ export class CollectivePack {
     this.janitor.profileLevel = newLevel; // Janitor uses direct property
     this.scout.setProfileLevel(newLevel);
     this.cartographer.setProfileLevel(newLevel);
+    this.oracle.setProfileLevel(newLevel);
 
     this.collectiveStats.profileUpdates++;
   }
@@ -413,6 +429,7 @@ export class CollectivePack {
         janitor: this.janitor.getSummary(),
         scout: this.scout.getSummary(),
         cartographer: this.cartographer.getSummary(),
+        oracle: this.oracle.getSummary(),
       },
       collectiveState: this.cynic.getCollectiveState(),
       collectiveStats: this.collectiveStats,
@@ -475,6 +492,7 @@ export class CollectivePack {
     this.janitor.clear();
     this.scout.clear();
     this.cartographer.clear();
+    this.oracle.clear();
     this.eventBus.reset();
   }
 
@@ -535,6 +553,10 @@ export function createCartographer(options = {}) {
   return new CollectiveCartographer(options);
 }
 
+export function createOracle(options = {}) {
+  return new CollectiveOracle(options);
+}
+
 export default {
   CollectivePack,
   createCollectivePack,
@@ -550,6 +572,7 @@ export default {
   CollectiveJanitor,
   CollectiveScout,
   CollectiveCartographer,
+  CollectiveOracle,
   // Factory functions
   createGuardian,
   createAnalyst,
@@ -560,6 +583,7 @@ export default {
   createJanitor,
   createScout,
   createCartographer,
+  createOracle,
   // Constants
   COLLECTIVE_CONSTANTS,
   // Types
@@ -589,4 +613,9 @@ export default {
   RepoType,
   ConnectionType,
   MapIssueType,
+  // Oracle types
+  ORACLE_CONSTANTS,
+  ViewType,
+  MetricType,
+  AlertSeverity,
 };

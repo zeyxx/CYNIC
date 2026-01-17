@@ -94,6 +94,7 @@ export {
   CollectiveJanitor,
   CollectiveScout,
   CollectiveCartographer,
+  CollectiveOracle,
   // Factory functions
   createGuardian,
   createAnalyst,
@@ -104,6 +105,7 @@ export {
   createJanitor,
   createScout,
   createCartographer,
+  createOracle,
   // Constants
   COLLECTIVE_CONSTANTS,
   // Types
@@ -133,6 +135,11 @@ export {
   RepoType,
   ConnectionType,
   MapIssueType,
+  // Oracle types
+  ORACLE_CONSTANTS,
+  ViewType,
+  MetricType,
+  AlertSeverity,
 } from './collective/index.js';
 
 // Convenience imports for default exports
@@ -154,6 +161,7 @@ import {
   CollectiveJanitor,
   CollectiveScout,
   CollectiveCartographer,
+  CollectiveOracle,
 } from './collective/index.js';
 
 /**
@@ -362,4 +370,5 @@ export default {
   CollectiveJanitor, // Foundation (Yesod)
   CollectiveScout, // Victory (Netzach)
   CollectiveCartographer, // Kingdom (Malkhut)
+  CollectiveOracle, // Beauty (Tiferet)
 };
