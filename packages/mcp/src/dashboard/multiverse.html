@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CYNIC Multiverse Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      overflow: hidden;
+    }
+
+    #canvas-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* HUD Overlay */
+    .hud {
+      position: fixed;
+      z-index: 100;
+      pointer-events: none;
+    }
+
+    .hud-panel {
+      background: rgba(10, 10, 20, 0.85);
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      border-radius: 8px;
+      padding: 16px;
+      backdrop-filter: blur(10px);
+      pointer-events: auto;
+    }
+
+    /* Top Left - Identity */
+    .hud-identity {
+      top: 20px;
+      left: 20px;
+    }
+
+    .hud-identity h1 {
+      font-size: 24px;
+      color: #FFD700;
+      margin-bottom: 8px;
+    }
+
+    .hud-identity .greek {
+      font-size: 14px;
+      color: #888;
+    }
+
+    .hud-identity .version {
+      font-size: 12px;
+      color: #4169E1;
+      margin-top: 4px;
+    }
+
+    /* Top Right - User Profile */
+    .hud-profile {
+      top: 20px;
+      right: 20px;
+      width: 280px;
+    }
+
+    .hud-profile h2 {
+      font-size: 16px;
+      color: #00ff88;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .stat-label { color: #888; }
+    .stat-value { color: #fff; font-weight: bold; }
+
+    .progress-bar {
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+      margin-top: 4px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.5s ease;
+    }
+
+    /* Bottom Left - Axioms */
+    .hud-axioms {
+      bottom: 20px;
+      left: 20px;
+      width: 320px;
+    }
+
+    .hud-axioms h2 {
+      font-size: 14px;
+      color: #FFD700;
+      margin-bottom: 12px;
+    }
+
+    .axiom {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+      padding: 8px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.03);
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .axiom:hover {
+      background: rgba(255,255,255,0.08);
+      transform: translateX(4px);
+    }
+
+    .axiom-symbol {
+      font-size: 20px;
+      width: 32px;
+      text-align: center;
+    }
+
+    .axiom-info {
+      flex: 1;
+    }
+
+    .axiom-name {
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .axiom-question {
+      font-size: 11px;
+      color: #666;
+    }
+
+    /* Bottom Right - Gaps */
+    .hud-gaps {
+      bottom: 20px;
+      right: 20px;
+      width: 300px;
+    }
+
+    .hud-gaps h2 {
+      font-size: 14px;
+      color: #ff6b6b;
+      margin-bottom: 12px;
+    }
+
+    .gap {
+      padding: 8px;
+      margin-bottom: 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .gap-critical {
+      background: rgba(255, 0, 0, 0.15);
+      border-left: 3px solid #ff4444;
+    }
+
+    .gap-important {
+      background: rgba(255, 165, 0, 0.15);
+      border-left: 3px solid #ffa500;
+    }
+
+    .gap:hover {
+      transform: translateX(4px);
+    }
+
+    /* Center - Controls */
+    .hud-controls {
+      bottom: 50%;
+      left: 50%;
+      transform: translate(-50%, 50%);
+    }
+
+    .hud-controls.hidden {
+      display: none;
+    }
+
+    .control-hint {
+      font-size: 12px;
+      color: #666;
+      text-align: center;
+    }
+
+    /* Navigation */
+    .nav-buttons {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+      z-index: 100;
+    }
+
+    .nav-btn {
+      padding: 8px 16px;
+      background: rgba(255, 215, 0, 0.1);
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      border-radius: 20px;
+      color: #FFD700;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      transition: all 0.3s;
+    }
+
+    .nav-btn:hover {
+      background: rgba(255, 215, 0, 0.2);
+      border-color: rgba(255, 215, 0, 0.6);
+    }
+
+    .nav-btn.active {
+      background: rgba(255, 215, 0, 0.3);
+      border-color: #FFD700;
+    }
+
+    /* Loading */
+    #loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #0a0a0f;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      transition: opacity 0.5s;
+    }
+
+    #loading.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loader {
+      width: 60px;
+      height: 60px;
+      border: 3px solid rgba(255, 215, 0, 0.2);
+      border-top-color: #FFD700;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loader-text {
+      margin-top: 20px;
+      color: #FFD700;
+      font-size: 14px;
+    }
+
+    /* Tooltip */
+    #tooltip {
+      position: fixed;
+      padding: 12px 16px;
+      background: rgba(10, 10, 20, 0.95);
+      border: 1px solid rgba(255, 215, 0, 0.4);
+      border-radius: 6px;
+      font-size: 12px;
+      max-width: 250px;
+      pointer-events: none;
+      z-index: 200;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    #tooltip.visible {
+      opacity: 1;
+    }
+
+    #tooltip h4 {
+      color: #FFD700;
+      margin-bottom: 6px;
+    }
+
+    #tooltip p {
+      color: #aaa;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <!-- Loading Screen -->
+  <div id="loading">
+    <div class="loader"></div>
+    <div class="loader-text">Initializing CYNIC Multiverse...</div>
+  </div>
+
+  <!-- 3D Canvas -->
+  <div id="canvas-container"></div>
+
+  <!-- HUD: Identity -->
+  <div class="hud hud-identity hud-panel">
+    <h1>🐕 CYNIC</h1>
+    <div class="greek">κυνικός - "comme un chien"</div>
+    <div class="version">v0.4.0 | Max Confidence: 61.8%</div>
+  </div>
+
+  <!-- HUD: User Profile -->
+  <div class="hud hud-profile hud-panel">
+    <h2>👤 ZEYXX Profile</h2>
+    <div class="stat-row">
+      <span class="stat-label">Commits</span>
+      <span class="stat-value">116</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Lines Added</span>
+      <span class="stat-value">78,197</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Commits/Day</span>
+      <span class="stat-value">~29</span>
+    </div>
+
+    <div style="margin-top: 16px; font-size: 12px; color: #888;">DOMAINES</div>
+
+    <div class="stat-row">
+      <span class="stat-label">Consensus</span>
+      <span class="stat-value" style="color: #00ff88;">17</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width: 100%; background: #00ff88;"></div>
+    </div>
+
+    <div class="stat-row" style="margin-top: 8px;">
+      <span class="stat-label">Persistence</span>
+      <span class="stat-value" style="color: #4169E1;">11</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width: 65%; background: #4169E1;"></div>
+    </div>
+
+    <div class="stat-row" style="margin-top: 8px;">
+      <span class="stat-label">MCP</span>
+      <span class="stat-value" style="color: #9370DB;">10</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width: 59%; background: #9370DB;"></div>
+    </div>
+
+    <div class="stat-row" style="margin-top: 8px;">
+      <span class="stat-label">Agents</span>
+      <span class="stat-value" style="color: #FF6B6B;">8</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width: 47%; background: #FF6B6B;"></div>
+    </div>
+
+    <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+      <div style="font-size: 11px; color: #ff6b6b;">⚠️ Test/Feat ratio: 0.19 (recommandé: >0.5)</div>
+    </div>
+  </div>
+
+  <!-- HUD: Axioms -->
+  <div class="hud hud-axioms hud-panel">
+    <h2>THE FOUR AXIOMS</h2>
+
+    <div class="axiom" data-axiom="PHI" style="border-left: 3px solid #FFD700;">
+      <div class="axiom-symbol">φ</div>
+      <div class="axiom-info">
+        <div class="axiom-name" style="color: #FFD700;">PHI - Atzilut</div>
+        <div class="axiom-question">Does it embody φ?</div>
+      </div>
+    </div>
+
+    <div class="axiom" data-axiom="VERIFY" style="border-left: 3px solid #4169E1;">
+      <div class="axiom-symbol">✓</div>
+      <div class="axiom-info">
+        <div class="axiom-name" style="color: #4169E1;">VERIFY - Beriah</div>
+        <div class="axiom-question">Can it be verified?</div>
+      </div>
+    </div>
+
+    <div class="axiom" data-axiom="CULTURE" style="border-left: 3px solid #228B22;">
+      <div class="axiom-symbol">⛩</div>
+      <div class="axiom-info">
+        <div class="axiom-name" style="color: #228B22;">CULTURE - Yetzirah</div>
+        <div class="axiom-question">Does it respect culture?</div>
+      </div>
+    </div>
+
+    <div class="axiom" data-axiom="BURN" style="border-left: 3px solid #FF4500;">
+      <div class="axiom-symbol">🔥</div>
+      <div class="axiom-info">
+        <div class="axiom-name" style="color: #FF4500;">BURN - Assiah</div>
+        <div class="axiom-question">Does it burn?</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HUD: Gaps -->
+  <div class="hud hud-gaps hud-panel">
+    <h2>⚠️ GAPS TO ADDRESS</h2>
+
+    <div class="gap gap-critical">
+      <strong>HolDex Integration</strong>
+      <div style="color: #888; margin-top: 4px;">K-Score flow not connected</div>
+    </div>
+
+    <div class="gap gap-critical">
+      <strong>GASdf Integration</strong>
+      <div style="color: #888; margin-top: 4px;">Gasless transactions missing</div>
+    </div>
+
+    <div class="gap gap-important">
+      <strong>5 Missing Dogs</strong>
+      <div style="color: #888; margin-top: 4px;">Hunter, Shepherd, Herald, Tracker, Sentinel</div>
+    </div>
+
+    <div class="gap gap-important">
+      <strong>ZK Privacy Layer</strong>
+      <div style="color: #888; margin-top: 4px;">Light Protocol integration</div>
+    </div>
+
+    <div class="gap gap-important">
+      <strong>Multi-Node Consensus</strong>
+      <div style="color: #888; margin-top: 4px;">Not tested in distributed setup</div>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <div class="nav-buttons">
+    <button class="nav-btn active" data-view="overview">Overview</button>
+    <button class="nav-btn" data-view="packages">Packages</button>
+    <button class="nav-btn" data-view="dogs">Dogs</button>
+    <button class="nav-btn" data-view="timeline">Timeline</button>
+  </div>
+
+  <!-- Tooltip -->
+  <div id="tooltip">
+    <h4></h4>
+    <p></p>
+  </div>
+
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <script>
+    // Constants
+    const PHI = 1.618033988749895;
+    const PHI_INV = 0.618033988749895;
+
+    // CYNIC Architecture Data
+    const CYNIC_DATA = {
+      packages: [
+        { name: 'core', color: 0xFFD700, size: 1.0, completeness: 1.0, position: [0, 2, 0] },
+        { name: 'protocol', color: 0x4169E1, size: 1.2, completeness: 1.0, position: [-3, 0, 0] },
+        { name: 'persistence', color: 0x228B22, size: 1.1, completeness: 0.85, position: [3, 0, 0] },
+        { name: 'node', color: 0xFF4500, size: 1.3, completeness: 0.95, position: [0, 0, 3] },
+        { name: 'mcp', color: 0x9370DB, size: 1.0, completeness: 1.0, position: [0, 0, -3] },
+        { name: 'client', color: 0x00CED1, size: 0.7, completeness: 1.0, position: [0, -2, 0] },
+      ],
+      dogs: [
+        { name: 'Observer', type: 'v1', color: 0x00ff88, position: [2, 1, 2] },
+        { name: 'Digester', type: 'v1', color: 0x4169E1, position: [-2, 1, 2] },
+        { name: 'Guardian', type: 'v1', color: 0xFF4500, position: [2, 1, -2] },
+        { name: 'Mentor', type: 'v1', color: 0xFFD700, position: [-2, 1, -2] },
+        { name: 'Hunter', type: 'missing', color: 0x444444, position: [0, 3, 0] },
+        { name: 'Shepherd', type: 'missing', color: 0x444444, position: [1.5, 3, 1.5] },
+        { name: 'Herald', type: 'missing', color: 0x444444, position: [-1.5, 3, 1.5] },
+        { name: 'Tracker', type: 'missing', color: 0x444444, position: [1.5, 3, -1.5] },
+        { name: 'Sentinel', type: 'missing', color: 0x444444, position: [-1.5, 3, -1.5] },
+      ],
+      connections: [
+        ['core', 'protocol'],
+        ['core', 'persistence'],
+        ['core', 'node'],
+        ['core', 'mcp'],
+        ['core', 'client'],
+        ['protocol', 'node'],
+        ['persistence', 'node'],
+        ['persistence', 'mcp'],
+        ['mcp', 'node'],
+        ['node', 'client'],
+      ]
+    };
+
+    // Scene setup
+    let scene, camera, renderer, controls;
+    let packageMeshes = {};
+    let dogMeshes = {};
+    let connections = [];
+    let particles;
+
+    function init() {
+      // Scene
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0a0f);
+      scene.fog = new THREE.FogExp2(0x0a0a0f, 0.05);
+
+      // Camera
+      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(8, 6, 8);
+
+      // Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+      // Controls
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.minDistance = 5;
+      controls.maxDistance = 30;
+
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+      scene.add(ambientLight);
+
+      const pointLight = new THREE.PointLight(0xFFD700, 1, 50);
+      pointLight.position.set(0, 10, 0);
+      scene.add(pointLight);
+
+      // Create objects
+      createPackages();
+      createDogs();
+      createConnections();
+      createParticles();
+      createGrid();
+
+      // Events
+      window.addEventListener('resize', onWindowResize);
+      setupNavigation();
+
+      // Hide loading
+      setTimeout(() => {
+        document.getElementById('loading').classList.add('hidden');
+      }, 1000);
+
+      // Animate
+      animate();
+    }
+
+    function createPackages() {
+      CYNIC_DATA.packages.forEach(pkg => {
+        // Outer shell (wireframe)
+        const geometry = new THREE.IcosahedronGeometry(pkg.size, 1);
+        const material = new THREE.MeshBasicMaterial({
+          color: pkg.color,
+          wireframe: true,
+          transparent: true,
+          opacity: 0.6
+        });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(...pkg.position);
+        mesh.userData = { type: 'package', data: pkg };
+        scene.add(mesh);
+
+        // Inner core (solid)
+        const coreGeometry = new THREE.IcosahedronGeometry(pkg.size * 0.4 * pkg.completeness, 0);
+        const coreMaterial = new THREE.MeshPhongMaterial({
+          color: pkg.color,
+          emissive: pkg.color,
+          emissiveIntensity: 0.3,
+          transparent: true,
+          opacity: 0.8
+        });
+        const core = new THREE.Mesh(coreGeometry, coreMaterial);
+        core.position.set(...pkg.position);
+        scene.add(core);
+
+        // Label
+        // (Handled by HUD for now)
+
+        packageMeshes[pkg.name] = { outer: mesh, core };
+      });
+    }
+
+    function createDogs() {
+      CYNIC_DATA.dogs.forEach(dog => {
+        const geometry = new THREE.TetrahedronGeometry(0.3, 0);
+        const material = new THREE.MeshPhongMaterial({
+          color: dog.color,
+          emissive: dog.color,
+          emissiveIntensity: dog.type === 'missing' ? 0.1 : 0.5,
+          transparent: true,
+          opacity: dog.type === 'missing' ? 0.4 : 0.9
+        });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(...dog.position);
+        mesh.userData = { type: 'dog', data: dog };
+        scene.add(mesh);
+
+        dogMeshes[dog.name] = mesh;
+      });
+    }
+
+    function createConnections() {
+      const material = new THREE.LineBasicMaterial({
+        color: 0x333333,
+        transparent: true,
+        opacity: 0.3
+      });
+
+      CYNIC_DATA.connections.forEach(([from, to]) => {
+        const fromPkg = CYNIC_DATA.packages.find(p => p.name === from);
+        const toPkg = CYNIC_DATA.packages.find(p => p.name === to);
+
+        if (fromPkg && toPkg) {
+          const points = [
+            new THREE.Vector3(...fromPkg.position),
+            new THREE.Vector3(...toPkg.position)
+          ];
+          const geometry = new THREE.BufferGeometry().setFromPoints(points);
+          const line = new THREE.Line(geometry, material);
+          scene.add(line);
+          connections.push(line);
+        }
+      });
+    }
+
+    function createParticles() {
+      const particleCount = 500;
+      const positions = new Float32Array(particleCount * 3);
+      const colors = new Float32Array(particleCount * 3);
+
+      for (let i = 0; i < particleCount; i++) {
+        // Spherical distribution
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        const r = 10 + Math.random() * 10;
+
+        positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+        positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+        positions[i * 3 + 2] = r * Math.cos(phi);
+
+        // Golden color with variation
+        colors[i * 3] = 1.0;
+        colors[i * 3 + 1] = 0.84 + Math.random() * 0.16;
+        colors[i * 3 + 2] = Math.random() * 0.3;
+      }
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      const material = new THREE.PointsMaterial({
+        size: 0.05,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.6
+      });
+
+      particles = new THREE.Points(geometry, material);
+      scene.add(particles);
+    }
+
+    function createGrid() {
+      const gridHelper = new THREE.GridHelper(20, 20, 0x222222, 0x111111);
+      gridHelper.position.y = -4;
+      scene.add(gridHelper);
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function setupNavigation() {
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+
+          const view = btn.dataset.view;
+          switchView(view);
+        });
+      });
+    }
+
+    function switchView(view) {
+      // Camera transitions based on view
+      const transitions = {
+        overview: { pos: [8, 6, 8], target: [0, 0, 0] },
+        packages: { pos: [0, 10, 0], target: [0, 0, 0] },
+        dogs: { pos: [0, 8, 8], target: [0, 2, 0] },
+        timeline: { pos: [15, 3, 0], target: [0, 0, 0] }
+      };
+
+      const t = transitions[view];
+      if (t) {
+        // Animate camera
+        const startPos = camera.position.clone();
+        const endPos = new THREE.Vector3(...t.pos);
+        const startTarget = controls.target.clone();
+        const endTarget = new THREE.Vector3(...t.target);
+
+        let progress = 0;
+        const animateCamera = () => {
+          progress += 0.02;
+          if (progress < 1) {
+            const eased = 1 - Math.pow(1 - progress, 3); // Ease out cubic
+            camera.position.lerpVectors(startPos, endPos, eased);
+            controls.target.lerpVectors(startTarget, endTarget, eased);
+            requestAnimationFrame(animateCamera);
+          }
+        };
+        animateCamera();
+      }
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const time = Date.now() * 0.001;
+
+      // Rotate packages slightly
+      Object.values(packageMeshes).forEach((pkg, i) => {
+        pkg.outer.rotation.x = Math.sin(time * 0.5 + i) * 0.1;
+        pkg.outer.rotation.y = time * 0.2 + i;
+        pkg.core.rotation.y = -time * 0.3 + i;
+      });
+
+      // Animate dogs
+      Object.values(dogMeshes).forEach((mesh, i) => {
+        mesh.rotation.y = time * 2 + i;
+        mesh.position.y += Math.sin(time * 2 + i) * 0.002;
+      });
+
+      // Rotate particles
+      if (particles) {
+        particles.rotation.y = time * 0.02;
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // Initialize
+    init();
+  </script>
+</body>
+</html>
