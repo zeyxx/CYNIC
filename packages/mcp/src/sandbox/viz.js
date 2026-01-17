@@ -1161,6 +1161,160 @@ const CYNICViz = {
   },
 
   /**
+   * Highlight objects matching API search results
+   */
+  highlightSearchResults(results) {
+    if (!results || !results.length || !this.codebase.objects.length) return;
+
+    // Build a set of matching identifiers
+    const matchingPackages = new Set();
+    const matchingModules = new Set();
+    const matchingNames = new Set();
+
+    results.forEach(r => {
+      if (r.package) matchingPackages.add(r.package);
+      if (r.module) matchingModules.add(r.module);
+      if (r.name) matchingNames.add(r.name.toLowerCase());
+    });
+
+    // Highlight matching objects
+    this.codebase.objects.forEach(obj => {
+      const data = obj.userData.data || {};
+      const name = (obj.userData.name || '').toLowerCase();
+      const shortName = (data.shortName || '').toLowerCase();
+
+      // Check if this object matches any result
+      const isPackageMatch = matchingPackages.has(data.name) || matchingPackages.has(obj.userData.name);
+      const isModuleMatch = matchingModules.has(name) || matchingModules.has(shortName);
+      const isNameMatch = matchingNames.has(name) || matchingNames.has(shortName);
+
+      if (isPackageMatch || isModuleMatch || isNameMatch) {
+        obj.material.opacity = 1;
+        obj.material.emissive = obj.material.color;
+        obj.material.emissiveIntensity = 0.6;
+        // Pulse animation
+        this.pulseObject(obj);
+      } else {
+        obj.material.opacity = 0.15;
+        obj.material.emissiveIntensity = 0;
+      }
+    });
+  },
+
+  /**
+   * Pulse animation for highlighted objects
+   */
+  pulseObject(obj) {
+    if (obj._pulseInterval) clearInterval(obj._pulseInterval);
+
+    let intensity = 0.6;
+    let direction = -1;
+
+    obj._pulseInterval = setInterval(() => {
+      intensity += direction * 0.05;
+      if (intensity <= 0.3) direction = 1;
+      if (intensity >= 0.6) direction = -1;
+      obj.material.emissiveIntensity = intensity;
+    }, 50);
+
+    // Stop pulsing after 3 seconds
+    setTimeout(() => {
+      if (obj._pulseInterval) {
+        clearInterval(obj._pulseInterval);
+        obj._pulseInterval = null;
+      }
+    }, 3000);
+  },
+
+  /**
+   * Navigate to a specific symbol from search results
+   */
+  navigateToSymbol(packageName, moduleName, symbolName, symbolType) {
+    // First, try to find and navigate to the package
+    const pkg = this.codebase.objects.find(obj => {
+      const data = obj.userData.data || {};
+      return data.name === packageName ||
+             data.shortName === packageName?.replace('@cynic/', '');
+    });
+
+    if (pkg) {
+      // Highlight and focus on the package
+      this.highlightCodebaseObject(pkg);
+
+      // If looking for something deeper, navigate into it
+      if (moduleName && this.codebase.currentLevel === 'packages') {
+        // Navigate into the package first
+        setTimeout(() => {
+          this.handleCodebaseNavigation(pkg);
+
+          // Then find the module after navigation completes
+          setTimeout(() => {
+            const mod = this.codebase.objects.find(obj => {
+              const name = obj.userData.name || '';
+              return name === moduleName || name === symbolName;
+            });
+
+            if (mod) {
+              this.highlightCodebaseObject(mod);
+              this.focusOnObject(mod);
+            }
+          }, 500);
+        }, 100);
+      } else {
+        this.focusOnObject(pkg);
+      }
+    } else {
+      // Search through all loaded objects for the symbol
+      const match = this.codebase.objects.find(obj => {
+        const name = (obj.userData.name || '').toLowerCase();
+        return name === (symbolName || '').toLowerCase();
+      });
+
+      if (match) {
+        this.highlightCodebaseObject(match);
+        this.focusOnObject(match);
+      }
+    }
+  },
+
+  /**
+   * Focus camera on an object
+   */
+  focusOnObject(obj) {
+    if (!obj) return;
+
+    const targetPos = obj.position.clone();
+    targetPos.y += 2;
+    targetPos.z += 3;
+
+    this.animateCameraTo(targetPos, obj.position);
+  },
+
+  /**
+   * Animate camera to position
+   */
+  animateCameraTo(position, lookAt) {
+    const start = this.camera.position.clone();
+    const startTime = Date.now();
+    const duration = 500;
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3); // Ease out cubic
+
+      this.camera.position.lerpVectors(start, position, eased);
+      this.camera.lookAt(lookAt);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    animate();
+  },
+
+  /**
    * Focus on a specific object (for external selection)
    */
   focusObject(id) {

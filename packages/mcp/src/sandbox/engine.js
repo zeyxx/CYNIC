@@ -143,20 +143,36 @@ const CYNICEngine = {
       });
     });
 
-    // Codebase search
+    // Codebase search with API integration
     const searchInput = document.getElementById('codebaseSearch');
     if (searchInput) {
       let searchTimeout;
       searchInput.addEventListener('input', (e) => {
         clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
+        searchTimeout = setTimeout(async () => {
           const query = e.target.value.trim();
-          if (query && typeof CYNICViz !== 'undefined') {
-            CYNICViz.highlightSearch(query);
+          if (query && query.length >= 2) {
+            // Call API for search
+            await this.searchCodebase(query);
           } else if (typeof CYNICViz !== 'undefined') {
             CYNICViz.clearSearchHighlight();
+            this.hideSearchResults();
           }
         }, 300);
+      });
+
+      // Handle Enter key for navigation
+      searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const firstResult = document.querySelector('.search-result-item');
+          if (firstResult) firstResult.click();
+        } else if (e.key === 'Escape') {
+          this.hideSearchResults();
+          searchInput.value = '';
+          if (typeof CYNICViz !== 'undefined') {
+            CYNICViz.clearSearchHighlight();
+          }
+        }
       });
     }
 
@@ -551,6 +567,129 @@ const CYNICEngine = {
         CYNICViz.createDogs();
         CYNICViz.createConnections();
       }
+    }
+  },
+
+  /**
+   * Search codebase via API
+   */
+  async searchCodebase(query) {
+    CYNICConsole.log(`Searching: "${query}"...`, 'system');
+
+    const result = await this.callTool('brain_codebase', {
+      action: 'search',
+      query: query
+    });
+
+    if (result.error) {
+      CYNICConsole.log(`Search error: ${result.error}`, 'error');
+      return;
+    }
+
+    // Log results
+    if (result.results && result.results.length > 0) {
+      CYNICConsole.log(result.message, 'info');
+
+      // Show search results dropdown
+      this.showSearchResults(result.results, query);
+
+      // Highlight matching objects in viz
+      if (typeof CYNICViz !== 'undefined') {
+        CYNICViz.highlightSearchResults(result.results);
+      }
+    } else {
+      CYNICConsole.log(`*head tilt* No symbols found for "${query}"`, 'warning');
+      this.hideSearchResults();
+      if (typeof CYNICViz !== 'undefined') {
+        CYNICViz.clearSearchHighlight();
+      }
+    }
+  },
+
+  /**
+   * Show search results dropdown (safe DOM construction)
+   */
+  showSearchResults(results, query) {
+    let dropdown = document.getElementById('searchResultsDropdown');
+
+    // Create dropdown if not exists
+    if (!dropdown) {
+      dropdown = document.createElement('div');
+      dropdown.id = 'searchResultsDropdown';
+      dropdown.className = 'search-results-dropdown';
+      const searchBox = document.querySelector('.viz-search');
+      if (searchBox) {
+        searchBox.style.position = 'relative';
+        searchBox.appendChild(dropdown);
+      }
+    }
+
+    // Clear existing content
+    dropdown.textContent = '';
+
+    // Populate results using safe DOM methods
+    const maxResults = Math.min(results.length, 10);
+    const icons = { 'class': '🏛️', 'method': '⚡', 'function': 'ƒ', 'module': '📄' };
+
+    results.slice(0, maxResults).forEach((r, i) => {
+      const item = document.createElement('div');
+      item.className = 'search-result-item';
+      item.dataset.index = i;
+      item.dataset.type = r.type;
+      item.dataset.package = r.package || '';
+      item.dataset.module = r.module || '';
+      item.dataset.name = r.name;
+      item.dataset.line = r.line || 0;
+
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'result-icon';
+      iconSpan.textContent = icons[r.type] || '•';
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'result-name';
+      nameSpan.textContent = r.name;
+
+      const typeSpan = document.createElement('span');
+      typeSpan.className = 'result-type';
+      typeSpan.textContent = r.type;
+
+      const locSpan = document.createElement('span');
+      locSpan.className = 'result-location';
+      locSpan.textContent = r.module || r.package || '';
+
+      item.appendChild(iconSpan);
+      item.appendChild(nameSpan);
+      item.appendChild(typeSpan);
+      item.appendChild(locSpan);
+
+      item.addEventListener('click', () => {
+        CYNICConsole.log(`Navigating to ${r.type}: ${r.name}`, 'info');
+        if (typeof CYNICViz !== 'undefined') {
+          CYNICViz.navigateToSymbol(r.package, r.module, r.name, r.type);
+        }
+        this.hideSearchResults();
+      });
+
+      dropdown.appendChild(item);
+    });
+
+    if (results.length > maxResults) {
+      const more = document.createElement('div');
+      more.className = 'search-result-more';
+      more.textContent = `+${results.length - maxResults} more`;
+      dropdown.appendChild(more);
+    }
+
+    dropdown.style.display = 'block';
+  },
+
+  /**
+   * Hide search results dropdown
+   */
+  hideSearchResults() {
+    const dropdown = document.getElementById('searchResultsDropdown');
+    if (dropdown) {
+      dropdown.style.display = 'none';
     }
   },
 
