@@ -255,10 +255,11 @@ export const CYNIC_ARCHITECTURE = {
       {
         id: 'GAP-002',
         area: 'Integration',
-        title: 'GASdf Integration',
-        description: 'Gasless transaction support specified but not implemented',
+        title: 'GASdf Integration + Burn Verification',
+        description: 'Gasless transactions AND on-chain burn verification via alonisthe.dev/burns. Currently burns are trusted, not verified.',
         priority: 'HIGH',
         packages: ['protocol', 'node'],
+        note: 'ONCHAIN_TRUTH_VIOLATION: ConsensusEngine accepts burned value without Solana verification',
       },
     ],
     important: [
@@ -318,6 +319,28 @@ export const CYNIC_ARCHITECTURE = {
     gasdf: { path: '/workspaces/GASdf', branch: 'test/web3-compat-swap', status: 'NEEDS_SYNC' },
     'asdf-brain': { path: '/workspaces/asdf-brain', branch: 'main', status: 'NEEDS_SYNC' },
     'asdf-manifesto': { path: '/workspaces/asdf-manifesto', branch: 'main', status: 'OK' },
+    burnsApi: { url: 'https://alonisthe.dev/burns', status: 'NOT_INTEGRATED' },
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ARCHITECTURAL NOTES
+  // ─────────────────────────────────────────────────────────────────────────
+  architecturalNotes: {
+    onchainTruth: {
+      status: 'PARTIAL',
+      description: '"Onchain is truth" NOT fully respected',
+      issues: [
+        'Burns: Accepted as parameter, not verified via alonisthe.dev/burns',
+        'Merkle anchoring: Optional, not mandatory',
+        'PoJ Chain: P2P consensus, not anchored to Solana L1',
+      ],
+      resolution: 'GAP-002 (GASdf) will add burn verification',
+    },
+    privacyStack: {
+      status: 'COMPLETE_OFFCHAIN',
+      description: 'Differential privacy + commitments implemented for off-chain',
+      note: 'True ZK (Light Protocol) deferred - analysis needed when implementing on-chain privacy',
+    },
   },
 };
 
