@@ -232,7 +232,7 @@ body {
 
 .viz-controls {
   position: absolute;
-  top: 12px;
+  top: 50px;
   left: 12px;
   display: flex;
   gap: 4px;
@@ -255,6 +255,94 @@ body {
   background: var(--accent-dim);
   border-color: var(--accent);
   color: var(--accent);
+}
+
+/* Breadcrumb Navigation */
+.viz-breadcrumb {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 200px;
+  display: none;
+  align-items: center;
+  gap: 4px;
+  z-index: 10;
+  background: rgba(18, 18, 26, 0.9);
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.breadcrumb-item {
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: all 0.15s;
+}
+
+.breadcrumb-item:hover {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.breadcrumb-item.active {
+  color: var(--accent);
+  font-weight: 600;
+  cursor: default;
+}
+
+.breadcrumb-separator {
+  color: var(--border);
+}
+
+/* Search Box */
+.viz-search {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: none;
+  z-index: 10;
+}
+
+.viz-search input {
+  background: rgba(18, 18, 26, 0.9);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 12px;
+  font-size: 11px;
+  border-radius: 4px;
+  width: 160px;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.15s;
+}
+
+.viz-search input:focus {
+  border-color: var(--accent);
+  width: 200px;
+}
+
+.viz-search input::placeholder {
+  color: var(--text-dim);
+}
+
+/* Navigation Hint */
+.viz-hint {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  background: rgba(18, 18, 26, 0.8);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 10px;
+  color: var(--text-dim);
+  z-index: 10;
 }
 
 /* Details Panel */
@@ -510,4 +598,39 @@ body {
 
 .text-dim {
   color: var(--text-dim);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SELECTED ITEM
+   ═══════════════════════════════════════════════════════════ */
+
+.selected-content {
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.selected-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.selected-type {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--phi);
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.selected-details {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: pre-line;
+  line-height: 1.5;
 }

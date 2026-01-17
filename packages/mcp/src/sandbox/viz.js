@@ -1,5 +1,6 @@
 /**
  * CYNIC Visualizations - Three.js 3D + D3.js graphs
+ * Enhanced with hierarchical codebase navigation
  */
 
 const CYNICViz = {
@@ -16,7 +17,39 @@ const CYNICViz = {
   graphSvg: null,
   graphSimulation: null,
 
-  // Architecture data
+  // Codebase visualization state
+  codebase: {
+    data: null,          // Full codebase tree from API
+    currentLevel: 'packages', // 'packages', 'modules', 'classes', 'methods'
+    currentPackage: null,
+    currentModule: null,
+    currentClass: null,
+    breadcrumb: [],      // Navigation trail
+    objects: [],         // Current 3D objects
+    labels: [],          // Current labels
+  },
+
+  // Geometry presets for each level
+  GEOMETRY_CONFIG: {
+    package: { type: 'sphere', size: 0.6, segments: 16 },
+    module: { type: 'box', size: 0.4 },
+    class: { type: 'dodecahedron', size: 0.35 },
+    method: { type: 'tetrahedron', size: 0.2 },
+    function: { type: 'octahedron', size: 0.25 },
+  },
+
+  // Color palette for packages
+  PACKAGE_COLORS: {
+    core: 0x00d4aa,
+    protocol: 0xd4aa00,
+    persistence: 0x00aad4,
+    node: 0xaa00d4,
+    mcp: 0xd400aa,
+    client: 0xaad400,
+    default: 0x888888,
+  },
+
+  // Architecture data (static fallback)
   ARCHITECTURE: {
     packages: [
       { id: 'core', name: 'Core', position: { x: 0, y: 0, z: 0 }, color: 0x00d4aa, status: 'active' },
@@ -575,6 +608,577 @@ const CYNICViz = {
       BURN: '#d44400'
     };
     return colors[axiom] || '#888';
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // CODEBASE VISUALIZATION - Hierarchical 3D Navigation
+  // ═══════════════════════════════════════════════════════════
+
+  /**
+   * Load codebase data and render packages
+   * @param {Object} data - Codebase tree from brain_codebase API
+   */
+  loadCodebase(data) {
+    this.codebase.data = data;
+    this.codebase.currentLevel = 'packages';
+    this.codebase.currentPackage = null;
+    this.codebase.currentModule = null;
+    this.codebase.currentClass = null;
+    this.codebase.breadcrumb = [{ level: 'packages', name: 'CYNIC', data: data }];
+
+    // Clear existing architecture view
+    this.clearCodebaseObjects();
+
+    // Render packages
+    this.renderPackages(data.packages);
+
+    // Update breadcrumb UI
+    this.updateBreadcrumb();
+
+    // Dispatch event
+    this.dispatchCodebaseEvent('levelChanged', { level: 'packages' });
+  },
+
+  /**
+   * Clear codebase 3D objects
+   */
+  clearCodebaseObjects() {
+    // Remove objects
+    for (const obj of this.codebase.objects) {
+      this.scene.remove(obj);
+      if (obj.geometry) obj.geometry.dispose();
+      if (obj.material) obj.material.dispose();
+    }
+    this.codebase.objects = [];
+
+    // Remove labels
+    for (const label of this.codebase.labels) {
+      this.scene.remove(label);
+      if (label.material?.map) label.material.map.dispose();
+      if (label.material) label.material.dispose();
+    }
+    this.codebase.labels = [];
+
+    // Clear connections
+    for (const conn of this.connections) {
+      this.scene.remove(conn);
+      if (conn.geometry) conn.geometry.dispose();
+      if (conn.material) conn.material.dispose();
+    }
+    this.connections = [];
+  },
+
+  /**
+   * Render packages as spheres
+   */
+  renderPackages(packages) {
+    const config = this.GEOMETRY_CONFIG.package;
+    const radius = 3; // Circle radius for layout
+
+    packages.forEach((pkg, i) => {
+      const angle = (i / packages.length) * Math.PI * 2;
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+
+      const geometry = new THREE.SphereGeometry(config.size, config.segments, config.segments);
+      const color = pkg.color || this.PACKAGE_COLORS[pkg.shortName] || this.PACKAGE_COLORS.default;
+
+      const material = new THREE.MeshPhongMaterial({
+        color,
+        transparent: true,
+        opacity: 0.85,
+        emissive: color,
+        emissiveIntensity: 0.1,
+      });
+
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(x, 0, z);
+      mesh.userData = {
+        type: 'package',
+        level: 'packages',
+        data: pkg,
+        name: pkg.shortName || pkg.name,
+      };
+
+      this.codebase.objects.push(mesh);
+      this.scene.add(mesh);
+
+      // Add label
+      const label = this.addCodeLabel(pkg.shortName || pkg.name, mesh.position, color);
+      this.codebase.labels.push(label);
+    });
+
+    // Reset camera to see all packages
+    this.animateCameraTo({ x: 5, y: 4, z: 5 }, { x: 0, y: 0, z: 0 });
+  },
+
+  /**
+   * Render modules for a package
+   */
+  renderModules(pkg) {
+    const modules = pkg.modules || [];
+    const config = this.GEOMETRY_CONFIG.module;
+    const color = pkg.color || this.PACKAGE_COLORS[pkg.shortName] || this.PACKAGE_COLORS.default;
+
+    // Layout in grid or spiral
+    const cols = Math.ceil(Math.sqrt(modules.length));
+    const spacing = 1.2;
+
+    modules.forEach((mod, i) => {
+      const row = Math.floor(i / cols);
+      const col = i % cols;
+      const x = (col - cols / 2 + 0.5) * spacing;
+      const z = (row - Math.ceil(modules.length / cols) / 2 + 0.5) * spacing;
+
+      const geometry = new THREE.BoxGeometry(config.size, config.size, config.size);
+      const material = new THREE.MeshPhongMaterial({
+        color,
+        transparent: true,
+        opacity: 0.8,
+      });
+
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(x, 0, z);
+      mesh.userData = {
+        type: 'module',
+        level: 'modules',
+        data: mod,
+        name: mod.name,
+        parentPackage: pkg,
+      };
+
+      this.codebase.objects.push(mesh);
+      this.scene.add(mesh);
+
+      // Add label
+      const label = this.addCodeLabel(mod.name, mesh.position, color, 0.8);
+      this.codebase.labels.push(label);
+    });
+
+    // Zoom camera closer
+    this.animateCameraTo({ x: 3, y: 3, z: 3 }, { x: 0, y: 0, z: 0 });
+  },
+
+  /**
+   * Render classes for a module
+   */
+  renderClasses(mod, pkg) {
+    const classes = mod.classes || [];
+    const functions = mod.functions || [];
+    const all = [...classes.map(c => ({ ...c, isClass: true })), ...functions.map(f => ({ ...f, isFunction: true }))];
+
+    if (all.length === 0) {
+      // Empty module - show message
+      console.log('Module has no classes or functions');
+      return;
+    }
+
+    const color = pkg.color || this.PACKAGE_COLORS.default;
+    const spacing = 1.0;
+    const cols = Math.ceil(Math.sqrt(all.length));
+
+    all.forEach((item, i) => {
+      const row = Math.floor(i / cols);
+      const col = i % cols;
+      const x = (col - cols / 2 + 0.5) * spacing;
+      const z = (row - Math.ceil(all.length / cols) / 2 + 0.5) * spacing;
+
+      let geometry, meshColor;
+
+      if (item.isClass) {
+        const config = this.GEOMETRY_CONFIG.class;
+        geometry = new THREE.DodecahedronGeometry(config.size, 0);
+        meshColor = color;
+      } else {
+        const config = this.GEOMETRY_CONFIG.function;
+        geometry = new THREE.OctahedronGeometry(config.size, 0);
+        meshColor = 0x888888; // Functions are gray
+      }
+
+      const material = new THREE.MeshPhongMaterial({
+        color: meshColor,
+        transparent: true,
+        opacity: 0.85,
+      });
+
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(x, 0, z);
+      mesh.userData = {
+        type: item.isClass ? 'class' : 'function',
+        level: 'classes',
+        data: item,
+        name: item.name,
+        parentModule: mod,
+        parentPackage: pkg,
+      };
+
+      this.codebase.objects.push(mesh);
+      this.scene.add(mesh);
+
+      // Add label
+      const label = this.addCodeLabel(item.name, mesh.position, meshColor, 0.6);
+      this.codebase.labels.push(label);
+    });
+
+    this.animateCameraTo({ x: 2.5, y: 2.5, z: 2.5 }, { x: 0, y: 0, z: 0 });
+  },
+
+  /**
+   * Render methods for a class
+   */
+  renderMethods(cls, mod, pkg) {
+    const methods = cls.methods || [];
+
+    if (methods.length === 0) {
+      console.log('Class has no methods');
+      return;
+    }
+
+    const color = pkg.color || this.PACKAGE_COLORS.default;
+    const config = this.GEOMETRY_CONFIG.method;
+    const spacing = 0.6;
+    const cols = Math.ceil(Math.sqrt(methods.length));
+
+    methods.forEach((method, i) => {
+      const row = Math.floor(i / cols);
+      const col = i % cols;
+      const x = (col - cols / 2 + 0.5) * spacing;
+      const z = (row - Math.ceil(methods.length / cols) / 2 + 0.5) * spacing;
+
+      const geometry = new THREE.TetrahedronGeometry(config.size, 0);
+
+      // Color based on visibility
+      const isPrivate = method.visibility === 'private';
+      const meshColor = isPrivate ? 0x666666 : color;
+
+      const material = new THREE.MeshPhongMaterial({
+        color: meshColor,
+        transparent: true,
+        opacity: isPrivate ? 0.5 : 0.85,
+        wireframe: isPrivate,
+      });
+
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(x, 0, z);
+      mesh.userData = {
+        type: 'method',
+        level: 'methods',
+        data: method,
+        name: method.name,
+        parentClass: cls,
+        parentModule: mod,
+        parentPackage: pkg,
+      };
+
+      this.codebase.objects.push(mesh);
+      this.scene.add(mesh);
+
+      // Add label for public methods
+      if (!isPrivate) {
+        const label = this.addCodeLabel(method.name, mesh.position, meshColor, 0.5);
+        this.codebase.labels.push(label);
+      }
+    });
+
+    this.animateCameraTo({ x: 2, y: 2, z: 2 }, { x: 0, y: 0, z: 0 });
+  },
+
+  /**
+   * Add label for codebase items
+   */
+  addCodeLabel(text, position, color, scale = 1) {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.width = 256;
+    canvas.height = 64;
+
+    // Background
+    context.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Text
+    context.font = '24px JetBrains Mono, monospace';
+    context.fillStyle = '#' + (typeof color === 'number' ? color.toString(16).padStart(6, '0') : color.replace('#', ''));
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(text.slice(0, 20), canvas.width / 2, canvas.height / 2);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    const sprite = new THREE.Sprite(material);
+
+    sprite.position.copy(position);
+    sprite.position.y -= 0.5;
+    sprite.scale.set(scale * 1.5, scale * 0.4, 1);
+
+    this.scene.add(sprite);
+    return sprite;
+  },
+
+  /**
+   * Navigate into an item (drill down)
+   */
+  navigateInto(item) {
+    const { type, data, parentPackage, parentModule, parentClass } = item.userData;
+
+    this.clearCodebaseObjects();
+
+    switch (type) {
+      case 'package':
+        this.codebase.currentLevel = 'modules';
+        this.codebase.currentPackage = data;
+        this.codebase.breadcrumb.push({ level: 'modules', name: data.shortName || data.name, data });
+        this.renderModules(data);
+        break;
+
+      case 'module':
+        this.codebase.currentLevel = 'classes';
+        this.codebase.currentModule = data;
+        this.codebase.breadcrumb.push({ level: 'classes', name: data.name, data });
+        this.renderClasses(data, parentPackage);
+        break;
+
+      case 'class':
+        this.codebase.currentLevel = 'methods';
+        this.codebase.currentClass = data;
+        this.codebase.breadcrumb.push({ level: 'methods', name: data.name, data });
+        this.renderMethods(data, parentModule, parentPackage);
+        break;
+
+      case 'method':
+      case 'function':
+        // Can't go deeper - dispatch selection event
+        this.dispatchCodebaseEvent('symbolSelected', {
+          type,
+          name: data.name,
+          line: data.line,
+          params: data.params,
+          module: parentModule?.name,
+          package: parentPackage?.shortName,
+        });
+        return;
+    }
+
+    this.updateBreadcrumb();
+    this.dispatchCodebaseEvent('levelChanged', { level: this.codebase.currentLevel, item: data });
+  },
+
+  /**
+   * Navigate back one level
+   */
+  navigateBack() {
+    if (this.codebase.breadcrumb.length <= 1) return;
+
+    // Pop current level
+    this.codebase.breadcrumb.pop();
+
+    // Get parent level
+    const parent = this.codebase.breadcrumb[this.codebase.breadcrumb.length - 1];
+
+    this.clearCodebaseObjects();
+
+    switch (parent.level) {
+      case 'packages':
+        this.codebase.currentLevel = 'packages';
+        this.codebase.currentPackage = null;
+        this.codebase.currentModule = null;
+        this.codebase.currentClass = null;
+        this.renderPackages(this.codebase.data.packages);
+        break;
+
+      case 'modules':
+        this.codebase.currentLevel = 'modules';
+        this.codebase.currentModule = null;
+        this.codebase.currentClass = null;
+        this.renderModules(parent.data);
+        break;
+
+      case 'classes':
+        this.codebase.currentLevel = 'classes';
+        this.codebase.currentClass = null;
+        const pkg = this.codebase.breadcrumb.find(b => b.level === 'modules')?.data;
+        this.renderClasses(parent.data, this.codebase.currentPackage || pkg);
+        break;
+    }
+
+    this.updateBreadcrumb();
+    this.dispatchCodebaseEvent('levelChanged', { level: this.codebase.currentLevel });
+  },
+
+  /**
+   * Navigate to specific breadcrumb level
+   */
+  navigateTo(index) {
+    while (this.codebase.breadcrumb.length > index + 1) {
+      this.navigateBack();
+    }
+  },
+
+  /**
+   * Update breadcrumb UI
+   */
+  updateBreadcrumb() {
+    const container = document.getElementById('breadcrumb');
+    if (!container) return;
+
+    // Clear
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+
+    this.codebase.breadcrumb.forEach((item, i) => {
+      if (i > 0) {
+        const sep = document.createElement('span');
+        sep.className = 'breadcrumb-separator';
+        sep.textContent = ' → ';
+        container.appendChild(sep);
+      }
+
+      const link = document.createElement('span');
+      link.className = 'breadcrumb-item';
+      if (i === this.codebase.breadcrumb.length - 1) {
+        link.classList.add('active');
+      }
+      link.textContent = item.name;
+      link.onclick = () => this.navigateTo(i);
+      container.appendChild(link);
+    });
+  },
+
+  /**
+   * Animate camera to position
+   */
+  animateCameraTo(targetPos, lookAt) {
+    const startPos = this.camera.position.clone();
+    const duration = 500;
+    const startTime = Date.now();
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const t = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3); // Ease out cubic
+
+      this.camera.position.x = startPos.x + (targetPos.x - startPos.x) * eased;
+      this.camera.position.y = startPos.y + (targetPos.y - startPos.y) * eased;
+      this.camera.position.z = startPos.z + (targetPos.z - startPos.z) * eased;
+
+      this.camera.lookAt(lookAt.x, lookAt.y, lookAt.z);
+
+      if (t < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    animate();
+  },
+
+  /**
+   * Handle codebase object click
+   */
+  onCodebaseClick(event, container) {
+    const rect = container.getBoundingClientRect();
+    const mouse = new THREE.Vector2(
+      ((event.clientX - rect.left) / container.clientWidth) * 2 - 1,
+      -((event.clientY - rect.top) / container.clientHeight) * 2 + 1
+    );
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, this.camera);
+
+    const intersects = raycaster.intersectObjects(this.codebase.objects);
+
+    if (intersects.length > 0) {
+      const selected = intersects[0].object;
+      this.highlightCodebaseObject(selected);
+
+      // Double-click to navigate into
+      if (event.detail === 2) {
+        this.navigateInto(selected);
+      } else {
+        // Single click - show details
+        this.dispatchCodebaseEvent('itemSelected', selected.userData);
+      }
+    }
+  },
+
+  /**
+   * Highlight selected codebase object
+   */
+  highlightCodebaseObject(object) {
+    // Reset all
+    this.codebase.objects.forEach(obj => {
+      obj.scale.set(1, 1, 1);
+      if (obj.material) {
+        obj.material.emissiveIntensity = 0.1;
+      }
+    });
+
+    // Highlight selected
+    object.scale.set(1.3, 1.3, 1.3);
+    if (object.material) {
+      object.material.emissiveIntensity = 0.4;
+    }
+  },
+
+  /**
+   * Dispatch codebase event
+   */
+  dispatchCodebaseEvent(eventName, detail) {
+    document.dispatchEvent(new CustomEvent('codebase:' + eventName, { detail }));
+  },
+
+  /**
+   * Search and highlight symbols
+   */
+  highlightSearch(query) {
+    if (!query || !this.codebase.objects.length) return;
+
+    const lowerQuery = query.toLowerCase();
+
+    this.codebase.objects.forEach(obj => {
+      const name = obj.userData.name?.toLowerCase() || '';
+      const matches = name.includes(lowerQuery);
+
+      if (matches) {
+        obj.material.opacity = 1;
+        obj.material.emissive = obj.material.color;
+        obj.material.emissiveIntensity = 0.5;
+      } else {
+        obj.material.opacity = 0.2;
+        obj.material.emissiveIntensity = 0;
+      }
+    });
+  },
+
+  /**
+   * Clear search highlighting
+   */
+  clearSearchHighlight() {
+    this.codebase.objects.forEach(obj => {
+      obj.material.opacity = 0.85;
+      obj.material.emissiveIntensity = 0.1;
+    });
+  },
+
+  /**
+   * Focus on a specific object (for external selection)
+   */
+  focusObject(id) {
+    // Find object by id in current view
+    const obj = this.codebase.objects.find(o =>
+      o.userData.data?.id === id ||
+      o.userData.data?.shortName === id ||
+      o.userData.name === id
+    );
+
+    if (obj) {
+      this.highlightCodebaseObject(obj);
+      // Animate camera towards it
+      const targetPos = obj.position.clone();
+      targetPos.y += 2;
+      targetPos.z += 2;
+      this.animateCameraTo(targetPos, obj.position);
+    }
   }
 };
 

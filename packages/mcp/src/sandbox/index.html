@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CYNIC Architecture Dashboard</title>
-  <link rel="stylesheet" href="/sandbox/style.css">
+  <link rel="stylesheet" href="./style.css">
   <!-- Three.js for 3D -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <!-- KaTeX for formulas -->
@@ -146,18 +146,66 @@
         <div class="content-main">
           <!-- 3D Visualization -->
           <div class="viz-area">
+            <!-- Breadcrumb Navigation -->
+            <div class="viz-breadcrumb" id="breadcrumb">
+              <span class="breadcrumb-item active">CYNIC</span>
+            </div>
             <div class="viz-controls">
               <button data-view="packages" class="active">Packages</button>
               <button data-view="dogs">Dogs</button>
               <button data-view="flow">Data Flow</button>
+              <button data-view="codebase">Codebase</button>
+            </div>
+            <!-- Search -->
+            <div class="viz-search">
+              <input type="text" id="codebaseSearch" placeholder="Search symbols...">
             </div>
             <div class="viz-container" id="viz3d"></div>
+            <!-- Navigation hint -->
+            <div class="viz-hint" id="vizHint">
+              Double-click to navigate into • Right-click or Back button to go up
+            </div>
           </div>
 
           <!-- Details Panel -->
           <div class="details-panel">
+            <!-- Selected Item Info -->
+            <section class="details-section" id="selectedInfo" style="display: none;">
+              <h4>Selected</h4>
+              <div class="selected-content">
+                <div class="selected-name" id="selectedName"></div>
+                <div class="selected-type" id="selectedType"></div>
+                <div class="selected-details" id="selectedDetails"></div>
+              </div>
+            </section>
+
+            <!-- Codebase Stats (shown in codebase view) -->
+            <section class="details-section" id="codebaseStats" style="display: none;">
+              <h4>Codebase Stats</h4>
+              <div class="stat-row">
+                <span class="label">Packages</span>
+                <span class="value" id="statPackages">--</span>
+              </div>
+              <div class="stat-row">
+                <span class="label">Modules</span>
+                <span class="value" id="statModules">--</span>
+              </div>
+              <div class="stat-row">
+                <span class="label">Classes</span>
+                <span class="value" id="statClasses">--</span>
+              </div>
+              <div class="stat-row">
+                <span class="label">Methods</span>
+                <span class="value" id="statMethods">--</span>
+              </div>
+              <div class="stat-row">
+                <span class="label">Lines</span>
+                <span class="value" id="statLines">--</span>
+              </div>
+            </section>
+
             <!-- Axioms -->
-            <section class="details-section">
+            <section class="details-section" id="axiomsSection">
               <h4>4 Axioms × 25 Dimensions</h4>
               <div class="axioms-grid">
                 <div class="axiom-card">
@@ -240,9 +288,9 @@
   </div>
 
   <!-- Scripts -->
-  <script src="/sandbox/formulas.js"></script>
-  <script src="/sandbox/viz.js"></script>
-  <script src="/sandbox/console.js"></script>
-  <script src="/sandbox/engine.js"></script>
+  <script src="./formulas.js"></script>
+  <script src="./viz.js"></script>
+  <script src="./console.js"></script>
+  <script src="./engine.js"></script>
 </body>
 </html>
