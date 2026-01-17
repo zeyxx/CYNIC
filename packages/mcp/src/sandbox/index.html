@@ -3,12 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CYNIC Sandbox - Conception Environment</title>
-  <link rel="stylesheet" href="style.css">
+  <title>CYNIC Architecture Dashboard</title>
+  <link rel="stylesheet" href="/sandbox/style.css">
   <!-- Three.js for 3D -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <!-- D3.js for graphs -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
   <!-- KaTeX for formulas -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -19,7 +17,7 @@
     <header class="header">
       <div class="logo">
         <span class="logo-icon">🐕</span>
-        <span class="logo-text">CYNIC SANDBOX</span>
+        <span class="logo-text">CYNIC ARCHITECTURE</span>
       </div>
       <div class="status">
         <span class="phi-badge" title="Max confidence φ⁻¹">φ 61.8%</span>
@@ -27,111 +25,224 @@
       </div>
     </header>
 
-    <!-- Main Layout -->
+    <!-- Main Layout: Sidebar + Content -->
     <div class="main">
-      <!-- Left Sidebar -->
+      <!-- Left Sidebar: Navigation -->
       <aside class="sidebar-left">
-        <!-- Explorer -->
-        <section class="panel explorer">
-          <h3>📁 EXPLORER</h3>
-          <div class="tree" id="explorerTree"></div>
-        </section>
+        <!-- Packages -->
+        <nav class="nav-section">
+          <h4>Packages</h4>
+          <ul class="nav-list" id="packagesList">
+            <li class="nav-item" data-id="core">
+              <span class="indicator active"></span>
+              <span>core</span>
+            </li>
+            <li class="nav-item" data-id="protocol">
+              <span class="indicator active"></span>
+              <span>protocol</span>
+            </li>
+            <li class="nav-item" data-id="persistence">
+              <span class="indicator active"></span>
+              <span>persistence</span>
+            </li>
+            <li class="nav-item" data-id="node">
+              <span class="indicator active"></span>
+              <span>node</span>
+            </li>
+            <li class="nav-item active" data-id="mcp">
+              <span class="indicator active"></span>
+              <span>mcp</span>
+            </li>
+            <li class="nav-item" data-id="client">
+              <span class="indicator pending"></span>
+              <span>client</span>
+            </li>
+          </ul>
+        </nav>
 
         <!-- Dogs -->
-        <section class="panel dogs">
-          <h3>🐕 DOGS</h3>
-          <div class="dog-list" id="dogList"></div>
-        </section>
+        <nav class="nav-section">
+          <h4>Dogs (Agents)</h4>
+          <ul class="nav-list" id="dogsList">
+            <li class="nav-item" data-id="observer">
+              <span class="indicator active"></span>
+              <span>Observer</span>
+            </li>
+            <li class="nav-item" data-id="digester">
+              <span class="indicator active"></span>
+              <span>Digester</span>
+            </li>
+            <li class="nav-item" data-id="guardian">
+              <span class="indicator active"></span>
+              <span>Guardian</span>
+            </li>
+            <li class="nav-item" data-id="mentor">
+              <span class="indicator active"></span>
+              <span>Mentor</span>
+            </li>
+            <li class="nav-item" data-id="tracker">
+              <span class="indicator inactive"></span>
+              <span class="text-dim">Tracker</span>
+            </li>
+            <li class="nav-item" data-id="auditor">
+              <span class="indicator inactive"></span>
+              <span class="text-dim">Auditor</span>
+            </li>
+            <li class="nav-item" data-id="librarian">
+              <span class="indicator inactive"></span>
+              <span class="text-dim">Librarian</span>
+            </li>
+          </ul>
+        </nav>
 
-        <!-- Tools -->
-        <section class="panel tools">
-          <h3>🔧 TOOLS</h3>
-          <div class="tool-buttons" id="toolButtons"></div>
-        </section>
+        <!-- Services -->
+        <nav class="nav-section">
+          <h4>Services</h4>
+          <ul class="nav-list" id="servicesList">
+            <li class="nav-item">
+              <span class="indicator" id="svcPostgres"></span>
+              <span>Postgres</span>
+            </li>
+            <li class="nav-item">
+              <span class="indicator" id="svcRedis"></span>
+              <span>Redis</span>
+            </li>
+            <li class="nav-item">
+              <span class="indicator active"></span>
+              <span>Librarian</span>
+            </li>
+            <li class="nav-item">
+              <span class="indicator active"></span>
+              <span>Ecosystem</span>
+            </li>
+            <li class="nav-item">
+              <span class="indicator active"></span>
+              <span>Metrics</span>
+            </li>
+          </ul>
+        </nav>
+
+        <!-- Stats -->
+        <div class="nav-section">
+          <h4>PoJ Chain</h4>
+          <div class="stat-row">
+            <span class="label">Head Block</span>
+            <span class="value" id="chainHead">#--</span>
+          </div>
+          <div class="stat-row">
+            <span class="label">Total Judgments</span>
+            <span class="value" id="chainTotal">--</span>
+          </div>
+          <div class="stat-row">
+            <span class="label">Pending</span>
+            <span class="value" id="chainPending">--</span>
+          </div>
+        </div>
       </aside>
 
-      <!-- Center Content -->
-      <main class="content">
-        <!-- 3D Architecture View -->
-        <section class="panel viz-3d">
-          <div class="panel-header">
-            <h3>3D ARCHITECTURE</h3>
-            <div class="view-controls">
-              <button data-view="overview" class="active">Overview</button>
-              <button data-view="packages">Packages</button>
+      <!-- Content Area -->
+      <div class="content">
+        <!-- Main content: Viz + Details panel -->
+        <div class="content-main">
+          <!-- 3D Visualization -->
+          <div class="viz-area">
+            <div class="viz-controls">
+              <button data-view="packages" class="active">Packages</button>
               <button data-view="dogs">Dogs</button>
-              <button data-view="flow">Flow</button>
+              <button data-view="flow">Data Flow</button>
             </div>
+            <div class="viz-container" id="viz3d"></div>
           </div>
-          <div class="viz-container" id="viz3d"></div>
-        </section>
 
-        <!-- Bottom Row -->
-        <div class="bottom-row">
-          <!-- Matrix -->
-          <section class="panel matrix">
-            <h3>📊 MATRICE 25-DIM</h3>
-            <div class="matrix-content" id="matrixView"></div>
-            <div class="matrix-score">
-              <span class="label">Q-SCORE:</span>
-              <span class="value" id="qScoreValue">--</span>
-            </div>
-          </section>
+          <!-- Details Panel -->
+          <div class="details-panel">
+            <!-- Axioms -->
+            <section class="details-section">
+              <h4>4 Axioms × 25 Dimensions</h4>
+              <div class="axioms-grid">
+                <div class="axiom-card">
+                  <h5>PHI <span class="weight">38.2%</span></h5>
+                  <div class="dimensions">
+                    <span>symmetry</span>
+                    <span>proportion</span>
+                    <span>coherence</span>
+                    <span>resonance</span>
+                    <span>elegance</span>
+                    <span>balance</span>
+                  </div>
+                </div>
+                <div class="axiom-card">
+                  <h5>VERIFY <span class="weight">23.6%</span></h5>
+                  <div class="dimensions">
+                    <span>source_quality</span>
+                    <span>cross_validation</span>
+                    <span>audit_trail</span>
+                    <span>transparency</span>
+                    <span>consistency</span>
+                    <span>reproducibility</span>
+                  </div>
+                </div>
+                <div class="axiom-card">
+                  <h5>CULTURE <span class="weight">23.6%</span></h5>
+                  <div class="dimensions">
+                    <span>community_trust</span>
+                    <span>ecosystem_fit</span>
+                    <span>adoption</span>
+                    <span>reputation</span>
+                    <span>alignment</span>
+                    <span>network_effect</span>
+                  </div>
+                </div>
+                <div class="axiom-card">
+                  <h5>BURN <span class="weight">14.6%</span></h5>
+                  <div class="dimensions">
+                    <span>sustainability</span>
+                    <span>fair_distribution</span>
+                    <span>value_creation</span>
+                    <span>anti_extraction</span>
+                    <span>efficiency</span>
+                    <span>regeneration</span>
+                  </div>
+                </div>
+              </div>
+            </section>
 
-          <!-- Formulas -->
-          <section class="panel formulas">
-            <h3>🧮 FORMULES LIVE</h3>
-            <div class="formula-list" id="formulaList"></div>
-            <div class="sliders" id="formulaSliders"></div>
-          </section>
+            <!-- Matrix Preview -->
+            <section class="details-section">
+              <h4>25-Dimension Matrix</h4>
+              <div class="matrix-mini" id="matrixMini"></div>
+            </section>
+
+            <!-- Chain Preview -->
+            <section class="details-section">
+              <h4>Recent Blocks</h4>
+              <div class="chain-mini" id="chainMini"></div>
+            </section>
+
+            <!-- Formulas -->
+            <section class="details-section">
+              <h4>Core Formulas</h4>
+              <div id="formulaList"></div>
+            </section>
+          </div>
         </div>
 
-        <!-- PoJ Chain -->
-        <section class="panel chain">
-          <div class="panel-header">
-            <h3>⛓️ POJ CHAIN</h3>
-            <span class="chain-status" id="chainStatus">Loading...</span>
-          </div>
-          <div class="chain-viz" id="chainViz"></div>
-        </section>
-
-        <!-- Knowledge Graph -->
-        <section class="panel graph">
-          <div class="panel-header">
-            <h3>🕸️ KNOWLEDGE GRAPH</h3>
-            <button class="expand-btn" id="expandGraph">EXPAND</button>
-          </div>
-          <div class="graph-container" id="knowledgeGraph"></div>
-        </section>
-      </main>
-
-      <!-- Right Sidebar - Console -->
-      <aside class="sidebar-right">
-        <section class="panel console">
-          <h3>💻 CONSOLE</h3>
+        <!-- Console Bar -->
+        <div class="console-bar">
           <div class="console-output" id="consoleOutput"></div>
           <div class="console-input">
             <span class="prompt">&gt;</span>
-            <input type="text" id="consoleInput" placeholder="judge('token'), chain.head(), ...">
+            <input type="text" id="consoleInput" placeholder="health, judge(), chain.head(), dog.status()...">
           </div>
-        </section>
-      </aside>
+        </div>
+      </div>
     </div>
-
-    <!-- Export Bar -->
-    <footer class="export-bar">
-      <span>EXPORT:</span>
-      <button data-export="png">PNG</button>
-      <button data-export="svg">SVG</button>
-      <button data-export="json">JSON</button>
-      <button data-export="mermaid">Mermaid</button>
-    </footer>
   </div>
 
   <!-- Scripts -->
-  <script src="formulas.js"></script>
-  <script src="viz.js"></script>
-  <script src="console.js"></script>
-  <script src="engine.js"></script>
+  <script src="/sandbox/formulas.js"></script>
+  <script src="/sandbox/viz.js"></script>
+  <script src="/sandbox/console.js"></script>
+  <script src="/sandbox/engine.js"></script>
 </body>
 </html>
