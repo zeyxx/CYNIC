@@ -38,6 +38,7 @@ import { PersistenceManager } from './persistence.js';
 import { SessionManager } from './session-manager.js';
 import { PoJChainManager } from './poj-chain-manager.js';
 import { LibrarianService } from './librarian-service.js';
+import { AuthService } from './auth-service.js';
 
 /**
  * MCP Server for CYNIC
@@ -66,6 +67,7 @@ export class MCPServer {
    * @param {Object} [options.pojChainManager] - PoJChainManager instance (for PoJ blockchain)
    * @param {Object} [options.librarian] - LibrarianService instance (for documentation caching)
    * @param {Object} [options.agents] - AgentManager instance (The Four Dogs)
+   * @param {Object} [options.auth] - AuthService instance (for HTTP authentication)
    * @param {string} [options.dataDir] - Data directory for file-based persistence fallback
    * @param {string} [options.mode] - Transport mode: 'stdio' (default) or 'http'
    * @param {number} [options.port] - HTTP port (default: 3000, only for http mode)
@@ -79,6 +81,9 @@ export class MCPServer {
     // Transport mode: 'stdio' or 'http'
     this.mode = options.mode || 'stdio';
     this.port = options.port || 3000;
+
+    // Authentication service (for HTTP mode)
+    this.auth = options.auth || null;
 
     // Node instance (optional)
     this.node = options.node || null;
@@ -223,6 +228,15 @@ export class MCPServer {
       console.error('   Metrics: ready');
     }
 
+    // Initialize Auth service for HTTP mode
+    if (this.mode === 'http' && !this.auth) {
+      this.auth = new AuthService({
+        publicPaths: ['/', '/health', '/metrics', '/dashboard'],
+      });
+      const authStatus = this.auth.required ? 'required' : 'optional (dev mode)';
+      console.error(`   Auth: ${authStatus} (${this.auth.apiKeys.size} keys configured)`);
+    }
+
     // Initialize Collective Pack - The Five Dogs + CYNIC (Keter)
     // This is the new harmonious collective consciousness
     if (!this.collective) {
@@ -329,10 +343,11 @@ export class MCPServer {
    * @private
    */
   async _handleHttpRequest(req, res) {
-    // CORS headers for MCP clients
+    // CORS headers for MCP clients (including auth headers)
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
+    res.setHeader('Access-Control-Expose-Headers', 'X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset');
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
@@ -341,6 +356,42 @@ export class MCPServer {
     }
 
     const url = new URL(req.url, `http://${req.headers.host}`);
+
+    // Authentication check (if auth service is configured)
+    if (this.auth) {
+      const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim()
+        || req.socket?.remoteAddress
+        || 'unknown';
+
+      // Attach path for auth check
+      req.path = url.pathname;
+
+      const authResult = this.auth.authenticate(req, clientIp);
+
+      if (!authResult.authenticated) {
+        res.writeHead(authResult.statusCode || 401, { 'Content-Type': 'application/json' });
+        if (authResult.retryAfter) {
+          res.setHeader('Retry-After', authResult.retryAfter);
+        }
+        res.end(JSON.stringify({
+          error: authResult.error || 'Unauthorized',
+          statusCode: authResult.statusCode || 401,
+        }));
+        return;
+      }
+
+      // Attach auth info to request
+      req.auth = {
+        method: authResult.method,
+        identifier: authResult.identifier,
+      };
+
+      // Add rate limit headers
+      res.setHeader('X-RateLimit-Limit', this.auth.rateLimit);
+      const rateCheck = this.auth.checkRateLimit(authResult.identifier || clientIp);
+      res.setHeader('X-RateLimit-Remaining', rateCheck.remaining);
+      res.setHeader('X-RateLimit-Reset', Math.ceil(rateCheck.resetIn / 1000));
+    }
 
     // Health check endpoint
     if (url.pathname === '/health' || url.pathname === '/') {
