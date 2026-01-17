@@ -1,7 +1,8 @@
 /**
  * @cynic/persistence - Persistence Layer
  *
- * PostgreSQL for durable storage + Redis for sessions/cache
+ * PostgreSQL + Redis + Merkle DAG for hybrid persistence.
+ * Transitioning from centralized to decentralized storage.
  *
  * "Memory makes wisdom possible" - CYNIC
  *
@@ -10,7 +11,10 @@
 
 'use strict';
 
-// Clients
+// ═══════════════════════════════════════════════════════════════════════════
+// LEGACY CLIENTS (PostgreSQL + Redis)
+// ═══════════════════════════════════════════════════════════════════════════
+
 export { PostgresClient, getPool } from './postgres/client.js';
 export { RedisClient, getRedis } from './redis/client.js';
 
@@ -20,5 +24,97 @@ export * from './postgres/repositories/index.js';
 // Session Store
 export { SessionStore } from './redis/session-store.js';
 
-// Version
-export const VERSION = '0.1.0';
+// ═══════════════════════════════════════════════════════════════════════════
+// DECENTRALIZED STORAGE (Merkle DAG)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// CID Generation
+export {
+  createCID,
+  createRawCID,
+  parseCID,
+  isValidCID,
+  shardCID,
+  compareCIDs,
+  CODECS,
+  HASH_FUNCTIONS,
+} from './dag/cid.js';
+
+// DAG Node Structure
+export {
+  DAGNode,
+  DAGLink,
+  NodeType,
+  createJudgmentNode,
+  createBlockNode,
+  createEntityNode,
+  createEdgeNode,
+  createPatternNode,
+  createIndexNode,
+  createRootNode,
+} from './dag/node.js';
+
+// Block Store
+export { BlockStore } from './dag/store.js';
+
+// HAMT Index
+export { HAMTIndex, HAMTEntry, HAMTBucket, HAMT_CONFIG } from './dag/hamt.js';
+
+// Main DAG Operations
+export { MerkleDAG } from './dag/dag.js';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PROOF OF JUDGMENT CHAIN (PoJ)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Block structures
+export {
+  PoJBlockHeader,
+  PoJBlock,
+  Attestation,
+  JudgmentRef,
+  computeMerkleRoot,
+  createGenesisBlock,
+  createBlock,
+  POJ_CONSTANTS,
+} from './poj/block.js';
+
+// Chain manager
+export { PoJChain } from './poj/chain.js';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GRAPH OVERLAY (Relationship Graph)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Node and Edge Types
+export {
+  GraphNodeType,
+  GraphEdgeType,
+  NodeSchemas,
+  EdgeSpecs,
+  GraphNode,
+  GraphEdge,
+  createTokenNode,
+  createWalletNode,
+  createProjectNode,
+  createRepoNode,
+  createUserNode,
+  createContractNode,
+  createCynicNode,
+  GRAPH_PHI,
+} from './graph/types.js';
+
+// Graph Store
+export { GraphStore } from './graph/store.js';
+
+// Traversal Algorithms
+export { GraphTraversal, TraversalResult } from './graph/traversal.js';
+
+// Main Graph API
+export { GraphOverlay, GraphQuery } from './graph/graph.js';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VERSION
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const VERSION = '0.4.0';

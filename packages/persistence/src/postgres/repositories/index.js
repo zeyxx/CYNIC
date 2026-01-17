@@ -14,3 +14,4 @@ export { FeedbackRepository } from './feedback.js';
 export { KnowledgeRepository } from './knowledge.js';
 export { PoJBlockRepository } from './poj-blocks.js';
 export { LibraryCacheRepository } from './library-cache.js';
+export { EcosystemDocsRepository } from './ecosystem-docs.js';

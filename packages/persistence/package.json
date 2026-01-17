@@ -1,20 +1,24 @@
 {
   "name": "@cynic/persistence",
-  "version": "0.1.0",
-  "description": "Persistence layer for CYNIC - PostgreSQL + Redis",
+  "version": "0.4.0",
+  "description": "Persistence layer for CYNIC - PostgreSQL + Redis + Merkle DAG + PoJ Chain + Graph Overlay",
   "type": "module",
   "main": "src/index.js",
   "exports": {
     ".": "./src/index.js",
     "./postgres": "./src/postgres/client.js",
     "./redis": "./src/redis/client.js",
-    "./repositories": "./src/postgres/repositories/index.js"
+    "./repositories": "./src/postgres/repositories/index.js",
+    "./dag": "./src/dag/index.js",
+    "./poj": "./src/poj/index.js",
+    "./graph": "./src/graph/index.js"
   },
   "scripts": {
     "test": "node --test test/*.test.js",
     "migrate": "node src/postgres/migrate.js"
   },
   "dependencies": {
+    "cbor-x": "^1.6.0",
     "dotenv": "^17.2.3",
     "ioredis": "^5.3.2",
     "pg": "^8.11.3"
