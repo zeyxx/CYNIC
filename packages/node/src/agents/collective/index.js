@@ -59,6 +59,7 @@ import { CollectiveJanitor, JANITOR_CONSTANTS, QualitySeverity, IssueType } from
 import { CollectiveScout, SCOUT_CONSTANTS, DiscoveryType, OpportunityType } from './scout.js';
 import { CollectiveCartographer, CARTOGRAPHER_CONSTANTS, RepoType, ConnectionType, MapIssueType } from './cartographer.js';
 import { CollectiveOracle, ORACLE_CONSTANTS, ViewType, MetricType, AlertSeverity } from './oracle.js';
+import { CollectiveDeployer, DEPLOYER_CONSTANTS, DeploymentState, DeployTarget, HealthStatus } from './deployer.js';
 
 // Import CYNIC - The Hidden Sixth Dog (Keter)
 import {
@@ -82,6 +83,7 @@ export {
   CollectiveScout,
   CollectiveCartographer,
   CollectiveOracle,
+  CollectiveDeployer,
 };
 
 // Re-export types
@@ -117,6 +119,11 @@ export {
   ViewType,
   MetricType,
   AlertSeverity,
+  // Deployer types
+  DEPLOYER_CONSTANTS,
+  DeploymentState,
+  DeployTarget,
+  HealthStatus,
 };
 
 /**
@@ -130,8 +137,8 @@ export const COLLECTIVE_CONSTANTS = {
   /** Number of original dogs (Fib(5) = 5) */
   DOG_COUNT: 5,
 
-  /** Total agents including CYNIC + Janitor + Scout + Cartographer + Oracle (5 + 5 = 10) */
-  AGENT_COUNT: 10,
+  /** Total agents including CYNIC + Janitor + Scout + Cartographer + Oracle + Deployer (5 + 6 = 11) */
+  AGENT_COUNT: 11,
 
   /** Max collective confidence (φ⁻¹) */
   MAX_CONFIDENCE: PHI_INV,
@@ -249,7 +256,14 @@ export class CollectivePack {
       profileLevel: this.profileLevel,
     });
 
-    // Agent map for lookup (5 original Dogs + CYNIC + Janitor + Scout + Cartographer + Oracle)
+    // Deployer - Splendor (Hod) - Deployment & infrastructure
+    this.deployer = new CollectiveDeployer({
+      eventBus: this.eventBus,
+      guardian: this.guardian, // For deployment approval
+      profileLevel: this.profileLevel,
+    });
+
+    // Agent map for lookup (5 original Dogs + CYNIC + Janitor + Scout + Cartographer + Oracle + Deployer)
     this.agents = new Map([
       [AgentId.GUARDIAN, this.guardian],
       [AgentId.ANALYST, this.analyst],
@@ -261,6 +275,7 @@ export class CollectivePack {
       [AgentId.SCOUT, this.scout], // Netzach - Victory
       [AgentId.CARTOGRAPHER, this.cartographer], // Malkhut - Kingdom
       [AgentId.ORACLE, this.oracle], // Tiferet - Beauty
+      [AgentId.DEPLOYER, this.deployer], // Hod - Splendor
     ]);
 
     // Stats
@@ -305,6 +320,7 @@ export class CollectivePack {
     this.scout.setProfileLevel(newLevel);
     this.cartographer.setProfileLevel(newLevel);
     this.oracle.setProfileLevel(newLevel);
+    this.deployer.setProfileLevel(newLevel);
 
     this.collectiveStats.profileUpdates++;
   }
@@ -430,6 +446,7 @@ export class CollectivePack {
         scout: this.scout.getSummary(),
         cartographer: this.cartographer.getSummary(),
         oracle: this.oracle.getSummary(),
+        deployer: this.deployer.getSummary(),
       },
       collectiveState: this.cynic.getCollectiveState(),
       collectiveStats: this.collectiveStats,
@@ -493,6 +510,7 @@ export class CollectivePack {
     this.scout.clear();
     this.cartographer.clear();
     this.oracle.clear();
+    this.deployer.clear();
     this.eventBus.reset();
   }
 
@@ -557,6 +575,10 @@ export function createOracle(options = {}) {
   return new CollectiveOracle(options);
 }
 
+export function createDeployer(options = {}) {
+  return new CollectiveDeployer(options);
+}
+
 export default {
   CollectivePack,
   createCollectivePack,
@@ -573,6 +595,7 @@ export default {
   CollectiveScout,
   CollectiveCartographer,
   CollectiveOracle,
+  CollectiveDeployer,
   // Factory functions
   createGuardian,
   createAnalyst,
@@ -584,6 +607,7 @@ export default {
   createScout,
   createCartographer,
   createOracle,
+  createDeployer,
   // Constants
   COLLECTIVE_CONSTANTS,
   // Types
@@ -618,4 +642,9 @@ export default {
   ViewType,
   MetricType,
   AlertSeverity,
+  // Deployer types
+  DEPLOYER_CONSTANTS,
+  DeploymentState,
+  DeployTarget,
+  HealthStatus,
 };

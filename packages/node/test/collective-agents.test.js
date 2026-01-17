@@ -84,7 +84,7 @@ describe('Collective Agents', () => {
       assert.ok(pack.cynic, 'CYNIC should exist');
 
       // Fib(5) + 1 = 6 agents (Five Dogs + CYNIC as Keter)
-      assert.strictEqual(pack.getAllAgents().length, 10, 'Should have 10 agents (5 dogs + CYNIC + Janitor + Scout + Cartographer + Oracle)');
+      assert.strictEqual(pack.getAllAgents().length, 11, 'Should have 11 agents (5 dogs + CYNIC + Janitor + Scout + Cartographer + Oracle + Deployer)');
     });
 
     it('should have shared event bus', () => {
@@ -114,7 +114,7 @@ describe('Collective Agents', () => {
       const pack = createTrackedPack();
       const summary = pack.getSummary();
 
-      assert.strictEqual(summary.agentCount, 10);
+      assert.strictEqual(summary.agentCount, 11);
       assert.strictEqual(summary.dogCount, 5);
       assert.ok(summary.agents.guardian);
       assert.ok(summary.agents.analyst);
@@ -126,6 +126,7 @@ describe('Collective Agents', () => {
       assert.ok(summary.agents.scout, 'Scout should be in summary');
       assert.ok(summary.agents.cartographer, 'Cartographer should be in summary');
       assert.ok(summary.agents.oracle, 'Oracle should be in summary');
+      assert.ok(summary.agents.deployer, 'Deployer should be in summary');
     });
 
     it('should awaken CYNIC', async () => {
@@ -1204,9 +1205,9 @@ function sum(arr) {
 
   describe('φ-Alignment', () => {
     it('should use Fibonacci numbers for bounds', () => {
-      // 5 dogs (Fib(5)) + CYNIC + Janitor + Scout + Cartographer + Oracle = 10 agents total
+      // 5 dogs (Fib(5)) + CYNIC + Janitor + Scout + Cartographer + Oracle + Deployer = 11 agents total
       assert.strictEqual(COLLECTIVE_CONSTANTS.DOG_COUNT, 5);
-      assert.strictEqual(COLLECTIVE_CONSTANTS.AGENT_COUNT, 10);
+      assert.strictEqual(COLLECTIVE_CONSTANTS.AGENT_COUNT, 11);
     });
 
     it('should cap confidence at φ⁻¹', async () => {

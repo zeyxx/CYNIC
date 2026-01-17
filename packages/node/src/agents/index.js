@@ -95,6 +95,7 @@ export {
   CollectiveScout,
   CollectiveCartographer,
   CollectiveOracle,
+  CollectiveDeployer,
   // Factory functions
   createGuardian,
   createAnalyst,
@@ -106,6 +107,7 @@ export {
   createScout,
   createCartographer,
   createOracle,
+  createDeployer,
   // Constants
   COLLECTIVE_CONSTANTS,
   // Types
@@ -140,6 +142,11 @@ export {
   ViewType,
   MetricType,
   AlertSeverity,
+  // Deployer types
+  DEPLOYER_CONSTANTS,
+  DeploymentState,
+  DeployTarget,
+  HealthStatus,
 } from './collective/index.js';
 
 // Convenience imports for default exports
@@ -162,6 +169,7 @@ import {
   CollectiveScout,
   CollectiveCartographer,
   CollectiveOracle,
+  CollectiveDeployer,
 } from './collective/index.js';
 
 /**
@@ -371,4 +379,5 @@ export default {
   CollectiveScout, // Victory (Netzach)
   CollectiveCartographer, // Kingdom (Malkhut)
   CollectiveOracle, // Beauty (Tiferet)
+  CollectiveDeployer, // Splendor (Hod)
 };

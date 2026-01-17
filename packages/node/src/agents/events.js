@@ -994,6 +994,45 @@ export class DeployFailedEvent extends AgentEventMessage {
   }
 }
 
+/**
+ * Rollback initiated by Deployer
+ */
+export class RollbackInitiatedEvent extends AgentEventMessage {
+  /**
+   * @param {object} rollback
+   * @param {object} [options]
+   */
+  constructor(rollback, options = {}) {
+    super(AgentEvent.ROLLBACK_INITIATED || 'ROLLBACK_INITIATED', AgentId.DEPLOYER, {
+      fromVersion: rollback.fromVersion,
+      toVersion: rollback.toVersion,
+      reason: rollback.reason,
+      automatic: rollback.automatic || false,
+    }, {
+      ...options,
+      priority: EventPriority.CRITICAL,
+    });
+  }
+}
+
+/**
+ * Health check completed by Deployer
+ */
+export class HealthCheckEvent extends AgentEventMessage {
+  /**
+   * @param {object} check
+   * @param {object} [options]
+   */
+  constructor(check, options = {}) {
+    super(AgentEvent.HEALTH_CHECK || 'HEALTH_CHECK', AgentId.DEPLOYER, {
+      service: check.service,
+      status: check.status,
+      healthy: check.healthy,
+      checks: check.checks,
+    }, options);
+  }
+}
+
 export default {
   EVENT_CONSTANTS,
   AgentEvent,
@@ -1032,4 +1071,6 @@ export default {
   DeployStartedEvent,
   DeployCompletedEvent,
   DeployFailedEvent,
+  RollbackInitiatedEvent,
+  HealthCheckEvent,
 };
