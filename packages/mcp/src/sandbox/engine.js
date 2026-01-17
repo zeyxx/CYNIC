@@ -291,9 +291,10 @@ const CYNICEngine = {
     const statusEl = document.getElementById('liveStatus');
 
     try {
-      // Try same-origin first (when served by MCP server)
+      // Try same-origin first, then prod, then local
       const origins = [
         '', // Same origin
+        'https://cynic-mcp.onrender.com', // Production
         'http://localhost:3000',
         'http://localhost:3001',
       ];
