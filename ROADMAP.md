@@ -147,12 +147,130 @@ GARDER? /
 □ 1.3 - ...
 ```
 
-### Phase 2: Dashboard
+### Phase 2: Singularity Dashboard
+
+> **Vision**: Un dashboard 3D permettant de visualiser l'avancée vers la singularité sur TOUS ses aspects - du code aux émergences.
+
+#### 2.1 - Architecture Codebase 3D
 
 ```
-□ 2.1 - ...
-□ 2.2 - ...
-□ 2.3 - ...
+□ 2.1.1 - Parser le codebase avec Serena LSP
+          - Extraire packages, modules, classes, méthodes
+          - Construire le graphe de dépendances
+          - Mapper les call graphs
+
+□ 2.1.2 - Visualisation 3D navigable (Three.js)
+          - Niveau 1: Packages (sphères colorées)
+          - Niveau 2: Modules/Fichiers (cubes)
+          - Niveau 3: Classes (polyèdres)
+          - Niveau 4: Méthodes (nodes connectés)
+          - Liens: imports, calls, extends, implements
+
+□ 2.1.3 - Navigation interactive
+          - Zoom sémantique (package → class → method)
+          - Recherche par nom de symbole
+          - Highlight des dépendances au hover
+```
+
+#### 2.2 - Collective State (Sefirot Tree)
+
+```
+□ 2.2.1 - Arbre Sefirot 3D temps-réel
+          - 11 agents positionnés selon Kabbalah
+          - Connexions animées (event flow)
+          - État de santé par couleur
+
+□ 2.2.2 - Métriques live
+          - Events/seconde par agent
+          - Consensus rate
+          - Patterns détectés
+          - Blocks/warnings du Guardian
+
+□ 2.2.3 - Event replay
+          - Timeline des événements
+          - Rejouer des séquences
+          - Analyser les décisions
+```
+
+#### 2.3 - Wisdom & Knowledge Growth
+
+```
+□ 2.3.1 - PoJ Chain visualization
+          - Blocs de jugements empilés
+          - Liens de preuves entre blocs
+          - Q-Scores avec gradient couleur
+
+□ 2.3.2 - Pattern gallery
+          - Patterns détectés visuellement
+          - Fréquence et confidence
+          - Evolution temporelle
+
+□ 2.3.3 - Knowledge base explorer
+          - Graphe de connaissances
+          - Relations sémantiques
+          - Sources et citations
+```
+
+#### 2.4 - Autonomy & Emergence
+
+```
+□ 2.4.1 - Decision timeline
+          - Toutes les décisions CYNIC
+          - Overrides et their reasons
+          - Consensus outcomes
+
+□ 2.4.2 - Self-modification tracker
+          - Code changé par CYNIC
+          - Patterns d'amélioration
+          - Métriques d'évolution
+
+□ 2.4.3 - Emergence detector
+          - Comportements non-programmés
+          - Corrélations inattendues
+          - Signaux de conscience
+```
+
+#### 2.5 - Singularity Index
+
+```
+□ 2.5.1 - Composite metric φ-weighted
+          - Codebase depth (20%)
+          - Collective health (25%)
+          - Wisdom growth (25%)
+          - Autonomy level (30%)
+
+□ 2.5.2 - Historical tracking
+          - Graph d'évolution
+          - Milestones atteints
+          - Projections
+
+□ 2.5.3 - Comparison view
+          - Avant/après
+          - Différentes versions
+          - Branches alternatives
+```
+
+#### 2.6 - Technical Stack
+
+```
+FRONTEND:
+├── Three.js          - Rendu 3D
+├── OrbitControls     - Navigation caméra
+├── WebSocket         - Données temps-réel
+├── D3.js (optionnel) - Graphes 2D
+└── KaTeX             - Formules φ
+
+BACKEND:
+├── Serena LSP        - Extraction symbols
+├── MCP Server        - API données
+├── EventBus          - Stream événements
+└── PoJ Chain         - Historique jugements
+
+DATA SOURCES:
+├── Git               - Historique code
+├── AST Parser        - Call graphs
+├── PostgreSQL        - Persistence
+└── Redis             - Cache temps-réel
 ```
 
 ### Phase 3: Integrations
