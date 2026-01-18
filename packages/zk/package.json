@@ -1,0 +1,25 @@
+{
+  "name": "@cynic/zk",
+  "version": "0.1.0",
+  "description": "Zero-knowledge proofs for CYNIC judgments using Noir",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./prover": "./src/prover.js",
+    "./verifier": "./src/verifier.js"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "circuits:compile": "node scripts/compile-circuits.js"
+  },
+  "dependencies": {
+    "@cynic/core": "*",
+    "@noir-lang/noir_js": "^1.0.0-beta.15",
+    "@aztec/bb.js": "^0.63.0"
+  },
+  "devDependencies": {
+    "buffer": "^6.0.3"
+  },
+  "license": "MIT"
+}
