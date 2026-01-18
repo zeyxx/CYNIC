@@ -87,6 +87,7 @@ export class PoJChainManager {
    * @param {boolean} [options.verifyReceivedBlocks=true] - Verify blocks from others
    * @param {Object} [options.anchorQueue] - AnchorQueue instance for Solana anchoring
    * @param {boolean} [options.autoAnchor=true] - Auto-anchor blocks to Solana
+   * @param {Function} [options.onBlockCreated] - Callback when new block is created
    */
   constructor(persistence, options = {}) {
     this.persistence = persistence;
@@ -101,6 +102,9 @@ export class PoJChainManager {
     // Solana anchoring support
     this._anchorQueue = options.anchorQueue || null;
     this._autoAnchor = options.autoAnchor ?? true;
+
+    // Event callbacks for SSE integration
+    this._onBlockCreated = options.onBlockCreated || null;
 
     // Legacy single-operator key (for backwards compatibility)
     this._legacyOperatorKey = options.operatorKey || null;
@@ -319,6 +323,23 @@ export class PoJChainManager {
         }
 
         console.error(`🔗 PoJ Block #${block.slot} created: ${judgments.length} judgments`);
+
+        // Emit event for SSE broadcast
+        if (this._onBlockCreated) {
+          try {
+            this._onBlockCreated({
+              blockNumber: block.slot,
+              hash: block.hash,
+              prevHash: block.prev_hash,
+              judgmentCount: judgments.length,
+              timestamp: block.timestamp,
+            });
+          } catch (e) {
+            // Non-blocking - don't fail block creation for callback errors
+            console.error('Block callback error:', e.message);
+          }
+        }
+
         return stored;
       }
     } catch (err) {

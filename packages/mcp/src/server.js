@@ -172,7 +172,10 @@ export class MCPServer {
 
     // Initialize PoJ Chain manager for blockchain
     if (!this.pojChainManager) {
-      this.pojChainManager = new PoJChainManager(this.persistence);
+      this.pojChainManager = new PoJChainManager(this.persistence, {
+        // SSE broadcast when block is created
+        onBlockCreated: (block) => this._broadcastSSEEvent('block', block),
+      });
       await this.pojChainManager.initialize();
 
       // Verify chain integrity at startup
@@ -306,6 +309,8 @@ export class MCPServer {
       integrator: this.integrator,
       metrics: this.metrics,
       graphIntegration: this.graphIntegration, // Graph-Judgment connection
+      // SSE broadcast callback for real-time dashboard updates
+      onJudgment: (judgment) => this._broadcastSSEEvent('judgment', judgment),
     });
   }
 
@@ -562,6 +567,26 @@ export class MCPServer {
    */
   _broadcastToSSE(data) {
     const message = `event: message\ndata: ${JSON.stringify(data)}\n\n`;
+    for (const client of this._sseClients) {
+      if (!client.writableEnded) {
+        try {
+          client.write(message);
+        } catch (e) {
+          // Client disconnected, remove from set
+          this._sseClients.delete(client);
+        }
+      }
+    }
+  }
+
+  /**
+   * Broadcast typed SSE event to all clients
+   * @param {string} eventType - Event type (judgment, block, alert)
+   * @param {Object} data - Event data
+   * @private
+   */
+  _broadcastSSEEvent(eventType, data) {
+    const message = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
     for (const client of this._sseClients) {
       if (!client.writableEnded) {
         try {

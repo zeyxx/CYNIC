@@ -21,9 +21,10 @@ import { createCodeAnalyzer } from '../code-analyzer.js';
  * @param {Object} [sessionManager] - SessionManager instance (for user/session context)
  * @param {Object} [pojChainManager] - PoJChainManager instance (for blockchain)
  * @param {Object} [graphIntegration] - JudgmentGraphIntegration instance (for graph edges)
+ * @param {Function} [onJudgment] - Callback when judgment is completed (for SSE broadcast)
  * @returns {Object} Tool definition
  */
-export function createJudgeTool(judge, persistence = null, sessionManager = null, pojChainManager = null, graphIntegration = null) {
+export function createJudgeTool(judge, persistence = null, sessionManager = null, pojChainManager = null, graphIntegration = null, onJudgment = null) {
   return {
     name: 'brain_cynic_judge',
     description: `Judge an item using CYNIC's 25-dimension evaluation across 4 axioms (PHI, VERIFY, CULTURE, BURN). Returns Q-Score (0-100), verdict (HOWL/WAG/GROWL/BARK), confidence (max ${(PHI_INV * 100).toFixed(1)}%), and dimension breakdown.`,
@@ -118,6 +119,23 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
       // Include graph edge info if available
       if (judgment.graphEdge) {
         result.graphEdge = judgment.graphEdge;
+      }
+
+      // Emit event for SSE broadcast
+      if (onJudgment) {
+        try {
+          onJudgment({
+            judgmentId,
+            qScore: result.score,
+            verdict: result.verdict,
+            confidence: result.confidence,
+            itemType: item.type || 'unknown',
+            timestamp: result.timestamp,
+          });
+        } catch (e) {
+          // Non-blocking - don't fail judgment for callback errors
+          console.error('Judgment callback error:', e.message);
+        }
       }
 
       return result;
@@ -1970,6 +1988,7 @@ export function createCodebaseTool(options = {}) {
  * @param {Object} [options.metrics] - MetricsService instance for monitoring
  * @param {Object} [options.graphIntegration] - JudgmentGraphIntegration instance for graph edges
  * @param {Object} [options.codebaseOptions] - Options for code analyzer (rootPath, etc)
+ * @param {Function} [options.onJudgment] - Callback when judgment is completed (for SSE broadcast)
  * @returns {Object} All tools keyed by name
  */
 export function createAllTools(options = {}) {
@@ -1987,13 +2006,14 @@ export function createAllTools(options = {}) {
     metrics = null,
     graphIntegration = null, // JudgmentGraphIntegration for graph edges
     codebaseOptions = {},
+    onJudgment = null, // SSE broadcast callback
   } = options;
 
   if (!judge) throw new Error('judge is required');
 
   const tools = {};
   const toolDefs = [
-    createJudgeTool(judge, persistence, sessionManager, pojChainManager, graphIntegration),
+    createJudgeTool(judge, persistence, sessionManager, pojChainManager, graphIntegration, onJudgment),
     createDigestTool(persistence, sessionManager),
     createHealthTool(node, judge, persistence),
     createSearchTool(persistence),
