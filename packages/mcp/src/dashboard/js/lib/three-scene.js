@@ -447,6 +447,168 @@ export class ThreeScene {
   }
 
   /**
+   * Load Sefirot tree (11 Dogs)
+   * @param {Array} dogs - Array of dog data from Formulas.DOGS
+   */
+  loadSefirotTree(dogs) {
+    this.clear();
+
+    if (!dogs || dogs.length === 0) return;
+
+    // Sefirot colors
+    const colors = {
+      Keter: 0x4ecdc4,     // Crown - teal
+      Chochmah: 0x667eea,  // Wisdom - purple-blue
+      Binah: 0x764ba2,     // Understanding - purple
+      Daat: 0xf093fb,      // Knowledge - pink
+      Chesed: 0x00d9ff,    // Mercy - cyan
+      Gevurah: 0xff6b6b,   // Severity - red
+      Tiferet: 0xffd93d,   // Beauty - gold
+      Netzach: 0x00ff88,   // Victory - green
+      Hod: 0xff8c00,       // Glory - orange
+      Yesod: 0x8888ff,     // Foundation - light purple
+      Malkhut: 0x88ff88,   // Kingdom - light green
+    };
+
+    // Sefirot positions in 3D space (tree structure)
+    const positions = {
+      Keter: { x: 0, y: 4, z: 0 },       // Top
+      Chochmah: { x: -2, y: 3, z: 0 },   // Upper left
+      Binah: { x: 2, y: 3, z: 0 },       // Upper right
+      Daat: { x: 0, y: 2.5, z: 1 },      // Center (knowledge)
+      Chesed: { x: -2, y: 1.5, z: 0 },   // Middle left
+      Gevurah: { x: 2, y: 1.5, z: 0 },   // Middle right
+      Tiferet: { x: 0, y: 1, z: 0 },     // Center
+      Netzach: { x: -2, y: -0.5, z: 0 }, // Lower left
+      Hod: { x: 2, y: -0.5, z: 0 },      // Lower right
+      Yesod: { x: 0, y: -1.5, z: 0 },    // Foundation
+      Malkhut: { x: 0, y: -3, z: 0 },    // Bottom (Kingdom)
+    };
+
+    // Create nodes for each dog
+    for (const dog of dogs) {
+      const pos = positions[dog.sefirot] || { x: 0, y: 0, z: 0 };
+      const color = colors[dog.sefirot] || 0xffffff;
+
+      // Add sphere for the dog
+      this.addSphere(pos, color, {
+        name: dog.name,
+        type: 'dog',
+        sefirot: dog.sefirot,
+        role: dog.role,
+      }, dog.name === 'CYNIC' ? 0.7 : 0.4);
+
+      // Add label below
+      this.addLabel(dog.name, new THREE.Vector3(pos.x, pos.y - 0.6, pos.z), color);
+    }
+
+    // Add connections (simplified tree)
+    const connections = [
+      ['Keter', 'Chochmah'], ['Keter', 'Binah'],
+      ['Chochmah', 'Daat'], ['Binah', 'Daat'],
+      ['Chochmah', 'Chesed'], ['Binah', 'Gevurah'],
+      ['Chesed', 'Tiferet'], ['Gevurah', 'Tiferet'],
+      ['Tiferet', 'Netzach'], ['Tiferet', 'Hod'],
+      ['Netzach', 'Yesod'], ['Hod', 'Yesod'],
+      ['Yesod', 'Malkhut'],
+    ];
+
+    for (const [from, to] of connections) {
+      const fromPos = positions[from];
+      const toPos = positions[to];
+      if (fromPos && toPos) {
+        this.addConnection(
+          new THREE.Vector3(fromPos.x, fromPos.y, fromPos.z),
+          new THREE.Vector3(toPos.x, toPos.y, toPos.z),
+          0x333355
+        );
+      }
+    }
+
+    // Reset camera to see the tree
+    this.camera.position.set(6, 2, 8);
+    this.camera.lookAt(0, 0, 0);
+  }
+
+  /**
+   * Load codebase tree
+   * @param {Object} data - Codebase tree data
+   */
+  loadCodebaseTree(data) {
+    this.clear();
+
+    if (!data) return;
+
+    const colors = {
+      package: 0x4ecdc4,
+      module: 0x667eea,
+      class: 0xf093fb,
+      function: 0xffd93d,
+    };
+
+    // Layout nodes in a grid
+    this._layoutCodebaseNode(data, 0, 0, 0);
+
+    // Reset camera
+    this.camera.position.set(5, 5, 8);
+    this.camera.lookAt(0, 0, 0);
+  }
+
+  /**
+   * Layout codebase node recursively
+   */
+  _layoutCodebaseNode(node, x, y, z, parentPos = null) {
+    const colors = {
+      package: 0x4ecdc4,
+      module: 0x667eea,
+      class: 0xf093fb,
+      function: 0xffd93d,
+    };
+
+    const color = colors[node.type] || 0xaaaaaa;
+    const pos = { x, y, z };
+
+    this.addBox(pos, color, {
+      name: node.name,
+      type: node.type,
+      path: node.path,
+    }, node.type === 'package' ? 0.5 : 0.3);
+
+    this.addLabel(node.name, new THREE.Vector3(x, y - 0.5, z), color, 0.8);
+
+    // Connect to parent
+    if (parentPos) {
+      this.addConnection(
+        new THREE.Vector3(parentPos.x, parentPos.y, parentPos.z),
+        new THREE.Vector3(x, y, z),
+        0x333355
+      );
+    }
+
+    // Layout children
+    if (node.children && node.children.length > 0) {
+      const spacing = 2;
+      const startX = x - ((node.children.length - 1) * spacing) / 2;
+
+      node.children.forEach((child, i) => {
+        this._layoutCodebaseNode(child, startX + i * spacing, y - 2, z, pos);
+      });
+    }
+  }
+
+  /**
+   * Highlight a node by name
+   * @param {string} name - Node name to highlight
+   */
+  highlightNode(name) {
+    this.objects.forEach(obj => {
+      if (obj.userData?.name === name) {
+        this.selectObject(obj);
+      }
+    });
+  }
+
+  /**
    * Dispose scene
    */
   dispose() {

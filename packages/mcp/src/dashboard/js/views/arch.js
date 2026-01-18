@@ -105,11 +105,13 @@ export class ArchView {
     const canvasContainer = document.getElementById('arch-canvas');
     if (!canvasContainer) return;
 
-    this.threeScene = new ThreeScene({
-      container: canvasContainer,
-      onNodeClick: (node) => this._onNodeClick(node),
-      onNodeHover: (node) => this._onNodeHover(node),
-    });
+    // ThreeScene expects container ID string
+    this.threeScene = new ThreeScene('arch-canvas');
+
+    // Set event callbacks
+    this.threeScene.onObjectClick = (data) => this._onNodeClick(data);
+    this.threeScene.onObjectHover = (data) => this._onNodeHover(data);
+
     this.threeScene.init();
   }
 
