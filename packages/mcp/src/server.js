@@ -562,6 +562,25 @@ export class MCPServer {
   }
 
   /**
+   * Broadcast message to all SSE clients
+   * @param {Object} data - Data to broadcast
+   * @private
+   */
+  _broadcastToSSE(data) {
+    const message = `event: message\ndata: ${JSON.stringify(data)}\n\n`;
+    for (const client of this._sseClients) {
+      if (!client.writableEnded) {
+        try {
+          client.write(message);
+        } catch (e) {
+          // Client disconnected, remove from set
+          this._sseClients.delete(client);
+        }
+      }
+    }
+  }
+
+  /**
    * Handle new dashboard static file requests
    * @private
    */
