@@ -10,3 +10,6 @@
 
 export { APIServer } from './server.js';
 export { default } from './server.js';
+
+// Burns verification API
+export { BurnsAPI, setupBurnsRoutes } from './burns-api.js';

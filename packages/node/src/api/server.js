@@ -12,6 +12,7 @@
 
 import express from 'express';
 import { PHI_INV, PHI_INV_2 } from '@cynic/core';
+import { setupBurnsRoutes } from './burns-api.js';
 
 /**
  * API Server for CYNIC Node
@@ -28,13 +29,16 @@ export class APIServer {
     this.node = options.node;
     this.port = options.port || parseInt(process.env.PORT || process.env.CYNIC_API_PORT, 10) || 3000;
     this.apiKey = options.apiKey || process.env.CYNIC_API_KEY;
+    this.burnsCluster = options.burnsCluster || process.env.SOLANA_CLUSTER || 'https://api.mainnet-beta.solana.com';
 
     // Express app
     this.app = express();
     this.server = null;
+    this.burnsService = null;
 
     // Configure
     this._configure();
+    this._setupBurnsRoutes(); // Burns routes BEFORE main routes (404 handler last)
     this._setupRoutes();
   }
 
@@ -107,6 +111,9 @@ export class APIServer {
           'GET /consensus/status',
           'POST /judge',
           'GET /merkle/proof/:hash',
+          'GET /burns/verify/:signature',
+          'GET /burns/stats',
+          'POST /burns/verify (batch)',
         ],
       });
     });
@@ -342,7 +349,7 @@ export class APIServer {
       res.status(404).json({
         error: 'Not Found',
         message: `Route ${req.method} ${req.path} not found`,
-        available: ['/', '/health', '/info', '/consensus/status', '/judge', '/judge/kscore', '/merkle/proof/:hash'],
+        available: ['/', '/health', '/info', '/consensus/status', '/judge', '/judge/kscore', '/merkle/proof/:hash', '/burns/verify/:signature', '/burns/stats'],
       });
     });
 
@@ -354,6 +361,17 @@ export class APIServer {
         message: err.message,
       });
     });
+  }
+
+  /**
+   * Setup burns verification routes
+   * @private
+   */
+  _setupBurnsRoutes() {
+    this.burnsService = setupBurnsRoutes(this.app, {
+      cluster: this.burnsCluster,
+    });
+    console.log(`🔥 Burns API enabled (${this.burnsCluster})`);
   }
 
   /**
