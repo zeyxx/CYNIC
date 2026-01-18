@@ -47,3 +47,10 @@ packages/persistence/scripts/
 
 # Serena LSP cache
 .serena/
+
+# Playwright test screenshots
+.playwright-mcp/
+
+# Local data directories
+data/
+packages/*/data/
