@@ -251,6 +251,15 @@ export class CollectiveGuardian extends BaseAgent {
       AgentId.GUARDIAN,
       this._handleConsensusResponse.bind(this)
     );
+
+    // === HOOK EVENTS (from Claude Code) ===
+
+    // Learn from PreToolUse - blocked/warned operations
+    this.eventBus.subscribe(
+      AgentEvent.HOOK_PRE_TOOL,
+      AgentId.GUARDIAN,
+      this._handleHookPreTool.bind(this)
+    );
   }
 
   /**
@@ -310,6 +319,54 @@ export class CollectiveGuardian extends BaseAgent {
     if (result) {
       this.pendingConsensus.delete(requestId);
       pending.resolve(result);
+    }
+  }
+
+  // ==========================================================================
+  // HOOK EVENT HANDLERS (Claude Code Integration)
+  // ==========================================================================
+
+  /**
+   * Handle PreToolUse hook events - learn from blocked/warned operations
+   * @private
+   */
+  _handleHookPreTool(event) {
+    const { toolName, issues, blocked } = event.data || {};
+    this.stats.invocations++;
+
+    if (!issues || !Array.isArray(issues)) return;
+
+    // Learn from each issue
+    for (const issue of issues) {
+      const { severity, message } = issue;
+
+      // Track blocked/warned counts
+      if (blocked) {
+        this.stats.blocks++;
+        this.blockedCount++;
+      } else if (severity === 'high' || severity === 'medium') {
+        this.stats.warnings++;
+        this.warnedCount++;
+      }
+
+      // Learn pattern from high-severity issues
+      if (severity === 'critical' || severity === 'high') {
+        this._learnPattern(
+          message,
+          'hook_threat',
+          severity
+        );
+      }
+    }
+
+    // Emit threat blocked event if blocked
+    if (blocked && issues.length > 0) {
+      this._emitThreatBlocked({
+        command: toolName,
+        category: 'hook_guard',
+        risk: issues[0].severity,
+        issues,
+      });
     }
   }
 

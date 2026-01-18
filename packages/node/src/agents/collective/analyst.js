@@ -173,6 +173,36 @@ export class CollectiveAnalyst extends BaseAgent {
       AgentId.ANALYST,
       this._handleThreatBlocked.bind(this)
     );
+
+    // === HOOK EVENTS (from Claude Code) ===
+
+    // Track tool usage from hooks
+    this.eventBus.subscribe(
+      AgentEvent.HOOK_POST_TOOL,
+      AgentId.ANALYST,
+      this._handleHookPostTool.bind(this)
+    );
+
+    // Session start - initialize tracking
+    this.eventBus.subscribe(
+      AgentEvent.HOOK_SESSION_START,
+      AgentId.ANALYST,
+      this._handleHookSessionStart.bind(this)
+    );
+
+    // Session end - finalize stats
+    this.eventBus.subscribe(
+      AgentEvent.HOOK_SESSION_STOP,
+      AgentId.ANALYST,
+      this._handleHookSessionStop.bind(this)
+    );
+
+    // Pattern detected from hooks
+    this.eventBus.subscribe(
+      AgentEvent.HOOK_PATTERN,
+      AgentId.ANALYST,
+      this._handleHookPattern.bind(this)
+    );
   }
 
   /**
@@ -231,6 +261,132 @@ export class CollectiveAnalyst extends BaseAgent {
         count: 1,
       });
     }
+  }
+
+  // ==========================================================================
+  // HOOK EVENT HANDLERS (Claude Code Integration)
+  // ==========================================================================
+
+  /**
+   * Handle PostToolUse hook events - track tool usage patterns
+   * @private
+   */
+  _handleHookPostTool(event) {
+    const { toolName, isError, patterns, inputSize } = event.data || {};
+    this.stats.invocations++;
+
+    if (toolName) {
+      // Track tool usage
+      this._trackToolUsage(toolName, { input: {}, output: {} }, { isError });
+
+      // Record patterns from hook
+      if (patterns && Array.isArray(patterns)) {
+        for (const pattern of patterns) {
+          this._recordPattern({
+            category: this._mapPatternType(pattern.type),
+            name: pattern.signature || pattern.type,
+            description: pattern.description,
+            timestamp: Date.now(),
+            source: 'hook',
+          });
+        }
+      }
+
+      // Detect anomalies on errors
+      if (isError) {
+        this._trackError({ type: 'tool_error', tool: toolName });
+      }
+    }
+
+    // Emit pattern detected if significant
+    if (this.detectedPatterns.length > 0 && this.detectedPatterns.length % 5 === 0) {
+      this._emitPatternDetected(this.detectedPatterns[this.detectedPatterns.length - 1]);
+    }
+  }
+
+  /**
+   * Handle SessionStart hook events - initialize session tracking
+   * @private
+   */
+  _handleHookSessionStart(event) {
+    const { userId, sessionCount, project } = event.data || {};
+    this.stats.invocations++;
+
+    // Reset session stats for new session
+    this.sessionStart = Date.now();
+    this.interactionCount = 0;
+
+    // Record session pattern
+    this._recordPattern({
+      category: PatternCategory.WORKFLOW,
+      name: 'session_start',
+      userId,
+      sessionCount,
+      project,
+      timestamp: Date.now(),
+      source: 'hook',
+    });
+  }
+
+  /**
+   * Handle SessionStop hook events - finalize session stats
+   * @private
+   */
+  _handleHookSessionStop(event) {
+    const { toolsUsed, errorsEncountered, topTools, insights } = event.data || {};
+    this.stats.invocations++;
+
+    const sessionDuration = Date.now() - (this.sessionStart || Date.now());
+
+    // Record session summary pattern
+    this._recordPattern({
+      category: PatternCategory.WORKFLOW,
+      name: 'session_end',
+      duration: sessionDuration,
+      toolsUsed,
+      errorsEncountered,
+      topTools,
+      insights,
+      timestamp: Date.now(),
+      source: 'hook',
+    });
+
+    // Check for profile level update based on session
+    this._checkProfileUpdate();
+  }
+
+  /**
+   * Handle pattern detected hook events
+   * @private
+   */
+  _handleHookPattern(event) {
+    const { type, signature, description, context } = event.data || {};
+    this.stats.invocations++;
+
+    this._recordPattern({
+      category: this._mapPatternType(type),
+      name: signature || type,
+      description,
+      context,
+      timestamp: Date.now(),
+      source: 'hook',
+    });
+  }
+
+  /**
+   * Map hook pattern type to PatternCategory
+   * @private
+   */
+  _mapPatternType(type) {
+    const mapping = {
+      error: PatternCategory.ERROR_PATTERN,
+      tool_usage: PatternCategory.TOOL_USAGE,
+      language_usage: PatternCategory.CODE_STYLE,
+      git_usage: PatternCategory.WORKFLOW,
+      decision: PatternCategory.WORKFLOW,
+      architecture: PatternCategory.CODE_STYLE,
+    };
+    return mapping[type] || PatternCategory.WORKFLOW;
   }
 
   /**

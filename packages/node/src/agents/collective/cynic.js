@@ -1024,6 +1024,40 @@ export class CollectiveCynic extends BaseAgent {
       return;
     }
 
+    // === HOOK EVENTS (from Claude Code) ===
+
+    // Session start - CYNIC awakens
+    if (event.type === AgentEvent.HOOK_SESSION_START) {
+      this.metaState = MetaState.OBSERVING;
+      this.session = {
+        ...this.session,
+        hookStartTime: Date.now(),
+        userId: event.data?.userId || this.session.userId,
+        project: event.data?.project || this.session.project,
+      };
+    }
+
+    // Session end - CYNIC synthesizes
+    if (event.type === AgentEvent.HOOK_SESSION_STOP) {
+      this.metaState = MetaState.SYNTHESIZING;
+      // Consider synthesis when session ends
+      this._considerSynthesis();
+    }
+
+    // Pre-tool blocked - Guardian acted, CYNIC observes
+    if (event.type === AgentEvent.HOOK_PRE_TOOL && event.data?.blocked) {
+      // Track blocked operations from hooks
+      const recentBlocks = this.observedEvents
+        .filter(e => e.type === AgentEvent.HOOK_PRE_TOOL && e.payloadSummary?.blocked)
+        .filter(e => Date.now() - e.timestamp < 60000);
+
+      if (recentBlocks.length >= 3) {
+        this.metaState = MetaState.DECIDING;
+      }
+    }
+
+    // === INTERNAL EVENTS ===
+
     // Threat events may require attention
     if (event.type === AgentEvent.THREAT_BLOCKED) {
       // Could escalate to DECIDING state if repeated threats
