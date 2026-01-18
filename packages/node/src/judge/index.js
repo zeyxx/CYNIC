@@ -12,4 +12,5 @@ export * from './scorers.js';
 export * from './residual.js';
 export * from './graph-integration.js';
 export * from './learning-service.js';
+export * from './learning-manager.js';
 export * from './self-skeptic.js';

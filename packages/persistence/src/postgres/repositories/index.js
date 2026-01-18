@@ -15,3 +15,9 @@ export { KnowledgeRepository } from './knowledge.js';
 export { PoJBlockRepository } from './poj-blocks.js';
 export { LibraryCacheRepository } from './library-cache.js';
 export { EcosystemDocsRepository } from './ecosystem-docs.js';
+
+// Phase 11: Learning System
+export { EScoreHistoryRepository } from './escore-history.js';
+export { LearningCyclesRepository } from './learning-cycles.js';
+export { PatternEvolutionRepository } from './pattern-evolution.js';
+export { UserLearningProfilesRepository } from './user-learning-profiles.js';

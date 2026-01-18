@@ -45,6 +45,7 @@ export {
   ResidualDetector,
   JudgmentGraphIntegration,
   LearningService,
+  LearningManager,
   // Self-Skepticism: "φ distrusts φ"
   SelfSkeptic,
   createSelfSkeptic,
