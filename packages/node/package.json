@@ -17,7 +17,7 @@
     "./cli": "./src/cli/index.js"
   },
   "scripts": {
-    "test": "node --test --experimental-test-isolation=none test/*.test.js",
+    "test": "node --test test/*.test.js",
     "start": "node bin/cynic.js start"
   },
   "dependencies": {
