@@ -1701,13 +1701,17 @@ export function createCollectiveStatusTool(collective) {
       const dogs = {};
       for (const [name, info] of Object.entries(sefirotMap)) {
         const agentData = summary.agents[name];
+        const invCount = agentData?.invocations || agentData?.stats?.invocations || 0;
+        if (name === 'analyst') {
+          console.error(`[DEBUG] Building dogs.analyst: agentData.invocations=${agentData?.invocations}, calculated=${invCount}`);
+        }
         dogs[name] = {
           sefira: info.sefira,
           meaning: info.meaning,
           role: info.role,
           active: !!agentData,
           ...(agentData ? {
-            invocations: agentData.invocations || agentData.stats?.invocations || 0,
+            invocations: invCount,
           } : {}),
         };
       }
