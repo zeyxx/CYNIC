@@ -515,6 +515,12 @@ export class MCPServer {
       return;
     }
 
+    // Hook event endpoint - bridges Claude Code hooks to the Collective
+    if (url.pathname === '/api/hooks/event' && req.method === 'POST') {
+      await this._handleHookEvent(req, res);
+      return;
+    }
+
     // 404 for unknown routes
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Not found' }));
@@ -700,6 +706,67 @@ export class MCPServer {
       }));
     } catch (err) {
       console.error(`🐕 [API] Tool ${toolName} error: ${err.message}`);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
+  /**
+   * Handle hook event from Claude Code
+   * Bridges external hooks to the Collective eventBus
+   *
+   * POST /api/hooks/event
+   * Body: { hookType, payload, userId, sessionId }
+   *
+   * @private
+   */
+  async _handleHookEvent(req, res) {
+    try {
+      // Parse request body
+      let body = '';
+      for await (const chunk of req) {
+        body += chunk;
+        if (body.length > MAX_BODY_SIZE) {
+          res.writeHead(413, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Request too large' }));
+          return;
+        }
+      }
+
+      const hookData = body ? JSON.parse(body) : {};
+
+      // Validate required fields
+      if (!hookData.hookType) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'hookType is required' }));
+        return;
+      }
+
+      // Check if collective is available
+      if (!this.collective) {
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Collective not initialized' }));
+        return;
+      }
+
+      // Forward to collective
+      const result = await this.collective.receiveHookEvent(hookData);
+
+      // Log for debugging
+      console.error(`🐕 [HOOK] ${hookData.hookType} → ${result.delivered || 0} dogs notified`);
+
+      // Broadcast to SSE clients
+      this._broadcastToSSE({
+        type: 'hook:received',
+        hookType: hookData.hookType,
+        delivered: result.delivered || 0,
+        timestamp: Date.now(),
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      console.error(`🐕 [HOOK] Error: ${err.message}`);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: err.message }));
     }

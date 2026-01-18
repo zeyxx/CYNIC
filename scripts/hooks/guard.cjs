@@ -275,6 +275,14 @@ async function main() {
     // Format response
     const { shouldBlock, message } = formatGuardianResponse(issues, toolName, profile);
 
+    // Send to MCP server (non-blocking)
+    cynic.sendHookToCollectiveSync('PreToolUse', {
+      toolName,
+      issues: issues.map(i => ({ severity: i.severity, message: i.message })),
+      blocked: shouldBlock,
+      timestamp: Date.now(),
+    });
+
     if (shouldBlock) {
       console.log(JSON.stringify({
         continue: false,

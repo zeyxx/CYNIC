@@ -114,6 +114,7 @@ export {
 export {
   AgentEventBus,
   AgentEvent,
+  AgentEventMessage,
   AgentId,
   EventPriority,
   ConsensusVote,

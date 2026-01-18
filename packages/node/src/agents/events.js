@@ -169,6 +169,28 @@ export const AgentEvent = {
 
   /** Deployment failed */
   DEPLOY_FAILED: 'agent:deploy:failed',
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HOOK EVENTS (External → Collective) - Claude Code integration
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** Hook: Session started (awaken.cjs) */
+  HOOK_SESSION_START: 'hook:session:start',
+
+  /** Hook: User prompt submitted (perceive.cjs) */
+  HOOK_PROMPT_SUBMIT: 'hook:prompt:submit',
+
+  /** Hook: Pre-tool use (guard.cjs) */
+  HOOK_PRE_TOOL: 'hook:tool:pre',
+
+  /** Hook: Post-tool use (observe.cjs) */
+  HOOK_POST_TOOL: 'hook:tool:post',
+
+  /** Hook: Session stop (digest.cjs) */
+  HOOK_SESSION_STOP: 'hook:session:stop',
+
+  /** Hook: Generic pattern detected */
+  HOOK_PATTERN: 'hook:pattern:detected',
 };
 
 /**

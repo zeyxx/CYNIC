@@ -62,6 +62,16 @@ async function main() {
     // Format the awakening message
     const message = cynic.formatEcosystemStatus(ecosystem, profile);
 
+    // Send to MCP server (non-blocking)
+    cynic.sendHookToCollectiveSync('SessionStart', {
+      userId: user.userId,
+      userName: user.name,
+      sessionCount: profile.stats?.sessions || 1,
+      project: ecosystem.currentProject?.name,
+      ecosystem: ecosystem.projects?.map(p => p.name) || [],
+      timestamp: Date.now(),
+    });
+
     // Output directly to stdout (like asdf-brain) for banner display
     console.log(message);
 

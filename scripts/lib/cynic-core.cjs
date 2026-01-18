@@ -432,6 +432,89 @@ function getPersonalizedGreeting(profile) {
 }
 
 // =============================================================================
+// MCP INTEGRATION - Connect to the Collective
+// =============================================================================
+
+const MCP_SERVER_URL = process.env.CYNIC_MCP_URL || 'https://cynic-mcp.onrender.com';
+
+/**
+ * Send hook event to MCP server (Collective)
+ * @param {string} hookType - Type: SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, Stop
+ * @param {Object} payload - Hook payload data
+ * @param {Object} [options] - Additional options
+ * @returns {Promise<Object>} Result from server
+ */
+async function sendHookToCollective(hookType, payload, options = {}) {
+  const https = require('https');
+  const http = require('http');
+
+  const user = detectUser();
+  const body = JSON.stringify({
+    hookType,
+    payload,
+    userId: user.userId,
+    sessionId: options.sessionId || `session_${Date.now()}`,
+  });
+
+  const url = new URL(`${MCP_SERVER_URL}/api/hooks/event`);
+  const transport = url.protocol === 'https:' ? https : http;
+
+  return new Promise((resolve, reject) => {
+    const req = transport.request({
+      hostname: url.hostname,
+      port: url.port || (url.protocol === 'https:' ? 443 : 80),
+      path: url.pathname,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+      timeout: 5000, // 5 second timeout
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          resolve({ success: false, error: 'Invalid JSON response' });
+        }
+      });
+    });
+
+    req.on('error', (e) => {
+      // Fail silently - hooks should not block on network errors
+      resolve({ success: false, error: e.message });
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      resolve({ success: false, error: 'Timeout' });
+    });
+
+    req.write(body);
+    req.end();
+  });
+}
+
+/**
+ * Send hook to collective (sync wrapper for CJS hooks)
+ * Non-blocking - fire and forget
+ */
+function sendHookToCollectiveSync(hookType, payload, options = {}) {
+  // Fire async request but don't wait
+  sendHookToCollective(hookType, payload, options)
+    .then(result => {
+      if (result.delivered > 0) {
+        // Successfully delivered to dogs
+      }
+    })
+    .catch(() => {
+      // Silently ignore errors
+    });
+}
+
+// =============================================================================
 // EXPORTS
 // =============================================================================
 
@@ -467,5 +550,10 @@ module.exports = {
 
   // Formatting
   formatEcosystemStatus,
-  getPersonalizedGreeting
+  getPersonalizedGreeting,
+
+  // MCP Integration
+  MCP_SERVER_URL,
+  sendHookToCollective,
+  sendHookToCollectiveSync,
 };

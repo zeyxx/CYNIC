@@ -42,7 +42,7 @@
 
 import { PHI_INV } from '@cynic/core';
 import { AgentEventBus } from '../event-bus.js';
-import { AgentEvent, AgentId, ConsensusVote } from '../events.js';
+import { AgentEvent, AgentEventMessage, AgentId, ConsensusVote } from '../events.js';
 import { ProfileCalculator, ProfileLevel } from '../../profile/calculator.js';
 import { OrganicSignals } from '../../profile/organic-signals.js';
 import { LocalStore } from '../../privacy/local-store.js';
@@ -495,6 +495,72 @@ export class CollectivePack {
    */
   getEventBus() {
     return this.eventBus;
+  }
+
+  /**
+   * Receive hook event from Claude Code
+   * This bridges external hooks to the collective eventBus
+   *
+   * @param {Object} hookData - Hook event data
+   * @param {string} hookData.hookType - Type: SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, Stop
+   * @param {Object} hookData.payload - Hook payload
+   * @param {string} [hookData.userId] - User ID
+   * @param {string} [hookData.sessionId] - Session ID
+   * @returns {Promise<Object>} Result with delivered count
+   */
+  async receiveHookEvent(hookData) {
+    const { hookType, payload = {}, userId, sessionId } = hookData;
+
+    // Map Claude Code hook types to AgentEvent types
+    const hookEventMap = {
+      SessionStart: AgentEvent.HOOK_SESSION_START,
+      UserPromptSubmit: AgentEvent.HOOK_PROMPT_SUBMIT,
+      PreToolUse: AgentEvent.HOOK_PRE_TOOL,
+      PostToolUse: AgentEvent.HOOK_POST_TOOL,
+      Stop: AgentEvent.HOOK_SESSION_STOP,
+      pattern: AgentEvent.HOOK_PATTERN,
+    };
+
+    const eventType = hookEventMap[hookType];
+    if (!eventType) {
+      return { success: false, error: `Unknown hook type: ${hookType}` };
+    }
+
+    // Create event message
+    const event = new AgentEventMessage(
+      eventType,
+      'external:hook', // Source
+      {
+        ...payload,
+        hookType,
+        userId,
+        sessionId,
+        receivedAt: Date.now(),
+      }
+    );
+
+    // Publish to eventBus
+    try {
+      const result = await this.eventBus.publish(event);
+
+      // Update CYNIC's observation count
+      if (this.cynic) {
+        this.cynic.stats.eventsObserved++;
+      }
+
+      return {
+        success: true,
+        eventId: event.id,
+        eventType,
+        delivered: result.delivered,
+        errors: result.errors.length,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
   }
 
   /**

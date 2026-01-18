@@ -157,7 +157,7 @@ async function main() {
     // Detect patterns
     const patterns = detectToolPattern(toolName, toolInput, toolOutput, isError);
 
-    // Save patterns to collective
+    // Save patterns to local collective
     for (const pattern of patterns) {
       cynic.saveCollectivePattern(pattern);
     }
@@ -165,6 +165,15 @@ async function main() {
     // Update user profile stats
     const updates = updateUserToolStats(profile, toolName, isError);
     cynic.updateUserProfile(profile, updates);
+
+    // Send to MCP server (non-blocking)
+    cynic.sendHookToCollectiveSync('PostToolUse', {
+      toolName,
+      isError,
+      patterns,
+      inputSize: JSON.stringify(toolInput).length,
+      timestamp: Date.now(),
+    });
 
     // Observer never blocks - always continue silently
     console.log(JSON.stringify({ continue: true }));

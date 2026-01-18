@@ -175,6 +175,16 @@ async function main() {
     // Format message
     const message = formatDigestMessage(profile, analysis, insights);
 
+    // Send to MCP server (non-blocking)
+    cynic.sendHookToCollectiveSync('Stop', {
+      userId: user.userId,
+      toolsUsed: analysis.toolsUsed,
+      errorsEncountered: analysis.errorsEncountered,
+      topTools: analysis.topTools,
+      insights: insights.map(i => ({ type: i.type, description: i.description })),
+      timestamp: Date.now(),
+    });
+
     // Output directly to stdout for banner display (like awaken.cjs)
     console.log(message);
 

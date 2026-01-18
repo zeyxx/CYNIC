@@ -245,6 +245,14 @@ async function main() {
       }
     }
 
+    // Send to MCP server (non-blocking)
+    cynic.sendHookToCollectiveSync('UserPromptSubmit', {
+      promptLength: prompt.length,
+      intents: intents.map(i => i.intent),
+      hasInjections: injections.length > 0,
+      timestamp: Date.now(),
+    });
+
     // Output result
     if (injections.length === 0) {
       console.log(JSON.stringify({ continue: true }));
