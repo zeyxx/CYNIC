@@ -159,8 +159,10 @@ describe('CYNICNode', () => {
       const result = await node.judge(item);
 
       assert.ok(result);
-      assert.ok(result.verdict);
-      assert.ok(typeof result.qScore === 'number');
+      assert.ok(result.success);
+      assert.ok(result.judgment);
+      assert.ok(result.judgment.verdict);
+      assert.ok(typeof result.judgment.qScore === 'number');
     });
 
     it('accepts context', async () => {
@@ -371,7 +373,8 @@ describe('CYNICNode lifecycle', () => {
 
     // Judge
     const result = await node.judge({ content: 'test item' });
-    assert.ok(result.verdict);
+    assert.ok(result.success);
+    assert.ok(result.judgment.verdict);
 
     // Stop
     await node.stop();
