@@ -1661,6 +1661,12 @@ export function createCollectiveStatusTool(collective) {
       const summary = collective.getSummary();
       const collectiveState = collective.getCollectiveState();
 
+      // Debug: log analyst stats
+      console.error('[DEBUG] summary.agents.analyst:', JSON.stringify({
+        invocations: summary.agents.analyst?.invocations,
+        stats: summary.agents.analyst?.stats,
+      }));
+
       // Sefirot mapping for display
       const sefirotMap = {
         guardian: { sefira: 'Gevurah', meaning: 'Strength', role: 'Security & Protection' },
