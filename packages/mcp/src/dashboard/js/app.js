@@ -116,15 +116,15 @@ class App {
   async _initViews() {
     // Operator view
     this.views.operator = new OperatorView({ api });
-    await this.views.operator.init(document.getElementById('view-operator'));
+    this.views.operator.render(document.getElementById('view-operator'));
 
     // Dev view
     this.views.dev = new DevView({ api });
-    await this.views.dev.init(document.getElementById('view-dev'));
+    this.views.dev.render(document.getElementById('view-dev'));
 
     // Arch view
     this.views.arch = new ArchView({ api });
-    await this.views.arch.init(document.getElementById('view-arch'));
+    this.views.arch.render(document.getElementById('view-arch'));
   }
 
   /**

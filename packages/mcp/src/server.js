@@ -237,7 +237,7 @@ export class MCPServer {
     // Initialize Auth service for HTTP mode
     if (this.mode === 'http' && !this.auth) {
       this.auth = new AuthService({
-        publicPaths: ['/', '/health', '/metrics', '/dashboard'],
+        publicPaths: ['/', '/health', '/metrics', '/dashboard', '/sse'],
       });
       const authStatus = this.auth.required ? 'required' : 'optional (dev mode)';
       console.error(`   Auth: ${authStatus} (${this.auth.apiKeys.size} keys configured)`);
