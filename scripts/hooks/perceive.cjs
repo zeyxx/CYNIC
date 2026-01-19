@@ -245,9 +245,20 @@ async function main() {
       }
     }
 
-    // Send to MCP server (non-blocking)
+    // Check for private content
+    const hasPrivate = cynic.hasPrivateContent(prompt);
+    const safePrompt = cynic.stripPrivateContent(prompt);
+
+    // If prompt has private content, notify user
+    if (hasPrivate) {
+      injections.push('*sniff* Private content detected - will NOT be stored in collective memory.');
+    }
+
+    // Send to MCP server (non-blocking) - with sanitized prompt
     cynic.sendHookToCollectiveSync('UserPromptSubmit', {
-      promptLength: prompt.length,
+      promptLength: safePrompt.length,
+      originalLength: prompt.length,
+      hasPrivateContent: hasPrivate,
       intents: intents.map(i => i.intent),
       hasInjections: injections.length > 0,
       timestamp: Date.now(),

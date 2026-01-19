@@ -13,6 +13,12 @@
 import { PHI_INV, PHI_INV_2, IDENTITY, getVerdictFromScore } from '@cynic/core';
 import { createMetaTool } from '../meta-dashboard.js';
 import { createCodeAnalyzer } from '../code-analyzer.js';
+import {
+  createSearchIndexTool,
+  createTimelineTool,
+  createGetObservationsTool,
+  createProgressiveSearchTools,
+} from './search-progressive.js';
 
 /**
  * Create judge tool definition
@@ -139,6 +145,935 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
       }
 
       return result;
+    },
+  };
+}
+
+/**
+ * Create self-refinement tool definition
+ * @param {Object} judge - Judge instance
+ * @param {Object} persistence - PersistenceManager instance
+ * @returns {Object} Tool definition
+ */
+export function createRefineTool(judge, persistence = null) {
+  // Dynamic import to avoid circular dependencies
+  let refinement = null;
+
+  return {
+    name: 'brain_cynic_refine',
+    description: 'Self-refine a judgment by critiquing and re-judging. CYNIC critiques its own judgment, identifies weaknesses, and suggests improved scores. Returns original vs refined comparison.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        judgmentId: {
+          type: 'string',
+          description: 'ID of a previous judgment to refine (e.g., jdg_abc123)',
+        },
+        judgment: {
+          type: 'object',
+          description: 'Or provide judgment directly: { Q, breakdown: { PHI, VERIFY, CULTURE, BURN }, verdict }',
+        },
+        context: {
+          type: 'object',
+          description: 'Optional context for critique (source, type, etc.)',
+        },
+        maxIterations: {
+          type: 'number',
+          description: 'Max refinement iterations (default: 3)',
+          default: 3,
+        },
+      },
+    },
+    handler: async (params) => {
+      const { judgmentId, judgment: directJudgment, context = {}, maxIterations = 3 } = params;
+
+      // Lazy load refinement module
+      if (!refinement) {
+        try {
+          const core = await import('@cynic/core');
+          refinement = {
+            critiqueJudgment: core.critiqueJudgment,
+            selfRefine: core.selfRefine,
+            extractLearning: core.extractLearning,
+          };
+        } catch (e) {
+          throw new Error(`Refinement module not available: ${e.message}`);
+        }
+      }
+
+      let judgment = directJudgment;
+
+      // If judgmentId provided, fetch from persistence
+      if (judgmentId && !judgment) {
+        if (!persistence) {
+          throw new Error('Persistence required to fetch judgment by ID');
+        }
+        const stored = await persistence.getJudgment(judgmentId);
+        if (!stored) {
+          throw new Error(`Judgment not found: ${judgmentId}`);
+        }
+        judgment = {
+          Q: stored.q_score,
+          qScore: stored.q_score,
+          verdict: stored.verdict,
+          breakdown: stored.axiom_scores || stored.axiomScores,
+          axiomScores: stored.axiom_scores || stored.axiomScores,
+          confidence: stored.confidence,
+        };
+      }
+
+      if (!judgment) {
+        throw new Error('Must provide either judgmentId or judgment object');
+      }
+
+      // Normalize judgment format
+      const normalizedJudgment = {
+        Q: judgment.Q || judgment.qScore || judgment.q_score,
+        qScore: judgment.Q || judgment.qScore || judgment.q_score,
+        breakdown: judgment.breakdown || judgment.axiomScores || judgment.axiom_scores,
+        verdict: judgment.verdict,
+        confidence: judgment.confidence,
+      };
+
+      // Run self-refinement
+      const result = refinement.selfRefine(normalizedJudgment, context, { maxIterations });
+
+      // Extract learnings
+      const learnings = refinement.extractLearning(result);
+
+      // Store learnings if improved
+      if (persistence && learnings.improved) {
+        try {
+          // Store as a pattern for future reference
+          for (const learning of learnings.learnings) {
+            await persistence.storePattern({
+              type: 'refinement_learning',
+              signature: `${learning.type}:${learning.axiom || learning.pattern}`,
+              description: learning.pattern || learning.correction,
+              count: 1,
+            });
+          }
+        } catch (e) {
+          // Non-blocking
+          console.error('Error storing refinement learnings:', e.message);
+        }
+      }
+
+      return {
+        original: result.original,
+        refined: result.final,
+        improved: result.improved,
+        improvement: result.totalImprovement,
+        iterations: result.iterationCount,
+        critiques: result.iterations.map(i => ({
+          iteration: i.iteration,
+          issues: i.critique?.critiques?.length || 0,
+          severity: i.critique?.severity,
+          adjustments: i.refinement?.adjustments?.length || 0,
+        })),
+        learnings: learnings.learnings,
+        meta: {
+          judgmentId: judgmentId || 'direct',
+          maxIterations,
+          timestamp: Date.now(),
+        },
+      };
+    },
+  };
+}
+
+/**
+ * Create orchestration tool definition
+ * @param {Object} options - Orchestration options
+ * @param {Object} options.judge - CYNICJudge instance
+ * @param {Object} options.agents - Agents registry
+ * @param {Object} [options.persistence] - PersistenceManager instance
+ * @returns {Object} Tool definition
+ */
+export function createOrchestrationTool(options = {}) {
+  const { judge, agents, persistence } = options;
+
+  // Lazy load orchestration module
+  let orchestrator = null;
+
+  return {
+    name: 'brain_orchestrate',
+    description: `Background agent orchestration for parallel task execution.
+Run tasks across multiple agents with different strategies:
+- parallel: Run same task on multiple agents, aggregate results
+- batch: Run different tasks in parallel
+- route: Route a task to the best agent
+- status: Get orchestrator status`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['parallel', 'batch', 'route', 'submit', 'status', 'task'],
+          description: 'Action: parallel (multi-agent consensus), batch (multiple different tasks), route (find best agent), submit (single task), status, task (get task status)',
+        },
+        taskType: {
+          type: 'string',
+          description: 'Task type (e.g., "judge", "analyze", "search")',
+        },
+        payload: {
+          type: 'object',
+          description: 'Task payload/data',
+        },
+        tasks: {
+          type: 'array',
+          description: 'For batch: array of { type, payload, priority } task definitions',
+        },
+        taskId: {
+          type: 'string',
+          description: 'For task action: ID of task to check',
+        },
+        agentCount: {
+          type: 'number',
+          description: 'For parallel: number of agents to use (default: 3)',
+          default: 3,
+        },
+        strategy: {
+          type: 'string',
+          enum: ['first', 'best', 'consensus', 'all', 'merge'],
+          description: 'Aggregation strategy for parallel execution',
+          default: 'consensus',
+        },
+        priority: {
+          type: 'string',
+          enum: ['critical', 'high', 'normal', 'low', 'idle'],
+          description: 'Task priority',
+          default: 'normal',
+        },
+      },
+      required: ['action'],
+    },
+    handler: async (params) => {
+      const {
+        action,
+        taskType,
+        payload,
+        tasks,
+        taskId,
+        agentCount = 3,
+        strategy = 'consensus',
+        priority = 'normal',
+      } = params;
+
+      // Lazy load orchestration module
+      if (!orchestrator) {
+        try {
+          const core = await import('@cynic/core');
+          orchestrator = new core.Orchestrator({
+            agents: agents instanceof Map ? agents : new Map(Object.entries(agents || {})),
+            maxConcurrent: 21, // Fib(8)
+          });
+
+          // Register judge as default agent
+          if (judge) {
+            orchestrator.registerAgent('judge', judge, {
+              taskTypes: ['judge', 'analyze', 'evaluate'],
+              maxConcurrent: 5,
+            });
+          }
+        } catch (e) {
+          throw new Error(`Orchestration module not available: ${e.message}`);
+        }
+      }
+
+      switch (action) {
+        case 'status':
+          return orchestrator.getStatus();
+
+        case 'task':
+          if (!taskId) throw new Error('taskId required for task action');
+          const task = orchestrator.getTask(taskId);
+          if (!task) throw new Error(`Task not found: ${taskId}`);
+          return task.toJSON();
+
+        case 'route': {
+          if (!taskType) throw new Error('taskType required for route action');
+          const available = orchestrator.getAvailableAgents(taskType);
+          return {
+            taskType,
+            availableAgents: available.map(a => ({
+              agentId: a.agentId,
+              load: a.load,
+              averageTime: a.averageTime,
+            })),
+            recommended: available[0]?.agentId || null,
+          };
+        }
+
+        case 'submit': {
+          if (!taskType) throw new Error('taskType required for submit action');
+          const submitted = orchestrator.submit({
+            type: taskType,
+            payload: payload || {},
+            priority,
+          });
+          return {
+            taskId: submitted.id,
+            status: submitted.status,
+            priority: submitted.priority,
+            message: 'Task submitted to queue',
+          };
+        }
+
+        case 'parallel': {
+          if (!taskType) throw new Error('taskType required for parallel action');
+          const result = await orchestrator.parallel(
+            { type: taskType, payload: payload || {}, priority },
+            { count: agentCount, strategy }
+          );
+          return {
+            action: 'parallel',
+            taskType,
+            agentCount,
+            strategy,
+            ...result,
+          };
+        }
+
+        case 'batch': {
+          if (!tasks || !Array.isArray(tasks)) {
+            throw new Error('tasks array required for batch action');
+          }
+          const batchTasks = tasks.map(t => ({
+            type: t.type || t.taskType,
+            payload: t.payload || {},
+            priority: t.priority || 'normal',
+          }));
+          const results = await orchestrator.batch(batchTasks);
+          return {
+            action: 'batch',
+            submitted: batchTasks.length,
+            results: results.map(t => ({
+              taskId: t.id,
+              type: t.type,
+              status: t.status,
+              duration: t.getDuration(),
+              hasResult: !!t.result,
+              error: t.error,
+            })),
+          };
+        }
+
+        default:
+          throw new Error(`Unknown action: ${action}`);
+      }
+    },
+  };
+}
+
+/**
+ * Create vector search tool definition
+ * @param {Object} [options] - Options
+ * @param {Object} [options.persistence] - PersistenceManager instance
+ * @param {Object} [options.embeddingConfig] - External embedding config (optional)
+ * @returns {Object} Tool definition
+ */
+export function createVectorSearchTool(options = {}) {
+  const { persistence, embeddingConfig } = options;
+
+  // Lazy load semantic search
+  let semanticSearch = null;
+  let initialized = false;
+
+  return {
+    name: 'brain_vector_search',
+    description: `Semantic vector search for finding similar content.
+Uses TF-IDF embeddings by default (no external API needed).
+Actions:
+- search: Find similar documents by semantic meaning
+- add: Add document to search index
+- remove: Remove document from index
+- stats: Get search engine statistics
+- initialize: Initialize with existing documents`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['search', 'add', 'remove', 'stats', 'initialize'],
+          description: 'Action to perform',
+        },
+        query: {
+          type: 'string',
+          description: 'Search query text (for search action)',
+        },
+        documentId: {
+          type: 'string',
+          description: 'Document ID (for add/remove actions)',
+        },
+        text: {
+          type: 'string',
+          description: 'Document text (for add action)',
+        },
+        metadata: {
+          type: 'object',
+          description: 'Document metadata (for add action)',
+        },
+        documents: {
+          type: 'array',
+          description: 'Array of { id, text, metadata } for initialize action',
+        },
+        limit: {
+          type: 'number',
+          description: 'Max results (default: 10)',
+          default: 10,
+        },
+        threshold: {
+          type: 'number',
+          description: 'Minimum similarity threshold 0-1 (default: 0.382)',
+          default: 0.382,
+        },
+        filter: {
+          type: 'object',
+          description: 'Metadata filter for search',
+        },
+      },
+      required: ['action'],
+    },
+    handler: async (params) => {
+      const {
+        action,
+        query,
+        documentId,
+        text,
+        metadata = {},
+        documents,
+        limit = 10,
+        threshold = 0.382,
+        filter = null,
+      } = params;
+
+      // Lazy load vector module
+      if (!semanticSearch) {
+        try {
+          const core = await import('@cynic/core');
+
+          // Choose embedder based on config
+          let embedder;
+          if (embeddingConfig?.apiKey) {
+            embedder = new core.ExternalEmbedder(embeddingConfig);
+          } else {
+            embedder = new core.TfIdfEmbedder();
+          }
+
+          semanticSearch = new core.SemanticSearch({ embedder });
+        } catch (e) {
+          throw new Error(`Vector search module not available: ${e.message}`);
+        }
+      }
+
+      switch (action) {
+        case 'stats':
+          return {
+            ...semanticSearch.getStats(),
+            initialized,
+          };
+
+        case 'initialize': {
+          if (!documents || !Array.isArray(documents)) {
+            // Try to load from persistence
+            if (persistence) {
+              try {
+                const knowledge = await persistence.getRecentKnowledge(100);
+                const docs = knowledge.map(k => ({
+                  id: k.knowledge_id,
+                  text: k.content || k.summary || '',
+                  metadata: {
+                    sourceType: k.source_type,
+                    category: k.category,
+                  },
+                })).filter(d => d.text);
+
+                await semanticSearch.initialize(docs);
+                initialized = true;
+
+                return {
+                  action: 'initialize',
+                  documentsLoaded: docs.length,
+                  source: 'persistence',
+                };
+              } catch (e) {
+                throw new Error(`Failed to load from persistence: ${e.message}`);
+              }
+            }
+            throw new Error('documents array required for initialize action');
+          }
+
+          await semanticSearch.initialize(documents);
+          initialized = true;
+
+          return {
+            action: 'initialize',
+            documentsLoaded: documents.length,
+            source: 'provided',
+          };
+        }
+
+        case 'add': {
+          if (!documentId) throw new Error('documentId required for add action');
+          if (!text) throw new Error('text required for add action');
+
+          await semanticSearch.addDocument(documentId, text, metadata);
+
+          return {
+            action: 'add',
+            documentId,
+            textLength: text.length,
+            metadata,
+          };
+        }
+
+        case 'remove': {
+          if (!documentId) throw new Error('documentId required for remove action');
+
+          semanticSearch.removeDocument(documentId);
+
+          return {
+            action: 'remove',
+            documentId,
+            removed: true,
+          };
+        }
+
+        case 'search': {
+          if (!query) throw new Error('query required for search action');
+
+          // Auto-initialize if empty
+          if (!initialized && semanticSearch.index.size() === 0) {
+            // Try to initialize from persistence
+            if (persistence) {
+              try {
+                const knowledge = await persistence.getRecentKnowledge(100);
+                const docs = knowledge.map(k => ({
+                  id: k.knowledge_id,
+                  text: k.content || k.summary || '',
+                  metadata: {
+                    sourceType: k.source_type,
+                    category: k.category,
+                  },
+                })).filter(d => d.text);
+
+                if (docs.length > 0) {
+                  await semanticSearch.initialize(docs);
+                  initialized = true;
+                }
+              } catch (e) {
+                // Non-blocking, continue with empty index
+              }
+            }
+          }
+
+          const results = await semanticSearch.search(query, {
+            limit,
+            threshold,
+            filter,
+          });
+
+          return {
+            action: 'search',
+            query,
+            results: results.map(r => ({
+              id: r.id,
+              similarity: r.similarity,
+              confidence: r.confidence,
+              textPreview: r.text ? r.text.slice(0, 200) + (r.text.length > 200 ? '...' : '') : null,
+              metadata: r.metadata,
+            })),
+            totalResults: results.length,
+          };
+        }
+
+        default:
+          throw new Error(`Unknown action: ${action}`);
+      }
+    },
+  };
+}
+
+/**
+ * Create learning loop tool definition
+ * @param {Object} [options] - Options
+ * @param {Object} [options.persistence] - PersistenceManager instance
+ * @returns {Object} Tool definition
+ */
+export function createLearningTool(options = {}) {
+  const { persistence } = options;
+
+  // Lazy load learning loop
+  let learningLoop = null;
+
+  return {
+    name: 'brain_learning',
+    description: `Learning loop that improves CYNIC's judgments based on feedback.
+Actions:
+- feedback: Process feedback on a judgment (correct/incorrect/partial)
+- calibrate: Trigger weight calibration from accumulated feedback
+- biases: Detect systematic biases in judgments
+- state: Get current learning state (weights, accuracy, biases)
+- summary: Get learning summary
+- reset: Reset learning state`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['feedback', 'calibrate', 'biases', 'state', 'summary', 'reset'],
+          description: 'Action to perform',
+        },
+        judgmentId: {
+          type: 'string',
+          description: 'Judgment ID for feedback',
+        },
+        judgment: {
+          type: 'object',
+          description: 'Judgment object if not using ID',
+        },
+        outcome: {
+          type: 'string',
+          enum: ['correct', 'incorrect', 'partial'],
+          description: 'Feedback outcome',
+        },
+        actualScore: {
+          type: 'number',
+          description: 'What the Q-Score should have been (0-100)',
+        },
+        reason: {
+          type: 'string',
+          description: 'Explanation for feedback',
+        },
+        context: {
+          type: 'object',
+          description: 'Additional context',
+        },
+      },
+      required: ['action'],
+    },
+    handler: async (params) => {
+      const {
+        action,
+        judgmentId,
+        judgment: directJudgment,
+        outcome,
+        actualScore,
+        reason,
+        context = {},
+      } = params;
+
+      // Lazy load learning module
+      if (!learningLoop) {
+        try {
+          const core = await import('@cynic/core');
+          learningLoop = new core.LearningLoop({
+            autoCalibrate: true,
+            calibrateThreshold: 21, // Fib(8)
+          });
+
+          // Try to load existing state from persistence
+          if (persistence) {
+            try {
+              const state = await persistence.getLearningState();
+              if (state) {
+                learningLoop.import(state);
+              }
+            } catch (e) {
+              // No saved state, start fresh
+            }
+          }
+        } catch (e) {
+          throw new Error(`Learning module not available: ${e.message}`);
+        }
+      }
+
+      switch (action) {
+        case 'state':
+          return learningLoop.getState();
+
+        case 'summary':
+          return learningLoop.getSummary();
+
+        case 'reset':
+          learningLoop.reset();
+          return { reset: true, message: 'Learning state reset' };
+
+        case 'calibrate': {
+          const result = learningLoop.calibrate();
+
+          // Save state if calibration occurred
+          if (persistence && result.updated) {
+            try {
+              await persistence.saveLearningState(learningLoop.export());
+            } catch (e) {
+              // Non-blocking
+            }
+          }
+
+          return result;
+        }
+
+        case 'biases': {
+          return learningLoop.detectBiases();
+        }
+
+        case 'feedback': {
+          if (!outcome) {
+            throw new Error('outcome required for feedback action');
+          }
+
+          let judgment = directJudgment;
+
+          // Fetch judgment by ID if needed
+          if (judgmentId && !judgment && persistence) {
+            try {
+              const stored = await persistence.getJudgment(judgmentId);
+              if (stored) {
+                judgment = {
+                  Q: stored.q_score,
+                  qScore: stored.q_score,
+                  verdict: stored.verdict,
+                  breakdown: stored.axiom_scores,
+                  confidence: stored.confidence,
+                };
+              }
+            } catch (e) {
+              // Continue without judgment
+            }
+          }
+
+          const feedback = {
+            judgment,
+            outcome,
+            actualScore,
+            reason,
+            context,
+            judgmentId,
+            timestamp: Date.now(),
+          };
+
+          const result = learningLoop.processFeedback(feedback);
+
+          // Save state after feedback
+          if (persistence) {
+            try {
+              await persistence.saveLearningState(learningLoop.export());
+            } catch (e) {
+              // Non-blocking
+            }
+          }
+
+          return {
+            action: 'feedback',
+            outcome,
+            processed: true,
+            stats: result.stats,
+            calibration: result.calibration,
+            biases: result.biases?.biases?.length || 0,
+          };
+        }
+
+        default:
+          throw new Error(`Unknown action: ${action}`);
+      }
+    },
+  };
+}
+
+/**
+ * Create auto-triggers tool definition
+ * @param {Object} [options] - Options
+ * @param {Object} [options.judge] - CYNICJudge instance
+ * @param {Object} [options.persistence] - PersistenceManager instance
+ * @returns {Object} Tool definition
+ */
+export function createTriggersTool(options = {}) {
+  const { judge, persistence } = options;
+
+  // Lazy load trigger manager
+  let triggerManager = null;
+
+  return {
+    name: 'brain_triggers',
+    description: `Auto-judgment triggers for automatic evaluation of events.
+Actions:
+- register: Register a new trigger
+- unregister: Remove a trigger
+- list: List all triggers
+- enable/disable: Toggle trigger state
+- process: Manually process an event
+- status: Get trigger manager status
+- defaults: Register predefined default triggers`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['register', 'unregister', 'list', 'enable', 'disable', 'process', 'status', 'defaults'],
+          description: 'Action to perform',
+        },
+        triggerId: {
+          type: 'string',
+          description: 'Trigger ID (for unregister/enable/disable)',
+        },
+        trigger: {
+          type: 'object',
+          description: 'Trigger configuration for register',
+          properties: {
+            name: { type: 'string' },
+            type: { type: 'string', enum: ['event', 'periodic', 'pattern', 'threshold', 'composite'] },
+            condition: { type: 'object' },
+            action: { type: 'string', enum: ['judge', 'log', 'alert', 'block', 'review', 'notify'] },
+            config: { type: 'object' },
+          },
+        },
+        event: {
+          type: 'object',
+          description: 'Event data for process action',
+          properties: {
+            type: { type: 'string' },
+            data: { type: 'object' },
+          },
+        },
+      },
+      required: ['action'],
+    },
+    handler: async (params) => {
+      const {
+        action,
+        triggerId,
+        trigger: triggerConfig,
+        event,
+      } = params;
+
+      // Lazy load trigger module
+      if (!triggerManager) {
+        try {
+          const core = await import('@cynic/core');
+          triggerManager = new core.TriggerManager({
+            judgeCallback: judge ? async (input) => {
+              return judge.judge(input);
+            } : null,
+            alertCallback: async (alert) => {
+              console.log('[CYNIC Alert]', alert);
+              return alert;
+            },
+          });
+
+          // Try to load existing triggers from persistence
+          if (persistence) {
+            try {
+              const state = await persistence.getTriggersState();
+              if (state) {
+                triggerManager.import(state);
+              }
+            } catch (e) {
+              // No saved state, start fresh
+            }
+          }
+        } catch (e) {
+          throw new Error(`Triggers module not available: ${e.message}`);
+        }
+      }
+
+      switch (action) {
+        case 'status':
+          return triggerManager.getStatus();
+
+        case 'list':
+          return { triggers: triggerManager.listTriggers() };
+
+        case 'defaults': {
+          triggerManager.registerDefaults();
+
+          // Save state
+          if (persistence) {
+            try {
+              await persistence.saveTriggersState(triggerManager.export());
+            } catch (e) {
+              // Non-blocking
+            }
+          }
+
+          return {
+            registered: true,
+            triggers: triggerManager.listTriggers(),
+          };
+        }
+
+        case 'register': {
+          if (!triggerConfig) {
+            throw new Error('trigger configuration required for register');
+          }
+
+          const trigger = triggerManager.register(triggerConfig);
+
+          // Save state
+          if (persistence) {
+            try {
+              await persistence.saveTriggersState(triggerManager.export());
+            } catch (e) {
+              // Non-blocking
+            }
+          }
+
+          return {
+            registered: true,
+            trigger: trigger.toJSON(),
+          };
+        }
+
+        case 'unregister': {
+          if (!triggerId) {
+            throw new Error('triggerId required for unregister');
+          }
+
+          const removed = triggerManager.unregister(triggerId);
+
+          // Save state
+          if (persistence) {
+            try {
+              await persistence.saveTriggersState(triggerManager.export());
+            } catch (e) {
+              // Non-blocking
+            }
+          }
+
+          return { unregistered: removed, triggerId };
+        }
+
+        case 'enable':
+        case 'disable': {
+          if (!triggerId) {
+            throw new Error('triggerId required');
+          }
+
+          const enabled = action === 'enable';
+          const success = triggerManager.setEnabled(triggerId, enabled);
+
+          return { success, triggerId, enabled };
+        }
+
+        case 'process': {
+          if (!event) {
+            throw new Error('event required for process');
+          }
+
+          const results = await triggerManager.processEvent(event);
+
+          return {
+            processed: true,
+            event: { type: event.type },
+            triggersActivated: results.length,
+            results,
+          };
+        }
+
+        default:
+          throw new Error(`Unknown action: ${action}`);
+      }
     },
   };
 }
@@ -2014,9 +2949,18 @@ export function createAllTools(options = {}) {
   const tools = {};
   const toolDefs = [
     createJudgeTool(judge, persistence, sessionManager, pojChainManager, graphIntegration, onJudgment),
+    createRefineTool(judge, persistence), // Self-refinement: critique → refine → learn
+    createOrchestrationTool({ judge, agents, persistence }), // Multi-agent parallel execution
+    createVectorSearchTool({ persistence }), // Semantic search with embeddings
+    createLearningTool({ persistence }), // Learning loop: feedback → calibration → improvement
+    createTriggersTool({ judge, persistence }), // Auto-judgment triggers
     createDigestTool(persistence, sessionManager),
     createHealthTool(node, judge, persistence),
     createSearchTool(persistence),
+    // Progressive Search Tools (3-layer retrieval for 10x token savings)
+    createSearchIndexTool(persistence),
+    createTimelineTool(persistence),
+    createGetObservationsTool(persistence),
     createPatternsTool(judge, persistence),
     createFeedbackTool(persistence, sessionManager),
     createAgentsStatusTool(agents),
@@ -2043,11 +2987,24 @@ export function createAllTools(options = {}) {
 // Re-export meta tool
 export { createMetaTool } from '../meta-dashboard.js';
 
+// Re-export progressive search tools
+export {
+  createSearchIndexTool,
+  createTimelineTool,
+  createGetObservationsTool,
+  createProgressiveSearchTools,
+} from './search-progressive.js';
+
 export default {
   createJudgeTool,
   createDigestTool,
   createHealthTool,
   createSearchTool,
+  // Progressive Search (3-layer retrieval)
+  createSearchIndexTool,
+  createTimelineTool,
+  createGetObservationsTool,
+  createProgressiveSearchTools,
   createPatternsTool,
   createFeedbackTool,
   createAgentsStatusTool,

@@ -19,6 +19,10 @@ const path = require('path');
 const libPath = path.join(__dirname, '..', 'lib', 'cynic-core.cjs');
 const cynic = require(libPath);
 
+// Load task enforcer
+const enforcerPath = path.join(__dirname, '..', 'lib', 'task-enforcer.cjs');
+const enforcer = require(enforcerPath);
+
 // =============================================================================
 // SESSION ANALYSIS
 // =============================================================================
@@ -104,6 +108,12 @@ function formatDigestMessage(profile, analysis, insights) {
     lines.push(`   Errors encountered: ${analysis.errorsEncountered}`);
   }
 
+  // Todo completion stats
+  if (analysis.todosTotal > 0) {
+    const emoji = analysis.completionRate >= 0.618 ? '✅' : '⚠️';
+    lines.push(`   Tasks: ${analysis.todosCompleted}/${analysis.todosTotal} completed ${emoji} (${Math.round(analysis.completionRate * 100)}%)`);
+  }
+
   if (analysis.topTools.length > 0) {
     lines.push('   Top tools:');
     for (const { tool, count } of analysis.topTools.slice(0, 3)) {
@@ -150,6 +160,41 @@ async function main() {
       input += chunk;
     }
 
+    let hookContext = {};
+    try {
+      hookContext = input ? JSON.parse(input) : {};
+    } catch (e) {
+      // Ignore parse errors
+    }
+
+    // Get session ID
+    const sessionId = process.env.CYNIC_SESSION_ID || hookContext.session_id || 'default';
+
+    // ==========================================================================
+    // TASK CONTINUATION ENFORCER - Check before allowing stop
+    // ==========================================================================
+    const blockDecision = enforcer.shouldBlockStop(sessionId);
+
+    if (blockDecision.block) {
+      // Block the stop and inject continuation prompt
+      console.log(JSON.stringify({
+        continue: false,
+        decision: 'block',
+        reason: blockDecision.reason,
+        message: blockDecision.injectPrompt,
+      }));
+      return;
+    }
+
+    // If not blocking but has a message, show it
+    if (blockDecision.reason) {
+      // This is a warning but we allow stop
+    }
+
+    // ==========================================================================
+    // Normal digest flow - session is ending
+    // ==========================================================================
+
     // Detect user and load profile
     const user = cynic.detectUser();
     const profile = cynic.loadUserProfile(user.userId);
@@ -172,8 +217,20 @@ async function main() {
       });
     }
 
+    // Get final todo stats
+    const incompleteTodos = enforcer.getIncompleteTodos(sessionId);
+    const completionRate = enforcer.getCompletionRate(sessionId);
+
+    // Add todo stats to analysis
+    analysis.todosTotal = enforcer.loadTodos(sessionId).length;
+    analysis.todosCompleted = analysis.todosTotal - incompleteTodos.length;
+    analysis.completionRate = completionRate;
+
     // Format message
     const message = formatDigestMessage(profile, analysis, insights);
+
+    // Cleanup enforcer data for this session
+    enforcer.cleanupSession(sessionId);
 
     // Send to MCP server (non-blocking)
     cynic.sendHookToCollectiveSync('Stop', {

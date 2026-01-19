@@ -19,6 +19,10 @@ const path = require('path');
 const libPath = path.join(__dirname, '..', 'lib', 'cynic-core.cjs');
 const cynic = require(libPath);
 
+// Load task enforcer
+const enforcerPath = path.join(__dirname, '..', 'lib', 'task-enforcer.cjs');
+const enforcer = require(enforcerPath);
+
 // =============================================================================
 // PATTERN DETECTION
 // =============================================================================
@@ -133,6 +137,87 @@ function updateUserToolStats(profile, toolName, isError) {
 }
 
 // =============================================================================
+// AUTO-JUDGMENT TRIGGERS INTEGRATION
+// =============================================================================
+
+/**
+ * Map tool names and outcomes to trigger event types
+ */
+function mapToTriggerEventType(toolName, isError, toolInput) {
+  // Error events
+  if (isError) {
+    return 'TOOL_ERROR';
+  }
+
+  // Git events via Bash
+  if (toolName === 'Bash') {
+    const command = toolInput.command || '';
+    if (command.startsWith('git commit')) return 'COMMIT';
+    if (command.startsWith('git push')) return 'PUSH';
+    if (command.startsWith('git merge')) return 'MERGE';
+  }
+
+  // Code change events
+  if (toolName === 'Write' || toolName === 'Edit') {
+    return 'CODE_CHANGE';
+  }
+
+  // Default: generic tool use
+  return 'TOOL_USE';
+}
+
+/**
+ * Process tool event through the Trigger system
+ * Non-blocking - fires async request
+ */
+function processTriggerEvent(toolName, toolInput, toolOutput, isError) {
+  const eventType = mapToTriggerEventType(toolName, isError, toolInput);
+
+  const event = {
+    type: eventType,
+    source: toolName,
+    data: {
+      tool: toolName,
+      success: !isError,
+      inputSize: JSON.stringify(toolInput).length,
+      // Include relevant context based on event type
+      ...(eventType === 'COMMIT' && { message: extractCommitMessage(toolInput.command) }),
+      ...(eventType === 'CODE_CHANGE' && { file: toolInput.file_path || toolInput.filePath }),
+      ...(isError && { error: extractErrorSummary(toolOutput) }),
+    },
+    timestamp: Date.now(),
+  };
+
+  // Fire async request to process triggers (non-blocking)
+  cynic.callBrainTool('brain_triggers', {
+    action: 'process',
+    event,
+  }).catch(() => {
+    // Silently ignore errors - triggers should never block hooks
+  });
+}
+
+/**
+ * Extract commit message from git commit command
+ */
+function extractCommitMessage(command) {
+  if (!command) return '';
+  const match = command.match(/-m\s+["']([^"']+)["']/);
+  return match ? match[1] : '';
+}
+
+/**
+ * Extract error summary from tool output
+ */
+function extractErrorSummary(output) {
+  if (typeof output === 'string') {
+    // First 200 chars of error
+    return output.slice(0, 200);
+  }
+  return output?.error || output?.message || 'Unknown error';
+}
+
+// =============================================================================
 // MAIN HANDLER
 // =============================================================================
 
@@ -162,6 +247,12 @@ async function main() {
       cynic.saveCollectivePattern(pattern);
     }
 
+    // Track todos for Task Continuation Enforcer
+    if (toolName === 'TodoWrite' && toolInput.todos) {
+      const sessionId = process.env.CYNIC_SESSION_ID || hookContext.session_id || 'default';
+      enforcer.updateTodosFromTool(sessionId, toolInput.todos);
+    }
+
     // Update user profile stats
     const updates = updateUserToolStats(profile, toolName, isError);
     cynic.updateUserProfile(profile, updates);
@@ -174,6 +265,10 @@ async function main() {
       inputSize: JSON.stringify(toolInput).length,
       timestamp: Date.now(),
     });
+
+    // Process through Auto-Judgment Triggers (non-blocking)
+    // This enables automatic judgments on errors, commits, decisions, etc.
+    processTriggerEvent(toolName, toolInput, toolOutput, isError);
 
     // Observer never blocks - always continue silently
     console.log(JSON.stringify({ continue: true }));

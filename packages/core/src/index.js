@@ -26,3 +26,18 @@ export * from './worlds/index.js';
 
 // Configuration management (security by design)
 export * from './config/index.js';
+
+// Self-Refinement (critique and improve judgments)
+export * from './refinement/index.js';
+
+// Background Agent Orchestration (multi-agent coordination)
+export * from './orchestration/index.js';
+
+// Vector Search / Embeddings (semantic search)
+export * from './vector/index.js';
+
+// Learning Loop (feedback → calibration → improvement)
+export * from './learning/index.js';
+
+// Auto-Judgment Triggers (event → judge → learn)
+export * from './triggers/index.js';

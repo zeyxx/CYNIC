@@ -62,7 +62,24 @@ async function main() {
     // Format the awakening message
     const message = cynic.formatEcosystemStatus(ecosystem, profile);
 
-    // Send to MCP server (non-blocking)
+    // Start brain session first (async but we don't wait)
+    cynic.startBrainSession(user.userId, {
+      project: ecosystem.currentProject?.name,
+      metadata: {
+        userName: user.name,
+        sessionCount: profile.stats?.sessions || 1,
+        ecosystem: ecosystem.projects?.map(p => p.name) || [],
+      }
+    }).then(result => {
+      if (result.sessionId) {
+        // Store session ID in environment for other hooks
+        process.env.CYNIC_SESSION_ID = result.sessionId;
+      }
+    }).catch(() => {
+      // Silently ignore - local mode still works
+    });
+
+    // Also send to MCP collective for event distribution
     cynic.sendHookToCollectiveSync('SessionStart', {
       userId: user.userId,
       userName: user.name,
