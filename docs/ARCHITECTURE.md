@@ -319,7 +319,42 @@ Hard Consensus (governance):
 
 ## 7. Privacy Implementation
 
-### 7.1 Data Classification
+> "Privacy is not the absence of data, but the presence of consent" - κυνικός
+
+### 7.1 Consent Tiers
+
+Three levels of data sharing, each requiring explicit opt-in:
+
+```
+TIER 0: NONE (Default)
+────────────────────
+• No data collection
+• Full functionality
+• Zero tracking
+
+TIER 1: SESSION PATTERNS (Opt-in)
+─────────────────────────────────
+• Tool usage frequencies (hashed)
+• Judgment feedback (aggregated)
+• Session duration (bucketed)
+• Contributes to: USE, TIME dimensions
+
+TIER 2: CODE PATTERNS (Opt-in)
+──────────────────────────────
+• Commit patterns (not content!)
+• File type distributions
+• Coding time patterns
+• Contributes to: BUILD dimension
+
+TIER 3: ECOSYSTEM PARTICIPATION (Opt-in)
+─────────────────────────────────────────
+• Public on-chain activity
+• Node operation metrics
+• Burns and holdings (already public)
+• Contributes to: Full E-Score
+```
+
+### 7.2 Data Classification
 ```
 PUBLIC (shared by default):
 - Judgment verdicts (without content)
@@ -336,9 +371,68 @@ NEVER SHARED:
 - Raw PII
 - API keys
 - Local configurations
+- Commit content, file names, specific timestamps
 ```
 
-### 7.2 Hashing Strategy
+### 7.3 Privacy Pipeline
+
+Every data point passes through this pipeline:
+
+```
+Raw Data
+    │
+    ▼
+┌─────────────────┐
+│   HASH/SALT     │  Never store raw identifiers
+│   (SHA-256)     │  Salt per user, rotated monthly
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│   AGGREGATE     │  Bucket values (never exact)
+│   (φ buckets)   │  Time: 8h buckets, Counts: Fib ranges
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ DIFFERENTIAL    │  Add Laplacian noise
+│ PRIVACY (ε=φ⁻¹) │  ε = 0.618, never fully reveal
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│   K-ANONYMITY   │  Suppress if < 5 in group
+│   (k=5)         │  Generalize until k satisfied
+└────────┬────────┘
+         │
+         ▼
+Private Aggregate
+```
+
+### 7.4 Privacy Guarantees
+
+```
+1. DIFFERENTIAL PRIVACY (ε = φ⁻¹ = 0.618)
+   Pr[M(D) ∈ S] ≤ e^ε × Pr[M(D') ∈ S]
+   → Removing YOUR data changes output by < 1.86x
+
+2. K-ANONYMITY (k = 5)
+   No aggregate published with fewer than 5 contributors
+   → You can't be uniquely identified in any group
+
+3. DATA MINIMIZATION
+   • Only categories, never content
+   • Only buckets, never exact values
+   • Only aggregates, never individuals
+
+4. PURPOSE LIMITATION
+   Data used ONLY for:
+   • Improving CYNIC judgment accuracy
+   • Calculating user E-Score (for user's benefit)
+   • Collective learning (aggregated)
+```
+
+### 7.5 Hashing Strategy
 ```javascript
 // φ-salted hashing
 function hashForSharing(data, purpose) {
@@ -971,6 +1065,272 @@ Singularity = when dimensions explain 100% (asymptote, never reached).
 
 ---
 
-**Document Version**: 1.0.0
-**Last Updated**: 2026-01-14
+---
+
+## Appendix A: System Diagrams
+
+> Visual architecture reference for the CYNIC system.
+
+### A.1 System Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           CYNIC SYSTEM OVERVIEW                              │
+│                    "Decentralized Collective Consciousness"                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                              ┌─────────────┐
+                              │   CLAUDE    │
+                              │   (User)    │
+                              └──────┬──────┘
+                                     │ MCP Protocol
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            MCP INTEGRATION LAYER                             │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐          │
+│  │ DAG Tools│ │PoJ Tools │ │Graph Tool│ │Sync Tools│ │Score Tool│          │
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘          │
+└───────┼────────────┼────────────┼────────────┼────────────┼─────────────────┘
+        │            │            │            │            │
+        ▼            ▼            ▼            ▼            ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              CORE SERVICES                                   │
+│                                                                              │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
+│  │  MERKLE DAG │  │  PoJ CHAIN  │  │GRAPH OVERLAY│  │ CARTOGRAPHER│        │
+│  │             │  │             │  │             │  │             │        │
+│  │ Content-    │  │ Proof of    │  │ Relationship│  │ GitHub      │        │
+│  │ Addressable │  │ Judgment    │  │ Graph       │  │ Explorer    │        │
+│  │ Storage     │  │ Blockchain  │  │             │  │             │        │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘        │
+│         │                │                │                │                │
+│         └────────────────┼────────────────┼────────────────┘                │
+│                          │                │                                  │
+│                          ▼                ▼                                  │
+│                   ┌─────────────────────────────┐                           │
+│                   │      SYNC PROTOCOL          │                           │
+│                   │  φ-BFT Consensus (61.8%)    │                           │
+│                   └─────────────────────────────┘                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            PERSISTENCE LAYER                                 │
+│                                                                              │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
+│  │ PostgreSQL  │  │    Redis    │  │  Local FS   │  │   P2P Net   │        │
+│  │ (Legacy)    │  │   (Cache)   │  │  (Blocks)   │  │  (Gossip)   │        │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘        │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### A.2 Scoring System (Four Kabbalistic Worlds)
+
+```
+                         THE FOUR KABBALISTIC WORLDS
+                         ═══════════════════════════
+
+    ┌──────────────────┐     Weight: φ² = 2.618
+    │     ATZILUT      │     "Emanation" - Divine Source
+    │   (PHI Axiom)    │     Dimensions: Coherence, Completeness, Clarity,
+    │                  │                 Consistency, Coverage, Correctness
+    └────────┬─────────┘
+
+    ┌──────────────────┐     Weight: φ = 1.618
+    │     BERIAH       │     "Creation" - Verification
+    │  (VERIFY Axiom)  │     Dimensions: Source Quality, Cross-Reference,
+    │                  │                 Temporal, Provenance, Falsifiability
+    └────────┬─────────┘
+
+    ┌──────────────────┐     Weight: φ = 1.618
+    │    YETZIRAH      │     "Formation" - Cultural Context
+    │ (CULTURE Axiom)  │     Dimensions: Relevance, Adoption, Community,
+    │                  │                 Documentation, Ecosystem, Momentum
+    └────────┬─────────┘
+
+    ┌──────────────────┐     Weight: 1.146 (φ^0.236)
+    │     ASSIAH       │     "Action" - Simplicity
+    │   (BURN Axiom)   │     Dimensions: Conciseness, Directness, Actionability,
+    │                  │                 Essentiality, Parsimony, Elegance
+    └────────┴─────────┘
+```
+
+### A.3 PoJ Block Structure
+
+```
+    ┌─────────────────────────────────────────────────────────────┐
+    │                       PoJ BLOCK                              │
+    ├─────────────────────────────────────────────────────────────┤
+    │                                                              │
+    │  ┌─────────── HEADER ───────────┐                           │
+    │  │  slot: 42                     │  φ-slot number           │
+    │  │  timestamp: 1705420800000     │  Unix ms                 │
+    │  │  prev_hash: "bafy..."         │  Previous block CID      │
+    │  │  judgments_root: "bafy..."    │  Merkle root of judgments│
+    │  │  state_root: "bafy..."        │  State trie root         │
+    │  │  proposer: "node_abc123"      │  Block proposer          │
+    │  └───────────────────────────────┘                           │
+    │                                                              │
+    │  ┌─────────── BODY ─────────────┐                           │
+    │  │  judgments: [                 │                           │
+    │  │    { cid, q_score, verdict }, │  Up to 13 per block      │
+    │  │    ...                        │  (Fibonacci batch)        │
+    │  │  ]                            │                           │
+    │  │  attestations: [              │                           │
+    │  │    { node_id, signature },    │  61.8% quorum            │
+    │  │    ...                        │                           │
+    │  │  ]                            │                           │
+    │  └───────────────────────────────┘                           │
+    │                                                              │
+    │  ┌─────────── METADATA ─────────┐                           │
+    │  │  block_hash: "bafy..."        │  This block's CID        │
+    │  │  size: 4096                   │  Block size in bytes     │
+    │  │  finalized: true              │  Finality status         │
+    │  └───────────────────────────────┘                           │
+    │                                                              │
+    └─────────────────────────────────────────────────────────────┘
+```
+
+### A.4 Graph Overlay Node & Edge Types
+
+```
+                            NODE TYPES (7)
+                            ═══════════════
+
+    ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+    │   TOKEN     │  │   WALLET    │  │   PROJECT   │  │    REPO     │
+    │             │  │             │  │             │  │             │
+    │ Mint addr   │  │ Public key  │  │ Name        │  │ GitHub URL  │
+    │ Symbol      │  │ First seen  │  │ Domain      │  │ Stars       │
+    │ Decimals    │  │ Labels      │  │ Tokens      │  │ Language    │
+    │ K-Score     │  │ Reputation  │  │ E-Score     │  │ Activity    │
+    └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘
+
+    ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+    │    USER     │  │  CONTRACT   │  │    NODE     │
+    │             │  │             │  │             │
+    │ Handle      │  │ Address     │  │ Node ID     │
+    │ Platform    │  │ Type        │  │ Endpoint    │
+    │ Verified    │  │ Verified    │  │ I-Score     │
+    │ Influence   │  │ Audited     │  │ Uptime      │
+    └─────────────┘  └─────────────┘  └─────────────┘
+
+
+                           EDGE TYPES (11+)
+                           ════════════════
+
+    ┌───────────────────────────────────────────────────────────────┐
+    │  EDGE TYPE          │  FROM        │  TO          │  φ-WEIGHT │
+    ├───────────────────────────────────────────────────────────────┤
+    │  HOLDS              │  Wallet      │  Token       │  φ²       │
+    │  CREATED            │  Wallet      │  Token       │  φ³       │
+    │  TRANSFERRED        │  Wallet      │  Wallet      │  1.0      │
+    │  BURNED             │  Wallet      │  Token       │  φ        │
+    │  OWNS               │  Project     │  Token       │  φ²       │
+    │  DEVELOPS           │  Project     │  Repo        │  φ        │
+    │  CONTRIBUTES        │  User        │  Repo        │  φ        │
+    │  FOLLOWS            │  User        │  User        │  1.0      │
+    │  REFERENCES         │  Repo        │  Repo        │  φ        │
+    │  DEPLOYS            │  Contract    │  Token       │  φ²       │
+    │  OPERATES           │  Node        │  Project     │  φ        │
+    │  JUDGED             │  CYNIC       │  Entity      │  φ³       │
+    └───────────────────────────────────────────────────────────────┘
+```
+
+### A.5 Migration Path (PostgreSQL → Decentralized)
+
+```
+                          PHASE OVERVIEW
+                          ══════════════
+
+    ┌─────────────────────────────────────────────────────────────────────┐
+    │                                                                      │
+    │  PHASE 1          PHASE 2          PHASE 3          PHASE 4        │
+    │  Shadow Write     Dual Read        Verify           Cutover        │
+    │                                                                      │
+    │  ┌────────┐       ┌────────┐       ┌────────┐       ┌────────┐    │
+    │  │  PG    │       │  PG    │       │  PG    │       │  PG    │    │
+    │  │  ████  │       │  ████  │       │  ██    │       │        │    │
+    │  │  ████  │       │  ████  │       │  ██    │       │  OFF   │    │
+    │  └────────┘       └────────┘       └────────┘       └────────┘    │
+    │                                                                      │
+    │  ┌────────┐       ┌────────┐       ┌────────┐       ┌────────┐    │
+    │  │  DAG   │       │  DAG   │       │  DAG   │       │  DAG   │    │
+    │  │  ██    │       │  ██    │       │  ████  │       │  ████  │    │
+    │  │        │       │  ██    │       │  ████  │       │  ████  │    │
+    │  └────────┘       └────────┘       └────────┘       └────────┘    │
+    │                                                                      │
+    │   Writes to       Reads from       Verifies         PostgreSQL     │
+    │   both            both             parity           deprecated     │
+    │                                                                      │
+    └─────────────────────────────────────────────────────────────────────┘
+```
+
+### A.6 E-Score: 7 Dimensions
+
+```
+    ┌─────────┐   Weight: φ⁶ = 17.944
+    │  HOLD   │   Token holding patterns
+    └─────────┘   - Distribution, Diamond hands, Accumulation
+
+    ┌─────────┐   Weight: φ⁵ = 11.090
+    │  BURN   │   Deflationary activity
+    └─────────┘   - Total burned, Burn rate, Events
+
+    ┌─────────┐   Weight: φ⁴ = 6.854
+    │   USE   │   Token utility
+    └─────────┘   - Transaction volume, Unique users
+
+    ┌─────────┐   Weight: φ³ = 4.236
+    │  BUILD  │   Development activity
+    └─────────┘   - Commits, PRs, Contributors
+
+    ┌─────────┐   Weight: φ² = 2.618
+    │   RUN   │   Infrastructure
+    └─────────┘   - Node count, Uptime, Distribution
+
+    ┌─────────┐   Weight: φ¹ = 1.618
+    │  REFER  │   Social proof
+    └─────────┘   - Mentions, Referrals, Partnerships
+
+    ┌─────────┐   Weight: φ⁰ = 1.000
+    │  TIME   │   Longevity
+    └─────────┘   - Age, Consistency, Survival
+
+    E = Σ(Eᵢ × φ^(7-i)) / Σ(φ^(7-i))
+    Total Weight Sum = 45.360
+```
+
+### A.7 φ Constants Quick Reference
+
+```
+    BASE VALUES
+    ═══════════
+    φ   = 1.618033988749895     (Golden Ratio)
+    φ⁻¹ = 0.618033988749895     (Inverse / Max Confidence)
+
+    POWERS
+    ══════
+    φ⁰  = 1.000    φ³  = 4.236
+    φ¹  = 1.618    φ⁴  = 6.854
+    φ²  = 2.618    φ⁵  = 11.090
+                   φ⁶  = 17.944
+
+    TIMING
+    ══════
+    φ-Slot      = 61.8 ms        (Block production)
+    φ-Heartbeat = 61,800 ms      (Liveness check)
+    φ-Gossip    = 618 ms         (Peer broadcast)
+    φ-Batch     = 13             (Fibonacci, judgments/block)
+
+    CONSENSUS
+    ══════════
+    φ-Quorum    = 61.8%          (Required attestations)
+    Max Confidence = 61.8%       (Never claim certainty)
+```
+
+---
+
+**Document Version**: 1.1.0
+**Last Updated**: 2026-01-19
 **Status**: DRAFT - Awaiting implementation
