@@ -10,7 +10,7 @@
 
 'use strict';
 
-import { PHI_INV, PHI_INV_2, IDENTITY, getVerdictFromScore } from '@cynic/core';
+import { PHI_INV, PHI_INV_2, IDENTITY, getVerdictFromScore, EcosystemMonitor, summarizeUpdates } from '@cynic/core';
 import { createMetaTool } from '../meta-dashboard.js';
 import { createCodeAnalyzer } from '../code-analyzer.js';
 import { LSPService, createLSPTools } from '../lsp-service.js';
@@ -1087,18 +1087,10 @@ Actions:
  * @returns {Object} Tool definition
  */
 export function createEcosystemMonitorTool() {
-  // Lazy load to avoid circular dependencies
-  let EcosystemMonitor, _GitHubSource, summarizeUpdates;
+  // Singleton monitor instance (created on first use)
   let monitorInstance;
 
-  const getMonitor = async () => {
-    if (!EcosystemMonitor) {
-      const ecosystem = await import('@cynic/core');
-      EcosystemMonitor = ecosystem.EcosystemMonitor;
-      _GitHubSource = ecosystem.GitHubSource;
-      summarizeUpdates = ecosystem.summarizeUpdates;
-    }
-    // Create singleton monitor
+  const getMonitor = () => {
     if (!monitorInstance) {
       monitorInstance = new EcosystemMonitor();
     }
@@ -1169,7 +1161,7 @@ Actions:
         minPriority,
       } = params;
 
-      const monitor = await getMonitor();
+      const monitor = getMonitor();
 
       switch (action) {
         case 'track': {
