@@ -177,7 +177,8 @@ export class GitHubSource extends Source {
 
     // GitHub API base
     this.apiBase = 'https://api.github.com';
-    this.token = config.token || process.env.GITHUB_TOKEN;
+    // Safe access to process.env for Node.js or browser environments
+    this.token = config.token || (typeof process !== 'undefined' && process.env?.GITHUB_TOKEN);
   }
 
   /**
