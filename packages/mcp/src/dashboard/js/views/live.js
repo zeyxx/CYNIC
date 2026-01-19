@@ -752,14 +752,20 @@ export class LiveView {
     // Audio toggle button (Vibecraft pattern)
     const audioBtn = this.container?.querySelector('.audio-btn');
     if (audioBtn) {
+      console.log('🔊 [Audio] Button found, attaching listener');
       audioBtn.addEventListener('click', () => {
+        console.log('🔊 [Audio] Button clicked, current state:', cynicAudio.getStatus());
         const enabled = cynicAudio.toggle();
+        console.log('🔊 [Audio] Toggled, now enabled:', enabled);
         audioBtn.textContent = enabled ? '🔊' : '🔇';
         audioBtn.classList.toggle('active', enabled);
         if (enabled) {
+          console.log('🔊 [Audio] Playing connect sound...');
           cynicAudio.playConnect();
         }
       });
+    } else {
+      console.warn('🔊 [Audio] Button NOT found!');
     }
 
     this._attachListEventListeners();

@@ -67,11 +67,14 @@ class CYNICAudio {
    * Enable audio (requires user interaction)
    */
   enable() {
+    console.log('🔊 CYNIC Audio: enable() called');
     this.init();
     if (this.context?.state === 'suspended') {
+      console.log('🔊 CYNIC Audio: Resuming suspended context');
       this.context.resume();
     }
     this.enabled = true;
+    console.log('🔊 CYNIC Audio: Enabled, context state:', this.context?.state);
     return this.enabled;
   }
 
@@ -210,8 +213,12 @@ class CYNICAudio {
    * @private
    */
   _playTone(freq, type, duration, detune = 0) {
-    if (!this.context || !this.enabled) return;
+    if (!this.context || !this.enabled) {
+      console.log('🔇 CYNIC Audio: _playTone skipped (context:', !!this.context, ', enabled:', this.enabled, ')');
+      return;
+    }
 
+    console.log('🔊 CYNIC Audio: Playing tone', { freq, type, duration, detune });
     try {
       const osc = this.context.createOscillator();
       const gain = this.context.createGain();
