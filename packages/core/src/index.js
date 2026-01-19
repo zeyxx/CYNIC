@@ -41,3 +41,6 @@ export * from './learning/index.js';
 
 // Auto-Judgment Triggers (event → judge → learn)
 export * from './triggers/index.js';
+
+// Ecosystem Monitor (external sources → updates → E-Score)
+export * from './ecosystem/index.js';

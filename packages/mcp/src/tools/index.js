@@ -1080,6 +1080,231 @@ Actions:
 }
 
 /**
+ * Create ecosystem monitor tool definition
+ * Tracks external sources: GitHub, Twitter (TODO), Web
+ * @returns {Object} Tool definition
+ */
+export function createEcosystemMonitorTool() {
+  // Lazy load to avoid circular dependencies
+  let EcosystemMonitor, GitHubSource, summarizeUpdates;
+
+  const getMonitor = () => {
+    if (!EcosystemMonitor) {
+      const ecosystem = require('@cynic/core');
+      EcosystemMonitor = ecosystem.EcosystemMonitor;
+      GitHubSource = ecosystem.GitHubSource;
+      summarizeUpdates = ecosystem.summarizeUpdates;
+    }
+    // Create singleton monitor
+    if (!getMonitor._instance) {
+      getMonitor._instance = new EcosystemMonitor();
+    }
+    return getMonitor._instance;
+  };
+
+  return {
+    name: 'brain_ecosystem_monitor',
+    description: `Monitor external ecosystem sources for updates.
+Actions:
+- track: Add a GitHub repo to track (owner, repo required)
+- untrack: Remove a source (sourceId required)
+- sources: List all tracked sources
+- fetch: Fetch updates from one source (sourceId) or all sources
+- updates: Get recent updates from cache
+- defaults: Register default Solana ecosystem sources
+- discover: Discover new relevant sources
+- status: Get monitor status`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['track', 'untrack', 'sources', 'fetch', 'updates', 'defaults', 'discover', 'status'],
+          description: 'Action to perform',
+        },
+        owner: {
+          type: 'string',
+          description: 'GitHub repo owner (for track action)',
+        },
+        repo: {
+          type: 'string',
+          description: 'GitHub repo name (for track action)',
+        },
+        sourceId: {
+          type: 'string',
+          description: 'Source ID (for untrack, fetch actions)',
+        },
+        trackReleases: {
+          type: 'boolean',
+          description: 'Track releases (default true)',
+        },
+        trackCommits: {
+          type: 'boolean',
+          description: 'Track commits (default true)',
+        },
+        limit: {
+          type: 'number',
+          description: 'Max results (for updates action)',
+        },
+        minPriority: {
+          type: 'string',
+          enum: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'],
+          description: 'Minimum priority filter (for updates action)',
+        },
+      },
+      required: ['action'],
+    },
+    handler: async (params) => {
+      const {
+        action,
+        owner,
+        repo,
+        sourceId,
+        trackReleases = true,
+        trackCommits = true,
+        limit = 20,
+        minPriority,
+      } = params;
+
+      const monitor = getMonitor();
+
+      switch (action) {
+        case 'track': {
+          if (!owner || !repo) {
+            throw new Error('owner and repo required for track action');
+          }
+
+          const id = monitor.trackGitHubRepo(owner, repo, {
+            trackReleases,
+            trackCommits,
+          });
+
+          return {
+            success: true,
+            sourceId: id,
+            message: `*ears perk* Now tracking ${owner}/${repo}`,
+            timestamp: Date.now(),
+          };
+        }
+
+        case 'untrack': {
+          if (!sourceId) {
+            throw new Error('sourceId required for untrack action');
+          }
+
+          const success = monitor.unregisterSource(sourceId);
+
+          return {
+            success,
+            sourceId,
+            message: success ? '*nod* Source removed' : 'Source not found',
+            timestamp: Date.now(),
+          };
+        }
+
+        case 'sources': {
+          const sources = monitor.listSources();
+
+          return {
+            sources,
+            total: sources.length,
+            message: `*sniff* Tracking ${sources.length} sources`,
+            timestamp: Date.now(),
+          };
+        }
+
+        case 'fetch': {
+          if (sourceId) {
+            // Fetch single source
+            const result = await monitor.fetchSource(sourceId);
+            return {
+              ...result,
+              message: result.success
+                ? `*tail wag* Fetched ${result.updates?.length || 0} updates`
+                : `*head tilt* ${result.reason || result.error}`,
+              timestamp: Date.now(),
+            };
+          } else {
+            // Fetch all
+            const results = await monitor.fetchAll();
+            const summary = summarizeUpdates(results.updates);
+
+            return {
+              fetched: results.fetched,
+              skipped: results.skipped,
+              errors: results.errors,
+              totalUpdates: results.updates.length,
+              summary,
+              message: `*sniff* Fetched ${results.updates.length} updates from ${results.fetched} sources`,
+              timestamp: Date.now(),
+            };
+          }
+        }
+
+        case 'updates': {
+          const updates = monitor.getRecentUpdates({
+            limit,
+            minPriority,
+          });
+
+          const summary = summarizeUpdates(updates);
+
+          return {
+            updates: updates.map(u => ({
+              type: u.type,
+              title: u.title,
+              url: u.url,
+              priority: u.priority,
+              source: u.source,
+              timestamp: u.timestamp,
+            })),
+            summary,
+            total: updates.length,
+            message: `*ears perk* ${updates.length} recent updates`,
+            timestamp: Date.now(),
+          };
+        }
+
+        case 'defaults': {
+          const sources = monitor.registerSolanaDefaults();
+
+          return {
+            sources,
+            total: sources.length,
+            message: '*tail wag* Solana ecosystem defaults registered',
+            timestamp: Date.now(),
+          };
+        }
+
+        case 'discover': {
+          const suggestions = await monitor.discoverSources();
+
+          return {
+            suggestions,
+            total: suggestions.length,
+            message: `*sniff* Found ${suggestions.length} potential sources`,
+            timestamp: Date.now(),
+          };
+        }
+
+        case 'status': {
+          const status = monitor.getStatus();
+
+          return {
+            ...status,
+            message: `*nod* Monitoring ${status.sources.length} sources`,
+            timestamp: Date.now(),
+          };
+        }
+
+        default:
+          throw new Error(`Unknown action: ${action}`);
+      }
+    },
+  };
+}
+
+/**
  * Create digest tool definition
  * @param {Object} persistence - PersistenceManager instance (handles fallback automatically)
  * @param {Object} [sessionManager] - SessionManager instance (for user/session context)
@@ -2971,6 +3196,7 @@ export function createAllTools(options = {}) {
     createSessionEndTool(sessionManager),
     createDocsTool(librarian, persistence),
     createEcosystemTool(ecosystem),
+    createEcosystemMonitorTool(), // External sources: GitHub, Twitter, Web
     createPoJChainTool(pojChainManager, persistence),
     createIntegratorTool(integrator),
     createMetricsTool(metrics),
