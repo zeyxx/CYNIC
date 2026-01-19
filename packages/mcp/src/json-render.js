@@ -284,7 +284,7 @@ export class JSONRenderService {
       return;
     }
 
-    const { type, props, children, show } = node;
+    const { type, props: _props, children, show: _show } = node;
 
     // Check type
     if (!type) {
@@ -369,9 +369,10 @@ export class JSONRenderService {
           <div class="cynic-card-body">${childHtml}</div>
         </div>`;
 
-      case ComponentType.Heading:
+      case ComponentType.Heading: {
         const level = props.level || 2;
         return `<h${level} class="cynic-heading">${this._escapeHtml(props.text)}</h${level}>`;
+      }
 
       case ComponentType.Text:
         return `<p class="cynic-text ${props.variant || ''}" style="color: ${props.color || 'inherit'}">${this._escapeHtml(props.text)}</p>`;
@@ -382,28 +383,31 @@ export class JSONRenderService {
       case ComponentType.Badge:
         return `<span class="cynic-badge ${props.variant || ''}" style="background: ${props.color || 'var(--accent)'}">${this._escapeHtml(props.text)}</span>`;
 
-      case ComponentType.Metric:
+      case ComponentType.Metric: {
         const trend = props.trend === 'up' ? '↑' : props.trend === 'down' ? '↓' : '';
         return `<div class="cynic-metric">
           <span class="label">${this._escapeHtml(props.label)}</span>
           <span class="value">${props.value}${props.unit || ''}</span>
           ${props.change ? `<span class="change ${props.trend || ''}">${trend} ${props.change}</span>` : ''}
         </div>`;
+      }
 
-      case ComponentType.Progress:
+      case ComponentType.Progress: {
         const percent = ((props.value / (props.max || 100)) * 100).toFixed(1);
         return `<div class="cynic-progress ${props.variant || ''}">
           <div class="bar" style="width: ${percent}%"></div>
           ${props.label ? `<span class="label">${props.label}: ${percent}%</span>` : ''}
         </div>`;
+      }
 
       case ComponentType.Table:
         return this._renderTable(props);
 
-      case ComponentType.List:
+      case ComponentType.List: {
         const tag = props.ordered ? 'ol' : 'ul';
         const items = (props.items || []).map(item => `<li>${this._escapeHtml(String(item))}</li>`).join('');
         return `<${tag} class="cynic-list ${props.variant || ''}">${items}</${tag}>`;
+      }
 
       case ComponentType.Button:
         return `<button class="cynic-button ${props.variant || ''}" ${props.disabled ? 'disabled' : ''} data-action="${props.action || ''}">${this._escapeHtml(props.text)}</button>`;

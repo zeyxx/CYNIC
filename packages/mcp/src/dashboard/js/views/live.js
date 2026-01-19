@@ -16,7 +16,8 @@
  * "φ distrusts φ" - κυνικός
  */
 
-import { api } from '../api.js';
+// Note: api could be used for REST calls in the future
+// import { api } from '../api.js';
 import { formatTimestamp, truncate, debounce } from '../lib/utils.js';
 
 /**
