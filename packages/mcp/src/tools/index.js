@@ -1088,20 +1088,21 @@ Actions:
  */
 export function createEcosystemMonitorTool() {
   // Lazy load to avoid circular dependencies
-  let EcosystemMonitor, GitHubSource, summarizeUpdates;
+  let EcosystemMonitor, _GitHubSource, summarizeUpdates;
+  let monitorInstance;
 
-  const getMonitor = () => {
+  const getMonitor = async () => {
     if (!EcosystemMonitor) {
-      const ecosystem = require('@cynic/core');
+      const ecosystem = await import('@cynic/core');
       EcosystemMonitor = ecosystem.EcosystemMonitor;
-      GitHubSource = ecosystem.GitHubSource;
+      _GitHubSource = ecosystem.GitHubSource;
       summarizeUpdates = ecosystem.summarizeUpdates;
     }
     // Create singleton monitor
-    if (!getMonitor._instance) {
-      getMonitor._instance = new EcosystemMonitor();
+    if (!monitorInstance) {
+      monitorInstance = new EcosystemMonitor();
     }
-    return getMonitor._instance;
+    return monitorInstance;
   };
 
   return {
@@ -1168,7 +1169,7 @@ Actions:
         minPriority,
       } = params;
 
-      const monitor = getMonitor();
+      const monitor = await getMonitor();
 
       switch (action) {
         case 'track': {
