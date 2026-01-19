@@ -86,9 +86,12 @@ export const Priority = {
 /**
  * Base class for ecosystem sources
  */
+// Counter for unique IDs
+let sourceIdCounter = 0;
+
 export class Source {
   constructor(config) {
-    this.id = config.id || `src_${Date.now().toString(36)}`;
+    this.id = config.id || `src_${Date.now().toString(36)}_${(++sourceIdCounter).toString(36)}`;
     this.name = config.name;
     this.type = config.type || SourceType.CUSTOM;
     this.enabled = config.enabled !== false;
