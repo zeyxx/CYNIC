@@ -55,6 +55,7 @@ import { AuthService } from './auth-service.js';
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB max request body
 const REQUEST_TIMEOUT_MS = 30000; // 30 second request timeout
 const SHUTDOWN_TIMEOUT_MS = 10000; // 10 second shutdown grace period
+const MAX_RESPONSE_SIZE = 100 * 1024; // 100KB max response size (prevents Claude Code blocking)
 
 export class MCPServer {
   /**
@@ -1192,7 +1193,68 @@ export class MCPServer {
       id,
       result,
     };
-    this.output.write(JSON.stringify(response) + '\n');
+    let json = JSON.stringify(response);
+
+    // Truncate very large responses to prevent Claude Code blocking
+    if (json.length > MAX_RESPONSE_SIZE) {
+      const sizeKB = (json.length / 1024).toFixed(1);
+      console.error(`⚠️ Truncating large MCP response: ${sizeKB}KB → 100KB for request ${id}`);
+
+      // Try to preserve structure by truncating content arrays/strings
+      const truncatedResult = this._truncateResult(result, MAX_RESPONSE_SIZE - 500);
+      const truncatedResponse = {
+        jsonrpc: '2.0',
+        id,
+        result: truncatedResult,
+      };
+      json = JSON.stringify(truncatedResponse);
+    }
+
+    this.output.write(json + '\n');
+  }
+
+  /**
+   * Truncate result to fit within size limit
+   * @private
+   */
+  _truncateResult(result, maxSize) {
+    // If result is a string, truncate it
+    if (typeof result === 'string') {
+      if (result.length > maxSize) {
+        return result.slice(0, maxSize) + '\n\n... [TRUNCATED - response too large]';
+      }
+      return result;
+    }
+
+    // If result has content array (MCP standard format), truncate items
+    if (result && Array.isArray(result.content)) {
+      const truncated = { ...result };
+      truncated.content = result.content.map(item => {
+        if (item.type === 'text' && typeof item.text === 'string') {
+          const textJson = JSON.stringify(item.text);
+          if (textJson.length > maxSize / 2) {
+            return {
+              ...item,
+              text: item.text.slice(0, maxSize / 2) + '\n\n... [TRUNCATED - response too large]',
+            };
+          }
+        }
+        return item;
+      });
+      truncated._truncated = true;
+      return truncated;
+    }
+
+    // For other objects, add truncation warning
+    if (typeof result === 'object' && result !== null) {
+      return {
+        ...result,
+        _truncated: true,
+        _warning: 'Response was truncated due to size limits',
+      };
+    }
+
+    return result;
   }
 
   /**
