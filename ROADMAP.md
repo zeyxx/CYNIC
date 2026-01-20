@@ -192,23 +192,28 @@ GARDER? /
           - Analyser les décisions
 ```
 
-#### 2.3 - Wisdom & Knowledge Growth
+#### 2.3 - Wisdom & Knowledge Growth ✅ DONE (2026-01-20)
 
 ```
-□ 2.3.1 - PoJ Chain visualization
-          - Blocs de jugements empilés
+✅ 2.3.1 - PoJ Chain visualization
+          - Blocs de jugements empilés (compact/detailed views)
           - Liens de preuves entre blocs
-          - Q-Scores avec gradient couleur
+          - Q-Scores avec gradient couleur (HSL: green 70+, yellow 40-70, red <40)
+          - Verdict emojis (HOWL/WAG/GROWL/BARK)
+          - Async judgment fetching on expand
 
-□ 2.3.2 - Pattern gallery
-          - Patterns détectés visuellement
-          - Fréquence et confidence
-          - Evolution temporelle
+✅ 2.3.2 - Pattern gallery
+          - Patterns détectés visuellement (cards with category colors)
+          - Fréquence et confidence (sortable)
+          - Category filtering (verdict, dimension, anomaly, trend)
+          - Stats bar with breakdown chart
+          - Detail panel with raw data
 
-□ 2.3.3 - Knowledge base explorer
-          - Graphe de connaissances
-          - Relations sémantiques
-          - Sources et citations
+✅ 2.3.3 - Knowledge base explorer
+          - Graphe de connaissances 3D (force-directed)
+          - Relations sémantiques (edge types)
+          - SSE real-time updates
+          - Filtering by type and Q-score
 ```
 
 #### 2.4 - Autonomy & Emergence
