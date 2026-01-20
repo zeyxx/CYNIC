@@ -52,6 +52,9 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
       required: ['item'],
     },
     handler: async (params) => {
+      // DEBUG: ENTRY POINT - this MUST appear if handler is called
+      console.error('[HANDLER ENTRY] brain_cynic_judge handler invoked');
+
       const { item, context = {} } = params;
       if (!item) throw new Error('Missing required parameter: item');
 
@@ -66,9 +69,17 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
       console.log('[JUDGE DEBUG] Enriched derivedScores:', JSON.stringify(enrichedItem.derivedScores));
 
       // Use graph integration if available, otherwise direct judge
-      const judgment = graphIntegration
-        ? await graphIntegration.judgeWithGraph(enrichedItem, context)
-        : judge.judge(enrichedItem, context);
+      console.error(`[HANDLER] Using graphIntegration: ${!!graphIntegration}`);
+      let judgment;
+      try {
+        judgment = graphIntegration
+          ? await graphIntegration.judgeWithGraph(enrichedItem, context)
+          : judge.judge(enrichedItem, context);
+        console.error(`[HANDLER] Judgment completed, CULTURE: ${judgment?.axiomScores?.CULTURE}`);
+      } catch (judgeErr) {
+        console.error(`[HANDLER ERROR] Judge failed: ${judgeErr.message}`);
+        throw judgeErr;
+      }
 
       // DEBUG: Log judgment result CULTURE scores
       console.log('[JUDGE DEBUG] axiomScores.CULTURE:', judgment.axiomScores?.CULTURE);
@@ -234,6 +245,10 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
           console.error('Judgment callback error:', e.message);
         }
       }
+
+      // DEBUG: FINAL RETURN - log what we're actually returning
+      console.error(`[HANDLER RETURN] Returning result with CULTURE: ${result.axiomScores?.CULTURE}`);
+      console.error(`[HANDLER RETURN] Full axiomScores: ${JSON.stringify(result.axiomScores)}`);
 
       return result;
     },
