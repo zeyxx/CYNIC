@@ -175,16 +175,16 @@ GARDER? /
 #### 2.2 - Collective State (Sefirot Tree)
 
 ```
-□ 2.2.1 - Arbre Sefirot 3D temps-réel
-          - 11 agents positionnés selon Kabbalah
-          - Connexions animées (event flow)
-          - État de santé par couleur
+✅ 2.2.1 - Arbre Sefirot 3D temps-réel (2026-01-20)
+          - 11 agents positionnés selon Kabbalah (Tree of Life)
+          - Particle event flow animations (teal/pink/gold/red by type)
+          - SSE integration for real-time events
+          - Demo button for testing
 
-□ 2.2.2 - Métriques live
-          - Events/seconde par agent
-          - Consensus rate
-          - Patterns détectés
-          - Blocks/warnings du Guardian
+✅ 2.2.2 - Métriques live (2026-01-20)
+          - Live stats panel (top 6 dogs by activity)
+          - Events, patterns, warnings counters per dog
+          - Real-time updates from SSE
 
 □ 2.2.3 - Event replay
           - Timeline des événements
