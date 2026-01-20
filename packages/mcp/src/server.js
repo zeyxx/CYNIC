@@ -36,6 +36,8 @@ import { CYNICJudge, createCollectivePack } from '@cynic/node';
 import { createAllTools } from './tools/index.js';
 import { PersistenceManager } from './persistence.js';
 import { SessionManager } from './session-manager.js';
+// Solana anchoring support
+import { AnchorQueue, loadWalletFromFile, loadWalletFromEnv, SolanaCluster } from '@cynic/anchor';
 import { PoJChainManager } from './poj-chain-manager.js';
 import { LibrarianService } from './librarian-service.js';
 import { AuthService } from './auth-service.js';
@@ -189,6 +191,39 @@ export class MCPServer {
             console.error(`     Block ${err.blockNumber}: expected ${err.expected?.slice(0, 16)}...`);
           }
         }
+      }
+
+      // Initialize Solana anchoring if wallet is configured
+      const walletPath = process.env.CYNIC_SOLANA_WALLET || join(__dirname, '../../anchor/test/.devnet-wallet.json');
+      const enableAnchoring = process.env.CYNIC_ENABLE_ANCHORING === 'true';
+
+      if (enableAnchoring) {
+        try {
+          // Try environment variable first (for cloud deployments like Render)
+          // Then fall back to file (for local development)
+          const wallet = loadWalletFromEnv('CYNIC_SOLANA_KEY') || loadWalletFromFile(walletPath);
+          const cluster = process.env.CYNIC_SOLANA_CLUSTER || 'devnet';
+
+          this.anchorQueue = new AnchorQueue({
+            wallet,
+            cluster: SolanaCluster[cluster.toUpperCase()] || SolanaCluster.DEVNET,
+            batchSize: 5, // φ-aligned: Fib(5)
+            batchTimeout: 61800, // φ-aligned: 61.8 seconds
+          });
+
+          this.pojChainManager.setAnchorQueue(this.anchorQueue);
+          console.error(`   Solana Anchoring: ENABLED (${cluster})`);
+          console.error(`   DEBUG: anchorQueue set: ${!!this.anchorQueue}, isEnabled: ${this.pojChainManager.isAnchoringEnabled}`);
+          // Log wallet address (handle both Uint8Array and PublicKey)
+          const pubKeyStr = wallet.publicKey?.toBase58
+            ? wallet.publicKey.toBase58()
+            : Buffer.from(wallet.publicKey || wallet._publicKey || []).toString('hex');
+          console.error(`   Wallet: ${pubKeyStr.slice(0, 16)}...`);
+        } catch (err) {
+          console.error(`   Solana Anchoring: DISABLED (${err.message})`);
+        }
+      } else {
+        console.error('   Solana Anchoring: disabled (set CYNIC_ENABLE_ANCHORING=true)');
       }
     }
 

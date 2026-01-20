@@ -25,6 +25,12 @@ services:
       CYNIC_DB_PASSWORD: ${POSTGRES_PASSWORD}
       CYNIC_DB_NAME: ${POSTGRES_DB:-cynic}
       CYNIC_REDIS_URL: redis://redis:6379
+      # Solana anchoring
+      CYNIC_ENABLE_ANCHORING: "true"
+      CYNIC_SOLANA_CLUSTER: devnet
+    volumes:
+      # Mount devnet wallet for Solana anchoring (dev only)
+      - ./packages/anchor/test/.devnet-wallet.json:/app/packages/anchor/test/.devnet-wallet.json:ro
     depends_on:
       postgres:
         condition: service_healthy
