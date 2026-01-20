@@ -968,12 +968,39 @@ Actions:
           // Try to load existing triggers from persistence
           if (persistence) {
             try {
-              const state = await persistence.getTriggersState();
-              if (state) {
-                triggerManager.import(state);
+              // First, try to load from PostgreSQL (new method)
+              const dbTriggers = await persistence.getEnabledTriggers();
+              if (dbTriggers && dbTriggers.length > 0) {
+                // Register each trigger from DB
+                for (const t of dbTriggers) {
+                  try {
+                    triggerManager.register({
+                      id: t.triggerId,
+                      name: t.name,
+                      type: t.triggerType,
+                      condition: t.condition,
+                      action: t.action,
+                      config: t.actionConfig,
+                      enabled: t.enabled,
+                      priority: t.priority,
+                    });
+                  } catch (regErr) {
+                    // Skip invalid triggers
+                    console.error(`[Triggers] Failed to load trigger ${t.triggerId}: ${regErr.message}`);
+                  }
+                }
+                console.error(`[Triggers] Loaded ${dbTriggers.length} triggers from PostgreSQL`);
+              } else {
+                // Fall back to legacy state (file/memory)
+                const state = await persistence.getTriggersState();
+                if (state) {
+                  triggerManager.import(state);
+                  console.error(`[Triggers] Loaded triggers from legacy state`);
+                }
               }
             } catch (e) {
               // No saved state, start fresh
+              console.error(`[Triggers] Starting fresh: ${e.message}`);
             }
           }
         } catch (e) {
@@ -1013,12 +1040,27 @@ Actions:
 
           const trigger = triggerManager.register(triggerConfig);
 
-          // Save state
+          // Save to PostgreSQL (primary) and legacy state (fallback)
           if (persistence) {
             try {
-              await persistence.saveTriggersState(triggerManager.export());
+              // Try PostgreSQL first
+              await persistence.createTrigger({
+                triggerId: trigger.id,
+                name: triggerConfig.name,
+                triggerType: triggerConfig.type,
+                condition: triggerConfig.condition,
+                action: triggerConfig.action,
+                actionConfig: triggerConfig.config,
+                enabled: triggerConfig.enabled !== false,
+                priority: triggerConfig.priority || 50,
+              });
             } catch (e) {
-              // Non-blocking
+              // Fall back to legacy state
+              try {
+                await persistence.saveTriggersState(triggerManager.export());
+              } catch (e2) {
+                // Non-blocking
+              }
             }
           }
 
@@ -1035,12 +1077,17 @@ Actions:
 
           const removed = triggerManager.unregister(triggerId);
 
-          // Save state
+          // Delete from PostgreSQL (primary) and save legacy state (fallback)
           if (persistence) {
             try {
-              await persistence.saveTriggersState(triggerManager.export());
+              await persistence.deleteTrigger(triggerId);
             } catch (e) {
-              // Non-blocking
+              // Fall back to legacy state
+              try {
+                await persistence.saveTriggersState(triggerManager.export());
+              } catch (e2) {
+                // Non-blocking
+              }
             }
           }
 
@@ -1055,6 +1102,19 @@ Actions:
 
           const enabled = action === 'enable';
           const success = triggerManager.setEnabled(triggerId, enabled);
+
+          // Update in PostgreSQL
+          if (persistence && success) {
+            try {
+              if (enabled) {
+                await persistence.enableTrigger(triggerId);
+              } else {
+                await persistence.disableTrigger(triggerId);
+              }
+            } catch (e) {
+              // Non-blocking
+            }
+          }
 
           return { success, triggerId, enabled };
         }

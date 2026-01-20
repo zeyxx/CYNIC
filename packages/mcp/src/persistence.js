@@ -24,6 +24,7 @@ import {
   KnowledgeRepository,
   PoJBlockRepository,
   LibraryCacheRepository,
+  TriggerRepository,
   SessionStore,
 } from '@cynic/persistence';
 
@@ -364,6 +365,7 @@ export class PersistenceManager {
     this.knowledge = null;
     this.pojBlocks = null;
     this.libraryCache = null;
+    this.triggers = null;
 
     // Fallback store (file or memory)
     this._fallback = null;
@@ -398,6 +400,7 @@ export class PersistenceManager {
         this.knowledge = new KnowledgeRepository(this.postgres);
         this.pojBlocks = new PoJBlockRepository(this.postgres);
         this.libraryCache = new LibraryCacheRepository(this.postgres);
+        this.triggers = new TriggerRepository(this.postgres);
 
         this._backend = 'postgres';
         console.error('   PostgreSQL: connected');
@@ -755,18 +758,214 @@ export class PersistenceManager {
   }
 
   // ===========================================================================
-  // TRIGGER STATE METHODS
+  // TRIGGER METHODS
   // "φ distrusts φ" - watchdogs must persist their rules
-  // Fallback chain: PostgreSQL → File → Memory
+  // Primary: PostgreSQL → Fallback: File → Memory
   // ===========================================================================
 
   /**
-   * Get triggers state (File/Memory only - no PostgreSQL support yet)
-   * @returns {Promise<Object|null>} Triggers state or null
+   * Get all enabled triggers from DB
+   * @returns {Promise<Object[]>} Enabled triggers
+   */
+  async getEnabledTriggers() {
+    if (this.triggers) {
+      try {
+        return await this.triggers.findEnabled();
+      } catch (err) {
+        console.error('Error getting enabled triggers:', err.message);
+      }
+    }
+    // Fallback: return empty array or from memory
+    if (this._fallback?.triggersState?.triggers) {
+      return this._fallback.triggersState.triggers.filter(t => t.enabled);
+    }
+    return [];
+  }
+
+  /**
+   * Get all triggers from DB
+   * @returns {Promise<Object[]>} All triggers
+   */
+  async getAllTriggers() {
+    if (this.triggers) {
+      try {
+        return await this.triggers.findAll();
+      } catch (err) {
+        console.error('Error getting all triggers:', err.message);
+      }
+    }
+    if (this._fallback?.triggersState?.triggers) {
+      return this._fallback.triggersState.triggers;
+    }
+    return [];
+  }
+
+  /**
+   * Create a new trigger
+   * @param {Object} trigger - Trigger definition
+   * @returns {Promise<Object|null>} Created trigger
+   */
+  async createTrigger(trigger) {
+    if (this.triggers) {
+      try {
+        return await this.triggers.create(trigger);
+      } catch (err) {
+        console.error('Error creating trigger:', err.message);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Update a trigger
+   * @param {string} triggerId - Trigger ID
+   * @param {Object} updates - Updates to apply
+   * @returns {Promise<Object|null>} Updated trigger
+   */
+  async updateTrigger(triggerId, updates) {
+    if (this.triggers) {
+      try {
+        return await this.triggers.update(triggerId, updates);
+      } catch (err) {
+        console.error('Error updating trigger:', err.message);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Enable a trigger
+   * @param {string} triggerId - Trigger ID
+   * @returns {Promise<Object|null>} Updated trigger
+   */
+  async enableTrigger(triggerId) {
+    if (this.triggers) {
+      try {
+        return await this.triggers.enable(triggerId);
+      } catch (err) {
+        console.error('Error enabling trigger:', err.message);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Disable a trigger
+   * @param {string} triggerId - Trigger ID
+   * @returns {Promise<Object|null>} Updated trigger
+   */
+  async disableTrigger(triggerId) {
+    if (this.triggers) {
+      try {
+        return await this.triggers.disable(triggerId);
+      } catch (err) {
+        console.error('Error disabling trigger:', err.message);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Delete a trigger
+   * @param {string} triggerId - Trigger ID
+   * @returns {Promise<boolean>} Success
+   */
+  async deleteTrigger(triggerId) {
+    if (this.triggers) {
+      try {
+        return await this.triggers.delete(triggerId);
+      } catch (err) {
+        console.error('Error deleting trigger:', err.message);
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Record a trigger execution
+   * @param {Object} execution - Execution details
+   * @returns {Promise<Object|null>} Stored execution
+   */
+  async recordTriggerExecution(execution) {
+    if (this.triggers) {
+      try {
+        return await this.triggers.recordExecution(execution);
+      } catch (err) {
+        console.error('Error recording trigger execution:', err.message);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Store a trigger event for pattern matching
+   * @param {Object} event - Event data
+   * @returns {Promise<Object|null>} Stored event
+   */
+  async storeTriggerEvent(event) {
+    if (this.triggers) {
+      try {
+        return await this.triggers.storeEvent(event);
+      } catch (err) {
+        console.error('Error storing trigger event:', err.message);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get trigger statistics
+   * @returns {Promise<Object>} Trigger stats
+   */
+  async getTriggerStats() {
+    if (this.triggers) {
+      try {
+        return await this.triggers.getStats();
+      } catch (err) {
+        console.error('Error getting trigger stats:', err.message);
+      }
+    }
+    return { totalTriggers: 0, enabledTriggers: 0 };
+  }
+
+  /**
+   * Get active triggers summary
+   * @returns {Promise<Object[]>} Active triggers summary
+   */
+  async getActiveTriggersSummary() {
+    if (this.triggers) {
+      try {
+        return await this.triggers.getActiveSummary();
+      } catch (err) {
+        console.error('Error getting active triggers summary:', err.message);
+      }
+    }
+    return [];
+  }
+
+  /**
+   * Check rate limit for a trigger
+   * @param {string} triggerId - Trigger ID
+   * @returns {Promise<number>} Executions in last minute
+   */
+  async getTriggerExecutionsLastMinute(triggerId) {
+    if (this.triggers) {
+      try {
+        return await this.triggers.countExecutionsLastMinute(triggerId);
+      } catch (err) {
+        console.error('Error checking trigger rate limit:', err.message);
+      }
+    }
+    return 0;
+  }
+
+  /**
+   * Legacy: Get triggers state (for backward compatibility)
+   * @deprecated Use getEnabledTriggers() instead
+   * @returns {Promise<Object|null>} Triggers state
    */
   async getTriggersState() {
-    // TODO: Add PostgreSQL support for triggers state
-    // For now, triggers state is only persisted in file/memory fallback
+    // For backward compatibility with file/memory fallback
     if (this._fallback) {
       return await this._fallback.getTriggersState();
     }
@@ -774,13 +973,13 @@ export class PersistenceManager {
   }
 
   /**
-   * Save triggers state (File/Memory only - no PostgreSQL support yet)
-   * @param {Object} state - Triggers state to save
-   * @returns {Promise<Object|null>} Saved state or null
+   * Legacy: Save triggers state (for backward compatibility)
+   * @deprecated Use createTrigger() or updateTrigger() instead
+   * @param {Object} state - Triggers state
+   * @returns {Promise<Object|null>} Saved state
    */
   async saveTriggersState(state) {
-    // TODO: Add PostgreSQL support for triggers state
-    // For now, triggers state is only persisted in file/memory fallback
+    // For backward compatibility with file/memory fallback
     if (this._fallback) {
       return await this._fallback.saveTriggersState(state);
     }
@@ -987,7 +1186,7 @@ export class PersistenceManager {
       feedback: !!this.feedback || hasFallback,
       knowledge: !!this.knowledge || hasFallback,
       pojChain: !!this.pojBlocks || hasFallback, // Now has fallback - CYNIC must verify itself
-      triggers: hasFallback, // Triggers state - file/memory fallback only for now
+      triggers: !!this.triggers || hasFallback, // PostgreSQL triggers repository with fallback
       libraryCache: !!this.libraryCache, // No fallback - requires PostgreSQL
       sessions: !!this.sessionStore,
       cache: !!this.redis,

@@ -21,3 +21,6 @@ export { EScoreHistoryRepository } from './escore-history.js';
 export { LearningCyclesRepository } from './learning-cycles.js';
 export { PatternEvolutionRepository } from './pattern-evolution.js';
 export { UserLearningProfilesRepository } from './user-learning-profiles.js';
+
+// Phase 12: Triggers System
+export { TriggerRepository } from './triggers.js';

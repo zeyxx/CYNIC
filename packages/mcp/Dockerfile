@@ -20,6 +20,8 @@ COPY packages/persistence/package.json ./packages/persistence/
 COPY packages/holdex/package.json ./packages/holdex/
 COPY packages/gasdf/package.json ./packages/gasdf/
 COPY packages/zk/package.json ./packages/zk/
+COPY packages/anchor/package.json ./packages/anchor/
+COPY packages/burns/package.json ./packages/burns/
 COPY packages/mcp/package.json ./packages/mcp/
 
 # Install production dependencies only
@@ -48,6 +50,8 @@ COPY packages/persistence ./packages/persistence
 COPY packages/holdex ./packages/holdex
 COPY packages/gasdf ./packages/gasdf
 COPY packages/zk ./packages/zk
+COPY packages/anchor ./packages/anchor
+COPY packages/burns ./packages/burns
 COPY packages/mcp ./packages/mcp
 
 # Set ownership
