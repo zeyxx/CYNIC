@@ -25,6 +25,7 @@ import {
   PoJBlockRepository,
   LibraryCacheRepository,
   TriggerRepository,
+  DiscoveryRepository,
   SessionStore,
 } from '@cynic/persistence';
 
@@ -366,6 +367,7 @@ export class PersistenceManager {
     this.pojBlocks = null;
     this.libraryCache = null;
     this.triggers = null;
+    this.discovery = null;
 
     // Fallback store (file or memory)
     this._fallback = null;
@@ -401,6 +403,7 @@ export class PersistenceManager {
         this.pojBlocks = new PoJBlockRepository(this.postgres);
         this.libraryCache = new LibraryCacheRepository(this.postgres);
         this.triggers = new TriggerRepository(this.postgres);
+        this.discovery = new DiscoveryRepository(this.postgres);
 
         this._backend = 'postgres';
         console.error('   PostgreSQL: connected');
