@@ -1168,6 +1168,26 @@ export class PersistenceManager {
   }
 
   /**
+   * Execute raw SQL query (PostgreSQL only)
+   * Used by emergence detection and other analytical queries.
+   * @param {string} sql - SQL query
+   * @param {Array} [params] - Query parameters
+   * @returns {Promise<{rows: Array}>} Query result
+   */
+  async query(sql, params = []) {
+    if (this.postgres) {
+      try {
+        return await this.postgres.query(sql, params);
+      } catch (err) {
+        console.error('Error executing query:', err.message);
+        return { rows: [] };
+      }
+    }
+    // No fallback for raw SQL queries
+    return { rows: [] };
+  }
+
+  /**
    * Check if persistence is available
    */
   get isAvailable() {
