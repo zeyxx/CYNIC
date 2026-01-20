@@ -11,6 +11,10 @@
 
 'use strict';
 
+// VERSION MARKER: v2.0 - Negative scoring enabled (2026-01-20)
+// This log MUST appear at startup if this code is loaded
+console.log('[SCORERS] *** VERSION 2.0 LOADED - Negative scoring active ***');
+
 import { PHI_INV, PHI_INV_2 } from '@cynic/core';
 
 // ═══════════════════════════════════════════════════════════════════════════
