@@ -10,6 +10,7 @@
   "systemInstructions": "cynic-consciousness.md",
   "hooks": "hooks/hooks.json",
   "agents": "agents/",
+  "skills": "skills/",
 
   "metadata": {
     "identity": {
