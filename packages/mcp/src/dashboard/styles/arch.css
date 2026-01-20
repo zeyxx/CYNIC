@@ -685,3 +685,433 @@
   border-radius: 3px;
   font-family: var(--font-mono);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   CODEBASE VIEW - DUAL CANVAS
+   ═══════════════════════════════════════════════════════════ */
+
+#arch-canvas-sefirot,
+#arch-canvas-codebase {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+}
+
+#arch-canvas-sefirot.active,
+#arch-canvas-codebase.active {
+  display: block;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CODEBASE STATS BAR
+   ═══════════════════════════════════════════════════════════ */
+
+.arch-stats {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+}
+
+.arch-stat {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.arch-stat-value {
+  font-weight: 600;
+  color: var(--accent-cyan);
+  font-family: var(--font-mono);
+}
+
+.arch-stat-label {
+  color: var(--text-muted);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CODEBASE SEARCH RESULTS
+   ═══════════════════════════════════════════════════════════ */
+
+.arch-search-wrapper {
+  position: relative;
+}
+
+.arch-search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: var(--space-xs);
+  max-height: 300px;
+  overflow-y: auto;
+  background: rgba(18, 18, 26, 0.98);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  display: none;
+  z-index: 100;
+}
+
+.arch-search-results.visible {
+  display: block;
+}
+
+.arch-search-result {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.arch-search-result:hover {
+  background: var(--bg-hover);
+}
+
+.arch-search-result-icon {
+  font-size: var(--font-size-sm);
+}
+
+.arch-search-result-name {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.arch-search-result-type {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.arch-search-result-path {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.arch-search-empty {
+  padding: var(--space-md);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CODEBASE NAVIGATION BUTTONS
+   ═══════════════════════════════════════════════════════════ */
+
+.arch-nav-buttons {
+  display: flex;
+  gap: var(--space-xs);
+  margin-left: var(--space-sm);
+}
+
+.arch-nav-btn {
+  padding: var(--space-xs) var(--space-sm);
+  background: rgba(18, 18, 26, 0.9);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.arch-nav-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent-cyan);
+}
+
+.arch-nav-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CODEBASE BREADCRUMB
+   ═══════════════════════════════════════════════════════════ */
+
+.arch-codebase-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(18, 18, 26, 0.9);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  backdrop-filter: blur(8px);
+  font-size: var(--font-size-sm);
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.arch-breadcrumb-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.arch-breadcrumb-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.arch-breadcrumb-item.current {
+  color: var(--accent-cyan);
+  font-weight: 600;
+}
+
+.arch-breadcrumb-icon {
+  font-size: var(--font-size-xs);
+}
+
+.arch-breadcrumb-sep {
+  color: var(--text-muted);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CODEBASE LEGEND
+   ═══════════════════════════════════════════════════════════ */
+
+.arch-codebase-legend {
+  position: absolute;
+  bottom: var(--space-md);
+  left: var(--space-md);
+  padding: var(--space-md);
+  background: rgba(18, 18, 26, 0.9);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  backdrop-filter: blur(8px);
+  font-size: var(--font-size-xs);
+}
+
+.arch-codebase-legend-title {
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.arch-codebase-legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.arch-codebase-legend-shape {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+}
+
+.arch-codebase-legend-shape.package { color: #4ecdc4; }
+.arch-codebase-legend-shape.module { color: #667eea; }
+.arch-codebase-legend-shape.class { color: #f093fb; }
+.arch-codebase-legend-shape.function { color: #ffd93d; }
+.arch-codebase-legend-shape.method { color: #00ff88; }
+
+.arch-codebase-legend-label {
+  color: var(--text-secondary);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CODEBASE DETAIL PANEL
+   ═══════════════════════════════════════════════════════════ */
+
+.arch-codebase-detail {
+  position: absolute;
+  bottom: var(--space-md);
+  right: var(--space-md);
+  width: 320px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: var(--space-md);
+  background: rgba(18, 18, 26, 0.95);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  backdrop-filter: blur(8px);
+  display: none;
+}
+
+.arch-codebase-detail.visible {
+  display: block;
+}
+
+.arch-codebase-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.arch-codebase-detail-title {
+  flex: 1;
+}
+
+.arch-codebase-detail-type {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-xs);
+}
+
+.arch-codebase-detail-type.package { color: #4ecdc4; }
+.arch-codebase-detail-type.module { color: #667eea; }
+.arch-codebase-detail-type.class { color: #f093fb; }
+.arch-codebase-detail-type.function { color: #ffd93d; }
+.arch-codebase-detail-type.method { color: #00ff88; }
+
+.arch-codebase-detail-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  word-break: break-all;
+}
+
+.arch-codebase-detail-close {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--border-radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.arch-codebase-detail-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.arch-codebase-detail-body {
+  font-size: var(--font-size-sm);
+}
+
+.arch-codebase-detail-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-xs);
+}
+
+.arch-codebase-detail-label {
+  color: var(--text-muted);
+}
+
+.arch-codebase-detail-value {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+.arch-codebase-detail-path {
+  margin-top: var(--space-sm);
+  padding: var(--space-sm);
+  background: var(--bg-tertiary);
+  border-radius: var(--border-radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+/* Children List in Detail */
+.arch-codebase-detail-children {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--border-color);
+}
+
+.arch-codebase-detail-children-title {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: var(--space-xs);
+}
+
+.arch-codebase-detail-children-list {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.arch-codebase-detail-child {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) 0;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  transition: color var(--transition-fast);
+}
+
+.arch-codebase-detail-child:hover {
+  color: var(--accent-cyan);
+}
+
+.arch-codebase-detail-child-icon {
+  font-size: var(--font-size-xs);
+}
+
+.arch-codebase-detail-child-icon.class { color: #f093fb; }
+.arch-codebase-detail-child-icon.function { color: #ffd93d; }
+.arch-codebase-detail-child-icon.method { color: #00ff88; }
+
+/* ═══════════════════════════════════════════════════════════
+   CODEBASE TOOLTIP
+   ═══════════════════════════════════════════════════════════ */
+
+.arch-codebase-tooltip {
+  position: fixed;
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(18, 18, 26, 0.95);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  pointer-events: none;
+  z-index: 1000;
+  max-width: 300px;
+  display: none;
+}
+
+.arch-codebase-tooltip.visible {
+  display: block;
+}
+
+.arch-codebase-tooltip-type {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.arch-codebase-tooltip-name {
+  font-weight: 600;
+}
