@@ -19,6 +19,44 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dirname, 'migrations');
 
 /**
+ * Repair partially applied migrations by marking them as done
+ * This handles cases where migrations were partially applied but not tracked
+ */
+async function repairPartialMigrations(db, log) {
+  // Map of migration name -> table that should exist if it was applied
+  const migrationChecks = {
+    '003_ecosystem_docs': 'ecosystem_docs',
+    '004_solana_anchoring': 'anchor_batches',
+    '005_learning': 'learning_state',
+    '006_triggers': 'triggers_registry',
+    '007_discovery': 'discovered_mcp_servers',
+  };
+
+  for (const [migrationName, tableName] of Object.entries(migrationChecks)) {
+    try {
+      // Check if table exists
+      const { rows } = await db.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = $1
+        ) as exists
+      `, [tableName]);
+
+      if (rows[0]?.exists) {
+        // Table exists, mark migration as applied if not already
+        await db.query(
+          'INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT (name) DO NOTHING',
+          [migrationName]
+        );
+        log(`🔧 Repaired: ${migrationName} (table ${tableName} exists)`);
+      }
+    } catch (err) {
+      // Ignore errors during repair
+    }
+  }
+}
+
+/**
  * Run database migrations
  * @param {Object} options - Migration options
  * @param {boolean} options.silent - Suppress console output (default: false)
@@ -48,7 +86,10 @@ export async function migrate(options = {}) {
       )
     `);
 
-    // Get applied migrations
+    // Repair any partially applied migrations first
+    await repairPartialMigrations(db, log);
+
+    // Get applied migrations (after repair)
     const { rows: applied } = await db.query('SELECT name FROM _migrations');
     const appliedSet = new Set(applied.map(r => r.name));
 
