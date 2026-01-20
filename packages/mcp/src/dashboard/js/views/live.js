@@ -417,10 +417,12 @@ export class LiveView {
   _renderJudgmentBadge(data) {
     const verdict = escapeHtml(data.verdict || 'UNKNOWN');
     const score = data.Q ?? data.score ?? 0;
+    const judgmentId = escapeHtml(data.id || data.judgmentId || '');
     return `
       <div class="judgment-badge verdict-${verdict.toLowerCase()}">
         <span class="verdict">${verdict}</span>
         <span class="score">Q: ${score.toFixed(1)}</span>
+        ${judgmentId ? `<button class="trace-btn" data-judgment-id="${judgmentId}" title="Trace integrity chain">🔗</button>` : ''}
       </div>
     `;
   }
@@ -504,6 +506,135 @@ export class LiveView {
         </div>
         ${breakdownHtml}
         ${data.confidence ? `<div class="confidence">Confidence: ${(data.confidence * 100).toFixed(1)}%</div>` : ''}
+      </div>
+    `;
+  }
+
+  /**
+   * Render trace detail (integrity chain visualization)
+   */
+  _renderTraceDetail(trace) {
+    if (!trace) {
+      return '<div class="trace-loading">Loading trace...</div>';
+    }
+
+    // Handle not found case
+    if (trace.found === false) {
+      return `
+        <div class="trace-detail">
+          <div class="trace-header verdict-unknown">
+            <span class="trace-title">Integrity Trace</span>
+            <span class="trace-score">0%</span>
+            <span class="trace-verdict">NOT FOUND</span>
+          </div>
+          <div class="trace-error">
+            <div class="error-icon">🔍</div>
+            <div class="error-message">${escapeHtml(trace.error || 'Judgment not found')}</div>
+            ${trace.hint ? `<div class="error-hint">${escapeHtml(trace.hint)}</div>` : ''}
+          </div>
+          <div class="trace-footer">
+            <span class="trace-note">φ distrusts φ - verify independently</span>
+          </div>
+        </div>
+      `;
+    }
+
+    // Extract layers from trace response
+    const layers = trace.layers || {};
+    const judgment = layers.judgment;
+    const pojBlock = layers.pojBlock;
+    const merkleProof = layers.merkleProof;
+    const solanaAnchor = layers.solanaAnchor;
+    const integrityScore = trace.integrityScore ?? 0;
+    const verdict = judgment?.verdict || 'UNKNOWN';
+    const verdictClass = verdict.toLowerCase();
+
+    // Build chain visualization
+    const chainLayers = [];
+
+    // Layer 1: Judgment
+    if (judgment) {
+      const jdgStatus = judgment.status === 'verified' ? 'found' : 'missing';
+      chainLayers.push(`
+        <div class="trace-layer judgment">
+          <div class="layer-icon">⚖️</div>
+          <div class="layer-content">
+            <div class="layer-title">Judgment</div>
+            <div class="layer-id">${escapeHtml(judgment.id || 'N/A')}</div>
+            ${judgment.verdict ? `<div class="layer-verdict verdict-${judgment.verdict.toLowerCase()}">${escapeHtml(judgment.verdict)}</div>` : ''}
+            ${judgment.qScore !== undefined ? `<div class="layer-score">Q: ${judgment.qScore.toFixed(1)}</div>` : ''}
+          </div>
+          <div class="layer-status ${jdgStatus}">${jdgStatus === 'found' ? '✓' : '✗'}</div>
+        </div>
+      `);
+    }
+
+    // Layer 2: PoJ Block
+    if (pojBlock) {
+      const pojStatus = pojBlock.status === 'verified' ? 'found' : pojBlock.status === 'pending' ? 'pending' : 'missing';
+      const pojIcon = pojStatus === 'found' ? '✓' : pojStatus === 'pending' ? '⏳' : '✗';
+      chainLayers.push(`
+        <div class="trace-layer poj-block">
+          <div class="layer-icon">⛓️</div>
+          <div class="layer-content">
+            <div class="layer-title">PoJ Block</div>
+            <div class="layer-id">${pojBlock.slot !== undefined ? `Slot #${pojBlock.slot}` : (pojBlock.message || 'N/A')}</div>
+            ${pojBlock.judgmentCount ? `<div class="layer-info">${pojBlock.judgmentCount} judgments</div>` : ''}
+          </div>
+          <div class="layer-status ${pojStatus}">${pojIcon}</div>
+        </div>
+      `);
+    }
+
+    // Layer 3: Merkle Proof
+    if (merkleProof) {
+      const merkleStatus = merkleProof.status === 'verified' ? 'found' : merkleProof.status === 'partial' ? 'pending' : 'missing';
+      const merkleIcon = merkleStatus === 'found' ? '✓' : merkleStatus === 'pending' ? '⚠' : '✗';
+      chainLayers.push(`
+        <div class="trace-layer merkle">
+          <div class="layer-icon">🌳</div>
+          <div class="layer-content">
+            <div class="layer-title">Merkle Proof</div>
+            <div class="layer-info">${merkleProof.chainValid ? 'Chain valid' : (merkleProof.message || `${merkleProof.blocksChecked || 0} blocks checked`)}</div>
+            ${merkleProof.status === 'verified' ? '<div class="layer-verified">Verified</div>' : ''}
+          </div>
+          <div class="layer-status ${merkleStatus}">${merkleIcon}</div>
+        </div>
+      `);
+    }
+
+    // Layer 4: Solana Anchor
+    if (solanaAnchor) {
+      const solStatus = solanaAnchor.status === 'anchored' ? 'found' : solanaAnchor.status === 'enabled' ? 'pending' : 'missing';
+      const solIcon = solStatus === 'found' ? '✓' : solStatus === 'pending' ? '⏳' : '✗';
+      chainLayers.push(`
+        <div class="trace-layer solana">
+          <div class="layer-icon">◎</div>
+          <div class="layer-content">
+            <div class="layer-title">Solana Anchor</div>
+            ${solanaAnchor.txSignature ? `
+              <div class="layer-id">${escapeHtml(String(solanaAnchor.txSignature).slice(0, 16))}...</div>
+              ${solanaAnchor.slot ? `<div class="layer-info">Slot ${solanaAnchor.slot}</div>` : ''}
+            ` : `<div class="layer-info">${solanaAnchor.anchoringActive ? 'Anchoring enabled' : 'Not anchored yet'}</div>`}
+          </div>
+          <div class="layer-status ${solStatus}">${solIcon}</div>
+        </div>
+      `);
+    }
+
+    return `
+      <div class="trace-detail">
+        <div class="trace-header verdict-${verdictClass}">
+          <span class="trace-title">Integrity Trace</span>
+          <span class="trace-score">${integrityScore}%</span>
+          <span class="trace-verdict">${escapeHtml(verdict)}</span>
+        </div>
+        <div class="trace-chain">
+          ${chainLayers.join('<div class="trace-connector">↓</div>')}
+        </div>
+        <div class="trace-footer">
+          <span class="trace-note">φ distrusts φ - verify independently</span>
+        </div>
       </div>
     `;
   }
@@ -1049,6 +1180,97 @@ export class LiveView {
         }
       });
     });
+
+    // Trace button handlers (all content is server-sourced and escaped)
+    this.container?.querySelectorAll('.trace-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const judgmentId = btn.dataset.judgmentId;
+        if (judgmentId) {
+          this._handleTraceRequest(judgmentId);
+        }
+      });
+    });
+  }
+
+  /**
+   * Handle trace request
+   * Note: All content rendered via innerHTML is escaped via escapeHtml()
+   */
+  async _handleTraceRequest(judgmentId) {
+    console.log(`[Trace] Requesting trace for: ${judgmentId}`);
+
+    // Show loading in detail panel
+    const detailEl = this.container?.querySelector('.observation-detail');
+    if (detailEl) {
+      // Using innerHTML with escaped content as per existing codebase pattern
+      detailEl.innerHTML = this._renderTraceDetail(null);
+    }
+
+    try {
+      const response = await fetch(`/api/tools/brain_trace`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ judgmentId }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('[Trace] Result:', result);
+
+      // Extract the actual trace data from the API response wrapper
+      const traceData = result.result || result;
+      console.log('[Trace] Data:', traceData);
+
+      // Update detail panel with trace (all values escaped in _renderTraceDetail)
+      if (detailEl) {
+        detailEl.innerHTML = `
+          <div class="detail-content">
+            <div class="detail-header">
+              <span class="type-badge trace">trace</span>
+              <span class="timestamp">${escapeHtml(new Date().toLocaleString())}</span>
+            </div>
+            <div class="detail-body">
+              ${this._renderTraceDetail(traceData)}
+            </div>
+            <div class="detail-actions">
+              <button class="action-btn copy" data-action="copy-trace" title="Copy trace JSON">Copy</button>
+            </div>
+          </div>
+        `;
+
+        // Attach copy handler
+        const copyBtn = detailEl.querySelector('.action-btn[data-action="copy-trace"]');
+        if (copyBtn) {
+          copyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(JSON.stringify(traceData, null, 2));
+            cynicAudio.playToolComplete('analysis', true);
+          });
+        }
+      }
+
+      // Play success sound
+      cynicAudio.playToolComplete('analysis', true);
+
+    } catch (err) {
+      console.error('[Trace] Error:', err);
+      if (detailEl) {
+        detailEl.innerHTML = `
+          <div class="detail-content">
+            <div class="detail-header">
+              <span class="type-badge error">error</span>
+            </div>
+            <div class="detail-body">
+              <div class="error-message">Failed to trace judgment: ${escapeHtml(err.message)}</div>
+            </div>
+          </div>
+        `;
+      }
+      cynicAudio.playToolComplete('system', false);
+    }
   }
 
   /**

@@ -352,6 +352,13 @@ export class API {
   async queryDocs(libraryId, query) {
     return this.callTool('brain_docs', { action: 'query', libraryId, query });
   }
+
+  /**
+   * Trace judgment integrity (judgment → PoJ block → merkle → Solana anchor)
+   */
+  async trace(judgmentId, includeRaw = false) {
+    return this.callTool('brain_trace', { judgmentId, includeRaw });
+  }
 }
 
 // Create singleton instance

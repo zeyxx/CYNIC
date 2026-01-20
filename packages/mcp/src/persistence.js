@@ -63,6 +63,10 @@ class MemoryStore {
     return this.judgments.slice(-limit);
   }
 
+  async getJudgment(judgmentId) {
+    return this.judgments.find(j => j.judgment_id === judgmentId) || null;
+  }
+
   async getJudgmentStats() {
     const total = this.judgments.length;
     if (total === 0) return { total: 0, avgScore: 0, avgConfidence: 0, verdicts: {} };
@@ -453,6 +457,25 @@ export class PersistenceManager {
     // Fallback to file/memory
     if (this._fallback) {
       return await this._fallback.storeJudgment(judgment);
+    }
+    return null;
+  }
+
+  /**
+   * Get a judgment by ID (PostgreSQL or fallback)
+   */
+  async getJudgment(judgmentId) {
+    // Use PostgreSQL if available
+    if (this.judgments?.findById) {
+      try {
+        return await this.judgments.findById(judgmentId);
+      } catch (err) {
+        console.error('Error getting judgment from PostgreSQL:', err.message);
+      }
+    }
+    // Fallback to file/memory
+    if (this._fallback) {
+      return await this._fallback.getJudgment(judgmentId);
     }
     return null;
   }

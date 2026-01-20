@@ -2557,9 +2557,11 @@ export function createTraceTool(persistence, pojChainManager = null) {
         };
       }
 
-      // Step 1: Get the judgment
+      // Step 1: Get the judgment (try both APIs for compatibility)
       let judgment = null;
-      if (persistence.judgments?.findById) {
+      if (persistence.getJudgment) {
+        judgment = await persistence.getJudgment(judgmentId);
+      } else if (persistence.judgments?.findById) {
         judgment = await persistence.judgments.findById(judgmentId);
       }
 
