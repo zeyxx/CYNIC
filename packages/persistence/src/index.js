@@ -18,6 +18,9 @@
 export { PostgresClient, getPool } from './postgres/client.js';
 export { RedisClient, getRedis } from './redis/client.js';
 
+// Migration
+export { migrate } from './postgres/migrate.js';
+
 // Repositories
 export * from './postgres/repositories/index.js';
 

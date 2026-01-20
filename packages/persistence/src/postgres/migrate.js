@@ -18,11 +18,23 @@ import { PostgresClient } from './client.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dirname, 'migrations');
 
-async function migrate() {
-  console.log('🐕 CYNIC Database Migration');
-  console.log('============================\n');
+/**
+ * Run database migrations
+ * @param {Object} options - Migration options
+ * @param {boolean} options.silent - Suppress console output (default: false)
+ * @param {boolean} options.exitOnError - Exit process on error (default: true for CLI, false for programmatic)
+ * @returns {Promise<{applied: number, skipped: number, total: number}>} Migration results
+ */
+export async function migrate(options = {}) {
+  const { silent = false, exitOnError = false } = options;
+  const log = silent ? () => {} : console.log.bind(console);
+  const logError = silent ? () => {} : console.error.bind(console);
+
+  log('🐕 CYNIC Database Migration');
+  log('============================\n');
 
   const db = new PostgresClient();
+  const result = { applied: 0, skipped: 0, total: 0 };
 
   try {
     await db.connect();
@@ -45,21 +57,19 @@ async function migrate() {
       .filter(f => f.endsWith('.sql'))
       .sort();
 
-    console.log(`Found ${files.length} migration(s)\n`);
-
-    let appliedCount = 0;
-    let skippedCount = 0;
+    result.total = files.length;
+    log(`Found ${files.length} migration(s)\n`);
 
     for (const file of files) {
       const name = file.replace('.sql', '');
 
       if (appliedSet.has(name)) {
-        console.log(`⏭️  ${name} (already applied)`);
-        skippedCount++;
+        log(`⏭️  ${name} (already applied)`);
+        result.skipped++;
         continue;
       }
 
-      console.log(`▶️  Applying ${name}...`);
+      log(`▶️  Applying ${name}...`);
 
       const sql = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
 
@@ -71,22 +81,33 @@ async function migrate() {
         );
       });
 
-      console.log(`✅ ${name} applied`);
-      appliedCount++;
+      log(`✅ ${name} applied`);
+      result.applied++;
     }
 
-    console.log(`\n============================`);
-    console.log(`✅ Applied: ${appliedCount}`);
-    console.log(`⏭️  Skipped: ${skippedCount}`);
-    console.log('🐕 Migration complete\n');
+    log(`\n============================`);
+    log(`✅ Applied: ${result.applied}`);
+    log(`⏭️  Skipped: ${result.skipped}`);
+    log('🐕 Migration complete\n');
+
+    return result;
 
   } catch (error) {
-    console.error('❌ Migration failed:', error.message);
-    process.exit(1);
+    logError('❌ Migration failed:', error.message);
+    if (exitOnError) {
+      process.exit(1);
+    }
+    throw error;
   } finally {
     await db.close();
   }
 }
 
-// Run if called directly
-migrate().catch(console.error);
+// Run if called directly (CLI mode)
+const isMain = process.argv[1]?.includes('migrate');
+if (isMain) {
+  migrate({ exitOnError: true }).catch(err => {
+    console.error(err);
+    process.exit(1);
+  });
+}

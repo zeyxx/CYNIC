@@ -21,6 +21,7 @@ import 'dotenv/config';
 
 import { MCPServer } from '../src/server.js';
 import { logConfigStatus, getMcpConfig, validateStartupConfig } from '@cynic/core';
+import { migrate } from '@cynic/persistence';
 
 // Validate configuration at startup (throws in production if misconfigured)
 try {
@@ -32,6 +33,21 @@ try {
 
 // Log configuration status (never logs actual secrets)
 logConfigStatus();
+
+// Run database migrations before starting (auto-migrate on deploy)
+try {
+  console.log('🐕 Running auto-migrations...');
+  const result = await migrate({ silent: false, exitOnError: false });
+  if (result.applied > 0) {
+    console.log(`✅ Applied ${result.applied} migration(s)`);
+  } else {
+    console.log('✅ Database schema up to date');
+  }
+} catch (err) {
+  console.error('⚠️ Migration warning:', err.message);
+  console.error('   Server will start but some features may not work');
+  // Don't exit - let the server start anyway (graceful degradation)
+}
 
 // Get MCP configuration
 const { mode: configMode, port: configPort } = getMcpConfig();
