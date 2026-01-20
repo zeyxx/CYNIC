@@ -20,16 +20,6 @@
         ]
       }
     ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/hooks/perceive.cjs"
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
         "matcher": "Bash|Write|Edit",
@@ -43,6 +33,7 @@
     ],
     "PostToolUse": [
       {
+        "matcher": "Bash|Write|Edit|Task",
         "hooks": [
           {
             "type": "command",
