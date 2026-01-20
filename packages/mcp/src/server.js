@@ -16,7 +16,7 @@ import { createServer } from 'http';
 import { readFile } from 'fs/promises';
 import { join, extname } from 'path';
 import { fileURLToPath } from 'url';
-import { PHI_INV, PHI_INV_2, IDENTITY } from '@cynic/core';
+import { PHI_INV, PHI_INV_2, IDENTITY, PeriodicScheduler, FibonacciIntervals, EcosystemMonitor } from '@cynic/core';
 
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -131,6 +131,12 @@ export class MCPServer {
 
     // Discovery service for MCP servers, plugins, and CYNIC nodes
     this.discovery = options.discovery || null;
+
+    // Periodic scheduler for automated tasks (ecosystem awareness)
+    this.scheduler = options.scheduler || null;
+
+    // Ecosystem monitor for GitHub tracking
+    this.ecosystemMonitor = options.ecosystemMonitor || null;
 
     // Stdio streams (for stdio mode)
     this.input = options.input || process.stdin;
@@ -262,6 +268,104 @@ export class MCPServer {
       });
       await this.discovery.init();
       console.error('   Discovery: ready');
+    }
+
+    // Initialize Ecosystem Monitor for GitHub tracking
+    if (!this.ecosystemMonitor) {
+      this.ecosystemMonitor = new EcosystemMonitor({
+        maxCacheSize: 100,
+        onUpdate: (updates, source) => {
+          // Broadcast new updates to SSE clients
+          if (updates.length > 0) {
+            this._broadcastSSEEvent('ecosystem_updates', {
+              count: updates.length,
+              source: source?.name || 'all',
+              highPriority: updates.filter(u => u.priority === 'HIGH' || u.priority === 'CRITICAL').length,
+              timestamp: Date.now(),
+            });
+          }
+        },
+      });
+      // Register Solana ecosystem defaults on startup
+      this.ecosystemMonitor.registerSolanaDefaults();
+      // Also track Agave (new Solana validator client from Anza)
+      this.ecosystemMonitor.trackGitHubRepo('anza-xyz', 'agave', {
+        trackReleases: true,
+        trackCommits: false, // Too many commits
+      });
+      console.error(`   EcosystemMonitor: ready (${this.ecosystemMonitor.sources.size} sources)`);
+    }
+
+    // Initialize Periodic Scheduler for automated ecosystem awareness
+    if (!this.scheduler) {
+      this.scheduler = new PeriodicScheduler({
+        onError: (task, error) => {
+          console.error(`🐕 [Scheduler] Task "${task.name}" failed: ${error.message}`);
+        },
+      });
+
+      // Register ecosystem fetch task - runs every 6 hours (φ-aligned)
+      this.scheduler.register({
+        id: 'ecosystem_awareness',
+        name: 'Ecosystem Awareness',
+        intervalMs: FibonacciIntervals.SIXHOURLY, // 6 hours
+        runImmediately: false, // Don't run on startup, let manual fetches happen first
+        handler: async () => {
+          console.error('🐕 [Scheduler] Starting ecosystem awareness cycle...');
+
+          // Fetch updates from all tracked sources
+          const fetchResult = await this.ecosystemMonitor.fetchAll();
+
+          // Judge high-priority updates
+          const highPriorityUpdates = (fetchResult.updates || [])
+            .filter(u => u.priority === 'HIGH' || u.priority === 'CRITICAL');
+
+          let judgedCount = 0;
+          if (highPriorityUpdates.length > 0 && this.graphIntegration) {
+            for (const update of highPriorityUpdates.slice(0, 5)) { // Max 5 judgments per cycle
+              try {
+                const item = {
+                  type: 'ecosystem_update',
+                  content: `${update.type}: ${update.title || 'Update'}\n\n${update.description || ''}`.slice(0, 500),
+                  source: update.source,
+                  sources: [update.url].filter(Boolean),
+                  priority: update.priority,
+                  meta: update.meta,
+                };
+                await this.graphIntegration.judgeWithGraph(item, { source: 'ecosystem_monitor' });
+                judgedCount++;
+              } catch (e) {
+                console.error(`🐕 [Scheduler] Judge error: ${e.message}`);
+              }
+            }
+            if (judgedCount > 0) {
+              console.error(`🐕 [Scheduler] Judged ${judgedCount} high-priority updates`);
+            }
+          }
+
+          // Broadcast to SSE clients
+          this._broadcastSSEEvent('ecosystem_cycle', {
+            fetched: fetchResult.fetched || 0,
+            skipped: fetchResult.skipped || 0,
+            errors: fetchResult.errors || 0,
+            updatesFound: fetchResult.updates?.length || 0,
+            highPriority: highPriorityUpdates.length,
+            judged: judgedCount,
+            timestamp: Date.now(),
+          });
+
+          console.error(`🐕 [Scheduler] Ecosystem cycle complete: ${fetchResult.updates?.length || 0} updates, ${judgedCount} judged`);
+
+          return {
+            fetched: fetchResult.fetched || 0,
+            updatesFound: fetchResult.updates?.length || 0,
+            highPriority: highPriorityUpdates.length,
+            judged: judgedCount,
+          };
+        },
+      });
+
+      console.error(`   Scheduler: ready (ecosystem awareness every ${FibonacciIntervals.SIXHOURLY / 3600000}h)`);
     }
 
     // Initialize Metrics service for monitoring
@@ -1092,6 +1196,16 @@ export class MCPServer {
         await this.pojChainManager.close();
       } catch (e) {
         console.error('Error closing PoJ chain:', e.message);
+      }
+    }
+
+    // Stop periodic scheduler
+    if (this.scheduler) {
+      try {
+        this.scheduler.stopAll();
+        console.error('   Scheduler stopped');
+      } catch (e) {
+        console.error('Error stopping scheduler:', e.message);
       }
     }
 

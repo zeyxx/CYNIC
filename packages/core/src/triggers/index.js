@@ -706,6 +706,289 @@ export class TriggerManager {
 }
 
 // =============================================================================
+// PERIODIC SCHEDULER
+// =============================================================================
+
+/**
+ * Periodic task scheduler for automated triggers
+ * Supports interval-based execution with Fibonacci-aligned defaults
+ */
+export class PeriodicScheduler {
+  /**
+   * @param {Object} options
+   * @param {Function} [options.onError] - Error callback
+   */
+  constructor(options = {}) {
+    /** @type {Map<string, Object>} */
+    this.tasks = new Map();
+
+    /** Running intervals */
+    this.intervals = new Map();
+
+    /** Error callback */
+    this.onError = options.onError || console.error;
+
+    /** Stats */
+    this.stats = {
+      tasksRegistered: 0,
+      executionsTotal: 0,
+      executionsSuccess: 0,
+      executionsFailed: 0,
+      lastExecution: null,
+    };
+  }
+
+  /**
+   * Register a periodic task
+   * @param {Object} config
+   * @param {string} config.id - Unique task ID
+   * @param {string} config.name - Human-readable name
+   * @param {number} config.intervalMs - Execution interval in ms
+   * @param {Function} config.handler - Async function to execute
+   * @param {boolean} [config.runImmediately=false] - Run on registration
+   * @param {boolean} [config.enabled=true] - Start enabled
+   */
+  register(config) {
+    const task = {
+      id: config.id || `task_${Date.now().toString(36)}`,
+      name: config.name,
+      intervalMs: config.intervalMs,
+      handler: config.handler,
+      enabled: config.enabled !== false,
+      runImmediately: config.runImmediately || false,
+      lastRun: null,
+      nextRun: null,
+      runCount: 0,
+      errorCount: 0,
+      lastError: null,
+    };
+
+    this.tasks.set(task.id, task);
+    this.stats.tasksRegistered++;
+
+    if (task.enabled) {
+      this._startTask(task);
+    }
+
+    return task;
+  }
+
+  /**
+   * Unregister a task
+   * @param {string} taskId
+   */
+  unregister(taskId) {
+    this._stopTask(taskId);
+    return this.tasks.delete(taskId);
+  }
+
+  /**
+   * Enable a task
+   * @param {string} taskId
+   */
+  enable(taskId) {
+    const task = this.tasks.get(taskId);
+    if (task && !task.enabled) {
+      task.enabled = true;
+      this._startTask(task);
+    }
+  }
+
+  /**
+   * Disable a task
+   * @param {string} taskId
+   */
+  disable(taskId) {
+    const task = this.tasks.get(taskId);
+    if (task) {
+      task.enabled = false;
+      this._stopTask(taskId);
+    }
+  }
+
+  /**
+   * Start a task's interval
+   * @private
+   */
+  _startTask(task) {
+    if (this.intervals.has(task.id)) return;
+
+    // Run immediately if configured
+    if (task.runImmediately) {
+      this._executeTask(task);
+    }
+
+    // Set up interval
+    const intervalId = setInterval(() => {
+      this._executeTask(task);
+    }, task.intervalMs);
+
+    this.intervals.set(task.id, intervalId);
+    task.nextRun = Date.now() + task.intervalMs;
+  }
+
+  /**
+   * Stop a task's interval
+   * @private
+   */
+  _stopTask(taskId) {
+    const intervalId = this.intervals.get(taskId);
+    if (intervalId) {
+      clearInterval(intervalId);
+      this.intervals.delete(taskId);
+    }
+  }
+
+  /**
+   * Execute a task
+   * @private
+   */
+  async _executeTask(task) {
+    task.lastRun = Date.now();
+    task.nextRun = task.lastRun + task.intervalMs;
+    this.stats.executionsTotal++;
+    this.stats.lastExecution = task.lastRun;
+
+    try {
+      await task.handler();
+      task.runCount++;
+      this.stats.executionsSuccess++;
+      task.lastError = null;
+    } catch (error) {
+      task.errorCount++;
+      task.lastError = error.message;
+      this.stats.executionsFailed++;
+      this.onError(`[PeriodicScheduler] Task ${task.name} failed:`, error);
+    }
+  }
+
+  /**
+   * Manually trigger a task
+   * @param {string} taskId
+   */
+  async trigger(taskId) {
+    const task = this.tasks.get(taskId);
+    if (task) {
+      await this._executeTask(task);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * List all tasks
+   */
+  list() {
+    return Array.from(this.tasks.values()).map(task => ({
+      id: task.id,
+      name: task.name,
+      intervalMs: task.intervalMs,
+      enabled: task.enabled,
+      lastRun: task.lastRun,
+      nextRun: task.nextRun,
+      runCount: task.runCount,
+      errorCount: task.errorCount,
+      lastError: task.lastError,
+    }));
+  }
+
+  /**
+   * Get scheduler status
+   */
+  getStatus() {
+    return {
+      tasks: this.list(),
+      stats: this.stats,
+      running: this.intervals.size,
+    };
+  }
+
+  /**
+   * Stop all tasks
+   */
+  stopAll() {
+    for (const taskId of this.intervals.keys()) {
+      this._stopTask(taskId);
+    }
+  }
+
+  /**
+   * Start all enabled tasks
+   */
+  startAll() {
+    for (const task of this.tasks.values()) {
+      if (task.enabled && !this.intervals.has(task.id)) {
+        this._startTask(task);
+      }
+    }
+  }
+}
+
+// =============================================================================
+// FIBONACCI INTERVALS (for φ-aligned scheduling)
+// =============================================================================
+
+/**
+ * Fibonacci-based intervals for scheduling
+ * These create natural, non-uniform patterns
+ */
+export const FibonacciIntervals = {
+  /** 5 seconds (Fib(5) = 5) */
+  QUICK: 5 * 1000,
+
+  /** 8 seconds (Fib(6) = 8) */
+  SHORT: 8 * 1000,
+
+  /** 13 seconds (Fib(7) = 13) */
+  BRIEF: 13 * 1000,
+
+  /** 21 seconds (Fib(8) = 21) */
+  NORMAL: 21 * 1000,
+
+  /** 34 seconds (Fib(9) = 34) */
+  MEDIUM: 34 * 1000,
+
+  /** 55 seconds (Fib(10) = 55) */
+  STANDARD: 55 * 1000,
+
+  /** ~1.5 minutes (Fib(11) = 89) */
+  MODERATE: 89 * 1000,
+
+  /** ~2.4 minutes (Fib(12) = 144) */
+  EXTENDED: 144 * 1000,
+
+  /** ~3.9 minutes (Fib(13) = 233) */
+  LONG: 233 * 1000,
+
+  /** ~6.3 minutes (Fib(14) = 377) */
+  LENGTHY: 377 * 1000,
+
+  /** ~10 minutes (Fib(15) = 610) */
+  SLOW: 610 * 1000,
+
+  /** ~16 minutes (Fib(16) = 987) */
+  RARE: 987 * 1000,
+
+  /** ~26 minutes (Fib(17) = 1597) */
+  INFREQUENT: 1597 * 1000,
+
+  /** ~43 minutes (Fib(18) = 2584) */
+  SPARSE: 2584 * 1000,
+
+  /** ~1.1 hours (Fib(19) = 4181) */
+  HOURLY: 4181 * 1000,
+
+  /** ~1.9 hours (Fib(20) = 6765) */
+  BIHOURLY: 6765 * 1000,
+
+  /** ~6 hours (Fib(22) = 17711 ~= 6 * 60 * 60) */
+  SIXHOURLY: 6 * 60 * 60 * 1000,
+
+  /** ~24 hours */
+  DAILY: 24 * 60 * 60 * 1000,
+};
+
+// =============================================================================
 // EXPORTS
 // =============================================================================
 
@@ -715,8 +998,10 @@ export default {
   TriggerType,
   TriggerEvent,
   TriggerAction,
+  FibonacciIntervals,
 
   // Classes
   Trigger,
   TriggerManager,
+  PeriodicScheduler,
 };
