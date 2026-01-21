@@ -23,6 +23,9 @@ const cynic = require(libPath);
 const enforcerPath = path.join(__dirname, '..', 'lib', 'task-enforcer.cjs');
 const enforcer = require(enforcerPath);
 
+// Load auto-judge (autonomous judgments)
+const autoJudge = require(path.join(__dirname, '..', 'lib', 'auto-judge.cjs'));
+
 // =============================================================================
 // PATTERN DETECTION
 // =============================================================================
@@ -303,6 +306,28 @@ function extractErrorSummary(output) {
   return output?.error || output?.message || 'Unknown error';
 }
 
+/**
+ * Detect error type from error text
+ */
+function detectErrorType(errorText) {
+  if (!errorText) return 'unknown';
+
+  const lower = errorText.toLowerCase();
+
+  if (lower.includes('enoent') || lower.includes('no such file')) return 'file_not_found';
+  if (lower.includes('eacces') || lower.includes('permission denied')) return 'permission';
+  if (lower.includes('econnrefused')) return 'connection';
+  if (lower.includes('timeout')) return 'timeout';
+  if (lower.includes('syntaxerror')) return 'syntax';
+  if (lower.includes('typeerror')) return 'type';
+  if (lower.includes('referenceerror')) return 'reference';
+  if (lower.includes('eslint') || lower.includes('lint')) return 'lint';
+  if (lower.includes('test') && lower.includes('fail')) return 'test_failure';
+  if (lower.includes('build') && lower.includes('fail')) return 'build_failure';
+
+  return 'generic';
+}
+
 // =============================================================================
 // MAIN HANDLER
 // =============================================================================
@@ -355,6 +380,52 @@ async function main() {
     // Process through Auto-Judgment Triggers (non-blocking)
     // This enables automatic judgments on errors, commits, decisions, etc.
     processTriggerEvent(toolName, toolInput, toolOutput, isError);
+
+    // ==========================================================================
+    // AUTONOMOUS JUDGMENT SYSTEM
+    // ==========================================================================
+    let autoJudgmentResult = null;
+
+    // Observe errors
+    if (isError) {
+      const errorText = typeof toolOutput === 'string' ? toolOutput :
+                        toolOutput?.error || toolOutput?.message || 'Unknown error';
+      const errorType = detectErrorType(errorText);
+      autoJudgmentResult = autoJudge.observeError(toolName, errorType, errorText.slice(0, 200));
+    }
+    // Observe successes
+    else {
+      autoJudgmentResult = autoJudge.observeSuccess(toolName, `${toolName} completed`);
+    }
+
+    // Observe code changes
+    if ((toolName === 'Write' || toolName === 'Edit') && !isError) {
+      const filePath = toolInput.file_path || toolInput.filePath || '';
+      const content = toolInput.content || toolInput.new_string || '';
+      const linesChanged = (content.match(/\n/g) || []).length + 1;
+      autoJudge.observeCodeChange(filePath, toolName.toLowerCase(), linesChanged);
+    }
+
+    // If auto-judgment was triggered, output it
+    if (autoJudgmentResult?.judgment) {
+      const judgment = autoJudgmentResult.judgment;
+      const formatted = autoJudge.formatJudgment(judgment);
+
+      // Send to MCP server for persistence
+      cynic.callBrainTool('brain_save_judgment', {
+        judgment: {
+          ...judgment,
+          source: 'auto-judge',
+        },
+      }).catch(() => {});
+
+      // Output the judgment (will be shown to user)
+      console.log(JSON.stringify({
+        continue: true,
+        message: formatted,
+      }));
+      return;
+    }
 
     // Observer never blocks - always continue silently
     console.log(JSON.stringify({ continue: true }));
