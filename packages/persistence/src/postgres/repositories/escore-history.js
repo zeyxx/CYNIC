@@ -179,66 +179,55 @@ export class EScoreHistoryRepository {
   }
 
   /**
-   * Clean up old snapshots (φ-aligned retention policy)
+   * Clean up old snapshots (24/7/365 retention policy)
    *
-   * Retention tiers:
-   * - Hourly:  keep for 24h (then aggregate to daily)
-   * - Daily:   keep for 30d (then aggregate to weekly)
-   * - Weekly:  keep for 1y  (then aggregate to monthly)
-   * - Monthly: keep for 5y  (then aggregate to yearly)
-   * - Yearly:  keep forever
+   * Solana philosophy: "24/7/365"
+   * - 24:  Hourly snapshots kept for 24 hours
+   * - 7:   Daily snapshots kept for 7 days
+   * - 365: Weekly snapshots kept for 365 days
+   *
+   * After 365 days: deleted (blockchain is the permanent record)
    */
   async cleanup() {
     const results = {};
 
-    // 1. Hourly → Daily (24h threshold)
-    // Delete non-midnight snapshots older than 24h
+    // 24: Hourly → Daily (after 24 hours)
+    // Keep only on-the-hour snapshots
     const hourlyResult = await this.db.query(`
       DELETE FROM escore_history
       WHERE recorded_at < NOW() - INTERVAL '24 hours'
-        AND recorded_at >= NOW() - INTERVAL '30 days'
+        AND recorded_at >= NOW() - INTERVAL '7 days'
         AND EXTRACT(MINUTE FROM recorded_at) != 0
     `);
     results.hourlyDeleted = hourlyResult.rowCount;
 
-    // 2. Daily → Weekly (30d threshold)
-    // Delete non-Sunday snapshots older than 30d
+    // 7: Daily → Weekly (after 7 days)
+    // Keep only midnight snapshots, then only Sundays
     const dailyResult = await this.db.query(`
       DELETE FROM escore_history
-      WHERE recorded_at < NOW() - INTERVAL '30 days'
-        AND recorded_at >= NOW() - INTERVAL '1 year'
+      WHERE recorded_at < NOW() - INTERVAL '7 days'
+        AND recorded_at >= NOW() - INTERVAL '365 days'
         AND EXTRACT(HOUR FROM recorded_at) != 0
     `);
     results.dailyDeleted = dailyResult.rowCount;
 
-    // Keep only Sunday (day 0) snapshots for weekly
+    // Keep only Sunday (day 0) for weekly retention
     const weeklyResult = await this.db.query(`
       DELETE FROM escore_history
-      WHERE recorded_at < NOW() - INTERVAL '30 days'
-        AND recorded_at >= NOW() - INTERVAL '1 year'
+      WHERE recorded_at < NOW() - INTERVAL '7 days'
+        AND recorded_at >= NOW() - INTERVAL '365 days'
         AND EXTRACT(DOW FROM recorded_at) != 0
         AND EXTRACT(HOUR FROM recorded_at) = 0
     `);
     results.weeklyDeleted = weeklyResult.rowCount;
 
-    // 3. Weekly → Monthly (1y threshold)
-    // Keep only 1st of month snapshots older than 1 year
-    const monthlyResult = await this.db.query(`
+    // 365: Delete everything older than 365 days
+    // "Onchain is truth" - Solana anchoring is the permanent record
+    const expiredResult = await this.db.query(`
       DELETE FROM escore_history
-      WHERE recorded_at < NOW() - INTERVAL '1 year'
-        AND recorded_at >= NOW() - INTERVAL '5 years'
-        AND EXTRACT(DAY FROM recorded_at) != 1
+      WHERE recorded_at < NOW() - INTERVAL '365 days'
     `);
-    results.monthlyDeleted = monthlyResult.rowCount;
-
-    // 4. Monthly → Yearly (5y threshold)
-    // Keep only January 1st snapshots older than 5 years
-    const yearlyResult = await this.db.query(`
-      DELETE FROM escore_history
-      WHERE recorded_at < NOW() - INTERVAL '5 years'
-        AND NOT (EXTRACT(MONTH FROM recorded_at) = 1 AND EXTRACT(DAY FROM recorded_at) = 1)
-    `);
-    results.yearlyDeleted = yearlyResult.rowCount;
+    results.expiredDeleted = expiredResult.rowCount;
 
     return results;
   }
