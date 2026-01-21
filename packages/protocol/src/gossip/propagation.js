@@ -532,6 +532,42 @@ export class GossipProtocol {
       this.peerManager.recordFailure(peer.id);
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Judgment Sync Support (Gap #10 fix)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get active peers
+   * @returns {Array} Active peers
+   */
+  getActivePeers() {
+    return this.peerManager.getActivePeers();
+  }
+
+  /**
+   * Send a message directly to a specific peer
+   * @param {string} peerIdOrPublicKey - Peer ID or public key
+   * @param {Object} message - Message to send
+   * @returns {Promise<void>}
+   */
+  async sendTo(peerIdOrPublicKey, message) {
+    let peer = this.peerManager.getPeer(peerIdOrPublicKey);
+    if (!peer) {
+      peer = this.peerManager.getPeerByPublicKey(peerIdOrPublicKey);
+    }
+    if (!peer) {
+      throw new Error(`Peer not found: ${peerIdOrPublicKey}`);
+    }
+
+    try {
+      await this.sendFn(peer, message);
+      this.peerManager.updateActivity(peer.id, 'sent');
+    } catch (err) {
+      this.peerManager.recordFailure(peer.id);
+      throw err;
+    }
+  }
 }
 
 export default { GossipProtocol };

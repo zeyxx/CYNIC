@@ -601,6 +601,22 @@ export class CYNICNode {
         console.log(`🔥 Burns verification enabled (min: ${this._burnsConfig.minAmount / 1e9} SOL)`);
       }
 
+      // ═══════════════════════════════════════════════════════════════════════
+      // Judgment Sync on Startup (Gap #10 fix)
+      // Request missed judgments from peers after connection stabilizes
+      // ═══════════════════════════════════════════════════════════════════════
+      if (this._transportConfig.enabled) {
+        // Delay sync to allow peer connections to establish (φ-aligned: 8s ≈ F₆)
+        setTimeout(async () => {
+          try {
+            await this.syncJudgmentsFromPeers();
+            console.log('🔄 Judgment sync requested from peers');
+          } catch (err) {
+            console.warn(`Judgment sync failed: ${err.message}`);
+          }
+        }, 8000);
+      }
+
       return {
         success: true,
         nodeId: this.operator.id,
@@ -869,6 +885,12 @@ export class CYNICNode {
       case MessageType.PATTERN:
         await this._handlePattern(message.payload);
         break;
+      case MessageType.JUDGMENT_SYNC_REQUEST:
+        await this._handleJudgmentSyncRequest(message);
+        break;
+      case MessageType.JUDGMENT_SYNC_RESPONSE:
+        await this._handleJudgmentSyncResponse(message.payload);
+        break;
     }
   }
 
@@ -884,11 +906,42 @@ export class CYNICNode {
   }
 
   /**
-   * Handle incoming judgment
+   * Handle incoming judgment from peer
    * @private
    */
   async _handleJudgment(judgment) {
-    // Record observation
+    // ═══════════════════════════════════════════════════════════════════════
+    // CRITICAL FIX: Store received judgments (Gap #9)
+    // Previously only buffered for pattern detection, now persisted
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Check for duplicate (avoid storing same judgment twice)
+    const existingJudgments = this.state.getRecentJudgments(1000);
+    const isDuplicate = existingJudgments.some(j => j.id === judgment.id);
+
+    if (!isDuplicate) {
+      // Store in local state (same as self-created judgments)
+      this.state.addJudgment(judgment);
+
+      // Observe in emergence layer
+      this._emergence?.observeJudgment?.(judgment);
+
+      // Emit event for collective awareness
+      if (this._eventBus) {
+        this._eventBus.emit('judgment:received', {
+          judgmentId: judgment.id,
+          verdict: judgment.verdict,
+          qScore: judgment.q_score,
+          source: 'peer',
+          timestamp: Date.now(),
+        });
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Pattern detection (existing logic)
+    // ═══════════════════════════════════════════════════════════════════════
+
     const itemHash = judgment.item_hash;
 
     // Evict LRU entry if at capacity (before adding new key)
@@ -930,6 +983,120 @@ export class CYNICNode {
   async _handlePattern(pattern) {
     // Validate and add to knowledge tree
     this.state.knowledge.addPattern(pattern);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Judgment Sync Handlers (Gap #10 fix)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Handle judgment sync request from peer
+   * @private
+   */
+  async _handleJudgmentSyncRequest(message) {
+    const { since_timestamp, limit } = message.payload;
+    const requestId = message.id;
+    const requesterKey = message.sender;
+
+    // Get judgments since timestamp
+    const allJudgments = this.state.getRecentJudgments(1000);
+    const filteredJudgments = allJudgments
+      .filter(j => (j.timestamp || 0) > (since_timestamp || 0))
+      .slice(0, limit || 100);
+
+    const hasMore = filteredJudgments.length >= (limit || 100);
+
+    // Create and send response
+    const { createJudgmentSyncResponse } = await import('@cynic/protocol/gossip/message.js');
+    const response = createJudgmentSyncResponse(
+      filteredJudgments,
+      requestId,
+      hasMore,
+      this.operator.publicKey,
+      this.operator.privateKey
+    );
+
+    // Send directly to requester
+    await this.gossip.sendTo(requesterKey, response);
+  }
+
+  /**
+   * Handle judgment sync response from peer
+   * @private
+   */
+  async _handleJudgmentSyncResponse(payload) {
+    const { judgments, request_id, has_more, count } = payload;
+
+    if (!judgments || !Array.isArray(judgments)) return;
+
+    let imported = 0;
+    for (const judgment of judgments) {
+      // Use existing handler to store (handles dedup)
+      await this._handleJudgment(judgment);
+      imported++;
+    }
+
+    // Emit sync progress event
+    if (this._eventBus) {
+      this._eventBus.emit('judgment:sync:progress', {
+        requestId: request_id,
+        received: count,
+        imported,
+        hasMore: has_more,
+        timestamp: Date.now(),
+      });
+    }
+
+    // Store last sync state for continuation
+    if (judgments.length > 0) {
+      const lastTimestamp = Math.max(...judgments.map(j => j.timestamp || 0));
+      this._lastJudgmentSyncTimestamp = lastTimestamp;
+    }
+  }
+
+  /**
+   * Request judgment sync from a peer
+   * @param {string} peerId - Peer to request from
+   * @param {number} [sinceTimestamp=0] - Request judgments since this timestamp
+   * @param {number} [limit=100] - Max judgments to request
+   * @returns {Promise<void>}
+   */
+  async requestJudgmentSync(peerId, sinceTimestamp = 0, limit = 100) {
+    const { createJudgmentSyncRequest } = await import('@cynic/protocol/gossip/message.js');
+    const request = createJudgmentSyncRequest(
+      sinceTimestamp,
+      limit,
+      this.operator.publicKey,
+      this.operator.privateKey
+    );
+
+    await this.gossip.sendTo(peerId, request);
+  }
+
+  /**
+   * Sync judgments from all connected peers
+   * Called on node startup to catch up with network
+   * @returns {Promise<void>}
+   */
+  async syncJudgmentsFromPeers() {
+    const peers = this.gossip.getActivePeers?.() || [];
+    if (peers.length === 0) return;
+
+    // Get oldest judgment timestamp we have (or 0 if none)
+    const existingJudgments = this.state.getRecentJudgments(1);
+    const sinceTimestamp = existingJudgments.length > 0
+      ? Math.min(...existingJudgments.map(j => j.timestamp || 0)) - 1
+      : 0;
+
+    // Request from first 3 peers (φ-aligned redundancy)
+    const syncPeers = peers.slice(0, 3);
+    for (const peer of syncPeers) {
+      try {
+        await this.requestJudgmentSync(peer.id || peer.publicKey, sinceTimestamp, 100);
+      } catch (err) {
+        console.warn(`Judgment sync request to ${peer.id} failed: ${err.message}`);
+      }
+    }
   }
 
   /**

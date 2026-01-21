@@ -26,6 +26,8 @@ export const MessageType = {
   SYNC_RESPONSE: 'SYNC_RESPONSE', // Response with blocks
   STATE_REQUEST: 'STATE_REQUEST', // Request merkle state
   STATE_RESPONSE: 'STATE_RESPONSE', // Response with state
+  JUDGMENT_SYNC_REQUEST: 'JUDGMENT_SYNC_REQUEST', // Request judgments since timestamp
+  JUDGMENT_SYNC_RESPONSE: 'JUDGMENT_SYNC_RESPONSE', // Response with judgments
 
   // Control messages
   HEARTBEAT: 'HEARTBEAT', // Peer alive signal
@@ -366,6 +368,55 @@ export function isConsensusGossipMessage(type) {
   return type && type.startsWith('CONSENSUS_');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Judgment Sync Messages (Gap #9/#10 fix)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Create judgment sync request message
+ * @param {number} sinceTimestamp - Request judgments since this timestamp
+ * @param {number} [limit=100] - Max judgments to return
+ * @param {string} sender - Sender public key
+ * @param {string} privateKey - Sender private key
+ * @returns {Object} Judgment sync request message
+ */
+export function createJudgmentSyncRequest(sinceTimestamp, limit, sender, privateKey) {
+  return createMessage({
+    type: MessageType.JUDGMENT_SYNC_REQUEST,
+    payload: {
+      since_timestamp: sinceTimestamp || 0,
+      limit: limit || 100,
+    },
+    sender,
+    privateKey,
+    ttl: 1, // Direct request, no relay
+  });
+}
+
+/**
+ * Create judgment sync response message
+ * @param {Object[]} judgments - Judgments to send
+ * @param {string} requestId - Original request ID
+ * @param {boolean} hasMore - Whether more judgments are available
+ * @param {string} sender - Sender public key
+ * @param {string} privateKey - Sender private key
+ * @returns {Object} Judgment sync response message
+ */
+export function createJudgmentSyncResponse(judgments, requestId, hasMore, sender, privateKey) {
+  return createMessage({
+    type: MessageType.JUDGMENT_SYNC_RESPONSE,
+    payload: {
+      judgments: judgments || [],
+      request_id: requestId,
+      has_more: hasMore || false,
+      count: judgments?.length || 0,
+    },
+    sender,
+    privateKey,
+    ttl: 1, // Direct response, no relay
+  });
+}
+
 export default {
   MessageType,
   generateMessageId,
@@ -388,4 +439,7 @@ export default {
   createConsensusStateRequest,
   createConsensusStateResponse,
   isConsensusGossipMessage,
+  // Judgment sync messages
+  createJudgmentSyncRequest,
+  createJudgmentSyncResponse,
 };
