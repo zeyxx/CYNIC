@@ -39,6 +39,7 @@ import { CYNICJudge } from './judge/judge.js';
 import { ResidualDetector } from './judge/residual.js';
 import { StateManager } from './state/manager.js';
 import { createEmergenceLayer } from './emergence/layer.js';
+import { WebSocketTransport, ConnectionState } from './transport/websocket.js';
 
 /**
  * Node status
@@ -70,6 +71,11 @@ export class CYNICNode {
    * @param {Object} [options.burns] - Burns verification options
    * @param {boolean} [options.burns.enabled=false] - Require burn verification
    * @param {number} [options.burns.minAmount] - Minimum burn amount (lamports)
+   * @param {Object} [options.transport] - P2P transport options
+   * @param {boolean} [options.transport.enabled=true] - Enable P2P transport
+   * @param {number} [options.transport.port=8618] - WebSocket port (φ-aligned)
+   * @param {string} [options.transport.host='0.0.0.0'] - Listen host
+   * @param {Object} [options.transport.ssl] - SSL config for WSS
    */
   constructor(options = {}) {
     // Initialize operator
@@ -90,13 +96,40 @@ export class CYNICNode {
     // Initialize residual detector
     this.residualDetector = new ResidualDetector();
 
-    // Initialize gossip protocol
+    // ═══════════════════════════════════════════════════════════════════════
+    // P2P Transport Layer - "Nodes talk to nodes"
+    // ═══════════════════════════════════════════════════════════════════════
+
+    this._transportConfig = {
+      enabled: options.transport?.enabled ?? true, // Enabled by default
+      port: options.transport?.port || 8618, // φ-aligned: 8×φ×1000
+      host: options.transport?.host || '0.0.0.0',
+      ssl: options.transport?.ssl || null,
+    };
+
+    // Initialize WebSocket transport (if enabled)
+    if (this._transportConfig.enabled) {
+      this._transport = new WebSocketTransport({
+        port: this._transportConfig.port,
+        host: this._transportConfig.host,
+        publicKey: this.operator.publicKey,
+        privateKey: this.operator.privateKey,
+        ssl: this._transportConfig.ssl,
+      });
+
+      // Wire transport events
+      this._setupTransportHandlers();
+    } else {
+      this._transport = null;
+    }
+
+    // Initialize gossip protocol with real transport sendFn
     this.gossip = new GossipProtocol({
       publicKey: this.operator.publicKey,
       privateKey: this.operator.privateKey,
-      address: options.address || process.env.CYNIC_ADDRESS || 'localhost',
+      address: options.address || process.env.CYNIC_ADDRESS || `${this._transportConfig.host}:${this._transportConfig.port}`,
       onMessage: this._handleMessage.bind(this),
-      sendFn: options.sendFn || (async () => {}),
+      sendFn: this._transport ? this._transport.getSendFn() : (options.sendFn || (async () => {})),
     });
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -250,6 +283,77 @@ export class CYNICNode {
   }
 
   /**
+   * Setup P2P transport event handlers
+   * @private
+   */
+  _setupTransportHandlers() {
+    if (!this._transport) return;
+
+    // When a peer connects
+    this._transport.on('peer:connected', ({ peerId, publicKey, address }) => {
+      console.log(`🔗 Peer connected: ${peerId.slice(0, 16)}... (${address})`);
+
+      // Add to gossip peer manager
+      this.gossip.addPeer({
+        id: peerId,
+        publicKey: publicKey || peerId,
+        address,
+      });
+
+      // Register as validator for consensus (with default E-Score)
+      // Real E-Score can be updated later via registerValidator()
+      if (this._consensusConfig.enabled) {
+        this._consensus.registerValidator({
+          publicKey: publicKey || peerId,
+          eScore: 50, // Default E-Score for new peers
+          burned: 0,
+          uptime: 1.0,
+        });
+      }
+
+      this.emit?.('peer:connected', { peerId, publicKey, address });
+    });
+
+    // When a peer disconnects
+    this._transport.on('peer:disconnected', ({ peerId, code, reason }) => {
+      console.log(`🔌 Peer disconnected: ${peerId.slice(0, 16)}... (${reason || code})`);
+
+      // Remove from consensus validators
+      if (this._consensusConfig.enabled) {
+        this._consensus.removeValidator(peerId);
+      }
+
+      this.emit?.('peer:disconnected', { peerId, code, reason });
+    });
+
+    // When a message is received from transport
+    this._transport.on('message', ({ message, peerId }) => {
+      // Route to gossip protocol for processing
+      this.gossip.handleMessage(message, peerId);
+    });
+
+    // When server starts listening
+    this._transport.on('server:listening', ({ port, host, secure }) => {
+      const protocol = secure ? 'wss' : 'ws';
+      console.log(`📡 P2P listening on ${protocol}://${host}:${port}`);
+    });
+
+    // When peer identity is verified
+    this._transport.on('peer:identified', ({ peerId, publicKey, address }) => {
+      console.log(`✓ Peer identified: ${peerId.slice(0, 16)}...`);
+    });
+
+    // Handle transport errors
+    this._transport.on('peer:error', ({ peerId, error }) => {
+      console.warn(`⚠️ Peer error (${peerId?.slice(0, 16)}...): ${error.message}`);
+    });
+
+    this._transport.on('server:error', (error) => {
+      console.error(`❌ Transport server error: ${error.message}`);
+    });
+  }
+
+  /**
    * Start the node
    */
   async start() {
@@ -265,6 +369,15 @@ export class CYNICNode {
 
       // Start timers
       this._startTimers();
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // Start P2P Transport Server
+      // ═══════════════════════════════════════════════════════════════════════
+
+      if (this._transportConfig.enabled && this._transport) {
+        await this._transport.startServer();
+        console.log(`📡 P2P transport enabled on port ${this._transportConfig.port}`);
+      }
 
       // ═══════════════════════════════════════════════════════════════════════
       // Start Layer 4: φ-BFT Consensus
@@ -315,6 +428,11 @@ export class CYNICNode {
         anchoring: this._anchorConfig.enabled,
         burns: this._burnsConfig.enabled,
         consensus: this._consensusConfig.enabled,
+        transport: this._transportConfig.enabled ? {
+          port: this._transportConfig.port,
+          host: this._transportConfig.host,
+          secure: !!this._transportConfig.ssl,
+        } : null,
       };
     } catch (err) {
       this.status = NodeStatus.STOPPED;
@@ -340,6 +458,12 @@ export class CYNICNode {
       this._consensusGossip.stop();
       this._consensus.stop();
       console.log(`φ Consensus stopped`);
+    }
+
+    // Stop P2P transport
+    if (this._transportConfig.enabled && this._transport) {
+      await this._transport.stopServer();
+      console.log(`📡 P2P transport stopped`);
     }
 
     // Stop anchor queue and flush pending
@@ -699,6 +823,14 @@ export class CYNICNode {
         stats: this._consensus.getStats(),
         validators: this._consensus.validators.size,
       },
+      // P2P Transport stats
+      transport: {
+        enabled: this._transportConfig.enabled,
+        port: this._transportConfig.port,
+        secure: !!this._transportConfig.ssl,
+        stats: this._transport?.getStats() || null,
+        connectedPeers: this._transport?.getConnectedPeers()?.length || 0,
+      },
       // Emergence layer (Layer 7)
       emergence: this._emergence.getState(),
     };
@@ -711,6 +843,64 @@ export class CYNICNode {
   addPeer(peerInfo) {
     this.gossip.addPeer(peerInfo);
     this.state.addPeer(peerInfo);
+  }
+
+  /**
+   * Connect to a remote peer via P2P transport
+   * @param {Object} peer - Peer info
+   * @param {string} peer.address - Peer address (ws://host:port or host:port)
+   * @param {string} [peer.id] - Peer ID (optional, will be discovered via identity exchange)
+   * @returns {Promise<void>}
+   */
+  async connectToPeer(peer) {
+    if (!this._transport) {
+      throw new Error('P2P transport not enabled');
+    }
+
+    if (!peer.address) {
+      throw new Error('Peer address required');
+    }
+
+    // Connect via WebSocket transport
+    // Identity exchange will happen automatically
+    // Peer will be added to gossip/consensus via transport event handlers
+    await this._transport.connect({
+      id: peer.id || peer.address,
+      address: peer.address,
+    });
+  }
+
+  /**
+   * Get list of connected peers
+   * @returns {string[]} Connected peer IDs
+   */
+  getConnectedPeers() {
+    if (!this._transport) {
+      return [];
+    }
+    return this._transport.getConnectedPeers();
+  }
+
+  /**
+   * Check if connected to a specific peer
+   * @param {string} peerId - Peer ID
+   * @returns {boolean} True if connected
+   */
+  isConnectedToPeer(peerId) {
+    if (!this._transport) {
+      return false;
+    }
+    return this._transport.isConnected(peerId);
+  }
+
+  /**
+   * Disconnect from a peer
+   * @param {string} peerId - Peer ID to disconnect
+   */
+  disconnectPeer(peerId) {
+    if (this._transport) {
+      this._transport.disconnect(peerId);
+    }
   }
 
   /**
@@ -864,6 +1054,14 @@ export class CYNICNode {
    */
   get consensusGossip() {
     return this._consensusGossip;
+  }
+
+  /**
+   * Get P2P transport for external access
+   * @returns {WebSocketTransport|null} Transport or null if disabled
+   */
+  get transport() {
+    return this._transport;
   }
 
   /**
