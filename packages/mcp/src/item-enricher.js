@@ -178,7 +178,7 @@ function analyzeText(text) {
 
   // Detect structure
   const hasHeaders = /^#+\s|^\d+\.\s|^-\s/m.test(text);
-  const hasBullets = /^[\-\*]\s/m.test(text);
+  const hasBullets = /^[-*]\s/m.test(text);
   const hasNumberedList = /^\d+\.\s/m.test(text);
 
   // Detect tone
@@ -218,11 +218,11 @@ function detectSources(text) {
   sources.push(...urls);
 
   // GitHub references
-  const githubRefs = text.match(/github\.com\/[\w\-]+\/[\w\-]+/g) || [];
+  const githubRefs = text.match(/github\.com\/[\w-]+\/[\w-]+/g) || [];
   sources.push(...githubRefs.map(r => `https://${r}`));
 
   // Package references
-  const npmRefs = text.match(/@[\w\-]+\/[\w\-]+|[\w\-]+@\d+\.\d+/g) || [];
+  const npmRefs = text.match(/@[\w-]+\/[\w-]+|[\w-]+@\d+\.\d+/g) || [];
   sources.push(...npmRefs.map(r => `npm:${r}`));
 
   // Academic citations [1], [Author, 2024]

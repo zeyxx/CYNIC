@@ -5,6 +5,8 @@
  * "φ distrusts φ" - κυνικός
  */
 
+/* global prompt, confirm */
+
 import { Utils } from '../lib/utils.js';
 
 // Golden ratio

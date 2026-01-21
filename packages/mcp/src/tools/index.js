@@ -3884,7 +3884,7 @@ export function createSelfModTool() {
 
           // Get diff stats (safer approach - just count recent changes)
           const numstat = execGit(['log', `--since=${since}`, '--numstat', '--format=']);
-          let linesAdded = 0, linesRemoved = 0, filesSet = new Set();
+          let linesAdded = 0, linesRemoved = 0; const filesSet = new Set();
 
           for (const line of numstat.split('\n').filter(Boolean)) {
             const parts = line.split('\t');
