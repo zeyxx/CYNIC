@@ -11,6 +11,7 @@ import assert from 'node:assert';
 import {
   CYNICJudge,
   ResidualDetector,
+  getAllDimensions,
 } from '../src/index.js';
 
 import { PHI_INV, PHI_INV_2 } from '@cynic/core';
@@ -42,46 +43,45 @@ describe('THE_UNNAMEABLE - 25th Dimension (GAP-I11)', () => {
     });
 
     it('should calculate THE_UNNAMEABLE as inverse of variance', () => {
-      // Item with consistent scores should have high THE_UNNAMEABLE
+      // Item with consistent scores across ALL dimensions should have high THE_UNNAMEABLE
+      // Must provide all 24 dimensions to avoid real scorer injecting variance
+      const allDims = getAllDimensions();
+      const consistentScores = {};
+      for (const dimName of Object.keys(allDims)) {
+        consistentScores[dimName] = 70;
+      }
+
       const judgment = judge.judge({
         id: 'consistent',
-        scores: {
-          COHERENCE: 70,
-          HARMONY: 70,
-          STRUCTURE: 70,
-          ACCURACY: 70,
-          VERIFIABILITY: 70,
-          AUTHENTICITY: 70,
-        },
+        scores: consistentScores,
       });
 
-      // High consistency = high UNNAMEABLE score
+      // High consistency (all 70) = high UNNAMEABLE score (should be 100 with zero variance)
       assert.ok(judgment.dimensions.THE_UNNAMEABLE > 70);
     });
 
     it('should have lower THE_UNNAMEABLE for high variance items', () => {
-      // Consistent item
+      const allDims = getAllDimensions();
+      const dimNames = Object.keys(allDims);
+
+      // Consistent item - all dimensions at 70
+      const consistentScores = {};
+      for (const dimName of dimNames) {
+        consistentScores[dimName] = 70;
+      }
       const consistentJudgment = judge.judge({
         id: 'consistent',
-        scores: {
-          COHERENCE: 70,
-          HARMONY: 70,
-          STRUCTURE: 70,
-        },
+        scores: consistentScores,
       });
 
-      // Inconsistent item - note: other dimensions get default scores (~50)
-      // so the variance comes from the explicit scores differing
+      // Inconsistent item - alternating high/low scores for all dimensions
+      const inconsistentScores = {};
+      dimNames.forEach((dimName, i) => {
+        inconsistentScores[dimName] = i % 2 === 0 ? 20 : 80;
+      });
       const inconsistentJudgment = judge.judge({
         id: 'inconsistent',
-        scores: {
-          COHERENCE: 10,
-          HARMONY: 90,
-          STRUCTURE: 20,
-          ACCURACY: 80,
-          VERIFIABILITY: 30,
-          AUTHENTICITY: 70,
-        },
+        scores: inconsistentScores,
       });
 
       // High variance should have LOWER score than consistent

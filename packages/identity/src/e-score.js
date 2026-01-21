@@ -352,6 +352,83 @@ export class EScoreCalculator {
     };
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BURNS INTEGRATION (Ralph-inspired: Burns → E-Score automatic)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Update E-Score from verified burns
+   * This method is called when burns are verified on-chain
+   *
+   * @param {Object} burnVerification - Verified burn from BurnVerifier
+   * @param {boolean} burnVerification.verified - Whether burn was verified
+   * @param {number} burnVerification.amount - Burn amount
+   * @param {string} [burnVerification.txSignature] - Transaction signature
+   * @returns {Object} Updated E-Score
+   */
+  updateFromBurns(burnVerification) {
+    if (!burnVerification || !burnVerification.verified) {
+      return this.calculate();
+    }
+
+    // Record the burn
+    this.recordBurn(
+      burnVerification.amount,
+      burnVerification.txSignature
+    );
+
+    // Return updated score
+    return this.calculate(true); // Skip cache to get fresh score
+  }
+
+  /**
+   * Sync with a BurnVerifier to auto-update E-Score
+   * Sets up a callback that fires whenever a burn is verified
+   *
+   * @param {import('@cynic/burns').BurnVerifier} verifier - BurnVerifier instance
+   */
+  syncWithVerifier(verifier) {
+    if (!verifier || typeof verifier.onVerify !== 'undefined') {
+      // Set up callback
+      const originalCallback = verifier.onVerify;
+      verifier.onVerify = (result) => {
+        // Call original callback if exists
+        if (originalCallback) {
+          originalCallback(result);
+        }
+
+        // Auto-update E-Score on successful verification
+        if (result.verified && result.amount > 0) {
+          this.updateFromBurns(result);
+        }
+      };
+    }
+  }
+
+  /**
+   * Bulk update from multiple burn verifications
+   * Useful for initial sync or catchup
+   *
+   * @param {Object[]} verifications - Array of burn verifications
+   * @returns {Object} Updated E-Score
+   */
+  bulkUpdateFromBurns(verifications) {
+    if (!Array.isArray(verifications)) {
+      return this.calculate();
+    }
+
+    for (const verification of verifications) {
+      if (verification.verified && verification.amount > 0) {
+        this.recordBurn(
+          verification.amount,
+          verification.txSignature
+        );
+      }
+    }
+
+    return this.calculate(true);
+  }
+
   /**
    * Import state from persistence
    * @param {Object} state - Exported state

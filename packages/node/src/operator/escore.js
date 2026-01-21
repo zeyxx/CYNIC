@@ -232,6 +232,159 @@ export function getEScoreBreakdown(state) {
   };
 }
 
+// =============================================================================
+// BURNS INTEGRATION (Ralph-inspired: Burns → E-Score automatic)
+// =============================================================================
+
+/**
+ * Update E-Score from a verified burn
+ * Auto-increments burnedTotal and recalculates BURN dimension
+ *
+ * @param {Object} state - Current E-Score state
+ * @param {Object} burnVerification - Verified burn from BurnVerifier
+ * @param {boolean} burnVerification.verified - Whether burn was verified
+ * @param {number} burnVerification.amount - Burn amount
+ * @param {string} [burnVerification.txSignature] - Transaction signature
+ * @returns {Object} Updated E-Score state
+ */
+export function updateEScoreFromBurn(state, burnVerification) {
+  if (!burnVerification || !burnVerification.verified || !burnVerification.amount) {
+    return state;
+  }
+
+  // Add to burned total
+  const newBurnedTotal = (state.raw.burnedTotal || 0) + burnVerification.amount;
+
+  return updateEScoreState(state, {
+    burnedTotal: newBurnedTotal,
+  });
+}
+
+/**
+ * Bulk update E-Score from multiple burn verifications
+ *
+ * @param {Object} state - Current E-Score state
+ * @param {Object[]} verifications - Array of burn verifications
+ * @returns {Object} Updated E-Score state
+ */
+export function bulkUpdateEScoreFromBurns(state, verifications) {
+  if (!Array.isArray(verifications) || verifications.length === 0) {
+    return state;
+  }
+
+  // Sum all verified burn amounts
+  const totalBurned = verifications
+    .filter(v => v.verified && v.amount > 0)
+    .reduce((sum, v) => sum + v.amount, 0);
+
+  if (totalBurned === 0) {
+    return state;
+  }
+
+  const newBurnedTotal = (state.raw.burnedTotal || 0) + totalBurned;
+
+  return updateEScoreState(state, {
+    burnedTotal: newBurnedTotal,
+  });
+}
+
+/**
+ * Create an auto-updating E-Score manager that syncs with a BurnVerifier
+ *
+ * @param {Object} [initialState] - Initial E-Score state
+ * @returns {Object} E-Score manager with auto-sync capability
+ */
+export function createEScoreManager(initialState = null) {
+  let state = initialState || createEScoreState();
+  let syncedVerifier = null;
+
+  return {
+    /**
+     * Get current state
+     */
+    getState() {
+      return { ...state };
+    },
+
+    /**
+     * Get current composite score
+     */
+    getScore() {
+      return state.composite;
+    },
+
+    /**
+     * Update from raw data
+     */
+    update(rawData) {
+      state = updateEScoreState(state, rawData);
+      return state;
+    },
+
+    /**
+     * Update from a verified burn
+     */
+    updateFromBurn(burnVerification) {
+      state = updateEScoreFromBurn(state, burnVerification);
+      return state;
+    },
+
+    /**
+     * Sync with a BurnVerifier for automatic updates
+     *
+     * @param {import('@cynic/burns').BurnVerifier} verifier
+     */
+    syncWithVerifier(verifier) {
+      if (!verifier) return;
+
+      // Store reference
+      syncedVerifier = verifier;
+
+      // Set up callback
+      const originalCallback = verifier.onVerify;
+      verifier.onVerify = (result) => {
+        // Call original callback if exists
+        if (originalCallback) {
+          originalCallback(result);
+        }
+
+        // Auto-update E-Score on successful verification
+        if (result.verified && result.amount > 0) {
+          state = updateEScoreFromBurn(state, result);
+        }
+      };
+    },
+
+    /**
+     * Get synced verifier
+     */
+    getVerifier() {
+      return syncedVerifier;
+    },
+
+    /**
+     * Get breakdown
+     */
+    getBreakdown() {
+      return getEScoreBreakdown(state);
+    },
+
+    /**
+     * Export state
+     */
+    export() {
+      return { ...state };
+    },
+
+    /**
+     * Import state
+     */
+    import(savedState) {
+      state = { ...createEScoreState(), ...savedState };
+    },
+  };
+}
+
 export default {
   EScoreDimensions,
   createEScoreState,
@@ -245,4 +398,8 @@ export default {
   calculateCompositeEScore,
   updateEScoreState,
   getEScoreBreakdown,
+  // Burns integration
+  updateEScoreFromBurn,
+  bulkUpdateEScoreFromBurns,
+  createEScoreManager,
 };

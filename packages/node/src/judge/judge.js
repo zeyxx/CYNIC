@@ -56,6 +56,7 @@ export class CYNICJudge {
    * @param {import('./residual.js').ResidualDetector} [options.residualDetector] - THE_UNNAMEABLE dimension discovery
    * @param {boolean} [options.applySkepticism=true] - Whether to automatically apply skepticism to judgments
    * @param {boolean} [options.includeUnnameable=true] - Whether to include THE_UNNAMEABLE in dimensions
+   * @param {Object} [options.eScoreProvider] - E-Score provider for vote weighting
    */
   constructor(options = {}) {
     this.customDimensions = options.customDimensions || {};
@@ -66,6 +67,9 @@ export class CYNICJudge {
     this.residualDetector = options.residualDetector || null;
     this.applySkepticism = options.applySkepticism !== false; // Default true
     this.includeUnnameable = options.includeUnnameable !== false; // Default true
+
+    // E-Score provider for vote weighting (Burns → E-Score → Vote Weight)
+    this.eScoreProvider = options.eScoreProvider || null;
 
     // Stats tracking
     this.stats = {
@@ -103,6 +107,15 @@ export class CYNICJudge {
    */
   setResidualDetector(residualDetector) {
     this.residualDetector = residualDetector;
+  }
+
+  /**
+   * Set E-Score provider (for post-construction injection)
+   * Burns → E-Score → Vote Weight
+   * @param {Object} eScoreProvider - Object with getScore() and getState() methods
+   */
+  setEScoreProvider(eScoreProvider) {
+    this.eScoreProvider = eScoreProvider;
   }
 
   /**
@@ -183,6 +196,10 @@ export class CYNICJudge {
       // Update confidence to the skepticism-adjusted value
       judgment.confidence = skepticism.adjustedConfidence;
     }
+
+    // Calculate vote weight from E-Score (Burns → E-Score → Vote Weight)
+    // Formula: voteWeight = eScore × log(burnedAmount + 1) / log(φ)
+    judgment.voteWeight = this._calculateVoteWeight(context);
 
     // Update stats
     this._updateStats(judgment);
@@ -587,6 +604,78 @@ export class CYNICJudge {
     if (this.anomalyBuffer.length > 100) {
       this.anomalyBuffer.shift();
     }
+  }
+
+  /**
+   * Calculate vote weight from E-Score and burns
+   * Formula: voteWeight = (eScore / 100) × log(burnedAmount + 1) / log(φ)
+   *
+   * E-Score reflects commitment (burns, uptime, quality)
+   * Burns amplify weight logarithmically (diminishing returns)
+   *
+   * @private
+   * @param {Object} context - Judgment context
+   * @returns {number} Vote weight (0+, uncapped but φ-scaled)
+   */
+  _calculateVoteWeight(context = {}) {
+    // Default vote weight is 1.0 (equal voting)
+    const DEFAULT_WEIGHT = 1.0;
+
+    // Check for explicit vote weight in context
+    if (typeof context.voteWeight === 'number') {
+      return context.voteWeight;
+    }
+
+    // Check for E-Score provider
+    if (!this.eScoreProvider) {
+      return DEFAULT_WEIGHT;
+    }
+
+    // Get E-Score (0-100)
+    let eScore = 50; // Neutral default
+    try {
+      if (typeof this.eScoreProvider.getScore === 'function') {
+        eScore = this.eScoreProvider.getScore();
+      } else if (typeof this.eScoreProvider.score === 'number') {
+        eScore = this.eScoreProvider.score;
+      }
+    } catch (e) {
+      // Use default
+    }
+
+    // Get burned amount
+    let burnedAmount = 0;
+    try {
+      const state = typeof this.eScoreProvider.getState === 'function'
+        ? this.eScoreProvider.getState()
+        : this.eScoreProvider;
+
+      burnedAmount = state?.raw?.burnedTotal ||
+                     state?.totalBurns ||
+                     context.burnedAmount ||
+                     0;
+    } catch (e) {
+      // Use default
+    }
+
+    // φ-based logarithm: log_φ(x) = ln(x) / ln(φ)
+    const PHI = 1.618033988749895;
+    const logPhi = Math.log(PHI);
+
+    // Calculate: (eScore/100) × log_φ(burnedAmount + 1)
+    // - eScore/100 normalizes to 0-1
+    // - log_φ provides diminishing returns on burns
+    // - +1 ensures log(0) is avoided
+    const normalizedEScore = Math.max(0, Math.min(100, eScore)) / 100;
+    const burnMultiplier = Math.log(burnedAmount + 1) / logPhi;
+
+    // Final weight: at least DEFAULT_WEIGHT, scaled by e-score and burns
+    // If no burns (burnMultiplier ~= 0), weight ≈ DEFAULT_WEIGHT × normalizedEScore
+    // With burns, weight increases logarithmically
+    const voteWeight = DEFAULT_WEIGHT * (normalizedEScore + burnMultiplier * normalizedEScore);
+
+    // Ensure minimum weight of 0.1 (even low e-score gets some vote)
+    return Math.max(0.1, voteWeight);
   }
 
   /**

@@ -186,8 +186,12 @@ describe('CYNIC Judge', () => {
     const goodJudgment = judge.judge(goodItem);
     assert.strictEqual(goodJudgment.verdict, Verdict.HOWL);
 
-    // Medium quality item
-    const okItem = { id: 'ok', quality: 55 };
+    // Medium quality item - use explicit scores for WAG range (50-80)
+    const mediumScores = {};
+    for (const dimName of Object.keys(allDims)) {
+      mediumScores[dimName] = 55;
+    }
+    const okItem = { id: 'ok', scores: mediumScores };
     const okJudgment = judge.judge(okItem);
     assert.strictEqual(okJudgment.verdict, Verdict.WAG);
   });

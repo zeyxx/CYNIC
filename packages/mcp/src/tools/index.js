@@ -799,81 +799,132 @@ Actions:
 }
 
 /**
- * Create learning loop tool definition
+ * Create learning tool definition using LearningService
+ * Now uses the rich LearningService from @cynic/node instead of basic LearningLoop
+ *
  * @param {Object} [options] - Options
+ * @param {Object} [options.learningService] - LearningService instance (from server)
  * @param {Object} [options.persistence] - PersistenceManager instance
  * @returns {Object} Tool definition
  */
 export function createLearningTool(options = {}) {
-  const { persistence } = options;
+  const { learningService, persistence } = options;
 
-  // Lazy load learning loop
-  let learningLoop = null;
+  // Use provided learning service or create a basic one
+  let service = learningService;
 
   return {
     name: 'brain_learning',
-    description: `Learning loop that improves CYNIC's judgments based on feedback.
+    description: `Learning service that improves CYNIC's judgments based on feedback.
+Supports external validation sources (Ralph-inspired):
 Actions:
-- feedback: Process feedback on a judgment (correct/incorrect/partial)
-- calibrate: Trigger weight calibration from accumulated feedback
-- biases: Detect systematic biases in judgments
-- state: Get current learning state (weights, accuracy, biases)
-- summary: Get learning summary
+- feedback: Process manual feedback on a judgment (correct/incorrect/partial)
+- test_result: Process test pass/fail as feedback (source: test_result)
+- commit_result: Process commit success/failure as feedback (source: commit)
+- pr_result: Process PR merged/rejected as feedback (source: pr_merged/pr_rejected)
+- build_result: Process build success/failure as feedback (source: build)
+- learn: Trigger weight learning from accumulated feedback
+- patterns: Get learned patterns and insights
+- state: Get current learning state
+- export: Export learning state as markdown
+- import: Import learning state from data
 - reset: Reset learning state`,
     inputSchema: {
       type: 'object',
       properties: {
         action: {
           type: 'string',
-          enum: ['feedback', 'calibrate', 'biases', 'state', 'summary', 'reset'],
+          enum: ['feedback', 'test_result', 'commit_result', 'pr_result', 'build_result', 'learn', 'patterns', 'state', 'export', 'import', 'reset'],
           description: 'Action to perform',
         },
         judgmentId: {
           type: 'string',
           description: 'Judgment ID for feedback',
         },
-        judgment: {
-          type: 'object',
-          description: 'Judgment object if not using ID',
-        },
         outcome: {
           type: 'string',
           enum: ['correct', 'incorrect', 'partial'],
-          description: 'Feedback outcome',
+          description: 'Feedback outcome (for manual feedback)',
         },
         actualScore: {
           type: 'number',
           description: 'What the Q-Score should have been (0-100)',
         },
-        reason: {
+        originalScore: {
+          type: 'number',
+          description: 'Original Q-Score from judgment',
+        },
+        itemType: {
           type: 'string',
-          description: 'Explanation for feedback',
+          description: 'Type of item judged (code, config, etc.)',
         },
         context: {
           type: 'object',
-          description: 'Additional context',
+          description: 'Additional context (source-specific data)',
+        },
+        // Test result specific
+        passed: {
+          type: 'boolean',
+          description: 'Whether tests passed (for test_result)',
+        },
+        testSuite: {
+          type: 'string',
+          description: 'Test suite name (for test_result)',
+        },
+        passCount: {
+          type: 'number',
+          description: 'Number of tests passed (for test_result)',
+        },
+        failCount: {
+          type: 'number',
+          description: 'Number of tests failed (for test_result)',
+        },
+        // Commit result specific
+        success: {
+          type: 'boolean',
+          description: 'Whether operation succeeded (for commit/build)',
+        },
+        commitHash: {
+          type: 'string',
+          description: 'Git commit hash (for commit_result)',
+        },
+        hooksPassed: {
+          type: 'boolean',
+          description: 'Whether pre-commit hooks passed (for commit_result)',
+        },
+        // PR result specific
+        status: {
+          type: 'string',
+          enum: ['merged', 'rejected', 'open'],
+          description: 'PR status (for pr_result)',
+        },
+        prNumber: {
+          type: 'string',
+          description: 'PR number (for pr_result)',
+        },
+        approvalCount: {
+          type: 'number',
+          description: 'Number of approvals (for pr_result)',
+        },
+        // Import specific
+        data: {
+          type: 'object',
+          description: 'Learning state data to import',
         },
       },
       required: ['action'],
     },
     handler: async (params) => {
-      const {
-        action,
-        judgmentId,
-        judgment: directJudgment,
-        outcome,
-        actualScore,
-        reason,
-        context = {},
-      } = params;
+      const { action } = params;
 
-      // Lazy load learning module
-      if (!learningLoop) {
+      // Lazy-load if no service provided
+      if (!service) {
         try {
-          const core = await import('@cynic/core');
-          learningLoop = new core.LearningLoop({
-            autoCalibrate: true,
-            calibrateThreshold: 21, // Fib(8)
+          const { LearningService } = await import('@cynic/node');
+          service = new LearningService({
+            learningRate: 0.236,
+            decayRate: 0.146,
+            minFeedback: 5,
           });
 
           // Try to load existing state from persistence
@@ -881,100 +932,190 @@ Actions:
             try {
               const state = await persistence.getLearningState();
               if (state) {
-                learningLoop.import(state);
+                service.import(state);
               }
             } catch (e) {
               // No saved state, start fresh
             }
           }
         } catch (e) {
-          throw new Error(`Learning module not available: ${e.message}`);
+          throw new Error(`Learning service not available: ${e.message}`);
         }
       }
 
+      // Helper to save state after modifications
+      const saveState = async () => {
+        if (persistence) {
+          try {
+            await persistence.saveLearningState(service.export());
+          } catch (e) {
+            // Non-blocking
+          }
+        }
+      };
+
+      // Helper to get judgment by ID
+      const getJudgment = async (judgmentId) => {
+        if (!judgmentId || !persistence) return null;
+        try {
+          const stored = await persistence.getJudgment(judgmentId);
+          return stored ? stored.q_score : null;
+        } catch (e) {
+          return null;
+        }
+      };
+
       switch (action) {
         case 'state':
-          return learningLoop.getState();
+          return service.getState();
 
-        case 'summary':
-          return learningLoop.getSummary();
+        case 'patterns':
+          return service.getPatterns();
 
         case 'reset':
-          learningLoop.reset();
+          service.reset();
+          await saveState();
           return { reset: true, message: 'Learning state reset' };
 
-        case 'calibrate': {
-          const result = learningLoop.calibrate();
-
-          // Save state if calibration occurred
-          if (persistence && result.updated) {
-            try {
-              await persistence.saveLearningState(learningLoop.export());
-            } catch (e) {
-              // Non-blocking
-            }
-          }
-
+        case 'learn': {
+          const result = await service.learn();
+          await saveState();
           return result;
         }
 
-        case 'biases': {
-          return learningLoop.detectBiases();
+        case 'export':
+          return {
+            state: service.export(),
+            markdown: service.exportToMarkdown(),
+          };
+
+        case 'import': {
+          if (params.data) {
+            service.import(params.data);
+            await saveState();
+            return { imported: true };
+          }
+          if (params.markdown) {
+            service.importFromMarkdown(params.markdown);
+            await saveState();
+            return { imported: true, fromMarkdown: true };
+          }
+          throw new Error('data or markdown required for import');
         }
 
         case 'feedback': {
-          if (!outcome) {
+          if (!params.outcome) {
             throw new Error('outcome required for feedback action');
           }
 
-          let judgment = directJudgment;
+          const originalScore = params.originalScore || await getJudgment(params.judgmentId) || 50;
 
-          // Fetch judgment by ID if needed
-          if (judgmentId && !judgment && persistence) {
-            try {
-              const stored = await persistence.getJudgment(judgmentId);
-              if (stored) {
-                judgment = {
-                  Q: stored.q_score,
-                  qScore: stored.q_score,
-                  verdict: stored.verdict,
-                  breakdown: stored.axiom_scores,
-                  confidence: stored.confidence,
-                };
-              }
-            } catch (e) {
-              // Continue without judgment
-            }
-          }
+          const result = service.processFeedback({
+            judgmentId: params.judgmentId,
+            outcome: params.outcome,
+            actualScore: params.actualScore,
+            originalScore,
+            itemType: params.itemType || 'unknown',
+            source: 'manual',
+            sourceContext: params.context || {},
+          });
 
-          const feedback = {
-            judgment,
-            outcome,
-            actualScore,
-            reason,
-            context,
-            judgmentId,
-            timestamp: Date.now(),
-          };
-
-          const result = learningLoop.processFeedback(feedback);
-
-          // Save state after feedback
-          if (persistence) {
-            try {
-              await persistence.saveLearningState(learningLoop.export());
-            } catch (e) {
-              // Non-blocking
-            }
-          }
+          await saveState();
 
           return {
             action: 'feedback',
-            outcome,
-            processed: true,
-            stats: result.stats,
-            calibration: result.calibration,
-            biases: result.biases?.biases?.length || 0,
+            source: 'manual',
+            outcome: params.outcome,
+            ...result,
+          };
+        }
+
+        case 'test_result': {
+          const originalScore = params.originalScore || await getJudgment(params.judgmentId) || 50;
+
+          const result = service.processTestResult({
+            judgmentId: params.judgmentId,
+            passed: params.passed,
+            testSuite: params.testSuite,
+            passCount: params.passCount || 0,
+            failCount: params.failCount || 0,
+            itemType: params.itemType || 'code',
+            originalScore,
+          });
+
+          await saveState();
+
+          return {
+            action: 'test_result',
+            source: 'test_result',
+            passed: params.passed,
+            ...result,
+          };
+        }
+
+        case 'commit_result': {
+          const originalScore = params.originalScore || await getJudgment(params.judgmentId) || 50;
+
+          const result = service.processCommitResult({
+            judgmentId: params.judgmentId,
+            success: params.success,
+            commitHash: params.commitHash,
+            hooksPassed: params.hooksPassed,
+            itemType: params.itemType || 'code',
+            originalScore,
+          });
+
+          await saveState();
+
+          return {
+            action: 'commit_result',
+            source: 'commit',
+            success: params.success,
+            ...result,
+          };
+        }
+
+        case 'pr_result': {
+          const originalScore = params.originalScore || await getJudgment(params.judgmentId) || 50;
+
+          const result = service.processPRResult({
+            judgmentId: params.judgmentId,
+            status: params.status,
+            prNumber: params.prNumber,
+            approvalCount: params.approvalCount || 0,
+            itemType: params.itemType || 'code',
+            originalScore,
+          });
+
+          await saveState();
+
+          return {
+            action: 'pr_result',
+            source: params.status === 'merged' ? 'pr_merged' : params.status === 'rejected' ? 'pr_rejected' : 'code_review',
+            status: params.status,
+            ...result,
+          };
+        }
+
+        case 'build_result': {
+          const originalScore = params.originalScore || await getJudgment(params.judgmentId) || 50;
+
+          const result = service.processBuildResult({
+            judgmentId: params.judgmentId,
+            success: params.success,
+            buildId: params.buildId,
+            duration: params.duration,
+            itemType: params.itemType || 'code',
+            originalScore,
+          });
+
+          await saveState();
+
+          return {
+            action: 'build_result',
+            source: 'build',
+            success: params.success,
+            ...result,
           };
         }
 
@@ -4308,6 +4449,8 @@ Actions:
  * @param {Object} [options.graphIntegration] - JudgmentGraphIntegration instance for graph edges
  * @param {Object} [options.codebaseOptions] - Options for code analyzer (rootPath, etc)
  * @param {Object} [options.discovery] - DiscoveryService instance for MCP/plugin/node discovery
+ * @param {Object} [options.learningService] - LearningService instance for RLHF-style learning
+ * @param {Object} [options.eScoreCalculator] - EScoreCalculator instance for vote weight
  * @param {Function} [options.onJudgment] - Callback when judgment is completed (for SSE broadcast)
  * @returns {Object} All tools keyed by name
  */
@@ -4328,6 +4471,8 @@ export function createAllTools(options = {}) {
     codebaseOptions = {},
     lspOptions = {}, // LSP service options (rootPath, extensions, cacheTTL)
     discovery = null, // DiscoveryService for MCP/plugin/node discovery
+    learningService = null, // LearningService for RLHF feedback
+    eScoreCalculator = null, // EScoreCalculator for vote weight
     onJudgment = null, // SSE broadcast callback
   } = options;
 
@@ -4348,7 +4493,7 @@ export function createAllTools(options = {}) {
     createRefineTool(judge, persistence), // Self-refinement: critique → refine → learn
     createOrchestrationTool({ judge, agents, persistence }), // Multi-agent parallel execution
     createVectorSearchTool({ persistence }), // Semantic search with embeddings
-    createLearningTool({ persistence }), // Learning loop: feedback → calibration → improvement
+    createLearningTool({ learningService, persistence }), // Learning service: feedback → weight modifiers → improvement
     createTriggersTool({ judge, persistence }), // Auto-judgment triggers
     createDigestTool(persistence, sessionManager),
     createHealthTool(node, judge, persistence),

@@ -46,7 +46,7 @@ function getTopTools(profile) {
     .map(([tool, count]) => ({ tool, count }));
 }
 
-function formatSleepMessage(profile, summary) {
+function formatSleepMessage(profile, summary, learningsExport) {
   const lines = [];
 
   lines.push('');
@@ -73,6 +73,15 @@ function formatSleepMessage(profile, summary) {
     for (const { tool, count } of summary.topTools.slice(0, 3)) {
       lines.push(`   • ${tool} (${count}x)`);
     }
+    lines.push('');
+  }
+
+  // Learnings export
+  if (learningsExport && learningsExport.success) {
+    lines.push('── LEARNINGS EXPORTED ─────────────────────────────────────');
+    lines.push(`   📚 ${learningsExport.learningsCount || 0} learnings persisted`);
+    lines.push(`   📊 Total feedback: ${learningsExport.stats?.totalFeedback || 0}`);
+    lines.push(`   📁 Saved to: ${learningsExport.path}`);
     lines.push('');
   }
 
@@ -116,6 +125,16 @@ async function main() {
     // Calculate session summary
     const summary = calculateSessionSummary(profile, hookContext.sessionStartTime);
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EXPORT LEARNINGS - Persist accumulated learnings to cynic-learnings.md
+    // ═══════════════════════════════════════════════════════════════════════════
+    let learningsExport = { success: false };
+    try {
+      learningsExport = await cynic.exportLearningsToFile();
+    } catch (e) {
+      // Non-blocking - learnings export failure shouldn't block session end
+    }
+
     // Send SessionEnd to MCP server (this triggers brain_session_end internally)
     await cynic.sendHookToCollective('SessionEnd', {
       userId: user.userId,
@@ -127,6 +146,7 @@ async function main() {
         dangerBlocked: summary.dangerBlocked,
         topTools: summary.topTools.map(t => t.tool),
       },
+      learningsExported: learningsExport.success,
       timestamp: Date.now(),
     });
 
@@ -137,7 +157,7 @@ async function main() {
     }
 
     // Format and output message
-    const message = formatSleepMessage(profile, summary);
+    const message = formatSleepMessage(profile, summary, learningsExport);
     console.log(message);
 
   } catch (error) {

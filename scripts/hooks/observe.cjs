@@ -195,6 +195,92 @@ function processTriggerEvent(toolName, toolInput, toolOutput, isError) {
   }).catch(() => {
     // Silently ignore errors - triggers should never block hooks
   });
+
+  // ==========================================================================
+  // LEARNING FEEDBACK - External validation (Ralph-inspired)
+  // ==========================================================================
+
+  // Send learning feedback for test results
+  if (toolName === 'Bash' && toolInput.command) {
+    const cmd = toolInput.command;
+    const output = typeof toolOutput === 'string' ? toolOutput : '';
+
+    // Detect test commands
+    if (cmd.match(/npm\s+(run\s+)?test|jest|vitest|mocha|pytest|cargo\s+test|go\s+test/i)) {
+      const testResult = parseTestOutput(output, isError);
+      cynic.sendTestFeedback(testResult).catch(() => {});
+    }
+
+    // Detect successful commits
+    if (cmd.startsWith('git commit') && !isError) {
+      const commitHash = extractCommitHash(output);
+      cynic.sendCommitFeedback({
+        success: true,
+        commitHash,
+        hooksPassed: true,
+        message: extractCommitMessage(cmd),
+      }).catch(() => {});
+    }
+
+    // Detect build commands
+    if (cmd.match(/npm\s+run\s+build|tsc|webpack|vite\s+build|cargo\s+build|go\s+build/i)) {
+      cynic.sendBuildFeedback({
+        success: !isError,
+        duration: null,
+      }).catch(() => {});
+    }
+  }
+}
+
+/**
+ * Parse test output to extract pass/fail counts
+ */
+function parseTestOutput(output, isError) {
+  let passed = !isError;
+  let passCount = 0;
+  let failCount = 0;
+  let testSuite = 'unknown';
+
+  // Jest/Vitest format
+  const jestMatch = output.match(/Tests?:\s*(\d+)\s*passed(?:,\s*(\d+)\s*failed)?/i);
+  if (jestMatch) {
+    passCount = parseInt(jestMatch[1], 10) || 0;
+    failCount = parseInt(jestMatch[2], 10) || 0;
+    testSuite = output.includes('vitest') ? 'vitest' : 'jest';
+    passed = failCount === 0;
+    return { passed, passCount, failCount, testSuite };
+  }
+
+  // Mocha format
+  const mochaMatch = output.match(/(\d+)\s*passing(?:.*?(\d+)\s*failing)?/i);
+  if (mochaMatch) {
+    passCount = parseInt(mochaMatch[1], 10) || 0;
+    failCount = parseInt(mochaMatch[2], 10) || 0;
+    testSuite = 'mocha';
+    passed = failCount === 0;
+    return { passed, passCount, failCount, testSuite };
+  }
+
+  // Fallback based on error state
+  if (isError) {
+    failCount = 1;
+    passed = false;
+  } else if (output.includes('PASS') || output.includes('passed') || output.includes('ok')) {
+    passCount = 1;
+    passed = true;
+  }
+
+  return { passed, passCount, failCount, testSuite };
+}
+
+/**
+ * Extract commit hash from git output
+ */
+function extractCommitHash(output) {
+  if (!output) return null;
+  // Match: [branch abc1234] or abc1234
+  const match = output.match(/\[[\w\-\/]+\s+([a-f0-9]{7,})\]|^([a-f0-9]{40})$/im);
+  return match ? (match[1] || match[2]) : null;
 }
 
 /**

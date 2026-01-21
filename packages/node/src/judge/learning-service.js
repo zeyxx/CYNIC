@@ -59,6 +59,7 @@ export class LearningService extends EventEmitter {
     this._patterns = {
       byItemType: new Map(), // itemType -> { overscoring: count, underscoring: count }
       byDimension: new Map(), // dimension -> { avgError, feedbackCount }
+      bySource: new Map(),    // source -> { count, correctRate, avgDelta }
       overall: {
         totalFeedback: 0,
         correctCount: 0,
@@ -67,6 +68,9 @@ export class LearningService extends EventEmitter {
         learningIterations: 0,
       },
     };
+
+    // Discovered learnings (persistent insights)
+    this._learnings = [];
 
     // Feedback queue for batch processing
     this._feedbackQueue = [];
@@ -136,6 +140,20 @@ export class LearningService extends EventEmitter {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
+   * Feedback sources (Ralph-inspired: external validation gates)
+   */
+  static FEEDBACK_SOURCES = {
+    MANUAL: 'manual',           // Human explicit feedback
+    TEST_RESULT: 'test_result', // Tests pass/fail
+    COMMIT: 'commit',           // Code committed successfully
+    PR_MERGED: 'pr_merged',     // PR merged/rejected
+    PR_REJECTED: 'pr_rejected', // PR rejected
+    CODE_REVIEW: 'code_review', // Code review outcome
+    BUILD: 'build',             // Build pass/fail
+    DEPLOY: 'deploy',           // Deploy success/failure
+  };
+
+  /**
    * Process a single feedback item
    *
    * @param {Object} feedback - Feedback data
@@ -144,6 +162,8 @@ export class LearningService extends EventEmitter {
    * @param {number} feedback.originalScore - What CYNIC scored it
    * @param {string} feedback.itemType - Type of item judged
    * @param {Object} [feedback.dimensionScores] - Original dimension scores
+   * @param {string} [feedback.source] - Feedback source (manual, test_result, commit, etc.)
+   * @param {Object} [feedback.sourceContext] - Additional context from source
    * @returns {Object} Learning result
    */
   processFeedback(feedback) {
@@ -153,6 +173,8 @@ export class LearningService extends EventEmitter {
       originalScore,
       itemType = 'unknown',
       dimensionScores = {},
+      source = LearningService.FEEDBACK_SOURCES.MANUAL,
+      sourceContext = {},
     } = feedback;
 
     // Calculate learning delta
@@ -179,9 +201,14 @@ export class LearningService extends EventEmitter {
     // Track by dimension
     this._trackDimensionPatterns(dimensionScores, scoreDelta);
 
+    // Track by source (Ralph-inspired: external validation gates)
+    this._trackSourcePattern(source, outcome, scoreDelta);
+
     // Queue for batch learning
     this._feedbackQueue.push({
       ...feedback,
+      source,
+      sourceContext,
       scoreDelta,
       processedAt: Date.now(),
     });
@@ -269,6 +296,39 @@ export class LearningService extends EventEmitter {
         pattern.avgError = pattern.avgError + (contribution - pattern.avgError) / pattern.feedbackCount;
       }
     }
+  }
+
+  /**
+   * Track patterns by feedback source (Ralph-inspired: external validation)
+   * @private
+   * @param {string} source - Feedback source
+   * @param {string} outcome - Feedback outcome
+   * @param {number} scoreDelta - Score delta
+   */
+  _trackSourcePattern(source, outcome, scoreDelta) {
+    if (!this._patterns.bySource.has(source)) {
+      this._patterns.bySource.set(source, {
+        count: 0,
+        correctCount: 0,
+        incorrectCount: 0,
+        avgDelta: 0,
+        firstSeen: Date.now(),
+        lastSeen: Date.now(),
+      });
+    }
+
+    const pattern = this._patterns.bySource.get(source);
+    pattern.count++;
+    pattern.lastSeen = Date.now();
+
+    if (outcome === 'correct') {
+      pattern.correctCount++;
+    } else if (outcome === 'incorrect') {
+      pattern.incorrectCount++;
+    }
+
+    // Update running average of delta
+    pattern.avgDelta = pattern.avgDelta + (scoreDelta - pattern.avgDelta) / pattern.count;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -508,6 +568,196 @@ export class LearningService extends EventEmitter {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // EXTERNAL VALIDATION (Ralph-inspired: tests, commits, PRs as feedback)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Process test results as feedback
+   * Tests passing = judgment was likely correct
+   * Tests failing = judgment may need adjustment
+   *
+   * @param {Object} params - Test result parameters
+   * @param {string} params.judgmentId - Original judgment ID
+   * @param {boolean} params.passed - Whether tests passed
+   * @param {string} [params.testSuite] - Test suite name
+   * @param {number} [params.passCount] - Number of tests passed
+   * @param {number} [params.failCount] - Number of tests failed
+   * @param {string} [params.itemType] - Type of item (code, config, etc.)
+   * @param {number} [params.originalScore] - Original judgment score
+   * @returns {Object} Processed feedback result
+   */
+  processTestResult(params) {
+    const {
+      judgmentId,
+      passed,
+      testSuite = 'unknown',
+      passCount = 0,
+      failCount = 0,
+      itemType = 'code',
+      originalScore = 50,
+    } = params;
+
+    // Determine outcome based on test results
+    let outcome = 'partial';
+    if (passed && failCount === 0) {
+      outcome = 'correct';
+    } else if (failCount > passCount) {
+      outcome = 'incorrect';
+    }
+
+    return this.processFeedback({
+      judgmentId,
+      outcome,
+      originalScore,
+      itemType,
+      source: LearningService.FEEDBACK_SOURCES.TEST_RESULT,
+      sourceContext: {
+        testSuite,
+        passCount,
+        failCount,
+        passed,
+      },
+    });
+  }
+
+  /**
+   * Process commit result as feedback
+   * Successful commit = code was acceptable
+   *
+   * @param {Object} params - Commit parameters
+   * @param {string} params.judgmentId - Original judgment ID
+   * @param {boolean} params.success - Whether commit succeeded
+   * @param {string} [params.commitHash] - Git commit hash
+   * @param {boolean} [params.hooksPassed] - Whether pre-commit hooks passed
+   * @param {string} [params.itemType] - Type of item
+   * @param {number} [params.originalScore] - Original judgment score
+   * @returns {Object} Processed feedback result
+   */
+  processCommitResult(params) {
+    const {
+      judgmentId,
+      success,
+      commitHash = null,
+      hooksPassed = true,
+      itemType = 'code',
+      originalScore = 50,
+    } = params;
+
+    // Successful commit with hooks = strong positive signal
+    let outcome = 'partial';
+    if (success && hooksPassed) {
+      outcome = 'correct';
+    } else if (!success) {
+      outcome = 'incorrect';
+    }
+
+    return this.processFeedback({
+      judgmentId,
+      outcome,
+      originalScore,
+      itemType,
+      source: LearningService.FEEDBACK_SOURCES.COMMIT,
+      sourceContext: {
+        commitHash,
+        hooksPassed,
+        success,
+      },
+    });
+  }
+
+  /**
+   * Process PR result as feedback
+   * Merged PR = strong positive validation
+   * Rejected PR = negative validation
+   *
+   * @param {Object} params - PR parameters
+   * @param {string} params.judgmentId - Original judgment ID
+   * @param {string} params.status - 'merged', 'rejected', 'open'
+   * @param {string} [params.prNumber] - PR number
+   * @param {number} [params.reviewScore] - Average review score
+   * @param {number} [params.approvalCount] - Number of approvals
+   * @param {string} [params.itemType] - Type of item
+   * @param {number} [params.originalScore] - Original judgment score
+   * @returns {Object} Processed feedback result
+   */
+  processPRResult(params) {
+    const {
+      judgmentId,
+      status,
+      prNumber = null,
+      reviewScore = null,
+      approvalCount = 0,
+      itemType = 'code',
+      originalScore = 50,
+    } = params;
+
+    let outcome = 'partial';
+    let source = LearningService.FEEDBACK_SOURCES.CODE_REVIEW;
+
+    if (status === 'merged') {
+      outcome = approvalCount >= 2 ? 'correct' : 'partial';
+      source = LearningService.FEEDBACK_SOURCES.PR_MERGED;
+    } else if (status === 'rejected') {
+      outcome = 'incorrect';
+      source = LearningService.FEEDBACK_SOURCES.PR_REJECTED;
+    }
+
+    // Use review score if available to calculate actual score
+    const actualScore = reviewScore != null ? reviewScore : undefined;
+
+    return this.processFeedback({
+      judgmentId,
+      outcome,
+      actualScore,
+      originalScore,
+      itemType,
+      source,
+      sourceContext: {
+        prNumber,
+        status,
+        reviewScore,
+        approvalCount,
+      },
+    });
+  }
+
+  /**
+   * Process build result as feedback
+   *
+   * @param {Object} params - Build parameters
+   * @param {string} params.judgmentId - Original judgment ID
+   * @param {boolean} params.success - Whether build succeeded
+   * @param {string} [params.buildId] - Build ID
+   * @param {number} [params.duration] - Build duration in ms
+   * @param {string} [params.itemType] - Type of item
+   * @param {number} [params.originalScore] - Original judgment score
+   * @returns {Object} Processed feedback result
+   */
+  processBuildResult(params) {
+    const {
+      judgmentId,
+      success,
+      buildId = null,
+      duration = null,
+      itemType = 'code',
+      originalScore = 50,
+    } = params;
+
+    return this.processFeedback({
+      judgmentId,
+      outcome: success ? 'correct' : 'incorrect',
+      originalScore,
+      itemType,
+      source: LearningService.FEEDBACK_SOURCES.BUILD,
+      sourceContext: {
+        buildId,
+        success,
+        duration,
+      },
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // INSIGHTS & STATISTICS
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -553,11 +803,189 @@ export class LearningService extends EventEmitter {
       overall: { ...this._patterns.overall },
       byItemType: Object.fromEntries(this._patterns.byItemType),
       byDimension: Object.fromEntries(this._patterns.byDimension),
+      bySource: Object.fromEntries(this._patterns.bySource),
       insights,
+      learnings: [...this._learnings],
       accuracy: this._patterns.overall.totalFeedback > 0
         ? this._patterns.overall.correctCount / this._patterns.overall.totalFeedback
         : 0,
     };
+  }
+
+  /**
+   * Add a discovered learning (persistent insight)
+   * These are human-validated insights that should persist across sessions
+   *
+   * @param {Object} learning - Learning to add
+   * @param {string} learning.pattern - Pattern description
+   * @param {string} learning.insight - What was learned
+   * @param {string} [learning.source] - How this was discovered
+   * @param {number} [learning.confidence] - Confidence in this learning (0-1)
+   */
+  addLearning(learning) {
+    const entry = {
+      id: `learn_${Date.now().toString(36)}`,
+      pattern: learning.pattern,
+      insight: learning.insight,
+      source: learning.source || 'manual',
+      confidence: learning.confidence || 0.5,
+      createdAt: Date.now(),
+      appliedCount: 0,
+    };
+
+    this._learnings.push(entry);
+    this.emit('learning-added', entry);
+    return entry;
+  }
+
+  /**
+   * Get all learnings
+   * @returns {Object[]} All learnings
+   */
+  getLearnings() {
+    return [...this._learnings];
+  }
+
+  /**
+   * Export learnings to markdown format (for cynic-learnings.md)
+   * @returns {string} Markdown content
+   */
+  exportToMarkdown() {
+    const patterns = this.getPatterns();
+    const stats = this.getStats();
+    const lines = [];
+
+    lines.push('# CYNIC Learnings');
+    lines.push('');
+    lines.push('> Auto-generated by CYNIC Learning Service');
+    lines.push(`> Last updated: ${new Date().toISOString()}`);
+    lines.push('');
+
+    // Overall stats
+    lines.push('## Statistics');
+    lines.push('');
+    lines.push(`- Total feedback: ${stats.totalFeedback}`);
+    lines.push(`- Accuracy: ${stats.accuracy}%`);
+    lines.push(`- Learning iterations: ${patterns.overall.learningIterations}`);
+    lines.push(`- Avg score error: ${stats.avgScoreError}`);
+    lines.push('');
+
+    // Feedback sources
+    if (this._patterns.bySource.size > 0) {
+      lines.push('## Feedback Sources');
+      lines.push('');
+      lines.push('| Source | Count | Correct Rate | Avg Delta |');
+      lines.push('|--------|-------|--------------|-----------|');
+
+      for (const [source, data] of this._patterns.bySource) {
+        const correctRate = data.count > 0
+          ? Math.round(data.correctCount / data.count * 100)
+          : 0;
+        lines.push(`| ${source} | ${data.count} | ${correctRate}% | ${data.avgDelta.toFixed(1)} |`);
+      }
+      lines.push('');
+    }
+
+    // Item type biases
+    if (patterns.byItemType && Object.keys(patterns.byItemType).length > 0) {
+      lines.push('## Patterns by Item Type');
+      lines.push('');
+      for (const [itemType, data] of Object.entries(patterns.byItemType)) {
+        const trend = data.avgDelta > 5 ? 'underscoring' : data.avgDelta < -5 ? 'overscoring' : 'neutral';
+        lines.push(`### ${itemType}`);
+        lines.push(`- Feedback count: ${data.feedbackCount}`);
+        lines.push(`- Avg delta: ${data.avgDelta?.toFixed(1) || 0}`);
+        lines.push(`- Trend: ${trend}`);
+        lines.push('');
+      }
+    }
+
+    // Dimension biases
+    if (patterns.insights && patterns.insights.length > 0) {
+      lines.push('## Insights');
+      lines.push('');
+      for (const insight of patterns.insights) {
+        lines.push(`### ${insight.type}`);
+        if (insight.itemType) lines.push(`- Item type: ${insight.itemType}`);
+        if (insight.dimension) lines.push(`- Dimension: ${insight.dimension}`);
+        if (insight.direction) lines.push(`- Direction: ${insight.direction}`);
+        if (insight.avgDelta) lines.push(`- Avg delta: ${insight.avgDelta}`);
+        if (insight.avgError) lines.push(`- Avg error: ${insight.avgError}`);
+        if (insight.recommendation) lines.push(`- Recommendation: ${insight.recommendation}`);
+        lines.push('');
+      }
+    }
+
+    // Explicit learnings
+    if (this._learnings.length > 0) {
+      lines.push('## Discovered Learnings');
+      lines.push('');
+      for (const learning of this._learnings) {
+        lines.push(`### ${learning.pattern}`);
+        lines.push(`- Insight: ${learning.insight}`);
+        lines.push(`- Source: ${learning.source}`);
+        lines.push(`- Confidence: ${(learning.confidence * 100).toFixed(0)}%`);
+        lines.push(`- Discovered: ${new Date(learning.createdAt).toISOString()}`);
+        lines.push('');
+      }
+    }
+
+    // Weight modifiers
+    const modifiers = this.getAllWeightModifiers();
+    const changedModifiers = Object.entries(modifiers).filter(([, v]) => Math.abs(v - 1.0) > 0.01);
+    if (changedModifiers.length > 0) {
+      lines.push('## Weight Adjustments');
+      lines.push('');
+      lines.push('| Dimension | Modifier | Interpretation |');
+      lines.push('|-----------|----------|----------------|');
+      for (const [dim, mod] of changedModifiers) {
+        const interp = mod > 1 ? 'Increased importance' : 'Decreased importance';
+        lines.push(`| ${dim} | ${mod.toFixed(3)} | ${interp} |`);
+      }
+      lines.push('');
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Import learnings from markdown format
+   * @param {string} markdown - Markdown content
+   */
+  importFromMarkdown(markdown) {
+    // Parse the Discovered Learnings section
+    const learningsMatch = markdown.match(/## Discovered Learnings\n\n([\s\S]*?)(?=\n## |$)/);
+    if (learningsMatch) {
+      const learningsSection = learningsMatch[1];
+      const learningBlocks = learningsSection.split(/\n### /).filter(Boolean);
+
+      for (const block of learningBlocks) {
+        const lines = block.split('\n');
+        const pattern = lines[0]?.trim();
+
+        if (!pattern) continue;
+
+        const learning = { pattern };
+        for (const line of lines.slice(1)) {
+          const match = line.match(/^- (\w+): (.+)$/);
+          if (match) {
+            const [, key, value] = match;
+            if (key === 'Insight') learning.insight = value;
+            if (key === 'Source') learning.source = value;
+            if (key === 'Confidence') learning.confidence = parseFloat(value) / 100;
+          }
+        }
+
+        if (learning.insight) {
+          this._learnings.push({
+            id: `learn_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+            ...learning,
+            createdAt: Date.now(),
+            appliedCount: 0,
+          });
+        }
+      }
+    }
   }
 
   /**
@@ -672,8 +1100,10 @@ export class LearningService extends EventEmitter {
       patterns: {
         byItemType: Object.fromEntries(this._patterns.byItemType),
         byDimension: Object.fromEntries(this._patterns.byDimension),
+        bySource: Object.fromEntries(this._patterns.bySource),
         overall: { ...this._patterns.overall },
       },
+      learnings: [...this._learnings],
       exportedAt: Date.now(),
     };
   }
@@ -707,9 +1137,19 @@ export class LearningService extends EventEmitter {
           this._patterns.byDimension.set(dim, pattern);
         }
       }
+      if (state.patterns.bySource) {
+        for (const [source, pattern] of Object.entries(state.patterns.bySource)) {
+          this._patterns.bySource.set(source, pattern);
+        }
+      }
       if (state.patterns.overall) {
         Object.assign(this._patterns.overall, state.patterns.overall);
       }
+    }
+
+    // Import learnings
+    if (state.learnings && Array.isArray(state.learnings)) {
+      this._learnings = [...state.learnings];
     }
   }
 
@@ -724,6 +1164,7 @@ export class LearningService extends EventEmitter {
     this._thresholdAdjustments.clear();
     this._patterns.byItemType.clear();
     this._patterns.byDimension.clear();
+    this._patterns.bySource.clear();
     this._patterns.overall = {
       totalFeedback: 0,
       correctCount: 0,
@@ -732,6 +1173,7 @@ export class LearningService extends EventEmitter {
       learningIterations: 0,
     };
     this._feedbackQueue = [];
+    this._learnings = [];
 
     this.emit('reset');
   }

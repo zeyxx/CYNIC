@@ -32,12 +32,14 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
 };
-import { CYNICJudge, createCollectivePack } from '@cynic/node';
+import { CYNICJudge, createCollectivePack, LearningService, createEScoreCalculator } from '@cynic/node';
 import { createAllTools } from './tools/index.js';
 import { PersistenceManager } from './persistence.js';
 import { SessionManager } from './session-manager.js';
 // Solana anchoring support
 import { AnchorQueue, loadWalletFromFile, loadWalletFromEnv, SolanaCluster } from '@cynic/anchor';
+// Burns verification (for E-Score integration)
+import { createBurnVerifier } from '@cynic/burns';
 import { PoJChainManager } from './poj-chain-manager.js';
 import { LibrarianService } from './librarian-service.js';
 import { AuthService } from './auth-service.js';
@@ -92,8 +94,36 @@ export class MCPServer {
     // Node instance (optional)
     this.node = options.node || null;
 
-    // Judge instance (required)
-    this.judge = options.judge || new CYNICJudge();
+    // E-Score Calculator (for vote weight based on burns/uptime/quality)
+    // This is the bridge between Burns and Judgment weight
+    this.eScoreCalculator = options.eScoreCalculator || createEScoreCalculator({
+      burnScale: 1e9,      // 1B scale for burn normalization
+      minJudgments: 10,    // Minimum judgments for quality metric
+    });
+
+    // Learning Service (for RLHF-style weight adjustments)
+    // Tracks feedback sources: tests, commits, PRs, builds, manual
+    this.learningService = options.learningService || new LearningService({
+      learningRate: 0.236,  // φ⁻³ - conservative learning
+      decayRate: 0.146,     // φ⁻⁴ - slow decay
+      minFeedback: 5,       // Minimum feedback before learning
+    });
+
+    // Judge instance (required) - now wired with E-Score and Learning
+    this.judge = options.judge || new CYNICJudge({
+      eScoreProvider: this.eScoreCalculator,
+      learningService: this.learningService,
+    });
+
+    // Burn Verifier (optional - requires Solana RPC connection)
+    // When available, automatically syncs with E-Score calculator
+    this.burnVerifier = options.burnVerifier || null;
+
+    // Wire Burns → E-Score if both are available
+    // This auto-updates E-Score when burns are verified on-chain
+    if (this.burnVerifier && this.eScoreCalculator) {
+      this.eScoreCalculator.syncWithVerifier(this.burnVerifier);
+    }
 
     // Data directory for file-based fallback
     this.dataDir = options.dataDir || null;
@@ -461,6 +491,8 @@ export class MCPServer {
       metrics: this.metrics,
       graphIntegration: this.graphIntegration, // Graph-Judgment connection
       discovery: this.discovery,       // MCP/Plugin/Node discovery
+      learningService: this.learningService,   // RLHF feedback → weight modifiers
+      eScoreCalculator: this.eScoreCalculator, // Burns → E-Score → voteWeight
       // SSE broadcast callback for real-time dashboard updates
       onJudgment: (judgment) => this._broadcastSSEEvent('judgment', judgment),
     });

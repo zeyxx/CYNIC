@@ -350,7 +350,7 @@ function getGitState(dir) {
 // FORMATTING UTILITIES
 // =============================================================================
 
-function formatEcosystemStatus(ecosystem, userProfile) {
+function formatEcosystemStatus(ecosystem, userProfile, learningsImport = null) {
   const lines = [];
 
   lines.push('═══════════════════════════════════════════════════════════');
@@ -405,6 +405,16 @@ function formatEcosystemStatus(ecosystem, userProfile) {
       .slice(0, 3);
     for (const pattern of recentPatterns) {
       lines.push(`   🔄 ${pattern.description || pattern.type} (${pattern.count}x)`);
+    }
+    lines.push('');
+  }
+
+  // Learnings loaded (if available)
+  if (learningsImport && learningsImport.success && learningsImport.imported > 0) {
+    lines.push('── LEARNINGS LOADED ───────────────────────────────────────');
+    lines.push(`   📚 ${learningsImport.imported} learnings from previous sessions`);
+    if (learningsImport.stats?.accuracy) {
+      lines.push(`   📊 Accuracy: ${learningsImport.stats.accuracy}%`);
     }
     lines.push('');
   }
@@ -653,6 +663,381 @@ async function digestToBrain(content, options = {}) {
 }
 
 // =============================================================================
+// LEARNINGS PERSISTENCE - cynic-learnings.md
+// =============================================================================
+
+const LEARNINGS_FILE = 'cynic-learnings.md';
+
+/**
+ * Get path to learnings file
+ * @returns {string} Path to cynic-learnings.md
+ */
+function getLearningsPath() {
+  const root = getCynicRoot();
+  // Store in .claude directory at project root
+  const claudeDir = path.join(root, '.claude');
+  ensureDir(claudeDir);
+  return path.join(claudeDir, LEARNINGS_FILE);
+}
+
+/**
+ * Load learnings from cynic-learnings.md
+ * @returns {Object} Learnings data
+ */
+function loadLearnings() {
+  const filePath = getLearningsPath();
+  if (!fs.existsSync(filePath)) {
+    return { learnings: [], stats: {}, patterns: {} };
+  }
+
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    return parseLearningsMarkdown(content);
+  } catch (e) {
+    return { learnings: [], stats: {}, patterns: {} };
+  }
+}
+
+/**
+ * Save learnings to cynic-learnings.md
+ * @param {Object} data - Learnings data
+ */
+function saveLearnings(data) {
+  const filePath = getLearningsPath();
+  const markdown = formatLearningsMarkdown(data);
+  fs.writeFileSync(filePath, markdown, 'utf-8');
+}
+
+/**
+ * Parse learnings markdown to structured data
+ * @param {string} markdown - Markdown content
+ * @returns {Object} Parsed learnings
+ */
+function parseLearningsMarkdown(markdown) {
+  const result = {
+    learnings: [],
+    stats: {},
+    patterns: {},
+    lastUpdated: null,
+  };
+
+  // Extract last updated
+  const dateMatch = markdown.match(/Last updated: ([\d\-T:.Z]+)/);
+  if (dateMatch) {
+    result.lastUpdated = dateMatch[1];
+  }
+
+  // Extract statistics
+  const totalFeedbackMatch = markdown.match(/Total feedback: (\d+)/);
+  const accuracyMatch = markdown.match(/Accuracy: ([\d.]+)%/);
+  const iterationsMatch = markdown.match(/Learning iterations: (\d+)/);
+  const avgErrorMatch = markdown.match(/Avg score error: ([\d.]+)/);
+
+  if (totalFeedbackMatch) result.stats.totalFeedback = parseInt(totalFeedbackMatch[1], 10);
+  if (accuracyMatch) result.stats.accuracy = parseFloat(accuracyMatch[1]);
+  if (iterationsMatch) result.stats.learningIterations = parseInt(iterationsMatch[1], 10);
+  if (avgErrorMatch) result.stats.avgScoreError = parseFloat(avgErrorMatch[1]);
+
+  // Extract discovered learnings
+  const learningsMatch = markdown.match(/## Discovered Learnings\n\n([\s\S]*?)(?=\n## |$)/);
+  if (learningsMatch) {
+    const blocks = learningsMatch[1].split(/\n### /).filter(Boolean);
+    for (const block of blocks) {
+      const lines = block.split('\n');
+      const pattern = lines[0]?.trim();
+      if (!pattern) continue;
+
+      const learning = { pattern };
+      for (const line of lines.slice(1)) {
+        const match = line.match(/^- (\w+): (.+)$/);
+        if (match) {
+          const [, key, value] = match;
+          if (key === 'Insight') learning.insight = value;
+          if (key === 'Source') learning.source = value;
+          if (key === 'Confidence') learning.confidence = parseFloat(value) / 100;
+        }
+      }
+      if (learning.insight) {
+        result.learnings.push(learning);
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Format learnings data as markdown
+ * @param {Object} data - Learnings data
+ * @returns {string} Markdown content
+ */
+function formatLearningsMarkdown(data) {
+  const lines = [];
+  const { stats = {}, learnings = [], patterns = {}, feedbackSources = {} } = data;
+
+  lines.push('# CYNIC Learnings');
+  lines.push('');
+  lines.push('> Auto-generated by CYNIC Learning Service');
+  lines.push(`> Last updated: ${new Date().toISOString()}`);
+  lines.push('');
+
+  // Statistics
+  lines.push('## Statistics');
+  lines.push('');
+  lines.push(`- Total feedback: ${stats.totalFeedback || 0}`);
+  lines.push(`- Accuracy: ${stats.accuracy || 0}%`);
+  lines.push(`- Learning iterations: ${stats.learningIterations || 0}`);
+  lines.push(`- Avg score error: ${stats.avgScoreError || 0}`);
+  lines.push('');
+
+  // Feedback sources
+  if (Object.keys(feedbackSources).length > 0) {
+    lines.push('## Feedback Sources');
+    lines.push('');
+    lines.push('| Source | Count | Correct Rate | Avg Delta |');
+    lines.push('|--------|-------|--------------|-----------|');
+
+    for (const [source, srcData] of Object.entries(feedbackSources)) {
+      const correctRate = srcData.count > 0
+        ? Math.round((srcData.correctCount || 0) / srcData.count * 100)
+        : 0;
+      lines.push(`| ${source} | ${srcData.count || 0} | ${correctRate}% | ${(srcData.avgDelta || 0).toFixed(1)} |`);
+    }
+    lines.push('');
+  }
+
+  // Item type patterns
+  if (Object.keys(patterns.byItemType || {}).length > 0) {
+    lines.push('## Patterns by Item Type');
+    lines.push('');
+    for (const [itemType, typeData] of Object.entries(patterns.byItemType)) {
+      const trend = (typeData.avgDelta || 0) > 5 ? 'underscoring' :
+                    (typeData.avgDelta || 0) < -5 ? 'overscoring' : 'neutral';
+      lines.push(`### ${itemType}`);
+      lines.push(`- Feedback count: ${typeData.feedbackCount || 0}`);
+      lines.push(`- Avg delta: ${(typeData.avgDelta || 0).toFixed(1)}`);
+      lines.push(`- Trend: ${trend}`);
+      lines.push('');
+    }
+  }
+
+  // Discovered learnings
+  if (learnings.length > 0) {
+    lines.push('## Discovered Learnings');
+    lines.push('');
+    for (const learning of learnings) {
+      lines.push(`### ${learning.pattern}`);
+      lines.push(`- Insight: ${learning.insight}`);
+      lines.push(`- Source: ${learning.source || 'manual'}`);
+      lines.push(`- Confidence: ${((learning.confidence || 0.5) * 100).toFixed(0)}%`);
+      if (learning.createdAt) {
+        lines.push(`- Discovered: ${new Date(learning.createdAt).toISOString()}`);
+      }
+      lines.push('');
+    }
+  }
+
+  // Weight adjustments
+  if (Object.keys(patterns.weightModifiers || {}).length > 0) {
+    const changedModifiers = Object.entries(patterns.weightModifiers)
+      .filter(([, v]) => Math.abs(v - 1.0) > 0.01);
+
+    if (changedModifiers.length > 0) {
+      lines.push('## Weight Adjustments');
+      lines.push('');
+      lines.push('| Dimension | Modifier | Interpretation |');
+      lines.push('|-----------|----------|----------------|');
+      for (const [dim, mod] of changedModifiers) {
+        const interp = mod > 1 ? 'Increased importance' : 'Decreased importance';
+        lines.push(`| ${dim} | ${mod.toFixed(3)} | ${interp} |`);
+      }
+      lines.push('');
+    }
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Export learnings from brain to file
+ * Calls brain_learning state action and saves to cynic-learnings.md
+ * @returns {Promise<Object>} Export result
+ */
+async function exportLearningsToFile() {
+  try {
+    // Get learning state from brain
+    const state = await callBrainTool('brain_learning', { action: 'state' });
+
+    if (!state || state.error) {
+      return { success: false, error: state?.error || 'Failed to get learning state' };
+    }
+
+    // Format and save
+    const data = {
+      stats: state.stats || {},
+      learnings: state.learnings || [],
+      patterns: {
+        byItemType: state.patterns?.byItemType || {},
+        byDimension: state.patterns?.byDimension || {},
+        weightModifiers: state.modifiers || {},
+      },
+      feedbackSources: state.patterns?.bySource || {},
+    };
+
+    saveLearnings(data);
+
+    return {
+      success: true,
+      path: getLearningsPath(),
+      stats: data.stats,
+      learningsCount: data.learnings.length,
+    };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Import learnings from file to brain
+ * Loads cynic-learnings.md and sends to learning service via brain_learning import action
+ * @returns {Promise<Object>} Import result
+ */
+async function importLearningsFromFile() {
+  try {
+    const data = loadLearnings();
+
+    if (data.learnings.length === 0 && Object.keys(data.stats).length === 0) {
+      return { success: true, imported: 0, message: 'No learnings to import' };
+    }
+
+    // Send learnings to brain_learning import action
+    // The learning service will restore state from this data
+    const result = await callBrainTool('brain_learning', {
+      action: 'import',
+      data: {
+        patterns: {
+          overall: data.stats || {},
+          byItemType: data.patterns?.byItemType || new Map(),
+          byDimension: data.patterns?.byDimension || new Map(),
+          bySource: data.feedbackSources || new Map(),
+        },
+        modifiers: {
+          weights: data.patterns?.weightModifiers || {},
+          thresholds: {},
+        },
+      },
+    });
+
+    return {
+      success: result && !result.error,
+      imported: data.learnings?.length || 0,
+      stats: data.stats,
+      message: `Imported learnings from ${getLearningsPath()}`,
+      result,
+    };
+  } catch (e) {
+    // Non-blocking - if MCP server isn't available, just return success with local data
+    const data = loadLearnings();
+    return {
+      success: true,
+      imported: data.learnings?.length || 0,
+      stats: data.stats,
+      message: `Loaded ${data.learnings?.length || 0} learnings (MCP unavailable: ${e.message})`,
+      local: true,
+    };
+  }
+}
+
+// =============================================================================
+// LEARNING FEEDBACK - External validation (Ralph-inspired)
+// =============================================================================
+
+/**
+ * Send test result feedback to learning service
+ * Uses brain_learning test_result action which calls LearningService.processTestResult()
+ * @param {Object} params - Test result parameters
+ * @param {string} [params.judgmentId] - Related judgment ID (if known)
+ * @param {boolean} params.passed - Whether tests passed
+ * @param {string} [params.testSuite] - Test suite name
+ * @param {number} [params.passCount] - Number of tests passed
+ * @param {number} [params.failCount] - Number of tests failed
+ * @param {string} [params.itemType] - Type of item (default: 'code')
+ * @returns {Promise<Object>} Learning result
+ */
+async function sendTestFeedback(params) {
+  return callBrainTool('brain_learning', {
+    action: 'test_result',
+    judgmentId: params.judgmentId,
+    passed: params.passed,
+    testSuite: params.testSuite || 'unknown',
+    passCount: params.passCount || 0,
+    failCount: params.failCount || 0,
+    itemType: params.itemType || 'code',
+  });
+}
+
+/**
+ * Send commit result feedback to learning service
+ * Uses brain_learning commit_result action which calls LearningService.processCommitResult()
+ * @param {Object} params - Commit parameters
+ * @param {string} [params.judgmentId] - Related judgment ID (if known)
+ * @param {boolean} params.success - Whether commit succeeded
+ * @param {string} [params.commitHash] - Git commit hash
+ * @param {boolean} [params.hooksPassed] - Whether pre-commit hooks passed
+ * @param {string} [params.message] - Commit message
+ * @returns {Promise<Object>} Learning result
+ */
+async function sendCommitFeedback(params) {
+  return callBrainTool('brain_learning', {
+    action: 'commit_result',
+    judgmentId: params.judgmentId,
+    success: params.success,
+    commitHash: params.commitHash,
+    hooksPassed: params.hooksPassed,
+  });
+}
+
+/**
+ * Send PR result feedback to learning service
+ * Uses brain_learning pr_result action which calls LearningService.processPRResult()
+ * @param {Object} params - PR parameters
+ * @param {string} [params.judgmentId] - Related judgment ID (if known)
+ * @param {string} params.status - 'merged', 'rejected', 'open'
+ * @param {string} [params.prNumber] - PR number
+ * @param {number} [params.approvalCount] - Number of approvals
+ * @returns {Promise<Object>} Learning result
+ */
+async function sendPRFeedback(params) {
+  return callBrainTool('brain_learning', {
+    action: 'pr_result',
+    judgmentId: params.judgmentId,
+    status: params.status,
+    prNumber: params.prNumber,
+    approvalCount: params.approvalCount || 0,
+  });
+}
+
+/**
+ * Send build result feedback to learning service
+ * Uses brain_learning build_result action which calls LearningService.processBuildResult()
+ * @param {Object} params - Build parameters
+ * @param {string} [params.judgmentId] - Related judgment ID (if known)
+ * @param {boolean} params.success - Whether build succeeded
+ * @param {string} [params.buildId] - Build ID
+ * @param {number} [params.duration] - Build duration in ms
+ * @returns {Promise<Object>} Learning result
+ */
+async function sendBuildFeedback(params) {
+  return callBrainTool('brain_learning', {
+    action: 'build_result',
+    judgmentId: params.judgmentId,
+    success: params.success,
+    buildId: params.buildId,
+    duration: params.duration,
+  });
+}
+
+// =============================================================================
 // EXPORTS
 // =============================================================================
 
@@ -703,4 +1088,17 @@ module.exports = {
   startBrainSession,
   endBrainSession,
   digestToBrain,
+
+  // Learning Feedback (Ralph-inspired external validation)
+  sendTestFeedback,
+  sendCommitFeedback,
+  sendPRFeedback,
+  sendBuildFeedback,
+
+  // Learnings Persistence
+  getLearningsPath,
+  loadLearnings,
+  saveLearnings,
+  exportLearningsToFile,
+  importLearningsFromFile,
 };
