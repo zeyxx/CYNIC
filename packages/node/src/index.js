@@ -160,3 +160,43 @@ export {
   BURN_ADDRESSES,
   // Note: SolanaCluster is already exported from @cynic/anchor
 } from '@cynic/burns';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Emergence Layer (Layer 7) - "The crown observes all"
+// ═══════════════════════════════════════════════════════════════════════════════
+export {
+  EmergenceLayer,
+  createEmergenceLayer,
+  ConsciousnessState,
+  CollectivePhase,
+  AWARENESS_THRESHOLDS,
+  MAX_CONFIDENCE,
+  SIGNIFICANCE_THRESHOLDS,
+  PHASE_THRESHOLDS,
+  QUORUM,
+} from './emergence/index.js';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Identity Layer (Layer 6) - "Know thyself, then verify"
+// ═══════════════════════════════════════════════════════════════════════════════
+export {
+  // Key management
+  KeyManager,
+  createKeyManager,
+  generateKeypair,
+  deriveNodeId,
+  // E-Score (from @cynic/identity)
+  EScoreCalculator,
+  createEScoreCalculator,
+  calculateEScore,
+  ESCORE_WEIGHTS,
+  ESCORE_THRESHOLDS,
+  // Node identity
+  NodeIdentity,
+  createNodeIdentity,
+  IdentityStatus,
+  // Reputation graph
+  ReputationGraph,
+  createReputationGraph,
+  TrustLevel,
+} from '@cynic/identity';

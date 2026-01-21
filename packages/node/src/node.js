@@ -31,6 +31,7 @@ import { Operator } from './operator/operator.js';
 import { CYNICJudge } from './judge/judge.js';
 import { ResidualDetector } from './judge/residual.js';
 import { StateManager } from './state/manager.js';
+import { createEmergenceLayer } from './emergence/layer.js';
 
 /**
  * Node status
@@ -160,6 +161,15 @@ export class CYNICNode {
     this._pendingObservations = new Map();
     this._maxPendingItems = options.maxPendingItems || 1000;
     this._maxObservationsPerItem = options.maxObservationsPerItem || 50;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Emergence Layer (Layer 7) - "The crown observes all"
+    // ═══════════════════════════════════════════════════════════════════════
+
+    this._emergence = createEmergenceLayer({
+      nodeId: this.operator.id,
+      eScore: this.operator.getEScore(),
+    });
   }
 
   /**
@@ -185,10 +195,14 @@ export class CYNICNode {
         console.log(`⚓ Anchoring enabled (${this._anchorConfig.cluster})`);
       }
 
+      // Initialize emergence layer
+      this._emergence.initialize();
+
       this.status = NodeStatus.RUNNING;
       this.startedAt = Date.now();
 
       console.log(`🐕 CYNIC Node started: ${this.operator.identity.name}`);
+      console.log(`   Consciousness: ${this._emergence.consciousness.state}`);
       console.log(`   ID: ${this.operator.id.slice(0, 16)}...`);
       console.log(`   E-Score: ${this.operator.getEScore()}`);
       if (this._burnsConfig.enabled) {
@@ -282,6 +296,10 @@ export class CYNICNode {
 
     // Check for pattern emergence
     this._checkPatternEmergence();
+
+    // Update emergence layer E-Score and report to collective
+    this._emergence.updateEScore(this.operator.getEScore());
+    this._emergence.reportToCollective();
   }
 
   /**
@@ -464,6 +482,12 @@ export class CYNICNode {
     this.operator.recordJudgment();
 
     // ═══════════════════════════════════════════════════════════════════════
+    // Emergence Layer - "The crown observes all"
+    // ═══════════════════════════════════════════════════════════════════════
+
+    this._emergence.observeJudgment(judgment);
+
+    // ═══════════════════════════════════════════════════════════════════════
     // Solana Anchoring - "Onchain is truth"
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -522,6 +546,8 @@ export class CYNICNode {
         minAmount: this._burnsConfig.minAmount,
         stats: this._burnVerifier.getStats(),
       },
+      // Emergence layer (Layer 7)
+      emergence: this._emergence.getState(),
     };
   }
 
@@ -565,6 +591,8 @@ export class CYNICNode {
       anchorQueueState: this._anchorQueue.export?.() || null,
       burnsConfig: this._burnsConfig,
       burnsState: this._burnVerifier.export(),
+      // Emergence state
+      emergenceState: this._emergence.export(),
     };
   }
 
@@ -604,6 +632,11 @@ export class CYNICNode {
       node._burnVerifier.import(savedState.burnsState);
     }
 
+    // Restore emergence state
+    if (savedState.emergenceState) {
+      node._emergence.import(savedState.emergenceState);
+    }
+
     return node;
   }
 
@@ -638,6 +671,30 @@ export class CYNICNode {
    */
   isBurnVerified(burnTx) {
     return this._burnVerifier.isVerified(burnTx);
+  }
+
+  /**
+   * Get emergence layer for external access
+   * @returns {EmergenceLayer} Emergence layer
+   */
+  get emergence() {
+    return this._emergence;
+  }
+
+  /**
+   * Get consciousness state
+   * @returns {string} Current consciousness state
+   */
+  get consciousnessState() {
+    return this._emergence.consciousness.state;
+  }
+
+  /**
+   * Get collective phase
+   * @returns {string} Current collective phase
+   */
+  get collectivePhase() {
+    return this._emergence.collective.phase;
   }
 }
 

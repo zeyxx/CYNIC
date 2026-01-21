@@ -14,7 +14,8 @@
     "./state": "./src/state/index.js",
     "./transport": "./src/transport/index.js",
     "./api": "./src/api/index.js",
-    "./cli": "./src/cli/index.js"
+    "./cli": "./src/cli/index.js",
+    "./emergence": "./src/emergence/index.js"
   },
   "scripts": {
     "test": "node --test test/*.test.js",
@@ -24,6 +25,8 @@
     "@cynic/anchor": "*",
     "@cynic/burns": "*",
     "@cynic/core": "*",
+    "@cynic/emergence": "*",
+    "@cynic/identity": "*",
     "@cynic/protocol": "*",
     "chalk": "^5.6.2",
     "commander": "^14.0.2",

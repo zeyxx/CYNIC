@@ -13,6 +13,7 @@
 import express from 'express';
 import { PHI_INV, PHI_INV_2 } from '@cynic/core';
 import { setupBurnsRoutes } from './burns-api.js';
+import { setupEmergenceRoutes } from './emergence-api.js';
 
 /**
  * API Server for CYNIC Node
@@ -39,6 +40,7 @@ export class APIServer {
     // Configure
     this._configure();
     this._setupBurnsRoutes(); // Burns routes BEFORE main routes (404 handler last)
+    this._setupEmergenceRoutes(); // Emergence routes (Layer 7)
     this._setupRoutes();
   }
 
@@ -114,6 +116,12 @@ export class APIServer {
           'GET /burns/verify/:signature',
           'GET /burns/stats',
           'POST /burns/verify (batch)',
+          'GET /emergence/state',
+          'GET /emergence/consciousness',
+          'GET /emergence/patterns',
+          'GET /emergence/dimensions',
+          'GET /emergence/collective',
+          'GET /emergence/meta',
         ],
       });
     });
@@ -349,7 +357,7 @@ export class APIServer {
       res.status(404).json({
         error: 'Not Found',
         message: `Route ${req.method} ${req.path} not found`,
-        available: ['/', '/health', '/info', '/consensus/status', '/judge', '/judge/kscore', '/merkle/proof/:hash', '/burns/verify/:signature', '/burns/stats'],
+        available: ['/', '/health', '/info', '/consensus/status', '/judge', '/judge/kscore', '/merkle/proof/:hash', '/burns/verify/:signature', '/burns/stats', '/emergence/state', '/emergence/consciousness', '/emergence/patterns', '/emergence/dimensions', '/emergence/collective', '/emergence/meta'],
       });
     });
 
@@ -372,6 +380,16 @@ export class APIServer {
       cluster: this.burnsCluster,
     });
     console.log(`🔥 Burns API enabled (${this.burnsCluster})`);
+  }
+
+  /**
+   * Setup emergence layer routes (Layer 7)
+   * @private
+   */
+  _setupEmergenceRoutes() {
+    if (this.node) {
+      setupEmergenceRoutes(this.app, { node: this.node });
+    }
   }
 
   /**
