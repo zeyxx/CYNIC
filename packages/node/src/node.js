@@ -215,8 +215,14 @@ export class CYNICNode {
       // Enable on-chain verification (preferred over external API)
       solanaCluster: this._burnsConfig.cluster,
       onVerify: (result) => {
-        if (result.verified) {
+        if (result.verified && result.amount > 0) {
           console.log(`🔥 Burn verified on-chain: ${result.amount / 1e9} SOL (${result.burnType})`);
+
+          // ═══════════════════════════════════════════════════════════════════
+          // Burns → E-Score (automatic wiring)
+          // "Don't extract, burn" - verified burns automatically update E-Score
+          // ═══════════════════════════════════════════════════════════════════
+          this.operator.recordBurn(result.amount, result.burnType || 'verified_onchain');
         }
       },
     });
