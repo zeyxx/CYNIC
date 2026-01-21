@@ -34,6 +34,7 @@ import {
   ANCHOR_CONSTANTS,
 } from '@cynic/anchor';
 import { createBurnVerifier, BurnStatus } from '@cynic/burns';
+import { EScoreHistoryRepository, getPool } from '@cynic/persistence';
 import { Operator } from './operator/operator.js';
 import { CYNICJudge } from './judge/judge.js';
 import { ResidualDetector } from './judge/residual.js';
@@ -44,6 +45,14 @@ import { SharedMemory } from './memory/shared-memory.js';
 import { UserLab, LabManager } from './memory/user-lab.js';
 import { DogOrchestrator, DogMode } from './agents/orchestrator.js';
 import { WebSocketTransport, ConnectionState } from './transport/websocket.js';
+// Collective consciousness - The 11 Dogs
+import {
+  AgentEventBus,
+  AgentEvent,
+  EventPriority,
+  CollectivePack,
+  createCollectivePack,
+} from './agents/index.js';
 
 /**
  * Node status
@@ -93,6 +102,24 @@ export class CYNICNode {
       dataDir: options.dataDir,
       operator: this.operator,
     });
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Persistence Layer - "Memory makes wisdom possible"
+    // ═══════════════════════════════════════════════════════════════════════
+
+    this._persistence = null;
+    if (options.persistence?.enabled !== false) {
+      try {
+        const pool = getPool();
+        this._persistence = {
+          escoreHistory: new EScoreHistoryRepository(pool),
+          // Add other repositories as needed
+        };
+      } catch (e) {
+        // Database not available - persistence disabled
+        console.log('⚠️ Persistence unavailable - running in-memory only');
+      }
+    }
 
     // Initialize judge (underscore to avoid shadowing judge() method)
     this._judge = new CYNICJudge();
@@ -214,7 +241,7 @@ export class CYNICNode {
     this._burnVerifier = createBurnVerifier({
       // Enable on-chain verification (preferred over external API)
       solanaCluster: this._burnsConfig.cluster,
-      onVerify: (result) => {
+      onVerify: async (result) => {
         if (result.verified && result.amount > 0) {
           console.log(`🔥 Burn verified on-chain: ${result.amount / 1e9} SOL (${result.burnType})`);
 
@@ -223,6 +250,12 @@ export class CYNICNode {
           // "Don't extract, burn" - verified burns automatically update E-Score
           // ═══════════════════════════════════════════════════════════════════
           this.operator.recordBurn(result.amount, result.burnType || 'verified_onchain');
+
+          // ═══════════════════════════════════════════════════════════════════
+          // Burns → E-Score → Persistence (automatic recording)
+          // "Memory makes wisdom possible" - persist E-Score snapshots
+          // ═══════════════════════════════════════════════════════════════════
+          await this._recordEScoreSnapshot(`burn_${result.burnType || 'verified'}`);
         }
       },
     });
@@ -270,12 +303,85 @@ export class CYNICNode {
     });
 
     // Set learning service on judge
-    this.judge.setLearningService(this._learningService);
+    this._judge.setLearningService(this._learningService);
 
     // Dog Orchestrator (parallel subagents with hybrid context)
     this._orchestrator = new DogOrchestrator({
       sharedMemory: this._sharedMemory,
       mode: options.orchestratorMode || DogMode.PARALLEL,
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Collective Consciousness - The 11 Dogs (Gap #1 Fix)
+    // "The pack sees what the individual misses"
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Event bus for inter-agent communication
+    this._eventBus = new AgentEventBus({
+      nodeId: this.operator.id,
+    });
+
+    // The collective pack (11 dogs)
+    this._collectivePack = createCollectivePack({
+      eventBus: this._eventBus,
+      sharedMemory: this._sharedMemory,
+      nodeId: this.operator.id,
+    });
+
+    // Wire event bus to learning service (collective feedback loop)
+    this._wireCollectiveToLearning();
+  }
+
+  /**
+   * Wire collective consciousness to learning service (Gap #1)
+   *
+   * When the collective reaches consensus on a judgment, that feedback
+   * is sent to the learning service to improve future judgments.
+   *
+   * @private
+   */
+  _wireCollectiveToLearning() {
+    // Listen for collective consensus on judgments
+    this._eventBus.on('consensus:reached', async (event) => {
+      const { vote, confidence, voters, context } = event;
+
+      // Only process if it's about a judgment
+      if (context?.type !== 'judgment') return;
+
+      console.log(`🐕 Collective consensus: ${vote} (${Math.round(confidence * 100)}% confidence, ${voters?.length || 0} dogs)`);
+
+      // Convert collective vote to feedback
+      const isCorrect = vote === 'APPROVE' || vote === 'WAG';
+      const feedbackType = isCorrect ? 'positive' : 'negative';
+
+      // Process as collective feedback
+      this._learningService.processFeedback({
+        judgmentId: context.judgmentId,
+        feedbackType,
+        source: 'collective_consensus',
+        confidence,
+        details: {
+          vote,
+          voters,
+          dogCount: voters?.length || 0,
+        },
+      });
+    });
+
+    // Listen for individual dog insights
+    this._eventBus.on('insight:shared', (event) => {
+      const { insight, agentId, priority } = event;
+
+      // High-priority insights go to shared memory
+      if (priority >= EventPriority.HIGH) {
+        this._sharedMemory.addPattern({
+          type: 'dog_insight',
+          source: agentId,
+          content: insight,
+          priority,
+          timestamp: Date.now(),
+        });
+      }
     });
   }
 
@@ -698,6 +804,45 @@ export class CYNICNode {
     // Update emergence layer E-Score and report to collective
     this._emergence.updateEScore(this.operator.getEScore());
     this._emergence.reportToCollective();
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Periodic E-Score snapshot (every hour ~ 36 epochs at 100s scaled)
+    // "φ-aligned retention: hourly for 24h, daily for 30d"
+    // ═══════════════════════════════════════════════════════════════════════
+    this._epochCount = (this._epochCount || 0) + 1;
+    if (this._persistence?.escoreHistory && this._epochCount % 36 === 0) {
+      this._recordEScoreSnapshot('epoch_periodic').catch(() => {});
+    }
+  }
+
+  /**
+   * Record E-Score snapshot to persistence
+   * @param {string} trigger - What triggered the snapshot
+   * @private
+   */
+  async _recordEScoreSnapshot(trigger = 'manual') {
+    if (!this._persistence?.escoreHistory) return;
+
+    try {
+      const breakdown = this.operator.getEScoreBreakdown();
+      await this._persistence.escoreHistory.recordSnapshot(
+        this.operator.id,
+        this.operator.getEScore(),
+        {
+          hold: breakdown.dimensions?.find(d => d.dimension === 'HOLD')?.score || 0,
+          burn: breakdown.dimensions?.find(d => d.dimension === 'BURN')?.score || 0,
+          use: breakdown.dimensions?.find(d => d.dimension === 'USE')?.score || 0,
+          build: breakdown.dimensions?.find(d => d.dimension === 'BUILD')?.score || 0,
+          run: breakdown.dimensions?.find(d => d.dimension === 'RUN')?.score || 0,
+          refer: breakdown.dimensions?.find(d => d.dimension === 'REFER')?.score || 0,
+          time: breakdown.dimensions?.find(d => d.dimension === 'TIME')?.score || 0,
+        },
+        trigger
+      );
+    } catch (e) {
+      // Non-fatal
+      console.warn('⚠️ E-Score history persistence failed:', e.message);
+    }
   }
 
   /**
@@ -864,7 +1009,35 @@ export class CYNICNode {
     const judgment = this._judge.judge(item, context);
 
     // Analyze for residuals
-    this.residualDetector.analyze(judgment, context);
+    const residualAnalysis = this.residualDetector.analyze(judgment, context);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Gap #2 Fix: Anomalies → Learning Service
+    // "When the dog notices something strange, it learns from it"
+    // ═══════════════════════════════════════════════════════════════════════
+
+    if (residualAnalysis.isAnomaly) {
+      // Feed anomaly signal to learning service
+      this._learningService.processAnomalySignal?.({
+        judgmentId: judgment.id,
+        residual: residualAnalysis.residual,
+        threshold: this.residualDetector.threshold,
+        dimensions: judgment.dimensions,
+        verdict: judgment.verdict,
+        qScore: judgment.q_score || judgment.global_score,
+        source: 'residual_detector',
+        timestamp: Date.now(),
+      });
+
+      // Also add to shared memory as a pattern to watch
+      this._sharedMemory?.addPattern?.({
+        type: 'anomaly_detected',
+        judgmentId: judgment.id,
+        residual: residualAnalysis.residual,
+        itemType: item?.type,
+        timestamp: Date.now(),
+      });
+    }
 
     // Add to local state (optimistic - will be confirmed by consensus)
     this.state.addJudgment(judgment);
@@ -918,6 +1091,32 @@ export class CYNICNode {
     // ═══════════════════════════════════════════════════════════════════════
 
     this._emergence.observeJudgment(judgment);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Collective Consciousness - "The pack reviews the judgment" (Gap #1)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Publish judgment to event bus for collective review
+    if (this._eventBus && this._collectivePack) {
+      this._eventBus.emit('judgment:created', {
+        type: 'judgment',
+        judgmentId: judgment.id,
+        verdict: judgment.verdict,
+        qScore: judgment.q_score || judgment.global_score,
+        confidence: judgment.confidence,
+        item: {
+          type: item?.type,
+          identifier: item?.identifier || item?.name,
+        },
+        timestamp: Date.now(),
+      });
+
+      // Request collective consensus (async, non-blocking)
+      this._collectivePack.reviewJudgment?.(judgment, item).catch((err) => {
+        // Non-critical - log but don't fail the judgment
+        console.debug(`[Collective] Review skipped: ${err.message}`);
+      });
+    }
 
     // ═══════════════════════════════════════════════════════════════════════
     // Solana Anchoring - "Onchain is truth"
