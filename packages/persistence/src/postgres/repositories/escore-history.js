@@ -179,28 +179,68 @@ export class EScoreHistoryRepository {
   }
 
   /**
-   * Clean up old snapshots (retention policy)
-   * Keep hourly for 24h, daily for 30d
+   * Clean up old snapshots (φ-aligned retention policy)
+   *
+   * Retention tiers:
+   * - Hourly:  keep for 24h (then aggregate to daily)
+   * - Daily:   keep for 30d (then aggregate to weekly)
+   * - Weekly:  keep for 1y  (then aggregate to monthly)
+   * - Monthly: keep for 5y  (then aggregate to yearly)
+   * - Yearly:  keep forever
    */
   async cleanup() {
-    // Delete hourly snapshots older than 24h, keep only on-the-hour
+    const results = {};
+
+    // 1. Hourly → Daily (24h threshold)
+    // Delete non-midnight snapshots older than 24h
     const hourlyResult = await this.db.query(`
       DELETE FROM escore_history
       WHERE recorded_at < NOW() - INTERVAL '24 hours'
+        AND recorded_at >= NOW() - INTERVAL '30 days'
         AND EXTRACT(MINUTE FROM recorded_at) != 0
     `);
+    results.hourlyDeleted = hourlyResult.rowCount;
 
-    // Delete daily snapshots older than 30d, keep only start of day
+    // 2. Daily → Weekly (30d threshold)
+    // Delete non-Sunday snapshots older than 30d
     const dailyResult = await this.db.query(`
       DELETE FROM escore_history
       WHERE recorded_at < NOW() - INTERVAL '30 days'
+        AND recorded_at >= NOW() - INTERVAL '1 year'
         AND EXTRACT(HOUR FROM recorded_at) != 0
     `);
+    results.dailyDeleted = dailyResult.rowCount;
 
-    return {
-      hourlyDeleted: hourlyResult.rowCount,
-      dailyDeleted: dailyResult.rowCount,
-    };
+    // Keep only Sunday (day 0) snapshots for weekly
+    const weeklyResult = await this.db.query(`
+      DELETE FROM escore_history
+      WHERE recorded_at < NOW() - INTERVAL '30 days'
+        AND recorded_at >= NOW() - INTERVAL '1 year'
+        AND EXTRACT(DOW FROM recorded_at) != 0
+        AND EXTRACT(HOUR FROM recorded_at) = 0
+    `);
+    results.weeklyDeleted = weeklyResult.rowCount;
+
+    // 3. Weekly → Monthly (1y threshold)
+    // Keep only 1st of month snapshots older than 1 year
+    const monthlyResult = await this.db.query(`
+      DELETE FROM escore_history
+      WHERE recorded_at < NOW() - INTERVAL '1 year'
+        AND recorded_at >= NOW() - INTERVAL '5 years'
+        AND EXTRACT(DAY FROM recorded_at) != 1
+    `);
+    results.monthlyDeleted = monthlyResult.rowCount;
+
+    // 4. Monthly → Yearly (5y threshold)
+    // Keep only January 1st snapshots older than 5 years
+    const yearlyResult = await this.db.query(`
+      DELETE FROM escore_history
+      WHERE recorded_at < NOW() - INTERVAL '5 years'
+        AND NOT (EXTRACT(MONTH FROM recorded_at) = 1 AND EXTRACT(DAY FROM recorded_at) = 1)
+    `);
+    results.yearlyDeleted = yearlyResult.rowCount;
+
+    return results;
   }
 }
 
