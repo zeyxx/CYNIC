@@ -202,149 +202,172 @@ export async function startCommand(options) {
   // Track start time
   const startTime = Date.now();
 
-  // Interactive mode
-  console.log(chalk.gray('\n  ─────────────────────────────────────────────────'));
-  console.log(chalk.bold('  Commands:'));
-  console.log(chalk.gray('    /peers    ') + 'List connected peers');
-  console.log(chalk.gray('    /stats    ') + 'Show statistics');
-  console.log(chalk.gray('    /slot     ') + 'Show current slot info');
-  console.log(chalk.gray('    /consensus') + 'Show consensus status');
-  console.log(chalk.gray('    /connect <addr>  ') + 'Connect to peer');
-  console.log(chalk.gray('    /broadcast <msg> ') + 'Broadcast message');
-  console.log(chalk.gray('    /quit     ') + 'Shutdown node');
-  console.log(chalk.gray('  ─────────────────────────────────────────────────\n'));
+  // Daemon mode: keep alive without interactive REPL
+  if (options.daemon) {
+    console.log(chalk.green('\n  [OK]   ') + `Running in daemon mode (no interactive REPL)`);
+    console.log(chalk.gray('  ─────────────────────────────────────────────────\n'));
 
-  // Setup readline for interactive commands
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    prompt: chalk.cyan('cynic> '),
-  });
-
-  rl.prompt();
-
-  rl.on('line', async (line) => {
-    const input = line.trim();
-
-    if (input.startsWith('/')) {
-      const [cmd, ...args] = input.slice(1).split(/\s+/);
-
-      switch (cmd) {
-        case 'peers': {
-          const peers = transport.getConnectedPeers();
-          console.log(chalk.bold(`\n  Connected Peers (${peers.length}):`));
-          if (peers.length === 0) {
-            console.log(chalk.gray('    No peers connected'));
-          } else {
-            peers.forEach((p, i) => {
-              console.log(chalk.gray(`    ${i + 1}. `) + chalk.cyan(p.slice(0, 24) + '...'));
-            });
-          }
-          console.log();
-          break;
-        }
-
-        case 'stats': {
-          const stats = transport.getStats();
-          const gossipStats = gossip.getStats();
-          const uptime = Date.now() - startTime;
-
-          console.log(chalk.bold('\n  Node Statistics:'));
-          console.log(chalk.gray('    Uptime:       ') + formatUptime(uptime));
-          console.log(chalk.gray('    Connections:  ') + `${stats.connections.connected} active, ${stats.connections.connecting} pending`);
-          console.log(chalk.gray('    Messages:     ') + `${stats.messagesSent} sent, ${stats.messagesReceived} received`);
-          console.log(chalk.gray('    Bandwidth:    ') + `${formatBytes(stats.bytesOut)} out, ${formatBytes(stats.bytesIn)} in`);
-          console.log(chalk.gray('    Gossip Peers: ') + `${gossipStats.total} (${gossipStats.active} active)`);
-          console.log();
-          break;
-        }
-
-        case 'slot': {
-          const slotInfo = slotManager.getSlotInfo();
-          console.log(chalk.bold('\n  Slot Information:'));
-          console.log(chalk.gray('    Current Slot:     ') + chalk.yellow(slotInfo.slot));
-          console.log(chalk.gray('    Epoch:            ') + slotInfo.epoch);
-          console.log(chalk.gray('    Slot in Epoch:    ') + `${slotInfo.slotInEpoch}/${slotInfo.slotsPerEpoch}`);
-          console.log(chalk.gray('    Time to Next:     ') + `${slotInfo.msUntilNext}ms`);
-          console.log();
-          break;
-        }
-
-        case 'consensus': {
-          const cStats = consensusGossip.getStats();
-          const cState = consensus.getState();
-          console.log(chalk.bold('\n  Consensus Status:'));
-          console.log(chalk.gray('    State:            ') + chalk.yellow(cState.state));
-          console.log(chalk.gray('    Latest Slot:      ') + cState.latestSlot);
-          console.log(chalk.gray('    Finalized Slot:   ') + cState.finalizedSlot);
-          console.log(chalk.gray('    Pending Blocks:   ') + cState.pendingBlocks);
-          console.log(chalk.bold('  Bridge Statistics:'));
-          console.log(chalk.gray('    Proposals:        ') + `${cStats.proposalsBroadcast} sent, ${cStats.proposalsReceived} received`);
-          console.log(chalk.gray('    Votes:            ') + `${cStats.votesBroadcast} sent, ${cStats.votesReceived} received`);
-          console.log(chalk.gray('    Finality:         ') + `${cStats.finalityBroadcast} sent, ${cStats.finalityReceived} received`);
-          console.log();
-          break;
-        }
-
-        case 'connect': {
-          if (args.length === 0) {
-            console.log(chalk.red('  Usage: /connect <address>'));
-          } else {
-            const address = args[0].startsWith('ws') ? args[0] : `ws://${args[0]}`;
-            try {
-              await transport.connect({ id: `peer_${Date.now()}`, address });
-              console.log(chalk.green('  Connected to ') + chalk.cyan(address));
-            } catch (err) {
-              console.log(chalk.red('  Failed: ') + err.message);
-            }
-          }
-          break;
-        }
-
-        case 'broadcast': {
-          if (args.length === 0) {
-            console.log(chalk.red('  Usage: /broadcast <message>'));
-          } else {
-            const judgment = {
-              id: `jdg_${Date.now()}`,
-              item: { type: 'cli', data: args.join(' ') },
-              globalScore: Math.round(Math.random() * 100),
-              verdict: 'WAG',
-              timestamp: Date.now(),
-            };
-            const sent = await gossip.broadcastJudgment(judgment);
-            console.log(chalk.green(`  Broadcast to ${sent} peer(s)`));
-          }
-          break;
-        }
-
-        case 'quit':
-        case 'exit':
-        case 'q': {
-          console.log(chalk.yellow('\n  Shutting down...'));
-          consensusGossip.stop();
-          await transport.stopServer();
-          console.log(chalk.green('  Goodbye!\n'));
-          process.exit(0);
-          break;
-        }
-
-        default:
-          console.log(chalk.red(`  Unknown command: /${cmd}`));
-      }
-    } else if (input.length > 0) {
-      console.log(chalk.gray('  Type /help for commands'));
+    // Keep process alive - the server event loop handles everything
+    // Log heartbeat every φ minutes (61.8 seconds) in verbose mode
+    if (verbose) {
+      setInterval(() => {
+        const stats = transport.getStats();
+        const gossipStats = gossip.getStats();
+        const uptime = Date.now() - startTime;
+        console.log(
+          chalk.gray(`  [♥] `) +
+          `uptime=${formatUptime(uptime)} ` +
+          `peers=${stats.connections.connected} ` +
+          `msgs=${stats.messagesSent}/${stats.messagesReceived} ` +
+          `gossip=${gossipStats.active}/${gossipStats.total}`
+        );
+      }, 61800); // φ-aligned heartbeat
     }
+  } else {
+    // Interactive mode
+    console.log(chalk.gray('\n  ─────────────────────────────────────────────────'));
+    console.log(chalk.bold('  Commands:'));
+    console.log(chalk.gray('    /peers    ') + 'List connected peers');
+    console.log(chalk.gray('    /stats    ') + 'Show statistics');
+    console.log(chalk.gray('    /slot     ') + 'Show current slot info');
+    console.log(chalk.gray('    /consensus') + 'Show consensus status');
+    console.log(chalk.gray('    /connect <addr>  ') + 'Connect to peer');
+    console.log(chalk.gray('    /broadcast <msg> ') + 'Broadcast message');
+    console.log(chalk.gray('    /quit     ') + 'Shutdown node');
+    console.log(chalk.gray('  ─────────────────────────────────────────────────\n'));
+
+    // Setup readline for interactive commands
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      prompt: chalk.cyan('cynic> '),
+    });
 
     rl.prompt();
-  });
 
-  rl.on('close', async () => {
-    console.log(chalk.yellow('\n  Shutting down...'));
-    consensusGossip.stop();
-    await transport.stopServer();
-    process.exit(0);
-  });
+    rl.on('line', async (line) => {
+      const input = line.trim();
+
+      if (input.startsWith('/')) {
+        const [cmd, ...args] = input.slice(1).split(/\s+/);
+
+        switch (cmd) {
+          case 'peers': {
+            const peers = transport.getConnectedPeers();
+            console.log(chalk.bold(`\n  Connected Peers (${peers.length}):`));
+            if (peers.length === 0) {
+              console.log(chalk.gray('    No peers connected'));
+            } else {
+              peers.forEach((p, i) => {
+                console.log(chalk.gray(`    ${i + 1}. `) + chalk.cyan(p.slice(0, 24) + '...'));
+              });
+            }
+            console.log();
+            break;
+          }
+
+          case 'stats': {
+            const stats = transport.getStats();
+            const gossipStats = gossip.getStats();
+            const uptime = Date.now() - startTime;
+
+            console.log(chalk.bold('\n  Node Statistics:'));
+            console.log(chalk.gray('    Uptime:       ') + formatUptime(uptime));
+            console.log(chalk.gray('    Connections:  ') + `${stats.connections.connected} active, ${stats.connections.connecting} pending`);
+            console.log(chalk.gray('    Messages:     ') + `${stats.messagesSent} sent, ${stats.messagesReceived} received`);
+            console.log(chalk.gray('    Bandwidth:    ') + `${formatBytes(stats.bytesOut)} out, ${formatBytes(stats.bytesIn)} in`);
+            console.log(chalk.gray('    Gossip Peers: ') + `${gossipStats.total} (${gossipStats.active} active)`);
+            console.log();
+            break;
+          }
+
+          case 'slot': {
+            const slotInfo = slotManager.getSlotInfo();
+            console.log(chalk.bold('\n  Slot Information:'));
+            console.log(chalk.gray('    Current Slot:     ') + chalk.yellow(slotInfo.slot));
+            console.log(chalk.gray('    Epoch:            ') + slotInfo.epoch);
+            console.log(chalk.gray('    Slot in Epoch:    ') + `${slotInfo.slotInEpoch}/${slotInfo.slotsPerEpoch}`);
+            console.log(chalk.gray('    Time to Next:     ') + `${slotInfo.msUntilNext}ms`);
+            console.log();
+            break;
+          }
+
+          case 'consensus': {
+            const cStats = consensusGossip.getStats();
+            const cState = consensus.getState();
+            console.log(chalk.bold('\n  Consensus Status:'));
+            console.log(chalk.gray('    State:            ') + chalk.yellow(cState.state));
+            console.log(chalk.gray('    Latest Slot:      ') + cState.latestSlot);
+            console.log(chalk.gray('    Finalized Slot:   ') + cState.finalizedSlot);
+            console.log(chalk.gray('    Pending Blocks:   ') + cState.pendingBlocks);
+            console.log(chalk.bold('  Bridge Statistics:'));
+            console.log(chalk.gray('    Proposals:        ') + `${cStats.proposalsBroadcast} sent, ${cStats.proposalsReceived} received`);
+            console.log(chalk.gray('    Votes:            ') + `${cStats.votesBroadcast} sent, ${cStats.votesReceived} received`);
+            console.log(chalk.gray('    Finality:         ') + `${cStats.finalityBroadcast} sent, ${cStats.finalityReceived} received`);
+            console.log();
+            break;
+          }
+
+          case 'connect': {
+            if (args.length === 0) {
+              console.log(chalk.red('  Usage: /connect <address>'));
+            } else {
+              const address = args[0].startsWith('ws') ? args[0] : `ws://${args[0]}`;
+              try {
+                await transport.connect({ id: `peer_${Date.now()}`, address });
+                console.log(chalk.green('  Connected to ') + chalk.cyan(address));
+              } catch (err) {
+                console.log(chalk.red('  Failed: ') + err.message);
+              }
+            }
+            break;
+          }
+
+          case 'broadcast': {
+            if (args.length === 0) {
+              console.log(chalk.red('  Usage: /broadcast <message>'));
+            } else {
+              const judgment = {
+                id: `jdg_${Date.now()}`,
+                item: { type: 'cli', data: args.join(' ') },
+                globalScore: Math.round(Math.random() * 100),
+                verdict: 'WAG',
+                timestamp: Date.now(),
+              };
+              const sent = await gossip.broadcastJudgment(judgment);
+              console.log(chalk.green(`  Broadcast to ${sent} peer(s)`));
+            }
+            break;
+          }
+
+          case 'quit':
+          case 'exit':
+          case 'q': {
+            console.log(chalk.yellow('\n  Shutting down...'));
+            consensusGossip.stop();
+            await transport.stopServer();
+            console.log(chalk.green('  Goodbye!\n'));
+            process.exit(0);
+            break;
+          }
+
+          default:
+            console.log(chalk.red(`  Unknown command: /${cmd}`));
+        }
+      } else if (input.length > 0) {
+        console.log(chalk.gray('  Type /help for commands'));
+      }
+
+      rl.prompt();
+    });
+
+    rl.on('close', async () => {
+      console.log(chalk.yellow('\n  Shutting down...'));
+      consensusGossip.stop();
+      await transport.stopServer();
+      process.exit(0);
+    });
+  }
 
   // Graceful shutdown
   process.on('SIGINT', async () => {

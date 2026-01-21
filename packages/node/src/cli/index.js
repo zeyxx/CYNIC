@@ -44,6 +44,7 @@ export function createCLI(program) {
     .option('-c, --connect <addresses...>', 'Peer addresses to connect to')
     .option('--no-server', 'Client-only mode (no server)')
     .option('-v, --verbose', 'Verbose output')
+    .option('-d, --daemon', 'Daemon mode (no interactive REPL)')
     .action(startCommand);
 
   // Keygen command
