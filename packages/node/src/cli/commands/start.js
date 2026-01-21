@@ -75,7 +75,9 @@ export async function startCommand(options) {
 
   // Load keypair
   const keypair = loadOrGenerateKeypair(options.keyfile, verbose);
-  const nodeId = keypair.publicKey.slice(0, 16);
+  // Skip DER header (first 24 hex chars = 12 bytes) to get actual ed25519 key bytes
+  // DER structure: 302a 3005 0603 2b6570 0321 00 [32 bytes of key]
+  const nodeId = keypair.publicKey.slice(24, 40);
 
   console.log(chalk.gray('  Node ID: ') + chalk.yellow(nodeId + '...'));
   console.log(chalk.gray('  Port:    ') + chalk.white(port));
