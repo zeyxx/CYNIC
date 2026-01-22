@@ -542,19 +542,47 @@ export class PersistenceManager {
 
   /**
    * Store feedback (PostgreSQL or fallback)
+   * Also updates user_learning_profiles for cross-session learning
    */
   async storeFeedback(feedback) {
+    let result = null;
+
     if (this.feedback) {
       try {
-        return await this.feedback.create(feedback);
+        result = await this.feedback.create(feedback);
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // USER LEARNING PROFILES: Update user's feedback history
+        // "Le chien apprend de chaque correction"
+        // ═══════════════════════════════════════════════════════════════════════════
+        if (this.userLearningProfiles && feedback.userId) {
+          try {
+            // Record feedback in user's learning profile
+            const wasCorrect = feedback.outcome === 'correct';
+            await this.userLearningProfiles.recordFeedback(feedback.userId, wasCorrect);
+
+            // Record activity time
+            await this.userLearningProfiles.recordActivity(feedback.userId);
+
+            // If there's a judgment type, update judgment patterns
+            if (feedback.itemType) {
+              await this.userLearningProfiles.updateJudgmentPatterns(feedback.userId, feedback.itemType);
+            }
+          } catch (profileErr) {
+            // Silently ignore profile update errors - feedback is already stored
+            console.error('Error updating user learning profile:', profileErr.message);
+          }
+        }
       } catch (err) {
         console.error('Error storing feedback:', err.message);
       }
     }
-    if (this._fallback) {
-      return await this._fallback.storeFeedback(feedback);
+
+    if (!result && this._fallback) {
+      result = await this._fallback.storeFeedback(feedback);
     }
-    return null;
+
+    return result;
   }
 
   /**

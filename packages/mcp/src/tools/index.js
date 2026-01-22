@@ -2164,11 +2164,14 @@ export function createFeedbackTool(persistence = null, sessionManager = null) {
             await sessionManager.incrementCounter('feedbackCount');
           }
 
-          // Try to get original judgment for delta calculation
-          if (typeof actualScore === 'number') {
-            const judgments = await persistence.getRecentJudgments(100);
-            const original = judgments.find(j => j.judgment_id === judgmentId);
-            if (original) {
+          // Try to get original judgment for delta calculation and itemType
+          const judgments = await persistence.getRecentJudgments(100);
+          const original = judgments.find(j => j.judgment_id === judgmentId);
+          if (original) {
+            // Include itemType in feedback for user learning profile patterns
+            feedback.itemType = original.item_type;
+
+            if (typeof actualScore === 'number') {
               originalScore = original.q_score;
               learningDelta = actualScore - originalScore;
             }
