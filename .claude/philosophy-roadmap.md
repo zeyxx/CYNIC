@@ -6,13 +6,9 @@
 - Phase 28: Philosophy of Mind (consciousness, intentionality, mental states)
 - Phase 29: Philosophy of Language (meaning, speech acts, truth)
 - Phase 30: Philosophy of Action (action theory, free will, practical reason)
+- Phase 31: Social & Political Philosophy (justice, social contract, rights)
 
 ## PLANNED PHASES
-
-### Phase 31: Social & Political Philosophy
-- 31A: Justice Engine (Rawls/Nozick)
-- 31B: Social Contract Engine (Hobbes/Locke/Rousseau)
-- 31C: Rights Engine (natural/positive/negative)
 
 ### Phase 32: Philosophy of Science
 - 32A: Scientific Method Engine (Popper/Kuhn)
