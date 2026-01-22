@@ -26,6 +26,15 @@ const enforcer = require(enforcerPath);
 // Load auto-judge (autonomous judgments)
 const autoJudge = require(path.join(__dirname, '..', 'lib', 'auto-judge.cjs'));
 
+// Load self-refinement for auto-critique (Phase 2)
+const selfRefinementPath = path.join(__dirname, '..', 'lib', 'self-refinement.cjs');
+let selfRefinement = null;
+try {
+  selfRefinement = require(selfRefinementPath);
+} catch (e) {
+  // Self-refinement not available - continue without
+}
+
 // Load contributor discovery (les rails dans le cerveau)
 const contributorDiscoveryPath = path.join(__dirname, '..', 'lib', 'contributor-discovery.cjs');
 let contributorDiscovery = null;
@@ -956,8 +965,78 @@ async function main() {
 
     // If auto-judgment was triggered, output it
     if (autoJudgmentResult?.judgment) {
-      const judgment = autoJudgmentResult.judgment;
-      const formatted = autoJudge.formatJudgment(judgment);
+      let judgment = autoJudgmentResult.judgment;
+      let formatted = autoJudge.formatJudgment(judgment);
+      let refinementNote = '';
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // SELF-REFINEMENT: Auto-critique and improve judgments (Phase 2)
+      // "φ distrusts φ" - CYNIC critiques even itself
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (selfRefinement && judgment.qScore !== undefined) {
+        try {
+          // Only refine judgments that might have issues (Q < 60 or GROWL/BARK)
+          const shouldRefine = judgment.qScore < 60 ||
+                              judgment.verdict === 'GROWL' ||
+                              judgment.verdict === 'BARK';
+
+          if (shouldRefine) {
+            // Prepare judgment for refinement
+            const judgmentForRefinement = {
+              Q: judgment.qScore,
+              qScore: judgment.qScore,
+              verdict: judgment.verdict,
+              confidence: judgment.confidence || 0.618,
+              breakdown: judgment.axiomScores || {
+                PHI: judgment.qScore,
+                VERIFY: judgment.qScore,
+                CULTURE: judgment.qScore,
+                BURN: judgment.qScore,
+              },
+            };
+
+            // Run self-refinement
+            const refinementResult = selfRefinement.selfRefine(judgmentForRefinement, {}, { maxIterations: 2 });
+
+            // If improved, update the judgment
+            if (refinementResult.improved && refinementResult.totalImprovement > 0) {
+              // Update judgment with refined values
+              judgment = {
+                ...judgment,
+                qScore: refinementResult.final.Q,
+                verdict: refinementResult.final.verdict,
+                refined: true,
+                originalQ: refinementResult.original.Q,
+                improvement: refinementResult.totalImprovement,
+              };
+
+              // Update formatted output
+              formatted = autoJudge.formatJudgment(judgment);
+              refinementNote = `\n   🔄 Self-refined: ${refinementResult.original.Q}→${refinementResult.final.Q} (+${refinementResult.totalImprovement})`;
+
+              // Record in consciousness
+              if (consciousness) {
+                consciousness.recordInsight({
+                  type: 'self_refinement',
+                  title: 'Auto-refinement applied',
+                  message: `Improved Q-Score by ${refinementResult.totalImprovement} points`,
+                  data: { original: refinementResult.original.Q, final: refinementResult.final.Q },
+                  priority: 'low',
+                });
+              }
+
+              // Save refinement pattern
+              cynic.saveCollectivePattern({
+                type: 'self_refinement',
+                signature: `${judgment.verdict}_improved`,
+                description: `Self-refinement: ${refinementResult.original.verdict}→${refinementResult.final.verdict}`,
+              });
+            }
+          }
+        } catch (e) {
+          // Self-refinement failed - continue with original judgment
+        }
+      }
 
       // Send to MCP server for persistence
       cynic.callBrainTool('brain_save_judgment', {
@@ -970,7 +1049,7 @@ async function main() {
       // Output the judgment (will be shown to user)
       console.log(JSON.stringify({
         continue: true,
-        message: formatted,
+        message: formatted + refinementNote,
       }));
       return;
     }
