@@ -28,6 +28,15 @@ try {
   // Cockpit not available - continue without
 }
 
+// Load contributor discovery for automatic profiling
+const contributorDiscoveryPath = path.join(__dirname, '..', 'lib', 'contributor-discovery.cjs');
+let contributorDiscovery = null;
+try {
+  contributorDiscovery = require(contributorDiscoveryPath);
+} catch (e) {
+  // Contributor discovery not available - continue without
+}
+
 /**
  * Main handler for SessionStart
  */
@@ -159,6 +168,62 @@ async function main() {
       ecosystem: ecosystem.projects?.map(p => p.name) || [],
       timestamp: Date.now(),
     });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CONTRIBUTOR DISCOVERY: Background profiling of all contributors
+    // "Les rails dans le cerveau" - Automatic learning infrastructure
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (contributorDiscovery) {
+      // Run discovery in background - don't block awakening
+      setImmediate(async () => {
+        try {
+          // Discover and profile current user
+          const currentProfile = await contributorDiscovery.getCurrentUserProfile();
+          if (currentProfile) {
+            // Store contributor profile in environment for other hooks
+            process.env.CYNIC_CONTRIBUTOR_PROFILE = JSON.stringify({
+              email: currentProfile.email,
+              personality: currentProfile.insights?.personality,
+              workStyle: currentProfile.insights?.workStyle,
+              phiScores: currentProfile.insights?.phiScores,
+            });
+          }
+
+          // Full ecosystem scan (only if needed - check last scan time)
+          const fs = require('fs');
+          const os = require('os');
+          const lastScanPath = path.join(os.homedir(), '.cynic', 'learning', 'last-discovery-scan.json');
+          let shouldScan = true;
+
+          try {
+            if (fs.existsSync(lastScanPath)) {
+              const lastScan = JSON.parse(fs.readFileSync(lastScanPath, 'utf8'));
+              const hoursSinceScan = (Date.now() - lastScan.timestamp) / (1000 * 60 * 60);
+              // Only full scan every 6.18 hours (φ-aligned)
+              shouldScan = hoursSinceScan > 6.18;
+            }
+          } catch (e) { /* scan anyway */ }
+
+          if (shouldScan) {
+            // Full ecosystem discovery
+            const discovery = await contributorDiscovery.fullEcosystemScan();
+
+            // Save scan timestamp
+            const scanDir = path.dirname(lastScanPath);
+            if (!fs.existsSync(scanDir)) {
+              fs.mkdirSync(scanDir, { recursive: true });
+            }
+            fs.writeFileSync(lastScanPath, JSON.stringify({
+              timestamp: Date.now(),
+              repos: discovery.repos?.length || 0,
+              contributors: Object.keys(discovery.contributors || {}).length,
+            }));
+          }
+        } catch (e) {
+          // Silently ignore - discovery is optional enhancement
+        }
+      });
+    }
 
     // Output directly to stdout (like asdf-brain) for banner display
     console.log(message);

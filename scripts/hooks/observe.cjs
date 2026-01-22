@@ -26,6 +26,15 @@ const enforcer = require(enforcerPath);
 // Load auto-judge (autonomous judgments)
 const autoJudge = require(path.join(__dirname, '..', 'lib', 'auto-judge.cjs'));
 
+// Load contributor discovery (les rails dans le cerveau)
+const contributorDiscoveryPath = path.join(__dirname, '..', 'lib', 'contributor-discovery.cjs');
+let contributorDiscovery = null;
+try {
+  contributorDiscovery = require(contributorDiscoveryPath);
+} catch (e) {
+  // Contributor discovery not available - continue without
+}
+
 // =============================================================================
 // PATTERN DETECTION
 // =============================================================================
@@ -404,6 +413,41 @@ async function main() {
       const content = toolInput.content || toolInput.new_string || '';
       const linesChanged = (content.match(/\n/g) || []).length + 1;
       autoJudge.observeCodeChange(filePath, toolName.toLowerCase(), linesChanged);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CONTRIBUTOR PROFILE ENRICHMENT - "Les rails dans le cerveau"
+    // Observe activity and enrich contributor profiles asynchronously
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (contributorDiscovery && !isError) {
+      // Observe commits to update contributor profiles
+      if (toolName === 'Bash' && toolInput.command?.startsWith('git commit')) {
+        // Trigger async profile refresh for current user
+        setImmediate(async () => {
+          try {
+            await contributorDiscovery.getCurrentUserProfile();
+          } catch (e) { /* ignore */ }
+        });
+      }
+
+      // Observe significant code changes (many lines = more profile data)
+      if ((toolName === 'Write' || toolName === 'Edit')) {
+        const content = toolInput.content || toolInput.new_string || '';
+        const linesChanged = (content.match(/\n/g) || []).length + 1;
+
+        // Only enrich on significant changes (>50 lines)
+        if (linesChanged > 50) {
+          setImmediate(async () => {
+            try {
+              const profile = await contributorDiscovery.getCurrentUserProfile();
+              // Store enriched profile info in environment for other hooks
+              if (profile?.insights?.phiScores) {
+                process.env.CYNIC_CONTRIBUTOR_DEPTH = String(profile.insights.phiScores.depth);
+              }
+            } catch (e) { /* ignore */ }
+          });
+        }
+      }
     }
 
     // If auto-judgment was triggered, output it

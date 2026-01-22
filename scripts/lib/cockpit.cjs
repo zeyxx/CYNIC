@@ -172,6 +172,9 @@ function scanRepo(repoPath, repoName) {
   // Get recent activity
   const recentCommits = getRecentCommits(repoPath, 5);
 
+  // Get contributor summary
+  const contributors = getRepoContributors(repoPath);
+
   return {
     name: repoName,
     path: repoPath,
@@ -182,6 +185,7 @@ function scanRepo(repoPath, repoName) {
     health,
     git: gitState,
     recentCommits,
+    contributors: contributors ? { top: contributors, count: contributors.length } : null,
     lastScanned: new Date().toISOString(),
   };
 }
@@ -709,6 +713,108 @@ function formatCockpitStatus(state) {
 }
 
 // =============================================================================
+// CONTRIBUTOR CONTEXT - "Les rails dans le cerveau"
+// =============================================================================
+
+// Lazy load contributor discovery
+let _contributorDiscovery = null;
+
+function getContributorDiscovery() {
+  if (!_contributorDiscovery) {
+    try {
+      _contributorDiscovery = require('./contributor-discovery.cjs');
+    } catch (e) {
+      return null;
+    }
+  }
+  return _contributorDiscovery;
+}
+
+/**
+ * Get top contributors for a repo (from recent commits)
+ * @param {string} repoPath - Path to repo
+ * @returns {Object} Top contributors with counts
+ */
+function getRepoContributors(repoPath) {
+  const log = safeExec('git', ['log', '-100', '--format=%ae'], { cwd: repoPath });
+  if (!log) return null;
+
+  const counts = {};
+  log.split('\n').filter(l => l).forEach(email => {
+    counts[email] = (counts[email] || 0) + 1;
+  });
+
+  // Sort by count
+  const sorted = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([email, count]) => ({ email, count }));
+
+  return sorted;
+}
+
+/**
+ * Enrich repo status with contributor context
+ * @param {Object} repoStatus - Repo status from scanRepo
+ * @param {string} repoPath - Path to repo
+ * @returns {Object} Enriched status
+ */
+function enrichWithContributors(repoStatus, repoPath) {
+  const contributors = getRepoContributors(repoPath);
+  if (!contributors) return repoStatus;
+
+  return {
+    ...repoStatus,
+    contributors: {
+      top: contributors,
+      count: contributors.length,
+    },
+  };
+}
+
+/**
+ * Get full contributor profiles for ecosystem (async)
+ * @returns {Promise<Object>} Contributor profiles with φ-scores
+ */
+async function getEcosystemContributors() {
+  const discovery = getContributorDiscovery();
+  if (!discovery) return null;
+
+  try {
+    const result = await discovery.fullEcosystemScan();
+    return result;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Generate contributor-aware alerts
+ * Alerts when key contributors haven't been active
+ */
+function generateContributorAlerts(status, contributors) {
+  const alerts = [];
+
+  if (!contributors?.contributors) return alerts;
+
+  // Find repos with single contributor (bus factor = 1)
+  for (const [repoName, repo] of Object.entries(status.repos)) {
+    const repoContribs = repo.contributors?.top || [];
+    if (repoContribs.length === 1 && repo.critical) {
+      alerts.push({
+        type: 'bus_factor_low',
+        severity: 'warning',
+        repo: repoName,
+        message: `${repoName} has only 1 active contributor (bus factor risk)`,
+        contributor: repoContribs[0]?.email,
+      });
+    }
+  }
+
+  return alerts;
+}
+
+// =============================================================================
 // EXPORTS
 // =============================================================================
 
@@ -745,4 +851,11 @@ module.exports = {
 
   // Paths
   getCockpitDir,
+
+  // Contributor Context (les rails dans le cerveau)
+  getRepoContributors,
+  enrichWithContributors,
+  getEcosystemContributors,
+  generateContributorAlerts,
+  getContributorDiscovery,
 };

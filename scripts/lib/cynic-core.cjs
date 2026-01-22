@@ -893,6 +893,67 @@ function mergeToolCounts(remote, local) {
 }
 
 // =============================================================================
+// CONTRIBUTOR DISCOVERY - "Les rails dans le cerveau"
+// Lazy-loaded for performance (contributor-discovery is heavy)
+// =============================================================================
+
+let _contributorDiscovery = null;
+
+function getContributorDiscovery() {
+  if (!_contributorDiscovery) {
+    try {
+      _contributorDiscovery = require('./contributor-discovery.cjs');
+    } catch (e) {
+      // Not available
+      return null;
+    }
+  }
+  return _contributorDiscovery;
+}
+
+/**
+ * Get contributor profile for the current git user
+ * @returns {Promise<Object|null>} Contributor profile with insights
+ */
+async function getContributorProfile() {
+  const discovery = getContributorDiscovery();
+  if (!discovery) return null;
+  return discovery.getCurrentUserProfile();
+}
+
+/**
+ * Get contributor profile by email
+ * @param {string} email - Contributor email
+ * @returns {Promise<Object|null>} Contributor profile
+ */
+async function getContributorByEmail(email) {
+  const discovery = getContributorDiscovery();
+  if (!discovery) return null;
+  return discovery.getProfile(email);
+}
+
+/**
+ * Discover all contributors across ecosystem
+ * @returns {Promise<Object>} Discovery results with repos and contributors
+ */
+async function discoverContributors() {
+  const discovery = getContributorDiscovery();
+  if (!discovery) return { repos: [], contributors: {} };
+  return discovery.fullEcosystemScan();
+}
+
+/**
+ * Get φ-scores for contributor (velocity, depth, breadth)
+ * @param {string} email - Contributor email
+ * @returns {Promise<Object|null>} φ-scores or null
+ */
+async function getContributorPhiScores(email) {
+  const profile = await getContributorByEmail(email);
+  if (!profile?.insights?.phiScores) return null;
+  return profile.insights.phiScores;
+}
+
+// =============================================================================
 // EXPORTS
 // =============================================================================
 
@@ -954,6 +1015,13 @@ module.exports = {
   loadProfileFromDB,
   syncProfileToDB,
   mergeProfiles,
+
+  // Contributor Discovery (les rails dans le cerveau)
+  getContributorProfile,
+  getContributorByEmail,
+  discoverContributors,
+  getContributorPhiScores,
+  getContributorDiscovery,
 
   // NOTE: Learnings persistence removed - uses PostgreSQL via brain_learning MCP tool
 };
