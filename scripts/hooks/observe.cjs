@@ -99,6 +99,7 @@ const psychologyPath = path.join(__dirname, '..', 'lib', 'human-psychology.cjs')
 let psychology = null;
 try {
   psychology = require(psychologyPath);
+  psychology.init();
 } catch (e) {
   // Psychology not available - continue without
 }
@@ -743,6 +744,34 @@ async function main() {
       console.log(JSON.stringify({
         continue: true,
         message: intervention.message,
+      }));
+      return;
+    }
+
+    // If biases detected but no intervention, show informative warning
+    // "Le chien voit ce que l'humain refuse de voir"
+    if (detectedBiases.length > 0 && cognitiveBiases) {
+      const highConfidenceBiases = detectedBiases.filter(b => b.confidence >= 0.5);
+      if (highConfidenceBiases.length > 0) {
+        const biasWarning = highConfidenceBiases
+          .map(b => cognitiveBiases.formatDetection(b))
+          .join('\n');
+        console.log(JSON.stringify({
+          continue: true,
+          message: `\n── COGNITIVE BIAS DETECTED ────────────────────────────────\n${biasWarning}\n`,
+        }));
+        return;
+      }
+    }
+
+    // If rabbit hole detected but no intervention, show informative warning
+    // "Le chien garde le chemin"
+    if (topologyState?.rabbitHole) {
+      const emoji = topologyState.rabbitHole.type === 'depth' ? '🐰' :
+                    topologyState.rabbitHole.type === 'relevance' ? '🌀' : '⏰';
+      console.log(JSON.stringify({
+        continue: true,
+        message: `\n── RABBIT HOLE DETECTED ───────────────────────────────────\n   ${emoji} ${topologyState.rabbitHole.suggestion}\n`,
       }));
       return;
     }
