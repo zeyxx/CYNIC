@@ -705,6 +705,23 @@ export class MCPServer {
       return;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PSYCHOLOGY ENDPOINTS - Cross-session persistence for human understanding
+    // "Comprendre l'humain pour mieux l'aider"
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Sync psychology state to database (called by sleep.cjs)
+    if (url.pathname === '/sync-psychology' && req.method === 'POST') {
+      await this._handlePsychologySync(req, res);
+      return;
+    }
+
+    // Load psychology state from database (called by awaken.cjs)
+    if (url.pathname === '/load-psychology' && req.method === 'GET') {
+      await this._handlePsychologyLoad(req, res, url);
+      return;
+    }
+
     // 404 for unknown routes
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Not found' }));
@@ -1008,6 +1025,91 @@ export class MCPServer {
       res.end(JSON.stringify(result));
     } catch (err) {
       console.error(`🐕 [HOOK] Error: ${err.message}`);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
+  /**
+   * Handle psychology sync (sleep.cjs → PostgreSQL)
+   * "Le chien apprend. L'apprentissage persiste."
+   * @private
+   */
+  async _handlePsychologySync(req, res) {
+    try {
+      // Parse request body
+      let body = '';
+      for await (const chunk of req) {
+        body += chunk;
+        if (body.length > MAX_BODY_SIZE) {
+          res.writeHead(413, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Request too large' }));
+          return;
+        }
+      }
+
+      const { userId, data } = body ? JSON.parse(body) : {};
+
+      if (!userId || !data) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'userId and data are required' }));
+        return;
+      }
+
+      if (!this.persistence) {
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Persistence not available' }));
+        return;
+      }
+
+      const result = await this.persistence.syncPsychology(userId, data);
+
+      console.error(`🧠 [PSYCHOLOGY] Synced for ${userId}`);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, result }));
+    } catch (err) {
+      console.error(`🧠 [PSYCHOLOGY] Sync error: ${err.message}`);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
+  /**
+   * Handle psychology load (awaken.cjs ← PostgreSQL)
+   * "Comprendre l'humain pour mieux l'aider"
+   * @private
+   */
+  async _handlePsychologyLoad(req, res, url) {
+    try {
+      const userId = url.searchParams.get('userId');
+
+      if (!userId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'userId is required' }));
+        return;
+      }
+
+      if (!this.persistence) {
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Persistence not available' }));
+        return;
+      }
+
+      const data = await this.persistence.loadPsychology(userId);
+
+      if (!data) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'No psychology data found for user' }));
+        return;
+      }
+
+      console.error(`🧠 [PSYCHOLOGY] Loaded for ${userId}`);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    } catch (err) {
+      console.error(`🧠 [PSYCHOLOGY] Load error: ${err.message}`);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: err.message }));
     }

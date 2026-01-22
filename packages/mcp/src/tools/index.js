@@ -196,6 +196,30 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
         timestamp: Date.now(),
       };
 
+      // ═══════════════════════════════════════════════════════════════════════════
+      // PSYCHOLOGY CONTEXT: Informative metadata about user state at judgment time
+      // "Comprendre l'humain pour mieux l'aider"
+      // NOTE: This is INFORMATIVE ONLY - does NOT affect judgment scores
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (persistence && sessionContext.userId) {
+        try {
+          const psychology = await persistence.loadPsychology(sessionContext.userId);
+          if (psychology) {
+            // Add as informative metadata (not used in scoring)
+            result.humanContext = {
+              note: 'INFORMATIVE ONLY - does not affect scores',
+              energy: psychology.dimensions?.energy?.value,
+              focus: psychology.dimensions?.focus?.value,
+              frustration: psychology.dimensions?.frustration?.value,
+              composites: calculatePsychologyComposites(psychology.dimensions, psychology.emotions),
+              sessionCount: psychology.sessionCount,
+            };
+          }
+        } catch (e) {
+          // Non-blocking - psychology context is optional
+        }
+      }
+
       // Include graph edge info if available
       if (judgment.graphEdge) {
         result.graphEdge = judgment.graphEdge;
@@ -1933,6 +1957,192 @@ export function createHealthTool(node, judge, persistence = null) {
       return health;
     },
   };
+}
+
+/**
+ * Create psychology tool definition
+ * "Comprendre l'humain pour mieux l'aider" - κυνικός
+ *
+ * Returns user's psychological state including:
+ * - Dimensions (energy, focus, creativity, frustration, confidence, risk appetite)
+ * - Emotions (joy, pride, anxiety, curiosity, boredom)
+ * - Composite states (flow, burnout risk, exploration, grind)
+ * - Detected cognitive biases
+ * - Learning calibration accuracy
+ * - E-Score (informative metadata)
+ *
+ * @param {Object} persistence - PersistenceManager instance
+ * @returns {Object} Tool definition
+ */
+export function createPsychologyTool(persistence = null) {
+  return {
+    name: 'brain_psychology',
+    description: 'Get human psychology dashboard showing energy, focus, emotions, biases, and learning calibration. Use for /psy command.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string', description: 'User ID (defaults to current user)' },
+        includeHistory: { type: 'boolean', description: 'Include recent intervention history' },
+        includeCalibration: { type: 'boolean', description: 'Include detailed calibration stats' },
+      },
+    },
+    handler: async (params) => {
+      const { userId, includeHistory = false, includeCalibration = true } = params;
+
+      const result = {
+        status: 'ok',
+        timestamp: Date.now(),
+        confidence: PHI_INV, // Max confidence for psychology assessment
+      };
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // PSYCHOLOGY STATE: Load from persistence if available
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (persistence && userId) {
+        try {
+          const psychology = await persistence.loadPsychology(userId);
+          if (psychology) {
+            result.dimensions = psychology.dimensions || {};
+            result.emotions = psychology.emotions || {};
+            result.temporal = psychology.temporal || {};
+            result.sessionCount = psychology.sessionCount || 0;
+            result.lastUpdated = psychology.lastUpdated;
+
+            // Calculate composite states
+            result.composites = calculatePsychologyComposites(psychology.dimensions, psychology.emotions);
+          }
+        } catch (e) {
+          result.psychologyError = e.message;
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // CALIBRATION: Learning loop accuracy
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (includeCalibration && persistence && userId) {
+        try {
+          const calibration = await persistence.getCalibrationStats(userId);
+          if (calibration) {
+            result.calibration = calibration;
+          }
+        } catch (e) {
+          // Calibration not available
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // INTERVENTION HISTORY: Recent interventions and effectiveness
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (includeHistory && persistence && userId) {
+        try {
+          const effectiveness = await persistence.getInterventionEffectiveness(userId);
+          if (effectiveness) {
+            result.interventionEffectiveness = effectiveness;
+          }
+        } catch (e) {
+          // History not available
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // AGGREGATE STATS: Overall psychology system stats
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (persistence) {
+        try {
+          result.systemStats = await persistence.getPsychologyStats();
+        } catch (e) {
+          // Stats not available
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // DETERMINE OVERALL STATE
+      // ═══════════════════════════════════════════════════════════════════════════
+      result.overallState = determineOverallState(result.dimensions, result.composites);
+
+      return result;
+    },
+  };
+}
+
+/**
+ * Calculate composite psychological states from dimensions and emotions
+ * @param {Object} dimensions - Core dimensions
+ * @param {Object} emotions - Emotional spectrum
+ * @returns {Object} Composite states
+ */
+function calculatePsychologyComposites(dimensions = {}, emotions = {}) {
+  const d = dimensions;
+  const e = emotions;
+
+  // Extract values with defaults
+  const energy = d.energy?.value ?? PHI_INV;
+  const focus = d.focus?.value ?? PHI_INV;
+  const creativity = d.creativity?.value ?? PHI_INV;
+  const frustration = d.frustration?.value ?? PHI_INV_2;
+  const curiosity = e.curiosity?.value ?? PHI_INV;
+  const boredom = e.boredom?.value ?? 0;
+  const riskAppetite = d.riskAppetite?.value ?? PHI_INV;
+
+  return {
+    // Flow: High energy + focus + creativity, low frustration
+    flow: energy > PHI_INV && focus > PHI_INV && creativity > PHI_INV_2 && frustration < PHI_INV_2,
+
+    // Burnout risk: Low energy + high frustration
+    burnoutRisk: energy < PHI_INV_2 && frustration > PHI_INV,
+
+    // Exploration: High curiosity + risk appetite
+    exploration: curiosity > PHI_INV && riskAppetite > PHI_INV_2,
+
+    // Grind: Low creativity, moderate focus (mechanical work)
+    grind: creativity < PHI_INV_2 && focus > PHI_INV_2 && energy > PHI_INV_2,
+
+    // Procrastination: Low focus, high boredom
+    procrastination: focus < PHI_INV_2 && boredom > PHI_INV_2,
+
+    // Breakthrough potential: High creativity + curiosity
+    breakthrough: creativity > PHI_INV && curiosity > PHI_INV,
+  };
+}
+
+/**
+ * Determine overall psychological state label
+ * @param {Object} dimensions - Core dimensions
+ * @param {Object} composites - Composite states
+ * @returns {Object} Overall state with label and emoji
+ */
+function determineOverallState(dimensions = {}, composites = {}) {
+  if (composites?.burnoutRisk) {
+    return { state: 'burnout_risk', label: 'Burnout Risk', emoji: '🔥' };
+  }
+  if (composites?.flow) {
+    return { state: 'flow', label: 'Flow', emoji: '✨' };
+  }
+  if (composites?.exploration) {
+    return { state: 'exploration', label: 'Exploration', emoji: '🔭' };
+  }
+  if (composites?.breakthrough) {
+    return { state: 'breakthrough', label: 'Breakthrough Potential', emoji: '💡' };
+  }
+  if (composites?.procrastination) {
+    return { state: 'procrastination', label: 'Low Focus', emoji: '😴' };
+  }
+  if (composites?.grind) {
+    return { state: 'grind', label: 'Grind Mode', emoji: '⚙️' };
+  }
+
+  // Default based on energy/focus
+  const energy = dimensions?.energy?.value ?? PHI_INV;
+  const focus = dimensions?.focus?.value ?? PHI_INV;
+
+  if (energy > PHI_INV && focus > PHI_INV) {
+    return { state: 'productive', label: 'Productive', emoji: '🚀' };
+  }
+  if (energy < PHI_INV_2) {
+    return { state: 'low_energy', label: 'Low Energy', emoji: '🔋' };
+  }
+
+  return { state: 'neutral', label: 'Neutral', emoji: '*tail wag*' };
 }
 
 /**
@@ -4627,6 +4837,7 @@ export function createAllTools(options = {}) {
     createTriggersTool({ judge, persistence }), // Auto-judgment triggers
     createDigestTool(persistence, sessionManager),
     createHealthTool(node, judge, persistence),
+    createPsychologyTool(persistence), // Human psychology dashboard
     createSearchTool(persistence),
     // Progressive Search Tools (3-layer retrieval for 10x token savings)
     createSearchIndexTool(persistence),
