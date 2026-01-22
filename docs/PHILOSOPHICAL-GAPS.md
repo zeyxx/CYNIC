@@ -79,8 +79,9 @@ Hook Integration:
 ├── observe.cjs: consciousness, signal-collector, cognitive-biases,
 │                topology-tracker, intervention-engine, harmony-analyzer,
 │                auto-judge, contributor-discovery, thermodynamics,
-│                cosmopolitan-learning
-├── guard.cjs: danger detection, security patterns
+│                cosmopolitan-learning, voluntary-poverty
+├── guard.cjs: danger detection, security patterns, physis-detector,
+│              voluntary-poverty (over-engineering warnings)
 ├── awaken.cjs: session initialization
 ├── digest.cjs: session summary
 └── sleep.cjs: session cleanup

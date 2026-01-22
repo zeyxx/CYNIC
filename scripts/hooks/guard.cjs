@@ -35,6 +35,26 @@ try {
   // Consciousness not available - continue without
 }
 
+// Load physis detector for convention challenging (Phase 7C)
+const physisPath = path.join(__dirname, '..', 'lib', 'physis-detector.cjs');
+let physisDetector = null;
+try {
+  physisDetector = require(physisPath);
+  physisDetector.init();
+} catch (e) {
+  // Physis detector not available - continue without
+}
+
+// Load voluntary poverty for over-engineering detection (Phase 10C)
+const povertyPath = path.join(__dirname, '..', 'lib', 'voluntary-poverty.cjs');
+let voluntaryPoverty = null;
+try {
+  voluntaryPoverty = require(povertyPath);
+  voluntaryPoverty.init();
+} catch (e) {
+  // Voluntary poverty not available - continue without
+}
+
 // =============================================================================
 // DANGER PATTERNS
 // =============================================================================
@@ -344,6 +364,66 @@ async function main() {
           message: `${f.description}`,
           action: f.severity === 'critical' ? 'block' : 'warn'
         })));
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // VOLUNTARY POVERTY: Check for over-engineering (Phase 10C)
+      // "Τῶν ἀναγκαίων μόνον - only what's necessary"
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (voluntaryPoverty && content.length > 0) {
+        try {
+          const linesAdded = (content.match(/\n/g) || []).length + 1;
+
+          // Track additions
+          voluntaryPoverty.recordAddition(filePath, linesAdded);
+
+          // Check for over-engineering signals
+          const povertyCheck = voluntaryPoverty.analyzeContent(content, filePath);
+
+          if (povertyCheck && povertyCheck.isOverEngineered) {
+            issues.push({
+              severity: 'low',
+              message: `*sniff* Over-engineering detected: ${povertyCheck.reason}`,
+              action: 'suggest'
+            });
+          }
+
+          // Challenge large additions (>162 lines, φ × 100)
+          if (linesAdded > 162 && toolName === 'Write') {
+            issues.push({
+              severity: 'low',
+              message: `*head tilt* ${linesAdded} lignes? Diogène demande: est-ce vraiment nécessaire?`,
+              action: 'suggest'
+            });
+          }
+        } catch (e) {
+          // Voluntary poverty check failed - continue without
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // PHYSIS DETECTOR: Challenge conventions (Phase 7C)
+      // "Κατὰ φύσιν ζῆν - vivre selon la nature"
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (physisDetector && content.length > 0) {
+        try {
+          // Detect convention patterns in code
+          const conventionCheck = physisDetector.analyzeCode(content, filePath);
+
+          if (conventionCheck && conventionCheck.conventions?.length > 0) {
+            // Only challenge with φ⁻² probability (38.2%) to not be annoying
+            if (Math.random() < 0.382) {
+              const convention = conventionCheck.conventions[0];
+              issues.push({
+                severity: 'low',
+                message: `*sniff* Convention détectée: "${convention.name}". Physis ou Nomos? (${convention.naturalScore < 0.5 ? 'probablement arbitraire' : 'semble naturel'})`,
+                action: 'suggest'
+              });
+            }
+          }
+        } catch (e) {
+          // Physis detection failed - continue without
+        }
       }
     }
 

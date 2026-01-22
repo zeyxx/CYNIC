@@ -124,6 +124,16 @@ try {
   // Cosmopolitan learning not available - continue without
 }
 
+// Load voluntary poverty for celebrating deletions (Phase 10C)
+const povertyPath = path.join(__dirname, '..', 'lib', 'voluntary-poverty.cjs');
+let voluntaryPoverty = null;
+try {
+  voluntaryPoverty = require(povertyPath);
+  voluntaryPoverty.init();
+} catch (e) {
+  // Voluntary poverty not available - continue without
+}
+
 // =============================================================================
 // PATTERN DETECTION
 // =============================================================================
@@ -565,6 +575,48 @@ async function main() {
       }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // VOLUNTARY POVERTY: Celebrate deletions (Phase 10C)
+    // "Diogène a jeté sa tasse - moins c'est plus"
+    // ═══════════════════════════════════════════════════════════════════════════
+    let deletionCelebration = null;
+    if (voluntaryPoverty && !isError) {
+      try {
+        // Track deletions from git rm or rm commands
+        if (toolName === 'Bash') {
+          const command = toolInput.command || '';
+          if (command.match(/\bgit\s+rm\b|\brm\s+/)) {
+            voluntaryPoverty.recordDeletion('file', 1);
+            deletionCelebration = voluntaryPoverty.getCelebration('file_deleted');
+          }
+        }
+
+        // Track line deletions in Edit (when old_string > new_string)
+        if (toolName === 'Edit') {
+          const oldString = toolInput.old_string || '';
+          const newString = toolInput.new_string || '';
+          const linesDiff = (oldString.match(/\n/g) || []).length - (newString.match(/\n/g) || []).length;
+
+          if (linesDiff > 0) {
+            voluntaryPoverty.recordDeletion('lines', linesDiff);
+            // Celebrate significant deletions (>5 lines)
+            if (linesDiff > 5) {
+              deletionCelebration = voluntaryPoverty.getCelebration('lines_deleted', linesDiff);
+            }
+          }
+        }
+
+        // Track successful refactoring (simplification)
+        const ratio = voluntaryPoverty.getAdditionDeletionRatio();
+        if (ratio && ratio < 1) {
+          // More deletions than additions - this is good!
+          voluntaryPoverty.recordSimplification();
+        }
+      } catch (e) {
+        // Voluntary poverty tracking failed - continue without
+      }
+    }
+
     // Send to MCP server (non-blocking)
     cynic.sendHookToCollectiveSync('PostToolUse', {
       toolName,
@@ -866,6 +918,18 @@ async function main() {
       console.log(JSON.stringify({
         continue: true,
         message: `\n── RABBIT HOLE DETECTED ───────────────────────────────────\n   ${emoji} ${topologyState.rabbitHole.suggestion}\n`,
+      }));
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // VOLUNTARY POVERTY: Celebrate deletions (Phase 10C)
+    // "Moins c'est plus" - Diogenes threw away his cup
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (deletionCelebration && Math.random() < 0.618) { // φ⁻¹ probability to not spam
+      console.log(JSON.stringify({
+        continue: true,
+        message: `\n── VOLUNTARY POVERTY ──────────────────────────────────────\n   🏺 ${deletionCelebration}\n   *tail wag* Less is more.\n`,
       }));
       return;
     }
