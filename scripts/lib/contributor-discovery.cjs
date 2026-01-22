@@ -72,6 +72,33 @@ function isGitRepo(dir) {
   return fs.existsSync(path.join(dir, '.git'));
 }
 
+/**
+ * Get repository owner from remote URL
+ * @param {string} repoPath - Path to repository
+ * @returns {Object} { owner, isEcosystem, origin }
+ */
+function getRepoOwnership(repoPath) {
+  const origin = git('remote get-url origin', repoPath);
+  if (!origin) {
+    return { owner: 'local', isEcosystem: false, origin: null };
+  }
+
+  // Parse GitHub URL: https://github.com/owner/repo or git@github.com:owner/repo
+  const match = origin.match(/github\.com[/:]([\w-]+)\/([\w-]+)/);
+  if (!match) {
+    return { owner: 'unknown', isEcosystem: false, origin };
+  }
+
+  const owner = match[1];
+  // Ecosystem = owned by zeyxx (the user building CYNIC)
+  const isEcosystem = owner.toLowerCase() === 'zeyxx';
+
+  return { owner, isEcosystem, origin };
+}
+
+// Known ecosystem owners (extend as needed)
+const ECOSYSTEM_OWNERS = new Set(['zeyxx']);
+
 // =============================================================================
 // DISCOVERY ENGINE
 // =============================================================================
@@ -122,11 +149,14 @@ function fullEcosystemScan(workspacePath = '/workspaces') {
     const repoName = path.basename(repoPath);
     const contributors = discoverContributors(repoPath);
     const commitCount = parseInt(git('rev-list --all --count', repoPath)) || 0;
+    const ownership = getRepoOwnership(repoPath);
 
     repoStats[repoName] = {
       path: repoPath,
       commits: commitCount,
       contributors: contributors.length,
+      owner: ownership.owner,
+      isEcosystem: ownership.isEcosystem,
     };
 
     for (const c of contributors) {
@@ -551,6 +581,10 @@ module.exports = {
   discoverRepos,
   discoverContributors,
   fullEcosystemScan,
+
+  // Ownership & Granularity
+  getRepoOwnership,
+  ECOSYSTEM_OWNERS,
 
   // Profiles
   getProfile,

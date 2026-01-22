@@ -31,14 +31,23 @@ const ALERT_TTL_MS = 3600000; // 1 hour
 const MAX_ALERTS = 100;
 
 // Known ecosystem repos and their roles
+// GRANULARITY: Only repos owned by zeyxx are part of the TRUE ecosystem
 const ECOSYSTEM_REPOS = {
-  'CYNIC-new': { role: 'core', critical: true },
-  'GASdf': { role: 'gasless', critical: true },
-  'HolDex': { role: 'kscore', critical: true },
-  'asdf-brain': { role: 'legacy-proto', critical: false },
-  'asdf-manifesto': { role: 'docs', critical: false },
-  'claude-mem': { role: 'deprecated', critical: false },
-  'framework-kit': { role: 'external', critical: false },
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TRUE CYNIC ECOSYSTEM (owned by zeyxx)
+  // ═══════════════════════════════════════════════════════════════════════════
+  'CYNIC-new': { role: 'core', critical: true, owner: 'zeyxx', ecosystem: true },
+  'GASdf': { role: 'gasless', critical: true, owner: 'zeyxx', ecosystem: true },
+  'HolDex': { role: 'kscore', critical: true, owner: 'zeyxx', ecosystem: true },
+  'asdf-brain': { role: 'legacy-proto', critical: false, owner: 'zeyxx', ecosystem: true },
+  'asdf-manifesto': { role: 'docs', critical: false, owner: 'zeyxx', ecosystem: true },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EXTERNAL TOOLS (not part of ecosystem - just in workspace)
+  // ═══════════════════════════════════════════════════════════════════════════
+  'claude-mem': { role: 'external-tool', critical: false, owner: 'thedotmack', ecosystem: false },
+  'framework-kit': { role: 'external-tool', critical: false, owner: 'solana-foundation', ecosystem: false },
+  'solana-dev-skill': { role: 'external-tool', critical: false, owner: 'GuiBibeau', ecosystem: false },
 };
 
 // Dependency map (who depends on whom)
