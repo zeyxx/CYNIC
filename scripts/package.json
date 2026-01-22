@@ -1,0 +1,12 @@
+{
+  "name": "@cynic/scripts",
+  "version": "1.0.0",
+  "description": "CYNIC hooks, engines, and local scripts",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.cjs",
+    "test:refinement": "node --test test/self-refinement.test.cjs",
+    "test:judge": "node --test test/auto-judge.test.cjs"
+  },
+  "keywords": ["cynic", "hooks", "philosophy", "consciousness"]
+}

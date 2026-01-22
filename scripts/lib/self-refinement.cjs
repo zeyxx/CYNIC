@@ -271,9 +271,11 @@ function selfRefine(judgment, context = {}, options = {}) {
     };
   }
 
-  const finalIteration = iterations[iterations.length - 1];
   const originalQ = judgment.Q || judgment.qScore || 50;
-  const finalQ = finalIteration?.refinement?.refinedQ || originalQ;
+  // Use currentJudgment which accumulates all improvements
+  const finalQ = currentJudgment.Q || currentJudgment.qScore || originalQ;
+  const finalVerdict = currentJudgment.verdict || judgment.verdict;
+  const finalBreakdown = currentJudgment.breakdown || judgment.breakdown || judgment.axiomScores;
 
   // Store in history
   const history = loadRefinementHistory();
@@ -296,7 +298,7 @@ function selfRefine(judgment, context = {}, options = {}) {
 
   return {
     original: { Q: originalQ, verdict: judgment.verdict, breakdown: judgment.breakdown || judgment.axiomScores },
-    final: { Q: finalQ, verdict: finalIteration?.refinement?.newVerdict || judgment.verdict, breakdown: finalIteration?.refinement?.refinedBreakdown || judgment.breakdown },
+    final: { Q: finalQ, verdict: finalVerdict, breakdown: finalBreakdown },
     iterations,
     improved,
     totalImprovement: finalQ - originalQ,
