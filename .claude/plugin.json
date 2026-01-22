@@ -12,6 +12,13 @@
   "agents": "agents/",
   "skills": "skills/",
 
+  "mcpServers": {
+    "cynic-mcp": {
+      "type": "sse",
+      "url": "https://cynic-mcp.onrender.com/mcp"
+    }
+  },
+
   "metadata": {
     "identity": {
       "name": "CYNIC",
