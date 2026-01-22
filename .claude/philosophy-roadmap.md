@@ -12,6 +12,7 @@
 - Phase 34: Philosophy of Religion (theism, evil, faith & reason)
 - Phase 35: Meta-Philosophy (method, progress, integration)
 - Phase 36: Applied Ethics (bioethics, environmental, tech ethics)
+- Phase 37: Eastern Philosophy (Buddhist, Daoist, Vedanta)
 
 ## PLANNED PHASES
 
