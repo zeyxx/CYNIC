@@ -56,8 +56,8 @@ This document tracks CYNIC's philosophical integration status across three pilla
 | **Parrhesia** | Core personality | `CLAUDE.md` ✅ |
 | **Chria** | `chria-database.cjs` | `perceive.cjs` ✅ |
 | **Cosmopolitanism** | `cosmopolitan-learning.cjs` | `observe.cjs` ✅ |
-| **Physis/Nomos** | `physis-detector.cjs` | Available |
-| **Voluntary Poverty** | `voluntary-poverty.cjs` | Available |
+| **Physis/Nomos** | `physis-detector.cjs` | `guard.cjs` ✅ |
+| **Voluntary Poverty** | `voluntary-poverty.cjs` | `guard.cjs` + `observe.cjs` ✅ |
 | **Transparent State** | `transparent-state.cjs` | Available |
 | **Role Reversal** | `role-reversal.cjs` | Available |
 | **Defacement** | `defacement-engine.cjs` | Available |
@@ -70,21 +70,23 @@ This document tracks CYNIC's philosophical integration status across three pilla
 
 ```
 Total Engines: 145
-├── Actively Integrated: ~25 (in hooks)
-├── Available/Standalone: ~120
+├── Actively Integrated: ~20 (in hooks)
+├── Available/Standalone: ~125
 └── Philosophy Phases: 19 (27-45)
 
 Hook Integration:
-├── perceive.cjs: elenchus, chria, ti-esti, definition-tracker
-├── observe.cjs: consciousness, signal-collector, cognitive-biases,
+├── perceive.cjs (UserPromptSubmit): elenchus, chria, ti-esti, definition-tracker
+├── observe.cjs (PostToolUse): consciousness, signal-collector, cognitive-biases,
 │                topology-tracker, intervention-engine, harmony-analyzer,
-│                auto-judge, contributor-discovery, thermodynamics,
-│                cosmopolitan-learning, voluntary-poverty
-├── guard.cjs: danger detection, security patterns, physis-detector,
-│              voluntary-poverty (over-engineering warnings)
-├── awaken.cjs: session initialization
-├── digest.cjs: session summary
-└── sleep.cjs: session cleanup
+│                auto-judge, contributor-discovery, cognitive-thermodynamics,
+│                cosmopolitan-learning, voluntary-poverty, human-psychology
+├── guard.cjs (PreToolUse): watchdog, circuit-breaker, consciousness,
+│              physis-detector, voluntary-poverty
+├── awaken.cjs (SessionStart): session initialization
+├── digest.cjs (Stop): session summary
+└── sleep.cjs (SessionEnd): session cleanup
+
+Total: ~20 unique engines integrated in hooks
 ```
 
 ---
@@ -119,13 +121,13 @@ Current: All EXCEED target ✅
 
 ## Future Evolution
 
-The 120+ available engines can be progressively integrated as needed.
+The ~125 remaining engines can be progressively integrated as needed.
 Priority for future integration:
 
 1. **heisenberg-confidence** → Add to judgment output (confidence bands)
-2. **physis-detector** → Add to guard.cjs (challenge conventions)
-3. **voluntary-poverty** → Add to guard.cjs (prevent over-engineering)
-4. **role-reversal** → Add to perceive.cjs (teaching moments)
+2. **role-reversal** → Add to perceive.cjs (teaching moments)
+3. **hypothesis-testing** → Add to perceive.cjs (Socratic validation)
+4. **dialectic-synthesizer** → Add to observe.cjs (synthesis of patterns)
 
 ---
 

@@ -2,20 +2,36 @@
   "hooks": {
     "SessionStart": [
       {
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/hooks/awaken.cjs"
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/hooks/awaken.cjs 2>/dev/null || true",
+            "timeout": 15
           }
         ]
       }
     ],
     "SessionEnd": [
       {
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/hooks/sleep.cjs"
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/hooks/sleep.cjs 2>/dev/null || true",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/hooks/perceive.cjs 2>/dev/null || true",
+            "timeout": 10
           }
         ]
       }
@@ -26,28 +42,32 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/hooks/guard.cjs"
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/hooks/guard.cjs 2>/dev/null || true",
+            "timeout": 5
           }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash|Write|Edit|Task",
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/hooks/observe.cjs"
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/hooks/observe.cjs 2>/dev/null || true",
+            "timeout": 5
           }
         ]
       }
     ],
     "Stop": [
       {
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/hooks/digest.cjs"
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/hooks/digest.cjs 2>/dev/null || true",
+            "timeout": 30
           }
         ]
       }
