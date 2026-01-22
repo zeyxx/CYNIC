@@ -7,13 +7,9 @@
 - Phase 29: Philosophy of Language (meaning, speech acts, truth)
 - Phase 30: Philosophy of Action (action theory, free will, practical reason)
 - Phase 31: Social & Political Philosophy (justice, social contract, rights)
+- Phase 32: Philosophy of Science (scientific method, explanation, theory change)
 
 ## PLANNED PHASES
-
-### Phase 32: Philosophy of Science
-- 32A: Scientific Method Engine (Popper/Kuhn)
-- 32B: Explanation Engine (DN model, causation)
-- 32C: Theory Change Engine (paradigm shifts, Lakatos)
 
 ### Phase 33: Metaphysics II
 - 33A: Identity Engine (Leibniz, Ship of Theseus)

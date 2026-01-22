@@ -1,22 +1,16 @@
 /**
- * Explanation Engine - Models of Scientific Explanation
+ * Explanation Engine - DN Model, Causation
  *
- * Philosophy: Hempel's D-N model says explanation subsumes events
- * under laws. Salmon's causal-mechanical model traces physical
- * processes. Van Fraassen emphasizes contrastive explanation:
- * "Why P rather than Q?"
+ * "To explain a phenomenon is to show that it was to be expected."
+ * — Carl Hempel
  *
- * Key concepts:
- * - D-N model: Explanation via laws and initial conditions
- * - I-S model: Inductive-statistical explanation (probabilistic)
- * - Causal-mechanical: Tracing causal processes
- * - Contrastive: Why this rather than that?
- * - Functional: Purpose-based explanation
+ * Implements:
+ * - Deductive-Nomological (DN) model (Hempel)
+ * - Causal-mechanical explanation
+ * - Unificationist explanation
+ * - Statistical explanation (IS model)
  *
- * In CYNIC: Construct and evaluate explanations, identify
- * explanatory gaps, compare explanatory power.
- *
- * @module explanation-engine
+ * φ guides confidence in explanatory assessments.
  */
 
 const fs = require('fs');
@@ -24,590 +18,631 @@ const path = require('path');
 
 // φ constants
 const PHI = 1.618033988749895;
-const PHI_INV = 0.6180339887498949;
-const PHI_INV_2 = 0.3819660112501051;
-const PHI_INV_3 = 0.2360679774997897;
+const PHI_INV = 0.618033988749895;      // 61.8% - max confidence
+const PHI_INV_2 = 0.381966011250105;    // 38.2%
+const PHI_INV_3 = 0.236067977499790;    // 23.6%
 
 // Storage
-const CYNIC_DIR = path.join(process.env.HOME || '/tmp', '.cynic');
-const EXPLANATION_DIR = path.join(CYNIC_DIR, 'explanation');
-const STATE_FILE = path.join(EXPLANATION_DIR, 'state.json');
-const HISTORY_FILE = path.join(EXPLANATION_DIR, 'history.jsonl');
+const STORAGE_DIR = path.join(require('os').homedir(), '.cynic', 'explanation');
 
-// Constants
-const MAX_EXPLANATIONS = Math.round(PHI * 80);    // ~130
-const MAX_LAWS = Math.round(PHI * 30);            // ~49
-const ADEQUACY_THRESHOLD = PHI_INV;               // 0.618
+// Deductive-Nomological Model (Hempel)
+const DN_MODEL = {
+  name: 'Deductive-Nomological Model',
+  aka: 'Covering Law Model',
+  proponent: 'Carl Hempel (with Paul Oppenheim)',
 
-/**
- * Explanation types (models)
- */
-const EXPLANATION_TYPES = {
-  deductive_nomological: {
-    name: 'Deductive-Nomological',
-    description: 'Explanation via laws and initial conditions (Hempel)',
-    symbol: 'DN',
-    requirements: ['law', 'initial_conditions'],
-    strength: PHI_INV + PHI_INV_3,
+  structure: {
+    explanans: {
+      description: 'The explaining part',
+      components: [
+        'General laws (L1, L2, ...)',
+        'Initial/antecedent conditions (C1, C2, ...)'
+      ]
+    },
+    explanandum: {
+      description: 'The phenomenon to be explained (E)',
+      derivation: 'E is logically deduced from explanans'
+    }
   },
-  inductive_statistical: {
-    name: 'Inductive-Statistical',
-    description: 'Probabilistic explanation (high probability)',
-    symbol: 'IS',
-    requirements: ['statistical_law', 'conditions'],
-    strength: PHI_INV,
+
+  requirements: {
+    deductive: 'E must follow logically from premises',
+    lawlike: 'Must contain at least one general law',
+    empirical: 'Premises must have empirical content',
+    truePremises: 'Premises must be true'
   },
-  causal_mechanical: {
-    name: 'Causal-Mechanical',
-    description: 'Tracing physical causal processes (Salmon)',
-    symbol: 'CM',
-    requirements: ['causal_process', 'mechanism'],
-    strength: PHI_INV + PHI_INV_2,
+
+  example: {
+    laws: ['All metals expand when heated'],
+    conditions: ['This rod is metal', 'This rod was heated'],
+    explanandum: 'This rod expanded'
   },
-  contrastive: {
-    name: 'Contrastive',
-    description: 'Why P rather than Q? (Van Fraassen)',
-    symbol: 'CT',
-    requirements: ['fact', 'foil', 'difference_maker'],
-    strength: PHI_INV,
-  },
-  functional: {
-    name: 'Functional/Teleological',
-    description: 'Explanation by purpose or function',
-    symbol: 'FN',
-    requirements: ['function', 'system'],
-    strength: PHI_INV_2,
-  },
-  unification: {
-    name: 'Unification',
-    description: 'Explanation through pattern subsumption (Kitcher)',
-    symbol: 'UN',
-    requirements: ['pattern', 'instances'],
-    strength: PHI_INV,
-  },
+
+  quote: 'To explain is to subsume under general laws'
 };
 
-/**
- * Explanatory virtues (what makes a good explanation)
- */
-const EXPLANATORY_VIRTUES = {
-  simplicity: {
-    name: 'Simplicity',
-    description: 'Fewer assumptions, parsimony',
-    weight: PHI_INV_2,
-    symbol: '○',
+// Problems with DN Model
+const DN_PROBLEMS = {
+  asymmetry: {
+    name: 'Asymmetry Problem',
+    description: 'DN allows explanations that get direction wrong',
+    example: {
+      correct: 'Flagpole height + sun angle → shadow length',
+      incorrect: 'Shadow length + sun angle → flagpole height',
+      problem: 'Both are valid DN explanations, but only first is genuine'
+    },
+    lesson: 'Explanation requires causal asymmetry'
   },
-  scope: {
-    name: 'Scope',
-    description: 'Explains more phenomena',
-    weight: PHI_INV,
-    symbol: '◎',
+  irrelevance: {
+    name: 'Irrelevance Problem',
+    description: 'DN allows irrelevant factors in explanation',
+    example: {
+      silly: 'All men who take birth control pills fail to get pregnant. John takes pills. John fails to get pregnant.',
+      problem: 'Valid DN form but pills are irrelevant'
+    },
+    lesson: 'Need relevance criterion beyond logical deduction'
   },
-  precision: {
-    name: 'Precision',
-    description: 'Makes specific predictions',
-    weight: PHI_INV_2,
-    symbol: '◇',
-  },
-  fruitfulness: {
-    name: 'Fruitfulness',
-    description: 'Leads to new discoveries',
-    weight: PHI_INV_3,
-    symbol: '✧',
-  },
-  mechanism: {
-    name: 'Mechanism',
-    description: 'Identifies causal process',
-    weight: PHI_INV,
-    symbol: '⚙',
-  },
-  coherence: {
-    name: 'Coherence',
-    description: 'Fits with other knowledge',
-    weight: PHI_INV_2,
-    symbol: '◈',
-  },
+  accidentalGeneralizations: {
+    name: 'Accidental Generalizations',
+    description: 'DN cannot distinguish laws from accidents',
+    example: {
+      law: 'All copper conducts electricity',
+      accident: 'All coins in my pocket are silver',
+      problem: 'Both have same logical form'
+    },
+    lesson: 'Need account of lawhood'
+  }
 };
 
-/**
- * Explanation adequacy levels
- */
-const ADEQUACY_LEVELS = {
-  inadequate: {
-    threshold: 0,
-    name: 'Inadequate',
-    description: 'Missing critical components',
-    symbol: '✕',
+// Alternative Explanation Models
+const EXPLANATION_MODELS = {
+  causalMechanical: {
+    name: 'Causal-Mechanical Model',
+    proponent: 'Wesley Salmon',
+    core: 'Explanation traces causal mechanisms',
+    components: [
+      'Causal processes (worldlines)',
+      'Causal interactions (intersections)',
+      'Mechanisms connecting cause to effect'
+    ],
+    advantage: 'Handles asymmetry - causes precede effects',
+    example: 'Ball breaks window: trace ball trajectory, impact mechanism'
   },
-  partial: {
-    threshold: PHI_INV_3,
-    name: 'Partial',
-    description: 'Some explanatory value',
-    symbol: '◔',
+  unificationist: {
+    name: 'Unificationist Model',
+    proponents: ['Friedman', 'Kitcher'],
+    core: 'Explanation unifies diverse phenomena under few patterns',
+    measure: 'Better explanation = more phenomena with fewer patterns',
+    example: 'Newton unified falling apples and planetary orbits',
+    advantage: 'Captures explanatory power of grand theories'
   },
-  moderate: {
-    threshold: PHI_INV_2,
-    name: 'Moderate',
-    description: 'Reasonably explains',
-    symbol: '◑',
+  pragmatic: {
+    name: 'Pragmatic/Contrastive Model',
+    proponent: 'Bas van Fraassen',
+    core: 'Explanation answers why-questions in context',
+    structure: 'Why P rather than Q? (contrast class)',
+    contextual: 'What counts as explanation depends on questioner',
+    advantage: 'Handles context-sensitivity of explanation'
   },
-  adequate: {
-    threshold: PHI_INV,
-    name: 'Adequate',
-    description: 'Good explanation',
-    symbol: '◕',
-  },
-  excellent: {
-    threshold: PHI_INV + PHI_INV_2,
-    name: 'Excellent',
-    description: 'Comprehensive explanation',
-    symbol: '●',
-  },
+  statisticalRelevance: {
+    name: 'Statistical Relevance Model',
+    proponent: 'Salmon',
+    core: 'Explanation cites statistically relevant factors',
+    criterion: 'Factor F explains E if P(E|F) ≠ P(E)',
+    improvement: 'Goes beyond IS model high probability requirement'
+  }
 };
 
-// In-memory state
-let state = {
-  explanations: {},    // Constructed explanations
-  laws: {},            // Known laws/generalizations
-  explananda: [],      // Things to be explained
-  stats: {
-    explanationsConstructed: 0,
-    lawsRegistered: 0,
-    adequateExplanations: 0,
-    contrastiveQueries: 0,
+// Inductive-Statistical Model (Hempel)
+const IS_MODEL = {
+  name: 'Inductive-Statistical Model',
+  description: 'Explanation using statistical laws',
+
+  example: {
+    law: 'P(recovery|takes antibiotic) = 0.95',
+    condition: 'Jones took antibiotic',
+    explanandum: 'Jones recovered'
   },
+
+  requirements: {
+    highProbability: 'Probability must be high (how high?)',
+    maximalSpecificity: 'Use most specific reference class available'
+  },
+
+  problems: {
+    lowProbability: 'Cannot explain unlikely events (but they happen)',
+    referenceClass: 'Which reference class? (single-case problem)'
+  }
+};
+
+// Causation Theories
+const CAUSATION = {
+  regularityTheory: {
+    name: 'Regularity Theory',
+    proponent: 'Hume',
+    thesis: 'Causation is constant conjunction',
+    definition: 'A causes B iff events like A are regularly followed by events like B',
+    problems: [
+      'Confuses correlation with causation',
+      'Cannot handle single-case causation',
+      'No direction (why not B causes A?)'
+    ]
+  },
+  counterfactualTheory: {
+    name: 'Counterfactual Theory',
+    proponent: 'David Lewis',
+    thesis: 'Causation is counterfactual dependence',
+    definition: 'A causes B iff: if A had not occurred, B would not have occurred',
+    advantages: ['Handles single cases', 'Captures causal relevance'],
+    problems: [
+      'Preemption cases',
+      'Overdetermination',
+      'Relies on controversial possible worlds semantics'
+    ]
+  },
+  manipulationist: {
+    name: 'Manipulationist/Interventionist Theory',
+    proponent: 'James Woodward',
+    thesis: 'Causation is potential for manipulation',
+    definition: 'A causes B iff intervening on A would change B',
+    slogan: 'No causation without manipulation',
+    advantages: ['Connects to experimental method', 'Handles causal direction'],
+    problems: ['Anthropocentric?', 'Unmanipulable causes (big bang)?']
+  },
+  processCausation: {
+    name: 'Process Causation',
+    proponent: 'Salmon',
+    thesis: 'Causation involves transmission of conserved quantities',
+    definition: 'Causal process transmits mark/conserved quantity',
+    advantages: ['Physical foundation', 'Direction from temporal order'],
+    problems: ['Negative causation (absences as causes)']
+  }
+};
+
+// State
+const state = {
+  explanations: new Map(),
+  analyses: [],
+  causalClaims: []
 };
 
 /**
  * Initialize the explanation engine
  */
 function init() {
-  if (!fs.existsSync(EXPLANATION_DIR)) {
-    fs.mkdirSync(EXPLANATION_DIR, { recursive: true });
+  if (!fs.existsSync(STORAGE_DIR)) {
+    fs.mkdirSync(STORAGE_DIR, { recursive: true });
   }
 
-  if (fs.existsSync(STATE_FILE)) {
+  const statePath = path.join(STORAGE_DIR, 'state.json');
+  if (fs.existsSync(statePath)) {
     try {
-      state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
-    } catch (e) {
+      const saved = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+      if (saved.explanations) state.explanations = new Map(Object.entries(saved.explanations));
+      if (saved.analyses) state.analyses = saved.analyses;
+      if (saved.causalClaims) state.causalClaims = saved.causalClaims;
+    } catch {
       // Start fresh
     }
   }
+
+  return { status: 'initialized', explanations: state.explanations.size };
 }
 
 /**
- * Save state to disk
+ * Save state
  */
 function saveState() {
-  fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
-}
-
-/**
- * Log to history
- */
-function logHistory(event) {
-  const entry = { timestamp: Date.now(), ...event };
-  fs.appendFileSync(HISTORY_FILE, JSON.stringify(entry) + '\n');
-}
-
-/**
- * Register a law or generalization
- *
- * @param {string} content - Law statement
- * @param {object} config - Configuration
- * @returns {object} Registered law
- */
-function registerLaw(content, config = {}) {
-  if (Object.keys(state.laws).length >= MAX_LAWS) {
-    // Remove oldest
-    const oldest = Object.entries(state.laws)
-      .sort((a, b) => a[1].registeredAt - b[1].registeredAt)[0];
-    if (oldest) delete state.laws[oldest[0]];
-  }
-
-  const id = `law-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-
-  const law = {
-    id,
-    content,
-    type: config.type || 'empirical',  // empirical, statistical, logical
-    domain: config.domain || 'general',
-    universality: config.universality || PHI_INV,  // How universal
-    exceptions: config.exceptions || [],
-    registeredAt: Date.now(),
+  const statePath = path.join(STORAGE_DIR, 'state.json');
+  const toSave = {
+    explanations: Object.fromEntries(state.explanations),
+    analyses: state.analyses,
+    causalClaims: state.causalClaims
   };
-
-  state.laws[id] = law;
-  state.stats.lawsRegistered++;
-
-  saveState();
-
-  return law;
+  fs.writeFileSync(statePath, JSON.stringify(toSave, null, 2));
 }
 
 /**
- * Construct an explanation
- *
- * @param {string} explanandum - What is being explained
- * @param {string} type - Explanation type
- * @param {object} components - Explanation components
- * @returns {object} Constructed explanation
+ * Create a DN-style explanation
  */
-function construct(explanandum, type, components) {
-  if (Object.keys(state.explanations).length >= MAX_EXPLANATIONS) {
-    pruneExplanations();
-  }
-
-  const explType = EXPLANATION_TYPES[type] || EXPLANATION_TYPES.deductive_nomological;
-  const id = `expl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-
+function createDNExplanation(id, spec = {}) {
   const explanation = {
     id,
-    explanandum,
-    type,
-    typeInfo: explType,
-    // Components based on type
-    components: {
-      law: components.law || null,
-      initial_conditions: components.initial_conditions || [],
-      statistical_law: components.statistical_law || null,
-      probability: components.probability || null,
-      causal_process: components.causal_process || null,
-      mechanism: components.mechanism || null,
-      fact: components.fact || explanandum,
-      foil: components.foil || null,
-      difference_maker: components.difference_maker || null,
-      function: components.function || null,
-      system: components.system || null,
-      pattern: components.pattern || null,
-      instances: components.instances || [],
+    type: 'deductive-nomological',
+
+    // Explanans
+    laws: spec.laws || [],
+    conditions: spec.conditions || [],
+
+    // Explanandum
+    explanandum: spec.explanandum || null,
+
+    // Validity check
+    validity: {
+      hasLaws: false,
+      hasConditions: false,
+      deductivelyValid: false,
+      empiricalContent: false
     },
-    // Evaluation
-    completeness: 0,
-    adequacy: 0,
-    adequacyLevel: null,
-    virtues: {},
-    gaps: [],
-    constructedAt: Date.now(),
+
+    // Problems check
+    problems: {
+      asymmetry: false,
+      irrelevance: false
+    },
+
+    // Status
+    status: 'proposed',
+
+    createdAt: Date.now()
   };
 
-  // Evaluate completeness
-  explanation.completeness = evaluateCompleteness(explanation);
-  explanation.gaps = identifyGaps(explanation);
+  // Check validity
+  explanation.validity.hasLaws = explanation.laws.length > 0;
+  explanation.validity.hasConditions = explanation.conditions.length > 0;
+  explanation.validity.deductivelyValid = spec.deductivelyValid !== false;
+  explanation.validity.empiricalContent = spec.empiricalContent !== false;
 
-  state.explanations[id] = explanation;
-  state.stats.explanationsConstructed++;
-
-  logHistory({
-    type: 'explanation_constructed',
-    id,
-    explanandum: explanandum.slice(0, 50),
-    explanationType: type,
-  });
-
+  state.explanations.set(id, explanation);
   saveState();
 
   return explanation;
 }
 
 /**
- * Prune old explanations
+ * Evaluate a DN explanation
  */
-function pruneExplanations() {
-  const sorted = Object.entries(state.explanations)
-    .sort((a, b) => (a[1].constructedAt || 0) - (b[1].constructedAt || 0));
-
-  const toRemove = sorted.slice(0, Math.round(MAX_EXPLANATIONS * PHI_INV_3));
-  for (const [id] of toRemove) {
-    delete state.explanations[id];
+function evaluateDNExplanation(explanationId) {
+  const exp = state.explanations.get(explanationId);
+  if (!exp) {
+    return { error: 'Explanation not found' };
   }
+
+  const evaluation = {
+    explanationId,
+
+    // Hempel requirements
+    hempelRequirements: {
+      deductive: exp.validity.deductivelyValid,
+      containsLaws: exp.validity.hasLaws,
+      empiricalContent: exp.validity.empiricalContent,
+      truthOfPremises: 'assumed true'
+    },
+
+    // All requirements met?
+    validDN: null,
+
+    // Problem check
+    knownProblems: {
+      asymmetryRisk: 'Check if explanation could run in reverse',
+      irrelevanceRisk: 'Check if all factors are genuinely relevant',
+      accidentRisk: 'Check if laws are genuine laws or accidents'
+    },
+
+    // Alternative evaluation
+    alternativeViews: {
+      causalMechanical: 'Does explanation cite causal mechanism?',
+      unificationist: 'Does explanation unify diverse phenomena?',
+      pragmatic: 'Is explanation appropriate to context?'
+    },
+
+    // Overall assessment
+    assessment: null,
+
+    confidence: PHI_INV_2,
+    timestamp: Date.now()
+  };
+
+  // Check if valid DN
+  evaluation.validDN =
+    evaluation.hempelRequirements.deductive &&
+    evaluation.hempelRequirements.containsLaws &&
+    evaluation.hempelRequirements.empiricalContent;
+
+  // Overall assessment
+  if (evaluation.validDN) {
+    evaluation.assessment = 'VALID DN EXPLANATION (subject to known problems)';
+  } else {
+    const missing = [];
+    if (!evaluation.hempelRequirements.deductive) missing.push('non-deductive');
+    if (!evaluation.hempelRequirements.containsLaws) missing.push('no laws');
+    if (!evaluation.hempelRequirements.empiricalContent) missing.push('no empirical content');
+    evaluation.assessment = 'INVALID DN: ' + missing.join(', ');
+  }
+
+  state.analyses.push(evaluation);
+  saveState();
+
+  return evaluation;
 }
 
 /**
- * Evaluate explanation completeness
+ * Create a causal explanation
  */
-function evaluateCompleteness(explanation) {
-  const required = explanation.typeInfo.requirements;
-  let provided = 0;
+function createCausalExplanation(id, spec = {}) {
+  const explanation = {
+    id,
+    type: 'causal-mechanical',
 
-  for (const req of required) {
-    const component = explanation.components[req];
-    if (component !== null && component !== undefined) {
-      if (Array.isArray(component)) {
-        if (component.length > 0) provided++;
-      } else {
-        provided++;
+    // Causal structure
+    cause: spec.cause || null,
+    effect: spec.effect || null,
+    mechanism: spec.mechanism || null,
+
+    // Causal chain
+    chain: spec.chain || [],
+
+    // Counterfactual test
+    counterfactual: {
+      ifCauseAbsent: spec.ifCauseAbsent || null,
+      wouldEffectOccur: spec.wouldEffectOccur || null
+    },
+
+    // Causal theory used
+    theory: spec.theory || 'counterfactual',
+
+    createdAt: Date.now()
+  };
+
+  state.explanations.set(id, explanation);
+  saveState();
+
+  return explanation;
+}
+
+/**
+ * Analyze a causal claim
+ */
+function analyzeCausalClaim(spec) {
+  const analysis = {
+    claim: spec.cause + ' causes ' + spec.effect,
+    cause: spec.cause,
+    effect: spec.effect,
+
+    // Test under different theories
+    theories: {
+      regularity: {
+        name: 'Regularity (Hume)',
+        question: 'Is there constant conjunction?',
+        answer: spec.constantConjunction || 'unknown',
+        verdict: null
+      },
+      counterfactual: {
+        name: 'Counterfactual (Lewis)',
+        question: 'Would effect occur if cause absent?',
+        answer: spec.counterfactualDependence || 'unknown',
+        verdict: null
+      },
+      manipulationist: {
+        name: 'Interventionist (Woodward)',
+        question: 'Would intervening on cause change effect?',
+        answer: spec.interventionWorks || 'unknown',
+        verdict: null
+      },
+      process: {
+        name: 'Process (Salmon)',
+        question: 'Is there causal process connecting them?',
+        answer: spec.causalProcess || 'unknown',
+        verdict: null
       }
+    },
+
+    // Overall verdict
+    causalClaim: null,
+    confidence: PHI_INV_3,
+
+    timestamp: Date.now()
+  };
+
+  // Evaluate under each theory
+  for (const [key, theory] of Object.entries(analysis.theories)) {
+    if (theory.answer === true || theory.answer === 'yes') {
+      theory.verdict = 'SUPPORTED';
+    } else if (theory.answer === false || theory.answer === 'no') {
+      theory.verdict = 'NOT SUPPORTED';
+    } else {
+      theory.verdict = 'UNKNOWN';
     }
   }
 
-  return required.length > 0 ? provided / required.length : 0;
-}
+  // Overall verdict
+  const supported = Object.values(analysis.theories)
+    .filter(t => t.verdict === 'SUPPORTED').length;
 
-/**
- * Identify gaps in explanation
- */
-function identifyGaps(explanation) {
-  const gaps = [];
-  const required = explanation.typeInfo.requirements;
-
-  for (const req of required) {
-    const component = explanation.components[req];
-    if (component === null || component === undefined ||
-        (Array.isArray(component) && component.length === 0)) {
-      gaps.push({
-        component: req,
-        message: `Missing required component: ${req.replace(/_/g, ' ')}`,
-      });
-    }
+  if (supported >= 3) {
+    analysis.causalClaim = 'STRONG CAUSAL CLAIM';
+    analysis.confidence = PHI_INV_2;
+  } else if (supported >= 2) {
+    analysis.causalClaim = 'MODERATE CAUSAL CLAIM';
+    analysis.confidence = PHI_INV_3;
+  } else if (supported >= 1) {
+    analysis.causalClaim = 'WEAK CAUSAL CLAIM';
+    analysis.confidence = PHI_INV_3 * 0.5;
+  } else {
+    analysis.causalClaim = 'INSUFFICIENT EVIDENCE FOR CAUSATION';
+    analysis.confidence = PHI_INV_3 * 0.25;
   }
 
-  return gaps;
-}
-
-/**
- * Evaluate explanation adequacy
- *
- * @param {string} explanationId - Explanation ID
- * @param {object} virtueScores - Scores for explanatory virtues
- * @returns {object} Adequacy evaluation
- */
-function evaluate(explanationId, virtueScores = {}) {
-  const explanation = state.explanations[explanationId];
-  if (!explanation) return { error: 'Explanation not found' };
-
-  // Base adequacy from completeness and type strength
-  let adequacy = explanation.completeness * explanation.typeInfo.strength;
-
-  // Apply virtue scores
-  let virtueBonus = 0;
-  let virtueCount = 0;
-
-  for (const [virtue, score] of Object.entries(virtueScores)) {
-    const virtueInfo = EXPLANATORY_VIRTUES[virtue];
-    if (virtueInfo) {
-      explanation.virtues[virtue] = score;
-      virtueBonus += score * virtueInfo.weight;
-      virtueCount++;
-    }
-  }
-
-  if (virtueCount > 0) {
-    adequacy += virtueBonus / virtueCount;
-  }
-
-  // Normalize
-  adequacy = Math.min(1, adequacy);
-
-  explanation.adequacy = adequacy;
-  explanation.adequacyLevel = getAdequacyLevel(adequacy);
-
-  if (adequacy >= ADEQUACY_THRESHOLD) {
-    state.stats.adequateExplanations++;
-  }
-
+  state.causalClaims.push(analysis);
   saveState();
 
+  return analysis;
+}
+
+/**
+ * Compare explanation models
+ */
+function compareExplanationModels() {
   return {
-    explanation,
-    adequacy: Math.round(adequacy * 100),
-    level: explanation.adequacyLevel,
-    completeness: Math.round(explanation.completeness * 100),
-    gaps: explanation.gaps,
-    virtues: explanation.virtues,
-    message: formatAdequacyMessage(explanation),
+    comparison: 'Models of Scientific Explanation',
+
+    dnModel: {
+      name: DN_MODEL.name,
+      core: 'Subsume under covering laws',
+      strength: 'Clear logical structure',
+      weakness: 'Asymmetry, irrelevance problems'
+    },
+
+    causalMechanical: {
+      name: EXPLANATION_MODELS.causalMechanical.name,
+      core: 'Trace causal mechanisms',
+      strength: 'Handles asymmetry',
+      weakness: 'What counts as mechanism?'
+    },
+
+    unificationist: {
+      name: EXPLANATION_MODELS.unificationist.name,
+      core: 'Unify phenomena under few patterns',
+      strength: 'Captures explanatory power',
+      weakness: 'How to measure unification?'
+    },
+
+    pragmatic: {
+      name: EXPLANATION_MODELS.pragmatic.name,
+      core: 'Answer context-dependent why-questions',
+      strength: 'Handles context-sensitivity',
+      weakness: 'Too relativistic?'
+    },
+
+    synthesis: {
+      observation: 'Each model captures something important',
+      pluralism: 'Perhaps explanation is multi-faceted',
+      cynicView: 'Use all models, trust none absolutely'
+    },
+
+    confidence: PHI_INV,
+    timestamp: Date.now()
   };
 }
 
 /**
- * Get adequacy level from score
+ * Analyze explanation type
  */
-function getAdequacyLevel(score) {
-  for (const [name, config] of Object.entries(ADEQUACY_LEVELS).reverse()) {
-    if (score >= config.threshold) {
-      return { name, ...config };
-    }
+function analyzeExplanationType(spec) {
+  const analysis = {
+    description: spec.description || 'Explanation',
+
+    // Classify type
+    typeAnalysis: {
+      isDN: spec.hasLaws && spec.deductive,
+      isCausal: spec.citesCause && spec.citesMechanism,
+      isUnificationist: spec.unifiesPhenomena,
+      isPragmatic: spec.answersWhyQuestion,
+      isStatistical: spec.usesStatistics
+    },
+
+    // Best model
+    bestModel: null,
+    reasoning: null,
+
+    // Quality indicators
+    quality: {
+      specificity: spec.specific || false,
+      depth: spec.providesDepth || false,
+      scope: spec.broadScope || false,
+      predictive: spec.enablesPrediction || false
+    },
+
+    confidence: PHI_INV_2,
+    timestamp: Date.now()
+  };
+
+  // Determine best model
+  if (analysis.typeAnalysis.isCausal) {
+    analysis.bestModel = 'Causal-Mechanical';
+    analysis.reasoning = 'Cites cause and mechanism';
+  } else if (analysis.typeAnalysis.isDN) {
+    analysis.bestModel = 'Deductive-Nomological';
+    analysis.reasoning = 'Subsumes under laws';
+  } else if (analysis.typeAnalysis.isUnificationist) {
+    analysis.bestModel = 'Unificationist';
+    analysis.reasoning = 'Unifies diverse phenomena';
+  } else if (analysis.typeAnalysis.isStatistical) {
+    analysis.bestModel = 'Inductive-Statistical';
+    analysis.reasoning = 'Uses statistical regularities';
+  } else if (analysis.typeAnalysis.isPragmatic) {
+    analysis.bestModel = 'Pragmatic';
+    analysis.reasoning = 'Context-sensitive why-question answer';
+  } else {
+    analysis.bestModel = 'Unclear';
+    analysis.reasoning = 'Does not fit standard models';
   }
-  return ADEQUACY_LEVELS.inadequate;
-}
 
-/**
- * Format adequacy message
- */
-function formatAdequacyMessage(explanation) {
-  const level = explanation.adequacyLevel;
-  const gaps = explanation.gaps;
-
-  if (gaps.length > 0) {
-    return `${level.symbol} ${level.name}: Missing ${gaps.map(g => g.component).join(', ')}`;
-  }
-  return `${level.symbol} ${level.name}: ${explanation.explanandum.slice(0, 40)}...`;
-}
-
-/**
- * Construct a D-N explanation
- *
- * @param {string} explanandum - What to explain
- * @param {string} lawId - Law ID to use
- * @param {array} conditions - Initial conditions
- * @returns {object} D-N explanation
- */
-function explainDN(explanandum, lawId, conditions) {
-  const law = state.laws[lawId];
-  if (!law) return { error: 'Law not found' };
-
-  const explanation = construct(explanandum, 'deductive_nomological', {
-    law: law.content,
-    initial_conditions: conditions,
-  });
-
-  return {
-    explanation,
-    structure: {
-      premises: [law.content, ...conditions],
-      conclusion: explanandum,
-      form: 'If Law and Conditions, then Explanandum',
-    },
-    message: `DN Explanation: ${law.content} + conditions → ${explanandum.slice(0, 40)}...`,
-  };
-}
-
-/**
- * Construct a contrastive explanation
- *
- * @param {string} fact - Why this?
- * @param {string} foil - Rather than this?
- * @param {string} differenceMaker - What makes the difference
- * @returns {object} Contrastive explanation
- */
-function explainContrastive(fact, foil, differenceMaker) {
-  const explanation = construct(fact, 'contrastive', {
-    fact,
-    foil,
-    difference_maker: differenceMaker,
-  });
-
-  state.stats.contrastiveQueries++;
-  saveState();
-
-  return {
-    explanation,
-    structure: {
-      question: `Why ${fact} rather than ${foil}?`,
-      answer: `Because ${differenceMaker}`,
-    },
-    message: `CT Explanation: ${fact.slice(0, 30)}... rather than ${foil.slice(0, 30)}... because ${differenceMaker.slice(0, 30)}...`,
-  };
-}
-
-/**
- * Construct a causal-mechanical explanation
- *
- * @param {string} explanandum - What to explain
- * @param {string} process - Causal process
- * @param {string} mechanism - Mechanism description
- * @returns {object} CM explanation
- */
-function explainCausal(explanandum, process, mechanism) {
-  const explanation = construct(explanandum, 'causal_mechanical', {
-    causal_process: process,
-    mechanism,
-  });
-
-  return {
-    explanation,
-    structure: {
-      process,
-      mechanism,
-      outcome: explanandum,
-    },
-    message: `CM Explanation: ${process.slice(0, 30)}... via ${mechanism.slice(0, 30)}... → ${explanandum.slice(0, 30)}...`,
-  };
-}
-
-/**
- * Compare two explanations
- *
- * @param {string} explId1 - First explanation ID
- * @param {string} explId2 - Second explanation ID
- * @returns {object} Comparison
- */
-function compare(explId1, explId2) {
-  const expl1 = state.explanations[explId1];
-  const expl2 = state.explanations[explId2];
-
-  if (!expl1 || !expl2) return { error: 'Explanation not found' };
-
-  const comparison = {
-    explanation1: {
-      id: explId1,
-      type: expl1.type,
-      adequacy: Math.round(expl1.adequacy * 100),
-      completeness: Math.round(expl1.completeness * 100),
-    },
-    explanation2: {
-      id: explId2,
-      type: expl2.type,
-      adequacy: Math.round(expl2.adequacy * 100),
-      completeness: Math.round(expl2.completeness * 100),
-    },
-    better: expl1.adequacy > expl2.adequacy ? 1 : expl2.adequacy > expl1.adequacy ? 2 : 0,
-    difference: Math.abs(expl1.adequacy - expl2.adequacy),
-  };
-
-  return {
-    comparison,
-    message: comparison.better === 0
-      ? 'Explanations equally adequate'
-      : `Explanation ${comparison.better} is more adequate (+${Math.round(comparison.difference * 100)}%)`,
-  };
-}
-
-/**
- * Get statistics
- */
-function getStats() {
-  const explanations = Object.values(state.explanations);
-  const avgAdequacy = explanations.length > 0
-    ? explanations.reduce((sum, e) => sum + (e.adequacy || 0), 0) / explanations.length
-    : 0;
-
-  return {
-    ...state.stats,
-    totalExplanations: explanations.length,
-    totalLaws: Object.keys(state.laws).length,
-    avgAdequacy: Math.round(avgAdequacy * 100),
-  };
+  return analysis;
 }
 
 /**
  * Format status for display
  */
 function formatStatus() {
-  const stats = getStats();
+  const lines = [
+    '═══════════════════════════════════════════════════════════',
+    '📖 EXPLANATION ENGINE - DN Model & Causation',
+    '═══════════════════════════════════════════════════════════',
+    '',
+    '── DN MODEL (Hempel) ──────────────────────────────────────',
+    '   Laws + Conditions → Explanandum (deductively)',
+    '   Problems: Asymmetry, Irrelevance, Accidents',
+    '',
+    '── ALTERNATIVES ───────────────────────────────────────────',
+    '   Causal-Mechanical: Trace mechanisms (Salmon)',
+    '   Unificationist: Unify phenomena (Kitcher)',
+    '   Pragmatic: Context-dependent (van Fraassen)',
+    '',
+    '── CAUSATION THEORIES ─────────────────────────────────────',
+    '   Regularity (Hume) | Counterfactual (Lewis)',
+    '   Interventionist (Woodward) | Process (Salmon)',
+    '',
+    '── STATISTICS ─────────────────────────────────────────────',
+    '   Explanations: ' + state.explanations.size,
+    '   Analyses: ' + state.analyses.length,
+    '   Causal claims: ' + state.causalClaims.length,
+    '',
+    '═══════════════════════════════════════════════════════════',
+    '*sniff* To explain is to make expected, but how?',
+    '═══════════════════════════════════════════════════════════'
+  ];
 
-  let status = `⊃ Explanation Engine (Hempel/Salmon)\n`;
-  status += `  Explanations: ${stats.totalExplanations}\n`;
-  status += `  Laws registered: ${stats.totalLaws}\n`;
-  status += `  Adequate explanations: ${stats.adequateExplanations}\n`;
-  status += `  Avg adequacy: ${stats.avgAdequacy}%\n`;
-  status += `  Contrastive queries: ${stats.contrastiveQueries}\n`;
+  return lines.join('\n');
+}
 
-  return status;
+/**
+ * Get statistics
+ */
+function getStats() {
+  return {
+    explanations: state.explanations.size,
+    analyses: state.analyses.length,
+    causalClaims: state.causalClaims.length
+  };
 }
 
 module.exports = {
+  // Core
   init,
-  registerLaw,
-  construct,
-  evaluate,
-  explainDN,
-  explainContrastive,
-  explainCausal,
-  compare,
-  getStats,
   formatStatus,
-  EXPLANATION_TYPES,
-  EXPLANATORY_VIRTUES,
-  ADEQUACY_LEVELS,
+  getStats,
+
+  // DN Explanations
+  createDNExplanation,
+  evaluateDNExplanation,
+
+  // Causal Explanations
+  createCausalExplanation,
+  analyzeCausalClaim,
+
+  // Analysis
+  analyzeExplanationType,
+  compareExplanationModels,
+
+  // Theory
+  DN_MODEL,
+  DN_PROBLEMS,
+  EXPLANATION_MODELS,
+  IS_MODEL,
+  CAUSATION,
+
+  // Constants
+  PHI,
+  PHI_INV
 };
