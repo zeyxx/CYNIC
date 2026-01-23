@@ -11,7 +11,9 @@
 
 'use strict';
 
-import { CYNICJudge, createCollectivePack, LearningService, createEScoreCalculator } from '@cynic/node';
+import { CYNICJudge, createCollectivePack, LearningService, createEScoreCalculator, JudgmentGraphIntegration } from '@cynic/node';
+import { PeriodicScheduler, FibonacciIntervals } from '@cynic/core';
+import { GraphOverlay } from '@cynic/persistence/graph';
 import { PersistenceManager } from '../persistence.js';
 import { SessionManager } from '../session-manager.js';
 import { PoJChainManager } from '../poj-chain-manager.js';
@@ -23,21 +25,27 @@ import { MetricsService } from '../metrics-service.js';
  * @typedef {Object} ServiceConfig
  * @property {string} [dataDir] - Data directory for file persistence
  * @property {Function} [onBlockCreated] - Callback for PoJ block creation
- * @property {Function} [onJudgment] - Callback for judgment events
+ * @property {Function} [onDogDecision] - Callback for collective decisions
+ * @property {Function} [onSchedulerError] - Callback for scheduler errors
  */
 
 /**
  * @typedef {Object} Services
+ * @property {Object} eScoreCalculator - E-Score calculator
+ * @property {Object} learningService - Learning service
  * @property {Object} judge - CYNICJudge instance
  * @property {Object} persistence - PersistenceManager instance
  * @property {Object} sessionManager - SessionManager instance
  * @property {Object} pojChainManager - PoJChainManager instance
  * @property {Object} librarian - LibrarianService instance
  * @property {Object} discovery - DiscoveryService instance
- * @property {Object} metrics - MetricsService instance
+ * @property {Object} ecosystem - EcosystemService instance
+ * @property {Object} integrator - IntegratorService instance
+ * @property {Object} graph - GraphOverlay instance
+ * @property {Object} graphIntegration - JudgmentGraphIntegration instance
  * @property {Object} collective - CollectivePack instance
- * @property {Object} eScoreCalculator - E-Score calculator
- * @property {Object} learningService - Learning service
+ * @property {Object} scheduler - PeriodicScheduler instance
+ * @property {Object} metrics - MetricsService instance
  */
 
 /**
@@ -77,8 +85,13 @@ export class ServiceInitializer {
       pojChainManager: this._createPoJChainManager.bind(this),
       librarian: this._createLibrarian.bind(this),
       discovery: this._createDiscovery.bind(this),
-      metrics: this._createMetrics.bind(this),
+      ecosystem: this._createEcosystem.bind(this),
+      integrator: this._createIntegrator.bind(this),
+      graph: this._createGraph.bind(this),
+      graphIntegration: this._createGraphIntegration.bind(this),
       collective: this._createCollective.bind(this),
+      scheduler: this._createScheduler.bind(this),
+      metrics: this._createMetrics.bind(this),
     };
   }
 
@@ -127,25 +140,50 @@ export class ServiceInitializer {
 
     // 5. PoJ Chain manager (depends on persistence)
     if (!services.pojChainManager) {
-      services.pojChainManager = this.factories.pojChainManager(services);
+      services.pojChainManager = await this.factories.pojChainManager(services);
     }
 
     // 6. Librarian (depends on persistence)
     if (!services.librarian) {
-      services.librarian = this.factories.librarian(services);
+      services.librarian = await this.factories.librarian(services);
     }
 
     // 7. Discovery (depends on persistence)
     if (!services.discovery) {
-      services.discovery = this.factories.discovery(services);
+      services.discovery = await this.factories.discovery(services);
     }
 
-    // 8. Collective (depends on judge, persistence)
+    // 8. Ecosystem (depends on persistence)
+    if (!services.ecosystem) {
+      services.ecosystem = await this.factories.ecosystem(services);
+    }
+
+    // 9. Integrator (no dependencies)
+    if (!services.integrator) {
+      services.integrator = await this.factories.integrator(services);
+    }
+
+    // 10. Graph (no dependencies)
+    if (!services.graph) {
+      services.graph = await this.factories.graph(services);
+    }
+
+    // 11. GraphIntegration (depends on judge, graph)
+    if (!services.graphIntegration) {
+      services.graphIntegration = await this.factories.graphIntegration(services);
+    }
+
+    // 12. Collective (depends on judge, persistence, graphIntegration)
     if (!services.collective) {
       services.collective = await this.factories.collective(services);
     }
 
-    // 9. Metrics (depends on multiple services)
+    // 13. Scheduler (no dependencies, but needs config callbacks)
+    if (!services.scheduler) {
+      services.scheduler = this.factories.scheduler(services);
+    }
+
+    // 14. Metrics (depends on multiple services)
     if (!services.metrics) {
       services.metrics = this.factories.metrics(services);
     }
@@ -191,38 +229,139 @@ export class ServiceInitializer {
     return new SessionManager(services.persistence);
   }
 
-  _createPoJChainManager(services) {
-    return new PoJChainManager(services.persistence, {
+  async _createPoJChainManager(services) {
+    const pojChainManager = new PoJChainManager(services.persistence, {
       onBlockCreated: this.config.onBlockCreated,
     });
+    await pojChainManager.initialize();
+
+    // Verify chain integrity at startup
+    if (services.persistence?.pojBlocks) {
+      const verification = await pojChainManager.verifyIntegrity();
+      if (verification.valid) {
+        if (verification.blocksChecked > 0) {
+          console.error(`   PoJ Chain: verified ${verification.blocksChecked} blocks`);
+        }
+      } else {
+        console.error(`   *GROWL* PoJ Chain: INTEGRITY ERROR - ${verification.errors.length} invalid links!`);
+        for (const err of verification.errors.slice(0, 3)) {
+          console.error(`     Block ${err.blockNumber}: expected ${err.expected?.slice(0, 16)}...`);
+        }
+      }
+    }
+
+    return pojChainManager;
   }
 
-  _createLibrarian(services) {
-    return new LibrarianService(services.persistence);
+  async _createLibrarian(services) {
+    const librarian = new LibrarianService(services.persistence);
+    await librarian.initialize();
+    console.error('   Librarian: ready');
+    return librarian;
   }
 
-  _createDiscovery(services) {
-    return new DiscoveryService(services.persistence);
+  async _createDiscovery(services) {
+    const discovery = new DiscoveryService(services.persistence, {
+      autoHealthCheck: true,
+      githubToken: process.env.GITHUB_TOKEN,
+    });
+    await discovery.init();
+    console.error('   Discovery: ready');
+    return discovery;
+  }
+
+  async _createEcosystem(services) {
+    const { EcosystemService } = await import('../ecosystem-service.js');
+    const ecosystem = new EcosystemService(services.persistence, {
+      autoRefresh: true,
+    });
+    await ecosystem.init();
+    console.error('   Ecosystem: ready');
+    return ecosystem;
+  }
+
+  async _createIntegrator() {
+    const { IntegratorService } = await import('../integrator-service.js');
+    const integrator = new IntegratorService({
+      workspaceRoot: '/workspaces',
+      autoCheck: false,
+    });
+    await integrator.init();
+    console.error('   Integrator: ready');
+    return integrator;
+  }
+
+  async _createGraph() {
+    const graph = new GraphOverlay({
+      basePath: this.config.dataDir ? `${this.config.dataDir}/graph` : './data/graph',
+    });
+    await graph.init();
+    console.error('   Graph: ready');
+    return graph;
+  }
+
+  async _createGraphIntegration(services) {
+    if (!services.graph) return null;
+
+    const graphIntegration = new JudgmentGraphIntegration({
+      judge: services.judge,
+      graph: services.graph,
+      enrichContext: true,
+      contextDepth: 2,
+    });
+    await graphIntegration.init();
+    console.error('   GraphIntegration: ready');
+    return graphIntegration;
   }
 
   async _createCollective(services) {
     const pack = createCollectivePack({
-      persistence: services.persistence,
       judge: services.judge,
+      profileLevel: 3,
+      persistence: services.persistence,
+      graphIntegration: services.graphIntegration,
+      onDogDecision: this.config.onDogDecision,
     });
-    await pack.start();
+
+    // Awaken CYNIC for this session
+    const awakening = await pack.awakenCynic({
+      sessionId: `mcp_${Date.now()}`,
+      userId: 'mcp_server',
+      project: 'cynic-mcp',
+    });
+
+    if (awakening.success) {
+      console.error(`   Collective: ${awakening.greeting}`);
+    } else {
+      console.error('   Collective: ready (CYNIC dormant)');
+    }
+
     return pack;
   }
 
+  _createScheduler() {
+    const scheduler = new PeriodicScheduler({
+      onError: this.config.onSchedulerError || ((task, error) => {
+        console.error(`🐕 [Scheduler] Task "${task.name}" failed: ${error.message}`);
+      }),
+    });
+    console.error(`   Scheduler: ready`);
+    return scheduler;
+  }
+
   _createMetrics(services) {
-    return new MetricsService({
+    const metrics = new MetricsService({
       persistence: services.persistence,
       sessionManager: services.sessionManager,
       pojChainManager: services.pojChainManager,
       librarian: services.librarian,
+      ecosystem: services.ecosystem,
+      integrator: services.integrator,
       judge: services.judge,
       collective: services.collective,
     });
+    console.error('   Metrics: ready');
+    return metrics;
   }
 }
 

@@ -8,8 +8,8 @@
 |-----------|--------|--------|----------|
 | **ISP** | persistence.js | ✅ DONE (1437→444 lines) | - |
 | **OCP** | tools/index.js | 🔄 Structure ready | P1 |
-| **SRP** | server.js | ✅ HttpAdapter integrated (1706→1453 lines) | P1 |
-| **DIP** | MCPServer._initialize() | ⏳ Pending | P2 |
+| **SRP** | server.js | ✅ HttpAdapter (1706→1453) | - |
+| **DIP** | MCPServer._initialize() | ✅ ServiceInitializer (1453→1339) | - |
 | **SRP** | MetricsService | ⏳ Pending | P3 |
 | **LSP** | Repository signatures | ⏳ Pending | P3 |
 
@@ -247,14 +247,14 @@ Week 4: Phase 3 & 4
 
 ## Success Metrics
 
-| Metric | Before | Target |
-|--------|--------|--------|
-| server.js lines | 1706 | < 800 |
-| tools/index.js lines | 5004 | < 500 |
-| persistence.js lines | 1437 | 444 ✅ |
-| Max file size | 5004 | < 500 |
-| Direct `new` in MCPServer | 10+ | 0 |
-| Test coverage | ? | > 80% |
+| Metric | Before | Current | Target |
+|--------|--------|---------|--------|
+| server.js lines | 1706 | 1339 ✅ | < 800 |
+| tools/index.js lines | 5004 | 5004 | < 500 |
+| persistence.js lines | 1437 | 444 ✅ | < 500 |
+| Max file size | 5004 | 5004 | < 500 |
+| Direct `new` in MCPServer | 10+ | 3 ✅ | 0 |
+| Test coverage | ? | ? | > 80% |
 
 ---
 

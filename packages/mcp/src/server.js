@@ -18,6 +18,8 @@ import { PHI_INV, PHI_INV_2, IDENTITY, PeriodicScheduler, FibonacciIntervals, Ec
 
 // SRP: HTTP concerns extracted to HttpAdapter
 import { HttpAdapter } from './server/HttpAdapter.js';
+// DIP: Service creation via ServiceInitializer
+import { ServiceInitializer } from './server/ServiceInitializer.js';
 
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -178,123 +180,55 @@ export class MCPServer {
 
   /**
    * Initialize components
+   * DIP: Uses ServiceInitializer for core services
    * @private
    */
   async _initialize() {
-    // Initialize persistence with automatic fallback chain:
-    // PostgreSQL → File-based → In-memory
-    if (!this.persistence) {
-      this.persistence = new PersistenceManager({
-        dataDir: this.dataDir, // Pass for file-based fallback
-      });
-      await this.persistence.initialize();
-    }
+    // Create service initializer with callbacks
+    const initializer = new ServiceInitializer({
+      dataDir: this.dataDir,
+      onBlockCreated: (block) => this._broadcastSSEEvent('block', block),
+      onDogDecision: (decision) => {
+        const eventType = decision.blocked ? 'dogWarning' : 'dogDecision';
+        this._broadcastSSEEvent(eventType, decision);
+      },
+    });
 
-    // Initialize session manager for multi-user isolation
-    if (!this.sessionManager) {
-      this.sessionManager = new SessionManager(this.persistence);
-    }
+    // Initialize core services via DIP pattern
+    // Pass any pre-configured services from constructor
+    const services = await initializer.initialize({
+      judge: this.judge,
+      persistence: this.persistence,
+      sessionManager: this.sessionManager,
+      pojChainManager: this.pojChainManager,
+      librarian: this.librarian,
+      discovery: this.discovery,
+      ecosystem: this.ecosystem,
+      integrator: this.integrator,
+      graph: this.graph,
+      graphIntegration: this.graphIntegration,
+      collective: this.collective,
+      scheduler: this.scheduler,
+      metrics: this.metrics,
+      eScoreCalculator: this.eScoreCalculator,
+      learningService: this.learningService,
+    });
 
-    // Initialize PoJ Chain manager for blockchain
-    if (!this.pojChainManager) {
-      this.pojChainManager = new PoJChainManager(this.persistence, {
-        // SSE broadcast when block is created
-        onBlockCreated: (block) => this._broadcastSSEEvent('block', block),
-      });
-      await this.pojChainManager.initialize();
+    // Assign services to this instance
+    Object.assign(this, services);
 
-      // Verify chain integrity at startup
-      if (this.persistence?.pojBlocks) {
-        const verification = await this.pojChainManager.verifyIntegrity();
-        if (verification.valid) {
-          if (verification.blocksChecked > 0) {
-            console.error(`   PoJ Chain: verified ${verification.blocksChecked} blocks`);
-          }
-        } else {
-          console.error(`   *GROWL* PoJ Chain: INTEGRITY ERROR - ${verification.errors.length} invalid links!`);
-          for (const err of verification.errors.slice(0, 3)) {
-            console.error(`     Block ${err.blockNumber}: expected ${err.expected?.slice(0, 16)}...`);
-          }
-        }
-      }
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MCPServer-specific initialization (not in ServiceInitializer)
+    // ═══════════════════════════════════════════════════════════════════════════
 
-      // Initialize Solana anchoring if wallet is configured
-      const walletPath = process.env.CYNIC_SOLANA_WALLET || join(__dirname, '../../anchor/test/.devnet-wallet.json');
-      const enableAnchoring = process.env.CYNIC_ENABLE_ANCHORING === 'true';
-
-      if (enableAnchoring) {
-        try {
-          // Try environment variable first (for cloud deployments like Render)
-          // Then fall back to file (for local development)
-          const wallet = loadWalletFromEnv('CYNIC_SOLANA_KEY') || loadWalletFromFile(walletPath);
-          const cluster = process.env.CYNIC_SOLANA_CLUSTER || 'devnet';
-
-          this.anchorQueue = new AnchorQueue({
-            wallet,
-            cluster: SolanaCluster[cluster.toUpperCase()] || SolanaCluster.DEVNET,
-            batchSize: 5, // φ-aligned: Fib(5)
-            batchTimeout: 61800, // φ-aligned: 61.8 seconds
-          });
-
-          this.pojChainManager.setAnchorQueue(this.anchorQueue);
-          console.error(`   Solana Anchoring: ENABLED (${cluster})`);
-          console.error(`   DEBUG: anchorQueue set: ${!!this.anchorQueue}, isEnabled: ${this.pojChainManager.isAnchoringEnabled}`);
-          // Log wallet address (handle both Uint8Array and PublicKey)
-          const pubKeyStr = wallet.publicKey?.toBase58
-            ? wallet.publicKey.toBase58()
-            : Buffer.from(wallet.publicKey || wallet._publicKey || []).toString('hex');
-          console.error(`   Wallet: ${pubKeyStr.slice(0, 16)}...`);
-        } catch (err) {
-          console.error(`   Solana Anchoring: DISABLED (${err.message})`);
-        }
-      } else {
-        console.error('   Solana Anchoring: disabled (set CYNIC_ENABLE_ANCHORING=true)');
-      }
-    }
-
-    // Initialize Librarian service for documentation caching
-    if (!this.librarian) {
-      this.librarian = new LibrarianService(this.persistence);
-      await this.librarian.initialize();
-    }
-
-    // Initialize Ecosystem service for pre-loaded documentation
-    if (!this.ecosystem) {
-      const { EcosystemService } = await import('./ecosystem-service.js');
-      this.ecosystem = new EcosystemService(this.persistence, {
-        autoRefresh: true,
-      });
-      await this.ecosystem.init();
-      console.error('   Ecosystem: ready');
-    }
-
-    // Initialize Integrator service for cross-project synchronization
-    if (!this.integrator) {
-      const { IntegratorService } = await import('./integrator-service.js');
-      this.integrator = new IntegratorService({
-        workspaceRoot: '/workspaces',
-        autoCheck: false, // Manual checks for now
-      });
-      await this.integrator.init();
-      console.error('   Integrator: ready');
-    }
-
-    // Initialize Discovery service for MCP servers, plugins, and CYNIC nodes
-    if (!this.discovery) {
-      this.discovery = new DiscoveryService(this.persistence, {
-        autoHealthCheck: true, // Enable periodic health checks
-        githubToken: process.env.GITHUB_TOKEN,
-      });
-      await this.discovery.init();
-      console.error('   Discovery: ready');
-    }
+    // Initialize Solana anchoring if wallet is configured
+    await this._initializeSolanaAnchoring();
 
     // Initialize Ecosystem Monitor for GitHub tracking
     if (!this.ecosystemMonitor) {
       this.ecosystemMonitor = new EcosystemMonitor({
         maxCacheSize: 100,
         onUpdate: (updates, source) => {
-          // Broadcast new updates to SSE clients
           if (updates.length > 0) {
             this._broadcastSSEEvent('ecosystem_updates', {
               count: updates.length,
@@ -305,165 +239,24 @@ export class MCPServer {
           }
         },
       });
-      // Register Solana ecosystem defaults on startup
       this.ecosystemMonitor.registerSolanaDefaults();
-      // Also track Agave (new Solana validator client from Anza)
       this.ecosystemMonitor.trackGitHubRepo('anza-xyz', 'agave', {
         trackReleases: true,
-        trackCommits: false, // Too many commits
+        trackCommits: false,
       });
       console.error(`   EcosystemMonitor: ready (${this.ecosystemMonitor.sources.size} sources)`);
     }
 
-    // Initialize Periodic Scheduler for automated ecosystem awareness
-    if (!this.scheduler) {
-      this.scheduler = new PeriodicScheduler({
-        onError: (task, error) => {
-          console.error(`🐕 [Scheduler] Task "${task.name}" failed: ${error.message}`);
-        },
-      });
-
-      // Register ecosystem fetch task - runs every 6 hours (φ-aligned)
-      this.scheduler.register({
-        id: 'ecosystem_awareness',
-        name: 'Ecosystem Awareness',
-        intervalMs: FibonacciIntervals.SIXHOURLY, // 6 hours
-        runImmediately: false, // Don't run on startup, let manual fetches happen first
-        handler: async () => {
-          console.error('🐕 [Scheduler] Starting ecosystem awareness cycle...');
-
-          // Fetch updates from all tracked sources
-          const fetchResult = await this.ecosystemMonitor.fetchAll();
-
-          // Judge high-priority updates
-          const highPriorityUpdates = (fetchResult.updates || [])
-            .filter(u => u.priority === 'HIGH' || u.priority === 'CRITICAL');
-
-          let judgedCount = 0;
-          if (highPriorityUpdates.length > 0 && this.graphIntegration) {
-            for (const update of highPriorityUpdates.slice(0, 5)) { // Max 5 judgments per cycle
-              try {
-                const item = {
-                  type: 'ecosystem_update',
-                  content: `${update.type}: ${update.title || 'Update'}\n\n${update.description || ''}`.slice(0, 500),
-                  source: update.source,
-                  sources: [update.url].filter(Boolean),
-                  priority: update.priority,
-                  meta: update.meta,
-                };
-                await this.graphIntegration.judgeWithGraph(item, { source: 'ecosystem_monitor' });
-                judgedCount++;
-              } catch (e) {
-                console.error(`🐕 [Scheduler] Judge error: ${e.message}`);
-              }
-            }
-            if (judgedCount > 0) {
-              console.error(`🐕 [Scheduler] Judged ${judgedCount} high-priority updates`);
-            }
-          }
-
-          // Broadcast to SSE clients
-          this._broadcastSSEEvent('ecosystem_cycle', {
-            fetched: fetchResult.fetched || 0,
-            skipped: fetchResult.skipped || 0,
-            errors: fetchResult.errors || 0,
-            updatesFound: fetchResult.updates?.length || 0,
-            highPriority: highPriorityUpdates.length,
-            judged: judgedCount,
-            timestamp: Date.now(),
-          });
-
-          console.error(`🐕 [Scheduler] Ecosystem cycle complete: ${fetchResult.updates?.length || 0} updates, ${judgedCount} judged`);
-
-          return {
-            fetched: fetchResult.fetched || 0,
-            updatesFound: fetchResult.updates?.length || 0,
-            highPriority: highPriorityUpdates.length,
-            judged: judgedCount,
-          };
-        },
-      });
-
-      console.error(`   Scheduler: ready (ecosystem awareness every ${FibonacciIntervals.SIXHOURLY / 3600000}h)`);
-    }
-
-    // Initialize Metrics service for monitoring
-    if (!this.metrics) {
-      const { MetricsService } = await import('./metrics-service.js');
-      this.metrics = new MetricsService({
-        persistence: this.persistence,
-        sessionManager: this.sessionManager,
-        pojChainManager: this.pojChainManager,
-        librarian: this.librarian,
-        ecosystem: this.ecosystem,
-        integrator: this.integrator,
-        judge: this.judge,
-        collective: this.collective,
-      });
-      console.error('   Metrics: ready');
-    }
+    // Register ecosystem awareness task with scheduler
+    this._registerSchedulerTasks();
 
     // Initialize Auth service for HTTP mode
     if (this.mode === 'http' && !this.auth) {
       this.auth = new AuthService({
-        // /mcp and /message must be public to allow Claude Code SSE connections without API keys
         publicPaths: ['/', '/health', '/metrics', '/dashboard', '/sse', '/api', '/mcp', '/message'],
       });
       const authStatus = this.auth.required ? 'required' : 'optional (dev mode)';
       console.error(`   Auth: ${authStatus} (${this.auth.apiKeys.size} keys configured)`);
-    }
-
-    // Initialize Graph overlay for relationship tracking
-    if (!this.graph) {
-      const { GraphOverlay } = await import('@cynic/persistence/graph');
-      this.graph = new GraphOverlay({
-        basePath: this.dataDir ? `${this.dataDir}/graph` : './data/graph',
-      });
-      await this.graph.init();
-      console.error('   Graph: ready');
-    }
-
-    // Initialize Judgment-Graph integration (connects judge to graph)
-    if (!this.graphIntegration && this.graph) {
-      const { JudgmentGraphIntegration } = await import('@cynic/node');
-      this.graphIntegration = new JudgmentGraphIntegration({
-        judge: this.judge,
-        graph: this.graph,
-        enrichContext: true,
-        contextDepth: 2,
-      });
-      await this.graphIntegration.init();
-      console.error('   GraphIntegration: ready');
-    }
-
-    // Initialize Collective Pack - The Eleven Dogs + CYNIC (Keter)
-    // This is the new harmonious collective consciousness
-    if (!this.collective) {
-      this.collective = createCollectivePack({
-        judge: this.judge,
-        profileLevel: 3, // Default: Practitioner
-        persistence: this.persistence,
-        graphIntegration: this.graphIntegration, // Connect Dogs to JudgmentGraph
-        // SSE broadcast when dogs make decisions
-        onDogDecision: (decision) => {
-          const eventType = decision.blocked ? 'dogWarning' : 'dogDecision';
-          this._broadcastSSEEvent(eventType, decision);
-        },
-      });
-
-      // Awaken CYNIC for this session
-      const awakening = await this.collective.awakenCynic({
-        sessionId: `mcp_${Date.now()}`,
-        userId: 'mcp_server',
-        project: 'cynic-mcp',
-      });
-
-      if (awakening.success) {
-        console.error(`   Collective: ${awakening.greeting}`);
-      } else {
-        console.error('   Collective: ready (CYNIC dormant)');
-      }
-
     }
 
     // Register tools with current instances
@@ -471,20 +264,113 @@ export class MCPServer {
       judge: this.judge,
       node: this.node,
       persistence: this.persistence,
-      collective: this.collective,     // The 11 Dogs (Sefirot) Collective
+      collective: this.collective,
       sessionManager: this.sessionManager,
       pojChainManager: this.pojChainManager,
       librarian: this.librarian,
       ecosystem: this.ecosystem,
       integrator: this.integrator,
       metrics: this.metrics,
-      graphIntegration: this.graphIntegration, // Graph-Judgment connection
-      discovery: this.discovery,       // MCP/Plugin/Node discovery
-      learningService: this.learningService,   // RLHF feedback → weight modifiers
-      eScoreCalculator: this.eScoreCalculator, // Burns → E-Score → voteWeight
-      // SSE broadcast callback for real-time dashboard updates
+      graphIntegration: this.graphIntegration,
+      discovery: this.discovery,
+      learningService: this.learningService,
+      eScoreCalculator: this.eScoreCalculator,
       onJudgment: (judgment) => this._broadcastSSEEvent('judgment', judgment),
     });
+  }
+
+  /**
+   * Initialize Solana anchoring if configured
+   * @private
+   */
+  async _initializeSolanaAnchoring() {
+    const walletPath = process.env.CYNIC_SOLANA_WALLET || join(__dirname, '../../anchor/test/.devnet-wallet.json');
+    const enableAnchoring = process.env.CYNIC_ENABLE_ANCHORING === 'true';
+
+    if (enableAnchoring) {
+      try {
+        const wallet = loadWalletFromEnv('CYNIC_SOLANA_KEY') || loadWalletFromFile(walletPath);
+        const cluster = process.env.CYNIC_SOLANA_CLUSTER || 'devnet';
+
+        this.anchorQueue = new AnchorQueue({
+          wallet,
+          cluster: SolanaCluster[cluster.toUpperCase()] || SolanaCluster.DEVNET,
+          batchSize: 5,
+          batchTimeout: 61800,
+        });
+
+        this.pojChainManager.setAnchorQueue(this.anchorQueue);
+        console.error(`   Solana Anchoring: ENABLED (${cluster})`);
+        const pubKeyStr = wallet.publicKey?.toBase58
+          ? wallet.publicKey.toBase58()
+          : Buffer.from(wallet.publicKey || wallet._publicKey || []).toString('hex');
+        console.error(`   Wallet: ${pubKeyStr.slice(0, 16)}...`);
+      } catch (err) {
+        console.error(`   Solana Anchoring: DISABLED (${err.message})`);
+      }
+    } else {
+      console.error('   Solana Anchoring: disabled (set CYNIC_ENABLE_ANCHORING=true)');
+    }
+  }
+
+  /**
+   * Register scheduler tasks
+   * @private
+   */
+  _registerSchedulerTasks() {
+    if (!this.scheduler) return;
+
+    this.scheduler.register({
+      id: 'ecosystem_awareness',
+      name: 'Ecosystem Awareness',
+      intervalMs: FibonacciIntervals.SIXHOURLY,
+      runImmediately: false,
+      handler: async () => {
+        console.error('🐕 [Scheduler] Starting ecosystem awareness cycle...');
+
+        const fetchResult = await this.ecosystemMonitor.fetchAll();
+        const highPriorityUpdates = (fetchResult.updates || [])
+          .filter(u => u.priority === 'HIGH' || u.priority === 'CRITICAL');
+
+        let judgedCount = 0;
+        if (highPriorityUpdates.length > 0 && this.graphIntegration) {
+          for (const update of highPriorityUpdates.slice(0, 5)) {
+            try {
+              const item = {
+                type: 'ecosystem_update',
+                content: `${update.type}: ${update.title || 'Update'}\n\n${update.description || ''}`.slice(0, 500),
+                source: update.source,
+                sources: [update.url].filter(Boolean),
+                priority: update.priority,
+                meta: update.meta,
+              };
+              await this.graphIntegration.judgeWithGraph(item, { source: 'ecosystem_monitor' });
+              judgedCount++;
+            } catch (e) {
+              console.error(`🐕 [Scheduler] Judge error: ${e.message}`);
+            }
+          }
+          if (judgedCount > 0) {
+            console.error(`🐕 [Scheduler] Judged ${judgedCount} high-priority updates`);
+          }
+        }
+
+        this._broadcastSSEEvent('ecosystem_cycle', {
+          fetched: fetchResult.fetched || 0,
+          skipped: fetchResult.skipped || 0,
+          errors: fetchResult.errors || 0,
+          updatesFound: fetchResult.updates?.length || 0,
+          highPriority: highPriorityUpdates.length,
+          judged: judgedCount,
+          timestamp: Date.now(),
+        });
+
+        console.error(`🐕 [Scheduler] Ecosystem cycle complete: ${fetchResult.updates?.length || 0} updates, ${judgedCount} judged`);
+        return { fetched: fetchResult.fetched || 0, updatesFound: fetchResult.updates?.length || 0, highPriority: highPriorityUpdates.length, judged: judgedCount };
+      },
+    });
+
+    console.error(`   Scheduler: ready (ecosystem awareness every ${FibonacciIntervals.SIXHOURLY / 3600000}h)`);
   }
 
   /**
