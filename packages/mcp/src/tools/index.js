@@ -4962,6 +4962,13 @@ export { LSPService, createLSPTools } from '../lsp-service.js';
 // Re-export JSON render
 export { JSONRenderService, createJSONRenderTool } from '../json-render.js';
 
+// ═══════════════════════════════════════════════════════════════════════════
+// OCP: TOOL REGISTRY (Open for Extension, Closed for Modification)
+// Add new tools by registering factories, not modifying this file
+// ═══════════════════════════════════════════════════════════════════════════
+
+export { ToolRegistry, defaultRegistry, registerTool, registerTools } from './registry.js';
+
 export default {
   createJudgeTool,
   createDigestTool,
@@ -5000,5 +5007,7 @@ export default {
   JSONRenderService,
   createJSONRenderTool,
   createAllTools,
+  // OCP: Registry pattern for extensibility
+  ToolRegistry: require('./registry.js').ToolRegistry,
 };
 

@@ -6,15 +6,16 @@
  * 2. File-based (local development)
  * 3. In-memory (tests/ephemeral)
  *
- * Same API regardless of backend - "φ qui se méfie de φ"
+ * ISP-Compliant: Exposes domain-specific adapters.
+ * DIP-Compliant: Depends on abstractions via adapters.
+ *
+ * "φ qui se méfie de φ"
  *
  * @module @cynic/mcp/persistence
  */
 
 'use strict';
 
-import fs from 'fs/promises';
-import path from 'path';
 import {
   PostgresClient,
   RedisClient,
@@ -31,326 +32,22 @@ import {
   SessionStore,
 } from '@cynic/persistence';
 
-/**
- * In-memory fallback storage
- * Used when neither PostgreSQL nor file storage is configured
- */
-class MemoryStore {
-  constructor() {
-    this.judgments = [];
-    this.patterns = [];
-    this.feedback = [];
-    this.knowledge = [];
-    this.pojBlocks = [];
-    this.observations = [];
-    this.triggersState = null;
-  }
-
-  async storeJudgment(judgment) {
-    const id = `jdg_${Date.now().toString(36)}`;
-    const stored = { ...judgment, judgment_id: id, created_at: new Date() };
-    this.judgments.push(stored);
-    // Keep bounded
-    if (this.judgments.length > 1000) this.judgments.shift();
-    return stored;
-  }
-
-  async searchJudgments(query, options = {}) {
-    const { limit = 10 } = options;
-    if (!query) return this.judgments.slice(-limit);
-    const q = query.toLowerCase();
-    return this.judgments
-      .filter(j => JSON.stringify(j).toLowerCase().includes(q))
-      .slice(-limit);
-  }
-
-  async findRecentJudgments(limit = 10) {
-    return this.judgments.slice(-limit);
-  }
-
-  async getJudgment(judgmentId) {
-    return this.judgments.find(j => j.judgment_id === judgmentId) || null;
-  }
-
-  async getJudgmentStats() {
-    const total = this.judgments.length;
-    if (total === 0) return { total: 0, avgScore: 0, avgConfidence: 0, verdicts: {} };
-
-    const avgScore = this.judgments.reduce((s, j) => s + (j.q_score || 0), 0) / total;
-    const avgConfidence = this.judgments.reduce((s, j) => s + (j.confidence || 0), 0) / total;
-    const verdicts = this.judgments.reduce((v, j) => {
-      v[j.verdict] = (v[j.verdict] || 0) + 1;
-      return v;
-    }, {});
-
-    return { total, avgScore, avgConfidence, verdicts };
-  }
-
-  async storeFeedback(fb) {
-    const id = `fb_${Date.now().toString(36)}`;
-    const stored = { ...fb, feedback_id: id, created_at: new Date() };
-    this.feedback.push(stored);
-    return stored;
-  }
-
-  async storeKnowledge(k) {
-    const id = `kn_${Date.now().toString(36)}`;
-    const stored = { ...k, knowledge_id: id, created_at: new Date() };
-    this.knowledge.push(stored);
-    return stored;
-  }
-
-  async storeObservation(obs) {
-    const stored = { ...obs, created_at: new Date() };
-    this.observations.push(stored);
-    // Keep bounded - observations are high-volume, low-priority
-    if (this.observations.length > 500) this.observations.shift();
-    return stored;
-  }
-
-  async searchKnowledge(query, options = {}) {
-    const { limit = 10 } = options;
-    if (!query) return this.knowledge.slice(-limit);
-    const q = query.toLowerCase();
-    // Search in summary, content, and insights
-    return this.knowledge
-      .filter(k => {
-        const summary = (k.summary || '').toLowerCase();
-        const content = (k.content || '').toLowerCase();
-        const insights = JSON.stringify(k.insights || []).toLowerCase();
-        return summary.includes(q) || content.includes(q) || insights.includes(q);
-      })
-      .slice(-limit);
-  }
-
-  async upsertPattern(pattern) {
-    const existing = this.patterns.find(p => p.name === pattern.name);
-    if (existing) {
-      Object.assign(existing, pattern, { updated_at: new Date() });
-      return existing;
-    }
-    const id = `pat_${Date.now().toString(36)}`;
-    const stored = { ...pattern, pattern_id: id, created_at: new Date() };
-    this.patterns.push(stored);
-    return stored;
-  }
-
-  async getPatterns(options = {}) {
-    const { category, limit = 10 } = options;
-    let result = this.patterns;
-    if (category) {
-      result = result.filter(p => p.category === category);
-    }
-    return result.slice(-limit);
-  }
-
-  async export() {
-    return {
-      judgments: this.judgments,
-      patterns: this.patterns,
-      feedback: this.feedback,
-      knowledge: this.knowledge,
-      pojBlocks: this.pojBlocks,
-      triggersState: this.triggersState,
-    };
-  }
-
-  async import(data) {
-    if (data.judgments) this.judgments = data.judgments;
-    if (data.patterns) this.patterns = data.patterns;
-    if (data.feedback) this.feedback = data.feedback;
-    if (data.knowledge) this.knowledge = data.knowledge;
-    if (data.pojBlocks) this.pojBlocks = data.pojBlocks;
-    if (data.triggersState) this.triggersState = data.triggersState;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // PoJ CHAIN FALLBACK METHODS
-  // "φ distrusts φ" - the chain must exist even without PostgreSQL
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  async storePoJBlock(block) {
-    // Validate chain integrity before storing
-    if (this.pojBlocks.length > 0) {
-      const head = this.pojBlocks[this.pojBlocks.length - 1];
-      const expectedPrevHash = head.hash || head.block_hash;
-      if (block.prev_hash !== expectedPrevHash) {
-        throw new Error(`Chain integrity violation: expected prev_hash ${expectedPrevHash}, got ${block.prev_hash}`);
-      }
-      if (block.slot !== head.slot + 1) {
-        throw new Error(`Slot mismatch: expected ${head.slot + 1}, got ${block.slot}`);
-      }
-    }
-
-    const stored = {
-      ...block,
-      block_hash: block.hash,
-      judgment_count: block.judgments?.length || 0,
-      judgment_ids: block.judgments?.map(j => j.judgment_id) || [],
-      created_at: new Date(),
-    };
-    this.pojBlocks.push(stored);
-
-    // Keep bounded (but generous for chain integrity)
-    if (this.pojBlocks.length > 10000) {
-      // Archive old blocks - for memory, just remove oldest
-      this.pojBlocks = this.pojBlocks.slice(-5000);
-    }
-
-    return stored;
-  }
-
-  async getPoJHead() {
-    if (this.pojBlocks.length === 0) return null;
-    return this.pojBlocks[this.pojBlocks.length - 1];
-  }
-
-  async getPoJStats() {
-    const total = this.pojBlocks.length;
-    if (total === 0) return { totalBlocks: 0, headSlot: 0, totalJudgments: 0 };
-
-    const head = this.pojBlocks[total - 1];
-    const totalJudgments = this.pojBlocks.reduce((sum, b) => sum + (b.judgment_count || 0), 0);
-
-    return {
-      totalBlocks: total,
-      headSlot: head.slot,
-      totalJudgments,
-    };
-  }
-
-  async getRecentPoJBlocks(limit = 10) {
-    return this.pojBlocks.slice(-limit).reverse();
-  }
-
-  async getPoJBlockBySlot(slot) {
-    return this.pojBlocks.find(b => b.slot === slot) || null;
-  }
-
-  async verifyPoJChain() {
-    const errors = [];
-
-    for (let i = 1; i < this.pojBlocks.length; i++) {
-      const block = this.pojBlocks[i];
-      const prevBlock = this.pojBlocks[i - 1];
-      const expectedPrevHash = prevBlock.hash || prevBlock.block_hash;
-
-      if (block.prev_hash !== expectedPrevHash) {
-        errors.push({
-          slot: block.slot,
-          error: `Invalid prev_hash: expected ${expectedPrevHash}, got ${block.prev_hash}`,
-        });
-      }
-
-      if (block.slot !== prevBlock.slot + 1) {
-        errors.push({
-          slot: block.slot,
-          error: `Slot gap: expected ${prevBlock.slot + 1}, got ${block.slot}`,
-        });
-      }
-    }
-
-    return {
-      valid: errors.length === 0,
-      blocksChecked: this.pojBlocks.length,
-      errors,
-    };
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // TRIGGERS STATE FALLBACK METHODS
-  // "φ distrusts φ" - watchdogs must persist their rules
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  async getTriggersState() {
-    return this.triggersState;
-  }
-
-  async saveTriggersState(state) {
-    this.triggersState = state;
-    return state;
-  }
-}
-
-/**
- * File-based storage adapter
- * Uses MemoryStore + periodic file sync
- */
-class FileStore extends MemoryStore {
-  constructor(dataDir) {
-    super();
-    this.dataDir = dataDir;
-    this.filePath = path.join(dataDir, 'cynic-state.json');
-    this._dirty = false;
-  }
-
-  async initialize() {
-    try {
-      await fs.mkdir(this.dataDir, { recursive: true });
-      const data = await fs.readFile(this.filePath, 'utf-8');
-      await this.import(JSON.parse(data));
-      console.error(`   File storage: loaded from ${this.filePath}`);
-    } catch (err) {
-      if (err.code !== 'ENOENT') {
-        console.error(`   File storage: ${err.message}`);
-      } else {
-        console.error(`   File storage: fresh start at ${this.filePath}`);
-      }
-    }
-  }
-
-  async storeJudgment(judgment) {
-    const result = await super.storeJudgment(judgment);
-    this._dirty = true;
-    return result;
-  }
-
-  async storeFeedback(fb) {
-    const result = await super.storeFeedback(fb);
-    this._dirty = true;
-    return result;
-  }
-
-  async storeKnowledge(k) {
-    const result = await super.storeKnowledge(k);
-    this._dirty = true;
-    return result;
-  }
-
-  async upsertPattern(pattern) {
-    const result = await super.upsertPattern(pattern);
-    this._dirty = true;
-    return result;
-  }
-
-  async storePoJBlock(block) {
-    const result = await super.storePoJBlock(block);
-    this._dirty = true;
-    // Force immediate save for PoJ chain integrity
-    await this.save();
-    return result;
-  }
-
-  async saveTriggersState(state) {
-    const result = await super.saveTriggersState(state);
-    this._dirty = true;
-    return result;
-  }
-
-  async save() {
-    if (!this._dirty) return;
-    try {
-      const data = await this.export();
-      await fs.writeFile(this.filePath, JSON.stringify(data, null, 2));
-      this._dirty = false;
-    } catch (err) {
-      console.error('Error saving state:', err.message);
-    }
-  }
-}
+// ISP: Domain-specific adapters
+import { MemoryStore, FileStore } from './persistence/stores.js';
+import { JudgmentAdapter } from './persistence/JudgmentAdapter.js';
+import { PatternAdapter } from './persistence/PatternAdapter.js';
+import { PoJChainAdapter } from './persistence/PoJChainAdapter.js';
+import { TriggerAdapter } from './persistence/TriggerAdapter.js';
+import { KnowledgeAdapter } from './persistence/KnowledgeAdapter.js';
+import { FeedbackAdapter } from './persistence/FeedbackAdapter.js';
+import { LibraryCacheAdapter } from './persistence/LibraryCacheAdapter.js';
+import { PsychologyAdapter } from './persistence/PsychologyAdapter.js';
 
 /**
  * Unified Persistence Manager for MCP server
+ *
+ * ISP: Exposes domain-specific adapters via getters
+ * DIP: Composes adapters rather than direct repository access
  *
  * Automatic fallback chain:
  * 1. PostgreSQL + Redis (if CYNIC_DATABASE_URL set)
@@ -370,21 +67,31 @@ export class PersistenceManager {
     this.redis = null;
     this.sessionStore = null;
 
-    // Repositories (PostgreSQL)
-    this.judgments = null;
-    this.patterns = null;
-    this.feedback = null;
-    this.knowledge = null;
-    this.pojBlocks = null;
-    this.libraryCache = null;
-    this.triggers = null;
-    this.discovery = null;
-    this.userLearningProfiles = null;
-    this.psychology = null;
+    // Repositories (PostgreSQL) - private
+    this._judgments = null;
+    this._patterns = null;
+    this._feedback = null;
+    this._knowledge = null;
+    this._pojBlocks = null;
+    this._libraryCache = null;
+    this._triggers = null;
+    this._discovery = null;
+    this._userLearningProfiles = null;
+    this._psychology = null;
 
     // Fallback store (file or memory)
     this._fallback = null;
     this._backend = 'none'; // 'postgres', 'file', 'memory'
+
+    // ISP: Domain adapters (lazy initialized)
+    this._judgmentAdapter = null;
+    this._patternAdapter = null;
+    this._pojChainAdapter = null;
+    this._triggerAdapter = null;
+    this._knowledgeAdapter = null;
+    this._feedbackAdapter = null;
+    this._libraryCacheAdapter = null;
+    this._psychologyAdapter = null;
 
     this._initialized = false;
   }
@@ -397,7 +104,7 @@ export class PersistenceManager {
   async initialize() {
     if (this._initialized) return this;
 
-    // Check for PostgreSQL config: URL or component env vars (host + password required)
+    // Check for PostgreSQL config
     const hasPostgres = !!process.env.CYNIC_DATABASE_URL
       || (!!process.env.CYNIC_DB_HOST && !!process.env.CYNIC_DB_PASSWORD);
     const hasRedis = !!process.env.CYNIC_REDIS_URL;
@@ -409,16 +116,16 @@ export class PersistenceManager {
         await this.postgres.connect();
 
         // Initialize repositories
-        this.judgments = new JudgmentRepository(this.postgres);
-        this.patterns = new PatternRepository(this.postgres);
-        this.feedback = new FeedbackRepository(this.postgres);
-        this.knowledge = new KnowledgeRepository(this.postgres);
-        this.pojBlocks = new PoJBlockRepository(this.postgres);
-        this.libraryCache = new LibraryCacheRepository(this.postgres);
-        this.triggers = new TriggerRepository(this.postgres);
-        this.discovery = new DiscoveryRepository(this.postgres);
-        this.userLearningProfiles = new UserLearningProfilesRepository(this.postgres);
-        this.psychology = new PsychologyRepository(this.postgres);
+        this._judgments = new JudgmentRepository(this.postgres);
+        this._patterns = new PatternRepository(this.postgres);
+        this._feedback = new FeedbackRepository(this.postgres);
+        this._knowledge = new KnowledgeRepository(this.postgres);
+        this._pojBlocks = new PoJBlockRepository(this.postgres);
+        this._libraryCache = new LibraryCacheRepository(this.postgres);
+        this._triggers = new TriggerRepository(this.postgres);
+        this._discovery = new DiscoveryRepository(this.postgres);
+        this._userLearningProfiles = new UserLearningProfilesRepository(this.postgres);
+        this._psychology = new PsychologyRepository(this.postgres);
 
         this._backend = 'postgres';
         console.error('   PostgreSQL: connected');
@@ -447,882 +154,187 @@ export class PersistenceManager {
     // Set up fallback storage if PostgreSQL not available
     if (!this.postgres) {
       if (this.dataDir) {
-        // File-based fallback (persistent)
         this._fallback = new FileStore(this.dataDir);
         await this._fallback.initialize();
         this._backend = 'file';
       } else {
-        // In-memory fallback (ephemeral)
         this._fallback = new MemoryStore();
         this._backend = 'memory';
         console.error('   Storage: in-memory (ephemeral)');
       }
     }
 
+    // Initialize ISP adapters
+    this._initializeAdapters();
+
     this._initialized = true;
     return this;
   }
 
   /**
-   * Store a judgment (PostgreSQL or fallback)
+   * Initialize domain-specific adapters (ISP)
+   * @private
    */
-  async storeJudgment(judgment) {
-    // Use PostgreSQL if available
-    if (this.judgments) {
-      try {
-        return await this.judgments.create(judgment);
-      } catch (err) {
-        console.error('Error storing judgment to PostgreSQL:', err.message);
-      }
-    }
-    // Fallback to file/memory
-    if (this._fallback) {
-      return await this._fallback.storeJudgment(judgment);
-    }
-    return null;
+  _initializeAdapters() {
+    this._judgmentAdapter = new JudgmentAdapter(this._judgments, this._fallback);
+    this._patternAdapter = new PatternAdapter(this._patterns, this._fallback);
+    this._pojChainAdapter = new PoJChainAdapter(this._pojBlocks, this._fallback);
+    this._triggerAdapter = new TriggerAdapter(this._triggers, this._fallback);
+    this._knowledgeAdapter = new KnowledgeAdapter(this._knowledge, this._fallback);
+    this._feedbackAdapter = new FeedbackAdapter(this._feedback, this._fallback, this._userLearningProfiles);
+    this._libraryCacheAdapter = new LibraryCacheAdapter(this._libraryCache);
+    this._psychologyAdapter = new PsychologyAdapter(this._psychology);
   }
 
-  /**
-   * Get a judgment by ID (PostgreSQL or fallback)
-   */
-  async getJudgment(judgmentId) {
-    // Use PostgreSQL if available
-    if (this.judgments?.findById) {
-      try {
-        return await this.judgments.findById(judgmentId);
-      } catch (err) {
-        console.error('Error getting judgment from PostgreSQL:', err.message);
-      }
-    }
-    // Fallback to file/memory
-    if (this._fallback) {
-      return await this._fallback.getJudgment(judgmentId);
-    }
-    return null;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ISP: DOMAIN ADAPTERS (prefer these over legacy methods)
+  // "Clients should not depend on interfaces they don't use"
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** @returns {JudgmentAdapter} */
+  get judgment() { return this._judgmentAdapter; }
+
+  /** @returns {PatternAdapter} */
+  get pattern() { return this._patternAdapter; }
+
+  /** @returns {PoJChainAdapter} */
+  get pojChain() { return this._pojChainAdapter; }
+
+  /** @returns {TriggerAdapter} */
+  get trigger() { return this._triggerAdapter; }
+
+  /** @returns {KnowledgeAdapter} */
+  get knowledge() { return this._knowledgeAdapter; }
+
+  /** @returns {FeedbackAdapter} */
+  get feedback() { return this._feedbackAdapter; }
+
+  /** @returns {LibraryCacheAdapter} */
+  get libraryCache() { return this._libraryCacheAdapter; }
+
+  /** @returns {PsychologyAdapter} */
+  get psychology() { return this._psychologyAdapter; }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LEGACY API (backward compatibility - delegates to adapters)
+  // Will be deprecated in future versions
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // --- Judgments ---
+  async storeJudgment(judgment) { return this._judgmentAdapter.store(judgment); }
+  async getJudgment(judgmentId) { return this._judgmentAdapter.getById(judgmentId); }
+  async searchJudgments(query, options = {}) { return this._judgmentAdapter.search(query, options); }
+  async getRecentJudgments(limit = 10) { return this._judgmentAdapter.getRecent(limit); }
+  async getJudgmentStats(options = {}) { return this._judgmentAdapter.getStats(options); }
+
+  // --- Patterns ---
+  async upsertPattern(pattern) { return this._patternAdapter.upsert(pattern); }
+  async getPatterns(options = {}) { return this._patternAdapter.get(options); }
+
+  // --- PoJ Chain ---
+  async storePoJBlock(block) { return this._pojChainAdapter.store(block); }
+  async getPoJHead() { return this._pojChainAdapter.getHead(); }
+  async getPoJStats() { return this._pojChainAdapter.getStats(); }
+  async getRecentPoJBlocks(limit = 10) { return this._pojChainAdapter.getRecent(limit); }
+  async getPoJBlockBySlot(slot) { return this._pojChainAdapter.getBySlot(slot); }
+  async verifyPoJChain() { return this._pojChainAdapter.verifyIntegrity(); }
+
+  // --- Triggers ---
+  async getEnabledTriggers() { return this._triggerAdapter.getEnabled(); }
+  async getAllTriggers() { return this._triggerAdapter.getAll(); }
+  async createTrigger(trigger) { return this._triggerAdapter.create(trigger); }
+  async updateTrigger(triggerId, updates) { return this._triggerAdapter.update(triggerId, updates); }
+  async enableTrigger(triggerId) { return this._triggerAdapter.enable(triggerId); }
+  async disableTrigger(triggerId) { return this._triggerAdapter.disable(triggerId); }
+  async deleteTrigger(triggerId) { return this._triggerAdapter.delete(triggerId); }
+  async recordTriggerExecution(execution) { return this._triggerAdapter.recordExecution(execution); }
+  async storeTriggerEvent(event) { return this._triggerAdapter.storeEvent(event); }
+  async getTriggerStats() { return this._triggerAdapter.getStats(); }
+  async getActiveTriggersSummary() { return this._triggerAdapter.getActiveSummary(); }
+  async getTriggerExecutionsLastMinute(triggerId) { return this._triggerAdapter.countExecutionsLastMinute(triggerId); }
+  async getTriggersState() { return this._triggerAdapter.getState(); }
+  async saveTriggersState(state) { return this._triggerAdapter.saveState(state); }
+
+  // --- Knowledge ---
+  async storeKnowledge(knowledge) { return this._knowledgeAdapter.store(knowledge); }
+  async searchKnowledge(query, options = {}) { return this._knowledgeAdapter.search(query, options); }
+
+  // --- Feedback ---
+  async storeFeedback(feedback) { return this._feedbackAdapter.store(feedback); }
+
+  // --- Library Cache ---
+  async getLibraryDoc(libraryId, query) { return this._libraryCacheAdapter.get(libraryId, query); }
+  async setLibraryDoc(libraryId, query, content, metadata = {}, ttlHours = 24) {
+    return this._libraryCacheAdapter.set(libraryId, query, content, metadata, ttlHours);
   }
+  async isLibraryDocCached(libraryId, query) { return this._libraryCacheAdapter.isCached(libraryId, query); }
+  async cleanExpiredCache() { return this._libraryCacheAdapter.cleanExpired(); }
+  async invalidateLibraryCache(libraryId) { return this._libraryCacheAdapter.invalidate(libraryId); }
+  async getLibraryCacheStats() { return this._libraryCacheAdapter.getStats(); }
+  async getTopCachedLibraries(limit = 10) { return this._libraryCacheAdapter.getTopLibraries(limit); }
 
-  /**
-   * Search judgments (PostgreSQL or fallback)
-   */
-  async searchJudgments(query, options = {}) {
-    if (this.judgments) {
-      try {
-        return await this.judgments.search(query, options);
-      } catch (err) {
-        console.error('Error searching judgments:', err.message);
-      }
-    }
-    if (this._fallback) {
-      return await this._fallback.searchJudgments(query, options);
-    }
-    return [];
-  }
+  // --- Psychology ---
+  async syncPsychology(userId, data) { return this._psychologyAdapter.sync(userId, data); }
+  async loadPsychology(userId) { return this._psychologyAdapter.load(userId); }
+  async recordIntervention(userId, intervention) { return this._psychologyAdapter.recordIntervention(userId, intervention); }
+  async getInterventionEffectiveness(userId) { return this._psychologyAdapter.getInterventionEffectiveness(userId); }
+  async recordLearningObservation(userId, observation) { return this._psychologyAdapter.recordLearningObservation(userId, observation); }
+  async getCalibrationStats(userId) { return this._psychologyAdapter.getCalibrationStats(userId); }
+  async getPsychologyStats() { return this._psychologyAdapter.getStats(); }
+  async getTopPerformers(limit = 10) { return this._psychologyAdapter.getTopPerformers(limit); }
 
-  /**
-   * Get recent judgments (PostgreSQL or fallback)
-   */
-  async getRecentJudgments(limit = 10) {
-    if (this.judgments) {
-      try {
-        return await this.judgments.findRecent(limit);
-      } catch (err) {
-        console.error('Error getting recent judgments:', err.message);
-      }
-    }
-    if (this._fallback) {
-      return await this._fallback.findRecentJudgments(limit);
-    }
-    return [];
-  }
-
-  /**
-   * Get judgment statistics (PostgreSQL or fallback)
-   */
-  async getJudgmentStats(options = {}) {
-    if (this.judgments) {
-      try {
-        return await this.judgments.getStats(options);
-      } catch (err) {
-        console.error('Error getting judgment stats:', err.message);
-      }
-    }
-    if (this._fallback) {
-      return await this._fallback.getJudgmentStats();
-    }
-    return { total: 0, avgScore: 0, avgConfidence: 0, verdicts: {} };
-  }
-
-  /**
-   * Store feedback (PostgreSQL or fallback)
-   * Also updates user_learning_profiles for cross-session learning
-   */
-  async storeFeedback(feedback) {
-    let result = null;
-
-    if (this.feedback) {
-      try {
-        result = await this.feedback.create(feedback);
-
-        // ═══════════════════════════════════════════════════════════════════════════
-        // USER LEARNING PROFILES: Update user's feedback history
-        // "Le chien apprend de chaque correction"
-        // ═══════════════════════════════════════════════════════════════════════════
-        if (this.userLearningProfiles && feedback.userId) {
-          try {
-            // Record feedback in user's learning profile
-            const wasCorrect = feedback.outcome === 'correct';
-            await this.userLearningProfiles.recordFeedback(feedback.userId, wasCorrect);
-
-            // Record activity time
-            await this.userLearningProfiles.recordActivity(feedback.userId);
-
-            // If there's a judgment type, update judgment patterns
-            if (feedback.itemType) {
-              await this.userLearningProfiles.updateJudgmentPatterns(feedback.userId, feedback.itemType);
-            }
-          } catch (profileErr) {
-            // Silently ignore profile update errors - feedback is already stored
-            console.error('Error updating user learning profile:', profileErr.message);
-          }
-        }
-      } catch (err) {
-        console.error('Error storing feedback:', err.message);
-      }
-    }
-
-    if (!result && this._fallback) {
-      result = await this._fallback.storeFeedback(feedback);
-    }
-
-    return result;
-  }
-
-  /**
-   * Store knowledge (PostgreSQL or fallback)
-   */
-  async storeKnowledge(knowledge) {
-    if (this.knowledge) {
-      try {
-        return await this.knowledge.create(knowledge);
-      } catch (err) {
-        console.error('Error storing knowledge:', err.message);
-      }
-    }
-    if (this._fallback) {
-      return await this._fallback.storeKnowledge(knowledge);
-    }
-    return null;
-  }
-
-  /**
-   * Search knowledge (PostgreSQL or fallback)
-   */
-  async searchKnowledge(query, options = {}) {
-    if (this.knowledge) {
-      try {
-        // Try FTS search first
-        return await this.knowledge.search(query, options);
-      } catch (err) {
-        // If FTS fails (migration not run), try fallback search
-        if (err.message.includes('search_vector') || err.message.includes('websearch_to_tsquery')) {
-          console.error('FTS not available, using fallback search');
-          try {
-            return await this.knowledge.searchFallback(query, options);
-          } catch (fallbackErr) {
-            console.error('Error in fallback search:', fallbackErr.message);
-          }
-        } else {
-          console.error('Error searching knowledge:', err.message);
-        }
-      }
-    }
-    if (this._fallback) {
-      return await this._fallback.searchKnowledge(query, options);
-    }
-    return [];
-  }
-
-  /**
-   * Upsert pattern (PostgreSQL or fallback)
-   */
-  async upsertPattern(pattern) {
-    if (this.patterns) {
-      try {
-        return await this.patterns.upsert(pattern);
-      } catch (err) {
-        console.error('Error upserting pattern:', err.message);
-      }
-    }
-    if (this._fallback) {
-      return await this._fallback.upsertPattern(pattern);
-    }
-    return null;
-  }
-
-  /**
-   * Get patterns (PostgreSQL or fallback)
-   */
-  async getPatterns(options = {}) {
-    if (this.patterns) {
-      const { category, limit = 10 } = options;
-      try {
-        if (category) {
-          return await this.patterns.findByCategory(category, limit);
-        }
-        return await this.patterns.getTopPatterns(limit);
-      } catch (err) {
-        console.error('Error getting patterns:', err.message);
-      }
-    }
-    if (this._fallback) {
-      return await this._fallback.getPatterns(options);
-    }
-    return [];
-  }
-
-  // ===========================================================================
-  // PoJ CHAIN METHODS
-  // "φ distrusts φ" - the chain must exist for CYNIC to verify itself
-  // Fallback chain: PostgreSQL → File → Memory
-  // ===========================================================================
-
-  /**
-   * Store a PoJ block (PostgreSQL or fallback)
-   * @param {Object} block - Block to store
-   * @returns {Promise<Object|null>} Stored block or null
-   */
-  async storePoJBlock(block) {
-    // Use PostgreSQL if available
-    if (this.pojBlocks) {
-      try {
-        return await this.pojBlocks.create(block);
-      } catch (err) {
-        console.error('Error storing PoJ block to PostgreSQL:', err.message);
-      }
-    }
-    // Fallback to file/memory
-    if (this._fallback) {
-      try {
-        return await this._fallback.storePoJBlock(block);
-      } catch (err) {
-        console.error('Error storing PoJ block to fallback:', err.message);
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Get the head (latest) PoJ block (PostgreSQL or fallback)
-   * @returns {Promise<Object|null>} Head block or null
-   */
-  async getPoJHead() {
-    if (this.pojBlocks) {
-      try {
-        return await this.pojBlocks.getHead();
-      } catch (err) {
-        console.error('Error getting PoJ head:', err.message);
-      }
-    }
-    if (this._fallback) {
-      return await this._fallback.getPoJHead();
-    }
-    return null;
-  }
-
-  /**
-   * Get PoJ chain statistics (PostgreSQL or fallback)
-   * @returns {Promise<Object>} Chain statistics
-   */
-  async getPoJStats() {
-    if (this.pojBlocks) {
-      try {
-        return await this.pojBlocks.getStats();
-      } catch (err) {
-        console.error('Error getting PoJ stats:', err.message);
-      }
-    }
-    if (this._fallback) {
-      return await this._fallback.getPoJStats();
-    }
-    return { totalBlocks: 0, headSlot: 0, totalJudgments: 0 };
-  }
-
-  /**
-   * Get recent PoJ blocks (PostgreSQL or fallback)
-   * @param {number} [limit=10] - Number of blocks
-   * @returns {Promise<Object[]>} Recent blocks
-   */
-  async getRecentPoJBlocks(limit = 10) {
-    if (this.pojBlocks) {
-      try {
-        return await this.pojBlocks.findRecent(limit);
-      } catch (err) {
-        console.error('Error getting recent PoJ blocks:', err.message);
-      }
-    }
-    if (this._fallback) {
-      return await this._fallback.getRecentPoJBlocks(limit);
-    }
-    return [];
-  }
-
-  /**
-   * Get PoJ block by slot number (PostgreSQL or fallback)
-   * @param {number} slot - Slot number
-   * @returns {Promise<Object|null>} Block or null
-   */
-  async getPoJBlockBySlot(slot) {
-    if (this.pojBlocks) {
-      try {
-        return await this.pojBlocks.findByNumber(slot);
-      } catch (err) {
-        console.error('Error getting PoJ block by slot:', err.message);
-      }
-    }
-    if (this._fallback) {
-      return await this._fallback.getPoJBlockBySlot(slot);
-    }
-    return null;
-  }
-
-  /**
-   * Verify PoJ chain integrity (PostgreSQL or fallback)
-   * @returns {Promise<Object>} Verification result
-   */
-  async verifyPoJChain() {
-    if (this.pojBlocks) {
-      try {
-        return await this.pojBlocks.verifyIntegrity();
-      } catch (err) {
-        console.error('Error verifying PoJ chain:', err.message);
-      }
-    }
-    if (this._fallback) {
-      return await this._fallback.verifyPoJChain();
-    }
-    return { valid: true, blocksChecked: 0, errors: [] };
-  }
-
-  // ===========================================================================
-  // TRIGGER METHODS
-  // "φ distrusts φ" - watchdogs must persist their rules
-  // Primary: PostgreSQL → Fallback: File → Memory
-  // ===========================================================================
-
-  /**
-   * Get all enabled triggers from DB
-   * @returns {Promise<Object[]>} Enabled triggers
-   */
-  async getEnabledTriggers() {
-    if (this.triggers) {
-      try {
-        return await this.triggers.findEnabled();
-      } catch (err) {
-        console.error('Error getting enabled triggers:', err.message);
-      }
-    }
-    // Fallback: return empty array or from memory
-    if (this._fallback?.triggersState?.triggers) {
-      return this._fallback.triggersState.triggers.filter(t => t.enabled);
-    }
-    return [];
-  }
-
-  /**
-   * Get all triggers from DB
-   * @returns {Promise<Object[]>} All triggers
-   */
-  async getAllTriggers() {
-    if (this.triggers) {
-      try {
-        return await this.triggers.findAll();
-      } catch (err) {
-        console.error('Error getting all triggers:', err.message);
-      }
-    }
-    if (this._fallback?.triggersState?.triggers) {
-      return this._fallback.triggersState.triggers;
-    }
-    return [];
-  }
-
-  /**
-   * Create a new trigger
-   * @param {Object} trigger - Trigger definition
-   * @returns {Promise<Object|null>} Created trigger
-   */
-  async createTrigger(trigger) {
-    if (this.triggers) {
-      try {
-        return await this.triggers.create(trigger);
-      } catch (err) {
-        console.error('Error creating trigger:', err.message);
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Update a trigger
-   * @param {string} triggerId - Trigger ID
-   * @param {Object} updates - Updates to apply
-   * @returns {Promise<Object|null>} Updated trigger
-   */
-  async updateTrigger(triggerId, updates) {
-    if (this.triggers) {
-      try {
-        return await this.triggers.update(triggerId, updates);
-      } catch (err) {
-        console.error('Error updating trigger:', err.message);
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Enable a trigger
-   * @param {string} triggerId - Trigger ID
-   * @returns {Promise<Object|null>} Updated trigger
-   */
-  async enableTrigger(triggerId) {
-    if (this.triggers) {
-      try {
-        return await this.triggers.enable(triggerId);
-      } catch (err) {
-        console.error('Error enabling trigger:', err.message);
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Disable a trigger
-   * @param {string} triggerId - Trigger ID
-   * @returns {Promise<Object|null>} Updated trigger
-   */
-  async disableTrigger(triggerId) {
-    if (this.triggers) {
-      try {
-        return await this.triggers.disable(triggerId);
-      } catch (err) {
-        console.error('Error disabling trigger:', err.message);
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Delete a trigger
-   * @param {string} triggerId - Trigger ID
-   * @returns {Promise<boolean>} Success
-   */
-  async deleteTrigger(triggerId) {
-    if (this.triggers) {
-      try {
-        return await this.triggers.delete(triggerId);
-      } catch (err) {
-        console.error('Error deleting trigger:', err.message);
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Record a trigger execution
-   * @param {Object} execution - Execution details
-   * @returns {Promise<Object|null>} Stored execution
-   */
-  async recordTriggerExecution(execution) {
-    if (this.triggers) {
-      try {
-        return await this.triggers.recordExecution(execution);
-      } catch (err) {
-        console.error('Error recording trigger execution:', err.message);
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Store a trigger event for pattern matching
-   * @param {Object} event - Event data
-   * @returns {Promise<Object|null>} Stored event
-   */
-  async storeTriggerEvent(event) {
-    if (this.triggers) {
-      try {
-        return await this.triggers.storeEvent(event);
-      } catch (err) {
-        console.error('Error storing trigger event:', err.message);
-      }
-    }
-    return null;
-  }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // OBSERVATIONS (lightweight, non-critical)
+  // ═══════════════════════════════════════════════════════════════════════════
 
   /**
    * Store an observation from agents (The Four Dogs)
-   * Used by base.js, event-bus.js, collective/index.js for decision logging
-   * @param {Object} observation - Observation data
-   * @param {string} observation.type - Observation type (e.g., 'dog_decision')
-   * @param {string} observation.agent - Agent name
-   * @param {string} [observation.trigger] - Event trigger type
-   * @param {string} [observation.tool] - Tool involved
-   * @param {*} [observation.response] - Agent response
-   * @param {*} [observation.action] - Action taken
-   * @param {string} [observation.message] - Message
-   * @param {number} [observation.confidence] - Confidence score
-   * @param {number} [observation.timestamp] - Timestamp
-   * @returns {Promise<Object|null>} Stored observation
+   * @param {Object} observation
+   * @returns {Promise<Object|null>}
    */
   async storeObservation(observation) {
-    // Add timestamp if not present
     const obs = {
       ...observation,
       timestamp: observation.timestamp || Date.now(),
       id: `obs_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
     };
 
-    // Store in fallback if available (file/memory)
     if (this._fallback?.storeObservation) {
       try {
         return await this._fallback.storeObservation(obs);
-      } catch (err) {
+      } catch {
         // Silently ignore - observations are non-critical
       }
     }
 
-    // For PostgreSQL: observations are lightweight, just return the object
-    // Future: could add observations table if needed for analytics
     return obs;
   }
 
-  /**
-   * Get trigger statistics
-   * @returns {Promise<Object>} Trigger stats
-   */
-  async getTriggerStats() {
-    if (this.triggers) {
-      try {
-        return await this.triggers.getStats();
-      } catch (err) {
-        console.error('Error getting trigger stats:', err.message);
-      }
-    }
-    return { totalTriggers: 0, enabledTriggers: 0 };
-  }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DIRECT REPOSITORY ACCESS (for advanced use cases)
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Get active triggers summary
-   * @returns {Promise<Object[]>} Active triggers summary
-   */
-  async getActiveTriggersSummary() {
-    if (this.triggers) {
-      try {
-        return await this.triggers.getActiveSummary();
-      } catch (err) {
-        console.error('Error getting active triggers summary:', err.message);
-      }
-    }
-    return [];
-  }
+  /** @returns {JudgmentRepository|null} */
+  get judgments() { return this._judgments; }
 
-  /**
-   * Check rate limit for a trigger
-   * @param {string} triggerId - Trigger ID
-   * @returns {Promise<number>} Executions in last minute
-   */
-  async getTriggerExecutionsLastMinute(triggerId) {
-    if (this.triggers) {
-      try {
-        return await this.triggers.countExecutionsLastMinute(triggerId);
-      } catch (err) {
-        console.error('Error checking trigger rate limit:', err.message);
-      }
-    }
-    return 0;
-  }
+  /** @returns {PatternRepository|null} */
+  get patterns() { return this._patterns; }
 
-  /**
-   * Legacy: Get triggers state (for backward compatibility)
-   * @deprecated Use getEnabledTriggers() instead
-   * @returns {Promise<Object|null>} Triggers state
-   */
-  async getTriggersState() {
-    // For backward compatibility with file/memory fallback
-    if (this._fallback) {
-      return await this._fallback.getTriggersState();
-    }
-    return null;
-  }
+  /** @returns {PoJBlockRepository|null} */
+  get pojBlocks() { return this._pojBlocks; }
 
-  /**
-   * Legacy: Save triggers state (for backward compatibility)
-   * @deprecated Use createTrigger() or updateTrigger() instead
-   * @param {Object} state - Triggers state
-   * @returns {Promise<Object|null>} Saved state
-   */
-  async saveTriggersState(state) {
-    // For backward compatibility with file/memory fallback
-    if (this._fallback) {
-      return await this._fallback.saveTriggersState(state);
-    }
-    return null;
-  }
+  /** @returns {TriggerRepository|null} */
+  get triggers() { return this._triggers; }
 
-  // ===========================================================================
-  // LIBRARY CACHE METHODS
-  // ===========================================================================
+  /** @returns {DiscoveryRepository|null} */
+  get discovery() { return this._discovery; }
 
-  /**
-   * Get cached library documentation
-   * @param {string} libraryId - Library ID
-   * @param {string} query - Search query
-   * @returns {Promise<Object|null>} Cached content or null
-   */
-  async getLibraryDoc(libraryId, query) {
-    if (this.libraryCache) {
-      try {
-        return await this.libraryCache.get(libraryId, query);
-      } catch (err) {
-        console.error('Error getting library doc:', err.message);
-      }
-    }
-    return null;
-  }
+  /** @returns {UserLearningProfilesRepository|null} */
+  get userLearningProfiles() { return this._userLearningProfiles; }
 
-  /**
-   * Store library documentation in cache
-   * @param {string} libraryId - Library ID
-   * @param {string} query - Search query
-   * @param {string} content - Documentation content
-   * @param {Object} [metadata] - Additional metadata
-   * @param {number} [ttlHours] - TTL in hours
-   */
-  async setLibraryDoc(libraryId, query, content, metadata = {}, ttlHours = 24) {
-    if (this.libraryCache) {
-      try {
-        return await this.libraryCache.set(libraryId, query, content, metadata, ttlHours);
-      } catch (err) {
-        console.error('Error setting library doc:', err.message);
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Check if library documentation is cached
-   * @param {string} libraryId - Library ID
-   * @param {string} query - Search query
-   * @returns {Promise<boolean>} True if cached
-   */
-  async isLibraryDocCached(libraryId, query) {
-    if (this.libraryCache) {
-      try {
-        return await this.libraryCache.isCached(libraryId, query);
-      } catch (err) {
-        console.error('Error checking library cache:', err.message);
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Clean expired library cache entries
-   * @returns {Promise<number>} Number of cleaned entries
-   */
-  async cleanExpiredCache() {
-    if (this.libraryCache) {
-      try {
-        return await this.libraryCache.cleanExpired();
-      } catch (err) {
-        console.error('Error cleaning cache:', err.message);
-      }
-    }
-    return 0;
-  }
-
-  /**
-   * Invalidate library cache
-   * @param {string} libraryId - Library ID
-   * @returns {Promise<number>} Number of invalidated entries
-   */
-  async invalidateLibraryCache(libraryId) {
-    if (this.libraryCache) {
-      try {
-        return await this.libraryCache.invalidate(libraryId);
-      } catch (err) {
-        console.error('Error invalidating cache:', err.message);
-      }
-    }
-    return 0;
-  }
-
-  /**
-   * Get library cache statistics
-   * @returns {Promise<Object>} Cache statistics
-   */
-  async getLibraryCacheStats() {
-    if (this.libraryCache) {
-      try {
-        return await this.libraryCache.getStats();
-      } catch (err) {
-        console.error('Error getting cache stats:', err.message);
-      }
-    }
-    return { totalEntries: 0, activeEntries: 0, uniqueLibraries: 0 };
-  }
-
-  /**
-   * Get top cached libraries
-   * @param {number} [limit=10] - Max libraries
-   * @returns {Promise<Object[]>} Top libraries
-   */
-  async getTopCachedLibraries(limit = 10) {
-    if (this.libraryCache) {
-      try {
-        return await this.libraryCache.getTopLibraries(limit);
-      } catch (err) {
-        console.error('Error getting top libraries:', err.message);
-      }
-    }
-    return [];
-  }
-
-  // ===========================================================================
-  // PSYCHOLOGY METHODS
-  // "Comprendre l'humain pour mieux l'aider" - cross-session persistence
-  // Primary: PostgreSQL → Fallback: None (local files handle ephemeral)
-  // ===========================================================================
-
-  /**
-   * Sync psychology state from local to database
-   * Called at session end via sleep.cjs
-   * @param {string} userId - User ID
-   * @param {Object} data - Psychology data (dimensions, emotions, calibration, etc.)
-   * @returns {Promise<Object|null>} Synced result
-   */
-  async syncPsychology(userId, data) {
-    if (this.psychology) {
-      try {
-        return await this.psychology.syncPsychology(userId, data);
-      } catch (err) {
-        console.error('Error syncing psychology:', err.message);
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Load psychology state from database
-   * Called at session start via awaken.cjs
-   * @param {string} userId - User ID
-   * @returns {Promise<Object|null>} Psychology data or null
-   */
-  async loadPsychology(userId) {
-    if (this.psychology) {
-      try {
-        return await this.psychology.loadPsychology(userId);
-      } catch (err) {
-        console.error('Error loading psychology:', err.message);
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Record intervention outcome for learning
-   * @param {string} userId - User ID
-   * @param {Object} intervention - Intervention data
-   * @returns {Promise<void>}
-   */
-  async recordIntervention(userId, intervention) {
-    if (this.psychology) {
-      try {
-        await this.psychology.recordIntervention(userId, intervention);
-      } catch (err) {
-        console.error('Error recording intervention:', err.message);
-      }
-    }
-  }
-
-  /**
-   * Get intervention effectiveness stats
-   * @param {string} userId - User ID
-   * @returns {Promise<Object|null>} Effectiveness stats by type
-   */
-  async getInterventionEffectiveness(userId) {
-    if (this.psychology) {
-      try {
-        return await this.psychology.getInterventionEffectiveness(userId);
-      } catch (err) {
-        console.error('Error getting intervention effectiveness:', err.message);
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Record learning observation for calibration
-   * @param {string} userId - User ID
-   * @param {Object} observation - Learning observation
-   * @returns {Promise<void>}
-   */
-  async recordLearningObservation(userId, observation) {
-    if (this.psychology) {
-      try {
-        await this.psychology.recordLearningObservation(userId, observation);
-      } catch (err) {
-        console.error('Error recording learning observation:', err.message);
-      }
-    }
-  }
-
-  /**
-   * Get calibration stats from learning observations
-   * @param {string} userId - User ID
-   * @returns {Promise<Object|null>} Calibration stats by module
-   */
-  async getCalibrationStats(userId) {
-    if (this.psychology) {
-      try {
-        return await this.psychology.getCalibrationStats(userId);
-      } catch (err) {
-        console.error('Error getting calibration stats:', err.message);
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Get aggregate psychology stats across all users
-   * @returns {Promise<Object>} Aggregate stats
-   */
-  async getPsychologyStats() {
-    if (this.psychology) {
-      try {
-        return await this.psychology.getStats();
-      } catch (err) {
-        console.error('Error getting psychology stats:', err.message);
-      }
-    }
-    return { totalUsers: 0, totalSessions: 0, avgAccuracy: 0 };
-  }
-
-  /**
-   * Get top performers (highest calibration accuracy)
-   * @param {number} [limit=10] - Max results
-   * @returns {Promise<Array>} Top users
-   */
-  async getTopPerformers(limit = 10) {
-    if (this.psychology) {
-      try {
-        return await this.psychology.getTopPerformers(limit);
-      } catch (err) {
-        console.error('Error getting top performers:', err.message);
-      }
-    }
-    return [];
-  }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HEALTH & LIFECYCLE
+  // ═══════════════════════════════════════════════════════════════════════════
 
   /**
    * Get health status
@@ -1358,7 +370,6 @@ export class PersistenceManager {
    * Close all connections
    */
   async close() {
-    // Save file-based fallback if active
     if (this._fallback?.save) {
       try {
         await this._fallback.save();
@@ -1388,10 +399,9 @@ export class PersistenceManager {
 
   /**
    * Execute raw SQL query (PostgreSQL only)
-   * Used by emergence detection and other analytical queries.
-   * @param {string} sql - SQL query
-   * @param {Array} [params] - Query parameters
-   * @returns {Promise<{rows: Array}>} Query result
+   * @param {string} sql
+   * @param {Array} params
+   * @returns {Promise<{rows: Array}>}
    */
   async query(sql, params = []) {
     if (this.postgres) {
@@ -1402,7 +412,6 @@ export class PersistenceManager {
         return { rows: [] };
       }
     }
-    // No fallback for raw SQL queries
     return { rows: [] };
   }
 
@@ -1417,17 +426,15 @@ export class PersistenceManager {
    * Check if specific features are available
    */
   get capabilities() {
-    // With fallback, most features are always available
-    const hasFallback = !!this._fallback;
     return {
-      judgments: !!this.judgments || hasFallback,
-      patterns: !!this.patterns || hasFallback,
-      feedback: !!this.feedback || hasFallback,
-      knowledge: !!this.knowledge || hasFallback,
-      pojChain: !!this.pojBlocks || hasFallback, // Now has fallback - CYNIC must verify itself
-      triggers: !!this.triggers || hasFallback, // PostgreSQL triggers repository with fallback
-      libraryCache: !!this.libraryCache, // No fallback - requires PostgreSQL
-      psychology: !!this.psychology, // Cross-session psychology - requires PostgreSQL
+      judgments: this._judgmentAdapter?.isAvailable || false,
+      patterns: this._patternAdapter?.isAvailable || false,
+      pojChain: this._pojChainAdapter?.isAvailable || false,
+      triggers: this._triggerAdapter?.isAvailable || false,
+      knowledge: this._knowledgeAdapter?.isAvailable || false,
+      feedback: this._feedbackAdapter?.isAvailable || false,
+      libraryCache: this._libraryCacheAdapter?.isAvailable || false,
+      psychology: this._psychologyAdapter?.isAvailable || false,
       sessions: !!this.sessionStore,
       cache: !!this.redis,
     };
