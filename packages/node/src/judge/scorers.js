@@ -90,6 +90,43 @@ function hasCodePatterns(text) {
 }
 
 /**
+ * Detect risk level from item (for universal penalty application)
+ * @param {Object} item - Item to analyze
+ * @param {string} text - Extracted text
+ * @returns {number} Risk penalty (0-60)
+ */
+function detectRiskPenalty(item, text) {
+  let penalty = 0;
+
+  // Risk tags from enricher
+  if (item.tags && Array.isArray(item.tags)) {
+    const riskTags = item.tags.filter(t => t.startsWith('risk:'));
+    penalty += riskTags.length * 10;
+  }
+
+  // Direct scam indicators in text
+  const scamPatterns = [
+    /scam|fraud|rug\s*pull|honeypot|ponzi/i,
+    /anonymous\s*(team|dev)/i,
+    /fake\s*(liquidity|volume|audit|team)/i,
+    /100%\s*(tax|fee|slippage)/i,
+    /copy[\s-]*paste\s*code/i,
+    /zero\s*audit|no\s*audit|unaudited/i,
+  ];
+  penalty += scamPatterns.filter(p => p.test(text)).length * 12;
+
+  // Extractive/exploitative patterns
+  const extractivePatterns = [
+    /guaranteed.*return|guaranteed.*profit/i,
+    /\d{3,}x\s*(return|profit|gain)/i, // 100x+ claims
+    /get rich|make millions/i,
+  ];
+  penalty += extractivePatterns.filter(p => p.test(text)).length * 8;
+
+  return Math.min(penalty, 60); // Cap at 60 to not instantly zero everything
+}
+
+/**
  * Check for contradictions (simple heuristic)
  * @param {string} text
  * @returns {number} Number of potential contradictions
@@ -387,16 +424,18 @@ export function scoreAccuracy(item, context = {}) {
  * Score VERIFIABILITY - Can be independently verified
  */
 export function scoreVerifiability(item, context = {}) {
-  let score = 40;
+  let score = 50;
+  const text = extractText(item);
 
+  // ═══ POSITIVE INDICATORS ═══
   // Has proof
-  if (item.proof) score += 30;
+  if (item.proof) score += 25;
 
   // Has signature
   if (item.signature) score += 15;
 
   // Has hash
-  if (item.hash) score += 15;
+  if (item.hash) score += 10;
 
   // Has public source
   if (item.url || item.sourceUrl) score += 10;
@@ -405,8 +444,14 @@ export function scoreVerifiability(item, context = {}) {
   if (item.checksum) score += 10;
 
   // Has testable claims
-  const text = extractText(item);
-  if (/can be verified|reproducible|testable/i.test(text)) score += 5;
+  if (/can be verified|reproducible|testable|audited/i.test(text)) score += 10;
+
+  // ═══ NEGATIVE INDICATORS ═══
+  // Apply universal risk penalty
+  score -= detectRiskPenalty(item, text);
+
+  // Unverifiable claims
+  if (/trust me|just believe|no proof needed/i.test(text)) score -= 15;
 
   return normalize(score);
 }
@@ -467,8 +512,10 @@ export function scoreReproducibility(item, context = {}) {
  * Score PROVENANCE - Source is traceable
  */
 export function scoreProvenance(item, context = {}) {
-  let score = 40;
+  let score = 50;
+  const text = extractText(item);
 
+  // ═══ POSITIVE INDICATORS ═══
   // Has author
   if (item.author || item.creator || item.operator) score += 15;
 
@@ -484,6 +531,13 @@ export function scoreProvenance(item, context = {}) {
   // Has signature
   if (item.signature) score += 10;
 
+  // ═══ NEGATIVE INDICATORS ═══
+  // Apply universal risk penalty
+  score -= detectRiskPenalty(item, text);
+
+  // Anonymous = untraceable provenance
+  if (/anonymous|unknown\s*(team|dev|creator)/i.test(text)) score -= 20;
+
   return normalize(score);
 }
 
@@ -492,7 +546,9 @@ export function scoreProvenance(item, context = {}) {
  */
 export function scoreIntegrity(item, context = {}) {
   let score = 50;
+  const text = extractText(item);
 
+  // ═══ POSITIVE INDICATORS ═══
   // Has hash
   if (item.hash) score += 20;
 
@@ -507,6 +563,10 @@ export function scoreIntegrity(item, context = {}) {
 
   // Has merkle proof
   if (item.merkleProof || item.proof) score += 10;
+
+  // ═══ NEGATIVE INDICATORS ═══
+  // Apply universal risk penalty
+  score -= detectRiskPenalty(item, text);
 
   return normalize(score);
 }
@@ -1016,8 +1076,10 @@ export function scoreValueCreation(item, context = {}) {
  * Score NON_EXTRACTIVE - Does not extract value unfairly
  */
 export function scoreNonExtractive(item, context = {}) {
-  let score = 60; // Assume good faith
+  let score = 55;
+  const text = extractText(item);
 
+  // ═══ POSITIVE INDICATORS ═══
   // Explicitly non-extractive
   if (item.nonExtractive === true || item.fair === true) score += 15;
 
@@ -1027,14 +1089,28 @@ export function scoreNonExtractive(item, context = {}) {
   // Has fair compensation
   if (item.compensation || item.attribution) score += 10;
 
-  // No hidden costs
-  if (item.hiddenCosts === true) score -= 30;
-
   // Community benefit
   if (item.communityBenefit === true) score += 10;
 
+  // ═══ NEGATIVE INDICATORS ═══
+  // Apply universal risk penalty
+  score -= detectRiskPenalty(item, text);
+
+  // No hidden costs
+  if (item.hiddenCosts === true) score -= 30;
+
   // Penalize extraction markers
   if (item.extractive === true) score -= 40;
+
+  // Extractive text patterns
+  const extractivePatterns = [
+    /100%\s*(tax|fee|take)/i,
+    /drain|extract|steal|siphon/i,
+    /all\s*funds|all\s*liquidity/i,
+    /exit\s*scam/i,
+  ];
+  const extractiveCount = extractivePatterns.filter(p => p.test(text)).length;
+  score -= extractiveCount * 15;
 
   return normalize(score);
 }
