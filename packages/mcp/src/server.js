@@ -12,26 +12,16 @@
 
 'use strict';
 
-import { createServer } from 'http';
-import { readFile } from 'fs/promises';
-import { join, extname } from 'path';
+import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { PHI_INV, PHI_INV_2, IDENTITY, PeriodicScheduler, FibonacciIntervals, EcosystemMonitor } from '@cynic/core';
+
+// SRP: HTTP concerns extracted to HttpAdapter
+import { HttpAdapter } from './server/HttpAdapter.js';
 
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = join(__filename, '..');
-
-// MIME types for static files
-const MIME_TYPES = {
-  '.html': 'text/html',
-  '.css': 'text/css',
-  '.js': 'application/javascript',
-  '.json': 'application/json',
-  '.png': 'image/png',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon',
-};
 import { CYNICJudge, createCollectivePack, LearningService, createEScoreCalculator } from '@cynic/node';
 import { createAllTools } from './tools/index.js';
 import { PersistenceManager } from './persistence.js';
@@ -172,10 +162,9 @@ export class MCPServer {
     this.input = options.input || process.stdin;
     this.output = options.output || process.stdout;
 
-    // HTTP server (for http mode)
-    this._httpServer = null;
-    this._sseClients = new Set();
-    this._activeRequests = new Set(); // Track in-flight requests for graceful shutdown
+    // HTTP adapter (for http mode) - SRP: HttpAdapter handles HTTP/SSE
+    this._httpAdapter = null;
+    this._activeRequests = new Set(); // Track in-flight JSON-RPC requests for graceful shutdown
 
     // Request buffer for stdin parsing
     this._buffer = '';
@@ -537,320 +526,166 @@ export class MCPServer {
 
   /**
    * Start HTTP server (for remote deployment)
+   * Uses HttpAdapter for SRP compliance
    * @private
    */
   async _startHttpServer() {
-    return new Promise((resolve, reject) => {
-      this._httpServer = createServer((req, res) => {
-        this._handleHttpRequest(req, res);
-      });
+    // Create HttpAdapter with configuration
+    this._httpAdapter = new HttpAdapter({
+      port: this.port,
+      dashboardPath: join(__dirname, 'dashboard'),
+      auth: this.auth,
+    });
 
-      this._httpServer.on('error', (err) => {
-        console.error('HTTP server error:', err.message);
-        reject(err);
-      });
+    // Set route handlers (MCPServer provides domain logic)
+    this._httpAdapter.setRoute('health', (req, res) => this._handleHealthRequest(req, res));
+    this._httpAdapter.setRoute('metrics', (req, res, url) => this._handleMetricsRequest(req, res, url));
+    this._httpAdapter.setRoute('mcp', (req, res) => this._handleMcpRequest(req, res));
+    this._httpAdapter.setRoute('api', (req, res, url) => this._handleApiRequest(req, res, url));
+    this._httpAdapter.setRoute('hooks', (req, res, url) => this._handleHooksRequest(req, res, url));
+    this._httpAdapter.setRoute('psychology', (req, res, url) => this._handlePsychologyRequest(req, res, url));
 
-      this._httpServer.listen(this.port, () => {
-        console.error(`   HTTP server listening on port ${this.port}`);
-        resolve();
-      });
+    // Start the HTTP server
+    await this._httpAdapter.start();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HTTP ROUTE HANDLERS (SRP: Domain-specific logic, HttpAdapter handles transport)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Handle health check requests
+   * Route: GET / or /health
+   * @private
+   */
+  _handleHealthRequest(_req, res) {
+    HttpAdapter.sendJson(res, 200, {
+      status: 'healthy',
+      server: this.name,
+      version: this.version,
+      tools: Object.keys(this.tools).length,
+      uptime: process.uptime(),
+      phi: PHI_INV,
     });
   }
 
   /**
-   * Handle HTTP request
+   * Handle metrics requests (Prometheus or HTML)
+   * Route: GET /metrics or /metrics/html
    * @private
    */
-  async _handleHttpRequest(req, res) {
-    // CORS headers for MCP clients (including auth headers)
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
-    res.setHeader('Access-Control-Expose-Headers', 'X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset');
-
-    if (req.method === 'OPTIONS') {
-      res.writeHead(204);
-      res.end();
+  async _handleMetricsRequest(_req, res, url) {
+    if (!this.metrics) {
+      HttpAdapter.sendJson(res, 503, { error: 'Metrics service not available' });
       return;
     }
 
-    const url = new URL(req.url, `http://${req.headers.host}`);
-
-    // Authentication check (if auth service is configured)
-    if (this.auth) {
-      const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim()
-        || req.socket?.remoteAddress
-        || 'unknown';
-
-      // Attach path for auth check
-      req.path = url.pathname;
-
-      const authResult = this.auth.authenticate(req, clientIp);
-
-      if (!authResult.authenticated) {
-        res.writeHead(authResult.statusCode || 401, { 'Content-Type': 'application/json' });
-        if (authResult.retryAfter) {
-          res.setHeader('Retry-After', authResult.retryAfter);
-        }
-        res.end(JSON.stringify({
-          error: authResult.error || 'Unauthorized',
-          statusCode: authResult.statusCode || 401,
-        }));
-        return;
-      }
-
-      // Attach auth info to request
-      req.auth = {
-        method: authResult.method,
-        identifier: authResult.identifier,
-      };
-
-      // Add rate limit headers
-      res.setHeader('X-RateLimit-Limit', this.auth.rateLimit);
-      const rateCheck = this.auth.checkRateLimit(authResult.identifier || clientIp);
-      res.setHeader('X-RateLimit-Remaining', rateCheck.remaining);
-      res.setHeader('X-RateLimit-Reset', Math.ceil(rateCheck.resetIn / 1000));
-    }
-
-    // Health check endpoint
-    if (url.pathname === '/health' || url.pathname === '/') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        status: 'healthy',
-        server: this.name,
-        version: this.version,
-        tools: Object.keys(this.tools).length,
-        uptime: process.uptime(),
-        phi: PHI_INV,
-      }));
-      return;
-    }
-
-    // Metrics endpoint (Prometheus format)
-    if (url.pathname === '/metrics') {
-      if (!this.metrics) {
-        res.writeHead(503, { 'Content-Type': 'text/plain' });
-        res.end('# Metrics service not available\n');
-        return;
-      }
-      try {
-        const prometheus = await this.metrics.toPrometheus();
-        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-        res.end(prometheus);
-      } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end(`# Error collecting metrics: ${err.message}\n`);
-      }
-      return;
-    }
-
-    // New Dashboard (static files)
-    if (url.pathname === '/dashboard' || url.pathname.startsWith('/dashboard/')) {
-      await this._handleDashboardRequest(url, res);
-      return;
-    }
-
-    // Legacy metrics dashboard (HTML report)
-    if (url.pathname === '/metrics/html') {
-      if (!this.metrics) {
-        res.writeHead(503, { 'Content-Type': 'text/plain' });
-        res.end('Metrics not available');
-        return;
-      }
-      try {
+    try {
+      if (url.pathname === '/metrics/html') {
+        // HTML dashboard
         const html = await this.metrics.toHTML();
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(html);
-      } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end(`Error generating metrics: ${err.message}`);
+      } else {
+        // Prometheus format
+        const prometheus = await this.metrics.toPrometheus();
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end(prometheus);
       }
-      return;
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end(`# Error collecting metrics: ${err.message}\n`);
     }
+  }
 
-    // SSE endpoint for MCP streaming (supports both /sse and /mcp GET paths)
-    // GET /mcp or /sse → SSE streaming for Claude Desktop
-    if ((url.pathname === '/sse' || url.pathname === '/mcp') && req.method === 'GET') {
-      this._handleSseConnection(req, res);
-      return;
-    }
+  /**
+   * Handle MCP JSON-RPC requests
+   * Route: POST /mcp or /message
+   * @private
+   */
+  async _handleMcpRequest(req, res) {
+    await this._handleHttpMessage(req, res);
+  }
 
-    // POST endpoint for JSON-RPC messages (supports both /message and /mcp paths)
-    // POST /mcp or /message → JSON-RPC for Claude Code
-    if ((url.pathname === '/message' || url.pathname === '/mcp') && req.method === 'POST') {
-      await this._handleHttpMessage(req, res);
-      return;
-    }
-
-    // REST API for tools (browser-friendly)
-    if (url.pathname.startsWith('/api/tools/')) {
-      await this._handleApiToolRequest(req, res, url);
-      return;
-    }
+  /**
+   * Handle REST API requests
+   * Route: /api/*
+   * @private
+   */
+  async _handleApiRequest(req, res, url) {
+    const pathname = url.pathname;
 
     // List all available tools (API discovery)
-    if (url.pathname === '/api/tools' && req.method === 'GET') {
+    if (pathname === '/api/tools' && req.method === 'GET') {
       const tools = Object.values(this.tools).map(t => ({
         name: t.name,
         description: t.description,
         inputSchema: t.inputSchema,
       }));
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ tools }));
+      HttpAdapter.sendJson(res, 200, { tools });
       return;
     }
 
+    // REST API for specific tool
+    if (pathname.startsWith('/api/tools/')) {
+      await this._handleApiToolRequest(req, res, url);
+      return;
+    }
+
+    // 404 for unknown API routes
+    HttpAdapter.sendJson(res, 404, { error: 'API endpoint not found' });
+  }
+
+  /**
+   * Handle hooks requests
+   * Route: /hooks/*
+   * @private
+   */
+  async _handleHooksRequest(req, res, url) {
+    const pathname = url.pathname;
+
     // Hook event endpoint - bridges Claude Code hooks to the Collective
-    if (url.pathname === '/api/hooks/event' && req.method === 'POST') {
+    if (pathname === '/hooks/event' && req.method === 'POST') {
       await this._handleHookEvent(req, res);
       return;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PSYCHOLOGY ENDPOINTS - Cross-session persistence for human understanding
-    // "Comprendre l'humain pour mieux l'aider"
-    // ═══════════════════════════════════════════════════════════════════════════
+    HttpAdapter.sendJson(res, 404, { error: 'Hook endpoint not found' });
+  }
+
+  /**
+   * Handle psychology requests
+   * Route: /psychology/*
+   * @private
+   */
+  async _handlePsychologyRequest(req, res, url) {
+    const pathname = url.pathname;
 
     // Sync psychology state to database (called by sleep.cjs)
-    if (url.pathname === '/sync-psychology' && req.method === 'POST') {
+    if (pathname === '/psychology/sync' && req.method === 'POST') {
       await this._handlePsychologySync(req, res);
       return;
     }
 
     // Load psychology state from database (called by awaken.cjs)
-    if (url.pathname === '/load-psychology' && req.method === 'GET') {
+    if (pathname === '/psychology/load' && req.method === 'GET') {
       await this._handlePsychologyLoad(req, res, url);
       return;
     }
 
-    // 404 for unknown routes
-    res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Not found' }));
+    HttpAdapter.sendJson(res, 404, { error: 'Psychology endpoint not found' });
   }
 
   /**
-   * Handle SSE connection
-   * @private
-   */
-  _handleSseConnection(req, res) {
-    console.error(`🔴 [SSE] Connection request from ${req.socket.remoteAddress}`);
-    console.error(`🔴 [SSE] Headers:`, JSON.stringify(req.headers, null, 2));
-
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-    });
-
-    // Send endpoint info event
-    const endpoint = `/message`;
-    res.write(`event: endpoint\ndata: ${endpoint}\n\n`);
-    console.error(`🔴 [SSE] Sent endpoint event to client`);
-
-    // Track client
-    this._sseClients.add(res);
-    console.error(`🔴 [SSE] ✅ Client connected (${this._sseClients.size} total)`);
-
-    // Handle client disconnect
-    req.on('close', () => {
-      this._sseClients.delete(res);
-      console.error(`   SSE client disconnected (${this._sseClients.size} remaining)`);
-    });
-
-    // Keep-alive ping every 30 seconds
-    const keepAlive = setInterval(() => {
-      if (!res.writableEnded) {
-        res.write(`: ping\n\n`);
-      }
-    }, 30000);
-
-    req.on('close', () => clearInterval(keepAlive));
-  }
-
-  /**
-   * Broadcast message to all SSE clients
-   * @param {Object} data - Data to broadcast
-   * @private
-   */
-  _broadcastToSSE(data) {
-    const message = `event: message\ndata: ${JSON.stringify(data)}\n\n`;
-    for (const client of this._sseClients) {
-      if (!client.writableEnded) {
-        try {
-          client.write(message);
-        } catch (e) {
-          // Client disconnected, remove from set
-          this._sseClients.delete(client);
-        }
-      }
-    }
-  }
-
-  /**
-   * Broadcast typed SSE event to all clients
-   * @param {string} eventType - Event type (judgment, block, alert)
+   * Broadcast SSE event to all connected clients
+   * Delegates to HttpAdapter for transport
+   * @param {string} eventType - Event type (judgment, block, alert, etc.)
    * @param {Object} data - Event data
    * @private
    */
   _broadcastSSEEvent(eventType, data) {
-    const clientCount = this._sseClients.size;
-    if (clientCount > 0) {
-      console.error(`🔴 [SSE] Broadcasting "${eventType}" to ${clientCount} client(s)`);
-    }
-    const message = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
-    let sent = 0;
-    for (const client of this._sseClients) {
-      if (!client.writableEnded) {
-        try {
-          client.write(message);
-          sent++;
-        } catch (e) {
-          // Client disconnected, remove from set
-          this._sseClients.delete(client);
-          console.error(`🔴 [SSE] Client removed (write failed)`);
-        }
-      }
-    }
-    if (sent > 0) {
-      console.error(`🔴 [SSE] ✅ Sent "${eventType}" to ${sent} client(s)`);
-    }
-  }
-
-  /**
-   * Handle new dashboard static file requests
-   * @private
-   */
-  async _handleDashboardRequest(url, res) {
-    try {
-      // Default to index.html
-      let filePath = url.pathname.replace('/dashboard', '') || '/index.html';
-      if (filePath === '' || filePath === '/') {
-        filePath = '/index.html';
-      }
-
-      // Prevent directory traversal
-      if (filePath.includes('..')) {
-        res.writeHead(403, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Forbidden' }));
-        return;
-      }
-
-      const fullPath = join(__dirname, 'dashboard', filePath);
-      const ext = extname(fullPath);
-      const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-
-      const content = await readFile(fullPath);
-      res.writeHead(200, { 'Content-Type': contentType });
-      res.end(content);
-    } catch (err) {
-      if (err.code === 'ENOENT') {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'File not found' }));
-      } else {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
-      }
+    if (this._httpAdapter) {
+      this._httpAdapter.broadcast(eventType, data);
     }
   }
 
@@ -864,40 +699,27 @@ export class MCPServer {
 
     const tool = this.tools[toolName];
     if (!tool) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: `Tool not found: ${toolName}` }));
+      HttpAdapter.sendJson(res, 404, { error: `Tool not found: ${toolName}` });
       return;
     }
 
     // GET = get tool info, POST = execute tool
     if (req.method === 'GET') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
+      HttpAdapter.sendJson(res, 200, {
         name: tool.name,
         description: tool.description,
         inputSchema: tool.inputSchema,
-      }));
+      });
       return;
     }
 
     if (req.method !== 'POST') {
-      res.writeHead(405, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Method not allowed' }));
+      HttpAdapter.sendJson(res, 405, { error: 'Method not allowed' });
       return;
     }
 
     try {
-      // Parse request body
-      let body = '';
-      for await (const chunk of req) {
-        body += chunk;
-        if (body.length > MAX_BODY_SIZE) {
-          res.writeHead(413, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Request too large' }));
-          return;
-        }
-      }
-
+      const body = await HttpAdapter.readBody(req);
       const args = body ? JSON.parse(body) : {};
       const toolUseId = `api_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -909,11 +731,10 @@ export class MCPServer {
         });
 
         if (preResult.blocked) {
-          res.writeHead(403, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
+          HttpAdapter.sendJson(res, 403, {
             error: `[BLOCKED] ${preResult.blockMessage || 'Operation blocked by collective'}`,
             blockedBy: preResult.blockedBy,
-          }));
+          });
           return;
         }
       }
@@ -939,16 +760,10 @@ export class MCPServer {
         }).catch(() => {});
       }
 
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        success: true,
-        result,
-        duration,
-      }));
+      HttpAdapter.sendJson(res, 200, { success: true, result, duration });
     } catch (err) {
       console.error(`🐕 [API] Tool ${toolName} error: ${err.message}`);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message }));
+      HttpAdapter.sendJson(res, 500, { error: err.message });
     }
   }
 
@@ -963,30 +778,18 @@ export class MCPServer {
    */
   async _handleHookEvent(req, res) {
     try {
-      // Parse request body
-      let body = '';
-      for await (const chunk of req) {
-        body += chunk;
-        if (body.length > MAX_BODY_SIZE) {
-          res.writeHead(413, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Request too large' }));
-          return;
-        }
-      }
-
+      const body = await HttpAdapter.readBody(req);
       const hookData = body ? JSON.parse(body) : {};
 
       // Validate required fields
       if (!hookData.hookType) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'hookType is required' }));
+        HttpAdapter.sendJson(res, 400, { error: 'hookType is required' });
         return;
       }
 
       // Check if collective is available
       if (!this.collective) {
-        res.writeHead(503, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Collective not initialized' }));
+        HttpAdapter.sendJson(res, 503, { error: 'Collective not initialized' });
         return;
       }
 
@@ -997,8 +800,7 @@ export class MCPServer {
       console.error(`🐕 [HOOK] ${hookData.hookType} → ${result.delivered || 0} dogs notified`);
 
       // Broadcast to SSE clients (generic message)
-      this._broadcastToSSE({
-        type: 'hook:received',
+      this._broadcastSSEEvent('hook:received', {
         hookType: hookData.hookType,
         delivered: result.delivered || 0,
         timestamp: Date.now(),
@@ -1022,12 +824,10 @@ export class MCPServer {
         });
       }
 
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
+      HttpAdapter.sendJson(res, 200, result);
     } catch (err) {
       console.error(`🐕 [HOOK] Error: ${err.message}`);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message }));
+      HttpAdapter.sendJson(res, 500, { error: err.message });
     }
   }
 
@@ -1038,28 +838,16 @@ export class MCPServer {
    */
   async _handlePsychologySync(req, res) {
     try {
-      // Parse request body
-      let body = '';
-      for await (const chunk of req) {
-        body += chunk;
-        if (body.length > MAX_BODY_SIZE) {
-          res.writeHead(413, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Request too large' }));
-          return;
-        }
-      }
-
+      const body = await HttpAdapter.readBody(req);
       const { userId, data } = body ? JSON.parse(body) : {};
 
       if (!userId || !data) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'userId and data are required' }));
+        HttpAdapter.sendJson(res, 400, { error: 'userId and data are required' });
         return;
       }
 
       if (!this.persistence) {
-        res.writeHead(503, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Persistence not available' }));
+        HttpAdapter.sendJson(res, 503, { error: 'Persistence not available' });
         return;
       }
 
@@ -1067,12 +855,10 @@ export class MCPServer {
 
       console.error(`🧠 [PSYCHOLOGY] Synced for ${userId}`);
 
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, result }));
+      HttpAdapter.sendJson(res, 200, { success: true, result });
     } catch (err) {
       console.error(`🧠 [PSYCHOLOGY] Sync error: ${err.message}`);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message }));
+      HttpAdapter.sendJson(res, 500, { error: err.message });
     }
   }
 
@@ -1081,38 +867,33 @@ export class MCPServer {
    * "Comprendre l'humain pour mieux l'aider"
    * @private
    */
-  async _handlePsychologyLoad(req, res, url) {
+  async _handlePsychologyLoad(_req, res, url) {
     try {
       const userId = url.searchParams.get('userId');
 
       if (!userId) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'userId is required' }));
+        HttpAdapter.sendJson(res, 400, { error: 'userId is required' });
         return;
       }
 
       if (!this.persistence) {
-        res.writeHead(503, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Persistence not available' }));
+        HttpAdapter.sendJson(res, 503, { error: 'Persistence not available' });
         return;
       }
 
       const data = await this.persistence.loadPsychology(userId);
 
       if (!data) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'No psychology data found for user' }));
+        HttpAdapter.sendJson(res, 404, { error: 'No psychology data found for user' });
         return;
       }
 
       console.error(`🧠 [PSYCHOLOGY] Loaded for ${userId}`);
 
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(data));
+      HttpAdapter.sendJson(res, 200, data);
     } catch (err) {
       console.error(`🧠 [PSYCHOLOGY] Load error: ${err.message}`);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message }));
+      HttpAdapter.sendJson(res, 500, { error: err.message });
     }
   }
 
@@ -1288,43 +1069,9 @@ export class MCPServer {
     this._running = false;
     console.error('🐕 CYNIC MCP Server shutting down...');
 
-    // Close HTTP server if running
-    if (this._httpServer) {
-      // Stop accepting new connections
-      this._httpServer.close();
-
-      // Close all SSE clients
-      for (const client of this._sseClients) {
-        client.end();
-      }
-      this._sseClients.clear();
-
-      // Wait for active requests to complete (with timeout)
-      if (this._activeRequests.size > 0) {
-        console.error(`   Waiting for ${this._activeRequests.size} active request(s)...`);
-
-        const drainPromise = new Promise((resolve) => {
-          const checkInterval = setInterval(() => {
-            if (this._activeRequests.size === 0) {
-              clearInterval(checkInterval);
-              resolve();
-            }
-          }, 100);
-        });
-
-        const timeoutPromise = new Promise((resolve) => {
-          setTimeout(() => {
-            if (this._activeRequests.size > 0) {
-              console.error(`   *GROWL* Forcing shutdown with ${this._activeRequests.size} pending request(s)`);
-            }
-            resolve();
-          }, SHUTDOWN_TIMEOUT_MS);
-        });
-
-        await Promise.race([drainPromise, timeoutPromise]);
-      }
-
-      console.error('   HTTP server closed');
+    // Stop HTTP adapter (handles SSE clients and graceful shutdown)
+    if (this._httpAdapter) {
+      await this._httpAdapter.stop(SHUTDOWN_TIMEOUT_MS);
     }
 
     // Flush PoJ chain (create final block from pending judgments)

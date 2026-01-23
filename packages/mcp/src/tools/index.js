@@ -5007,7 +5007,5 @@ export default {
   JSONRenderService,
   createJSONRenderTool,
   createAllTools,
-  // OCP: Registry pattern for extensibility
-  ToolRegistry: require('./registry.js').ToolRegistry,
 };
 

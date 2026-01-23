@@ -58,6 +58,8 @@ export class HttpAdapter {
       api: null,      // GET /api/* - REST API
       hooks: null,    // POST /hooks/* - Hook events
       psychology: null, // Psychology endpoints
+      metrics: null,  // GET /metrics - Prometheus format
+      health: null,   // GET /health or / - Health check (custom)
     };
   }
 
@@ -211,10 +213,25 @@ export class HttpAdapter {
   async _routeRequest(req, res, url) {
     const pathname = url.pathname;
 
-    // Health check
-    if (pathname === '/health') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok' }));
+    // Health check (supports custom health handler)
+    if (pathname === '/health' || pathname === '/') {
+      if (this._routes.health) {
+        await this._routes.health(req, res, url);
+      } else {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok' }));
+      }
+      return;
+    }
+
+    // Metrics endpoint (Prometheus format)
+    if (pathname === '/metrics' || pathname === '/metrics/html') {
+      if (this._routes.metrics) {
+        await this._routes.metrics(req, res, url);
+      } else {
+        res.writeHead(501, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Metrics handler not configured' }));
+      }
       return;
     }
 
