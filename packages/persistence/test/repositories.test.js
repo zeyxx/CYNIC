@@ -802,7 +802,7 @@ describe('PostgreSQL Integration', () => {
       assert.ok(judgment.judgment_id);
 
       const found = await repo.findById(judgment.judgment_id);
-      assert.equal(found.q_score, '75');
+      assert.equal(parseFloat(found.q_score), 75);
     });
   });
 

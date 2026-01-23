@@ -61,9 +61,9 @@ describe('GRAPH_PHI Constants', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('GraphNodeType', () => {
-  it('should have 7 node types', () => {
+  it('should have 9 node types', () => {
     const types = Object.values(GraphNodeType);
-    assert.strictEqual(types.length, 7);
+    assert.strictEqual(types.length, 9);
   });
 
   it('should have all expected types', () => {
@@ -74,6 +74,8 @@ describe('GraphNodeType', () => {
     assert.strictEqual(GraphNodeType.USER, 'user');
     assert.strictEqual(GraphNodeType.CONTRACT, 'contract');
     assert.strictEqual(GraphNodeType.NODE, 'node');
+    assert.strictEqual(GraphNodeType.DOG, 'dog');
+    assert.strictEqual(GraphNodeType.TOOL, 'tool');
   });
 });
 

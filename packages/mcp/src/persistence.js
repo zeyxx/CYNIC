@@ -221,11 +221,11 @@ export class PersistenceManager {
   // ═══════════════════════════════════════════════════════════════════════════
 
   // --- Judgments ---
-  async storeJudgment(judgment) { return this._judgmentAdapter.store(judgment); }
-  async getJudgment(judgmentId) { return this._judgmentAdapter.getById(judgmentId); }
-  async searchJudgments(query, options = {}) { return this._judgmentAdapter.search(query, options); }
-  async getRecentJudgments(limit = 10) { return this._judgmentAdapter.getRecent(limit); }
-  async getJudgmentStats(options = {}) { return this._judgmentAdapter.getStats(options); }
+  async storeJudgment(judgment) { return this._judgmentAdapter?.store(judgment) ?? null; }
+  async getJudgment(judgmentId) { return this._judgmentAdapter?.getById(judgmentId) ?? null; }
+  async searchJudgments(query, options = {}) { return this._judgmentAdapter?.search(query, options) ?? []; }
+  async getRecentJudgments(limit = 10) { return this._judgmentAdapter?.getRecent(limit) ?? []; }
+  async getJudgmentStats(options = {}) { return this._judgmentAdapter?.getStats(options) ?? {}; }
 
   // --- Patterns ---
   async upsertPattern(pattern) { return this._patternAdapter.upsert(pattern); }

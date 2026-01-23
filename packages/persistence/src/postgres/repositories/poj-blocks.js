@@ -495,30 +495,6 @@ export class PoJBlockRepository extends BaseRepository {
     throw new Error('PoJ blocks are append-only and cannot be deleted');
   }
 
-  /**
-   * Get block statistics
-   * @returns {Promise<Object>}
-   */
-  async getStats() {
-    const { rows } = await this.db.query(`
-      SELECT
-        COUNT(*) as total_blocks,
-        MAX(block_number) as latest_block,
-        SUM(judgment_count) as total_judgments,
-        MIN(timestamp) as first_block_time,
-        MAX(timestamp) as latest_block_time
-      FROM poj_blocks
-    `);
-
-    const stats = rows[0];
-    return {
-      totalBlocks: parseInt(stats.total_blocks) || 0,
-      latestBlock: parseInt(stats.latest_block) || 0,
-      totalJudgments: parseInt(stats.total_judgments) || 0,
-      firstBlockTime: stats.first_block_time,
-      latestBlockTime: stats.latest_block_time,
-    };
-  }
 }
 
 export default PoJBlockRepository;
