@@ -170,7 +170,7 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
                 category: 'anomaly',
                 name: `anomaly_${isLow ? 'low' : 'high'}_score`,
                 description: `Unusual ${isLow ? 'low' : 'high'} score detected`,
-                confidence: PHI_INV,  // Must be >= φ⁻¹ to count for patternRecognition
+                confidence: 0.6181,  // Must be >= φ⁻¹ (0.6181 survives DECIMAL(5,4) rounding)
                 sourceJudgments: [judgmentId],
                 tags: ['anomaly', isLow ? 'low_score' : 'high_score'],
                 data: { score, verdict, itemType, threshold: isLow ? THRESHOLDS.ANOMALY_LOW : THRESHOLDS.ANOMALY_HIGH },
@@ -367,7 +367,7 @@ export function createRefineTool(judge, persistence = null) {
               category: 'refinement',
               name: `refinement_${learning.type || 'general'}`,
               description: learning.pattern || learning.correction,
-              confidence: PHI_INV,  // Must be >= φ⁻¹ to count for patternRecognition
+              confidence: 0.6181,  // Must be >= φ⁻¹ (0.6181 survives DECIMAL(5,4) rounding)
               sourceJudgments: [judgmentId || 'direct'],
               tags: ['refinement', learning.type, learning.axiom].filter(Boolean),
               data: { learning, improved: result.improved, improvement: result.totalImprovement },
@@ -2255,17 +2255,20 @@ export function createPatternsTool(judge, persistence = null) {
           return { error: 'No persistence layer available', timestamp: Date.now() };
         }
         try {
+          // DB uses DECIMAL(5,4) so 0.618033 gets stored as 0.6180
+          // Use 0.6181 to ensure >= PHI_INV after DECIMAL rounding
+          const minConfidence = 0.6181;
           const result = await persistence.query(`
             UPDATE patterns
             SET confidence = $1, updated_at = NOW()
             WHERE confidence < $1
             RETURNING pattern_id, category, name, confidence
-          `, [PHI_INV]);
+          `, [minConfidence]);
           return {
             action: 'fix_confidence',
             updated: result.rows?.length || 0,
             patterns: result.rows || [],
-            newConfidence: PHI_INV,
+            newConfidence: minConfidence,
             timestamp: Date.now(),
           };
         } catch (e) {
