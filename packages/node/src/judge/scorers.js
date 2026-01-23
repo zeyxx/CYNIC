@@ -188,6 +188,7 @@ export function scoreCoherence(item, context = {}) {
   let score = 50;
   const text = extractText(item);
 
+  // ═══ POSITIVE INDICATORS ═══
   // Structured data is more coherent
   if (typeof item === 'object' && item !== null) {
     score += 10;
@@ -200,10 +201,6 @@ export function scoreCoherence(item, context = {}) {
   // Has content
   if (text.length > 0) score += 10;
 
-  // Check for contradictions
-  const contradictions = detectContradictions(text);
-  score -= contradictions * 10;
-
   // Consistent terminology (no wild variation)
   const words = text.toLowerCase().split(/\s+/);
   const uniqueRatio = new Set(words).size / Math.max(words.length, 1);
@@ -211,6 +208,14 @@ export function scoreCoherence(item, context = {}) {
   if (uniqueRatio >= 0.3 && uniqueRatio <= 0.7) {
     score += 10;
   }
+
+  // ═══ NEGATIVE INDICATORS ═══
+  // Apply universal risk penalty - scams lack coherence
+  score -= detectRiskPenalty(item, text);
+
+  // Check for contradictions
+  const contradictions = detectContradictions(text);
+  score -= contradictions * 10;
 
   return normalize(score);
 }
@@ -227,6 +232,7 @@ export function scoreHarmony(item, context = {}) {
   const words = wordCount(text);
   const sentences = sentenceCount(text);
 
+  // ═══ POSITIVE INDICATORS ═══
   // φ-aligned proportions
   // Ideal words per sentence: ~13-21 (Fibonacci range)
   if (sentences > 0) {
@@ -248,6 +254,10 @@ export function scoreHarmony(item, context = {}) {
     score += 10;
   }
 
+  // ═══ NEGATIVE INDICATORS ═══
+  // Scams disrupt harmony - they are imbalanced, aggressive
+  score -= detectRiskPenalty(item, text);
+
   return normalize(score);
 }
 
@@ -258,6 +268,7 @@ export function scoreStructure(item, context = {}) {
   let score = 50;
   const text = extractText(item);
 
+  // ═══ POSITIVE INDICATORS ═══
   // Has clear organization
   if (typeof item === 'object') {
     const keys = Object.keys(item);
@@ -283,6 +294,10 @@ export function scoreStructure(item, context = {}) {
     if (/\/\*[\s\S]*?\*\/|\/\/.*$/m.test(text)) score += 5; // Comments
   }
 
+  // ═══ NEGATIVE INDICATORS ═══
+  // Scams lack proper structure - chaotic, deceptive
+  score -= detectRiskPenalty(item, text);
+
   return normalize(score);
 }
 
@@ -298,6 +313,7 @@ export function scoreElegance(item, context = {}) {
   const words = wordCount(text);
   const avgLen = avgWordLength(text);
 
+  // ═══ POSITIVE INDICATORS ═══
   // Concise is elegant - penalize verbosity
   if (words > 0 && words < 144) { // Fib(12)
     score += 15;
@@ -312,15 +328,19 @@ export function scoreElegance(item, context = {}) {
     score -= 5; // Overly complex
   }
 
-  // Minimal filler words
-  const fillers = (text.match(/\b(very|really|just|actually|basically|literally)\b/gi) || []).length;
-  score -= fillers * 3;
-
   // Code elegance: short functions, clear names
   if (hasCodePatterns(text)) {
     const lines = text.split('\n').length;
     if (lines < 50) score += 10;
   }
+
+  // ═══ NEGATIVE INDICATORS ═══
+  // Scams are ugly - no elegance in deception
+  score -= detectRiskPenalty(item, text);
+
+  // Minimal filler words
+  const fillers = (text.match(/\b(very|really|just|actually|basically|literally)\b/gi) || []).length;
+  score -= fillers * 3;
 
   return normalize(score);
 }
@@ -332,6 +352,7 @@ export function scoreCompleteness(item, context = {}) {
   let score = 50;
   const text = extractText(item);
 
+  // ═══ POSITIVE INDICATORS ═══
   // Has multiple required elements
   if (item.id) score += 5;
   if (item.type) score += 5;
@@ -351,6 +372,10 @@ export function scoreCompleteness(item, context = {}) {
     if (/return\s+/m.test(text)) score += 5;
   }
 
+  // ═══ NEGATIVE INDICATORS ═══
+  // Scams are incomplete - missing substance, missing truth
+  score -= detectRiskPenalty(item, text);
+
   return normalize(score);
 }
 
@@ -361,6 +386,7 @@ export function scorePrecision(item, context = {}) {
   let score = 50;
   const text = extractText(item);
 
+  // ═══ POSITIVE INDICATORS ═══
   // Has specific identifiers
   if (item.id) score += 10;
   if (item.version) score += 5;
@@ -376,14 +402,18 @@ export function scorePrecision(item, context = {}) {
     }
   }
 
-  // Avoids vague language
-  const vagueWords = (text.match(/\b(some|many|few|several|various|etc|stuff|things)\b/gi) || []).length;
-  score -= vagueWords * 3;
-
   // Code precision: typed, specific variable names
   if (hasCodePatterns(text)) {
     if (/:\s*(string|number|boolean|object|array)/i.test(text)) score += 10;
   }
+
+  // ═══ NEGATIVE INDICATORS ═══
+  // Scams lack precision - vague claims, deceptive numbers
+  score -= detectRiskPenalty(item, text);
+
+  // Avoids vague language
+  const vagueWords = (text.match(/\b(some|many|few|several|various|etc|stuff|things)\b/gi) || []).length;
+  score -= vagueWords * 3;
 
   return normalize(score);
 }
@@ -963,7 +993,9 @@ export function scoreResonance(item, context = {}) {
  */
 export function scoreUtility(item, context = {}) {
   let score = 50;
+  const text = extractText(item);
 
+  // ═══ POSITIVE INDICATORS ═══
   // Has clear purpose
   if (item.purpose || item.goal) score += 15;
 
@@ -981,6 +1013,10 @@ export function scoreUtility(item, context = {}) {
   // Solves a problem
   if (item.problem || item.solution) score += 10;
 
+  // ═══ NEGATIVE INDICATORS ═══
+  // Scams have no utility - they destroy value
+  score -= detectRiskPenalty(item, text);
+
   return normalize(score);
 }
 
@@ -989,7 +1025,9 @@ export function scoreUtility(item, context = {}) {
  */
 export function scoreSustainability(item, context = {}) {
   let score = 50;
+  const text = extractText(item);
 
+  // ═══ POSITIVE INDICATORS ═══
   // Has long-term support
   if (item.maintained === true || item.supported === true) score += 15;
 
@@ -1002,11 +1040,15 @@ export function scoreSustainability(item, context = {}) {
   // Has roadmap/future plans
   if (item.roadmap || item.future) score += 10;
 
-  // Not deprecated
-  if (item.deprecated === true) score -= 30;
-
   // Has community
   if (item.community || item.contributors) score += 10;
+
+  // ═══ NEGATIVE INDICATORS ═══
+  // Scams are unsustainable - they collapse
+  score -= detectRiskPenalty(item, text);
+
+  // Not deprecated
+  if (item.deprecated === true) score -= 30;
 
   return normalize(score);
 }
@@ -1018,6 +1060,7 @@ export function scoreEfficiency(item, context = {}) {
   let score = 50;
   const text = extractText(item);
 
+  // ═══ POSITIVE INDICATORS ═══
   // Size efficiency
   const textSize = text.length;
   if (textSize > 0 && textSize < 5000) score += 10;
@@ -1040,6 +1083,10 @@ export function scoreEfficiency(item, context = {}) {
   // Low resource usage
   if (item.resourceUsage === 'low') score += 10;
 
+  // ═══ NEGATIVE INDICATORS ═══
+  // Scams are inefficient - waste resources through deception
+  score -= detectRiskPenalty(item, text);
+
   return normalize(score);
 }
 
@@ -1048,7 +1095,9 @@ export function scoreEfficiency(item, context = {}) {
  */
 export function scoreValueCreation(item, context = {}) {
   let score = 50;
+  const text = extractText(item);
 
+  // ═══ POSITIVE INDICATORS ═══
   // Creates output
   if (item.output || item.produces) score += 15;
 
@@ -1068,6 +1117,10 @@ export function scoreValueCreation(item, context = {}) {
     const ratio = item.createdValue / Math.max(item.consumedValue, 1);
     score += Math.min(ratio * 10, 20);
   }
+
+  // ═══ NEGATIVE INDICATORS ═══
+  // Scams destroy value, they don't create it
+  score -= detectRiskPenalty(item, text);
 
   return normalize(score);
 }
@@ -1120,7 +1173,9 @@ export function scoreNonExtractive(item, context = {}) {
  */
 export function scoreContribution(item, context = {}) {
   let score = 45;
+  const text = extractText(item);
 
+  // ═══ POSITIVE INDICATORS ═══
   // Has contributions
   if (item.contributions && item.contributions > 0) {
     score += Math.min(item.contributions * 3, 20);
@@ -1140,6 +1195,10 @@ export function scoreContribution(item, context = {}) {
 
   // Community involvement
   if (item.communityInvolved === true) score += 10;
+
+  // ═══ NEGATIVE INDICATORS ═══
+  // Scams extract, they don't contribute
+  score -= detectRiskPenalty(item, text);
 
   return normalize(score);
 }

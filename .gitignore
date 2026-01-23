@@ -57,3 +57,4 @@ packages/*/data/
 
 # Rust lock files
 Cargo.lock
+packages/scheduler/target/
