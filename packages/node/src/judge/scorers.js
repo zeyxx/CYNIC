@@ -543,7 +543,28 @@ export function scoreAuthenticity(item, context = {}) {
   // Has enriched tags (sign of analysis)
   if (item.tags && Array.isArray(item.tags) && item.tags.length > 0) score += 5;
 
+  // Quality tags boost authenticity
+  if (item.tags && Array.isArray(item.tags)) {
+    const qualityTags = item.tags.filter(t => t.startsWith('quality:'));
+    score += Math.min(qualityTags.length * 8, 20);
+  }
+
   // ═══ NEGATIVE INDICATORS ═══
+  // Risk tags from enricher - NOT authentic
+  if (item.tags && Array.isArray(item.tags)) {
+    const riskTags = item.tags.filter(t => t.startsWith('risk:'));
+    score -= riskTags.length * 15;
+  }
+
+  // Direct scam indicators destroy authenticity
+  const scamPatterns = [
+    /scam|fraud|rug\s*pull|honeypot|ponzi/i,
+    /anonymous\s*(team|dev)/i,
+    /fake/i,
+  ];
+  const scamCount = scamPatterns.filter(p => p.test(text)).length;
+  score -= scamCount * 20;
+
   // Very short content - reduced penalty (items can be identifiers)
   if (words < 3) score -= 10;
   else if (words < 5) score -= 5;
@@ -689,7 +710,7 @@ export function scoreNovelty(item, context = {}) {
 export function scoreAlignment(item, context = {}) {
   let score = 50;
   const text = extractText(item);
-  const words = wordCount(text);
+  const words = item.wordCount || wordCount(text);
 
   // ═══ POSITIVE INDICATORS ═══
   // φ-aligned values
@@ -706,7 +727,30 @@ export function scoreAlignment(item, context = {}) {
   // Ethical considerations
   if (item.ethical || /ethic|fair|equit/i.test(text)) score += 5;
 
+  // Quality tags from enricher boost score
+  if (item.tags && Array.isArray(item.tags)) {
+    const qualityTags = item.tags.filter(t => t.startsWith('quality:'));
+    score += Math.min(qualityTags.length * 8, 20);
+  }
+
   // ═══ NEGATIVE INDICATORS ═══
+  // Risk tags from enricher - HEAVY penalties
+  if (item.tags && Array.isArray(item.tags)) {
+    const riskTags = item.tags.filter(t => t.startsWith('risk:'));
+    score -= riskTags.length * 15; // Each risk tag = -15
+  }
+
+  // Direct scam/fraud indicators in text
+  const scamPatterns = [
+    /scam|fraud|rug\s*pull|honeypot|ponzi/i,
+    /anonymous\s*(team|dev)/i,
+    /fake\s*(liquidity|volume|audit)/i,
+    /100%\s*(tax|fee)/i,
+    /copy[\s-]*paste\s*code/i,
+  ];
+  const scamCount = scamPatterns.filter(p => p.test(text)).length;
+  score -= scamCount * 20;
+
   // Anti-pattern indicators (extractive, exploitative)
   const antiPatterns = [
     /get rich quick/i,
@@ -725,8 +769,8 @@ export function scoreAlignment(item, context = {}) {
     score -= 15;
   }
 
-  // No substance
-  if (words < 5) score -= 15;
+  // No substance - mild penalty
+  if (words < 3) score -= 10;
 
   // Rejected/flagged
   if (item.rejected === true || item.flagged === true) {
