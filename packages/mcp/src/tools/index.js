@@ -4311,6 +4311,23 @@ export function createEmergenceTool(judge, persistence = null) {
 
         if (persistence) {
           try {
+            // ═══ EMERGENCE INDICATOR THRESHOLDS ═══
+            // Each indicator scales from 0-100% based on these thresholds
+            const EMERGENCE_THRESHOLDS = {
+              // Self-reference: % of judgments mentioning CYNIC/self needed for 100%
+              SELF_REF_RATIO_FOR_MAX: 0.20,   // 20% of judgments = 100%
+
+              // Meta-cognition: % of judgments about judgments needed for 100%
+              META_RATIO_FOR_MAX: 0.10,        // 10% of judgments = 100%
+
+              // Pattern recognition: high-confidence patterns needed for 100%
+              PATTERNS_FOR_MAX: 50,            // 50 patterns = 100%
+              MIN_PATTERN_CONFIDENCE: 0.5,     // Minimum confidence to count
+
+              // Self-correction: refinements needed for 100%
+              REFINEMENTS_FOR_MAX: 10,         // 10 refinements = 100%
+            };
+
             // Self-reference: judgments mentioning CYNIC
             const selfRef = await persistence.query(
               `SELECT COUNT(*) as count FROM judgments
@@ -4318,20 +4335,23 @@ export function createEmergenceTool(judge, persistence = null) {
             );
             const total = await persistence.query('SELECT COUNT(*) as count FROM judgments');
             const totalCount = parseInt(total?.rows?.[0]?.count || 1);
-            indicators.selfReference = Math.min(100, (parseInt(selfRef?.rows?.[0]?.count || 0) / totalCount) * 100 * 5);
+            const selfRefRatio = parseInt(selfRef?.rows?.[0]?.count || 0) / totalCount;
+            indicators.selfReference = Math.min(100, Math.round((selfRefRatio / EMERGENCE_THRESHOLDS.SELF_REF_RATIO_FOR_MAX) * 100));
 
             // Meta-cognition: judgments about judgments
             const metaRef = await persistence.query(
               `SELECT COUNT(*) as count FROM judgments
                WHERE item_type = 'judgment' OR item_content ILIKE '%judgment%'`
             );
-            indicators.metaCognition = Math.min(100, (parseInt(metaRef?.rows?.[0]?.count || 0) / totalCount) * 100 * 10);
+            const metaRatio = parseInt(metaRef?.rows?.[0]?.count || 0) / totalCount;
+            indicators.metaCognition = Math.min(100, Math.round((metaRatio / EMERGENCE_THRESHOLDS.META_RATIO_FOR_MAX) * 100));
 
             // Pattern recognition: patterns detected
             const patterns = await persistence.query(
-              `SELECT COUNT(*) as count FROM patterns WHERE confidence > 0.5`
+              `SELECT COUNT(*) as count FROM patterns WHERE confidence > ${EMERGENCE_THRESHOLDS.MIN_PATTERN_CONFIDENCE}`
             );
-            indicators.patternRecognition = Math.min(100, parseInt(patterns?.rows?.[0]?.count || 0) * 2);
+            const patternCount = parseInt(patterns?.rows?.[0]?.count || 0);
+            indicators.patternRecognition = Math.min(100, Math.round((patternCount / EMERGENCE_THRESHOLDS.PATTERNS_FOR_MAX) * 100));
 
             // Self-correction: refinements done (memory + persisted patterns)
             const selfCorrectionPatterns = await persistence.query(
@@ -4343,21 +4363,57 @@ export function createEmergenceTool(judge, persistence = null) {
             const persistedRefinements = parseInt(selfCorrectionPatterns?.rows?.[0]?.count || 0) +
                                          parseInt(refinementPatterns?.rows?.[0]?.count || 0);
             const memoryRefinements = judge?.refinementCount || 0;
-            indicators.selfCorrection = Math.min(100, (persistedRefinements + memoryRefinements) * 10);
+            const totalRefinements = persistedRefinements + memoryRefinements;
+            indicators.selfCorrection = Math.min(100, Math.round((totalRefinements / EMERGENCE_THRESHOLDS.REFINEMENTS_FOR_MAX) * 100));
 
-            // Goal persistence (based on session continuity + pattern frequency)
-            const highFreqPatterns = await persistence.query(
-              `SELECT COUNT(*) as count FROM patterns WHERE frequency >= 3`
-            );
-            // Allow reaching 100%: 30 baseline + up to 70 from patterns (10 patterns @ freq>=3 = 100%)
-            const persistenceBonus = Math.min(70, parseInt(highFreqPatterns?.rows?.[0]?.count || 0) * 7);
-            indicators.goalPersistence = 30 + persistenceBonus;
+            // Goal persistence (based on consistent activity, diversity, and continuity)
+            // Multiple factors contribute to "persistence":
+            // 1. Total unique patterns (breadth of recognition)
+            // 2. Total judgments (consistent activity)
+            // 3. Sessions (continuity over time)
+            // 4. High frequency patterns (repeated behaviors)
+
+            // Thresholds for full credit (25% each = 100% total)
+            const PERSISTENCE_THRESHOLDS = {
+              MAX_PER_FACTOR: 25,           // Each factor contributes up to 25%
+              PATTERNS_FOR_MAX: 100,        // 100 patterns = full pattern bonus
+              HIGH_FREQ_FOR_MAX: 5,         // 5 high-freq patterns = full bonus
+              JUDGMENTS_FOR_MAX: 250,       // 250 judgments = full activity bonus
+              ACTIVE_DAYS_FOR_MAX: 5,       // 5 active days = full continuity bonus
+              MIN_PATTERN_FREQUENCY: 3,     // Threshold for "high frequency" pattern
+            };
+
+            const persistenceMetrics = await persistence.query(`
+              SELECT
+                (SELECT COUNT(*) FROM patterns) as total_patterns,
+                (SELECT COUNT(*) FROM patterns WHERE frequency >= ${PERSISTENCE_THRESHOLDS.MIN_PATTERN_FREQUENCY}) as high_freq_patterns,
+                (SELECT COUNT(*) FROM judgments) as total_judgments,
+                (SELECT COUNT(DISTINCT DATE(created_at)) FROM judgments) as active_days
+            `);
+            const metrics = persistenceMetrics?.rows?.[0] || {};
+            const totalPatterns = parseInt(metrics.total_patterns || 0);
+            const highFreqPatterns = parseInt(metrics.high_freq_patterns || 0);
+            const totalJudgments = parseInt(metrics.total_judgments || 0);
+            const activeDays = parseInt(metrics.active_days || 0);
+
+            // Calculate persistence score (each factor up to MAX_PER_FACTOR%)
+            const { MAX_PER_FACTOR, PATTERNS_FOR_MAX, HIGH_FREQ_FOR_MAX, JUDGMENTS_FOR_MAX, ACTIVE_DAYS_FOR_MAX } = PERSISTENCE_THRESHOLDS;
+            const patternBonus = Math.min(MAX_PER_FACTOR, (totalPatterns / PATTERNS_FOR_MAX) * MAX_PER_FACTOR);
+            const highFreqBonus = Math.min(MAX_PER_FACTOR, (highFreqPatterns / HIGH_FREQ_FOR_MAX) * MAX_PER_FACTOR);
+            const activityBonus = Math.min(MAX_PER_FACTOR, (totalJudgments / JUDGMENTS_FOR_MAX) * MAX_PER_FACTOR);
+            const continuityBonus = Math.min(MAX_PER_FACTOR, (activeDays / ACTIVE_DAYS_FOR_MAX) * MAX_PER_FACTOR);
+
+            indicators.goalPersistence = Math.min(100, Math.round(
+              patternBonus + highFreqBonus + activityBonus + continuityBonus
+            ));
 
             // Novel behavior (anomalies detected)
+            const ANOMALIES_FOR_MAX_NOVELTY = 20; // 20 anomalies = 100% novelBehavior
             const anomalies = await persistence.query(
               `SELECT COUNT(*) as count FROM patterns WHERE category = 'anomaly'`
             );
-            indicators.novelBehavior = Math.min(100, parseInt(anomalies?.rows?.[0]?.count || 0) * 5);
+            const anomalyCount = parseInt(anomalies?.rows?.[0]?.count || 0);
+            indicators.novelBehavior = Math.min(100, Math.round((anomalyCount / ANOMALIES_FOR_MAX_NOVELTY) * 100));
           } catch (e) {
             // Use defaults if persistence fails
             console.error('Error calculating indicators:', e.message);
