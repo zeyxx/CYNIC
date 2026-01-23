@@ -7,7 +7,7 @@
 | Principle | Target | Status | Priority |
 |-----------|--------|--------|----------|
 | **ISP** | persistence.js | ✅ DONE (1437→444 lines) | - |
-| **OCP** | tools/index.js | 🔄 Structure ready | P1 |
+| **OCP** | tools/index.js | 🔄 judgment.js done (5011→4236) | P1 |
 | **SRP** | server.js | ✅ HttpAdapter (1706→1453) | - |
 | **DIP** | MCPServer._initialize() | ✅ ServiceInitializer (1453→1339) | - |
 | **SRP** | MetricsService | ⏳ Pending | P3 |
