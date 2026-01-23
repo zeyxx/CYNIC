@@ -370,11 +370,12 @@ export class GraphOverlay extends EventEmitter {
         return this.addRepo(identifier, attributes);
       case GraphNodeType.USER:
         return this.addUser(identifier, attributes.platform || 'unknown', attributes);
-      default:
+      default: {
         // Generic node creation
         const node = new GraphNode({ type, identifier, attributes });
         await this.addNode(node);
         return node;
+      }
     }
   }
 
