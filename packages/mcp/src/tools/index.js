@@ -4369,7 +4369,7 @@ export function createEmergenceTool(judge, persistence = null) {
 
             // Pattern recognition: patterns detected (confidence > φ⁻¹)
             const patterns = await persistence.query(
-              `SELECT COUNT(*) as count FROM patterns WHERE confidence > ${PHI_INV}`
+              `SELECT COUNT(*) as count FROM patterns WHERE confidence >= ${PHI_INV}`
             );
             const patternCount = parseInt(patterns?.rows?.[0]?.count || 0);
             indicators.patternRecognition = Math.min(100, Math.round((patternCount / EMERGENCE.PATTERNS_FOR_MAX) * 100));
