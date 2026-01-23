@@ -120,12 +120,13 @@ describe('MetricsService', () => {
     it('creates with services', () => {
       assert.ok(service.persistence);
       assert.ok(service.judge);
-      assert.ok(service.thresholds);
+      assert.ok(service.getStats().thresholds);
     });
 
     it('uses default thresholds', () => {
-      assert.equal(service.thresholds.avgQScoreMin, 30);
-      assert.equal(service.thresholds.cacheHitRateMin, 0.5);
+      const thresholds = service.getStats().thresholds;
+      assert.equal(thresholds.avgQScoreMin, 30);
+      assert.equal(thresholds.cacheHitRateMin, 0.5);
     });
 
     it('accepts custom thresholds', () => {
@@ -133,7 +134,7 @@ describe('MetricsService', () => {
         ...mocks,
         thresholds: { avgQScoreMin: 50 },
       });
-      assert.equal(custom.thresholds.avgQScoreMin, 50);
+      assert.equal(custom.getStats().thresholds.avgQScoreMin, 50);
     });
   });
 
