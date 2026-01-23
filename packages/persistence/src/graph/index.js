@@ -25,6 +25,8 @@ export {
   createUserNode,
   createContractNode,
   createCynicNode,
+  createDogNode,
+  createToolNode,
   GRAPH_PHI,
 } from './types.js';
 

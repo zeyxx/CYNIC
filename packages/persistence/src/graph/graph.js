@@ -26,6 +26,8 @@ import {
   createUserNode,
   createContractNode,
   createCynicNode,
+  createDogNode,
+  createToolNode,
   GRAPH_PHI,
 } from './types.js';
 
@@ -320,6 +322,60 @@ export class GraphOverlay extends EventEmitter {
     const node = createUserNode(handle, platform, attributes);
     await this.addNode(node);
     return node;
+  }
+
+  /**
+   * Add a CYNIC dog (agent)
+   */
+  async addDog(name, attributes = {}) {
+    const node = createDogNode(name, attributes);
+    await this.addNode(node);
+    return node;
+  }
+
+  /**
+   * Add a tool
+   */
+  async addTool(name, attributes = {}) {
+    const node = createToolNode(name, attributes);
+    await this.addNode(node);
+    return node;
+  }
+
+  /**
+   * Ensure a node exists (get or create)
+   * @param {string} type - Node type (dog, tool, etc.)
+   * @param {string} identifier - Node identifier
+   * @param {Object} attributes - Attributes for creation
+   * @returns {Promise<GraphNode>} The existing or newly created node
+   */
+  async ensureNode(type, identifier, attributes = {}) {
+    // Try to get existing node
+    const existing = await this.getNodeByKey(type, identifier);
+    if (existing) return existing;
+
+    // Create new node based on type
+    switch (type) {
+      case GraphNodeType.DOG:
+        return this.addDog(identifier, attributes);
+      case GraphNodeType.TOOL:
+        return this.addTool(identifier, attributes);
+      case GraphNodeType.TOKEN:
+        return this.addToken(identifier, attributes.symbol || identifier, attributes);
+      case GraphNodeType.WALLET:
+        return this.addWallet(identifier, attributes);
+      case GraphNodeType.PROJECT:
+        return this.addProject(identifier, attributes);
+      case GraphNodeType.REPO:
+        return this.addRepo(identifier, attributes);
+      case GraphNodeType.USER:
+        return this.addUser(identifier, attributes.platform || 'unknown', attributes);
+      default:
+        // Generic node creation
+        const node = new GraphNode({ type, identifier, attributes });
+        await this.addNode(node);
+        return node;
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

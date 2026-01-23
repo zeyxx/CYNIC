@@ -705,15 +705,22 @@ export class CollectivePack {
     }
 
     // 🐕 Record dog decisions in graph (for relationship tracking)
-    if (this.graphIntegration && agentResults.length > 0) {
+    if (this.graphIntegration?.graph && agentResults.length > 0) {
       try {
         for (const result of agentResults) {
           if (result.response === 'block' || result.response === 'warn') {
+            const graph = this.graphIntegration.graph;
+            const dogName = result.agent?.toLowerCase() || 'unknown';
+            const toolName = (payload.tool || 'unknown').toLowerCase();
+
+            // Ensure dog and tool nodes exist before creating edge
+            await graph.ensureNode?.('dog', dogName, { name: result.agent, role: 'agent' });
+            await graph.ensureNode?.('tool', toolName, { name: payload.tool || 'unknown' });
+
             // Record significant dog decisions as graph edges
-            // Use connect() with 'judged' edge type (valid GraphEdgeType)
-            await this.graphIntegration.graph?.connect?.(
-              `dog:${result.agent}`,
-              `tool:${payload.tool || 'unknown'}`,
+            await graph.connect?.(
+              `dog:${dogName}`,
+              `tool:${toolName}`,
               'judged',
               {
                 response: result.response,

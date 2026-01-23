@@ -34,6 +34,8 @@ export const GraphNodeType = {
   USER: 'user',
   CONTRACT: 'contract',
   NODE: 'node',
+  DOG: 'dog',     // CYNIC agent (Guardian, Analyst, Observer, EventBus)
+  TOOL: 'tool',   // Claude Code tool (Bash, Read, Write, Edit, etc.)
 };
 
 // Node type schemas (required and optional fields)
@@ -65,6 +67,14 @@ export const NodeSchemas = {
   [GraphNodeType.NODE]: {
     required: ['nodeId'],
     optional: ['endpoint', 'iScore', 'uptime', 'region', 'metadata'],
+  },
+  [GraphNodeType.DOG]: {
+    required: ['name'],
+    optional: ['role', 'decisions', 'blocks', 'metadata'],
+  },
+  [GraphNodeType.TOOL]: {
+    required: ['name'],
+    optional: ['category', 'usageCount', 'metadata'],
   },
 };
 
@@ -511,6 +521,28 @@ export function createCynicNode(nodeId, attributes = {}) {
   });
 }
 
+/**
+ * Create a CYNIC dog node (agent)
+ */
+export function createDogNode(name, attributes = {}) {
+  return new GraphNode({
+    type: GraphNodeType.DOG,
+    identifier: name.toLowerCase(),
+    attributes: { name, ...attributes },
+  });
+}
+
+/**
+ * Create a tool node
+ */
+export function createToolNode(name, attributes = {}) {
+  return new GraphNode({
+    type: GraphNodeType.TOOL,
+    identifier: name.toLowerCase(),
+    attributes: { name, ...attributes },
+  });
+}
+
 // Export φ constants
 export const GRAPH_PHI = {
   PHI,
@@ -531,5 +563,7 @@ export default {
   createUserNode,
   createContractNode,
   createCynicNode,
+  createDogNode,
+  createToolNode,
   GRAPH_PHI,
 };
