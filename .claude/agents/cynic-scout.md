@@ -2,6 +2,8 @@
 name: cynic-scout
 displayName: CYNIC Scout
 model: haiku
+sefirah: Netzach
+dog: Scout
 description: |
   Fast codebase exploration specialist. Finds files, searches patterns,
   maps structure quickly. The swift nose.

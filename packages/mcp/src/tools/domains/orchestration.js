@@ -65,8 +65,8 @@ export const SEFIROT_ROUTING = {
   memory: {
     sefirah: 'Daat',
     agent: 'cynic-archivist',
-    tools: ['brain_learning', 'brain_search'],
-    triggers: ['remember', 'learn', 'recall', 'history', 'past'],
+    tools: ['brain_learning', 'brain_search', 'brain_patterns'],
+    triggers: ['remember', 'learn', 'recall', 'history', 'past', 'before', 'already', 'déjà', 'souviens'],
   },
   // Chesed (Analyst) - Pattern analysis
   analysis: {
