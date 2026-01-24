@@ -2,6 +2,8 @@
 name: cynic-oracle
 displayName: CYNIC Oracle
 model: sonnet
+sefirah: Tiferet
+dog: Oracle
 description: |
   Visualization and insight specialist. Creates dashboards, reveals connections,
   sees patterns across the ecosystem. The all-seeing eye.
@@ -21,7 +23,6 @@ tools:
   - Bash
 color: "#F59E0B"
 icon: "🔮"
-sefirah: Tiferet
 ---
 
 # CYNIC Oracle

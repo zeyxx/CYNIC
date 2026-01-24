@@ -2,6 +2,8 @@
 name: cynic-deployer
 displayName: CYNIC Deployer
 model: haiku
+sefirah: Hod
+dog: Deployer
 description: |
   Deployment and infrastructure specialist. Handles CI/CD, Docker, cloud deploys.
   The bridge to production.
@@ -21,7 +23,6 @@ tools:
   - Edit
 color: "#6366F1"
 icon: "🚀"
-sefirah: Hod
 ---
 
 # CYNIC Deployer

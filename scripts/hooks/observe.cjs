@@ -487,6 +487,25 @@ async function main() {
     const user = cynic.detectUser();
     const profile = cynic.loadUserProfile(user.userId);
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ORCHESTRATION: Report tool use to KETER (non-blocking)
+    // "Le chien observe et rapporte à KETER"
+    // ═══════════════════════════════════════════════════════════════════════════
+    cynic.orchestrate('tool_use', {
+      content: `${toolName}: ${isError ? 'ERROR' : 'SUCCESS'}`,
+      source: 'observe_hook',
+      metadata: {
+        tool: toolName,
+        isError,
+        outputLength: typeof toolOutput === 'string' ? toolOutput.length : JSON.stringify(toolOutput || {}).length,
+      },
+    }, {
+      user: user.userId,
+      project: cynic.detectProject(),
+    }).catch(() => {
+      // Silently ignore - observation is best-effort
+    });
+
     // Detect patterns
     const patterns = detectToolPattern(toolName, toolInput, toolOutput, isError);
 

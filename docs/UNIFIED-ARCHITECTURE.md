@@ -254,9 +254,9 @@ Poids: φ⁻¹ (0.618)
 
 ---
 
-## État Actuel (Goulot d'Étranglement)
+## État Actuel
 
-### Ce qui EXISTE
+### Ce qui EXISTE ✅
 
 | Composant | État | Tests |
 |-----------|------|-------|
@@ -266,63 +266,83 @@ Poids: φ⁻¹ (0.618)
 | packages/identity (E-Score 7D) | ✅ | 50/50 |
 | packages/mcp | ✅ | 492/492 |
 | packages/node | ✅ | 614/614 |
-| 43 outils MCP | ✅ | - |
-| 13 agents Claude | ⚠️ | Pas alignés Sefirot |
+| brain_orchestrate (KETER) | ✅ | 33/33 |
+| 44 outils MCP | ✅ | - |
 
-### Ce qui MANQUE (Goulot)
+### Agents Alignés aux Sefirot ✅ COMPLET
 
-1. **brain_orchestrate** - Outil central qui route vers les bons Sefirot
-2. **Agents Sefirot manquants**:
-   - cynic-sage (Chochmah)
-   - cynic-archivist (Daat)
-   - cynic-analyst (Chesed)
-3. **Hooks simplifiés** - Actuellement trop complexes, doivent devenir thin clients
+| Sefirah | Agent | Dog | État |
+|---------|-------|-----|------|
+| Keter | (orchestrateur) | CYNIC | ✅ brain_orchestrate |
+| Chochmah | cynic-librarian | Sage | ✅ |
+| Binah | cynic-architect | Architect | ✅ |
+| Daat | cynic-archivist | Archivist | ✅ |
+| Chesed | cynic-reviewer | Analyst | ✅ |
+| Gevurah | cynic-guardian | Guardian | ✅ |
+| Tiferet | cynic-oracle | Oracle | ✅ |
+| Netzach | cynic-scout | Scout | ✅ |
+| Hod | cynic-deployer | Deployer | ✅ |
+| Yesod | cynic-simplifier | Janitor | ✅ |
+| Malkhut | cynic-cartographer | Cartographer | ✅ |
+
+### Hooks Intégrés à l'Orchestrateur
+
+| Hook | Event | État |
+|------|-------|------|
+| perceive.cjs | user_prompt | ✅ Consulte KETER |
+| awaken.cjs | session_start | ✅ Notifie KETER |
+| guard.cjs | tool_use (pre) | ✅ Consulte KETER |
+| observe.cjs | tool_use (post) | ✅ Rapporte à KETER |
+| sleep.cjs | session_end | ✅ Notifie KETER |
+
+### Ce qui reste à faire (CYNIC v1)
+
+1. ✅ **Agents Sefirot** - Tous les 11 Sefirot ont leurs agents
+2. ⏳ **Simplifier hooks** - Déléguer plus de logique à l'orchestrateur
+3. ⏳ **Tests end-to-end** - Valider le flux orchestrateur → sefirot
+4. ⏳ **Dashboard cockpit** - Visualisation temps réel
 
 ---
 
 ## Migration - Plan d'Action
 
-### Phase 1: Orchestrateur (PRIORITAIRE)
+### Phase 1: Orchestrateur ✅ COMPLETE
 
-1. **Créer brain_orchestrate**
+1. ✅ **brain_orchestrate créé** (`packages/mcp/src/tools/domains/orchestration.js`)
    ```javascript
    brain_orchestrate({
-     event: "user_prompt" | "tool_use" | "session_start" | "file_change",
-     context: { user, project, recentActions, currentState },
-     data: { ... }
+     event: "user_prompt" | "tool_use" | "session_start" | "session_end",
+     data: { content, source, metadata },
+     context: { user, project, gitBranch, recentActions }
    })
-   → Retourne: { actions: [...], intervention: {...}, state_updates: {...} }
+   → Retourne: { routing, intervention, stateUpdates, actions }
    ```
 
-2. **Simplifier les hooks**
-   ```javascript
-   // AVANT (hook complexe)
-   async function perceive(prompt) {
-     // 500 lignes de logique locale
-   }
+2. ✅ **Hooks intégrés à l'orchestrateur**
+   - perceive.cjs → brain_orchestrate (user_prompt)
+   - awaken.cjs → brain_orchestrate (session_start)
+   - guard.cjs → brain_orchestrate (tool_use) + intervention level
+   - observe.cjs → brain_orchestrate (tool_use) reporting
+   - sleep.cjs → brain_orchestrate (session_end)
 
-   // APRÈS (thin client)
-   async function perceive(prompt) {
-     const decision = await brain_orchestrate({
-       event: "user_prompt",
-       data: { prompt },
-       context: getLocalContext()
-     });
-     return executeDecision(decision);
-   }
-   ```
+3. ✅ **orchestrate() dans cynic-core.cjs**
 
-### Phase 2: Compléter les Sefirot
+### Phase 2: Compléter les Sefirot ✅ COMPLETE
 
-1. Créer agents manquants (Sage, Archivist, Analyst)
-2. Mapper chaque agent à son Sefirah
-3. Documenter les responsabilités
+| Action | État |
+|--------|------|
+| Créer cynic-archivist (Daat) | ✅ |
+| Ajouter metadata sefirah à tous les agents | ✅ |
+| Créer cynic-deployer (Hod) | ✅ |
+| Créer cynic-oracle (Tiferet) | ✅ |
+| Créer cynic-cartographer (Malkhut) | ✅ |
+| Tous les 11 Sefirot avec agents/dog | ✅ |
 
 ### Phase 3: Intégrations Écosystème
 
 1. HolDex K-Score dans les judgments
 2. GASdf burns pour les frais
-3. E-Score ZK proofs
+3. E-Score ZK proofs (Light Protocol)
 
 ### Phase 4: Interface Cockpit
 

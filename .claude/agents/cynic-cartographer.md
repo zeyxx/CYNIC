@@ -2,6 +2,8 @@
 name: cynic-cartographer
 displayName: CYNIC Cartographer
 model: haiku
+sefirah: Malkhut
+dog: Cartographer
 description: |
   Codebase mapping specialist. Maps reality of code, GitHub state, file structures.
   The ground truth keeper.
@@ -21,7 +23,6 @@ tools:
   - Bash
 color: "#84CC16"
 icon: "🗺️"
-sefirah: Malkhut
 ---
 
 # CYNIC Cartographer

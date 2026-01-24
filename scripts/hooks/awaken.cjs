@@ -85,6 +85,23 @@ async function main() {
     // Detect user identity
     const user = cynic.detectUser();
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ORCHESTRATION: Notify KETER of session start
+    // "Le chien s'éveille. KETER coordonne."
+    // ═══════════════════════════════════════════════════════════════════════════
+    let orchestration = null;
+    try {
+      orchestration = await cynic.orchestrate('session_start', {
+        content: 'Session awakening',
+        source: 'awaken_hook',
+      }, {
+        user: user.userId,
+        project: cynic.detectProject(),
+      });
+    } catch (e) {
+      // Orchestration failed - continue with normal awakening
+    }
+
     // Load local profile first
     let localProfile = cynic.loadUserProfile(user.userId);
 

@@ -281,11 +281,38 @@ async function main() {
     const profile = cynic.loadUserProfile(user.userId);
     const patterns = cynic.loadCollectivePatterns();
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ORCHESTRATION: Consult KETER for routing decision
+    // "Le cerveau central décide" - Central brain decides
+    // ═══════════════════════════════════════════════════════════════════════════
+    let orchestration = null;
+    try {
+      orchestration = await cynic.orchestrate('user_prompt', {
+        content: prompt,
+        source: 'perceive_hook',
+      }, {
+        user: user.userId,
+        project: cynic.detectProject(),
+      });
+    } catch (e) {
+      // Orchestration failed - continue with local logic
+    }
+
     // Detect intents
     const intents = detectIntent(prompt);
 
     // Generate context based on intents
     const injections = [];
+
+    // If orchestrator suggests a specific agent, note it
+    if (orchestration?.routing?.suggestedAgent) {
+      const sefirah = orchestration.routing.sefirah;
+      const agent = orchestration.routing.suggestedAgent;
+      // Only inject if intervention level is not silent
+      if (orchestration.intervention?.level !== 'silent') {
+        injections.push(`── SEFIRAH: ${sefirah} ────────────────────────────────────\n   *sniff* Routing to ${agent}`);
+      }
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ELENCHUS: Socratic questioning (Phase 6B)
@@ -484,6 +511,13 @@ async function main() {
       hasPrivateContent: hasPrivate,
       intents: intents.map(i => i.intent),
       hasInjections: injections.length > 0,
+      // Include orchestration decision
+      orchestration: orchestration ? {
+        sefirah: orchestration.routing?.sefirah,
+        agent: orchestration.routing?.suggestedAgent,
+        intervention: orchestration.intervention?.level,
+        risk: orchestration.intervention?.actionRisk,
+      } : null,
       timestamp: Date.now(),
     });
 

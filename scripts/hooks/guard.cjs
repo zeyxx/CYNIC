@@ -292,6 +292,36 @@ async function main() {
     const hookContext = JSON.parse(input);
     const toolName = hookContext.tool_name || hookContext.toolName || '';
     const toolInput = hookContext.tool_input || hookContext.toolInput || {};
+    const command = toolInput.command || '';
+    const filePath = toolInput.file_path || toolInput.filePath || '';
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ORCHESTRATION: Consult KETER for intervention level
+    // "Le chien consulte KETER avant d'agir"
+    // ═══════════════════════════════════════════════════════════════════════════
+    let orchestration = null;
+    const user = cynic.detectUser();
+    try {
+      orchestration = await cynic.orchestrate('tool_use', {
+        content: toolName === 'Bash' ? command : filePath,
+        source: 'guard_hook',
+        metadata: { tool: toolName },
+      }, {
+        user: user.userId,
+        project: cynic.detectProject(),
+      });
+    } catch (e) {
+      // Orchestration failed - continue with local logic
+    }
+
+    // If orchestrator says BLOCK, block immediately (for users with low E-Score on critical actions)
+    if (orchestration?.intervention?.level === 'block') {
+      console.log(JSON.stringify({
+        continue: false,
+        message: `*GROWL* KETER BLOCK\n\n${orchestration.intervention.reason}\n\nYour trust level: ${orchestration.intervention.userTrustLevel} (E-Score: ${Math.round(orchestration.intervention.userEScore)})`
+      }));
+      return;
+    }
 
     // ==========================================================================
     // CIRCUIT BREAKER CHECK (Anti-loop protection)

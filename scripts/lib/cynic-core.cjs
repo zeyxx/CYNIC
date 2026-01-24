@@ -645,6 +645,59 @@ async function endBrainSession(sessionId) {
   });
 }
 
+// =============================================================================
+// ORCHESTRATION - Central routing (KETER)
+// =============================================================================
+
+/**
+ * Call the central orchestrator (brain_orchestrate)
+ * Routes events to the appropriate Sefirot (agents/tools)
+ *
+ * @param {string} event - Event type (user_prompt, tool_use, session_start, etc.)
+ * @param {Object} data - Event data
+ * @param {Object} context - Context (user, project, etc.)
+ * @returns {Promise<Object>} Orchestration decision with routing and intervention
+ */
+async function orchestrate(event, data, context = {}) {
+  try {
+    const user = detectUser();
+    const result = await callBrainTool('brain_orchestrate', {
+      event,
+      data,
+      context: {
+        user: user.userId,
+        project: context.project || detectProject(),
+        gitBranch: context.gitBranch,
+        recentActions: context.recentActions || [],
+        ...context,
+      },
+    });
+    return result;
+  } catch (e) {
+    // Fallback: return permissive default if orchestrator unavailable
+    return {
+      routing: { sefirah: 'Keter', domain: 'general', suggestedAgent: null, suggestedTools: [] },
+      intervention: { level: 'silent', actionRisk: 'low' },
+      actions: [],
+      error: e.message,
+    };
+  }
+}
+
+/**
+ * Synchronous wrapper for orchestrate (fire and forget)
+ * Use when you don't need to wait for the result
+ *
+ * @param {string} event - Event type
+ * @param {Object} data - Event data
+ * @param {Object} context - Context
+ */
+function orchestrateSync(event, data, context = {}) {
+  orchestrate(event, data, context).catch(() => {
+    // Silently ignore errors in sync mode
+  });
+}
+
 /**
  * Digest content into brain memory
  * @param {string} content - Content to digest
@@ -1004,6 +1057,10 @@ module.exports = {
   startBrainSession,
   endBrainSession,
   digestToBrain,
+
+  // Orchestration (KETER - Central routing)
+  orchestrate,
+  orchestrateSync,
 
   // Learning Feedback (Ralph-inspired external validation)
   sendTestFeedback,

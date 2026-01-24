@@ -139,6 +139,25 @@ async function main() {
     const user = cynic.detectUser();
     const profile = cynic.loadUserProfile(user.userId);
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ORCHESTRATION: Notify KETER of session end
+    // "Le chien s'endort. KETER enregistre."
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      await cynic.orchestrate('session_end', {
+        content: 'Session ending',
+        source: 'sleep_hook',
+        metadata: {
+          sessionId: hookContext.sessionId || process.env.CYNIC_SESSION_ID,
+        },
+      }, {
+        user: user.userId,
+        project: cynic.detectProject(),
+      });
+    } catch (e) {
+      // Orchestration failed - continue with normal shutdown
+    }
+
     // Calculate session summary
     const summary = calculateSessionSummary(profile, hookContext.sessionStartTime);
 
