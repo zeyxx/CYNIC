@@ -309,12 +309,33 @@ async function main() {
     const routing = orchestration?.result?.routing || orchestration?.routing;
     const intervention = orchestration?.result?.intervention || orchestration?.intervention;
 
+    // Handle KETER agent routing
     if (routing?.suggestedAgent) {
       const sefirah = routing.sefirah;
       const agent = routing.suggestedAgent;
+      const tools = routing.suggestedTools || [];
+      const actionRisk = intervention?.actionRisk || 'low';
+
       // Only inject if intervention level is not silent
       if (intervention?.level !== 'silent') {
-        injections.push(`── SEFIRAH: ${sefirah} ────────────────────────────────────\n   *sniff* Routing to ${agent}`);
+        // Build directive injection that tells Claude to use the agent
+        let directive = `── SEFIRAH: ${sefirah} ────────────────────────────────────\n`;
+        directive += `   *ears perk* KETER routing detected.\n`;
+        directive += `   DIRECTIVE: Use the Task tool with subagent_type="${agent}" to handle this request.\n`;
+        if (tools.length > 0) {
+          directive += `   Suggested MCP tools: ${tools.join(', ')}\n`;
+        }
+        injections.push(directive);
+      }
+    }
+
+    // For high/critical risk, always invoke guardian even without explicit routing
+    if (intervention?.actionRisk === 'critical' || intervention?.actionRisk === 'high') {
+      if (!routing?.suggestedAgent || routing?.suggestedAgent !== 'cynic-guardian') {
+        injections.push(`── *GROWL* RISK DETECTED ────────────────────────────────────
+   Action risk level: ${intervention.actionRisk.toUpperCase()}
+   MANDATORY: Use Task tool with subagent_type="cynic-guardian" before proceeding.
+   User trust level: ${intervention.userTrustLevel || 'UNKNOWN'} (E-Score: ${intervention.userEScore || '?'})`);
       }
     }
 
