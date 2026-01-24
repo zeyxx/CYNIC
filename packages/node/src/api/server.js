@@ -34,6 +34,12 @@ export class APIServer {
     this.apiKey = options.apiKey || process.env.CYNIC_API_KEY;
     this.burnsCluster = options.burnsCluster || process.env.SOLANA_CLUSTER || 'https://api.mainnet-beta.solana.com';
 
+    // CORS configuration - whitelist in production, permissive in development
+    const corsOrigins = options.corsOrigins || process.env.CYNIC_CORS_ORIGINS;
+    this.allowedOrigins = corsOrigins
+      ? corsOrigins.split(',').map(o => o.trim())
+      : null; // null = allow all (development mode)
+
     // Express app
     this.app = express();
     this.server = null;
@@ -55,9 +61,22 @@ export class APIServer {
     // JSON parsing
     this.app.use(express.json({ limit: '1mb' }));
 
-    // CORS headers
+    // CORS headers (configurable whitelist in production)
     this.app.use((req, res, next) => {
-      res.setHeader('Access-Control-Allow-Origin', '*');
+      const origin = req.headers.origin;
+      let allowOrigin = '*';
+
+      if (this.allowedOrigins && this.allowedOrigins.length > 0) {
+        // Production: only allow whitelisted origins
+        if (origin && this.allowedOrigins.includes(origin)) {
+          allowOrigin = origin;
+        } else if (origin) {
+          // Origin not in whitelist - don't set CORS headers (browser will block)
+          return next();
+        }
+      }
+
+      res.setHeader('Access-Control-Allow-Origin', allowOrigin);
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
       if (req.method === 'OPTIONS') {

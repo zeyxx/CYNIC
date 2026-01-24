@@ -41,11 +41,16 @@ export class HttpAdapter {
    * @param {number} [options.port=3000]
    * @param {string} [options.dashboardPath] - Path to dashboard static files
    * @param {Object} [options.auth] - AuthService for authentication
+   * @param {string[]} [options.corsOrigins] - Allowed CORS origins (null = allow all)
    */
   constructor(options = {}) {
     this.port = options.port || 3000;
     this.dashboardPath = options.dashboardPath || null;
     this.auth = options.auth || null;
+
+    // CORS configuration - whitelist in production
+    const corsEnv = process.env.CYNIC_CORS_ORIGINS;
+    this.allowedOrigins = options.corsOrigins || (corsEnv ? corsEnv.split(',').map(o => o.trim()) : null);
 
     this._server = null;
     this._sseClients = new Set();
@@ -180,7 +185,7 @@ export class HttpAdapter {
 
     try {
       // CORS headers
-      this._setCorsHeaders(res);
+      this._setCorsHeaders(req, res);
 
       // Handle preflight
       if (req.method === 'OPTIONS') {
@@ -351,14 +356,48 @@ export class HttpAdapter {
   }
 
   /**
-   * Set CORS headers
+   * Set CORS headers (configurable whitelist in production)
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
    * @private
    */
-  _setCorsHeaders(res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+  _setCorsHeaders(req, res) {
+    const origin = req.headers.origin;
+    let allowOrigin = '*';
+
+    if (this.allowedOrigins && this.allowedOrigins.length > 0) {
+      // Production: only allow whitelisted origins
+      if (origin && this.allowedOrigins.includes(origin)) {
+        allowOrigin = origin;
+      } else if (origin) {
+        // Origin not in whitelist - don't set permissive CORS
+        // Return without setting Allow-Origin header (browser will block)
+        return;
+      }
+    }
+
+    res.setHeader('Access-Control-Allow-Origin', allowOrigin);
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Session-Id, X-User-Id');
     res.setHeader('Access-Control-Expose-Headers', 'X-Request-Id');
+
+    // Content Security Policy
+    res.setHeader('Content-Security-Policy', [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'", // Dashboard needs inline scripts
+      "style-src 'self' 'unsafe-inline'",  // Dashboard needs inline styles
+      "img-src 'self' data: blob:",
+      "font-src 'self'",
+      "connect-src 'self' wss: ws:",       // WebSocket connections
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join('; '));
+
+    // Additional security headers
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   }
 
   /**

@@ -159,7 +159,7 @@ export class Console {
   }
 
   /**
-   * Try to evaluate as math
+   * Try to evaluate as math (safe parser, no eval/Function)
    */
   _tryMath(expr) {
     // Replace constants
@@ -170,15 +170,75 @@ export class Console {
     // Only allow safe characters
     if (/^[\d\s+\-*/().,]+$/.test(sanitized)) {
       try {
-        // Simple evaluation (safe because we validated characters)
-        const result = Function(`"use strict"; return (${sanitized})`)();
-        this.log(String(result), 'output');
-        return true;
+        const result = this._safeMathEval(sanitized);
+        if (result !== null) {
+          this.log(String(result), 'output');
+          return true;
+        }
       } catch {
         return false;
       }
     }
     return false;
+  }
+
+  /**
+   * Safe math evaluator using recursive descent parsing
+   * Handles: +, -, *, /, parentheses, and numbers
+   * @private
+   */
+  _safeMathEval(expr) {
+    let pos = 0;
+    const str = expr.replace(/\s+/g, '');
+
+    const parseNumber = () => {
+      let numStr = '';
+      while (pos < str.length && /[\d.]/.test(str[pos])) {
+        numStr += str[pos++];
+      }
+      return parseFloat(numStr);
+    };
+
+    const parseFactor = () => {
+      if (str[pos] === '(') {
+        pos++; // skip '('
+        const result = parseExpr();
+        pos++; // skip ')'
+        return result;
+      }
+      if (str[pos] === '-') {
+        pos++;
+        return -parseFactor();
+      }
+      return parseNumber();
+    };
+
+    const parseTerm = () => {
+      let left = parseFactor();
+      while (pos < str.length && (str[pos] === '*' || str[pos] === '/')) {
+        const op = str[pos++];
+        const right = parseFactor();
+        left = op === '*' ? left * right : left / right;
+      }
+      return left;
+    };
+
+    const parseExpr = () => {
+      let left = parseTerm();
+      while (pos < str.length && (str[pos] === '+' || str[pos] === '-')) {
+        const op = str[pos++];
+        const right = parseTerm();
+        left = op === '+' ? left + right : left - right;
+      }
+      return left;
+    };
+
+    try {
+      const result = parseExpr();
+      return isNaN(result) ? null : result;
+    } catch {
+      return null;
+    }
   }
 
   /**
