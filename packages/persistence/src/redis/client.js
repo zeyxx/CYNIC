@@ -10,6 +10,7 @@
 'use strict';
 
 import Redis from 'ioredis';
+import { secureToken } from '@cynic/core';
 
 // Singleton instance
 let redis = null;
@@ -190,7 +191,7 @@ export class RedisClient {
 
   async acquireLock(resource, ttl = TTL.LOCK) {
     const key = `${PREFIX.LOCK}${resource}`;
-    const token = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const token = secureToken();
 
     const acquired = await this.client.set(key, token, 'EX', ttl, 'NX');
     return acquired ? token : null;

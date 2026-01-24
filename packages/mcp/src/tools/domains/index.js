@@ -29,18 +29,33 @@ export const allFactories = [
 
 /**
  * Get all factories (lazy load to avoid circular deps)
+ * @returns {Promise<Array>} Array of factory functions
  */
-export function getAllFactories() {
-  const { judgmentFactory } = require('./judgment.js');
-  const { ecosystemFactory } = require('./ecosystem.js');
-  const { systemFactory } = require('./system.js');
-  const { blockchainFactory } = require('./blockchain.js');
-  const { consciousnessFactory } = require('./consciousness.js');
-  const { sessionFactory } = require('./session.js');
-  const { knowledgeFactory } = require('./knowledge.js');
-  const { automationFactory } = require('./automation.js');
-  const { codeFactory } = require('./code.js');
-  const { orchestrationFactory } = require('./orchestration.js');
+export async function getAllFactories() {
+  // Use dynamic import() instead of require() for ESM compatibility
+  const [
+    { judgmentFactory },
+    { ecosystemFactory },
+    { systemFactory },
+    { blockchainFactory },
+    { consciousnessFactory },
+    { sessionFactory },
+    { knowledgeFactory },
+    { automationFactory },
+    { codeFactory },
+    { orchestrationFactory },
+  ] = await Promise.all([
+    import('./judgment.js'),
+    import('./ecosystem.js'),
+    import('./system.js'),
+    import('./blockchain.js'),
+    import('./consciousness.js'),
+    import('./session.js'),
+    import('./knowledge.js'),
+    import('./automation.js'),
+    import('./code.js'),
+    import('./orchestration.js'),
+  ]);
 
   return [
     orchestrationFactory,  // KETER - First, central orchestrator

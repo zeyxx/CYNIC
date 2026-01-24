@@ -44,3 +44,9 @@ export * from './triggers/index.js';
 
 // Ecosystem Monitor (external sources → updates → E-Score)
 export * from './ecosystem/index.js';
+
+// Custom Error Types (programmatic error handling)
+export * from './errors.js';
+
+// Cryptographic Utilities (secure random generation)
+export * from './crypto-utils.js';

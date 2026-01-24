@@ -21,7 +21,7 @@ import { createServer as createHttpServer } from 'http';
 import { createServer as createHttpsServer } from 'https';
 import { readFileSync } from 'fs';
 import { serialize, deserialize } from './serializer.js';
-import { PHI, PHI_INV } from '@cynic/core';
+import { PHI, PHI_INV, secureId } from '@cynic/core';
 import { createHeartbeat, signData, verifySignature } from '@cynic/protocol';
 
 /**
@@ -342,7 +342,7 @@ export class WebSocketTransport extends EventEmitter {
    */
   _handleIncomingConnection(ws, req) {
     const remoteAddress = req.socket.remoteAddress;
-    const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const tempId = secureId('temp');
 
     const conn = {
       ws,

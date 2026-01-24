@@ -11,8 +11,19 @@
 
 'use strict';
 
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { PHI, PHI_INV, PHI_INV_2 } from '@cynic/core';
+
+/**
+ * Generate cryptographically secure random number in [0, 1)
+ * @returns {number} Secure random value
+ */
+function secureRandom() {
+  // Use 4 bytes for ~32 bits of randomness
+  const bytes = randomBytes(4);
+  const value = bytes.readUInt32BE(0);
+  return value / 0x100000000; // Divide by 2^32
+}
 
 /**
  * φ-aligned constants for differential privacy
@@ -46,9 +57,9 @@ export const PRIVACY_CONSTANTS = {
  * @returns {number} Random noise from Laplace(0, scale)
  */
 export function laplacianNoise(scale) {
-  // Use inverse CDF method
+  // Use inverse CDF method with cryptographically secure random
   // If U ~ Uniform(0,1), then X = -b * sign(U-0.5) * ln(1-2|U-0.5|) ~ Laplace(0,b)
-  const u = Math.random() - 0.5;
+  const u = secureRandom() - 0.5;
   const sign = u >= 0 ? 1 : -1;
   const noise = -scale * sign * Math.log(1 - 2 * Math.abs(u));
 
@@ -62,9 +73,9 @@ export function laplacianNoise(scale) {
  * @returns {number} Random noise from Normal(0, sigma²)
  */
 export function gaussianNoise(sigma) {
-  // Box-Muller transform
-  const u1 = Math.random();
-  const u2 = Math.random();
+  // Box-Muller transform with cryptographically secure random
+  const u1 = secureRandom() || 1e-10; // Avoid log(0)
+  const u2 = secureRandom();
   const noise = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2) * sigma;
 
   return noise;

@@ -17,7 +17,7 @@
 
 'use strict';
 
-import { PHI_INV, PHI_INV_2 } from '@cynic/core';
+import { PHI_INV, PHI_INV_2, secureNonce } from '@cynic/core';
 import { sha256Prefixed, hashObject } from '../crypto/hash.js';
 
 // K-Score thresholds (0-100 scale)
@@ -122,7 +122,7 @@ export function createKScoreRequest({
     requestor,
     metadata,
     timestamp: Date.now(),
-    nonce: Math.random().toString(36).slice(2, 10),
+    nonce: secureNonce(8),
   };
 
   // Add request ID based on hash

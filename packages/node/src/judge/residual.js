@@ -121,9 +121,12 @@ export class ResidualDetector {
     // Simple clustering: group by which dimensions are weak
     const clusters = new Map();
 
+    // φ⁻² threshold for weak dimensions (38.2%)
+    const weakThreshold = Math.round(PHI_INV_2 * 100);
+
     for (const anomaly of this.anomalies) {
       const weakDims = Object.entries(anomaly.dimensions || {})
-        .filter(([, score]) => score < 40)
+        .filter(([, score]) => score < weakThreshold)
         .map(([name]) => name)
         .sort()
         .join(',');
