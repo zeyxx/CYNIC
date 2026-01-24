@@ -200,6 +200,37 @@ async function main() {
     const ecosystem = cynic.detectEcosystem();
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // MCP: Load relevant context from brain memory
+    // "Le chien se souvient" - CYNIC remembers
+    // ═══════════════════════════════════════════════════════════════════════════
+    let brainMemory = null;
+    let brainPsychology = null;
+    try {
+      // Search for relevant memories about current project/user (non-blocking)
+      const searchPromise = cynic.callBrainTool('brain_search', {
+        query: `${ecosystem.currentProject?.name || 'project'} ${user.name}`,
+        limit: 5,
+        types: ['decision', 'pattern', 'insight'],
+      });
+
+      // Get psychology state (non-blocking)
+      const psychPromise = cynic.callBrainTool('brain_psychology', {
+        action: 'get_state',
+        userId: user.userId,
+      });
+
+      // Wait for both with timeout (don't block session start)
+      const results = await Promise.race([
+        Promise.all([searchPromise, psychPromise]),
+        new Promise(resolve => setTimeout(() => resolve([null, null]), 3000))
+      ]);
+
+      [brainMemory, brainPsychology] = results || [null, null];
+    } catch (e) {
+      // MCP calls failed - continue without (non-critical)
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // COCKPIT: Deep ecosystem scan with alerts
     // ═══════════════════════════════════════════════════════════════════════════
     let cockpitData = null;
@@ -251,6 +282,30 @@ async function main() {
           lines.splice(insertIdx, 0, ...alertLines, '');
           message = lines.join('\n');
         }
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BRAIN MEMORY: Inject relevant memories from MCP
+    // "Le chien n'oublie jamais"
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (brainMemory?.success && brainMemory?.result?.entries?.length > 0) {
+      try {
+        const memoryLines = ['', '── MEMORY ─────────────────────────────────────────────────'];
+        for (const entry of brainMemory.result.entries.slice(0, 3)) {
+          const icon = entry.type === 'decision' ? '📋' :
+                       entry.type === 'pattern' ? '🔄' :
+                       entry.type === 'insight' ? '💡' : '📝';
+          memoryLines.push(`   ${icon} ${entry.title || entry.content?.substring(0, 50)}...`);
+        }
+        const lines = message.split('\n');
+        const insertIdx = lines.findIndex(l => l.includes('CYNIC is AWAKE'));
+        if (insertIdx > 0) {
+          lines.splice(insertIdx, 0, ...memoryLines, '');
+          message = lines.join('\n');
+        }
+      } catch (e) {
+        // Memory injection failed - continue without
       }
     }
 

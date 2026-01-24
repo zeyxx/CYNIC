@@ -353,6 +353,23 @@ async function main() {
       timestamp: Date.now(),
     });
 
+    // Digest session insights to brain memory (non-blocking)
+    if (insights.length > 0) {
+      cynic.digestToBrain(
+        `Session digest for ${user.name}:\n` +
+        `- Tools: ${analysis.toolsUsed}\n` +
+        `- Errors: ${analysis.errorsEncountered}\n` +
+        `- Insights: ${insights.map(i => i.description).join('; ')}`,
+        {
+          source: 'digest_hook',
+          type: 'session_summary',
+          userId: user.userId,
+        }
+      ).catch(() => {
+        // Silently ignore - digest is optional
+      });
+    }
+
     // Output directly to stdout for banner display (like awaken.cjs)
     console.log(message);
 

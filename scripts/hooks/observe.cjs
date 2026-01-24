@@ -336,6 +336,19 @@ function processTriggerEvent(toolName, toolInput, toolOutput, isError) {
     // Silently ignore errors - triggers should never block hooks
   });
 
+  // Record pattern to brain memory (non-blocking)
+  cynic.callBrainTool('brain_patterns', {
+    action: 'record',
+    pattern: {
+      type: eventType.toLowerCase(),
+      tool: toolName,
+      success: !isError,
+      timestamp: Date.now(),
+    },
+  }).catch(() => {
+    // Silently ignore - pattern recording is optional
+  });
+
   // ==========================================================================
   // LEARNING FEEDBACK - External validation (Ralph-inspired)
   // ==========================================================================
