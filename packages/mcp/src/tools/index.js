@@ -201,6 +201,19 @@ export {
 
 // NOTE: Code tools moved to domains/code.js
 
+// Orchestration domain (KETER - central consciousness)
+import {
+  createOrchestrateTool,
+  orchestrationFactory,
+} from './domains/orchestration.js';
+
+export {
+  createOrchestrateTool,
+  orchestrationFactory,
+};
+
+// NOTE: KETER orchestrator moved to domains/orchestration.js
+
 /**
  * Create all tools
  * @param {Object} options - Tool options
@@ -260,6 +273,7 @@ export function createAllTools(options = {}) {
     createJudgeTool(judge, persistence, sessionManager, pojChainManager, graphIntegration, onJudgment),
     createRefineTool(judge, persistence), // Self-refinement: critique → refine → learn
     createOrchestrationTool({ judge, agents, persistence }), // Multi-agent parallel execution
+    createOrchestrateTool({ judge, persistence }), // KETER: Central consciousness routing
     createVectorSearchTool({ persistence }), // Semantic search with embeddings
     createLearningTool({ learningService, persistence }), // Learning service: feedback → weight modifiers → improvement
     createTriggersTool({ judge, persistence }), // Auto-judgment triggers

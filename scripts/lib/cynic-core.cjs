@@ -650,7 +650,7 @@ async function endBrainSession(sessionId) {
 // =============================================================================
 
 /**
- * Call the central orchestrator (brain_orchestrate)
+ * Call the central orchestrator (brain_keter)
  * Routes events to the appropriate Sefirot (agents/tools)
  *
  * @param {string} event - Event type (user_prompt, tool_use, session_start, etc.)
@@ -661,7 +661,7 @@ async function endBrainSession(sessionId) {
 async function orchestrate(event, data, context = {}) {
   try {
     const user = detectUser();
-    const result = await callBrainTool('brain_orchestrate', {
+    const result = await callBrainTool('brain_keter', {
       event,
       data,
       context: {

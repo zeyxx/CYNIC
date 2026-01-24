@@ -286,11 +286,13 @@ export function createOrchestrateTool(options = {}) {
   };
 
   return {
-    name: 'brain_orchestrate',
-    description: `Central orchestration for CYNIC consciousness (KETER).
+    name: 'brain_keter',
+    description: `Central consciousness orchestrator (KETER - Crown).
 Routes events to appropriate Sefirot (specialized agents/tools).
 Adapts intervention level based on user E-Score and action risk.
-Returns routing decisions, suggested tools, and intervention level.`,
+Returns routing decisions, suggested tools, and intervention level.
+
+This is the "brain" of CYNIC - all events pass through KETER for routing.`,
     inputSchema: {
       type: 'object',
       properties: {
