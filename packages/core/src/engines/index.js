@@ -31,3 +31,26 @@ export {
   SynthesisStrategy,
   createOrchestrator,
 } from './orchestrator.js';
+
+// Philosophy engines (73 engines from scripts/lib/)
+export {
+  // Adapter
+  adaptLegacyEngine,
+  adaptLegacyEngines,
+
+  // Catalog
+  PHILOSOPHY_ENGINE_CATALOG,
+  getCatalogByDomain,
+  getCatalogByCapability,
+  getCatalogByTradition,
+  getCatalogStats,
+
+  // Loader
+  loadPhilosophyEngines,
+  loadPhilosophyEngine,
+  loadEnginesByDomain,
+  loadEnginesByTradition,
+  areEnginesLoaded,
+  getLoadStatus,
+  unloadPhilosophyEngines,
+} from './philosophy/index.js';
