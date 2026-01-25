@@ -141,6 +141,50 @@ describe('ConsciousnessMonitor', () => {
     assert.strictEqual(monitor2.noticedPatterns.size, 1);
     assert.ok(monitor2.observations.length > 0);
   });
+
+  test('recordUncertainty tracks uncertainty events', () => {
+    const monitor = createConsciousnessMonitor();
+
+    // Confidence < 0.382 (φ⁻²) triggers uncertainty zone tracking
+    monitor.recordUncertainty('test_context', 0.2, { reason: 'ambiguous input' });
+
+    const insights = monitor.getInsights();
+    assert.ok(insights.uncertaintyZones.length >= 1, 'should record uncertainty zone');
+    assert.strictEqual(insights.uncertaintyZones[0].context, 'test_context');
+  });
+
+  test('getMetaInsight returns meta-level analysis', () => {
+    const monitor = createConsciousnessMonitor();
+
+    for (let i = 0; i < 15; i++) {
+      monitor.observe('TEST', { i }, 0.5);
+      monitor.recordPrediction('p_' + i, i % 2 === 0, 0.5);
+    }
+
+    const meta = monitor.getMetaInsight();
+
+    assert.ok(meta.selfAwareness !== undefined, 'should have selfAwareness');
+    assert.ok(meta.coherence !== undefined, 'should have coherence');
+    assert.ok(meta.blindSpots !== undefined, 'should have blindSpots');
+    assert.ok(meta.strengths !== undefined, 'should have strengths');
+  });
+
+  test('reset clears all state', () => {
+    const monitor = createConsciousnessMonitor();
+
+    for (let i = 0; i < 10; i++) {
+      monitor.observe('TEST', { i }, 0.5);
+    }
+    monitor.noticePattern('p1', { type: 'TEST' }, 0.7);
+
+    assert.ok(monitor.observations.length > 0, 'should have observations before reset');
+
+    monitor.reset();
+
+    assert.strictEqual(monitor.observations.length, 0, 'should clear observations');
+    assert.strictEqual(monitor.noticedPatterns.size, 0, 'should clear patterns');
+    assert.strictEqual(monitor.state, ConsciousnessState.DORMANT, 'should reset state');
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -248,6 +292,56 @@ describe('PatternDetector', () => {
 
     assert.ok(detector2.dataPoints.length > 0);
     assert.strictEqual(detector2.stats.count, detector1.stats.count);
+  });
+
+  test('getPatterns filters by type and significance', () => {
+    const detector = createPatternDetector();
+
+    // Generate patterns
+    for (let i = 0; i < 30; i++) {
+      detector.observe({ type: 'SCORE', value: 30 + i * 2 }); // Creates trend
+    }
+
+    const allPatterns = detector.getPatterns();
+    assert.ok(Array.isArray(allPatterns), 'should return array');
+
+    const trends = detector.getPatterns(PatternType.TREND);
+    assert.ok(trends.every(p => p.type === PatternType.TREND), 'should filter by type');
+
+    const significant = detector.getPatterns(null, 0.5);
+    assert.ok(significant.every(p => p.significance >= 0.5), 'should filter by significance');
+  });
+
+  test('hasPattern checks pattern existence', () => {
+    const detector = createPatternDetector();
+
+    // Generate some patterns
+    for (let i = 0; i < 30; i++) {
+      detector.observe({ type: 'SCORE', value: 50 + (i % 2) * 20 });
+    }
+
+    const patterns = detector.detect();
+    if (patterns.length > 0) {
+      const patternId = patterns[0].id;
+      assert.ok(detector.hasPattern(patternId), 'should find existing pattern');
+    }
+
+    assert.strictEqual(detector.hasPattern('nonexistent_pattern'), null, 'should return null for unknown pattern');
+  });
+
+  test('clear resets detector state', () => {
+    const detector = createPatternDetector();
+
+    for (let i = 0; i < 20; i++) {
+      detector.observe({ type: 'TEST', value: 50 });
+    }
+
+    assert.ok(detector.dataPoints.length > 0, 'should have data before clear');
+
+    detector.clear();
+
+    assert.strictEqual(detector.dataPoints.length, 0, 'should clear data points');
+    assert.strictEqual(detector.stats.count, 0, 'should reset stats');
   });
 });
 
@@ -368,6 +462,38 @@ describe('DimensionDiscovery', () => {
     discovery2.import(exported);
 
     assert.strictEqual(discovery2.getProposals().length, 1);
+  });
+
+  test('getCandidates returns potential new dimensions', () => {
+    const discovery = createDimensionDiscovery();
+
+    // Analyze judgments to generate candidates
+    for (let i = 0; i < 10; i++) {
+      discovery.analyzeJudgment({
+        scores: { PHI: 45, VERIFY: 30, CULTURE: 38, BURN: 60 },
+        rawAssessment: 'Issues with methodology and reproducibility detected.',
+      });
+    }
+
+    const candidates = discovery.getCandidates();
+    assert.ok(Array.isArray(candidates), 'should return array');
+
+    const verifyCandidates = discovery.getCandidates('VERIFY');
+    assert.ok(verifyCandidates.every(c => c.axiom === 'VERIFY'), 'should filter by axiom');
+  });
+
+  test('getStats returns discovery statistics', () => {
+    const discovery = createDimensionDiscovery();
+
+    discovery.propose('DIM1', 'PHI', 'Test 1', 'Reason 1');
+    discovery.propose('DIM2', 'VERIFY', 'Test 2', 'Reason 2');
+
+    const stats = discovery.getStats();
+
+    assert.ok(stats.proposals.total >= 2, 'should count proposals');
+    assert.ok(stats.proposals.draft >= 0, 'should have draft count');
+    assert.ok(stats.candidates !== undefined, 'should have candidates count');
+    assert.ok(stats.termsTracked !== undefined, 'should have termsTracked');
   });
 });
 
@@ -527,6 +653,28 @@ describe('CollectiveState', () => {
     collective2.import(exported);
 
     assert.strictEqual(collective2.recall('test').value, 123);
+  });
+
+  test('removeNode removes disconnected nodes', () => {
+    const collective = createCollectiveState({ nodeId: 'local' });
+
+    collective.reportState({ eScore: 70, awarenessLevel: 0.5, consciousnessState: 'AWARE' });
+    collective.receiveState('n1', { eScore: 75, awarenessLevel: 0.55, consciousnessState: 'AWARE' });
+    collective.receiveState('n2', { eScore: 72, awarenessLevel: 0.52, consciousnessState: 'AWARE' });
+
+    assert.strictEqual(collective.activeNodes, 3, 'should have 3 nodes');
+
+    collective.removeNode('n1');
+
+    assert.strictEqual(collective.activeNodes, 2, 'should have 2 nodes after removal');
+
+    // Removing the same node again should be safe
+    collective.removeNode('n1');
+    assert.strictEqual(collective.activeNodes, 2, 'should still have 2 nodes');
+
+    // Removing non-existent node should be safe
+    collective.removeNode('nonexistent');
+    assert.strictEqual(collective.activeNodes, 2, 'should still have 2 nodes');
   });
 });
 
