@@ -45,8 +45,11 @@
 
 ## Pending (2)
 
-- [ ] #19 Add tests for persistence repositories (~21% → 50%)
-  - Current: 2,759 lines tests / 13,080 lines src
+- [ ] #19 Add tests for persistence repositories
+  - Was: 2,759 lines (21%) → Now: 3,354 lines (25.6%)
+  - Added: UserRepository (11 tests), SessionRepository (6 tests), FeedbackRepository (8 tests)
+  - 207 tests passing, 6/17 repos now covered
+  - Remaining: 11 repos without unit tests
 - [ ] #23 Add TypeDoc generation for API documentation
 
 ## Good Coverage (2)

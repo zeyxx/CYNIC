@@ -16,6 +16,9 @@ import 'dotenv/config';
 import { JudgmentRepository } from '../src/postgres/repositories/judgments.js';
 import { PoJBlockRepository } from '../src/postgres/repositories/poj-blocks.js';
 import { PatternRepository } from '../src/postgres/repositories/patterns.js';
+import { UserRepository } from '../src/postgres/repositories/users.js';
+import { SessionRepository } from '../src/postgres/repositories/sessions.js';
+import { FeedbackRepository } from '../src/postgres/repositories/feedback.js';
 
 /**
  * Create a mock database for unit testing
@@ -25,6 +28,9 @@ function createMockDb() {
     judgments: [],
     poj_blocks: [],
     patterns: [],
+    users: [],
+    sessions: [],
+    feedback: [],
   };
 
   let idCounter = 1;
@@ -286,6 +292,253 @@ function createMockDb() {
             category_count: categories.size.toString(),
           }],
         };
+      }
+
+      // ========================================================================
+      // USER REPOSITORY MOCK HANDLERS
+      // ========================================================================
+
+      // INSERT INTO users
+      if (sqlLower.includes('insert into users')) {
+        const user = {
+          id: `usr_${idCounter++}`,
+          wallet_address: params[0],
+          username: params[1],
+          e_score: params[2] || 0,
+          e_score_data: params[3] || '{}',
+          created_at: new Date(),
+          updated_at: new Date(),
+        };
+        storage.users.push(user);
+        return { rows: [user] };
+      }
+
+      // SELECT * FROM users WHERE id = $1
+      if (sqlLower.includes('select') && sqlLower.includes('from users') && sqlLower.includes('where id = $1')) {
+        const found = storage.users.find(u => u.id === params[0]);
+        return { rows: found ? [found] : [] };
+      }
+
+      // SELECT * FROM users WHERE wallet_address = $1
+      if (sqlLower.includes('from users') && sqlLower.includes('wallet_address = $1')) {
+        const found = storage.users.find(u => u.wallet_address === params[0]);
+        return { rows: found ? [found] : [] };
+      }
+
+      // SELECT * FROM users WHERE username = $1
+      if (sqlLower.includes('from users') && sqlLower.includes('username = $1')) {
+        const found = storage.users.find(u => u.username === params[0]);
+        return { rows: found ? [found] : [] };
+      }
+
+      // UPDATE users SET e_score
+      if (sqlLower.includes('update users') && sqlLower.includes('e_score')) {
+        const found = storage.users.find(u => u.id === params[0]);
+        if (found) {
+          found.e_score = params[1];
+          if (params[2]) found.e_score_data = params[2];
+          found.updated_at = new Date();
+          return { rows: [found] };
+        }
+        return { rows: [] };
+      }
+
+      // SELECT COUNT(*) FROM users
+      if (sqlLower.includes('select count(*)') && sqlLower.includes('from users')) {
+        return { rows: [{ count: storage.users.length.toString() }] };
+      }
+
+      // User stats
+      if (sqlLower.includes('from users') && sqlLower.includes('avg(e_score)')) {
+        const users = storage.users;
+        const total = users.length;
+        const withScore = users.filter(u => u.e_score > 0).length;
+        const avgScore = withScore > 0
+          ? users.filter(u => u.e_score > 0).reduce((sum, u) => sum + u.e_score, 0) / withScore
+          : 0;
+        const maxScore = users.length > 0 ? Math.max(...users.map(u => u.e_score)) : 0;
+        return {
+          rows: [{
+            total: total.toString(),
+            with_score: withScore.toString(),
+            avg_score: avgScore.toString(),
+            max_score: maxScore.toString(),
+          }],
+        };
+      }
+
+      // User leaderboard
+      if (sqlLower.includes('from users') && sqlLower.includes('order by e_score desc')) {
+        const sorted = [...storage.users].filter(u => u.e_score > 0)
+          .sort((a, b) => b.e_score - a.e_score);
+        const limit = params[0] || 10;
+        return { rows: sorted.slice(0, limit) };
+      }
+
+      // DELETE FROM users
+      if (sqlLower.includes('delete from users')) {
+        const idx = storage.users.findIndex(u => u.id === params[0]);
+        if (idx >= 0) {
+          storage.users.splice(idx, 1);
+          return { rowCount: 1 };
+        }
+        return { rowCount: 0 };
+      }
+
+      // ========================================================================
+      // SESSION REPOSITORY MOCK HANDLERS
+      // ========================================================================
+
+      // INSERT INTO sessions
+      if (sqlLower.includes('insert into sessions')) {
+        const session = {
+          id: idCounter++,
+          session_id: params[0],
+          user_id: params[1],
+          judgment_count: params[2] || 0,
+          digest_count: params[3] || 0,
+          feedback_count: params[4] || 0,
+          context: params[5] || '{}',
+          created_at: new Date(),
+          last_active_at: new Date(),
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        };
+        storage.sessions.push(session);
+        return { rows: [session] };
+      }
+
+      // SELECT * FROM sessions WHERE session_id = $1
+      if (sqlLower.includes('select') && sqlLower.includes('from sessions') && sqlLower.includes('session_id = $1')) {
+        const found = storage.sessions.find(s => s.session_id === params[0]);
+        return { rows: found ? [found] : [] };
+      }
+
+      // UPDATE sessions
+      if (sqlLower.includes('update sessions')) {
+        const found = storage.sessions.find(s => s.session_id === params[0]);
+        if (found) {
+          found.last_active_at = new Date();
+          // Handle increment
+          if (sqlLower.includes('judgment_count = judgment_count + 1')) {
+            found.judgment_count++;
+          }
+          if (sqlLower.includes('digest_count = digest_count + 1')) {
+            found.digest_count++;
+          }
+          if (sqlLower.includes('feedback_count = feedback_count + 1')) {
+            found.feedback_count++;
+          }
+          return { rows: [found] };
+        }
+        return { rows: [] };
+      }
+
+      // Session stats
+      if (sqlLower.includes('from sessions') && sqlLower.includes('sum(judgment_count)')) {
+        const sessions = storage.sessions;
+        const total = sessions.length;
+        const active = sessions.filter(s => s.expires_at > new Date()).length;
+        return {
+          rows: [{
+            total: total.toString(),
+            active: active.toString(),
+            total_judgments: sessions.reduce((sum, s) => sum + s.judgment_count, 0).toString(),
+            total_digests: sessions.reduce((sum, s) => sum + s.digest_count, 0).toString(),
+            total_feedback: sessions.reduce((sum, s) => sum + s.feedback_count, 0).toString(),
+          }],
+        };
+      }
+
+      // DELETE FROM sessions (cleanup)
+      if (sqlLower.includes('delete from sessions') && sqlLower.includes('expires_at < now()')) {
+        const now = new Date();
+        const before = storage.sessions.length;
+        storage.sessions = storage.sessions.filter(s => s.expires_at > now);
+        return { rowCount: before - storage.sessions.length };
+      }
+
+      // DELETE FROM sessions WHERE session_id = $1
+      if (sqlLower.includes('delete from sessions') && sqlLower.includes('session_id = $1')) {
+        const idx = storage.sessions.findIndex(s => s.session_id === params[0]);
+        if (idx >= 0) {
+          storage.sessions.splice(idx, 1);
+          return { rowCount: 1 };
+        }
+        return { rowCount: 0 };
+      }
+
+      // ========================================================================
+      // FEEDBACK REPOSITORY MOCK HANDLERS
+      // ========================================================================
+
+      // INSERT INTO feedback
+      if (sqlLower.includes('insert into feedback')) {
+        const feedback = {
+          id: idCounter++,
+          judgment_id: params[0],
+          user_id: params[1],
+          outcome: params[2],
+          actual_score: params[3],
+          reason: params[4],
+          applied: false,
+          applied_at: null,
+          created_at: new Date(),
+        };
+        storage.feedback.push(feedback);
+        return { rows: [feedback] };
+      }
+
+      // SELECT * FROM feedback WHERE judgment_id = $1 (must be before id = $1)
+      if (sqlLower.includes('from feedback') && sqlLower.includes('judgment_id = $1')) {
+        const filtered = storage.feedback.filter(f => f.judgment_id === params[0]);
+        return { rows: filtered };
+      }
+
+      // SELECT * FROM feedback WHERE id = $1
+      if (sqlLower.includes('select') && sqlLower.includes('from feedback') && sqlLower.includes('where id = $1')) {
+        const found = storage.feedback.find(f => f.id === params[0]);
+        return { rows: found ? [found] : [] };
+      }
+
+      // UPDATE feedback SET applied = TRUE
+      if (sqlLower.includes('update feedback') && sqlLower.includes('applied = true')) {
+        const found = storage.feedback.find(f => f.id === params[0]);
+        if (found) {
+          found.applied = true;
+          found.applied_at = new Date();
+          return { rows: [found] };
+        }
+        return { rows: [] };
+      }
+
+      // Feedback stats
+      if (sqlLower.includes('from feedback') && sqlLower.includes('count(*)') && sqlLower.includes('filter')) {
+        const fb = storage.feedback;
+        const total = fb.length;
+        const correct = fb.filter(f => f.outcome === 'correct').length;
+        const incorrect = fb.filter(f => f.outcome === 'incorrect').length;
+        const partial = fb.filter(f => f.outcome === 'partial').length;
+        const applied = fb.filter(f => f.applied).length;
+        return {
+          rows: [{
+            total: total.toString(),
+            correct: correct.toString(),
+            incorrect: incorrect.toString(),
+            partial: partial.toString(),
+            applied: applied.toString(),
+            avg_score_diff: '0',
+          }],
+        };
+      }
+
+      // DELETE FROM feedback WHERE id = $1
+      if (sqlLower.includes('delete from feedback') && sqlLower.includes('id = $1')) {
+        const idx = storage.feedback.findIndex(f => f.id === params[0]);
+        if (idx >= 0) {
+          storage.feedback.splice(idx, 1);
+          return { rowCount: 1 };
+        }
+        return { rowCount: 0 };
       }
 
       // Default fallback
@@ -849,6 +1102,348 @@ describe('PostgreSQL Integration', () => {
 
       const found = await repo.findById(pattern.pattern_id);
       assert.equal(found.name, `Test Pattern ${timestamp}`);
+    });
+  });
+});
+
+// ============================================================================
+// USER REPOSITORY TESTS
+// ============================================================================
+
+describe('UserRepository', () => {
+  let repo;
+  let mockDb;
+
+  beforeEach(() => {
+    mockDb = createMockDb();
+    repo = new UserRepository(mockDb);
+  });
+
+  describe('create', () => {
+    it('creates a new user', async () => {
+      const user = await repo.create({
+        walletAddress: '0x1234567890abcdef',
+        username: 'testuser',
+        eScore: 50,
+      });
+
+      assert.ok(user.id);
+      assert.equal(user.wallet_address, '0x1234567890abcdef');
+      assert.equal(user.username, 'testuser');
+      assert.equal(user.e_score, 50);
+    });
+
+    it('creates user with default eScore', async () => {
+      const user = await repo.create({
+        walletAddress: '0xabcd',
+      });
+
+      assert.equal(user.e_score, 0);
+    });
+  });
+
+  describe('findById', () => {
+    it('finds existing user', async () => {
+      const created = await repo.create({ walletAddress: '0x123' });
+      const found = await repo.findById(created.id);
+
+      assert.ok(found);
+      assert.equal(found.id, created.id);
+    });
+
+    it('returns null for non-existent user', async () => {
+      const found = await repo.findById('nonexistent');
+      assert.equal(found, null);
+    });
+  });
+
+  describe('findByWallet', () => {
+    it('finds user by wallet address', async () => {
+      await repo.create({ walletAddress: '0xwallet123' });
+      const found = await repo.findByWallet('0xwallet123');
+
+      assert.ok(found);
+      assert.equal(found.wallet_address, '0xwallet123');
+    });
+  });
+
+  describe('getOrCreate', () => {
+    it('returns existing user', async () => {
+      const created = await repo.create({ walletAddress: '0xexisting' });
+      const found = await repo.getOrCreate('0xexisting');
+
+      assert.equal(found.id, created.id);
+    });
+
+    it('creates new user if not exists', async () => {
+      const user = await repo.getOrCreate('0xnewwallet', { username: 'newuser' });
+
+      assert.ok(user.id);
+      assert.equal(user.wallet_address, '0xnewwallet');
+    });
+  });
+
+  describe('updateEScore', () => {
+    it('updates user eScore', async () => {
+      const created = await repo.create({ walletAddress: '0x123' });
+      const updated = await repo.updateEScore(created.id, 75);
+
+      assert.equal(updated.e_score, 75);
+    });
+  });
+
+  describe('getLeaderboard', () => {
+    it('returns users sorted by eScore', async () => {
+      await repo.create({ walletAddress: '0x1', eScore: 30 });
+      await repo.create({ walletAddress: '0x2', eScore: 80 });
+      await repo.create({ walletAddress: '0x3', eScore: 50 });
+
+      const leaderboard = await repo.getLeaderboard(10);
+
+      assert.equal(leaderboard[0].e_score, 80);
+      assert.equal(leaderboard[1].e_score, 50);
+      assert.equal(leaderboard[2].e_score, 30);
+    });
+  });
+
+  describe('count', () => {
+    it('counts total users', async () => {
+      await repo.create({ walletAddress: '0x1' });
+      await repo.create({ walletAddress: '0x2' });
+
+      const count = await repo.count();
+      assert.equal(count, 2);
+    });
+  });
+
+  describe('getStats', () => {
+    it('returns user statistics', async () => {
+      await repo.create({ walletAddress: '0x1', eScore: 60 });
+      await repo.create({ walletAddress: '0x2', eScore: 80 });
+      await repo.create({ walletAddress: '0x3', eScore: 0 });
+
+      const stats = await repo.getStats();
+
+      assert.equal(stats.total, 3);
+      assert.equal(stats.withScore, 2);
+      assert.equal(stats.maxScore, 80);
+    });
+  });
+
+  describe('delete', () => {
+    it('deletes a user', async () => {
+      const created = await repo.create({ walletAddress: '0x123' });
+      const deleted = await repo.delete(created.id);
+
+      assert.equal(deleted, true);
+
+      const found = await repo.findById(created.id);
+      assert.equal(found, null);
+    });
+
+    it('returns false for non-existent user', async () => {
+      const deleted = await repo.delete('nonexistent');
+      assert.equal(deleted, false);
+    });
+  });
+});
+
+// ============================================================================
+// SESSION REPOSITORY TESTS
+// ============================================================================
+
+describe('SessionRepository', () => {
+  let repo;
+  let mockDb;
+
+  beforeEach(() => {
+    mockDb = createMockDb();
+    repo = new SessionRepository(mockDb);
+  });
+
+  describe('create', () => {
+    it('creates a new session', async () => {
+      const session = await repo.create({
+        sessionId: 'sess_123',
+        userId: 'user_456',
+        judgmentCount: 0,
+      });
+
+      assert.ok(session.id);
+      assert.equal(session.session_id, 'sess_123');
+      assert.equal(session.user_id, 'user_456');
+      assert.equal(session.judgment_count, 0);
+    });
+  });
+
+  describe('findById', () => {
+    it('finds session by sessionId', async () => {
+      await repo.create({ sessionId: 'sess_abc' });
+      const found = await repo.findById('sess_abc');
+
+      assert.ok(found);
+      assert.equal(found.session_id, 'sess_abc');
+    });
+
+    it('returns null for non-existent session', async () => {
+      const found = await repo.findById('nonexistent');
+      assert.equal(found, null);
+    });
+  });
+
+  describe('increment', () => {
+    it('increments judgment count', async () => {
+      await repo.create({ sessionId: 'sess_inc', judgmentCount: 5 });
+      const updated = await repo.increment('sess_inc', 'judgment_count');
+
+      assert.equal(updated.judgment_count, 6);
+    });
+
+    it('throws for invalid field', async () => {
+      await repo.create({ sessionId: 'sess_err' });
+
+      await assert.rejects(
+        () => repo.increment('sess_err', 'invalid_field'),
+        { message: 'Invalid field: invalid_field' }
+      );
+    });
+  });
+
+  describe('getStats', () => {
+    it('returns session statistics', async () => {
+      await repo.create({ sessionId: 's1', judgmentCount: 10, digestCount: 5 });
+      await repo.create({ sessionId: 's2', judgmentCount: 20, digestCount: 3 });
+
+      const stats = await repo.getStats();
+
+      assert.equal(stats.total, 2);
+      assert.equal(stats.totalJudgments, 30);
+      assert.equal(stats.totalDigests, 8);
+    });
+  });
+
+  describe('delete', () => {
+    it('deletes a session', async () => {
+      await repo.create({ sessionId: 'sess_del' });
+      const deleted = await repo.delete('sess_del');
+
+      assert.equal(deleted, true);
+
+      const found = await repo.findById('sess_del');
+      assert.equal(found, null);
+    });
+  });
+});
+
+// ============================================================================
+// FEEDBACK REPOSITORY TESTS
+// ============================================================================
+
+describe('FeedbackRepository', () => {
+  let repo;
+  let mockDb;
+
+  beforeEach(() => {
+    mockDb = createMockDb();
+    repo = new FeedbackRepository(mockDb);
+  });
+
+  describe('create', () => {
+    it('creates new feedback', async () => {
+      const feedback = await repo.create({
+        judgmentId: 'jdg_123',
+        userId: 'user_456',
+        outcome: 'correct',
+        actualScore: 75,
+        reason: 'Good assessment',
+      });
+
+      assert.ok(feedback.id);
+      assert.equal(feedback.judgment_id, 'jdg_123');
+      assert.equal(feedback.outcome, 'correct');
+      assert.equal(feedback.actual_score, 75);
+      assert.equal(feedback.applied, false);
+    });
+  });
+
+  describe('findById', () => {
+    it('finds feedback by id', async () => {
+      const created = await repo.create({
+        judgmentId: 'jdg_abc',
+        outcome: 'incorrect',
+      });
+      const found = await repo.findById(created.id);
+
+      assert.ok(found);
+      assert.equal(found.id, created.id);
+    });
+
+    it('returns null for non-existent feedback', async () => {
+      const found = await repo.findById(99999);
+      assert.equal(found, null);
+    });
+  });
+
+  describe('findByJudgment', () => {
+    it('finds all feedback for a judgment', async () => {
+      await repo.create({ judgmentId: 'jdg_multi', outcome: 'correct' });
+      await repo.create({ judgmentId: 'jdg_multi', outcome: 'partial' });
+      await repo.create({ judgmentId: 'jdg_other', outcome: 'incorrect' });
+
+      const feedback = await repo.findByJudgment('jdg_multi');
+
+      assert.equal(feedback.length, 2);
+    });
+  });
+
+  describe('markApplied', () => {
+    it('marks feedback as applied', async () => {
+      const created = await repo.create({
+        judgmentId: 'jdg_apply',
+        outcome: 'incorrect',
+      });
+
+      const applied = await repo.markApplied(created.id);
+
+      assert.equal(applied.applied, true);
+      assert.ok(applied.applied_at);
+    });
+  });
+
+  describe('getStats', () => {
+    it('returns feedback statistics', async () => {
+      await repo.create({ judgmentId: 'j1', outcome: 'correct' });
+      await repo.create({ judgmentId: 'j2', outcome: 'correct' });
+      await repo.create({ judgmentId: 'j3', outcome: 'incorrect' });
+      await repo.create({ judgmentId: 'j4', outcome: 'partial' });
+
+      const stats = await repo.getStats();
+
+      assert.equal(stats.total, 4);
+      assert.equal(stats.correct, 2);
+      assert.equal(stats.incorrect, 1);
+      assert.equal(stats.partial, 1);
+      assert.equal(stats.accuracy, 0.5); // 2/4
+    });
+  });
+
+  describe('delete', () => {
+    it('deletes feedback', async () => {
+      const created = await repo.create({
+        judgmentId: 'jdg_del',
+        outcome: 'correct',
+      });
+
+      const deleted = await repo.delete(created.id);
+      assert.equal(deleted, true);
+
+      const found = await repo.findById(created.id);
+      assert.equal(found, null);
+    });
+
+    it('returns false for non-existent feedback', async () => {
+      const deleted = await repo.delete(99999);
+      assert.equal(deleted, false);
     });
   });
 });
