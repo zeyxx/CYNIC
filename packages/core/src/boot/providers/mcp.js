@@ -12,6 +12,88 @@
 'use strict';
 
 import { createLifecycle, HealthStatus } from '../lifecycle.js';
+import { registerProvider } from '../discovery.js';
+
+/**
+ * Register MCP-specific providers with the discovery system
+ *
+ * Call this before bootMCP() to enable MCP components.
+ * Registers: migrations, mcp-server
+ *
+ * @param {Object} [options]
+ * @param {number} [options.migrationTimeout=6180] - Migration timeout (φ⁻¹ × 10000)
+ * @param {string} [options.mode] - MCP mode (stdio/http)
+ * @param {number} [options.port] - HTTP port
+ */
+export function registerMCPProviders(options = {}) {
+  const {
+    migrationTimeout = 6180,
+    mode = process.env.MCP_MODE || 'stdio',
+    port = parseInt(process.env.PORT || '3000', 10),
+  } = options;
+
+  // Migrations provider
+  registerProvider('migrations', {
+    dependencies: ['config'],
+    create: () => ({ applied: 0, error: null }),
+    initialize: async (state) => {
+      try {
+        const { migrate } = await import('@cynic/persistence');
+
+        const migrationPromise = migrate({ silent: false, exitOnError: false });
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Migration timed out (${migrationTimeout}ms)`)), migrationTimeout)
+        );
+
+        const result = await Promise.race([migrationPromise, timeoutPromise]);
+        state.applied = result.applied || 0;
+      } catch (error) {
+        console.warn('⚠️ Migration warning:', error.message);
+        state.error = error.message;
+      }
+    },
+    health: async (state) => ({
+      status: state.error ? HealthStatus.DEGRADED : HealthStatus.HEALTHY,
+      applied: state.applied,
+      error: state.error,
+    }),
+  });
+
+  // MCP Server provider
+  registerProvider('mcp-server', {
+    dependencies: ['config', 'migrations', 'engines'],
+    create: () => ({ server: null, startTime: null, mode, port }),
+    initialize: async (state) => {
+      const { MCPServer } = await import('@cynic/mcp');
+      state.server = new MCPServer({ mode: state.mode, port: state.port });
+    },
+    start: async (state) => {
+      if (!state.server) {
+        throw new Error('MCP Server not initialized');
+      }
+      state.startTime = Date.now();
+      await state.server.start();
+    },
+    stop: async (state) => {
+      if (state.server && typeof state.server.stop === 'function') {
+        await state.server.stop();
+      }
+      state.server = null;
+      state.startTime = null;
+    },
+    health: async (state) => {
+      if (!state.server) {
+        return { status: HealthStatus.UNHEALTHY, error: 'Server not running' };
+      }
+      return {
+        status: HealthStatus.HEALTHY,
+        mode: state.mode,
+        port: state.mode === 'http' ? state.port : null,
+        uptime: state.startTime ? Date.now() - state.startTime : 0,
+      };
+    },
+  });
+}
 
 /**
  * Create MCP Server lifecycle provider

@@ -18,6 +18,7 @@ export {
 
 // MCP server providers
 export {
+  registerMCPProviders,
   createMCPProvider,
   createConfigProvider,
   createMigrationsProvider,

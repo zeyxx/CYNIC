@@ -3,6 +3,8 @@
 /**
  * CYNIC MCP Server CLI
  *
+ * Unified entry point using the boot system.
+ *
  * Run: cynic-mcp
  *
  * Environment variables:
@@ -10,20 +12,20 @@
  *   PORT               - HTTP port (default: 3000, for http mode)
  *   CYNIC_DATABASE_URL - PostgreSQL connection string
  *   CYNIC_REDIS_URL    - Redis connection string
+ *   CYNIC_VERBOSE      - Enable verbose logging
  *
- * "φ distrusts φ" - κυνικός
+ * "The pack awakens as one" - κυνικός
  */
 
 'use strict';
 
-// Load environment variables from .env file
-import 'dotenv/config';
+import { bootMCP } from '@cynic/core/boot';
+import { logConfigStatus, validateStartupConfig } from '@cynic/core';
 
-import { MCPServer } from '../src/server.js';
-import { logConfigStatus, getMcpConfig, validateStartupConfig } from '@cynic/core';
-import { migrate } from '@cynic/persistence';
+// ============================================================================
+// CONFIGURATION VALIDATION
+// ============================================================================
 
-// Validate configuration at startup (throws in production if misconfigured)
 try {
   validateStartupConfig();
 } catch (err) {
@@ -31,58 +33,51 @@ try {
   process.exit(1);
 }
 
-// Log configuration status (never logs actual secrets)
 logConfigStatus();
 
-// Run database migrations before starting (auto-migrate on deploy)
-// φ⁻¹ × 10000 = 6180ms timeout - never block server startup
-const MIGRATION_TIMEOUT = 6180;
+// ============================================================================
+// BOOT SEQUENCE
+// ============================================================================
+
+console.log('🐕 CYNIC MCP Server starting...');
+console.log('');
+
 try {
-  console.log('🐕 Running auto-migrations...');
-  const migrationPromise = migrate({ silent: false, exitOnError: false });
-  const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('Migration timed out (6180ms)')), MIGRATION_TIMEOUT)
-  );
-  const result = await Promise.race([migrationPromise, timeoutPromise]);
-  if (result.applied > 0) {
-    console.log(`✅ Applied ${result.applied} migration(s)`);
-  } else {
-    console.log('✅ Database schema up to date');
+  const cynic = await bootMCP({
+    silent: false,
+  });
+
+  // Log boot result
+  console.log('');
+  console.log(`✅ CYNIC MCP Server ready (${cynic.duration}ms)`);
+  console.log(`   Components: ${cynic.components.join(' → ')}`);
+  console.log('');
+
+  // Health check in verbose mode
+  if (process.env.CYNIC_VERBOSE === 'true') {
+    setInterval(async () => {
+      const health = await cynic.health();
+      console.log('[HEALTH]', health.status, health.summary || '');
+    }, 60000);
   }
-} catch (err) {
-  console.error('⚠️ Migration warning:', err.message);
-  console.error('   Server will start but some features may not work');
-  // Don't exit - let the server start anyway (graceful degradation)
-}
 
-// Get MCP configuration
-const { mode: configMode, port: configPort } = getMcpConfig();
+  // Handle graceful shutdown
+  const shutdown = async (signal) => {
+    console.log('');
+    console.log(`🛑 Received ${signal}, shutting down...`);
+    await cynic.shutdown();
+    process.exit(0);
+  };
 
-// Determine mode: http if PORT is set or MCP_MODE=http
-const port = configPort;
-const mode = configMode || (process.env.PORT ? 'http' : 'stdio');
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 
-// Start MCP server
-const server = new MCPServer({
-  mode,
-  port,
-});
-
-server.start().catch(err => {
-  console.error('Failed to start MCP server:', err);
+} catch (error) {
+  console.error('');
+  console.error('❌ Boot failed:', error.message);
+  if (process.env.CYNIC_VERBOSE === 'true') {
+    console.error(error.stack);
+  }
+  console.error('');
   process.exit(1);
-});
-
-// Handle graceful shutdown
-process.on('SIGTERM', async () => {
-  console.error('Received SIGTERM, shutting down...');
-  await server.stop();
-  process.exit(0);
-});
-
-process.on('SIGINT', async () => {
-  console.error('Received SIGINT, shutting down...');
-  await server.stop();
-  process.exit(0);
-});
-
+}

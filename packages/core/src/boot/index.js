@@ -223,13 +223,25 @@ export async function bootMinimal(options = {}) {
 /**
  * Boot for MCP server mode
  *
+ * Registers MCP-specific providers (migrations, mcp-server)
+ * then boots the system excluding P2P components.
+ *
  * @param {Object} [options] - Boot options
+ * @param {number} [options.migrationTimeout=6180] - Migration timeout (φ⁻¹ × 10000)
+ * @param {string} [options.mode] - MCP transport mode
+ * @param {number} [options.port] - HTTP port for http mode
  * @returns {Promise<Object>}
  */
 export async function bootMCP(options = {}) {
+  const { migrationTimeout, mode, port, ...restOptions } = options;
+
+  // Register MCP-specific providers
+  const { registerMCPProviders } = await import('./providers/mcp.js');
+  registerMCPProviders({ migrationTimeout, mode, port });
+
   return bootCYNIC({
-    ...options,
-    exclude: ['node', 'transport', 'consensus'],
+    ...restOptions,
+    exclude: ['node', 'transport', 'consensus', ...(restOptions.exclude || [])],
   });
 }
 
