@@ -10,10 +10,14 @@
 'use strict';
 
 import { getPool } from '../client.js';
+import { BaseRepository } from '../../interfaces/IRepository.js';
 
-export class EScoreHistoryRepository {
+/**
+ * @extends BaseRepository
+ */
+export class EScoreHistoryRepository extends BaseRepository {
   constructor(db = null) {
-    this.db = db || getPool();
+    super(db || getPool());
   }
 
   /**

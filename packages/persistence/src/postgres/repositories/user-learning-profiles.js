@@ -10,13 +10,17 @@
 'use strict';
 
 import { getPool } from '../client.js';
+import { BaseRepository } from '../../interfaces/IRepository.js';
 
 // φ constants
 const PHI_INV_CUBED = Math.pow(0.618033988749895, 3); // φ⁻³ ≈ 0.236
 
-export class UserLearningProfilesRepository {
+/**
+ * @extends BaseRepository
+ */
+export class UserLearningProfilesRepository extends BaseRepository {
   constructor(db = null) {
-    this.db = db || getPool();
+    super(db || getPool());
   }
 
   /**

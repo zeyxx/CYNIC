@@ -13,6 +13,7 @@
 
 import crypto from 'crypto';
 import { getPool } from '../client.js';
+import { BaseRepository } from '../../interfaces/IRepository.js';
 
 // Default TTL: 24 hours
 const DEFAULT_TTL_HOURS = 24;
@@ -26,9 +27,12 @@ function hashQuery(query) {
     .digest('hex');
 }
 
-export class LibraryCacheRepository {
+/**
+ * @extends BaseRepository
+ */
+export class LibraryCacheRepository extends BaseRepository {
   constructor(db = null) {
-    this.db = db || getPool();
+    super(db || getPool());
   }
 
   /**

@@ -11,6 +11,7 @@
 
 import crypto from 'crypto';
 import { getPool } from '../client.js';
+import { BaseRepository } from '../../interfaces/IRepository.js';
 
 /**
  * Generate short cycle ID
@@ -19,9 +20,12 @@ function generateCycleId() {
   return 'lrn_' + crypto.randomBytes(8).toString('hex');
 }
 
-export class LearningCyclesRepository {
+/**
+ * @extends BaseRepository
+ */
+export class LearningCyclesRepository extends BaseRepository {
   constructor(db = null) {
-    this.db = db || getPool();
+    super(db || getPool());
   }
 
   /**

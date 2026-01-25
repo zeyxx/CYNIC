@@ -10,14 +10,18 @@
 'use strict';
 
 import { getPool } from '../client.js';
+import { BaseRepository } from '../../interfaces/IRepository.js';
 
 // φ constants
 const PHI_INV = 0.618033988749895;
 const DEFAULT_CONFIDENCE = PHI_INV * PHI_INV; // φ⁻² ≈ 0.382
 
-export class PatternEvolutionRepository {
+/**
+ * @extends BaseRepository
+ */
+export class PatternEvolutionRepository extends BaseRepository {
   constructor(db = null) {
-    this.db = db || getPool();
+    super(db || getPool());
   }
 
   /**
