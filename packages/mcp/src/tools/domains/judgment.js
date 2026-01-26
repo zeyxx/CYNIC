@@ -80,9 +80,10 @@ function calculatePsychologyComposites(dimensions = {}, emotions = {}) {
  * @param {Object} [pojChainManager] - PoJChainManager instance (for blockchain)
  * @param {Object} [graphIntegration] - JudgmentGraphIntegration instance (for graph edges)
  * @param {Function} [onJudgment] - Callback when judgment is completed (for SSE broadcast)
+ * @param {Object} [burnEnforcer] - BurnEnforcer instance (for requiring burns)
  * @returns {Object} Tool definition
  */
-export function createJudgeTool(judge, persistence = null, sessionManager = null, pojChainManager = null, graphIntegration = null, onJudgment = null) {
+export function createJudgeTool(judge, persistence = null, sessionManager = null, pojChainManager = null, graphIntegration = null, onJudgment = null, burnEnforcer = null) {
   return {
     name: 'brain_cynic_judge',
     description: `Judge an item using CYNIC's 25-dimension evaluation across 4 axioms (PHI, VERIFY, CULTURE, BURN). Returns Q-Score (0-100), verdict (HOWL/WAG/GROWL/BARK), confidence (max ${(PHI_INV * 100).toFixed(1)}%), and dimension breakdown.`,
@@ -103,6 +104,16 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
     handler: async (params) => {
       const { item, context = {} } = params;
       if (!item) throw new Error('Missing required parameter: item');
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // BURN ENFORCEMENT: Require valid burn before judgment
+      // "No burn, no judgment" - κυνικός
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (burnEnforcer) {
+        const sessionContext = sessionManager?.getSessionContext() || {};
+        const userId = sessionContext.userId || 'anonymous';
+        burnEnforcer.requireBurn(userId, 'judge');
+      }
 
       // Enrich item with metadata for richer judgment
       // This extracts sources, analyzes code/text, generates hashes, etc.
@@ -900,6 +911,7 @@ export const judgmentFactory = {
       pojChainManager,
       graphIntegration,
       onJudgment,
+      burnEnforcer,
     } = options;
 
     const tools = [];
@@ -912,7 +924,8 @@ export const judgmentFactory = {
         sessionManager,
         pojChainManager,
         graphIntegration,
-        onJudgment
+        onJudgment,
+        burnEnforcer
       ));
     }
 

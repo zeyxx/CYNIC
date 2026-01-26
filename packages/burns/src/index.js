@@ -48,3 +48,11 @@ export {
   SolanaCluster,
   BURN_ADDRESSES,
 } from './solana-verifier.js';
+
+// Burn enforcer (for requiring burns before operations)
+export {
+  BurnEnforcer,
+  createBurnEnforcer,
+  BurnRequiredError,
+  DEFAULT_ENFORCER_CONFIG,
+} from './enforcer.js';

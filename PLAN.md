@@ -289,7 +289,7 @@ This architecture is:
 |------|----------|--------|--------|
 | Solana wallet integration | HIGH | Medium | ✅ DONE |
 | Full judgment flow refactor | MEDIUM | Large | Pending |
-| Burn verification enforcement | MEDIUM | Small | Pending |
+| Burn verification enforcement | MEDIUM | Small | ✅ DONE |
 | E-Score on-chain snapshots | LOW | Medium | Pending |
 | Merkle proof dispute resolution | LOW | Medium | Pending |
 
@@ -374,6 +374,46 @@ console.log(`Anchored: ${result.signature}`);
 1. Install: `npm install @solana/web3.js`
 2. Configure wallet with SOL for transaction fees
 3. Use devnet for testing, mainnet for production
+
+### How to Enforce Burns (NEW)
+
+```javascript
+import { createBurnEnforcer, SolanaCluster } from '@cynic/burns';
+
+// Create enforcer
+const burnEnforcer = createBurnEnforcer({
+  enabled: true,
+  minAmount: 618_000_000, // 0.618 SOL (φ⁻¹)
+  validityPeriod: 24 * 60 * 60 * 1000, // 24 hours
+  gracePeriod: 60 * 60 * 1000, // 1 hour for new users
+  protectedOperations: ['judge', 'refine', 'digest'],
+  solanaCluster: SolanaCluster.MAINNET,
+});
+
+// Register a burn for a user
+const result = await burnEnforcer.registerBurn(userId, 'tx_signature');
+if (result.registered) {
+  console.log(`Burn registered: ${result.burn.amount} lamports`);
+}
+
+// Check burn status
+const status = burnEnforcer.getBurnStatus(userId);
+console.log(status);
+
+// Enforce before operations (throws BurnRequiredError if not valid)
+burnEnforcer.requireBurn(userId, 'judge');
+```
+
+**BurnEnforcer Features:**
+- **Grace Period**: New users get a configurable grace period before burns are required
+- **Validity Period**: Burns expire after a configurable time (default: 24h)
+- **Protected Operations**: Configure which operations require burns
+- **Caching**: Verified burns are cached to avoid repeated verification
+- **Stats**: Track enforcement metrics with `getStats()`
+
+**Integration with Judge Tool:**
+The `createJudgeTool` now accepts an optional `burnEnforcer` parameter.
+When provided, it automatically calls `requireBurn(userId, 'judge')` before each judgment.
 
 ---
 
