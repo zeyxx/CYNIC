@@ -11,7 +11,9 @@
 'use strict';
 
 import express from 'express';
-import { PHI_INV, PHI_INV_2 } from '@cynic/core';
+import { PHI_INV, PHI_INV_2, createLogger } from '@cynic/core';
+
+const log = createLogger('APIServer');
 import { setupBurnsRoutes } from './burns-api.js';
 import { setupEmergenceRoutes } from './emergence-api.js';
 import { setupExplorerRoutes } from './explorer-api.js';
@@ -91,7 +93,7 @@ export class APIServer {
       res.on('finish', () => {
         const duration = Date.now() - req.startTime;
         if (duration > PHI_INV * 1000) {
-          console.warn(`⚠️ Slow request: ${req.method} ${req.path} (${duration}ms)`);
+          log.warn('Slow request', { method: req.method, path: req.path, duration });
         }
       });
       next();
@@ -268,7 +270,7 @@ export class APIServer {
 
         res.status(201).json(response);
       } catch (err) {
-        console.error('Judge error:', err);
+        log.error('Judge error', { error: err.message });
         res.status(500).json({
           error: 'Internal Server Error',
           message: err.message,
@@ -337,7 +339,7 @@ export class APIServer {
           timestamp: Date.now(),
         });
       } catch (err) {
-        console.error('K-Score error:', err);
+        log.error('K-Score error', { error: err.message });
         res.status(500).json({
           error: 'Internal Server Error',
           message: err.message,
@@ -378,7 +380,7 @@ export class APIServer {
           timestamp: Date.now(),
         });
       } catch (err) {
-        console.error('Merkle proof error:', err);
+        log.error('Merkle proof error', { error: err.message });
         res.status(500).json({
           error: 'Internal Server Error',
           message: err.message,
@@ -452,7 +454,7 @@ export class APIServer {
           timestamp: Date.now(),
         });
       } catch (err) {
-        console.error('Feedback error:', err);
+        log.error('Feedback error', { error: err.message });
         res.status(500).json({
           error: 'Internal Server Error',
           message: err.message,
@@ -471,7 +473,7 @@ export class APIServer {
 
     // Error handler
     this.app.use((err, req, res, _next) => {
-      console.error('API Error:', err);
+      log.error('API error', { error: err.message });
       res.status(500).json({
         error: 'Internal Server Error',
         message: err.message,
@@ -487,7 +489,7 @@ export class APIServer {
     this.burnsService = setupBurnsRoutes(this.app, {
       cluster: this.burnsCluster,
     });
-    console.log(`🔥 Burns API enabled (${this.burnsCluster})`);
+    log.info('Burns API enabled', { cluster: this.burnsCluster });
   }
 
   /**
@@ -520,7 +522,7 @@ export class APIServer {
       try {
         this.server = this.app.listen(this.port, () => {
           const url = `http://localhost:${this.port}`;
-          console.log(`🐕 CYNIC API listening on ${url}`);
+          log.info('CYNIC API listening', { url });
           resolve({ port: this.port, url });
         });
 
@@ -545,7 +547,7 @@ export class APIServer {
     return new Promise((resolve) => {
       if (this.server) {
         this.server.close(() => {
-          console.log('🐕 CYNIC API stopped');
+          log.info('CYNIC API stopped');
           this.server = null;
           resolve();
         });

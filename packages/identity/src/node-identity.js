@@ -13,7 +13,9 @@
 
 'use strict';
 
-import { PHI_INV } from '@cynic/core';
+import { PHI_INV, createLogger } from '@cynic/core';
+
+const log = createLogger('NodeIdentity');
 import { KeyManager, createKeyManager } from './key-manager.js';
 import { EScoreCalculator, createEScoreCalculator, THRESHOLDS } from './e-score.js';
 
@@ -434,7 +436,7 @@ export class NodeIdentity {
       }
     } catch (err) {
       if (err.code !== 'ENOENT') {
-        console.warn(`Failed to load identity data: ${err.message}`);
+        log.warn('Failed to load identity data', { error: err.message });
       }
     }
   }
@@ -466,7 +468,7 @@ export class NodeIdentity {
 
       fs.writeFileSync(this.datafile, data);
     } catch (err) {
-      console.warn(`Failed to save identity data: ${err.message}`);
+      log.warn('Failed to save identity data', { error: err.message });
     }
   }
 

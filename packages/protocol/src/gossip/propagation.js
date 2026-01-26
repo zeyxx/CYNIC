@@ -8,7 +8,9 @@
 
 'use strict';
 
-import { GOSSIP_FANOUT } from '@cynic/core';
+import { GOSSIP_FANOUT, createLogger } from '@cynic/core';
+
+const log = createLogger('GossipPropagation');
 import { PeerManager, createPeerInfo } from './peer.js';
 import {
   MessageType,
@@ -75,7 +77,7 @@ export class GossipProtocol {
     // Verify signature for important messages
     if (message.type !== MessageType.HEARTBEAT) {
       if (!verifyMessage(message)) {
-        console.warn(`Invalid message signature from ${fromPeerId}`);
+        log.warn('Invalid message signature', { fromPeerId });
         this.peerManager.recordFailure(fromPeerId);
         return;
       }
@@ -116,7 +118,7 @@ export class GossipProtocol {
       default:
         // Check if it's a consensus message we don't explicitly handle
         if (!isConsensusGossipMessage(message.type)) {
-          console.warn(`Unknown message type: ${message.type}`);
+          log.warn('Unknown message type', { type: message.type });
         }
     }
 
@@ -227,7 +229,7 @@ export class GossipProtocol {
 
     // Log errors if any occurred (don't throw - broadcast should be best-effort)
     if (errors.length > 0) {
-      console.warn(`[Gossip] Broadcast failures (${errors.length}/${peers.length}):`, errors.map(e => e.peerId).join(', '));
+      log.warn('Broadcast failures', { failedCount: errors.length, totalPeers: peers.length, peerIds: errors.map(e => e.peerId) });
     }
 
     return sent;
@@ -336,7 +338,7 @@ export class GossipProtocol {
     try {
       await this.sendFn(peer, response);
     } catch (err) {
-      console.warn(`[Gossip] Failed to send sync response to ${peerId}:`, err.message || String(err));
+      log.warn('Failed to send sync response', { peerId, error: err.message || String(err) });
       this.peerManager.recordFailure(peerId);
     }
   }
@@ -528,7 +530,7 @@ export class GossipProtocol {
     try {
       await this.sendFn(peer, response);
     } catch (err) {
-      console.warn(`[Gossip] Failed to send state response to ${peerIdOrPublicKey}:`, err.message || String(err));
+      log.warn('Failed to send state response', { peer: peerIdOrPublicKey, error: err.message || String(err) });
       this.peerManager.recordFailure(peer.id);
     }
   }
