@@ -10,6 +10,10 @@
 
 'use strict';
 
+import { createLogger } from '@cynic/core';
+
+const log = createLogger('AutomationTools');
+
 /**
  * Create orchestration tool definition
  * @param {Object} options - Orchestration options
@@ -270,7 +274,7 @@ Actions:
               return judge.judge(input);
             } : null,
             alertCallback: async (alert) => {
-              console.log('[CYNIC Alert]', alert);
+              log.info('CYNIC alert', alert);
               return alert;
             },
           });
@@ -296,21 +300,21 @@ Actions:
                     });
                   } catch (regErr) {
                     // Skip invalid triggers
-                    console.error(`[Triggers] Failed to load trigger ${t.triggerId}: ${regErr.message}`);
+                    log.warn('Failed to load trigger', { triggerId: t.triggerId, error: regErr.message });
                   }
                 }
-                console.error(`[Triggers] Loaded ${dbTriggers.length} triggers from PostgreSQL`);
+                log.info('Loaded triggers from PostgreSQL', { count: dbTriggers.length });
               } else {
                 // Fall back to legacy state (file/memory)
                 const state = await persistence.getTriggersState();
                 if (state) {
                   triggerManager.import(state);
-                  console.error(`[Triggers] Loaded triggers from legacy state`);
+                  log.info('Loaded triggers from legacy state');
                 }
               }
             } catch (e) {
               // No saved state, start fresh
-              console.error(`[Triggers] Starting fresh: ${e.message}`);
+              log.debug('Triggers starting fresh', { error: e.message });
             }
           }
         } catch (e) {

@@ -11,7 +11,10 @@
 
 'use strict';
 
+import { createLogger } from '../../logger.js';
 import { globalEngineRegistry } from '../registry.js';
+
+const log = createLogger('PhilosophyLoader');
 import { adaptLegacyEngine } from './adapter.js';
 import { PHILOSOPHY_ENGINE_CATALOG, getCatalogStats } from './catalog.js';
 
@@ -81,7 +84,7 @@ export function loadPhilosophyEngines(options = {}) {
   }
 
   if (!silent) {
-    console.log(`Loading ${catalog.length} philosophy engines...`);
+    log.info('Loading philosophy engines', { count: catalog.length });
   }
 
   // Load each engine
@@ -90,7 +93,7 @@ export function loadPhilosophyEngines(options = {}) {
       // Skip if already registered
       if (registry.has(entry.id)) {
         if (!silent) {
-          console.log(`  [SKIP] ${entry.id} (already registered)`);
+          log.debug('Engine already registered', { id: entry.id });
         }
         continue;
       }
@@ -111,7 +114,7 @@ export function loadPhilosophyEngines(options = {}) {
       loadStatus.enginesRegistered++;
 
       if (!silent) {
-        console.log(`  [OK] ${entry.id}`);
+        log.debug('Engine loaded', { id: entry.id });
       }
     } catch (error) {
       loadStatus.enginesFailed++;
@@ -121,7 +124,7 @@ export function loadPhilosophyEngines(options = {}) {
       });
 
       if (!silent) {
-        console.log(`  [FAIL] ${entry.id}: ${error.message}`);
+        log.warn('Engine failed to load', { id: entry.id, error: error.message });
       }
     }
   }
@@ -139,9 +142,9 @@ export function loadPhilosophyEngines(options = {}) {
   };
 
   if (!silent) {
-    console.log(`\nLoaded ${result.registered} engines in ${result.duration}ms`);
+    log.info('Philosophy engines loaded', { registered: result.registered, duration: result.duration });
     if (result.failed > 0) {
-      console.log(`  ${result.failed} failed to load`);
+      log.warn('Some engines failed', { failed: result.failed });
     }
   }
 

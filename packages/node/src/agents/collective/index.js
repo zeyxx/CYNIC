@@ -40,7 +40,9 @@
 
 'use strict';
 
-import { PHI_INV } from '@cynic/core';
+import { PHI_INV, createLogger } from '@cynic/core';
+
+const log = createLogger('CollectivePack');
 import { AgentEventBus } from '../event-bus.js';
 import { AgentEvent, AgentEventMessage, AgentId, ConsensusVote, EventPriority } from '../events.js';
 import { ProfileCalculator, ProfileLevel } from '../../profile/calculator.js';
@@ -652,7 +654,7 @@ export class CollectivePack {
         }
       }
     } catch (err) {
-      console.error(`[Collective] processEvent error: ${err.message}`);
+      log.error('processEvent error', { error: err.message });
     }
 
     // 🐕 Broadcast dog decisions via callback (for SSE)
@@ -670,7 +672,7 @@ export class CollectivePack {
             timestamp: Date.now(),
           });
         } catch (err) {
-          console.error(`[Collective] onDogDecision callback error: ${err.message}`);
+          log.warn('onDogDecision callback error', { error: err.message });
         }
       }
     }
@@ -701,7 +703,7 @@ export class CollectivePack {
     try {
       busResult = await this.eventBus.publish(busEvent);
     } catch (error) {
-      console.error(`[Collective] eventBus publish error: ${error.message}`);
+      log.error('eventBus publish error', { error: error.message });
     }
 
     // 🐕 Record dog decisions in graph (for relationship tracking)
@@ -736,7 +738,7 @@ export class CollectivePack {
         // Non-critical: graph integration is for analytics only
         // Debug level to avoid log spam - core functionality unaffected
         if (process.env.CYNIC_DEBUG) {
-          console.debug(`[Collective] graphIntegration: ${err.message}`);
+          log.trace('graphIntegration', { error: err.message });
         }
       }
     }
@@ -796,7 +798,7 @@ export class CollectivePack {
       await this.persistence.storeObservation(stats);
       return { success: true, timestamp: stats.timestamp };
     } catch (err) {
-      console.error(`[Collective] persistStats error: ${err.message}`);
+      log.warn('persistStats error', { error: err.message });
       return { success: false, error: err.message };
     }
   }
