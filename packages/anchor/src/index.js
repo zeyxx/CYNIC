@@ -75,3 +75,10 @@ export {
   base58Encode,
   base58Decode,
 } from './wallet.js';
+
+// PoJ Chain Integration
+export {
+  PoJAnchorIntegration,
+  createPoJAnchorIntegration,
+  connectPoJToSolana,
+} from './poj-integration.js';

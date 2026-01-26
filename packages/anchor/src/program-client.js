@@ -2,6 +2,7 @@
  * @cynic/anchor - Program Client
  *
  * Client for interacting with the CYNIC Anchor program on Solana.
+ * Uses raw transactions for maximum reliability.
  *
  * "Onchain is truth" - κυνικός
  *
@@ -10,35 +11,17 @@
 
 'use strict';
 
+import { createHash } from 'crypto';
 import { CYNIC_PROGRAM, SolanaCluster } from './constants.js';
-import BN from 'bn.js';
 
 /**
- * IDL for the CYNIC Anchor program
- * @private
+ * Compute Anchor instruction discriminator
+ * @param {string} name - Instruction name (e.g., "initialize", "anchor_root")
+ * @returns {Buffer} 8-byte discriminator
  */
-let _idl = null;
-
-/**
- * Load the IDL lazily
- * @returns {Promise<Object>}
- */
-async function loadIdl() {
-  if (_idl) return _idl;
-  try {
-    // Try to load from package
-    const { createRequire } = await import('module');
-    const require = createRequire(import.meta.url);
-    _idl = require('../idl/cynic_anchor.json');
-  } catch {
-    // Fallback: minimal IDL for instruction encoding
-    _idl = {
-      address: CYNIC_PROGRAM.PROGRAM_ID,
-      metadata: { name: 'cynic_anchor', version: '0.1.0' },
-      instructions: [],
-    };
-  }
-  return _idl;
+function getDiscriminator(name) {
+  const preimage = `global:${name}`;
+  return createHash('sha256').update(preimage).digest().slice(0, 8);
 }
 
 /**
@@ -64,55 +47,64 @@ export class CynicProgramClient {
 
     // Lazy-loaded Solana dependencies
     this._connection = null;
-    this._program = null;
-    this._provider = null;
+    this._PublicKey = null;
+    this._Keypair = null;
+    this._Transaction = null;
+    this._TransactionInstruction = null;
+    this._SystemProgram = null;
+    this._sendAndConfirmTransaction = null;
   }
 
   /**
-   * Initialize Solana connection and Anchor program
+   * Initialize Solana connection
    * @private
    */
   async _init() {
     if (this._connection) return;
 
-    // Lazy import dependencies
-    const { Connection, PublicKey, Keypair } = await import('@solana/web3.js');
-    const anchorPkg = await import('@anchor-lang/core');
-    const { AnchorProvider, Program } = anchorPkg.default || anchorPkg;
+    const solanaWeb3 = await import('@solana/web3.js');
+    const {
+      Connection,
+      PublicKey,
+      Keypair,
+      Transaction,
+      TransactionInstruction,
+      SystemProgram,
+      sendAndConfirmTransaction,
+    } = solanaWeb3;
 
     this._connection = new Connection(this.cluster, 'confirmed');
+    this._PublicKey = PublicKey;
+    this._Keypair = Keypair;
+    this._Transaction = Transaction;
+    this._TransactionInstruction = TransactionInstruction;
+    this._SystemProgram = SystemProgram;
+    this._sendAndConfirmTransaction = sendAndConfirmTransaction;
+  }
 
-    // Create provider
-    let keypair;
-    if (this.wallet._secretKey) {
-      keypair = Keypair.fromSecretKey(this.wallet._secretKey);
-    } else if (this.wallet._keypair) {
-      keypair = this.wallet._keypair;
-    } else if (this.wallet.secretKey) {
-      keypair = Keypair.fromSecretKey(this.wallet.secretKey);
+  /**
+   * Get keypair from wallet
+   * @returns {Keypair}
+   * @private
+   */
+  _getKeypair() {
+    if (!this.wallet) {
+      throw new Error('Wallet required for signing');
     }
 
-    // Create a minimal wallet interface
-    const walletAdapter = {
-      publicKey: keypair.publicKey,
-      signTransaction: async (tx) => {
-        tx.sign(keypair);
-        return tx;
-      },
-      signAllTransactions: async (txs) => {
-        txs.forEach((tx) => tx.sign(keypair));
-        return txs;
-      },
-    };
+    if (this.wallet._secretKey) {
+      return this._Keypair.fromSecretKey(this.wallet._secretKey);
+    } else if (this.wallet._keypair) {
+      return this.wallet._keypair;
+    } else if (this.wallet.secretKey) {
+      return this._Keypair.fromSecretKey(
+        this.wallet.secretKey instanceof Uint8Array
+          ? this.wallet.secretKey
+          : Uint8Array.from(this.wallet.secretKey)
+      );
+    }
 
-    this._provider = new AnchorProvider(this._connection, walletAdapter, {
-      commitment: 'confirmed',
-    });
-
-    // Load IDL and create program
-    const idl = await loadIdl();
-    this._program = new Program(idl, this._provider);
-    this._PublicKey = PublicKey;
+    throw new Error('Invalid wallet - no secret key found');
   }
 
   /**
@@ -129,32 +121,54 @@ export class CynicProgramClient {
 
   /**
    * Get a root entry PDA address
-   * @param {Buffer|Uint8Array} merkleRoot - 32-byte merkle root
+   * @param {Buffer|Uint8Array|string} merkleRoot - 32-byte merkle root
    * @returns {Promise<[PublicKey, number]>}
    */
   async getRootPda(merkleRoot) {
     await this._init();
+
+    const rootBytes = typeof merkleRoot === 'string'
+      ? Buffer.from(merkleRoot, 'hex')
+      : Buffer.from(merkleRoot);
+
     return this._PublicKey.findProgramAddressSync(
-      [Buffer.from(CYNIC_PROGRAM.ROOT_SEED), Buffer.from(merkleRoot)],
+      [Buffer.from(CYNIC_PROGRAM.ROOT_SEED), rootBytes],
       new this._PublicKey(this.programId)
     );
   }
 
   /**
    * Initialize the program state
-   * @returns {Promise<{signature: string}>}
+   * @returns {Promise<{signature: string, state: string}>}
    */
   async initialize() {
     await this._init();
 
+    const keypair = this._getKeypair();
     const [statePda] = await this.getStatePda();
+    const programId = new this._PublicKey(this.programId);
 
-    const signature = await this._program.methods
-      .initialize()
-      .accounts({})
-      .rpc();
+    const discriminator = getDiscriminator('initialize');
 
-    return { signature, state: statePda.toString() };
+    const ix = new this._TransactionInstruction({
+      programId,
+      keys: [
+        { pubkey: statePda, isSigner: false, isWritable: true },
+        { pubkey: keypair.publicKey, isSigner: true, isWritable: true },
+        { pubkey: this._SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      data: discriminator,
+    });
+
+    const tx = new this._Transaction().add(ix);
+    const signature = await this._sendAndConfirmTransaction(
+      this._connection,
+      tx,
+      [keypair],
+      { commitment: 'confirmed' }
+    );
+
+    return { signature, state: statePda.toBase58() };
   }
 
   /**
@@ -165,12 +179,30 @@ export class CynicProgramClient {
   async addValidator(validatorPubkey) {
     await this._init();
 
+    const keypair = this._getKeypair();
+    const [statePda] = await this.getStatePda();
+    const programId = new this._PublicKey(this.programId);
     const validator = new this._PublicKey(validatorPubkey);
 
-    const signature = await this._program.methods
-      .addValidator(validator)
-      .accounts({})
-      .rpc();
+    const discriminator = getDiscriminator('add_validator');
+    const data = Buffer.concat([discriminator, validator.toBuffer()]);
+
+    const ix = new this._TransactionInstruction({
+      programId,
+      keys: [
+        { pubkey: statePda, isSigner: false, isWritable: true },
+        { pubkey: keypair.publicKey, isSigner: true, isWritable: false },
+      ],
+      data,
+    });
+
+    const tx = new this._Transaction().add(ix);
+    const signature = await this._sendAndConfirmTransaction(
+      this._connection,
+      tx,
+      [keypair],
+      { commitment: 'confirmed' }
+    );
 
     return { signature };
   }
@@ -183,12 +215,30 @@ export class CynicProgramClient {
   async removeValidator(validatorPubkey) {
     await this._init();
 
+    const keypair = this._getKeypair();
+    const [statePda] = await this.getStatePda();
+    const programId = new this._PublicKey(this.programId);
     const validator = new this._PublicKey(validatorPubkey);
 
-    const signature = await this._program.methods
-      .removeValidator(validator)
-      .accounts({})
-      .rpc();
+    const discriminator = getDiscriminator('remove_validator');
+    const data = Buffer.concat([discriminator, validator.toBuffer()]);
+
+    const ix = new this._TransactionInstruction({
+      programId,
+      keys: [
+        { pubkey: statePda, isSigner: false, isWritable: true },
+        { pubkey: keypair.publicKey, isSigner: true, isWritable: false },
+      ],
+      data,
+    });
+
+    const tx = new this._Transaction().add(ix);
+    const signature = await this._sendAndConfirmTransaction(
+      this._connection,
+      tx,
+      [keypair],
+      { commitment: 'confirmed' }
+    );
 
     return { signature };
   }
@@ -203,11 +253,14 @@ export class CynicProgramClient {
   async anchorRoot(merkleRoot, itemCount, blockHeight) {
     await this._init();
 
+    const keypair = this._getKeypair();
+    const [statePda] = await this.getStatePda();
+    const programId = new this._PublicKey(this.programId);
+
     // Convert hex string to bytes if needed
-    const rootBytes =
-      typeof merkleRoot === 'string'
-        ? Buffer.from(merkleRoot, 'hex')
-        : Buffer.from(merkleRoot);
+    const rootBytes = typeof merkleRoot === 'string'
+      ? Buffer.from(merkleRoot, 'hex')
+      : Buffer.from(merkleRoot);
 
     if (rootBytes.length !== 32) {
       throw new Error('Merkle root must be 32 bytes');
@@ -215,22 +268,50 @@ export class CynicProgramClient {
 
     const [rootPda] = await this.getRootPda(rootBytes);
 
-    const signature = await this._program.methods
-      .anchorRoot(Array.from(rootBytes), itemCount, new BN(blockHeight))
-      .accounts({
-        rootEntry: rootPda,
-      })
-      .rpc();
+    // Build instruction data
+    const discriminator = getDiscriminator('anchor_root');
+    const data = Buffer.alloc(8 + 32 + 4 + 8);
+    let offset = 0;
 
-    // Get transaction info for slot
-    const tx = await this._connection.getTransaction(signature, {
+    discriminator.copy(data, offset);
+    offset += 8;
+
+    rootBytes.copy(data, offset);
+    offset += 32;
+
+    data.writeUInt32LE(itemCount, offset);
+    offset += 4;
+
+    data.writeBigUInt64LE(BigInt(blockHeight), offset);
+
+    const ix = new this._TransactionInstruction({
+      programId,
+      keys: [
+        { pubkey: statePda, isSigner: false, isWritable: true },
+        { pubkey: rootPda, isSigner: false, isWritable: true },
+        { pubkey: keypair.publicKey, isSigner: true, isWritable: true },
+        { pubkey: this._SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      data,
+    });
+
+    const tx = new this._Transaction().add(ix);
+    const signature = await this._sendAndConfirmTransaction(
+      this._connection,
+      tx,
+      [keypair],
+      { commitment: 'confirmed' }
+    );
+
+    // Get slot from transaction
+    const txInfo = await this._connection.getTransaction(signature, {
       commitment: 'confirmed',
     });
 
     return {
       signature,
-      slot: tx?.slot || 0,
-      rootPda: rootPda.toString(),
+      slot: txInfo?.slot || 0,
+      rootPda: rootPda.toBase58(),
     };
   }
 
@@ -242,10 +323,9 @@ export class CynicProgramClient {
   async verifyRoot(merkleRoot) {
     await this._init();
 
-    const rootBytes =
-      typeof merkleRoot === 'string'
-        ? Buffer.from(merkleRoot, 'hex')
-        : Buffer.from(merkleRoot);
+    const rootBytes = typeof merkleRoot === 'string'
+      ? Buffer.from(merkleRoot, 'hex')
+      : Buffer.from(merkleRoot);
 
     if (rootBytes.length !== 32) {
       return { verified: false, error: 'Merkle root must be 32 bytes' };
@@ -255,31 +335,56 @@ export class CynicProgramClient {
       const [rootPda] = await this.getRootPda(rootBytes);
 
       // Fetch the root entry account
-      const entry = await this._program.account.rootEntry.fetch(rootPda);
+      const accountInfo = await this._connection.getAccountInfo(rootPda);
+
+      if (!accountInfo) {
+        return { verified: false, error: 'Root not found on-chain' };
+      }
+
+      // Parse account data (skip 8-byte discriminator)
+      const data = accountInfo.data;
+      let offset = 8;
+
+      const storedRoot = data.slice(offset, offset + 32);
+      offset += 32;
+
+      const itemCount = data.readUInt32LE(offset);
+      offset += 4;
+
+      const blockHeight = Number(data.readBigUInt64LE(offset));
+      offset += 8;
+
+      const validator = new this._PublicKey(data.slice(offset, offset + 32));
+      offset += 32;
+
+      const timestamp = Number(data.readBigInt64LE(offset));
+      offset += 8;
+
+      const slot = Number(data.readBigUInt64LE(offset));
+      offset += 8;
+
+      const index = Number(data.readBigUInt64LE(offset));
 
       return {
         verified: true,
         entry: {
-          merkleRoot: Buffer.from(entry.merkleRoot).toString('hex'),
-          itemCount: entry.itemCount,
-          blockHeight: Number(entry.blockHeight),
-          validator: entry.validator.toString(),
-          timestamp: Number(entry.timestamp),
-          slot: Number(entry.slot),
-          index: Number(entry.index),
+          merkleRoot: Buffer.from(storedRoot).toString('hex'),
+          itemCount,
+          blockHeight,
+          validator: validator.toBase58(),
+          timestamp,
+          slot,
+          index,
         },
       };
     } catch (error) {
-      if (error.message.includes('Account does not exist')) {
-        return { verified: false, error: 'Root not found on-chain' };
-      }
       return { verified: false, error: error.message };
     }
   }
 
   /**
    * Get the program state
-   * @returns {Promise<Object>}
+   * @returns {Promise<Object|null>}
    */
   async getState() {
     await this._init();
@@ -287,21 +392,55 @@ export class CynicProgramClient {
     const [statePda] = await this.getStatePda();
 
     try {
-      const state = await this._program.account.cynicState.fetch(statePda);
+      const accountInfo = await this._connection.getAccountInfo(statePda);
+
+      if (!accountInfo) {
+        return null; // Not initialized
+      }
+
+      // Parse state (skip 8-byte discriminator)
+      const data = accountInfo.data;
+      let offset = 8;
+
+      const authority = new this._PublicKey(data.slice(offset, offset + 32));
+      offset += 32;
+
+      const initializedAt = Number(data.readBigInt64LE(offset));
+      offset += 8;
+
+      const rootCount = Number(data.readBigUInt64LE(offset));
+      offset += 8;
+
+      const validatorCount = data.readUInt8(offset);
+      offset += 1;
+
+      // Read validators (21 * 32 bytes)
+      const validators = [];
+      for (let i = 0; i < validatorCount; i++) {
+        const validator = new this._PublicKey(
+          data.slice(offset + i * 32, offset + (i + 1) * 32)
+        );
+        validators.push(validator.toBase58());
+      }
+      offset += 21 * 32;
+
+      const lastAnchorSlot = Number(data.readBigUInt64LE(offset));
+      offset += 8;
+
+      const bump = data.readUInt8(offset);
 
       return {
-        authority: state.authority.toString(),
-        initializedAt: Number(state.initializedAt),
-        rootCount: Number(state.rootCount),
-        validatorCount: state.validatorCount,
-        validators: state.validators
-          .slice(0, state.validatorCount)
-          .map((v) => v.toString()),
-        lastAnchorSlot: Number(state.lastAnchorSlot),
+        authority: authority.toBase58(),
+        initializedAt,
+        rootCount,
+        validatorCount,
+        validators,
+        lastAnchorSlot,
+        bump,
       };
     } catch (error) {
       if (error.message.includes('Account does not exist')) {
-        return null; // Not initialized
+        return null;
       }
       throw error;
     }
@@ -335,12 +474,30 @@ export class CynicProgramClient {
   async transferAuthority(newAuthority) {
     await this._init();
 
+    const keypair = this._getKeypair();
+    const [statePda] = await this.getStatePda();
+    const programId = new this._PublicKey(this.programId);
     const newAuth = new this._PublicKey(newAuthority);
 
-    const signature = await this._program.methods
-      .transferAuthority(newAuth)
-      .accounts({})
-      .rpc();
+    const discriminator = getDiscriminator('transfer_authority');
+    const data = Buffer.concat([discriminator, newAuth.toBuffer()]);
+
+    const ix = new this._TransactionInstruction({
+      programId,
+      keys: [
+        { pubkey: statePda, isSigner: false, isWritable: true },
+        { pubkey: keypair.publicKey, isSigner: true, isWritable: false },
+      ],
+      data,
+    });
+
+    const tx = new this._Transaction().add(ix);
+    const signature = await this._sendAndConfirmTransaction(
+      this._connection,
+      tx,
+      [keypair],
+      { commitment: 'confirmed' }
+    );
 
     return { signature };
   }
