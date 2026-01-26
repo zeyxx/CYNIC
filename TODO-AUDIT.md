@@ -2,6 +2,7 @@
 
 > Generated 2026-01-24 from security & architecture audit
 > Updated 2026-01-25 with architecture transformation
+> Updated 2026-01-26 with Phase 2 CYNICNode decomposition
 
 ## Completed (25/26)
 
@@ -78,13 +79,25 @@
   - Supports custom factories, tags, mock testing
   - Package export path: `@cynic/persistence/factory`
 
-### Phase 2: CYNICNode Decomposition (PENDING)
-- [ ] #27 Extract OperatorComponent from CYNICNode
-- [ ] #28 Extract JudgeComponent from CYNICNode
-- [ ] #29 Extract StateComponent from CYNICNode
-- [ ] #30 Extract TransportComponent from CYNICNode
-- [ ] #31 Extract ConsensusComponent from CYNICNode
-- [ ] #32 Extract EmergenceComponent from CYNICNode
+### Phase 2: CYNICNode Decomposition ✓ COMPLETED
+- [x] #27 Extract OperatorComponent from CYNICNode
+  - `packages/node/src/components/operator-component.js`
+  - Encapsulates: Operator, BurnVerifier, E-Score persistence
+- [x] #28 Extract JudgeComponent from CYNICNode
+  - `packages/node/src/components/judge-component.js`
+  - Encapsulates: CYNICJudge, ResidualDetector, LearningService
+- [x] #29 Extract StateComponent from CYNICNode
+  - `packages/node/src/components/state-component.js`
+  - Encapsulates: StateManager, chain, knowledge, persistence
+- [x] #30 Extract TransportComponent from CYNICNode
+  - `packages/node/src/components/transport-component.js`
+  - Encapsulates: WebSocketTransport, GossipProtocol, peer management
+- [x] #31 Extract ConsensusComponent from CYNICNode
+  - `packages/node/src/components/consensus-component.js`
+  - Encapsulates: ConsensusEngine, ConsensusGossip, validator set
+- [x] #32 Extract EmergenceComponent from CYNICNode
+  - `packages/node/src/components/emergence-component.js`
+  - Encapsulates: EmergenceLayer, SharedMemory, CollectivePack, EventBus
 
 ### Phase 3: Plugin System (PENDING)
 - [ ] #33 Create DimensionRegistry for runtime extension
@@ -111,6 +124,14 @@
 - `packages/core/src/errors.js` - Custom error types (10 classes, 44 codes)
 - `packages/core/src/crypto-utils.js` - Secure random utilities
 - `packages/core/src/logger.js` - Structured logging module
+- `packages/node/src/components/` - SOLID Node Components (Phase 2):
+  - `operator-component.js` - Operator identity & E-Score domain
+  - `transport-component.js` - P2P networking domain
+  - `consensus-component.js` - φ-BFT consensus domain
+  - `state-component.js` - State & persistence domain
+  - `judge-component.js` - Judgment & learning domain
+  - `emergence-component.js` - Consciousness & patterns domain
+  - `index.js` - Component exports
 - `packages/node/src/judge/scorers/` - Modular scorer directory:
   - `utils.js` - Shared utilities
   - `phi-axiom.js` - PHI dimension scorers
