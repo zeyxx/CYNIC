@@ -129,6 +129,35 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  anchor-build:
+    name: Build Anchor Program
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Solana
+        uses: solana-developers/github-actions/setup-all@v1
+        with:
+          solana-cli-version: '2.1.15'
+          anchor-version: '0.32.1'
+          rust-version: '1.85.0'
+
+      - name: Build Anchor Program
+        run: |
+          cd ${{ github.workspace }}
+          anchor build
+          echo "Program built successfully"
+
+      - name: Upload Program Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cynic-anchor-program
+          path: |
+            target/deploy/cynic_anchor.so
+            target/idl/cynic_anchor.json
+          retention-days: 30
+
   deploy:
     name: Deploy to Render
     needs: [test, lint, docker]
@@ -146,3 +175,57 @@ jobs:
           else
             echo "RENDER_DEPLOY_HOOK_URL not set, skipping deployment"
           fi
+
+  deploy-solana:
+    name: Deploy Anchor to Devnet
+    needs: [anchor-build]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Program Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cynic-anchor-program
+          path: target/deploy
+
+      - name: Setup Solana
+        uses: solana-developers/github-actions/setup-all@v1
+        with:
+          solana-cli-version: '2.1.15'
+          anchor-version: '0.32.1'
+
+      - name: Deploy to Devnet
+        env:
+          DEPLOYER_KEYPAIR: ${{ secrets.DEVNET_DEPLOYER_KEYPAIR }}
+          HELIUS_API_KEY: ${{ secrets.HELIUS_API_KEY }}
+        run: |
+          if [ -z "$DEPLOYER_KEYPAIR" ]; then
+            echo "DEVNET_DEPLOYER_KEYPAIR not set, skipping deployment"
+            exit 0
+          fi
+
+          # Setup keypair
+          echo "$DEPLOYER_KEYPAIR" > /tmp/deployer.json
+          solana config set --keypair /tmp/deployer.json
+
+          # Use Helius RPC if available
+          if [ -n "$HELIUS_API_KEY" ]; then
+            RPC_URL="https://devnet.helius-rpc.com/?api-key=$HELIUS_API_KEY"
+          else
+            RPC_URL="https://api.devnet.solana.com"
+          fi
+          solana config set --url "$RPC_URL"
+
+          # Check balance
+          BALANCE=$(solana balance | awk '{print $1}')
+          echo "Deployer balance: $BALANCE SOL"
+
+          # Deploy program
+          solana program deploy target/deploy/cynic_anchor.so
+
+          # Cleanup
+          rm /tmp/deployer.json
+          echo "Deployment complete!"

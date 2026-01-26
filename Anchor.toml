@@ -1,15 +1,15 @@
 [toolchain]
-anchor_version = "0.32.0"
+anchor_version = "0.32.1"
 
 [features]
 seeds = true
 skip-lint = false
 
 [programs.localnet]
-cynic_anchor = "D2vprzEbzha6pRDs3EfFToGUvPocFoZTQG1uFkf2boRn"
+cynic_anchor = "G3Yana4ukbevyoVNSWrXgRQtQqHYMnPEMi1xvpp9CqBY"
 
 [programs.devnet]
-cynic_anchor = "D2vprzEbzha6pRDs3EfFToGUvPocFoZTQG1uFkf2boRn"
+cynic_anchor = "G3Yana4ukbevyoVNSWrXgRQtQqHYMnPEMi1xvpp9CqBY"
 
 [registry]
 url = "https://api.apr.dev"

@@ -109,7 +109,7 @@ export const SolanaCluster = {
  */
 export const CYNIC_PROGRAM = {
   /** Program ID on devnet/mainnet */
-  PROGRAM_ID: 'D2vprzEbzha6pRDs3EfFToGUvPocFoZTQG1uFkf2boRn',
+  PROGRAM_ID: 'G3Yana4ukbevyoVNSWrXgRQtQqHYMnPEMi1xvpp9CqBY',
 
   /** State PDA seed */
   STATE_SEED: 'cynic_state',

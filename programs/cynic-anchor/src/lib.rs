@@ -10,7 +10,7 @@
  */
 use anchor_lang::prelude::*;
 
-declare_id!("D2vprzEbzha6pRDs3EfFToGUvPocFoZTQG1uFkf2boRn");
+declare_id!("G3Yana4ukbevyoVNSWrXgRQtQqHYMnPEMi1xvpp9CqBY");
 
 /// φ⁻¹ - Maximum confidence (61.8%)
 pub const PHI_INV: u64 = 618;
