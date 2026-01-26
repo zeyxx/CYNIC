@@ -123,9 +123,14 @@
   - Event-driven with state transitions
   - φ-derived thresholds (61.8% reset timeout)
 
-### Phase 5: Hook Refactor (PENDING)
-- [ ] #37 Extract inline logic from observe.cjs (1160 → ~400 lines)
-- [ ] #38 Create BaseHook class with DI injection
+### Phase 5: Hook Refactor ✓ COMPLETED
+- [x] #37 Extract inline logic from hooks
+  - `scripts/hooks/lib/pattern-detector.js` - Pattern detection utilities
+  - Exports: detectToolPattern, mapToTriggerEventType, parseTestOutput, etc.
+- [x] #38 Create BaseHook class
+  - `scripts/hooks/lib/base-hook.js` - Abstract base class
+  - Exports: BaseHook, HookType, Decision, runHook
+  - Provides: context parsing, response helpers, logging, runner
 
 ### Audit Reports Generated
 - `AUDIT_ARCHITECTURE.md` - Full SOLID analysis (990 lines)
