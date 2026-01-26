@@ -8,7 +8,7 @@
 #
 # "φ distrusts φ" - κυνικός
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # Prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive

@@ -27,6 +27,7 @@ Thumbs.db
 .env.test
 .env.production
 .env.*.local
+env.txt
 
 # MCP Configuration (may contain secrets)
 .mcp.json
@@ -56,7 +57,28 @@ packages/persistence/scripts/
 data/
 packages/*/data/
 
-# Rust lock files
+# Rust/Solana build outputs
 Cargo.lock
+target/
 packages/scheduler/target/
 packages/persistence/.env
+
+# Solana wallets (SENSITIVE - never commit!)
+*-wallet.json
+*wallet*.json
+deploy-wallet.json
+.devnet-wallet.json
+keypair.json
+id.json
+
+# Anchor build artifacts
+.anchor/
+
+# Claude Code local settings
+.claude/settings.local.json
+.claude/memory/
+
+# Temporary build scripts
+docker-build.bat
+docker-build-log.bat
+docker-build.log
