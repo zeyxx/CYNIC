@@ -26,13 +26,8 @@ const os = require('os');
 const phiMath = require('./phi-math.cjs');
 const { PHI, PHI_INV, PHI_INV_2, PHI_INV_3 } = phiMath;
 
-// Import psychology module
+// Psychology module - lazy loaded to avoid circular dependency
 let psychology = null;
-try {
-  psychology = require('./human-psychology.cjs');
-} catch (e) {
-  // Psychology module not available - signals will be buffered
-}
 
 // =============================================================================
 // CONSTANTS (φ-derived)
@@ -402,6 +397,15 @@ function routeSignal(signal) {
   collectorState.stats.totalSignals++;
   collectorState.stats.signalsByType[signal.type] =
     (collectorState.stats.signalsByType[signal.type] || 0) + 1;
+
+  // Lazy load psychology module if not yet loaded
+  if (!psychology) {
+    try {
+      psychology = require('./human-psychology.cjs');
+    } catch (e) {
+      // Psychology not available
+    }
+  }
 
   // Try to send to psychology module
   if (psychology) {

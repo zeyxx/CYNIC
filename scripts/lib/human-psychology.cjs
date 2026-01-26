@@ -19,13 +19,8 @@ const os = require('os');
 const phiMath = require('./phi-math.cjs');
 const { PHI, PHI_INV, PHI_INV_2, PHI_INV_3 } = phiMath;
 
-// Import signal collector for entropy (Phase 6A)
+// Signal collector - lazy loaded to avoid circular dependency
 let signalCollector = null;
-try {
-  signalCollector = require('./signal-collector.cjs');
-} catch (e) {
-  // Signal collector not available - entropy will be null
-}
 
 // =============================================================================
 // CONSTANTS (φ-derived, no magic numbers)
@@ -439,7 +434,15 @@ function getSummary() {
   }
 
   // Get entropy from signal collector (Phase 6A)
+  // Lazy load to avoid circular dependency
   let entropy = null;
+  if (!signalCollector) {
+    try {
+      signalCollector = require('./signal-collector.cjs');
+    } catch (e) {
+      // Signal collector not available
+    }
+  }
   if (signalCollector) {
     try {
       entropy = signalCollector.calculateSessionEntropy();
