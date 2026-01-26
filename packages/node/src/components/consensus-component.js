@@ -12,6 +12,7 @@
 'use strict';
 
 import { EventEmitter } from 'events';
+import { createLogger } from '@cynic/core';
 import {
   ConsensusEngine,
   ConsensusState,
@@ -19,6 +20,8 @@ import {
   ConsensusGossip,
   createJudgmentBlock,
 } from '@cynic/protocol';
+
+const log = createLogger('ConsensusComponent');
 
 /**
  * Consensus Component - manages φ-BFT consensus
@@ -103,7 +106,7 @@ export class ConsensusComponent extends EventEmitter {
       this._consensusGossip.start();
     }
 
-    console.log(`[ConsensusComponent] Started (61.8% supermajority, ${this._config.confirmationsForFinality} confirmations)`);
+    log.info('Started', { supermajority: '61.8%', confirmations: this._config.confirmationsForFinality });
   }
 
   /**
@@ -117,7 +120,7 @@ export class ConsensusComponent extends EventEmitter {
     }
     this._consensus.stop();
 
-    console.log('[ConsensusComponent] Stopped');
+    log.info('Stopped');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -139,7 +142,7 @@ export class ConsensusComponent extends EventEmitter {
     // Block finalized
     this._consensus.on('block:finalized', async (event) => {
       const { blockHash, slot, block } = event;
-      console.log(`[ConsensusComponent] Block finalized: slot ${slot}, hash ${blockHash.slice(0, 16)}...`);
+      log.info('Block finalized', { slot, hash: blockHash.slice(0, 16) });
 
       this.emit('block:finalized', event);
       await handlers.onBlockFinalized?.(blockHash, slot, block);
@@ -147,7 +150,7 @@ export class ConsensusComponent extends EventEmitter {
 
     // Block confirmed (not yet finalized)
     this._consensus.on('block:confirmed', (event) => {
-      console.log(`[ConsensusComponent] Block confirmed: slot ${event.slot}, ratio ${(event.ratio * 100).toFixed(1)}%`);
+      log.debug('Block confirmed', { slot: event.slot, ratio: (event.ratio * 100).toFixed(1) });
 
       this.emit('block:confirmed', event);
       handlers.onBlockConfirmed?.(event.slot, event.ratio);
@@ -155,7 +158,7 @@ export class ConsensusComponent extends EventEmitter {
 
     // Consensus started
     this._consensus.on('consensus:started', (event) => {
-      console.log(`[ConsensusComponent] Consensus started at slot ${event.slot}`);
+      log.info('Consensus started', { slot: event.slot });
 
       this.emit('consensus:started', event);
       handlers.onConsensusStarted?.(event.slot);
@@ -166,7 +169,7 @@ export class ConsensusComponent extends EventEmitter {
       // Periodic status every 100 slots
       if (event.currentSlot % 100 === 0) {
         const stats = this._consensus.getStats();
-        console.log(`[ConsensusComponent] Slot ${event.currentSlot}: ${stats.blocksFinalized} finalized, ${stats.pendingBlocks} pending`);
+        log.debug('Slot status', { slot: event.currentSlot, finalized: stats.blocksFinalized, pending: stats.pendingBlocks });
       }
 
       this.emit('slot:change', event);

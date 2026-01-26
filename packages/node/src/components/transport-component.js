@@ -13,7 +13,10 @@
 
 import { EventEmitter } from 'events';
 import { GossipProtocol, MessageType } from '@cynic/protocol';
+import { createLogger } from '@cynic/core';
 import { WebSocketTransport, ConnectionState } from '../transport/websocket.js';
+
+const log = createLogger('TransportComponent');
 
 /**
  * Transport Component - manages P2P networking
@@ -90,7 +93,7 @@ export class TransportComponent extends EventEmitter {
     await this._transport.startServer();
 
     const protocol = this._config.ssl ? 'wss' : 'ws';
-    console.log(`[TransportComponent] P2P listening on ${protocol}://${this._config.host}:${this._config.port}`);
+    log.info('P2P listening', { protocol, host: this._config.host, port: this._config.port });
   }
 
   /**
@@ -103,7 +106,7 @@ export class TransportComponent extends EventEmitter {
     }
 
     await this._transport.stopServer();
-    console.log('[TransportComponent] P2P transport stopped');
+    log.info('P2P transport stopped');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -127,7 +130,7 @@ export class TransportComponent extends EventEmitter {
 
     // Peer connected
     this._transport.on('peer:connected', ({ peerId, publicKey, address }) => {
-      console.log(`[TransportComponent] Peer connected: ${peerId.slice(0, 16)}... (${address})`);
+      log.info('Peer connected', { peerId: peerId.slice(0, 16), address });
 
       // Add to gossip
       this._gossip.addPeer({
@@ -143,7 +146,7 @@ export class TransportComponent extends EventEmitter {
 
     // Peer disconnected
     this._transport.on('peer:disconnected', ({ peerId, code, reason }) => {
-      console.log(`[TransportComponent] Peer disconnected: ${peerId.slice(0, 16)}... (${reason || code})`);
+      log.info('Peer disconnected', { peerId: peerId.slice(0, 16), reason: reason || code });
 
       this.emit('peer:disconnected', { peerId, code, reason });
       handlers.onPeerDisconnected?.(peerId, code, reason);
@@ -151,7 +154,7 @@ export class TransportComponent extends EventEmitter {
 
     // Peer identified (identity exchange complete)
     this._transport.on('peer:identified', ({ peerId, publicKey, address }) => {
-      console.log(`[TransportComponent] Peer identified: ${peerId.slice(0, 16)}...`);
+      log.debug('Peer identified', { peerId: peerId.slice(0, 16), address });
 
       this.emit('peer:identified', { peerId, publicKey, address });
       handlers.onPeerIdentified?.(peerId, publicKey, address);
@@ -170,12 +173,12 @@ export class TransportComponent extends EventEmitter {
 
     // Errors
     this._transport.on('peer:error', ({ peerId, error }) => {
-      console.warn(`[TransportComponent] Peer error (${peerId?.slice(0, 16)}...): ${error.message}`);
+      log.warn('Peer error', { peerId: peerId?.slice(0, 16), error: error.message });
       handlers.onPeerError?.(peerId, error);
     });
 
     this._transport.on('server:error', (error) => {
-      console.error(`[TransportComponent] Server error: ${error.message}`);
+      log.error('Server error', { error: error.message });
       handlers.onServerError?.(error);
     });
   }

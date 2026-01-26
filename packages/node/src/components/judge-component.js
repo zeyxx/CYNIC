@@ -12,7 +12,10 @@
 'use strict';
 
 import { EventEmitter } from 'events';
+import { createLogger } from '@cynic/core';
 import { CYNICJudge } from '../judge/judge.js';
+
+const log = createLogger('JudgeComponent');
 import { ResidualDetector } from '../judge/residual.js';
 import { LearningService } from '../judge/learning-service.js';
 
@@ -69,7 +72,7 @@ export class JudgeComponent extends EventEmitter {
    */
   async initialize() {
     await this._learningService.init();
-    console.log('[JudgeComponent] Learning service initialized');
+    log.info('Learning service initialized');
   }
 
   /**
@@ -235,7 +238,7 @@ export class JudgeComponent extends EventEmitter {
       },
     });
 
-    console.log(`[JudgeComponent] Collective feedback: ${vote} (${Math.round(confidence * 100)}%)`);
+    log.info('Collective feedback', { vote, confidence: Math.round(confidence * 100) });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

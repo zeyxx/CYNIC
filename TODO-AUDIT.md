@@ -41,7 +41,10 @@
 - [ ] #8 Replace console.log with structured logging
   - DONE: Created @cynic/core/logger module
   - DONE: Converted persistence clients (9 calls)
-  - REMAINING: ~900 console.log calls across codebase
+  - DONE: Converted packages/node/src/node.js (41 calls)
+  - DONE: Converted packages/node/src/components/*.js (21 calls)
+  - DONE: Fixed MCP server.js console.log breaking protocol (2 calls)
+  - REMAINING: ~1200 console.log calls across codebase
   - Pattern established - can be done incrementally
 
 ## Pending (2)

@@ -11,8 +11,10 @@
 
 'use strict';
 
-import { PHI_INV } from '@cynic/core';
+import { PHI_INV, createLogger } from '@cynic/core';
 import { Operator } from '../operator/operator.js';
+
+const log = createLogger('OperatorComponent');
 import { createBurnVerifier, BurnStatus } from '@cynic/burns';
 import { EScoreHistoryRepository, getPool } from '@cynic/persistence';
 
@@ -71,7 +73,7 @@ export class OperatorComponent {
         };
       } catch (e) {
         // Database not available
-        console.log('[OperatorComponent] Persistence unavailable - running in-memory');
+        log.warn('Persistence unavailable - running in-memory');
       }
     }
 
@@ -270,7 +272,7 @@ export class OperatorComponent {
       );
       return true;
     } catch (e) {
-      console.warn('[OperatorComponent] E-Score snapshot failed:', e.message);
+      log.warn('E-Score snapshot failed', { error: e.message });
       return false;
     }
   }

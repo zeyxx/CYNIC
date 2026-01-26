@@ -10,7 +10,7 @@
 
 'use strict';
 
-import { EPOCH_MS, CYCLE_MS, PHI_INV } from '@cynic/core';
+import { EPOCH_MS, CYCLE_MS, PHI_INV, createLogger } from '@cynic/core';
 import {
   GossipProtocol,
   MessageType,
@@ -91,6 +91,9 @@ export class CYNICNode {
    * @param {Object} [options.transport.ssl] - SSL config for WSS
    */
   constructor(options = {}) {
+    // Structured logger
+    this._log = createLogger('CYNICNode');
+
     // Initialize operator
     this.operator = new Operator({
       name: options.name,
@@ -117,7 +120,7 @@ export class CYNICNode {
         };
       } catch (e) {
         // Database not available - persistence disabled
-        console.log('⚠️ Persistence unavailable - running in-memory only');
+        this._log.warn('Persistence unavailable - running in-memory only');
       }
     }
 
@@ -206,10 +209,10 @@ export class CYNICNode {
       cluster: this._anchorConfig.cluster,
       wallet: options.anchor?.wallet || null,
       onAnchor: (record) => {
-        console.log(`⚓ Anchored: ${record.signature?.slice(0, 20)}...`);
+        this._log.info('Anchored', { signature: record.signature?.slice(0, 20) });
       },
       onError: (record, error) => {
-        console.error(`⚓ Anchor failed: ${error.message}`);
+        this._log.error('Anchor failed', { error: error.message, record: record?.id });
       },
     });
 
@@ -220,10 +223,10 @@ export class CYNICNode {
       intervalMs: ANCHOR_CONSTANTS.ANCHOR_INTERVAL_MS, // φ-aligned: 61,803ms
       autoStart: false,
       onBatchReady: (batch) => {
-        console.log(`⚓ Batch ready: ${batch.items.length} items`);
+        this._log.debug('Anchor batch ready', { items: batch.items.length });
       },
       onAnchorComplete: (batch, result) => {
-        console.log(`⚓ Batch anchored: ${result.signature?.slice(0, 20)}...`);
+        this._log.info('Batch anchored', { signature: result.signature?.slice(0, 20), items: batch.items?.length });
       },
     });
 
@@ -243,7 +246,7 @@ export class CYNICNode {
       solanaCluster: this._burnsConfig.cluster,
       onVerify: async (result) => {
         if (result.verified && result.amount > 0) {
-          console.log(`🔥 Burn verified on-chain: ${result.amount / 1e9} SOL (${result.burnType})`);
+          this._log.info('Burn verified on-chain', { amount: result.amount / 1e9, burnType: result.burnType });
 
           // ═══════════════════════════════════════════════════════════════════
           // Burns → E-Score (automatic wiring)
@@ -348,7 +351,7 @@ export class CYNICNode {
       // Only process if it's about a judgment
       if (context?.type !== 'judgment') return;
 
-      console.log(`🐕 Collective consensus: ${vote} (${Math.round(confidence * 100)}% confidence, ${voters?.length || 0} dogs)`);
+      this._log.info('Collective consensus', { vote, confidence: Math.round(confidence * 100), voters: voters?.length || 0 });
 
       // Convert collective vote to feedback
       const isCorrect = vote === 'APPROVE' || vote === 'WAG';
@@ -393,13 +396,13 @@ export class CYNICNode {
     // When a block is finalized by consensus, add it to state chain and persist
     this._consensus.on('block:finalized', async (event) => {
       const { blockHash, slot, block } = event;
-      console.log(`✓ Block finalized: slot ${slot}, hash ${blockHash.slice(0, 16)}...`);
+      this._log.info('Block finalized', { slot, hash: blockHash.slice(0, 16) });
 
       // Import finalized block to state chain (in-memory)
       if (block && block.judgments) {
         const result = this.state.chain.importBlock(block);
         if (!result.success) {
-          console.warn('Failed to import finalized block:', result.errors);
+          this._log.warn('Failed to import finalized block', { errors: result.errors });
         }
 
         // Persist block to storage (Gap #3 - persistent PoJ)
@@ -409,7 +412,7 @@ export class CYNICNode {
           status: 'FINALIZED',
         });
         if (persisted) {
-          console.log(`💾 Block ${slot} persisted to storage`);
+          this._log.debug('Block persisted to storage', { slot });
         }
 
         // Queue for Solana anchoring if enabled (Gap #5)
@@ -422,7 +425,7 @@ export class CYNICNode {
             judgmentCount: block.judgments?.length || 0,
             timestamp: block.timestamp,
           });
-          console.log(`⚓ Block ${slot} queued for Solana anchoring`);
+          this._log.debug('Block queued for Solana anchoring', { slot });
         }
       }
 
@@ -432,12 +435,12 @@ export class CYNICNode {
 
     // When a block is confirmed (but not yet finalized)
     this._consensus.on('block:confirmed', (event) => {
-      console.log(`○ Block confirmed: slot ${event.slot}, ratio ${(event.ratio * 100).toFixed(1)}%`);
+      this._log.debug('Block confirmed', { slot: event.slot, ratio: (event.ratio * 100).toFixed(1) });
     });
 
     // When consensus starts
     this._consensus.on('consensus:started', (event) => {
-      console.log(`φ Consensus started at slot ${event.slot}`);
+      this._log.info('Consensus started', { slot: event.slot });
     });
 
     // When a slot changes
@@ -445,7 +448,7 @@ export class CYNICNode {
       // Periodic status update every 100 slots
       if (event.currentSlot % 100 === 0) {
         const stats = this._consensus.getStats();
-        console.log(`φ Slot ${event.currentSlot}: ${stats.blocksFinalized} finalized, ${stats.pendingBlocks} pending`);
+        this._log.debug('Slot status', { slot: event.currentSlot, finalized: stats.blocksFinalized, pending: stats.pendingBlocks });
       }
     });
   }
@@ -459,7 +462,7 @@ export class CYNICNode {
 
     // When a peer connects
     this._transport.on('peer:connected', ({ peerId, publicKey, address }) => {
-      console.log(`🔗 Peer connected: ${peerId.slice(0, 16)}... (${address})`);
+      this._log.info('Peer connected', { peerId: peerId.slice(0, 16), address });
 
       // Add to gossip peer manager
       this.gossip.addPeer({
@@ -484,7 +487,7 @@ export class CYNICNode {
 
     // When a peer disconnects
     this._transport.on('peer:disconnected', ({ peerId, code, reason }) => {
-      console.log(`🔌 Peer disconnected: ${peerId.slice(0, 16)}... (${reason || code})`);
+      this._log.info('Peer disconnected', { peerId: peerId.slice(0, 16), reason: reason || code });
 
       // Remove from consensus validators
       if (this._consensusConfig.enabled) {
@@ -502,22 +505,21 @@ export class CYNICNode {
 
     // When server starts listening
     this._transport.on('server:listening', ({ port, host, secure }) => {
-      const protocol = secure ? 'wss' : 'ws';
-      console.log(`📡 P2P listening on ${protocol}://${host}:${port}`);
+      this._log.info('P2P listening', { protocol: secure ? 'wss' : 'ws', host, port });
     });
 
     // When peer identity is verified
     this._transport.on('peer:identified', ({ peerId, publicKey, address }) => {
-      console.log(`✓ Peer identified: ${peerId.slice(0, 16)}...`);
+      this._log.debug('Peer identified', { peerId: peerId.slice(0, 16), address });
     });
 
     // Handle transport errors
     this._transport.on('peer:error', ({ peerId, error }) => {
-      console.warn(`⚠️ Peer error (${peerId?.slice(0, 16)}...): ${error.message}`);
+      this._log.warn('Peer error', { peerId: peerId?.slice(0, 16), error: error.message });
     });
 
     this._transport.on('server:error', (error) => {
-      console.error(`❌ Transport server error: ${error.message}`);
+      this._log.error('Transport server error', { error: error.message });
     });
   }
 
@@ -544,7 +546,7 @@ export class CYNICNode {
 
       if (this._transportConfig.enabled && this._transport) {
         await this._transport.startServer();
-        console.log(`📡 P2P transport enabled on port ${this._transportConfig.port}`);
+        this._log.info('P2P transport enabled', { port: this._transportConfig.port });
       }
 
       // ═══════════════════════════════════════════════════════════════════════
@@ -566,13 +568,13 @@ export class CYNICNode {
         // Start consensus-gossip bridge
         this._consensusGossip.start();
 
-        console.log(`φ Consensus enabled (61.8% supermajority, ${this._consensusConfig.confirmationsForFinality} confirmations)`);
+        this._log.info('Consensus enabled', { supermajority: '61.8%', confirmations: this._consensusConfig.confirmationsForFinality });
       }
 
       // Start anchor queue if enabled
       if (this._anchorConfig.enabled && this._anchorConfig.autoAnchor) {
         this._anchorQueue.startTimer();
-        console.log(`⚓ Anchoring enabled (${this._anchorConfig.cluster})`);
+        this._log.info('Anchoring enabled', { cluster: this._anchorConfig.cluster });
       }
 
       // Initialize emergence layer
@@ -588,18 +590,18 @@ export class CYNICNode {
       // Wire emergence patterns → SharedMemory (Gap #4 feedback loop)
       this._wireEmergenceFeedback();
 
-      console.log(`🧠 Memory layers initialized (6-layer hybrid architecture)`);
+      this._log.debug('Memory layers initialized', { architecture: '6-layer hybrid' });
 
       this.status = NodeStatus.RUNNING;
       this.startedAt = Date.now();
 
-      console.log(`🐕 CYNIC Node started: ${this.operator.identity.name}`);
-      console.log(`   Consciousness: ${this._emergence.consciousness.state}`);
-      console.log(`   ID: ${this.operator.id.slice(0, 16)}...`);
-      console.log(`   E-Score: ${this.operator.getEScore()}`);
-      if (this._burnsConfig.enabled) {
-        console.log(`🔥 Burns verification enabled (min: ${this._burnsConfig.minAmount / 1e9} SOL)`);
-      }
+      this._log.info('CYNIC Node started', {
+        name: this.operator.identity.name,
+        id: this.operator.id.slice(0, 16),
+        consciousness: this._emergence.consciousness.state,
+        eScore: this.operator.getEScore(),
+        burns: this._burnsConfig.enabled ? { minAmount: this._burnsConfig.minAmount / 1e9 } : false,
+      });
 
       // ═══════════════════════════════════════════════════════════════════════
       // Judgment Sync on Startup (Gap #10 fix)
@@ -610,9 +612,9 @@ export class CYNICNode {
         setTimeout(async () => {
           try {
             await this.syncJudgmentsFromPeers();
-            console.log('🔄 Judgment sync requested from peers');
+            this._log.debug('Judgment sync requested from peers');
           } catch (err) {
-            console.warn(`Judgment sync failed: ${err.message}`);
+            this._log.warn('Judgment sync failed', { error: err.message });
           }
         }, 8000);
       }
@@ -653,13 +655,13 @@ export class CYNICNode {
     if (this._consensusConfig.enabled) {
       this._consensusGossip.stop();
       this._consensus.stop();
-      console.log(`φ Consensus stopped`);
+      this._log.info('Consensus stopped');
     }
 
     // Stop P2P transport
     if (this._transportConfig.enabled && this._transport) {
       await this._transport.stopServer();
-      console.log(`📡 P2P transport stopped`);
+      this._log.info('P2P transport stopped');
     }
 
     // Stop anchor queue and flush pending
@@ -669,7 +671,7 @@ export class CYNICNode {
       // Flush any pending anchors
       const pendingCount = this._anchorQueue.getQueueLength();
       if (pendingCount > 0) {
-        console.log(`⚓ Flushing ${pendingCount} pending anchors...`);
+        this._log.debug('Flushing pending anchors', { count: pendingCount });
         await this._anchorQueue.flush();
       }
     }
@@ -677,7 +679,7 @@ export class CYNICNode {
     // Save 6-layer memory state
     if (this._sharedMemory) {
       await this._sharedMemory.save();
-      console.log(`🧠 SharedMemory saved`);
+      this._log.debug('SharedMemory saved');
     }
     if (this._labManager) {
       await this._labManager.saveAll();
@@ -687,7 +689,7 @@ export class CYNICNode {
     await this.state.save();
 
     this.status = NodeStatus.STOPPED;
-    console.log(`🐕 CYNIC Node stopped: ${this.operator.identity.name}`);
+    this._log.info('CYNIC Node stopped', { name: this.operator.identity.name });
   }
 
   /**
@@ -857,7 +859,7 @@ export class CYNICNode {
       );
     } catch (e) {
       // Non-fatal
-      console.warn('⚠️ E-Score history persistence failed:', e.message);
+      this._log.warn('E-Score history persistence failed', { error: e.message });
     }
   }
 
@@ -901,7 +903,7 @@ export class CYNICNode {
   async _handleBlock(block) {
     const result = this.state.chain.importBlock(block);
     if (!result.success) {
-      console.warn('Failed to import block:', result.errors);
+      this._log.warn('Failed to import block', { errors: result.errors });
     }
   }
 
@@ -1094,7 +1096,7 @@ export class CYNICNode {
       try {
         await this.requestJudgmentSync(peer.id || peer.publicKey, sinceTimestamp, 100);
       } catch (err) {
-        console.warn(`Judgment sync request to ${peer.id} failed: ${err.message}`);
+        this._log.warn('Judgment sync request failed', { peerId: peer.id, error: err.message });
       }
     }
   }
@@ -1236,7 +1238,7 @@ export class CYNICNode {
         judgment.consensusBlockHash = consensusRecord.hash;
       } catch (err) {
         // Consensus might not be ready, fall back to direct broadcast
-        console.warn(`Consensus proposal failed: ${err.message}, falling back to direct broadcast`);
+        this._log.warn('Consensus proposal failed, falling back to direct broadcast', { error: err.message });
         block = this.state.chain.addJudgmentBlock([judgment]);
         await this.gossip.broadcastJudgment(judgment);
         await this.gossip.broadcastBlock(block);
@@ -1281,7 +1283,7 @@ export class CYNICNode {
       // Request collective consensus (async, non-blocking)
       this._collectivePack.reviewJudgment?.(judgment, item).catch((err) => {
         // Non-critical - log but don't fail the judgment
-        console.debug(`[Collective] Review skipped: ${err.message}`);
+        this._log.trace('Collective review skipped', { error: err.message });
       });
     }
 

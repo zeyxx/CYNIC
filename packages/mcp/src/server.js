@@ -874,8 +874,8 @@ export class MCPServer {
   async _handleRequestInternal(request) {
     const { id, method, params = {} } = request;
 
-    // DEBUG: Log every request
-    console.log(`🐕 [REQUEST] method=${method} id=${id}`);
+    // DEBUG: Log every request (stderr for MCP protocol)
+    console.error(`🐕 [REQUEST] method=${method} id=${id}`);
 
     try {
       let result;
@@ -1113,8 +1113,8 @@ export class MCPServer {
   async _handleToolsCall(params) {
     const { name, arguments: args = {} } = params;
 
-    // DEBUG: Log at very start of tool call
-    console.log(`🐕 [TOOL_CALL] ${name} called at ${new Date().toISOString()}`);
+    // DEBUG: Log at very start of tool call (stderr for MCP protocol)
+    console.error(`🐕 [TOOL_CALL] ${name} called at ${new Date().toISOString()}`);
 
     const tool = this.tools[name];
     if (!tool) {

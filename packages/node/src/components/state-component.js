@@ -12,7 +12,10 @@
 'use strict';
 
 import { EventEmitter } from 'events';
+import { createLogger } from '@cynic/core';
 import { StateManager } from '../state/manager.js';
+
+const log = createLogger('StateComponent');
 
 /**
  * State Component - manages node state and persistence
@@ -53,7 +56,7 @@ export class StateComponent extends EventEmitter {
   async initialize() {
     await this._state.initialize();
     this._initialized = true;
-    console.log('[StateComponent] State initialized');
+    log.info('State initialized');
   }
 
   /**
@@ -62,7 +65,7 @@ export class StateComponent extends EventEmitter {
    */
   async save() {
     await this._state.save();
-    console.log('[StateComponent] State saved');
+    log.debug('State saved');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

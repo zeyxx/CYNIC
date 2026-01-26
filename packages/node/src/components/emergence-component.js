@@ -12,7 +12,10 @@
 'use strict';
 
 import { EventEmitter } from 'events';
+import { createLogger } from '@cynic/core';
 import { createEmergenceLayer } from '../emergence/layer.js';
+
+const log = createLogger('EmergenceComponent');
 import { SharedMemory } from '../memory/shared-memory.js';
 import { LabManager } from '../memory/user-lab.js';
 import { DogOrchestrator, DogMode } from '../agents/orchestrator.js';
@@ -99,7 +102,7 @@ export class EmergenceComponent extends EventEmitter {
     await this._sharedMemory.initialize();
 
     this._initialized = true;
-    console.log('[EmergenceComponent] Emergence layer initialized');
+    log.info('Emergence layer initialized');
   }
 
   /**
@@ -109,7 +112,7 @@ export class EmergenceComponent extends EventEmitter {
   async save() {
     await this._sharedMemory.save();
     await this._labManager.saveAll();
-    console.log('[EmergenceComponent] Memory saved');
+    log.debug('Memory saved');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -224,7 +227,7 @@ export class EmergenceComponent extends EventEmitter {
     try {
       await this._collectivePack.reviewJudgment(judgment, item);
     } catch (err) {
-      console.debug(`[EmergenceComponent] Review skipped: ${err.message}`);
+      log.trace('Review skipped', { error: err.message });
     }
   }
 
