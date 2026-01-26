@@ -1,0 +1,32 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "CYNIC API Documentation",
+  "entryPoints": [
+    "packages/core/src/index.js",
+    "packages/node/src/index.js",
+    "packages/protocol/src/index.js",
+    "packages/persistence/src/index.js",
+    "packages/identity/src/index.js",
+    "packages/emergence/src/index.js",
+    "packages/mcp/src/index.js"
+  ],
+  "out": "docs/api",
+  "readme": "README.md",
+  "includeVersion": true,
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeInternal": true,
+  "excludeNotDocumented": true,
+  "excludeExternals": true,
+  "entryPointStrategy": "resolve",
+  "plugin": [],
+  "theme": "default",
+  "navigationLinks": {
+    "GitHub": "https://github.com/zeyxx/CYNIC",
+    "Docs": "https://github.com/zeyxx/CYNIC/tree/main/docs"
+  },
+  "searchInComments": false,
+  "cleanOutputDir": true,
+  "skipErrorChecking": true,
+  "logLevel": "Warn"
+}

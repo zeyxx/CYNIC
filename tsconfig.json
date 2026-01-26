@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "skipLibCheck": true,
+    "strict": false,
+    "baseUrl": ".",
+    "paths": {
+      "@cynic/core": ["packages/core/src/index.js"],
+      "@cynic/core/*": ["packages/core/src/*"],
+      "@cynic/node": ["packages/node/src/index.js"],
+      "@cynic/node/*": ["packages/node/src/*"],
+      "@cynic/protocol": ["packages/protocol/src/index.js"],
+      "@cynic/protocol/*": ["packages/protocol/src/*"],
+      "@cynic/persistence": ["packages/persistence/src/index.js"],
+      "@cynic/persistence/*": ["packages/persistence/src/*"],
+      "@cynic/identity": ["packages/identity/src/index.js"],
+      "@cynic/identity/*": ["packages/identity/src/*"],
+      "@cynic/emergence": ["packages/emergence/src/index.js"],
+      "@cynic/emergence/*": ["packages/emergence/src/*"],
+      "@cynic/mcp": ["packages/mcp/src/index.js"],
+      "@cynic/mcp/*": ["packages/mcp/src/*"]
+    }
+  },
+  "include": [
+    "packages/*/src/**/*.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/node_modules",
+    "**/test",
+    "**/tests",
+    "**/*.test.js"
+  ]
+}
