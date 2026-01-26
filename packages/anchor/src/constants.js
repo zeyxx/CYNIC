@@ -95,6 +95,13 @@ export const SolanaCluster = {
   DEVNET: 'https://api.devnet.solana.com',
   TESTNET: 'https://api.testnet.solana.com',
   LOCALNET: 'http://localhost:8899',
+  // Helius RPC (faster, no rate-limits)
+  HELIUS_DEVNET: process.env.HELIUS_API_KEY
+    ? `https://devnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
+    : null,
+  HELIUS_MAINNET: process.env.HELIUS_API_KEY
+    ? `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
+    : null,
 };
 
 /**

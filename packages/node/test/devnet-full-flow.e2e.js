@@ -56,7 +56,7 @@ const wallet = loadWalletFromFile(WALLET_PATH);
 console.log('📍 Wallet:', wallet.publicKey);
 
 // Check balance
-const connection = new Connection(SolanaCluster.DEVNET);
+const connection = new Connection(SolanaCluster.HELIUS_DEVNET || SolanaCluster.DEVNET);
 const balance = await connection.getBalance(new PublicKey(wallet.publicKey));
 console.log('💰 Balance:', balance / LAMPORTS_PER_SOL, 'SOL');
 

@@ -41,7 +41,8 @@ import { join } from 'path';
 // ═══════════════════════════════════════════════════════════════════════════
 
 const CONFIG = {
-  cluster: SolanaCluster.DEVNET,
+  // Use Helius if API key available (faster, no rate-limits)
+  cluster: SolanaCluster.HELIUS_DEVNET || SolanaCluster.DEVNET,
   airdropAmount: 0.5 * LAMPORTS_PER_SOL, // 0.5 SOL
   testTimeout: 120000, // 2 minutes
 };
@@ -101,21 +102,24 @@ function generateMerkleRoot() {
   return createHash('sha256').update(randomBytes(32)).digest('hex');
 }
 
-async function airdrop(connection, publicKey, amount) {
+async function airdrop(connection, publicKey, amount, retries = 3) {
+  // Airdrops only work on public devnet RPC, not Helius
+  const airdropConnection = new Connection(SolanaCluster.DEVNET, 'confirmed');
   try {
-    const sig = await connection.requestAirdrop(publicKey, amount);
-    const latestBlockhash = await connection.getLatestBlockhash();
-    await connection.confirmTransaction({
+    const sig = await airdropConnection.requestAirdrop(publicKey, amount);
+    const latestBlockhash = await airdropConnection.getLatestBlockhash();
+    await airdropConnection.confirmTransaction({
       signature: sig,
       ...latestBlockhash,
     });
     return true;
   } catch (error) {
-    if (error.message.includes('429')) {
-      log('    (Rate limited, waiting 2s...)', YELLOW);
-      await new Promise((r) => setTimeout(r, 2000));
-      return airdrop(connection, publicKey, amount);
+    if (error.message.includes('429') && retries > 0) {
+      log(`    (Rate limited, waiting 5s... ${retries} retries left)`, YELLOW);
+      await new Promise((r) => setTimeout(r, 5000));
+      return airdrop(connection, publicKey, amount, retries - 1);
     }
+    log(`    Airdrop failed: ${error.message}`, RED);
     return false;
   }
 }
@@ -513,6 +517,10 @@ async function main() {
     log(`\n  ⚠️ No saved wallet found, generating new one...`, YELLOW);
     mainKeypair = Keypair.generate();
     log(`  New wallet: ${mainKeypair.publicKey.toBase58()}`, CYAN);
+    // Save wallet for reuse
+    const { writeFileSync } = await import('fs');
+    writeFileSync(walletPath, JSON.stringify(Array.from(mainKeypair.secretKey)));
+    log(`  Saved wallet to: ${walletPath}`, GREEN);
     log('  Requesting airdrop...', YELLOW);
     await airdrop(connection, mainKeypair.publicKey, LAMPORTS_PER_SOL);
   }

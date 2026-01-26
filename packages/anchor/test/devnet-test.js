@@ -44,11 +44,11 @@ async function main() {
   // Step 2: Request airdrop (try multiple endpoints)
   log('\n💰 Step 2: Requesting devnet SOL airdrop...', YELLOW);
 
-  // Try Helius devnet RPC (more reliable airdrop)
+  // Try Helius devnet RPC if available (more reliable, no rate-limits)
   const rpcEndpoints = [
-    'https://api.devnet.solana.com',
-    'https://devnet.helius-rpc.com/?api-key=demo', // Demo key
-  ];
+    SolanaCluster.HELIUS_DEVNET, // Helius (if HELIUS_API_KEY set)
+    SolanaCluster.DEVNET,        // Fallback to public devnet
+  ].filter(Boolean);
 
   let connection;
   let airdropSuccess = false;
