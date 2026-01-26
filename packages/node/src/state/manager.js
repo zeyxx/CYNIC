@@ -10,6 +10,9 @@
 
 import { PoJChain, KnowledgeTree } from '@cynic/protocol';
 import { MemoryStorage, FileStorage } from './storage.js';
+import { createLogger } from '@cynic/core';
+
+const log = createLogger('StateManager');
 
 /**
  * State Manager - Orchestrates all node state
@@ -203,7 +206,7 @@ export class StateManager {
 
       return true;
     } catch (err) {
-      console.warn('Failed to persist block:', err.message);
+      log.warn('Failed to persist block', { error: err.message });
       return false;
     }
   }

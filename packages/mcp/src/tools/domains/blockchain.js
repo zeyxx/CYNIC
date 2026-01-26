@@ -10,6 +10,10 @@
 
 'use strict';
 
+import { createLogger } from '@cynic/core';
+
+const log = createLogger('BlockchainTools');
+
 /**
  * Create PoJ chain tool definition
  * @param {Object} pojChainManager - PoJChainManager instance
@@ -59,7 +63,7 @@ export function createPoJChainTool(pojChainManager, persistence = null) {
 
       switch (action) {
         case 'status': {
-          console.error(`DEBUG tool: pojChainManager._anchorQueue = ${!!pojChainManager._anchorQueue}, isEnabled = ${pojChainManager.isAnchoringEnabled}`);
+          log.debug('PoJ chain status check', { hasAnchorQueue: !!pojChainManager._anchorQueue, isEnabled: pojChainManager.isAnchoringEnabled });
           const status = pojChainManager.getStatus();
           return {
             action: 'status',

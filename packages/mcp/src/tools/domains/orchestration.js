@@ -14,7 +14,9 @@
 
 'use strict';
 
-import { PHI, PHI_INV, THRESHOLDS } from '@cynic/core';
+import { PHI, PHI_INV, THRESHOLDS, createLogger } from '@cynic/core';
+
+const log = createLogger('OrchestrationTools');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -463,7 +465,7 @@ This is the "brain" of CYNIC - all events pass through KETER for routing.`,
           );
         } catch (e) {
           // Log error but don't fail
-          console.error('Error logging orchestration:', e.message);
+          log.error('Error logging orchestration', { error: e.message });
         }
       }
 

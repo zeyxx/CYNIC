@@ -11,7 +11,9 @@
 
 'use strict';
 
-import { PHI_INV } from '@cynic/core';
+import { PHI_INV, createLogger } from '@cynic/core';
+
+const log = createLogger('EngineIntegration');
 
 /**
  * Map judgment contexts to relevant engine domains
@@ -195,7 +197,7 @@ export class EngineIntegration {
         }
       } catch (error) {
         // Engine failed - skip it
-        console.warn(`[EngineIntegration] Engine ${engine.id} failed:`, error.message);
+        log.warn('Engine failed', { engine: engine.id, error: error.message });
       }
     }
 
