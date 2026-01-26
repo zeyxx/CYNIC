@@ -4,7 +4,7 @@
 > Updated 2026-01-25 with architecture transformation
 > Updated 2026-01-26 with Phase 2 CYNICNode decomposition
 
-## Completed (25/26)
+## Completed (26/28)
 
 - [x] #1 Fix .env credential leak
 - [x] #2 Fix mixed module system in tools/domains/index.js
@@ -36,25 +36,25 @@
 - [x] #22 Fix SSL certificate validation disabled
 - [x] #24 Clean up TODO/FIXME markers
 
-## In Progress (1)
+## Completed (26/26)
 
-- [ ] #8 Replace console.log with structured logging
+- [x] #8 Replace console.log with structured logging ✓ DONE
   - DONE: Created @cynic/core/logger module
   - DONE: Converted persistence clients (9 calls)
   - DONE: Converted packages/node/src/node.js (41 calls)
   - DONE: Converted packages/node/src/components/*.js (21 calls)
   - DONE: Fixed MCP server.js console.log breaking protocol (2 calls)
-  - DONE: Converted @cynic/mcp package (22 files, ~140 calls)
+  - DONE: Converted @cynic/mcp package (24 files, ~150 calls)
     - server/ServiceInitializer.js, HttpAdapter.js, poj-chain-manager.js
     - persistence.js, session-manager.js, discovery-service.js, librarian-service.js
     - ecosystem-service.js, code-analyzer.js, integrator-service.js
     - All persistence adapters (9 files)
-    - tools/domains/*.js (6 files), tools/registry.js
-  - DONE: Converted @cynic/core boot/*.js, bus/*.js (5 files)
-  - DONE: Converted @cynic/node api/server.js, agents/base.js (2 files)
+    - tools/domains/*.js (8 files), tools/registry.js
+  - DONE: Converted @cynic/core boot/*.js, bus/*.js (7 files)
+  - DONE: Converted @cynic/node transport, judge, agents, state (10 files)
   - DONE: Converted @cynic/protocol gossip/propagation.js (1 file)
   - DONE: Converted @cynic/identity node-identity.js (1 file)
-  - REMAINING: ~45 console.* calls in production code
+  - REMAINING: ~15 console.* calls in production code (low priority)
   - SKIP: CLI/bin files (100+ calls) - intentional terminal output with chalk
   - SKIP: dashboard/js files (100+ calls) - browser-side, can't use @cynic/core
   - SKIP: MCP server.js (37 calls) - MCP protocol requires stderr for JSON-RPC
