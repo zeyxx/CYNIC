@@ -2,6 +2,8 @@
 
 > Solana blockchain anchoring for CYNIC's memory.
 
+**Last Updated**: 2026-01-21
+
 ---
 
 ## Overview

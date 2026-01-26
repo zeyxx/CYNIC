@@ -2,6 +2,8 @@
 
 > 4-Layer decentralized collective consciousness protocol.
 
+**Last Updated**: 2026-01-21
+
 ---
 
 ## Overview

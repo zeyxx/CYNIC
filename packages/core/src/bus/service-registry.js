@@ -89,8 +89,8 @@ export class ServiceRegistry {
   register(name, instanceOrFactory, options = {}) {
     if (this.#services.has(name)) {
       throw new CYNICError(
-        `Service "${name}" already registered`,
-        ErrorCode.DUPLICATE
+        ErrorCode.DUPLICATE,
+        `Service "${name}" already registered`
       );
     }
 
@@ -145,8 +145,8 @@ export class ServiceRegistry {
     const entry = this.#services.get(name);
     if (!entry) {
       throw new CYNICError(
-        `Service "${name}" not found`,
-        ErrorCode.NOT_FOUND
+        ErrorCode.NOT_FOUND,
+        `Service "${name}" not found`
       );
     }
 
@@ -154,8 +154,8 @@ export class ServiceRegistry {
     if (context.callerLayer && this.#strictLayers) {
       if (!isLayerCallAllowed(context.callerLayer, entry.layer)) {
         throw new CYNICError(
-          `Layer violation: ${context.callerLayer} cannot access ${entry.layer} service "${name}"`,
-          ErrorCode.LAYER_VIOLATION
+          ErrorCode.LAYER_VIOLATION,
+          `Layer violation: ${context.callerLayer} cannot access ${entry.layer} service "${name}"`
         );
       }
     }
@@ -188,8 +188,8 @@ export class ServiceRegistry {
 
     if (!names || names.size === 0) {
       throw new CYNICError(
-        `No service implements interface: ${ifaceName}`,
-        ErrorCode.NOT_FOUND
+        ErrorCode.NOT_FOUND,
+        `No service implements interface: ${ifaceName}`
       );
     }
 

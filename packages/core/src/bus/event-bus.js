@@ -219,23 +219,31 @@ export class CYNICEventBus extends EventEmitter {
   async request(type, payload, options = {}) {
     const { timeout = 5000, replyType } = options;
 
-    const requestEvent = this.publish(type, payload, options);
     const expectedReplyType = replyType || `${type}:reply`;
+
+    // Create request event first to know its ID
+    const requestEvent = new CYNICEvent(type, {}, options);
+    const requestId = requestEvent.id;
 
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
+        this.off(expectedReplyType, handler);
         reject(new Error(`Request timeout for ${type}`));
       }, timeout);
 
       const handler = (event) => {
-        if (event.correlationId === requestEvent.id) {
+        if (event.correlationId === requestId) {
           clearTimeout(timeoutId);
           this.off(expectedReplyType, handler);
           resolve(event);
         }
       };
 
+      // Register listener BEFORE publishing to catch synchronous replies
       this.on(expectedReplyType, handler);
+
+      // Now publish the actual request (reusing the event ID)
+      this.publish(type, payload, { ...options, id: requestId });
     });
   }
 

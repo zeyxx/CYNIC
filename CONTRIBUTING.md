@@ -52,6 +52,59 @@ Follow conventional commits:
 
 ---
 
+## Quarterly Documentation Review
+
+Every quarter (January, April, July, October), maintainers should perform a documentation audit:
+
+### 1. ROADMAP.md Review
+- [ ] Verify all dates are current (not past-due without updates)
+- [ ] Check completion status matches actual implementation
+- [ ] Update metrics and progress percentages
+- [ ] Archive completed milestones if needed
+
+### 2. ARCHITECTURE_LIVE.md Verification
+- [ ] Trace code paths mentioned against actual codebase
+- [ ] Verify file paths still exist and are accurate
+- [ ] Check for new components not yet documented
+- [ ] Update "Generated" date after verification
+
+### 3. Audit Files Review (`docs/audits/`)
+- [ ] Check if audit findings have been addressed
+- [ ] Archive consumed/resolved audits (or add "RESOLVED" tag)
+- [ ] Ensure no stale audits remain without action items
+
+### 4. "Last Updated" Dates
+Update dates in all major docs:
+- [ ] `docs/ARCHITECTURE.md`
+- [ ] `docs/DOGS.md`
+- [ ] `ROADMAP.md`
+- [ ] All `packages/*/README.md` files
+
+### 5. Link Verification
+- [ ] Run link checker on all markdown files
+- [ ] Fix broken internal links
+- [ ] Verify external links still work
+
+### Review Checklist Template
+
+```markdown
+## Q[N] 20XX Documentation Review
+
+**Reviewer**: [name]
+**Date**: YYYY-MM-DD
+
+- [ ] ROADMAP.md dates verified
+- [ ] ARCHITECTURE_LIVE.md traced
+- [ ] Audit files reviewed
+- [ ] "Last Updated" dates refreshed
+- [ ] Links verified
+
+**Notes**:
+- [any issues found]
+```
+
+---
+
 ## Architecture
 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for technical design.

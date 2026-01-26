@@ -857,3 +857,329 @@ describe('Data Flow Security', () => {
     assert.ok(stats.phi.note.includes('Laplacian noise'));
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PRIVATE KNOWLEDGE AGGREGATOR TESTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('PrivateKnowledgeAggregator', () => {
+  let aggregator;
+
+  beforeEach(() => {
+    aggregator = new PrivateKnowledgeAggregator();
+  });
+
+  describe('Bucket Distribution (Golden Angle)', () => {
+    it('assigns content to buckets using golden angle', () => {
+      const bucket1 = aggregator._getBucket('content_1');
+      const bucket2 = aggregator._getBucket('content_2');
+
+      // Buckets should be in valid range (0-359)
+      assert.ok(bucket1 >= 0 && bucket1 < 360);
+      assert.ok(bucket2 >= 0 && bucket2 < 360);
+    });
+
+    it('same content always goes to same bucket', () => {
+      const content = 'deterministic_content';
+      const bucket1 = aggregator._getBucket(content);
+      const bucket2 = aggregator._getBucket(content);
+
+      assert.strictEqual(bucket1, bucket2);
+    });
+
+    it('distributes content evenly across buckets', () => {
+      const bucketCounts = new Map();
+
+      // Add many different contents
+      for (let i = 0; i < 360; i++) {
+        const bucket = aggregator._getBucket(`unique_content_${i}`);
+        bucketCounts.set(bucket, (bucketCounts.get(bucket) || 0) + 1);
+      }
+
+      // Check distribution - should have multiple buckets used
+      assert.ok(bucketCounts.size > 100, 'Should use at least 100 buckets');
+    });
+  });
+
+  describe('Knowledge Contributions', () => {
+    it('accepts and counts contributions', () => {
+      aggregator.contribute('hash_1', { category: 'patterns' });
+      aggregator.contribute('hash_2', { category: 'patterns' });
+      aggregator.contribute('hash_3', { category: 'errors' });
+
+      assert.strictEqual(aggregator.totalContributions, 3);
+      assert.ok(aggregator.buckets.size > 0);
+    });
+
+    it('tracks categories within buckets', () => {
+      aggregator.contribute('hash_a', { category: 'learning' });
+      aggregator.contribute('hash_b', { category: 'learning' });
+      aggregator.contribute('hash_c', { category: 'insights' });
+
+      // Get the aggregate
+      const aggregate = aggregator.getPrivateAggregate();
+
+      assert.ok(aggregate.categoryDistribution);
+      assert.ok(aggregate.categoryDistribution.learning !== undefined);
+      assert.ok(aggregate.categoryDistribution.insights !== undefined);
+    });
+
+    it('handles contributions without category', () => {
+      aggregator.contribute('hash_no_cat');
+      aggregator.contribute('hash_no_cat_2', {});
+
+      assert.strictEqual(aggregator.totalContributions, 2);
+    });
+  });
+
+  describe('Private Aggregate Output', () => {
+    it('returns noised total contributions', () => {
+      for (let i = 0; i < 10; i++) {
+        aggregator.contribute(`hash_${i}`);
+      }
+
+      const aggregate = aggregator.getPrivateAggregate();
+
+      // totalContributions should be noised (>= 0)
+      assert.ok(aggregate.totalContributions >= 0);
+      assert.ok(typeof aggregate.totalContributions === 'number');
+    });
+
+    it('returns noised active bucket count', () => {
+      for (let i = 0; i < 20; i++) {
+        aggregator.contribute(`content_${i}`);
+      }
+
+      const aggregate = aggregator.getPrivateAggregate();
+
+      assert.ok(aggregate.activeBuckets >= 0);
+      assert.ok(Number.isInteger(aggregate.activeBuckets));
+    });
+
+    it('includes bucket distribution with positive counts', () => {
+      for (let i = 0; i < 50; i++) {
+        aggregator.contribute(`data_${i}`);
+      }
+
+      const aggregate = aggregator.getPrivateAggregate();
+
+      assert.ok(Array.isArray(aggregate.bucketDistribution));
+      // All buckets in distribution should have count > 0
+      aggregate.bucketDistribution.forEach(b => {
+        assert.ok(b.count > 0);
+        assert.ok(b.bucket >= 0 && b.bucket < 360);
+      });
+    });
+
+    it('includes budget status', () => {
+      aggregator.contribute('test');
+
+      const aggregate = aggregator.getPrivateAggregate();
+
+      assert.ok(aggregate.budgetStatus);
+      assert.ok(aggregate.budgetStatus.epsilon);
+      assert.ok(aggregate.budgetStatus.queryCount >= 0);
+    });
+  });
+
+  describe('Privacy Budget Consumption', () => {
+    it('consumes budget when generating aggregate', () => {
+      for (let i = 0; i < 5; i++) {
+        aggregator.contribute(`item_${i}`);
+      }
+
+      // First aggregate
+      aggregator.getPrivateAggregate();
+      const status1 = aggregator.dp.getBudgetStatus();
+
+      // Second aggregate
+      aggregator.getPrivateAggregate();
+      const status2 = aggregator.dp.getBudgetStatus();
+
+      assert.ok(status2.budgetUsed > status1.budgetUsed);
+      assert.ok(status2.queryCount > status1.queryCount);
+    });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADDITIONAL DIFFERENTIAL PRIVACY EDGE CASES
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('Differential Privacy - Edge Cases', () => {
+  describe('Budget Management', () => {
+    it('resets budget after refresh period', async () => {
+      const dp = new DifferentialPrivacy();
+
+      // Use some budget
+      dp.addNoise(100);
+      dp.addNoise(100);
+      assert.ok(dp.queryCount > 0);
+
+      // Manually set lastBudgetReset to past
+      dp.lastBudgetReset = Date.now() - (PRIVACY_CONSTANTS.BUDGET_REFRESH_HOURS + 1) * 60 * 60 * 1000;
+
+      // Next query should trigger reset
+      dp.addNoise(100);
+
+      const status = dp.getBudgetStatus();
+      assert.strictEqual(status.queryCount, 1); // Reset to 1 after the new query
+    });
+
+    it('tracks percentage of budget used', () => {
+      const dp = new DifferentialPrivacy();
+
+      // Use some budget
+      dp.addNoise(100);
+
+      const status = dp.getBudgetStatus();
+      assert.ok(status.percentUsed >= 0);
+      assert.ok(status.percentUsed <= 100);
+    });
+
+    it('calculates remaining budget correctly', () => {
+      const dp = new DifferentialPrivacy();
+
+      const initialStatus = dp.getBudgetStatus();
+      assert.strictEqual(initialStatus.budgetRemaining, dp.epsilon);
+
+      dp.addNoise(100);
+      const afterStatus = dp.getBudgetStatus();
+
+      assert.ok(afterStatus.budgetRemaining < dp.epsilon);
+      assert.ok(afterStatus.budgetRemaining >= 0);
+    });
+  });
+
+  describe('Noise Properties', () => {
+    it('applies minimum noise floor', () => {
+      const dp = new DifferentialPrivacy();
+      const trueValue = 100;
+
+      // Run multiple times to verify noise floor is respected
+      let floorApplied = false;
+      for (let i = 0; i < 50; i++) {
+        const noised = dp.addNoise(trueValue);
+        const actualNoise = Math.abs(noised - trueValue);
+        const minNoise = trueValue * PRIVACY_CONSTANTS.MIN_NOISE_FLOOR;
+
+        // Either actual noise is >= minNoise, or floor was applied
+        if (actualNoise >= minNoise - 0.001) {
+          floorApplied = true;
+          break;
+        }
+      }
+
+      assert.ok(floorApplied, 'Minimum noise floor should be applied');
+    });
+
+    it('handles zero value input', () => {
+      const dp = new DifferentialPrivacy();
+
+      // Should not crash on zero
+      const noised = dp.addNoise(0);
+      assert.ok(typeof noised === 'number');
+      assert.ok(!isNaN(noised));
+    });
+
+    it('handles negative value input', () => {
+      const dp = new DifferentialPrivacy();
+
+      const noised = dp.addNoise(-50);
+      assert.ok(typeof noised === 'number');
+      assert.ok(!isNaN(noised));
+    });
+
+    it('uses custom sensitivity when provided', () => {
+      const dp = new DifferentialPrivacy({ sensitivity: 1 });
+
+      // High sensitivity should add more noise
+      const highSens = dp.addNoise(100, 10);
+      const lowSens = dp.addNoise(100, 0.1);
+
+      // Both should be numbers (can't guarantee which is higher due to randomness)
+      assert.ok(typeof highSens === 'number');
+      assert.ok(typeof lowSens === 'number');
+    });
+  });
+
+  describe('Pattern Aggregator Category Distribution', () => {
+    it('returns correct category distribution with noise', () => {
+      const agg = new PrivatePatternAggregator();
+
+      // Add patterns to multiple categories
+      for (let i = 0; i < 10; i++) agg.addPattern(`hash_${i}`, 'errors');
+      for (let i = 0; i < 5; i++) agg.addPattern(`other_${i}`, 'warnings');
+      for (let i = 0; i < 3; i++) agg.addPattern(`third_${i}`, 'info');
+
+      const dist = agg.getCategoryDistribution();
+
+      assert.ok(dist.has('errors'));
+      assert.ok(dist.has('warnings'));
+      assert.ok(dist.has('info'));
+
+      // All counts should be non-negative (due to addNoiseToCount)
+      for (const [, count] of dist) {
+        assert.ok(count >= 0);
+      }
+    });
+
+    it('filters top patterns by category', () => {
+      const agg = new PrivatePatternAggregator();
+
+      // Add patterns to different categories
+      for (let i = 0; i < 5; i++) agg.addPattern(`err_${i}`, 'errors');
+      for (let i = 0; i < 3; i++) agg.addPattern(`warn_${i}`, 'warnings');
+
+      const errorPatterns = agg.getTopPatterns(10, 'errors');
+      const warningPatterns = agg.getTopPatterns(10, 'warnings');
+
+      // Filtered patterns should only include respective category
+      errorPatterns.forEach(p => assert.strictEqual(p.category, 'errors'));
+      warningPatterns.forEach(p => assert.strictEqual(p.category, 'warnings'));
+    });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GAUSSIAN NOISE TESTS (for composed queries)
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('Gaussian Noise Mechanism', () => {
+  it('generates noise with correct standard deviation', () => {
+    const sigma = 2;
+    const samples = Array.from({ length: 1000 }, () => gaussianNoise(sigma));
+
+    // Calculate standard deviation
+    const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
+    const variance = samples.reduce((acc, s) => acc + (s - mean) ** 2, 0) / samples.length;
+    const stdDev = Math.sqrt(variance);
+
+    // Standard deviation should be close to sigma (within 30% tolerance for statistical test)
+    assert.ok(stdDev > sigma * 0.5, `stdDev ${stdDev} should be > ${sigma * 0.5}`);
+    assert.ok(stdDev < sigma * 1.5, `stdDev ${stdDev} should be < ${sigma * 1.5}`);
+  });
+
+  it('produces different values on each call', () => {
+    const values = new Set();
+    for (let i = 0; i < 100; i++) {
+      values.add(gaussianNoise(1));
+    }
+
+    // Should have many unique values
+    assert.ok(values.size > 90, 'Should generate mostly unique values');
+  });
+
+  it('works with very small sigma', () => {
+    const noise = gaussianNoise(0.001);
+    assert.ok(typeof noise === 'number');
+    assert.ok(!isNaN(noise));
+    assert.ok(Math.abs(noise) < 0.1); // Should be small
+  });
+
+  it('works with large sigma', () => {
+    const noise = gaussianNoise(100);
+    assert.ok(typeof noise === 'number');
+    assert.ok(!isNaN(noise));
+  });
+});

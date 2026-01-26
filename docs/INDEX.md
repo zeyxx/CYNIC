@@ -38,8 +38,10 @@
 |----------|-------------|
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | 4-layer protocol design |
 | [DOGS.md](./DOGS.md) | Agent system (V1 + V2 Collective) |
+| [GLOSSARY.md](./GLOSSARY.md) | Terms and definitions |
 | [architecture/PARALLEL_DOGS.md](./architecture/PARALLEL_DOGS.md) | Detailed parallel agent implementation |
 | [architecture/UNIFIED_TRACKING.md](./architecture/UNIFIED_TRACKING.md) | Task tracking system design |
+| [REVIEW-LOG.md](./REVIEW-LOG.md) | Quarterly documentation review log |
 
 ### Packages
 | Package | README | Description |

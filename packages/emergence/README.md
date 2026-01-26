@@ -2,6 +2,8 @@
 
 > Emergence Layer - Consciousness, patterns, and meta-cognition.
 
+**Last Updated**: 2026-01-21
+
 ---
 
 ## Overview

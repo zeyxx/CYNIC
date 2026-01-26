@@ -4,6 +4,8 @@
 
 Model Context Protocol server for Claude Code integration.
 
+**Last Updated**: 2026-01-15
+
 ## Installation
 
 ```bash

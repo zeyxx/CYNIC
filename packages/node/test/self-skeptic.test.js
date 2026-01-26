@@ -713,3 +713,344 @@ describe('CYNICJudge + SelfSkeptic Integration', () => {
     });
   });
 });
+
+// =============================================================================
+// DEEP INTEGRATION TESTS: Judge + SelfSkeptic + Axiom Scorers
+// =============================================================================
+
+describe('Deep Integration: Judge + SelfSkeptic + Axiom Scorers', () => {
+  let judge;
+  let skeptic;
+
+  beforeEach(() => {
+    skeptic = new SelfSkeptic();
+    judge = new CYNICJudge({ selfSkeptic: skeptic });
+  });
+
+  describe('E2E Flow with Real Items', () => {
+    it('should score and doubt a high-quality code item', () => {
+      const highQualityItem = {
+        id: 'hq-code-1',
+        type: 'code',
+        content: `
+          /**
+           * Well-documented function with clear purpose
+           */
+          function calculateTotal(items) {
+            if (!Array.isArray(items)) throw new Error('Invalid input');
+            return items.reduce((sum, item) => sum + item.price, 0);
+          }
+        `,
+        author: 'alice',
+        verified: true,
+        hash: 'sha256:abc123',
+        original: true,
+        purpose: 'Calculate shopping cart total',
+        tests: true,
+        documentation: true,
+      };
+
+      const judgment = judge.judge(highQualityItem);
+
+      // Should have good Q-Score
+      assert.ok(judgment.qScore >= 50, `Q-Score should be >= 50, got ${judgment.qScore}`);
+
+      // Should have skepticism applied
+      assert.ok(judgment.skepticism, 'Should have skepticism');
+      assert.ok(
+        judgment.skepticism.adjustedConfidence <= judgment.skepticism.originalConfidence,
+        'Adjusted confidence should be <= original'
+      );
+
+      // Confidence should be bounded by φ
+      assert.ok(judgment.confidence <= PHI_INV, `Confidence should be <= φ⁻¹, got ${judgment.confidence}`);
+      assert.ok(judgment.confidence >= PHI_INV_2, `Confidence should be >= φ⁻², got ${judgment.confidence}`);
+    });
+
+    it('should score and doubt a suspicious scam item', () => {
+      const scamItem = {
+        id: 'scam-1',
+        type: 'token',
+        content: 'Guaranteed 1000x returns! Rug pull proof! Anonymous team!',
+        tags: ['risk:scam', 'risk:fraud'],
+      };
+
+      const judgment = judge.judge(scamItem);
+
+      // Should have low Q-Score
+      assert.ok(judgment.qScore < 50, `Scam Q-Score should be < 50, got ${judgment.qScore}`);
+
+      // Verdict should be negative
+      assert.ok(
+        judgment.qVerdict.verdict === 'BARK' || judgment.qVerdict.verdict === 'GROWL',
+        `Should have negative verdict, got ${judgment.qVerdict.verdict}`
+      );
+
+      // Skepticism should flag issues
+      assert.ok(judgment.skepticism, 'Should have skepticism');
+    });
+
+    it('should score and doubt an item with mixed signals', () => {
+      const mixedItem = {
+        id: 'mixed-1',
+        type: 'code',
+        content: 'A utility function that works but has no tests or documentation.',
+        author: 'bob',
+        purpose: 'Process data',
+        // No tests, no docs, no verification
+      };
+
+      const judgment = judge.judge(mixedItem);
+
+      // Should have moderate Q-Score
+      assert.ok(judgment.qScore >= 30 && judgment.qScore <= 70,
+        `Mixed item should have moderate score, got ${judgment.qScore}`);
+
+      // Should detect weaknesses
+      assert.ok(judgment.weaknesses, 'Should have weakness analysis');
+    });
+  });
+
+  describe('Axiom Score Integration', () => {
+    it('should calculate axiom scores that affect skepticism', () => {
+      const item = {
+        id: 'axiom-test-1',
+        type: 'code',
+        content: 'Simple utility function',
+        // Minimal properties
+      };
+
+      const judgment = judge.judge(item);
+
+      // Should have all 4 axiom scores
+      assert.ok(judgment.axiomScores.PHI !== undefined, 'Should have PHI score');
+      assert.ok(judgment.axiomScores.VERIFY !== undefined, 'Should have VERIFY score');
+      assert.ok(judgment.axiomScores.CULTURE !== undefined, 'Should have CULTURE score');
+      assert.ok(judgment.axiomScores.BURN !== undefined, 'Should have BURN score');
+
+      // Axiom scores should influence counter-hypotheses
+      if (judgment.axiomScores.VERIFY < 50) {
+        const verifyHypothesis = judgment.skepticism.counterHypotheses.find(
+          h => h.scenario === 'weak_verify'
+        );
+        assert.ok(verifyHypothesis, 'Should have VERIFY counter-hypothesis for low score');
+      }
+    });
+
+    it('should generate axiom-specific counter-hypotheses', () => {
+      const lowVerifyItem = {
+        id: 'low-verify-1',
+        type: 'claim',
+        content: 'Unverified claim without sources',
+        // No verification indicators
+      };
+
+      const judgment = judge.judge(lowVerifyItem);
+
+      // VERIFY should be low
+      assert.ok(judgment.axiomScores.VERIFY < 50,
+        `VERIFY should be low without verification, got ${judgment.axiomScores.VERIFY}`);
+    });
+  });
+
+  describe('Repeated Judgments and Bias Accumulation', () => {
+    it('should accumulate judgment history for bias detection', () => {
+      // Make several similar judgments
+      for (let i = 0; i < 6; i++) {
+        const item = {
+          id: `repeat-${i}`,
+          type: 'code',
+          content: 'Simple function',
+        };
+        judge.judge(item);
+      }
+
+      const stats = skeptic.getStats();
+      assert.ok(stats.judgmentsDoubled >= 6, 'Should track all judgments');
+    });
+
+    it('should detect confirmation bias pattern in judgments', () => {
+      // Make 5 judgments with WAG verdict to set up pattern
+      for (let i = 0; i < 5; i++) {
+        const item = {
+          id: `confirm-setup-${i}`,
+          type: 'code',
+          content: 'Decent code quality',
+          quality: 60, // Ensures WAG verdict
+        };
+        judge.judge(item);
+      }
+
+      // 6th judgment should potentially trigger confirmation bias
+      const item = {
+        id: 'confirm-trigger',
+        type: 'code',
+        content: 'Similar quality code',
+        quality: 60,
+      };
+      const judgment = judge.judge(item);
+
+      // Check if confirmation bias was detected
+      const stats = skeptic.getStats();
+      // Bias detection depends on verdict consistency - may or may not trigger
+      assert.ok(stats.judgmentsDoubled >= 6);
+    });
+  });
+
+  describe('φ-Bounded Confidence', () => {
+    it('should never exceed φ⁻¹ (61.8%) confidence after skepticism', () => {
+      // Create an item that might score very well
+      const excellentItem = {
+        id: 'excellent-1',
+        type: 'code',
+        content: 'Perfect code with all quality indicators',
+        verified: true,
+        hash: 'sha256:perfect',
+        signature: 'sig:trusted',
+        author: 'expert',
+        original: true,
+        purpose: 'Critical function',
+        tests: true,
+        documentation: true,
+        sources: ['ref1', 'ref2'],
+        quality: 95,
+      };
+
+      const judgment = judge.judge(excellentItem);
+
+      // Even for excellent items, confidence is φ-bounded
+      assert.ok(
+        judgment.confidence <= PHI_INV + 0.001, // Small tolerance for floating point
+        `Confidence should be <= φ⁻¹ (${PHI_INV}), got ${judgment.confidence}`
+      );
+    });
+
+    it('should never go below φ⁻² (38.2%) confidence', () => {
+      // Create a very poor item
+      const terribleItem = {
+        id: 'terrible-1',
+        type: 'unknown',
+        content: 'scam fraud rug pull guaranteed returns anonymous team',
+        tags: ['risk:scam', 'risk:fraud', 'risk:rugpull'],
+        deprecated: true,
+      };
+
+      // Add some age to trigger decay
+      const oldJudgment = judge.judgeRaw(terribleItem);
+      oldJudgment.metadata = { judgedAt: Date.now() - 86400000 * 7 }; // 7 days old
+
+      const skepticism = judge.analyzeSkepticism(oldJudgment);
+
+      // Even with extreme penalties, minimum confidence holds
+      assert.ok(
+        skepticism.adjustedConfidence >= PHI_INV_2 - 0.001, // Small tolerance
+        `Confidence should be >= φ⁻² (${PHI_INV_2}), got ${skepticism.adjustedConfidence}`
+      );
+    });
+  });
+
+  describe('Skepticism Recommendations', () => {
+    it('should recommend seeking confirmation for high skepticism', () => {
+      const uncertainItem = {
+        id: 'uncertain-1',
+        type: 'claim',
+        content: 'Extraordinary claim without evidence',
+        qScore: 95, // Will trigger extreme score flag
+      };
+
+      // Create judgment manually to control qScore
+      const rawJudgment = judge.judgeRaw(uncertainItem);
+      rawJudgment.qScore = 95; // Force extreme score
+
+      const skepticism = skeptic.doubt(rawJudgment);
+
+      // Should have recommendations
+      assert.ok(skepticism.recommendation.length > 0, 'Should have recommendations');
+    });
+
+    it('should provide bias mitigation recommendations when biases detected', () => {
+      // Set up overconfidence scenario
+      const overconfidentItem = {
+        id: 'overconf-item-1',
+        type: 'code',
+        content: 'Code with high variance in dimension scores',
+      };
+
+      const rawJudgment = judge.judgeRaw(overconfidentItem);
+      // Simulate conditions for overconfidence
+      rawJudgment.confidence = 0.55;
+      rawJudgment.dimensions = { THE_UNNAMEABLE: 30 };
+      rawJudgment.weaknesses = { hasWeakness: true, gap: 25 };
+
+      const skepticism = skeptic.doubt(rawJudgment);
+
+      // If overconfidence detected, should have bias mitigation recommendation
+      const overconfBias = skepticism.biases.find(b => b.type === BiasType.OVERCONFIDENCE);
+      if (overconfBias) {
+        const biasMitigation = skepticism.recommendation.find(r => r.action === 'bias_mitigation');
+        assert.ok(biasMitigation, 'Should have bias mitigation recommendation');
+      }
+    });
+  });
+
+  describe('THE_UNNAMEABLE Integration', () => {
+    it('should include THE_UNNAMEABLE in dimension scores', () => {
+      const item = {
+        id: 'unnameable-1',
+        type: 'code',
+        content: 'Standard code item',
+      };
+
+      const judgment = judge.judge(item);
+
+      assert.ok(
+        judgment.dimensions.THE_UNNAMEABLE !== undefined,
+        'Should have THE_UNNAMEABLE dimension'
+      );
+      assert.ok(
+        judgment.dimensions.THE_UNNAMEABLE >= 0 && judgment.dimensions.THE_UNNAMEABLE <= 100,
+        'THE_UNNAMEABLE should be 0-100'
+      );
+    });
+
+    it('should use low THE_UNNAMEABLE to detect overconfidence', () => {
+      const item = {
+        id: 'unnameable-2',
+        type: 'code',
+        content: 'Item with high dimension variance',
+      };
+
+      const rawJudgment = judge.judgeRaw(item);
+      // Force low THE_UNNAMEABLE (high unexplained variance)
+      rawJudgment.dimensions.THE_UNNAMEABLE = 25;
+      rawJudgment.confidence = 0.55;
+
+      const skepticism = skeptic.doubt(rawJudgment);
+
+      // Should detect overconfidence with low UNNAMEABLE
+      const overconfBias = skepticism.biases.find(b => b.type === BiasType.OVERCONFIDENCE);
+      assert.ok(overconfBias, 'Should detect overconfidence with low THE_UNNAMEABLE');
+    });
+  });
+
+  describe('Statistics Consistency', () => {
+    it('should maintain consistent stats between judge and skeptic', () => {
+      for (let i = 0; i < 5; i++) {
+        judge.judge({
+          id: `stat-item-${i}`,
+          type: 'code',
+          content: 'Test item',
+        });
+      }
+
+      const judgeStats = judge.getStats();
+      const skepticStats = skeptic.getStats();
+
+      // Judge should track total judgments
+      assert.strictEqual(judgeStats.totalJudgments, 5);
+
+      // Skeptic should track doubted judgments
+      assert.strictEqual(skepticStats.judgmentsDoubled, 5);
+    });
+  });
+});

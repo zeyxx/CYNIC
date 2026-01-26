@@ -2,6 +2,8 @@
 
 > Hybrid persistence layer: PostgreSQL + Redis + Merkle DAG + PoJ Chain.
 
+**Last Updated**: 2026-01-21
+
 ---
 
 ## Overview

@@ -106,4 +106,4 @@ brain_discovery({ action: "stats" })
 
 - `/health` - System health
 - `/patterns` - Detected patterns
-- [ecosystem-docs.md](ecosystem-docs.md) - Full documentation
+- [docs/ARCHITECTURE.md](../../../docs/ARCHITECTURE.md) - System architecture

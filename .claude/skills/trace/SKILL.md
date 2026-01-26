@@ -89,4 +89,4 @@ brain_poj_chain({ action: "recent", limit: 5 })
 
 - `/judge` - Create new judgments
 - `/health` - Check chain health
-- [poj-chain.md](poj-chain.md) - PoJ technical details
+- [docs/ARCHITECTURE.md](../../../docs/ARCHITECTURE.md) - PoJ technical details

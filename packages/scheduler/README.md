@@ -2,6 +2,8 @@
 
 > φ-weighted transaction scheduling for Solana validators
 
+**Last Updated**: 2026-01-23
+
 ## Overview
 
 CYNIC Scheduler is an external scheduler for Agave validators that integrates CYNIC reputation scores (K-Score, E-Score) into transaction prioritization.

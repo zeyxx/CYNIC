@@ -2,6 +2,8 @@
 
 > Core constants, axioms, and foundational modules for CYNIC.
 
+**Last Updated**: 2026-01-21
+
 ---
 
 ## Overview

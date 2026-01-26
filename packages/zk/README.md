@@ -2,6 +2,8 @@
 
 > Zero-knowledge proofs for CYNIC judgments using Noir.
 
+**Last Updated**: 2026-01-21
+
 ---
 
 ## Overview

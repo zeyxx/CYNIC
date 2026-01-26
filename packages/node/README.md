@@ -2,6 +2,8 @@
 
 > CYNIC node implementation - the runtime for collective consciousness.
 
+**Last Updated**: 2026-01-21
+
 ---
 
 ## Overview

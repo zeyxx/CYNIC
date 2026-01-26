@@ -2,6 +2,8 @@
 
 > Solana on-chain burn verification for the CYNIC ecosystem.
 
+**Last Updated**: 2026-01-21
+
 ---
 
 ## Overview

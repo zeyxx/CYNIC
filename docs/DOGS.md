@@ -4,6 +4,8 @@
 >
 > The Dogs are CYNIC's autonomous agents, each with a specialized role.
 
+**Last Updated**: 2026-01-27
+
 ---
 
 ## Overview
@@ -191,24 +193,8 @@ eventBus.publish(new AgentEvent(...))
 
 ## MCP Tools
 
-### `brain_agents_status`
-Returns V1 Legacy agent statistics.
-
-```json
-{
-  "enabled": true,
-  "stats": { "eventsProcessed": 42, "blocks": 2, "warnings": 5 },
-  "dogs": {
-    "guardian": { "blocks": 2, "warnings": 3 },
-    "observer": { "patterns": 15 },
-    "digester": { "digests": 8 },
-    "mentor": { "wisdomShared": 12 }
-  }
-}
-```
-
 ### `brain_collective_status`
-Returns V2 Collective status with Sefirot mappings.
+Returns the unified Collective status with Sefirot mappings. **This is the primary tool.**
 
 ```json
 {
@@ -224,6 +210,12 @@ Returns V2 Collective status with Sefirot mappings.
   }
 }
 ```
+
+### `brain_agents_status` (DEPRECATED)
+
+> **Note**: This tool is deprecated. Use `brain_collective_status` instead.
+>
+> Kept for backwards compatibility, returns collective status with a deprecation warning.
 
 ---
 

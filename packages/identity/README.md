@@ -2,6 +2,8 @@
 
 > Node identity, E-Score, and reputation management.
 
+**Last Updated**: 2026-01-21
+
 ---
 
 ## Overview
