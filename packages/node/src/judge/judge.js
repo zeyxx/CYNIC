@@ -38,9 +38,10 @@ import {
   getDimensionsForAxiom,
   getTotalWeight,
   getAxiomTotalWeight,
-  dimensionRegistry,
+  dimensionRegistry as legacyRegistry,
 } from './dimensions.js';
 import { createRealScorer } from './scorers.js';
+import { DimensionRegistry, globalDimensionRegistry } from './dimension-registry.js';
 
 /**
  * CYNIC Judge - The judgment engine
@@ -59,11 +60,16 @@ export class CYNICJudge {
    * @param {Object} [options.eScoreProvider] - E-Score provider for vote weighting
    * @param {import('./engine-integration.js').EngineIntegration} [options.engineIntegration] - 73 philosophy engines
    * @param {boolean} [options.consultEngines=false] - Whether to consult engines during judgment
+   * @param {DimensionRegistry} [options.dimensionRegistry] - Custom dimension registry (Phase 3 plugin system)
    */
   constructor(options = {}) {
     this.customDimensions = options.customDimensions || {};
     // Use real scorer by default, allow custom override
     this.customScorer = options.scorer !== undefined ? options.scorer : createRealScorer();
+
+    // Dimension registry for runtime extension (Phase 3)
+    // Uses global registry by default, can be injected for testing
+    this.dimensionRegistry = options.dimensionRegistry || globalDimensionRegistry;
     this.learningService = options.learningService || null;
     this.selfSkeptic = options.selfSkeptic || null;
     this.residualDetector = options.residualDetector || null;
@@ -140,6 +146,82 @@ export class CYNICJudge {
    */
   setConsultEngines(enabled) {
     this.consultEngines = enabled;
+  }
+
+  /**
+   * Set dimension registry (for post-construction injection)
+   * Enables Phase 3 plugin system for runtime dimension extension
+   * @param {DimensionRegistry} registry - Dimension registry instance
+   */
+  setDimensionRegistry(registry) {
+    this.dimensionRegistry = registry;
+  }
+
+  /**
+   * Register a custom dimension with scorer (Phase 3 plugin API)
+   *
+   * @param {string} axiom - Axiom (PHI, VERIFY, CULTURE, BURN)
+   * @param {string} name - Dimension name (UPPER_SNAKE_CASE)
+   * @param {Object} config - Dimension configuration
+   * @param {number} config.weight - Score weight (0.1-2.0)
+   * @param {number} config.threshold - Minimum threshold (0-100)
+   * @param {string} config.description - Human-readable description
+   * @param {Function} [config.scorer] - Scorer function(item, context) => number
+   * @returns {boolean} Success
+   *
+   * @example
+   * judge.registerDimension('VERIFY', 'BLOCKCHAIN_PROOF', {
+   *   weight: 1.5,
+   *   threshold: 70,
+   *   description: 'On-chain verification available',
+   *   scorer: (item) => item.onchainProof ? 100 : 0,
+   * });
+   */
+  registerDimension(axiom, name, config) {
+    if (!this.dimensionRegistry) {
+      console.warn('[CYNICJudge] No dimension registry available');
+      return false;
+    }
+    return this.dimensionRegistry.register(axiom, name, config);
+  }
+
+  /**
+   * Register a dimension plugin (Phase 3)
+   *
+   * @param {Object} plugin - Plugin definition
+   * @returns {boolean} Success
+   *
+   * @example
+   * judge.registerPlugin({
+   *   name: 'crypto-dimensions',
+   *   version: '1.0.0',
+   *   dimensions: [
+   *     { axiom: 'VERIFY', name: 'ONCHAIN_PROOF', config: { ... } },
+   *   ],
+   * });
+   */
+  registerPlugin(plugin) {
+    if (!this.dimensionRegistry) {
+      console.warn('[CYNICJudge] No dimension registry available');
+      return false;
+    }
+    return this.dimensionRegistry.registerPlugin(plugin);
+  }
+
+  /**
+   * Get loaded plugins
+   * @returns {Object} Plugin metadata
+   */
+  getPlugins() {
+    return this.dimensionRegistry?.getPlugins() || {};
+  }
+
+  /**
+   * Get dimension registry statistics
+   * @returns {Object|null} Registry stats
+   */
+  getRegistryStats() {
+    return this.dimensionRegistry?.getStats() || null;
   }
 
   /**
@@ -294,18 +376,38 @@ export class CYNICJudge {
       if (axiom === 'META') continue; // THE_UNNAMEABLE calculated below
 
       for (const [dimName, config] of Object.entries(dims)) {
-        scores[dimName] = this._scoreDimension(dimName, config, item, context);
+        scores[dimName] = this._scoreDimension(dimName, config, item, context, axiom);
       }
     }
 
-    // Score custom dimensions
+    // Score custom dimensions (legacy API)
     for (const [dimName, config] of Object.entries(this.customDimensions)) {
-      scores[dimName] = this._scoreDimension(dimName, config, item, context);
+      scores[dimName] = this._scoreDimension(dimName, config, item, context, config.axiom);
     }
 
-    // Score discovered dimensions from registry
-    for (const [dimName, config] of Object.entries(dimensionRegistry.getAll())) {
-      scores[dimName] = this._scoreDimension(dimName, config, item, context);
+    // Score dimensions from DimensionRegistry (Phase 3 plugin system)
+    // This allows runtime extension of dimensions
+    if (this.dimensionRegistry) {
+      const registeredDims = this.dimensionRegistry.getAll();
+      for (const [dimName, config] of Object.entries(registeredDims)) {
+        // Skip if already scored (core dimensions)
+        if (scores[dimName] !== undefined) continue;
+
+        // Try registry scorer first
+        const registryScore = this.dimensionRegistry.score(config.axiom, dimName, item, context);
+        if (registryScore !== null) {
+          scores[dimName] = registryScore;
+        } else {
+          scores[dimName] = this._scoreDimension(dimName, config, item, context, config.axiom);
+        }
+      }
+    }
+
+    // Legacy support: Score discovered dimensions from old registry
+    for (const [dimName, config] of Object.entries(legacyRegistry.getAll())) {
+      if (scores[dimName] === undefined) {
+        scores[dimName] = this._scoreDimension(dimName, config, item, context, config.axiom);
+      }
     }
 
     // Calculate THE_UNNAMEABLE (25th dimension) based on score variance
@@ -347,9 +449,34 @@ export class CYNICJudge {
   /**
    * Score single dimension
    * @private
+   * @param {string} name - Dimension name
+   * @param {Object} config - Dimension config
+   * @param {Object} item - Item to score
+   * @param {Object} context - Scoring context
+   * @param {string} [axiom] - Axiom name (for registry lookup)
    */
-  _scoreDimension(name, config, item, context) {
-    // Use custom scorer if provided
+  _scoreDimension(name, config, item, context, axiom) {
+    // Try dimension-specific scorer from config first
+    if (config.scorer && typeof config.scorer === 'function') {
+      try {
+        const score = config.scorer(item, context);
+        if (score !== null && score !== undefined) {
+          return Math.min(Math.max(score, 0), 100);
+        }
+      } catch (e) {
+        // Fall through to other scorers
+      }
+    }
+
+    // Try registry scorer (Phase 3)
+    if (axiom && this.dimensionRegistry) {
+      const registryScore = this.dimensionRegistry.score(axiom, name, item, context);
+      if (registryScore !== null) {
+        return registryScore;
+      }
+    }
+
+    // Use custom scorer if provided (legacy API)
     if (this.customScorer) {
       const score = this.customScorer(name, item, context);
       if (score !== null && score !== undefined) {

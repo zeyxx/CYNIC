@@ -7,6 +7,7 @@
  */
 
 export * from './dimensions.js';
+export * from './dimension-registry.js';
 export * from './judge.js';
 export * from './scorers.js';
 export * from './residual.js';

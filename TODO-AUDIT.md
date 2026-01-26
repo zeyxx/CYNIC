@@ -99,9 +99,18 @@
   - `packages/node/src/components/emergence-component.js`
   - Encapsulates: EmergenceLayer, SharedMemory, CollectivePack, EventBus
 
-### Phase 3: Plugin System (PENDING)
-- [ ] #33 Create DimensionRegistry for runtime extension
-- [ ] #34 Update CYNICJudge to use DimensionRegistry
+### Phase 3: Plugin System ✓ COMPLETED
+- [x] #33 Create DimensionRegistry for runtime extension
+  - `packages/node/src/judge/dimension-registry.js`
+  - Event-driven, validated dimension registration
+  - Plugin API with registerPlugin/unloadPlugin
+  - Scorer registration per dimension
+  - Backward compatible with legacy registry
+- [x] #34 Update CYNICJudge to use DimensionRegistry
+  - Added dimensionRegistry option to constructor
+  - registerDimension() and registerPlugin() methods
+  - Registry scorers take priority in scoring pipeline
+  - getPlugins() and getRegistryStats() for introspection
 
 ### Phase 4: Dead Code Cleanup (PENDING)
 - [ ] #35 Archive 119 dead modules in scripts/lib/ (82.6% unused)
@@ -132,6 +141,10 @@
   - `judge-component.js` - Judgment & learning domain
   - `emergence-component.js` - Consciousness & patterns domain
   - `index.js` - Component exports
+- `packages/node/src/judge/dimension-registry.js` - Plugin System (Phase 3):
+  - Runtime dimension registration with validation
+  - Plugin API for extensions
+  - Event-driven architecture
 - `packages/node/src/judge/scorers/` - Modular scorer directory:
   - `utils.js` - Shared utilities
   - `phi-axiom.js` - PHI dimension scorers
