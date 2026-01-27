@@ -19,6 +19,7 @@ import { DevView } from './views/dev.js';
 import { ArchView } from './views/arch.js';
 import { LiveView } from './views/live.js';
 import { KnowledgeView } from './views/knowledge.js';
+import { MemoryView } from './views/memory.js';
 import { AutonomyView } from './views/autonomy.js';
 import { SingularityView } from './views/singularity.js';
 
@@ -138,7 +139,11 @@ class App {
     this.views.knowledge = new KnowledgeView({ api });
     this.views.knowledge.init(document.getElementById('view-knowledge'));
 
-    // Autonomy view (decisions, self-modification, emergence)
+    // Memory view (Phase 16: Total Memory - search, decisions, lessons, timeline)
+    this.views.memory = new MemoryView({ api });
+    this.views.memory.render(document.getElementById('view-memory'));
+
+    // Autonomy view (Phase 16 + 2.4: goals, tasks, notifications, decisions, self-mod, emergence)
     this.views.autonomy = new AutonomyView({ api });
     this.views.autonomy.render(document.getElementById('view-autonomy'));
 
@@ -206,6 +211,9 @@ class App {
         break;
       case 'knowledge':
         // Knowledge view handles its own real-time updates via SSE
+        break;
+      case 'memory':
+        await this.views.memory.refresh();
         break;
       case 'autonomy':
         await this.views.autonomy.refresh();

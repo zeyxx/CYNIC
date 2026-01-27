@@ -1053,3 +1053,368 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ============================================
+   PHASE 16: GOALS TAB
+   ============================================ */
+
+.goals-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.goals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.goal-card {
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.goal-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.goal-card.goal-active {
+  border-left: 3px solid #22c55e;
+}
+
+.goal-card.goal-paused {
+  border-left: 3px solid #eab308;
+}
+
+.goal-card.goal-completed {
+  border-left: 3px solid #3b82f6;
+}
+
+.goal-card.goal-abandoned {
+  border-left: 3px solid #6b7280;
+}
+
+.goal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.goal-icon {
+  font-size: 1.25rem;
+}
+
+.goal-type {
+  padding: 0.25rem 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.goal-status {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.goal-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.goal-description {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.5;
+}
+
+.goal-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  min-width: 40px;
+  text-align: right;
+}
+
+/* ============================================
+   PHASE 16: TASKS TAB
+   ============================================ */
+
+.tasks-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.task-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+}
+
+.task-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+
+.stat-icon {
+  font-size: 1.5rem;
+}
+
+.stat-count {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.task-card {
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.task-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.task-card.task-pending {
+  border-left: 3px solid #6b7280;
+}
+
+.task-card.task-running {
+  border-left: 3px solid #3b82f6;
+}
+
+.task-card.task-completed {
+  border-left: 3px solid #22c55e;
+}
+
+.task-card.task-failed {
+  border-left: 3px solid #ef4444;
+}
+
+.task-card.task-retry {
+  border-left: 3px solid #f97316;
+}
+
+.task-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.task-icon {
+  font-size: 1.25rem;
+}
+
+.task-type {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.task-status {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.task-meta {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.task-error {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #ef4444;
+}
+
+/* ============================================
+   PHASE 16: NOTIFICATIONS TAB
+   ============================================ */
+
+.notifications-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.notifications-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.notification-card {
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.notification-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.notification-card.notification-insight {
+  border-left: 3px solid #8b5cf6;
+}
+
+.notification-card.notification-warning {
+  border-left: 3px solid #f97316;
+}
+
+.notification-card.notification-reminder {
+  border-left: 3px solid #3b82f6;
+}
+
+.notification-card.notification-achievement {
+  border-left: 3px solid #22c55e;
+}
+
+.notification-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.notification-icon {
+  font-size: 1.25rem;
+}
+
+.notification-type {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.notification-delivered {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.notification-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.notification-message {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.5;
+}
+
+/* ============================================
+   PHASE 16: EMPTY STATES
+   ============================================ */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 3rem;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  opacity: 0.5;
+}
+
+.empty-state p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.empty-hint {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* ============================================
+   PHASE 16: TAB HEADER
+   ============================================ */
+
+.tab-header {
+  margin-bottom: 1.5rem;
+}
+
+.tab-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.tab-header .tab-description {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 0.25rem;
+}

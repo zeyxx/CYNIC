@@ -6,7 +6,7 @@
 export class Router {
   constructor() {
     this.currentMode = 'operator';
-    this.modes = ['operator', 'dev', 'arch', 'live', 'knowledge', 'autonomy', 'singularity'];
+    this.modes = ['operator', 'dev', 'arch', 'live', 'knowledge', 'memory', 'autonomy', 'singularity'];
     this.listeners = new Map();
     this.history = [];
   }
