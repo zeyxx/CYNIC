@@ -295,6 +295,130 @@ export class RedisClient {
   }
 
   // ==========================================================================
+  // BATCH OPERATIONS
+  // ==========================================================================
+
+  /**
+   * Get multiple keys in one round-trip
+   * @param {string[]} keys - Keys to fetch
+   * @returns {Promise<Map<string, any>>} Map of key → value (null for missing)
+   */
+  async mget(keys) {
+    if (!keys || keys.length === 0) return new Map();
+
+    return this._executeProtected(async () => {
+      const values = await this.client.mget(...keys);
+      const result = new Map();
+
+      keys.forEach((key, i) => {
+        const value = values[i];
+        if (value) {
+          try {
+            result.set(key, JSON.parse(value));
+          } catch {
+            result.set(key, value);
+          }
+        } else {
+          result.set(key, null);
+        }
+      });
+
+      return result;
+    });
+  }
+
+  /**
+   * Set multiple keys in one round-trip
+   * @param {Map<string, any>|Object} entries - Key-value pairs
+   * @param {number} [ttl] - Optional TTL for all keys
+   */
+  async mset(entries, ttl = null) {
+    const map = entries instanceof Map ? entries : new Map(Object.entries(entries));
+    if (map.size === 0) return;
+
+    return this._executeProtected(async () => {
+      if (ttl) {
+        // With TTL: use pipeline for atomic SETEX commands
+        const pipeline = this.client.pipeline();
+        for (const [key, value] of map) {
+          const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+          pipeline.setex(key, ttl, serialized);
+        }
+        await pipeline.exec();
+      } else {
+        // Without TTL: use native MSET
+        const args = [];
+        for (const [key, value] of map) {
+          args.push(key, typeof value === 'string' ? value : JSON.stringify(value));
+        }
+        await this.client.mset(...args);
+      }
+    });
+  }
+
+  /**
+   * Delete multiple keys in one round-trip
+   * @param {string[]} keys - Keys to delete
+   * @returns {Promise<number>} Number of keys deleted
+   */
+  async mdel(keys) {
+    if (!keys || keys.length === 0) return 0;
+    return this._executeProtected(() => this.client.del(...keys));
+  }
+
+  /**
+   * Execute multiple commands in a pipeline (batched round-trip)
+   * @param {Function} callback - Receives pipeline, call commands on it
+   * @returns {Promise<Array>} Results array
+   * @example
+   * const results = await redis.pipeline(p => {
+   *   p.get('key1');
+   *   p.set('key2', 'value');
+   *   p.incr('counter');
+   * });
+   */
+  async pipeline(callback) {
+    return this._executeProtected(async () => {
+      const p = this.client.pipeline();
+      callback(p);
+      const results = await p.exec();
+      // ioredis returns [[err, result], ...] - extract results
+      return results.map(([err, result]) => {
+        if (err) throw err;
+        return result;
+      });
+    });
+  }
+
+  /**
+   * Scan keys matching pattern (cursor-based, memory-safe)
+   * @param {string} pattern - Glob pattern (e.g., 'cynic:session:*')
+   * @param {number} [count=100] - Hint for batch size
+   * @returns {AsyncGenerator<string>} Yields keys
+   */
+  async *scan(pattern, count = 100) {
+    let cursor = '0';
+    do {
+      const [nextCursor, keys] = await this._executeProtected(() =>
+        this.client.scan(cursor, 'MATCH', pattern, 'COUNT', count)
+      );
+      cursor = nextCursor;
+      for (const key of keys) {
+        yield key;
+      }
+    } while (cursor !== '0');
+  }
+
+  /**
+   * Get all keys matching pattern (use scan for large datasets)
+   * @param {string} pattern - Glob pattern
+   * @returns {Promise<string[]>} Matching keys
+   */
+  async keys(pattern) {
+    return this._executeProtected(() => this.client.keys(pattern));
+  }
+
+  // ==========================================================================
   // SESSION OPERATIONS
   // ==========================================================================
 
@@ -312,6 +436,40 @@ export class RedisClient {
 
   async touchSession(sessionId, ttl = TTL.SESSION) {
     return this.expire(`${PREFIX.SESSION}${sessionId}`, ttl);
+  }
+
+  /**
+   * Get multiple sessions in one round-trip
+   * @param {string[]} sessionIds - Session IDs
+   * @returns {Promise<Map<string, Object>>} Map of sessionId → session
+   */
+  async getSessions(sessionIds) {
+    if (!sessionIds || sessionIds.length === 0) return new Map();
+    const keys = sessionIds.map(id => `${PREFIX.SESSION}${id}`);
+    const results = await this.mget(keys);
+
+    // Remap keys back to session IDs
+    const sessions = new Map();
+    sessionIds.forEach((id, i) => {
+      sessions.set(id, results.get(keys[i]));
+    });
+    return sessions;
+  }
+
+  /**
+   * Set multiple sessions in one round-trip
+   * @param {Map<string, Object>|Object} sessions - sessionId → data
+   * @param {number} [ttl] - TTL (default: SESSION TTL)
+   */
+  async setSessions(sessions, ttl = TTL.SESSION) {
+    const map = sessions instanceof Map ? sessions : new Map(Object.entries(sessions));
+    if (map.size === 0) return;
+
+    const entries = new Map();
+    for (const [id, data] of map) {
+      entries.set(`${PREFIX.SESSION}${id}`, data);
+    }
+    await this.mset(entries, ttl);
   }
 
   /**
