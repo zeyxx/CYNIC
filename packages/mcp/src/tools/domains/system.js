@@ -445,6 +445,134 @@ export function createAgentDiagnosticTool(collective) {
 }
 
 /**
+ * Create consensus tool for inter-agent voting
+ * @param {Object} collective - CollectivePack instance
+ * @returns {Object} Tool definition
+ */
+export function createConsensusTool(collective) {
+  return {
+    name: 'brain_consensus',
+    description: 'Request inter-agent consensus voting. Ask the 11 Dogs (Sefirot) to vote on a question. Use for important decisions that benefit from collective wisdom. Returns voting results with approval/rejection based on φ⁻¹ (61.8%) threshold.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        question: {
+          type: 'string',
+          description: 'The question to vote on (e.g., "Should we proceed with this risky operation?")',
+        },
+        context: {
+          type: 'object',
+          description: 'Additional context for agents to consider when voting',
+          properties: {
+            content: { type: 'string', description: 'Main content being evaluated' },
+            risk: { type: 'string', enum: ['low', 'medium', 'high', 'critical'], description: 'Risk level' },
+            domain: { type: 'string', description: 'Domain of the decision (security, design, knowledge, etc.)' },
+          },
+        },
+        requiredVotes: {
+          type: 'number',
+          description: 'Minimum votes required (default: 3)',
+          default: 3,
+        },
+        timeout: {
+          type: 'number',
+          description: 'Timeout in milliseconds (default: 10000)',
+          default: 10000,
+        },
+      },
+      required: ['question'],
+    },
+    handler: async (params) => {
+      const { question, context = {}, requiredVotes = 3, timeout = 10000 } = params;
+
+      if (!collective) {
+        return {
+          status: 'unavailable',
+          message: '*growl* Collective not initialized. Cannot request consensus.',
+          timestamp: Date.now(),
+        };
+      }
+
+      if (!collective.eventBus) {
+        return {
+          status: 'error',
+          message: '*sniff* EventBus not available on collective.',
+          timestamp: Date.now(),
+        };
+      }
+
+      try {
+        // Use eventBus.requestConsensus if available
+        if (collective.eventBus.requestConsensus) {
+          const result = await collective.eventBus.requestConsensus('keter', {
+            question,
+            options: ['APPROVE', 'REJECT'],
+            context,
+            requiredVotes,
+            timeout,
+          });
+
+          return {
+            status: 'completed',
+            approved: result.approved,
+            reason: result.reason,
+            votes: result.votes,
+            threshold: PHI_INV,
+            timestamp: Date.now(),
+          };
+        }
+
+        // Fallback: Manual voting simulation via agents
+        const votes = [];
+        const agentNames = ['guardian', 'analyst', 'scholar', 'architect', 'sage'];
+
+        for (const agentName of agentNames) {
+          const agent = collective[agentName];
+          if (agent && agent.vote) {
+            try {
+              const vote = await agent.vote(question, context);
+              votes.push({ agent: agentName, vote: vote.decision, reason: vote.reason });
+            } catch (e) {
+              votes.push({ agent: agentName, vote: 'ABSTAIN', reason: e.message });
+            }
+          }
+        }
+
+        // Calculate consensus (φ⁻¹ = 61.8% threshold)
+        const approveCount = votes.filter(v => v.vote === 'APPROVE').length;
+        const rejectCount = votes.filter(v => v.vote === 'REJECT').length;
+        const totalVotes = votes.length;
+        const approvalRatio = totalVotes > 0 ? approveCount / totalVotes : 0;
+        const approved = approvalRatio >= PHI_INV;
+
+        return {
+          status: 'completed',
+          approved,
+          reason: approved
+            ? `Consensus reached (${(approvalRatio * 100).toFixed(1)}% approval)`
+            : `Consensus not reached (${(approvalRatio * 100).toFixed(1)}% approval, need ${(PHI_INV * 100).toFixed(1)}%)`,
+          votes,
+          stats: {
+            approve: approveCount,
+            reject: rejectCount,
+            total: totalVotes,
+            ratio: approvalRatio,
+            threshold: PHI_INV,
+          },
+          timestamp: Date.now(),
+        };
+      } catch (e) {
+        return {
+          status: 'error',
+          message: `*growl* Consensus failed: ${e.message}`,
+          timestamp: Date.now(),
+        };
+      }
+    },
+  };
+}
+
+/**
  * Factory for system domain tools
  */
 export const systemFactory = {
@@ -483,6 +611,7 @@ export const systemFactory = {
       tools.push(createCollectiveStatusTool(collective));
       tools.push(createAgentsStatusTool(collective));
       tools.push(createAgentDiagnosticTool(collective));
+      tools.push(createConsensusTool(collective));
     }
 
     return tools;

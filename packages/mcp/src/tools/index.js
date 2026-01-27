@@ -150,13 +150,14 @@ export {
 
 // NOTE: Ecosystem tools moved to domains/ecosystem.js
 
-// System domain (health, metrics, collective_status, agents_status, agent_diagnostic)
+// System domain (health, metrics, collective_status, agents_status, agent_diagnostic, consensus)
 import {
   createHealthTool,
   createAgentsStatusTool,
   createMetricsTool,
   createCollectiveStatusTool,
   createAgentDiagnosticTool,
+  createConsensusTool,
   systemFactory,
 } from './domains/system.js';
 
@@ -166,6 +167,7 @@ export {
   createMetricsTool,
   createCollectiveStatusTool,
   createAgentDiagnosticTool,
+  createConsensusTool,
   systemFactory,
 };
 
@@ -290,6 +292,7 @@ export function createAllTools(options = {}) {
     createAgentsStatusTool(collective), // DEPRECATED: redirects to Collective
     createCollectiveStatusTool(collective), // The Eleven Dogs + CYNIC (Keter)
     createAgentDiagnosticTool(collective),
+    createConsensusTool(collective), // Inter-agent voting (φ⁻¹ threshold)
     createSessionStartTool(sessionManager),
     createSessionEndTool(sessionManager),
     createProfileSyncTool(persistence),  // Cross-session memory: sync profile to DB
@@ -358,7 +361,8 @@ export default {
   createPatternsTool,
   createFeedbackTool,
   createAgentsStatusTool,
-  createCollectiveStatusTool, // NEW: The Five Dogs + CYNIC
+  createCollectiveStatusTool, // The Five Dogs + CYNIC
+  createConsensusTool, // Inter-agent voting
   createSessionStartTool,
   createSessionEndTool,
   createProfileSyncTool,
