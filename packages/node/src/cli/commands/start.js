@@ -291,6 +291,13 @@ export async function startCommand(options) {
     }
   });
 
+  // CRITICAL: Route incoming messages to gossip protocol
+  transport.on('message', ({ message, peerId }) => {
+    gossip.handleMessage(message, peerId).catch(err => {
+      console.log(chalk.red('  [MSG-ERR] ') + `${err.message}`);
+    });
+  });
+
   // Track required outbound connections for auto-reconnect
   const requiredPeers = new Set(); // addresses we should stay connected to
 
