@@ -173,10 +173,25 @@ function formatSleepMessage(profile, summary, syncFailures = []) {
 
 async function main() {
   try {
-    // Read hook context from stdin (may contain session info)
+    // Read stdin - try sync first, fall back to async (ESM stdin fix)
+    const fs = await import('fs');
     let input = '';
-    for await (const chunk of process.stdin) {
-      input += chunk;
+
+    try {
+      input = fs.readFileSync(0, 'utf8');
+      if (process.env.CYNIC_DEBUG) console.error('[SLEEP] Sync read:', input.length, 'bytes');
+    } catch (syncErr) {
+      if (process.env.CYNIC_DEBUG) console.error('[SLEEP] Sync failed:', syncErr.message);
+      input = await new Promise((resolve) => {
+        let data = '';
+        process.stdin.setEncoding('utf8');
+        process.stdin.on('data', chunk => { data += chunk; });
+        process.stdin.on('end', () => resolve(data));
+        process.stdin.on('error', () => resolve(''));
+        process.stdin.resume();
+        setTimeout(() => resolve(data), 3000);
+      });
+      if (process.env.CYNIC_DEBUG) console.error('[SLEEP] Async read:', input.length, 'bytes');
     }
 
     let hookContext = {};

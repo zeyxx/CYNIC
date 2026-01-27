@@ -66,7 +66,7 @@ const BASH_DANGER_PATTERNS = [
     action: 'block'
   },
   {
-    pattern: />\s*/dev/sd[a-z]/,
+    pattern: />\s*\/dev\/sd[a-z]/,
     severity: 'critical',
     message: 'Direct disk write',
     action: 'block'
@@ -78,7 +78,7 @@ const BASH_DANGER_PATTERNS = [
     action: 'block'
   },
   {
-    pattern: /dd\s+.*of=/dev/sd/,
+    pattern: /dd\s+.*of=\/dev\/sd/,
     severity: 'critical',
     message: 'Direct disk write with dd',
     action: 'block'
@@ -262,10 +262,30 @@ function formatGuardianResponse(issues, toolName, profile) {
 
 async function main() {
   try {
-    // Read hook context from stdin
+    // Read stdin - try sync first, fall back to async (ESM stdin fix)
+    const fs = await import('fs');
     let input = '';
-    for await (const chunk of process.stdin) {
-      input += chunk;
+
+    try {
+      input = fs.readFileSync(0, 'utf8');
+      if (process.env.CYNIC_DEBUG) console.error('[GUARD] Sync read:', input.length, 'bytes');
+    } catch (syncErr) {
+      if (process.env.CYNIC_DEBUG) console.error('[GUARD] Sync failed:', syncErr.message);
+      input = await new Promise((resolve) => {
+        let data = '';
+        process.stdin.setEncoding('utf8');
+        process.stdin.on('data', chunk => { data += chunk; });
+        process.stdin.on('end', () => resolve(data));
+        process.stdin.on('error', () => resolve(''));
+        process.stdin.resume();
+        setTimeout(() => resolve(data), 3000);
+      });
+      if (process.env.CYNIC_DEBUG) console.error('[GUARD] Async read:', input.length, 'bytes');
+    }
+
+    if (!input || input.trim().length === 0) {
+      console.log(JSON.stringify({ continue: true }));
+      return;
     }
 
     const hookContext = JSON.parse(input);

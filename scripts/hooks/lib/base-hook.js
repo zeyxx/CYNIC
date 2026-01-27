@@ -96,13 +96,31 @@ export class BaseHook {
 
   /**
    * Read and parse hook context from stdin
+   * Uses robust sync-first approach for ESM compatibility
    *
    * @returns {Promise<Object>} Parsed context
    */
   async readContext() {
+    const fs = await import('fs');
     let input = '';
-    for await (const chunk of process.stdin) {
-      input += chunk;
+
+    // Try synchronous read first (works when piped before module load)
+    try {
+      input = fs.readFileSync(0, 'utf8');
+      if (process.env.CYNIC_DEBUG) this.log('debug', 'Sync read', { bytes: input.length });
+    } catch (syncErr) {
+      if (process.env.CYNIC_DEBUG) this.log('debug', 'Sync failed', { error: syncErr.message });
+      // Fall back to async read with timeout
+      input = await new Promise((resolve) => {
+        let data = '';
+        process.stdin.setEncoding('utf8');
+        process.stdin.on('data', chunk => { data += chunk; });
+        process.stdin.on('end', () => resolve(data));
+        process.stdin.on('error', () => resolve(''));
+        process.stdin.resume();
+        setTimeout(() => resolve(data), 3000);
+      });
+      if (process.env.CYNIC_DEBUG) this.log('debug', 'Async read', { bytes: input.length });
     }
 
     if (!input.trim()) {

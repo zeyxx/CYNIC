@@ -200,10 +200,25 @@ function formatDigestMessage(profile, analysis, insights, engineStats) {
 
 async function main() {
   try {
-    // Read hook context from stdin (may be empty for Stop)
+    // Read stdin - try sync first, fall back to async (ESM stdin fix)
+    const fs = await import('fs');
     let input = '';
-    for await (const chunk of process.stdin) {
-      input += chunk;
+
+    try {
+      input = fs.readFileSync(0, 'utf8');
+      if (process.env.CYNIC_DEBUG) console.error('[DIGEST] Sync read:', input.length, 'bytes');
+    } catch (syncErr) {
+      if (process.env.CYNIC_DEBUG) console.error('[DIGEST] Sync failed:', syncErr.message);
+      input = await new Promise((resolve) => {
+        let data = '';
+        process.stdin.setEncoding('utf8');
+        process.stdin.on('data', chunk => { data += chunk; });
+        process.stdin.on('end', () => resolve(data));
+        process.stdin.on('error', () => resolve(''));
+        process.stdin.resume();
+        setTimeout(() => resolve(data), 3000);
+      });
+      if (process.env.CYNIC_DEBUG) console.error('[DIGEST] Async read:', input.length, 'bytes');
     }
 
     let hookContext = {};
