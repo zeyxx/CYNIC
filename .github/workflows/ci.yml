@@ -163,18 +163,102 @@ jobs:
     needs: [test, lint, docker]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      RENDER_SERVICE_URL: https://cynic-mcp.onrender.com
 
     steps:
-      - name: Deploy to Render
+      - name: Trigger Deploy
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
           if [ -n "$RENDER_DEPLOY_HOOK_URL" ]; then
             curl -X POST "$RENDER_DEPLOY_HOOK_URL"
-            echo "Deploy triggered successfully"
+            echo "Deploy triggered"
           else
             echo "RENDER_DEPLOY_HOOK_URL not set, skipping deployment"
+            exit 0
           fi
+
+      - name: Wait for Deploy (max 5 min)
+        run: |
+          echo "Waiting for Render to deploy..."
+          # Initial wait for Render to start building
+          sleep 30
+
+          MAX_ATTEMPTS=30
+          ATTEMPT=0
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "Health check attempt $ATTEMPT/$MAX_ATTEMPTS..."
+
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$RENDER_SERVICE_URL/health" 2>/dev/null || echo "000")
+
+            if [ "$RESPONSE" = "200" ]; then
+              echo "✅ Service is healthy!"
+              break
+            fi
+
+            echo "Status: $RESPONSE - waiting 10s..."
+            sleep 10
+          done
+
+          if [ "$RESPONSE" != "200" ]; then
+            echo "❌ Deploy verification failed after $MAX_ATTEMPTS attempts"
+            exit 1
+          fi
+
+      - name: Verify Health Response
+        run: |
+          echo "Verifying health endpoint response..."
+          HEALTH=$(curl -s --max-time 10 "$RENDER_SERVICE_URL/health")
+          echo "$HEALTH" | jq .
+
+          # Check status field
+          STATUS=$(echo "$HEALTH" | jq -r '.status // "unknown"')
+          if [ "$STATUS" != "healthy" ]; then
+            echo "❌ Health status is not 'healthy': $STATUS"
+            exit 1
+          fi
+
+          # Check tools count
+          TOOLS=$(echo "$HEALTH" | jq -r '.tools // 0')
+          if [ "$TOOLS" -lt 10 ]; then
+            echo "❌ Expected at least 10 tools, got: $TOOLS"
+            exit 1
+          fi
+
+          echo "✅ Health check passed: status=$STATUS, tools=$TOOLS"
+
+      - name: Smoke Test - Judge Tool
+        run: |
+          echo "Running smoke test on brain_cynic_judge..."
+
+          RESPONSE=$(curl -s --max-time 30 -X POST "$RENDER_SERVICE_URL/api/tools/brain_cynic_judge" \
+            -H "Content-Type: application/json" \
+            -d '{"item": {"type": "smoke_test", "content": "CI deployment verification"}}')
+
+          echo "$RESPONSE" | jq .
+
+          # Check for success
+          SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
+          if [ "$SUCCESS" != "true" ]; then
+            echo "⚠️ Smoke test warning (non-blocking): $RESPONSE"
+          else
+            Q_SCORE=$(echo "$RESPONSE" | jq -r '.result.Q // 0')
+            echo "✅ Smoke test passed: Q-Score=$Q_SCORE"
+          fi
+
+      - name: Deploy Summary
+        if: always()
+        run: |
+          echo "═══════════════════════════════════════════════════════════"
+          echo "🐕 CYNIC Deploy Summary"
+          echo "═══════════════════════════════════════════════════════════"
+          echo "Service URL: $RENDER_SERVICE_URL"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "═══════════════════════════════════════════════════════════"
 
   deploy-solana:
     name: Deploy Anchor to Devnet

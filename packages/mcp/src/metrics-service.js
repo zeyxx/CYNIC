@@ -153,16 +153,47 @@ export class MetricsService extends EventEmitter {
   }
 
   async _collectSessions(metrics) {
+    // In-memory active sessions
     if (this.sessionManager) {
       const summary = this.sessionManager.getSummary();
       metrics.sessions = {
         active: summary.activeCount || 0,
-        total: summary.sessions?.length || 0,
         current: summary.currentSession ? {
           sessionId: summary.currentSession,
           sessions: summary.sessions || [],
         } : null,
       };
+    }
+
+    // Historical stats from PostgreSQL
+    if (this.persistence?.sessions) {
+      try {
+        const dbStats = await this.persistence.sessions.getStats();
+        metrics.sessions.historical = {
+          totalSessions: dbStats.total || 0,
+          totalJudgments: dbStats.totalJudgments || 0,
+          totalDigests: dbStats.totalDigests || 0,
+          totalFeedback: dbStats.totalFeedback || 0,
+        };
+        // Overall total includes historical
+        metrics.sessions.total = dbStats.total || 0;
+      } catch (e) {
+        metrics.sessions.historicalError = e.message;
+      }
+    }
+
+    // User profile aggregates
+    if (this.persistence?.userLearningProfiles) {
+      try {
+        const profileStats = await this.persistence.userLearningProfiles.getStats();
+        metrics.sessions.users = {
+          totalProfiles: profileStats.totalProfiles || 0,
+          avgFeedback: profileStats.avgFeedback || 0,
+          avgAccuracy: profileStats.avgAccuracy || 0,
+        };
+      } catch (e) {
+        // Ignore - optional stats
+      }
     }
   }
 

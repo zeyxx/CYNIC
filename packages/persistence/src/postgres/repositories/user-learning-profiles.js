@@ -213,6 +213,66 @@ export class UserLearningProfilesRepository extends BaseRepository {
   }
 
   /**
+   * Aggregate session stats into user profile
+   * Called at session end to update lifetime counters
+   * @param {string} userId - User ID
+   * @param {Object} sessionStats - Stats from the completed session
+   * @returns {Promise<Object>} Updated profile
+   */
+  async aggregateSessionStats(userId, sessionStats) {
+    const userIdUUID = await this._ensureUserExists(userId);
+
+    const { rows } = await this.db.query(`
+      UPDATE user_learning_profiles SET
+        session_count = session_count + 1,
+        total_tool_calls = total_tool_calls + $2,
+        total_errors = total_errors + $3,
+        total_danger_blocked = total_danger_blocked + $4,
+        last_session_at = NOW(),
+        updated_at = NOW()
+      WHERE user_id = $1
+      RETURNING *
+    `, [
+      userIdUUID,
+      sessionStats.toolCalls || 0,
+      sessionStats.errors || 0,
+      sessionStats.dangerBlocked || 0,
+    ]);
+
+    // If no row was updated (user doesn't have a profile yet), create one
+    if (rows.length === 0) {
+      const { rows: newRows } = await this.db.query(`
+        INSERT INTO user_learning_profiles (
+          user_id,
+          session_count,
+          total_tool_calls,
+          total_errors,
+          total_danger_blocked,
+          last_session_at,
+          learning_rate
+        ) VALUES ($1, 1, $2, $3, $4, NOW(), $5)
+        ON CONFLICT (user_id) DO UPDATE SET
+          session_count = user_learning_profiles.session_count + 1,
+          total_tool_calls = user_learning_profiles.total_tool_calls + $2,
+          total_errors = user_learning_profiles.total_errors + $3,
+          total_danger_blocked = user_learning_profiles.total_danger_blocked + $4,
+          last_session_at = NOW(),
+          updated_at = NOW()
+        RETURNING *
+      `, [
+        userIdUUID,
+        sessionStats.toolCalls || 0,
+        sessionStats.errors || 0,
+        sessionStats.dangerBlocked || 0,
+        PHI_INV_CUBED,
+      ]);
+      return newRows[0];
+    }
+
+    return rows[0];
+  }
+
+  /**
    * Get aggregate statistics
    */
   async getStats() {

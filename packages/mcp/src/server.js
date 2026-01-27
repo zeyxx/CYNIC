@@ -973,6 +973,14 @@ export class MCPServer {
 
       return { jsonrpc: '2.0', id, result };
     } catch (err) {
+      // Track errors for user profile aggregation (only for tool calls)
+      if (method === 'tools/call' && this.sessionManager) {
+        // Don't count blocked operations as errors - they're intentional
+        if (!err.message?.includes('[BLOCKED]')) {
+          this.sessionManager.recordError();
+        }
+      }
+
       // 🐕 SAGE: Share wisdom when errors occur (via Collective)
       if (this.collective) {
         this.collective.getWisdom('error_recovery', {
@@ -1191,6 +1199,12 @@ export class MCPServer {
         const blockedBy = hookResult.blockedBy || 'guardian';
         const message = hookResult.blockMessage || 'Operation blocked by collective';
         console.error(`🐕 [BLOCKED] Tool "${name}" blocked by ${blockedBy}: ${message}`);
+
+        // Track danger blocked for user profile aggregation
+        if (this.sessionManager) {
+          this.sessionManager.recordDangerBlocked();
+        }
+
         throw new Error(`[BLOCKED] ${message}`);
       }
 
@@ -1216,6 +1230,11 @@ export class MCPServer {
     const startTime = Date.now();
     const result = await tool.handler(args);
     const duration = Date.now() - startTime;
+
+    // Track tool call for user profile aggregation
+    if (this.sessionManager) {
+      this.sessionManager.recordToolCall();
+    }
 
     // 🐕 COLLECTIVE: PostToolUse → Full pipeline (all 11 Dogs analyze)
     // Analyst tracks patterns, Scholar extracts knowledge, etc.

@@ -64,6 +64,9 @@ export class SessionManager {
         const session = await this.persistence.sessionStore.getOrCreate(sessionId, userId);
         session.sessionId = sessionId;
         session.project = context.project || 'default';
+        session.toolCalls = session.toolCalls || 0;
+        session.errors = session.errors || 0;
+        session.dangerBlocked = session.dangerBlocked || 0;
 
         // Also persist to PostgreSQL for cross-session history
         if (this.persistence?.sessions) {
@@ -101,6 +104,9 @@ export class SessionManager {
       judgmentCount: 0,
       digestCount: 0,
       feedbackCount: 0,
+      toolCalls: 0,
+      errors: 0,
+      dangerBlocked: 0,
       context: context,
     };
 
@@ -197,6 +203,20 @@ export class SessionManager {
       }
     }
 
+    // Aggregate session stats into user_learning_profiles
+    if (this.persistence?.userLearningProfiles && session.userId) {
+      try {
+        await this.persistence.userLearningProfiles.aggregateSessionStats(session.userId, {
+          toolCalls: session.toolCalls || 0,
+          errors: session.errors || 0,
+          dangerBlocked: session.dangerBlocked || 0,
+        });
+        log.info('User profile aggregated', { userId: session.userId.slice(0, 8) });
+      } catch (err) {
+        log.warn('Failed to aggregate user profile', { error: err.message });
+      }
+    }
+
     log.info('Session ended', { sessionId: sessionId.slice(0, 12), judgments: summary.judgmentCount, digests: summary.digestCount });
 
     // Remove from Redis (if available) - only AFTER PostgreSQL persist
@@ -238,7 +258,7 @@ export class SessionManager {
 
   /**
    * Increment session counter
-   * @param {string} field - Counter field (judgmentCount, digestCount, feedbackCount)
+   * @param {string} field - Counter field (judgmentCount, digestCount, feedbackCount, toolCalls, errors, dangerBlocked)
    */
   async incrementCounter(field) {
     if (!this._currentSession) return;
@@ -258,7 +278,7 @@ export class SessionManager {
       }
     }
 
-    // Also update PostgreSQL for persistence
+    // Also update PostgreSQL for persistence (only for session-table fields)
     // Map camelCase to snake_case for DB
     const fieldMap = {
       judgmentCount: 'judgment_count',
@@ -266,12 +286,40 @@ export class SessionManager {
       feedbackCount: 'feedback_count',
     };
 
+    // toolCalls, errors, dangerBlocked are tracked in-memory and aggregated at session end
     if (this.persistence?.sessions && sessionId && fieldMap[field]) {
       try {
         await this.persistence.sessions.increment(sessionId, fieldMap[field]);
       } catch (err) {
         log.warn('Error incrementing counter in PostgreSQL', { field, error: err.message });
       }
+    }
+  }
+
+  /**
+   * Record a tool call (for user profile aggregation)
+   */
+  recordToolCall() {
+    if (this._currentSession) {
+      this._currentSession.toolCalls = (this._currentSession.toolCalls || 0) + 1;
+    }
+  }
+
+  /**
+   * Record an error (for user profile aggregation)
+   */
+  recordError() {
+    if (this._currentSession) {
+      this._currentSession.errors = (this._currentSession.errors || 0) + 1;
+    }
+  }
+
+  /**
+   * Record a blocked danger (for user profile aggregation)
+   */
+  recordDangerBlocked() {
+    if (this._currentSession) {
+      this._currentSession.dangerBlocked = (this._currentSession.dangerBlocked || 0) + 1;
     }
   }
 
