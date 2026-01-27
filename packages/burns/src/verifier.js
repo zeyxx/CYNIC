@@ -13,7 +13,7 @@
 'use strict';
 
 import { PHI_INV } from '@cynic/core';
-import { SolanaBurnVerifier, SolanaCluster } from './solana-verifier.js';
+import { SolanaBurnVerifier } from './solana-verifier.js';
 
 /**
  * Burn verification result

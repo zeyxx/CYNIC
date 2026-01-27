@@ -14,7 +14,7 @@
 import { EventEmitter } from 'events';
 import { SolanaAnchorer } from './anchorer.js';
 import { CynicWallet } from './wallet.js';
-import { SolanaCluster, ANCHOR_CONSTANTS, DEFAULT_CONFIG } from './constants.js';
+import { DEFAULT_CONFIG } from './constants.js';
 
 /**
  * PoJ Anchor Integration

@@ -10,7 +10,7 @@
 
 'use strict';
 
-import { Connection, PublicKey } from '@solana/web3.js';
+import { Connection } from '@solana/web3.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Constants

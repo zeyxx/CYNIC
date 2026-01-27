@@ -10,7 +10,7 @@
 'use strict';
 
 import { PHI_INV, createLogger } from '@cynic/core';
-import { createBurnVerifier, BurnStatus } from './verifier.js';
+import { createBurnVerifier } from './verifier.js';
 
 const log = createLogger('BurnEnforcer');
 

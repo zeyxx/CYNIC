@@ -190,7 +190,7 @@ export function registerStandardProviders() {
     create: (deps, context) => {
       return context.config || loadDefaultConfig();
     },
-    health: async (config) => ({
+    health: async (_config) => ({
       status: HealthStatus.HEALTHY,
       loaded: true,
     }),

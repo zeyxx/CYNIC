@@ -13,7 +13,6 @@
 import { createHash } from 'crypto';
 import {
   AnchorStatus,
-  ANCHOR_CONSTANTS,
   DEFAULT_CONFIG,
 } from './constants.js';
 

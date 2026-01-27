@@ -12,8 +12,8 @@
 'use strict';
 
 import { EngineRegistry, globalEngineRegistry } from '../../engines/registry.js';
-import { EngineOrchestrator, createOrchestrator } from '../../engines/orchestrator.js';
-import { loadPhilosophyEngines, areEnginesLoaded, getLoadStatus } from '../../engines/philosophy/loader.js';
+import { createOrchestrator } from '../../engines/orchestrator.js';
+import { loadPhilosophyEngines, getLoadStatus } from '../../engines/philosophy/loader.js';
 import { createLifecycle, HealthStatus } from '../lifecycle.js';
 import { createLogger } from '../../logger.js';
 

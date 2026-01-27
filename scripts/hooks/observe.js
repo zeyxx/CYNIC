@@ -495,7 +495,7 @@ async function main() {
     // ENTANGLEMENT: Pattern Correlation Prediction
     // "Σύμπλεξις - bound together across space"
     // ═══════════════════════════════════════════════════════════════════════════
-    let entanglementPredictions = [];
+    const entanglementPredictions = [];
     if (physicsBridge) {
       try {
         // Observe the tool pattern

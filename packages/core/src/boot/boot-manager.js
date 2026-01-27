@@ -413,7 +413,7 @@ export class BootManager extends EventEmitter {
    * @private
    */
   async #emergencyShutdown() {
-    for (const [name, component] of this.#components) {
+    for (const [_name, component] of this.#components) {
       if (component.state === LifecycleState.RUNNING ||
           component.state === LifecycleState.INITIALIZED) {
         try {

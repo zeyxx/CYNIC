@@ -1,4 +1,5 @@
 {
+  "_comment": "Using project-relative paths - assumes hooks run from project root",
   "hooks": {
     "SessionStart": [
       {
@@ -6,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/hooks/awaken.js 2>/dev/null || true",
+            "command": "node scripts/hooks/awaken.js 2>/dev/null || true",
             "timeout": 15
           }
         ]
@@ -18,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/hooks/sleep.js 2>/dev/null || true",
+            "command": "node scripts/hooks/sleep.js 2>/dev/null || true",
             "timeout": 10
           }
         ]
@@ -30,7 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/hooks/perceive.js 2>/dev/null || true",
+            "command": "node scripts/hooks/perceive.js 2>/dev/null || true",
             "timeout": 10
           }
         ]
@@ -42,7 +43,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/hooks/guard.js 2>/dev/null || true",
+            "command": "node scripts/hooks/guard.js 2>/dev/null || true",
             "timeout": 5
           }
         ]
@@ -54,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/hooks/observe.js 2>/dev/null || true",
+            "command": "node scripts/hooks/observe.js 2>/dev/null || true",
             "timeout": 5
           }
         ]
@@ -66,7 +67,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/../scripts/hooks/digest.js 2>/dev/null || true",
+            "command": "node scripts/hooks/ralph-loop.js 2>/dev/null",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "node scripts/hooks/digest.js 2>/dev/null || true",
             "timeout": 30
           }
         ]
