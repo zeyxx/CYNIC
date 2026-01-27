@@ -308,8 +308,13 @@ export class MCPServer {
           autoStart: true,
         });
 
-        this.pojChainManager.setAnchorQueue(this.anchorQueue);
-        console.error(`   Solana Anchoring: ENABLED (${cluster})`);
+        if (this.pojChainManager) {
+          this.pojChainManager.setAnchorQueue(this.anchorQueue);
+          console.error(`   Solana Anchoring: ENABLED (${cluster})`);
+          console.error(`   AnchorQueue attached: ${this.pojChainManager.isAnchoringEnabled}`);
+        } else {
+          console.error(`   Solana Anchoring: FAILED - pojChainManager not available`);
+        }
         const pubKeyStr = wallet.publicKey?.toBase58
           ? wallet.publicKey.toBase58()
           : Buffer.from(wallet.publicKey || wallet._publicKey || []).toString('hex');
