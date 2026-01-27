@@ -38,7 +38,7 @@ const MAX_RESPONSE_SIZE = 100 * 1024; // 100KB max response
 // Rate limiting constants (φ-aligned)
 const RATE_LIMIT_WINDOW_MS = 61800; // ~61.8 seconds (φ⁻¹ × 100000ms)
 const RATE_LIMIT_MAX_REQUESTS = 100; // Max requests per window
-const RATE_LIMIT_EXEMPT_PATHS = ['/health', '/', '/metrics']; // Public paths
+const RATE_LIMIT_EXEMPT_PATHS = ['/health', '/', '/metrics', '/dashboard', '/sse']; // Public paths + dashboard static files
 
 /**
  * HTTP Adapter - Handles all HTTP concerns
