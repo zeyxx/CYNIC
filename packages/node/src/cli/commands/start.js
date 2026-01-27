@@ -130,6 +130,14 @@ export async function startCommand(options) {
       const stats = transport.getStats();
       const gossipStats = gossip.getStats();
       const cState = consensus.getState();
+
+      // Debug: compare transport peers vs gossip peers
+      const transportPeers = transport.getConnectedPeers();
+      const gossipPeers = gossip.peerManager.getActivePeers().map(p => ({
+        id: p.id?.slice(0, 16),
+        publicKey: p.publicKey?.slice(0, 16),
+      }));
+
       res.writeHead(200);
       return res.end(JSON.stringify({
         nodeId,
@@ -138,8 +146,13 @@ export async function startCommand(options) {
           connections: stats.connections,
           messagesSent: stats.messagesSent,
           messagesReceived: stats.messagesReceived,
+          peerIds: transportPeers.map(p => p.slice(0, 16)),
         },
-        gossip: { total: gossipStats.total, active: gossipStats.active },
+        gossip: {
+          total: gossipStats.total,
+          active: gossipStats.active,
+          peers: gossipPeers,
+        },
         consensus: cState,
       }));
     }
@@ -216,12 +229,27 @@ export async function startCommand(options) {
     httpHandler, // HTTP API on same port as WS
   });
 
-  // Create gossip protocol
+  // Create gossip protocol with debug sendFn
+  const rawSendFn = transport.getSendFn();
+  const debugSendFn = async (peer, message) => {
+    const pk = peer?.publicKey?.slice(0, 12) || 'none';
+    const id = peer?.id?.slice(0, 12) || 'none';
+    console.log(chalk.gray('  [SEND] ') + `to pk=${pk} id=${id} type=${message?.type}`);
+    try {
+      const result = await rawSendFn(peer, message);
+      console.log(chalk.green('  [SENT] ') + `ok to pk=${pk}`);
+      return result;
+    } catch (err) {
+      console.log(chalk.red('  [SEND-ERR] ') + `to pk=${pk}: ${err.message}`);
+      throw err;
+    }
+  };
+
   const gossip = new GossipProtocol({
     publicKey: keypair.publicKey,
     privateKey: keypair.privateKey,
     address: `${host}:${port}`,
-    sendFn: transport.getSendFn(),
+    sendFn: debugSendFn,
     onMessage: (message) => {
       if (message.type !== 'HEARTBEAT' && verbose) {
         console.log(chalk.blue(`  [MSG] `) + chalk.gray(`${message.type}: ${JSON.stringify(message.payload).slice(0, 60)}...`));
@@ -274,7 +302,9 @@ export async function startCommand(options) {
     const id = (publicKey || peerId || '').slice(0, 12);
     console.log(chalk.green('  [PEER] ') + `${direction} Connected: ${chalk.cyan(id)}...`);
     if (publicKey) {
-      gossip.addPeer(createPeerInfo({ publicKey, address: '' }));
+      const peerInfo = createPeerInfo({ publicKey, address: '' });
+      console.log(chalk.gray('  [DEBUG] ') + `addPeer: id=${peerInfo.id?.slice(0, 12)} pk=${publicKey.slice(0, 12)}`);
+      gossip.addPeer(peerInfo);
       // Register peer as validator for consensus
       consensus.registerValidator({
         publicKey,
