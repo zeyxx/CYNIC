@@ -127,12 +127,17 @@ describe('SessionManager', () => {
       assert.equal(session.userId, 'startUser');
     });
 
-    it('ends existing session before creating new', async () => {
-      const session1 = await manager.startSession('replaceUser');
-      const session2 = await manager.startSession('replaceUser');
+    it('creates new session and keeps both active for different projects', async () => {
+      // With deterministic session IDs, same user + same project = same ID
+      // Different projects = different IDs, and both sessions can be active
+      const session1 = await manager.startSession('replaceUser', { project: 'project-a' });
+      const session2 = await manager.startSession('replaceUser', { project: 'project-b' });
 
+      // Different projects = different deterministic session IDs
       assert.notEqual(session1.sessionId, session2.sessionId);
-      assert.equal(manager.getSession(session1.sessionId), null);
+      // Both sessions should be active (different projects)
+      assert.ok(manager.getSession(session1.sessionId));
+      assert.ok(manager.getSession(session2.sessionId));
     });
 
     it('accepts project option', async () => {

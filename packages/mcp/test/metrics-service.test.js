@@ -25,6 +25,14 @@ function createMockServices() {
         verdicts: { WAG: 20, HOWL: 5, GROWL: 15, BARK: 10 },
         last24h: 12,
       }),
+      sessions: {
+        getStats: async () => ({
+          total: 2,
+          totalJudgments: 8,
+          totalDigests: 0,
+          totalFeedback: 0,
+        }),
+      },
     },
     sessionManager: {
       getSummary: () => ({
