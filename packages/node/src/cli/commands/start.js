@@ -130,6 +130,7 @@ export async function startCommand(options) {
       const stats = transport.getStats();
       const gossipStats = gossip.getStats();
       const cState = consensus.getState();
+      const cStats = consensus.getStats();
 
       // Debug: compare transport peers vs gossip peers
       const transportPeers = transport.getConnectedPeers();
@@ -137,6 +138,24 @@ export async function startCommand(options) {
         id: p.id?.slice(0, 16),
         publicKey: p.publicKey?.slice(0, 16),
       }));
+
+      // Debug: block details for pending blocks
+      const pendingBlockDetails = [];
+      for (const [blockHash, record] of consensus.blocks) {
+        if (record.status === 'VOTING' || record.status === 'PROPOSED' || record.status === 'CONFIRMED') {
+          pendingBlockDetails.push({
+            hash: blockHash.slice(0, 16),
+            slot: record.slot,
+            status: record.status,
+            approveWeight: record.approveWeight,
+            rejectWeight: record.rejectWeight,
+            totalWeight: record.totalWeight,
+            confirmations: record.confirmations,
+            voteCount: record.votes?.size || 0,
+            voters: Array.from(record.votes?.keys() || []).map(v => v.slice(0, 12)),
+          });
+        }
+      }
 
       res.writeHead(200);
       return res.end(JSON.stringify({
@@ -154,6 +173,11 @@ export async function startCommand(options) {
           peers: gossipPeers,
         },
         consensus: cState,
+        debug: {
+          totalValidatorWeight: cStats.totalWeight,
+          validators: cStats.validators,
+          pendingBlocks: pendingBlockDetails,
+        },
       }));
     }
 
