@@ -221,10 +221,33 @@ function generateLearningContext(prompt, profile) {
 
 async function main() {
   try {
-    // Read hook context from stdin
+    // Read stdin - try sync first, fall back to async
+    const fs = await import('fs');
     let input = '';
-    for await (const chunk of process.stdin) {
-      input += chunk;
+
+    // Try synchronous read (works when piped before module load)
+    try {
+      input = fs.readFileSync(0, 'utf8');
+      if (process.env.CYNIC_DEBUG) console.error('[PERCEIVE] Sync read:', input.length, 'bytes');
+    } catch (syncErr) {
+      if (process.env.CYNIC_DEBUG) console.error('[PERCEIVE] Sync failed:', syncErr.message);
+      // Sync failed, try async read (works with Claude Code's pipe)
+      input = await new Promise((resolve) => {
+        let data = '';
+        process.stdin.setEncoding('utf8');
+        process.stdin.on('data', chunk => { data += chunk; });
+        process.stdin.on('end', () => resolve(data));
+        process.stdin.on('error', () => resolve(''));
+        process.stdin.resume();
+        // Timeout to prevent hanging
+        setTimeout(() => resolve(data), 3000);
+      });
+      if (process.env.CYNIC_DEBUG) console.error('[PERCEIVE] Async read:', input.length, 'bytes');
+    }
+
+    if (!input || input.trim().length === 0) {
+      console.log(JSON.stringify({ continue: true }));
+      return;
     }
 
     const hookContext = JSON.parse(input);
@@ -544,7 +567,10 @@ async function main() {
     }
 
   } catch (error) {
-    // Silent failure - continue without injection
+    // Log error to stderr for debugging, but don't block
+    if (process.env.CYNIC_DEBUG) {
+      console.error('[PERCEIVE ERROR]', error.message);
+    }
     console.log(JSON.stringify({ continue: true }));
   }
 }
