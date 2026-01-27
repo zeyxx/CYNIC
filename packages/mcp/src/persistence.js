@@ -33,6 +33,7 @@ import {
   DiscoveryRepository,
   UserLearningProfilesRepository,
   PsychologyRepository,
+  SessionRepository,
   SessionStore,
 } from '@cynic/persistence';
 
@@ -82,6 +83,7 @@ export class PersistenceManager {
     this._discovery = null;
     this._userLearningProfiles = null;
     this._psychology = null;
+    this._sessions = null;
 
     // Fallback store (file or memory)
     this._fallback = null;
@@ -130,6 +132,7 @@ export class PersistenceManager {
         this._discovery = new DiscoveryRepository(this.postgres);
         this._userLearningProfiles = new UserLearningProfilesRepository(this.postgres);
         this._psychology = new PsychologyRepository(this.postgres);
+        this._sessions = new SessionRepository(this.postgres);
 
         this._backend = 'postgres';
         log.info('PostgreSQL connected');
@@ -335,6 +338,9 @@ export class PersistenceManager {
 
   /** @returns {UserLearningProfilesRepository|null} */
   get userLearningProfiles() { return this._userLearningProfiles; }
+
+  /** @returns {SessionRepository|null} */
+  get sessions() { return this._sessions; }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // HEALTH & LIFECYCLE

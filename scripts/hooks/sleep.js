@@ -28,6 +28,40 @@ import cynic, {
 } from '../lib/index.js';
 
 // =============================================================================
+// RETRY HELPER
+// =============================================================================
+
+/**
+ * Retry an async operation with exponential backoff
+ * @param {Function} fn - Async function to retry
+ * @param {Object} options - Retry options
+ * @returns {Promise<{success: boolean, result?: any, error?: Error}>}
+ */
+async function retryWithBackoff(fn, options = {}) {
+  const { maxRetries = 3, initialDelay = 100, maxDelay = 2000, operationName = 'operation' } = options;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await fn();
+      return { success: true, result };
+    } catch (error) {
+      const isLastAttempt = attempt === maxRetries;
+      const delay = Math.min(initialDelay * Math.pow(2, attempt - 1), maxDelay);
+
+      if (isLastAttempt) {
+        console.error(`[CYNIC] ${operationName} failed after ${maxRetries} attempts:`, error.message);
+        return { success: false, error };
+      }
+
+      console.warn(`[CYNIC] ${operationName} attempt ${attempt}/${maxRetries} failed, retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  return { success: false, error: new Error('Max retries exceeded') };
+}
+
+// =============================================================================
 // SESSION FINALIZATION
 // =============================================================================
 
@@ -155,44 +189,44 @@ async function main() {
     const summary = calculateSessionSummary(profile, hookContext.sessionStartTime);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CROSS-SESSION MEMORY: Sync profile to PostgreSQL
+    // CROSS-SESSION MEMORY: Sync profile to PostgreSQL (with retry)
     // ═══════════════════════════════════════════════════════════════════════════
-    try {
-      const syncResult = await syncProfileToDB(user.userId, profile);
-      if (syncResult.success) {
-        // Profile synced to database for next session
-      }
-    } catch (e) {
-      // Silently fail - profile is still saved locally
+    const profileSyncResult = await retryWithBackoff(
+      () => syncProfileToDB(user.userId, profile),
+      { maxRetries: 3, initialDelay: 100, operationName: 'Profile sync' }
+    );
+
+    if (!profileSyncResult.success) {
+      console.error('[CYNIC] Profile sync failed - data may not persist to next session');
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CONSCIOUSNESS SYNC: Persist learning loop to PostgreSQL
+    // CONSCIOUSNESS SYNC: Persist learning loop to PostgreSQL (with retry)
     // "Le chien apprend. L'apprentissage persiste."
     // ═══════════════════════════════════════════════════════════════════════════
     if (consciousness) {
-      try {
-        const consciousnessSync = await consciousness.syncToDB(user.userId);
-        if (consciousnessSync) {
-          // Consciousness synced - learning will persist across machines
-        }
-      } catch (e) {
-        // Silently fail - local files remain as backup
+      const consciousnessResult = await retryWithBackoff(
+        () => consciousness.syncToDB(user.userId),
+        { maxRetries: 3, initialDelay: 100, operationName: 'Consciousness sync' }
+      );
+
+      if (!consciousnessResult.success) {
+        console.error('[CYNIC] Consciousness sync failed - local files remain as backup');
       }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // PSYCHOLOGY SYNC: Persist human understanding to PostgreSQL
+    // PSYCHOLOGY SYNC: Persist human understanding to PostgreSQL (with retry)
     // "Comprendre l'humain pour mieux l'aider"
     // ═══════════════════════════════════════════════════════════════════════════
     if (psychology) {
-      try {
-        const psychologySync = await psychology.syncToDB(user.userId);
-        if (psychologySync) {
-          // Psychology synced - human understanding persists across sessions
-        }
-      } catch (e) {
-        // Silently fail - local files remain as backup
+      const psychologyResult = await retryWithBackoff(
+        () => psychology.syncToDB(user.userId),
+        { maxRetries: 3, initialDelay: 100, operationName: 'Psychology sync' }
+      );
+
+      if (!psychologyResult.success) {
+        console.error('[CYNIC] Psychology sync failed - local files remain as backup');
       }
     }
 

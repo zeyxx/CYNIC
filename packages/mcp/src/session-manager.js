@@ -65,6 +65,22 @@ export class SessionManager {
         session.sessionId = sessionId;
         session.project = context.project || 'default';
 
+        // Also persist to PostgreSQL for cross-session history
+        if (this.persistence?.sessions) {
+          try {
+            await this.persistence.sessions.create({
+              sessionId,
+              userId,
+              judgmentCount: 0,
+              digestCount: 0,
+              feedbackCount: 0,
+              context: { project: session.project },
+            });
+          } catch (pgErr) {
+            log.warn('PostgreSQL session create error', { error: pgErr.message });
+          }
+        }
+
         // Cache locally
         this.activeSessions.set(cacheKey, session);
         this._currentSession = session;
@@ -87,6 +103,22 @@ export class SessionManager {
       feedbackCount: 0,
       context: context,
     };
+
+    // Persist to PostgreSQL even without Redis
+    if (this.persistence?.sessions) {
+      try {
+        await this.persistence.sessions.create({
+          sessionId: session.sessionId,
+          userId,
+          judgmentCount: 0,
+          digestCount: 0,
+          feedbackCount: 0,
+          context: { project: session.project },
+        });
+      } catch (pgErr) {
+        log.warn('PostgreSQL session create error', { error: pgErr.message });
+      }
+    }
 
     this.activeSessions.set(cacheKey, session);
     this._currentSession = session;
@@ -150,10 +182,24 @@ export class SessionManager {
       endedAt: new Date().toISOString(),
     };
 
-    // Persist session stats to PostgreSQL (if available)
+    // Persist session stats to PostgreSQL BEFORE removing from Redis
+    if (this.persistence?.sessions) {
+      try {
+        await this.persistence.sessions.update(sessionId, {
+          judgmentCount: summary.judgmentCount,
+          digestCount: summary.digestCount,
+          feedbackCount: summary.feedbackCount,
+          context: session.context,
+        });
+        log.info('Session persisted to PostgreSQL', { sessionId: sessionId.slice(0, 12) });
+      } catch (err) {
+        log.error('Failed to persist session to PostgreSQL', { sessionId: sessionId.slice(0, 12), error: err.message });
+      }
+    }
+
     log.info('Session ended', { sessionId: sessionId.slice(0, 12), judgments: summary.judgmentCount, digests: summary.digestCount });
 
-    // Remove from Redis (if available)
+    // Remove from Redis (if available) - only AFTER PostgreSQL persist
     if (this.persistence?.sessionStore) {
       try {
         await this.persistence.sessionStore.delete(sessionId);
@@ -201,12 +247,30 @@ export class SessionManager {
       this._currentSession[field]++;
     }
 
+    const sessionId = this._currentSession.sessionId;
+
     // Update Redis if available
-    if (this.persistence?.sessionStore && this._currentSession.sessionId) {
+    if (this.persistence?.sessionStore && sessionId) {
       try {
-        await this.persistence.sessionStore.increment(this._currentSession.sessionId, field);
+        await this.persistence.sessionStore.increment(sessionId, field);
       } catch (err) {
-        // Non-critical, ignore
+        // Non-critical for Redis
+      }
+    }
+
+    // Also update PostgreSQL for persistence
+    // Map camelCase to snake_case for DB
+    const fieldMap = {
+      judgmentCount: 'judgment_count',
+      digestCount: 'digest_count',
+      feedbackCount: 'feedback_count',
+    };
+
+    if (this.persistence?.sessions && sessionId && fieldMap[field]) {
+      try {
+        await this.persistence.sessions.increment(sessionId, fieldMap[field]);
+      } catch (err) {
+        log.warn('Error incrementing counter in PostgreSQL', { field, error: err.message });
       }
     }
   }

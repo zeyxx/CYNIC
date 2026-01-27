@@ -320,6 +320,56 @@ export class MCPServer {
   _registerSchedulerTasks() {
     if (!this.scheduler) return;
 
+    // Psychology checkpoint - sync every 10 minutes to prevent data loss on crash
+    this.scheduler.register({
+      id: 'psychology_checkpoint',
+      name: 'Psychology Checkpoint',
+      intervalMs: 10 * 60 * 1000, // 10 minutes
+      runImmediately: false,
+      handler: async () => {
+        if (!this.persistence?.psychology || !this.sessionManager?._currentSession) {
+          return { skipped: true, reason: 'no_active_session' };
+        }
+
+        const session = this.sessionManager._currentSession;
+        const userId = session.userId;
+
+        if (!userId) {
+          return { skipped: true, reason: 'no_user_id' };
+        }
+
+        try {
+          // Get current psychology state from collective if available
+          let psychologyData = null;
+
+          if (this.collective?.cynic) {
+            const cynicStats = this.collective.cynic.getStatus?.() || {};
+            psychologyData = {
+              sessionId: session.sessionId,
+              checkpoint: true,
+              timestamp: Date.now(),
+              observedEvents: cynicStats.observedEvents || 0,
+              synthesizedPatterns: cynicStats.synthesizedPatterns || 0,
+              decisions: cynicStats.decisions || 0,
+            };
+          }
+
+          if (psychologyData) {
+            await this.persistence.syncPsychology(userId, psychologyData);
+            console.error(`🧠 [CHECKPOINT] Psychology synced for ${userId.slice(0, 8)}...`);
+            return { synced: true, userId: userId.slice(0, 8) };
+          }
+
+          return { skipped: true, reason: 'no_psychology_data' };
+        } catch (err) {
+          console.error(`🧠 [CHECKPOINT] Psychology sync failed: ${err.message}`);
+          return { error: err.message };
+        }
+      },
+    });
+
+    console.error('   Psychology checkpoint: every 10 minutes');
+
     this.scheduler.register({
       id: 'ecosystem_awareness',
       name: 'Ecosystem Awareness',
