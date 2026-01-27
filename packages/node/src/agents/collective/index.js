@@ -72,6 +72,14 @@ import {
   MetaState,
 } from './cynic.js';
 
+// Import Autonomous Capabilities (Phase 16: Total Memory + Full Autonomy)
+import {
+  AUTONOMOUS_CONSTANTS,
+  DogGoalTypes,
+  createAutonomousCapabilities,
+  DogAutonomousBehaviors,
+} from './autonomous.js';
+
 // Re-export agents
 export {
   CollectiveGuardian,
@@ -126,6 +134,11 @@ export {
   DeploymentState,
   DeployTarget,
   HealthStatus,
+  // Autonomous types (Phase 16: Total Memory + Full Autonomy)
+  AUTONOMOUS_CONSTANTS,
+  DogGoalTypes,
+  createAutonomousCapabilities,
+  DogAutonomousBehaviors,
 };
 
 /**
@@ -166,12 +179,22 @@ export class CollectivePack {
    * @param {Function} [options.onDogDecision] - Callback when dog makes decision (for SSE broadcast)
    * @param {Object} [options.persistence] - Persistence manager for storing observations
    * @param {Object} [options.graphIntegration] - JudgmentGraph integration for relationship tracking
+   * @param {Object} [options.autonomousRepositories] - Total Memory repositories for autonomous behavior
+   * @param {Object} [options.autonomousRepositories.goals] - AutonomousGoalsRepository
+   * @param {Object} [options.autonomousRepositories.tasks] - AutonomousTasksRepository
+   * @param {Object} [options.autonomousRepositories.notifications] - ProactiveNotificationsRepository
+   * @param {Object} [options.autonomousRepositories.memory] - MemoryRetriever
    */
   constructor(options = {}) {
     // Callbacks for external integration
     this.onDogDecision = options.onDogDecision || null;
     this.persistence = options.persistence || null;
     this.graphIntegration = options.graphIntegration || null;
+
+    // Autonomous capabilities (Phase 16: Total Memory + Full Autonomy)
+    this.autonomousCapabilities = options.autonomousRepositories
+      ? createAutonomousCapabilities(options.autonomousRepositories)
+      : null;
 
     // Shared infrastructure (pass persistence to EventBus for logging)
     this.eventBus = new AgentEventBus({ persistence: this.persistence });
@@ -198,12 +221,14 @@ export class CollectivePack {
     this.eventBus.registerAgent('collective'); // For pack-level subscriptions
 
     // Create agents with shared infrastructure
+    // Pass autonomous capabilities to dogs that have autonomous behaviors
     this.guardian = new CollectiveGuardian({
       eventBus: this.eventBus,
       profileLevel: this.profileLevel,
       judge: options.judge,
       state: options.state,
       persistence: this.persistence,
+      autonomous: this.autonomousCapabilities, // Shadow: security monitoring
     });
 
     this.analyst = new CollectiveAnalyst({
@@ -222,6 +247,7 @@ export class CollectivePack {
       judge: options.judge,
       state: options.state,
       persistence: this.persistence,
+      autonomous: this.autonomousCapabilities, // Archie: memory compaction
     });
 
     this.architect = new CollectiveArchitect({
@@ -230,6 +256,7 @@ export class CollectivePack {
       judge: options.judge,
       state: options.state,
       persistence: this.persistence,
+      autonomous: this.autonomousCapabilities, // Max: decision tracking
     });
 
     this.sage = new CollectiveSage({
@@ -238,6 +265,7 @@ export class CollectivePack {
       judge: options.judge,
       state: options.state,
       persistence: this.persistence,
+      autonomous: this.autonomousCapabilities, // Luna: user insights
     });
 
     // CYNIC - The Hidden Dog (Keter) - Meta-consciousness
@@ -254,6 +282,7 @@ export class CollectivePack {
       eventBus: this.eventBus,
       profileLevel: this.profileLevel,
       persistence: this.persistence,
+      autonomous: this.autonomousCapabilities, // Ralph: test coverage
     });
 
     // Scout - Victory (Netzach) - Discovery & exploration
@@ -588,6 +617,22 @@ export class CollectivePack {
    */
   getEventBus() {
     return this.eventBus;
+  }
+
+  /**
+   * Get autonomous capabilities (Phase 16: Total Memory + Full Autonomy)
+   * @returns {Object|null} Autonomous capabilities or null if not configured
+   */
+  getAutonomousCapabilities() {
+    return this.autonomousCapabilities;
+  }
+
+  /**
+   * Check if autonomous capabilities are available
+   * @returns {boolean} True if autonomous capabilities are configured
+   */
+  hasAutonomousCapabilities() {
+    return this.autonomousCapabilities !== null;
   }
 
   /**
@@ -956,4 +1001,9 @@ export default {
   DeploymentState,
   DeployTarget,
   HealthStatus,
+  // Autonomous types (Phase 16)
+  AUTONOMOUS_CONSTANTS,
+  DogGoalTypes,
+  createAutonomousCapabilities,
+  DogAutonomousBehaviors,
 };

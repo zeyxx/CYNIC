@@ -39,6 +39,7 @@ import {
   PatternDetectedEvent,
 } from '../events.js';
 import { ProfileLevel } from '../../profile/calculator.js';
+import { DogAutonomousBehaviors } from './autonomous.js';
 
 /**
  * φ-aligned constants for Architect
@@ -184,6 +185,9 @@ export class CollectiveArchitect extends BaseAgent {
 
     // Event bus for collective communication
     this.eventBus = options.eventBus || null;
+
+    // Autonomous capabilities (Phase 16: Total Memory + Full Autonomy)
+    this.autonomous = options.autonomous || null;
 
     // Current profile level
     this.profileLevel = options.profileLevel || ProfileLevel.PRACTITIONER;
@@ -797,6 +801,21 @@ export class CollectiveArchitect extends BaseAgent {
     );
 
     this.eventBus.publish(event);
+
+    // Autonomous: Track significant pattern decisions
+    if (this.autonomous && pattern.significance === 'high') {
+      DogAutonomousBehaviors.architect.trackDecision(
+        this.autonomous,
+        this.persistence?.userId || 'unknown',
+        {
+          type: 'pattern',
+          title: `Pattern: ${pattern.name}`,
+          description: pattern.message,
+          rationale: `Detected in ${pattern.category} category`,
+          significance: pattern.significance || 'medium',
+        }
+      ).catch(() => { /* Non-critical */ });
+    }
   }
 
   /**

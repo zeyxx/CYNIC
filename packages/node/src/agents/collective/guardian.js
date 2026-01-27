@@ -40,6 +40,7 @@ import {
   ConsensusVote,
 } from '../events.js';
 import { ProfileLevel } from '../../profile/calculator.js';
+import { DogAutonomousBehaviors } from './autonomous.js';
 
 /**
  * φ-aligned constants for Guardian
@@ -141,6 +142,9 @@ export class CollectiveGuardian extends BaseAgent {
 
     // Event bus for collective communication
     this.eventBus = options.eventBus || null;
+
+    // Autonomous capabilities (Phase 16: Total Memory + Full Autonomy)
+    this.autonomous = options.autonomous || null;
 
     // Current profile level (default: Practitioner - safe middle ground)
     this.profileLevel = options.profileLevel || ProfileLevel.PRACTITIONER;
@@ -751,6 +755,20 @@ export class CollectiveGuardian extends BaseAgent {
     );
 
     this.eventBus.publish(event);
+
+    // Autonomous: Report threat via DogAutonomousBehaviors.guardian.reportThreat
+    if (this.autonomous) {
+      DogAutonomousBehaviors.guardian.reportThreat(
+        this.autonomous,
+        this.persistence?.userId || 'unknown',
+        {
+          category,
+          description: `Blocked: ${reason}`,
+          severity: risk.level >= 4 ? 'critical' : risk.level >= 3 ? 'high' : 'medium',
+          mitigation: `Review command: ${command?.substring(0, 100)}`,
+        }
+      ).catch(() => { /* Non-critical: ignore autonomous errors */ });
+    }
   }
 
   /**

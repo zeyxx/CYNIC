@@ -41,6 +41,7 @@ import {
   ConsensusVote,
 } from '../events.js';
 import { ProfileLevel } from '../../profile/calculator.js';
+import { DogAutonomousBehaviors } from './autonomous.js';
 
 /**
  * φ-aligned constants for Scholar
@@ -142,6 +143,9 @@ export class CollectiveScholar extends BaseAgent {
 
     // Event bus for collective communication
     this.eventBus = options.eventBus || null;
+
+    // Autonomous capabilities (Phase 16: Total Memory + Full Autonomy)
+    this.autonomous = options.autonomous || null;
 
     // Local store for privacy-preserving data
     this.localStore = options.localStore || null;
@@ -778,6 +782,18 @@ export class CollectiveScholar extends BaseAgent {
     );
 
     this.eventBus.publish(event);
+
+    // Autonomous: Synthesize knowledge when we have enough entries
+    if (this.autonomous && this.knowledgeBase.size > 10) {
+      DogAutonomousBehaviors.scholar.synthesizeKnowledge(
+        this.autonomous,
+        this.persistence?.userId || 'unknown',
+        {
+          summary: `Extracted ${type}: ${knowledge.topic}`,
+          patterns: Array.from(this.topicsOfInterest.keys()).slice(0, 5),
+        }
+      ).catch(() => { /* Non-critical */ });
+    }
   }
 
   /**

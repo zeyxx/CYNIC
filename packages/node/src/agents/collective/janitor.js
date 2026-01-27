@@ -39,6 +39,7 @@ import {
   DeadCodeDetectedEvent,
 } from '../events.js';
 import { ProfileLevel } from '../../profile/calculator.js';
+import { DogAutonomousBehaviors } from './autonomous.js';
 
 /**
  * φ-aligned constants for Janitor
@@ -174,6 +175,9 @@ export class CollectiveJanitor extends BaseAgent {
     // Event bus for collective communication
     this.eventBus = options.eventBus || null;
 
+    // Autonomous capabilities (Phase 16: Total Memory + Full Autonomy)
+    this.autonomous = options.autonomous || null;
+
     // Current profile level (affects strictness)
     this.profileLevel = options.profileLevel || ProfileLevel.PRACTITIONER;
 
@@ -300,6 +304,15 @@ export class CollectiveJanitor extends BaseAgent {
         filesAnalyzed: analysis.filesAnalyzed,
       });
       await this.eventBus.publish(reportEvent);
+    }
+
+    // Autonomous: Report quality metrics
+    if (this.autonomous) {
+      DogAutonomousBehaviors.janitor.reportQuality(
+        this.autonomous,
+        this.persistence?.userId || 'unknown',
+        { score: qualityScore / 100, issues: analysis.issues.length }
+      ).catch(() => { /* Non-critical */ });
     }
 
     // Emit dead code events

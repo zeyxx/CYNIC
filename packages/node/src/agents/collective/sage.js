@@ -41,6 +41,7 @@ import {
   ConsensusVote,
 } from '../events.js';
 import { ProfileLevel, PROFILE_CONSTANTS } from '../../profile/calculator.js';
+import { DogAutonomousBehaviors } from './autonomous.js';
 
 /**
  * φ-aligned constants for Sage
@@ -158,6 +159,9 @@ export class CollectiveSage extends BaseAgent {
 
     // Event bus for collective communication
     this.eventBus = options.eventBus || null;
+
+    // Autonomous capabilities (Phase 16: Total Memory + Full Autonomy)
+    this.autonomous = options.autonomous || null;
 
     // Current profile level
     this.profileLevel = options.profileLevel || ProfileLevel.PRACTITIONER;
@@ -876,6 +880,20 @@ export class CollectiveSage extends BaseAgent {
     );
 
     this.eventBus.publish(event);
+
+    // Autonomous: Generate insights for proactive notifications
+    if (this.autonomous && wisdom.type === WisdomType.INSIGHT) {
+      DogAutonomousBehaviors.sage.generateInsight(
+        this.autonomous,
+        this.persistence?.userId || 'unknown',
+        {
+          title: wisdom.topic || 'Insight',
+          message: wisdom.content?.substring(0, 200) || wisdom.message || 'New insight available',
+          importance: wisdom.relevance || 0.5,
+          context: { type: wisdom.type, profileLevel: this.profileLevel },
+        }
+      ).catch(() => { /* Non-critical */ });
+    }
   }
 
   /**
