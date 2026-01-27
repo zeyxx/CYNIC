@@ -154,13 +154,13 @@ export class MetricsService extends EventEmitter {
 
   async _collectSessions(metrics) {
     if (this.sessionManager) {
-      const sessionStats = this.sessionManager.getStats();
+      const summary = this.sessionManager.getSummary();
       metrics.sessions = {
-        active: sessionStats.activeSessions || 0,
-        total: sessionStats.totalSessions || 0,
-        current: sessionStats.currentSession ? {
-          userId: sessionStats.currentSession.userId,
-          judgmentCount: sessionStats.currentSession.counters?.judgmentCount || 0,
+        active: summary.activeCount || 0,
+        total: summary.sessions?.length || 0,
+        current: summary.currentSession ? {
+          sessionId: summary.currentSession,
+          sessions: summary.sessions || [],
         } : null,
       };
     }
