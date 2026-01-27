@@ -139,9 +139,9 @@ jobs:
       - name: Setup Solana
         uses: solana-developers/github-actions/setup-all@v0.2.4
         with:
-          solana-cli-version: '2.1.15'
-          anchor-version: '0.32.1'
-          rust-version: '1.85.0'
+          solana_cli_version: '2.1.15'
+          anchor_version: '0.32.1'
+          rust_version: '1.85.0'
 
       - name: Build Anchor Program
         run: |
@@ -278,8 +278,8 @@ jobs:
       - name: Setup Solana
         uses: solana-developers/github-actions/setup-all@v0.2.4
         with:
-          solana-cli-version: '2.1.15'
-          anchor-version: '0.32.1'
+          solana_cli_version: '2.1.15'
+          anchor_version: '0.32.1'
 
       - name: Deploy to Devnet
         env:
