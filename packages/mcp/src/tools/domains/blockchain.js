@@ -64,9 +64,43 @@ export function createPoJChainTool(pojChainManager, persistence = null) {
       switch (action) {
         case 'status': {
           const status = pojChainManager.getStatus();
+
+          // Fetch recent blocks for dashboard visualization
+          let recentBlocks = [];
+          let stats = null;
+          if (persistence?.pojBlocks) {
+            try {
+              const blocks = await persistence.pojBlocks.findRecent(10);
+              recentBlocks = blocks.map(b => ({
+                blockNumber: b.slot,
+                slot: b.slot,
+                hash: (b.hash || b.block_hash)?.slice(0, 16) + '...',
+                prevHash: b.prev_hash?.slice(0, 16) + '...',
+                judgmentCount: b.judgment_count,
+                timestamp: b.timestamp,
+              }));
+              stats = await persistence.pojBlocks.getStats();
+            } catch (e) {
+              log.warn('Failed to fetch recent blocks', { error: e.message });
+            }
+          }
+
           return {
             action: 'status',
             ...status,
+            // Add head info for dashboard
+            head: status.headSlot ? {
+              blockNumber: status.headSlot,
+              slot: status.headSlot,
+              hash: status.headHash?.slice(0, 16) + '...',
+            } : null,
+            // Add recent blocks for ChainViz
+            recentBlocks,
+            // Add stats for dashboard
+            stats: stats || {
+              totalBlocks: status.headSlot || 0,
+              totalJudgments: status.stats?.judgmentsProcessed || 0,
+            },
             message: status.initialized
               ? `*tail wag* Chain at slot ${status.headSlot}, ${status.pendingJudgments} pending.`
               : '*growl* Chain not initialized.',
