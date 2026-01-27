@@ -42,6 +42,7 @@ import {
   AnomalyDetectedEvent,
   ProfileUpdatedEvent,
   ConsensusRequestEvent,
+  ConsensusVote,
   ThreatBlockedEvent,
 } from '../events.js';
 import {
@@ -206,30 +207,55 @@ export class CollectiveAnalyst extends BaseAgent {
   }
 
   /**
-   * Handle consensus request - add behavioral analysis
+   * Handle consensus request - vote based on behavioral analysis
    * @private
    */
-  _handleConsensusRequest(event) {
-    const { topic, requestedBy } = event.data || {};
+  async _handleConsensusRequest(event) {
+    const { question, options, context } = event.payload || {};
 
-    // Add behavioral context to consensus decision
-    const behavioralContext = {
-      recentPatterns: this.patternHistory.slice(-5),
-      currentProfile: this.profileCalculator.getProfile(),
-      errorRate: this.errorRate,
-      toolUsagePattern: this._getToolUsagePattern(),
-    };
+    // Analyze from behavioral/pattern perspective
+    const recentPatterns = this.patternHistory.slice(-5);
+    const currentProfile = this.profileCalculator?.getProfile?.() || {};
+    const errorRate = this.errorRate || 0;
 
-    // Store context for potential consensus vote
+    let vote = ConsensusVote.ABSTAIN;
+    let reason = 'Analyst observes, awaiting more data.';
+
+    // Vote based on pattern analysis
+    if (errorRate > PHI_INV) {
+      // High error rate - be cautious
+      vote = ConsensusVote.REJECT;
+      reason = `*observes* Analyst detects elevated error rate (${(errorRate * 100).toFixed(1)}%), counsels caution.`;
+    } else if (currentProfile.level >= 3 && errorRate < PHI_INV_2) {
+      // Good profile + low errors - approve
+      vote = ConsensusVote.APPROVE;
+      reason = '*nod* Analyst sees positive patterns, approves.';
+    } else if (recentPatterns.some(p => p.severity === 'critical')) {
+      // Recent critical patterns
+      vote = ConsensusVote.REJECT;
+      reason = '*sniff* Analyst detects recent critical patterns, advises against.';
+    }
+
+    // Store context for future reference
     if (!this._consensusContexts) {
       this._consensusContexts = new Map();
     }
     this._consensusContexts.set(event.id, {
-      topic,
-      requestedBy,
-      behavioralContext,
+      question,
+      vote,
+      reason,
       timestamp: Date.now(),
     });
+
+    // Submit vote
+    if (this.eventBus && this.eventBus.pendingConsensus?.has(event.id)) {
+      try {
+        await this.eventBus.vote(AgentId.ANALYST, event.id, vote, reason);
+        this.stats.invocations++;
+      } catch (e) {
+        // Vote submission failed - continue silently
+      }
+    }
   }
 
   /**

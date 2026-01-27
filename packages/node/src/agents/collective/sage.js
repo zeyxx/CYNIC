@@ -38,6 +38,7 @@ import {
   AgentEvent,
   AgentId,
   WisdomSharedEvent,
+  ConsensusVote,
 } from '../events.js';
 import { ProfileLevel, PROFILE_CONSTANTS } from '../../profile/calculator.js';
 
@@ -226,6 +227,54 @@ export class CollectiveSage extends BaseAgent {
       AgentId.SAGE,
       this._handlePatternDetected.bind(this)
     );
+
+    // Participate in consensus voting
+    this.eventBus.subscribe(
+      AgentEvent.CONSENSUS_REQUEST,
+      AgentId.SAGE,
+      this._handleConsensusRequest.bind(this)
+    );
+  }
+
+  /**
+   * Handle consensus request - vote from wisdom perspective
+   * @private
+   */
+  async _handleConsensusRequest(event) {
+    const { question, options, context } = event.payload || {};
+    const questionLower = (question || '').toLowerCase();
+
+    let vote = ConsensusVote.ABSTAIN;
+    let reason = 'Sage contemplates...';
+
+    // Wisdom-focused analysis
+    const wisdomPatterns = ['wise', 'best practice', 'recommend', 'should', 'advise'];
+    const isWisdomRelated = wisdomPatterns.some(p => questionLower.includes(p));
+
+    // Sage tends toward thoughtful approval but warns of haste
+    if (questionLower.includes('rush') || questionLower.includes('quick') || questionLower.includes('fast')) {
+      vote = ConsensusVote.REJECT;
+      reason = '*strokes beard* Sage counsels patience. Haste makes waste.';
+    } else if (isWisdomRelated || questionLower.includes('proceed')) {
+      vote = ConsensusVote.APPROVE;
+      reason = '*wise nod* Sage approves - the path seems aligned with φ.';
+    } else if (context?.risk === 'low') {
+      vote = ConsensusVote.APPROVE;
+      reason = '*gentle nod* Sage sees no harm in this endeavor.';
+    } else if (context?.risk === 'critical') {
+      vote = ConsensusVote.REJECT;
+      reason = '*frown* Sage advises against critical risk without more preparation.';
+    }
+
+    // Submit vote
+    if (this.eventBus && this.eventBus.pendingConsensus?.has(event.id)) {
+      try {
+        await this.eventBus.vote(AgentId.SAGE, event.id, vote, reason);
+        this.stats.invocations++;
+      } catch (e) {
+        // Vote submission failed
+      }
+    }
   }
 
   /**

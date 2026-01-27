@@ -252,6 +252,13 @@ export class CollectiveGuardian extends BaseAgent {
       this._handleConsensusResponse.bind(this)
     );
 
+    // Participate in consensus voting
+    this.eventBus.subscribe(
+      AgentEvent.CONSENSUS_REQUEST,
+      AgentId.GUARDIAN,
+      this._handleConsensusRequest.bind(this)
+    );
+
     // === HOOK EVENTS (from Claude Code) ===
 
     // Learn from PreToolUse - blocked/warned operations
@@ -319,6 +326,47 @@ export class CollectiveGuardian extends BaseAgent {
     if (result) {
       this.pendingConsensus.delete(requestId);
       pending.resolve(result);
+    }
+  }
+
+  /**
+   * Handle consensus request - vote from security perspective
+   * @private
+   */
+  async _handleConsensusRequest(event) {
+    const { question, options, context } = event.payload || {};
+    const questionLower = (question || '').toLowerCase();
+
+    // Analyze from security perspective
+    let vote = ConsensusVote.ABSTAIN;
+    let reason = 'Guardian awaits more context.';
+
+    // Check for risky patterns in the question
+    const riskPatterns = ['delete', 'remove', 'force', 'danger', 'risky', 'critical', 'destructive'];
+    const isRisky = riskPatterns.some(p => questionLower.includes(p));
+
+    // Check context risk level
+    const contextRisk = context?.risk || 'unknown';
+
+    if (isRisky || contextRisk === 'critical' || contextRisk === 'high') {
+      vote = ConsensusVote.REJECT;
+      reason = '*GROWL* Guardian rejects - security risk detected.';
+    } else if (contextRisk === 'low' || questionLower.includes('safe') || questionLower.includes('proceed')) {
+      vote = ConsensusVote.APPROVE;
+      reason = '*sniff* Guardian approves - no immediate threat detected.';
+    } else if (contextRisk === 'medium') {
+      vote = ConsensusVote.ABSTAIN;
+      reason = '*ears perk* Guardian abstains - borderline risk, needs more information.';
+    }
+
+    // Submit vote if eventBus has pending consensus
+    if (this.eventBus && this.eventBus.pendingConsensus?.has(event.id)) {
+      try {
+        await this.eventBus.vote(AgentId.GUARDIAN, event.id, vote, reason);
+        this.stats.invocations++;
+      } catch (e) {
+        // Vote submission failed - continue silently
+      }
     }
   }
 

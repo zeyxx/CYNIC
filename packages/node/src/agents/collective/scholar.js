@@ -38,6 +38,7 @@ import {
   AgentEvent,
   AgentId,
   KnowledgeExtractedEvent,
+  ConsensusVote,
 } from '../events.js';
 import { ProfileLevel } from '../../profile/calculator.js';
 
@@ -191,6 +192,50 @@ export class CollectiveScholar extends BaseAgent {
       AgentId.SCHOLAR,
       this._handleProfileUpdated.bind(this)
     );
+
+    // Participate in consensus voting
+    this.eventBus.subscribe(
+      AgentEvent.CONSENSUS_REQUEST,
+      AgentId.SCHOLAR,
+      this._handleConsensusRequest.bind(this)
+    );
+  }
+
+  /**
+   * Handle consensus request - vote from knowledge perspective
+   * @private
+   */
+  async _handleConsensusRequest(event) {
+    const { question, options, context } = event.payload || {};
+    const questionLower = (question || '').toLowerCase();
+
+    let vote = ConsensusVote.ABSTAIN;
+    let reason = 'Scholar researches before deciding.';
+
+    // Knowledge-focused analysis
+    const knowledgePatterns = ['learn', 'knowledge', 'document', 'understand', 'explain'];
+    const isKnowledgeRelated = knowledgePatterns.some(p => questionLower.includes(p));
+
+    if (isKnowledgeRelated) {
+      vote = ConsensusVote.APPROVE;
+      reason = '*pages turn* Scholar approves - knowledge expansion is always good.';
+    } else if (questionLower.includes('delete') && questionLower.includes('document')) {
+      vote = ConsensusVote.REJECT;
+      reason = '*growl* Scholar rejects - knowledge must be preserved.';
+    } else if (context?.domain === 'memory' || context?.domain === 'learning') {
+      vote = ConsensusVote.APPROVE;
+      reason = '*nod* Scholar supports memory and learning initiatives.';
+    }
+
+    // Submit vote
+    if (this.eventBus && this.eventBus.pendingConsensus?.has(event.id)) {
+      try {
+        await this.eventBus.vote(AgentId.SCHOLAR, event.id, vote, reason);
+        this.stats.invocations++;
+      } catch (e) {
+        // Vote submission failed
+      }
+    }
   }
 
   /**

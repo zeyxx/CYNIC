@@ -223,6 +223,13 @@ export class CollectiveArchitect extends BaseAgent {
       this._handleConsensusResponse.bind(this)
     );
 
+    // Participate in consensus voting
+    this.eventBus.subscribe(
+      AgentEvent.CONSENSUS_REQUEST,
+      AgentId.ARCHITECT,
+      this._handleConsensusRequest.bind(this)
+    );
+
     // Adapt to profile updates
     this.eventBus.subscribe(
       AgentEvent.PROFILE_UPDATED,
@@ -276,6 +283,46 @@ export class CollectiveArchitect extends BaseAgent {
     if (knowledgeType === 'pattern') {
       const count = this.patternCounts.get(topic) || 0;
       this.patternCounts.set(topic, count + 1);
+    }
+  }
+
+  /**
+   * Handle consensus request - vote from design perspective
+   * @private
+   */
+  async _handleConsensusRequest(event) {
+    const { question, options, context } = event.payload || {};
+    const questionLower = (question || '').toLowerCase();
+
+    let vote = ConsensusVote.ABSTAIN;
+    let reason = 'Architect considers structural implications.';
+
+    // Design-focused analysis
+    const designPatterns = ['refactor', 'architect', 'design', 'structure', 'pattern'];
+    const isDesignRelated = designPatterns.some(p => questionLower.includes(p));
+
+    if (isDesignRelated) {
+      // Architect has strong opinions on design matters
+      if (questionLower.includes('simplify') || questionLower.includes('clean')) {
+        vote = ConsensusVote.APPROVE;
+        reason = '*blueprints rustle* Architect approves - simplification aligns with φ principles.';
+      } else if (questionLower.includes('complex') || questionLower.includes('add layer')) {
+        vote = ConsensusVote.REJECT;
+        reason = '*frown* Architect rejects - unnecessary complexity violates voluntary poverty.';
+      }
+    } else if (context?.domain === 'deployment' || context?.domain === 'infrastructure') {
+      vote = ConsensusVote.APPROVE;
+      reason = '*nod* Architect defers to Deployer on infrastructure matters.';
+    }
+
+    // Submit vote
+    if (this.eventBus && this.eventBus.pendingConsensus?.has(event.id)) {
+      try {
+        await this.eventBus.vote(AgentId.ARCHITECT, event.id, vote, reason);
+        this.stats.invocations++;
+      } catch (e) {
+        // Vote submission failed
+      }
     }
   }
 
