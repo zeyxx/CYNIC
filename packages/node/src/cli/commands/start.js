@@ -229,27 +229,12 @@ export async function startCommand(options) {
     httpHandler, // HTTP API on same port as WS
   });
 
-  // Create gossip protocol with debug sendFn
-  const rawSendFn = transport.getSendFn();
-  const debugSendFn = async (peer, message) => {
-    const pk = peer?.publicKey?.slice(0, 12) || 'none';
-    const id = peer?.id?.slice(0, 12) || 'none';
-    console.log(chalk.gray('  [SEND] ') + `to pk=${pk} id=${id} type=${message?.type}`);
-    try {
-      const result = await rawSendFn(peer, message);
-      console.log(chalk.green('  [SENT] ') + `ok to pk=${pk}`);
-      return result;
-    } catch (err) {
-      console.log(chalk.red('  [SEND-ERR] ') + `to pk=${pk}: ${err.message}`);
-      throw err;
-    }
-  };
-
+  // Create gossip protocol
   const gossip = new GossipProtocol({
     publicKey: keypair.publicKey,
     privateKey: keypair.privateKey,
     address: `${host}:${port}`,
-    sendFn: debugSendFn,
+    sendFn: transport.getSendFn(),
     onMessage: (message) => {
       if (message.type !== 'HEARTBEAT' && verbose) {
         console.log(chalk.blue(`  [MSG] `) + chalk.gray(`${message.type}: ${JSON.stringify(message.payload).slice(0, 60)}...`));
@@ -301,17 +286,11 @@ export async function startCommand(options) {
     const direction = inbound ? chalk.magenta('←') : chalk.green('→');
     const id = (publicKey || peerId || '').slice(0, 12);
     console.log(chalk.green('  [PEER] ') + `${direction} Connected: ${chalk.cyan(id)}...`);
+    // Note: For inbound connections, publicKey is available here.
+    // For outbound connections, publicKey is NOT available yet (peer:identified has it).
     if (publicKey) {
-      const peerInfo = createPeerInfo({ publicKey, address: '' });
-      console.log(chalk.gray('  [DEBUG] ') + `addPeer: id=${peerInfo.id?.slice(0, 12)} pk=${publicKey.slice(0, 12)}`);
-      gossip.addPeer(peerInfo);
-      // Register peer as validator for consensus
-      consensus.registerValidator({
-        publicKey,
-        eScore: 50, // Default E-Score for peers
-        burned: 0,
-        uptime: 1.0,
-      });
+      gossip.addPeer(createPeerInfo({ publicKey, address: '' }));
+      consensus.registerValidator({ publicKey, eScore: 50, burned: 0, uptime: 1.0 });
     }
   });
 
@@ -321,16 +300,9 @@ export async function startCommand(options) {
     }
     // CRITICAL: For outbound connections, peer:connected fires before identity exchange
     // so publicKey is not available there. We MUST add the peer here too.
-    const peerInfo = createPeerInfo({ publicKey, address: '' });
-    console.log(chalk.gray('  [DEBUG] ') + `addPeer (identified): id=${peerInfo.id?.slice(0, 12)} pk=${publicKey.slice(0, 12)}`);
-    gossip.addPeer(peerInfo);
-    // Register peer as validator for consensus (idempotent)
-    consensus.registerValidator({
-      publicKey,
-      eScore: 50,
-      burned: 0,
-      uptime: 1.0,
-    });
+    // addPeer is idempotent, so calling it twice for inbound connections is safe.
+    gossip.addPeer(createPeerInfo({ publicKey, address: '' }));
+    consensus.registerValidator({ publicKey, eScore: 50, burned: 0, uptime: 1.0 });
   });
 
   // CRITICAL: Route incoming messages to gossip protocol
