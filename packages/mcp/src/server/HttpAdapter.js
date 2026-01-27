@@ -419,10 +419,10 @@ export class HttpAdapter {
     // Content Security Policy
     res.setHeader('Content-Security-Policy', [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'", // Dashboard needs inline scripts
-      "style-src 'self' 'unsafe-inline'",  // Dashboard needs inline styles
+      "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net", // Dashboard + CDN libs
+      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",  // Dashboard + CDN styles
       "img-src 'self' data: blob:",
-      "font-src 'self'",
+      "font-src 'self' https://cdn.jsdelivr.net",
       "connect-src 'self' wss: ws:",       // WebSocket connections
       "frame-ancestors 'none'",
       "base-uri 'self'",
