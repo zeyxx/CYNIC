@@ -166,6 +166,31 @@ export function createPoJChainTool(pojChainManager, persistence = null) {
               timestamp: Date.now(),
             };
           }
+
+          // Fetch judgment details for dashboard visualization
+          let judgments = [];
+          if (block.judgment_ids?.length > 0 && persistence.judgments?.findById) {
+            try {
+              const judgmentPromises = block.judgment_ids.map(id =>
+                persistence.judgments.findById(id)
+              );
+              const results = await Promise.all(judgmentPromises);
+              judgments = results
+                .filter(j => j !== null)
+                .map(j => ({
+                  id: j.judgment_id,
+                  verdict: j.verdict,
+                  qScore: parseFloat(j.q_score) || 50,
+                  Q: parseFloat(j.q_score) || 50,
+                  itemType: j.item_type,
+                  confidence: parseFloat(j.confidence) || 0.618,
+                  timestamp: j.created_at,
+                }));
+            } catch (e) {
+              log.warn('Failed to fetch judgment details', { error: e.message });
+            }
+          }
+
           return {
             action: 'block',
             block: {
@@ -175,6 +200,7 @@ export function createPoJChainTool(pojChainManager, persistence = null) {
               merkleRoot: block.merkle_root || block.judgments_root,
               judgmentCount: block.judgment_count,
               judgmentIds: block.judgment_ids,
+              judgments, // Include full judgment details
               timestamp: block.timestamp,
             },
             message: `*tail wag* Block ${blockNumber} found.`,
