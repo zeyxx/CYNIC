@@ -291,9 +291,29 @@ export async function startCommand(options) {
     }
   });
 
+  // Track outbound connections for reconnection
+  const outboundPeers = new Map(); // peerId -> { address, attempts }
+
   transport.on('peer:disconnected', ({ peerId }) => {
     const id = (peerId || '').slice(0, 12);
     console.log(chalk.red('  [PEER] ') + `Disconnected: ${chalk.gray(id)}...`);
+
+    // Auto-reconnect for outbound connections
+    const peerInfo = outboundPeers.get(peerId);
+    if (peerInfo) {
+      peerInfo.attempts = (peerInfo.attempts || 0) + 1;
+      const delay = Math.min(5000 * Math.pow(1.618, peerInfo.attempts - 1), 60000); // φ-backoff, max 1min
+      console.log(chalk.yellow('  [RECONN] ') + `Reconnecting to ${peerInfo.address} in ${Math.round(delay/1000)}s...`);
+      setTimeout(async () => {
+        try {
+          await transport.connect({ id: peerId, address: peerInfo.address });
+          peerInfo.attempts = 0; // Reset on success
+          console.log(chalk.green('  [RECONN] ') + `Reconnected to ${peerInfo.address}`);
+        } catch (err) {
+          console.log(chalk.red('  [RECONN] ') + `Failed: ${err.message}`);
+        }
+      }, delay);
+    }
   });
 
   transport.on('peer:error', ({ error }) => {
@@ -334,10 +354,13 @@ export async function startCommand(options) {
     for (const address of options.connect) {
       try {
         const wsAddress = address.startsWith('ws') ? address : `ws://${address}`;
+        const peerId = `peer_${Date.now()}`;
         await transport.connect({
-          id: `peer_${Date.now()}`,
+          id: peerId,
           address: wsAddress,
         });
+        // Track for auto-reconnect
+        outboundPeers.set(peerId, { address: wsAddress, attempts: 0 });
         console.log(chalk.green('  [OK]   ') + `Connected to ${chalk.cyan(address)}`);
       } catch (err) {
         console.log(chalk.red('  [FAIL] ') + `Could not connect to ${address}: ${err.message}`);
