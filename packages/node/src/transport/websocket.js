@@ -464,8 +464,10 @@ export class WebSocketTransport extends EventEmitter {
       if (existing) {
         // Duplicate connection - keep one deterministically (lower publicKey wins as server)
         const keepExisting = this.publicKey < publicKey;
+        console.log(`[DUP] Duplicate detected for ${realPeerId.slice(0, 16)}... keepExisting=${keepExisting} myKey<theirKey=${this.publicKey < publicKey}`);
         if (keepExisting) {
           // Close this new connection, mark as not outbound to prevent reconnect
+          console.log(`[DUP] Closing NEW connection (inbound=${!conn.isOutbound})`);
           conn.isOutbound = false;
           conn.pendingIdentity = false;
           conn.state = ConnectionState.CLOSED;
@@ -476,6 +478,7 @@ export class WebSocketTransport extends EventEmitter {
           return;
         } else {
           // Close existing, keep new - mark existing to prevent its disconnect handler from interfering
+          console.log(`[DUP] Closing EXISTING connection (inbound=${!existing.isOutbound})`);
           existing._closing = true;
           existing.isOutbound = false;
           existing.pendingIdentity = false;

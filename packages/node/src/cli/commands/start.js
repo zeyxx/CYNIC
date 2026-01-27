@@ -331,9 +331,9 @@ export async function startCommand(options) {
   // Track required outbound connections for auto-reconnect
   const requiredPeers = new Set(); // addresses we should stay connected to
 
-  transport.on('peer:disconnected', ({ peerId }) => {
+  transport.on('peer:disconnected', ({ peerId, code, reason }) => {
     const id = (peerId || '').slice(0, 12);
-    console.log(chalk.red('  [PEER] ') + `Disconnected: ${chalk.gray(id)}...`);
+    console.log(chalk.red('  [PEER] ') + `Disconnected: ${chalk.gray(id)}... code=${code} reason=${reason || 'none'}`);
   });
 
   transport.on('peer:error', ({ error }) => {
