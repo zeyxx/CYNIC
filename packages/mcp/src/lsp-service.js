@@ -19,6 +19,9 @@
 
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, relative, extname, basename, dirname } from 'node:path';
+import { createLogger } from '@cynic/core';
+
+const log = createLogger('LspService');
 
 // φ-derived constants
 const PHI = 1.618033988749895;
@@ -575,7 +578,7 @@ export class LSPService {
           }
         }
       } catch (err) {
-        // Skip inaccessible directories
+        log.debug('Skipping inaccessible directory', { dir, error: err.code || err.message });
       }
     };
 

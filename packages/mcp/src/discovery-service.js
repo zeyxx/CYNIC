@@ -339,7 +339,7 @@ export class DiscoveryService extends EventEmitter {
         return await response.json();
       }
     } catch (error) {
-      // Probe failed
+      log.debug('Health probe failed', { endpoint, error: error.message });
     }
     return null;
   }
@@ -463,7 +463,10 @@ export class DiscoveryService extends EventEmitter {
         results.claudeMd = { found: true, length: JSON.stringify(claudeMd).length };
       }
     } catch (error) {
-      // No CLAUDE.md
+      // Expected for repos without CLAUDE.md (404), log unexpected errors
+      if (!error.message?.includes('404')) {
+        log.debug('Failed to fetch CLAUDE.md', { owner, repo, error: error.message });
+      }
     }
 
     return results;
