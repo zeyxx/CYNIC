@@ -29,7 +29,7 @@ import { createAllTools } from './tools/index.js';
 import { PersistenceManager } from './persistence.js';
 import { SessionManager } from './session-manager.js';
 // Solana anchoring support
-import { AnchorQueue, loadWalletFromFile, loadWalletFromEnv, SolanaCluster } from '@cynic/anchor';
+import { AnchorQueue, SolanaAnchorer, loadWalletFromFile, loadWalletFromEnv, SolanaCluster } from '@cynic/anchor';
 // Burns verification (for E-Score integration)
 import { createBurnVerifier } from '@cynic/burns';
 import { PoJChainManager } from './poj-chain-manager.js';
@@ -291,12 +291,21 @@ export class MCPServer {
       try {
         const wallet = loadWalletFromEnv('CYNIC_SOLANA_KEY') || loadWalletFromFile(walletPath);
         const cluster = process.env.CYNIC_SOLANA_CLUSTER || 'devnet';
+        const clusterUrl = SolanaCluster[cluster.toUpperCase()] || SolanaCluster.DEVNET;
 
-        this.anchorQueue = new AnchorQueue({
+        // Create Solana anchorer with wallet
+        const anchorer = new SolanaAnchorer({
+          cluster: clusterUrl,
           wallet,
-          cluster: SolanaCluster[cluster.toUpperCase()] || SolanaCluster.DEVNET,
+          useAnchorProgram: true,
+        });
+
+        // Create anchor queue with anchorer
+        this.anchorQueue = new AnchorQueue({
+          anchorer,
           batchSize: 5,
-          batchTimeout: 61800,
+          intervalMs: 61800,
+          autoStart: true,
         });
 
         this.pojChainManager.setAnchorQueue(this.anchorQueue);
