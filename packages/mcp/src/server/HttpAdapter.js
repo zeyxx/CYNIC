@@ -262,6 +262,12 @@ export class HttpAdapter {
       return;
     }
 
+    // SSE endpoint (dedicated)
+    if (pathname === '/sse') {
+      await this._handleSSE(req, res);
+      return;
+    }
+
     // MCP endpoint
     if (pathname === '/mcp' || pathname === '/message') {
       if (req.method === 'GET') {
@@ -349,7 +355,14 @@ export class HttpAdapter {
    * @private
    */
   async _serveDashboard(req, res, url) {
-    let filePath = url.pathname === '/' ? '/index.html' : url.pathname;
+    let filePath = url.pathname;
+
+    // Strip /dashboard prefix if present (dashboard uses <base href="/dashboard/">)
+    if (filePath.startsWith('/dashboard')) {
+      filePath = filePath.slice('/dashboard'.length) || '/';
+    }
+
+    filePath = filePath === '/' ? '/index.html' : filePath;
     filePath = join(this.dashboardPath, filePath);
 
     try {
