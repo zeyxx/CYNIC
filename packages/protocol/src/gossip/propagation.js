@@ -25,6 +25,7 @@ import {
   createConsensusVote,
   createConsensusVoteAggregate,
   createConsensusFinality,
+  createConsensusSlotStatus,
   createConsensusStateRequest,
   createConsensusStateResponse,
   isConsensusGossipMessage,
@@ -446,6 +447,41 @@ export class GossipProtocol {
    */
   async broadcastFinality(finality) {
     const message = createConsensusFinality(finality, this.publicKey, this.privateKey);
+    return this.broadcast(message);
+  }
+
+  /**
+   * Broadcast slot status to all peers or send to a specific peer
+   * Used for sync handshake coordination
+   * @param {Object} status - Slot status data
+   * @param {string} [toPeerPublicKey] - Optional: send only to this peer
+   * @returns {Promise<number>} Number of peers sent to
+   */
+  async broadcastSlotStatus(status, toPeerPublicKey = null) {
+    const message = createConsensusSlotStatus(status, this.publicKey, this.privateKey);
+
+    if (toPeerPublicKey) {
+      // Send to specific peer
+      let peer = this.peerManager.getPeer(toPeerPublicKey);
+      if (!peer) {
+        peer = this.peerManager.getPeerByPublicKey(toPeerPublicKey);
+      }
+      if (!peer) {
+        log.warn('Cannot send slot status: peer not found', { peer: toPeerPublicKey });
+        return 0;
+      }
+      try {
+        await this.sendFn(peer, message);
+        this.peerManager.updateActivity(peer.id, 'sent');
+        return 1;
+      } catch (err) {
+        this.peerManager.recordFailure(peer.id);
+        log.warn('Failed to send slot status', { peer: toPeerPublicKey, error: err.message });
+        return 0;
+      }
+    }
+
+    // Broadcast to all peers
     return this.broadcast(message);
   }
 

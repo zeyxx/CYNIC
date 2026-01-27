@@ -30,18 +30,24 @@ export class ConsensusGossip extends EventEmitter {
    * @param {GossipProtocol} options.gossip - GossipProtocol instance
    * @param {boolean} [options.autoSync=true] - Auto-sync when joining network
    * @param {number} [options.syncDelayMs=500] - Delay before auto-sync (allows peers to connect)
+   * @param {number} [options.handshakeTimeoutMs=5000] - Timeout for sync handshake
    */
-  constructor({ consensus, gossip, autoSync = true, syncDelayMs = 500 }) {
+  constructor({ consensus, gossip, autoSync = true, syncDelayMs = 500, handshakeTimeoutMs = 5000 }) {
     super();
 
     this.consensus = consensus;
     this.gossip = gossip;
     this.autoSync = autoSync;
     this.syncDelayMs = syncDelayMs;
+    this.handshakeTimeoutMs = handshakeTimeoutMs;
 
     this.started = false;
     this.synced = false;
     this.syncTimer = null;
+
+    // Track handshake state per peer to coordinate who syncs
+    this.peerHandshakes = new Map(); // peerPublicKey -> { ourSlot, theirSlot, resolved }
+
     this.stats = {
       proposalsBroadcast: 0,
       votesBroadcast: 0,
@@ -49,6 +55,9 @@ export class ConsensusGossip extends EventEmitter {
       proposalsReceived: 0,
       votesReceived: 0,
       finalityReceived: 0,
+      handshakesSent: 0,
+      handshakesReceived: 0,
+      syncDecisions: { weSync: 0, theySync: 0, noSync: 0 },
     };
 
     // Bind methods
@@ -365,64 +374,217 @@ export class ConsensusGossip extends EventEmitter {
   }
 
   /**
-   * Handle received slot status
+   * Handle received slot status - implements sync handshake
+   *
+   * When a peer sends their slot status, we compare slots to decide who syncs:
+   * - If our slot < their slot: we sync from them
+   * - If our slot > their slot: they sync from us (we wait)
+   * - If equal: use public key comparison to break tie deterministically
+   *
    * @private
    */
   async _handleSlotStatus(message) {
     const { payload, sender } = message;
 
-    // Emit for sync purposes
+    // Emit for external listeners
     this.emit('slot-status:received', {
       slot: payload.slot,
       leader: payload.leader,
       from: sender,
     });
+
+    // Skip if auto-sync disabled
+    if (!this.autoSync) return;
+
+    // Get or create handshake state for this peer
+    let handshake = this.peerHandshakes.get(sender);
+    if (!handshake) {
+      handshake = { ourSlot: null, theirSlot: null, resolved: false };
+      this.peerHandshakes.set(sender, handshake);
+    }
+
+    // Record their slot
+    handshake.theirSlot = payload.slot || 0;
+    this.stats.handshakesReceived++;
+
+    // If we haven't sent our status yet, send it now
+    if (handshake.ourSlot === null) {
+      await this._sendSlotStatus(sender);
+    }
+
+    // If handshake already resolved, skip
+    if (handshake.resolved) return;
+
+    // Both sides have exchanged - make sync decision
+    if (handshake.ourSlot !== null && handshake.theirSlot !== null) {
+      await this._resolveSyncHandshake(sender, handshake);
+    }
   }
 
   /**
-   * Handle peer added - triggers auto-sync
+   * Send our slot status to a specific peer
    * @private
    */
-  _onPeerAdded(peerInfo) {
-    // Skip if already synced or auto-sync disabled
-    if (this.synced || !this.autoSync) return;
+  async _sendSlotStatus(peerPublicKey) {
+    const ourSlot = this.consensus.getCurrentSlot?.() || 0;
+    const ourPublicKey = this.consensus.publicKey;
 
-    // Debounce sync - wait for more peers to connect
-    if (this.syncTimer) {
-      clearTimeout(this.syncTimer);
+    // Update handshake state
+    let handshake = this.peerHandshakes.get(peerPublicKey);
+    if (!handshake) {
+      handshake = { ourSlot: null, theirSlot: null, resolved: false };
+      this.peerHandshakes.set(peerPublicKey, handshake);
+    }
+    handshake.ourSlot = ourSlot;
+
+    // Send slot status to peer
+    try {
+      const status = {
+        slot: ourSlot,
+        publicKey: ourPublicKey,
+        isHandshake: true, // Flag to indicate this is for sync coordination
+      };
+
+      // Use gossip to send directly to specific peer
+      if (this.gossip.broadcastSlotStatus) {
+        await this.gossip.broadcastSlotStatus(status, peerPublicKey);
+      } else {
+        await this._broadcastSlotStatusToPeer(peerPublicKey, status);
+      }
+
+      this.stats.handshakesSent++;
+      this.emit('handshake:sent', { to: peerPublicKey, slot: ourSlot });
+    } catch (err) {
+      this.emit('error', { source: 'handshake-send', error: err.message });
+    }
+  }
+
+  /**
+   * Broadcast slot status to a specific peer
+   * @private
+   */
+  async _broadcastSlotStatusToPeer(peerPublicKey, status) {
+    // Find peer and send directly
+    const peer = this.gossip.peerManager.getPeerByPublicKey?.(peerPublicKey);
+    if (peer && this.gossip.sendFn) {
+      const message = {
+        id: `slot_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        type: MessageType.CONSENSUS_SLOT_STATUS,
+        payload: status,
+        sender: this.consensus.publicKey,
+        timestamp: Date.now(),
+        ttl: 1,
+        hops: 0,
+      };
+      await this.gossip.sendFn(peer, message);
+    }
+  }
+
+  /**
+   * Resolve sync handshake - decide who syncs from whom
+   * @private
+   */
+  async _resolveSyncHandshake(peerPublicKey, handshake) {
+    handshake.resolved = true;
+
+    const ourSlot = handshake.ourSlot;
+    const theirSlot = handshake.theirSlot;
+    const ourPublicKey = this.consensus.publicKey;
+
+    this.emit('handshake:resolving', {
+      peer: peerPublicKey,
+      ourSlot,
+      theirSlot,
+    });
+
+    // Decision logic:
+    // 1. Lower slot syncs from higher slot
+    // 2. If equal, use public key comparison (lower key syncs) for determinism
+    let shouldWeSync = false;
+
+    if (ourSlot < theirSlot) {
+      shouldWeSync = true;
+      this.stats.syncDecisions.weSync++;
+    } else if (ourSlot > theirSlot) {
+      shouldWeSync = false;
+      this.stats.syncDecisions.theySync++;
+    } else {
+      // Equal slots - use public key to break tie deterministically
+      // Lower public key syncs (arbitrary but consistent)
+      shouldWeSync = ourPublicKey < peerPublicKey;
+      if (shouldWeSync) {
+        this.stats.syncDecisions.weSync++;
+      } else {
+        this.stats.syncDecisions.theySync++;
+      }
     }
 
-    this.syncTimer = setTimeout(async () => {
-      this.syncTimer = null;
+    this.emit('handshake:resolved', {
+      peer: peerPublicKey,
+      ourSlot,
+      theirSlot,
+      decision: shouldWeSync ? 'we-sync' : 'they-sync',
+    });
 
-      // Only sync if we haven't already
-      if (this.synced) return;
-
-      const peers = this.gossip.peerManager.getActivePeers();
-      if (peers.length === 0) return;
-
-      this.emit('sync:starting', { peerCount: peers.length });
-
+    // If we should sync, request state from this peer
+    if (shouldWeSync && !this.synced) {
       try {
-        const result = await this.syncFromPeers(0);
+        this.emit('sync:starting', { peer: peerPublicKey, reason: 'handshake' });
 
-        // Only mark as synced if at least one peer responded successfully
-        if (result.success) {
+        const result = await this.requestSync(peerPublicKey, 0);
+
+        if (result && (result.imported > 0 || result.latestSlot >= 0)) {
           this.synced = true;
-          this.emit('sync:auto-completed', {
-            imported: result.imported,
-            latestSlot: result.latestSlot,
-            peerCount: peers.length,
-          });
-        } else {
-          this.emit('sync:failed', {
-            error: result.error || 'All sync requests failed',
-            peerCount: peers.length,
+          this.emit('sync:completed', {
+            from: peerPublicKey,
+            imported: result.imported || 0,
+            latestSlot: result.latestSlot || 0,
           });
         }
       } catch (err) {
-        this.emit('error', { source: 'auto-sync', error: err.message });
+        // Sync failed - not critical, we can still participate
+        this.emit('sync:failed', {
+          peer: peerPublicKey,
+          error: err.message,
+        });
       }
+    }
+  }
+
+  /**
+   * Handle peer added - initiates sync handshake
+   *
+   * Instead of directly syncing, we now send our slot status to coordinate.
+   * The peer will respond with their slot status, and we'll decide who syncs.
+   *
+   * @private
+   */
+  _onPeerAdded(peerInfo) {
+    // Skip if auto-sync disabled
+    if (!this.autoSync) return;
+
+    const peerPublicKey = peerInfo.publicKey || peerInfo.id;
+    if (!peerPublicKey) return;
+
+    // Debounce to allow connection to stabilize
+    setTimeout(async () => {
+      // Skip if we already have a resolved handshake with this peer
+      const existing = this.peerHandshakes.get(peerPublicKey);
+      if (existing?.resolved) return;
+
+      // Initiate handshake by sending our slot status
+      await this._sendSlotStatus(peerPublicKey);
+
+      // Set timeout for handshake completion
+      setTimeout(() => {
+        const handshake = this.peerHandshakes.get(peerPublicKey);
+        if (handshake && !handshake.resolved) {
+          // Handshake timed out - peer didn't respond
+          // This is OK, they might be an older version or busy
+          handshake.resolved = true;
+          this.emit('handshake:timeout', { peer: peerPublicKey });
+        }
+      }, this.handshakeTimeoutMs);
     }, this.syncDelayMs);
   }
 
