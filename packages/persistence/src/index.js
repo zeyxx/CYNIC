@@ -24,6 +24,9 @@ export { migrate } from './postgres/migrate.js';
 // Repositories
 export * from './postgres/repositories/index.js';
 
+// Services
+export * from './services/index.js';
+
 // Repository Factory (DI pattern)
 export { RepositoryFactory, createMockFactory } from './factory.js';
 

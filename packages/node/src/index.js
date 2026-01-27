@@ -232,3 +232,12 @@ export {
   DogModel,
   DOG_CONFIG,
 } from './agents/orchestrator.js';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Services - Autonomous Daemon and Background Processing
+// ═══════════════════════════════════════════════════════════════════════════════
+export {
+  AutonomousDaemon,
+  createAutonomousDaemon,
+  registerTaskHandler,
+} from './services/index.js';

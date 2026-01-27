@@ -33,3 +33,11 @@ export { ConsciousnessRepository } from './consciousness.js';
 
 // Phase 15: Psychology System
 export { PsychologyRepository } from './psychology.js';
+
+// Phase 16: Total Memory + Full Autonomy
+export { ConversationMemoriesRepository, MemoryType } from './conversation-memories.js';
+export { ArchitecturalDecisionsRepository, DecisionType, DecisionStatus } from './architectural-decisions.js';
+export { LessonsLearnedRepository, LessonCategory, LessonSeverity } from './lessons-learned.js';
+export { AutonomousGoalsRepository, GoalType, GoalStatus } from './autonomous-goals.js';
+export { AutonomousTasksRepository, TaskStatus, TaskType } from './autonomous-tasks.js';
+export { ProactiveNotificationsRepository, NotificationType } from './proactive-notifications.js';
