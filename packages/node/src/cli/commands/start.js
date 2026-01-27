@@ -319,6 +319,18 @@ export async function startCommand(options) {
     if (verbose) {
       console.log(chalk.blue('  [ID]   ') + `Verified: ${chalk.cyan(publicKey.slice(0, 12))}...`);
     }
+    // CRITICAL: For outbound connections, peer:connected fires before identity exchange
+    // so publicKey is not available there. We MUST add the peer here too.
+    const peerInfo = createPeerInfo({ publicKey, address: '' });
+    console.log(chalk.gray('  [DEBUG] ') + `addPeer (identified): id=${peerInfo.id?.slice(0, 12)} pk=${publicKey.slice(0, 12)}`);
+    gossip.addPeer(peerInfo);
+    // Register peer as validator for consensus (idempotent)
+    consensus.registerValidator({
+      publicKey,
+      eScore: 50,
+      burned: 0,
+      uptime: 1.0,
+    });
   });
 
   // CRITICAL: Route incoming messages to gossip protocol
