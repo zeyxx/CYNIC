@@ -27,13 +27,13 @@ function createMockServices() {
       }),
     },
     sessionManager: {
-      getStats: () => ({
-        activeSessions: 2,
-        totalSessions: 10,
-        currentSession: {
-          userId: 'test-user',
-          counters: { judgmentCount: 5 },
-        },
+      getSummary: () => ({
+        activeCount: 2,
+        currentSession: 'test-session-id',
+        sessions: [
+          { sessionId: 'session-1', userId: 'test-us...', project: 'test', judgmentCount: 5, createdAt: Date.now() },
+          { sessionId: 'session-2', userId: 'other-u...', project: 'test', judgmentCount: 3, createdAt: Date.now() },
+        ],
       }),
     },
     pojChainManager: {
@@ -165,7 +165,7 @@ describe('MetricsService', () => {
       const metrics = await service.collect();
 
       assert.equal(metrics.sessions.active, 2);
-      assert.equal(metrics.sessions.total, 10);
+      assert.equal(metrics.sessions.total, 2); // matches sessions array length in mock
     });
 
     it('collects cache metrics', async () => {
