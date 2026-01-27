@@ -13,6 +13,7 @@ import { PHI, PHI_INV } from '@cynic/core';
 import { startCommand } from './commands/start.js';
 import { keygenCommand } from './commands/keygen.js';
 import { connectCommand } from './commands/connect.js';
+// Dashboard is loaded lazily to avoid requiring blessed when not needed
 
 const VERSION = '0.1.0';
 
@@ -60,6 +61,19 @@ export function createCLI(program) {
     .command('connect <address>')
     .description('Connect to a peer (use with running node)')
     .action(connectCommand);
+
+  // Dashboard command (TUI cockpit) - loaded lazily
+  program
+    .command('dashboard')
+    .alias('cockpit')
+    .description('Launch the TUI dashboard (cockpit) for real-time monitoring')
+    .option('-p, --port <port>', 'MCP server port', '3618')
+    .option('-u, --url <url>', 'MCP server URL (overrides port)')
+    .action(async (options) => {
+      // Dynamic import to avoid loading blessed when not needed
+      const { dashboardCommand } = await import('./commands/dashboard.js');
+      return dashboardCommand(options);
+    });
 
   // Info command
   program
