@@ -246,7 +246,7 @@ export function parseTestOutput(output, isError) {
 export function extractCommitHash(output) {
   if (!output) return null;
   // Match: [branch abc1234] or abc1234
-  const match = output.match(/\[[\w\-\/]+\s+([a-f0-9]{7,})\]|^([a-f0-9]{40})$/im);
+  const match = output.match(/\[[\w\-/]+\s+([a-f0-9]{7,})\]|^([a-f0-9]{40})$/im);
   return match ? (match[1] || match[2]) : null;
 }
 

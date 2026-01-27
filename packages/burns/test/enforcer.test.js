@@ -345,7 +345,9 @@ describe('BurnEnforcer', () => {
 
       try {
         e.requireBurn('user2', 'judge');
-      } catch (_) {}
+      } catch (_) {
+        // Expected - user2 has no burn
+      }
 
       const stats = e.getStats();
 

@@ -48,7 +48,7 @@ const heisenberg = getHeisenberg();
 
 const BASH_DANGER_PATTERNS = [
   {
-    pattern: /rm\s+-rf\s+[\/~]/,
+    pattern: /rm\s+-rf\s+[/~]/,
     severity: 'critical',
     message: 'Recursive deletion from root or home directory',
     action: 'block'
@@ -66,7 +66,7 @@ const BASH_DANGER_PATTERNS = [
     action: 'block'
   },
   {
-    pattern: />\s*\/dev\/sd[a-z]/,
+    pattern: />\s*/dev/sd[a-z]/,
     severity: 'critical',
     message: 'Direct disk write',
     action: 'block'
@@ -78,7 +78,7 @@ const BASH_DANGER_PATTERNS = [
     action: 'block'
   },
   {
-    pattern: /dd\s+.*of=\/dev\/sd/,
+    pattern: /dd\s+.*of=/dev/sd/,
     severity: 'critical',
     message: 'Direct disk write with dd',
     action: 'block'

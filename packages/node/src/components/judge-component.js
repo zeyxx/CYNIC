@@ -290,11 +290,11 @@ export class JudgeComponent extends EventEmitter {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
-   * Get raw judge
+   * Get raw judge instance
    * @returns {CYNICJudge} Judge
    * @deprecated Use component methods instead
    */
-  get judge() {
+  get rawJudge() {
     return this._judge;
   }
 

@@ -14,11 +14,10 @@ import { createHash } from 'crypto';
 import {
   AnchorStatus,
   ANCHOR_CONSTANTS,
-  SolanaCluster,
   DEFAULT_CONFIG,
   CYNIC_PROGRAM,
 } from './constants.js';
-import { CynicWallet, base58Encode } from './wallet.js';
+import { CynicWallet } from './wallet.js';
 import { CynicProgramClient } from './program-client.js';
 
 /**
@@ -663,7 +662,6 @@ export class SolanaAnchorer {
 
       // Verify merkle root if provided
       if (expectedMerkleRoot && memoContent) {
-        const expectedMemo = `${ANCHOR_CONSTANTS.MEMO_PREFIX}${expectedMerkleRoot}`;
         if (!memoContent.includes(expectedMerkleRoot)) {
           return {
             verified: false,

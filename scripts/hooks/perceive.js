@@ -130,7 +130,7 @@ function generateDecisionContext(prompt, profile, patterns) {
 
 function generateDangerWarning(prompt) {
   const dangerPatterns = [
-    { pattern: /rm\s+-rf\s+[\/~]/, level: 'critical', message: 'Recursive deletion from root/home - EXTREMELY dangerous' },
+    { pattern: /rm\s+-rf\s+[/~]/, level: 'critical', message: 'Recursive deletion from root/home - EXTREMELY dangerous' },
     { pattern: /rm\s+-rf\s+\*/, level: 'critical', message: 'Wildcard deletion - verify scope first' },
     { pattern: /drop\s+(table|database)/i, level: 'critical', message: 'Database deletion is irreversible' },
     { pattern: /delete\s+from\s+\w+\s*;/i, level: 'high', message: 'DELETE without WHERE - affects ALL rows' },
