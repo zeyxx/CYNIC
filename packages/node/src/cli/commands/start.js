@@ -132,39 +132,12 @@ export async function startCommand(options) {
       const cState = consensus.getState();
       const cStats = consensus.getStats();
 
-      // Debug: compare transport peers vs gossip peers
+      // Peer info for diagnostics
       const transportPeers = transport.getConnectedPeers();
       const gossipPeers = gossip.peerManager.getActivePeers().map(p => ({
         id: p.id?.slice(0, 16),
         publicKey: p.publicKey?.slice(0, 16),
       }));
-
-      // Debug: block details for pending blocks
-      const pendingBlockDetails = [];
-      for (const [blockHash, record] of consensus.blocks) {
-        if (record.status === 'VOTING' || record.status === 'PROPOSED' || record.status === 'CONFIRMED') {
-          // Get vote details
-          const voteDetails = [];
-          for (const [voter, vote] of record.votes || []) {
-            voteDetails.push({
-              voter: voter.slice(-16), // Last 16 chars (unique part)
-              type: vote.vote,
-              weight: vote.weight,
-            });
-          }
-          pendingBlockDetails.push({
-            hash: blockHash.slice(0, 16),
-            slot: record.slot,
-            status: record.status,
-            approveWeight: record.approveWeight,
-            rejectWeight: record.rejectWeight,
-            totalWeight: record.totalWeight,
-            confirmations: record.confirmations,
-            voteCount: record.votes?.size || 0,
-            votes: voteDetails,
-          });
-        }
-      }
 
       res.writeHead(200);
       return res.end(JSON.stringify({
@@ -181,11 +154,10 @@ export async function startCommand(options) {
           active: gossipStats.active,
           peers: gossipPeers,
         },
-        consensus: cState,
-        debug: {
-          totalValidatorWeight: cStats.totalWeight,
-          validators: cStats.validators,
-          pendingBlocks: pendingBlockDetails,
+        consensus: {
+          ...cState,
+          totalWeight: cStats.totalWeight,
+          blocksFinalized: cStats.blocksFinalized,
         },
       }));
     }
