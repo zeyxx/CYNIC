@@ -534,19 +534,54 @@ export function createConsensusTool(collective) {
         const approvalRatio = decidingVotes > 0 ? approveCount / decidingVotes : 0;
         const approved = !hasVeto && approvalRatio >= PHI_INV;
 
+        // Build visual consensus display
+        const abstainCount = votes.filter(v => v.vote === 'ABSTAIN').length;
+        const visualVotes = votes.map(v => {
+          const icon = v.vote === 'APPROVE' ? '✓' : v.vote === 'REJECT' ? '✗' : '○';
+          return `${icon} ${v.agent.padEnd(12)}: ${v.vote.padEnd(8)}`;
+        }).join('\n');
+
+        const verdict = hasVeto
+          ? '✗ VETOED'
+          : approved
+            ? '✓ APPROVED'
+            : '✗ NOT APPROVED';
+
+        const consensusDisplay = `
+╔══════════════════════════════════════════════════════════════════╗
+║ COLLECTIVE CONSENSUS                                              ║
+║ "${question.substring(0, 50)}${question.length > 50 ? '...' : ''}"
+╠══════════════════════════════════════════════════════════════════╣
+${votes.map(v => {
+  const icon = v.vote === 'APPROVE' ? '✓' : v.vote === 'REJECT' ? '✗' : '○';
+  return `║ ${icon} ${v.agent.padEnd(12)}: ${v.vote.padEnd(8)}                                   ║`;
+}).join('\n')}
+╠══════════════════════════════════════════════════════════════════╣
+║ Approve=${String(approveCount).padEnd(2)} Reject=${String(rejectCount).padEnd(2)} Abstain=${String(abstainCount).padEnd(2)} → ${(approvalRatio * 100).toFixed(1)}% (need 61.8%)       ║
+║ RESULT: ${verdict.padEnd(57)}║
+╚══════════════════════════════════════════════════════════════════╝`.trim();
+
         return {
           status: 'completed',
           approved,
+          verdict,
           reason: hasVeto
             ? `Vetoed (${rejectCount} rejects exceed ${(vetoThreshold * 100).toFixed(1)}% threshold)`
             : approved
               ? `Consensus reached (${(approvalRatio * 100).toFixed(1)}% approval)`
               : `Consensus not reached (${(approvalRatio * 100).toFixed(1)}% approval, need ${(PHI_INV * 100).toFixed(1)}%)`,
+          // Visual display for CLI output
+          display: consensusDisplay,
+          message: approved
+            ? `*tail wag* The pack agrees. ${verdict}`
+            : hasVeto
+              ? `*GROWL* The pack rejects this. ${verdict}`
+              : `*head tilt* No consensus. ${verdict}`,
           votes,
           stats: {
             approve: approveCount,
             reject: rejectCount,
-            abstain: votes.filter(v => v.vote === 'ABSTAIN').length,
+            abstain: abstainCount,
             total: votes.length,
             decidingVotes,
             approvalRatio,
