@@ -23,6 +23,7 @@ import { MemoryView } from './views/memory.js';
 import { AutonomyView } from './views/autonomy.js';
 import { ResilienceView } from './views/resilience.js';  // Phase 21: Circuit breakers
 import { DecisionsView } from './views/decisions.js';    // Phase 21: Decision tracing
+import { EcosystemView } from './views/ecosystem.js';    // Ecosystem monitoring
 import { SingularityView } from './views/singularity.js';
 
 /**
@@ -170,6 +171,10 @@ class App {
     this.views.decisions = new DecisionsView({ api });
     this.views.decisions.render(document.getElementById('view-decisions'));
 
+    // Ecosystem view (GitHub monitoring, sources, updates)
+    this.views.ecosystem = new EcosystemView({ api });
+    this.views.ecosystem.render(document.getElementById('view-ecosystem'));
+
     // Singularity view (index, milestones, comparison)
     this.views.singularity = new SingularityView({ api });
     this.views.singularity.render(document.getElementById('view-singularity'));
@@ -249,6 +254,9 @@ class App {
         break;
       case 'decisions':
         await this.views.decisions.refresh();
+        break;
+      case 'ecosystem':
+        await this.views.ecosystem.refresh();
         break;
       case 'singularity':
         await this.views.singularity.refresh();

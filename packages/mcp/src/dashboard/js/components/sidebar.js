@@ -66,6 +66,7 @@ export class Sidebar {
       { id: 'autonomy', icon: '🤖', label: 'Autonomy', mode: 'autonomy' },
       { id: 'resilience', icon: '⚡', label: 'Resilience', mode: 'resilience' },
       { id: 'decisions', icon: '🎯', label: 'Decisions', mode: 'decisions' },
+      { id: 'ecosystem', icon: '🌐', label: 'Ecosystem', mode: 'ecosystem' },
       { id: 'singularity', icon: '✨', label: 'Singularity', mode: 'singularity' },
     ];
 
