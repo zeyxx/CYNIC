@@ -268,11 +268,17 @@ export class OpenAIEmbedder extends Embedder {
 
 /**
  * Create embedder based on environment and options
+ *
+ * Default: MockEmbedder (free, local, deterministic)
+ * Set CYNIC_EMBEDDER=openai to use OpenAI (requires OPENAI_API_KEY)
+ *
  * @param {Object} options - Embedder options
  * @returns {Embedder} Embedder instance
  */
 export function createEmbedder(options = {}) {
-  const type = options.type || (process.env.OPENAI_API_KEY ? EmbedderType.OPENAI : EmbedderType.MOCK);
+  // Default to mock - opt-in to OpenAI via CYNIC_EMBEDDER=openai
+  const envType = process.env.CYNIC_EMBEDDER?.toLowerCase();
+  const type = options.type || (envType === 'openai' ? EmbedderType.OPENAI : EmbedderType.MOCK);
 
   switch (type) {
     case EmbedderType.OPENAI:
