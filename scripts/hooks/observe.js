@@ -23,7 +23,7 @@ import cynic, {
   loadUserProfile,
   updateUserProfile,
   saveCollectivePattern,
-  orchestrate,
+  orchestrateFull,  // Phase 21: Full orchestration with UnifiedOrchestrator
   sendHookToCollectiveSync,
   callBrainTool,
   sendTestFeedback,
@@ -428,20 +428,30 @@ async function main() {
     const profile = loadUserProfile(user.userId);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // ORCHESTRATION: Report tool use to KETER (non-blocking)
-    // "Le chien observe et rapporte à KETER"
+    // ORCHESTRATION: Full orchestration through UnifiedOrchestrator (Phase 21)
+    // Includes: Decision tracing, pattern recording, learning feedback
+    // "Le chien observe et rapporte au cerveau collectif"
     // ═══════════════════════════════════════════════════════════════════════════
-    orchestrate('tool_use', {
-      content: `${toolName}: ${isError ? 'ERROR' : 'SUCCESS'}`,
-      source: 'observe_hook',
-      metadata: {
-        tool: toolName,
-        isError,
-        outputLength: typeof toolOutput === 'string' ? toolOutput.length : JSON.stringify(toolOutput || {}).length,
-      },
-    }, {
-      user: user.userId,
-      project: detectProject(),
+    let orchestration = null;
+    orchestrateFull(
+      `${toolName}: ${isError ? 'ERROR' : 'SUCCESS'}`,
+      {
+        eventType: 'tool_result',  // Post-tool event
+        requestJudgment: isError,  // Only judge errors
+        metadata: {
+          tool: toolName,
+          source: 'observe_hook',
+          isError,
+          outputLength: typeof toolOutput === 'string' ? toolOutput.length : JSON.stringify(toolOutput || {}).length,
+          project: detectProject(),
+        },
+      }
+    ).then(result => {
+      orchestration = result;
+      // Store decision ID for later reference
+      if (result?.decisionId) {
+        process.env.CYNIC_LAST_DECISION_ID = result.decisionId;
+      }
     }).catch(() => {
       // Silently ignore - observation is best-effort
     });
@@ -657,13 +667,16 @@ async function main() {
       }
     }
 
-    // Send to MCP server (non-blocking)
+    // Send to MCP server (non-blocking) - include decision tracing
     sendHookToCollectiveSync('PostToolUse', {
       toolName,
       isError,
       patterns,
       inputSize: JSON.stringify(toolInput).length,
       timestamp: Date.now(),
+      // Phase 21: Include orchestration tracing
+      decisionId: orchestration?.decisionId,
+      qScore: orchestration?.judgment?.qScore,
     });
 
     // Process through Auto-Judgment Triggers (non-blocking)

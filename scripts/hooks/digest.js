@@ -18,12 +18,14 @@ import cynic, {
   DC,
   detectUser,
   detectEcosystem,
+  detectProject,
   loadUserProfile,
   loadCollectivePatterns,
   addCollectiveInsight,
   sendHookToCollectiveSync,
   digestToBrain,
   callBrainTool,
+  orchestrateFull,  // Phase 21: Full orchestration with UnifiedOrchestrator
   getTaskEnforcer,
   getConsciousness,
   getVoluntaryPoverty,
@@ -479,6 +481,35 @@ async function main() {
       } catch (e) { /* ignore */ }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ORCHESTRATION: Full orchestration for session_end event (Phase 21)
+    // Records session summary decision for tracing and learning
+    // "Le chien rapporte la fin de session au cerveau collectif"
+    // ═══════════════════════════════════════════════════════════════════════════
+    let orchestration = null;
+    try {
+      orchestration = await orchestrateFull(
+        `Session ended: ${analysis.toolsUsed} tools, ${analysis.errorsEncountered} errors, ${insights.length} insights`,
+        {
+          eventType: 'session_end',
+          requestJudgment: analysis.errorsEncountered > 0,  // Judge sessions with errors
+          metadata: {
+            source: 'digest_hook',
+            project: detectProject(),
+            toolsUsed: analysis.toolsUsed,
+            errorsEncountered: analysis.errorsEncountered,
+            completionRate: analysis.completionRate,
+            insightCount: insights.length,
+          },
+        }
+      );
+    } catch (e) {
+      // Orchestration failed - continue without (non-critical)
+      if (process.env.CYNIC_DEBUG) {
+        console.error('[DIGEST] Orchestration failed:', e.message);
+      }
+    }
+
     // Format message
     const message = formatDigestMessage(profile, analysis, insights, engineStats);
 
@@ -493,7 +524,7 @@ async function main() {
       enforcer.cleanupSession(sessionId);
     }
 
-    // Send to MCP server (non-blocking)
+    // Send to MCP server (non-blocking) - include decision tracing
     sendHookToCollectiveSync('Stop', {
       userId: user.userId,
       toolsUsed: analysis.toolsUsed,
@@ -501,6 +532,10 @@ async function main() {
       topTools: analysis.topTools,
       insights: insights.map(i => ({ type: i.type, description: i.description })),
       timestamp: Date.now(),
+      // Phase 21: Include orchestration tracing
+      decisionId: orchestration?.decisionId,
+      outcome: orchestration?.outcome,
+      qScore: orchestration?.judgment?.qScore,
     });
 
     // Digest session insights to brain memory (non-blocking)
