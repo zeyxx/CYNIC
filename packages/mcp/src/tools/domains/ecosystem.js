@@ -147,6 +147,10 @@ Actions:
           type: 'boolean',
           description: 'Track commits (default true)',
         },
+        branch: {
+          type: 'string',
+          description: 'Branch to track (default "main")',
+        },
         limit: {
           type: 'number',
           description: 'Max results (for updates action)',
@@ -175,6 +179,7 @@ Actions:
         sourceId,
         trackReleases = true,
         trackCommits = true,
+        branch,
         limit = 20,
         minPriority,
         updateIndex,
@@ -192,12 +197,13 @@ Actions:
           const id = monitor.trackGitHubRepo(owner, repo, {
             trackReleases,
             trackCommits,
+            ...(branch && { branch }),
           });
 
           return {
             success: true,
             sourceId: id,
-            message: `*ears perk* Now tracking ${owner}/${repo}`,
+            message: `*ears perk* Now tracking ${owner}/${repo}${branch ? ` (${branch})` : ''}`,
             timestamp: Date.now(),
           };
         }
