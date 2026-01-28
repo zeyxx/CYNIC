@@ -68,3 +68,6 @@ export * from './bus/index.js';
 
 // Circuit Breaker (resilience pattern for service protection)
 export * from './circuit-breaker.js';
+
+// Context Intelligence (C-Score, budget management, context assembly)
+export * from './context/index.js';
