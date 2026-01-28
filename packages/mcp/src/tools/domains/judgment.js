@@ -20,6 +20,7 @@ import {
   THRESHOLDS,
   createLogger,
 } from '@cynic/core';
+import { getEventBus, EventType } from '@cynic/node';
 
 const log = createLogger('JudgmentTools');
 import { enrichItem } from '../../item-enricher.js';
@@ -782,6 +783,21 @@ Actions:
 
           await saveState();
 
+          // Emit feedback event for automation layer
+          try {
+            const eventBus = getEventBus();
+            eventBus.publish(EventType.FEEDBACK_RECEIVED, {
+              source: 'manual',
+              outcome: params.outcome,
+              judgmentId: params.judgmentId,
+              originalScore,
+              actualScore: params.actualScore,
+              ...result,
+            }, { source: 'brain_learning' });
+          } catch (e) {
+            // EventBus not available - continue without
+          }
+
           return {
             action: 'feedback',
             source: 'manual',
@@ -804,6 +820,21 @@ Actions:
           });
 
           await saveState();
+
+          // Emit feedback event for automation layer
+          try {
+            const eventBus = getEventBus();
+            eventBus.publish(EventType.FEEDBACK_RECEIVED, {
+              source: 'test_result',
+              passed: params.passed,
+              testSuite: params.testSuite,
+              passCount: params.passCount || 0,
+              failCount: params.failCount || 0,
+              ...result,
+            }, { source: 'brain_learning' });
+          } catch (e) {
+            // EventBus not available - continue without
+          }
 
           return {
             action: 'test_result',

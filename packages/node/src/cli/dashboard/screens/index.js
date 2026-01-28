@@ -12,6 +12,8 @@ import { createPatternsScreen } from './patterns.js';
 import { createAgentsScreen } from './agents.js';
 import { createResilienceScreen } from './resilience.js';
 import { createDecisionsScreen } from './decisions.js';
+import { createMemoryScreen } from './memory.js';
+import { createAutonomyScreen } from './autonomy.js';
 
 export {
   createMainScreen,
@@ -20,6 +22,8 @@ export {
   createAgentsScreen,
   createResilienceScreen,
   createDecisionsScreen,
+  createMemoryScreen,
+  createAutonomyScreen,
 };
 
 export default {
@@ -29,4 +33,6 @@ export default {
   createAgentsScreen,
   createResilienceScreen,
   createDecisionsScreen,
+  createMemoryScreen,
+  createAutonomyScreen,
 };

@@ -22,6 +22,8 @@ import {
   createAgentsScreen,
   createResilienceScreen,
   createDecisionsScreen,
+  createMemoryScreen,
+  createAutonomyScreen,
 } from './screens/index.js';
 
 // φ-aligned poll interval
@@ -37,6 +39,8 @@ const SCREENS = {
   AGENTS: 'agents',
   RESILIENCE: 'resilience',
   DECISIONS: 'decisions',
+  MEMORY: 'memory',
+  AUTONOMY: 'autonomy',
 };
 
 /**
@@ -99,6 +103,8 @@ export async function createDashboard(options = {}) {
     agents: createAgentsScreen(screen, dataFetcher),
     resilience: createResilienceScreen(screen, dataFetcher),
     decisions: createDecisionsScreen(screen, dataFetcher),
+    memory: createMemoryScreen(screen, dataFetcher),
+    autonomy: createAutonomyScreen(screen, dataFetcher),
   };
 
   // Show initial screen
@@ -206,14 +212,6 @@ export async function createDashboard(options = {}) {
     }
   });
 
-  // Agents screen specific keys
-  screen.key('d', () => {
-    if (currentScreen === SCREENS.AGENTS) {
-      const index = screens.agents.getSelectedIndex();
-      screens.agents.runDiagnostic(index);
-    }
-  });
-
   // Resilience screen navigation
   screen.key('e', () => {
     switchScreen(SCREENS.RESILIENCE);
@@ -240,6 +238,51 @@ export async function createDashboard(options = {}) {
   // Decisions screen navigation
   screen.key('o', () => {
     switchScreen(SCREENS.DECISIONS);
+  });
+
+  // Memory screen navigation
+  screen.key('m', () => {
+    switchScreen(SCREENS.MEMORY);
+  });
+
+  // Memory screen specific keys
+  screen.key('/', () => {
+    if (currentScreen === SCREENS.MEMORY) {
+      screens.memory.focusSearch();
+    }
+  });
+
+  screen.key('d', () => {
+    if (currentScreen === SCREENS.AGENTS) {
+      const index = screens.agents.getSelectedIndex();
+      screens.agents.runDiagnostic(index);
+    } else if (currentScreen === SCREENS.MEMORY) {
+      screens.memory.filterDecisions();
+    }
+  });
+
+  screen.key('l', () => {
+    if (currentScreen === SCREENS.MEMORY) {
+      screens.memory.filterLessons();
+    }
+  });
+
+  // Autonomy screen navigation
+  screen.key('u', () => {
+    switchScreen(SCREENS.AUTONOMY);
+  });
+
+  // Autonomy screen specific keys
+  screen.key('g', () => {
+    if (currentScreen === SCREENS.AUTONOMY) {
+      screens.autonomy.focusGoals();
+    }
+  });
+
+  screen.key('n', () => {
+    if (currentScreen === SCREENS.AUTONOMY) {
+      screens.autonomy.focusNotifications();
+    }
   });
 
   // ═══════════════════════════════════════════════════════════
