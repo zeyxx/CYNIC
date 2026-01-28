@@ -15,6 +15,8 @@ import {
   determineIntervention,
   detectActionRisk,
   createOrchestrateTool,
+  createCircuitBreakerTool,
+  createDecisionsTool,
 } from '../../src/tools/domains/orchestration.js';
 import { PHI_INV } from '@cynic/core';
 
@@ -210,7 +212,7 @@ describe('Orchestration Domain', () => {
     it('should create tool with correct name and description', () => {
       assert.strictEqual(orchestrateTool.name, 'brain_keter');
       assert(orchestrateTool.description.includes('KETER'));
-      assert(orchestrateTool.description.includes('orchestrator'));
+      assert(orchestrateTool.description.includes('orchestration'));
     });
 
     it('should have proper input schema', () => {
@@ -277,5 +279,106 @@ describe('Orchestration Domain', () => {
 
       assert(Math.abs(result.confidence - PHI_INV) < Math.pow(10, -4));
     });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 21: Circuit Breaker and Decisions Tools
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('Circuit Breaker Tool', () => {
+  let cbTool;
+
+  beforeEach(() => {
+    cbTool = createCircuitBreakerTool({});
+  });
+
+  it('should create tool with correct name', () => {
+    assert.strictEqual(cbTool.name, 'brain_circuit_breaker');
+  });
+
+  it('should have description mentioning resilience', () => {
+    assert(cbTool.description.includes('resilience') || cbTool.description.includes('Circuit breaker'));
+  });
+
+  it('should have proper input schema', () => {
+    assert.strictEqual(cbTool.inputSchema.type, 'object');
+    assert(cbTool.inputSchema.properties.action !== undefined);
+    assert(cbTool.inputSchema.properties.circuit !== undefined);
+  });
+
+  it('should return health status by default', async () => {
+    const result = await cbTool.handler({});
+
+    assert(result.healthy !== undefined);
+    assert(result.circuits !== undefined);
+    assert(result.summary !== undefined);
+    assert(result.timestamp !== undefined);
+  });
+
+  it('should return stats when requested', async () => {
+    const result = await cbTool.handler({ action: 'stats' });
+
+    assert(result.orchestratorStats !== undefined || result.circuitBreakers !== undefined);
+    assert(result.timestamp !== undefined);
+  });
+});
+
+describe('Decisions Tool', () => {
+  let decisionsTool;
+
+  beforeEach(() => {
+    decisionsTool = createDecisionsTool({});
+  });
+
+  it('should create tool with correct name', () => {
+    assert.strictEqual(decisionsTool.name, 'brain_decisions');
+  });
+
+  it('should have description mentioning decisions', () => {
+    assert(decisionsTool.description.includes('decision'));
+  });
+
+  it('should have proper input schema', () => {
+    assert.strictEqual(decisionsTool.inputSchema.type, 'object');
+    assert(decisionsTool.inputSchema.properties.query !== undefined);
+    assert(decisionsTool.inputSchema.properties.limit !== undefined);
+  });
+
+  it('should return recent decisions by default', async () => {
+    const result = await decisionsTool.handler({});
+
+    assert(result.source !== undefined);
+    assert(result.decisions !== undefined);
+    assert(Array.isArray(result.decisions));
+    assert(result.timestamp !== undefined);
+  });
+
+  it('should return summary when requested', async () => {
+    const result = await decisionsTool.handler({ query: 'summary' });
+
+    assert(result.memory !== undefined);
+    assert(result.timestamp !== undefined);
+  });
+
+  it('should require decisionId for trace query', async () => {
+    const result = await decisionsTool.handler({ query: 'trace' });
+
+    assert(result.error !== undefined);
+    assert(result.error.includes('decisionId'));
+  });
+
+  it('should require domain for by_domain query', async () => {
+    const result = await decisionsTool.handler({ query: 'by_domain' });
+
+    assert(result.error !== undefined);
+    assert(result.error.includes('domain'));
+  });
+
+  it('should require userId for by_user query', async () => {
+    const result = await decisionsTool.handler({ query: 'by_user' });
+
+    assert(result.error !== undefined);
+    assert(result.error.includes('userId'));
   });
 });

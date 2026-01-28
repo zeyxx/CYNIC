@@ -21,7 +21,8 @@
     "./orchestration/unified-orchestrator.js": "./src/orchestration/unified-orchestrator.js",
     "./orchestration/decision-event.js": "./src/orchestration/decision-event.js",
     "./orchestration/skill-registry.js": "./src/orchestration/skill-registry.js",
-    "./orchestration/decision-tracer.js": "./src/orchestration/decision-tracer.js"
+    "./orchestration/decision-tracer.js": "./src/orchestration/decision-tracer.js",
+    "./orchestration/circuit-breaker.js": "./src/orchestration/circuit-breaker.js"
   },
   "scripts": {
     "test": "node --test test/*.test.js",

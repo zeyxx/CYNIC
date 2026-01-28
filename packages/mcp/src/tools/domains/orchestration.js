@@ -30,6 +30,7 @@ import {
 } from '@cynic/node/orchestration/decision-event.js';
 import { createDecisionTracer } from '@cynic/node/orchestration/decision-tracer.js';
 import { createSkillRegistry } from '@cynic/node/orchestration/skill-registry.js';
+import { getCircuitBreakerRegistry, CircuitState } from '@cynic/node/orchestration/circuit-breaker.js';
 
 const log = createLogger('OrchestrationTools');
 
@@ -659,6 +660,351 @@ For lightweight routing only, use brain_keter.`,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// BRAIN_CIRCUIT_BREAKER TOOL (Phase 21)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Create the brain_circuit_breaker tool
+ *
+ * Exposes circuit breaker health and stats from UnifiedOrchestrator.
+ *
+ * @param {Object} options
+ * @returns {Object} Tool definition
+ */
+export function createCircuitBreakerTool(options = {}) {
+  return {
+    name: 'brain_circuit_breaker',
+    description: `Circuit breaker status for CYNIC's orchestration resilience layer.
+Shows health and stats for:
+- judgment: Dog voting circuit
+- synthesis: Engine consultation circuit
+- skill: Skill invocation circuit
+
+Use this to monitor system resilience and detect failing services.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['health', 'stats', 'reset'],
+          description: 'Action to perform (default: health)',
+        },
+        circuit: {
+          type: 'string',
+          enum: ['all', 'judgment', 'synthesis', 'skill'],
+          description: 'Which circuit to query (default: all)',
+        },
+      },
+    },
+    handler: async (params) => {
+      const { action = 'health', circuit = 'all' } = params;
+
+      // Get orchestrator for its circuit breakers
+      const orchestrator = getOrCreateOrchestrator(options);
+
+      if (action === 'reset') {
+        if (circuit === 'all') {
+          orchestrator.resetCircuitBreakers();
+          return {
+            success: true,
+            message: 'All circuit breakers reset',
+            timestamp: Date.now(),
+          };
+        } else {
+          // Reset specific circuit via registry
+          const registry = getCircuitBreakerRegistry();
+          const cb = registry.get(`orchestrator:${circuit}`);
+          cb.reset();
+          return {
+            success: true,
+            message: `Circuit breaker '${circuit}' reset`,
+            timestamp: Date.now(),
+          };
+        }
+      }
+
+      if (action === 'stats') {
+        const stats = orchestrator.getStats();
+        if (circuit === 'all') {
+          return {
+            orchestratorStats: {
+              eventsProcessed: stats.eventsProcessed,
+              decisionsRouted: stats.decisionsRouted,
+              judgmentsRequested: stats.judgmentsRequested,
+              synthesisRequested: stats.synthesisRequested,
+              skillsInvoked: stats.skillsInvoked,
+              blocked: stats.blocked,
+              errors: stats.errors,
+            },
+            circuitBreakers: stats.circuitBreakers,
+            timestamp: Date.now(),
+          };
+        } else {
+          return {
+            circuit,
+            stats: stats.circuitBreakers?.[circuit] || null,
+            timestamp: Date.now(),
+          };
+        }
+      }
+
+      // Default: health
+      const health = orchestrator.getCircuitBreakerHealth();
+
+      if (circuit === 'all') {
+        const allHealthy = Object.values(health).every(h => h.healthy);
+        return {
+          healthy: allHealthy,
+          circuits: health,
+          summary: {
+            total: Object.keys(health).length,
+            healthy: Object.values(health).filter(h => h.healthy).length,
+            degraded: Object.values(health).filter(h => !h.healthy && h.state !== CircuitState.OPEN).length,
+            open: Object.values(health).filter(h => h.state === CircuitState.OPEN).length,
+          },
+          timestamp: Date.now(),
+        };
+      } else {
+        return {
+          circuit,
+          ...health[circuit],
+          timestamp: Date.now(),
+        };
+      }
+    },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BRAIN_DECISIONS TOOL (Phase 21)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Create the brain_decisions tool
+ *
+ * Query recent orchestration decisions and traces.
+ *
+ * @param {Object} options
+ * @returns {Object} Tool definition
+ */
+export function createDecisionsTool(options = {}) {
+  const { persistence } = options;
+
+  return {
+    name: 'brain_decisions',
+    description: `Query CYNIC's orchestration decision history.
+View recent decisions, blocked actions, and routing patterns.
+Useful for understanding how CYNIC routes requests and what gets blocked.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          enum: ['recent', 'blocked', 'by_domain', 'by_user', 'summary', 'trace'],
+          description: 'Type of query (default: recent)',
+        },
+        domain: {
+          type: 'string',
+          description: 'Filter by domain (for by_domain query)',
+        },
+        userId: {
+          type: 'string',
+          description: 'Filter by user (for by_user query)',
+        },
+        decisionId: {
+          type: 'string',
+          description: 'Decision ID (for trace query)',
+        },
+        limit: {
+          type: 'number',
+          description: 'Max results to return (default: 10)',
+        },
+      },
+    },
+    handler: async (params) => {
+      const { query = 'recent', domain, userId, decisionId, limit = 10 } = params;
+
+      // Get orchestrator for in-memory tracer
+      const orchestrator = getOrCreateOrchestrator(options);
+      const tracer = orchestrator.decisionTracer;
+
+      // Also try persistence for historical data
+      const repo = persistence?.orchestrationDecisions;
+
+      switch (query) {
+        case 'recent': {
+          // Prefer in-memory for speed, fallback to DB
+          let decisions = tracer?.getRecent(limit) || [];
+          if (decisions.length === 0 && repo) {
+            const dbResults = await repo.getRecent(limit);
+            return {
+              source: 'database',
+              decisions: dbResults.map(formatDbDecision),
+              count: dbResults.length,
+              timestamp: Date.now(),
+            };
+          }
+          return {
+            source: 'memory',
+            decisions: decisions.map(formatMemoryDecision),
+            count: decisions.length,
+            timestamp: Date.now(),
+          };
+        }
+
+        case 'blocked': {
+          let blocked = tracer?.getBlocked(limit) || [];
+          if (blocked.length === 0 && repo) {
+            const dbResults = await repo.getBlocked(limit);
+            return {
+              source: 'database',
+              decisions: dbResults.map(formatDbDecision),
+              count: dbResults.length,
+              timestamp: Date.now(),
+            };
+          }
+          return {
+            source: 'memory',
+            decisions: blocked.map(formatMemoryDecision),
+            count: blocked.length,
+            timestamp: Date.now(),
+          };
+        }
+
+        case 'by_domain': {
+          if (!domain) {
+            return { error: 'domain parameter required for by_domain query' };
+          }
+          let decisions = tracer?.getByDomain(domain, limit) || [];
+          if (decisions.length === 0 && repo) {
+            const dbResults = await repo.getByDomain(domain, limit);
+            return {
+              source: 'database',
+              domain,
+              decisions: dbResults.map(formatDbDecision),
+              count: dbResults.length,
+              timestamp: Date.now(),
+            };
+          }
+          return {
+            source: 'memory',
+            domain,
+            decisions: decisions.map(formatMemoryDecision),
+            count: decisions.length,
+            timestamp: Date.now(),
+          };
+        }
+
+        case 'by_user': {
+          if (!userId) {
+            return { error: 'userId parameter required for by_user query' };
+          }
+          let decisions = tracer?.getByUser(userId, limit) || [];
+          if (decisions.length === 0 && repo) {
+            const dbResults = await repo.getByUser(userId, limit);
+            return {
+              source: 'database',
+              userId,
+              decisions: dbResults.map(formatDbDecision),
+              count: dbResults.length,
+              timestamp: Date.now(),
+            };
+          }
+          return {
+            source: 'memory',
+            userId,
+            decisions: decisions.map(formatMemoryDecision),
+            count: decisions.length,
+            timestamp: Date.now(),
+          };
+        }
+
+        case 'summary': {
+          const memorySummary = tracer?.getSummary() || { total: 0, outcomes: {}, domains: {} };
+
+          // Also get DB stats if available
+          let dbStats = null;
+          if (repo) {
+            try {
+              dbStats = await repo.getStats();
+            } catch (e) {
+              // Ignore DB errors
+            }
+          }
+
+          return {
+            memory: memorySummary,
+            database: dbStats,
+            timestamp: Date.now(),
+          };
+        }
+
+        case 'trace': {
+          if (!decisionId) {
+            return { error: 'decisionId parameter required for trace query' };
+          }
+          const decision = tracer?.get(decisionId);
+          if (!decision) {
+            return { error: `Decision ${decisionId} not found in memory` };
+          }
+          return {
+            decisionId,
+            formattedTrace: decision.getFormattedTrace(),
+            rawTrace: decision.trace,
+            outcome: decision.outcome,
+            routing: decision.routing,
+            timestamp: Date.now(),
+          };
+        }
+
+        default:
+          return { error: `Unknown query type: ${query}` };
+      }
+    },
+  };
+}
+
+/**
+ * Format a decision from memory for response
+ */
+function formatMemoryDecision(decision) {
+  return {
+    id: decision.id,
+    eventType: decision.eventType,
+    outcome: decision.outcome,
+    routing: decision.routing ? {
+      sefirah: decision.routing.sefirah,
+      domain: decision.routing.domain,
+      agent: decision.routing.suggestedAgent,
+    } : null,
+    timestamp: decision.timestamp,
+    durationMs: decision.meta?.durationMs,
+  };
+}
+
+/**
+ * Format a decision from database for response
+ */
+function formatDbDecision(row) {
+  return {
+    id: row.id,
+    eventType: row.event_type,
+    outcome: row.outcome,
+    routing: {
+      sefirah: row.sefirah,
+      domain: row.domain,
+      agent: row.suggested_agent,
+    },
+    judgment: row.judgment_qscore ? {
+      qScore: row.judgment_qscore,
+      verdict: row.judgment_verdict,
+    } : null,
+    timestamp: row.created_at,
+    durationMs: row.duration_ms,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // FACTORY
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -679,6 +1025,8 @@ export const orchestrationFactory = {
     return [
       createOrchestrateTool(options),        // brain_keter (lightweight routing)
       createFullOrchestrateTool(options),    // brain_orchestrate (full orchestration)
+      createCircuitBreakerTool(options),     // brain_circuit_breaker (resilience)
+      createDecisionsTool(options),          // brain_decisions (decision history)
     ];
   },
 };
@@ -693,6 +1041,8 @@ export default {
   detectActionRisk,
   createOrchestrateTool,
   createFullOrchestrateTool,
+  createCircuitBreakerTool,
+  createDecisionsTool,
   getOrCreateOrchestrator,
   orchestrationFactory,
 };
