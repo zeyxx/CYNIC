@@ -16,7 +16,12 @@
     "./transport": "./src/transport/index.js",
     "./api": "./src/api/index.js",
     "./cli": "./src/cli/index.js",
-    "./emergence": "./src/emergence/index.js"
+    "./emergence": "./src/emergence/index.js",
+    "./orchestration": "./src/orchestration/index.js",
+    "./orchestration/unified-orchestrator.js": "./src/orchestration/unified-orchestrator.js",
+    "./orchestration/decision-event.js": "./src/orchestration/decision-event.js",
+    "./orchestration/skill-registry.js": "./src/orchestration/skill-registry.js",
+    "./orchestration/decision-tracer.js": "./src/orchestration/decision-tracer.js"
   },
   "scripts": {
     "test": "node --test test/*.test.js",

@@ -252,3 +252,27 @@ export {
   AutomationExecutor,
   createAutomationExecutor,
 } from './services/index.js';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Orchestration - Unified Coordination Layer (Phase 19)
+// ═══════════════════════════════════════════════════════════════════════════════
+export {
+  // Decision Event Model
+  DecisionEvent,
+  DecisionStage,
+  DecisionOutcome,
+  EventSource,
+  createFromHook,
+  createFromTool,
+  // Unified Orchestrator
+  UnifiedOrchestrator,
+  createUnifiedOrchestrator,
+  getOrchestrator,
+  // Skill Registry
+  SkillRegistry,
+  createSkillRegistry,
+  // Decision Tracer
+  DecisionTracer,
+  StorageMode,
+  createDecisionTracer,
+} from './orchestration/index.js';

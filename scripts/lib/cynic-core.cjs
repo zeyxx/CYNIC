@@ -903,6 +903,68 @@ function orchestrateSync(event, data, context = {}) {
 }
 
 /**
+ * Full orchestration via brain_orchestrate (Phase 19)
+ * Coordinates all layers: KETER routing → Dogs judgment → Engines synthesis → Skill invocation
+ *
+ * Use this when you need coordinated decision-making across CYNIC's brain:
+ * - Content evaluation with Dogs voting
+ * - Philosophical synthesis from Engines
+ * - Auto skill invocation based on routing
+ *
+ * @param {string} content - Content to process
+ * @param {Object} options - Orchestration options
+ * @param {string} [options.eventType] - Event type (defaults to 'user_prompt')
+ * @param {boolean} [options.requestJudgment] - Whether to request judgment (auto-detect based on risk)
+ * @param {boolean} [options.requestSynthesis] - Whether to request synthesis (default: false)
+ * @param {boolean} [options.autoInvokeSkill] - Whether to auto-invoke skill (default: true)
+ * @returns {Promise<Object>} Full orchestration result with trace
+ */
+async function orchestrateFull(content, options = {}) {
+  const fallback = {
+    success: false,
+    outcome: 'ALLOW',
+    routing: { sefirah: 'Keter', domain: 'general' },
+    intervention: { level: 'silent', actionRisk: 'low' },
+    judgment: null,
+    synthesis: null,
+    skillResult: null,
+    trace: [],
+  };
+
+  try {
+    const user = detectUser();
+    const profile = loadUserProfile(user.userId);
+    const eScore = getUserEScore(profile);
+
+    const result = await callBrainTool('brain_orchestrate', {
+      content,
+      eventType: options.eventType || 'user_prompt',
+      requestJudgment: options.requestJudgment,
+      requestSynthesis: options.requestSynthesis,
+      autoInvokeSkill: options.autoInvokeSkill !== false,
+      context: {
+        userId: user.userId,
+        project: options.project || detectProject(),
+        metadata: {
+          eScore: eScore.score,
+          trustLevel: eScore.trustLevel,
+          ...options.metadata,
+        },
+      },
+    });
+
+    // Check if MCP call failed
+    if (result?.error || result?.success === false) {
+      return { ...fallback, mcpError: result.error || 'MCP call failed' };
+    }
+
+    return result;
+  } catch (e) {
+    return { ...fallback, error: e.message };
+  }
+}
+
+/**
  * Digest content into brain memory
  * @param {string} content - Content to digest
  * @param {Object} options - Digest options
@@ -1270,6 +1332,7 @@ module.exports = {
   // Orchestration (KETER - Central routing)
   orchestrate,
   orchestrateSync,
+  orchestrateFull,  // Phase 19: Full orchestration with Dogs + Engines + Skills
 
   // Learning Feedback (Ralph-inspired external validation)
   sendTestFeedback,

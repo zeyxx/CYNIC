@@ -9,12 +9,27 @@
  * - Route vers le bon Sefirah
  * - Adapte intervention selon contexte
  *
+ * Phase 19: Now uses UnifiedOrchestrator internally for
+ * coordinated decision-making across all layers.
+ *
  * @module @cynic/mcp/tools/domains/orchestration
  */
 
 'use strict';
 
 import { PHI, PHI_INV, THRESHOLDS, createLogger } from '@cynic/core';
+import {
+  UnifiedOrchestrator,
+  createUnifiedOrchestrator,
+  getOrchestrator,
+} from '@cynic/node/orchestration/unified-orchestrator.js';
+import {
+  DecisionEvent,
+  EventSource,
+  DecisionOutcome,
+} from '@cynic/node/orchestration/decision-event.js';
+import { createDecisionTracer } from '@cynic/node/orchestration/decision-tracer.js';
+import { createSkillRegistry } from '@cynic/node/orchestration/skill-registry.js';
 
 const log = createLogger('OrchestrationTools');
 
@@ -262,13 +277,44 @@ export function detectActionRisk(content) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// BRAIN_ORCHESTRATE TOOL
+// UNIFIED ORCHESTRATOR SINGLETON
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _orchestratorInstance = null;
+
+/**
+ * Get or create the UnifiedOrchestrator singleton
+ *
+ * @param {Object} options - Creation options
+ * @returns {UnifiedOrchestrator}
+ */
+function getOrCreateOrchestrator(options = {}) {
+  if (!_orchestratorInstance) {
+    const tracer = createDecisionTracer({ maxTraces: 500 });
+    const skillRegistry = createSkillRegistry({ mcpClient: options.mcpClient });
+
+    _orchestratorInstance = createUnifiedOrchestrator({
+      persistence: options.persistence,
+      judge: options.judge,
+      dogOrchestrator: options.dogOrchestrator,
+      engineOrchestrator: options.engineOrchestrator,
+      tracer,
+      skillRegistry,
+    });
+
+    log.debug('UnifiedOrchestrator singleton created');
+  }
+  return _orchestratorInstance;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BRAIN_KETER TOOL (Routing Only - Lightweight)
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Create the brain_orchestrate tool
+ * Create the brain_keter tool (KETER routing)
  *
- * This is KETER - the central consciousness that routes all events
+ * Lightweight routing-only tool. For full orchestration use brain_orchestrate.
  *
  * @param {Object} options
  * @param {Object} options.persistence - PersistenceManager instance
@@ -289,12 +335,12 @@ export function createOrchestrateTool(options = {}) {
 
   return {
     name: 'brain_keter',
-    description: `Central consciousness orchestrator (KETER - Crown).
+    description: `Central consciousness router (KETER - Crown).
 Routes events to appropriate Sefirot (specialized agents/tools).
-Adapts intervention level based on user E-Score and action risk.
-Returns routing decisions, suggested tools, and intervention level.
+Returns routing decisions and intervention level.
 
-This is the "brain" of CYNIC - all events pass through KETER for routing.`,
+For FULL orchestration (routing + judgment + synthesis + skill invocation),
+use brain_orchestrate instead.`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -483,6 +529,136 @@ This is the "brain" of CYNIC - all events pass through KETER for routing.`,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// BRAIN_ORCHESTRATE TOOL (Full Orchestration)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Create the brain_orchestrate tool
+ *
+ * Full orchestration: routing + judgment + synthesis + skill invocation.
+ * Uses UnifiedOrchestrator internally.
+ *
+ * @param {Object} options
+ * @returns {Object} Tool definition
+ */
+export function createFullOrchestrateTool(options = {}) {
+  return {
+    name: 'brain_orchestrate',
+    description: `Full CYNIC orchestration (Phase 19).
+Coordinates all layers: KETER routing → Dogs judgment → Engines synthesis → Skill invocation.
+Returns complete decision trace with:
+- Routing decision (which Sefirah/domain)
+- Judgment (if requested)
+- Synthesis (philosophical grounding)
+- Skill result (auto-invoked if applicable)
+- Full decision trace for transparency
+
+Use this when you need coordinated decision-making across CYNIC's brain.
+For lightweight routing only, use brain_keter.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        content: {
+          type: 'string',
+          description: 'Content to process (prompt, code, text)',
+        },
+        eventType: {
+          type: 'string',
+          enum: Object.values(EVENT_TYPES),
+          description: 'Type of event (defaults to user_prompt)',
+        },
+        requestJudgment: {
+          type: 'boolean',
+          description: 'Whether to request judgment from Dogs (default: auto-detect based on risk)',
+        },
+        requestSynthesis: {
+          type: 'boolean',
+          description: 'Whether to request synthesis from Engines (default: false)',
+        },
+        autoInvokeSkill: {
+          type: 'boolean',
+          description: 'Whether to auto-invoke skill based on routing (default: true)',
+        },
+        context: {
+          type: 'object',
+          description: 'Additional context',
+          properties: {
+            userId: { type: 'string', description: 'User identifier' },
+            project: { type: 'string', description: 'Current project' },
+            metadata: { type: 'object', description: 'Additional metadata' },
+          },
+        },
+      },
+      required: ['content'],
+    },
+    handler: async (params) => {
+      const {
+        content,
+        eventType = EVENT_TYPES.USER_PROMPT,
+        requestJudgment,
+        requestSynthesis = false,
+        autoInvokeSkill = true,
+        context = {},
+      } = params;
+
+      // Get or create orchestrator
+      const orchestrator = getOrCreateOrchestrator(options);
+
+      // Build user context
+      const userContext = {
+        userId: context.userId || 'anonymous',
+        metadata: context.metadata || {},
+      };
+
+      // Process through UnifiedOrchestrator
+      const result = await orchestrator.process({
+        eventType,
+        content,
+        source: EventSource.TOOL,
+        userContext,
+        requestJudgment,
+        requestSynthesis,
+        autoInvokeSkill,
+      });
+
+      // Format response
+      return {
+        success: result.outcome === DecisionOutcome.ALLOW ||
+                 result.outcome === DecisionOutcome.MODIFIED,
+        outcome: result.outcome,
+        decisionId: result.id,
+
+        // Routing info
+        routing: result.routing,
+
+        // Intervention level
+        intervention: result.intervention,
+
+        // Judgment (if requested)
+        judgment: result.judgment ? {
+          qScore: result.judgment.qScore,
+          verdict: result.judgment.verdict,
+          reasoning: result.judgment.reasoning,
+        } : null,
+
+        // Synthesis (if requested)
+        synthesis: result.synthesis,
+
+        // Skill result (if auto-invoked)
+        skillResult: result.skillResult,
+
+        // Decision trace for transparency
+        trace: result.trace,
+
+        // Metadata
+        timestamp: result.timestamp,
+        confidence: PHI_INV,
+      };
+    },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // FACTORY
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -500,7 +676,10 @@ export const orchestrationFactory = {
    * @returns {Object[]} Tool definitions
    */
   create(options) {
-    return [createOrchestrateTool(options)];
+    return [
+      createOrchestrateTool(options),        // brain_keter (lightweight routing)
+      createFullOrchestrateTool(options),    // brain_orchestrate (full orchestration)
+    ];
   },
 };
 
@@ -513,5 +692,7 @@ export default {
   determineIntervention,
   detectActionRisk,
   createOrchestrateTool,
+  createFullOrchestrateTool,
+  getOrCreateOrchestrator,
   orchestrationFactory,
 };

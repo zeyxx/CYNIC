@@ -80,6 +80,7 @@ export const {
   // Orchestration (KETER - Central routing)
   orchestrate,
   orchestrateSync,
+  orchestrateFull,  // Phase 19: Full orchestration with Dogs + Engines + Skills
 
   // Learning Feedback (Ralph-inspired external validation)
   sendTestFeedback,
