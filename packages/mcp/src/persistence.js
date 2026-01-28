@@ -35,6 +35,11 @@ import {
   PsychologyRepository,
   SessionRepository,
   SessionStore,
+  // Phase 16: Total Memory + Full Autonomy
+  AutonomousGoalsRepository,
+  AutonomousTasksRepository,
+  ProactiveNotificationsRepository,
+  createMemoryRetriever,
 } from '@cynic/persistence';
 
 // ISP: Domain-specific adapters
@@ -85,6 +90,12 @@ export class PersistenceManager {
     this._psychology = null;
     this._sessions = null;
 
+    // Phase 16: Total Memory + Full Autonomy repos
+    this._goals = null;
+    this._tasks = null;
+    this._notifications = null;
+    this._memoryRetriever = null;
+
     // Fallback store (file or memory)
     this._fallback = null;
     this._backend = 'none'; // 'postgres', 'file', 'memory'
@@ -133,6 +144,12 @@ export class PersistenceManager {
         this._userLearningProfiles = new UserLearningProfilesRepository(this.postgres);
         this._psychology = new PsychologyRepository(this.postgres);
         this._sessions = new SessionRepository(this.postgres);
+
+        // Phase 16: Total Memory + Full Autonomy repos
+        this._goals = new AutonomousGoalsRepository(this.postgres);
+        this._tasks = new AutonomousTasksRepository(this.postgres);
+        this._notifications = new ProactiveNotificationsRepository(this.postgres);
+        this._memoryRetriever = createMemoryRetriever({ pool: this.postgres });
 
         this._backend = 'postgres';
         log.info('PostgreSQL connected');
@@ -221,6 +238,22 @@ export class PersistenceManager {
 
   /** @returns {PsychologyAdapter} */
   get psychology() { return this._psychologyAdapter; }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PHASE 16: Total Memory + Full Autonomy (direct repo access)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** @returns {AutonomousGoalsRepository} */
+  get goals() { return this._goals; }
+
+  /** @returns {AutonomousTasksRepository} */
+  get tasks() { return this._tasks; }
+
+  /** @returns {ProactiveNotificationsRepository} */
+  get notifications() { return this._notifications; }
+
+  /** @returns {MemoryRetriever} */
+  get memoryRetriever() { return this._memoryRetriever; }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // LEGACY API (backward compatibility - delegates to adapters)

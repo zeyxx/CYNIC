@@ -276,6 +276,13 @@ export class MCPServer {
       learningService: this.learningService,
       eScoreCalculator: this.eScoreCalculator,
       onJudgment: (judgment) => this._broadcastSSEEvent('judgment', judgment),
+      // Phase 16: Total Memory + Full Autonomy
+      memoryRetriever: this.persistence?.memoryRetriever,
+      goalsRepo: this.persistence?.goals,
+      notificationsRepo: this.persistence?.notifications,
+      tasksRepo: this.persistence?.tasks,
+      // Phase 18: Automation daemon stats
+      automationExecutor: this.automationExecutor,
     });
   }
 

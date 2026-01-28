@@ -24,10 +24,10 @@ const PHI_INV_2 = 0.382;
  * @param {Object} persistence - PersistenceManager instance (optional)
  * @returns {Object} Tool definition
  */
-export function createHealthTool(node, judge, persistence = null) {
+export function createHealthTool(node, judge, persistence = null, automationExecutor = null) {
   return {
     name: 'brain_health',
-    description: 'Get CYNIC system health status including node status, judge statistics, and capability metrics.',
+    description: 'Get CYNIC system health status including node status, judge statistics, daemon stats, and capability metrics.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -63,6 +63,24 @@ export function createHealthTool(node, judge, persistence = null) {
           health.persistence.capabilities = persistence.capabilities;
         } catch (e) {
           health.persistence = { status: 'error', error: e.message };
+        }
+      }
+
+      // Add daemon stats (Phase 18: Automation Layer)
+      if (automationExecutor) {
+        try {
+          const daemonStats = automationExecutor.getStats?.() || {};
+          health.daemon = {
+            running: automationExecutor.running || false,
+            uptime: daemonStats.uptime || 0,
+            tasksProcessed: daemonStats.tasksProcessed || 0,
+            goalsUpdated: daemonStats.goalsUpdated || 0,
+            learningCycles: daemonStats.learningCycles || 0,
+            triggersEvaluated: daemonStats.triggersEvaluated || 0,
+            lastLearningCycle: daemonStats.lastLearningCycle || null,
+          };
+        } catch (e) {
+          health.daemon = { running: false, error: e.message };
         }
       }
 

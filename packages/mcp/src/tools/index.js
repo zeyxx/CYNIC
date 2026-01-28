@@ -216,6 +216,31 @@ export {
 
 // NOTE: KETER orchestrator moved to domains/orchestration.js
 
+// Memory domain (memory_search, memory_store, memory_stats, self_correction, goals, notifications, tasks)
+import {
+  createMemorySearchTool,
+  createMemoryStoreTool,
+  createMemoryStatsTool,
+  createSelfCorrectionTool,
+  createGoalsTool,
+  createNotificationsTool,
+  createTasksTool,
+  memoryFactory,
+} from './domains/memory.js';
+
+export {
+  createMemorySearchTool,
+  createMemoryStoreTool,
+  createMemoryStatsTool,
+  createSelfCorrectionTool,
+  createGoalsTool,
+  createNotificationsTool,
+  createTasksTool,
+  memoryFactory,
+};
+
+// NOTE: Memory tools moved to domains/memory.js
+
 /**
  * Create all tools
  * @param {Object} options - Tool options
@@ -257,6 +282,12 @@ export function createAllTools(options = {}) {
     learningService = null, // LearningService for RLHF feedback
     eScoreCalculator = null, // EScoreCalculator for vote weight
     onJudgment = null, // SSE broadcast callback
+    // Memory/Autonomy dependencies
+    memoryRetriever = null, // MemoryRetriever for memory search/store
+    goalsRepo = null, // GoalsRepo for autonomous goals
+    notificationsRepo = null, // NotificationsRepo for proactive notifications
+    tasksRepo = null, // TasksRepo for durable task queue
+    automationExecutor = null, // AutomationExecutor for daemon stats
   } = options;
 
   // Initialize LSP service for code intelligence
@@ -280,7 +311,7 @@ export function createAllTools(options = {}) {
     createLearningTool({ learningService, persistence }), // Learning service: feedback → weight modifiers → improvement
     createTriggersTool({ judge, persistence }), // Auto-judgment triggers
     createDigestTool(persistence, sessionManager),
-    createHealthTool(node, judge, persistence),
+    createHealthTool(node, judge, persistence, automationExecutor),
     createPsychologyTool(persistence), // Human psychology dashboard
     createSearchTool(persistence),
     // Progressive Search Tools (3-layer retrieval for 10x token savings)
@@ -311,6 +342,14 @@ export function createAllTools(options = {}) {
     createMilestoneHistoryTool(persistence), // Historical singularity scores
     createSelfModTool(), // Git history analysis
     createEmergenceTool(judge, persistence), // Consciousness signals
+    // Memory/Autonomy Tools (total memory + full autonomy)
+    createMemorySearchTool(memoryRetriever), // Hybrid FTS + vector search
+    createMemoryStoreTool(memoryRetriever), // Store memories with embeddings
+    createMemoryStatsTool(memoryRetriever), // Memory statistics
+    createSelfCorrectionTool(memoryRetriever), // Lessons learned analysis
+    createGoalsTool(goalsRepo), // Autonomous goals CRUD
+    createNotificationsTool(notificationsRepo), // Proactive notifications
+    createTasksTool(tasksRepo), // Durable task queue
     // LSP Tools (code intelligence: symbols, references, call graphs, refactoring)
     ...createLSPTools(lsp),
     // JSON Render (streaming UI components)
@@ -380,6 +419,15 @@ export default {
   createMilestoneHistoryTool,
   createSelfModTool,
   createEmergenceTool,
+  // Memory/Autonomy tools
+  createMemorySearchTool,
+  createMemoryStoreTool,
+  createMemoryStatsTool,
+  createSelfCorrectionTool,
+  createGoalsTool,
+  createNotificationsTool,
+  createTasksTool,
+  memoryFactory,
   // LSP Tools (code intelligence)
   LSPService,
   createLSPTools,
