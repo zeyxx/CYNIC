@@ -40,6 +40,8 @@ import {
   AutonomousTasksRepository,
   ProactiveNotificationsRepository,
   createMemoryRetriever,
+  // Phase 18: Embedder for vector search
+  getEmbedder,
 } from '@cynic/persistence';
 
 // ISP: Domain-specific adapters
@@ -149,7 +151,12 @@ export class PersistenceManager {
         this._goals = new AutonomousGoalsRepository(this.postgres);
         this._tasks = new AutonomousTasksRepository(this.postgres);
         this._notifications = new ProactiveNotificationsRepository(this.postgres);
-        this._memoryRetriever = createMemoryRetriever({ pool: this.postgres });
+
+        // Phase 18: Initialize embedder for vector search
+        // Auto-detects OpenAI (if OPENAI_API_KEY set) or falls back to MockEmbedder
+        const embedder = getEmbedder();
+        this._memoryRetriever = createMemoryRetriever({ pool: this.postgres, embedder });
+        log.info('Memory retriever initialized', { embedderType: embedder.type });
 
         this._backend = 'postgres';
         log.info('PostgreSQL connected');
