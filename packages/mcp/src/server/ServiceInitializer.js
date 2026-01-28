@@ -268,6 +268,44 @@ export class ServiceInitializer {
       })
     );
 
+    // 🐕 PHASE 20: Subscribe to USER_FEEDBACK for Learning integration
+    // This connects the hook → collective → globalEventBus → learning pipeline
+    this._busSubscriptions.push(
+      globalEventBus.subscribe(EventType.USER_FEEDBACK, async (event) => {
+        const { source, tool, success, blocked, duration, userId } = event.payload || {};
+        services.metrics?.recordEvent('user_feedback', { source, success, blocked });
+
+        // Feed to LearningService if available
+        if (services.learningService) {
+          try {
+            // Convert event to learning feedback format
+            const feedback = {
+              source: source || 'tool_execution',
+              itemType: 'tool',
+              itemId: tool,
+              positive: success && !blocked,
+              context: { duration, userId, blocked },
+              timestamp: event.timestamp,
+            };
+
+            // Record as implicit feedback (tool execution success/failure)
+            await services.learningService.recordFeedback?.(feedback);
+            log.trace('Learning feedback recorded', { tool, success });
+          } catch (err) {
+            log.warn('Learning feedback error', { error: err.message });
+          }
+        }
+      })
+    );
+
+    // Subscribe to TOOL_COMPLETED for additional metrics
+    this._busSubscriptions.push(
+      globalEventBus.subscribe(EventType.TOOL_COMPLETED, (event) => {
+        const { tool, duration, success, blocked, agentCount } = event.payload || {};
+        services.metrics?.recordEvent('tool_completed', { tool, duration, success, blocked, agentCount });
+      })
+    );
+
     log.debug('Bus subscriptions active', { count: this._busSubscriptions.length });
   }
 

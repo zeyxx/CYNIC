@@ -382,12 +382,41 @@ export class DecisionTracer {
     if (!this.persistence) return;
 
     try {
-      // Would persist to a decision_traces table
-      // For now, just log
-      this.stats.persisted++;
+      // Use OrchestrationDecisionRepository if available
+      if (this.persistence.orchestrationDecisions) {
+        await this.persistence.orchestrationDecisions.recordEvent(event);
+        this.stats.persisted++;
+        log.trace('Decision persisted', { traceId: event.id });
+      } else if (this.persistence.query) {
+        // Fallback to direct query (basic fields only)
+        await this.persistence.query(
+          `INSERT INTO orchestration_log (event_type, user_id, sefirah, intervention, risk_level, outcome, domain, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+          [
+            event.eventType,
+            event.userContext?.userId,
+            event.routing?.sefirah || 'Keter',
+            event.intervention?.level,
+            event.intervention?.actionRisk || 'low',
+            event.outcome,
+            event.routing?.domain,
+          ]
+        );
+        this.stats.persisted++;
+      }
     } catch (err) {
       log.warn('Failed to persist trace', { traceId: event.id, error: err.message });
     }
+  }
+
+  /**
+   * Set the persistence manager
+   *
+   * @param {Object} persistence - PersistenceManager with orchestrationDecisions repository
+   */
+  setPersistence(persistence) {
+    this.persistence = persistence;
+    log.debug('Persistence set', { hasRepo: !!persistence?.orchestrationDecisions });
   }
 }
 

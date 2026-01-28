@@ -40,7 +40,7 @@
 
 'use strict';
 
-import { PHI_INV, createLogger } from '@cynic/core';
+import { PHI_INV, createLogger, globalEventBus, EventType } from '@cynic/core';
 
 const log = createLogger('CollectivePack');
 import { AgentEventBus } from '../event-bus.js';
@@ -749,6 +749,45 @@ export class CollectivePack {
       busResult = await this.eventBus.publish(busEvent);
     } catch (error) {
       log.error('eventBus publish error', { error: error.message });
+    }
+
+    // 🐕 PHASE 20: Publish to globalEventBus for cross-system integration
+    // This feeds Learning, Metrics, and other subscribed services
+    try {
+      // Map hook types to standard event types
+      const globalEventType = hookType === 'PostToolUse' ? EventType.TOOL_COMPLETED
+        : hookType === 'PreToolUse' ? EventType.TOOL_CALLED
+        : hookType === 'SessionStart' ? EventType.SESSION_STARTED
+        : hookType === 'SessionEnd' || hookType === 'Stop' ? EventType.SESSION_ENDED
+        : EventType.USER_ACTION;
+
+      globalEventBus.publish(globalEventType, {
+        hookType,
+        tool: payload.tool,
+        success: payload.success !== false,
+        duration: payload.duration,
+        userId,
+        sessionId,
+        blocked,
+        blockedBy,
+        agentCount: agentResults.length,
+        timestamp: Date.now(),
+      }, { source: 'CollectivePack' });
+
+      // If this was a completed tool with feedback value, also emit USER_FEEDBACK
+      if (hookType === 'PostToolUse' && (payload.success !== undefined || blocked)) {
+        globalEventBus.publish(EventType.USER_FEEDBACK, {
+          source: 'tool_execution',
+          tool: payload.tool,
+          success: payload.success !== false && !blocked,
+          blocked,
+          duration: payload.duration,
+          userId,
+          timestamp: Date.now(),
+        }, { source: 'CollectivePack' });
+      }
+    } catch (err) {
+      log.warn('globalEventBus publish error', { error: err.message });
     }
 
     // 🐕 Record dog decisions in graph (for relationship tracking)

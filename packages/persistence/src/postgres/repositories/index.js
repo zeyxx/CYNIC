@@ -44,3 +44,6 @@ export { ProactiveNotificationsRepository, NotificationType } from './proactive-
 
 // Phase 18: Complete Automation Layer
 export { UserPreferencesRepository } from './user-preferences.js';
+
+// Phase 20: E2E Integration
+export { OrchestrationDecisionRepository, createOrchestrationDecisionRepository } from './orchestration-decisions.js';

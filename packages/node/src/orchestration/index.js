@@ -46,3 +46,12 @@ export {
   StorageMode,
   createDecisionTracer,
 } from './decision-tracer.js';
+
+// Circuit Breaker - Resilience pattern
+export {
+  CircuitBreaker,
+  CircuitBreakerRegistry,
+  CircuitState,
+  createCircuitBreaker,
+  getCircuitBreakerRegistry,
+} from './circuit-breaker.js';

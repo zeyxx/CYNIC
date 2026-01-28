@@ -27,6 +27,7 @@ import {
   createFromTool,
 } from './decision-event.js';
 import { getEventBus, EventType } from '../services/event-bus.js';
+import { CircuitBreaker, getCircuitBreakerRegistry } from './circuit-breaker.js';
 
 const log = createLogger('UnifiedOrchestrator');
 
@@ -93,6 +94,14 @@ export class UnifiedOrchestrator extends EventEmitter {
     this.persistence = options.persistence || null;
     this.eventBus = options.eventBus || getEventBus();
     this.decisionTracer = options.decisionTracer || null;
+
+    // Circuit breakers for external calls
+    const cbRegistry = getCircuitBreakerRegistry();
+    this._circuitBreakers = {
+      judgment: cbRegistry.get('orchestrator:judgment', { timeout: 8000 }),
+      synthesis: cbRegistry.get('orchestrator:synthesis', { timeout: 8000 }),
+      skill: cbRegistry.get('orchestrator:skill', { timeout: 13000 }),
+    };
 
     // User profile cache (per-session)
     this._profileCache = new Map();
@@ -356,6 +365,14 @@ export class UnifiedOrchestrator extends EventEmitter {
       return event;
     }
 
+    // Circuit breaker protection for judgment requests
+    const cb = this._circuitBreakers.judgment;
+    if (!cb.isAllowed()) {
+      log.warn('Judgment circuit breaker open, skipping');
+      event.recordError('judgment', new Error('Circuit breaker open'));
+      return event;
+    }
+
     try {
       const item = {
         content: event.content,
@@ -375,8 +392,10 @@ export class UnifiedOrchestrator extends EventEmitter {
         dimensions: result.dimensions,
       });
 
+      cb.recordSuccess();
       this.stats.judgmentsRequested++;
     } catch (err) {
+      cb.recordFailure(err);
       event.recordError('judgment', err);
       log.warn('Judgment request failed', { error: err.message });
     }
@@ -394,6 +413,14 @@ export class UnifiedOrchestrator extends EventEmitter {
       return event;
     }
 
+    // Circuit breaker protection for synthesis requests
+    const cb = this._circuitBreakers.synthesis;
+    if (!cb.isAllowed()) {
+      log.warn('Synthesis circuit breaker open, skipping');
+      event.recordError('synthesis', new Error('Circuit breaker open'));
+      return event;
+    }
+
     try {
       const result = await this.engineOrchestrator.consult({
         query: event.content,
@@ -408,8 +435,10 @@ export class UnifiedOrchestrator extends EventEmitter {
         consultations: result.consultations,
       });
 
+      cb.recordSuccess();
       this.stats.synthesisRequested++;
     } catch (err) {
+      cb.recordFailure(err);
       event.recordError('synthesis', err);
       log.warn('Synthesis request failed', { error: err.message });
     }
@@ -429,6 +458,14 @@ export class UnifiedOrchestrator extends EventEmitter {
     const domain = event.routing?.domain;
     if (!domain) return event;
 
+    // Circuit breaker protection for skill invocations
+    const cb = this._circuitBreakers.skill;
+    if (!cb.isAllowed()) {
+      log.warn('Skill circuit breaker open, skipping', { domain });
+      event.recordError('skill_invoke', new Error('Circuit breaker open'));
+      return event;
+    }
+
     try {
       const skill = this.skillRegistry.getSkillForDomain(domain);
       if (skill) {
@@ -445,9 +482,11 @@ export class UnifiedOrchestrator extends EventEmitter {
           error: result.error,
         });
 
+        cb.recordSuccess();
         this.stats.skillsInvoked++;
       }
     } catch (err) {
+      cb.recordFailure(err);
       event.recordError('skill_invoke', err);
       log.warn('Skill invocation failed', { domain, error: err.message });
     }
@@ -612,7 +651,36 @@ export class UnifiedOrchestrator extends EventEmitter {
    * @returns {Object}
    */
   getStats() {
-    return { ...this.stats };
+    return {
+      ...this.stats,
+      circuitBreakers: {
+        judgment: this._circuitBreakers.judgment.getStats(),
+        synthesis: this._circuitBreakers.synthesis.getStats(),
+        skill: this._circuitBreakers.skill.getStats(),
+      },
+    };
+  }
+
+  /**
+   * Get circuit breaker health status
+   * @returns {Object}
+   */
+  getCircuitBreakerHealth() {
+    return {
+      judgment: this._circuitBreakers.judgment.getHealth(),
+      synthesis: this._circuitBreakers.synthesis.getHealth(),
+      skill: this._circuitBreakers.skill.getHealth(),
+    };
+  }
+
+  /**
+   * Reset all circuit breakers
+   */
+  resetCircuitBreakers() {
+    this._circuitBreakers.judgment.reset();
+    this._circuitBreakers.synthesis.reset();
+    this._circuitBreakers.skill.reset();
+    log.debug('All circuit breakers reset');
   }
 
   /**
