@@ -275,6 +275,8 @@ async function main() {
     // ═══════════════════════════════════════════════════════════════════════════
     let brainMemory = null;
     let brainPsychology = null;
+    let brainGoals = null;
+    let brainNotifications = null;
     try {
       // Search for relevant memories about current project/user (non-blocking)
       const searchPromise = callBrainTool('brain_search', {
@@ -289,15 +291,93 @@ async function main() {
         userId: user.userId,
       });
 
-      // Wait for both with timeout (don't block session start)
+      // Get active goals from PostgreSQL (Phase 16)
+      const goalsPromise = callBrainTool('brain_goals', {
+        action: 'list',
+        status: 'active',
+        userId: user.userId,
+      });
+
+      // Get pending notifications from PostgreSQL (Phase 16)
+      const notificationsPromise = callBrainTool('brain_notifications', {
+        action: 'list',
+        delivered: false,
+        userId: user.userId,
+        limit: 5,
+      });
+
+      // Wait for all with timeout (don't block session start)
       const results = await Promise.race([
-        Promise.all([searchPromise, psychPromise]),
-        new Promise(resolve => setTimeout(() => resolve([null, null]), 3000))
+        Promise.all([searchPromise, psychPromise, goalsPromise, notificationsPromise]),
+        new Promise(resolve => setTimeout(() => resolve([null, null, null, null]), 3000))
       ]);
 
-      [brainMemory, brainPsychology] = results || [null, null];
+      [brainMemory, brainPsychology, brainGoals, brainNotifications] = results || [null, null, null, null];
+
+      // Mark notifications as delivered (non-blocking)
+      if (brainNotifications?.success && brainNotifications?.result?.notifications?.length > 0) {
+        const notificationIds = brainNotifications.result.notifications.map(n => n.id);
+        callBrainTool('brain_notifications', {
+          action: 'mark_delivered',
+          ids: notificationIds,
+        }).catch(() => {});
+      }
     } catch (e) {
       // MCP calls failed - continue without (non-critical)
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GOAL SYSTEM: Create default goals if none exist
+    // "φ pursues quality autonomously" - Phase 16 Autonomy
+    // ═══════════════════════════════════════════════════════════════════════════
+    const hasLocalGoals = totalMemoryData?.goals?.length > 0;
+    const hasRemoteGoals = brainGoals?.success && brainGoals?.result?.goals?.length > 0;
+
+    if (!hasLocalGoals && !hasRemoteGoals) {
+      // No goals exist - create default goals for this user
+      try {
+        const defaultGoals = [
+          {
+            goal_type: 'quality',
+            title: 'Maintain Code Quality',
+            description: 'Keep test coverage high and lint scores clean',
+            priority: 70,
+          },
+          {
+            goal_type: 'learning',
+            title: 'Continuous Learning',
+            description: 'Learn from mistakes and apply lessons',
+            priority: 60,
+          },
+          {
+            goal_type: 'maintenance',
+            title: 'Reduce Tech Debt',
+            description: 'Simplify code and update dependencies',
+            priority: 50,
+          },
+        ];
+
+        for (const goal of defaultGoals) {
+          await callBrainTool('brain_goals', {
+            action: 'create',
+            userId: user.userId,
+            ...goal,
+          }).catch(() => {});
+        }
+
+        // Refresh goals for display
+        const refreshedGoals = await callBrainTool('brain_goals', {
+          action: 'list',
+          status: 'active',
+          userId: user.userId,
+        }).catch(() => null);
+
+        if (refreshedGoals?.success) {
+          brainGoals = refreshedGoals;
+        }
+      } catch (e) {
+        // Goal creation failed - continue without
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -444,6 +524,52 @@ async function main() {
         }
       } catch (e) {
         // Memory injection failed - continue without
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BRAIN GOALS/NOTIFICATIONS: Inject from PostgreSQL if no local data
+    // "φ remembers across machines" - Phase 16 Total Memory
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (!totalMemoryData?.goals && brainGoals?.success && brainGoals?.result?.goals?.length > 0) {
+      try {
+        const goalLines = ['', '── 🎯 ACTIVE GOALS (remote) ───────────────────────────────'];
+        for (const g of brainGoals.result.goals.slice(0, 3)) {
+          const progress = Math.round((g.progress || 0) * 100);
+          const bar = '█'.repeat(Math.floor(progress / 10)) + '░'.repeat(10 - Math.floor(progress / 10));
+          goalLines.push(`   [${bar}] ${progress}% ${g.title}`);
+        }
+        const lines = message.split('\n');
+        const insertIdx = lines.findIndex(l => l.includes('CYNIC is AWAKE'));
+        if (insertIdx > 0) {
+          lines.splice(insertIdx, 0, ...goalLines, '');
+          message = lines.join('\n');
+        }
+      } catch (e) {
+        // Goal injection failed - continue without
+      }
+    }
+
+    if (!totalMemoryData?.notifications && brainNotifications?.success && brainNotifications?.result?.notifications?.length > 0) {
+      try {
+        const notifLines = ['', '── 📬 NOTIFICATIONS (remote) ──────────────────────────────'];
+        for (const n of brainNotifications.result.notifications.slice(0, 3)) {
+          const icon = n.notification_type === 'warning' ? '⚠️' :
+                       n.notification_type === 'achievement' ? '🏆' :
+                       n.notification_type === 'reminder' ? '🔔' : '💡';
+          notifLines.push(`   ${icon} ${n.title}`);
+          if (n.message && n.message.length < 60) {
+            notifLines.push(`      ${n.message}`);
+          }
+        }
+        const lines = message.split('\n');
+        const insertIdx = lines.findIndex(l => l.includes('CYNIC is AWAKE'));
+        if (insertIdx > 0) {
+          lines.splice(insertIdx, 0, ...notifLines, '');
+          message = lines.join('\n');
+        }
+      } catch (e) {
+        // Notification injection failed - continue without
       }
     }
 

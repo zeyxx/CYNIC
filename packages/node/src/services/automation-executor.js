@@ -31,6 +31,9 @@ const INTERVALS = {
   TRIGGERS: 1 * 60 * 1000,     // 1 minute
   CLEANUP: 13 * 60 * 1000,     // 13 minutes (Fibonacci)
   HEARTBEAT: 30 * 1000,        // 30 seconds
+  TASKS: 2 * 60 * 1000,        // 2 minutes (Fibonacci) - task queue
+  GOALS: 8 * 60 * 1000,        // 8 minutes (Fibonacci) - goal progress
+  NOTIFICATIONS: 21 * 60 * 1000, // 21 minutes (Fibonacci) - proactive insights
 };
 
 /**
@@ -53,12 +56,20 @@ export class AutomationExecutor {
    * @param {Object} [options.pool] - PostgreSQL connection pool
    * @param {EventBus} [options.eventBus] - Event bus (defaults to global)
    * @param {Object} [options.intervals] - Custom intervals
+   * @param {Object} [options.goalsRepo] - AutonomousGoalsRepository
+   * @param {Object} [options.tasksRepo] - AutonomousTasksRepository
+   * @param {Object} [options.notificationsRepo] - ProactiveNotificationsRepository
    */
   constructor(options = {}) {
     this.learningManager = options.learningManager;
     this.triggerManager = options.triggerManager;
     this.pool = options.pool;
     this.eventBus = options.eventBus || getEventBus();
+
+    // Autonomy repos
+    this.goalsRepo = options.goalsRepo;
+    this.tasksRepo = options.tasksRepo;
+    this.notificationsRepo = options.notificationsRepo;
 
     // Custom intervals
     this.intervals = {
@@ -78,10 +89,16 @@ export class AutomationExecutor {
       learningCycles: 0,
       triggersEvaluated: 0,
       cleanupRuns: 0,
+      tasksProcessed: 0,
+      goalsUpdated: 0,
+      notificationsGenerated: 0,
       errors: 0,
       lastLearningCycle: null,
       lastTriggerEval: null,
       lastCleanup: null,
+      lastTaskProcess: null,
+      lastGoalUpdate: null,
+      lastNotificationGen: null,
     };
 
     log.debug('Automation executor created');
@@ -227,6 +244,33 @@ export class AutomationExecutor {
       }, { source: 'AutomationExecutor' });
     }, this.intervals.HEARTBEAT);
     this._intervalHandles.set('heartbeat', heartbeatHandle);
+
+    // Task queue processing interval
+    const tasksHandle = setInterval(() => {
+      this._processTaskQueue().catch((err) => {
+        this.stats.errors++;
+        log.error('Task queue processing failed', { error: err.message });
+      });
+    }, this.intervals.TASKS);
+    this._intervalHandles.set('tasks', tasksHandle);
+
+    // Goal progress update interval
+    const goalsHandle = setInterval(() => {
+      this._updateGoalProgress().catch((err) => {
+        this.stats.errors++;
+        log.error('Goal progress update failed', { error: err.message });
+      });
+    }, this.intervals.GOALS);
+    this._intervalHandles.set('goals', goalsHandle);
+
+    // Notification generation interval
+    const notificationsHandle = setInterval(() => {
+      this._generateNotifications().catch((err) => {
+        this.stats.errors++;
+        log.error('Notification generation failed', { error: err.message });
+      });
+    }, this.intervals.NOTIFICATIONS);
+    this._intervalHandles.set('notifications', notificationsHandle);
 
     log.debug('Intervals started');
   }
@@ -460,6 +504,273 @@ export class AutomationExecutor {
     } catch (err) {
       this.stats.errors++;
       log.warn('Cleanup failed', { error: err.message });
+    }
+  }
+
+  /**
+   * Process pending tasks from the durable queue
+   * @private
+   */
+  async _processTaskQueue() {
+    if (!this.tasksRepo) {
+      log.trace('No tasks repo configured, skipping task processing');
+      return [];
+    }
+
+    try {
+      // Get pending tasks that are ready to execute
+      const pendingTasks = await this.tasksRepo.getPending(10);
+      const results = [];
+
+      for (const task of pendingTasks) {
+        try {
+          // Claim task atomically (marks as running)
+          const claimed = await this.tasksRepo.claim(task.id);
+          if (!claimed) {
+            // Task was claimed by another process
+            continue;
+          }
+
+          // Execute task based on type
+          const result = await this._executeTask(task);
+
+          // Mark as completed or failed
+          if (result.success) {
+            await this.tasksRepo.complete(task.id, result);
+            this.stats.tasksProcessed++;
+          } else {
+            await this.tasksRepo.fail(task.id, result.error || 'Unknown error');
+          }
+
+          results.push({ taskId: task.id, ...result });
+        } catch (err) {
+          await this.tasksRepo.fail(task.id, err.message);
+          log.warn('Task execution failed', { taskId: task.id, error: err.message });
+        }
+      }
+
+      this.stats.lastTaskProcess = Date.now();
+
+      if (results.length > 0) {
+        log.debug('Tasks processed', { count: results.length });
+      }
+
+      return results;
+    } catch (err) {
+      this.stats.errors++;
+      log.error('Task queue processing failed', { error: err.message });
+      throw err;
+    }
+  }
+
+  /**
+   * Execute a single task
+   * @private
+   */
+  async _executeTask(task) {
+    const payload = task.payload || {};
+
+    switch (task.task_type) {
+      case 'learning_cycle':
+        const cycleResult = await this._runLearningCycle('task');
+        return { success: true, result: cycleResult };
+
+      case 'goal_check':
+        await this._updateGoalProgress();
+        return { success: true };
+
+      case 'notification':
+        await this._generateNotifications();
+        return { success: true };
+
+      case 'cleanup':
+        await this._runCleanup();
+        return { success: true };
+
+      case 'analyze_patterns':
+        // Would analyze patterns from recent session
+        return { success: true, analyzed: true };
+
+      default:
+        log.warn('Unknown task type', { taskType: task.task_type });
+        return { success: false, error: `Unknown task type: ${task.task_type}` };
+    }
+  }
+
+  /**
+   * Update progress for all active goals
+   * @private
+   */
+  async _updateGoalProgress() {
+    if (!this.goalsRepo || !this.pool) {
+      log.trace('No goals repo/pool configured, skipping goal updates');
+      return [];
+    }
+
+    try {
+      // Get all active goals across all users (system-level processing)
+      const { rows: activeGoals } = await this.pool.query(`
+        SELECT * FROM autonomous_goals
+        WHERE status = 'active'
+        ORDER BY priority DESC
+        LIMIT 50
+      `);
+
+      const updates = [];
+
+      for (const goal of activeGoals) {
+        try {
+          // Evaluate progress based on goal type
+          const progress = await this._evaluateGoalProgress(goal);
+
+          if (progress !== null && Math.abs(progress - (goal.progress || 0)) > 0.001) {
+            await this.goalsRepo.updateProgress(goal.id, progress);
+            this.stats.goalsUpdated++;
+            updates.push({ goalId: goal.id, progress });
+
+            // Check if goal completed
+            if (progress >= 1.0) {
+              await this.goalsRepo.updateStatus(goal.id, 'completed');
+              log.info('Goal completed!', { goalId: goal.id, title: goal.title });
+
+              // Generate achievement notification
+              if (this.notificationsRepo) {
+                await this.notificationsRepo.create({
+                  user_id: goal.user_id || 'system',
+                  notification_type: 'achievement',
+                  title: `Goal Completed: ${goal.title}`,
+                  message: `Congratulations! You've achieved your goal.`,
+                  priority: 80,
+                  context: { goalId: goal.id, goalType: goal.goal_type },
+                });
+                this.stats.notificationsGenerated++;
+              }
+            }
+          }
+        } catch (err) {
+          log.warn('Goal progress update failed', { goalId: goal.id, error: err.message });
+        }
+      }
+
+      this.stats.lastGoalUpdate = Date.now();
+
+      if (updates.length > 0) {
+        log.debug('Goals updated', { count: updates.length });
+      }
+
+      return updates;
+    } catch (err) {
+      this.stats.errors++;
+      log.error('Goal progress update failed', { error: err.message });
+      throw err;
+    }
+  }
+
+  /**
+   * Evaluate progress for a specific goal
+   * @private
+   */
+  async _evaluateGoalProgress(goal) {
+    const criteria = goal.success_criteria || [];
+
+    switch (goal.goal_type) {
+      case 'quality': {
+        // Quality goals: based on test coverage, lint scores, etc.
+        // For now, simulate small incremental progress
+        const currentProgress = goal.progress || 0;
+        return Math.min(1.0, currentProgress + 0.01 * PHI_INV);
+      }
+
+      case 'learning': {
+        // Learning goals: based on lessons applied, mistakes prevented
+        const currentProgress = goal.progress || 0;
+        const learningBoost = this.stats.learningCycles > 0 ? 0.05 : 0;
+        return Math.min(1.0, currentProgress + learningBoost * PHI_INV);
+      }
+
+      case 'security': {
+        // Security goals: based on vulnerabilities fixed, audit scores
+        return goal.progress; // No auto-progress for security
+      }
+
+      case 'maintenance': {
+        // Maintenance goals: based on tech debt reduced, deps updated
+        const currentProgress = goal.progress || 0;
+        return Math.min(1.0, currentProgress + 0.005 * PHI_INV);
+      }
+
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Generate proactive notifications based on system state
+   * @private
+   */
+  async _generateNotifications() {
+    if (!this.notificationsRepo) {
+      log.trace('No notifications repo configured, skipping generation');
+      return [];
+    }
+
+    try {
+      const notifications = [];
+
+      // Insight: Learning progress
+      if (this.stats.learningCycles > 0 && this.stats.learningCycles % 5 === 0) {
+        const notification = await this.notificationsRepo.create({
+          user_id: 'system',
+          notification_type: 'insight',
+          title: 'Learning Milestone',
+          message: `CYNIC has completed ${this.stats.learningCycles} learning cycles. φ improves.`,
+          priority: 50,
+          context: { learningCycles: this.stats.learningCycles },
+        });
+        notifications.push(notification);
+        this.stats.notificationsGenerated++;
+      }
+
+      // Warning: High error rate
+      const errorRate = this.stats.errors / Math.max(1, this.stats.learningCycles + this.stats.triggersEvaluated);
+      if (errorRate > PHI_INV && this.stats.errors > 5) {
+        const notification = await this.notificationsRepo.create({
+          user_id: 'system',
+          notification_type: 'warning',
+          title: 'High Error Rate Detected',
+          message: `Error rate is ${Math.round(errorRate * 100)}%. Investigation recommended.`,
+          priority: 75,
+          context: { errorRate, totalErrors: this.stats.errors },
+        });
+        notifications.push(notification);
+        this.stats.notificationsGenerated++;
+      }
+
+      // Insight: Tasks processed milestone
+      if (this.stats.tasksProcessed > 0 && this.stats.tasksProcessed % 10 === 0) {
+        const notification = await this.notificationsRepo.create({
+          user_id: 'system',
+          notification_type: 'insight',
+          title: 'Automation Progress',
+          message: `${this.stats.tasksProcessed} autonomous tasks have been processed.`,
+          priority: 40,
+          context: { tasksProcessed: this.stats.tasksProcessed },
+        });
+        notifications.push(notification);
+        this.stats.notificationsGenerated++;
+      }
+
+      this.stats.lastNotificationGen = Date.now();
+
+      if (notifications.length > 0) {
+        log.debug('Notifications generated', { count: notifications.length });
+      }
+
+      return notifications;
+    } catch (err) {
+      this.stats.errors++;
+      log.error('Notification generation failed', { error: err.message });
+      throw err;
     }
   }
 

@@ -570,6 +570,10 @@ export class ServiceInitializer {
       triggerManager,
       pool: services.persistence?.postgres,
       eventBus,
+      // Phase 16: Autonomy repos for task/goal/notification processing
+      goalsRepo: services.persistence?.goals,
+      tasksRepo: services.persistence?.tasks,
+      notificationsRepo: services.persistence?.notifications,
     });
 
     // Start the automation executor
@@ -578,6 +582,9 @@ export class ServiceInitializer {
       learningInterval: '5min',
       triggerInterval: '1min',
       cleanupInterval: '13min',
+      tasksInterval: '2min',
+      goalsInterval: '8min',
+      notificationsInterval: '21min',
     });
 
     return automationExecutor;

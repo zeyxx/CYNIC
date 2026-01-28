@@ -555,6 +555,61 @@ async function main() {
       });
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 16: Store session summary to PostgreSQL via brain tools
+    // "φ remembers everything" - persistent memory across sessions
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      // Store session summary as memory
+      await callBrainTool('brain_memory_store', {
+        action: 'store',
+        memoryType: 'summary',
+        content: `Session completed: ${analysis.toolsUsed} tools, ${analysis.errorsEncountered} errors, ${Math.round((analysis.completionRate || 0) * 100)}% completion`,
+        userId: user.userId,
+        importance: 0.5 + (analysis.completionRate || 0) * 0.3, // Higher importance for better sessions
+        context: {
+          project: detectProject(),
+          toolsUsed: analysis.toolsUsed,
+          errorsEncountered: analysis.errorsEncountered,
+          completionRate: analysis.completionRate,
+          topTools: analysis.topTools,
+        },
+      }).catch(() => {});
+
+      // Store lessons learned from errors
+      for (const insight of insights.filter(i => i.type === 'recurring_error')) {
+        await callBrainTool('brain_memory_store', {
+          action: 'lesson',
+          category: 'bug',
+          mistake: insight.description,
+          correction: insight.suggestion || 'Address the root cause',
+          prevention: 'Monitor for this pattern',
+          severity: 'medium',
+          userId: user.userId,
+        }).catch(() => {});
+      }
+
+      // Store key insights as memories
+      for (const insight of insights.filter(i => i.type !== 'recurring_error').slice(0, 3)) {
+        await callBrainTool('brain_memory_store', {
+          action: 'store',
+          memoryType: 'key_moment',
+          content: insight.description,
+          userId: user.userId,
+          importance: 0.6,
+          context: {
+            type: insight.type,
+            project: detectProject(),
+          },
+        }).catch(() => {});
+      }
+    } catch (e) {
+      // Memory storage to PostgreSQL failed - continue (non-critical)
+      if (process.env.CYNIC_DEBUG) {
+        console.error('[DIGEST] Brain memory storage failed:', e.message);
+      }
+    }
+
     // Output directly to stdout for banner display (like awaken.cjs)
     console.log(message);
 
