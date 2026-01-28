@@ -13,6 +13,10 @@
 
 'use strict';
 
+// Hook logger for visibility
+import { createLogger } from '../lib/hook-logger.js';
+const logger = createLogger('PERCEIVE');
+
 // ESM imports from the lib bridge
 import cynic, {
   DC,
@@ -220,6 +224,7 @@ function generateLearningContext(prompt, profile) {
 // =============================================================================
 
 async function main() {
+  logger.start();
   try {
     // Read stdin - try sync first, fall back to async
     const fs = await import('fs');
@@ -228,9 +233,9 @@ async function main() {
     // Try synchronous read (works when piped before module load)
     try {
       input = fs.readFileSync(0, 'utf8');
-      if (process.env.CYNIC_DEBUG) console.error('[PERCEIVE] Sync read:', input.length, 'bytes');
+      logger.debug('Sync read', { bytes: input.length });
     } catch (syncErr) {
-      if (process.env.CYNIC_DEBUG) console.error('[PERCEIVE] Sync failed:', syncErr.message);
+      logger.debug('Sync failed, trying async', { error: syncErr.message });
       // Sync failed, try async read (works with Claude Code's pipe)
       input = await new Promise((resolve) => {
         let data = '';
@@ -567,12 +572,15 @@ async function main() {
     }
 
   } catch (error) {
-    // Log error to stderr for debugging, but don't block
-    if (process.env.CYNIC_DEBUG) {
-      console.error('[PERCEIVE ERROR]', error.message);
-    }
+    // Log error for debugging, but don't block
+    logger.error('Hook failed', { error: error.message });
     console.log(JSON.stringify({ continue: true }));
   }
+}
+
+// Also log if async read used
+function logAsyncRead(bytes) {
+  logger.debug('Async read', { bytes });
 }
 
 main();

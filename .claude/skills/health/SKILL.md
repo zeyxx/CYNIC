@@ -76,13 +76,57 @@ Present results as:
 ╚═══════════════════════════════════════════════════════════════════╝
 ```
 
+## Step 5: Hook Logs (NEW)
+
+Check recent hook activity and errors:
+
+```bash
+echo "=== HOOK LOGS ===" && \
+if [ -f ".claude/logs/hooks.log" ]; then \
+  echo "Recent entries:"; \
+  tail -20 .claude/logs/hooks.log; \
+  echo ""; \
+  echo "Errors:"; \
+  grep -E "\[ERROR\]|\[CRITICAL\]" .claude/logs/hooks.log 2>/dev/null | tail -5 || echo "No errors"; \
+else \
+  echo "No hook logs found"; \
+fi
+```
+
+## Step 6: Pack Metrics (NEW)
+
+If orchestration module available:
+
+```javascript
+import { calculatePackEffectiveness } from '@cynic/core';
+
+const metrics = {
+  avgQScore: 65,        // From recent judgments
+  avgResponseTime: 8000, // ms
+  consensusRate: 0.7,
+  consultationSuccess: 0.8,
+};
+
+const E = calculatePackEffectiveness(metrics);
+console.log(`Pack Effectiveness: ${E.E}/100`);
+```
+
 ## Quick Checks
 
 | Issue | Command |
 |-------|---------|
-| Hook not working | `node scripts/hooks/[name].cjs <<< '{"prompt":"test"}'` |
+| Hook not working | `node scripts/hooks/[name].js <<< '{"prompt":"test"}'` |
+| Hook errors | `tail -50 .claude/logs/hooks.log \| grep ERROR` |
 | MCP unreachable | Check Render dashboard |
 | No patterns | Use `/judge` to create judgments |
+
+## Log Files
+
+| File | Purpose |
+|------|---------|
+| `.claude/logs/hooks.log` | Hook execution logs |
+| `~/.cynic/patterns/*.json` | Detected patterns |
+| `~/.cynic/consciousness/state.json` | Consciousness state |
 
 ## See Also
 
