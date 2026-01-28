@@ -846,6 +846,408 @@ export class Orchestrator {
 }
 
 // =============================================================================
+// PACK COORDINATION - CONSULTATION MATRIX
+// =============================================================================
+
+/**
+ * Consultation Matrix
+ *
+ * Defines which agents should consult which others for specific tasks.
+ * Format: { agentRole: { taskType: [agents to consult] } }
+ *
+ * Rules:
+ * 1. Never consult yourself
+ * 2. Max 2 consultations per decision
+ * 3. Security (Guardian) consulted for dangerous operations
+ * 4. Memory (Archivist) consulted for pattern matching
+ */
+export const CONSULTATION_MATRIX = {
+  // Architect consults for design decisions
+  architect: {
+    design: ['reviewer', 'simplifier'],      // Get review + simplification suggestions
+    security: ['guardian'],                   // Security review
+    patterns: ['archivist', 'oracle'],        // Historical patterns + insights
+  },
+
+  // Reviewer consults for code review
+  reviewer: {
+    quality: ['simplifier'],                  // Simplification opportunities
+    security: ['guardian'],                   // Security issues
+    patterns: ['archivist'],                  // Past review patterns
+  },
+
+  // Guardian consults for security decisions
+  guardian: {
+    severity: ['architect'],                  // Architecture impact
+    patterns: ['archivist'],                  // Past security incidents
+  },
+
+  // Scout consults for exploration
+  scout: {
+    deep_search: ['cartographer'],            // Map structure
+    patterns: ['archivist'],                  // What we found before
+  },
+
+  // Tester consults for test analysis
+  tester: {
+    coverage: ['architect'],                  // What should be tested
+    failures: ['reviewer'],                   // Code review for failures
+  },
+
+  // Simplifier consults for refactoring
+  simplifier: {
+    impact: ['architect'],                    // Architecture impact
+    tests: ['tester'],                        // Test coverage concerns
+  },
+
+  // Deployer consults for deployment
+  deployer: {
+    safety: ['guardian', 'tester'],           // Security + tests passing
+    rollback: ['architect'],                  // Architecture dependencies
+  },
+
+  // Oracle consults for insights
+  oracle: {
+    history: ['archivist'],                   // Historical data
+    ecosystem: ['integrator'],                // Cross-project view
+  },
+
+  // Integrator consults for ecosystem changes
+  integrator: {
+    impact: ['architect', 'tester'],          // Design + test impact
+    history: ['archivist'],                   // Past integrations
+  },
+
+  // Doc consults for documentation
+  doc: {
+    accuracy: ['reviewer'],                   // Code accuracy
+    completeness: ['architect'],              // What should be documented
+  },
+
+  // Librarian consults for documentation cache
+  librarian: {
+    relevance: ['archivist'],                 // What's been useful
+  },
+
+  // Cartographer consults for mapping
+  cartographer: {
+    deep: ['scout'],                          // Detailed exploration
+    patterns: ['archivist'],                  // Historical structure
+  },
+
+  // Archivist consults for memory
+  archivist: {
+    relevance: ['oracle'],                    // Pattern insights
+  },
+
+  // Solana Expert consults for blockchain
+  'solana-expert': {
+    security: ['guardian'],                   // Security review
+    patterns: ['archivist'],                  // Past solutions
+  },
+};
+
+/**
+ * Get consultants for a given agent and task type
+ *
+ * @param {string} agentRole - The agent's role
+ * @param {string} taskType - The type of task
+ * @returns {string[]} List of agent roles to consult
+ */
+export function getConsultants(agentRole, taskType) {
+  const matrix = CONSULTATION_MATRIX[agentRole];
+  if (!matrix) return [];
+
+  return matrix[taskType] || matrix['default'] || [];
+}
+
+/**
+ * Check if consultation is needed
+ *
+ * @param {string} agentRole - The agent's role
+ * @param {string} taskType - The type of task
+ * @param {Object} [context] - Additional context
+ * @returns {Object} { needed: boolean, consultants: string[], reason: string }
+ */
+export function shouldConsult(agentRole, taskType, context = {}) {
+  const { confidence = 0.5, isHighRisk = false, hasPatternMatch = false } = context;
+
+  // Always consult for high-risk operations
+  if (isHighRisk) {
+    const securityConsultants = ['guardian'];
+    return {
+      needed: true,
+      consultants: securityConsultants,
+      reason: 'High-risk operation requires security review',
+    };
+  }
+
+  // Consult if confidence is below threshold
+  if (confidence < PHI_INV_2) {
+    const consultants = getConsultants(agentRole, taskType);
+    if (consultants.length > 0) {
+      return {
+        needed: true,
+        consultants,
+        reason: `Low confidence (${(confidence * 100).toFixed(1)}%) - seeking second opinion`,
+      };
+    }
+  }
+
+  // Consult archivist if pattern match detected
+  if (hasPatternMatch) {
+    return {
+      needed: true,
+      consultants: ['archivist'],
+      reason: 'Pattern match detected - checking collective memory',
+    };
+  }
+
+  return {
+    needed: false,
+    consultants: [],
+    reason: 'No consultation needed',
+  };
+}
+
+// =============================================================================
+// PACK COORDINATION - CIRCUIT BREAKER
+// =============================================================================
+
+/**
+ * Circuit Breaker Constants
+ */
+export const CIRCUIT_BREAKER_CONSTANTS = {
+  /** Max consultation depth */
+  MAX_DEPTH: 3,
+
+  /** Max total consultations per request */
+  MAX_CONSULTATIONS: 5,
+
+  /** Token budget for consultations (φ⁻² of context) */
+  CONSULTATION_BUDGET_RATIO: PHI_INV_2,
+
+  /** Timeout for single consultation (Fib(8) = 21s) */
+  CONSULTATION_TIMEOUT_MS: 21000,
+
+  /** Cooldown between same agent consultations (Fib(5) = 5s) */
+  SAME_AGENT_COOLDOWN_MS: 5000,
+};
+
+/**
+ * Circuit Breaker for Agent Consultation
+ *
+ * Prevents infinite loops and runaway consultation chains.
+ *
+ * @example
+ * const breaker = new ConsultationCircuitBreaker();
+ *
+ * // Before consulting
+ * if (!breaker.canConsult('architect', 'reviewer')) {
+ *   // Skip consultation
+ * }
+ *
+ * // After consulting
+ * breaker.recordConsultation('architect', 'reviewer', { tokens: 500 });
+ */
+export class ConsultationCircuitBreaker {
+  constructor(options = {}) {
+    this.maxDepth = options.maxDepth || CIRCUIT_BREAKER_CONSTANTS.MAX_DEPTH;
+    this.maxConsultations = options.maxConsultations || CIRCUIT_BREAKER_CONSTANTS.MAX_CONSULTATIONS;
+    this.tokenBudget = options.tokenBudget || 50000; // Default ~50k tokens for consultations
+
+    // State
+    this.visited = new Set();           // Set of "from->to" edges visited
+    this.consultationCount = 0;         // Total consultations in this chain
+    this.currentDepth = 0;              // Current consultation depth
+    this.tokensUsed = 0;                // Tokens used in consultations
+    this.lastConsultations = new Map(); // agentId -> timestamp (for cooldown)
+    this.chain = [];                    // Consultation chain for debugging
+  }
+
+  /**
+   * Check if consultation is allowed
+   *
+   * @param {string} fromAgent - Agent requesting consultation
+   * @param {string} toAgent - Agent being consulted
+   * @param {Object} [context] - Additional context
+   * @returns {Object} { allowed: boolean, reason: string }
+   */
+  canConsult(fromAgent, toAgent, context = {}) {
+    const { estimatedTokens = 0 } = context;
+
+    // Rule 1: No self-consultation
+    if (fromAgent === toAgent) {
+      return { allowed: false, reason: 'Cannot consult self' };
+    }
+
+    // Rule 2: Check max depth
+    if (this.currentDepth >= this.maxDepth) {
+      return {
+        allowed: false,
+        reason: `Max consultation depth reached (${this.maxDepth})`,
+      };
+    }
+
+    // Rule 3: Check max consultations
+    if (this.consultationCount >= this.maxConsultations) {
+      return {
+        allowed: false,
+        reason: `Max consultations reached (${this.maxConsultations})`,
+      };
+    }
+
+    // Rule 4: Check for cycles (already visited this edge)
+    const edge = `${fromAgent}->${toAgent}`;
+    if (this.visited.has(edge)) {
+      return {
+        allowed: false,
+        reason: `Cycle detected: ${edge} already visited`,
+      };
+    }
+
+    // Rule 5: Check token budget
+    if (this.tokensUsed + estimatedTokens > this.tokenBudget) {
+      return {
+        allowed: false,
+        reason: `Token budget exceeded (${this.tokensUsed}/${this.tokenBudget})`,
+      };
+    }
+
+    // Rule 6: Check cooldown for same agent
+    const lastTime = this.lastConsultations.get(toAgent);
+    if (lastTime) {
+      const elapsed = Date.now() - lastTime;
+      if (elapsed < CIRCUIT_BREAKER_CONSTANTS.SAME_AGENT_COOLDOWN_MS) {
+        return {
+          allowed: false,
+          reason: `Cooldown active for ${toAgent} (${Math.ceil((CIRCUIT_BREAKER_CONSTANTS.SAME_AGENT_COOLDOWN_MS - elapsed) / 1000)}s remaining)`,
+        };
+      }
+    }
+
+    return { allowed: true, reason: 'Consultation permitted' };
+  }
+
+  /**
+   * Record a consultation (call before consulting)
+   *
+   * @param {string} fromAgent
+   * @param {string} toAgent
+   */
+  enterConsultation(fromAgent, toAgent) {
+    const edge = `${fromAgent}->${toAgent}`;
+    this.visited.add(edge);
+    this.consultationCount++;
+    this.currentDepth++;
+    this.chain.push({ from: fromAgent, to: toAgent, depth: this.currentDepth, time: Date.now() });
+  }
+
+  /**
+   * Record consultation completion
+   *
+   * @param {string} fromAgent
+   * @param {string} toAgent
+   * @param {Object} [result] - Consultation result
+   */
+  exitConsultation(fromAgent, toAgent, result = {}) {
+    const { tokensUsed = 0 } = result;
+    this.currentDepth = Math.max(0, this.currentDepth - 1);
+    this.tokensUsed += tokensUsed;
+    this.lastConsultations.set(toAgent, Date.now());
+  }
+
+  /**
+   * Get circuit breaker status
+   */
+  getStatus() {
+    return {
+      depth: this.currentDepth,
+      maxDepth: this.maxDepth,
+      consultations: this.consultationCount,
+      maxConsultations: this.maxConsultations,
+      tokensUsed: this.tokensUsed,
+      tokenBudget: this.tokenBudget,
+      visitedEdges: [...this.visited],
+      chain: this.chain,
+      isOpen: this.consultationCount >= this.maxConsultations ||
+              this.currentDepth >= this.maxDepth ||
+              this.tokensUsed >= this.tokenBudget,
+    };
+  }
+
+  /**
+   * Reset circuit breaker (for new request)
+   */
+  reset() {
+    this.visited.clear();
+    this.consultationCount = 0;
+    this.currentDepth = 0;
+    this.tokensUsed = 0;
+    this.chain = [];
+    // Note: lastConsultations preserved for cooldown across requests
+  }
+
+  /**
+   * Full reset including cooldowns
+   */
+  fullReset() {
+    this.reset();
+    this.lastConsultations.clear();
+  }
+}
+
+// =============================================================================
+// PACK EFFECTIVENESS METRICS
+// =============================================================================
+
+/**
+ * Calculate Pack Effectiveness
+ *
+ * E = Quality × Speed × Coherence
+ *
+ * @param {Object} metrics - Pack metrics
+ * @returns {Object} Effectiveness calculation
+ */
+export function calculatePackEffectiveness(metrics) {
+  const {
+    avgQScore = 50,           // Average Q-Score of outputs
+    avgResponseTime = 10000,  // Average response time in ms
+    consensusRate = 0.5,      // Rate of consensus reached
+    consultationSuccess = 0.5, // Rate of successful consultations
+  } = metrics;
+
+  // Quality: Normalize Q-Score to 0-1
+  const quality = avgQScore / 100;
+
+  // Speed: Inverse of response time, normalized (10s = 1.0, 60s = 0.17)
+  const targetTime = 10000; // 10 seconds target
+  const speed = Math.min(1, targetTime / Math.max(avgResponseTime, 1000));
+
+  // Coherence: Combination of consensus and consultation success
+  const coherence = (consensusRate + consultationSuccess) / 2;
+
+  // Effectiveness = geometric mean (forces balance)
+  const effectiveness = Math.pow(quality * speed * coherence, 1/3) * 100;
+
+  return {
+    E: Math.round(effectiveness * 10) / 10,
+    breakdown: {
+      quality: Math.round(quality * 100),
+      speed: Math.round(speed * 100),
+      coherence: Math.round(coherence * 100),
+    },
+    raw: {
+      avgQScore,
+      avgResponseTime,
+      consensusRate,
+      consultationSuccess,
+    },
+    formula: 'E = ∛(Quality × Speed × Coherence) × 100',
+  };
+}
+
+// =============================================================================
 // EXPORTS
 // =============================================================================
 
@@ -855,8 +1257,16 @@ export default {
   TaskPriority,
   TaskStatus,
   AggregationStrategy,
+  CONSULTATION_MATRIX,
+  CIRCUIT_BREAKER_CONSTANTS,
 
   // Classes
   Task,
   Orchestrator,
+  ConsultationCircuitBreaker,
+
+  // Functions
+  getConsultants,
+  shouldConsult,
+  calculatePackEffectiveness,
 };
