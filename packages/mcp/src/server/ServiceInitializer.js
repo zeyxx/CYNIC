@@ -11,7 +11,7 @@
 
 'use strict';
 
-import { CYNICJudge, createCollectivePack, LearningService, createEScoreCalculator, JudgmentGraphIntegration, createEngineIntegration } from '@cynic/node';
+import { CYNICJudge, createCollectivePack, LearningService, LearningManager, createEScoreCalculator, JudgmentGraphIntegration, createEngineIntegration, createAutomationExecutor, getEventBus } from '@cynic/node';
 import { PeriodicScheduler, FibonacciIntervals, EngineRegistry, loadPhilosophyEngines, globalEventBus, EventType, createLogger } from '@cynic/core';
 
 const log = createLogger('ServiceInitializer');
@@ -81,6 +81,8 @@ export class ServiceInitializer {
     this.factories = {
       eScoreCalculator: this._createEScoreCalculator.bind(this),
       learningService: this._createLearningService.bind(this),
+      learningManager: this._createLearningManager.bind(this),
+      automationExecutor: this._createAutomationExecutor.bind(this),
       engineRegistry: this._createEngineRegistry.bind(this),
       judge: this._createJudge.bind(this),
       persistence: this._createPersistence.bind(this),
@@ -196,7 +198,17 @@ export class ServiceInitializer {
       services.metrics = this.factories.metrics(services);
     }
 
-    // 15. Setup event bus subscriptions for cross-layer communication
+    // 15. Learning Manager (unified learning with event bus integration)
+    if (!services.learningManager) {
+      services.learningManager = await this.factories.learningManager(services);
+    }
+
+    // 16. Automation Executor (scheduled learning cycles and trigger evaluation)
+    if (!services.automationExecutor) {
+      services.automationExecutor = await this.factories.automationExecutor(services);
+    }
+
+    // 17. Setup event bus subscriptions for cross-layer communication
     this._setupBusSubscriptions(services);
 
     return services;
@@ -519,6 +531,56 @@ export class ServiceInitializer {
     });
     log.debug('Metrics ready');
     return metrics;
+  }
+
+  /**
+   * Create Learning Manager - Unified learning system with event bus integration
+   * Phase 18: Automated learning cycles
+   */
+  async _createLearningManager(services) {
+    const eventBus = getEventBus();
+
+    const learningManager = new LearningManager({
+      persistence: services.persistence,
+      eventBus,
+      learningRate: 0.236,  // φ⁻³
+      autoLearn: true,
+      minSamples: 5,
+    });
+
+    await learningManager.init();
+    log.info('Learning manager ready', { autoLearn: true });
+    return learningManager;
+  }
+
+  /**
+   * Create Automation Executor - Scheduled execution of learning and triggers
+   * Phase 18: Background daemon for automated tasks
+   */
+  async _createAutomationExecutor(services) {
+    const eventBus = getEventBus();
+
+    // Create trigger adapter from persistence
+    const triggerManager = services.persistence?.triggers ? {
+      getEnabled: async () => services.persistence.triggers.findEnabled(),
+    } : null;
+
+    const automationExecutor = createAutomationExecutor({
+      learningManager: services.learningManager,
+      triggerManager,
+      pool: services.persistence?.postgres,
+      eventBus,
+    });
+
+    // Start the automation executor
+    await automationExecutor.start();
+    log.info('Automation executor started', {
+      learningInterval: '5min',
+      triggerInterval: '1min',
+      cleanupInterval: '13min',
+    });
+
+    return automationExecutor;
   }
 }
 

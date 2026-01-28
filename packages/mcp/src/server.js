@@ -1149,6 +1149,16 @@ export class MCPServer {
       }
     }
 
+    // Stop automation executor (Phase 18: learning cycles and triggers)
+    if (this.automationExecutor) {
+      try {
+        await this.automationExecutor.stop();
+        console.error('   Automation executor stopped');
+      } catch (e) {
+        console.error('Error stopping automation executor:', e.message);
+      }
+    }
+
     // Close persistence connections (handles file-based save automatically)
     if (this.persistence) {
       try {
