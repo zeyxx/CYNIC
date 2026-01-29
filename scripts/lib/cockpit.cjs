@@ -30,6 +30,19 @@ const SCAN_INTERVAL_MS = cynic.HEARTBEAT_MS; // 61.8 seconds (φ-aligned)
 const ALERT_TTL_MS = 3600000; // 1 hour
 const MAX_ALERTS = 100;
 
+// ANSI color helpers
+const ANSI = {
+  reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m',
+  red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m',
+  blue: '\x1b[34m', magenta: '\x1b[35m', cyan: '\x1b[36m', white: '\x1b[37m',
+  brightRed: '\x1b[91m', brightGreen: '\x1b[92m', brightYellow: '\x1b[93m',
+  brightBlue: '\x1b[94m', brightMagenta: '\x1b[95m', brightCyan: '\x1b[96m',
+  brightWhite: '\x1b[97m',
+};
+
+let useColor = true;
+const c = (color, text) => useColor ? `${color}${text}${ANSI.reset}` : text;
+
 // Known ecosystem repos and their roles
 // GRANULARITY: Only repos owned by zeyxx are part of the TRUE ecosystem
 const ECOSYSTEM_REPOS = {
@@ -670,53 +683,69 @@ function getCockpitState() {
 
 /**
  * Format cockpit status for display
+ * @param {Object} state - Cockpit state
+ * @param {boolean} enableColor - Whether to use ANSI colors
  */
-function formatCockpitStatus(state) {
+function formatCockpitStatus(state, enableColor = true) {
+  useColor = enableColor;
   const lines = [];
 
-  lines.push('╔══════════════════════════════════════════════════════════════╗');
-  lines.push('║                    🛩️  CYNIC COCKPIT                          ║');
-  lines.push('╠══════════════════════════════════════════════════════════════╣');
+  const header = '══════════════════════════════════════════════════════════════';
+  lines.push(c(ANSI.magenta, '╔' + header + '╗'));
+  lines.push(c(ANSI.magenta, '║') + c(ANSI.bold + ANSI.brightCyan, '                    🛩️  CYNIC COCKPIT                          ') + c(ANSI.magenta, '║'));
+  lines.push(c(ANSI.magenta, '╠' + header + '╣'));
 
   if (!state.status) {
-    lines.push('║  ⚠️  No scan data. Run fullScan() first.                     ║');
-    lines.push('╚══════════════════════════════════════════════════════════════╝');
+    lines.push(c(ANSI.magenta, '║') + c(ANSI.yellow, '  ⚠️  No scan data. Run fullScan() first.                     ') + c(ANSI.magenta, '║'));
+    lines.push(c(ANSI.magenta, '╚' + header + '╝'));
     return lines.join('\n');
   }
 
   const s = state.status.summary;
-  lines.push(`║  Repos: ${s.total} total │ ✅ ${s.healthy} │ ⚠️ ${s.warnings} │ 🔴 ${s.critical}`.padEnd(65) + '║');
-  lines.push('╠══════════════════════════════════════════════════════════════╣');
+  const healthyColor = s.healthy === s.total ? ANSI.brightGreen : ANSI.yellow;
+  const summaryLine = `  ${c(ANSI.brightWhite, 'Repos:')} ${c(ANSI.brightCyan, s.total)} total │ ${c(ANSI.brightGreen, '✅ ' + s.healthy)} │ ${c(ANSI.yellow, '⚠️ ' + s.warnings)} │ ${c(ANSI.brightRed, '🔴 ' + s.critical)}`;
+  lines.push(c(ANSI.magenta, '║') + summaryLine.padEnd(75) + c(ANSI.magenta, '║'));
+  lines.push(c(ANSI.magenta, '╠' + header + '╣'));
 
   // Repo list
   for (const [name, repo] of Object.entries(state.status.repos)) {
-    const icon = repo.health === 'healthy' ? '✅' : repo.health === 'warning' ? '⚠️' : '🔴';
+    const healthIcon = repo.health === 'healthy' ? c(ANSI.brightGreen, '✅') :
+                       repo.health === 'warning' ? c(ANSI.yellow, '⚠️') :
+                       c(ANSI.brightRed, '🔴');
     const branch = repo.git?.branch || '?';
-    const changes = repo.git?.clean ? '' : ` (${repo.git?.modified || 0}M/${repo.git?.untracked || 0}U)`;
-    const line = `║  ${icon} ${name.padEnd(20)} ${branch.padEnd(15)}${changes}`;
-    lines.push(line.padEnd(65) + '║');
+    const branchColor = branch === 'main' || branch === 'master' ? ANSI.brightGreen : ANSI.yellow;
+    const changes = repo.git?.clean ? '' : c(ANSI.dim, ` (${repo.git?.modified || 0}M/${repo.git?.untracked || 0}U)`);
+    const nameColor = repo.critical ? ANSI.brightWhite : ANSI.white;
+    const criticalMark = repo.critical ? c(ANSI.brightYellow, '*') : ' ';
+
+    const repoLine = `  ${healthIcon}${criticalMark}${c(nameColor, name.padEnd(19))} ${c(branchColor, branch.padEnd(15))}${changes}`;
+    lines.push(c(ANSI.magenta, '║') + repoLine.padEnd(75) + c(ANSI.magenta, '║'));
   }
 
   // Alerts
   const alerts = state.alerts?.alerts || [];
   const activeAlerts = alerts.filter(a => !a.acknowledged);
   if (activeAlerts.length > 0) {
-    lines.push('╠══════════════════════════════════════════════════════════════╣');
-    lines.push('║  ALERTS:'.padEnd(65) + '║');
+    lines.push(c(ANSI.magenta, '╠' + header + '╣'));
+    lines.push(c(ANSI.magenta, '║') + c(ANSI.brightWhite, '  ALERTS:').padEnd(65) + c(ANSI.magenta, '║'));
     for (const alert of activeAlerts.slice(0, 5)) {
-      const severity = alert.severity === 'critical' ? '🔴' : alert.severity === 'warning' ? '⚠️' : 'ℹ️';
-      const line = `║  ${severity} ${alert.message.slice(0, 55)}`;
-      lines.push(line.padEnd(65) + '║');
+      const severityIcon = alert.severity === 'critical' ? c(ANSI.brightRed, '🔴') :
+                           alert.severity === 'warning' ? c(ANSI.yellow, '⚠️') :
+                           c(ANSI.cyan, 'ℹ️');
+      const msgColor = alert.severity === 'critical' ? ANSI.brightRed :
+                       alert.severity === 'warning' ? ANSI.yellow : ANSI.dim;
+      const alertLine = `  ${severityIcon} ${c(msgColor, alert.message.slice(0, 55))}`;
+      lines.push(c(ANSI.magenta, '║') + alertLine.padEnd(75) + c(ANSI.magenta, '║'));
     }
     if (activeAlerts.length > 5) {
-      lines.push(`║  ... and ${activeAlerts.length - 5} more alerts`.padEnd(65) + '║');
+      lines.push(c(ANSI.magenta, '║') + c(ANSI.dim, `  ... and ${activeAlerts.length - 5} more alerts`).padEnd(65) + c(ANSI.magenta, '║'));
     }
   }
 
-  lines.push('╠══════════════════════════════════════════════════════════════╣');
+  lines.push(c(ANSI.magenta, '╠' + header + '╣'));
   const scanTime = state.status.timestamp ? new Date(state.status.timestamp).toLocaleTimeString() : 'never';
-  lines.push(`║  Last scan: ${scanTime}`.padEnd(65) + '║');
-  lines.push('╚══════════════════════════════════════════════════════════════╝');
+  lines.push(c(ANSI.magenta, '║') + c(ANSI.dim, `  Last scan: ${scanTime}  │  * = critical repo`).padEnd(65) + c(ANSI.magenta, '║'));
+  lines.push(c(ANSI.magenta, '╚' + header + '╝'));
 
   return lines.join('\n');
 }
