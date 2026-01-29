@@ -12,23 +12,29 @@
 
 const path = require('path');
 
+// Import centralized color system
+let colors;
+try {
+  colors = require('./colors.cjs');
+} catch {
+  colors = null;
+}
+
 // Lazy load modules
 let psychology = null;
 let thermodynamics = null;
 let biases = null;
 let learning = null;
-let dogs = null;
 
 function loadModules() {
   try { psychology = require('./human-psychology.cjs'); psychology.init(); } catch {}
   try { thermodynamics = require('./cognitive-thermodynamics.cjs'); thermodynamics.init(); } catch {}
   try { biases = require('./cognitive-biases.cjs'); } catch {}
   try { learning = require('./learning-loop.cjs'); } catch {}
-  try { dogs = require('./collective-dogs.cjs'); } catch {}
 }
 
-// ANSI color helpers (fallback if dogs module not available)
-const getANSI = () => dogs?.ANSI || {
+// Use centralized ANSI or fallback
+const ANSI = colors?.ANSI || {
   reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m',
   red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m',
   blue: '\x1b[34m', magenta: '\x1b[35m', cyan: '\x1b[36m',
@@ -36,9 +42,9 @@ const getANSI = () => dogs?.ANSI || {
   brightCyan: '\x1b[96m', brightWhite: '\x1b[97m',
 };
 
-// Color helper
+// Color helper - use centralized colorize or simple fallback
 let useColor = true;
-const c = (color, text) => useColor ? `${color}${text}${getANSI().reset}` : text;
+const c = (color, text) => useColor ? `${color}${text}${ANSI.reset}` : text;
 
 // Helpers
 const bar = (val, max = 1) => {
@@ -48,7 +54,7 @@ const bar = (val, max = 1) => {
 
 // Colored bar based on value (green=good, yellow=warning, red=critical)
 const colorBar = (val, max = 1, inverse = false) => {
-  const ANSI = getANSI();
+  // ANSI is available at module level from colors.cjs
   const pct = Math.min(1, val / max);
   const barStr = bar(val, max);
 
@@ -77,7 +83,7 @@ function generateDashboard(enableColor = true) {
   loadModules();
   useColor = enableColor;
 
-  const ANSI = getANSI();
+  // ANSI is available at module level from colors.cjs
   const lines = [];
 
   const header = '═══════════════════════════════════════════════════════════';
