@@ -699,6 +699,33 @@ async function main() {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // COLLECTIVE DOGS: Show the 11 Dogs of CYNIC
+    // "Tree of Life - CYNIC's collective consciousness"
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      // Mini Sefirot tree showing active Dogs
+      const dogsLines = ['', '── COLLECTIVE DOGS (Sefirot) ──────────────────────────────'];
+      dogsLines.push('               🧠 CYNIC (Keter)');
+      dogsLines.push('          ╱          │          ╲');
+      dogsLines.push('    📊 Analyst   📚 Scholar   🦉 Sage');
+      dogsLines.push('          ╲          │          ╱');
+      dogsLines.push('    🛡️ Guardian  🔮 Oracle   🏗️ Architect');
+      dogsLines.push('          ╲          │          ╱');
+      dogsLines.push('    🚀 Deployer  🧹 Janitor  🔍 Scout');
+      dogsLines.push('               ╲     │     ╱');
+      dogsLines.push('               🗺️ Cartographer');
+
+      const lines = message.split('\n');
+      const insertIdx = lines.findIndex(l => l.includes('CYNIC is AWAKE'));
+      if (insertIdx > 0) {
+        lines.splice(insertIdx, 0, ...dogsLines, '');
+        message = lines.join('\n');
+      }
+    } catch (e) {
+      // Dogs display failed - continue without
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // PROACTIVE ADVISOR: Intelligent suggestions
     // ═══════════════════════════════════════════════════════════════════════════
     if (proactiveAdvisor && proactiveAdvisor.shouldInjectNow()) {

@@ -416,6 +416,7 @@ class SuggestionEngine {
 
   /**
    * Format agent suggestion for output
+   * Shows which Dog from the Collective is suggested with Sefirot mapping
    * @param {Object} agentSuggestion - From suggestAgent()
    * @returns {string} Formatted suggestion
    */
@@ -423,10 +424,28 @@ class SuggestionEngine {
     if (!agentSuggestion) return '';
 
     const { agent, sefirah, reason, command } = agentSuggestion;
-    const sefirahNote = sefirah ? ` (${sefirah})` : '';
 
-    return `\n── 🐕 AGENT SUGGESTION${sefirahNote} ──────────────────────────────────────
-   *sniff* Maybe try: ${agent}
+    // Dog icons mapped to Sefirot
+    const dogIcons = {
+      'Keter': '🧠',      // CYNIC
+      'Netzach': '🔍',    // Scout
+      'Gevurah': '🛡️',    // Guardian
+      'Hod': '🚀',        // Deployer
+      'Chesed': '🏗️',     // Architect/Reviewer
+      'Yesod': '🧹',      // Janitor/Tester
+      'Tiferet': '🔮',    // Oracle
+      'Binah': '📊',      // Analyst
+      'Chochmah': '🦉',   // Sage
+      'Daat': '📚',       // Scholar
+      'Malkhut': '🗺️',    // Cartographer
+    };
+
+    const icon = dogIcons[sefirah] || '🐕';
+    const dogName = agent.replace('cynic-', '').toUpperCase();
+
+    return `
+── ${icon} ${dogName} (${sefirah || 'Dog'}) ─────────────────────────────────────
+   The Collective suggests: ${agent}
    ${reason}
    └─ Task: "${command}"
 `;

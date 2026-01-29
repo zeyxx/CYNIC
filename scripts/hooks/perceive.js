@@ -354,21 +354,37 @@ async function main() {
     const routing = orchestration?.result?.routing || orchestration?.routing;
     const intervention = orchestration?.result?.intervention || orchestration?.intervention;
 
-    // Handle KETER agent routing
+    // Handle KETER agent routing - AUTO-DISPATCH
     if (routing?.suggestedAgent) {
       const sefirah = routing.sefirah;
       const agent = routing.suggestedAgent;
       const tools = routing.suggestedTools || [];
       const actionRisk = intervention?.actionRisk || 'low';
+      const confidence = routing.confidence || 0.5;
 
       // Only inject if intervention level is not silent
       if (intervention?.level !== 'silent') {
-        // Build directive injection that tells Claude to use the agent
+        // High confidence = stronger auto-dispatch directive
+        const isAutoDispatch = confidence > 0.618; // φ⁻¹ threshold
+
         let directive = `── SEFIRAH: ${sefirah} ────────────────────────────────────\n`;
-        directive += `   *ears perk* KETER routing detected.\n`;
-        directive += `   DIRECTIVE: Use the Task tool with subagent_type="${agent}" to handle this request.\n`;
-        if (tools.length > 0) {
-          directive += `   Suggested MCP tools: ${tools.join(', ')}\n`;
+        directive += `   🐕 ${agent.replace('cynic-', '').toUpperCase()} activated (confidence: ${Math.round(confidence * 100)}%)\n`;
+
+        if (isAutoDispatch) {
+          // Strong auto-dispatch - this IS a Task invocation directive
+          directive += `\n   ⚡ AUTO-DISPATCH: Invoke Task tool NOW with:\n`;
+          directive += `      subagent_type="${agent}"\n`;
+          directive += `      prompt=<user's request>\n`;
+          if (tools.length > 0) {
+            directive += `      tools: ${tools.join(', ')}\n`;
+          }
+          directive += `\n   This is not a suggestion - the Sefirot have spoken.\n`;
+        } else {
+          // Normal suggestion
+          directive += `   DIRECTIVE: Use the Task tool with subagent_type="${agent}" to handle this request.\n`;
+          if (tools.length > 0) {
+            directive += `   Suggested MCP tools: ${tools.join(', ')}\n`;
+          }
         }
         injections.push(directive);
       }
