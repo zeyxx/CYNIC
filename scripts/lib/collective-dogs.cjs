@@ -321,44 +321,30 @@ const path = require('path');
 const os = require('os');
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ANSI COLORS - Make Dogs visually distinct
+// COLORS - Import from centralized color system
 // ═══════════════════════════════════════════════════════════════════════════
 
-const ANSI = {
-  reset: '\x1b[0m',
-  bold: '\x1b[1m',
-  dim: '\x1b[2m',
-  italic: '\x1b[3m',
-  underline: '\x1b[4m',
+// Import centralized colors (with fallback)
+let colors;
+try {
+  colors = require('./colors.cjs');
+} catch {
+  // Fallback if colors.cjs not available
+  colors = null;
+}
 
-  // Foreground colors
-  black: '\x1b[30m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  magenta: '\x1b[35m',
-  cyan: '\x1b[36m',
-  white: '\x1b[37m',
-
-  // Bright foreground
-  brightRed: '\x1b[91m',
-  brightGreen: '\x1b[92m',
-  brightYellow: '\x1b[93m',
-  brightBlue: '\x1b[94m',
-  brightMagenta: '\x1b[95m',
-  brightCyan: '\x1b[96m',
+// Use centralized ANSI or define fallback
+const ANSI = colors?.ANSI || {
+  reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m', italic: '\x1b[3m',
+  black: '\x1b[30m', red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m',
+  blue: '\x1b[34m', magenta: '\x1b[35m', cyan: '\x1b[36m', white: '\x1b[37m',
+  brightRed: '\x1b[91m', brightGreen: '\x1b[92m', brightYellow: '\x1b[93m',
+  brightBlue: '\x1b[94m', brightMagenta: '\x1b[95m', brightCyan: '\x1b[96m',
   brightWhite: '\x1b[97m',
-
-  // Background
-  bgRed: '\x1b[41m',
-  bgGreen: '\x1b[42m',
-  bgYellow: '\x1b[43m',
-  bgBlue: '\x1b[44m',
 };
 
-// Map Dog colors to ANSI codes
-const DOG_COLORS = {
+// Use centralized DOG_COLORS or define fallback
+const DOG_COLORS = colors?.DOG_COLORS || {
   CYNIC: ANSI.brightWhite,
   SCOUT: ANSI.brightGreen,
   GUARDIAN: ANSI.brightRed,
