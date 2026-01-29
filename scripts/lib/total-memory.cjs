@@ -162,7 +162,8 @@ async function getActiveGoals(userId) {
   if (!_goalsRepo) return [];
 
   try {
-    return await _goalsRepo.findByUser(userId, { status: 'active', limit: 5 });
+    // Use findActive() - the correct method for active goals
+    return await _goalsRepo.findActive(userId, 5);
   } catch (e) {
     console.error('[CYNIC] Get goals failed:', e.message);
     return [];
@@ -288,7 +289,7 @@ async function updateGoalProgress(userId, activity) {
   if (!_goalsRepo) return;
 
   try {
-    const goals = await _goalsRepo.findByUser(userId, { status: 'active' });
+    const goals = await _goalsRepo.findActive(userId);
 
     for (const goal of goals) {
       // Auto-progress based on goal type and activity

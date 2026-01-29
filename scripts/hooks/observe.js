@@ -1108,10 +1108,24 @@ async function main() {
         },
       }).catch(() => {});
 
+      // Add thermodynamics status to judgment output
+      let thermoNote = '';
+      if (thermodynamics) {
+        try {
+          const thermoState = thermodynamics.getState();
+          const recommendation = thermodynamics.getRecommendation();
+          if (recommendation.level === 'CRITICAL') {
+            thermoNote = `\n\n🔥 THERMAL: ${thermoState.heat}° - ${recommendation.message}`;
+          } else if (recommendation.level !== 'GOOD' && thermoState.heat > 20) {
+            thermoNote = `\n⚡ Eff: ${thermoState.efficiency}% │ Q:${thermoState.heat} W:${thermoState.work}`;
+          }
+        } catch (e) { /* ignore */ }
+      }
+
       // Output the judgment (will be shown to user)
       console.log(JSON.stringify({
         continue: true,
-        message: formatted + refinementNote,
+        message: formatted + refinementNote + thermoNote,
       }));
       return;
     }
@@ -1179,6 +1193,26 @@ async function main() {
       const recoveryMessage = suggestionEngine.getRecoveryMessage();
       if (recoveryMessage) {
         outputParts.push(`\n${recoveryMessage}\n`);
+      }
+    }
+
+    // 5. Thermodynamics mini-display (after significant activity)
+    if (thermodynamics) {
+      try {
+        const thermoState = thermodynamics.getState();
+        // Only show if there's meaningful activity and efficiency is noteworthy
+        if (thermoState.work > 20 || thermoState.heat > 10) {
+          const recommendation = thermodynamics.getRecommendation();
+          // Show warning or critical states
+          if (recommendation.level !== 'GOOD') {
+            outputParts.push(`\n── ⚡ THERMO: ${thermoState.efficiency}% eff │ Q:${thermoState.heat} W:${thermoState.work}\n`);
+            outputParts.push(`   ${recommendation.message}\n`);
+          } else if (thermoState.isCritical) {
+            outputParts.push(`\n🔥 THERMAL RUNAWAY: Heat ${thermoState.heat}° - TAKE A BREAK\n`);
+          }
+        }
+      } catch (e) {
+        // Thermodynamics display failed - continue without
       }
     }
 
