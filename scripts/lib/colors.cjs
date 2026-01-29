@@ -303,3 +303,59 @@ module.exports = {
   formatPct,
   supportsColor,
 };
+
+// =============================================================================
+// CLI - Color Preview
+// =============================================================================
+
+if (require.main === module) {
+  const header = '═══════════════════════════════════════════════════════════';
+
+  console.log(c(SEMANTIC.header, header));
+  console.log(c(SEMANTIC.header, '🎨 CYNIC COLOR SYSTEM - "Les couleurs révèlent la vérité"'));
+  console.log(c(SEMANTIC.header, header));
+  console.log('');
+
+  // Semantic colors
+  console.log(c(ANSI.brightWhite, '── SEMANTIC COLORS ────────────────────────────────────────'));
+  console.log(`   ${c(SEMANTIC.success, '● Success')}  ${c(SEMANTIC.warning, '● Warning')}  ${c(SEMANTIC.error, '● Error')}  ${c(SEMANTIC.info, '● Info')}  ${c(SEMANTIC.muted, '● Muted')}`);
+  console.log('');
+
+  // Health indicators
+  console.log(c(ANSI.brightWhite, '── HEALTH INDICATORS (φ thresholds) ───────────────────────'));
+  console.log(`   ${c(SEMANTIC.healthy, '● Healthy')} (>61.8%)  ${c(SEMANTIC.caution, '● Caution')} (38-62%)  ${c(SEMANTIC.critical, '● Critical')} (<38%)`);
+  console.log('');
+
+  // Progress bars
+  console.log(c(ANSI.brightWhite, '── PROGRESS BARS ──────────────────────────────────────────'));
+  console.log(`   10%: [${progressBar(0.1)}]  Critical`);
+  console.log(`   45%: [${progressBar(0.45)}]  Caution`);
+  console.log(`   75%: [${progressBar(0.75)}]  Healthy`);
+  console.log(`  100%: [${progressBar(1.0)}]  Max`);
+  console.log('');
+
+  // Inverse bars (for heat, frustration)
+  console.log(c(ANSI.brightWhite, '── INVERSE BARS (heat, frustration) ───────────────────────'));
+  console.log(`   10%: [${progressBar(0.1, 1, true)}]  Good (low)`);
+  console.log(`   45%: [${progressBar(0.45, 1, true)}]  Caution`);
+  console.log(`   75%: [${progressBar(0.75, 1, true)}]  Critical (high)`);
+  console.log('');
+
+  // Dog colors (Sefirot)
+  console.log(c(ANSI.brightWhite, '── DOG COLORS (Sefirot) ───────────────────────────────────'));
+  console.log(`   ${c(DOG_COLORS.CYNIC, '🧠 CYNIC')}     ${c(DOG_COLORS.SCOUT, '🔍 Scout')}      ${c(DOG_COLORS.GUARDIAN, '🛡️ Guardian')}`);
+  console.log(`   ${c(DOG_COLORS.ARCHITECT, '🏗️ Architect')}  ${c(DOG_COLORS.ORACLE, '🔮 Oracle')}     ${c(DOG_COLORS.DEPLOYER, '🚀 Deployer')}`);
+  console.log(`   ${c(DOG_COLORS.JANITOR, '🧹 Janitor')}    ${c(DOG_COLORS.ANALYST, '📊 Analyst')}    ${c(DOG_COLORS.SAGE, '🦉 Sage')}`);
+  console.log(`   ${c(DOG_COLORS.SCHOLAR, '📚 Scholar')}    ${c(DOG_COLORS.CARTOGRAPHER, '🗺️ Cartographer')}`);
+  console.log('');
+
+  // Dashboard themes
+  console.log(c(ANSI.brightWhite, '── DASHBOARD THEMES ───────────────────────────────────────'));
+  console.log(`   ${c(THEMES.psy.border, '● /psy')}  ${c(THEMES.health.border, '● /health')}  ${c(THEMES.dogs.border, '● /dogs')}  ${c(THEMES.cockpit.border, '● /cockpit')}  ${c(THEMES.status.border, '● /status')}`);
+  console.log('');
+
+  // Footer
+  console.log(c(SEMANTIC.header, header));
+  console.log(c(ANSI.dim, '*tail wag* φ = 1.618, thresholds: 61.8% (healthy) / 38.2% (critical)'));
+  console.log(c(SEMANTIC.header, header));
+}
