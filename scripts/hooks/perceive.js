@@ -27,6 +27,7 @@ import cynic, {
   hasPrivateContent,
   stripPrivateContent,
   orchestrate,
+  orchestrateFull,  // Phase 22: For OrchestrationClient
   sendHookToCollectiveSync,
   getElenchus,
   getChriaDB,
@@ -37,6 +38,9 @@ import cynic, {
   getHypothesisTesting,
   getPhysicsBridge,
 } from '../lib/index.js';
+
+// Phase 22: Session state and orchestration client
+import { getSessionState, getOrchestrationClient, initOrchestrationClient } from './lib/index.js';
 
 // =============================================================================
 // LOAD OPTIONAL MODULES
@@ -270,23 +274,76 @@ async function main() {
     const patterns = loadCollectivePatterns();
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // ORCHESTRATION: Consult KETER for routing decision
-    // "Le cerveau central décide" - Central brain decides
+    // PHASE 22: Get session state for context-aware orchestration
+    // "Le chien se souvient du contexte de la session"
     // ═══════════════════════════════════════════════════════════════════════════
-    let orchestration = null;
-    try {
-      orchestration = await orchestrate('user_prompt', {
-        content: prompt,
-        source: 'perceive_hook',
-      }, {
-        user: user.userId,
-        project: detectProject(),
+    const sessionState = getSessionState();
+    const escalationLevel = sessionState.isInitialized() ? sessionState.getEscalationLevel() : 'normal';
+    const recentWarnings = sessionState.isInitialized() ? sessionState.getActiveWarnings() : [];
+
+    // Record this prompt in session state
+    if (sessionState.isInitialized()) {
+      const intentsPreview = detectIntent(prompt);
+      sessionState.recordPrompt({
+        content: prompt.slice(0, 500),  // Truncate for storage
+        intents: intentsPreview.map(i => i.intent),
       });
-    } catch (e) {
-      // Orchestration failed - continue with local logic
     }
 
-    // Detect intents
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ORCHESTRATION: Consult KETER for routing decision
+    // Uses OrchestrationClient for high-risk prompts (Phase 22)
+    // "Le cerveau central décide avec le contexte de session"
+    // ═══════════════════════════════════════════════════════════════════════════
+    let orchestration = null;
+
+    // Determine if this is high-risk based on intents or session state
+    const dangerIntents = ['danger'];
+    const previewIntents = detectIntent(prompt);
+    const hasHighRiskIntent = previewIntents.some(i => dangerIntents.includes(i.intent));
+    const isHighRisk = hasHighRiskIntent || escalationLevel !== 'normal' || recentWarnings.length > 0;
+
+    try {
+      if (isHighRisk) {
+        // Use OrchestrationClient for full judgment on high-risk prompts
+        initOrchestrationClient(orchestrateFull);
+        const orchestrationClient = getOrchestrationClient();
+
+        const decision = await orchestrationClient.fullDecide(prompt, 'user_prompt', {
+          source: 'perceive_hook',
+          user: user.userId,
+          project: detectProject(),
+          hasHighRiskIntent,
+          escalationLevel,
+          recentWarnings: recentWarnings.map(w => w.message),
+        });
+
+        // Convert decision to orchestration format
+        orchestration = {
+          routing: decision.synthesis?.routing || null,
+          intervention: {
+            level: decision.outcome === 'block' ? 'block' : decision.outcome === 'warn' ? 'warn' : 'silent',
+            actionRisk: hasHighRiskIntent ? 'high' : 'medium',
+          },
+          judgment: decision.judgment,
+          decisionId: decision.decisionId,
+        };
+      } else {
+        // Use simple orchestrate for low-risk prompts (faster)
+        orchestration = await orchestrate('user_prompt', {
+          content: prompt,
+          source: 'perceive_hook',
+        }, {
+          user: user.userId,
+          project: detectProject(),
+        });
+      }
+    } catch (e) {
+      // Orchestration failed - continue with local logic
+      logger.debug('Orchestration failed', { error: e.message });
+    }
+
+    // Detect intents (final pass after orchestration context)
     const intents = detectIntent(prompt);
 
     // Generate context based on intents

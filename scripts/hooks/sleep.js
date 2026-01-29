@@ -28,6 +28,9 @@ import cynic, {
   getTotalMemory,
 } from '../lib/index.js';
 
+// Phase 22: Session state management
+import { getSessionState } from './lib/index.js';
+
 // =============================================================================
 // RETRY HELPER
 // =============================================================================
@@ -344,6 +347,24 @@ async function main() {
     const sessionId = hookContext.sessionId || process.env.CYNIC_SESSION_ID;
     if (sessionId) {
       await endBrainSession(sessionId);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 22: Cleanup Session State
+    // "Le chien oublie la session mais pas les leçons"
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      const sessionState = getSessionState();
+      if (sessionState.isInitialized()) {
+        // Get final stats for summary before cleanup
+        const sessionStats = sessionState.getStats();
+        summary.sessionStateStats = sessionStats;
+
+        // Cleanup temp files
+        sessionState.cleanup();
+      }
+    } catch (e) {
+      // Session state cleanup failed - non-critical
     }
 
     // Format and output message

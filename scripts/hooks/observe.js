@@ -48,6 +48,14 @@ import cynic, {
   getPhysicsBridge,
 } from '../lib/index.js';
 
+// Phase 22: Session state and feedback/suggestion engines
+import {
+  getSessionState,
+  getFeedbackCollector,
+  getSuggestionEngine,
+  detectErrorType,  // From pattern-detector.js
+} from './lib/index.js';
+
 // =============================================================================
 // LOAD OPTIONAL MODULES
 // =============================================================================
@@ -69,6 +77,10 @@ const voluntaryPoverty = getVoluntaryPoverty();
 const dialectic = getDialectic();
 const inferenceEngine = getInferenceEngine();
 const physicsBridge = getPhysicsBridge();
+
+// Phase 22: Feedback and suggestion engines
+const feedbackCollector = getFeedbackCollector();
+const suggestionEngine = getSuggestionEngine();
 
 // =============================================================================
 // PATTERN DETECTION
@@ -363,27 +375,7 @@ function extractErrorSummary(output) {
   return output?.error || output?.message || 'Unknown error';
 }
 
-/**
- * Detect error type from error text
- */
-function detectErrorType(errorText) {
-  if (!errorText) return 'unknown';
-
-  const lower = errorText.toLowerCase();
-
-  if (lower.includes('enoent') || lower.includes('no such file')) return 'file_not_found';
-  if (lower.includes('eacces') || lower.includes('permission denied')) return 'permission';
-  if (lower.includes('econnrefused')) return 'connection';
-  if (lower.includes('timeout')) return 'timeout';
-  if (lower.includes('syntaxerror')) return 'syntax';
-  if (lower.includes('typeerror')) return 'type';
-  if (lower.includes('referenceerror')) return 'reference';
-  if (lower.includes('eslint') || lower.includes('lint')) return 'lint';
-  if (lower.includes('test') && lower.includes('fail')) return 'test_failure';
-  if (lower.includes('build') && lower.includes('fail')) return 'build_failure';
-
-  return 'generic';
-}
+// Note: detectErrorType is now imported from ./lib/index.js (pattern-detector.js)
 
 // =============================================================================
 // MAIN HANDLER
@@ -462,6 +454,42 @@ async function main() {
     // Save patterns to local collective
     for (const pattern of patterns) {
       saveCollectivePattern(pattern);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 22: Feedback Collection - Record outcome for learning
+    // "Le chien se souvient des erreurs pour mieux protéger"
+    // ═══════════════════════════════════════════════════════════════════════════
+    let feedbackResult = null;
+    let proactiveSuggestion = null;
+
+    if (feedbackCollector) {
+      try {
+        // Determine error type if this was an error
+        let errorType = null;
+        let errorMessage = null;
+        if (isError) {
+          const outputText = typeof toolOutput === 'string' ? toolOutput :
+                            toolOutput?.error || toolOutput?.message || '';
+          errorType = detectErrorType(outputText);
+          errorMessage = outputText.slice(0, 200);
+        }
+
+        // Record the outcome
+        feedbackResult = feedbackCollector.record(toolName, {
+          success: !isError,
+          errorType,
+          errorMessage,
+          input: toolInput,
+        });
+
+        // Check if we should emit a proactive suggestion
+        if (suggestionEngine && feedbackResult.antiPattern) {
+          proactiveSuggestion = suggestionEngine.generateSuggestion();
+        }
+      } catch (e) {
+        // Feedback collection failed - continue without
+      }
     }
 
     // Track todos for Task Continuation Enforcer
@@ -1078,6 +1106,32 @@ async function main() {
         message: formatted + refinementNote,
       }));
       return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 22: Proactive Suggestion Output
+    // "Le chien parle quand il faut" - CYNIC speaks when necessary
+    // Observer can now emit suggestions when anti-patterns or escalation detected
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (proactiveSuggestion) {
+      const formattedSuggestion = suggestionEngine.formatForOutput(proactiveSuggestion);
+      console.log(JSON.stringify({
+        continue: true,
+        message: formattedSuggestion,
+      }));
+      return;
+    }
+
+    // Check for recovery message (escalation de-escalated)
+    if (suggestionEngine) {
+      const recoveryMessage = suggestionEngine.getRecoveryMessage();
+      if (recoveryMessage) {
+        console.log(JSON.stringify({
+          continue: true,
+          message: `\n${recoveryMessage}\n`,
+        }));
+        return;
+      }
     }
 
     // Observer never blocks - always continue silently

@@ -31,6 +31,9 @@ import cynic, {
   getHeisenberg,
 } from '../lib/index.js';
 
+// Phase 22: Session state and orchestration client
+import { getSessionState, getOrchestrationClient, initOrchestrationClient } from './lib/index.js';
+
 // =============================================================================
 // LOAD OPTIONAL MODULES
 // =============================================================================
@@ -41,6 +44,9 @@ const consciousness = getConsciousness();
 const physisDetector = getPhysisDetector();
 const voluntaryPoverty = getVoluntaryPoverty();
 const heisenberg = getHeisenberg();
+
+// Initialize OrchestrationClient (if not already done by awaken)
+initOrchestrationClient(orchestrateFull);
 
 // =============================================================================
 // DANGER PATTERNS
@@ -295,26 +301,42 @@ async function main() {
     const filePath = toolInput.file_path || toolInput.filePath || '';
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // ORCHESTRATION: Full orchestration through UnifiedOrchestrator (Phase 21)
+    // PHASE 22: Get session state for escalation-aware decisions
+    // "Le chien se souvient des erreurs récentes"
+    // ═══════════════════════════════════════════════════════════════════════════
+    const sessionState = getSessionState();
+    const escalationLevel = sessionState.isInitialized() ? sessionState.getEscalationLevel() : 'normal';
+    const consecutiveErrors = sessionState.isInitialized() ? sessionState.getConsecutiveErrors() : 0;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ORCHESTRATION: Full orchestration through OrchestrationClient (Phase 22)
     // Includes: KETER routing → Dogs judgment → Engines synthesis → Circuit breakers
-    // "Le chien consulte le cerveau collectif avant d'agir"
+    // With session context injection for smarter decisions
+    // "Le chien consulte le cerveau collectif avec contexte de session"
     // ═══════════════════════════════════════════════════════════════════════════
     let orchestration = null;
     const user = detectUser();
+    const orchestrationClient = getOrchestrationClient();
+
+    // Request full judgment when escalated or high-risk operations
+    const shouldRequestJudgment = escalationLevel !== 'normal' ||
+                                   toolName === 'Bash' ||
+                                   consecutiveErrors >= 2;
+
     try {
-      orchestration = await orchestrateFull(
-        toolName === 'Bash' ? command : filePath,
-        {
-          eventType: 'tool_use',
-          requestJudgment: true,  // Get judgment from Dogs
-          metadata: {
-            tool: toolName,
-            source: 'guard_hook',
-            project: detectProject(),
-            toolInput: toolInput,
-          },
-        }
-      );
+      orchestration = await orchestrationClient.decide({
+        content: toolName === 'Bash' ? command : filePath,
+        eventType: 'tool_use',
+        requestJudgment: shouldRequestJudgment,
+        metadata: {
+          tool: toolName,
+          source: 'guard_hook',
+          project: detectProject(),
+          toolInput: toolInput,
+          escalationLevel,  // Include escalation in metadata
+          consecutiveErrors,
+        },
+      });
     } catch (e) {
       // Orchestration failed - continue with local logic
       if (process.env.CYNIC_DEBUG) {
@@ -323,12 +345,21 @@ async function main() {
     }
 
     // If orchestrator says BLOCK, block immediately
-    // UnifiedOrchestrator returns outcome: 'block' | 'allow' | 'warn'
     if (orchestration?.outcome === 'block') {
       const reason = orchestration.reasoning?.join('\n') ||
                      orchestration.judgment?.reasoning ||
                      'Dangerous operation detected';
       const qScore = orchestration.judgment?.qScore ?? 'N/A';
+
+      // Record warning in session state
+      if (sessionState.isInitialized()) {
+        sessionState.recordWarning({
+          tool: toolName,
+          message: reason,
+          severity: 'critical',
+          blocked: true,
+        });
+      }
 
       console.log(JSON.stringify({
         continue: false,
@@ -507,6 +538,45 @@ async function main() {
         message: `Q-Score: ${orchestration.judgment.qScore}/100 - ${orchestration.judgment.verdict || 'Review recommended'}`,
         action: 'suggest',
       });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 22: Escalation-aware severity adjustment
+    // When escalated, treat MEDIUM as HIGH and HIGH as CRITICAL
+    // "Le chien est plus vigilant après les erreurs"
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (escalationLevel !== 'normal') {
+      issues = issues.map(issue => {
+        let adjustedSeverity = issue.severity;
+        let adjustedAction = issue.action;
+
+        if (escalationLevel === 'strict') {
+          // In strict mode: medium→high, high→critical
+          if (issue.severity === 'medium') {
+            adjustedSeverity = 'high';
+            adjustedAction = issue.action === 'warn' ? 'block' : issue.action;
+          } else if (issue.severity === 'high') {
+            adjustedSeverity = 'critical';
+            adjustedAction = 'block';
+          }
+        } else if (escalationLevel === 'cautious') {
+          // In cautious mode: warn on medium instead of just note
+          if (issue.severity === 'medium' && issue.action === 'suggest') {
+            adjustedAction = 'warn';
+          }
+        }
+
+        return { ...issue, severity: adjustedSeverity, action: adjustedAction };
+      });
+
+      // Add escalation notice
+      if (issues.length > 0) {
+        issues.unshift({
+          severity: 'low',
+          message: `*ears perk* Operating in ${escalationLevel} mode (${consecutiveErrors} recent errors)`,
+          action: 'info',
+        });
+      }
     }
 
     // No issues found - continue

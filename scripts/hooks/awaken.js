@@ -24,6 +24,7 @@ import cynic, {
   mergeProfiles,
   formatEcosystemStatus,
   orchestrate,
+  orchestrateFull,  // Phase 22: For OrchestrationClient init
   loadProfileFromDB,
   callBrainTool,
   startBrainSession,
@@ -41,6 +42,9 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 
+// Phase 22: Session state management
+import { getSessionState, initOrchestrationClient } from './lib/index.js';
+
 /**
  * Main handler for SessionStart
  */
@@ -48,6 +52,19 @@ async function main() {
   try {
     // Detect user identity
     const user = detectUser();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 22: Initialize Session State
+    // "Le chien se souvient de tout dans la session"
+    // ═══════════════════════════════════════════════════════════════════════════
+    const sessionId = process.env.CYNIC_SESSION_ID || `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    process.env.CYNIC_SESSION_ID = sessionId;
+
+    const sessionState = getSessionState();
+    await sessionState.init(sessionId, { userId: user.userId });
+
+    // Initialize OrchestrationClient with orchestrateFull
+    initOrchestrationClient(orchestrateFull);
 
     // Load optional modules
     const cockpit = getCockpit();
