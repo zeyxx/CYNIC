@@ -478,25 +478,113 @@ function getSuggestionsForTask(taskDescription) {
 
 /**
  * Generate proactive injection for session start
+ * Now generates ACTIONABLE suggestions with executable commands
+ * "Kelim for the Ohr" - Vessels for the Light
  */
 function generateSessionInjection() {
-  const suggestions = getSuggestionsToShow(2);
+  const suggestions = getSuggestionsToShow(3);
 
   if (suggestions.length === 0) {
     return null;
   }
 
-  const lines = ['', '── PROACTIVE INSIGHTS ─────────────────────────────────────'];
+  const lines = ['', '── 🎯 SUGGESTED ACTIONS ────────────────────────────────────'];
 
-  for (const s of suggestions) {
+  for (let i = 0; i < suggestions.length; i++) {
+    const s = suggestions[i];
     const typeInfo = SUGGESTION_TYPES[s.type] || { emoji: '💡' };
-    lines.push(`   ${typeInfo.emoji} ${s.title}`);
-    if (s.action) {
-      lines.push(`      └─ ${s.action}`);
+    const priorityIcon = s.priority === 'high' ? '🔴' :
+                        s.priority === 'medium' ? '🟡' : '🟢';
+
+    // Generate actionable command based on suggestion type
+    const command = generateActionCommand(s);
+
+    lines.push(`   [${i + 1}] ${priorityIcon} ${s.title}`);
+    if (command) {
+      lines.push(`       └─ ${command}`);
+    } else if (s.action) {
+      lines.push(`       └─ ${s.action}`);
     }
   }
 
   return lines.join('\n');
+}
+
+/**
+ * Generate an actionable command from a suggestion
+ * Maps suggestions to Task tool invocations with appropriate agents
+ * "Seder Hishtalshelut" - Lightning Flash from Keter to Malkhut
+ */
+function generateActionCommand(suggestion) {
+  if (!suggestion) return null;
+
+  const { type, data, title, message, action } = suggestion;
+
+  // Extract file info from title if present (e.g., "Function at line 87 has 68 lines")
+  const fileMatch = action?.match(/Check (\S+):(\d+)/);
+  const fileName = fileMatch ? fileMatch[1] : null;
+  const lineNumber = fileMatch ? fileMatch[2] : null;
+
+  // Extract principle from title if present (e.g., "[BURN]", "[VERIFY]")
+  const principleMatch = title?.match(/\[(BURN|VERIFY|CULTURE|PHI)\]/);
+  const principle = principleMatch ? principleMatch[1] : null;
+
+  // Map suggestion types to agent commands
+  switch (type) {
+    case 'HARMONY':
+      if (principle === 'BURN' && fileName) {
+        return `Task simplifier "simplify ${fileName}${lineNumber ? ':' + lineNumber : ''}"`;
+      }
+      if (principle === 'VERIFY') {
+        if (fileName) {
+          return `Task reviewer "check error handling in ${fileName}"`;
+        }
+        return `Task reviewer "check error handling"`;
+      }
+      if (principle === 'CULTURE') {
+        return `Task doc "update documentation"`;
+      }
+      if (title?.includes('Harmony Score')) {
+        return `Task oracle "show harmony dashboard"`;
+      }
+      return `/judge on the affected files`;
+
+    case 'UPDATE':
+      if (message?.includes('security') || message?.includes('vulnerabilit')) {
+        return `Task guardian "run security audit"`;
+      }
+      if (message?.includes('outdated')) {
+        return `npm outdated && npm update`;
+      }
+      return `npm audit fix`;
+
+    case 'SYNC':
+      return `Task integrator "sync ecosystem"`;
+
+    case 'WORKFLOW':
+      if (message?.includes('uncommitted') || title?.includes('uncommitted')) {
+        return `/commit`;
+      }
+      if (message?.includes('branch') || title?.includes('branch')) {
+        return `git rebase main`;
+      }
+      return null;
+
+    case 'LEARNING':
+      if (data?.skill) {
+        return `Task archivist "search patterns for ${data.skill}"`;
+      }
+      return `Task archivist "search memory"`;
+
+    case 'CAPABILITY':
+      if (data?.name) {
+        return `Try using ${data.name}`;
+      }
+      return `/help`;
+
+    default:
+      return null;
+  }
 }
 
 /**

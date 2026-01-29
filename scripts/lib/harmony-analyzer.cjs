@@ -20,6 +20,77 @@ const PHI_INV = 1 / PHI;
 const PHI_INV_2 = 1 / (PHI * PHI);
 
 // ═══════════════════════════════════════════════════════════════════════════
+// FILE TYPE DETECTION
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Test file patterns - these files get relaxed analysis
+ * "Tests are documentation, not production code" - κυνικός
+ * Patterns match both /test/ in middle and test/ at start
+ */
+const TEST_PATTERNS = [
+  /(?:^|[/\\])test[/\\]/i,           // /test/ directory
+  /(?:^|[/\\])tests[/\\]/i,          // /tests/ directory
+  /(?:^|[/\\])__tests__[/\\]/i,      // /__tests__/ directory
+  /(?:^|[/\\])spec[/\\]/i,           // /spec/ directory
+  /\.test\.[jt]sx?$/i,               // *.test.js, *.test.ts, etc.
+  /\.spec\.[jt]sx?$/i,               // *.spec.js, *.spec.ts, etc.
+  /_test\.[jt]sx?$/i,                // *_test.js, *_test.ts, etc.
+  /-test\.[jt]sx?$/i,                // *-test.js, *-test.ts, etc.
+  /(?:^|[/\\])fixtures?[/\\]/i,      // /fixture/ or /fixtures/
+  /(?:^|[/\\])mocks?[/\\]/i,         // /mock/ or /mocks/
+  /(?:^|[/\\])__mocks__[/\\]/i,      // /__mocks__/
+  /(?:^|[/\\])e2e[/\\]/i,            // /e2e/ directory
+  /(?:^|[/\\])integration[/\\]/i,    // /integration/ directory
+];
+
+/**
+ * Script/tool patterns - relaxed BURN checks
+ * Patterns match both /scripts/ in middle and scripts/ at start
+ */
+const SCRIPT_PATTERNS = [
+  /(?:^|[/\\])scripts?[/\\]/i,       // /script/ or /scripts/ or starts with scripts/
+  /(?:^|[/\\])tools?[/\\]/i,         // /tool/ or /tools/
+  /(?:^|[/\\])bin[/\\]/i,            // /bin/ directory
+  /(?:^|[/\\])cli[/\\]/i,            // /cli/ directory
+  /-cli\.[jt]sx?$/i,                  // *-cli.js
+];
+
+/**
+ * Check if a file is a test file
+ * @param {string} filePath - Path to check
+ * @returns {boolean}
+ */
+function isTestFile(filePath) {
+  return TEST_PATTERNS.some(pattern => pattern.test(filePath));
+}
+
+/**
+ * Check if a file is a script/tool file
+ * @param {string} filePath - Path to check
+ * @returns {boolean}
+ */
+function isScriptFile(filePath) {
+  return SCRIPT_PATTERNS.some(pattern => pattern.test(filePath));
+}
+
+/**
+ * Get file context for analysis
+ * @param {string} filePath - Path to analyze
+ * @returns {{isTest: boolean, isScript: boolean, category: string}}
+ */
+function getFileContext(filePath) {
+  const isTest = isTestFile(filePath);
+  const isScript = isScriptFile(filePath);
+
+  let category = 'production';
+  if (isTest) category = 'test';
+  else if (isScript) category = 'script';
+
+  return { isTest, isScript, category };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // PHILOSOPHY PRINCIPLES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -100,26 +171,40 @@ const GAP_TYPES = {
 
 /**
  * Analyze a file for philosophy alignment
+ *
+ * Test files and scripts get relaxed analysis:
+ * - Tests: Skip BURN checks (long test functions are OK)
+ * - Scripts: Relaxed BURN thresholds (100 lines instead of 62)
+ *
+ * "φ knows context matters" - κυνικός
  */
-function analyzeFile(filePath) {
+function analyzeFile(filePath, options = {}) {
   const gaps = [];
 
   if (!fs.existsSync(filePath)) return gaps;
 
   const content = fs.readFileSync(filePath, 'utf8');
   const ext = path.extname(filePath);
+  const context = getFileContext(filePath);
 
-  // PHI checks
+  // PHI checks - apply to all files (philosophy is universal)
   gaps.push(...checkPhiAlignment(content, filePath));
 
-  // BURN checks
-  gaps.push(...checkBurnPrinciple(content, filePath));
+  // BURN checks - skip for tests, relaxed for scripts
+  if (!context.isTest) {
+    gaps.push(...checkBurnPrinciple(content, filePath, { relaxed: context.isScript }));
+  }
 
-  // VERIFY checks
+  // VERIFY checks - apply to all (validation matters everywhere)
   gaps.push(...checkVerifyPrinciple(content, filePath));
 
-  // CULTURE checks
+  // CULTURE checks - apply to all (consistency matters everywhere)
   gaps.push(...checkCultureAlignment(content, filePath));
+
+  // Add context to gaps for filtering later
+  for (const gap of gaps) {
+    gap.fileContext = context.category;
+  }
 
   return gaps;
 }
@@ -182,10 +267,24 @@ function checkPhiAlignment(content, filePath) {
 
 /**
  * Check BURN principle (simplicity)
+ *
+ * @param {string} content - File content
+ * @param {string} filePath - File path
+ * @param {Object} [options] - Analysis options
+ * @param {boolean} [options.relaxed=false] - Use relaxed thresholds (for scripts)
  */
-function checkBurnPrinciple(content, filePath) {
+function checkBurnPrinciple(content, filePath, options = {}) {
   const gaps = [];
   const lines = content.split('\n');
+  const { relaxed = false } = options;
+
+  // φ-based thresholds:
+  // - Production code: 62 lines (φ⁻¹ × 100)
+  // - Scripts: 100 lines (round number, scripts are often procedural)
+  const FUNC_LINE_THRESHOLD = relaxed ? 100 : 62;
+  const FUNC_LINE_THRESHOLD_DESC = relaxed
+    ? '100 lines for scripts'
+    : '62 lines (φ⁻¹ × 100)';
 
   // Check for overly complex functions (too many lines)
   const functionMatches = content.matchAll(/(?:function\s+\w+|(?:const|let|var)\s+\w+\s*=\s*(?:async\s*)?\([^)]*\)\s*=>)/g);
@@ -210,15 +309,15 @@ function checkBurnPrinciple(content, filePath) {
       if (started && braceCount <= 0) break;
     }
 
-    // φ-based threshold: functions > 61.8 lines are suspicious
-    if (funcLines > 62) {
+    // Apply threshold based on file type
+    if (funcLines > FUNC_LINE_THRESHOLD) {
       gaps.push({
         type: 'PHILOSOPHY',
         principle: 'BURN',
         file: filePath,
         message: `Function at line ${startLine} has ${funcLines} lines - consider breaking down`,
-        suggestion: `Keep functions under 62 lines (φ⁻¹ × 100)`,
-        severity: 'medium',
+        suggestion: `Keep functions under ${FUNC_LINE_THRESHOLD_DESC}`,
+        severity: relaxed ? 'low' : 'medium',
         line: startLine,
       });
     }
@@ -627,6 +726,11 @@ module.exports = {
   analyzeDependencies,
   analyzeProjectStructure,
 
+  // File context detection
+  isTestFile,
+  isScriptFile,
+  getFileContext,
+
   // Scoring
   calculateHarmonyScore,
   getHarmonyStatus,
@@ -637,6 +741,8 @@ module.exports = {
   // Constants
   PRINCIPLES,
   GAP_TYPES,
+  TEST_PATTERNS,
+  SCRIPT_PATTERNS,
   PHI,
   PHI_INV,
   PHI_INV_2,

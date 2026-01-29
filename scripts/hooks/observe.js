@@ -1109,29 +1109,78 @@ async function main() {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // PHASE 22: Proactive Suggestion Output
-    // "Le chien parle quand il faut" - CYNIC speaks when necessary
-    // Observer can now emit suggestions when anti-patterns or escalation detected
+    // PHASE 23: CYNIC OBSERVES - Visible Feedback System
+    // "Ohr needs Kelim" - Light needs vessels to be received
+    // Shows observation summary, agent suggestions, and proactive insights
     // ═══════════════════════════════════════════════════════════════════════════
-    if (proactiveSuggestion) {
-      const formattedSuggestion = suggestionEngine.formatForOutput(proactiveSuggestion);
-      console.log(JSON.stringify({
-        continue: true,
-        message: formattedSuggestion,
-      }));
-      return;
+
+    let outputParts = [];
+
+    // 1. Observation Summary (efficiency, escalation, patterns)
+    if (suggestionEngine) {
+      const observationSummary = suggestionEngine.getObservationSummary();
+      const formattedObservation = suggestionEngine.formatObservationSummary(observationSummary);
+      if (formattedObservation) {
+        outputParts.push(formattedObservation);
+      }
     }
 
-    // Check for recovery message (escalation de-escalated)
-    if (suggestionEngine) {
+    // 2. Agent Suggestion (Seder Hishtalshelut - Lightning Flash)
+    // Suggest relevant agent based on error type
+    if (suggestionEngine && isError) {
+      const errorText = typeof output === 'string' ? output :
+                        output?.error || output?.message || '';
+      let errorType = null;
+
+      // Detect error type for agent suggestion
+      if (errorText.includes('ENOENT') || errorText.includes('not found') || errorText.includes('does not exist')) {
+        errorType = 'file_not_found';
+      } else if (errorText.includes('EACCES') || errorText.includes('Permission denied')) {
+        errorType = 'permission_denied';
+      } else if (errorText.includes('ECONNREFUSED')) {
+        errorType = 'connection_refused';
+      } else if (errorText.includes('SyntaxError')) {
+        errorType = 'syntax_error';
+      } else if (errorText.includes('TypeError')) {
+        errorType = 'type_error';
+      } else if (errorText.includes('test') && (errorText.includes('fail') || errorText.includes('FAIL'))) {
+        errorType = 'test_failure';
+      }
+
+      if (errorType) {
+        const agentSuggestion = suggestionEngine.suggestAgent(errorType, { tool: toolName });
+        if (agentSuggestion) {
+          const formattedAgent = suggestionEngine.formatAgentSuggestion(agentSuggestion);
+          if (formattedAgent) {
+            outputParts.push(formattedAgent);
+          }
+        }
+      }
+    }
+
+    // 3. Proactive Suggestion (anti-patterns, escalation changes)
+    if (proactiveSuggestion) {
+      const formattedSuggestion = suggestionEngine.formatForOutput(proactiveSuggestion);
+      if (formattedSuggestion) {
+        outputParts.push(formattedSuggestion);
+      }
+    }
+
+    // 4. Recovery message (de-escalation)
+    if (suggestionEngine && !isError) {
       const recoveryMessage = suggestionEngine.getRecoveryMessage();
       if (recoveryMessage) {
-        console.log(JSON.stringify({
-          continue: true,
-          message: `\n${recoveryMessage}\n`,
-        }));
-        return;
+        outputParts.push(`\n${recoveryMessage}\n`);
       }
+    }
+
+    // Output combined message if we have anything to show
+    if (outputParts.length > 0) {
+      console.log(JSON.stringify({
+        continue: true,
+        message: outputParts.join(''),
+      }));
+      return;
     }
 
     // Observer never blocks - always continue silently

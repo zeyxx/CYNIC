@@ -15,17 +15,101 @@ import { getSessionState } from './session-state.js';
 import { getFeedbackCollector } from './feedback-collector.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CONSTANTS
+// CONSTANTS - φ-aligned thresholds
+// "L'éclair descend de Keter" - The lightning descends from Crown
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** Minimum errors before suggesting */
-const MIN_ERRORS_FOR_SUGGESTION = 2;
+/** Minimum errors before suggesting - reduced for faster feedback */
+const MIN_ERRORS_FOR_SUGGESTION = 1;
 
-/** Cooldown between suggestions (ms) - avoid spamming */
-const SUGGESTION_COOLDOWN_MS = 30000; // 30 seconds
+/** Cooldown between suggestions (ms) - φ⁻¹ × 16s ≈ 10s */
+const SUGGESTION_COOLDOWN_MS = 10000; // 10 seconds (was 30s)
 
 /** φ-aligned probability for non-critical suggestions */
 const PHI_PROBABILITY = 0.618;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AGENT MAPPING (Seder Hishtalshelut - Lightning Flash)
+// Maps error types and contexts to recommended agents
+// ═══════════════════════════════════════════════════════════════════════════
+
+const AGENT_SUGGESTIONS = {
+  // Error type → Agent (Sefirah alignment)
+  file_not_found: {
+    agent: 'cynic-scout',
+    sefirah: 'Netzach',
+    reason: 'Scout can find files across the codebase',
+    command: 'find files matching pattern',
+  },
+  permission_denied: {
+    agent: 'cynic-guardian',
+    sefirah: 'Gevurah',
+    reason: 'Guardian can analyze permission issues',
+    command: 'analyze security context',
+  },
+  connection_refused: {
+    agent: 'cynic-deployer',
+    sefirah: 'Hod',
+    reason: 'Deployer can check service status',
+    command: 'check service health',
+  },
+  syntax_error: {
+    agent: 'cynic-reviewer',
+    sefirah: 'Chesed',
+    reason: 'Reviewer can analyze code structure',
+    command: 'review file for syntax issues',
+  },
+  type_error: {
+    agent: 'cynic-reviewer',
+    sefirah: 'Chesed',
+    reason: 'Reviewer can trace type flow',
+    command: 'analyze type definitions',
+  },
+  test_failure: {
+    agent: 'cynic-tester',
+    sefirah: 'Yesod',
+    reason: 'Tester can analyze test failures',
+    command: 'analyze failing tests',
+  },
+
+  // Context-based suggestions
+  large_file_change: {
+    agent: 'cynic-simplifier',
+    sefirah: 'Yesod',
+    reason: 'Simplifier can reduce complexity',
+    command: 'simplify recent changes',
+  },
+  memory_query: {
+    agent: 'cynic-archivist',
+    sefirah: 'Daat',
+    reason: 'Archivist can search collective memory',
+    command: 'search memory for context',
+  },
+  architecture_question: {
+    agent: 'cynic-architect',
+    sefirah: 'Binah',
+    reason: 'Architect can explain system design',
+    command: 'analyze architecture',
+  },
+  documentation_needed: {
+    agent: 'cynic-doc',
+    sefirah: 'Chochmah',
+    reason: 'Doc can update documentation',
+    command: 'update documentation',
+  },
+  status_overview: {
+    agent: 'cynic-oracle',
+    sefirah: 'Tiferet',
+    reason: 'Oracle can provide dashboards and insights',
+    command: 'show status dashboard',
+  },
+  codebase_exploration: {
+    agent: 'cynic-cartographer',
+    sefirah: 'Malkhut',
+    reason: 'Cartographer can map the codebase',
+    command: 'map codebase structure',
+  },
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SUGGESTION TEMPLATES
@@ -255,6 +339,171 @@ class SuggestionEngine {
     return null;
   }
 
+  /**
+   * Suggest an agent based on error type or context
+   * "Seder Hishtalshelut" - The Lightning Flash from Keter to Malkhut
+   *
+   * @param {string} errorType - Type of error detected
+   * @param {Object} [context] - Additional context
+   * @returns {Object|null} Agent suggestion or null
+   */
+  suggestAgent(errorType, context = {}) {
+    // Direct error type mapping
+    if (errorType && AGENT_SUGGESTIONS[errorType]) {
+      const suggestion = AGENT_SUGGESTIONS[errorType];
+      return {
+        ...suggestion,
+        trigger: errorType,
+        context,
+      };
+    }
+
+    // Context-based inference
+    if (context.linesChanged && context.linesChanged > 100) {
+      return {
+        ...AGENT_SUGGESTIONS.large_file_change,
+        trigger: 'large_change',
+        context,
+      };
+    }
+
+    if (context.userPrompt) {
+      const prompt = context.userPrompt.toLowerCase();
+
+      // Memory/history queries
+      if (prompt.includes('remember') || prompt.includes('before') ||
+          prompt.includes('last time') || prompt.includes('history')) {
+        return {
+          ...AGENT_SUGGESTIONS.memory_query,
+          trigger: 'memory_query',
+          context,
+        };
+      }
+
+      // Architecture questions
+      if (prompt.includes('architecture') || prompt.includes('design') ||
+          prompt.includes('structure') || prompt.includes('how does')) {
+        return {
+          ...AGENT_SUGGESTIONS.architecture_question,
+          trigger: 'architecture_query',
+          context,
+        };
+      }
+
+      // Status/overview requests
+      if (prompt.includes('status') || prompt.includes('overview') ||
+          prompt.includes('dashboard') || prompt.includes('health')) {
+        return {
+          ...AGENT_SUGGESTIONS.status_overview,
+          trigger: 'status_query',
+          context,
+        };
+      }
+
+      // Exploration requests
+      if (prompt.includes('find') || prompt.includes('where') ||
+          prompt.includes('locate') || prompt.includes('search')) {
+        return {
+          ...AGENT_SUGGESTIONS.codebase_exploration,
+          trigger: 'exploration_query',
+          context,
+        };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Format agent suggestion for output
+   * @param {Object} agentSuggestion - From suggestAgent()
+   * @returns {string} Formatted suggestion
+   */
+  formatAgentSuggestion(agentSuggestion) {
+    if (!agentSuggestion) return '';
+
+    const { agent, sefirah, reason, command } = agentSuggestion;
+    const sefirahNote = sefirah ? ` (${sefirah})` : '';
+
+    return `\n── 🐕 AGENT SUGGESTION${sefirahNote} ──────────────────────────────────────
+   *sniff* Maybe try: ${agent}
+   ${reason}
+   └─ Task: "${command}"
+`;
+  }
+
+  /**
+   * Get current observation summary (for CYNIC OBSERVES section)
+   * @returns {Object} Current state summary
+   */
+  getObservationSummary() {
+    const sessionState = getSessionState();
+    const feedbackCollector = getFeedbackCollector();
+
+    const consecutive = sessionState.getConsecutiveErrors();
+    const escalation = sessionState.getEscalationLevel();
+    const recentErrors = sessionState.getRecentErrors(5);
+    const pendingSuggestion = feedbackCollector.getSuggestion();
+    const stats = sessionState.getStats();
+
+    // Calculate efficiency (work vs errors)
+    const totalCalls = stats.totalToolCalls || 1;
+    const errors = stats.totalErrors || 0;
+    const efficiency = Math.round(((totalCalls - errors) / totalCalls) * 100);
+
+    return {
+      efficiency,
+      consecutiveErrors: consecutive,
+      escalationLevel: escalation,
+      recentErrorTypes: [...new Set(recentErrors.map(e => e.errorType))],
+      pendingPattern: pendingSuggestion?.patternId || null,
+      patternProgress: pendingSuggestion
+        ? `${feedbackCollector.getPatternCount(pendingSuggestion.patternId)}/${pendingSuggestion.threshold || 3}`
+        : null,
+    };
+  }
+
+  /**
+   * Format observation summary for output
+   * @param {Object} summary - From getObservationSummary()
+   * @returns {string|null} Formatted output or null if nothing notable
+   */
+  formatObservationSummary(summary) {
+    const lines = [];
+    let shouldShow = false;
+
+    // Show if efficiency is concerning
+    if (summary.efficiency < 70) {
+      lines.push(`   📊 Efficiency: ${summary.efficiency}% (${100 - summary.efficiency}% errors)`);
+      shouldShow = true;
+    }
+
+    // Show escalation changes
+    if (summary.escalationLevel !== 'normal') {
+      const icon = summary.escalationLevel === 'strict' ? '🔴' : '🟡';
+      lines.push(`   ${icon} Escalation: ${summary.escalationLevel}`);
+      shouldShow = true;
+    }
+
+    // Show pattern progress (early warning)
+    if (summary.pendingPattern && summary.patternProgress) {
+      lines.push(`   💡 Pattern: ${summary.pendingPattern} (${summary.patternProgress} threshold)`);
+      shouldShow = true;
+    }
+
+    // Show consecutive errors
+    if (summary.consecutiveErrors > 0) {
+      lines.push(`   ⚠️ Consecutive errors: ${summary.consecutiveErrors}`);
+      shouldShow = true;
+    }
+
+    if (!shouldShow) return null;
+
+    return `\n── CYNIC OBSERVES ──────────────────────────────────────────────
+${lines.join('\n')}
+`;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // PRIVATE FORMATTERS
   // ═══════════════════════════════════════════════════════════════════════════
@@ -343,5 +592,5 @@ export function getSuggestionEngine() {
   return _instance;
 }
 
-export { SuggestionEngine };
+export { SuggestionEngine, AGENT_SUGGESTIONS };
 export default SuggestionEngine;
