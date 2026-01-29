@@ -91,10 +91,36 @@ const requireCJS = createRequire(import.meta.url);
 
 let collectiveDogsModule = null;
 let COLLECTIVE_DOGS = {};
+let colors = null;
+let ANSI = null;
+let DOG_COLORS = null;
+
+// Load colors module
+try {
+  colors = requireCJS('../lib/colors.cjs');
+  ANSI = colors.ANSI;
+  DOG_COLORS = colors.DOG_COLORS;
+} catch (e) {
+  // Fallback ANSI codes
+  ANSI = {
+    reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m',
+    red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', cyan: '\x1b[36m',
+    brightRed: '\x1b[91m', brightGreen: '\x1b[92m', brightYellow: '\x1b[93m',
+    brightCyan: '\x1b[96m', brightWhite: '\x1b[97m',
+  };
+  DOG_COLORS = {};
+}
+
+// Helper for colorizing
+const c = (color, text) => color ? `${color}${text}${ANSI.reset}` : text;
 
 try {
   collectiveDogsModule = requireCJS('../lib/collective-dogs.cjs');
   COLLECTIVE_DOGS = collectiveDogsModule.COLLECTIVE_DOGS;
+  // Use DOG_COLORS from collective-dogs if colors module didn't load
+  if (!colors && collectiveDogsModule.DOG_COLORS) {
+    DOG_COLORS = collectiveDogsModule.DOG_COLORS;
+  }
 } catch (e) {
   // Fallback to inline definitions if module not available
   COLLECTIVE_DOGS = {
@@ -1317,10 +1343,12 @@ async function main() {
     const showDog = isError || toolName === 'Write' || toolName === 'Edit' ||
                    toolName === 'Task' || (toolName === 'Bash' && toolInput.command?.length > 10);
 
-    // 1. Active Dog indicator with personality
+    // 1. Active Dog indicator with personality (now with colors!)
     if (showDog && activeDog) {
       const verb = collectiveDogsModule?.getDogVerb?.(activeDog) || actionDesc || 'observes';
-      outputParts.push(`\n${activeDog.icon} ${verb} `);
+      const dogName = activeDog.name?.toUpperCase() || 'CYNIC';
+      const dogColor = DOG_COLORS?.[dogName] || ANSI.brightWhite;
+      outputParts.push(`\n${c(dogColor, activeDog.icon + ' ' + verb)} `);
 
       // Record Dog activity for session summary
       if (collectiveDogsModule?.recordDogActivity) {
@@ -1386,7 +1414,7 @@ async function main() {
       }
     }
 
-    // 5. Thermodynamics mini-display (after significant activity)
+    // 5. Thermodynamics mini-display (after significant activity) - now with colors!
     if (thermodynamics) {
       try {
         const thermoState = thermodynamics.getState();
@@ -1395,10 +1423,13 @@ async function main() {
           const recommendation = thermodynamics.getRecommendation();
           // Show warning or critical states
           if (recommendation.level !== 'GOOD') {
-            outputParts.push(`\n── ⚡ THERMO: ${thermoState.efficiency}% eff │ Q:${thermoState.heat} W:${thermoState.work}\n`);
-            outputParts.push(`   ${recommendation.message}\n`);
+            const effColor = thermoState.efficiency > 50 ? ANSI.brightGreen : (thermoState.efficiency > 30 ? ANSI.yellow : ANSI.brightRed);
+            const heatColor = thermoState.heat > 80 ? ANSI.brightRed : (thermoState.heat > 50 ? ANSI.yellow : ANSI.green);
+            outputParts.push(`\n${c(ANSI.cyan, '── ⚡ THERMO:')} ${c(effColor, thermoState.efficiency + '% eff')} │ ${c(heatColor, 'Q:' + thermoState.heat)} ${c(ANSI.brightGreen, 'W:' + thermoState.work)}\n`);
+            const msgColor = recommendation.level === 'CRITICAL' ? ANSI.brightRed : ANSI.yellow;
+            outputParts.push(`   ${c(msgColor, recommendation.message)}\n`);
           } else if (thermoState.isCritical) {
-            outputParts.push(`\n🔥 THERMAL RUNAWAY: Heat ${thermoState.heat}° - TAKE A BREAK\n`);
+            outputParts.push(`\n${c(ANSI.brightRed, '🔥 THERMAL RUNAWAY: Heat ' + thermoState.heat + '° - TAKE A BREAK')}\n`);
           }
         }
       } catch (e) {
