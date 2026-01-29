@@ -83,26 +83,34 @@ const feedbackCollector = getFeedbackCollector();
 const suggestionEngine = getSuggestionEngine();
 
 // =============================================================================
-// COLLECTIVE DOGS (SEFIROT) MAPPING
+// COLLECTIVE DOGS (SEFIROT) - Load from shared module
 // =============================================================================
 
-/**
- * The 11 Dogs of the Collective, mapped to Kabbalistic Sefirot
- * Each Dog has a domain and reacts to specific actions
- */
-const COLLECTIVE_DOGS = {
-  CYNIC:        { icon: '🧠', name: 'CYNIC', sefirah: 'Keter', domain: 'orchestration' },
-  SCOUT:        { icon: '🔍', name: 'Scout', sefirah: 'Netzach', domain: 'exploration' },
-  GUARDIAN:     { icon: '🛡️', name: 'Guardian', sefirah: 'Gevurah', domain: 'protection' },
-  DEPLOYER:     { icon: '🚀', name: 'Deployer', sefirah: 'Hod', domain: 'deployment' },
-  ARCHITECT:    { icon: '🏗️', name: 'Architect', sefirah: 'Chesed', domain: 'building' },
-  JANITOR:      { icon: '🧹', name: 'Janitor', sefirah: 'Yesod', domain: 'cleanup' },
-  ORACLE:       { icon: '🔮', name: 'Oracle', sefirah: 'Tiferet', domain: 'insight' },
-  ANALYST:      { icon: '📊', name: 'Analyst', sefirah: 'Binah', domain: 'analysis' },
-  SAGE:         { icon: '🦉', name: 'Sage', sefirah: 'Chochmah', domain: 'wisdom' },
-  SCHOLAR:      { icon: '📚', name: 'Scholar', sefirah: 'Daat', domain: 'knowledge' },
-  CARTOGRAPHER: { icon: '🗺️', name: 'Cartographer', sefirah: 'Malkhut', domain: 'mapping' },
-};
+import { createRequire } from 'module';
+const requireCJS = createRequire(import.meta.url);
+
+let collectiveDogsModule = null;
+let COLLECTIVE_DOGS = {};
+
+try {
+  collectiveDogsModule = requireCJS('../lib/collective-dogs.cjs');
+  COLLECTIVE_DOGS = collectiveDogsModule.COLLECTIVE_DOGS;
+} catch (e) {
+  // Fallback to inline definitions if module not available
+  COLLECTIVE_DOGS = {
+    CYNIC:        { icon: '🧠', name: 'CYNIC', sefirah: 'Keter', domain: 'orchestration' },
+    SCOUT:        { icon: '🔍', name: 'Scout', sefirah: 'Netzach', domain: 'exploration' },
+    GUARDIAN:     { icon: '🛡️', name: 'Guardian', sefirah: 'Gevurah', domain: 'protection' },
+    DEPLOYER:     { icon: '🚀', name: 'Deployer', sefirah: 'Hod', domain: 'deployment' },
+    ARCHITECT:    { icon: '🏗️', name: 'Architect', sefirah: 'Chesed', domain: 'building' },
+    JANITOR:      { icon: '🧹', name: 'Janitor', sefirah: 'Yesod', domain: 'cleanup' },
+    ORACLE:       { icon: '🔮', name: 'Oracle', sefirah: 'Tiferet', domain: 'insight' },
+    ANALYST:      { icon: '📊', name: 'Analyst', sefirah: 'Binah', domain: 'analysis' },
+    SAGE:         { icon: '🦉', name: 'Sage', sefirah: 'Chochmah', domain: 'wisdom' },
+    SCHOLAR:      { icon: '📚', name: 'Scholar', sefirah: 'Daat', domain: 'knowledge' },
+    CARTOGRAPHER: { icon: '🗺️', name: 'Cartographer', sefirah: 'Malkhut', domain: 'mapping' },
+  };
+}
 
 /**
  * Determine which Dog is most relevant for the current action
@@ -1254,9 +1262,14 @@ async function main() {
         } catch (e) { /* ignore */ }
       }
 
-      // Add active Dog to judgment output
+      // Add active Dog to judgment output with personality
       const activeDog = getActiveDog(toolName, toolInput, isError);
-      const dogNote = activeDog ? `\n${activeDog.icon} ${activeDog.name} observes.` : '';
+      let dogNote = '';
+      if (activeDog) {
+        const quirk = collectiveDogsModule?.getDogQuirk?.(activeDog) || '*sniff*';
+        const verb = collectiveDogsModule?.getDogVerb?.(activeDog) || 'observes';
+        dogNote = `\n${activeDog.icon} ${activeDog.name} ${quirk} ${verb}.`;
+      }
 
       // Output the judgment (will be shown to user)
       console.log(JSON.stringify({
@@ -1299,9 +1312,10 @@ async function main() {
     const showDog = isError || toolName === 'Write' || toolName === 'Edit' ||
                    toolName === 'Task' || (toolName === 'Bash' && toolInput.command?.length > 10);
 
-    // 1. Active Dog indicator (subtle, inline)
+    // 1. Active Dog indicator with personality
     if (showDog && activeDog) {
-      outputParts.push(`\n${activeDog.icon} `);
+      const verb = collectiveDogsModule?.getDogVerb?.(activeDog) || actionDesc || 'observes';
+      outputParts.push(`\n${activeDog.icon} ${verb} `);
     }
 
     // 2. Observation Summary (efficiency, escalation, patterns)

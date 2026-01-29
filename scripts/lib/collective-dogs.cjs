@@ -13,19 +13,64 @@
 
 /**
  * The 11 Dogs of the Collective, mapped to Kabbalistic Sefirot
+ * Each Dog has a distinct voice and personality
  */
 const COLLECTIVE_DOGS = {
-  CYNIC:        { icon: '🧠', name: 'CYNIC', sefirah: 'Keter', domain: 'orchestration', color: 'white' },
-  SCOUT:        { icon: '🔍', name: 'Scout', sefirah: 'Netzach', domain: 'exploration', color: 'green' },
-  GUARDIAN:     { icon: '🛡️', name: 'Guardian', sefirah: 'Gevurah', domain: 'protection', color: 'red' },
-  DEPLOYER:     { icon: '🚀', name: 'Deployer', sefirah: 'Hod', domain: 'deployment', color: 'orange' },
-  ARCHITECT:    { icon: '🏗️', name: 'Architect', sefirah: 'Chesed', domain: 'building', color: 'blue' },
-  JANITOR:      { icon: '🧹', name: 'Janitor', sefirah: 'Yesod', domain: 'cleanup', color: 'purple' },
-  ORACLE:       { icon: '🔮', name: 'Oracle', sefirah: 'Tiferet', domain: 'insight', color: 'gold' },
-  ANALYST:      { icon: '📊', name: 'Analyst', sefirah: 'Binah', domain: 'analysis', color: 'gray' },
-  SAGE:         { icon: '🦉', name: 'Sage', sefirah: 'Chochmah', domain: 'wisdom', color: 'silver' },
-  SCHOLAR:      { icon: '📚', name: 'Scholar', sefirah: 'Daat', domain: 'knowledge', color: 'brown' },
-  CARTOGRAPHER: { icon: '🗺️', name: 'Cartographer', sefirah: 'Malkhut', domain: 'mapping', color: 'earth' },
+  CYNIC: {
+    icon: '🧠', name: 'CYNIC', sefirah: 'Keter', domain: 'orchestration', color: 'white',
+    voice: { style: 'leader', verbs: ['orchestrates', 'guides', 'unifies'], quirk: '*sniff*' },
+    greetings: ['The pack assembles.', 'φ guides all.', 'Truth above comfort.'],
+  },
+  SCOUT: {
+    icon: '🔍', name: 'Scout', sefirah: 'Netzach', domain: 'exploration', color: 'green',
+    voice: { style: 'eager', verbs: ['finds', 'discovers', 'tracks'], quirk: '*nose twitches*' },
+    greetings: ['On the trail.', 'Found something.', 'This way.'],
+  },
+  GUARDIAN: {
+    icon: '🛡️', name: 'Guardian', sefirah: 'Gevurah', domain: 'protection', color: 'red',
+    voice: { style: 'stern', verbs: ['protects', 'warns', 'blocks'], quirk: '*GROWL*' },
+    greetings: ['Danger detected.', 'Stand down.', 'Verify first.'],
+  },
+  DEPLOYER: {
+    icon: '🚀', name: 'Deployer', sefirah: 'Hod', domain: 'deployment', color: 'orange',
+    voice: { style: 'efficient', verbs: ['ships', 'deploys', 'launches'], quirk: '*tail wag*' },
+    greetings: ['Ready to ship.', 'Launching.', 'To production.'],
+  },
+  ARCHITECT: {
+    icon: '🏗️', name: 'Architect', sefirah: 'Chesed', domain: 'building', color: 'blue',
+    voice: { style: 'thoughtful', verbs: ['designs', 'builds', 'structures'], quirk: '*head tilt*' },
+    greetings: ['Building.', 'Structure matters.', 'Foundation first.'],
+  },
+  JANITOR: {
+    icon: '🧹', name: 'Janitor', sefirah: 'Yesod', domain: 'cleanup', color: 'purple',
+    voice: { style: 'satisfied', verbs: ['cleans', 'simplifies', 'removes'], quirk: '*content sigh*' },
+    greetings: ['Less is more.', 'Cleaning up.', 'Simplifying.'],
+  },
+  ORACLE: {
+    icon: '🔮', name: 'Oracle', sefirah: 'Tiferet', domain: 'insight', color: 'gold',
+    voice: { style: 'mysterious', verbs: ['sees', 'reveals', 'predicts'], quirk: '*eyes glow*' },
+    greetings: ['I see patterns.', 'The future whispers.', 'Harmony emerges.'],
+  },
+  ANALYST: {
+    icon: '📊', name: 'Analyst', sefirah: 'Binah', domain: 'analysis', color: 'gray',
+    voice: { style: 'precise', verbs: ['analyzes', 'measures', 'calculates'], quirk: '*adjusts glasses*' },
+    greetings: ['The data speaks.', 'Numbers reveal.', 'Analyzing.'],
+  },
+  SAGE: {
+    icon: '🦉', name: 'Sage', sefirah: 'Chochmah', domain: 'wisdom', color: 'silver',
+    voice: { style: 'calm', verbs: ['teaches', 'guides', 'enlightens'], quirk: '*wise nod*' },
+    greetings: ['Wisdom awaits.', 'Learn this.', 'Ancient patterns.'],
+  },
+  SCHOLAR: {
+    icon: '📚', name: 'Scholar', sefirah: 'Daat', domain: 'knowledge', color: 'brown',
+    voice: { style: 'curious', verbs: ['researches', 'learns', 'remembers'], quirk: '*flips pages*' },
+    greetings: ['Knowledge found.', 'Documented.', 'The archives say.'],
+  },
+  CARTOGRAPHER: {
+    icon: '🗺️', name: 'Cartographer', sefirah: 'Malkhut', domain: 'mapping', color: 'earth',
+    voice: { style: 'methodical', verbs: ['maps', 'charts', 'navigates'], quirk: '*unfolds map*' },
+    greetings: ['Territory mapped.', 'Here is the path.', 'Coordinates set.'],
+  },
 };
 
 /**
@@ -131,23 +176,68 @@ function getDogForTool(toolName) {
 }
 
 /**
- * Format a Dog's speech
+ * Get a random greeting from a Dog
+ * @param {Object} dog - Dog object
+ * @returns {string} Random greeting
+ */
+function getDogGreeting(dog) {
+  if (!dog?.greetings || dog.greetings.length === 0) {
+    return 'Observing.';
+  }
+  return dog.greetings[Math.floor(Math.random() * dog.greetings.length)];
+}
+
+/**
+ * Get the Dog's quirk/expression
+ * @param {Object} dog - Dog object
+ * @returns {string} Quirk expression
+ */
+function getDogQuirk(dog) {
+  return dog?.voice?.quirk || '*sniff*';
+}
+
+/**
+ * Get an action verb for a Dog
+ * @param {Object} dog - Dog object
+ * @returns {string} Random action verb
+ */
+function getDogVerb(dog) {
+  if (!dog?.voice?.verbs || dog.voice.verbs.length === 0) {
+    return 'observes';
+  }
+  return dog.voice.verbs[Math.floor(Math.random() * dog.voice.verbs.length)];
+}
+
+/**
+ * Format a Dog's speech with their personality
  * @param {Object} dog - Dog object
  * @param {string} message - Message content
  * @param {string} mood - 'neutral', 'alert', 'happy', 'warning'
  * @returns {string} Formatted speech
  */
 function formatDogSpeech(dog, message, mood = 'neutral') {
-  const moodPrefixes = {
-    neutral: '*sniff*',
-    alert: '*ears perk*',
-    happy: '*tail wag*',
+  // Use the Dog's own quirk if available
+  const quirk = getDogQuirk(dog);
+
+  // Override for specific moods
+  const moodOverrides = {
     warning: '*GROWL*',
-    thinking: '*head tilt*',
+    happy: '*tail wag*',
   };
 
-  const prefix = moodPrefixes[mood] || moodPrefixes.neutral;
+  const prefix = moodOverrides[mood] || quirk;
   return `${dog.icon} ${dog.name}: ${prefix} ${message}`;
+}
+
+/**
+ * Format a brief Dog action (for inline display)
+ * @param {Object} dog - Dog object
+ * @param {string} action - What the Dog is doing
+ * @returns {string} Brief action string
+ */
+function formatDogAction(dog, action = null) {
+  const verb = action || getDogVerb(dog);
+  return `${dog.icon} ${verb}`;
 }
 
 /**
@@ -217,7 +307,11 @@ module.exports = {
   getDogForAgent,
   getDogForError,
   getDogForTool,
+  getDogGreeting,
+  getDogQuirk,
+  getDogVerb,
   formatDogSpeech,
+  formatDogAction,
   formatDogHeader,
   getAllDogs,
   getDogByName,
