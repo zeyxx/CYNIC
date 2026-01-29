@@ -45,6 +45,28 @@ const physisDetector = getPhysisDetector();
 const voluntaryPoverty = getVoluntaryPoverty();
 const heisenberg = getHeisenberg();
 
+// =============================================================================
+// COLORS - Import centralized color system for Guardian warnings
+// =============================================================================
+
+import { createRequire } from 'module';
+const requireCJS = createRequire(import.meta.url);
+
+let ANSI = null;
+try {
+  const colors = requireCJS('../lib/colors.cjs');
+  ANSI = colors.ANSI;
+} catch (e) {
+  ANSI = {
+    reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m',
+    red: '\x1b[31m', yellow: '\x1b[33m', cyan: '\x1b[36m',
+    brightRed: '\x1b[91m', brightYellow: '\x1b[93m', brightGreen: '\x1b[92m',
+    brightCyan: '\x1b[96m', brightWhite: '\x1b[97m',
+  };
+}
+
+const c = (color, text) => color ? `${color}${text}${ANSI.reset}` : text;
+
 // Initialize OrchestrationClient (if not already done by awaken)
 initOrchestrationClient(orchestrateFull);
 
@@ -203,12 +225,15 @@ function formatGuardianResponse(issues, toolName, profile) {
   // Determine if we should block
   const shouldBlock = issues.some(i => i.action === 'block');
 
-  // Format message
-  const prefix = maxSeverity === 'critical' ? '*GROWL* GUARDIAN BLOCK' :
-                 maxSeverity === 'high' ? '*growl* Guardian Warning' :
-                 '*sniff* Guardian Notice';
+  // Format message with colors!
+  const prefix = maxSeverity === 'critical'
+    ? c(ANSI.brightRed, '🛡️ *GROWL* GUARDIAN BLOCK')
+    : maxSeverity === 'high'
+    ? c(ANSI.brightYellow, '🛡️ *growl* Guardian Warning')
+    : c(ANSI.yellow, '🛡️ *sniff* Guardian Notice');
 
-  const issueMessages = issues.map(i => `   • ${i.message}`).join('\n');
+  const issueColor = maxSeverity === 'critical' ? ANSI.brightRed : (maxSeverity === 'high' ? ANSI.brightYellow : ANSI.yellow);
+  const issueMessages = issues.map(i => `   ${c(issueColor, '•')} ${i.message}`).join('\n');
 
   const message = `${prefix}:\n${issueMessages}`;
 
@@ -363,7 +388,7 @@ async function main() {
 
       console.log(JSON.stringify({
         continue: false,
-        message: `*GROWL* ORCHESTRATOR BLOCK\n\n${reason}\n\nQ-Score: ${qScore}\nDecision ID: ${orchestration.decisionId || 'N/A'}`
+        message: `${c(ANSI.brightRed, '🛡️ *GROWL* ORCHESTRATOR BLOCK')}\n\n${reason}\n\n${c(ANSI.dim, 'Q-Score:')} ${c(qScore < 38 ? ANSI.brightRed : ANSI.brightYellow, qScore)}\n${c(ANSI.dim, 'Decision ID:')} ${orchestration.decisionId || 'N/A'}`
       }));
       return;
     }
@@ -415,7 +440,7 @@ async function main() {
 
         console.log(JSON.stringify({
           continue: false,
-          message: `*GROWL* CIRCUIT BREAKER\n\n${loopCheck.reason}\n\n💡 ${loopCheck.suggestion}\n\nPour forcer: reformuler la commande ou attendre 1 minute.`
+          message: `${c(ANSI.brightRed, '🛡️ *GROWL* CIRCUIT BREAKER')}\n\n${c(ANSI.brightYellow, loopCheck.reason)}\n\n${c(ANSI.brightCyan, '💡 ' + loopCheck.suggestion)}\n\n${c(ANSI.dim, 'Pour forcer: reformuler la commande ou attendre 1 minute.')}`
         }));
         return;
       }
