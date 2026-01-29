@@ -206,11 +206,17 @@ export {
 // Orchestration domain (KETER - central consciousness)
 import {
   createOrchestrateTool,
+  createFullOrchestrateTool,
+  createCircuitBreakerTool,
+  createDecisionsTool,
   orchestrationFactory,
 } from './domains/orchestration.js';
 
 export {
   createOrchestrateTool,
+  createFullOrchestrateTool,
+  createCircuitBreakerTool,
+  createDecisionsTool,
   orchestrationFactory,
 };
 
@@ -307,6 +313,9 @@ export function createAllTools(options = {}) {
     createRefineTool(judge, persistence), // Self-refinement: critique → refine → learn
     createOrchestrationTool({ judge, agents, persistence }), // Multi-agent parallel execution
     createOrchestrateTool({ judge, persistence }), // KETER: Central consciousness routing
+    createFullOrchestrateTool({ judge, persistence }), // Full orchestration: routing + judgment + synthesis
+    createCircuitBreakerTool({ persistence }), // Circuit breaker health/stats (Phase 21)
+    createDecisionsTool({ persistence }), // Decision history/tracing (Phase 21)
     createVectorSearchTool({ persistence }), // Semantic search with embeddings
     createLearningTool({ learningService, persistence }), // Learning service: feedback → weight modifiers → improvement
     createTriggersTool({ judge, persistence }), // Auto-judgment triggers
@@ -392,6 +401,11 @@ export default {
   createDigestTool,
   createHealthTool,
   createSearchTool,
+  // Orchestration tools (Phase 21)
+  createOrchestrateTool,
+  createFullOrchestrateTool,
+  createCircuitBreakerTool,
+  createDecisionsTool,
   // Progressive Search (3-layer retrieval)
   createSearchIndexTool,
   createTimelineTool,
