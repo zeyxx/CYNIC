@@ -41,3 +41,12 @@ export {
   createPatternLearning,
   DEFAULT_PATTERN_CONFIG,
 } from './pattern-learning.js';
+
+// v1.1: Burnout Detection
+export {
+  BurnoutDetection,
+  createBurnoutDetection,
+  DEFAULT_BURNOUT_CONFIG,
+  WarningSeverity,
+  WarningType,
+} from './burnout-detection.js';

@@ -71,3 +71,6 @@ export * from './circuit-breaker.js';
 
 // Context Intelligence (C-Score, budget management, context assembly)
 export * from './context/index.js';
+
+// CLI Utilities (v1.1: colors, progress, status display)
+export * from './cli/index.js';

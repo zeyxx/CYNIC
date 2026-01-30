@@ -421,4 +421,201 @@ export class PsychologyRepository extends BaseRepository {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// v1.1: BURNOUT DETECTION METHODS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Record a psychology snapshot for trend analysis
+ *
+ * @param {string} userId - User ID
+ * @param {Object} dimensions - Psychology dimensions
+ * @param {Object} [context={}] - Additional context
+ * @returns {Promise<Object>} Recorded snapshot
+ */
+PsychologyRepository.prototype.recordSnapshot = async function(userId, dimensions, context = {}) {
+  const userIdUUID = await this._ensureUserExists(userId);
+
+  // Calculate burnout score
+  const energy = dimensions.energy ?? 0.618;
+  const frustration = dimensions.frustration ?? 0.382;
+  const creativity = dimensions.creativity ?? 0.5;
+  const focus = dimensions.focus ?? 0.618;
+
+  const burnoutScore = (1 - energy) * frustration * (1 + ((1 - creativity) * 0.309));
+  const flowScore = Math.min(1, energy * 0.618 + focus * 0.618 + creativity * 0.382 - frustration * 0.618);
+
+  const { rows } = await this.db.query(`
+    INSERT INTO psychology_snapshots (
+      user_id,
+      session_id,
+      energy,
+      focus,
+      creativity,
+      frustration,
+      burnout_score,
+      flow_score,
+      work_done,
+      heat_generated,
+      error_count
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    RETURNING *
+  `, [
+    userIdUUID,
+    context.sessionId || null,
+    energy,
+    focus,
+    creativity,
+    frustration,
+    Math.min(1, Math.max(0, burnoutScore)),
+    Math.min(1, Math.max(0, flowScore)),
+    context.workDone || 0,
+    context.heatGenerated || 0,
+    context.errorCount || 0,
+  ]);
+
+  return rows[0];
+};
+
+/**
+ * Get burnout trends for a user
+ *
+ * @param {string} userId - User ID
+ * @param {number} [limit=13] - Snapshots to analyze
+ * @returns {Promise<Object>} Trend data
+ */
+PsychologyRepository.prototype.getBurnoutTrends = async function(userId, limit = 13) {
+  const userIdUUID = await this._findUserUUID(userId);
+  if (!userIdUUID) return { hasSufficientData: false };
+
+  const { rows: snapshots } = await this.db.query(`
+    SELECT
+      energy,
+      focus,
+      frustration,
+      burnout_score,
+      flow_score,
+      created_at
+    FROM psychology_snapshots
+    WHERE user_id = $1
+    ORDER BY created_at DESC
+    LIMIT $2
+  `, [userIdUUID, limit]);
+
+  if (snapshots.length < 3) {
+    return {
+      hasSufficientData: false,
+      snapshotCount: snapshots.length,
+    };
+  }
+
+  // Calculate simple trend (slope)
+  const burnoutValues = snapshots.map(s => s.burnout_score).reverse();
+  const n = burnoutValues.length;
+  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+  for (let i = 0; i < n; i++) {
+    sumX += i;
+    sumY += burnoutValues[i];
+    sumXY += i * burnoutValues[i];
+    sumX2 += i * i;
+  }
+  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+
+  return {
+    hasSufficientData: true,
+    snapshotCount: snapshots.length,
+    current: {
+      energy: snapshots[0].energy,
+      frustration: snapshots[0].frustration,
+      burnout: snapshots[0].burnout_score,
+      flow: snapshots[0].flow_score,
+    },
+    trend: {
+      slope,
+      direction: slope > 0.01 ? 'rising' : slope < -0.01 ? 'declining' : 'stable',
+    },
+    timespan: {
+      from: snapshots[snapshots.length - 1].created_at,
+      to: snapshots[0].created_at,
+    },
+  };
+};
+
+/**
+ * Get active burnout episode for a user
+ *
+ * @param {string} userId - User ID
+ * @returns {Promise<Object|null>} Active episode or null
+ */
+PsychologyRepository.prototype.getActiveBurnoutEpisode = async function(userId) {
+  const userIdUUID = await this._findUserUUID(userId);
+  if (!userIdUUID) return null;
+
+  const { rows } = await this.db.query(`
+    SELECT *
+    FROM burnout_episodes
+    WHERE user_id = $1 AND ended_at IS NULL
+    ORDER BY started_at DESC
+    LIMIT 1
+  `, [userIdUUID]);
+
+  return rows[0] || null;
+};
+
+/**
+ * Get burnout episode history for a user
+ *
+ * @param {string} userId - User ID
+ * @param {number} [limit=10] - Max episodes
+ * @returns {Promise<Object[]>} Episodes
+ */
+PsychologyRepository.prototype.getBurnoutHistory = async function(userId, limit = 10) {
+  const userIdUUID = await this._findUserUUID(userId);
+  if (!userIdUUID) return [];
+
+  const { rows } = await this.db.query(`
+    SELECT *
+    FROM burnout_episodes
+    WHERE user_id = $1
+    ORDER BY started_at DESC
+    LIMIT $2
+  `, [userIdUUID, limit]);
+
+  return rows;
+};
+
+/**
+ * Record a burnout warning
+ *
+ * @param {string} userId - User ID
+ * @param {Object} warning - Warning data
+ * @returns {Promise<Object>} Created warning
+ */
+PsychologyRepository.prototype.recordBurnoutWarning = async function(userId, warning) {
+  const userIdUUID = await this._ensureUserExists(userId);
+
+  const { rows } = await this.db.query(`
+    INSERT INTO burnout_warnings (
+      user_id,
+      warning_type,
+      severity,
+      message,
+      burnout_score,
+      energy,
+      frustration
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    RETURNING *
+  `, [
+    userIdUUID,
+    warning.type,
+    warning.severity,
+    warning.message,
+    warning.burnoutScore,
+    warning.energy,
+    warning.frustration,
+  ]);
+
+  return rows[0];
+};
+
 export default PsychologyRepository;

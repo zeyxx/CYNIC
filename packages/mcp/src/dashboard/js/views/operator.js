@@ -8,6 +8,7 @@ import { MetricsCards } from '../components/metrics-cards.js';
 import { ChainViz } from '../components/chain-viz.js';
 import { DogsStatus } from '../components/dogs-status.js';
 import { PatternGallery } from '../components/pattern-gallery.js';
+import { BurnoutTrends } from '../components/burnout-trends.js';
 
 export class OperatorView {
   constructor(options = {}) {
@@ -25,6 +26,10 @@ export class OperatorView {
     this.patternGallery = new PatternGallery({
       api: options.api,
       onPatternClick: (pattern) => this._onPatternClick(pattern),
+    });
+    this.burnoutTrends = new BurnoutTrends({
+      api: options.api,
+      onWarning: (warning) => this._onBurnoutWarning(warning),
     });
     this.alerts = [];
   }
@@ -78,6 +83,11 @@ export class OperatorView {
     const patternContent = Utils.createElement('div', { id: 'pattern-container' });
     patternSection.appendChild(patternContent);
 
+    // Burnout Trends section (v1.1)
+    const burnoutSection = Utils.createElement('section', { className: 'operator-section burnout-section' });
+    const burnoutContent = Utils.createElement('div', { id: 'burnout-container' });
+    burnoutSection.appendChild(burnoutContent);
+
     // Bottom section: Alerts
     const alertsSection = Utils.createElement('section', { className: 'operator-section alerts-section' });
     const alertsHeader = Utils.createElement('div', { className: 'section-header' }, [
@@ -92,6 +102,7 @@ export class OperatorView {
     layout.appendChild(metricsSection);
     layout.appendChild(middleSection);
     layout.appendChild(patternSection);
+    layout.appendChild(burnoutSection);
     layout.appendChild(alertsSection);
     container.appendChild(layout);
 
@@ -99,6 +110,7 @@ export class OperatorView {
     this.metricsCards.render(metricsContent, MetricsCards.getDefaultCards());
     this.chainViz.render(chainContent);
     this.patternGallery.render(patternContent);
+    this.burnoutTrends.render(burnoutContent);
     this.dogsStatus.render(dogsContent, 'grid');
     this._renderAlerts();
 
@@ -209,6 +221,13 @@ export class OperatorView {
           this.dogsStatus.update(event.data.agents);
         }
         break;
+
+      case 'burnout':
+        if (event.data) {
+          this._onBurnoutWarning(event.data);
+          this.burnoutTrends.refresh();
+        }
+        break;
     }
   }
 
@@ -317,9 +336,23 @@ export class OperatorView {
   }
 
   /**
+   * Handle burnout warning (v1.1)
+   */
+  _onBurnoutWarning(warning) {
+    const severity = warning.severity || 'low';
+    const type = severity === 'critical' ? 'error' : severity === 'elevated' ? 'warning' : 'info';
+    this._addAlert({
+      type,
+      message: `🔥 Burnout ${severity}: ${warning.message || warning.warningType || 'Risk detected'}`,
+      timestamp: Date.now(),
+    });
+  }
+
+  /**
    * Cleanup
    */
   destroy() {
+    this.burnoutTrends?.destroy();
     this.container = null;
   }
 }

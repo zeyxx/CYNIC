@@ -82,3 +82,18 @@ export {
   createPoJAnchorIntegration,
   connectPoJToSolana,
 } from './poj-integration.js';
+
+// v1.1: Mainnet Configuration
+export {
+  MAINNET_RPCS,
+  RATE_LIMITS,
+  PRIORITY_FEES,
+  COMPUTE_BUDGET,
+  RateLimiter,
+  RpcFailover,
+  MAINNET_CONFIG,
+  createMainnetConfig,
+  isMainnet,
+  validateMainnetWallet,
+  estimatePriorityFee,
+} from './mainnet.js';
