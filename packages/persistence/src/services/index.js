@@ -27,3 +27,10 @@ export {
   getEmbedder,
   resetEmbedder,
 } from './embedder.js';
+
+// v1.1: Memory Consolidation
+export {
+  MemoryConsolidation,
+  createMemoryConsolidation,
+  DEFAULT_CONSOLIDATION_CONFIG,
+} from './memory-consolidation.js';
