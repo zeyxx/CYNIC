@@ -227,6 +227,32 @@ function checkMcpHealth() {
   }
 }
 
+/**
+ * Check Solana devnet connection via MCP health endpoint
+ * Returns true if anchoring is enabled and connected
+ */
+function checkSolanaConnection() {
+  const result = spawnSync('curl', [
+    '-s',
+    '--max-time', '3',
+    'https://cynic-mcp.onrender.com/health'
+  ], {
+    encoding: 'utf8',
+    timeout: 5000,
+  });
+
+  if (result.status !== 0) return false;
+
+  try {
+    const data = JSON.parse(result.stdout);
+    // Check if anchoring is enabled and healthy
+    return data.checks?.anchoring?.status === 'healthy' &&
+           data.checks?.anchoring?.enabled === true;
+  } catch {
+    return false;
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PACKAGE SCANNING
 // ═══════════════════════════════════════════════════════════════════════════
@@ -526,14 +552,46 @@ function generateRoadmap(packageScan, integrations) {
 
   // Phase 3: External
   const externalPackages = ['anchor', 'burns', 'holdex', 'gasdf', 'zk'];
-  for (const pkg of externalPackages) {
-    const data = packageScan.packages[pkg];
-    phases['Phase 3: External'].items.push({
-      name: `@cynic/${pkg}`,
-      status: data?.healthy ? 'ready' : 'in_progress',
-      tests: `${data?.pass || 0}/${data?.tests || 0}`,
-    });
-  }
+  const externalHealthy = externalPackages.every(p => packageScan.packages[p]?.healthy);
+
+  // Check for Solana devnet connection (anchor package deployed)
+  const solanaConnected = checkSolanaConnection();
+
+  // Check for external documentation
+  const externalDocsExist = externalPackages.every(pkg => {
+    const readmePath = path.join(PROJECT_ROOT, 'packages', pkg, 'README.md');
+    return fs.existsSync(readmePath);
+  });
+
+  // Check for external MCP tools
+  const externalMcpTools = integrations.mcp.status === 'healthy';
+
+  phases['Phase 3: External'].items = [
+    {
+      name: 'External Packages',
+      status: externalHealthy ? 'complete' : 'in_progress',
+      detail: `${externalPackages.filter(p => packageScan.packages[p]?.healthy).length}/${externalPackages.length} healthy`,
+    },
+    {
+      name: 'Solana Connection',
+      status: solanaConnected ? 'complete' : 'pending',
+      detail: solanaConnected ? 'devnet active' : 'not connected',
+    },
+    {
+      name: 'Documentation',
+      status: externalDocsExist ? 'complete' : 'pending',
+      detail: externalDocsExist ? 'all READMEs present' : 'missing READMEs',
+    },
+    {
+      name: 'MCP Tools',
+      status: externalMcpTools ? 'complete' : 'pending',
+      detail: externalMcpTools ? 'available' : 'unavailable',
+    },
+  ];
+
+  // Phase 3 complete when: packages healthy + solana connected + docs exist
+  const phase3Complete = externalHealthy && solanaConnected && externalDocsExist && externalMcpTools;
+  phases['Phase 3: External'].status = phase3Complete ? 'complete' : 'in_progress';
 
   return {
     phases,
