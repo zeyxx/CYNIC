@@ -82,10 +82,10 @@ function calculatePsychologyComposites(dimensions = {}, emotions = {}) {
  * @param {Object} [graphIntegration] - JudgmentGraphIntegration instance (for graph edges)
  * @param {Function} [onJudgment] - Callback when judgment is completed (for SSE broadcast)
  * @param {Object} [burnEnforcer] - BurnEnforcer instance (for requiring burns)
- * @param {Object} [patternDetector] - PatternDetector instance for statistical pattern recognition
+ * @param {Object} [emergenceLayer] - EmergenceLayer instance (Layer 7 - consciousness, patterns, dimensions)
  * @returns {Object} Tool definition
  */
-export function createJudgeTool(judge, persistence = null, sessionManager = null, pojChainManager = null, graphIntegration = null, onJudgment = null, burnEnforcer = null, patternDetector = null) {
+export function createJudgeTool(judge, persistence = null, sessionManager = null, pojChainManager = null, graphIntegration = null, onJudgment = null, burnEnforcer = null, emergenceLayer = null) {
   return {
     name: 'brain_cynic_judge',
     description: `Judge an item using CYNIC's 25-dimension evaluation across 4 axioms (PHI, VERIFY, CULTURE, BURN). Returns Q-Score (0-100), verdict (HOWL/WAG/GROWL/BARK), confidence (max ${(PHI_INV * 100).toFixed(1)}%), and dimension breakdown.`,
@@ -240,31 +240,35 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
       }
 
       // ═══════════════════════════════════════════════════════════════════════════
-      // PATTERN DETECTOR: Feed judgment to statistical pattern recognition
-      // "Le chien observe et apprend" - κυνικός
+      // EMERGENCE LAYER (Layer 7 - Keter): The crown observes all
+      // Feeds: ConsciousnessMonitor, PatternDetector, DimensionDiscovery
+      // "Le cerveau s'éveille" - κυνικός
       // ═══════════════════════════════════════════════════════════════════════════
-      if (patternDetector) {
+      let emergenceResult = null;
+      if (emergenceLayer) {
         try {
           const verdict = judgment.qVerdict?.verdict || judgment.verdict;
-          const immediatePatterns = patternDetector.observe({
-            type: 'JUDGMENT',
-            value: judgment.qScore,
+          // observeJudgment feeds all Layer 7 components:
+          // - ConsciousnessMonitor: tracks confidence, state, awareness
+          // - PatternDetector: detects sequences, anomalies, trends
+          // - DimensionDiscovery: analyzes axiom scores for new dimensions
+          emergenceResult = emergenceLayer.observeJudgment({
             verdict,
-            itemType: enrichedItem.type || 'unknown',
-            axiomScores: judgment.axiomScores,
-            timestamp: Date.now(),
+            q_score: judgment.qScore,
+            axiom_scores: judgment.axiomScores,
+            dimension_scores: judgment.dimensionScores,
+            confidence: judgment.confidence,
+            raw_assessment: enrichedItem.content,
           });
 
-          // If immediate patterns detected (e.g., anomalies), log them
-          if (immediatePatterns?.length > 0) {
-            log.debug('Immediate patterns detected', {
-              count: immediatePatterns.length,
-              types: immediatePatterns.map(p => p.type),
-            });
-          }
-        } catch (patternErr) {
-          // Non-blocking - pattern detection is best-effort
-          log.warn('PatternDetector observation error', { error: patternErr.message });
+          log.debug('Emergence layer observation', {
+            consciousnessState: emergenceResult?.consciousness,
+            patternsDetected: emergenceResult?.patternsDetected,
+            awarenessLevel: emergenceLayer.consciousness?.awarenessLevel,
+          });
+        } catch (emergenceErr) {
+          // Non-blocking - emergence observation is best-effort
+          log.warn('EmergenceLayer observation error', { error: emergenceErr.message });
         }
       }
 
@@ -276,16 +280,55 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
         axiomScores: judgment.axiomScores,
       });
 
+      // ═══════════════════════════════════════════════════════════════════════════
+      // CONSCIOUSNESS-ADJUSTED CONFIDENCE
+      // "Plus CYNIC est conscient, plus il peut être confiant"
+      // When awakening: confidence scaled down. When aware: full confidence available.
+      // ═══════════════════════════════════════════════════════════════════════════
+      let adjustedConfidence = judgment.confidence;
+      let consciousnessState = 'UNKNOWN';
+      let awarenessLevel = 0;
+
+      if (emergenceLayer?.consciousness) {
+        awarenessLevel = emergenceLayer.consciousness.awarenessLevel || 0;
+        consciousnessState = emergenceLayer.consciousness.state || 'DORMANT';
+
+        // Scale confidence based on awareness:
+        // - DORMANT (0): confidence capped at 50% of normal max
+        // - AWAKENING (0.236): confidence at ~62% of normal max
+        // - AWARE (0.382): confidence at ~69% of normal max
+        // - HEIGHTENED (0.618): confidence at ~81% of normal max
+        // - TRANSCENDENT (1.0): confidence at full normal max (PHI_INV)
+        const awarenessScale = 0.5 + (awarenessLevel * 0.5);
+        const maxAllowedConfidence = PHI_INV * awarenessScale;
+        adjustedConfidence = Math.min(judgment.confidence, maxAllowedConfidence);
+
+        log.debug('Consciousness-adjusted confidence', {
+          originalConfidence: judgment.confidence,
+          awarenessLevel,
+          awarenessScale,
+          maxAllowedConfidence,
+          adjustedConfidence,
+          consciousnessState,
+        });
+      }
+
       const result = {
         requestId: judgmentId,
         score: judgment.qScore,
         globalScore: judgment.global_score,
         verdict: judgment.qVerdict?.verdict || judgment.verdict,
-        confidence: Math.round(judgment.confidence * 1000) / 1000,
+        confidence: Math.round(adjustedConfidence * 1000) / 1000,
         axiomScores: judgment.axiomScores,
         weaknesses: judgment.weaknesses,
         finalScore: judgment.finalScore || null,
         phi: { maxConfidence: PHI_INV, minDoubt: PHI_INV_2 },
+        // Layer 7 (Keter) consciousness state
+        consciousness: emergenceLayer ? {
+          state: consciousnessState,
+          awarenessLevel: Math.round(awarenessLevel * 1000) / 1000,
+          patternsDetected: emergenceResult?.patternsDetected || 0,
+        } : null,
         timestamp: Date.now(),
       };
 

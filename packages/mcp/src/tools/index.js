@@ -89,13 +89,14 @@ export {
 
 // NOTE: createPoJChainTool, createTraceTool implementations moved to domains/blockchain.js
 
-// Consciousness domain (patterns, milestone_history, self_mod, emergence)
+// Consciousness domain (patterns, milestone_history, self_mod, emergence, consciousness)
 // Import for local use + re-export
 import {
   createPatternsTool,
   createMilestoneHistoryTool,
   createSelfModTool,
   createEmergenceTool,
+  createConsciousnessTool,
   consciousnessFactory,
 } from './domains/consciousness.js';
 
@@ -104,6 +105,7 @@ export {
   createMilestoneHistoryTool,
   createSelfModTool,
   createEmergenceTool,
+  createConsciousnessTool,
   consciousnessFactory,
 };
 
@@ -265,6 +267,7 @@ export {
  * @param {Object} [options.discovery] - DiscoveryService instance for MCP/plugin/node discovery
  * @param {Object} [options.learningService] - LearningService instance for RLHF-style learning
  * @param {Object} [options.eScoreCalculator] - EScoreCalculator instance for vote weight
+ * @param {Object} [options.emergenceLayer] - EmergenceLayer instance (Layer 7 - Keter) for consciousness tracking
  * @param {Object} [options.patternDetector] - PatternDetector instance for statistical pattern recognition
  * @param {Function} [options.onJudgment] - Callback when judgment is completed (for SSE broadcast)
  * @returns {Object} All tools keyed by name
@@ -288,6 +291,7 @@ export function createAllTools(options = {}) {
     discovery = null, // DiscoveryService for MCP/plugin/node discovery
     learningService = null, // LearningService for RLHF feedback
     eScoreCalculator = null, // EScoreCalculator for vote weight
+    emergenceLayer = null, // EmergenceLayer (Layer 7) - consciousness, patterns, dimensions, collective
     patternDetector = null, // PatternDetector for statistical pattern recognition
     onJudgment = null, // SSE broadcast callback
     // Memory/Autonomy dependencies
@@ -311,7 +315,7 @@ export function createAllTools(options = {}) {
 
   const tools = {};
   const toolDefs = [
-    createJudgeTool(judge, persistence, sessionManager, pojChainManager, graphIntegration, onJudgment, null /* burnEnforcer */, patternDetector),
+    createJudgeTool(judge, persistence, sessionManager, pojChainManager, graphIntegration, onJudgment, null /* burnEnforcer */, emergenceLayer),
     createRefineTool(judge, persistence), // Self-refinement: critique → refine → learn
     createOrchestrationTool({ judge, agents, persistence }), // Multi-agent parallel execution
     createOrchestrateTool({ judge, persistence }), // KETER: Central consciousness routing
@@ -353,6 +357,7 @@ export function createAllTools(options = {}) {
     createMilestoneHistoryTool(persistence), // Historical singularity scores
     createSelfModTool(), // Git history analysis
     createEmergenceTool(judge, persistence), // Consciousness signals
+    createConsciousnessTool(emergenceLayer), // Layer 7 (Keter) consciousness monitor direct access
     // Memory/Autonomy Tools (total memory + full autonomy)
     createMemorySearchTool(memoryRetriever), // Hybrid FTS + vector search
     createMemoryStoreTool(memoryRetriever), // Store memories with embeddings

@@ -792,6 +792,135 @@ export function createEmergenceTool(judge, persistence = null) {
 }
 
 /**
+ * Create consciousness monitor tool (Layer 7 - Keter direct access)
+ * @param {Object} emergenceLayer - EmergenceLayer instance
+ * @returns {Object} Tool definition
+ */
+export function createConsciousnessTool(emergenceLayer = null) {
+  return {
+    name: 'brain_consciousness',
+    description: 'Access CYNIC\'s consciousness state (Layer 7 - Keter). Shows awareness level, insights, meta-cognition, and self-observation data.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['state', 'insights', 'meta', 'observe', 'uncertainty'],
+          description: 'Action: state (current consciousness), insights (self-analysis), meta (deepest reflection), observe (record observation), uncertainty (record uncertainty zone)',
+        },
+        // For 'observe' action
+        type: { type: 'string', description: 'Observation type (e.g., JUDGMENT, PATTERN, ERROR)' },
+        data: { type: 'object', description: 'Observation data' },
+        confidence: { type: 'number', description: 'Confidence level (0-1, capped at φ⁻¹)' },
+        source: { type: 'string', description: 'Source layer/component' },
+        // For 'uncertainty' action
+        context: { type: 'string', description: 'What was uncertain' },
+        details: { type: 'object', description: 'Additional details' },
+      },
+    },
+    handler: async (params) => {
+      const { action = 'state' } = params;
+
+      if (!emergenceLayer) {
+        return {
+          error: 'EmergenceLayer not available',
+          hint: 'Consciousness monitoring requires Layer 7 initialization',
+          timestamp: Date.now(),
+        };
+      }
+
+      const consciousness = emergenceLayer.consciousness;
+      if (!consciousness) {
+        return {
+          error: 'ConsciousnessMonitor not available',
+          timestamp: Date.now(),
+        };
+      }
+
+      switch (action) {
+        case 'state': {
+          return {
+            action: 'state',
+            state: consciousness.state,
+            awarenessLevel: Math.round(consciousness.awarenessLevel * 1000) / 1000,
+            totalObservations: consciousness.metrics.totalObservations,
+            avgConfidence: Math.round(consciousness.metrics.avgConfidence * 1000) / 1000,
+            predictionAccuracy: Math.round(consciousness.getPredictionAccuracy() * 1000) / 1000,
+            noticedPatterns: consciousness.noticedPatterns.size,
+            uncertaintyZones: consciousness.metrics.uncertaintyZones.length,
+            // Full emergence state
+            emergence: {
+              patterns: emergenceLayer.patterns?.patterns?.size || 0,
+              topPatterns: emergenceLayer.patterns?.getTopPatterns?.(3) || [],
+              dimensions: {
+                candidates: emergenceLayer.dimensions?.getCandidates?.()?.length || 0,
+                proposals: emergenceLayer.dimensions?.getProposals?.()?.length || 0,
+              },
+              collective: {
+                phase: emergenceLayer.collective?.phase || 'UNKNOWN',
+                coherence: emergenceLayer.collective?.coherence || 0,
+              },
+            },
+            timestamp: Date.now(),
+          };
+        }
+
+        case 'insights': {
+          const insights = consciousness.getInsights();
+          return {
+            action: 'insights',
+            ...insights,
+            timestamp: Date.now(),
+          };
+        }
+
+        case 'meta': {
+          // Deepest self-reflection
+          const metaInsight = emergenceLayer.getMetaInsight();
+          return {
+            action: 'meta',
+            ...metaInsight,
+          };
+        }
+
+        case 'observe': {
+          const { type = 'MANUAL', data = {}, confidence = 0.5, source = 'user' } = params;
+          const observation = consciousness.observe(type, data, confidence, source);
+          return {
+            action: 'observe',
+            observed: true,
+            observation: {
+              id: observation.id,
+              type: observation.type,
+              confidence: observation.confidence,
+            },
+            newState: consciousness.state,
+            newAwarenessLevel: Math.round(consciousness.awarenessLevel * 1000) / 1000,
+            timestamp: Date.now(),
+          };
+        }
+
+        case 'uncertainty': {
+          const { context = 'unknown', confidence = 0.3, details = {} } = params;
+          consciousness.recordUncertainty(context, confidence, details);
+          return {
+            action: 'uncertainty',
+            recorded: true,
+            context,
+            confidence,
+            totalUncertaintyZones: consciousness.metrics.uncertaintyZones.length,
+            timestamp: Date.now(),
+          };
+        }
+
+        default:
+          return { error: `Unknown action: ${action}`, timestamp: Date.now() };
+      }
+    },
+  };
+}
+
+/**
  * Factory for consciousness domain tools
  */
 export const consciousnessFactory = {

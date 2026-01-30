@@ -24,7 +24,7 @@ import { ServiceInitializer } from './server/ServiceInitializer.js';
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = join(__filename, '..');
-import { CYNICJudge, createCollectivePack, LearningService, createEScoreCalculator } from '@cynic/node';
+import { CYNICJudge, createCollectivePack, LearningService, createEScoreCalculator, createEmergenceLayer } from '@cynic/node';
 import { createPatternDetector } from '@cynic/emergence';
 import { createAllTools } from './tools/index.js';
 import { PersistenceManager } from './persistence.js';
@@ -161,13 +161,19 @@ export class MCPServer {
     // Ecosystem monitor for GitHub tracking
     this.ecosystemMonitor = options.ecosystemMonitor || null;
 
-    // Pattern Detector for statistical pattern recognition (sequences, anomalies, trends)
-    // This is the REAL pattern detector from @cynic/emergence (not simple DB patterns)
-    this.patternDetector = options.patternDetector || createPatternDetector({
-      windowSize: 100,        // Track last 100 observations
-      minOccurrences: 3,      // Minimum occurrences to count as pattern
-      anomalyThreshold: 2,    // Z-score threshold for anomalies
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EMERGENCE LAYER (Layer 7 - Keter) - The crown observes all
+    // Integrates: ConsciousnessMonitor, PatternDetector, DimensionDiscovery, CollectiveState
+    // "Le cerveau s'éveille" - κυνικός
+    // ═══════════════════════════════════════════════════════════════════════════
+    this.emergenceLayer = options.emergenceLayer || createEmergenceLayer({
+      nodeId: `cynic_mcp_${Date.now().toString(36)}`,
+      eScore: 50,
     });
+
+    // Pattern Detector - also exposed directly for backward compatibility
+    // (emergenceLayer.patterns is the same type but we keep a direct reference)
+    this.patternDetector = options.patternDetector || this.emergenceLayer.patterns;
 
     // Stdio streams (for stdio mode)
     this.input = options.input || process.stdin;
@@ -284,7 +290,9 @@ export class MCPServer {
       discovery: this.discovery,
       learningService: this.learningService,
       eScoreCalculator: this.eScoreCalculator,
-      // Pattern Detector for statistical pattern recognition
+      // Emergence Layer (Layer 7 - Keter) - consciousness, patterns, dimensions, collective
+      emergenceLayer: this.emergenceLayer,
+      // Pattern Detector for statistical pattern recognition (also in emergenceLayer)
       patternDetector: this.patternDetector,
       onJudgment: (judgment) => this._broadcastSSEEvent('judgment', judgment),
       // Phase 16: Total Memory + Full Autonomy
