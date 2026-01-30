@@ -10,8 +10,17 @@
  * "Don't extract, burn. Onchain is truth." - κυνικός
  *
  * Usage:
- *   node test/e2e-anchor-burns.test.js
+ *   node test/e2e-anchor-burns.e2e.js
+ *
+ * Note: This is a MANUAL test - requires network and SOL airdrop.
+ * Automatically skipped when run via `node --test`.
  */
+
+// Skip if running under Node's test runner (not meant for automated tests)
+if (process.env.NODE_TEST_CONTEXT) {
+  console.log('⏭️  Skipping e2e-anchor-burns.e2e.js (manual test, run directly with: node test/e2e-anchor-burns.e2e.js)');
+  process.exit(0);
+}
 
 import { Connection, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { createHash } from 'crypto';

@@ -16,7 +16,16 @@
  *
  * Usage:
  *   node test/devnet-full-test.js
+ *
+ * Note: This is a MANUAL test - requires network and SOL airdrop.
+ * Automatically skipped when run via `node --test`.
  */
+
+// Skip if running under Node's test runner (not meant for automated tests)
+if (process.env.NODE_TEST_CONTEXT) {
+  console.log('⏭️  Skipping devnet-full-test.js (manual test, run directly with: node test/devnet-full-test.js)');
+  process.exit(0);
+}
 
 import { Connection, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import {

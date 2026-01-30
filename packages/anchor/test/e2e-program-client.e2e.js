@@ -9,7 +9,16 @@
  *
  * Usage:
  *   node test/e2e-program-client.e2e.js
+ *
+ * Note: This is a MANUAL test - requires network and wallet.
+ * Automatically skipped when run via `node --test`.
  */
+
+// Skip if running under Node's test runner (not meant for automated tests)
+if (process.env.NODE_TEST_CONTEXT) {
+  console.log('⏭️  Skipping e2e-program-client.e2e.js (manual test)');
+  process.exit(0);
+}
 
 import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import { createHash, randomBytes } from 'crypto';
