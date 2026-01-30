@@ -84,6 +84,53 @@ Say `bonjour` — if you see a *tail wag*, CYNIC is alive.
 
 ---
 
+## v1.1 Features
+
+### Burnout Detection
+Proactive monitoring of user psychology with φ-aligned thresholds:
+```javascript
+import { BurnoutDetection } from '@cynic/persistence';
+
+const detector = createBurnoutDetection({ postgres, config });
+const risk = await detector.getBurnoutRisk();
+// { score: 0.45, level: 'elevated', trend: 'rising', warnings: [...] }
+```
+
+### Solana Mainnet
+Production-ready mainnet support with rate limiting and failover:
+```javascript
+import { RpcFailover, createMainnetConfig } from '@cynic/anchor';
+
+const failover = new RpcFailover(); // Auto-detects Helius, QuickNode, etc.
+await failover.execute(async (rpcUrl) => {
+  // Your Solana calls here
+});
+```
+
+### CLI Utilities
+Beautiful terminal output with φ-aligned colors:
+```javascript
+import { Colors, progressBar, createSpinner } from '@cynic/core';
+
+const spinner = createSpinner('Loading...');
+spinner.start();
+// ... work ...
+spinner.success('Done!');
+
+console.log(progressBar(0.618)); // [██████░░░░] 62%
+```
+
+### Context Scoring with Entropy
+Entropy-guided content retention:
+```javascript
+import { calculateCScore, calculateEntropyFactor } from '@cynic/core';
+
+const score = calculateCScore(content, context);
+// C = (Pertinence × Freshness × Density × Entropy) / √Tokens
+```
+
+---
+
 ## Solana Integration
 
 CYNIC anchors AI judgments on Solana for **immutable truth verification**.
