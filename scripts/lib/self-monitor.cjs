@@ -469,6 +469,12 @@ function generateRoadmap(packageScan, integrations) {
     },
   ];
 
+  // Check if Phase 2 complete
+  const phase2Complete = phases['Phase 2: Integration'].items.every(
+    item => item.status === 'complete'
+  );
+  phases['Phase 2: Integration'].status = phase2Complete ? 'complete' : 'in_progress';
+
   // Phase 3: External
   const externalPackages = ['anchor', 'burns', 'holdex', 'gasdf', 'zk'];
   for (const pkg of externalPackages) {
