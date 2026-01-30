@@ -18,6 +18,7 @@ import {
   THRESHOLDS,
   createLogger,
 } from '@cynic/core';
+import { SIGNIFICANCE_THRESHOLDS } from '@cynic/emergence';
 
 const log = createLogger('ConsciousnessTools');
 
@@ -25,18 +26,29 @@ const log = createLogger('ConsciousnessTools');
  * Create patterns tool definition
  * @param {Object} judge - CYNICJudge instance
  * @param {Object} persistence - PersistenceManager instance (optional)
+ * @param {Object} patternDetector - PatternDetector instance from @cynic/emergence (optional)
  * @returns {Object} Tool definition
  */
-export function createPatternsTool(judge, persistence = null) {
+export function createPatternsTool(judge, persistence = null, patternDetector = null) {
   return {
     name: 'brain_patterns',
-    description: 'List detected patterns from CYNIC observations and anomalies.',
+    description: 'Detect and list patterns from CYNIC observations. Actions: observe (feed data), detect (find patterns), list (show patterns), record (upsert to DB).',
     inputSchema: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['list', 'fix_confidence'], description: 'Action: list (default) or fix_confidence (update low confidence patterns)' },
-        category: { type: 'string', enum: ['anomaly', 'verdict', 'dimension', 'all'], description: 'Filter by category' },
+        action: {
+          type: 'string',
+          enum: ['list', 'observe', 'detect', 'record', 'fix_confidence', 'stats'],
+          description: 'Action: list (DB patterns), observe (feed PatternDetector), detect (run detection), record (upsert to DB), stats (detector statistics)',
+        },
+        category: { type: 'string', enum: ['anomaly', 'verdict', 'dimension', 'sequence', 'trend', 'cluster', 'cycle', 'all'], description: 'Filter by category' },
         limit: { type: 'number', description: 'Maximum patterns (default 10)' },
+        // For 'observe' action
+        type: { type: 'string', description: 'Data point type (e.g., JUDGMENT, TOOL_USE)' },
+        value: { type: 'number', description: 'Numeric value for the observation' },
+        verdict: { type: 'string', description: 'Verdict for judgment observations' },
+        // For 'record' action
+        pattern: { type: 'object', description: 'Pattern object to record to DB' },
       },
     },
     handler: async (params) => {
@@ -69,7 +81,129 @@ export function createPatternsTool(judge, persistence = null) {
         }
       }
 
+      // ═══════════════════════════════════════════════════════════════════════════
+      // OBSERVE: Feed data to PatternDetector (statistical pattern recognition)
+      // "Le chien observe" - κυνικός
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (action === 'observe') {
+        if (!patternDetector) {
+          return { error: 'PatternDetector not available', timestamp: Date.now() };
+        }
+        const { type = 'UNKNOWN', value, verdict, ...rest } = params;
+        const dataPoint = {
+          type,
+          value: typeof value === 'number' ? value : undefined,
+          verdict,
+          timestamp: Date.now(),
+          ...rest,
+        };
+        // observe() returns any immediately detected patterns (e.g., anomalies)
+        const immediatePatterns = patternDetector.observe(dataPoint);
+        return {
+          action: 'observe',
+          observed: true,
+          dataPoint: { type, value, verdict },
+          immediatePatterns: immediatePatterns || [],
+          bufferSize: patternDetector.dataPoints?.length || 0,
+          timestamp: Date.now(),
+        };
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // DETECT: Run full pattern detection (sequences, anomalies, trends, etc.)
+      // "Le chien détecte" - κυνικός
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (action === 'detect') {
+        if (!patternDetector) {
+          return { error: 'PatternDetector not available', timestamp: Date.now() };
+        }
+        // detect() runs all detection algorithms and returns found patterns
+        const detected = patternDetector.detect();
+        // Filter by category if specified
+        const filtered = category === 'all'
+          ? detected
+          : detected.filter(p => p.type?.toLowerCase() === category);
+        return {
+          action: 'detect',
+          detected: filtered.slice(0, limit),
+          total: filtered.length,
+          categories: {
+            SEQUENCE: detected.filter(p => p.type === 'SEQUENCE').length,
+            ANOMALY: detected.filter(p => p.type === 'ANOMALY').length,
+            TREND: detected.filter(p => p.type === 'TREND').length,
+            CLUSTER: detected.filter(p => p.type === 'CLUSTER').length,
+            CYCLE: detected.filter(p => p.type === 'CYCLE').length,
+          },
+          timestamp: Date.now(),
+        };
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // STATS: Get PatternDetector statistics
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (action === 'stats') {
+        if (!patternDetector) {
+          return { error: 'PatternDetector not available', timestamp: Date.now() };
+        }
+        const stats = patternDetector.getStats();
+        const topPatterns = patternDetector.getTopPatterns(5);
+        return {
+          action: 'stats',
+          stats,
+          topPatterns,
+          timestamp: Date.now(),
+        };
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // RECORD: Upsert pattern to persistence
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (action === 'record') {
+        const { pattern } = params;
+        if (!pattern) {
+          return { error: 'pattern object required', timestamp: Date.now() };
+        }
+        if (!persistence?.upsertPattern) {
+          return { error: 'Persistence not available', timestamp: Date.now() };
+        }
+        try {
+          const result = await persistence.upsertPattern(pattern);
+          return {
+            action: 'record',
+            success: true,
+            patternId: result?.pattern_id || pattern.name,
+            timestamp: Date.now(),
+          };
+        } catch (e) {
+          return { error: e.message, timestamp: Date.now() };
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // LIST (default): Get patterns from DB + PatternDetector memory
+      // ═══════════════════════════════════════════════════════════════════════════
       const patterns = [];
+
+      // Get patterns from PatternDetector (statistical patterns)
+      if (patternDetector) {
+        const detectorPatterns = patternDetector.getPatterns(
+          category === 'all' ? null : category.toUpperCase(),
+          SIGNIFICANCE_THRESHOLDS?.NOTABLE || 0.382
+        );
+        for (const p of detectorPatterns.slice(0, limit)) {
+          patterns.push({
+            category: p.type?.toLowerCase() || 'unknown',
+            id: p.id,
+            significance: p.significance,
+            confidence: p.confidence,
+            occurrences: p.occurrences,
+            firstSeen: p.firstSeen,
+            lastSeen: p.lastSeen,
+            data: p.data,
+            source: 'detector',
+          });
+        }
+      }
 
       // Get patterns from persistence (PostgreSQL) first
       if (persistence?.patterns && (category === 'all' || category !== 'anomaly' && category !== 'verdict')) {

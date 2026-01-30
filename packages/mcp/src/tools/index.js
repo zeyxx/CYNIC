@@ -265,6 +265,7 @@ export {
  * @param {Object} [options.discovery] - DiscoveryService instance for MCP/plugin/node discovery
  * @param {Object} [options.learningService] - LearningService instance for RLHF-style learning
  * @param {Object} [options.eScoreCalculator] - EScoreCalculator instance for vote weight
+ * @param {Object} [options.patternDetector] - PatternDetector instance for statistical pattern recognition
  * @param {Function} [options.onJudgment] - Callback when judgment is completed (for SSE broadcast)
  * @returns {Object} All tools keyed by name
  */
@@ -287,6 +288,7 @@ export function createAllTools(options = {}) {
     discovery = null, // DiscoveryService for MCP/plugin/node discovery
     learningService = null, // LearningService for RLHF feedback
     eScoreCalculator = null, // EScoreCalculator for vote weight
+    patternDetector = null, // PatternDetector for statistical pattern recognition
     onJudgment = null, // SSE broadcast callback
     // Memory/Autonomy dependencies
     memoryRetriever = null, // MemoryRetriever for memory search/store
@@ -309,7 +311,7 @@ export function createAllTools(options = {}) {
 
   const tools = {};
   const toolDefs = [
-    createJudgeTool(judge, persistence, sessionManager, pojChainManager, graphIntegration, onJudgment),
+    createJudgeTool(judge, persistence, sessionManager, pojChainManager, graphIntegration, onJudgment, null /* burnEnforcer */, patternDetector),
     createRefineTool(judge, persistence), // Self-refinement: critique → refine → learn
     createOrchestrationTool({ judge, agents, persistence }), // Multi-agent parallel execution
     createOrchestrateTool({ judge, persistence }), // KETER: Central consciousness routing
@@ -327,7 +329,7 @@ export function createAllTools(options = {}) {
     createSearchIndexTool(persistence),
     createTimelineTool(persistence),
     createGetObservationsTool(persistence),
-    createPatternsTool(judge, persistence),
+    createPatternsTool(judge, persistence, patternDetector),
     createFeedbackTool(persistence, sessionManager),
     createAgentsStatusTool(collective), // DEPRECATED: redirects to Collective
     createCollectiveStatusTool(collective), // The Eleven Dogs + CYNIC (Keter)

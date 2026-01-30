@@ -25,6 +25,7 @@ import { ServiceInitializer } from './server/ServiceInitializer.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = join(__filename, '..');
 import { CYNICJudge, createCollectivePack, LearningService, createEScoreCalculator } from '@cynic/node';
+import { createPatternDetector } from '@cynic/emergence';
 import { createAllTools } from './tools/index.js';
 import { PersistenceManager } from './persistence.js';
 import { SessionManager } from './session-manager.js';
@@ -160,6 +161,14 @@ export class MCPServer {
     // Ecosystem monitor for GitHub tracking
     this.ecosystemMonitor = options.ecosystemMonitor || null;
 
+    // Pattern Detector for statistical pattern recognition (sequences, anomalies, trends)
+    // This is the REAL pattern detector from @cynic/emergence (not simple DB patterns)
+    this.patternDetector = options.patternDetector || createPatternDetector({
+      windowSize: 100,        // Track last 100 observations
+      minOccurrences: 3,      // Minimum occurrences to count as pattern
+      anomalyThreshold: 2,    // Z-score threshold for anomalies
+    });
+
     // Stdio streams (for stdio mode)
     this.input = options.input || process.stdin;
     this.output = options.output || process.stdout;
@@ -275,6 +284,8 @@ export class MCPServer {
       discovery: this.discovery,
       learningService: this.learningService,
       eScoreCalculator: this.eScoreCalculator,
+      // Pattern Detector for statistical pattern recognition
+      patternDetector: this.patternDetector,
       onJudgment: (judgment) => this._broadcastSSEEvent('judgment', judgment),
       // Phase 16: Total Memory + Full Autonomy
       memoryRetriever: this.persistence?.memoryRetriever,

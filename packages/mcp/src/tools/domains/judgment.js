@@ -82,9 +82,10 @@ function calculatePsychologyComposites(dimensions = {}, emotions = {}) {
  * @param {Object} [graphIntegration] - JudgmentGraphIntegration instance (for graph edges)
  * @param {Function} [onJudgment] - Callback when judgment is completed (for SSE broadcast)
  * @param {Object} [burnEnforcer] - BurnEnforcer instance (for requiring burns)
+ * @param {Object} [patternDetector] - PatternDetector instance for statistical pattern recognition
  * @returns {Object} Tool definition
  */
-export function createJudgeTool(judge, persistence = null, sessionManager = null, pojChainManager = null, graphIntegration = null, onJudgment = null, burnEnforcer = null) {
+export function createJudgeTool(judge, persistence = null, sessionManager = null, pojChainManager = null, graphIntegration = null, onJudgment = null, burnEnforcer = null, patternDetector = null) {
   return {
     name: 'brain_cynic_judge',
     description: `Judge an item using CYNIC's 25-dimension evaluation across 4 axioms (PHI, VERIFY, CULTURE, BURN). Returns Q-Score (0-100), verdict (HOWL/WAG/GROWL/BARK), confidence (max ${(PHI_INV * 100).toFixed(1)}%), and dimension breakdown.`,
@@ -235,6 +236,35 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
         } catch (e) {
           // Log but don't fail the judgment - persistence is best-effort
           log.error('Error persisting judgment', { error: e.message });
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // PATTERN DETECTOR: Feed judgment to statistical pattern recognition
+      // "Le chien observe et apprend" - κυνικός
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (patternDetector) {
+        try {
+          const verdict = judgment.qVerdict?.verdict || judgment.verdict;
+          const immediatePatterns = patternDetector.observe({
+            type: 'JUDGMENT',
+            value: judgment.qScore,
+            verdict,
+            itemType: enrichedItem.type || 'unknown',
+            axiomScores: judgment.axiomScores,
+            timestamp: Date.now(),
+          });
+
+          // If immediate patterns detected (e.g., anomalies), log them
+          if (immediatePatterns?.length > 0) {
+            log.debug('Immediate patterns detected', {
+              count: immediatePatterns.length,
+              types: immediatePatterns.map(p => p.type),
+            });
+          }
+        } catch (patternErr) {
+          // Non-blocking - pattern detection is best-effort
+          log.warn('PatternDetector observation error', { error: patternErr.message });
         }
       }
 
