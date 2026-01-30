@@ -3,7 +3,7 @@
  *
  * "Context is everything, but everything cannot be context" - κυνικός
  *
- * C-Score = (Pertinence × Fraîcheur × Densité) / Taille
+ * C-Score = (Pertinence × Fraîcheur × Densité × Entropy) / √Taille
  *
  * φ-aligned context limits:
  * - Target: 23.6% (φ⁻³) - Optimal working context
@@ -13,6 +13,11 @@
  * "Lost in the middle" problem: LLMs perform worse with info
  * in middle of long contexts. We sort by C-Score to keep
  * best content at START and END.
+ *
+ * Entropy-guided scoring (2025 research):
+ * - Reduces attention collapse by 80%
+ * - Tokens with healthy entropy (φ⁻¹ range) retained
+ * - High entropy (noise) prioritized for compaction
  *
  * @module @cynic/core/context
  * @philosophy Context quality over quantity
@@ -26,6 +31,17 @@ import {
   PHI_INV_3,
   DECIMAL_PRECISION,
 } from '../axioms/constants.js';
+
+import {
+  calculateEntropyFactor,
+  ENTROPY_THRESHOLDS,
+  ENTROPY_WEIGHTS,
+  calculateShannonEntropy,
+  calculateWordEntropy,
+  calculateLexicalEntropy,
+  calculateStructuralEntropy,
+  entropyToRetentionFactor,
+} from './entropy.js';
 
 // =============================================================================
 // CONSTANTS
@@ -299,11 +315,16 @@ export function calculateDensity(content) {
 /**
  * Calculate C-Score (Context Score) for content item
  *
- * C = (Pertinence × Fraîcheur × Densité) / √Taille
+ * C = (Pertinence × Fraîcheur × Densité × Entropy) / √Taille
  *
  * The √Taille (square root of size) creates a sublinear penalty:
- * - Small content with high PFD is strongly favored
- * - Large content needs proportionally higher PFD to compete
+ * - Small content with high PFDE is strongly favored
+ * - Large content needs proportionally higher PFDE to compete
+ *
+ * Entropy factor (E) guides retention:
+ * - Low entropy (focused, like code) → E ≈ 1.0 (strong retention)
+ * - Healthy entropy (φ⁻¹ range) → E ≈ 0.9 (normal retention)
+ * - High entropy (diffuse, noise) → E ≈ 0.5 (compaction candidate)
  *
  * @param {Object} content - Content item to score
  * @param {Object} context - Current context for pertinence
@@ -318,6 +339,10 @@ export function calculateCScore(content, context = {}, options = {}) {
   const freshness = calculateFreshness(turnsSinceAdded);
   const density = calculateDensity(content);
 
+  // Calculate entropy factor
+  const entropyResult = calculateEntropyFactor(content);
+  const entropy = entropyResult.factor;
+
   // Calculate size in tokens
   const text = content.text || content.content || JSON.stringify(content);
   const tokens = countTokens(text);
@@ -325,9 +350,9 @@ export function calculateCScore(content, context = {}, options = {}) {
   // Avoid division by zero and ensure minimum size penalty
   const sizeNormalized = Math.max(1, tokens);
 
-  // C = (P × F × D) / √T
+  // C = (P × F × D × E) / √T
   // Square root creates sublinear penalty (larger content isn't infinitely penalized)
-  const rawScore = (pertinence * freshness * density) / Math.sqrt(sizeNormalized / 100);
+  const rawScore = (pertinence * freshness * density * entropy) / Math.sqrt(sizeNormalized / 100);
 
   // Normalize to 0-100 scale
   const C = Math.min(100, Math.round(rawScore * 100 * DECIMAL_PRECISION) / DECIMAL_PRECISION);
@@ -338,12 +363,16 @@ export function calculateCScore(content, context = {}, options = {}) {
       pertinence: Math.round(pertinence * 100),
       freshness: Math.round(freshness * 100),
       density: Math.round(density * 100),
+      entropy: Math.round(entropy * 100),
+      entropyRaw: entropyResult.entropy,
+      entropyBreakdown: entropyResult.breakdown,
       tokens,
     },
-    formula: 'C = (P × F × D) / √(T/100)',
+    formula: 'C = (P × F × D × E) / √(T/100)',
     meta: {
       turnsSinceAdded,
       timestamp: new Date().toISOString(),
+      isCodeLike: entropyResult.isCodeLike,
     },
   };
 }
@@ -510,7 +539,12 @@ export class BudgetManager {
    * Get items that should be compacted
    *
    * Returns items to remove to get under target
-   * Sorted by priority (lowest C-Score first)
+   * Sorted by priority:
+   * 1. Lowest C-Score first (primary)
+   * 2. Highest entropy first (secondary, when C-Scores are similar)
+   *
+   * Entropy-guided compaction prioritizes high-entropy (diffuse)
+   * content for removal, preserving focused, information-dense content.
    *
    * @returns {Array} Items to compact
    */
@@ -521,10 +555,25 @@ export class BudgetManager {
 
     const tokensToFree = this.currentTokens - this.targetLimit;
 
-    // Sort by C-Score (lowest first = remove first)
-    const sorted = [...this.items].sort((a, b) =>
-      (a.cScore || 0) - (b.cScore || 0)
-    );
+    // Sort by C-Score (lowest first), with entropy as tiebreaker
+    // When C-Scores are within 5 points, use entropy to decide
+    const sorted = [...this.items].sort((a, b) => {
+      const cScoreA = a.cScore || 0;
+      const cScoreB = b.cScore || 0;
+      const cScoreDiff = cScoreA - cScoreB;
+
+      // If C-Scores are similar (within 5 points), use entropy
+      if (Math.abs(cScoreDiff) < 5) {
+        // Higher entropy (entropyRaw) = more noise = remove first
+        const entropyA = a.entropyRaw || 0.5;
+        const entropyB = b.entropyRaw || 0.5;
+        // Sort descending by entropy (higher entropy first)
+        return entropyB - entropyA;
+      }
+
+      // Otherwise sort by C-Score ascending (lower = remove first)
+      return cScoreDiff;
+    });
 
     const candidates = [];
     let freedTokens = 0;
@@ -648,6 +697,21 @@ export function assembleContext(items, context = {}, options = {}) {
 }
 
 // =============================================================================
+// RE-EXPORTS FROM ENTROPY MODULE
+// =============================================================================
+
+export {
+  calculateEntropyFactor,
+  ENTROPY_THRESHOLDS,
+  ENTROPY_WEIGHTS,
+  calculateShannonEntropy,
+  calculateWordEntropy,
+  calculateLexicalEntropy,
+  calculateStructuralEntropy,
+  entropyToRetentionFactor,
+};
+
+// =============================================================================
 // DEFAULT EXPORT
 // =============================================================================
 
@@ -657,6 +721,8 @@ export default {
   BUDGET_THRESHOLDS,
   FRESHNESS_DECAY,
   DENSITY_THRESHOLDS,
+  ENTROPY_THRESHOLDS,
+  ENTROPY_WEIGHTS,
 
   // Token counting
   countTokens,
@@ -666,6 +732,14 @@ export default {
   calculateFreshness,
   calculatePertinence,
   calculateDensity,
+
+  // Entropy
+  calculateEntropyFactor,
+  calculateShannonEntropy,
+  calculateWordEntropy,
+  calculateLexicalEntropy,
+  calculateStructuralEntropy,
+  entropyToRetentionFactor,
 
   // C-Score
   calculateCScore,

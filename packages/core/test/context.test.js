@@ -19,6 +19,15 @@ import {
   DEFAULT_CONTEXT_SIZE,
   BUDGET_THRESHOLDS,
   FRESHNESS_DECAY,
+  // Entropy exports
+  calculateEntropyFactor,
+  ENTROPY_THRESHOLDS,
+  ENTROPY_WEIGHTS,
+  calculateShannonEntropy,
+  calculateWordEntropy,
+  calculateLexicalEntropy,
+  calculateStructuralEntropy,
+  entropyToRetentionFactor,
 } from '../src/context/index.js';
 
 import { PHI_INV, PHI_INV_2, PHI_INV_3 } from '../src/axioms/constants.js';
@@ -572,6 +581,235 @@ describe('Context Intelligence: assembleContext', () => {
     result.items.forEach(item => {
       assert.ok('originalIndex' in item);
     });
+  });
+});
+
+// =============================================================================
+// ENTROPY TESTS
+// =============================================================================
+
+describe('Context Intelligence: Entropy', () => {
+  describe('calculateShannonEntropy', () => {
+    it('should return 0 for empty input', () => {
+      assert.equal(calculateShannonEntropy(''), 0);
+      assert.equal(calculateShannonEntropy(null), 0);
+      assert.equal(calculateShannonEntropy(undefined), 0);
+    });
+
+    it('should return 0 for single repeated character', () => {
+      const entropy = calculateShannonEntropy('aaaaaaaaaa');
+      assert.equal(entropy, 0);
+    });
+
+    it('should return high entropy for uniform distribution', () => {
+      // All unique characters = high entropy
+      const entropy = calculateShannonEntropy('abcdefghijklmnop');
+      assert.ok(entropy > 0.9, `Expected > 0.9, got ${entropy}`);
+    });
+
+    it('should return moderate entropy for typical text', () => {
+      const entropy = calculateShannonEntropy('The quick brown fox jumps over the lazy dog');
+      assert.ok(entropy > 0.5 && entropy < 1, `Expected 0.5-1, got ${entropy}`);
+    });
+  });
+
+  describe('calculateWordEntropy', () => {
+    it('should return 0 for empty input', () => {
+      assert.equal(calculateWordEntropy(''), 0);
+    });
+
+    it('should return low entropy for repetitive words', () => {
+      const entropy = calculateWordEntropy('hello hello hello hello hello');
+      assert.equal(entropy, 0);
+    });
+
+    it('should return high entropy for diverse words', () => {
+      const entropy = calculateWordEntropy('one two three four five six seven eight');
+      assert.ok(entropy > 0.9, `Expected > 0.9 for diverse words, got ${entropy}`);
+    });
+  });
+
+  describe('calculateLexicalEntropy', () => {
+    it('should return 0 for empty input', () => {
+      assert.equal(calculateLexicalEntropy(''), 0);
+    });
+
+    it('should detect vocabulary richness', () => {
+      const rich = calculateLexicalEntropy('diverse unique vocabulary richness complexity');
+      const poor = calculateLexicalEntropy('the the the the the the');
+      assert.ok(rich > poor, `Rich vocab (${rich}) should exceed poor (${poor})`);
+    });
+
+    it('should handle code-like content', () => {
+      const code = calculateLexicalEntropy('function const return export import class');
+      assert.ok(code > 0.5, `Expected > 0.5 for code, got ${code}`);
+    });
+  });
+
+  describe('calculateStructuralEntropy', () => {
+    it('should return 0.5 for very short text', () => {
+      const entropy = calculateStructuralEntropy('hi');
+      assert.equal(entropy, 0.5);
+    });
+
+    it('should detect repetitive structure', () => {
+      const repetitive = calculateStructuralEntropy(
+        'line one\nline one\nline one\nline one\nline one'
+      );
+      assert.ok(repetitive < 0.7, `Expected < 0.7 for repetitive, got ${repetitive}`);
+    });
+
+    it('should boost structured content', () => {
+      const structured = calculateStructuralEntropy(`
+        {
+          "key": "value",
+          "nested": { "a": 1, "b": 2 }
+        }
+      `);
+      assert.ok(structured >= 0.5, `Expected >= 0.5 for structured, got ${structured}`);
+    });
+  });
+
+  describe('entropyToRetentionFactor', () => {
+    it('should return high factor for optimal entropy', () => {
+      const factor = entropyToRetentionFactor(PHI_INV); // 61.8%
+      assert.ok(factor > 0.9, `Expected > 0.9 for optimal, got ${factor}`);
+    });
+
+    it('should penalize very high entropy', () => {
+      const factor = entropyToRetentionFactor(0.95);
+      assert.ok(factor < 0.7, `Expected < 0.7 for high entropy, got ${factor}`);
+    });
+
+    it('should handle low entropy with slight boost', () => {
+      const factor = entropyToRetentionFactor(0.2);
+      assert.ok(factor >= 0.7, `Expected >= 0.7 for low entropy, got ${factor}`);
+    });
+
+    it('should never go below 0.3', () => {
+      const factor = entropyToRetentionFactor(1.0);
+      assert.ok(factor >= 0.3, `Expected >= 0.3 minimum, got ${factor}`);
+    });
+  });
+
+  describe('calculateEntropyFactor', () => {
+    it('should return neutral for empty content', () => {
+      const result = calculateEntropyFactor('');
+      assert.equal(result.factor, 0.5);
+    });
+
+    it('should return full breakdown', () => {
+      const result = calculateEntropyFactor({ text: 'sample content for testing' });
+      assert.ok('entropy' in result);
+      assert.ok('factor' in result);
+      assert.ok('breakdown' in result);
+      assert.ok('shannon' in result.breakdown);
+      assert.ok('wordEntropy' in result.breakdown);
+      assert.ok('lexical' in result.breakdown);
+      assert.ok('structural' in result.breakdown);
+    });
+
+    it('should detect code-like content', () => {
+      const code = calculateEntropyFactor({
+        text: `
+          function login(user) {
+            const token = auth.generate(user);
+            export { token };
+            return token;
+          }
+        `
+      });
+      assert.ok(code.isCodeLike, 'Should detect code');
+    });
+
+    it('should give high retention to focused code', () => {
+      const code = calculateEntropyFactor({
+        text: `
+          function processData(input) {
+            const result = transform(input);
+            return validate(result);
+          }
+        `
+      });
+      assert.ok(code.factor > 0.7, `Expected > 0.7 for code, got ${code.factor}`);
+    });
+
+    it('should give lower retention to verbose filler', () => {
+      const filler = calculateEntropyFactor({
+        text: 'blah blah blah blah blah blah blah blah blah blah'
+      });
+      assert.ok(filler.factor < 0.9, `Expected < 0.9 for filler, got ${filler.factor}`);
+    });
+  });
+
+  describe('ENTROPY_THRESHOLDS', () => {
+    it('should be phi-aligned', () => {
+      assert.equal(ENTROPY_THRESHOLDS.OPTIMAL, PHI_INV);
+      assert.equal(ENTROPY_THRESHOLDS.LOW, PHI_INV_2);
+    });
+
+    it('should have correct hierarchy', () => {
+      assert.ok(ENTROPY_THRESHOLDS.LOW < ENTROPY_THRESHOLDS.OPTIMAL);
+      assert.ok(ENTROPY_THRESHOLDS.OPTIMAL < ENTROPY_THRESHOLDS.HIGH);
+    });
+  });
+
+  describe('ENTROPY_WEIGHTS', () => {
+    it('should be phi-aligned', () => {
+      assert.equal(ENTROPY_WEIGHTS.SHANNON, PHI_INV);
+      assert.equal(ENTROPY_WEIGHTS.LEXICAL, PHI_INV_2);
+      assert.equal(ENTROPY_WEIGHTS.STRUCTURAL, PHI_INV_3);
+    });
+
+    it('should sum to approximately φ', () => {
+      const sum = ENTROPY_WEIGHTS.SHANNON + ENTROPY_WEIGHTS.LEXICAL + ENTROPY_WEIGHTS.STRUCTURAL;
+      // Should be close to PHI_INV + PHI_INV_2 + PHI_INV_3 ≈ 1.236
+      assert.ok(Math.abs(sum - 1.236) < 0.01, `Expected sum ~1.236, got ${sum}`);
+    });
+  });
+});
+
+describe('Context Intelligence: C-Score with Entropy', () => {
+  it('should include entropy in breakdown', () => {
+    const content = { text: 'test content' };
+    const result = calculateCScore(content);
+
+    assert.ok('entropy' in result.breakdown);
+    assert.ok('entropyRaw' in result.breakdown);
+    assert.ok('entropyBreakdown' in result.breakdown);
+  });
+
+  it('should include isCodeLike in meta', () => {
+    const result = calculateCScore({ text: 'function test() {}' });
+    assert.ok('isCodeLike' in result.meta);
+  });
+
+  it('should use updated formula with E', () => {
+    const result = calculateCScore({ text: 'test' });
+    assert.ok(result.formula.includes('E'), 'Formula should include E');
+    assert.ok(result.formula.includes('P × F × D × E'), 'Formula should show P × F × D × E');
+  });
+
+  it('should favor low-entropy code over high-entropy filler', () => {
+    const code = {
+      text: `
+        function authenticate(user) {
+          return generateToken(user);
+        }
+      `,
+    };
+    const filler = {
+      text: 'random random random random random random random random',
+    };
+
+    const codeScore = calculateCScore(code);
+    const fillerScore = calculateCScore(filler);
+
+    // Code should have better entropy factor
+    assert.ok(
+      codeScore.breakdown.entropy >= fillerScore.breakdown.entropy,
+      `Code entropy (${codeScore.breakdown.entropy}) should >= filler (${fillerScore.breakdown.entropy})`
+    );
   });
 });
 
