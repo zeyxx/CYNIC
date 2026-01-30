@@ -27,6 +27,7 @@ const __dirname = join(__filename, '..');
 import { CYNICJudge, createCollectivePack, LearningService, createEScoreCalculator, createEmergenceLayer } from '@cynic/node';
 import { createPatternDetector } from '@cynic/emergence';
 import { createAllTools } from './tools/index.js';
+import { createThermodynamicsTracker } from './thermodynamics-tracker.js';
 import { PersistenceManager } from './persistence.js';
 import { SessionManager } from './session-manager.js';
 // Solana anchoring support
@@ -175,6 +176,14 @@ export class MCPServer {
     // (emergenceLayer.patterns is the same type but we keep a direct reference)
     this.patternDetector = options.patternDetector || this.emergenceLayer.patterns;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // THERMODYNAMICS TRACKER (Phase 2)
+    // Tracks heat (errors, frustration) and work (success, progress)
+    // Influences confidence ceiling when critical or low efficiency
+    // "Ἐνέργεια - the activity of being" - κυνικός
+    // ═══════════════════════════════════════════════════════════════════════════
+    this.thermodynamics = options.thermodynamics || createThermodynamicsTracker();
+
     // Stdio streams (for stdio mode)
     this.input = options.input || process.stdin;
     this.output = options.output || process.stdout;
@@ -294,6 +303,8 @@ export class MCPServer {
       emergenceLayer: this.emergenceLayer,
       // Pattern Detector for statistical pattern recognition (also in emergenceLayer)
       patternDetector: this.patternDetector,
+      // Thermodynamics Tracker (Phase 2) - heat/work/efficiency tracking
+      thermodynamics: this.thermodynamics,
       onJudgment: (judgment) => this._broadcastSSEEvent('judgment', judgment),
       // Phase 16: Total Memory + Full Autonomy
       memoryRetriever: this.persistence?.memoryRetriever,

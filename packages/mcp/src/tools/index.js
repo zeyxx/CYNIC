@@ -293,6 +293,7 @@ export function createAllTools(options = {}) {
     eScoreCalculator = null, // EScoreCalculator for vote weight
     emergenceLayer = null, // EmergenceLayer (Layer 7) - consciousness, patterns, dimensions, collective
     patternDetector = null, // PatternDetector for statistical pattern recognition
+    thermodynamics = null, // ThermodynamicsTracker (Phase 2) - heat/work/efficiency
     onJudgment = null, // SSE broadcast callback
     // Memory/Autonomy dependencies
     memoryRetriever = null, // MemoryRetriever for memory search/store
@@ -315,7 +316,7 @@ export function createAllTools(options = {}) {
 
   const tools = {};
   const toolDefs = [
-    createJudgeTool(judge, persistence, sessionManager, pojChainManager, graphIntegration, onJudgment, null /* burnEnforcer */, emergenceLayer),
+    createJudgeTool(judge, persistence, sessionManager, pojChainManager, graphIntegration, onJudgment, null /* burnEnforcer */, emergenceLayer, thermodynamics),
     createRefineTool(judge, persistence), // Self-refinement: critique → refine → learn
     createOrchestrationTool({ judge, agents, persistence }), // Multi-agent parallel execution
     createOrchestrateTool({ judge, persistence }), // KETER: Central consciousness routing
@@ -326,7 +327,7 @@ export function createAllTools(options = {}) {
     createLearningTool({ learningService, persistence }), // Learning service: feedback → weight modifiers → improvement
     createTriggersTool({ judge, persistence }), // Auto-judgment triggers
     createDigestTool(persistence, sessionManager),
-    createHealthTool(node, judge, persistence, automationExecutor),
+    createHealthTool(node, judge, persistence, automationExecutor, thermodynamics),
     createPsychologyTool(persistence), // Human psychology dashboard
     createSearchTool(persistence),
     // Progressive Search Tools (3-layer retrieval for 10x token savings)

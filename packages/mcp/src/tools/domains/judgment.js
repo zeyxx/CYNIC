@@ -83,9 +83,10 @@ function calculatePsychologyComposites(dimensions = {}, emotions = {}) {
  * @param {Function} [onJudgment] - Callback when judgment is completed (for SSE broadcast)
  * @param {Object} [burnEnforcer] - BurnEnforcer instance (for requiring burns)
  * @param {Object} [emergenceLayer] - EmergenceLayer instance (Layer 7 - consciousness, patterns, dimensions)
+ * @param {Object} [thermodynamics] - ThermodynamicsTracker instance (Phase 2 - heat/work/efficiency)
  * @returns {Object} Tool definition
  */
-export function createJudgeTool(judge, persistence = null, sessionManager = null, pojChainManager = null, graphIntegration = null, onJudgment = null, burnEnforcer = null, emergenceLayer = null) {
+export function createJudgeTool(judge, persistence = null, sessionManager = null, pojChainManager = null, graphIntegration = null, onJudgment = null, burnEnforcer = null, emergenceLayer = null, thermodynamics = null) {
   return {
     name: 'brain_cynic_judge',
     description: `Judge an item using CYNIC's 25-dimension evaluation across 4 axioms (PHI, VERIFY, CULTURE, BURN). Returns Q-Score (0-100), verdict (HOWL/WAG/GROWL/BARK), confidence (max ${(PHI_INV * 100).toFixed(1)}%), and dimension breakdown.`,
@@ -313,6 +314,56 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
         });
       }
 
+      // ═══════════════════════════════════════════════════════════════════════════
+      // THERMODYNAMICS (Phase 2): Track heat/work and adjust confidence
+      // "Ἐνέργεια - the activity of being" - κυνικός
+      // Success → Work, Error/GROWL → Heat
+      // Critical/Low efficiency → Lower confidence ceiling
+      // ═══════════════════════════════════════════════════════════════════════════
+      let thermoState = null;
+      let thermoRecommendation = null;
+
+      if (thermodynamics) {
+        try {
+          const verdict = judgment.qVerdict?.verdict || judgment.verdict;
+          const qScore = judgment.qScore;
+
+          // Record work or heat based on verdict and score
+          if (verdict === 'HOWL' || verdict === 'WAG') {
+            // Success: Record work proportional to Q-Score
+            thermodynamics.recordWork('judgment', qScore / 100);
+          } else if (verdict === 'GROWL' || verdict === 'BARK') {
+            // Error/Warning: Record heat proportional to how bad
+            thermodynamics.recordHeat('judgment', (100 - qScore) / 100);
+          } else {
+            // Neutral: Small work, proportional to score
+            thermodynamics.recordWork('judgment', qScore / 200);
+          }
+
+          // Get current thermodynamic state
+          thermoState = thermodynamics.getState();
+          thermoRecommendation = thermodynamics.getRecommendation();
+
+          // Apply thermodynamic confidence modifier
+          // When critical or low efficiency, lower confidence ceiling further
+          if (thermoRecommendation.confidenceModifier < 1.0) {
+            const thermoAdjustedConfidence = adjustedConfidence * thermoRecommendation.confidenceModifier;
+            log.debug('Thermodynamics-adjusted confidence', {
+              beforeThermo: adjustedConfidence,
+              modifier: thermoRecommendation.confidenceModifier,
+              level: thermoRecommendation.level,
+              afterThermo: thermoAdjustedConfidence,
+              heat: thermoState.heat,
+              efficiency: thermoState.efficiency,
+            });
+            adjustedConfidence = thermoAdjustedConfidence;
+          }
+        } catch (thermoErr) {
+          // Non-blocking - thermodynamics is best-effort
+          log.warn('Thermodynamics tracking error', { error: thermoErr.message });
+        }
+      }
+
       const result = {
         requestId: judgmentId,
         score: judgment.qScore,
@@ -328,6 +379,15 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
           state: consciousnessState,
           awarenessLevel: Math.round(awarenessLevel * 1000) / 1000,
           patternsDetected: emergenceResult?.patternsDetected || 0,
+        } : null,
+        // Thermodynamics state (Phase 2)
+        thermodynamics: thermoState ? {
+          heat: thermoState.heat,
+          work: thermoState.work,
+          efficiency: thermoState.efficiency,
+          temperature: thermoState.temperature,
+          isCritical: thermoState.isCritical,
+          recommendation: thermoRecommendation?.level,
         } : null,
         timestamp: Date.now(),
       };

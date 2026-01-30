@@ -22,9 +22,11 @@ const PHI_INV_2 = 0.382;
  * @param {Object} node - CYNICNode instance (optional)
  * @param {Object} judge - CYNICJudge instance
  * @param {Object} persistence - PersistenceManager instance (optional)
+ * @param {Object} automationExecutor - AutomationExecutor instance (optional)
+ * @param {Object} thermodynamics - ThermodynamicsTracker instance (optional, Phase 2)
  * @returns {Object} Tool definition
  */
-export function createHealthTool(node, judge, persistence = null, automationExecutor = null) {
+export function createHealthTool(node, judge, persistence = null, automationExecutor = null, thermodynamics = null) {
   return {
     name: 'brain_health',
     description: 'Get CYNIC system health status including node status, judge statistics, daemon stats, and capability metrics.',
@@ -81,6 +83,49 @@ export function createHealthTool(node, judge, persistence = null, automationExec
           };
         } catch (e) {
           health.daemon = { running: false, error: e.message };
+        }
+      }
+
+      // Add thermodynamics state (Phase 2)
+      // "Ἐνέργεια - the activity of being" - κυνικός
+      if (thermodynamics) {
+        try {
+          const thermoState = thermodynamics.getState();
+          const recommendation = thermodynamics.getRecommendation();
+          const stats = thermodynamics.getStats();
+
+          // Create progress bars
+          const tempBar = '█'.repeat(Math.round(Math.min(100, (thermoState.temperature / 81) * 100) / 10)) +
+                          '░'.repeat(10 - Math.round(Math.min(100, (thermoState.temperature / 81) * 100) / 10));
+          const effBar = '█'.repeat(Math.round(thermoState.efficiency / 10)) +
+                         '░'.repeat(10 - Math.round(thermoState.efficiency / 10));
+
+          health.thermodynamics = {
+            heat: thermoState.heat,
+            work: thermoState.work,
+            entropy: thermoState.entropy,
+            temperature: thermoState.temperature,
+            temperatureBar: tempBar,
+            efficiency: thermoState.efficiency,
+            efficiencyBar: effBar,
+            carnotLimit: thermoState.carnotLimit,
+            isCritical: thermoState.isCritical,
+            isLowEfficiency: thermoState.isLowEfficiency,
+            sessionDuration: thermoState.sessionDuration,
+            recommendation: {
+              level: recommendation.level,
+              message: recommendation.message,
+              action: recommendation.action,
+            },
+            stats: {
+              thermalRunaways: stats.thermalRunaways,
+              entropyResets: stats.entropyResets,
+              peakEfficiency: Math.round(stats.peakEfficiency * 100),
+              totals: stats.totals,
+            },
+          };
+        } catch (e) {
+          health.thermodynamics = { error: e.message };
         }
       }
 
