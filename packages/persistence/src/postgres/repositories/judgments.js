@@ -53,6 +53,8 @@ export class JudgmentRepository extends BaseRepository {
 
   /**
    * Store a new judgment
+   * @param {Object} judgment - Judgment data
+   * @param {Object[]} [judgment.reasoningPath] - Reasoning trajectory steps
    */
   async create(judgment) {
     const judgmentId = generateJudgmentId();
@@ -66,33 +68,76 @@ export class JudgmentRepository extends BaseRepository {
     if (item.name) contentParts.push(item.name);
     const searchableContent = contentParts.join('\n') || judgment.itemContent || '';
 
-    const { rows } = await this.db.query(`
-      INSERT INTO judgments (
-        judgment_id, user_id, session_id,
-        item_type, item_content, item_hash,
-        q_score, global_score, confidence, verdict,
-        axiom_scores, dimension_scores, weaknesses,
-        context
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-      RETURNING *
-    `, [
-      judgmentId,
-      judgment.userId || null,
-      judgment.sessionId || null,
-      judgment.item?.type || judgment.itemType || 'unknown',
-      searchableContent,
-      itemHash,
-      judgment.qScore || judgment.q_score,
-      judgment.globalScore || judgment.global_score || judgment.qScore || judgment.q_score,
-      judgment.confidence,
-      judgment.verdict,
-      JSON.stringify(judgment.axiomScores || judgment.axiom_scores || {}),
-      JSON.stringify(judgment.dimensionScores || judgment.dimension_scores || null),
-      JSON.stringify(judgment.weaknesses || []),
-      JSON.stringify(judgment.context || {}),
-    ]);
+    // Normalize reasoning path (add step numbers if missing)
+    const reasoningPath = (judgment.reasoningPath || judgment.reasoning_path || [])
+      .map((step, idx) => ({
+        step: step.step ?? idx + 1,
+        ...step,
+      }));
 
-    return rows[0];
+    // Try with reasoning_path first, fall back to without if column doesn't exist
+    try {
+      const { rows } = await this.db.query(`
+        INSERT INTO judgments (
+          judgment_id, user_id, session_id,
+          item_type, item_content, item_hash,
+          q_score, global_score, confidence, verdict,
+          axiom_scores, dimension_scores, weaknesses,
+          context, reasoning_path
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        RETURNING *
+      `, [
+        judgmentId,
+        judgment.userId || null,
+        judgment.sessionId || null,
+        judgment.item?.type || judgment.itemType || 'unknown',
+        searchableContent,
+        itemHash,
+        judgment.qScore || judgment.q_score,
+        judgment.globalScore || judgment.global_score || judgment.qScore || judgment.q_score,
+        judgment.confidence,
+        judgment.verdict,
+        JSON.stringify(judgment.axiomScores || judgment.axiom_scores || {}),
+        JSON.stringify(judgment.dimensionScores || judgment.dimension_scores || null),
+        JSON.stringify(judgment.weaknesses || []),
+        JSON.stringify(judgment.context || {}),
+        JSON.stringify(reasoningPath),
+      ]);
+
+      return rows[0];
+    } catch (err) {
+      // Fallback: reasoning_path column may not exist (pre-migration)
+      if (err.message?.includes('reasoning_path')) {
+        const { rows } = await this.db.query(`
+          INSERT INTO judgments (
+            judgment_id, user_id, session_id,
+            item_type, item_content, item_hash,
+            q_score, global_score, confidence, verdict,
+            axiom_scores, dimension_scores, weaknesses,
+            context
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+          RETURNING *
+        `, [
+          judgmentId,
+          judgment.userId || null,
+          judgment.sessionId || null,
+          judgment.item?.type || judgment.itemType || 'unknown',
+          searchableContent,
+          itemHash,
+          judgment.qScore || judgment.q_score,
+          judgment.globalScore || judgment.global_score || judgment.qScore || judgment.q_score,
+          judgment.confidence,
+          judgment.verdict,
+          JSON.stringify(judgment.axiomScores || judgment.axiom_scores || {}),
+          JSON.stringify(judgment.dimensionScores || judgment.dimension_scores || null),
+          JSON.stringify(judgment.weaknesses || []),
+          JSON.stringify(judgment.context || {}),
+        ]);
+
+        return rows[0];
+      }
+      throw err;
+    }
   }
 
   /**
@@ -283,6 +328,74 @@ export class JudgmentRepository extends BaseRepository {
    */
   async delete(id) {
     throw new Error('Judgments are append-only and cannot be deleted');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Reasoning Trajectory Methods
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get reasoning trajectory for a judgment
+   * @param {string} judgmentId - Judgment ID
+   * @returns {Promise<Object[]|null>} Reasoning path or null
+   */
+  async getReasoningPath(judgmentId) {
+    const { rows } = await this.db.query(
+      'SELECT reasoning_path FROM judgments WHERE judgment_id = $1',
+      [judgmentId]
+    );
+    return rows[0]?.reasoning_path || null;
+  }
+
+  /**
+   * Find judgments with similar reasoning patterns
+   * @param {string} itemType - Item type to search
+   * @param {Object} [options={}] - Search options
+   * @returns {Promise<Object[]>} Judgments with reasoning paths
+   */
+  async findWithReasoningPath(itemType, options = {}) {
+    const { limit = 10, verdict, minSteps = 1 } = options;
+
+    const { rows } = await this.db.query(`
+      SELECT judgment_id, item_type, verdict, q_score, confidence, reasoning_path
+      FROM judgments
+      WHERE item_type = $1
+        AND reasoning_path IS NOT NULL
+        AND jsonb_array_length(reasoning_path) >= $2
+        ${verdict ? 'AND verdict = $4' : ''}
+      ORDER BY created_at DESC
+      LIMIT $3
+    `, verdict ? [itemType, minSteps, limit, verdict] : [itemType, minSteps, limit]);
+
+    return rows;
+  }
+
+  /**
+   * Get trajectory statistics for learning
+   * @param {string} [itemType] - Filter by item type
+   * @returns {Promise<Object>} Trajectory stats
+   */
+  async getTrajectoryStats(itemType = null) {
+    const { rows } = await this.db.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE reasoning_path IS NOT NULL AND jsonb_array_length(reasoning_path) > 0) as with_trajectory,
+        COUNT(*) as total,
+        AVG(jsonb_array_length(reasoning_path)) FILTER (WHERE reasoning_path IS NOT NULL) as avg_steps,
+        MAX(jsonb_array_length(reasoning_path)) as max_steps
+      FROM judgments
+      ${itemType ? 'WHERE item_type = $1' : ''}
+    `, itemType ? [itemType] : []);
+
+    const stats = rows[0];
+    return {
+      totalJudgments: parseInt(stats.total) || 0,
+      withTrajectory: parseInt(stats.with_trajectory) || 0,
+      avgSteps: parseFloat(stats.avg_steps) || 0,
+      maxSteps: parseInt(stats.max_steps) || 0,
+      coverageRate: stats.total > 0
+        ? (parseInt(stats.with_trajectory) / parseInt(stats.total))
+        : 0,
+    };
   }
 }
 
