@@ -83,6 +83,139 @@ const feedbackCollector = getFeedbackCollector();
 const suggestionEngine = getSuggestionEngine();
 
 // =============================================================================
+// ANTI-PATTERN DETECTOR - Error loops & bad workflows
+// "Le chien détecte les mauvaises habitudes"
+// =============================================================================
+
+// Session-scoped state for pattern detection
+const antiPatternState = {
+  // Error tracking (detect loops)
+  recentErrors: [],           // Last N errors: { type, file, timestamp }
+  errorLoopThreshold: 3,      // Same error 3x = loop
+  errorWindowMs: 5 * 60000,   // 5 minute window
+
+  // Tool sequence tracking (detect anti-patterns)
+  recentTools: [],            // Last N tools: { name, file, timestamp }
+  filesRead: new Set(),       // Files that have been Read
+  filesEdited: new Set(),     // Files that have been Edited
+
+  // Test tracking
+  lastTestRun: 0,             // Timestamp of last test
+  commitsSinceTest: 0,        // Commits without testing
+};
+
+/**
+ * Detect anti-patterns in tool usage
+ * Returns warnings if anti-patterns detected
+ */
+function detectAntiPatterns(toolName, toolInput, isError, toolOutput) {
+  const warnings = [];
+  const now = Date.now();
+  const filePath = toolInput?.file_path || toolInput?.filePath || '';
+  const command = toolInput?.command || '';
+
+  // === ERROR LOOP DETECTION ===
+  if (isError) {
+    const errorText = typeof toolOutput === 'string' ? toolOutput :
+                      toolOutput?.error || toolOutput?.message || '';
+    const errorType = detectErrorType(errorText);
+
+    // Add to recent errors
+    antiPatternState.recentErrors.push({
+      type: errorType,
+      file: filePath || command.slice(0, 50),
+      timestamp: now,
+    });
+
+    // Prune old errors
+    antiPatternState.recentErrors = antiPatternState.recentErrors.filter(
+      e => now - e.timestamp < antiPatternState.errorWindowMs
+    );
+
+    // Check for error loop (same error type 3+ times)
+    const sameTypeErrors = antiPatternState.recentErrors.filter(e => e.type === errorType);
+    if (sameTypeErrors.length >= antiPatternState.errorLoopThreshold) {
+      warnings.push({
+        type: 'error_loop',
+        severity: 'high',
+        message: `*GROWL* Tu tournes en rond - "${errorType}" ${sameTypeErrors.length}x en ${Math.round(antiPatternState.errorWindowMs/60000)} min`,
+        suggestion: 'Prends du recul. Le problème est peut-être ailleurs.',
+        data: { errorType, count: sameTypeErrors.length },
+      });
+      // Reset to avoid spamming
+      antiPatternState.recentErrors = antiPatternState.recentErrors.filter(e => e.type !== errorType);
+    }
+
+    // Check for file hotspot (same file causing errors)
+    if (filePath) {
+      const sameFileErrors = antiPatternState.recentErrors.filter(e => e.file === filePath);
+      if (sameFileErrors.length >= 3) {
+        warnings.push({
+          type: 'file_hotspot',
+          severity: 'medium',
+          message: `*sniff* Ce fichier pose problème: ${path.basename(filePath)} (${sameFileErrors.length} erreurs)`,
+          suggestion: 'Peut-être revoir l\'approche sur ce fichier?',
+          data: { file: filePath, count: sameFileErrors.length },
+        });
+      }
+    }
+  }
+
+  // === TOOL SEQUENCE ANTI-PATTERNS ===
+
+  // Track tool usage
+  antiPatternState.recentTools.push({ name: toolName, file: filePath, timestamp: now });
+  if (antiPatternState.recentTools.length > 20) {
+    antiPatternState.recentTools.shift();
+  }
+
+  // Edit without Read anti-pattern
+  if ((toolName === 'Edit' || toolName === 'Write') && filePath) {
+    if (!antiPatternState.filesRead.has(filePath)) {
+      warnings.push({
+        type: 'edit_without_read',
+        severity: 'low',
+        message: `*ears perk* Edit sans Read: ${path.basename(filePath)}`,
+        suggestion: 'Lire avant d\'écrire évite les erreurs.',
+        data: { file: filePath },
+      });
+    }
+    antiPatternState.filesEdited.add(filePath);
+  }
+
+  // Track reads
+  if (toolName === 'Read' && filePath) {
+    antiPatternState.filesRead.add(filePath);
+  }
+
+  // === COMMIT WITHOUT TEST ===
+
+  // Track test runs
+  if (toolName === 'Bash' && command.match(/npm\s+(run\s+)?test|jest|vitest|mocha|pytest/i)) {
+    antiPatternState.lastTestRun = now;
+    antiPatternState.commitsSinceTest = 0;
+  }
+
+  // Track commits
+  if (toolName === 'Bash' && command.startsWith('git commit')) {
+    antiPatternState.commitsSinceTest++;
+
+    // Warn if multiple commits without testing
+    if (antiPatternState.commitsSinceTest >= 2) {
+      warnings.push({
+        type: 'commit_without_test',
+        severity: 'medium',
+        message: `*sniff* ${antiPatternState.commitsSinceTest} commits sans test`,
+        suggestion: 'npm test avant de continuer?',
+        data: { commits: antiPatternState.commitsSinceTest },
+      });
+    }
+  }
+
+  return warnings;
+}
+
+// =============================================================================
 // COLLECTIVE DOGS (SEFIROT) - Load from shared module
 // =============================================================================
 
@@ -629,6 +762,44 @@ async function main() {
     // Save patterns to local collective
     for (const pattern of patterns) {
       saveCollectivePattern(pattern);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ANTI-PATTERN DETECTION - Error loops & bad workflows
+    // "Le chien détecte les mauvaises habitudes"
+    // ═══════════════════════════════════════════════════════════════════════════
+    const antiPatternWarnings = detectAntiPatterns(toolName, toolInput, isError, toolOutput);
+
+    // Output anti-pattern warnings immediately (high priority)
+    if (antiPatternWarnings.length > 0) {
+      const highPriority = antiPatternWarnings.filter(w => w.severity === 'high');
+      if (highPriority.length > 0) {
+        // Error loops are critical - output immediately
+        const warning = highPriority[0];
+        safeOutput({
+          continue: true,
+          message: `\n┌─────────────────────────────────────────────────────────┐\n│ 🛡️ GUARDIAN - ANTI-PATTERN DÉTECTÉ                      │\n├─────────────────────────────────────────────────────────┤\n│ ${warning.message.padEnd(55)} │\n│ 💡 ${warning.suggestion.padEnd(52)} │\n└─────────────────────────────────────────────────────────┘\n`,
+        });
+        return;
+      }
+
+      // Medium/low priority - record for later
+      for (const warning of antiPatternWarnings) {
+        if (consciousness) {
+          consciousness.recordInsight({
+            type: 'anti_pattern',
+            title: warning.type,
+            message: warning.message,
+            data: warning.data,
+            priority: warning.severity === 'medium' ? 'medium' : 'low',
+          });
+        }
+        saveCollectivePattern({
+          type: `antipattern_${warning.type}`,
+          signature: warning.type,
+          description: warning.message,
+        });
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
