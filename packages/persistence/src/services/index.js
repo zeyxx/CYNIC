@@ -34,3 +34,10 @@ export {
   createMemoryConsolidation,
   DEFAULT_CONSOLIDATION_CONFIG,
 } from './memory-consolidation.js';
+
+// v1.1: Pattern Learning
+export {
+  PatternLearning,
+  createPatternLearning,
+  DEFAULT_PATTERN_CONFIG,
+} from './pattern-learning.js';
