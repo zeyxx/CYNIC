@@ -24,6 +24,19 @@ const LIMITS = {
 };
 
 /**
+ * Path reinforcement constants (φ-aligned)
+ * Inspired by Claude Flow's GNN path reinforcement
+ */
+const REINFORCEMENT = {
+  BOOST_RATE: PHI_INV * 0.01,     // 0.618% boost per access
+  DECAY_RATE: PHI_INV * 0.001,    // 0.0618% decay per hour unused
+  MIN_WEIGHT: 0.236,              // φ⁻³ minimum weight
+  MAX_WEIGHT: 2.618,              // φ + 1 maximum weight
+  DECAY_THRESHOLD_HOURS: 168,     // 7 days before decay starts
+  WEIGHT_INFLUENCE: 0.25,         // 25% of relevance from weight
+};
+
+/**
  * SharedMemory - Collective knowledge accessible to all dogs
  */
 export class SharedMemory {
@@ -113,12 +126,14 @@ export class SharedMemory {
       .sort((a, b) => b.relevance - a.relevance)
       .slice(0, limit);
 
-    // Mark as used
+    // Mark as used and reinforce (path reinforcement)
     for (const pattern of scored) {
       const stored = this._patterns.get(pattern.id);
       if (stored) {
         stored.useCount = (stored.useCount || 0) + 1;
         stored.lastUsed = Date.now();
+        // φ-weighted path reinforcement: boost frequently-used patterns
+        this._reinforcePattern(stored);
       }
     }
 
@@ -138,6 +153,7 @@ export class SharedMemory {
       id,
       addedAt: Date.now(),
       useCount: 0,
+      weight: pattern.weight ?? 1.0,  // Path reinforcement weight
       verified: pattern.verified || false,
     });
 
@@ -166,39 +182,44 @@ export class SharedMemory {
   _calculatePatternRelevance(pattern, itemType, itemTags) {
     let relevance = 0;
 
-    // Type match (40% weight)
+    // Type match (35% weight - reduced to make room for path weight)
     if (pattern.applicableTo?.includes(itemType) || pattern.applicableTo?.includes('*')) {
-      relevance += 0.4;
+      relevance += 0.35;
     }
 
-    // Tag overlap (30% weight)
+    // Tag overlap (25% weight)
     const patternTags = pattern.tags || [];
     const overlap = itemTags.filter(t => patternTags.includes(t)).length;
     if (overlap > 0) {
-      relevance += 0.3 * (overlap / Math.max(itemTags.length, patternTags.length, 1));
+      relevance += 0.25 * (overlap / Math.max(itemTags.length, patternTags.length, 1));
     }
 
-    // Recency boost (20% weight)
+    // Recency boost (10% weight)
     const ageHours = (Date.now() - (pattern.lastUsed || pattern.addedAt || 0)) / 3600000;
-    if (ageHours < 24) relevance += 0.2;
-    else if (ageHours < 168) relevance += 0.1;
+    if (ageHours < 24) relevance += 0.1;
+    else if (ageHours < 168) relevance += 0.05;
 
-    // Verified bonus (10% weight)
-    if (pattern.verified) relevance += 0.1;
+    // Verified bonus (5% weight)
+    if (pattern.verified) relevance += 0.05;
 
-    // Usage count bonus (capped)
-    const usageBonus = Math.min(0.1, (pattern.useCount || 0) * 0.01);
-    relevance += usageBonus;
+    // Path reinforcement weight (25% weight) - frequently-used paths get boosted
+    // Weight ranges from MIN_WEIGHT (0.236) to MAX_WEIGHT (2.618)
+    // Normalize to 0-0.25 range: (weight - min) / (max - min) * 0.25
+    const weight = pattern.weight ?? 1.0;
+    const normalizedWeight = (weight - REINFORCEMENT.MIN_WEIGHT) /
+      (REINFORCEMENT.MAX_WEIGHT - REINFORCEMENT.MIN_WEIGHT);
+    relevance += Math.max(0, Math.min(REINFORCEMENT.WEIGHT_INFLUENCE, normalizedWeight * REINFORCEMENT.WEIGHT_INFLUENCE));
 
     return Math.min(relevance, 1);
   }
 
   _prunePatterns() {
-    // Sort by score (recency + usage + verified)
+    // Sort by score (weight + recency + usage + verified)
     const sorted = Array.from(this._patterns.entries())
       .map(([id, p]) => ({
         id,
         score: (p.verified ? 1000 : 0) +
+               (p.weight || 1.0) * 100 +  // Weight now matters more
                (p.useCount || 0) * 10 +
                (Date.now() - (p.addedAt || 0)) / -86400000,
       }))
@@ -209,6 +230,81 @@ export class SharedMemory {
     for (let i = 0; i < toRemove; i++) {
       this._patterns.delete(sorted[i].id);
     }
+  }
+
+  /**
+   * Reinforce a pattern (φ-weighted path reinforcement)
+   * Called when a pattern is accessed/used
+   * @param {Object} pattern - Pattern to reinforce
+   * @private
+   */
+  _reinforcePattern(pattern) {
+    const currentWeight = pattern.weight ?? 1.0;
+
+    // Boost by φ⁻¹ * 1% = 0.618% per access
+    const newWeight = Math.min(
+      REINFORCEMENT.MAX_WEIGHT,
+      currentWeight * (1 + REINFORCEMENT.BOOST_RATE)
+    );
+
+    pattern.weight = newWeight;
+    pattern.lastReinforced = Date.now();
+  }
+
+  /**
+   * Decay unused patterns (call periodically)
+   * Patterns not used within DECAY_THRESHOLD_HOURS lose weight
+   * @returns {number} Number of patterns decayed
+   */
+  decayUnusedPatterns() {
+    const now = Date.now();
+    const thresholdMs = REINFORCEMENT.DECAY_THRESHOLD_HOURS * 3600000;
+    let decayedCount = 0;
+
+    for (const pattern of this._patterns.values()) {
+      const lastUsed = pattern.lastUsed || pattern.addedAt || now;
+      const hoursSinceUse = (now - lastUsed) / 3600000;
+
+      // Only decay if not used within threshold
+      if (hoursSinceUse > REINFORCEMENT.DECAY_THRESHOLD_HOURS) {
+        const currentWeight = pattern.weight ?? 1.0;
+
+        // Decay by φ⁻¹ * 0.1% per hour past threshold
+        const hoursOverThreshold = hoursSinceUse - REINFORCEMENT.DECAY_THRESHOLD_HOURS;
+        const decayFactor = Math.pow(1 - REINFORCEMENT.DECAY_RATE, hoursOverThreshold);
+        const newWeight = Math.max(
+          REINFORCEMENT.MIN_WEIGHT,
+          currentWeight * decayFactor
+        );
+
+        if (newWeight !== currentWeight) {
+          pattern.weight = newWeight;
+          pattern.lastDecayed = now;
+          decayedCount++;
+        }
+      }
+    }
+
+    return decayedCount;
+  }
+
+  /**
+   * Get top patterns by weight (most reinforced)
+   * @param {number} [limit=10] - Max patterns to return
+   * @returns {Object[]} Top weighted patterns
+   */
+  getTopReinforcedPatterns(limit = 10) {
+    return Array.from(this._patterns.values())
+      .sort((a, b) => (b.weight || 1.0) - (a.weight || 1.0))
+      .slice(0, limit)
+      .map(p => ({
+        id: p.id,
+        weight: p.weight || 1.0,
+        useCount: p.useCount || 0,
+        verified: p.verified || false,
+        tags: p.tags || [],
+        applicableTo: p.applicableTo || [],
+      }));
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -541,13 +637,23 @@ export class SharedMemory {
    * @returns {Object} Stats summary
    */
   getStats() {
+    const patterns = Array.from(this._patterns.values());
+    const weights = patterns.map(p => p.weight ?? 1.0);
+    const avgWeight = weights.length > 0
+      ? weights.reduce((a, b) => a + b, 0) / weights.length
+      : 1.0;
+
     return {
       patternCount: this._patterns.size,
-      verifiedPatterns: Array.from(this._patterns.values()).filter(p => p.verified).length,
+      verifiedPatterns: patterns.filter(p => p.verified).length,
       judgmentIndexSize: this._judgmentIndex.length,
       dimensionsTracked: Object.keys(this._dimensionWeights).length,
       procedureCount: this._procedures.size,
       feedbackCount: this._feedbackLog.length,
+      // Path reinforcement stats
+      avgPatternWeight: Math.round(avgWeight * 1000) / 1000,
+      highWeightPatterns: patterns.filter(p => (p.weight ?? 1.0) > 1.5).length,
+      lowWeightPatterns: patterns.filter(p => (p.weight ?? 1.0) < 0.5).length,
       ...this.stats,
       initialized: this.initialized,
     };
