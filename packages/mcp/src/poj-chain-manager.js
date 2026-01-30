@@ -24,8 +24,21 @@
 'use strict';
 
 import crypto from 'crypto';
-import { createLogger } from '@cynic/core';
+import { createLogger, globalEventBus, EventType } from '@cynic/core';
 import { OperatorRegistry } from './operator-registry.js';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 5: BLOCKCHAIN EVENTS
+// Emit events for the full loop: Judgment → Block → Anchor → E-Score
+// ═══════════════════════════════════════════════════════════════════════════
+const BlockchainEvent = {
+  /** PoJ block created from batched judgments */
+  BLOCK_CREATED: 'poj:block:created',
+  /** PoJ block anchored to Solana */
+  BLOCK_ANCHORED: 'poj:block:anchored',
+  /** Anchor failed for a block */
+  ANCHOR_FAILED: 'poj:anchor:failed',
+};
 
 const log = createLogger('PoJChainManager');
 
@@ -356,6 +369,26 @@ export class PoJChainManager {
           }
         }
 
+        // ═══════════════════════════════════════════════════════════════════
+        // PHASE 5: Emit blockchain event for collective/E-Score integration
+        // ═══════════════════════════════════════════════════════════════════
+        try {
+          globalEventBus.publish(BlockchainEvent.BLOCK_CREATED, {
+            slot: block.slot,
+            hash: block.hash,
+            prevHash: block.prev_hash,
+            judgmentsRoot: block.judgments_root,
+            judgmentCount: judgments.length,
+            judgmentIds: judgments.map(j => j.judgment_id || j.id),
+            operator: block.operator,
+            timestamp: block.timestamp,
+            anchorStatus: this._autoAnchor ? AnchorStatus.QUEUED : AnchorStatus.PENDING,
+          }, { source: 'PoJChainManager' });
+        } catch (eventErr) {
+          // Non-blocking - core functionality continues
+          log.warn('Block event emission failed', { error: eventErr.message });
+        }
+
         return stored;
       }
     } catch (err) {
@@ -479,7 +512,20 @@ export class PoJChainManager {
    * @private
    */
   _onAnchorComplete(batch, result) {
-    if (!result.success) return;
+    if (!result.success) {
+      // ═══════════════════════════════════════════════════════════════════
+      // PHASE 5: Emit anchor failure event
+      // ═══════════════════════════════════════════════════════════════════
+      try {
+        globalEventBus.publish(BlockchainEvent.ANCHOR_FAILED, {
+          batchId: batch.id,
+          itemCount: batch.items?.length || 0,
+          error: result.error || 'Unknown error',
+          timestamp: Date.now(),
+        }, { source: 'PoJChainManager' });
+      } catch (e) { /* non-blocking */ }
+      return;
+    }
 
     // Update anchor status for all blocks in this batch
     for (const item of batch.items) {
@@ -497,6 +543,27 @@ export class PoJChainManager {
             });
             this._stats.blocksAnchored++;
             log.info('PoJ block anchored', { slot, signature: result.signature.slice(0, 16) });
+
+            // ═══════════════════════════════════════════════════════════════
+            // PHASE 5: Emit blockchain event - block is now ON-CHAIN TRUTH
+            // This triggers E-Score JUDGE dimension update + collective memory
+            // ═══════════════════════════════════════════════════════════════
+            try {
+              globalEventBus.publish(BlockchainEvent.BLOCK_ANCHORED, {
+                slot,
+                hash,
+                signature: result.signature,
+                solanaSlot: result.slot,
+                merkleRoot: item.merkleRoot || batch.merkleRoot,
+                anchoredAt: result.timestamp,
+                // Stats for E-Score calculation
+                judgmentCount: status.judgmentCount || 0,
+                batchSize: batch.items?.length || 1,
+              }, { source: 'PoJChainManager' });
+            } catch (eventErr) {
+              log.warn('Anchor event emission failed', { error: eventErr.message });
+            }
+
             break;
           }
         }

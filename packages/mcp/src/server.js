@@ -35,6 +35,7 @@ import { AnchorQueue, SolanaAnchorer, loadWalletFromFile, loadWalletFromEnv, Sol
 // Burns verification (for E-Score integration)
 import { createBurnVerifier } from '@cynic/burns';
 import { PoJChainManager } from './poj-chain-manager.js';
+import { BlockchainBridge } from './blockchain-bridge.js';
 import { LibrarianService } from './librarian-service.js';
 import { AuthService } from './auth-service.js';
 import { DiscoveryService } from './discovery-service.js';
@@ -118,6 +119,13 @@ export class MCPServer {
     if (this.burnVerifier && this.eScoreCalculator) {
       this.eScoreCalculator.syncWithVerifier(this.burnVerifier);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 5: BLOCKCHAIN BRIDGE (Onchain is truth)
+    // Connects: Judgment → Block → Anchor → E-Score → Collective
+    // ═══════════════════════════════════════════════════════════════════════════
+    this.blockchainBridge = options.blockchainBridge || null;
+    // Bridge is started later in start() when all dependencies are available
 
     // Data directory for file-based fallback
     this.dataDir = options.dataDir || null;
@@ -273,6 +281,21 @@ export class MCPServer {
 
     // Register ecosystem awareness task with scheduler
     this._registerSchedulerTasks();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 5: BLOCKCHAIN BRIDGE (Onchain is truth)
+    // Wire: Judgment → Block → Anchor → E-Score → Collective
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (!this.blockchainBridge) {
+      this.blockchainBridge = new BlockchainBridge({
+        eScore: this.eScoreCalculator,
+        collective: this.collective,
+        persistence: this.persistence,
+        burnVerifier: this.burnVerifier,
+      });
+      this.blockchainBridge.start();
+      console.error('   BlockchainBridge: active (PoJ → Anchor → E-Score loop)');
+    }
 
     // Initialize Auth service for HTTP mode
     if (this.mode === 'http' && !this.auth) {
