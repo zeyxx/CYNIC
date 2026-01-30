@@ -323,10 +323,10 @@ function scanAllPackages() {
 function scanIntegrations() {
   const claudeDir = path.join(PROJECT_ROOT, '.claude');
 
-  // Count hooks
+  // Count hooks (both .js and .cjs)
   const hooksDir = path.join(PROJECT_ROOT, 'scripts', 'hooks');
   const hooks = fs.existsSync(hooksDir)
-    ? fs.readdirSync(hooksDir).filter(f => f.endsWith('.cjs'))
+    ? fs.readdirSync(hooksDir).filter(f => f.endsWith('.js') || f.endsWith('.cjs'))
     : [];
 
   // Count lib modules
@@ -356,7 +356,7 @@ function scanIntegrations() {
   return {
     hooks: {
       count: hooks.length,
-      list: hooks.map(h => h.replace('.cjs', '')),
+      list: hooks.map(h => h.replace(/\.(c?js)$/, '')),
     },
     libModules: {
       count: libModules.length,
