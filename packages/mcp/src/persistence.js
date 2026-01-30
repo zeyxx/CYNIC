@@ -70,9 +70,13 @@ export class PersistenceManager {
   /**
    * @param {Object} [options] - Configuration options
    * @param {string} [options.dataDir] - Directory for file-based fallback
+   * @param {boolean} [options.forceMemory] - Force in-memory mode (for tests)
+   * @param {boolean} [options.skipDatabase] - Skip database connections (for tests)
    */
   constructor(options = {}) {
     this.dataDir = options.dataDir || null;
+    this._forceMemory = options.forceMemory || false;
+    this._skipDatabase = options.skipDatabase || options.forceMemory || false;
 
     // PostgreSQL + Redis (primary)
     this.postgres = null;
@@ -123,10 +127,22 @@ export class PersistenceManager {
   async initialize() {
     if (this._initialized) return this;
 
-    // Check for PostgreSQL config
-    const hasPostgres = !!process.env.CYNIC_DATABASE_URL
-      || (!!process.env.CYNIC_DB_HOST && !!process.env.CYNIC_DB_PASSWORD);
-    const hasRedis = !!process.env.CYNIC_REDIS_URL;
+    // Force memory mode (for tests) - skip all external connections
+    if (this._forceMemory) {
+      this._fallback = new MemoryStore();
+      this._backend = 'memory';
+      this._initializeAdapters();
+      this._initialized = true;
+      log.debug('Storage: in-memory (forced)');
+      return this;
+    }
+
+    // Check for PostgreSQL config (skip if _skipDatabase is set)
+    const hasPostgres = !this._skipDatabase && (
+      !!process.env.CYNIC_DATABASE_URL
+      || (!!process.env.CYNIC_DB_HOST && !!process.env.CYNIC_DB_PASSWORD)
+    );
+    const hasRedis = !this._skipDatabase && !!process.env.CYNIC_REDIS_URL;
 
     // Try PostgreSQL first (production)
     if (hasPostgres) {

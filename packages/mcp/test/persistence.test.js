@@ -18,7 +18,7 @@ describe('PersistenceManager', () => {
 
   beforeEach(() => {
     // Create manager without any external dependencies (pure in-memory)
-    manager = new PersistenceManager();
+    manager = new PersistenceManager({ forceMemory: true });
   });
 
   afterEach(async () => {
@@ -290,7 +290,7 @@ describe('PersistenceManager PoJ Chain', () => {
   let manager;
 
   beforeEach(async () => {
-    manager = new PersistenceManager();
+    manager = new PersistenceManager({ forceMemory: true });
     await manager.initialize();
   });
 
@@ -458,7 +458,7 @@ describe('PersistenceManager File Storage', () => {
 
   beforeEach(async () => {
     tempDir = path.join(os.tmpdir(), `cynic-test-${Date.now()}`);
-    manager = new PersistenceManager({ dataDir: tempDir });
+    manager = new PersistenceManager({ dataDir: tempDir, skipDatabase: true });
   });
 
   afterEach(async () => {
@@ -522,7 +522,7 @@ describe('PersistenceManager health', () => {
   let manager;
 
   beforeEach(async () => {
-    manager = new PersistenceManager();
+    manager = new PersistenceManager({ forceMemory: true });
     await manager.initialize();
   });
 
@@ -542,7 +542,7 @@ describe('PersistenceManager health', () => {
 
 describe('PersistenceManager edge cases', () => {
   it('handles null persistence gracefully', async () => {
-    const manager = new PersistenceManager();
+    const manager = new PersistenceManager({ forceMemory: true });
     // Don't initialize
 
     const result = await manager.storeJudgment({ q_score: 50 });
@@ -557,7 +557,7 @@ describe('PersistenceManager Triggers State', () => {
   let manager;
 
   beforeEach(async () => {
-    manager = new PersistenceManager();
+    manager = new PersistenceManager({ forceMemory: true });
     await manager.initialize();
   });
 
@@ -634,7 +634,7 @@ describe('PersistenceManager Triggers State (File)', () => {
 
   beforeEach(async () => {
     tempDir = path.join(os.tmpdir(), `cynic-triggers-test-${Date.now()}`);
-    manager = new PersistenceManager({ dataDir: tempDir });
+    manager = new PersistenceManager({ dataDir: tempDir, skipDatabase: true });
     await manager.initialize();
   });
 
@@ -696,7 +696,7 @@ describe('PersistenceManager Triggers State (File)', () => {
 
     // Re-initialize to load existing data
     await manager.close();
-    manager = new PersistenceManager({ dataDir: tempDir });
+    manager = new PersistenceManager({ dataDir: tempDir, skipDatabase: true });
     await manager.initialize();
 
     const state = await manager.getTriggersState();
