@@ -30,6 +30,9 @@ export * from './services/index.js';
 // Repository Factory (DI pattern)
 export { RepositoryFactory, createMockFactory } from './factory.js';
 
+// Fallback Factory (auto-detect PostgreSQL/SQLite)
+export { FallbackRepositoryFactory, BackendType, createFallbackFactory } from './fallback-factory.js';
+
 // Repository Interfaces (for extension)
 export { BaseRepository } from './interfaces/IRepository.js';
 

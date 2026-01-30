@@ -8,11 +8,13 @@
     ".": "./src/index.js",
     "./postgres": "./src/postgres/client.js",
     "./redis": "./src/redis/client.js",
+    "./sqlite": "./src/sqlite/index.js",
     "./repositories": "./src/postgres/repositories/index.js",
     "./dag": "./src/dag/index.js",
     "./poj": "./src/poj/index.js",
     "./graph": "./src/graph/index.js",
     "./factory": "./src/factory.js",
+    "./fallback": "./src/fallback-factory.js",
     "./interfaces": "./src/interfaces/IRepository.js"
   },
   "scripts": {
@@ -27,6 +29,9 @@
   },
   "peerDependencies": {
     "@cynic/core": "^0.1.0"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.0.0"
   },
   "license": "MIT"
 }
