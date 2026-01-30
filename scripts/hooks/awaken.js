@@ -7,6 +7,8 @@
  * This hook runs at the start of every Claude session.
  * It establishes CYNIC's presence from the very first moment.
  *
+ * OUTPUT: Structured JSON for TUI Protocol (see CLAUDE.md)
+ *
  * @event SessionStart
  * @behavior non-blocking (injects message)
  */
@@ -22,9 +24,8 @@ import cynic, {
   loadUserProfile,
   updateUserProfile,
   mergeProfiles,
-  formatEcosystemStatus,
   orchestrate,
-  orchestrateFull,  // Phase 22: For OrchestrationClient init
+  orchestrateFull,
   loadProfileFromDB,
   callBrainTool,
   startBrainSession,
@@ -42,123 +43,97 @@ import cynic, {
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { createRequire } from 'module';
-
-const require = createRequire(import.meta.url);
-
-// Load ANSI colors from collective-dogs module
-let ANSI = null;
-try {
-  const dogs = require('../lib/collective-dogs.cjs');
-  ANSI = dogs.ANSI;
-} catch (e) {
-  // Fallback ANSI codes
-  ANSI = {
-    reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m',
-    red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m',
-    blue: '\x1b[34m', magenta: '\x1b[35m', cyan: '\x1b[36m',
-    brightRed: '\x1b[91m', brightGreen: '\x1b[92m', brightYellow: '\x1b[93m',
-    brightBlue: '\x1b[94m', brightMagenta: '\x1b[95m', brightCyan: '\x1b[96m',
-    brightWhite: '\x1b[97m',
-  };
-}
-
-// Color helper
-const c = (color, text) => `${color}${text}${ANSI.reset}`;
-
-/**
- * Colorize the awakening banner
- * @param {string} message - The banner message
- * @returns {string} Colorized message
- */
-function colorizeBanner(message) {
-  return message
-    // Headers (═══)
-    .replace(/^(═+)$/gm, c(ANSI.cyan, '$1'))
-    // Title lines
-    .replace(/(🧠 CYNIC AWAKENING.*)/g, c(ANSI.bold + ANSI.brightCyan, '$1'))
-    .replace(/("Loyal to truth.*")/g, c(ANSI.dim, '$1'))
-    // Section headers
-    .replace(/^(── .+ ─+)$/gm, c(ANSI.brightWhite, '$1'))
-    // Status indicators
-    .replace(/(✅)/g, c(ANSI.brightGreen, '$1'))
-    .replace(/(⚠️)/g, c(ANSI.brightYellow, '$1'))
-    .replace(/(🔴|❌)/g, c(ANSI.brightRed, '$1'))
-    .replace(/(💡)/g, c(ANSI.brightYellow, '$1'))
-    .replace(/(🔥)/g, c(ANSI.brightRed, '$1'))
-    // Dogs in Sefirot tree
-    .replace(/(🧠 CYNIC)/g, c(ANSI.brightWhite, '$1'))
-    .replace(/(🔍 Scout)/g, c(ANSI.brightGreen, '$1'))
-    .replace(/(🛡️ Guardian)/g, c(ANSI.brightRed, '$1'))
-    .replace(/(🏗️ Architect)/g, c(ANSI.brightBlue, '$1'))
-    .replace(/(🚀 Deployer)/g, c(ANSI.yellow, '$1'))
-    .replace(/(🧹 Janitor)/g, c(ANSI.magenta, '$1'))
-    .replace(/(🔮 Oracle)/g, c(ANSI.brightYellow, '$1'))
-    .replace(/(📊 Analyst)/g, c(ANSI.brightWhite, '$1'))
-    .replace(/(🦉 Sage)/g, c(ANSI.cyan, '$1'))
-    .replace(/(📚 Scholar)/g, c(ANSI.yellow, '$1'))
-    .replace(/(🗺️ Cartographer)/g, c(ANSI.green, '$1'))
-    // State emojis and expressions
-    .replace(/(\*sniff\*)/g, c(ANSI.dim, '$1'))
-    .replace(/(\*GROWL\*)/g, c(ANSI.brightRed, '$1'))
-    .replace(/(\*tail wag\*)/g, c(ANSI.brightGreen, '$1'))
-    .replace(/(\*nod\*)/g, c(ANSI.dim, '$1'))
-    // Thermodynamics
-    .replace(/(Q \(heat\):.*?🔥)/g, c(ANSI.brightRed, '$1'))
-    .replace(/(W \(work\):\s*\d+)/g, c(ANSI.brightGreen, '$1'))
-    .replace(/(Efficiency:.*?%)/g, (match) => {
-      // Color based on efficiency value
-      const effMatch = match.match(/(\d+)%/);
-      if (effMatch) {
-        const eff = parseInt(effMatch[1], 10);
-        if (eff > 50) return c(ANSI.brightGreen, match);
-        if (eff > 30) return c(ANSI.yellow, match);
-        return c(ANSI.brightRed, match);
-      }
-      return match;
-    })
-    // Psychology states
-    .replace(/(FLOW|NORMAL|PRODUCTIVE)/g, c(ANSI.brightGreen, '$1'))
-    .replace(/(BURNOUT|CRITICAL|DANGER)/gi, c(ANSI.brightRed, '$1'))
-    .replace(/(WARNING|CAUTION)/gi, c(ANSI.brightYellow, '$1'))
-    // Energy/focus percentages - color based on value
-    .replace(/(énergie|focus|energy):\s*(\d+)%/gi, (match, label, pct) => {
-      const val = parseInt(pct, 10);
-      const color = val > 60 ? ANSI.brightGreen : (val > 38 ? ANSI.yellow : ANSI.brightRed);
-      return `${label}: ${c(color, pct + '%')}`;
-    })
-    // Progress bars - color based on fill
-    .replace(/\[(█+)(░*)\]/g, (match, filled, empty) => {
-      const fillPct = filled.length / 10;
-      const color = fillPct > 0.6 ? ANSI.brightGreen : (fillPct > 0.38 ? ANSI.yellow : ANSI.brightRed);
-      return `[${c(color, filled)}${empty}]`;
-    })
-    // Final awakening line
-    .replace(/(CYNIC is AWAKE\. φ guides all ratios\.)/g, c(ANSI.brightCyan, '$1'));
-}
 
 // Phase 22: Session state management
 import { getSessionState, initOrchestrationClient } from './lib/index.js';
 
 /**
+ * Build progress bar string
+ * @param {number} value - Value between 0 and 1 (or 0-100)
+ * @param {number} max - Maximum value (default 100)
+ * @returns {string} Progress bar like "██████░░░░"
+ */
+function progressBar(value, max = 100) {
+  const normalized = max === 1 ? value : value / max;
+  const filled = Math.round(Math.min(1, Math.max(0, normalized)) * 10);
+  return '█'.repeat(filled) + '░'.repeat(10 - filled);
+}
+
+/**
+ * Determine trend arrow from trend string
+ * @param {string} trend - 'rising', 'falling', or 'stable'
+ * @returns {string} Arrow character
+ */
+function trendArrow(trend) {
+  if (trend === 'rising') return '↑';
+  if (trend === 'falling') return '↓';
+  return '→';
+}
+
+/**
  * Main handler for SessionStart
  */
 async function main() {
-  try {
-    // Detect user identity
-    const user = detectUser();
+  // Initialize output structure
+  const output = {
+    type: 'SessionStart',
+    timestamp: new Date().toISOString(),
+    user: null,
+    project: null,
+    ecosystem: [],
+    psychology: null,
+    thermodynamics: null,
+    goals: [],
+    notifications: [],
+    memories: null,
+    patterns: [],
+    alerts: [],
+    insights: [],
+    syncStatus: {
+      profile: null,
+      consciousness: null,
+      psychology: null,
+      failures: [],
+    },
+    dogs: {
+      tree: [
+        { id: 'cynic', name: 'CYNIC', emoji: '🧠', sefira: 'Keter', level: 0, pillar: 'middle' },
+        { id: 'analyst', name: 'Analyst', emoji: '📊', sefira: 'Binah', level: 1, pillar: 'left' },
+        { id: 'scholar', name: 'Scholar', emoji: '📚', sefira: 'Daat', level: 1, pillar: 'middle' },
+        { id: 'sage', name: 'Sage', emoji: '🦉', sefira: 'Chochmah', level: 1, pillar: 'right' },
+        { id: 'guardian', name: 'Guardian', emoji: '🛡️', sefira: 'Gevurah', level: 2, pillar: 'left' },
+        { id: 'oracle', name: 'Oracle', emoji: '🔮', sefira: 'Tiferet', level: 2, pillar: 'middle' },
+        { id: 'architect', name: 'Architect', emoji: '🏗️', sefira: 'Chesed', level: 2, pillar: 'right' },
+        { id: 'deployer', name: 'Deployer', emoji: '🚀', sefira: 'Hod', level: 3, pillar: 'left' },
+        { id: 'janitor', name: 'Janitor', emoji: '🧹', sefira: 'Yesod', level: 3, pillar: 'middle' },
+        { id: 'scout', name: 'Scout', emoji: '🔍', sefira: 'Netzach', level: 3, pillar: 'right' },
+        { id: 'cartographer', name: 'Cartographer', emoji: '🗺️', sefira: 'Malkhut', level: 4, pillar: 'middle' },
+      ],
+      active: [],
+    },
+    previousSession: null,
+    proactiveAdvice: null,
+  };
 
+  try {
     // ═══════════════════════════════════════════════════════════════════════════
-    // PHASE 22: Initialize Session State
-    // "Le chien se souvient de tout dans la session"
+    // USER & SESSION
     // ═══════════════════════════════════════════════════════════════════════════
+    const user = detectUser();
+    output.user = {
+      id: user.userId,
+      name: user.name,
+      email: user.email,
+    };
+
+    // Session ID
     const sessionId = process.env.CYNIC_SESSION_ID || `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     process.env.CYNIC_SESSION_ID = sessionId;
+    output.sessionId = sessionId;
 
+    // Initialize session state
     const sessionState = getSessionState();
     await sessionState.init(sessionId, { userId: user.userId });
-
-    // Initialize OrchestrationClient with orchestrateFull
     initOrchestrationClient(orchestrateFull);
 
     // Load optional modules
@@ -169,14 +144,13 @@ async function main() {
     const psychology = getPsychology();
     const thermodynamics = getThermodynamics();
     const contributorDiscovery = getContributorDiscovery();
+    const totalMemory = getTotalMemory();
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // ORCHESTRATION: Notify KETER of session start
-    // "Le chien s'éveille. KETER coordonne."
+    // ORCHESTRATION: Notify KETER
     // ═══════════════════════════════════════════════════════════════════════════
-    let orchestration = null;
     try {
-      orchestration = await orchestrate('session_start', {
+      await orchestrate('session_start', {
         content: 'Session awakening',
         source: 'awaken_hook',
       }, {
@@ -184,40 +158,29 @@ async function main() {
         project: detectProject(),
       });
     } catch (e) {
-      // Orchestration failed - continue with normal awakening
+      // Continue without orchestration
     }
 
-    // Load local profile first
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PROFILE SYNC
+    // ═══════════════════════════════════════════════════════════════════════════
     let localProfile = loadUserProfile(user.userId);
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // CROSS-SESSION MEMORY: Load profile from PostgreSQL
-    // ═══════════════════════════════════════════════════════════════════════════
-    let remoteProfile = null;
     let learningsImport = null;
 
     try {
-      remoteProfile = await loadProfileFromDB(user.userId);
+      const remoteProfile = await loadProfileFromDB(user.userId);
       if (remoteProfile) {
-        // Remote is SOURCE OF TRUTH for accumulated totals
-        // Copy non-stat data from remote (preferences, patterns, memory)
         localProfile = {
           ...localProfile,
-          identity: {
-            ...localProfile.identity,
-            ...remoteProfile.identity,
-            lastSeen: new Date().toISOString(),
-          },
+          identity: { ...localProfile.identity, ...remoteProfile.identity, lastSeen: new Date().toISOString() },
           patterns: remoteProfile.patterns || localProfile.patterns,
           preferences: remoteProfile.preferences || localProfile.preferences,
           memory: remoteProfile.memory || localProfile.memory,
           learning: remoteProfile.learning || {},
         };
 
-        // RESET local stats to 0 - they track SESSION DELTAS ONLY
-        // At session end, these deltas are ADDED to remote totals
         localProfile.stats = {
-          sessions: 1, // This session counts as 1
+          sessions: 1,
           toolCalls: 0,
           errorsEncountered: 0,
           dangerBlocked: 0,
@@ -226,137 +189,102 @@ async function main() {
           judgmentsCorrect: 0,
         };
 
-        // Store remote totals for reference (display purposes)
         localProfile._remoteTotals = remoteProfile.stats || {};
 
         learningsImport = {
           success: true,
           imported: remoteProfile.meta?.sessionCount || 0,
-          stats: {
-            accuracy: remoteProfile.learning?.feedbackAccuracy
-              ? Math.round(remoteProfile.learning.feedbackAccuracy * 100)
-              : null
-          }
+          accuracy: remoteProfile.learning?.feedbackAccuracy
+            ? Math.round(remoteProfile.learning.feedbackAccuracy * 100)
+            : null,
         };
+
+        output.syncStatus.profile = { success: true, sessions: remoteProfile.meta?.sessionCount || 0 };
       }
     } catch (e) {
-      // Track failure for notification
-      localProfile._syncFailures = localProfile._syncFailures || [];
-      localProfile._syncFailures.push({
-        type: 'profile',
-        error: e.message,
-        timestamp: new Date().toISOString(),
-      });
-
-      // Reset stats for clean session tracking
-      localProfile.stats = {
-        sessions: 1,
-        toolCalls: 0,
-        errorsEncountered: 0,
-        dangerBlocked: 0,
-        commitsWithCynic: 0,
-        judgmentsMade: 0,
-        judgmentsCorrect: 0,
-      };
-
-      console.error('[CYNIC] Profile sync failed:', e.message);
+      output.syncStatus.failures.push({ type: 'profile', error: e.message });
+      localProfile.stats = { sessions: 1, toolCalls: 0, errorsEncountered: 0, dangerBlocked: 0, commitsWithCynic: 0, judgmentsMade: 0, judgmentsCorrect: 0 };
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CONSCIOUSNESS SYNC: Load learning loop from PostgreSQL
-    // "Le chien se souvient. L'apprentissage traverse les machines."
+    // CONSCIOUSNESS SYNC
     // ═══════════════════════════════════════════════════════════════════════════
-    let consciousnessImport = null;
     if (consciousness) {
       try {
         const remoteConsciousness = await consciousness.loadFromDB(user.userId);
         if (remoteConsciousness) {
-          // Get local consciousness snapshot
           const localSnapshot = consciousness.getConsciousnessSnapshot();
-
-          // Merge remote with local
           const merged = consciousness.mergeWithRemote(remoteConsciousness, localSnapshot);
+          if (merged.humanGrowth) consciousness.updateHumanGrowth(merged.humanGrowth);
 
-          // Update local files with merged data (will be used during session)
-          if (merged.humanGrowth) {
-            consciousness.updateHumanGrowth(merged.humanGrowth);
-          }
-
-          consciousnessImport = {
+          output.syncStatus.consciousness = {
             success: true,
-            totalObservations: remoteConsciousness.meta?.totalObservations || 0,
-            insightsCount: remoteConsciousness.meta?.insightsCount || 0,
+            observations: remoteConsciousness.meta?.totalObservations || 0,
+            insights: remoteConsciousness.meta?.insightsCount || 0,
           };
         }
       } catch (e) {
-        // Track failure for notification
-        localProfile._syncFailures = localProfile._syncFailures || [];
-        localProfile._syncFailures.push({
-          type: 'consciousness',
-          error: e.message,
-          timestamp: new Date().toISOString(),
-        });
-        console.error('[CYNIC] Consciousness sync failed:', e.message);
+        output.syncStatus.failures.push({ type: 'consciousness', error: e.message });
       }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // PSYCHOLOGY SYNC: Load human understanding from PostgreSQL
-    // "Comprendre l'humain pour mieux l'aider"
+    // PSYCHOLOGY SYNC
     // ═══════════════════════════════════════════════════════════════════════════
     if (psychology) {
       try {
         const remotePsychology = await psychology.loadFromDB(user.userId);
         if (remotePsychology) {
-          // Psychology state imported from remote - learning persists
+          output.syncStatus.psychology = { success: true };
         }
       } catch (e) {
-        // Track failure for notification
-        localProfile._syncFailures = localProfile._syncFailures || [];
-        localProfile._syncFailures.push({
-          type: 'psychology',
-          error: e.message,
-          timestamp: new Date().toISOString(),
-        });
-        console.error('[CYNIC] Psychology sync failed:', e.message);
+        output.syncStatus.failures.push({ type: 'psychology', error: e.message });
       }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // BREAK DETECTION: Check gap since last session for psychology module
-    // "Le repos fait partie du travail"
-    // ═══════════════════════════════════════════════════════════════════════════
+    // Break detection
     if (signalCollector && localProfile.updatedAt) {
       const gapMs = Date.now() - localProfile.updatedAt;
       signalCollector.collectBreak(gapMs);
     }
 
-    // Update profile with current identity info and increment session
+    // Update profile
     let profile = updateUserProfile(localProfile, {
-      identity: {
-        name: user.name,
-        email: user.email
-      },
-      stats: {
-        sessions: (localProfile.stats?.sessions || 0) + 1
-      }
+      identity: { name: user.name, email: user.email },
+      stats: { sessions: (localProfile.stats?.sessions || 0) + 1 },
     });
 
-    // Detect ecosystem (all projects in workspace)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ECOSYSTEM
+    // ═══════════════════════════════════════════════════════════════════════════
     const ecosystem = detectEcosystem();
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // TOTAL MEMORY: Load memories, decisions, lessons, notifications, goals
-    // "φ remembers everything" - CYNIC's Total Memory system
-    // ═══════════════════════════════════════════════════════════════════════════
-    let totalMemoryData = null;
-    const totalMemory = getTotalMemory();
+    if (ecosystem.currentProject) {
+      output.project = {
+        name: ecosystem.currentProject.name,
+        path: ecosystem.currentProject.path,
+        type: ecosystem.currentProject.type || 'unknown',
+        branch: ecosystem.currentProject.branch || 'main',
+      };
+    }
 
+    if (ecosystem.projects) {
+      output.ecosystem = ecosystem.projects.map(p => ({
+        name: p.name,
+        path: p.path,
+        branch: p.branch,
+        status: p.status || 'ok',
+        isCurrent: p.path === ecosystem.currentProject?.path,
+      }));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TOTAL MEMORY: Load goals, notifications, memories
+    // ═══════════════════════════════════════════════════════════════════════════
     if (totalMemory) {
       try {
         await totalMemory.init();
 
-        // Load in parallel for speed
         const [memories, notifications, goals] = await Promise.race([
           Promise.all([
             totalMemory.loadSessionMemories(user.userId, {
@@ -367,495 +295,242 @@ async function main() {
             totalMemory.getPendingNotifications(user.userId, 5),
             totalMemory.getActiveGoals(user.userId),
           ]),
-          new Promise(resolve => setTimeout(() => resolve([null, [], []]), 3000))
+          new Promise(resolve => setTimeout(() => resolve([null, [], []]), 3000)),
         ]);
 
-        totalMemoryData = { memories, notifications, goals };
+        if (goals?.length > 0) {
+          output.goals = goals.map(g => ({
+            id: g.id,
+            title: g.title,
+            type: g.goalType || g.goal_type,
+            progress: Math.round((g.progress || 0) * 100),
+            progressBar: progressBar(g.progress || 0, 1),
+          }));
+        }
 
-        // Mark notifications as delivered
         if (notifications?.length > 0) {
+          output.notifications = notifications.map(n => ({
+            id: n.id,
+            title: n.title,
+            message: n.message,
+            type: n.notificationType || n.notification_type,
+          }));
           totalMemory.markNotificationsDelivered(notifications.map(n => n.id)).catch(() => {});
         }
+
+        if (memories) {
+          output.memories = {
+            decisions: (memories.decisions || []).slice(0, 3).map(d => ({ title: d.title, context: d.context })),
+            lessons: (memories.lessons || []).slice(0, 3).map(l => ({ mistake: l.mistake?.substring(0, 80), correction: l.correction })),
+            patterns: (memories.patterns || []).slice(0, 3),
+          };
+        }
       } catch (e) {
-        // Total Memory load failed - continue without
-        console.error('[CYNIC] Total Memory load failed:', e.message);
+        // Continue without total memory
       }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // MCP: Load relevant context from brain memory
-    // "Le chien se souvient" - CYNIC remembers
+    // MCP BRAIN: Fallback for goals/notifications if not in total memory
     // ═══════════════════════════════════════════════════════════════════════════
-    let brainMemory = null;
-    let brainPsychology = null;
-    let brainGoals = null;
-    let brainNotifications = null;
     try {
-      // Search for relevant memories about current project/user (non-blocking)
-      const searchPromise = callBrainTool('brain_search', {
-        query: `${ecosystem.currentProject?.name || 'project'} ${user.name}`,
-        limit: 5,
-        types: ['decision', 'pattern', 'insight'],
-      });
-
-      // Get psychology state (non-blocking)
-      const psychPromise = callBrainTool('brain_psychology', {
-        action: 'get_state',
-        userId: user.userId,
-      });
-
-      // Get active goals from PostgreSQL (Phase 16)
-      const goalsPromise = callBrainTool('brain_goals', {
-        action: 'list',
-        status: 'active',
-        userId: user.userId,
-      });
-
-      // Get pending notifications from PostgreSQL (Phase 16)
-      const notificationsPromise = callBrainTool('brain_notifications', {
-        action: 'list',
-        delivered: false,
-        userId: user.userId,
-        limit: 5,
-      });
-
-      // Wait for all with timeout (don't block session start)
-      const results = await Promise.race([
-        Promise.all([searchPromise, psychPromise, goalsPromise, notificationsPromise]),
-        new Promise(resolve => setTimeout(() => resolve([null, null, null, null]), 3000))
+      const [brainGoals, brainNotifications] = await Promise.race([
+        Promise.all([
+          callBrainTool('brain_goals', { action: 'list', status: 'active', userId: user.userId }),
+          callBrainTool('brain_notifications', { action: 'list', delivered: false, userId: user.userId, limit: 5 }),
+        ]),
+        new Promise(resolve => setTimeout(() => resolve([null, null]), 2000)),
       ]);
 
-      [brainMemory, brainPsychology, brainGoals, brainNotifications] = results || [null, null, null, null];
+      if (output.goals.length === 0 && brainGoals?.success && brainGoals?.result?.goals?.length > 0) {
+        output.goals = brainGoals.result.goals.map(g => ({
+          id: g.id,
+          title: g.title,
+          type: g.goal_type,
+          progress: Math.round((g.progress || 0) * 100),
+          progressBar: progressBar(g.progress || 0, 1),
+          source: 'remote',
+        }));
+      }
 
-      // Mark notifications as delivered (non-blocking)
-      if (brainNotifications?.success && brainNotifications?.result?.notifications?.length > 0) {
-        const notificationIds = brainNotifications.result.notifications.map(n => n.id);
-        callBrainTool('brain_notifications', {
-          action: 'mark_delivered',
-          ids: notificationIds,
-        }).catch(() => {});
+      if (output.notifications.length === 0 && brainNotifications?.success && brainNotifications?.result?.notifications?.length > 0) {
+        output.notifications = brainNotifications.result.notifications.map(n => ({
+          id: n.id,
+          title: n.title,
+          message: n.message,
+          type: n.notification_type,
+          source: 'remote',
+        }));
+        callBrainTool('brain_notifications', { action: 'mark_delivered', ids: brainNotifications.result.notifications.map(n => n.id) }).catch(() => {});
       }
     } catch (e) {
-      // MCP calls failed - continue without (non-critical)
+      // Continue without brain data
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // GOAL SYSTEM: Create default goals if none exist
-    // "φ pursues quality autonomously" - Phase 16 Autonomy
+    // CREATE DEFAULT GOALS IF NONE
     // ═══════════════════════════════════════════════════════════════════════════
-    const hasLocalGoals = totalMemoryData?.goals?.length > 0;
-    const hasRemoteGoals = brainGoals?.success && brainGoals?.result?.goals?.length > 0;
+    if (output.goals.length === 0) {
+      const defaultGoals = [
+        { goal_type: 'quality', title: 'Maintain Code Quality', priority: 70 },
+        { goal_type: 'learning', title: 'Continuous Learning', priority: 60 },
+        { goal_type: 'maintenance', title: 'Reduce Tech Debt', priority: 50 },
+      ];
 
-    if (!hasLocalGoals && !hasRemoteGoals) {
-      // No goals exist - create default goals for this user
-      try {
-        const defaultGoals = [
-          {
-            goal_type: 'quality',
-            title: 'Maintain Code Quality',
-            description: 'Keep test coverage high and lint scores clean',
-            priority: 70,
-          },
-          {
-            goal_type: 'learning',
-            title: 'Continuous Learning',
-            description: 'Learn from mistakes and apply lessons',
-            priority: 60,
-          },
-          {
-            goal_type: 'maintenance',
-            title: 'Reduce Tech Debt',
-            description: 'Simplify code and update dependencies',
-            priority: 50,
-          },
-        ];
-
-        for (const goal of defaultGoals) {
-          await callBrainTool('brain_goals', {
-            action: 'create',
-            userId: user.userId,
-            ...goal,
-          }).catch(() => {});
-        }
-
-        // Refresh goals for display
-        const refreshedGoals = await callBrainTool('brain_goals', {
-          action: 'list',
-          status: 'active',
-          userId: user.userId,
-        }).catch(() => null);
-
-        if (refreshedGoals?.success) {
-          brainGoals = refreshedGoals;
-        }
-      } catch (e) {
-        // Goal creation failed - continue without
+      for (const goal of defaultGoals) {
+        try {
+          await callBrainTool('brain_goals', { action: 'create', userId: user.userId, ...goal });
+        } catch (e) { /* ignore */ }
       }
+
+      output.goals = defaultGoals.map(g => ({
+        title: g.title,
+        type: g.goal_type,
+        progress: 100,
+        progressBar: progressBar(100),
+        source: 'default',
+      }));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // COCKPIT: Deep ecosystem scan with alerts
+    // COCKPIT ALERTS
     // ═══════════════════════════════════════════════════════════════════════════
-    let cockpitData = null;
     if (cockpit) {
       try {
-        cockpitData = cockpit.fullScan();
-      } catch (e) {
-        // Cockpit scan failed - continue without
-      }
-    }
-
-    // Update profile with current project
-    if (ecosystem.currentProject) {
-      const recentProjects = profile.memory?.recentProjects || [];
-      const projectName = ecosystem.currentProject.name;
-
-      // Add to recent if not already first
-      if (recentProjects[0] !== projectName) {
-        profile = updateUserProfile(profile, {
-          memory: {
-            recentProjects: [projectName, ...recentProjects.filter(p => p !== projectName)].slice(0, 10)
-          }
-        });
-      }
-    }
-
-    // Format the awakening message (with learnings import info if available)
-    let message = formatEcosystemStatus(ecosystem, profile, learningsImport);
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // COCKPIT ALERTS: Inject proactive warnings
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (cockpitData?.alerts?.alerts?.length > 0) {
-      const activeAlerts = cockpitData.alerts.alerts.filter(a => !a.acknowledged);
-      if (activeAlerts.length > 0) {
-        const alertLines = ['', '── COCKPIT ALERTS ─────────────────────────────────────────'];
-        for (const alert of activeAlerts.slice(0, 5)) {
-          const icon = alert.severity === 'critical' ? '🔴' :
-                       alert.severity === 'warning' ? '⚠️' : 'ℹ️';
-          alertLines.push(`   ${icon} ${alert.message}`);
-        }
-        if (activeAlerts.length > 5) {
-          alertLines.push(`   ... +${activeAlerts.length - 5} more alerts`);
-        }
-        // Insert before the final banner
-        const lines = message.split('\n');
-        const insertIdx = lines.findIndex(l => l.includes('CYNIC is AWAKE'));
-        if (insertIdx > 0) {
-          lines.splice(insertIdx, 0, ...alertLines, '');
-          message = lines.join('\n');
-        }
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // TOTAL MEMORY: Inject notifications, goals, and memories
-    // "φ remembers everything"
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (totalMemoryData) {
-      try {
-        const lines = message.split('\n');
-        const insertIdx = lines.findIndex(l => l.includes('CYNIC is AWAKE'));
-
-        // Proactive notifications (delivered at session start)
-        if (totalMemoryData.notifications?.length > 0) {
-          const notifLines = ['', '── 📬 NOTIFICATIONS ───────────────────────────────────────'];
-          for (const n of totalMemoryData.notifications.slice(0, 3)) {
-            const icon = n.notificationType === 'warning' ? '⚠️' :
-                         n.notificationType === 'achievement' ? '🏆' :
-                         n.notificationType === 'reminder' ? '🔔' : '💡';
-            notifLines.push(`   ${icon} ${n.title}`);
-            if (n.message && n.message.length < 60) {
-              notifLines.push(`      ${n.message}`);
-            }
-          }
-          if (insertIdx > 0) {
-            lines.splice(insertIdx, 0, ...notifLines, '');
-          }
-        }
-
-        // Active goals
-        if (totalMemoryData.goals?.length > 0) {
-          const goalLines = ['', '── 🎯 ACTIVE GOALS ────────────────────────────────────────'];
-          for (const g of totalMemoryData.goals.slice(0, 3)) {
-            const progress = Math.round((g.progress || 0) * 100);
-            const bar = '█'.repeat(Math.floor(progress / 10)) + '░'.repeat(10 - Math.floor(progress / 10));
-            goalLines.push(`   [${bar}] ${progress}% ${g.title}`);
-          }
-          if (totalMemoryData.goals.length > 3) {
-            goalLines.push(`   ... +${totalMemoryData.goals.length - 3} more goals`);
-          }
-          if (insertIdx > 0) {
-            lines.splice(insertIdx, 0, ...goalLines, '');
-          }
-        }
-
-        // Relevant memories (decisions, lessons)
-        const memories = totalMemoryData.memories;
-        if (memories?.decisions?.length > 0 || memories?.lessons?.length > 0) {
-          const memLines = ['', '── 🧠 RELEVANT MEMORIES ───────────────────────────────────'];
-
-          // Show relevant decisions
-          for (const d of (memories.decisions || []).slice(0, 2)) {
-            memLines.push(`   📋 ${d.title}`);
-          }
-
-          // Show relevant lessons (self-correction)
-          for (const l of (memories.lessons || []).slice(0, 2)) {
-            memLines.push(`   ⚠️ Lesson: ${l.mistake?.substring(0, 50)}...`);
-          }
-
-          if (insertIdx > 0) {
-            lines.splice(insertIdx, 0, ...memLines, '');
-          }
-        }
-
-        message = lines.join('\n');
-      } catch (e) {
-        // Total Memory injection failed - continue without
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // BRAIN MEMORY: Inject relevant memories from MCP (legacy)
-    // "Le chien n'oublie jamais"
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (brainMemory?.success && brainMemory?.result?.entries?.length > 0 && !totalMemoryData?.memories) {
-      try {
-        const memoryLines = ['', '── MEMORY ─────────────────────────────────────────────────'];
-        for (const entry of brainMemory.result.entries.slice(0, 3)) {
-          const icon = entry.type === 'decision' ? '📋' :
-                       entry.type === 'pattern' ? '🔄' :
-                       entry.type === 'insight' ? '💡' : '📝';
-          memoryLines.push(`   ${icon} ${entry.title || entry.content?.substring(0, 50)}...`);
-        }
-        const lines = message.split('\n');
-        const insertIdx = lines.findIndex(l => l.includes('CYNIC is AWAKE'));
-        if (insertIdx > 0) {
-          lines.splice(insertIdx, 0, ...memoryLines, '');
-          message = lines.join('\n');
+        const cockpitData = cockpit.fullScan();
+        if (cockpitData?.alerts?.alerts?.length > 0) {
+          output.alerts = cockpitData.alerts.alerts
+            .filter(a => !a.acknowledged)
+            .slice(0, 5)
+            .map(a => ({
+              severity: a.severity,
+              message: a.message,
+              source: a.source,
+            }));
         }
       } catch (e) {
-        // Memory injection failed - continue without
+        // Continue without cockpit
       }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // BRAIN GOALS/NOTIFICATIONS: Inject from PostgreSQL if no local data
-    // "φ remembers across machines" - Phase 16 Total Memory
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (!totalMemoryData?.goals && brainGoals?.success && brainGoals?.result?.goals?.length > 0) {
-      try {
-        const goalLines = ['', '── 🎯 ACTIVE GOALS (remote) ───────────────────────────────'];
-        for (const g of brainGoals.result.goals.slice(0, 3)) {
-          const progress = Math.round((g.progress || 0) * 100);
-          const bar = '█'.repeat(Math.floor(progress / 10)) + '░'.repeat(10 - Math.floor(progress / 10));
-          goalLines.push(`   [${bar}] ${progress}% ${g.title}`);
-        }
-        const lines = message.split('\n');
-        const insertIdx = lines.findIndex(l => l.includes('CYNIC is AWAKE'));
-        if (insertIdx > 0) {
-          lines.splice(insertIdx, 0, ...goalLines, '');
-          message = lines.join('\n');
-        }
-      } catch (e) {
-        // Goal injection failed - continue without
-      }
-    }
-
-    if (!totalMemoryData?.notifications && brainNotifications?.success && brainNotifications?.result?.notifications?.length > 0) {
-      try {
-        const notifLines = ['', '── 📬 NOTIFICATIONS (remote) ──────────────────────────────'];
-        for (const n of brainNotifications.result.notifications.slice(0, 3)) {
-          const icon = n.notification_type === 'warning' ? '⚠️' :
-                       n.notification_type === 'achievement' ? '🏆' :
-                       n.notification_type === 'reminder' ? '🔔' : '💡';
-          notifLines.push(`   ${icon} ${n.title}`);
-          if (n.message && n.message.length < 60) {
-            notifLines.push(`      ${n.message}`);
-          }
-        }
-        const lines = message.split('\n');
-        const insertIdx = lines.findIndex(l => l.includes('CYNIC is AWAKE'));
-        if (insertIdx > 0) {
-          lines.splice(insertIdx, 0, ...notifLines, '');
-          message = lines.join('\n');
-        }
-      } catch (e) {
-        // Notification injection failed - continue without
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // CONSCIOUSNESS: Inject learning loop context
+    // CONSCIOUSNESS INSIGHTS
     // ═══════════════════════════════════════════════════════════════════════════
     if (consciousness) {
       try {
         const ctx = consciousness.generateSessionStartContext();
-
-        // Add insights if any
-        if (ctx.insights && ctx.insights.length > 0) {
-          const insightLines = ['', '── INSIGHTS ───────────────────────────────────────────────'];
-          for (const insight of ctx.insights) {
-            insightLines.push(`   💡 ${insight.title}`);
-          }
-          const lines = message.split('\n');
-          const insertIdx = lines.findIndex(l => l.includes('CYNIC is AWAKE'));
-          if (insertIdx > 0) {
-            lines.splice(insertIdx, 0, ...insightLines, '');
-            message = lines.join('\n');
-          }
+        if (ctx.insights?.length > 0) {
+          output.insights = ctx.insights.map(i => ({ title: i.title, type: i.type }));
         }
-
-        // Track recent project in consciousness
         if (ecosystem.currentProject) {
           consciousness.updateRecentContext('lastProjects', ecosystem.currentProject.name);
         }
       } catch (e) {
-        // Consciousness injection failed - continue without
+        // Continue without insights
       }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // PSYCHOLOGICAL STATE: Show current state if tracked
-    // "Comprendre l'humain pour mieux l'aider"
+    // PSYCHOLOGY STATE
     // ═══════════════════════════════════════════════════════════════════════════
     if (psychology) {
       try {
         const psySummary = psychology.getSummary();
-        if (psySummary.confidence > DC.CONFIDENCE.PSYCHOLOGY_DISPLAY) { // Only show if some confidence
-          const stateLines = ['', '── ÉTAT ───────────────────────────────────────────────────'];
-          stateLines.push(`   ${psySummary.emoji} ${psySummary.overallState.toUpperCase()}`);
-          stateLines.push(`   énergie: ${Math.round(psySummary.energy.value * 100)}% ${psySummary.energy.trend === 'rising' ? '↑' : psySummary.energy.trend === 'falling' ? '↓' : '→'}`);
-          stateLines.push(`   focus: ${Math.round(psySummary.focus.value * 100)}% ${psySummary.focus.trend === 'rising' ? '↑' : psySummary.focus.trend === 'falling' ? '↓' : '→'}`);
-
-          if (psySummary.composites.burnoutRisk) {
-            stateLines.push(`   ⚠️ Burnout risk detected - consider a break`);
-          }
-          if (psySummary.composites.flow) {
-            stateLines.push(`   ✨ Flow state - don't interrupt!`);
-          }
-
-          const lines = message.split('\n');
-          const insertIdx = lines.findIndex(l => l.includes('CYNIC is AWAKE'));
-          if (insertIdx > 0) {
-            lines.splice(insertIdx, 0, ...stateLines, '');
-            message = lines.join('\n');
-          }
+        if (psySummary.confidence > DC.CONFIDENCE.PSYCHOLOGY_DISPLAY) {
+          output.psychology = {
+            state: psySummary.overallState.toUpperCase(),
+            emoji: psySummary.emoji,
+            energy: {
+              value: Math.round(psySummary.energy.value * 100),
+              trend: psySummary.energy.trend,
+              arrow: trendArrow(psySummary.energy.trend),
+              bar: progressBar(psySummary.energy.value, 1),
+            },
+            focus: {
+              value: Math.round(psySummary.focus.value * 100),
+              trend: psySummary.focus.trend,
+              arrow: trendArrow(psySummary.focus.trend),
+              bar: progressBar(psySummary.focus.value, 1),
+            },
+            composites: {
+              flow: psySummary.composites.flow || false,
+              burnoutRisk: psySummary.composites.burnoutRisk || false,
+              exploration: psySummary.composites.exploration || false,
+              grind: psySummary.composites.grind || false,
+            },
+            confidence: Math.round(psySummary.confidence * 100),
+          };
         }
       } catch (e) {
-        // Psychology injection failed - continue without
+        // Continue without psychology
       }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // THERMODYNAMICS: Show cognitive heat/work/efficiency
-    // "Ἐνέργεια - the activity of being"
+    // THERMODYNAMICS STATE
     // ═══════════════════════════════════════════════════════════════════════════
     if (thermodynamics) {
       try {
         const thermoState = thermodynamics.getState();
         const recommendation = thermodynamics.getRecommendation();
 
-        // Only show if there's meaningful data (heat or work > 0)
-        if (thermoState.heat > 0 || thermoState.work > 0) {
-          // Temperature bar (0 to critical)
-          const tempPercent = Math.min(100, (thermoState.temperature / thermodynamics.CRITICAL_TEMPERATURE) * 100);
-          const tempBar = '█'.repeat(Math.round(tempPercent / 10)) +
-                          '░'.repeat(10 - Math.round(tempPercent / 10));
-
-          // Efficiency bar
-          const effBar = '█'.repeat(Math.round(thermoState.efficiency / 10)) +
-                         '░'.repeat(10 - Math.round(thermoState.efficiency / 10));
-
-          const criticalIndicator = thermoState.isCritical ? ' 🔥' : '';
-
-          const thermoLines = ['', '── THERMODYNAMICS ─────────────────────────────────────────'];
-          thermoLines.push(`   Q (heat):     ${thermoState.heat}${criticalIndicator}  W (work): ${thermoState.work}`);
-          thermoLines.push(`   Temperature:  [${tempBar}] ${thermoState.temperature}°`);
-          thermoLines.push(`   Efficiency:   [${effBar}] ${thermoState.efficiency}% (φ max: ${thermoState.carnotLimit}%)`);
-
-          // Show recommendation if not GOOD
-          if (recommendation.level !== 'GOOD') {
-            thermoLines.push(`   ${recommendation.message}`);
-          }
-
-          const lines = message.split('\n');
-          const insertIdx = lines.findIndex(l => l.includes('CYNIC is AWAKE'));
-          if (insertIdx > 0) {
-            lines.splice(insertIdx, 0, ...thermoLines, '');
-            message = lines.join('\n');
-          }
-        }
+        output.thermodynamics = {
+          heat: thermoState.heat,
+          work: thermoState.work,
+          temperature: thermoState.temperature,
+          temperatureBar: progressBar(thermoState.temperature, thermodynamics.CRITICAL_TEMPERATURE),
+          efficiency: thermoState.efficiency,
+          efficiencyBar: progressBar(thermoState.efficiency),
+          carnotLimit: thermoState.carnotLimit,
+          entropy: thermoState.entropy,
+          isCritical: thermoState.isCritical,
+          recommendation: {
+            level: recommendation.level,
+            message: recommendation.message,
+          },
+        };
       } catch (e) {
-        // Thermodynamics injection failed - continue without
+        // Continue without thermodynamics
       }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // COLLECTIVE DOGS: Show the 11 Dogs of CYNIC
-    // "Tree of Life - CYNIC's collective consciousness"
+    // RECENT PATTERNS
     // ═══════════════════════════════════════════════════════════════════════════
-    try {
-      // Mini Sefirot tree showing active Dogs
-      const dogsLines = ['', '── COLLECTIVE DOGS (Sefirot) ──────────────────────────────'];
-      dogsLines.push('               🧠 CYNIC (Keter)');
-      dogsLines.push('          ╱          │          ╲');
-      dogsLines.push('    📊 Analyst   📚 Scholar   🦉 Sage');
-      dogsLines.push('          ╲          │          ╱');
-      dogsLines.push('    🛡️ Guardian  🔮 Oracle   🏗️ Architect');
-      dogsLines.push('          ╲          │          ╱');
-      dogsLines.push('    🚀 Deployer  🧹 Janitor  🔍 Scout');
-      dogsLines.push('               ╲     │     ╱');
-      dogsLines.push('               🗺️ Cartographer');
-
-      const lines = message.split('\n');
-      const insertIdx = lines.findIndex(l => l.includes('CYNIC is AWAKE'));
-      if (insertIdx > 0) {
-        lines.splice(insertIdx, 0, ...dogsLines, '');
-        message = lines.join('\n');
-      }
-    } catch (e) {
-      // Dogs display failed - continue without
+    if (profile.patterns?.recent) {
+      output.patterns = Object.entries(profile.patterns.recent)
+        .slice(0, 5)
+        .map(([name, count]) => ({ name, count }));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // PROACTIVE ADVISOR: Intelligent suggestions
+    // PROACTIVE ADVISOR
     // ═══════════════════════════════════════════════════════════════════════════
     if (proactiveAdvisor && proactiveAdvisor.shouldInjectNow()) {
       try {
         const injection = proactiveAdvisor.generateSessionInjection();
         if (injection) {
-          const lines = message.split('\n');
-          const insertIdx = lines.findIndex(l => l.includes('CYNIC is AWAKE'));
-          if (insertIdx > 0) {
-            lines.splice(insertIdx, 0, injection, '');
-            message = lines.join('\n');
-          }
+          output.proactiveAdvice = injection;
         }
       } catch (e) {
-        // Proactive injection failed - continue without
+        // Continue without proactive advice
       }
     }
 
-    // Start brain session first (async but we don't wait)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // START BRAIN SESSION (async, don't wait)
+    // ═══════════════════════════════════════════════════════════════════════════
     startBrainSession(user.userId, {
       project: ecosystem.currentProject?.name,
       metadata: {
         userName: user.name,
         sessionCount: profile.stats?.sessions || 1,
         ecosystem: ecosystem.projects?.map(p => p.name) || [],
-      }
+      },
     }).then(result => {
-      if (result.sessionId) {
-        // Store session ID in environment for other hooks
-        process.env.CYNIC_SESSION_ID = result.sessionId;
-      }
-    }).catch(() => {
-      // Silently ignore - local mode still works
-    });
+      if (result.sessionId) process.env.CYNIC_SESSION_ID = result.sessionId;
+    }).catch(() => {});
 
-    // Also send to MCP collective for event distribution
     sendHookToCollectiveSync('SessionStart', {
       userId: user.userId,
       userName: user.name,
@@ -866,17 +541,13 @@ async function main() {
     });
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CONTRIBUTOR DISCOVERY: Background profiling of all contributors
-    // "Les rails dans le cerveau" - Automatic learning infrastructure
+    // CONTRIBUTOR DISCOVERY (background, don't wait)
     // ═══════════════════════════════════════════════════════════════════════════
     if (contributorDiscovery) {
-      // Run discovery in background - don't block awakening
       setImmediate(async () => {
         try {
-          // Discover and profile current user
           const currentProfile = await contributorDiscovery.getCurrentUserProfile();
           if (currentProfile) {
-            // Store contributor profile in environment for other hooks
             process.env.CYNIC_CONTRIBUTOR_PROFILE = JSON.stringify({
               email: currentProfile.email,
               personality: currentProfile.insights?.personality,
@@ -885,7 +556,6 @@ async function main() {
             });
           }
 
-          // Full ecosystem scan (only if needed - check last scan time)
           const lastScanPath = path.join(os.homedir(), '.cynic', 'learning', 'last-discovery-scan.json');
           let shouldScan = true;
 
@@ -893,71 +563,37 @@ async function main() {
             if (fs.existsSync(lastScanPath)) {
               const lastScan = JSON.parse(fs.readFileSync(lastScanPath, 'utf8'));
               const hoursSinceScan = (Date.now() - lastScan.timestamp) / (1000 * 60 * 60);
-              // Only full scan every 6.18 hours (φ-aligned)
               shouldScan = hoursSinceScan > DC.PHI.PHI_HOURS;
             }
           } catch (e) { /* scan anyway */ }
 
           if (shouldScan) {
-            // Full ecosystem discovery
             const discovery = await contributorDiscovery.fullEcosystemScan();
-
-            // Save scan timestamp
             const scanDir = path.dirname(lastScanPath);
-            if (!fs.existsSync(scanDir)) {
-              fs.mkdirSync(scanDir, { recursive: true });
-            }
+            if (!fs.existsSync(scanDir)) fs.mkdirSync(scanDir, { recursive: true });
             fs.writeFileSync(lastScanPath, JSON.stringify({
               timestamp: Date.now(),
               repos: discovery.repos?.length || 0,
               contributors: Object.keys(discovery.contributors || {}).length,
             }));
           }
-        } catch (e) {
-          // Silently ignore - discovery is optional enhancement
-        }
+        } catch (e) { /* ignore */ }
       });
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // SYNC FAILURES: Warn user if cross-session memory is not working
+    // OUTPUT JSON
     // ═══════════════════════════════════════════════════════════════════════════
-    if (localProfile._syncFailures && localProfile._syncFailures.length > 0) {
-      const warnLines = ['', '── ⚠️  SYNC WARNINGS ───────────────────────────────────────'];
-      warnLines.push('   Cross-session memory may be limited:');
-
-      for (const failure of localProfile._syncFailures) {
-        const icon = failure.type === 'profile' ? '👤' :
-                     failure.type === 'consciousness' ? '🧠' :
-                     failure.type === 'psychology' ? '💭' : '❓';
-        warnLines.push(`   ${icon} ${failure.type}: ${failure.error || 'connection failed'}`);
-      }
-
-      warnLines.push('   📁 Local file backup will be used');
-      warnLines.push('');
-
-      const lines = message.split('\n');
-      const insertIdx = lines.findIndex(l => l.includes('CYNIC is AWAKE'));
-      if (insertIdx > 0) {
-        lines.splice(insertIdx, 0, ...warnLines);
-        message = lines.join('\n');
-      }
-
-      // Save profile with sync failures tracked for session end
-      try {
-        const { saveUserProfile } = await import('../lib/cynic-core.cjs');
-        saveUserProfile(localProfile);
-      } catch (e) { /* ignore */ }
-    }
-
-    // Output directly to stdout (like asdf-brain) for banner display
-    // Apply colors if terminal supports it
-    const useColor = process.stdout.isTTY !== false && !process.env.NO_COLOR;
-    console.log(useColor ? colorizeBanner(message) : message);
+    console.log(JSON.stringify(output, null, 2));
 
   } catch (error) {
     // Minimal output on error
-    console.log('🧠 CYNIC awakening... *yawn*');
+    console.log(JSON.stringify({
+      type: 'SessionStart',
+      timestamp: new Date().toISOString(),
+      error: error.message,
+      minimal: true,
+    }));
   }
 }
 

@@ -8,6 +8,8 @@
  * It finalizes the session with brain_session_end, persists stats,
  * and ensures all data is properly saved.
  *
+ * OUTPUT: Structured JSON for TUI Protocol (see CLAUDE.md)
+ *
  * @event SessionEnd
  * @behavior non-blocking (cleanup)
  */
@@ -26,23 +28,27 @@ import cynic, {
   getConsciousness,
   getPsychology,
   getTotalMemory,
+  getThermodynamics,
 } from '../lib/index.js';
 
 // Phase 22: Session state management
 import { getSessionState } from './lib/index.js';
 
+// Load collective dogs for activity summary
+import { createRequire } from 'module';
+const requireCJS = createRequire(import.meta.url);
+
+let collectiveDogsModule = null;
+try {
+  collectiveDogsModule = requireCJS('../lib/collective-dogs.cjs');
+} catch (e) { /* ignore */ }
+
 // =============================================================================
 // RETRY HELPER
 // =============================================================================
 
-/**
- * Retry an async operation with exponential backoff
- * @param {Function} fn - Async function to retry
- * @param {Object} options - Retry options
- * @returns {Promise<{success: boolean, result?: any, error?: Error}>}
- */
 async function retryWithBackoff(fn, options = {}) {
-  const { maxRetries = 3, initialDelay = 100, maxDelay = 2000, operationName = 'operation' } = options;
+  const { maxRetries = 3, initialDelay = 100, maxDelay = 2000 } = options;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -53,11 +59,9 @@ async function retryWithBackoff(fn, options = {}) {
       const delay = Math.min(initialDelay * Math.pow(2, attempt - 1), maxDelay);
 
       if (isLastAttempt) {
-        console.error(`[CYNIC] ${operationName} failed after ${maxRetries} attempts:`, error.message);
         return { success: false, error };
       }
 
-      console.warn(`[CYNIC] ${operationName} attempt ${attempt}/${maxRetries} failed, retrying in ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
@@ -69,20 +73,6 @@ async function retryWithBackoff(fn, options = {}) {
 // SESSION FINALIZATION
 // =============================================================================
 
-function calculateSessionSummary(profile, startTime) {
-  const endTime = Date.now();
-  const duration = endTime - (startTime || endTime - 60000); // Default 1 min if unknown
-
-  return {
-    duration,
-    durationMinutes: Math.round(duration / 60000),
-    toolsUsed: profile.stats?.toolCalls || 0,
-    errorsEncountered: profile.stats?.errorsEncountered || 0,
-    dangerBlocked: profile.stats?.dangerBlocked || 0,
-    topTools: getTopTools(profile),
-  };
-}
-
 function getTopTools(profile) {
   const commonTools = profile.patterns?.commonTools || {};
   return Object.entries(commonTools)
@@ -91,104 +81,48 @@ function getTopTools(profile) {
     .map(([tool, count]) => ({ tool, count }));
 }
 
-function formatSleepMessage(profile, summary, syncFailures = []) {
-  const lines = [];
-
-  lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════');
-  lines.push('🧠 CYNIC SLEEPING - Session Finalized');
-  lines.push('═══════════════════════════════════════════════════════════');
-  lines.push('');
-
-  // Session stats
-  lines.push('── SESSION COMPLETE ───────────────────────────────────────');
-  lines.push(`   Duration: ${summary.durationMinutes} minutes`);
-  lines.push(`   Tools called: ${summary.toolsUsed}`);
-  if (summary.errorsEncountered > 0) {
-    lines.push(`   Errors encountered: ${summary.errorsEncountered}`);
-  }
-  if (summary.dangerBlocked > 0) {
-    lines.push(`   Dangers blocked: ${summary.dangerBlocked}`);
-  }
-  lines.push('');
-
-  // Top tools
-  if (summary.topTools.length > 0) {
-    lines.push('── TOP TOOLS ──────────────────────────────────────────────');
-    for (const { tool, count } of summary.topTools.slice(0, 3)) {
-      lines.push(`   • ${tool} (${count}x)`);
-    }
-    lines.push('');
-  }
-
-  // Storage info with sync status
-  lines.push('── STORAGE ────────────────────────────────────────────────');
-
-  const profileFailed = syncFailures.some(f => f.type === 'profile');
-  const consciousnessFailed = syncFailures.some(f => f.type === 'consciousness');
-  const psychologyFailed = syncFailures.some(f => f.type === 'psychology');
-  const totalMemoryFailed = syncFailures.some(f => f.type === 'total_memory');
-
-  lines.push(`   💾 Profile: ${profileFailed ? '⚠️  Local file (sync failed)' : '✅ PostgreSQL'}`);
-  lines.push(`   🧠 Consciousness: ${consciousnessFailed ? '⚠️  Local file (sync failed)' : '✅ PostgreSQL'}`);
-  lines.push(`   💭 Psychology: ${psychologyFailed ? '⚠️  Local file (sync failed)' : '✅ PostgreSQL'}`);
-  lines.push(`   📚 Total Memory: ${totalMemoryFailed ? '⚠️  Sync failed' : '✅ PostgreSQL'}`);
-  lines.push(`   ⛓️  Judgments: PoJ Chain`);
-  lines.push('');
-
-  // Sync failure warnings
-  if (syncFailures.length > 0) {
-    lines.push('── ⚠️  SYNC WARNINGS ───────────────────────────────────────');
-    lines.push('   Some data may not persist to next session:');
-    for (const failure of syncFailures) {
-      const icon = failure.type === 'profile' ? '👤' :
-                   failure.type === 'consciousness' ? '🧠' :
-                   failure.type === 'psychology' ? '💭' :
-                   failure.type === 'total_memory' ? '📚' : '❓';
-      lines.push(`   ${icon} ${failure.type}: ${failure.error || 'sync failed'}`);
-    }
-    lines.push('   📁 Local file backup saved');
-    lines.push('');
-  }
-
-  // Profile update
-  lines.push('── MEMORY ─────────────────────────────────────────────────');
-  const sessions = profile.stats?.sessions || 0;
-  const remoteTotals = profile._remoteTotals || {};
-  const totalSessions = (remoteTotals.sessions || 0) + sessions;
-  lines.push(`   Session delta: +${sessions} (total: ${totalSessions})`);
-
-  if (syncFailures.length === 0) {
-    lines.push(`   Profile synced: ✅ Will remember you next time`);
-  } else {
-    lines.push(`   Profile synced: ⚠️  Partial (see warnings above)`);
-  }
-  lines.push('');
-
-  lines.push('═══════════════════════════════════════════════════════════');
-  lines.push(syncFailures.length === 0
-    ? '*yawn* φ remembers. Until next time.'
-    : '*yawn* φ tried. Local backup saved. Until next time.');
-  lines.push('═══════════════════════════════════════════════════════════');
-
-  return lines.join('\n');
-}
-
 // =============================================================================
 // MAIN HANDLER
 // =============================================================================
 
 async function main() {
+  // Initialize output structure
+  const output = {
+    type: 'SessionEnd',
+    timestamp: new Date().toISOString(),
+    user: null,
+    session: {
+      id: null,
+      duration: null,
+      durationMinutes: null,
+    },
+    stats: {
+      toolsUsed: 0,
+      errorsEncountered: 0,
+      dangerBlocked: 0,
+    },
+    topTools: [],
+    thermodynamics: null,
+    psychology: null,
+    dogsActivity: [],
+    syncStatus: {
+      profile: null,
+      consciousness: null,
+      psychology: null,
+      totalMemory: null,
+      failures: [],
+    },
+    remoteTotals: null,
+  };
+
   try {
-    // Read stdin - try sync first, fall back to async (ESM stdin fix)
+    // Read stdin
     const fs = await import('fs');
     let input = '';
 
     try {
       input = fs.readFileSync(0, 'utf8');
-      if (process.env.CYNIC_DEBUG) console.error('[SLEEP] Sync read:', input.length, 'bytes');
     } catch (syncErr) {
-      if (process.env.CYNIC_DEBUG) console.error('[SLEEP] Sync failed:', syncErr.message);
       input = await new Promise((resolve) => {
         let data = '';
         process.stdin.setEncoding('utf8');
@@ -198,182 +132,194 @@ async function main() {
         process.stdin.resume();
         setTimeout(() => resolve(data), 3000);
       });
-      if (process.env.CYNIC_DEBUG) console.error('[SLEEP] Async read:', input.length, 'bytes');
     }
 
     let hookContext = {};
     try {
       hookContext = input ? JSON.parse(input) : {};
-    } catch (e) {
-      // Ignore parse errors
-    }
+    } catch (e) { /* ignore */ }
 
     // Load optional modules
     const consciousness = getConsciousness();
     const psychology = getPsychology();
+    const thermodynamics = getThermodynamics();
 
     // Detect user and load profile
     const user = detectUser();
     const profile = loadUserProfile(user.userId);
 
+    output.user = { id: user.userId, name: user.name };
+    output.session.id = hookContext.sessionId || process.env.CYNIC_SESSION_ID;
+
+    // Calculate session summary
+    const endTime = Date.now();
+    const startTime = hookContext.sessionStartTime || endTime - 60000;
+    const duration = endTime - startTime;
+
+    output.session.duration = duration;
+    output.session.durationMinutes = Math.round(duration / 60000);
+    output.stats.toolsUsed = profile.stats?.toolCalls || 0;
+    output.stats.errorsEncountered = profile.stats?.errorsEncountered || 0;
+    output.stats.dangerBlocked = profile.stats?.dangerBlocked || 0;
+    output.topTools = getTopTools(profile);
+    output.remoteTotals = profile._remoteTotals || {};
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ORCHESTRATION: Notify KETER of session end
-    // "Le chien s'endort. KETER enregistre."
     // ═══════════════════════════════════════════════════════════════════════════
     try {
       await orchestrate('session_end', {
         content: 'Session ending',
         source: 'sleep_hook',
-        metadata: {
-          sessionId: hookContext.sessionId || process.env.CYNIC_SESSION_ID,
-        },
+        metadata: { sessionId: output.session.id },
       }, {
         user: user.userId,
         project: detectProject(),
       });
-    } catch (e) {
-      // Orchestration failed - continue with normal shutdown
-    }
-
-    // Calculate session summary
-    const summary = calculateSessionSummary(profile, hookContext.sessionStartTime);
+    } catch (e) { /* ignore */ }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CROSS-SESSION MEMORY: Sync profile to PostgreSQL (with retry)
+    // THERMODYNAMICS: Final state
     // ═══════════════════════════════════════════════════════════════════════════
-    // Track sync failures for notification
-    const syncFailures = [];
-
-    const profileSyncResult = await retryWithBackoff(
-      () => syncProfileToDB(user.userId, profile),
-      { maxRetries: 3, initialDelay: 100, operationName: 'Profile sync' }
-    );
-
-    if (!profileSyncResult.success) {
-      syncFailures.push({ type: 'profile', error: profileSyncResult.error?.message || 'connection failed' });
-      console.error('[CYNIC] Profile sync failed - data may not persist to next session');
+    if (thermodynamics) {
+      try {
+        const state = thermodynamics.getState();
+        output.thermodynamics = {
+          heat: state.heat,
+          work: state.work,
+          efficiency: state.efficiency,
+          temperature: state.temperature,
+          entropy: state.entropy,
+          isCritical: state.isCritical,
+        };
+      } catch (e) { /* ignore */ }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CONSCIOUSNESS SYNC: Persist learning loop to PostgreSQL (with retry)
-    // "Le chien apprend. L'apprentissage persiste."
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (consciousness) {
-      const consciousnessResult = await retryWithBackoff(
-        () => consciousness.syncToDB(user.userId),
-        { maxRetries: 3, initialDelay: 100, operationName: 'Consciousness sync' }
-      );
-
-      if (!consciousnessResult.success) {
-        syncFailures.push({ type: 'consciousness', error: consciousnessResult.error?.message || 'connection failed' });
-        console.error('[CYNIC] Consciousness sync failed - local files remain as backup');
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PSYCHOLOGY SYNC: Persist human understanding to PostgreSQL (with retry)
-    // "Comprendre l'humain pour mieux l'aider"
+    // PSYCHOLOGY: Final state
     // ═══════════════════════════════════════════════════════════════════════════
     if (psychology) {
-      const psychologyResult = await retryWithBackoff(
-        () => psychology.syncToDB(user.userId),
-        { maxRetries: 3, initialDelay: 100, operationName: 'Psychology sync' }
-      );
+      try {
+        const summary = psychology.getSummary();
+        output.psychology = {
+          state: summary.overallState,
+          energy: Math.round(summary.energy.value * 100),
+          focus: Math.round(summary.focus.value * 100),
+          composites: summary.composites,
+        };
+      } catch (e) { /* ignore */ }
+    }
 
-      if (!psychologyResult.success) {
-        syncFailures.push({ type: 'psychology', error: psychologyResult.error?.message || 'connection failed' });
-        console.error('[CYNIC] Psychology sync failed - local files remain as backup');
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DOGS ACTIVITY: Session summary
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (collectiveDogsModule?.getDogActivitySummary) {
+      try {
+        output.dogsActivity = collectiveDogsModule.getDogActivitySummary();
+      } catch (e) { /* ignore */ }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SYNC: Profile to PostgreSQL
+    // ═══════════════════════════════════════════════════════════════════════════
+    const profileResult = await retryWithBackoff(() => syncProfileToDB(user.userId, profile), { maxRetries: 3 });
+    if (profileResult.success) {
+      output.syncStatus.profile = { success: true };
+    } else {
+      output.syncStatus.failures.push({ type: 'profile', error: profileResult.error?.message });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SYNC: Consciousness to PostgreSQL
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (consciousness) {
+      const consciousnessResult = await retryWithBackoff(() => consciousness.syncToDB(user.userId), { maxRetries: 3 });
+      if (consciousnessResult.success) {
+        output.syncStatus.consciousness = { success: true };
+      } else {
+        output.syncStatus.failures.push({ type: 'consciousness', error: consciousnessResult.error?.message });
       }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // TOTAL MEMORY: Store session summary and update goal progress
-    // "φ remembers everything"
+    // SYNC: Psychology to PostgreSQL
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (psychology) {
+      const psychologyResult = await retryWithBackoff(() => psychology.syncToDB(user.userId), { maxRetries: 3 });
+      if (psychologyResult.success) {
+        output.syncStatus.psychology = { success: true };
+      } else {
+        output.syncStatus.failures.push({ type: 'psychology', error: psychologyResult.error?.message });
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SYNC: Total Memory
     // ═══════════════════════════════════════════════════════════════════════════
     const totalMemory = getTotalMemory();
     if (totalMemory) {
       try {
         await totalMemory.init();
 
-        // Store session summary as memory
         await totalMemory.storeSessionSummary(user.userId, {
-          sessionId: hookContext.sessionId || process.env.CYNIC_SESSION_ID,
-          toolsUsed: summary.toolsUsed,
-          errorsEncountered: summary.errorsEncountered,
-          topTools: summary.topTools.map(t => t.tool),
-          duration: summary.duration,
+          sessionId: output.session.id,
+          toolsUsed: output.stats.toolsUsed,
+          errorsEncountered: output.stats.errorsEncountered,
+          topTools: output.topTools.map(t => t.tool),
+          duration: output.session.duration,
           project: detectProject(),
         });
 
-        // Update goal progress based on session activity
         await totalMemory.updateGoalProgress(user.userId, {
-          toolsUsed: summary.toolsUsed,
-          errorsEncountered: summary.errorsEncountered,
-          errorsFixed: summary.errorsEncountered > 0 ? 1 : 0, // Assume some were fixed
-          testsRun: summary.topTools.some(t => t.tool?.includes('test')) ? 1 : 0,
+          toolsUsed: output.stats.toolsUsed,
+          errorsEncountered: output.stats.errorsEncountered,
+          errorsFixed: output.stats.errorsEncountered > 0 ? 1 : 0,
+          testsRun: output.topTools.some(t => t.tool?.includes('test')) ? 1 : 0,
         });
 
-        // Schedule background analysis task for next daemon run
-        await totalMemory.scheduleTask(user.userId, 'analyze_patterns', {
-          sessionId: hookContext.sessionId,
-          toolsUsed: summary.toolsUsed,
-          topTools: summary.topTools,
-        }, { priority: 40 });
-
+        output.syncStatus.totalMemory = { success: true };
       } catch (e) {
-        syncFailures.push({ type: 'total_memory', error: e.message || 'storage failed' });
-        console.error('[CYNIC] Total Memory sync failed:', e.message);
+        output.syncStatus.failures.push({ type: 'totalMemory', error: e.message });
       }
     }
 
-    // Store sync failures for the message
-    summary.syncFailures = syncFailures;
-
-    // Send SessionEnd to MCP server (this triggers brain_session_end internally)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Send SessionEnd to MCP server
+    // ═══════════════════════════════════════════════════════════════════════════
     await sendHookToCollective('SessionEnd', {
       userId: user.userId,
-      sessionId: hookContext.sessionId,
+      sessionId: output.session.id,
       summary: {
-        duration: summary.duration,
-        toolsUsed: summary.toolsUsed,
-        errorsEncountered: summary.errorsEncountered,
-        dangerBlocked: summary.dangerBlocked,
-        topTools: summary.topTools.map(t => t.tool),
+        duration: output.session.duration,
+        toolsUsed: output.stats.toolsUsed,
+        errorsEncountered: output.stats.errorsEncountered,
+        dangerBlocked: output.stats.dangerBlocked,
+        topTools: output.topTools.map(t => t.tool),
       },
       timestamp: Date.now(),
     });
 
-    // Also explicitly call brain_session_end via HTTP
-    const sessionId = hookContext.sessionId || process.env.CYNIC_SESSION_ID;
-    if (sessionId) {
-      await endBrainSession(sessionId);
+    // End brain session
+    if (output.session.id) {
+      await endBrainSession(output.session.id);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // PHASE 22: Cleanup Session State
-    // "Le chien oublie la session mais pas les leçons"
+    // Session State Cleanup
     // ═══════════════════════════════════════════════════════════════════════════
     try {
       const sessionState = getSessionState();
       if (sessionState.isInitialized()) {
-        // Get final stats for summary before cleanup
-        const sessionStats = sessionState.getStats();
-        summary.sessionStateStats = sessionStats;
-
-        // Cleanup temp files
+        output.session.stats = sessionState.getStats();
         sessionState.cleanup();
       }
-    } catch (e) {
-      // Session state cleanup failed - non-critical
-    }
+    } catch (e) { /* ignore */ }
 
-    // Format and output message
-    const message = formatSleepMessage(profile, summary, syncFailures);
-    console.log(message);
+    console.log(JSON.stringify(output, null, 2));
 
   } catch (error) {
-    // Graceful exit even on error
-    console.log('*yawn* Session complete. φ remembers.');
+    output.error = error.message;
+    console.log(JSON.stringify(output));
   }
 }
 
