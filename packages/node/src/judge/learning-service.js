@@ -123,6 +123,41 @@ export class LearningService extends EventEmitter {
   }
 
   /**
+   * Adjust dimension weight (called by SONA for real-time adaptation)
+   *
+   * @param {string} dimension - Dimension name
+   * @param {number} delta - Adjustment amount (bounded by maxAdjustment)
+   * @returns {number} New modifier value
+   */
+  adjustDimensionWeight(dimension, delta) {
+    const currentModifier = this._weightModifiers.get(dimension) || 1.0;
+
+    // Bound the delta
+    const boundedDelta = Math.max(
+      -this.maxAdjustment,
+      Math.min(this.maxAdjustment, delta)
+    );
+
+    // Calculate new modifier
+    let newModifier = currentModifier + boundedDelta;
+
+    // Bound the final modifier: [1 - φ⁻², 1 + φ⁻²] = [0.618, 1.382]
+    newModifier = Math.max(1 - this.maxAdjustment, Math.min(1 + this.maxAdjustment, newModifier));
+
+    this._weightModifiers.set(dimension, newModifier);
+
+    this.emit('weight:adjusted', {
+      dimension,
+      oldModifier: currentModifier,
+      newModifier,
+      delta: boundedDelta,
+      source: 'sona',
+    });
+
+    return newModifier;
+  }
+
+  /**
    * Get threshold adjustment for item type and dimension
    *
    * @param {string} itemType - Item type (code, decision, etc.)
