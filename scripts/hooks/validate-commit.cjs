@@ -59,6 +59,18 @@ function isGitHookContext() {
   return process.env.GIT_DIR || process.env.GIT_AUTHOR_NAME;
 }
 
+/**
+ * Safe output - handle EPIPE errors gracefully
+ */
+function safeOutput(data) {
+  try {
+    const str = typeof data === 'string' ? data : JSON.stringify(data);
+    process.stdout.write(str + '\n');
+  } catch (e) {
+    if (e.code === 'EPIPE') process.exit(0);
+  }
+}
+
 async function main() {
   try {
     let commitResult;
@@ -110,18 +122,18 @@ async function main() {
     });
 
     // Output result
-    console.log(JSON.stringify({
+    safeOutput({
       success: true,
       feedback: 'commit',
       ...params,
       learningResult: result,
-    }));
+    });
 
   } catch (error) {
-    console.log(JSON.stringify({
+    safeOutput({
       success: false,
       error: error.message,
-    }));
+    });
   }
 }
 

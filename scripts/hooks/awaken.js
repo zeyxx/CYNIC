@@ -71,6 +71,18 @@ function trendArrow(trend) {
 }
 
 /**
+ * Safe output - handle EPIPE errors gracefully
+ */
+function safeOutput(data) {
+  try {
+    const str = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    process.stdout.write(str + '\n');
+  } catch (e) {
+    if (e.code === 'EPIPE') process.exit(0);
+  }
+}
+
+/**
  * Main handler for SessionStart
  */
 async function main() {
@@ -584,16 +596,16 @@ async function main() {
     // ═══════════════════════════════════════════════════════════════════════════
     // OUTPUT JSON
     // ═══════════════════════════════════════════════════════════════════════════
-    console.log(JSON.stringify(output, null, 2));
+    safeOutput(output);
 
   } catch (error) {
     // Minimal output on error
-    console.log(JSON.stringify({
+    safeOutput({
       type: 'SessionStart',
       timestamp: new Date().toISOString(),
       error: error.message,
       minimal: true,
-    }));
+    });
   }
 }
 

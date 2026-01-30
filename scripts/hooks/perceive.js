@@ -254,6 +254,19 @@ function generateLearningContext(prompt, profile) {
 }
 
 // =============================================================================
+// SAFE OUTPUT - Handle EPIPE errors gracefully
+// =============================================================================
+
+function safeOutput(data) {
+  try {
+    const str = typeof data === 'string' ? data : JSON.stringify(data);
+    process.stdout.write(str + '\n');
+  } catch (e) {
+    if (e.code === 'EPIPE') process.exit(0);
+  }
+}
+
+// =============================================================================
 // MAIN HANDLER
 // =============================================================================
 
@@ -285,7 +298,7 @@ async function main() {
     }
 
     if (!input || input.trim().length === 0) {
-      console.log(JSON.stringify({ continue: true }));
+      safeOutput({ continue: true });
       return;
     }
 
@@ -294,7 +307,7 @@ async function main() {
 
     // Short prompts don't need context injection
     if (prompt.length < DC.LENGTH.MIN_PROMPT) {
-      console.log(JSON.stringify({ continue: true }));
+      safeOutput({ continue: true });
       return;
     }
 
@@ -675,18 +688,18 @@ async function main() {
 
     // Output result
     if (injections.length === 0) {
-      console.log(JSON.stringify({ continue: true }));
+      safeOutput({ continue: true });
     } else {
-      console.log(JSON.stringify({
+      safeOutput({
         continue: true,
         message: injections.join('\n\n')
-      }));
+      });
     }
 
   } catch (error) {
     // Log error for debugging, but don't block
     logger.error('Hook failed', { error: error.message });
-    console.log(JSON.stringify({ continue: true }));
+    safeOutput({ continue: true });
   }
 }
 

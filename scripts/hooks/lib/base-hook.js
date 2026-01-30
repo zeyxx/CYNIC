@@ -143,12 +143,17 @@ export class BaseHook {
   }
 
   /**
-   * Write response to stdout
+   * Write response to stdout (handles EPIPE gracefully)
    *
    * @param {Object} response - Response object
    */
   respond(response) {
-    console.log(JSON.stringify(response));
+    try {
+      const str = JSON.stringify(response);
+      process.stdout.write(str + '\n');
+    } catch (e) {
+      if (e.code === 'EPIPE') process.exit(0);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

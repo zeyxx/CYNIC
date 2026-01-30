@@ -70,6 +70,26 @@ async function retryWithBackoff(fn, options = {}) {
 }
 
 // =============================================================================
+// SAFE OUTPUT - Handle EPIPE errors gracefully
+// =============================================================================
+
+function safeOutput(data) {
+  try {
+    const str = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    process.stdout.write(str + '\n');
+  } catch (e) {
+    // EPIPE: pipe closed before write completed - exit silently
+    if (e.code === 'EPIPE') {
+      process.exit(0);
+    }
+    // For other errors, try stderr
+    try {
+      process.stderr.write(`[sleep] Output failed: ${e.message}\n`);
+    } catch { /* ignore */ }
+  }
+}
+
+// =============================================================================
 // SESSION FINALIZATION
 // =============================================================================
 
@@ -315,11 +335,11 @@ async function main() {
       }
     } catch (e) { /* ignore */ }
 
-    console.log(JSON.stringify(output, null, 2));
+    safeOutput(output);
 
   } catch (error) {
     output.error = error.message;
-    console.log(JSON.stringify(output));
+    safeOutput(output);
   }
 }
 

@@ -115,6 +115,18 @@ function allowStop(message) {
 }
 
 /**
+ * Safe output - handle EPIPE errors gracefully
+ */
+function safeOutput(data) {
+  try {
+    const str = typeof data === 'string' ? data : JSON.stringify(data);
+    process.stdout.write(str + '\n');
+  } catch (e) {
+    if (e.code === 'EPIPE') process.exit(0);
+  }
+}
+
+/**
  * Main hook logic
  */
 async function main() {
@@ -244,7 +256,7 @@ async function main() {
     systemMessage: systemMsg
   };
 
-  console.log(JSON.stringify(output));
+  safeOutput(output);
   process.exit(0);
 }
 

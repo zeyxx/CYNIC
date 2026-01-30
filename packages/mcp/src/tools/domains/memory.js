@@ -520,7 +520,7 @@ export function createGoalsTool(goalsRepo) {
       try {
         switch (action) {
           case 'list': {
-            const goals = await goalsRepo.findByUser(userId, { status: 'active' });
+            const goals = await goalsRepo.findActive(userId);
             return {
               success: true,
               action: 'list',

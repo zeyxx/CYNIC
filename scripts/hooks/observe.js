@@ -540,6 +540,19 @@ function extractErrorSummary(output) {
 // Note: detectErrorType is now imported from ./lib/index.js (pattern-detector.js)
 
 // =============================================================================
+// SAFE OUTPUT - Handle EPIPE errors gracefully
+// =============================================================================
+
+function safeOutput(data) {
+  try {
+    const str = typeof data === 'string' ? data : JSON.stringify(data);
+    process.stdout.write(str + '\n');
+  } catch (e) {
+    if (e.code === 'EPIPE') process.exit(0);
+  }
+}
+
+// =============================================================================
 // MAIN HANDLER
 // =============================================================================
 
@@ -567,7 +580,7 @@ async function main() {
     }
 
     if (!input || input.trim().length === 0) {
-      console.log(JSON.stringify({ continue: true }));
+      safeOutput({ continue: true });
       return;
     }
 
@@ -1118,10 +1131,10 @@ async function main() {
 
     // If intervention was triggered, output it (priority over auto-judgment)
     if (intervention?.message) {
-      console.log(JSON.stringify({
+      safeOutput({
         continue: true,
         message: intervention.message,
-      }));
+      });
       return;
     }
 
@@ -1135,10 +1148,10 @@ async function main() {
           .join('\n');
         // Guardian speaks on bias detection
         const guardian = COLLECTIVE_DOGS.GUARDIAN;
-        console.log(JSON.stringify({
+        safeOutput({
           continue: true,
           message: `\n── ${guardian.icon} ${guardian.name} (${guardian.sefirah}) ────────────────────────────\n   COGNITIVE BIAS DETECTED\n${biasWarning}\n`,
-        }));
+        });
         return;
       }
     }
@@ -1154,10 +1167,10 @@ async function main() {
           const toolBar = '█'.repeat(Math.round(entropy.tool * 10)) + '░'.repeat(10 - Math.round(entropy.tool * 10));
           const fileBar = '█'.repeat(Math.round(entropy.file * 10)) + '░'.repeat(10 - Math.round(entropy.file * 10));
           const timeBar = '█'.repeat(Math.round(entropy.time * 10)) + '░'.repeat(10 - Math.round(entropy.time * 10));
-          console.log(JSON.stringify({
+          safeOutput({
             continue: true,
             message: `\n── SESSION ENTROPY ────────────────────────────────────────\n   ${emoji} ${entropy.interpretation} (${Math.round(entropy.combined * 100)}%)\n   Tools: [${toolBar}] ${Math.round(entropy.tool * 100)}%\n   Files: [${fileBar}] ${Math.round(entropy.file * 100)}%\n   Time:  [${timeBar}] ${Math.round(entropy.time * 100)}%\n   💡 Consider focusing on fewer files/tools\n`,
-          }));
+          });
           return;
         }
       } catch (e) {
@@ -1172,10 +1185,10 @@ async function main() {
                     topologyState.rabbitHole.type === 'relevance' ? '🌀' : '⏰';
       // Cartographer speaks on navigation issues
       const cartographer = COLLECTIVE_DOGS.CARTOGRAPHER;
-      console.log(JSON.stringify({
+      safeOutput({
         continue: true,
         message: `\n── ${cartographer.icon} ${cartographer.name} (${cartographer.sefirah}) ────────────────────────────\n   RABBIT HOLE DETECTED\n   ${emoji} ${topologyState.rabbitHole.suggestion}\n`,
-      }));
+      });
       return;
     }
 
@@ -1184,10 +1197,10 @@ async function main() {
     // "Moins c'est plus" - Diogenes threw away his cup
     // ═══════════════════════════════════════════════════════════════════════════
     if (deletionCelebration && Math.random() < DC.PROBABILITY.DELETION_CELEBRATE) { // φ⁻¹
-      console.log(JSON.stringify({
+      safeOutput({
         continue: true,
         message: `\n── VOLUNTARY POVERTY ──────────────────────────────────────\n   🏺 ${deletionCelebration}\n   *tail wag* Less is more.\n`,
-      }));
+      });
       return;
     }
 
@@ -1303,10 +1316,10 @@ async function main() {
       }
 
       // Output the judgment (will be shown to user)
-      console.log(JSON.stringify({
+      safeOutput({
         continue: true,
         message: formatted + refinementNote + thermoNote + dogNote,
-      }));
+      });
       return;
     }
 
@@ -1439,19 +1452,19 @@ async function main() {
 
     // Output combined message if we have anything to show
     if (outputParts.length > 0) {
-      console.log(JSON.stringify({
+      safeOutput({
         continue: true,
         message: outputParts.join(''),
-      }));
+      });
       return;
     }
 
     // Observer never blocks - always continue silently
-    console.log(JSON.stringify({ continue: true }));
+    safeOutput({ continue: true });
 
   } catch (error) {
     // Observer must never fail - silent continuation
-    console.log(JSON.stringify({ continue: true }));
+    safeOutput({ continue: true });
   }
 }
 

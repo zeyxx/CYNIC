@@ -68,6 +68,18 @@ function parseTestOutput(output) {
   return { passed, passCount, failCount, testSuite };
 }
 
+/**
+ * Safe output - handle EPIPE errors gracefully
+ */
+function safeOutput(data) {
+  try {
+    const str = typeof data === 'string' ? data : JSON.stringify(data);
+    process.stdout.write(str + '\n');
+  } catch (e) {
+    if (e.code === 'EPIPE') process.exit(0);
+  }
+}
+
 async function main() {
   try {
     // Read input from stdin (JSON or raw test output)
@@ -106,18 +118,18 @@ async function main() {
     });
 
     // Output result
-    console.log(JSON.stringify({
+    safeOutput({
       success: true,
       feedback: 'test_result',
       ...params,
       learningResult: result,
-    }));
+    });
 
   } catch (error) {
-    console.log(JSON.stringify({
+    safeOutput({
       success: false,
       error: error.message,
-    }));
+    });
   }
 }
 

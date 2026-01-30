@@ -248,6 +248,19 @@ function formatDigestMessage(profile, analysis, insights, engineStats) {
 }
 
 // =============================================================================
+// SAFE OUTPUT - Handle EPIPE errors gracefully
+// =============================================================================
+
+function safeOutput(data) {
+  try {
+    const str = typeof data === 'string' ? data : JSON.stringify(data);
+    process.stdout.write(str + '\n');
+  } catch (e) {
+    if (e.code === 'EPIPE') process.exit(0);
+  }
+}
+
+// =============================================================================
 // MAIN HANDLER
 // =============================================================================
 
@@ -300,12 +313,12 @@ async function main() {
 
       if (blockDecision.block) {
         // Block the stop and inject continuation prompt
-        console.log(JSON.stringify({
+        safeOutput({
           continue: false,
           decision: 'block',
           reason: blockDecision.reason,
           message: blockDecision.injectPrompt,
-        }));
+        });
         return;
       }
     }

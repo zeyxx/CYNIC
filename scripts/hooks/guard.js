@@ -115,6 +115,19 @@ function scanForSecrets() {
 }
 
 // =============================================================================
+// SAFE OUTPUT - Handle EPIPE errors gracefully
+// =============================================================================
+
+function safeOutput(data) {
+  try {
+    const str = typeof data === 'string' ? data : JSON.stringify(data);
+    process.stdout.write(str + '\n');
+  } catch (e) {
+    if (e.code === 'EPIPE') process.exit(0);
+  }
+}
+
+// =============================================================================
 // MAIN HANDLER
 // =============================================================================
 
@@ -154,7 +167,7 @@ async function main() {
     }
 
     if (!input || input.trim().length === 0) {
-      console.log(JSON.stringify(output));
+      safeOutput(output);
       return;
     }
 
@@ -208,7 +221,7 @@ async function main() {
           sessionState.recordWarning({ tool: toolName, message: output.blockReason, severity: 'critical', blocked: true });
         }
 
-        console.log(JSON.stringify(output));
+        safeOutput(output);
         return;
       }
     } catch (e) {
@@ -232,7 +245,7 @@ async function main() {
         updateUserProfile(profile, { stats: { loopsBlocked: (profile.stats?.loopsBlocked || 0) + 1 } });
         saveCollectivePattern({ type: 'loop_blocked', signature: `${loopCheck.loopType}:${toolName}`, description: loopCheck.reason });
 
-        console.log(JSON.stringify(output));
+        safeOutput(output);
         return;
       }
     }
@@ -362,12 +375,12 @@ async function main() {
       outcome: output.orchestration?.outcome,
     });
 
-    console.log(JSON.stringify(output));
+    safeOutput(output);
 
   } catch (error) {
     // On error, allow to continue (fail open)
     output.error = error.message;
-    console.log(JSON.stringify(output));
+    safeOutput(output);
   }
 }
 
