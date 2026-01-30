@@ -17,6 +17,7 @@
 
 import { EventEmitter } from 'events';
 import { MessageType } from '../gossip/message.js';
+import { ConsensusStateTree } from './merkle-state.js';
 
 /**
  * ConsensusGossip Bridge
@@ -45,8 +46,12 @@ export class ConsensusGossip extends EventEmitter {
     this.synced = false;
     this.syncTimer = null;
 
+    // Merkle state tree for O(log n) diff sync
+    this.stateTree = new ConsensusStateTree();
+    this.peerRoots = new Map(); // peerPublicKey -> { root, slot, blockCount }
+
     // Track handshake state per peer to coordinate who syncs
-    this.peerHandshakes = new Map(); // peerPublicKey -> { ourSlot, theirSlot, resolved }
+    this.peerHandshakes = new Map(); // peerPublicKey -> { ourSlot, theirSlot, ourRoot, theirRoot, resolved }
 
     this.stats = {
       proposalsBroadcast: 0,
@@ -58,6 +63,13 @@ export class ConsensusGossip extends EventEmitter {
       handshakesSent: 0,
       handshakesReceived: 0,
       syncDecisions: { weSync: 0, theySync: 0, noSync: 0 },
+      // Merkle diff stats
+      merkleRootsSent: 0,
+      merkleRootsReceived: 0,
+      merkleDiffRequests: 0,
+      merkleDiffResponses: 0,
+      merkleDiffBlocksSynced: 0,
+      fullSyncFallbacks: 0, // When Merkle diff not available
     };
 
     // Bind methods
@@ -200,6 +212,16 @@ export class ConsensusGossip extends EventEmitter {
           break;
         case MessageType.CONSENSUS_STATE_RESPONSE:
           await this._handleStateResponse(message);
+          break;
+        // Merkle diff sync handlers
+        case MessageType.CONSENSUS_MERKLE_ROOT:
+          await this._handleMerkleRoot(message);
+          break;
+        case MessageType.CONSENSUS_MERKLE_DIFF_REQUEST:
+          await this._handleMerkleDiffRequest(message);
+          break;
+        case MessageType.CONSENSUS_MERKLE_DIFF_RESPONSE:
+          await this._handleMerkleDiffResponse(message);
           break;
       }
     } catch (err) {
@@ -399,13 +421,23 @@ export class ConsensusGossip extends EventEmitter {
     // Get or create handshake state for this peer
     let handshake = this.peerHandshakes.get(sender);
     if (!handshake) {
-      handshake = { ourSlot: null, theirSlot: null, resolved: false };
+      handshake = { ourSlot: null, theirSlot: null, ourRoot: null, theirRoot: null, resolved: false };
       this.peerHandshakes.set(sender, handshake);
     }
 
-    // Record their slot
+    // Record their slot and Merkle root
     handshake.theirSlot = payload.slot || 0;
+    handshake.theirRoot = payload.merkleRoot || null;
     this.stats.handshakesReceived++;
+
+    // Store peer root for future reference
+    if (payload.merkleRoot) {
+      this.peerRoots.set(sender, {
+        root: payload.merkleRoot,
+        slot: payload.slot || 0,
+        blockCount: payload.blockCount || 0,
+      });
+    }
 
     // If we haven't sent our status yet, send it now
     if (handshake.ourSlot === null) {
@@ -423,26 +455,35 @@ export class ConsensusGossip extends EventEmitter {
 
   /**
    * Send our slot status to a specific peer
+   * Includes Merkle root for efficient diff sync
    * @private
    */
   async _sendSlotStatus(peerPublicKey) {
     const ourSlot = this.consensus.getCurrentSlot?.() || 0;
     const ourPublicKey = this.consensus.publicKey;
 
+    // Update state tree from consensus
+    this._updateStateTree();
+    const ourRoot = this.stateTree.getRoot();
+
     // Update handshake state
     let handshake = this.peerHandshakes.get(peerPublicKey);
     if (!handshake) {
-      handshake = { ourSlot: null, theirSlot: null, resolved: false };
+      handshake = { ourSlot: null, theirSlot: null, ourRoot: null, theirRoot: null, resolved: false };
       this.peerHandshakes.set(peerPublicKey, handshake);
     }
     handshake.ourSlot = ourSlot;
+    handshake.ourRoot = ourRoot;
 
-    // Send slot status to peer
+    // Send slot status to peer with Merkle root
     try {
       const status = {
         slot: ourSlot,
         publicKey: ourPublicKey,
         isHandshake: true, // Flag to indicate this is for sync coordination
+        // Merkle diff support
+        merkleRoot: ourRoot,
+        blockCount: this.stateTree.blocks.size,
       };
 
       // Use gossip to send directly to specific peer
@@ -482,6 +523,7 @@ export class ConsensusGossip extends EventEmitter {
 
   /**
    * Resolve sync handshake - decide who syncs from whom
+   * Uses Merkle root comparison for O(log n) efficiency when possible
    * @private
    */
   async _resolveSyncHandshake(peerPublicKey, handshake) {
@@ -489,13 +531,29 @@ export class ConsensusGossip extends EventEmitter {
 
     const ourSlot = handshake.ourSlot;
     const theirSlot = handshake.theirSlot;
+    const ourRoot = handshake.ourRoot;
+    const theirRoot = handshake.theirRoot;
     const ourPublicKey = this.consensus.publicKey;
 
     this.emit('handshake:resolving', {
       peer: peerPublicKey,
       ourSlot,
       theirSlot,
+      ourRoot,
+      theirRoot,
     });
+
+    // Quick check: if roots match, no sync needed (O(1))
+    if (ourRoot && theirRoot && ourRoot === theirRoot) {
+      this.stats.syncDecisions.noSync++;
+      this.synced = true;
+      this.emit('handshake:resolved', {
+        peer: peerPublicKey,
+        decision: 'no-sync',
+        reason: 'merkle-roots-match',
+      });
+      return;
+    }
 
     // Decision logic:
     // 1. Lower slot syncs from higher slot
@@ -509,7 +567,7 @@ export class ConsensusGossip extends EventEmitter {
       shouldWeSync = false;
       this.stats.syncDecisions.theySync++;
     } else {
-      // Equal slots - use public key to break tie deterministically
+      // Equal slots but different roots - use public key to break tie
       // Lower public key syncs (arbitrary but consistent)
       shouldWeSync = ourPublicKey < peerPublicKey;
       if (shouldWeSync) {
@@ -524,14 +582,28 @@ export class ConsensusGossip extends EventEmitter {
       ourSlot,
       theirSlot,
       decision: shouldWeSync ? 'we-sync' : 'they-sync',
+      useMerkleDiff: Boolean(theirRoot),
     });
 
-    // If we should sync, request state from this peer
+    // If we should sync, use Merkle diff if possible, else fall back to full sync
     if (shouldWeSync && !this.synced) {
       try {
         this.emit('sync:starting', { peer: peerPublicKey, reason: 'handshake' });
 
-        const result = await this.requestSync(peerPublicKey, 0);
+        let result;
+
+        // Try Merkle diff first (O(log n)), fall back to full sync (O(n))
+        if (theirRoot && ourRoot) {
+          this.emit('sync:using-merkle-diff', { peer: peerPublicKey });
+          result = await this.requestMerkleDiff(peerPublicKey, ourRoot, theirRoot, ourSlot);
+        }
+
+        // Fall back to full sync if Merkle diff not available or failed
+        if (!result || result.error) {
+          this.stats.fullSyncFallbacks++;
+          this.emit('sync:fallback-full', { peer: peerPublicKey, reason: result?.error || 'no-merkle-support' });
+          result = await this.requestSync(peerPublicKey, 0);
+        }
 
         if (result && (result.imported > 0 || result.latestSlot >= 0)) {
           this.synced = true;
@@ -539,6 +611,7 @@ export class ConsensusGossip extends EventEmitter {
             from: peerPublicKey,
             imported: result.imported || 0,
             latestSlot: result.latestSlot || 0,
+            usedMerkleDiff: result.usedMerkleDiff || false,
           });
         }
       } catch (err) {
@@ -752,6 +825,245 @@ export class ConsensusGossip extends EventEmitter {
     });
 
     return { ...bestResult, success: anySuccess };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Merkle Diff Sync Methods (O(log n) efficiency)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Update state tree from consensus engine's finalized blocks
+   * @private
+   */
+  _updateStateTree() {
+    try {
+      const state = this.consensus.exportState?.(0, 1000) || { blocks: [] };
+      for (const block of state.blocks || []) {
+        const slot = block.slot ?? block.height;
+        if (!this.stateTree.blocks.has(slot)) {
+          this.stateTree.addBlock(block);
+        }
+      }
+    } catch (err) {
+      // Consensus may not support exportState yet
+      this.emit('error', { source: 'state-tree-update', error: err.message });
+    }
+  }
+
+  /**
+   * Handle received Merkle root announcement
+   * @private
+   */
+  async _handleMerkleRoot(message) {
+    const { payload, sender } = message;
+
+    this.stats.merkleRootsReceived++;
+
+    // Store peer's root
+    this.peerRoots.set(sender, {
+      root: payload.root,
+      slot: payload.slot,
+      blockCount: payload.blockCount,
+      receivedAt: Date.now(),
+    });
+
+    this.emit('merkle-root:received', {
+      from: sender,
+      root: payload.root,
+      slot: payload.slot,
+    });
+
+    // Update our state tree
+    this._updateStateTree();
+
+    // Check if we need to sync (roots differ)
+    const ourRoot = this.stateTree.getRoot();
+    if (ourRoot !== payload.root && payload.slot > this.stateTree.getLatestSlot()) {
+      // They have more data - we may want to request diff
+      this.emit('merkle-root:diff-detected', {
+        peer: sender,
+        ourRoot,
+        theirRoot: payload.root,
+        theirSlot: payload.slot,
+      });
+    }
+  }
+
+  /**
+   * Handle Merkle diff request from peer
+   * @private
+   */
+  async _handleMerkleDiffRequest(message) {
+    const { payload, sender } = message;
+
+    this.stats.merkleDiffRequests++;
+
+    // Update our state tree
+    this._updateStateTree();
+
+    // Get diff based on their slot
+    const diff = this.stateTree.getDiff(payload.sinceSlot || 0);
+
+    // Send diff response
+    try {
+      await this.gossip.sendMerkleDiffResponse?.(sender, payload.requestId, diff) ||
+        await this._sendMerkleDiffResponse(sender, payload.requestId, diff);
+
+      this.stats.merkleDiffResponses++;
+
+      this.emit('merkle-diff:response-sent', {
+        to: sender,
+        blocksCount: diff.blocks.length,
+        newRoot: diff.newRoot,
+      });
+    } catch (err) {
+      this.emit('error', { source: 'merkle-diff-response', error: err.message });
+    }
+  }
+
+  /**
+   * Send Merkle diff response to peer
+   * @private
+   */
+  async _sendMerkleDiffResponse(peerPublicKey, requestId, diff) {
+    const peer = this.gossip.peerManager.getPeerByPublicKey?.(peerPublicKey);
+    if (peer && this.gossip.sendFn) {
+      const message = {
+        id: `mdiff_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        type: MessageType.CONSENSUS_MERKLE_DIFF_RESPONSE,
+        payload: {
+          requestId,
+          blocks: diff.blocks,
+          newRoot: diff.newRoot,
+          latestSlot: diff.latestSlot,
+          diffSize: diff.blocks.length,
+        },
+        sender: this.consensus.publicKey,
+        timestamp: Date.now(),
+        ttl: 1,
+        hops: 0,
+      };
+      await this.gossip.sendFn(peer, message);
+    }
+  }
+
+  /**
+   * Handle Merkle diff response from peer
+   * @private
+   */
+  async _handleMerkleDiffResponse(message) {
+    const { payload, sender } = message;
+
+    this.stats.merkleDiffBlocksSynced += payload.blocks?.length || 0;
+
+    // Import the diff
+    const result = this.stateTree.importDiff(payload.blocks || []);
+
+    // Also import to consensus engine
+    if (result.imported > 0 && this.consensus.importState) {
+      this.consensus.importState({
+        blocks: payload.blocks,
+        latestSlot: payload.latestSlot,
+      });
+    }
+
+    this.emit('merkle-diff:imported', {
+      from: sender,
+      imported: result.imported,
+      skipped: result.skipped,
+      newRoot: result.newRoot,
+      latestSlot: result.latestSlot,
+    });
+
+    // Resolve pending request if there is one
+    const pending = this.gossip.pendingRequests?.get(payload.requestId);
+    if (pending) {
+      this.gossip.pendingRequests.delete(payload.requestId);
+      pending.resolve({
+        ...result,
+        usedMerkleDiff: true,
+      });
+    }
+  }
+
+  /**
+   * Request Merkle diff from a peer
+   * Only syncs blocks that differ, achieving O(log n) efficiency
+   *
+   * @param {string} peerId - Peer to request from
+   * @param {string} ourRoot - Our Merkle root
+   * @param {string} theirRoot - Their Merkle root
+   * @param {number} sinceSlot - Our latest slot
+   * @returns {Promise<Object>} Diff result
+   */
+  async requestMerkleDiff(peerId, ourRoot, theirRoot, sinceSlot) {
+    this.stats.merkleRootsSent++;
+
+    const requestId = `mdiff_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+    // Create promise for response
+    const responsePromise = new Promise((resolve, reject) => {
+      // Store pending request
+      if (!this.gossip.pendingRequests) {
+        this.gossip.pendingRequests = new Map();
+      }
+      this.gossip.pendingRequests.set(requestId, { resolve, reject });
+
+      // Timeout after 30 seconds
+      setTimeout(() => {
+        if (this.gossip.pendingRequests?.has(requestId)) {
+          this.gossip.pendingRequests.delete(requestId);
+          reject(new Error('Merkle diff request timeout'));
+        }
+      }, 30000);
+    });
+
+    // Send diff request
+    try {
+      const peer = this.gossip.peerManager.getPeerByPublicKey?.(peerId);
+      if (peer && this.gossip.sendFn) {
+        const message = {
+          id: requestId,
+          type: MessageType.CONSENSUS_MERKLE_DIFF_REQUEST,
+          payload: {
+            theirRoot,
+            ourRoot,
+            sinceSlot,
+            requestId,
+          },
+          sender: this.consensus.publicKey,
+          timestamp: Date.now(),
+          ttl: 1,
+          hops: 0,
+        };
+        await this.gossip.sendFn(peer, message);
+      } else {
+        return { error: 'peer-not-found' };
+      }
+    } catch (err) {
+      return { error: err.message };
+    }
+
+    return responsePromise;
+  }
+
+  /**
+   * Get Merkle state tree statistics
+   * @returns {Object} State tree stats
+   */
+  getMerkleStats() {
+    return {
+      stateTree: this.stateTree.getStats(),
+      peerRoots: Object.fromEntries(this.peerRoots),
+      stats: {
+        merkleRootsSent: this.stats.merkleRootsSent,
+        merkleRootsReceived: this.stats.merkleRootsReceived,
+        merkleDiffRequests: this.stats.merkleDiffRequests,
+        merkleDiffResponses: this.stats.merkleDiffResponses,
+        merkleDiffBlocksSynced: this.stats.merkleDiffBlocksSynced,
+        fullSyncFallbacks: this.stats.fullSyncFallbacks,
+      },
+    };
   }
 }
 

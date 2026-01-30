@@ -43,6 +43,11 @@ export const MessageType = {
   // State sync messages (for late joiners)
   CONSENSUS_STATE_REQUEST: 'CONSENSUS_STATE_REQUEST', // Request finalized state
   CONSENSUS_STATE_RESPONSE: 'CONSENSUS_STATE_RESPONSE', // Response with finalized blocks
+
+  // Merkle diff sync messages (O(log n) efficiency)
+  CONSENSUS_MERKLE_ROOT: 'CONSENSUS_MERKLE_ROOT', // Announce Merkle root of state
+  CONSENSUS_MERKLE_DIFF_REQUEST: 'CONSENSUS_MERKLE_DIFF_REQUEST', // Request diff from root
+  CONSENSUS_MERKLE_DIFF_RESPONSE: 'CONSENSUS_MERKLE_DIFF_RESPONSE', // Response with diff only
 };
 
 /**
@@ -417,6 +422,87 @@ export function createJudgmentSyncResponse(judgments, requestId, hasMore, sender
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Merkle Diff Sync Messages (O(log n) efficiency)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Create Merkle root announcement message
+ * @param {Object} rootInfo - Merkle root info
+ * @param {string} rootInfo.root - Merkle root hash
+ * @param {number} rootInfo.slot - Latest finalized slot
+ * @param {number} rootInfo.blockCount - Number of finalized blocks
+ * @param {string} sender - Sender public key
+ * @param {string} privateKey - Sender private key
+ * @returns {Object} Merkle root message
+ */
+export function createConsensusMerkleRoot(rootInfo, sender, privateKey) {
+  return createMessage({
+    type: MessageType.CONSENSUS_MERKLE_ROOT,
+    payload: {
+      root: rootInfo.root,
+      slot: rootInfo.slot || 0,
+      blockCount: rootInfo.blockCount || 0,
+      timestamp: Date.now(),
+    },
+    sender,
+    privateKey,
+    ttl: 2, // Limited relay for handshake
+  });
+}
+
+/**
+ * Create Merkle diff request message
+ * @param {Object} request - Diff request
+ * @param {string} request.theirRoot - Peer's Merkle root
+ * @param {string} request.ourRoot - Our Merkle root
+ * @param {number} request.sinceSlot - Request blocks since this slot
+ * @param {string} sender - Sender public key
+ * @param {string} privateKey - Sender private key
+ * @returns {Object} Merkle diff request message
+ */
+export function createConsensusMerkleDiffRequest(request, sender, privateKey) {
+  return createMessage({
+    type: MessageType.CONSENSUS_MERKLE_DIFF_REQUEST,
+    payload: {
+      theirRoot: request.theirRoot,
+      ourRoot: request.ourRoot,
+      sinceSlot: request.sinceSlot || 0,
+      requestId: generateMessageId(),
+    },
+    sender,
+    privateKey,
+    ttl: 1, // Direct request, no relay
+  });
+}
+
+/**
+ * Create Merkle diff response message
+ * @param {Object} response - Diff response
+ * @param {string} response.requestId - Original request ID
+ * @param {Object[]} response.blocks - Blocks in diff (only missing/changed)
+ * @param {string} response.newRoot - Root after applying diff
+ * @param {number} response.latestSlot - Latest finalized slot
+ * @param {string} sender - Sender public key
+ * @param {string} privateKey - Sender private key
+ * @returns {Object} Merkle diff response message
+ */
+export function createConsensusMerkleDiffResponse(response, sender, privateKey) {
+  return createMessage({
+    type: MessageType.CONSENSUS_MERKLE_DIFF_RESPONSE,
+    payload: {
+      requestId: response.requestId,
+      blocks: response.blocks || [],
+      newRoot: response.newRoot,
+      latestSlot: response.latestSlot || 0,
+      diffSize: response.blocks?.length || 0,
+    },
+    sender,
+    privateKey,
+    ttl: 1, // Direct response, no relay
+  });
+}
+
 export default {
   MessageType,
   generateMessageId,
@@ -442,4 +528,8 @@ export default {
   // Judgment sync messages
   createJudgmentSyncRequest,
   createJudgmentSyncResponse,
+  // Merkle diff sync messages
+  createConsensusMerkleRoot,
+  createConsensusMerkleDiffRequest,
+  createConsensusMerkleDiffResponse,
 };

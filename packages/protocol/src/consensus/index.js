@@ -17,3 +17,4 @@ export * from './finality.js';
 export * from './slot.js';
 export * from './messages.js';
 export * from './gossip-bridge.js';
+export * from './merkle-state.js';
