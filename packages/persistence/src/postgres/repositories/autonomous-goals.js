@@ -328,6 +328,250 @@ export class AutonomousGoalsRepository extends BaseRepository {
     };
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // v1.1: MILESTONE TRACKING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * v1.1: Add a milestone to a goal
+   *
+   * @param {string} goalId - Goal UUID
+   * @param {Object} milestone - Milestone data
+   * @param {string} milestone.title - Milestone title
+   * @param {number} milestone.targetProgress - Progress when milestone is reached (0-1)
+   * @param {string} [milestone.description] - Milestone description
+   * @returns {Promise<Object|null>} Updated goal
+   */
+  async addMilestone(goalId, milestone) {
+    const goal = await this.findById(goalId);
+    if (!goal) return null;
+
+    const milestones = goal.config?.milestones || [];
+    milestones.push({
+      id: `ms_${Date.now().toString(36)}`,
+      title: milestone.title,
+      description: milestone.description || null,
+      targetProgress: milestone.targetProgress,
+      reachedAt: null,
+      createdAt: new Date().toISOString(),
+    });
+
+    // Sort by target progress
+    milestones.sort((a, b) => a.targetProgress - b.targetProgress);
+
+    return this.update(goalId, {
+      config: { ...goal.config, milestones },
+    });
+  }
+
+  /**
+   * v1.1: Mark a milestone as reached
+   *
+   * @param {string} goalId - Goal UUID
+   * @param {string} milestoneId - Milestone ID
+   * @returns {Promise<Object|null>} Updated goal
+   */
+  async completeMilestone(goalId, milestoneId) {
+    const goal = await this.findById(goalId);
+    if (!goal) return null;
+
+    const milestones = goal.config?.milestones || [];
+    const milestone = milestones.find(m => m.id === milestoneId);
+    if (!milestone) return goal;
+
+    milestone.reachedAt = new Date().toISOString();
+
+    return this.update(goalId, {
+      config: { ...goal.config, milestones },
+    });
+  }
+
+  /**
+   * v1.1: Get goals with pending milestones
+   *
+   * @param {string} userId - User ID
+   * @returns {Promise<Object[]>} Goals with unreached milestones at or below current progress
+   */
+  async findWithPendingMilestones(userId) {
+    const activeGoals = await this.findActive(userId, 50);
+
+    return activeGoals.filter(goal => {
+      const milestones = goal.config?.milestones || [];
+      return milestones.some(m =>
+        !m.reachedAt && m.targetProgress <= goal.progress,
+      );
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // v1.1: PROGRESS HISTORY
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * v1.1: Record progress with note (history tracking)
+   *
+   * @param {string} goalId - Goal UUID
+   * @param {number} progress - Progress value (0-1)
+   * @param {string} [note] - Progress note
+   * @returns {Promise<Object|null>} Updated goal
+   */
+  async recordProgress(goalId, progress, note = null) {
+    const goal = await this.findById(goalId);
+    if (!goal) return null;
+
+    // Add to progress history
+    const progressNotes = goal.progressNotes || [];
+    progressNotes.push({
+      timestamp: new Date().toISOString(),
+      progress,
+      previousProgress: goal.progress,
+      note,
+    });
+
+    // Keep only last 50 entries
+    if (progressNotes.length > 50) {
+      progressNotes.splice(0, progressNotes.length - 50);
+    }
+
+    // Check for milestone completions
+    const milestones = goal.config?.milestones || [];
+    for (const m of milestones) {
+      if (!m.reachedAt && m.targetProgress <= progress) {
+        m.reachedAt = new Date().toISOString();
+      }
+    }
+
+    const { rows } = await this.db.query(`
+      UPDATE autonomous_goals
+      SET progress = $2,
+          progress_notes = $3,
+          config = $4
+      WHERE id = $1
+      RETURNING *
+    `, [
+      goalId,
+      progress,
+      JSON.stringify(progressNotes),
+      JSON.stringify({ ...goal.config, milestones }),
+    ]);
+
+    return rows[0] ? this._formatRow(rows[0]) : null;
+  }
+
+  /**
+   * v1.1: Get progress history for a goal
+   *
+   * @param {string} goalId - Goal UUID
+   * @returns {Promise<Object[]>} Progress history entries
+   */
+  async getProgressHistory(goalId) {
+    const goal = await this.findById(goalId);
+    return goal?.progressNotes || [];
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // v1.1: AUTO-SUGGESTIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * v1.1: Suggest goals based on patterns and history
+   *
+   * @param {string} userId - User ID
+   * @returns {Promise<Object[]>} Suggested goals
+   */
+  async suggestGoals(userId) {
+    const suggestions = [];
+
+    // Check for goal types without active goals
+    const stats = await this.getStats(userId);
+    const activeByType = {};
+
+    // Get active goals by type
+    const { rows: activeRows } = await this.db.query(`
+      SELECT goal_type, COUNT(*) as count
+      FROM autonomous_goals
+      WHERE user_id = $1 AND status = 'active'
+      GROUP BY goal_type
+    `, [userId]);
+
+    for (const row of activeRows) {
+      activeByType[row.goal_type] = parseInt(row.count);
+    }
+
+    // Suggest quality goal if none active
+    if (!activeByType[GoalType.QUALITY]) {
+      suggestions.push({
+        type: 'missing_type',
+        goalType: GoalType.QUALITY,
+        title: 'Maintain Code Quality',
+        description: 'No active quality goals. Consider adding one.',
+        priority: 70,
+      });
+    }
+
+    // Suggest learning goal if none active
+    if (!activeByType[GoalType.LEARNING]) {
+      suggestions.push({
+        type: 'missing_type',
+        goalType: GoalType.LEARNING,
+        title: 'Learn New Skills',
+        description: 'No active learning goals. Consider adding one.',
+        priority: 60,
+      });
+    }
+
+    // Check for stalled goals (no progress in 7 days)
+    const { rows: stalledRows } = await this.db.query(`
+      SELECT * FROM autonomous_goals
+      WHERE user_id = $1
+        AND status = 'active'
+        AND progress < 1
+        AND updated_at < NOW() - INTERVAL '7 days'
+      ORDER BY priority DESC
+      LIMIT 5
+    `, [userId]);
+
+    for (const row of stalledRows) {
+      const goal = this._formatRow(row);
+      suggestions.push({
+        type: 'stalled',
+        goalId: goal.id,
+        title: goal.title,
+        description: `Goal "${goal.title}" has not progressed in 7+ days.`,
+        priority: 80,
+        suggestedAction: 'Review and update progress, or pause/abandon if no longer relevant.',
+      });
+    }
+
+    // Check for overdue goals
+    const { rows: overdueRows } = await this.db.query(`
+      SELECT * FROM autonomous_goals
+      WHERE user_id = $1
+        AND status = 'active'
+        AND due_at IS NOT NULL
+        AND due_at < NOW()
+      ORDER BY due_at ASC
+      LIMIT 5
+    `, [userId]);
+
+    for (const row of overdueRows) {
+      const goal = this._formatRow(row);
+      suggestions.push({
+        type: 'overdue',
+        goalId: goal.id,
+        title: goal.title,
+        description: `Goal "${goal.title}" is past its deadline.`,
+        priority: 90,
+        suggestedAction: 'Complete urgently, extend deadline, or abandon.',
+      });
+    }
+
+    // Sort by priority descending
+    suggestions.sort((a, b) => b.priority - a.priority);
+
+    return suggestions;
+  }
+
   /**
    * Format database row to consistent object
    * @private
