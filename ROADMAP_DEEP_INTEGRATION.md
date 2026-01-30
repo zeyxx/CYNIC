@@ -2,12 +2,13 @@
 
 > "φ distrusts φ" - From theater to truth
 
-## Current State: e75624a
+## Current State: 6828127
 
 ### Completed
 - [x] **Phase 1: Consciousness** - EmergenceLayer wired, awarenessLevel influences confidence
 - [x] **Phase 2: Thermodynamics** - Heat/Work/Efficiency computed in real-time, influences confidence
 - [x] **Phase 3: Psychology Bidirectional** - Profile level modifies axiom weights, learning auto-triggers
+- [x] **Phase 4: Kabbalistic Router** - Tree of Life traversal, CONSULTATION_MATRIX used, φ-weighted synthesis
 
 ### Remaining Phases
 
@@ -107,18 +108,18 @@ Formulas (from formulas.js):
 
 ---
 
-## Phase 4: KABBALISTIC ROUTING (L'arbre vit)
+## Phase 4: KABBALISTIC ROUTING (L'arbre vit) ✅
 
 **Goal**: Decisions flow through Sefirot hierarchy, not random hooks
 
-### What exists (DISCONNECTED):
-- `packages/node/src/agents/collective/` - 11 Dogs defined
-- `CONSULTATION_MATRIX` in guardian.js - never used
-- Each Dog operates independently
+### What exists:
+- `packages/node/src/agents/collective/` - 11 Dogs defined with Sefirot mappings
+- `CONSULTATION_MATRIX` in @cynic/core/orchestration - consultation rules
+- `SEFIROT_TEMPLATE` in collective/sefirot.js - φ-weighted geometry
 
-### To Wire:
+### Wired:
 ```
-1. Create KabbalisticRouter:
+1. Created KabbalisticRouter:
    Location: packages/node/src/orchestration/kabbalistic-router.js
 
    Tree structure:
@@ -137,20 +138,33 @@ Formulas (from formulas.js):
                  (Cartographer)
 
 2. Lightning Flash (Seder Hishtalshelut):
-   - Task enters at Keter
-   - Flows down prescribed path based on task type
-   - Each Sefirah can: process, delegate down, escalate up, consult peer
+   - Task enters based on TASK_ENTRY_POINTS mapping
+   - Follows LIGHTNING_PATHS for task type
+   - Each Sefirah: process → low confidence triggers consultation
 
-3. Consultation rules (from CONSULTATION_MATRIX):
-   - Guardian (Gevurah) consults: Architect (Chesed), Analyst (Binah)
-   - Oracle (Tiferet) consults: all (center of tree)
-   - Scout (Netzach) consults: Cartographer (Malkhut)
+3. Consultation uses CONSULTATION_MATRIX:
+   - Low confidence (< φ⁻²) triggers peer consultation
+   - Guardian consults Architect for severity
+   - Oracle for escalation resolution
+   - Circuit breaker: max 3 depth, 5 consultations, 5s cooldown
 
-4. Replace sequential hooks with Tree traversal:
-   - PreToolUse: Keter → Gevurah (Guardian)
-   - If Guardian uncertain: consult Chesed (Architect)
-   - If blocked: escalate to Tiferet (Oracle) for override decision
+4. Tree traversal replaces parallel execution:
+   - receiveHookEvent → kabbalisticRouter.route()
+   - Synthesis at Keter level with φ-weighted consensus
+   - Fallback to legacy processEvent on error
 ```
+
+### Implementation Notes:
+- Created `packages/node/src/orchestration/kabbalistic-router.js`:
+  - KabbalisticRouter class with route(), traversePath(), handleLowConfidence()
+  - Uses SEFIROT_TEMPLATE for geometry, CONSULTATION_MATRIX for peers
+  - φ-aligned thresholds: CONSENSUS=61.8%, ESCALATION=38.2%
+  - Circuit breaker prevents infinite consultation loops
+- Modified `packages/node/src/agents/collective/index.js`:
+  - Added KabbalisticRouter initialization in constructor
+  - receiveHookEvent now uses router.route() with legacy fallback
+  - Backward compatible: agentResults format preserved
+- Exported from `packages/node/src/orchestration/index.js`
 
 ---
 
@@ -244,6 +258,7 @@ If context compacts, read this file first. Key commits:
 - `52ce0ee` - Consciousness/EmergenceLayer wired
 - `7ebc1f3` - Thermodynamics Heat/Work/Efficiency wired
 - `e75624a` - Psychology Bidirectional wired
+- `6828127` - Kabbalistic Router wired
 
-Current CYNIC real score: ~65% → target 90%
-Progress: Phase 1 ✅, Phase 2 ✅, Phase 3 ✅, Phase 4-5 pending
+Current CYNIC real score: ~75% → target 90%
+Progress: Phase 1 ✅, Phase 2 ✅, Phase 3 ✅, Phase 4 ✅, Phase 5 pending

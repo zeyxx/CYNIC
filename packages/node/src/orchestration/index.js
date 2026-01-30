@@ -55,3 +55,9 @@ export {
   createCircuitBreaker,
   getCircuitBreakerRegistry,
 } from './circuit-breaker.js';
+
+// Kabbalistic Router - Tree of Life decision flow (Phase 4)
+export {
+  KabbalisticRouter,
+  createKabbalisticRouter,
+} from './kabbalistic-router.js';

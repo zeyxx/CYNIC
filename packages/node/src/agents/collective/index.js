@@ -80,6 +80,9 @@ import {
   DogAutonomousBehaviors,
 } from './autonomous.js';
 
+// Import Kabbalistic Router (Phase 4: L'arbre vit)
+import { KabbalisticRouter } from '../../orchestration/kabbalistic-router.js';
+
 // Re-export agents
 export {
   CollectiveGuardian,
@@ -328,6 +331,16 @@ export class CollectivePack {
       [AgentId.ORACLE, this.oracle], // Tiferet - Beauty
       [AgentId.DEPLOYER, this.deployer], // Hod - Splendor
     ]);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // KABBALISTIC ROUTER (Phase 4: L'arbre vit)
+    // Routes decisions through Tree of Life instead of parallel independent dogs
+    // ═══════════════════════════════════════════════════════════════════════════
+    this.kabbalisticRouter = new KabbalisticRouter({
+      collectivePack: this,
+      persistence: this.persistence,
+      relationshipGraph: null, // TODO: wire RelationshipGraph when available
+    });
 
     // Stats
     this.collectiveStats = {
@@ -680,26 +693,65 @@ export class CollectivePack {
       timestamp: Date.now(),
     };
 
-    // 🐕 RUN FULL AGENT PIPELINE (shouldTrigger → analyze → decide)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 4: KABBALISTIC ROUTING (L'arbre vit)
+    // Route through Tree of Life instead of parallel independent dogs
+    // ═══════════════════════════════════════════════════════════════════════════
     let agentResults = [];
     let blocked = false;
     let blockedBy = null;
     let blockMessage = null;
+    let routingResult = null;
 
     try {
-      agentResults = await this.processEvent(processEvent, { hookType, userId, sessionId });
+      // Use Kabbalistic Router for structured tree traversal
+      routingResult = await this.kabbalisticRouter.route({
+        taskType: hookType,
+        payload,
+        userId,
+        sessionId,
+      });
 
-      // Check if any agent blocked the operation
-      for (const result of agentResults) {
-        if (result.response === 'block') {
-          blocked = true;
-          blockedBy = result.agent;
-          blockMessage = result.message;
-          break;
-        }
+      // Extract results in legacy format for backward compatibility
+      agentResults = routingResult.decisions.map(d => ({
+        agent: d.agent,
+        response: d.response,
+        action: d.action,
+        message: d.message,
+        confidence: d.confidence,
+        sefirah: d.sefirah,
+      }));
+
+      // Use routing result for block status
+      blocked = routingResult.blocked;
+      blockedBy = routingResult.blockedBy;
+      blockMessage = routingResult.blockMessage;
+
+      // Log routing summary
+      if (routingResult.consultations?.length > 0) {
+        log.debug('Kabbalistic consultations', {
+          hookType,
+          consultations: routingResult.consultations.length,
+          path: routingResult.path,
+        });
       }
     } catch (err) {
-      log.error('processEvent error', { error: err.message });
+      log.error('Kabbalistic routing error', { error: err.message });
+
+      // Fallback to legacy parallel processing
+      try {
+        agentResults = await this.processEvent(processEvent, { hookType, userId, sessionId });
+        for (const result of agentResults) {
+          if (result.response === 'block') {
+            blocked = true;
+            blockedBy = result.agent;
+            blockMessage = result.message;
+            break;
+          }
+        }
+      } catch (fallbackErr) {
+        log.error('Fallback processEvent error', { error: fallbackErr.message });
+      }
     }
 
     // 🐕 Broadcast dog decisions via callback (for SSE)
