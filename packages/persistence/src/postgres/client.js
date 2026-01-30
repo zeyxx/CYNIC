@@ -11,7 +11,7 @@
 
 import { readFileSync } from 'fs';
 import pg from 'pg';
-import { createLogger } from '@cynic/core';
+import { createLogger, CircuitBreaker, CircuitState, withCircuitBreaker } from '@cynic/core';
 
 const { Pool } = pg;
 const log = createLogger('PostgresClient');
@@ -27,24 +27,6 @@ const DEFAULT_CONFIG = {
   idleTimeoutMillis: 61800,   // φ⁻¹ × 100000 - idle timeout
   connectionTimeoutMillis: 3820, // φ⁻² × 10000 - connection timeout
   allowExitOnIdle: true,
-};
-
-/**
- * Circuit breaker states
- */
-const CircuitState = {
-  CLOSED: 'CLOSED',     // Normal operation
-  OPEN: 'OPEN',         // Failing, reject requests
-  HALF_OPEN: 'HALF_OPEN', // Testing if recovered
-};
-
-/**
- * Circuit breaker configuration (φ-derived)
- */
-const CIRCUIT_BREAKER_CONFIG = {
-  failureThreshold: 5,           // Open after 5 consecutive failures
-  resetTimeoutMs: 61800,         // φ⁻¹ × 100000 - time before trying again
-  halfOpenMaxRequests: 1,        // Allow 1 test request in half-open
 };
 
 /**
@@ -141,80 +123,37 @@ export class PostgresClient {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.pool = null;
 
-    // Circuit breaker state
-    this._circuitState = CircuitState.CLOSED;
-    this._failureCount = 0;
-    this._lastFailureTime = 0;
-    this._circuitConfig = { ...CIRCUIT_BREAKER_CONFIG, ...config.circuitBreaker };
+    // v1.1: Use shared CircuitBreaker from @cynic/core (with exponential backoff, jitter)
+    this._breaker = new CircuitBreaker({
+      name: 'postgres',
+      ...config.circuitBreaker,
+      // Health probe: lightweight SELECT 1 check
+      healthProbe: async () => {
+        if (!this.pool) return false;
+        try {
+          await this.pool.query('SELECT 1');
+          return true;
+        } catch {
+          return false;
+        }
+      },
+    });
   }
 
   /**
    * Get current circuit breaker state
+   * v1.1: Now returns full state from core CircuitBreaker
    */
   getCircuitState() {
-    return {
-      state: this._circuitState,
-      failureCount: this._failureCount,
-      lastFailureTime: this._lastFailureTime,
-    };
+    return this._breaker.getState();
   }
 
   /**
-   * Check if circuit allows request
-   * @private
+   * Get circuit breaker statistics
+   * v1.1: New method for observability
    */
-  _canExecute() {
-    if (this._circuitState === CircuitState.CLOSED) {
-      return true;
-    }
-
-    if (this._circuitState === CircuitState.OPEN) {
-      // Check if enough time has passed to try again
-      const now = Date.now();
-      if (now - this._lastFailureTime >= this._circuitConfig.resetTimeoutMs) {
-        this._circuitState = CircuitState.HALF_OPEN;
-        return true;
-      }
-      return false;
-    }
-
-    // HALF_OPEN: allow limited requests to test recovery
-    return true;
-  }
-
-  /**
-   * Record successful operation
-   * @private
-   */
-  _recordSuccess() {
-    if (this._circuitState === CircuitState.HALF_OPEN) {
-      // Successfully recovered - close circuit
-      this._circuitState = CircuitState.CLOSED;
-      this._failureCount = 0;
-      log.info('Circuit breaker: CLOSED (recovered)');
-    } else {
-      // Reset failure count on success
-      this._failureCount = 0;
-    }
-  }
-
-  /**
-   * Record failed operation
-   * @private
-   */
-  _recordFailure() {
-    this._failureCount++;
-    this._lastFailureTime = Date.now();
-
-    if (this._circuitState === CircuitState.HALF_OPEN) {
-      // Failed during recovery test - reopen circuit
-      this._circuitState = CircuitState.OPEN;
-      log.warn('Circuit breaker: OPEN (recovery failed)');
-    } else if (this._failureCount >= this._circuitConfig.failureThreshold) {
-      // Too many failures - open circuit
-      this._circuitState = CircuitState.OPEN;
-      log.warn('Circuit breaker: OPEN', { failures: this._failureCount });
-    }
+  getCircuitStats() {
+    return this._breaker.getStats();
   }
 
   /**
@@ -247,55 +186,39 @@ export class PostgresClient {
 
   /**
    * Execute a query with circuit breaker protection
+   * v1.1: Uses core CircuitBreaker with exponential backoff
    */
   async query(text, params = []) {
-    // Check circuit breaker
-    if (!this._canExecute()) {
-      const err = new Error('Circuit breaker is OPEN - database unavailable');
-      err.code = 'CIRCUIT_OPEN';
-      err.circuitState = this.getCircuitState();
-      throw err;
-    }
-
+    // Ensure pool exists
     if (!this.pool) {
       await this.connect();
     }
 
-    try {
-      const result = await this.pool.query(text, params);
-      this._recordSuccess();
-      return result;
-    } catch (error) {
-      this._recordFailure();
-      throw error;
-    }
+    // v1.1: Use withCircuitBreaker helper with probeFirst in half-open
+    return withCircuitBreaker(
+      this._breaker,
+      async () => this.pool.query(text, params),
+      { throwOnOpen: true, probeFirst: true },
+    );
   }
 
   /**
    * Get a client from the pool (for transactions)
    * Protected by circuit breaker
+   * v1.1: Uses core CircuitBreaker with exponential backoff
    */
   async getClient() {
-    // Check circuit breaker
-    if (!this._canExecute()) {
-      const err = new Error('Circuit breaker is OPEN - database unavailable');
-      err.code = 'CIRCUIT_OPEN';
-      err.circuitState = this.getCircuitState();
-      throw err;
-    }
-
+    // Ensure pool exists
     if (!this.pool) {
       await this.connect();
     }
 
-    try {
-      const client = await this.pool.connect();
-      this._recordSuccess();
-      return client;
-    } catch (error) {
-      this._recordFailure();
-      throw error;
-    }
+    // v1.1: Use withCircuitBreaker helper with probeFirst in half-open
+    return withCircuitBreaker(
+      this._breaker,
+      async () => this.pool.connect(),
+      { throwOnOpen: true, probeFirst: true },
+    );
   }
 
   /**
@@ -329,21 +252,52 @@ export class PostgresClient {
 
   /**
    * Reset circuit breaker (for manual recovery)
+   * v1.1: Delegates to core CircuitBreaker
    */
   resetCircuitBreaker() {
-    this._circuitState = CircuitState.CLOSED;
-    this._failureCount = 0;
-    this._lastFailureTime = 0;
+    this._breaker.reset();
     log.info('Circuit breaker: manually reset to CLOSED');
   }
 
   /**
+   * Force circuit breaker open (for maintenance)
+   * v1.1: New method for controlled shutdown
+   */
+  tripCircuitBreaker() {
+    this._breaker.trip();
+    log.warn('Circuit breaker: manually tripped to OPEN');
+  }
+
+  /**
    * Health check
+   * v1.1: Now includes circuit breaker state and backoff info
    */
   async health() {
+    const circuitState = this._breaker.getState();
+
+    // If circuit is open, don't query - report unhealthy with circuit info
+    if (circuitState.state === CircuitState.OPEN) {
+      return {
+        status: 'unhealthy',
+        error: 'Circuit breaker is OPEN',
+        circuit: {
+          state: circuitState.state,
+          consecutiveOpenings: circuitState.consecutiveOpenings,
+          currentBackoffMs: circuitState.currentBackoffMs,
+          timeUntilProbeMs: circuitState.timeUntilProbeMs,
+        },
+      };
+    }
+
     try {
       const start = Date.now();
-      await this.query('SELECT 1');
+      // Direct pool query to avoid circuit breaker (we're checking health)
+      if (this.pool) {
+        await this.pool.query('SELECT 1');
+      } else {
+        await this.connect();
+        await this.pool.query('SELECT 1');
+      }
       const latency = Date.now() - start;
 
       return {
@@ -353,12 +307,19 @@ export class PostgresClient {
           total: this.pool?.totalCount || 0,
           idle: this.pool?.idleCount || 0,
           waiting: this.pool?.waitingCount || 0,
-        }
+        },
+        circuit: {
+          state: circuitState.state,
+          consecutiveOpenings: circuitState.consecutiveOpenings,
+        },
       };
     } catch (error) {
       return {
         status: 'unhealthy',
         error: error.message,
+        circuit: {
+          state: circuitState.state,
+        },
       };
     }
   }

@@ -36,6 +36,12 @@ export const DEFAULT_CIRCUIT_CONFIG = Object.freeze({
   resetTimeoutMs: 61800,          // φ⁻¹ × 100000 - time before trying again
   halfOpenMaxRequests: 1,         // Allow 1 test request in half-open
   successThreshold: 2,            // Successes needed to close from half-open
+  // v1.1: Exponential backoff
+  maxResetTimeoutMs: 300000,      // Max 5 minutes (Fibonacci × 1000)
+  backoffMultiplier: PHI_INV + 1, // ~1.618 (φ) - golden ratio backoff
+  jitterFactor: 0.1,              // ±10% jitter to prevent thundering herd
+  // v1.1: Health probe
+  healthProbeIntervalMs: 5000,    // Probe health every 5s in half-open
 });
 
 /**
@@ -90,6 +96,14 @@ export class CircuitBreaker extends EventEmitter {
     this._lastFailureTime = 0;
     this._halfOpenRequests = 0;
 
+    // v1.1: Exponential backoff tracking
+    this._consecutiveOpenings = 0;        // Times circuit has opened consecutively
+    this._currentResetTimeoutMs = this._config.resetTimeoutMs;
+    this._lastProbeTime = 0;
+
+    // v1.1: Health probe callback
+    this._healthProbe = options.healthProbe || null;
+
     // Stats
     this._stats = {
       totalRequests: 0,
@@ -97,6 +111,8 @@ export class CircuitBreaker extends EventEmitter {
       totalSuccesses: 0,
       stateChanges: 0,
       lastStateChange: null,
+      consecutiveOpenings: 0,
+      currentBackoffMs: this._config.resetTimeoutMs,
     };
   }
 
@@ -148,14 +164,16 @@ export class CircuitBreaker extends EventEmitter {
       case CircuitState.CLOSED:
         return true;
 
-      case CircuitState.OPEN:
-        // Check if reset timeout has passed
-        if (Date.now() - this._lastFailureTime >= this._config.resetTimeoutMs) {
+      case CircuitState.OPEN: {
+        // v1.1: Use current backoff timeout with jitter
+        const timeoutWithJitter = this._getTimeoutWithJitter();
+        if (Date.now() - this._lastFailureTime >= timeoutWithJitter) {
           this._transitionTo(CircuitState.HALF_OPEN);
           this._halfOpenRequests = 1;
           return true;
         }
         return false;
+      }
 
       case CircuitState.HALF_OPEN:
         // Allow limited test requests
@@ -168,6 +186,54 @@ export class CircuitBreaker extends EventEmitter {
       default:
         return false;
     }
+  }
+
+  /**
+   * Check if ready for next probe (health check in half-open)
+   * v1.1: Use periodic probes instead of request-based
+   * @returns {boolean}
+   */
+  canProbe() {
+    if (this._state !== CircuitState.HALF_OPEN) return false;
+    const now = Date.now();
+    if (now - this._lastProbeTime >= this._config.healthProbeIntervalMs) {
+      this._lastProbeTime = now;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Execute health probe if available
+   * v1.1: Run lightweight health check before allowing traffic
+   * @returns {Promise<boolean>} Whether service is healthy
+   */
+  async probeHealth() {
+    if (!this._healthProbe) return true;
+    try {
+      const result = await this._healthProbe();
+      if (result) {
+        this.recordSuccess();
+      } else {
+        this.recordFailure(new Error('Health probe returned false'));
+      }
+      return result;
+    } catch (error) {
+      this.recordFailure(error);
+      return false;
+    }
+  }
+
+  /**
+   * Get reset timeout with jitter
+   * v1.1: Add ±jitterFactor randomness to prevent thundering herd
+   * @private
+   * @returns {number} Timeout with jitter applied
+   */
+  _getTimeoutWithJitter() {
+    const jitter = this._config.jitterFactor;
+    const randomFactor = 1 + (Math.random() * 2 - 1) * jitter; // 1 ± jitter
+    return Math.floor(this._currentResetTimeoutMs * randomFactor);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -260,9 +326,28 @@ export class CircuitBreaker extends EventEmitter {
     if (newState === CircuitState.CLOSED) {
       this._failureCount = 0;
       this._successCount = 0;
+      // v1.1: Reset backoff on successful recovery
+      this._consecutiveOpenings = 0;
+      this._currentResetTimeoutMs = this._config.resetTimeoutMs;
+      this._stats.consecutiveOpenings = 0;
+      this._stats.currentBackoffMs = this._config.resetTimeoutMs;
     } else if (newState === CircuitState.HALF_OPEN) {
       this._successCount = 0;
       this._halfOpenRequests = 0;
+      // v1.1: Allow immediate first probe when entering half-open
+      this._lastProbeTime = 0;
+    } else if (newState === CircuitState.OPEN) {
+      // v1.1: Exponential backoff - increase timeout each time circuit opens
+      if (oldState === CircuitState.HALF_OPEN) {
+        // Failed recovery - increase backoff
+        this._consecutiveOpenings++;
+        this._currentResetTimeoutMs = Math.min(
+          this._config.resetTimeoutMs * Math.pow(this._config.backoffMultiplier, this._consecutiveOpenings),
+          this._config.maxResetTimeoutMs,
+        );
+        this._stats.consecutiveOpenings = this._consecutiveOpenings;
+        this._stats.currentBackoffMs = Math.floor(this._currentResetTimeoutMs);
+      }
     }
 
     this.emit('stateChange', {
@@ -270,6 +355,7 @@ export class CircuitBreaker extends EventEmitter {
       from: oldState,
       to: newState,
       timestamp: Date.now(),
+      backoffMs: this._currentResetTimeoutMs,
     });
   }
 
@@ -284,6 +370,11 @@ export class CircuitBreaker extends EventEmitter {
     this._successCount = 0;
     this._lastFailureTime = 0;
     this._halfOpenRequests = 0;
+    // v1.1: Reset backoff
+    this._consecutiveOpenings = 0;
+    this._currentResetTimeoutMs = this._config.resetTimeoutMs;
+    this._stats.consecutiveOpenings = 0;
+    this._stats.currentBackoffMs = this._config.resetTimeoutMs;
   }
 
   /**
@@ -305,12 +396,23 @@ export class CircuitBreaker extends EventEmitter {
    * @returns {Object} Current state info
    */
   getState() {
+    const now = Date.now();
+    const timeInState = this._stats.lastStateChange ? now - this._stats.lastStateChange : 0;
+    const timeUntilProbe = this._state === CircuitState.OPEN
+      ? Math.max(0, this._getTimeoutWithJitter() - (now - this._lastFailureTime))
+      : 0;
+
     return {
       name: this._name,
       state: this._state,
       failureCount: this._failureCount,
       successCount: this._successCount,
       lastFailureTime: this._lastFailureTime,
+      // v1.1: Backoff info
+      consecutiveOpenings: this._consecutiveOpenings,
+      currentBackoffMs: Math.floor(this._currentResetTimeoutMs),
+      timeInStateMs: timeInState,
+      timeUntilProbeMs: Math.floor(timeUntilProbe),
       config: { ...this._config },
     };
   }
@@ -340,6 +442,7 @@ export class CircuitBreaker extends EventEmitter {
  * @param {Object} [options] - Options
  * @param {*} [options.fallback] - Fallback value if circuit is open
  * @param {boolean} [options.throwOnOpen=true] - Throw error if circuit is open
+ * @param {boolean} [options.probeFirst=false] - v1.1: Run health probe before execution in half-open
  * @returns {Promise<*>} Result or fallback
  * @throws {Error} If circuit is open and throwOnOpen is true
  *
@@ -349,15 +452,30 @@ export class CircuitBreaker extends EventEmitter {
  * }, { fallback: [] });
  */
 export async function withCircuitBreaker(breaker, fn, options = {}) {
-  const { fallback, throwOnOpen = true } = options;
+  const { fallback, throwOnOpen = true, probeFirst = false } = options;
 
   if (!breaker.canExecute()) {
     if (throwOnOpen) {
       const error = new Error(`Circuit breaker "${breaker.name}" is open`);
       error.code = 'CIRCUIT_OPEN';
+      error.state = breaker.getState();
       throw error;
     }
     return fallback;
+  }
+
+  // v1.1: Optional health probe before execution in half-open
+  if (probeFirst && breaker.isHalfOpen && breaker.canProbe()) {
+    const healthy = await breaker.probeHealth();
+    if (!healthy) {
+      if (throwOnOpen) {
+        const error = new Error(`Circuit breaker "${breaker.name}" health probe failed`);
+        error.code = 'CIRCUIT_PROBE_FAILED';
+        error.state = breaker.getState();
+        throw error;
+      }
+      return fallback;
+    }
   }
 
   try {

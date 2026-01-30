@@ -368,6 +368,260 @@ describe('withCircuitBreaker', () => {
 });
 
 // =============================================================================
+// v1.1 FEATURES - EXPONENTIAL BACKOFF
+// =============================================================================
+
+describe('v1.1: Exponential Backoff', () => {
+  it('should increase timeout on consecutive failures in half-open', async () => {
+    const breaker = new CircuitBreaker({
+      name: 'backoff-test',
+      failureThreshold: 1,
+      resetTimeoutMs: 50,
+      maxResetTimeoutMs: 500,
+      backoffMultiplier: 2,
+      jitterFactor: 0, // Disable jitter for predictable tests
+    });
+
+    // Trip the breaker
+    breaker.recordFailure();
+    assert.strictEqual(breaker.state, CircuitState.OPEN);
+
+    // Wait for timeout, transition to half-open
+    await new Promise(resolve => setTimeout(resolve, 60));
+    breaker.canExecute();
+    assert.strictEqual(breaker.state, CircuitState.HALF_OPEN);
+
+    // Fail again - should double the timeout
+    breaker.recordFailure();
+    assert.strictEqual(breaker.state, CircuitState.OPEN);
+
+    const state = breaker.getState();
+    assert.ok(state.currentBackoffMs >= 100, `Expected backoff >= 100, got ${state.currentBackoffMs}`);
+    assert.strictEqual(state.consecutiveOpenings, 1);
+  });
+
+  it('should cap timeout at maxResetTimeoutMs', async () => {
+    const breaker = new CircuitBreaker({
+      name: 'cap-test',
+      failureThreshold: 1,
+      resetTimeoutMs: 10,
+      maxResetTimeoutMs: 50,
+      backoffMultiplier: 10,
+      jitterFactor: 0,
+    });
+
+    // Trip and fail multiple times
+    breaker.recordFailure();
+    await new Promise(resolve => setTimeout(resolve, 15));
+    breaker.canExecute();
+    breaker.recordFailure();
+
+    await new Promise(resolve => setTimeout(resolve, 60)); // Wait for longer timeout
+    breaker.canExecute();
+    breaker.recordFailure();
+
+    const state = breaker.getState();
+    assert.ok(state.currentBackoffMs <= 50, `Expected backoff <= 50, got ${state.currentBackoffMs}`);
+  });
+
+  it('should reset backoff on successful recovery', async () => {
+    const breaker = new CircuitBreaker({
+      name: 'reset-backoff-test',
+      failureThreshold: 1,
+      successThreshold: 1,
+      resetTimeoutMs: 20,
+      backoffMultiplier: 2,
+      jitterFactor: 0,
+    });
+
+    // Trip and fail to increase backoff
+    breaker.recordFailure();
+    await new Promise(resolve => setTimeout(resolve, 30));
+    breaker.canExecute();
+    breaker.recordFailure();
+
+    let state = breaker.getState();
+    assert.strictEqual(state.consecutiveOpenings, 1);
+
+    // Now recover successfully
+    await new Promise(resolve => setTimeout(resolve, 50));
+    breaker.canExecute();
+    breaker.recordSuccess();
+
+    state = breaker.getState();
+    assert.strictEqual(state.state, CircuitState.CLOSED);
+    assert.strictEqual(state.consecutiveOpenings, 0);
+    assert.strictEqual(state.currentBackoffMs, 20); // Reset to original
+  });
+});
+
+// =============================================================================
+// v1.1 FEATURES - HEALTH PROBE
+// =============================================================================
+
+describe('v1.1: Health Probe', () => {
+  it('should call health probe and record success', async () => {
+    let probeCalled = false;
+    const breaker = new CircuitBreaker({
+      name: 'probe-success-test',
+      failureThreshold: 1,
+      resetTimeoutMs: 20,
+      healthProbe: async () => {
+        probeCalled = true;
+        return true;
+      },
+    });
+
+    // Trip and enter half-open
+    breaker.recordFailure();
+    await new Promise(resolve => setTimeout(resolve, 30));
+    breaker.canExecute();
+    assert.strictEqual(breaker.state, CircuitState.HALF_OPEN);
+
+    // Run health probe
+    const healthy = await breaker.probeHealth();
+
+    assert.ok(probeCalled, 'Health probe should have been called');
+    assert.ok(healthy, 'Should report healthy');
+  });
+
+  it('should call health probe and record failure', async () => {
+    let probeCalled = false;
+    const breaker = new CircuitBreaker({
+      name: 'probe-fail-test',
+      failureThreshold: 1,
+      resetTimeoutMs: 20,
+      healthProbe: async () => {
+        probeCalled = true;
+        return false;
+      },
+    });
+
+    // Trip and enter half-open
+    breaker.recordFailure();
+    await new Promise(resolve => setTimeout(resolve, 30));
+    breaker.canExecute();
+    assert.strictEqual(breaker.state, CircuitState.HALF_OPEN);
+
+    // Run health probe - should fail and reopen circuit
+    const healthy = await breaker.probeHealth();
+
+    assert.ok(probeCalled, 'Health probe should have been called');
+    assert.ok(!healthy, 'Should report unhealthy');
+    assert.strictEqual(breaker.state, CircuitState.OPEN);
+  });
+
+  it('should handle health probe throwing error', async () => {
+    const breaker = new CircuitBreaker({
+      name: 'probe-error-test',
+      failureThreshold: 1,
+      resetTimeoutMs: 20,
+      healthProbe: async () => {
+        throw new Error('Probe failed');
+      },
+    });
+
+    // Trip and enter half-open
+    breaker.recordFailure();
+    await new Promise(resolve => setTimeout(resolve, 30));
+    breaker.canExecute();
+
+    const healthy = await breaker.probeHealth();
+
+    assert.ok(!healthy, 'Should report unhealthy on error');
+    assert.strictEqual(breaker.state, CircuitState.OPEN);
+  });
+
+  it('should return true if no health probe configured', async () => {
+    const breaker = new CircuitBreaker({
+      name: 'no-probe-test',
+    });
+
+    const healthy = await breaker.probeHealth();
+    assert.ok(healthy, 'Should return true when no probe configured');
+  });
+
+  it('canProbe should respect probe interval', async () => {
+    const breaker = new CircuitBreaker({
+      name: 'probe-interval-test',
+      failureThreshold: 1,
+      resetTimeoutMs: 10,
+      healthProbeIntervalMs: 100,
+    });
+
+    // Trip and enter half-open
+    breaker.recordFailure();
+    await new Promise(resolve => setTimeout(resolve, 20));
+    breaker.canExecute();
+    assert.strictEqual(breaker.state, CircuitState.HALF_OPEN);
+
+    // First probe should work
+    assert.ok(breaker.canProbe(), 'First probe should be allowed');
+
+    // Immediate second probe should not be allowed
+    assert.ok(!breaker.canProbe(), 'Second probe too soon');
+
+    // After interval, should be allowed again
+    await new Promise(resolve => setTimeout(resolve, 110));
+    assert.ok(breaker.canProbe(), 'Probe should be allowed after interval');
+  });
+});
+
+// =============================================================================
+// v1.1 FEATURES - STATE INFO
+// =============================================================================
+
+describe('v1.1: Enhanced State Info', () => {
+  it('should include backoff info in getState', () => {
+    const breaker = new CircuitBreaker({
+      name: 'state-info-test',
+      failureThreshold: 1,
+      resetTimeoutMs: 1000,
+    });
+
+    breaker.recordFailure();
+
+    const state = breaker.getState();
+    assert.ok('consecutiveOpenings' in state, 'Should include consecutiveOpenings');
+    assert.ok('currentBackoffMs' in state, 'Should include currentBackoffMs');
+    assert.ok('timeInStateMs' in state, 'Should include timeInStateMs');
+    assert.ok('timeUntilProbeMs' in state, 'Should include timeUntilProbeMs');
+  });
+
+  it('should include backoff info in stateChange event', () => {
+    const breaker = new CircuitBreaker({
+      name: 'event-backoff-test',
+      failureThreshold: 1,
+    });
+
+    const events = [];
+    breaker.on('stateChange', (data) => events.push(data));
+
+    breaker.recordFailure();
+
+    assert.ok(events.length > 0, 'Should emit event');
+    assert.ok('backoffMs' in events[0], 'Event should include backoffMs');
+  });
+
+  it('should include state in error when circuit is open', async () => {
+    const breaker = new CircuitBreaker({
+      name: 'error-state-test',
+      failureThreshold: 1,
+    });
+
+    breaker.recordFailure();
+
+    try {
+      await withCircuitBreaker(breaker, () => 'should not run');
+      assert.fail('Should have thrown');
+    } catch (err) {
+      assert.ok(err.state, 'Error should include state');
+      assert.strictEqual(err.state.state, CircuitState.OPEN);
+    }
+  });
+});
+
+// =============================================================================
 // EDGE CASES
 // =============================================================================
 
