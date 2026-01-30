@@ -384,6 +384,223 @@ export class MemoryRetriever {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // v1.1: MULTI-SESSION MEMORY
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get memories from similar past sessions
+   *
+   * Finds sessions that had similar topics/tasks and retrieves their memories.
+   * Useful for continuity across sessions.
+   *
+   * @param {string} userId - User ID
+   * @param {Object} currentContext - Current session context
+   * @param {string} [currentContext.sessionId] - Current session ID (to exclude)
+   * @param {string[]} [currentContext.topics] - Current topics
+   * @param {string} [currentContext.projectPath] - Current project
+   * @param {Object} [options] - Options
+   * @param {number} [options.maxSessions=5] - Max similar sessions to search
+   * @param {number} [options.memoriesPerSession=3] - Memories per session
+   * @returns {Promise<Object>} Cross-session memories
+   */
+  async getFromSimilarSessions(userId, currentContext = {}, options = {}) {
+    const { sessionId: currentSessionId, topics = [], projectPath } = currentContext;
+    const { maxSessions = 5, memoriesPerSession = 3 } = options;
+
+    const result = {
+      sessions: [],
+      memories: [],
+      timestamp: Date.now(),
+    };
+
+    // Build query to find sessions with similar topics or project
+    const query = topics.length > 0 ? topics.join(' ') : projectPath || '';
+    if (!query) {
+      return result;
+    }
+
+    // Search for memories that match the query
+    let embedding = null;
+    if (this.embedder) {
+      try {
+        embedding = await this.embedder.embed(query);
+      } catch {
+        // Continue without embedding
+      }
+    }
+
+    // Find distinct sessions with similar content
+    const searchResults = await this.memories.search(userId, query, {
+      embedding,
+      limit: maxSessions * memoriesPerSession,
+      minRelevance: this.MIN_RELEVANCE,
+    });
+
+    // Group by session and filter out current session
+    const sessionMap = new Map();
+    for (const memory of searchResults) {
+      if (memory.sessionId === currentSessionId) continue;
+      if (!memory.sessionId) continue;
+
+      if (!sessionMap.has(memory.sessionId)) {
+        sessionMap.set(memory.sessionId, {
+          sessionId: memory.sessionId,
+          memories: [],
+          totalRelevance: 0,
+        });
+      }
+
+      const session = sessionMap.get(memory.sessionId);
+      if (session.memories.length < memoriesPerSession) {
+        session.memories.push(memory);
+        session.totalRelevance += memory.combinedScore || memory.importance || 0;
+      }
+    }
+
+    // Sort sessions by total relevance
+    const sortedSessions = Array.from(sessionMap.values())
+      .sort((a, b) => b.totalRelevance - a.totalRelevance)
+      .slice(0, maxSessions);
+
+    result.sessions = sortedSessions.map(s => ({
+      sessionId: s.sessionId,
+      relevance: s.totalRelevance / s.memories.length,
+      memoryCount: s.memories.length,
+    }));
+
+    result.memories = sortedSessions.flatMap(s => s.memories);
+
+    return result;
+  }
+
+  /**
+   * Get session summary for context transfer
+   *
+   * Retrieves key insights, decisions, and lessons from a past session.
+   * Used when resuming work or starting a related session.
+   *
+   * @param {string} userId - User ID
+   * @param {string} sessionId - Session ID to summarize
+   * @returns {Promise<Object>} Session summary
+   */
+  async getSessionSummary(userId, sessionId) {
+    // Get all memories from the session
+    const memories = await this.memories.findBySession(sessionId);
+
+    // Get decisions made during the session (session-scoped)
+    const decisions = await this.decisions.findBySession(userId, sessionId);
+
+    // Get lessons learned during the session
+    const lessons = await this.lessons.findBySession(userId, sessionId);
+
+    // Calculate session metrics
+    const totalImportance = memories.reduce((sum, m) => sum + (m.importance || 0), 0);
+    const avgImportance = memories.length > 0 ? totalImportance / memories.length : 0;
+
+    // Group memories by type
+    const byType = {};
+    for (const m of memories) {
+      byType[m.memoryType] = (byType[m.memoryType] || 0) + 1;
+    }
+
+    return {
+      sessionId,
+      memories: {
+        total: memories.length,
+        byType,
+        avgImportance,
+        top: memories
+          .sort((a, b) => (b.importance || 0) - (a.importance || 0))
+          .slice(0, 5),
+      },
+      decisions: {
+        total: decisions.length,
+        items: decisions,
+      },
+      lessons: {
+        total: lessons.length,
+        items: lessons,
+      },
+      timestamp: Date.now(),
+    };
+  }
+
+  /**
+   * Find continuation context from previous session
+   *
+   * When starting a new session, finds relevant context from the most recent
+   * similar session to provide continuity.
+   *
+   * @param {string} userId - User ID
+   * @param {Object} newContext - New session context
+   * @param {string} [newContext.projectPath] - Project being worked on
+   * @param {string} [newContext.taskDescription] - What user wants to do
+   * @returns {Promise<Object>} Continuation context
+   */
+  async findContinuationContext(userId, newContext = {}) {
+    const { projectPath, taskDescription } = newContext;
+
+    const result = {
+      hasContinuation: false,
+      previousSession: null,
+      relevantMemories: [],
+      activeDecisions: [],
+      recentLessons: [],
+      suggestions: [],
+    };
+
+    // Find recent important memories for this project
+    if (projectPath) {
+      const projectDecisions = await this.decisions.findByProject(userId, projectPath, {
+        status: 'active',
+        limit: 5,
+      });
+      result.activeDecisions = projectDecisions;
+    }
+
+    // Search for related past work
+    if (taskDescription) {
+      const similar = await this.getFromSimilarSessions(userId, {
+        topics: [taskDescription],
+        projectPath,
+      }, {
+        maxSessions: 3,
+        memoriesPerSession: 3,
+      });
+
+      if (similar.sessions.length > 0) {
+        result.hasContinuation = true;
+        result.previousSession = similar.sessions[0];
+        result.relevantMemories = similar.memories;
+      }
+    }
+
+    // Get recent lessons (always relevant)
+    result.recentLessons = await this.lessons.findRecent(userId, 5);
+
+    // Get critical lessons (must not repeat)
+    const critical = await this.lessons.findCritical(userId, 3);
+    if (critical.length > 0) {
+      result.suggestions.push({
+        type: 'warning',
+        message: `${critical.length} critical lesson(s) to remember`,
+        items: critical.map(l => l.mistake),
+      });
+    }
+
+    // Check for unfinished decisions
+    if (result.activeDecisions.length > 0) {
+      result.suggestions.push({
+        type: 'context',
+        message: `${result.activeDecisions.length} active decision(s) for this project`,
+        items: result.activeDecisions.map(d => d.title),
+      });
+    }
+
+    return result;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // STATISTICS
   // ═══════════════════════════════════════════════════════════════════════════
 

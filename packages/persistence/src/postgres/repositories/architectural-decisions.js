@@ -219,6 +219,19 @@ export class ArchitecturalDecisionsRepository extends BaseRepository {
   }
 
   /**
+   * v1.1: Get decisions from a specific session
+   * @param {string} userId - User ID
+   * @param {string} sessionId - Session ID
+   * @param {number} [limit=20] - Maximum results
+   * @returns {Promise<Object[]>}
+   */
+  async findBySession(userId, sessionId, limit = 20) {
+    // Note: Decisions may not have session_id, search by metadata or time range
+    // For now, return empty as decisions are typically project-scoped
+    return [];
+  }
+
+  /**
    * Get decisions by type
    * @param {string} userId - User ID
    * @param {string} decisionType - Decision type

@@ -244,6 +244,39 @@ export class LessonsLearnedRepository extends BaseRepository {
   }
 
   /**
+   * v1.1: Get recent lessons
+   * @param {string} userId - User ID
+   * @param {number} [limit=10] - Maximum results
+   * @returns {Promise<Object[]>}
+   */
+  async findRecent(userId, limit = 10) {
+    const { rows } = await this.db.query(`
+      SELECT * FROM lessons_learned
+      WHERE user_id = $1
+      ORDER BY created_at DESC
+      LIMIT $2
+    `, [userId, limit]);
+    return rows.map(r => this._formatRow(r));
+  }
+
+  /**
+   * v1.1: Get lessons from a specific session
+   * @param {string} userId - User ID
+   * @param {string} sessionId - Session ID
+   * @param {number} [limit=20] - Maximum results
+   * @returns {Promise<Object[]>}
+   */
+  async findBySession(userId, sessionId, limit = 20) {
+    const { rows } = await this.db.query(`
+      SELECT * FROM lessons_learned
+      WHERE user_id = $1 AND source_session_id = $2
+      ORDER BY created_at DESC
+      LIMIT $3
+    `, [userId, sessionId, limit]);
+    return rows.map(r => this._formatRow(r));
+  }
+
+  /**
    * Get frequently occurring lessons (recurring mistakes)
    * @param {string} userId - User ID
    * @param {number} [minOccurrences=2] - Minimum occurrence count
