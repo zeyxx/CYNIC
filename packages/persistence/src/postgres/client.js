@@ -239,6 +239,129 @@ export class PostgresClient {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // v1.1: BATCH OPERATIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Batch insert multiple rows in a single query
+   * v1.1: Reduces round-trips for bulk inserts
+   *
+   * @param {string} table - Table name
+   * @param {string[]} columns - Column names
+   * @param {Array<Array>} rows - Array of row values (each row is an array matching columns)
+   * @param {Object} [options] - Options
+   * @param {string} [options.onConflict] - ON CONFLICT clause (e.g., 'DO NOTHING' or 'DO UPDATE SET ...')
+   * @param {string} [options.returning] - RETURNING clause (e.g., '*' or 'id')
+   * @returns {Promise<{rows: Array, rowCount: number}>}
+   *
+   * @example
+   * await client.batchInsert('patterns', ['name', 'category', 'confidence'], [
+   *   ['pattern1', 'code', 0.8],
+   *   ['pattern2', 'error', 0.6],
+   * ], { onConflict: 'DO NOTHING' });
+   */
+  async batchInsert(table, columns, rows, options = {}) {
+    if (!rows || rows.length === 0) {
+      return { rows: [], rowCount: 0 };
+    }
+
+    // Build parameterized query
+    const { onConflict, returning } = options;
+    const colList = columns.join(', ');
+
+    // Generate placeholders: ($1, $2, $3), ($4, $5, $6), ...
+    const placeholders = [];
+    const values = [];
+    let paramIndex = 1;
+
+    for (const row of rows) {
+      const rowPlaceholders = [];
+      for (const value of row) {
+        rowPlaceholders.push(`$${paramIndex++}`);
+        values.push(value);
+      }
+      placeholders.push(`(${rowPlaceholders.join(', ')})`);
+    }
+
+    let sql = `INSERT INTO ${table} (${colList}) VALUES ${placeholders.join(', ')}`;
+
+    if (onConflict) {
+      sql += ` ON CONFLICT ${onConflict}`;
+    }
+
+    if (returning) {
+      sql += ` RETURNING ${returning}`;
+    }
+
+    return this.query(sql, values);
+  }
+
+  /**
+   * Batch upsert multiple rows (INSERT ... ON CONFLICT DO UPDATE)
+   * v1.1: Efficient bulk upsert with automatic conflict handling
+   *
+   * @param {string} table - Table name
+   * @param {string[]} columns - Column names
+   * @param {Array<Array>} rows - Array of row values
+   * @param {string[]} conflictColumns - Columns that define uniqueness
+   * @param {string[]} [updateColumns] - Columns to update on conflict (defaults to all non-conflict columns)
+   * @returns {Promise<{rows: Array, rowCount: number}>}
+   *
+   * @example
+   * await client.batchUpsert('patterns', ['name', 'category', 'confidence'], [
+   *   ['pattern1', 'code', 0.8],
+   *   ['pattern2', 'error', 0.6],
+   * ], ['name']);
+   */
+  async batchUpsert(table, columns, rows, conflictColumns, updateColumns = null) {
+    if (!rows || rows.length === 0) {
+      return { rows: [], rowCount: 0 };
+    }
+
+    // Determine which columns to update
+    const toUpdate = updateColumns || columns.filter(c => !conflictColumns.includes(c));
+
+    if (toUpdate.length === 0) {
+      // No columns to update - just insert or ignore
+      return this.batchInsert(table, columns, rows, { onConflict: 'DO NOTHING' });
+    }
+
+    // Build ON CONFLICT DO UPDATE SET clause
+    const updateSet = toUpdate.map(col => `${col} = EXCLUDED.${col}`).join(', ');
+    const onConflict = `(${conflictColumns.join(', ')}) DO UPDATE SET ${updateSet}`;
+
+    return this.batchInsert(table, columns, rows, { onConflict, returning: '*' });
+  }
+
+  /**
+   * Execute multiple queries in a single transaction
+   * v1.1: Atomic batch execution
+   *
+   * @param {Array<{sql: string, params?: Array}>} queries - Array of queries to execute
+   * @returns {Promise<Array<{rows: Array, rowCount: number}>>}
+   *
+   * @example
+   * await client.batchExecute([
+   *   { sql: 'INSERT INTO logs (msg) VALUES ($1)', params: ['log1'] },
+   *   { sql: 'INSERT INTO logs (msg) VALUES ($1)', params: ['log2'] },
+   * ]);
+   */
+  async batchExecute(queries) {
+    if (!queries || queries.length === 0) {
+      return [];
+    }
+
+    return this.transaction(async (client) => {
+      const results = [];
+      for (const { sql, params = [] } of queries) {
+        const result = await client.query(sql, params);
+        results.push({ rows: result.rows, rowCount: result.rowCount });
+      }
+      return results;
+    });
+  }
+
   /**
    * Close all connections
    */

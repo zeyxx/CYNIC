@@ -36,6 +36,9 @@ export { BaseRepository } from './interfaces/IRepository.js';
 // Session Store
 export { SessionStore } from './redis/session-store.js';
 
+// v1.1: Batch Operations
+export { BatchQueue, createTableBatchQueue, DEFAULT_BATCH_CONFIG } from './batch-queue.js';
+
 // ═══════════════════════════════════════════════════════════════════════════
 // DECENTRALIZED STORAGE (Merkle DAG)
 // ═══════════════════════════════════════════════════════════════════════════
