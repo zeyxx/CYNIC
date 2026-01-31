@@ -22,9 +22,17 @@ export {
   HANDLER_LATENCIES,
 } from './tiered-router.js';
 
+export {
+  AgentBooster,
+  createAgentBooster,
+  TransformIntent,
+  TransformStatus,
+} from './agent-booster.js';
+
 // Re-export for convenience
 import { ComplexityClassifier, createComplexityClassifier, ComplexityTier, COMPLEXITY_THRESHOLDS } from './complexity-classifier.js';
 import { TieredRouter, createTieredRouter, HANDLER_COSTS, HANDLER_LATENCIES } from './tiered-router.js';
+import { AgentBooster, createAgentBooster, TransformIntent, TransformStatus } from './agent-booster.js';
 
 export default {
   ComplexityClassifier,
@@ -35,4 +43,8 @@ export default {
   createTieredRouter,
   HANDLER_COSTS,
   HANDLER_LATENCIES,
+  AgentBooster,
+  createAgentBooster,
+  TransformIntent,
+  TransformStatus,
 };
