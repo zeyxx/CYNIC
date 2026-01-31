@@ -13,6 +13,7 @@
     "./dag": "./src/dag/index.js",
     "./poj": "./src/poj/index.js",
     "./graph": "./src/graph/index.js",
+    "./vector": "./src/vector/index.js",
     "./factory": "./src/factory.js",
     "./fallback": "./src/fallback-factory.js",
     "./interfaces": "./src/interfaces/IRepository.js"

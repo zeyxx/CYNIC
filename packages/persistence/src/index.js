@@ -132,6 +132,36 @@ export { GraphTraversal, TraversalResult } from './graph/traversal.js';
 export { GraphOverlay, GraphQuery } from './graph/graph.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
+// VECTOR SEARCH (Semantic Search Infrastructure)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// HNSW Index (fast approximate nearest neighbor)
+export {
+  HNSWIndex,
+  HNSWNode,
+  HNSW_CONFIG,
+  createHNSWIndex,
+} from './vector/hnsw.js';
+
+// Vector Store (embeddings + search)
+export {
+  VectorStore,
+  VECTOR_STORE_CONFIG,
+  createVectorStore,
+  getVectorStore,
+} from './vector/store.js';
+
+// Semantic Pattern Matching (V3)
+export {
+  SemanticPatternMatcher,
+  SemanticPattern,
+  PatternCluster,
+  SEMANTIC_PATTERN_CONFIG,
+  createSemanticPatternMatcher,
+  getSemanticPatternMatcher,
+} from './vector/semantic-patterns.js';
+
+// ═══════════════════════════════════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════════════════════════════════
 
