@@ -561,6 +561,10 @@ export class UnifiedOrchestrator extends EventEmitter {
    * @private
    */
   _needsJudgment(event) {
+    // Explicit request overrides automatic detection
+    if (event.requestJudgment === true) return true;
+    if (event.requestJudgment === false) return false;
+
     // Request judgment for:
     // - High/critical risk events
     // - Protection domain
@@ -576,6 +580,10 @@ export class UnifiedOrchestrator extends EventEmitter {
    * @private
    */
   _needsSynthesis(event) {
+    // Explicit request overrides automatic detection
+    if (event.requestSynthesis === true) return true;
+    if (event.requestSynthesis === false) return false;
+
     // Request synthesis for wisdom/analysis domains
     return event.routing?.domain === 'wisdom' ||
            event.routing?.domain === 'analysis' ||

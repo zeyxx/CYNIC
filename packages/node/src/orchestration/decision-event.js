@@ -109,6 +109,10 @@ export class DecisionEvent {
       project: options.userContext?.project || null,
     };
 
+    // Explicit request flags (can override automatic detection)
+    this.requestJudgment = options.requestJudgment ?? null;
+    this.requestSynthesis = options.requestSynthesis ?? null;
+
     // Current state
     this.stage = DecisionStage.RECEIVED;
     this.outcome = DecisionOutcome.PENDING;

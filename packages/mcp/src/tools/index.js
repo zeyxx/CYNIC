@@ -335,6 +335,9 @@ export function createAllTools(options = {}) {
     tokenOptimizer = null, // TokenOptimizer for compression
     hyperbolicSpace = null, // HyperbolicSpace for hierarchical embeddings
     sona = null, // SONA for adaptive learning
+    // Phase 22: Orchestrators for brain_orchestrate
+    dogOrchestrator = null, // DogOrchestrator for Dogs voting
+    engineOrchestrator = null, // EngineOrchestrator for Engines synthesis
   } = options;
 
   // Initialize LSP service for code intelligence
@@ -354,7 +357,7 @@ export function createAllTools(options = {}) {
     createRefineTool(judge, persistence), // Self-refinement: critique → refine → learn
     createOrchestrationTool({ judge, agents, persistence }), // Multi-agent parallel execution
     createOrchestrateTool({ judge, persistence }), // KETER: Central consciousness routing
-    createFullOrchestrateTool({ judge, persistence }), // Full orchestration: routing + judgment + synthesis
+    createFullOrchestrateTool({ judge, persistence, dogOrchestrator, engineOrchestrator }), // Full orchestration: routing + judgment + synthesis
     createCircuitBreakerTool({ persistence }), // Circuit breaker health/stats (Phase 21)
     createDecisionsTool({ persistence }), // Decision history/tracing (Phase 21)
     createVectorSearchTool({ persistence }), // Semantic search with embeddings

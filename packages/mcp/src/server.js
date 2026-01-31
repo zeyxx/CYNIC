@@ -15,6 +15,7 @@
 import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { PHI_INV, PHI_INV_2, IDENTITY, PeriodicScheduler, FibonacciIntervals, EcosystemMonitor } from '@cynic/core';
+import { EngineOrchestrator, globalEngineRegistry } from '@cynic/core/engines';
 
 // SRP: HTTP concerns extracted to HttpAdapter
 import { HttpAdapter } from './server/HttpAdapter.js';
@@ -24,7 +25,7 @@ import { ServiceInitializer } from './server/ServiceInitializer.js';
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = join(__filename, '..');
-import { CYNICJudge, createCollectivePack, LearningService, createEScoreCalculator, createEmergenceLayer } from '@cynic/node';
+import { CYNICJudge, createCollectivePack, LearningService, createEScoreCalculator, createEmergenceLayer, DogOrchestrator, SharedMemory } from '@cynic/node';
 import { createPatternDetector } from '@cynic/emergence';
 import { createAllTools } from './tools/index.js';
 import { createThermodynamicsTracker } from './thermodynamics-tracker.js';
@@ -108,6 +109,22 @@ export class MCPServer {
     this.judge = options.judge || new CYNICJudge({
       eScoreProvider: this.eScoreCalculator,
       learningService: this.learningService,
+    });
+
+    // Engine Orchestrator for philosophical synthesis (73 engines)
+    this.engineOrchestrator = options.engineOrchestrator || new EngineOrchestrator(globalEngineRegistry, {
+      defaultStrategy: 'weighted-average',
+      timeout: 5000,
+    });
+
+    // Shared Memory for collective knowledge (Layer 2 + 3)
+    this.sharedMemory = options.sharedMemory || new SharedMemory();
+
+    // Dog Orchestrator for parallel judgment voting (11 Dogs)
+    this.dogOrchestrator = options.dogOrchestrator || new DogOrchestrator({
+      sharedMemory: this.sharedMemory,
+      mode: 'parallel',  // All dogs vote in parallel
+      consensusThreshold: 0.618,  // φ⁻¹ consensus
     });
 
     // Burn Verifier (optional - requires Solana RPC connection)
@@ -343,6 +360,9 @@ export class MCPServer {
       tokenOptimizer: this.tokenOptimizer,
       hyperbolicSpace: this.hyperbolicSpace,
       sona: this.sona,
+      // Phase 22: Wire orchestrators for brain_orchestrate
+      dogOrchestrator: this.dogOrchestrator,
+      engineOrchestrator: this.engineOrchestrator,
     });
   }
 
