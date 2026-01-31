@@ -170,6 +170,18 @@ export function createErrorContext(toolName, errorMessage, toolInput = {}) {
   };
 }
 
+/**
+ * Create mock prompt context for perceive hook (UserPromptSubmit)
+ */
+export function createPromptContext(prompt, overrides = {}) {
+  return {
+    prompt,
+    timestamp: Date.now(),
+    session_id: `test-session-${Date.now()}`,
+    ...overrides,
+  };
+}
+
 export default {
   runHook,
   runHookAsync,
@@ -177,4 +189,5 @@ export default {
   createSessionContext,
   createSubagentContext,
   createErrorContext,
+  createPromptContext,
 };
