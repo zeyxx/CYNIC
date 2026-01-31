@@ -276,3 +276,54 @@ export {
   StorageMode,
   createDecisionTracer,
 } from './orchestration/index.js';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Routing - Intelligent Request Routing (Claude Flow Integration)
+// ═══════════════════════════════════════════════════════════════════════════════
+export {
+  // Complexity Classification
+  ComplexityClassifier,
+  createComplexityClassifier,
+  ComplexityTier,
+  COMPLEXITY_THRESHOLDS,
+  // Tiered Router
+  TieredRouter,
+  createTieredRouter,
+  HANDLER_COSTS,
+  HANDLER_LATENCIES,
+  // Agent Booster (fast code transforms)
+  AgentBooster,
+  createAgentBooster,
+  TransformIntent,
+  TransformStatus,
+} from './routing/index.js';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Learning - Self-Optimizing Neural Adaptation (SONA)
+// ═══════════════════════════════════════════════════════════════════════════════
+export {
+  SONA,
+  createSONA,
+  SONA_CONFIG,
+} from './learning/index.js';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Optimization - Token Optimization & Compression
+// ═══════════════════════════════════════════════════════════════════════════════
+export {
+  TokenOptimizer,
+  createTokenOptimizer,
+  OPTIMIZER_CONFIG,
+  CompressionStrategy,
+  ABBREVIATIONS,
+} from './optimization/index.js';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Embeddings - Hyperbolic Space for Hierarchical Data
+// ═══════════════════════════════════════════════════════════════════════════════
+export {
+  HyperbolicSpace,
+  createHyperbolicSpace,
+  PoincareOperations,
+  HYPERBOLIC_CONFIG,
+} from './embeddings/index.js';
