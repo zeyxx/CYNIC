@@ -133,9 +133,48 @@ export function createSessionContext(overrides = {}) {
   };
 }
 
+/**
+ * Create mock subagent start/stop context for spawn hook
+ */
+export function createSubagentContext(eventType, overrides = {}) {
+  const base = {
+    event_type: eventType,
+    agent_id: `agent-${Date.now()}`,
+    subagent_type: 'Explore',
+    prompt: 'Test prompt for agent',
+    model: 'default',
+  };
+
+  if (eventType === 'SubagentStop' || eventType === 'subagent_stop') {
+    return {
+      ...base,
+      success: true,
+      duration_ms: 1500,
+      result: { output: 'test result' },
+      ...overrides,
+    };
+  }
+
+  return { ...base, ...overrides };
+}
+
+/**
+ * Create mock error context for error hook
+ */
+export function createErrorContext(toolName, errorMessage, toolInput = {}) {
+  return {
+    tool_name: toolName,
+    tool_input: toolInput,
+    error: errorMessage,
+    error_message: errorMessage,
+  };
+}
+
 export default {
   runHook,
   runHookAsync,
   createToolInput,
   createSessionContext,
+  createSubagentContext,
+  createErrorContext,
 };
