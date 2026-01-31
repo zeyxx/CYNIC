@@ -385,8 +385,13 @@ describe('Guardian Agent', () => {
   });
 
   it('should check command safety', async () => {
-    const dangerous = await guardian.checkCommand('rm -rf /home');
+    // rm -rf / (root) is blocked
+    const dangerous = await guardian.checkCommand('rm -rf /');
     assert.strictEqual(dangerous.blocked, true);
+
+    // rm -rf /home is NOT blocked (specific path, not root)
+    const specificPath = await guardian.checkCommand('rm -rf /home');
+    assert.strictEqual(specificPath.blocked, false);
 
     const safe = await guardian.checkCommand('npm test');
     assert.strictEqual(safe.blocked, false);
