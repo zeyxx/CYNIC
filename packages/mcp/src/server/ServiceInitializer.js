@@ -11,7 +11,14 @@
 
 'use strict';
 
-import { CYNICJudge, createCollectivePack, LearningService, LearningManager, createEScoreCalculator, JudgmentGraphIntegration, createEngineIntegration, createAutomationExecutor, getEventBus } from '@cynic/node';
+import {
+  CYNICJudge, createCollectivePack, LearningService, LearningManager,
+  createEScoreCalculator, JudgmentGraphIntegration, createEngineIntegration,
+  createAutomationExecutor, getEventBus,
+  // Claude Flow Integration (Phase 21)
+  createSONA, createTieredRouter, createAgentBooster,
+  createTokenOptimizer, createHyperbolicSpace, createComplexityClassifier,
+} from '@cynic/node';
 import { PeriodicScheduler, FibonacciIntervals, EngineRegistry, loadPhilosophyEngines, globalEventBus, EventType, createLogger } from '@cynic/core';
 
 const log = createLogger('ServiceInitializer');
@@ -48,6 +55,12 @@ import { MetricsService } from '../metrics-service.js';
  * @property {Object} collective - CollectivePack instance
  * @property {Object} scheduler - PeriodicScheduler instance
  * @property {Object} metrics - MetricsService instance
+ * @property {Object} [sona] - SONA adaptive learning
+ * @property {Object} [tieredRouter] - Complexity-based routing
+ * @property {Object} [agentBooster] - Fast code transforms
+ * @property {Object} [tokenOptimizer] - Token compression
+ * @property {Object} [hyperbolicSpace] - Hierarchical embeddings
+ * @property {Object} [complexityClassifier] - Complexity classification
  */
 
 /**
@@ -97,6 +110,13 @@ export class ServiceInitializer {
       collective: this._createCollective.bind(this),
       scheduler: this._createScheduler.bind(this),
       metrics: this._createMetrics.bind(this),
+      // Claude Flow Integration (Phase 21)
+      complexityClassifier: this._createComplexityClassifier.bind(this),
+      tieredRouter: this._createTieredRouter.bind(this),
+      agentBooster: this._createAgentBooster.bind(this),
+      tokenOptimizer: this._createTokenOptimizer.bind(this),
+      hyperbolicSpace: this._createHyperbolicSpace.bind(this),
+      sona: this._createSONA.bind(this),
     };
   }
 
@@ -208,7 +228,41 @@ export class ServiceInitializer {
       services.automationExecutor = await this.factories.automationExecutor(services);
     }
 
-    // 17. Setup event bus subscriptions for cross-layer communication
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CLAUDE FLOW INTEGRATION (Phase 21) - Optional enhanced services
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // 17. Complexity Classifier (no dependencies)
+    if (!services.complexityClassifier) {
+      services.complexityClassifier = this.factories.complexityClassifier(services);
+    }
+
+    // 18. Tiered Router (depends on complexity classifier)
+    if (!services.tieredRouter) {
+      services.tieredRouter = this.factories.tieredRouter(services);
+    }
+
+    // 19. Agent Booster (no dependencies - fast code transforms)
+    if (!services.agentBooster) {
+      services.agentBooster = this.factories.agentBooster(services);
+    }
+
+    // 20. Token Optimizer (no dependencies - compression)
+    if (!services.tokenOptimizer) {
+      services.tokenOptimizer = this.factories.tokenOptimizer(services);
+    }
+
+    // 21. Hyperbolic Space (no dependencies - hierarchical embeddings)
+    if (!services.hyperbolicSpace) {
+      services.hyperbolicSpace = this.factories.hyperbolicSpace(services);
+    }
+
+    // 22. SONA (depends on learning service - adaptive learning)
+    if (!services.sona) {
+      services.sona = this.factories.sona(services);
+    }
+
+    // 23. Setup event bus subscriptions for cross-layer communication
     this._setupBusSubscriptions(services);
 
     return services;
@@ -315,6 +369,48 @@ export class ServiceInitializer {
       globalEventBus.subscribe(EventType.TOOL_COMPLETED, (event) => {
         const { tool, duration, success, blocked, agentCount } = event.payload || {};
         services.metrics?.recordEvent('tool_completed', { tool, duration, success, blocked, agentCount });
+      })
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CLAUDE FLOW BUS SUBSCRIPTIONS (Phase 21)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Route requests through tiered router for cost optimization
+    this._busSubscriptions.push(
+      globalEventBus.subscribe('request:classify', (event) => {
+        const { content } = event.payload || {};
+        if (services.tieredRouter && content) {
+          const tier = services.complexityClassifier?.classify({ content });
+          services.metrics?.recordEvent('request_routed', { tier: tier?.tier });
+        }
+      })
+    );
+
+    // Feed SONA with judgment feedback for adaptive learning
+    this._busSubscriptions.push(
+      globalEventBus.subscribe(EventType.JUDGMENT_CREATED, (event) => {
+        const { qScore, verdict, dimensions } = event.payload || {};
+        if (services.sona && dimensions) {
+          services.sona.observe({
+            patternId: event.id,
+            dimensionScores: dimensions,
+          });
+        }
+      })
+    );
+
+    // Process feedback through SONA for correlation
+    this._busSubscriptions.push(
+      globalEventBus.subscribe(EventType.USER_FEEDBACK, (event) => {
+        const { success, itemId, impact } = event.payload || {};
+        if (services.sona && itemId) {
+          services.sona.processFeedback({
+            patternId: itemId,
+            success: !!success,
+            impact: impact || (success ? 0.7 : 0.3),
+          });
+        }
       })
     );
 
@@ -588,6 +684,74 @@ export class ServiceInitializer {
     });
 
     return automationExecutor;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CLAUDE FLOW FACTORIES (Phase 21)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Create Complexity Classifier
+   * Classifies requests into LOCAL/LIGHT/FULL tiers
+   */
+  _createComplexityClassifier() {
+    const classifier = createComplexityClassifier();
+    log.debug('ComplexityClassifier ready');
+    return classifier;
+  }
+
+  /**
+   * Create Tiered Router
+   * Routes requests to appropriate handlers based on complexity
+   */
+  _createTieredRouter(services) {
+    const router = createTieredRouter({
+      classifier: services.complexityClassifier,
+    });
+    log.debug('TieredRouter ready');
+    return router;
+  }
+
+  /**
+   * Create Agent Booster
+   * Fast code transforms without LLM (< 1ms, $0)
+   */
+  _createAgentBooster() {
+    const booster = createAgentBooster();
+    log.debug('AgentBooster ready', { transforms: 12 });
+    return booster;
+  }
+
+  /**
+   * Create Token Optimizer
+   * Compression and caching for token efficiency
+   */
+  _createTokenOptimizer() {
+    const optimizer = createTokenOptimizer();
+    log.debug('TokenOptimizer ready', { strategies: 4 });
+    return optimizer;
+  }
+
+  /**
+   * Create Hyperbolic Space
+   * Poincaré ball model for hierarchical embeddings
+   */
+  _createHyperbolicSpace() {
+    const space = createHyperbolicSpace({ dim: 8 });
+    log.debug('HyperbolicSpace ready', { dim: 8 });
+    return space;
+  }
+
+  /**
+   * Create SONA (Self-Optimizing Neural Adaptation)
+   * Correlates patterns to dimensions for adaptive learning
+   */
+  _createSONA(services) {
+    const sona = createSONA({
+      learningService: services.learningService,
+    });
+    log.debug('SONA ready', { adaptationRate: 0.236 });
+    return sona;
   }
 }
 

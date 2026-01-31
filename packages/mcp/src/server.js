@@ -336,6 +336,13 @@ export class MCPServer {
       tasksRepo: this.persistence?.tasks,
       // Phase 18: Automation daemon stats
       automationExecutor: this.automationExecutor,
+      // Phase 21: Claude Flow Integration
+      complexityClassifier: this.complexityClassifier,
+      tieredRouter: this.tieredRouter,
+      agentBooster: this.agentBooster,
+      tokenOptimizer: this.tokenOptimizer,
+      hyperbolicSpace: this.hyperbolicSpace,
+      sona: this.sona,
     });
   }
 

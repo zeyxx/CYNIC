@@ -224,6 +224,27 @@ export {
 
 // NOTE: KETER orchestrator moved to domains/orchestration.js
 
+// Claude Flow domain (complexity, boost, optimize, route, hyperbolic, sona)
+import {
+  createComplexityTool,
+  createBoosterTool,
+  createOptimizerTool,
+  createRouterTool,
+  createHyperbolicTool,
+  createSONATool,
+  claudeFlowFactory,
+} from './domains/claude-flow.js';
+
+export {
+  createComplexityTool,
+  createBoosterTool,
+  createOptimizerTool,
+  createRouterTool,
+  createHyperbolicTool,
+  createSONATool,
+  claudeFlowFactory,
+};
+
 // Memory domain (memory_search, memory_store, memory_stats, self_correction, goals, notifications, tasks)
 import {
   createMemorySearchTool,
@@ -270,6 +291,12 @@ export {
  * @param {Object} [options.emergenceLayer] - EmergenceLayer instance (Layer 7 - Keter) for consciousness tracking
  * @param {Object} [options.patternDetector] - PatternDetector instance for statistical pattern recognition
  * @param {Function} [options.onJudgment] - Callback when judgment is completed (for SSE broadcast)
+ * @param {Object} [options.complexityClassifier] - ComplexityClassifier for tiered routing
+ * @param {Object} [options.tieredRouter] - TieredRouter for request routing
+ * @param {Object} [options.agentBooster] - AgentBooster for fast code transforms
+ * @param {Object} [options.tokenOptimizer] - TokenOptimizer for compression
+ * @param {Object} [options.hyperbolicSpace] - HyperbolicSpace for hierarchical embeddings
+ * @param {Object} [options.sona] - SONA for adaptive learning
  * @returns {Object} All tools keyed by name
  */
 export function createAllTools(options = {}) {
@@ -301,6 +328,13 @@ export function createAllTools(options = {}) {
     notificationsRepo = null, // NotificationsRepo for proactive notifications
     tasksRepo = null, // TasksRepo for durable task queue
     automationExecutor = null, // AutomationExecutor for daemon stats
+    // Claude Flow dependencies (Phase 21)
+    complexityClassifier = null, // ComplexityClassifier for tiered routing
+    tieredRouter = null, // TieredRouter for request routing
+    agentBooster = null, // AgentBooster for fast code transforms
+    tokenOptimizer = null, // TokenOptimizer for compression
+    hyperbolicSpace = null, // HyperbolicSpace for hierarchical embeddings
+    sona = null, // SONA for adaptive learning
   } = options;
 
   // Initialize LSP service for code intelligence
@@ -371,6 +405,13 @@ export function createAllTools(options = {}) {
     ...createLSPTools(lsp),
     // JSON Render (streaming UI components)
     createJSONRenderTool(jsonRenderer),
+    // Claude Flow Tools (Phase 21 - intelligent routing & optimization)
+    createComplexityTool(complexityClassifier),
+    createBoosterTool(agentBooster),
+    createOptimizerTool(tokenOptimizer),
+    createRouterTool(tieredRouter),
+    createHyperbolicTool(hyperbolicSpace),
+    createSONATool(sona),
   ];
 
   for (const tool of toolDefs) {
