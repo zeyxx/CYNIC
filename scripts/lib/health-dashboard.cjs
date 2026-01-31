@@ -5,6 +5,7 @@
  * "Le chien veille - toujours vigilant"
  *
  * Displays comprehensive system health with ANSI colors.
+ * Refactored to use composable DashboardBuilder architecture.
  *
  * @module @cynic/scripts/health-dashboard
  */
@@ -14,53 +15,27 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const https = require('https');
 
-// Import centralized color system
-let colors;
-try {
-  colors = require('./colors.cjs');
-} catch {
-  colors = null;
-}
+const {
+  createDashboard,
+  buildHooksSection,
+  buildThermoSection,
+  buildDogsSection,
+  ANSI,
+} = require('./dashboard-builder.cjs');
 
 // Lazy load modules
 let dogs = null;
 let thermodynamics = null;
-let psychology = null;
 
 function loadModules() {
   try { dogs = require('./collective-dogs.cjs'); } catch {}
   try { thermodynamics = require('./cognitive-thermodynamics.cjs'); thermodynamics.init(); } catch {}
-  try { psychology = require('./human-psychology.cjs'); psychology.init(); } catch {}
 }
 
-// Use centralized ANSI or fallback
-const ANSI = colors?.ANSI || {
-  reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m',
-  red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m',
-  blue: '\x1b[34m', magenta: '\x1b[35m', cyan: '\x1b[36m', white: '\x1b[37m',
-  brightRed: '\x1b[91m', brightGreen: '\x1b[92m', brightYellow: '\x1b[93m',
-  brightBlue: '\x1b[94m', brightMagenta: '\x1b[95m', brightCyan: '\x1b[96m',
-  brightWhite: '\x1b[97m',
-};
-
-let useColor = true;
-const c = colors?.colorize || ((color, text) => useColor ? `${color}${text}${ANSI.reset}` : text);
-
-// Use centralized progressBar or fallback
-const colorBar = colors?.progressBar || ((val, max = 1, inverse = false) => {
-  const pct = Math.min(1, val / max);
-  const filled = Math.round(pct * 10);
-  const barStr = '█'.repeat(filled) + '░'.repeat(10 - filled);
-  let color;
-  if (inverse) {
-    color = pct > 0.618 ? ANSI.brightRed : (pct > 0.382 ? ANSI.yellow : ANSI.brightGreen);
-  } else {
-    color = pct > 0.618 ? ANSI.brightGreen : (pct > 0.382 ? ANSI.yellow : ANSI.brightRed);
-  }
-  return `${color}${barStr}${ANSI.reset}`;
-});
+// ═══════════════════════════════════════════════════════════════════════════
+// DATA GATHERING FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
 
 /**
  * Check if a hook file exists and count its engines
@@ -76,13 +51,13 @@ function checkHook(hookName) {
         const content = fs.readFileSync(hookPath, 'utf8');
         const engineMatches = content.match(/require.*lib\//g) || [];
         const importMatches = content.match(/from ['"].*lib\//g) || [];
-        return { exists: true, engines: engineMatches.length + importMatches.length };
+        return { name: hookName, exists: true, engines: engineMatches.length + importMatches.length };
       } catch {
-        return { exists: true, engines: 0 };
+        return { name: hookName, exists: true, engines: 0 };
       }
     }
   }
-  return { exists: false, engines: 0 };
+  return { name: hookName, exists: false, engines: 0 };
 }
 
 /**
@@ -183,146 +158,119 @@ function countComponents() {
   return { agents, skills, engines };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// DASHBOARD GENERATION
+// ═══════════════════════════════════════════════════════════════════════════
+
 /**
- * Generate the health dashboard
+ * Generate the health dashboard using composable builder
  */
 function generateDashboard(enableColor = true) {
   loadModules();
-  useColor = enableColor;
 
-  const lines = [];
-  const header = '═══════════════════════════════════════════════════════════';
-
-  lines.push(c(ANSI.cyan, header));
-  lines.push(c(ANSI.bold + ANSI.brightCyan, '🐕 CYNIC HEALTH DASHBOARD - "Le chien veille"'));
-  lines.push(c(ANSI.cyan, header));
-  lines.push('');
-
-  // === HOOKS STATUS ===
-  lines.push(c(ANSI.brightWhite, '── LOCAL HOOKS ────────────────────────────────────────────'));
-
-  const hooks = ['perceive', 'guard', 'observe', 'awaken', 'digest', 'sleep'];
-  let totalEngines = 0;
-  let healthyHooks = 0;
-
-  for (const hookName of hooks) {
-    const status = checkHook(hookName);
-    if (status.exists) {
-      healthyHooks++;
-      totalEngines += status.engines;
-      const icon = c(ANSI.brightGreen, '✅');
-      const engineStr = status.engines > 0 ? c(ANSI.dim, ` (${status.engines} engines)`) : '';
-      lines.push(`   ${icon} ${hookName}${engineStr}`);
-    } else {
-      const icon = c(ANSI.brightRed, '❌');
-      lines.push(`   ${icon} ${hookName} ${c(ANSI.dim, 'missing')}`);
-    }
-  }
-
-  const hooksHealthy = healthyHooks === hooks.length;
-  const hooksStatus = hooksHealthy
-    ? c(ANSI.brightGreen, `${healthyHooks}/${hooks.length} healthy`)
-    : c(ANSI.brightYellow, `${healthyHooks}/${hooks.length} healthy`);
-  lines.push(`   ${c(ANSI.dim, 'Status:')} ${hooksStatus}`);
-  lines.push('');
-
-  // === COMPONENTS ===
+  // Gather all data first
+  const hookNames = ['perceive', 'guard', 'observe', 'awaken', 'digest', 'sleep'];
+  const hooks = hookNames.map(checkHook);
   const components = countComponents();
-  lines.push(c(ANSI.brightWhite, '── COMPONENTS ─────────────────────────────────────────────'));
-  lines.push(`   Agents:  ${c(ANSI.brightCyan, components.agents.toString())} ${c(ANSI.dim, '(11 Sefirot + extras)')}`);
-  lines.push(`   Skills:  ${c(ANSI.brightCyan, components.skills.toString())}`);
-  lines.push(`   Engines: ${c(ANSI.brightCyan, components.engines.toString())} ${c(ANSI.dim, `(${totalEngines} integrated in hooks)`)}`);
-  lines.push('');
-
-  // === CONSCIOUSNESS ===
   const consciousness = getConsciousnessState();
-  lines.push(c(ANSI.brightWhite, '── CONSCIOUSNESS ──────────────────────────────────────────'));
-
-  const scoreColor = consciousness.score > 50 ? ANSI.brightGreen :
-                     consciousness.score > 30 ? ANSI.yellow : ANSI.brightRed;
-  const scorePct = Math.round(consciousness.score);
-  lines.push(`   Score:  [${colorBar(consciousness.score, 61.8)}] ${c(scoreColor, scorePct + '%')} / 61.8%`);
-
-  const statusColor = consciousness.status === 'awakening' ? ANSI.brightGreen :
-                      consciousness.status === 'dormant' ? ANSI.dim : ANSI.yellow;
-  lines.push(`   Status: ${c(statusColor, consciousness.status.charAt(0).toUpperCase() + consciousness.status.slice(1))}`);
-  lines.push('');
-
-  // === PATTERNS ===
   const patterns = getPatternsInfo();
-  lines.push(c(ANSI.brightWhite, '── PATTERNS ───────────────────────────────────────────────'));
-  lines.push(`   Recorded: ${c(ANSI.brightCyan, patterns.count.toString())}`);
-  if (patterns.lastPattern) {
-    lines.push(`   Latest:   ${c(ANSI.dim, patterns.lastPattern)}`);
-  }
-  lines.push('');
+  const thermo = thermodynamics?.getState();
+  const dogsSummary = dogs?.getSessionSummary();
 
-  // === THERMODYNAMICS ===
-  if (thermodynamics) {
-    const thermo = thermodynamics.getState();
-    lines.push(c(ANSI.brightWhite, '── THERMODYNAMICS ─────────────────────────────────────────'));
+  // Calculate aggregate health for voice selection
+  const hooksHealthy = hooks.filter(h => h.exists).length === hooks.length;
+  const totalEngines = hooks.reduce((sum, h) => sum + h.engines, 0);
 
-    const heatColor = thermo.isCritical ? ANSI.brightRed : (thermo.heat > 50 ? ANSI.yellow : ANSI.green);
-    const heatWarning = thermo.isCritical ? c(ANSI.brightRed, ' 🔥 CRITICAL') : '';
-    lines.push(`   Heat (Q):     ${c(heatColor, thermo.heat + ' units')}${heatWarning}`);
-    lines.push(`   Work (W):     ${c(ANSI.brightGreen, thermo.work + ' units')}`);
-    lines.push(`   Temperature:  [${colorBar(thermo.temperature, 81, true)}] ${thermo.temperature}°`);
+  // Build dashboard using composable architecture
+  const dashboard = createDashboard({
+    useColor: enableColor,
+    title: 'CYNIC HEALTH DASHBOARD',
+    subtitle: 'Le chien veille',
+  });
 
-    const effColor = thermo.efficiency > 50 ? ANSI.brightGreen :
-                     thermo.efficiency > 30 ? ANSI.yellow : ANSI.brightRed;
-    lines.push(`   Efficiency:   [${colorBar(thermo.efficiency, 100)}] ${c(effColor, thermo.efficiency + '%')} ${c(ANSI.dim, '(φ max: 62%)')}`);
-    lines.push('');
-  }
+  // Hooks section
+  dashboard.addSection('LOCAL HOOKS', (section, r) => {
+    const result = buildHooksSection(section, r, hooks);
+    section._hooksHealthy = result.allHealthy;
+    section._totalEngines = result.engines;
+  });
 
-  // === DOGS SESSION ===
-  if (dogs) {
-    const summary = dogs.getSessionSummary();
-    if (summary.totalActions > 0) {
-      lines.push(c(ANSI.brightWhite, '── ACTIVE DOGS ────────────────────────────────────────────'));
-      lines.push(`   Session: ${c(ANSI.brightCyan, summary.duration + ' min')} │ Actions: ${c(ANSI.brightGreen, summary.totalActions.toString())}`);
+  // Components section
+  dashboard.addSection('COMPONENTS', (section, r) => {
+    section
+      .kv('Agents:', `${components.agents}`, { valueColor: ANSI.brightCyan })
+      .line(r.indent(r.c(ANSI.dim, '(11 Sefirot + extras)'), 15))
+      .kv('Skills:', `${components.skills}`, { valueColor: ANSI.brightCyan })
+      .kv('Engines:', `${components.engines}`, { valueColor: ANSI.brightCyan })
+      .line(r.indent(r.c(ANSI.dim, `(${totalEngines} integrated in hooks)`), 15));
+  });
 
-      if (summary.topDog) {
-        const color = dogs.DOG_COLORS?.[summary.topDog.name] || ANSI.white;
-        lines.push(`   Top Dog: ${c(color, summary.topDog.dog?.icon + ' ' + summary.topDog.name)}`);
-      }
-      lines.push('');
+  // Consciousness section
+  dashboard.addSection('CONSCIOUSNESS', (section, r) => {
+    const scoreColor = r.thresholdColor(consciousness.score, 61.8);
+    const statusColor = consciousness.status === 'awakening' ? ANSI.brightGreen :
+                        consciousness.status === 'dormant' ? ANSI.dim : ANSI.yellow;
+    const capitalizedStatus = consciousness.status.charAt(0).toUpperCase() + consciousness.status.slice(1);
+
+    section
+      .metric('Score', consciousness.score, 61.8, { showPct: true })
+      .line(r.indent(r.c(ANSI.dim, '/ 61.8% max')))
+      .kv('Status:', capitalizedStatus, { valueColor: statusColor });
+  });
+
+  // Patterns section
+  dashboard.addSection('PATTERNS', (section, r) => {
+    section.kv('Recorded:', `${patterns.count}`, { valueColor: ANSI.brightCyan });
+    if (patterns.lastPattern) {
+      section.kv('Latest:', patterns.lastPattern, { valueColor: ANSI.dim });
     }
+  });
+
+  // Thermodynamics section (conditional)
+  if (thermo) {
+    dashboard.addSection('THERMODYNAMICS', (section, r) => {
+      buildThermoSection(section, r, thermo);
+    });
   }
 
-  // === MCP STATUS ===
-  lines.push(c(ANSI.brightWhite, '── MCP SERVER ─────────────────────────────────────────────'));
-  lines.push(`   ${c(ANSI.dim, 'Run: curl -s https://cynic-mcp.onrender.com/health')}`);
-  lines.push('');
+  // Dogs session section (conditional)
+  if (dogsSummary && dogsSummary.totalActions > 0) {
+    dashboard.addSection('ACTIVE DOGS', (section, r) => {
+      buildDogsSection(section, r, dogsSummary, dogs?.DOG_COLORS);
+    });
+  }
 
-  // === FOOTER ===
-  lines.push(c(ANSI.cyan, header));
+  // MCP section
+  dashboard.addSection('MCP SERVER', (section, r) => {
+    section.line(r.indent(r.c(ANSI.dim, 'Run: curl -s https://cynic-mcp.onrender.com/health')));
+  });
 
-  // Choose voice based on overall health
+  // Set voice based on health state
   let voice = '*sniff* Systems nominal. The dog watches.';
   let voiceColor = ANSI.dim;
 
-  if (thermodynamics) {
-    const thermo = thermodynamics.getState();
-    if (thermo.isCritical) {
-      voice = '*GROWL* Heat critical! Cool down required.';
-      voiceColor = ANSI.brightRed;
-    } else if (!hooksHealthy) {
-      voice = '*concerned sniff* Some hooks missing. Check configuration.';
-      voiceColor = ANSI.yellow;
-    } else if (consciousness.score > 50) {
-      voice = '*tail wag* Consciousness rising. The pack strengthens.';
-      voiceColor = ANSI.brightGreen;
-    }
+  if (thermo?.isCritical) {
+    voice = '*GROWL* Heat critical! Cool down required.';
+    voiceColor = ANSI.brightRed;
+  } else if (!hooksHealthy) {
+    voice = '*concerned sniff* Some hooks missing. Check configuration.';
+    voiceColor = ANSI.yellow;
+  } else if (consciousness.score > 50) {
+    voice = '*tail wag* Consciousness rising. The pack strengthens.';
+    voiceColor = ANSI.brightGreen;
   }
 
-  lines.push(c(voiceColor, voice));
-  lines.push(c(ANSI.dim, 'φ⁻¹ confidence: 61.8% max | "Le chien veille"'));
-  lines.push(c(ANSI.cyan, header));
+  dashboard
+    .voice(voice, voiceColor)
+    .note('φ⁻¹ confidence: 61.8% max | "Le chien veille"');
 
-  return lines.join('\n');
+  return dashboard.build();
 }
 
-// CLI execution
+// ═══════════════════════════════════════════════════════════════════════════
+// CLI & EXPORTS
+// ═══════════════════════════════════════════════════════════════════════════
+
 if (require.main === module) {
   const enableColor = !process.argv.includes('--no-color');
   console.log(generateDashboard(enableColor));
