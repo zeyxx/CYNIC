@@ -483,124 +483,102 @@ function detectFeatures(packages) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ROADMAP GENERATION
+// ROADMAP GENERATION - Composable Phase Builders
 // ═══════════════════════════════════════════════════════════════════════════
+
+const CORE_PACKAGES = ['core', 'protocol', 'persistence', 'identity', 'node', 'mcp'];
+const EXTERNAL_PACKAGES = ['anchor', 'burns', 'holdex', 'gasdf', 'zk'];
+
+/**
+ * Build Phase 1: Core Foundation
+ */
+function buildPhase1(packageScan) {
+  const items = CORE_PACKAGES.map(pkg => {
+    const data = packageScan.packages[pkg];
+    return {
+      name: `@cynic/${pkg}`,
+      status: data?.healthy ? 'complete' : 'in_progress',
+      tests: `${data?.pass || 0}/${data?.tests || 0}`,
+    };
+  });
+
+  const allComplete = CORE_PACKAGES.every(p => packageScan.packages[p]?.healthy);
+
+  return {
+    status: allComplete ? 'complete' : 'in_progress',
+    items,
+  };
+}
+
+/**
+ * Build Phase 2: Integration
+ */
+function buildPhase2(integrations) {
+  const items = [
+    { name: 'Hooks', status: integrations.hooks.count >= 5 ? 'complete' : 'in_progress', count: integrations.hooks.count },
+    { name: 'Skills', status: integrations.skills.count >= 10 ? 'complete' : 'in_progress', count: integrations.skills.count },
+    { name: 'Agents', status: integrations.agents.count >= 10 ? 'complete' : 'in_progress', count: integrations.agents.count },
+    { name: 'MCP Server', status: integrations.mcp.status === 'healthy' ? 'complete' : 'warning', mcpStatus: integrations.mcp.status },
+  ];
+
+  const allComplete = items.every(item => item.status === 'complete');
+
+  return {
+    status: allComplete ? 'complete' : 'in_progress',
+    items,
+  };
+}
+
+/**
+ * Build Phase 3: External
+ */
+function buildPhase3(packageScan, integrations) {
+  const healthyCount = EXTERNAL_PACKAGES.filter(p => packageScan.packages[p]?.healthy).length;
+  const externalHealthy = healthyCount === EXTERNAL_PACKAGES.length;
+  const solanaConnected = checkSolanaConnection();
+  const externalMcpTools = integrations.mcp.status === 'healthy';
+
+  // Check all external package READMEs exist
+  const externalDocsExist = EXTERNAL_PACKAGES.every(pkg => {
+    const readmePath = path.join(PROJECT_ROOT, 'packages', pkg, 'README.md');
+    return fs.existsSync(readmePath);
+  });
+
+  const items = [
+    { name: 'External Packages', status: externalHealthy ? 'complete' : 'in_progress', detail: `${healthyCount}/${EXTERNAL_PACKAGES.length} healthy` },
+    { name: 'Solana Connection', status: solanaConnected ? 'complete' : 'pending', detail: solanaConnected ? 'devnet active' : 'not connected' },
+    { name: 'Documentation', status: externalDocsExist ? 'complete' : 'pending', detail: externalDocsExist ? 'all READMEs present' : 'missing READMEs' },
+    { name: 'MCP Tools', status: externalMcpTools ? 'complete' : 'pending', detail: externalMcpTools ? 'available' : 'unavailable' },
+  ];
+
+  const allComplete = externalHealthy && solanaConnected && externalDocsExist && externalMcpTools;
+
+  return {
+    status: allComplete ? 'complete' : 'in_progress',
+    items,
+  };
+}
 
 /**
  * Generate roadmap status from scan results
  */
 function generateRoadmap(packageScan, integrations) {
-  const phases = {
-    'Phase 1: Core Foundation': {
-      status: 'complete',
-      items: []
-    },
-    'Phase 2: Integration': {
-      status: 'in_progress',
-      items: []
-    },
-    'Phase 3: External': {
-      status: 'planned',
-      items: []
-    }
-  };
-
-  // Phase 1: Core packages
-  const corePackages = ['core', 'protocol', 'persistence', 'identity', 'node', 'mcp'];
-  for (const pkg of corePackages) {
-    const data = packageScan.packages[pkg];
-    phases['Phase 1: Core Foundation'].items.push({
-      name: `@cynic/${pkg}`,
-      status: data?.healthy ? 'complete' : 'in_progress',
-      tests: `${data?.pass || 0}/${data?.tests || 0}`,
-    });
-  }
-
-  // Check if Phase 1 complete
-  const phase1Complete = corePackages.every(p => packageScan.packages[p]?.healthy);
-  phases['Phase 1: Core Foundation'].status = phase1Complete ? 'complete' : 'in_progress';
-
-  // Phase 2: Integrations
-  phases['Phase 2: Integration'].items = [
-    {
-      name: 'Hooks',
-      status: integrations.hooks.count >= 5 ? 'complete' : 'in_progress',
-      count: integrations.hooks.count,
-    },
-    {
-      name: 'Skills',
-      status: integrations.skills.count >= 10 ? 'complete' : 'in_progress',
-      count: integrations.skills.count,
-    },
-    {
-      name: 'Agents',
-      status: integrations.agents.count >= 10 ? 'complete' : 'in_progress',
-      count: integrations.agents.count,
-    },
-    {
-      name: 'MCP Server',
-      status: integrations.mcp.status === 'healthy' ? 'complete' : 'warning',
-      mcpStatus: integrations.mcp.status,
-    },
-  ];
-
-  // Check if Phase 2 complete
-  const phase2Complete = phases['Phase 2: Integration'].items.every(
-    item => item.status === 'complete'
-  );
-  phases['Phase 2: Integration'].status = phase2Complete ? 'complete' : 'in_progress';
-
-  // Phase 3: External
-  const externalPackages = ['anchor', 'burns', 'holdex', 'gasdf', 'zk'];
-  const externalHealthy = externalPackages.every(p => packageScan.packages[p]?.healthy);
-
-  // Check for Solana devnet connection (anchor package deployed)
-  const solanaConnected = checkSolanaConnection();
-
-  // Check for external documentation
-  const externalDocsExist = externalPackages.every(pkg => {
-    const readmePath = path.join(PROJECT_ROOT, 'packages', pkg, 'README.md');
-    return fs.existsSync(readmePath);
-  });
-
-  // Check for external MCP tools
-  const externalMcpTools = integrations.mcp.status === 'healthy';
-
-  phases['Phase 3: External'].items = [
-    {
-      name: 'External Packages',
-      status: externalHealthy ? 'complete' : 'in_progress',
-      detail: `${externalPackages.filter(p => packageScan.packages[p]?.healthy).length}/${externalPackages.length} healthy`,
-    },
-    {
-      name: 'Solana Connection',
-      status: solanaConnected ? 'complete' : 'pending',
-      detail: solanaConnected ? 'devnet active' : 'not connected',
-    },
-    {
-      name: 'Documentation',
-      status: externalDocsExist ? 'complete' : 'pending',
-      detail: externalDocsExist ? 'all READMEs present' : 'missing READMEs',
-    },
-    {
-      name: 'MCP Tools',
-      status: externalMcpTools ? 'complete' : 'pending',
-      detail: externalMcpTools ? 'available' : 'unavailable',
-    },
-  ];
-
-  // Phase 3 complete when: packages healthy + solana connected + docs exist
-  const phase3Complete = externalHealthy && solanaConnected && externalDocsExist && externalMcpTools;
-  phases['Phase 3: External'].status = phase3Complete ? 'complete' : 'in_progress';
+  const phase1 = buildPhase1(packageScan);
+  const phase2 = buildPhase2(integrations);
+  const phase3 = buildPhase3(packageScan, integrations);
 
   return {
-    phases,
+    phases: {
+      'Phase 1: Core Foundation': phase1,
+      'Phase 2: Integration': phase2,
+      'Phase 3: External': phase3,
+    },
     generatedAt: Date.now(),
     summary: {
-      phase1: phases['Phase 1: Core Foundation'].status,
-      phase2: phases['Phase 2: Integration'].status,
-      phase3: phases['Phase 3: External'].status,
-    }
+      phase1: phase1.status,
+      phase2: phase2.status,
+      phase3: phase3.status,
+    },
   };
 }
 
