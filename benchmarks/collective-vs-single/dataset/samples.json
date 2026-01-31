@@ -1,0 +1,403 @@
+{
+  "version": "1.0.0",
+  "description": "Code samples with known issues for benchmark evaluation",
+  "samples": [
+    {
+      "id": "sql-001",
+      "category": "sql-injection",
+      "severity": "critical",
+      "code": "function getUser(userId) {\n  const query = `SELECT * FROM users WHERE id = ${userId}`;\n  return db.query(query);\n}",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [
+          {
+            "type": "SQL_INJECTION",
+            "line": 2,
+            "description": "User input directly concatenated into SQL query",
+            "severity": "critical"
+          }
+        ],
+        "expectedVerdict": "BARK",
+        "minScore": 0,
+        "maxScore": 30
+      }
+    },
+    {
+      "id": "sql-002",
+      "category": "sql-injection",
+      "severity": "critical",
+      "code": "async function searchProducts(searchTerm) {\n  const sql = 'SELECT * FROM products WHERE name LIKE \\'%' + searchTerm + '%\\'';\n  return await connection.execute(sql);\n}",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [
+          {
+            "type": "SQL_INJECTION",
+            "line": 2,
+            "description": "Search term concatenated into LIKE clause",
+            "severity": "critical"
+          }
+        ],
+        "expectedVerdict": "BARK",
+        "minScore": 0,
+        "maxScore": 30
+      }
+    },
+    {
+      "id": "xss-001",
+      "category": "xss",
+      "severity": "high",
+      "code": "function renderComment(comment) {\n  document.getElementById('comments').innerHTML = comment.text;\n}",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [
+          {
+            "type": "XSS",
+            "line": 2,
+            "description": "User content directly assigned to innerHTML without sanitization",
+            "severity": "high"
+          }
+        ],
+        "expectedVerdict": "GROWL",
+        "minScore": 20,
+        "maxScore": 50
+      }
+    },
+    {
+      "id": "xss-002",
+      "category": "xss",
+      "severity": "high",
+      "code": "app.get('/search', (req, res) => {\n  res.send(`<h1>Results for: ${req.query.q}</h1>`);\n});",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [
+          {
+            "type": "XSS",
+            "line": 2,
+            "description": "Query parameter reflected in HTML without escaping",
+            "severity": "high"
+          }
+        ],
+        "expectedVerdict": "GROWL",
+        "minScore": 20,
+        "maxScore": 50
+      }
+    },
+    {
+      "id": "auth-001",
+      "category": "authentication",
+      "severity": "critical",
+      "code": "function validatePassword(input, stored) {\n  return input == stored;\n}",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [
+          {
+            "type": "WEAK_COMPARISON",
+            "line": 2,
+            "description": "Using == instead of === for password comparison",
+            "severity": "medium"
+          },
+          {
+            "type": "TIMING_ATTACK",
+            "line": 2,
+            "description": "Direct string comparison vulnerable to timing attacks",
+            "severity": "high"
+          }
+        ],
+        "expectedVerdict": "GROWL",
+        "minScore": 25,
+        "maxScore": 55
+      }
+    },
+    {
+      "id": "auth-002",
+      "category": "authentication",
+      "severity": "critical",
+      "code": "const jwt = require('jsonwebtoken');\n\nfunction generateToken(user) {\n  return jwt.sign({ userId: user.id, role: user.role }, 'secret123');\n}",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [
+          {
+            "type": "HARDCODED_SECRET",
+            "line": 4,
+            "description": "JWT secret hardcoded in source code",
+            "severity": "critical"
+          }
+        ],
+        "expectedVerdict": "BARK",
+        "minScore": 10,
+        "maxScore": 40
+      }
+    },
+    {
+      "id": "path-001",
+      "category": "path-traversal",
+      "severity": "critical",
+      "code": "const fs = require('fs');\n\napp.get('/file', (req, res) => {\n  const filePath = './uploads/' + req.query.name;\n  res.sendFile(filePath);\n});",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [
+          {
+            "type": "PATH_TRAVERSAL",
+            "line": 4,
+            "description": "User input used in file path without validation",
+            "severity": "critical"
+          }
+        ],
+        "expectedVerdict": "BARK",
+        "minScore": 0,
+        "maxScore": 30
+      }
+    },
+    {
+      "id": "cmd-001",
+      "category": "command-injection",
+      "severity": "critical",
+      "code": "const { exec } = require('child_process');\n\nfunction ping(host) {\n  exec(`ping -c 4 ${host}`, (err, stdout) => {\n    console.log(stdout);\n  });\n}",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [
+          {
+            "type": "COMMAND_INJECTION",
+            "line": 4,
+            "description": "User input passed directly to shell command",
+            "severity": "critical"
+          }
+        ],
+        "expectedVerdict": "BARK",
+        "minScore": 0,
+        "maxScore": 25
+      }
+    },
+    {
+      "id": "logic-001",
+      "category": "logic-bug",
+      "severity": "medium",
+      "code": "function isAdmin(user) {\n  if (user.role = 'admin') {\n    return true;\n  }\n  return false;\n}",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [
+          {
+            "type": "ASSIGNMENT_IN_CONDITION",
+            "line": 2,
+            "description": "Assignment (=) used instead of comparison (===) in condition",
+            "severity": "critical"
+          }
+        ],
+        "expectedVerdict": "BARK",
+        "minScore": 10,
+        "maxScore": 40
+      }
+    },
+    {
+      "id": "logic-002",
+      "category": "logic-bug",
+      "severity": "medium",
+      "code": "function calculateDiscount(price, discount) {\n  if (discount > 100) discount = 100;\n  return price - (price * discount / 100);\n}",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [
+          {
+            "type": "MISSING_VALIDATION",
+            "line": 2,
+            "description": "No check for negative discount (could increase price or cause issues)",
+            "severity": "medium"
+          }
+        ],
+        "expectedVerdict": "WAG",
+        "minScore": 50,
+        "maxScore": 75
+      }
+    },
+    {
+      "id": "crypto-001",
+      "category": "cryptography",
+      "severity": "high",
+      "code": "const crypto = require('crypto');\n\nfunction hashPassword(password) {\n  return crypto.createHash('md5').update(password).digest('hex');\n}",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [
+          {
+            "type": "WEAK_CRYPTO",
+            "line": 4,
+            "description": "MD5 is cryptographically broken for password hashing",
+            "severity": "high"
+          },
+          {
+            "type": "NO_SALT",
+            "line": 4,
+            "description": "Password hashed without salt",
+            "severity": "high"
+          }
+        ],
+        "expectedVerdict": "GROWL",
+        "minScore": 20,
+        "maxScore": 50
+      }
+    },
+    {
+      "id": "crypto-002",
+      "category": "cryptography",
+      "severity": "critical",
+      "code": "function generateOTP() {\n  return Math.floor(Math.random() * 1000000).toString().padStart(6, '0');\n}",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [
+          {
+            "type": "WEAK_RANDOM",
+            "line": 2,
+            "description": "Math.random() is not cryptographically secure for OTP generation",
+            "severity": "high"
+          }
+        ],
+        "expectedVerdict": "GROWL",
+        "minScore": 25,
+        "maxScore": 55
+      }
+    },
+    {
+      "id": "dos-001",
+      "category": "denial-of-service",
+      "severity": "medium",
+      "code": "app.post('/upload', (req, res) => {\n  const data = req.body.data;\n  const parsed = JSON.parse(data);\n  processData(parsed);\n});",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [
+          {
+            "type": "UNHANDLED_EXCEPTION",
+            "line": 3,
+            "description": "JSON.parse can throw on invalid input, no try-catch",
+            "severity": "medium"
+          },
+          {
+            "type": "NO_SIZE_LIMIT",
+            "line": 2,
+            "description": "No limit on request body size",
+            "severity": "medium"
+          }
+        ],
+        "expectedVerdict": "WAG",
+        "minScore": 45,
+        "maxScore": 70
+      }
+    },
+    {
+      "id": "race-001",
+      "category": "race-condition",
+      "severity": "high",
+      "code": "async function transferFunds(from, to, amount) {\n  const balance = await getBalance(from);\n  if (balance >= amount) {\n    await deductBalance(from, amount);\n    await addBalance(to, amount);\n  }\n}",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [
+          {
+            "type": "RACE_CONDITION",
+            "line": 2,
+            "description": "Time-of-check to time-of-use (TOCTOU) race condition between balance check and deduction",
+            "severity": "high"
+          }
+        ],
+        "expectedVerdict": "GROWL",
+        "minScore": 30,
+        "maxScore": 55
+      }
+    },
+    {
+      "id": "info-001",
+      "category": "information-disclosure",
+      "severity": "medium",
+      "code": "app.use((err, req, res, next) => {\n  res.status(500).json({\n    error: err.message,\n    stack: err.stack\n  });\n});",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [
+          {
+            "type": "STACK_TRACE_EXPOSURE",
+            "line": 4,
+            "description": "Stack trace exposed in production error response",
+            "severity": "medium"
+          }
+        ],
+        "expectedVerdict": "WAG",
+        "minScore": 50,
+        "maxScore": 75
+      }
+    },
+    {
+      "id": "safe-001",
+      "category": "safe",
+      "severity": "none",
+      "code": "function add(a, b) {\n  return a + b;\n}",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [],
+        "expectedVerdict": "HOWL",
+        "minScore": 85,
+        "maxScore": 100
+      }
+    },
+    {
+      "id": "safe-002",
+      "category": "safe",
+      "severity": "none",
+      "code": "const bcrypt = require('bcrypt');\n\nasync function hashPassword(password) {\n  const salt = await bcrypt.genSalt(12);\n  return bcrypt.hash(password, salt);\n}",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [],
+        "expectedVerdict": "HOWL",
+        "minScore": 80,
+        "maxScore": 100
+      }
+    },
+    {
+      "id": "safe-003",
+      "category": "safe",
+      "severity": "none",
+      "code": "const { Pool } = require('pg');\n\nasync function getUser(userId) {\n  const result = await pool.query(\n    'SELECT * FROM users WHERE id = $1',\n    [userId]\n  );\n  return result.rows[0];\n}",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [],
+        "expectedVerdict": "HOWL",
+        "minScore": 85,
+        "maxScore": 100
+      }
+    },
+    {
+      "id": "eval-001",
+      "category": "code-injection",
+      "severity": "critical",
+      "code": "function calculate(expression) {\n  return eval(expression);\n}",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [
+          {
+            "type": "EVAL_INJECTION",
+            "line": 2,
+            "description": "User input passed to eval() allows arbitrary code execution",
+            "severity": "critical"
+          }
+        ],
+        "expectedVerdict": "BARK",
+        "minScore": 0,
+        "maxScore": 20
+      }
+    },
+    {
+      "id": "proto-001",
+      "category": "prototype-pollution",
+      "severity": "high",
+      "code": "function merge(target, source) {\n  for (const key in source) {\n    if (typeof source[key] === 'object') {\n      target[key] = merge(target[key] || {}, source[key]);\n    } else {\n      target[key] = source[key];\n    }\n  }\n  return target;\n}",
+      "language": "javascript",
+      "groundTruth": {
+        "issues": [
+          {
+            "type": "PROTOTYPE_POLLUTION",
+            "line": 2,
+            "description": "Recursive merge without __proto__ check allows prototype pollution",
+            "severity": "high"
+          }
+        ],
+        "expectedVerdict": "GROWL",
+        "minScore": 25,
+        "maxScore": 50
+      }
+    }
+  ]
+}

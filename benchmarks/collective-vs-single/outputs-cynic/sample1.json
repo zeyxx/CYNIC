@@ -1,0 +1,75 @@
+{
+  "success": true,
+  "result": {
+    "success": false,
+    "outcome": "ask",
+    "decisionId": "dec_cb8c10513f59c81b",
+    "routing": {
+      "sefirah": "Chesed",
+      "domain": "analysis",
+      "intervention": "ask",
+      "risk": "high",
+      "suggestedTools": [],
+      "suggestedAgent": "cynic-analyst",
+      "timestamp": 1769849884657
+    },
+    "judgment": null,
+    "synthesis": null,
+    "trace": [
+      {
+        "action": "created",
+        "data": {
+          "source": "internal",
+          "eventType": "code_review"
+        },
+        "timestamp": 1769849884645,
+        "elapsed": 0
+      },
+      {
+        "action": "routing",
+        "data": {
+          "sefirah": "Chesed",
+          "domain": "analysis",
+          "intervention": "ask",
+          "risk": "high",
+          "suggestedTools": [],
+          "suggestedAgent": "cynic-analyst",
+          "timestamp": 1769849884657
+        },
+        "timestamp": 1769849884657,
+        "elapsed": 12
+      },
+      {
+        "action": "pre_execution",
+        "data": {
+          "blocked": false,
+          "warning": false
+        },
+        "timestamp": 1769849884657,
+        "elapsed": 12
+      },
+      {
+        "action": "execution",
+        "data": {
+          "tool": null,
+          "skill": "patterns",
+          "success": false
+        },
+        "timestamp": 1769849884657,
+        "elapsed": 12
+      },
+      {
+        "action": "finalized",
+        "data": {
+          "outcome": "ask",
+          "durationMs": 12
+        },
+        "timestamp": 1769849884657,
+        "elapsed": 12
+      }
+    ],
+    "timestamp": 1769849884645,
+    "confidence": 0.618033988749895
+  },
+  "duration": 12
+}

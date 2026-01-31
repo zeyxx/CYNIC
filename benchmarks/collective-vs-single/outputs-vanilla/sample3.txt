@@ -1,0 +1,23 @@
+● Security Vulnerabilities:
+  - [MEDIUM] Line 181: Predictable judgment IDs using Date.now().toString(36) - IDs are guessable/enumerable
+  - [MEDIUM] Line 176: Fallback to 'anonymous' userId allows unauthenticated users to share burn state across sessions
+  - [LOW] Line 196: JSON.stringify(enrichedItem) stores unsanitized user content - potential for stored XSS if rendered
+  - [LOW] Line 574: No validation that actualScore is between 0-100 before storing
+
+  Logic Errors/Bugs:
+  - [HIGH] Lines 830-835: judgmentFactory.create() doesn't pass emergenceLayer or thermodynamics to createJudgeTool(), so Layer 7 and thermodynamics features silently disabled when using factory
+  - [MEDIUM] Lines 383, 397: Sparse array lookup ['', 'Novice', 'Apprentice', 'Practitioner', '', 'Expert', '', '', 'Master'][profileLevel] returns undefined for unexpected levels (0, 4, 6, 7, or >8)
+  - [MEDIUM] Lines 757-758, similar pattern repeated: Fallback || 50 for originalScore produces incorrect learning signals when judgment genuinely scored 0 or score lookup fails
+  - [LOW] Line 176 vs 188: Inconsistent anonymous user handling - 'anonymous' for burnEnforcer, null for persistence creates tracking mismatch
+
+  Performance Issues:
+  - [MEDIUM] Lines 213-249: Sequential await persistence.upsertPattern() calls in loop (up to 6 calls) - should batch
+  - [MEDIUM] Lines 367-391: Psychology loaded from persistence on every judgment - no caching
+  - [LOW] Lines 510-522: Dynamic import await import('@cynic/core') re-attempted on every call until first success; should cache the promise
+  - [LOW] Line 224: judgment.weaknesses.slice(0, 3) creates unnecessary intermediate array - use index-based iteration
+
+  Code Quality:
+  - [MEDIUM] Line 145: createJudgeTool has 9 positional parameters - should use options object to prevent ordering errors
+  - [LOW] Magic number 0.6181 duplicated at lines 232, 564, 568 - should be constant (also differs slightly from PHI_INV)
+  - [LOW] Lines 183, 357, 609: sessionManager?.getSessionContext() || {} duplicated - extract to helper or call once
+  - [LOW] Lines 383, 397: Profile level name lookup duplicated with same sparse array pattern

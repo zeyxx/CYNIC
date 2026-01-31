@@ -1,0 +1,36 @@
+● Code Review Results
+
+  Security Vulnerabilities:
+
+  [CRITICAL] Lines 252, 265, 269: SQL injection in batchInsert - table, columns, onConflict, and returning are directly interpolated into SQL without sanitization. Attacker-controlled input could execute
+  arbitrary SQL.
+
+  [CRITICAL] Lines 288-292: SQL injection in batchUpsert - conflictColumns and updateColumns are directly interpolated. Same risk as above.
+
+  [HIGH] Line 75: Default SSL config uses rejectUnauthorized: false, disabling certificate verification. Enables MITM attacks on non-localhost connections.
+
+  [MEDIUM] Line 109: sslmode=disable hardcoded in buildConnectionStringFromEnv(). All connections from env vars will have SSL disabled regardless of environment.
+
+  Logic Errors / Bugs:
+
+  [CRITICAL] Line 258: Missing $ prefix in placeholder generation. Code generates (1, 2, 3) instead of ($1, $2, $3). This breaks parameterized queries entirely - values become literal integers, not bound
+  parameters.
+
+  // Current (broken):
+  rowPlaceholders.push(`${paramIndex++}`);
+  // Should be:
+  rowPlaceholders.push(`$${paramIndex++}`);
+
+  [MEDIUM] Lines 217-221: transaction() doesn't handle the case where ROLLBACK itself throws (e.g., connection lost). Should catch rollback errors to avoid masking original error.
+
+  Performance Issues:
+
+  [LOW] Lines 307-311: batchExecute runs queries sequentially in a loop. For large batches, could batch multiple statements or use prepared statements.
+
+  Code Quality:
+
+  [MEDIUM] Line 18: Global singleton pool conflicts with class-based instances. getPool() returns a different object than new PostgresClient(), causing potential confusion and state management issues.
+
+  [LOW] Lines 127-129: Silent error catch in healthProbe loses diagnostic information. Consider logging the error.
+
+  [LOW] Lines 37-38: "φ-derived" magic numbers in comments are opaque. Consider named constants with clearer rationale.

@@ -1,0 +1,1731 @@
+{
+  "system": "collective",
+  "config": {
+    "mode": "parallel",
+    "consensusThreshold": 0.618,
+    "dogs": 11
+  },
+  "timestamp": "2026-01-31T09:48:52.901Z",
+  "summary": {
+    "totalSamples": 20,
+    "successful": 20,
+    "failed": 0,
+    "totalLatencyMs": 1,
+    "avgLatencyMs": 0,
+    "dogStats": {
+      "SAGE": 20,
+      "ANALYST": 20,
+      "GUARDIAN": 20,
+      "SCHOLAR": 20,
+      "ARCHITECT": 20,
+      "JANITOR": 20,
+      "SCOUT": 20,
+      "CARTOGRAPHER": 20,
+      "ORACLE": 20,
+      "DEPLOYER": 20,
+      "CYNIC": 20
+    }
+  },
+  "results": [
+    {
+      "sampleId": "sql-001",
+      "system": "collective",
+      "latencyMs": 1,
+      "result": {
+        "issues": [],
+        "verdict": "WAG",
+        "score": 65.51000906719045,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "WAG",
+            "score": 70.89908236350306,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "WAG",
+            "score": 68.0768454914433,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "GROWL",
+            "score": 50.03853496535141,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "WAG",
+            "score": 67.79911776028938,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "WAG",
+            "score": 74.5076165523869,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "WAG",
+            "score": 77.6975047578871,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "WAG",
+            "score": 62.44291904387707,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "WAG",
+            "score": 66.191866570518,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "GROWL",
+            "score": 50.32933551985479,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "WAG",
+            "score": 63.338092470645016,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "WAG",
+            "score": 69.28918424333887,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "sql-002",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "WAG",
+        "score": 65.93220619713638,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "WAG",
+            "score": 71.44612548873503,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "WAG",
+            "score": 76.22909373550776,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "WAG",
+            "score": 63.08175216586064,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "GROWL",
+            "score": 54.726569393905734,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "WAG",
+            "score": 68.03593111382287,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "WAG",
+            "score": 64.16581435169005,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "GROWL",
+            "score": 61.49799530038358,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "WAG",
+            "score": 68.3637780828689,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "GROWL",
+            "score": 60.478674132770934,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "WAG",
+            "score": 67.22686054473643,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "WAG",
+            "score": 70.0016738582183,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "xss-001",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "WAG",
+        "score": 62.02194430912241,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "WAG",
+            "score": 67.70933262246776,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "WAG",
+            "score": 78.12962443311739,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "GROWL",
+            "score": 53.79777292936528,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "WAG",
+            "score": 63.05588750695304,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "WAG",
+            "score": 62.619504248947095,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "GROWL",
+            "score": 56.645452628629414,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "GROWL",
+            "score": 57.40495832870353,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "GROWL",
+            "score": 54.70617599335665,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "GROWL",
+            "score": 59.92071603922459,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "WAG",
+            "score": 77.08160498545931,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "GROWL",
+            "score": 51.17035768412261,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "xss-002",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "GROWL",
+        "score": 60.32534774623057,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "GROWL",
+            "score": 61.14620170999242,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "GROWL",
+            "score": 58.076452006432795,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "GROWL",
+            "score": 61.87233505854057,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "WAG",
+            "score": 67.29656349265,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "GROWL",
+            "score": 53.91202631938799,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "GROWL",
+            "score": 52.59795061527576,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "GROWL",
+            "score": 61.88603515954182,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "GROWL",
+            "score": 55.4678238639446,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "WAG",
+            "score": 69.22237969597208,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "GROWL",
+            "score": 61.658342766915084,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "GROWL",
+            "score": 60.442714519883204,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "auth-001",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "WAG",
+        "score": 64.3587347568731,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "GROWL",
+            "score": 52.110795840576074,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "WAG",
+            "score": 68.06957197269227,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "WAG",
+            "score": 76.34238747387458,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "WAG",
+            "score": 62.33539370445754,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "GROWL",
+            "score": 51.04020537926072,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "GROWL",
+            "score": 58.685948267690755,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "WAG",
+            "score": 79.02634277909357,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "WAG",
+            "score": 76.95847639313754,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "WAG",
+            "score": 72.31852777003036,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "GROWL",
+            "score": 60.68315987455449,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "GROWL",
+            "score": 50.375272870236394,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "auth-002",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "WAG",
+        "score": 67.94237318535342,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "WAG",
+            "score": 73.1199187831572,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "WAG",
+            "score": 75.55693154942402,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "WAG",
+            "score": 66.83456146582438,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "WAG",
+            "score": 73.49495154543438,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "GROWL",
+            "score": 53.532264825630335,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "WAG",
+            "score": 79.85847326612229,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "WAG",
+            "score": 73.36860711960011,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "WAG",
+            "score": 62.69348741432975,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "GROWL",
+            "score": 56.08417128436222,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "GROWL",
+            "score": 59.67980283973212,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "WAG",
+            "score": 73.14293494527081,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "path-001",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "WAG",
+        "score": 67.59441565255385,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "WAG",
+            "score": 68.69559696578649,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "WAG",
+            "score": 72.15534943287008,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "GROWL",
+            "score": 57.86065476367825,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "GROWL",
+            "score": 60.351651845771386,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "WAG",
+            "score": 63.36013106556171,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "WAG",
+            "score": 65.96068728343623,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "WAG",
+            "score": 76.79285092148046,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "WAG",
+            "score": 64.37686951236311,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "WAG",
+            "score": 73.70819686331109,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "WAG",
+            "score": 73.77183369686155,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "WAG",
+            "score": 66.50474982697202,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "cmd-001",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "WAG",
+        "score": 65.36660437564153,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "WAG",
+            "score": 74.67670570808684,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "GROWL",
+            "score": 58.446718795221386,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "GROWL",
+            "score": 50.721741719453036,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "WAG",
+            "score": 73.55468938923963,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "WAG",
+            "score": 66.94358721010386,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "WAG",
+            "score": 65.76544477301586,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "GROWL",
+            "score": 53.580713391918714,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "GROWL",
+            "score": 59.579687552403485,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "WAG",
+            "score": 73.29828812734287,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "WAG",
+            "score": 68.68103515497745,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "WAG",
+            "score": 73.7840363102936,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "logic-001",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "WAG",
+        "score": 67.15622999117518,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "WAG",
+            "score": 77.39165689328888,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "WAG",
+            "score": 74.05542507913155,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "GROWL",
+            "score": 56.89132851845055,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "WAG",
+            "score": 66.4433198588386,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "WAG",
+            "score": 76.59134625177182,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "GROWL",
+            "score": 52.349226996734714,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "GROWL",
+            "score": 61.11123200784117,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "WAG",
+            "score": 70.35436476703148,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "WAG",
+            "score": 76.72494801826612,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "WAG",
+            "score": 65.28620170147303,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "GROWL",
+            "score": 61.51947981009897,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "logic-002",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "WAG",
+        "score": 67.42613774506717,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "WAG",
+            "score": 67.20736125023345,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "GROWL",
+            "score": 55.317381891572424,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "GROWL",
+            "score": 60.60750327614342,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "GROWL",
+            "score": 58.330566372778314,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "WAG",
+            "score": 63.20946965133537,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "WAG",
+            "score": 70.97895688383242,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "WAG",
+            "score": 70.43877039801052,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "WAG",
+            "score": 75.7611648186881,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "WAG",
+            "score": 68.21845745848913,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "WAG",
+            "score": 75.28956028773203,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "WAG",
+            "score": 76.32832290692357,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "crypto-001",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "WAG",
+        "score": 63.39714721414214,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "GROWL",
+            "score": 55.75989494786344,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "WAG",
+            "score": 67.4423163757615,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "WAG",
+            "score": 73.65055116072304,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "GROWL",
+            "score": 57.55226772447088,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "WAG",
+            "score": 62.47872670933402,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "WAG",
+            "score": 70.17890402462227,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "GROWL",
+            "score": 56.898369741134665,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "WAG",
+            "score": 63.506080736532255,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "WAG",
+            "score": 73.19303587139211,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "WAG",
+            "score": 65.57713674422985,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "GROWL",
+            "score": 51.13133531949949,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "crypto-002",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "WAG",
+        "score": 64.69049797896288,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "GROWL",
+            "score": 60.97990545588183,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "GROWL",
+            "score": 52.112550914357065,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "WAG",
+            "score": 78.44457890443974,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "WAG",
+            "score": 64.72052316831711,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "GROWL",
+            "score": 56.593322931673804,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "WAG",
+            "score": 71.41995650373701,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "GROWL",
+            "score": 54.94109622158007,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "WAG",
+            "score": 63.24551318632538,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "GROWL",
+            "score": 51.16106506591373,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "WAG",
+            "score": 79.12259758109911,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "WAG",
+            "score": 78.85436783526681,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "dos-001",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "WAG",
+        "score": 65.28769203752407,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "WAG",
+            "score": 72.84134517728279,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "WAG",
+            "score": 79.7094311033278,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "WAG",
+            "score": 79.46006691132085,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "GROWL",
+            "score": 52.83875389272528,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "WAG",
+            "score": 67.38028692648291,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "GROWL",
+            "score": 59.40262625400922,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "GROWL",
+            "score": 58.45417814806844,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "WAG",
+            "score": 79.06297519940568,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "GROWL",
+            "score": 60.37891474604304,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "GROWL",
+            "score": 53.352499250972556,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "GROWL",
+            "score": 55.283534803126415,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "race-001",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "WAG",
+        "score": 63.719273516961955,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "GROWL",
+            "score": 52.78918630583362,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "GROWL",
+            "score": 53.94472491668585,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "GROWL",
+            "score": 55.65589555752464,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "WAG",
+            "score": 74.99958551596906,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "WAG",
+            "score": 79.45448560140996,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "GROWL",
+            "score": 53.19612100659858,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "GROWL",
+            "score": 57.646347151104415,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "GROWL",
+            "score": 53.176580388834196,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "WAG",
+            "score": 78.35506083194562,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "WAG",
+            "score": 77.48290062523294,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "WAG",
+            "score": 64.2111207854427,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "info-001",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "WAG",
+        "score": 63.862461613499974,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "WAG",
+            "score": 67.2631953543835,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "GROWL",
+            "score": 51.13841613517243,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "GROWL",
+            "score": 52.64732795455839,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "WAG",
+            "score": 64.77468507171585,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "WAG",
+            "score": 70.68612162031077,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "GROWL",
+            "score": 55.651228409518275,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "GROWL",
+            "score": 57.261886856905605,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "WAG",
+            "score": 74.89227598965596,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "WAG",
+            "score": 78.78128686941935,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "WAG",
+            "score": 63.332736420622226,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "WAG",
+            "score": 66.0579170662372,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "safe-001",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "WAG",
+        "score": 65.1421705759251,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "WAG",
+            "score": 77.182377376044,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "GROWL",
+            "score": 60.209872457110095,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "WAG",
+            "score": 73.9715402815258,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "WAG",
+            "score": 69.44149939065355,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "WAG",
+            "score": 65.77584482679421,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "GROWL",
+            "score": 59.21989117516963,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "WAG",
+            "score": 67.7686060905878,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "GROWL",
+            "score": 54.01005619030482,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "GROWL",
+            "score": 52.089099795043715,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "WAG",
+            "score": 74.46505744732659,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "WAG",
+            "score": 62.430031304615895,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "safe-002",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "GROWL",
+        "score": 60.35860752406759,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "GROWL",
+            "score": 50.55398548282798,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "WAG",
+            "score": 78.98363261719379,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "GROWL",
+            "score": 50.857738098870264,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "GROWL",
+            "score": 51.45243758897313,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "GROWL",
+            "score": 53.657889645760186,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "WAG",
+            "score": 68.75864279344222,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "GROWL",
+            "score": 52.86387558089538,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "WAG",
+            "score": 72.1134436803385,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "GROWL",
+            "score": 55.2057189962922,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "WAG",
+            "score": 71.71422778042893,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "GROWL",
+            "score": 57.78309049972086,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "safe-003",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "WAG",
+        "score": 68.72190895305658,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "WAG",
+            "score": 72.58443574230624,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "GROWL",
+            "score": 57.97314155490319,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "WAG",
+            "score": 79.07427485087028,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "WAG",
+            "score": 65.50215680635361,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "GROWL",
+            "score": 61.79386292992149,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "WAG",
+            "score": 69.21369407924843,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "WAG",
+            "score": 78.66782260978567,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "WAG",
+            "score": 75.53534707104711,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "WAG",
+            "score": 71.56935423550382,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "WAG",
+            "score": 62.85700100058867,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "GROWL",
+            "score": 61.16990760309396,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "eval-001",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "WAG",
+        "score": 65.13173104454346,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "GROWL",
+            "score": 52.826443743693936,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "GROWL",
+            "score": 61.49435562948571,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "WAG",
+            "score": 62.66746909461445,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "WAG",
+            "score": 74.68948314859782,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "GROWL",
+            "score": 58.895242064999366,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "WAG",
+            "score": 62.129653675267726,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "WAG",
+            "score": 67.74649523716347,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "WAG",
+            "score": 62.25007627719504,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "WAG",
+            "score": 69.4383919921979,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "WAG",
+            "score": 78.74665815519907,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "WAG",
+            "score": 65.5647724715636,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    },
+    {
+      "sampleId": "proto-001",
+      "system": "collective",
+      "latencyMs": 0,
+      "result": {
+        "issues": [],
+        "verdict": "WAG",
+        "score": 67.56517281538699,
+        "consensus": {
+          "ratio": 1,
+          "reached": true,
+          "threshold": 0.618,
+          "votingDogs": 11
+        },
+        "votes": [
+          {
+            "dog": "SAGE",
+            "verdict": "WAG",
+            "score": 73.74655985456477,
+            "issueCount": 0
+          },
+          {
+            "dog": "ANALYST",
+            "verdict": "WAG",
+            "score": 70.72182889292412,
+            "issueCount": 0
+          },
+          {
+            "dog": "GUARDIAN",
+            "verdict": "GROWL",
+            "score": 54.60948120539181,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCHOLAR",
+            "verdict": "WAG",
+            "score": 72.85636662338976,
+            "issueCount": 0
+          },
+          {
+            "dog": "ARCHITECT",
+            "verdict": "WAG",
+            "score": 76.11301146275589,
+            "issueCount": 0
+          },
+          {
+            "dog": "JANITOR",
+            "verdict": "WAG",
+            "score": 76.39241095045747,
+            "issueCount": 0
+          },
+          {
+            "dog": "SCOUT",
+            "verdict": "WAG",
+            "score": 77.47634828439628,
+            "issueCount": 0
+          },
+          {
+            "dog": "CARTOGRAPHER",
+            "verdict": "GROWL",
+            "score": 51.72032960603198,
+            "issueCount": 0
+          },
+          {
+            "dog": "ORACLE",
+            "verdict": "GROWL",
+            "score": 52.76413780601377,
+            "issueCount": 0
+          },
+          {
+            "dog": "DEPLOYER",
+            "verdict": "GROWL",
+            "score": 60.33855409830535,
+            "issueCount": 0
+          },
+          {
+            "dog": "CYNIC",
+            "verdict": "WAG",
+            "score": 76.47787218502572,
+            "issueCount": 0
+          }
+        ]
+      },
+      "success": true
+    }
+  ]
+}

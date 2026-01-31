@@ -1,0 +1,464 @@
+{
+  "name": "Collective vs Single Benchmark",
+  "version": "1.0.0",
+  "description": "50 code samples with known bugs for validating CYNIC collective vs single agent",
+  "created": "2025-01-31",
+  "categories": {
+    "security": { "count": 15, "ids": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] },
+    "logic": { "count": 15, "ids": [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30] },
+    "performance": { "count": 10, "ids": [31, 32, 33, 34, 35, 36, 37, 38, 39, 40] },
+    "quality": { "count": 10, "ids": [41, 42, 43, 44, 45, 46, 47, 48, 49, 50] }
+  },
+  "samples": [
+    {
+      "id": 1,
+      "file": "sec_01_sql_injection.js",
+      "category": "security",
+      "severity": "critical",
+      "bugs": [
+        { "line": 5, "type": "sql_injection", "description": "User input directly concatenated into SQL query" }
+      ]
+    },
+    {
+      "id": 2,
+      "file": "sec_02_xss.js",
+      "category": "security",
+      "severity": "critical",
+      "bugs": [
+        { "line": 8, "type": "xss", "description": "User input rendered without sanitization" }
+      ]
+    },
+    {
+      "id": 3,
+      "file": "sec_03_path_traversal.js",
+      "category": "security",
+      "severity": "critical",
+      "bugs": [
+        { "line": 4, "type": "path_traversal", "description": "User input used in file path without validation" }
+      ]
+    },
+    {
+      "id": 4,
+      "file": "sec_04_hardcoded_secret.js",
+      "category": "security",
+      "severity": "high",
+      "bugs": [
+        { "line": 2, "type": "hardcoded_secret", "description": "API key hardcoded in source" }
+      ]
+    },
+    {
+      "id": 5,
+      "file": "sec_05_eval.js",
+      "category": "security",
+      "severity": "critical",
+      "bugs": [
+        { "line": 6, "type": "code_injection", "description": "eval() used with user input" }
+      ]
+    },
+    {
+      "id": 6,
+      "file": "sec_06_weak_crypto.py",
+      "category": "security",
+      "severity": "high",
+      "bugs": [
+        { "line": 4, "type": "weak_crypto", "description": "MD5 used for password hashing" }
+      ]
+    },
+    {
+      "id": 7,
+      "file": "sec_07_ssrf.js",
+      "category": "security",
+      "severity": "critical",
+      "bugs": [
+        { "line": 7, "type": "ssrf", "description": "User-controlled URL passed to fetch without validation" }
+      ]
+    },
+    {
+      "id": 8,
+      "file": "sec_08_nosql_injection.js",
+      "category": "security",
+      "severity": "critical",
+      "bugs": [
+        { "line": 6, "type": "nosql_injection", "description": "User input directly in MongoDB query" }
+      ]
+    },
+    {
+      "id": 9,
+      "file": "sec_09_jwt_none.js",
+      "category": "security",
+      "severity": "critical",
+      "bugs": [
+        { "line": 5, "type": "jwt_vulnerability", "description": "JWT verified without algorithm check" }
+      ]
+    },
+    {
+      "id": 10,
+      "file": "sec_10_open_redirect.js",
+      "category": "security",
+      "severity": "medium",
+      "bugs": [
+        { "line": 4, "type": "open_redirect", "description": "Redirect URL from user input without validation" }
+      ]
+    },
+    {
+      "id": 11,
+      "file": "sec_11_prototype_pollution.js",
+      "category": "security",
+      "severity": "high",
+      "bugs": [
+        { "line": 8, "type": "prototype_pollution", "description": "Object merge without prototype check" }
+      ]
+    },
+    {
+      "id": 12,
+      "file": "sec_12_regex_dos.js",
+      "category": "security",
+      "severity": "medium",
+      "bugs": [
+        { "line": 3, "type": "redos", "description": "Regex vulnerable to catastrophic backtracking" }
+      ]
+    },
+    {
+      "id": 13,
+      "file": "sec_13_insecure_random.js",
+      "category": "security",
+      "severity": "high",
+      "bugs": [
+        { "line": 4, "type": "insecure_random", "description": "Math.random() used for security token" }
+      ]
+    },
+    {
+      "id": 14,
+      "file": "sec_14_command_injection.py",
+      "category": "security",
+      "severity": "critical",
+      "bugs": [
+        { "line": 5, "type": "command_injection", "description": "os.system() with user input" }
+      ]
+    },
+    {
+      "id": 15,
+      "file": "sec_15_xxe.js",
+      "category": "security",
+      "severity": "high",
+      "bugs": [
+        { "line": 6, "type": "xxe", "description": "XML parser with external entities enabled" }
+      ]
+    },
+    {
+      "id": 16,
+      "file": "logic_01_off_by_one.js",
+      "category": "logic",
+      "severity": "medium",
+      "bugs": [
+        { "line": 4, "type": "off_by_one", "description": "Loop goes one index too far" }
+      ]
+    },
+    {
+      "id": 17,
+      "file": "logic_02_null_check.js",
+      "category": "logic",
+      "severity": "medium",
+      "bugs": [
+        { "line": 5, "type": "null_dereference", "description": "Property accessed before null check" }
+      ]
+    },
+    {
+      "id": 18,
+      "file": "logic_03_type_coercion.js",
+      "category": "logic",
+      "severity": "low",
+      "bugs": [
+        { "line": 3, "type": "type_coercion", "description": "== used instead of === causes unexpected behavior" }
+      ]
+    },
+    {
+      "id": 19,
+      "file": "logic_04_async_race.js",
+      "category": "logic",
+      "severity": "high",
+      "bugs": [
+        { "line": 8, "type": "race_condition", "description": "Shared state modified without synchronization" }
+      ]
+    },
+    {
+      "id": 20,
+      "file": "logic_05_wrong_operator.js",
+      "category": "logic",
+      "severity": "medium",
+      "bugs": [
+        { "line": 4, "type": "wrong_operator", "description": "= used instead of == in condition" }
+      ]
+    },
+    {
+      "id": 21,
+      "file": "logic_06_infinite_loop.js",
+      "category": "logic",
+      "severity": "high",
+      "bugs": [
+        { "line": 5, "type": "infinite_loop", "description": "Loop condition never becomes false" }
+      ]
+    },
+    {
+      "id": 22,
+      "file": "logic_07_wrong_return.js",
+      "category": "logic",
+      "severity": "medium",
+      "bugs": [
+        { "line": 7, "type": "wrong_return", "description": "Function returns wrong variable" }
+      ]
+    },
+    {
+      "id": 23,
+      "file": "logic_08_boundary.py",
+      "category": "logic",
+      "severity": "medium",
+      "bugs": [
+        { "line": 6, "type": "boundary_error", "description": "Edge case not handled (empty array)" }
+      ]
+    },
+    {
+      "id": 24,
+      "file": "logic_09_floating_point.js",
+      "category": "logic",
+      "severity": "low",
+      "bugs": [
+        { "line": 4, "type": "floating_point", "description": "Float comparison with == fails for 0.1 + 0.2" }
+      ]
+    },
+    {
+      "id": 25,
+      "file": "logic_10_scope.js",
+      "category": "logic",
+      "severity": "medium",
+      "bugs": [
+        { "line": 6, "type": "scope_error", "description": "var in loop causes closure bug" }
+      ]
+    },
+    {
+      "id": 26,
+      "file": "logic_11_mutation.js",
+      "category": "logic",
+      "severity": "medium",
+      "bugs": [
+        { "line": 5, "type": "unintended_mutation", "description": "Array mutated when copy intended" }
+      ]
+    },
+    {
+      "id": 27,
+      "file": "logic_12_promise_swallow.js",
+      "category": "logic",
+      "severity": "high",
+      "bugs": [
+        { "line": 4, "type": "swallowed_error", "description": "Promise rejection not handled" }
+      ]
+    },
+    {
+      "id": 28,
+      "file": "logic_13_wrong_condition.js",
+      "category": "logic",
+      "severity": "medium",
+      "bugs": [
+        { "line": 5, "type": "logic_error", "description": "&& should be || in condition" }
+      ]
+    },
+    {
+      "id": 29,
+      "file": "logic_14_unreachable.js",
+      "category": "logic",
+      "severity": "low",
+      "bugs": [
+        { "line": 8, "type": "unreachable_code", "description": "Code after return never executes" }
+      ]
+    },
+    {
+      "id": 30,
+      "file": "logic_15_default_param.js",
+      "category": "logic",
+      "severity": "low",
+      "bugs": [
+        { "line": 3, "type": "default_param_bug", "description": "Mutable default parameter (object) shared across calls" }
+      ]
+    },
+    {
+      "id": 31,
+      "file": "perf_01_n_plus_one.js",
+      "category": "performance",
+      "severity": "high",
+      "bugs": [
+        { "line": 6, "type": "n_plus_one", "description": "Database query inside loop" }
+      ]
+    },
+    {
+      "id": 32,
+      "file": "perf_02_unbounded_cache.js",
+      "category": "performance",
+      "severity": "medium",
+      "bugs": [
+        { "line": 5, "type": "memory_leak", "description": "Cache grows without bound" }
+      ]
+    },
+    {
+      "id": 33,
+      "file": "perf_03_sync_io.js",
+      "category": "performance",
+      "severity": "medium",
+      "bugs": [
+        { "line": 4, "type": "blocking_io", "description": "Synchronous file read in request handler" }
+      ]
+    },
+    {
+      "id": 34,
+      "file": "perf_04_nested_loop.js",
+      "category": "performance",
+      "severity": "medium",
+      "bugs": [
+        { "line": 5, "type": "quadratic_complexity", "description": "O(n^2) when O(n) possible with Set" }
+      ]
+    },
+    {
+      "id": 35,
+      "file": "perf_05_string_concat.py",
+      "category": "performance",
+      "severity": "low",
+      "bugs": [
+        { "line": 4, "type": "inefficient_string", "description": "String concatenation in loop instead of join" }
+      ]
+    },
+    {
+      "id": 36,
+      "file": "perf_06_rerender.js",
+      "category": "performance",
+      "severity": "medium",
+      "bugs": [
+        { "line": 7, "type": "unnecessary_render", "description": "Object literal in JSX causes rerender" }
+      ]
+    },
+    {
+      "id": 37,
+      "file": "perf_07_no_index.sql",
+      "category": "performance",
+      "severity": "high",
+      "bugs": [
+        { "line": 3, "type": "missing_index", "description": "Query on unindexed column" }
+      ]
+    },
+    {
+      "id": 38,
+      "file": "perf_08_eager_load.js",
+      "category": "performance",
+      "severity": "medium",
+      "bugs": [
+        { "line": 5, "type": "over_fetching", "description": "Loading all fields when only one needed" }
+      ]
+    },
+    {
+      "id": 39,
+      "file": "perf_09_event_leak.js",
+      "category": "performance",
+      "severity": "high",
+      "bugs": [
+        { "line": 8, "type": "event_listener_leak", "description": "Event listener added but never removed" }
+      ]
+    },
+    {
+      "id": 40,
+      "file": "perf_10_regex_compile.js",
+      "category": "performance",
+      "severity": "low",
+      "bugs": [
+        { "line": 4, "type": "regex_recompile", "description": "Regex compiled on every function call" }
+      ]
+    },
+    {
+      "id": 41,
+      "file": "qual_01_dead_code.js",
+      "category": "quality",
+      "severity": "low",
+      "bugs": [
+        { "line": 10, "type": "dead_code", "description": "Function defined but never called" }
+      ]
+    },
+    {
+      "id": 42,
+      "file": "qual_02_duplicate.js",
+      "category": "quality",
+      "severity": "low",
+      "bugs": [
+        { "line": 8, "type": "code_duplication", "description": "Same logic repeated 3 times" }
+      ]
+    },
+    {
+      "id": 43,
+      "file": "qual_03_magic_number.js",
+      "category": "quality",
+      "severity": "low",
+      "bugs": [
+        { "line": 5, "type": "magic_number", "description": "Unexplained numeric literal 86400000" }
+      ]
+    },
+    {
+      "id": 44,
+      "file": "qual_04_god_function.js",
+      "category": "quality",
+      "severity": "medium",
+      "bugs": [
+        { "line": 1, "type": "god_function", "description": "Function does too many things (150 lines)" }
+      ]
+    },
+    {
+      "id": 45,
+      "file": "qual_05_deep_nesting.js",
+      "category": "quality",
+      "severity": "low",
+      "bugs": [
+        { "line": 6, "type": "deep_nesting", "description": "6 levels of nesting" }
+      ]
+    },
+    {
+      "id": 46,
+      "file": "qual_06_inconsistent.js",
+      "category": "quality",
+      "severity": "low",
+      "bugs": [
+        { "line": 3, "type": "inconsistent_naming", "description": "Mix of camelCase and snake_case" }
+      ]
+    },
+    {
+      "id": 47,
+      "file": "qual_07_empty_catch.js",
+      "category": "quality",
+      "severity": "medium",
+      "bugs": [
+        { "line": 7, "type": "empty_catch", "description": "Error caught but ignored" }
+      ]
+    },
+    {
+      "id": 48,
+      "file": "qual_08_console_log.js",
+      "category": "quality",
+      "severity": "low",
+      "bugs": [
+        { "line": 5, "type": "debug_code", "description": "console.log left in production code" }
+      ]
+    },
+    {
+      "id": 49,
+      "file": "qual_09_any_type.ts",
+      "category": "quality",
+      "severity": "low",
+      "bugs": [
+        { "line": 4, "type": "any_type", "description": "TypeScript any defeats type safety" }
+      ]
+    },
+    {
+      "id": 50,
+      "file": "qual_10_commented_code.js",
+      "category": "quality",
+      "severity": "low",
+      "bugs": [
+        { "line": 8, "type": "commented_code", "description": "Large block of commented-out code" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+
+● Security Vulnerabilities:
+
+  [CRITICAL] Line ~360: Fail-open on error - catch block sets continue: true, allowing dangerous operations if guard crashes
+  [CRITICAL] Lines 87-96: Path traversal bypass - patterns only check absolute paths, missing ../etc/passwd, symlinks, or encoded paths
+  [HIGH] Line 307: Probabilistic security check - Math.random() makes physis detection non-deterministic, can be bypassed by retry
+  [HIGH] Lines 174-195: Race condition in stdin - 3000ms timeout may process partial JSON, potentially bypassing checks
+  [MEDIUM] Line 64: Fork bomb detection incomplete - only catches :(){ :|:& };: form, obfuscated variants bypass (e.g., a(){ a|a& };a)
+  [MEDIUM] Lines 73-74: SQL injection gaps - only detects DROP/TRUNCATE, missing DELETE FROM, UPDATE SET, INSERT with subqueries
+
+  Logic Errors/Bugs:
+
+  [HIGH] Lines 68-69: Inconsistent force-push detection - git\s+push.*-f\s requires trailing space, misses git push -f origin
+  [MEDIUM] Lines 55-56: Regex inconsistency - rm\s+-rf\s+\.$ uses anchor but rm\s+-rf\s+\.\s doesn't, detection gap for rm -rf .
+  [MEDIUM] Line 342: Wrong array reference - uses issues[0] from full array after blocking decision, should use filtered blocking issues
+  [LOW] Line 256: Null comparison - scanResult.verdict?.verdict === 'WAG' when verdict is null returns undefined, not false
+
+  Performance Issues:
+
+  [MEDIUM] Line 174: Dynamic import in hot path - await import('fs') called on every invocation, should be top-level
+  [LOW] Lines 113-130: No short-circuit - analyzeBashCommand checks all patterns even after finding critical block
+  [LOW] Lines 315-340: Multiple array iterations - escalation adjustment, .some(), and .filter() could be single pass
+
+  Code Quality Issues:
+
+  [MEDIUM] Lines 225-234: Empty catch blocks - orchestration failure silently continues with no logging or metric
+  [MEDIUM] No input validation - hookContext parsed at line 200 has no schema validation before accessing properties
+  [LOW] Line 176: Mixed sync/async - readFileSync(0) with async Promise fallback is confusing control flow
+  [LOW] Lines 52-75: No regex documentation - complex patterns like fork bomb lack inline comments explaining what they match
+  [LOW] Lines 287-297: Magic threshold - DC.LENGTH.OVER_ENGINEERING referenced but value unclear, no constant for line 289
+
+✻ Worked for 41s

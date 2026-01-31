@@ -1,0 +1,125 @@
+{
+  "timestamp": "2026-01-31T08:44:01.162Z",
+  "results": [
+    {
+      "file": "client.js",
+      "lines": 462,
+      "single": {
+        "time_ms": 0,
+        "tokens": 0,
+        "consistency": "0",
+        "runs": 0,
+        "errors": 3
+      },
+      "collective": {
+        "time_ms": 324,
+        "tokens": 4304,
+        "consistency": "100.0",
+        "runs": 3,
+        "errors": 0
+      },
+      "raw": {
+        "singleResults": [
+          {
+            "error": "ANTHROPIC_API_KEY not set",
+            "time_ms": 0
+          },
+          {
+            "error": "ANTHROPIC_API_KEY not set",
+            "time_ms": 0
+          },
+          {
+            "error": "ANTHROPIC_API_KEY not set",
+            "time_ms": 0
+          }
+        ],
+        "collectiveResults": [
+          {
+            "condition": "collective",
+            "time_ms": 364,
+            "input_tokens": 3884,
+            "output_tokens": 420,
+            "total_tokens": 4304,
+            "output": "{\n  \"success\": true,\n  \"result\": {\n    \"success\": false,\n    \"outcome\": \"ask\",\n    \"decisionId\": \"dec_af2aaab4fdf26242\",\n    \"routing\": {\n      \"sefirah\": \"Chesed\",\n      \"domain\": \"analysis\",\n      \"intervention\": \"ask\",\n      \"risk\": \"high\",\n      \"suggestedTools\": [],\n      \"suggestedAgent\": \"cynic-analyst\",\n      \"timestamp\": 1769849038603\n    },\n    \"judgment\": null,\n    \"synthesis\": null,\n    \"trace\": [\n      {\n        \"action\": \"created\",\n        \"data\": {\n          \"source\": \"internal\",\n          \"eventType\": \"code_review\"\n        },\n        \"timestamp\": 1769849038590,\n        \"elapsed\": 0\n      },\n      {\n        \"action\": \"routing\",\n        \"data\": {\n          \"sefirah\": \"Chesed\",\n          \"domain\": \"analysis\",\n          \"intervention\": \"ask\",\n          \"risk\": \"high\",\n          \"suggestedTools\": [],\n          \"suggestedAgent\": \"cynic-analyst\",\n          \"timestamp\": 1769849038603\n        },\n        \"timestamp\": 1769849038603,\n        \"elapsed\": 13\n      },\n      {\n        \"action\": \"pre_execution\",\n        \"data\": {\n          \"blocked\": false,\n          \"warning\": false\n        },\n        \"timestamp\": 1769849038603,\n        \"elapsed\": 13\n      },\n      {\n        \"action\": \"execution\",\n        \"data\": {\n          \"tool\": null,\n          \"skill\": \"patterns\",\n          \"success\": false\n        },\n        \"timestamp\": 1769849038603,\n        \"elapsed\": 13\n      },\n      {\n        \"action\": \"finalized\",\n        \"data\": {\n          \"outcome\": \"ask\",\n          \"durationMs\": 13\n        },\n        \"timestamp\": 1769849038603,\n        \"elapsed\": 13\n      }\n    ],\n    \"timestamp\": 1769849038590,\n    \"confidence\": 0.618033988749895\n  },\n  \"duration\": 13\n}"
+          },
+          {
+            "condition": "collective",
+            "time_ms": 305,
+            "input_tokens": 3884,
+            "output_tokens": 420,
+            "total_tokens": 4304,
+            "output": "{\n  \"success\": true,\n  \"result\": {\n    \"success\": false,\n    \"outcome\": \"ask\",\n    \"decisionId\": \"dec_93bd11ad69ec9f53\",\n    \"routing\": {\n      \"sefirah\": \"Chesed\",\n      \"domain\": \"analysis\",\n      \"intervention\": \"ask\",\n      \"risk\": \"high\",\n      \"suggestedTools\": [],\n      \"suggestedAgent\": \"cynic-analyst\",\n      \"timestamp\": 1769849038910\n    },\n    \"judgment\": null,\n    \"synthesis\": null,\n    \"trace\": [\n      {\n        \"action\": \"created\",\n        \"data\": {\n          \"source\": \"internal\",\n          \"eventType\": \"code_review\"\n        },\n        \"timestamp\": 1769849038896,\n        \"elapsed\": 0\n      },\n      {\n        \"action\": \"routing\",\n        \"data\": {\n          \"sefirah\": \"Chesed\",\n          \"domain\": \"analysis\",\n          \"intervention\": \"ask\",\n          \"risk\": \"high\",\n          \"suggestedTools\": [],\n          \"suggestedAgent\": \"cynic-analyst\",\n          \"timestamp\": 1769849038910\n        },\n        \"timestamp\": 1769849038910,\n        \"elapsed\": 14\n      },\n      {\n        \"action\": \"pre_execution\",\n        \"data\": {\n          \"blocked\": false,\n          \"warning\": false\n        },\n        \"timestamp\": 1769849038910,\n        \"elapsed\": 14\n      },\n      {\n        \"action\": \"execution\",\n        \"data\": {\n          \"tool\": null,\n          \"skill\": \"patterns\",\n          \"success\": false\n        },\n        \"timestamp\": 1769849038910,\n        \"elapsed\": 14\n      },\n      {\n        \"action\": \"finalized\",\n        \"data\": {\n          \"outcome\": \"ask\",\n          \"durationMs\": 14\n        },\n        \"timestamp\": 1769849038910,\n        \"elapsed\": 14\n      }\n    ],\n    \"timestamp\": 1769849038896,\n    \"confidence\": 0.618033988749895\n  },\n  \"duration\": 14\n}"
+          },
+          {
+            "condition": "collective",
+            "time_ms": 303,
+            "input_tokens": 3884,
+            "output_tokens": 420,
+            "total_tokens": 4304,
+            "output": "{\n  \"success\": true,\n  \"result\": {\n    \"success\": false,\n    \"outcome\": \"ask\",\n    \"decisionId\": \"dec_0fc21b4295419e8a\",\n    \"routing\": {\n      \"sefirah\": \"Chesed\",\n      \"domain\": \"analysis\",\n      \"intervention\": \"ask\",\n      \"risk\": \"high\",\n      \"suggestedTools\": [],\n      \"suggestedAgent\": \"cynic-analyst\",\n      \"timestamp\": 1769849039213\n    },\n    \"judgment\": null,\n    \"synthesis\": null,\n    \"trace\": [\n      {\n        \"action\": \"created\",\n        \"data\": {\n          \"source\": \"internal\",\n          \"eventType\": \"code_review\"\n        },\n        \"timestamp\": 1769849039202,\n        \"elapsed\": 0\n      },\n      {\n        \"action\": \"routing\",\n        \"data\": {\n          \"sefirah\": \"Chesed\",\n          \"domain\": \"analysis\",\n          \"intervention\": \"ask\",\n          \"risk\": \"high\",\n          \"suggestedTools\": [],\n          \"suggestedAgent\": \"cynic-analyst\",\n          \"timestamp\": 1769849039213\n        },\n        \"timestamp\": 1769849039213,\n        \"elapsed\": 11\n      },\n      {\n        \"action\": \"pre_execution\",\n        \"data\": {\n          \"blocked\": false,\n          \"warning\": false\n        },\n        \"timestamp\": 1769849039213,\n        \"elapsed\": 11\n      },\n      {\n        \"action\": \"execution\",\n        \"data\": {\n          \"tool\": null,\n          \"skill\": \"patterns\",\n          \"success\": false\n        },\n        \"timestamp\": 1769849039213,\n        \"elapsed\": 11\n      },\n      {\n        \"action\": \"finalized\",\n        \"data\": {\n          \"outcome\": \"ask\",\n          \"durationMs\": 11\n        },\n        \"timestamp\": 1769849039213,\n        \"elapsed\": 11\n      }\n    ],\n    \"timestamp\": 1769849039202,\n    \"confidence\": 0.618033988749895\n  },\n  \"duration\": 11\n}"
+          }
+        ]
+      }
+    },
+    {
+      "file": "guard.js",
+      "lines": 414,
+      "single": {
+        "time_ms": 0,
+        "tokens": 0,
+        "consistency": "0",
+        "runs": 0,
+        "errors": 3
+      },
+      "collective": {
+        "time_ms": 299,
+        "tokens": 4967,
+        "consistency": "100.0",
+        "runs": 3,
+        "errors": 0
+      },
+      "raw": {
+        "singleResults": [
+          {
+            "error": "ANTHROPIC_API_KEY not set",
+            "time_ms": 0
+          },
+          {
+            "error": "ANTHROPIC_API_KEY not set",
+            "time_ms": 0
+          },
+          {
+            "error": "ANTHROPIC_API_KEY not set",
+            "time_ms": 0
+          }
+        ],
+        "collectiveResults": [
+          {
+            "condition": "collective",
+            "time_ms": 303,
+            "input_tokens": 4584,
+            "output_tokens": 384,
+            "total_tokens": 4968,
+            "output": "{\n  \"success\": true,\n  \"result\": {\n    \"success\": false,\n    \"outcome\": \"block\",\n    \"decisionId\": \"dec_c6d218887c6660d7\",\n    \"routing\": {\n      \"sefirah\": \"Binah\",\n      \"domain\": \"design\",\n      \"intervention\": \"ask\",\n      \"risk\": \"critical\",\n      \"suggestedTools\": [],\n      \"suggestedAgent\": \"cynic-architect\",\n      \"timestamp\": 1769849039515\n    },\n    \"judgment\": null,\n    \"synthesis\": null,\n    \"trace\": [\n      {\n        \"action\": \"created\",\n        \"data\": {\n          \"source\": \"internal\",\n          \"eventType\": \"code_review\"\n        },\n        \"timestamp\": 1769849039503,\n        \"elapsed\": 0\n      },\n      {\n        \"action\": \"routing\",\n        \"data\": {\n          \"sefirah\": \"Binah\",\n          \"domain\": \"design\",\n          \"intervention\": \"ask\",\n          \"risk\": \"critical\",\n          \"suggestedTools\": [],\n          \"suggestedAgent\": \"cynic-architect\",\n          \"timestamp\": 1769849039515\n        },\n        \"timestamp\": 1769849039515,\n        \"elapsed\": 12\n      },\n      {\n        \"action\": \"pre_execution\",\n        \"data\": {\n          \"blocked\": true,\n          \"reason\": \"Dangerous command pattern detected\",\n          \"severity\": \"critical\"\n        },\n        \"timestamp\": 1769849039515,\n        \"elapsed\": 12\n      },\n      {\n        \"action\": \"finalized\",\n        \"data\": {\n          \"outcome\": \"block\",\n          \"durationMs\": 12\n        },\n        \"timestamp\": 1769849039515,\n        \"elapsed\": 12\n      }\n    ],\n    \"timestamp\": 1769849039503,\n    \"confidence\": 0.618033988749895\n  },\n  \"duration\": 12\n}"
+          },
+          {
+            "condition": "collective",
+            "time_ms": 295,
+            "input_tokens": 4584,
+            "output_tokens": 383,
+            "total_tokens": 4967,
+            "output": "{\n  \"success\": true,\n  \"result\": {\n    \"success\": false,\n    \"outcome\": \"block\",\n    \"decisionId\": \"dec_d217015909fc27a6\",\n    \"routing\": {\n      \"sefirah\": \"Binah\",\n      \"domain\": \"design\",\n      \"intervention\": \"ask\",\n      \"risk\": \"critical\",\n      \"suggestedTools\": [],\n      \"suggestedAgent\": \"cynic-architect\",\n      \"timestamp\": 1769849039809\n    },\n    \"judgment\": null,\n    \"synthesis\": null,\n    \"trace\": [\n      {\n        \"action\": \"created\",\n        \"data\": {\n          \"source\": \"internal\",\n          \"eventType\": \"code_review\"\n        },\n        \"timestamp\": 1769849039809,\n        \"elapsed\": 0\n      },\n      {\n        \"action\": \"routing\",\n        \"data\": {\n          \"sefirah\": \"Binah\",\n          \"domain\": \"design\",\n          \"intervention\": \"ask\",\n          \"risk\": \"critical\",\n          \"suggestedTools\": [],\n          \"suggestedAgent\": \"cynic-architect\",\n          \"timestamp\": 1769849039809\n        },\n        \"timestamp\": 1769849039809,\n        \"elapsed\": 0\n      },\n      {\n        \"action\": \"pre_execution\",\n        \"data\": {\n          \"blocked\": true,\n          \"reason\": \"Dangerous command pattern detected\",\n          \"severity\": \"critical\"\n        },\n        \"timestamp\": 1769849039809,\n        \"elapsed\": 0\n      },\n      {\n        \"action\": \"finalized\",\n        \"data\": {\n          \"outcome\": \"block\",\n          \"durationMs\": 0\n        },\n        \"timestamp\": 1769849039809,\n        \"elapsed\": 0\n      }\n    ],\n    \"timestamp\": 1769849039809,\n    \"confidence\": 0.618033988749895\n  },\n  \"duration\": 2\n}"
+          },
+          {
+            "condition": "collective",
+            "time_ms": 299,
+            "input_tokens": 4584,
+            "output_tokens": 383,
+            "total_tokens": 4967,
+            "output": "{\n  \"success\": true,\n  \"result\": {\n    \"success\": false,\n    \"outcome\": \"block\",\n    \"decisionId\": \"dec_740748df9508e774\",\n    \"routing\": {\n      \"sefirah\": \"Binah\",\n      \"domain\": \"design\",\n      \"intervention\": \"ask\",\n      \"risk\": \"critical\",\n      \"suggestedTools\": [],\n      \"suggestedAgent\": \"cynic-architect\",\n      \"timestamp\": 1769849040110\n    },\n    \"judgment\": null,\n    \"synthesis\": null,\n    \"trace\": [\n      {\n        \"action\": \"created\",\n        \"data\": {\n          \"source\": \"internal\",\n          \"eventType\": \"code_review\"\n        },\n        \"timestamp\": 1769849040109,\n        \"elapsed\": 0\n      },\n      {\n        \"action\": \"routing\",\n        \"data\": {\n          \"sefirah\": \"Binah\",\n          \"domain\": \"design\",\n          \"intervention\": \"ask\",\n          \"risk\": \"critical\",\n          \"suggestedTools\": [],\n          \"suggestedAgent\": \"cynic-architect\",\n          \"timestamp\": 1769849040110\n        },\n        \"timestamp\": 1769849040110,\n        \"elapsed\": 1\n      },\n      {\n        \"action\": \"pre_execution\",\n        \"data\": {\n          \"blocked\": true,\n          \"reason\": \"Dangerous command pattern detected\",\n          \"severity\": \"critical\"\n        },\n        \"timestamp\": 1769849040110,\n        \"elapsed\": 1\n      },\n      {\n        \"action\": \"finalized\",\n        \"data\": {\n          \"outcome\": \"block\",\n          \"durationMs\": 1\n        },\n        \"timestamp\": 1769849040110,\n        \"elapsed\": 1\n      }\n    ],\n    \"timestamp\": 1769849040109,\n    \"confidence\": 0.618033988749895\n  },\n  \"duration\": 1\n}"
+          }
+        ]
+      }
+    }
+  ]
+}

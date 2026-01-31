@@ -1,0 +1,66 @@
+{
+  "success": true,
+  "result": {
+    "success": false,
+    "outcome": "block",
+    "decisionId": "dec_833bb1ead908809f",
+    "routing": {
+      "sefirah": "Binah",
+      "domain": "design",
+      "intervention": "ask",
+      "risk": "critical",
+      "suggestedTools": [],
+      "suggestedAgent": "cynic-architect",
+      "timestamp": 1769849884998
+    },
+    "judgment": null,
+    "synthesis": null,
+    "trace": [
+      {
+        "action": "created",
+        "data": {
+          "source": "internal",
+          "eventType": "code_review"
+        },
+        "timestamp": 1769849884986,
+        "elapsed": 0
+      },
+      {
+        "action": "routing",
+        "data": {
+          "sefirah": "Binah",
+          "domain": "design",
+          "intervention": "ask",
+          "risk": "critical",
+          "suggestedTools": [],
+          "suggestedAgent": "cynic-architect",
+          "timestamp": 1769849884998
+        },
+        "timestamp": 1769849884998,
+        "elapsed": 12
+      },
+      {
+        "action": "pre_execution",
+        "data": {
+          "blocked": true,
+          "reason": "Dangerous command pattern detected",
+          "severity": "critical"
+        },
+        "timestamp": 1769849884998,
+        "elapsed": 12
+      },
+      {
+        "action": "finalized",
+        "data": {
+          "outcome": "block",
+          "durationMs": 12
+        },
+        "timestamp": 1769849884998,
+        "elapsed": 12
+      }
+    ],
+    "timestamp": 1769849884986,
+    "confidence": 0.618033988749895
+  },
+  "duration": 12
+}
