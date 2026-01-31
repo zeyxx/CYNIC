@@ -49,7 +49,8 @@ export class PatternLearning {
    *
    * @param {Object} options - Configuration
    * @param {Object} options.pool - PostgreSQL connection pool
-   * @param {Object} [options.embedder] - Embedding service for similarity
+   * @param {Object} [options.embedder] - Embedding service for similarity (legacy)
+   * @param {Object} [options.vectorStore] - VectorStore for semantic clustering (preferred)
    * @param {Object} [options.config] - Override default config
    */
   constructor(options = {}) {
@@ -59,6 +60,7 @@ export class PatternLearning {
 
     this._pool = options.pool;
     this._embedder = options.embedder || null;
+    this._vectorStore = options.vectorStore || null; // V3: Use VectorStore when available
     this._config = {
       ...DEFAULT_PATTERN_CONFIG,
       ...options.config,
@@ -361,8 +363,9 @@ export class PatternLearning {
       timestamp: Date.now(),
     };
 
-    if (!this._embedder) {
-      return result; // Can't cluster without embedder
+    // Need either VectorStore or embedder for clustering
+    if (!this._vectorStore && !this._embedder) {
+      return result; // Can't cluster without semantic capability
     }
 
     // Get all patterns in category
@@ -375,6 +378,79 @@ export class PatternLearning {
 
     if (patterns.length < 2) return result;
 
+    // V3: Use VectorStore for clustering (preferred - DRY principle)
+    if (this._vectorStore) {
+      return this._clusterWithVectorStore(patterns, dryRun, result);
+    }
+
+    // Legacy: Use embedder directly (fallback for backwards compatibility)
+    return this._clusterWithEmbedder(patterns, dryRun, result);
+  }
+
+  /**
+   * Cluster patterns using VectorStore (V3 - preferred)
+   * @private
+   */
+  async _clusterWithVectorStore(patterns, dryRun, result) {
+    // Store all patterns in VectorStore for semantic search
+    for (const p of patterns) {
+      const text = `${p.name} ${p.description || ''}`.trim();
+      await this._vectorStore.store(p.pattern_id, text, {
+        confidence: p.confidence,
+        frequency: p.frequency,
+      });
+    }
+
+    // Find clusters using VectorStore's search
+    const merged = new Set();
+
+    for (const pattern of patterns) {
+      if (merged.has(pattern.pattern_id)) continue;
+
+      const cluster = {
+        primary: pattern.pattern_id,
+        members: [],
+      };
+
+      // Find similar patterns using VectorStore
+      const text = `${pattern.name} ${pattern.description || ''}`.trim();
+      const similar = await this._vectorStore.search(text, patterns.length, {
+        minScore: this._config.similarityThreshold,
+      });
+
+      for (const match of similar) {
+        // Skip self and already merged
+        if (match.id === pattern.pattern_id) continue;
+        if (merged.has(match.id)) continue;
+
+        cluster.members.push({
+          patternId: match.id,
+          similarity: match.score,
+        });
+        merged.add(match.id);
+      }
+
+      if (cluster.members.length > 0) {
+        result.clusters.push(cluster);
+
+        if (!dryRun) {
+          for (const member of cluster.members) {
+            await this._mergePatterns(cluster.primary, member.patternId);
+            result.merged++;
+          }
+        }
+      }
+    }
+
+    this._stats.totalClustered += result.merged;
+    return result;
+  }
+
+  /**
+   * Cluster patterns using embedder directly (legacy fallback)
+   * @private
+   */
+  async _clusterWithEmbedder(patterns, dryRun, result) {
     // Generate embeddings for pattern names
     const embeddings = new Map();
     for (const p of patterns) {
@@ -421,7 +497,6 @@ export class PatternLearning {
         result.clusters.push(cluster);
 
         if (!dryRun) {
-          // Merge secondary patterns into primary
           for (const member of cluster.members) {
             await this._mergePatterns(cluster.primary, member.patternId);
             result.merged++;

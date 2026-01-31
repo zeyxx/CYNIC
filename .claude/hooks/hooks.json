@@ -1,5 +1,6 @@
 {
   "_comment": "Using project-relative paths - assumes hooks run from project root",
+  "_coverage": "12/12 Claude Code hook events covered",
   "hooks": {
     "SessionStart": [
       {
@@ -74,6 +75,54 @@
             "type": "command",
             "command": "node scripts/hooks/digest.js 2>/dev/null || true",
             "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/hooks/spawn.js start 2>/dev/null || true",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/hooks/spawn.js stop 2>/dev/null || true",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Error": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/hooks/error.js 2>/dev/null || true",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/hooks/notify.js 2>/dev/null || true",
+            "timeout": 5
           }
         ]
       }

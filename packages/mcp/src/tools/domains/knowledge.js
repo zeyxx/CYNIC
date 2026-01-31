@@ -315,6 +315,144 @@ export function createDocsTool(librarian, persistence = null) {
 }
 
 /**
+ * Create semantic patterns tool definition
+ * Uses VectorStore + SemanticPatternMatcher for finding patterns by meaning.
+ *
+ * @param {Object} semanticMatcher - SemanticPatternMatcher instance
+ * @returns {Object} Tool definition
+ */
+export function createSemanticPatternsTool(semanticMatcher = null) {
+  // Lazy-loaded SemanticPatternMatcher
+  let matcher = semanticMatcher;
+
+  return {
+    name: 'brain_semantic_patterns',
+    description: 'Find semantically similar patterns using vector search. Store patterns for future retrieval, cluster by similarity, and recommend patterns for context.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['search', 'add', 'cluster', 'recommend', 'stats'],
+          description: 'Action to perform',
+        },
+        query: { type: 'string', description: 'Search query or pattern description' },
+        patternId: { type: 'string', description: 'Pattern ID (for add action)' },
+        k: { type: 'number', description: 'Number of results (default: 10)' },
+        metadata: { type: 'object', description: 'Pattern metadata (for add action)' },
+      },
+      required: ['action'],
+    },
+    handler: async (params) => {
+      const { action, query, patternId, k = 10, metadata = {} } = params;
+
+      // Lazy initialize matcher
+      if (!matcher) {
+        try {
+          const { createSemanticPatternMatcher } = await import('@cynic/persistence');
+          matcher = createSemanticPatternMatcher({
+            config: { embedder: 'mock', dimensions: 384 },
+          });
+          log.info('SemanticPatternMatcher initialized lazily');
+        } catch (e) {
+          return {
+            error: 'SemanticPatternMatcher not available',
+            hint: 'Install @cynic/persistence or check imports',
+            timestamp: Date.now(),
+          };
+        }
+      }
+
+      switch (action) {
+        case 'search': {
+          if (!query) {
+            return { error: 'query required for search action', timestamp: Date.now() };
+          }
+          const results = await matcher.findSimilar(query, k);
+          return {
+            action: 'search',
+            query,
+            results: results.map(r => ({
+              id: r.pattern.id,
+              description: r.pattern.description,
+              score: r.score.toFixed(3),
+              metadata: r.pattern.metadata,
+            })),
+            count: results.length,
+            message: `*sniff* Found ${results.length} similar patterns.`,
+            timestamp: Date.now(),
+          };
+        }
+
+        case 'add': {
+          if (!patternId || !query) {
+            return { error: 'patternId and query (description) required for add action', timestamp: Date.now() };
+          }
+          const pattern = await matcher.addPattern(patternId, query, metadata);
+          return {
+            action: 'add',
+            pattern: {
+              id: pattern.id,
+              description: pattern.description,
+              metadata: pattern.metadata,
+            },
+            message: `*tail wag* Pattern "${patternId}" stored.`,
+            timestamp: Date.now(),
+          };
+        }
+
+        case 'cluster': {
+          const clusters = await matcher.clusterPatterns({ minSize: 2, maxClusters: 21 });
+          return {
+            action: 'cluster',
+            clusters: clusters.map(c => c.toJSON()),
+            count: clusters.length,
+            message: `*ears perk* Found ${clusters.length} pattern clusters.`,
+            timestamp: Date.now(),
+          };
+        }
+
+        case 'recommend': {
+          if (!query) {
+            return { error: 'query (context) required for recommend action', timestamp: Date.now() };
+          }
+          const recommendations = await matcher.recommendPatterns(query, k);
+          return {
+            action: 'recommend',
+            context: query,
+            recommendations: recommendations.map(r => ({
+              id: r.pattern.id,
+              description: r.pattern.description,
+              relevance: r.relevance.toFixed(3),
+            })),
+            count: recommendations.length,
+            message: `*head tilt* ${recommendations.length} patterns recommended for this context.`,
+            timestamp: Date.now(),
+          };
+        }
+
+        case 'stats': {
+          const stats = matcher.stats();
+          return {
+            action: 'stats',
+            ...stats,
+            message: `*sniff* ${stats.patterns} patterns stored, ${stats.searches} searches, ${stats.clusters} clusters.`,
+            timestamp: Date.now(),
+          };
+        }
+
+        default:
+          return {
+            error: `Unknown action: ${action}`,
+            validActions: ['search', 'add', 'cluster', 'recommend', 'stats'],
+            timestamp: Date.now(),
+          };
+      }
+    },
+  };
+}
+
+/**
  * Factory for knowledge domain tools
  */
 export const knowledgeFactory = {
@@ -328,7 +466,7 @@ export const knowledgeFactory = {
    * @returns {Object[]} Tool definitions
    */
   create(options) {
-    const { persistence, sessionManager, librarian } = options;
+    const { persistence, sessionManager, librarian, semanticMatcher } = options;
 
     const tools = [];
 
@@ -344,6 +482,9 @@ export const knowledgeFactory = {
     if (librarian) {
       tools.push(createDocsTool(librarian, persistence));
     }
+
+    // Semantic Patterns tool (V3 vector search integration)
+    tools.push(createSemanticPatternsTool(semanticMatcher));
 
     return tools;
   },
