@@ -50,6 +50,18 @@ export {
   createBehaviorModifier,
 } from './behavior-modifier.js';
 
+// P3.4: Meta-Cognitive Monitoring
+export {
+  MetaCognition,
+  CognitiveState,
+  StrategyType,
+  ActionRecord,
+  StrategyRecord,
+  META_CONFIG,
+  createMetaCognition,
+  getMetaCognition,
+} from './meta-cognition.js';
+
 // Re-export from sona for convenience
 import { SONA, createSONA, SONA_CONFIG } from './sona.js';
 import {

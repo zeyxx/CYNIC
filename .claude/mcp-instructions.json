@@ -1,0 +1,137 @@
+{
+  "$schema": "./mcp-instructions.schema.json",
+  "version": "1.0.0",
+  "description": "Custom instructions for MCP servers",
+
+  "servers": {
+    "cynic": {
+      "name": "CYNIC Brain",
+      "description": "CYNIC's collective consciousness MCP server",
+      "instructions": [
+        "Use brain_* tools for CYNIC-specific operations",
+        "Always respect φ⁻¹ (61.8%) max confidence",
+        "brain_cynic_judge evaluates items using 25 dimensions",
+        "brain_memory_* tools access collective memory",
+        "brain_patterns shows detected patterns from observations"
+      ],
+      "contextInjection": {
+        "onSessionStart": true,
+        "onToolCall": false
+      },
+      "toolHints": {
+        "brain_cynic_judge": "Use for evaluating code, tokens, or decisions. Returns Q-Score (0-100) and verdict.",
+        "brain_memory_search": "Search past decisions, patterns, and knowledge. Use for context recall.",
+        "brain_patterns": "View detected patterns. Use action='list' for overview.",
+        "brain_health": "Check CYNIC system health. Quick diagnostic.",
+        "brain_wisdom": "Query philosophical wisdom across 19 domains."
+      }
+    },
+
+    "render": {
+      "name": "Render.com",
+      "description": "Render deployment platform MCP server",
+      "instructions": [
+        "Use list_services to see all deployments",
+        "Use get_service with service ID for details",
+        "Use list_logs for debugging deployment issues",
+        "Always select_workspace first if multiple workspaces"
+      ],
+      "contextInjection": {
+        "onSessionStart": false,
+        "onToolCall": true
+      },
+      "toolHints": {
+        "list_services": "List all Render services in current workspace",
+        "get_service": "Get detailed info about a specific service",
+        "list_logs": "View logs for debugging. Use label_values for filtering.",
+        "create_web_service": "Create new web service from GitHub repo"
+      }
+    },
+
+    "github": {
+      "name": "GitHub",
+      "description": "GitHub MCP server for repo operations",
+      "instructions": [
+        "Prefer gh CLI for simple operations (faster)",
+        "Use MCP tools for complex queries or bulk operations",
+        "search_code is powerful for finding patterns across repos"
+      ],
+      "contextInjection": {
+        "onSessionStart": false,
+        "onToolCall": false
+      },
+      "toolHints": {
+        "search_code": "Search code across all repos. Powerful for pattern finding.",
+        "get_file_contents": "Get file content from a repo. Use for reading remote files.",
+        "create_pull_request": "Create PR. Prefer gh CLI for simpler workflow."
+      }
+    },
+
+    "solana-dev": {
+      "name": "Solana Dev",
+      "description": "Solana blockchain development MCP server",
+      "instructions": [
+        "Use devnet for testing, mainnet-beta for production",
+        "getAccountInfo returns base64-encoded data",
+        "getTransaction needs signature hash, not tx ID",
+        "Always verify account ownership before operations"
+      ],
+      "contextInjection": {
+        "onSessionStart": false,
+        "onToolCall": true
+      },
+      "toolHints": {
+        "getAccountInfo": "Get account data. Returns owner, lamports, data (base64).",
+        "getBalance": "Get SOL balance in lamports. Divide by 1e9 for SOL.",
+        "getTransaction": "Get transaction details by signature hash."
+      }
+    },
+
+    "playwright": {
+      "name": "Playwright",
+      "description": "Browser automation MCP server",
+      "instructions": [
+        "Use browser_navigate to open URLs first",
+        "Use browser_snapshot for accessibility tree (better than screenshot)",
+        "browser_click accepts CSS selectors or text content",
+        "Always browser_close when done to free resources"
+      ],
+      "contextInjection": {
+        "onSessionStart": false,
+        "onToolCall": true
+      },
+      "toolHints": {
+        "browser_navigate": "Open URL in browser. Waits for page load.",
+        "browser_snapshot": "Get accessibility tree. Better than screenshot for understanding page.",
+        "browser_click": "Click element by selector or text. Use 'ref' from snapshot.",
+        "browser_fill_form": "Fill form fields. Pass object with field:value pairs."
+      }
+    },
+
+    "context7": {
+      "name": "Context7",
+      "description": "Library documentation MCP server",
+      "instructions": [
+        "Use resolve-library-id first to get library ID",
+        "Then query-docs with the resolved ID for documentation",
+        "Good for getting up-to-date library usage examples"
+      ],
+      "contextInjection": {
+        "onSessionStart": false,
+        "onToolCall": false
+      },
+      "toolHints": {
+        "resolve-library-id": "Get library ID from name (e.g., 'react' → '/facebook/react')",
+        "query-docs": "Get documentation. Use topic parameter to focus on specific area."
+      }
+    }
+  },
+
+  "settings": {
+    "enabled": true,
+    "injectOnSessionStart": true,
+    "injectOnToolCall": false,
+    "maxInstructionsPerServer": 10,
+    "showToolHints": true
+  }
+}

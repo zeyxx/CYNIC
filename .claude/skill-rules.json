@@ -1,0 +1,205 @@
+{
+  "$schema": "./skill-rules.schema.json",
+  "version": "1.0.0",
+  "description": "CYNIC Skill Auto-Activation Rules",
+
+  "rules": [
+    {
+      "id": "judge-eval",
+      "skill": "/judge",
+      "priority": "high",
+      "description": "Evaluate using 25-dimension judgment system",
+      "triggers": {
+        "keywords": ["judge", "evaluate", "assess", "rate", "score", "q-score", "verdict"],
+        "patterns": [
+          "\\b(judge|evaluate|assess|rate|score)\\b.*\\b(this|code|token|decision)",
+          "\\bwhat.*think.*about\\b",
+          "\\bq-?score\\b",
+          "\\bgive.*verdict\\b"
+        ],
+        "context": {
+          "itemTypes": ["code", "token", "decision", "pattern"]
+        }
+      },
+      "conditions": {
+        "minConfidence": 0.618
+      }
+    },
+    {
+      "id": "search-memory",
+      "skill": "/search",
+      "priority": "medium",
+      "description": "Search collective memory",
+      "triggers": {
+        "keywords": ["search", "find", "lookup", "query", "recall", "remember"],
+        "patterns": [
+          "\\b(search|find|look ?up|query|recall)\\b.*\\b(memory|past|previous|history)",
+          "\\bremember.*when\\b",
+          "\\bhave we.*before\\b",
+          "\\bwhat did.*last time\\b"
+        ]
+      }
+    },
+    {
+      "id": "patterns-view",
+      "skill": "/patterns",
+      "priority": "medium",
+      "description": "View detected patterns and anomalies",
+      "triggers": {
+        "keywords": ["patterns", "anomaly", "anomalies", "trends"],
+        "patterns": [
+          "\\b(show|view|list)\\b.*\\b(patterns?|anomal)",
+          "\\bwhat.*patterns?\\b",
+          "\\btrends?\\b"
+        ]
+      }
+    },
+    {
+      "id": "trace-poj",
+      "skill": "/trace",
+      "priority": "medium",
+      "description": "Trace judgment through PoJ blockchain",
+      "triggers": {
+        "keywords": ["trace", "verify", "audit", "blockchain", "poj", "proof of judgment"],
+        "patterns": [
+          "\\b(trace|verify|audit|check)\\b.*\\b(judgment|decision|blockchain|poj)\\b",
+          "\\bproof of judgment\\b",
+          "\\bverify.*integrity\\b"
+        ]
+      }
+    },
+    {
+      "id": "learn-feedback",
+      "skill": "/learn",
+      "priority": "high",
+      "description": "Provide feedback to improve judgments",
+      "triggers": {
+        "keywords": ["correct", "wrong", "incorrect", "feedback"],
+        "patterns": [
+          "\\b(correct|wrong|incorrect|feedback)\\b.*\\b(judgment|decision|evaluation)\\b",
+          "\\bthat was (right|wrong)\\b",
+          "\\bactually.*should.*be\\b"
+        ]
+      }
+    },
+    {
+      "id": "health-check",
+      "skill": "/health",
+      "priority": "low",
+      "description": "Check CYNIC system health",
+      "triggers": {
+        "keywords": ["health", "diagnostic", "services"],
+        "patterns": [
+          "\\b(system|cynic)\\b.*\\b(health|status|running|ok)\\b",
+          "\\bservices?\\b.*\\b(up|down|working)\\b",
+          "\\bdiagnostic"
+        ]
+      }
+    },
+    {
+      "id": "psy-dashboard",
+      "skill": "/psy",
+      "priority": "low",
+      "description": "View psychology dashboard",
+      "triggers": {
+        "keywords": ["psychology", "energy", "focus", "burnout", "cognitive"],
+        "patterns": [
+          "\\b(my|user)\\b.*\\b(state|energy|focus|burnout|psychology)\\b",
+          "\\bhow am i doing\\b",
+          "\\bam i.*tired\\b",
+          "\\bcognitive\\b"
+        ]
+      }
+    },
+    {
+      "id": "dogs-activity",
+      "skill": "/dogs",
+      "priority": "low",
+      "description": "Show collective dogs activity",
+      "triggers": {
+        "keywords": ["dogs", "agents", "collective", "sefirot"],
+        "patterns": [
+          "\\bwhich\\b.*\\b(dogs?|agents?)\\b.*\\b(active|used|working)\\b",
+          "\\b(show|list)\\b.*\\b(dogs?|collective)\\b",
+          "\\bsefirot\\b"
+        ]
+      }
+    },
+    {
+      "id": "wisdom-query",
+      "skill": "/wisdom",
+      "priority": "medium",
+      "description": "Query philosophical wisdom",
+      "triggers": {
+        "keywords": ["philosophical", "philosophy", "wisdom", "ethics", "diogenes", "stoic", "zen", "tao"],
+        "patterns": [
+          "\\b(philosophical|philosophy|wisdom|ethics)\\b",
+          "\\bwhat would.*say\\b",
+          "\\bdiogenes|stoic|zen|tao"
+        ]
+      }
+    },
+    {
+      "id": "digest-extract",
+      "skill": "/digest",
+      "priority": "medium",
+      "description": "Extract patterns and insights",
+      "triggers": {
+        "keywords": ["digest", "extract", "summarize"],
+        "patterns": [
+          "\\b(digest|extract|summarize)\\b.*\\b(patterns?|knowledge|insights?)\\b",
+          "\\bwhat.*learn.*from\\b"
+        ]
+      }
+    },
+    {
+      "id": "status-check",
+      "skill": "/status",
+      "priority": "low",
+      "description": "CYNIC development status",
+      "triggers": {
+        "keywords": ["status", "version", "progress"],
+        "patterns": [
+          "\\bcynic\\b.*\\b(status|version|progress)\\b",
+          "\\bproject\\b.*\\bhealth\\b",
+          "\\btest.*status\\b"
+        ]
+      }
+    },
+    {
+      "id": "ecosystem-view",
+      "skill": "/ecosystem",
+      "priority": "low",
+      "description": "View ecosystem status",
+      "triggers": {
+        "keywords": ["ecosystem", "repos", "cross-project"],
+        "patterns": [
+          "\\b(ecosystem|repos?|cross-?project)\\b",
+          "\\bother\\b.*\\b(repos?|projects?)\\b"
+        ]
+      }
+    },
+    {
+      "id": "cockpit-dashboard",
+      "skill": "/cockpit",
+      "priority": "low",
+      "description": "Full ecosystem cockpit view",
+      "triggers": {
+        "keywords": ["cockpit", "dashboard", "overview"],
+        "patterns": [
+          "\\bcockpit\\b",
+          "\\b(full|complete).*dashboard\\b"
+        ]
+      }
+    }
+  ],
+
+  "settings": {
+    "enabled": true,
+    "maxSuggestions": 3,
+    "minConfidence": 0.382,
+    "showSuggestions": true,
+    "autoInvoke": false,
+    "priorityOrder": ["high", "medium", "low"]
+  }
+}

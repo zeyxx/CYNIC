@@ -72,3 +72,34 @@ export {
   createQLearningRouter,
   getQLearningRouter,
 } from './q-learning-router.js';
+
+// P3.1: Skill Auto-Activation
+export {
+  SkillActivator,
+  SkillMatch,
+  ACTIVATOR_CONFIG,
+  createSkillActivator,
+  getSkillActivator,
+  findRulesFile,
+} from './skill-activator.js';
+
+// P3.2: MCP Server Instructions
+export {
+  MCPInstructions,
+  ServerInstructions,
+  MCP_INSTRUCTIONS_CONFIG,
+  createMCPInstructions,
+  getMCPInstructions,
+  findInstructionsFile,
+} from './mcp-instructions.js';
+
+// P3.3: Security Audit Trail
+export {
+  SecurityAuditTrail,
+  AuditEvent,
+  AuditEventType,
+  SensitivityLevel,
+  AUDIT_CONFIG,
+  createSecurityAuditTrail,
+  getSecurityAuditTrail,
+} from './security-audit.js';
