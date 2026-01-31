@@ -55,7 +55,49 @@ Benchmark:
 - Collective produces contradictory outputs that confuse users
 
 ### Current status
-**NOT TESTED.** We have 11 dogs but no A/B comparison with single-agent baseline.
+**TESTED - FAILED.** Benchmark run on 2026-01-31 with 20 security samples.
+
+#### Benchmark Results (2026-01-31)
+
+```
+Ground truth: 20 code samples with known vulnerabilities
+- SQL injection, XSS, command injection, etc.
+- Expected: Different scores for dangerous vs safe code
+
+Collective results:
+- ALL 20 samples scored 56.25 (no discrimination)
+- 0 security issues detected
+- 8/11 dogs participated
+- Consensus: 1.0 (unanimous agreement to detect nothing)
+```
+
+#### Root Cause Discovery
+
+The dogs are NOT designed for security analysis:
+
+| Dog | Actual Purpose | Security Analysis |
+|-----|----------------|-------------------|
+| Guardian | PreToolUse blocking (rm -rf, etc.) | ❌ No |
+| Janitor | Code cleanliness/linting | ❌ No |
+| Analyst | Behavioral patterns | ❌ No |
+| Architect | Structure/design review | ❌ No |
+| Sage | Philosophical wisdom | ❌ No |
+
+**The claim "11 dogs analyze code for security" is FALSE.**
+
+The dogs orchestrate decisions across domains, but static security analysis (SQL injection, XSS detection) is NOT one of those domains.
+
+#### What this means
+
+1. Dogs return generic scores because security isn't their purpose
+2. Without LLM API calls, dogs fall back to mock/heuristic responses
+3. The collective is a coordination layer, not an analysis layer
+
+#### Options
+
+1. **Honest reframe**: Collective = orchestration, not security analysis
+2. **Add capability**: Create SecurityAnalyzer dog with real static analysis
+3. **Use LLM**: Configure spawner to make actual Claude API calls for analysis
 
 ---
 
@@ -182,14 +224,23 @@ Analysis:
 | Claim | Implemented | Measured | Validated |
 |-------|-------------|----------|-----------|
 | φ-BFT Consensus | ✅ | ❌ | ❌ |
-| Collective > Single | ✅ | ❌ | ❌ |
+| Collective > Single | ✅ | ✅ | ❌ FAILED |
 | Pattern Learning | ✅ | ❌ | ❌ |
 | Guard Protection | ✅ | ✅ | ⚠️ partial |
 | Psychology Detection | ✅ | ❌ | ❌ |
 | Q-Score Accuracy | ✅ | ❌ | ❌ |
 | Thermodynamic Model | ✅ | ❌ | ❌ |
 
-**Verdict:** 7 claims, 1 partially validated, 6 untested.
+**Verdict:** 7 claims, 1 partially validated, 1 tested and failed, 5 untested.
+
+### Key Finding (2026-01-31)
+
+The "Collective Dogs" claim was tested and **failed**:
+- Dogs don't do security analysis (wrong tool for the job)
+- Without LLM API, dogs return mock/heuristic scores
+- The collective is an orchestration layer, not an analysis engine
+
+This is honest failure. The system works as designed, but the design doesn't match the claim.
 
 ---
 
@@ -199,10 +250,18 @@ CYNIC is currently a **hypothesis**, not a proven system.
 
 The code works. The tests pass. But:
 - We don't know if φ-BFT is better than standard BFT
-- We don't know if collective dogs beat single agent
+- ~~We don't know if collective dogs beat single agent~~ **We tested this: they don't (for security)**
 - We don't know if Q-Score means anything
 
-This isn't failure - it's honesty. The next phase is validation, not more features.
+This isn't failure - it's honesty. The benchmark revealed that:
+1. The dogs are designed for orchestration, not analysis
+2. Security analysis requires either LLM calls or dedicated static analyzers
+3. The claim needs to be reframed or the capability needs to be built
+
+The next phase is either:
+- **Reframe**: Be honest about what the collective actually does
+- **Build**: Add real security analysis capability
+- **Integrate**: Use existing tools (ESLint security plugins, Semgrep, etc.)
 
 ---
 
