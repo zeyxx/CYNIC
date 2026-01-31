@@ -112,6 +112,154 @@ const INTENT_PATTERNS = {
   }
 };
 
+// =============================================================================
+// SKILL AUTO-ACTIVATION (Phase 3)
+// =============================================================================
+
+/**
+ * Skill triggers - maps keywords/patterns to CYNIC skills
+ * When a pattern matches, suggest the corresponding skill
+ */
+const SKILL_TRIGGERS = {
+  '/judge': {
+    patterns: [
+      /\b(judge|evaluate|assess|rate|score)\b.*\b(this|code|token|decision)/i,
+      /\bwhat.*think.*about\b/i,
+      /\bq-?score\b/i,
+      /\bgive.*verdict\b/i,
+    ],
+    description: 'Evaluate using 25-dimension judgment system',
+    priority: 'high',
+  },
+  '/search': {
+    patterns: [
+      /\b(search|find|look ?up|query|recall)\b.*\b(memory|past|previous|history)/i,
+      /\bremember.*when\b/i,
+      /\bhave we.*before\b/i,
+      /\bwhat did.*last time\b/i,
+    ],
+    description: 'Search collective memory',
+    priority: 'medium',
+  },
+  '/patterns': {
+    patterns: [
+      /\b(show|view|list)\b.*\b(patterns?|anomal)/i,
+      /\bwhat.*patterns?\b/i,
+      /\btrends?\b/i,
+    ],
+    description: 'View detected patterns and anomalies',
+    priority: 'medium',
+  },
+  '/trace': {
+    patterns: [
+      /\b(trace|verify|audit|check)\b.*\b(judgment|decision|blockchain|poj)\b/i,
+      /\bproof of judgment\b/i,
+      /\bverify.*integrity\b/i,
+    ],
+    description: 'Trace judgment through PoJ blockchain',
+    priority: 'medium',
+  },
+  '/learn': {
+    patterns: [
+      /\b(correct|wrong|incorrect|feedback)\b.*\b(judgment|decision|evaluation)\b/i,
+      /\bthat was (right|wrong)\b/i,
+      /\bactually.*should.*be\b/i,
+    ],
+    description: 'Provide feedback to improve judgments',
+    priority: 'high',
+  },
+  '/health': {
+    patterns: [
+      /\b(system|cynic)\b.*\b(health|status|running|ok)\b/i,
+      /\bservices?\b.*\b(up|down|working)\b/i,
+      /\bdiagnostic/i,
+    ],
+    description: 'Check CYNIC system health',
+    priority: 'low',
+  },
+  '/psy': {
+    patterns: [
+      /\b(my|user)\b.*\b(state|energy|focus|burnout|psychology)\b/i,
+      /\bhow am i doing\b/i,
+      /\bam i.*tired\b/i,
+      /\bcognitive\b/i,
+    ],
+    description: 'View psychology dashboard',
+    priority: 'low',
+  },
+  '/dogs': {
+    patterns: [
+      /\bwhich\b.*\b(dogs?|agents?)\b.*\b(active|used|working)\b/i,
+      /\b(show|list)\b.*\b(dogs?|collective)\b/i,
+      /\bsefirot\b/i,
+    ],
+    description: 'Show collective dogs activity',
+    priority: 'low',
+  },
+  '/wisdom': {
+    patterns: [
+      /\b(philosophical|philosophy|wisdom|ethics)\b/i,
+      /\bwhat would.*say\b/i,
+      /\bdiogenes|stoic|zen|tao/i,
+    ],
+    description: 'Query philosophical wisdom',
+    priority: 'medium',
+  },
+  '/digest': {
+    patterns: [
+      /\b(digest|extract|summarize)\b.*\b(patterns?|knowledge|insights?)\b/i,
+      /\bwhat.*learn.*from\b/i,
+    ],
+    description: 'Extract patterns and insights',
+    priority: 'medium',
+  },
+  '/status': {
+    patterns: [
+      /\bcynic\b.*\b(status|version|progress)\b/i,
+      /\bproject\b.*\bhealth\b/i,
+      /\btest.*status\b/i,
+    ],
+    description: 'CYNIC development status',
+    priority: 'low',
+  },
+  '/ecosystem': {
+    patterns: [
+      /\b(ecosystem|repos?|cross-?project)\b/i,
+      /\bother\b.*\b(repos?|projects?)\b/i,
+    ],
+    description: 'View ecosystem status',
+    priority: 'low',
+  },
+};
+
+/**
+ * Detect skill triggers in prompt
+ * @param {string} prompt User prompt
+ * @returns {Array<{skill: string, description: string, priority: string}>}
+ */
+function detectSkillTriggers(prompt) {
+  const matches = [];
+
+  for (const [skill, config] of Object.entries(SKILL_TRIGGERS)) {
+    for (const pattern of config.patterns) {
+      if (pattern.test(prompt)) {
+        matches.push({
+          skill,
+          description: config.description,
+          priority: config.priority,
+        });
+        break; // One match per skill is enough
+      }
+    }
+  }
+
+  // Sort by priority (high > medium > low)
+  const priorityOrder = { high: 0, medium: 1, low: 2 };
+  matches.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+
+  return matches;
+}
+
 function detectIntent(prompt) {
   const promptLower = prompt.toLowerCase();
   const intents = [];
@@ -389,8 +537,31 @@ async function main() {
     // Detect intents (final pass after orchestration context)
     const intents = detectIntent(prompt);
 
+    // Detect skill triggers (Phase 3: auto-activation)
+    const skillTriggers = detectSkillTriggers(prompt);
+
     // Generate context based on intents
     const injections = [];
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SKILL AUTO-ACTIVATION (Phase 3)
+    // "Le chien suggère les bons outils"
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (skillTriggers.length > 0) {
+      const topSkills = skillTriggers.slice(0, 2); // Max 2 suggestions
+      let skillInjection = c(ANSI.cyan, '── SKILL SUGGESTION ───────────────────────────────────────') + '\n';
+
+      for (const trigger of topSkills) {
+        const priorityIcon = trigger.priority === 'high' ? '⚡' : (trigger.priority === 'medium' ? '💡' : '📋');
+        skillInjection += `   ${priorityIcon} ${c(ANSI.brightYellow, trigger.skill)} - ${trigger.description}\n`;
+      }
+
+      if (topSkills.length === 1 && topSkills[0].priority === 'high') {
+        skillInjection += `\n   ${c(ANSI.brightGreen, '*tail wag*')} Type ${c(ANSI.brightYellow, topSkills[0].skill)} to invoke directly.`;
+      }
+
+      injections.push(skillInjection);
+    }
 
     // If orchestrator suggests a specific agent, note it
     // Result is in orchestration.result from MCP response

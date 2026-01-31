@@ -608,4 +608,278 @@ export class DogOrchestrator {
   }
 }
 
+// =============================================================================
+// DOG CHAIN (Phase 3: Stream Chaining)
+// =============================================================================
+
+/**
+ * Pre-defined dog chains for common workflows
+ */
+export const DOG_CHAINS = {
+  // Security review: Guardian verifies, then Analyst assesses
+  SECURITY_REVIEW: ['GUARDIAN', 'ANALYST'],
+
+  // Architecture: Scout explores, Architect designs, Guardian validates
+  ARCHITECTURE: ['SCOUT', 'ARCHITECT', 'GUARDIAN'],
+
+  // Code quality: Analyst reviews, Janitor simplifies, Guardian checks
+  CODE_QUALITY: ['ANALYST', 'JANITOR', 'GUARDIAN'],
+
+  // Learning: Scholar researches, Sage interprets, Oracle predicts
+  RESEARCH: ['SCHOLAR', 'SAGE', 'ORACLE'],
+
+  // Deployment: Cartographer maps, Deployer executes, Guardian monitors
+  DEPLOYMENT: ['CARTOGRAPHER', 'DEPLOYER', 'GUARDIAN'],
+
+  // Full consensus: All critical dogs in sequence
+  FULL_REVIEW: ['SCOUT', 'ANALYST', 'ARCHITECT', 'GUARDIAN', 'CYNIC'],
+};
+
+/**
+ * Dog Chain - Sequential dog execution with accumulated context
+ *
+ * Unlike parallel/sequential mode in DogOrchestrator, DogChain:
+ * - Accumulates insights between dogs
+ * - Each dog receives context from all previous dogs
+ * - Can transform/filter context between steps
+ * - Supports early exit and conditional branching
+ *
+ * "La chaîne des chiens - each dog adds to the pack's wisdom"
+ */
+export class DogChain {
+  /**
+   * @param {Object} options
+   * @param {DogOrchestrator} options.orchestrator - The dog orchestrator
+   * @param {string[]} [options.chain] - Dog names in order, or use a preset
+   * @param {string} [options.preset] - Preset chain name from DOG_CHAINS
+   * @param {Function} [options.contextTransformer] - Transform context between dogs
+   * @param {Function} [options.shouldContinue] - Decide if chain should continue
+   */
+  constructor(options = {}) {
+    this.orchestrator = options.orchestrator;
+
+    // Use preset or custom chain
+    if (options.preset && DOG_CHAINS[options.preset]) {
+      this.chain = [...DOG_CHAINS[options.preset]];
+    } else {
+      this.chain = options.chain || ['SCOUT', 'ANALYST', 'GUARDIAN'];
+    }
+
+    // Context transformer between dogs (optional)
+    this.contextTransformer = options.contextTransformer || ((ctx, result) => ({
+      ...ctx,
+      previousResults: [...(ctx.previousResults || []), result],
+      accumulatedInsights: [
+        ...(ctx.accumulatedInsights || []),
+        ...(result.insights || []),
+      ],
+      chainProgress: (ctx.chainProgress || 0) + 1,
+    }));
+
+    // Early exit condition (optional)
+    this.shouldContinue = options.shouldContinue || ((result, ctx) => {
+      // Stop if Guardian blocks
+      if (result.dog === 'GUARDIAN' && result.response === 'block') {
+        return false;
+      }
+      // Stop if critical error
+      if (!result.success && DOG_CONFIG[result.dog]?.blocking) {
+        return false;
+      }
+      return true;
+    });
+
+    // Execution stats
+    this.stats = {
+      runs: 0,
+      completed: 0,
+      aborted: 0,
+      averageChainLength: 0,
+    };
+  }
+
+  /**
+   * Execute the dog chain
+   * @param {*} item - Item to process
+   * @param {Object} [initialContext] - Initial context
+   * @returns {Promise<Object>} Chain result with all dog outputs
+   */
+  async execute(item, initialContext = {}) {
+    this.stats.runs++;
+
+    const context = {
+      ...initialContext,
+      chainId: `chain_${Date.now()}`,
+      chainDogs: this.chain,
+      previousResults: [],
+      accumulatedInsights: [],
+      chainProgress: 0,
+    };
+
+    const results = [];
+    let finalResult = null;
+    let aborted = false;
+
+    for (const dog of this.chain) {
+      try {
+        // Build context for this dog
+        const dogContext = this._buildDogContext(dog, context, results);
+
+        // Invoke the dog
+        const result = await this.orchestrator._invokeDog(dog, item, dogContext);
+        const enrichedResult = {
+          dog,
+          ...result,
+          success: true,
+          chainStep: context.chainProgress + 1,
+          totalSteps: this.chain.length,
+        };
+
+        results.push(enrichedResult);
+        this.orchestrator._recordVote(enrichedResult);
+
+        // Check if we should continue
+        if (!this.shouldContinue(enrichedResult, context)) {
+          aborted = true;
+          finalResult = enrichedResult;
+          break;
+        }
+
+        // Transform context for next dog
+        Object.assign(context, this.contextTransformer(context, enrichedResult));
+
+      } catch (err) {
+        const errorResult = {
+          dog,
+          error: err.message,
+          success: false,
+          chainStep: context.chainProgress + 1,
+          totalSteps: this.chain.length,
+        };
+        results.push(errorResult);
+
+        // Check if blocking dog failed
+        if (DOG_CONFIG[dog]?.blocking) {
+          aborted = true;
+          finalResult = errorResult;
+          break;
+        }
+      }
+    }
+
+    // Update stats
+    if (aborted) {
+      this.stats.aborted++;
+    } else {
+      this.stats.completed++;
+    }
+    this.stats.averageChainLength =
+      (this.stats.averageChainLength * (this.stats.runs - 1) + results.length) /
+      this.stats.runs;
+
+    // Build final chain result
+    return {
+      chainId: context.chainId,
+      chain: this.chain,
+      results,
+      completed: !aborted,
+      abortedBy: aborted ? finalResult?.dog : null,
+      abortReason: aborted ? (finalResult?.reason || finalResult?.error) : null,
+      insights: context.accumulatedInsights,
+      finalScore: this._calculateChainScore(results),
+      timestamp: Date.now(),
+    };
+  }
+
+  /**
+   * Build context for a specific dog in the chain
+   * @private
+   */
+  _buildDogContext(dog, chainContext, previousResults) {
+    const context = {
+      // Chain metadata
+      chainId: chainContext.chainId,
+      chainPosition: chainContext.chainProgress + 1,
+      chainTotal: this.chain.length,
+      previousDogs: previousResults.map(r => r.dog),
+
+      // Accumulated insights from previous dogs
+      insights: chainContext.accumulatedInsights,
+
+      // Summary of previous results
+      previousSummary: previousResults.length > 0
+        ? this._summarizePreviousResults(previousResults)
+        : null,
+
+      // Dog-specific instructions
+      chainRole: this._getChainRole(dog, chainContext.chainProgress),
+    };
+
+    return context;
+  }
+
+  /**
+   * Summarize previous results for next dog
+   * @private
+   */
+  _summarizePreviousResults(results) {
+    const successful = results.filter(r => r.success);
+    const blocked = results.find(r => r.response === 'block');
+
+    return {
+      dogsCompleted: successful.length,
+      averageScore: successful.length > 0
+        ? successful.reduce((sum, r) => sum + (r.score || 50), 0) / successful.length
+        : null,
+      hasBlock: !!blocked,
+      blockReason: blocked?.reason,
+      keyInsights: results
+        .flatMap(r => r.insights || [])
+        .slice(0, 5),
+    };
+  }
+
+  /**
+   * Get role description for dog in chain context
+   * @private
+   */
+  _getChainRole(dog, position) {
+    if (position === 0) {
+      return `You are the first dog in this chain. Provide initial analysis.`;
+    }
+    if (position === this.chain.length - 1) {
+      return `You are the final dog. Synthesize previous insights and give final verdict.`;
+    }
+    return `You are dog ${position + 1} of ${this.chain.length}. Build on previous insights.`;
+  }
+
+  /**
+   * Calculate overall chain score
+   * @private
+   */
+  _calculateChainScore(results) {
+    const successful = results.filter(r => r.success && typeof r.score === 'number');
+    if (successful.length === 0) return null;
+
+    // Weight later dogs higher (they have more context)
+    let weightedSum = 0;
+    let totalWeight = 0;
+
+    successful.forEach((r, i) => {
+      const weight = 1 + (i * 0.5); // 1, 1.5, 2, 2.5, ...
+      weightedSum += r.score * weight;
+      totalWeight += weight;
+    });
+
+    return Math.round(weightedSum / totalWeight);
+  }
+
+  /**
+   * Get chain stats
+   */
+  getStats() {
+    return { ...this.stats };
+  }
+}
+
 export default DogOrchestrator;
