@@ -55,6 +55,7 @@ import {
   getSuggestionEngine,
   detectErrorType,  // From pattern-detector.js
   getReasoningBank,  // P1.2: Trajectory learning
+  getFactExtractor,  // M2: Auto fact extraction to PostgreSQL
 } from './lib/index.js';
 
 // =============================================================================
@@ -1013,6 +1014,44 @@ async function main() {
         context: { factTypes: facts.map(f => f.type) },
       };
       saveCollectivePattern(factPattern);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // M2: PERSISTENT FACT EXTRACTION - Store facts to PostgreSQL via FactExtractor
+    // "Le chien se souvient de tout" - Facts survive across sessions
+    // ═══════════════════════════════════════════════════════════════════════════
+    const factExtractor = getFactExtractor();
+    if (factExtractor) {
+      try {
+        // Extract and persist facts using the FactExtractor service
+        const outputStr = typeof toolOutput === 'string' ? toolOutput : JSON.stringify(toolOutput || {});
+        factExtractor.extract({
+          tool: toolName,
+          input: toolInput,
+          output: outputStr,
+        }).then(persistedFacts => {
+          if (persistedFacts.length > 0 && process.env.CYNIC_DEBUG) {
+            console.error(`[OBSERVE] M2: Persisted ${persistedFacts.length} facts to PostgreSQL`);
+          }
+        }).catch(() => {
+          // Fact persistence failed - continue without
+        });
+
+        // Extract error resolution if this was an error that got resolved
+        if (!isError && antiPatternState.recentErrors.length > 0) {
+          const lastError = antiPatternState.recentErrors[antiPatternState.recentErrors.length - 1];
+          if (lastError && Date.now() - lastError.timestamp < 60000) { // Within 1 minute
+            factExtractor.extractErrorResolution({
+              error: lastError.type,
+              solution: `Used ${toolName} successfully`,
+              tool: toolName,
+              file: toolInput.file_path || toolInput.filePath,
+            }).catch(() => {});
+          }
+        }
+      } catch (e) {
+        // FactExtractor failed - continue without
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
