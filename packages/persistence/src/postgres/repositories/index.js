@@ -50,3 +50,7 @@ export { OrchestrationDecisionRepository, createOrchestrationDecisionRepository 
 
 // Phase 22: Session Pattern Persistence
 export { SessionPatternsRepository, createSessionPatternsRepository } from './session-patterns.js';
+
+// M2-M3: Facts and Trajectories (V2 Gap Analysis)
+export { FactsRepository, FactType } from './facts.js';
+export { TrajectoriesRepository, TrajectoryOutcome } from './trajectories.js';

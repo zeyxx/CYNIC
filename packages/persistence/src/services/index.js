@@ -57,3 +57,16 @@ export {
   createEWCService,
   EWC_CONFIG,
 } from './ewc-consolidation.js';
+
+// M2: Auto Fact Extraction (V2 Gap Analysis)
+export {
+  FactExtractor,
+  createFactExtractor,
+} from './fact-extractor.js';
+
+// M3: ReasoningBank (V2 Gap Analysis)
+export {
+  ReasoningBank,
+  createReasoningBank,
+  TrajectoryOutcome,
+} from './reasoning-bank.js';
