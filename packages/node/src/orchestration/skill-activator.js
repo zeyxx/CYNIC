@@ -29,9 +29,15 @@ export const ACTIVATOR_CONFIG = {
   maxSuggestions: 3,
   minConfidence: PHI_INV_2,      // 38.2% minimum confidence
   showSuggestions: true,
-  autoInvoke: false,
+  autoInvoke: true,              // Enabled with safety gates
   priorityOrder: ['high', 'medium', 'low'],
   rulesPath: null,               // Auto-detect from project
+  safetyGates: {
+    minTrustScore: PHI_INV_2,    // 38.2% min eScore trust
+    circuitBreakerThreshold: 3,  // Pause after 3 failures
+    circuitBreakerCooldown: 300000, // 5 minute cooldown
+    safeSkills: null,            // null = all skills safe (loaded from rules)
+  },
 };
 
 /**
@@ -91,12 +97,21 @@ export class SkillActivator {
     // Compiled regex patterns (for performance)
     this._compiledPatterns = new Map();
 
+    // Circuit breaker state
+    this._circuitBreaker = {
+      failures: 0,
+      lastFailure: 0,
+      isOpen: false,
+    };
+
     // Statistics
     this.stats = {
       rulesLoaded: 0,
       evaluations: 0,
       matches: 0,
       activations: 0,
+      blocked: 0,
+      circuitBreakerTrips: 0,
       bySkill: {},
     };
 
@@ -330,6 +345,7 @@ export class SkillActivator {
    *
    * @param {string} prompt - User prompt
    * @param {Object} [context] - Additional context
+   * @param {number} [context.trustScore] - User's eScore trust (0-1)
    * @returns {Object} Activation result
    */
   async activate(prompt, context = {}) {
@@ -343,14 +359,72 @@ export class SkillActivator {
       };
     }
 
-    // If auto-invoke is enabled, activate the top match
+    // Check if auto-invoke conditions are met
     if (this.config.autoInvoke && matches[0].confidence >= PHI_INV) {
       const topMatch = matches[0];
+
+      // Safety Gate 1: Circuit breaker
+      const blockReason = this._checkCircuitBreaker();
+      if (blockReason) {
+        this.stats.blocked++;
+        return {
+          activated: false,
+          suggestions: matches,
+          reason: blockReason,
+          blocked: true,
+        };
+      }
+
+      // Safety Gate 2: Trust score (eScore)
+      const gates = this.config.safetyGates || {};
+      const trustScore = context.trustScore ?? 1.0; // Default: trusted
+      if (gates.minTrustScore && trustScore < gates.minTrustScore) {
+        this.stats.blocked++;
+        log.info('Auto-invoke blocked: low trust', {
+          skill: topMatch.skill,
+          trustScore,
+          required: gates.minTrustScore,
+        });
+        return {
+          activated: false,
+          suggestions: matches,
+          reason: `Trust score ${(trustScore * 100).toFixed(1)}% < ${(gates.minTrustScore * 100).toFixed(1)}%`,
+          blocked: true,
+        };
+      }
+
+      // Safety Gate 3: Safe skills whitelist
+      const safeSkills = gates.safeSkills || this.config.safeSkills;
+      if (safeSkills && !safeSkills.includes(topMatch.skill)) {
+        this.stats.blocked++;
+        log.info('Auto-invoke blocked: skill not in safe list', {
+          skill: topMatch.skill,
+        });
+        return {
+          activated: false,
+          suggestions: matches,
+          reason: `Skill ${topMatch.skill} not in safe auto-invoke list`,
+          blocked: true,
+        };
+      }
+
+      // All gates passed - activate!
       this.stats.activations++;
+      this._resetCircuitBreaker();
 
       if (this.onActivate) {
-        await this.onActivate(topMatch);
+        try {
+          await this.onActivate(topMatch);
+        } catch (err) {
+          this._recordFailure();
+          throw err;
+        }
       }
+
+      log.info('Skill auto-invoked', {
+        skill: topMatch.skill,
+        confidence: topMatch.confidence,
+      });
 
       return {
         activated: true,
@@ -368,6 +442,58 @@ export class SkillActivator {
         ? `Top match confidence ${(matches[0].confidence * 100).toFixed(1)}% < 61.8%`
         : 'Auto-invoke disabled',
     };
+  }
+
+  /**
+   * Check circuit breaker state
+   * @private
+   * @returns {string|null} Block reason or null if OK
+   */
+  _checkCircuitBreaker() {
+    const gates = this.config.safetyGates || {};
+    const threshold = gates.circuitBreakerThreshold || 3;
+    const cooldown = gates.circuitBreakerCooldown || 300000;
+
+    // Check if breaker should reset
+    if (this._circuitBreaker.isOpen) {
+      const elapsed = Date.now() - this._circuitBreaker.lastFailure;
+      if (elapsed >= cooldown) {
+        this._resetCircuitBreaker();
+        log.info('Circuit breaker reset after cooldown');
+      } else {
+        const remaining = Math.ceil((cooldown - elapsed) / 1000);
+        return `Circuit breaker open (${remaining}s remaining)`;
+      }
+    }
+
+    // Check if we should trip
+    if (this._circuitBreaker.failures >= threshold) {
+      this._circuitBreaker.isOpen = true;
+      this.stats.circuitBreakerTrips++;
+      log.warn('Circuit breaker tripped', { failures: this._circuitBreaker.failures });
+      return 'Circuit breaker tripped - too many failures';
+    }
+
+    return null;
+  }
+
+  /**
+   * Record a failure for circuit breaker
+   * @private
+   */
+  _recordFailure() {
+    this._circuitBreaker.failures++;
+    this._circuitBreaker.lastFailure = Date.now();
+  }
+
+  /**
+   * Reset circuit breaker
+   * @private
+   */
+  _resetCircuitBreaker() {
+    this._circuitBreaker.failures = 0;
+    this._circuitBreaker.lastFailure = 0;
+    this._circuitBreaker.isOpen = false;
   }
 
   /**
@@ -422,6 +548,11 @@ export class SkillActivator {
     return {
       ...this.stats,
       enabled: this.config.enabled,
+      autoInvoke: this.config.autoInvoke,
+      circuitBreaker: {
+        isOpen: this._circuitBreaker.isOpen,
+        failures: this._circuitBreaker.failures,
+      },
       version: this.version,
     };
   }

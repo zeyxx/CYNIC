@@ -199,7 +199,17 @@
     "maxSuggestions": 3,
     "minConfidence": 0.382,
     "showSuggestions": true,
-    "autoInvoke": false,
-    "priorityOrder": ["high", "medium", "low"]
+    "autoInvoke": true,
+    "priorityOrder": ["high", "medium", "low"],
+    "safetyGates": {
+      "minTrustScore": 0.382,
+      "circuitBreakerThreshold": 3,
+      "circuitBreakerCooldown": 300000,
+      "safeSkills": [
+        "/judge", "/search", "/patterns", "/trace",
+        "/health", "/psy", "/dogs", "/wisdom",
+        "/digest", "/status", "/ecosystem", "/cockpit"
+      ]
+    }
   }
 }
