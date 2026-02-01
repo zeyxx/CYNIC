@@ -1,6 +1,6 @@
 {
   "name": "@cynic/mcp",
-  "version": "0.1.1",
+  "version": "0.1.0",
   "description": "CYNIC MCP Server - Model Context Protocol for AI integration",
   "type": "module",
   "main": "src/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@cynic/burns",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "description": "Solana on-chain burn verification for CYNIC ecosystem",
   "type": "module",
   "main": "src/index.js",

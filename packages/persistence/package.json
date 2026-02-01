@@ -1,6 +1,6 @@
 {
   "name": "@cynic/persistence",
-  "version": "0.4.0",
+  "version": "0.1.0",
   "description": "Persistence layer for CYNIC - PostgreSQL + Redis + Merkle DAG + PoJ Chain + Graph Overlay",
   "type": "module",
   "main": "src/index.js",

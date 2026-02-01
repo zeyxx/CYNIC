@@ -193,10 +193,16 @@ export class JudgmentRef {
     timestamp,
   }) {
     this.id = id;
-    this.cid = cid;
     this.qScore = qScore;
     this.verdict = verdict;
     this.timestamp = timestamp || Date.now();
+    // Auto-generate CID if not provided
+    this.cid = cid || createCID(JSON.stringify({
+      id: this.id,
+      qScore: this.qScore,
+      verdict: this.verdict,
+      timestamp: this.timestamp,
+    }));
   }
 
   toJSON() {
@@ -470,13 +476,17 @@ export function createBlock({
   proposer,
   stateRoot = '',
 }) {
-  const judgmentRefs = judgments.map(j => new JudgmentRef({
-    id: j.id || j.data?.id,
-    cid: j.cid,
-    qScore: j.qScore || j.data?.qScore,
-    verdict: j.verdict || j.data?.verdict,
-    timestamp: j.timestamp || Date.now(),
-  }));
+  const judgmentRefs = judgments.map(j => {
+    const id = j.id || j.data?.id;
+    const qScore = j.qScore || j.data?.qScore;
+    const verdict = j.verdict || j.data?.verdict;
+    const timestamp = j.timestamp || Date.now();
+
+    // Auto-generate CID if not provided
+    const cid = j.cid || createCID(JSON.stringify({ id, qScore, verdict, timestamp }));
+
+    return new JudgmentRef({ id, cid, qScore, verdict, timestamp });
+  });
 
   const header = new PoJBlockHeader({
     slot,
