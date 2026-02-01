@@ -119,6 +119,7 @@ export default [
       'coverage/**',
       '*.min.js',
       '**/sandbox/**',  // Deprecated, to be removed
+      'benchmarks/**',  // Intentionally buggy code for testing CYNIC judgment
     ],
   },
 ];
