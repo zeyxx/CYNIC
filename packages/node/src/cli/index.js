@@ -13,9 +13,17 @@ import { PHI, PHI_INV } from '@cynic/core';
 import { startCommand } from './commands/start.js';
 import { keygenCommand } from './commands/keygen.js';
 import { connectCommand } from './commands/connect.js';
+import { initCommand } from './commands/init.js';
+import { doctorCommand } from './commands/doctor.js';
+import { migrateCommand } from './commands/migrate.js';
+import { benchmarkCommand } from './commands/benchmark.js';
+import { traceCommand } from './commands/trace.js';
+import { memoryCommand } from './commands/memory.js';
+import { qtableCommand } from './commands/qtable.js';
+import { hooksCommand } from './commands/hooks.js';
 // Dashboard is loaded lazily to avoid requiring blessed when not needed
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 
 const BANNER = `
 ${chalk.yellow('╔═══════════════════════════════════════════════════════════╗')}
@@ -94,6 +102,103 @@ export function createCLI(program) {
       console.log(`  ${chalk.green('L1')}: Proof of Judgment (24 dimensions)`);
       console.log();
     });
+
+  // Init command (project scaffolding)
+  program
+    .command('init [project-name]')
+    .description('Initialize a new CYNIC project')
+    .option('-t, --template <template>', 'Project template (minimal, standard, full)', 'standard')
+    .option('-f, --force', 'Overwrite existing configuration')
+    .action(initCommand);
+
+  // Doctor command (health check)
+  program
+    .command('doctor')
+    .description('Check CYNIC system health')
+    .option('-v, --verbose', 'Show detailed diagnostics')
+    .option('--fix', 'Attempt to fix issues (not yet implemented)')
+    .action(doctorCommand);
+
+  // Migrate command (database migrations)
+  program
+    .command('migrate')
+    .description('Run database migrations')
+    .option('-s, --status', 'Show migration status only')
+    .option('--reset', 'Reset all migrations (dangerous!)')
+    .option('-y, --yes', 'Confirm dangerous operations')
+    .option('-v, --verbose', 'Verbose output')
+    .action(migrateCommand);
+
+  // Benchmark command (performance testing)
+  program
+    .command('benchmark')
+    .alias('bench')
+    .description('Run performance benchmarks')
+    .option('-s, --suite <suite>', 'Run specific suite (core, judge, patterns, router, vector)')
+    .option('-q, --quick', 'Quick smoke test (fewer iterations)')
+    .option('--json', 'Output results as JSON')
+    .option('-v, --verbose', 'Show detailed timing')
+    .action(benchmarkCommand);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DEBUGGING TOOLS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Trace command (decision trace viewer)
+  program
+    .command('trace')
+    .description('View decision traces')
+    .option('-i, --id <id>', 'Show specific trace by ID')
+    .option('-b, --blocked', 'Show only blocked decisions')
+    .option('-u, --user <userId>', 'Filter by user ID')
+    .option('-d, --domain <domain>', 'Filter by domain')
+    .option('-l, --limit <n>', 'Limit results', '20')
+    .option('-e, --export <file>', 'Export traces to JSON')
+    .option('--import <file>', 'Import traces from JSON')
+    .option('--json', 'Output as JSON')
+    .option('-v, --verbose', 'Show detailed reasoning')
+    .action(traceCommand);
+
+  // Memory command (memory inspector)
+  program
+    .command('memory')
+    .alias('mem')
+    .description('Inspect memory tiers')
+    .option('-t, --tier <tier>', 'Inspect tier (working, episodic, semantic, vector)')
+    .option('-s, --search <query>', 'Search across memories')
+    .option('--stats', 'Show statistics only')
+    .option('--gc', 'Run garbage collection')
+    .option('--json', 'Output as JSON')
+    .option('-v, --verbose', 'Show verbose output')
+    .action(memoryCommand);
+
+  // Q-table command (Q-table visualizer)
+  program
+    .command('qtable')
+    .alias('q')
+    .description('Visualize Q-Learning table')
+    .option('--heatmap', 'Display as heatmap')
+    .option('-t, --top <n>', 'Show top N state-action pairs')
+    .option('-s, --state <state>', 'Show values for specific state')
+    .option('-e, --export <file>', 'Export Q-table to JSON')
+    .option('--import <file>', 'Import Q-table from JSON')
+    .option('--demo', 'Show demo visualization')
+    .option('--json', 'Output as JSON')
+    .option('-v, --verbose', 'Show verbose output')
+    .action(qtableCommand);
+
+  // Hooks command (hook execution timeline)
+  program
+    .command('hooks')
+    .description('View hook execution timeline')
+    .option('-e, --event <event>', 'Filter by event type')
+    .option('--slow', 'Show only slow hooks (>100ms)')
+    .option('--failed', 'Show only failed hooks')
+    .option('-c, --config', 'Show hook configuration')
+    .option('-l, --limit <n>', 'Limit results', '50')
+    .option('--json', 'Output as JSON')
+    .option('-v, --verbose', 'Show verbose output')
+    .action(hooksCommand);
 
   return program;
 }

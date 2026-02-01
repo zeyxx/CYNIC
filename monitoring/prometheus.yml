@@ -1,0 +1,51 @@
+# CYNIC Prometheus Configuration
+# "What gets measured gets managed" - kynikos
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+  # phi-aligned labels
+  external_labels:
+    monitor: 'cynic'
+    phi: '0.618'
+
+# Alerting (optional - connect to Alertmanager)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+          # - alertmanager:9093
+
+# Rule files (optional)
+rule_files:
+  # - "alert.rules.yml"
+
+scrape_configs:
+  # CYNIC MCP Server
+  - job_name: 'cynic-mcp'
+    static_configs:
+      - targets: ['cynic-mcp:3000']
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # PostgreSQL (if using postgres_exporter)
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
+
+  # Redis (if using redis_exporter)
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
+
+  # Node exporter (system metrics)
+  # - job_name: 'node'
+  #   static_configs:
+  #     - targets: ['node-exporter:9100']
