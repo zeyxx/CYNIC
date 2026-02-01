@@ -45,7 +45,23 @@ import fs from 'fs';
 import os from 'os';
 
 // Phase 22: Session state management
-import { getSessionState, initOrchestrationClient } from './lib/index.js';
+import { getSessionState, initOrchestrationClient, getFactsRepository } from './lib/index.js';
+
+// =============================================================================
+// M2.1 CONFIGURATION - Cross-Session Fact Injection
+// =============================================================================
+
+/**
+ * Maximum facts to inject at session start (configurable via env)
+ * Default: 50 (per MoltBrain spec)
+ */
+const FACT_INJECTION_LIMIT = parseInt(process.env.CYNIC_FACT_INJECTION_LIMIT || '50', 10);
+
+/**
+ * Minimum confidence for fact injection
+ * Default: 38.2% (φ⁻²)
+ */
+const FACT_MIN_CONFIDENCE = parseFloat(process.env.CYNIC_FACT_MIN_CONFIDENCE || '0.382');
 
 /**
  * Build progress bar string
@@ -439,8 +455,94 @@ async function main() {
         // Brain memories unavailable - continue without
       }
 
+      // ═══════════════════════════════════════════════════════════════════════════
+      // M2.1: CROSS-SESSION FACT INJECTION (PostgreSQL FactsRepository)
+      // "Le chien n'oublie jamais" - Facts persist across sessions
+      // ═══════════════════════════════════════════════════════════════════════════
+      try {
+        const factsRepo = getFactsRepository();
+        if (factsRepo) {
+          const projectName = ecosystem.currentProject?.name || 'unknown';
+
+          // Query facts by project name (FTS search)
+          const projectFacts = await Promise.race([
+            factsRepo.search(projectName, {
+              userId: user.userId,
+              limit: Math.floor(FACT_INJECTION_LIMIT / 2), // Half the limit for project facts
+              minConfidence: FACT_MIN_CONFIDENCE,
+            }),
+            new Promise(resolve => setTimeout(() => resolve([]), 2000)),
+          ]);
+
+          // Query user's most relevant facts (sorted by relevance)
+          const userFacts = await Promise.race([
+            factsRepo.findByUser(user.userId, {
+              limit: Math.floor(FACT_INJECTION_LIMIT / 2), // Other half for user facts
+            }),
+            new Promise(resolve => setTimeout(() => resolve([]), 2000)),
+          ]);
+
+          // Deduplicate and combine facts
+          const allFacts = [...projectFacts];
+          const seenIds = new Set(projectFacts.map(f => f.factId));
+          for (const fact of userFacts) {
+            if (!seenIds.has(fact.factId) && fact.confidence >= FACT_MIN_CONFIDENCE) {
+              allFacts.push(fact);
+              seenIds.add(fact.factId);
+            }
+          }
+
+          // Take top N facts by relevance × confidence
+          const topFacts = allFacts
+            .sort((a, b) => (b.relevance * b.confidence) - (a.relevance * a.confidence))
+            .slice(0, FACT_INJECTION_LIMIT);
+
+          if (topFacts.length > 0) {
+            // Group facts by type for better formatting
+            const factsByType = {};
+            for (const fact of topFacts) {
+              const type = fact.factType || 'general';
+              if (!factsByType[type]) factsByType[type] = [];
+              factsByType[type].push(fact);
+            }
+
+            // Format facts for injection
+            let factContent = '';
+            for (const [type, facts] of Object.entries(factsByType)) {
+              const typeLabel = type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+              factContent += `### ${typeLabel}\n`;
+              factContent += facts
+                .slice(0, 10) // Max 10 per type
+                .map(f => `- ${f.subject}: ${f.content?.substring(0, 150)}${f.content?.length > 150 ? '...' : ''}`)
+                .join('\n');
+              factContent += '\n\n';
+            }
+
+            contextInjections.push({
+              type: 'facts',
+              title: `Cross-Session Facts (${topFacts.length} facts)`,
+              content: factContent.trim(),
+              count: topFacts.length,
+              types: Object.keys(factsByType),
+            });
+
+            // Record access for relevance boosting
+            for (const fact of topFacts.slice(0, 20)) {
+              factsRepo.recordAccess(fact.factId).catch(() => {});
+            }
+          }
+        }
+      } catch (e) {
+        // Fact injection failed - continue without
+      }
+
       // 5. Format as additionalContext for Claude
       if (contextInjections.length > 0) {
+        // Calculate fact injection stats
+        const factInjection = contextInjections.find(inj => inj.type === 'facts');
+        const factCount = factInjection?.count || 0;
+        const factTypes = factInjection?.types || [];
+
         output.additionalContext = {
           title: 'CYNIC Cross-Session Memory Injection',
           description: 'Relevant learnings from past sessions to guide this session',
@@ -449,6 +551,12 @@ async function main() {
             .map(inj => `## ${inj.title}\n${inj.content}`)
             .join('\n\n'),
           count: contextInjections.length,
+          factStats: factCount > 0 ? {
+            injected: factCount,
+            limit: FACT_INJECTION_LIMIT,
+            types: factTypes,
+            minConfidence: FACT_MIN_CONFIDENCE,
+          } : null,
           timestamp: new Date().toISOString(),
         };
       }

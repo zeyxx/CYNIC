@@ -44,7 +44,7 @@ After implementing the V2 Gap Analysis plan, a deep audit reveals **critical gap
 |---------|-----------|--------------|
 | **Auto fact extraction** | Extracts from ALL tool outputs | Only extracts patterns, not facts |
 | **ChromaDB semantic search** | Real vector similarity | TF-IDF fallback only |
-| **Cross-session injection** | 50 observations per session | None - fresh context each time |
+| **Cross-session injection** | 50 observations per session | ✅ 50 facts via FactsRepository |
 | **Web UI at localhost:37777** | Full timeline browser | No UI |
 | **Multi-format export** | JSON, CSV, Markdown | JSON only |
 | **Token analytics** | Usage tracking per concept | Basic stats only |
@@ -153,7 +153,7 @@ After implementing the V2 Gap Analysis plan, a deep audit reveals **critical gap
 
 ### Not Implemented ❌
 1. **Semantic fact extraction** - observe.js detects patterns, not facts
-2. **Cross-session context injection** - awaken.js doesn't inject past learnings
+2. **Cross-session context injection** - ✅ awaken.js now injects facts via FactsRepository
 3. **Q-Learning router** - TieredRouter is rule-based, not learned
 4. **4-tier memory** - Flat pattern storage only
 5. **Prompt/agent hooks** - All hooks are command type

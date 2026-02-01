@@ -70,3 +70,23 @@ export function getFactExtractor() {
   }
   return null;
 }
+
+// FactsRepository (M2.1: Cross-session fact retrieval)
+let _factsRepository = null;
+
+export function getFactsRepository() {
+  if (_factsRepository) return _factsRepository;
+
+  try {
+    const { FactsRepository } = require('@cynic/persistence/postgres/repositories/facts');
+    const { getPool } = require('@cynic/persistence');
+    const pool = getPool();
+    if (pool) {
+      _factsRepository = new FactsRepository(pool);
+      return _factsRepository;
+    }
+  } catch (e) {
+    // FactsRepository not available - return null
+  }
+  return null;
+}
