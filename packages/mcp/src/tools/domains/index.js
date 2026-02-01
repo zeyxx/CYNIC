@@ -21,6 +21,8 @@ export { codeFactory } from './code.js';
 export { orchestrationFactory } from './orchestration.js';
 export { memoryFactory } from './memory.js';
 export { socialFactory } from './social.js';
+export { skepticFactory } from './skeptic.js';
+export { notificationsFactory } from './notifications.js';
 
 /**
  * All domain factories for bulk registration
@@ -48,6 +50,8 @@ export async function getAllFactories() {
     { orchestrationFactory },
     { memoryFactory },
     { socialFactory },
+    { skepticFactory },
+    { notificationsFactory },
   ] = await Promise.all([
     import('./judgment.js'),
     import('./ecosystem.js'),
@@ -61,6 +65,8 @@ export async function getAllFactories() {
     import('./orchestration.js'),
     import('./memory.js'),
     import('./social.js'),
+    import('./skeptic.js'),
+    import('./notifications.js'),
   ]);
 
   return [
@@ -74,7 +80,9 @@ export async function getAllFactories() {
     knowledgeFactory,
     automationFactory,
     codeFactory,
-    memoryFactory,  // Total Memory tools
-    socialFactory,  // X/Twitter vision tools
+    memoryFactory,       // Total Memory tools
+    socialFactory,       // X/Twitter vision tools
+    skepticFactory,      // Kabbalistic verification (18th path)
+    notificationsFactory, // Slack & external notifications
   ];
 }
