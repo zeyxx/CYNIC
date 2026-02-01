@@ -55,6 +55,10 @@ import {
   ProfileLevel,
   PROFILE_CONSTANTS,
 } from '../../profile/calculator.js';
+import {
+  detectQualityIssues,
+  QUALITY_SEVERITY,
+} from './quality-detector.js';
 
 /**
  * φ-aligned constants for Analyst
@@ -480,9 +484,21 @@ export class CollectiveAnalyst extends BaseAgent {
 
     // Collect code signals if code present
     let codeSignals = null;
+    let qualityAnalysis = null;
     if (input.content && this._looksLikeCode(input.content)) {
       codeSignals = this.signalCollector.collectCode(input.content);
       this.profileCalculator.processCode(input.content);
+
+      // NEW: Detect code quality issues
+      qualityAnalysis = this._analyzeCodeQuality(input.content);
+    }
+
+    // Also check for code in other common locations
+    const codeContent = output.content || output.code || context?.code || context?.content;
+    if (!qualityAnalysis && codeContent && typeof codeContent === 'string' && codeContent.length > 50) {
+      if (this._looksLikeCode(codeContent)) {
+        qualityAnalysis = this._analyzeCodeQuality(codeContent);
+      }
     }
 
     // Track errors
@@ -505,6 +521,7 @@ export class CollectiveAnalyst extends BaseAgent {
       patterns: detectedPatterns,
       anomalies,
       profileUpdate,
+      qualityAnalysis,
       signals: {
         behavioral: behavioralSignals,
         linguistic: linguisticSignals,
@@ -823,6 +840,57 @@ export class CollectiveAnalyst extends BaseAgent {
     }
 
     return null;
+  }
+
+  /**
+   * Analyze code quality using pattern detector
+   * @private
+   */
+  _analyzeCodeQuality(code) {
+    if (!code || typeof code !== 'string' || code.length < 50) {
+      return null;
+    }
+
+    try {
+      const result = detectQualityIssues(code);
+
+      // Record quality analysis in pattern history
+      if (result.issueCount > 0) {
+        this._recordPattern({
+          type: 'code_quality',
+          category: PatternCategory.CODE_STYLE,
+          score: result.score,
+          verdict: result.verdict,
+          issueCount: result.issueCount,
+          worstSeverity: result.worstSeverity,
+          byCategory: {
+            logic: result.byCategory.LOGIC.length,
+            perf: result.byCategory.PERF.length,
+            quality: result.byCategory.QUALITY.length,
+          },
+          timestamp: Date.now(),
+        });
+
+        // Emit anomaly if critical issues found
+        if (result.worstSeverity === 'CRITICAL') {
+          this._emitAnomalyDetected({
+            type: AnomalyType.SUSPICIOUS_PATTERN,
+            severity: 'high',
+            confidence: Math.min(PHI_INV, 0.5),
+            description: `Code quality issue: ${result.issues[0]?.name || 'Critical bug pattern'}`,
+            context: {
+              score: result.score,
+              issues: result.issues.slice(0, 3),
+            },
+          });
+        }
+      }
+
+      return result;
+    } catch (error) {
+      // Silent failure - quality detection is optional
+      return null;
+    }
   }
 
   /**
