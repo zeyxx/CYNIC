@@ -22,7 +22,8 @@
     "./orchestration/decision-event.js": "./src/orchestration/decision-event.js",
     "./orchestration/skill-registry.js": "./src/orchestration/skill-registry.js",
     "./orchestration/decision-tracer.js": "./src/orchestration/decision-tracer.js",
-    "./orchestration/circuit-breaker.js": "./src/orchestration/circuit-breaker.js"
+    "./orchestration/circuit-breaker.js": "./src/orchestration/circuit-breaker.js",
+    "./orchestration/routing-config.js": "./src/orchestration/routing-config.js"
   },
   "scripts": {
     "test": "node --test test/*.test.js",

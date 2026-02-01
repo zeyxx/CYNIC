@@ -17,7 +17,7 @@
 'use strict';
 
 import { EventEmitter } from 'events';
-import { createLogger, PHI_INV } from '@cynic/core';
+import { createLogger, PHI_INV, getCircuitBreakerRegistry } from '@cynic/core';
 import {
   DecisionEvent,
   DecisionStage,
@@ -27,46 +27,18 @@ import {
   createFromTool,
 } from './decision-event.js';
 import { getEventBus, EventType } from '../services/event-bus.js';
-import { CircuitBreaker, getCircuitBreakerRegistry } from './circuit-breaker.js';
+import {
+  SEFIROT_ROUTING,
+  TRUST_THRESHOLDS,
+  RISK_INTERVENTIONS,
+  DANGER_PATTERNS,
+  calculateTrustLevel,
+  determineIntervention,
+  detectRisk,
+  findRouting,
+} from './routing-config.js';
 
 const log = createLogger('UnifiedOrchestrator');
-
-/**
- * KETER routing constants (from orchestration.js)
- */
-const SEFIROT_ROUTING = {
-  wisdom: { sefirah: 'Chochmah', agent: 'cynic-sage', triggers: ['wisdom', 'philosophy', 'why', 'meaning'] },
-  design: { sefirah: 'Binah', agent: 'cynic-architect', triggers: ['design', 'architect', 'plan', 'structure', 'refactor'] },
-  memory: { sefirah: 'Daat', agent: 'cynic-archivist', triggers: ['remember', 'learn', 'recall', 'history', 'past'] },
-  analysis: { sefirah: 'Chesed', agent: 'cynic-analyst', triggers: ['analyze', 'pattern', 'trend', 'insight'] },
-  protection: { sefirah: 'Gevurah', agent: 'cynic-guardian', triggers: ['danger', 'secure', 'verify', 'protect', 'risk', 'delete', 'rm'] },
-  visualization: { sefirah: 'Tiferet', agent: 'cynic-oracle', triggers: ['dashboard', 'visualize', 'show', 'status'] },
-  exploration: { sefirah: 'Netzach', agent: 'cynic-scout', triggers: ['find', 'search', 'explore', 'where', 'locate'] },
-  cleanup: { sefirah: 'Yesod', agent: 'cynic-simplifier', triggers: ['simplify', 'clean', 'reduce', 'remove'] },
-  deployment: { sefirah: 'Hod', agent: 'cynic-deployer', triggers: ['deploy', 'release', 'build', 'ci', 'cd'] },
-  mapping: { sefirah: 'Malkhut', agent: 'cynic-cartographer', triggers: ['map', 'overview', 'codebase', 'repos'] },
-};
-
-/**
- * Trust level thresholds
- */
-const TRUST_THRESHOLDS = {
-  GUARDIAN: 61.8,   // φ⁻¹ × 100
-  STEWARD: 38.2,    // φ⁻² × 100
-  BUILDER: 30,
-  CONTRIBUTOR: 15,
-  OBSERVER: 0,
-};
-
-/**
- * Risk levels and their intervention mappings
- */
-const RISK_INTERVENTIONS = {
-  critical: { OBSERVER: 'block', CONTRIBUTOR: 'block', BUILDER: 'ask', STEWARD: 'ask', GUARDIAN: 'notify' },
-  high: { OBSERVER: 'ask', CONTRIBUTOR: 'ask', BUILDER: 'ask', STEWARD: 'notify', GUARDIAN: 'silent' },
-  medium: { OBSERVER: 'ask', CONTRIBUTOR: 'notify', BUILDER: 'silent', STEWARD: 'silent', GUARDIAN: 'silent' },
-  low: { OBSERVER: 'notify', CONTRIBUTOR: 'silent', BUILDER: 'silent', STEWARD: 'silent', GUARDIAN: 'silent' },
-};
 
 /**
  * Unified Orchestrator
@@ -259,7 +231,7 @@ export class UnifiedOrchestrator extends EventEmitter {
         const profile = await this.persistence.userLearningProfiles.getSummary(userId);
         if (profile) {
           const eScore = profile.eScore ?? 50;
-          const trustLevel = this._calculateTrustLevel(eScore);
+          const trustLevel = calculateTrustLevel(eScore);
 
           event.userContext.eScore = eScore;
           event.userContext.trustLevel = trustLevel;
@@ -300,10 +272,10 @@ export class UnifiedOrchestrator extends EventEmitter {
     }
 
     // Determine risk level
-    const risk = this._detectRisk(event);
+    const risk = detectRisk(event.content);
 
     // Determine intervention based on trust level and risk
-    const intervention = this._determineIntervention(event.userContext.trustLevel, risk);
+    const intervention = determineIntervention(event.userContext.trustLevel, risk);
 
     // Set routing on event
     event.setRouting({
@@ -325,18 +297,10 @@ export class UnifiedOrchestrator extends EventEmitter {
    * @private
    */
   async _preExecutionCheck(event) {
-    // Check for dangerous patterns
+    // Check for dangerous patterns using shared config
     const content = event.content;
-    const dangerPatterns = [
-      /rm\s+-rf\s+[\/~]/i,
-      /drop\s+table/i,
-      /delete\s+from\s+\w+\s*;?\s*$/i,
-      /format\s+[a-z]:/i,
-      /mkfs/i,
-      />>\s*\/etc\//i,
-    ];
 
-    for (const pattern of dangerPatterns) {
+    for (const pattern of DANGER_PATTERNS) {
       if (pattern.test(content)) {
         event.setPreExecution({
           blocked: true,
@@ -498,51 +462,10 @@ export class UnifiedOrchestrator extends EventEmitter {
   // HELPERS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Calculate trust level from E-Score
-   * @private
-   */
-  _calculateTrustLevel(eScore) {
-    if (eScore >= TRUST_THRESHOLDS.GUARDIAN) return 'GUARDIAN';
-    if (eScore >= TRUST_THRESHOLDS.STEWARD) return 'STEWARD';
-    if (eScore >= TRUST_THRESHOLDS.BUILDER) return 'BUILDER';
-    if (eScore >= TRUST_THRESHOLDS.CONTRIBUTOR) return 'CONTRIBUTOR';
-    return 'OBSERVER';
-  }
-
-  /**
-   * Detect risk level from event
-   * @private
-   */
-  _detectRisk(event) {
-    const content = event.content.toLowerCase();
-
-    // Critical patterns
-    if (/rm\s+-rf|drop\s+table|format|mkfs|delete\s+from/.test(content)) {
-      return 'critical';
-    }
-
-    // High risk patterns
-    if (/delete|remove|destroy|overwrite|force/.test(content)) {
-      return 'high';
-    }
-
-    // Medium risk patterns
-    if (/modify|change|update|edit|write/.test(content)) {
-      return 'medium';
-    }
-
-    return 'low';
-  }
-
-  /**
-   * Determine intervention level
-   * @private
-   */
-  _determineIntervention(trustLevel, risk) {
-    const matrix = RISK_INTERVENTIONS[risk] || RISK_INTERVENTIONS.low;
-    return matrix[trustLevel] || 'silent';
-  }
+  // Helper methods now imported from routing-config.js
+  // _calculateTrustLevel → calculateTrustLevel
+  // _detectRisk → detectRisk
+  // _determineIntervention → determineIntervention
 
   /**
    * Check if event needs pre-execution check

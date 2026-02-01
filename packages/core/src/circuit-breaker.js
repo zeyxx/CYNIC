@@ -488,4 +488,119 @@ export async function withCircuitBreaker(breaker, fn, options = {}) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CIRCUIT BREAKER REGISTRY
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * CircuitBreakerRegistry - Manages multiple circuit breakers
+ *
+ * Provides a central registry for all circuit breakers in the application.
+ * Use this instead of creating circuit breakers directly.
+ *
+ * @example
+ * const registry = getCircuitBreakerRegistry();
+ * const breaker = registry.get('postgres', { timeout: 5000 });
+ * await withCircuitBreaker(breaker, () => db.query(...));
+ */
+export class CircuitBreakerRegistry {
+  constructor() {
+    this._breakers = new Map();
+  }
+
+  /**
+   * Get or create a circuit breaker by name
+   *
+   * @param {string} name - Circuit breaker name
+   * @param {Object} [options] - Options for new breaker
+   * @returns {CircuitBreaker}
+   */
+  get(name, options = {}) {
+    if (!this._breakers.has(name)) {
+      this._breakers.set(name, new CircuitBreaker({ ...options, name }));
+    }
+    return this._breakers.get(name);
+  }
+
+  /**
+   * Check if a circuit breaker exists
+   * @param {string} name
+   * @returns {boolean}
+   */
+  has(name) {
+    return this._breakers.has(name);
+  }
+
+  /**
+   * Remove a circuit breaker
+   * @param {string} name
+   * @returns {boolean}
+   */
+  remove(name) {
+    return this._breakers.delete(name);
+  }
+
+  /**
+   * Get all circuit breaker health statuses
+   * @returns {Object[]}
+   */
+  getAllHealth() {
+    return Array.from(this._breakers.values()).map(cb => ({
+      name: cb.name,
+      state: cb.state,
+      healthy: cb.isClosed,
+      ...cb.getStats(),
+    }));
+  }
+
+  /**
+   * Get all circuit breaker statistics
+   * @returns {Object}
+   */
+  getAllStats() {
+    const stats = {};
+    for (const [name, breaker] of this._breakers) {
+      stats[name] = breaker.getStats();
+    }
+    return stats;
+  }
+
+  /**
+   * Reset all circuit breakers
+   */
+  resetAll() {
+    for (const breaker of this._breakers.values()) {
+      breaker.reset();
+    }
+  }
+
+  /**
+   * Get count of circuit breakers
+   * @returns {number}
+   */
+  get size() {
+    return this._breakers.size;
+  }
+}
+
+// Global registry singleton
+let _globalRegistry = null;
+
+/**
+ * Get the global circuit breaker registry
+ *
+ * @returns {CircuitBreakerRegistry}
+ *
+ * @example
+ * import { getCircuitBreakerRegistry } from '@cynic/core';
+ * const registry = getCircuitBreakerRegistry();
+ * const breaker = registry.get('my-service');
+ */
+export function getCircuitBreakerRegistry() {
+  if (!_globalRegistry) {
+    _globalRegistry = new CircuitBreakerRegistry();
+  }
+  return _globalRegistry;
+}
+
 export default CircuitBreaker;

@@ -47,14 +47,29 @@ export {
   createDecisionTracer,
 } from './decision-tracer.js';
 
-// Circuit Breaker - Resilience pattern
+// Circuit Breaker - Re-exported from @cynic/core for convenience
+// NOTE: The canonical circuit breaker is in @cynic/core
 export {
   CircuitBreaker,
   CircuitBreakerRegistry,
   CircuitState,
-  createCircuitBreaker,
+  withCircuitBreaker,
   getCircuitBreakerRegistry,
-} from './circuit-breaker.js';
+} from '@cynic/core';
+
+// Routing Configuration - Centralized KETER routing
+export {
+  SEFIROT_ROUTING,
+  TRUST_THRESHOLDS,
+  RISK_INTERVENTIONS,
+  DANGER_PATTERNS,
+  calculateTrustLevel,
+  determineIntervention,
+  detectRisk,
+  findRouting,
+  getDomains,
+  getRoutingForDomain,
+} from './routing-config.js';
 
 // Kabbalistic Router - Tree of Life decision flow (Phase 4)
 export {

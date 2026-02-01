@@ -17,7 +17,7 @@
 
 'use strict';
 
-import { PHI, PHI_INV, THRESHOLDS, createLogger } from '@cynic/core';
+import { PHI, PHI_INV, THRESHOLDS, createLogger, getCircuitBreakerRegistry, CircuitState } from '@cynic/core';
 import {
   UnifiedOrchestrator,
   createUnifiedOrchestrator,
@@ -30,7 +30,15 @@ import {
 } from '@cynic/node/orchestration/decision-event.js';
 import { createDecisionTracer } from '@cynic/node/orchestration/decision-tracer.js';
 import { createSkillRegistry } from '@cynic/node/orchestration/skill-registry.js';
-import { getCircuitBreakerRegistry, CircuitState } from '@cynic/node/orchestration/circuit-breaker.js';
+// Import shared routing configuration
+import {
+  SEFIROT_ROUTING,
+  TRUST_THRESHOLDS,
+  calculateTrustLevel,
+  determineIntervention,
+  detectRisk,
+  findRouting,
+} from '@cynic/node/orchestration/routing-config.js';
 
 const log = createLogger('OrchestrationTools');
 
@@ -61,92 +69,8 @@ export const INTERVENTION_LEVELS = {
   BLOCK: 'block',         // Block action, require explicit permission
 };
 
-/**
- * Sefirot routing - which agent/tool handles which domain
- */
-export const SEFIROT_ROUTING = {
-  // Chochmah (Sage) - Wisdom queries
-  wisdom: {
-    sefirah: 'Chochmah',
-    agent: 'cynic-sage',
-    tools: ['brain_search', 'brain_wisdom'],
-    triggers: ['wisdom', 'philosophy', 'why', 'meaning', 'understanding'],
-  },
-  // Binah (Architect) - Design and planning
-  design: {
-    sefirah: 'Binah',
-    agent: 'cynic-architect',
-    tools: ['brain_patterns'],
-    triggers: ['design', 'architect', 'plan', 'structure', 'refactor'],
-  },
-  // Daat (Archivist) - Memory and learning
-  memory: {
-    sefirah: 'Daat',
-    agent: 'cynic-archivist',
-    tools: ['brain_learning', 'brain_search', 'brain_patterns'],
-    triggers: ['remember', 'learn', 'recall', 'history', 'past', 'before', 'already', 'déjà', 'souviens'],
-  },
-  // Chesed (Analyst) - Pattern analysis
-  analysis: {
-    sefirah: 'Chesed',
-    agent: 'cynic-analyst',
-    tools: ['brain_patterns', 'brain_emergence'],
-    triggers: ['analyze', 'pattern', 'trend', 'insight', 'data'],
-  },
-  // Gevurah (Guardian) - Protection and verification
-  protection: {
-    sefirah: 'Gevurah',
-    agent: 'cynic-guardian',
-    tools: ['brain_cynic_judge'],
-    triggers: ['danger', 'secure', 'verify', 'protect', 'risk', 'delete', 'rm'],
-  },
-  // Tiferet (Oracle) - Visualization and insights
-  visualization: {
-    sefirah: 'Tiferet',
-    agent: 'cynic-oracle',
-    tools: ['brain_render'],
-    triggers: ['dashboard', 'visualize', 'show', 'display', 'status'],
-  },
-  // Netzach (Scout) - Exploration
-  exploration: {
-    sefirah: 'Netzach',
-    agent: 'cynic-scout',
-    tools: ['brain_code_analyze', 'brain_code_deps'],
-    triggers: ['find', 'search', 'explore', 'where', 'locate'],
-  },
-  // Yesod (Janitor) - Cleanup and simplification
-  cleanup: {
-    sefirah: 'Yesod',
-    agent: 'cynic-simplifier',
-    tools: [],
-    triggers: ['simplify', 'clean', 'reduce', 'remove', 'prune'],
-  },
-  // Hod (Deployer) - Deployment and infrastructure
-  deployment: {
-    sefirah: 'Hod',
-    agent: 'cynic-deployer',
-    tools: ['brain_ecosystem_monitor'],
-    triggers: ['deploy', 'release', 'build', 'ci', 'cd', 'infrastructure'],
-  },
-  // Malkhut (Cartographer) - Mapping reality
-  mapping: {
-    sefirah: 'Malkhut',
-    agent: 'cynic-cartographer',
-    tools: ['brain_ecosystem_monitor'],
-    triggers: ['map', 'overview', 'codebase', 'structure', 'repos'],
-  },
-};
-
-/**
- * Trust level thresholds from E-Score 7D
- */
-export const TRUST_THRESHOLDS = {
-  GUARDIAN: PHI_INV * 100,       // 61.8% - Auto-approve most actions
-  STEWARD: PHI_INV ** 2 * 100,   // 38.2% - Notify on significant actions
-  BUILDER: 30,                    // Ask on potentially dangerous actions
-  CONTRIBUTOR: 15,                // Ask on most actions
-  OBSERVER: 0,                    // Block dangerous, ask on others
-};
+// Re-export for backwards compatibility
+export { SEFIROT_ROUTING, TRUST_THRESHOLDS };
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ORCHESTRATOR LOGIC
