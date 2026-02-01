@@ -452,8 +452,19 @@ export class AutomationExecutor {
         return { logged: true };
 
       case 'judge':
-        // Would call judge with itemType from config
-        return { judged: false, reason: 'Not implemented' };
+        // Emit judge request event for processing by judge service
+        if (this.eventBus) {
+          this.eventBus.publish({
+            type: EventType.JUDGE_REQUEST,
+            data: {
+              itemType: config.itemType || 'trigger',
+              item: config.item || { triggerId: trigger.triggerId },
+              source: 'automation',
+            },
+          });
+          return { judged: true, queued: true };
+        }
+        return { judged: false, reason: 'No event bus' };
 
       case 'alert':
         log.warn(`ALERT: ${config.message}`, {
@@ -463,8 +474,35 @@ export class AutomationExecutor {
         return { alerted: true };
 
       case 'notify':
-        // Would send notification via configured channel
-        return { notified: false, reason: 'Not implemented' };
+        // Send notification via repo if available
+        if (this.notificationsRepo) {
+          try {
+            await this.notificationsRepo.create({
+              type: config.type || 'trigger',
+              title: config.title || 'Trigger Notification',
+              message: config.message || `Trigger ${trigger.triggerId} fired`,
+              priority: config.priority || 'medium',
+              source: 'automation',
+            });
+            return { notified: true };
+          } catch (e) {
+            log.error('Failed to create notification', e);
+            return { notified: false, reason: e.message };
+          }
+        }
+        // Fallback: emit event
+        if (this.eventBus) {
+          this.eventBus.publish({
+            type: EventType.NOTIFICATION,
+            data: {
+              title: config.title || 'Trigger Notification',
+              message: config.message,
+              triggerId: trigger.triggerId,
+            },
+          });
+          return { notified: true, method: 'event' };
+        }
+        return { notified: false, reason: 'No notification channel' };
 
       default:
         return { action: trigger.action, executed: false };

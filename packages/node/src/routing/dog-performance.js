@@ -246,10 +246,14 @@ export class DogMetrics {
       dogName: cap?.name,
       dogEmoji: cap?.emoji,
       taskCount: this.taskCount,
+      successCount: this.successCount,
+      failureCount: this.failureCount,
+      escalationCount: this.escalationCount,
       successRate: Math.round(this.getSuccessRate() * 1000) / 1000,
       recentSuccessRate: Math.round(this.getRecentSuccessRate() * 1000) / 1000,
       escalationRate: this.taskCount > 0 ? Math.round((this.escalationCount / this.taskCount) * 1000) / 1000 : 0,
       avgLatency: Math.round(this.getAvgLatency()),
+      totalLatency: this.totalLatency,
       minLatency: this.minLatency === Infinity ? 0 : this.minLatency,
       maxLatency: this.maxLatency,
       learningTrend: this.getLearningTrend(),
@@ -259,6 +263,25 @@ export class DogMetrics {
       createdAt: this.createdAt,
       lastTaskAt: this.lastTaskAt,
     };
+  }
+
+  /**
+   * Restore metrics from serialized data
+   * @param {Object} data - Serialized metrics from toJSON()
+   * @returns {DogMetrics}
+   */
+  static fromJSON(data) {
+    const metrics = new DogMetrics(data.dogId);
+    metrics.taskCount = data.taskCount || 0;
+    metrics.successCount = data.successCount || 0;
+    metrics.failureCount = data.failureCount || 0;
+    metrics.escalationCount = data.escalationCount || 0;
+    metrics.totalLatency = data.totalLatency || 0;
+    metrics.minLatency = data.minLatency || Infinity;
+    metrics.maxLatency = data.maxLatency || 0;
+    metrics.createdAt = data.createdAt || Date.now();
+    metrics.lastTaskAt = data.lastTaskAt || null;
+    return metrics;
   }
 }
 
@@ -517,11 +540,26 @@ export class DogPerformanceTracker extends EventEmitter {
 
   /**
    * Import metrics from persistence
-   * @param {Object} data
+   * @param {Object} data - Data from export()
    */
   import(data) {
-    // TODO: Implement import logic
-    this.emit('imported', data);
+    if (!data || !data.metrics) {
+      this.emit('import_failed', { reason: 'Invalid data format' });
+      return;
+    }
+
+    let imported = 0;
+    for (const [dogId, metricsData] of Object.entries(data.metrics)) {
+      try {
+        const metrics = DogMetrics.fromJSON(metricsData);
+        this.metrics.set(dogId, metrics);
+        imported++;
+      } catch (e) {
+        // Skip invalid entries
+      }
+    }
+
+    this.emit('imported', { count: imported, exportedAt: data.exportedAt });
   }
 
   /**

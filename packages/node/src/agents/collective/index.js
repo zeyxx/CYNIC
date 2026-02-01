@@ -83,6 +83,9 @@ import {
 // Import Kabbalistic Router (Phase 4: L'arbre vit)
 import { KabbalisticRouter } from '../../orchestration/kabbalistic-router.js';
 
+// Import RelationshipGraph (CYNIC learns agent relationships through observation)
+import { RelationshipGraph } from './relationship-graph.js';
+
 // Re-export agents
 export {
   CollectiveGuardian,
@@ -336,10 +339,11 @@ export class CollectivePack {
     // KABBALISTIC ROUTER (Phase 4: L'arbre vit)
     // Routes decisions through Tree of Life instead of parallel independent dogs
     // ═══════════════════════════════════════════════════════════════════════════
+    this.relationshipGraph = new RelationshipGraph({ useSefirotSeed: true });
     this.kabbalisticRouter = new KabbalisticRouter({
       collectivePack: this,
       persistence: this.persistence,
-      relationshipGraph: null, // TODO: wire RelationshipGraph when available
+      relationshipGraph: this.relationshipGraph,
     });
 
     // Stats
