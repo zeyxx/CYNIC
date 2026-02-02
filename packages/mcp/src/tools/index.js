@@ -287,6 +287,21 @@ export {
   socialFactory,
 };
 
+// X Coach domain (communication coaching - autonomize the human)
+import {
+  createXCoachTool,
+  createXLearnTool,
+  createXStyleTool,
+  xCoachFactory,
+} from './domains/x-coach.js';
+
+export {
+  createXCoachTool,
+  createXLearnTool,
+  createXStyleTool,
+  xCoachFactory,
+};
+
 // NOTE: Memory tools moved to domains/memory.js
 
 /**
@@ -447,6 +462,10 @@ export function createAllTools(options = {}) {
       createXTrendsTool(localXStore, xRepository),
       createXSyncTool(localXStore, xRepository),
     ] : []),
+    // X Coach Tools (communication coaching - autonomize the human)
+    createXCoachTool(judge, localXStore),
+    createXLearnTool(localXStore),
+    createXStyleTool(localXStore),
   ];
 
   for (const tool of toolDefs) {
