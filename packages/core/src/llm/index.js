@@ -21,6 +21,8 @@ export const LLMProvider = {
   CLAUDE: 'claude',
   OLLAMA: 'ollama',
   OPENAI: 'openai',
+  GROQ: 'groq',         // Fast inference for open source models
+  TOGETHER: 'together', // Together AI - many open source models
   MOCK: 'mock',
 };
 
@@ -40,6 +42,17 @@ export const LLMModel = {
   GPT4: 'gpt-4',
   GPT4O: 'gpt-4o',
   GPT4O_MINI: 'gpt-4o-mini',
+  // Groq (fast inference)
+  GROQ_LLAMA3_70B: 'groq-llama3-70b',
+  GROQ_LLAMA3_8B: 'groq-llama3-8b',
+  GROQ_MIXTRAL: 'groq-mixtral',
+  GROQ_GEMMA2: 'groq-gemma2',
+  // Together AI (open source models)
+  TOGETHER_LLAMA3_70B: 'together-llama3-70b',
+  TOGETHER_LLAMA3_8B: 'together-llama3-8b',
+  TOGETHER_MIXTRAL: 'together-mixtral',
+  TOGETHER_QWEN: 'together-qwen',
+  TOGETHER_DEEPSEEK: 'together-deepseek',
 };
 
 // Model mapping: abstract → concrete
@@ -59,6 +72,17 @@ const MODEL_MAP = {
   [LLMModel.GPT4]: { provider: LLMProvider.OPENAI, model: 'gpt-4-turbo' },
   [LLMModel.GPT4O]: { provider: LLMProvider.OPENAI, model: 'gpt-4o' },
   [LLMModel.GPT4O_MINI]: { provider: LLMProvider.OPENAI, model: 'gpt-4o-mini' },
+  // Groq (fast inference - OpenAI compatible API)
+  [LLMModel.GROQ_LLAMA3_70B]: { provider: LLMProvider.GROQ, model: 'llama-3.3-70b-versatile' },
+  [LLMModel.GROQ_LLAMA3_8B]: { provider: LLMProvider.GROQ, model: 'llama-3.1-8b-instant' },
+  [LLMModel.GROQ_MIXTRAL]: { provider: LLMProvider.GROQ, model: 'mixtral-8x7b-32768' },
+  [LLMModel.GROQ_GEMMA2]: { provider: LLMProvider.GROQ, model: 'gemma2-9b-it' },
+  // Together AI (many open source models)
+  [LLMModel.TOGETHER_LLAMA3_70B]: { provider: LLMProvider.TOGETHER, model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo' },
+  [LLMModel.TOGETHER_LLAMA3_8B]: { provider: LLMProvider.TOGETHER, model: 'meta-llama/Llama-3.1-8B-Instruct-Turbo' },
+  [LLMModel.TOGETHER_MIXTRAL]: { provider: LLMProvider.TOGETHER, model: 'mistralai/Mixtral-8x7B-Instruct-v0.1' },
+  [LLMModel.TOGETHER_QWEN]: { provider: LLMProvider.TOGETHER, model: 'Qwen/Qwen2.5-72B-Instruct-Turbo' },
+  [LLMModel.TOGETHER_DEEPSEEK]: { provider: LLMProvider.TOGETHER, model: 'deepseek-ai/DeepSeek-R1-Distill-Llama-70B' },
 };
 
 // Cost per 1M tokens (approximate, for routing decisions)
@@ -75,6 +99,17 @@ const MODEL_COSTS = {
   [LLMModel.GPT4]: { input: 10, output: 30 },
   [LLMModel.GPT4O]: { input: 2.5, output: 10 },
   [LLMModel.GPT4O_MINI]: { input: 0.15, output: 0.6 },
+  // Groq (very cheap, extremely fast)
+  [LLMModel.GROQ_LLAMA3_70B]: { input: 0.59, output: 0.79 },
+  [LLMModel.GROQ_LLAMA3_8B]: { input: 0.05, output: 0.08 },
+  [LLMModel.GROQ_MIXTRAL]: { input: 0.24, output: 0.24 },
+  [LLMModel.GROQ_GEMMA2]: { input: 0.20, output: 0.20 },
+  // Together AI (competitive pricing)
+  [LLMModel.TOGETHER_LLAMA3_70B]: { input: 0.88, output: 0.88 },
+  [LLMModel.TOGETHER_LLAMA3_8B]: { input: 0.18, output: 0.18 },
+  [LLMModel.TOGETHER_MIXTRAL]: { input: 0.60, output: 0.60 },
+  [LLMModel.TOGETHER_QWEN]: { input: 1.20, output: 1.20 },
+  [LLMModel.TOGETHER_DEEPSEEK]: { input: 0.90, output: 0.90 },
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -358,6 +393,210 @@ export class OpenAILLMProvider extends BaseLLMProvider {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// GROQ PROVIDER (Fast inference for open source models)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Groq Provider - Extremely fast inference for open source models
+ * Uses OpenAI-compatible API
+ *
+ * Models: Llama 3, Mixtral, Gemma
+ * Key advantage: Speed (often 10x faster than other providers)
+ */
+export class GroqLLMProvider extends BaseLLMProvider {
+  constructor(options = {}) {
+    super({ ...options, type: LLMProvider.GROQ });
+    this.apiKey = options.apiKey || process.env.GROQ_API_KEY;
+    this.baseUrl = options.baseUrl || 'https://api.groq.com/openai/v1';
+    this.defaultModel = options.model || LLMModel.GROQ_LLAMA3_8B;
+
+    if (!this.apiKey) {
+      console.warn('[GroqLLMProvider] No API key - provider disabled');
+    }
+  }
+
+  async complete(prompt, options = {}) {
+    if (!this.apiKey) {
+      throw new Error('Groq API key required (set GROQ_API_KEY)');
+    }
+
+    const model = MODEL_MAP[options.model || this.defaultModel]?.model || 'llama-3.1-8b-instant';
+
+    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: options.temperature || 0.7,
+        max_tokens: options.maxTokens || 1000,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(`Groq error: ${error.error?.message || response.status}`);
+    }
+
+    const data = await response.json();
+    const choice = data.choices?.[0];
+
+    this._stats.calls++;
+    this._stats.tokens.input += data.usage?.prompt_tokens || 0;
+    this._stats.tokens.output += data.usage?.completion_tokens || 0;
+
+    return {
+      text: choice?.message?.content || '',
+      confidence: this.maxConfidence, // φ⁻¹ = 61.8%
+      tokens: {
+        input: data.usage?.prompt_tokens || 0,
+        output: data.usage?.completion_tokens || 0,
+      },
+      model,
+      provider: this.type,
+    };
+  }
+
+  /**
+   * Check if Groq API is available
+   */
+  async isAvailable() {
+    if (!this.apiKey) return false;
+    try {
+      const response = await fetch(`${this.baseUrl}/models`, {
+        headers: { 'Authorization': `Bearer ${this.apiKey}` },
+        signal: AbortSignal.timeout(5000),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * List available models on Groq
+   */
+  async listModels() {
+    if (!this.apiKey) return [];
+    try {
+      const response = await fetch(`${this.baseUrl}/models`, {
+        headers: { 'Authorization': `Bearer ${this.apiKey}` },
+      });
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.data?.map(m => m.id) || [];
+    } catch {
+      return [];
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TOGETHER AI PROVIDER (Many open source models)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Together AI Provider - Extensive open source model catalog
+ * Uses OpenAI-compatible API
+ *
+ * Models: Llama, Mixtral, Qwen, DeepSeek, and many more
+ * Key advantage: Model variety and competitive pricing
+ */
+export class TogetherLLMProvider extends BaseLLMProvider {
+  constructor(options = {}) {
+    super({ ...options, type: LLMProvider.TOGETHER });
+    this.apiKey = options.apiKey || process.env.TOGETHER_API_KEY;
+    this.baseUrl = options.baseUrl || 'https://api.together.xyz/v1';
+    this.defaultModel = options.model || LLMModel.TOGETHER_LLAMA3_8B;
+
+    if (!this.apiKey) {
+      console.warn('[TogetherLLMProvider] No API key - provider disabled');
+    }
+  }
+
+  async complete(prompt, options = {}) {
+    if (!this.apiKey) {
+      throw new Error('Together API key required (set TOGETHER_API_KEY)');
+    }
+
+    const model = MODEL_MAP[options.model || this.defaultModel]?.model || 'meta-llama/Llama-3.1-8B-Instruct-Turbo';
+
+    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: options.temperature || 0.7,
+        max_tokens: options.maxTokens || 1000,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(`Together error: ${error.error?.message || response.status}`);
+    }
+
+    const data = await response.json();
+    const choice = data.choices?.[0];
+
+    this._stats.calls++;
+    this._stats.tokens.input += data.usage?.prompt_tokens || 0;
+    this._stats.tokens.output += data.usage?.completion_tokens || 0;
+
+    return {
+      text: choice?.message?.content || '',
+      confidence: this.maxConfidence, // φ⁻¹ = 61.8%
+      tokens: {
+        input: data.usage?.prompt_tokens || 0,
+        output: data.usage?.completion_tokens || 0,
+      },
+      model,
+      provider: this.type,
+    };
+  }
+
+  /**
+   * Check if Together API is available
+   */
+  async isAvailable() {
+    if (!this.apiKey) return false;
+    try {
+      const response = await fetch(`${this.baseUrl}/models`, {
+        headers: { 'Authorization': `Bearer ${this.apiKey}` },
+        signal: AbortSignal.timeout(5000),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * List available models on Together
+   */
+  async listModels() {
+    if (!this.apiKey) return [];
+    try {
+      const response = await fetch(`${this.baseUrl}/models`, {
+        headers: { 'Authorization': `Bearer ${this.apiKey}` },
+      });
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.data?.map(m => m.id) || [];
+    } catch {
+      return [];
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MOCK PROVIDER (for testing)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -411,8 +650,7 @@ export class MockLLMProvider extends BaseLLMProvider {
  *
  * Priority:
  * 1. Explicit CYNIC_LLM_PROVIDER env var
- * 2. Auto-detect Ollama if running locally (free)
- * 3. Fall back to Mock
+ * 2. Auto-detect available providers (Ollama → Groq → Together → OpenAI → Mock)
  *
  * @param {Object} options - Provider options
  * @returns {BaseLLMProvider}
@@ -430,6 +668,12 @@ export function createLLMProvider(options = {}) {
       case LLMProvider.OPENAI:
       case 'openai':
         return new OpenAILLMProvider(options);
+      case LLMProvider.GROQ:
+      case 'groq':
+        return new GroqLLMProvider(options);
+      case LLMProvider.TOGETHER:
+      case 'together':
+        return new TogetherLLMProvider(options);
       case LLMProvider.MOCK:
       case 'mock':
         return new MockLLMProvider(options);
@@ -447,7 +691,13 @@ export function createLLMProvider(options = {}) {
 
 /**
  * Auto-detecting LLM Provider
- * Tries Ollama first (free, local), falls back to Mock
+ *
+ * Detection priority (favoring open source):
+ * 1. Ollama (local, free, open source)
+ * 2. Groq (very fast, cheap, open source models)
+ * 3. Together AI (many open source models)
+ * 4. OpenAI (commercial fallback)
+ * 5. Mock (always available)
  */
 export class AutoDetectLLMProvider extends BaseLLMProvider {
   constructor(options = {}) {
@@ -462,16 +712,38 @@ export class AutoDetectLLMProvider extends BaseLLMProvider {
     if (this._detectPromise) return this._detectPromise;
 
     this._detectPromise = (async () => {
-      // Try Ollama first
+      // 1. Try Ollama first (local, free)
       const ollama = new OllamaLLMProvider(this._options);
       if (await ollama.isAvailable()) {
-        console.error('[LLMProvider] ✓ Ollama detected - using local inference');
+        console.error('[LLMProvider] ✓ Ollama detected - using local inference (FREE)');
         this._realProvider = ollama;
         this.type = LLMProvider.OLLAMA;
         return ollama;
       }
 
-      // Check OpenAI
+      // 2. Check Groq (fast, cheap, open source)
+      if (process.env.GROQ_API_KEY) {
+        const groq = new GroqLLMProvider(this._options);
+        if (await groq.isAvailable()) {
+          console.error('[LLMProvider] ✓ Groq API detected - fast open source inference');
+          this._realProvider = groq;
+          this.type = LLMProvider.GROQ;
+          return groq;
+        }
+      }
+
+      // 3. Check Together AI (many open source models)
+      if (process.env.TOGETHER_API_KEY) {
+        const together = new TogetherLLMProvider(this._options);
+        if (await together.isAvailable()) {
+          console.error('[LLMProvider] ✓ Together AI detected - open source model inference');
+          this._realProvider = together;
+          this.type = LLMProvider.TOGETHER;
+          return together;
+        }
+      }
+
+      // 4. Check OpenAI (commercial fallback)
       if (process.env.OPENAI_API_KEY) {
         console.error('[LLMProvider] ✓ OpenAI API key found');
         this._realProvider = new OpenAILLMProvider(this._options);
@@ -479,9 +751,12 @@ export class AutoDetectLLMProvider extends BaseLLMProvider {
         return this._realProvider;
       }
 
-      // Fall back to mock
+      // 5. Fall back to mock
       console.error('[LLMProvider] ⚠ Using MockProvider - no LLM available');
-      console.error('[LLMProvider]   For local judgment, install Ollama: https://ollama.ai');
+      console.error('[LLMProvider]   Options:');
+      console.error('[LLMProvider]   - Ollama (local/free): https://ollama.ai');
+      console.error('[LLMProvider]   - Groq (fast/cheap): https://console.groq.com');
+      console.error('[LLMProvider]   - Together (variety): https://api.together.xyz');
       this._realProvider = new MockLLMProvider(this._options);
       this.type = LLMProvider.MOCK;
       return this._realProvider;
@@ -537,6 +812,8 @@ export default {
   BaseLLMProvider,
   OllamaLLMProvider,
   OpenAILLMProvider,
+  GroqLLMProvider,
+  TogetherLLMProvider,
   MockLLMProvider,
   AutoDetectLLMProvider,
   createLLMProvider,

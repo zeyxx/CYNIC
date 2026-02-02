@@ -12,6 +12,7 @@
 import { PHI_INV } from '@cynic/core';
 import { AgentId } from './events.js';
 import { SwarmConsensus, createSwarmConsensus } from './swarm-consensus.js';
+import { getEventBus } from '../services/event-bus.js';
 
 /**
  * Dog execution modes
@@ -90,6 +91,9 @@ export class DogOrchestrator {
     // Custom spawner (for future Claude API integration)
     this.spawner = options.spawner || null;
 
+    // Event bus for visibility
+    this.eventBus = options.eventBus || getEventBus();
+
     // Stats
     this.stats = {
       judgments: 0,
@@ -135,10 +139,31 @@ export class DogOrchestrator {
       ? this.swarmConsensus.calculateConsensus(votes, { ...context, itemType: item?.type })
       : this._calculateConsensus(votes);
 
+    // Emit vote complete and consensus reached events
+    this.eventBus?.publish('dog:vote:complete', {
+      voteCount: votes.filter(v => v.success).length,
+      verdict: consensus.verdict,
+    }, { source: 'DogOrchestrator' });
+
+    this.eventBus?.publish('consensus:reached', {
+      score: consensus.score,
+      verdict: consensus.verdict,
+      agreementRatio: consensus.agreementRatio,
+      blocked: consensus.blocked,
+      strategy: consensus.strategy,
+    }, { source: 'DogOrchestrator' });
+
     // Check for blocking votes
     if (consensus.blocked) {
       if (consensus.blockedBy === 'GUARDIAN') this.stats.blockedByGuardian++;
       if (consensus.blockedBy === 'DEPLOYER') this.stats.blockedByDeployer++;
+
+      // Emit danger blocked event for visibility
+      this.eventBus?.publish('danger:blocked', {
+        reason: consensus.blockReason,
+        blockedBy: consensus.blockedBy,
+        severity: 'high',
+      }, { source: 'DogOrchestrator' });
 
       return {
         blocked: true,
@@ -242,6 +267,12 @@ export class DogOrchestrator {
    * @private
    */
   async _runParallel(item, dogs, injectedContext) {
+    // Emit vote start event for visibility
+    this.eventBus?.publish('dog:vote:start', {
+      dogs: dogs.map(d => d.toLowerCase()),
+      mode: 'parallel',
+    }, { source: 'DogOrchestrator' });
+
     const promises = dogs.map(dog =>
       this._invokeDog(dog, item, injectedContext)
         .then(result => ({ dog, ...result, success: true }))
@@ -253,6 +284,16 @@ export class DogOrchestrator {
     return results.map(r => {
       const vote = r.status === 'fulfilled' ? r.value : { dog: 'unknown', error: r.reason?.message, success: false };
       this._recordVote(vote);
+
+      // Emit individual vote event for visibility
+      this.eventBus?.publish('dog:vote:cast', {
+        dogId: vote.dog?.toLowerCase(),
+        score: vote.score,
+        response: vote.response,
+        confidence: vote.confidence,
+        success: vote.success,
+      }, { source: 'DogOrchestrator' });
+
       return vote;
     });
   }
@@ -262,6 +303,12 @@ export class DogOrchestrator {
    * @private
    */
   async _runSequential(item, dogs, injectedContext) {
+    // Emit vote start event for visibility
+    this.eventBus?.publish('dog:vote:start', {
+      dogs: dogs.map(d => d.toLowerCase()),
+      mode: 'sequential',
+    }, { source: 'DogOrchestrator' });
+
     const votes = [];
 
     for (const dog of dogs) {
@@ -271,6 +318,15 @@ export class DogOrchestrator {
         this._recordVote(vote);
         votes.push(vote);
 
+        // Emit individual vote event for visibility
+        this.eventBus?.publish('dog:vote:cast', {
+          dogId: dog.toLowerCase(),
+          score: vote.score,
+          response: vote.response,
+          confidence: vote.confidence,
+          success: true,
+        }, { source: 'DogOrchestrator' });
+
         // Early exit on block
         if (vote.response === 'block' && DOG_CONFIG[dog]?.blocking) {
           break;
@@ -279,6 +335,13 @@ export class DogOrchestrator {
         const vote = { dog, error: err.message, success: false };
         this._recordVote(vote);
         votes.push(vote);
+
+        // Emit error vote event
+        this.eventBus?.publish('dog:vote:cast', {
+          dogId: dog.toLowerCase(),
+          success: false,
+          error: err.message,
+        }, { source: 'DogOrchestrator' });
       }
     }
 

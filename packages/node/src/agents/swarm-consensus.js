@@ -19,6 +19,7 @@
 import { PHI_INV, PHI_INV_2 } from '@cynic/core';
 import { DOG_CONFIG, DogModel } from './orchestrator.js';
 import { AgentId } from './events.js';
+import { getEventBus } from '../services/event-bus.js';
 
 /**
  * Consensus strategies
@@ -296,6 +297,9 @@ export class SwarmConsensus {
   constructor(options = {}) {
     this.config = { ...SWARM_CONFIG, ...options.config };
     this.orchestrator = options.orchestrator;
+
+    // Event bus for visibility
+    this.eventBus = options.eventBus || getEventBus();
 
     // Dog positions
     this.positions = new Map();
@@ -625,6 +629,15 @@ export class SwarmConsensus {
               history: record,
             });
             this.stats.conflictsDetected++;
+
+            // Emit conflict detected event for visibility
+            this.eventBus?.publish('conflict:detected', {
+              dogA: voteA.dog?.toLowerCase(),
+              dogB: voteB.dog?.toLowerCase(),
+              type: positionConflict ? 'position' : 'score',
+              scoreA: voteA.score,
+              scoreB: voteB.score,
+            }, { source: 'SwarmConsensus' });
           }
         } else {
           // Record agreement
@@ -652,6 +665,14 @@ export class SwarmConsensus {
       const resolved = this._resolveConflict(conflict, strategy, context);
       if (resolved) {
         this.stats.conflictsResolved++;
+
+        // Emit conflict resolved event for visibility
+        this.eventBus?.publish('conflict:resolved', {
+          dogA: conflict.dogs[0]?.toLowerCase(),
+          dogB: conflict.dogs[1]?.toLowerCase(),
+          winner: resolved.winner?.toLowerCase(),
+          resolution: strategy,
+        }, { source: 'SwarmConsensus' });
 
         // Update result based on resolution
         if (resolved.adjustedScore !== undefined) {

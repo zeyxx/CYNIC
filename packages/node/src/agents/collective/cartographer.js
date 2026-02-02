@@ -949,6 +949,172 @@ export class CollectiveCartographer extends BaseAgent {
     };
   }
 
+// =============================================================================
+  // SUPERMEMORY Enhancement Methods
+  // =============================================================================
+
+  /**
+   * Map local codebase using CodebaseIndexer (SUPERMEMORY enhancement)
+   *
+   * Indexes all JavaScript files in the current project and extracts
+   * dependencies for graph queries.
+   *
+   * @param {Object} options
+   * @param {string} options.rootDir - Root directory to index (default: cwd)
+   * @param {Object} options.factsRepo - FactsRepository for storage
+   * @param {boolean} options.extractDeps - Extract dependencies (default: true)
+   * @returns {Promise<Object>} Indexing results
+   */
+  async mapLocalCodebase(options = {}) {
+    const {
+      rootDir = process.cwd(),
+      factsRepo = null,
+      extractDeps = true,
+    } = options;
+
+    // Try to import CodebaseIndexer dynamically
+    let CodebaseIndexer;
+    try {
+      const mod = await import('@cynic/persistence/services/codebase-indexer');
+      CodebaseIndexer = mod.CodebaseIndexer || mod.default;
+    } catch (e) {
+      // Fallback: try relative import
+      try {
+        const mod = await import('../../../../persistence/src/services/codebase-indexer.js');
+        CodebaseIndexer = mod.CodebaseIndexer || mod.default;
+      } catch (e2) {
+        return { error: 'CodebaseIndexer not available', details: e2.message };
+      }
+    }
+
+    const indexer = new CodebaseIndexer({
+      factsRepo,
+      rootDir,
+      userId: 'cartographer',
+      sessionId: `carto-${Date.now()}`,
+      projectName: 'local',
+      onProgress: (progress) => {
+        // Store progress for status reporting
+        this._indexProgress = progress;
+      },
+    });
+
+    try {
+      const result = await indexer.indexAll({
+        extractDeps,
+        includeKeystone: true,
+      });
+
+      // Store reference to indexer for further queries
+      this._localIndexer = indexer;
+
+      return {
+        success: true,
+        filesIndexed: result.filesIndexed,
+        factsGenerated: result.factsGenerated,
+        dependenciesExtracted: result.dependenciesExtracted,
+        durationMs: result.timing?.durationMs,
+      };
+    } catch (e) {
+      return { error: e.message };
+    }
+  }
+
+  /**
+   * Find where a symbol is used across the codebase (SUPERMEMORY enhancement)
+   *
+   * @param {string} symbol - Symbol name (function, class, variable)
+   * @param {Object} options
+   * @param {number} options.maxResults - Maximum results (default: 20)
+   * @returns {Promise<Array>} Usage locations
+   */
+  async findSymbolUsage(symbol, options = {}) {
+    const { maxResults = 20 } = options;
+
+    if (!this._localIndexer) {
+      return { error: 'Call mapLocalCodebase() first' };
+    }
+
+    // Use the indexer's getReverseDependencies as a starting point
+    const usages = await this._localIndexer.getReverseDependencies(symbol);
+
+    return usages.slice(0, maxResults).map(u => ({
+      path: u.path,
+      fullPath: u.fullPath,
+      type: 'import',
+    }));
+  }
+
+  /**
+   * Get dependency tree for a file (SUPERMEMORY enhancement)
+   *
+   * @param {string} filePath - File path to analyze
+   * @param {Object} options
+   * @param {number} options.maxDepth - Maximum depth (default: 3)
+   * @returns {Promise<Object>} Dependency tree
+   */
+  async getDependencyTree(filePath, options = {}) {
+    const { maxDepth = 3 } = options;
+
+    if (!this._localIndexer) {
+      return { error: 'Call mapLocalCodebase() first' };
+    }
+
+    const result = await this._localIndexer.queryDependencyGraph(filePath, {
+      maxDepth,
+      direction: 'imports',
+    });
+
+    return result;
+  }
+
+  /**
+   * Get reverse dependencies (what depends on this file) (SUPERMEMORY enhancement)
+   *
+   * @param {string} filePath - File path to analyze
+   * @returns {Promise<Array>} Files that depend on this
+   */
+  async getFileDependents(filePath) {
+    if (!this._localIndexer) {
+      return { error: 'Call mapLocalCodebase() first' };
+    }
+
+    return this._localIndexer.getReverseDependencies(filePath);
+  }
+
+  /**
+   * Query the local dependency graph (SUPERMEMORY enhancement)
+   *
+   * @param {string} query - Symbol or file to search for
+   * @param {Object} options
+   * @returns {Promise<Object>} Graph result
+   */
+  async queryLocalGraph(query, options = {}) {
+    if (!this._localIndexer) {
+      return { error: 'Call mapLocalCodebase() first' };
+    }
+
+    return this._localIndexer.queryDependencyGraph(query, options);
+  }
+
+  /**
+   * Get a specific file's info (SUPERMEMORY enhancement)
+   *
+   * @param {string} query - File path or symbol
+   * @returns {Promise<Object|null>} File info
+   */
+  async getFileInfo(query) {
+    if (!this._localIndexer) {
+      return { error: 'Call mapLocalCodebase() first' };
+    }
+
+    return this._localIndexer.getFile(query);
+  }
+
+  // =============================================================================
+  // End SUPERMEMORY Enhancement Methods
+  // =============================================================================
+
   /**
    * Get agent summary
    * @returns {Object} Summary

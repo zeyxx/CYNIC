@@ -121,6 +121,13 @@ export class UnifiedOrchestrator extends EventEmitter {
 
     this.stats.eventsProcessed++;
 
+    // Emit orchestration start event for visibility
+    this.eventBus.publish('orchestration:start', {
+      decisionId: event.id,
+      eventType: event.eventType,
+      content: event.content?.substring(0, 100),
+    }, { source: 'UnifiedOrchestrator' });
+
     try {
       // 1. Load/cache user profile
       await this._loadUserProfile(event);

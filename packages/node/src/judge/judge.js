@@ -256,11 +256,13 @@ export class CYNICJudge {
         judgment.engineConsultation = consultation.toJSON();
 
         // Factor engine confidence into overall confidence
+        // CRITICAL: Enforce φ⁻¹ ceiling after blending (TIKKUN fix)
         if (consultation.confidence > 0) {
           const engineWeight = 0.2; // 20% weight for engine consensus
-          judgment.confidence =
+          const blendedConfidence =
             judgment.confidence * (1 - engineWeight) +
-            consultation.confidence * engineWeight;
+            Math.min(consultation.confidence, PHI_INV) * engineWeight; // Cap input
+          judgment.confidence = Math.min(blendedConfidence, PHI_INV); // Cap output
         }
 
         this.stats.engineConsultations++;
