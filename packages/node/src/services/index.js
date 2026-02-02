@@ -30,3 +30,20 @@ export {
   AutomationExecutor,
   createAutomationExecutor,
 } from './automation-executor.js';
+
+// Skeptic Service - Kabbalistic verification (TZIMTZUM → BERUR → TIKKUN)
+export {
+  SkepticService,
+  createSkepticService,
+  ClaimType,
+  VerificationStatus,
+  SkepticVerdict,
+} from './skeptic-service.js';
+
+// Orchestration Visibility - Real-time orchestration display
+export {
+  OrchestrationVisibility,
+  VisibilityLevel,
+  createOrchestrationVisibility,
+  getOrchestrationVisibility,
+} from './orchestration-visibility.js';
