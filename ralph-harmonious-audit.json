@@ -1,0 +1,2155 @@
+{
+  "timestamp": "2026-02-01T23:00:08.818Z",
+  "summary": {
+    "total": 111,
+    "burn": 0,
+    "preserve": 25,
+    "integrate": 52,
+    "review": 34,
+    "totalLines": 52651,
+    "burnLines": 0,
+    "preserveLines": 35060
+  },
+  "packages": {
+    "packages/persistence": {
+      "files": [
+        {
+          "path": "packages/persistence/src/batch-queue.js",
+          "lines": 304,
+          "purpose": "/** BatchQueue - Accumulates operations for batched execution v1.1: Reduces database round-trips by batching writes φ-derived thresholds: - Default batch size: 13 (Fibonacci) - Default flush interval:",
+          "exports": [
+            "DEFAULT_BATCH_CONFIG",
+            "BatchQueue",
+            "createTableBatchQueue",
+            "default"
+          ],
+          "potential": 2,
+          "potentialReasons": [
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/dag/cid.js",
+          "lines": 265,
+          "purpose": "/** Content Identifier (CID) Generation Generates IPFS-compatible CIDv1 identifiers for content-addressable storage. Uses SHA-256 hashing and base32 encoding. \"Every truth has an address\" - κυνικός /",
+          "exports": [
+            "createCID",
+            "parseCID",
+            "isValidCID",
+            "shardCID",
+            "createRawCID"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/persistence/src/dag/dag.js",
+          "lines": 578,
+          "purpose": "/** Merkle DAG Operations High-level API for content-addressable storage operations. Provides put, get, resolve, and traversal functionality. \"Truth is immutable, references are paths\" - κυνικός /",
+          "exports": [
+            "MerkleDAG",
+            "default"
+          ],
+          "potential": 2,
+          "potentialReasons": [
+            "Cryptographic functionality"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/dag/hamt.js",
+          "lines": 481,
+          "purpose": "/** HAMT Index Hash Array Mapped Trie for O(log n) key-value lookups in the content-addressable Merkle DAG. \"Every key leads to truth\" - κυνικός /",
+          "exports": [
+            "HAMTIndex",
+            "default"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Well-sized module"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/persistence/src/dag/node.js",
+          "lines": 393,
+          "purpose": "/** DAG Node Structure Defines the structure for Merkle DAG nodes with CBOR encoding. Each node contains data, links to other nodes, and metadata. \"Every node is a truth, every link a relationship\" - ",
+          "exports": [
+            "NodeType",
+            "DAGLink",
+            "DAGNode",
+            "createJudgmentNode",
+            "createBlockNode"
+          ],
+          "potential": 2,
+          "potentialReasons": [
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/dag/store.js",
+          "lines": 428,
+          "purpose": "/** Block Store Filesystem-based content-addressable block storage. Uses 2-character prefix sharding for scalability. \"Every block finds its place\" - κυνικός /",
+          "exports": [
+            "BlockStore",
+            "default"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Well-sized module"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/persistence/src/factory.js",
+          "lines": 227,
+          "purpose": "/** Repository Factory - Dependency Injection for Persistence Creates repository instances with injected database connections. Enables testing with mocks and swapping backends. \"The kennel that builds",
+          "exports": [
+            "RepositoryFactory",
+            "createMockFactory",
+            "default"
+          ],
+          "potential": 1,
+          "potentialReasons": [
+            "Well-sized module"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/fallback-factory.js",
+          "lines": 298,
+          "purpose": "/** Fallback Repository Factory - Automatic Backend Selection Provides seamless fallback from PostgreSQL to SQLite when: - PostgreSQL is unavailable (offline, connection error) - Running in edge/local",
+          "exports": [
+            "BackendType",
+            "FallbackRepositoryFactory",
+            "createFallbackFactory",
+            "default"
+          ],
+          "potential": 2,
+          "potentialReasons": [
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/graph/graph.js",
+          "lines": 725,
+          "purpose": "/** Graph Overlay High-level API for the relationship graph with queries and patterns. \"Relationships define truth\" - κυνικός /",
+          "exports": [
+            "GraphOverlay",
+            "default"
+          ],
+          "potential": 0,
+          "potentialReasons": [],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/graph/store.js",
+          "lines": 597,
+          "purpose": "/** Graph Store Storage layer for graph nodes and edges with adjacency lists. Integrates with Merkle DAG for content-addressable persistence. \"Every node finds its neighbors\" - κυνικός /",
+          "exports": [
+            "GraphStore",
+            "default"
+          ],
+          "potential": 0,
+          "potentialReasons": [],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/graph/traversal.js",
+          "lines": 534,
+          "purpose": "/** Graph Traversal Algorithms BFS, DFS, shortest path, and φ-weighted influence paths. \"Every path reveals truth\" - κυνικός /",
+          "exports": [
+            "TraversalResult",
+            "GraphTraversal",
+            "default"
+          ],
+          "potential": 0,
+          "potentialReasons": [],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/graph/types.js",
+          "lines": 570,
+          "purpose": "/** Graph Overlay Types Node types, edge types, and φ-weights for the relationship graph. \"Relationships define truth\" - κυνικός /",
+          "exports": [
+            "GraphNodeType",
+            "NodeSchemas",
+            "GraphEdgeType",
+            "EdgeSpecs",
+            "GraphNode"
+          ],
+          "potential": 1,
+          "potentialReasons": [
+            "Rich API surface"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/interfaces/ISearchable.js",
+          "lines": 117,
+          "purpose": "/** Searchable Interface Defines standard search operations for repositories that support full-text or semantic search. LSP Compliance: All searchable repositories MUST implement search() with the sta",
+          "exports": [
+            "Searchable",
+            "makeSearchable",
+            "default"
+          ],
+          "potential": 2,
+          "potentialReasons": [
+            "Cryptographic functionality"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/poj/block.js",
+          "lines": 527,
+          "purpose": "/** PoJ Block Structure Defines the block structure for the Proof of Judgment chain. Each block contains judgments, links to previous block, and attestations. \"The chain remembers what dogs forget\" - ",
+          "exports": [
+            "computeMerkleRoot",
+            "PoJBlockHeader",
+            "Attestation",
+            "JudgmentRef",
+            "PoJBlock"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/persistence/src/poj/chain.js",
+          "lines": 826,
+          "purpose": "/** PoJ Chain Manager Manages the Proof of Judgment blockchain with φ-timed slots, block production, and chain state. \"Every judgment is recorded, every truth is chained\" - κυνικός /",
+          "exports": [
+            "PoJChain",
+            "default"
+          ],
+          "potential": 2,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Service architecture",
+            "Too large, needs refactor"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/postgres/repositories/orchestration-decisions.js",
+          "lines": 281,
+          "purpose": "/** OrchestrationDecisionRepository - Persists orchestration decisions Stores full DecisionEvent data for: - Learning from routing outcomes - Analyzing which domains work best - Correlating judgments ",
+          "exports": [
+            "OrchestrationDecisionRepository",
+            "createOrchestrationDecisionRepository",
+            "default"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Well-sized module"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/persistence/src/postgres/repositories/session-patterns.js",
+          "lines": 226,
+          "purpose": "/** Session Patterns Repository Cross-session persistence for patterns detected by Observer and Digester hooks. Enables CYNIC to remember what it learned in previous sessions. /",
+          "exports": [
+            "SessionPatternsRepository",
+            "createSessionPatternsRepository"
+          ],
+          "potential": 1,
+          "potentialReasons": [
+            "Well-sized module"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/postgres/repositories/trajectories.js",
+          "lines": 499,
+          "purpose": "/** Trajectories Repository (M3 - ReasoningBank) Stores reasoning trajectories: State → Action → Outcome → Reward Enables success replay and trajectory learning. Inspired by Claude-flow SAFLA's Reason",
+          "exports": [
+            "TrajectoryOutcome",
+            "TrajectoriesRepository",
+            "default"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Well-sized module"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/persistence/src/postgres/repositories/user-preferences.js",
+          "lines": 448,
+          "purpose": "/** User Preferences Repository Manages user preferences for judgment, automation, and UI settings. Preferences persist across sessions and support history tracking. φ-aligned defaults: - judgment_str",
+          "exports": [
+            "UserPreferencesRepository",
+            "default"
+          ],
+          "potential": 1,
+          "potentialReasons": [
+            "Well-sized module"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/postgres/repositories/x-data.js",
+          "lines": 725,
+          "purpose": "/** X/Twitter Data Repository Storage for captured X/Twitter data from local proxy. Supports users, tweets, feeds, trends, and sync status. \"CYNIC sees what you see\" - κυνικός /",
+          "exports": [
+            "XDataRepository",
+            "default"
+          ],
+          "potential": 2,
+          "potentialReasons": [
+            "Cryptographic functionality"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/redis/session-store.js",
+          "lines": 179,
+          "purpose": "/** Session Store - Multi-user Session Management Manages isolated user sessions with φ-derived TTLs. Sessions persist across conversation restarts but expire naturally. /",
+          "exports": [
+            "SessionStore",
+            "default"
+          ],
+          "potential": 0,
+          "potentialReasons": [],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/services/burn-analyzer.js",
+          "lines": 595,
+          "purpose": "/** Burn Analyzer Service Vision → Compréhension → Burn Combines: - SUPERMEMORY (dependency graph data) - Static analysis (metrics, orphans, hotspots) - LLM comprehension (intent, meaning, judgment) \"",
+          "exports": [
+            "BurnVerdict",
+            "BurnAnalyzer",
+            "createBurnAnalyzer",
+            "default"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/persistence/src/services/burnout-detection.js",
+          "lines": 916,
+          "purpose": "/** Burnout Detection Service v1.1: Tracks psychology over time, detects trends, generates proactive warnings. φ-derived thresholds: - Risk threshold: 0.618 (φ⁻¹) - burnout risk warning - Critical thr",
+          "exports": [
+            "WarningSeverity",
+            "WarningType",
+            "DEFAULT_BURNOUT_CONFIG",
+            "BurnoutDetection",
+            "createBurnoutDetection"
+          ],
+          "potential": 1,
+          "potentialReasons": [
+            "Rich API surface",
+            "Service architecture",
+            "Too large, needs refactor"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/services/ewc-consolidation.js",
+          "lines": 492,
+          "purpose": "/** EWC++ Knowledge Retention Service Implements Elastic Weight Consolidation++ to prevent catastrophic forgetting. Patterns that prove valuable are \"locked\" to preserve learned knowledge. Key concept",
+          "exports": [
+            "EWCConsolidationService",
+            "createEWCService",
+            "default"
+          ],
+          "potential": 2,
+          "potentialReasons": [
+            "Well-sized module",
+            "Service architecture"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/services/fact-extractor.js",
+          "lines": 487,
+          "purpose": "/** Fact Extractor Service (M2) Auto-extracts facts from tool outputs. Inspired by MoltBrain's fact extraction pipeline. Extraction patterns: - File discoveries (Read, Glob results) - API patterns (We",
+          "exports": [
+            "FactExtractor",
+            "createFactExtractor",
+            "default"
+          ],
+          "potential": 2,
+          "potentialReasons": [
+            "Well-sized module",
+            "Service architecture"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/services/memory-consolidation.js",
+          "lines": 558,
+          "purpose": "/** Memory Consolidation Service v1.1: Merges similar memories, prunes low-value ones, applies φ-weighted importance. Like sleep consolidation in human memory - strengthens important memories, merges ",
+          "exports": [
+            "DEFAULT_CONSOLIDATION_CONFIG",
+            "MemoryConsolidation",
+            "createMemoryConsolidation",
+            "default"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/persistence/src/services/pattern-learning.js",
+          "lines": 728,
+          "purpose": "/** Pattern Learning Service v1.1: Auto-extracts patterns from judgments, applies confidence decay, and clusters similar patterns. φ-derived thresholds: - Extraction threshold: 0.618 (φ⁻¹) - minimum j",
+          "exports": [
+            "DEFAULT_PATTERN_CONFIG",
+            "PatternLearning",
+            "createPatternLearning",
+            "default"
+          ],
+          "potential": 2,
+          "potentialReasons": [
+            "Rich API surface",
+            "Service architecture"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/services/reasoning-bank.js",
+          "lines": 532,
+          "purpose": "/** ReasoningBank Service (M3) Stores and replays successful reasoning trajectories. Inspired by Claude-flow SAFLA's ReasoningBank. Features: - Trajectory storage (State → Action → Outcome → Reward) -",
+          "exports": [
+            "ReasoningBank",
+            "createReasoningBank",
+            "default"
+          ],
+          "potential": 1,
+          "potentialReasons": [
+            "Service architecture"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/sqlite/LocalPrivacyStore.js",
+          "lines": 839,
+          "purpose": "/** Local Privacy Store (SQLite) Unified local-first storage for ALL privacy-sensitive data: - E-Score & Burns (personal contribution metrics) - Learning Profiles (calibration, feedback history) - Psy",
+          "exports": [
+            "SyncStatus",
+            "LocalPrivacyStore",
+            "default"
+          ],
+          "potential": 1,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Too large, needs refactor"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/sqlite/LocalXStore.js",
+          "lines": 720,
+          "purpose": "/** Local X/Twitter Data Store (SQLite) Privacy-first local storage for X data. All captured data stays here by default. User explicitly chooses what to sync to cloud. \"Your data, your device, your ch",
+          "exports": [
+            "LocalXStore",
+            "default"
+          ],
+          "potential": 2,
+          "potentialReasons": [
+            "Cryptographic functionality"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/vector/hnsw.js",
+          "lines": 832,
+          "purpose": "/** HNSW - Hierarchical Navigable Small World Graph Fast approximate nearest neighbor search for vector embeddings. Based on the paper: \"Efficient and robust approximate nearest neighbor search using ",
+          "exports": [
+            "HNSW_CONFIG",
+            "HNSWNode",
+            "HNSWIndex",
+            "createHNSWIndex",
+            "default"
+          ],
+          "potential": 0,
+          "potentialReasons": [
+            "Rich API surface",
+            "Too large, needs refactor"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/persistence/src/vector/semantic-patterns.js",
+          "lines": 594,
+          "purpose": "/** Semantic Pattern Matcher - V3 Integration Bridges VectorStore with CYNIC's pattern detection system. Enables finding patterns by meaning, not just keywords. \"Similar problems have similar patterns",
+          "exports": [
+            "SEMANTIC_PATTERN_CONFIG",
+            "SemanticPattern",
+            "PatternCluster",
+            "SemanticPatternMatcher",
+            "createSemanticPatternMatcher"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/persistence/src/vector/store.js",
+          "lines": 392,
+          "purpose": "/** VectorStore - High-Level Semantic Search API Combines embeddings (text → vectors) with HNSW (fast similarity search) to provide complete semantic memory capabilities. \"Memory needs meaning\" - κυνι",
+          "exports": [
+            "VECTOR_STORE_CONFIG",
+            "VectorStore",
+            "createVectorStore",
+            "getVectorStore",
+            "default"
+          ],
+          "potential": 2,
+          "potentialReasons": [
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        }
+      ],
+      "summary": {
+        "burn": 0,
+        "preserve": 0,
+        "integrate": 9,
+        "review": 24,
+        "lines": 16913
+      }
+    },
+    "packages/node": {
+      "files": [
+        {
+          "path": "packages/node/src/components/consensus-component.js",
+          "lines": 343,
+          "purpose": "/** ConsensusComponent - φ-BFT Consensus Domain Encapsulates φ-BFT consensus engine, block production, and validator management. Part of CYNICNode decomposition (Phase 2, #31). \"61.8% supermajority\" -",
+          "exports": [
+            "ConsensusComponent",
+            "default"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Well-sized module"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/components/emergence-component.js",
+          "lines": 395,
+          "purpose": "/** EmergenceComponent - Emergence & Consciousness Domain Encapsulates EmergenceLayer, collective pack, shared memory, and consciousness. Part of CYNICNode decomposition (Phase 2, #32). \"The crown obs",
+          "exports": [
+            "EmergenceComponent",
+            "default"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Well-sized module",
+            "Service architecture"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Consciousness architecture"
+        },
+        {
+          "path": "packages/node/src/components/judge-component.js",
+          "lines": 321,
+          "purpose": "/** JudgeComponent - Judgment Domain Encapsulates CYNICJudge, ResidualDetector, and LearningService. Part of CYNICNode decomposition (Phase 2, #28). \"Judge with wisdom, learn from error\" - κυνικός /",
+          "exports": [
+            "JudgeComponent",
+            "default"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Well-sized module",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/components/operator-component.js",
+          "lines": 341,
+          "purpose": "/** OperatorComponent - Node Operator Domain Encapsulates operator identity, E-Score management, and burn verification. Part of CYNICNode decomposition (Phase 2, #27). \"The operator is the soul of the",
+          "exports": [
+            "OperatorComponent",
+            "default"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Well-sized module"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/components/state-component.js",
+          "lines": 235,
+          "purpose": "/** StateComponent - State Management Domain Encapsulates StateManager, persistence, chain, and knowledge tree. Part of CYNICNode decomposition (Phase 2, #29). \"State is memory, memory is wisdom\" - κυ",
+          "exports": [
+            "StateComponent",
+            "default"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Well-sized module",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/components/transport-component.js",
+          "lines": 384,
+          "purpose": "/** TransportComponent - P2P Networking Domain Encapsulates WebSocket transport, peer management, and gossip protocol wiring. Part of CYNICNode decomposition (Phase 2, #30). \"Nodes talk to nodes\" - κυ",
+          "exports": [
+            "TransportComponent",
+            "default"
+          ],
+          "potential": 1,
+          "potentialReasons": [
+            "Well-sized module"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/node/src/judge/graph-integration.js",
+          "lines": 502,
+          "purpose": "/** Graph-Judgment Integration Connects the judgment engine to the relationship graph. Every judgment creates a JUDGED edge, forming the corpus callosum. \"Judgments without relationships are just opin",
+          "exports": [
+            "JudgmentGraphIntegration",
+            "default"
+          ],
+          "potential": 1,
+          "potentialReasons": [
+            "Service architecture"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/node/src/judge/learning-manager.js",
+          "lines": 543,
+          "purpose": "/** Learning Manager - Unified Learning System Integrates all learning components: - LearningService (core RLHF feedback loop) - E-Score history tracking - Pattern evolution and fusion - User learning",
+          "exports": [
+            "LearningManager",
+            "default"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/learning/meta-cognition.js",
+          "lines": 647,
+          "purpose": "/** MetaCognition - Self-monitoring and strategy switching Implements meta-cognitive layer for CYNIC: - Self-monitoring of performance - Stuck state detection - Automatic strategy switching - Performa",
+          "exports": [
+            "CognitiveState",
+            "StrategyType",
+            "META_CONFIG",
+            "ActionRecord",
+            "StrategyRecord"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/memory/tiered-memory.js",
+          "lines": 995,
+          "purpose": "/** CYNIC 4-Tier Memory Architecture Implements Vector/Episodic/Semantic/Working memory hierarchy. Each tier has different retrieval strategies and retention policies. \"La mémoire à quatre niveaux\" - ",
+          "exports": [
+            "MEMORY_CONFIG",
+            "MemoryItem",
+            "VectorMemory",
+            "Episode",
+            "EpisodicMemory"
+          ],
+          "potential": 2,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Too large, needs refactor"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/node/src/orchestration/decision-event.js",
+          "lines": 551,
+          "purpose": "/** DecisionEvent - Unified Event Model for Orchestration A standardized event that flows through ALL orchestration layers: - Hooks (perceive, guard, observe) - KETER (routing) - Dogs (voting) - Engin",
+          "exports": [
+            "DecisionStage",
+            "DecisionOutcome",
+            "EventSource",
+            "DecisionEvent",
+            "createFromHook"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/orchestration/decision-tracer.js",
+          "lines": 434,
+          "purpose": "/** DecisionTracer - Decision Path Recording and Visualization Records all orchestration decisions for: - Debugging: See exactly what happened - Learning: Feed outcomes to improve - Transparency: Show",
+          "exports": [
+            "StorageMode",
+            "DecisionTracer",
+            "createDecisionTracer",
+            "default"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Rich API surface",
+            "Well-sized module",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/orchestration/mcp-instructions.js",
+          "lines": 429,
+          "purpose": "/** MCP Instructions - Custom instructions per MCP server Loads configurable instructions from mcp-instructions.json and injects them into context based on server usage. P3.2: Allow MCP servers to pro",
+          "exports": [
+            "MCP_INSTRUCTIONS_CONFIG",
+            "ServerInstructions",
+            "MCPInstructions",
+            "createMCPInstructions",
+            "getMCPInstructions"
+          ],
+          "potential": 5,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/orchestration/q-learning-router.js",
+          "lines": 776,
+          "purpose": "/** CYNIC Q-Learning Router Replaces rule-based routing with learned routing. Tracks dog success/failure per task type and updates routing weights. \"Le chien apprend qui appeler\" - CYNIC learns who to",
+          "exports": [
+            "Q_CONFIG",
+            "StateFeatures",
+            "Actions",
+            "QTable",
+            "QLearningRouter"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/orchestration/routing-config.js",
+          "lines": 291,
+          "purpose": "/** KETER Routing Configuration Centralized configuration for Sefirot routing. Used by UnifiedOrchestrator and MCP orchestration tools. \"φ routes to the right Sefirah\" - κυνικός /",
+          "exports": [
+            "SEFIROT_ROUTING",
+            "TRUST_THRESHOLDS",
+            "calculateTrustLevel",
+            "RISK_INTERVENTIONS",
+            "determineIntervention"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/orchestration/security-audit.js",
+          "lines": 778,
+          "purpose": "/** SecurityAuditTrail - Persistent security audit logging Records all permission requests/responses and security-relevant events for compliance, learning, and threat detection. P3.3: Complete securit",
+          "exports": [
+            "AuditEventType",
+            "SensitivityLevel",
+            "AUDIT_CONFIG",
+            "AuditEvent",
+            "SecurityAuditTrail"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/orchestration/skill-activator.js",
+          "lines": 623,
+          "purpose": "/** SkillActivator - Auto-activation of skills via rules.json Loads configurable rules from skill-rules.json and activates skills based on keyword matching, regex patterns, and context. P3.1: External",
+          "exports": [
+            "ACTIVATOR_CONFIG",
+            "SkillMatch",
+            "SkillActivator",
+            "createSkillActivator",
+            "getSkillActivator"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/orchestration/skill-registry.js",
+          "lines": 347,
+          "purpose": "/** SkillRegistry - Skill-to-Domain Mapping and Auto-Invocation Maps KETER routing decisions to skills and auto-invokes them. Bridges the gap between routing (what domain) and execution (which skill).",
+          "exports": [
+            "SkillRegistry",
+            "createSkillRegistry",
+            "default"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Well-sized module",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/orchestration/unified-orchestrator.js",
+          "lines": 667,
+          "purpose": "/** UnifiedOrchestrator - Central Coordination Facade Single entry point for ALL orchestration in CYNIC: - Receives events from hooks, skills, MCP tools, API - Routes through KETER for initial decisio",
+          "exports": [
+            "UnifiedOrchestrator",
+            "createUnifiedOrchestrator",
+            "getOrchestrator",
+            "default"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/privacy/aggregator.js",
+          "lines": 525,
+          "purpose": "/** Transforms local data → committed (hashes) → public (noised). The key to collective learning without individual exposure. \"φ distrusts φ\" - κυνικός /",
+          "exports": [
+            "AGGREGATOR_CONSTANTS",
+            "DataTier",
+            "goldenAngleHash",
+            "ContributionMeta",
+            "PrivacyAggregator"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/privacy/commitments.js",
+          "lines": 386,
+          "purpose": "/** Pedersen-style commitment scheme for privacy-preserving profile contributions. Allows proving properties about data without revealing the data itself. \"φ distrusts φ\" - κυνικός /",
+          "exports": [
+            "COMMITMENT_CONSTANTS",
+            "generateBlindingFactor",
+            "commit",
+            "verify",
+            "ProfileCommitment"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/privacy/differential.js",
+          "lines": 399,
+          "purpose": "/** ε-differential privacy for pattern aggregation. Guarantees that removing any single user doesn't significantly change output. \"φ distrusts φ\" - κυνικός /",
+          "exports": [
+            "PRIVACY_CONSTANTS",
+            "laplacianNoise",
+            "gaussianNoise",
+            "DifferentialPrivacy",
+            "PrivatePatternAggregator"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/services/automation-executor.js",
+          "lines": 857,
+          "purpose": "/** CYNIC Automation Executor Scheduled execution of automated tasks: - Learning cycles (every 5 minutes - Fibonacci) - Trigger evaluation (every 1 minute) - Cleanup tasks (every 13 minutes - Fibonacc",
+          "exports": [
+            "AutomationExecutor",
+            "createAutomationExecutor",
+            "default"
+          ],
+          "potential": 0,
+          "potentialReasons": [
+            "Service architecture",
+            "Too large, needs refactor"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/node/src/services/autonomous-daemon.js",
+          "lines": 560,
+          "purpose": "/** Autonomous Daemon Service Background daemon that runs autonomously, processing tasks, tracking goals, performing self-correction, and generating notifications. Uses Fibonacci timing for checks: 1,",
+          "exports": [
+            "registerTaskHandler",
+            "AutonomousDaemon",
+            "createAutonomousDaemon",
+            "default"
+          ],
+          "potential": 2,
+          "potentialReasons": [
+            "Rich API surface",
+            "Service architecture"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/node/src/services/skeptic-service.js",
+          "lines": 721,
+          "purpose": "/** Skeptic Service - The Path Between Binah and Gevurah Implements the Kabbalistic verification process: TZIMTZUM (צמצום) → BERUR (בירור) → TIKKUN (תיקון) Contraction    →  Clarification →  Repair \"ג",
+          "exports": [
+            "ClaimType",
+            "VerificationStatus",
+            "SkepticVerdict",
+            "SkepticService",
+            "createSkepticService"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/node/src/transport/discovery.js",
+          "lines": 454,
+          "purpose": "/** Peer Discovery Simple peer discovery mechanism using: 1. Seed nodes (bootstrap list) 2. Peer exchange (share known peers) 3. Periodic reconnection attempts \"The pack finds each other\" - κυνικός /",
+          "exports": [
+            "DEFAULT_SEED_NODES",
+            "DiscoveryState",
+            "PeerDiscovery",
+            "default"
+          ],
+          "potential": 5,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        }
+      ],
+      "summary": {
+        "burn": 0,
+        "preserve": 1,
+        "integrate": 20,
+        "review": 5,
+        "lines": 13504
+      }
+    },
+    "packages/protocol": {
+      "files": [
+        {
+          "path": "packages/protocol/src/consensus/engine.js",
+          "lines": 1097,
+          "purpose": "/** φ-BFT Consensus Engine Main orchestrator for CYNIC consensus: - Slot-based block production - Vote collection and verification - φ exponential lockout - Block finality (61.8% supermajority) /",
+          "exports": [
+            "ConsensusState",
+            "BlockStatus",
+            "ConsensusEngine",
+            "createConsensusVoteMessage",
+            "createBlockProposalMessage"
+          ],
+          "potential": 6,
+          "potentialReasons": [
+            "Solana integration (future roadmap)",
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Service architecture",
+            "Too large, needs refactor"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Solana roadmap"
+        },
+        {
+          "path": "packages/protocol/src/consensus/finality.js",
+          "lines": 321,
+          "purpose": "/** Finality Gadget Provides deterministic finality for φ-BFT consensus A block is final when: 1. It has φ⁻¹ (61.8%) supermajority approval 2. Sufficient confirmations have passed (lockout accumulated",
+          "exports": [
+            "FinalityStatus",
+            "calculateFinalityProbability",
+            "estimateTimeToFinality",
+            "checkForkPossibility",
+            "FinalityTracker"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/protocol/src/consensus/gossip-bridge.js",
+          "lines": 1071,
+          "purpose": "/** Consensus-Gossip Bridge Integrates the ConsensusEngine with the GossipProtocol for distributed block proposal, voting, and finality. Flow: 1. ConsensusEngine emits events (block:proposed, vote:cas",
+          "exports": [
+            "ConsensusGossip",
+            "default"
+          ],
+          "potential": 5,
+          "potentialReasons": [
+            "Solana integration (future roadmap)",
+            "Cryptographic functionality",
+            "Service architecture",
+            "Too large, needs refactor"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Solana roadmap"
+        },
+        {
+          "path": "packages/protocol/src/consensus/lockout.js",
+          "lines": 270,
+          "purpose": "/** Exponential Lockout φ-based lockout for vote finality If you vote for block X at slot S: - You cannot vote against X for φⁿ slots - n = number of successive confirmations /",
+          "exports": [
+            "VoterLockout",
+            "LockoutManager",
+            "calculateTotalLockout",
+            "confirmationsForLockout",
+            "default"
+          ],
+          "potential": 5,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/protocol/src/consensus/merkle-state.js",
+          "lines": 319,
+          "purpose": "/** Consensus Merkle State Tree Merkle tree for efficient O(log n) state diff detection during gossip sync. Inspired by Claude Flow's gossip coordinator which uses \"Merkle tree comparison for efficien",
+          "exports": [
+            "ConsensusStateTree",
+            "createStateTree",
+            "default"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Well-sized module"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/protocol/src/consensus/messages.js",
+          "lines": 339,
+          "purpose": "/** Consensus Message Types Defines message formats for φ-BFT consensus protocol Message flow: 1. Leader proposes block (BLOCK_PROPOSAL) 2. Validators vote (VOTE) 3. Votes aggregated (VOTE_AGGREGATE) ",
+          "exports": [
+            "ConsensusMessageType",
+            "createBlockProposal",
+            "createVoteMessage",
+            "createVoteAggregate",
+            "createFinalityNotification"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/protocol/src/consensus/proposal.js",
+          "lines": 293,
+          "purpose": "/** Governance Proposals Proposals for hard consensus decisions /",
+          "exports": [
+            "ProposalAction",
+            "ProposalStatus",
+            "generateProposalId",
+            "createProposal",
+            "verifyProposal"
+          ],
+          "potential": 7,
+          "potentialReasons": [
+            "Solana integration (future roadmap)",
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Solana roadmap"
+        },
+        {
+          "path": "packages/protocol/src/consensus/slot.js",
+          "lines": 323,
+          "purpose": "/** Slot Manager Manages time-based slots for φ-BFT consensus Slot timing: - Default slot duration: 400ms (Fibonacci: 0.4s ≈ F(8)/1000) - Epoch = 432 slots (φ * F(13) = 1.618 * 233 ≈ 377, rounded to 4",
+          "exports": [
+            "SLOT_DURATION_MS",
+            "SLOTS_PER_EPOCH",
+            "EPOCH_DURATION_MS",
+            "getCurrentSlot",
+            "getEpochForSlot"
+          ],
+          "potential": 5,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/protocol/src/consensus/voting.js",
+          "lines": 228,
+          "purpose": "/** φ-BFT Voting Vote weighting and consensus threshold calculations /",
+          "exports": [
+            "VoteType",
+            "ConsensusType",
+            "calculateVoteWeight",
+            "generateVoteId",
+            "createVote"
+          ],
+          "potential": 7,
+          "potentialReasons": [
+            "Solana integration (future roadmap)",
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Solana roadmap"
+        },
+        {
+          "path": "packages/protocol/src/crypto/signature.js",
+          "lines": 123,
+          "purpose": "/** Ed25519 Signature Utilities Cryptographic signing for block verification /",
+          "exports": [
+            "generateKeypair",
+            "signData",
+            "verifySignature",
+            "signBlock",
+            "verifyBlock"
+          ],
+          "potential": 6,
+          "potentialReasons": [
+            "Solana integration (future roadmap)",
+            "Cryptographic functionality",
+            "Rich API surface"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Solana roadmap"
+        },
+        {
+          "path": "packages/protocol/src/gossip/message.js",
+          "lines": 536,
+          "purpose": "/** Gossip Message Types Protocol messages for gossip propagation /",
+          "exports": [
+            "MessageType",
+            "generateMessageId",
+            "createMessage",
+            "verifyMessage",
+            "shouldRelay"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/protocol/src/gossip/peer.js",
+          "lines": 376,
+          "purpose": "/** Peer Management Track and manage gossip peers /",
+          "exports": [
+            "PeerStatus",
+            "createPeerInfo",
+            "PeerManager",
+            "default"
+          ],
+          "potential": 8,
+          "potentialReasons": [
+            "Solana integration (future roadmap)",
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module",
+            "Service architecture"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Solana roadmap"
+        },
+        {
+          "path": "packages/protocol/src/gossip/propagation.js",
+          "lines": 619,
+          "purpose": "/** Gossip Propagation Push-pull hybrid propagation with Fibonacci fanout /",
+          "exports": [
+            "GossipProtocol",
+            "default"
+          ],
+          "potential": 6,
+          "potentialReasons": [
+            "Solana integration (future roadmap)",
+            "Cryptographic functionality",
+            "Service architecture"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Solana roadmap"
+        },
+        {
+          "path": "packages/protocol/src/merkle/pattern.js",
+          "lines": 220,
+          "purpose": "/** Pattern Management Patterns are validated knowledge that emerge from multiple sources /",
+          "exports": [
+            "generatePatternId",
+            "generateLearningId",
+            "createPattern",
+            "createLearning",
+            "validatePatternEmergence"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/protocol/src/merkle/tree.js",
+          "lines": 403,
+          "purpose": "/** Merkle Knowledge Tree Merkle tree for pattern and learning storage Partitioned by axiom (PHI, VERIFY, CULTURE, BURN) /",
+          "exports": [
+            "MerkleTree",
+            "KnowledgeTree",
+            "default"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Well-sized module"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/protocol/src/poj/block.js",
+          "lines": 286,
+          "purpose": "/** Proof of Judgment - Block Management Block creation, validation, and chain management /",
+          "exports": [
+            "BlockType",
+            "calculateSlot",
+            "slotToTimestamp",
+            "createGenesisBlock",
+            "createJudgmentBlock"
+          ],
+          "potential": 7,
+          "potentialReasons": [
+            "Solana integration (future roadmap)",
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Solana roadmap"
+        },
+        {
+          "path": "packages/protocol/src/poj/chain.js",
+          "lines": 326,
+          "purpose": "/** Proof of Judgment - Chain Management SHA-256 chain for verifiable judgment history /",
+          "exports": [
+            "PoJChain",
+            "default"
+          ],
+          "potential": 6,
+          "potentialReasons": [
+            "Solana integration (future roadmap)",
+            "Cryptographic functionality",
+            "Well-sized module"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Solana roadmap"
+        },
+        {
+          "path": "packages/protocol/src/poj/judgment.js",
+          "lines": 224,
+          "purpose": "/** Proof of Judgment - Judgment Creation Create and validate judgments for the chain /",
+          "exports": [
+            "Verdict",
+            "scoreToVerdict",
+            "generateJudgmentId",
+            "createJudgment",
+            "validateJudgment"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        }
+      ],
+      "summary": {
+        "burn": 0,
+        "preserve": 9,
+        "integrate": 9,
+        "review": 0,
+        "lines": 7374
+      }
+    },
+    "packages/core": {
+      "files": [
+        {
+          "path": "packages/core/src/boot/providers/engines.js",
+          "lines": 184,
+          "purpose": "/** Engine System Provider Provides the 73 philosophical engines as a bootable component. Auto-discovers and loads all engines during initialization. \"The wisdom pack awakens\" - κυνικός /",
+          "exports": [
+            "createEngineRegistryProvider",
+            "createEngineOrchestratorProvider",
+            "createEnginesProvider"
+          ],
+          "potential": 0,
+          "potentialReasons": [],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/core/src/bus/connector.js",
+          "lines": 225,
+          "purpose": "/** CYNIC Bus Connector Connects local EventEmitters to the global CYNICEventBus. Allows gradual migration without breaking existing code. \"All dogs speak to the pack\" - κυνικός /",
+          "exports": [
+            "EVENT_NAMESPACES",
+            "connectToBus",
+            "withBusConnectivity",
+            "createBusEmitter",
+            "subscribeToComponent"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Rich API surface",
+            "Well-sized module",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/core/src/bus/event-bus.js",
+          "lines": 345,
+          "purpose": "/** CYNIC Event Bus Unified event system for inter-layer communication. All components can emit and subscribe to typed events. \"The pack communicates as one\" - κυνικός /",
+          "exports": [
+            "EventType",
+            "CYNICEvent",
+            "CYNICEventBus",
+            "globalEventBus",
+            "publish"
+          ],
+          "potential": 5,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/core/src/bus/interfaces.js",
+          "lines": 333,
+          "purpose": "/** CYNIC Service Interfaces Abstract interfaces following SOLID principles: - D: Dependency Inversion (depend on abstractions) - I: Interface Segregation (small, focused interfaces) - L: Liskov Subst",
+          "exports": [
+            "IRepository",
+            "ICache",
+            "IEventBus",
+            "IEngine",
+            "IScorer"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Rich API surface",
+            "Well-sized module",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/core/src/bus/service-registry.js",
+          "lines": 332,
+          "purpose": "/** CYNIC Service Registry Central registry for service discovery following SOLID principles: - D: Dependency Inversion - services register by interface, not implementation - S: Single Responsibility ",
+          "exports": [
+            "ServiceRegistry",
+            "globalServiceRegistry",
+            "registerService",
+            "getService"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Rich API surface",
+            "Well-sized module",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/core/src/circuit-breaker.js",
+          "lines": 617,
+          "purpose": "/** CircuitBreaker - Resilience Pattern for Service Protection Prevents cascade failures by stopping requests to failing services. φ-derived thresholds for graceful degradation. States: - CLOSED: Norm",
+          "exports": [
+            "CircuitState",
+            "DEFAULT_CIRCUIT_CONFIG",
+            "CircuitBreaker",
+            "withCircuitBreaker",
+            "createCircuitBreaker"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/core/src/container.js",
+          "lines": 298,
+          "purpose": "/** Service Container - Dependency Injection for CYNIC Enables loose coupling between components. Hooks, Node, MCP can all share the same container pattern. \"The spine that connects all organs\" - κυνι",
+          "exports": [
+            "ServiceContainer",
+            "globalContainer",
+            "createCYNICContainer",
+            "withContainer",
+            "default"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Rich API surface",
+            "Well-sized module",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/core/src/crypto-utils.js",
+          "lines": 79,
+          "purpose": "/** CYNIC Cryptographic Utilities Secure random generation for IDs, nonces, and tokens. Uses crypto.randomBytes() instead of Math.random(). /",
+          "exports": [
+            "secureRandom",
+            "secureRandomHex",
+            "secureRandomBase36",
+            "secureId",
+            "secureNonce"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/core/src/engines/orchestrator.js",
+          "lines": 521,
+          "purpose": "/** Engine Orchestrator Coordinates multiple engines for complex queries requiring multiple perspectives. Synthesizes insights from different domains into coherent conclusions. \"The pack hunts togethe",
+          "exports": [
+            "SynthesisStrategy",
+            "EngineOrchestrator",
+            "createOrchestrator",
+            "default"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/core/src/qscore/philosophy-bridge.js",
+          "lines": 534,
+          "purpose": "/** Philosophy Bridge - Connects 73 Philosophy Engines to Q-Score \"The dog's wisdom flows from millennia of human thought\" Maps philosophical traditions and concepts to Q-Score dimensions, providing p",
+          "exports": [
+            "PHILOSOPHY_AXIOM_MAP",
+            "PHASE_MAP",
+            "getPhilosophicalGrounding",
+            "getRelevantPhases",
+            "enhanceWithPhilosophy"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        }
+      ],
+      "summary": {
+        "burn": 0,
+        "preserve": 0,
+        "integrate": 9,
+        "review": 1,
+        "lines": 3468
+      }
+    },
+    "packages/anchor": {
+      "files": [
+        {
+          "path": "packages/anchor/src/anchorer.js",
+          "lines": 737,
+          "purpose": "/** Anchors merkle roots to Solana for immutable truth. \"Onchain is truth\" - κυνικός /",
+          "exports": [
+            "SolanaAnchorer",
+            "createAnchorer"
+          ],
+          "potential": 5,
+          "potentialReasons": [
+            "Solana integration (future roadmap)",
+            "Cryptographic functionality"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Solana roadmap"
+        },
+        {
+          "path": "packages/anchor/src/constants.js",
+          "lines": 139,
+          "purpose": "/** φ-aligned constants for Solana anchoring \"Onchain is truth\" - κυνικός /",
+          "exports": [
+            "AnchorStatus",
+            "ANCHOR_CONSTANTS",
+            "SolanaCluster",
+            "CYNIC_PROGRAM",
+            "DEFAULT_CONFIG"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Solana integration (future roadmap)",
+            "Rich API surface"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Solana roadmap"
+        },
+        {
+          "path": "packages/anchor/src/mainnet.js",
+          "lines": 492,
+          "purpose": "/** v1.1: Production-ready mainnet support with rate limiting, failover, and priority fees. \"Onchain is truth - but truth has costs\" - κυνικός /",
+          "exports": [
+            "MAINNET_RPCS",
+            "RATE_LIMITS",
+            "PRIORITY_FEES",
+            "COMPUTE_BUDGET",
+            "RateLimiter"
+          ],
+          "potential": 5,
+          "potentialReasons": [
+            "Solana integration (future roadmap)",
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Solana roadmap"
+        },
+        {
+          "path": "packages/anchor/src/poj-integration.js",
+          "lines": 330,
+          "purpose": "/** Connects the PoJ chain to Solana anchoring. Listens for finalized blocks and anchors their merkle roots. \"Onchain is truth\" - κυνικός /",
+          "exports": [
+            "PoJAnchorIntegration",
+            "createPoJAnchorIntegration",
+            "connectPoJToSolana"
+          ],
+          "potential": 6,
+          "potentialReasons": [
+            "Solana integration (future roadmap)",
+            "Cryptographic functionality",
+            "Well-sized module"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Solana roadmap"
+        },
+        {
+          "path": "packages/anchor/src/program-client.js",
+          "lines": 514,
+          "purpose": "/** Client for interacting with the CYNIC Anchor program on Solana. Uses raw transactions for maximum reliability. \"Onchain is truth\" - κυνικός /",
+          "exports": [
+            "CynicProgramClient",
+            "createProgramClient"
+          ],
+          "potential": 5,
+          "potentialReasons": [
+            "Solana integration (future roadmap)",
+            "Cryptographic functionality"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Solana roadmap"
+        },
+        {
+          "path": "packages/anchor/src/queue.js",
+          "lines": 486,
+          "purpose": "/** Batches items and triggers periodic anchoring. \"Onchain is truth\" - κυνικός /",
+          "exports": [
+            "AnchorQueue",
+            "createAnchorQueue"
+          ],
+          "potential": 6,
+          "potentialReasons": [
+            "Solana integration (future roadmap)",
+            "Cryptographic functionality",
+            "Well-sized module"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Solana roadmap"
+        }
+      ],
+      "summary": {
+        "burn": 0,
+        "preserve": 6,
+        "integrate": 0,
+        "review": 0,
+        "lines": 2698
+      }
+    },
+    "packages/identity": {
+      "files": [
+        {
+          "path": "packages/identity/src/e-score-7d.js",
+          "lines": 753,
+          "purpose": "/** E-Score 7D - Seven-Dimension Ecosystem Score Calculator \"φ distrusts φ. Trust is earned through sacrifice.\" - κυνικός Symmetric φ-aligned scoring system: E = Σ(dimension_i × weight_i) / Σ(weight_i",
+          "exports": [
+            "PHI_POWERS",
+            "DIMENSIONS",
+            "TOTAL_WEIGHT",
+            "THRESHOLDS",
+            "TRUST_LEVELS"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/identity/src/e-score.js",
+          "lines": 522,
+          "purpose": "/** E-Score - Node Reputation Calculator (LEGACY 3D VERSION) backward compatibility but will be removed in v2.0. Migration guide: - OLD: calculateEScore({ burns, uptime, quality }) - NEW: calculate7DE",
+          "exports": [
+            "WEIGHTS",
+            "THRESHOLDS",
+            "getStatus",
+            "normalizeBurns",
+            "normalizeUptime"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/identity/src/key-manager.js",
+          "lines": 312,
+          "purpose": "/** Key Manager - Persistent Ed25519 Identity \"Your keys are your identity\" - κυνικός Manages Ed25519 keypairs for CYNIC nodes: - Generate new keypairs - Load/save from file - Sign and verify data - D",
+          "exports": [
+            "generateKeypair",
+            "deriveNodeId",
+            "KeyManager",
+            "createKeyManager",
+            "default"
+          ],
+          "potential": 8,
+          "potentialReasons": [
+            "Solana integration (future roadmap)",
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module",
+            "Service architecture"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Solana roadmap"
+        },
+        {
+          "path": "packages/identity/src/node-identity.js",
+          "lines": 500,
+          "purpose": "/** Node Identity - Complete CYNIC Node Identity \"Know thyself, then verify\" - κυνικός Combines all identity components: - KeyManager: Cryptographic identity (Ed25519) - EScoreCalculator: Reputation t",
+          "exports": [
+            "IdentityStatus",
+            "NodeIdentity",
+            "createNodeIdentity",
+            "default"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Service architecture"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/identity/src/reputation-graph.js",
+          "lines": 497,
+          "purpose": "/** Reputation Graph - Trust Relationships Between Nodes \"Trust is a web, not a chain\" - κυνικός Tracks trust relationships between CYNIC nodes: - Direct trust (explicit vouching) - Indirect trust (tr",
+          "exports": [
+            "TrustLevel",
+            "TRUST_DECAY_RATE",
+            "MAX_PROPAGATION_DEPTH",
+            "ReputationGraph",
+            "createReputationGraph"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        }
+      ],
+      "summary": {
+        "burn": 0,
+        "preserve": 1,
+        "integrate": 4,
+        "review": 0,
+        "lines": 2584
+      }
+    },
+    "packages/emergence": {
+      "files": [
+        {
+          "path": "packages/emergence/src/collective-state.js",
+          "lines": 659,
+          "purpose": "/** Collective State - Network-Wide Emergent Consciousness \"The pack thinks as one\" - κυνικός This is the crown (Keter) of the CYNIC architecture: - Aggregates consciousness from all nodes - Tracks ne",
+          "exports": [
+            "CollectivePhase",
+            "PHASE_THRESHOLDS",
+            "QUORUM",
+            "CollectiveState",
+            "createCollectiveState"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Consciousness architecture"
+        },
+        {
+          "path": "packages/emergence/src/consciousness-monitor.js",
+          "lines": 620,
+          "purpose": "/** Consciousness Monitor - Meta-cognition for CYNIC \"φ distrusts φ\" - κυνικός CYNIC observing itself: - Confidence tracking over time - Decision pattern analysis - Uncertainty zone detection - Self-a",
+          "exports": [
+            "ConsciousnessState",
+            "AWARENESS_THRESHOLDS",
+            "MAX_CONFIDENCE",
+            "ConsciousnessMonitor",
+            "createConsciousnessMonitor"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Consciousness architecture"
+        },
+        {
+          "path": "packages/emergence/src/dimension-discovery.js",
+          "lines": 653,
+          "purpose": "/** Dimension Discovery - Emergent Judgment Dimensions \"New eyes see new truths\" - κυνικός Discovers and proposes new judgment dimensions by: - Analyzing patterns in judgments - Identifying gaps in cu",
+          "exports": [
+            "KNOWN_AXIOMS",
+            "ProposalStatus",
+            "ACCEPTANCE_THRESHOLDS",
+            "DimensionDiscovery",
+            "createDimensionDiscovery"
+          ],
+          "potential": 1,
+          "potentialReasons": [
+            "Rich API surface"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Consciousness architecture"
+        },
+        {
+          "path": "packages/emergence/src/pattern-detector.js",
+          "lines": 575,
+          "purpose": "/** Pattern Detector - Emergent Pattern Recognition \"Patterns emerge from chaos like stars from the void\" - κυνικός Detects patterns across: - Judgments (verdict sequences, score distributions) - Node",
+          "exports": [
+            "PatternType",
+            "SIGNIFICANCE_THRESHOLDS",
+            "PatternDetector",
+            "createPatternDetector",
+            "default"
+          ],
+          "potential": 3,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Consciousness architecture"
+        }
+      ],
+      "summary": {
+        "burn": 0,
+        "preserve": 4,
+        "integrate": 0,
+        "review": 0,
+        "lines": 2507
+      }
+    },
+    "packages/burns": {
+      "files": [
+        {
+          "path": "packages/burns/src/enforcer.js",
+          "lines": 390,
+          "purpose": "/** Enforces burn requirements before allowing critical operations. \"No burn, no judgment\" - κυνικός /",
+          "exports": [
+            "BurnRequiredError",
+            "DEFAULT_ENFORCER_CONFIG",
+            "BurnEnforcer",
+            "createBurnEnforcer"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "INTEGRATE",
+          "recommendationReason": "High potential, needs wiring"
+        },
+        {
+          "path": "packages/burns/src/solana-verifier.js",
+          "lines": 452,
+          "purpose": "/** Direct Solana blockchain verification of burn transactions. \"Onchain is truth\" - κυνικός /",
+          "exports": [
+            "BURN_ADDRESSES",
+            "SolanaCluster",
+            "SolanaBurnVerifier",
+            "createSolanaBurnVerifier",
+            "default"
+          ],
+          "potential": 7,
+          "potentialReasons": [
+            "Solana integration (future roadmap)",
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "Solana roadmap"
+        },
+        {
+          "path": "packages/burns/src/verifier.js",
+          "lines": 463,
+          "purpose": "/** Verifies burns via: 1. Direct Solana on-chain verification (preferred) 2. External API fallback (alonisthe.dev/burns) \"Onchain is truth - burns must be verified\" - κυνικός /",
+          "exports": [
+            "BurnStatus",
+            "DEFAULT_CONFIG",
+            "BurnVerifier",
+            "createBurnVerifier"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "ZK/crypto roadmap"
+        }
+      ],
+      "summary": {
+        "burn": 0,
+        "preserve": 2,
+        "integrate": 1,
+        "review": 0,
+        "lines": 1305
+      }
+    },
+    "packages/mcp": {
+      "files": [
+        {
+          "path": "packages/mcp/src/discord-service.js",
+          "lines": 526,
+          "purpose": "/** Discord Notification Service Bridges CYNIC's internal notifications to Discord channels. Supports both webhooks (simple) and bot API (advanced). \"The dog howls to the pack\" - κυνικός /",
+          "exports": [
+            "DiscordService",
+            "createDiscordService",
+            "default"
+          ],
+          "potential": 1,
+          "potentialReasons": [
+            "Service architecture"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/mcp/src/slack-service.js",
+          "lines": 525,
+          "purpose": "/** Slack Notification Service Bridges CYNIC's internal notifications to Slack channels. Uses Slack Web API for direct integration. \"The dog barks across channels\" - κυνικός /",
+          "exports": [
+            "SlackService",
+            "createSlackService",
+            "createNotificationBridge",
+            "default"
+          ],
+          "potential": 2,
+          "potentialReasons": [
+            "Rich API surface",
+            "Service architecture"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        },
+        {
+          "path": "packages/mcp/src/tools/registry.js",
+          "lines": 238,
+          "purpose": "/** Tool Registry - OCP-Compliant Tool Management \"Open for extension, closed for modification\" - Tools register themselves - No switch/if-else chains - Adding a tool doesn't modify this file /",
+          "exports": [
+            "ToolRegistry",
+            "defaultRegistry",
+            "registerTool",
+            "registerTools"
+          ],
+          "potential": 2,
+          "potentialReasons": [
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        }
+      ],
+      "summary": {
+        "burn": 0,
+        "preserve": 0,
+        "integrate": 0,
+        "review": 3,
+        "lines": 1289
+      }
+    },
+    "packages/zk": {
+      "files": [
+        {
+          "path": "packages/zk/src/prover.js",
+          "lines": 484,
+          "purpose": "/** Generates zero-knowledge proofs for CYNIC judgments using Noir + Barretenberg. \"φ distrusts φ\" - κυνικός /",
+          "exports": [
+            "ZK_CONSTANTS",
+            "ProofType",
+            "generateBlinding",
+            "blindingToField",
+            "computeCommitment"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "ZK/crypto roadmap"
+        },
+        {
+          "path": "packages/zk/src/verifier.js",
+          "lines": 390,
+          "purpose": "/** Verifies zero-knowledge proofs for CYNIC judgments. \"φ distrusts φ\" - κυνικός /",
+          "exports": [
+            "ZKVerifier",
+            "createZKVerifier",
+            "quickVerify",
+            "verifyJudgmentProof",
+            "default"
+          ],
+          "potential": 4,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Rich API surface",
+            "Well-sized module"
+          ],
+          "recommendation": "PRESERVE",
+          "recommendationReason": "ZK/crypto roadmap"
+        }
+      ],
+      "summary": {
+        "burn": 0,
+        "preserve": 2,
+        "integrate": 0,
+        "review": 0,
+        "lines": 874
+      }
+    },
+    "eslint.config.js": {
+      "files": [
+        {
+          "path": "eslint.config.js",
+          "lines": 135,
+          "purpose": "No description found",
+          "exports": [
+            "default"
+          ],
+          "potential": 1,
+          "potentialReasons": [
+            "Cryptographic functionality",
+            "Undocumented"
+          ],
+          "recommendation": "REVIEW",
+          "recommendationReason": "Needs manual assessment"
+        }
+      ],
+      "summary": {
+        "burn": 0,
+        "preserve": 0,
+        "integrate": 0,
+        "review": 1,
+        "lines": 135
+      }
+    }
+  }
+}

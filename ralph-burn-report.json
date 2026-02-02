@@ -1,0 +1,4257 @@
+{
+  "meta": {
+    "timestamp": "2026-02-01T22:49:52.352Z",
+    "duration": "5.9s",
+    "rootDir": "C:\\Users\\zeyxm\\Desktop\\asdfasdfa\\CYNIC",
+    "version": "1.0.0"
+  },
+  "summary": {
+    "totalFiles": 694,
+    "totalLines": 292833,
+    "totalPackages": 0,
+    "verdicts": {
+      "KEEP": 234,
+      "REVIEW": 201,
+      "DELETE": 224,
+      "SPLIT": 34,
+      "SIMPLIFY": 1
+    }
+  },
+  "packages": [],
+  "issues": [
+    {
+      "type": "CIRCULAR_DEPS",
+      "count": 1,
+      "items": [
+        [
+          "packages\\node\\src\\agents\\index.js",
+          "packages\\node\\src\\agents\\swarm-consensus.js",
+          "packages\\node\\src\\agents\\orchestrator.js",
+          "packages\\node\\src\\agents\\swarm-consensus.js"
+        ]
+      ]
+    }
+  ],
+  "recommendations": [
+    {
+      "action": "DELETE",
+      "priority": "HIGH",
+      "candidates": [
+        {
+          "path": "benchmarks\\collective-vs-single\\benchmark-direct.mjs",
+          "lines": 122,
+          "reasons": [
+            "Zero importers - orphan candidate"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\benchmark-real.js",
+          "lines": 313,
+          "reasons": [
+            "Zero importers - orphan candidate"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\benchmark.js",
+          "lines": 259,
+          "reasons": [
+            "Zero importers - orphan candidate"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\code-samples\\sample1.js",
+          "lines": 462,
+          "reasons": [
+            "Zero importers - orphan candidate"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\code-samples\\sample2.js",
+          "lines": 414,
+          "reasons": [
+            "Zero importers - orphan candidate",
+            "High complexity: 130"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\dataset\\logic_01_off_by_one.js",
+          "lines": 11,
+          "reasons": [
+            "Zero importers - orphan candidate",
+            "Very small file"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\dataset\\logic_02_null_check.js",
+          "lines": 13,
+          "reasons": [
+            "Zero importers - orphan candidate",
+            "Very small file"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\dataset\\logic_03_type_coercion.js",
+          "lines": 13,
+          "reasons": [
+            "Zero importers - orphan candidate",
+            "Very small file"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\dataset\\logic_04_async_race.js",
+          "lines": 16,
+          "reasons": [
+            "Zero importers - orphan candidate",
+            "Very small file"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\dataset\\logic_05_wrong_operator.js",
+          "lines": 15,
+          "reasons": [
+            "Zero importers - orphan candidate",
+            "Very small file"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\dataset\\logic_06_infinite_loop.js",
+          "lines": 18,
+          "reasons": [
+            "Zero importers - orphan candidate",
+            "Very small file"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\dataset\\logic_07_wrong_return.js",
+          "lines": 14,
+          "reasons": [
+            "Zero importers - orphan candidate",
+            "Very small file"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\dataset\\logic_09_floating_point.js",
+          "lines": 15,
+          "reasons": [
+            "Zero importers - orphan candidate",
+            "Very small file"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\dataset\\logic_10_scope.js",
+          "lines": 15,
+          "reasons": [
+            "Zero importers - orphan candidate",
+            "Very small file"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\dataset\\logic_11_mutation.js",
+          "lines": 16,
+          "reasons": [
+            "Zero importers - orphan candidate",
+            "Very small file"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\dataset\\logic_12_promise_swallow.js",
+          "lines": 14,
+          "reasons": [
+            "Zero importers - orphan candidate",
+            "Very small file"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\dataset\\logic_13_wrong_condition.js",
+          "lines": 11,
+          "reasons": [
+            "Zero importers - orphan candidate",
+            "Very small file"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\dataset\\logic_14_unreachable.js",
+          "lines": 16,
+          "reasons": [
+            "Zero importers - orphan candidate",
+            "Very small file"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\dataset\\logic_15_default_param.js",
+          "lines": 15,
+          "reasons": [
+            "Zero importers - orphan candidate",
+            "Very small file"
+          ],
+          "confidence": "62%"
+        },
+        {
+          "path": "benchmarks\\collective-vs-single\\dataset\\perf_01_n_plus_one.js",
+          "lines": 17,
+          "reasons": [
+            "Zero importers - orphan candidate",
+            "Very small file"
+          ],
+          "confidence": "62%"
+        }
+      ],
+      "impact": "1789 lines removable"
+    },
+    {
+      "action": "SPLIT",
+      "priority": "MEDIUM",
+      "candidates": [
+        {
+          "path": "packages\\persistence\\test\\repositories.test.js",
+          "lines": 2386,
+          "reasons": [
+            "Giant file: 2386 lines",
+            "High complexity: 290",
+            "Hotspot: 22 imports"
+          ]
+        },
+        {
+          "path": "packages\\persistence\\test\\sqlite-repositories.test.js",
+          "lines": 1881,
+          "reasons": [
+            "Giant file: 1881 lines",
+            "High complexity: 446"
+          ]
+        },
+        {
+          "path": "packages\\node\\test\\collective-agents.test.js",
+          "lines": 1835,
+          "reasons": [
+            "Giant file: 1835 lines"
+          ]
+        },
+        {
+          "path": "packages\\mcp\\src\\server.js",
+          "lines": 1717,
+          "reasons": [
+            "Giant file: 1717 lines",
+            "High complexity: 423",
+            "Hotspot: 21 imports"
+          ]
+        },
+        {
+          "path": "packages\\mcp\\src\\dashboard\\js\\views\\live.js",
+          "lines": 1506,
+          "reasons": [
+            "Giant file: 1506 lines",
+            "High complexity: 338"
+          ]
+        },
+        {
+          "path": "packages\\protocol\\test\\consensus.test.js",
+          "lines": 1431,
+          "reasons": [
+            "Giant file: 1431 lines"
+          ]
+        },
+        {
+          "path": "packages\\node\\src\\agents\\collective\\cynic.js",
+          "lines": 1383,
+          "reasons": [
+            "Giant file: 1383 lines",
+            "High complexity: 178"
+          ]
+        },
+        {
+          "path": "packages\\node\\src\\judge\\learning-service.js",
+          "lines": 1302,
+          "reasons": [
+            "Giant file: 1302 lines",
+            "High complexity: 188"
+          ]
+        },
+        {
+          "path": "packages\\node\\src\\agents\\collective\\analyst.js",
+          "lines": 1297,
+          "reasons": [
+            "Giant file: 1297 lines",
+            "High complexity: 187"
+          ]
+        },
+        {
+          "path": "packages\\core\\src\\orchestration\\index.js",
+          "lines": 1273,
+          "reasons": [
+            "Giant file: 1273 lines",
+            "High complexity: 155"
+          ]
+        }
+      ],
+      "impact": "Improved maintainability"
+    },
+    {
+      "action": "SIMPLIFY",
+      "priority": "MEDIUM",
+      "candidates": [
+        {
+          "path": "scripts\\lib\\index.js",
+          "imports": 40,
+          "reasons": [
+            "Large file: 593 lines",
+            "High complexity: 153",
+            "Hotspot: 40 imports"
+          ]
+        }
+      ],
+      "impact": "Reduced coupling"
+    }
+  ],
+  "judgments": {
+    "benchmarks\\collective-vs-single\\benchmark-direct.mjs": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\benchmark-real.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\benchmark.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\code-samples\\sample1.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\code-samples\\sample2.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.64,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "High complexity: 130"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\code-samples\\sample3.js": {
+      "verdict": "DELETE",
+      "confidence": 0.48,
+      "score": 0.48,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Giant file: 1250 lines",
+        "High complexity: 340"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\logic_01_off_by_one.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\logic_02_null_check.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\logic_03_type_coercion.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\logic_04_async_race.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\logic_05_wrong_operator.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\logic_06_infinite_loop.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\logic_07_wrong_return.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\logic_09_floating_point.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\logic_10_scope.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\logic_11_mutation.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\logic_12_promise_swallow.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\logic_13_wrong_condition.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\logic_14_unreachable.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\logic_15_default_param.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\perf_01_n_plus_one.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\perf_02_unbounded_cache.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\perf_03_sync_io.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\perf_04_nested_loop.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\perf_06_rerender.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\perf_08_eager_load.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\perf_09_event_leak.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\perf_10_regex_compile.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\qual_01_dead_code.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\qual_02_duplicate.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\qual_03_magic_number.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\qual_04_god_function.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\qual_05_deep_nesting.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\qual_06_inconsistent.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\qual_07_empty_catch.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\qual_08_console_log.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\qual_10_commented_code.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\sec_01_sql_injection.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\sec_02_xss.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\sec_03_path_traversal.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\sec_04_hardcoded_secret.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\sec_05_eval.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\sec_07_ssrf.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\sec_08_nosql_injection.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\sec_09_jwt_none.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\sec_10_open_redirect.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\sec_11_prototype_pollution.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\sec_12_regex_dos.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\sec_13_insecure_random.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\dataset\\sec_15_xxe.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\evaluate.mjs": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\run-collective.mjs": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\collective-vs-single\\run-single.mjs": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\supermemory\\baseline.mjs": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "benchmarks\\supermemory\\compare.mjs": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "eslint.config.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\anchor\\src\\poj-integration.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\anchor\\src\\queue.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\burns\\src\\solana-verifier.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.64,
+      "reasons": [
+        "High complexity: 170"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\core\\src\\boot\\discovery.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\core\\src\\boot\\providers\\engines.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\core\\src\\boot\\providers\\mcp.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\core\\src\\bus\\event-bus.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\core\\src\\bus\\interfaces.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\core\\src\\context\\index.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Large file: 753 lines",
+        "High complexity: 104"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 1
+      }
+    },
+    "packages\\core\\src\\ecosystem\\index.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.6,
+      "score": 0.6,
+      "reasons": [
+        "Giant file: 1013 lines",
+        "High complexity: 160"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 1
+      }
+    },
+    "packages\\core\\src\\engines\\orchestrator.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Large file: 521 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\core\\src\\engines\\philosophy\\loader.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\core\\src\\orchestration\\index.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.6,
+      "score": 0.6,
+      "reasons": [
+        "Giant file: 1273 lines",
+        "High complexity: 155"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 1
+      }
+    },
+    "packages\\core\\src\\qscore\\philosophy-bridge.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.6599999999999999,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 534 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\core\\src\\triggers\\index.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.618033988749895,
+      "score": 0.6599999999999999,
+      "reasons": [
+        "Giant file: 1008 lines"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 1
+      }
+    },
+    "packages\\core\\src\\vector\\index.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.6,
+      "score": 0.6,
+      "reasons": [
+        "Giant file: 1155 lines",
+        "High complexity: 165"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 1
+      }
+    },
+    "packages\\core\\test\\bus.test.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Giant file: 1075 lines"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.8
+      }
+    },
+    "packages\\emergence\\src\\collective-state.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 659 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\emergence\\src\\consciousness-monitor.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 620 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\emergence\\src\\dimension-discovery.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 653 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\emergence\\src\\pattern-detector.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 575 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\holdex\\src\\harmony.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\identity\\src\\e-score-7d.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.6599999999999999,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 753 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\identity\\src\\node-identity.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\identity\\src\\reputation-graph.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\bin\\mcp.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\auth-service.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\dashboard\\js\\api.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Large file: 649 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\dashboard\\js\\app.js": {
+      "verdict": "DELETE",
+      "confidence": 0.6,
+      "score": 0.6,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Many imports: 18"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 0.5,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\dashboard\\js\\lib\\audio.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\dashboard\\js\\lib\\codebase-graph-data.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Large file: 696 lines",
+        "High complexity: 105"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\dashboard\\js\\lib\\knowledge-graph-data.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Large file: 570 lines",
+        "High complexity: 123"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\dashboard\\js\\views\\arch.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.54,
+      "score": 0.54,
+      "reasons": [
+        "Giant file: 1129 lines",
+        "High complexity: 171"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\dashboard\\js\\views\\live.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.54,
+      "score": 0.54,
+      "reasons": [
+        "Giant file: 1506 lines",
+        "High complexity: 338"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\discord-service.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 526 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\discovery-service.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Large file: 583 lines",
+        "High complexity: 109"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\lsp-service.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Large file: 767 lines",
+        "High complexity: 129"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\meta-dashboard.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.6599999999999999,
+      "reasons": [
+        "Large file: 760 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\metrics-service.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.64,
+      "reasons": [
+        "High complexity: 181"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\server.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.38,
+      "score": 0.38,
+      "reasons": [
+        "Giant file: 1717 lines",
+        "High complexity: 423",
+        "Hotspot: 21 imports"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 0.2,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\slack-service.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 525 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\thermodynamics-tracker.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\tools\\domains\\claude-flow.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Large file: 612 lines",
+        "High complexity: 111"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\tools\\domains\\judgment.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.54,
+      "score": 0.54,
+      "reasons": [
+        "Giant file: 1250 lines",
+        "High complexity: 340"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\tools\\domains\\memory.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.54,
+      "score": 0.54,
+      "reasons": [
+        "Giant file: 1017 lines",
+        "High complexity: 123"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\tools\\domains\\notifications.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 721 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\tools\\domains\\orchestration.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Large file: 973 lines",
+        "High complexity: 146"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\tools\\domains\\skeptic.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\mcp\\src\\tools\\registry.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\bin\\cynic.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\scripts\\demo-collective.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\agents\\collective\\analyst.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.54,
+      "score": 0.54,
+      "reasons": [
+        "Giant file: 1297 lines",
+        "High complexity: 187"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\agents\\collective\\cartographer.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.54,
+      "score": 0.54,
+      "reasons": [
+        "Giant file: 1168 lines",
+        "High complexity: 134"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\agents\\collective\\constants.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\agents\\collective\\cynic.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.54,
+      "score": 0.54,
+      "reasons": [
+        "Giant file: 1383 lines",
+        "High complexity: 178"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\agents\\collective\\deployer.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.54,
+      "score": 0.54,
+      "reasons": [
+        "Giant file: 1183 lines",
+        "High complexity: 169"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\agents\\collective\\guardian.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.54,
+      "score": 0.54,
+      "reasons": [
+        "Giant file: 1117 lines",
+        "High complexity: 185"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\agents\\collective\\index.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.5,
+      "score": 0.5,
+      "reasons": [
+        "Giant file: 1105 lines",
+        "High complexity: 126",
+        "Many imports: 20"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 0.5,
+        "category": 1
+      }
+    },
+    "packages\\node\\src\\agents\\collective\\oracle.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.54,
+      "score": 0.54,
+      "reasons": [
+        "Giant file: 1042 lines",
+        "High complexity: 120"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\agents\\collective\\relationship-graph.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\agents\\collective\\sage.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.54,
+      "score": 0.54,
+      "reasons": [
+        "Giant file: 1052 lines",
+        "High complexity: 151"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\agents\\collective\\scout.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.54,
+      "score": 0.54,
+      "reasons": [
+        "Giant file: 1212 lines",
+        "High complexity: 158"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\agents\\event-bus.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Large file: 707 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\agents\\events.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Giant file: 1125 lines"
+      ],
+      "dimensions": {
+        "utility": 1,
+        "size": 0.2,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\agents\\orchestrator.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.54,
+      "score": 0.54,
+      "reasons": [
+        "Giant file: 1181 lines",
+        "High complexity: 260"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\api\\burns-api.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Large file: 530 lines",
+        "High complexity: 179"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\cli\\commands\\dashboard.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\components\\consensus-component.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\components\\emergence-component.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\components\\judge-component.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\components\\operator-component.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\components\\state-component.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\components\\transport-component.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\embeddings\\hyperbolic.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Large file: 641 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\emergence\\layer.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\judge\\engine-integration.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\judge\\graph-integration.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 502 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\judge\\judge.js": {
+      "verdict": "DELETE",
+      "confidence": 0.48,
+      "score": 0.48,
+      "reasons": [
+        "Giant file: 1026 lines",
+        "High complexity: 178"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\judge\\learning-service.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Giant file: 1302 lines",
+        "High complexity: 188"
+      ],
+      "dimensions": {
+        "utility": 0.4,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\judge\\residual.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\judge\\scorers\\burn-axiom.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\judge\\scorers\\culture-axiom.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.64,
+      "reasons": [
+        "High complexity: 122"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\judge\\scorers\\phi-axiom.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\judge\\scorers\\verify-axiom.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\judge\\scorers.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.72,
+      "reasons": [
+        "Very small file"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.7,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\learning\\sona.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Large file: 552 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\memory\\tiered-memory.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 995 lines",
+        "High complexity: 138"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\memory\\user-lab.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\node.js": {
+      "verdict": "DELETE",
+      "confidence": 0.38,
+      "score": 0.38,
+      "reasons": [
+        "Giant file: 1645 lines",
+        "High complexity: 359",
+        "Many imports: 16"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 0.5,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\operator\\operator.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\optimization\\token-optimizer.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Large file: 593 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\orchestration\\circuit-breaker.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\orchestration\\decision-event.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Large file: 551 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\orchestration\\decision-tracer.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\orchestration\\mcp-instructions.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\orchestration\\q-learning-router.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 776 lines",
+        "High complexity: 111"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\orchestration\\security-audit.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 778 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\orchestration\\skill-activator.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 623 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\orchestration\\skill-registry.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\orchestration\\unified-orchestrator.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 667 lines",
+        "High complexity: 132"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\privacy\\commitments.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\privacy\\differential.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\profile\\organic-signals.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Giant file: 1082 lines",
+        "High complexity: 111"
+      ],
+      "dimensions": {
+        "utility": 0.4,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\routing\\agent-booster.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Large file: 678 lines",
+        "High complexity: 119"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\routing\\tiered-router.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\services\\automation-executor.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 857 lines",
+        "High complexity: 123"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\services\\skeptic-service.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 721 lines",
+        "High complexity: 138"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\state\\manager.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\state\\storage.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\transport\\discovery.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\src\\transport\\websocket.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Large file: 835 lines",
+        "High complexity: 119"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\node\\test\\collective-agents.test.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.618033988749895,
+      "score": 0.6199999999999999,
+      "reasons": [
+        "Giant file: 1835 lines"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.8
+      }
+    },
+    "packages\\node\\test\\culture-axiom.test.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.618033988749895,
+      "score": 0.6199999999999999,
+      "reasons": [
+        "Giant file: 1048 lines"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.8
+      }
+    },
+    "packages\\node\\test\\judge-persistence.test.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.5599999999999999,
+      "score": 0.5599999999999999,
+      "reasons": [
+        "Giant file: 1102 lines",
+        "High complexity: 103"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.8
+      }
+    },
+    "packages\\node\\test\\learning-service.test.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Giant file: 1057 lines"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.8
+      }
+    },
+    "packages\\node\\test\\phi-axiom.test.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.5599999999999999,
+      "score": 0.5599999999999999,
+      "reasons": [
+        "Giant file: 1114 lines",
+        "High complexity: 103"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.8
+      }
+    },
+    "packages\\node\\test\\privacy.test.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Giant file: 1186 lines"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.8
+      }
+    },
+    "packages\\node\\test\\self-skeptic.test.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Giant file: 1057 lines"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.8
+      }
+    },
+    "packages\\persistence\\src\\dag\\dag.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 578 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\fallback-factory.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\graph\\store.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Large file: 597 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\graph\\traversal.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Large file: 534 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\interfaces\\ISearchable.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\poj\\chain.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 826 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\migrate.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\architectural-decisions.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\autonomous-goals.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Large file: 602 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\consciousness.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\conversation-memories.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\discovery.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.6599999999999999,
+      "reasons": [
+        "Large file: 669 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\ecosystem-docs.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\escore-history.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\feedback.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\judgments.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\knowledge.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\learning-cycles.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\lessons-learned.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\library-cache.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\orchestration-decisions.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\pattern-evolution.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\patterns.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\poj-blocks.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.6599999999999999,
+      "reasons": [
+        "Large file: 501 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\proactive-notifications.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\psychology.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Large file: 622 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\sessions.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\triggers.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Large file: 552 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\user-learning-profiles.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Large file: 515 lines",
+        "High complexity: 133"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\user-preferences.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\postgres\\repositories\\users.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\redis\\client.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Large file: 785 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\redis\\session-store.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\services\\burn-analyzer.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 595 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\services\\codebase-indexer.js": {
+      "verdict": "DELETE",
+      "confidence": 0.48,
+      "score": 0.48,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Giant file: 1010 lines",
+        "High complexity: 193"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\services\\memory-retriever.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Large file: 651 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\sqlite\\LocalPrivacyStore.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 839 lines",
+        "High complexity: 190"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\sqlite\\LocalXStore.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 720 lines",
+        "High complexity: 147"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\sqlite\\repositories\\judgments.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.64,
+      "reasons": [
+        "High complexity: 107"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\sqlite\\repositories\\patterns.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\sqlite\\repositories\\users.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\src\\vector\\semantic-patterns.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.6599999999999999,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 594 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\persistence\\test\\graph.test.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Giant file: 1097 lines"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.8
+      }
+    },
+    "packages\\persistence\\test\\repositories.test.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.4,
+      "score": 0.4,
+      "reasons": [
+        "Giant file: 2386 lines",
+        "High complexity: 290",
+        "Hotspot: 22 imports"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 0.2,
+        "category": 0.8
+      }
+    },
+    "packages\\persistence\\test\\sqlite-repositories.test.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.5599999999999999,
+      "score": 0.5599999999999999,
+      "reasons": [
+        "Giant file: 1881 lines",
+        "High complexity: 446"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.8
+      }
+    },
+    "packages\\protocol\\src\\consensus\\engine.js": {
+      "verdict": "DELETE",
+      "confidence": 0.48,
+      "score": 0.48,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Giant file: 1097 lines",
+        "High complexity: 167"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\protocol\\src\\consensus\\finality.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\protocol\\src\\consensus\\gossip-bridge.js": {
+      "verdict": "DELETE",
+      "confidence": 0.48,
+      "score": 0.48,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Giant file: 1071 lines",
+        "High complexity: 187"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\protocol\\src\\consensus\\lockout.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\protocol\\src\\consensus\\messages.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\protocol\\src\\consensus\\proposal.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\protocol\\src\\consensus\\slot.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\protocol\\src\\consensus\\voting.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\protocol\\src\\gossip\\message.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.6599999999999999,
+      "reasons": [
+        "Large file: 536 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\protocol\\src\\gossip\\propagation.js": {
+      "verdict": "DELETE",
+      "confidence": 0.5800000000000001,
+      "score": 0.5800000000000001,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 619 lines"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\protocol\\src\\merkle\\pattern.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\protocol\\src\\poj\\chain.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\protocol\\src\\poj\\judgment.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "packages\\protocol\\test\\consensus.test.js": {
+      "verdict": "SPLIT",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Giant file: 1431 lines"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.2,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.8
+      }
+    },
+    "packages\\zk\\src\\verifier.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\add-validator.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\demo-philosophy-bridge.mjs": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\get-state.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\hooks\\awaken.js": {
+      "verdict": "DELETE",
+      "confidence": 0.48,
+      "score": 0.48,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Giant file: 1002 lines",
+        "High complexity: 319"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\hooks\\compact.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 715 lines",
+        "High complexity: 113"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\hooks\\digest.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 663 lines",
+        "High complexity: 142"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\hooks\\error.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\hooks\\guard.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.64,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "High complexity: 130"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\hooks\\lib\\base-hook.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\hooks\\lib\\orchestration-client.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\hooks\\lib\\pattern-detector.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\hooks\\lib\\suggestion-engine.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 630 lines",
+        "High complexity: 101"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\hooks\\notify.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\hooks\\observe.js": {
+      "verdict": "DELETE",
+      "confidence": 0.48,
+      "score": 0.48,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Giant file: 2016 lines",
+        "High complexity: 741"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.2,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\hooks\\perceive.js": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 755 lines",
+        "High complexity: 260"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\hooks\\permission.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\hooks\\ralph-loop.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\hooks\\setup-ralph-loop.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\hooks\\sleep.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\hooks\\spawn.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\init-devnet.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.78,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 1,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\lib\\index.js": {
+      "verdict": "SIMPLIFY",
+      "confidence": 0.48,
+      "score": 0.48,
+      "reasons": [
+        "Large file: 593 lines",
+        "High complexity: 153",
+        "Hotspot: 40 imports"
+      ],
+      "dimensions": {
+        "utility": 0.5,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 0.2,
+        "category": 1
+      }
+    },
+    "scripts\\ralph-loops\\burn-cartographer.mjs": {
+      "verdict": "DELETE",
+      "confidence": 0.52,
+      "score": 0.52,
+      "reasons": [
+        "Zero importers - orphan candidate",
+        "Large file: 706 lines",
+        "High complexity: 141"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 0.4,
+        "complexity": 0.3,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\setup-x-vision.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    },
+    "scripts\\simulate-dataflow.js": {
+      "verdict": "DELETE",
+      "confidence": 0.618033988749895,
+      "score": 0.7,
+      "reasons": [
+        "Zero importers - orphan candidate"
+      ],
+      "dimensions": {
+        "utility": 0.2,
+        "size": 1,
+        "complexity": 0.6,
+        "coupling": 1,
+        "category": 0.7
+      }
+    }
+  }
+}

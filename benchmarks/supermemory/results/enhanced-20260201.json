@@ -1,0 +1,49 @@
+{
+  "timestamp": "2026-02-01T21:49:43.600Z",
+  "version": "baseline",
+  "projectRoot": "C:\\Users\\zeyxm\\Desktop\\asdfasdfa\\CYNIC",
+  "codebaseStats": {
+    "totalJsFiles": 690,
+    "totalLines": 290879,
+    "packages": 13,
+    "keystoneFiles": 14
+  },
+  "codebaseIndexer": {
+    "indexTimeMs": 7620,
+    "factsGenerated": 35,
+    "coveragePercent": 126.23,
+    "keystonesIndexed": 14,
+    "packagesIndexed": 13,
+    "patternsDetected": 5,
+    "memoryUsedMb": 3.19,
+    "errors": [],
+    "indexAllTimeMs": 12353,
+    "indexAllFilesIndexed": 871,
+    "indexAllFactsGenerated": 892,
+    "indexAllDependencies": 2304,
+    "indexAllMemoryMb": 37.53
+  },
+  "factsRepository": {
+    "ftsSearchP50Ms": 24.7,
+    "ftsSearchP95Ms": 35.7,
+    "ftsSearchP99Ms": 38.9,
+    "createLatencyMs": 13.4,
+    "searchAccuracy": null
+  },
+  "cartographer": {
+    "classificationAccuracy": 100,
+    "cycleDetectionMs": 0.17,
+    "connectionStrengthValid": true,
+    "mermaidGenerationMs": 0.17
+  },
+  "summary": {
+    "overallScore": 100,
+    "killCriteria": {
+      "coverageAbove5Percent": true,
+      "indexTimeBelow10s": true,
+      "ftsP95Below50ms": true,
+      "memoryBelow100mb": true,
+      "cartographerClassification80": true
+    }
+  }
+}
