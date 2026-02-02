@@ -10,13 +10,16 @@
     "./redis": "./src/redis/client.js",
     "./sqlite": "./src/sqlite/index.js",
     "./repositories": "./src/postgres/repositories/index.js",
+    "./postgres/repositories/*": "./src/postgres/repositories/*.js",
     "./dag": "./src/dag/index.js",
     "./poj": "./src/poj/index.js",
     "./graph": "./src/graph/index.js",
     "./vector": "./src/vector/index.js",
     "./factory": "./src/factory.js",
     "./fallback": "./src/fallback-factory.js",
-    "./interfaces": "./src/interfaces/IRepository.js"
+    "./interfaces": "./src/interfaces/IRepository.js",
+    "./services": "./src/services/index.js",
+    "./services/*": "./src/services/*.js"
   },
   "scripts": {
     "test": "node --test test/*.test.js",

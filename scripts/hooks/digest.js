@@ -849,23 +849,53 @@ async function main() {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // Q-LEARNING FLUSH: Persist learning state before session ends
-    // "Le chien se souvient qui appeler" - Q-Table survives restarts
+    // Q-LEARNING: End episode with outcome, then flush
+    // GAP #2 FIX: Complete the feedback loop by calling endEpisode with outcome
+    // "Le chien apprend de chaque session"
     // ═══════════════════════════════════════════════════════════════════════════
     try {
       const { getQLearningService } = await import('@cynic/node');
       const qLearningService = getQLearningService();
-      if (qLearningService && qLearningService.flush) {
-        await qLearningService.flush();
+      if (qLearningService) {
+        // GAP #2 FIX: End the episode with outcome BEFORE flush
+        if (qLearningService.endEpisode) {
+          const outcome = {
+            success: analysis.errorsEncountered === 0,
+            hasConsensus: orchestration?.hasConsensus ?? true,
+            confidence: orchestration?.judgment?.qScore ?? 50,
+            blocked: analysis.dangerBlocked > 0,
+            error: analysis.errorsEncountered > 0,
+            toolsUsed: analysis.toolsUsed,
+            qScore: responseJudgment?.qScore ?? orchestration?.judgment?.qScore,
+          };
+
+          try {
+            await qLearningService.endEpisode(outcome);
+          } catch (episodeErr) {
+            if (process.env.CYNIC_DEBUG) {
+              console.error('[DIGEST] Q-Learning endEpisode error:', episodeErr.message);
+            }
+          }
+        }
+
+        // Flush Q-table to PostgreSQL
+        if (qLearningService.flush) {
+          await qLearningService.flush();
+        }
+
         const stats = qLearningService.getStats();
         engineStats.qLearning = {
           states: stats.qTableStats?.states || 0,
           episodes: stats.episodes,
           accuracy: stats.accuracy,
+          updated: true,
         };
       }
     } catch (e) {
       // Q-Learning flush is optional - don't block session end
+      if (process.env.CYNIC_DEBUG) {
+        console.error('[DIGEST] Q-Learning error:', e.message);
+      }
     }
 
     // Format message (include response judgment from Task #20)

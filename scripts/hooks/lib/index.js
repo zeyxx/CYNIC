@@ -147,6 +147,26 @@ export function getBurnAnalyzer(options = {}) {
   return null;
 }
 
+// SessionRepository (GAP #1 FIX: Direct PostgreSQL session persistence)
+let _sessionRepository = null;
+
+export function getSessionRepository() {
+  if (_sessionRepository) return _sessionRepository;
+
+  try {
+    const { SessionRepository } = require('@cynic/persistence/postgres/repositories/sessions');
+    const { getPool } = require('@cynic/persistence');
+    const pool = getPool();
+    if (pool) {
+      _sessionRepository = new SessionRepository(pool);
+      return _sessionRepository;
+    }
+  } catch (e) {
+    // SessionRepository not available - return null
+  }
+  return null;
+}
+
 // TelemetryCollector (Stats, frictions, benchmarking)
 let _telemetry = null;
 

@@ -53,6 +53,7 @@ import {
   getCodebaseIndexer,
   getTelemetryCollector,
   recordMetric,
+  getSessionRepository,
 } from './lib/index.js';
 
 // =============================================================================
@@ -931,8 +932,38 @@ async function main() {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // START BRAIN SESSION (async, don't wait)
+    // START BRAIN SESSION
+    // GAP #1 FIX: Persist directly to PostgreSQL FIRST, then notify MCP
     // ═══════════════════════════════════════════════════════════════════════════
+    const sessionRepo = getSessionRepository();
+    const sessionId = process.env.CYNIC_SESSION_ID || `ses_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    process.env.CYNIC_SESSION_ID = sessionId;
+
+    // Direct PostgreSQL persistence (reliable, synchronous-ish)
+    if (sessionRepo) {
+      sessionRepo.create({
+        sessionId,
+        userId: user.userId,
+        judgmentCount: 0,
+        digestCount: 0,
+        feedbackCount: 0,
+        context: {
+          project: ecosystem.currentProject?.name,
+          userName: user.name,
+          sessionCount: profile.stats?.sessions || 1,
+          ecosystem: ecosystem.projects?.map(p => p.name) || [],
+          startedAt: new Date().toISOString(),
+        },
+      }).then(() => {
+        output.syncStatus = output.syncStatus || {};
+        output.syncStatus.session = { success: true, sessionId };
+      }).catch(e => {
+        output.syncStatus = output.syncStatus || {};
+        output.syncStatus.session = { success: false, error: e.message };
+      });
+    }
+
+    // Also notify MCP server (for distributed systems, non-blocking)
     startBrainSession(user.userId, {
       project: ecosystem.currentProject?.name,
       metadata: {
@@ -940,8 +971,6 @@ async function main() {
         sessionCount: profile.stats?.sessions || 1,
         ecosystem: ecosystem.projects?.map(p => p.name) || [],
       },
-    }).then(result => {
-      if (result.sessionId) process.env.CYNIC_SESSION_ID = result.sessionId;
     }).catch(() => {});
 
     sendHookToCollectiveSync('SessionStart', {
