@@ -1,0 +1,110 @@
+# CYNIC Tikkun CI
+# "Le système se valide lui-même" - κυνικός
+#
+# Runs Da'at (audit) and Gevurah (tests) on every push/PR
+# Fails if score < φ⁻¹ (62%)
+
+name: Tikkun
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  # Run weekly to catch drift
+  schedule:
+    - cron: '0 0 * * 0'  # Sunday midnight
+
+jobs:
+  tikkun:
+    name: Tikkun (Audit + Tests)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Da'at (Audit)
+        id: daat
+        run: |
+          node scripts/tikkun/daat.mjs 2>&1 | tee daat-output.txt
+          # Extract score from output
+          SCORE=$(grep -oP 'Score: \K\d+' daat-output.txt || echo "0")
+          echo "daat_score=$SCORE" >> $GITHUB_OUTPUT
+
+      - name: Run Gevurah (Tests)
+        id: gevurah
+        run: |
+          node scripts/tikkun/gevurah.mjs 2>&1 | tee gevurah-output.txt
+          SCORE=$(grep -oP 'Score: \K\d+' gevurah-output.txt || echo "0")
+          echo "gevurah_score=$SCORE" >> $GITHUB_OUTPUT
+
+      - name: Calculate Combined Score
+        id: combined
+        run: |
+          DAAT=${{ steps.daat.outputs.daat_score }}
+          GEVURAH=${{ steps.gevurah.outputs.gevurah_score }}
+          # Weight: Da'at 40%, Gevurah 60%
+          COMBINED=$(( (DAAT * 40 + GEVURAH * 60) / 100 ))
+          echo "combined_score=$COMBINED" >> $GITHUB_OUTPUT
+          echo "## Tikkun Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Sefirah | Score | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Da'at (Audit) | ${DAAT}% | $([ $DAAT -ge 62 ] && echo '✓' || echo '✗') |" >> $GITHUB_STEP_SUMMARY
+          echo "| Gevurah (Tests) | ${GEVURAH}% | $([ $GEVURAH -ge 62 ] && echo '✓' || echo '✗') |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Combined** | **${COMBINED}%** | $([ $COMBINED -ge 62 ] && echo '✓ φ⁻¹' || echo '✗ Below φ⁻¹') |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check φ⁻¹ Threshold
+        run: |
+          COMBINED=${{ steps.combined.outputs.combined_score }}
+          if [ "$COMBINED" -lt 62 ]; then
+            echo "::error::Tikkun failed: Combined score ${COMBINED}% is below φ⁻¹ threshold (62%)"
+            exit 1
+          fi
+          echo "Tikkun passed: ${COMBINED}% >= 62% (φ⁻¹)"
+
+      - name: Upload Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tikkun-results
+          path: |
+            scripts/tikkun/*-results.json
+            daat-output.txt
+            gevurah-output.txt
+          retention-days: 30
+
+  nomenclature:
+    name: Nomenclature Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Private Variable Convention
+        run: |
+          # Find module-level let/const without underscore prefix
+          echo "Checking private variable naming..."
+          VIOLATIONS=$(grep -rn "^let [^_]" scripts/lib/*.cjs scripts/lib/*.js 2>/dev/null | grep -v "^let require" | wc -l || echo "0")
+          if [ "$VIOLATIONS" -gt 5 ]; then
+            echo "::warning::Found $VIOLATIONS potential private variable violations (should use _prefix)"
+          fi
+
+      - name: Check File Extensions
+        run: |
+          # Count .mjs files (should be minimal)
+          MJS_COUNT=$(find . -name "*.mjs" -not -path "./node_modules/*" | wc -l)
+          if [ "$MJS_COUNT" -gt 10 ]; then
+            echo "::warning::Found $MJS_COUNT .mjs files - consider converting to .js"
+          fi
