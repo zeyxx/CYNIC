@@ -249,6 +249,20 @@ export function getAutoJudge() {
   return _autoJudge || null;
 }
 
+// LLM Judgment Bridge (autonomous improvement with open source LLMs)
+let _llmBridge = null;
+
+export function getLLMJudgmentBridge() {
+  if (_llmBridge === null) {
+    try {
+      _llmBridge = require('./llm-judgment-bridge.cjs');
+    } catch (e) {
+      _llmBridge = false;
+    }
+  }
+  return _llmBridge || null;
+}
+
 // Additional module getters for hooks
 let _circuitBreaker = null;
 let _physisDetector = null;

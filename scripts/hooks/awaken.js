@@ -45,7 +45,15 @@ import fs from 'fs';
 import os from 'os';
 
 // Phase 22: Session state management
-import { getSessionState, initOrchestrationClient, getFactsRepository } from './lib/index.js';
+import {
+  getSessionState,
+  initOrchestrationClient,
+  getFactsRepository,
+  getArchitecturalDecisionsRepository,
+  getCodebaseIndexer,
+  getTelemetryCollector,
+  recordMetric,
+} from './lib/index.js';
 
 // =============================================================================
 // M2.1 CONFIGURATION - Cross-Session Fact Injection
@@ -163,6 +171,20 @@ async function main() {
     const sessionState = getSessionState();
     await sessionState.init(sessionId, { userId: user.userId });
     initOrchestrationClient(orchestrateFull);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TELEMETRY INITIALIZATION
+    // "φ mesure tout, φ apprend de tout"
+    // ═══════════════════════════════════════════════════════════════════════════
+    const telemetry = getTelemetryCollector();
+    if (telemetry) {
+      telemetry.sessionId = sessionId;
+      telemetry.recordSessionEvent('start', {
+        userId: user.userId,
+        project: detectProject()?.name,
+      });
+      recordMetric('session_start_total', 1, { category: 'session' });
+    }
 
     // Load optional modules
     const cockpit = getCockpit();
@@ -536,6 +558,120 @@ async function main() {
         // Fact injection failed - continue without
       }
 
+      // ═══════════════════════════════════════════════════════════════════════════
+      // ARCHITECTURAL DECISIONS INJECTION (Self-Knowledge Enhancement)
+      // "CYNIC remembers its own design choices"
+      // ═══════════════════════════════════════════════════════════════════════════
+      try {
+        const archDecisionsRepo = getArchitecturalDecisionsRepository();
+        if (archDecisionsRepo) {
+          const decisions = await Promise.race([
+            archDecisionsRepo.search(user.userId, '', {
+              status: 'active',
+              limit: 10,
+            }),
+            new Promise(resolve => setTimeout(() => resolve([]), 2000)),
+          ]);
+
+          if (decisions?.length > 0) {
+            // Group by decision type
+            const decisionsByType = {};
+            for (const d of decisions) {
+              const type = d.decisionType || 'other';
+              if (!decisionsByType[type]) decisionsByType[type] = [];
+              decisionsByType[type].push(d);
+            }
+
+            let decisionContent = '';
+            for (const [type, decs] of Object.entries(decisionsByType)) {
+              const typeLabel = type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+              decisionContent += `### ${typeLabel}\n`;
+              decisionContent += decs
+                .slice(0, 5)
+                .map(d => `- **${d.title}**: ${d.rationale?.substring(0, 100) || d.description?.substring(0, 100)}${(d.rationale?.length || d.description?.length) > 100 ? '...' : ''}`)
+                .join('\n');
+              decisionContent += '\n\n';
+            }
+
+            contextInjections.push({
+              type: 'architectural_decisions',
+              title: `Active Architectural Decisions (${decisions.length})`,
+              content: decisionContent.trim(),
+              count: decisions.length,
+            });
+          }
+        }
+      } catch (e) {
+        // Architectural decisions injection failed - continue without
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // BURN ANALYSIS INJECTION (Vision → Compréhension → Burn)
+      // "290K lines is too many - show what can be simplified"
+      // ═══════════════════════════════════════════════════════════════════════════
+      try {
+        // Only run if in CYNIC project and not too slow
+        const isCynicProject = ecosystem.currentProject?.name?.toLowerCase().includes('cynic');
+
+        if (isCynicProject) {
+          const { BurnAnalyzer } = await import('@cynic/persistence/services/burn-analyzer');
+
+          const analyzer = new BurnAnalyzer({
+            rootDir: ecosystem.currentProject?.path || process.cwd(),
+          });
+
+          // Quick analysis only (no LLM at session start for speed)
+          const burnResults = await Promise.race([
+            analyzer.quickAnalysis(),
+            new Promise(resolve => setTimeout(() => resolve(null), 5000)),
+          ]);
+
+          if (burnResults && burnResults.summary) {
+            const { summary } = burnResults;
+
+            // Only inject if there are actionable issues
+            const totalIssues = summary.issuesFound.orphans +
+              summary.issuesFound.hotspots +
+              summary.issuesFound.giants +
+              summary.issuesFound.duplicates;
+
+            if (totalIssues > 0) {
+              let burnContent = `**Codebase: ${summary.totalFiles} files, ${summary.totalLines.toLocaleString()} lines**\n\n`;
+              burnContent += `Issues found:\n`;
+              burnContent += `- 🔴 Orphans: ${summary.issuesFound.orphans} files (never imported)\n`;
+              burnContent += `- 🟠 Hotspots: ${summary.issuesFound.hotspots} files (>13 dependencies)\n`;
+              burnContent += `- 🟡 Giants: ${summary.issuesFound.giants} files (>500 lines)\n`;
+              burnContent += `- 🟣 Duplicates: ${summary.issuesFound.duplicates} files\n`;
+
+              if (summary.topPriority?.length > 0) {
+                burnContent += `\n**Top priorities:**\n`;
+                for (const item of summary.topPriority) {
+                  burnContent += `- [${item.verdict.toUpperCase()}] ${item.path}: ${item.reason}\n`;
+                }
+              }
+
+              contextInjections.push({
+                type: 'burn_analysis',
+                title: 'Burn Analysis (Simplification Opportunities)',
+                content: burnContent.trim(),
+                stats: summary.issuesFound,
+              });
+
+              // Also add to output for TUI display
+              output.burn = {
+                totalFiles: summary.totalFiles,
+                totalLines: summary.totalLines,
+                issues: summary.issuesFound,
+                topPriority: summary.topPriority,
+                actionable: summary.actionableCandidates,
+              };
+            }
+          }
+        }
+      } catch (e) {
+        // Burn analysis failed - continue without (non-blocking)
+      }
+
       // 5. Format as additionalContext for Claude
       if (contextInjections.length > 0) {
         // Calculate fact injection stats
@@ -738,6 +874,27 @@ async function main() {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // TELEMETRY STATS (for benchmarking and fine-tuning)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (telemetry) {
+      try {
+        const stats = telemetry.getStats();
+        output.telemetry = {
+          sessionId: stats.sessionId,
+          uptime: stats.uptime,
+          events: stats.totalEvents,
+          errors: stats.totalErrors,
+          frictions: stats.frictions,
+          counters: stats.counters,
+          timings: stats.timings,
+          categories: stats.categories,
+        };
+      } catch (e) {
+        // Continue without telemetry stats
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // PROACTIVE ADVISOR
     // ═══════════════════════════════════════════════════════════════════════════
     if (proactiveAdvisor && proactiveAdvisor.shouldInjectNow()) {
@@ -814,6 +971,53 @@ async function main() {
         } catch (e) { /* ignore */ }
       });
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CODEBASE SELF-INDEXING (background, don't wait)
+    // "Le chien doit se connaître lui-même"
+    // ═══════════════════════════════════════════════════════════════════════════
+    setImmediate(async () => {
+      try {
+        const lastIndexPath = path.join(os.homedir(), '.cynic', 'learning', 'last-codebase-index.json');
+        let shouldIndex = true;
+
+        // Check if we indexed recently (within φ hours ≈ 1.6 hours)
+        try {
+          if (fs.existsSync(lastIndexPath)) {
+            const lastIndex = JSON.parse(fs.readFileSync(lastIndexPath, 'utf8'));
+            const hoursSinceIndex = (Date.now() - lastIndex.timestamp) / (1000 * 60 * 60);
+            shouldIndex = hoursSinceIndex > DC.PHI.PHI; // ~1.618 hours
+          }
+        } catch (e) { /* index anyway */ }
+
+        if (shouldIndex) {
+          const factsRepo = getFactsRepository();
+          if (factsRepo) {
+            const indexer = getCodebaseIndexer({
+              factsRepo,
+              rootDir: ecosystem.currentProject?.path || process.cwd(),
+              userId: user.userId,
+              sessionId: process.env.CYNIC_SESSION_ID,
+              projectName: ecosystem.currentProject?.name || 'CYNIC',
+            });
+
+            if (indexer) {
+              const results = await indexer.index();
+
+              // Save index timestamp
+              const indexDir = path.dirname(lastIndexPath);
+              if (!fs.existsSync(indexDir)) fs.mkdirSync(indexDir, { recursive: true });
+              fs.writeFileSync(lastIndexPath, JSON.stringify({
+                timestamp: Date.now(),
+                project: ecosystem.currentProject?.name,
+                facts: results.total,
+                errors: results.errors?.length || 0,
+              }));
+            }
+          }
+        }
+      } catch (e) { /* ignore codebase indexing errors */ }
+    });
 
     // ═══════════════════════════════════════════════════════════════════════════
     // OUTPUT JSON

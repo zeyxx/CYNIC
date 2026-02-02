@@ -27,7 +27,10 @@
     "./agents": "./src/agents/index.js",
     "./agents/collective": "./src/agents/collective/index.js",
     "./agents/neuronal-consensus": "./src/agents/neuronal-consensus.js",
-    "./agents/swarm-consensus": "./src/agents/swarm-consensus.js"
+    "./agents/swarm-consensus": "./src/agents/swarm-consensus.js",
+    "./services": "./src/services/index.js",
+    "./services/orchestration-visibility.js": "./src/services/orchestration-visibility.js",
+    "./services/event-bus.js": "./src/services/event-bus.js"
   },
   "scripts": {
     "test": "node --test test/*.test.js",

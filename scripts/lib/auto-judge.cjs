@@ -31,6 +31,15 @@ try {
   // Adaptive learning not available - will use static thresholds
 }
 
+// Load LLM judgment bridge (for autonomous improvement)
+const llmBridgePath = path.join(__dirname, 'llm-judgment-bridge.cjs');
+let llmBridge = null;
+try {
+  llmBridge = require(llmBridgePath);
+} catch (e) {
+  // LLM bridge not available - will use static judgment
+}
+
 // =============================================================================
 // CONSTANTS (φ-aligned)
 // =============================================================================
@@ -301,11 +310,12 @@ function checkForAutoJudgment(state, currentObs) {
 
 /**
  * Create a judgment object
+ * Optionally enhanced with LLM reasoning
  */
 function createJudgment({ trigger, verdict, subject, reason, confidence, observations, recommendation }) {
   const now = Date.now();
 
-  return {
+  const judgment = {
     id: `judge_${now}_${Math.random().toString(36).slice(2, 8)}`,
     timestamp: now,
     autonomous: true,
@@ -322,7 +332,41 @@ function createJudgment({ trigger, verdict, subject, reason, confidence, observa
             verdict === 'BARK' ? 50 :
             verdict === 'GROWL' ? 25 :
             verdict === 'HOWL' ? 10 : 50,
+    source: 'static', // Default: static rules
   };
+
+  // Async LLM enhancement (non-blocking)
+  if (llmBridge && process.env.CYNIC_LLM_ENHANCE !== 'false') {
+    setImmediate(async () => {
+      try {
+        const llmResult = await llmBridge.llmRefine(judgment, {
+          trigger,
+          observations: observations?.length || 0,
+        });
+
+        if (llmResult.success && llmResult.shouldRefine) {
+          // Store refined judgment for learning
+          const refinedJudgment = {
+            ...judgment,
+            llmRefined: true,
+            originalScore: judgment.qScore,
+            qScore: llmResult.refinedScore || judgment.qScore,
+            verdict: llmResult.refinedVerdict || judgment.verdict,
+            confidence: Math.min(llmResult.refinedConfidence || judgment.confidence, PHI_INV),
+            llmReason: llmResult.refinementReason,
+            critiques: llmResult.critiques,
+          };
+
+          // Append to judgments file
+          appendJudgment(refinedJudgment);
+        }
+      } catch (e) {
+        // LLM enhancement failed - continue with static judgment
+      }
+    });
+  }
+
+  return judgment;
 }
 
 // =============================================================================
@@ -554,6 +598,101 @@ function triggerBurn() {
 }
 
 // =============================================================================
+// LLM JUDGMENT FUNCTIONS
+// =============================================================================
+
+/**
+ * Check if LLM is available for enhanced judgment
+ */
+async function checkLLMAvailable() {
+  if (!llmBridge) return false;
+  return llmBridge.checkOllama();
+}
+
+/**
+ * Get LLM bridge stats
+ */
+function getLLMStats() {
+  if (!llmBridge) {
+    return { available: false, reason: 'LLM bridge not loaded' };
+  }
+  return llmBridge.getStats();
+}
+
+/**
+ * Perform LLM-enhanced judgment on an item
+ * Use this for deep analysis (slower but richer)
+ */
+async function llmJudge(item, context = {}) {
+  if (!llmBridge) {
+    return { success: false, error: 'LLM bridge not available' };
+  }
+
+  const result = await llmBridge.llmJudge(item, context);
+
+  if (result.success) {
+    // Store to judgments file
+    const judgment = {
+      ...result.judgment,
+      id: `llm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      timestamp: Date.now(),
+      autonomous: true,
+      trigger: 'llm_direct',
+      source: 'llm',
+    };
+    appendJudgment(judgment);
+
+    // Update state
+    const state = loadState();
+    state.judgments.push(judgment);
+    state.lastJudgment = Date.now();
+    state.stats.totalJudgments++;
+    saveState(state);
+
+    return { success: true, judgment };
+  }
+
+  return result;
+}
+
+/**
+ * Analyze patterns with LLM
+ */
+async function llmAnalyzePattern(pattern, observations = []) {
+  if (!llmBridge) {
+    return { success: false, error: 'LLM bridge not available' };
+  }
+
+  const result = await llmBridge.llmAnalyzePattern(pattern, observations);
+
+  // If significant, feed to adaptive learning
+  if (result.success && result.significant && adaptiveLearn && result.suggestedThresholdChange) {
+    const { category, delta } = result.suggestedThresholdChange;
+    adaptiveLearn.recordObservation({
+      type: category,
+      context: 'llm_suggested',
+      value: delta,
+      metadata: {
+        source: 'llm-analysis',
+        learning: result.learning,
+      },
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Set the LLM model to use
+ */
+function setLLMModel(model) {
+  if (!llmBridge) {
+    return { success: false, error: 'LLM bridge not available' };
+  }
+  return llmBridge.setModel(model);
+}
+
+// =============================================================================
 // EXPORTS
 // =============================================================================
 
@@ -581,6 +720,13 @@ module.exports = {
   getErrorThreshold,
   getSuccessStreak,
   getCodeChangeThreshold,
+
+  // LLM judgment (autonomous improvement)
+  checkLLMAvailable,
+  getLLMStats,
+  llmJudge,
+  llmAnalyzePattern,
+  setLLMModel,
 
   // Types
   ObservationType,
