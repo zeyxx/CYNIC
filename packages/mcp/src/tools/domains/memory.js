@@ -29,6 +29,10 @@ const PHI_VECTOR = 0.618;
  * @returns {Object} Tool definition
  */
 export function createMemorySearchTool(memoryRetriever) {
+  // Track embedder type for warnings
+  let embedderType = null;
+  let embedderChecked = false;
+
   return {
     name: 'brain_memory_search',
     description: 'Search CYNIC\'s Total Memory using φ-weighted hybrid search (FTS + vector). Returns memories, decisions, and lessons learned.',
@@ -80,6 +84,19 @@ export function createMemorySearchTool(memoryRetriever) {
         };
       }
 
+      // Check embedder type once
+      if (!embedderChecked) {
+        try {
+          const { getEmbedder } = await import('@cynic/persistence');
+          const embedder = getEmbedder();
+          if (embedder._detect) await embedder._detect();
+          embedderType = embedder.type;
+        } catch {
+          embedderType = 'unknown';
+        }
+        embedderChecked = true;
+      }
+
       try {
         const results = await memoryRetriever.search(userId, query, {
           limit,
@@ -88,6 +105,11 @@ export function createMemorySearchTool(memoryRetriever) {
         });
 
         const totalResults = Object.values(results.sources || {}).flat().length;
+
+        // Warning for mock embeddings
+        const mockWarning = embedderType === 'mock'
+          ? '⚠️ Using mock embeddings - vector similarity is approximated. Install Ollama for semantic search: https://ollama.ai'
+          : null;
 
         return {
           success: true,
@@ -100,6 +122,8 @@ export function createMemorySearchTool(memoryRetriever) {
             phiVector: PHI_VECTOR,
             minRelevance,
           },
+          embedderType,
+          warning: mockWarning,
           message: totalResults > 0
             ? `*sniff* Found ${totalResults} relevant memories.`
             : '*head tilt* No matching memories found.',

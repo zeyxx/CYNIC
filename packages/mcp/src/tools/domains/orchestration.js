@@ -24,6 +24,10 @@ import {
   getOrchestrator,
 } from '@cynic/node/orchestration/unified-orchestrator.js';
 import {
+  getOrchestrationVisibility,
+  VisibilityLevel,
+} from '@cynic/node/services/orchestration-visibility.js';
+import {
   DecisionEvent,
   EventSource,
   DecisionOutcome,
@@ -35,7 +39,7 @@ import {
   SEFIROT_ROUTING,
   TRUST_THRESHOLDS,
   calculateTrustLevel,
-  determineIntervention,
+  // Note: determineIntervention is defined locally with different signature
   detectRisk,
   findRouting,
 } from '@cynic/node/orchestration/routing-config.js';
@@ -929,6 +933,91 @@ function formatDbDecision(row) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// VISIBILITY TOOL
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Create visibility control tool
+ *
+ * Controls how orchestration is displayed to the human.
+ * "Le chien montre ce qu'il fait" - κυνικός
+ */
+function createVisibilityTool(options) {
+  return {
+    name: 'brain_visibility',
+    description: `Control CYNIC's orchestration visibility.
+Actions:
+- level: Set visibility level (silent, compact, normal, verbose, debug)
+- status: Get current visibility status and in-progress orchestration
+- panel: Get formatted orchestration panel for display
+The visibility service shows Dog voting, consensus forming, and conflicts in real-time.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['level', 'status', 'panel'],
+          description: 'Action to perform',
+        },
+        level: {
+          type: 'string',
+          enum: ['silent', 'compact', 'normal', 'verbose', 'debug'],
+          description: 'Visibility level (for action=level)',
+        },
+      },
+    },
+    handler: async (params) => {
+      const { action = 'status', level } = params;
+      const visibility = getOrchestrationVisibility();
+
+      switch (action) {
+        case 'level': {
+          if (!level) {
+            return {
+              error: 'level parameter required',
+              currentLevel: visibility.level,
+              availableLevels: Object.values(VisibilityLevel),
+            };
+          }
+          visibility.setLevel(level);
+          return {
+            success: true,
+            level: visibility.level,
+            message: `*tail wag* Visibility set to ${level}. Orchestration is now ${level === 'silent' ? 'hidden' : 'visible'}.`,
+          };
+        }
+
+        case 'status': {
+          const stats = visibility.getStats();
+          return {
+            level: stats.level,
+            orchestrationInProgress: stats.currentOrchestration,
+            activeVotes: stats.activeVotes,
+            stats: {
+              orchestrationsShown: stats.orchestrationsShown,
+              votesShown: stats.votesShown,
+              conflictsShown: stats.conflictsShown,
+            },
+            compactStatus: visibility.getCompactStatus(),
+          };
+        }
+
+        case 'panel': {
+          const panel = visibility.getOrchestrationPanel();
+          return {
+            panel: panel || '*sniff* No orchestration in progress.',
+            compactStatus: visibility.getCompactStatus(),
+          };
+        }
+
+        default:
+          return { error: `Unknown action: ${action}` };
+      }
+    },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // FACTORY
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -951,6 +1040,7 @@ export const orchestrationFactory = {
       createFullOrchestrateTool(options),    // brain_orchestrate (full orchestration)
       createCircuitBreakerTool(options),     // brain_circuit_breaker (resilience)
       createDecisionsTool(options),          // brain_decisions (decision history)
+      createVisibilityTool(options),         // brain_visibility (orchestration display)
     ];
   },
 };
@@ -967,6 +1057,7 @@ export default {
   createFullOrchestrateTool,
   createCircuitBreakerTool,
   createDecisionsTool,
+  createVisibilityTool,
   getOrCreateOrchestrator,
   orchestrationFactory,
 };

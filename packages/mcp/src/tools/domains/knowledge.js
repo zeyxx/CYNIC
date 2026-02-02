@@ -324,6 +324,7 @@ export function createDocsTool(librarian, persistence = null) {
 export function createSemanticPatternsTool(semanticMatcher = null) {
   // Lazy-loaded SemanticPatternMatcher
   let matcher = semanticMatcher;
+  let embedderType = null;
 
   return {
     name: 'brain_semantic_patterns',
@@ -346,14 +347,21 @@ export function createSemanticPatternsTool(semanticMatcher = null) {
     handler: async (params) => {
       const { action, query, patternId, k = 10, metadata = {} } = params;
 
-      // Lazy initialize matcher
+      // Lazy initialize matcher with auto-detecting embedder
       if (!matcher) {
         try {
-          const { createSemanticPatternMatcher } = await import('@cynic/persistence');
+          const { createSemanticPatternMatcher, getEmbedder } = await import('@cynic/persistence');
+          const embedder = getEmbedder();
+          // Trigger auto-detection if needed
+          if (embedder._detect) {
+            await embedder._detect();
+          }
+          embedderType = embedder.type;
           matcher = createSemanticPatternMatcher({
-            config: { embedder: 'mock', dimensions: 384 },
+            embedder,
+            config: { dimensions: embedder.dimensions || 768 },
           });
-          log.info('SemanticPatternMatcher initialized lazily');
+          log.info(`SemanticPatternMatcher initialized with ${embedderType} embedder`);
         } catch (e) {
           return {
             error: 'SemanticPatternMatcher not available',
@@ -362,6 +370,11 @@ export function createSemanticPatternsTool(semanticMatcher = null) {
           };
         }
       }
+
+      // Warning for mock embeddings
+      const mockWarning = embedderType === 'mock'
+        ? '⚠️ Using mock embeddings - semantic similarity is approximated. Install Ollama for real vector search: https://ollama.ai'
+        : null;
 
       switch (action) {
         case 'search': {
@@ -379,6 +392,8 @@ export function createSemanticPatternsTool(semanticMatcher = null) {
               metadata: r.pattern.metadata,
             })),
             count: results.length,
+            embedderType,
+            warning: mockWarning,
             message: `*sniff* Found ${results.length} similar patterns.`,
             timestamp: Date.now(),
           };
@@ -396,6 +411,8 @@ export function createSemanticPatternsTool(semanticMatcher = null) {
               description: pattern.description,
               metadata: pattern.metadata,
             },
+            embedderType,
+            warning: mockWarning,
             message: `*tail wag* Pattern "${patternId}" stored.`,
             timestamp: Date.now(),
           };
@@ -407,6 +424,8 @@ export function createSemanticPatternsTool(semanticMatcher = null) {
             action: 'cluster',
             clusters: clusters.map(c => c.toJSON()),
             count: clusters.length,
+            embedderType,
+            warning: mockWarning,
             message: `*ears perk* Found ${clusters.length} pattern clusters.`,
             timestamp: Date.now(),
           };
@@ -426,6 +445,8 @@ export function createSemanticPatternsTool(semanticMatcher = null) {
               relevance: r.relevance.toFixed(3),
             })),
             count: recommendations.length,
+            embedderType,
+            warning: mockWarning,
             message: `*head tilt* ${recommendations.length} patterns recommended for this context.`,
             timestamp: Date.now(),
           };
@@ -436,6 +457,8 @@ export function createSemanticPatternsTool(semanticMatcher = null) {
           return {
             action: 'stats',
             ...stats,
+            embedderType,
+            warning: mockWarning,
             message: `*sniff* ${stats.patterns} patterns stored, ${stats.searches} searches, ${stats.clusters} clusters.`,
             timestamp: Date.now(),
           };

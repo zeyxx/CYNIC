@@ -25,7 +25,7 @@ import { ServiceInitializer } from './server/ServiceInitializer.js';
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = join(__filename, '..');
-import { CYNICJudge, createCollectivePack, LearningService, createEScoreCalculator, createEmergenceLayer, DogOrchestrator, SharedMemory } from '@cynic/node';
+import { CYNICJudge, createCollectivePack, LearningService, createEScoreCalculator, createEmergenceLayer, DogOrchestrator, SharedMemory, createAutonomousDaemon } from '@cynic/node';
 import { createPatternDetector } from '@cynic/emergence';
 import { createAllTools } from './tools/index.js';
 import { createThermodynamicsTracker } from './thermodynamics-tracker.js';
@@ -325,6 +325,29 @@ export class MCPServer {
       });
       this.blockchainBridge.start();
       console.error('   BlockchainBridge: active (PoJ → Anchor → E-Score loop)');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AUTONOMOUS DAEMON (TIKKUN: Activate dormant infrastructure)
+    // Background task processing, goal tracking, proactive notifications
+    // "Le chien qui veille" - κυνικός
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (!this.autonomousDaemon && this.persistence?.pool) {
+      try {
+        this.autonomousDaemon = createAutonomousDaemon({
+          pool: this.persistence.pool,
+          memoryRetriever: this.persistence?.repositories?.memory,
+          collective: this.collective,
+          goalsRepo: this.persistence?.repositories?.autonomousGoals,
+          tasksRepo: this.persistence?.repositories?.autonomousTasks,
+          notificationsRepo: this.persistence?.repositories?.proactiveNotifications,
+        });
+        await this.autonomousDaemon.start();
+        console.error('   AutonomousDaemon: ACTIVE (Fibonacci intervals, autonomous task processing)');
+      } catch (err) {
+        console.error(`   AutonomousDaemon: FAILED (${err.message})`);
+        this.autonomousDaemon = null;
+      }
     }
 
     // Initialize Auth service for HTTP mode
@@ -1320,6 +1343,16 @@ export class MCPServer {
         console.error('   Automation executor stopped');
       } catch (e) {
         console.error('Error stopping automation executor:', e.message);
+      }
+    }
+
+    // Stop autonomous daemon (TIKKUN: graceful shutdown)
+    if (this.autonomousDaemon) {
+      try {
+        await this.autonomousDaemon.stop();
+        console.error('   Autonomous daemon stopped');
+      } catch (e) {
+        console.error('Error stopping autonomous daemon:', e.message);
       }
     }
 

@@ -249,6 +249,7 @@ Actions:
 export function createCodebaseTool(options = {}) {
   // Lazily create analyzer on first use
   let analyzer = null;
+  let codebaseIndexer = null;
 
   const getAnalyzer = () => {
     if (!analyzer) {
@@ -257,16 +258,43 @@ export function createCodebaseTool(options = {}) {
     return analyzer;
   };
 
+  // Lazy load CodebaseIndexer for graph queries
+  const getIndexer = async () => {
+    if (!codebaseIndexer) {
+      try {
+        const mod = await import('@cynic/persistence/services/codebase-indexer');
+        const CodebaseIndexer = mod.CodebaseIndexer || mod.default;
+        codebaseIndexer = new CodebaseIndexer({
+          rootDir: options.rootPath || process.cwd(),
+          userId: 'mcp',
+          sessionId: `mcp-${Date.now()}`,
+        });
+      } catch (e) {
+        throw new Error(`CodebaseIndexer not available: ${e.message}`);
+      }
+    }
+    return codebaseIndexer;
+  };
+
   return {
     name: 'brain_codebase',
-    description: 'Analyze CYNIC codebase structure for 3D visualization. Get package hierarchy, search symbols, and view codebase metrics.',
+    description: `Analyze CYNIC codebase structure. Get package hierarchy, search symbols, view metrics, and query dependency graphs.
+
+Actions:
+- tree: Full package hierarchy for visualization
+- package: Single package details
+- search: Find symbols by name
+- stats: Codebase metrics
+- graph: Query dependency graph (SUPERMEMORY) - find imports/exports
+- dependents: Find what depends on a file
+- invalidate: Clear cache`,
     inputSchema: {
       type: 'object',
       properties: {
         action: {
           type: 'string',
-          enum: ['tree', 'package', 'search', 'stats', 'invalidate'],
-          description: 'Action: tree (full hierarchy), package (single package details), search (find symbols), stats (codebase metrics), invalidate (clear cache)',
+          enum: ['tree', 'package', 'search', 'stats', 'graph', 'dependents', 'invalidate'],
+          description: 'Action to perform',
         },
         name: {
           type: 'string',
@@ -274,7 +302,12 @@ export function createCodebaseTool(options = {}) {
         },
         query: {
           type: 'string',
-          description: 'Search query for "search" action (symbol name)',
+          description: 'Search query for "search" action, or file/symbol for "graph"/"dependents" actions',
+        },
+        maxDepth: {
+          type: 'number',
+          description: 'Max traversal depth for "graph" action (default: 3)',
+          default: 3,
         },
       },
     },
@@ -379,6 +412,7 @@ export function createCodebaseTool(options = {}) {
 
         case 'invalidate': {
           codeAnalyzer.invalidateCache();
+          codebaseIndexer = null; // Reset indexer too
           return {
             action: 'invalidate',
             message: '*growl* Cache invalidated. Next request will rescan.',
@@ -386,10 +420,77 @@ export function createCodebaseTool(options = {}) {
           };
         }
 
+        case 'graph': {
+          if (!query) {
+            return {
+              error: 'query required for graph action',
+              hint: 'Provide file path or symbol name to trace dependencies',
+              timestamp: Date.now(),
+            };
+          }
+
+          try {
+            const indexer = await getIndexer();
+            const result = await indexer.queryDependencyGraph(query, {
+              maxDepth: params.maxDepth || 3,
+            });
+
+            return {
+              action: 'graph',
+              query,
+              nodes: result.nodes || [],
+              edges: result.edges || [],
+              stats: result.stats || {},
+              message: result.error
+                ? `*head tilt* ${result.error}`
+                : `*sniff* Found ${result.nodes?.length || 0} nodes in dependency graph.`,
+              timestamp: Date.now(),
+            };
+          } catch (e) {
+            return {
+              action: 'graph',
+              error: e.message,
+              timestamp: Date.now(),
+            };
+          }
+        }
+
+        case 'dependents': {
+          if (!query) {
+            return {
+              error: 'query required for dependents action',
+              hint: 'Provide file path to find what depends on it',
+              timestamp: Date.now(),
+            };
+          }
+
+          try {
+            const indexer = await getIndexer();
+            const dependents = await indexer.getReverseDependencies(query);
+
+            return {
+              action: 'dependents',
+              query,
+              dependents: dependents.slice(0, 50),
+              total: dependents.length,
+              message: dependents.length > 0
+                ? `*ears perk* Found ${dependents.length} files that depend on "${query}".`
+                : `*head tilt* No files depend on "${query}".`,
+              timestamp: Date.now(),
+            };
+          } catch (e) {
+            return {
+              action: 'dependents',
+              error: e.message,
+              timestamp: Date.now(),
+            };
+          }
+        }
+
         default:
           return {
             error: `Unknown action: ${action}`,
-            validActions: ['tree', 'package', 'search', 'stats', 'invalidate'],
+            validActions: ['tree', 'package', 'search', 'stats', 'graph', 'dependents', 'invalidate'],
             timestamp: Date.now(),
           };
       }
