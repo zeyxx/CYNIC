@@ -1,0 +1,38 @@
+# GASdf Relayer - Render Deployment
+# "Don't Extract, Burn" - κυνικός
+
+services:
+  - type: web
+    name: gasdf-relayer
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: LOG_LEVEL
+        value: info
+      - key: TRUST_PROXY
+        value: true
+      # Solana Configuration
+      - key: SOLANA_RPC_URL
+        sync: false # Set in Render dashboard
+      - key: SOLANA_WS_URL
+        sync: false
+      # Relayer Wallet (REQUIRED - set in dashboard)
+      - key: RELAYER_PRIVATE_KEY
+        sync: false
+      # Treasury (REQUIRED - set in dashboard)
+      - key: TREASURY_ADDRESS
+        sync: false
+      # Optional: Custom burn address (defaults to 1111...)
+      - key: BURN_ADDRESS
+        sync: false
+    autoDeploy: true
+    domains:
+      - gasdf.asdfasdfa.tech
