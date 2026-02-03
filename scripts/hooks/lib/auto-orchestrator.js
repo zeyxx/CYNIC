@@ -176,6 +176,19 @@ class AutoOrchestrator {
         // Planning gate optional
       }
 
+      // Import ChaosGenerator for chaos engineering
+      // "Un système qui survit au hasard survit à tout"
+      try {
+        const { getChaosGenerator } = await import('@cynic/node/chaos');
+        this._chaosGenerator = getChaosGenerator();
+        // Enable chaos only in dev/test or when explicitly requested
+        if (process.env.CYNIC_CHAOS_ENABLED === 'true') {
+          this._chaosGenerator.enable();
+        }
+      } catch {
+        // Chaos generator optional
+      }
+
       this._initialized = true;
       return true;
     } catch (error) {
@@ -241,16 +254,48 @@ class AutoOrchestrator {
       this._assessRisk(tool, input) > CONFIG.HIGH_RISK_THRESHOLD;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // CHAOS ENGINEERING: Random planning triggers to test robustness
+    // "Un système qui survit au hasard survit à tout"
+    // ═══════════════════════════════════════════════════════════════════════════
+    let chaosResult = null;
+    let forcePlanningFromChaos = false;
+
+    if (this._chaosGenerator && this._chaosGenerator.enabled) {
+      try {
+        // Check if chaos should force planning on this task
+        chaosResult = this._chaosGenerator.shouldForcePlanning({
+          content: `${tool}: ${JSON.stringify(input).slice(0, 200)}`,
+          context: { tool, isHighRisk },
+        });
+
+        if (chaosResult.injected) {
+          forcePlanningFromChaos = true;
+          this.stats.chaosInjected = (this.stats.chaosInjected || 0) + 1;
+        }
+      } catch (e) {
+        // Chaos failure should not block operation
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // PLANNING GATE: Meta-cognition layer - think before acting
     // "Un système qui pense avant d'agir"
     // ═══════════════════════════════════════════════════════════════════════════
-    if (this._planningGate && isHighRisk) {
+    const shouldCheckPlanning = isHighRisk || forcePlanningFromChaos;
+    if (this._planningGate && shouldCheckPlanning) {
       try {
         // Create minimal decision event for planning gate
         const planningEvent = {
           id: `hook-${Date.now()}`,
           content: `${tool}: ${JSON.stringify(input).slice(0, 200)}`,
-          context: { tool, input, isHighRisk, skipPlanning: false },
+          context: {
+            tool,
+            input,
+            isHighRisk,
+            skipPlanning: false,
+            chaosInjected: forcePlanningFromChaos,
+            chaosId: chaosResult?.id,
+          },
           userContext: {
             userId: event.userId,
             trustLevel: 'BUILDER', // Default, could be enhanced
@@ -261,19 +306,27 @@ class AutoOrchestrator {
           recordError: function() {},
         };
 
+        // If chaos forced planning, add chaos_test trigger
+        const chaosContext = forcePlanningFromChaos ? { forcedByChaos: true } : {};
         const planningResult = this._planningGate.shouldPlan(planningEvent, {
-          complexity: isHighRisk ? 0.3 : 0.7,
+          complexity: isHighRisk ? 0.3 : (forcePlanningFromChaos ? 0.4 : 0.7),
           confidence: 0.5,
+          ...chaosContext,
         });
 
-        if (planningResult.needed) {
+        if (planningResult.needed || forcePlanningFromChaos) {
           this.stats.planningTriggered++;
+
+          // Add chaos trigger if applicable
+          if (forcePlanningFromChaos && !planningResult.triggers?.includes('chaos_test')) {
+            planningResult.triggers = [...(planningResult.triggers || []), 'chaos_test'];
+          }
 
           // Generate plan with alternatives
           await this._planningGate.generatePlan(planningEvent, planningResult);
 
           // If PAUSE decision, return for human approval
-          if (planningResult.decision === 'pause') {
+          if (planningResult.decision === 'pause' || forcePlanningFromChaos) {
             this.stats.planningPaused++;
 
             return {
@@ -286,6 +339,8 @@ class AutoOrchestrator {
               confidence: planningResult.confidence,
               reason: `Planning triggered: ${planningResult.triggers.join(', ')}`,
               isHighRisk,
+              chaosId: chaosResult?.id,  // For tracking chaos results
+              chaosInjected: forcePlanningFromChaos,
             };
           }
         }
@@ -689,6 +744,9 @@ class AutoOrchestrator {
       hasSwarmConsensus: !!this._swarmConsensus,
       hasPlanningGate: !!this._planningGate,
       planningGateStats: this._planningGate?.getStats() || null,
+      hasChaosGenerator: !!this._chaosGenerator,
+      chaosEnabled: this._chaosGenerator?.enabled || false,
+      chaosStats: this._chaosGenerator?.getStats() || null,
     };
   }
 
@@ -706,6 +764,28 @@ class AutoOrchestrator {
    */
   getPlanningGate() {
     return this._planningGate;
+  }
+
+  /**
+   * Get ChaosGenerator (for chaos engineering)
+   * "Un système qui survit au hasard survit à tout"
+   * @returns {Object|null}
+   */
+  getChaosGenerator() {
+    return this._chaosGenerator;
+  }
+
+  /**
+   * Record chaos result (for learning)
+   * @param {string} chaosId - Chaos event ID
+   * @param {Object} result - Outcome
+   * @param {boolean} result.survived - Whether system survived
+   * @param {string} [result.error] - Error message if failed
+   */
+  recordChaosResult(chaosId, result) {
+    if (this._chaosGenerator && chaosId) {
+      this._chaosGenerator.recordChaosResult(chaosId, result);
+    }
   }
 
   /**
