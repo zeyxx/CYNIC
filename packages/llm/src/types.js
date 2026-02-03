@@ -89,10 +89,10 @@ export class ConsensusResult {
 
   /**
    * Is consensus strong?
-   * Threshold: 100% - φ⁻² = ~81.8%
+   * Threshold: 2 × φ⁻² ≈ 76.4% (φ-aligned, higher than consensus)
    */
   get isStrong() {
-    return this.agreement >= (1 - PHI_INV_2);
+    return this.agreement >= (2 * PHI_INV_2);
   }
 
   /**

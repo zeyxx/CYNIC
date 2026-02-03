@@ -84,6 +84,11 @@ export class ComplexityClassifier {
   }
 
   _isLocalResolvable(content) {
+    // Exclude when followed by complex keywords
+    const complexKeywords = /security|analyze|design|architect|refactor|optimize|review|vulnerability|audit/i;
+    if (complexKeywords.test(content)) {
+      return false;
+    }
     return content.match(/^(list|show|get|check|status|format|lint)/i) ||
            content.match(/^(does|is) .+ exist/i);
   }
