@@ -34,6 +34,16 @@ import { getTransferSolInstruction } from '@solana-program/system';
 // Configuration
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Detect cluster from RPC URL (cluster awareness - security checklist)
+ */
+function detectCluster(rpcUrl) {
+  if (rpcUrl.includes('devnet')) return 'devnet';
+  if (rpcUrl.includes('testnet')) return 'testnet';
+  if (rpcUrl.includes('localhost') || rpcUrl.includes('127.0.0.1')) return 'localnet';
+  return 'mainnet-beta';
+}
+
 const config = {
   // Solana cluster
   rpcUrl: process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
@@ -51,7 +61,68 @@ const config = {
   // φ-aligned fee ratios
   burnRate: 0.763932022500210, // 1 - φ⁻³
   treasuryRate: 0.236067977499790, // φ⁻³
+
+  // Transaction settings
+  maxRetries: 3,
+  confirmationTimeout: 60000, // 60s max for confirmation
+  blockhashTtl: 150, // ~60 seconds at 400ms/slot
 };
+
+// Cluster awareness - detect at startup
+config.cluster = detectCluster(config.rpcUrl);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Error Classes (clear error messages - security checklist)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export class SolanaError extends Error {
+  constructor(message, code, details = {}) {
+    super(message);
+    this.name = 'SolanaError';
+    this.code = code;
+    this.details = details;
+  }
+}
+
+export class InsufficientBalanceError extends SolanaError {
+  constructor(required, available) {
+    super(
+      `Insufficient balance: need ${required / 1e9} SOL, have ${available / 1e9} SOL`,
+      'INSUFFICIENT_BALANCE',
+      { required, available }
+    );
+  }
+}
+
+export class BlockhashExpiredError extends SolanaError {
+  constructor(blockhash) {
+    super(
+      'Transaction blockhash expired. Will retry with fresh blockhash.',
+      'BLOCKHASH_EXPIRED',
+      { blockhash }
+    );
+  }
+}
+
+export class SimulationFailedError extends SolanaError {
+  constructor(logs, err) {
+    super(
+      `Transaction simulation failed: ${err || 'Unknown error'}`,
+      'SIMULATION_FAILED',
+      { logs, err }
+    );
+  }
+}
+
+export class ConfirmationTimeoutError extends SolanaError {
+  constructor(signature, timeout) {
+    super(
+      `Transaction not confirmed after ${timeout / 1000}s. Check explorer for status.`,
+      'CONFIRMATION_TIMEOUT',
+      { signature, timeout }
+    );
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // RPC Clients
@@ -154,6 +225,69 @@ export async function getMinRent(dataSize = 0) {
   const client = initRpc();
   const rent = await client.getMinimumBalanceForRentExemption(BigInt(dataSize)).send();
   return rent;
+}
+
+/**
+ * Check if blockhash is still valid
+ *
+ * @param {Object} blockhash - Blockhash with lastValidBlockHeight
+ * @returns {Promise<boolean>} True if blockhash is still valid
+ */
+export async function isBlockhashValid(blockhash) {
+  const client = initRpc();
+  const { value: currentSlot } = await client.getSlot().send();
+
+  // Approximate: ~2.5 slots per second, blockhash valid for ~150 slots
+  // Check if we're within the valid range
+  const { value: isValid } = await client
+    .isBlockhashValid(blockhash.blockhash, { commitment: 'processed' })
+    .send();
+
+  return isValid;
+}
+
+/**
+ * Get fresh blockhash with retry capability
+ * Handles blockhash expiry (security checklist)
+ *
+ * @param {string} commitment - Commitment level
+ * @returns {Promise<Object>} Fresh blockhash
+ */
+export async function getFreshBlockhash(commitment = 'confirmed') {
+  const client = initRpc();
+  const { value } = await client.getLatestBlockhash({ commitment }).send();
+  return value;
+}
+
+/**
+ * Simulate transaction before sending (UX - security checklist)
+ *
+ * @param {Uint8Array} txBytes - Serialized transaction
+ * @returns {Promise<Object>} Simulation result
+ */
+export async function simulateTransaction(txBytes) {
+  const client = initRpc();
+
+  const result = await client
+    .simulateTransaction(txBytes, {
+      encoding: 'base64',
+      commitment: 'confirmed',
+      replaceRecentBlockhash: true,
+    })
+    .send();
+
+  const { value } = result;
+
+  if (value.err) {
+    throw new SimulationFailedError(value.logs, value.err);
+  }
+
+  return {
+    success: true,
+    unitsConsumed: value.unitsConsumed,
+    logs: value.logs,
+    accounts: value.accounts,
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -262,157 +396,334 @@ export async function submitAndPayFee(serializedTx, options = {}) {
 }
 
 /**
- * Create a burn transaction
- *
- * Burns SOL by sending to the null address.
+ * Create a burn transaction with full security checklist compliance:
+ * - Balance check before send
+ * - Simulation before send
+ * - Blockhash expiry handling with retry
+ * - Proper confirmation tracking
+ * - Clear error messages
  *
  * @param {bigint} amount - Amount to burn in lamports
- * @returns {Promise<string>} Burn transaction signature
+ * @param {Object} options - Transaction options
+ * @returns {Promise<Object>} Transaction result with signature and details
  */
-export async function createBurnTransaction(amount) {
+export async function createBurnTransaction(amount, options = {}) {
+  const {
+    simulate = true,
+    commitment = 'confirmed',
+    maxRetries = config.maxRetries,
+  } = options;
+
   const client = initRpc();
   const signer = await initRelayerSigner();
-  const { value: blockhash } = await client.getLatestBlockhash().send();
 
-  // Build burn transaction using pipe (functional approach)
-  const burnTx = pipe(
-    // Create empty v0 transaction
-    createTransactionMessage({ version: 0 }),
+  // 1. Check balance before proceeding (clear error messages)
+  const balance = await getBalance(signer.address);
+  const estimatedFee = 5000n; // Base fee
+  const required = amount + estimatedFee;
 
-    // Set relayer as fee payer
-    (tx) => setTransactionMessageFeePayerSigner(signer, tx),
+  if (balance < required) {
+    throw new InsufficientBalanceError(Number(required), Number(balance));
+  }
 
-    // Set lifetime using blockhash
-    (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
+  // 2. Retry loop for blockhash expiry
+  let lastError = null;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      // Get fresh blockhash each attempt
+      const blockhash = await getFreshBlockhash(commitment);
 
-    // Add transfer to burn address
-    (tx) =>
-      appendTransactionMessageInstruction(
-        getTransferSolInstruction({
-          source: signer,
-          destination: address(config.burnAddress),
-          amount: lamports(amount),
-        }),
-        tx
-      )
-  );
+      // Build burn transaction using pipe (functional approach)
+      const burnTx = pipe(
+        createTransactionMessage({ version: 0 }),
+        (tx) => setTransactionMessageFeePayerSigner(signer, tx),
+        (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
+        (tx) =>
+          appendTransactionMessageInstruction(
+            getTransferSolInstruction({
+              source: signer,
+              destination: address(config.burnAddress),
+              amount: lamports(amount),
+            }),
+            tx
+          )
+      );
 
-  // Sign and get signature
-  const signedTx = await signTransactionMessageWithSigners(burnTx);
-  const signature = getSignatureFromTransaction(signedTx);
+      // Sign and compile
+      const signedTx = await signTransactionMessageWithSigners(burnTx);
+      const signature = getSignatureFromTransaction(signedTx);
+      const compiledTx = compileTransaction(signedTx);
+      const wireTransaction = getBase64EncodedWireTransaction(compiledTx);
+      const wireBytes = new Uint8Array(
+        atob(wireTransaction)
+          .split('')
+          .map((c) => c.charCodeAt(0))
+      );
 
-  // Compile to wire format and send
-  const compiledTx = compileTransaction(signedTx);
-  const wireTransaction = getBase64EncodedWireTransaction(compiledTx);
+      // 3. Simulate before sending (UX improvement)
+      if (simulate) {
+        await simulateTransaction(wireBytes);
+      }
 
-  await client
-    .sendTransaction(wireTransaction, {
-      encoding: 'base64',
-      skipPreflight: false,
-    })
-    .send();
+      // 4. Send transaction
+      await client
+        .sendTransaction(wireTransaction, {
+          encoding: 'base64',
+          skipPreflight: true, // Already simulated
+          maxRetries: 0, // We handle retries
+        })
+        .send();
 
-  // Wait for confirmation
-  let confirmed = false;
-  for (let i = 0; i < 30; i++) {
-    const status = await confirmTransaction(signature);
-    if (status.confirmed) {
-      confirmed = true;
-      break;
+      // 5. Confirm with proper tracking
+      const confirmation = await confirmTransaction(signature, { commitment });
+
+      if (!confirmation.confirmed) {
+        throw new SolanaError(
+          confirmation.errorMessage || 'Transaction failed',
+          'TX_FAILED',
+          confirmation
+        );
+      }
+
+      return {
+        signature,
+        slot: confirmation.slot,
+        commitment: confirmation.confirmationStatus,
+        amount: amount.toString(),
+        cluster: config.cluster,
+      };
+    } catch (err) {
+      lastError = err;
+
+      // Only retry on blockhash expiry
+      if (
+        err.message?.includes('Blockhash not found') ||
+        err.message?.includes('blockhash') ||
+        err.code === 'BLOCKHASH_EXPIRED'
+      ) {
+        console.log(
+          `[Solana] Blockhash expired, retrying (${attempt + 1}/${maxRetries})...`
+        );
+        continue;
+      }
+
+      // Don't retry other errors
+      throw err;
     }
-    await new Promise((r) => setTimeout(r, 1000));
   }
 
-  if (!confirmed) {
-    throw new Error(`Transaction ${signature} not confirmed after 30s`);
-  }
-
-  return signature;
+  throw lastError || new SolanaError('Max retries exceeded', 'MAX_RETRIES');
 }
 
 /**
- * Create a treasury transfer
+ * Create a treasury transfer with full security checklist compliance
  *
  * @param {bigint} amount - Amount to transfer in lamports
- * @returns {Promise<string>} Transfer signature
+ * @param {Object} options - Transaction options
+ * @returns {Promise<Object>} Transaction result
  */
-export async function createTreasuryTransfer(amount) {
+export async function createTreasuryTransfer(amount, options = {}) {
   if (!config.treasuryAddress) {
-    throw new Error('TREASURY_ADDRESS not configured');
+    throw new SolanaError(
+      'TREASURY_ADDRESS not configured. Set it in environment variables.',
+      'CONFIG_MISSING',
+      { missing: 'TREASURY_ADDRESS' }
+    );
   }
+
+  const {
+    simulate = true,
+    commitment = 'confirmed',
+    maxRetries = config.maxRetries,
+  } = options;
 
   const client = initRpc();
   const signer = await initRelayerSigner();
-  const { value: blockhash } = await client.getLatestBlockhash().send();
 
-  const treasuryTx = pipe(
-    createTransactionMessage({ version: 0 }),
-    (tx) => setTransactionMessageFeePayerSigner(signer, tx),
-    (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
-    (tx) =>
-      appendTransactionMessageInstruction(
-        getTransferSolInstruction({
-          source: signer,
-          destination: address(config.treasuryAddress),
-          amount: lamports(amount),
-        }),
-        tx
-      )
-  );
+  // Check balance
+  const balance = await getBalance(signer.address);
+  const estimatedFee = 5000n;
+  const required = amount + estimatedFee;
 
-  const signedTx = await signTransactionMessageWithSigners(treasuryTx);
-  const signature = getSignatureFromTransaction(signedTx);
+  if (balance < required) {
+    throw new InsufficientBalanceError(Number(required), Number(balance));
+  }
 
-  // Compile to wire format and send
-  const compiledTx = compileTransaction(signedTx);
-  const wireTransaction = getBase64EncodedWireTransaction(compiledTx);
+  // Retry loop for blockhash expiry
+  let lastError = null;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const blockhash = await getFreshBlockhash(commitment);
 
-  await client
-    .sendTransaction(wireTransaction, {
-      encoding: 'base64',
-      skipPreflight: false,
-    })
-    .send();
+      const treasuryTx = pipe(
+        createTransactionMessage({ version: 0 }),
+        (tx) => setTransactionMessageFeePayerSigner(signer, tx),
+        (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
+        (tx) =>
+          appendTransactionMessageInstruction(
+            getTransferSolInstruction({
+              source: signer,
+              destination: address(config.treasuryAddress),
+              amount: lamports(amount),
+            }),
+            tx
+          )
+      );
 
-  // Wait for confirmation
-  let confirmed = false;
-  for (let i = 0; i < 30; i++) {
-    const status = await confirmTransaction(signature);
-    if (status.confirmed) {
-      confirmed = true;
-      break;
+      const signedTx = await signTransactionMessageWithSigners(treasuryTx);
+      const signature = getSignatureFromTransaction(signedTx);
+      const compiledTx = compileTransaction(signedTx);
+      const wireTransaction = getBase64EncodedWireTransaction(compiledTx);
+      const wireBytes = new Uint8Array(
+        atob(wireTransaction)
+          .split('')
+          .map((c) => c.charCodeAt(0))
+      );
+
+      // Simulate
+      if (simulate) {
+        await simulateTransaction(wireBytes);
+      }
+
+      // Send
+      await client
+        .sendTransaction(wireTransaction, {
+          encoding: 'base64',
+          skipPreflight: true,
+          maxRetries: 0,
+        })
+        .send();
+
+      // Confirm
+      const confirmation = await confirmTransaction(signature, { commitment });
+
+      if (!confirmation.confirmed) {
+        throw new SolanaError(
+          confirmation.errorMessage || 'Transaction failed',
+          'TX_FAILED',
+          confirmation
+        );
+      }
+
+      return {
+        signature,
+        slot: confirmation.slot,
+        commitment: confirmation.confirmationStatus,
+        amount: amount.toString(),
+        destination: config.treasuryAddress,
+        cluster: config.cluster,
+      };
+    } catch (err) {
+      lastError = err;
+
+      if (
+        err.message?.includes('Blockhash not found') ||
+        err.message?.includes('blockhash') ||
+        err.code === 'BLOCKHASH_EXPIRED'
+      ) {
+        console.log(
+          `[Solana] Blockhash expired, retrying (${attempt + 1}/${maxRetries})...`
+        );
+        continue;
+      }
+
+      throw err;
     }
-    await new Promise((r) => setTimeout(r, 1000));
   }
 
-  if (!confirmed) {
-    throw new Error(`Transaction ${signature} not confirmed after 30s`);
-  }
-
-  return signature;
+  throw lastError || new SolanaError('Max retries exceeded', 'MAX_RETRIES');
 }
 
 /**
- * Confirm a transaction
+ * Confirm a transaction with proper tracking (security checklist)
+ *
+ * "Treat signature received as not-final; track confirmation"
  *
  * @param {string} signature - Transaction signature
- * @param {string} [commitment='confirmed'] - Commitment level
+ * @param {Object} options - Confirmation options
+ * @param {string} options.commitment - Commitment level ('processed' | 'confirmed' | 'finalized')
+ * @param {number} options.timeout - Timeout in ms
+ * @returns {Promise<Object>} Confirmation result
  */
-export async function confirmTransaction(signature, commitment = 'confirmed') {
+export async function confirmTransaction(signature, options = {}) {
+  const {
+    commitment = 'confirmed',
+    timeout = config.confirmationTimeout,
+  } = options;
+
   const client = initRpc();
+  const startTime = Date.now();
 
-  const result = await client
-    .getSignatureStatuses([signature])
-    .send();
+  // Commitment hierarchy
+  const commitmentLevels = ['processed', 'confirmed', 'finalized'];
+  const targetLevel = commitmentLevels.indexOf(commitment);
 
-  const status = result.value?.[0];
+  while (Date.now() - startTime < timeout) {
+    const result = await client.getSignatureStatuses([signature]).send();
+    const status = result.value?.[0];
 
-  return {
-    confirmed: !!status?.confirmationStatus,
-    confirmationStatus: status?.confirmationStatus,
-    slot: status?.slot,
-    err: status?.err,
+    if (status) {
+      // Check for errors
+      if (status.err) {
+        return {
+          confirmed: false,
+          confirmationStatus: status.confirmationStatus,
+          slot: status.slot,
+          err: status.err,
+          errorMessage: parseTransactionError(status.err),
+        };
+      }
+
+      // Check if we've reached target commitment
+      const currentLevel = commitmentLevels.indexOf(status.confirmationStatus);
+      if (currentLevel >= targetLevel) {
+        return {
+          confirmed: true,
+          confirmationStatus: status.confirmationStatus,
+          slot: status.slot,
+          err: null,
+        };
+      }
+    }
+
+    // Wait before polling again
+    await new Promise((r) => setTimeout(r, 400));
+  }
+
+  // Timeout reached
+  throw new ConfirmationTimeoutError(signature, timeout);
+}
+
+/**
+ * Parse transaction error into human-readable message
+ *
+ * @param {Object} err - Transaction error
+ * @returns {string} Human-readable error message
+ */
+function parseTransactionError(err) {
+  if (!err) return null;
+
+  // Common Solana error codes
+  const errorMessages = {
+    'InstructionError': 'Instruction failed to execute',
+    'InsufficientFunds': 'Insufficient funds for transaction',
+    'AccountNotFound': 'Account not found',
+    'InvalidAccountData': 'Invalid account data',
+    'AccountBorrowFailed': 'Account is already borrowed',
+    'ProgramFailedToComplete': 'Program failed to complete',
   };
+
+  if (typeof err === 'string') {
+    return errorMessages[err] || err;
+  }
+
+  if (err.InstructionError) {
+    const [index, code] = err.InstructionError;
+    const codeMsg = typeof code === 'string' ? code : JSON.stringify(code);
+    return `Instruction ${index} failed: ${errorMessages[codeMsg] || codeMsg}`;
+  }
+
+  return JSON.stringify(err);
 }
 
 /**
@@ -437,7 +748,7 @@ export async function getTransaction(signature) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Check Solana connection health
+ * Check Solana connection health with cluster awareness
  */
 export async function checkHealth() {
   try {
@@ -445,17 +756,45 @@ export async function checkHealth() {
     const { value: slot } = await client.getSlot().send();
     const balance = await getRelayerBalance();
 
+    // Cluster awareness warnings
+    const warnings = [];
+    if (config.cluster === 'mainnet-beta' && process.env.NODE_ENV === 'development') {
+      warnings.push('⚠️ Running against mainnet in development mode');
+    }
+    if (config.cluster === 'devnet' && process.env.NODE_ENV === 'production') {
+      warnings.push('⚠️ Running against devnet in production mode');
+    }
+    if (balance < 1_000_000_000n) {
+      warnings.push(`⚠️ Low balance: ${Number(balance) / 1e9} SOL`);
+    }
+    if (balance < 100_000_000n) {
+      warnings.push('🔴 Critical: Balance below 0.1 SOL');
+    }
+
     return {
       connected: true,
+      cluster: config.cluster,
+      rpcUrl: config.rpcUrl.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'), // Redact auth
       slot: Number(slot),
+      relayerAddress: relayerSigner?.address || 'not initialized',
       relayerBalance: balance.toString(),
       relayerBalanceSol: Number(balance) / 1e9,
-      lowBalance: balance < 1_000_000_000n, // < 1 SOL warning
+      lowBalance: balance < 1_000_000_000n,
+      criticalBalance: balance < 100_000_000n,
+      warnings,
+      config: {
+        burnRate: config.burnRate,
+        treasuryRate: config.treasuryRate,
+        maxRetries: config.maxRetries,
+        confirmationTimeout: config.confirmationTimeout,
+      },
     };
   } catch (err) {
     return {
       connected: false,
+      cluster: config.cluster,
       error: err.message,
+      errorCode: err.code,
     };
   }
 }
@@ -475,7 +814,9 @@ export default {
   getBalance,
   getRelayerBalance,
   getLatestBlockhash,
+  getFreshBlockhash,
   getMinRent,
+  isBlockhashValid,
 
   // Transactions
   estimatePriorityFee,
@@ -485,9 +826,17 @@ export default {
   createTreasuryTransfer,
   confirmTransaction,
   getTransaction,
+  simulateTransaction,
 
   // Health
   checkHealth,
+
+  // Errors
+  SolanaError,
+  InsufficientBalanceError,
+  BlockhashExpiredError,
+  SimulationFailedError,
+  ConfirmationTimeoutError,
 
   // Config (read-only)
   config: Object.freeze({ ...config, relayerPrivateKey: '[REDACTED]' }),

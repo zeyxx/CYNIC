@@ -81,16 +81,27 @@ await app.register(rateLimit, {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Health check
+ * Health check with cluster awareness (security checklist)
  */
 app.get('/health', async (request, reply) => {
   const solanaHealth = await solana.checkHealth();
 
-  const healthy = solanaHealth.connected && !solanaHealth.lowBalance;
+  // Determine overall health status
+  let status = 'healthy';
+  if (!solanaHealth.connected) {
+    status = 'unhealthy';
+  } else if (solanaHealth.criticalBalance) {
+    status = 'critical';
+  } else if (solanaHealth.lowBalance || solanaHealth.warnings?.length > 0) {
+    status = 'degraded';
+  }
+
+  const healthy = status === 'healthy' || status === 'degraded';
 
   return reply.status(healthy ? 200 : 503).send({
-    status: healthy ? 'healthy' : 'degraded',
+    status,
     timestamp: Date.now(),
+    version: '1.0.0',
     solana: solanaHealth,
     quotes: quotes.getQuoteStats(),
     burns: burns.getStats(),
@@ -174,13 +185,36 @@ app.post('/v1/submit', async (request, reply) => {
       burnAmount: burnRecord.record.burnAmount,
       burnSignature: burnRecord.burnResult?.burnTxSignature || null,
       confirmations: null, // Client should poll for confirmations
+      // Added: cluster awareness for client-side handling
+      cluster: solana.default.config.cluster,
     });
   } catch (err) {
     app.log.error({ err, quoteId }, 'Transaction submission failed');
-    return reply.status(500).send({
+
+    // Typed error responses (security checklist: clear error messages)
+    const errorResponse = {
       success: false,
       error: err.message,
-    });
+      code: err.code || 'UNKNOWN_ERROR',
+    };
+
+    // Map error types to HTTP status codes
+    let statusCode = 500;
+    if (err.code === 'INSUFFICIENT_BALANCE') {
+      statusCode = 400;
+      errorResponse.details = err.details;
+    } else if (err.code === 'SIMULATION_FAILED') {
+      statusCode = 400;
+      errorResponse.logs = err.details?.logs?.slice(-5); // Last 5 log lines
+    } else if (err.code === 'CONFIRMATION_TIMEOUT') {
+      statusCode = 202; // Accepted but not confirmed
+      errorResponse.signature = err.details?.signature;
+      errorResponse.message = 'Transaction sent but not confirmed. Check explorer.';
+    } else if (err.code === 'CONFIG_MISSING') {
+      statusCode = 503;
+    }
+
+    return reply.status(statusCode).send(errorResponse);
   }
 });
 
@@ -261,13 +295,20 @@ async function start() {
       throw new Error(`Solana connection failed: ${health.error}`);
     }
 
+    // Cluster awareness logging (security checklist)
+    app.log.info({ cluster: health.cluster }, `Connected to Solana ${health.cluster}`);
     app.log.info(
       { relayerBalance: health.relayerBalanceSol.toFixed(4) },
       `Relayer wallet: ${solana.getRelayerAddress()}`
     );
 
-    if (health.lowBalance) {
-      app.log.warn('Relayer balance is low! Consider adding SOL.');
+    // Log all warnings from health check
+    for (const warning of health.warnings || []) {
+      app.log.warn(warning);
+    }
+
+    if (health.criticalBalance) {
+      app.log.error('🔴 CRITICAL: Relayer balance dangerously low! Service may fail.');
     }
 
     // Start timers
@@ -279,6 +320,7 @@ async function start() {
     await app.listen({ port: config.port, host: config.host });
 
     app.log.info(`GASdf Relayer running on http://${config.host}:${config.port}`);
+    app.log.info(`Cluster: ${health.cluster} | φ-burn: ${(health.config?.burnRate * 100).toFixed(1)}%`);
     app.log.info('"Don\'t Extract, Burn" - κυνικός');
   } catch (err) {
     app.log.error(err);
