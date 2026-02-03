@@ -97,6 +97,22 @@ const suggestionEngine = getSuggestionEngine();
 const harmonicFeedback = getHarmonicFeedback();
 const implicitFeedback = getImplicitFeedback();
 
+// ═══════════════════════════════════════════════════════════════════════════
+// FIL 2 (Task #84): Wire harmonic feedback → learning service via brain_learning
+// ═══════════════════════════════════════════════════════════════════════════
+if (harmonicFeedback && harmonicFeedback.setLearningCallback) {
+  harmonicFeedback.setLearningCallback(async (feedback) => {
+    // Call brain_learning tool to process feedback
+    await callBrainTool('brain_learning', {
+      action: 'feedback',
+      outcome: feedback.outcome,
+      context: feedback.sourceContext,
+    }).catch(() => {
+      // Silently fail - MCP server might not be available
+    });
+  });
+}
+
 // =============================================================================
 // ANTI-PATTERN DETECTOR - Error loops & bad workflows
 // "Le chien détecte les mauvaises habitudes"

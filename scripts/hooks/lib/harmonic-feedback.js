@@ -1045,6 +1045,12 @@ const PROMOTION_CONFIG = Object.freeze({
 
 class HarmonicFeedbackSystem {
   constructor() {
+    // ═══════════════════════════════════════════════════════════════════════
+    // FIL 2 (Task #84): Learning service callback
+    // Allows wiring to external learning service without tight coupling
+    // ═══════════════════════════════════════════════════════════════════════
+    this.learningCallback = null;
+
     // Kabbalistic tracking
     this.sefirotSignals = new Map();
     for (const [key, config] of Object.entries(SEFIROT_CHANNELS)) {
@@ -1079,6 +1085,14 @@ class HarmonicFeedbackSystem {
       ohrFlow: 0.5,       // Current light flow intensity
       promotedHeuristics: 0, // Count of active heuristics
     };
+  }
+
+  /**
+   * Set callback for learning service integration (Task #84: Fil 2)
+   * @param {Function} callback - async (feedback) => void
+   */
+  setLearningCallback(callback) {
+    this.learningCallback = callback;
   }
 
   /**
@@ -1703,6 +1717,26 @@ class HarmonicFeedbackSystem {
 
     // 4. Periodic review for promotions
     this.reviewPatterns();
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FIL 2 (Task #84): Forward to learning service via callback
+    // This connects Thompson Sampling updates to weight adjustments
+    // ═══════════════════════════════════════════════════════════════════════
+    if (this.learningCallback) {
+      // Fire-and-forget async call - don't block processFeedback
+      this.learningCallback({
+        outcome: success ? 'correct' : 'incorrect',
+        source: source || 'harmonic',
+        sourceContext: {
+          type,
+          sentiment,
+          confidence: confidence || 0.5,
+          heuristicApplied: !!matchingHeuristic,
+        },
+      }).catch(() => {
+        // Silently fail - learning is enhancement, not critical path
+      });
+    }
 
     return {
       processed: true,
