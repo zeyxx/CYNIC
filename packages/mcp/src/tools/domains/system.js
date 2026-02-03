@@ -24,12 +24,14 @@ const PHI_INV_2 = 0.382;
  * @param {Object} persistence - PersistenceManager instance (optional)
  * @param {Object} automationExecutor - AutomationExecutor instance (optional)
  * @param {Object} thermodynamics - ThermodynamicsTracker instance (optional, Phase 2)
+ * @param {Object} heartbeat - HeartbeatService instance (optional, AXE 5: OBSERVE)
+ * @param {Object} slaTracker - SLATracker instance (optional, AXE 5: OBSERVE)
  * @returns {Object} Tool definition
  */
-export function createHealthTool(node, judge, persistence = null, automationExecutor = null, thermodynamics = null) {
+export function createHealthTool(node, judge, persistence = null, automationExecutor = null, thermodynamics = null, heartbeat = null, slaTracker = null) {
   return {
     name: 'brain_health',
-    description: 'Get CYNIC system health status including node status, judge statistics, daemon stats, and capability metrics.',
+    description: 'Get CYNIC system health status including uptime, SLA compliance, node status, and capability metrics.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -65,6 +67,72 @@ export function createHealthTool(node, judge, persistence = null, automationExec
           health.persistence.capabilities = persistence.capabilities;
         } catch (e) {
           health.persistence = { status: 'error', error: e.message };
+        }
+      }
+
+      // AXE 5: OBSERVE - Uptime awareness (99.9% target)
+      if (heartbeat) {
+        try {
+          const status = heartbeat.getStatus();
+          const uptime1h = status.metrics.systemUptime1h || 0;
+          const uptime24h = status.metrics.systemUptime24h || 0;
+
+          // Progress bars
+          const uptimeBar = '█'.repeat(Math.round(uptime1h * 10)) +
+                            '░'.repeat(10 - Math.round(uptime1h * 10));
+
+          health.uptime = {
+            overall: status.overall.status,
+            system: Math.round(status.metrics.systemUptime * 1000) / 10,
+            system1h: Math.round(uptime1h * 1000) / 10,
+            system24h: Math.round(uptime24h * 1000) / 10,
+            uptimeBar,
+            components: Object.fromEntries(
+              Object.entries(status.components).map(([name, c]) => [
+                name,
+                {
+                  healthy: c.healthy,
+                  uptime: Math.round(c.uptime * 1000) / 10,
+                  latencyMs: c.latencyMs,
+                  error: c.error,
+                },
+              ])
+            ),
+            running: status.running,
+            pings: status.metrics.totalPings,
+          };
+
+          // Update overall status based on uptime
+          if (status.overall.status === 'critical') {
+            health.status = 'critical';
+          } else if (status.overall.status === 'degraded' && health.status !== 'critical') {
+            health.status = 'degraded';
+          }
+        } catch (e) {
+          health.uptime = { error: e.message };
+        }
+      }
+
+      // AXE 5: OBSERVE - SLA compliance (99.9% target)
+      if (slaTracker) {
+        try {
+          const slaStatus = slaTracker.getStatus();
+          health.sla = {
+            status: slaStatus.status,
+            compliant: slaTracker.isCompliant(),
+            violations24h: slaStatus.violationCount24h,
+            targets: {
+              uptime: '99.9%',
+              postgres: '99.95%',
+              mcpP99: '<500ms',
+            },
+            recentViolations: slaStatus.recentViolations?.slice(0, 3).map(v => ({
+              target: v.target,
+              severity: v.severity,
+            })),
+          };
+        } catch (e) {
+          health.sla = { error: e.message };
         }
       }
 

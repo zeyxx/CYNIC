@@ -362,6 +362,9 @@ export function createAllTools(options = {}) {
     notificationsRepo = null, // NotificationsRepo for proactive notifications
     tasksRepo = null, // TasksRepo for durable task queue
     automationExecutor = null, // AutomationExecutor for daemon stats
+    // AXE 5: OBSERVE - Uptime awareness
+    heartbeat = null, // HeartbeatService for continuous health monitoring
+    slaTracker = null, // SLATracker for 99.9% uptime compliance
     // Claude Flow dependencies (Phase 21)
     complexityClassifier = null, // ComplexityClassifier for tiered routing
     tieredRouter = null, // TieredRouter for request routing
@@ -403,7 +406,7 @@ export function createAllTools(options = {}) {
     createLearningTool({ learningService, persistence }), // Learning service: feedback → weight modifiers → improvement
     createTriggersTool({ judge, persistence }), // Auto-judgment triggers
     createDigestTool(persistence, sessionManager),
-    createHealthTool(node, judge, persistence, automationExecutor, thermodynamics),
+    createHealthTool(node, judge, persistence, automationExecutor, thermodynamics, heartbeat, slaTracker),
     createPsychologyTool(persistence), // Human psychology dashboard
     createSearchTool(persistence),
     // Progressive Search Tools (3-layer retrieval for 10x token savings)

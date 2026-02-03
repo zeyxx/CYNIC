@@ -571,6 +571,9 @@ export class MCPServer {
       tasksRepo: this.persistence?.tasks,
       // Phase 18: Automation daemon stats
       automationExecutor: this.automationExecutor,
+      // AXE 5: OBSERVE - Uptime awareness (99.9% target)
+      heartbeat: this.heartbeatService,
+      slaTracker: this.slaTracker,
       // Phase 21: Claude Flow Integration
       complexityClassifier: this.complexityClassifier,
       tieredRouter: this.tieredRouter,
