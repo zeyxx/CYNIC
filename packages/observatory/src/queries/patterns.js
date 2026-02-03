@@ -26,31 +26,32 @@ export class PatternsQueries {
    * Get recent patterns
    * @param {Object} options - Query options
    * @param {number} [options.limit=50] - Max patterns
-   * @param {string} [options.type] - Filter by type
+   * @param {string} [options.category] - Filter by category
    * @returns {Promise<Object>} Recent patterns
    */
-  async getRecentPatterns({ limit = 50, type } = {}) {
+  async getRecentPatterns({ limit = 50, category } = {}) {
     const params = [limit];
     let whereClause = '';
 
-    if (type) {
-      whereClause = 'WHERE type = $2';
-      params.push(type);
+    if (category) {
+      whereClause = 'WHERE category = $2';
+      params.push(category);
     }
 
     const result = await this.pool.query(`
       SELECT
         id,
-        type,
-        signature,
+        pattern_id,
+        category as type,
+        name as signature,
         description,
         confidence,
-        occurrences,
+        frequency as occurrences,
         fisher_importance,
-        metadata,
+        data as metadata,
         created_at,
         updated_at
-      FROM collective_patterns
+      FROM patterns
       ${whereClause}
       ORDER BY updated_at DESC
       LIMIT $1
@@ -73,20 +74,21 @@ export class PatternsQueries {
     const result = await this.pool.query(`
       SELECT
         id,
-        type,
-        signature,
+        pattern_id,
+        category as type,
+        name as signature,
         description,
         confidence,
-        occurrences,
+        frequency as occurrences,
         fisher_importance,
         CASE
           WHEN fisher_importance >= $2 THEN 'locked'
           WHEN fisher_importance >= $3 THEN 'important'
           ELSE 'normal'
         END as ewc_status,
-        metadata,
+        data as metadata,
         created_at
-      FROM collective_patterns
+      FROM patterns
       WHERE fisher_importance > 0
       ORDER BY fisher_importance DESC
       LIMIT $1
@@ -102,19 +104,19 @@ export class PatternsQueries {
   }
 
   /**
-   * Get pattern type distribution
-   * @returns {Promise<Object>} Pattern types
+   * Get pattern category distribution
+   * @returns {Promise<Object>} Pattern categories
    */
   async getPatternDistribution() {
     const result = await this.pool.query(`
       SELECT
-        type,
+        category as type,
         count(*) as count,
         avg(confidence) as avg_confidence,
         avg(fisher_importance) as avg_fisher,
-        sum(occurrences) as total_occurrences
-      FROM collective_patterns
-      GROUP BY type
+        sum(frequency) as total_occurrences
+      FROM patterns
+      GROUP BY category
       ORDER BY count DESC
     `);
 
@@ -140,8 +142,8 @@ export class PatternsQueries {
         date_trunc($1, created_at) as time_bucket,
         count(*) as new_patterns,
         avg(confidence) as avg_confidence,
-        count(DISTINCT type) as unique_types
-      FROM collective_patterns
+        count(DISTINCT category) as unique_types
+      FROM patterns
       WHERE created_at > NOW() - INTERVAL '7 days'
       GROUP BY 1
       ORDER BY 1 DESC
@@ -163,16 +165,17 @@ export class PatternsQueries {
     const result = await this.pool.query(`
       SELECT
         id,
-        type,
-        signature,
+        pattern_id,
+        category as type,
+        name as signature,
         description,
         confidence,
-        metadata,
+        data as metadata,
         created_at
-      FROM collective_patterns
-      WHERE type LIKE '%anomaly%'
-         OR type LIKE '%error%'
-         OR type LIKE '%warning%'
+      FROM patterns
+      WHERE category LIKE '%anomaly%'
+         OR category LIKE '%error%'
+         OR category LIKE '%warning%'
       ORDER BY created_at DESC
       LIMIT $1
     `, [limit]);
@@ -196,21 +199,21 @@ export class PatternsQueries {
       WITH pattern_windows AS (
         SELECT
           id,
-          type,
-          signature,
+          category,
+          name,
           date_trunc('hour', created_at) as window
-        FROM collective_patterns
+        FROM patterns
         WHERE created_at > NOW() - INTERVAL '7 days'
       )
       SELECT
-        p1.type as type1,
-        p2.type as type2,
+        p1.category as type1,
+        p2.category as type2,
         count(*) as co_occurrences
       FROM pattern_windows p1
       JOIN pattern_windows p2
         ON p1.window = p2.window
-        AND p1.type < p2.type
-      GROUP BY p1.type, p2.type
+        AND p1.category < p2.category
+      GROUP BY p1.category, p2.category
       HAVING count(*) >= 2
       ORDER BY co_occurrences DESC
       LIMIT $1

@@ -36,12 +36,12 @@ export class TelemetryQueries {
     const result = await this.pool.query(`
       SELECT
         date_trunc($1, created_at) as time_bucket,
-        tool,
+        tool_name as tool,
         count(*) as calls,
         sum(CASE WHEN success THEN 1 ELSE 0 END) as successes,
         sum(CASE WHEN NOT success THEN 1 ELSE 0 END) as failures,
-        avg(duration_ms) as avg_duration_ms
-      FROM tool_telemetry
+        avg(latency_ms) as avg_duration_ms
+      FROM tool_usage
       WHERE created_at > NOW() - INTERVAL '7 days'
       GROUP BY 1, 2
       ORDER BY 1 DESC, calls DESC
@@ -73,12 +73,12 @@ export class TelemetryQueries {
     const result = await this.pool.query(`
       SELECT
         id,
-        friction_type,
+        name as friction_type,
         severity,
-        tool,
-        error_type,
-        message,
-        metadata,
+        details->>'tool' as tool,
+        details->>'errorType' as error_type,
+        details->>'error' as message,
+        details as metadata,
         created_at
       FROM frictions
       ${whereClause}
@@ -101,14 +101,14 @@ export class TelemetryQueries {
   async getFrictionHotspots(limit = 10) {
     const result = await this.pool.query(`
       SELECT
-        tool,
-        error_type,
+        details->>'tool' as tool,
+        details->>'errorType' as error_type,
         count(*) as friction_count,
         max(severity) as max_severity,
-        array_agg(DISTINCT message) as messages
+        array_agg(DISTINCT details->>'error') as messages
       FROM frictions
       WHERE created_at > NOW() - INTERVAL '7 days'
-      GROUP BY tool, error_type
+      GROUP BY details->>'tool', details->>'errorType'
       ORDER BY friction_count DESC
       LIMIT $1
     `, [limit]);
@@ -128,17 +128,17 @@ export class TelemetryQueries {
     const result = await this.pool.query(`
       SELECT
         session_id,
-        user_id,
-        started_at,
-        ended_at,
+        (metadata->>'user_id') as user_id,
+        start_time as started_at,
+        end_time as ended_at,
         duration_ms,
-        tool_calls,
-        errors,
-        tokens_used,
-        (stats->>'patterns_detected')::int as patterns_detected,
-        (stats->>'judgments_made')::int as judgments_made
-      FROM sessions
-      ORDER BY started_at DESC
+        action_count as tool_calls,
+        error_count as errors,
+        (llm_tokens_in + llm_tokens_out) as tokens_used,
+        patterns_detected,
+        judgments
+      FROM session_summary
+      ORDER BY start_time DESC
       LIMIT $1
     `, [limit]);
 
@@ -160,8 +160,8 @@ export class TelemetryQueries {
         SELECT
           count(*) as total_calls,
           sum(CASE WHEN success THEN 1 ELSE 0 END) as successes,
-          avg(duration_ms) as avg_latency_ms
-        FROM tool_telemetry
+          avg(latency_ms) as avg_latency_ms
+        FROM tool_usage
         WHERE created_at > NOW() - INTERVAL '1 hour'
       `),
       this.pool.query(`
@@ -175,8 +175,8 @@ export class TelemetryQueries {
         SELECT
           count(*) as active_sessions,
           avg(duration_ms) as avg_session_duration
-        FROM sessions
-        WHERE ended_at IS NULL OR ended_at > NOW() - INTERVAL '1 hour'
+        FROM session_summary
+        WHERE end_time IS NULL OR end_time > NOW() - INTERVAL '1 hour'
       `),
     ]);
 
@@ -229,13 +229,13 @@ export class TelemetryQueries {
     const result = await this.pool.query(`
       SELECT
         date_trunc($1, created_at) as time_bucket,
-        provider,
+        model as provider,
         count(*) as calls,
         sum(input_tokens) as total_input_tokens,
         sum(output_tokens) as total_output_tokens,
         avg(latency_ms) as avg_latency_ms,
-        sum(cost_usd) as total_cost_usd
-      FROM llm_telemetry
+        0 as total_cost_usd
+      FROM llm_usage
       WHERE created_at > NOW() - INTERVAL '7 days'
       GROUP BY 1, 2
       ORDER BY 1 DESC

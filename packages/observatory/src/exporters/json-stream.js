@@ -131,7 +131,7 @@ export class JSONStreamExporter extends EventEmitter {
         SELECT
           count(*) as tool_calls_1h,
           sum(CASE WHEN success THEN 1 ELSE 0 END)::float / NULLIF(count(*), 0) as success_rate
-        FROM tool_telemetry
+        FROM tool_usage
         WHERE created_at > NOW() - INTERVAL '1 hour'
       `);
       return result.rows[0] || {};
@@ -143,7 +143,7 @@ export class JSONStreamExporter extends EventEmitter {
   async _fetchPatterns() {
     try {
       const result = await this.pool.query(`
-        SELECT count(*) as total FROM collective_patterns
+        SELECT count(*) as total FROM patterns
       `);
       return result.rows[0] || {};
     } catch (e) {

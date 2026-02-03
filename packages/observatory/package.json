@@ -15,8 +15,8 @@
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
-    "@cynic/core": "workspace:*",
-    "@cynic/persistence": "workspace:*"
+    "@cynic/core": "*",
+    "@cynic/persistence": "*"
   },
   "keywords": ["cynic", "observability", "dashboard", "metrics", "learning"],
   "author": "CYNIC Collective",

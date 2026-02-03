@@ -344,6 +344,22 @@ export class TelemetryCollector extends EventEmitter {
 
     this.increment('friction_total', 1, { severity, category: details.category });
 
+    // Persist to PostgreSQL if pool available
+    if (this.pool && this.persist) {
+      this.pool.query(`
+        INSERT INTO frictions (session_id, name, severity, category, details)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [
+        this.sessionId,
+        name,
+        severity,
+        details.category || 'system',
+        JSON.stringify(details),
+      ]).catch(() => {
+        // Silently ignore persistence errors
+      });
+    }
+
     this.emit('friction', friction);
 
     return friction;
@@ -382,6 +398,25 @@ export class TelemetryCollector extends EventEmitter {
         category: Category.LLM,
         model,
         error: error?.message || 'Unknown error',
+      });
+    }
+
+    // Persist to PostgreSQL if pool available
+    if (this.pool && this.persist) {
+      this.pool.query(`
+        INSERT INTO llm_usage (session_id, model, input_tokens, output_tokens, latency_ms, cached, success, error)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `, [
+        this.sessionId,
+        model,
+        inputTokens,
+        outputTokens,
+        latencyMs || null,
+        cached,
+        success,
+        error ? (typeof error === 'string' ? error : error.message || String(error)) : null,
+      ]).catch(() => {
+        // Silently ignore persistence errors
       });
     }
 
@@ -442,6 +477,22 @@ export class TelemetryCollector extends EventEmitter {
         category: Category.TOOL,
         tool,
         error: error?.message || 'Unknown error',
+      });
+    }
+
+    // Persist to PostgreSQL if pool available
+    if (this.pool && this.persist) {
+      this.pool.query(`
+        INSERT INTO tool_usage (session_id, tool_name, success, latency_ms, error)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [
+        this.sessionId,
+        tool,
+        success,
+        latencyMs || null,
+        error ? (typeof error === 'string' ? error : error.message || String(error)) : null,
+      ]).catch(() => {
+        // Silently ignore persistence errors
       });
     }
 

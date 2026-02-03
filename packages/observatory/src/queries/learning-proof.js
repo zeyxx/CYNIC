@@ -271,7 +271,7 @@ export class LearningProofQueries {
           count(CASE WHEN fisher_importance >= $2 THEN 1 END) as important_patterns,
           avg(fisher_importance) as avg_fisher,
           max(fisher_importance) as max_fisher
-        FROM collective_patterns
+        FROM patterns
       `, [PHI_INV, PHI_INV_2]);
 
       const row = result.rows[0] || {};
@@ -376,7 +376,7 @@ export class LearningProofQueries {
         (SELECT count(*) FROM qlearning_episodes WHERE date_trunc('day', created_at) = date_trunc('day', t.created_at)) as episodes,
         (SELECT avg(reward) FROM qlearning_episodes WHERE date_trunc('day', created_at) = date_trunc('day', t.created_at)) as avg_reward,
         -- Patterns
-        (SELECT count(*) FROM collective_patterns WHERE date_trunc('day', created_at) = date_trunc('day', t.created_at)) as new_patterns,
+        (SELECT count(*) FROM patterns WHERE date_trunc('day', created_at) = date_trunc('day', t.created_at)) as new_patterns,
         -- Errors
         (SELECT count(*) FROM frictions WHERE severity IN ('high', 'critical') AND date_trunc('day', created_at) = date_trunc('day', t.created_at)) as errors
       FROM generate_series(

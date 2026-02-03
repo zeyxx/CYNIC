@@ -242,8 +242,17 @@ export function getTelemetryCollector() {
   if (_telemetry) return _telemetry;
 
   try {
-    const { getTelemetry } = require('@cynic/persistence/services');
-    _telemetry = getTelemetry();
+    const { createTelemetryCollector } = require('@cynic/persistence/services');
+    const { getPool } = require('@cynic/persistence');
+    const pool = getPool();
+
+    // Create with pool for PostgreSQL persistence
+    _telemetry = createTelemetryCollector({
+      pool,
+      persist: !!pool,
+      flushInterval: 60000, // Flush every minute
+    });
+
     return _telemetry;
   } catch (e) {
     // Telemetry not available - return null

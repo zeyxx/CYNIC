@@ -79,7 +79,7 @@ export class PrometheusExporter {
           count(*) as total,
           count(CASE WHEN fisher_importance >= $1 THEN 1 END) as locked,
           count(CASE WHEN fisher_importance >= $2 THEN 1 END) as important
-        FROM collective_patterns
+        FROM patterns
       `, [PHI_INV, PHI_INV_2]);
 
       const p = patterns.rows[0] || {};
@@ -98,8 +98,8 @@ export class PrometheusExporter {
         SELECT
           count(*) as total_calls,
           sum(CASE WHEN success THEN 1 ELSE 0 END) as successes,
-          avg(duration_ms) as avg_duration
-        FROM tool_telemetry
+          avg(latency_ms) as avg_duration
+        FROM tool_usage
         WHERE created_at > NOW() - INTERVAL '1 hour'
       `);
 
