@@ -1368,6 +1368,19 @@ async function main() {
           timestamp: Date.now(),
         });
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // FIL 1 (Task #83): Wire EVERY tool observation to harmonic feedback
+        // Previously only processed feedback when suggestions were followed/ignored
+        // Now: Thompson Sampling learns from ALL tool outcomes
+        // ═══════════════════════════════════════════════════════════════════════
+        harmonicFeedback.processFeedback({
+          type: `tool_${toolName.toLowerCase()}`,
+          sentiment: isError ? 'negative' : 'positive',
+          confidence: isError ? 0.7 : 0.5, // Errors are clearer signals
+          source: 'tool_observation',
+          action: { tool: toolName, success: !isError, file: toolInput.file_path },
+        });
+
         // 2. Detect implicit feedback from recent suggestions
         const detectedFeedback = implicitFeedback.detectFeedback();
 
