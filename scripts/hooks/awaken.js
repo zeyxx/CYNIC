@@ -1332,6 +1332,9 @@ async function main() {
       try {
         const psySummary = psychology.getSummary();
         if (psySummary.confidence > DC.CONFIDENCE.PSYCHOLOGY_DISPLAY) {
+          // ═══════════════════════════════════════════════════════════════════════
+          // Task #88: Complete psychology state with cognitive load
+          // ═══════════════════════════════════════════════════════════════════════
           output.psychology = {
             state: psySummary.overallState.toUpperCase(),
             emoji: psySummary.emoji,
@@ -1347,6 +1350,21 @@ async function main() {
               arrow: trendArrow(psySummary.focus.trend),
               bar: progressBar(psySummary.focus.value, 1),
             },
+            // Task #88: Add cognitive load (Miller's Law: 7±2)
+            cognitiveLoad: {
+              value: Math.round(psySummary.cognitiveLoad?.value || 0),
+              trend: psySummary.cognitiveLoad?.trend || 'stable',
+              arrow: trendArrow(psySummary.cognitiveLoad?.trend || 'stable'),
+              bar: progressBar((psySummary.cognitiveLoad?.value || 0) / 9, 1), // 9 = max (7+2)
+              label: (psySummary.cognitiveLoad?.value || 0) > 7 ? 'OVERLOADED' :
+                     (psySummary.cognitiveLoad?.value || 0) > 5 ? 'heavy' : 'ok',
+            },
+            // Task #88: Add frustration for complete picture
+            frustration: {
+              value: Math.round((psySummary.frustration?.value || 0) * 100),
+              trend: psySummary.frustration?.trend || 'stable',
+              arrow: trendArrow(psySummary.frustration?.trend || 'stable'),
+            },
             composites: {
               flow: psySummary.composites.flow || false,
               burnoutRisk: psySummary.composites.burnoutRisk || false,
@@ -1354,6 +1372,10 @@ async function main() {
               grind: psySummary.composites.grind || false,
             },
             confidence: Math.round(psySummary.confidence * 100),
+            // Task #88: Compact summary line for TUI
+            summary: `E:${Math.round(psySummary.energy.value * 100)}%${trendArrow(psySummary.energy.trend)} ` +
+                    `F:${Math.round(psySummary.focus.value * 100)}%${trendArrow(psySummary.focus.trend)} ` +
+                    `L:${Math.round(psySummary.cognitiveLoad?.value || 0)}`,
           };
         }
       } catch (e) {

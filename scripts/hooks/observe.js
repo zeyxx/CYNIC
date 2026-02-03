@@ -351,13 +351,14 @@ function generateInlineStatus(activeDog, options = {}) {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 3. PSYCHOLOGY STATE - ⚡ Energy/Focus/Flow (Task #86: Visibility)
+  // 3. PSYCHOLOGY STATE - Complete cognitive state (Task #88: Visibility)
+  // Format: ⚡ E:60% F:70% L:3 or ⚡ flow/burnout/friction
   // ═══════════════════════════════════════════════════════════════════════════
   if (psychology && options.showPsychology !== false) {
     try {
       const summary = psychology.getSummary?.();
       if (summary) {
-        // Composite states take priority
+        // Composite states take priority (special alerts)
         if (summary.composites?.flow) {
           parts.push(c(ANSI.brightGreen, '⚡ flow'));
         } else if (summary.composites?.burnoutRisk) {
@@ -365,11 +366,17 @@ function generateInlineStatus(activeDog, options = {}) {
         } else if (summary.frustration?.value > 0.5) {
           parts.push(c(ANSI.yellow, '⚡ friction'));
         } else {
-          // Show energy level if no special state
+          // Task #88: Show complete state E%, F%, L instead of just energy
           const energy = Math.round((summary.energy?.value || 0.5) * 100);
-          const energyColor = energy > 60 ? ANSI.brightGreen :
-                             energy > 40 ? ANSI.yellow : ANSI.brightRed;
-          parts.push(c(energyColor, `⚡${energy}%`));
+          const focus = Math.round((summary.focus?.value || 0.5) * 100);
+          const load = Math.round(summary.cognitiveLoad?.value || 0);
+
+          // Color by lowest metric (weakest link)
+          const minMetric = Math.min(energy, focus);
+          const stateColor = minMetric > 60 ? ANSI.brightGreen :
+                            minMetric > 40 ? ANSI.yellow : ANSI.brightRed;
+
+          parts.push(c(stateColor, `⚡E:${energy}% F:${focus}%${load > 0 ? ` L:${load}` : ''}`));
         }
       }
     } catch { /* continue without */ }
