@@ -900,6 +900,12 @@ export class CollectivePack {
       this.cynic.stats.eventsObserved++;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Q-LEARNING: Record dog decisions for weight optimization (Task #84)
+    // "Chaque décision du Pack nourrit l'apprentissage"
+    // ═══════════════════════════════════════════════════════════════════════════
+    this._recordDogDecisionsToQLearning(hookType, payload, agentResults, blocked);
+
     return {
       success: true,
       eventId: busEvent.id,
@@ -913,6 +919,46 @@ export class CollectivePack {
       delivered: busResult.delivered,
       errors: busResult.errors?.length || 0,
     };
+  }
+
+  /**
+   * Record dog decisions to Q-Learning for collective learning
+   * @private
+   */
+  _recordDogDecisionsToQLearning(hookType, payload, agentResults, blocked) {
+    try {
+      const { getQLearningService } = require('../../orchestration/learning-service.js');
+      const qlearning = getQLearningService();
+      if (!qlearning || agentResults.length === 0) return;
+
+      for (const result of agentResults) {
+        if (result.response) {
+          qlearning.recordAction(result.agent?.toLowerCase() || 'unknown', {
+            hookType,
+            tool: payload.tool,
+            decision: result.response,
+            action: result.action,
+            confidence: result.confidence,
+            blocked: result.response === 'block',
+            sefirah: result.sefirah,
+            source: 'collective_pack',
+          });
+        }
+      }
+
+      // Record overall outcome if blocked
+      if (blocked) {
+        qlearning.recordAction('guardian', {
+          hookType,
+          tool: payload.tool,
+          decision: 'block',
+          success: true, // Blocking dangerous action is a success
+          source: 'collective_pack',
+        });
+      }
+    } catch (e) {
+      // Q-Learning recording is best-effort
+    }
   }
 
   /**

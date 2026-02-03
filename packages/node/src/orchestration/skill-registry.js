@@ -180,6 +180,7 @@ export class SkillRegistry {
   async invoke(skillName, params = {}) {
     this.stats.invocations++;
     this.stats.bySkill[skillName] = (this.stats.bySkill[skillName] || 0) + 1;
+    const startTime = Date.now();
 
     try {
       // Try direct handler first
@@ -187,6 +188,7 @@ export class SkillRegistry {
         const handler = this._handlers.get(skillName);
         const result = await handler(params);
         this.stats.successes++;
+        this._recordToQLearning(skillName, true, Date.now() - startTime, 'handler');
         return { success: true, data: result, method: 'handler' };
       }
 
@@ -195,17 +197,46 @@ export class SkillRegistry {
       if (mapping?.mcpTool && this.mcpClient) {
         const result = await this._invokeMcpTool(mapping.mcpTool, params);
         this.stats.successes++;
+        this._recordToQLearning(skillName, true, Date.now() - startTime, 'mcp');
         return { success: true, data: result, method: 'mcp' };
       }
 
       // No handler or MCP tool available
       log.warn('No handler found for skill', { skillName });
+      this._recordToQLearning(skillName, false, Date.now() - startTime, 'none');
       return { success: false, error: `No handler for skill: ${skillName}`, method: 'none' };
 
     } catch (err) {
       this.stats.failures++;
       log.error('Skill invocation failed', { skillName, error: err.message });
+      this._recordToQLearning(skillName, false, Date.now() - startTime, 'error');
       return { success: false, error: err.message, method: 'error' };
+    }
+  }
+
+  /**
+   * Record skill invocation to Q-Learning for weight optimization
+   * @private
+   */
+  _recordToQLearning(skillName, success, latencyMs, method) {
+    try {
+      const { getQLearningService } = require('./learning-service.js');
+      const qlearning = getQLearningService();
+      if (qlearning) {
+        // Find domain for this skill
+        const mapping = Object.entries(this.mappings).find(([, m]) => m.skill === skillName);
+        const domain = mapping?.[0] || 'unknown';
+
+        qlearning.recordAction(skillName, {
+          domain,
+          success,
+          latencyMs,
+          method,
+          source: 'skill_registry',
+        });
+      }
+    } catch (e) {
+      // Q-Learning recording is best-effort
     }
   }
 
