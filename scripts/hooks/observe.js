@@ -2276,6 +2276,23 @@ async function main() {
             }
           }
         }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // FIL 3 (Task #85): Periodic learn() trigger for long sessions
+        // Ensures weight adjustments happen even without session end
+        // ~5% chance per call ≈ every 20 tool calls
+        // ═══════════════════════════════════════════════════════════════════════
+        if (Math.random() < 0.05) {
+          callBrainTool('brain_learning', { action: 'learn' })
+            .then(result => {
+              if (result?.weightAdjustments && Object.keys(result.weightAdjustments).length > 0) {
+                // Learning happened - could add visibility here in future
+              }
+            })
+            .catch(() => {
+              // Silently fail - learning is enhancement, not critical
+            });
+        }
       } catch {
         // Learning visibility failed - continue without
       }
