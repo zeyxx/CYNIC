@@ -2,7 +2,7 @@
 
 > CYNIC Identity Layer - Node identity, E-Score, and reputation management
 
-**Category**: library | **Version**: 0.1.0 | **Quality**: 🔴 critical
+**Category**: library | **Version**: 0.1.0 | **Quality**: 🟠 needs tests
 
 ## Installation
 
@@ -66,8 +66,8 @@ const instance = createKeyManager();
 ## Stats
 
 - **Source files**: 6
-- **Test files**: 1
-- **Test ratio**: 17%
+- **Test files**: 2
+- **Test ratio**: 33%
 - **Exports**: 28 named
 
 ## Fractal Structure
@@ -78,7 +78,7 @@ const instance = createKeyManager();
 ## Dimensions (4 Axioms)
 
 ```
-[██░░░░░░░░] 17% φ (Confidence)
+[███░░░░░░░] 33% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
 [░░░░░░░░░░]  0% Burn (Simplicity)
