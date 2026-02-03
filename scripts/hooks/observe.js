@@ -65,6 +65,8 @@ import {
   getHarmonicFeedback,
   getImplicitFeedback,
   SEFIROT_CHANNELS,
+  // Task #84: Q-Learning with persistence
+  getQLearningServiceWithPersistence,
 } from './lib/index.js';
 
 // =============================================================================
@@ -1188,6 +1190,56 @@ async function main() {
     }).catch(() => {
       // Best-effort - don't fail the hook
     });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Q-LEARNING: Record episode for learning pipeline (Task #84)
+    // "Le chien apprend qui appeler" - Q-Learning feeds weight optimization
+    // ═══════════════════════════════════════════════════════════════════════════
+    const qlearning = getQLearningServiceWithPersistence();
+    if (qlearning) {
+      try {
+        // Determine task type from context
+        const taskType =
+          isError ? 'debug' :
+          toolName === 'Bash' && toolInput.command?.match(/test|jest|vitest/i) ? 'test' :
+          toolName === 'Bash' && toolInput.command?.match(/deploy|publish/i) ? 'deployment' :
+          toolName === 'Bash' && toolInput.command?.startsWith('git ') ? 'exploration' :
+          (toolName === 'Write' || toolName === 'Edit') ? 'code_change' :
+          (toolName === 'Read' || toolName === 'Glob' || toolName === 'Grep') ? 'exploration' :
+          toolName === 'Task' ? 'analysis' :
+          'exploration';
+
+        // Start episode
+        qlearning.startEpisode({
+          taskType,
+          tool: toolName,
+          content: toolInput.command || toolInput.file_path || '',
+          isError,
+        });
+
+        // Record which dog should handle this
+        const activeDog = getActiveDog(toolName, toolInput, isError);
+        if (activeDog) {
+          qlearning.recordAction(activeDog.name.toLowerCase(), {
+            tool: toolName,
+            success: !isError,
+            source: 'observe_hook',
+          });
+        }
+
+        // End episode with outcome
+        qlearning.endEpisode({
+          success: !isError,
+          type: isError ? 'failure' : 'success',
+          tool: toolName,
+        });
+      } catch (e) {
+        // Q-Learning recording failed - continue without
+        if (process.env.CYNIC_DEBUG) {
+          console.error('[OBSERVE] Q-Learning error:', e.message);
+        }
+      }
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // IMPLICIT BRAIN TOOLS: Auto-activation of dormant tools

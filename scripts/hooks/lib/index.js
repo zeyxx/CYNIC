@@ -275,3 +275,34 @@ export function recordFriction(name, severity, details = {}) {
   const t = getTelemetryCollector();
   if (t) t.friction(name, severity, details);
 }
+
+// QLearningService with PostgreSQL persistence (Task #84: Wire Q-Learning to hooks)
+let _qlearningService = null;
+
+export function getQLearningServiceWithPersistence() {
+  if (_qlearningService) return _qlearningService;
+
+  try {
+    const { getQLearningService } = require('@cynic/node');
+    const { getPool } = require('@cynic/persistence');
+    const pool = getPool();
+
+    // Create service with PostgreSQL persistence
+    _qlearningService = getQLearningService({
+      persistence: pool ? { query: (sql, params) => pool.query(sql, params) } : null,
+      serviceId: 'hooks',
+    });
+
+    // Initialize async (load from DB if exists)
+    if (pool) {
+      _qlearningService.initialize().catch(() => {
+        // Initialization failed - continue with in-memory only
+      });
+    }
+
+    return _qlearningService;
+  } catch (e) {
+    // QLearningService not available - return null
+    return null;
+  }
+}

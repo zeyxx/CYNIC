@@ -1053,6 +1053,37 @@ Actions:
 
           await saveState();
 
+          // ═══════════════════════════════════════════════════════════════════════
+          // Task #84: Increment pattern frequency on feedback to boost Fisher scores
+          // "φ renforce ce qui fonctionne" - feedback strengthens patterns
+          // ═══════════════════════════════════════════════════════════════════════
+          let patternsUpdated = 0;
+          if (persistence?.query) {
+            try {
+              const feedbackType = params.context?.type || params.itemType || 'feedback';
+              const isPositive = params.outcome === 'correct';
+
+              // Increment frequency for related patterns (positive feedback boosts, negative doesn't)
+              if (isPositive) {
+                const updateResult = await persistence.query(`
+                  UPDATE patterns
+                  SET frequency = frequency + 1,
+                      fisher_importance = LEAST(0.999,
+                        fisher_importance + 0.01 * (1 - fisher_importance)
+                      ),
+                      updated_at = NOW()
+                  WHERE (category = $1 OR name LIKE $2)
+                    AND updated_at >= NOW() - INTERVAL '7 days'
+                  RETURNING pattern_id
+                `, [feedbackType, `%${feedbackType}%`]);
+                patternsUpdated = updateResult.rows?.length || 0;
+              }
+            } catch (e) {
+              // Pattern update is best-effort
+              log.debug('Pattern frequency update error', { error: e.message });
+            }
+          }
+
           // Emit feedback event for automation layer
           try {
             const eventBus = getEventBus();
@@ -1072,6 +1103,7 @@ Actions:
             action: 'feedback',
             source: 'manual',
             outcome: params.outcome,
+            patternsUpdated,
             ...result,
           };
         }

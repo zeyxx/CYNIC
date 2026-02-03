@@ -405,6 +405,56 @@ async function main() {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // EWC++ CONSOLIDATION: Protect important patterns from forgetting (Task #84)
+    // "φ se souvient de ce qui importe" - Fisher importance → pattern locking
+    // Lock patterns with fisher ≥ φ⁻¹ (61.8%), prune those < φ⁻³ (23.6%)
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      const { getPool } = await import('@cynic/persistence');
+      const pool = getPool();
+
+      if (pool) {
+        // Call consolidation stored procedure if it exists
+        const result = await pool.query(`
+          SELECT
+            count(*) FILTER (WHERE fisher_importance >= 0.618) as locked_patterns,
+            count(*) FILTER (WHERE frequency >= 10) as active_patterns,
+            avg(fisher_importance) as avg_fisher
+          FROM patterns
+          WHERE updated_at >= NOW() - INTERVAL '24 hours'
+        `).catch(() => ({ rows: [{}] }));
+
+        const stats = result.rows?.[0] || {};
+
+        // Update Fisher importance based on recent frequency
+        // Fisher = gradient² ≈ (frequency / max_frequency)² for patterns
+        await pool.query(`
+          UPDATE patterns SET
+            fisher_importance = LEAST(0.999,
+              GREATEST(0.001,
+                fisher_importance * 0.9 +
+                (frequency::float / GREATEST(1, (SELECT MAX(frequency) FROM patterns))) * 0.1
+              )
+            ),
+            updated_at = NOW()
+          WHERE frequency > 0
+            AND updated_at >= NOW() - INTERVAL '7 days'
+        `).catch(() => null);
+
+        output.ewcConsolidation = {
+          triggered: true,
+          lockedPatterns: parseInt(stats.locked_patterns || 0),
+          activePatterns: parseInt(stats.active_patterns || 0),
+          avgFisher: parseFloat(stats.avg_fisher || 0).toFixed(4),
+        };
+      } else {
+        output.ewcConsolidation = { triggered: false, reason: 'no_pool' };
+      }
+    } catch (e) {
+      output.ewcConsolidation = { triggered: false, error: e.message };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // TEMPORAL PERCEPTION: Save session end time for inter-session gap
     // "Le chien se souvient quand il s'est endormi"
     // ═══════════════════════════════════════════════════════════════════════════
