@@ -2171,10 +2171,31 @@ async function main() {
         }
       }
 
+      // ═══════════════════════════════════════════════════════════════════════
+      // Task #92: Multi-LLM Consensus Visibility
+      // "L'humain voit la validation multi-LLM"
+      // ═══════════════════════════════════════════════════════════════════════
+      let consensusNote = '';
+      if (judgment?.multiLLM) {
+        const llm = judgment.multiLLM;
+        if (llm.hasConsensus) {
+          const icon = llm.disagreement ? '⚠️' : '✅';
+          const ratio = Math.round((llm.consensusRatio || 0) * 100);
+          consensusNote = `\n${c(ANSI.cyan, `${icon} Multi-LLM:`)} ${ratio}% consensus (${llm.validators} validators)`;
+          if (llm.disagreement) {
+            consensusNote += ` - ${c(ANSI.yellow, `LLM says: ${llm.llmVerdict}`)}`;
+          }
+        } else if (llm.validators > 0) {
+          consensusNote = `\n${c(ANSI.dim, '🔗 Multi-LLM:')} no consensus (${llm.validators} validators)`;
+        } else if (llm.error) {
+          consensusNote = `\n${c(ANSI.dim, '🔗 Multi-LLM:')} unavailable`;
+        }
+      }
+
       // Output the judgment (will be shown to user)
       safeOutput({
         continue: true,
-        message: formatted + refinementNote + thermoNote + dogNote,
+        message: formatted + refinementNote + thermoNote + dogNote + consensusNote,
       });
       return;
     }
