@@ -147,6 +147,62 @@ export class FactsRepository extends BaseRepository {
   }
 
   /**
+   * Create multiple facts in a single batch insert
+   * Dramatically faster than individual inserts for remote DBs
+   *
+   * @param {Array<Object>} facts - Array of fact objects
+   * @returns {Promise<Array>} Created facts
+   */
+  async createBatch(facts) {
+    if (!facts || facts.length === 0) return [];
+
+    // Build VALUES clause with all facts
+    const values = [];
+    const params = [];
+    let paramIndex = 1;
+
+    for (const fact of facts) {
+      const factId = generateFactId();
+      const embedding = fact.embedding ? JSON.stringify(fact.embedding) : null;
+      const embeddingModel = fact.embeddingModel || null;
+      const embeddingDim = fact.embedding?.length || null;
+
+      values.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7}, $${paramIndex + 8}, $${paramIndex + 9}, $${paramIndex + 10}, $${paramIndex + 11}, $${paramIndex + 12}::jsonb, $${paramIndex + 13}, $${paramIndex + 14})`);
+
+      params.push(
+        factId,
+        fact.userId || null,
+        fact.sessionId || null,
+        fact.factType || FactType.TOOL_RESULT,
+        fact.subject,
+        fact.content,
+        JSON.stringify(fact.context || {}),
+        fact.sourceTool || null,
+        fact.sourceFile || null,
+        Math.min(fact.confidence || 0.5, PHI_INV),
+        fact.relevance || 0.5,
+        fact.tags || [],
+        embedding,
+        embeddingModel,
+        embeddingDim
+      );
+
+      paramIndex += 15;
+    }
+
+    const { rows } = await this.db.query(`
+      INSERT INTO facts (
+        fact_id, user_id, session_id, fact_type, subject, content,
+        context, source_tool, source_file, confidence, relevance, tags,
+        embedding, embedding_model, embedding_dim
+      ) VALUES ${values.join(', ')}
+      RETURNING *
+    `, params);
+
+    return rows.map(row => this._mapRow(row));
+  }
+
+  /**
    * Find fact by ID
    */
   async findById(factId) {

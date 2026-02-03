@@ -173,6 +173,8 @@ export class CodebaseIndexer {
       maxFiles = Infinity,
       extractDeps = true,
       includeKeystone = true,
+      includeStructure = false, // Slow: rescans entire codebase
+      includePatterns = false,  // Slow: reads all JS files
     } = options;
 
     const results = {
@@ -220,76 +222,74 @@ export class CodebaseIndexer {
         if (processed % FIB_BATCH === 0) {
           this._reportProgress('indexing', { processed, total: filesToIndex.length });
 
-          // Store batch
-          for (const fact of batch) {
-            try {
-              await this._storeFact(fact);
-            } catch (e) {
-              results.errors.push({ fact: fact.subject, error: e.message });
-            }
+          // Store batch (single DB round-trip)
+          try {
+            await this._storeBatch(batch);
+          } catch (e) {
+            results.errors.push({ batch: 'file_batch', error: e.message });
           }
           batch.length = 0;
         }
       }
 
       // Store remaining batch
-      for (const fact of batch) {
+      if (batch.length > 0) {
         try {
-          await this._storeFact(fact);
+          await this._storeBatch(batch);
         } catch (e) {
-          results.errors.push({ fact: fact.subject, error: e.message });
+          results.errors.push({ batch: 'file_batch_final', error: e.message });
         }
       }
 
       results.filesIndexed = processed;
 
-      // 3. Include keystone facts if requested
+      // 3. Include keystone facts if requested (batch insert)
       if (includeKeystone) {
         const keystoneFacts = await this._indexKeystoneFiles();
         results.keystoneFacts = keystoneFacts.length;
-        for (const fact of keystoneFacts) {
+        try {
+          await this._storeBatch(keystoneFacts);
+          results.factsGenerated += keystoneFacts.length;
+        } catch (e) {
+          results.errors.push({ batch: 'keystone', error: e.message });
+        }
+      }
+
+      // 4. Index packages (batch insert)
+      const packageFacts = await this._indexPackages();
+      results.packageFacts = packageFacts.length;
+      try {
+        await this._storeBatch(packageFacts);
+        results.factsGenerated += packageFacts.length;
+      } catch (e) {
+        results.errors.push({ batch: 'packages', error: e.message });
+      }
+
+      // 5. Index structure (batch insert) - optional, slow
+      if (includeStructure) {
+        const structureFacts = await this._indexStructure();
+        results.structureFacts = structureFacts.length;
+        if (structureFacts.length > 0) {
           try {
-            await this._storeFact(fact);
-            results.factsGenerated++;
+            await this._storeBatch(structureFacts);
+            results.factsGenerated += structureFacts.length;
           } catch (e) {
-            results.errors.push({ fact: fact.subject, error: e.message });
+            results.errors.push({ batch: 'structure', error: e.message });
           }
         }
       }
 
-      // 4. Index packages
-      const packageFacts = await this._indexPackages();
-      results.packageFacts = packageFacts.length;
-      for (const fact of packageFacts) {
-        try {
-          await this._storeFact(fact);
-          results.factsGenerated++;
-        } catch (e) {
-          results.errors.push({ fact: fact.subject, error: e.message });
-        }
-      }
-
-      // 5. Index structure
-      const structureFacts = await this._indexStructure();
-      results.structureFacts = structureFacts.length;
-      for (const fact of structureFacts) {
-        try {
-          await this._storeFact(fact);
-          results.factsGenerated++;
-        } catch (e) {
-          results.errors.push({ fact: fact.subject, error: e.message });
-        }
-      }
-
-      // 6. Detect patterns
-      const patternFacts = await this._detectPatterns();
-      results.patternFacts = patternFacts.length;
-      for (const fact of patternFacts) {
-        try {
-          await this._storeFact(fact);
-          results.factsGenerated++;
-        } catch (e) {
-          results.errors.push({ fact: fact.subject, error: e.message });
+      // 6. Detect patterns (batch insert) - optional, slow
+      if (includePatterns) {
+        const patternFacts = await this._detectPatterns();
+        results.patternFacts = patternFacts.length;
+        if (patternFacts.length > 0) {
+          try {
+            await this._storeBatch(patternFacts);
+            results.factsGenerated += patternFacts.length;
+          } catch (e) {
+            results.errors.push({ batch: 'patterns', error: e.message });
+          }
         }
       }
 
@@ -313,18 +313,18 @@ export class CodebaseIndexer {
     if (depth > 8) return files; // Max depth
 
     try {
-      const items = fs.readdirSync(dir);
+      // Use withFileTypes to avoid separate stat() calls (10x faster)
+      const items = fs.readdirSync(dir, { withFileTypes: true });
 
       for (const item of items) {
-        if (item.startsWith('.') || IGNORE_DIRS.has(item)) continue;
+        if (item.name.startsWith('.') || IGNORE_DIRS.has(item.name)) continue;
 
-        const itemPath = path.join(dir, item);
-        const stat = fs.statSync(itemPath);
+        const itemPath = path.join(dir, item.name);
 
-        if (stat.isDirectory()) {
+        if (item.isDirectory()) {
           this._collectAllFiles(itemPath, files, depth + 1);
-        } else {
-          const ext = path.extname(item).toLowerCase();
+        } else if (item.isFile()) {
+          const ext = path.extname(item.name).toLowerCase();
           if (INDEX_EXTENSIONS.has(ext)) {
             files.push(itemPath);
           }
@@ -994,6 +994,35 @@ export class CodebaseIndexer {
         sourceTool: 'codebase-indexer',
       });
     }
+  }
+
+  /**
+   * Store multiple facts in a single batch insert
+   * ~100x faster than individual _storeFact() calls for remote DBs
+   *
+   * @param {Array} facts - Facts to store
+   * @returns {Promise<number>} Number of facts stored
+   */
+  async _storeBatch(facts) {
+    if (!this.factsRepo || !facts || facts.length === 0) return 0;
+
+    // Prepare facts for batch insert
+    const preparedFacts = facts.map(fact => ({
+      userId: this.userId,
+      sessionId: this.sessionId,
+      factType: fact.factType,
+      subject: fact.subject,
+      content: fact.content,
+      confidence: fact.confidence,
+      relevance: fact.confidence,
+      tags: fact.tags || [],
+      context: fact.context || {},
+      sourceTool: 'codebase-indexer',
+    }));
+
+    // Use batch insert (single round-trip)
+    const results = await this.factsRepo.createBatch(preparedFacts);
+    return results.length;
   }
 }
 
