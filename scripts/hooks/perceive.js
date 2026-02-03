@@ -63,6 +63,9 @@ import {
   isBrainAvailable,
 } from './lib/brain-bridge.js';
 
+// Direct brain tool calls for implicit activation
+import { callBrainTool } from '../lib/index.js';
+
 // PlanningGate Integration: Meta-cognition layer
 import { getPlanningGate, PlanningDecision } from '@cynic/node/orchestration';
 
@@ -640,6 +643,46 @@ async function main() {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // IMPLICIT BRAIN TOOLS: Auto-activation of dormant tools
+    // "Les outils dormants deviennent réflexes"
+    // ═══════════════════════════════════════════════════════════════════════════
+    let complexityResult = null;
+    let optimizeResult = null;
+
+    // brain_complexity: Auto-classify prompt complexity (silent, always-on)
+    // Triggers: minPromptLength > 500, hasCodeBlocks
+    const hasCodeBlocks = /```[\s\S]*?```/.test(prompt);
+    if (prompt.length > 500 || hasCodeBlocks) {
+      try {
+        complexityResult = await callBrainTool('brain_complexity', {
+          content: prompt.slice(0, 2000), // Limit for analysis
+          mode: 'classify',
+          silent: true,
+        }).catch(() => null);
+        logger.debug('Complexity classified', { result: complexityResult?.tier });
+      } catch (e) {
+        // Silent failure - non-blocking
+      }
+    }
+
+    // brain_optimize: Optimize large prompts for token efficiency
+    // Triggers: minPromptTokens > 4000 (~16KB), hasRepetition
+    const estimatedTokens = Math.ceil(prompt.length / 4);
+    const hasRepetition = /((?:\b\w+\b.*?){3,})\1/.test(prompt);
+    if (estimatedTokens > 4000 || hasRepetition) {
+      try {
+        optimizeResult = await callBrainTool('brain_optimize', {
+          content: prompt.slice(0, 8000),
+          mode: 'analyze', // Just analyze, don't modify
+          silent: true,
+        }).catch(() => null);
+        logger.debug('Optimization analysis', { savings: optimizeResult?.potentialSavings });
+      } catch (e) {
+        // Silent failure - non-blocking
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // PLANNING GATE: Meta-cognition - think before acting
     // "Un système qui pense avant d'agir"
     // ═══════════════════════════════════════════════════════════════════════════
@@ -680,9 +723,11 @@ async function main() {
           recordError: function() {},
         };
 
-        // Check planning gate
+        // Check planning gate - use brain_complexity result if available
+        const complexityScore = complexityResult?.score ??
+                               (isComplexPrompt ? 0.25 : 0.8);
         planningResult = planningGate.shouldPlan(planningEvent, {
-          complexity: isComplexPrompt ? 0.25 : 0.8,
+          complexity: complexityScore,
           confidence: brainThought?.confidence || 0.5,
           entropy: errorState.errorRate || 0,
         });

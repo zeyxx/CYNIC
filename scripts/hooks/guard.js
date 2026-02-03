@@ -31,6 +31,7 @@ import cynic, {
   getPhysisDetector,
   getVoluntaryPoverty,
   getHeisenberg,
+  callBrainTool,
 } from '../lib/index.js';
 
 // Phase 22: Session state and orchestration client
@@ -306,7 +307,7 @@ async function main() {
       // Auto-orchestration failed - continue with local logic
     }
 
-    // Circuit Breaker Check
+    // Circuit Breaker Check (local)
     if (circuitBreaker) {
       const loopCheck = circuitBreaker.checkAndRecord(toolName, toolInput);
       if (loopCheck.shouldBlock) {
@@ -325,6 +326,59 @@ async function main() {
 
         safeOutput(output);
         return;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BRAIN CIRCUIT BREAKER: MCP-level circuit breaker for dangerous operations
+    // "Les outils dormants deviennent réflexes"
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Check brain_circuit_breaker for high-risk tools (non-blocking, advisory)
+    const isDangerousCommand = command && (
+      command.includes('rm ') ||
+      command.includes('DROP ') ||
+      command.includes('DELETE FROM') ||
+      command.includes('--force')
+    );
+    const isHighRiskTool = ['Bash', 'Write', 'Edit'].includes(toolName);
+
+    if (isDangerousCommand || isHighRiskTool) {
+      try {
+        const brainCircuitResult = await callBrainTool('brain_circuit_breaker', {
+          action: 'check',
+          tool: toolName,
+          input: {
+            command: command?.slice(0, 200),
+            filePath: filePath?.slice(0, 200),
+          },
+          context: {
+            sessionId: process.env.CYNIC_SESSION_ID,
+            userId: user.userId,
+          },
+        }).catch(() => null);
+
+        if (brainCircuitResult?.shouldBlock) {
+          output.continue = false;
+          output.blocked = true;
+          output.blockReason = brainCircuitResult.reason || 'Blocked by brain circuit breaker';
+          output.brainCircuitBreaker = {
+            reason: brainCircuitResult.reason,
+            suggestion: brainCircuitResult.suggestion,
+          };
+
+          safeOutput(output);
+          return;
+        }
+
+        // Advisory warning (don't block, just inform)
+        if (brainCircuitResult?.warning) {
+          output.brainCircuitBreaker = {
+            warning: brainCircuitResult.warning,
+            suggestion: brainCircuitResult.suggestion,
+          };
+        }
+      } catch (e) {
+        // Non-blocking - continue without brain circuit breaker
       }
     }
 

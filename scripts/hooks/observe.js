@@ -1189,6 +1189,61 @@ async function main() {
       // Best-effort - don't fail the hook
     });
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // IMPLICIT BRAIN TOOLS: Auto-activation of dormant tools
+    // "Les outils dormants deviennent réflexes"
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // brain_sona: SONA dimension adaptation (after significant decisions)
+    // Triggers: sessionDurationMin > 30, significantDecisions >= 3
+    const sessionStart = parseInt(process.env.CYNIC_SESSION_START || '0', 10);
+    const sessionDurationMin = sessionStart ? (Date.now() - sessionStart) / 60000 : 0;
+    const significantDecisions = parseInt(process.env.CYNIC_SIGNIFICANT_DECISIONS || '0', 10);
+
+    if (sessionDurationMin > 30 || significantDecisions >= 3) {
+      try {
+        // Only call periodically (every 10 tool calls) to avoid overhead
+        const toolCallCount = parseInt(process.env.CYNIC_TOOL_CALL_COUNT || '0', 10) + 1;
+        process.env.CYNIC_TOOL_CALL_COUNT = String(toolCallCount);
+
+        if (toolCallCount % 10 === 0) {
+          callBrainTool('brain_sona', {
+            action: 'correlate',
+            sessionDuration: sessionDurationMin,
+            significantDecisions,
+            silent: true,
+          }).catch(() => {
+            // Silent failure - non-blocking
+          });
+        }
+      } catch (e) {
+        // Silent failure
+      }
+    }
+
+    // brain_metrics: Record session metrics (implicit, on significant work)
+    if (isError || toolName === 'Bash' || toolName === 'Write' || toolName === 'Edit') {
+      try {
+        callBrainTool('brain_metrics', {
+          action: 'record',
+          metric: 'tool_activity',
+          tool: toolName,
+          success: !isError,
+          timestamp: Date.now(),
+          silent: true,
+        }).catch(() => {
+          // Silent failure
+        });
+      } catch (e) {
+        // Silent failure
+      }
+    }
+
+    // Track significant decisions (errors, writes, edits)
+    if (isError || toolName === 'Write' || toolName === 'Edit') {
+      process.env.CYNIC_SIGNIFICANT_DECISIONS = String(significantDecisions + 1);
+    }
+
     // Detect patterns
     const patterns = detectToolPattern(toolName, toolInput, toolOutput, isError);
 

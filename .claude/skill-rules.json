@@ -191,6 +191,147 @@
           "\\b(full|complete).*dashboard\\b"
         ]
       }
+    },
+
+    {
+      "id": "complexity-detect",
+      "tool": "brain_complexity",
+      "priority": "low",
+      "description": "Auto-classify prompt complexity (silent, always-on)",
+      "mode": "implicit",
+      "triggers": {
+        "context": {
+          "minPromptLength": 500,
+          "hasCodeBlocks": true
+        }
+      },
+      "conditions": {
+        "silent": true,
+        "autoInvoke": true
+      }
+    },
+    {
+      "id": "code-boost",
+      "tool": "brain_boost",
+      "priority": "medium",
+      "description": "Boost code quality with suggestions",
+      "triggers": {
+        "keywords": ["boost", "improve", "enhance", "optimize code", "better code"],
+        "patterns": [
+          "\\b(boost|improve|enhance)\\b.*\\b(code|quality|performance)\\b",
+          "\\bmake.*better\\b",
+          "\\boptimize\\b.*\\bcode\\b"
+        ]
+      }
+    },
+    {
+      "id": "token-optimize",
+      "tool": "brain_optimize",
+      "priority": "medium",
+      "description": "Optimize large prompts for token efficiency",
+      "mode": "implicit",
+      "triggers": {
+        "context": {
+          "minPromptTokens": 4000,
+          "hasRepetition": true
+        }
+      },
+      "conditions": {
+        "silent": true,
+        "autoInvoke": true
+      }
+    },
+    {
+      "id": "hyperbolic-query",
+      "tool": "brain_hyperbolic",
+      "priority": "low",
+      "description": "Query hyperbolic geometry for pattern similarity",
+      "triggers": {
+        "keywords": ["hyperbolic", "similarity", "embedding", "semantic distance"],
+        "patterns": [
+          "\\bhyperbolic\\b",
+          "\\bsemantic.*distance\\b",
+          "\\bpattern.*similarity\\b"
+        ]
+      }
+    },
+    {
+      "id": "sona-adapt",
+      "tool": "brain_sona",
+      "priority": "low",
+      "description": "SONA dimension adaptation",
+      "mode": "implicit",
+      "triggers": {
+        "context": {
+          "sessionDurationMin": 30,
+          "significantDecisions": 3
+        }
+      },
+      "conditions": {
+        "silent": true,
+        "autoInvoke": true
+      }
+    },
+    {
+      "id": "x-feed-query",
+      "tool": "brain_x_feed",
+      "priority": "low",
+      "description": "Query X/Twitter feed for trends",
+      "triggers": {
+        "keywords": ["twitter", "x feed", "tweets", "social media"],
+        "patterns": [
+          "\\b(twitter|x\\.com|tweets?)\\b",
+          "\\bsocial\\b.*\\b(media|feed)\\b"
+        ]
+      }
+    },
+    {
+      "id": "x-trends",
+      "tool": "brain_x_trends",
+      "priority": "low",
+      "description": "Analyze X/Twitter trends",
+      "triggers": {
+        "keywords": ["trending", "viral", "twitter trends"],
+        "patterns": [
+          "\\btrending\\b",
+          "\\bviral\\b",
+          "\\bwhat.*popular\\b"
+        ]
+      }
+    },
+    {
+      "id": "circuit-breaker-check",
+      "tool": "brain_circuit_breaker",
+      "priority": "high",
+      "description": "Circuit breaker for dangerous operations",
+      "mode": "implicit",
+      "triggers": {
+        "context": {
+          "dangerousCommands": ["rm -rf", "DROP TABLE", "DELETE FROM", "git push --force"],
+          "highRiskTools": ["Bash", "Write", "Edit"]
+        }
+      },
+      "conditions": {
+        "autoInvoke": true,
+        "blocking": true
+      }
+    },
+    {
+      "id": "metrics-record",
+      "tool": "brain_metrics",
+      "priority": "low",
+      "description": "Record session metrics",
+      "mode": "implicit",
+      "triggers": {
+        "context": {
+          "sessionEnd": true,
+          "significantWork": true
+        }
+      },
+      "conditions": {
+        "silent": true,
+        "autoInvoke": true
+      }
     }
   ],
 
