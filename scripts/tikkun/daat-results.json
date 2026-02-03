@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-02-02T09:25:16.069Z",
+  "timestamp": "2026-02-03T07:49:04.559Z",
   "version": "1.0.0",
   "categories": {
     "core": {
@@ -291,7 +291,7 @@
           "name": "MCP tools defined",
           "ok": true,
           "details": {
-            "count": 20,
+            "count": 21,
             "files": [
               "index.js",
               "registry.js",
@@ -305,7 +305,7 @@
               "domains\\index.js"
             ]
           },
-          "message": "20 tool files"
+          "message": "21 tool files"
         },
         {
           "id": "mcp-server",
@@ -336,10 +336,10 @@
           "name": "Migrations exist",
           "ok": true,
           "details": {
-            "count": 23,
-            "latest": "025_telemetry.sql"
+            "count": 25,
+            "latest": "027_facts_vector_search.sql"
           },
-          "message": "23 migrations (latest: 025_telemetry.sql)"
+          "message": "25 migrations (latest: 027_facts_vector_search.sql)"
         },
         {
           "id": "embedder",
@@ -505,7 +505,7 @@
             },
             {
               "package": "persistence",
-              "count": 17
+              "count": 21
             },
             {
               "package": "protocol",
@@ -516,7 +516,7 @@
               "count": 1
             }
           ],
-          "message": "111 test files in 13 packages"
+          "message": "115 test files in 13 packages"
         },
         {
           "id": "benchmark-files",
@@ -529,12 +529,14 @@
               "cartographer",
               "collective-vs-single",
               "cynic",
+              "cynic-core",
               "deployer",
               "guardian",
               "janitor",
               "oracle",
               "pattern-learning",
               "phi-bft",
+              "pipeline",
               "sage",
               "scholar",
               "scout",
@@ -542,7 +544,7 @@
               "thermodynamics"
             ]
           },
-          "message": "16 benchmark categories"
+          "message": "18 benchmark categories"
         },
         {
           "id": "test-coverage",
