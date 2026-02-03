@@ -52,8 +52,8 @@ import { getErrorPerception, ErrorSeverity, ErrorPattern } from './lib/index.js'
 // S1: Rules-based skill detection (loaded from skill-rules.json)
 import { detectSkillTriggersFromRules, getRulesSettings } from './lib/index.js';
 
-// Task #21: LLM Router for tier-based LLM selection
-import { getLLMRouter, getCostOptimizer, ComplexityTier } from '@cynic/node';
+// Task #21: Cost optimizer for tier-based complexity routing
+import { getCostOptimizer, ComplexityTier } from '@cynic/node';
 
 // Brain Integration: Unified consciousness layer
 import {

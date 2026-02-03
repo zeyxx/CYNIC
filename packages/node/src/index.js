@@ -362,13 +362,19 @@ export {
   createAgentBooster,
   TransformIntent,
   TransformStatus,
-  // LLM Router - Tier → Provider selection (Task #21)
+  // Cost Optimizer
+  CostOptimizer,
+  createCostOptimizer,
+  getCostOptimizer,
+} from './routing/index.js';
+
+// LLM Router - Now in @cynic/llm (Task #21)
+export {
   LLMRouter,
-  TIER_MODEL_MAP,
-  TIER_PROVIDER_CONFIG,
   createLLMRouter,
   getLLMRouter,
-} from './routing/index.js';
+  _resetLLMRouterForTesting,
+} from '@cynic/llm';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Learning - Self-Optimizing Neural Adaptation (SONA)

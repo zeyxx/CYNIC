@@ -1,12 +1,7 @@
 /**
  * Tiered Router
  *
- * @deprecated Use CostOptimizer from './cost-optimizer.js' instead.
- * This module's cost optimization features have been extracted to
- * CostOptimizer for integration with KabbalisticRouter. This file
- * is kept for backward compatibility only.
- *
- * Routes requests to optimal handler based on complexity:
+ * Routes requests to optimal handler based on complexity.
  * - Tier 1 (Local): Simple operations, no LLM needed
  * - Tier 2 (Light): Haiku-level, fast responses
  * - Tier 3 (Full): Sonnet/Opus for complex reasoning
