@@ -12,8 +12,10 @@
 'use strict';
 
 // VERSION MARKER: v2.0 - Negative scoring enabled (2026-01-20)
-// This log MUST appear at startup if this code is loaded
-console.log('[SCORERS] *** VERSION 2.0 LOADED - Negative scoring active ***');
+// Use stderr to avoid breaking JSON hook output
+if (process.env.DEBUG || process.env.CYNIC_DEBUG) {
+  console.warn('[SCORERS] v2.0 loaded - Negative scoring active');
+}
 
 import { PHI_INV } from '@cynic/core';
 import { normalize } from './utils.js';
