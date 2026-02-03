@@ -61,6 +61,34 @@ export {
   clearRulesCache,
 } from './rules-loader.js';
 
+// Implicit Feedback Detection (Task #72)
+export {
+  ImplicitFeedbackDetector,
+  getImplicitFeedback,
+  resetImplicitFeedback,
+  FeedbackType,
+  FeedbackSentiment,
+  IMPLICIT_FEEDBACK_CONFIG,
+} from './implicit-feedback.js';
+
+// Harmonic Feedback System (Kabbalistic + Cybernetic + Bayesian synthesis)
+export {
+  HarmonicFeedbackSystem,
+  getHarmonicFeedback,
+  resetHarmonicFeedback,
+  ThompsonSampler,
+  ConfidenceCalibrator,  // Task #71: Confidence calibration
+  calculateCoherence,
+  calculateResonance,
+  calculateEntrainment,
+  temporalDecay,
+  eligibilityTrace,
+  SEFIROT_CHANNELS,
+  FeedbackState,
+  PROMOTION_CONFIG,      // Task #70: Pattern-to-heuristic promotion
+  CALIBRATION_CONFIG,    // Task #71: Confidence calibration config
+} from './harmonic-feedback.js';
+
 // ReasoningBank (P1.2: Trajectory learning)
 let _reasoningBank = null;
 

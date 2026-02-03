@@ -87,6 +87,7 @@ const requireCJS = createRequire(import.meta.url);
 let colors = null;
 let ANSI = null;
 let DOG_COLORS = null;
+let humanPsychology = null;
 
 try {
   colors = requireCJS('../lib/colors.cjs');
@@ -104,6 +105,13 @@ try {
 }
 
 const c = (color, text) => color ? `${color}${text}${ANSI.reset}` : text;
+
+// Load psychology module for signal processing
+try {
+  humanPsychology = requireCJS('../lib/human-psychology.cjs');
+} catch (e) {
+  // Psychology module not available
+}
 
 // =============================================================================
 // INTENT DETECTION
@@ -436,6 +444,139 @@ async function main() {
       pattern: errorState.pattern,
       consecutive: errorState.consecutiveErrors,
     });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PSYCHOLOGY SIGNAL PROCESSING: Wire perception to psychology dimensions
+    // "Le chien sent et le corps réagit"
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (humanPsychology) {
+      try {
+        // Process temporal signals
+        if (temporalState.signals) {
+          const { signals: tempSignals, worldTime } = temporalState;
+
+          // Late night work → temporal_fatigue + late_night
+          if (tempSignals.lateNightWork && tempSignals.lateNightConfidence > 0.3) {
+            humanPsychology.processSignal({
+              type: 'late_night',
+              confidence: tempSignals.lateNightConfidence,
+              source: 'temporal_perception',
+            });
+          }
+
+          // Possible frustration → temporal_frustration
+          if (tempSignals.possibleFrustration && tempSignals.frustrationConfidence > 0.3) {
+            humanPsychology.processSignal({
+              type: 'temporal_frustration',
+              confidence: tempSignals.frustrationConfidence,
+              source: 'temporal_perception',
+            });
+          }
+
+          // Possible flow → temporal_flow
+          if (tempSignals.possibleFlow && tempSignals.flowConfidence > 0.4) {
+            humanPsychology.processSignal({
+              type: 'temporal_flow',
+              confidence: tempSignals.flowConfidence,
+              source: 'temporal_perception',
+            });
+          }
+
+          // Possible fatigue → temporal_fatigue
+          if (tempSignals.possibleFatigue && tempSignals.fatigueConfidence > 0.3) {
+            humanPsychology.processSignal({
+              type: 'temporal_fatigue',
+              confidence: tempSignals.fatigueConfidence,
+              source: 'temporal_perception',
+            });
+          }
+
+          // Possible stuck → temporal_idle
+          if (tempSignals.possibleStuck && tempSignals.stuckConfidence > 0.4) {
+            humanPsychology.processSignal({
+              type: 'temporal_idle',
+              confidence: tempSignals.stuckConfidence,
+              source: 'temporal_perception',
+            });
+          }
+
+          // Circadian phase signals
+          if (worldTime?.circadianPhase === 'morning') {
+            humanPsychology.processSignal({
+              type: 'circadian_peak',
+              confidence: worldTime.expectedEnergy || 0.5,
+              source: 'temporal_perception',
+            });
+          } else if (worldTime?.circadianPhase === 'midday') {
+            humanPsychology.processSignal({
+              type: 'circadian_dip',
+              confidence: 0.5 - (worldTime.expectedEnergy || 0.5),
+              source: 'temporal_perception',
+            });
+          }
+
+          // Weekend signal (once per session, at prompt 3)
+          if (tempSignals.weekendWork && temporalState.promptCount === 3) {
+            humanPsychology.processSignal({
+              type: 'weekend_session',
+              confidence: 0.382, // φ⁻²
+              source: 'temporal_perception',
+            });
+          }
+        }
+
+        // Process error signals
+        if (errorState.signals) {
+          const { signals: errSignals } = errorState;
+
+          // Consecutive errors (circuit breaker) → error_consecutive
+          if (errSignals.consecutiveErrors && errorState.consecutiveErrors >= 3) {
+            humanPsychology.processSignal({
+              type: 'error_consecutive',
+              confidence: errSignals.stuckConfidence || 0.5,
+              consecutiveCount: errorState.consecutiveErrors,
+              source: 'error_perception',
+            });
+          }
+
+          // High error rate → error_rate_high
+          if (errSignals.highErrorRate) {
+            humanPsychology.processSignal({
+              type: 'error_rate_high',
+              confidence: errSignals.frustrationFromErrors || 0.5,
+              errorRate: errorState.errorRate,
+              source: 'error_perception',
+            });
+          }
+
+          // Repeated same error → error_repeated
+          if (errSignals.repeatedError) {
+            humanPsychology.processSignal({
+              type: 'error_repeated',
+              confidence: errSignals.stuckConfidence || 0.5,
+              commonError: errorState.mostCommonError,
+              source: 'error_perception',
+            });
+          }
+
+          // Escalating errors → error_escalating
+          if (errSignals.escalatingErrors) {
+            humanPsychology.processSignal({
+              type: 'error_escalating',
+              confidence: errSignals.frustrationFromErrors || 0.5,
+              source: 'error_perception',
+            });
+          }
+        }
+
+        logger.debug('Psychology signals sent', {
+          temporalSignals: Object.keys(temporalState.signals || {}).filter(k => temporalState.signals[k]),
+          errorSignals: Object.keys(errorState.signals || {}).filter(k => errorState.signals[k]),
+        });
+      } catch (e) {
+        logger.debug('Psychology signal processing failed', { error: e.message });
+      }
+    }
 
     // Record this prompt in session state
     if (sessionState.isInitialized()) {

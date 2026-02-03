@@ -354,6 +354,98 @@ function processSignal(signal) {
       state = updateDimension(state, 'frustration', -0.1, signal.confidence || THRESHOLD_LOW);
       break;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TEMPORAL PERCEPTION SIGNALS (Phase 22)
+    // "Le chien sent le temps qui passe"
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    case 'temporal_fatigue':
+      // Late night or low circadian energy
+      state = updateDimension(state, 'energy', -0.1, signal.confidence || THRESHOLD_LOW);
+      state = updateEmotion(state, 'boredom', 0.05, signal.confidence || THRESHOLD_CRITICAL);
+      break;
+
+    case 'temporal_frustration':
+      // Rapid tempo suggesting frustration
+      state = updateDimension(state, 'frustration', 0.15, signal.confidence || THRESHOLD_LOW);
+      state = updateDimension(state, 'focus', -0.05, signal.confidence || THRESHOLD_CRITICAL);
+      break;
+
+    case 'temporal_flow':
+      // Steady, productive tempo
+      state = updateDimension(state, 'focus', 0.1, signal.confidence || THRESHOLD_LOW);
+      state = updateDimension(state, 'energy', 0.03, signal.confidence || THRESHOLD_CRITICAL);
+      state = updateDimension(state, 'frustration', -0.05, signal.confidence || THRESHOLD_CRITICAL);
+      break;
+
+    case 'temporal_idle':
+      // Very slow tempo - distraction or fatigue
+      state = updateDimension(state, 'focus', -0.1, signal.confidence || THRESHOLD_CRITICAL);
+      state = updateEmotion(state, 'boredom', 0.1, signal.confidence || THRESHOLD_LOW);
+      break;
+
+    case 'circadian_peak':
+      // Morning peak energy (baseline boost)
+      state = updateDimension(state, 'energy', 0.05, signal.confidence || THRESHOLD_LOW);
+      state = updateDimension(state, 'creativity', 0.03, signal.confidence || THRESHOLD_CRITICAL);
+      break;
+
+    case 'circadian_dip':
+      // Afternoon energy dip (baseline reduction)
+      state = updateDimension(state, 'energy', -0.05, signal.confidence || THRESHOLD_CRITICAL);
+      break;
+
+    case 'late_night':
+      // Late night work - fatigue warning
+      state = updateDimension(state, 'energy', -0.15, signal.confidence || THRESHOLD_LOW);
+      state = updateDimension(state, 'riskAppetite', 0.05, signal.confidence || THRESHOLD_CRITICAL);
+      break;
+
+    case 'weekend_session':
+      // Weekend work - different mode
+      state = updateDimension(state, 'creativity', 0.05, signal.confidence || THRESHOLD_CRITICAL);
+      state = updateDimension(state, 'focus', -0.03, signal.confidence || THRESHOLD_CRITICAL);
+      break;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ERROR PERCEPTION SIGNALS (Phase 22)
+    // "Le chien renifle les erreurs"
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    case 'error_rate_high':
+      // High error rate - frustration and confidence drop
+      state = updateDimension(state, 'frustration', 0.15, signal.confidence || THRESHOLD_LOW);
+      state = updateDimension(state, 'confidence', -0.1, signal.confidence || THRESHOLD_LOW);
+      break;
+
+    case 'error_consecutive':
+      // Multiple consecutive errors - stuck state
+      state = updateDimension(state, 'frustration', 0.2, signal.confidence || PHI_INV);
+      state = updateDimension(state, 'focus', -0.1, signal.confidence || THRESHOLD_LOW);
+      state = updateEmotion(state, 'anxiety', 0.15, signal.confidence || THRESHOLD_LOW);
+      break;
+
+    case 'error_repeated':
+      // Same error repeating - deep stuck
+      state = updateDimension(state, 'frustration', 0.25, signal.confidence || PHI_INV);
+      state = updateDimension(state, 'confidence', -0.15, signal.confidence || THRESHOLD_LOW);
+      state = updateDimension(state, 'creativity', -0.1, signal.confidence || THRESHOLD_CRITICAL);
+      break;
+
+    case 'error_escalating':
+      // Errors increasing over time
+      state = updateDimension(state, 'frustration', 0.2, signal.confidence || PHI_INV);
+      state = updateDimension(state, 'energy', -0.1, signal.confidence || THRESHOLD_LOW);
+      break;
+
+    case 'error_resolved':
+      // Breakthrough after errors
+      state = updateDimension(state, 'frustration', -0.2, signal.confidence || PHI_INV);
+      state = updateDimension(state, 'confidence', 0.1, signal.confidence || THRESHOLD_LOW);
+      state = updateEmotion(state, 'joy', 0.15, signal.confidence || THRESHOLD_LOW);
+      state = updateEmotion(state, 'pride', 0.1, signal.confidence || THRESHOLD_CRITICAL);
+      break;
+
     default:
       // Unknown signal type - log but don't crash
       break;

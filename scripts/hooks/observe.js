@@ -61,6 +61,10 @@ import {
   recordTiming,
   recordFriction,
   getAutoOrchestratorSync,  // Auto-orchestration: Dogs consultation
+  // Phase 23: Harmonic Feedback System (Kabbalah + CIA + Cybernetics + Thompson)
+  getHarmonicFeedback,
+  getImplicitFeedback,
+  SEFIROT_CHANNELS,
 } from './lib/index.js';
 
 // =============================================================================
@@ -88,6 +92,10 @@ const physicsBridge = getPhysicsBridge();
 // Phase 22: Feedback and suggestion engines
 const feedbackCollector = getFeedbackCollector();
 const suggestionEngine = getSuggestionEngine();
+
+// Phase 23: Harmonic Feedback System (Kabbalah + CIA + Cybernetics + Thompson Sampling)
+const harmonicFeedback = getHarmonicFeedback();
+const implicitFeedback = getImplicitFeedback();
 
 // =============================================================================
 // ANTI-PATTERN DETECTOR - Error loops & bad workflows
@@ -1268,6 +1276,93 @@ async function main() {
         }
       } catch (e) {
         // Feedback collection failed - continue without
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 23: HARMONIC FEEDBACK - Kabbalah + CIA + Cybernetics + Thompson
+    // "Ohr descends, Kelim receives" - Light flows, vessels learn
+    // Detects implicit feedback from user actions and updates Thompson Samplers
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (harmonicFeedback && implicitFeedback) {
+      try {
+        // 1. Observe user action for implicit feedback detection
+        implicitFeedback.observeAction({
+          type: toolName.toLowerCase(),
+          tool: toolName,
+          file: toolInput.file_path || toolInput.filePath,
+          command: toolInput.command,
+          success: !isError,
+          timestamp: Date.now(),
+        });
+
+        // 2. Detect implicit feedback from recent suggestions
+        const detectedFeedback = implicitFeedback.detectFeedback();
+
+        if (detectedFeedback.length > 0) {
+          for (const fb of detectedFeedback) {
+            // 3. Process through harmonic system (Thompson + Sefirot + CIA)
+            harmonicFeedback.processFeedback({
+              type: fb.type,
+              sentiment: fb.sentiment,
+              suggestionId: fb.suggestionId,
+              confidence: fb.confidence,
+              action: fb.userAction,
+              source: 'implicit',
+            });
+
+            // 4. Record for telemetry
+            if (telemetry) {
+              recordMetric('implicit_feedback_detected', 1, {
+                type: fb.type,
+                sentiment: fb.sentiment,
+              });
+            }
+
+            // 5. Record pattern for learning
+            const feedbackPattern = {
+              type: 'implicit_feedback',
+              signature: `${fb.type}_${fb.sentiment}`,
+              description: `User ${fb.sentiment === 'positive' ? 'followed' : 'ignored'} suggestion`,
+              context: { suggestionType: fb.suggestionType, confidence: fb.confidence },
+            };
+            saveCollectivePattern(feedbackPattern);
+            if (sessionState.isInitialized()) {
+              sessionState.recordPattern(feedbackPattern);
+            }
+          }
+        }
+
+        // 6. When suggestions are made, record them for later feedback tracking
+        if (proactiveSuggestion) {
+          implicitFeedback.recordSuggestion({
+            id: proactiveSuggestion.id || `sug_${Date.now()}`,
+            type: proactiveSuggestion.type,
+            content: proactiveSuggestion.message,
+            timestamp: Date.now(),
+            context: { tool: toolName, isError },
+          });
+        }
+
+        // 7. Get harmonic state for consciousness integration
+        const harmonicState = harmonicFeedback.getState();
+        if (consciousness && harmonicState.coherence > 0.5) {
+          // Record high coherence moments as insights
+          if (harmonicState.coherence > 0.7) {
+            consciousness.recordInsight({
+              type: 'harmonic_coherence',
+              title: 'High feedback coherence detected',
+              message: `Coherence: ${Math.round(harmonicState.coherence * 100)}%, Resonance: ${Math.round(harmonicState.resonance * 100)}%`,
+              data: harmonicState,
+              priority: 'low',
+            });
+          }
+        }
+      } catch (e) {
+        // Harmonic feedback failed - continue without
+        if (process.env.CYNIC_DEBUG) {
+          console.error('[OBSERVE] Harmonic feedback error:', e.message);
+        }
       }
     }
 

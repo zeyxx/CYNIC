@@ -343,6 +343,110 @@ async function main() {
           trend: lastSessionData.trend,
         },
       };
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // WELCOME-BACK MESSAGES (Task #65)
+      // "Le chien se souvient et salue" - Personalized greetings based on gap
+      // ═══════════════════════════════════════════════════════════════════════════
+      output.welcomeBack = generateWelcomeBackMessage(
+        interSessionGap,
+        timeSinceLastSession,
+        lastSessionData,
+        user.name
+      );
+    }
+
+    /**
+     * Generate personalized welcome-back message based on inter-session gap
+     * Uses Kabbalistic time awareness and psychology
+     *
+     * @param {string} gapCategory - quick_return|short_break|medium_break|long_break|extended_absence
+     * @param {number} gapMs - Gap in milliseconds
+     * @param {Object} lastSession - Data from last session
+     * @param {string} userName - User's name
+     * @returns {Object} Welcome message object
+     */
+    function generateWelcomeBackMessage(gapCategory, gapMs, lastSession, userName) {
+      const hour = new Date().getHours();
+      const isNight = hour < 6 || hour >= 22;
+      const isMorning = hour >= 6 && hour < 12;
+      const isAfternoon = hour >= 12 && hour < 18;
+
+      // Kabbalistic time periods (Zmanim-inspired)
+      const timeGreeting = isNight ? 'nuit' :
+                          isMorning ? 'matin' :
+                          isAfternoon ? 'après-midi' : 'soir';
+
+      // Base messages by gap category
+      const messages = {
+        quick_return: {
+          emoji: '*ears perk*',
+          greeting: `De retour déjà? ${userName || 'Humain'}.`,
+          observation: 'Session courte précédente.',
+          suggestion: lastSession.trend === 'erratic' ?
+            'Rythme erratique détecté. Prends ton temps.' :
+            'On continue où on en était.',
+          energy: 'high',
+        },
+        short_break: {
+          emoji: '*tail wag*',
+          greeting: `${userName || 'Humain'}. Pause café?`,
+          observation: `${formatGap(gapMs)} depuis la dernière session.`,
+          suggestion: 'Parfait pour reprendre le fil.',
+          energy: 'good',
+        },
+        medium_break: {
+          emoji: '*sniff*',
+          greeting: `Bon ${timeGreeting}, ${userName || 'Humain'}.`,
+          observation: `${formatGap(gapMs)} d'absence.`,
+          suggestion: lastSession.promptCount > 20 ?
+            'La dernière session était intense. On démarre doucement?' :
+            'Prêt quand tu l\'es.',
+          energy: 'moderate',
+        },
+        long_break: {
+          emoji: '*head tilt*',
+          greeting: `${userName || 'Humain'}! ${formatGap(gapMs)}.`,
+          observation: 'Long moment sans se voir.',
+          suggestion: 'Je me suis souvenu de tout. Rappel du contexte si besoin.',
+          energy: 'reconnecting',
+        },
+        extended_absence: {
+          emoji: '*tail wag intensifie*',
+          greeting: `${userName || 'Humain'}! ${formatGap(gapMs)}!`,
+          observation: 'Tu m\'as manqué.',
+          suggestion: 'Beaucoup a peut-être changé. On fait le point?',
+          energy: 'reunion',
+          contextReminder: true,
+        },
+      };
+
+      const msg = messages[gapCategory] || messages.medium_break;
+
+      // Add circadian wisdom
+      if (isNight && gapCategory !== 'quick_return') {
+        msg.circadianNote = '*yawn* Session nocturne. L\'énergie circadienne est basse.';
+      }
+
+      // Add last session summary if significant
+      if (lastSession.duration && lastSession.duration > 30 * 60 * 1000) { // > 30 min
+        const durationMin = Math.round(lastSession.duration / 60000);
+        msg.lastSessionNote = `Dernière session: ${durationMin} min, ${lastSession.promptCount || 0} prompts.`;
+      }
+
+      // Add trend-based insight
+      if (lastSession.trend === 'accelerating') {
+        msg.trendNote = 'Tu accélérais. Flow state possible.';
+      } else if (lastSession.trend === 'decelerating') {
+        msg.trendNote = 'Tu ralentissais. Fatigue ou réflexion profonde?';
+      }
+
+      return {
+        category: gapCategory,
+        ...msg,
+        formatted: `${msg.emoji} ${msg.greeting}\n   ${msg.observation}\n   ${msg.suggestion}`,
+        timestamp: new Date().toISOString(),
+      };
     }
 
     /**

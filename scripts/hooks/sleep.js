@@ -35,6 +35,9 @@ import cynic, {
 // Phase 22: Session state management
 import { getSessionState, getTemporalPerception } from './lib/index.js';
 
+// Phase 23: Harmonic Feedback System (learning summary)
+import { getHarmonicFeedback, getImplicitFeedback } from './lib/index.js';
+
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -411,6 +414,170 @@ async function main() {
       output.temporal = { saved: true, endTime };
     } catch (e) {
       output.temporal = { saved: false, error: e.message };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LEARNING SUMMARY: Extract lessons from session (Task #73)
+    // "Le chien se souvient de ce qu'il a appris"
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      const harmonicFeedback = getHarmonicFeedback();
+      const implicitFeedback = getImplicitFeedback();
+
+      // Initialize lessons structure
+      output.learningSummary = {
+        extracted: true,
+        timestamp: Date.now(),
+        lessons: [],
+        heuristics: {
+          promoted: [],
+          demoted: [],
+          active: 0,
+        },
+        calibration: {
+          brierScore: null,
+          reliability: null,
+          recommendations: [],
+        },
+        patterns: {
+          mostSuccessful: [],
+          needsWork: [],
+        },
+        feedbackStats: {
+          positive: 0,
+          negative: 0,
+          coherence: null,
+        },
+      };
+
+      // Extract from Harmonic Feedback System
+      if (harmonicFeedback) {
+        const state = harmonicFeedback.getState();
+        const insights = harmonicFeedback.getInsights();
+        const promotionStats = harmonicFeedback.getPromotionStats();
+        const calibrationAnalysis = harmonicFeedback.getCalibrationAnalysis();
+
+        // Feedback stats
+        output.learningSummary.feedbackStats.coherence = state.coherence;
+        output.learningSummary.feedbackStats.resonance = state.resonance;
+
+        // Heuristics
+        output.learningSummary.heuristics.active = promotionStats.activeHeuristics;
+        output.learningSummary.heuristics.promoted = promotionStats.heuristicDetails
+          .filter(h => h.successRate > 0.5)
+          .slice(0, 5);
+
+        // Get recently demoted from promotion history
+        const recentDemotions = insights.resonanceHistory
+          ?.filter(h => h.type === 'demotion')
+          ?.slice(-3) || [];
+        output.learningSummary.heuristics.demoted = recentDemotions;
+
+        // Calibration
+        if (calibrationAnalysis) {
+          output.learningSummary.calibration.brierScore = calibrationAnalysis.metrics?.brierScore;
+          output.learningSummary.calibration.reliability = calibrationAnalysis.metrics?.reliability;
+          output.learningSummary.calibration.factor = calibrationAnalysis.factor;
+          output.learningSummary.calibration.recommendations = calibrationAnalysis.recommendations?.recommendations || [];
+        }
+
+        // Pattern performance from Thompson sampling
+        const thompsonStats = insights.thompsonStats || {};
+        if (thompsonStats.arms) {
+          const armEntries = Object.entries(thompsonStats.arms);
+
+          // Most successful patterns (high alpha/(alpha+beta))
+          const sortedBySuccess = [...armEntries]
+            .map(([id, arm]) => ({
+              id,
+              successRate: arm.alpha / (arm.alpha + arm.beta),
+              pulls: arm.pulls,
+            }))
+            .filter(a => a.pulls >= 5)
+            .sort((a, b) => b.successRate - a.successRate);
+
+          output.learningSummary.patterns.mostSuccessful = sortedBySuccess.slice(0, 5);
+          output.learningSummary.patterns.needsWork = sortedBySuccess
+            .filter(a => a.successRate < 0.4)
+            .slice(0, 3);
+        }
+
+        // Generate lessons
+        const lessons = [];
+
+        // Lesson 1: Overall coherence
+        if (state.coherence > 0.5) {
+          lessons.push({
+            type: 'positive',
+            domain: 'coherence',
+            message: `High suggestion-action coherence (${Math.round(state.coherence * 100)}%). Suggestions well-aligned with user needs.`,
+          });
+        } else if (state.coherence < 0.3) {
+          lessons.push({
+            type: 'improvement',
+            domain: 'coherence',
+            message: `Low coherence (${Math.round(state.coherence * 100)}%). Need to better understand user intent.`,
+          });
+        }
+
+        // Lesson 2: Calibration issues
+        if (calibrationAnalysis.recommendations?.recommendations?.length > 0) {
+          const mainRec = calibrationAnalysis.recommendations.recommendations[0];
+          lessons.push({
+            type: mainRec.severity === 'high' ? 'critical' : 'improvement',
+            domain: 'calibration',
+            message: mainRec.message,
+          });
+        }
+
+        // Lesson 3: Tikkun progress
+        if (state.tikkunProgress > 0.5) {
+          lessons.push({
+            type: 'positive',
+            domain: 'tikkun',
+            message: `Good repair progress (${Math.round(state.tikkunProgress * 100)}%). Learning from feedback effectively.`,
+          });
+        }
+
+        // Lesson 4: Promoted heuristics
+        if (promotionStats.activeHeuristics > 0) {
+          lessons.push({
+            type: 'milestone',
+            domain: 'heuristics',
+            message: `${promotionStats.activeHeuristics} pattern(s) promoted to heuristics. These can be applied proactively.`,
+          });
+        }
+
+        output.learningSummary.lessons = lessons;
+
+        // Store learning summary for next session retrieval
+        await callBrainTool('brain_memory_store', {
+          type: 'session_learning',
+          content: JSON.stringify(output.learningSummary),
+          metadata: {
+            sessionId: output.session.id,
+            userId: user.userId,
+            timestamp: Date.now(),
+          },
+        }).catch(() => {});
+      }
+
+      // Extract from Implicit Feedback
+      if (implicitFeedback) {
+        const feedbackHistory = implicitFeedback.getHistory?.() || [];
+        const positive = feedbackHistory.filter(f => f.sentiment === 'positive').length;
+        const negative = feedbackHistory.filter(f => f.sentiment === 'negative').length;
+
+        output.learningSummary.feedbackStats.positive = positive;
+        output.learningSummary.feedbackStats.negative = negative;
+        output.learningSummary.feedbackStats.total = feedbackHistory.length;
+      }
+
+    } catch (e) {
+      output.learningSummary = {
+        extracted: false,
+        error: e.message,
+      };
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
