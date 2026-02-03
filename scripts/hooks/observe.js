@@ -286,6 +286,78 @@ try {
   };
 }
 
+// =============================================================================
+// INLINE STATUS BAR - Make CYNIC's thinking visible
+// "Da'at = Union through shared knowledge"
+// =============================================================================
+
+const PHI_INV = 0.618;
+
+/**
+ * Generate compact inline status bar showing CYNIC's internal state
+ * Format: [🛡️ Guardian │ 58% │ 12 patterns]
+ *
+ * This is the first step toward symbiosis: making the invisible visible.
+ */
+function generateInlineStatus(activeDog, options = {}) {
+  const parts = [];
+
+  // 1. Active Dog with icon
+  if (activeDog) {
+    const dogName = activeDog.name || 'CYNIC';
+    parts.push(`${activeDog.icon} ${dogName}`);
+  }
+
+  // 2. Confidence from harmonic feedback (Thompson Sampler state)
+  if (harmonicFeedback) {
+    try {
+      const state = harmonicFeedback.getState?.();
+      if (state) {
+        const confidence = Math.round((state.coherence || 0.5) * 100);
+        const confidenceColor = confidence > 50 ? ANSI.brightGreen :
+                               confidence > 30 ? ANSI.yellow : ANSI.brightRed;
+        parts.push(c(confidenceColor, `${confidence}%`));
+      }
+    } catch { /* continue without */ }
+  }
+
+  // 3. Active patterns count
+  if (harmonicFeedback) {
+    try {
+      const stats = harmonicFeedback.thompsonSampler?.getStats?.();
+      if (stats && stats.armCount > 0) {
+        parts.push(c(ANSI.cyan, `${stats.armCount} patterns`));
+      }
+    } catch { /* continue without */ }
+  }
+
+  // 4. Psychology state (if available and noteworthy)
+  if (psychology && options.showPsychology !== false) {
+    try {
+      const summary = psychology.getSummary?.();
+      if (summary) {
+        if (summary.composites?.flow) {
+          parts.push(c(ANSI.brightGreen, '✨ flow'));
+        } else if (summary.composites?.burnoutRisk) {
+          parts.push(c(ANSI.brightRed, '⚠️ burnout'));
+        } else if (summary.frustration?.value > 0.5) {
+          parts.push(c(ANSI.yellow, '😤 friction'));
+        }
+      }
+    } catch { /* continue without */ }
+  }
+
+  // 5. Multi-LLM indicator (if active)
+  // TODO: Add when LLMRouter is wired
+
+  if (parts.length === 0) {
+    return null;
+  }
+
+  // Format: [🛡️ Guardian │ 58% │ 12 patterns │ ✨ flow]
+  return `${c(ANSI.dim, '[')}${parts.join(c(ANSI.dim, ' │ '))}${c(ANSI.dim, ']')}`;
+}
+
 /**
  * Determine which Dog is most relevant for the current action
  * "Le Collectif observe - un Chien répond"
@@ -2060,12 +2132,21 @@ async function main() {
     const showDog = isError || toolName === 'Write' || toolName === 'Edit' ||
                    toolName === 'Task' || (toolName === 'Bash' && toolInput.command?.length > 10);
 
-    // 1. Active Dog indicator with personality (now with colors!)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // INLINE STATUS BAR - Da'at: Making invisible visible
+    // Shows: [🛡️ Guardian │ 58% │ 12 patterns │ ✨ flow]
+    // ═══════════════════════════════════════════════════════════════════════════
     if (showDog && activeDog) {
-      const verb = collectiveDogsModule?.getDogVerb?.(activeDog) || actionDesc || 'observes';
-      const dogName = activeDog.name?.toUpperCase() || 'CYNIC';
-      const dogColor = DOG_COLORS?.[dogName] || ANSI.brightWhite;
-      outputParts.push(`\n${c(dogColor, activeDog.icon + ' ' + verb)} `);
+      const inlineStatus = generateInlineStatus(activeDog, { showPsychology: true });
+      if (inlineStatus) {
+        outputParts.push(`\n${inlineStatus} `);
+      } else {
+        // Fallback to simple Dog indicator
+        const verb = collectiveDogsModule?.getDogVerb?.(activeDog) || actionDesc || 'observes';
+        const dogName = activeDog.name?.toUpperCase() || 'CYNIC';
+        const dogColor = DOG_COLORS?.[dogName] || ANSI.brightWhite;
+        outputParts.push(`\n${c(dogColor, activeDog.icon + ' ' + verb)} `);
+      }
 
       // Record Dog activity for session summary
       if (collectiveDogsModule?.recordDogActivity) {
