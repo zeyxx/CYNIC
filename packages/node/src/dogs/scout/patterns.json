@@ -1,0 +1,87 @@
+{
+  "$schema": "../../schemas/dog-patterns.json",
+  "dog": "scout",
+  "sefira": "Netzach",
+  "version": "1.0.0",
+  "description": "L1 exploration patterns for efficient codebase navigation",
+
+  "searchPatterns": {
+    "description": "Common search patterns and their optimal strategies",
+    "byIntent": {
+      "findDefinition": {
+        "patterns": ["where is .* defined", "find .* class", "locate .* function"],
+        "strategy": "grep",
+        "fileTypes": ["js", "ts", "py", "go", "rs"]
+      },
+      "findUsage": {
+        "patterns": ["who uses", "where is .* called", "find references"],
+        "strategy": "grep_then_read",
+        "fileTypes": null
+      },
+      "findFile": {
+        "patterns": ["find file", "where is .* file", "locate .*\\."],
+        "strategy": "glob",
+        "fileTypes": null
+      },
+      "understandStructure": {
+        "patterns": ["how does .* work", "explain .* architecture", "codebase structure"],
+        "strategy": "explore_agent",
+        "fileTypes": null
+      }
+    }
+  },
+
+  "keystoneFiles": {
+    "description": "Files that are entry points and should be explored first",
+    "patterns": [
+      "package.json",
+      "CLAUDE.md",
+      "README.md",
+      "index.js",
+      "index.ts",
+      "main.js",
+      "main.ts",
+      "app.js",
+      "app.ts",
+      "src/index.*"
+    ]
+  },
+
+  "ignorePatterns": {
+    "description": "Paths to skip during exploration",
+    "directories": [
+      "node_modules",
+      ".git",
+      "dist",
+      "build",
+      "coverage",
+      ".next",
+      ".nuxt",
+      "__pycache__",
+      ".venv",
+      "venv"
+    ],
+    "files": [
+      "*.min.js",
+      "*.map",
+      "package-lock.json",
+      "yarn.lock",
+      "pnpm-lock.yaml"
+    ]
+  },
+
+  "explorationHistory": {
+    "description": "Track explored paths to avoid redundant searches",
+    "maxEntries": 100,
+    "entries": []
+  },
+
+  "learnedPatterns": [],
+
+  "metadata": {
+    "createdAt": "2026-02-02T00:00:00Z",
+    "updatedAt": "2026-02-02T00:00:00Z",
+    "learningEnabled": true,
+    "lastLearningUpdate": null
+  }
+}

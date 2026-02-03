@@ -1,0 +1,97 @@
+{
+  "$schema": "../../schemas/dog-patterns.json",
+  "dog": "analyst",
+  "sefira": "Binah",
+  "version": "1.0.0",
+  "description": "L1 analysis patterns for metrics and anomaly detection",
+
+  "metricThresholds": {
+    "description": "φ-aligned thresholds for code metrics",
+    "coverage": {
+      "healthy": 0.618,
+      "warning": 0.382,
+      "critical": 0.236,
+      "unit": "ratio"
+    },
+    "testRatio": {
+      "healthy": 0.382,
+      "warning": 0.236,
+      "critical": 0.1,
+      "unit": "test_files / source_files"
+    },
+    "docCoverage": {
+      "healthy": 0.5,
+      "warning": 0.3,
+      "critical": 0.1,
+      "unit": "documented_exports / total_exports"
+    }
+  },
+
+  "anomalyPatterns": {
+    "description": "Patterns that indicate something unusual",
+    "statistical": [
+      {
+        "name": "sudden_spike",
+        "description": "Metric jumped by more than φ× baseline",
+        "threshold": 1.618,
+        "lookback": "7d"
+      },
+      {
+        "name": "trend_break",
+        "description": "Metric reversed trend direction",
+        "threshold": 3,
+        "lookback": "30d"
+      },
+      {
+        "name": "outlier",
+        "description": "Value outside 3σ from mean",
+        "threshold": 3,
+        "unit": "standard_deviations"
+      }
+    ],
+    "behavioral": [
+      {
+        "name": "error_loop",
+        "description": "Same error repeated multiple times",
+        "threshold": 3,
+        "window": "5m"
+      },
+      {
+        "name": "test_flakiness",
+        "description": "Test passes/fails inconsistently",
+        "threshold": 0.2,
+        "window": "10_runs"
+      },
+      {
+        "name": "performance_regression",
+        "description": "Response time increased significantly",
+        "threshold": 1.5,
+        "baseline": "last_week_p95"
+      }
+    ]
+  },
+
+  "qualityIndicators": {
+    "description": "Signals of code quality",
+    "positive": [
+      "test_coverage_increasing",
+      "complexity_decreasing",
+      "doc_coverage_increasing",
+      "error_rate_decreasing"
+    ],
+    "negative": [
+      "test_coverage_decreasing",
+      "complexity_increasing",
+      "dependencies_growing",
+      "error_rate_increasing"
+    ]
+  },
+
+  "learnedPatterns": [],
+
+  "metadata": {
+    "createdAt": "2026-02-02T00:00:00Z",
+    "updatedAt": "2026-02-02T00:00:00Z",
+    "learningEnabled": true
+  }
+}

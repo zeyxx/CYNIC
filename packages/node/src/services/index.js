@@ -83,3 +83,13 @@ export {
   createEmergenceDetector,
   getEmergenceDetector,
 } from './emergence-detector.js';
+
+// Brain Service - Fully configured Brain with orchestrators (CONSCIOUSNESS)
+export {
+  BrainService,
+  BRAIN_CONFIG,
+  getBrainService,
+  getConfiguredBrain,
+  thinkWithBrain,
+  _resetBrainServiceForTesting,
+} from './brain-service.js';

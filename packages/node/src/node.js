@@ -53,6 +53,8 @@ import {
   CollectivePack,
 } from './agents/index.js';
 import { getCollectivePack, getSharedMemory } from './collective-singleton.js';
+// L3 Learning Loop - Dog heuristics feedback
+import { createDogLearningService } from './dogs/index.js';
 
 /**
  * Node status
@@ -332,6 +334,13 @@ export class CYNICNode {
       nodeId: this.operator.id,
     });
 
+    // L3 Learning Loop - Dog heuristics feedback from L2 judgments
+    // "Le chien apprend en écoutant la meute"
+    this._dogLearningService = createDogLearningService({
+      eventBus: this._eventBus,
+      enabled: true,
+    });
+
     // Wire event bus to learning service (collective feedback loop)
     this._wireCollectiveToLearning();
   }
@@ -588,6 +597,15 @@ export class CYNICNode {
       await this._sharedMemory.initialize();
       await this._learningService.init();
 
+      // ═══════════════════════════════════════════════════════════════════════
+      // L3 Learning Loop - Start Dog heuristics learning
+      // "L2 judgments → L1 Dog patterns"
+      // ═══════════════════════════════════════════════════════════════════════
+      if (this._dogLearningService) {
+        this._dogLearningService.start();
+        this._log.debug('Dog L3 learning service started');
+      }
+
       // Wire emergence patterns → SharedMemory (Gap #4 feedback loop)
       this._wireEmergenceFeedback();
 
@@ -675,6 +693,12 @@ export class CYNICNode {
         this._log.debug('Flushing pending anchors', { count: pendingCount });
         await this._anchorQueue.flush();
       }
+    }
+
+    // Stop L3 Dog learning service
+    if (this._dogLearningService) {
+      this._dogLearningService.stop();
+      this._log.debug('Dog L3 learning service stopped', { stats: this._dogLearningService.getStats() });
     }
 
     // Save 6-layer memory state
@@ -1369,6 +1393,8 @@ export class CYNICNode {
       },
       // Emergence layer (Layer 7)
       emergence: this._emergence.getState(),
+      // L3 Dog Learning Loop
+      dogLearning: this._dogLearningService?.getStats() || null,
     };
   }
 

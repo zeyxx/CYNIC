@@ -301,6 +301,13 @@ export {
   SignificanceLevel,
   createEmergenceDetector,
   getEmergenceDetector,
+  // BrainService - Fully configured Brain with orchestrators (CONSCIOUSNESS)
+  BrainService,
+  BRAIN_CONFIG,
+  getBrainService,
+  getConfiguredBrain,
+  thinkWithBrain,
+  _resetBrainServiceForTesting,
 } from './services/index.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
