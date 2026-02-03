@@ -672,23 +672,77 @@ async function main() {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // SESSION PATTERNS SYNC (Cross-session pattern persistence)
+    // SESSION PATTERNS SYNC (Task #66: Cross-session pattern persistence)
+    // Restore Thompson Sampling, Heuristics, Calibration from PostgreSQL
     // ═══════════════════════════════════════════════════════════════════════════
     try {
-      const { loadSessionPatterns } = await import('../lib/index.js');
-      const patternResult = await loadSessionPatterns(user.userId, 50);
-      if (patternResult.patterns?.length > 0) {
-        const imported = sessionState.importPatterns(patternResult.patterns);
-        output.patterns = patternResult.patterns.slice(0, 5).map(p => ({
-          type: p.type,
-          name: p.name,
-          confidence: p.confidence,
-        }));
-        output.syncStatus.patterns = {
-          success: true,
-          imported,
-          stats: patternResult.stats,
-        };
+      const { getSessionPatternsRepository, getHarmonicFeedback } = await import('./lib/index.js');
+      const patternsRepo = getSessionPatternsRepository();
+      const harmonicFeedback = getHarmonicFeedback();
+
+      if (patternsRepo && user.userId) {
+        const recentPatterns = await patternsRepo.loadRecentPatterns(user.userId, 100);
+        const stats = await patternsRepo.getStats(user.userId);
+
+        if (recentPatterns?.length > 0) {
+          // Reconstruct state for HarmonicFeedback import
+          const thompsonArms = {};
+          const heuristics = {};
+          let calibrationState = null;
+
+          for (const pattern of recentPatterns) {
+            if (pattern.type === 'thompson_arm') {
+              thompsonArms[pattern.name] = {
+                alpha: pattern.context?.alpha || 1,
+                beta: pattern.context?.beta || 1,
+                pulls: pattern.occurrences || 0,
+                expectedValue: pattern.context?.expectedValue || 0.5,
+              };
+            } else if (pattern.type === 'promoted_heuristic') {
+              heuristics[pattern.name] = {
+                confidence: pattern.confidence,
+                applications: pattern.occurrences,
+                promotedAt: pattern.context?.promotedAt,
+                source: pattern.context?.source,
+                pattern: pattern.context?.pattern,
+              };
+            } else if (pattern.type === 'calibration_state') {
+              calibrationState = {
+                buckets: pattern.context?.buckets,
+                brierScore: pattern.context?.brierScore,
+                currentFactor: pattern.confidence,
+              };
+            }
+          }
+
+          // Import into HarmonicFeedback if available
+          if (harmonicFeedback && (Object.keys(thompsonArms).length > 0 || Object.keys(heuristics).length > 0)) {
+            harmonicFeedback.importState({
+              thompson: { arms: thompsonArms },
+              heuristics,
+              calibration: calibrationState,
+            });
+          }
+
+          // Also import to session state for legacy compatibility
+          if (sessionState?.importPatterns) {
+            sessionState.importPatterns(recentPatterns);
+          }
+
+          output.patterns = recentPatterns.slice(0, 5).map(p => ({
+            type: p.type,
+            name: p.name,
+            confidence: p.confidence,
+          }));
+
+          output.syncStatus.patterns = {
+            success: true,
+            imported: recentPatterns.length,
+            thompsonArms: Object.keys(thompsonArms).length,
+            heuristics: Object.keys(heuristics).length,
+            stats,
+          };
+        }
       }
     } catch (e) {
       output.syncStatus.failures.push({ type: 'patterns', error: e.message });

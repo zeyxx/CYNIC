@@ -36,7 +36,7 @@ import cynic, {
 import { getSessionState, getTemporalPerception } from './lib/index.js';
 
 // Phase 23: Harmonic Feedback System (learning summary)
-import { getHarmonicFeedback, getImplicitFeedback } from './lib/index.js';
+import { getHarmonicFeedback, getImplicitFeedback, getSessionPatternsRepository } from './lib/index.js';
 
 import fs from 'fs';
 import path from 'path';
@@ -571,6 +571,84 @@ async function main() {
         output.learningSummary.feedbackStats.positive = positive;
         output.learningSummary.feedbackStats.negative = negative;
         output.learningSummary.feedbackStats.total = feedbackHistory.length;
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // Task #66: Persist temporal patterns to PostgreSQL
+      // Cross-session learning persistence
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (harmonicFeedback) {
+        try {
+          const patternsRepo = getSessionPatternsRepository();
+          if (patternsRepo && user.userId) {
+            const sessionId = output.session?.id || `session_${Date.now()}`;
+            const exportedState = harmonicFeedback.exportState();
+
+            // Save Thompson Sampling arms as patterns
+            const patternsToSave = [];
+
+            // 1. Thompson arms → patterns
+            if (exportedState.thompson?.arms) {
+              for (const [armId, arm] of Object.entries(exportedState.thompson.arms)) {
+                const successRate = arm.alpha / (arm.alpha + arm.beta);
+                patternsToSave.push({
+                  type: 'thompson_arm',
+                  name: armId,
+                  confidence: Math.min(successRate, 0.618), // φ cap
+                  occurrences: arm.pulls,
+                  context: {
+                    alpha: arm.alpha,
+                    beta: arm.beta,
+                    expectedValue: arm.expectedValue,
+                  },
+                });
+              }
+            }
+
+            // 2. Active heuristics → patterns
+            if (exportedState.heuristics) {
+              for (const [key, heuristic] of Object.entries(exportedState.heuristics)) {
+                patternsToSave.push({
+                  type: 'promoted_heuristic',
+                  name: key,
+                  confidence: Math.min(heuristic.confidence || 0.5, 0.618),
+                  occurrences: heuristic.applications || 1,
+                  context: {
+                    promotedAt: heuristic.promotedAt,
+                    source: heuristic.source,
+                    pattern: heuristic.pattern,
+                  },
+                });
+              }
+            }
+
+            // 3. Calibration state → pattern
+            if (exportedState.calibration) {
+              patternsToSave.push({
+                type: 'calibration_state',
+                name: 'confidence_calibrator',
+                confidence: exportedState.calibration.currentFactor || 1.0,
+                occurrences: exportedState.calibration.predictions?.length || 0,
+                context: {
+                  buckets: exportedState.calibration.buckets,
+                  brierScore: exportedState.calibration.brierScore,
+                  factor: exportedState.calibration.currentFactor,
+                },
+              });
+            }
+
+            // Bulk save
+            if (patternsToSave.length > 0) {
+              const savedCount = await patternsRepo.savePatterns(sessionId, user.userId, patternsToSave);
+              output.learningSummary.persisted = {
+                patterns: savedCount,
+                types: [...new Set(patternsToSave.map(p => p.type))],
+              };
+            }
+          }
+        } catch (persistError) {
+          output.learningSummary.persistError = persistError.message;
+        }
       }
 
     } catch (e) {

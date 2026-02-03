@@ -215,6 +215,26 @@ export function getSessionRepository() {
   return null;
 }
 
+// SessionPatternsRepository (Task #66: Cross-session pattern persistence)
+let _sessionPatternsRepository = null;
+
+export function getSessionPatternsRepository() {
+  if (_sessionPatternsRepository) return _sessionPatternsRepository;
+
+  try {
+    const { SessionPatternsRepository } = require('@cynic/persistence/postgres/repositories/session-patterns');
+    const { getPool } = require('@cynic/persistence');
+    const pool = getPool();
+    if (pool) {
+      _sessionPatternsRepository = new SessionPatternsRepository(pool);
+      return _sessionPatternsRepository;
+    }
+  } catch {
+    // SessionPatternsRepository not available - return null
+  }
+  return null;
+}
+
 // TelemetryCollector (Stats, frictions, benchmarking)
 let _telemetry = null;
 

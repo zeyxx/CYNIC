@@ -2132,6 +2132,45 @@ async function main() {
     }
 
     // 5. Thermodynamics mini-display (after significant activity) - now with colors!
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LEARNING VISIBILITY (Task #74: Make subconscious learning visible)
+    // "Gam zo l'tova" - Even the subconscious works for good
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (harmonicFeedback) {
+      try {
+        // Check for recent learning events (implicit feedback detected this call)
+        const implicitDetected = implicitFeedback?.detectFeedback?.() || [];
+        const recentFeedback = implicitDetected.slice(0, 2);
+
+        // Show implicit learning indicators
+        for (const fb of recentFeedback) {
+          const sentiment = fb.sentiment === 'positive' ? '✅' : (fb.sentiment === 'negative' ? '❌' : '➡️');
+          const action = fb.type === 'IMPLICIT_FOLLOWED' ? 'followed suggestion' :
+                        fb.type === 'IMPLICIT_OPPOSITE' ? 'chose different approach' :
+                        fb.type === 'IMPLICIT_IGNORED' ? 'skipped suggestion' :
+                        'action observed';
+          outputParts.push(`\n${c(ANSI.cyan, '🧠 Learning:')} ${sentiment} ${action}\n`);
+        }
+
+        // Periodically review patterns for promotion (every ~50 tool calls)
+        if (Math.random() < 0.02) { // ~2% chance per call
+          const reviewResult = harmonicFeedback.reviewPatterns?.();
+          if (reviewResult?.promoted?.length > 0) {
+            for (const patternId of reviewResult.promoted.slice(0, 2)) {
+              outputParts.push(`\n${c(ANSI.brightGreen, '📈 Pattern promoted:')} ${patternId} → heuristic\n`);
+            }
+          }
+          if (reviewResult?.demoted?.length > 0) {
+            for (const patternId of reviewResult.demoted.slice(0, 2)) {
+              outputParts.push(`\n${c(ANSI.yellow, '📉 Heuristic demoted:')} ${patternId} (underperforming)\n`);
+            }
+          }
+        }
+      } catch {
+        // Learning visibility failed - continue without
+      }
+    }
+
     if (thermodynamics) {
       try {
         const thermoState = thermodynamics.getState();

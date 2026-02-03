@@ -564,6 +564,27 @@ class ThompsonSampler {
   }
 
   /**
+   * Get statistics about arms
+   * @returns {Object} Stats including armCount, totalPulls, arms
+   */
+  getStats() {
+    const arms = {};
+    for (const [id, data] of this.arms) {
+      arms[id] = {
+        alpha: data.alpha,
+        beta: data.beta,
+        pulls: data.pulls,
+        expectedValue: this.getExpectedValue(id),
+      };
+    }
+    return {
+      armCount: this.arms.size,
+      totalPulls: this.totalPulls,
+      arms,
+    };
+  }
+
+  /**
    * Export state for persistence
    */
   exportState() {
@@ -1733,6 +1754,82 @@ class HarmonicFeedbackSystem {
       reliabilityDiagram: this.confidenceCalibrator.getReliabilityDiagram(),
       metrics: this.confidenceCalibrator.metrics,
       factor: this.confidenceCalibrator.calibrationFactor,
+    };
+  }
+
+  /**
+   * Introspect: CYNIC views its own subconscious state
+   * Task #74: Allow self-reflection on learning state
+   * @returns {Object} Full subconscious introspection
+   */
+  introspect() {
+    const thompsonStats = this.thompsonSampler.getStats();
+    const calibrationAnalysis = this.getCalibrationAnalysis();
+    const promotionStats = this.getPromotionStats();
+
+    // Calculate subconscious confidence (what CYNIC "really" believes)
+    const armEntries = Object.entries(thompsonStats.arms || {});
+    const avgSubconsciousConfidence = armEntries.length > 0
+      ? armEntries.reduce((sum, [, arm]) => sum + arm.alpha / (arm.alpha + arm.beta), 0) / armEntries.length
+      : 0.5;
+
+    // Detect over/under confidence asymmetry
+    const consciousMax = PHI_INV; // 61.8%
+    const confidenceGap = avgSubconsciousConfidence - consciousMax;
+
+    return {
+      // Conscious state (what CYNIC admits)
+      conscious: {
+        maxConfidence: consciousMax,
+        coherence: this.state.coherence,
+        resonance: this.state.resonance,
+        tikkunProgress: this.state.tikkunProgress,
+      },
+
+      // Subconscious state (what CYNIC actually learned)
+      subconscious: {
+        thompsonArms: thompsonStats.armCount,
+        avgConfidence: Math.round(avgSubconsciousConfidence * 100) / 100,
+        totalLearningEvents: thompsonStats.totalPulls,
+        patterns: {
+          successful: armEntries.filter(([, a]) => a.alpha / (a.alpha + a.beta) > PHI_INV_2).length,
+          uncertain: armEntries.filter(([, a]) => {
+            const rate = a.alpha / (a.alpha + a.beta);
+            return rate >= PHI_INV_3 && rate <= PHI_INV_2;
+          }).length,
+          failing: armEntries.filter(([, a]) => a.alpha / (a.alpha + a.beta) < PHI_INV_3).length,
+        },
+      },
+
+      // Heuristics (promoted patterns)
+      heuristics: {
+        active: promotionStats.activeHeuristics,
+        details: promotionStats.heuristicDetails.map(h => ({
+          id: h.id,
+          successRate: Math.round(h.successRate * 100),
+          applications: h.applications,
+        })),
+      },
+
+      // Calibration (self-assessment accuracy)
+      calibration: {
+        brierScore: calibrationAnalysis.metrics?.brierScore,
+        reliability: calibrationAnalysis.metrics?.reliability,
+        factor: calibrationAnalysis.factor,
+        overconfident: calibrationAnalysis.recommendations?.isOverconfident,
+        underconfident: calibrationAnalysis.recommendations?.isUnderconfident,
+      },
+
+      // Meta-awareness
+      meta: {
+        confidenceGap: Math.round(confidenceGap * 100) / 100,
+        selfAssessment: confidenceGap > 0.1
+          ? 'Subconscious more confident than conscious admits - φ is working'
+          : confidenceGap < -0.1
+            ? 'Subconscious less confident - learning is struggling'
+            : 'Balanced awareness - healthy φ state',
+        philosophy: 'φ⁻¹ caps conscious confidence at 61.8%, but subconscious learns from everything.',
+      },
     };
   }
 }
