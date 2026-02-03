@@ -17,6 +17,7 @@ import { EventEmitter } from 'events';
 import { createLogger, PHI_INV } from '@cynic/core';
 import { ConsensusResult, ExecutionTier } from './types.js';
 import { ClaudeCodeAdapter, createOllamaValidator, createAirLLMValidator } from './adapters/index.js';
+import { calculateSemanticAgreement, SimilarityThresholds } from './similarity.js';
 
 const log = createLogger('LLMRouter');
 
@@ -363,42 +364,25 @@ export class LLMRouter extends EventEmitter {
       return { agreement: 1.0, verdict: responses[0].content, dissent: [] };
     }
 
-    // Simple majority voting
-    // TODO: Implement semantic similarity comparison
-    const votes = new Map();
+    // Use semantic similarity for consensus (replaces simple string matching)
+    // Clusters similar responses together using φ⁻¹ threshold
+    const result = calculateSemanticAgreement(responses, SimilarityThresholds.HIGH);
 
-    for (const response of responses) {
-      // Normalize response for comparison
-      const normalized = this._normalizeResponse(response.content);
-      const count = votes.get(normalized) || 0;
-      votes.set(normalized, count + 1);
-    }
+    log.debug('Semantic consensus calculated', {
+      agreement: result.agreement,
+      clusterCount: result.clusterCount,
+      avgSimilarity: result.avgClusterSimilarity,
+    });
 
-    // Find majority
-    let maxVotes = 0;
-    let verdict = null;
-    for (const [content, count] of votes) {
-      if (count > maxVotes) {
-        maxVotes = count;
-        verdict = content;
-      }
-    }
-
-    const agreement = maxVotes / responses.length;
-    const dissent = responses.filter(r =>
-      this._normalizeResponse(r.content) !== verdict
-    );
-
-    return { agreement, verdict, dissent };
-  }
-
-  /**
-   * Normalize response for comparison
-   * @private
-   */
-  _normalizeResponse(content) {
-    // Basic normalization - lowercase, trim, remove extra whitespace
-    return content.toLowerCase().trim().replace(/\s+/g, ' ').slice(0, 500);
+    return {
+      agreement: result.agreement,
+      verdict: result.verdict,
+      dissent: result.dissent,
+      // Additional semantic metadata
+      clusters: result.clusters,
+      clusterCount: result.clusterCount,
+      avgClusterSimilarity: result.avgClusterSimilarity,
+    };
   }
 
   /**
