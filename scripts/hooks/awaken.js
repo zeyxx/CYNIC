@@ -786,6 +786,40 @@ async function main() {
                   confidence: Math.round((p.confidence || 0.5) * 100),
                 }));
             }
+
+            // ═══════════════════════════════════════════════════════════════════════
+            // THOMPSON VISIBILITY (Task #87): Show top arms with expected values
+            // "L'humain comprend ce que CYNIC a appris"
+            // ═══════════════════════════════════════════════════════════════════════
+            if (armCount > 0) {
+              // Sort arms by expected value (best first)
+              const sortedArms = Object.entries(thompsonArms)
+                .map(([name, arm]) => ({
+                  name,
+                  expectedValue: arm.expectedValue || 0.5,
+                  pulls: arm.pulls || 0,
+                  alpha: arm.alpha || 1,
+                  beta: arm.beta || 1,
+                }))
+                .sort((a, b) => b.expectedValue - a.expectedValue)
+                .slice(0, 3);
+
+              output.memoryRestored.thompsonTop = sortedArms.map(arm => ({
+                name: arm.name,
+                ev: Math.round(arm.expectedValue * 100),
+                pulls: arm.pulls,
+              }));
+
+              // Calculate exploitation vs exploration ratio
+              const totalPulls = Object.values(thompsonArms).reduce((sum, a) => sum + (a.pulls || 0), 0);
+              if (totalPulls > 10) {
+                const topArmPulls = sortedArms[0]?.pulls || 0;
+                const exploitation = Math.round((topArmPulls / totalPulls) * 100);
+                output.memoryRestored.details.push(
+                  `Exploitation: ${exploitation}% (convergence toward top pattern)`
+                );
+              }
+            }
           }
         }
       }

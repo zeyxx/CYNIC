@@ -2326,6 +2326,28 @@ async function main() {
         }
 
         // ═══════════════════════════════════════════════════════════════════════
+        // THOMPSON SAMPLER VISIBILITY (Task #87)
+        // "L'humain comprend ce que CYNIC a appris"
+        // Show state more often (~10%) or when significant learning happened
+        // ═══════════════════════════════════════════════════════════════════════
+        if (Math.random() < 0.10) { // ~10% chance per call
+          const stats = harmonicFeedback.thompsonSampler?.getStats?.();
+          if (stats && stats.armCount > 0) {
+            const topArms = harmonicFeedback.thompsonSampler?.getTopArms?.(3) || [];
+            if (topArms.length > 0) {
+              const armNames = topArms.map(a => {
+                const ev = a.expectedValue ? ` (${Math.round(a.expectedValue * 100)}%)` : '';
+                return `${a.name || a.id}${ev}`;
+              }).join(', ');
+              const exploitRate = stats.exploitation ? Math.round(stats.exploitation * 100) : null;
+              const exploitInfo = exploitRate !== null ? ` │ exploit: ${exploitRate}%` : '';
+              outputParts.push(`\n${c(ANSI.cyan, '🎰 Thompson:')} ${stats.armCount} patterns${exploitInfo}\n`);
+              outputParts.push(`   ${c(ANSI.dim, 'Top:')} ${armNames}\n`);
+            }
+          }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
         // FIL 3 (Task #85): Periodic learn() trigger for long sessions
         // Ensures weight adjustments happen even without session end
         // ~5% chance per call ≈ every 20 tool calls
