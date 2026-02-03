@@ -224,7 +224,7 @@ async function main() {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // PSYCHOLOGY: Final state
+    // PSYCHOLOGY: Final state (Task #89: enriched with cognitive load)
     // ═══════════════════════════════════════════════════════════════════════════
     if (psychology) {
       try {
@@ -233,17 +233,44 @@ async function main() {
           state: summary.overallState,
           energy: Math.round(summary.energy.value * 100),
           focus: Math.round(summary.focus.value * 100),
+          // Task #89: Add cognitive load and frustration
+          cognitiveLoad: Math.round(summary.cognitiveLoad?.value || 0),
+          frustration: Math.round((summary.frustration?.value || 0) * 100),
           composites: summary.composites,
+          // Task #89: Compact summary line
+          summary: `E:${Math.round(summary.energy.value * 100)}% F:${Math.round(summary.focus.value * 100)}% L:${Math.round(summary.cognitiveLoad?.value || 0)}`,
         };
       } catch (e) { /* ignore */ }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // DOGS ACTIVITY: Session summary
+    // DOGS ACTIVITY: Session summary (Task #89: enriched)
     // ═══════════════════════════════════════════════════════════════════════════
     if (collectiveDogsModule?.getDogActivitySummary) {
       try {
         output.dogsActivity = collectiveDogsModule.getDogActivitySummary();
+
+        // Task #89: Extract most active dog
+        if (output.dogsActivity?.dogs) {
+          const dogs = Object.entries(output.dogsActivity.dogs)
+            .map(([name, data]) => ({ name, count: data.count || 0 }))
+            .filter(d => d.count > 0)
+            .sort((a, b) => b.count - a.count);
+
+          if (dogs.length > 0) {
+            const totalActions = dogs.reduce((sum, d) => sum + d.count, 0);
+            output.dogsActivity.mostActiveDog = {
+              name: dogs[0].name,
+              count: dogs[0].count,
+              percentage: Math.round((dogs[0].count / totalActions) * 100),
+            };
+            output.dogsActivity.topDogs = dogs.slice(0, 3).map(d => ({
+              name: d.name,
+              count: d.count,
+              percentage: Math.round((d.count / totalActions) * 100),
+            }));
+          }
+        }
       } catch (e) { /* ignore */ }
     }
 
@@ -500,6 +527,35 @@ async function main() {
           output.learningSummary.patterns.needsWork = sortedBySuccess
             .filter(a => a.successRate < 0.4)
             .slice(0, 3);
+
+          // ═══════════════════════════════════════════════════════════════════════
+          // Task #89: Thompson convergence and top patterns with expected values
+          // "L'humain voit ce que CYNIC a appris CETTE session"
+          // ═══════════════════════════════════════════════════════════════════════
+          const totalPulls = armEntries.reduce((sum, [, arm]) => sum + (arm.pulls || 0), 0);
+          const sortedByEV = [...armEntries]
+            .map(([id, arm]) => ({
+              id,
+              expectedValue: arm.alpha / (arm.alpha + arm.beta),
+              pulls: arm.pulls || 0,
+            }))
+            .sort((a, b) => b.expectedValue - a.expectedValue);
+
+          // Exploitation ratio: how much we're converging to top arm
+          const topArmPulls = sortedByEV[0]?.pulls || 0;
+          const exploitationRatio = totalPulls > 0 ? topArmPulls / totalPulls : 0;
+
+          output.learningSummary.thompson = {
+            totalArms: armEntries.length,
+            totalPulls,
+            exploitationRatio: Math.round(exploitationRatio * 100),
+            convergence: exploitationRatio > 0.5 ? 'high' : exploitationRatio > 0.3 ? 'medium' : 'exploring',
+            topPatterns: sortedByEV.slice(0, 5).map(p => ({
+              name: p.id,
+              ev: Math.round(p.expectedValue * 100),
+              pulls: p.pulls,
+            })),
+          };
         }
 
         // Generate lessons
