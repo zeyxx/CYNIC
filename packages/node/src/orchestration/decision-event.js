@@ -27,6 +27,7 @@ import crypto from 'crypto';
 export const DecisionStage = {
   RECEIVED: 'received',       // Event just received
   ROUTING: 'routing',         // KETER routing decision
+  PLANNING: 'planning',       // Meta-cognition planning gate
   PRE_EXECUTION: 'pre_exec',  // Guard/blocking checks
   JUDGMENT: 'judgment',       // Dog voting
   SYNTHESIS: 'synthesis',     // Engine synthesis
@@ -119,6 +120,7 @@ export class DecisionEvent {
 
     // Layer contributions (filled as event flows through layers)
     this.routing = null;      // KETER routing decision
+    this.planning = null;     // PlanningGate meta-cognition result
     this.judgment = null;     // Dog voting result
     this.synthesis = null;    // Engine synthesis result
     this.execution = null;    // Skill/tool execution result
@@ -177,6 +179,43 @@ export class DecisionEvent {
       this.outcome = DecisionOutcome.ASK;
     } else if (routing.intervention === 'notify') {
       this.outcome = DecisionOutcome.WARN;
+    }
+
+    return this;
+  }
+
+  /**
+   * Record planning gate result
+   *
+   * @param {Object} planning - Planning gate result
+   * @param {boolean} planning.needed - Whether planning was triggered
+   * @param {string} planning.decision - CONTINUE/PAUSE/CONSULT
+   * @param {string[]} planning.triggers - Why planning was triggered
+   * @param {Object[]} planning.alternatives - Generated alternatives
+   * @param {Object} planning.plan - Generated plan (if any)
+   */
+  setPlanning(planning) {
+    this.planning = {
+      needed: planning.needed || false,
+      decision: planning.decision || 'continue',
+      triggers: planning.triggers || [],
+      alternatives: planning.alternatives || [],
+      plan: planning.plan || null,
+      confidence: planning.confidence || 0,
+      timestamp: Date.now(),
+    };
+    this.stage = DecisionStage.PLANNING;
+    this._addTrace('planning', {
+      needed: this.planning.needed,
+      decision: this.planning.decision,
+      triggers: this.planning.triggers,
+      alternativeCount: this.planning.alternatives.length,
+    });
+
+    // Update outcome based on planning decision
+    if (planning.decision === 'pause') {
+      this.outcome = DecisionOutcome.ASK;
+      this.reasoning.push(`PLANNING: Paused for human approval (triggers: ${planning.triggers.join(', ')})`);
     }
 
     return this;
@@ -403,6 +442,9 @@ export class DecisionEvent {
       if (entry.action === 'routing' && entry.data.sefirah) {
         lines.push(`│   → Sefirah: ${entry.data.sefirah} | Risk: ${entry.data.risk}`);
       }
+      if (entry.action === 'planning' && entry.data.needed) {
+        lines.push(`│   → Decision: ${entry.data.decision} | Triggers: ${entry.data.triggers.join(', ')}`);
+      }
       if (entry.action === 'judgment') {
         lines.push(`│   → Score: ${entry.data.score} | Verdict: ${entry.data.verdict}`);
       }
@@ -425,6 +467,7 @@ export class DecisionEvent {
     const icons = {
       created: '🆕',
       routing: '🔀',
+      planning: '📋',
       pre_execution: '🛡️',
       judgment: '⚖️',
       synthesis: '🧠',
@@ -456,6 +499,7 @@ export class DecisionEvent {
       stage: this.stage,
       outcome: this.outcome,
       routing: this.routing,
+      planning: this.planning,
       judgment: this.judgment,
       synthesis: this.synthesis,
       execution: this.execution,
@@ -487,6 +531,7 @@ export class DecisionEvent {
     event.stage = json.stage;
     event.outcome = json.outcome;
     event.routing = json.routing;
+    event.planning = json.planning;
     event.judgment = json.judgment;
     event.synthesis = json.synthesis;
     event.execution = json.execution;

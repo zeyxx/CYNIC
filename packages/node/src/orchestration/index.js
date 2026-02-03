@@ -176,3 +176,34 @@ export {
   ExecutionTier,
   createLLMOrchestrator,
 } from './llm-orchestrator.js';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PLANNING GATE (Meta-Cognition Layer)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Planning Gate - Think before acting
+export {
+  PlanningGate,
+  PlanningResult,
+  PlanningTrigger,
+  PlanningDecision,
+  PLANNING_THRESHOLDS,
+  createPlanningGate,
+  getPlanningGate,
+  _resetPlanningGateForTesting,
+} from './planning-gate.js';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CHAOS ENGINEERING
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Chaos Generator - System robustness testing
+export {
+  ChaosGenerator,
+  ChaosResult,
+  ChaosEventType,
+  CHAOS_CONFIG,
+  createChaosGenerator,
+  getChaosGenerator,
+  _resetChaosGeneratorForTesting,
+} from '../chaos/index.js';

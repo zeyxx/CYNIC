@@ -26,6 +26,7 @@ import {
   createFromHook,
   createFromTool,
 } from './decision-event.js';
+import { PlanningGate, PlanningDecision } from './planning-gate.js';
 import { getEventBus, EventType } from '../services/event-bus.js';
 import {
   SEFIROT_ROUTING,
@@ -59,6 +60,7 @@ export class UnifiedOrchestrator extends EventEmitter {
    * @param {Object} [options.persistence] - PersistenceManager instance
    * @param {Object} [options.eventBus] - EventBus instance
    * @param {Object} [options.decisionTracer] - DecisionTracer instance
+   * @param {Object} [options.planningGate] - PlanningGate instance for meta-cognition
    */
   constructor(options = {}) {
     super();
@@ -72,6 +74,7 @@ export class UnifiedOrchestrator extends EventEmitter {
     this.persistence = options.persistence || null;
     this.eventBus = options.eventBus || getEventBus();
     this.decisionTracer = options.decisionTracer || null;
+    this.planningGate = options.planningGate || null;
 
     // Wire learning and cost services to kabbalistic router if available
     if (this.kabbalisticRouter) {
@@ -104,6 +107,8 @@ export class UnifiedOrchestrator extends EventEmitter {
     this.stats = {
       eventsProcessed: 0,
       decisionsRouted: 0,
+      planningTriggered: 0,
+      planningPaused: 0,
       judgmentsRequested: 0,
       synthesisRequested: 0,
       skillsInvoked: 0,
@@ -152,6 +157,19 @@ export class UnifiedOrchestrator extends EventEmitter {
 
       // 2. Route through KETER
       await this._routeEvent(event);
+
+      // 2.5. Planning gate check (meta-cognition)
+      if (this._needsPlanning(event)) {
+        const planningResult = await this._requestPlanning(event);
+        if (planningResult?.decision === PlanningDecision.PAUSE) {
+          // Pause for human approval - emit event and finalize as ASK
+          event.finalize(DecisionOutcome.ASK, ['Paused for planning approval']);
+          this.stats.planningPaused++;
+          this._recordDecision(event);
+          this.emit('planning:pause', { event, planning: planningResult });
+          return event;
+        }
+      }
 
       // 3. Pre-execution check (if needed)
       if (this._needsPreCheck(event)) {
@@ -493,6 +511,65 @@ export class UnifiedOrchestrator extends EventEmitter {
   // _determineIntervention → determineIntervention
 
   /**
+   * Check if event needs planning gate
+   * @private
+   */
+  _needsPlanning(event) {
+    // Skip if no planning gate configured
+    if (!this.planningGate) return false;
+
+    // Explicit skip
+    if (event.context?.skipPlanning === true) return false;
+
+    // Always plan for design/architecture domains
+    if (event.routing?.domain === 'design' ||
+        event.routing?.domain === 'architecture') {
+      return true;
+    }
+
+    // Plan for high complexity or uncertainty
+    if (event.routing?.intervention === 'ask') return true;
+
+    // Let the planning gate decide for edge cases
+    return true;
+  }
+
+  /**
+   * Request planning from planning gate
+   * @private
+   */
+  async _requestPlanning(event) {
+    if (!this.planningGate) return null;
+
+    try {
+      // Check if planning is needed
+      const planningResult = this.planningGate.shouldPlan(event, {
+        complexity: event.context?.complexity,
+        confidence: event.judgment?.consensusRatio,
+        entropy: event.context?.entropy,
+        consensusRatio: event.judgment?.consensusRatio,
+      });
+
+      // Record planning result on event
+      event.setPlanning(planningResult);
+
+      // If planning needed, generate plan
+      if (planningResult.needed) {
+        this.stats.planningTriggered++;
+        await this.planningGate.generatePlan(event, planningResult);
+      }
+
+      return planningResult;
+    } catch (err) {
+      // DEFENSIVE: Planning gate failure should NOT block execution
+      log.warn('Planning gate error (non-blocking)', { error: err.message });
+      event.recordError('planning', err);
+      // Return continue to allow execution to proceed
+      return { decision: PlanningDecision.CONTINUE, needed: false };
+    }
+  }
+
+  /**
    * Check if event needs pre-execution check
    * @private
    */
@@ -631,6 +708,11 @@ export class UnifiedOrchestrator extends EventEmitter {
       stats.kabbalistic = this.kabbalisticRouter.getStats();
     }
 
+    // Add planning gate stats if available
+    if (this.planningGate) {
+      stats.planning = this.planningGate.getStats();
+    }
+
     return stats;
   }
 
@@ -718,6 +800,16 @@ export class UnifiedOrchestrator extends EventEmitter {
    */
   applyLearnedWeights() {
     return this.kabbalisticRouter?.applyLearnedWeights() || false;
+  }
+
+  /**
+   * Set planning gate at runtime
+   *
+   * @param {Object} planningGate - PlanningGate instance
+   */
+  setPlanningGate(planningGate) {
+    this.planningGate = planningGate;
+    log.debug('Planning gate set');
   }
 }
 

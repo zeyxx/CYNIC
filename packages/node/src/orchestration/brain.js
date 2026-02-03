@@ -279,6 +279,142 @@ export class Brain extends EventEmitter {
   }
 
   /**
+   * Generate a plan with alternatives before acting
+   *
+   * Uses deep synthesis to generate multiple approaches,
+   * then judges each alternative.
+   *
+   * @param {Object} input - What to plan for
+   * @param {string} input.content - The task/request
+   * @param {string} [input.type] - Content type
+   * @param {Object} [options] - Planning options
+   * @param {number} [options.maxAlternatives=3] - Max alternatives to generate
+   * @param {boolean} [options.judgeAlternatives=true] - Judge each alternative
+   * @returns {Promise<Object>} Plan with alternatives
+   */
+  async plan(input, options = {}) {
+    const startTime = Date.now();
+    const {
+      maxAlternatives = 3,
+      judgeAlternatives = true,
+    } = options;
+
+    this.stats.plansGenerated = (this.stats.plansGenerated || 0) + 1;
+
+    const result = {
+      input,
+      thought: null,
+      alternatives: [],
+      recommendation: null,
+      confidence: 0,
+      duration: 0,
+    };
+
+    try {
+      // 1. Deep think with synthesis
+      result.thought = await this.think({
+        content: `Plan approaches for: ${input.content}`,
+        type: 'planning',
+        context: input.context || {},
+      }, {
+        requestJudgment: true,
+        requestSynthesis: true,
+        checkPatterns: true,
+      });
+
+      // 2. Generate alternatives from synthesis
+      if (result.thought.synthesis?.consultations) {
+        for (const consultation of result.thought.synthesis.consultations) {
+          if (consultation.response?.suggestions) {
+            result.alternatives.push(...consultation.response.suggestions);
+          }
+          if (consultation.response?.alternatives) {
+            result.alternatives.push(...consultation.response.alternatives);
+          }
+        }
+      }
+
+      // 3. Add default alternatives if none generated
+      if (result.alternatives.length === 0) {
+        result.alternatives = this._generateDefaultAlternatives(input);
+      }
+
+      // Limit to maxAlternatives
+      result.alternatives = result.alternatives.slice(0, maxAlternatives);
+
+      // 4. Judge each alternative if requested
+      if (judgeAlternatives && result.alternatives.length > 0) {
+        for (const alt of result.alternatives) {
+          try {
+            const judgment = await this.judge({
+              content: alt.description || alt.label || String(alt),
+              type: 'alternative',
+              context: { originalInput: input.content },
+            });
+            alt.judgment = {
+              score: judgment.score,
+              verdict: judgment.verdict,
+              confidence: judgment.confidence,
+            };
+          } catch (err) {
+            // DEFENSIVE: Judgment failure shouldn't break planning
+            alt.judgment = { score: 50, verdict: 'UNKNOWN', error: err.message };
+          }
+        }
+
+        // Sort by judgment score (highest first)
+        result.alternatives.sort((a, b) =>
+          (b.judgment?.score || 0) - (a.judgment?.score || 0)
+        );
+      }
+
+      // 5. Set recommendation (highest-scored alternative)
+      if (result.alternatives.length > 0) {
+        result.recommendation = result.alternatives[0];
+      }
+
+      // 6. Calculate overall confidence
+      result.confidence = result.thought.confidence;
+
+    } catch (err) {
+      log.error('Brain planning error', { error: err.message });
+      result.error = err.message;
+    }
+
+    result.duration = Date.now() - startTime;
+    this.emit('plan', result);
+
+    return result;
+  }
+
+  /**
+   * Generate default alternatives when synthesis fails
+   * @private
+   */
+  _generateDefaultAlternatives(input) {
+    return [
+      {
+        id: 'proceed',
+        label: 'Proceed directly',
+        description: `Execute: ${input.content}`,
+        risk: 'medium',
+      },
+      {
+        id: 'simplify',
+        label: 'Simplify first',
+        description: 'Break down into smaller steps',
+        risk: 'low',
+      },
+      {
+        id: 'research',
+        label: 'Research first',
+        description: 'Gather more information before acting',
+        risk: 'low',
+      },
+    ];
+  }
+
+  /**
    * Execute with full Da'at flow (Task #95)
    *
    * Complete flow: Human → Brain.think() → LLM → Brain.judge() → Human
