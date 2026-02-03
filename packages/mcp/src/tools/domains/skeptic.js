@@ -171,9 +171,9 @@ export const skepticFactory = {
   /**
    * Create all skeptic domain tools
    * @param {Object} options
-   * @returns {Object[]} Tool definitions
+   * @returns {Promise<Object[]>} Tool definitions
    */
-  create(options) {
+  async create(options) {
     const { skepticService, persistence, factsRepository } = options;
     const tools = [];
 
@@ -181,7 +181,7 @@ export const skepticFactory = {
     let service = skepticService;
     if (!service) {
       try {
-        const { createSkepticService } = require('@cynic/node/services');
+        const { createSkepticService } = await import('@cynic/node/services');
         service = createSkepticService({
           factsRepo: factsRepository,
         });

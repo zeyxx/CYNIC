@@ -15,7 +15,7 @@
 
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { execSync, spawn } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -318,7 +318,7 @@ console.log(JSON.stringify({
     const result = execSync(`node "${tempFile}"`, { stdio: 'pipe', encoding: 'utf8', cwd: CYNIC_ROOT });
 
     // Cleanup temp file
-    try { require('fs').unlinkSync(tempFile); } catch {}
+    try { unlinkSync(tempFile); } catch {}
 
     const parsed = JSON.parse(result.trim());
 

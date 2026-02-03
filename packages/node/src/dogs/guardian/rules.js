@@ -11,7 +11,7 @@
 
 'use strict';
 
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -180,9 +180,8 @@ export function addLearnedPattern(pattern) {
     // Persist to file
     try {
       const patternsPath = join(__dirname, 'patterns.json');
-      const fs = await import('fs/promises');
-      await fs.writeFile(patternsPath, JSON.stringify(p, null, 2));
-    } catch (e) {
+      writeFileSync(patternsPath, JSON.stringify(p, null, 2));
+    } catch {
       // Could not persist - will be lost on restart
     }
   }

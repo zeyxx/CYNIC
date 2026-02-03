@@ -138,7 +138,7 @@ console.log(JSON.stringify({ PHI: c.PHI, PHI_INV: c.PHI_INV }));
 `;
       writeFileSync(tempFile, testCode);
       const result = JSON.parse(execSync(`node "${tempFile}"`, { encoding: 'utf8', cwd: CYNIC_ROOT }));
-      try { require('fs').unlinkSync(tempFile); } catch {}
+      try { unlinkSync(tempFile); } catch {}
 
       assertions.push({
         name: 'PHI_INV defined as 0.618...',

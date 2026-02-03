@@ -635,15 +635,27 @@ export function wireCircuitBreakerToLearning(breaker, options = {}) {
   // Import globalEventBus lazily to avoid circular deps
   let bus = eventBus;
   if (!bus) {
-    try {
-      const events = require('./events.js');
-      bus = events.globalEventBus;
-    } catch {
-      // Events module not available, skip wiring
-      return breaker;
-    }
+    // Use dynamic import to avoid circular deps (async wiring)
+    import('./events.js')
+      .then(events => {
+        bus = events.globalEventBus;
+        if (bus) wireEvents(breaker, bus, serviceType);
+      })
+      .catch(() => {
+        // Events module not available, skip wiring
+      });
+    return breaker; // Return immediately, wiring happens async
   }
 
+  // Wire events synchronously if bus was provided
+  wireEvents(breaker, bus, serviceType);
+  return breaker;
+}
+
+/**
+ * Internal: Wire circuit breaker events to event bus
+ */
+function wireEvents(breaker, bus, serviceType) {
   // Wire state change to learning events
   breaker.on('stateChange', (event) => {
     if (event.to === CircuitState.OPEN) {
@@ -688,8 +700,6 @@ export function wireCircuitBreakerToLearning(breaker, options = {}) {
       });
     }
   });
-
-  return breaker;
 }
 
 /**
