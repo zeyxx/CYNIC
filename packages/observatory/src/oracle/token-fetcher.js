@@ -15,7 +15,7 @@
 
 const HELIUS_RPC_BASE = 'https://mainnet.helius-rpc.com';
 const PUBLIC_RPC = 'https://api.mainnet-beta.solana.com';
-const BIRDEYE_API_BASE = 'https://public-api.birdeye.so';
+const DEXSCREENER_API = 'https://api.dexscreener.com/tokens/v1/solana';
 const REQUEST_TIMEOUT_MS = 15000;
 
 // Known DEX program IDs — accounts owned by these are pools, not holders
@@ -46,9 +46,8 @@ const MAX_HOLDER_PAGES = 5;
 // ═══════════════════════════════════════════════════════════════════════════
 
 export class TokenFetcher {
-  constructor(heliusApiKey, birdeyeApiKey) {
+  constructor(heliusApiKey) {
     this._heliusApiKey = heliusApiKey;
-    this._birdeyeApiKey = birdeyeApiKey || null;
     this._heliusUrl = heliusApiKey
       ? `${HELIUS_RPC_BASE}/?api-key=${heliusApiKey}`
       : null;
@@ -432,65 +431,56 @@ export class TokenFetcher {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // BIRDEYE PRICE HISTORY
+  // DEXSCREENER MARKET DATA (free, no API key)
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
-   * Fetch historical price from Birdeye at a specific unix timestamp.
-   * Free tier supports /defi/historical_price_unix on Solana.
+   * Fetch market data from DexScreener: real liquidity, volume, 24h change.
+   * Completely free, no API key required.
+   * Returns the pair with highest liquidity for the given mint.
    * @param {string} mint
-   * @param {number} unixtime — seconds since epoch
-   * @returns {Object|null} { price, priceChange24h, updateUnixTime } or null
+   * @returns {Object|null} { priceUsd, priceChange24h, liquidityUsd, volume24h, fdv, marketCap, sellBuyRatio }
    */
-  async getBirdeyePrice(mint, unixtime) {
-    if (!this._birdeyeApiKey) return null;
+  async getDexScreenerData(mint) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
-      const url = `${BIRDEYE_API_BASE}/defi/historical_price_unix?address=${mint}&unixtime=${unixtime}`;
+      const url = `${DEXSCREENER_API}/${mint}`;
       const response = await fetch(url, {
-        headers: {
-          'accept': 'application/json',
-          'x-chain': 'solana',
-          'X-API-KEY': this._birdeyeApiKey,
-        },
+        headers: { 'accept': 'application/json' },
         signal: controller.signal,
       });
-      const json = await response.json();
-      if (!json.success || !json.data) return null;
+      const pairs = await response.json();
+      if (!Array.isArray(pairs) || pairs.length === 0) return null;
+
+      // Pick the pair with highest liquidity
+      const best = pairs.reduce((a, b) =>
+        (b.liquidity?.usd || 0) > (a.liquidity?.usd || 0) ? b : a
+      );
+
+      const buys24h = best.txns?.h24?.buys || 0;
+      const sells24h = best.txns?.h24?.sells || 0;
+      const totalTxns = buys24h + sells24h;
+
       return {
-        price: json.data.value,
-        priceChange24h: json.data.priceChange24h,
-        updateUnixTime: json.data.updateUnixTime,
+        priceUsd: parseFloat(best.priceUsd) || null,
+        priceChange24h: best.priceChange?.h24 ?? null,
+        liquidityUsd: best.liquidity?.usd || 0,
+        volume24h: best.volume?.h24 || 0,
+        fdv: best.fdv || 0,
+        marketCap: best.marketCap || 0,
+        buys24h,
+        sells24h,
+        sellBuyRatio: totalTxns > 0 ? sells24h / Math.max(1, buys24h) : null,
+        pairCreatedAt: best.pairCreatedAt || null,
+        dexId: best.dexId || null,
+        source: 'dexscreener',
       };
     } catch {
       return null;
     } finally {
       clearTimeout(timeout);
     }
-  }
-
-  /**
-   * Get price history for a token: current price + 30-day-ago price via Birdeye
-   * @param {string} mint
-   * @param {number|null} currentPrice — current price from DAS
-   * @returns {Object|null} { priceNow, price30dAgo, priceChange, source }
-   */
-  async getPriceHistory(mint, currentPrice) {
-    if (!currentPrice || currentPrice <= 0) return null;
-
-    // 30 days ago in unix seconds
-    const thirtyDaysAgo = Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60;
-    const historical = await this.getBirdeyePrice(mint, thirtyDaysAgo);
-    if (!historical || !historical.price || historical.price <= 0) return null;
-
-    const priceChange = (currentPrice - historical.price) / historical.price;
-    return {
-      priceNow: currentPrice,
-      price30dAgo: historical.price,
-      priceChange,
-      source: 'birdeye',
-    };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

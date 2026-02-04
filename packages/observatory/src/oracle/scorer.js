@@ -291,28 +291,35 @@ export class TokenScorer {
     return Math.round(100 - dominance);
   }
 
-  /** D2: Liquidity Depth — market cap depth + holder breadth */
+  /** D2: Liquidity Depth — real DEX liquidity (DexScreener) + holder breadth */
   _scoreLiquidityDepth(data) {
     if (data.isNative) return 100;
     let score = 0;
 
-    // Market cap depth: asymptotic scaling by actual mcap (not just "has price")
-    const price = data.priceInfo?.pricePerToken || 0;
-    if (price > 0) {
-      const mcap = price * (data.supply?.total || 0);
-      if (mcap > 0) {
-        score += Math.round((1 - 1 / (1 + Math.log(1 + mcap / LIQUIDITY_MCAP_SCALE))) * 50);
+    // Prefer DexScreener real liquidity over mcap-based estimate
+    const ds = data.dexScreener;
+    if (ds && ds.liquidityUsd > 0) {
+      // Real on-chain liquidity: asymptotic scaling
+      // $21K → ~50%, $210K → ~71%, $2.1M → ~82%
+      score += Math.round((1 - 1 / (1 + Math.log(1 + ds.liquidityUsd / LIQUIDITY_MCAP_SCALE))) * 50);
+    } else {
+      // Fallback: mcap-based estimate (when DexScreener unavailable)
+      const price = data.priceInfo?.pricePerToken || 0;
+      if (price > 0) {
+        const mcap = price * (data.supply?.total || 0);
+        if (mcap > 0) {
+          score += Math.round((1 - 1 / (1 + Math.log(1 + mcap / LIQUIDITY_MCAP_SCALE))) * 50);
+        }
       }
     }
 
     // Holder breadth: more holders = more potential liquidity
-    // Uses asymptotic formula consistent with D9
     const h = data.distribution?.holderCount || 0;
     if (h > 0) score += Math.round((1 - 1 / (1 + Math.log(1 + h / HOLDER_SCALE))) * 50);
     return Math.min(100, score);
   }
 
-  /** D3: Price Stability — market cap per holder + price crash detection */
+  /** D3: Price Stability — mcap/holder + liquidity/mcap ratio + 24h change */
   _scorePriceStability(data) {
     if (data.isNative) return 80; // SOL is relatively stable for crypto
     // No price data = unverified = 0
@@ -328,16 +335,36 @@ export class TokenScorer {
       mcapScore = Math.round((1 - 1 / (1 + Math.log(1 + mcapPerHolder / MCAP_PER_HOLDER_SCALE))) * 100);
     }
 
-    // Price crash detection: if we have historical price data, penalize crashes
-    // crashScore: -100% → 0, -50% → 50, 0% → 100, +anything → 100 (capped)
+    let finalScore = mcapScore;
+
+    // DexScreener signals (if available)
+    const ds = data.dexScreener;
+    if (ds) {
+      // Liquidity/mcap ratio: devastating signal for post-crash tokens
+      // MELANIA: $20K liquidity / $116M mcap = 0.017% → score ≈ 3
+      // Healthy: $5M liquidity / $100M mcap = 5% → score ≈ 79
+      // Formula: asymptotic on ratio percentage, scale = 1% (F₁ as %)
+      if (ds.liquidityUsd > 0 && ds.marketCap > 0) {
+        const liqRatio = (ds.liquidityUsd / ds.marketCap) * 100; // as percentage
+        const liqRatioScore = Math.round((1 - 1 / (1 + Math.log(1 + liqRatio))) * 100);
+        finalScore = Math.min(finalScore, liqRatioScore);
+      }
+
+      // 24h price crash: -50% in 24h → halve the score
+      if (ds.priceChange24h !== null && ds.priceChange24h < -10) {
+        const crashPenalty = Math.max(0, Math.min(100, Math.round(100 * (1 + ds.priceChange24h / 100))));
+        finalScore = Math.min(finalScore, crashPenalty);
+      }
+    }
+
+    // OracleMemory price history (if available — our own judgment-to-judgment tracking)
     const ph = data.priceHistory;
     if (ph && ph.priceChange !== undefined && ph.priceChange !== null) {
       const crashScore = Math.max(0, Math.min(100, Math.round(100 * (1 + ph.priceChange))));
-      // Final = min(economic health, price trajectory) — both must be healthy
-      return Math.min(crashScore, mcapScore);
+      finalScore = Math.min(finalScore, crashScore);
     }
 
-    return mcapScore;
+    return finalScore;
   }
 
   /** D4: Supply Mechanics — mint authority analysis */
@@ -569,8 +596,8 @@ export class TokenScorer {
   _weaknessReason(name, score, data) {
     const reasons = {
       supplyDistribution: 'Token supply concentrated in few wallets',
-      liquidityDepth: 'Insufficient liquidity depth',
-      priceStability: 'Low market cap per holder — economic health weak',
+      liquidityDepth: 'Low real DEX liquidity or few holders',
+      priceStability: 'Low liquidity, weak mcap/holder, or price crash detected',
       supplyMechanics: 'Mint/freeze authority still active',
       mintAuthority: 'Mint authority not renounced — inflation risk',
       freezeAuthority: 'Freeze authority active — accounts can be frozen',

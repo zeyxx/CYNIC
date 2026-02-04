@@ -1168,7 +1168,7 @@ export function createServer(options = {}) {
   // Initialize Oracle (no database needed)
   function ensureOracleInitialized() {
     if (!tokenFetcher) {
-      tokenFetcher = new TokenFetcher(process.env.HELIUS_API_KEY, process.env.BIRDEYE_API_KEY);
+      tokenFetcher = new TokenFetcher(process.env.HELIUS_API_KEY);
       tokenScorer = new TokenScorer();
     }
   }
@@ -1337,40 +1337,31 @@ export function createServer(options = {}) {
         }
 
         try {
-          const tokenData = await tokenFetcher.getTokenData(mint);
+          // Fetch on-chain data + DexScreener market data in parallel
+          const [tokenData, dexScreener] = await Promise.all([
+            tokenFetcher.getTokenData(mint),
+            tokenFetcher.getDexScreenerData(mint),
+          ]);
 
-          // ── Hybrid price history: Birdeye (external) + OracleMemory (our own) ──
+          // Attach DexScreener data for scorer
+          tokenData.dexScreener = dexScreener;
+
+          // OracleMemory price history: first-seen price from past judgments
           const currentPrice = tokenData.priceInfo?.pricePerToken || 0;
           let priceHistory = null;
-
-          if (currentPrice > 0) {
-            // 1. Birdeye: 30-day historical price
-            priceHistory = await tokenFetcher.getPriceHistory(mint, currentPrice);
-
-            // 2. Our own memory: first-seen price from past judgments
-            if (oracleMemory) {
-              const firstSeen = await oracleMemory.getFirstPrice(mint);
-              if (firstSeen && firstSeen.price > 0) {
-                const ownChange = (currentPrice - firstSeen.price) / firstSeen.price;
-                if (!priceHistory) {
-                  priceHistory = {
-                    priceNow: currentPrice,
-                    priceFirstSeen: firstSeen.price,
-                    priceChange: ownChange,
-                    firstSeenAt: firstSeen.judgedAt,
-                    source: 'oracle_memory',
-                  };
-                } else if (ownChange < priceHistory.priceChange) {
-                  // Our memory shows a worse crash — use the worse number
-                  priceHistory.priceFirstSeen = firstSeen.price;
-                  priceHistory.priceChange = Math.min(priceHistory.priceChange, ownChange);
-                  priceHistory.source = 'birdeye+oracle_memory';
-                }
-              }
+          if (oracleMemory && currentPrice > 0) {
+            const firstSeen = await oracleMemory.getFirstPrice(mint);
+            if (firstSeen && firstSeen.price > 0) {
+              const ownChange = (currentPrice - firstSeen.price) / firstSeen.price;
+              priceHistory = {
+                priceNow: currentPrice,
+                priceFirstSeen: firstSeen.price,
+                priceChange: ownChange,
+                firstSeenAt: firstSeen.judgedAt,
+                source: 'oracle_memory',
+              };
             }
           }
-
-          // Attach price history for scorer
           tokenData.priceHistory = priceHistory;
 
           const verdict = tokenScorer.score(tokenData);
@@ -1380,6 +1371,7 @@ export function createServer(options = {}) {
             _raw: tokenData._raw,
             supply: tokenData.supply,
             priceInfo: tokenData.priceInfo,
+            dexScreener: dexScreener,
             priceHistory: priceHistory,
             distribution: {
               holderCount: tokenData.distribution.holderCount,
@@ -1500,7 +1492,11 @@ export function createServer(options = {}) {
           version: '2.0.0',
           type: 'agent',
           capabilities: ['judge', 'remember', 'watch', 'alert', 'trajectory'],
-          rpcSource: process.env.HELIUS_API_KEY ? 'helius' : 'public_rpc',
+          dataSources: {
+            rpc: process.env.HELIUS_API_KEY ? 'helius_das' : 'public_rpc',
+            market: 'dexscreener (free)',
+            memory: oracleMemory ? 'postgresql' : 'unavailable',
+          },
           memory: stats ? { totalJudgments: stats.totalJudgments, uniqueTokens: stats.uniqueTokens } : 'unavailable',
           watchlist: { watching: watchlist.length },
           dimensions: 17,
