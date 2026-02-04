@@ -1,16 +1,19 @@
 /**
  * Discovery Service Tests
  *
- * Tests for MCP server, plugin, and node discovery.
+ * Comprehensive tests for the DiscoveryService that handles automatic
+ * discovery of MCP servers, Claude Code plugins, and CYNIC nodes.
+ * Covers initialization, MCP discovery, plugin discovery, node discovery,
+ * health checks, full repo scanning, queries, lifecycle, and edge cases.
  *
- * "Don't trust, verify" - κυνικός
+ * @module @cynic/mcp/test/discovery-service
  */
 
 import { describe, it, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'events';
 
-// Mock fetch globally before importing
+// Store original fetch before any imports might modify it
 const originalFetch = global.fetch;
 
 import { DiscoveryService } from '../src/discovery-service.js';
@@ -80,7 +83,7 @@ describe('DiscoveryService', () => {
   beforeEach(() => {
     persistence = createMockPersistence();
     service = new DiscoveryService(persistence, {
-      autoHealthCheck: false, // Disable auto health checks in tests
+      autoHealthCheck: false,
     });
   });
 
@@ -89,18 +92,56 @@ describe('DiscoveryService', () => {
     restoreFetch();
   });
 
-  // ===========================================================================
-  // INITIALIZATION
-  // ===========================================================================
+  // =========================================================================
+  // CONSTRUCTOR
+  // =========================================================================
 
-  describe('initialization', () => {
+  describe('constructor', () => {
     it('should create with default options', () => {
       const svc = new DiscoveryService(null);
       assert.ok(svc);
       assert.equal(svc._initialized, false);
+      assert.equal(svc._healthCheckTimer, null);
     });
 
-    it('should initialize only once', async () => {
+    it('should store persistence reference', () => {
+      assert.equal(service.persistence, persistence);
+    });
+
+    it('should accept custom healthCheckIntervalMs', () => {
+      const svc = new DiscoveryService(null, { healthCheckIntervalMs: 5000 });
+      assert.equal(svc.options.healthCheckIntervalMs, 5000);
+    });
+
+    it('should default autoHealthCheck to true', () => {
+      const svc = new DiscoveryService(null);
+      assert.equal(svc.options.autoHealthCheck, true);
+    });
+
+    it('should initialize stats to zero', () => {
+      assert.equal(service.stats.mcpServersDiscovered, 0);
+      assert.equal(service.stats.pluginsDiscovered, 0);
+      assert.equal(service.stats.nodesDiscovered, 0);
+      assert.equal(service.stats.healthChecks, 0);
+      assert.equal(service.stats.scans, 0);
+    });
+
+    it('should store selfEndpoint option', () => {
+      const svc = new DiscoveryService(null, { selfEndpoint: 'http://self.dev' });
+      assert.equal(svc.options.selfEndpoint, 'http://self.dev');
+    });
+
+    it('should inherit from EventEmitter', () => {
+      assert.ok(service instanceof EventEmitter);
+    });
+  });
+
+  // =========================================================================
+  // INITIALIZATION
+  // =========================================================================
+
+  describe('init', () => {
+    it('should initialize only once (idempotent)', async () => {
       await service.init();
       await service.init();
       assert.equal(service._initialized, true);
@@ -119,7 +160,7 @@ describe('DiscoveryService', () => {
       assert.ok(emitted);
     });
 
-    it('should register self node if endpoint provided', async () => {
+    it('should register self node if selfEndpoint is provided', async () => {
       const svc = new DiscoveryService(persistence, {
         selfEndpoint: 'http://localhost:3000',
         autoHealthCheck: false,
@@ -129,12 +170,39 @@ describe('DiscoveryService', () => {
       const call = persistence.discovery.upsertNode.mock.calls[0];
       assert.equal(call.arguments[0].endpoint, 'http://localhost:3000');
       assert.equal(call.arguments[0].trustLevel, 'self');
+      assert.equal(call.arguments[0].nodeName, 'self');
+    });
+
+    it('should not register self node without selfEndpoint', async () => {
+      await service.init();
+      assert.equal(persistence.discovery.upsertNode.mock.calls.length, 0);
+    });
+
+    it('should not register self node without persistence', async () => {
+      const svc = new DiscoveryService(null, {
+        selfEndpoint: 'http://localhost:3000',
+        autoHealthCheck: false,
+      });
+      await svc.init();
+      // No crash, no persistence calls
+      assert.equal(svc._initialized, true);
+    });
+
+    it('should include capabilities when registering self', async () => {
+      const svc = new DiscoveryService(persistence, {
+        selfEndpoint: 'http://localhost:3000',
+        autoHealthCheck: false,
+      });
+      await svc.init();
+      const call = persistence.discovery.upsertNode.mock.calls[0];
+      assert.ok(Array.isArray(call.arguments[0].capabilities));
+      assert.ok(call.arguments[0].capabilities.length > 0);
     });
   });
 
-  // ===========================================================================
+  // =========================================================================
   // MCP DISCOVERY
-  // ===========================================================================
+  // =========================================================================
 
   describe('scanRepoForMcp', () => {
     it('should discover MCP servers from .mcp.json', async () => {
@@ -186,7 +254,25 @@ describe('DiscoveryService', () => {
       assert.equal(servers[0].command, 'node');
     });
 
-    it('should emit mcpDiscovered event', async () => {
+    it('should discover multiple MCP servers in one config', async () => {
+      mockFetch({
+        'contents/.mcp.json': {
+          json: {
+            mcpServers: {
+              'server-a': { url: 'http://a.dev' },
+              'server-b': { url: 'http://b.dev' },
+              'server-c': { command: 'npx', args: ['-y', 'my-mcp'] },
+            },
+          },
+        },
+      });
+
+      const servers = await service.scanRepoForMcp('owner', 'repo');
+      assert.equal(servers.length, 3);
+      assert.equal(service.stats.mcpServersDiscovered, 3);
+    });
+
+    it('should emit mcpDiscovered event for each server', async () => {
       mockFetch({
         'contents/.mcp.json': {
           json: {
@@ -205,7 +291,7 @@ describe('DiscoveryService', () => {
       assert.equal(discovered.serverName, 'test');
     });
 
-    it('should log discovery event', async () => {
+    it('should log discovery event to persistence', async () => {
       mockFetch({
         'contents/.mcp.json': {
           json: {
@@ -220,11 +306,65 @@ describe('DiscoveryService', () => {
       const eventCall = persistence.discovery.logEvent.mock.calls[0];
       assert.equal(eventCall.arguments[0].eventType, 'mcp_scan_complete');
     });
+
+    it('should detect env vars in server config', async () => {
+      mockFetch({
+        'contents/.mcp.json': {
+          json: {
+            mcpServers: {
+              'env-server': {
+                command: 'node',
+                env: { API_KEY: 'xxx', SECRET: 'yyy' },
+              },
+            },
+          },
+        },
+      });
+
+      const servers = await service.scanRepoForMcp('owner', 'repo');
+      assert.deepEqual(servers[0].envVars, ['API_KEY', 'SECRET']);
+    });
+
+    it('should set sourceRepo as github:owner/repo format', async () => {
+      mockFetch({
+        'contents/.mcp.json': {
+          json: {
+            mcpServers: { 'test': { url: 'http://test' } },
+          },
+        },
+      });
+
+      const servers = await service.scanRepoForMcp('myorg', 'myrepo');
+      assert.equal(servers[0].sourceRepo, 'github:myorg/myrepo');
+    });
+
+    it('should work without persistence (returns server object without id)', async () => {
+      const svc = new DiscoveryService(null, { autoHealthCheck: false });
+      mockFetch({
+        'contents/.mcp.json': {
+          json: {
+            mcpServers: { 'test': { url: 'http://test' } },
+          },
+        },
+      });
+
+      const servers = await svc.scanRepoForMcp('owner', 'repo');
+      assert.equal(servers.length, 1);
+      assert.equal(servers[0].status, 'discovered');
+    });
+
+    it('should increment scans counter on each call', async () => {
+      mockFetch({});
+
+      await service.scanRepoForMcp('owner', 'repo1');
+      await service.scanRepoForMcp('owner', 'repo2');
+      assert.equal(service.stats.scans, 2);
+    });
   });
 
-  // ===========================================================================
+  // =========================================================================
   // PLUGIN DISCOVERY
-  // ===========================================================================
+  // =========================================================================
 
   describe('scanRepoForPlugin', () => {
     it('should discover plugin from .claude/plugin.json', async () => {
@@ -245,9 +385,10 @@ describe('DiscoveryService', () => {
       assert.equal(plugin.pluginName, 'my-plugin');
       assert.equal(plugin.version, '1.0.0');
       assert.equal(plugin.hasHooks, true);
+      assert.equal(service.stats.pluginsDiscovered, 1);
     });
 
-    it('should fallback to plugin.json', async () => {
+    it('should fallback to root plugin.json', async () => {
       mockFetch({
         'plugin.json': {
           json: {
@@ -268,7 +409,7 @@ describe('DiscoveryService', () => {
       assert.equal(plugin, null);
     });
 
-    it('should detect plugin capabilities', async () => {
+    it('should detect all plugin capabilities', async () => {
       mockFetch({
         '.claude/plugin.json': {
           json: {
@@ -289,6 +430,23 @@ describe('DiscoveryService', () => {
       assert.equal(plugin.hasMcpServers, true);
     });
 
+    it('should correctly report false for missing capabilities', async () => {
+      mockFetch({
+        '.claude/plugin.json': {
+          json: {
+            name: 'minimal-plugin',
+            version: '1.0.0',
+          },
+        },
+      });
+
+      const plugin = await service.scanRepoForPlugin('owner', 'repo');
+      assert.equal(plugin.hasHooks, false);
+      assert.equal(plugin.hasAgents, false);
+      assert.equal(plugin.hasSkills, false);
+      assert.equal(plugin.hasMcpServers, false);
+    });
+
     it('should emit pluginDiscovered event', async () => {
       mockFetch({
         '.claude/plugin.json': {
@@ -302,11 +460,52 @@ describe('DiscoveryService', () => {
       await service.scanRepoForPlugin('owner', 'repo');
       assert.ok(discovered);
     });
+
+    it('should log plugin_found event to persistence', async () => {
+      mockFetch({
+        '.claude/plugin.json': {
+          json: { name: 'log-test', version: '1.0.0' },
+        },
+      });
+
+      await service.scanRepoForPlugin('owner', 'repo');
+
+      const logCalls = persistence.discovery.logEvent.mock.calls;
+      const pluginEvent = logCalls.find(
+        c => c.arguments[0].eventType === 'plugin_found'
+      );
+      assert.ok(pluginEvent);
+    });
+
+    it('should store displayName from manifest', async () => {
+      mockFetch({
+        '.claude/plugin.json': {
+          json: {
+            name: 'coded-name',
+            displayName: 'Human Readable Name',
+          },
+        },
+      });
+
+      const plugin = await service.scanRepoForPlugin('owner', 'repo');
+      assert.equal(plugin.displayName, 'Human Readable Name');
+    });
+
+    it('should fallback displayName to name when not present', async () => {
+      mockFetch({
+        '.claude/plugin.json': {
+          json: { name: 'only-name' },
+        },
+      });
+
+      const plugin = await service.scanRepoForPlugin('owner', 'repo');
+      assert.equal(plugin.displayName, 'only-name');
+    });
   });
 
-  // ===========================================================================
+  // =========================================================================
   // NODE DISCOVERY
-  // ===========================================================================
+  // =========================================================================
 
   describe('registerNode', () => {
     it('should register a node', async () => {
@@ -338,6 +537,37 @@ describe('DiscoveryService', () => {
         /not available/
       );
     });
+
+    it('should log node_registered event', async () => {
+      await service.registerNode({
+        endpoint: 'http://logged.dev',
+        nodeName: 'logged-node',
+      });
+
+      const logCalls = persistence.discovery.logEvent.mock.calls;
+      const nodeEvent = logCalls.find(
+        c => c.arguments[0].eventType === 'node_registered'
+      );
+      assert.ok(nodeEvent);
+      assert.equal(nodeEvent.arguments[0].targetType, 'node');
+    });
+
+    it('should set default discoveredBy to manual', async () => {
+      await service.registerNode({ endpoint: 'http://manual.dev' });
+
+      const upsertCall = persistence.discovery.upsertNode.mock.calls[0];
+      assert.equal(upsertCall.arguments[0].discoveredBy, 'manual');
+    });
+
+    it('should preserve custom discoveredBy', async () => {
+      await service.registerNode({
+        endpoint: 'http://custom.dev',
+        discoveredBy: 'dns-scan',
+      });
+
+      const upsertCall = persistence.discovery.upsertNode.mock.calls[0];
+      assert.equal(upsertCall.arguments[0].discoveredBy, 'dns-scan');
+    });
   });
 
   describe('discoverNode', () => {
@@ -367,11 +597,58 @@ describe('DiscoveryService', () => {
       const node = await service.discoverNode('http://unreachable.dev');
       assert.equal(node, null);
     });
+
+    it('should set discoveredBy to probe', async () => {
+      mockFetch({
+        '/health': {
+          json: {
+            status: 'healthy',
+            name: 'probed-node',
+            version: '1.0.0',
+          },
+        },
+      });
+
+      await service.discoverNode('http://probed.cynic.dev');
+
+      const upsertCall = persistence.discovery.upsertNode.mock.calls[0];
+      assert.equal(upsertCall.arguments[0].discoveredBy, 'probe');
+    });
+
+    it('should extract capabilities from identity.tools format', async () => {
+      mockFetch({
+        '/health': {
+          json: {
+            status: 'healthy',
+            identity: { name: 'tools-node' },
+            version: '2.0.0',
+            tools: [
+              { name: 'brain_judge' },
+              { name: 'brain_digest' },
+            ],
+          },
+        },
+      });
+
+      await service.discoverNode('http://tools-format.cynic.dev');
+
+      const upsertCall = persistence.discovery.upsertNode.mock.calls[0];
+      assert.deepEqual(upsertCall.arguments[0].capabilities, ['brain_judge', 'brain_digest']);
+    });
+
+    it('should return null for unhealthy response (non-ok)', async () => {
+      mockFetch({
+        '/health': { ok: false, status: 503 },
+      });
+
+      const node = await service.discoverNode('http://unhealthy.dev');
+      assert.equal(node, null);
+    });
   });
 
-  // ===========================================================================
+  // =========================================================================
   // HEALTH CHECKS
-  // ===========================================================================
+  // =========================================================================
 
   describe('runNodeHealthChecks', () => {
     it('should check all active nodes', async () => {
@@ -406,7 +683,9 @@ describe('DiscoveryService', () => {
       assert.equal(results.checked, 1);
     });
 
-    it('should handle unreachable nodes', async () => {
+    it('should handle unreachable nodes as unhealthy', async () => {
+      // _probeNodeEndpoint swallows fetch errors and returns null,
+      // so runNodeHealthChecks treats it as unhealthy (not unreachable)
       persistence.discovery.getNodes = mock.fn(async () => [
         { id: 'node1', endpoint: 'http://unreachable.dev', trust_level: 'remote' },
       ]);
@@ -418,8 +697,7 @@ describe('DiscoveryService', () => {
       const results = await service.runNodeHealthChecks();
 
       assert.equal(results.unhealthy, 1);
-      // Errors array may or may not be populated depending on how error is caught
-      assert.ok(results.unhealthy >= 1);
+      assert.equal(results.healthy, 0);
     });
 
     it('should emit healthCheckComplete event', async () => {
@@ -432,7 +710,7 @@ describe('DiscoveryService', () => {
       assert.ok(results);
     });
 
-    it('should update node health in persistence', async () => {
+    it('should update node health in persistence for healthy nodes', async () => {
       persistence.discovery.getNodes = mock.fn(async () => [
         { id: 'node1', endpoint: 'http://node1.dev', trust_level: 'remote' },
       ]);
@@ -444,6 +722,61 @@ describe('DiscoveryService', () => {
       await service.runNodeHealthChecks();
 
       assert.ok(persistence.discovery.updateNodeHealth.mock.calls.length > 0);
+      const call = persistence.discovery.updateNodeHealth.mock.calls[0];
+      assert.equal(call.arguments[0], 'node1');
+      assert.equal(call.arguments[1].healthStatus, 'healthy');
+    });
+
+    it('should update node health for unhealthy nodes', async () => {
+      persistence.discovery.getNodes = mock.fn(async () => [
+        { id: 'node1', endpoint: 'http://node1.dev', trust_level: 'remote' },
+      ]);
+
+      mockFetch({
+        'node1.dev': { json: { status: 'degraded' } },
+      });
+
+      await service.runNodeHealthChecks();
+
+      const call = persistence.discovery.updateNodeHealth.mock.calls[0];
+      assert.equal(call.arguments[1].healthStatus, 'unhealthy');
+    });
+
+    it('should increment healthChecks stat', async () => {
+      persistence.discovery.getNodes = mock.fn(async () => []);
+
+      await service.runNodeHealthChecks();
+      await service.runNodeHealthChecks();
+
+      assert.equal(service.stats.healthChecks, 2);
+    });
+
+    it('should return zero counts without persistence', async () => {
+      const svc = new DiscoveryService(null, { autoHealthCheck: false });
+      await svc.init();
+
+      const results = await svc.runNodeHealthChecks();
+      assert.equal(results.checked, 0);
+      assert.equal(results.healthy, 0);
+      assert.equal(results.unhealthy, 0);
+    });
+
+    it('should mark unreachable nodes as unhealthy in persistence', async () => {
+      // _probeNodeEndpoint catches fetch errors and returns null,
+      // so the health check path marks them 'unhealthy' (not 'unreachable')
+      persistence.discovery.getNodes = mock.fn(async () => [
+        { id: 'down_node', endpoint: 'http://down.dev', trust_level: 'remote' },
+      ]);
+
+      mockFetch({
+        'down.dev': { error: 'ECONNREFUSED' },
+      });
+
+      await service.runNodeHealthChecks();
+
+      const call = persistence.discovery.updateNodeHealth.mock.calls[0];
+      assert.equal(call.arguments[0], 'down_node');
+      assert.equal(call.arguments[1].healthStatus, 'unhealthy');
     });
   });
 
@@ -465,14 +798,20 @@ describe('DiscoveryService', () => {
 
       service.stopHealthChecks();
     });
+
+    it('stopHealthChecks is safe when no timer running', () => {
+      assert.equal(service._healthCheckTimer, null);
+      service.stopHealthChecks(); // Should not throw
+      assert.equal(service._healthCheckTimer, null);
+    });
   });
 
-  // ===========================================================================
+  // =========================================================================
   // FULL SCAN
-  // ===========================================================================
+  // =========================================================================
 
   describe('scanRepo', () => {
-    it('should scan for everything', async () => {
+    it('should scan for everything (MCP, plugin, CLAUDE.md)', async () => {
       mockFetch({
         '.mcp.json': {
           json: { mcpServers: { 'srv': { url: 'http://srv' } } },
@@ -491,6 +830,7 @@ describe('DiscoveryService', () => {
       assert.equal(results.mcpServers.length, 1);
       assert.ok(results.plugin);
       assert.ok(results.claudeMd);
+      assert.ok(results.timestamp);
     });
 
     it('should handle partial results', async () => {
@@ -506,11 +846,41 @@ describe('DiscoveryService', () => {
       assert.equal(results.plugin, null);
       assert.equal(results.claudeMd, null);
     });
+
+    it('should handle completely empty repo', async () => {
+      mockFetch({});
+
+      const results = await service.scanRepo('owner', 'empty-repo');
+
+      assert.deepEqual(results.mcpServers, []);
+      assert.equal(results.plugin, null);
+      assert.equal(results.claudeMd, null);
+    });
+
+    it('should set correct sourceRepo format', async () => {
+      mockFetch({});
+
+      const results = await service.scanRepo('my-org', 'my-project');
+      assert.equal(results.sourceRepo, 'github:my-org/my-project');
+    });
+
+    it('should detect CLAUDE.md with length info', async () => {
+      mockFetch({
+        'CLAUDE.md': {
+          text: '# CLAUDE.md content here for testing purposes',
+        },
+      });
+
+      const results = await service.scanRepo('owner', 'repo');
+      assert.ok(results.claudeMd);
+      assert.equal(results.claudeMd.found, true);
+      assert.ok(results.claudeMd.length > 0);
+    });
   });
 
-  // ===========================================================================
+  // =========================================================================
   // QUERIES
-  // ===========================================================================
+  // =========================================================================
 
   describe('query methods', () => {
     it('getMcpServers should delegate to persistence', async () => {
@@ -544,6 +914,22 @@ describe('DiscoveryService', () => {
       assert.deepEqual(await svc.getPlugins(), []);
       assert.deepEqual(await svc.getNodes(), []);
     });
+
+    it('getMcpServers should pass filter options through', async () => {
+      persistence.discovery.getMcpServers = mock.fn(async () => []);
+
+      await service.getMcpServers({ transport: 'sse', status: 'discovered' });
+
+      const args = persistence.discovery.getMcpServers.mock.calls[0].arguments[0];
+      assert.equal(args.transport, 'sse');
+      assert.equal(args.status, 'discovered');
+    });
+
+    it('getNodes should auto-initialize on first call', async () => {
+      assert.equal(service._initialized, false);
+      await service.getNodes();
+      assert.equal(service._initialized, true);
+    });
   });
 
   describe('getStats', () => {
@@ -560,11 +946,29 @@ describe('DiscoveryService', () => {
       assert.equal(stats.scans, 3);
       assert.equal(stats.totalMcp, 10);
     });
+
+    it('should handle missing persistence gracefully', async () => {
+      const svc = new DiscoveryService(null, { autoHealthCheck: false });
+      svc.stats.scans = 5;
+
+      const stats = await svc.getStats();
+      assert.equal(stats.scans, 5);
+    });
+
+    it('should include all runtime stat fields', async () => {
+      const stats = await service.getStats();
+
+      assert.ok('mcpServersDiscovered' in stats);
+      assert.ok('pluginsDiscovered' in stats);
+      assert.ok('nodesDiscovered' in stats);
+      assert.ok('healthChecks' in stats);
+      assert.ok('scans' in stats);
+    });
   });
 
-  // ===========================================================================
+  // =========================================================================
   // LIFECYCLE
-  // ===========================================================================
+  // =========================================================================
 
   describe('shutdown', () => {
     it('should stop health checks and reset state', async () => {
@@ -584,11 +988,22 @@ describe('DiscoveryService', () => {
       await service.shutdown();
       assert.ok(emitted);
     });
+
+    it('should allow re-initialization after shutdown', async () => {
+      await service.init();
+      assert.equal(service._initialized, true);
+
+      await service.shutdown();
+      assert.equal(service._initialized, false);
+
+      await service.init();
+      assert.equal(service._initialized, true);
+    });
   });
 
-  // ===========================================================================
+  // =========================================================================
   // EDGE CASES
-  // ===========================================================================
+  // =========================================================================
 
   describe('edge cases', () => {
     it('should handle GitHub API errors gracefully', async () => {
@@ -596,7 +1011,6 @@ describe('DiscoveryService', () => {
         '.mcp.json': { status: 500, ok: false },
       });
 
-      // Should not throw
       const servers = await service.scanRepoForMcp('owner', 'repo');
       assert.deepEqual(servers, []);
     });
@@ -618,11 +1032,7 @@ describe('DiscoveryService', () => {
       assert.ok(capturedHeaders?.Authorization?.includes('test-token'));
     });
 
-    it('should inherit EventEmitter', () => {
-      assert.ok(service instanceof EventEmitter);
-    });
-
-    it('should track stats correctly', async () => {
+    it('should track stats correctly across multiple operations', async () => {
       mockFetch({
         '.mcp.json': {
           json: {
@@ -638,6 +1048,68 @@ describe('DiscoveryService', () => {
 
       assert.equal(service.stats.scans, 1);
       assert.equal(service.stats.mcpServersDiscovered, 2);
+    });
+
+    it('should handle fetch network errors during scan', async () => {
+      mockFetch({
+        '.mcp.json': { error: 'Network error' },
+      });
+
+      // Should not throw
+      const servers = await service.scanRepoForMcp('owner', 'repo');
+      assert.deepEqual(servers, []);
+    });
+
+    it('should handle malformed .mcp.json (no mcpServers key)', async () => {
+      mockFetch({
+        'contents/.mcp.json': {
+          json: { version: '1.0.0', something: 'else' },
+        },
+      });
+
+      const servers = await service.scanRepoForMcp('owner', 'repo');
+      assert.deepEqual(servers, []);
+    });
+
+    it('should handle .mcp.json with empty mcpServers', async () => {
+      mockFetch({
+        'contents/.mcp.json': {
+          json: { mcpServers: {} },
+        },
+      });
+
+      const servers = await service.scanRepoForMcp('owner', 'repo');
+      assert.deepEqual(servers, []);
+    });
+
+    it('should handle concurrent scans without interference', async () => {
+      mockFetch({
+        'contents/.mcp.json': {
+          json: {
+            mcpServers: { 'srv': { url: 'http://srv' } },
+          },
+        },
+      });
+
+      const [result1, result2] = await Promise.all([
+        service.scanRepoForMcp('owner1', 'repo1'),
+        service.scanRepoForMcp('owner2', 'repo2'),
+      ]);
+
+      assert.equal(result1.length, 1);
+      assert.equal(result2.length, 1);
+      assert.equal(service.stats.scans, 2);
+    });
+
+    it('should set User-Agent header in GitHub requests', async () => {
+      let capturedHeaders = null;
+      global.fetch = mock.fn(async (url, options) => {
+        capturedHeaders = options?.headers;
+        return { ok: false, status: 404, text: async () => '' };
+      });
+
+      await service.scanRepoForMcp('owner', 'repo');
+      assert.ok(capturedHeaders?.['User-Agent']?.includes('CYNIC'));
     });
   });
 });

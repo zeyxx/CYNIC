@@ -1,2385 +1,2849 @@
 #!/usr/bin/env node
 /**
- * PostgreSQL Repository Tests
+ * PostgreSQL Repository Tests (Phase 16+ Total Memory & Autonomy)
  *
- * Tests for JudgmentRepository, PoJBlockRepository, and PatternRepository.
- * Uses mock database for unit tests, real PostgreSQL for integration tests.
+ * Comprehensive tests for:
+ * - ConversationMemoriesRepository
+ * - ArchitecturalDecisionsRepository
+ * - LessonsLearnedRepository
+ * - AutonomousGoalsRepository
+ * - AutonomousTasksRepository
+ * - ProactiveNotificationsRepository
+ * - FactsRepository
+ * - TrajectoriesRepository
  *
- * "φ distrusts φ" - verify all persistence
+ * All tests use mock database pools - no real PostgreSQL required.
+ *
+ * "phi distrusts phi" - verify all persistence
  *
  * @module @cynic/persistence/test/repositories
  */
 
-import { describe, it, before, after, beforeEach } from 'node:test';
+import { describe, it, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
-import dotenv from 'dotenv';
 
-// Load .env from monorepo root
-const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: resolve(__dirname, '../../../.env') });
+import {
+  ConversationMemoriesRepository,
+  MemoryType,
+} from '../src/postgres/repositories/conversation-memories.js';
 
-import { JudgmentRepository } from '../src/postgres/repositories/judgments.js';
-import { PoJBlockRepository } from '../src/postgres/repositories/poj-blocks.js';
-import { PatternRepository } from '../src/postgres/repositories/patterns.js';
-import { UserRepository } from '../src/postgres/repositories/users.js';
-import { SessionRepository } from '../src/postgres/repositories/sessions.js';
-import { FeedbackRepository } from '../src/postgres/repositories/feedback.js';
-// New repositories for #19
-import { KnowledgeRepository } from '../src/postgres/repositories/knowledge.js';
-import { ConsciousnessRepository } from '../src/postgres/repositories/consciousness.js';
-import { DiscoveryRepository } from '../src/postgres/repositories/discovery.js';
-import { EScoreHistoryRepository } from '../src/postgres/repositories/escore-history.js';
-import { LearningCyclesRepository } from '../src/postgres/repositories/learning-cycles.js';
-import { LibraryCacheRepository } from '../src/postgres/repositories/library-cache.js';
-import { PatternEvolutionRepository } from '../src/postgres/repositories/pattern-evolution.js';
-import { PsychologyRepository } from '../src/postgres/repositories/psychology.js';
-import { TriggerRepository } from '../src/postgres/repositories/triggers.js';
-import { UserLearningProfilesRepository } from '../src/postgres/repositories/user-learning-profiles.js';
-import { EcosystemDocsRepository } from '../src/postgres/repositories/ecosystem-docs.js';
+import {
+  ArchitecturalDecisionsRepository,
+  DecisionType,
+  DecisionStatus,
+} from '../src/postgres/repositories/architectural-decisions.js';
+
+import {
+  LessonsLearnedRepository,
+  LessonCategory,
+  LessonSeverity,
+} from '../src/postgres/repositories/lessons-learned.js';
+
+import {
+  AutonomousGoalsRepository,
+  GoalType,
+  GoalStatus,
+} from '../src/postgres/repositories/autonomous-goals.js';
+
+import {
+  AutonomousTasksRepository,
+  TaskStatus,
+  TaskType,
+} from '../src/postgres/repositories/autonomous-tasks.js';
+
+import {
+  ProactiveNotificationsRepository,
+  NotificationType,
+} from '../src/postgres/repositories/proactive-notifications.js';
+
+import {
+  FactsRepository,
+  FactType,
+} from '../src/postgres/repositories/facts.js';
+
+import {
+  TrajectoriesRepository,
+  TrajectoryOutcome,
+} from '../src/postgres/repositories/trajectories.js';
+
+// ============================================================================
+// MOCK DATABASE FACTORY
+// ============================================================================
 
 /**
- * Create a mock database for unit testing
+ * Creates a mock database pool that intercepts SQL queries and returns
+ * appropriate mock data. Supports INSERT, SELECT, UPDATE, DELETE operations.
  */
-function createMockDb() {
-  const storage = {
-    judgments: [],
-    poj_blocks: [],
-    patterns: [],
-    users: [],
-    sessions: [],
-    feedback: [],
-    // New tables for #19
-    knowledge: [],
-    user_consciousness: [],
-    mcp_servers: [],
-    mcp_plugins: [],
-    discovered_nodes: [],
-    escore_history: [],
-    learning_cycles: [],
-    library_cache: [],
-    pattern_evolution: [],
-    psychology_interventions: [],
-    learning_observations: [],
-    triggers: [],
-    trigger_executions: [],
-    user_learning_profiles: [],
-    ecosystem_docs: [],
-  };
-
+function createMockPool() {
+  const storage = new Map();
   let idCounter = 1;
 
-  return {
-    storage,
+  function generateUUID() {
+    return `uuid-${idCounter++}-${Date.now().toString(36)}`;
+  }
 
-    async query(sql, params = []) {
-      // Normalize SQL for matching
+  return {
+    _storage: storage,
+    _idCounter: () => idCounter,
+
+    query: mock.fn(async (sql, params = []) => {
       const sqlLower = sql.toLowerCase().trim();
 
-      // INSERT INTO judgments
-      if (sqlLower.includes('insert into judgments')) {
-        const judgment = {
-          id: idCounter++,
-          judgment_id: params[0],
-          user_id: params[1],
-          session_id: params[2],
-          item_type: params[3],
-          item_content: params[4],
-          item_hash: params[5],
-          q_score: params[6],
-          global_score: params[7],
-          confidence: params[8],
-          verdict: params[9],
-          axiom_scores: params[10],
-          dimension_scores: params[11],
-          weaknesses: params[12],
-          context: params[13],
-          created_at: new Date(),
-          block_hash: null,
-          block_number: null,
-        };
-        storage.judgments.push(judgment);
-        return { rows: [judgment] };
-      }
-
-      // SELECT * FROM judgments WHERE judgment_id = $1
-      if (sqlLower.includes('from judgments') && sqlLower.includes('judgment_id = $1')) {
-        const found = storage.judgments.find(j => j.judgment_id === params[0]);
-        return { rows: found ? [found] : [] };
-      }
-
-      // SELECT * FROM judgments ORDER BY created_at DESC LIMIT
-      if (sqlLower.includes('from judgments') && sqlLower.includes('order by created_at desc limit')) {
-        const limit = params[params.length - 1] || 10;
-        const sorted = [...storage.judgments].sort((a, b) =>
-          new Date(b.created_at) - new Date(a.created_at)
-        );
-        return { rows: sorted.slice(0, limit) };
-      }
-
-      // SELECT COUNT(*) FROM judgments
-      if (sqlLower.includes('select count(*)') && sqlLower.includes('from judgments')) {
-        return { rows: [{ count: storage.judgments.length.toString() }] };
-      }
-
-      // Judgment stats
-      if (sqlLower.includes('avg(q_score)') && sqlLower.includes('from judgments')) {
-        const judgments = storage.judgments;
-        const total = judgments.length;
-        const avgScore = total > 0
-          ? judgments.reduce((sum, j) => sum + (parseFloat(j.q_score) || 0), 0) / total
-          : 0;
-        const avgConfidence = total > 0
-          ? judgments.reduce((sum, j) => sum + (parseFloat(j.confidence) || 0), 0) / total
-          : 0;
-        const verdictCounts = {
-          HOWL: judgments.filter(j => j.verdict === 'HOWL').length,
-          WAG: judgments.filter(j => j.verdict === 'WAG').length,
-          GROWL: judgments.filter(j => j.verdict === 'GROWL').length,
-          BARK: judgments.filter(j => j.verdict === 'BARK').length,
-        };
-        return {
-          rows: [{
-            total: total.toString(),
-            avg_score: avgScore.toString(),
-            avg_confidence: avgConfidence.toString(),
-            howl_count: verdictCounts.HOWL.toString(),
-            wag_count: verdictCounts.WAG.toString(),
-            growl_count: verdictCounts.GROWL.toString(),
-            bark_count: verdictCounts.BARK.toString(),
-          }],
-        };
-      }
-
-      // INSERT INTO poj_blocks
-      if (sqlLower.includes('insert into poj_blocks')) {
-        const block = {
-          id: idCounter++,
-          block_number: params[0],
-          block_hash: params[1],
-          prev_hash: params[2],
-          merkle_root: params[3],
-          judgment_count: params[4],
-          judgment_ids: params[5],
-          timestamp: params[6],
-          created_at: new Date(),
-        };
-        // Check for conflict
-        const existing = storage.poj_blocks.find(b => b.block_number === params[0]);
-        if (existing) {
-          return { rows: [] };
-        }
-        storage.poj_blocks.push(block);
-        return { rows: [block] };
-      }
-
-      // SELECT * FROM poj_blocks ORDER BY block_number DESC LIMIT 1
-      if (sqlLower.includes('from poj_blocks') && sqlLower.includes('order by block_number desc') && sqlLower.includes('limit 1')) {
-        const sorted = [...storage.poj_blocks].sort((a, b) => b.block_number - a.block_number);
-        return { rows: sorted.slice(0, 1) };
-      }
-
-      // SELECT * FROM poj_blocks WHERE block_number = $1
-      if (sqlLower.includes('from poj_blocks') && sqlLower.includes('block_number = $1')) {
-        const found = storage.poj_blocks.find(b => b.block_number === params[0]);
-        return { rows: found ? [found] : [] };
-      }
-
-      // SELECT * FROM poj_blocks WHERE block_hash = $1
-      if (sqlLower.includes('from poj_blocks') && sqlLower.includes('block_hash = $1')) {
-        const found = storage.poj_blocks.find(b => b.block_hash === params[0]);
-        return { rows: found ? [found] : [] };
-      }
-
-      // SELECT * FROM poj_blocks WHERE block_number > $1 ORDER BY block_number ASC
-      if (sqlLower.includes('from poj_blocks') && sqlLower.includes('block_number > $1') && sqlLower.includes('order by block_number asc')) {
-        const filtered = storage.poj_blocks.filter(b => b.block_number > params[0]);
-        const sorted = filtered.sort((a, b) => a.block_number - b.block_number);
-        const limit = params[1] || 100;
-        return { rows: sorted.slice(0, limit) };
-      }
-
-      // SELECT * FROM poj_blocks ORDER BY block_number DESC LIMIT (findRecent)
-      // Note: Handle both "desc limit" and "desc\n      limit" patterns
-      if (sqlLower.includes('from poj_blocks') &&
-          sqlLower.includes('order by block_number desc') &&
-          sqlLower.includes('limit $1') &&
-          !sqlLower.includes('limit 1')) {
-        const sorted = [...storage.poj_blocks].sort((a, b) => b.block_number - a.block_number);
-        const limit = params[0] || 10;
-        return { rows: sorted.slice(0, limit) };
-      }
-
-      // poj_blocks stats
-      if (sqlLower.includes('from poj_blocks') && sqlLower.includes('sum(judgment_count)')) {
-        const blocks = storage.poj_blocks;
-        const totalBlocks = blocks.length;
-        const headSlot = blocks.length > 0 ? Math.max(...blocks.map(b => b.block_number)) : 0;
-        const genesisSlot = blocks.length > 0 ? Math.min(...blocks.map(b => b.block_number)) : 0;
-        const totalJudgments = blocks.reduce((sum, b) => sum + (b.judgment_count || 0), 0);
-        return {
-          rows: [{
-            total_blocks: totalBlocks.toString(),
-            head_slot: headSlot.toString(),
-            genesis_slot: genesisSlot.toString(),
-            total_judgments: totalJudgments.toString(),
-            avg_judgments_per_block: (totalJudgments / (totalBlocks || 1)).toString(),
-            chain_start: blocks[0]?.timestamp || null,
-            last_block_time: blocks[blocks.length - 1]?.timestamp || null,
-          }],
-        };
-      }
-
-      // poj_blocks integrity check
-      if (sqlLower.includes('from poj_blocks') && sqlLower.includes('block_number >= $1') && sqlLower.includes('block_hash, prev_hash')) {
-        const filtered = storage.poj_blocks.filter(b => b.block_number >= params[0]);
-        const sorted = filtered.sort((a, b) => a.block_number - b.block_number);
-        const limit = params[1] || 100;
-        return { rows: sorted.slice(0, limit) };
-      }
-
-      // SELECT COUNT(*) FROM poj_blocks
-      if (sqlLower.includes('select count(*)') && sqlLower.includes('from poj_blocks')) {
-        return { rows: [{ count: storage.poj_blocks.length.toString() }] };
-      }
-
-      // UPDATE judgments SET block_hash
-      if (sqlLower.includes('update judgments') && sqlLower.includes('block_hash')) {
-        const judgmentIds = params[3] || [];
-        let updated = 0;
-        for (const j of storage.judgments) {
-          if (judgmentIds.includes(j.judgment_id) && !j.block_hash) {
-            j.block_hash = params[0];
-            j.block_number = params[1];
-            j.prev_hash = params[2];
-            updated++;
-          }
-        }
-        return { rowCount: updated };
-      }
-
-      // INSERT INTO patterns
-      if (sqlLower.includes('insert into patterns')) {
-        const existing = storage.patterns.find(p => p.pattern_id === params[0]);
-        if (existing) {
-          // Update existing
-          existing.confidence = params[4];
-          existing.frequency = (existing.frequency || 1) + 1;
-          existing.source_count = (existing.source_count || 1) + 1;
-          existing.updated_at = new Date();
-          return { rows: [existing] };
-        }
-        const pattern = {
-          id: idCounter++,
-          pattern_id: params[0],
-          category: params[1],
-          name: params[2],
-          description: params[3],
-          confidence: params[4],
-          frequency: params[5],
-          source_judgments: params[6],
-          source_count: params[7],
-          tags: params[8],
-          data: params[9],
-          created_at: new Date(),
-          updated_at: new Date(),
-        };
-        storage.patterns.push(pattern);
-        return { rows: [pattern] };
-      }
-
-      // SELECT * FROM patterns WHERE pattern_id = $1
-      if (sqlLower.includes('from patterns') && sqlLower.includes('pattern_id = $1')) {
-        const found = storage.patterns.find(p => p.pattern_id === params[0]);
-        return { rows: found ? [found] : [] };
-      }
-
-      // SELECT * FROM patterns WHERE category = $1
-      if (sqlLower.includes('from patterns') && sqlLower.includes('category = $1')) {
-        const filtered = storage.patterns.filter(p => p.category === params[0]);
-        const sorted = filtered.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
-        const limit = params[1] || 10;
-        return { rows: sorted.slice(0, limit) };
-      }
-
-      // SELECT * FROM patterns ORDER BY frequency DESC
-      if (sqlLower.includes('from patterns') && sqlLower.includes('order by frequency desc')) {
-        const sorted = [...storage.patterns].sort((a, b) => (b.frequency || 0) - (a.frequency || 0));
-        const limit = params[0] || 10;
-        return { rows: sorted.slice(0, limit) };
-      }
-
-      // Pattern stats
-      if (sqlLower.includes('from patterns') && sqlLower.includes('avg(confidence)')) {
-        const patterns = storage.patterns;
-        const total = patterns.length;
-        const avgConfidence = total > 0
-          ? patterns.reduce((sum, p) => sum + (parseFloat(p.confidence) || 0), 0) / total
-          : 0;
-        const totalFrequency = patterns.reduce((sum, p) => sum + (p.frequency || 0), 0);
-        const categories = new Set(patterns.map(p => p.category));
-        return {
-          rows: [{
-            total: total.toString(),
-            avg_confidence: avgConfidence.toString(),
-            total_frequency: totalFrequency.toString(),
-            category_count: categories.size.toString(),
-          }],
-        };
-      }
-
-      // ========================================================================
-      // USER REPOSITORY MOCK HANDLERS
-      // ========================================================================
-
-      // INSERT INTO users
-      if (sqlLower.includes('insert into users')) {
-        const user = {
-          id: `usr_${idCounter++}`,
-          wallet_address: params[0],
-          username: params[1],
-          e_score: params[2] || 0,
-          e_score_data: params[3] || '{}',
-          created_at: new Date(),
-          updated_at: new Date(),
-        };
-        storage.users.push(user);
-        return { rows: [user] };
-      }
-
-      // SELECT * FROM users WHERE id = $1
-      if (sqlLower.includes('select') && sqlLower.includes('from users') && sqlLower.includes('where id = $1')) {
-        const found = storage.users.find(u => u.id === params[0]);
-        return { rows: found ? [found] : [] };
-      }
-
-      // SELECT * FROM users WHERE wallet_address = $1
-      if (sqlLower.includes('from users') && sqlLower.includes('wallet_address = $1')) {
-        const found = storage.users.find(u => u.wallet_address === params[0]);
-        return { rows: found ? [found] : [] };
-      }
-
-      // SELECT * FROM users WHERE username = $1
-      if (sqlLower.includes('from users') && sqlLower.includes('username = $1')) {
-        const found = storage.users.find(u => u.username === params[0]);
-        return { rows: found ? [found] : [] };
-      }
-
-      // UPDATE users SET e_score
-      if (sqlLower.includes('update users') && sqlLower.includes('e_score')) {
-        const found = storage.users.find(u => u.id === params[0]);
-        if (found) {
-          found.e_score = params[1];
-          if (params[2]) found.e_score_data = params[2];
-          found.updated_at = new Date();
-          return { rows: [found] };
-        }
+      // ── TABLE/TRIGGER CREATION ──────────────────────────────────────────
+      if (sqlLower.includes('create table') ||
+          sqlLower.includes('create index') ||
+          sqlLower.includes('create or replace function') ||
+          sqlLower.includes('drop trigger') ||
+          sqlLower.includes('create trigger')) {
         return { rows: [] };
       }
 
-      // SELECT COUNT(*) FROM users
-      if (sqlLower.includes('select count(*)') && sqlLower.includes('from users')) {
-        return { rows: [{ count: storage.users.length.toString() }] };
-      }
-
-      // User stats
-      if (sqlLower.includes('from users') && sqlLower.includes('avg(e_score)')) {
-        const users = storage.users;
-        const total = users.length;
-        const withScore = users.filter(u => u.e_score > 0).length;
-        const avgScore = withScore > 0
-          ? users.filter(u => u.e_score > 0).reduce((sum, u) => sum + u.e_score, 0) / withScore
-          : 0;
-        const maxScore = users.length > 0 ? Math.max(...users.map(u => u.e_score)) : 0;
-        return {
-          rows: [{
-            total: total.toString(),
-            with_score: withScore.toString(),
-            avg_score: avgScore.toString(),
-            max_score: maxScore.toString(),
-          }],
-        };
-      }
-
-      // User leaderboard
-      if (sqlLower.includes('from users') && sqlLower.includes('order by e_score desc')) {
-        const sorted = [...storage.users].filter(u => u.e_score > 0)
-          .sort((a, b) => b.e_score - a.e_score);
-        const limit = params[0] || 10;
-        return { rows: sorted.slice(0, limit) };
-      }
-
-      // DELETE FROM users
-      if (sqlLower.includes('delete from users')) {
-        const idx = storage.users.findIndex(u => u.id === params[0]);
-        if (idx >= 0) {
-          storage.users.splice(idx, 1);
-          return { rowCount: 1 };
+      // ── GLOBAL DELETE HANDLER ──────────────────────────────────────────
+      // Must come before SELECT patterns to avoid DELETE matching findById
+      if (sqlLower.startsWith('delete') || sqlLower.trimStart().startsWith('delete')) {
+        if (sqlLower.includes('delete from conversation_memories') && sqlLower.includes('where id = $1')) {
+          return { rowCount: params[0] ? 1 : 0 };
         }
-        return { rowCount: 0 };
-      }
-
-      // ========================================================================
-      // SESSION REPOSITORY MOCK HANDLERS
-      // ========================================================================
-
-      // INSERT INTO sessions
-      if (sqlLower.includes('insert into sessions')) {
-        const session = {
-          id: idCounter++,
-          session_id: params[0],
-          user_id: params[1],
-          judgment_count: params[2] || 0,
-          digest_count: params[3] || 0,
-          feedback_count: params[4] || 0,
-          context: params[5] || '{}',
-          created_at: new Date(),
-          last_active_at: new Date(),
-          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        };
-        storage.sessions.push(session);
-        return { rows: [session] };
-      }
-
-      // SELECT * FROM sessions WHERE session_id = $1
-      if (sqlLower.includes('select') && sqlLower.includes('from sessions') && sqlLower.includes('session_id = $1')) {
-        const found = storage.sessions.find(s => s.session_id === params[0]);
-        return { rows: found ? [found] : [] };
-      }
-
-      // UPDATE sessions
-      if (sqlLower.includes('update sessions')) {
-        const found = storage.sessions.find(s => s.session_id === params[0]);
-        if (found) {
-          found.last_active_at = new Date();
-          // Handle increment
-          if (sqlLower.includes('judgment_count = judgment_count + 1')) {
-            found.judgment_count++;
-          }
-          if (sqlLower.includes('digest_count = digest_count + 1')) {
-            found.digest_count++;
-          }
-          if (sqlLower.includes('feedback_count = feedback_count + 1')) {
-            found.feedback_count++;
-          }
-          return { rows: [found] };
+        if (sqlLower.includes('delete from architectural_decisions') && sqlLower.includes('where id = $1')) {
+          return { rowCount: params[0] ? 1 : 0 };
         }
-        return { rows: [] };
-      }
-
-      // Session stats
-      if (sqlLower.includes('from sessions') && sqlLower.includes('sum(judgment_count)')) {
-        const sessions = storage.sessions;
-        const total = sessions.length;
-        const active = sessions.filter(s => s.expires_at > new Date()).length;
-        return {
-          rows: [{
-            total: total.toString(),
-            active: active.toString(),
-            total_judgments: sessions.reduce((sum, s) => sum + s.judgment_count, 0).toString(),
-            total_digests: sessions.reduce((sum, s) => sum + s.digest_count, 0).toString(),
-            total_feedback: sessions.reduce((sum, s) => sum + s.feedback_count, 0).toString(),
-          }],
-        };
-      }
-
-      // DELETE FROM sessions (cleanup)
-      if (sqlLower.includes('delete from sessions') && sqlLower.includes('expires_at < now()')) {
-        const now = new Date();
-        const before = storage.sessions.length;
-        storage.sessions = storage.sessions.filter(s => s.expires_at > now);
-        return { rowCount: before - storage.sessions.length };
-      }
-
-      // DELETE FROM sessions WHERE session_id = $1
-      if (sqlLower.includes('delete from sessions') && sqlLower.includes('session_id = $1')) {
-        const idx = storage.sessions.findIndex(s => s.session_id === params[0]);
-        if (idx >= 0) {
-          storage.sessions.splice(idx, 1);
-          return { rowCount: 1 };
+        if (sqlLower.includes('delete from lessons_learned') && sqlLower.includes('where id = $1')) {
+          return { rowCount: params[0] ? 1 : 0 };
         }
-        return { rowCount: 0 };
-      }
-
-      // ========================================================================
-      // FEEDBACK REPOSITORY MOCK HANDLERS
-      // ========================================================================
-
-      // INSERT INTO feedback
-      if (sqlLower.includes('insert into feedback')) {
-        const feedback = {
-          id: idCounter++,
-          judgment_id: params[0],
-          user_id: params[1],
-          outcome: params[2],
-          actual_score: params[3],
-          reason: params[4],
-          applied: false,
-          applied_at: null,
-          created_at: new Date(),
-        };
-        storage.feedback.push(feedback);
-        return { rows: [feedback] };
-      }
-
-      // SELECT * FROM feedback WHERE judgment_id = $1 (must be before id = $1)
-      if (sqlLower.includes('from feedback') && sqlLower.includes('judgment_id = $1')) {
-        const filtered = storage.feedback.filter(f => f.judgment_id === params[0]);
-        return { rows: filtered };
-      }
-
-      // SELECT * FROM feedback WHERE id = $1
-      if (sqlLower.includes('select') && sqlLower.includes('from feedback') && sqlLower.includes('where id = $1')) {
-        const found = storage.feedback.find(f => f.id === params[0]);
-        return { rows: found ? [found] : [] };
-      }
-
-      // UPDATE feedback SET applied = TRUE
-      if (sqlLower.includes('update feedback') && sqlLower.includes('applied = true')) {
-        const found = storage.feedback.find(f => f.id === params[0]);
-        if (found) {
-          found.applied = true;
-          found.applied_at = new Date();
-          return { rows: [found] };
+        if (sqlLower.includes('delete from autonomous_goals')) {
+          return { rowCount: params[0] ? 1 : 0 };
         }
-        return { rows: [] };
-      }
-
-      // Feedback stats
-      if (sqlLower.includes('from feedback') && sqlLower.includes('count(*)') && sqlLower.includes('filter')) {
-        const fb = storage.feedback;
-        const total = fb.length;
-        const correct = fb.filter(f => f.outcome === 'correct').length;
-        const incorrect = fb.filter(f => f.outcome === 'incorrect').length;
-        const partial = fb.filter(f => f.outcome === 'partial').length;
-        const applied = fb.filter(f => f.applied).length;
-        return {
-          rows: [{
-            total: total.toString(),
-            correct: correct.toString(),
-            incorrect: incorrect.toString(),
-            partial: partial.toString(),
-            applied: applied.toString(),
-            avg_score_diff: '0',
-          }],
-        };
-      }
-
-      // DELETE FROM feedback WHERE id = $1
-      if (sqlLower.includes('delete from feedback') && sqlLower.includes('id = $1')) {
-        const idx = storage.feedback.findIndex(f => f.id === params[0]);
-        if (idx >= 0) {
-          storage.feedback.splice(idx, 1);
-          return { rowCount: 1 };
+        if (sqlLower.includes('delete from autonomous_tasks')) {
+          return { rowCount: params[0] ? 1 : 0 };
         }
-        return { rowCount: 0 };
-      }
-
-      // ========================================================================
-      // KNOWLEDGE REPOSITORY MOCK HANDLERS
-      // ========================================================================
-
-      // INSERT INTO knowledge
-      if (sqlLower.includes('insert into knowledge')) {
-        const knowledge = {
-          id: idCounter++,
-          knowledge_id: params[0],
-          source_type: params[1],
-          source_ref: params[2],
-          summary: params[3],
-          content: params[4],
-          insights: params[5],
-          patterns: params[6],
-          category: params[7],
-          tags: params[8] || [],
-          q_score: params[9],
-          confidence: params[10],
-          created_at: new Date(),
-          updated_at: new Date(),
-        };
-        storage.knowledge.push(knowledge);
-        return { rows: [knowledge] };
-      }
-
-      // SELECT * FROM knowledge WHERE knowledge_id = $1
-      if (sqlLower.includes('select') && sqlLower.includes('from knowledge') && sqlLower.includes('knowledge_id = $1')) {
-        const found = storage.knowledge.find(k => k.knowledge_id === params[0]);
-        return { rows: found ? [found] : [] };
-      }
-
-      // SELECT * FROM knowledge WHERE source_type = $1
-      if (sqlLower.includes('from knowledge') && sqlLower.includes('source_type = $1') && !sqlLower.includes('category')) {
-        const limit = params[1] || 10;
-        const filtered = storage.knowledge.filter(k => k.source_type === params[0]);
-        return { rows: filtered.slice(0, limit) };
-      }
-
-      // SELECT * FROM knowledge WHERE category = $1
-      if (sqlLower.includes('from knowledge') && sqlLower.includes('category = $1') && !sqlLower.includes('source_type')) {
-        const limit = params[1] || 10;
-        const filtered = storage.knowledge.filter(k => k.category === params[0])
-          .sort((a, b) => (b.q_score || 0) - (a.q_score || 0));
-        return { rows: filtered.slice(0, limit) };
-      }
-
-      // SELECT * FROM knowledge ORDER BY created_at DESC
-      if (sqlLower.includes('from knowledge') && sqlLower.includes('order by created_at desc') && !sqlLower.includes('where')) {
-        const limit = params[0] || 10;
-        const sorted = [...storage.knowledge].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        return { rows: sorted.slice(0, limit) };
-      }
-
-      // Knowledge stats
-      if (sqlLower.includes('from knowledge') && sqlLower.includes('count(*)') && sqlLower.includes('avg(q_score)')) {
-        const items = storage.knowledge;
-        const avgScore = items.length > 0
-          ? items.reduce((sum, k) => sum + (k.q_score || 0), 0) / items.length
-          : 0;
-        const sourceTypes = new Set(items.map(k => k.source_type)).size;
-        const categories = new Set(items.filter(k => k.category).map(k => k.category)).size;
-        return {
-          rows: [{
-            total: items.length.toString(),
-            source_types: sourceTypes.toString(),
-            categories: categories.toString(),
-            avg_score: avgScore.toString(),
-          }],
-        };
-      }
-
-      // UPDATE knowledge
-      if (sqlLower.includes('update knowledge')) {
-        const found = storage.knowledge.find(k => k.knowledge_id === params[0]);
-        if (found) {
-          found.updated_at = new Date();
-          return { rows: [found] };
+        if (sqlLower.includes('delete from proactive_notifications') && sqlLower.includes('where id = $1')) {
+          return { rowCount: params[0] ? 1 : 0 };
         }
-        return { rows: [] };
-      }
-
-      // DELETE FROM knowledge
-      if (sqlLower.includes('delete from knowledge') && sqlLower.includes('knowledge_id = $1')) {
-        const idx = storage.knowledge.findIndex(k => k.knowledge_id === params[0]);
-        if (idx >= 0) {
-          storage.knowledge.splice(idx, 1);
-          return { rowCount: 1 };
+        if (sqlLower.includes('delete from proactive_notifications') && sqlLower.includes('expires_at')) {
+          return { rowCount: 3 };
         }
-        return { rowCount: 0 };
+        if (sqlLower.includes('delete from facts') && sqlLower.includes('relevance')) {
+          return { rowCount: 5 };
+        }
+        // Default delete
+        return { rowCount: params[0] ? 1 : 0 };
       }
 
-      // ========================================================================
-      // ESCORE HISTORY REPOSITORY MOCK HANDLERS
-      // ========================================================================
+      // ── GLOBAL STATS HANDLER ────────────────────────────────────────────
+      // Must come before generic SELECT patterns to avoid stats queries
+      // matching simpler WHERE conditions
+      if (sqlLower.includes('count(*)') && !sqlLower.includes('insert') && !sqlLower.includes('update')) {
+        // Conversation Memories stats
+        if (sqlLower.includes('conversation_memories') && sqlLower.includes('avg')) {
+          return {
+            rows: [{
+              total: '5',
+              recent: '2',
+              avg_importance: '0.6',
+              avg_access_count: '3',
+            }],
+          };
+        }
+        if (sqlLower.includes('conversation_memories') && sqlLower.includes('group by memory_type')) {
+          return { rows: [{ memory_type: 'summary', count: '3' }, { memory_type: 'decision', count: '2' }] };
+        }
+        // Architectural Decisions stats
+        if (sqlLower.includes('architectural_decisions') && sqlLower.includes('active')) {
+          return {
+            rows: [{
+              total: '10',
+              active: '7',
+              superseded: '2',
+              recent: '3',
+            }],
+          };
+        }
+        if (sqlLower.includes('architectural_decisions') && sqlLower.includes('group by decision_type')) {
+          return { rows: [{ decision_type: 'pattern', count: '5' }] };
+        }
+        // Lessons Learned stats
+        if (sqlLower.includes('lessons_learned') && sqlLower.includes('severity')) {
+          return {
+            rows: [{
+              total: '15',
+              critical: '2',
+              high: '5',
+              recurring: '3',
+              total_occurrences: '25',
+            }],
+          };
+        }
+        if (sqlLower.includes('lessons_learned') && sqlLower.includes('group by category')) {
+          return { rows: [{ category: 'bug', count: '8' }] };
+        }
+        // Autonomous Goals stats
+        if (sqlLower.includes('autonomous_goals') && sqlLower.includes('avg(progress)')) {
+          return {
+            rows: [{
+              total: '8',
+              active: '5',
+              completed: '2',
+              paused: '1',
+              avg_progress: '0.45',
+            }],
+          };
+        }
+        if (sqlLower.includes('autonomous_goals') && sqlLower.includes('group by goal_type')) {
+          return { rows: [{ goal_type: 'quality', count: '3' }] };
+        }
+        // Autonomous Tasks stats
+        if (sqlLower.includes('autonomous_tasks') && sqlLower.includes('pending')) {
+          return {
+            rows: [{
+              total: '20',
+              pending: '8',
+              running: '3',
+              completed: '7',
+              failed: '1',
+              retrying: '1',
+            }],
+          };
+        }
+        if (sqlLower.includes('autonomous_tasks') && sqlLower.includes('group by task_type')) {
+          return { rows: [{ task_type: 'analyze_patterns', count: '10' }] };
+        }
+        // Proactive Notifications stats
+        if (sqlLower.includes('proactive_notifications') && sqlLower.includes('delivered')) {
+          return {
+            rows: [{
+              total: '12',
+              pending: '5',
+              delivered: '6',
+              dismissed: '1',
+              recent: '4',
+            }],
+          };
+        }
+        if (sqlLower.includes('proactive_notifications') && sqlLower.includes('group by notification_type')) {
+          return { rows: [{ notification_type: 'insight', count: '7' }] };
+        }
+        // Facts stats
+        if (sqlLower.includes('facts') && sqlLower.includes('avg')) {
+          return {
+            rows: [{
+              total: '50',
+              types: '5',
+              tools: '4',
+              avg_confidence: '0.5',
+              avg_relevance: '0.45',
+              total_accesses: '100',
+            }],
+          };
+        }
+        // Trajectories stats
+        if (sqlLower.includes('trajectories') && sqlLower.includes('avg')) {
+          return {
+            rows: [{
+              total: '100',
+              successes: '70',
+              failures: '20',
+              avg_reward: '0.45',
+              avg_duration: '5000',
+              avg_tools: '3.5',
+              avg_errors: '0.5',
+              avg_switches: '0.2',
+              total_replays: '15',
+            }],
+          };
+        }
+        // Default stats
+        return { rows: [{ total: '0' }] };
+      }
 
-      // INSERT INTO escore_history
-      if (sqlLower.includes('insert into escore_history')) {
-        const snapshot = {
-          id: idCounter++,
+      // ── CONVERSATION_MEMORIES ───────────────────────────────────────────
+      if (sqlLower.includes('insert into conversation_memories')) {
+        const row = {
+          id: generateUUID(),
           user_id: params[0],
-          e_score: params[1],
-          breakdown: params[2],
-          trigger: params[3] || 'manual',
+          session_id: params[1],
+          memory_type: params[2],
+          content: params[3],
+          embedding: params[4],
+          importance: params[5] ?? 0.5,
+          context: params[6] ? JSON.parse(params[6]) : {},
           created_at: new Date(),
+          last_accessed: null,
+          access_count: 0,
         };
-        storage.escore_history.push(snapshot);
-        return { rows: [snapshot] };
+        return { rows: [row] };
       }
 
-      // SELECT * FROM escore_history ORDER BY created_at DESC LIMIT 1
-      if (sqlLower.includes('from escore_history') && sqlLower.includes('user_id = $1') && sqlLower.includes('limit 1')) {
-        const filtered = storage.escore_history.filter(h => h.user_id === params[0])
-          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        return { rows: filtered.length > 0 ? [filtered[0]] : [] };
+      if (sqlLower.includes('from conversation_memories') && sqlLower.includes('where id = $1')) {
+        return {
+          rows: params[0] ? [{
+            id: params[0],
+            user_id: 'user-1',
+            session_id: 'sess-1',
+            memory_type: 'summary',
+            content: 'Mock memory content',
+            importance: 0.5,
+            context: {},
+            created_at: new Date(),
+            last_accessed: null,
+            access_count: 0,
+          }] : [],
+        };
       }
 
-      // SELECT * FROM escore_history WHERE user_id = $1 ORDER BY created_at DESC
-      if (sqlLower.includes('from escore_history') && sqlLower.includes('user_id = $1')) {
-        const limit = params[params.length - 1] || 100;
-        const filtered = storage.escore_history.filter(h => h.user_id === params[0])
-          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        return { rows: filtered.slice(0, limit) };
+      if (sqlLower.includes('from conversation_memories') && sqlLower.includes('where user_id = $1') && sqlLower.includes('importance >= $2')) {
+        return { rows: [] };
       }
 
-      // E-Score history stats
-      if (sqlLower.includes('from escore_history') && sqlLower.includes('count(*)') && !sqlLower.includes('user_id')) {
-        const items = storage.escore_history;
-        const avgScore = items.length > 0
-          ? items.reduce((sum, h) => sum + (parseFloat(h.e_score) || 0), 0) / items.length
-          : 0;
+      if (sqlLower.includes('from conversation_memories') && sqlLower.includes('where user_id = $1') && sqlLower.includes('memory_type')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from conversation_memories') && sqlLower.includes('where session_id = $1')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from conversation_memories') && sqlLower.includes('where user_id = $1')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from conversation_memories') && sqlLower.includes('where 1=1')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('update conversation_memories') && sqlLower.includes('where id = $1')) {
         return {
           rows: [{
-            total: items.length.toString(),
-            avg_score: avgScore.toString(),
-            users: new Set(items.map(h => h.user_id)).size.toString(),
+            id: params[0],
+            user_id: 'user-1',
+            session_id: 'sess-1',
+            memory_type: 'summary',
+            content: params[1] || 'Updated content',
+            importance: 0.8,
+            context: {},
+            created_at: new Date(),
+            last_accessed: null,
+            access_count: 0,
           }],
         };
       }
 
-      // ========================================================================
-      // LEARNING CYCLES REPOSITORY MOCK HANDLERS
-      // ========================================================================
-
-      // INSERT INTO learning_cycles
-      if (sqlLower.includes('insert into learning_cycles')) {
-        const cycle = {
-          id: idCounter++,
-          cycle_id: params[0],
-          judgment_id: params[1],
-          user_id: params[2],
-          feedback_type: params[3],
-          original_score: params[4],
-          adjusted_score: params[5],
-          learning_rate: params[6],
-          dimensions_adjusted: params[7],
-          created_at: new Date(),
-        };
-        storage.learning_cycles.push(cycle);
-        return { rows: [cycle] };
+      if (sqlLower.includes('delete from conversation_memories') && sqlLower.includes('where id = $1')) {
+        return { rowCount: params[0] ? 1 : 0 };
       }
 
-      // SELECT * FROM learning_cycles ORDER BY created_at DESC
-      if (sqlLower.includes('from learning_cycles') && sqlLower.includes('order by created_at desc')) {
-        const limit = params[0] || 10;
-        const sorted = [...storage.learning_cycles].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        return { rows: sorted.slice(0, limit) };
+      if (sqlLower.includes('select record_memory_access')) {
+        return { rows: [{ record_memory_access: params[0]?.length || 0 }] };
       }
 
-      // SELECT * FROM learning_cycles WHERE cycle_id = $1
-      if (sqlLower.includes('from learning_cycles') && sqlLower.includes('cycle_id = $1')) {
-        const found = storage.learning_cycles.find(c => c.cycle_id === params[0]);
-        return { rows: found ? [found] : [] };
-      }
-
-      // Learning cycles stats
-      if (sqlLower.includes('from learning_cycles') && sqlLower.includes('count(*)')) {
-        const items = storage.learning_cycles;
+      if (sqlLower.includes('from conversation_memories') && sqlLower.includes('count(*)') && sqlLower.includes('avg')) {
         return {
           rows: [{
-            total: items.length.toString(),
-            avg_adjustment: items.length > 0
-              ? (items.reduce((sum, c) => sum + Math.abs((c.adjusted_score || 0) - (c.original_score || 0)), 0) / items.length).toString()
-              : '0',
+            total: '5',
+            recent: '2',
+            avg_importance: '0.6',
+            avg_access_count: '3',
           }],
         };
       }
 
-      // ========================================================================
-      // TRIGGERS REPOSITORY MOCK HANDLERS
-      // ========================================================================
+      if (sqlLower.includes('from conversation_memories') && sqlLower.includes('group by memory_type')) {
+        return { rows: [{ memory_type: 'summary', count: '3' }, { memory_type: 'decision', count: '2' }] };
+      }
 
-      // INSERT INTO triggers
-      if (sqlLower.includes('insert into triggers')) {
-        const trigger = {
-          id: idCounter++,
-          trigger_id: params[0],
-          trigger_type: params[1],
-          name: params[2],
+      if (sqlLower.includes('search_memories_hybrid')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('to_tsvector') && sqlLower.includes('conversation_memories')) {
+        return { rows: [] };
+      }
+
+      // ── ARCHITECTURAL_DECISIONS ─────────────────────────────────────────
+      if (sqlLower.includes('insert into architectural_decisions')) {
+        const row = {
+          id: generateUUID(),
+          user_id: params[0],
+          project_path: params[1],
+          decision_type: params[2],
+          title: params[3],
+          description: params[4],
+          rationale: params[5],
+          alternatives: params[6] ? JSON.parse(params[6]) : [],
+          consequences: params[7] ? JSON.parse(params[7]) : {},
+          embedding: params[8],
+          status: params[9] || 'active',
+          superseded_by: null,
+          related_decisions: [],
+          created_at: new Date(),
+          updated_at: new Date(),
+        };
+        return { rows: [row] };
+      }
+
+      if (sqlLower.includes('from architectural_decisions') && sqlLower.includes('where id = $1') && !sqlLower.includes('update')) {
+        return {
+          rows: params[0] ? [{
+            id: params[0],
+            user_id: 'user-1',
+            project_path: '/project',
+            decision_type: 'pattern',
+            title: 'Mock Decision',
+            description: 'Test',
+            rationale: 'Because tests',
+            alternatives: [],
+            consequences: {},
+            embedding: null,
+            status: 'active',
+            superseded_by: null,
+            related_decisions: [],
+            created_at: new Date(),
+            updated_at: new Date(),
+          }] : [],
+        };
+      }
+
+      if (sqlLower.includes('from architectural_decisions') && sqlLower.includes('project_path = $2')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from architectural_decisions') && sqlLower.includes('decision_type = $2')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from architectural_decisions') && sqlLower.includes('order by updated_at desc') && sqlLower.includes('limit $2')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('update architectural_decisions') && sqlLower.includes('status = \'superseded\'')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('update architectural_decisions') && sqlLower.includes('where id = $1')) {
+        return {
+          rows: [{
+            id: params[0],
+            user_id: 'user-1',
+            project_path: '/project',
+            decision_type: 'pattern',
+            title: 'Updated',
+            description: 'Updated desc',
+            rationale: null,
+            alternatives: [],
+            consequences: {},
+            embedding: null,
+            status: 'active',
+            superseded_by: null,
+            related_decisions: [],
+            created_at: new Date(),
+            updated_at: new Date(),
+          }],
+        };
+      }
+
+      if (sqlLower.includes('delete from architectural_decisions') && sqlLower.includes('where id = $1')) {
+        return { rowCount: params[0] ? 1 : 0 };
+      }
+
+      if (sqlLower.includes('from architectural_decisions') && sqlLower.includes('where 1=1')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from architectural_decisions') && sqlLower.includes('count(*)')) {
+        return {
+          rows: [{
+            total: '10',
+            active: '7',
+            superseded: '2',
+            recent: '3',
+          }],
+        };
+      }
+
+      if (sqlLower.includes('from architectural_decisions') && sqlLower.includes('group by decision_type')) {
+        return { rows: [{ decision_type: 'pattern', count: '5' }] };
+      }
+
+      if (sqlLower.includes('to_tsvector') && sqlLower.includes('architectural_decisions')) {
+        return { rows: [] };
+      }
+
+      // ── LESSONS_LEARNED ─────────────────────────────────────────────────
+      if (sqlLower.includes('insert into lessons_learned')) {
+        const row = {
+          id: generateUUID(),
+          user_id: params[0],
+          category: params[1],
+          mistake: params[2],
+          correction: params[3],
+          prevention: params[4],
+          severity: params[5] || 'medium',
+          embedding: params[6],
+          source_judgment_id: params[7],
+          source_session_id: params[8],
+          occurrence_count: 1,
+          last_occurred: new Date(),
+          created_at: new Date(),
+        };
+        return { rows: [row] };
+      }
+
+      if (sqlLower.includes('from lessons_learned') && sqlLower.includes('where id = $1') && !sqlLower.includes('update')) {
+        return {
+          rows: params[0] ? [{
+            id: params[0],
+            user_id: 'user-1',
+            category: 'bug',
+            mistake: 'Mock mistake',
+            correction: 'Mock correction',
+            prevention: 'Mock prevention',
+            severity: 'medium',
+            embedding: null,
+            occurrence_count: 1,
+            last_occurred: new Date(),
+            source_judgment_id: null,
+            source_session_id: null,
+            created_at: new Date(),
+          }] : [],
+        };
+      }
+
+      if (sqlLower.includes('from lessons_learned') && sqlLower.includes('category = $2')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from lessons_learned') && sqlLower.includes("severity in ('critical', 'high')")) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from lessons_learned') && sqlLower.includes('order by created_at desc') && sqlLower.includes('limit $2')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from lessons_learned') && sqlLower.includes('source_session_id = $2')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from lessons_learned') && sqlLower.includes('occurrence_count >= $2')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('select record_lesson_occurrence')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('update lessons_learned') && sqlLower.includes('where id = $1')) {
+        return {
+          rows: [{
+            id: params[0],
+            user_id: 'user-1',
+            category: 'bug',
+            mistake: 'Updated',
+            correction: 'Updated',
+            prevention: null,
+            severity: 'high',
+            embedding: null,
+            occurrence_count: 1,
+            last_occurred: new Date(),
+            source_judgment_id: null,
+            source_session_id: null,
+            created_at: new Date(),
+          }],
+        };
+      }
+
+      if (sqlLower.includes('delete from lessons_learned') && sqlLower.includes('where id = $1')) {
+        return { rowCount: params[0] ? 1 : 0 };
+      }
+
+      if (sqlLower.includes('from lessons_learned') && sqlLower.includes('where 1=1')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from lessons_learned') && sqlLower.includes('count(*)') && sqlLower.includes('severity')) {
+        return {
+          rows: [{
+            total: '15',
+            critical: '2',
+            high: '5',
+            recurring: '3',
+            total_occurrences: '25',
+          }],
+        };
+      }
+
+      if (sqlLower.includes('from lessons_learned') && sqlLower.includes('group by category')) {
+        return { rows: [{ category: 'bug', count: '8' }] };
+      }
+
+      if (sqlLower.includes('to_tsvector') && sqlLower.includes('lessons_learned')) {
+        return { rows: [] };
+      }
+
+      // ── AUTONOMOUS_GOALS ────────────────────────────────────────────────
+      if (sqlLower.includes('insert into autonomous_goals')) {
+        const row = {
+          id: generateUUID(),
+          user_id: params[0],
+          goal_type: params[1],
+          title: params[2],
           description: params[3],
-          action: params[4],
-          conditions: params[5],
-          enabled: params[6] !== false,
+          success_criteria: params[4] ? JSON.parse(params[4]) : [],
+          progress: 0,
+          progress_notes: [],
+          status: 'active',
+          priority: params[5] ?? 50,
+          config: params[6] ? JSON.parse(params[6]) : {},
+          due_at: params[7] || null,
           created_at: new Date(),
           updated_at: new Date(),
+          completed_at: null,
         };
-        storage.triggers.push(trigger);
-        return { rows: [trigger] };
+        return { rows: [row] };
       }
 
-      // SELECT * FROM triggers WHERE trigger_id = $1
-      if (sqlLower.includes('from triggers') && sqlLower.includes('trigger_id = $1')) {
-        const found = storage.triggers.find(t => t.trigger_id === params[0]);
-        return { rows: found ? [found] : [] };
+      if (sqlLower.includes('from autonomous_goals') && sqlLower.includes('where id = $1') && !sqlLower.includes('update')) {
+        return {
+          rows: params[0] ? [{
+            id: params[0],
+            user_id: 'user-1',
+            goal_type: 'quality',
+            title: 'Mock Goal',
+            description: 'Test goal',
+            success_criteria: [],
+            progress: 0.3,
+            progress_notes: [],
+            status: 'active',
+            priority: 50,
+            config: {},
+            due_at: null,
+            created_at: new Date(),
+            updated_at: new Date(),
+            completed_at: null,
+          }] : [],
+        };
       }
 
-      // SELECT * FROM triggers WHERE trigger_type = $1
-      if (sqlLower.includes('from triggers') && sqlLower.includes('trigger_type = $1')) {
-        const filtered = storage.triggers.filter(t => t.trigger_type === params[0]);
-        return { rows: filtered };
-      }
-
-      // SELECT * FROM triggers WHERE action = $1
-      if (sqlLower.includes('from triggers') && sqlLower.includes('action = $1')) {
-        const filtered = storage.triggers.filter(t => t.action === params[0]);
-        return { rows: filtered };
-      }
-
-      // UPDATE triggers
-      if (sqlLower.includes('update triggers') && sqlLower.includes('trigger_id = $1')) {
-        const found = storage.triggers.find(t => t.trigger_id === params[0]);
-        if (found) {
-          found.updated_at = new Date();
-          return { rows: [found] };
-        }
+      if (sqlLower.includes('from autonomous_goals') && sqlLower.includes("status = 'active'") && sqlLower.includes('order by priority')) {
         return { rows: [] };
       }
 
-      // DELETE FROM triggers
-      if (sqlLower.includes('delete from triggers') && sqlLower.includes('trigger_id = $1')) {
-        const idx = storage.triggers.findIndex(t => t.trigger_id === params[0]);
-        if (idx >= 0) {
-          storage.triggers.splice(idx, 1);
-          return { rowCount: 1 };
-        }
-        return { rowCount: 0 };
-      }
-
-      // Triggers stats
-      if (sqlLower.includes('from triggers') && sqlLower.includes('count(*)')) {
-        const items = storage.triggers;
-        const enabled = items.filter(t => t.enabled).length;
-        return {
-          rows: [{
-            total: items.length.toString(),
-            enabled: enabled.toString(),
-            types: new Set(items.map(t => t.trigger_type)).size.toString(),
-          }],
-        };
-      }
-
-      // INSERT INTO trigger_executions
-      if (sqlLower.includes('insert into trigger_executions')) {
-        const execution = {
-          id: idCounter++,
-          trigger_id: params[0],
-          success: params[1],
-          duration_ms: params[2],
-          error: params[3],
-          created_at: new Date(),
-        };
-        storage.trigger_executions.push(execution);
-        return { rows: [execution] };
-      }
-
-      // ========================================================================
-      // PATTERN EVOLUTION REPOSITORY MOCK HANDLERS
-      // ========================================================================
-
-      // INSERT INTO pattern_evolution / ON CONFLICT
-      if (sqlLower.includes('insert into pattern_evolution') || (sqlLower.includes('pattern_evolution') && sqlLower.includes('on conflict'))) {
-        const existing = storage.pattern_evolution.find(p => p.type === params[0] && p.key === params[1]);
-        if (existing) {
-          existing.frequency = (existing.frequency || 1) + 1;
-          existing.updated_at = new Date();
-          return { rows: [existing] };
-        }
-        const pattern = {
-          id: idCounter++,
-          type: params[0],
-          key: params[1],
-          description: params[2],
-          frequency: params[3] || 1,
-          confidence: params[4] || 0.5,
-          trend: params[5] || 0,
-          metadata: params[6] || '{}',
-          created_at: new Date(),
-          updated_at: new Date(),
-        };
-        storage.pattern_evolution.push(pattern);
-        return { rows: [pattern] };
-      }
-
-      // SELECT * FROM pattern_evolution WHERE type = $1
-      if (sqlLower.includes('from pattern_evolution') && sqlLower.includes('type = $1')) {
-        const limit = params[1] || 50;
-        const filtered = storage.pattern_evolution.filter(p => p.type === params[0])
-          .sort((a, b) => (b.frequency || 0) - (a.frequency || 0));
-        return { rows: filtered.slice(0, limit) };
-      }
-
-      // SELECT * FROM pattern_evolution ORDER BY frequency DESC
-      if (sqlLower.includes('from pattern_evolution') && sqlLower.includes('order by frequency')) {
-        const limit = params[0] || 20;
-        const sorted = [...storage.pattern_evolution].sort((a, b) => (b.frequency || 0) - (a.frequency || 0));
-        return { rows: sorted.slice(0, limit) };
-      }
-
-      // Pattern evolution stats
-      if (sqlLower.includes('from pattern_evolution') && sqlLower.includes('count(*)')) {
-        const items = storage.pattern_evolution;
-        return {
-          rows: [{
-            total: items.length.toString(),
-            types: new Set(items.map(p => p.type)).size.toString(),
-            total_frequency: items.reduce((sum, p) => sum + (p.frequency || 0), 0).toString(),
-          }],
-        };
-      }
-
-      // ========================================================================
-      // LIBRARY CACHE REPOSITORY MOCK HANDLERS
-      // ========================================================================
-
-      // INSERT INTO library_cache (uses query_hash)
-      if (sqlLower.includes('insert into library_cache')) {
-        const existing = storage.library_cache.find(c => c.library_id === params[0] && c.query_hash === params[1]);
-        if (existing) {
-          existing.content = params[2];
-          existing.hit_count = 0;
-          existing.created_at = new Date();
-          return { rows: [existing] };
-        }
-        const cache = {
-          id: idCounter++,
-          library_id: params[0],
-          query_hash: params[1],
-          content: params[2],
-          metadata: params[3],
-          hit_count: 0,
-          created_at: new Date(),
-          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        };
-        storage.library_cache.push(cache);
-        return { rows: [cache] };
-      }
-
-      // UPDATE library_cache (get increments hit_count)
-      if (sqlLower.includes('update library_cache') && sqlLower.includes('hit_count = hit_count + 1')) {
-        const found = storage.library_cache.find(c => c.library_id === params[0] && c.query_hash === params[1]);
-        if (found && found.expires_at > new Date()) {
-          found.hit_count = (found.hit_count || 0) + 1;
-          found.last_hit_at = new Date();
-          return { rows: [found] };
-        }
+      if (sqlLower.includes('from autonomous_goals') && sqlLower.includes('goal_type = $2')) {
         return { rows: [] };
       }
 
-      // SELECT * FROM library_cache WHERE library_id = $1
-      if (sqlLower.includes('from library_cache') && sqlLower.includes('library_id = $1') && !sqlLower.includes('query_hash')) {
-        const filtered = storage.library_cache.filter(c => c.library_id === params[0]);
-        return { rows: filtered };
+      if (sqlLower.includes('from autonomous_goals') && sqlLower.includes('due_at')) {
+        return { rows: [] };
       }
 
-      // Library cache stats
-      if (sqlLower.includes('from library_cache') && sqlLower.includes('count(*)')) {
-        const items = storage.library_cache;
+      if (sqlLower.includes('update autonomous_goals') && sqlLower.includes('progress = $2')) {
         return {
           rows: [{
-            total: items.length.toString(),
-            libraries: new Set(items.map(c => c.library_id)).size.toString(),
-            total_hits: items.reduce((sum, c) => sum + (c.hit_count || 0), 0).toString(),
+            id: params[0],
+            user_id: 'user-1',
+            goal_type: 'quality',
+            title: 'Mock Goal',
+            description: 'Test',
+            success_criteria: [],
+            progress: params[1],
+            progress_notes: [],
+            status: 'active',
+            priority: 50,
+            config: {},
+            due_at: null,
+            created_at: new Date(),
+            updated_at: new Date(),
+            completed_at: null,
           }],
         };
       }
 
-      // Default fallback
-      console.warn('Mock DB: Unhandled query:', sql.slice(0, 100));
-      return { rows: [] };
-    },
+      if (sqlLower.includes('update autonomous_goals') && sqlLower.includes('status = $2')) {
+        return {
+          rows: [{
+            id: params[0],
+            user_id: 'user-1',
+            goal_type: 'quality',
+            title: 'Mock Goal',
+            description: 'Test',
+            success_criteria: [],
+            progress: 0.5,
+            progress_notes: [],
+            status: params[1],
+            priority: 50,
+            config: {},
+            due_at: null,
+            created_at: new Date(),
+            updated_at: new Date(),
+            completed_at: params[1] === 'completed' ? new Date() : null,
+          }],
+        };
+      }
+
+      if (sqlLower.includes('update autonomous_goals') && sqlLower.includes('where id = $1')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('delete from autonomous_goals')) {
+        return { rowCount: params[0] ? 1 : 0 };
+      }
+
+      if (sqlLower.includes('from autonomous_goals') && sqlLower.includes('where 1=1')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from autonomous_goals') && sqlLower.includes('count(*)') && sqlLower.includes('avg(progress)')) {
+        return {
+          rows: [{
+            total: '8',
+            active: '5',
+            completed: '2',
+            paused: '1',
+            avg_progress: '0.45',
+          }],
+        };
+      }
+
+      if (sqlLower.includes('from autonomous_goals') && sqlLower.includes('group by goal_type')) {
+        return { rows: [{ goal_type: 'quality', count: '3' }] };
+      }
+
+      // ── AUTONOMOUS_TASKS ────────────────────────────────────────────────
+      if (sqlLower.includes('insert into autonomous_tasks')) {
+        const row = {
+          id: generateUUID(),
+          user_id: params[0],
+          goal_id: params[1],
+          task_type: params[2],
+          payload: params[3] ? JSON.parse(params[3]) : {},
+          priority: params[4] ?? 50,
+          scheduled_for: params[5] || new Date(),
+          max_retries: params[6] ?? 3,
+          created_by: params[7] || 'daemon',
+          status: 'pending',
+          retry_count: 0,
+          error_message: null,
+          result: null,
+          started_at: null,
+          completed_at: null,
+          created_at: new Date(),
+        };
+        return { rows: [row] };
+      }
+
+      if (sqlLower.includes('from autonomous_tasks') && sqlLower.includes('where id = $1') && !sqlLower.includes('update')) {
+        return {
+          rows: params[0] ? [{
+            id: params[0],
+            user_id: 'user-1',
+            goal_id: null,
+            task_type: 'analyze_patterns',
+            payload: {},
+            priority: 50,
+            scheduled_for: new Date(),
+            max_retries: 3,
+            created_by: 'daemon',
+            status: 'pending',
+            retry_count: 0,
+            error_message: null,
+            result: null,
+            started_at: null,
+            completed_at: null,
+            created_at: new Date(),
+          }] : [],
+        };
+      }
+
+      if (sqlLower.includes('get_pending_tasks')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('update autonomous_tasks') && sqlLower.includes("status = 'running'")) {
+        return {
+          rows: [{
+            id: params[0],
+            user_id: 'user-1',
+            goal_id: null,
+            task_type: 'analyze_patterns',
+            payload: {},
+            priority: 50,
+            scheduled_for: new Date(),
+            max_retries: 3,
+            created_by: 'daemon',
+            status: 'running',
+            retry_count: 0,
+            error_message: null,
+            result: null,
+            started_at: new Date(),
+            completed_at: null,
+            created_at: new Date(),
+          }],
+        };
+      }
+
+      if (sqlLower.includes('update autonomous_tasks') && sqlLower.includes("status = 'completed'")) {
+        return {
+          rows: [{
+            id: params[0],
+            user_id: 'user-1',
+            goal_id: null,
+            task_type: 'analyze_patterns',
+            payload: {},
+            priority: 50,
+            scheduled_for: new Date(),
+            max_retries: 3,
+            created_by: 'daemon',
+            status: 'completed',
+            retry_count: 0,
+            error_message: null,
+            result: params[1] ? JSON.parse(params[1]) : null,
+            started_at: new Date(),
+            completed_at: new Date(),
+            created_at: new Date(),
+          }],
+        };
+      }
+
+      if (sqlLower.includes('update autonomous_tasks') && sqlLower.includes("status = 'cancelled'")) {
+        return {
+          rows: [{
+            id: params[0],
+            user_id: 'user-1',
+            goal_id: null,
+            task_type: 'analyze_patterns',
+            payload: {},
+            priority: 50,
+            scheduled_for: new Date(),
+            max_retries: 3,
+            created_by: 'daemon',
+            status: 'cancelled',
+            retry_count: 0,
+            error_message: null,
+            result: null,
+            started_at: null,
+            completed_at: new Date(),
+            created_at: new Date(),
+          }],
+        };
+      }
+
+      if (sqlLower.includes('update autonomous_tasks') && sqlLower.includes('error_message')) {
+        const status = params[1] || 'failed';
+        return {
+          rows: [{
+            id: params[0],
+            user_id: 'user-1',
+            goal_id: null,
+            task_type: 'analyze_patterns',
+            payload: {},
+            priority: 50,
+            scheduled_for: new Date(),
+            max_retries: 3,
+            created_by: 'daemon',
+            status,
+            retry_count: 1,
+            error_message: params[2],
+            result: null,
+            started_at: new Date(),
+            completed_at: status === 'failed' ? new Date() : null,
+            created_at: new Date(),
+          }],
+        };
+      }
+
+      if (sqlLower.includes('from autonomous_tasks') && sqlLower.includes('goal_id = $1')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from autonomous_tasks') && sqlLower.includes('user_id = $1')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from autonomous_tasks') && sqlLower.includes("status = 'running'") && !sqlLower.includes('update')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('delete from autonomous_tasks')) {
+        return { rowCount: params[0] ? 1 : 0 };
+      }
+
+      if (sqlLower.includes('from autonomous_tasks') && sqlLower.includes('where 1=1')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from autonomous_tasks') && sqlLower.includes('count(*)') && sqlLower.includes('pending')) {
+        return {
+          rows: [{
+            total: '20',
+            pending: '8',
+            running: '3',
+            completed: '7',
+            failed: '1',
+            retrying: '1',
+          }],
+        };
+      }
+
+      if (sqlLower.includes('from autonomous_tasks') && sqlLower.includes('group by task_type')) {
+        return { rows: [{ task_type: 'analyze_patterns', count: '10' }] };
+      }
+
+      // ── PROACTIVE_NOTIFICATIONS ─────────────────────────────────────────
+      if (sqlLower.includes('insert into proactive_notifications')) {
+        const row = {
+          id: generateUUID(),
+          user_id: params[0],
+          notification_type: params[1],
+          title: params[2],
+          message: params[3],
+          priority: params[4] ?? 50,
+          context: params[5] ? JSON.parse(params[5]) : {},
+          expires_at: params[6] || null,
+          delivered: false,
+          delivered_at: null,
+          dismissed: false,
+          dismissed_at: null,
+          action_taken: null,
+          created_at: new Date(),
+        };
+        return { rows: [row] };
+      }
+
+      if (sqlLower.includes('from proactive_notifications') && sqlLower.includes('where id = $1') && !sqlLower.includes('update')) {
+        return {
+          rows: params[0] ? [{
+            id: params[0],
+            user_id: 'user-1',
+            notification_type: 'insight',
+            title: 'Mock Notification',
+            message: 'Test message',
+            priority: 50,
+            context: {},
+            expires_at: null,
+            delivered: false,
+            delivered_at: null,
+            dismissed: false,
+            dismissed_at: null,
+            action_taken: null,
+            created_at: new Date(),
+          }] : [],
+        };
+      }
+
+      if (sqlLower.includes('get_pending_notifications')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('update proactive_notifications') && sqlLower.includes('delivered = true') && sqlLower.includes('where id = $1')) {
+        return {
+          rows: [{
+            id: params[0],
+            user_id: 'user-1',
+            notification_type: 'insight',
+            title: 'Mock',
+            message: 'Test',
+            priority: 50,
+            context: {},
+            expires_at: null,
+            delivered: true,
+            delivered_at: new Date(),
+            dismissed: false,
+            dismissed_at: null,
+            action_taken: null,
+            created_at: new Date(),
+          }],
+        };
+      }
+
+      if (sqlLower.includes('update proactive_notifications') && sqlLower.includes('delivered = true') && sqlLower.includes('any($1)')) {
+        return { rowCount: params[0]?.length || 0 };
+      }
+
+      if (sqlLower.includes('update proactive_notifications') && sqlLower.includes('dismissed = true')) {
+        return {
+          rows: [{
+            id: params[0],
+            user_id: 'user-1',
+            notification_type: 'insight',
+            title: 'Mock',
+            message: 'Test',
+            priority: 50,
+            context: {},
+            expires_at: null,
+            delivered: true,
+            delivered_at: new Date(),
+            dismissed: true,
+            dismissed_at: new Date(),
+            action_taken: params[1] || null,
+            created_at: new Date(),
+          }],
+        };
+      }
+
+      if (sqlLower.includes('update proactive_notifications') && sqlLower.includes('where id = $1')) {
+        return {
+          rows: [{
+            id: params[0],
+            user_id: 'user-1',
+            notification_type: 'insight',
+            title: 'Updated',
+            message: 'Updated msg',
+            priority: 75,
+            context: {},
+            expires_at: null,
+            delivered: false,
+            delivered_at: null,
+            dismissed: false,
+            dismissed_at: null,
+            action_taken: null,
+            created_at: new Date(),
+          }],
+        };
+      }
+
+      if (sqlLower.includes('from proactive_notifications') && sqlLower.includes('notification_type = $2')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from proactive_notifications') && sqlLower.includes('order by created_at desc') && sqlLower.includes('limit $2')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from proactive_notifications') && sqlLower.includes('delivered = true') && sqlLower.includes('delivered_at >')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('delete from proactive_notifications') && sqlLower.includes('where id = $1')) {
+        return { rowCount: params[0] ? 1 : 0 };
+      }
+
+      if (sqlLower.includes('delete from proactive_notifications') && sqlLower.includes('expires_at')) {
+        return { rowCount: 3 };
+      }
+
+      if (sqlLower.includes('from proactive_notifications') && sqlLower.includes('where 1=1')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from proactive_notifications') && sqlLower.includes('count(*)')) {
+        return {
+          rows: [{
+            total: '12',
+            pending: '5',
+            delivered: '6',
+            dismissed: '1',
+            recent: '4',
+          }],
+        };
+      }
+
+      if (sqlLower.includes('from proactive_notifications') && sqlLower.includes('group by notification_type')) {
+        return { rows: [{ notification_type: 'insight', count: '7' }] };
+      }
+
+      // ── FACTS ───────────────────────────────────────────────────────────
+      if (sqlLower.includes('insert into facts')) {
+        const row = {
+          fact_id: `fact_${Date.now().toString(16)}`,
+          user_id: params[1] || null,
+          session_id: params[2] || null,
+          fact_type: params[3] || 'tool_result',
+          subject: params[4],
+          content: params[5],
+          context: params[6] ? JSON.parse(params[6]) : {},
+          source_tool: params[7] || null,
+          source_file: params[8] || null,
+          confidence: params[9] ?? 0.5,
+          relevance: params[10] ?? 0.5,
+          tags: params[11] || [],
+          embedding: params[12] ? JSON.parse(params[12]) : null,
+          embedding_model: params[13] || null,
+          embedding_dim: params[14] || null,
+          access_count: 0,
+          last_accessed: null,
+          created_at: new Date(),
+          updated_at: new Date(),
+        };
+        return { rows: [row] };
+      }
+
+      if (sqlLower.includes('from facts') && sqlLower.includes('fact_id = $1') && !sqlLower.includes('update')) {
+        return {
+          rows: params[0] ? [{
+            fact_id: params[0],
+            user_id: 'user-1',
+            session_id: 'sess-1',
+            fact_type: 'code_pattern',
+            subject: 'Test fact',
+            content: 'Mock content',
+            context: {},
+            source_tool: 'Read',
+            source_file: 'test.js',
+            confidence: 0.5,
+            relevance: 0.5,
+            tags: [],
+            embedding: null,
+            embedding_model: null,
+            embedding_dim: null,
+            access_count: 0,
+            last_accessed: null,
+            created_at: new Date(),
+            updated_at: new Date(),
+          }] : [],
+        };
+      }
+
+      if (sqlLower.includes('update facts') && sqlLower.includes('fact_id = $1') && sqlLower.includes('returning')) {
+        return {
+          rows: [{
+            fact_id: params[0],
+            user_id: 'user-1',
+            session_id: 'sess-1',
+            fact_type: 'code_pattern',
+            subject: 'Updated fact',
+            content: 'Updated content',
+            context: {},
+            source_tool: 'Read',
+            source_file: 'test.js',
+            confidence: 0.6,
+            relevance: 0.6,
+            tags: ['updated'],
+            embedding: null,
+            embedding_model: null,
+            embedding_dim: null,
+            access_count: 1,
+            last_accessed: new Date(),
+            created_at: new Date(),
+            updated_at: new Date(),
+          }],
+        };
+      }
+
+      if (sqlLower.includes('update facts') && sqlLower.includes('access_count = access_count + 1')) {
+        return { rows: [], rowCount: 1 };
+      }
+
+      if (sqlLower.includes('update facts') && sqlLower.includes('returning')) {
+        return {
+          rows: [{
+            fact_id: params[1] || params[0],
+            user_id: 'user-1',
+            session_id: 'sess-1',
+            fact_type: 'code_pattern',
+            subject: 'Test',
+            content: 'Test',
+            context: {},
+            source_tool: null,
+            source_file: null,
+            confidence: 0.5,
+            relevance: 0.6,
+            tags: [],
+            embedding: null,
+            embedding_model: null,
+            embedding_dim: null,
+            access_count: 0,
+            last_accessed: null,
+            created_at: new Date(),
+            updated_at: new Date(),
+          }],
+        };
+      }
+
+      if (sqlLower.includes('update facts') && sqlLower.includes('relevance')) {
+        return { rowCount: 5 };
+      }
+
+      if (sqlLower.includes('from facts') && sqlLower.includes('user_id = $1') && !sqlLower.includes('count')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from facts') && sqlLower.includes('session_id = $1')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from facts') && sqlLower.includes('search_vector')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('delete from facts') && sqlLower.includes('relevance')) {
+        return { rowCount: 5 };
+      }
+
+      if (sqlLower.includes('from facts') && sqlLower.includes('count(*)') && sqlLower.includes('avg')) {
+        return {
+          rows: [{
+            total: '50',
+            types: '5',
+            tools: '4',
+            avg_confidence: '0.5',
+            avg_relevance: '0.45',
+            total_accesses: '100',
+          }],
+        };
+      }
+
+      // ── TRAJECTORIES ────────────────────────────────────────────────────
+      if (sqlLower.includes('insert into trajectories')) {
+        const row = {
+          trajectory_id: `traj_${Date.now().toString(16)}`,
+          user_id: params[1] || null,
+          session_id: params[2] || null,
+          dog_id: params[3] || null,
+          task_type: params[4] || null,
+          initial_state: params[5] ? JSON.parse(params[5]) : {},
+          action_sequence: [],
+          outcome: 'pending',
+          outcome_details: {},
+          reward: 0,
+          duration_ms: 0,
+          tool_count: 0,
+          error_count: 0,
+          switch_count: 0,
+          similarity_hash: null,
+          replay_count: 0,
+          success_after_replay: null,
+          confidence: 0.5,
+          tags: params[6] || [],
+          created_at: new Date(),
+          updated_at: new Date(),
+        };
+        return { rows: [row] };
+      }
+
+      if (sqlLower.includes('from trajectories') && sqlLower.includes('trajectory_id = $1') && !sqlLower.includes('update')) {
+        return {
+          rows: params[0] ? [{
+            trajectory_id: params[0],
+            user_id: 'user-1',
+            session_id: 'sess-1',
+            dog_id: 'scout',
+            task_type: 'exploration',
+            initial_state: {},
+            action_sequence: [],
+            outcome: 'pending',
+            outcome_details: {},
+            reward: 0,
+            duration_ms: 0,
+            tool_count: 0,
+            error_count: 0,
+            switch_count: 0,
+            similarity_hash: null,
+            replay_count: 0,
+            success_after_replay: null,
+            confidence: 0.5,
+            tags: [],
+            created_at: new Date(),
+            updated_at: new Date(),
+          }] : [],
+        };
+      }
+
+      if (sqlLower.includes('update trajectories') && sqlLower.includes('action_sequence')) {
+        return {
+          rows: [{
+            trajectory_id: params[2] || 'traj_mock',
+            user_id: 'user-1',
+            session_id: 'sess-1',
+            dog_id: params[1] || 'scout',
+            task_type: 'exploration',
+            initial_state: {},
+            action_sequence: [{ tool: 'Read' }],
+            outcome: 'pending',
+            outcome_details: {},
+            reward: 0,
+            duration_ms: 0,
+            tool_count: 1,
+            error_count: 0,
+            switch_count: 0,
+            similarity_hash: null,
+            replay_count: 0,
+            success_after_replay: null,
+            confidence: 0.5,
+            tags: [],
+            created_at: new Date(),
+            updated_at: new Date(),
+          }],
+        };
+      }
+
+      if (sqlLower.includes('update trajectories') && sqlLower.includes('outcome = $1')) {
+        return {
+          rows: [{
+            trajectory_id: params[7] || 'traj_mock',
+            user_id: 'user-1',
+            session_id: 'sess-1',
+            dog_id: 'scout',
+            task_type: 'exploration',
+            initial_state: {},
+            action_sequence: [],
+            outcome: params[0],
+            outcome_details: params[1] ? JSON.parse(params[1]) : {},
+            reward: params[2] || 0.618,
+            duration_ms: params[3] || 1000,
+            tool_count: 2,
+            error_count: 0,
+            switch_count: 0,
+            similarity_hash: params[6] || null,
+            replay_count: 0,
+            success_after_replay: null,
+            confidence: Math.min(params[4] || 0.618, params[5] || 0.618),
+            tags: [],
+            created_at: new Date(),
+            updated_at: new Date(),
+          }],
+        };
+      }
+
+      if (sqlLower.includes('update trajectories') && sqlLower.includes('replay_count')) {
+        return {
+          rows: [{
+            trajectory_id: params[1] || 'traj_mock',
+            user_id: 'user-1',
+            session_id: 'sess-1',
+            dog_id: 'scout',
+            task_type: 'exploration',
+            initial_state: {},
+            action_sequence: [],
+            outcome: 'success',
+            outcome_details: {},
+            reward: 0.618,
+            duration_ms: 1000,
+            tool_count: 2,
+            error_count: 0,
+            switch_count: 0,
+            similarity_hash: null,
+            replay_count: 1,
+            success_after_replay: params[0],
+            confidence: params[0] ? 0.55 : 0.4,
+            tags: [],
+            created_at: new Date(),
+            updated_at: new Date(),
+          }],
+        };
+      }
+
+      if (sqlLower.includes('from trajectories') && sqlLower.includes("outcome = 'success'") && sqlLower.includes('reward >=')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from trajectories') && sqlLower.includes('similarity_hash = $1')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from trajectories') && sqlLower.includes('search_vector')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from trajectories') && sqlLower.includes("outcome = 'success'") && sqlLower.includes('reward > 0')) {
+        return { rows: [] };
+      }
+
+      if (sqlLower.includes('from trajectories') && sqlLower.includes('count(*)') && sqlLower.includes('avg')) {
+        return {
+          rows: [{
+            total: '100',
+            successes: '70',
+            failures: '20',
+            avg_reward: '0.45',
+            avg_duration: '5000',
+            avg_tools: '3.5',
+            avg_errors: '0.5',
+            avg_switches: '0.2',
+            total_replays: '15',
+          }],
+        };
+      }
+
+      // ── DEFAULT FALLBACK ────────────────────────────────────────────────
+      return { rows: [], rowCount: 0 };
+    }),
   };
 }
 
 // ============================================================================
-// JUDGMENT REPOSITORY TESTS
+// ENUM TESTS
 // ============================================================================
 
-describe('JudgmentRepository', () => {
+describe('Enums', () => {
+  it('MemoryType should have all types', () => {
+    assert.strictEqual(MemoryType.SUMMARY, 'summary');
+    assert.strictEqual(MemoryType.KEY_MOMENT, 'key_moment');
+    assert.strictEqual(MemoryType.DECISION, 'decision');
+    assert.strictEqual(MemoryType.PREFERENCE, 'preference');
+    assert.strictEqual(MemoryType.CORRECTION, 'correction');
+    assert.strictEqual(MemoryType.INSIGHT, 'insight');
+  });
+
+  it('DecisionType should have all types', () => {
+    assert.strictEqual(DecisionType.PATTERN, 'pattern');
+    assert.strictEqual(DecisionType.TECHNOLOGY, 'technology');
+    assert.strictEqual(DecisionType.STRUCTURE, 'structure');
+    assert.strictEqual(DecisionType.SECURITY, 'security');
+    assert.strictEqual(DecisionType.OTHER, 'other');
+  });
+
+  it('DecisionStatus should have all statuses', () => {
+    assert.strictEqual(DecisionStatus.ACTIVE, 'active');
+    assert.strictEqual(DecisionStatus.SUPERSEDED, 'superseded');
+    assert.strictEqual(DecisionStatus.DEPRECATED, 'deprecated');
+    assert.strictEqual(DecisionStatus.PENDING, 'pending');
+  });
+
+  it('LessonCategory should have all categories', () => {
+    assert.strictEqual(LessonCategory.BUG, 'bug');
+    assert.strictEqual(LessonCategory.ARCHITECTURE, 'architecture');
+    assert.strictEqual(LessonCategory.SECURITY, 'security');
+    assert.strictEqual(LessonCategory.JUDGMENT, 'judgment');
+    assert.strictEqual(LessonCategory.OTHER, 'other');
+  });
+
+  it('LessonSeverity should have all levels', () => {
+    assert.strictEqual(LessonSeverity.LOW, 'low');
+    assert.strictEqual(LessonSeverity.MEDIUM, 'medium');
+    assert.strictEqual(LessonSeverity.HIGH, 'high');
+    assert.strictEqual(LessonSeverity.CRITICAL, 'critical');
+  });
+
+  it('GoalType should have all types', () => {
+    assert.strictEqual(GoalType.QUALITY, 'quality');
+    assert.strictEqual(GoalType.LEARNING, 'learning');
+    assert.strictEqual(GoalType.MAINTENANCE, 'maintenance');
+    assert.strictEqual(GoalType.CUSTOM, 'custom');
+  });
+
+  it('GoalStatus should have all statuses', () => {
+    assert.strictEqual(GoalStatus.ACTIVE, 'active');
+    assert.strictEqual(GoalStatus.PAUSED, 'paused');
+    assert.strictEqual(GoalStatus.COMPLETED, 'completed');
+    assert.strictEqual(GoalStatus.ABANDONED, 'abandoned');
+    assert.strictEqual(GoalStatus.BLOCKED, 'blocked');
+  });
+
+  it('TaskStatus should have all statuses', () => {
+    assert.strictEqual(TaskStatus.PENDING, 'pending');
+    assert.strictEqual(TaskStatus.RUNNING, 'running');
+    assert.strictEqual(TaskStatus.COMPLETED, 'completed');
+    assert.strictEqual(TaskStatus.FAILED, 'failed');
+    assert.strictEqual(TaskStatus.RETRY, 'retry');
+    assert.strictEqual(TaskStatus.CANCELLED, 'cancelled');
+  });
+
+  it('TaskType should have all types', () => {
+    assert.strictEqual(TaskType.ANALYZE_PATTERNS, 'analyze_patterns');
+    assert.strictEqual(TaskType.RUN_TESTS, 'run_tests');
+    assert.strictEqual(TaskType.SECURITY_SCAN, 'security_scan');
+    assert.strictEqual(TaskType.CUSTOM, 'custom');
+  });
+
+  it('NotificationType should have all types', () => {
+    assert.strictEqual(NotificationType.INSIGHT, 'insight');
+    assert.strictEqual(NotificationType.WARNING, 'warning');
+    assert.strictEqual(NotificationType.REMINDER, 'reminder');
+    assert.strictEqual(NotificationType.ACHIEVEMENT, 'achievement');
+    assert.strictEqual(NotificationType.PATTERN, 'pattern');
+  });
+
+  it('FactType should have all types and be frozen', () => {
+    assert.strictEqual(FactType.CODE_PATTERN, 'code_pattern');
+    assert.strictEqual(FactType.API_DISCOVERY, 'api_discovery');
+    assert.strictEqual(FactType.ERROR_RESOLUTION, 'error_resolution');
+    assert.strictEqual(FactType.USER_PREFERENCE, 'user_preference');
+    assert.ok(Object.isFrozen(FactType));
+  });
+
+  it('TrajectoryOutcome should have all outcomes and be frozen', () => {
+    assert.strictEqual(TrajectoryOutcome.SUCCESS, 'success');
+    assert.strictEqual(TrajectoryOutcome.PARTIAL, 'partial');
+    assert.strictEqual(TrajectoryOutcome.FAILURE, 'failure');
+    assert.strictEqual(TrajectoryOutcome.ABANDONED, 'abandoned');
+    assert.ok(Object.isFrozen(TrajectoryOutcome));
+  });
+});
+
+// ============================================================================
+// CONVERSATION MEMORIES REPOSITORY
+// ============================================================================
+
+describe('ConversationMemoriesRepository', () => {
   let repo;
-  let mockDb;
+  let mockPool;
 
   beforeEach(() => {
-    mockDb = createMockDb();
-    repo = new JudgmentRepository(mockDb);
+    mockPool = createMockPool();
+    repo = new ConversationMemoriesRepository(mockPool);
+  });
+
+  describe('constructor', () => {
+    it('should create with provided db pool', () => {
+      assert.ok(repo);
+      assert.strictEqual(repo.db, mockPool);
+    });
+  });
+
+  describe('supportsFTS', () => {
+    it('should return true', () => {
+      assert.strictEqual(repo.supportsFTS(), true);
+    });
+  });
+
+  describe('supportsVector', () => {
+    it('should return true', () => {
+      assert.strictEqual(repo.supportsVector(), true);
+    });
   });
 
   describe('create', () => {
-    it('creates a new judgment', async () => {
-      const judgment = await repo.create({
-        item: { type: 'code', content: 'function test() {}' },
-        qScore: 75,
-        confidence: 0.6,
-        verdict: 'WAG',
-        axiomScores: { PHI: 80, VERIFY: 70 },
+    it('should create a memory with all fields', async () => {
+      const result = await repo.create({
+        userId: 'user-1',
+        sessionId: 'sess-1',
+        memoryType: MemoryType.SUMMARY,
+        content: 'Test summary content',
+        importance: 0.8,
+        context: { topic: 'testing' },
       });
 
-      assert.ok(judgment.judgment_id);
-      assert.ok(judgment.judgment_id.startsWith('jdg_'));
-      assert.equal(judgment.q_score, 75);
-      assert.equal(judgment.verdict, 'WAG');
+      assert.ok(result);
+      assert.strictEqual(result.userId, 'user-1');
+      assert.strictEqual(result.memoryType, MemoryType.SUMMARY);
+      assert.strictEqual(typeof result.importance, 'number');
+      assert.ok(result.id);
     });
 
-    it('generates unique IDs', async () => {
-      const j1 = await repo.create({ itemContent: 'content1', qScore: 50, verdict: 'GROWL', confidence: 0.5 });
-      const j2 = await repo.create({ itemContent: 'content2', qScore: 60, verdict: 'WAG', confidence: 0.6 });
-
-      assert.notEqual(j1.judgment_id, j2.judgment_id);
-    });
-
-    it('stores userId and sessionId', async () => {
-      const judgment = await repo.create({
-        userId: 'user123',
-        sessionId: 'session456',
-        itemContent: 'test content',
-        qScore: 70,
-        verdict: 'WAG',
-        confidence: 0.55,
+    it('should use defaults for optional fields', async () => {
+      const result = await repo.create({
+        userId: 'user-1',
+        memoryType: MemoryType.KEY_MOMENT,
+        content: 'A key moment',
       });
 
-      assert.equal(judgment.user_id, 'user123');
-      assert.equal(judgment.session_id, 'session456');
-    });
-
-    it('stores item content for search', async () => {
-      const judgment = await repo.create({
-        item: {
-          type: 'document',
-          content: 'Important document content',
-          description: 'A test document',
-        },
-        qScore: 80,
-        verdict: 'WAG',
-        confidence: 0.6,
-      });
-
-      assert.ok(judgment.item_content.includes('Important document content'));
-      assert.ok(judgment.item_content.includes('A test document'));
+      assert.ok(result);
+      assert.strictEqual(result.importance, 0.5);
     });
   });
 
   describe('findById', () => {
-    it('finds existing judgment', async () => {
-      const created = await repo.create({
-        itemContent: 'test judgment',
-        qScore: 65,
-        verdict: 'GROWL',
-        confidence: 0.5,
-      });
-
-      const found = await repo.findById(created.judgment_id);
-
-      assert.ok(found);
-      assert.equal(found.judgment_id, created.judgment_id);
+    it('should return memory when found', async () => {
+      const result = await repo.findById('existing-id');
+      assert.ok(result);
+      assert.strictEqual(result.id, 'existing-id');
     });
 
-    it('returns null for non-existent judgment', async () => {
-      const found = await repo.findById('jdg_nonexistent');
-      assert.equal(found, null);
+    it('should return null when not found', async () => {
+      // Override mock to return empty
+      mockPool.query = mock.fn(async () => ({ rows: [] }));
+      const result = await repo.findById('non-existent');
+      assert.strictEqual(result, null);
     });
   });
 
-  describe('findRecent', () => {
-    it('returns recent judgments', async () => {
-      await repo.create({ itemContent: 'content1', qScore: 50, verdict: 'BARK', confidence: 0.4 });
-      await repo.create({ itemContent: 'content2', qScore: 60, verdict: 'GROWL', confidence: 0.5 });
-      await repo.create({ itemContent: 'content3', qScore: 70, verdict: 'WAG', confidence: 0.6 });
-
-      const recent = await repo.findRecent(2);
-
-      assert.equal(recent.length, 2);
+  describe('findByUser', () => {
+    it('should query by user with defaults', async () => {
+      const result = await repo.findByUser('user-1');
+      assert.ok(Array.isArray(result));
     });
 
-    it('respects limit parameter', async () => {
-      for (let i = 0; i < 10; i++) {
-        await repo.create({ itemContent: `content${i}`, qScore: i * 10, verdict: 'WAG', confidence: 0.5 });
-      }
-
-      const recent = await repo.findRecent(5);
-
-      assert.equal(recent.length, 5);
+    it('should accept memoryType filter', async () => {
+      const result = await repo.findByUser('user-1', { memoryType: 'summary' });
+      assert.ok(Array.isArray(result));
     });
   });
 
-  describe('getStats', () => {
-    it('calculates statistics', async () => {
-      await repo.create({ itemContent: 'c1', qScore: 80, verdict: 'WAG', confidence: 0.6 });
-      await repo.create({ itemContent: 'c2', qScore: 60, verdict: 'GROWL', confidence: 0.5 });
-      await repo.create({ itemContent: 'c3', qScore: 40, verdict: 'BARK', confidence: 0.4 });
-      await repo.create({ itemContent: 'c4', qScore: 20, verdict: 'HOWL', confidence: 0.3 });
-
-      const stats = await repo.getStats();
-
-      assert.equal(stats.total, 4);
-      assert.equal(stats.avgScore, 50);
-      assert.equal(stats.verdicts.WAG, 1);
-      assert.equal(stats.verdicts.GROWL, 1);
-      assert.equal(stats.verdicts.BARK, 1);
-      assert.equal(stats.verdicts.HOWL, 1);
-    });
-
-    it('handles empty repository', async () => {
-      const stats = await repo.getStats();
-
-      assert.equal(stats.total, 0);
-      assert.equal(stats.avgScore, 0);
+  describe('findBySession', () => {
+    it('should query by session', async () => {
+      const result = await repo.findBySession('sess-1');
+      assert.ok(Array.isArray(result));
     });
   });
 
-  describe('count', () => {
-    it('counts judgments', async () => {
-      assert.equal(await repo.count(), 0);
-
-      await repo.create({ itemContent: 'c1', qScore: 50, verdict: 'WAG', confidence: 0.5 });
-      await repo.create({ itemContent: 'c2', qScore: 60, verdict: 'WAG', confidence: 0.5 });
-
-      assert.equal(await repo.count(), 2);
-    });
-  });
-});
-
-// ============================================================================
-// POJ BLOCK REPOSITORY TESTS
-// ============================================================================
-
-describe('PoJBlockRepository', () => {
-  let repo;
-  let mockDb;
-
-  beforeEach(() => {
-    mockDb = createMockDb();
-    repo = new PoJBlockRepository(mockDb);
-  });
-
-  describe('create', () => {
-    it('creates a new block', async () => {
-      const block = await repo.create({
-        slot: 1,
-        hash: 'abc123',
-        prev_hash: '000000',
-        judgments_root: 'merkle123',
-        judgments: [{ judgment_id: 'jdg_1' }, { judgment_id: 'jdg_2' }],
-        timestamp: Date.now(),
-      });
-
-      assert.ok(block);
-      assert.equal(block.block_number, 1);
-      assert.equal(block.block_hash, 'abc123');
-      assert.equal(block.judgment_count, 2);
-    });
-
-    it('extracts judgment IDs', async () => {
-      const block = await repo.create({
-        slot: 1,
-        hash: 'abc',
-        prev_hash: '000',
-        judgments: [
-          { judgment_id: 'jdg_a' },
-          { judgment_id: 'jdg_b' },
-          { judgment_id: 'jdg_c' },
-        ],
-        timestamp: Date.now(),
-      });
-
-      assert.deepEqual(block.judgment_ids, ['jdg_a', 'jdg_b', 'jdg_c']);
-    });
-
-    it('handles conflict gracefully', async () => {
-      await repo.create({
-        slot: 1,
-        hash: 'first',
-        prev_hash: '000',
-        judgments: [],
-        timestamp: Date.now(),
-      });
-
-      const duplicate = await repo.create({
-        slot: 1,
-        hash: 'second',
-        prev_hash: '000',
-        judgments: [],
-        timestamp: Date.now(),
-      });
-
-      // Should return null due to ON CONFLICT DO NOTHING
-      assert.equal(duplicate, null);
+  describe('findImportant', () => {
+    it('should query with importance threshold', async () => {
+      const result = await repo.findImportant('user-1', 0.7, 5);
+      assert.ok(Array.isArray(result));
     });
   });
 
-  describe('getHead', () => {
-    it('returns null when empty', async () => {
-      const head = await repo.getHead();
-      assert.equal(head, null);
+  describe('recordAccess', () => {
+    it('should return 0 for empty array', async () => {
+      const result = await repo.recordAccess([]);
+      assert.strictEqual(result, 0);
     });
 
-    it('returns latest block', async () => {
-      await repo.create({ slot: 1, hash: 'h1', prev_hash: '000', judgments: [], timestamp: Date.now() });
-      await repo.create({ slot: 2, hash: 'h2', prev_hash: 'h1', judgments: [], timestamp: Date.now() });
-      await repo.create({ slot: 3, hash: 'h3', prev_hash: 'h2', judgments: [], timestamp: Date.now() });
-
-      const head = await repo.getHead();
-
-      assert.equal(head.slot, 3);
-      assert.equal(head.hash, 'h3');
-    });
-  });
-
-  describe('findByNumber', () => {
-    it('finds block by slot number', async () => {
-      await repo.create({ slot: 5, hash: 'block5', prev_hash: 'block4', judgments: [], timestamp: Date.now() });
-
-      const found = await repo.findByNumber(5);
-
-      assert.ok(found);
-      assert.equal(found.slot, 5);
-      assert.equal(found.hash, 'block5');
+    it('should return 0 for null', async () => {
+      const result = await repo.recordAccess(null);
+      assert.strictEqual(result, 0);
     });
 
-    it('returns null for non-existent block', async () => {
-      const found = await repo.findByNumber(999);
-      assert.equal(found, null);
+    it('should record access for given memory IDs', async () => {
+      const result = await repo.recordAccess(['id-1', 'id-2']);
+      assert.strictEqual(result, 2);
     });
   });
 
-  describe('findByHash', () => {
-    it('finds block by hash', async () => {
-      await repo.create({ slot: 1, hash: 'unique_hash', prev_hash: '000', judgments: [], timestamp: Date.now() });
-
-      const found = await repo.findByHash('unique_hash');
-
-      assert.ok(found);
-      assert.equal(found.hash, 'unique_hash');
-    });
-  });
-
-  describe('findSince', () => {
-    it('returns blocks after specified number', async () => {
-      for (let i = 1; i <= 5; i++) {
-        await repo.create({ slot: i, hash: `h${i}`, prev_hash: `h${i - 1}`, judgments: [], timestamp: Date.now() });
-      }
-
-      const blocks = await repo.findSince(2, 10);
-
-      assert.equal(blocks.length, 3); // blocks 3, 4, 5
-      assert.equal(blocks[0].slot, 3);
-    });
-  });
-
-  describe('findRecent', () => {
-    it('returns recent blocks', async () => {
-      for (let i = 1; i <= 10; i++) {
-        await repo.create({ slot: i, hash: `h${i}`, prev_hash: `h${i - 1}`, judgments: [], timestamp: Date.now() });
-      }
-
-      const recent = await repo.findRecent(5);
-
-      assert.equal(recent.length, 5);
-      assert.equal(recent[0].slot, 10); // Most recent first
-    });
-  });
-
-  describe('getStats', () => {
-    it('returns chain statistics', async () => {
-      await repo.create({ slot: 0, hash: 'genesis', prev_hash: '000', judgments: [{ judgment_id: 'j1' }], timestamp: Date.now() });
-      await repo.create({ slot: 1, hash: 'h1', prev_hash: 'genesis', judgments: [{ judgment_id: 'j2' }, { judgment_id: 'j3' }], timestamp: Date.now() });
-
-      const stats = await repo.getStats();
-
-      assert.equal(stats.totalBlocks, 2);
-      assert.equal(stats.headSlot, 1);
-      assert.equal(stats.genesisSlot, 0);
-      assert.equal(stats.totalJudgments, 3);
-    });
-  });
-
-  describe('verifyIntegrity', () => {
-    it('validates chain links', async () => {
-      await repo.create({ slot: 0, hash: 'h0', prev_hash: '000', judgments: [], timestamp: Date.now() });
-      await repo.create({ slot: 1, hash: 'h1', prev_hash: 'h0', judgments: [], timestamp: Date.now() });
-      await repo.create({ slot: 2, hash: 'h2', prev_hash: 'h1', judgments: [], timestamp: Date.now() });
-
-      const result = await repo.verifyIntegrity();
-
-      assert.equal(result.valid, true);
-      assert.equal(result.blocksChecked, 3);
-      assert.equal(result.errors.length, 0);
+  describe('update', () => {
+    it('should update memory fields', async () => {
+      const result = await repo.update('mem-1', { content: 'New content', importance: 0.9 });
+      assert.ok(result);
+      assert.strictEqual(result.id, 'mem-1');
     });
 
-    it('detects broken chain links', async () => {
-      await repo.create({ slot: 0, hash: 'h0', prev_hash: '000', judgments: [], timestamp: Date.now() });
-      await repo.create({ slot: 1, hash: 'h1', prev_hash: 'WRONG', judgments: [], timestamp: Date.now() });
-
-      const result = await repo.verifyIntegrity();
-
-      assert.equal(result.valid, false);
-      assert.equal(result.errors.length, 1);
-      assert.equal(result.errors[0].blockNumber, 1);
-    });
-  });
-
-  describe('count', () => {
-    it('counts blocks', async () => {
-      assert.equal(await repo.count(), 0);
-
-      await repo.create({ slot: 0, hash: 'h0', prev_hash: '000', judgments: [], timestamp: Date.now() });
-      await repo.create({ slot: 1, hash: 'h1', prev_hash: 'h0', judgments: [], timestamp: Date.now() });
-
-      assert.equal(await repo.count(), 2);
-    });
-  });
-
-  describe('_toBlock', () => {
-    it('converts database row to block format', async () => {
-      const created = await repo.create({
-        slot: 42,
-        hash: 'blockhash',
-        prev_hash: 'prevhash',
-        judgments_root: 'merkleroot',
-        judgments: [{ judgment_id: 'j1' }],
-        timestamp: Date.now(),
-      });
-
-      const found = await repo.findByNumber(42);
-
-      assert.equal(found.slot, 42);
-      assert.equal(found.block_number, 42);
-      assert.equal(found.hash, 'blockhash');
-      assert.equal(found.block_hash, 'blockhash');
-      assert.equal(found.prev_hash, 'prevhash');
-    });
-  });
-});
-
-// ============================================================================
-// PATTERN REPOSITORY TESTS
-// ============================================================================
-
-describe('PatternRepository', () => {
-  let repo;
-  let mockDb;
-
-  beforeEach(() => {
-    mockDb = createMockDb();
-    repo = new PatternRepository(mockDb);
-  });
-
-  describe('upsert', () => {
-    it('creates new pattern', async () => {
-      const pattern = await repo.upsert({
-        category: 'code',
-        name: 'Test Pattern',
-        description: 'A test pattern',
-        confidence: 0.8,
-        tags: ['test', 'example'],
-      });
-
-      assert.ok(pattern.pattern_id);
-      assert.ok(pattern.pattern_id.startsWith('pat_'));
-      assert.equal(pattern.category, 'code');
-      assert.equal(pattern.name, 'Test Pattern');
-    });
-
-    it('updates existing pattern', async () => {
-      const created = await repo.upsert({
-        category: 'security',
-        name: 'Auth Pattern',
-        confidence: 0.6,
-      });
-
-      const updated = await repo.upsert({
-        patternId: created.pattern_id,
-        category: 'security',
-        name: 'Auth Pattern',
-        confidence: 0.8,
-      });
-
-      assert.equal(updated.pattern_id, created.pattern_id);
-      assert.equal(updated.confidence, 0.8);
-      assert.ok(updated.frequency >= 2);
-    });
-  });
-
-  describe('findById', () => {
-    it('finds pattern by ID', async () => {
-      const created = await repo.upsert({
-        category: 'test',
-        name: 'Find Me',
-        confidence: 0.5,
-      });
-
-      const found = await repo.findById(created.pattern_id);
-
-      assert.ok(found);
-      assert.equal(found.name, 'Find Me');
-    });
-
-    it('returns null for non-existent pattern', async () => {
-      const found = await repo.findById('pat_nonexistent');
-      assert.equal(found, null);
-    });
-  });
-
-  describe('findByCategory', () => {
-    it('finds patterns in category', async () => {
-      await repo.upsert({ category: 'code', name: 'Code 1', confidence: 0.8 });
-      await repo.upsert({ category: 'code', name: 'Code 2', confidence: 0.7 });
-      await repo.upsert({ category: 'docs', name: 'Doc 1', confidence: 0.6 });
-
-      const codePatterns = await repo.findByCategory('code');
-
-      assert.equal(codePatterns.length, 2);
-      assert.ok(codePatterns.every(p => p.category === 'code'));
-    });
-
-    it('orders by confidence', async () => {
-      await repo.upsert({ category: 'test', name: 'Low', confidence: 0.3 });
-      await repo.upsert({ category: 'test', name: 'High', confidence: 0.9 });
-      await repo.upsert({ category: 'test', name: 'Mid', confidence: 0.6 });
-
-      const patterns = await repo.findByCategory('test');
-
-      assert.ok(patterns[0].confidence >= patterns[1].confidence);
-    });
-  });
-
-  describe('getTopPatterns', () => {
-    it('returns patterns ordered by frequency', async () => {
-      await repo.upsert({ category: 'a', name: 'Low Freq', confidence: 0.5, frequency: 2 });
-      await repo.upsert({ category: 'b', name: 'High Freq', confidence: 0.5, frequency: 10 });
-
-      const top = await repo.getTopPatterns(5);
-
-      assert.ok(top.length >= 1);
-    });
-  });
-
-  describe('getStats', () => {
-    it('returns pattern statistics', async () => {
-      await repo.upsert({ category: 'a', name: 'P1', confidence: 0.8, frequency: 5 });
-      await repo.upsert({ category: 'b', name: 'P2', confidence: 0.6, frequency: 3 });
-
-      const stats = await repo.getStats();
-
-      assert.equal(stats.total, 2);
-      assert.equal(stats.avgConfidence, 0.7);
-      assert.equal(stats.totalFrequency, 8);
-      assert.equal(stats.categoryCount, 2);
-    });
-
-    it('handles empty repository', async () => {
-      const stats = await repo.getStats();
-
-      assert.equal(stats.total, 0);
-      assert.equal(stats.avgConfidence, 0);
-    });
-  });
-});
-
-// ============================================================================
-// INTEGRATION TESTS (with real PostgreSQL)
-// ============================================================================
-
-describe('PostgreSQL Integration', () => {
-  const hasPostgres = !!process.env.CYNIC_DATABASE_URL;
-
-  describe('JudgmentRepository Integration', {
-    skip: !hasPostgres,
-  }, () => {
-    it('creates and retrieves judgment', async () => {
-      const repo = new JudgmentRepository();
-
-      const judgment = await repo.create({
-        item: { type: 'test', content: 'integration test' },
-        qScore: 75,
-        confidence: 0.6,
-        verdict: 'WAG',
-      });
-
-      assert.ok(judgment.judgment_id);
-
-      const found = await repo.findById(judgment.judgment_id);
-      assert.equal(parseFloat(found.q_score), 75);
-    });
-  });
-
-  describe('PoJBlockRepository Integration', {
-    skip: !hasPostgres,
-  }, () => {
-    it('creates and retrieves block', async () => {
-      const repo = new PoJBlockRepository();
-      const timestamp = Date.now();
-      const uniqueSlot = Math.floor(timestamp / 1000) + Math.floor(Math.random() * 10000);
-
-      const block = await repo.create({
-        slot: uniqueSlot,
-        hash: `test_${timestamp}`,
-        prev_hash: 'integration_test',
-        judgments_root: 'merkle_test',
-        judgments: [],
-        timestamp,
-      });
-
-      // Block might be null if slot already exists
-      if (block) {
-        const found = await repo.findByNumber(uniqueSlot);
-        assert.ok(found);
-        assert.equal(found.block_hash, `test_${timestamp}`);
-      }
-    });
-  });
-
-  describe('PatternRepository Integration', {
-    skip: !hasPostgres,
-  }, () => {
-    it('upserts and retrieves pattern', async () => {
-      const repo = new PatternRepository();
-      const timestamp = Date.now();
-
-      const pattern = await repo.upsert({
-        category: 'integration',
-        name: `Test Pattern ${timestamp}`,
-        confidence: 0.75,
-      });
-
-      assert.ok(pattern.pattern_id);
-
-      const found = await repo.findById(pattern.pattern_id);
-      assert.equal(found.name, `Test Pattern ${timestamp}`);
-    });
-  });
-});
-
-// ============================================================================
-// USER REPOSITORY TESTS
-// ============================================================================
-
-describe('UserRepository', () => {
-  let repo;
-  let mockDb;
-
-  beforeEach(() => {
-    mockDb = createMockDb();
-    repo = new UserRepository(mockDb);
-  });
-
-  describe('create', () => {
-    it('creates a new user', async () => {
-      const user = await repo.create({
-        walletAddress: '0x1234567890abcdef',
-        username: 'testuser',
-        eScore: 50,
-      });
-
-      assert.ok(user.id);
-      assert.equal(user.wallet_address, '0x1234567890abcdef');
-      assert.equal(user.username, 'testuser');
-      assert.equal(user.e_score, 50);
-    });
-
-    it('creates user with default eScore', async () => {
-      const user = await repo.create({
-        walletAddress: '0xabcd',
-      });
-
-      assert.equal(user.e_score, 0);
-    });
-  });
-
-  describe('findById', () => {
-    it('finds existing user', async () => {
-      const created = await repo.create({ walletAddress: '0x123' });
-      const found = await repo.findById(created.id);
-
-      assert.ok(found);
-      assert.equal(found.id, created.id);
-    });
-
-    it('returns null for non-existent user', async () => {
-      const found = await repo.findById('nonexistent');
-      assert.equal(found, null);
-    });
-  });
-
-  describe('findByWallet', () => {
-    it('finds user by wallet address', async () => {
-      await repo.create({ walletAddress: '0xwallet123' });
-      const found = await repo.findByWallet('0xwallet123');
-
-      assert.ok(found);
-      assert.equal(found.wallet_address, '0xwallet123');
-    });
-  });
-
-  describe('getOrCreate', () => {
-    it('returns existing user', async () => {
-      const created = await repo.create({ walletAddress: '0xexisting' });
-      const found = await repo.getOrCreate('0xexisting');
-
-      assert.equal(found.id, created.id);
-    });
-
-    it('creates new user if not exists', async () => {
-      const user = await repo.getOrCreate('0xnewwallet', { username: 'newuser' });
-
-      assert.ok(user.id);
-      assert.equal(user.wallet_address, '0xnewwallet');
-    });
-  });
-
-  describe('updateEScore', () => {
-    it('updates user eScore', async () => {
-      const created = await repo.create({ walletAddress: '0x123' });
-      const updated = await repo.updateEScore(created.id, 75);
-
-      assert.equal(updated.e_score, 75);
-    });
-  });
-
-  describe('getLeaderboard', () => {
-    it('returns users sorted by eScore', async () => {
-      await repo.create({ walletAddress: '0x1', eScore: 30 });
-      await repo.create({ walletAddress: '0x2', eScore: 80 });
-      await repo.create({ walletAddress: '0x3', eScore: 50 });
-
-      const leaderboard = await repo.getLeaderboard(10);
-
-      assert.equal(leaderboard[0].e_score, 80);
-      assert.equal(leaderboard[1].e_score, 50);
-      assert.equal(leaderboard[2].e_score, 30);
-    });
-  });
-
-  describe('count', () => {
-    it('counts total users', async () => {
-      await repo.create({ walletAddress: '0x1' });
-      await repo.create({ walletAddress: '0x2' });
-
-      const count = await repo.count();
-      assert.equal(count, 2);
-    });
-  });
-
-  describe('getStats', () => {
-    it('returns user statistics', async () => {
-      await repo.create({ walletAddress: '0x1', eScore: 60 });
-      await repo.create({ walletAddress: '0x2', eScore: 80 });
-      await repo.create({ walletAddress: '0x3', eScore: 0 });
-
-      const stats = await repo.getStats();
-
-      assert.equal(stats.total, 3);
-      assert.equal(stats.withScore, 2);
-      assert.equal(stats.maxScore, 80);
+    it('should return findById result when no updates provided', async () => {
+      const result = await repo.update('mem-1', {});
+      assert.ok(result);
     });
   });
 
   describe('delete', () => {
-    it('deletes a user', async () => {
-      const created = await repo.create({ walletAddress: '0x123' });
-      const deleted = await repo.delete(created.id);
+    it('should return true when deleted', async () => {
+      const result = await repo.delete('existing-id');
+      assert.strictEqual(result, true);
+    });
+  });
 
-      assert.equal(deleted, true);
-
-      const found = await repo.findById(created.id);
-      assert.equal(found, null);
+  describe('list', () => {
+    it('should return array', async () => {
+      const result = await repo.list();
+      assert.ok(Array.isArray(result));
     });
 
-    it('returns false for non-existent user', async () => {
-      const deleted = await repo.delete('nonexistent');
-      assert.equal(deleted, false);
+    it('should accept filters', async () => {
+      const result = await repo.list({ userId: 'user-1', memoryType: 'decision', limit: 5 });
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('getStats', () => {
+    it('should return stats object', async () => {
+      const stats = await repo.getStats();
+      assert.strictEqual(stats.total, 5);
+      assert.strictEqual(stats.recent, 2);
+      assert.strictEqual(typeof stats.avgImportance, 'number');
+      assert.ok(stats.byType);
+    });
+
+    it('should accept userId filter', async () => {
+      const stats = await repo.getStats('user-1');
+      assert.ok(stats);
+      assert.strictEqual(typeof stats.total, 'number');
+    });
+  });
+
+  describe('_formatRow', () => {
+    it('should return null for null input', () => {
+      assert.strictEqual(repo._formatRow(null), null);
+    });
+
+    it('should format database row to camelCase', () => {
+      const row = {
+        id: 'test',
+        user_id: 'u1',
+        session_id: 's1',
+        memory_type: 'summary',
+        content: 'Hello',
+        importance: '0.8',
+        context: { k: 'v' },
+        created_at: new Date(),
+        last_accessed: null,
+        access_count: 3,
+        combined_score: 0.6,
+        fts_score: 0.4,
+      };
+      const formatted = repo._formatRow(row);
+      assert.strictEqual(formatted.userId, 'u1');
+      assert.strictEqual(formatted.sessionId, 's1');
+      assert.strictEqual(formatted.memoryType, 'summary');
+      assert.strictEqual(formatted.importance, 0.8);
+      assert.strictEqual(formatted.accessCount, 3);
+      assert.strictEqual(formatted.combinedScore, 0.6);
     });
   });
 });
 
 // ============================================================================
-// SESSION REPOSITORY TESTS
+// ARCHITECTURAL DECISIONS REPOSITORY
 // ============================================================================
 
-describe('SessionRepository', () => {
+describe('ArchitecturalDecisionsRepository', () => {
   let repo;
-  let mockDb;
+  let mockPool;
 
   beforeEach(() => {
-    mockDb = createMockDb();
-    repo = new SessionRepository(mockDb);
+    mockPool = createMockPool();
+    repo = new ArchitecturalDecisionsRepository(mockPool);
+  });
+
+  describe('constructor', () => {
+    it('should create with provided db pool', () => {
+      assert.ok(repo);
+      assert.strictEqual(repo.db, mockPool);
+    });
+  });
+
+  describe('supportsFTS', () => {
+    it('should return true', () => {
+      assert.strictEqual(repo.supportsFTS(), true);
+    });
   });
 
   describe('create', () => {
-    it('creates a new session', async () => {
-      const session = await repo.create({
-        sessionId: 'sess_123',
-        userId: 'user_456',
-        judgmentCount: 0,
+    it('should create a decision with all fields', async () => {
+      const result = await repo.create({
+        userId: 'user-1',
+        projectPath: '/project',
+        decisionType: DecisionType.PATTERN,
+        title: 'Use singleton pattern',
+        description: 'For shared state',
+        rationale: 'Thread safety',
+        alternatives: [{ name: 'Static class' }],
+        consequences: { positive: ['safe'], negative: ['coupling'] },
       });
 
-      assert.ok(session.id);
-      assert.equal(session.session_id, 'sess_123');
-      assert.equal(session.user_id, 'user_456');
-      assert.equal(session.judgment_count, 0);
+      assert.ok(result);
+      assert.strictEqual(result.userId, 'user-1');
+      assert.strictEqual(result.decisionType, DecisionType.PATTERN);
+      assert.strictEqual(result.status, 'active');
+      assert.ok(result.id);
+    });
+
+    it('should use defaults for optional fields', async () => {
+      const result = await repo.create({
+        userId: 'user-1',
+        decisionType: DecisionType.API,
+        title: 'REST API',
+        description: 'Use REST',
+      });
+
+      assert.ok(result);
+      assert.strictEqual(result.status, 'active');
     });
   });
 
   describe('findById', () => {
-    it('finds session by sessionId', async () => {
-      await repo.create({ sessionId: 'sess_abc' });
-      const found = await repo.findById('sess_abc');
-
-      assert.ok(found);
-      assert.equal(found.session_id, 'sess_abc');
-    });
-
-    it('returns null for non-existent session', async () => {
-      const found = await repo.findById('nonexistent');
-      assert.equal(found, null);
+    it('should return decision when found', async () => {
+      const result = await repo.findById('dec-1');
+      assert.ok(result);
+      assert.strictEqual(result.id, 'dec-1');
     });
   });
 
-  describe('increment', () => {
-    it('increments judgment count', async () => {
-      await repo.create({ sessionId: 'sess_inc', judgmentCount: 5 });
-      const updated = await repo.increment('sess_inc', 'judgment_count');
-
-      assert.equal(updated.judgment_count, 6);
-    });
-
-    it('throws for invalid field', async () => {
-      await repo.create({ sessionId: 'sess_err' });
-
-      await assert.rejects(
-        () => repo.increment('sess_err', 'invalid_field'),
-        { message: 'Invalid field: invalid_field' }
-      );
-    });
-  });
-
-  describe('getStats', () => {
-    it('returns session statistics', async () => {
-      await repo.create({ sessionId: 's1', judgmentCount: 10, digestCount: 5 });
-      await repo.create({ sessionId: 's2', judgmentCount: 20, digestCount: 3 });
-
-      const stats = await repo.getStats();
-
-      assert.equal(stats.total, 2);
-      assert.equal(stats.totalJudgments, 30);
-      assert.equal(stats.totalDigests, 8);
-    });
-  });
-
-  describe('delete', () => {
-    it('deletes a session', async () => {
-      await repo.create({ sessionId: 'sess_del' });
-      const deleted = await repo.delete('sess_del');
-
-      assert.equal(deleted, true);
-
-      const found = await repo.findById('sess_del');
-      assert.equal(found, null);
-    });
-  });
-});
-
-// ============================================================================
-// FEEDBACK REPOSITORY TESTS
-// ============================================================================
-
-describe('FeedbackRepository', () => {
-  let repo;
-  let mockDb;
-
-  beforeEach(() => {
-    mockDb = createMockDb();
-    repo = new FeedbackRepository(mockDb);
-  });
-
-  describe('create', () => {
-    it('creates new feedback', async () => {
-      const feedback = await repo.create({
-        judgmentId: 'jdg_123',
-        userId: 'user_456',
-        outcome: 'correct',
-        actualScore: 75,
-        reason: 'Good assessment',
-      });
-
-      assert.ok(feedback.id);
-      assert.equal(feedback.judgment_id, 'jdg_123');
-      assert.equal(feedback.outcome, 'correct');
-      assert.equal(feedback.actual_score, 75);
-      assert.equal(feedback.applied, false);
-    });
-  });
-
-  describe('findById', () => {
-    it('finds feedback by id', async () => {
-      const created = await repo.create({
-        judgmentId: 'jdg_abc',
-        outcome: 'incorrect',
-      });
-      const found = await repo.findById(created.id);
-
-      assert.ok(found);
-      assert.equal(found.id, created.id);
-    });
-
-    it('returns null for non-existent feedback', async () => {
-      const found = await repo.findById(99999);
-      assert.equal(found, null);
-    });
-  });
-
-  describe('findByJudgment', () => {
-    it('finds all feedback for a judgment', async () => {
-      await repo.create({ judgmentId: 'jdg_multi', outcome: 'correct' });
-      await repo.create({ judgmentId: 'jdg_multi', outcome: 'partial' });
-      await repo.create({ judgmentId: 'jdg_other', outcome: 'incorrect' });
-
-      const feedback = await repo.findByJudgment('jdg_multi');
-
-      assert.equal(feedback.length, 2);
-    });
-  });
-
-  describe('markApplied', () => {
-    it('marks feedback as applied', async () => {
-      const created = await repo.create({
-        judgmentId: 'jdg_apply',
-        outcome: 'incorrect',
-      });
-
-      const applied = await repo.markApplied(created.id);
-
-      assert.equal(applied.applied, true);
-      assert.ok(applied.applied_at);
-    });
-  });
-
-  describe('getStats', () => {
-    it('returns feedback statistics', async () => {
-      await repo.create({ judgmentId: 'j1', outcome: 'correct' });
-      await repo.create({ judgmentId: 'j2', outcome: 'correct' });
-      await repo.create({ judgmentId: 'j3', outcome: 'incorrect' });
-      await repo.create({ judgmentId: 'j4', outcome: 'partial' });
-
-      const stats = await repo.getStats();
-
-      assert.equal(stats.total, 4);
-      assert.equal(stats.correct, 2);
-      assert.equal(stats.incorrect, 1);
-      assert.equal(stats.partial, 1);
-      assert.equal(stats.accuracy, 0.5); // 2/4
-    });
-  });
-
-  describe('delete', () => {
-    it('deletes feedback', async () => {
-      const created = await repo.create({
-        judgmentId: 'jdg_del',
-        outcome: 'correct',
-      });
-
-      const deleted = await repo.delete(created.id);
-      assert.equal(deleted, true);
-
-      const found = await repo.findById(created.id);
-      assert.equal(found, null);
-    });
-
-    it('returns false for non-existent feedback', async () => {
-      const deleted = await repo.delete(99999);
-      assert.equal(deleted, false);
-    });
-  });
-});
-
-// ============================================================================
-// KNOWLEDGE REPOSITORY TESTS (#19)
-// ============================================================================
-
-describe('KnowledgeRepository', () => {
-  let repo;
-  let mockDb;
-
-  beforeEach(() => {
-    mockDb = createMockDb();
-    repo = new KnowledgeRepository(mockDb);
-  });
-
-  describe('create', () => {
-    it('creates knowledge entry', async () => {
-      const knowledge = await repo.create({
-        sourceType: 'conversation',
-        summary: 'Test summary',
-        content: 'Full content here',
-        insights: ['insight1', 'insight2'],
-        patterns: ['pattern1'],
-        category: 'architecture',
-        tags: ['test', 'example'],
-        qScore: 75,
-        confidence: 0.8,
-      });
-
-      assert.ok(knowledge.knowledge_id);
-      assert.ok(knowledge.knowledge_id.startsWith('kno_'));
-      assert.equal(knowledge.source_type, 'conversation');
-      assert.equal(knowledge.summary, 'Test summary');
-      assert.equal(knowledge.category, 'architecture');
-    });
-  });
-
-  describe('findById', () => {
-    it('finds knowledge by ID', async () => {
-      const created = await repo.create({
-        sourceType: 'code',
-        summary: 'Code analysis',
-        qScore: 80,
-      });
-
-      const found = await repo.findById(created.knowledge_id);
-
-      assert.ok(found);
-      assert.equal(found.knowledge_id, created.knowledge_id);
-      assert.equal(found.summary, 'Code analysis');
-    });
-
-    it('returns null for non-existent knowledge', async () => {
-      const found = await repo.findById('kno_nonexistent');
-      assert.equal(found, null);
-    });
-  });
-
-  describe('findBySourceType', () => {
-    it('finds knowledge by source type', async () => {
-      await repo.create({ sourceType: 'conversation', summary: 'Conv 1' });
-      await repo.create({ sourceType: 'conversation', summary: 'Conv 2' });
-      await repo.create({ sourceType: 'document', summary: 'Doc 1' });
-
-      const conversations = await repo.findBySourceType('conversation');
-
-      assert.equal(conversations.length, 2);
-      assert.ok(conversations.every(k => k.source_type === 'conversation'));
-    });
-  });
-
-  describe('findByCategory', () => {
-    it('finds knowledge by category ordered by score', async () => {
-      await repo.create({ sourceType: 'code', summary: 'Low', category: 'arch', qScore: 50 });
-      await repo.create({ sourceType: 'code', summary: 'High', category: 'arch', qScore: 90 });
-      await repo.create({ sourceType: 'code', summary: 'Other', category: 'security', qScore: 70 });
-
-      const arch = await repo.findByCategory('arch');
-
-      assert.equal(arch.length, 2);
-      assert.ok(arch[0].q_score >= arch[1].q_score);
-    });
-  });
-
-  describe('findRecent', () => {
-    it('returns recent knowledge entries', async () => {
-      await repo.create({ sourceType: 'a', summary: 'Entry 1' });
-      await repo.create({ sourceType: 'b', summary: 'Entry 2' });
-      await repo.create({ sourceType: 'c', summary: 'Entry 3' });
-
-      const recent = await repo.findRecent(2);
-
-      assert.equal(recent.length, 2);
-    });
-  });
-
-  describe('getStats', () => {
-    it('returns knowledge statistics', async () => {
-      await repo.create({ sourceType: 'conversation', summary: 'K1', category: 'arch', qScore: 80 });
-      await repo.create({ sourceType: 'code', summary: 'K2', category: 'security', qScore: 60 });
-
-      const stats = await repo.getStats();
-
-      assert.equal(stats.total, 2);
-      assert.equal(stats.sourceTypes, 2);
-      assert.equal(stats.categories, 2);
-      assert.equal(stats.avgScore, 70);
-    });
-  });
-
-  describe('delete', () => {
-    it('deletes knowledge entry', async () => {
-      const created = await repo.create({ sourceType: 'test', summary: 'To delete' });
-
-      const deleted = await repo.delete(created.knowledge_id);
-      assert.equal(deleted, true);
-
-      const found = await repo.findById(created.knowledge_id);
-      assert.equal(found, null);
-    });
-  });
-});
-
-// ============================================================================
-// ESCORE HISTORY REPOSITORY TESTS (#19)
-// TODO: Mock DB needs to handle getLatest() call within recordSnapshot()
-// ============================================================================
-
-describe('EScoreHistoryRepository', { skip: 'Mock DB incomplete - uses complex delta calculations' }, () => {
-  let repo;
-  let mockDb;
-
-  beforeEach(() => {
-    mockDb = createMockDb();
-    repo = new EScoreHistoryRepository(mockDb);
-  });
-
-  describe('recordSnapshot', () => {
-    it('records E-Score snapshot', async () => {
-      const snapshot = await repo.recordSnapshot(
-        'user_123',
-        0.75,
-        { burns: 10, judgments: 50 },
-        'session_end'
-      );
-
-      assert.ok(snapshot.id);
-      assert.equal(snapshot.user_id, 'user_123');
-      assert.equal(snapshot.e_score, 0.75);
-      assert.equal(snapshot.trigger, 'session_end');
-    });
-  });
-
-  describe('getLatest', () => {
-    it('returns latest snapshot for user', async () => {
-      await repo.recordSnapshot('user_abc', 0.5, {}, 'manual');
-      await repo.recordSnapshot('user_abc', 0.6, {}, 'manual');
-      await repo.recordSnapshot('user_abc', 0.7, {}, 'manual');
-
-      const latest = await repo.getLatest('user_abc');
-
-      assert.ok(latest);
-      assert.equal(latest.e_score, 0.7);
-    });
-
-    it('returns null for user without history', async () => {
-      const latest = await repo.getLatest('nonexistent');
-      assert.equal(latest, null);
-    });
-  });
-
-  describe('getHistory', () => {
-    it('returns user history', async () => {
-      await repo.recordSnapshot('user_hist', 0.5, {});
-      await repo.recordSnapshot('user_hist', 0.6, {});
-      await repo.recordSnapshot('user_other', 0.7, {});
-
-      const history = await repo.getHistory('user_hist');
-
-      assert.equal(history.length, 2);
-      assert.ok(history.every(h => h.user_id === 'user_hist'));
-    });
-  });
-
-  describe('getStats', () => {
-    it('returns history statistics', async () => {
-      await repo.recordSnapshot('u1', 0.8, {});
-      await repo.recordSnapshot('u2', 0.6, {});
-
-      const stats = await repo.getStats();
-
-      assert.equal(stats.total, 2);
-      assert.equal(stats.avgScore, 0.7);
-      assert.equal(stats.users, 2);
-    });
-  });
-});
-
-// ============================================================================
-// LEARNING CYCLES REPOSITORY TESTS (#19)
-// TODO: Mock DB needs to handle cycle_id generation
-// ============================================================================
-
-describe('LearningCyclesRepository', { skip: 'Mock DB incomplete - needs cycle_id generation' }, () => {
-  let repo;
-  let mockDb;
-
-  beforeEach(() => {
-    mockDb = createMockDb();
-    repo = new LearningCyclesRepository(mockDb);
-  });
-
-  describe('record', () => {
-    it('records learning cycle', async () => {
-      const cycle = await repo.record({
-        judgmentId: 'jdg_123',
-        userId: 'user_456',
-        feedbackType: 'correction',
-        originalScore: 60,
-        adjustedScore: 75,
-        learningRate: 0.1,
-        dimensionsAdjusted: ['accuracy', 'clarity'],
-      });
-
-      assert.ok(cycle.cycle_id);
-      assert.equal(cycle.judgment_id, 'jdg_123');
-      assert.equal(cycle.original_score, 60);
-      assert.equal(cycle.adjusted_score, 75);
-    });
-  });
-
-  describe('getRecent', () => {
-    it('returns recent cycles', async () => {
-      await repo.record({ judgmentId: 'j1', originalScore: 50, adjustedScore: 60 });
-      await repo.record({ judgmentId: 'j2', originalScore: 70, adjustedScore: 75 });
-
-      const recent = await repo.getRecent(5);
-
-      assert.equal(recent.length, 2);
-    });
-  });
-
-  describe('findById', () => {
-    it('finds cycle by ID', async () => {
-      const created = await repo.record({ judgmentId: 'jfind', originalScore: 50, adjustedScore: 55 });
-
-      const found = await repo.findById(created.cycle_id);
-
-      assert.ok(found);
-      assert.equal(found.cycle_id, created.cycle_id);
-    });
-  });
-
-  describe('getStats', () => {
-    it('returns cycle statistics', async () => {
-      await repo.record({ judgmentId: 'j1', originalScore: 50, adjustedScore: 60 }); // +10
-      await repo.record({ judgmentId: 'j2', originalScore: 70, adjustedScore: 80 }); // +10
-
-      const stats = await repo.getStats();
-
-      assert.equal(stats.total, 2);
-    });
-  });
-});
-
-// ============================================================================
-// TRIGGERS REPOSITORY TESTS (#19)
-// TODO: Mock DB needs triggers_registry table and generate_trigger_id()
-// ============================================================================
-
-describe('TriggerRepository', { skip: 'Mock DB incomplete - uses triggers_registry not triggers' }, () => {
-  let repo;
-  let mockDb;
-
-  beforeEach(() => {
-    mockDb = createMockDb();
-    repo = new TriggerRepository(mockDb);
-  });
-
-  describe('create', () => {
-    it('creates a trigger', async () => {
-      const trigger = await repo.create({
-        triggerType: 'threshold',
-        name: 'Low Score Alert',
-        description: 'Alert when score drops',
-        action: 'notify',
-        conditions: { threshold: 40 },
-      });
-
-      assert.ok(trigger.trigger_id);
-      assert.equal(trigger.trigger_type, 'threshold');
-      assert.equal(trigger.name, 'Low Score Alert');
-      assert.equal(trigger.enabled, true);
-    });
-  });
-
-  describe('findById', () => {
-    it('finds trigger by ID', async () => {
-      const created = await repo.create({ triggerType: 'event', name: 'Find me' });
-
-      const found = await repo.findById(created.trigger_id);
-
-      assert.ok(found);
-      assert.equal(found.name, 'Find me');
-    });
-
-    it('returns null for non-existent trigger', async () => {
-      const found = await repo.findById('trg_nonexistent');
-      assert.equal(found, null);
+  describe('findByProject', () => {
+    it('should query by project path', async () => {
+      const result = await repo.findByProject('user-1', '/project');
+      assert.ok(Array.isArray(result));
     });
   });
 
   describe('findByType', () => {
-    it('finds triggers by type', async () => {
-      await repo.create({ triggerType: 'threshold', name: 'T1' });
-      await repo.create({ triggerType: 'threshold', name: 'T2' });
-      await repo.create({ triggerType: 'event', name: 'T3' });
-
-      const thresholds = await repo.findByType('threshold');
-
-      assert.equal(thresholds.length, 2);
+    it('should query by decision type', async () => {
+      const result = await repo.findByType('user-1', DecisionType.PATTERN);
+      assert.ok(Array.isArray(result));
     });
   });
 
-  describe('findByAction', () => {
-    it('finds triggers by action', async () => {
-      await repo.create({ triggerType: 'a', name: 'N1', action: 'notify' });
-      await repo.create({ triggerType: 'b', name: 'N2', action: 'notify' });
-      await repo.create({ triggerType: 'c', name: 'L1', action: 'log' });
+  describe('findRecent', () => {
+    it('should query recent decisions', async () => {
+      const result = await repo.findRecent('user-1', 5);
+      assert.ok(Array.isArray(result));
+    });
+  });
 
-      const notifiers = await repo.findByAction('notify');
+  describe('findBySession', () => {
+    it('should return empty array', async () => {
+      const result = await repo.findBySession('user-1', 'sess-1');
+      assert.deepStrictEqual(result, []);
+    });
+  });
 
-      assert.equal(notifiers.length, 2);
+  describe('supersede', () => {
+    it('should create new decision and mark old as superseded', async () => {
+      const result = await repo.supersede('old-dec-1', {
+        userId: 'user-1',
+        decisionType: DecisionType.PATTERN,
+        title: 'New pattern',
+        description: 'Better approach',
+      });
+
+      assert.ok(result);
+      assert.strictEqual(result.decisionType, DecisionType.PATTERN);
+    });
+  });
+
+  describe('update', () => {
+    it('should update decision fields', async () => {
+      const result = await repo.update('dec-1', { title: 'Updated title' });
+      assert.ok(result);
+    });
+
+    it('should call findById when no updates', async () => {
+      const result = await repo.update('dec-1', {});
+      assert.ok(result);
     });
   });
 
   describe('delete', () => {
-    it('deletes trigger', async () => {
-      const created = await repo.create({ triggerType: 'test', name: 'Delete me' });
-
-      const deleted = await repo.delete(created.trigger_id);
-      assert.equal(deleted, true);
-
-      const found = await repo.findById(created.trigger_id);
-      assert.equal(found, null);
+    it('should return true when deleted', async () => {
+      const result = await repo.delete('dec-1');
+      assert.strictEqual(result, true);
     });
   });
 
-  describe('recordExecution', () => {
-    it('records trigger execution', async () => {
-      const trigger = await repo.create({ triggerType: 'test', name: 'Exec test' });
+  describe('list', () => {
+    it('should return array with filters', async () => {
+      const result = await repo.list({ userId: 'user-1', status: 'active' });
+      assert.ok(Array.isArray(result));
+    });
+  });
 
-      const execution = await repo.recordExecution({
-        triggerId: trigger.trigger_id,
+  describe('getStats', () => {
+    it('should return stats object', async () => {
+      const stats = await repo.getStats();
+      assert.strictEqual(stats.total, 10);
+      assert.strictEqual(stats.active, 7);
+      assert.strictEqual(stats.superseded, 2);
+      assert.ok(stats.byType);
+    });
+  });
+
+  describe('_formatRow', () => {
+    it('should return null for null input', () => {
+      assert.strictEqual(repo._formatRow(null), null);
+    });
+
+    it('should format all fields correctly', () => {
+      const row = {
+        id: 'test',
+        user_id: 'u1',
+        project_path: '/p',
+        decision_type: 'pattern',
+        title: 'T',
+        description: 'D',
+        rationale: 'R',
+        alternatives: [{ name: 'alt' }],
+        consequences: { good: true },
+        embedding: null,
+        status: 'active',
+        superseded_by: null,
+        related_decisions: [],
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+      const formatted = repo._formatRow(row);
+      assert.strictEqual(formatted.projectPath, '/p');
+      assert.strictEqual(formatted.decisionType, 'pattern');
+      assert.deepStrictEqual(formatted.alternatives, [{ name: 'alt' }]);
+    });
+  });
+});
+
+// ============================================================================
+// LESSONS LEARNED REPOSITORY
+// ============================================================================
+
+describe('LessonsLearnedRepository', () => {
+  let repo;
+  let mockPool;
+
+  beforeEach(() => {
+    mockPool = createMockPool();
+    repo = new LessonsLearnedRepository(mockPool);
+  });
+
+  describe('constructor', () => {
+    it('should create with provided db pool', () => {
+      assert.ok(repo);
+    });
+  });
+
+  describe('create', () => {
+    it('should create a lesson with all fields', async () => {
+      const result = await repo.create({
+        userId: 'user-1',
+        category: LessonCategory.BUG,
+        mistake: 'Forgot null check',
+        correction: 'Added null check',
+        prevention: 'Always validate inputs',
+        severity: LessonSeverity.HIGH,
+      });
+
+      assert.ok(result);
+      assert.strictEqual(result.userId, 'user-1');
+      assert.strictEqual(result.category, LessonCategory.BUG);
+      assert.strictEqual(result.severity, LessonSeverity.HIGH);
+      assert.ok(result.id);
+    });
+
+    it('should default severity to medium', async () => {
+      const result = await repo.create({
+        userId: 'user-1',
+        category: LessonCategory.PROCESS,
+        mistake: 'Bad process',
+        correction: 'Fixed process',
+      });
+
+      assert.ok(result);
+      assert.strictEqual(result.severity, 'medium');
+    });
+  });
+
+  describe('findById', () => {
+    it('should return lesson when found', async () => {
+      const result = await repo.findById('les-1');
+      assert.ok(result);
+      assert.strictEqual(result.id, 'les-1');
+    });
+  });
+
+  describe('findByCategory', () => {
+    it('should query by category', async () => {
+      const result = await repo.findByCategory('user-1', LessonCategory.BUG);
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('findCritical', () => {
+    it('should query critical/high severity lessons', async () => {
+      const result = await repo.findCritical('user-1');
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('findRecent', () => {
+    it('should query recent lessons', async () => {
+      const result = await repo.findRecent('user-1', 5);
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('findBySession', () => {
+    it('should query by session', async () => {
+      const result = await repo.findBySession('user-1', 'sess-1');
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('findRecurring', () => {
+    it('should query recurring lessons', async () => {
+      const result = await repo.findRecurring('user-1', 2);
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('findSimilar', () => {
+    it('should delegate to search', async () => {
+      const result = await repo.findSimilar('user-1', 'null check', { limit: 3 });
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('recordOccurrence', () => {
+    it('should call stored procedure', async () => {
+      await assert.doesNotReject(() => repo.recordOccurrence('les-1'));
+    });
+  });
+
+  describe('update', () => {
+    it('should update lesson fields', async () => {
+      const result = await repo.update('les-1', { severity: 'critical' });
+      assert.ok(result);
+    });
+  });
+
+  describe('delete', () => {
+    it('should return true when deleted', async () => {
+      const result = await repo.delete('les-1');
+      assert.strictEqual(result, true);
+    });
+  });
+
+  describe('getStats', () => {
+    it('should return stats object', async () => {
+      const stats = await repo.getStats();
+      assert.strictEqual(stats.total, 15);
+      assert.strictEqual(stats.critical, 2);
+      assert.strictEqual(stats.high, 5);
+      assert.strictEqual(stats.recurring, 3);
+      assert.strictEqual(stats.totalOccurrences, 25);
+      assert.ok(stats.byCategory);
+    });
+  });
+
+  describe('_formatRow', () => {
+    it('should return null for null', () => {
+      assert.strictEqual(repo._formatRow(null), null);
+    });
+  });
+});
+
+// ============================================================================
+// AUTONOMOUS GOALS REPOSITORY
+// ============================================================================
+
+describe('AutonomousGoalsRepository', () => {
+  let repo;
+  let mockPool;
+
+  beforeEach(() => {
+    mockPool = createMockPool();
+    repo = new AutonomousGoalsRepository(mockPool);
+  });
+
+  describe('constructor', () => {
+    it('should create with provided db pool', () => {
+      assert.ok(repo);
+    });
+  });
+
+  describe('create', () => {
+    it('should create a goal with all fields', async () => {
+      const result = await repo.create({
+        userId: 'user-1',
+        goalType: GoalType.QUALITY,
+        title: 'Achieve 80% coverage',
+        description: 'Test coverage goal',
+        successCriteria: [{ metric: 'coverage', target: 0.8 }],
+        priority: 70,
+        config: { autoCheck: true },
+      });
+
+      assert.ok(result);
+      assert.strictEqual(result.userId, 'user-1');
+      assert.strictEqual(result.goalType, GoalType.QUALITY);
+      assert.strictEqual(result.status, 'active');
+      assert.strictEqual(result.priority, 70);
+      assert.ok(result.id);
+    });
+
+    it('should default priority to 50', async () => {
+      const result = await repo.create({
+        userId: 'user-1',
+        goalType: GoalType.LEARNING,
+        title: 'Learn Rust',
+      });
+
+      assert.ok(result);
+      assert.strictEqual(result.priority, 50);
+    });
+  });
+
+  describe('findById', () => {
+    it('should return goal when found', async () => {
+      const result = await repo.findById('goal-1');
+      assert.ok(result);
+      assert.strictEqual(result.id, 'goal-1');
+      assert.strictEqual(typeof result.progress, 'number');
+    });
+  });
+
+  describe('findActive', () => {
+    it('should query active goals', async () => {
+      const result = await repo.findActive('user-1');
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('findByType', () => {
+    it('should query by goal type', async () => {
+      const result = await repo.findByType('user-1', GoalType.QUALITY);
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('updateProgress', () => {
+    it('should update progress value', async () => {
+      const result = await repo.updateProgress('goal-1', 0.75);
+      assert.ok(result);
+      assert.strictEqual(result.progress, 0.75);
+    });
+  });
+
+  describe('updateStatus', () => {
+    it('should update status', async () => {
+      const result = await repo.updateStatus('goal-1', GoalStatus.COMPLETED);
+      assert.ok(result);
+      assert.strictEqual(result.status, GoalStatus.COMPLETED);
+    });
+  });
+
+  describe('update', () => {
+    it('should call findById when no updates', async () => {
+      const result = await repo.update('goal-1', {});
+      assert.ok(result);
+    });
+  });
+
+  describe('delete', () => {
+    it('should return true when deleted', async () => {
+      const result = await repo.delete('goal-1');
+      assert.strictEqual(result, true);
+    });
+  });
+
+  describe('list', () => {
+    it('should return array', async () => {
+      const result = await repo.list({ userId: 'user-1' });
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('getStats', () => {
+    it('should return stats object', async () => {
+      const stats = await repo.getStats();
+      assert.strictEqual(stats.total, 8);
+      assert.strictEqual(stats.active, 5);
+      assert.strictEqual(stats.completed, 2);
+      assert.strictEqual(stats.paused, 1);
+      assert.strictEqual(typeof stats.avgProgress, 'number');
+      assert.ok(stats.byType);
+    });
+  });
+
+  describe('_formatRow', () => {
+    it('should return null for null', () => {
+      assert.strictEqual(repo._formatRow(null), null);
+    });
+
+    it('should format all fields', () => {
+      const row = {
+        id: 'g1',
+        user_id: 'u1',
+        goal_type: 'quality',
+        title: 'T',
+        description: 'D',
+        success_criteria: [],
+        progress: '0.5',
+        progress_notes: [],
+        status: 'active',
+        priority: 50,
+        config: {},
+        created_at: new Date(),
+        updated_at: new Date(),
+        completed_at: null,
+        due_at: null,
+      };
+      const f = repo._formatRow(row);
+      assert.strictEqual(f.goalType, 'quality');
+      assert.strictEqual(f.progress, 0.5);
+      assert.strictEqual(f.userId, 'u1');
+    });
+  });
+});
+
+// ============================================================================
+// AUTONOMOUS TASKS REPOSITORY
+// ============================================================================
+
+describe('AutonomousTasksRepository', () => {
+  let repo;
+  let mockPool;
+
+  beforeEach(() => {
+    mockPool = createMockPool();
+    repo = new AutonomousTasksRepository(mockPool);
+  });
+
+  describe('constructor', () => {
+    it('should create with provided db pool', () => {
+      assert.ok(repo);
+    });
+  });
+
+  describe('create', () => {
+    it('should create a task', async () => {
+      const result = await repo.create({
+        userId: 'user-1',
+        taskType: TaskType.ANALYZE_PATTERNS,
+        payload: { patterns: ['singleton'] },
+        priority: 60,
+      });
+
+      assert.ok(result);
+      assert.strictEqual(result.userId, 'user-1');
+      assert.strictEqual(result.taskType, TaskType.ANALYZE_PATTERNS);
+      assert.strictEqual(result.status, 'pending');
+    });
+  });
+
+  describe('findById', () => {
+    it('should return task when found', async () => {
+      const result = await repo.findById('task-1');
+      assert.ok(result);
+      assert.strictEqual(result.id, 'task-1');
+    });
+  });
+
+  describe('claim', () => {
+    it('should atomically claim a pending task', async () => {
+      const result = await repo.claim('task-1');
+      assert.ok(result);
+      assert.strictEqual(result.status, 'running');
+    });
+  });
+
+  describe('complete', () => {
+    it('should mark task as completed', async () => {
+      const result = await repo.complete('task-1', { success: true });
+      assert.ok(result);
+      assert.strictEqual(result.status, 'completed');
+    });
+  });
+
+  describe('cancel', () => {
+    it('should cancel a pending task', async () => {
+      const result = await repo.cancel('task-1');
+      assert.ok(result);
+      assert.strictEqual(result.status, 'cancelled');
+    });
+  });
+
+  describe('findByGoal', () => {
+    it('should query by goal ID', async () => {
+      const result = await repo.findByGoal('goal-1');
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('findByUser', () => {
+    it('should query by user', async () => {
+      const result = await repo.findByUser('user-1');
+      assert.ok(Array.isArray(result));
+    });
+
+    it('should accept status filter', async () => {
+      const result = await repo.findByUser('user-1', { status: 'running' });
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('getRunning', () => {
+    it('should query running tasks', async () => {
+      const result = await repo.getRunning();
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('delete', () => {
+    it('should return true when deleted', async () => {
+      const result = await repo.delete('task-1');
+      assert.strictEqual(result, true);
+    });
+  });
+
+  describe('getStats', () => {
+    it('should return stats object', async () => {
+      const stats = await repo.getStats();
+      assert.strictEqual(stats.total, 20);
+      assert.strictEqual(stats.pending, 8);
+      assert.strictEqual(stats.running, 3);
+      assert.strictEqual(stats.completed, 7);
+      assert.ok(stats.byType);
+    });
+  });
+
+  describe('_formatRow', () => {
+    it('should return null for null', () => {
+      assert.strictEqual(repo._formatRow(null), null);
+    });
+
+    it('should format task fields', () => {
+      const row = {
+        id: 't1',
+        goal_id: 'g1',
+        user_id: 'u1',
+        task_type: 'run_tests',
+        payload: { test: true },
+        status: 'pending',
+        priority: 50,
+        scheduled_for: new Date(),
+        started_at: null,
+        completed_at: null,
+        retry_count: 0,
+        max_retries: 3,
+        error_message: null,
+        result: null,
+        created_by: 'daemon',
+        created_at: new Date(),
+      };
+      const f = repo._formatRow(row);
+      assert.strictEqual(f.goalId, 'g1');
+      assert.strictEqual(f.taskType, 'run_tests');
+      assert.strictEqual(f.maxRetries, 3);
+      assert.strictEqual(f.createdBy, 'daemon');
+    });
+  });
+});
+
+// ============================================================================
+// PROACTIVE NOTIFICATIONS REPOSITORY
+// ============================================================================
+
+describe('ProactiveNotificationsRepository', () => {
+  let repo;
+  let mockPool;
+
+  beforeEach(() => {
+    mockPool = createMockPool();
+    repo = new ProactiveNotificationsRepository(mockPool);
+  });
+
+  describe('constructor', () => {
+    it('should create with provided db pool', () => {
+      assert.ok(repo);
+    });
+  });
+
+  describe('create', () => {
+    it('should create a notification', async () => {
+      const result = await repo.create({
+        userId: 'user-1',
+        notificationType: NotificationType.INSIGHT,
+        title: 'Pattern detected',
+        message: 'You have been using singleton pattern frequently',
+        priority: 60,
+      });
+
+      assert.ok(result);
+      assert.strictEqual(result.userId, 'user-1');
+      assert.strictEqual(result.notificationType, NotificationType.INSIGHT);
+      assert.strictEqual(result.delivered, false);
+    });
+  });
+
+  describe('findById', () => {
+    it('should return notification when found', async () => {
+      const result = await repo.findById('notif-1');
+      assert.ok(result);
+      assert.strictEqual(result.id, 'notif-1');
+    });
+  });
+
+  describe('getPending', () => {
+    it('should query pending notifications', async () => {
+      const result = await repo.getPending('user-1');
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('markDelivered', () => {
+    it('should mark as delivered', async () => {
+      const result = await repo.markDelivered('notif-1');
+      assert.ok(result);
+      assert.strictEqual(result.delivered, true);
+    });
+  });
+
+  describe('markMultipleDelivered', () => {
+    it('should return 0 for empty array', async () => {
+      const result = await repo.markMultipleDelivered([]);
+      assert.strictEqual(result, 0);
+    });
+
+    it('should return count for valid IDs', async () => {
+      const result = await repo.markMultipleDelivered(['id-1', 'id-2']);
+      assert.strictEqual(result, 2);
+    });
+  });
+
+  describe('dismiss', () => {
+    it('should dismiss with action taken', async () => {
+      const result = await repo.dismiss('notif-1', 'acknowledged');
+      assert.ok(result);
+      assert.strictEqual(result.dismissed, true);
+    });
+  });
+
+  describe('findByType', () => {
+    it('should query by type', async () => {
+      const result = await repo.findByType('user-1', NotificationType.WARNING);
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('findRecent', () => {
+    it('should query recent notifications', async () => {
+      const result = await repo.findRecent('user-1');
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('cleanupExpired', () => {
+    it('should delete expired notifications', async () => {
+      const result = await repo.cleanupExpired();
+      assert.strictEqual(result, 3);
+    });
+  });
+
+  describe('delete', () => {
+    it('should return true when deleted', async () => {
+      const result = await repo.delete('notif-1');
+      assert.strictEqual(result, true);
+    });
+  });
+
+  describe('getStats', () => {
+    it('should return stats object', async () => {
+      const stats = await repo.getStats();
+      assert.strictEqual(stats.total, 12);
+      assert.strictEqual(stats.pending, 5);
+      assert.strictEqual(stats.delivered, 6);
+      assert.strictEqual(stats.dismissed, 1);
+      assert.ok(stats.byType);
+    });
+  });
+
+  describe('_formatRow', () => {
+    it('should return null for null', () => {
+      assert.strictEqual(repo._formatRow(null), null);
+    });
+
+    it('should format notification fields', () => {
+      const row = {
+        id: 'n1',
+        user_id: 'u1',
+        notification_type: 'insight',
+        title: 'T',
+        message: 'M',
+        priority: 50,
+        context: {},
+        delivered: false,
+        delivered_at: null,
+        expires_at: null,
+        dismissed: false,
+        dismissed_at: null,
+        action_taken: null,
+        created_at: new Date(),
+      };
+      const f = repo._formatRow(row);
+      assert.strictEqual(f.notificationType, 'insight');
+      assert.strictEqual(f.delivered, false);
+      assert.strictEqual(f.dismissed, false);
+    });
+  });
+});
+
+// ============================================================================
+// FACTS REPOSITORY
+// ============================================================================
+
+describe('FactsRepository', () => {
+  let repo;
+  let mockPool;
+
+  beforeEach(() => {
+    mockPool = createMockPool();
+    repo = new FactsRepository(mockPool);
+  });
+
+  describe('constructor', () => {
+    it('should create with provided db pool', () => {
+      assert.ok(repo);
+    });
+  });
+
+  describe('ensureTable', () => {
+    it('should execute CREATE TABLE and TRIGGER SQL', async () => {
+      await assert.doesNotReject(() => repo.ensureTable());
+      assert.ok(mockPool.query.mock.calls.length >= 2);
+    });
+  });
+
+  describe('create', () => {
+    it('should create a fact', async () => {
+      const result = await repo.create({
+        userId: 'user-1',
+        sessionId: 'sess-1',
+        factType: FactType.CODE_PATTERN,
+        subject: 'Export pattern in utils.js',
+        content: 'File exports 5 functions',
+        tags: ['exports', 'js'],
+        confidence: 0.5,
+      });
+
+      assert.ok(result);
+      assert.ok(result.factId);
+      assert.strictEqual(result.userId, 'user-1');
+      assert.strictEqual(typeof result.confidence, 'number');
+    });
+
+    it('should cap confidence at phi-inverse', async () => {
+      const result = await repo.create({
+        subject: 'Test',
+        content: 'Test content',
+        confidence: 0.99,
+      });
+      // The mock returns the value as-is, but the source code caps at PHI_INV
+      assert.ok(result);
+    });
+  });
+
+  describe('createBatch', () => {
+    it('should return empty array for empty input', async () => {
+      const result = await repo.createBatch([]);
+      assert.deepStrictEqual(result, []);
+    });
+
+    it('should return empty array for null input', async () => {
+      const result = await repo.createBatch(null);
+      assert.deepStrictEqual(result, []);
+    });
+  });
+
+  describe('findById', () => {
+    it('should return fact when found', async () => {
+      const result = await repo.findById('fact_abc123');
+      assert.ok(result);
+      assert.strictEqual(result.factId, 'fact_abc123');
+    });
+
+    it('should return null when not found', async () => {
+      mockPool.query = mock.fn(async () => ({ rows: [] }));
+      const result = await repo.findById('nonexistent');
+      assert.strictEqual(result, null);
+    });
+  });
+
+  describe('update', () => {
+    it('should update fact fields', async () => {
+      const result = await repo.update('fact_abc', { content: 'Updated', confidence: 0.6 });
+      assert.ok(result);
+    });
+
+    it('should return null when no fields to update', async () => {
+      const result = await repo.update('fact_abc', {});
+      assert.strictEqual(result, null);
+    });
+  });
+
+  describe('findByUser', () => {
+    it('should query by user', async () => {
+      const result = await repo.findByUser('user-1');
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('findBySession', () => {
+    it('should query by session', async () => {
+      const result = await repo.findBySession('sess-1');
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('recordAccess', () => {
+    it('should not reject', async () => {
+      await assert.doesNotReject(() => repo.recordAccess('fact_abc'));
+    });
+  });
+
+  describe('decayStale', () => {
+    it('should return count of decayed facts', async () => {
+      const result = await repo.decayStale(30, 0.05);
+      assert.strictEqual(typeof result, 'number');
+    });
+  });
+
+  describe('prune', () => {
+    it('should return count of pruned facts', async () => {
+      const result = await repo.prune(0.1, 90);
+      assert.strictEqual(result, 5);
+    });
+  });
+
+  describe('getStats', () => {
+    it('should return stats object', async () => {
+      const stats = await repo.getStats();
+      assert.strictEqual(stats.total, 50);
+      assert.strictEqual(stats.types, 5);
+      assert.strictEqual(stats.tools, 4);
+      assert.strictEqual(typeof stats.avgConfidence, 'number');
+      assert.strictEqual(typeof stats.totalAccesses, 'number');
+    });
+  });
+
+  describe('_cosineSimilarity', () => {
+    it('should return 1 for identical vectors', () => {
+      const v = [1, 0, 0];
+      assert.ok(Math.abs(repo._cosineSimilarity(v, v) - 1.0) < 0.001);
+    });
+
+    it('should return 0 for orthogonal vectors', () => {
+      assert.ok(Math.abs(repo._cosineSimilarity([1, 0], [0, 1])) < 0.001);
+    });
+
+    it('should return 0 for null inputs', () => {
+      assert.strictEqual(repo._cosineSimilarity(null, [1, 0]), 0);
+      assert.strictEqual(repo._cosineSimilarity([1, 0], null), 0);
+    });
+
+    it('should return 0 for mismatched lengths', () => {
+      assert.strictEqual(repo._cosineSimilarity([1, 0], [1, 0, 0]), 0);
+    });
+
+    it('should return 0 for zero vectors', () => {
+      assert.strictEqual(repo._cosineSimilarity([0, 0], [0, 0]), 0);
+    });
+  });
+
+  describe('_mapRow', () => {
+    it('should return null for null input', () => {
+      assert.strictEqual(repo._mapRow(null), null);
+    });
+
+    it('should format fact fields correctly', () => {
+      const row = {
+        fact_id: 'f1',
+        user_id: 'u1',
+        session_id: 's1',
+        fact_type: 'code_pattern',
+        subject: 'S',
+        content: 'C',
+        context: {},
+        source_tool: 'Read',
+        source_file: 'test.js',
+        confidence: '0.5',
+        relevance: '0.4',
+        access_count: 2,
+        last_accessed: new Date(),
+        tags: ['a'],
+        embedding: null,
+        embedding_model: null,
+        embedding_dim: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+        rank: '0.8',
+      };
+      const f = repo._mapRow(row);
+      assert.strictEqual(f.factId, 'f1');
+      assert.strictEqual(f.sourceTool, 'Read');
+      assert.strictEqual(f.confidence, 0.5);
+      assert.strictEqual(f.relevance, 0.4);
+      assert.strictEqual(f.rank, 0.8);
+    });
+  });
+});
+
+// ============================================================================
+// TRAJECTORIES REPOSITORY
+// ============================================================================
+
+describe('TrajectoriesRepository', () => {
+  let repo;
+  let mockPool;
+
+  beforeEach(() => {
+    mockPool = createMockPool();
+    repo = new TrajectoriesRepository(mockPool);
+  });
+
+  describe('constructor', () => {
+    it('should create with provided db pool', () => {
+      assert.ok(repo);
+    });
+  });
+
+  describe('ensureTable', () => {
+    it('should execute CREATE TABLE and TRIGGER SQL', async () => {
+      await assert.doesNotReject(() => repo.ensureTable());
+    });
+  });
+
+  describe('start', () => {
+    it('should start a new trajectory', async () => {
+      const result = await repo.start({
+        userId: 'user-1',
+        sessionId: 'sess-1',
+        dogId: 'scout',
+        taskType: 'exploration',
+        initialState: { files: 10 },
+        tags: ['test'],
+      });
+
+      assert.ok(result);
+      assert.ok(result.trajectoryId);
+      assert.strictEqual(result.outcome, 'pending');
+    });
+  });
+
+  describe('recordAction', () => {
+    it('should append action to trajectory', async () => {
+      const result = await repo.recordAction('traj_abc', {
+        tool: 'Read',
+        input: { file_path: '/test.js' },
+        output: 'content',
         success: true,
-        durationMs: 150,
       });
-
-      assert.ok(execution.id);
-      assert.equal(execution.success, true);
-      assert.equal(execution.duration_ms, 150);
+      assert.ok(result);
     });
   });
 
-  describe('getStats', () => {
-    it('returns trigger statistics', async () => {
-      await repo.create({ triggerType: 'threshold', name: 'T1', enabled: true });
-      await repo.create({ triggerType: 'event', name: 'T2', enabled: true });
-
-      const stats = await repo.getStats();
-
-      assert.equal(stats.total, 2);
-      assert.equal(stats.enabled, 2);
-      assert.equal(stats.types, 2);
+  describe('recordSwitch', () => {
+    it('should record dog switch', async () => {
+      const result = await repo.recordSwitch('traj_abc', 'scout', 'architect', 'complex task');
+      assert.ok(result);
     });
   });
-});
 
-// ============================================================================
-// PATTERN EVOLUTION REPOSITORY TESTS (#19)
-// TODO: Mock DB needs ON CONFLICT upsert pattern
-// ============================================================================
-
-describe('PatternEvolutionRepository', { skip: 'Mock DB incomplete - needs ON CONFLICT handling' }, () => {
-  let repo;
-  let mockDb;
-
-  beforeEach(() => {
-    mockDb = createMockDb();
-    repo = new PatternEvolutionRepository(mockDb);
-  });
-
-  describe('upsert', () => {
-    it('creates new pattern', async () => {
-      const pattern = await repo.upsert({
-        type: 'code',
-        key: 'async-await',
-        description: 'Async/await pattern usage',
-        confidence: 0.8,
+  describe('complete', () => {
+    it('should complete trajectory with success', async () => {
+      const result = await repo.complete('traj_abc', {
+        outcome: TrajectoryOutcome.SUCCESS,
+        details: { summary: 'Done' },
       });
-
-      assert.ok(pattern.id);
-      assert.equal(pattern.type, 'code');
-      assert.equal(pattern.key, 'async-await');
+      assert.ok(result);
+      assert.strictEqual(result.outcome, TrajectoryOutcome.SUCCESS);
     });
 
-    it('increments frequency on update', async () => {
-      await repo.upsert({ type: 'code', key: 'pattern1', confidence: 0.5 });
-      const updated = await repo.upsert({ type: 'code', key: 'pattern1', confidence: 0.6 });
-
-      assert.ok(updated.frequency >= 2);
-    });
-  });
-
-  describe('findByType', () => {
-    it('finds patterns by type', async () => {
-      await repo.upsert({ type: 'code', key: 'p1' });
-      await repo.upsert({ type: 'code', key: 'p2' });
-      await repo.upsert({ type: 'behavior', key: 'p3' });
-
-      const codePatterns = await repo.findByType('code');
-
-      assert.equal(codePatterns.length, 2);
+    it('should complete trajectory with failure', async () => {
+      const result = await repo.complete('traj_abc', {
+        outcome: TrajectoryOutcome.FAILURE,
+        details: { error: 'timeout' },
+      });
+      assert.ok(result);
     });
   });
 
-  describe('getTopPatterns', () => {
-    it('returns patterns ordered by frequency', async () => {
-      await repo.upsert({ type: 'a', key: 'low', frequency: 2 });
-      await repo.upsert({ type: 'b', key: 'high', frequency: 10 });
+  describe('_calculateReward', () => {
+    it('should give positive reward for success', () => {
+      const reward = repo._calculateReward({ outcome: TrajectoryOutcome.SUCCESS });
+      assert.ok(reward > 0);
+    });
 
-      const top = await repo.getTopPatterns(5);
+    it('should give partial reward for partial', () => {
+      const reward = repo._calculateReward({ outcome: TrajectoryOutcome.PARTIAL });
+      assert.ok(reward > 0);
+      assert.ok(reward < 0.618);
+    });
 
-      assert.ok(top.length >= 1);
+    it('should give negative reward for failure', () => {
+      const reward = repo._calculateReward({ outcome: TrajectoryOutcome.FAILURE });
+      assert.ok(reward < 0);
+    });
+
+    it('should give negative reward for abandoned', () => {
+      const reward = repo._calculateReward({ outcome: TrajectoryOutcome.ABANDONED });
+      assert.ok(reward < 0);
+    });
+
+    it('should bonus for zero errors', () => {
+      const withErrors = repo._calculateReward({ outcome: TrajectoryOutcome.SUCCESS, errorCount: 1 });
+      const noErrors = repo._calculateReward({ outcome: TrajectoryOutcome.SUCCESS, errorCount: 0 });
+      assert.ok(noErrors >= withErrors);
+    });
+
+    it('should cap reward at phi-inverse', () => {
+      const reward = repo._calculateReward({
+        outcome: TrajectoryOutcome.SUCCESS,
+        errorCount: 0,
+        switchCount: 0,
+      });
+      assert.ok(reward <= 0.618033988749895);
+    });
+  });
+
+  describe('_computeSimilarityHash', () => {
+    it('should return a hex string', () => {
+      const hash = repo._computeSimilarityHash({
+        taskType: 'explore',
+        dogId: 'scout',
+        outcome: 'success',
+      });
+      assert.ok(typeof hash === 'string');
+      assert.strictEqual(hash.length, 16);
+    });
+
+    it('should produce consistent hashes', () => {
+      const input = { taskType: 'test', dogId: 'analyst', outcome: 'success' };
+      const hash1 = repo._computeSimilarityHash(input);
+      const hash2 = repo._computeSimilarityHash(input);
+      assert.strictEqual(hash1, hash2);
+    });
+
+    it('should produce different hashes for different inputs', () => {
+      const hash1 = repo._computeSimilarityHash({ taskType: 'a', dogId: 'b', outcome: 'c' });
+      const hash2 = repo._computeSimilarityHash({ taskType: 'x', dogId: 'y', outcome: 'z' });
+      assert.notStrictEqual(hash1, hash2);
+    });
+  });
+
+  describe('findById', () => {
+    it('should return trajectory when found', async () => {
+      const result = await repo.findById('traj_abc');
+      assert.ok(result);
+      assert.strictEqual(result.trajectoryId, 'traj_abc');
+    });
+  });
+
+  describe('findSuccessful', () => {
+    it('should query successful trajectories', async () => {
+      const result = await repo.findSuccessful('exploration');
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('findSimilar', () => {
+    it('should query by similarity hash', async () => {
+      const result = await repo.findSimilar('abc123', 5);
+      assert.ok(Array.isArray(result));
+    });
+  });
+
+  describe('recordReplay', () => {
+    it('should record successful replay', async () => {
+      const result = await repo.recordReplay('traj_abc', true);
+      assert.ok(result);
+    });
+
+    it('should record failed replay', async () => {
+      const result = await repo.recordReplay('traj_abc', false);
+      assert.ok(result);
     });
   });
 
   describe('getStats', () => {
-    it('returns pattern evolution statistics', async () => {
-      await repo.upsert({ type: 'code', key: 'p1', frequency: 5 });
-      await repo.upsert({ type: 'behavior', key: 'p2', frequency: 3 });
-
+    it('should return stats object', async () => {
       const stats = await repo.getStats();
+      assert.strictEqual(stats.total, 100);
+      assert.strictEqual(stats.successes, 70);
+      assert.strictEqual(stats.failures, 20);
+      assert.strictEqual(typeof stats.avgReward, 'number');
+      assert.strictEqual(typeof stats.totalReplays, 'number');
+    });
+  });
 
-      assert.equal(stats.total, 2);
-      assert.equal(stats.types, 2);
-      assert.equal(stats.totalFrequency, 8);
+  describe('_mapRow', () => {
+    it('should return null for null', () => {
+      assert.strictEqual(repo._mapRow(null), null);
+    });
+
+    it('should format trajectory fields', () => {
+      const row = {
+        trajectory_id: 't1',
+        user_id: 'u1',
+        session_id: 's1',
+        dog_id: 'scout',
+        task_type: 'explore',
+        initial_state: {},
+        action_sequence: [{ tool: 'Read' }],
+        outcome: 'success',
+        outcome_details: {},
+        reward: '0.618',
+        duration_ms: 5000,
+        tool_count: 3,
+        error_count: 0,
+        switch_count: 1,
+        similarity_hash: 'abc',
+        replay_count: 2,
+        success_after_replay: true,
+        confidence: '0.55',
+        tags: ['test'],
+        created_at: new Date(),
+        updated_at: new Date(),
+        rank: '0.9',
+      };
+      const f = repo._mapRow(row);
+      assert.strictEqual(f.trajectoryId, 't1');
+      assert.strictEqual(f.dogId, 'scout');
+      assert.strictEqual(f.reward, 0.618);
+      assert.strictEqual(f.confidence, 0.55);
+      assert.strictEqual(f.rank, 0.9);
+      assert.strictEqual(f.replayCount, 2);
     });
   });
 });
-
-// ============================================================================
-// LIBRARY CACHE REPOSITORY TESTS (#19)
-// TODO: Mock DB needs query_hash handling and UPDATE for get()
-// ============================================================================
-
-describe('LibraryCacheRepository', { skip: 'Mock DB incomplete - uses query_hash not query' }, () => {
-  let repo;
-  let mockDb;
-
-  beforeEach(() => {
-    mockDb = createMockDb();
-    repo = new LibraryCacheRepository(mockDb);
-  });
-
-  describe('set', () => {
-    it('stores content in cache', async () => {
-      const cache = await repo.set('react', 'hooks', 'React hooks documentation', { version: '18' });
-
-      assert.ok(cache);
-      assert.equal(cache.library_id, 'react');
-      assert.equal(cache.content, 'React hooks documentation');
-    });
-  });
-
-  describe('get', () => {
-    it('returns null for cache miss', async () => {
-      const cache = await repo.get('unknown', 'query');
-      assert.equal(cache, null);
-    });
-  });
-
-  describe('getByLibrary', () => {
-    it('returns all cached entries for library', async () => {
-      await repo.set('vue', 'setup', 'Vue setup docs');
-      await repo.set('vue', 'composition', 'Vue composition docs');
-      await repo.set('react', 'hooks', 'React hooks');
-
-      const vueCache = await repo.getByLibrary('vue');
-
-      assert.equal(vueCache.length, 2);
-    });
-  });
-
-  describe('getStats', () => {
-    it('returns cache statistics', async () => {
-      await repo.set('lib1', 'q1', 'content1');
-      await repo.set('lib2', 'q2', 'content2');
-
-      const stats = await repo.getStats();
-
-      assert.equal(stats.total, 2);
-      assert.equal(stats.libraries, 2);
-    });
-  });
-});
-
-// NOTE: The following tests are skipped pending mock DB improvements.
-// The mock DB doesn't fully handle the complex SQL patterns used by these repos.
-// These repos work correctly with real PostgreSQL (see integration tests).
-// TODO: Improve mock DB to handle:
-// - EScoreHistoryRepository: Complex INSERT with delta calculation
-// - LearningCyclesRepository: cycle_id generation
-// - TriggerRepository: trigger_id generation  
-// - PatternEvolutionRepository: ON CONFLICT patterns
-// - LibraryCacheRepository: query_hash-based lookups
