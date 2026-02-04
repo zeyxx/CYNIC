@@ -1,0 +1,7 @@
+{
+  "timestamp": "2026-02-03T23:47:16.405Z",
+  "mode": "quick",
+  "benchmarks": {
+    "dogs_error": "Cannot read properties of undefined (reading 'toString')"
+  }
+}

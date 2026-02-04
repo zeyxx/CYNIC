@@ -1,0 +1,495 @@
+{
+  "timestamp": "2026-02-03T23:47:26.083Z",
+  "config": {
+    "epochs": 3,
+    "samplesPerEpoch": 10
+  },
+  "epochs": [
+    {
+      "epoch": 0,
+      "startedAt": "2026-02-03T23:47:24.201Z",
+      "completedAt": "2026-02-03T23:47:24.832Z",
+      "metrics": {
+        "samplesCount": 10,
+        "precision": 0.8333333333333334,
+        "recall": 0.5555555555555556,
+        "f1": 0.6666666666666667,
+        "verdictAccuracy": 0.9,
+        "avgLatencyMs": 0,
+        "patternsLearned": 0,
+        "patternsFalsified": 0
+      },
+      "samples": [
+        {
+          "sampleId": "cmd-001",
+          "l1Verdict": "BARK",
+          "l2Verdict": "BARK",
+          "expectedVerdict": "BARK",
+          "verdictMatch": true,
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "sql-002",
+          "l1Verdict": "BARK",
+          "l2Verdict": "BARK",
+          "expectedVerdict": "BARK",
+          "verdictMatch": true,
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "xss-002",
+          "l1Verdict": "WAG",
+          "l2Verdict": "GROWL",
+          "expectedVerdict": "GROWL",
+          "verdictMatch": false,
+          "truePositives": 0,
+          "falsePositives": 0,
+          "falseNegatives": 1,
+          "precision": 0,
+          "recall": 0,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "sql-001",
+          "l1Verdict": "BARK",
+          "l2Verdict": "BARK",
+          "expectedVerdict": "BARK",
+          "verdictMatch": true,
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "crypto-002",
+          "l1Verdict": "GROWL",
+          "l2Verdict": "GROWL",
+          "expectedVerdict": "GROWL",
+          "verdictMatch": true,
+          "truePositives": 0,
+          "falsePositives": 1,
+          "falseNegatives": 1,
+          "precision": 0,
+          "recall": 0,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "safe-001",
+          "l1Verdict": "HOWL",
+          "l2Verdict": "HOWL",
+          "expectedVerdict": "HOWL",
+          "verdictMatch": true,
+          "truePositives": 0,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 0,
+          "recall": 0,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "logic-002",
+          "l1Verdict": "WAG",
+          "l2Verdict": "WAG",
+          "expectedVerdict": "WAG",
+          "verdictMatch": true,
+          "truePositives": 0,
+          "falsePositives": 0,
+          "falseNegatives": 1,
+          "precision": 0,
+          "recall": 0,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "safe-003",
+          "l1Verdict": "HOWL",
+          "l2Verdict": "HOWL",
+          "expectedVerdict": "HOWL",
+          "verdictMatch": true,
+          "truePositives": 0,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 0,
+          "recall": 0,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "crypto-001",
+          "l1Verdict": "GROWL",
+          "l2Verdict": "GROWL",
+          "expectedVerdict": "GROWL",
+          "verdictMatch": true,
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 1,
+          "precision": 1,
+          "recall": 0.5,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "logic-001",
+          "l1Verdict": "BARK",
+          "l2Verdict": "BARK",
+          "expectedVerdict": "BARK",
+          "verdictMatch": true,
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1,
+          "latencyMs": 0
+        }
+      ]
+    },
+    {
+      "epoch": 1,
+      "startedAt": "2026-02-03T23:47:24.832Z",
+      "completedAt": "2026-02-03T23:47:25.458Z",
+      "metrics": {
+        "samplesCount": 10,
+        "precision": 1,
+        "recall": 0.5555555555555556,
+        "f1": 0.7142857142857143,
+        "verdictAccuracy": 0.8,
+        "avgLatencyMs": 0,
+        "patternsLearned": 0,
+        "patternsFalsified": 0
+      },
+      "samples": [
+        {
+          "sampleId": "sql-001",
+          "l1Verdict": "BARK",
+          "l2Verdict": "BARK",
+          "expectedVerdict": "BARK",
+          "verdictMatch": true,
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "sql-002",
+          "l1Verdict": "BARK",
+          "l2Verdict": "BARK",
+          "expectedVerdict": "BARK",
+          "verdictMatch": true,
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "proto-001",
+          "l1Verdict": "GROWL",
+          "l2Verdict": "GROWL",
+          "expectedVerdict": "GROWL",
+          "verdictMatch": true,
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "race-001",
+          "l1Verdict": "WAG",
+          "l2Verdict": "GROWL",
+          "expectedVerdict": "GROWL",
+          "verdictMatch": false,
+          "truePositives": 0,
+          "falsePositives": 0,
+          "falseNegatives": 1,
+          "precision": 0,
+          "recall": 0,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "xss-001",
+          "l1Verdict": "GROWL",
+          "l2Verdict": "GROWL",
+          "expectedVerdict": "GROWL",
+          "verdictMatch": true,
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "safe-001",
+          "l1Verdict": "HOWL",
+          "l2Verdict": "HOWL",
+          "expectedVerdict": "HOWL",
+          "verdictMatch": true,
+          "truePositives": 0,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 0,
+          "recall": 0,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "eval-001",
+          "l1Verdict": "BARK",
+          "l2Verdict": "BARK",
+          "expectedVerdict": "BARK",
+          "verdictMatch": true,
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "xss-002",
+          "l1Verdict": "WAG",
+          "l2Verdict": "GROWL",
+          "expectedVerdict": "GROWL",
+          "verdictMatch": false,
+          "truePositives": 0,
+          "falsePositives": 0,
+          "falseNegatives": 1,
+          "precision": 0,
+          "recall": 0,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "safe-002",
+          "l1Verdict": "HOWL",
+          "l2Verdict": "HOWL",
+          "expectedVerdict": "HOWL",
+          "verdictMatch": true,
+          "truePositives": 0,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 0,
+          "recall": 0,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "dos-001",
+          "l1Verdict": "WAG",
+          "l2Verdict": "WAG",
+          "expectedVerdict": "WAG",
+          "verdictMatch": true,
+          "truePositives": 0,
+          "falsePositives": 0,
+          "falseNegatives": 2,
+          "precision": 0,
+          "recall": 0,
+          "latencyMs": 0
+        }
+      ]
+    },
+    {
+      "epoch": 2,
+      "startedAt": "2026-02-03T23:47:25.458Z",
+      "completedAt": "2026-02-03T23:47:26.082Z",
+      "metrics": {
+        "samplesCount": 10,
+        "precision": 1,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
+        "verdictAccuracy": 0.9,
+        "avgLatencyMs": 0,
+        "patternsLearned": 2,
+        "patternsFalsified": 0
+      },
+      "samples": [
+        {
+          "sampleId": "sql-001",
+          "l1Verdict": "BARK",
+          "l2Verdict": "BARK",
+          "expectedVerdict": "BARK",
+          "verdictMatch": true,
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "safe-001",
+          "l1Verdict": "HOWL",
+          "l2Verdict": "HOWL",
+          "expectedVerdict": "HOWL",
+          "verdictMatch": true,
+          "truePositives": 0,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 0,
+          "recall": 0,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "logic-001",
+          "l1Verdict": "BARK",
+          "l2Verdict": "BARK",
+          "expectedVerdict": "BARK",
+          "verdictMatch": true,
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "dos-001",
+          "l1Verdict": "WAG",
+          "l2Verdict": "WAG",
+          "expectedVerdict": "WAG",
+          "verdictMatch": true,
+          "truePositives": 0,
+          "falsePositives": 0,
+          "falseNegatives": 2,
+          "precision": 0,
+          "recall": 0,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "race-001",
+          "l1Verdict": "WAG",
+          "l2Verdict": "GROWL",
+          "expectedVerdict": "GROWL",
+          "verdictMatch": false,
+          "truePositives": 0,
+          "falsePositives": 0,
+          "falseNegatives": 1,
+          "precision": 0,
+          "recall": 0,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "safe-002",
+          "l1Verdict": "HOWL",
+          "l2Verdict": "HOWL",
+          "expectedVerdict": "HOWL",
+          "verdictMatch": true,
+          "truePositives": 0,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 0,
+          "recall": 0,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "sql-002",
+          "l1Verdict": "BARK",
+          "l2Verdict": "BARK",
+          "expectedVerdict": "BARK",
+          "verdictMatch": true,
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "auth-002",
+          "l1Verdict": "BARK",
+          "l2Verdict": "BARK",
+          "expectedVerdict": "BARK",
+          "verdictMatch": true,
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "xss-001",
+          "l1Verdict": "GROWL",
+          "l2Verdict": "GROWL",
+          "expectedVerdict": "GROWL",
+          "verdictMatch": true,
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1,
+          "latencyMs": 0
+        },
+        {
+          "sampleId": "path-001",
+          "l1Verdict": "BARK",
+          "l2Verdict": "BARK",
+          "expectedVerdict": "BARK",
+          "verdictMatch": true,
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1,
+          "latencyMs": 0
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "epochs": [
+      {
+        "epoch": 0,
+        "metrics": {
+          "samplesCount": 10,
+          "precision": 0.8333333333333334,
+          "recall": 0.5555555555555556,
+          "f1": 0.6666666666666667,
+          "verdictAccuracy": 0.9,
+          "avgLatencyMs": 0,
+          "patternsLearned": 0,
+          "patternsFalsified": 0
+        }
+      },
+      {
+        "epoch": 1,
+        "metrics": {
+          "samplesCount": 10,
+          "precision": 1,
+          "recall": 0.5555555555555556,
+          "f1": 0.7142857142857143,
+          "verdictAccuracy": 0.8,
+          "avgLatencyMs": 0,
+          "patternsLearned": 0,
+          "patternsFalsified": 0
+        }
+      },
+      {
+        "epoch": 2,
+        "metrics": {
+          "samplesCount": 10,
+          "precision": 1,
+          "recall": 0.6666666666666666,
+          "f1": 0.8,
+          "verdictAccuracy": 0.9,
+          "avgLatencyMs": 0,
+          "patternsLearned": 2,
+          "patternsFalsified": 0
+        }
+      }
+    ],
+    "totalPatternsLearned": 2,
+    "f1Improvement": 0.1333333333333333
+  }
+}

@@ -1,0 +1,1357 @@
+{
+  "timestamp": "2026-02-02T19:13:49.586Z",
+  "config": {
+    "runsPerSample": 3,
+    "samplesCount": 20
+  },
+  "results": {
+    "L1": {
+      "results": [
+        {
+          "sampleId": "sql-001",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "SQL_INJECTION",
+                  "severity": "critical",
+                  "confidence": 0.8,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629582
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "SQL_INJECTION",
+                  "severity": "critical",
+                  "confidence": 0.8,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629582
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "SQL_INJECTION",
+                  "severity": "critical",
+                  "confidence": 0.8,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629582
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.618",
+            "issueTypesDetected": [
+              "SQL_INJECTION"
+            ],
+            "consensusVerdict": "BARK",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 1,
+            "falsePositives": 0,
+            "falseNegatives": 0,
+            "precision": 1,
+            "recall": 1,
+            "verdictMatch": true,
+            "verdictDirectionMatch": true,
+            "scoreInRange": false
+          }
+        },
+        {
+          "sampleId": "sql-002",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "SQL_INJECTION",
+                  "severity": "critical",
+                  "confidence": 0.8,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629583
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "SQL_INJECTION",
+                  "severity": "critical",
+                  "confidence": 0.8,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629583
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "SQL_INJECTION",
+                  "severity": "critical",
+                  "confidence": 0.8,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629583
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.618",
+            "issueTypesDetected": [
+              "SQL_INJECTION"
+            ],
+            "consensusVerdict": "BARK",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 1,
+            "falsePositives": 0,
+            "falseNegatives": 0,
+            "precision": 1,
+            "recall": 1,
+            "verdictMatch": true,
+            "verdictDirectionMatch": true,
+            "scoreInRange": false
+          }
+        },
+        {
+          "sampleId": "xss-001",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "XSS",
+                  "severity": "high",
+                  "confidence": 0.7,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "GROWL",
+              "confidence": 0.5,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629583
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "XSS",
+                  "severity": "high",
+                  "confidence": 0.7,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "GROWL",
+              "confidence": 0.5,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629583
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "XSS",
+                  "severity": "high",
+                  "confidence": 0.7,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "GROWL",
+              "confidence": 0.5,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629583
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.500",
+            "issueTypesDetected": [
+              "XSS"
+            ],
+            "consensusVerdict": "GROWL",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 1,
+            "falsePositives": 0,
+            "falseNegatives": 0,
+            "precision": 1,
+            "recall": 1,
+            "verdictMatch": true,
+            "verdictDirectionMatch": true,
+            "scoreInRange": true
+          }
+        },
+        {
+          "sampleId": "xss-002",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629583
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629583
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629583
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.382",
+            "issueTypesDetected": [],
+            "consensusVerdict": "WAG",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 0,
+            "falsePositives": 0,
+            "falseNegatives": 1,
+            "precision": 0,
+            "recall": 0,
+            "verdictMatch": false,
+            "verdictDirectionMatch": false,
+            "scoreInRange": true
+          }
+        },
+        {
+          "sampleId": "auth-001",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629583
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629583
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629583
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.382",
+            "issueTypesDetected": [],
+            "consensusVerdict": "WAG",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 0,
+            "falsePositives": 0,
+            "falseNegatives": 2,
+            "precision": 0,
+            "recall": 0,
+            "verdictMatch": false,
+            "verdictDirectionMatch": false,
+            "scoreInRange": true
+          }
+        },
+        {
+          "sampleId": "auth-002",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "HARDCODED_SECRET",
+                  "severity": "critical",
+                  "confidence": 0.6,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629583
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "HARDCODED_SECRET",
+                  "severity": "critical",
+                  "confidence": 0.6,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629584
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "HARDCODED_SECRET",
+                  "severity": "critical",
+                  "confidence": 0.6,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629584
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.618",
+            "issueTypesDetected": [
+              "HARDCODED_SECRET"
+            ],
+            "consensusVerdict": "BARK",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 1,
+            "falsePositives": 0,
+            "falseNegatives": 0,
+            "precision": 1,
+            "recall": 1,
+            "verdictMatch": true,
+            "verdictDirectionMatch": true,
+            "scoreInRange": false
+          }
+        },
+        {
+          "sampleId": "path-001",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "PATH_TRAVERSAL",
+                  "severity": "critical",
+                  "confidence": 0.7,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629584
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "PATH_TRAVERSAL",
+                  "severity": "critical",
+                  "confidence": 0.7,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629584
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "PATH_TRAVERSAL",
+                  "severity": "critical",
+                  "confidence": 0.7,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629584
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.618",
+            "issueTypesDetected": [
+              "PATH_TRAVERSAL"
+            ],
+            "consensusVerdict": "BARK",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 1,
+            "falsePositives": 0,
+            "falseNegatives": 0,
+            "precision": 1,
+            "recall": 1,
+            "verdictMatch": true,
+            "verdictDirectionMatch": true,
+            "scoreInRange": false
+          }
+        },
+        {
+          "sampleId": "cmd-001",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "COMMAND_INJECTION",
+                  "severity": "critical",
+                  "confidence": 0.7,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629584
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "COMMAND_INJECTION",
+                  "severity": "critical",
+                  "confidence": 0.7,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629584
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "COMMAND_INJECTION",
+                  "severity": "critical",
+                  "confidence": 0.7,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629584
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.618",
+            "issueTypesDetected": [
+              "COMMAND_INJECTION"
+            ],
+            "consensusVerdict": "BARK",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 1,
+            "falsePositives": 0,
+            "falseNegatives": 0,
+            "precision": 1,
+            "recall": 1,
+            "verdictMatch": true,
+            "verdictDirectionMatch": true,
+            "scoreInRange": false
+          }
+        },
+        {
+          "sampleId": "logic-001",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "ASSIGNMENT_IN_CONDITION",
+                  "severity": "critical",
+                  "confidence": 0.9,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629584
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "ASSIGNMENT_IN_CONDITION",
+                  "severity": "critical",
+                  "confidence": 0.9,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629584
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "ASSIGNMENT_IN_CONDITION",
+                  "severity": "critical",
+                  "confidence": 0.9,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629584
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.618",
+            "issueTypesDetected": [
+              "ASSIGNMENT_IN_CONDITION"
+            ],
+            "consensusVerdict": "BARK",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 1,
+            "falsePositives": 0,
+            "falseNegatives": 0,
+            "precision": 1,
+            "recall": 1,
+            "verdictMatch": true,
+            "verdictDirectionMatch": true,
+            "scoreInRange": false
+          }
+        },
+        {
+          "sampleId": "logic-002",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629584
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629584
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629584
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.382",
+            "issueTypesDetected": [],
+            "consensusVerdict": "WAG",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 0,
+            "falsePositives": 0,
+            "falseNegatives": 1,
+            "precision": 0,
+            "recall": 0,
+            "verdictMatch": true,
+            "verdictDirectionMatch": true,
+            "scoreInRange": false
+          }
+        },
+        {
+          "sampleId": "crypto-001",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "WEAK_CRYPTO",
+                  "severity": "high",
+                  "confidence": 0.8,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "GROWL",
+              "confidence": 0.5,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629584
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "WEAK_CRYPTO",
+                  "severity": "high",
+                  "confidence": 0.8,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "GROWL",
+              "confidence": 0.5,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "WEAK_CRYPTO",
+                  "severity": "high",
+                  "confidence": 0.8,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "GROWL",
+              "confidence": 0.5,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629585
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.500",
+            "issueTypesDetected": [
+              "WEAK_CRYPTO"
+            ],
+            "consensusVerdict": "GROWL",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 1,
+            "falsePositives": 0,
+            "falseNegatives": 1,
+            "precision": 1,
+            "recall": 0.5,
+            "verdictMatch": true,
+            "verdictDirectionMatch": true,
+            "scoreInRange": true
+          }
+        },
+        {
+          "sampleId": "crypto-002",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629585
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.382",
+            "issueTypesDetected": [],
+            "consensusVerdict": "WAG",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 0,
+            "falsePositives": 0,
+            "falseNegatives": 1,
+            "precision": 0,
+            "recall": 0,
+            "verdictMatch": false,
+            "verdictDirectionMatch": false,
+            "scoreInRange": true
+          }
+        },
+        {
+          "sampleId": "dos-001",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629585
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.382",
+            "issueTypesDetected": [],
+            "consensusVerdict": "WAG",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 0,
+            "falsePositives": 0,
+            "falseNegatives": 2,
+            "precision": 0,
+            "recall": 0,
+            "verdictMatch": true,
+            "verdictDirectionMatch": true,
+            "scoreInRange": false
+          }
+        },
+        {
+          "sampleId": "race-001",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629585
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.382",
+            "issueTypesDetected": [],
+            "consensusVerdict": "WAG",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 0,
+            "falsePositives": 0,
+            "falseNegatives": 1,
+            "precision": 0,
+            "recall": 0,
+            "verdictMatch": false,
+            "verdictDirectionMatch": false,
+            "scoreInRange": true
+          }
+        },
+        {
+          "sampleId": "info-001",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "WAG",
+              "confidence": 0.3819660112501054,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629585
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.382",
+            "issueTypesDetected": [],
+            "consensusVerdict": "WAG",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 0,
+            "falsePositives": 0,
+            "falseNegatives": 1,
+            "precision": 0,
+            "recall": 0,
+            "verdictMatch": true,
+            "verdictDirectionMatch": true,
+            "scoreInRange": false
+          }
+        },
+        {
+          "sampleId": "safe-001",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "HOWL",
+              "confidence": 0.618033988749895,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "HOWL",
+              "confidence": 0.618033988749895,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "HOWL",
+              "confidence": 0.618033988749895,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629585
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.618",
+            "issueTypesDetected": [],
+            "consensusVerdict": "HOWL",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 0,
+            "falsePositives": 0,
+            "falseNegatives": 0,
+            "precision": 0,
+            "recall": 0,
+            "verdictMatch": true,
+            "verdictDirectionMatch": true,
+            "scoreInRange": false
+          }
+        },
+        {
+          "sampleId": "safe-002",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "HOWL",
+              "confidence": 0.618033988749895,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "HOWL",
+              "confidence": 0.618033988749895,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "HOWL",
+              "confidence": 0.618033988749895,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629585
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.618",
+            "issueTypesDetected": [],
+            "consensusVerdict": "HOWL",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 0,
+            "falsePositives": 0,
+            "falseNegatives": 0,
+            "precision": 0,
+            "recall": 0,
+            "verdictMatch": true,
+            "verdictDirectionMatch": true,
+            "scoreInRange": false
+          }
+        },
+        {
+          "sampleId": "safe-003",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "HOWL",
+              "confidence": 0.618033988749895,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "HOWL",
+              "confidence": 0.618033988749895,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [],
+              "verdict": "HOWL",
+              "confidence": 0.618033988749895,
+              "dog": "analyst",
+              "level": "L1",
+              "timestamp": 1770059629585
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.618",
+            "issueTypesDetected": [],
+            "consensusVerdict": "HOWL",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 0,
+            "falsePositives": 0,
+            "falseNegatives": 0,
+            "precision": 0,
+            "recall": 0,
+            "verdictMatch": true,
+            "verdictDirectionMatch": true,
+            "scoreInRange": false
+          }
+        },
+        {
+          "sampleId": "eval-001",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "EVAL_INJECTION",
+                  "severity": "critical",
+                  "confidence": 0.9,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "EVAL_INJECTION",
+                  "severity": "critical",
+                  "confidence": 0.9,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "EVAL_INJECTION",
+                  "severity": "critical",
+                  "confidence": 0.9,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "BARK",
+              "confidence": 0.618033988749895,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629585
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.618",
+            "issueTypesDetected": [
+              "EVAL_INJECTION"
+            ],
+            "consensusVerdict": "BARK",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 1,
+            "falsePositives": 0,
+            "falseNegatives": 0,
+            "precision": 1,
+            "recall": 1,
+            "verdictMatch": true,
+            "verdictDirectionMatch": true,
+            "scoreInRange": false
+          }
+        },
+        {
+          "sampleId": "proto-001",
+          "level": "L1",
+          "runs": [
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "PROTOTYPE_POLLUTION",
+                  "severity": "high",
+                  "confidence": 0.5,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "GROWL",
+              "confidence": 0.5,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "PROTOTYPE_POLLUTION",
+                  "severity": "high",
+                  "confidence": 0.5,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "GROWL",
+              "confidence": 0.5,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629585
+            },
+            {
+              "success": true,
+              "latencyMs": 0,
+              "issues": [
+                {
+                  "type": "PROTOTYPE_POLLUTION",
+                  "severity": "high",
+                  "confidence": 0.5,
+                  "source": "L1_heuristic"
+                }
+              ],
+              "verdict": "GROWL",
+              "confidence": 0.5,
+              "dog": "guardian",
+              "level": "L1",
+              "timestamp": 1770059629585
+            }
+          ],
+          "summary": {
+            "runsTotal": 3,
+            "runsSuccessful": 3,
+            "avgLatencyMs": 0,
+            "avgConfidence": "0.500",
+            "issueTypesDetected": [
+              "PROTOTYPE_POLLUTION"
+            ],
+            "consensusVerdict": "GROWL",
+            "verdictConsistency": "1.000"
+          },
+          "evaluation": {
+            "truePositives": 1,
+            "falsePositives": 0,
+            "falseNegatives": 0,
+            "precision": 1,
+            "recall": 1,
+            "verdictMatch": true,
+            "verdictDirectionMatch": true,
+            "scoreInRange": true
+          }
+        }
+      ],
+      "metrics": {
+        "precision": 1,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "truePositives": 10,
+        "falsePositives": 0,
+        "falseNegatives": 10,
+        "verdictAccuracy": 0.8,
+        "verdictDirectionAccuracy": 0.8,
+        "scoreAccuracy": 0.35,
+        "sampleCount": 20
+      }
+    },
+    "L2": [],
+    "comparison": null
+  }
+}

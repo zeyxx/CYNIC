@@ -1,0 +1,51 @@
+{
+  "timestamp": "2026-02-03T23:47:24.146Z",
+  "mode": "quick",
+  "benchmarks": {
+    "l3": {
+      "epochs": [
+        {
+          "epoch": 0,
+          "metrics": {
+            "samplesCount": 10,
+            "precision": 0.8333333333333334,
+            "recall": 0.5555555555555556,
+            "f1": 0.6666666666666667,
+            "verdictAccuracy": 0.9,
+            "avgLatencyMs": 0,
+            "patternsLearned": 0,
+            "patternsFalsified": 0
+          }
+        },
+        {
+          "epoch": 1,
+          "metrics": {
+            "samplesCount": 10,
+            "precision": 1,
+            "recall": 0.5555555555555556,
+            "f1": 0.7142857142857143,
+            "verdictAccuracy": 0.8,
+            "avgLatencyMs": 0,
+            "patternsLearned": 0,
+            "patternsFalsified": 0
+          }
+        },
+        {
+          "epoch": 2,
+          "metrics": {
+            "samplesCount": 10,
+            "precision": 1,
+            "recall": 0.6666666666666666,
+            "f1": 0.8,
+            "verdictAccuracy": 0.9,
+            "avgLatencyMs": 0,
+            "patternsLearned": 2,
+            "patternsFalsified": 0
+          }
+        }
+      ],
+      "totalPatternsLearned": 2,
+      "f1Improvement": 0.1333333333333333
+    }
+  }
+}
