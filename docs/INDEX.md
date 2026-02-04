@@ -49,6 +49,7 @@
 | [GLOSSARY.md](./GLOSSARY.md) | Terms and definitions |
 | [architecture/PARALLEL_DOGS.md](./architecture/PARALLEL_DOGS.md) | Detailed parallel agent implementation |
 | [architecture/UNIFIED_TRACKING.md](./architecture/UNIFIED_TRACKING.md) | Task tracking system design |
+| [architecture/learning-pipeline.md](./architecture/learning-pipeline.md) | Q-Learning, EWC++, φ-governed adaptation |
 | [REVIEW-LOG.md](./REVIEW-LOG.md) | Quarterly documentation review log |
 
 ### Packages
