@@ -329,804 +329,369 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
 const ORACLE_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CYNIC Oracle - Solana Token Verdict</title>
-  <style>
-    :root {
-      --bg: #06080c;
-      --bg2: #0c1018;
-      --card: #111820;
-      --card-alt: #161e28;
-      --border: #1c2838;
-      --border-light: #253345;
-      --text: #e0e6ef;
-      --text-dim: #6880a0;
-      --text-muted: #3d506a;
-      --gold: #d4a847;
-      --gold-dim: rgba(212,168,71,0.12);
-      --gold-glow: rgba(212,168,71,0.08);
-      --green: #4ade80;
-      --green-dim: rgba(74,222,128,0.10);
-      --blue: #60a5fa;
-      --blue-dim: rgba(96,165,250,0.10);
-      --yellow: #facc15;
-      --yellow-dim: rgba(250,204,21,0.10);
-      --red: #f87171;
-      --red-dim: rgba(248,113,113,0.10);
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CYNIC Oracle</title>
+<style>
+:root{
+  --bg:#0a0e14;--bg2:#111820;--card:#151d28;
+  --border:#1e2a3a;--border-hi:#2a3a50;
+  --text:#cdd6e4;--dim:#5a7090;--muted:#2e4060;
+  --gold:#c9a84c;--gold-10:rgba(201,168,76,.1);--gold-20:rgba(201,168,76,.2);
+  --green:#22c55e;--blue:#3b82f6;--yellow:#eab308;--red:#ef4444;--orange:#f97316;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.mono{font-family:'SF Mono','Fira Code','Cascadia Code',Consolas,monospace}
+.ctr{max-width:820px;margin:0 auto;padding:0 20px}
 
-    .container { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+/* ── Header ── */
+.hdr{text-align:center;padding:36px 0 24px;position:relative}
+.hdr::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:100px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hdr h1{font-size:1.5rem;font-weight:300;letter-spacing:.35em;color:var(--gold)}
+.hdr .sub{color:var(--dim);font-size:.76rem;margin-top:6px}
+.hdr .sub b{color:var(--gold);font-weight:400}
 
-    /* Header */
-    .header {
-      text-align: center;
-      padding: 48px 20px 36px;
-      position: relative;
-    }
-    .header::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 120px;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, var(--gold), transparent);
-    }
-    .logo { font-size: 0.7rem; letter-spacing: 0.4em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 12px; }
-    .header h1 {
-      font-size: 2rem;
-      font-weight: 300;
-      letter-spacing: 0.2em;
-      color: var(--gold);
-    }
-    .header .sub {
-      color: var(--text-dim);
-      font-size: 0.8rem;
-      margin-top: 10px;
-      letter-spacing: 0.05em;
-    }
-    .header .sub em { font-style: normal; color: var(--gold); }
+/* ── Input ── */
+.iw{display:flex;gap:8px;margin:20px 0 10px}
+.mi{flex:1;padding:13px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'SF Mono','Fira Code',Consolas,monospace;font-size:.85rem;outline:none;transition:border .2s,box-shadow .2s}
+.mi:focus{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-10)}
+.mi::placeholder{color:var(--muted)}
+.jb{padding:13px 28px;background:var(--gold);border:none;border-radius:10px;color:#000;font-weight:700;font-size:.8rem;letter-spacing:.14em;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
+.jb:hover{filter:brightness(1.12);transform:translateY(-1px)}
+.jb:active{transform:none}
+.jb:disabled{opacity:.3;cursor:not-allowed;transform:none}
+.qt{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px}
+.qt button{padding:4px 14px;background:transparent;border:1px solid var(--border);border-radius:20px;color:var(--dim);font-size:.7rem;cursor:pointer;font-family:inherit;transition:all .15s}
+.qt button:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-10)}
 
-    /* Input */
-    .input-section {
-      padding: 32px 0 24px;
-    }
-    .input-row {
-      display: flex;
-      gap: 10px;
-    }
-    .mint-input {
-      flex: 1;
-      padding: 14px 18px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      color: var(--text);
-      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-      font-size: 0.9rem;
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .mint-input:focus {
-      border-color: var(--gold);
-      box-shadow: 0 0 0 3px var(--gold-dim);
-    }
-    .mint-input::placeholder { color: var(--text-muted); }
-    .judge-btn {
-      padding: 14px 32px;
-      background: var(--gold);
-      border: none;
-      border-radius: 10px;
-      color: #000;
-      font-family: inherit;
-      font-size: 0.85rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      cursor: pointer;
-      transition: all 0.2s;
-      white-space: nowrap;
-    }
-    .judge-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
-    .judge-btn:active { transform: translateY(0); }
-    .judge-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
-    .quick-links {
-      margin-top: 14px;
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .quick-link {
-      padding: 5px 14px;
-      background: transparent;
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      color: var(--text-dim);
-      font-size: 0.75rem;
-      cursor: pointer;
-      transition: all 0.15s;
-      font-family: 'SF Mono', monospace;
-    }
-    .quick-link:hover { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
+/* ── Loading / Error ── */
+.ld{text-align:center;padding:48px 20px;color:var(--dim);font-size:.85rem}
+.sp{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.err{text-align:center;padding:18px;color:var(--red);background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.12);border-radius:10px;font-size:.82rem}
 
-    /* Result */
-    .result { padding-bottom: 40px; }
-    .loading-msg {
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--text-dim);
-      font-size: 0.9rem;
-    }
-    .spinner {
-      display: inline-block;
-      width: 20px; height: 20px;
-      border: 2px solid var(--border);
-      border-top-color: var(--gold);
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      margin-right: 10px;
-      vertical-align: middle;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .error-msg {
-      text-align: center;
-      padding: 24px;
-      color: var(--red);
-      background: var(--red-dim);
-      border: 1px solid rgba(248,113,113,0.2);
-      border-radius: 10px;
-      margin-top: 20px;
-      font-size: 0.9rem;
-    }
+/* ── Verdict Hero ── */
+.vhero{text-align:center;padding:32px 24px 28px;border-radius:14px;margin-bottom:16px;animation:fadeUp .4s ease}
+.vhero.HOWL{background:linear-gradient(160deg,rgba(34,197,94,.07),rgba(34,197,94,.01));border:1px solid rgba(34,197,94,.18)}
+.vhero.WAG{background:linear-gradient(160deg,rgba(59,130,246,.07),rgba(59,130,246,.01));border:1px solid rgba(59,130,246,.18)}
+.vhero.GROWL{background:linear-gradient(160deg,rgba(234,179,8,.07),rgba(234,179,8,.01));border:1px solid rgba(234,179,8,.18)}
+.vhero.BARK{background:linear-gradient(160deg,rgba(239,68,68,.07),rgba(239,68,68,.01));border:1px solid rgba(239,68,68,.18)}
 
-    /* Verdict Card */
-    .verdict-card {
-      text-align: center;
-      padding: 40px 30px 32px;
-      border-radius: 16px;
-      margin-top: 20px;
-      position: relative;
-    }
-    .verdict-card.HOWL { background: var(--green-dim); border: 1px solid rgba(74,222,128,0.25); }
-    .verdict-card.WAG { background: var(--blue-dim); border: 1px solid rgba(96,165,250,0.25); }
-    .verdict-card.GROWL { background: var(--yellow-dim); border: 1px solid rgba(250,204,21,0.25); }
-    .verdict-card.BARK { background: var(--red-dim); border: 1px solid rgba(248,113,113,0.25); }
+/* Ring gauge */
+.ring-w{display:inline-block;width:156px;height:156px;margin-bottom:10px}
+.ring-track{fill:none;stroke:var(--border);stroke-width:10}
+.ring-prog{fill:none;stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset 1s cubic-bezier(.35,0,.15,1);filter:drop-shadow(0 0 5px currentColor)}
+.ring-lbl{font-size:.6rem;fill:var(--dim);letter-spacing:.15em;text-transform:uppercase}
+.ring-val{font-size:2.8rem;font-weight:800;font-family:'SF Mono','Fira Code',Consolas,monospace}
 
-    .verdict-icon { font-size: 2rem; margin-bottom: 8px; }
-    .verdict-name {
-      font-size: 2.8rem;
-      font-weight: 800;
-      letter-spacing: 0.2em;
-      line-height: 1;
-      margin-bottom: 4px;
-    }
-    .HOWL .verdict-name { color: var(--green); }
-    .WAG .verdict-name { color: var(--blue); }
-    .GROWL .verdict-name { color: var(--yellow); }
-    .BARK .verdict-name { color: var(--red); }
+/* Badge & token */
+.vbadge{font-size:1.6rem;font-weight:800;letter-spacing:.3em;line-height:1;margin-bottom:4px}
+.HOWL .vbadge{color:var(--green)}.WAG .vbadge{color:var(--blue)}.GROWL .vbadge{color:var(--yellow)}.BARK .vbadge{color:var(--red)}
+.vdesc{font-size:.78rem;color:var(--dim);margin-bottom:2px}
+.vtok{font-size:.95rem;font-weight:600;margin-bottom:18px}.vtok .sym{color:var(--dim);font-weight:400}
 
-    .verdict-desc {
-      font-size: 0.85rem;
-      color: var(--text-dim);
-      margin-bottom: 6px;
-    }
-    .verdict-token {
-      font-size: 1rem;
-      color: var(--text);
-      margin-bottom: 24px;
-      font-weight: 500;
-    }
-    .verdict-token .sym { color: var(--text-dim); font-weight: 400; }
+/* Score row */
+.srow{display:flex;justify-content:center;gap:2px}
+.sp2{padding:10px 18px;background:rgba(0,0,0,.3);text-align:center;min-width:80px}
+.sp2:first-child{border-radius:10px 0 0 10px}.sp2:last-child{border-radius:0 10px 10px 0}
+.sp2 .v{font-size:1.2rem;font-weight:700;font-family:'SF Mono',Consolas,monospace}.sp2 .l{font-size:.58rem;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
 
-    .scores-row {
-      display: flex;
-      justify-content: center;
-      gap: 2px;
-    }
-    .score-pill {
-      padding: 10px 24px;
-      background: rgba(0,0,0,0.25);
-      text-align: center;
-    }
-    .score-pill:first-child { border-radius: 10px 0 0 10px; }
-    .score-pill:last-child { border-radius: 0 10px 10px 0; }
-    .score-pill .val { font-size: 1.5rem; font-weight: 700; font-family: 'SF Mono', monospace; }
-    .score-pill .lbl { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 2px; }
+/* Watch button */
+.wbtn{margin-top:14px;padding:6px 16px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--dim);font-size:.72rem;cursor:pointer;font-family:inherit;transition:all .15s}
+.wbtn:hover{color:var(--gold);border-color:var(--gold);background:var(--gold-10)}
 
-    .verdict-meta {
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-      margin-top: 16px;
-      flex-wrap: wrap;
-    }
-    .meta-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 5px 14px;
-      background: rgba(0,0,0,0.2);
-      border-radius: 20px;
-      font-size: 0.78rem;
-      color: var(--text-dim);
-    }
-    .meta-chip .val { color: var(--text); font-weight: 600; }
+/* ── Market Data ── */
+.mkt{display:flex;flex-wrap:wrap;gap:1px;background:var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;animation:fadeUp .4s ease .08s both}
+.mkt-i{flex:1;min-width:90px;padding:11px 12px;background:var(--card);text-align:center}
+.mkt-i .l{font-size:.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+.mkt-i .v{font-size:.88rem;font-weight:600;font-family:'SF Mono',Consolas,monospace}
+.up{color:var(--green)}.dn{color:var(--red)}
 
-    .watch-btn {
-      margin-top: 16px;
-      padding: 8px 20px;
-      background: transparent;
-      border: 1px solid currentColor;
-      border-radius: 8px;
-      color: var(--text-dim);
-      font-family: inherit;
-      font-size: 0.8rem;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .watch-btn:hover { color: var(--gold); background: var(--gold-dim); }
+/* ── Confidence ── */
+.conf{padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:16px;animation:fadeUp .4s ease .12s both}
+.conf-hd{display:flex;justify-content:space-between;font-size:.72rem;color:var(--dim);margin-bottom:6px}
+.conf-hd .v{color:var(--gold);font-weight:600;font-family:'SF Mono',monospace}
+.conf-tk{height:5px;background:var(--border);border-radius:3px;position:relative}
+.conf-fl{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--gold),#e2c05a);transition:width .7s ease}
+.conf-ph{position:absolute;left:61.8%;top:-3px;bottom:-3px;width:2px;background:var(--muted);border-radius:1px}
+.conf-pl{position:absolute;left:61.8%;top:-15px;transform:translateX(-50%);font-size:.52rem;color:var(--muted)}
 
-    /* Trajectory */
-    .trajectory {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      margin-top: 16px;
-      padding: 12px 20px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      font-size: 0.85rem;
-    }
-    .traj-dir { font-size: 1.3rem; }
-    .traj-dir.improving { color: var(--green); }
-    .traj-dir.declining { color: var(--red); }
-    .traj-dir.stable { color: var(--text-dim); }
-    .traj-dir.new { color: var(--gold); }
-    .traj-text { color: var(--text-dim); }
-    .traj-text strong { color: var(--text); }
+/* ── Trajectory ── */
+.traj{display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:16px;font-size:.8rem}
+.traj-a{font-size:1.1rem}.traj-a.improving{color:var(--green)}.traj-a.declining{color:var(--red)}.traj-a.stable{color:var(--dim)}.traj-a.new{color:var(--gold)}
+.traj span{color:var(--dim)}.traj strong{color:var(--text)}
 
-    /* Confidence */
-    .confidence-row {
-      margin-top: 20px;
-      padding: 16px 20px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-    }
-    .conf-header {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.8rem;
-      color: var(--text-dim);
-      margin-bottom: 10px;
-    }
-    .conf-header .val { color: var(--gold); font-weight: 600; font-family: 'SF Mono', monospace; }
-    .conf-track {
-      height: 6px;
-      background: var(--border);
-      border-radius: 3px;
-      position: relative;
-    }
-    .conf-fill {
-      height: 100%;
-      border-radius: 3px;
-      background: linear-gradient(90deg, var(--gold), #e8c94a);
-      transition: width 0.5s ease;
-    }
-    .conf-phi {
-      position: absolute;
-      left: 61.8%;
-      top: -2px;
-      bottom: -2px;
-      width: 2px;
-      background: var(--text-muted);
-      border-radius: 1px;
-    }
-    .conf-phi-label {
-      position: absolute;
-      left: 61.8%;
-      top: -18px;
-      transform: translateX(-50%);
-      font-size: 0.6rem;
-      color: var(--text-muted);
-      white-space: nowrap;
-    }
+/* ── Axiom Grid ── */
+.agrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;animation:fadeUp .4s ease .16s both}
+.acard{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;border-left:3px solid var(--gold)}
+.acard.a-v{border-left-color:var(--blue)}.acard.a-c{border-left-color:var(--green)}.acard.a-b{border-left-color:var(--orange)}
+.ac-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.ac-nm{font-size:.68rem;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
+.ac-sc{font-size:.7rem;font-weight:700;font-family:'SF Mono',monospace;padding:2px 8px;border-radius:4px}
+.dr{display:flex;align-items:center;gap:6px;padding:2px 0}
+.dr .n{width:82px;font-size:.67rem;color:var(--dim);flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dr .t{flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.dr .f{height:100%;border-radius:2px;transition:width .5s ease}
+.dr .s{width:22px;text-align:right;font-size:.67rem;font-weight:600;font-family:'SF Mono',monospace}
 
-    /* Dimensions */
-    .section {
-      margin-top: 24px;
-    }
-    .section-head {
-      font-size: 0.75rem;
-      color: var(--gold);
-      text-transform: uppercase;
-      letter-spacing: 0.2em;
-      margin-bottom: 16px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--border);
-    }
+/* ── Unnameable ── */
+.unm{padding:10px 14px;background:var(--gold-10);border:1px dashed var(--gold-20);border-radius:10px;text-align:center;font-size:.76rem;color:var(--dim);margin-bottom:16px}
+.unm strong{color:var(--gold)}
 
-    .axiom-block { margin-bottom: 20px; }
-    .axiom-label {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-      font-size: 0.8rem;
-    }
-    .axiom-name { color: var(--text-dim); font-weight: 500; }
-    .axiom-val {
-      font-weight: 700;
-      font-size: 0.75rem;
-      padding: 2px 10px;
-      border-radius: 4px;
-      font-family: 'SF Mono', monospace;
-    }
-    .dim-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 5px 0;
-    }
-    .dim-name {
-      width: 150px;
-      font-size: 0.78rem;
-      color: var(--text-dim);
-      flex-shrink: 0;
-    }
-    .dim-track {
-      flex: 1;
-      height: 4px;
-      background: var(--border);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    .dim-fill {
-      height: 100%;
-      border-radius: 2px;
-      transition: width 0.4s ease;
-    }
-    .dim-val {
-      width: 30px;
-      text-align: right;
-      font-size: 0.78rem;
-      font-weight: 600;
-      font-family: 'SF Mono', monospace;
-    }
+/* ── Weaknesses ── */
+.wsec{margin-bottom:16px;animation:fadeUp .4s ease .2s both}
+.wsec-t{font-size:.65rem;color:var(--dim);text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px}
+.wpl{display:flex;flex-wrap:wrap;gap:5px}
+.wp{padding:4px 9px;background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.12);border-radius:6px;font-size:.65rem;color:var(--dim)}
+.wp .a{font-weight:600;margin-right:3px;color:var(--yellow)}.wp .sc{font-weight:700;margin-left:3px;color:var(--red)}
 
-    /* Unnameable */
-    .unnameable-card {
-      margin-top: 20px;
-      padding: 16px 20px;
-      background: var(--gold-glow);
-      border: 1px dashed rgba(212,168,71,0.3);
-      border-radius: 10px;
-      text-align: center;
-      font-size: 0.85rem;
-      color: var(--text-dim);
-    }
-    .unnameable-card strong { color: var(--gold); }
+/* ── On-chain data ── */
+.cdata{display:flex;flex-wrap:wrap;gap:10px;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:16px;font-size:.7rem}
+.cdata .k{color:var(--muted)}.cdata .v{color:var(--dim);font-family:'SF Mono',monospace}
 
-    /* Weaknesses */
-    .weakness-item {
-      padding: 10px 16px;
-      background: var(--red-dim);
-      border-left: 3px solid var(--red);
-      margin-bottom: 8px;
-      border-radius: 0 8px 8px 0;
-      font-size: 0.82rem;
-    }
-    .weakness-dim { color: var(--yellow); font-weight: 600; }
-    .weakness-reason { color: var(--text-dim); }
+/* ── Watchlist ── */
+.wlsec{padding-top:16px;border-top:1px solid var(--border)}
+.wl-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.wl-hd h3{font-size:.65rem;color:var(--gold);text-transform:uppercase;letter-spacing:.2em;font-weight:500}
+.wl-ct{color:var(--muted);font-size:.68rem}
+.wl-i{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:4px;cursor:pointer;transition:border .15s}
+.wl-i:hover{border-color:var(--border-hi)}
+.wl-l{display:flex;align-items:center;gap:8px}.wl-lb{font-weight:600;font-size:.8rem}.wl-m{color:var(--muted);font-size:.65rem;font-family:'SF Mono',monospace}
+.wl-r{display:flex;align-items:center;gap:8px}
+.wl-sc{font-weight:700;font-size:.8rem;font-family:'SF Mono',monospace}
+.wl-vt{font-size:.62rem;padding:2px 8px;border-radius:4px;font-weight:700;letter-spacing:.04em}
+.wl-tm{color:var(--muted);font-size:.62rem}
+.wl-x{color:var(--muted);cursor:pointer;font-size:.95rem;padding:0 3px;transition:color .15s}.wl-x:hover{color:var(--red)}
+.wl-e{color:var(--muted);font-size:.76rem;padding:12px;text-align:center}
 
-    /* On-chain data */
-    .raw-data {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-      padding: 16px 20px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      font-size: 0.78rem;
-    }
-    .raw-item { }
-    .raw-item .k { color: var(--text-muted); }
-    .raw-item .v { color: var(--text-dim); font-family: 'SF Mono', monospace; }
+/* ── Alerts ── */
+.al-sec{margin-top:10px}
+.al-i{padding:7px 11px;background:rgba(234,179,8,.05);border-left:3px solid var(--yellow);margin-bottom:4px;border-radius:0 8px 8px 0;font-size:.75rem;color:var(--dim)}
+.al-i strong{color:var(--text)}
 
-    /* Watchlist */
-    .watchlist-section {
-      padding: 32px 0 20px;
-    }
-    .wl-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-    .wl-head h3 {
-      font-size: 0.75rem;
-      color: var(--gold);
-      text-transform: uppercase;
-      letter-spacing: 0.2em;
-      font-weight: 500;
-    }
-    .wl-count { color: var(--text-muted); font-size: 0.75rem; }
-    .wl-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 16px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      margin-bottom: 6px;
-      cursor: pointer;
-      transition: border-color 0.15s;
-    }
-    .wl-item:hover { border-color: var(--border-light); }
-    .wl-left { display: flex; align-items: center; gap: 12px; }
-    .wl-label { font-weight: 600; font-size: 0.85rem; }
-    .wl-mint { color: var(--text-muted); font-size: 0.72rem; font-family: 'SF Mono', monospace; }
-    .wl-right { display: flex; align-items: center; gap: 14px; }
-    .wl-score { font-weight: 700; font-size: 0.85rem; font-family: 'SF Mono', monospace; }
-    .wl-verdict-tag {
-      font-size: 0.7rem;
-      padding: 3px 10px;
-      border-radius: 4px;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-    }
-    .wl-time { color: var(--text-muted); font-size: 0.7rem; }
-    .wl-remove {
-      color: var(--text-muted);
-      cursor: pointer;
-      font-size: 1rem;
-      padding: 0 4px;
-      transition: color 0.15s;
-    }
-    .wl-remove:hover { color: var(--red); }
-    .wl-empty {
-      color: var(--text-muted);
-      font-size: 0.8rem;
-      padding: 16px;
-      text-align: center;
-    }
+/* ── Footer ── */
+.ft{text-align:center;padding:24px 20px;color:var(--muted);font-size:.65rem;letter-spacing:.02em}
+.ft a{color:var(--dim);text-decoration:none;transition:color .15s}.ft a:hover{color:var(--gold)}.ft .d{margin:0 6px}
 
-    /* Alerts */
-    .alerts-section { margin-top: 16px; }
-    .alert-item {
-      padding: 10px 14px;
-      background: var(--yellow-dim);
-      border-left: 3px solid var(--yellow);
-      margin-bottom: 6px;
-      border-radius: 0 8px 8px 0;
-      font-size: 0.8rem;
-      color: var(--text-dim);
-    }
-    .alert-item strong { color: var(--text); }
+/* ── Animations ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
-    /* Footer */
-    .footer {
-      text-align: center;
-      padding: 32px 20px;
-      color: var(--text-muted);
-      font-size: 0.72rem;
-      letter-spacing: 0.03em;
-    }
-    .footer a { color: var(--text-dim); text-decoration: none; transition: color 0.15s; }
-    .footer a:hover { color: var(--gold); }
-    .footer .sep { margin: 0 8px; }
-
-    /* Mobile */
-    @media (max-width: 640px) {
-      .input-row { flex-direction: column; }
-      .scores-row { flex-direction: column; align-items: center; gap: 0; }
-      .score-pill { border-radius: 0 !important; width: 100%; }
-      .score-pill:first-child { border-radius: 10px 10px 0 0 !important; }
-      .score-pill:last-child { border-radius: 0 0 10px 10px !important; }
-      .dim-name { width: 110px; font-size: 0.72rem; }
-      .header h1 { font-size: 1.5rem; }
-      .verdict-name { font-size: 2rem; }
-      .verdict-meta { flex-direction: column; align-items: center; }
-    }
-  </style>
+/* ── Mobile ── */
+@media(max-width:640px){
+  .iw{flex-direction:column}
+  .srow{flex-direction:column;align-items:center;gap:0}
+  .sp2{width:100%;border-radius:0!important}.sp2:first-child{border-radius:10px 10px 0 0!important}.sp2:last-child{border-radius:0 0 10px 10px!important}
+  .agrid{grid-template-columns:1fr}
+  .hdr h1{font-size:1.2rem;letter-spacing:.25em}
+  .vbadge{font-size:1.2rem}
+  .dr .n{width:70px;font-size:.62rem}
+  .mkt{flex-direction:column}
+  .ring-w{width:130px;height:130px}
+  .ring-val{font-size:2.2rem}
+}
+</style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <div class="logo">Solana Token Intelligence</div>
-      <h1>CYNIC ORACLE</h1>
-      <div class="sub"><em>\\u03C6 distrusts \\u03C6</em> &mdash; 17 on-chain dimensions, confidence capped at 61.8%</div>
-    </div>
+<div class="ctr">
+  <header class="hdr">
+    <h1>CYNIC ORACLE</h1>
+    <p class="sub"><b>\\u03C6 distrusts \\u03C6</b> \\u2014 17 on-chain dimensions, max 61.8% confidence</p>
+  </header>
 
-    <div class="input-section">
-      <div class="input-row">
-        <input id="mint" class="mint-input" placeholder="Enter Solana token mint address..." spellcheck="false" autocomplete="off" />
-        <button id="judge-btn" class="judge-btn" onclick="judgeToken()">JUDGE</button>
-      </div>
-      <div class="quick-links">
-        <span class="quick-link" onclick="setMint('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')">USDC</span>
-        <span class="quick-link" onclick="setMint('Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB')">USDT</span>
-        <span class="quick-link" onclick="setMint('So11111111111111111111111111111111')">SOL</span>
-        <span class="quick-link" onclick="setMint('DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263')">BONK</span>
-      </div>
-    </div>
-
-    <div id="result" class="result"></div>
-
-    <div class="watchlist-section">
-      <div class="wl-head">
-        <h3>Watchlist</h3>
-        <span id="wl-status" class="wl-count"></span>
-      </div>
-      <div id="watchlist-items"></div>
-      <div id="alerts-section" class="alerts-section" style="display:none;">
-        <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.15em;margin-bottom:8px;">Recent Alerts</div>
-        <div id="alerts-items"></div>
-      </div>
-    </div>
+  <div class="iw">
+    <input id="mint" class="mi mono" placeholder="Solana token mint address..." spellcheck="false" autocomplete="off"/>
+    <button id="jb" class="jb" onclick="judgeToken()">JUDGE</button>
+  </div>
+  <div class="qt">
+    <button onclick="qm('So11111111111111111111111111111111')">SOL</button>
+    <button onclick="qm('DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263')">BONK</button>
+    <button onclick="qm('EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm')">WIF</button>
+    <button onclick="qm('6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN')">TRUMP</button>
+    <button onclick="qm('JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN')">JUP</button>
+    <button onclick="qm('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')">USDC</button>
   </div>
 
-  <div class="footer">
-    <a href="/api/oracle/health">API</a>
-    <span class="sep">&middot;</span>
-    <a href="/api/oracle/judge?mint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v">Example JSON</a>
-    <span class="sep">&middot;</span>
-    <a href="/">Observatory</a>
-    <span class="sep">&middot;</span>
-    CYNIC Oracle v2.0
-    <span class="sep">&middot;</span>
-    \\u03C6\\u207B\\u00B9 = 61.8% max confidence
+  <div id="result"></div>
+
+  <div class="wlsec">
+    <div class="wl-hd"><h3>Watchlist</h3><span id="wl-st" class="wl-ct"></span></div>
+    <div id="wl-items"></div>
+    <div id="al-sec" class="al-sec" style="display:none">
+      <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:5px">Recent Alerts</div>
+      <div id="al-items"></div>
+    </div>
   </div>
+</div>
 
-  <script>
-    const PHI_INV = 0.618, PHI_INV_2 = 0.382, PHI_INV_3 = 0.236;
-    let currentMint = null;
+<footer class="ft">
+  <a href="/api/oracle/health">API</a><span class="d">\\u00B7</span>
+  <a href="/api/oracle/judge?mint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v">Example</a><span class="d">\\u00B7</span>
+  <a href="/">Observatory</a><span class="d">\\u00B7</span>
+  CYNIC Oracle v2<span class="d">\\u00B7</span>
+  \\u03C6\\u207B\\u00B9 = 61.8%
+</footer>
 
-    function setMint(m) { document.getElementById('mint').value = m; judgeToken(); }
-    document.getElementById('mint').addEventListener('keydown', e => { if (e.key === 'Enter') judgeToken(); });
+<script>
+var cur=null,CIRC=402;
+function qm(m){document.getElementById('mint').value=m;judgeToken()}
+document.getElementById('mint').addEventListener('keydown',function(e){if(e.key==='Enter')judgeToken()});
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function dc(s){return s>=61.8?'var(--green)':s>=38.2?'var(--yellow)':'var(--red)'}
+function vc(v){return v==='HOWL'?'var(--green)':v==='WAG'?'var(--blue)':v==='GROWL'?'var(--yellow)':'var(--red)'}
+function fu(n){if(n==null)return'\\u2014';if(n>=1e9)return'$'+(n/1e9).toFixed(1)+'B';if(n>=1e6)return'$'+(n/1e6).toFixed(1)+'M';if(n>=1e3)return'$'+(n/1e3).toFixed(1)+'K';if(n>=1)return'$'+n.toFixed(2);if(n>=.001)return'$'+n.toFixed(4);return'$'+n.toFixed(8)}
 
-    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+async function judgeToken(){
+  var mint=document.getElementById('mint').value.trim();
+  if(!mint)return;
+  var btn=document.getElementById('jb'),rd=document.getElementById('result');
+  btn.disabled=true;btn.textContent='JUDGING...';
+  rd.innerHTML='<div class="ld"><span class="sp"></span>Fetching on-chain data & scoring 17 dimensions...</div>';
+  try{
+    var r=await fetch('/api/oracle/judge?mint='+encodeURIComponent(mint));
+    var d=await r.json();
+    if(d.error){rd.innerHTML='<div class="err">'+esc(d.error)+'</div>';return}
+    cur=mint;renderV(d);loadWL();
+  }catch(e){rd.innerHTML='<div class="err">'+esc(e.message)+'</div>'}
+  finally{btn.disabled=false;btn.textContent='JUDGE'}
+}
 
-    function dColor(s) {
-      if (s >= 61.8) return 'var(--green)';
-      if (s >= 38.2) return 'var(--yellow)';
-      return 'var(--red)';
+function renderV(d){
+  var c=vc(d.verdict),q=d.qScore,off=CIRC-(q/100*CIRC);
+  var axs=[
+    {k:'PHI',cls:'',lbl:'\\u03C6 Harmony',ds:['supplyDistribution','liquidityDepth','priceStability','supplyMechanics']},
+    {k:'VERIFY',cls:'a-v',lbl:'\\u2713 Verify',ds:['mintAuthority','freezeAuthority','metadataIntegrity','programVerification']},
+    {k:'CULTURE',cls:'a-c',lbl:'\\u2605 Culture',ds:['holderCount','tokenAge','ecosystemIntegration','organicGrowth']},
+    {k:'BURN',cls:'a-b',lbl:'\\u2737 Burn',ds:['burnActivity','creatorBehavior','feeRedistribution','realUtility']}
+  ];
+  var dn={supplyDistribution:'Supply Dist',liquidityDepth:'Liquidity',priceStability:'Price Stability',supplyMechanics:'Supply Mech',mintAuthority:'Mint Auth',freezeAuthority:'Freeze Auth',metadataIntegrity:'Metadata',programVerification:'Prog Verify',holderCount:'Holders',tokenAge:'Token Age',ecosystemIntegration:'Ecosystem',organicGrowth:'Organic Growth',burnActivity:'Burn Activity',creatorBehavior:'Creator Behav',feeRedistribution:'Fee Redist',realUtility:'Real Utility'};
+
+  var h='';
+
+  // ── Verdict Hero with SVG ring
+  h+='<div class="vhero '+d.verdict+'">';
+  h+='<div class="ring-w"><svg viewBox="0 0 160 160" width="100%" height="100%">';
+  h+='<circle cx="80" cy="80" r="64" class="ring-track"/>';
+  h+='<circle cx="80" cy="80" r="64" class="ring-prog" style="stroke:'+c+';stroke-dasharray:'+CIRC+';stroke-dashoffset:'+CIRC+'" transform="rotate(-90 80 80)" data-off="'+off+'"/>';
+  h+='<text x="80" y="70" text-anchor="middle" dominant-baseline="auto" class="ring-val" fill="'+c+'">'+q+'</text>';
+  h+='<text x="80" y="90" text-anchor="middle" class="ring-lbl">Q-SCORE</text>';
+  h+='</svg></div>';
+  h+='<div class="vbadge">'+d.verdict+'</div>';
+  h+='<div class="vdesc">'+esc(d.verdictDescription||'')+'</div>';
+  h+='<div class="vtok">'+esc(d.name||'Unknown')+' <span class="sym">('+esc(d.symbol||'?')+')</span></div>';
+
+  // Score pills
+  h+='<div class="srow">';
+  h+='<div class="sp2"><div class="v" style="color:'+c+'">'+q+'</div><div class="l">Q-Score</div></div>';
+  h+='<div class="sp2"><div class="v">'+d.kScore+'</div><div class="l">K-Score</div></div>';
+  h+='<div class="sp2"><div class="v" style="color:var(--gold)">'+(d.confidence*100).toFixed(1)+'%</div><div class="l">Confidence</div></div>';
+  h+='<div class="sp2"><div class="v">'+esc(d.kTier||'?')+'</div><div class="l">K-Tier</div></div>';
+  h+='</div>';
+  h+='<button class="wbtn" onclick="watchC()">+ Watchlist</button>';
+  h+='</div>';
+
+  // ── Market Data
+  var ds=d.dexScreener;
+  if(ds){
+    var pc=ds.priceChange24h;
+    h+='<div class="mkt">';
+    h+='<div class="mkt-i"><div class="l">Price</div><div class="v">'+fu(ds.priceUsd)+'</div></div>';
+    h+='<div class="mkt-i"><div class="l">24h</div><div class="v '+(pc>=0?'up':'dn')+'">'+(pc>=0?'+':'')+((pc||0).toFixed(1))+'%</div></div>';
+    h+='<div class="mkt-i"><div class="l">Liquidity</div><div class="v">'+fu(ds.liquidityUsd)+'</div></div>';
+    h+='<div class="mkt-i"><div class="l">Volume 24h</div><div class="v">'+fu(ds.volume24h)+'</div></div>';
+    if(ds.sellBuyRatio!=null)h+='<div class="mkt-i"><div class="l">Sell/Buy</div><div class="v'+(ds.sellBuyRatio>1.5?' dn':ds.sellBuyRatio<=1?' up':'')+'">'+ds.sellBuyRatio.toFixed(2)+'</div></div>';
+    h+='</div>';
+  }
+
+  // ── Trajectory
+  if(d.trajectory&&!(d.trajectory.direction==='new'&&d.trajectory.previousJudgments<=1)){
+    var t=d.trajectory;
+    var ar={improving:'\\u2197',declining:'\\u2198',stable:'\\u2192',new:'\\u2728'};
+    var lb={improving:'Improving',declining:'Declining',stable:'Stable',new:'First'};
+    h+='<div class="traj"><span class="traj-a '+t.direction+'">'+(ar[t.direction]||'')+'</span>';
+    h+='<strong>'+(lb[t.direction]||'')+'</strong>';
+    if(t.delta)h+='<span>Q '+(t.delta>0?'+':'')+t.delta+'</span>';
+    if(t.previousJudgments>1)h+='<span>'+t.previousJudgments+' past</span>';
+    if(t.averageQScore)h+='<span>avg Q:'+t.averageQScore+'</span>';
+    h+='</div>';
+  }
+
+  // ── Confidence bar
+  h+='<div class="conf"><div class="conf-hd"><span>Confidence</span><span class="v">'+(d.confidence*100).toFixed(1)+'% / 61.8%</span></div>';
+  h+='<div class="conf-tk"><div class="conf-fl" style="width:'+Math.min(61.8,d.confidence*100).toFixed(1)+'%"></div>';
+  h+='<div class="conf-ph"></div><div class="conf-pl">\\u03C6\\u207B\\u00B9</div></div></div>';
+
+  // ── Axiom Grid (2x2)
+  h+='<div class="agrid">';
+  for(var i=0;i<axs.length;i++){
+    var ax=axs[i],aS=d.axiomScores[ax.k],ac=dc(aS);
+    h+='<div class="acard '+ax.cls+'">';
+    h+='<div class="ac-top"><span class="ac-nm">'+ax.lbl+'</span><span class="ac-sc" style="color:'+ac+';background:'+ac+'12">'+aS+'</span></div>';
+    for(var j=0;j<ax.ds.length;j++){
+      var dm=ax.ds[j],s=d.dimensions[dm]||0,sc=dc(s);
+      h+='<div class="dr"><span class="n">'+(dn[dm]||dm)+'</span><div class="t"><div class="f" style="width:'+s+'%;background:'+sc+'"></div></div><span class="s" style="color:'+sc+'">'+s+'</span></div>';
     }
+    h+='</div>';
+  }
+  h+='</div>';
 
-    function vColor(v) {
-      return v === 'HOWL' ? 'var(--green)' : v === 'WAG' ? 'var(--blue)' : v === 'GROWL' ? 'var(--yellow)' : 'var(--red)';
+  // ── THE UNNAMEABLE
+  h+='<div class="unm"><strong>THE UNNAMEABLE</strong> \\u2014 '+d.theUnnameable+'% uncertainty \\u2014 ';
+  h+=d.theUnnameable>50?'Much we cannot measure.':d.theUnnameable>25?'Moderate data gaps.':'Good data coverage.';
+  h+='</div>';
+
+  // ── Weaknesses (compact pills)
+  if(d.weaknesses&&d.weaknesses.length>0){
+    h+='<div class="wsec"><div class="wsec-t">Weaknesses (below \\u03C6\\u207B\\u00B2)</div><div class="wpl">';
+    for(var k=0;k<d.weaknesses.length;k++){
+      var w=d.weaknesses[k];
+      h+='<div class="wp"><span class="a">'+w.axiom+'</span>'+(dn[w.dimension]||w.dimension)+'<span class="sc">'+w.score+'</span></div>';
     }
+    h+='</div></div>';
+  }
 
-    async function judgeToken() {
-      const mint = document.getElementById('mint').value.trim();
-      if (!mint) return;
-      const btn = document.getElementById('judge-btn');
-      const rd = document.getElementById('result');
-      btn.disabled = true; btn.textContent = 'JUDGING...';
-      rd.innerHTML = '<div class="loading-msg"><span class="spinner"></span>Scoring 17 on-chain dimensions...</div>';
-      try {
-        const r = await fetch('/api/oracle/judge?mint=' + encodeURIComponent(mint));
-        const d = await r.json();
-        if (d.error) { rd.innerHTML = '<div class="error-msg">' + esc(d.error) + '</div>'; return; }
-        currentMint = mint;
-        renderVerdict(d);
-        loadWatchlist();
-      } catch (e) {
-        rd.innerHTML = '<div class="error-msg">Network error: ' + esc(e.message) + '</div>';
-      } finally {
-        btn.disabled = false; btn.textContent = 'JUDGE';
-      }
-    }
+  // ── On-chain data
+  h+='<div class="cdata">';
+  h+='<div><span class="k">Source </span><span class="v">'+esc(d._raw?.source||'helius')+'</span></div>';
+  h+='<div><span class="k">Latency </span><span class="v">'+(d._raw?.latencyMs||'?')+'ms</span></div>';
+  h+='<div><span class="k">Supply </span><span class="v">'+(d.supply?.total?d.supply.total.toLocaleString():'?')+'</span></div>';
+  h+='<div><span class="k">Holders </span><span class="v">'+(d.distribution?.holderCount?d.distribution.holderCount.toLocaleString():'?')+'</span></div>';
+  h+='<div><span class="k">Top1% </span><span class="v">'+((d.distribution?.whaleConcentration||0)*100).toFixed(1)+'%</span></div>';
+  h+='</div>';
 
-    function renderVerdict(d) {
-      const vc = vColor(d.verdict);
-      const axioms = {
-        PHI:     { lbl: '\\u03C6 Harmony',  dims: ['supplyDistribution','liquidityDepth','priceStability','supplyMechanics'] },
-        VERIFY:  { lbl: '\\u2713 Verify',    dims: ['mintAuthority','freezeAuthority','metadataIntegrity','programVerification'] },
-        CULTURE: { lbl: '\\u2605 Culture',   dims: ['holderCount','tokenAge','ecosystemIntegration','organicGrowth'] },
-        BURN:    { lbl: '\\u2737 Burn',      dims: ['burnActivity','creatorBehavior','feeRedistribution','realUtility'] },
-      };
-      const dimN = {
-        supplyDistribution:'Supply Distribution', liquidityDepth:'Liquidity Depth',
-        priceStability:'Price Stability', supplyMechanics:'Supply Mechanics',
-        mintAuthority:'Mint Authority', freezeAuthority:'Freeze Authority',
-        metadataIntegrity:'Metadata Integrity', programVerification:'Program Verification',
-        holderCount:'Holder Count', tokenAge:'Token Age',
-        ecosystemIntegration:'Ecosystem Integration', organicGrowth:'Organic Growth',
-        burnActivity:'Burn Activity', creatorBehavior:'Creator Behavior',
-        feeRedistribution:'Fee Redistribution', realUtility:'Real Utility',
-      };
+  document.getElementById('result').innerHTML=h;
+  // Animate ring
+  setTimeout(function(){var r=document.querySelector('.ring-prog');if(r)r.style.strokeDashoffset=r.getAttribute('data-off')},60);
+}
 
-      let h = '';
+// ── Watchlist
+async function loadWL(){
+  try{var r=await fetch('/api/oracle/watchlist');if(!r.ok){document.getElementById('wl-st').textContent='offline';return}
+    var d=await r.json();rWL(d.watchlist||[],d.recentAlerts||[])
+  }catch(e){document.getElementById('wl-st').textContent='offline'}}
 
-      // ── Verdict Card
-      h += '<div class="verdict-card ' + d.verdict + '">';
-      h += '<div class="verdict-icon">' + (d.verdictIcon || '') + '</div>';
-      h += '<div class="verdict-name">' + d.verdict + '</div>';
-      h += '<div class="verdict-desc">' + esc(d.verdictDescription || '') + '</div>';
-      h += '<div class="verdict-token">' + esc(d.name || 'Unknown') + ' <span class="sym">(' + esc(d.symbol || '?') + ')</span></div>';
-      h += '<div class="scores-row">';
-      h += '<div class="score-pill"><div class="val" style="color:' + vc + '">' + d.qScore + '</div><div class="lbl">Q-Score</div></div>';
-      h += '<div class="score-pill"><div class="val">' + d.kScore + '</div><div class="lbl">K-Score</div></div>';
-      h += '<div class="score-pill"><div class="val" style="color:var(--gold)">' + (d.confidence * 100).toFixed(1) + '%</div><div class="lbl">Confidence</div></div>';
-      h += '</div>';
+function rWL(items,alerts){
+  var el=document.getElementById('wl-items');
+  document.getElementById('wl-st').textContent=items.length+' watched';
+  if(!items.length){el.innerHTML='<div class="wl-e">No tokens watched. Judge a token and add it.</div>';return}
+  el.innerHTML=items.map(function(w){
+    var c=vc(w.lastVerdict),ago=w.lastCheckedAt?tAgo(new Date(w.lastCheckedAt)):'';
+    return '<div class="wl-i" onclick="qm(\\''+w.mint+'\\')">'+'<div class="wl-l"><span class="wl-lb">'+esc(w.label||w.mint.slice(0,6)+'..')+'</span><span class="wl-m">'+w.mint.slice(0,8)+'...'+w.mint.slice(-4)+'</span></div>'+'<div class="wl-r">'+(w.lastQScore?'<span class="wl-sc" style="color:'+c+'">'+w.lastQScore+'</span>':'')+(w.lastVerdict?'<span class="wl-vt" style="color:'+c+';background:'+c+'12">'+w.lastVerdict+'</span>':'')+(ago?'<span class="wl-tm">'+ago+'</span>':'')+'<span class="wl-x" onclick="event.stopPropagation();uwM(\\''+w.mint+'\\')">\\u00D7</span></div></div>'
+  }).join('');
+  var as=document.getElementById('al-sec'),ai=document.getElementById('al-items');
+  if(alerts.length>0){as.style.display='block';ai.innerHTML=alerts.slice(0,5).map(function(a){return '<div class="al-i"><strong>'+esc(a.label||a.mint?.slice(0,8))+'</strong>: '+esc(a.message||a.alertType)+'<span style="float:right;color:var(--muted)">'+tAgo(new Date(a.createdAt))+'</span></div>'}).join('')}else{as.style.display='none'}
+}
 
-      // Meta chips
-      h += '<div class="verdict-meta">';
-      h += '<span class="meta-chip">K-Tier: <span class="val">' + esc(d.kTier || d.tier || '?') + '</span></span>';
-      h += '<span class="meta-chip">D: <span class="val">' + (d.kComponents?.d?.toFixed(2) || '?') + '</span></span>';
-      h += '<span class="meta-chip">O: <span class="val">' + (d.kComponents?.o?.toFixed(2) || '?') + '</span></span>';
-      h += '<span class="meta-chip">L: <span class="val">' + (d.kComponents?.l?.toFixed(2) || '?') + '</span></span>';
-      h += '</div>';
-      h += '<button class="watch-btn" onclick="watchCurrentMint()">Add to watchlist</button>';
-      h += '</div>';
+async function watchC(){if(!cur)return;var l=document.querySelector('.vtok')?.textContent?.split('(')[0]?.trim()||null;await fetch('/api/oracle/watch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mint:cur,label:l})});loadWL()}
+async function uwM(m){await fetch('/api/oracle/watch?mint='+encodeURIComponent(m),{method:'DELETE'});loadWL()}
+function tAgo(d){var s=Math.floor((Date.now()-d.getTime())/1000);if(s<60)return s+'s';if(s<3600)return Math.floor(s/60)+'m';if(s<86400)return Math.floor(s/3600)+'h';return Math.floor(s/86400)+'d'}
 
-      // ── Trajectory
-      if (d.trajectory && !(d.trajectory.direction === 'new' && d.trajectory.previousJudgments <= 1)) {
-        const t = d.trajectory;
-        const arrows = { improving:'\\u2197\\uFE0F', declining:'\\u2198\\uFE0F', stable:'\\u2192', new:'\\u2728' };
-        const labels = { improving:'Improving', declining:'Declining', stable:'Stable', new:'First judgment' };
-        h += '<div class="trajectory">';
-        h += '<span class="traj-dir ' + t.direction + '">' + (arrows[t.direction]||'') + '</span>';
-        h += '<span class="traj-text"><strong>' + (labels[t.direction]||'') + '</strong>';
-        if (t.delta) h += ' (Q ' + (t.delta > 0 ? '+' : '') + t.delta + ')';
-        h += '</span>';
-        if (t.previousJudgments > 1) h += '<span class="traj-text">' + t.previousJudgments + ' past judgments</span>';
-        if (t.averageQScore) h += '<span class="traj-text">avg Q: ' + t.averageQScore + '</span>';
-        h += '</div>';
-      }
-
-      // ── Confidence bar
-      h += '<div class="confidence-row">';
-      h += '<div class="conf-header"><span>Confidence</span><span class="val">' + (d.confidence * 100).toFixed(1) + '% / 61.8%</span></div>';
-      h += '<div class="conf-track">';
-      h += '<div class="conf-fill" style="width:' + Math.min(61.8, d.confidence * 100).toFixed(1) + '%"></div>';
-      h += '<div class="conf-phi"></div>';
-      h += '<div class="conf-phi-label">\\u03C6\\u207B\\u00B9</div>';
-      h += '</div></div>';
-
-      // ── Axiom dimensions
-      h += '<div class="section"><div class="section-head">17 Dimensions</div>';
-      for (const [ax, info] of Object.entries(axioms)) {
-        const aScore = d.axiomScores[ax];
-        const ac = dColor(aScore);
-        h += '<div class="axiom-block">';
-        h += '<div class="axiom-label"><span class="axiom-name">' + info.lbl + '</span>';
-        h += '<span class="axiom-val" style="color:' + ac + ';background:' + ac + '15">' + aScore + '</span></div>';
-        for (const dim of info.dims) {
-          const s = d.dimensions[dim] || 0;
-          const c = dColor(s);
-          h += '<div class="dim-row">';
-          h += '<span class="dim-name">' + (dimN[dim]||dim) + '</span>';
-          h += '<div class="dim-track"><div class="dim-fill" style="width:' + s + '%;background:' + c + '"></div></div>';
-          h += '<span class="dim-val" style="color:' + c + '">' + s + '</span>';
-          h += '</div>';
-        }
-        h += '</div>';
-      }
-      h += '</div>';
-
-      // ── THE_UNNAMEABLE
-      h += '<div class="unnameable-card">';
-      h += '<strong>THE UNNAMEABLE</strong> \\u2014 ' + d.theUnnameable + '% uncertainty \\u2014 ';
-      h += d.theUnnameable > 50 ? 'Much we cannot measure. Judgment has limited grounding.' :
-           d.theUnnameable > 25 ? 'Moderate gaps in available on-chain data.' :
-           'Good data coverage. Judgment is well-grounded.';
-      h += '</div>';
-
-      // ── Weaknesses
-      if (d.weaknesses && d.weaknesses.length > 0) {
-        h += '<div class="section"><div class="section-head">Weaknesses (below \\u03C6\\u207B\\u00B2)</div>';
-        for (const w of d.weaknesses) {
-          h += '<div class="weakness-item">';
-          h += '<span class="weakness-dim">[' + w.axiom + '] ' + (dimN[w.dimension]||w.dimension) + ': ' + w.score + '</span><br>';
-          h += '<span class="weakness-reason">' + esc(w.reason) + '</span>';
-          h += '</div>';
-        }
-        h += '</div>';
-      }
-
-      // ── On-chain data
-      h += '<div class="section"><div class="section-head">On-Chain Data</div>';
-      h += '<div class="raw-data">';
-      h += '<div class="raw-item"><span class="k">Source </span><span class="v">' + esc(d._raw?.source || '?') + '</span></div>';
-      h += '<div class="raw-item"><span class="k">Latency </span><span class="v">' + (d._raw?.latencyMs || '?') + 'ms</span></div>';
-      h += '<div class="raw-item"><span class="k">Supply </span><span class="v">' + (d.supply?.total?.toLocaleString() || '?') + '</span></div>';
-      h += '<div class="raw-item"><span class="k">Holders </span><span class="v">' + (d.distribution?.holderCount?.toLocaleString() || '?') + '</span></div>';
-      h += '<div class="raw-item"><span class="k">Whale% </span><span class="v">' + ((d.distribution?.whaleConcentration || 0) * 100).toFixed(1) + '%</span></div>';
-      h += '<div class="raw-item"><span class="k">Gini </span><span class="v">' + (d.distribution?.giniCoefficient?.toFixed(3) || '?') + '</span></div>';
-      h += '</div></div>';
-
-      document.getElementById('result').innerHTML = h;
-    }
-
-    // ── Watchlist
-    async function loadWatchlist() {
-      try {
-        const r = await fetch('/api/oracle/watchlist');
-        if (!r.ok) { document.getElementById('wl-status').textContent = 'offline'; return; }
-        const d = await r.json();
-        renderWatchlist(d.watchlist || [], d.recentAlerts || []);
-      } catch { document.getElementById('wl-status').textContent = 'offline'; }
-    }
-
-    function renderWatchlist(items, alerts) {
-      const c = document.getElementById('watchlist-items');
-      document.getElementById('wl-status').textContent = items.length + ' watched';
-      if (!items.length) {
-        c.innerHTML = '<div class="wl-empty">No tokens watched yet. Judge a token and add it to your watchlist.</div>';
-      } else {
-        c.innerHTML = items.map(w => {
-          const vc = vColor(w.lastVerdict);
-          const ago = w.lastCheckedAt ? timeAgo(new Date(w.lastCheckedAt)) : '';
-          return '<div class="wl-item" onclick="setMint(\\'' + w.mint + '\\')">' +
-            '<div class="wl-left">' +
-              '<span class="wl-label">' + esc(w.label || w.mint.slice(0,6)+'..') + '</span>' +
-              '<span class="wl-mint">' + w.mint.slice(0,8) + '...' + w.mint.slice(-4) + '</span>' +
-            '</div>' +
-            '<div class="wl-right">' +
-              (w.lastQScore ? '<span class="wl-score" style="color:'+vc+'">'+w.lastQScore+'</span>' : '') +
-              (w.lastVerdict ? '<span class="wl-verdict-tag" style="color:'+vc+';background:'+vc+'15">'+w.lastVerdict+'</span>' : '') +
-              (ago ? '<span class="wl-time">'+ago+'</span>' : '') +
-              '<span class="wl-remove" onclick="event.stopPropagation();unwatchMint(\\''+w.mint+'\\')">\\u00D7</span>' +
-            '</div></div>';
-        }).join('');
-      }
-
-      const as = document.getElementById('alerts-section');
-      const ai = document.getElementById('alerts-items');
-      if (alerts.length > 0) {
-        as.style.display = 'block';
-        ai.innerHTML = alerts.slice(0,5).map(a =>
-          '<div class="alert-item"><strong>' + esc(a.label || a.mint?.slice(0,8)) + '</strong>: ' +
-          esc(a.message || a.alertType) +
-          '<span style="float:right;color:var(--text-muted)">' + timeAgo(new Date(a.createdAt)) + '</span></div>'
-        ).join('');
-      } else { as.style.display = 'none'; }
-    }
-
-    async function watchCurrentMint() {
-      if (!currentMint) return;
-      const label = document.querySelector('.verdict-token')?.textContent?.split('(')[0]?.trim() || null;
-      await fetch('/api/oracle/watch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mint: currentMint, label })
-      });
-      loadWatchlist();
-    }
-
-    async function unwatchMint(mint) {
-      await fetch('/api/oracle/watch?mint=' + encodeURIComponent(mint), { method: 'DELETE' });
-      loadWatchlist();
-    }
-
-    function timeAgo(date) {
-      const s = Math.floor((Date.now() - date.getTime()) / 1000);
-      if (s < 60) return s + 's ago';
-      if (s < 3600) return Math.floor(s/60) + 'm ago';
-      if (s < 86400) return Math.floor(s/3600) + 'h ago';
-      return Math.floor(s/86400) + 'd ago';
-    }
-
-    loadWatchlist();
-    setInterval(loadWatchlist, 60000);
-  </script>
+loadWL();setInterval(loadWL,60000);
+var p=new URLSearchParams(window.location.search);if(p.get('mint')){document.getElementById('mint').value=p.get('mint');judgeToken()}
+</script>
 </body>
 </html>`;
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SERVER
