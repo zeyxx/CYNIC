@@ -510,3 +510,181 @@ describe('Error Inheritance', () => {
     assert.strictEqual(caught, true);
   });
 });
+
+// =============================================================================
+// NETWORK/API ERROR TESTS (Pattern from GASdf)
+// =============================================================================
+
+import {
+  NetworkError,
+  RateLimitError,
+  ApiError,
+  parseApiError,
+  isRetryableError,
+  getRetryDelay,
+} from '../src/errors.js';
+
+describe('NetworkError', () => {
+  it('should create with message', () => {
+    const error = new NetworkError('Connection failed');
+    assert.strictEqual(error.name, 'NetworkError');
+    assert.strictEqual(error.code, ErrorCode.NETWORK_ERROR);
+    assert.strictEqual(error.message, 'Connection failed');
+  });
+
+  it('should create connection refused error', () => {
+    const error = NetworkError.connectionRefused('http://localhost:3000');
+    assert.ok(error.message.includes('Connection refused'));
+    assert.strictEqual(error.metadata.endpoint, 'http://localhost:3000');
+  });
+
+  it('should create fetch failed error', () => {
+    const error = NetworkError.fetchFailed('http://api.example.com', 'ECONNRESET');
+    assert.ok(error.message.includes('Fetch failed'));
+    assert.strictEqual(error.metadata.url, 'http://api.example.com');
+  });
+});
+
+describe('RateLimitError', () => {
+  it('should create with default values', () => {
+    const error = new RateLimitError();
+    assert.strictEqual(error.name, 'RateLimitError');
+    assert.strictEqual(error.code, ErrorCode.RATE_LIMIT);
+    assert.strictEqual(error.statusCode, 429);
+    assert.strictEqual(error.retryAfter, null);
+  });
+
+  it('should create with retryAfter', () => {
+    const error = new RateLimitError(60);
+    assert.strictEqual(error.retryAfter, 60);
+    assert.strictEqual(error.metadata.retryAfter, 60);
+  });
+});
+
+describe('ApiError', () => {
+  it('should create with status code', () => {
+    const error = new ApiError('Bad request', 400);
+    assert.strictEqual(error.name, 'ApiError');
+    assert.strictEqual(error.statusCode, 400);
+  });
+
+  it('should create server error', () => {
+    const error = ApiError.serverError(503, 'Service unavailable');
+    assert.strictEqual(error.statusCode, 503);
+    assert.strictEqual(error.code, ErrorCode.SERVER_ERROR);
+  });
+});
+
+describe('parseApiError', () => {
+  it('should parse 400 as ValidationError', () => {
+    const error = parseApiError(400, { error: 'Invalid input' });
+    assert.ok(error instanceof ValidationError);
+    assert.strictEqual(error.message, 'Invalid input');
+  });
+
+  it('should parse 401 as IdentityError', () => {
+    const error = parseApiError(401, { error: 'Unauthorized' });
+    assert.ok(error instanceof IdentityError);
+  });
+
+  it('should parse 404 as StorageError', () => {
+    const error = parseApiError(404, { error: 'Not found', entity: 'User', id: '123' });
+    assert.ok(error instanceof StorageError);
+  });
+
+  it('should parse 429 as RateLimitError', () => {
+    const error = parseApiError(429, { retryAfter: 30 });
+    assert.ok(error instanceof RateLimitError);
+    assert.strictEqual(error.retryAfter, 30);
+  });
+
+  it('should parse 500 as ApiError with SERVER_ERROR code', () => {
+    const error = parseApiError(500, { error: 'Internal server error' });
+    assert.ok(error instanceof ApiError);
+    assert.strictEqual(error.code, ErrorCode.SERVER_ERROR);
+  });
+
+  it('should handle string body', () => {
+    const error = parseApiError(400, 'Bad request');
+    assert.strictEqual(error.message, 'Bad request');
+  });
+
+  it('should handle null body', () => {
+    const error = parseApiError(500, null);
+    assert.strictEqual(error.message, 'Unknown error');
+  });
+});
+
+describe('isRetryableError', () => {
+  it('should return true for RateLimitError', () => {
+    assert.strictEqual(isRetryableError(new RateLimitError()), true);
+  });
+
+  it('should return true for NetworkError', () => {
+    assert.strictEqual(isRetryableError(new NetworkError('test')), true);
+  });
+
+  it('should return true for server errors (5xx)', () => {
+    assert.strictEqual(isRetryableError(ApiError.serverError(503)), true);
+  });
+
+  it('should return true for TransportError', () => {
+    assert.strictEqual(isRetryableError(new TransportError('test')), true);
+  });
+
+  it('should return false for ValidationError', () => {
+    assert.strictEqual(isRetryableError(new ValidationError('test')), false);
+  });
+
+  it('should return false for standard Error', () => {
+    assert.strictEqual(isRetryableError(new Error('test')), false);
+  });
+});
+
+describe('getRetryDelay', () => {
+  it('should use retryAfter for RateLimitError', () => {
+    const error = new RateLimitError(30);
+    assert.strictEqual(getRetryDelay(error), 30000);
+  });
+
+  it('should use exponential backoff for other errors', () => {
+    const error = new NetworkError('test');
+
+    // Run multiple samples to account for jitter
+    const samples = 10;
+    let avgDelay0 = 0, avgDelay1 = 0, avgDelay2 = 0;
+    for (let i = 0; i < samples; i++) {
+      avgDelay0 += getRetryDelay(error, 0);
+      avgDelay1 += getRetryDelay(error, 1);
+      avgDelay2 += getRetryDelay(error, 2);
+    }
+    avgDelay0 /= samples;
+    avgDelay1 /= samples;
+    avgDelay2 /= samples;
+
+    // Average should increase exponentially (roughly φ factor)
+    assert.ok(avgDelay0 >= 600 && avgDelay0 <= 1400, `avgDelay0=${avgDelay0}`);
+    assert.ok(avgDelay1 > avgDelay0 * 1.2, `avgDelay1=${avgDelay1} should be > avgDelay0=${avgDelay0}`);
+    assert.ok(avgDelay2 > avgDelay1 * 1.2, `avgDelay2=${avgDelay2} should be > avgDelay1=${avgDelay1}`);
+  });
+
+  it('should cap at max delay', () => {
+    const error = new NetworkError('test');
+    const delay = getRetryDelay(error, 100); // Very high attempt
+    // Max is 30000 + up to 38.2% jitter = ~42000
+    assert.ok(delay <= 42000, `delay should be capped: ${delay}`);
+  });
+});
+
+describe('CYNICError statusCode', () => {
+  it('should include statusCode in constructor', () => {
+    const error = new CYNICError('E1000', 'test', {}, null, 400);
+    assert.strictEqual(error.statusCode, 400);
+  });
+
+  it('should include statusCode in toJSON', () => {
+    const error = new CYNICError('E1000', 'test', {}, null, 500);
+    const json = error.toJSON();
+    assert.strictEqual(json.statusCode, 500);
+  });
+});

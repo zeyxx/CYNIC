@@ -85,6 +85,13 @@ export const ErrorCode = {
   TRANSACTION_FAILED: 'E9001',
   INSUFFICIENT_FUNDS: 'E9002',
   PROGRAM_ERROR: 'E9003',
+
+  // Network/API errors (10xxx) - Pattern from GASdf
+  NETWORK_ERROR: 'E10000',
+  RATE_LIMIT: 'E10001',
+  API_ERROR: 'E10002',
+  TIMEOUT_ERROR: 'E10003',
+  SERVER_ERROR: 'E10004',
 };
 
 /**
@@ -99,13 +106,15 @@ export class CYNICError extends Error {
    * @param {string} message - Human-readable error message
    * @param {Object} [metadata={}] - Additional context
    * @param {Error} [cause] - Original error if wrapping
+   * @param {number} [statusCode] - HTTP status code (pattern from GASdf)
    */
-  constructor(code, message, metadata = {}, cause = null) {
+  constructor(code, message, metadata = {}, cause = null, statusCode = null) {
     super(message);
     this.name = 'CYNICError';
     this.code = code;
     this.metadata = metadata;
     this.cause = cause;
+    this.statusCode = statusCode;
     this.timestamp = Date.now();
     this.confidence = PHI_INV; // Even errors have max 61.8% certainty
 
@@ -123,6 +132,7 @@ export class CYNICError extends Error {
       name: this.name,
       code: this.code,
       message: this.message,
+      statusCode: this.statusCode,
       metadata: this.metadata,
       timestamp: this.timestamp,
       confidence: this.confidence,
@@ -511,4 +521,177 @@ export function isCYNICError(error) {
  */
 export function isErrorCategory(error, category) {
   return error instanceof CYNICError && error.isCategory(category);
+}
+
+// ============================================================================
+// Network/API Errors (Pattern adopted from GASdf)
+// ============================================================================
+
+/**
+ * Network Error
+ *
+ * Thrown for network/connection failures (fetch errors, DNS, etc.)
+ * Pattern: GASdf error hierarchy
+ */
+export class NetworkError extends CYNICError {
+  constructor(message, metadata = {}, cause = null) {
+    super(ErrorCode.NETWORK_ERROR, message, metadata, cause);
+    this.name = 'NetworkError';
+  }
+
+  /**
+   * Create for connection refused
+   */
+  static connectionRefused(endpoint) {
+    return new NetworkError(
+      `Connection refused: ${endpoint}`,
+      { endpoint },
+    );
+  }
+
+  /**
+   * Create for DNS failure
+   */
+  static dnsFailure(hostname) {
+    return new NetworkError(
+      `DNS lookup failed: ${hostname}`,
+      { hostname },
+    );
+  }
+
+  /**
+   * Create for fetch error
+   */
+  static fetchFailed(url, reason) {
+    return new NetworkError(
+      `Fetch failed for ${url}: ${reason}`,
+      { url, reason },
+    );
+  }
+}
+
+/**
+ * Rate Limit Error
+ *
+ * Thrown when API rate limit is exceeded (HTTP 429).
+ * Pattern: GASdf error hierarchy
+ */
+export class RateLimitError extends CYNICError {
+  /**
+   * @param {number} [retryAfter] - Seconds until retry is allowed
+   */
+  constructor(retryAfter = null) {
+    super(
+      ErrorCode.RATE_LIMIT,
+      'Rate limit exceeded',
+      { retryAfter },
+      null,
+      429,
+    );
+    this.name = 'RateLimitError';
+    this.retryAfter = retryAfter;
+  }
+}
+
+/**
+ * API Error
+ *
+ * Generic API error with status code.
+ * Pattern: GASdf error hierarchy
+ */
+export class ApiError extends CYNICError {
+  constructor(message, statusCode, metadata = {}) {
+    super(ErrorCode.API_ERROR, message, metadata, null, statusCode);
+    this.name = 'ApiError';
+  }
+
+  /**
+   * Create for server error (5xx)
+   */
+  static serverError(statusCode, message = 'Internal server error') {
+    const error = new ApiError(message, statusCode);
+    error.code = ErrorCode.SERVER_ERROR;
+    return error;
+  }
+}
+
+/**
+ * Parse API error response into appropriate error class
+ *
+ * Pattern adopted from GASdf - converts HTTP responses to typed errors.
+ *
+ * @param {number} status - HTTP status code
+ * @param {Object|string} body - Response body
+ * @returns {CYNICError}
+ */
+export function parseApiError(status, body) {
+  const data = typeof body === 'string' ? { error: body } : body || {};
+  const message = data.error || data.message || 'Unknown error';
+  const errors = data.errors || [];
+
+  switch (status) {
+    case 400:
+      return new ValidationError(message, { errors });
+
+    case 401:
+      return IdentityError.unauthorized(message);
+
+    case 403:
+      return IdentityError.unauthorized(`Forbidden: ${message}`);
+
+    case 404:
+      return StorageError.notFound(data.entity || 'Resource', data.id || 'unknown');
+
+    case 429: {
+      const retryAfter = data.retryAfter || data.retry_after;
+      return new RateLimitError(retryAfter);
+    }
+
+    case 500:
+    case 502:
+    case 503:
+    case 504:
+      return ApiError.serverError(status, message);
+
+    default:
+      return new ApiError(message, status, { errors });
+  }
+}
+
+/**
+ * Check if error is retryable
+ *
+ * @param {Error} error
+ * @returns {boolean}
+ */
+export function isRetryableError(error) {
+  if (error instanceof RateLimitError) return true;
+  if (error instanceof NetworkError) return true;
+  if (error instanceof ApiError && error.statusCode >= 500) return true;
+  if (error instanceof TransportError) return true;
+  return false;
+}
+
+/**
+ * Get retry delay for error (in ms)
+ *
+ * @param {Error} error
+ * @param {number} attempt - Current attempt number (0-indexed)
+ * @returns {number} Delay in milliseconds
+ */
+export function getRetryDelay(error, attempt = 0) {
+  // Rate limit: use retryAfter if available
+  if (error instanceof RateLimitError && error.retryAfter) {
+    return error.retryAfter * 1000;
+  }
+
+  // Exponential backoff with φ-aligned jitter
+  // Base: 1s, multiplier: φ, max: 30s
+  const baseDelay = 1000;
+  const maxDelay = 30000;
+  const delay = Math.min(baseDelay * Math.pow(1.618, attempt), maxDelay);
+
+  // Add jitter: ±φ⁻² (38.2%)
+  const jitter = delay * (Math.random() - 0.5) * 2 * 0.382;
+  return Math.round(delay + jitter);
 }
