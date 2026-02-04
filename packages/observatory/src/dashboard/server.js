@@ -20,6 +20,8 @@ import { TelemetryQueries } from '../queries/telemetry.js';
 import { LearningProofQueries } from '../queries/learning-proof.js';
 import { TokenFetcher } from '../oracle/token-fetcher.js';
 import { TokenScorer } from '../oracle/scorer.js';
+import { OracleMemory } from '../oracle/memory.js';
+import { OracleWatchlist } from '../oracle/watchlist.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CORS & RESPONSE HELPERS
@@ -27,7 +29,7 @@ import { TokenScorer } from '../oracle/scorer.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
@@ -41,6 +43,15 @@ function jsonResponse(res, data, status = 200) {
 
 function errorResponse(res, message, status = 500) {
   jsonResponse(res, { error: message, timestamp: new Date().toISOString() }, status);
+}
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', chunk => { data += chunk; if (data.length > 1e5) reject(new Error('Body too large')); });
+    req.on('end', () => { try { resolve(data ? JSON.parse(data) : {}); } catch { reject(new Error('Invalid JSON')); } });
+    req.on('error', reject);
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -653,6 +664,105 @@ const ORACLE_HTML = `<!DOCTYPE html>
     }
     .footer a { color: var(--gold); text-decoration: none; }
 
+    /* Trajectory */
+    .trajectory {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 12px;
+      padding: 10px;
+      background: var(--card);
+      border-radius: 8px;
+      font-size: 0.85rem;
+    }
+    .traj-arrow { font-size: 1.4rem; }
+    .traj-arrow.improving { color: var(--green); }
+    .traj-arrow.declining { color: var(--red); }
+    .traj-arrow.stable { color: var(--text-dim); }
+    .traj-arrow.new { color: var(--gold); }
+    .traj-detail { color: var(--text-dim); }
+    .traj-detail strong { color: var(--text); }
+
+    /* History mini-list */
+    .history-section { margin-top: 20px; }
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8rem;
+    }
+    .history-item:last-child { border-bottom: none; }
+    .history-verdict { font-weight: 700; width: 55px; }
+
+    /* Watchlist panel */
+    .watchlist-panel {
+      max-width: 800px;
+      margin: 30px auto 0;
+      padding: 0 20px;
+    }
+    .watchlist-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .watchlist-header h3 { color: var(--gold); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.1em; }
+    .watch-btn {
+      padding: 6px 14px;
+      background: transparent;
+      border: 1px solid var(--gold);
+      border-radius: 6px;
+      color: var(--gold);
+      font-family: inherit;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .watch-btn:hover { background: var(--gold-dim); }
+    .watch-btn.active { background: var(--gold-dim); }
+    .watchlist-items { }
+    .wl-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .wl-item:hover { border-color: var(--gold); }
+    .wl-left { display: flex; align-items: center; gap: 10px; }
+    .wl-label { font-weight: 600; font-size: 0.85rem; }
+    .wl-mint { color: var(--text-dim); font-size: 0.75rem; }
+    .wl-right { display: flex; align-items: center; gap: 12px; }
+    .wl-score { font-weight: 700; font-size: 0.9rem; }
+    .wl-verdict { font-size: 0.75rem; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+    .wl-remove {
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 0 4px;
+    }
+    .wl-remove:hover { color: var(--red); }
+    .wl-time { color: var(--text-dim); font-size: 0.7rem; }
+
+    /* Alerts */
+    .alert-item {
+      padding: 8px 12px;
+      background: rgba(210,153,34,0.08);
+      border-left: 3px solid var(--yellow);
+      margin-bottom: 6px;
+      border-radius: 0 6px 6px 0;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+    .alert-item strong { color: var(--text); }
+
     /* Mobile */
     @media (max-width: 600px) {
       .input-row { flex-direction: column; }
@@ -665,7 +775,7 @@ const ORACLE_HTML = `<!DOCTYPE html>
 <body>
   <div class="header">
     <h1>CYNIC ORACLE</h1>
-    <div class="sub">"\\u03C6 distrusts \\u03C6" — 17 dimensions, max 61.8% confidence</div>
+    <div class="sub">"\\u03C6 distrusts \\u03C6" — Agent v2.0 — judges, remembers, watches, alerts</div>
   </div>
 
   <div class="input-section">
@@ -681,6 +791,18 @@ const ORACLE_HTML = `<!DOCTYPE html>
   </div>
 
   <div id="result" class="result"></div>
+
+  <div class="watchlist-panel">
+    <div class="watchlist-header">
+      <h3>\\uD83D\\uDC41 Watchlist</h3>
+      <span id="wl-status" style="color:var(--text-dim);font-size:0.75rem;"></span>
+    </div>
+    <div id="watchlist-items" class="watchlist-items"></div>
+    <div id="alerts-section" style="margin-top:15px;display:none;">
+      <div style="font-size:0.8rem;color:var(--gold);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.1em;">Recent Alerts</div>
+      <div id="alerts-items"></div>
+    </div>
+  </div>
 
   <div class="footer">
     <a href="/api/oracle/health">API Health</a> &middot;
@@ -723,7 +845,9 @@ const ORACLE_HTML = `<!DOCTYPE html>
           return;
         }
 
+        currentMint = mint;
         renderVerdict(data);
+        loadWatchlist();
       } catch (e) {
         resultDiv.innerHTML = '<div class="error-msg">Network error: ' + escapeHtml(e.message) + '</div>';
       } finally {
@@ -781,7 +905,13 @@ const ORACLE_HTML = `<!DOCTYPE html>
       html += '<div class="score-block"><div class="score-value">' + (d.confidence * 100).toFixed(1) + '%</div><div class="score-label">Confidence</div></div>';
       html += '</div>';
       html += '<div class="tier-badge">' + d.tierIcon + ' ' + d.tier + ' — ' + escapeHtml(d.tierDescription) + '</div>';
+      html += '<div style="margin-top:12px"><button class="watch-btn" onclick="watchCurrentMint()">\\uD83D\\uDC41 Watch this token</button></div>';
       html += '</div>';
+
+      // Trajectory
+      if (d.trajectory) {
+        html += renderTrajectory(d.trajectory);
+      }
 
       // Confidence gauge
       const confPct = Math.min(100, (d.confidence / PHI_INV) * 100);
@@ -852,6 +982,101 @@ const ORACLE_HTML = `<!DOCTYPE html>
 
       document.getElementById('result').innerHTML = html;
     }
+
+    function renderTrajectory(t) {
+      if (!t || t.direction === 'new' && t.previousJudgments <= 1) return '';
+      const arrows = { improving: '\\u2197', declining: '\\u2198', stable: '\\u2192', new: '\\u2728' };
+      const labels = { improving: 'Improving', declining: 'Declining', stable: 'Stable', new: 'First judgment' };
+      let html = '<div class="trajectory">';
+      html += '<span class="traj-arrow ' + t.direction + '">' + (arrows[t.direction] || '') + '</span>';
+      html += '<span class="traj-detail"><strong>' + labels[t.direction] + '</strong>';
+      if (t.delta) html += ' (Q ' + (t.delta > 0 ? '+' : '') + t.delta + ')';
+      html += '</span>';
+      if (t.previousJudgments > 1) html += '<span class="traj-detail">' + t.previousJudgments + ' past judgments</span>';
+      if (t.averageQScore) html += '<span class="traj-detail">avg Q: ' + t.averageQScore + '</span>';
+      html += '</div>';
+      return html;
+    }
+
+    // ─── Watchlist ───
+
+    let currentMint = null;
+
+    async function loadWatchlist() {
+      try {
+        const res = await fetch('/api/oracle/watchlist');
+        if (!res.ok) { document.getElementById('wl-status').textContent = 'Memory offline'; return; }
+        const data = await res.json();
+        renderWatchlist(data.watchlist || [], data.recentAlerts || []);
+      } catch(e) {
+        document.getElementById('wl-status').textContent = 'Agent offline';
+      }
+    }
+
+    function renderWatchlist(items, alerts) {
+      const container = document.getElementById('watchlist-items');
+      if (items.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-dim);font-size:0.8rem;padding:10px;">No tokens watched. Judge a token then click "Watch" to monitor it.</div>';
+      } else {
+        container.innerHTML = items.map(w => {
+          const vColor = w.lastVerdict === 'HOWL' ? 'var(--green)' : w.lastVerdict === 'WAG' ? 'var(--blue)' : w.lastVerdict === 'GROWL' ? 'var(--yellow)' : 'var(--red)';
+          const ago = w.lastCheckedAt ? timeAgo(new Date(w.lastCheckedAt)) : 'never';
+          return '<div class="wl-item" onclick="setMint(\\'' + w.mint + '\\')">' +
+            '<div class="wl-left">' +
+              '<span class="wl-label">' + escapeHtml(w.label || w.mint.slice(0,6) + '..') + '</span>' +
+              '<span class="wl-mint">' + w.mint.slice(0,8) + '..' + w.mint.slice(-4) + '</span>' +
+            '</div>' +
+            '<div class="wl-right">' +
+              (w.lastQScore ? '<span class="wl-score" style="color:' + vColor + '">Q:' + w.lastQScore + '</span>' : '') +
+              (w.lastVerdict ? '<span class="wl-verdict" style="color:' + vColor + ';border:1px solid ' + vColor + '">' + w.lastVerdict + '</span>' : '') +
+              '<span class="wl-time">' + ago + '</span>' +
+              '<span class="wl-remove" onclick="event.stopPropagation();unwatchMint(\\'' + w.mint + '\\')" title="Remove">&times;</span>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+      }
+      document.getElementById('wl-status').textContent = items.length + ' watched';
+
+      // Alerts
+      const alertsDiv = document.getElementById('alerts-items');
+      const alertsSection = document.getElementById('alerts-section');
+      if (alerts.length > 0) {
+        alertsSection.style.display = 'block';
+        alertsDiv.innerHTML = alerts.slice(0,5).map(a =>
+          '<div class="alert-item"><strong>' + escapeHtml(a.label || a.mint.slice(0,8)) + '</strong>: ' + escapeHtml(a.message || a.alertType) + ' <span style="float:right">' + timeAgo(new Date(a.createdAt)) + '</span></div>'
+        ).join('');
+      } else {
+        alertsSection.style.display = 'none';
+      }
+    }
+
+    async function watchCurrentMint() {
+      if (!currentMint) return;
+      const label = document.querySelector('.verdict-token')?.textContent?.split('(')[0]?.trim() || null;
+      await fetch('/api/oracle/watch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mint: currentMint, label })
+      });
+      loadWatchlist();
+    }
+
+    async function unwatchMint(mint) {
+      await fetch('/api/oracle/watch?mint=' + encodeURIComponent(mint), { method: 'DELETE' });
+      loadWatchlist();
+    }
+
+    function timeAgo(date) {
+      const s = Math.floor((Date.now() - date.getTime()) / 1000);
+      if (s < 60) return s + 's ago';
+      if (s < 3600) return Math.floor(s/60) + 'm ago';
+      if (s < 86400) return Math.floor(s/3600) + 'h ago';
+      return Math.floor(s/86400) + 'd ago';
+    }
+
+    // Load watchlist on page load
+    loadWatchlist();
+    setInterval(loadWatchlist, 60000);
   </script>
 </body>
 </html>`;
@@ -877,6 +1102,8 @@ export function createServer(options = {}) {
   let learningProof = null;
   let tokenFetcher = null;
   let tokenScorer = null;
+  let oracleMemory = null;
+  let oracleWatchlist = null;
 
   // Simple rate limiter for oracle (60 req/min per IP)
   const oracleRateLimit = new Map();
@@ -909,6 +1136,15 @@ export function createServer(options = {}) {
         patterns = new PatternsQueries(pool);
         telemetry = new TelemetryQueries(pool);
         learningProof = new LearningProofQueries(pool);
+
+        // Wire Oracle memory + watchlist (agent capabilities)
+        ensureOracleInitialized();
+        oracleMemory = new OracleMemory(pool);
+        oracleWatchlist = new OracleWatchlist(pool, oracleMemory, tokenFetcher, tokenScorer);
+        await oracleMemory.ensureSchema();
+        await oracleWatchlist.ensureSchema();
+        oracleWatchlist.startMonitoring();
+        console.log('[Observatory] Oracle agent capabilities initialized (memory + watchlist)');
       } catch (e) {
         console.warn('[Observatory] Database not available:', e.message);
       }
@@ -1053,7 +1289,8 @@ export function createServer(options = {}) {
         try {
           const tokenData = await tokenFetcher.getTokenData(mint);
           const verdict = tokenScorer.score(tokenData);
-          return jsonResponse(res, {
+
+          const response = {
             ...verdict,
             _raw: tokenData._raw,
             supply: tokenData.supply,
@@ -1062,22 +1299,126 @@ export function createServer(options = {}) {
               whaleConcentration: tokenData.distribution.whaleConcentration,
               giniCoefficient: tokenData.distribution.giniCoefficient,
             },
-          });
+          };
+
+          // Agent: store judgment + attach trajectory
+          if (oracleMemory) {
+            await oracleMemory.store({ mint, name: tokenData.name, symbol: tokenData.symbol, ...verdict });
+            const trajectory = await oracleMemory.getTrajectory(mint);
+            response.trajectory = {
+              direction: trajectory.direction,
+              delta: trajectory.delta,
+              trend: trajectory.trend,
+              previousJudgments: trajectory.previousJudgments,
+              verdictChanged: trajectory.verdictChanged,
+              averageQScore: trajectory.averageQScore,
+            };
+          }
+
+          return jsonResponse(res, response);
         } catch (e) {
           return errorResponse(res, `Oracle error: ${e.message}`, 422);
         }
       }
 
+      // ═══════════════════════════════════════════════════════════════════
+      // Oracle Agent endpoints — Memory + Watchlist
+      // ═══════════════════════════════════════════════════════════════════
+
+      if (path === '/api/oracle/history') {
+        const mint = url.searchParams.get('mint');
+        if (!mint) return errorResponse(res, 'mint parameter required', 400);
+        if (!oracleMemory) return errorResponse(res, 'Oracle memory not available (no database)', 503);
+        const trajectory = await oracleMemory.getTrajectory(mint);
+        return jsonResponse(res, trajectory);
+      }
+
+      if (path === '/api/oracle/recent') {
+        if (!oracleMemory) return errorResponse(res, 'Oracle memory not available', 503);
+        const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+        const mints = await oracleMemory.getRecentMints(limit);
+        return jsonResponse(res, { mints });
+      }
+
+      if (path === '/api/oracle/stats') {
+        if (!oracleMemory) return errorResponse(res, 'Oracle memory not available', 503);
+        const stats = await oracleMemory.getStats();
+        return jsonResponse(res, stats);
+      }
+
+      if (path === '/api/oracle/watchlist' && req.method === 'GET') {
+        if (!oracleWatchlist) return errorResponse(res, 'Watchlist not available (no database)', 503);
+        const list = await oracleWatchlist.list();
+        const alerts = await oracleWatchlist.getAlerts(20);
+        return jsonResponse(res, { watchlist: list, recentAlerts: alerts });
+      }
+
+      if (path === '/api/oracle/watch' && req.method === 'POST') {
+        if (!oracleWatchlist) return errorResponse(res, 'Watchlist not available (no database)', 503);
+        const body = await readBody(req);
+        if (!body.mint) return errorResponse(res, 'mint required in body', 400);
+        await oracleWatchlist.add(body.mint, body.label || null);
+        // Immediately judge and store
+        try {
+          const tokenData = await tokenFetcher.getTokenData(body.mint);
+          const verdict = tokenScorer.score(tokenData);
+          await oracleMemory.store({ mint: body.mint, name: tokenData.name, symbol: tokenData.symbol, ...verdict });
+          await oracleWatchlist.pool.query(
+            'UPDATE oracle_watchlist SET last_verdict = $2, last_q_score = $3, last_k_score = $4, last_checked_at = NOW() WHERE mint = $1',
+            [body.mint, verdict.verdict, verdict.qScore, verdict.kScore]
+          );
+          return jsonResponse(res, { added: true, mint: body.mint, verdict: verdict.verdict, qScore: verdict.qScore });
+        } catch (e) {
+          // Added but couldn't judge yet
+          return jsonResponse(res, { added: true, mint: body.mint, judgeError: e.message });
+        }
+      }
+
+      if (path === '/api/oracle/watch' && req.method === 'DELETE') {
+        if (!oracleWatchlist) return errorResponse(res, 'Watchlist not available (no database)', 503);
+        const mint = url.searchParams.get('mint');
+        if (!mint) return errorResponse(res, 'mint parameter required', 400);
+        await oracleWatchlist.remove(mint);
+        return jsonResponse(res, { removed: true, mint });
+      }
+
+      if (path === '/api/oracle/alerts') {
+        if (!oracleWatchlist) return errorResponse(res, 'Watchlist not available (no database)', 503);
+        const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+        const alerts = await oracleWatchlist.getAlerts(limit);
+        return jsonResponse(res, { alerts });
+      }
+
+      if (path === '/api/oracle/check-now') {
+        if (!oracleWatchlist) return errorResponse(res, 'Watchlist not available (no database)', 503);
+        const result = await oracleWatchlist.checkAll();
+        return jsonResponse(res, result);
+      }
+
       if (path === '/api/oracle/health') {
+        const stats = oracleMemory ? await oracleMemory.getStats() : null;
+        const watchlist = oracleWatchlist ? await oracleWatchlist.list() : [];
         return jsonResponse(res, {
           status: 'operational',
           service: 'CYNIC Oracle',
-          version: '1.0.0',
+          version: '2.0.0',
+          type: 'agent',
+          capabilities: ['judge', 'remember', 'watch', 'alert', 'trajectory'],
           rpcSource: process.env.HELIUS_API_KEY ? 'helius' : 'public_rpc',
+          memory: stats ? { totalJudgments: stats.totalJudgments, uniqueTokens: stats.uniqueTokens } : 'unavailable',
+          watchlist: { watching: watchlist.length },
           dimensions: 17,
           maxConfidence: '61.8% (φ⁻¹)',
           endpoints: {
             judge: '/api/oracle/judge?mint=<ADDRESS>',
+            history: '/api/oracle/history?mint=<ADDRESS>',
+            recent: '/api/oracle/recent',
+            stats: '/api/oracle/stats',
+            watchlist: 'GET /api/oracle/watchlist',
+            watch: 'POST /api/oracle/watch {mint, label?}',
+            unwatch: 'DELETE /api/oracle/watch?mint=<ADDRESS>',
+            alerts: '/api/oracle/alerts',
+            checkNow: '/api/oracle/check-now',
             health: '/api/oracle/health',
             ui: '/oracle',
           },
@@ -1113,25 +1454,26 @@ export async function start() {
   server.listen(port, () => {
     console.log(`
 ═══════════════════════════════════════════════════════════
-🐕 CYNIC Observatory
+🐕 CYNIC Oracle Agent v2.0
 ═══════════════════════════════════════════════════════════
 
 Dashboard:  http://localhost:${port}/
 Oracle:     http://localhost:${port}/oracle
 
-API Endpoints:
-  GET /api/oracle/judge?mint=X  TOKEN VERDICT (17 dimensions)
-  GET /api/oracle/health        Oracle service status
-  GET /api/qlearning/stats      Q-Table summary
-  GET /api/qlearning/curve      Learning curve (is it learning?)
-  GET /api/qlearning/heatmap    Q-values visualization
-  GET /api/patterns/important   EWC++ locked patterns
-  GET /api/patterns/anomalies   Detected anomalies
-  GET /api/telemetry/health     System health
-  GET /api/telemetry/frictions  Friction points
-  GET /api/learning/proof       COMPREHENSIVE LEARNING PROOF
+Agent Capabilities:
+  JUDGE     /api/oracle/judge?mint=X      17-dimension verdict
+  REMEMBER  /api/oracle/history?mint=X    Past judgments + trajectory
+  WATCH     POST /api/oracle/watch        Add to watchlist
+  ALERT     /api/oracle/alerts            Verdict change alerts
+  STATS     /api/oracle/stats             Aggregate memory
 
-"\\u03C6 distrusts \\u03C6" — max confidence 61.8%
+Observatory:
+  GET /api/qlearning/stats      Q-Table summary
+  GET /api/patterns/important   EWC++ locked patterns
+  GET /api/telemetry/health     System health
+  GET /api/learning/proof       Learning proof
+
+"φ distrusts φ" — max confidence 61.8%
 ═══════════════════════════════════════════════════════════
     `);
   });

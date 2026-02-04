@@ -10,3 +10,5 @@
 
 export { TokenFetcher } from './token-fetcher.js';
 export { TokenScorer } from './scorer.js';
+export { OracleMemory } from './memory.js';
+export { OracleWatchlist } from './watchlist.js';
