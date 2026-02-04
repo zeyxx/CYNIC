@@ -47,29 +47,29 @@ const instance = new MCPServer();
 
 ## Dependencies
 
-**CYNIC**: @cynic/core, @cynic/node, @cynic/persistence
+**CYNIC**: @cynic/core, @cynic/node, @cynic/observatory, @cynic/persistence
 **External**: @bjowes/http-mitm-proxy, dotenv
 
 ## Stats
 
-- **Source files**: 98
+- **Source files**: 97
 - **Test files**: 20
-- **Test ratio**: 20%
+- **Test ratio**: 21%
 - **Exports**: 12 named
 
 ## Fractal Structure
 
 - **Depth**: 6 (root)
-- **Children**: core → node → persistence
+- **Children**: core → node → observatory → persistence
 
 ## Dimensions (4 Axioms)
 
 ```
-[██░░░░░░░░] 20% φ (Confidence)
+[██░░░░░░░░] 21% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
 [██████░░░░] 62% Burn (Simplicity)
-[█████░░░░░] 50% Emergence
+[██████░░░░] 60% Emergence
 ```
 
 *Max 62% (φ⁻¹) - certainty is hubris*

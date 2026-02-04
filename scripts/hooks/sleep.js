@@ -487,6 +487,24 @@ async function main() {
         },
       };
 
+      // Event Ledger: Generate handoff for next session
+      try {
+        const { getEventLedger } = await import('../lib/event-ledger.js');
+        const ledger = getEventLedger();
+        const handoff = ledger.generateHandoff();
+        if (handoff) {
+          temporalData.handoff = handoff;
+          output.handoff = {
+            generated: true,
+            eventCount: handoff.eventCount,
+            filesModified: handoff.filesModified?.length || 0,
+            unresolvedErrors: handoff.unresolvedErrors?.length || 0,
+          };
+        }
+        // Cleanup old ledger files (> 7 days)
+        ledger.cleanup();
+      } catch { /* handoff is optional */ }
+
       fs.writeFileSync(temporalFile, JSON.stringify(temporalData, null, 2));
       output.temporal = { saved: true, endTime };
     } catch (e) {

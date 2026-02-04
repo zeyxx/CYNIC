@@ -6,6 +6,7 @@
   "main": "src/index.js",
   "exports": {
     ".": "./src/index.js",
+    "./oracle": "./src/oracle/index.js",
     "./queries": "./src/queries/index.js",
     "./exporters": "./src/exporters/index.js",
     "./dashboard": "./src/dashboard/index.js"

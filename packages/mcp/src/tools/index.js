@@ -152,10 +152,9 @@ export {
 
 // NOTE: Ecosystem tools moved to domains/ecosystem.js
 
-// System domain (health, metrics, collective_status, agents_status, agent_diagnostic, consensus)
+// System domain (health, metrics, collective_status, agent_diagnostic, consensus)
 import {
   createHealthTool,
-  createAgentsStatusTool,
   createMetricsTool,
   createCollectiveStatusTool,
   createAgentDiagnosticTool,
@@ -165,7 +164,6 @@ import {
 
 export {
   createHealthTool,
-  createAgentsStatusTool,
   createMetricsTool,
   createCollectiveStatusTool,
   createAgentDiagnosticTool,
@@ -175,15 +173,13 @@ export {
 
 // NOTE: System tools moved to domains/system.js
 
-// Automation domain (orchestration, triggers)
+// Automation domain (triggers)
 import {
-  createOrchestrationTool,
   createTriggersTool,
   automationFactory,
 } from './domains/automation.js';
 
 export {
-  createOrchestrationTool,
   createTriggersTool,
   automationFactory,
 };
@@ -302,6 +298,21 @@ export {
   xCoachFactory,
 };
 
+// Oracle domain (token scoring - 17-dim φ-governed judgment)
+import {
+  createOracleScoreTool,
+  createOracleWatchlistTool,
+  createOracleStatsTool,
+  oracleFactory,
+} from './domains/oracle.js';
+
+export {
+  createOracleScoreTool,
+  createOracleWatchlistTool,
+  createOracleStatsTool,
+  oracleFactory,
+};
+
 // NOTE: Memory tools moved to domains/memory.js
 
 /**
@@ -380,6 +391,8 @@ export function createAllTools(options = {}) {
     // Local Privacy Stores (SQLite - privacy by design)
     localXStore = null, // LocalXStore for local X data (primary)
     localPrivacyStore = null, // LocalPrivacyStore for E-Score, Learning, Psychology
+    // Oracle (token scoring)
+    oracle = null, // { fetcher, scorer, memory, watchlist }
   } = options;
 
   // Initialize LSP service for code intelligence
@@ -397,7 +410,6 @@ export function createAllTools(options = {}) {
   const toolDefs = [
     createJudgeTool(judge, persistence, sessionManager, pojChainManager, graphIntegration, onJudgment, null /* burnEnforcer */, emergenceLayer, thermodynamics),
     createRefineTool(judge, persistence), // Self-refinement: critique → refine → learn
-    createOrchestrationTool({ judge, agents, persistence }), // Multi-agent parallel execution
     createOrchestrateTool({ judge, persistence }), // KETER: Central consciousness routing
     createFullOrchestrateTool({ judge, persistence, dogOrchestrator, engineOrchestrator }), // Full orchestration: routing + judgment + synthesis
     createCircuitBreakerTool({ persistence }), // Circuit breaker health/stats (Phase 21)
@@ -415,7 +427,6 @@ export function createAllTools(options = {}) {
     createGetObservationsTool(persistence),
     createPatternsTool(judge, persistence, patternDetector),
     createFeedbackTool(persistence, sessionManager),
-    createAgentsStatusTool(collective), // DEPRECATED: redirects to Collective
     createCollectiveStatusTool(collective), // The Eleven Dogs + CYNIC (Keter)
     createAgentDiagnosticTool(collective),
     createConsensusTool(collective), // Inter-agent voting (φ⁻¹ threshold)
@@ -465,10 +476,18 @@ export function createAllTools(options = {}) {
       createXTrendsTool(localXStore, xRepository),
       createXSyncTool(localXStore, xRepository),
     ] : []),
-    // X Coach Tools (communication coaching - autonomize the human)
-    createXCoachTool(judge, localXStore),
-    createXLearnTool(localXStore),
-    createXStyleTool(localXStore),
+    // Oracle Tools (token scoring - 17-dim φ-governed judgment, lazy-init in server.js)
+    ...(oracle ? [
+      createOracleScoreTool(oracle),
+      ...(oracle.watchlist ? [createOracleWatchlistTool(oracle)] : []),
+      ...(oracle.memory ? [createOracleStatsTool(oracle)] : []),
+    ] : []),
+    // X Coach Tools (communication coaching - autonomize the human, requires localXStore)
+    ...(localXStore ? [
+      createXCoachTool(judge, localXStore),
+      createXLearnTool(localXStore),
+      createXStyleTool(localXStore),
+    ] : []),
   ];
 
   for (const tool of toolDefs) {
@@ -519,8 +538,7 @@ export default {
   createProgressiveSearchTools,
   createPatternsTool,
   createFeedbackTool,
-  createAgentsStatusTool,
-  createCollectiveStatusTool, // The Five Dogs + CYNIC
+  createCollectiveStatusTool, // The Eleven Dogs + CYNIC
   createConsensusTool, // Inter-agent voting
   createSessionStartTool,
   createSessionEndTool,

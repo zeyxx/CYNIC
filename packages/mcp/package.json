@@ -20,6 +20,7 @@
     "@bjowes/http-mitm-proxy": "^0.9.6",
     "@cynic/core": "*",
     "@cynic/node": "*",
+    "@cynic/observatory": "*",
     "@cynic/persistence": "*",
     "dotenv": "^17.2.3"
   },

@@ -344,6 +344,16 @@ async function main() {
         },
       };
 
+      // Event Ledger: Load handoff from previous session
+      if (lastSessionData.handoff) {
+        output.previousSession.handoff = {
+          summary: lastSessionData.handoff.summary,
+          filesModified: lastSessionData.handoff.filesModified?.length || 0,
+          unresolvedErrors: lastSessionData.handoff.unresolvedErrors?.length || 0,
+          reflections: lastSessionData.handoff.reflections?.length || 0,
+        };
+      }
+
       // ═══════════════════════════════════════════════════════════════════════════
       // WELCOME-BACK MESSAGES (Task #65)
       // "Le chien se souvient et salue" - Personalized greetings based on gap
@@ -1065,6 +1075,41 @@ async function main() {
       }
 
       // ═══════════════════════════════════════════════════════════════════════════
+      // M2.2: REFLECTION FACTS (System 2 — Meta-Cognition)
+      // "Le chien apprend de ses erreurs" - Self-correction patterns
+      // ═══════════════════════════════════════════════════════════════════════════
+      try {
+        const factsRepo = getFactsRepository();
+        if (factsRepo) {
+          const reflections = await Promise.race([
+            factsRepo.search('reflection self-correction', {
+              userId: user.userId,
+              factType: 'reflection',
+              limit: 10,
+              minConfidence: 0.3,
+            }),
+            new Promise(resolve => setTimeout(() => resolve([]), 2000)),
+          ]);
+
+          if (reflections?.length > 0) {
+            const reflectionContent = reflections
+              .slice(0, 10)
+              .map(r => `- ${r.subject}: ${r.content?.substring(0, 150)}${r.content?.length > 150 ? '...' : ''}`)
+              .join('\n');
+
+            contextInjections.push({
+              type: 'reflections',
+              title: `Self-Reflections (${reflections.length} meta-cognitive insights)`,
+              content: reflectionContent,
+              count: reflections.length,
+            });
+          }
+        }
+      } catch (e) {
+        // Reflection injection failed - continue without
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
       // ARCHITECTURAL DECISIONS INJECTION (Self-Knowledge Enhancement)
       // "CYNIC remembers its own design choices"
       // ═══════════════════════════════════════════════════════════════════════════
@@ -1372,6 +1417,10 @@ async function main() {
               grind: psySummary.composites.grind || false,
             },
             confidence: Math.round(psySummary.confidence * 100),
+            // Burnout warning for TUI banner
+            burnoutWarning: psySummary.composites.burnoutRisk
+              ? '*GROWL* Burnout risk detected. Energy low, frustration high. Consider a break.'
+              : null,
             // Task #88: Compact summary line for TUI
             summary: `E:${Math.round(psySummary.energy.value * 100)}%${trendArrow(psySummary.energy.trend)} ` +
                     `F:${Math.round(psySummary.focus.value * 100)}%${trendArrow(psySummary.focus.trend)} ` +
@@ -1547,37 +1596,36 @@ async function main() {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // Q-LEARNING INITIALIZATION (background, don't wait)
+    // Q-LEARNING INITIALIZATION
     // "Le chien se souvient qui appeler" - Load Q-Table from PostgreSQL
     // ═══════════════════════════════════════════════════════════════════════════
-    setImmediate(async () => {
-      try {
-        const { getQLearningServiceAsync } = await import('@cynic/node');
-        const { getPool } = await import('@cynic/persistence');
+    try {
+      const { initializeQLearning, getQLearningServiceSingleton } = await import('@cynic/node');
+      const { getPool } = await import('@cynic/persistence');
 
-        const pool = getPool();
-        if (pool) {
-          const qLearningService = await getQLearningServiceAsync({
-            persistence: {
-              query: async (sql, params) => pool.query(sql, params),
-            },
-          });
+      const pool = getPool();
+      if (pool) {
+        const persistence = { query: async (sql, params) => pool.query(sql, params) };
 
-          const stats = qLearningService.getStats();
-          if (stats.qTableStats?.states > 0) {
-            // Q-Table loaded successfully - store stats for TUI
-            output.qLearning = {
-              loaded: true,
-              states: stats.qTableStats.states,
-              updates: stats.qTableStats.updates,
-              episodes: stats.episodes,
-              accuracy: stats.accuracy,
-              explorationRate: stats.explorationRate,
-            };
-          }
+        const loaded = await Promise.race([
+          initializeQLearning(persistence),
+          new Promise(resolve => setTimeout(() => resolve(false), 3000)),
+        ]);
+
+        if (loaded) {
+          const service = getQLearningServiceSingleton();
+          const stats = service.getStats();
+          output.qLearning = {
+            loaded: true,
+            states: stats.qTableStats?.states || 0,
+            updates: stats.qTableStats?.updates || 0,
+            episodes: stats.episodes || 0,
+            accuracy: stats.accuracy || 0,
+            explorationRate: stats.explorationRate || 10,
+          };
         }
-      } catch (e) { /* Q-Learning initialization is optional */ }
-    });
+      }
+    } catch (e) { /* Q-Learning initialization is optional */ }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CODEBASE SELF-INDEXING (background, don't wait)

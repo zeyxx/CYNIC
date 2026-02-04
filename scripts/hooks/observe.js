@@ -1783,6 +1783,127 @@ async function main() {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // PSYCHOLOGY SIGNALS: Derive psychological state from tool outcomes
+    // "Le chien comprend l'humain" — burnout detection, energy tracking
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (psychology) {
+      try {
+        if (isError) {
+          // Errors increase frustration, decrease energy
+          const errorText = typeof toolOutput === 'string' ? toolOutput :
+                            toolOutput?.error || toolOutput?.message || '';
+          const errorType = detectErrorType(errorText);
+
+          // Check for repeated failures (strong burnout signal)
+          const recentErrorCount = antiPatternState.recentErrors.filter(
+            e => Date.now() - e.timestamp < 5 * 60000
+          ).length;
+
+          if (recentErrorCount >= 3) {
+            psychology.processSignal({
+              type: 'repeated_failure',
+              confidence: 0.5,
+              context: { tool: toolName, errorType, count: recentErrorCount },
+            });
+          } else {
+            psychology.processSignal({
+              type: 'action_failure',
+              confidence: 0.382,
+              context: { tool: toolName, errorType },
+            });
+          }
+        } else {
+          // Successful actions boost energy and confidence
+          psychology.processSignal({
+            type: 'action_success',
+            confidence: 0.382,
+            context: { tool: toolName },
+          });
+        }
+
+        // Derive energy from thermodynamics if available
+        if (thermodynamics) {
+          const thermoState = thermodynamics.getState();
+          if (thermoState && thermoState.temperature > 50) {
+            // High temperature = cognitive overload signal
+            psychology.processSignal({
+              type: 'high_cognitive_load',
+              confidence: 0.382,
+              context: { temperature: thermoState.temperature },
+            });
+          }
+        }
+      } catch (e) {
+        // Psychology signal processing failed - continue without
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // REFLECTION MEMORY (System 2): Learn from own errors
+    // "Le chien apprend de ses erreurs" — Self-correction detection
+    // Detect: retry patterns (error → same tool → success) and repeated failures
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      const factExtractorForReflection = getFactExtractor();
+      if (factExtractorForReflection?.factsRepo) {
+        const factsRepo = factExtractorForReflection.factsRepo;
+
+        // Detect retry patterns (error → same tool → success = self-correction)
+        if (!isError && antiPatternState.recentErrors.length > 0) {
+          const lastError = antiPatternState.recentErrors[antiPatternState.recentErrors.length - 1];
+          // Same tool that previously failed now succeeded within 2 minutes
+          if (lastError && lastError.file && Date.now() - lastError.timestamp < 120000) {
+            factsRepo.create({
+              factType: 'reflection',
+              subject: `Self-correction: ${toolName}`,
+              content: `Failed then succeeded with ${toolName}. Previous error: ${lastError.type}. File: ${path.basename(lastError.file || '')}`,
+              confidence: 0.5,
+              userId: user.userId,
+              tags: ['retry', 'self_correction', toolName],
+            }).catch(() => { /* reflection is optional */ });
+          }
+        }
+
+        // Detect repeated failures (3+ errors in 5min → high frustration signal)
+        if (isError) {
+          const recentErrorCount = antiPatternState.recentErrors.filter(
+            e => Date.now() - e.timestamp < 5 * 60000
+          ).length;
+
+          if (recentErrorCount >= 3) {
+            const errorText = typeof toolOutput === 'string' ? toolOutput : toolOutput?.error || '';
+            const errorType = detectErrorType(errorText);
+            factsRepo.create({
+              factType: 'reflection',
+              subject: `Pattern: repeated ${toolName} failures`,
+              content: `${recentErrorCount} failures in 5min. Possible cause: ${errorType}. Consider different approach.`,
+              confidence: 0.382,
+              userId: user.userId,
+              tags: ['repeated_failure', toolName],
+            }).catch(() => { /* reflection is optional */ });
+          }
+        }
+      }
+    } catch { /* reflection is optional */ }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EVENT LEDGER: Append-only session event log for continuity
+    // "Le chien trace chaque pas" - Enables handoff between sessions
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      const { getEventLedger } = await import('../lib/event-ledger.js');
+      const ledger = getEventLedger();
+      const filePath = toolInput.file_path || toolInput.filePath || toolInput.path || null;
+      ledger.append({
+        type: isError ? 'ERROR' : 'TOOL_CALL',
+        tool: toolName,
+        sessionId: process.env.CYNIC_SESSION_ID,
+        ...(filePath && { file: filePath }),
+        ...(isError && { summary: (typeof toolOutput === 'string' ? toolOutput : toolOutput?.error || '')?.substring(0, 120) }),
+      });
+    } catch { /* ledger is optional */ }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // COSMOPOLITAN LEARNING: Share patterns to collective (Phase 6C)
     // "Κοσμοπολίτης - learn from the world, share with the world"
     // ═══════════════════════════════════════════════════════════════════════════

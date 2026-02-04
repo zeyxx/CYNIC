@@ -30,6 +30,8 @@ export const FactType = Object.freeze({
   TOOL_RESULT: 'tool_result',
   DECISION: 'decision',
   LEARNING: 'learning',
+  REFLECTION: 'reflection',
+  SELF_OBSERVATION: 'self_observation',
 });
 
 /**

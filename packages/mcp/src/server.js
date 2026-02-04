@@ -148,6 +148,14 @@ export class MCPServer {
     });
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // LLM ROUTER - Multi-model routing (Claude primary, Gemini/Ollama validators)
+    // "Le chien choisit le bon outil" - Route to optimal LLM per task type
+    // Lazy-initialized in start() since dynamic imports are async
+    // ═══════════════════════════════════════════════════════════════════════════
+    this.llmRouter = options.llmRouter || null;
+    this.perceptionRouter = options.perceptionRouter || null;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // UNIFIED ORCHESTRATOR - Single entry point for ALL orchestration
     // Coordinates: Dog voting, Engine synthesis, Skill invocation, Learning
     // "φ coordinates all" - κυνικός
@@ -315,6 +323,39 @@ export class MCPServer {
     if (this.unifiedOrchestrator && this.persistence) {
       this.unifiedOrchestrator.persistence = this.persistence;
       console.error('   UnifiedOrchestrator: wired with persistence');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LLM ROUTER: Initialize multi-model routing
+    // Claude (primary) + Gemini/Ollama (validators) based on env config
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (!this.llmRouter) {
+      try {
+        const { getRouterWithValidators } = await import('@cynic/llm');
+        this.llmRouter = getRouterWithValidators();
+        if (this.unifiedOrchestrator) {
+          this.unifiedOrchestrator.setLLMRouter(this.llmRouter);
+        }
+        const validatorCount = this.llmRouter.validators?.length || 0;
+        console.error(`   LLMRouter: active (${validatorCount} validators)`);
+      } catch (e) {
+        console.error(`   LLMRouter: unavailable (${e.message})`);
+      }
+    } else if (this.unifiedOrchestrator) {
+      this.unifiedOrchestrator.setLLMRouter(this.llmRouter);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PERCEPTION ROUTER: Routes info requests to optimal layer (API/MCP/Browser/FS)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (!this.perceptionRouter) {
+      try {
+        const { getPerceptionRouter } = await import('@cynic/llm');
+        this.perceptionRouter = getPerceptionRouter();
+        console.error('   PerceptionRouter: active');
+      } catch (e) {
+        console.error(`   PerceptionRouter: unavailable (${e.message})`);
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -541,6 +582,28 @@ export class MCPServer {
       }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ORACLE: Token scoring (17-dim φ-governed judgment) — lazy init
+    // "Le chien juge les tokens" - κυνικός
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (!this.oracle) {
+      try {
+        const { TokenFetcher, TokenScorer, OracleMemory, OracleWatchlist } =
+          await import('@cynic/observatory/oracle');
+        const fetcher = new TokenFetcher(process.env.HELIUS_API_KEY);
+        const scorer = new TokenScorer();
+        const memory = this.persistence?.pool
+          ? new OracleMemory(this.persistence.pool) : null;
+        const watchlist = (memory && this.persistence?.pool)
+          ? new OracleWatchlist(this.persistence.pool, memory, fetcher, scorer) : null;
+        this.oracle = { fetcher, scorer, memory, watchlist };
+        console.error(`   Oracle: ready (memory: ${!!memory}, watchlist: ${!!watchlist})`);
+      } catch (e) {
+        console.error(`   Oracle: unavailable (${e.message})`);
+        this.oracle = null;
+      }
+    }
+
     // Register tools with current instances
     this.tools = createAllTools({
       judge: this.judge,
@@ -589,7 +652,14 @@ export class MCPServer {
       // Local Privacy Stores (SQLite - privacy by design)
       localXStore: this.localXStore,
       localPrivacyStore: this.localPrivacyStore,
+      // Oracle (token scoring - 17-dim)
+      oracle: this.oracle,
     });
+
+    // Feed registered tool names to PerceptionRouter for Layer 2 routing
+    if (this.perceptionRouter && this.tools) {
+      this.perceptionRouter.registerMcpTools(Object.keys(this.tools));
+    }
   }
 
   /**
