@@ -467,4 +467,123 @@ describe('SharedMemory', () => {
       assert.strictEqual(top.length, 1);
     });
   });
+
+  describe('E2E State Persistence', () => {
+    beforeEach(async () => {
+      await memory.initialize();
+    });
+
+    it('should preserve COMPLETE state through save→initialize cycle (E2E verification)', async () => {
+      // 1. Build diverse state with patterns, EWC locks, Fisher scores
+
+      // Add patterns with various states
+      memory.addPattern({
+        id: 'pat_critical',
+        name: 'Critical Pattern',
+        tags: ['important', 'core'],
+        weight: 2.5,
+        useCount: 50,
+        fisherImportance: 0.85,
+        consolidationLocked: true,
+        lockedAt: Date.now() - 10000,
+      });
+
+      memory.addPattern({
+        id: 'pat_normal',
+        name: 'Normal Pattern',
+        tags: ['general'],
+        weight: 1.2,
+        useCount: 10,
+        fisherImportance: 0.3,
+        consolidationLocked: false,
+      });
+
+      memory.addPattern({
+        id: 'pat_decayed',
+        name: 'Decayed Pattern',
+        tags: ['old'],
+        weight: 0.4,
+        useCount: 2,
+        fisherImportance: 0.1,
+        consolidationLocked: false,
+      });
+
+      // Adjust dimension weight (use the real method)
+      memory.adjustWeight('coherence', 0.3, 'test');
+      memory.adjustWeight('accuracy', -0.1, 'test');
+
+      // Add some feedback to log
+      memory.recordFeedback({ type: 'test_feedback', score: 0.8 });
+
+      // 2. Save to storage
+      await memory.save();
+
+      // 3. Create new SharedMemory with SAME storage and initialize
+      const newMemory = new SharedMemory({ storage });
+      await newMemory.initialize();
+
+      // ═══════════════════════════════════════════════════════════════
+      // VERIFY COMPLETE STATE EQUALITY
+      // ═══════════════════════════════════════════════════════════════
+
+      // A. Verify patterns exist and match
+      assert.strictEqual(newMemory._patterns.size, memory._patterns.size, 'Pattern count should match');
+
+      for (const [id, origPattern] of memory._patterns) {
+        const loadedPattern = newMemory._patterns.get(id);
+        assert.ok(loadedPattern, `Pattern ${id} should exist after load`);
+        assert.strictEqual(loadedPattern.name, origPattern.name, `Pattern ${id} name should match`);
+        assert.strictEqual(loadedPattern.weight, origPattern.weight, `Pattern ${id} weight should match`);
+        assert.strictEqual(loadedPattern.useCount, origPattern.useCount, `Pattern ${id} useCount should match`);
+        assert.strictEqual(loadedPattern.fisherImportance, origPattern.fisherImportance, `Pattern ${id} fisherImportance should match`);
+        assert.strictEqual(loadedPattern.consolidationLocked, origPattern.consolidationLocked, `Pattern ${id} consolidationLocked should match`);
+        assert.deepStrictEqual(loadedPattern.tags, origPattern.tags, `Pattern ${id} tags should match`);
+      }
+
+      // B. Verify dimension weights
+      for (const [dim, weight] of Object.entries(memory._dimensionWeights)) {
+        const loadedWeight = newMemory._dimensionWeights[dim];
+        assert.ok(Math.abs(weight - loadedWeight) < 0.001, `Dimension ${dim} weight should match: ${weight} vs ${loadedWeight}`);
+      }
+
+      // C. Verify EWC stats match
+      const origEWC = memory.getEWCStats();
+      const loadedEWC = newMemory.getEWCStats();
+      assert.strictEqual(origEWC.totalPatterns, loadedEWC.totalPatterns, 'EWC total patterns should match');
+      assert.strictEqual(origEWC.lockedPatterns, loadedEWC.lockedPatterns, 'EWC locked patterns should match');
+      assert.ok(Math.abs(origEWC.avgFisher - loadedEWC.avgFisher) < 0.001, 'EWC avgFisher should match');
+
+      // D. Verify feedback log preserved
+      assert.strictEqual(newMemory._feedbackLog.length, memory._feedbackLog.length, 'Feedback log length should match');
+    });
+
+    it('should preserve locked patterns through save→initialize cycle', async () => {
+      // 1. Build state with a locked pattern
+      memory.addPattern({
+        id: 'persist_test',
+        name: 'Persistence Test Pattern',
+        weight: 1.8,
+        fisherImportance: 0.7,
+        consolidationLocked: true,
+        lockedAt: Date.now(),
+      });
+
+      // 2. Save to storage
+      await memory.save();
+
+      // 3. Create new SharedMemory with SAME storage
+      const newMemory = new SharedMemory({ storage });
+      await newMemory.initialize();
+
+      // 4. Verify state loaded
+      assert.strictEqual(newMemory._patterns.size, 1, 'Should have 1 pattern after load');
+      const loaded = newMemory._patterns.get('persist_test');
+      assert.ok(loaded, 'Pattern should exist after load');
+      assert.strictEqual(loaded.name, 'Persistence Test Pattern');
+      assert.strictEqual(loaded.weight, 1.8);
+      assert.strictEqual(loaded.fisherImportance, 0.7);
+      assert.strictEqual(loaded.consolidationLocked, true);
+      assert.ok(loaded.lockedAt, 'lockedAt timestamp should be preserved');
+    });
+  });
 });

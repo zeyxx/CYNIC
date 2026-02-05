@@ -51,6 +51,9 @@ export class JudgeComponent extends EventEmitter {
     // Wire learning service to judge
     this._judge.setLearningService(this._learningService);
 
+    // FIX #3: Wire residual detector for THE_UNNAMEABLE dimension discovery
+    this._judge.setResidualDetector(this._residualDetector);
+
     // SharedMemory for anomaly patterns
     this._sharedMemory = options.sharedMemory || null;
 

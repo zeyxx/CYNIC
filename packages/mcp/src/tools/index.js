@@ -431,7 +431,7 @@ export function createAllTools(options = {}) {
     createAgentDiagnosticTool(collective),
     createConsensusTool(collective), // Inter-agent voting (φ⁻¹ threshold)
     createSessionStartTool(sessionManager),
-    createSessionEndTool(sessionManager),
+    createSessionEndTool(sessionManager, persistence),  // FIX #1: Now saves collective state
     createProfileSyncTool(persistence),  // Cross-session memory: sync profile to DB
     createProfileLoadTool(persistence),  // Cross-session memory: load profile from DB
     createDocsTool(librarian, persistence),

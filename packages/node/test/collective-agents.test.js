@@ -119,8 +119,8 @@ describe('Collective Agents', () => {
       assert.ok(pack.sage, 'Sage should exist');
       assert.ok(pack.cynic, 'CYNIC should exist');
 
-      // Fib(5) + 1 = 6 agents (Five Dogs + CYNIC as Keter)
-      assert.strictEqual(pack.getAllAgents().length, 11, 'Should have 11 agents (5 dogs + CYNIC + Janitor + Scout + Cartographer + Oracle + Deployer)');
+      // Full pack: 12 agents (CYNIC + 11 Dogs including Learner)
+      assert.strictEqual(pack.getAllAgents().length, 12, 'Should have 12 agents (CYNIC + 11 Dogs: Guardian, Analyst, Scholar, Architect, Sage, Janitor, Scout, Cartographer, Oracle, Deployer, Learner)');
     });
 
     it('should have shared event bus', () => {

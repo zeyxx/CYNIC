@@ -25,7 +25,7 @@ import { ServiceInitializer } from './server/ServiceInitializer.js';
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = join(__filename, '..');
-import { CYNICJudge, LearningService, createEScoreCalculator, createEmergenceLayer, DogOrchestrator, createAutonomousDaemon, getCollectivePack, getSharedMemory, saveCollectiveState, createHeartbeatService, createSLATracker, createConsciousnessBridge, createDefaultChecks, createEmergenceDetector } from '@cynic/node';
+import { CYNICJudge, LearningService, ResidualDetector, createEScoreCalculator, createEmergenceLayer, DogOrchestrator, createAutonomousDaemon, getCollectivePack, getCollectivePackAsync, getSharedMemory, saveCollectiveState, createHeartbeatService, createSLATracker, createConsciousnessBridge, createDefaultChecks, createEmergenceDetector } from '@cynic/node';
 import { UnifiedOrchestrator } from '@cynic/node/orchestration/unified-orchestrator.js';
 import { createPatternDetector } from '@cynic/emergence';
 import { createAllTools } from './tools/index.js';
@@ -109,10 +109,21 @@ export class MCPServer {
       minFeedback: 5,       // Minimum feedback before learning
     });
 
-    // Judge instance (required) - now wired with E-Score and Learning
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FIX #3: Residual Detector - THE_UNNAMEABLE dimension discovery
+    // "φ distrusts φ" - even dimensions can be incomplete
+    // ═══════════════════════════════════════════════════════════════════════════
+    this.residualDetector = options.residualDetector || new ResidualDetector({
+      threshold: 0.382,     // φ⁻² - anomaly threshold
+      minSamples: 3,        // Minimum samples before pattern detection
+      maxAnomalies: 1000,   // Bounded memory
+    });
+
+    // Judge instance (required) - now wired with E-Score, Learning, AND ResidualDetector
     this.judge = options.judge || new CYNICJudge({
       eScoreProvider: this.eScoreCalculator,
       learningService: this.learningService,
+      residualDetector: this.residualDetector,  // FIX #3: Wire THE_UNNAMEABLE
     });
 
     // Engine Orchestrator for philosophical synthesis (73 engines)
@@ -315,6 +326,37 @@ export class MCPServer {
 
     // Assign services to this instance
     Object.assign(this, services);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FIX: INITIALIZE COLLECTIVE STATE FROM PERSISTENCE
+    // Gap 1 Fix: Ensure Session B restores Session A state
+    // "Memory makes identity" - κυνικός
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (this.persistence) {
+      try {
+        // Re-initialize collectivePack with async persistence loading
+        // This loads: SharedMemory patterns, Q-Learning table, persisted state
+        await getCollectivePackAsync({
+          sharedMemory: this.sharedMemory,
+          judge: this.judge,
+          persistence: this.persistence,
+          consensusThreshold: 0.618,
+        });
+        console.error('   CollectivePack: state restored from persistence');
+      } catch (e) {
+        console.error(`   CollectivePack: persistence load failed (${e.message})`);
+      }
+
+      // Initialize LearningService from persistence
+      if (this.learningService?.init) {
+        try {
+          await this.learningService.init();
+          console.error('   LearningService: initialized from persistence');
+        } catch (e) {
+          console.error(`   LearningService: init failed (${e.message})`);
+        }
+      }
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // WIRE UNIFIED ORCHESTRATOR (now that persistence is available)

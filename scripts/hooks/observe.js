@@ -328,6 +328,15 @@ try {
   };
 }
 
+// Self-Judge module for meta-awareness
+let selfJudge = null;
+try {
+  selfJudge = requireCJS('../lib/self-judge.cjs');
+} catch (e) {
+  // Self-judge not available — meta-awareness disabled
+  if (process.env.CYNIC_DEBUG) console.error('[OBSERVE] Self-judge module not available:', e.message);
+}
+
 // =============================================================================
 // INLINE STATUS BAR - Make CYNIC's thinking visible
 // "Da'at = Union through shared knowledge"
@@ -1171,6 +1180,123 @@ async function main() {
       recordMetric('tool_calls_total', 1, { tool: toolName, category: 'tool' });
       if (isError) {
         recordMetric('tool_errors_total', 1, { tool: toolName, category: 'tool' });
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // META-AWARENESS: CYNIC observes its OWN code being modified
+    // "Le chien se regarde dans le miroir" — Self-consciousness in real-time
+    // Gap 1 Fix: CYNIC must know itself across all dimensions (25-dimension self-judgment)
+    // ═══════════════════════════════════════════════════════════════════════════
+    const filePath = toolInput.file_path || toolInput.path || '';
+    const isSelfModification = (toolName === 'Edit' || toolName === 'Write') && filePath && (
+      filePath.includes('/CYNIC/') ||
+      filePath.includes('\\CYNIC\\') ||
+      filePath.includes('/cynic/') ||
+      filePath.includes('\\cynic\\') ||
+      filePath.includes('packages/node/') ||
+      filePath.includes('packages/mcp/') ||
+      filePath.includes('packages/core/') ||
+      filePath.includes('packages/persistence/') ||
+      filePath.includes('scripts/hooks/')
+    );
+
+    if (isSelfModification && !isError && selfJudge) {
+      try {
+        // CYNIC is modifying its own code — trigger FULL 25-dimension self-judgment
+        const content = toolInput.new_string || toolInput.content || '';
+        const oldContent = toolInput.old_string || '';
+
+        // Create self-judgment item
+        const selfItem = selfJudge.createSelfJudgmentItem({
+          filePath,
+          content,
+          toolName,
+          oldContent,
+        });
+
+        // Judge the self-modification
+        const selfJudgment = selfJudge.judgeSelfModification(selfItem);
+
+        // Output formatted judgment to stderr (visible to developer)
+        const outputLines = selfJudge.formatJudgmentOutput(selfJudgment);
+        console.error(outputLines.join('\n'));
+
+        // Record telemetry
+        if (telemetry) {
+          recordMetric('self_modifications_total', 1, {
+            component: selfItem.component.name,
+            category: 'meta',
+          });
+          recordMetric('self_judgment_qscore', selfJudgment.qScore, {
+            component: selfItem.component.name,
+            verdict: selfJudgment.verdict.verdict,
+            category: 'meta',
+          });
+
+          // Record critical risks as frictions
+          const criticalRisks = selfItem.risks.filter(r => r.severity === 'high');
+          if (criticalRisks.length > 0) {
+            recordFriction('self_mod_fractal_risk', 'high', {
+              category: 'meta',
+              component: selfItem.component.name,
+              risks: criticalRisks.map(r => r.risk).join(','),
+              qScore: selfJudgment.qScore,
+            });
+          }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // LOG TO PATTERNS FOR LEARNING
+        // Record self-judgment as a pattern for collective learning
+        // "Le chien apprend de ses propres modifications"
+        // ═══════════════════════════════════════════════════════════════════
+        if (orchestrateFull) {
+          try {
+            orchestrateFull(
+              `self_modification: ${selfItem.component.name} (Q:${selfJudgment.qScore})`,
+              {
+                type: 'self_modification',
+                component: selfItem.component.name,
+                domain: selfItem.component.domain,
+                qScore: selfJudgment.qScore,
+                verdict: selfJudgment.verdict.verdict,
+                weakestAxiom: selfJudgment.weakest.axiom,
+                weakestScore: selfJudgment.weakest.score,
+                axiomScores: selfJudgment.axiomScores,
+                risks: criticalRisks?.map(r => r.risk) || [],
+                timestamp: Date.now(),
+              }
+            );
+          } catch { /* best-effort pattern recording */ }
+        }
+
+        // If Q-Score is below threshold, add warning to antiPatternState
+        if (selfJudgment.qScore < 50) {
+          antiPatternState.selfModWarnings = antiPatternState.selfModWarnings || [];
+          antiPatternState.selfModWarnings.push({
+            file: path.basename(filePath),
+            qScore: selfJudgment.qScore,
+            verdict: selfJudgment.verdict.verdict,
+            weakest: selfJudgment.weakest,
+            risks: selfItem.criticalRiskCount,
+            timestamp: Date.now(),
+          });
+        }
+
+      } catch (selfJudgeErr) {
+        // Self-judge failed — fall back to simple detection
+        if (process.env.CYNIC_DEBUG) {
+          console.error('[OBSERVE] Self-judge error:', selfJudgeErr.message);
+        }
+        // Minimal output
+        console.error(`🪞 SELF-MOD: ${path.basename(filePath)} (self-judge unavailable)`);
+      }
+    } else if (isSelfModification && !isError && !selfJudge) {
+      // Self-judge module not loaded — minimal output
+      console.error(`🪞 SELF-MOD: ${path.basename(filePath)} (25-dim judgment disabled)`);
+      if (telemetry) {
+        recordMetric('self_modifications_total', 1, { component: 'unknown', category: 'meta' });
       }
     }
 

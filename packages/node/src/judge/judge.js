@@ -359,8 +359,24 @@ export class CYNICJudge {
       judgment.limiting = finalScore.limiting;
     }
 
-    // Check for anomalies
-    if (isAnomalous(judgment)) {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RESIDUAL ANALYSIS: Analyze ALL judgments for dimension discovery
+    // "THE_UNNAMEABLE reveals what current dimensions don't capture"
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FIX: Call residualDetector.analyze() for EVERY judgment, not just anomalies
+    // This enables pattern detection across all data, not just edge cases
+    if (this.residualDetector) {
+      const residualAnalysis = this.residualDetector.analyze(judgment, {
+        item: { type: item.type || item.itemType, id: item.id },
+      });
+      judgment.residualAnalysis = residualAnalysis;
+
+      // If anomaly detected, also record in stats
+      if (residualAnalysis.isAnomaly) {
+        this.stats.anomaliesDetected++;
+      }
+    } else if (isAnomalous(judgment)) {
+      // Fallback: legacy behavior if no residualDetector
       this._recordAnomaly(judgment, item);
     }
 

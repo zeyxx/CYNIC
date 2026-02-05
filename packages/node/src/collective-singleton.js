@@ -155,13 +155,15 @@ export function getSharedMemory(options = {}) {
 }
 
 /**
- * Get the CollectivePack singleton
+ * Get the CollectivePack singleton (SYNC version)
  *
- * This is the ONLY way to get the CollectivePack.
- * Never use createCollectivePack() directly in production code.
+ * ⚠️ WARNING: This is the SYNC version. Persistence state may NOT be loaded.
+ * Prefer getCollectivePackAsync() for most use cases.
  *
- * First call initializes the pack with provided options.
- * Subsequent calls return the same instance (options ignored).
+ * Use this only when:
+ * - You're inside getCollectivePackAsync() (internal)
+ * - You know persistence is already loaded
+ * - You don't need persisted state
  *
  * @param {Object} [options] - Options (only used on first call)
  * @param {Object} [options.judge] - CYNICJudge instance
@@ -170,6 +172,7 @@ export function getSharedMemory(options = {}) {
  * @param {Object} [options.eventBus] - EventBus instance
  * @param {number} [options.consensusThreshold] - Consensus threshold (default: φ⁻¹)
  * @returns {CollectivePack} The singleton CollectivePack instance
+ * @see getCollectivePackAsync - Preferred async version with persistence
  */
 export function getCollectivePack(options = {}) {
   if (!_globalPack) {
@@ -286,7 +289,8 @@ export async function awakenCynic(context = {}) {
     return { success: true, alreadyAwake: true };
   }
 
-  const pack = getCollectivePack();
+  // Use async version to ensure persistence is loaded
+  const pack = await getCollectivePackAsync(context);
 
   if (!pack.awakenCynic) {
     log.warn('CollectivePack does not have awakenCynic method');
@@ -421,33 +425,88 @@ async function loadPersistedState(persistence) {
  * @param {Object} persistence - PersistenceManager instance
  */
 export async function saveState(persistence) {
-  if (!_sharedMemory || !persistence) return;
+  if (!persistence) return;
 
-  // D5: Use SharedMemory's own save() for full state (patterns, weights, procedures)
-  try {
-    if (_sharedMemory.save) {
-      await _sharedMemory.save();
-      log.debug('SharedMemory full state saved via storage adapter');
-    }
-  } catch (err) {
-    log.debug('SharedMemory save() failed, falling back to pattern repo', { error: err.message });
-  }
+  let savedComponents = [];
 
-  // Fallback: also save high-Fisher patterns via patterns repo
-  const patternsRepo = persistence.getRepository?.('patterns');
-  if (!patternsRepo) return;
-
-  try {
-    const patterns = _sharedMemory.getLockedPatterns?.() || [];
-
-    for (const pattern of patterns) {
-      await patternsRepo.upsert?.(pattern);
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 1. Save SharedMemory state (patterns, weights, procedures)
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (_sharedMemory) {
+    try {
+      if (_sharedMemory.save) {
+        await _sharedMemory.save();
+        savedComponents.push('SharedMemory');
+        log.debug('SharedMemory full state saved via storage adapter');
+      }
+    } catch (err) {
+      log.debug('SharedMemory save() failed, falling back to pattern repo', { error: err.message });
     }
 
-    log.debug('Saved locked patterns to repo', { patternsCount: patterns.length });
-  } catch (err) {
-    log.warn('Could not save collective state', { error: err.message });
+    // Fallback: also save high-Fisher patterns via patterns repo
+    const patternsRepo = persistence.getRepository?.('patterns');
+    if (patternsRepo) {
+      try {
+        const patterns = _sharedMemory.getLockedPatterns?.() || [];
+        for (const pattern of patterns) {
+          await patternsRepo.upsert?.(pattern);
+        }
+        if (patterns.length > 0) savedComponents.push(`Patterns(${patterns.length})`);
+        log.debug('Saved locked patterns to repo', { patternsCount: patterns.length });
+      } catch (err) {
+        log.warn('Could not save patterns', { error: err.message });
+      }
+    }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 2. FIX: Save Q-Learning state (routing weights, exploration stats)
+  // "Le chien apprend" - Q-Learning state must survive sessions
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (_qLearningService) {
+    try {
+      // Export Q-Learning state
+      const qState = _qLearningService.export?.();
+      if (qState && persistence.saveLearningState) {
+        await persistence.saveLearningState(qState);
+        savedComponents.push('Q-Learning');
+        log.debug('Q-Learning state saved', { states: Object.keys(qState.qTable || {}).length });
+      } else if (qState && persistence.getRepository?.('learning')) {
+        // Fallback: use learning repository if available
+        const learningRepo = persistence.getRepository('learning');
+        await learningRepo.upsert?.({
+          type: 'q_learning',
+          state: qState,
+          timestamp: Date.now(),
+        });
+        savedComponents.push('Q-Learning(repo)');
+      }
+    } catch (err) {
+      log.warn('Could not save Q-Learning state', { error: err.message });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 3. Save CollectivePack consensus state (dog voting history)
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (_globalPack) {
+    try {
+      const packStats = _globalPack.getStats?.();
+      if (packStats && persistence.storeObservation) {
+        await persistence.storeObservation({
+          type: 'collective_state',
+          content: JSON.stringify(packStats),
+          confidence: 0.618,
+          context: { component: 'CollectivePack', timestamp: Date.now() },
+        });
+        savedComponents.push('CollectivePack');
+      }
+    } catch (err) {
+      log.debug('Could not save CollectivePack state', { error: err.message });
+    }
+  }
+
+  log.info('Collective state saved', { components: savedComponents.join(', ') || 'none' });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

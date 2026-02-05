@@ -320,6 +320,40 @@ export class UnifiedOrchestrator extends EventEmitter {
         log.debug(`Psychology enrichment skipped: ${e.message}`);
       }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FIX #2: Inject relevant memory facts into context
+    // "Le chien se souvient" - Memory shapes perception
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (this.memoryRetriever && event.content && userId) {
+      try {
+        // Retrieve top-K relevant facts based on event content
+        // API: search(userId, query, options) - returns { sources: { facts, memories, ... } }
+        const query = event.content.substring(0, 200); // Limit query length
+        const searchResult = await this.memoryRetriever.search(userId, query, {
+          sources: ['facts', 'lessons'],  // Focus on facts and lessons learned
+          limit: 5,
+          useVector: !!this.memoryRetriever.embedder,  // Use vector if available
+        });
+
+        // Extract facts from search results
+        const allFacts = [
+          ...(searchResult?.sources?.facts || []),
+          ...(searchResult?.sources?.lessons || []),
+        ];
+
+        if (allFacts.length > 0) {
+          event.userContext.relevantFacts = allFacts.slice(0, 5).map(f => ({
+            content: f.content || f.fact || f.text || f.description,
+            confidence: f.confidence || f.score || f.similarity || PHI_INV,
+            source: f.source || f.type || f.factType || 'memory',
+          }));
+          log.debug('Memory facts injected', { userId, factCount: event.userContext.relevantFacts.length });
+        }
+      } catch (e) {
+        log.debug(`Memory injection skipped: ${e.message}`);
+      }
+    }
   }
 
   /**

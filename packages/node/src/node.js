@@ -128,11 +128,14 @@ export class CYNICNode {
       }
     }
 
-    // Initialize judge (underscore to avoid shadowing judge() method)
-    this._judge = new CYNICJudge();
-
-    // Initialize residual detector
+    // Initialize residual detector FIRST (FIX #3: wire to judge)
     this.residualDetector = new ResidualDetector();
+
+    // Initialize judge (underscore to avoid shadowing judge() method)
+    // FIX #3: Now wired with ResidualDetector for THE_UNNAMEABLE dimension discovery
+    this._judge = new CYNICJudge({
+      residualDetector: this.residualDetector,
+    });
 
     // ═══════════════════════════════════════════════════════════════════════
     // P2P Transport Layer - "Nodes talk to nodes"

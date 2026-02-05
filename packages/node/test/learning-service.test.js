@@ -385,6 +385,145 @@ describe('LearningService', () => {
       }
     });
 
+    it('should export and import COMPLETE state (E2E verification)', async () => {
+      // Build diverse state: multiple item types, sources, learnings
+      const testSources = ['test_results', 'commit_results', 'pr_results'];
+      const testItemTypes = ['code', 'token', 'decision'];
+
+      // 1. Add feedback from multiple sources and item types
+      for (const source of testSources) {
+        for (const itemType of testItemTypes) {
+          for (let i = 0; i < MIN_PATTERN_SOURCES; i++) {
+            learningService.processFeedback({
+              outcome: i % 2 === 0 ? 'correct' : 'incorrect',
+              actualScore: 50 + i * 5,
+              originalScore: 70,
+              itemType,
+              source,
+            });
+          }
+        }
+      }
+
+      // 2. Run learning to populate weight modifiers
+      await learningService.learn();
+
+      // 3. Add some manual learnings
+      learningService.addLearning({
+        type: 'dimension_insight',
+        dimension: 'coherence',
+        insight: 'Code with high cyclomatic complexity often has low coherence',
+        confidence: 0.618,
+      });
+      learningService.addLearning({
+        type: 'pattern_learned',
+        pattern: 'error_cluster',
+        description: 'Rapid errors often indicate misunderstood requirements',
+        confidence: 0.382,
+      });
+
+      // 4. Export state
+      const exported = learningService.export();
+
+      // 5. Create new service and import
+      const newService = new LearningService();
+      await newService.init();
+      newService.import(exported);
+
+      // ═══════════════════════════════════════════════════════════════
+      // VERIFY COMPLETE STATE EQUALITY
+      // ═══════════════════════════════════════════════════════════════
+
+      // A. Weight modifiers
+      const origModifiers = learningService.getAllWeightModifiers();
+      const newModifiers = newService.getAllWeightModifiers();
+      for (const [dim, mod] of Object.entries(origModifiers)) {
+        assert.ok(
+          Math.abs(mod - newModifiers[dim]) < 0.001,
+          `Weight modifier ${dim}: ${mod} !== ${newModifiers[dim]}`
+        );
+      }
+
+      // B. Patterns - byItemType
+      const origPatterns = learningService.getPatterns();
+      const newPatterns = newService.getPatterns();
+
+      for (const itemType of testItemTypes) {
+        const orig = origPatterns.byItemType[itemType];
+        const imported = newPatterns.byItemType[itemType];
+        assert.ok(imported, `Pattern for itemType '${itemType}' should exist after import`);
+        assert.strictEqual(
+          orig.correct,
+          imported.correct,
+          `byItemType[${itemType}].correct should match`
+        );
+        assert.strictEqual(
+          orig.incorrect,
+          imported.incorrect,
+          `byItemType[${itemType}].incorrect should match`
+        );
+      }
+
+      // C. Patterns - bySource
+      for (const source of testSources) {
+        const orig = origPatterns.bySource[source];
+        const imported = newPatterns.bySource[source];
+        assert.ok(imported, `Pattern for source '${source}' should exist after import`);
+        assert.strictEqual(
+          orig.correct,
+          imported.correct,
+          `bySource[${source}].correct should match`
+        );
+      }
+
+      // D. Patterns - overall stats
+      assert.strictEqual(
+        origPatterns.overall.learningIterations,
+        newPatterns.overall.learningIterations,
+        'Learning iterations should match'
+      );
+      assert.strictEqual(
+        origPatterns.overall.totalCorrect,
+        newPatterns.overall.totalCorrect,
+        'Total correct should match'
+      );
+      assert.strictEqual(
+        origPatterns.overall.totalIncorrect,
+        newPatterns.overall.totalIncorrect,
+        'Total incorrect should match'
+      );
+
+      // E. Learnings array
+      const origLearnings = learningService.getLearnings();
+      const newLearnings = newService.getLearnings();
+      assert.strictEqual(
+        origLearnings.length,
+        newLearnings.length,
+        `Learning count should match: ${origLearnings.length} !== ${newLearnings.length}`
+      );
+      for (let i = 0; i < origLearnings.length; i++) {
+        assert.strictEqual(
+          origLearnings[i].type,
+          newLearnings[i].type,
+          `Learning[${i}].type should match`
+        );
+        assert.strictEqual(
+          origLearnings[i].insight || origLearnings[i].description,
+          newLearnings[i].insight || newLearnings[i].description,
+          `Learning[${i}] content should match`
+        );
+      }
+
+      // F. Threshold adjustments (via getState)
+      const origState = learningService.getState();
+      const newState = newService.getState();
+      assert.deepStrictEqual(
+        origState.thresholdAdjustments,
+        newState.thresholdAdjustments,
+        'Threshold adjustments should be identical'
+      );
+    });
+
     it('should reset all learning', async () => {
       for (let i = 0; i < MIN_PATTERN_SOURCES; i++) {
         learningService.processFeedback({ outcome: 'correct', originalScore: 50 });

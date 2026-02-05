@@ -252,12 +252,13 @@ export function createSessionStartTool(sessionManager) {
 /**
  * Create session end tool
  * @param {Object} sessionManager - SessionManager instance
+ * @param {Object} [persistence] - PersistenceManager instance (for collective state persistence)
  * @returns {Object} Tool definition
  */
-export function createSessionEndTool(sessionManager) {
+export function createSessionEndTool(sessionManager, persistence = null) {
   return {
     name: 'brain_session_end',
-    description: 'End the current CYNIC session. Returns session summary with statistics.',
+    description: 'End the current CYNIC session. Saves collective state and returns session summary with statistics.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -296,10 +297,28 @@ export function createSessionEndTool(sessionManager) {
         };
       }
 
+      // ═══════════════════════════════════════════════════════════════════════════
+      // FIX #1: Save collective state (SharedMemory + Q-Learning + Patterns)
+      // "Le chien se souvient" - Memory must survive between sessions
+      // ═══════════════════════════════════════════════════════════════════════════
+      let collectiveSaved = false;
+      if (persistence) {
+        try {
+          // Import saveCollectiveState dynamically to avoid circular deps
+          const { saveCollectiveState } = await import('@cynic/node');
+          await saveCollectiveState(persistence);
+          collectiveSaved = true;
+          log.info('Collective state saved on session end');
+        } catch (e) {
+          log.warn('Failed to save collective state', { error: e.message });
+        }
+      }
+
       return {
         success: true,
         ...result.summary,
-        message: `*yawn* Session ended. ${result.summary.judgmentCount} judgments recorded.`,
+        collectiveSaved,
+        message: `*yawn* Session ended. ${result.summary.judgmentCount} judgments recorded.${collectiveSaved ? ' Memory preserved.' : ''}`,
       };
     },
   };
@@ -722,7 +741,7 @@ export const sessionFactory = {
     // Session management
     if (sessionManager) {
       tools.push(createSessionStartTool(sessionManager));
-      tools.push(createSessionEndTool(sessionManager));
+      tools.push(createSessionEndTool(sessionManager, persistence));  // FIX #1: Pass persistence for collective save
     }
 
     // Profile management
