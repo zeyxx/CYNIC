@@ -21,6 +21,7 @@ import { traceCommand } from './commands/trace.js';
 import { memoryCommand } from './commands/memory.js';
 import { qtableCommand } from './commands/qtable.js';
 import { hooksCommand } from './commands/hooks.js';
+import { judgeCommand } from './commands/judge.js';
 // Dashboard is loaded lazily to avoid requiring blessed when not needed
 
 const VERSION = '0.2.0';
@@ -102,6 +103,20 @@ export function createCLI(program) {
       console.log(`  ${chalk.green('L1')}: Proof of Judgment (24 dimensions)`);
       console.log();
     });
+
+  // Judge command ("CYNIC it")
+  program
+    .command('judge [input]')
+    .alias('j')
+    .description('Judge anything - "CYNIC it" (file, text, URL, stdin)')
+    .option('--url <url>', 'Judge a URL or address')
+    .option('-t, --type <type>', 'Force item type (code, text, config, decision)')
+    .option('--title <title>', 'Custom title for the card')
+    .option('--markdown', 'Output as markdown')
+    .option('--json', 'Output as JSON')
+    .option('--compact', 'Output as one-liner')
+    .option('-s, --save', 'Save card to .cynic/cards/')
+    .action(judgeCommand);
 
   // Init command (project scaffolding)
   program

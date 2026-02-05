@@ -47,6 +47,7 @@ import {
 } from './dimensions.js';
 import { createRealScorer } from './scorers.js';
 import { DimensionRegistry, globalDimensionRegistry } from './dimension-registry.js';
+import { judgmentEntropy, optimalConfidence, ENTROPY_THRESHOLDS } from './entropy.js';
 
 /**
  * CYNIC Judge - The judgment engine
@@ -350,6 +351,15 @@ export class CYNICJudge {
     judgment.qScore = qScoreResult.Q;
     judgment.qVerdict = qScoreResult.verdict;
     judgment.weaknesses = qScoreResult.weaknesses;
+
+    // Add Shannon entropy analysis (information-theoretic uncertainty)
+    const entropyAnalysis = judgmentEntropy(dimensionScores);
+    judgment.entropy = {
+      H: entropyAnalysis.entropy,                    // Raw entropy (bits)
+      normalized: entropyAnalysis.normalizedEntropy, // [0, 1]
+      category: entropyAnalysis.category,            // DECISIVE/MODERATE/UNCERTAIN/CHAOTIC
+      shouldTriggerConsensus: entropyAnalysis.shouldTriggerConsensus,
+    };
 
     // Include Final score if K-Score was provided
     if (finalScore) {
@@ -853,22 +863,47 @@ export class CYNICJudge {
   }
 
   /**
-   * Calculate confidence (φ-bounded)
+   * Calculate confidence using Shannon entropy (φ-bounded)
+   *
+   * H = -Σ p(x) · log₂ p(x)
+   *
+   * High entropy → uncertain → lower confidence
+   * Low entropy → decisive → higher confidence (capped at φ⁻¹)
+   *
    * @private
    */
   _calculateConfidence(dimensionScores, context) {
     const scores = Object.values(dimensionScores);
     if (scores.length === 0) return PHI_INV_2;
 
-    // Base confidence on score consistency
-    const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
-    const variance = scores.reduce((sum, s) => sum + Math.pow(s - mean, 2), 0) / scores.length;
-    const stdDev = Math.sqrt(variance);
+    // Calculate entropy-based confidence
+    const entropyAnalysis = judgmentEntropy(dimensionScores);
 
-    // Lower variance = higher confidence
-    // But NEVER exceed φ⁻¹ (61.8%)
-    const rawConfidence = 1 - (stdDev / 100);
-    return Math.min(rawConfidence * PHI_INV, PHI_INV);
+    // Store entropy in context for later use
+    if (context) {
+      context._entropy = entropyAnalysis;
+    }
+
+    // Log if chaotic (high uncertainty)
+    if (entropyAnalysis.category === 'CHAOTIC') {
+      log.debug('High entropy judgment', {
+        normalizedEntropy: entropyAnalysis.normalizedEntropy.toFixed(3),
+        shouldTriggerConsensus: entropyAnalysis.shouldTriggerConsensus,
+      });
+    }
+
+    // Return entropy-adjusted confidence (already φ-bounded)
+    return entropyAnalysis.confidence;
+  }
+
+  /**
+   * Get entropy analysis for a judgment
+   * @param {Object} judgment - Judgment with dimensionScores
+   * @returns {Object} Entropy analysis
+   */
+  getEntropyAnalysis(judgment) {
+    if (!judgment.dimensions) return null;
+    return judgmentEntropy(judgment.dimensions);
   }
 
   /**

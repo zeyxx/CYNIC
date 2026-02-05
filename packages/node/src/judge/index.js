@@ -24,6 +24,9 @@ export * from './rca-integration.js';
 // Judgment Cards (shareable artifacts)
 export * from './judgment-card.js';
 
+// Shannon Entropy for judgment uncertainty
+export * from './entropy.js';
+
 // DPO Learning Pipeline (Week 3)
 export * from './dpo-processor.js';
 export * from './dpo-optimizer.js';
