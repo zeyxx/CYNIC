@@ -134,6 +134,24 @@ export class CYNICJudge {
     // Tracks HOWL → WAG → GROWL → BARK transitions
     this.verdictChain = createVerdictChain();
     this.lastVerdict = null;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BAYESIAN BELIEF TRACKING (φ-aligned learning from experience)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Per-dimension reliability tracker (Beta distribution)
+    // Tracks which dimensions produce accurate judgments over time
+    // α = judgments where dimension score matched outcome
+    // β = judgments where dimension score diverged from outcome
+    this._dimensionReliability = new Map();
+
+    // Item-type quality belief tracker (Beta distribution)
+    // Prior belief about quality by item type
+    // α = good outcomes, β = bad outcomes
+    this._itemTypeBelief = new Map();
+
+    // Judgment outcome history for feedback integration
+    this._outcomeHistory = [];
   }
 
   /**
