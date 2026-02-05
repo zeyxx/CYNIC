@@ -36,7 +36,9 @@ import cynic, {
   getAutoJudge,
 } from '../lib/index.js';
 
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 // =============================================================================
 // RESPONSE JUDGMENT (Task #20 - CYNIC judges every final response)
@@ -532,6 +534,178 @@ function formatDigestMessage(profile, analysis, insights, engineStats, responseJ
 }
 
 // =============================================================================
+// SESSION DIGEST EXPORT - Shareable markdown file
+// "Le jugement visible" - CYNIC's distribution layer
+// =============================================================================
+
+/**
+ * Format session digest as shareable markdown
+ * @param {Object} profile - User profile
+ * @param {Object} analysis - Session analysis
+ * @param {Object[]} insights - Extracted insights
+ * @param {Object} engineStats - Engine statistics
+ * @param {Object|null} responseJudgment - Response judgment
+ * @param {Object} meta - Additional metadata (user, project, etc.)
+ * @returns {string} Markdown formatted digest
+ */
+function formatDigestMarkdown(profile, analysis, insights, engineStats, responseJudgment, meta = {}) {
+  const now = new Date();
+  const ts = now.toISOString();
+  const date = ts.slice(0, 10);
+  const time = ts.slice(11, 19);
+  const sessions = profile.stats?.sessions || 0;
+  const errorRate = analysis.toolsUsed > 0
+    ? Math.round((analysis.errorsEncountered / analysis.toolsUsed) * 100)
+    : 0;
+  const completionPct = Math.round((analysis.completionRate || 0) * 100);
+  const efficiencyPct = engineStats.efficiency
+    ? Math.round(engineStats.efficiency * 100)
+    : null;
+
+  const lines = [];
+
+  // Header
+  lines.push(`# CYNIC Session Digest - ${date}`);
+  lines.push('');
+  lines.push(`> *"Le chien dig\u00E8re"* \u2014 Session ${sessions} | ${time} UTC`);
+  lines.push('');
+
+  // Summary table
+  lines.push('## Summary');
+  lines.push('');
+  lines.push('| Metric | Value |');
+  lines.push('|--------|------:|');
+  lines.push(`| Tools used | ${analysis.toolsUsed} |`);
+  lines.push(`| Errors | ${analysis.errorsEncountered} |`);
+  lines.push(`| Error rate | ${errorRate}% |`);
+  if (analysis.todosTotal > 0) {
+    lines.push(`| Tasks completed | ${analysis.todosCompleted}/${analysis.todosTotal} (${completionPct}%) |`);
+  }
+  if (efficiencyPct !== null) {
+    lines.push(`| Efficiency (\u03B7) | ${efficiencyPct}% |`);
+  }
+  if (meta.project) {
+    lines.push(`| Project | ${meta.project} |`);
+  }
+  lines.push('');
+
+  // Top tools
+  if (analysis.topTools?.length > 0) {
+    lines.push('## Top Tools');
+    lines.push('');
+    for (const { tool, count } of analysis.topTools.slice(0, 5)) {
+      const bar = '\u2588'.repeat(Math.min(Math.round(count / 2), 20));
+      lines.push(`- **${tool}** \u2014 ${count}x \`${bar}\``);
+    }
+    lines.push('');
+  }
+
+  // Response judgment
+  if (responseJudgment) {
+    lines.push('## Response Judgment');
+    lines.push('');
+    const bar = '\u2588'.repeat(Math.floor(responseJudgment.qScore / 10))
+      + '\u2591'.repeat(10 - Math.floor(responseJudgment.qScore / 10));
+    lines.push(`**Q-Score:** \`[${bar}]\` ${responseJudgment.qScore}% | **Verdict:** ${responseJudgment.verdict} | **Dog Voice:** ${responseJudgment.dogVoice ? '\u2705' : '\u26A0\uFE0F Missing'}`);
+    lines.push('');
+
+    if (responseJudgment.issues?.length > 0) {
+      lines.push('Issues:');
+      for (const issue of responseJudgment.issues) {
+        const icon = issue.severity === 'critical' ? '\uD83D\uDD34'
+          : issue.severity === 'high' ? '\u26A0\uFE0F' : '\uD83D\uDCA1';
+        lines.push(`- ${icon} ${issue.description}`);
+      }
+      lines.push('');
+    }
+  }
+
+  // Engine activity
+  const hasEngineStats = engineStats && Object.keys(engineStats).length > 0;
+  if (hasEngineStats) {
+    lines.push('## Engine Activity');
+    lines.push('');
+    if (engineStats.deletions > 0) {
+      lines.push(`- \u2702\uFE0F **Deletions:** ${engineStats.deletions} (voluntary poverty)`);
+    }
+    if (engineStats.emergence) {
+      const e = engineStats.emergence;
+      const emoji = e.emerged ? '\u2728' : '\uD83E\uDDE0';
+      lines.push(`- ${emoji} **Consciousness:** ${e.score.toFixed(1)}% / ${e.maxScore}%${e.emerged ? ' \u2014 EMERGED' : ''}`);
+    } else if (engineStats.consciousnessScore) {
+      lines.push(`- \uD83E\uDDE0 **Consciousness:** ${engineStats.consciousnessScore}% / 61.8%`);
+    }
+    if (engineStats.qLearning) {
+      lines.push(`- \uD83C\uDFB0 **Q-Learning:** ${engineStats.qLearning.states} states, ${engineStats.qLearning.episodes} episodes`);
+    }
+    if (engineStats.physicsLoaded > 0) {
+      lines.push(`- \uD83D\uDD2C **Physics engines:** ${engineStats.physicsLoaded}/5`);
+    }
+    if (engineStats.entangledPairs > 0) {
+      lines.push(`- \u2297 **Entanglements:** ${engineStats.entangledPairs} pairs`);
+    }
+    if (engineStats.activeDog) {
+      lines.push(`- \uD83D\uDC15 **Active Dog:** ${engineStats.activeDog}`);
+    }
+    if (engineStats.perspectiveConflicts > 0) {
+      lines.push(`- \u2696\uFE0F **Perspective conflicts:** ${engineStats.perspectiveConflicts}`);
+    }
+    lines.push('');
+  }
+
+  // Insights
+  if (insights.length > 0) {
+    lines.push('## Insights');
+    lines.push('');
+    for (const insight of insights) {
+      lines.push(`- \uD83D\uDCA1 **${insight.type}**: ${insight.description}`);
+      if (insight.suggestion) {
+        lines.push(`  - \u2192 ${insight.suggestion}`);
+      }
+    }
+    lines.push('');
+  }
+
+  // Footer
+  lines.push('---');
+  lines.push(`*Digested by [CYNIC](\u03BA\u03C5\u03BD\u03B9\u03BA\u03CC\u03C2) | \u03C6 max: 61.8% | Session ${sessions}*`);
+
+  return lines.join('\n');
+}
+
+/**
+ * Save digest to .cynic/digests/ directory
+ * @param {string} markdown - Formatted markdown content
+ * @returns {string|null} File path if saved, null on error
+ */
+function saveDigest(markdown) {
+  try {
+    // Resolve project root (2 levels up from scripts/hooks/)
+    const __filename = fileURLToPath(import.meta.url);
+    const projectRoot = join(dirname(__filename), '..', '..');
+    const digestDir = join(projectRoot, '.cynic', 'digests');
+
+    // Ensure directory exists
+    mkdirSync(digestDir, { recursive: true });
+
+    // Filename: YYYY-MM-DD-HHMMSS.md
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const filename = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.md`;
+    const filepath = join(digestDir, filename);
+
+    writeFileSync(filepath, markdown, 'utf-8');
+
+    return filepath;
+  } catch (e) {
+    if (process.env.CYNIC_DEBUG) {
+      console.error('[DIGEST] Failed to save digest file:', e.message);
+    }
+    return null;
+  }
+}
+
+// =============================================================================
 // SAFE OUTPUT - Handle EPIPE errors gracefully
 // =============================================================================
 
@@ -900,6 +1074,27 @@ async function main() {
 
     // Format message (include response judgment from Task #20)
     const message = formatDigestMessage(profile, analysis, insights, engineStats, responseJudgment);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DIGEST EXPORT: Save shareable markdown to .cynic/digests/
+    // "Le jugement visible" - distribution layer
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      const project = detectProject();
+      const digestMarkdown = formatDigestMarkdown(
+        profile, analysis, insights, engineStats, responseJudgment,
+        { user: user.name, project }
+      );
+      const savedPath = saveDigest(digestMarkdown);
+      if (savedPath && process.env.CYNIC_DEBUG) {
+        console.error(`[CYNIC] Digest saved: ${savedPath}`);
+      }
+    } catch (e) {
+      // Digest export is best-effort - never block session end
+      if (process.env.CYNIC_DEBUG) {
+        console.error('[DIGEST] Export failed:', e.message);
+      }
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PHASE 18: Emit session feedback for automation layer
