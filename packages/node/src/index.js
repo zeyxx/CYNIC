@@ -133,6 +133,7 @@ export {
   getCollectivePack,
   getCollectivePackAsync,
   getSharedMemory,
+  getReasoningBank, // FIX P5: Export ReasoningBank singleton
   getQLearningServiceSingleton,
   initializeQLearning,
   awakenCynic,
@@ -422,3 +423,19 @@ export {
   registerBuiltinHandlers,
   BUILTIN_TASK_TYPES,
 } from './workers/index.js';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Perception Layer - Multi-Dimensional Awareness (BATCH 4)
+// ═══════════════════════════════════════════════════════════════════════════════
+export {
+  // Filesystem Watcher
+  FilesystemWatcher,
+  createFilesystemWatcher,
+  FilesystemEventType,
+  // Solana Watcher
+  SolanaWatcher,
+  createSolanaWatcher,
+  SolanaEventType,
+  // Unified Perception
+  createPerceptionLayer,
+} from './perception/index.js';

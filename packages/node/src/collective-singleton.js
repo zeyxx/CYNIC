@@ -23,10 +23,11 @@
 
 'use strict';
 
-import { createLogger, PHI_INV } from '@cynic/core';
+import { createLogger, PHI_INV, globalEventBus, EventType } from '@cynic/core';
 import { createCollectivePack } from './agents/collective/index.js';
 import { SharedMemory } from './memory/shared-memory.js';
 import { getQLearningService } from './orchestration/learning-service.js';
+import { createReasoningBank, TrajectoryType } from './learning/reasoning-bank.js';
 
 const log = createLogger('CollectiveSingleton');
 
@@ -123,6 +124,13 @@ let _sharedMemory = null;
 let _qLearningService = null;
 
 /**
+ * FIX P5: The global ReasoningBank instance - null until first access
+ * "Le chien se souvient des chemins réussis"
+ * @type {ReasoningBank|null}
+ */
+let _reasoningBank = null;
+
+/**
  * Initialization promise to prevent race conditions
  * @type {Promise|null}
  */
@@ -178,6 +186,26 @@ export function getSharedMemory(options = {}) {
     log.debug('SharedMemory singleton created', { hasStorage: !!storageOptions.storage });
   }
   return _sharedMemory;
+}
+
+/**
+ * FIX P5: Get the ReasoningBank singleton
+ *
+ * ReasoningBank stores successful reasoning trajectories for replay.
+ * "Le chien se souvient des chemins réussis"
+ *
+ * @param {Object} [options] - Options for ReasoningBank (only used on first call)
+ * @param {Object} [options.persistence] - Persistence layer for trajectory storage
+ * @returns {ReasoningBank} The singleton ReasoningBank instance
+ */
+export function getReasoningBank(options = {}) {
+  if (!_reasoningBank) {
+    _reasoningBank = createReasoningBank({
+      persistence: options.persistence || null,
+    });
+    log.debug('ReasoningBank singleton created', { hasPersistence: !!options.persistence });
+  }
+  return _reasoningBank;
 }
 
 /**
@@ -238,6 +266,55 @@ export function getCollectivePack(options = {}) {
 }
 
 /**
+ * FIX P5: Wire JUDGMENT_CREATED events to ReasoningBank
+ * Converts judgments to trajectories for future replay
+ * @private
+ * @param {ReasoningBank} bank - The ReasoningBank singleton
+ */
+function _wireJudgmentToReasoningBank(bank) {
+  // Only wire once
+  if (bank._eventWired) return;
+  bank._eventWired = true;
+
+  globalEventBus.on(EventType.JUDGMENT_CREATED, async (event) => {
+    try {
+      const { id, payload } = event;
+      const { qScore, verdict, dimensions, itemType, confidence } = payload;
+
+      // Create a trajectory from the judgment
+      const trajectory = bank.startTrajectory(TrajectoryType.JUDGMENT, {
+        itemType,
+        qScore,
+        verdict,
+      });
+
+      // Add the judgment as an action
+      trajectory.addAction({
+        type: 'judgment',
+        tool: 'CYNICJudge',
+        confidence,
+        input: { itemType, dimensions },
+      });
+
+      // Set outcome based on verdict
+      const isSuccess = qScore >= 50; // WAG or HOWL
+      trajectory.setOutcome({
+        type: isSuccess ? 'success' : 'partial',
+        success: isSuccess,
+        metrics: { qScore, confidence },
+      });
+
+      // Store the trajectory (async, fire-and-forget)
+      await bank.store(trajectory);
+    } catch (err) {
+      log.debug('Failed to store judgment trajectory', { error: err.message });
+    }
+  });
+
+  log.debug('JUDGMENT_CREATED wired to ReasoningBank');
+}
+
+/**
  * Initialize persistence in background (called from sync getCollectivePack)
  * @private
  */
@@ -277,6 +354,33 @@ async function _initializeBackground(persistence) {
     await initializeQLearning(persistence);
   } catch (err) {
     log.debug('Background Q-Learning init failed', { error: err.message });
+  }
+
+  // FIX P5: Initialize ReasoningBank and load trajectories
+  try {
+    // Create reasoning_trajectories table if needed
+    await persistence.query?.(
+      `CREATE TABLE IF NOT EXISTS reasoning_trajectories (
+         id TEXT PRIMARY KEY,
+         type TEXT NOT NULL,
+         data JSONB NOT NULL,
+         reward REAL DEFAULT 0,
+         confidence REAL DEFAULT 0.5,
+         user_id TEXT,
+         project_id TEXT,
+         created_at TIMESTAMPTZ DEFAULT NOW(),
+         updated_at TIMESTAMPTZ DEFAULT NOW()
+       )`
+    );
+    const bank = getReasoningBank({ persistence });
+    const loaded = await bank.load({ limit: 100 }); // Load top 100 trajectories
+    log.debug('ReasoningBank initialized', { trajectoriesLoaded: loaded });
+
+    // FIX P5: Wire JUDGMENT_CREATED → ReasoningBank for trajectory capture
+    // "Le chien se souvient des chemins réussis"
+    _wireJudgmentToReasoningBank(bank);
+  } catch (err) {
+    log.debug('Background ReasoningBank init failed', { error: err.message });
   }
 
   return _globalPack;
@@ -714,6 +818,7 @@ export function _resetForTesting() {
   _globalPack = null;
   _sharedMemory = null;
   _qLearningService = null;
+  _reasoningBank = null; // FIX P5: Reset ReasoningBank
   _initPromise = null;
   _isAwakened = false;
 
@@ -728,6 +833,7 @@ export default {
   getCollectivePack,
   getCollectivePackAsync,
   getSharedMemory,
+  getReasoningBank, // FIX P5: Export ReasoningBank singleton
   getQLearningServiceSingleton,
   initializeQLearning,
   awakenCynic,

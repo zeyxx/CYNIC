@@ -19,6 +19,9 @@ import { dimensionRegistry } from './dimensions.js';
 
 /**
  * Residual Detector - Discovers new dimensions
+ *
+ * FIX J5: Added persistence support for dimension candidates
+ * "THE_UNNAMEABLE persists" - discoveries should survive restarts
  */
 export class ResidualDetector {
   /**
@@ -28,6 +31,7 @@ export class ResidualDetector {
    * @param {number} [options.maxAnomalies] - Max anomalies to store (default: 1000)
    * @param {number} [options.maxCandidates] - Max candidates to store (default: 100)
    * @param {number} [options.maxDiscoveries] - Max discoveries to store (default: 100)
+   * @param {Object} [options.storage] - Storage adapter with get/set methods
    */
   constructor(options = {}) {
     this.threshold = options.threshold || PHI_INV_2;
@@ -35,6 +39,11 @@ export class ResidualDetector {
     this.maxAnomalies = options.maxAnomalies || 1000;
     this.maxCandidates = options.maxCandidates || 100;
     this.maxDiscoveries = options.maxDiscoveries || 100;
+
+    // FIX J5: Storage adapter for persistence
+    this.storage = options.storage || null;
+    this._initialized = false;
+    this._dirty = false;
 
     // Anomaly storage (bounded)
     this.anomalies = [];
@@ -44,6 +53,64 @@ export class ResidualDetector {
 
     // Discovery history (bounded)
     this.discoveries = [];
+  }
+
+  /**
+   * FIX J5: Initialize from storage
+   * Loads persisted candidates and discoveries
+   * @returns {Promise<boolean>} True if loaded from storage
+   */
+  async initialize() {
+    if (this._initialized) return false;
+    this._initialized = true;
+
+    if (!this.storage?.get) return false;
+
+    try {
+      const state = await this.storage.get('residual_detector_state');
+      if (state) {
+        this.import(state);
+        return true;
+      }
+    } catch (e) {
+      // Non-fatal - start fresh
+    }
+    return false;
+  }
+
+  /**
+   * FIX J5: Save state to storage
+   * Persists candidates and discoveries
+   * @returns {Promise<boolean>} True if saved successfully
+   */
+  async save() {
+    if (!this.storage?.set) return false;
+    if (!this._dirty) return false;
+
+    try {
+      const state = this.export();
+      await this.storage.set('residual_detector_state', state);
+      this._dirty = false;
+      return true;
+    } catch (e) {
+      // Non-fatal
+      return false;
+    }
+  }
+
+  /**
+   * FIX J5: Mark state as dirty and schedule save
+   * @private
+   */
+  _markDirty() {
+    this._dirty = true;
+    // Debounced auto-save (don't await, fire and forget)
+    if (this.storage?.set && !this._saveTimeout) {
+      this._saveTimeout = setTimeout(() => {
+        this._saveTimeout = null;
+        this.save().catch(() => {});
+      }, 5000); // Save after 5s of inactivity
+    }
   }
 
   /**
@@ -176,6 +243,7 @@ export class ResidualDetector {
     };
 
     this.candidates.set(key, candidate);
+    this._markDirty(); // FIX J5: Persist candidate changes
 
     // Evict oldest candidates if over limit
     if (this.candidates.size > this.maxCandidates) {
@@ -305,6 +373,7 @@ export class ResidualDetector {
 
     // Remove candidate
     this.candidates.delete(candidateKey);
+    this._markDirty(); // FIX J5: Persist discovery
 
     return discovery;
   }
@@ -315,6 +384,7 @@ export class ResidualDetector {
    */
   rejectCandidate(candidateKey) {
     this.candidates.delete(candidateKey);
+    this._markDirty(); // FIX J5: Persist rejection
   }
 
   /**

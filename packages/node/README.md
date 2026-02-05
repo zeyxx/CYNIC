@@ -178,7 +178,7 @@ const instance = createIdentity();
 | `getCollectivePack()` | Get CollectivePack singleton |
 | `getCollectivePackAsync()` | Get CollectivePackAsync singleton |
 | `getSharedMemory()` | Get SharedMemory singleton |
-| `getQLearningServiceSingleton()` | Get QLearningServiceSingleton singleton |
+| `getReasoningBank()` | Get ReasoningBank singleton |
 | `getSingletonStatus()` | Get SingletonStatus singleton |
 | `getDefaultWalletPath()` | Get DefaultWalletPath singleton |
 | `getEventBus()` | Get EventBus singleton |
