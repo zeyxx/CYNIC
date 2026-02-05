@@ -589,3 +589,38 @@ export {
   getSolanaEmergence,
   resetSolanaEmergence,
 } from './solana/index.js';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Inference Module - Bayesian reasoning
+// "Mettre à jour les croyances avec l'évidence"
+// ═══════════════════════════════════════════════════════════════════════════════
+export {
+  // Core Bayes
+  bayesTheorem,
+  computeMarginal,
+  updateBelief,
+  batchUpdateBelief,
+  // Multi-hypothesis
+  Hypothesis,
+  HypothesisSet,
+  createHypothesisSet,
+  // Beta-Binomial
+  BetaDistribution,
+  createBetaTracker,
+  // Naive Bayes
+  NaiveBayesClassifier,
+  createClassifier,
+  // Belief Networks
+  BeliefNode,
+  BeliefNetwork,
+  createBeliefNetwork,
+  // Utilities
+  likelihoodRatio,
+  probabilityToOdds,
+  oddsToProbability,
+  logOdds,
+  sigmoid,
+  updateOdds,
+  // Config
+  BAYES_CONFIG,
+} from './inference/index.js';

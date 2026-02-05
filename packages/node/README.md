@@ -148,6 +148,8 @@ const instance = createIdentity();
 | `SolanaTransactionType` | SolanaTransactionType implementation |
 | `SolanaEmergencePattern` | SolanaEmergencePattern implementation |
 | `SolanaSignificance` | SolanaSignificance implementation |
+| `HypothesisSet` | HypothesisSet implementation |
+| `BeliefNetwork` | BeliefNetwork implementation |
 
 ### Factory Functions
 
@@ -192,6 +194,10 @@ const instance = createIdentity();
 | `createWorkerPool()` | Create WorkerPool instance |
 | `createFilesystemWatcher()` | Create FilesystemWatcher instance |
 | `createSolanaWatcher()` | Create SolanaWatcher instance |
+| `createHypothesisSet()` | Create HypothesisSet instance |
+| `createBetaTracker()` | Create BetaTracker instance |
+| `createClassifier()` | Create Classifier instance |
+| `createBeliefNetwork()` | Create BeliefNetwork instance |
 
 ### Singletons
 
@@ -249,7 +255,7 @@ const instance = createIdentity();
 
 ### Functions
 
-`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 40 more
+`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 48 more
 
 ## Dependencies
 
@@ -258,10 +264,10 @@ const instance = createIdentity();
 
 ## Stats
 
-- **Source files**: 216
-- **Test files**: 58
+- **Source files**: 218
+- **Test files**: 59
 - **Test ratio**: 27%
-- **Exports**: 283 named
+- **Exports**: 297 named
 
 ## Fractal Structure
 
@@ -274,7 +280,7 @@ const instance = createIdentity();
 [███░░░░░░░] 27% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
-[██████░░░░] 56% Burn (Simplicity)
+[█████░░░░░] 55% Burn (Simplicity)
 [██████░░░░] 62% Emergence
 ```
 
