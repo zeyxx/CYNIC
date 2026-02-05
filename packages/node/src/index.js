@@ -509,4 +509,20 @@ export {
   UrgencyLevel,
   getHumanAdvisor,
   resetHumanAdvisor,
+  // C5.5: HUMAN × LEARN
+  HumanLearning,
+  LearningCategory,
+  getHumanLearning,
+  resetHumanLearning,
+  // C5.6: HUMAN × ACCOUNT
+  HumanAccountant,
+  ActivityType as HumanActivityType, // Aliased - ActivityType may conflict
+  getHumanAccountant,
+  resetHumanAccountant,
+  // C5.7: HUMAN × EMERGE
+  HumanEmergence,
+  HumanPatternType,
+  HumanSignificanceLevel,
+  getHumanEmergence,
+  resetHumanEmergence,
 } from './symbiosis/index.js';

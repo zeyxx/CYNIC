@@ -131,6 +131,10 @@ const instance = createIdentity();
 | `CodePatternType` | CodePatternType implementation |
 | `InterventionType` | InterventionType implementation |
 | `UrgencyLevel` | UrgencyLevel implementation |
+| `LearningCategory` | LearningCategory implementation |
+| `ActivityType` | ActivityType implementation |
+| `HumanPatternType` | HumanPatternType implementation |
+| `HumanSignificanceLevel` | HumanSignificanceLevel implementation |
 
 ### Factory Functions
 
@@ -211,6 +215,8 @@ const instance = createIdentity();
 | `getCynicAccountant()` | Get CynicAccountant singleton |
 | `getCodeEmergence()` | Get CodeEmergence singleton |
 | `getHumanAdvisor()` | Get HumanAdvisor singleton |
+| `getHumanLearning()` | Get HumanLearning singleton |
+| `getHumanEmergence()` | Get HumanEmergence singleton |
 
 ### Constants
 
@@ -218,7 +224,7 @@ const instance = createIdentity();
 
 ### Functions
 
-`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 27 more
+`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 30 more
 
 ## Dependencies
 
@@ -227,10 +233,10 @@ const instance = createIdentity();
 
 ## Stats
 
-- **Source files**: 196
+- **Source files**: 199
 - **Test files**: 52
-- **Test ratio**: 27%
-- **Exports**: 239 named
+- **Test ratio**: 26%
+- **Exports**: 248 named
 
 ## Fractal Structure
 
@@ -240,10 +246,10 @@ const instance = createIdentity();
 ## Dimensions (4 Axioms)
 
 ```
-[███░░░░░░░] 27% φ (Confidence)
+[███░░░░░░░] 26% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
-[██████░░░░] 59% Burn (Simplicity)
+[██████░░░░] 58% Burn (Simplicity)
 [██████░░░░] 62% Emergence
 ```
 
