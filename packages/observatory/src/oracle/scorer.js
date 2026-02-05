@@ -419,12 +419,20 @@ export class TokenScorer {
     return Math.min(Math.round(PHI_INV_2 * 100), score);
   }
 
-  /** D8: Program Verification — 0 without real verification data */
+  /** D8: Program Verification — authority renouncement as immutability signal */
   _scoreProgramVerification(data) {
     if (data.isNative) return 100;
-    // "Don't trust, verify" — we have no program verification data
-    // Returning 0, not a proxy. Metadata completeness ≠ program safety.
-    return 0;
+    let score = 0;
+    // Renounced mint authority = can't inflate supply (strongest on-chain signal)
+    if (data.authorities?.mintAuthorityActive === false) {
+      score += Math.round(PHI_INV_2 * 100); // 38
+    }
+    // Renounced freeze authority = accounts can't be frozen
+    if (data.authorities?.freezeAuthorityActive === false) {
+      score += Math.round(PHI_INV_3 * 100); // 24
+    }
+    // Cap at φ⁻¹: renouncement is good but not proof of quality
+    return Math.min(Math.round(PHI_INV * 100), score);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -489,11 +497,32 @@ export class TokenScorer {
   // BURN DIMENSIONS (Creation vs Extraction)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /** D13: Burn Activity — needs burn tx analysis we don't have */
+  /** D13: Burn Activity — supply burn ratio + FDV/marketCap divergence */
   _scoreBurnActivity(data) {
     if (data.isNative) return 80; // SOL burns via transaction fees
-    // No burn data = no evidence of burn mechanism = 0
-    return 0;
+    let score = 0;
+
+    // Supply burn ratio: circulating < total means tokens burned/locked
+    const supply = data.supply;
+    if (supply?.total > 0 && supply?.circulating > 0) {
+      const burnRatio = 1 - (supply.circulating / supply.total);
+      if (burnRatio > 0.01) {
+        // Asymptotic: 10% burned → 27, 30% → 38, 50% → 46
+        score += Math.round((1 - 1 / (1 + Math.log(1 + burnRatio * 10))) * 50);
+      }
+    }
+
+    // FDV vs marketCap divergence = supply locked/burned
+    // FDV includes all supply; marketCap only circulating — gap = burn/lock evidence
+    const ds = data.dexScreener;
+    if (ds && ds.fdv > 0 && ds.marketCap > 0 && ds.fdv > ds.marketCap) {
+      const lockRatio = 1 - (ds.marketCap / ds.fdv);
+      if (lockRatio > 0.05) {
+        score += Math.round(lockRatio * PHI_INV_2 * 100); // Max ~24 at 62%+ locked
+      }
+    }
+
+    return Math.min(Math.round(PHI_INV * 100), score);
   }
 
   /** D14: Creator Behavior — mint authority + sell pressure (DexScreener sell/buy ratio) */
@@ -521,9 +550,20 @@ export class TokenScorer {
     return Math.min(Math.round(PHI_INV * 100), score);
   }
 
-  /** D15: Fee Redistribution — needs protocol fee analysis we don't have */
-  _scoreFeeRedistribution(_data) {
-    // No fee redistribution data for any token = 0
+  /** D15: Fee Redistribution — Token 2022 transfer_fee_config detection */
+  _scoreFeeRedistribution(data) {
+    if (data.isNative) return 60; // SOL has validator fee redistribution
+    // Token 2022 extensions: transfer_fee_config = on-chain fee redistribution
+    const ext = data.extensions;
+    if (ext?.hasTransferFee && ext.transferFeeConfig) {
+      const fee = ext.transferFeeConfig;
+      let score = Math.round(PHI_INV_2 * 100); // 38 base: has fee mechanism
+      // Reasonable fee (<5%) = healthy redistribution, not extraction
+      const bps = fee.newer_transfer_fee?.transfer_fee_basis_points || fee.transfer_fee_basis_points || 0;
+      if (bps > 0 && bps <= 500) score += Math.round(PHI_INV_3 * 100); // +24
+      return Math.min(Math.round(PHI_INV * 100), score);
+    }
+    // No Token 2022 extensions = no fee redistribution evidence
     return 0;
   }
 

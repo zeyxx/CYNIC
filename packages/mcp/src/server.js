@@ -25,7 +25,7 @@ import { ServiceInitializer } from './server/ServiceInitializer.js';
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = join(__filename, '..');
-import { CYNICJudge, LearningService, createEScoreCalculator, createEmergenceLayer, DogOrchestrator, createAutonomousDaemon, getCollectivePack, getSharedMemory, createHeartbeatService, createSLATracker, createConsciousnessBridge, createDefaultChecks, createEmergenceDetector } from '@cynic/node';
+import { CYNICJudge, LearningService, createEScoreCalculator, createEmergenceLayer, DogOrchestrator, createAutonomousDaemon, getCollectivePack, getSharedMemory, saveCollectiveState, createHeartbeatService, createSLATracker, createConsciousnessBridge, createDefaultChecks, createEmergenceDetector } from '@cynic/node';
 import { UnifiedOrchestrator } from '@cynic/node/orchestration/unified-orchestrator.js';
 import { createPatternDetector } from '@cynic/emergence';
 import { createAllTools } from './tools/index.js';
@@ -43,7 +43,7 @@ import { AuthService } from './auth-service.js';
 import { DiscoveryService } from './discovery-service.js';
 import { XProxyService } from './services/x-proxy.js';
 // Local Privacy Stores (SQLite - privacy by design)
-import { LocalXStore, LocalPrivacyStore } from '@cynic/persistence';
+import { LocalXStore, LocalPrivacyStore, getTelemetry } from '@cynic/persistence';
 
 /**
  * MCP Server for CYNIC
@@ -322,6 +322,14 @@ export class MCPServer {
     // ═══════════════════════════════════════════════════════════════════════════
     if (this.unifiedOrchestrator && this.persistence) {
       this.unifiedOrchestrator.persistence = this.persistence;
+      // D10: Wire memoryRetriever for lessons_learned prevention checks
+      if (this.persistence.memoryRetriever) {
+        this.unifiedOrchestrator.memoryRetriever = this.persistence.memoryRetriever;
+      }
+      // D11: Wire psychology provider for burnout/flow-aware routing
+      if (this.persistence.psychology) {
+        this.unifiedOrchestrator.psychologyProvider = this.persistence.psychology;
+      }
       console.error('   UnifiedOrchestrator: wired with persistence');
     }
 
@@ -1620,6 +1628,16 @@ export class MCPServer {
       }
     }
 
+    // D5: Save SharedMemory state before closing persistence
+    if (this.persistence) {
+      try {
+        await saveCollectiveState(this.persistence);
+        console.error('   Collective state saved');
+      } catch (e) {
+        console.error('Error saving collective state:', e.message);
+      }
+    }
+
     // Close persistence connections (handles file-based save automatically)
     if (this.persistence) {
       try {
@@ -1877,6 +1895,19 @@ export class MCPServer {
         timestamp: Date.now(),
       });
     }
+
+    // D7: Record outcome for adaptive perception routing
+    if (this.perceptionRouter) {
+      this.perceptionRouter.recordOutcome('mcp', name, true, duration);
+    }
+
+    // D8: Record tool usage with latency for telemetry
+    try {
+      const telemetry = getTelemetry();
+      if (telemetry) {
+        telemetry.recordToolUse({ tool: name, success: true, latencyMs: duration });
+      }
+    } catch (_) { /* telemetry is best-effort */ }
 
     // Note: Judgment storage now handled inside createJudgeTool handler
     // for better access to full judgment data including dimensionScores

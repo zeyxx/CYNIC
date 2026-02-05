@@ -96,6 +96,9 @@ export class TokenFetcher {
     // Authorities
     const authorities = this._analyzeAuthorities(asset);
 
+    // Token 2022 extensions (transfer_fee, interest_bearing, etc.)
+    const extensions = this._extractExtensions(asset);
+
     // Token age
     const ageInDays = this._calculateAge(asset);
 
@@ -131,6 +134,8 @@ export class TokenFetcher {
         mintAuthorityActive: authorities.mintAuthorityActive,
         freezeAuthorityActive: authorities.freezeAuthorityActive,
       },
+
+      extensions,
 
       ageInDays,
 
@@ -427,6 +432,24 @@ export class TokenFetcher {
       freezeAuthority: freezeAuth,
       mintAuthorityActive: !!mintAuth,
       freezeAuthorityActive: !!freezeAuth,
+    };
+  }
+
+  /**
+   * Extract Token 2022 / Token Extensions Program data from Helius DAS response.
+   * Returns null for standard SPL tokens (no extensions).
+   */
+  _extractExtensions(asset) {
+    const mintExt = asset?.mint_extensions;
+    if (!mintExt) return null;
+    return {
+      hasTransferFee: !!mintExt.transfer_fee_config,
+      transferFeeConfig: mintExt.transfer_fee_config || null,
+      hasInterestBearing: !!mintExt.interest_bearing_config,
+      hasPermanentDelegate: !!mintExt.permanent_delegate,
+      hasTransferHook: !!mintExt.transfer_hook,
+      hasConfidentialTransfer: !!mintExt.confidential_transfer_mint,
+      isToken2022: true,
     };
   }
 

@@ -72,6 +72,9 @@ import {
   MetaState,
 } from './cynic.js';
 
+// Import Dog 0 - The Learner (Ein Sof - The Infinite)
+import { CollectiveLearner, LEARNER_CONSTANTS, PredictionOutcome } from './learner.js';
+
 // Import Autonomous Capabilities (Phase 16: Total Memory + Full Autonomy)
 import {
   AUTONOMOUS_CONSTANTS,
@@ -103,6 +106,8 @@ export {
   CollectiveCartographer,
   CollectiveOracle,
   CollectiveDeployer,
+  // Dog 0 (Phase 5: Training Pipeline)
+  CollectiveLearner,
 };
 
 // Re-export types
@@ -143,6 +148,9 @@ export {
   DeploymentState,
   DeployTarget,
   HealthStatus,
+  // Dog 0 (Learner) types
+  LEARNER_CONSTANTS,
+  PredictionOutcome,
   // Autonomous types (Phase 16: Total Memory + Full Autonomy)
   AUTONOMOUS_CONSTANTS,
   DogGoalTypes,
@@ -227,6 +235,7 @@ export class CollectivePack {
     this.eventBus.registerAgent(AgentId.CARTOGRAPHER); // Kingdom (Malkhut)
     this.eventBus.registerAgent(AgentId.ORACLE); // Beauty (Tiferet)
     this.eventBus.registerAgent(AgentId.DEPLOYER); // Splendor (Hod)
+    this.eventBus.registerAgent(AgentId.LEARNER); // Ein Sof (Dog 0)
     this.eventBus.registerAgent('collective'); // For pack-level subscriptions
 
     // Create agents with shared infrastructure
@@ -323,7 +332,16 @@ export class CollectivePack {
       persistence: this.persistence,
     });
 
-    // Agent map for lookup (5 original Dogs + CYNIC + Janitor + Scout + Cartographer + Oracle + Deployer)
+    // Dog 0 (Learner) - LLM-powered judgment, optional (Ein Sof)
+    this.learner = new CollectiveLearner({
+      eventBus: this.eventBus,
+      judge: options.judge,
+      persistence: this.persistence,
+      llmEndpoint: options.llmEndpoint,
+      llmModel: options.llmModel,
+    });
+
+    // Agent map for lookup (11 Sefirot Dogs + Dog 0 Learner)
     this.agents = new Map([
       [AgentId.GUARDIAN, this.guardian],
       [AgentId.ANALYST, this.analyst],
@@ -336,6 +354,7 @@ export class CollectivePack {
       [AgentId.CARTOGRAPHER, this.cartographer], // Malkhut - Kingdom
       [AgentId.ORACLE, this.oracle], // Tiferet - Beauty
       [AgentId.DEPLOYER, this.deployer], // Hod - Splendor
+      [AgentId.LEARNER, this.learner], // Ein Sof - Dog 0
     ]);
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -931,6 +950,13 @@ export class CollectivePack {
       const qlearning = getQLearningService();
       if (!qlearning || agentResults.length === 0) return;
 
+      // D3 fix: wrap in episode so recordAction() calls are not silently dropped
+      const episodeId = qlearning.startEpisode({
+        type: hookType,
+        tool: payload.tool,
+        taskType: 'collective_decision',
+      });
+
       for (const result of agentResults) {
         if (result.response) {
           qlearning.recordAction(result.agent?.toLowerCase() || 'unknown', {
@@ -952,10 +978,18 @@ export class CollectivePack {
           hookType,
           tool: payload.tool,
           decision: 'block',
-          success: true, // Blocking dangerous action is a success
+          success: true,
           source: 'collective_pack',
         });
       }
+
+      // End episode with outcome
+      qlearning.endEpisode({
+        type: blocked ? 'block' : 'allow',
+        success: true,
+        dogCount: agentResults.length,
+        source: 'collective_pack',
+      });
     } catch (e) {
       // Q-Learning recording is best-effort
     }

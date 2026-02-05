@@ -199,7 +199,7 @@ export function createHealthTool(node, judge, persistence = null, automationExec
 
       if (verbose) {
         health.judge = judge.getStats();
-        health.tools = ['brain_cynic_judge', 'brain_cynic_digest', 'brain_health', 'brain_search', 'brain_patterns', 'brain_cynic_feedback', 'brain_agents_status'];
+        health.tools = ['brain_cynic_judge', 'brain_cynic_digest', 'brain_health', 'brain_search', 'brain_patterns', 'brain_cynic_feedback', 'brain_collective_status'];
 
         // Add judgment stats from persistence
         if (persistence?.judgments) {
@@ -217,12 +217,9 @@ export function createHealthTool(node, judge, persistence = null, automationExec
 }
 
 /**
- * Create agents status tool definition
- * DEPRECATED: Use brain_collective_status instead
- * @param {Object} collective - CollectivePack instance (The 11 Dogs)
- * @returns {Object} Tool definition
+ * P4: createAgentsStatusTool REMOVED — deprecated, use brain_collective_status
  */
-export function createAgentsStatusTool(collective) {
+function _dead_createAgentsStatusTool(collective) {
   return {
     name: 'brain_agents_status',
     description: 'DEPRECATED: Use brain_collective_status instead. Returns collective status for backwards compatibility.',
@@ -769,7 +766,7 @@ export const systemFactory = {
     // Collective status
     if (collective) {
       tools.push(createCollectiveStatusTool(collective));
-      tools.push(createAgentsStatusTool(collective));
+      // P4: createAgentsStatusTool removed (deprecated → brain_collective_status)
       tools.push(createAgentDiagnosticTool(collective));
       tools.push(createConsensusTool(collective));
     }

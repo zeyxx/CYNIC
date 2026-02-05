@@ -19,6 +19,29 @@
     }
   },
 
+  "setup": {
+    "postInstall": "node scripts/setup/initialize.js"
+  },
+
+  "capabilities": {
+    "perception": ["api", "mcp", "browser", "filesystem"],
+    "llmRouting": ["claude", "gemini", "ollama"],
+    "psychology": true,
+    "qlearning": true,
+    "browser": true
+  },
+
+  "envVars": {
+    "required": [],
+    "optional": [
+      { "name": "GEMINI_API_KEY", "description": "Google Gemini API key for multi-model routing" },
+      { "name": "OLLAMA_ENDPOINT", "description": "Ollama endpoint for local model validation" },
+      { "name": "DATABASE_URL", "description": "PostgreSQL connection string for persistence" },
+      { "name": "HELIUS_API_KEY", "description": "Helius API key for Solana RPC" },
+      { "name": "RENDER_API_KEY", "description": "Render deployment API key" }
+    ]
+  },
+
   "metadata": {
     "identity": {
       "name": "CYNIC",

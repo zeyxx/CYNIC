@@ -82,3 +82,11 @@ id.json
 docker-build.bat
 docker-build-log.bat
 docker-build.log
+
+# Training data (generated)
+training-data-*.jsonl
+training-splits/
+training-checkpoints/
+
+# Local config
+*.local.md

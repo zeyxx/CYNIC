@@ -167,6 +167,7 @@ export class DecisionEvent {
       risk: routing.risk || 'low',
       suggestedTools: routing.suggestedTools || [],
       suggestedAgent: routing.suggestedAgent || null,
+      perception: routing.perception || null,
       timestamp: Date.now(),
     };
     this.stage = DecisionStage.ROUTING;

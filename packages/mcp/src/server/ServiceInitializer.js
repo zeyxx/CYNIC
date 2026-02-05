@@ -484,7 +484,7 @@ export class ServiceInitializer {
   async _createEngineRegistry() {
     const registry = new EngineRegistry();
     const result = loadPhilosophyEngines({ registry, silent: true });
-    log.info('Philosophy engines loaded', { count: result.loaded });
+    log.info('Philosophy engines loaded', { count: result.registered });
     return registry;
   }
 
@@ -668,8 +668,7 @@ export class ServiceInitializer {
         },
       };
 
-      // Track stats in pojChainManager
-      services.pojChainManager.isAnchoringEnabled = true;
+      // Track stats in pojChainManager (isAnchoringEnabled is a getter — true when _anchorQueue exists)
       services.pojChainManager.getAnchorStatus = () => integration.getStats();
       services.pojChainManager.getPendingAnchors = () => anchorer.getPendingAnchors?.() || [];
 

@@ -318,10 +318,9 @@ export function createDocsTool(librarian, persistence = null) {
  * Create semantic patterns tool definition
  * Uses VectorStore + SemanticPatternMatcher for finding patterns by meaning.
  *
- * @param {Object} semanticMatcher - SemanticPatternMatcher instance
- * @returns {Object} Tool definition
+ * P4: createSemanticPatternsTool REMOVED — dead code, superseded by brain_patterns
  */
-export function createSemanticPatternsTool(semanticMatcher = null) {
+function _dead_createSemanticPatternsTool(semanticMatcher = null) {
   // Lazy-loaded SemanticPatternMatcher
   let matcher = semanticMatcher;
   let embedderType = null;
@@ -506,8 +505,7 @@ export const knowledgeFactory = {
       tools.push(createDocsTool(librarian, persistence));
     }
 
-    // Semantic Patterns tool (V3 vector search integration)
-    tools.push(createSemanticPatternsTool(semanticMatcher));
+    // P4: semantic_patterns tool removed (superseded by brain_patterns)
 
     return tools;
   },

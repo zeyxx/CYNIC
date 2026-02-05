@@ -259,7 +259,9 @@ export const AgentId = {
 
   /** Deployer - Hod (Glory) - Deployment orchestration */
   DEPLOYER: 'deployer',
-  // CARTOGRAPHER: 'cartographer', // Malkhut - Manifestation/Mapping
+
+  /** Learner - Ein Sof (Infinite) - LLM-powered judgment (Dog 0) */
+  LEARNER: 'learner',
 
   /** Broadcast to all agents */
   ALL: '*',

@@ -133,6 +133,8 @@ export {
   getCollectivePack,
   getCollectivePackAsync,
   getSharedMemory,
+  getQLearningServiceSingleton,
+  initializeQLearning,
   awakenCynic,
   saveState as saveCollectiveState,
   getSingletonStatus,

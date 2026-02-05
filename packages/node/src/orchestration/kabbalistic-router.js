@@ -27,6 +27,7 @@
 
 import { PHI_INV, PHI_INV_2 } from '@cynic/core';
 import { SEFIROT_TEMPLATE } from '../agents/collective/sefirot.js';
+import { RelationshipGraph } from '../agents/collective/relationship-graph.js';
 import { CONSULTATION_MATRIX, getConsultants, shouldConsult } from '@cynic/core/orchestration';
 
 // Optional integrations (lazy loaded)
@@ -161,7 +162,7 @@ export class KabbalisticRouter {
 
     this.pack = collectivePack;
     this.persistence = persistence;
-    this.relationshipGraph = relationshipGraph;
+    this.relationshipGraph = relationshipGraph || new RelationshipGraph();
 
     // Optional integrations
     this.learningService = learningService;
@@ -296,6 +297,7 @@ export class KabbalisticRouter {
     if (this.learningService && this._currentEpisodeId) {
       const reward = this._calculateReward(synthesis, context, durationMs);
       this.learningService.endEpisode(this._currentEpisodeId, reward);
+      this.applyLearnedWeights(); // D1: Close feedback loop — learned weights flow back to routing
       this._currentEpisodeId = null;
     }
 

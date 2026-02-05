@@ -432,12 +432,9 @@ export function createProfileLoadTool(persistence) {
   };
 }
 
-/**
- * Create user preferences tool - get/set user preferences
- * @param {Object} persistence - PersistenceManager instance
- * @returns {Object} Tool definition
- */
-export function createPreferencesTool(persistence) {
+// P4: createPreferencesTool REMOVED — dead code, persistence.userPreferences never exists
+// Superseded by brain_profile_sync + brain_profile_load
+function _dead_createPreferencesTool(persistence) {
   return {
     name: 'brain_preferences',
     description: 'Get or set user preferences for judgment, automation, and UI. Use action="get" to retrieve, action="set" to update.',
@@ -570,12 +567,8 @@ export function createPreferencesTool(persistence) {
 // SESSION PATTERNS TOOLS
 // =============================================================================
 
-/**
- * Create session patterns save tool
- * @param {Object} persistence - PersistenceManager instance
- * @returns {Object} Tool definition
- */
-export function createSessionPatternsSaveTool(persistence) {
+// P4: createSessionPatternsSaveTool REMOVED — dead code, persistence.sessionPatterns never exists
+function _dead_createSessionPatternsSaveTool(persistence) {
   return {
     name: 'brain_session_patterns_save',
     description: 'Save detected patterns from session to database. Called by sleep.js hook.',
@@ -649,11 +642,9 @@ export function createSessionPatternsSaveTool(persistence) {
 }
 
 /**
- * Create session patterns load tool
- * @param {Object} persistence - PersistenceManager instance
- * @returns {Object} Tool definition
+ * P4: createSessionPatternsLoadTool REMOVED — dead code
  */
-export function createSessionPatternsLoadTool(persistence) {
+function _dead_createSessionPatternsLoadTool(persistence) {
   return {
     name: 'brain_session_patterns_load',
     description: 'Load recent patterns from previous sessions. Called by awaken.js hook.',
@@ -739,9 +730,7 @@ export const sessionFactory = {
       tools.push(createProfileSyncTool(persistence));
       tools.push(createProfileLoadTool(persistence));
       tools.push(createPsychologyTool(persistence));
-      tools.push(createPreferencesTool(persistence));
-      tools.push(createSessionPatternsSaveTool(persistence));
-      tools.push(createSessionPatternsLoadTool(persistence));
+      // P4: preferences + session_patterns tools removed (dead code)
     }
 
     return tools;

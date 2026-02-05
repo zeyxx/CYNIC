@@ -327,11 +327,12 @@ function createJudgment({ trigger, verdict, subject, reason, confidence, observa
     maxConfidence: PHI_INV,
     observations,
     recommendation,
-    // Q-Score simplified (based on verdict)
-    qScore: verdict === 'WAG' ? 75 :
-            verdict === 'BARK' ? 50 :
-            verdict === 'GROWL' ? 25 :
-            verdict === 'HOWL' ? 10 : 50,
+    // Q-Score simplified (based on verdict — φ-aligned bands)
+    // HOWL ≥ 76, WAG 61-75, GROWL 38-60, BARK < 38
+    qScore: verdict === 'HOWL' ? 88 :
+            verdict === 'WAG' ? 68 :
+            verdict === 'GROWL' ? 49 :
+            verdict === 'BARK' ? 19 : 50,
     source: 'static', // Default: static rules
   };
 

@@ -14,15 +14,9 @@ import { createLogger } from '@cynic/core';
 
 const log = createLogger('AutomationTools');
 
-/**
- * Create orchestration tool definition
- * @param {Object} options - Orchestration options
- * @param {Object} options.judge - CYNICJudge instance
- * @param {Object} options.agents - Agents registry
- * @param {Object} [options.persistence] - PersistenceManager instance
- * @returns {Object} Tool definition
- */
-export function createOrchestrationTool(options = {}) {
+// P4: createOrchestrationTool REMOVED — dead code, superseded by brain_orchestrate in orchestration.js
+// Was: brain_orchestrate (duplicate name, never registered in toolDefs)
+function _dead_createOrchestrationTool(options = {}) {
   const { judge, agents, persistence } = options;
 
   // Lazy load orchestration module
@@ -473,10 +467,7 @@ export const automationFactory = {
 
     const tools = [];
 
-    // Orchestration tool
-    if (judge || agents) {
-      tools.push(createOrchestrationTool({ judge, agents, persistence }));
-    }
+    // P4: createOrchestrationTool removed — use brain_orchestrate from orchestration.js
 
     // Triggers tool
     tools.push(createTriggersTool({ judge, persistence, collective, scheduler }));
