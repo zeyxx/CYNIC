@@ -60,6 +60,11 @@ import {
   EntropyTracker,
   getEntropyTracker,
 } from '../inference/entropy.js';
+// Markov chains for verdict sequence prediction
+import {
+  createVerdictChain,
+  MarkovChain,
+} from '../inference/markov.js';
 // Organism metrics for tracking
 import { recordSuccess, recordError, updateHomeostasis } from '../organism/index.js';
 
@@ -124,6 +129,11 @@ export class CYNICJudge {
     this.historicalDistribution = null;
     this.distributionWindow = options.distributionWindow || 21; // Fib(8)
     this.distributionHistory = [];
+
+    // Markov chain for verdict sequence prediction
+    // Tracks HOWL → WAG → GROWL → BARK transitions
+    this.verdictChain = createVerdictChain();
+    this.lastVerdict = null;
   }
 
   /**
@@ -486,6 +496,10 @@ export class CYNICJudge {
 
     // Update organism metrics based on judgment quality
     this._updateOrganismMetrics(judgment);
+
+    // Update verdict Markov chain and add prediction
+    const verdictMarkov = this._updateVerdictSequence(judgment);
+    judgment.markov = verdictMarkov;
 
     // Task #57: Emit JUDGMENT_CREATED for SONA real-time adaptation
     // This allows SONA to observe judgment patterns and correlate with outcomes
@@ -1174,6 +1188,112 @@ export class CYNICJudge {
       // Don't let organism tracking break judgment flow
       log.debug('Organism metrics update failed', { error: err.message });
     }
+  }
+
+  /**
+   * Update verdict sequence and generate Markov prediction
+   *
+   * Tracks verdict transitions (HOWL → WAG → GROWL → BARK) over time
+   * and predicts the next likely verdict based on historical patterns.
+   *
+   * @private
+   * @param {Object} judgment - Completed judgment with verdict
+   * @returns {Object} Markov analysis {predicted, sequenceAnomaly, transitions}
+   */
+  _updateVerdictSequence(judgment) {
+    const currentVerdict = judgment.verdict;
+
+    // Record verdict to buffer for sequence tracking
+    this._recordVerdictToBuffer(currentVerdict);
+
+    // Record transition if we have a previous verdict
+    if (this.lastVerdict) {
+      this.verdictChain.observe(this.lastVerdict, currentVerdict);
+    }
+
+    // Predict next verdict
+    const prediction = this.verdictChain.predict(currentVerdict);
+
+    // Check if recent sequence is anomalous
+    const recentSequence = this._getRecentVerdictSequence(5);
+    let sequenceAnomaly = null;
+    if (recentSequence.length >= 3) {
+      sequenceAnomaly = this.verdictChain.checkAnomaly(recentSequence);
+    }
+
+    // Update last verdict for next judgment
+    this.lastVerdict = currentVerdict;
+
+    return {
+      current: currentVerdict,
+      predicted: {
+        next: prediction.state,
+        probability: prediction.probability,
+        confidence: prediction.confidence,
+        alternatives: prediction.alternatives,
+      },
+      sequenceAnomaly: sequenceAnomaly ? {
+        isAnomaly: sequenceAnomaly.isAnomaly,
+        score: sequenceAnomaly.score,
+        minTransitionProb: sequenceAnomaly.minTransitionProb,
+      } : null,
+      chainStats: this.verdictChain.getStats(),
+    };
+  }
+
+  /**
+   * Get recent verdict sequence (for anomaly detection)
+   * @private
+   * @param {number} n - Number of recent verdicts
+   * @returns {string[]} Recent verdict sequence
+   */
+  _getRecentVerdictSequence(n) {
+    if (!this._verdictBuffer) {
+      this._verdictBuffer = [];
+    }
+    return this._verdictBuffer.slice(-n);
+  }
+
+  /**
+   * Record verdict to buffer
+   * @private
+   * @param {string} verdict - Verdict to record
+   */
+  _recordVerdictToBuffer(verdict) {
+    if (!this._verdictBuffer) {
+      this._verdictBuffer = [];
+    }
+    this._verdictBuffer.push(verdict);
+    // Keep bounded at Fib(8) = 21
+    while (this._verdictBuffer.length > 21) {
+      this._verdictBuffer.shift();
+    }
+  }
+
+  /**
+   * Get verdict chain for analysis
+   * @returns {MarkovChain} The verdict Markov chain
+   */
+  getVerdictChain() {
+    return this.verdictChain;
+  }
+
+  /**
+   * Get verdict prediction for a given verdict
+   * @param {string} verdict - Current verdict (HOWL/WAG/GROWL/BARK)
+   * @returns {Object} Prediction with confidence
+   */
+  predictNextVerdict(verdict) {
+    return this.verdictChain.predict(verdict);
+  }
+
+  /**
+   * Get stationary distribution of verdicts
+   * Long-run expected proportions of each verdict
+   * @returns {Object} {HOWL, WAG, GROWL, BARK} probabilities
+   */
+  getVerdictDistribution() {
+    return this.verdictChain.getStationaryDistribution();
   }
 
   /**
