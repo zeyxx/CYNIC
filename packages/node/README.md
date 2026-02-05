@@ -155,6 +155,12 @@ const instance = createIdentity();
 | `GaussianNoiseGenerator` | GaussianNoiseGenerator implementation |
 | `GaussianDistribution` | GaussianDistribution implementation |
 | `DiagonalGaussian` | DiagonalGaussian implementation |
+| `MetabolismTracker` | MetabolismTracker implementation |
+| `ThermoEventType` | ThermoEventType implementation |
+| `ThermodynamicState` | ThermodynamicState implementation |
+| `HomeostasisTracker` | HomeostasisTracker implementation |
+| `GrowthTracker` | GrowthTracker implementation |
+| `ResilienceTracker` | ResilienceTracker implementation |
 
 ### Factory Functions
 
@@ -207,6 +213,12 @@ const instance = createIdentity();
 | `createEventTracker()` | Create EventTracker instance |
 | `createNoiseGenerator()` | Create NoiseGenerator instance |
 | `createGaussian()` | Create Gaussian instance |
+| `createMetabolismTracker()` | Create MetabolismTracker instance |
+| `createThermodynamicState()` | Create ThermodynamicState instance |
+| `createHomeostasisTracker()` | Create HomeostasisTracker instance |
+| `createGrowthTracker()` | Create GrowthTracker instance |
+| `createResilienceTracker()` | Create ResilienceTracker instance |
+| `createVitalityMonitor()` | Create VitalityMonitor instance |
 
 ### Singletons
 
@@ -257,14 +269,26 @@ const instance = createIdentity();
 | `getSolanaLearner()` | Get SolanaLearner singleton |
 | `getSolanaAccountant()` | Get SolanaAccountant singleton |
 | `getSolanaEmergence()` | Get SolanaEmergence singleton |
+| `getMetabolismTracker()` | Get MetabolismTracker singleton |
+| `getThermodynamicState()` | Get ThermodynamicState singleton |
+| `getHomeostasisTracker()` | Get HomeostasisTracker singleton |
+| `getGrowthTracker()` | Get GrowthTracker singleton |
+| `getResilienceTracker()` | Get ResilienceTracker singleton |
+| `getVitalityStatus()` | Get VitalityStatus singleton |
+| `getDimensionScores()` | Get DimensionScores singleton |
+| `getDimensionStatuses()` | Get DimensionStatuses singleton |
+| `getVitalitySummary()` | Get VitalitySummary singleton |
+| `getVitalityMonitor()` | Get VitalityMonitor singleton |
+| `getOrganismState()` | Get OrganismState singleton |
+| `getOrganismHealth()` | Get OrganismHealth singleton |
 
 ### Constants
 
-`SKEPTIC_CONSTANTS`, `CONTEXT_DOMAIN_MAP`, `COLLECTIVE_CONSTANTS`, `CYNIC_CONSTANTS`, `ANCHOR_CONSTANTS`, `DEFAULT_CONFIG`, `BURN_ADDRESSES`, `AWARENESS_THRESHOLDS`, `MAX_CONFIDENCE`, `SIGNIFICANCE_THRESHOLDS` + 21 more
+`SKEPTIC_CONSTANTS`, `CONTEXT_DOMAIN_MAP`, `COLLECTIVE_CONSTANTS`, `CYNIC_CONSTANTS`, `ANCHOR_CONSTANTS`, `DEFAULT_CONFIG`, `BURN_ADDRESSES`, `AWARENESS_THRESHOLDS`, `MAX_CONFIDENCE`, `SIGNIFICANCE_THRESHOLDS` + 27 more
 
 ### Functions
 
-`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 93 more
+`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 110 more
 
 ## Dependencies
 
@@ -273,10 +297,10 @@ const instance = createIdentity();
 
 ## Stats
 
-- **Source files**: 220
-- **Test files**: 61
-- **Test ratio**: 28%
-- **Exports**: 354 named
+- **Source files**: 227
+- **Test files**: 62
+- **Test ratio**: 27%
+- **Exports**: 401 named
 
 ## Fractal Structure
 
@@ -286,10 +310,10 @@ const instance = createIdentity();
 ## Dimensions (4 Axioms)
 
 ```
-[███░░░░░░░] 28% φ (Confidence)
+[███░░░░░░░] 27% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
-[█████░░░░░] 46% Burn (Simplicity)
+[████░░░░░░] 41% Burn (Simplicity)
 [██████░░░░] 62% Emergence
 ```
 

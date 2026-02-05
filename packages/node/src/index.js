@@ -685,3 +685,71 @@ export {
   GAUSSIAN_CONSTANTS,
   GAUSSIAN_CONFIG,
 } from './inference/index.js';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Organism Module - 7 Dimensions of CYNIC's Life Force
+// "Le chien est vivant, pas juste actif"
+// ═══════════════════════════════════════════════════════════════════════════════
+export {
+  // Metabolism
+  MetabolicSample,
+  MetabolismTracker,
+  createMetabolismTracker,
+  getMetabolismTracker,
+  resetMetabolismTracker,
+  METABOLISM_CONFIG,
+  // Thermodynamics
+  ThermoEvent,
+  ThermoEventType,
+  ThermodynamicState,
+  createThermodynamicState,
+  getThermodynamicState,
+  resetThermodynamicState,
+  THERMO_CONFIG,
+  // Homeostasis
+  MetricBaseline,
+  HomeostasisTracker,
+  createHomeostasisTracker,
+  getHomeostasisTracker,
+  resetHomeostasisTracker,
+  HOMEOSTASIS_CONFIG,
+  // Growth
+  GrowthEvent,
+  GrowthTracker,
+  createGrowthTracker,
+  getGrowthTracker,
+  resetGrowthTracker,
+  GROWTH_CONFIG,
+  // Resilience
+  Incident,
+  ResilienceTracker,
+  createResilienceTracker,
+  getResilienceTracker,
+  resetResilienceTracker,
+  RESILIENCE_CONFIG,
+  // Vitality
+  VitalityMonitor,
+  calculateVitality,
+  getVitalityStatus,
+  getDimensionScores,
+  getDimensionStatuses,
+  getVitalitySummary,
+  createVitalityMonitor,
+  getVitalityMonitor,
+  resetVitalityMonitor,
+  VITALITY_CONFIG,
+  // Unified interface
+  getOrganismTrackers,
+  getOrganismState,
+  getOrganismHealth,
+  resetOrganismState,
+  startOrganismMonitoring,
+  stopOrganismMonitoring,
+  recordMetabolic,
+  recordThermo,
+  recordSuccess,
+  recordError,
+  recordGrowth,
+  updateHomeostasis,
+  markRecovered,
+} from './organism/index.js';
