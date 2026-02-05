@@ -574,3 +574,93 @@ export function getErrorBuffer() {
 export function clearErrorBuffer() {
   _errorBuffer.length = 0;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SYMBIOSIS LAYER (C5.*: Human × CYNIC)
+// "Le chien amplifie l'humain, l'humain guide le chien"
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _humanAdvisor = null;
+let _humanLearning = null;
+let _humanAccountant = null;
+let _humanEmergence = null;
+
+/**
+ * C5.3: Get HumanAdvisor singleton
+ * Proactive care for human wellbeing
+ * @returns {Object|null} HumanAdvisor instance or null
+ */
+export function getHumanAdvisor() {
+  if (_humanAdvisor) return _humanAdvisor;
+
+  try {
+    const { getHumanAdvisorSingleton } = require('@cynic/node');
+    _humanAdvisor = getHumanAdvisorSingleton();
+    return _humanAdvisor;
+  } catch (e) {
+    if (e.code !== 'MODULE_NOT_FOUND') {
+      recordFriction('human_advisor_error', 'low', { error: e.message });
+    }
+    return null;
+  }
+}
+
+/**
+ * C5.5: Get HumanLearning singleton
+ * Tracks human skill acquisition
+ * @returns {Object|null} HumanLearning instance or null
+ */
+export function getHumanLearning() {
+  if (_humanLearning) return _humanLearning;
+
+  try {
+    const { getHumanLearningSingleton } = require('@cynic/node');
+    _humanLearning = getHumanLearningSingleton();
+    return _humanLearning;
+  } catch (e) {
+    if (e.code !== 'MODULE_NOT_FOUND') {
+      recordFriction('human_learning_error', 'low', { error: e.message });
+    }
+    return null;
+  }
+}
+
+/**
+ * C5.6: Get HumanAccountant singleton
+ * Tracks human activity and energy
+ * @returns {Object|null} HumanAccountant instance or null
+ */
+export function getHumanAccountant() {
+  if (_humanAccountant) return _humanAccountant;
+
+  try {
+    const { getHumanAccountantSingleton } = require('@cynic/node');
+    _humanAccountant = getHumanAccountantSingleton();
+    return _humanAccountant;
+  } catch (e) {
+    if (e.code !== 'MODULE_NOT_FOUND') {
+      recordFriction('human_accountant_error', 'low', { error: e.message });
+    }
+    return null;
+  }
+}
+
+/**
+ * C5.7: Get HumanEmergence singleton
+ * Detects patterns in human growth
+ * @returns {Object|null} HumanEmergence instance or null
+ */
+export function getHumanEmergence() {
+  if (_humanEmergence) return _humanEmergence;
+
+  try {
+    const { getHumanEmergenceSingleton } = require('@cynic/node');
+    _humanEmergence = getHumanEmergenceSingleton();
+    return _humanEmergence;
+  } catch (e) {
+    if (e.code !== 'MODULE_NOT_FOUND') {
+      recordFriction('human_emergence_error', 'low', { error: e.message });
+    }
+    return null;
+  }
+}

@@ -208,6 +208,9 @@ const instance = createIdentity();
 | `getSharedMemory()` | Get SharedMemory singleton |
 | `getReasoningBank()` | Get ReasoningBank singleton |
 | `getSingletonStatus()` | Get SingletonStatus singleton |
+| `getHumanLearningSingleton()` | Get HumanLearningSingleton singleton |
+| `getHumanAccountantSingleton()` | Get HumanAccountantSingleton singleton |
+| `getHumanEmergenceSingleton()` | Get HumanEmergenceSingleton singleton |
 | `getDefaultWalletPath()` | Get DefaultWalletPath singleton |
 | `getEventBus()` | Get EventBus singleton |
 | `getOrchestrationVisibility()` | Get OrchestrationVisibility singleton |
@@ -257,7 +260,7 @@ const instance = createIdentity();
 - **Source files**: 208
 - **Test files**: 52
 - **Test ratio**: 25%
-- **Exports**: 278 named
+- **Exports**: 281 named
 
 ## Fractal Structure
 
@@ -270,7 +273,7 @@ const instance = createIdentity();
 [███░░░░░░░] 25% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
-[██████░░░░] 55% Burn (Simplicity)
+[█████░░░░░] 55% Burn (Simplicity)
 [██████░░░░] 62% Emergence
 ```
 

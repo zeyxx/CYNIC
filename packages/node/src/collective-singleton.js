@@ -31,6 +31,10 @@ import { createReasoningBank, TrajectoryType } from './learning/reasoning-bank.j
 import { getDogStateEmitter } from './perception/dog-state-emitter.js';
 import { getLearningScheduler } from './judge/learning-scheduler.js';
 import { getUnifiedBridge } from './learning/unified-bridge.js';
+import { getHumanAdvisor } from './symbiosis/human-advisor.js';
+import { getHumanLearning } from './symbiosis/human-learning.js';
+import { getHumanAccountant } from './symbiosis/human-accountant.js';
+import { getHumanEmergence } from './symbiosis/human-emergence.js';
 
 const log = createLogger('CollectiveSingleton');
 
@@ -155,6 +159,38 @@ let _learningScheduler = null;
  * @type {UnifiedBridge|null}
  */
 let _unifiedBridge = null;
+
+/**
+ * C5.3: The global HumanAdvisor instance
+ * Proactive care for human wellbeing
+ * "Le chien protège son humain"
+ * @type {HumanAdvisor|null}
+ */
+let _humanAdvisor = null;
+
+/**
+ * C5.5: The global HumanLearning instance
+ * Tracks human skill acquisition
+ * "L'humain grandit, le chien observe"
+ * @type {HumanLearning|null}
+ */
+let _humanLearning = null;
+
+/**
+ * C5.6: The global HumanAccountant instance
+ * Tracks human activity and energy
+ * "Le temps de l'humain est précieux"
+ * @type {HumanAccountant|null}
+ */
+let _humanAccountant = null;
+
+/**
+ * C5.7: The global HumanEmergence instance
+ * Detects human growth patterns
+ * "L'humain émerge, CYNIC témoigne"
+ * @type {HumanEmergence|null}
+ */
+let _humanEmergence = null;
 
 /**
  * Initialization promise to prevent race conditions
@@ -299,6 +335,80 @@ export function getUnifiedBridgeSingleton() {
   return _unifiedBridge;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// SYMBIOSIS SINGLETONS (C5.* - Human Layer)
+// "Le chien amplifie l'humain, l'humain guide le chien"
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * C5.3: Get the HumanAdvisor singleton
+ *
+ * HumanAdvisor provides proactive care for human wellbeing.
+ * "Le chien protège son humain" - CYNIC cares for its human
+ *
+ * @param {Object} [options] - Options for HumanAdvisor
+ * @param {Object} [options.psychology] - Psychology tracker reference
+ * @returns {HumanAdvisor} The singleton HumanAdvisor instance
+ */
+export function getHumanAdvisorSingleton(options = {}) {
+  if (!_humanAdvisor) {
+    _humanAdvisor = getHumanAdvisor(options);
+    log.debug('HumanAdvisor singleton created (C5.3)');
+  }
+  return _humanAdvisor;
+}
+
+/**
+ * C5.5: Get the HumanLearning singleton
+ *
+ * HumanLearning tracks skill acquisition and growth over time.
+ * "L'humain grandit, le chien observe"
+ *
+ * @param {Object} [options] - Options for HumanLearning
+ * @returns {HumanLearning} The singleton HumanLearning instance
+ */
+export function getHumanLearningSingleton(options = {}) {
+  if (!_humanLearning) {
+    _humanLearning = getHumanLearning(options);
+    log.debug('HumanLearning singleton created (C5.5)');
+  }
+  return _humanLearning;
+}
+
+/**
+ * C5.6: Get the HumanAccountant singleton
+ *
+ * HumanAccountant tracks human activity, energy, and time investment.
+ * "Le temps de l'humain est précieux"
+ *
+ * @param {Object} [options] - Options for HumanAccountant
+ * @returns {HumanAccountant} The singleton HumanAccountant instance
+ */
+export function getHumanAccountantSingleton(options = {}) {
+  if (!_humanAccountant) {
+    _humanAccountant = getHumanAccountant(options);
+    log.debug('HumanAccountant singleton created (C5.6)');
+  }
+  return _humanAccountant;
+}
+
+/**
+ * C5.7: Get the HumanEmergence singleton
+ *
+ * HumanEmergence detects patterns in human growth and development.
+ * "L'humain émerge, CYNIC témoigne"
+ *
+ * @param {Object} [options] - Options for HumanEmergence
+ * @returns {HumanEmergence} The singleton HumanEmergence instance
+ */
+export function getHumanEmergenceSingleton(options = {}) {
+  if (!_humanEmergence) {
+    _humanEmergence = getHumanEmergence(options);
+    log.debug('HumanEmergence singleton created (C5.7)');
+  }
+  return _humanEmergence;
+}
+
 /**
  * Get the CollectivePack singleton (SYNC version)
  *
@@ -362,6 +472,14 @@ export function getCollectivePack(options = {}) {
     _unifiedBridge = getUnifiedBridge();
     _unifiedBridge.start();
     log.debug('UnifiedBridge wired and started');
+
+    // C5.*: Wire Symbiosis Layer (Human × CYNIC)
+    // "Le chien amplifie l'humain, l'humain guide le chien"
+    _humanAdvisor = getHumanAdvisor();
+    _humanLearning = getHumanLearning();
+    _humanAccountant = getHumanAccountant();
+    _humanEmergence = getHumanEmergence();
+    log.debug('Symbiosis layer wired (C5.3-C5.7)');
 
     // FIX O3: Schedule background persistence initialization
     // "φ persiste" - persistence should be loaded even for sync calls

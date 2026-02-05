@@ -20,8 +20,8 @@
 
 import { EventEmitter } from 'events';
 import { Connection, PublicKey } from '@solana/web3.js';
-import { createLogger, PHI_INV, PHI_INV_2, PHI_INV_3 } from '@cynic/core';
-import { getEventBus, globalEventBus } from '../services/event-bus.js';
+import { createLogger, PHI_INV, PHI_INV_2, PHI_INV_3, globalEventBus, EventType as CoreEventType } from '@cynic/core';
+import { getEventBus } from '../services/event-bus.js';
 
 const log = createLogger('SolanaWatcher');
 

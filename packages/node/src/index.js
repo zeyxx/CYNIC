@@ -157,6 +157,11 @@ export {
   getLearningSchedulerSingleton,
   // Unified Learning Bridge (Judge → UnifiedSignal)
   getUnifiedBridgeSingleton,
+  // C5.*: Symbiosis Layer (Human × CYNIC)
+  getHumanAdvisorSingleton,
+  getHumanLearningSingleton,
+  getHumanAccountantSingleton,
+  getHumanEmergenceSingleton,
 } from './collective-singleton.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════

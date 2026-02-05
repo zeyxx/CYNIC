@@ -46,6 +46,10 @@ import cynic, {
   getDialectic,
   getInferenceEngine,
   getPhysicsBridge,
+  getHumanAdvisor,
+  getHumanLearning,
+  getHumanAccountant,
+  getHumanEmergence,
 } from '../lib/index.js';
 
 // Phase 22: Session state and feedback/suggestion engines
@@ -1444,6 +1448,70 @@ async function main() {
         }
       } catch (e) {
         // Psychology signal processing failed - continue without
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SYMBIOSIS LAYER (C5.*): Human wellbeing analysis
+    // "Le chien protège son humain" — proactive care and intervention
+    // ═══════════════════════════════════════════════════════════════════════════
+    const humanAdvisor = getHumanAdvisor();
+    const humanAccountant = getHumanAccountant();
+    const humanLearning = getHumanLearning();
+
+    if (humanAdvisor && psychology) {
+      try {
+        const psyState = psychology.getState() || {};
+        const thermoState = thermodynamics?.getState?.() || {};
+
+        // Map psychology state to HumanAdvisor format
+        const humanState = {
+          energy: psyState.energy || 0.5,
+          focus: psyState.focus || 0.5,
+          cognitiveLoad: thermoState.temperature ? Math.min(9, thermoState.temperature / 10) : 5,
+          frustration: psyState.frustration || 0,
+        };
+
+        // Analyze and check for intervention
+        const intervention = humanAdvisor.analyze(humanState, {
+          toolName,
+          isError,
+          sessionDuration: Date.now() - (psychology._sessionStart || Date.now()),
+        });
+
+        if (intervention) {
+          // Emit intervention for TUI display
+          symbiosisCache.intervention = intervention;
+
+          // Log for awareness
+          DC.log('debug', '[SYMBIOSIS]', `Intervention: ${intervention.type} (${intervention.urgency})`);
+        }
+
+        // Track human activity
+        if (humanAccountant) {
+          humanAccountant.recordActivity({
+            type: isError ? 'error' : 'success',
+            tool: toolName,
+            timestamp: Date.now(),
+          });
+        }
+
+        // Track human skills from tool usage
+        if (humanLearning && !isError) {
+          const skillMap = {
+            Write: 'file_creation',
+            Edit: 'file_editing',
+            Bash: 'command_line',
+            Grep: 'code_search',
+            Read: 'code_reading',
+          };
+          if (skillMap[toolName]) {
+            humanLearning.recordSkillUsage(skillMap[toolName], { success: true });
+          }
+        }
+      } catch (e) {
+        // Symbiosis analysis failed - continue without
+        DC.log('debug', '[SYMBIOSIS]', `Analysis error: ${e.message}`);
       }
     }
 
