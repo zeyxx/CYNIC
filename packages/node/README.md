@@ -121,6 +121,9 @@ const instance = createIdentity();
 | `TaskStatus` | TaskStatus implementation |
 | `FilesystemEventType` | FilesystemEventType implementation |
 | `SolanaEventType` | SolanaEventType implementation |
+| `DogStateType` | DogStateType implementation |
+| `WorkflowTracker` | WorkflowTracker implementation |
+| `WorkflowStatus` | WorkflowStatus implementation |
 | `OperationType` | OperationType implementation |
 | `CodeEmergence` | CodeEmergence implementation |
 | `CodePatternType` | CodePatternType implementation |
@@ -200,6 +203,8 @@ const instance = createIdentity();
 | `getCostOptimizer()` | Get CostOptimizer singleton |
 | `getLLMRouter()` | Get LLMRouter singleton |
 | `getWorkerPool()` | Get WorkerPool singleton |
+| `getDogStateEmitter()` | Get DogStateEmitter singleton |
+| `getWorkflowTracker()` | Get WorkflowTracker singleton |
 | `getCynicAccountant()` | Get CynicAccountant singleton |
 | `getCodeEmergence()` | Get CodeEmergence singleton |
 | `getHumanAdvisor()` | Get HumanAdvisor singleton |
@@ -210,7 +215,7 @@ const instance = createIdentity();
 
 ### Functions
 
-`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning`, `awakenCynic` + 24 more
+`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning`, `awakenCynic` + 26 more
 
 ## Dependencies
 
@@ -219,10 +224,10 @@ const instance = createIdentity();
 
 ## Stats
 
-- **Source files**: 194
+- **Source files**: 196
 - **Test files**: 52
 - **Test ratio**: 27%
-- **Exports**: 228 named
+- **Exports**: 235 named
 
 ## Fractal Structure
 
@@ -235,7 +240,7 @@ const instance = createIdentity();
 [███░░░░░░░] 27% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
-[██████░░░░] 61% Burn (Simplicity)
+[██████░░░░] 60% Burn (Simplicity)
 [██████░░░░] 62% Emergence
 ```
 

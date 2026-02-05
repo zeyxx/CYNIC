@@ -141,6 +141,8 @@ export {
   getSingletonStatus,
   isReady as isCollectiveReady,
   _resetForTesting as _resetCollectiveForTesting,
+  // C6.1: Dog State Emitter (CYNIC × PERCEIVE)
+  getDogStateEmitterSingleton,
 } from './collective-singleton.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -438,7 +440,23 @@ export {
   SolanaEventType,
   // Unified Perception
   createPerceptionLayer,
+  // C6.1: Dog State Emitter (CYNIC × PERCEIVE)
+  DogStateEmitter,
+  DogStateType,
+  getDogStateEmitter,
+  resetDogStateEmitter,
 } from './perception/index.js';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Workflow Tracker - C1.3 (CODE × DECIDE) Multi-step dangerous workflow detection
+// "Le chien voit les séquences, pas juste les commandes"
+// ═══════════════════════════════════════════════════════════════════════════════
+export {
+  WorkflowTracker,
+  WorkflowStatus,
+  getWorkflowTracker,
+  resetWorkflowTracker,
+} from './agents/collective/workflow-tracker.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Accounting Layer - 7×7 Fractal Matrix ACCOUNT Column (C*.6)

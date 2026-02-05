@@ -28,6 +28,7 @@ import { createCollectivePack } from './agents/collective/index.js';
 import { SharedMemory } from './memory/shared-memory.js';
 import { getQLearningService } from './orchestration/learning-service.js';
 import { createReasoningBank, TrajectoryType } from './learning/reasoning-bank.js';
+import { getDogStateEmitter } from './perception/dog-state-emitter.js';
 
 const log = createLogger('CollectiveSingleton');
 
@@ -131,6 +132,13 @@ let _qLearningService = null;
 let _reasoningBank = null;
 
 /**
+ * C6.1: The global DogStateEmitter instance - null until first access
+ * "Le chien se voit lui-même"
+ * @type {DogStateEmitter|null}
+ */
+let _dogStateEmitter = null;
+
+/**
  * Initialization promise to prevent race conditions
  * @type {Promise|null}
  */
@@ -209,6 +217,38 @@ export function getReasoningBank(options = {}) {
 }
 
 /**
+ * C6.1: Get the DogStateEmitter singleton
+ *
+ * DogStateEmitter provides real-time visibility into Dog states.
+ * "Le chien se voit lui-même" - CYNIC perceives its own collective
+ *
+ * @param {Object} [options] - Options for DogStateEmitter
+ * @param {Object} [options.collectivePack] - CollectivePack reference
+ * @param {Object} [options.sharedMemory] - SharedMemory reference
+ * @param {boolean} [options.autoStart] - Start periodic emission (default: true when pack available)
+ * @returns {DogStateEmitter} The singleton DogStateEmitter instance
+ */
+export function getDogStateEmitterSingleton(options = {}) {
+  if (!_dogStateEmitter) {
+    _dogStateEmitter = getDogStateEmitter({
+      collectivePack: options.collectivePack || _globalPack,
+      sharedMemory: options.sharedMemory || _sharedMemory,
+      autoStart: false, // Don't auto-start yet - wait for pack
+    });
+    log.debug('DogStateEmitter singleton created');
+  } else {
+    // Update references if provided
+    if (options.collectivePack) {
+      _dogStateEmitter.setCollectivePack(options.collectivePack);
+    }
+    if (options.sharedMemory) {
+      _dogStateEmitter.setSharedMemory(options.sharedMemory);
+    }
+  }
+  return _dogStateEmitter;
+}
+
+/**
  * Get the CollectivePack singleton (SYNC version)
  *
  * ⚠️ WARNING: This is the SYNC version. Persistence state may NOT be loaded.
@@ -251,6 +291,15 @@ export function getCollectivePack(options = {}) {
       hasPersistence: !!finalOptions.persistence,
       hasJudge: !!finalOptions.judge,
     });
+
+    // C6.1: Wire DogStateEmitter to the pack for real-time self-perception
+    const emitter = getDogStateEmitterSingleton({
+      collectivePack: _globalPack,
+      sharedMemory,
+    });
+    // Start periodic emission now that pack is available
+    emitter.start();
+    log.debug('DogStateEmitter wired and started');
 
     // FIX O3: Schedule background persistence initialization
     // "φ persiste" - persistence should be loaded even for sync calls
@@ -568,7 +617,74 @@ export async function initializeQLearning(persistence) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
+ * Auto-save interval handle
+ * @type {NodeJS.Timeout|null}
+ */
+let _autoSaveInterval = null;
+
+/**
+ * Last auto-save timestamp
+ * @type {number}
+ */
+let _lastAutoSave = 0;
+
+/**
+ * Auto-save configuration
+ */
+const AUTO_SAVE_CONFIG = {
+  INTERVAL_MS: 10 * 60 * 1000, // 10 minutes
+  MIN_PATTERNS_CHANGED: 5,      // Minimum pattern changes before auto-save
+};
+
+/**
+ * Start auto-save interval for patterns
+ * FIX W1.1: Ensures patterns are saved periodically
+ *
+ * @param {Object} persistence - PersistenceManager instance
+ */
+export function startAutoSave(persistence) {
+  if (_autoSaveInterval) {
+    log.debug('Auto-save already running');
+    return;
+  }
+
+  _autoSaveInterval = setInterval(async () => {
+    try {
+      const now = Date.now();
+
+      // Skip if not enough time has passed (failsafe)
+      if (now - _lastAutoSave < AUTO_SAVE_CONFIG.INTERVAL_MS * 0.9) {
+        return;
+      }
+
+      // Save with onlyModified=true to reduce DB load
+      await saveState(persistence, { onlyModified: true });
+      _lastAutoSave = now;
+
+      log.debug('Auto-save completed');
+    } catch (err) {
+      log.warn('Auto-save failed', { error: err.message });
+    }
+  }, AUTO_SAVE_CONFIG.INTERVAL_MS);
+
+  log.info('Auto-save started', { intervalMs: AUTO_SAVE_CONFIG.INTERVAL_MS });
+}
+
+/**
+ * Stop auto-save interval
+ */
+export function stopAutoSave() {
+  if (_autoSaveInterval) {
+    clearInterval(_autoSaveInterval);
+    _autoSaveInterval = null;
+    log.debug('Auto-save stopped');
+  }
+}
+
+/**
  * Load persisted state into SharedMemory
+ *
+ * FIX W1.1 + W1.5: Uses new loadFromPostgres method
  *
  * Called during async initialization to restore:
  * - Patterns from PostgreSQL (up to MAX_PATTERNS = 1597)
@@ -594,17 +710,31 @@ async function loadPersistedState(persistence) {
     return;
   }
 
+  // FIX W1.5: Use new loadFromPostgres method if available
+  if (_sharedMemory.loadFromPostgres) {
+    try {
+      const result = await _sharedMemory.loadFromPostgres(patternsRepo, {
+        limit: 500,        // Load top 500 patterns (reduced for faster startup)
+        minConfidence: 0.1,
+      });
+      log.info('Patterns loaded via loadFromPostgres', result);
+
+      // Start auto-save after loading
+      startAutoSave(persistence);
+      return;
+    } catch (err) {
+      log.warn('loadFromPostgres failed, falling back to legacy load', { error: err.message });
+    }
+  }
+
+  // Fallback: Legacy loading method
   try {
-    // FIX: Use list() instead of non-existent findRecent()
-    // Load top 1597 patterns (F17 = SharedMemory max) ordered by importance
-    // Note: list() returns patterns ordered by confidence DESC, frequency DESC
     const patterns = await patternsRepo.list?.({ limit: 1597, offset: 0 });
     if (!patterns?.length) {
       log.debug('No patterns found in PostgreSQL');
       return;
     }
 
-    // Transform PostgreSQL format → SharedMemory format and add
     let added = 0;
     for (const pgPattern of patterns) {
       const smPattern = transformPgPatternToSharedMemory(pgPattern);
@@ -612,10 +742,13 @@ async function loadPersistedState(persistence) {
       added++;
     }
 
-    log.info('Loaded patterns from PostgreSQL → SharedMemory', {
+    log.info('Loaded patterns from PostgreSQL → SharedMemory (legacy)', {
       loaded: added,
       total: patterns.length,
     });
+
+    // Start auto-save after loading
+    startAutoSave(persistence);
   } catch (err) {
     log.warn('Could not load persisted patterns', { error: err.message });
   }
@@ -680,20 +813,46 @@ function transformPgPatternToSharedMemory(pgPattern) {
  * Save current state to persistence
  *
  * Called periodically or on shutdown to persist:
- * - High-Fisher patterns
+ * - ALL patterns to PostgreSQL (batch save)
+ * - High-Fisher patterns (EWC++ locked)
  * - Dimension weights
  *
+ * FIX W1.1: Closes BLACK HOLE #1 - Patterns no longer lost on restart
+ *
  * @param {Object} persistence - PersistenceManager instance
+ * @param {Object} [options={}] - Save options
+ * @param {boolean} [options.onlyModified=false] - Only save modified patterns
  */
-export async function saveState(persistence) {
+export async function saveState(persistence, options = {}) {
   if (!persistence) return;
 
   let savedComponents = [];
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 1. Save SharedMemory state (patterns, weights, procedures)
+  // FIX W1.1: Use batch saveToPostgres for all patterns
   // ═══════════════════════════════════════════════════════════════════════════
   if (_sharedMemory) {
+    // First, try the new batch persistence to PostgreSQL
+    const patternsRepo = persistence.getRepository?.('patterns');
+    if (patternsRepo && _sharedMemory.saveToPostgres) {
+      try {
+        const result = await _sharedMemory.saveToPostgres(patternsRepo, {
+          onlyModified: options.onlyModified ?? false,
+        });
+        if (result.saved > 0) {
+          savedComponents.push(`Patterns(${result.saved}/${result.total})`);
+        }
+        if (result.errors > 0) {
+          log.warn('Some patterns failed to save', { errors: result.errors });
+        }
+        log.debug('Batch pattern save complete', result);
+      } catch (err) {
+        log.warn('Batch pattern save failed', { error: err.message });
+      }
+    }
+
+    // Also save full state via storage adapter (includes weights, procedures, feedback)
     try {
       if (_sharedMemory.save) {
         await _sharedMemory.save();
@@ -701,22 +860,7 @@ export async function saveState(persistence) {
         log.debug('SharedMemory full state saved via storage adapter');
       }
     } catch (err) {
-      log.debug('SharedMemory save() failed, falling back to pattern repo', { error: err.message });
-    }
-
-    // Fallback: also save high-Fisher patterns via patterns repo
-    const patternsRepo = persistence.getRepository?.('patterns');
-    if (patternsRepo) {
-      try {
-        const patterns = _sharedMemory.getLockedPatterns?.() || [];
-        for (const pattern of patterns) {
-          await patternsRepo.upsert?.(pattern);
-        }
-        if (patterns.length > 0) savedComponents.push(`Patterns(${patterns.length})`);
-        log.debug('Saved locked patterns to repo', { patternsCount: patterns.length });
-      } catch (err) {
-        log.warn('Could not save patterns', { error: err.message });
-      }
+      log.debug('SharedMemory save() failed', { error: err.message });
     }
   }
 
@@ -726,22 +870,11 @@ export async function saveState(persistence) {
   // ═══════════════════════════════════════════════════════════════════════════
   if (_qLearningService) {
     try {
-      // Export Q-Learning state
-      const qState = _qLearningService.export?.();
-      if (qState && persistence.saveLearningState) {
-        await persistence.saveLearningState(qState);
-        savedComponents.push('Q-Learning');
-        log.debug('Q-Learning state saved', { states: Object.keys(qState.qTable || {}).length });
-      } else if (qState && persistence.getRepository?.('learning')) {
-        // Fallback: use learning repository if available
-        const learningRepo = persistence.getRepository('learning');
-        await learningRepo.upsert?.({
-          type: 'q_learning',
-          state: qState,
-          timestamp: Date.now(),
-        });
-        savedComponents.push('Q-Learning(repo)');
-      }
+      // Flush Q-Learning state to PostgreSQL immediately
+      // The service already handles persistence via _doPersist() to qlearning_state table
+      await _qLearningService.flush();
+      savedComponents.push('Q-Learning');
+      log.debug('Q-Learning state flushed', { stats: _qLearningService.getStats?.() });
     } catch (err) {
       log.warn('Could not save Q-Learning state', { error: err.message });
     }

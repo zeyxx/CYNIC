@@ -42,6 +42,7 @@ import {
 import { ProfileLevel } from '../../profile/calculator.js';
 import { DogAutonomousBehaviors } from './autonomous.js';
 import { detectVulnerabilities, SEVERITY } from './security-detector.js';
+import { getWorkflowTracker } from './workflow-tracker.js';
 
 /**
  * φ-aligned constants for Guardian
@@ -241,6 +242,9 @@ export class CollectiveGuardian extends BaseAgent {
     if (this.eventBus) {
       this._subscribeToEvents();
     }
+
+    // C1.3: Workflow Tracker for multi-step dangerous sequence detection
+    this.workflowTracker = getWorkflowTracker();
   }
 
   /**
@@ -573,6 +577,36 @@ export class CollectiveGuardian extends BaseAgent {
         confidence: networkRisk.risk.threshold,
         escalation,
       };
+    }
+
+    // C1.3: Check for dangerous multi-step workflows
+    if (this.workflowTracker) {
+      // Record this operation in workflow history
+      this.workflowTracker.recordOperation(tool, command, {
+        tool,
+        timestamp: Date.now(),
+      });
+
+      // Preemptive check if this would complete a dangerous workflow
+      const workflowCheck = this.workflowTracker.preemptiveCheck(tool, command);
+      if (workflowCheck.wouldTrigger) {
+        const mostDangerous = workflowCheck.workflows[0];
+        return {
+          blocked: workflowCheck.shouldBlock,
+          warning: workflowCheck.shouldWarn,
+          risk: workflowCheck.shouldBlock ? RiskLevel.CRITICAL : RiskLevel.HIGH,
+          category: RiskCategory.DESTRUCTIVE,
+          command,
+          message: mostDangerous.message,
+          confidence: mostDangerous.confidence,
+          escalation,
+          workflow: {
+            name: mostDangerous.name,
+            description: mostDangerous.description,
+            steps: mostDangerous.steps,
+          },
+        };
+      }
     }
 
     // No risk detected
