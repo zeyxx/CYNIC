@@ -62,8 +62,8 @@ export const LEARNER_CONSTANTS = {
   /** Default Ollama endpoint */
   DEFAULT_ENDPOINT: 'http://localhost:11434',
 
-  /** Default model (to be replaced by fine-tuned Qwen after training) */
-  DEFAULT_MODEL: 'qwen2.5:7b',
+  /** Default model - cynic-dog0 (fine-tuned Qwen 1.5B) or fallback to base */
+  DEFAULT_MODEL: 'cynic-dog0:latest',
 };
 
 /**

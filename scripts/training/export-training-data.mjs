@@ -23,6 +23,7 @@
  * @module cynic/training/export
  */
 
+import 'dotenv/config';
 import { getPool } from '../../packages/persistence/src/postgres/client.js';
 import { computeReward } from './reward-function.mjs';
 import { createWriteStream } from 'fs';
