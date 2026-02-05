@@ -172,11 +172,8 @@ export {
   DogGoalTypes,
   createAutonomousCapabilities,
   DogAutonomousBehaviors,
-  // Secure Dog Communication (Diffie-Hellman)
-  SecureDogChannel,
-  SecureChannelManager,
-  createSecureChannelManager,
-  DH_PARAMS,
+  // Note: SecureDogChannel, SecureChannelManager, createSecureChannelManager, DH_PARAMS
+  // are exported above at line 121-127 from './secure-channel.js'
 };
 
 /**

@@ -83,3 +83,62 @@ export {
   // Config
   POISSON_CONFIG,
 } from './poisson.js';
+
+// Gaussian Distribution for Noise and Statistics
+export {
+  // Core functions
+  gaussianPDF,
+  gaussianLogPDF,
+  gaussianCDF,
+  gaussianSurvival,
+  gaussianQuantile,
+  erf,
+  erfc,
+
+  // Z-scores and standardization
+  zScore,
+  fromZScore,
+  standardize,
+  zScoreToPValue,
+  pValueToZScore,
+
+  // Confidence intervals
+  confidenceInterval,
+  phiConfidenceInterval,
+  confidenceToZScore,
+
+  // Random generation
+  randomStandardNormal,
+  randomNormal,
+  randomNormalArray,
+  randomCorrelatedNormal,
+
+  // Noise
+  addNoise,
+  addNoiseArray,
+  GaussianNoiseGenerator,
+  createNoiseGenerator,
+
+  // Kernels and KDE
+  gaussianKernel,
+  gaussianKernelScaled,
+  silvermanBandwidth,
+  kernelDensityEstimate,
+  kde,
+
+  // Distribution classes
+  GaussianDistribution,
+  DiagonalGaussian,
+  createGaussian,
+  standardNormal,
+
+  // Statistics
+  computeStats,
+  skewness,
+  kurtosis,
+  jarqueBeraTest,
+
+  // Config
+  GAUSSIAN_CONSTANTS,
+  GAUSSIAN_CONFIG,
+} from './gaussian.js';

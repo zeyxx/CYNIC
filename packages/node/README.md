@@ -152,6 +152,9 @@ const instance = createIdentity();
 | `BeliefNetwork` | BeliefNetwork implementation |
 | `PoissonProcess` | PoissonProcess implementation |
 | `EventRateTracker` | EventRateTracker implementation |
+| `GaussianNoiseGenerator` | GaussianNoiseGenerator implementation |
+| `GaussianDistribution` | GaussianDistribution implementation |
+| `DiagonalGaussian` | DiagonalGaussian implementation |
 
 ### Factory Functions
 
@@ -202,6 +205,8 @@ const instance = createIdentity();
 | `createBeliefNetwork()` | Create BeliefNetwork instance |
 | `createPoissonProcess()` | Create PoissonProcess instance |
 | `createEventTracker()` | Create EventTracker instance |
+| `createNoiseGenerator()` | Create NoiseGenerator instance |
+| `createGaussian()` | Create Gaussian instance |
 
 ### Singletons
 
@@ -255,11 +260,11 @@ const instance = createIdentity();
 
 ### Constants
 
-`SKEPTIC_CONSTANTS`, `CONTEXT_DOMAIN_MAP`, `COLLECTIVE_CONSTANTS`, `CYNIC_CONSTANTS`, `ANCHOR_CONSTANTS`, `DEFAULT_CONFIG`, `BURN_ADDRESSES`, `AWARENESS_THRESHOLDS`, `MAX_CONFIDENCE`, `SIGNIFICANCE_THRESHOLDS` + 19 more
+`SKEPTIC_CONSTANTS`, `CONTEXT_DOMAIN_MAP`, `COLLECTIVE_CONSTANTS`, `CYNIC_CONSTANTS`, `ANCHOR_CONSTANTS`, `DEFAULT_CONFIG`, `BURN_ADDRESSES`, `AWARENESS_THRESHOLDS`, `MAX_CONFIDENCE`, `SIGNIFICANCE_THRESHOLDS` + 21 more
 
 ### Functions
 
-`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 63 more
+`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 93 more
 
 ## Dependencies
 
@@ -268,10 +273,10 @@ const instance = createIdentity();
 
 ## Stats
 
-- **Source files**: 219
-- **Test files**: 60
-- **Test ratio**: 27%
-- **Exports**: 317 named
+- **Source files**: 220
+- **Test files**: 61
+- **Test ratio**: 28%
+- **Exports**: 354 named
 
 ## Fractal Structure
 
@@ -281,10 +286,10 @@ const instance = createIdentity();
 ## Dimensions (4 Axioms)
 
 ```
-[███░░░░░░░] 27% φ (Confidence)
+[███░░░░░░░] 28% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
-[█████░░░░░] 52% Burn (Simplicity)
+[█████░░░░░] 46% Burn (Simplicity)
 [██████░░░░] 62% Emergence
 ```
 
