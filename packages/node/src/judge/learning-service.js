@@ -33,6 +33,12 @@ import { FeedbackProcessor, FEEDBACK_SOURCES } from './feedback-processor.js';
 import { ExternalValidation } from './external-validation.js';
 import { RCAIntegration, Hypothesis, OracleType } from './rca-integration.js';
 
+// Math modules for intelligent learning
+import { BetaDistribution } from '../inference/bayes.js';
+import { createMarkovChain } from '../inference/markov.js';
+import { computeStats, zScore, confidenceInterval } from '../inference/gaussian.js';
+import { entropyConfidence, normalizedEntropy } from '../inference/entropy.js';
+
 // Re-export for backward compatibility
 export { FEEDBACK_SOURCES, Hypothesis, OracleType };
 
@@ -77,6 +83,25 @@ export class LearningService extends EventEmitter {
 
     // Discovered learnings (persistent insights)
     this._learnings = [];
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // MATH MODULE INTEGRATION
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Bayesian confidence per dimension (Beta distribution)
+    // α = correct feedback, β = incorrect feedback
+    // Tracks which dimensions are more reliable
+    this._dimensionConfidence = new Map();
+
+    // Markov chain for feedback outcome prediction
+    // States: correct, partially_correct, incorrect
+    this._feedbackChain = createMarkovChain(['correct', 'partially_correct', 'incorrect']);
+
+    // History of adjustments for Gaussian confidence intervals
+    this._adjustmentHistory = [];
+
+    // Feedback delta history for anomaly detection
+    this._deltaHistory = [];
 
     // Compose sub-modules
     this._feedbackProcessor = new FeedbackProcessor({
@@ -267,6 +292,254 @@ export class LearningService extends EventEmitter {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // MATH MODULE METHODS (Bayes, Markov, Gaussian, Entropy)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get or create dimension confidence tracker
+   * @private
+   * @param {string} dimension - Dimension name
+   * @returns {BetaDistribution}
+   */
+  _getDimensionConfidence(dimension) {
+    if (!this._dimensionConfidence.has(dimension)) {
+      // Prior: slight optimism α=2, β=1
+      this._dimensionConfidence.set(dimension, new BetaDistribution(2, 1));
+    }
+    return this._dimensionConfidence.get(dimension);
+  }
+
+  /**
+   * Update dimension confidence based on feedback outcome
+   * @private
+   * @param {string} dimension - Dimension name
+   * @param {boolean} wasCorrect - Whether feedback was correct
+   */
+  _updateDimensionConfidence(dimension, wasCorrect) {
+    const tracker = this._getDimensionConfidence(dimension);
+    if (wasCorrect) {
+      tracker.recordSuccess();
+    } else {
+      tracker.recordFailure();
+    }
+  }
+
+  /**
+   * Get Bayesian confidence for a dimension
+   * @param {string} dimension - Dimension name
+   * @returns {Object} {probability, confidence, α, β}
+   */
+  getDimensionConfidenceEstimate(dimension) {
+    const tracker = this._getDimensionConfidence(dimension);
+    const mean = tracker.getMean();
+    const strength = tracker.getStrength();
+
+    // Confidence in our estimate grows with observations, φ-bounded
+    const confidence = Math.min(PHI_INV, strength / 30); // 30 feedback = max confidence
+
+    return {
+      probability: mean,
+      confidence,
+      alpha: tracker.alpha,
+      beta: tracker.beta,
+      strength,
+    };
+  }
+
+  /**
+   * Predict next feedback outcome using Markov chain
+   * @private
+   * @param {string} lastOutcome - Last feedback outcome
+   * @returns {Object} Prediction
+   */
+  _predictFeedbackOutcome(lastOutcome) {
+    const prediction = this._feedbackChain.predict(lastOutcome || 'correct');
+    return {
+      predicted: prediction.state || 'correct',
+      probability: prediction.probability,
+      confidence: prediction.confidence,
+    };
+  }
+
+  /**
+   * Record feedback outcome for Markov learning
+   * @private
+   * @param {string} outcome - Feedback outcome
+   */
+  _recordFeedbackOutcome(outcome) {
+    // Normalize outcome to our states
+    let state = 'correct';
+    if (outcome === 'incorrect' || outcome === 'fail' || outcome === 'rejected') {
+      state = 'incorrect';
+    } else if (outcome === 'partially_correct' || outcome === 'partial') {
+      state = 'partially_correct';
+    }
+
+    // Record transition from last outcome
+    if (this._lastFeedbackOutcome) {
+      this._feedbackChain.observe(this._lastFeedbackOutcome, state);
+    }
+    this._lastFeedbackOutcome = state;
+  }
+
+  /**
+   * Record adjustment for confidence interval calculation
+   * @private
+   * @param {number} delta - Adjustment delta
+   */
+  _recordAdjustment(delta) {
+    this._adjustmentHistory.push(delta);
+    // Keep bounded at Fib(10) = 55
+    while (this._adjustmentHistory.length > 55) {
+      this._adjustmentHistory.shift();
+    }
+  }
+
+  /**
+   * Get confidence interval for typical adjustments
+   * Uses Gaussian statistics on historical adjustments
+   * @returns {Object} {mean, stdDev, interval, confidence}
+   */
+  getAdjustmentConfidenceInterval() {
+    if (this._adjustmentHistory.length < 5) {
+      return { mean: 0, stdDev: 0, interval: [0, 0], confidence: 0 };
+    }
+
+    const stats = computeStats(this._adjustmentHistory);
+    // 95% confidence interval (≈1.96 std devs, but φ-bounded)
+    const ci = confidenceInterval(stats.mean, stats.stdDev, this._adjustmentHistory.length, 0.95);
+
+    return {
+      mean: stats.mean,
+      stdDev: stats.stdDev,
+      interval: ci,
+      confidence: Math.min(PHI_INV, this._adjustmentHistory.length / 30),
+    };
+  }
+
+  /**
+   * Detect if a feedback delta is anomalous
+   * @private
+   * @param {number} delta - Score delta
+   * @returns {Object} {isAnomaly, zScore, severity}
+   */
+  _detectFeedbackAnomaly(delta) {
+    this._deltaHistory.push(delta);
+    // Keep bounded at Fib(8) = 21
+    while (this._deltaHistory.length > 21) {
+      this._deltaHistory.shift();
+    }
+
+    if (this._deltaHistory.length < 5) {
+      return { isAnomaly: false, zScore: 0, severity: 'none' };
+    }
+
+    const history = this._deltaHistory.slice(0, -1);
+    const stats = computeStats(history);
+    const z = zScore(delta, stats.mean, stats.stdDev);
+
+    let severity = 'none';
+    let isAnomaly = false;
+
+    if (Math.abs(z) > 3) {
+      severity = 'critical';
+      isAnomaly = true;
+    } else if (Math.abs(z) > 2) {
+      severity = 'significant';
+      isAnomaly = true;
+    } else if (Math.abs(z) > 1.5) {
+      severity = 'minor';
+    }
+
+    return {
+      isAnomaly,
+      zScore: Math.round(z * 100) / 100,
+      severity,
+      mean: stats.mean,
+      stdDev: stats.stdDev,
+    };
+  }
+
+  /**
+   * Calculate learning entropy (uncertainty in feedback patterns)
+   * @returns {Object} {entropy, normalized, state}
+   */
+  getLearningEntropy() {
+    const patterns = this._feedbackProcessor.patterns;
+    const counts = [
+      patterns.overall.correctCount || 0,
+      patterns.overall.totalFeedback - (patterns.overall.correctCount || 0),
+    ].filter(c => c > 0);
+
+    if (counts.length <= 1) {
+      return { entropy: 0, normalized: 0, state: 'STABLE', confidence: PHI_INV };
+    }
+
+    const analysis = entropyConfidence(counts);
+
+    // Classify learning state based on entropy
+    let state = 'STABLE';
+    if (analysis.normalized > PHI_INV) {
+      state = 'HIGH_UNCERTAINTY';
+    } else if (analysis.normalized > PHI_INV_2) {
+      state = 'MODERATE_UNCERTAINTY';
+    } else if (analysis.normalized > PHI_INV_3) {
+      state = 'LOW_UNCERTAINTY';
+    }
+
+    return {
+      entropy: analysis.entropy,
+      normalized: analysis.normalized,
+      state,
+      confidence: analysis.confidence,
+    };
+  }
+
+  /**
+   * Get dimension reliability ranking using Bayesian estimates
+   * @returns {Array} Dimensions sorted by reliability
+   */
+  getDimensionReliabilityRanking() {
+    const rankings = [];
+    for (const [dimension, tracker] of this._dimensionConfidence) {
+      const mean = tracker.getMean();
+      const strength = tracker.getStrength();
+      const confidence = Math.min(PHI_INV, strength / 30);
+
+      rankings.push({
+        dimension,
+        reliability: mean,
+        confidence,
+        strength,
+        alpha: tracker.alpha,
+        beta: tracker.beta,
+      });
+    }
+
+    // Sort by reliability (descending)
+    rankings.sort((a, b) => b.reliability - a.reliability);
+    return rankings;
+  }
+
+  /**
+   * Get inference statistics
+   * @returns {Object} Math module stats
+   */
+  getInferenceStats() {
+    const entropy = this.getLearningEntropy();
+    const adjustmentCI = this.getAdjustmentConfidenceInterval();
+    const prediction = this._predictFeedbackOutcome(this._lastFeedbackOutcome);
+
+    return {
+      entropy,
+      adjustmentConfidenceInterval: adjustmentCI,
+      nextFeedbackPrediction: prediction,
+      dimensionReliability: this.getDimensionReliabilityRanking().slice(0, 5), // Top 5
+      feedbackChainSize: this._feedbackChain.getMatrix ? Object.keys(this._feedbackChain.getMatrix()).length : 0,
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // FEEDBACK PROCESSING (Delegates to FeedbackProcessor)
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -276,7 +549,37 @@ export class LearningService extends EventEmitter {
   static FEEDBACK_SOURCES = FEEDBACK_SOURCES;
 
   processFeedback(feedback) {
-    return this._feedbackProcessor.processFeedback(feedback, this._weightModifiers);
+    // Record for Markov learning
+    this._recordFeedbackOutcome(feedback.outcome);
+
+    // Detect anomaly in score delta
+    const anomaly = this._detectFeedbackAnomaly(feedback.scoreDelta || 0);
+    if (anomaly.isAnomaly) {
+      this.emit('feedback-anomaly', {
+        feedback,
+        anomaly,
+      });
+    }
+
+    // Update dimension confidence if dimension info available
+    if (feedback.dimensions) {
+      const isCorrect = feedback.outcome === 'correct' || feedback.outcome === 'pass';
+      for (const dim of Object.keys(feedback.dimensions)) {
+        this._updateDimensionConfidence(dim, isCorrect);
+      }
+    }
+
+    // Delegate to FeedbackProcessor
+    const result = this._feedbackProcessor.processFeedback(feedback, this._weightModifiers);
+
+    // Enrich result with inference data
+    result.inference = {
+      anomaly: anomaly.isAnomaly ? anomaly : null,
+      entropy: this.getLearningEntropy(),
+      prediction: this._predictFeedbackOutcome(feedback.outcome),
+    };
+
+    return result;
   }
 
   processAnomalySignal(signal) {
@@ -464,6 +767,9 @@ export class LearningService extends EventEmitter {
       const maxMod = 1 + this.maxAdjustment;
       newModifier = Math.max(minMod, Math.min(maxMod, newModifier));
       this._weightModifiers.set(dimension, newModifier);
+
+      // Record adjustment for Gaussian confidence intervals
+      this._recordAdjustment(delta);
     }
 
     for (const [itemType, dims] of Object.entries(adjustments.thresholds)) {
@@ -598,6 +904,8 @@ export class LearningService extends EventEmitter {
       itemTypesTracked: Object.keys(patterns.byItemType).length,
       insightsCount: patterns.insights.length,
       queueSize: this._feedbackProcessor.feedbackQueue.length,
+      // New: Inference enrichments
+      inference: this.getInferenceStats(),
     };
   }
 
@@ -833,6 +1141,14 @@ export class LearningService extends EventEmitter {
     this._thresholdAdjustments.clear();
     this._feedbackProcessor.reset();
     this._learnings = [];
+
+    // Reset math module state
+    this._dimensionConfidence.clear();
+    this._feedbackChain = createMarkovChain(['correct', 'partially_correct', 'incorrect']);
+    this._adjustmentHistory = [];
+    this._deltaHistory = [];
+    this._lastFeedbackOutcome = null;
+
     this.emit('reset');
   }
 
