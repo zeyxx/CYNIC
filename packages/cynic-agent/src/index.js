@@ -33,6 +33,21 @@ import { Learner } from './learner.js';
 
 const log = createLogger('CynicAgent');
 
+// Lazy-load Guardian to avoid hard dependency on @cynic/node
+let _guardianModule = null;
+async function loadGuardian() {
+  if (_guardianModule !== null) return _guardianModule;
+  try {
+    const { CollectiveGuardian } = await import('@cynic/node/agents/collective');
+    _guardianModule = CollectiveGuardian;
+    return _guardianModule;
+  } catch (e) {
+    log.debug('CollectiveGuardian not available', { error: e.message });
+    _guardianModule = false;
+    return null;
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Configuration
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -106,6 +121,9 @@ export class CynicAgent extends EventEmitter {
     this.executor = new Executor(options.executor);
     this.learner = new Learner(options.learner);
 
+    // Guardian (wired lazily on start)
+    this.guardian = null;
+
     // Metrics
     this.metrics = {
       startedAt: null,
@@ -162,9 +180,14 @@ export class CynicAgent extends EventEmitter {
       }, this.config.feedbackDelayMs);
     });
 
-    // Learner events
+    // Learner events - CLOSE THE LOOP: feed adjustments back to Decider
     this.learner.on('lesson', (lesson) => {
       this.emit('lesson', lesson);
+
+      const adjustments = this.learner.getDimensionAdjustments();
+      if (Object.keys(adjustments).length > 0) {
+        this.decider.applyWeightAdjustments(adjustments);
+      }
     });
   }
 
@@ -182,6 +205,17 @@ export class CynicAgent extends EventEmitter {
     // Initialize components
     await this.perceiver.start();
     await this.executor.init();
+
+    // Wire Guardian for risk blocking
+    try {
+      const GuardianClass = await loadGuardian();
+      if (GuardianClass) {
+        this.guardian = new GuardianClass();
+        log.info('Guardian wired for risk blocking');
+      }
+    } catch (e) {
+      log.debug('Guardian init skipped', { error: e.message });
+    }
 
     this.isRunning = true;
     this.metrics.startedAt = Date.now();
@@ -285,7 +319,37 @@ export class CynicAgent extends EventEmitter {
       this.metrics.decisions++;
       this.emit('decision', decision);
 
-      // 3. ACT (only if decision says go)
+      // 3. GUARDIAN CHECK (between DECIDE and ACT)
+      if (decision.action !== 'HOLD' && this.guardian) {
+        try {
+          const risk = await this.guardian.analyze({
+            tool_name: 'execute_trade',
+            tool_input: JSON.stringify({
+              action: decision.action,
+              token: decision.token,
+              size: decision.size,
+              confidence: decision.confidence,
+              qScore: decision.qScore,
+            }),
+          });
+
+          if (risk.blocked) {
+            log.warn('Guardian blocked trade', { reason: risk.message });
+            this.emit('guardian_block', { decision, risk });
+            this.state = AgentState.PERCEIVING;
+            return;
+          }
+
+          if (risk.warning) {
+            log.info('Guardian warning', { message: risk.message });
+            this.emit('guardian_warning', { decision, risk });
+          }
+        } catch (e) {
+          log.debug('Guardian check failed, proceeding', { error: e.message });
+        }
+      }
+
+      // 4. ACT (only if decision says go)
       if (decision.action !== 'HOLD' && decision.confidence >= this.config.minConfidenceToAct) {
         this.state = AgentState.ACTING;
 

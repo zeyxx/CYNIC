@@ -24,6 +24,20 @@ try {
   log.debug('SolanaWatcher not available - API-only mode');
 }
 
+// Lazy-load inference modules for signal enrichment
+let _inferenceModules = null;
+async function loadInferenceModules() {
+  if (_inferenceModules) return _inferenceModules;
+  try {
+    const { EventRateTracker, computeStats, zScore } = await import('@cynic/node/inference');
+    _inferenceModules = { EventRateTracker, computeStats, zScore };
+    return _inferenceModules;
+  } catch (e) {
+    log.debug('Inference modules not available', { error: e.message });
+    return null;
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // API Endpoints
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -114,6 +128,11 @@ export class Perceiver extends EventEmitter {
     // SolanaWatcher state
     this.solanaWatcher = null;
     this._watcherSubscriptions = [];
+
+    // Inference enrichment (wired lazily)
+    this._rateTracker = null;
+    this._priceHistory = [];
+    this._inferenceReady = false;
   }
 
   /**
@@ -126,6 +145,9 @@ export class Perceiver extends EventEmitter {
 
     this.rpc = createSolanaRpc(this.config.rpcUrl);
     this.isRunning = true;
+
+    // Initialize inference modules for signal enrichment
+    await this._ensureInference();
 
     // Initialize SolanaWatcher for WebSocket monitoring
     if (this.config.useSolanaWatcher && SolanaWatcherModule) {
@@ -539,15 +561,31 @@ export class Perceiver extends EventEmitter {
   }
 
   /**
+   * Ensure inference modules are loaded
+   * @private
+   */
+  async _ensureInference() {
+    if (this._inferenceReady) return;
+    this._inferenceReady = true;
+
+    try {
+      const modules = await loadInferenceModules();
+      if (!modules) return;
+
+      this._rateTracker = new modules.EventRateTracker();
+      this._inferenceModules = modules;
+      log.debug('Inference modules wired for signal enrichment');
+    } catch (e) {
+      log.debug('Inference init failed', { error: e.message });
+    }
+  }
+
+  /**
    * Check if signal is an actionable opportunity
+   * Enriched with Poisson anomaly detection and Gaussian z-scores.
    * @private
    */
   _isOpportunity(signal) {
-    // Criteria for opportunity:
-    // - Significant price/volume change
-    // - Meets minimum thresholds
-    // - Not too recent (avoid duplicate opportunities)
-
     if (!signal.data) return false;
 
     const { changePercent } = signal.data;
@@ -558,7 +596,56 @@ export class Perceiver extends EventEmitter {
       return false;
     }
 
+    // Enrich with inference statistics (non-blocking)
+    this._enrichWithInference(signal);
+
     return true;
+  }
+
+  /**
+   * Enrich signal with inference statistics (Poisson + Gaussian)
+   * @private
+   */
+  _enrichWithInference(signal) {
+    if (!this._inferenceModules) return;
+
+    const { computeStats, zScore } = this._inferenceModules;
+    const statistics = {};
+
+    try {
+      // Track signal rate for Poisson anomaly detection
+      if (this._rateTracker) {
+        this._rateTracker.record(signal.type || 'signal', 1);
+        const anomalies = this._rateTracker.checkAllAnomalies?.();
+        if (anomalies) {
+          const typeAnomaly = anomalies[signal.type || 'signal'];
+          statistics.isRateAnomaly = typeAnomaly?.isAnomaly || false;
+          statistics.rateSeverity = typeAnomaly?.severity || 0;
+        }
+      }
+
+      // Z-score on price change magnitude
+      const magnitude = Math.abs(signal.data.changePercent || 0);
+      this._priceHistory.push(magnitude);
+
+      // Keep history bounded
+      if (this._priceHistory.length > 200) {
+        this._priceHistory = this._priceHistory.slice(-100);
+      }
+
+      if (this._priceHistory.length >= 5) {
+        const stats = computeStats(this._priceHistory);
+        statistics.zScore = zScore(magnitude, stats.mean, stats.std);
+        statistics.sampleSize = stats.n;
+        statistics.mean = stats.mean;
+        statistics.std = stats.std;
+      }
+    } catch (e) {
+      log.debug('Inference enrichment error', { error: e.message });
+    }
+
+    // Attach statistics to signal
+    signal.statistics = statistics;
   }
 
   /**
