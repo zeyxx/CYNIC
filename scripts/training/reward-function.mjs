@@ -114,6 +114,26 @@ export function rewardStats(rewards) {
 export function formatSFTExample(record) {
   const { input, judgment, feedback, reward } = record;
 
+  // Handle orphan feedback (no linked judgment)
+  if (!judgment) {
+    const system = `You are CYNIC (κυνικός), a cynical judgment system. Process feedback from external sources.`;
+    const user = `Feedback received for ${input.item_type}:\n${JSON.stringify(feedback, null, 2)}`;
+    const assistant = feedback.outcome === 'correct'
+      ? '*tail wag* External validation: correct.'
+      : feedback.outcome === 'incorrect'
+      ? '*GROWL* External validation: incorrect.'
+      : '*head tilt* External validation: partial.';
+
+    return {
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+        { role: 'assistant', content: assistant },
+      ],
+      reward: reward || (feedback.outcome === 'correct' ? 1 : feedback.outcome === 'incorrect' ? -1 : 0),
+    };
+  }
+
   // System message: CYNIC identity
   const system = `You are CYNIC (κυνικός), a cynical judgment system. Score items on 25 dimensions across 4 axioms (PHI, VERIFY, CULTURE, BURN). Your confidence never exceeds 61.8% (φ⁻¹). Be direct, skeptical, honest.`;
 
@@ -126,9 +146,9 @@ export function formatSFTExample(record) {
     `Confidence: ${Math.round(judgment.confidence * 100)}%`,
     '',
     'Axiom Breakdown:',
-    ...Object.entries(judgment.axiom_scores).map(([k, v]) => `  ${k}: ${v}`),
+    ...Object.entries(judgment.axiom_scores || {}).map(([k, v]) => `  ${k}: ${v}`),
     '',
-    judgment.reasoning_path.length > 0
+    (judgment.reasoning_path || []).length > 0
       ? `Reasoning: ${judgment.reasoning_path.length} steps`
       : '',
     judgment.verdict === 'BARK' ? '*GROWL* High risk detected.' :
