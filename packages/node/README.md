@@ -161,6 +161,10 @@ const instance = createIdentity();
 | `HomeostasisTracker` | HomeostasisTracker implementation |
 | `GrowthTracker` | GrowthTracker implementation |
 | `ResilienceTracker` | ResilienceTracker implementation |
+| `ComponentRegistry` | ComponentRegistry implementation |
+| `ComponentCategory` | ComponentCategory implementation |
+| `ComponentMetadata` | ComponentMetadata implementation |
+| `AutoWirer` | AutoWirer implementation |
 
 ### Factory Functions
 
@@ -219,6 +223,7 @@ const instance = createIdentity();
 | `createGrowthTracker()` | Create GrowthTracker instance |
 | `createResilienceTracker()` | Create ResilienceTracker instance |
 | `createVitalityMonitor()` | Create VitalityMonitor instance |
+| `createComponentMarker()` | Create ComponentMarker instance |
 
 ### Singletons
 
@@ -281,6 +286,7 @@ const instance = createIdentity();
 | `getVitalityMonitor()` | Get VitalityMonitor singleton |
 | `getOrganismState()` | Get OrganismState singleton |
 | `getOrganismHealth()` | Get OrganismHealth singleton |
+| `getRegistry()` | Get Registry singleton |
 
 ### Constants
 
@@ -288,7 +294,7 @@ const instance = createIdentity();
 
 ### Functions
 
-`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 110 more
+`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 111 more
 
 ## Dependencies
 
@@ -297,10 +303,10 @@ const instance = createIdentity();
 
 ## Stats
 
-- **Source files**: 227
-- **Test files**: 62
+- **Source files**: 230
+- **Test files**: 63
 - **Test ratio**: 27%
-- **Exports**: 401 named
+- **Exports**: 408 named
 
 ## Fractal Structure
 

@@ -118,16 +118,13 @@ export {
   CollectiveLearner,
 };
 
-// Re-export Secure Channel
+// Re-export types
 export {
+  // Secure Channel
   SecureDogChannel,
   SecureChannelManager,
   createSecureChannelManager,
   DH_PARAMS,
-} from './secure-channel.js';
-
-// Re-export types
-export {
   RiskLevel,
   RiskCategory,
   PatternCategory,
@@ -172,8 +169,6 @@ export {
   DogGoalTypes,
   createAutonomousCapabilities,
   DogAutonomousBehaviors,
-  // Note: SecureDogChannel, SecureChannelManager, createSecureChannelManager, DH_PARAMS
-  // are exported above at line 121-127 from './secure-channel.js'
 };
 
 /**
