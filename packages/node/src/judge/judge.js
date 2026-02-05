@@ -1030,6 +1030,223 @@ export class CYNICJudge {
     };
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BAYESIAN BELIEF TRACKING METHODS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get or create dimension reliability tracker
+   * @private
+   * @param {string} dimension - Dimension name
+   * @returns {BetaDistribution}
+   */
+  _getDimensionReliability(dimension) {
+    if (!this._dimensionReliability.has(dimension)) {
+      // Prior: slight optimism (α=2, β=1) → ~66% reliable
+      this._dimensionReliability.set(dimension, new BetaDistribution(2, 1));
+    }
+    return this._dimensionReliability.get(dimension);
+  }
+
+  /**
+   * Get or create item-type belief tracker
+   * @private
+   * @param {string} itemType - Item type
+   * @returns {BetaDistribution}
+   */
+  _getItemTypeBelief(itemType) {
+    const type = itemType || 'unknown';
+    if (!this._itemTypeBelief.has(type)) {
+      // Prior: neutral (α=1, β=1) → 50% expectation
+      this._itemTypeBelief.set(type, new BetaDistribution(1, 1));
+    }
+    return this._itemTypeBelief.get(type);
+  }
+
+  /**
+   * Get Bayesian prior for item type quality
+   * Influences initial confidence based on historical performance
+   *
+   * @param {string} itemType - Item type
+   * @returns {Object} {prior, confidence, α, β}
+   */
+  getItemTypePrior(itemType) {
+    const belief = this._getItemTypeBelief(itemType);
+    const mean = belief.getMean();
+    const strength = belief.getStrength();
+
+    // Confidence grows with observations, φ-bounded
+    const confidence = Math.min(PHI_INV, strength / 30);
+
+    return {
+      prior: mean,
+      confidence,
+      alpha: belief.alpha,
+      beta: belief.beta,
+      strength,
+    };
+  }
+
+  /**
+   * Get dimension reliability estimate
+   *
+   * @param {string} dimension - Dimension name
+   * @returns {Object} {reliability, confidence, α, β}
+   */
+  getDimensionReliability(dimension) {
+    const tracker = this._getDimensionReliability(dimension);
+    const mean = tracker.getMean();
+    const strength = tracker.getStrength();
+
+    // Confidence in reliability grows with observations
+    const confidence = Math.min(PHI_INV, strength / 30);
+
+    return {
+      reliability: mean,
+      confidence,
+      alpha: tracker.alpha,
+      beta: tracker.beta,
+      strength,
+    };
+  }
+
+  /**
+   * Record feedback to update Bayesian beliefs
+   * Called when we learn the actual outcome of a judgment
+   *
+   * @param {Object} feedback - Feedback data
+   * @param {Object} feedback.judgment - Original judgment
+   * @param {string} feedback.outcome - 'correct', 'incorrect', 'partial'
+   * @param {number} [feedback.actualScore] - Actual correct score (if known)
+   * @param {Object} [feedback.dimensions] - Dimension-level corrections
+   */
+  recordFeedback(feedback) {
+    const { judgment, outcome, actualScore, dimensions } = feedback;
+    if (!judgment) return;
+
+    const isGood = outcome === 'correct' || outcome === 'pass';
+    const itemType = judgment.item?.type || judgment.item?.itemType || 'unknown';
+
+    // Update item-type belief
+    const itemBelief = this._getItemTypeBelief(itemType);
+    if (isGood) {
+      itemBelief.recordSuccess();
+    } else {
+      itemBelief.recordFailure();
+    }
+
+    // Update dimension reliability based on how well each dimension
+    // predicted the actual outcome
+    if (judgment.dimensions || judgment.dimensionScores) {
+      const dimScores = judgment.dimensions || judgment.dimensionScores;
+      const qScore = judgment.qScore || judgment.global_score || 50;
+      const actualQ = actualScore || (isGood ? qScore + 10 : qScore - 10);
+
+      for (const [dimName, score] of Object.entries(dimScores)) {
+        const tracker = this._getDimensionReliability(dimName);
+
+        // Did this dimension's score align with outcome?
+        // If score was high and outcome good, or score low and outcome bad → aligned
+        const scoreHigh = score >= 60;
+        const outcomeGood = actualQ >= 60;
+        const aligned = (scoreHigh && outcomeGood) || (!scoreHigh && !outcomeGood);
+
+        if (aligned) {
+          tracker.recordSuccess();
+        } else {
+          tracker.recordFailure();
+        }
+      }
+    }
+
+    // Dimension-specific corrections (if provided)
+    if (dimensions) {
+      for (const [dimName, correction] of Object.entries(dimensions)) {
+        if (correction.wasCorrect !== undefined) {
+          const tracker = this._getDimensionReliability(dimName);
+          if (correction.wasCorrect) {
+            tracker.recordSuccess();
+          } else {
+            tracker.recordFailure();
+          }
+        }
+      }
+    }
+
+    // Record to history
+    this._outcomeHistory.push({
+      timestamp: Date.now(),
+      itemType,
+      outcome,
+      qScore: judgment.qScore,
+      actualScore,
+    });
+
+    // Keep history bounded at Fib(10) = 55
+    while (this._outcomeHistory.length > 55) {
+      this._outcomeHistory.shift();
+    }
+  }
+
+  /**
+   * Get dimension reliability ranking
+   * Sorted by reliability (most reliable first)
+   *
+   * @returns {Array} Dimensions sorted by reliability
+   */
+  getDimensionReliabilityRanking() {
+    const rankings = [];
+    for (const [dimension, tracker] of this._dimensionReliability) {
+      rankings.push({
+        dimension,
+        reliability: tracker.getMean(),
+        strength: tracker.getStrength(),
+        confidence: Math.min(PHI_INV, tracker.getStrength() / 30),
+        alpha: tracker.alpha,
+        beta: tracker.beta,
+      });
+    }
+    rankings.sort((a, b) => b.reliability - a.reliability);
+    return rankings;
+  }
+
+  /**
+   * Get item-type quality ranking
+   * Sorted by expected quality (highest first)
+   *
+   * @returns {Array} Item types sorted by expected quality
+   */
+  getItemTypeQualityRanking() {
+    const rankings = [];
+    for (const [itemType, tracker] of this._itemTypeBelief) {
+      rankings.push({
+        itemType,
+        expectedQuality: tracker.getMean(),
+        strength: tracker.getStrength(),
+        confidence: Math.min(PHI_INV, tracker.getStrength() / 30),
+        alpha: tracker.alpha,
+        beta: tracker.beta,
+      });
+    }
+    rankings.sort((a, b) => b.expectedQuality - a.expectedQuality);
+    return rankings;
+  }
+
+  /**
+   * Get Bayesian inference statistics
+   *
+   * @returns {Object} Bayesian stats summary
+   */
+  getBayesianStats() {
+    return {
+      dimensionReliability: this.getDimensionReliabilityRanking().slice(0, 10), // Top 10
+      itemTypeQuality: this.getItemTypeQualityRanking(),
+      outcomeHistorySize: this._outcomeHistory.length,
+      dimensionsTracked: this._dimensionReliability.size,
+      itemTypesTracked: this._itemTypeBelief.size,
+    };
+  }
+
   /**
    * Get entropy analysis for a judgment
    * @param {Object} judgment - Judgment with dimensionScores
