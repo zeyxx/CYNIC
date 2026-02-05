@@ -21,6 +21,9 @@ export * from './feedback-processor.js';
 export * from './external-validation.js';
 export * from './rca-integration.js';
 
+// Judgment Cards (shareable artifacts)
+export * from './judgment-card.js';
+
 // DPO Learning Pipeline (Week 3)
 export * from './dpo-processor.js';
 export * from './dpo-optimizer.js';

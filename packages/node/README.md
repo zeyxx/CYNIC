@@ -211,6 +211,7 @@ const instance = createIdentity();
 | `getHumanLearningSingleton()` | Get HumanLearningSingleton singleton |
 | `getHumanAccountantSingleton()` | Get HumanAccountantSingleton singleton |
 | `getHumanEmergenceSingleton()` | Get HumanEmergenceSingleton singleton |
+| `getListenerStats()` | Get ListenerStats singleton |
 | `getDefaultWalletPath()` | Get DefaultWalletPath singleton |
 | `getEventBus()` | Get EventBus singleton |
 | `getOrchestrationVisibility()` | Get OrchestrationVisibility singleton |
@@ -248,7 +249,7 @@ const instance = createIdentity();
 
 ### Functions
 
-`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 39 more
+`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 40 more
 
 ## Dependencies
 
@@ -257,10 +258,10 @@ const instance = createIdentity();
 
 ## Stats
 
-- **Source files**: 209
-- **Test files**: 52
-- **Test ratio**: 25%
-- **Exports**: 281 named
+- **Source files**: 211
+- **Test files**: 54
+- **Test ratio**: 26%
+- **Exports**: 283 named
 
 ## Fractal Structure
 
@@ -270,7 +271,7 @@ const instance = createIdentity();
 ## Dimensions (4 Axioms)
 
 ```
-[██░░░░░░░░] 25% φ (Confidence)
+[███░░░░░░░] 26% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
 [██████░░░░] 55% Burn (Simplicity)

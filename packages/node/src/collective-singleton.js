@@ -36,6 +36,7 @@ import { getHumanLearning } from './symbiosis/human-learning.js';
 import { getHumanAccountant } from './symbiosis/human-accountant.js';
 import { getHumanEmergence } from './symbiosis/human-emergence.js';
 import { wireAmbientConsensus } from './agents/collective/ambient-consensus.js';
+import { startEventListeners, stopEventListeners } from './services/event-listeners.js';
 
 const log = createLogger('CollectiveSingleton');
 
@@ -204,6 +205,14 @@ let _initPromise = null;
  * @type {boolean}
  */
 let _isAwakened = false;
+
+/**
+ * AXE 2 (PERSIST): The global EventListeners controller
+ * Closes data loops by persisting judgments, feedback, and session state
+ * "Le chien n'oublie jamais" - CYNIC persists everything
+ * @type {Object|null}
+ */
+let _eventListeners = null;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DEFAULT OPTIONS
@@ -487,6 +496,19 @@ export function getCollectivePack(options = {}) {
     _humanAccountant = getHumanAccountant();
     _humanEmergence = getHumanEmergence();
     log.debug('Symbiosis layer wired (C5.3-C5.7)');
+
+    // AXE 2 (PERSIST): Wire Event Listeners to close data loops
+    // "Le chien n'oublie jamais" - persists judgments, feedback, session state
+    if (finalOptions.persistence && !_eventListeners) {
+      _eventListeners = startEventListeners({
+        persistence: finalOptions.persistence,
+        sharedMemory,
+        saveState,
+        sessionId: finalOptions.sessionId,
+        userId: finalOptions.userId,
+      });
+      log.info('EventListeners started - data loops closed (AXE 2)');
+    }
 
     // FIX O3: Schedule background persistence initialization
     // "φ persiste" - persistence should be loaded even for sync calls
@@ -1166,12 +1188,22 @@ export function _resetForTesting() {
   _initPromise = null;
   _isAwakened = false;
 
+  // AXE 2: Stop event listeners
+  if (_eventListeners) {
+    stopEventListeners();
+    _eventListeners = null;
+  }
+
   log.warn('Singletons reset (testing only)');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // EXPORTS
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// AXE 2: Re-export event listener functions for external use
+export { startEventListeners, stopEventListeners } from './services/event-listeners.js';
+export { getListenerStats } from './services/event-listeners.js';
 
 export default {
   getCollectivePack,
@@ -1185,4 +1217,7 @@ export default {
   getSingletonStatus,
   isReady,
   _resetForTesting,
+  // AXE 2: Event listeners
+  startEventListeners,
+  stopEventListeners,
 };

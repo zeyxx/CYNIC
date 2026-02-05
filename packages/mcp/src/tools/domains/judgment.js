@@ -24,6 +24,7 @@ import { getEventBus, EventType } from '@cynic/node';
 
 const log = createLogger('JudgmentTools');
 import { enrichItem } from '../../item-enricher.js';
+import { generateCard, toMarkdown, toASCII, toCompact } from '@cynic/node/judge';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
@@ -581,10 +582,32 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
         }
       }
 
-      // DEBUG: FINAL RETURN - log what we're actually returning
+      // ═══════════════════════════════════════════════════════════════════════════
+      // JUDGMENT CARD: Generate shareable artifact
+      // "Le jugement visible" - distribution layer for CYNIC judgments
+      // ═══════════════════════════════════════════════════════════════════════════
+      try {
+        const cardInput = {
+          ...result,
+          itemType: enrichedItem.type || enrichedItem.itemType || item.type || 'unknown',
+          item: enrichedItem,
+        };
+        const card = generateCard(cardInput, {
+          title: enrichedItem.name || enrichedItem.type || item.name || item.type || 'Item',
+        });
+        result.card = {
+          markdown: card.markdown,
+          ascii: card.ascii,
+          compact: card.compact,
+        };
+      } catch (cardErr) {
+        log.warn('Card generation error', { error: cardErr.message });
+      }
+
       log.debug('Handler return', {
         cultureScore: result.axiomScores?.CULTURE,
         axiomScores: result.axiomScores,
+        hasCard: !!result.card,
       });
 
       return result;
@@ -1327,6 +1350,117 @@ Actions:
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// JUDGMENT CARD TOOL
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Create judgment card tool - format/export judgments as shareable cards
+ * @param {Object} persistence - PersistenceManager instance
+ * @returns {Object} Tool definition
+ */
+export function createJudgmentCardTool(persistence = null) {
+  return {
+    name: 'brain_judgment_card',
+    description: 'Generate a shareable Judgment Card from a past judgment. Returns markdown, ASCII, and compact formats. Use for sharing judgments on GitHub, Discord, or docs.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        judgmentId: {
+          type: 'string',
+          description: 'ID of a past judgment (e.g., jdg_abc123). If omitted, uses the most recent judgment.',
+        },
+        format: {
+          type: 'string',
+          enum: ['all', 'markdown', 'ascii', 'compact'],
+          description: 'Output format (default: all)',
+          default: 'all',
+        },
+        title: {
+          type: 'string',
+          description: 'Custom title for the card (overrides item type)',
+        },
+        compact: {
+          type: 'boolean',
+          description: 'Compact mode - less detail (default: false)',
+          default: false,
+        },
+        includeThermo: {
+          type: 'boolean',
+          description: 'Include thermodynamics section (default: false)',
+          default: false,
+        },
+      },
+    },
+    handler: async (params) => {
+      const {
+        judgmentId,
+        format = 'all',
+        title,
+        compact = false,
+        includeThermo = false,
+      } = params;
+
+      let judgment = null;
+
+      // Fetch judgment from persistence
+      if (persistence) {
+        try {
+          if (judgmentId) {
+            judgment = await persistence.getJudgment(judgmentId);
+          } else {
+            // Get most recent judgment
+            const recent = await persistence.getRecentJudgments(1);
+            judgment = recent?.[0] || null;
+          }
+        } catch (e) {
+          throw new Error(`Failed to fetch judgment: ${e.message}`);
+        }
+      }
+
+      if (!judgment) {
+        throw new Error(judgmentId
+          ? `Judgment not found: ${judgmentId}`
+          : 'No judgments found. Judge something first.');
+      }
+
+      // Normalize stored judgment format to match handler output
+      const normalized = {
+        requestId: judgment.judgment_id || judgment.id || judgmentId,
+        score: judgment.q_score ?? judgment.qScore ?? 50,
+        verdict: judgment.verdict || 'WAG',
+        confidence: judgment.confidence ?? PHI_INV,
+        axiomScores: judgment.axiom_scores || judgment.axiomScores || {},
+        weaknesses: judgment.weaknesses || [],
+        itemType: judgment.item_type || judgment.itemType || 'unknown',
+        timestamp: judgment.created_at
+          ? new Date(judgment.created_at).getTime()
+          : Date.now(),
+      };
+
+      const cardOptions = { title, compact, includeThermo };
+      const card = generateCard(normalized, cardOptions);
+
+      switch (format) {
+        case 'markdown':
+          return { format: 'markdown', card: card.markdown };
+        case 'ascii':
+          return { format: 'ascii', card: card.ascii };
+        case 'compact':
+          return { format: 'compact', card: card.compact };
+        default:
+          return {
+            format: 'all',
+            markdown: card.markdown,
+            ascii: card.ascii,
+            compact: card.compact,
+            json: card.json,
+          };
+      }
+    },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // FACTORY (OCP-compliant)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1383,6 +1517,9 @@ export const judgmentFactory = {
     if (persistence) {
       tools.push(createLearningTool({ persistence }));
     }
+
+    // Judgment Card tool (shareable artifacts)
+    tools.push(createJudgmentCardTool(persistence));
 
     return tools;
   },

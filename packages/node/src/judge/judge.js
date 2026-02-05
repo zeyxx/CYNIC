@@ -431,15 +431,28 @@ export class CYNICJudge {
 
     // Task #57: Emit JUDGMENT_CREATED for SONA real-time adaptation
     // This allows SONA to observe judgment patterns and correlate with outcomes
+    // AXE 2 (PERSIST): Enriched payload for full persistence via event-listeners.js
     globalEventBus.emit(EventType.JUDGMENT_CREATED, {
       id: judgment.id,
       payload: {
         qScore: judgment.qScore,
         verdict: judgment.verdict,
         dimensions: judgment.dimensionScores,
+        dimensionScores: dimensionScores,
+        axiomScores: judgment.axiomScores,
         itemType: item.type || item.itemType || 'unknown',
         confidence: judgment.confidence,
+        globalScore: judgment.global_score || globalScore,
+        weaknesses: judgment.weaknesses,
+        // Item data for persistence
+        item: item,
+        // Context for traceability
+        context: judgment.context || context,
+        // Reasoning path for trajectory extraction
+        reasoningPath: reasoningPath,
       },
+      source: 'CYNICJudge',
+      timestamp: Date.now(),
     });
 
     return judgment;

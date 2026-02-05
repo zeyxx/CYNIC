@@ -162,6 +162,10 @@ export {
   getHumanLearningSingleton,
   getHumanAccountantSingleton,
   getHumanEmergenceSingleton,
+  // AXE 2 (PERSIST): Event Listeners - Close data loops
+  startEventListeners,
+  stopEventListeners,
+  getListenerStats,
 } from './collective-singleton.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
