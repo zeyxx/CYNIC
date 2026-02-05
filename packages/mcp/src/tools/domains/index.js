@@ -22,6 +22,7 @@ export { orchestrationFactory } from './orchestration.js';
 export { memoryFactory } from './memory.js';
 export { socialFactory } from './social.js';
 export { oracleFactory } from './oracle.js';
+export { debugFactory } from './debug.js';
 
 /**
  * All domain factories for bulk registration
@@ -50,6 +51,7 @@ export async function getAllFactories() {
     { memoryFactory },
     { socialFactory },
     { oracleFactory },
+    { debugFactory },
   ] = await Promise.all([
     import('./judgment.js'),
     import('./ecosystem.js'),
@@ -64,6 +66,7 @@ export async function getAllFactories() {
     import('./memory.js'),
     import('./social.js'),
     import('./oracle.js'),
+    import('./debug.js'),
   ]);
 
   return [
@@ -80,5 +83,6 @@ export async function getAllFactories() {
     memoryFactory,       // Total Memory tools
     socialFactory,       // X/Twitter vision tools
     oracleFactory,       // Oracle token scoring (17-dim)
+    debugFactory,        // Debug tools (brain_debug_*)
   ];
 }

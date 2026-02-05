@@ -1030,6 +1030,1143 @@ class ConfidenceCalibrator {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// GIRSANOV MULTI-MEASURE SYSTEM (Task #23)
+// "Change of measure transforms probability without changing reality"
+//
+// Girsanov theorem: dQ/dP = exp(θ·W - ½θ²t) (Radon-Nikodym derivative)
+//
+// Three parallel probability measures:
+// - P (Prior): Raw confidence from Thompson Sampling
+// - Q_risk: Risk-averse measure (pessimistic) - for dangerous commands
+// - Q_opt: Optimistic measure - for routine tasks (still capped at φ⁻¹)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const GIRSANOV_CONFIG = Object.freeze({
+  // Drift parameters (θ) for measure transformation
+  DRIFT_RISK: -0.3,           // Risk-averse: negative drift
+  DRIFT_NEUTRAL: 0,           // Neutral: no drift
+  DRIFT_OPTIMISTIC: 0.2,      // Optimistic: positive drift (but bounded)
+
+  // Volatility parameter (σ) - uncertainty scaling
+  VOLATILITY_BASE: 0.2,       // Base volatility
+
+  // Time decay for drift intensity
+  TIME_DECAY: PHI_INV_3,      // 23.6% per interval
+
+  // Context-specific drift adjustments
+  CONTEXT_DANGER: -0.5,       // Additional negative drift for dangerous contexts
+  CONTEXT_ROUTINE: 0.1,       // Slight positive drift for routine tasks
+  CONTEXT_NOVEL: -0.2,        // Negative drift for novel/unknown contexts
+});
+
+/**
+ * GirsanovMeasureTransformer - Multi-scenario confidence system
+ *
+ * Maintains 3 parallel probability measures (worldviews) and transforms
+ * confidence between them using Girsanov-style measure changes.
+ *
+ * "Le chien voit trois futurs possibles"
+ */
+class GirsanovMeasureTransformer {
+  constructor() {
+    // Three measures with their current state
+    this.measures = {
+      P: {    // Prior/Neutral measure
+        name: 'Neutral',
+        drift: GIRSANOV_CONFIG.DRIFT_NEUTRAL,
+        history: [],
+        brierScore: 0.125,
+      },
+      Q_risk: {  // Risk-averse measure
+        name: 'Risk-Averse',
+        drift: GIRSANOV_CONFIG.DRIFT_RISK,
+        history: [],
+        brierScore: 0.125,
+      },
+      Q_opt: {   // Optimistic measure
+        name: 'Optimistic',
+        drift: GIRSANOV_CONFIG.DRIFT_OPTIMISTIC,
+        history: [],
+        brierScore: 0.125,
+      },
+    };
+
+    // Track which measure has been most accurate
+    this.accuracyRanking = ['P', 'Q_risk', 'Q_opt'];
+    this.totalObservations = 0;
+    this.contextHistory = [];
+  }
+
+  /**
+   * Calculate Radon-Nikodym derivative (dQ/dP)
+   * This transforms probability from P to Q measure
+   *
+   * Using simplified Girsanov: dQ/dP = exp(θ·x - ½θ²)
+   * where θ is drift and x is current state
+   *
+   * @param {number} drift - Drift parameter (θ)
+   * @param {number} state - Current state value (0-1)
+   * @returns {number} Likelihood ratio
+   */
+  _radonNikodym(drift, state) {
+    // Simplified Girsanov transformation
+    const theta = drift;
+    const x = state - 0.5;  // Center at 0.5
+    const likelihood = Math.exp(theta * x - 0.5 * theta * theta);
+    return likelihood;
+  }
+
+  /**
+   * Transform confidence from P measure to specified Q measure
+   *
+   * @param {number} pConfidence - Confidence under P measure (raw)
+   * @param {string} targetMeasure - 'Q_risk' or 'Q_opt'
+   * @param {Object} context - Context for adjustments
+   * @returns {number} Transformed confidence under Q measure
+   */
+  transformConfidence(pConfidence, targetMeasure = 'Q_risk', context = {}) {
+    const measure = this.measures[targetMeasure];
+    if (!measure) return pConfidence;
+
+    // Get base drift from measure
+    let drift = measure.drift;
+
+    // Adjust drift based on context
+    if (context.isDangerous) {
+      drift += GIRSANOV_CONFIG.CONTEXT_DANGER;
+    }
+    if (context.isRoutine) {
+      drift += GIRSANOV_CONFIG.CONTEXT_ROUTINE;
+    }
+    if (context.isNovel) {
+      drift += GIRSANOV_CONFIG.CONTEXT_NOVEL;
+    }
+
+    // Calculate Radon-Nikodym derivative
+    const likelihood = this._radonNikodym(drift, pConfidence);
+
+    // Transform confidence: Q(A) ∝ P(A) × dQ/dP
+    // Normalize to [0, 1] range
+    let qConfidence = pConfidence * likelihood;
+
+    // Normalize using logistic transformation to keep in [0, 1]
+    qConfidence = 1 / (1 + Math.exp(-(qConfidence * 4 - 2)));
+
+    // Always cap at φ⁻¹ (CYNIC's axiom)
+    return Math.min(PHI_INV, Math.max(0, qConfidence));
+  }
+
+  /**
+   * Get confidence under all three measures
+   *
+   * @param {number} rawConfidence - Raw confidence from Thompson Sampling
+   * @param {Object} context - Context for adjustments
+   * @returns {Object} Confidence under each measure
+   */
+  getMultiMeasureConfidence(rawConfidence, context = {}) {
+    const pConfidence = Math.min(PHI_INV, rawConfidence);  // Cap P at φ⁻¹
+
+    return {
+      P: pConfidence,
+      Q_risk: this.transformConfidence(pConfidence, 'Q_risk', context),
+      Q_opt: this.transformConfidence(pConfidence, 'Q_opt', context),
+      range: {
+        min: this.transformConfidence(pConfidence, 'Q_risk', context),
+        mid: pConfidence,
+        max: this.transformConfidence(pConfidence, 'Q_opt', context),
+      },
+      context,
+      recommendation: this._recommendMeasure(context),
+    };
+  }
+
+  /**
+   * Recommend which measure to use based on context
+   * @private
+   */
+  _recommendMeasure(context) {
+    if (context.isDangerous) return 'Q_risk';
+    if (context.isRoutine && !context.isNovel) return 'Q_opt';
+    return 'P';
+  }
+
+  /**
+   * Record outcome and update measure accuracy
+   *
+   * @param {number} predictedConfidence - What was predicted (under P)
+   * @param {boolean} actualOutcome - What actually happened
+   * @param {Object} context - Context of the prediction
+   */
+  recordOutcome(predictedConfidence, actualOutcome, context = {}) {
+    const outcome = actualOutcome ? 1 : 0;
+    const timestamp = Date.now();
+
+    // Get predictions under all measures
+    const multiMeasure = this.getMultiMeasureConfidence(predictedConfidence, context);
+
+    // Calculate Brier score for each measure
+    for (const measureName of ['P', 'Q_risk', 'Q_opt']) {
+      const predicted = multiMeasure[measureName];
+      const brierContrib = Math.pow(predicted - outcome, 2);
+
+      const measure = this.measures[measureName];
+      measure.history.push({
+        predicted,
+        outcome,
+        brierContrib,
+        timestamp,
+      });
+
+      // Keep bounded history
+      if (measure.history.length > 100) {
+        measure.history.shift();
+      }
+
+      // Update rolling Brier score
+      const recentHistory = measure.history.slice(-50);
+      measure.brierScore = recentHistory.length > 0
+        ? recentHistory.reduce((s, h) => s + h.brierContrib, 0) / recentHistory.length
+        : 0.125;
+    }
+
+    // Update accuracy ranking
+    this._updateAccuracyRanking();
+
+    // Record context
+    this.contextHistory.push({ context, timestamp, outcome });
+    if (this.contextHistory.length > 100) {
+      this.contextHistory.shift();
+    }
+
+    this.totalObservations++;
+  }
+
+  /**
+   * Update ranking of measures by accuracy
+   * @private
+   */
+  _updateAccuracyRanking() {
+    const scores = [
+      { measure: 'P', brier: this.measures.P.brierScore },
+      { measure: 'Q_risk', brier: this.measures.Q_risk.brierScore },
+      { measure: 'Q_opt', brier: this.measures.Q_opt.brierScore },
+    ];
+
+    // Lower Brier score = better
+    scores.sort((a, b) => a.brier - b.brier);
+    this.accuracyRanking = scores.map(s => s.measure);
+  }
+
+  /**
+   * Get the currently best-calibrated measure
+   * @returns {string} Name of most accurate measure
+   */
+  getBestMeasure() {
+    return this.accuracyRanking[0];
+  }
+
+  /**
+   * Get adaptive confidence using best measure for context
+   *
+   * @param {number} rawConfidence - Raw confidence
+   * @param {Object} context - Context
+   * @returns {number} Best confidence estimate
+   */
+  getAdaptiveConfidence(rawConfidence, context = {}) {
+    // If dangerous context, always use risk-averse regardless of accuracy
+    if (context.isDangerous) {
+      return this.transformConfidence(rawConfidence, 'Q_risk', context);
+    }
+
+    // Otherwise use best-performing measure
+    const bestMeasure = this.getBestMeasure();
+    if (bestMeasure === 'P') {
+      return Math.min(PHI_INV, rawConfidence);
+    }
+    return this.transformConfidence(rawConfidence, bestMeasure, context);
+  }
+
+  /**
+   * Get statistics about measure performance
+   */
+  getStats() {
+    return {
+      totalObservations: this.totalObservations,
+      accuracyRanking: this.accuracyRanking,
+      measures: {
+        P: {
+          brierScore: Math.round(this.measures.P.brierScore * 1000) / 1000,
+          observations: this.measures.P.history.length,
+        },
+        Q_risk: {
+          brierScore: Math.round(this.measures.Q_risk.brierScore * 1000) / 1000,
+          observations: this.measures.Q_risk.history.length,
+        },
+        Q_opt: {
+          brierScore: Math.round(this.measures.Q_opt.brierScore * 1000) / 1000,
+          observations: this.measures.Q_opt.history.length,
+        },
+      },
+      bestMeasure: this.getBestMeasure(),
+      insight: this._generateInsight(),
+    };
+  }
+
+  /**
+   * Generate insight about measure performance
+   * @private
+   */
+  _generateInsight() {
+    const best = this.getBestMeasure();
+    const bestBrier = this.measures[best].brierScore;
+
+    if (bestBrier < 0.1) {
+      return `*tail wag* ${this.measures[best].name} measure is well-calibrated (Brier: ${bestBrier.toFixed(3)})`;
+    } else if (bestBrier < 0.2) {
+      return `*sniff* ${this.measures[best].name} measure is adequately calibrated`;
+    } else {
+      return `*ears perk* All measures need more calibration data`;
+    }
+  }
+
+  /**
+   * Export state for persistence
+   */
+  exportState() {
+    return {
+      measures: {
+        P: { history: this.measures.P.history.slice(-50), brierScore: this.measures.P.brierScore },
+        Q_risk: { history: this.measures.Q_risk.history.slice(-50), brierScore: this.measures.Q_risk.brierScore },
+        Q_opt: { history: this.measures.Q_opt.history.slice(-50), brierScore: this.measures.Q_opt.brierScore },
+      },
+      accuracyRanking: this.accuracyRanking,
+      totalObservations: this.totalObservations,
+    };
+  }
+
+  /**
+   * Import state
+   */
+  importState(data) {
+    if (data.measures) {
+      for (const measureName of ['P', 'Q_risk', 'Q_opt']) {
+        if (data.measures[measureName]) {
+          this.measures[measureName].history = data.measures[measureName].history || [];
+          this.measures[measureName].brierScore = data.measures[measureName].brierScore || 0.125;
+        }
+      }
+    }
+    if (data.accuracyRanking) this.accuracyRanking = data.accuracyRanking;
+    if (data.totalObservations) this.totalObservations = data.totalObservations;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ANTIFRAGILITY INDEX (Task #24)
+// "Un système qui survit au hasard peut survivre à n'importe quoi"
+//
+// Antifragile systems benefit from volatility (convex response to stress)
+// Fragile systems are hurt by volatility (concave response)
+// Robust systems are unchanged by volatility (linear response)
+//
+// Antifragility Index = second derivative of performance vs volatility curve
+//   > 0 = antifragile (gains from stress)
+//   = 0 = robust (unchanged by stress)
+//   < 0 = fragile (hurt by stress)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const ANTIFRAGILITY_CONFIG = Object.freeze({
+  // Volatility buckets
+  BUCKET_COUNT: 5,                  // Low, Medium-Low, Medium, Medium-High, High
+  MIN_SAMPLES_PER_BUCKET: 5,        // Minimum observations per bucket
+
+  // Volatility calculation weights
+  ERROR_WEIGHT: 0.4,                // Errors contribute 40% to volatility
+  COMPLEXITY_WEIGHT: 0.3,           // Tool complexity contributes 30%
+  UNCERTAINTY_WEIGHT: 0.3,          // Model uncertainty contributes 30%
+
+  // Interpretation thresholds
+  ANTIFRAGILE_THRESHOLD: 0.1,       // Index > 0.1 = clearly antifragile
+  FRAGILE_THRESHOLD: -0.1,          // Index < -0.1 = clearly fragile
+
+  // φ-aligned bounds
+  MAX_ANTIFRAGILITY: PHI_INV,       // Can't be infinitely antifragile
+  MIN_ANTIFRAGILITY: -PHI_INV,      // Can't be infinitely fragile
+});
+
+/**
+ * AntifragilityTracker - Measures system response to volatility
+ *
+ * Based on Taleb's Antifragile: Things That Gain from Disorder
+ * "Le chien devient plus fort par l'adversité"
+ */
+class AntifragilityTracker {
+  constructor() {
+    // Volatility buckets (0-20%, 20-40%, 40-60%, 60-80%, 80-100%)
+    this.buckets = Array(ANTIFRAGILITY_CONFIG.BUCKET_COUNT).fill(null).map((_, i) => ({
+      label: this._getBucketLabel(i),
+      volatilityRange: [i * 0.2, (i + 1) * 0.2],
+      performances: [],
+      avgPerformance: null,
+      count: 0,
+    }));
+
+    // Antifragility metrics
+    this.metrics = {
+      index: 0,                       // Current antifragility index
+      trend: 'neutral',               // 'antifragile', 'fragile', 'robust'
+      convexity: 0,                   // Second derivative (curvature)
+      stressResponse: 0,              // How much performance changes with stress
+      recoveryRate: 0,                // How fast system recovers from high volatility
+    };
+
+    // History for trend analysis
+    this.history = [];
+    this.totalObservations = 0;
+  }
+
+  /**
+   * Get label for volatility bucket
+   * @private
+   */
+  _getBucketLabel(index) {
+    const labels = ['Low', 'Medium-Low', 'Medium', 'Medium-High', 'High'];
+    return labels[index] || `Bucket ${index}`;
+  }
+
+  /**
+   * Calculate volatility from context signals
+   *
+   * @param {Object} signals - Volatility signals
+   * @param {number} signals.errorRate - Recent error rate (0-1)
+   * @param {number} signals.complexity - Task complexity (0-1)
+   * @param {number} signals.uncertainty - Model uncertainty (0-1)
+   * @returns {number} Composite volatility (0-1)
+   */
+  calculateVolatility(signals) {
+    const { errorRate = 0, complexity = 0.5, uncertainty = 0.5 } = signals;
+
+    // Weighted average of volatility components
+    const volatility =
+      errorRate * ANTIFRAGILITY_CONFIG.ERROR_WEIGHT +
+      complexity * ANTIFRAGILITY_CONFIG.COMPLEXITY_WEIGHT +
+      uncertainty * ANTIFRAGILITY_CONFIG.UNCERTAINTY_WEIGHT;
+
+    return Math.max(0, Math.min(1, volatility));
+  }
+
+  /**
+   * Get bucket index for a volatility level
+   * @private
+   */
+  _getBucketIndex(volatility) {
+    const index = Math.floor(volatility * ANTIFRAGILITY_CONFIG.BUCKET_COUNT);
+    return Math.max(0, Math.min(ANTIFRAGILITY_CONFIG.BUCKET_COUNT - 1, index));
+  }
+
+  /**
+   * Record a performance observation under specific volatility
+   *
+   * @param {number} performance - Performance score (0-1)
+   * @param {Object} volatilitySignals - Signals for volatility calculation
+   */
+  record(performance, volatilitySignals) {
+    const volatility = this.calculateVolatility(volatilitySignals);
+    const bucketIndex = this._getBucketIndex(volatility);
+    const bucket = this.buckets[bucketIndex];
+
+    // Record performance in bucket
+    bucket.performances.push({
+      performance,
+      volatility,
+      timestamp: Date.now(),
+    });
+    bucket.count += 1;
+
+    // Keep bounded
+    if (bucket.performances.length > 50) {
+      bucket.performances.shift();
+    }
+
+    // Update bucket average
+    bucket.avgPerformance = bucket.performances.reduce((s, p) => s + p.performance, 0) / bucket.performances.length;
+
+    // Record to history
+    this.history.push({
+      volatility,
+      performance,
+      bucketIndex,
+      timestamp: Date.now(),
+    });
+
+    // Keep bounded history
+    if (this.history.length > 200) {
+      this.history.shift();
+    }
+
+    this.totalObservations++;
+
+    // Update metrics
+    this._updateMetrics();
+  }
+
+  /**
+   * Update antifragility metrics
+   * @private
+   */
+  _updateMetrics() {
+    // Need data in at least 3 buckets for meaningful analysis
+    const bucketsWithData = this.buckets.filter(b =>
+      b.count >= ANTIFRAGILITY_CONFIG.MIN_SAMPLES_PER_BUCKET
+    );
+
+    if (bucketsWithData.length < 3) {
+      this.metrics.index = 0;
+      this.metrics.trend = 'insufficient_data';
+      return;
+    }
+
+    // Calculate convexity (second derivative approximation)
+    this.metrics.convexity = this._calculateConvexity();
+
+    // Calculate stress response (slope at high volatility)
+    this.metrics.stressResponse = this._calculateStressResponse();
+
+    // Calculate recovery rate
+    this.metrics.recoveryRate = this._calculateRecoveryRate();
+
+    // Calculate overall antifragility index
+    // Combines convexity and stress response
+    this.metrics.index = this._calculateAntifragilityIndex();
+
+    // Determine trend
+    if (this.metrics.index > ANTIFRAGILITY_CONFIG.ANTIFRAGILE_THRESHOLD) {
+      this.metrics.trend = 'antifragile';
+    } else if (this.metrics.index < ANTIFRAGILITY_CONFIG.FRAGILE_THRESHOLD) {
+      this.metrics.trend = 'fragile';
+    } else {
+      this.metrics.trend = 'robust';
+    }
+  }
+
+  /**
+   * Calculate convexity (curvature) of performance vs volatility curve
+   * Positive convexity = antifragile (smile curve)
+   * Negative convexity = fragile (frown curve)
+   * @private
+   */
+  _calculateConvexity() {
+    // Get bucket averages
+    const points = this.buckets
+      .filter(b => b.avgPerformance !== null && b.count >= ANTIFRAGILITY_CONFIG.MIN_SAMPLES_PER_BUCKET)
+      .map((b, i) => ({
+        x: (b.volatilityRange[0] + b.volatilityRange[1]) / 2,  // Bucket midpoint
+        y: b.avgPerformance,
+      }));
+
+    if (points.length < 3) return 0;
+
+    // Calculate second derivative using finite differences
+    // f''(x) ≈ (f(x+h) - 2f(x) + f(x-h)) / h²
+    let convexitySum = 0;
+    let convexityCount = 0;
+
+    for (let i = 1; i < points.length - 1; i++) {
+      const h = (points[i + 1].x - points[i - 1].x) / 2;
+      if (h === 0) continue;
+
+      const secondDerivative = (points[i + 1].y - 2 * points[i].y + points[i - 1].y) / (h * h);
+      convexitySum += secondDerivative;
+      convexityCount++;
+    }
+
+    const convexity = convexityCount > 0 ? convexitySum / convexityCount : 0;
+
+    // Normalize to [-1, 1]
+    return Math.max(-1, Math.min(1, convexity));
+  }
+
+  /**
+   * Calculate stress response (how performance changes at high volatility)
+   * @private
+   */
+  _calculateStressResponse() {
+    const lowBucket = this.buckets[0];
+    const highBucket = this.buckets[ANTIFRAGILITY_CONFIG.BUCKET_COUNT - 1];
+
+    if (!lowBucket.avgPerformance || !highBucket.avgPerformance) return 0;
+
+    // Positive = performance increases under stress
+    // Negative = performance decreases under stress
+    return highBucket.avgPerformance - lowBucket.avgPerformance;
+  }
+
+  /**
+   * Calculate recovery rate from high volatility
+   * @private
+   */
+  _calculateRecoveryRate() {
+    // Look at transitions from high to lower volatility
+    const transitions = [];
+
+    for (let i = 1; i < this.history.length; i++) {
+      const prev = this.history[i - 1];
+      const curr = this.history[i];
+
+      // If volatility decreased
+      if (curr.volatility < prev.volatility - 0.2) {
+        const performanceRecovery = curr.performance - prev.performance;
+        transitions.push(performanceRecovery);
+      }
+    }
+
+    if (transitions.length === 0) return 0;
+
+    // Average recovery (positive = good recovery)
+    const avgRecovery = transitions.reduce((s, t) => s + t, 0) / transitions.length;
+    return Math.max(-1, Math.min(1, avgRecovery));
+  }
+
+  /**
+   * Calculate overall antifragility index
+   * @private
+   */
+  _calculateAntifragilityIndex() {
+    // Combine convexity (60%), stress response (25%), recovery (15%)
+    const raw =
+      this.metrics.convexity * 0.6 +
+      this.metrics.stressResponse * 0.25 +
+      this.metrics.recoveryRate * 0.15;
+
+    // Bound by φ limits
+    return Math.max(
+      ANTIFRAGILITY_CONFIG.MIN_ANTIFRAGILITY,
+      Math.min(ANTIFRAGILITY_CONFIG.MAX_ANTIFRAGILITY, raw)
+    );
+  }
+
+  /**
+   * Get the performance curve data for visualization
+   * @returns {Object[]} Points for volatility vs performance curve
+   */
+  getPerformanceCurve() {
+    return this.buckets.map((b, i) => ({
+      label: b.label,
+      volatilityMidpoint: (b.volatilityRange[0] + b.volatilityRange[1]) / 2,
+      avgPerformance: b.avgPerformance,
+      sampleCount: b.count,
+      hasSufficientData: b.count >= ANTIFRAGILITY_CONFIG.MIN_SAMPLES_PER_BUCKET,
+    }));
+  }
+
+  /**
+   * Get human-readable interpretation
+   * @returns {Object} Interpretation
+   */
+  getInterpretation() {
+    const { index, trend, convexity, stressResponse, recoveryRate } = this.metrics;
+
+    let message, emoji, advice;
+
+    if (trend === 'insufficient_data') {
+      message = 'Pas assez de données pour évaluer l\'antifragilité';
+      emoji = '*head tilt*';
+      advice = 'Continuer à collecter des observations';
+    } else if (trend === 'antifragile') {
+      message = `CYNIC devient plus fort sous le stress (index: ${index.toFixed(3)})`;
+      emoji = '*tail wag*';
+      advice = 'Le système s\'améliore avec l\'adversité - excellent!';
+    } else if (trend === 'fragile') {
+      message = `CYNIC souffre sous le stress (index: ${index.toFixed(3)})`;
+      emoji = '*GROWL*';
+      advice = 'Considérer ajouter des mécanismes de résilience';
+    } else {
+      message = `CYNIC est robuste mais pas antifragile (index: ${index.toFixed(3)})`;
+      emoji = '*sniff*';
+      advice = 'Stable mais pourrait bénéficier de plus d\'apprentissage de l\'adversité';
+    }
+
+    return {
+      trend,
+      index,
+      message: `${emoji} ${message}`,
+      advice,
+      details: {
+        convexity: `Convexité: ${convexity.toFixed(3)} (${convexity > 0 ? 'smile' : convexity < 0 ? 'frown' : 'flat'})`,
+        stressResponse: `Réponse au stress: ${stressResponse.toFixed(3)} (${stressResponse > 0 ? 'positive' : 'negative'})`,
+        recoveryRate: `Récupération: ${recoveryRate.toFixed(3)}`,
+      },
+    };
+  }
+
+  /**
+   * Get statistics
+   */
+  getStats() {
+    return {
+      totalObservations: this.totalObservations,
+      bucketsWithData: this.buckets.filter(b => b.count >= ANTIFRAGILITY_CONFIG.MIN_SAMPLES_PER_BUCKET).length,
+      metrics: this.metrics,
+      curve: this.getPerformanceCurve(),
+      interpretation: this.getInterpretation(),
+    };
+  }
+
+  /**
+   * Export state for persistence
+   */
+  exportState() {
+    return {
+      buckets: this.buckets.map(b => ({
+        performances: b.performances.slice(-30),
+        avgPerformance: b.avgPerformance,
+        count: Math.min(b.count, 30),
+      })),
+      metrics: this.metrics,
+      totalObservations: this.totalObservations,
+    };
+  }
+
+  /**
+   * Import state
+   */
+  importState(data) {
+    if (data.buckets) {
+      for (let i = 0; i < Math.min(data.buckets.length, ANTIFRAGILITY_CONFIG.BUCKET_COUNT); i++) {
+        if (data.buckets[i]) {
+          this.buckets[i].performances = data.buckets[i].performances || [];
+          this.buckets[i].avgPerformance = data.buckets[i].avgPerformance;
+          this.buckets[i].count = data.buckets[i].count || 0;
+        }
+      }
+    }
+    if (data.metrics) this.metrics = { ...this.metrics, ...data.metrics };
+    if (data.totalObservations) this.totalObservations = data.totalObservations;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NON-COMMUTATIVE EVALUATION (Task #25)
+// "L'ordre d'évaluation change le résultat"
+//
+// Like quantum operators: [A,B] = AB - BA ≠ 0
+// Order of dimension evaluation affects judgment outcomes
+// Tracks "commutator strength" between dimension pairs
+// ═══════════════════════════════════════════════════════════════════════════
+
+const NONCOMMUTATIVE_CONFIG = Object.freeze({
+  // Minimum observations to calculate commutator
+  MIN_OBSERVATIONS: 10,
+
+  // Commutator strength thresholds
+  STRONG_NONCOMMUTATIVE: 0.2,     // |[A,B]| > 0.2 = strongly non-commutative
+  WEAK_NONCOMMUTATIVE: 0.05,      // |[A,B]| > 0.05 = weakly non-commutative
+
+  // Maximum tracked dimension pairs
+  MAX_PAIRS: 50,
+
+  // φ-derived decay for old observations
+  OBSERVATION_DECAY: PHI_INV_3,
+});
+
+/**
+ * NonCommutativeEvaluator - Tracks order-dependent evaluation effects
+ *
+ * In CYNIC's 25-dimension judgment system, the order of evaluation
+ * can affect outcomes. This is like quantum mechanics where [A,B] ≠ 0.
+ *
+ * "Le chien sait que l'ordre importe"
+ */
+class NonCommutativeEvaluator {
+  constructor() {
+    // Commutator matrix: stores [A,B] = effect(A→B) - effect(B→A)
+    // Key format: "dimA:dimB" (always alphabetically ordered)
+    this.commutators = new Map();
+
+    // Evaluation order history
+    this.evaluationHistory = [];
+
+    // Optimal evaluation order (learned)
+    this.optimalOrder = [];
+
+    // Metrics
+    this.metrics = {
+      avgNonCommutativity: 0,       // Average |[A,B]| across all pairs
+      stronglyNonCommutative: 0,    // Count of strongly non-commutative pairs
+      mostNonCommutativePair: null, // Pair with highest |[A,B]|
+      orderSensitivity: 0,          // How much order affects overall judgments
+    };
+
+    this.totalEvaluations = 0;
+  }
+
+  /**
+   * Get canonical key for dimension pair (alphabetically ordered)
+   * @private
+   */
+  _getPairKey(dimA, dimB) {
+    return dimA < dimB ? `${dimA}:${dimB}` : `${dimB}:${dimA}`;
+  }
+
+  /**
+   * Record an evaluation with its order and outcome
+   *
+   * @param {Object} evaluation
+   * @param {string[]} evaluation.order - Order of dimensions evaluated
+   * @param {Object} evaluation.scores - Score per dimension
+   * @param {number} evaluation.finalScore - Final judgment score
+   * @param {string} evaluation.context - Context identifier
+   */
+  recordEvaluation(evaluation) {
+    const { order, scores, finalScore, context } = evaluation;
+    const timestamp = Date.now();
+
+    // Store in history
+    this.evaluationHistory.push({
+      order: [...order],
+      scores: { ...scores },
+      finalScore,
+      context,
+      timestamp,
+    });
+
+    // Keep bounded
+    if (this.evaluationHistory.length > 200) {
+      this.evaluationHistory.shift();
+    }
+
+    // Update pairwise commutator estimates
+    this._updateCommutators(order, scores, finalScore);
+
+    this.totalEvaluations++;
+    this._updateMetrics();
+  }
+
+  /**
+   * Update commutator estimates from evaluation
+   * @private
+   */
+  _updateCommutators(order, scores, finalScore) {
+    // For each adjacent pair in the order, track the effect
+    for (let i = 0; i < order.length - 1; i++) {
+      const dimA = order[i];
+      const dimB = order[i + 1];
+      const key = this._getPairKey(dimA, dimB);
+
+      if (!this.commutators.has(key)) {
+        this.commutators.set(key, {
+          dimA: dimA < dimB ? dimA : dimB,
+          dimB: dimA < dimB ? dimB : dimA,
+          abFirst: [],  // A evaluated before B
+          baFirst: [],  // B evaluated before A
+          commutator: 0,
+        });
+      }
+
+      const data = this.commutators.get(key);
+
+      // Calculate local effect (contribution to final score)
+      const scoreA = scores[dimA] || 0;
+      const scoreB = scores[dimB] || 0;
+      const localEffect = (scoreA + scoreB) / 2;  // Simple average
+
+      // Record based on which came first
+      if (dimA === order[i]) {
+        // A came before B
+        data.abFirst.push({ effect: localEffect, finalScore, timestamp: Date.now() });
+        if (data.abFirst.length > 30) data.abFirst.shift();
+      } else {
+        // B came before A
+        data.baFirst.push({ effect: localEffect, finalScore, timestamp: Date.now() });
+        if (data.baFirst.length > 30) data.baFirst.shift();
+      }
+
+      // Recalculate commutator
+      this._recalculateCommutator(key);
+    }
+
+    // Limit total pairs
+    if (this.commutators.size > NONCOMMUTATIVE_CONFIG.MAX_PAIRS) {
+      // Remove least observed pairs
+      const pairs = Array.from(this.commutators.entries())
+        .sort((a, b) => (a[1].abFirst.length + a[1].baFirst.length) -
+                       (b[1].abFirst.length + b[1].baFirst.length));
+      const toRemove = pairs.slice(0, 10);
+      for (const [key] of toRemove) {
+        this.commutators.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Recalculate commutator [A,B] for a pair
+   * @private
+   */
+  _recalculateCommutator(key) {
+    const data = this.commutators.get(key);
+    if (!data) return;
+
+    // Need observations in both orders
+    if (data.abFirst.length < 3 || data.baFirst.length < 3) {
+      data.commutator = 0;
+      return;
+    }
+
+    // Calculate weighted average effect for each order
+    // Weight by recency
+    const now = Date.now();
+    const decay = NONCOMMUTATIVE_CONFIG.OBSERVATION_DECAY;
+
+    const weightedAvg = (observations) => {
+      let sumWeighted = 0;
+      let sumWeights = 0;
+      for (const obs of observations) {
+        const age = (now - obs.timestamp) / (60 * 60 * 1000);  // Age in hours
+        const weight = Math.exp(-decay * age);
+        sumWeighted += obs.effect * weight;
+        sumWeights += weight;
+      }
+      return sumWeights > 0 ? sumWeighted / sumWeights : 0;
+    };
+
+    const avgAB = weightedAvg(data.abFirst);
+    const avgBA = weightedAvg(data.baFirst);
+
+    // Commutator [A,B] = effect(A→B) - effect(B→A)
+    data.commutator = avgAB - avgBA;
+  }
+
+  /**
+   * Update overall metrics
+   * @private
+   */
+  _updateMetrics() {
+    const pairs = Array.from(this.commutators.values());
+
+    if (pairs.length === 0) {
+      this.metrics = {
+        avgNonCommutativity: 0,
+        stronglyNonCommutative: 0,
+        mostNonCommutativePair: null,
+        orderSensitivity: 0,
+      };
+      return;
+    }
+
+    // Calculate average |[A,B]|
+    const absCommutators = pairs.map(p => Math.abs(p.commutator));
+    this.metrics.avgNonCommutativity = absCommutators.reduce((s, c) => s + c, 0) / pairs.length;
+
+    // Count strongly non-commutative pairs
+    this.metrics.stronglyNonCommutative = pairs.filter(
+      p => Math.abs(p.commutator) > NONCOMMUTATIVE_CONFIG.STRONG_NONCOMMUTATIVE
+    ).length;
+
+    // Find most non-commutative pair
+    const maxPair = pairs.reduce((max, p) =>
+      Math.abs(p.commutator) > Math.abs(max.commutator) ? p : max
+    , pairs[0]);
+
+    if (Math.abs(maxPair.commutator) > NONCOMMUTATIVE_CONFIG.WEAK_NONCOMMUTATIVE) {
+      this.metrics.mostNonCommutativePair = {
+        dimensions: [maxPair.dimA, maxPair.dimB],
+        commutator: maxPair.commutator,
+        interpretation: maxPair.commutator > 0
+          ? `${maxPair.dimA} before ${maxPair.dimB} tends to increase score`
+          : `${maxPair.dimB} before ${maxPair.dimA} tends to increase score`,
+      };
+    } else {
+      this.metrics.mostNonCommutativePair = null;
+    }
+
+    // Overall order sensitivity
+    this.metrics.orderSensitivity = Math.min(
+      PHI_INV,
+      this.metrics.avgNonCommutativity * 2  // Scale up for visibility
+    );
+  }
+
+  /**
+   * Get recommended evaluation order
+   * Based on learned commutators, optimize order to maximize scores
+   *
+   * @param {string[]} dimensions - Dimensions to evaluate
+   * @returns {string[]} Recommended order
+   */
+  getRecommendedOrder(dimensions) {
+    if (dimensions.length <= 1) return [...dimensions];
+
+    // Simple greedy: for each position, pick dimension that has positive
+    // commutator when coming before remaining dimensions
+    const result = [];
+    const remaining = new Set(dimensions);
+
+    while (remaining.size > 0) {
+      let bestDim = null;
+      let bestScore = -Infinity;
+
+      for (const dim of remaining) {
+        // Calculate expected benefit from putting this dimension next
+        let score = 0;
+        for (const other of remaining) {
+          if (dim === other) continue;
+          const key = this._getPairKey(dim, other);
+          const data = this.commutators.get(key);
+          if (data) {
+            // Positive commutator means dim before other is better
+            if (data.dimA === dim) {
+              score += data.commutator;
+            } else {
+              score -= data.commutator;
+            }
+          }
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          bestDim = dim;
+        }
+      }
+
+      if (bestDim) {
+        result.push(bestDim);
+        remaining.delete(bestDim);
+      } else {
+        // Fallback: just take first remaining
+        const first = remaining.values().next().value;
+        result.push(first);
+        remaining.delete(first);
+      }
+    }
+
+    this.optimalOrder = result;
+    return result;
+  }
+
+  /**
+   * Get commutator between two dimensions
+   * @param {string} dimA - First dimension
+   * @param {string} dimB - Second dimension
+   * @returns {number} Commutator [A,B]
+   */
+  getCommutator(dimA, dimB) {
+    const key = this._getPairKey(dimA, dimB);
+    const data = this.commutators.get(key);
+    if (!data) return 0;
+
+    // Return signed commutator (depends on query order)
+    if (dimA === data.dimA) {
+      return data.commutator;
+    } else {
+      return -data.commutator;
+    }
+  }
+
+  /**
+   * Get all dimension pairs that strongly don't commute
+   * @returns {Object[]} Non-commutative pairs
+   */
+  getStronglyNonCommutativePairs() {
+    return Array.from(this.commutators.values())
+      .filter(p => Math.abs(p.commutator) > NONCOMMUTATIVE_CONFIG.STRONG_NONCOMMUTATIVE)
+      .map(p => ({
+        dimensions: [p.dimA, p.dimB],
+        commutator: Math.round(p.commutator * 1000) / 1000,
+        observations: p.abFirst.length + p.baFirst.length,
+      }))
+      .sort((a, b) => Math.abs(b.commutator) - Math.abs(a.commutator));
+  }
+
+  /**
+   * Get human-readable interpretation
+   * @returns {Object} Interpretation
+   */
+  getInterpretation() {
+    const { avgNonCommutativity, stronglyNonCommutative, mostNonCommutativePair, orderSensitivity } = this.metrics;
+
+    let message, emoji;
+
+    if (this.totalEvaluations < NONCOMMUTATIVE_CONFIG.MIN_OBSERVATIONS) {
+      message = 'Pas assez d\'évaluations pour détecter les effets d\'ordre';
+      emoji = '*head tilt*';
+    } else if (stronglyNonCommutative > 0) {
+      message = `${stronglyNonCommutative} paire(s) de dimensions fortement non-commutative(s) détectée(s)`;
+      emoji = '*ears perk*';
+    } else if (avgNonCommutativity > NONCOMMUTATIVE_CONFIG.WEAK_NONCOMMUTATIVE) {
+      message = 'L\'ordre d\'évaluation a un effet faible mais détectable';
+      emoji = '*sniff*';
+    } else {
+      message = 'L\'ordre d\'évaluation n\'affecte pas significativement les jugements';
+      emoji = '*yawn*';
+    }
+
+    return {
+      message: `${emoji} ${message}`,
+      orderSensitivity: `${Math.round(orderSensitivity * 100)}%`,
+      strongPairs: this.getStronglyNonCommutativePairs().slice(0, 3),
+      recommendation: mostNonCommutativePair
+        ? `Considérer l'ordre: ${mostNonCommutativePair.interpretation}`
+        : 'Pas de recommandation d\'ordre spécifique',
+    };
+  }
+
+  /**
+   * Get statistics
+   */
+  getStats() {
+    return {
+      totalEvaluations: this.totalEvaluations,
+      trackedPairs: this.commutators.size,
+      metrics: this.metrics,
+      interpretation: this.getInterpretation(),
+      optimalOrder: this.optimalOrder,
+    };
+  }
+
+  /**
+   * Export state for persistence
+   */
+  exportState() {
+    const commutatorData = {};
+    for (const [key, data] of this.commutators) {
+      commutatorData[key] = {
+        dimA: data.dimA,
+        dimB: data.dimB,
+        abFirst: data.abFirst.slice(-20),
+        baFirst: data.baFirst.slice(-20),
+        commutator: data.commutator,
+      };
+    }
+
+    return {
+      commutators: commutatorData,
+      metrics: this.metrics,
+      totalEvaluations: this.totalEvaluations,
+      optimalOrder: this.optimalOrder,
+    };
+  }
+
+  /**
+   * Import state
+   */
+  importState(data) {
+    if (data.commutators) {
+      for (const [key, value] of Object.entries(data.commutators)) {
+        this.commutators.set(key, {
+          dimA: value.dimA,
+          dimB: value.dimB,
+          abFirst: value.abFirst || [],
+          baFirst: value.baFirst || [],
+          commutator: value.commutator || 0,
+        });
+      }
+    }
+    if (data.metrics) this.metrics = { ...this.metrics, ...data.metrics };
+    if (data.totalEvaluations) this.totalEvaluations = data.totalEvaluations;
+    if (data.optimalOrder) this.optimalOrder = data.optimalOrder;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // UNIFIED HARMONIC FEEDBACK SYSTEM
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1066,6 +2203,18 @@ class HarmonicFeedbackSystem {
     // Confidence Calibration (Task #71)
     this.confidenceCalibrator = new ConfidenceCalibrator();
 
+    // Girsanov Multi-Measure System (Task #23)
+    // Three parallel probability measures for multi-scenario confidence
+    this.girsanovTransformer = new GirsanovMeasureTransformer();
+
+    // Antifragility Tracker (Task #24)
+    // Measures system response to volatility
+    this.antifragilityTracker = new AntifragilityTracker();
+
+    // Non-Commutative Evaluator (Task #25)
+    // Tracks order-dependent effects in dimension evaluation
+    this.nonCommutativeEvaluator = new NonCommutativeEvaluator();
+
     // Gateway resonance tracking
     this.resonanceHistory = [];
     this.coherenceWindow = [];
@@ -1074,6 +2223,15 @@ class HarmonicFeedbackSystem {
     this.heuristics = new Map();     // Promoted patterns → rules
     this.promotionHistory = [];       // Track promotions/demotions
     this.lastReviewTime = Date.now();
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // TEMPORAL PATTERN ANALYZER (Task #22)
+    // FFT analysis of user behavior cycles
+    // "Le chien détecte les rythmes cachés"
+    // ═══════════════════════════════════════════════════════════════════════
+    this.temporalAnalyzer = new TemporalPatternAnalyzer();
+    this.lastTemporalUpdate = Date.now();
+    this.temporalUpdateInterval = 5 * 60 * 1000; // Update every 5 minutes
 
     // Overall state
     this.state = {
@@ -1184,6 +2342,29 @@ class HarmonicFeedbackSystem {
       { type: suggestion.type, sefirah }
     );
 
+    // Update Girsanov Multi-Measure (Task #23)
+    // Determine context for measure selection
+    const girsanovContext = {
+      isDangerous: sefirah === 'GEVURAH',  // Protection channel = dangerous
+      isRoutine: suggestion.type?.includes('routine') || false,
+      isNovel: suggestion.type?.includes('novel') || false,
+    };
+    this.girsanovTransformer.recordOutcome(
+      suggestion.confidence || 0.5,
+      action.followed,
+      girsanovContext
+    );
+
+    // Update Antifragility Tracker (Task #24)
+    // Calculate volatility signals from current context
+    const volatilitySignals = {
+      errorRate: action.followed ? 0 : 1,  // This action's outcome
+      complexity: suggestion.complexity || 0.5,
+      uncertainty: this.thompsonSampler.getUncertainty(suggestion.type) * 4 || 0.5,  // Scale up
+    };
+    const performance = action.followed ? 1 : 0;
+    this.antifragilityTracker.record(performance, volatilitySignals);
+
     // Update second-order feedback
     const cybResult = this.secondOrderFeedback.observe(
       { followed: action.followed, timing: action.timing },
@@ -1216,6 +2397,24 @@ class HarmonicFeedbackSystem {
     // Update state
     this._updateState(action, cybResult, resonance, sefirah);
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // TEMPORAL PATTERN COLLECTION (Task #22)
+    // Record time series data for FFT analysis
+    // ═══════════════════════════════════════════════════════════════════════
+    this.temporalAnalyzer.record('activity', 1.0);  // Activity event
+    this.temporalAnalyzer.record('coherence', this.state.overallCoherence);
+    this.temporalAnalyzer.record('resonance', Math.max(0, Math.min(1, (resonance + 1) / 2)));  // Normalize -1..1 to 0..1
+    if (!action.followed) {
+      this.temporalAnalyzer.record('errors', 1.0);  // Error/rejection event
+    }
+
+    // Periodic FFT analysis
+    const now = Date.now();
+    if (now - this.lastTemporalUpdate > this.temporalUpdateInterval) {
+      this.lastTemporalUpdate = now;
+      this.temporalAnalyzer.analyzeAll();
+    }
+
     // Return feedback summary
     return this._generateFeedbackSummary(suggestion, action, resonance, cybResult);
   }
@@ -1228,6 +2427,9 @@ class HarmonicFeedbackSystem {
       { followed: true, probability: 0.5 },
       { standalone: true }
     );
+
+    // Record to temporal analyzer (Task #22)
+    this.temporalAnalyzer.record('activity', 0.7);  // Standalone = slightly lower activity signal
   }
 
   _updateState(action, cybResult, resonance, sefirah) {
@@ -1313,7 +2515,29 @@ class HarmonicFeedbackSystem {
       sefirahStats,
       thompsonStats: this.thompsonSampler.exportState(),
       resonanceHistory: this.resonanceHistory.slice(-10),
+      // Temporal analysis (Task #22)
+      temporal: {
+        lastAnalysis: this.temporalAnalyzer.lastAnalysis,
+        optimalTiming: this.temporalAnalyzer.getOptimalTiming(),
+        analysisCount: this.temporalAnalyzer.analysisCount,
+      },
     };
+  }
+
+  /**
+   * Get temporal pattern analysis
+   * @returns {Object} FFT analysis of user behavior cycles
+   */
+  getTemporalAnalysis() {
+    return this.temporalAnalyzer.analyzeAll();
+  }
+
+  /**
+   * Get optimal timing recommendation based on detected cycles
+   * @returns {Object} Timing recommendation
+   */
+  getOptimalTiming() {
+    return this.temporalAnalyzer.getOptimalTiming();
   }
 
   _avgResonanceForSefirah(sefirah) {
@@ -1648,6 +2872,14 @@ class HarmonicFeedbackSystem {
       heuristics: heuristicsData,
       promotionHistory: this.promotionHistory,
       calibration: this.confidenceCalibrator.exportState(),
+      // Temporal analyzer (Task #22)
+      temporal: this.temporalAnalyzer.export(),
+      // Girsanov multi-measure (Task #23)
+      girsanov: this.girsanovTransformer.exportState(),
+      // Antifragility tracker (Task #24)
+      antifragility: this.antifragilityTracker.exportState(),
+      // Non-commutative evaluator (Task #25)
+      nonCommutative: this.nonCommutativeEvaluator.exportState(),
     };
   }
 
@@ -1679,6 +2911,18 @@ class HarmonicFeedbackSystem {
 
     // Import calibration
     if (data.calibration) this.confidenceCalibrator.importState(data.calibration);
+
+    // Import temporal analyzer (Task #22)
+    if (data.temporal) this.temporalAnalyzer.import(data.temporal);
+
+    // Import Girsanov multi-measure (Task #23)
+    if (data.girsanov) this.girsanovTransformer.importState(data.girsanov);
+
+    // Import Antifragility tracker (Task #24)
+    if (data.antifragility) this.antifragilityTracker.importState(data.antifragility);
+
+    // Import Non-commutative evaluator (Task #25)
+    if (data.nonCommutative) this.nonCommutativeEvaluator.importState(data.nonCommutative);
   }
 
   /**
@@ -1791,6 +3035,113 @@ class HarmonicFeedbackSystem {
     };
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // GIRSANOV MULTI-MEASURE METHODS (Task #23)
+  // "Le chien voit trois futurs possibles"
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get confidence under all three probability measures
+   * @param {number} rawConfidence - Raw confidence from Thompson Sampling
+   * @param {Object} context - Context for measure selection
+   * @returns {Object} Multi-measure confidence with range and recommendation
+   */
+  getMultiMeasureConfidence(rawConfidence, context = {}) {
+    return this.girsanovTransformer.getMultiMeasureConfidence(rawConfidence, context);
+  }
+
+  /**
+   * Get adaptive confidence using best measure for context
+   * Automatically selects risk-averse for dangerous contexts
+   * @param {number} rawConfidence - Raw confidence
+   * @param {Object} context - Context
+   * @returns {number} Best confidence estimate
+   */
+  getAdaptiveConfidence(rawConfidence, context = {}) {
+    return this.girsanovTransformer.getAdaptiveConfidence(rawConfidence, context);
+  }
+
+  /**
+   * Get Girsanov multi-measure statistics
+   * @returns {Object} Stats about measure performance
+   */
+  getGirsanovStats() {
+    return this.girsanovTransformer.getStats();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // ANTIFRAGILITY METHODS (Task #24)
+  // "Le chien devient plus fort par l'adversité"
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get antifragility statistics
+   * @returns {Object} Antifragility metrics and interpretation
+   */
+  getAntifragilityStats() {
+    return this.antifragilityTracker.getStats();
+  }
+
+  /**
+   * Get antifragility index
+   * @returns {number} Current antifragility index (-0.618 to 0.618)
+   */
+  getAntifragilityIndex() {
+    return this.antifragilityTracker.metrics.index;
+  }
+
+  /**
+   * Get performance curve for visualization
+   * @returns {Object[]} Volatility vs performance data points
+   */
+  getPerformanceCurve() {
+    return this.antifragilityTracker.getPerformanceCurve();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // NON-COMMUTATIVE EVALUATION METHODS (Task #25)
+  // "L'ordre d'évaluation change le résultat"
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Record a dimension evaluation for non-commutativity tracking
+   * @param {Object} evaluation - Evaluation data
+   * @param {string[]} evaluation.order - Order of dimensions evaluated
+   * @param {Object} evaluation.scores - Score per dimension
+   * @param {number} evaluation.finalScore - Final judgment score
+   * @param {string} evaluation.context - Context identifier
+   */
+  recordDimensionEvaluation(evaluation) {
+    this.nonCommutativeEvaluator.recordEvaluation(evaluation);
+  }
+
+  /**
+   * Get recommended order for evaluating dimensions
+   * @param {string[]} dimensions - Dimensions to evaluate
+   * @returns {string[]} Recommended evaluation order
+   */
+  getRecommendedEvaluationOrder(dimensions) {
+    return this.nonCommutativeEvaluator.getRecommendedOrder(dimensions);
+  }
+
+  /**
+   * Get commutator between two dimensions
+   * @param {string} dimA - First dimension
+   * @param {string} dimB - Second dimension
+   * @returns {number} Commutator [A,B]
+   */
+  getDimensionCommutator(dimA, dimB) {
+    return this.nonCommutativeEvaluator.getCommutator(dimA, dimB);
+  }
+
+  /**
+   * Get non-commutative evaluation statistics
+   * @returns {Object} Non-commutativity stats
+   */
+  getNonCommutativeStats() {
+    return this.nonCommutativeEvaluator.getStats();
+  }
+
   /**
    * Introspect: CYNIC views its own subconscious state
    * Task #74: Allow self-reflection on learning state
@@ -1869,10 +3220,377 @@ class HarmonicFeedbackSystem {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// TEMPORAL PATTERN ANALYZER (FFT)
+// "Un système qui survit au hasard peut survivre à n'importe quoi"
+// Fourier analysis detects cyclical patterns in user behavior
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Known human cognitive cycles (in milliseconds)
+ * These are the frequencies we look for in user behavior
+ */
+const COGNITIVE_CYCLES = Object.freeze({
+  // Ultradian rhythms (within-day cycles)
+  FOCUS_CYCLE: {
+    name: 'Focus/Break Cycle',
+    periodMs: 90 * 60 * 1000,      // 90 minutes (BRAC cycle)
+    description: 'Basic Rest-Activity Cycle - natural focus/recovery rhythm',
+  },
+  POMODORO: {
+    name: 'Pomodoro-like',
+    periodMs: 25 * 60 * 1000,      // 25 minutes
+    description: 'Short focus bursts common in developers',
+  },
+  HOURLY: {
+    name: 'Hourly Check-in',
+    periodMs: 60 * 60 * 1000,      // 1 hour
+    description: 'Hourly rhythm - often meetings/standup driven',
+  },
+
+  // Circadian rhythms (daily cycles)
+  CIRCADIAN: {
+    name: 'Circadian',
+    periodMs: 24 * 60 * 60 * 1000, // 24 hours
+    description: 'Daily rhythm - energy peaks/troughs',
+  },
+
+  // Infradian rhythms (longer than a day)
+  WEEKLY: {
+    name: 'Weekly',
+    periodMs: 7 * 24 * 60 * 60 * 1000, // 1 week
+    description: 'Weekly patterns - Monday blues, Friday rushes',
+  },
+});
+
+/**
+ * TemporalPatternAnalyzer - Fourier analysis of user behavior
+ *
+ * Detects cyclical patterns using Discrete Fourier Transform.
+ * "Le chien détecte les rythmes cachés"
+ */
+class TemporalPatternAnalyzer {
+  constructor(options = {}) {
+    this.windowSize = options.windowSize || 256;  // Number of samples for FFT
+    this.sampleIntervalMs = options.sampleIntervalMs || 5 * 60 * 1000;  // 5 min default
+    this.minSignificance = options.minSignificance || PHI_INV_2;  // 38.2% threshold
+
+    // Time series storage (circular buffer)
+    this.timeSeries = {
+      activity: [],       // Overall activity level
+      coherence: [],      // Coherence scores
+      resonance: [],      // Resonance scores
+      errors: [],         // Error frequency
+    };
+
+    // Detected patterns
+    this.detectedCycles = new Map();
+    this.lastAnalysis = null;
+    this.analysisCount = 0;
+  }
+
+  /**
+   * Record a data point in the time series
+   * @param {string} series - Which series to record to
+   * @param {number} value - Value to record (0-1 normalized)
+   * @param {number} [timestamp] - Optional timestamp (default: now)
+   */
+  record(series, value, timestamp = Date.now()) {
+    if (!this.timeSeries[series]) {
+      this.timeSeries[series] = [];
+    }
+
+    this.timeSeries[series].push({ value, timestamp });
+
+    // Keep bounded to window size
+    if (this.timeSeries[series].length > this.windowSize) {
+      this.timeSeries[series].shift();
+    }
+  }
+
+  /**
+   * Discrete Fourier Transform (DFT)
+   * For small datasets, this is simpler than FFT and sufficient
+   *
+   * @param {number[]} signal - Real-valued time series
+   * @returns {Object[]} Array of { frequency, magnitude, phase }
+   */
+  dft(signal) {
+    const N = signal.length;
+    const spectrum = [];
+
+    for (let k = 0; k < N / 2; k++) {  // Only need half (Nyquist)
+      let real = 0;
+      let imag = 0;
+
+      for (let n = 0; n < N; n++) {
+        const angle = (2 * Math.PI * k * n) / N;
+        real += signal[n] * Math.cos(angle);
+        imag -= signal[n] * Math.sin(angle);
+      }
+
+      const magnitude = Math.sqrt(real * real + imag * imag) / N;
+      const phase = Math.atan2(imag, real);
+
+      spectrum.push({
+        k,                                      // Frequency bin index
+        frequency: k / N,                       // Normalized frequency (cycles per sample)
+        magnitude,
+        phase,
+        periodSamples: k > 0 ? N / k : Infinity, // Period in number of samples
+      });
+    }
+
+    return spectrum;
+  }
+
+  /**
+   * Analyze a time series for dominant frequencies
+   * @param {string} seriesName - Name of the series to analyze
+   * @returns {Object} Analysis results
+   */
+  analyzeTimeSeries(seriesName) {
+    const series = this.timeSeries[seriesName];
+    if (!series || series.length < 16) {  // Need at least 16 samples
+      return { error: 'Insufficient data', samples: series?.length || 0 };
+    }
+
+    // Extract values and normalize (remove DC component / mean)
+    const values = series.map(s => s.value);
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const normalized = values.map(v => v - mean);
+
+    // Compute DFT
+    const spectrum = this.dft(normalized);
+
+    // Find dominant frequencies (excluding DC component at k=0)
+    const significant = spectrum
+      .filter(s => s.k > 0 && s.magnitude > this.minSignificance * Math.max(...spectrum.map(x => x.magnitude)))
+      .sort((a, b) => b.magnitude - a.magnitude)
+      .slice(0, 5);  // Top 5 frequencies
+
+    // Calculate time span of data
+    const timeSpanMs = series[series.length - 1].timestamp - series[0].timestamp;
+    const avgIntervalMs = timeSpanMs / (series.length - 1);
+
+    // Convert to real-world periods
+    const cycles = significant.map(s => {
+      const periodMs = s.periodSamples * avgIntervalMs;
+      const matchedCycle = this._matchKnownCycle(periodMs);
+
+      return {
+        periodMs,
+        periodHuman: this._formatPeriod(periodMs),
+        magnitude: Math.round(s.magnitude * 1000) / 1000,
+        relativeStrength: s.magnitude / Math.max(...spectrum.map(x => x.magnitude)),
+        matchedCycle: matchedCycle?.name || null,
+        description: matchedCycle?.description || 'Unknown pattern',
+      };
+    });
+
+    return {
+      series: seriesName,
+      samples: series.length,
+      timeSpanMs,
+      avgIntervalMs,
+      dominantCycles: cycles,
+      analysisTimestamp: Date.now(),
+    };
+  }
+
+  /**
+   * Match detected period to known cognitive cycles
+   * @param {number} periodMs - Detected period in milliseconds
+   * @returns {Object|null} Matched cycle or null
+   */
+  _matchKnownCycle(periodMs) {
+    // Allow 20% tolerance
+    const tolerance = 0.2;
+
+    for (const [key, cycle] of Object.entries(COGNITIVE_CYCLES)) {
+      const ratio = periodMs / cycle.periodMs;
+      if (ratio > (1 - tolerance) && ratio < (1 + tolerance)) {
+        return cycle;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Format period in human-readable form
+   * @param {number} periodMs - Period in milliseconds
+   * @returns {string} Human readable string
+   */
+  _formatPeriod(periodMs) {
+    const minutes = periodMs / (60 * 1000);
+    const hours = periodMs / (60 * 60 * 1000);
+    const days = periodMs / (24 * 60 * 60 * 1000);
+
+    if (days >= 1) return `${Math.round(days * 10) / 10} days`;
+    if (hours >= 1) return `${Math.round(hours * 10) / 10} hours`;
+    return `${Math.round(minutes)} minutes`;
+  }
+
+  /**
+   * Run full analysis on all time series
+   * @returns {Object} Complete analysis report
+   */
+  analyzeAll() {
+    const results = {};
+
+    for (const seriesName of Object.keys(this.timeSeries)) {
+      results[seriesName] = this.analyzeTimeSeries(seriesName);
+    }
+
+    this.lastAnalysis = {
+      timestamp: Date.now(),
+      results,
+      recommendation: this._generateRecommendation(results),
+    };
+
+    this.analysisCount++;
+    return this.lastAnalysis;
+  }
+
+  /**
+   * Generate recommendations based on detected patterns
+   * @param {Object} results - Analysis results
+   * @returns {Object} Recommendations
+   */
+  _generateRecommendation(results) {
+    const recommendations = [];
+
+    // Check activity patterns
+    if (results.activity?.dominantCycles?.length > 0) {
+      const topCycle = results.activity.dominantCycles[0];
+
+      if (topCycle.matchedCycle === 'Focus/Break Cycle') {
+        recommendations.push({
+          type: 'rhythm_detected',
+          message: `*sniff* Ton cycle focus/repos est de ~${topCycle.periodHuman}. CYNIC va s'adapter.`,
+          action: 'adjust_timing',
+          periodMs: topCycle.periodMs,
+        });
+      }
+
+      if (topCycle.matchedCycle === 'Circadian') {
+        recommendations.push({
+          type: 'circadian_detected',
+          message: '*ears perk* Cycle circadien détecté. Pic d\'énergie prévisible.',
+          action: 'predict_energy',
+        });
+      }
+    }
+
+    // Check error patterns
+    if (results.errors?.dominantCycles?.length > 0) {
+      const errorCycle = results.errors.dominantCycles[0];
+      recommendations.push({
+        type: 'error_pattern',
+        message: `*GROWL* Les erreurs suivent un pattern de ${errorCycle.periodHuman}. Fatigue cyclique?`,
+        action: 'warn_fatigue',
+        periodMs: errorCycle.periodMs,
+      });
+    }
+
+    // Coherence trends
+    if (results.coherence?.dominantCycles?.length > 0) {
+      recommendations.push({
+        type: 'coherence_cycle',
+        message: 'Fluctuations de cohérence détectées - flow state cyclique.',
+        action: 'optimize_sessions',
+      });
+    }
+
+    return {
+      count: recommendations.length,
+      recommendations,
+      summary: recommendations.length > 0
+        ? `${recommendations.length} pattern(s) temporel(s) détecté(s)`
+        : 'Pas assez de données pour détecter des patterns',
+    };
+  }
+
+  /**
+   * Get timing recommendation for next action
+   * Based on detected cycles, when is the best time?
+   * @returns {Object} Timing recommendation
+   */
+  getOptimalTiming() {
+    if (!this.lastAnalysis) {
+      return { recommendation: 'analyze_first', message: 'Pas d\'analyse disponible' };
+    }
+
+    const activityCycles = this.lastAnalysis.results.activity?.dominantCycles || [];
+    if (activityCycles.length === 0) {
+      return { recommendation: 'no_pattern', message: 'Pas de cycle détecté' };
+    }
+
+    // Use the strongest detected cycle
+    const mainCycle = activityCycles[0];
+    const now = Date.now();
+    const phaseInCycle = (now % mainCycle.periodMs) / mainCycle.periodMs;
+
+    // Activity typically peaks at phase 0.25 (quarter into cycle)
+    // and troughs at phase 0.75 (three quarters in)
+    const peakPhase = 0.25;
+    const distanceFromPeak = Math.abs(phaseInCycle - peakPhase);
+
+    return {
+      currentPhase: Math.round(phaseInCycle * 100) + '%',
+      cyclePeriod: mainCycle.periodHuman,
+      energyLevel: distanceFromPeak < 0.25 ? 'HIGH' : distanceFromPeak > 0.5 ? 'LOW' : 'MEDIUM',
+      recommendation: distanceFromPeak < 0.25
+        ? 'optimal'
+        : distanceFromPeak > 0.5
+          ? 'rest_recommended'
+          : 'normal',
+      message: distanceFromPeak < 0.25
+        ? '*tail wag* Période optimale pour les tâches complexes!'
+        : distanceFromPeak > 0.5
+          ? '*yawn* Énergie basse - tâches simples recommandées'
+          : 'Période normale - continuer comme prévu',
+    };
+  }
+
+  /**
+   * Export analysis state for persistence
+   */
+  export() {
+    return {
+      timeSeries: this.timeSeries,
+      detectedCycles: Object.fromEntries(this.detectedCycles),
+      lastAnalysis: this.lastAnalysis,
+      analysisCount: this.analysisCount,
+    };
+  }
+
+  /**
+   * Import from persisted state
+   */
+  import(state) {
+    if (state.timeSeries) this.timeSeries = state.timeSeries;
+    if (state.detectedCycles) this.detectedCycles = new Map(Object.entries(state.detectedCycles));
+    if (state.lastAnalysis) this.lastAnalysis = state.lastAnalysis;
+    if (state.analysisCount) this.analysisCount = state.analysisCount;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SINGLETON & EXPORTS
 // ═══════════════════════════════════════════════════════════════════════════
 
 let _instance = null;
+let _temporalAnalyzer = null;
+
+/**
+ * Get temporal pattern analyzer singleton
+ */
+function getTemporalPatternAnalyzer() {
+  if (!_temporalAnalyzer) {
+    _temporalAnalyzer = new TemporalPatternAnalyzer();
+  }
+  return _temporalAnalyzer;
+}
 
 function getHarmonicFeedback() {
   if (!_instance) {
@@ -1896,6 +3614,23 @@ export {
   FirstOrderFeedback,
   SecondOrderFeedback,
   ConfidenceCalibrator,
+
+  // Girsanov Multi-Measure (Task #23)
+  GirsanovMeasureTransformer,
+  GIRSANOV_CONFIG,
+
+  // Antifragility Tracker (Task #24)
+  AntifragilityTracker,
+  ANTIFRAGILITY_CONFIG,
+
+  // Non-Commutative Evaluator (Task #25)
+  NonCommutativeEvaluator,
+  NONCOMMUTATIVE_CONFIG,
+
+  // Temporal Analysis (FFT) - Task #22
+  TemporalPatternAnalyzer,
+  getTemporalPatternAnalyzer,
+  COGNITIVE_CYCLES,
 
   // Utilities
   calculateCoherence,

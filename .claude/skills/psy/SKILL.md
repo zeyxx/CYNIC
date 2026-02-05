@@ -72,6 +72,35 @@ Shows how accurate CYNIC's predictions are:
 
 *φ distrusts φ - max accuracy capped at 61.8%*
 
+### Temporal Rhythm (FFT Analysis)
+
+Shows detected cognitive cycles:
+- **Phase**: Current position in detected cycle
+- **Energy**: HIGH/MEDIUM/LOW based on cycle position
+- **Cycle**: Matched pattern (BRAC 90min, Pomodoro, Circadian)
+- **Recommendation**: Optimal timing for complex tasks
+
+### Antifragility Index
+
+Shows system response to stress:
+- **Index**: -0.618 to +0.618 (φ-bounded)
+- **Trend**: antifragile (💪), robust (🛡️), or fragile (⚠️)
+- **Interpretation**: Whether stress helps or hurts
+
+### Risk Calibration (Girsanov)
+
+Shows multi-scenario confidence calibration:
+- **Best Measure**: P (Neutral), Q_risk (Risk-Averse), Q_opt (Optimistic)
+- **Brier Scores**: Calibration accuracy per measure
+- Uses risk-averse measure for dangerous operations
+
+### Order Effects (Non-Commutative)
+
+Shows evaluation order dependencies:
+- **Pairs**: Count of strongly non-commutative dimension pairs
+- **Order Sensitivity**: How much order affects outcomes
+- **Top Pair**: Most significant order-dependent pair
+
 ## Implementation
 
 The skill reads from multiple psychology modules:

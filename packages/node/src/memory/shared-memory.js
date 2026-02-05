@@ -830,6 +830,153 @@ export class SharedMemory {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
+   * Save all patterns to PostgreSQL (batch persistence)
+   * Closes BLACK HOLE #1: Patterns no longer lost on restart
+   *
+   * @param {Object} patternRepository - PatternRepository instance
+   * @param {Object} [options={}] - Save options
+   * @param {boolean} [options.onlyModified=false] - Only save modified patterns
+   * @param {number} [options.since=0] - Only save patterns modified since timestamp
+   * @returns {Promise<{saved: number, errors: number}>} Save results
+   */
+  async saveToPostgres(patternRepository, options = {}) {
+    if (!patternRepository) {
+      console.warn('[SharedMemory] No pattern repository provided for persistence');
+      return { saved: 0, errors: 0, skipped: 0 };
+    }
+
+    const { onlyModified = false, since = 0 } = options;
+
+    // Get patterns to save
+    let patternsToSave;
+    if (onlyModified && since > 0) {
+      patternsToSave = this.getModifiedPatterns(since);
+    } else if (onlyModified) {
+      // Save patterns with weight > 1.0 or useCount > 0 or locked
+      patternsToSave = Array.from(this._patterns.values())
+        .filter(p => (p.weight ?? 1.0) > 1.0 || (p.useCount ?? 0) > 0 || p.consolidationLocked)
+        .map(this._toPostgresFormat.bind(this));
+    } else {
+      patternsToSave = Array.from(this._patterns.values())
+        .map(this._toPostgresFormat.bind(this));
+    }
+
+    let saved = 0;
+    let errors = 0;
+
+    // Batch save with error handling
+    for (const pattern of patternsToSave) {
+      try {
+        await patternRepository.upsert(pattern);
+        saved++;
+      } catch (err) {
+        errors++;
+        // Log errors in debug mode (LOUD error mode)
+        if (process.env.CYNIC_DEBUG) {
+          console.error(`[SharedMemory] Failed to save pattern ${pattern.patternId}:`, err.message);
+        }
+      }
+    }
+
+    // Mark save timestamp
+    this._lastSaveTimestamp = Date.now();
+
+    return { saved, errors, total: patternsToSave.length };
+  }
+
+  /**
+   * Load patterns from PostgreSQL at startup
+   * Enables cross-session persistence
+   *
+   * @param {Object} patternRepository - PatternRepository instance
+   * @param {Object} [options={}] - Load options
+   * @param {number} [options.limit=500] - Max patterns to load
+   * @param {number} [options.minConfidence=0.1] - Min confidence to load
+   * @returns {Promise<{loaded: number}>} Load results
+   */
+  async loadFromPostgres(patternRepository, options = {}) {
+    if (!patternRepository) {
+      console.warn('[SharedMemory] No pattern repository provided for loading');
+      return { loaded: 0 };
+    }
+
+    const { limit = 500, minConfidence = 0.1 } = options;
+
+    try {
+      // Load patterns ordered by confidence and frequency
+      const patterns = await patternRepository.list({ limit });
+
+      let loaded = 0;
+      for (const dbPattern of patterns) {
+        // Convert from PostgreSQL format to SharedMemory format
+        const smPattern = this._fromPostgresFormat(dbPattern);
+
+        // Skip low confidence patterns
+        if ((smPattern.fisherImportance ?? smPattern.weight ?? 0) < minConfidence) {
+          continue;
+        }
+
+        // Don't overwrite existing patterns that might be more recent
+        if (!this._patterns.has(smPattern.id)) {
+          this._patterns.set(smPattern.id, smPattern);
+          loaded++;
+        } else {
+          // Merge: take higher weight/Fisher importance
+          const existing = this._patterns.get(smPattern.id);
+          if ((smPattern.fisherImportance ?? 0) > (existing.fisherImportance ?? 0)) {
+            this._patterns.set(smPattern.id, { ...existing, ...smPattern });
+            loaded++;
+          }
+        }
+      }
+
+      console.log(`[SharedMemory] Loaded ${loaded} patterns from PostgreSQL`);
+      return { loaded };
+    } catch (err) {
+      console.error('[SharedMemory] Failed to load patterns from PostgreSQL:', err.message);
+      return { loaded: 0, error: err.message };
+    }
+  }
+
+  /**
+   * Convert PostgreSQL pattern format to SharedMemory format
+   *
+   * @param {Object} dbPattern - Pattern from PostgreSQL
+   * @returns {Object} Pattern in SharedMemory format
+   * @private
+   */
+  _fromPostgresFormat(dbPattern) {
+    const data = typeof dbPattern.data === 'string'
+      ? JSON.parse(dbPattern.data)
+      : (dbPattern.data || {});
+
+    return {
+      id: dbPattern.pattern_id,
+      name: dbPattern.name,
+      description: dbPattern.description,
+      category: dbPattern.category,
+      tags: dbPattern.tags || [],
+      applicableTo: data.applicableTo || [dbPattern.category],
+      // Weights and importance
+      weight: data.weight ?? 1.0,
+      fisherImportance: data.fisherImportance ?? dbPattern.confidence ?? 0,
+      consolidationLocked: data.consolidationLocked ?? false,
+      verified: data.verified ?? false,
+      // Stats
+      useCount: dbPattern.frequency || 0,
+      addedAt: dbPattern.created_at ? new Date(dbPattern.created_at).getTime() : Date.now(),
+      lastUsed: dbPattern.updated_at ? new Date(dbPattern.updated_at).getTime() : null,
+      // Source info
+      sourceJudgments: typeof dbPattern.source_judgments === 'string'
+        ? JSON.parse(dbPattern.source_judgments)
+        : (dbPattern.source_judgments || []),
+      sourceCount: dbPattern.source_count || 0,
+      // Preserve additional data
+      data,
+    };
+  }
+
+  /**
    * Get EWC-locked patterns for persistence
    * These are high-importance patterns that should be saved to PostgreSQL
    *

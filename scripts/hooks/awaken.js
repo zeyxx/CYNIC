@@ -1696,6 +1696,38 @@ async function main() {
     } catch (e) { /* Q-Learning initialization is optional */ }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // SHAREDMEMORY PATTERN LOADING (Task #26: W1.5)
+    // "Le chien se souvient des patterns" - Load patterns from PostgreSQL
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      const { getSharedMemory, getCollectivePackAsync } = await import('@cynic/node');
+      const { getPool, PatternRepository } = await import('@cynic/persistence');
+
+      const pool = getPool();
+      if (pool) {
+        const persistence = { query: async (sql, params) => pool.query(sql, params) };
+
+        // Ensure collective pack initializes with persistence (triggers loadPersistedState)
+        await Promise.race([
+          getCollectivePackAsync({ persistence }),
+          new Promise(resolve => setTimeout(() => resolve(null), 3000)),
+        ]);
+
+        const sharedMemory = getSharedMemory();
+        if (sharedMemory?._patterns) {
+          output.sharedMemory = {
+            loaded: true,
+            patterns: sharedMemory._patterns.size || 0,
+            stats: sharedMemory.stats || {},
+          };
+        }
+      }
+    } catch (e) {
+      // SharedMemory loading is optional - patterns will be loaded on first access
+      output.sharedMemory = { loaded: false, error: e.message };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // CODEBASE SELF-INDEXING (background, don't wait)
     // "Le chien doit se connaître lui-même"
     // ═══════════════════════════════════════════════════════════════════════════

@@ -12,6 +12,22 @@
 export * from './base-hook.js';
 export * from './pattern-detector.js';
 
+// Anti-Pattern Detector (BURN extraction from observe.js)
+export {
+  antiPatternState,
+  calculateRealReward,
+  detectAntiPatterns,
+  resetAntiPatternState,
+} from './anti-pattern-detector.js';
+
+// Active Dog Detection & Inline Status (BURN extraction from observe.js)
+export {
+  getActiveDog,
+  formatActiveDog,
+  generateInlineStatus,
+  COLLECTIVE_DOGS,
+} from './active-dog.js';
+
 // Session state management (Phase 22)
 export { SessionStateManager, getSessionState } from './session-state.js';
 
@@ -88,6 +104,30 @@ export {
   PROMOTION_CONFIG,      // Task #70: Pattern-to-heuristic promotion
   CALIBRATION_CONFIG,    // Task #71: Confidence calibration config
 } from './harmonic-feedback.js';
+
+// Fact Extractor Local (BURN extraction from observe.js)
+export {
+  extractFacts,
+  storeFacts,
+} from './fact-extractor-local.js';
+
+// Trigger Processor (BURN extraction from observe.js)
+export {
+  mapToTriggerEventType,
+  processTriggerEvent,
+  parseTestOutput,
+  extractCommitHash,
+  extractCommitMessage,
+  extractErrorSummary,
+} from './trigger-processor.js';
+
+// Trigger Engine - Proactive Suggestions (Task #27: W2.1)
+export {
+  TriggerEngine,
+  getTriggerEngine,
+  resetTriggerEngine,
+  TRIGGER_TYPES,
+} from './trigger-engine.js';
 
 // ReasoningBank (P1.2: Trajectory learning)
 let _reasoningBank = null;
@@ -389,4 +429,148 @@ export async function getQLearningServiceWithPersistenceAsync() {
     await _qlearningInitPromise;
   }
   return service;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// LOUD DEBUG MODE (Task #25: Make errors visible)
+// "φ distrusts φ, but φ can see φ" - transparency for debugging
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Check if CYNIC_DEBUG mode is enabled
+ * @returns {boolean} True if debug mode is on
+ */
+export function isDebugMode() {
+  return process.env.CYNIC_DEBUG === '1' ||
+         process.env.CYNIC_DEBUG === 'true' ||
+         process.env.CYNIC_DEBUG === 'loud';
+}
+
+/**
+ * Check if LOUD mode is enabled (extra verbose)
+ * @returns {boolean} True if loud mode is on
+ */
+export function isLoudMode() {
+  return process.env.CYNIC_DEBUG === 'loud';
+}
+
+/**
+ * Debug log - only outputs when CYNIC_DEBUG is enabled
+ * @param {string} component - Component name (e.g., 'OBSERVE', 'GUARD')
+ * @param {string} message - Log message
+ * @param {Object} [data] - Optional data to log
+ */
+export function debugLog(component, message, data = null) {
+  if (!isDebugMode()) return;
+
+  const timestamp = new Date().toISOString().slice(11, 23);
+  const prefix = `[${timestamp}][${component}]`;
+
+  if (data) {
+    console.error(`${prefix} ${message}`, JSON.stringify(data, null, 2));
+  } else {
+    console.error(`${prefix} ${message}`);
+  }
+}
+
+/**
+ * Debug error - ALWAYS outputs in LOUD mode, optional in normal debug
+ * Records to telemetry and in-memory error buffer for brain_debug_errors
+ *
+ * @param {string} component - Component name (e.g., 'OBSERVE', 'GUARD')
+ * @param {string} message - Error message
+ * @param {Error|Object} error - Error object or details
+ * @param {string} [severity='error'] - Severity: 'warning', 'error', 'critical'
+ */
+export function debugError(component, message, error, severity = 'error') {
+  const errorMsg = error instanceof Error ? error.message : (error?.message || String(error));
+  const errorStack = error instanceof Error ? error.stack : null;
+
+  // Always record to telemetry
+  recordFriction(`${component.toLowerCase()}_error`, severity === 'critical' ? 'high' : 'medium', {
+    component,
+    message,
+    error: errorMsg,
+    stack: errorStack?.split('\n').slice(0, 3).join(' → '),
+  });
+
+  // Add to in-memory error buffer for brain_debug_errors
+  addToErrorBuffer({
+    component,
+    message,
+    error: errorMsg,
+    severity,
+    timestamp: Date.now(),
+  });
+
+  // LOUD mode: always output
+  // Normal debug: output if enabled
+  if (isLoudMode() || (isDebugMode() && severity !== 'warning')) {
+    const timestamp = new Date().toISOString().slice(11, 23);
+    const severityIcon = severity === 'critical' ? '🔴' :
+                        severity === 'error' ? '❌' : '⚠️';
+    console.error(`${severityIcon} [${timestamp}][${component}] ${message}: ${errorMsg}`);
+    if (errorStack && isLoudMode()) {
+      console.error(`   Stack: ${errorStack.split('\n').slice(1, 4).join('\n   ')}`);
+    }
+  }
+}
+
+/**
+ * Debug timing - measure and log execution time
+ * @param {string} component - Component name
+ * @param {string} operation - Operation being timed
+ * @param {Function} fn - Async function to time
+ * @returns {Promise<any>} Result of the function
+ */
+export async function debugTiming(component, operation, fn) {
+  const start = Date.now();
+  try {
+    const result = await fn();
+    const duration = Date.now() - start;
+
+    // Record timing metric
+    recordTiming(`${component.toLowerCase()}.${operation}`, duration);
+
+    // Log if debug mode or if slow (>1000ms)
+    if (isDebugMode() || duration > 1000) {
+      debugLog(component, `${operation} completed in ${duration}ms`);
+    }
+
+    return result;
+  } catch (error) {
+    const duration = Date.now() - start;
+    debugError(component, `${operation} failed after ${duration}ms`, error);
+    throw error;
+  }
+}
+
+// In-memory error buffer for brain_debug_errors tool
+const _errorBuffer = [];
+const MAX_ERROR_BUFFER = 100;
+
+/**
+ * Add error to in-memory buffer
+ * @param {Object} error - Error entry
+ */
+function addToErrorBuffer(error) {
+  _errorBuffer.push(error);
+  if (_errorBuffer.length > MAX_ERROR_BUFFER) {
+    _errorBuffer.shift(); // Remove oldest
+  }
+}
+
+/**
+ * Get error buffer for brain_debug_errors
+ * @returns {Array} Recent errors
+ */
+export function getErrorBuffer() {
+  return [..._errorBuffer];
+}
+
+/**
+ * Clear error buffer
+ */
+export function clearErrorBuffer() {
+  _errorBuffer.length = 0;
 }

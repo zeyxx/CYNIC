@@ -466,7 +466,7 @@ export function _resetLLMRouterForTesting() {
  *
  * @returns {LLMAdapter[]}
  */
-export function createValidatorsFromEnv() {
+export async function createValidatorsFromEnv() {
   const validators = [];
   const validatorList = (process.env.CYNIC_VALIDATORS || '').split(',').filter(Boolean);
 
@@ -480,10 +480,14 @@ export function createValidatorsFromEnv() {
           break;
         case 'lm-studio':
         case 'lmstudio':
-          // Import dynamically to avoid circular dependency
-          const { createLMStudioValidator } = require('./adapters/oss-llm.js');
-          validators.push(createLMStudioValidator());
-          log.info('Created LM Studio validator from env');
+          // FIX #1: ESM-compatible dynamic import (was require())
+          try {
+            const { createLMStudioValidator } = await import('./adapters/oss-llm.js');
+            validators.push(createLMStudioValidator());
+            log.info('Created LM Studio validator from env');
+          } catch (err) {
+            log.warn('Failed to load LM Studio adapter', { error: err.message });
+          }
           break;
         case 'airllm':
           if (process.env.CYNIC_AIRLLM === 'true') {
@@ -518,12 +522,12 @@ export function createValidatorsFromEnv() {
  * @param {Object} [options]
  * @returns {LLMRouter}
  */
-export function getRouterWithValidators(options = {}) {
+export async function getRouterWithValidators(options = {}) {
   const router = getLLMRouter(options);
 
   // Add validators from environment if not already added
   if (router.validators.length === 0) {
-    const envValidators = createValidatorsFromEnv();
+    const envValidators = await createValidatorsFromEnv();
     for (const validator of envValidators) {
       router.addValidator(validator);
     }

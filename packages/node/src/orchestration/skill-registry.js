@@ -218,9 +218,9 @@ export class SkillRegistry {
    * Record skill invocation to Q-Learning for weight optimization
    * @private
    */
-  _recordToQLearning(skillName, success, latencyMs, method) {
+  async _recordToQLearning(skillName, success, latencyMs, method) {
     try {
-      const { getQLearningService } = require('./learning-service.js');
+      const { getQLearningService } = await import('./learning-service.js');
       const qlearning = getQLearningService();
       if (qlearning) {
         // Find domain for this skill

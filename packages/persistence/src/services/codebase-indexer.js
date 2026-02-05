@@ -18,8 +18,13 @@
 'use strict';
 
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import path from 'path';
 import { FactType } from '../postgres/repositories/facts.js';
+
+// Parallel processing constants (φ-aligned)
+const PARALLEL_CONCURRENCY = 21; // Fibonacci number for optimal parallel reads
+const PARALLEL_BATCH_SIZE = 89;  // Fibonacci batch for DB inserts
 
 // φ constants
 const PHI_INV = 0.618033988749895;
@@ -200,48 +205,34 @@ export class CodebaseIndexer {
 
       this._reportProgress('scan', { total: allFiles.length, indexing: filesToIndex.length });
 
-      // 2. Index each file with dependencies
-      let processed = 0;
-      const batch = [];
+      // 2. Index files in PARALLEL (21 concurrent, φ-aligned)
+      const parallelResult = await this._processFilesParallel(
+        filesToIndex,
+        extractDeps,
+        (progress) => this._reportProgress('indexing', progress)
+      );
 
-      for (const filePath of filesToIndex) {
-        try {
-          const fact = await this._indexFile(filePath, extractDeps);
-          if (fact) {
-            batch.push(fact);
-            results.factsGenerated++;
-            if (fact.context?.dependencies) {
-              results.dependenciesExtracted += fact.context.dependencies.imports.length;
-            }
-          }
-        } catch (e) {
-          results.errors.push({ file: filePath, error: e.message });
-        }
+      results.filesIndexed = parallelResult.processed;
+      results.errors.push(...parallelResult.errors);
 
-        processed++;
-        if (processed % FIB_BATCH === 0) {
-          this._reportProgress('indexing', { processed, total: filesToIndex.length });
-
-          // Store batch (single DB round-trip)
-          try {
-            await this._storeBatch(batch);
-          } catch (e) {
-            results.errors.push({ batch: 'file_batch', error: e.message });
-          }
-          batch.length = 0;
+      // Count dependencies and store in batches
+      const allFileFacts = parallelResult.facts;
+      for (const fact of allFileFacts) {
+        if (fact.context?.dependencies) {
+          results.dependenciesExtracted += fact.context.dependencies.imports.length;
         }
       }
+      results.factsGenerated += allFileFacts.length;
 
-      // Store remaining batch
-      if (batch.length > 0) {
+      // Store facts in batches (single DB round-trip per batch)
+      for (let i = 0; i < allFileFacts.length; i += PARALLEL_BATCH_SIZE) {
+        const batch = allFileFacts.slice(i, i + PARALLEL_BATCH_SIZE);
         try {
           await this._storeBatch(batch);
         } catch (e) {
-          results.errors.push({ batch: 'file_batch_final', error: e.message });
+          results.errors.push({ batch: `file_batch_${i}`, error: e.message });
         }
       }
-
-      results.filesIndexed = processed;
 
       // 3. Include keystone facts if requested (batch insert)
       if (includeKeystone) {
@@ -338,7 +329,104 @@ export class CodebaseIndexer {
   }
 
   /**
-   * Index a single file with dependency extraction
+   * Process files in parallel with concurrency limit
+   * @private
+   * @param {string[]} files - Files to process
+   * @param {boolean} extractDeps - Extract dependencies
+   * @param {Function} onProgress - Progress callback
+   * @returns {Promise<{facts: Object[], errors: Object[]}>}
+   */
+  async _processFilesParallel(files, extractDeps = true, onProgress = null) {
+    const facts = [];
+    const errors = [];
+    let processed = 0;
+
+    // Process in chunks with concurrency limit
+    for (let i = 0; i < files.length; i += PARALLEL_CONCURRENCY) {
+      const chunk = files.slice(i, i + PARALLEL_CONCURRENCY);
+
+      // Process chunk in parallel
+      const chunkResults = await Promise.all(
+        chunk.map(async (filePath) => {
+          try {
+            const fact = await this._indexFileAsync(filePath, extractDeps);
+            return { success: true, fact };
+          } catch (e) {
+            return { success: false, error: { file: filePath, error: e.message } };
+          }
+        })
+      );
+
+      // Collect results
+      for (const result of chunkResults) {
+        if (result.success && result.fact) {
+          facts.push(result.fact);
+        } else if (!result.success) {
+          errors.push(result.error);
+        }
+        processed++;
+      }
+
+      // Report progress
+      if (onProgress && processed % PARALLEL_BATCH_SIZE === 0) {
+        onProgress({ processed, total: files.length });
+      }
+    }
+
+    return { facts, errors, processed };
+  }
+
+  /**
+   * Index a single file asynchronously (parallel-safe)
+   * @private
+   */
+  async _indexFileAsync(filePath, extractDeps = true) {
+    const content = await fsPromises.readFile(filePath, 'utf8');
+    const relativePath = path.relative(this.rootDir, filePath);
+    const lineCount = content.split('\n').length;
+
+    // Extract module documentation
+    let description = '';
+    const docMatch = content.match(/^\/\*\*[\s\S]*?\*\//);
+    if (docMatch) {
+      description = docMatch[0]
+        .replace(/\/\*\*|\*\/|\*/g, '')
+        .replace(/@\w+[^\n]*/g, '')
+        .replace(/\n\s+/g, ' ')
+        .trim()
+        .substring(0, 300);
+    }
+
+    // Extract dependencies
+    let dependencies = null;
+    if (extractDeps) {
+      dependencies = this._extractDependencies(content, filePath);
+    }
+
+    // Calculate importance
+    const importCount = dependencies?.imports?.length || 0;
+    const exportCount = dependencies?.exports?.length || 0;
+    const importance = Math.min(PHI_INV, PHI_SQ_INV + (importCount + exportCount) / 50 * PHI_SQ_INV);
+
+    return {
+      factType: FactType.FILE_STRUCTURE,
+      subject: `File: ${relativePath}`,
+      content: description || `JavaScript file with ${lineCount} lines`,
+      confidence: importance,
+      tags: ['file', 'javascript', this._getPackageName(relativePath)].filter(Boolean),
+      context: {
+        path: relativePath,
+        fullPath: filePath,
+        lineCount,
+        dependencies,
+        hasExports: exportCount > 0,
+        isEntryPoint: relativePath.includes('index.js') || relativePath.includes('server.js'),
+      },
+    };
+  }
+
+  /**
+   * Index a single file with dependency extraction (sync, legacy)
    * @private
    */
   async _indexFile(filePath, extractDeps = true) {

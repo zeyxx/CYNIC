@@ -25,12 +25,28 @@ let psychology = null;
 let thermodynamics = null;
 let biases = null;
 let learning = null;
+let harmonicState = null;
 
 function loadModules() {
   try { psychology = require('./human-psychology.cjs'); psychology.init(); } catch {}
   try { thermodynamics = require('./cognitive-thermodynamics.cjs'); thermodynamics.init(); } catch {}
   try { biases = require('./cognitive-biases.cjs'); } catch {}
   try { learning = require('./learning-loop.cjs'); } catch {}
+
+  // Load harmonic state from file (Bridge A: ESM → CJS)
+  try {
+    const fs = require('fs');
+    const os = require('os');
+    const statePath = path.join(os.homedir(), '.cynic', 'harmonic', 'state.json');
+    if (fs.existsSync(statePath)) {
+      const data = fs.readFileSync(statePath, 'utf8');
+      harmonicState = JSON.parse(data);
+      // Check freshness (5 min max)
+      if (Date.now() - harmonicState.timestamp > 5 * 60 * 1000) {
+        harmonicState = null; // Stale
+      }
+    }
+  } catch {}
 }
 
 // Use centralized ANSI or fallback
@@ -199,6 +215,73 @@ function generateDashboard(enableColor = true) {
         lines.push('');
       }
     } catch {}
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BRIDGE A (Tasks #26-29): Mathematical Systems from Harmonic Feedback
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (harmonicState) {
+    // === TEMPORAL PATTERNS (Task #26) ===
+    if (harmonicState.temporal && harmonicState.temporal.recommendation !== 'no_pattern') {
+      lines.push(c(ANSI.brightWhite, '── TEMPORAL RHYTHM ────────────────────────────────────────'));
+      const t = harmonicState.temporal;
+      const phaseColor = t.energyLevel === 'HIGH' ? ANSI.brightGreen :
+                         t.energyLevel === 'LOW' ? ANSI.brightRed : ANSI.yellow;
+      lines.push(`   Phase:  ${c(phaseColor, t.currentPhase || '?')} in ${t.cyclePeriod || 'unknown'} cycle`);
+      lines.push(`   Energy: ${c(phaseColor, t.energyLevel || 'UNKNOWN')}`);
+      if (t.recommendation === 'rest_recommended') {
+        lines.push(`   ${c(ANSI.brightYellow, '⚠️ ' + t.message)}`);
+      } else if (t.recommendation === 'optimal') {
+        lines.push(`   ${c(ANSI.brightGreen, '✨ ' + t.message)}`);
+      }
+      lines.push('');
+    }
+
+    // === ANTIFRAGILITY (Task #28) ===
+    if (harmonicState.antifragility?.metrics?.trend) {
+      lines.push(c(ANSI.brightWhite, '── ANTIFRAGILITY ──────────────────────────────────────────'));
+      const af = harmonicState.antifragility;
+      const idx = af.metrics.index || 0;
+      const trend = af.metrics.trend;
+      const afColor = trend === 'antifragile' ? ANSI.brightGreen :
+                      trend === 'fragile' ? ANSI.brightRed : ANSI.yellow;
+      const afEmoji = trend === 'antifragile' ? '💪' : trend === 'fragile' ? '⚠️' : '🛡️';
+      lines.push(`   Index:  [${colorBar((idx + 0.618) / 1.236)}] ${c(afColor, idx.toFixed(3))}`);
+      lines.push(`   Trend:  ${afEmoji} ${c(afColor, trend.toUpperCase())}`);
+      if (af.interpretation?.advice) {
+        lines.push(`   ${c(ANSI.dim, af.interpretation.advice)}`);
+      }
+      lines.push('');
+    }
+
+    // === GIRSANOV MEASURES (Task #27) ===
+    if (harmonicState.girsanov?.totalObservations > 5) {
+      lines.push(c(ANSI.brightWhite, '── RISK CALIBRATION (Girsanov) ────────────────────────────'));
+      const g = harmonicState.girsanov;
+      const best = g.bestMeasure || 'P';
+      const bestName = best === 'P' ? 'Neutral' : best === 'Q_risk' ? 'Risk-Averse' : 'Optimistic';
+      lines.push(`   Best:   ${c(ANSI.brightCyan, bestName)} (${g.measures?.[best]?.brierScore?.toFixed(3) || '?'} Brier)`);
+      if (g.measures) {
+        const pBrier = g.measures.P?.brierScore?.toFixed(3) || '?';
+        const qrBrier = g.measures.Q_risk?.brierScore?.toFixed(3) || '?';
+        const qoBrier = g.measures.Q_opt?.brierScore?.toFixed(3) || '?';
+        lines.push(`   All:    P:${pBrier} │ Q_risk:${qrBrier} │ Q_opt:${qoBrier}`);
+      }
+      lines.push('');
+    }
+
+    // === NON-COMMUTATIVE (Task #29) ===
+    if (harmonicState.nonCommutative?.metrics?.stronglyNonCommutative > 0) {
+      lines.push(c(ANSI.brightWhite, '── ORDER EFFECTS ──────────────────────────────────────────'));
+      const nc = harmonicState.nonCommutative;
+      lines.push(`   Pairs:  ${c(ANSI.brightYellow, nc.metrics.stronglyNonCommutative)} strongly non-commutative`);
+      lines.push(`   Order sensitivity: ${c(ANSI.brightCyan, Math.round(nc.metrics.orderSensitivity * 100) + '%')}`);
+      if (nc.interpretation?.strongPairs?.length > 0) {
+        const topPair = nc.interpretation.strongPairs[0];
+        lines.push(`   Top:    ${c(ANSI.dim, topPair.dimensions.join(' × '))} = ${topPair.commutator}`);
+      }
+      lines.push('');
+    }
   }
 
   // === FOOTER ===

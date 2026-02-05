@@ -25,7 +25,7 @@ import { ServiceInitializer } from './server/ServiceInitializer.js';
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = join(__filename, '..');
-import { CYNICJudge, LearningService, ResidualDetector, createEScoreCalculator, createEmergenceLayer, DogOrchestrator, createAutonomousDaemon, getCollectivePack, getCollectivePackAsync, getSharedMemory, saveCollectiveState, createHeartbeatService, createSLATracker, createConsciousnessBridge, createDefaultChecks, createEmergenceDetector, initializeQLearning } from '@cynic/node';
+import { CYNICJudge, LearningService, ResidualDetector, createEScoreCalculator, createEmergenceLayer, DogOrchestrator, createAutonomousDaemon, getCollectivePack, getCollectivePackAsync, getSharedMemory, getQLearningServiceSingleton, saveCollectiveState, createHeartbeatService, createSLATracker, createConsciousnessBridge, createDefaultChecks, createEmergenceDetector, initializeQLearning } from '@cynic/node';
 import { createEngineIntegration } from '@cynic/node/judge/engine-integration.js';
 import { UnifiedOrchestrator } from '@cynic/node/orchestration/unified-orchestrator.js';
 import { KabbalisticRouter } from '@cynic/node/orchestration/kabbalistic-router.js';
@@ -796,6 +796,9 @@ export class MCPServer {
       localPrivacyStore: this.localPrivacyStore,
       // Oracle (token scoring - 17-dim)
       oracle: this.oracle,
+      // Debug tools (brain_debug_*) - "φ distrusts φ, but φ can see φ"
+      sharedMemory: this.sharedMemory,
+      getQLearningService: getQLearningServiceSingleton,
     });
 
     // Feed registered tool names to PerceptionRouter for Layer 2 routing

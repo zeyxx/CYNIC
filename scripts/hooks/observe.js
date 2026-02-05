@@ -80,6 +80,16 @@ import {
   storeFacts,
   processTriggerEvent,
   extractCommitMessage,
+  // Task #25: LOUD debug mode
+  isDebugMode,
+  isLoudMode,
+  debugLog,
+  debugError,
+  debugTiming,
+  getErrorBuffer,
+  // Task #27-28: Trigger Engine - Proactive Suggestions
+  getTriggerEngine,
+  TRIGGER_TYPES,
 } from './lib/index.js';
 
 // =============================================================================
@@ -111,6 +121,19 @@ const suggestionEngine = getSuggestionEngine();
 // Phase 23: Harmonic Feedback System (Kabbalah + CIA + Cybernetics + Thompson Sampling)
 const harmonicFeedback = getHarmonicFeedback();
 const implicitFeedback = getImplicitFeedback();
+
+// Task #28-30: Trigger Engine - Proactive Suggestions with Dogs Voting
+const triggerEngine = getTriggerEngine({
+  enabled: true,
+  // Task #30: Wire Dogs voting via auto-orchestrator's CollectivePack
+  getCollectivePack: async () => {
+    const autoOrchestrator = getAutoOrchestratorSync();
+    if (autoOrchestrator?.getCollectivePack) {
+      return autoOrchestrator.getCollectivePack();
+    }
+    return null;
+  },
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FIL 2 (Task #84): Wire harmonic feedback → learning service
@@ -594,9 +617,7 @@ async function main() {
 
       } catch (selfJudgeErr) {
         // Self-judge failed — fall back to simple detection
-        if (process.env.CYNIC_DEBUG) {
-          console.error('[OBSERVE] Self-judge error:', selfJudgeErr.message);
-        }
+        debugError('OBSERVE', 'Self-judge failed', selfJudgeErr, 'warning');
         // Minimal output
         console.error(`🪞 SELF-MOD: ${path.basename(filePath)} (self-judge unavailable)`);
       }
@@ -772,9 +793,7 @@ async function main() {
 
       } catch (e) {
         // Q-Learning recording failed - continue without
-        if (process.env.CYNIC_DEBUG) {
-          console.error('[OBSERVE] Q-Learning error:', e.message);
-        }
+        debugError('OBSERVE', 'Q-Learning recording failed', e, 'warning');
       }
     }
 
@@ -1228,9 +1247,7 @@ async function main() {
 
       } catch (e) {
         // Harmonic feedback failed - continue without
-        if (process.env.CYNIC_DEBUG) {
-          console.error('[OBSERVE] Harmonic feedback error:', e.message);
-        }
+        debugError('OBSERVE', 'Harmonic feedback failed', e, 'warning');
       }
     }
 
@@ -2323,6 +2340,94 @@ async function main() {
 
       } catch {
         // Learning visibility failed - continue without
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TRIGGER ENGINE: Proactive Suggestions (Task #28: W2.2)
+    // "Le chien anticipe" - CYNIC becomes proactive, not just reactive
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (triggerEngine) {
+      try {
+        // Update context for trigger evaluation
+        const thermoState = thermodynamics?.getState?.() || {};
+        const psyState = psychology?.getState?.() || {};
+        const sessionState = getSessionState();
+        const goals = sessionState?.getActiveGoals?.() || [];
+
+        triggerEngine.updateContext({
+          userEnergy: thermoState.efficiency ? thermoState.efficiency / 100 : (psyState.energy || 1.0),
+          userFocus: psyState.focus || 1.0,
+          currentFocus: toolName === 'Edit' || toolName === 'Write'
+            ? (toolInput.file_path || toolInput.filePath || null)
+            : (toolName === 'Bash' ? 'terminal' : null),
+          activeGoal: goals.find(g => g.status === 'active') || null,
+          goals: goals,
+          sessionDuration: sessionState?.getDuration?.() || 0,
+        });
+
+        // Task #31: Check for implicit acceptance of pending suggestions
+        const resolvedSuggestions = triggerEngine.checkImplicitAcceptance();
+        for (const resolved of resolvedSuggestions) {
+          debugLog('observe', 'Suggestion resolved', {
+            id: resolved.id,
+            trigger: resolved.trigger,
+            accepted: resolved.accepted,
+            reason: resolved.reason,
+          });
+          // Record for telemetry
+          if (telemetry) {
+            telemetry.recordEvent?.('suggestion_outcome', {
+              suggestionId: resolved.id,
+              trigger: resolved.trigger,
+              accepted: resolved.accepted,
+              reason: resolved.reason,
+            });
+          }
+        }
+
+        // Evaluate all triggers
+        const suggestions = triggerEngine.evaluateAll();
+
+        // Task #30: Dogs voting on suggestions (with timeout to stay non-blocking)
+        const VOTE_TIMEOUT_MS = 100; // Fast timeout - voting is optional
+        for (const suggestion of suggestions) {
+          // Try to get Dogs vote, but don't block
+          let voteResult = { approved: true, reason: 'no_voting' };
+          try {
+            voteResult = await Promise.race([
+              triggerEngine.voteSuggestion(suggestion),
+              new Promise(resolve => setTimeout(() => resolve({ approved: true, reason: 'timeout' }), VOTE_TIMEOUT_MS)),
+            ]);
+          } catch {
+            // Voting failed - default to showing (fail-open)
+            voteResult = { approved: true, reason: 'vote_error' };
+          }
+
+          // Only show if Dogs approved (or voting unavailable)
+          if (!voteResult.approved) {
+            debugLog('observe', 'Suggestion rejected by Dogs', { suggestion: suggestion.id, reason: voteResult.reason });
+            continue;
+          }
+
+          const urgencyColor = suggestion.urgency === 'URGENT' ? ANSI.brightRed :
+                              suggestion.urgency === 'ACTIVE' ? ANSI.yellow :
+                              ANSI.cyan;
+          outputParts.push(`\n${c(urgencyColor, '💡 PROACTIVE:')} ${suggestion.message}\n`);
+
+          // Record for telemetry
+          if (telemetry) {
+            telemetry.recordEvent?.('proactive_suggestion', {
+              trigger: suggestion.trigger,
+              urgency: suggestion.urgency,
+              suggestionId: suggestion.id,
+              voteResult: voteResult.reason,
+            });
+          }
+        }
+      } catch (e) {
+        // Trigger engine failed - continue without (non-blocking)
+        debugError('observe', 'TriggerEngine evaluation failed', e, 'warn');
       }
     }
 

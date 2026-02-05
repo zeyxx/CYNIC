@@ -22,6 +22,11 @@ export const ObservationType = {
   COMPONENT_FAILURE: 'COMPONENT_FAILURE',
   PERFORMANCE_DEGRADATION: 'PERFORMANCE_DEGRADATION',
   RECOVERY: 'RECOVERY',
+  // Error types (added Week 4)
+  ERROR: 'ERROR',
+  ERROR_PATTERN: 'ERROR_PATTERN',
+  UNHANDLED_REJECTION: 'UNHANDLED_REJECTION',
+  UNCAUGHT_EXCEPTION: 'UNCAUGHT_EXCEPTION',
 };
 
 /**
@@ -125,7 +130,8 @@ export class ConsciousnessBridge extends EventEmitter {
    */
   _wireSLATracker() {
     this.slaTracker.on('violation', (violation) => {
-      const confidence = violation.severity === 'critical' ? 0.95 : 0.75;
+      // φ-aligned confidence: max 61.8% (φ⁻¹), secondary 38.2% (φ⁻²)
+      const confidence = violation.severity === 'critical' ? 0.618 : 0.382;
 
       this._observe(ObservationType.SLA_VIOLATION, {
         target: violation.target,
@@ -166,6 +172,113 @@ export class ConsciousnessBridge extends EventEmitter {
    */
   observe(type, data, confidence = 0.5) {
     this._observe(type, data, confidence);
+  }
+
+  /**
+   * Observe an error event
+   * Maps error severity to consciousness impact
+   *
+   * @param {Error} error - The error that occurred
+   * @param {Object} context - Additional context
+   * @param {string} [context.component] - Component that threw
+   * @param {string} [context.severity='error'] - 'info'|'warn'|'error'|'critical'
+   * @param {boolean} [context.isUnhandled=false] - Was this unhandled?
+   */
+  observeError(error, context = {}) {
+    const {
+      component = 'unknown',
+      severity = 'error',
+      isUnhandled = false,
+    } = context;
+
+    // φ-aligned confidence based on severity
+    // Critical errors get max attention (φ⁻¹)
+    const severityConfidence = {
+      info: 0.1,
+      warn: 0.382,     // φ⁻²
+      error: 0.5,
+      critical: 0.618, // φ⁻¹
+    };
+    const confidence = severityConfidence[severity] || 0.5;
+
+    // Determine observation type
+    let type = ObservationType.ERROR;
+    if (isUnhandled) {
+      type = error.name === 'UnhandledRejection'
+        ? ObservationType.UNHANDLED_REJECTION
+        : ObservationType.UNCAUGHT_EXCEPTION;
+    }
+
+    const errorData = {
+      name: error.name,
+      message: error.message,
+      stack: error.stack?.split('\n').slice(0, 5).join('\n'),
+      component,
+      severity,
+      isUnhandled,
+      timestamp: Date.now(),
+    };
+
+    this._observe(type, errorData, confidence);
+
+    // Track error patterns
+    this._trackErrorPattern(error, component);
+
+    // Alert on critical or unhandled
+    if ((severity === 'critical' || isUnhandled) && this.alertManager) {
+      this.alertManager.critical?.(
+        `${isUnhandled ? 'Unhandled ' : ''}Error in ${component}: ${error.message}`,
+        errorData
+      );
+    }
+
+    this.emit('error_observed', { error, context, confidence });
+  }
+
+  /**
+   * Track error patterns for learning
+   * @private
+   */
+  _trackErrorPattern(error, component) {
+    const patternKey = `${component}:${error.name}`;
+
+    if (!this._errorPatterns) {
+      this._errorPatterns = new Map();
+    }
+
+    const existing = this._errorPatterns.get(patternKey) || {
+      count: 0,
+      firstSeen: Date.now(),
+      lastSeen: null,
+      messages: [],
+    };
+
+    existing.count++;
+    existing.lastSeen = Date.now();
+    existing.messages.push(error.message);
+    if (existing.messages.length > 10) {
+      existing.messages.shift();
+    }
+
+    this._errorPatterns.set(patternKey, existing);
+
+    // If pattern emerges (3+ occurrences), observe it
+    if (existing.count >= 3 && existing.count % 3 === 0) {
+      this._observe(ObservationType.ERROR_PATTERN, {
+        pattern: patternKey,
+        component,
+        errorName: error.name,
+        count: existing.count,
+        frequency: existing.count / ((Date.now() - existing.firstSeen) / 60000), // per minute
+      }, 0.618);
+    }
+  }
+
+  /**
+   * Get tracked error patterns
+   */
+  getErrorPatterns() {
+    return this._errorPatterns ? Object.fromEntries(this._errorPatterns) : {};
   }
 
   /**

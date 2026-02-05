@@ -19,6 +19,10 @@ import crypto from 'crypto';
 import { EventEmitter } from 'events';
 import { PHI_INV_2, PHI_INV_3, createLogger } from '@cynic/core';
 import { LearningService } from './learning-service.js';
+import { getDPOProcessor } from './dpo-processor.js';
+import { getDPOOptimizer } from './dpo-optimizer.js';
+import { getCalibrationTracker } from './calibration-tracker.js';
+import { getResidualGovernance } from './residual-governance.js';
 
 const log = createLogger('LearningManager');
 
@@ -76,6 +80,12 @@ export class LearningManager extends EventEmitter {
     // Event bus unsubscribers
     this._unsubscribers = [];
 
+    // DPO Learning Pipeline (Week 3)
+    this.dpoProcessor = options.dpoProcessor || null;
+    this.dpoOptimizer = options.dpoOptimizer || null;
+    this.calibrationTracker = options.calibrationTracker || null;
+    this.residualGovernance = options.residualGovernance || null;
+
     // Statistics
     this._stats = {
       cyclesRun: 0,
@@ -84,6 +94,10 @@ export class LearningManager extends EventEmitter {
       patternsEvolved: 0,
       profilesUpdated: 0,
       autoTriggeredCycles: 0,
+      dpoPairsCreated: 0,
+      dpoOptimizations: 0,
+      governanceReviews: 0,
+      dimensionsPromoted: 0,
     };
 
     this._initialized = false;
@@ -96,6 +110,22 @@ export class LearningManager extends EventEmitter {
     if (this._initialized) return;
 
     await this.learningService.init();
+
+    // Initialize DPO components (Week 3)
+    if (!this.dpoProcessor) {
+      this.dpoProcessor = getDPOProcessor();
+    }
+    if (!this.dpoOptimizer) {
+      this.dpoOptimizer = getDPOOptimizer();
+    }
+    if (!this.calibrationTracker) {
+      this.calibrationTracker = getCalibrationTracker();
+    }
+    if (!this.residualGovernance) {
+      this.residualGovernance = getResidualGovernance({
+        dpoProcessor: this.dpoProcessor,
+      });
+    }
 
     // Wire up event bus if available
     if (this.eventBus) {
@@ -240,6 +270,8 @@ export class LearningManager extends EventEmitter {
       patterns: { updated: 0, merged: 0 },
       weights: { adjusted: 0 },
       thresholds: { adjusted: 0 },
+      dpo: { pairsCreated: 0, optimizationRun: false },
+      governance: { reviewed: 0, promoted: 0 },
     };
 
     try {
@@ -284,7 +316,45 @@ export class LearningManager extends EventEmitter {
         this._stats.patternsEvolved += results.patterns.updated;
       }
 
-      // 3. Count weight/threshold adjustments
+      // 3. DPO Processing (Week 3)
+      if (this.dpoProcessor) {
+        try {
+          const dpoResult = await this.dpoProcessor.process();
+          results.dpo.pairsCreated = dpoResult.pairsCreated;
+          this._stats.dpoPairsCreated += dpoResult.pairsCreated;
+          log.debug('DPO processing complete', { pairsCreated: dpoResult.pairsCreated });
+        } catch (err) {
+          log.warn('DPO processing failed', { error: err.message });
+        }
+      }
+
+      // 4. DPO Optimization (if enough pairs)
+      if (this.dpoOptimizer && results.dpo.pairsCreated > 0) {
+        try {
+          const optimizeResult = await this.dpoOptimizer.optimize();
+          results.dpo.optimizationRun = true;
+          this._stats.dpoOptimizations++;
+          log.debug('DPO optimization complete', { epochs: optimizeResult.epochsRun });
+        } catch (err) {
+          log.warn('DPO optimization failed', { error: err.message });
+        }
+      }
+
+      // 5. Residual Governance Review (Week 3)
+      if (this.residualGovernance) {
+        try {
+          const govResult = await this.residualGovernance.reviewCandidates();
+          results.governance.reviewed = govResult.reviewed;
+          results.governance.promoted = govResult.promoted;
+          this._stats.governanceReviews++;
+          this._stats.dimensionsPromoted += govResult.promoted;
+          log.debug('Governance review complete', govResult);
+        } catch (err) {
+          log.warn('Governance review failed', { error: err.message });
+        }
+      }
+
+      // 6. Count weight/threshold adjustments
       const state = this.learningService.getState();
       results.weights.adjusted = Object.values(state.weightModifiers)
         .filter((v) => Math.abs(v - 1.0) > 0.01).length;

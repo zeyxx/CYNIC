@@ -18,11 +18,13 @@ export {
   FilesystemEventType,
 } from './filesystem-watcher.js';
 
-// Solana Watcher
+// Solana Watcher - C2.1 (SOLANA × PERCEIVE)
 export {
   SolanaWatcher,
   createSolanaWatcher,
   SolanaEventType,
+  getSolanaWatcher,
+  resetSolanaWatcher,
 } from './solana-watcher.js';
 
 // C6.1: Dog State Emitter (CYNIC × PERCEIVE)

@@ -93,3 +93,12 @@ export {
   thinkWithBrain,
   _resetBrainServiceForTesting,
 } from './brain-service.js';
+
+// Error Handler - Unified error management with consciousness (WEEK 4)
+export {
+  ErrorHandler,
+  ErrorSeverity,
+  ErrorCategory,
+  getErrorHandler,
+  resetErrorHandler,
+} from './error-handler.js';

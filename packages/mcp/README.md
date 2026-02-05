@@ -52,9 +52,9 @@ const instance = new MCPServer();
 
 ## Stats
 
-- **Source files**: 97
+- **Source files**: 98
 - **Test files**: 20
-- **Test ratio**: 21%
+- **Test ratio**: 20%
 - **Exports**: 12 named
 
 ## Fractal Structure
@@ -65,7 +65,7 @@ const instance = new MCPServer();
 ## Dimensions (4 Axioms)
 
 ```
-[██░░░░░░░░] 21% φ (Confidence)
+[██░░░░░░░░] 20% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
 [██████░░░░] 62% Burn (Simplicity)

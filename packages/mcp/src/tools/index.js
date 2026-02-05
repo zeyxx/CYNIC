@@ -313,6 +313,25 @@ export {
   oracleFactory,
 };
 
+// Debug domain (brain_debug_*: patterns, qlearning, memory, routing, errors)
+import {
+  createDebugPatternsTool,
+  createDebugQLearningTool,
+  createDebugMemoryTool,
+  createDebugRoutingTool,
+  createDebugErrorsTool,
+  debugFactory,
+} from './domains/debug.js';
+
+export {
+  createDebugPatternsTool,
+  createDebugQLearningTool,
+  createDebugMemoryTool,
+  createDebugRoutingTool,
+  createDebugErrorsTool,
+  debugFactory,
+};
+
 // NOTE: Memory tools moved to domains/memory.js
 
 /**
@@ -393,6 +412,10 @@ export function createAllTools(options = {}) {
     localPrivacyStore = null, // LocalPrivacyStore for E-Score, Learning, Psychology
     // Oracle (token scoring)
     oracle = null, // { fetcher, scorer, memory, watchlist }
+    // Debug tools dependencies
+    sharedMemory = null, // SharedMemory for debug_patterns, debug_memory
+    getQLearningService = null, // Function to get QLearningService for debug_qlearning
+    errorBuffer = null, // In-memory error buffer for debug_errors
   } = options;
 
   // Initialize LSP service for code intelligence
@@ -488,6 +511,13 @@ export function createAllTools(options = {}) {
       createXLearnTool(localXStore),
       createXStyleTool(localXStore),
     ] : []),
+    // Debug Tools (brain_debug_*: patterns, qlearning, memory, routing, errors)
+    // "φ distrusts φ, but φ can see φ" - transparency for debugging
+    ...(sharedMemory ? [createDebugPatternsTool({ sharedMemory })] : []),
+    ...(getQLearningService ? [createDebugQLearningTool({ getQLearningService })] : []),
+    createDebugMemoryTool({ sharedMemory, collective }),
+    ...(persistence ? [createDebugRoutingTool({ persistence })] : []),
+    createDebugErrorsTool({ persistence, errorBuffer }),
   ];
 
   for (const tool of toolDefs) {

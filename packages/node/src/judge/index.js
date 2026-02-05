@@ -17,3 +17,13 @@ export * from './learning-manager.js';
 export * from './self-skeptic.js';
 export * from './engine-integration.js';
 export * from './root-cause-analyzer.js';
+export * from './feedback-processor.js';
+export * from './external-validation.js';
+export * from './rca-integration.js';
+
+// DPO Learning Pipeline (Week 3)
+export * from './dpo-processor.js';
+export * from './dpo-optimizer.js';
+export * from './calibration-tracker.js';
+export * from './residual-governance.js';
+export * from './learning-scheduler.js';

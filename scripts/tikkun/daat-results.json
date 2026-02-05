@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-02-04T17:05:37.384Z",
+  "timestamp": "2026-02-05T19:42:55.520Z",
   "version": "1.0.0",
   "categories": {
     "core": {
@@ -301,8 +301,8 @@
               "domains\\claude-flow.js",
               "domains\\code.js",
               "domains\\consciousness.js",
-              "domains\\ecosystem.js",
-              "domains\\index.js"
+              "domains\\debug.js",
+              "domains\\ecosystem.js"
             ]
           },
           "message": "21 tool files"
@@ -336,10 +336,10 @@
           "name": "Migrations exist",
           "ok": true,
           "details": {
-            "count": 25,
-            "latest": "027_facts_vector_search.sql"
+            "count": 27,
+            "latest": "028_dpo_learning.sql"
           },
-          "message": "25 migrations (latest: 027_facts_vector_search.sql)"
+          "message": "27 migrations (latest: 028_dpo_learning.sql)"
         },
         {
           "id": "embedder",
@@ -441,14 +441,14 @@
           "ok": true,
           "details": {
             "models": [
+              "cynic-dog0:latest",
+              "qwen2.5:1.5b",
               "mistral:7b-instruct-q4_0",
               "gemma2:2b",
-              "qwen2:0.5b",
-              "phi3:mini",
-              "nomic-embed-text:latest"
+              "qwen2:0.5b"
             ]
           },
-          "message": "Ollama running with 5 models"
+          "message": "Ollama running with 7 models"
         }
       ],
       "passed": 3,
@@ -474,6 +474,10 @@
             {
               "package": "core",
               "count": 21
+            },
+            {
+              "package": "cynic-agent",
+              "count": 1
             },
             {
               "package": "emergence",
@@ -505,7 +509,7 @@
             },
             {
               "package": "node",
-              "count": 46
+              "count": 48
             },
             {
               "package": "persistence",
@@ -520,7 +524,7 @@
               "count": 1
             }
           ],
-          "message": "137 test files in 14 packages"
+          "message": "140 test files in 15 packages"
         },
         {
           "id": "benchmark-files",
