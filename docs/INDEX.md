@@ -74,6 +74,7 @@
 
 | Document | Description |
 |----------|-------------|
+| [**philosophy/fractal-matrix.md**](./philosophy/fractal-matrix.md) | **7×7 Matrix - FOUNDATIONAL** |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Technical architecture deep-dive |
 | [philosophy/cynic-ontology.md](./philosophy/cynic-ontology.md) | 4 Axiomes, 25 dimensions, fractales |
 | [philosophy/human-llm-symbiosis.md](./philosophy/human-llm-symbiosis.md) | CYNIC comme membrane |
@@ -114,6 +115,13 @@
 ---
 
 ## Quick Reference
+
+### The 7×7 Fractal Matrix
+```
+7 Realities: CODE, SOLANA, MARKET, SOCIAL, HUMAN, CYNIC, COSMOS
+7 Analyses:  PERCEIVE, JUDGE, DECIDE, ACT, LEARN, ACCOUNT, EMERGE
+= 49 cells + THE_UNNAMEABLE (50th gate)
+```
 
 ### The 4 Axioms
 | Axiom | Principle |
