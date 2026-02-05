@@ -959,14 +959,23 @@ export class CYNICJudge {
     // Calculate entropy-based confidence (uncertainty measure)
     const entropyAnalysis = judgmentEntropy(dimensionScores);
 
-    // Calculate Bayesian posterior (belief strength)
-    // Use dimension agreement as evidence
-    const bayesianConfidence = this._calculateBayesianConfidence(scores, context);
+    // Get item-type prior (learned from feedback history)
+    const itemType = context?.item?.type || context?.itemType || 'unknown';
+    const itemTypePrior = this.getItemTypePrior(itemType);
 
-    // Store entropy in context for later use
+    // Calculate Bayesian posterior (belief strength)
+    // Use item-type prior if available, otherwise neutral
+    const priorBelief = itemTypePrior.strength > 3 ? itemTypePrior.prior : 0.5;
+    const bayesianConfidence = this._calculateBayesianConfidence(scores, {
+      ...context,
+      priorBelief,
+    });
+
+    // Store entropy and Bayesian data in context for later use
     if (context) {
       context._entropy = entropyAnalysis;
       context._bayesian = bayesianConfidence;
+      context._itemTypePrior = itemTypePrior;
     }
 
     // Log if chaotic (high uncertainty)
@@ -974,17 +983,52 @@ export class CYNICJudge {
       log.debug('High entropy judgment', {
         normalizedEntropy: entropyAnalysis.normalizedEntropy.toFixed(3),
         bayesianPosterior: bayesianConfidence.posterior.toFixed(3),
+        itemTypePrior: itemTypePrior.prior.toFixed(3),
         shouldTriggerConsensus: entropyAnalysis.shouldTriggerConsensus,
       });
     }
 
-    // Blend entropy confidence (60%) with Bayesian posterior (40%)
-    // Entropy measures uncertainty, Bayesian measures belief strength
-    const blendedConfidence = entropyAnalysis.confidence * 0.6 +
-                              bayesianConfidence.posterior * 0.4;
+    // Blend: 50% entropy + 30% Bayesian posterior + 20% dimension reliability
+    // This incorporates learned beliefs about dimensions and item types
+    const dimReliabilityBonus = this._calculateDimensionReliabilityBonus(dimensionScores);
+
+    const blendedConfidence = entropyAnalysis.confidence * 0.5 +
+                              bayesianConfidence.posterior * 0.3 +
+                              dimReliabilityBonus * 0.2;
 
     // φ-bound the final result
     return Math.min(PHI_INV, blendedConfidence);
+  }
+
+  /**
+   * Calculate confidence bonus from dimension reliability
+   * Dimensions that have proven reliable increase overall confidence
+   *
+   * @private
+   * @param {Object} dimensionScores - Dimension scores
+   * @returns {number} Reliability bonus (0-1)
+   */
+  _calculateDimensionReliabilityBonus(dimensionScores) {
+    if (this._dimensionReliability.size === 0) {
+      return 0.5; // Neutral if no history
+    }
+
+    let totalReliability = 0;
+    let totalWeight = 0;
+
+    for (const [dimName, score] of Object.entries(dimensionScores)) {
+      const reliability = this._getDimensionReliability(dimName);
+      const mean = reliability.getMean();
+      const strength = reliability.getStrength();
+
+      // Weight by how much we trust this dimension's reliability estimate
+      const weight = Math.min(1, strength / 10);
+      totalReliability += mean * weight * (score / 100);
+      totalWeight += weight;
+    }
+
+    if (totalWeight === 0) return 0.5;
+    return Math.min(PHI_INV, totalReliability / totalWeight);
   }
 
   /**
@@ -1773,6 +1817,12 @@ export class CYNICJudge {
       anomalyRate: this.stats.totalJudgments > 0
         ? Math.round(this.stats.anomaliesDetected / this.stats.totalJudgments * 1000) / 1000
         : 0,
+      // Bayesian inference stats
+      bayesian: this.getBayesianStats(),
+      // Entropy trend
+      entropyTrend: this.getEntropyTrend(),
+      // Markov chain stats
+      verdictChain: this.verdictChain.getStats(),
     };
   }
 
@@ -1785,8 +1835,23 @@ export class CYNICJudge {
       verdicts: { HOWL: 0, WAG: 0, GROWL: 0, BARK: 0 },
       anomaliesDetected: 0,
       avgScore: 0,
+      engineConsultations: 0,
     };
     this.anomalyBuffer = [];
+
+    // Reset Bayesian trackers
+    this._dimensionReliability.clear();
+    this._itemTypeBelief.clear();
+    this._outcomeHistory = [];
+
+    // Reset Markov chain
+    this.verdictChain = createVerdictChain();
+    this.lastVerdict = null;
+    this._verdictBuffer = [];
+
+    // Reset entropy tracking
+    this.historicalDistribution = null;
+    this.distributionHistory = [];
   }
 }
 
