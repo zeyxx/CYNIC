@@ -16,7 +16,7 @@
 import { EventEmitter } from 'events';
 import { createLogger, PHI_INV } from '@cynic/core';
 import { ConsensusResult, ExecutionTier } from './types.js';
-import { ClaudeCodeAdapter, createOllamaValidator, createAirLLMValidator } from './adapters/index.js';
+import { ClaudeCodeAdapter, createOllamaValidator, createAirLLMValidator, createGeminiValidator } from './adapters/index.js';
 import { calculateSemanticAgreement, SimilarityThresholds } from './similarity.js';
 
 const log = createLogger('LLMRouter');
@@ -261,8 +261,9 @@ export class LLMRouter extends EventEmitter {
         // Prefer small models
         return validators.find(v => v.model?.includes('gemma') || v.model?.includes('qwen')) || validators[0];
       case ExecutionTier.FULL:
-        // Prefer medium models
-        return validators.find(v => v.model?.includes('mistral') || v.model?.includes('llama')) || validators[0];
+        // Prefer Gemini for FULL tier (design/UI tasks), then medium Ollama models
+        return validators.find(v => v.provider === 'gemini') ||
+               validators.find(v => v.model?.includes('mistral') || v.model?.includes('llama')) || validators[0];
       case ExecutionTier.DEEP:
         // Prefer AirLLM
         return validators.find(v => v.provider === 'airllm') || validators[validators.length - 1];
@@ -490,6 +491,14 @@ export function createValidatorsFromEnv() {
             log.info('Created AirLLM validator from env');
           } else {
             log.warn('AirLLM in CYNIC_VALIDATORS but CYNIC_AIRLLM not set to true');
+          }
+          break;
+        case 'gemini':
+          if (process.env.GEMINI_API_KEY) {
+            validators.push(createGeminiValidator());
+            log.info('Created Gemini validator from env');
+          } else {
+            log.warn('Gemini in CYNIC_VALIDATORS but GEMINI_API_KEY not set');
           }
           break;
         default:

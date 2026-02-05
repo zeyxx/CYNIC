@@ -242,6 +242,8 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
             dimensionScores: judgment.dimensionScores || null,
             weaknesses: judgment.weaknesses,
             context,
+            // Reasoning trajectory for training pipeline + DB trigger extraction
+            reasoningPath: judgment.reasoning_path || [],
             // Session context for multi-user isolation
             userId: sessionContext.userId || null,
             sessionId: sessionContext.sessionId || null,
@@ -1053,6 +1055,20 @@ Actions:
 
           await saveState();
 
+          // Persist feedback to PostgreSQL for training pipeline
+          if (persistence?.storeFeedback && params.judgmentId) {
+            try {
+              await persistence.storeFeedback({
+                judgmentId: params.judgmentId,
+                outcome: params.outcome,
+                reason: params.context?.reason || `Manual feedback: ${params.outcome}`,
+                actualScore: params.actualScore || null,
+              });
+            } catch (e) {
+              // Best-effort — don't block on persistence failure
+            }
+          }
+
           // ═══════════════════════════════════════════════════════════════════════
           // Task #84: Increment pattern frequency on feedback to boost Fisher scores
           // "φ renforce ce qui fonctionne" - feedback strengthens patterns
@@ -1123,6 +1139,22 @@ Actions:
 
           await saveState();
 
+          // Persist test feedback to PostgreSQL for training pipeline
+          if (persistence?.storeFeedback && params.judgmentId) {
+            try {
+              const outcome = params.passed ? 'correct' : 'incorrect';
+              const passRate = (params.passCount || 0) / Math.max(1, (params.passCount || 0) + (params.failCount || 0));
+              await persistence.storeFeedback({
+                judgmentId: params.judgmentId,
+                outcome,
+                reason: `Test ${params.passed ? 'passed' : 'failed'}: ${params.passCount || 0}/${(params.passCount || 0) + (params.failCount || 0)} (${params.testSuite || 'unknown'})`,
+                actualScore: params.passed ? Math.round(passRate * 100) : Math.round(passRate * 50),
+              });
+            } catch (e) {
+              // Best-effort
+            }
+          }
+
           // Emit feedback event for automation layer
           try {
             const eventBus = getEventBus();
@@ -1160,6 +1192,18 @@ Actions:
 
           await saveState();
 
+          // Persist commit feedback to PostgreSQL
+          if (persistence?.storeFeedback && params.judgmentId) {
+            try {
+              await persistence.storeFeedback({
+                judgmentId: params.judgmentId,
+                outcome: params.success ? 'correct' : 'incorrect',
+                reason: `Commit ${params.success ? 'succeeded' : 'failed'}${params.hooksPassed === false ? ' (hooks failed)' : ''}: ${params.commitHash || 'unknown'}`,
+                actualScore: params.success ? 75 : 25,
+              });
+            } catch (e) { /* best-effort */ }
+          }
+
           return {
             action: 'commit_result',
             source: 'commit',
@@ -1182,6 +1226,20 @@ Actions:
 
           await saveState();
 
+          // Persist PR feedback to PostgreSQL
+          if (persistence?.storeFeedback && params.judgmentId) {
+            try {
+              const outcome = params.status === 'merged' ? 'correct'
+                : params.status === 'rejected' ? 'incorrect' : 'partial';
+              await persistence.storeFeedback({
+                judgmentId: params.judgmentId,
+                outcome,
+                reason: `PR #${params.prNumber || '?'} ${params.status} (${params.approvalCount || 0} approvals)`,
+                actualScore: params.status === 'merged' ? 80 : params.status === 'rejected' ? 20 : 50,
+              });
+            } catch (e) { /* best-effort */ }
+          }
+
           return {
             action: 'pr_result',
             source: params.status === 'merged' ? 'pr_merged' : params.status === 'rejected' ? 'pr_rejected' : 'code_review',
@@ -1203,6 +1261,18 @@ Actions:
           });
 
           await saveState();
+
+          // Persist build feedback to PostgreSQL
+          if (persistence?.storeFeedback && params.judgmentId) {
+            try {
+              await persistence.storeFeedback({
+                judgmentId: params.judgmentId,
+                outcome: params.success ? 'correct' : 'incorrect',
+                reason: `Build ${params.success ? 'succeeded' : 'failed'}${params.buildId ? ` (${params.buildId})` : ''}`,
+                actualScore: params.success ? 80 : 20,
+              });
+            } catch (e) { /* best-effort */ }
+          }
 
           return {
             action: 'build_result',

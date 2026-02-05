@@ -62,5 +62,13 @@ export {
   SimilarityThresholds,
 } from './similarity.js';
 
+// Perception Router
+export {
+  PerceptionRouter,
+  PerceptionLayer,
+  getPerceptionRouter,
+  _resetPerceptionRouterForTesting,
+} from './perception-router.js';
+
 // Convenience re-exports from @cynic/core
 export { PHI_INV, PHI_INV_2 } from '@cynic/core';

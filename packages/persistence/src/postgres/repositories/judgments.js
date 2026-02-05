@@ -100,7 +100,7 @@ export class JudgmentRepository extends BaseRepository {
         judgment.confidence,
         judgment.verdict,
         JSON.stringify(judgment.axiomScores || judgment.axiom_scores || {}),
-        JSON.stringify(judgment.dimensionScores || judgment.dimension_scores || null),
+        JSON.stringify(judgment.dimensions || judgment.dimensionScores || judgment.dimension_scores || null),
         JSON.stringify(judgment.weaknesses || []),
         JSON.stringify(judgment.context || {}),
         JSON.stringify(reasoningPath),
@@ -131,7 +131,7 @@ export class JudgmentRepository extends BaseRepository {
           judgment.confidence,
           judgment.verdict,
           JSON.stringify(judgment.axiomScores || judgment.axiom_scores || {}),
-          JSON.stringify(judgment.dimensionScores || judgment.dimension_scores || null),
+          JSON.stringify(judgment.dimensions || judgment.dimensionScores || judgment.dimension_scores || null),
           JSON.stringify(judgment.weaknesses || []),
           JSON.stringify(judgment.context || {}),
         ]);

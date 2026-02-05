@@ -287,14 +287,29 @@ export class CYNICJudge {
    * @returns {Object} Judgment result with Q-Score
    */
   judge(item, context = {}) {
-    // Score each dimension
-    const dimensionScores = this._scoreDimensions(item, context);
+    const t0 = Date.now();
+
+    // D12: Initialize reasoning path for trajectory capture
+    const reasoningPath = [{
+      step: 0, type: 'observe', timestamp: t0,
+      content: `Judging ${item.type || item.itemType || 'unknown'} item`,
+    }];
+
+    // Score each dimension (D12: enriched with scorer metadata)
+    const dimensionScores = this._scoreDimensions(item, context, reasoningPath);
 
     // Calculate global score (weighted average - legacy)
     const globalScore = this._calculateGlobalScore(dimensionScores);
 
     // Calculate axiom scores (aggregated by axiom)
     const axiomScores = this._calculateAxiomScores(dimensionScores);
+
+    // D12: Record axiom aggregation step
+    reasoningPath.push({
+      step: reasoningPath.length, type: 'reason', timestamp: Date.now(),
+      content: 'Axiom aggregation',
+      axiomScores: { ...axiomScores },
+    });
 
     // Calculate Q-Score (geometric mean of axioms)
     const qScoreResult = this._calculateQScore(axiomScores);
@@ -308,7 +323,16 @@ export class CYNICJudge {
       finalScore = calculateFinalScore(context.kScore, qScoreResult.Q);
     }
 
-    // Create judgment
+    // D12: Record final judgment step
+    reasoningPath.push({
+      step: reasoningPath.length, type: 'judge', timestamp: Date.now(),
+      content: `Verdict: ${qScoreResult.verdict?.verdict || qScoreResult.verdict}`,
+      qScore: qScoreResult.Q,
+      confidence,
+      duration_ms: Date.now() - t0,
+    });
+
+    // Create judgment (D12: include reasoning_path in metadata for DB trigger extraction)
     const judgment = createJudgment({
       item,
       globalScore,
@@ -316,7 +340,8 @@ export class CYNICJudge {
       confidence,
       metadata: {
         context: context.type || 'general',
-        judgedAt: Date.now(),
+        judgedAt: t0,
+        reasoning_path: reasoningPath,
       },
     });
 
@@ -357,6 +382,28 @@ export class CYNICJudge {
 
       // Update confidence to the skepticism-adjusted value
       judgment.confidence = skepticism.adjustedConfidence;
+
+      // D12: Record skepticism as a doubt/pivot step in reasoning path
+      reasoningPath.push({
+        step: reasoningPath.length, type: 'warn',
+        warning_type: 'SKEPTICISM',
+        content: skepticism.recommendation || 'φ distrusts φ',
+        doubt: skepticism.doubt,
+        biases: skepticism.biases?.length || 0,
+        originalConfidence: skepticism.originalConfidence || judgment.skepticism.originalConfidence,
+        adjustedConfidence: skepticism.adjustedConfidence,
+      });
+
+      // D13: Include skepticism in context for persistence (training pipeline needs this)
+      // This ensures skepticism data survives to the export for model training
+      if (typeof judgment.context === 'object') {
+        judgment.context.skepticism = judgment.skepticism;
+      } else {
+        judgment.context = {
+          type: judgment.context || 'general',
+          skepticism: judgment.skepticism,
+        };
+      }
     }
 
     // Calculate vote weight from E-Score (Burns → E-Score → Vote Weight)
@@ -389,7 +436,7 @@ export class CYNICJudge {
    * @param {Object} context - Context
    * @returns {Object} Dimension scores
    */
-  _scoreDimensions(item, context) {
+  _scoreDimensions(item, context, reasoningPath) {
     const scores = {};
 
     // Score base dimensions (skip META - calculated after)
@@ -398,6 +445,14 @@ export class CYNICJudge {
 
       for (const [dimName, config] of Object.entries(dims)) {
         scores[dimName] = this._scoreDimension(dimName, config, item, context, axiom);
+        // D12: Record dimension scoring step
+        if (reasoningPath) {
+          reasoningPath.push({
+            step: reasoningPath.length, type: 'dimension',
+            dimension: dimName, axiom, score: scores[dimName],
+            scorer: config.scorer ? 'custom' : 'default',
+          });
+        }
       }
     }
 
@@ -418,6 +473,13 @@ export class CYNICJudge {
         const registryScore = this.dimensionRegistry.score(config.axiom, dimName, item, context);
         if (registryScore !== null) {
           scores[dimName] = registryScore;
+          if (reasoningPath) {
+            reasoningPath.push({
+              step: reasoningPath.length, type: 'dimension',
+              dimension: dimName, axiom: config.axiom, score: registryScore,
+              scorer: 'registry',
+            });
+          }
         } else {
           scores[dimName] = this._scoreDimension(dimName, config, item, context, config.axiom);
         }

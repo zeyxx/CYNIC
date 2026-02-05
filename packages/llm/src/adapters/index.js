@@ -29,5 +29,11 @@ export {
   checkAirLLMAvailability,
 } from './airllm.js';
 
+// Gemini adapter (Google Generative AI)
+export {
+  GeminiAdapter,
+  createGeminiValidator,
+} from './gemini.js';
+
 // Re-export types for convenience
 export { LLMResponse, ConsensusResult } from '../types.js';

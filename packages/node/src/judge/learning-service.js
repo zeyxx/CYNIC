@@ -1809,10 +1809,29 @@ export class LearningService extends EventEmitter {
         Object.assign(this._patterns.overall, overall.data);
       }
 
+      // D9: Load evolved weight modifiers from pattern_evolution table
+      // These survive across sessions (patterns table may not have them yet)
+      if (this.persistence?.patternEvolution) {
+        try {
+          const evolved = await this.persistence.patternEvolution.findByType('dimension');
+          for (const row of evolved) {
+            if (row.pattern_key && row.weight_modifier != null) {
+              // Only override if not already set from patterns table, or if evolved is more recent
+              if (!this._weightModifiers.has(row.pattern_key)) {
+                this._weightModifiers.set(row.pattern_key, parseFloat(row.weight_modifier));
+              }
+            }
+          }
+        } catch (_) {
+          // pattern_evolution table may not exist yet
+        }
+      }
+
       this.emit('patterns:loaded', {
         dimensions: this._patterns.byDimension.size,
         itemTypes: this._patterns.byItemType.size,
         sources: this._patterns.bySource.size,
+        evolvedWeights: this._weightModifiers.size,
       });
     } catch (e) {
       // Ignore - start fresh

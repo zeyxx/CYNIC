@@ -63,6 +63,7 @@ export class UnifiedOrchestrator extends EventEmitter {
    * @param {Object} [options.planningGate] - PlanningGate instance for meta-cognition
    * @param {Object} [options.llmRouter] - LLMRouter instance for multi-model routing
    * @param {Object} [options.perceptionRouter] - PerceptionRouter for data source routing
+   * @param {Object} [options.psychologyProvider] - Psychology state provider (D11: calibration wiring)
    */
   constructor(options = {}) {
     super();
@@ -79,6 +80,8 @@ export class UnifiedOrchestrator extends EventEmitter {
     this.planningGate = options.planningGate || null;
     this.llmRouter = options.llmRouter || null;
     this.perceptionRouter = options.perceptionRouter || null;
+    this.memoryRetriever = options.memoryRetriever || null;
+    this.psychologyProvider = options.psychologyProvider || null;
 
     // Wire learning and cost services to kabbalistic router if available
     if (this.kabbalisticRouter) {
@@ -294,6 +297,29 @@ export class UnifiedOrchestrator extends EventEmitter {
         log.warn('Failed to load user profile', { userId, error: err.message });
       }
     }
+
+    // D11: Enrich with psychology state if provider available
+    if (this.psychologyProvider && userId) {
+      try {
+        // Supports both: PsychologyRepository.loadPsychology(userId) and in-memory getSummary()
+        const psy = typeof this.psychologyProvider.loadPsychology === 'function'
+          ? await this.psychologyProvider.loadPsychology(userId)
+          : (this.psychologyProvider.getSummary?.() || this.psychologyProvider.getState?.() || null);
+        if (psy) {
+          const dims = psy.dimensions || {};
+          event.userContext.psychology = {
+            energy: dims.energy?.value ?? dims.energy ?? null,
+            focus: dims.focus?.value ?? dims.focus ?? null,
+            frustration: dims.frustration?.value ?? dims.frustration ?? null,
+            burnoutRisk: psy.composites?.burnoutRisk ?? 0,
+            flow: psy.composites?.flow ?? 0,
+            overallState: psy.overallState || null,
+          };
+        }
+      } catch (e) {
+        log.debug(`Psychology enrichment skipped: ${e.message}`);
+      }
+    }
   }
 
   /**
@@ -322,16 +348,51 @@ export class UnifiedOrchestrator extends EventEmitter {
     const risk = detectRisk(event.content);
 
     // Determine intervention based on trust level and risk
-    const intervention = determineIntervention(event.userContext.trustLevel, risk);
+    let intervention = determineIntervention(event.userContext.trustLevel, risk);
 
-    // Set routing on event
+    // D11: Psychology-aware routing — reduce friction during flow, add caution during burnout
+    const psy = event.userContext.psychology;
+    if (psy) {
+      if (psy.burnoutRisk > PHI_INV) {
+        // High burnout risk → escalate caution (user making mistakes)
+        if (intervention === 'observe') intervention = 'warn';
+        log.debug('Psychology: burnout risk elevated, increased caution');
+      } else if (psy.flow > PHI_INV && risk.level === 'low') {
+        // Flow state + low risk → reduce interruptions
+        if (intervention === 'warn') intervention = 'observe';
+        log.debug('Psychology: flow state detected, reducing friction');
+      }
+    }
+
+    // Consult PerceptionRouter for data source routing (D4: close dormant loop)
+    let perception = null;
+    if (this.perceptionRouter) {
+      try {
+        perception = this.perceptionRouter.route({
+          target: event.content,
+          intent: 'read',
+          preferStructured: true,
+        });
+      } catch (e) {
+        log.debug(`Perception routing skipped: ${e.message}`);
+      }
+    }
+
+    // Set routing on event (enriched with perception if available)
     event.setRouting({
       sefirah: matchedRouting?.sefirah || null,
       domain: matchedDomain || 'general',
       intervention,
       risk,
       suggestedAgent: matchedRouting?.agent || null,
-      suggestedTools: matchedRouting?.tools || [],
+      suggestedTools: perception?.tools?.length
+        ? [...(matchedRouting?.tools || []), ...perception.tools]
+        : matchedRouting?.tools || [],
+      perception: perception ? {
+        layer: perception.layer,
+        confidence: perception.confidence,
+        tools: perception.tools,
+      } : null,
     });
 
     this.stats.decisionsRouted++;
@@ -358,9 +419,29 @@ export class UnifiedOrchestrator extends EventEmitter {
       }
     }
 
+    // D10: Check lessons_learned for prevention guidance
+    let lessonWarning = null;
+    if (this.memoryRetriever?.checkForMistakes) {
+      try {
+        const userId = event.userContext?.userId || 'unknown';
+        const check = await this.memoryRetriever.checkForMistakes(userId, content, { limit: 2 });
+        if (check.warning) {
+          lessonWarning = {
+            message: check.message,
+            severity: check.lessons?.[0]?.severity || 'medium',
+            prevention: check.lessons?.[0]?.prevention || check.lessons?.[0]?.correction,
+          };
+          log.debug('Lesson matched', { tool: content.slice(0, 50), severity: lessonWarning.severity });
+        }
+      } catch (e) {
+        log.debug(`Lesson check skipped: ${e.message}`);
+      }
+    }
+
     event.setPreExecution({
       blocked: false,
-      warning: false,
+      warning: !!lessonWarning,
+      lesson: lessonWarning,
     });
 
     return event;

@@ -152,6 +152,13 @@ const antiPatternState = {
   // Test tracking
   lastTestRun: 0,             // Timestamp of last test
   commitsSinceTest: 0,        // Commits without testing
+
+  // Judgment ID tracking (for feedback → training pipeline linkage)
+  // Captures judgment_id from brain_judge results so test/commit/build
+  // feedback can be linked to specific judgments for supervised learning
+  lastJudgmentId: null,       // Most recent judgment_id from brain_judge
+  lastJudgmentAt: 0,          // Timestamp of last judgment
+  judgmentIdTTL: 10 * 60000,  // 10 minute TTL — feedback older than this won't link
 };
 
 /**
@@ -957,7 +964,16 @@ function processTriggerEvent(toolName, toolInput, toolOutput, isError) {
 
   // ==========================================================================
   // LEARNING FEEDBACK - External validation (Ralph-inspired)
+  // Links feedback to most recent judgment for training pipeline persistence.
+  // Without judgmentId, feedback goes to LearningService (memory) but NOT to
+  // PostgreSQL feedback table (which requires judgment_id NOT NULL).
   // ==========================================================================
+
+  // Get the most recent judgment ID (if fresh enough)
+  const recentJudgmentId = (
+    antiPatternState.lastJudgmentId &&
+    (Date.now() - antiPatternState.lastJudgmentAt) < antiPatternState.judgmentIdTTL
+  ) ? antiPatternState.lastJudgmentId : null;
 
   // Send learning feedback for test results
   if (toolName === 'Bash' && toolInput.command) {
@@ -967,6 +983,7 @@ function processTriggerEvent(toolName, toolInput, toolOutput, isError) {
     // Detect test commands
     if (cmd.match(/npm\s+(run\s+)?test|jest|vitest|mocha|pytest|cargo\s+test|go\s+test/i)) {
       const testResult = parseTestOutput(output, isError);
+      testResult.judgmentId = testResult.judgmentId || recentJudgmentId;
       sendTestFeedback(testResult).catch(() => {});
     }
 
@@ -978,6 +995,7 @@ function processTriggerEvent(toolName, toolInput, toolOutput, isError) {
         commitHash,
         hooksPassed: true,
         message: extractCommitMessage(cmd),
+        judgmentId: recentJudgmentId,
       }).catch(() => {});
     }
 
@@ -986,6 +1004,7 @@ function processTriggerEvent(toolName, toolInput, toolOutput, isError) {
       sendBuildFeedback({
         success: !isError,
         duration: null,
+        judgmentId: recentJudgmentId,
       }).catch(() => {});
     }
   }
@@ -1153,6 +1172,24 @@ async function main() {
       if (isError) {
         recordMetric('tool_errors_total', 1, { tool: toolName, category: 'tool' });
       }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // JUDGMENT ID TRACKING: Capture IDs from brain_judge results for feedback
+    // linkage. This enables the training pipeline to tie feedback (test/commit/
+    // build outcomes) to specific judgments for supervised learning data.
+    // "Le chien se souvient de son dernier jugement"
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (toolName.includes('brain_judge') || toolName.includes('brain_cynic_judge')) {
+      try {
+        const outputText = typeof toolOutput === 'string' ? toolOutput : JSON.stringify(toolOutput || '');
+        // Extract judgment_id from MCP tool output (format: jdg_xxxxx)
+        const jidMatch = outputText.match(/jdg_[a-zA-Z0-9_]+/);
+        if (jidMatch) {
+          antiPatternState.lastJudgmentId = jidMatch[0];
+          antiPatternState.lastJudgmentAt = Date.now();
+        }
+      } catch { /* best-effort — never block on tracking */ }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
