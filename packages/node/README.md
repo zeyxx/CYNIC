@@ -258,8 +258,8 @@ const instance = createIdentity();
 
 ## Stats
 
-- **Source files**: 215
-- **Test files**: 57
+- **Source files**: 216
+- **Test files**: 58
 - **Test ratio**: 27%
 - **Exports**: 283 named
 

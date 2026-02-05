@@ -45,3 +45,29 @@ export {
   hilbertLSHSimilarity,
   HILBERT_CONFIG,
 } from './hilbert.js';
+
+// Fourier Analysis for Pattern Detection (frequency decomposition)
+export {
+  Complex,
+  dft,
+  idft,
+  fft,
+  ifft,
+  padToPowerOf2,
+  windowFunctions,
+  applyWindow,
+  powerSpectrum,
+  magnitudeSpectrum,
+  normalizePower,
+  findDominantFrequencies,
+  PatternFrequencyAnalyzer,
+  createPatternAnalyzer,
+  analyzeTimeSeries,
+  lowPassFilter,
+  highPassFilter,
+  bandPassFilter,
+  spectralSmooth,
+  crossCorrelation,
+  autoCorrelation,
+  FOURIER_CONFIG,
+} from './fourier.js';
