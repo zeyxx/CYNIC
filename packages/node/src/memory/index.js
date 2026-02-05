@@ -33,3 +33,15 @@ export {
   MEMORY_CONFIG,
   createTieredMemory,
 } from './tiered-memory.js';
+
+// Hilbert Curve Memory Indexing (locality-preserving)
+export {
+  xy2d,
+  d2xy,
+  coordsToHilbert,
+  hilbertToCoords,
+  HilbertMemoryIndex,
+  hilbertLSH,
+  hilbertLSHSimilarity,
+  HILBERT_CONFIG,
+} from './hilbert.js';
