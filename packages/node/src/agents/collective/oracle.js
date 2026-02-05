@@ -17,7 +17,7 @@
 
 'use strict';
 
-import { PHI_INV, PHI_INV_2 } from '@cynic/core';
+import { PHI_INV, PHI_INV_2, PHI_INV_3 } from '@cynic/core';
 import { BaseAgent, AgentTrigger, AgentBehavior, AgentResponse } from '../base.js';
 import {
   AgentEvent,
@@ -25,6 +25,12 @@ import {
   VisualizationGeneratedEvent,
 } from '../events.js';
 import { ProfileLevel } from '../../profile/calculator.js';
+
+// Math modules for intelligent prediction and anomaly detection
+import { updateBelief, BetaDistribution } from '../../inference/bayes.js';
+import { createMarkovChain, MarkovChain } from '../../inference/markov.js';
+import { computeStats, zScore } from '../../inference/gaussian.js';
+import { entropyConfidence, normalizedEntropy } from '../../inference/entropy.js';
 
 /**
  * φ-aligned constants for Oracle
@@ -180,6 +186,28 @@ export class CollectiveOracle extends BaseAgent {
       alertsGenerated: 0,
     };
 
+    // ═══════════════════════════════════════════════════════════════════
+    // MATH MODULE INTEGRATION
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Bayesian health belief tracker (Beta distribution)
+    // Tracks belief about system health: α = healthy events, β = unhealthy events
+    // Prior: α=2, β=1 → P(healthy) ≈ 66.7%, slightly optimistic
+    this.healthBelief = new BetaDistribution(2, 1);
+
+    // Markov chain for trend prediction (up/stable/down)
+    this.trendChain = createMarkovChain(['up', 'stable', 'down']);
+
+    // Metric history for Gaussian anomaly detection
+    this.metricValues = {
+      events: [],
+      blocks: [],
+      patterns: [],
+    };
+
+    // Anomaly detection settings
+    this.anomalyThreshold = 2.0; // Z-score threshold (2 std devs)
+
     // Subscribe to events if event bus available
     if (this.eventBus) {
       this._subscribeToEvents();
@@ -219,8 +247,217 @@ export class CollectiveOracle extends BaseAgent {
     const count = this.eventCounts.get(type) || 0;
     this.eventCounts.set(type, count + 1);
 
+    // Update Bayesian health belief
+    this._updateHealthBelief(event);
+
     // Check for alert conditions
     this._checkAlertConditions(event);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MATH MODULE METHODS (Bayes, Markov, Gaussian, Entropy)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Update Bayesian health belief based on event type
+   * Good events → increase α (healthy), Bad events → increase β (unhealthy)
+   * @private
+   * @param {Object} event - Incoming event
+   */
+  _updateHealthBelief(event) {
+    const eventType = event.type || '';
+
+    // Good events (patterns, knowledge, discoveries) → success
+    const isGood =
+      eventType === AgentEvent.PATTERN_DETECTED ||
+      eventType === AgentEvent.KNOWLEDGE_EXTRACTED ||
+      eventType === AgentEvent.DISCOVERY_FOUND ||
+      eventType.includes('PATTERN') ||
+      eventType.includes('KNOWLEDGE') ||
+      eventType.includes('DISCOVERY');
+
+    // Bad events (threats, blocks) → failure
+    const isBad =
+      eventType === AgentEvent.THREAT_BLOCKED ||
+      eventType.includes('THREAT') ||
+      eventType.includes('BLOCKED');
+
+    if (isGood) {
+      this.healthBelief.recordSuccess();
+    } else if (isBad) {
+      this.healthBelief.recordFailure();
+    }
+  }
+
+  /**
+   * Predict next metric trend using Markov chain
+   * @private
+   * @param {string} metricName - Name of metric
+   * @returns {Object} Prediction {trend, probability, confidence}
+   */
+  _predictMetricTrend(metricName) {
+    const history = this.metricValues[metricName] || [];
+    if (history.length < 3) {
+      return { trend: 'stable', probability: 0.5, confidence: 0 };
+    }
+
+    // Calculate recent trend
+    const recent = history.slice(-3);
+    let lastTrend = 'stable';
+    if (recent.length >= 2) {
+      const diff = recent[recent.length - 1] - recent[recent.length - 2];
+      if (diff > 0) lastTrend = 'up';
+      else if (diff < 0) lastTrend = 'down';
+    }
+
+    // Get Markov prediction
+    const prediction = this.trendChain.predict(lastTrend);
+
+    return {
+      trend: prediction.state || 'stable',
+      probability: prediction.probability,
+      confidence: prediction.confidence,
+      currentTrend: lastTrend,
+    };
+  }
+
+  /**
+   * Record trend observation for Markov learning
+   * @private
+   * @param {string} metricName - Metric name
+   * @param {number} currentValue - Current metric value
+   */
+  _recordTrendObservation(metricName, currentValue) {
+    const history = this.metricValues[metricName] || [];
+    history.push(currentValue);
+
+    // Keep bounded at Fib(10) = 55
+    while (history.length > 55) {
+      history.shift();
+    }
+    this.metricValues[metricName] = history;
+
+    // Record transition in Markov chain
+    if (history.length >= 2) {
+      const prev = history[history.length - 2];
+      const prevTrend = prev < currentValue ? 'up' : prev > currentValue ? 'down' : 'stable';
+      const currTrend = history.length >= 3 ?
+        (history[history.length - 3] < prev ? 'up' : history[history.length - 3] > prev ? 'down' : 'stable') :
+        'stable';
+
+      if (currTrend && prevTrend) {
+        this.trendChain.observe(currTrend, prevTrend);
+      }
+    }
+  }
+
+  /**
+   * Detect anomaly in metric using Gaussian z-score
+   * @private
+   * @param {string} metricName - Metric name
+   * @param {number} value - Current value
+   * @returns {Object} {isAnomaly, zScore, severity}
+   */
+  _detectMetricAnomaly(metricName, value) {
+    const history = this.metricValues[metricName] || [];
+
+    if (history.length < 5) {
+      return { isAnomaly: false, zScore: 0, severity: 'none' };
+    }
+
+    // Compute stats from history (exclude current)
+    const stats = computeStats(history.slice(0, -1));
+    const z = zScore(value, stats.mean, stats.stdDev);
+
+    // Classify severity using φ thresholds
+    let severity = 'none';
+    let isAnomaly = false;
+
+    if (Math.abs(z) > 3) {
+      severity = 'critical';
+      isAnomaly = true;
+    } else if (Math.abs(z) > this.anomalyThreshold) {
+      severity = 'warning';
+      isAnomaly = true;
+    } else if (Math.abs(z) > 1) {
+      severity = 'minor';
+    }
+
+    return {
+      isAnomaly,
+      zScore: Math.round(z * 100) / 100,
+      severity,
+      mean: stats.mean,
+      stdDev: stats.stdDev,
+    };
+  }
+
+  /**
+   * Calculate system entropy (uncertainty measure)
+   * @private
+   * @returns {Object} {entropy, normalized, category}
+   */
+  _calculateSystemEntropy() {
+    // Use event distribution as probability
+    const eventCounts = Array.from(this.eventCounts.values());
+    if (eventCounts.length === 0) {
+      return { entropy: 0, normalized: 0, category: 'STABLE', confidence: PHI_INV };
+    }
+
+    const analysis = entropyConfidence(eventCounts);
+
+    // Categorize based on normalized entropy
+    let category = 'STABLE';
+    if (analysis.normalized > PHI_INV) {
+      category = 'CHAOTIC';
+    } else if (analysis.normalized > PHI_INV_2) {
+      category = 'UNCERTAIN';
+    } else if (analysis.normalized > PHI_INV_3) {
+      category = 'MODERATE';
+    }
+
+    return {
+      entropy: analysis.entropy,
+      normalized: analysis.normalized,
+      category,
+      confidence: analysis.confidence,
+    };
+  }
+
+  /**
+   * Get Bayesian health estimate
+   * @returns {Object} {probability, confidence, α, β}
+   */
+  getHealthEstimate() {
+    const mean = this.healthBelief.getMean();
+    const strength = this.healthBelief.getStrength();
+    const alpha = this.healthBelief.alpha;
+    const beta = this.healthBelief.beta;
+
+    // Confidence based on strength (more observations = more confident)
+    // φ-bounded: max confidence is 61.8%
+    const rawConfidence = Math.min(1, strength / 20); // 20 samples = max raw confidence
+    const confidence = Math.min(PHI_INV, rawConfidence);
+
+    return {
+      probability: mean,
+      confidence,
+      alpha,
+      beta,
+      strength,
+    };
+  }
+
+  /**
+   * Get trend predictions for all metrics
+   * @returns {Object} Predictions by metric
+   */
+  getTrendPredictions() {
+    const predictions = {};
+    for (const metric of Object.keys(this.metricValues)) {
+      predictions[metric] = this._predictMetricTrend(metric);
+    }
+    return predictions;
   }
 
   /**
@@ -571,20 +808,52 @@ export class CollectiveOracle extends BaseAgent {
    * @private
    */
   async _collectMetrics() {
+    const eventsTotal = Array.from(this.eventCounts.values()).reduce((a, b) => a + b, 0);
+    const blocksCount = this.eventCounts.get(AgentEvent.THREAT_BLOCKED) || 0;
+    const patternsCount = this.eventCounts.get(AgentEvent.PATTERN_DETECTED) || 0;
+
+    // Record for Markov trend prediction
+    this._recordTrendObservation('events', eventsTotal);
+    this._recordTrendObservation('blocks', blocksCount);
+    this._recordTrendObservation('patterns', patternsCount);
+
+    // Detect anomalies using Gaussian z-score
+    const anomalies = {
+      events: this._detectMetricAnomaly('events', eventsTotal),
+      blocks: this._detectMetricAnomaly('blocks', blocksCount),
+      patterns: this._detectMetricAnomaly('patterns', patternsCount),
+    };
+
+    // Calculate system entropy
+    const systemEntropy = this._calculateSystemEntropy();
+
+    // Get Bayesian health estimate
+    const healthEstimate = this.getHealthEstimate();
+
+    // Get trend predictions
+    const trendPredictions = this.getTrendPredictions();
+
     const metrics = {
       events: {
-        total: Array.from(this.eventCounts.values()).reduce((a, b) => a + b, 0),
+        total: eventsTotal,
         byType: Object.fromEntries(this.eventCounts),
       },
       judgments: {
         total: 0, // Would be populated from judge
         avgScore: 0,
       },
-      blocks: this.eventCounts.get(AgentEvent.THREAT_BLOCKED) || 0,
-      patterns: this.eventCounts.get(AgentEvent.PATTERN_DETECTED) || 0,
+      blocks: blocksCount,
+      patterns: patternsCount,
       views: this.stats.totalViews,
       cacheHitRate: this.stats.cacheHits / Math.max(this.stats.cacheHits + this.stats.cacheMisses, 1),
       timestamp: Date.now(),
+      // New: Math module enrichments
+      inference: {
+        anomalies,
+        entropy: systemEntropy,
+        health: healthEstimate,
+        trends: trendPredictions,
+      },
     };
 
     // Store for history
@@ -651,26 +920,49 @@ export class CollectiveOracle extends BaseAgent {
 
   /**
    * Calculate overall health score
+   * Combines rule-based scoring with Bayesian belief
    * @private
    */
   _calculateOverallHealth(metrics, alerts) {
-    let score = 100;
+    // Rule-based score
+    let ruleScore = 100;
+    ruleScore -= metrics.blocks * 10;
 
-    // Deduct for blocks
-    score -= metrics.blocks * 10;
-
-    // Deduct for alerts
     const criticalAlerts = alerts.filter(a => a.severity === AlertSeverity.CRITICAL).length;
     const warningAlerts = alerts.filter(a => a.severity === AlertSeverity.WARNING).length;
-    score -= criticalAlerts * 20;
-    score -= warningAlerts * 5;
+    ruleScore -= criticalAlerts * 20;
+    ruleScore -= warningAlerts * 5;
+    ruleScore = Math.max(0, Math.min(100, ruleScore));
 
-    score = Math.max(0, Math.min(100, score));
+    // Bayesian health belief (0-1 → 0-100)
+    const healthEstimate = this.getHealthEstimate();
+    const bayesScore = healthEstimate.probability * 100;
+
+    // Blend: 60% rule-based, 40% Bayesian
+    // This gives learned behavior influence while keeping rules grounded
+    const blendedScore = ruleScore * 0.6 + bayesScore * 0.4;
+    const finalScore = Math.round(Math.max(0, Math.min(100, blendedScore)));
+
+    // Calculate confidence using Bayesian confidence
+    const confidence = Math.min(PHI_INV, healthEstimate.confidence);
+
+    // Check for anomalies in inference data
+    const hasAnomalies = metrics.inference?.anomalies &&
+      Object.values(metrics.inference.anomalies).some(a => a.isAnomaly);
 
     return {
-      score,
-      status: score >= 80 ? 'healthy' : score >= 50 ? 'degraded' : 'critical',
-      verdict: score >= 80 ? 'HOWL' : score >= 50 ? 'WAG' : 'GROWL',
+      score: finalScore,
+      status: finalScore >= 80 ? 'healthy' : finalScore >= 50 ? 'degraded' : 'critical',
+      verdict: finalScore >= 80 ? 'HOWL' : finalScore >= 50 ? 'WAG' : 'GROWL',
+      confidence,
+      // New: Inference details
+      inference: {
+        ruleScore,
+        bayesScore: Math.round(bayesScore),
+        bayesConfidence: healthEstimate.confidence,
+        hasAnomalies,
+        entropyCategory: metrics.inference?.entropy?.category || 'UNKNOWN',
+      },
     };
   }
 
@@ -1035,6 +1327,11 @@ export class CollectiveOracle extends BaseAgent {
       cacheMisses: 0,
       alertsGenerated: 0,
     };
+
+    // Reset math module state
+    this.healthBelief = new BetaDistribution(2, 1);
+    this.trendChain = createMarkovChain(['up', 'stable', 'down']);
+    this.metricValues = { events: [], blocks: [], patterns: [] };
   }
 }
 
