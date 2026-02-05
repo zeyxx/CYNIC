@@ -163,3 +163,34 @@ export {
   getEntropyTracker,
   resetEntropyTracker,
 } from './entropy.js';
+
+// Markov Chains for Sequence Modeling
+export {
+  // Matrix operations
+  buildTransitionMatrix,
+  getTransitionProbability,
+  getTransitions,
+
+  // Prediction
+  predictNextState,
+  predictNSteps,
+  sampleNextState,
+  generateSequence,
+
+  // Sequence analysis
+  sequenceProbability,
+  sequenceLogProbability,
+  detectAnomalousSequence,
+
+  // Stationary distribution
+  stationaryDistribution,
+  expectedReturnTime,
+
+  // Classes
+  MarkovChain,
+
+  // Factories
+  createMarkovChain,
+  createVerdictChain,
+  createActionChain,
+} from './markov.js';
