@@ -36,6 +36,8 @@ const instance = createIdentity();
 | `LearningManager` | LearningManager implementation |
 | `BiasType` | BiasType implementation |
 | `EngineConsultation` | EngineConsultation implementation |
+| `DPOOptimizer` | DPOOptimizer implementation |
+| `CalibrationTracker` | CalibrationTracker implementation |
 | `StateManager` | StateManager implementation |
 | `MemoryStorage` | MemoryStorage implementation |
 | `FileStorage` | FileStorage implementation |
@@ -183,6 +185,7 @@ const instance = createIdentity();
 | `getAllDimensions()` | Get AllDimensions singleton |
 | `getDimensionsForAxiom()` | Get DimensionsForAxiom singleton |
 | `getDimension()` | Get Dimension singleton |
+| `getLearningScheduler()` | Get LearningScheduler singleton |
 | `getCollectivePack()` | Get CollectivePack singleton |
 | `getCollectivePackAsync()` | Get CollectivePackAsync singleton |
 | `getSharedMemory()` | Get SharedMemory singleton |
@@ -215,7 +218,7 @@ const instance = createIdentity();
 
 ### Functions
 
-`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning`, `awakenCynic` + 26 more
+`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 27 more
 
 ## Dependencies
 
@@ -227,7 +230,7 @@ const instance = createIdentity();
 - **Source files**: 196
 - **Test files**: 52
 - **Test ratio**: 27%
-- **Exports**: 235 named
+- **Exports**: 239 named
 
 ## Fractal Structure
 
@@ -240,7 +243,7 @@ const instance = createIdentity();
 [███░░░░░░░] 27% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
-[██████░░░░] 60% Burn (Simplicity)
+[██████░░░░] 59% Burn (Simplicity)
 [██████░░░░] 62% Emergence
 ```
 

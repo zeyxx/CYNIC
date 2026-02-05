@@ -29,6 +29,7 @@ import { SharedMemory } from './memory/shared-memory.js';
 import { getQLearningService } from './orchestration/learning-service.js';
 import { createReasoningBank, TrajectoryType } from './learning/reasoning-bank.js';
 import { getDogStateEmitter } from './perception/dog-state-emitter.js';
+import { getLearningScheduler } from './judge/learning-scheduler.js';
 
 const log = createLogger('CollectiveSingleton');
 
@@ -137,6 +138,14 @@ let _reasoningBank = null;
  * @type {DogStateEmitter|null}
  */
 let _dogStateEmitter = null;
+
+/**
+ * C1.5 + C6.7: The global LearningScheduler instance
+ * Runs DPO training (C1.5) and ResidualGovernance (C6.7) daily
+ * "φ learns while you sleep"
+ * @type {LearningScheduler|null}
+ */
+let _learningScheduler = null;
 
 /**
  * Initialization promise to prevent race conditions
@@ -249,6 +258,23 @@ export function getDogStateEmitterSingleton(options = {}) {
 }
 
 /**
+ * C1.5 + C6.7: Get the LearningScheduler singleton
+ *
+ * LearningScheduler runs DPO optimization (C1.5) and ResidualGovernance (C6.7) on schedule.
+ * "φ learns while you sleep"
+ *
+ * Note: Scheduler is started automatically when getCollectivePackAsync completes.
+ *
+ * @returns {LearningScheduler} The singleton LearningScheduler instance
+ */
+export function getLearningSchedulerSingleton() {
+  if (!_learningScheduler) {
+    _learningScheduler = getLearningScheduler();
+  }
+  return _learningScheduler;
+}
+
+/**
  * Get the CollectivePack singleton (SYNC version)
  *
  * ⚠️ WARNING: This is the SYNC version. Persistence state may NOT be loaded.
@@ -300,6 +326,11 @@ export function getCollectivePack(options = {}) {
     // Start periodic emission now that pack is available
     emitter.start();
     log.debug('DogStateEmitter wired and started');
+
+    // C1.5 + C6.7: Wire LearningScheduler (DPO + Governance)
+    // Will be started in background by getCollectivePackAsync
+    _learningScheduler = getLearningScheduler();
+    log.debug('LearningScheduler singleton created (not started yet)');
 
     // FIX O3: Schedule background persistence initialization
     // "φ persiste" - persistence should be loaded even for sync calls
@@ -496,6 +527,30 @@ export async function getCollectivePackAsync(options = {}) {
         await initializeQLearning(options.persistence);
       } catch (err) {
         log.warn('Could not initialize Q-Learning', { error: err.message });
+      }
+
+      // C1.5 + C6.7: Start LearningScheduler (DPO + Governance)
+      // Wire dependencies and start scheduler
+      if (_learningScheduler) {
+        try {
+          // Try to get dependencies from judge package
+          const { DPOOptimizer, CalibrationTracker, ResidualGovernance, LearningManager } = await import('./judge/index.js');
+
+          _learningScheduler.setDependencies({
+            learningManager: pack.learner?.learningManager || null,
+            dpoOptimizer: new DPOOptimizer({ pool: options.persistence }),
+            calibrationTracker: new CalibrationTracker({ pool: options.persistence }),
+            residualGovernance: new ResidualGovernance({
+              pool: options.persistence,
+              collectivePack: pack,
+            }),
+          });
+
+          _learningScheduler.start();
+          log.info('LearningScheduler started with dependencies');
+        } catch (err) {
+          log.warn('Could not start LearningScheduler', { error: err.message });
+        }
       }
     }
 

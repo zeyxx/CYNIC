@@ -56,6 +56,16 @@ export {
   EngineConsultation,
   createEngineIntegration,
   CONTEXT_DOMAIN_MAP,
+  // C1.5: DPO Training Pipeline (CODE × LEARN)
+  DPOProcessor,
+  DPOOptimizer,
+  // C6.7: Residual Governance (CYNIC × EMERGE)
+  ResidualGovernance,
+  CalibrationTracker,
+  // Learning Scheduler (runs DPO + Governance daily)
+  LearningScheduler,
+  getLearningScheduler,
+  resetLearningScheduler,
 } from './judge/index.js';
 
 // State
@@ -143,6 +153,8 @@ export {
   _resetForTesting as _resetCollectiveForTesting,
   // C6.1: Dog State Emitter (CYNIC × PERCEIVE)
   getDogStateEmitterSingleton,
+  // C1.5 + C6.7: Learning Scheduler (DPO + Governance)
+  getLearningSchedulerSingleton,
 } from './collective-singleton.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
