@@ -88,12 +88,14 @@ describe('Shannon Entropy', () => {
 
 describe('Judgment Entropy', () => {
   describe('judgmentEntropy', () => {
-    it('should detect DECISIVE category for polarized scores', () => {
-      const scores = { PHI: 95, VERIFY: 20, CULTURE: 15, BURN: 10 };
+    it('should detect DECISIVE category for extremely polarized scores', () => {
+      // Extremely polarized: one dominant score
+      const scores = { PHI: 99, VERIFY: 1, CULTURE: 1, BURN: 1 };
       const result = judgmentEntropy(scores);
 
-      // Very polarized = low entropy = DECISIVE
-      assert.ok(result.normalizedEntropy < PHI_INV_2, `Expected H < 38.2%, got ${result.normalizedEntropy}`);
+      // Extremely polarized = low entropy = DECISIVE (< 23.6%)
+      assert.ok(result.normalizedEntropy < ENTROPY_THRESHOLDS.DECISIVE,
+        `Expected H < ${ENTROPY_THRESHOLDS.DECISIVE}, got ${result.normalizedEntropy}`);
     });
 
     it('should detect CHAOTIC category for uniform scores', () => {
