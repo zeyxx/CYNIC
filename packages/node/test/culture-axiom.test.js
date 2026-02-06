@@ -1,8 +1,8 @@
 /**
  * CULTURE Axiom Scorers - Comprehensive Tests
  *
- * Tests for the 6 CULTURE dimensions: AUTHENTICITY, RELEVANCE, NOVELTY,
- * ALIGNMENT, IMPACT, RESONANCE
+ * Tests for the 7 CULTURE dimensions: AUTHENTICITY, RELEVANCE, NOVELTY,
+ * ALIGNMENT, IMPACT, RESONANCE, LINEAGE
  *
  * "Culture is a moat" - κυνικός
  *
@@ -964,16 +964,16 @@ describe('RESONANCE Scorer', () => {
 // =============================================================================
 
 describe('CultureScorers Map', () => {
-  it('should have all 6 CULTURE dimensions', () => {
-    const expected = ['AUTHENTICITY', 'RELEVANCE', 'NOVELTY', 'ALIGNMENT', 'IMPACT', 'RESONANCE'];
+  it('should have all 7 CULTURE dimensions', () => {
+    const expected = ['AUTHENTICITY', 'RELEVANCE', 'NOVELTY', 'ALIGNMENT', 'IMPACT', 'RESONANCE', 'LINEAGE'];
     for (const dim of expected) {
       assert.ok(CultureScorers[dim], `Missing ${dim} in CultureScorers`);
       assert.strictEqual(typeof CultureScorers[dim], 'function');
     }
   });
 
-  it('should have exactly 6 dimensions', () => {
-    assert.strictEqual(Object.keys(CultureScorers).length, 6);
+  it('should have exactly 7 dimensions', () => {
+    assert.strictEqual(Object.keys(CultureScorers).length, 7);
   });
 
   it('all scorers should accept item and context', () => {
@@ -1015,7 +1015,7 @@ describe('CULTURE Axiom Integration', () => {
     }
 
     // Most scores should be high
-    const avgScore = Object.values(scores).reduce((a, b) => a + b, 0) / 6;
+    const avgScore = Object.values(scores).reduce((a, b) => a + b, 0) / Object.keys(scores).length;
     assert.ok(avgScore >= 60, `Average score ${avgScore} should be >= 60`);
   });
 
@@ -1041,7 +1041,7 @@ describe('CULTURE Axiom Integration', () => {
     }
 
     // All scores should be low
-    const avgScore = Object.values(scores).reduce((a, b) => a + b, 0) / 6;
+    const avgScore = Object.values(scores).reduce((a, b) => a + b, 0) / Object.keys(scores).length;
     assert.ok(avgScore < 30, `Average score ${avgScore} should be < 30 for scam item`);
   });
 });

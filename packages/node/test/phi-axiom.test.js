@@ -1,7 +1,7 @@
 /**
  * PHI Axiom Scorers - Comprehensive Tests
  *
- * Tests for the 6 PHI dimensions: COHERENCE, HARMONY, STRUCTURE, ELEGANCE, COMPLETENESS, PRECISION
+ * Tests for the 7 PHI dimensions: COHERENCE, HARMONY, STRUCTURE, ELEGANCE, COMPLETENESS, PRECISION, PROPORTION
  * Plus utility functions used by all scorers.
  *
  * "φ distrusts φ" - κυνικός
@@ -1006,16 +1006,16 @@ describe('PRECISION Scorer', () => {
 // =============================================================================
 
 describe('PhiScorers Map', () => {
-  it('should have all 6 PHI dimensions', () => {
-    const expected = ['COHERENCE', 'HARMONY', 'STRUCTURE', 'ELEGANCE', 'COMPLETENESS', 'PRECISION'];
+  it('should have all 7 PHI dimensions', () => {
+    const expected = ['COHERENCE', 'HARMONY', 'STRUCTURE', 'ELEGANCE', 'COMPLETENESS', 'PRECISION', 'PROPORTION'];
     for (const dim of expected) {
       assert.ok(PhiScorers[dim], `Missing ${dim} in PhiScorers`);
       assert.strictEqual(typeof PhiScorers[dim], 'function');
     }
   });
 
-  it('should have exactly 6 dimensions', () => {
-    assert.strictEqual(Object.keys(PhiScorers).length, 6);
+  it('should have exactly 7 dimensions', () => {
+    assert.strictEqual(Object.keys(PhiScorers).length, 7);
   });
 
   it('all scorers should accept item and context', () => {
@@ -1083,7 +1083,7 @@ In conclusion, following these guidelines leads to better software.`,
     }
 
     // All scores should be penalized
-    const avgScore = Object.values(scores).reduce((a, b) => a + b, 0) / 6;
+    const avgScore = Object.values(scores).reduce((a, b) => a + b, 0) / Object.keys(scores).length;
     assert.ok(avgScore < 60, `Average score ${avgScore} should be < 60 for scam item`);
   });
 

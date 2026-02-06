@@ -1,8 +1,8 @@
 /**
  * VERIFY Axiom Scorers - Comprehensive Tests
  *
- * Tests for the 6 VERIFY dimensions: ACCURACY, VERIFIABILITY, TRANSPARENCY,
- * REPRODUCIBILITY, PROVENANCE, INTEGRITY
+ * Tests for the 7 VERIFY dimensions: ACCURACY, VERIFIABILITY, TRANSPARENCY,
+ * REPRODUCIBILITY, PROVENANCE, INTEGRITY, CONSENSUS
  *
  * "Don't trust, verify" - κυνικός
  *
@@ -822,16 +822,16 @@ describe('INTEGRITY Scorer', () => {
 // =============================================================================
 
 describe('VerifyScorers Map', () => {
-  it('should have all 6 VERIFY dimensions', () => {
-    const expected = ['ACCURACY', 'VERIFIABILITY', 'TRANSPARENCY', 'REPRODUCIBILITY', 'PROVENANCE', 'INTEGRITY'];
+  it('should have all 7 VERIFY dimensions', () => {
+    const expected = ['ACCURACY', 'VERIFIABILITY', 'TRANSPARENCY', 'REPRODUCIBILITY', 'PROVENANCE', 'INTEGRITY', 'CONSENSUS'];
     for (const dim of expected) {
       assert.ok(VerifyScorers[dim], `Missing ${dim} in VerifyScorers`);
       assert.strictEqual(typeof VerifyScorers[dim], 'function');
     }
   });
 
-  it('should have exactly 6 dimensions', () => {
-    assert.strictEqual(Object.keys(VerifyScorers).length, 6);
+  it('should have exactly 7 dimensions', () => {
+    assert.strictEqual(Object.keys(VerifyScorers).length, 7);
   });
 
   it('all scorers should accept item and context', () => {
@@ -862,6 +862,9 @@ describe('VERIFY Axiom Integration', () => {
       signature: 'ed25519:xyz',
       checksum: 'md5:def',
       url: 'https://github.com/example',
+      verifiers: ['alice', 'bob', 'charlie'],
+      onChain: true,
+      peerReviewed: true,
       reasoning: 'Because of X, we conclude Y.',
       methodology: 'Scientific method',
       version: '1.0.0',
