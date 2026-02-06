@@ -483,9 +483,11 @@ Confidence: [██████░░░░] 62% ← MAX (φ⁻¹)
 | `CYNIC_STATE` | `collective_snapshots` (sampled 1:5) | DogStateEmitter |
 
 ### Next Steps
-- [ ] **AXE 3: BURN server.js** - Extract from 2000+ line monolith (high risk, own AXE)
+- [x] **AXE 3: BURN server.js** ✅ DONE - Extracted to 7 components (366 lines remaining)
+- [ ] **PHASE 2: DECENTRALIZE** - Multi-node consensus, Solana anchoring
 - [ ] Wire persistence to `startEventListeners()` in production startup
 - [ ] Add cleanup cron for dog_events/snapshots tables
+- [ ] Burn remaining monoliths: `poj-chain-manager.js` (1076 lines), `ServiceInitializer.js` (937 lines)
 
 ### Key Files
 ```
