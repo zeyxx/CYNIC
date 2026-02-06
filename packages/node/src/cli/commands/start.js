@@ -361,10 +361,22 @@ export async function startCommand(options) {
     }
   }
 
+  // Collect peer addresses from --connect flags AND CYNIC_SEED_NODES env var
+  const peerAddresses = [...(options.connect || [])];
+  const envSeeds = (process.env.CYNIC_SEED_NODES || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+  for (const seed of envSeeds) {
+    if (!peerAddresses.includes(seed)) {
+      peerAddresses.push(seed);
+    }
+  }
+
   // Connect to initial peers
-  if (options.connect && options.connect.length > 0) {
+  if (peerAddresses.length > 0) {
     console.log(chalk.gray('\n  Connecting to peers...'));
-    for (const address of options.connect) {
+    for (const address of peerAddresses) {
       try {
         const wsAddress = address.startsWith('ws') ? address : `ws://${address}`;
         const peerId = `peer_${Date.now()}`;
@@ -377,6 +389,9 @@ export async function startCommand(options) {
         console.log(chalk.green('  [OK]   ') + `Connected to ${chalk.cyan(address)}`);
       } catch (err) {
         console.log(chalk.red('  [FAIL] ') + `Could not connect to ${address}: ${err.message}`);
+        // Still track for auto-reconnect (peer may come up later)
+        const wsAddress = address.startsWith('ws') ? address : `ws://${address}`;
+        requiredPeers.add(wsAddress);
       }
     }
   }
