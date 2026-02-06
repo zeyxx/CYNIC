@@ -284,6 +284,7 @@ export class WebSocketTransport extends EventEmitter {
       queue: [],
       reconnectAttempts: 0,
       address,
+      outboundAddress: address, // Preserved across identity exchange for reconnect matching
       peerId,
       isOutbound: true,
     };
@@ -834,7 +835,8 @@ export class WebSocketTransport extends EventEmitter {
     for (const conn of this.connections.values()) {
       if (conn.state !== ConnectionState.CONNECTED) continue;
       const connBare = (conn.address || '').replace(/^wss?:\/\//, '');
-      if (connBare === bare || conn.address === address) return true;
+      const outBare = (conn.outboundAddress || '').replace(/^wss?:\/\//, '');
+      if (connBare === bare || outBare === bare || conn.address === address) return true;
     }
     return false;
   }
