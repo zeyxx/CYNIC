@@ -104,6 +104,19 @@ export class CYNICNetworkNode extends EventEmitter {
     // Track peer finalized slots (from heartbeats)
     this._peerSlots = new Map(); // peerId → { finalizedSlot, lastSeen }
 
+    // Fork detection state
+    this._forkState = {
+      detected: false,
+      forkSlot: null,           // Slot where fork was detected
+      forkHashes: new Map(),    // slot → Map<hash, Set<peerId>>
+      ourBranch: null,          // Which branch we're on
+      resolutionInProgress: false,
+      lastCheck: 0,
+    };
+
+    // Track block hashes per slot (for fork detection)
+    this._slotHashes = new Map(); // slot → { hash, confirmedBy: Set<peerId> }
+
     // Stats
     this._stats = {
       uptime: 0,
@@ -114,6 +127,8 @@ export class CYNICNetworkNode extends EventEmitter {
       validatorsKnown: 0,
       peersConnected: 0,
       errors: 0,
+      forksDetected: 0,
+      forksResolved: 0,
     };
 
     if (this._enabled) {
@@ -407,15 +422,41 @@ export class CYNICNetworkNode extends EventEmitter {
    * @private
    */
   _publishHeartbeat() {
+    // Get recent finalized block hashes for fork detection (last 5 slots)
+    const recentHashes = this._getRecentBlockHashes(5);
+
     this._transport.gossip?.broadcastMessage?.({
       type: 'HEARTBEAT',
       nodeId: this._publicKey.slice(0, 32),
       eScore: this._eScore,
-      slot: this._consensus.currentSlot,
-      finalizedSlot: this._consensus.lastFinalizedSlot,
+      slot: this._consensus?.currentSlot || 0,
+      finalizedSlot: this._consensus?.lastFinalizedSlot || 0,
+      finalizedHash: this._consensus?.lastFinalizedHash || null,
+      recentHashes, // [{slot, hash}, ...] for fork detection
       state: this._state,
       timestamp: Date.now(),
     });
+  }
+
+  /**
+   * Get recent block hashes for fork detection
+   * @private
+   * @param {number} count - Number of recent slots to include
+   * @returns {Array<{slot: number, hash: string}>}
+   */
+  _getRecentBlockHashes(count) {
+    const hashes = [];
+    const currentSlot = this._consensus?.lastFinalizedSlot || 0;
+
+    for (let i = 0; i < count && currentSlot - i >= 0; i++) {
+      const slot = currentSlot - i;
+      const slotInfo = this._slotHashes.get(slot);
+      if (slotInfo?.hash) {
+        hashes.push({ slot, hash: slotInfo.hash });
+      }
+    }
+
+    return hashes;
   }
 
   /**
