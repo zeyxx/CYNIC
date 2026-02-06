@@ -394,6 +394,30 @@ export class KabbalisticRouter {
       path = nonCommutative.optimizedPath;
     }
 
+    // =======================================================================
+    // Q-LEARNING WEIGHT-BASED PATH OPTIMIZATION (D1: Close feedback loop)
+    // =======================================================================
+    // Reorder path by learned weights (highest first), but keep Guardian
+    // at position 0 for security-first tasks (PreToolUse, security, deployment)
+    if (this.learningService) {
+      const weights = this.getLearnedWeights();
+      if (weights && Object.keys(weights).length > 0) {
+        const securityFirst = ['PreToolUse', 'security', 'deployment'].includes(taskType);
+        const guardianIdx = path.indexOf('guardian');
+
+        path = [...path].sort((a, b) => {
+          // Guardian always first for security tasks
+          if (securityFirst) {
+            if (a === 'guardian') return -1;
+            if (b === 'guardian') return 1;
+          }
+          const wA = weights[a] || 0.5;
+          const wB = weights[b] || 0.5;
+          return wB - wA; // Descending: highest weight first
+        });
+      }
+    }
+
     const entrySefirah = path[0];
 
     // 3. Create context for path traversal

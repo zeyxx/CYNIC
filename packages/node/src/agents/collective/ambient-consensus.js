@@ -168,7 +168,7 @@ export class AmbientConsensus {
 
         const consensusResult = await this.triggerConsensus({
           topic: `pre_tool:${tool}`,
-          context: { tool, input, confidence },
+          context: { tool, input, confidence, hookType: 'PreToolUse' },
           reason: `Confidence ${(confidence * 100).toFixed(1)}% < ${(CONSENSUS_THRESHOLDS.LOW_CONFIDENCE * 100).toFixed(1)}%`,
         });
 
@@ -509,6 +509,44 @@ export class AmbientConsensus {
 
     log.info('Triggering consensus', { consensusId, topic, reason });
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // JUDGE PIPELINE INTEGRATION — 25-dimension analysis before Dog voting
+    // Dogs now receive judgment context to inform their votes
+    // ═══════════════════════════════════════════════════════════════════════
+    let judgment = null;
+    if (this.pack.judge?.judge) {
+      try {
+        const item = {
+          type: context.tool ? 'tool_use' : topic,
+          id: consensusId,
+          tool: context.tool,
+          input: context.input,
+          ...context,
+        };
+        judgment = this.pack.judge.judge(item, { type: context.tool ? 'tool_use' : topic });
+        log.debug('Judge scored consensus item', {
+          qScore: judgment.qScore,
+          verdict: judgment.verdict,
+          confidence: judgment.confidence,
+        });
+      } catch (e) {
+        log.warn('Judge scoring failed, Dogs vote without judgment', { error: e.message });
+      }
+    }
+
+    // Enrich context with judgment for Dogs
+    const enrichedContext = {
+      ...context,
+      judgment: judgment ? {
+        qScore: judgment.qScore,
+        verdict: judgment.verdict,
+        confidence: judgment.confidence,
+        axiomScores: judgment.axiomScores,
+        weaknesses: judgment.weaknesses,
+        entropy: judgment.entropy,
+      } : null,
+    };
+
     // Predict outcome using Markov chain (before voting)
     const prediction = this._predictOutcome(topic);
     log.debug('Outcome prediction', prediction);
@@ -528,7 +566,7 @@ export class AmbientConsensus {
         voters.push(dogName);
         votePromises.push(
           Promise.race([
-            dog.voteOnConsensus(topic, context),
+            dog.voteOnConsensus(topic, enrichedContext),
             new Promise(resolve => setTimeout(() => resolve({
               vote: 'abstain',
               reason: 'timeout',
@@ -645,6 +683,13 @@ export class AmbientConsensus {
         guardianVeto ? 'guardian_veto' :
         totalVoters < CONSENSUS_THRESHOLDS.MIN_VOTERS ? 'insufficient_voters' :
         'consensus_not_reached',
+      // Judge 25-dimension analysis (if available)
+      judgment: judgment ? {
+        qScore: judgment.qScore,
+        verdict: judgment.verdict,
+        confidence: judgment.confidence,
+        axiomScores: judgment.axiomScores,
+      } : null,
       // New: Math enrichments
       inference: {
         prediction,

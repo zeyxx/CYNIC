@@ -71,9 +71,12 @@ export class FeedbackRepository extends BaseRepository {
    */
   async findUnapplied(limit = 100) {
     const { rows } = await this.db.query(`
-      SELECT f.*, j.q_score, j.verdict, j.item_type
+      SELECT f.*,
+        COALESCE(j.q_score, f.actual_score) AS q_score,
+        j.verdict,
+        j.item_type
       FROM feedback f
-      JOIN judgments j ON f.judgment_id = j.judgment_id
+      LEFT JOIN judgments j ON f.judgment_id = j.judgment_id
       WHERE f.applied = FALSE
       ORDER BY f.created_at ASC
       LIMIT $1
