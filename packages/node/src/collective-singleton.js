@@ -39,6 +39,7 @@ import { wireAmbientConsensus } from './agents/collective/ambient-consensus.js';
 import { startEventListeners, stopEventListeners, cleanupOldEventData } from './services/event-listeners.js';
 import { getNetworkNodeAsync, startNetworkNode, stopNetworkNode, isP2PEnabled } from './network-singleton.js';
 import { BlockStore } from './network/block-store.js';
+import { getErrorHandler } from './services/error-handler.js';
 
 const log = createLogger('CollectiveSingleton');
 
@@ -739,6 +740,18 @@ export async function getCollectivePackAsync(options = {}) {
         log.warn('Could not initialize Q-Learning', { error: err.message });
       }
 
+      // Restore Dog track records from consensus_votes (AXE 2: close persistence loop)
+      try {
+        if (pack.ambientConsensus?.restoreFromDatabase) {
+          const result = await pack.ambientConsensus.restoreFromDatabase(options.persistence);
+          if (result.restored) {
+            log.info('Dog track records restored', { dogs: result.dogs, votes: result.votes });
+          }
+        }
+      } catch (err) {
+        log.warn('Dog state restoration failed (non-blocking)', { error: err.message });
+      }
+
       // THE_UNNAMEABLE: Load discovered dimensions from DB and register in DimensionRegistry
       // This is the gate that makes CYNIC remember what it learned to see
       let _residualStorage = null;
@@ -816,6 +829,14 @@ export async function getCollectivePackAsync(options = {}) {
       } catch (err) {
         log.warn('NetworkNode initialization failed (non-blocking)', { error: err.message });
       }
+    }
+
+    // AXE 8 (AWARE): Activate ErrorHandler singleton with global error capture
+    try {
+      getErrorHandler({ captureGlobal: true });
+      log.info('ErrorHandler activated (AXE 8: AWARE)');
+    } catch (err) {
+      log.warn('ErrorHandler activation failed (non-blocking)', { error: err.message });
     }
 
     return pack;

@@ -800,6 +800,76 @@ export class AmbientConsensus {
   }
 
   /**
+   * Restore dog track records and vote history from database
+   * Rebuilds BetaDistribution per dog from consensus_votes table
+   *
+   * @param {Object} persistence - Database pool/client with query()
+   * @returns {Promise<{restored: boolean, dogs: number, votes: number}>}
+   */
+  async restoreFromDatabase(persistence) {
+    if (!persistence?.query) return { restored: false, dogs: 0, votes: 0 };
+
+    try {
+      // Query recent consensus votes (last 30 days)
+      const { rows } = await persistence.query(`
+        SELECT votes, approved
+        FROM consensus_votes
+        WHERE created_at > NOW() - INTERVAL '30 days'
+        ORDER BY created_at ASC
+      `);
+
+      if (rows.length === 0) return { restored: false, dogs: 0, votes: 0 };
+
+      let totalVotes = 0;
+
+      for (const row of rows) {
+        const votes = typeof row.votes === 'string' ? JSON.parse(row.votes) : (row.votes || {});
+        const approved = row.approved;
+
+        for (const [dogName, voteData] of Object.entries(votes)) {
+          const vote = voteData?.vote;
+          if (!vote || vote === 'abstain') continue;
+
+          // Rebuild Beta distribution (track record)
+          const trackRecord = this._getDogTrackRecord(dogName);
+          const votedCorrectly =
+            (vote === 'approve' && approved) ||
+            (vote === 'reject' && !approved);
+
+          if (votedCorrectly) {
+            trackRecord.recordSuccess();
+          } else {
+            trackRecord.recordFailure();
+          }
+
+          // Rebuild vote history (for anomaly detection)
+          const voteValue = vote === 'approve' ? 1 : -1;
+          this._recordVoteForAnomaly(dogName, voteValue);
+          totalVotes++;
+        }
+      }
+
+      // Rebuild consensus history
+      this._consensusCount = rows.length;
+
+      log.info('Dog state restored from database', {
+        consensusVotes: rows.length,
+        dogs: Object.keys(this.dogTrackRecords).length,
+        totalVotes,
+      });
+
+      return {
+        restored: true,
+        dogs: Object.keys(this.dogTrackRecords).length,
+        votes: totalVotes,
+      };
+    } catch (err) {
+      log.warn('Dog state restoration failed', { error: err.message });
+      return { restored: false, dogs: 0, votes: 0 };
+    }
+  }
+
+  /**
    * Reset math module state
    */
   resetInference() {
