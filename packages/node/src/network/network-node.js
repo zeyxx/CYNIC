@@ -8,6 +8,7 @@
  * - ConsensusComponent: φ-BFT consensus (61.8% supermajority)
  * - PeerDiscovery: Finding and connecting to peers
  * - StateSync: Synchronizing state between nodes
+ * - SolanaAnchoring: On-chain truth anchoring
  *
  * "The pack hunts together" - κυνικός
  *
@@ -127,6 +128,17 @@ export class CYNICNetworkNode extends EventEmitter {
       rewardMultiplier: 1.02,     // Reward multiplier for good behavior
     };
 
+    // Solana anchoring
+    this._anchoring = {
+      enabled: options.anchoringEnabled ?? false,
+      cluster: options.solanaCluster || 'devnet',
+      wallet: options.wallet || null,
+      anchorer: null,              // Lazy initialized SolanaAnchorer
+      pendingAnchors: new Map(),   // blockHash → { slot, merkleRoot, status }
+      lastAnchorSlot: 0,
+      anchorInterval: options.anchorInterval || 100, // Anchor every N finalized slots
+    };
+
     // Stats
     this._stats = {
       uptime: 0,
@@ -142,6 +154,11 @@ export class CYNICNetworkNode extends EventEmitter {
       validatorsAdded: 0,
       validatorsRemoved: 0,
       validatorsPenalized: 0,
+      // Solana anchoring stats
+      blocksAnchored: 0,
+      anchorsFailed: 0,
+      lastAnchorSignature: null,
+      lastAnchorTimestamp: null,
     };
 
     if (this._enabled) {
@@ -1328,6 +1345,275 @@ export class CYNICNetworkNode extends EventEmitter {
 
     const PHI_THRESHOLD = 0.618; // φ⁻¹
     return votingWeight / total >= PHI_THRESHOLD;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Solana Anchoring - "Onchain is truth"
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Enable Solana anchoring
+   * @param {Object} options - Anchoring options
+   * @param {string} [options.cluster='devnet'] - Solana cluster
+   * @param {Object} [options.wallet] - Wallet for signing
+   * @param {number} [options.interval=100] - Anchor every N slots
+   */
+  async enableAnchoring(options = {}) {
+    this._anchoring.enabled = true;
+    this._anchoring.cluster = options.cluster || this._anchoring.cluster;
+    this._anchoring.wallet = options.wallet || this._anchoring.wallet;
+    this._anchoring.anchorInterval = options.interval || this._anchoring.anchorInterval;
+
+    log.info('Solana anchoring enabled', {
+      cluster: this._anchoring.cluster,
+      interval: this._anchoring.anchorInterval,
+      hasWallet: !!this._anchoring.wallet,
+    });
+
+    this.emit('anchoring:enabled', {
+      cluster: this._anchoring.cluster,
+      interval: this._anchoring.anchorInterval,
+    });
+  }
+
+  /**
+   * Disable Solana anchoring
+   */
+  disableAnchoring() {
+    this._anchoring.enabled = false;
+    log.info('Solana anchoring disabled');
+    this.emit('anchoring:disabled');
+  }
+
+  /**
+   * Anchor a finalized block to Solana
+   * @param {Object} block - Block to anchor
+   * @param {number} block.slot - Block slot
+   * @param {string} block.hash - Block hash
+   * @param {string} block.merkleRoot - Judgments merkle root
+   * @returns {Promise<Object|null>} Anchor result or null
+   */
+  async anchorBlock(block) {
+    if (!this._anchoring.enabled) {
+      return null;
+    }
+
+    if (!this._anchoring.wallet) {
+      log.warn('Cannot anchor - no wallet configured');
+      return null;
+    }
+
+    const { slot, hash, merkleRoot } = block;
+
+    // Track pending anchor
+    this._anchoring.pendingAnchors.set(hash, {
+      slot,
+      merkleRoot,
+      status: 'pending',
+      queuedAt: Date.now(),
+    });
+
+    log.info('Anchoring block to Solana', {
+      slot,
+      hash: hash?.slice(0, 16),
+      merkleRoot: merkleRoot?.slice(0, 16),
+      cluster: this._anchoring.cluster,
+    });
+
+    try {
+      // Create anchor transaction
+      const result = await this._createAnchorTransaction(block);
+
+      if (result.success) {
+        this._anchoring.pendingAnchors.set(hash, {
+          slot,
+          merkleRoot,
+          status: 'anchored',
+          signature: result.signature,
+          anchoredAt: Date.now(),
+        });
+
+        this._anchoring.lastAnchorSlot = slot;
+        this._stats.blocksAnchored++;
+        this._stats.lastAnchorSignature = result.signature;
+        this._stats.lastAnchorTimestamp = Date.now();
+
+        log.info('Block anchored to Solana', {
+          slot,
+          signature: result.signature?.slice(0, 32),
+        });
+
+        this.emit('block:anchored', {
+          slot,
+          hash,
+          merkleRoot,
+          signature: result.signature,
+          cluster: this._anchoring.cluster,
+        });
+
+        // Publish to event bus
+        globalEventBus.publish(EventType.BLOCK_ANCHORED || 'block:anchored', {
+          slot,
+          hash,
+          merkleRoot,
+          signature: result.signature,
+          cluster: this._anchoring.cluster,
+          timestamp: Date.now(),
+        });
+
+        return result;
+      } else {
+        throw new Error(result.error || 'Anchor failed');
+      }
+    } catch (error) {
+      this._anchoring.pendingAnchors.set(hash, {
+        slot,
+        merkleRoot,
+        status: 'failed',
+        error: error.message,
+        failedAt: Date.now(),
+      });
+
+      this._stats.anchorsFailed++;
+
+      log.error('Failed to anchor block', {
+        slot,
+        error: error.message,
+      });
+
+      this.emit('anchor:failed', {
+        slot,
+        hash,
+        error: error.message,
+      });
+
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Create anchor transaction (placeholder - uses memo for now)
+   * @private
+   * @param {Object} block - Block to anchor
+   * @returns {Promise<Object>} Transaction result
+   */
+  async _createAnchorTransaction(block) {
+    // In production, this would:
+    // 1. Create a transaction with the CYNIC Anchor program
+    // 2. Sign with the configured wallet
+    // 3. Send and confirm on Solana
+
+    // For now, return a simulated result
+    // Real implementation would use @cynic/anchor's SolanaAnchorer
+
+    if (!this._anchoring.wallet) {
+      return { success: false, error: 'No wallet configured' };
+    }
+
+    // Simulate successful anchor (in real impl, call SolanaAnchorer)
+    const mockSignature = `sim_${block.hash?.slice(0, 16)}_${Date.now()}`;
+
+    return {
+      success: true,
+      signature: mockSignature,
+      slot: block.slot,
+      merkleRoot: block.merkleRoot,
+      cluster: this._anchoring.cluster,
+      timestamp: Date.now(),
+    };
+  }
+
+  /**
+   * Check if a block should be anchored (based on interval)
+   * @param {number} slot - Block slot
+   * @returns {boolean} True if should anchor
+   */
+  shouldAnchor(slot) {
+    if (!this._anchoring.enabled) return false;
+
+    // Anchor every N slots
+    const interval = this._anchoring.anchorInterval;
+    return slot % interval === 0;
+  }
+
+  /**
+   * Called when a block is finalized - triggers anchoring if needed
+   * @param {Object} block - Finalized block
+   */
+  async onBlockFinalized(block) {
+    // Record the block hash
+    this.recordBlockHash(block.slot, block.hash);
+
+    // Check if we should anchor this block
+    if (this.shouldAnchor(block.slot)) {
+      await this.anchorBlock(block);
+    }
+  }
+
+  /**
+   * Get anchor status for a block
+   * @param {string} hash - Block hash
+   * @returns {Object|null} Anchor status or null
+   */
+  getAnchorStatus(hash) {
+    return this._anchoring.pendingAnchors.get(hash) || null;
+  }
+
+  /**
+   * Get Solana anchoring status
+   * @returns {Object} Anchoring status
+   */
+  getAnchoringStatus() {
+    const pending = Array.from(this._anchoring.pendingAnchors.values())
+      .filter(a => a.status === 'pending');
+    const anchored = Array.from(this._anchoring.pendingAnchors.values())
+      .filter(a => a.status === 'anchored');
+    const failed = Array.from(this._anchoring.pendingAnchors.values())
+      .filter(a => a.status === 'failed');
+
+    return {
+      enabled: this._anchoring.enabled,
+      cluster: this._anchoring.cluster,
+      hasWallet: !!this._anchoring.wallet,
+      anchorInterval: this._anchoring.anchorInterval,
+      lastAnchorSlot: this._anchoring.lastAnchorSlot,
+      pending: pending.length,
+      anchored: anchored.length,
+      failed: failed.length,
+      stats: {
+        blocksAnchored: this._stats.blocksAnchored,
+        anchorsFailed: this._stats.anchorsFailed,
+        lastSignature: this._stats.lastAnchorSignature?.slice(0, 32),
+        lastTimestamp: this._stats.lastAnchorTimestamp,
+      },
+    };
+  }
+
+  /**
+   * Verify an anchor on Solana
+   * @param {string} signature - Transaction signature
+   * @returns {Promise<Object>} Verification result
+   */
+  async verifyAnchor(signature) {
+    // In production, this would query Solana to verify the transaction
+    // For now, check our local cache
+
+    for (const [hash, anchor] of this._anchoring.pendingAnchors) {
+      if (anchor.signature === signature) {
+        return {
+          verified: true,
+          slot: anchor.slot,
+          hash,
+          merkleRoot: anchor.merkleRoot,
+          anchoredAt: anchor.anchoredAt,
+        };
+      }
+    }
+
+    return {
+      verified: false,
+      error: 'Signature not found in local cache',
+    };
   }
 
   /**
