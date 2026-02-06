@@ -14,8 +14,11 @@
 
 import { join } from 'path';
 import { fileURLToPath } from 'url';
-import { FibonacciIntervals, EcosystemMonitor } from '@cynic/core';
+import { FibonacciIntervals, EcosystemMonitor, globalEventBus } from '@cynic/core';
+import { Tracer, createPhiSampler, createTracingMiddleware } from '@cynic/core/tracing';
 import { getCollectivePackAsync, getQLearningServiceSingleton, initializeQLearning, createAutonomousDaemon, createHeartbeatService, createSLATracker, createConsciousnessBridge, createDefaultChecks, createEmergenceDetector } from '@cynic/node';
+import { traceAllDogs } from '@cynic/node/tracing/dog-tracing.js';
+import { TraceStorage } from '@cynic/persistence/services/trace-storage';
 import { AnchorQueue, SolanaAnchorer, loadWalletFromFile, loadWalletFromEnv, SolanaCluster } from '@cynic/anchor';
 import { BlockchainBridge } from '../blockchain-bridge.js';
 import { AuthService } from '../auth-service.js';
@@ -42,6 +45,7 @@ export class InitializationPipeline {
     const s = this._server;
 
     await this._restoreCollectiveState();
+    this._initializeTracing();
     this._wireOrchestrators();
     await this._initializeQLearning();
     await this._initializeLLMRouter();
@@ -94,6 +98,42 @@ export class InitializationPipeline {
       }
     } else {
       s._collectiveReady = true;
+    }
+  }
+
+  /**
+   * Initialize distributed tracing: Tracer → EventBus middleware → Dog wrapping → Storage
+   * @private
+   */
+  _initializeTracing() {
+    const s = this._server;
+
+    try {
+      // Create storage backend (uses PostgreSQL pool if available)
+      const pool = s.persistence?.pool || null;
+      s.traceStorage = new TraceStorage({ pool });
+
+      // Create tracer with φ-aligned sampling (10% default, max 61.8%)
+      s.tracer = new Tracer({
+        serviceName: 'cynic-mcp',
+        sampler: createPhiSampler(0.1),
+        storage: s.traceStorage,
+      });
+
+      // Wire tracing middleware into globalEventBus
+      globalEventBus.use(createTracingMiddleware(s.tracer));
+
+      // Wrap all Dogs with tracing spans
+      if (s.collectivePack?.agents) {
+        traceAllDogs(s.collectivePack.agents, s.tracer);
+      }
+
+      const storageType = pool ? 'PostgreSQL' : 'buffer-only';
+      console.error(`   Tracing: ACTIVE (10% sampling, ${storageType})`);
+    } catch (err) {
+      console.error(`   Tracing: FAILED (${err.message})`);
+      s.tracer = null;
+      s.traceStorage = null;
     }
   }
 

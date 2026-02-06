@@ -33,7 +33,9 @@
     "./services/orchestration-visibility.js": "./src/services/orchestration-visibility.js",
     "./services/event-bus.js": "./src/services/event-bus.js",
     "./chaos": "./src/chaos/index.js",
-    "./inference": "./src/inference/index.js"
+    "./inference": "./src/inference/index.js",
+    "./tracing/dog-tracing.js": "./src/tracing/dog-tracing.js",
+    "./tracing/trace-propagation.js": "./src/tracing/trace-propagation.js"
   },
   "scripts": {
     "test": "node --test --test-concurrency=4 test/*.test.js",

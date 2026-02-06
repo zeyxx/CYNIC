@@ -186,6 +186,10 @@ export class MCPServer {
     this.localPrivacyStore = options.localPrivacyStore || null;
     this.ecosystemMonitor = options.ecosystemMonitor || null;
 
+    // Distributed Tracing (wired in InitializationPipeline)
+    this.tracer = null;
+    this.traceStorage = null;
+
     // Emergence Layer (Layer 7 - Keter)
     this.emergenceLayer = options.emergenceLayer || createEmergenceLayer({
       nodeId: `cynic_mcp_${Date.now().toString(36)}`,

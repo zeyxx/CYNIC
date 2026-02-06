@@ -123,6 +123,15 @@ export class ShutdownManager {
       }
     });
 
+    // Flush and stop tracing (before persistence closes)
+    await this._safeStop('Tracing', async () => {
+      if (s.traceStorage) {
+        await s.traceStorage.stop();
+        const stats = s.traceStorage.stats;
+        console.error(`   Tracing stopped (${stats.spansStored} spans stored, ${stats.flushCount} flushes)`);
+      }
+    });
+
     // Save SharedMemory state before closing persistence
     await this._safeStop('CollectiveState', async () => {
       if (s.persistence) {
