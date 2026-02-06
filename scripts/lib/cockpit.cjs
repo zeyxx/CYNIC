@@ -51,32 +51,48 @@ const ANSI = colors?.ANSI || {
 let useColor = true;
 const c = colors?.colorize || ((color, text) => useColor ? `${color}${text}${ANSI.reset}` : text);
 
+// Resolve workspaces directory dynamically
+// Walk up from this script to find the parent directory containing sibling repos
+function resolveWorkspacesDir() {
+  // This file lives at CYNIC/scripts/lib/cockpit.cjs
+  // The parent of CYNIC contains sibling repos (GASdf, HolDex, etc.)
+  const cynicRoot = path.resolve(__dirname, '..', '..');
+  const parent = path.dirname(cynicRoot);
+
+  // Verify this looks right: parent should contain a CYNIC directory
+  const cynicDirName = path.basename(cynicRoot);
+  if (fs.existsSync(path.join(parent, cynicDirName))) {
+    return parent;
+  }
+
+  // Fallback: try /workspaces (legacy Linux path)
+  if (fs.existsSync('/workspaces')) {
+    return '/workspaces';
+  }
+
+  return parent; // Best guess
+}
+
 // Known ecosystem repos and their roles
 // GRANULARITY: Only repos owned by zeyxx are part of the TRUE ecosystem
 const ECOSYSTEM_REPOS = {
   // ═══════════════════════════════════════════════════════════════════════════
   // TRUE CYNIC ECOSYSTEM (owned by zeyxx)
   // ═══════════════════════════════════════════════════════════════════════════
-  'CYNIC-new': { role: 'core', critical: true, owner: 'zeyxx', ecosystem: true },
+  'CYNIC': { role: 'core', critical: true, owner: 'zeyxx', ecosystem: true },
   'GASdf': { role: 'gasless', critical: true, owner: 'zeyxx', ecosystem: true },
   'HolDex': { role: 'kscore', critical: true, owner: 'zeyxx', ecosystem: true },
-  'asdf-brain': { role: 'legacy-proto', critical: false, owner: 'zeyxx', ecosystem: true },
-  'asdf-manifesto': { role: 'docs', critical: false, owner: 'zeyxx', ecosystem: true },
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // EXTERNAL TOOLS (not part of ecosystem - just in workspace)
-  // ═══════════════════════════════════════════════════════════════════════════
-  'claude-mem': { role: 'external-tool', critical: false, owner: 'thedotmack', ecosystem: false },
-  'framework-kit': { role: 'external-tool', critical: false, owner: 'solana-foundation', ecosystem: false },
-  'solana-dev-skill': { role: 'external-tool', critical: false, owner: 'GuiBibeau', ecosystem: false },
+  'solana-dev-mcp': { role: 'solana-tools', critical: false, owner: 'zeyxx', ecosystem: true },
+  'awesome-solana-ai': { role: 'curation', critical: false, owner: 'zeyxx', ecosystem: true },
 };
 
 // Dependency map (who depends on whom)
 const KNOWN_DEPENDENCIES = {
-  'CYNIC-new': ['GASdf', 'HolDex'],      // CYNIC consumes these APIs
+  'CYNIC': ['GASdf', 'HolDex'],          // CYNIC consumes these APIs
   'GASdf': ['HolDex'],                    // GASdf uses K-Score oracle
   'HolDex': [],                           // Independent
-  'asdf-brain': ['CYNIC-new'],            // Legacy depends on new
+  'solana-dev-mcp': [],                   // Independent tool
+  'awesome-solana-ai': [],                // Independent curation
 };
 
 // =============================================================================
@@ -132,7 +148,7 @@ function safeExec(command, args, options = {}) {
  * @returns {Object} Full ecosystem status
  */
 function scanEcosystem() {
-  const workspacesDir = '/workspaces';
+  const workspacesDir = resolveWorkspacesDir();
   const status = {
     version: COCKPIT_VERSION,
     timestamp: new Date().toISOString(),
@@ -349,7 +365,7 @@ function buildDependencyGraph() {
     external: {},
   };
 
-  const workspacesDir = '/workspaces';
+  const workspacesDir = resolveWorkspacesDir();
   if (!fs.existsSync(workspacesDir)) return graph;
 
   const repos = fs.readdirSync(workspacesDir);
@@ -897,6 +913,7 @@ module.exports = {
 
   // Paths
   getCockpitDir,
+  resolveWorkspacesDir,
 
   // Contributor Context (les rails dans le cerveau)
   getRepoContributors,
