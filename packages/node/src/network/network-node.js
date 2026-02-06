@@ -598,6 +598,14 @@ export class CYNICNetworkNode extends EventEmitter {
         await this._handleValidatorUpdate(message, peerId);
         break;
 
+      case 'FORK_RESOLUTION_REQUEST':
+        await this._handleForkResolutionRequest(message, peerId);
+        break;
+
+      case 'FORK_RESOLUTION_RESPONSE':
+        await this._handleForkResolutionResponse(message, peerId);
+        break;
+
       // Consensus messages are handled by ConsensusGossip
       // Judgment/Block messages are handled by GossipProtocol
       default:
@@ -611,11 +619,12 @@ export class CYNICNetworkNode extends EventEmitter {
    * @private
    */
   async _handleHeartbeat(message, peerId) {
-    const { eScore, slot, finalizedSlot, state, nodeId } = message;
+    const { eScore, slot, finalizedSlot, finalizedHash, recentHashes, state, nodeId } = message;
 
     // Track peer's finalized slot
     this._peerSlots.set(peerId, {
       finalizedSlot: finalizedSlot || 0,
+      finalizedHash: finalizedHash || null,
       slot: slot || 0,
       state: state || 'UNKNOWN',
       eScore: eScore || 50,
@@ -630,13 +639,272 @@ export class CYNICNetworkNode extends EventEmitter {
       });
     }
 
+    // Check for forks using recent hashes
+    if (recentHashes && recentHashes.length > 0) {
+      this._checkForForks(peerId, recentHashes, eScore || 50);
+    }
+
     // Emit for monitoring
     this.emit('heartbeat:received', {
       peerId,
       nodeId,
       finalizedSlot,
+      finalizedHash,
       eScore,
     });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Fork Detection
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Check for chain forks based on peer's recent block hashes
+   * @private
+   * @param {string} peerId - Peer ID
+   * @param {Array<{slot: number, hash: string}>} peerHashes - Peer's recent block hashes
+   * @param {number} peerEScore - Peer's E-Score for weighting
+   */
+  _checkForForks(peerId, peerHashes, peerEScore) {
+    for (const { slot, hash } of peerHashes) {
+      if (!hash) continue;
+
+      // Get or create fork tracking for this slot
+      if (!this._forkState.forkHashes.has(slot)) {
+        this._forkState.forkHashes.set(slot, new Map());
+      }
+
+      const slotForks = this._forkState.forkHashes.get(slot);
+
+      // Track which peers have which hash for this slot
+      if (!slotForks.has(hash)) {
+        slotForks.set(hash, { peers: new Set(), totalEScore: 0 });
+      }
+
+      const hashInfo = slotForks.get(hash);
+      if (!hashInfo.peers.has(peerId)) {
+        hashInfo.peers.add(peerId);
+        hashInfo.totalEScore += peerEScore;
+      }
+
+      // Check if we have multiple hashes for the same slot (FORK!)
+      if (slotForks.size > 1 && !this._forkState.detected) {
+        this._onForkDetected(slot, slotForks);
+      }
+    }
+
+    // Cleanup old fork data (keep last 100 slots)
+    this._cleanupForkData();
+  }
+
+  /**
+   * Handle fork detection
+   * @private
+   * @param {number} slot - Slot where fork was detected
+   * @param {Map<string, {peers: Set, totalEScore: number}>} forks - Fork information
+   */
+  _onForkDetected(slot, forks) {
+    this._forkState.detected = true;
+    this._forkState.forkSlot = slot;
+    this._stats.forksDetected++;
+
+    // Calculate which branch has more weight (E-Score weighted)
+    let heaviestHash = null;
+    let heaviestWeight = 0;
+    const forkDetails = [];
+
+    for (const [hash, info] of forks) {
+      forkDetails.push({
+        hash: hash.slice(0, 16) + '...',
+        peers: info.peers.size,
+        totalEScore: info.totalEScore,
+      });
+
+      if (info.totalEScore > heaviestWeight) {
+        heaviestWeight = info.totalEScore;
+        heaviestHash = hash;
+      }
+    }
+
+    log.warn('🔀 FORK DETECTED', {
+      slot,
+      branches: forks.size,
+      forks: forkDetails,
+      heaviestBranch: heaviestHash?.slice(0, 16),
+    });
+
+    // Determine which branch we're on
+    const ourHash = this._slotHashes.get(slot)?.hash;
+    this._forkState.ourBranch = ourHash;
+
+    const onHeaviestBranch = ourHash === heaviestHash;
+
+    this.emit('fork:detected', {
+      slot,
+      branches: forks.size,
+      forks: forkDetails,
+      ourBranch: ourHash?.slice(0, 16),
+      heaviestBranch: heaviestHash?.slice(0, 16),
+      onHeaviestBranch,
+      recommendation: onHeaviestBranch ? 'STAY' : 'REORG_NEEDED',
+    });
+
+    // If we're NOT on the heaviest branch, trigger resolution
+    if (!onHeaviestBranch && !this._forkState.resolutionInProgress) {
+      this._resolveFork(slot, heaviestHash);
+    }
+  }
+
+  /**
+   * Attempt to resolve a fork by switching to the heaviest branch
+   * @private
+   * @param {number} forkSlot - Slot where fork occurred
+   * @param {string} targetHash - Hash of the branch to switch to
+   */
+  async _resolveFork(forkSlot, targetHash) {
+    this._forkState.resolutionInProgress = true;
+
+    log.info('Attempting fork resolution', {
+      forkSlot,
+      targetBranch: targetHash?.slice(0, 16),
+    });
+
+    // Find a peer on the heaviest branch
+    const forkInfo = this._forkState.forkHashes.get(forkSlot)?.get(targetHash);
+    if (!forkInfo || forkInfo.peers.size === 0) {
+      log.warn('No peers found on target branch');
+      this._forkState.resolutionInProgress = false;
+      return;
+    }
+
+    // Get the peer with highest E-Score on that branch
+    let bestPeer = null;
+    let bestScore = 0;
+
+    for (const peerId of forkInfo.peers) {
+      const peerInfo = this._peerSlots.get(peerId);
+      if (peerInfo && peerInfo.eScore > bestScore) {
+        bestScore = peerInfo.eScore;
+        bestPeer = peerId;
+      }
+    }
+
+    if (!bestPeer) {
+      log.warn('No suitable peer for fork resolution');
+      this._forkState.resolutionInProgress = false;
+      return;
+    }
+
+    // Request blocks from fork point to sync to correct branch
+    try {
+      await this._transport?.sendTo(bestPeer, {
+        type: 'FORK_RESOLUTION_REQUEST',
+        forkSlot,
+        targetHash,
+        nodeId: this._publicKey.slice(0, 32),
+        timestamp: Date.now(),
+      });
+      this._stats.messagesSent++;
+
+      log.info('Fork resolution request sent', {
+        toPeer: bestPeer.slice(0, 16),
+        forkSlot,
+      });
+
+      this.emit('fork:resolution_started', {
+        forkSlot,
+        targetBranch: targetHash?.slice(0, 16),
+        resolvingWith: bestPeer.slice(0, 16),
+      });
+    } catch (error) {
+      log.error('Fork resolution request failed', { error: error.message });
+      this._forkState.resolutionInProgress = false;
+    }
+  }
+
+  /**
+   * Mark fork as resolved
+   * @private
+   */
+  _markForkResolved() {
+    if (this._forkState.detected) {
+      this._stats.forksResolved++;
+      log.info('Fork resolved', { forkSlot: this._forkState.forkSlot });
+
+      this.emit('fork:resolved', {
+        forkSlot: this._forkState.forkSlot,
+      });
+    }
+
+    this._forkState.detected = false;
+    this._forkState.forkSlot = null;
+    this._forkState.ourBranch = null;
+    this._forkState.resolutionInProgress = false;
+  }
+
+  /**
+   * Cleanup old fork tracking data
+   * @private
+   */
+  _cleanupForkData() {
+    const currentSlot = this._consensus?.lastFinalizedSlot || 0;
+    const keepFrom = currentSlot - 100; // Keep last 100 slots
+
+    for (const slot of this._forkState.forkHashes.keys()) {
+      if (slot < keepFrom) {
+        this._forkState.forkHashes.delete(slot);
+      }
+    }
+
+    for (const slot of this._slotHashes.keys()) {
+      if (slot < keepFrom) {
+        this._slotHashes.delete(slot);
+      }
+    }
+  }
+
+  /**
+   * Record a block hash for a slot (called when block is finalized)
+   * @param {number} slot - Slot number
+   * @param {string} hash - Block hash
+   */
+  recordBlockHash(slot, hash) {
+    this._slotHashes.set(slot, {
+      hash,
+      confirmedAt: Date.now(),
+    });
+  }
+
+  /**
+   * Get fork status
+   * @returns {Object} Fork detection status
+   */
+  getForkStatus() {
+    const forkDetails = [];
+    if (this._forkState.forkSlot !== null) {
+      const forks = this._forkState.forkHashes.get(this._forkState.forkSlot);
+      if (forks) {
+        for (const [hash, info] of forks) {
+          forkDetails.push({
+            hash: hash.slice(0, 16) + '...',
+            peers: info.peers.size,
+            totalEScore: info.totalEScore,
+          });
+        }
+      }
+    }
+
+    return {
+      detected: this._forkState.detected,
+      forkSlot: this._forkState.forkSlot,
+      ourBranch: this._forkState.ourBranch?.slice(0, 16),
+      resolutionInProgress: this._forkState.resolutionInProgress,
+      branches: forkDetails,
+      stats: {
+        forksDetected: this._stats.forksDetected,
+        forksResolved: this._stats.forksResolved,
+      },
+    };
   }
 
   /**
@@ -759,6 +1027,98 @@ export class CYNICNetworkNode extends EventEmitter {
       fromSlot,
       toSlot,
       blocksSent: blocks.length,
+    });
+  }
+
+  /**
+   * Handle fork resolution request from a peer
+   * @private
+   */
+  async _handleForkResolutionRequest(message, peerId) {
+    const { forkSlot, targetHash } = message;
+
+    log.info('Fork resolution request received', {
+      fromPeer: peerId.slice(0, 16),
+      forkSlot,
+      targetHash: targetHash?.slice(0, 16),
+    });
+
+    // Check if we have the requested branch
+    const ourHash = this._slotHashes.get(forkSlot)?.hash;
+    const haveTargetBranch = ourHash === targetHash;
+
+    if (!haveTargetBranch) {
+      // We don't have the requested branch
+      await this._transport?.sendTo(peerId, {
+        type: 'FORK_RESOLUTION_RESPONSE',
+        forkSlot,
+        success: false,
+        reason: 'BRANCH_NOT_AVAILABLE',
+        timestamp: Date.now(),
+      });
+      this._stats.messagesSent++;
+      return;
+    }
+
+    // Send blocks from fork slot to current finalized slot
+    // TODO: In real implementation, retrieve actual blocks
+    const blocks = [];
+    const currentSlot = this._consensus?.lastFinalizedSlot || 0;
+
+    await this._transport?.sendTo(peerId, {
+      type: 'FORK_RESOLUTION_RESPONSE',
+      forkSlot,
+      success: true,
+      blocks,
+      fromSlot: forkSlot,
+      toSlot: currentSlot,
+      targetHash,
+      timestamp: Date.now(),
+    });
+    this._stats.messagesSent++;
+
+    this.emit('fork:resolution_provided', {
+      toPeer: peerId.slice(0, 16),
+      forkSlot,
+      blocksProvided: blocks.length,
+    });
+  }
+
+  /**
+   * Handle fork resolution response
+   * @private
+   */
+  async _handleForkResolutionResponse(message, peerId) {
+    const { forkSlot, success, blocks, reason } = message;
+
+    if (!success) {
+      log.warn('Fork resolution failed', { forkSlot, reason });
+      this._forkState.resolutionInProgress = false;
+
+      this.emit('fork:resolution_failed', {
+        forkSlot,
+        reason,
+      });
+      return;
+    }
+
+    log.info('Fork resolution response received', {
+      fromPeer: peerId.slice(0, 16),
+      forkSlot,
+      blocksReceived: blocks?.length || 0,
+    });
+
+    // TODO: In real implementation, we would:
+    // 1. Validate the received blocks
+    // 2. Reorg our chain to the new branch
+    // 3. Update our state
+
+    // For now, just mark fork as resolved
+    this._markForkResolved();
+
+    this.emit('fork:reorg_complete', {
+      forkSlot,
+      blocksApplied: blocks?.length || 0,
     });
   }
 

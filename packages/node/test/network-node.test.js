@@ -226,6 +226,96 @@ describe('NetworkState', () => {
   });
 });
 
+describe('Fork Detection', () => {
+  let node;
+
+  beforeEach(() => {
+    node = new CYNICNetworkNode({
+      publicKey: 'test-public-key-0123456789abcdef',
+      privateKey: 'test-private-key-0123456789abcdef',
+      enabled: false,
+    });
+  });
+
+  afterEach(async () => {
+    if (node) {
+      await node.stop();
+    }
+  });
+
+  it('detects fork when peers report different hashes for same slot', async () => {
+    const events = [];
+    node.on('fork:detected', (e) => events.push(e));
+
+    // Peer A reports hash A for slot 100
+    node._checkForForks('peer-a', [{ slot: 100, hash: 'hash-aaaa-1111' }], 50);
+
+    // No fork yet (only one hash)
+    expect(events.length).toBe(0);
+
+    // Peer B reports DIFFERENT hash for same slot 100 (FORK!)
+    node._checkForForks('peer-b', [{ slot: 100, hash: 'hash-bbbb-2222' }], 60);
+
+    // Fork should be detected
+    expect(events.length).toBe(1);
+    expect(events[0].slot).toBe(100);
+    expect(events[0].branches).toBe(2);
+  });
+
+  it('calculates heaviest branch by E-Score', async () => {
+    const events = [];
+    node.on('fork:detected', (e) => events.push(e));
+
+    // Multiple peers on branch A (total E-Score: 50 + 40 = 90)
+    node._checkForForks('peer-a1', [{ slot: 100, hash: 'hash-aaaa' }], 50);
+    node._checkForForks('peer-a2', [{ slot: 100, hash: 'hash-aaaa' }], 40);
+
+    // One peer on branch B (E-Score: 60)
+    node._checkForForks('peer-b1', [{ slot: 100, hash: 'hash-bbbb' }], 60);
+
+    // Fork detected, branch A should be heaviest (90 > 60)
+    expect(events.length).toBe(1);
+    expect(events[0].heaviestBranch).toBe('hash-aaaa'.slice(0, 16));
+  });
+
+  it('returns fork status via getForkStatus()', () => {
+    // Create a fork
+    node._checkForForks('peer-a', [{ slot: 100, hash: 'hash-aaaa' }], 50);
+    node._checkForForks('peer-b', [{ slot: 100, hash: 'hash-bbbb' }], 60);
+
+    const status = node.getForkStatus();
+
+    expect(status.detected).toBe(true);
+    expect(status.forkSlot).toBe(100);
+    expect(status.branches.length).toBe(2);
+    expect(status.stats.forksDetected).toBe(1);
+  });
+
+  it('cleans up old fork data', () => {
+    // Record hashes for old slots
+    for (let i = 0; i < 150; i++) {
+      node._slotHashes.set(i, { hash: `hash-${i}` });
+    }
+
+    // Simulate consensus at slot 150
+    node._consensus = { lastFinalizedSlot: 150 };
+
+    // Cleanup should remove slots < 50 (150 - 100)
+    node._cleanupForkData();
+
+    expect(node._slotHashes.has(49)).toBe(false);
+    expect(node._slotHashes.has(50)).toBe(true);
+  });
+
+  it('records block hashes for slots', () => {
+    node.recordBlockHash(100, 'hash-100-abc');
+    node.recordBlockHash(101, 'hash-101-def');
+
+    expect(node._slotHashes.get(100)?.hash).toBe('hash-100-abc');
+    expect(node._slotHashes.get(101)?.hash).toBe('hash-101-def');
+  });
+});
+
 describe('State Sync', () => {
   let node;
 
