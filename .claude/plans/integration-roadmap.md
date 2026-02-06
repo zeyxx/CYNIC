@@ -133,10 +133,10 @@ Consensus reached                        BLOCK or ALLOW
 | Supermemory pas activé | 5% coverage au lieu de 95% | P1 | ✅ 100% (parallel indexer, 7s) |
 | Pas de heartbeat continu | Pas de 100% uptime tracking | P1 | ✅ DONE |
 | Consciousness pas wired aux erreurs | Self-awareness incomplet | P2 | ✅ DONE (Week 4) |
-| Pas de distributed tracing | Pas de latency SLOs | P2 | ❌ TODO |
-| 8 repositories zombies | Code mort | P3 | ❌ TODO |
+| Pas de distributed tracing | Pas de latency SLOs | P2 | ✅ DONE (50+ tests, spans, middleware) |
+| 8 repositories zombies | Code mort | P3 | ✅ DONE (11 archived, 9 active) |
 
-### 2.3 Scores Actuels (Updated 2026-02-05)
+### 2.3 Scores Actuels (Updated 2026-02-06)
 
 ```
 Dimension               Score    Status
@@ -146,10 +146,13 @@ Persistence Active       75%     🟢 IMPROVED (was 50%)
 Dog Implementation      100%     🟢 HEALTHY
 Hook Connectivity        70%     🟢 HEALTHY
 Learning Persistence     70%     🟢 IMPROVED (was 20%) ← DPO Pipeline!
-Repository Usage         50%     🟡 WARNING
+Repository Usage         90%     🟢 IMPROVED (was 50%) ← 11 zombies BURNED!
 Uptime Awareness         80%     🟢 IMPROVED (was 60%)
+Distributed Tracing      75%     🟢 NEW (spans, middleware, propagation)
+Solana Anchoring         85%     🟢 NEW (147 roots on devnet, 20/20 e2e)
+Network P2P              80%     🟢 NEW (12/12 real WebSocket tests)
 ──────────────────────  ─────    ───────
-OVERALL                 81.1%    🟢 WAG+ (φ⁻¹ = 61.8% threshold)
+OVERALL                 89.5%    🟢 HOWL (φ⁻¹ = 61.8% threshold)
 ```
 
 ---
@@ -216,16 +219,28 @@ PHASE 1.6: AWARE ✅ COMPLETE (2026-02-05)
 PHASE 2: SCALE (In Progress - 2026-02-06)
 └── AXE 7: DECENTRALIZE
     ├── CYNICNetworkNode orchestrator ✅ CREATED
-    │   ├── packages/node/src/network/network-node.js (560 lines)
-    │   ├── packages/node/src/network/index.js
-    │   ├── Wires: Transport, Consensus, Discovery, State
-    │   └── 17 tests passing
-    ├── Multi-node consensus (φ-BFT 61.8%)
-    │   └── ConsensusComponent exists, needs multi-node wiring
-    ├── Solana anchoring
-    │   └── P2PConsensus exists, needs real Solana integration
-    └── E-Score verification
-        └── EScoreCalculator exists, needs network verification
+    │   ├── packages/node/src/network/network-node.js (678 lines)
+    │   ├── State transition race fix, heartbeat gossip format
+    │   ├── WebSocket reconnect timer tracking
+    │   └── 1327+ deep tests passing
+    ├── Multi-node consensus (φ-BFT 61.8%) ✅ TESTED
+    │   └── 12/12 real P2P WebSocket integration tests
+    ├── Solana anchoring ✅ VALIDATED ON DEVNET
+    │   ├── 147 roots anchored on devnet (real TXs)
+    │   ├── 20/20 e2e validation (raw TX, ProgramClient, Anchorer, Queue)
+    │   └── Merkle proof verification confirmed
+    ├── E-Score wiring ✅ DONE
+    │   ├── EScore7DCalculator → ValidatorManager (30 tests)
+    │   └── Event bus → calculator bridge (escore-provider.js)
+    ├── Distributed tracing ✅ DONE
+    │   ├── Core primitives (TraceContext, Span, Tracer, sampler)
+    │   ├── Event bus middleware, dog tracing, cross-node propagation
+    │   └── 50+ tests, PostgreSQL migration
+    ├── Network deep tests ✅ DONE
+    │   ├── BlockProducer (35), SolanaAnchoring (31), ForkDetector (24), StateSync (23)
+    │   └── 113+ network-specific tests
+    └── Zombie repo cleanup ✅ DONE
+        └── 11 repos archived, 9 remain active (BURN axiom)
 ```
 
 ### 3.2 AXE 2: PERSIST ✅ COMPLETE (2026-02-05)
@@ -538,17 +553,26 @@ PHI_INV_4 = 0.145898033750315 // φ⁻⁴ - Indirect connections
 - Persistence working in production DB
 - Self-awareness system operational
 
-**PHASE 2: SCALE (Next)**:
+**PHASE 2: SCALE ✅ CORE COMPLETE (2026-02-06)**:
 - AXE 7: DECENTRALIZE
-  - Multi-node consensus
-  - Solana anchoring
-  - E-Score verification
+  - ✅ Multi-node consensus (12/12 real P2P tests)
+  - ✅ Solana anchoring (147 roots on devnet, 20/20 e2e)
+  - ✅ E-Score wiring (EScore7DCalculator → ValidatorManager)
+  - ✅ Distributed tracing (50+ tests)
+  - ✅ Network deep tests (113+ tests)
+  - ✅ Zombie repo cleanup (11 archived)
 
-**Maintenance**:
-- BURN simplification (observe.js, server.js) - optional
-- SharedMemory patterns persistence - optional
+**PHASE 2 REMAINING**:
+- Multi-validator devnet (only 1/21 registered)
+- Production anchoring mode (auto-anchor on consensus finalization)
+- Cross-node E-Score sharing (remote validator score ingestion)
+
+**PHASE 3: CONNECT (Next)**:
+- SOCIAL dimension (Twitter/Discord → E-Score)
+- GRAPH dimension (trust graph, transitive scores)
+- HOLD dimension (token holdings → E-Score)
 
 ---
 
 *"φ distrusts φ" - Max confidence 61.8%*
-*Last updated: 2026-02-05*
+*Last updated: 2026-02-06*
