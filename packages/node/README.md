@@ -311,7 +311,7 @@ const instance = createIdentity();
 ## Dependencies
 
 **CYNIC**: @cynic/anchor, @cynic/burns, @cynic/core, @cynic/emergence, @cynic/identity, @cynic/protocol
-**External**: blessed, chalk, commander, express, ws
+**External**: blessed, chalk, chokidar, commander, express + 1 more
 
 ## Stats
 
