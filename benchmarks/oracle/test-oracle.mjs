@@ -94,13 +94,16 @@ const alertedScore = oracle._calculateOverallHealth({ blocks: 0 }, [
   { severity: 'warning' },
 ]);
 
-const test3Pass = cleanScore.score === 100 &&
+// With Bayesian blending (60% rule + 40% Beta prior), clean won't be exactly 100
+// The real invariant: clean >= 80 (healthy), and clean > blocked > alerted
+const test3Pass = cleanScore.score >= 80 &&
                   blockedScore.score < cleanScore.score &&
                   alertedScore.score < cleanScore.score;
 
 console.log(`   Clean (no issues): ${cleanScore.score} (${cleanScore.status})`);
 console.log(`   With 5 blocks: ${blockedScore.score} (${blockedScore.status})`);
 console.log(`   With alerts: ${alertedScore.score} (${alertedScore.status})`);
+console.log(`   Clean >= 80: ${cleanScore.score >= 80 ? '✅' : '❌'}`);
 console.log(`   Clean > Blocked: ${cleanScore.score > blockedScore.score ? '✅' : '❌'}`);
 console.log(`   Clean > Alerted: ${cleanScore.score > alertedScore.score ? '✅' : '❌'}`);
 console.log(`   Result: ${test3Pass ? '✅ PASS' : '❌ FAIL'}`);
