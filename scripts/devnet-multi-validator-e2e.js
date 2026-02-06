@@ -338,8 +338,12 @@ async function test7_anchorRotation() {
 async function test8_finalState(initialState, client) {
   const finalState = await client.getState();
 
-  // Node health check
-  const healthyNodes = nodes.filter(n => n.isOnline || n.isParticipating).length;
+  // Node health check — nodes may be in SYNCING state (peersConnected < 3 with 3-node cluster)
+  // so check that they're not OFFLINE or ERROR rather than requiring ONLINE/PARTICIPATING
+  const healthyNodes = nodes.filter(n => {
+    const info = n.getInfo();
+    return info.state !== 'OFFLINE' && info.state !== 'ERROR';
+  }).length;
   if (healthyNodes === 0) {
     throw new Error('No healthy nodes remaining');
   }
