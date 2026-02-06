@@ -800,8 +800,10 @@ async function main() {
           toolName,
           toolInput,
           toolOutput,
-          // Self-judge score if this was a self-modification
-          selfJudgeScore: antiPatternState.lastSelfModScore || null,
+          // Self-judge score: self-modification score OR previous invocation's real Judge Q-Score
+          // FIX: symbiosisCache.lastJudgment has the REAL 25-dim Judge score from N-1 invocation
+          // Lagging indicator, but contextually meaningful within a session
+          selfJudgeScore: antiPatternState.lastSelfModScore || symbiosisCache.lastJudgment?.qScore || null,
           // Execution duration if tracked
           durationMs: toolOutput?.duration_ms || antiPatternState.lastToolDuration || null,
           // Pattern match bonus
