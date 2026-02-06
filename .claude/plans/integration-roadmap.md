@@ -563,7 +563,10 @@ PHI_INV_4 = 0.145898033750315 // φ⁻⁴ - Indirect connections
   - ✅ Zombie repo cleanup (11 archived)
 
 **PHASE 2 REMAINING**:
-- Multi-validator devnet (only 1/21 registered)
+- ✅ Multi-validator devnet (5 validators registered, 3-node E2E cluster)
+    - `scripts/setup-devnet-validators.js` — Generate, airdrop, register 5 validators
+    - `scripts/run-devnet-cluster.js` — Spawn N in-process nodes, mesh topology
+    - `scripts/devnet-multi-validator-e2e.js` — 8 automated E2E tests
 - Production anchoring mode (auto-anchor on consensus finalization)
 - Cross-node E-Score sharing (remote validator score ingestion)
 

@@ -9,8 +9,8 @@
     "benchmark:quick": "BENCHMARK_ITERATIONS=10 node benchmark.js"
   },
   "dependencies": {
-    "@cynic/core": "workspace:*",
-    "@cynic/node": "workspace:*",
-    "@cynic/persistence": "workspace:*"
+    "@cynic/core": "*",
+    "@cynic/node": "*",
+    "@cynic/persistence": "*"
   }
 }

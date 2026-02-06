@@ -17,8 +17,8 @@
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
-    "@cynic/core": "workspace:*",
-    "@cynic/node": "workspace:*",
+    "@cynic/core": "*",
+    "@cynic/node": "*",
     "@solana/kit": "^2.1.0",
     "dotenv": "^16.4.5",
     "eventemitter3": "^5.0.1"

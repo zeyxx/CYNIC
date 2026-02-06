@@ -91,6 +91,9 @@ training-checkpoints/
 # Local config
 *.local.md
 
+# Validator keypairs (SENSITIVE - never commit!)
+validators/
+
 # Da'at audit artifacts (regenerated on each scan)
 scripts/tikkun/daat-results.json
 nul
