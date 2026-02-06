@@ -166,6 +166,10 @@ const instance = createIdentity();
 | `ComponentMetadata` | ComponentMetadata implementation |
 | `AutoWirer` | AutoWirer implementation |
 | `NetworkState` | NetworkState implementation |
+| `ValidatorManager` | ValidatorManager implementation |
+| `SolanaAnchoringManager` | SolanaAnchoringManager implementation |
+| `StateSyncManager` | StateSyncManager implementation |
+| `BlockProducer` | BlockProducer implementation |
 | `DiscoveryState` | DiscoveryState implementation |
 | `TransportComponent` | TransportComponent implementation |
 | `ConsensusComponent` | ConsensusComponent implementation |
@@ -293,6 +297,8 @@ const instance = createIdentity();
 | `getOrganismState()` | Get OrganismState singleton |
 | `getOrganismHealth()` | Get OrganismHealth singleton |
 | `getRegistry()` | Get Registry singleton |
+| `getNetworkNode()` | Get NetworkNode singleton |
+| `getNetworkStatus()` | Get NetworkStatus singleton |
 
 ### Constants
 
@@ -300,7 +306,7 @@ const instance = createIdentity();
 
 ### Functions
 
-`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 112 more
+`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 115 more
 
 ## Dependencies
 
@@ -309,10 +315,10 @@ const instance = createIdentity();
 
 ## Stats
 
-- **Source files**: 238
+- **Source files**: 240
 - **Test files**: 67
 - **Test ratio**: 28%
-- **Exports**: 415 named
+- **Exports**: 424 named
 
 ## Fractal Structure
 
@@ -325,7 +331,7 @@ const instance = createIdentity();
 [███░░░░░░░] 28% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
-[████░░░░░░] 42% Burn (Simplicity)
+[████░░░░░░] 41% Burn (Simplicity)
 [██████░░░░] 62% Emergence
 ```
 

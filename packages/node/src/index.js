@@ -774,6 +774,12 @@ export {
   // Multi-Node Orchestrator
   CYNICNetworkNode,
   NetworkState,
+  // Extracted SRP components
+  ForkDetector,
+  ValidatorManager,
+  SolanaAnchoringManager,
+  StateSyncManager,
+  BlockProducer,
   // Component re-exports for convenience
   PeerDiscovery,
   DiscoveryState,
@@ -782,3 +788,12 @@ export {
   ConsensusState,
   BlockStatus,
 } from './network/index.js';
+
+// PHASE 2: Network singleton
+export {
+  getNetworkNode,
+  startNetworkNode,
+  stopNetworkNode,
+  getNetworkStatus,
+  isP2PEnabled,
+} from './collective-singleton.js';

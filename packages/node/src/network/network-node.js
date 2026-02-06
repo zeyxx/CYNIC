@@ -28,6 +28,7 @@ import { ForkDetector } from './fork-detector.js';
 import { ValidatorManager } from './validator-manager.js';
 import { SolanaAnchoringManager } from './solana-anchoring.js';
 import { StateSyncManager } from './state-sync-manager.js';
+import { BlockProducer } from './block-producer.js';
 
 const log = createLogger('CYNICNetworkNode');
 
@@ -108,6 +109,12 @@ export class CYNICNetworkNode extends EventEmitter {
       anchorInterval: options.anchorInterval || 100,
     });
     this._stateSyncManager = new StateSyncManager();
+    this._blockProducer = new BlockProducer({
+      publicKey: this._publicKey,
+      genesisTime: options.genesisTime,
+      slotDuration: options.slotDuration,
+      maxJudgmentsPerBlock: options.maxJudgmentsPerBlock,
+    });
 
     // Stats (node-level only; components own their own stats)
     this._stats = {
@@ -186,6 +193,11 @@ export class CYNICNetworkNode extends EventEmitter {
       publicKey: this._publicKey,
     });
 
+    this._blockProducer.wire({
+      proposeBlock: (block) => this.proposeBlock(block),
+      getValidators: () => this._validatorManager.getValidators(),
+    });
+
     log.info('Components initialized', {
       port: this._port,
       seedNodes: this._seedNodes.length,
@@ -214,6 +226,11 @@ export class CYNICNetworkNode extends EventEmitter {
     for (const event of ['sync:needed', 'sync:complete', 'sync:blocks_received',
       'sync:blocks_sent', 'fork:resolution_provided', 'fork:resolution_failed', 'fork:reorg_complete']) {
       this._stateSyncManager.on(event, (data) => this.emit(event, data));
+    }
+
+    // BlockProducer events
+    for (const event of ['block:produced']) {
+      this._blockProducer.on(event, (data) => this.emit(event, data));
     }
   }
 
@@ -244,6 +261,7 @@ export class CYNICNetworkNode extends EventEmitter {
       this._wireDiscoveryEvents();
 
       this._consensus.start({ eScore: this._eScore });
+      this._blockProducer.start();
       this._startPeriodicTasks();
 
       globalEventBus.publish(EventType.NODE_STARTED, {
@@ -277,6 +295,7 @@ export class CYNICNetworkNode extends EventEmitter {
     log.info('Stopping network node...');
 
     this._stopPeriodicTasks();
+    this._blockProducer.stop();
     this._discovery?.stop();
     this._consensus?.stop();
     await this._transport?.stop();
@@ -546,10 +565,13 @@ export class CYNICNetworkNode extends EventEmitter {
   getTotalVotingWeight() { return this._validatorManager.getTotalVotingWeight(); }
   hasSupermajority(w) { return this._validatorManager.hasSupermajority(w); }
 
-  // Block store wiring (injected by external code, e.g. unified-orchestrator)
+  // Block store wiring (injected by external code, e.g. collective-singleton)
   wireBlockStore({ getBlocks, storeBlock }) {
     this._stateSyncManager.wire({ getBlocks, storeBlock });
   }
+
+  // Block producer delegation
+  get blockProducer() { return this._blockProducer; }
 
   // Fork detection delegation
   recordBlockHash(slot, hash) { this._forkDetector.recordBlockHash(slot, hash); }
@@ -601,6 +623,7 @@ export class CYNICNetworkNode extends EventEmitter {
         ...this._forkDetector.stats,
         ...this._validatorManager.stats,
         ...this._anchoringManager.stats,
+        ...this._blockProducer.stats,
       },
     };
   }

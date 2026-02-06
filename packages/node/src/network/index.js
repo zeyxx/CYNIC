@@ -20,10 +20,11 @@ import { ForkDetector } from './fork-detector.js';
 import { ValidatorManager } from './validator-manager.js';
 import { SolanaAnchoringManager } from './solana-anchoring.js';
 import { StateSyncManager } from './state-sync-manager.js';
+import { BlockProducer } from './block-producer.js';
 
 // Re-export all
 export { CYNICNetworkNode, NetworkState };
-export { ForkDetector, ValidatorManager, SolanaAnchoringManager, StateSyncManager };
+export { ForkDetector, ValidatorManager, SolanaAnchoringManager, StateSyncManager, BlockProducer };
 
 // Re-export from related modules for convenience
 export { PeerDiscovery, DiscoveryState } from '../transport/discovery.js';

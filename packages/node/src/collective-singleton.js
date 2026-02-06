@@ -37,6 +37,7 @@ import { getHumanAccountant } from './symbiosis/human-accountant.js';
 import { getHumanEmergence } from './symbiosis/human-emergence.js';
 import { wireAmbientConsensus } from './agents/collective/ambient-consensus.js';
 import { startEventListeners, stopEventListeners, cleanupOldEventData } from './services/event-listeners.js';
+import { getNetworkNodeAsync, startNetworkNode, stopNetworkNode, isP2PEnabled } from './network-singleton.js';
 
 const log = createLogger('CollectiveSingleton');
 
@@ -213,6 +214,14 @@ let _isAwakened = false;
  * @type {Object|null}
  */
 let _eventListeners = null;
+
+/**
+ * PHASE 2 (DECENTRALIZE): The global NetworkNode instance
+ * P2P networking, consensus, block production, Solana anchoring
+ * "The pack hunts together" - κυνικός
+ * @type {CYNICNetworkNode|null}
+ */
+let _networkNode = null;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DEFAULT OPTIONS
@@ -743,6 +752,24 @@ export async function getCollectivePackAsync(options = {}) {
       }
     }
 
+    // PHASE 2 (DECENTRALIZE): Initialize NetworkNode if P2P enabled
+    if (isP2PEnabled() && !_networkNode) {
+      try {
+        _networkNode = await getNetworkNodeAsync({
+          persistence: options.persistence,
+        });
+        if (_networkNode) {
+          await startNetworkNode();
+          log.info('NetworkNode started (PHASE 2)', {
+            nodeId: _networkNode.publicKey?.slice(0, 16),
+            state: _networkNode.state,
+          });
+        }
+      } catch (err) {
+        log.warn('NetworkNode initialization failed (non-blocking)', { error: err.message });
+      }
+    }
+
     return pack;
   })();
 
@@ -1161,10 +1188,12 @@ export function getSingletonStatus() {
     packInitialized: !!_globalPack,
     sharedMemoryInitialized: !!_sharedMemory,
     qLearningInitialized: !!_qLearningService?._initialized,
+    networkInitialized: !!_networkNode,
     isAwakened: _isAwakened,
     sharedMemoryStats: _sharedMemory?.stats || null,
     packStats: _globalPack?.getStats?.() || null,
     qLearningStats: _qLearningService?.getStats?.() || null,
+    networkState: _networkNode?.state || null,
   };
 }
 
@@ -1205,6 +1234,12 @@ export function _resetForTesting() {
     _eventListeners = null;
   }
 
+  // PHASE 2: Stop network node
+  if (_networkNode) {
+    stopNetworkNode().catch(() => {});
+    _networkNode = null;
+  }
+
   log.warn('Singletons reset (testing only)');
 }
 
@@ -1215,6 +1250,9 @@ export function _resetForTesting() {
 // AXE 2: Re-export event listener functions for external use
 export { startEventListeners, stopEventListeners, cleanupOldEventData } from './services/event-listeners.js';
 export { getListenerStats } from './services/event-listeners.js';
+
+// PHASE 2: Re-export network singleton for external use
+export { getNetworkNodeAsync as getNetworkNode, startNetworkNode, stopNetworkNode, getNetworkStatus, isP2PEnabled } from './network-singleton.js';
 
 export default {
   getCollectivePack,
@@ -1232,4 +1270,8 @@ export default {
   startEventListeners,
   stopEventListeners,
   cleanupOldEventData,
+  // PHASE 2: Network
+  getNetworkNodeAsync,
+  startNetworkNode,
+  stopNetworkNode,
 };
