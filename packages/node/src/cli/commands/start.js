@@ -421,23 +421,19 @@ export async function startCommand(options) {
       }, 61800); // φ-aligned heartbeat
     }
 
-    // Auto-reconnect loop: check every 30s if we've lost peers
-    // Only attempts reconnection when connected count drops below required
-    // This prevents the duplicate_connection storm where unconditional reconnects
-    // create new WebSocket connections that the transport then has to reject
+    // Auto-reconnect loop: check every 30s if specific required peers are missing
+    // Uses address-level tracking to reconnect only to lost peers (not all)
+    // This prevents the duplicate_connection storm while ensuring full mesh
     if (requiredPeers.size > 0) {
       setInterval(async () => {
-        const connectedCount = transport.getConnectedPeers().length;
-        if (connectedCount >= requiredPeers.size) return; // Healthy, skip
-
-        console.log(chalk.yellow('  [RECONN] ') + `Peers ${connectedCount}/${requiredPeers.size} - attempting reconnection...`);
         for (const address of requiredPeers) {
+          if (transport.hasConnectionToAddress(address)) continue; // This peer is fine
           try {
             const peerId = `peer_${Date.now()}`;
             await transport.connect({ id: peerId, address });
             console.log(chalk.green('  [RECONN] ') + `Reconnected to ${address}`);
           } catch {
-            // Already connected or unreachable - either way, continue
+            // Unreachable - will retry next cycle
           }
         }
       }, 30000); // Check every 30s

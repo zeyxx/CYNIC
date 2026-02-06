@@ -822,6 +822,20 @@ export class WebSocketTransport extends EventEmitter {
   }
 
   /**
+   * Check if we have an active outbound connection to a specific address
+   * @param {string} address - WebSocket address (e.g. wss://host:port)
+   * @returns {boolean} True if connected to that address
+   */
+  hasConnectionToAddress(address) {
+    for (const conn of this.connections.values()) {
+      if (conn.address === address && conn.state === ConnectionState.CONNECTED) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Get transport statistics
    * @returns {Object} Statistics
    */
