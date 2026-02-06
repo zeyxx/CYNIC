@@ -110,7 +110,7 @@ export class InitializationPipeline {
 
     try {
       // Create storage backend (uses PostgreSQL pool if available)
-      const pool = s.persistence?.pool || null;
+      const pool = s.persistence?.postgres?.pool || null;
       s.traceStorage = new TraceStorage({ pool });
 
       // Create tracer with φ-aligned sampling (10% default, max 61.8%)
