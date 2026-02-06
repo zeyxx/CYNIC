@@ -33,6 +33,16 @@ const nodes = [];
 let running = true;
 let judgmentInterval = null;
 
+// Prevent unhandled RPC errors (429, timeout) from crashing the cluster
+process.on('unhandledRejection', (err) => {
+  const msg = err?.message || String(err);
+  if (msg.includes('429') || msg.includes('Too Many Requests') || msg.includes('timeout')) {
+    console.log(`  [RPC] Rate limited — backing off (${msg.slice(0, 60)}...)`);
+  } else {
+    console.error(`  [WARN] Unhandled rejection: ${msg}`);
+  }
+});
+
 async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -41,6 +51,7 @@ async function main() {
   console.log('═══════════════════════════════════════════════════════════');
   console.log('  CYNIC Multi-Validator Devnet Cluster');
   console.log(`  Nodes: ${NODE_COUNT} | Base port: ${BASE_PORT}`);
+  console.log(`  RPC:   ${RPC_URL.slice(0, 50)}${RPC_URL.length > 50 ? '...' : ''}`);
   console.log('═══════════════════════════════════════════════════════════\n');
 
   // ── Load Solana keypairs ───────────────────────────────────────────────
@@ -90,7 +101,7 @@ async function main() {
       enabled: true,
       anchoringEnabled: true,
       dryRun: false,
-      anchorInterval: 1, // Anchor every block for testing
+      anchorInterval: 3, // Anchor every 3rd block (reduce RPC load on public devnet)
       wallet: wallets[i],
       solanaCluster: RPC_URL,
       slotDuration: 2000, // 2s slots for visible feedback
