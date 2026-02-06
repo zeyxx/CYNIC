@@ -487,6 +487,7 @@ export class WebSocketTransport extends EventEmitter {
         const keepExisting = iAmLower === existing.isOutbound;
         if (keepExisting) {
           // Close this new connection, mark as not outbound to prevent reconnect
+          conn._closing = true; // Prevent disconnect handler from emitting events/reconnecting
           conn.isOutbound = false;
           conn.pendingIdentity = false;
           conn.state = ConnectionState.CLOSED;

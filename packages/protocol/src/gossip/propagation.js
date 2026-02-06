@@ -135,8 +135,8 @@ export class GossipProtocol {
       await this._relay(message, new Set([fromPeerId]));
     }
 
-    // Notify handler
-    await this.onMessage(message);
+    // Notify handler (pass fromPeerId so higher layers can identify the sender)
+    await this.onMessage(message, fromPeerId);
   }
 
   /**

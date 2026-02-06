@@ -169,7 +169,7 @@ export class CYNICNetworkNode extends EventEmitter {
     this._discovery = new PeerDiscovery({
       transport: this._transport.transport,
       seedNodes: this._seedNodes,
-      minPeers: options.minPeers || 3,
+      minPeers: options.minPeers ?? Math.max(1, this._seedNodes.length),
       maxPeers: options.maxPeers || 50,
     });
 
@@ -514,15 +514,19 @@ export class CYNICNetworkNode extends EventEmitter {
   async _handleMessage(message, peerId) {
     this._stats.messagesReceived++;
 
+    // Use message.sender (signed publicKey) as authoritative peer identity,
+    // falling back to transport-level peerId
+    const senderPeerId = message.sender || peerId;
+
     switch (message.type) {
       case 'HEARTBEAT':
-        return this._handleHeartbeat(message, peerId);
+        return this._handleHeartbeat(message, senderPeerId);
       case 'STATE_REQUEST':
-        return this._stateSyncManager.handleStateRequest(message, peerId);
+        return this._stateSyncManager.handleStateRequest(message, senderPeerId);
       case 'STATE_RESPONSE':
-        return this._stateSyncManager.handleStateResponse(message, peerId);
+        return this._stateSyncManager.handleStateResponse(message, senderPeerId);
       case 'BLOCK_REQUEST':
-        return this._stateSyncManager.handleBlockRequest(message, peerId);
+        return this._stateSyncManager.handleBlockRequest(message, senderPeerId);
       case 'VALIDATOR_UPDATE':
         return this._stateSyncManager.handleValidatorUpdate(
           message,
@@ -531,12 +535,12 @@ export class CYNICNetworkNode extends EventEmitter {
         );
       case 'FORK_RESOLUTION_REQUEST':
         return this._stateSyncManager.handleForkResolutionRequest(
-          message, peerId,
+          message, senderPeerId,
           (slot) => this._forkDetector._slotHashes.get(slot)?.hash,
         );
       case 'FORK_RESOLUTION_RESPONSE':
         return this._stateSyncManager.handleForkResolutionResponse(
-          message, peerId,
+          message, senderPeerId,
           () => this._forkDetector.markForkResolved(),
         );
       default:

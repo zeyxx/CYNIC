@@ -122,7 +122,10 @@ export class PeerDiscovery extends EventEmitter {
 
     // When a peer disconnects, try to maintain minimum (with cooldown to prevent storm)
     this._lastReconnectAttempt = 0;
-    this.transport.on('peer:disconnected', ({ peerId }) => {
+    this.transport.on('peer:disconnected', ({ peerId, reason }) => {
+      // Don't react to duplicate connection cleanup — the other connection is still alive
+      if (reason === 'duplicate_connection') return;
+
       const connectedCount = this.transport.getConnectedPeers().length;
       const now = Date.now();
 
@@ -307,9 +310,28 @@ export class PeerDiscovery extends EventEmitter {
 
     if (needed <= 0) return;
 
-    // Sort by fewest connect attempts
+    // Build set of addresses we're already connected to (prevents connecting
+    // to a peer we already have under a different key, e.g. pubkey vs URL)
+    const connectedAddresses = new Set();
+    for (const peerId of connected) {
+      const conn = this.transport.connections?.get(peerId);
+      if (conn?.address) connectedAddresses.add(conn.address.replace(/^wss?:\/\//, ''));
+      if (conn?.outboundAddress) connectedAddresses.add(conn.outboundAddress.replace(/^wss?:\/\//, ''));
+    }
+
+    // Sort by fewest connect attempts, filter out already-connected by ID or address
     const candidates = Array.from(this.knownPeers.entries())
-      .filter(([peerId]) => !connected.has(peerId))
+      .filter(([peerId, info]) => {
+        if (connected.has(peerId)) return false;
+        // Also check by address to prevent bilateral duplicate connections
+        if (info.address) {
+          const bare = info.address.replace(/^wss?:\/\//, '');
+          if (connectedAddresses.has(bare)) return false;
+          // Also check hasConnectionToAddress for CONNECTING/RECONNECTING states
+          if (this.transport.hasConnectionToAddress?.(info.address)) return false;
+        }
+        return true;
+      })
       .sort((a, b) => a[1].connectAttempts - b[1].connectAttempts)
       .slice(0, needed);
 
