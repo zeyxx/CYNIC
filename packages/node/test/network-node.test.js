@@ -226,6 +226,153 @@ describe('NetworkState', () => {
   });
 });
 
+describe('Validator Set Management', () => {
+  let node;
+
+  beforeEach(() => {
+    node = new CYNICNetworkNode({
+      publicKey: 'test-public-key-0123456789abcdef',
+      privateKey: 'test-private-key-0123456789abcdef',
+      enabled: false,
+    });
+  });
+
+  afterEach(async () => {
+    if (node) {
+      await node.stop();
+    }
+  });
+
+  it('adds validator with sufficient E-Score', () => {
+    const added = node.addValidator({
+      publicKey: 'validator-1-key',
+      eScore: 50,
+      burned: 100,
+    });
+
+    expect(added).toBe(true);
+    expect(node._validators.size).toBe(1);
+
+    const validator = node.getValidator('validator-1-key');
+    expect(validator).toBeDefined();
+    expect(validator.eScore).toBe(50);
+    expect(validator.burned).toBe(100);
+    expect(validator.status).toBe('active');
+  });
+
+  it('rejects validator with low E-Score', () => {
+    const added = node.addValidator({
+      publicKey: 'low-score-validator',
+      eScore: 10, // Below minimum of 20
+    });
+
+    expect(added).toBe(false);
+    expect(node._validators.size).toBe(0);
+  });
+
+  it('removes validator', () => {
+    node.addValidator({ publicKey: 'validator-to-remove', eScore: 50 });
+    expect(node._validators.size).toBe(1);
+
+    const removed = node.removeValidator('validator-to-remove', 'test');
+    expect(removed).toBe(true);
+    expect(node._validators.size).toBe(0);
+  });
+
+  it('penalizes validator and reduces E-Score', () => {
+    node.addValidator({ publicKey: 'bad-validator', eScore: 50 });
+
+    node.penalizeValidator('bad-validator', 10, 'test_penalty');
+
+    const validator = node.getValidator('bad-validator');
+    expect(validator.eScore).toBe(40);
+    expect(validator.penalties).toBe(10);
+  });
+
+  it('removes validator when penalty drops E-Score below minimum', () => {
+    node.addValidator({ publicKey: 'very-bad-validator', eScore: 25 });
+
+    // Penalize enough to drop below minimum (20)
+    node.penalizeValidator('very-bad-validator', 10, 'severe_penalty');
+
+    // Validator should be removed
+    expect(node.getValidator('very-bad-validator')).toBeNull();
+    expect(node._stats.validatorsPenalized).toBe(1);
+  });
+
+  it('rewards validator for blocks', () => {
+    node.addValidator({ publicKey: 'good-validator', eScore: 50 });
+
+    node.rewardValidator('good-validator', 'block_proposed');
+    node.rewardValidator('good-validator', 'block_finalized');
+
+    const validator = node.getValidator('good-validator');
+    expect(validator.blocksProposed).toBe(1);
+    expect(validator.blocksFinalized).toBe(1);
+    expect(validator.eScore).toBeGreaterThan(50); // E-Score increased
+  });
+
+  it('updates validator activity on heartbeat', () => {
+    node.addValidator({ publicKey: 'active-validator', eScore: 50 });
+
+    const before = node.getValidator('active-validator').lastSeen;
+
+    // Wait a tiny bit then update
+    node.updateValidatorActivity('active-validator');
+
+    const after = node.getValidator('active-validator').lastSeen;
+    expect(after).toBeGreaterThanOrEqual(before);
+  });
+
+  it('returns validator set status', () => {
+    node.addValidator({ publicKey: 'v1', eScore: 60 });
+    node.addValidator({ publicKey: 'v2', eScore: 40 });
+
+    const status = node.getValidatorSetStatus();
+
+    expect(status.total).toBe(2);
+    expect(status.active).toBe(2);
+    expect(status.avgEScore).toBe(50);
+    expect(status.maxValidators).toBe(100);
+  });
+
+  it('calculates total voting weight', () => {
+    node.addValidator({ publicKey: 'v1', eScore: 50, burned: 0 });
+    node.addValidator({ publicKey: 'v2', eScore: 100, burned: 99 }); // sqrt(100) = 10
+
+    const weight = node.getTotalVotingWeight();
+
+    // v1: 50 * 1 * 1 = 50
+    // v2: 100 * 10 * 1 = 1000
+    // Total: 1050
+    expect(weight).toBe(1050);
+  });
+
+  it('checks supermajority correctly (61.8%)', () => {
+    node.addValidator({ publicKey: 'v1', eScore: 50 });
+    node.addValidator({ publicKey: 'v2', eScore: 50 });
+
+    const totalWeight = node.getTotalVotingWeight(); // 100
+
+    // 61% = not enough
+    expect(node.hasSupermajority(61)).toBe(false);
+
+    // 62% = supermajority
+    expect(node.hasSupermajority(62)).toBe(true);
+  });
+
+  it('filters validators by status and E-Score', () => {
+    node.addValidator({ publicKey: 'v1', eScore: 60 });
+    node.addValidator({ publicKey: 'v2', eScore: 40 });
+    node.addValidator({ publicKey: 'v3', eScore: 80 });
+
+    // Filter by minEScore
+    const highScore = node.getValidators({ minEScore: 50 });
+    expect(highScore.length).toBe(2);
+    expect(highScore[0].eScore).toBe(80); // Sorted by score
+  });
+});
+
 describe('Fork Detection', () => {
   let node;
 

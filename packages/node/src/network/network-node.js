@@ -117,6 +117,16 @@ export class CYNICNetworkNode extends EventEmitter {
     // Track block hashes per slot (for fork detection)
     this._slotHashes = new Map(); // slot → { hash, confirmedBy: Set<peerId> }
 
+    // Validator set management
+    this._validators = new Map(); // publicKey → ValidatorInfo
+    this._validatorConfig = {
+      minEScore: 20,              // Minimum E-Score to be validator
+      maxValidators: 100,         // Maximum validators in set
+      inactivityTimeout: 120000,  // 2 minutes without heartbeat = inactive
+      penaltyDecay: 0.95,         // Penalty decay per epoch (φ²)
+      rewardMultiplier: 1.02,     // Reward multiplier for good behavior
+    };
+
     // Stats
     this._stats = {
       uptime: 0,
@@ -129,6 +139,9 @@ export class CYNICNetworkNode extends EventEmitter {
       errors: 0,
       forksDetected: 0,
       forksResolved: 0,
+      validatorsAdded: 0,
+      validatorsRemoved: 0,
+      validatorsPenalized: 0,
     };
 
     if (this._enabled) {
@@ -542,11 +555,37 @@ export class CYNICNetworkNode extends EventEmitter {
    * @private
    */
   _updateValidatorSet() {
-    const connectedPeers = this._transport.getConnectedPeers();
-    this._stats.validatorsKnown = this._consensus.validatorCount;
+    // Check for inactive validators
+    this._checkInactiveValidators();
 
-    // Clean up validators that haven't been seen
-    // (In a real implementation, this would track last-seen times)
+    // Sync connected peers as potential validators
+    const connectedPeers = this._transport?.getConnectedPeers() || [];
+
+    for (const peerId of connectedPeers) {
+      const peerInfo = this._peerSlots.get(peerId);
+      if (peerInfo && !this._validators.has(peerId)) {
+        // Add connected peer as validator if they have sufficient E-Score
+        if (peerInfo.eScore >= this._validatorConfig.minEScore) {
+          this.addValidator({
+            publicKey: peerId,
+            eScore: peerInfo.eScore,
+          });
+        }
+      }
+    }
+
+    // Update stats
+    this._stats.validatorsKnown = this._validators.size;
+
+    // Apply penalty decay (φ²) - penalties slowly decrease over time
+    for (const validator of this._validators.values()) {
+      if (validator.penalties > 0) {
+        validator.penalties *= this._validatorConfig.penaltyDecay;
+        if (validator.penalties < 0.1) {
+          validator.penalties = 0;
+        }
+      }
+    }
   }
 
   /**
@@ -631,9 +670,12 @@ export class CYNICNetworkNode extends EventEmitter {
       lastSeen: Date.now(),
     });
 
-    // Update peer's E-Score in consensus
-    if (eScore && this._consensus) {
-      this._consensus.registerValidator({
+    // Update validator activity (marks as active)
+    this.updateValidatorActivity(peerId);
+
+    // Add or update validator if they meet minimum E-Score
+    if (eScore && eScore >= this._validatorConfig.minEScore) {
+      this.addValidator({
         publicKey: peerId,
         eScore,
       });
@@ -905,6 +947,387 @@ export class CYNICNetworkNode extends EventEmitter {
         forksResolved: this._stats.forksResolved,
       },
     };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Validator Set Management
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * ValidatorInfo structure
+   * @typedef {Object} ValidatorInfo
+   * @property {string} publicKey - Validator public key
+   * @property {number} eScore - Current E-Score (0-100)
+   * @property {number} burned - Total burned tokens
+   * @property {number} uptime - Uptime ratio (0-1)
+   * @property {number} lastSeen - Last heartbeat timestamp
+   * @property {number} blocksProposed - Blocks proposed count
+   * @property {number} blocksFinalized - Blocks finalized count
+   * @property {number} penalties - Accumulated penalties
+   * @property {string} status - 'active' | 'inactive' | 'penalized' | 'removed'
+   * @property {number} joinedAt - When validator joined
+   */
+
+  /**
+   * Add or update a validator in the set
+   * @param {Object} validator - Validator info
+   * @param {string} validator.publicKey - Validator public key
+   * @param {number} [validator.eScore=50] - E-Score
+   * @param {number} [validator.burned=0] - Burned tokens
+   * @returns {boolean} True if added, false if updated
+   */
+  addValidator(validator) {
+    const { publicKey, eScore = 50, burned = 0 } = validator;
+
+    if (!publicKey) {
+      log.warn('Cannot add validator without publicKey');
+      return false;
+    }
+
+    // Check minimum E-Score
+    if (eScore < this._validatorConfig.minEScore) {
+      log.info('Validator E-Score below minimum', {
+        publicKey: publicKey.slice(0, 16),
+        eScore,
+        minRequired: this._validatorConfig.minEScore,
+      });
+      return false;
+    }
+
+    const existing = this._validators.get(publicKey);
+    const isNew = !existing;
+
+    if (isNew) {
+      // Check max validators limit
+      if (this._validators.size >= this._validatorConfig.maxValidators) {
+        // Try to remove lowest E-Score validator
+        if (!this._evictLowestValidator(eScore)) {
+          log.info('Validator set full, cannot add', { publicKey: publicKey.slice(0, 16) });
+          return false;
+        }
+      }
+    }
+
+    const validatorInfo = {
+      publicKey,
+      eScore,
+      burned,
+      uptime: existing?.uptime || 1.0,
+      lastSeen: Date.now(),
+      blocksProposed: existing?.blocksProposed || 0,
+      blocksFinalized: existing?.blocksFinalized || 0,
+      penalties: existing?.penalties || 0,
+      status: 'active',
+      joinedAt: existing?.joinedAt || Date.now(),
+    };
+
+    this._validators.set(publicKey, validatorInfo);
+
+    // Also register in consensus component
+    if (this._consensus) {
+      this._consensus.registerValidator({
+        publicKey,
+        eScore,
+        burned,
+        uptime: validatorInfo.uptime,
+      });
+    }
+
+    if (isNew) {
+      this._stats.validatorsAdded++;
+      this._stats.validatorsKnown = this._validators.size;
+
+      log.info('Validator added', {
+        publicKey: publicKey.slice(0, 16),
+        eScore,
+        totalValidators: this._validators.size,
+      });
+
+      this.emit('validator:added', { publicKey, eScore, burned });
+    } else {
+      this.emit('validator:updated', { publicKey, eScore, burned });
+    }
+
+    return isNew;
+  }
+
+  /**
+   * Remove a validator from the set
+   * @param {string} publicKey - Validator public key
+   * @param {string} [reason='manual'] - Removal reason
+   * @returns {boolean} True if removed
+   */
+  removeValidator(publicKey, reason = 'manual') {
+    const validator = this._validators.get(publicKey);
+    if (!validator) {
+      return false;
+    }
+
+    // Mark as removed
+    validator.status = 'removed';
+    this._validators.delete(publicKey);
+
+    // Remove from consensus
+    if (this._consensus) {
+      this._consensus.removeValidator(publicKey);
+    }
+
+    this._stats.validatorsRemoved++;
+    this._stats.validatorsKnown = this._validators.size;
+
+    log.info('Validator removed', {
+      publicKey: publicKey.slice(0, 16),
+      reason,
+      remainingValidators: this._validators.size,
+    });
+
+    this.emit('validator:removed', { publicKey, reason });
+
+    return true;
+  }
+
+  /**
+   * Penalize a validator for bad behavior
+   * @param {string} publicKey - Validator public key
+   * @param {number} penalty - Penalty amount (0-100)
+   * @param {string} reason - Penalty reason
+   * @returns {boolean} True if penalized
+   */
+  penalizeValidator(publicKey, penalty, reason) {
+    const validator = this._validators.get(publicKey);
+    if (!validator) {
+      return false;
+    }
+
+    validator.penalties += penalty;
+    validator.eScore = Math.max(0, validator.eScore - penalty);
+
+    // If E-Score drops too low, remove validator
+    if (validator.eScore < this._validatorConfig.minEScore) {
+      validator.status = 'penalized';
+      this.removeValidator(publicKey, `penalty_threshold_${reason}`);
+      this._stats.validatorsPenalized++;
+      return true;
+    }
+
+    // Update in consensus
+    if (this._consensus) {
+      this._consensus.registerValidator({
+        publicKey,
+        eScore: validator.eScore,
+        burned: validator.burned,
+        uptime: validator.uptime,
+      });
+    }
+
+    this._stats.validatorsPenalized++;
+
+    log.warn('Validator penalized', {
+      publicKey: publicKey.slice(0, 16),
+      penalty,
+      reason,
+      newEScore: validator.eScore,
+    });
+
+    this.emit('validator:penalized', {
+      publicKey,
+      penalty,
+      reason,
+      newEScore: validator.eScore,
+    });
+
+    return true;
+  }
+
+  /**
+   * Reward a validator for good behavior
+   * @param {string} publicKey - Validator public key
+   * @param {string} action - Action that earned reward ('block_proposed', 'block_finalized')
+   */
+  rewardValidator(publicKey, action) {
+    const validator = this._validators.get(publicKey);
+    if (!validator) return;
+
+    switch (action) {
+      case 'block_proposed':
+        validator.blocksProposed++;
+        break;
+      case 'block_finalized':
+        validator.blocksFinalized++;
+        // Small E-Score boost for successful blocks (capped at 100)
+        validator.eScore = Math.min(100, validator.eScore * this._validatorConfig.rewardMultiplier);
+        break;
+    }
+
+    this.emit('validator:rewarded', { publicKey, action });
+  }
+
+  /**
+   * Update validator activity (called on heartbeat)
+   * @param {string} publicKey - Validator public key
+   */
+  updateValidatorActivity(publicKey) {
+    const validator = this._validators.get(publicKey);
+    if (!validator) return;
+
+    validator.lastSeen = Date.now();
+    validator.status = 'active';
+  }
+
+  /**
+   * Check for inactive validators and update their status
+   * Called periodically by _updateValidatorSet
+   * @private
+   */
+  _checkInactiveValidators() {
+    const now = Date.now();
+    const timeout = this._validatorConfig.inactivityTimeout;
+
+    for (const [publicKey, validator] of this._validators) {
+      if (validator.status === 'active' && now - validator.lastSeen > timeout) {
+        validator.status = 'inactive';
+        validator.uptime *= 0.9; // Reduce uptime on inactivity
+
+        log.info('Validator marked inactive', {
+          publicKey: publicKey.slice(0, 16),
+          lastSeen: Math.round((now - validator.lastSeen) / 1000) + 's ago',
+        });
+
+        this.emit('validator:inactive', { publicKey });
+
+        // Penalize for extended inactivity
+        if (now - validator.lastSeen > timeout * 3) {
+          this.penalizeValidator(publicKey, 5, 'extended_inactivity');
+        }
+      }
+    }
+  }
+
+  /**
+   * Evict the lowest E-Score validator to make room
+   * @private
+   * @param {number} newEScore - E-Score of incoming validator
+   * @returns {boolean} True if evicted someone
+   */
+  _evictLowestValidator(newEScore) {
+    let lowest = null;
+    let lowestScore = Infinity;
+
+    for (const [publicKey, validator] of this._validators) {
+      // Don't evict self
+      if (publicKey === this._publicKey) continue;
+
+      // Calculate effective score (E-Score + uptime bonus)
+      const effectiveScore = validator.eScore * (0.5 + validator.uptime * 0.5);
+
+      if (effectiveScore < lowestScore) {
+        lowestScore = effectiveScore;
+        lowest = publicKey;
+      }
+    }
+
+    // Only evict if new validator has higher score
+    if (lowest && newEScore > lowestScore) {
+      this.removeValidator(lowest, 'evicted_for_higher_escore');
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Get validator info
+   * @param {string} publicKey - Validator public key
+   * @returns {ValidatorInfo|null} Validator info or null
+   */
+  getValidator(publicKey) {
+    return this._validators.get(publicKey) || null;
+  }
+
+  /**
+   * Get all validators
+   * @param {Object} [filter] - Filter options
+   * @param {string} [filter.status] - Filter by status
+   * @param {number} [filter.minEScore] - Minimum E-Score
+   * @returns {Array<ValidatorInfo>} Validators
+   */
+  getValidators(filter = {}) {
+    let validators = Array.from(this._validators.values());
+
+    if (filter.status) {
+      validators = validators.filter(v => v.status === filter.status);
+    }
+
+    if (filter.minEScore !== undefined) {
+      validators = validators.filter(v => v.eScore >= filter.minEScore);
+    }
+
+    // Sort by effective score (E-Score * uptime)
+    validators.sort((a, b) => {
+      const scoreA = a.eScore * (0.5 + a.uptime * 0.5);
+      const scoreB = b.eScore * (0.5 + b.uptime * 0.5);
+      return scoreB - scoreA;
+    });
+
+    return validators;
+  }
+
+  /**
+   * Get validator set summary
+   * @returns {Object} Validator set summary
+   */
+  getValidatorSetStatus() {
+    const validators = Array.from(this._validators.values());
+    const active = validators.filter(v => v.status === 'active');
+    const inactive = validators.filter(v => v.status === 'inactive');
+
+    const totalEScore = active.reduce((sum, v) => sum + v.eScore, 0);
+    const avgEScore = active.length > 0 ? totalEScore / active.length : 0;
+
+    return {
+      total: validators.length,
+      active: active.length,
+      inactive: inactive.length,
+      maxValidators: this._validatorConfig.maxValidators,
+      minEScore: this._validatorConfig.minEScore,
+      totalEScore,
+      avgEScore: Math.round(avgEScore * 10) / 10,
+      selfIncluded: this._validators.has(this._publicKey),
+      stats: {
+        added: this._stats.validatorsAdded,
+        removed: this._stats.validatorsRemoved,
+        penalized: this._stats.validatorsPenalized,
+      },
+    };
+  }
+
+  /**
+   * Calculate total voting weight for φ-BFT consensus
+   * @returns {number} Total voting weight
+   */
+  getTotalVotingWeight() {
+    let total = 0;
+    for (const validator of this._validators.values()) {
+      if (validator.status === 'active') {
+        // Weight = E-Score * sqrt(burned + 1) * uptime
+        const weight = validator.eScore * Math.sqrt(validator.burned + 1) * validator.uptime;
+        total += weight;
+      }
+    }
+    return total;
+  }
+
+  /**
+   * Check if we have supermajority (61.8% φ-BFT)
+   * @param {number} votingWeight - Weight of votes received
+   * @returns {boolean} True if supermajority reached
+   */
+  hasSupermajority(votingWeight) {
+    const total = this.getTotalVotingWeight();
+    if (total === 0) return false;
+
+    const PHI_THRESHOLD = 0.618; // φ⁻¹
+    return votingWeight / total >= PHI_THRESHOLD;
   }
 
   /**
