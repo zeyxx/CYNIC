@@ -571,7 +571,10 @@ PHI_INV_4 = 0.145898033750315 // φ⁻⁴ - Indirect connections
     - `scripts/setup-devnet-validators.js` — Generate, airdrop, register 5 validators
     - `scripts/run-devnet-cluster.js` — Spawn N in-process nodes, mesh topology
     - `scripts/devnet-multi-validator-e2e.js` — 8 automated E2E tests
-- Production anchoring mode (auto-anchor on consensus finalization)
+- ✅ Production anchoring mode (auto-anchor on consensus finalization)
+    - Wallet loading from `CYNIC_SOLANA_KEY` env var
+    - BlockStore wired to AnchoringManager for retry sweeps
+    - `wireAnchoringStore()` + `setAnchoringWallet()` APIs
 - Cross-node E-Score sharing (remote validator score ingestion)
 
 **PHASE 3: CONNECT (Next)**:

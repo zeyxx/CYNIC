@@ -157,6 +157,22 @@ export async function getNetworkNodeAsync(options = {}) {
       }
     }
 
+    // Load Solana wallet for production anchoring
+    if (process.env.CYNIC_SOLANA_KEY) {
+      try {
+        const { loadWalletFromEnv } = await import('@cynic/anchor');
+        const wallet = loadWalletFromEnv('CYNIC_SOLANA_KEY');
+        if (wallet) {
+          node.setAnchoringWallet(wallet);
+          log.info('Solana wallet loaded for production anchoring', {
+            pubkey: wallet.publicKey?.toBase58?.()?.slice(0, 16) || 'loaded',
+          });
+        }
+      } catch (err) {
+        log.debug('Solana wallet not available for anchoring', { error: err.message });
+      }
+    }
+
     return node;
   })();
 

@@ -37,7 +37,7 @@ import { getHumanAccountant } from './symbiosis/human-accountant.js';
 import { getHumanEmergence } from './symbiosis/human-emergence.js';
 import { wireAmbientConsensus } from './agents/collective/ambient-consensus.js';
 import { startEventListeners, stopEventListeners, cleanupOldEventData } from './services/event-listeners.js';
-import { getNetworkNodeAsync, startNetworkNode, stopNetworkNode, isP2PEnabled } from './network-singleton.js';
+import { getNetworkNode as getNetworkNodeSync, getNetworkNodeAsync, startNetworkNode, stopNetworkNode, isP2PEnabled } from './network-singleton.js';
 import { BlockStore } from './network/block-store.js';
 import { getErrorHandler } from './services/error-handler.js';
 
@@ -526,6 +526,19 @@ export function getCollectivePack(options = {}) {
         blockStore,
       });
       log.info('EventListeners started - data loops closed (AXE 2)', { hasBlockStore: !!blockStore, hasJudge: !!(finalOptions.judge || _globalPack?.judge) });
+
+      // Wire BlockStore to anchoring manager for retry sweeps
+      if (blockStore && isP2PEnabled()) {
+        try {
+          const node = getNetworkNodeSync();
+          if (node) {
+            node.wireAnchoringStore(blockStore);
+            log.info('BlockStore wired to anchoring manager for retry sweeps');
+          }
+        } catch (err) {
+          log.debug('Could not wire BlockStore to anchoring manager', { error: err.message });
+        }
+      }
     }
 
     // FIX O3: Schedule background persistence initialization
@@ -690,6 +703,19 @@ export async function getCollectivePackAsync(options = {}) {
         blockStore,
       });
       log.info('EventListeners started on subsequent call with persistence (AXE 2 fix)');
+
+      // Wire BlockStore to anchoring manager for retry sweeps
+      if (blockStore && isP2PEnabled()) {
+        try {
+          const node = getNetworkNodeSync();
+          if (node) {
+            node.wireAnchoringStore(blockStore);
+            log.info('BlockStore wired to anchoring manager for retry sweeps');
+          }
+        } catch (err) {
+          log.debug('Could not wire BlockStore to anchoring manager', { error: err.message });
+        }
+      }
     }
     return _globalPack;
   }

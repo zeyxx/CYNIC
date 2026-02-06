@@ -123,7 +123,7 @@ export async function startCommand(options) {
         version: '0.1.0',
         nodeId,
         greek: 'κυνικός',
-        endpoints: ['/health', '/status', '/peers', '/consensus', '/propose'],
+        endpoints: ['/health', '/status', '/peers', '/consensus', '/judgment', '/propose'],
       }));
     }
 
@@ -166,6 +166,31 @@ export async function startCommand(options) {
       return res.end(JSON.stringify({
         consensus: status.consensus || null,
       }));
+    }
+
+    if (url === '/judgment' && req.method === 'POST') {
+      if (!node || !node.isParticipating) {
+        res.writeHead(503);
+        return res.end(JSON.stringify({
+          error: 'Node not participating in consensus',
+          state: node?.state || 'OFFLINE',
+        }));
+      }
+
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', async () => {
+        try {
+          const judgment = JSON.parse(body);
+          const result = await node.submitJudgment(judgment);
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, ...result }));
+        } catch (err) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      });
+      return;
     }
 
     if (url === '/propose' && req.method === 'POST') {

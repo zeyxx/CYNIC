@@ -316,8 +316,8 @@ const instance = createIdentity();
 ## Stats
 
 - **Source files**: 245
-- **Test files**: 89
-- **Test ratio**: 36%
+- **Test files**: 90
+- **Test ratio**: 37%
 - **Exports**: 424 named
 
 ## Fractal Structure
@@ -328,7 +328,7 @@ const instance = createIdentity();
 ## Dimensions (4 Axioms)
 
 ```
-[████░░░░░░] 36% φ (Confidence)
+[████░░░░░░] 37% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
 [████░░░░░░] 42% Burn (Simplicity)

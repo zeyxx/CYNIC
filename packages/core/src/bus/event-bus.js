@@ -40,6 +40,7 @@ export const EventType = {
   PATTERN_DETECTED: 'pattern:detected',
   PATTERN_LEARNED: 'pattern:learned',
   ANOMALY_DETECTED: 'anomaly:detected',
+  DIMENSION_CANDIDATE: 'dimension:candidate',
 
   // Memory events
   MEMORY_STORED: 'memory:stored',

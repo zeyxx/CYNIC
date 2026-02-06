@@ -585,9 +585,32 @@ export class CYNICNetworkNode extends EventEmitter {
           message, senderPeerId,
           () => this._forkDetector.markForkResolved(),
         );
+      case 'JUDGMENT':
+        return this._handleJudgmentMessage(message, senderPeerId);
       default:
         break;
     }
+  }
+
+  /**
+   * Handle incoming JUDGMENT message from gossip.
+   * Emits JUDGMENT_CREATED on local globalEventBus so BlockProducer collects it.
+   * @private
+   */
+  _handleJudgmentMessage(message, peerId) {
+    const judgment = message.payload || {};
+    globalEventBus.emit(EventType.JUDGMENT_CREATED, {
+      id: judgment.id || `jdg_net_${Date.now().toString(36)}`,
+      payload: {
+        qScore: judgment.qScore ?? judgment.globalScore ?? 50,
+        verdict: judgment.verdict || 'BARK',
+        ...judgment,
+      },
+      source: `peer:${peerId?.slice(0, 16)}`,
+      timestamp: Date.now(),
+    });
+
+    this.emit('judgment:received', { peerId, judgmentId: judgment.id });
   }
 
   /** @private */
@@ -648,6 +671,29 @@ export class CYNICNetworkNode extends EventEmitter {
     this._stats.messagesSent++;
   }
 
+  /**
+   * Submit a judgment from external source (HTTP API).
+   * Emits locally for BlockProducer AND broadcasts to peers via gossip.
+   */
+  async submitJudgment(judgment) {
+    // Emit on local bus → BlockProducer collects it
+    globalEventBus.emit(EventType.JUDGMENT_CREATED, {
+      id: judgment.id || `jdg_ext_${Date.now().toString(36)}`,
+      payload: {
+        qScore: judgment.qScore ?? judgment.globalScore ?? 50,
+        verdict: judgment.verdict || 'BARK',
+        ...judgment,
+      },
+      source: 'http:api',
+      timestamp: Date.now(),
+    });
+
+    // Broadcast to peers
+    await this.broadcastJudgment(judgment);
+
+    return { id: judgment.id, pending: this._blockProducer.pendingCount };
+  }
+
   async broadcastPattern(pattern) {
     if (this._state === NetworkState.OFFLINE) return;
     await this._transport.broadcastPattern(pattern);
@@ -669,6 +715,18 @@ export class CYNICNetworkNode extends EventEmitter {
   // Block store wiring (injected by external code, e.g. collective-singleton)
   wireBlockStore({ getBlocks, storeBlock }) {
     this._stateSyncManager.wire({ getBlocks, storeBlock });
+  }
+
+  // Wire BlockStore to anchoring manager for retry sweeps
+  wireAnchoringStore(blockStore) {
+    if (blockStore) {
+      this._anchoringManager.setBlockStore(blockStore);
+    }
+  }
+
+  // Set wallet for Solana anchoring (loaded async after construction)
+  setAnchoringWallet(wallet) {
+    this._anchoringManager._wallet = wallet;
   }
 
   // Block producer delegation
