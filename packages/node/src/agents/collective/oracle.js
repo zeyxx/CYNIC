@@ -367,7 +367,7 @@ export class CollectiveOracle extends BaseAgent {
 
     // Compute stats from history (exclude current)
     const stats = computeStats(history.slice(0, -1));
-    const z = zScore(value, stats.mean, stats.stdDev);
+    const z = zScore(value, stats.mean, stats.std);
 
     // Classify severity using φ thresholds
     let severity = 'none';
@@ -388,7 +388,7 @@ export class CollectiveOracle extends BaseAgent {
       zScore: Math.round(z * 100) / 100,
       severity,
       mean: stats.mean,
-      stdDev: stats.stdDev,
+      std: stats.std,
     };
   }
 
