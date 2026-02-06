@@ -149,6 +149,9 @@ export class LearningService extends EventEmitter {
     this._feedbackProcessor.on('anomaly-processed', (data) => {
       this.emit('anomaly-processed', data);
     });
+    this._feedbackProcessor.on('dimension-anomaly', (data) => {
+      this.emit('dimension-anomaly', data);
+    });
 
     // Forward RCA events
     this._rcaIntegration.on('root-cause:analyzed', (data) => {
@@ -571,6 +574,9 @@ export class LearningService extends EventEmitter {
 
     // Delegate to FeedbackProcessor
     const result = this._feedbackProcessor.processFeedback(feedback, this._weightModifiers);
+
+    // Indicate whether enough feedback has accumulated for batch learning
+    result.shouldLearn = this._feedbackProcessor.feedbackQueue.length >= this.minFeedback;
 
     // Enrich result with inference data
     result.inference = {
@@ -1168,6 +1174,41 @@ export class LearningService extends EventEmitter {
     lines.push(`- Accuracy: ${stats.accuracy}%`);
     lines.push(`- Learning iterations: ${patterns.overall.learningIterations}`);
     lines.push('');
+
+    // Feedback source statistics
+    const bySource = patterns.bySource || {};
+    if (Object.keys(bySource).length > 0) {
+      lines.push('## Feedback Sources');
+      lines.push('');
+      for (const [source, data] of Object.entries(bySource)) {
+        const total = data.count || 0;
+        const correct = data.correctCount || 0;
+        const rate = total > 0 ? Math.round((correct / total) * 100) : 0;
+        lines.push(`- **${source}**: ${total} feedback, ${rate}% correct`);
+      }
+      lines.push('');
+    }
+
+    // Patterns by item type
+    const byItemType = patterns.byItemType || {};
+    if (Object.keys(byItemType).length > 0) {
+      const hasPatterns = Object.values(byItemType).some(
+        p => p.feedbackCount >= this.minFeedback && Math.abs(p.avgDelta) > 5
+      );
+      if (hasPatterns) {
+        lines.push('## Patterns by Item Type');
+        lines.push('');
+        for (const [itemType, data] of Object.entries(byItemType)) {
+          if (data.feedbackCount >= this.minFeedback && Math.abs(data.avgDelta) > 5) {
+            const direction = data.avgDelta > 0 ? 'underscoring' : 'overscoring';
+            lines.push(`### ${itemType}`);
+            lines.push(`- Trend: ${direction} (avg delta: ${data.avgDelta.toFixed(1)})`);
+            lines.push(`- Feedback count: ${data.feedbackCount}`);
+            lines.push('');
+          }
+        }
+      }
+    }
 
     if (this._learnings.length > 0) {
       lines.push('## Discovered Learnings');

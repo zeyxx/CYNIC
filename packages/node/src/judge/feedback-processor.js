@@ -337,6 +337,17 @@ export class FeedbackProcessor extends EventEmitter {
     // Track overall anomaly rate
     this._patterns.overall.anomalyCount++;
 
+    // Analyze dimension-level anomalies and emit events for flagged dimensions
+    const flagged = this.analyzeDimensionAnomalies(signal);
+    for (const flag of flagged) {
+      this.emit('dimension-anomaly', {
+        dimension: flag.dimension,
+        anomalyCount: flag.anomalyCount,
+        recommendation: flag.recommendation,
+        timestamp: Date.now(),
+      });
+    }
+
     this.emit('anomaly-processed', {
       judgmentId: signal.judgmentId,
       residual: signal.residual,

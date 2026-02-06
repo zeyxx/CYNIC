@@ -995,9 +995,9 @@ describe('LearningService - Anomaly Signals', () => {
     const result2 = learningService.processAnomalySignal({});
     const result3 = learningService.processAnomalySignal({ residual: 0.5 }); // missing judgmentId
 
-    assert.strictEqual(result1, undefined);
-    assert.strictEqual(result2, undefined);
-    assert.strictEqual(result3, undefined);
+    assert.strictEqual(result1, null);
+    assert.strictEqual(result2, null);
+    assert.strictEqual(result3, null);
   });
 });
 
