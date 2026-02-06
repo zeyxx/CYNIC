@@ -65,6 +65,13 @@ import {
   createVerdictChain,
   MarkovChain,
 } from '../inference/markov.js';
+// Gaussian statistics for anomaly detection and confidence intervals
+import {
+  computeStats,
+  zScore,
+  confidenceInterval,
+  phiConfidenceInterval,
+} from '../inference/gaussian.js';
 // Organism metrics for tracking
 import { recordSuccess, recordError, updateHomeostasis } from '../organism/index.js';
 
@@ -152,6 +159,19 @@ export class CYNICJudge {
 
     // Judgment outcome history for feedback integration
     this._outcomeHistory = [];
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GAUSSIAN STATISTICS (anomaly detection + confidence intervals)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Q-Score history for statistical analysis
+    this._qScoreHistory = [];
+
+    // Per-dimension score history for anomaly detection
+    this._dimensionScoreHistory = new Map();
+
+    // Anomaly threshold (z-score)
+    this._anomalyZThreshold = 2.0; // 2 standard deviations
   }
 
   /**
@@ -518,6 +538,40 @@ export class CYNICJudge {
     // Update verdict Markov chain and add prediction
     const verdictMarkov = this._updateVerdictSequence(judgment);
     judgment.markov = verdictMarkov;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GAUSSIAN TRACKING: Record scores and detect anomalies
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Record Q-Score for statistical tracking
+    this._recordQScore(judgment.qScore);
+
+    // Record dimension scores for anomaly detection
+    for (const [dimName, score] of Object.entries(dimensionScores)) {
+      this._recordDimensionScore(dimName, score);
+    }
+
+    // Detect score anomalies (only if we have history)
+    const gaussianAnalysis = this.detectScoreAnomalies(dimensionScores);
+
+    // Check if Q-Score itself is anomalous
+    const qScoreAnomaly = this.isQScoreAnomaly(judgment.qScore);
+
+    // Add Gaussian analysis to judgment
+    judgment.gaussian = {
+      qScore: {
+        isAnomaly: qScoreAnomaly.isAnomaly,
+        zScore: qScoreAnomaly.zScore,
+        severity: qScoreAnomaly.severity,
+        deviation: qScoreAnomaly.deviation,
+      },
+      dimensions: {
+        hasAnomalies: gaussianAnalysis.hasAnomalies,
+        anomalyCount: gaussianAnalysis.anomalyCount,
+        anomalies: gaussianAnalysis.anomalies,
+      },
+      stats: this.getQScoreStats(),
+    };
 
     // Task #57: Emit JUDGMENT_CREATED for SONA real-time adaptation
     // This allows SONA to observe judgment patterns and correlate with outcomes
@@ -1291,6 +1345,173 @@ export class CYNICJudge {
     };
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GAUSSIAN STATISTICS METHODS (anomaly detection + confidence intervals)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Record Q-Score for statistical tracking
+   * @private
+   * @param {number} qScore - Q-Score value
+   */
+  _recordQScore(qScore) {
+    this._qScoreHistory.push(qScore);
+    // Keep bounded at Fib(10) = 55
+    while (this._qScoreHistory.length > 55) {
+      this._qScoreHistory.shift();
+    }
+  }
+
+  /**
+   * Record dimension score for anomaly detection
+   * @private
+   * @param {string} dimension - Dimension name
+   * @param {number} score - Score value
+   */
+  _recordDimensionScore(dimension, score) {
+    if (!this._dimensionScoreHistory.has(dimension)) {
+      this._dimensionScoreHistory.set(dimension, []);
+    }
+    const history = this._dimensionScoreHistory.get(dimension);
+    history.push(score);
+    // Keep bounded at Fib(8) = 21
+    while (history.length > 21) {
+      history.shift();
+    }
+  }
+
+  /**
+   * Detect anomalous dimension scores using z-score
+   * Returns dimensions that deviate significantly from historical mean
+   *
+   * @param {Object} dimensionScores - Current dimension scores
+   * @returns {Object} {anomalies, stats}
+   */
+  detectScoreAnomalies(dimensionScores) {
+    const anomalies = [];
+    const stats = {};
+
+    for (const [dimName, score] of Object.entries(dimensionScores)) {
+      const history = this._dimensionScoreHistory.get(dimName) || [];
+
+      if (history.length < 5) {
+        // Not enough history for meaningful anomaly detection
+        stats[dimName] = { hasHistory: false };
+        continue;
+      }
+
+      // Compute stats excluding current score
+      const dimStats = computeStats(history);
+      const z = zScore(score, dimStats.mean, dimStats.std);
+
+      stats[dimName] = {
+        mean: Math.round(dimStats.mean * 10) / 10,
+        stdDev: Math.round(dimStats.std * 10) / 10,
+        zScore: Math.round(z * 100) / 100,
+        hasHistory: true,
+      };
+
+      // Check for anomaly
+      if (Math.abs(z) > this._anomalyZThreshold) {
+        anomalies.push({
+          dimension: dimName,
+          score,
+          zScore: Math.round(z * 100) / 100,
+          mean: dimStats.mean,
+          deviation: z > 0 ? 'above' : 'below',
+          severity: Math.abs(z) > 3 ? 'critical' : 'significant',
+        });
+      }
+    }
+
+    return {
+      anomalies,
+      hasAnomalies: anomalies.length > 0,
+      anomalyCount: anomalies.length,
+      stats,
+    };
+  }
+
+  /**
+   * Get Q-Score statistics
+   * @returns {Object} {mean, stdDev, min, max, confidenceInterval}
+   */
+  getQScoreStats() {
+    if (this._qScoreHistory.length < 3) {
+      return {
+        mean: 0,
+        stdDev: 0,
+        min: 0,
+        max: 0,
+        confidenceInterval: [0, 0],
+        sampleSize: this._qScoreHistory.length,
+      };
+    }
+
+    const stats = computeStats(this._qScoreHistory);
+    const ci = phiConfidenceInterval(stats.mean, stats.std, this._qScoreHistory.length);
+
+    return {
+      mean: Math.round(stats.mean * 10) / 10,
+      stdDev: Math.round(stats.std * 10) / 10,
+      min: Math.round(stats.min * 10) / 10,
+      max: Math.round(stats.max * 10) / 10,
+      confidenceInterval: [
+        Math.round(ci.lower * 10) / 10,
+        Math.round(ci.upper * 10) / 10,
+      ],
+      marginOfError: Math.round(ci.marginOfError * 10) / 10,
+      sampleSize: this._qScoreHistory.length,
+    };
+  }
+
+  /**
+   * Check if a Q-Score is anomalous compared to history
+   * @param {number} qScore - Q-Score to check
+   * @returns {Object} {isAnomaly, zScore, severity}
+   */
+  isQScoreAnomaly(qScore) {
+    if (this._qScoreHistory.length < 5) {
+      return { isAnomaly: false, zScore: 0, severity: 'none', reason: 'insufficient_history' };
+    }
+
+    const stats = computeStats(this._qScoreHistory);
+    const z = zScore(qScore, stats.mean, stats.std);
+
+    let severity = 'none';
+    let isAnomaly = false;
+
+    if (Math.abs(z) > 3) {
+      severity = 'critical';
+      isAnomaly = true;
+    } else if (Math.abs(z) > this._anomalyZThreshold) {
+      severity = 'significant';
+      isAnomaly = true;
+    } else if (Math.abs(z) > 1.5) {
+      severity = 'minor';
+    }
+
+    return {
+      isAnomaly,
+      zScore: Math.round(z * 100) / 100,
+      severity,
+      deviation: z > 0 ? 'above_average' : 'below_average',
+      historicalMean: stats.mean,
+    };
+  }
+
+  /**
+   * Get Gaussian statistics summary
+   * @returns {Object} Gaussian stats
+   */
+  getGaussianStats() {
+    return {
+      qScoreStats: this.getQScoreStats(),
+      dimensionsWithHistory: this._dimensionScoreHistory.size,
+      anomalyThreshold: this._anomalyZThreshold,
+    };
+  }
+
   /**
    * Get entropy analysis for a judgment
    * @param {Object} judgment - Judgment with dimensionScores
@@ -1819,6 +2040,8 @@ export class CYNICJudge {
         : 0,
       // Bayesian inference stats
       bayesian: this.getBayesianStats(),
+      // Gaussian statistics
+      gaussian: this.getGaussianStats(),
       // Entropy trend
       entropyTrend: this.getEntropyTrend(),
       // Markov chain stats
@@ -1852,6 +2075,10 @@ export class CYNICJudge {
     // Reset entropy tracking
     this.historicalDistribution = null;
     this.distributionHistory = [];
+
+    // Reset Gaussian tracking
+    this._qScoreHistory = [];
+    this._dimensionScoreHistory.clear();
   }
 }
 
