@@ -89,3 +89,9 @@ export {
   AlertLevel,
   DEFAULT_THRESHOLDS,
 } from './telemetry-collector.js';
+
+// Distributed Tracing: Span persistence with buffered batch inserts
+export {
+  TraceStorage,
+  createTraceStorage,
+} from './trace-storage.js';

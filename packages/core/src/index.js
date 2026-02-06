@@ -80,3 +80,6 @@ export * from './cli/index.js';
 
 // LLM Provider Abstraction (Claude, Ollama, OpenAI)
 export * from './llm/index.js';
+
+// Distributed Tracing (φ-aligned spans, sampling, middleware)
+export * from './tracing/index.js';

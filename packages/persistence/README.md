@@ -120,7 +120,7 @@ const instance = createMockFactory();
 
 ## Stats
 
-- **Source files**: 80
+- **Source files**: 81
 - **Test files**: 21
 - **Test ratio**: 26%
 - **Exports**: 85 named
