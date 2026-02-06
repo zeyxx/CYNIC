@@ -445,12 +445,14 @@ export class CollectiveGuardian extends BaseAgent {
 
     // Emit threat blocked event if blocked
     if (blocked && issues.length > 0) {
-      this._emitThreatBlocked({
-        command: toolName,
-        category: 'hook_guard',
-        risk: issues[0].severity,
-        issues,
-      });
+      const severityToRisk = {
+        critical: RiskLevel.CRITICAL,
+        high: RiskLevel.HIGH,
+        medium: RiskLevel.MEDIUM,
+        low: RiskLevel.LOW,
+      };
+      const hookRisk = severityToRisk[issues[0].severity] || RiskLevel.HIGH;
+      this._emitThreatBlocked(toolName, hookRisk, 'hook_guard', issues[0].message);
     }
   }
 
