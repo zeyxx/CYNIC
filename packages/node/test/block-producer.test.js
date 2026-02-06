@@ -6,7 +6,8 @@
  * Tests slot-based block production from JUDGMENT_CREATED events.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, beforeEach, afterEach, mock } from 'node:test';
+import assert from 'node:assert';
 import { BlockProducer } from '../src/network/block-producer.js';
 import { globalEventBus, EventType } from '@cynic/core';
 
@@ -30,20 +31,20 @@ describe('BlockProducer', () => {
     it('creates with default options', () => {
       producer = new BlockProducer({ publicKey: mockPublicKey });
 
-      expect(producer.running).toBe(false);
-      expect(producer.pendingCount).toBe(0);
-      expect(producer.stats.blocksProduced).toBe(0);
-      expect(producer.stats.emptyBlocks).toBe(0);
-      expect(producer.stats.judgmentsIncluded).toBe(0);
-      expect(producer.stats.slotsAsLeader).toBe(0);
-      expect(producer.stats.slotsTotal).toBe(0);
+      assert.strictEqual(producer.running, false);
+      assert.strictEqual(producer.pendingCount, 0);
+      assert.strictEqual(producer.stats.blocksProduced, 0);
+      assert.strictEqual(producer.stats.emptyBlocks, 0);
+      assert.strictEqual(producer.stats.judgmentsIncluded, 0);
+      assert.strictEqual(producer.stats.slotsAsLeader, 0);
+      assert.strictEqual(producer.stats.slotsTotal, 0);
     });
 
     it('has a SlotManager instance', () => {
       producer = new BlockProducer({ publicKey: mockPublicKey });
 
-      expect(producer.slotManager).toBeDefined();
-      expect(typeof producer.slotManager.getCurrentSlot).toBe('function');
+      assert.ok(producer.slotManager !== undefined);
+      assert.strictEqual(typeof producer.slotManager.getCurrentSlot, 'function');
     });
 
     it('accepts custom maxJudgmentsPerBlock', () => {
@@ -52,27 +53,27 @@ describe('BlockProducer', () => {
         maxJudgmentsPerBlock: 50,
       });
 
-      expect(producer._maxJudgmentsPerBlock).toBe(50);
+      assert.strictEqual(producer._maxJudgmentsPerBlock, 50);
     });
   });
 
   describe('wire()', () => {
     it('wires proposeBlock callback', () => {
       producer = new BlockProducer({ publicKey: mockPublicKey });
-      const mockPropose = vi.fn();
+      const mockPropose = mock.fn();
 
       producer.wire({ proposeBlock: mockPropose });
 
-      expect(producer._proposeBlock).toBe(mockPropose);
+      assert.strictEqual(producer._proposeBlock, mockPropose);
     });
 
     it('wires getValidators callback', () => {
       producer = new BlockProducer({ publicKey: mockPublicKey });
-      const mockGetValidators = vi.fn(() => []);
+      const mockGetValidators = mock.fn(() => []);
 
       producer.wire({ getValidators: mockGetValidators });
 
-      expect(producer._getValidators).toBe(mockGetValidators);
+      assert.strictEqual(producer._getValidators, mockGetValidators);
     });
 
     it('ignores null values', () => {
@@ -80,8 +81,8 @@ describe('BlockProducer', () => {
 
       producer.wire({ proposeBlock: null, getValidators: null });
 
-      expect(producer._proposeBlock).toBeNull();
-      expect(producer._getValidators).toBeNull();
+      assert.strictEqual(producer._proposeBlock, null);
+      assert.strictEqual(producer._getValidators, null);
     });
   });
 
@@ -94,8 +95,8 @@ describe('BlockProducer', () => {
 
       producer.start();
 
-      expect(producer.running).toBe(true);
-      expect(events).toContain('started');
+      assert.strictEqual(producer.running, true);
+      assert.ok(events.includes('started'));
     });
 
     it('stops and sets running to false', () => {
@@ -107,8 +108,8 @@ describe('BlockProducer', () => {
       producer.start();
       producer.stop();
 
-      expect(producer.running).toBe(false);
-      expect(events).toContain('stopped');
+      assert.strictEqual(producer.running, false);
+      assert.ok(events.includes('stopped'));
     });
 
     it('start is idempotent', () => {
@@ -120,7 +121,7 @@ describe('BlockProducer', () => {
       producer.start();
       producer.start(); // Second call should be noop
 
-      expect(count).toBe(1);
+      assert.strictEqual(count, 1);
     });
 
     it('stop is idempotent', () => {
@@ -133,7 +134,7 @@ describe('BlockProducer', () => {
       producer.stop();
       producer.stop(); // Second call should be noop
 
-      expect(count).toBe(1);
+      assert.strictEqual(count, 1);
     });
   });
 
@@ -152,7 +153,7 @@ describe('BlockProducer', () => {
         payload: { qScore: 30, verdict: 'GROWL' },
       });
 
-      expect(producer.pendingCount).toBe(2);
+      assert.strictEqual(producer.pendingCount, 2);
     });
 
     it('does not collect events when stopped', () => {
@@ -164,7 +165,7 @@ describe('BlockProducer', () => {
         payload: { qScore: 50, verdict: 'BARK' },
       });
 
-      expect(producer.pendingCount).toBe(0);
+      assert.strictEqual(producer.pendingCount, 0);
     });
 
     it('stops collecting events after stop()', () => {
@@ -177,7 +178,7 @@ describe('BlockProducer', () => {
         payload: { qScore: 50 },
       });
 
-      expect(producer.pendingCount).toBe(1);
+      assert.strictEqual(producer.pendingCount, 1);
 
       producer.stop();
 
@@ -187,7 +188,7 @@ describe('BlockProducer', () => {
       });
 
       // Should still be 1, not 2
-      expect(producer.pendingCount).toBe(1);
+      assert.strictEqual(producer.pendingCount, 1);
     });
 
     it('caps pending judgments at 3x maxJudgmentsPerBlock', () => {
@@ -205,7 +206,7 @@ describe('BlockProducer', () => {
         });
       }
 
-      expect(producer.pendingCount).toBe(6);
+      assert.strictEqual(producer.pendingCount, 6);
     });
 
     it('extracts judgment_id from event.id or payload.id', () => {
@@ -217,7 +218,7 @@ describe('BlockProducer', () => {
         payload: { qScore: 50 },
       });
 
-      expect(producer._pendingJudgments[0].judgment_id).toBe('from-event-id');
+      assert.strictEqual(producer._pendingJudgments[0].judgment_id, 'from-event-id');
     });
   });
 
@@ -228,51 +229,51 @@ describe('BlockProducer', () => {
 
       // Directly call _onSlot (bypasses SlotManager timing)
       // Mock isLeader to return false
-      vi.spyOn(producer._slotManager, 'isLeader').mockReturnValue(false);
+      mock.method(producer._slotManager, 'isLeader', () => false);
 
       producer._onSlot(1, false);
       producer._onSlot(2, false);
       producer._onSlot(3, false);
 
-      expect(producer.stats.slotsTotal).toBe(3);
-      expect(producer.stats.slotsAsLeader).toBe(0);
+      assert.strictEqual(producer.stats.slotsTotal, 3);
+      assert.strictEqual(producer.stats.slotsAsLeader, 0);
     });
 
     it('produces block when we are leader', () => {
       producer = new BlockProducer({ publicKey: mockPublicKey });
-      const mockPropose = vi.fn(() => ({ id: 'record-1' }));
+      const mockPropose = mock.fn(() => ({ id: 'record-1' }));
       producer.wire({ proposeBlock: mockPropose });
       producer.start();
 
-      vi.spyOn(producer._slotManager, 'isLeader').mockReturnValue(true);
+      mock.method(producer._slotManager, 'isLeader', () => true);
 
       producer._onSlot(10, false);
 
-      expect(producer.stats.slotsAsLeader).toBe(1);
-      expect(producer.stats.blocksProduced).toBe(1);
-      expect(producer.stats.emptyBlocks).toBe(1); // No pending judgments
-      expect(mockPropose).toHaveBeenCalledTimes(1);
+      assert.strictEqual(producer.stats.slotsAsLeader, 1);
+      assert.strictEqual(producer.stats.blocksProduced, 1);
+      assert.strictEqual(producer.stats.emptyBlocks, 1); // No pending judgments
+      assert.strictEqual(mockPropose.mock.callCount(), 1);
     });
 
     it('does not produce block when not leader', () => {
       producer = new BlockProducer({ publicKey: mockPublicKey });
-      const mockPropose = vi.fn();
+      const mockPropose = mock.fn();
       producer.wire({ proposeBlock: mockPropose });
       producer.start();
 
-      vi.spyOn(producer._slotManager, 'isLeader').mockReturnValue(false);
+      mock.method(producer._slotManager, 'isLeader', () => false);
 
       producer._onSlot(10, false);
 
-      expect(producer.stats.slotsAsLeader).toBe(0);
-      expect(producer.stats.blocksProduced).toBe(0);
-      expect(mockPropose).not.toHaveBeenCalled();
+      assert.strictEqual(producer.stats.slotsAsLeader, 0);
+      assert.strictEqual(producer.stats.blocksProduced, 0);
+      assert.strictEqual(mockPropose.mock.callCount(), 0);
     });
 
     it('includes pending judgments in block', () => {
       producer = new BlockProducer({ publicKey: mockPublicKey });
       const blocks = [];
-      const mockPropose = vi.fn((block) => {
+      const mockPropose = mock.fn((block) => {
         blocks.push(block);
         return { id: 'record-1' };
       });
@@ -289,18 +290,18 @@ describe('BlockProducer', () => {
         payload: { qScore: 40, verdict: 'GROWL' },
       });
 
-      vi.spyOn(producer._slotManager, 'isLeader').mockReturnValue(true);
+      mock.method(producer._slotManager, 'isLeader', () => true);
       producer._onSlot(10, false);
 
-      expect(blocks.length).toBe(1);
-      expect(blocks[0].judgment_count).toBe(2);
-      expect(blocks[0].judgment_ids).toContain('jdg-1');
-      expect(blocks[0].judgment_ids).toContain('jdg-2');
-      expect(producer.stats.judgmentsIncluded).toBe(2);
-      expect(producer.stats.emptyBlocks).toBe(0);
+      assert.strictEqual(blocks.length, 1);
+      assert.strictEqual(blocks[0].judgment_count, 2);
+      assert.ok(blocks[0].judgment_ids.includes('jdg-1'));
+      assert.ok(blocks[0].judgment_ids.includes('jdg-2'));
+      assert.strictEqual(producer.stats.judgmentsIncluded, 2);
+      assert.strictEqual(producer.stats.emptyBlocks, 0);
 
       // Pending should be drained
-      expect(producer.pendingCount).toBe(0);
+      assert.strictEqual(producer.pendingCount, 0);
     });
 
     it('drains at most maxJudgmentsPerBlock', () => {
@@ -308,7 +309,7 @@ describe('BlockProducer', () => {
         publicKey: mockPublicKey,
         maxJudgmentsPerBlock: 2,
       });
-      const mockPropose = vi.fn(() => ({ id: 'r' }));
+      const mockPropose = mock.fn(() => ({ id: 'r' }));
       producer.wire({ proposeBlock: mockPropose });
       producer.start();
 
@@ -320,36 +321,36 @@ describe('BlockProducer', () => {
         });
       }
 
-      vi.spyOn(producer._slotManager, 'isLeader').mockReturnValue(true);
+      mock.method(producer._slotManager, 'isLeader', () => true);
       producer._onSlot(10, false);
 
       // First block takes 2, 3 remain
-      expect(producer.stats.judgmentsIncluded).toBe(2);
-      expect(producer.pendingCount).toBe(3);
+      assert.strictEqual(producer.stats.judgmentsIncluded, 2);
+      assert.strictEqual(producer.pendingCount, 3);
     });
 
     it('emits block:produced event', () => {
       producer = new BlockProducer({ publicKey: mockPublicKey });
-      producer.wire({ proposeBlock: vi.fn(() => ({ id: 'r' })) });
+      producer.wire({ proposeBlock: mock.fn(() => ({ id: 'r' })) });
       producer.start();
 
       const events = [];
       producer.on('block:produced', (e) => events.push(e));
 
-      vi.spyOn(producer._slotManager, 'isLeader').mockReturnValue(true);
+      mock.method(producer._slotManager, 'isLeader', () => true);
       producer._onSlot(42, false);
 
-      expect(events.length).toBe(1);
-      expect(events[0].slot).toBe(42);
-      expect(events[0].hash).toBeDefined();
-      expect(events[0].judgmentCount).toBe(0);
+      assert.strictEqual(events.length, 1);
+      assert.strictEqual(events[0].slot, 42);
+      assert.ok(events[0].hash !== undefined);
+      assert.strictEqual(events[0].judgmentCount, 0);
     });
 
     it('updates lastBlockHash after successful production', () => {
       producer = new BlockProducer({ publicKey: mockPublicKey });
       const blocks = [];
       producer.wire({
-        proposeBlock: vi.fn((block) => {
+        proposeBlock: mock.fn((block) => {
           blocks.push(block);
           return { id: 'r' };
         }),
@@ -357,79 +358,79 @@ describe('BlockProducer', () => {
       producer.start();
 
       const initialHash = producer._lastBlockHash;
-      expect(initialHash).toBe('0'.repeat(64));
+      assert.strictEqual(initialHash, '0'.repeat(64));
 
-      vi.spyOn(producer._slotManager, 'isLeader').mockReturnValue(true);
+      mock.method(producer._slotManager, 'isLeader', () => true);
       producer._onSlot(10, false);
 
-      expect(producer._lastBlockHash).not.toBe(initialHash);
-      expect(producer._lastBlockHash).toBe(blocks[0].hash);
+      assert.notStrictEqual(producer._lastBlockHash, initialHash);
+      assert.strictEqual(producer._lastBlockHash, blocks[0].hash);
     });
 
     it('chains blocks via prev_hash', () => {
       producer = new BlockProducer({ publicKey: mockPublicKey });
       const blocks = [];
       producer.wire({
-        proposeBlock: vi.fn((block) => {
+        proposeBlock: mock.fn((block) => {
           blocks.push(block);
           return { id: 'r' };
         }),
       });
       producer.start();
 
-      vi.spyOn(producer._slotManager, 'isLeader').mockReturnValue(true);
+      mock.method(producer._slotManager, 'isLeader', () => true);
 
       producer._onSlot(10, false);
       producer._onSlot(11, false);
 
-      expect(blocks.length).toBe(2);
-      expect(blocks[1].prev_hash).toBe(blocks[0].hash);
+      assert.strictEqual(blocks.length, 2);
+      assert.strictEqual(blocks[1].prev_hash, blocks[0].hash);
     });
 
     it('handles proposeBlock failure gracefully', () => {
       producer = new BlockProducer({ publicKey: mockPublicKey });
       producer.wire({
-        proposeBlock: vi.fn(() => {
+        proposeBlock: mock.fn(() => {
           throw new Error('Consensus offline');
         }),
       });
       producer.start();
 
-      vi.spyOn(producer._slotManager, 'isLeader').mockReturnValue(true);
+      mock.method(producer._slotManager, 'isLeader', () => true);
 
       // Should not throw
-      expect(() => producer._onSlot(10, false)).not.toThrow();
-      expect(producer.stats.blocksProduced).toBe(0);
+      assert.doesNotThrow(() => producer._onSlot(10, false));
+      assert.strictEqual(producer.stats.blocksProduced, 0);
     });
 
     it('handles null proposeBlock return gracefully', () => {
       producer = new BlockProducer({ publicKey: mockPublicKey });
-      producer.wire({ proposeBlock: vi.fn(() => null) });
+      producer.wire({ proposeBlock: mock.fn(() => null) });
       producer.start();
 
-      vi.spyOn(producer._slotManager, 'isLeader').mockReturnValue(true);
+      mock.method(producer._slotManager, 'isLeader', () => true);
       producer._onSlot(10, false);
 
       // No record returned = block not counted
-      expect(producer.stats.blocksProduced).toBe(0);
+      assert.strictEqual(producer.stats.blocksProduced, 0);
     });
 
     it('syncs validators on new epoch', () => {
       producer = new BlockProducer({ publicKey: mockPublicKey });
-      const mockGetValidators = vi.fn(() => [
+      const mockGetValidators = mock.fn(() => [
         { publicKey: 'val-1', eScore: 60, burned: 0, uptime: 1.0 },
         { publicKey: 'val-2', eScore: 80, burned: 99, uptime: 0.9 },
       ]);
       producer.wire({ getValidators: mockGetValidators });
       producer.start();
 
-      vi.spyOn(producer._slotManager, 'isLeader').mockReturnValue(false);
+      mock.method(producer._slotManager, 'isLeader', () => false);
 
       // isNewEpoch = true should trigger _syncValidators
       producer._onSlot(432, true);
 
       // Called once on start() and once on epoch boundary
-      expect(mockGetValidators).toHaveBeenCalledTimes(2);
+      assert.strictEqual(mockGetValidators.mock.callCount(), 2);
     });
   });
 
@@ -443,16 +444,16 @@ describe('BlockProducer', () => {
         ],
       });
 
-      const spy = vi.spyOn(producer._slotManager, 'setValidators');
+      const spy = mock.method(producer._slotManager, 'setValidators', () => {});
       producer._syncValidators();
 
-      expect(spy).toHaveBeenCalledTimes(1);
-      const validators = spy.mock.calls[0][0];
+      assert.strictEqual(spy.mock.callCount(), 1);
+      const validators = spy.mock.calls[0].arguments[0];
 
       // val-1: 60 * sqrt(1) * 1.0 = 60
-      expect(validators[0]).toEqual({ id: 'val-1', weight: 60 });
+      assert.deepStrictEqual(validators[0], { id: 'val-1', weight: 60 });
       // val-2: 80 * sqrt(100) * 0.9 = 80 * 10 * 0.9 = 720
-      expect(validators[1]).toEqual({ id: 'val-2', weight: 720 });
+      assert.deepStrictEqual(validators[1], { id: 'val-2', weight: 720 });
     });
 
     it('adds self to validator set if not present', () => {
@@ -463,13 +464,13 @@ describe('BlockProducer', () => {
         ],
       });
 
-      const spy = vi.spyOn(producer._slotManager, 'setValidators');
+      const spy = mock.method(producer._slotManager, 'setValidators', () => {});
       producer._syncValidators();
 
-      const validators = spy.mock.calls[0][0];
-      expect(validators.length).toBe(2);
-      expect(validators.find(v => v.id === mockPublicKey)).toBeDefined();
-      expect(validators.find(v => v.id === mockPublicKey).weight).toBe(50);
+      const validators = spy.mock.calls[0].arguments[0];
+      assert.strictEqual(validators.length, 2);
+      assert.ok(validators.find(v => v.id === mockPublicKey) !== undefined);
+      assert.strictEqual(validators.find(v => v.id === mockPublicKey).weight, 50);
     });
 
     it('does not duplicate self if already in validator set', () => {
@@ -480,35 +481,35 @@ describe('BlockProducer', () => {
         ],
       });
 
-      const spy = vi.spyOn(producer._slotManager, 'setValidators');
+      const spy = mock.method(producer._slotManager, 'setValidators', () => {});
       producer._syncValidators();
 
-      const validators = spy.mock.calls[0][0];
-      expect(validators.length).toBe(1);
-      expect(validators[0].id).toBe(mockPublicKey);
+      const validators = spy.mock.calls[0].arguments[0];
+      assert.strictEqual(validators.length, 1);
+      assert.strictEqual(validators[0].id, mockPublicKey);
     });
 
     it('handles empty validator set (adds self only)', () => {
       producer = new BlockProducer({ publicKey: mockPublicKey });
       producer.wire({ getValidators: () => [] });
 
-      const spy = vi.spyOn(producer._slotManager, 'setValidators');
+      const spy = mock.method(producer._slotManager, 'setValidators', () => {});
       producer._syncValidators();
 
-      const validators = spy.mock.calls[0][0];
-      expect(validators.length).toBe(1);
-      expect(validators[0].id).toBe(mockPublicKey);
+      const validators = spy.mock.calls[0].arguments[0];
+      assert.strictEqual(validators.length, 1);
+      assert.strictEqual(validators[0].id, mockPublicKey);
     });
 
     it('handles null getValidators gracefully', () => {
       producer = new BlockProducer({ publicKey: mockPublicKey });
       // No getValidators wired
 
-      const spy = vi.spyOn(producer._slotManager, 'setValidators');
+      const spy = mock.method(producer._slotManager, 'setValidators', () => {});
       producer._syncValidators();
 
-      const validators = spy.mock.calls[0][0];
-      expect(validators.length).toBe(1); // Just self
+      const validators = spy.mock.calls[0].arguments[0];
+      assert.strictEqual(validators.length, 1); // Just self
     });
 
     it('defaults missing burned/uptime fields', () => {
@@ -519,12 +520,12 @@ describe('BlockProducer', () => {
         ],
       });
 
-      const spy = vi.spyOn(producer._slotManager, 'setValidators');
+      const spy = mock.method(producer._slotManager, 'setValidators', () => {});
       producer._syncValidators();
 
-      const validators = spy.mock.calls[0][0];
+      const validators = spy.mock.calls[0].arguments[0];
       // weight = 50 * sqrt(0+1) * 1.0 = 50
-      expect(validators[0].weight).toBe(50);
+      assert.strictEqual(validators[0].weight, 50);
     });
   });
 
@@ -538,18 +539,18 @@ describe('BlockProducer', () => {
 
       const block = producer._createBlock(42, judgments);
 
-      expect(block.slot).toBe(42);
-      expect(block.proposer).toBe(mockPublicKey);
-      expect(block.hash).toBeDefined();
-      expect(block.hash.length).toBe(64); // SHA-256 hex
-      expect(block.block_hash).toBe(block.hash);
-      expect(block.prev_hash).toBe('0'.repeat(64));
-      expect(block.merkle_root).toBeDefined();
-      expect(block.judgments_root).toBe(block.merkle_root);
-      expect(block.judgments).toHaveLength(1);
-      expect(block.judgment_count).toBe(1);
-      expect(block.judgment_ids).toContain('jdg-1');
-      expect(block.timestamp).toBeDefined();
+      assert.strictEqual(block.slot, 42);
+      assert.strictEqual(block.proposer, mockPublicKey);
+      assert.ok(block.hash !== undefined);
+      assert.strictEqual(block.hash.length, 64); // SHA-256 hex
+      assert.strictEqual(block.block_hash, block.hash);
+      assert.strictEqual(block.prev_hash, '0'.repeat(64));
+      assert.ok(block.merkle_root !== undefined);
+      assert.strictEqual(block.judgments_root, block.merkle_root);
+      assert.strictEqual(block.judgments.length, 1);
+      assert.strictEqual(block.judgment_count, 1);
+      assert.ok(block.judgment_ids.includes('jdg-1'));
+      assert.ok(block.timestamp !== undefined);
     });
 
     it('creates different hashes for different slots', () => {
@@ -558,7 +559,7 @@ describe('BlockProducer', () => {
       const block1 = producer._createBlock(1, []);
       const block2 = producer._createBlock(2, []);
 
-      expect(block1.hash).not.toBe(block2.hash);
+      assert.notStrictEqual(block1.hash, block2.hash);
     });
   });
 
@@ -567,7 +568,7 @@ describe('BlockProducer', () => {
       producer = new BlockProducer({ publicKey: mockPublicKey });
 
       const root = producer._computeMerkleRoot([]);
-      expect(root).toBe('0'.repeat(64));
+      assert.strictEqual(root, '0'.repeat(64));
     });
 
     it('returns SHA-256 hash of judgment IDs', () => {
@@ -578,8 +579,8 @@ describe('BlockProducer', () => {
         { judgment_id: 'jdg-2' },
       ]);
 
-      expect(root.length).toBe(64);
-      expect(root).not.toBe('0'.repeat(64));
+      assert.strictEqual(root.length, 64);
+      assert.notStrictEqual(root, '0'.repeat(64));
     });
 
     it('returns different roots for different judgment sets', () => {
@@ -588,7 +589,7 @@ describe('BlockProducer', () => {
       const root1 = producer._computeMerkleRoot([{ judgment_id: 'a' }]);
       const root2 = producer._computeMerkleRoot([{ judgment_id: 'b' }]);
 
-      expect(root1).not.toBe(root2);
+      assert.notStrictEqual(root1, root2);
     });
 
     it('is deterministic', () => {
@@ -598,7 +599,7 @@ describe('BlockProducer', () => {
       const root1 = producer._computeMerkleRoot(judgments);
       const root2 = producer._computeMerkleRoot(judgments);
 
-      expect(root1).toBe(root2);
+      assert.strictEqual(root1, root2);
     });
   });
 
@@ -609,8 +610,8 @@ describe('BlockProducer', () => {
       const stats1 = producer.stats;
       const stats2 = producer.stats;
 
-      expect(stats1).toEqual(stats2);
-      expect(stats1).not.toBe(stats2); // Different objects
+      assert.deepStrictEqual(stats1, stats2);
+      assert.notStrictEqual(stats1, stats2); // Different objects
     });
   });
 });

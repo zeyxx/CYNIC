@@ -7,14 +7,15 @@
  * These tests require more setup and are slower.
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, before, after } from 'node:test';
+import assert from 'node:assert';
 import { CYNICNetworkNode, NetworkState } from '../src/network/network-node.js';
 import { generateKeypair } from '@cynic/identity';
 
 // Skip in CI or when P2P tests not enabled
 const runP2PTests = process.env.CYNIC_P2P_TESTS === 'true';
 
-describe.skipIf(!runP2PTests)('Multi-Node Integration', () => {
+describe('Multi-Node Integration', { skip: !runP2PTests ? 'P2P tests not enabled' : false }, () => {
   const BASE_PORT = 18618; // Use high ports to avoid conflicts
   let nodes = [];
 
@@ -33,7 +34,7 @@ describe.skipIf(!runP2PTests)('Multi-Node Integration', () => {
     });
   }
 
-  afterAll(async () => {
+  after(async () => {
     // Stop all nodes
     await Promise.all(nodes.map(node => node.stop().catch(() => {})));
     nodes = [];
@@ -49,11 +50,11 @@ describe.skipIf(!runP2PTests)('Multi-Node Integration', () => {
 
       // Start node 1 first (it will listen)
       await node1.start();
-      expect(node1.isOnline).toBe(true);
+      assert.strictEqual(node1.isOnline, true);
 
       // Start node 2 (it will connect to node 1 via seed)
       await node2.start();
-      expect(node2.isOnline).toBe(true);
+      assert.strictEqual(node2.isOnline, true);
 
       // Wait for connection
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -63,7 +64,7 @@ describe.skipIf(!runP2PTests)('Multi-Node Integration', () => {
       const peers2 = node2.getConnectedPeers();
 
       // At least one direction should be connected
-      expect(peers1.length + peers2.length).toBeGreaterThan(0);
+      assert.ok(peers1.length + peers2.length > 0);
     });
 
     it('nodes exchange heartbeats', { timeout: 15000 }, async () => {
@@ -75,7 +76,7 @@ describe.skipIf(!runP2PTests)('Multi-Node Integration', () => {
 
       // Check metrics show message activity
       const status1 = node1.getStatus();
-      expect(status1.node.stats.messagesReceived).toBeGreaterThanOrEqual(0);
+      assert.ok(status1.node.stats.messagesReceived >= 0);
     });
   });
 
@@ -91,11 +92,11 @@ describe.skipIf(!runP2PTests)('Multi-Node Integration', () => {
       await new Promise(resolve => setTimeout(resolve, 3000));
 
       // All three should be participating
-      expect(nodes.every(n => n.isOnline)).toBe(true);
+      assert.ok(nodes.every(n => n.isOnline));
 
       // Check validator counts
       const validators = nodes[0].getValidatorCount();
-      expect(validators).toBeGreaterThanOrEqual(1);
+      assert.ok(validators >= 1);
     });
   });
 });
@@ -103,13 +104,13 @@ describe.skipIf(!runP2PTests)('Multi-Node Integration', () => {
 describe('Multi-Node Mock Tests', () => {
   it('NetworkState enum is complete', () => {
     const states = Object.values(NetworkState);
-    expect(states).toContain('OFFLINE');
-    expect(states).toContain('BOOTSTRAPPING');
-    expect(states).toContain('SYNCING');
-    expect(states).toContain('ONLINE');
-    expect(states).toContain('PARTICIPATING');
-    expect(states).toContain('ERROR');
-    expect(states.length).toBe(6);
+    assert.ok(states.includes('OFFLINE'));
+    assert.ok(states.includes('BOOTSTRAPPING'));
+    assert.ok(states.includes('SYNCING'));
+    assert.ok(states.includes('ONLINE'));
+    assert.ok(states.includes('PARTICIPATING'));
+    assert.ok(states.includes('ERROR'));
+    assert.strictEqual(states.length, 6);
   });
 
   it('φ-aligned intervals are Fibonacci-based', () => {
@@ -122,9 +123,9 @@ describe('Multi-Node Mock Tests', () => {
       METRICS_REPORT: 34000,
     };
 
-    expect(intervals.HEARTBEAT / 1000).toBe(8);  // F(6)
-    expect(intervals.STATE_SYNC / 1000).toBe(13); // F(7)
-    expect(intervals.VALIDATOR_CHECK / 1000).toBe(21); // F(8)
-    expect(intervals.METRICS_REPORT / 1000).toBe(34); // F(9)
+    assert.strictEqual(intervals.HEARTBEAT / 1000, 8);  // F(6)
+    assert.strictEqual(intervals.STATE_SYNC / 1000, 13); // F(7)
+    assert.strictEqual(intervals.VALIDATOR_CHECK / 1000, 21); // F(8)
+    assert.strictEqual(intervals.METRICS_REPORT / 1000, 34); // F(9)
   });
 });

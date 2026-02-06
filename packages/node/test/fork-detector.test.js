@@ -7,8 +7,24 @@
  * resolution flow, and cleanup.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, beforeEach } from 'node:test';
+import assert from 'node:assert';
 import { ForkDetector } from '../src/network/fork-detector.js';
+
+function createMockFn(impl) {
+  const calls = [];
+  const fn = (...args) => { calls.push(args); return impl?.(...args); };
+  fn.mock = { calls, get callCount() { return calls.length; } };
+  return fn;
+}
+
+async function waitFor(fn, timeout = 1000) {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    try { fn(); return; } catch { await new Promise(r => setTimeout(r, 10)); }
+  }
+  fn();
+}
 
 describe('ForkDetector', () => {
   let detector;
@@ -19,17 +35,17 @@ describe('ForkDetector', () => {
 
   describe('constructor', () => {
     it('starts with no forks detected', () => {
-      expect(detector.stats.forksDetected).toBe(0);
-      expect(detector.stats.forksResolved).toBe(0);
+      assert.strictEqual(detector.stats.forksDetected, 0);
+      assert.strictEqual(detector.stats.forksResolved, 0);
     });
 
     it('starts with clean fork state', () => {
       const status = detector.getForkStatus();
 
-      expect(status.detected).toBe(false);
-      expect(status.forkSlot).toBeNull();
-      expect(status.resolutionInProgress).toBe(false);
-      expect(status.branches).toHaveLength(0);
+      assert.strictEqual(status.detected, false);
+      assert.strictEqual(status.forkSlot, null);
+      assert.strictEqual(status.resolutionInProgress, false);
+      assert.strictEqual(status.branches.length, 0);
     });
   });
 
@@ -37,22 +53,22 @@ describe('ForkDetector', () => {
     it('wires all dependencies', () => {
       const deps = {
         getLastFinalizedSlot: () => 100,
-        sendTo: vi.fn(),
+        sendTo: createMockFn(),
         getPeerSlots: () => new Map(),
         publicKey: 'node-key-123',
       };
 
       detector.wire(deps);
 
-      expect(detector._getLastFinalizedSlot()).toBe(100);
-      expect(detector._sendTo).toBe(deps.sendTo);
-      expect(detector._publicKey).toBe('node-key-123');
+      assert.strictEqual(detector._getLastFinalizedSlot(), 100);
+      assert.strictEqual(detector._sendTo, deps.sendTo);
+      assert.strictEqual(detector._publicKey, 'node-key-123');
     });
 
     it('ignores undefined values', () => {
       const original = detector._getLastFinalizedSlot;
       detector.wire({});
-      expect(detector._getLastFinalizedSlot).toBe(original);
+      assert.strictEqual(detector._getLastFinalizedSlot, original);
     });
   });
 
@@ -63,8 +79,8 @@ describe('ForkDetector', () => {
 
       detector.checkForForks('peer-a', [{ slot: 100, hash: 'hash-aaa' }], 50);
 
-      expect(events).toHaveLength(0);
-      expect(detector.stats.forksDetected).toBe(0);
+      assert.strictEqual(events.length, 0);
+      assert.strictEqual(detector.stats.forksDetected, 0);
     });
 
     it('detects fork when two peers report different hashes for same slot', () => {
@@ -74,10 +90,10 @@ describe('ForkDetector', () => {
       detector.checkForForks('peer-a', [{ slot: 100, hash: 'hash-aaa' }], 50);
       detector.checkForForks('peer-b', [{ slot: 100, hash: 'hash-bbb' }], 60);
 
-      expect(events).toHaveLength(1);
-      expect(events[0].slot).toBe(100);
-      expect(events[0].branches).toBe(2);
-      expect(detector.stats.forksDetected).toBe(1);
+      assert.strictEqual(events.length, 1);
+      assert.strictEqual(events[0].slot, 100);
+      assert.strictEqual(events[0].branches, 2);
+      assert.strictEqual(detector.stats.forksDetected, 1);
     });
 
     it('does not double-detect on same fork', () => {
@@ -89,7 +105,7 @@ describe('ForkDetector', () => {
       // Third peer with yet another hash — fork already detected
       detector.checkForForks('peer-c', [{ slot: 100, hash: 'hash-ccc' }], 70);
 
-      expect(events).toHaveLength(1); // Only first detection fires
+      assert.strictEqual(events.length, 1); // Only first detection fires
     });
 
     it('accumulates E-Score for same hash from different peers', () => {
@@ -99,8 +115,8 @@ describe('ForkDetector', () => {
       const slotForks = detector._forkState.forkHashes.get(50);
       const hashInfo = slotForks.get('hash-aaa');
 
-      expect(hashInfo.peers.size).toBe(2);
-      expect(hashInfo.totalEScore).toBe(70);
+      assert.strictEqual(hashInfo.peers.size, 2);
+      assert.strictEqual(hashInfo.totalEScore, 70);
     });
 
     it('does not double-count same peer', () => {
@@ -110,8 +126,8 @@ describe('ForkDetector', () => {
       const slotForks = detector._forkState.forkHashes.get(50);
       const hashInfo = slotForks.get('hash-aaa');
 
-      expect(hashInfo.peers.size).toBe(1);
-      expect(hashInfo.totalEScore).toBe(40); // Not 80
+      assert.strictEqual(hashInfo.peers.size, 1);
+      assert.strictEqual(hashInfo.totalEScore, 40); // Not 80
     });
 
     it('skips hashes with null/undefined', () => {
@@ -121,7 +137,7 @@ describe('ForkDetector', () => {
       detector.checkForForks('peer-a', [{ slot: 100, hash: null }], 50);
       detector.checkForForks('peer-b', [{ slot: 100, hash: undefined }], 60);
 
-      expect(events).toHaveLength(0);
+      assert.strictEqual(events.length, 0);
     });
 
     it('handles multiple slots in single call', () => {
@@ -130,8 +146,8 @@ describe('ForkDetector', () => {
         { slot: 101, hash: 'hash-101-a' },
       ], 50);
 
-      expect(detector._forkState.forkHashes.has(100)).toBe(true);
-      expect(detector._forkState.forkHashes.has(101)).toBe(true);
+      assert.strictEqual(detector._forkState.forkHashes.has(100), true);
+      assert.strictEqual(detector._forkState.forkHashes.has(101), true);
     });
   });
 
@@ -147,8 +163,8 @@ describe('ForkDetector', () => {
       // Branch B: 60 E-Score
       detector.checkForForks('peer-b1', [{ slot: 100, hash: 'hash-bbbb' }], 60);
 
-      expect(events).toHaveLength(1);
-      expect(events[0].heaviestBranch).toBe('hash-aaaa'.slice(0, 16));
+      assert.strictEqual(events.length, 1);
+      assert.strictEqual(events[0].heaviestBranch, 'hash-aaaa'.slice(0, 16));
     });
 
     it('recommends STAY when we are on heaviest branch', () => {
@@ -162,8 +178,8 @@ describe('ForkDetector', () => {
       detector.checkForForks('peer-a1', [{ slot: 100, hash: 'hash-aaaa' }], 80);
       detector.checkForForks('peer-b1', [{ slot: 100, hash: 'hash-bbbb' }], 30);
 
-      expect(events[0].onHeaviestBranch).toBe(true);
-      expect(events[0].recommendation).toBe('STAY');
+      assert.strictEqual(events[0].onHeaviestBranch, true);
+      assert.strictEqual(events[0].recommendation, 'STAY');
     });
 
     it('recommends REORG_NEEDED when we are NOT on heaviest branch', () => {
@@ -177,14 +193,14 @@ describe('ForkDetector', () => {
       detector.checkForForks('peer-a1', [{ slot: 100, hash: 'hash-aaaa' }], 80);
       detector.checkForForks('peer-b1', [{ slot: 100, hash: 'hash-bbbb' }], 30);
 
-      expect(events[0].onHeaviestBranch).toBe(false);
-      expect(events[0].recommendation).toBe('REORG_NEEDED');
+      assert.strictEqual(events[0].onHeaviestBranch, false);
+      assert.strictEqual(events[0].recommendation, 'REORG_NEEDED');
     });
   });
 
   describe('fork resolution', () => {
     it('sends FORK_RESOLUTION_REQUEST to best peer', async () => {
-      const sendTo = vi.fn();
+      const sendTo = createMockFn();
       const peerSlots = new Map([
         ['peer-a', { eScore: 80 }],
         ['peer-b', { eScore: 60 }],
@@ -204,19 +220,19 @@ describe('ForkDetector', () => {
       detector.checkForForks('peer-b', [{ slot: 100, hash: 'hash-bbbb' }], 30);
 
       // Wait for async _resolveFork
-      await vi.waitFor(() => {
-        expect(sendTo).toHaveBeenCalled();
+      await waitFor(() => {
+        assert.ok(sendTo.mock.callCount > 0);
       });
 
       const [peerId, message] = sendTo.mock.calls[0];
-      expect(peerId).toBe('peer-a'); // Highest E-Score peer on target branch
-      expect(message.type).toBe('FORK_RESOLUTION_REQUEST');
-      expect(message.forkSlot).toBe(100);
-      expect(message.targetHash).toBe('hash-aaaa');
+      assert.strictEqual(peerId, 'peer-a'); // Highest E-Score peer on target branch
+      assert.strictEqual(message.type, 'FORK_RESOLUTION_REQUEST');
+      assert.strictEqual(message.forkSlot, 100);
+      assert.strictEqual(message.targetHash, 'hash-aaaa');
     });
 
     it('does not start resolution when already in progress', async () => {
-      const sendTo = vi.fn();
+      const sendTo = createMockFn();
       const peerSlots = new Map([['peer-a', { eScore: 80 }]]);
 
       detector.wire({
@@ -233,11 +249,11 @@ describe('ForkDetector', () => {
       detector.checkForForks('peer-b', [{ slot: 100, hash: 'hash-bbbb' }], 30);
 
       // Should NOT send resolution request
-      expect(sendTo).not.toHaveBeenCalled();
+      assert.strictEqual(sendTo.mock.callCount, 0);
     });
 
     it('handles no peers on target branch', () => {
-      const sendTo = vi.fn();
+      const sendTo = createMockFn();
 
       detector.wire({
         sendTo,
@@ -251,11 +267,11 @@ describe('ForkDetector', () => {
 
       // Resolution should not send (no peer info found)
       // resolutionInProgress should be reset
-      expect(detector._forkState.resolutionInProgress).toBe(false);
+      assert.strictEqual(detector._forkState.resolutionInProgress, false);
     });
 
     it('emits fork:resolution_started on successful send', async () => {
-      const sendTo = vi.fn();
+      const sendTo = createMockFn();
       const peerSlots = new Map([['peer-a', { eScore: 80 }]]);
       const events = [];
 
@@ -270,11 +286,11 @@ describe('ForkDetector', () => {
       detector.checkForForks('peer-a', [{ slot: 100, hash: 'hash-aaaa' }], 80);
       detector.checkForForks('peer-b', [{ slot: 100, hash: 'hash-bbbb' }], 30);
 
-      await vi.waitFor(() => {
-        expect(events.length).toBeGreaterThan(0);
+      await waitFor(() => {
+        assert.ok(events.length > 0);
       });
 
-      expect(events[0].forkSlot).toBe(100);
+      assert.strictEqual(events[0].forkSlot, 100);
     });
   });
 
@@ -284,25 +300,25 @@ describe('ForkDetector', () => {
       detector.checkForForks('peer-a', [{ slot: 100, hash: 'hash-aaa' }], 50);
       detector.checkForForks('peer-b', [{ slot: 100, hash: 'hash-bbb' }], 60);
 
-      expect(detector.stats.forksDetected).toBe(1);
+      assert.strictEqual(detector.stats.forksDetected, 1);
 
       const events = [];
       detector.on('fork:resolved', (e) => events.push(e));
 
       detector.markForkResolved();
 
-      expect(detector.stats.forksResolved).toBe(1);
-      expect(detector._forkState.detected).toBe(false);
-      expect(detector._forkState.forkSlot).toBeNull();
-      expect(detector._forkState.resolutionInProgress).toBe(false);
-      expect(events[0].forkSlot).toBe(100);
+      assert.strictEqual(detector.stats.forksResolved, 1);
+      assert.strictEqual(detector._forkState.detected, false);
+      assert.strictEqual(detector._forkState.forkSlot, null);
+      assert.strictEqual(detector._forkState.resolutionInProgress, false);
+      assert.strictEqual(events[0].forkSlot, 100);
     });
 
     it('is safe to call when no fork is detected', () => {
       // Should not throw and should not increment resolved
       detector.markForkResolved();
 
-      expect(detector.stats.forksResolved).toBe(0);
+      assert.strictEqual(detector.stats.forksResolved, 0);
     });
   });
 
@@ -310,8 +326,8 @@ describe('ForkDetector', () => {
     it('records block hash for a slot', () => {
       detector.recordBlockHash(100, 'hash-100');
 
-      expect(detector._slotHashes.get(100)?.hash).toBe('hash-100');
-      expect(detector._slotHashes.get(100)?.confirmedAt).toBeDefined();
+      assert.strictEqual(detector._slotHashes.get(100)?.hash, 'hash-100');
+      assert.ok(detector._slotHashes.get(100)?.confirmedAt !== undefined);
     });
 
     it('returns recent block hashes', () => {
@@ -323,17 +339,17 @@ describe('ForkDetector', () => {
 
       const recent = detector.getRecentBlockHashes(3);
 
-      expect(recent).toHaveLength(3);
-      expect(recent[0]).toEqual({ slot: 102, hash: 'hash-102' });
-      expect(recent[1]).toEqual({ slot: 101, hash: 'hash-101' });
-      expect(recent[2]).toEqual({ slot: 100, hash: 'hash-100' });
+      assert.strictEqual(recent.length, 3);
+      assert.deepStrictEqual(recent[0], { slot: 102, hash: 'hash-102' });
+      assert.deepStrictEqual(recent[1], { slot: 101, hash: 'hash-101' });
+      assert.deepStrictEqual(recent[2], { slot: 100, hash: 'hash-100' });
     });
 
     it('returns empty when no hashes recorded', () => {
       detector.wire({ getLastFinalizedSlot: () => 100 });
 
       const recent = detector.getRecentBlockHashes(5);
-      expect(recent).toHaveLength(0);
+      assert.strictEqual(recent.length, 0);
     });
 
     it('skips slots without recorded hashes', () => {
@@ -345,7 +361,7 @@ describe('ForkDetector', () => {
 
       const recent = detector.getRecentBlockHashes(3);
 
-      expect(recent).toHaveLength(2);
+      assert.strictEqual(recent.length, 2);
     });
   });
 
@@ -362,10 +378,10 @@ describe('ForkDetector', () => {
       detector._cleanupForkData();
 
       // Slots < 50 (150 - 100) should be removed
-      expect(detector._slotHashes.has(49)).toBe(false);
-      expect(detector._slotHashes.has(50)).toBe(true);
-      expect(detector._forkState.forkHashes.has(49)).toBe(false);
-      expect(detector._forkState.forkHashes.has(50)).toBe(true);
+      assert.strictEqual(detector._slotHashes.has(49), false);
+      assert.strictEqual(detector._slotHashes.has(50), true);
+      assert.strictEqual(detector._forkState.forkHashes.has(49), false);
+      assert.strictEqual(detector._forkState.forkHashes.has(50), true);
     });
 
     it('is called automatically during checkForForks', () => {
@@ -377,7 +393,7 @@ describe('ForkDetector', () => {
       // checkForForks triggers cleanup
       detector.checkForForks('peer', [{ slot: 200, hash: 'new' }], 50);
 
-      expect(detector._slotHashes.has(50)).toBe(false);
+      assert.strictEqual(detector._slotHashes.has(50), false);
     });
   });
 
@@ -388,24 +404,24 @@ describe('ForkDetector', () => {
 
       const status = detector.getForkStatus();
 
-      expect(status.detected).toBe(true);
-      expect(status.forkSlot).toBe(100);
-      expect(status.branches).toHaveLength(2);
-      expect(status.stats.forksDetected).toBe(1);
+      assert.strictEqual(status.detected, true);
+      assert.strictEqual(status.forkSlot, 100);
+      assert.strictEqual(status.branches.length, 2);
+      assert.strictEqual(status.stats.forksDetected, 1);
 
       // Each branch should have hash, peers, totalEScore
       for (const branch of status.branches) {
-        expect(branch.hash).toBeDefined();
-        expect(branch.peers).toBeDefined();
-        expect(branch.totalEScore).toBeDefined();
+        assert.ok(branch.hash !== undefined);
+        assert.ok(branch.peers !== undefined);
+        assert.ok(branch.totalEScore !== undefined);
       }
     });
 
     it('returns empty branches when no fork', () => {
       const status = detector.getForkStatus();
 
-      expect(status.detected).toBe(false);
-      expect(status.branches).toHaveLength(0);
+      assert.strictEqual(status.detected, false);
+      assert.strictEqual(status.branches.length, 0);
     });
   });
 
@@ -414,8 +430,8 @@ describe('ForkDetector', () => {
       const s1 = detector.stats;
       const s2 = detector.stats;
 
-      expect(s1).toEqual(s2);
-      expect(s1).not.toBe(s2);
+      assert.deepStrictEqual(s1, s2);
+      assert.notStrictEqual(s1, s2);
     });
   });
 });

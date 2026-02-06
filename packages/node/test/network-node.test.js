@@ -6,7 +6,8 @@
  * Tests multi-node orchestration and extracted SRP components.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, beforeEach, afterEach } from 'node:test';
+import assert from 'node:assert';
 import { CYNICNetworkNode, NetworkState } from '../src/network/network-node.js';
 
 // Mock crypto for key generation
@@ -28,7 +29,7 @@ describe('CYNICNetworkNode', () => {
 
   describe('constructor', () => {
     it('requires publicKey and privateKey', () => {
-      expect(() => new CYNICNetworkNode({})).toThrow('publicKey and privateKey required');
+      assert.throws(() => new CYNICNetworkNode({}), { message: /publicKey and privateKey required/ });
     });
 
     it('creates node with valid keys', () => {
@@ -38,8 +39,8 @@ describe('CYNICNetworkNode', () => {
         enabled: false, // Disable actual networking for tests
       });
 
-      expect(node.publicKey).toBe(mockPublicKey);
-      expect(node.state).toBe(NetworkState.OFFLINE);
+      assert.strictEqual(node.publicKey, mockPublicKey);
+      assert.strictEqual(node.state, NetworkState.OFFLINE);
     });
 
     it('uses default E-Score of 50', () => {
@@ -49,7 +50,7 @@ describe('CYNICNetworkNode', () => {
         enabled: false,
       });
 
-      expect(node.eScore).toBe(50);
+      assert.strictEqual(node.eScore, 50);
     });
 
     it('uses φ-aligned default port 8618', () => {
@@ -60,7 +61,7 @@ describe('CYNICNetworkNode', () => {
       });
 
       const info = node.getInfo();
-      expect(info.port).toBe(8618);
+      assert.strictEqual(info.port, 8618);
     });
   });
 
@@ -72,9 +73,9 @@ describe('CYNICNetworkNode', () => {
         enabled: false,
       });
 
-      expect(node.state).toBe(NetworkState.OFFLINE);
-      expect(node.isOnline).toBe(false);
-      expect(node.isParticipating).toBe(false);
+      assert.strictEqual(node.state, NetworkState.OFFLINE);
+      assert.strictEqual(node.isOnline, false);
+      assert.strictEqual(node.isParticipating, false);
     });
 
     it('stays OFFLINE when networking disabled', async () => {
@@ -85,7 +86,7 @@ describe('CYNICNetworkNode', () => {
       });
 
       await node.start();
-      expect(node.state).toBe(NetworkState.OFFLINE);
+      assert.strictEqual(node.state, NetworkState.OFFLINE);
     });
   });
 
@@ -98,7 +99,7 @@ describe('CYNICNetworkNode', () => {
       });
 
       node.setEScore(75);
-      expect(node.eScore).toBe(75);
+      assert.strictEqual(node.eScore, 75);
     });
 
     it('clamps E-Score to 0-100', () => {
@@ -109,10 +110,10 @@ describe('CYNICNetworkNode', () => {
       });
 
       node.setEScore(150);
-      expect(node.eScore).toBe(100);
+      assert.strictEqual(node.eScore, 100);
 
       node.setEScore(-50);
-      expect(node.eScore).toBe(0);
+      assert.strictEqual(node.eScore, 0);
     });
   });
 
@@ -126,7 +127,7 @@ describe('CYNICNetworkNode', () => {
       });
 
       const status = node.getStatus();
-      expect(status.discovery).toBe(null); // Discovery not initialized when disabled
+      assert.strictEqual(status.discovery, null); // Discovery not initialized when disabled
     });
 
     it('allows adding seed nodes', () => {
@@ -153,11 +154,11 @@ describe('CYNICNetworkNode', () => {
 
       const info = node.getInfo();
 
-      expect(info.port).toBe(8620);
-      expect(info.eScore).toBe(75);
-      expect(info.state).toBe(NetworkState.OFFLINE);
-      expect(info.publicKey).toContain('test-public-key');
-      expect(info.stats).toBeDefined();
+      assert.strictEqual(info.port, 8620);
+      assert.strictEqual(info.eScore, 75);
+      assert.strictEqual(info.state, NetworkState.OFFLINE);
+      assert.ok(info.publicKey.includes('test-public-key'));
+      assert.ok(info.stats !== undefined);
     });
   });
 
@@ -171,11 +172,11 @@ describe('CYNICNetworkNode', () => {
 
       const status = node.getStatus();
 
-      expect(status.node).toBeDefined();
-      expect(status.transport).toBe(null);
-      expect(status.consensus).toBe(null);
-      expect(status.discovery).toBe(null);
-      expect(status.sync).toBeDefined();
+      assert.ok(status.node !== undefined);
+      assert.strictEqual(status.transport, null);
+      assert.strictEqual(status.consensus, null);
+      assert.strictEqual(status.discovery, null);
+      assert.ok(status.sync !== undefined);
     });
   });
 
@@ -217,12 +218,12 @@ describe('CYNICNetworkNode', () => {
 
 describe('NetworkState', () => {
   it('has correct states', () => {
-    expect(NetworkState.OFFLINE).toBe('OFFLINE');
-    expect(NetworkState.BOOTSTRAPPING).toBe('BOOTSTRAPPING');
-    expect(NetworkState.SYNCING).toBe('SYNCING');
-    expect(NetworkState.ONLINE).toBe('ONLINE');
-    expect(NetworkState.PARTICIPATING).toBe('PARTICIPATING');
-    expect(NetworkState.ERROR).toBe('ERROR');
+    assert.strictEqual(NetworkState.OFFLINE, 'OFFLINE');
+    assert.strictEqual(NetworkState.BOOTSTRAPPING, 'BOOTSTRAPPING');
+    assert.strictEqual(NetworkState.SYNCING, 'SYNCING');
+    assert.strictEqual(NetworkState.ONLINE, 'ONLINE');
+    assert.strictEqual(NetworkState.PARTICIPATING, 'PARTICIPATING');
+    assert.strictEqual(NetworkState.ERROR, 'ERROR');
   });
 });
 
@@ -250,14 +251,14 @@ describe('Validator Set Management', () => {
       burned: 100,
     });
 
-    expect(added).toBe(true);
-    expect(node._validatorManager.size).toBe(1);
+    assert.strictEqual(added, true);
+    assert.strictEqual(node._validatorManager.size, 1);
 
     const validator = node.getValidator('validator-1-key');
-    expect(validator).toBeDefined();
-    expect(validator.eScore).toBe(50);
-    expect(validator.burned).toBe(100);
-    expect(validator.status).toBe('active');
+    assert.ok(validator !== undefined);
+    assert.strictEqual(validator.eScore, 50);
+    assert.strictEqual(validator.burned, 100);
+    assert.strictEqual(validator.status, 'active');
   });
 
   it('rejects validator with low E-Score', () => {
@@ -266,17 +267,17 @@ describe('Validator Set Management', () => {
       eScore: 10, // Below minimum of 20
     });
 
-    expect(added).toBe(false);
-    expect(node._validatorManager.size).toBe(0);
+    assert.strictEqual(added, false);
+    assert.strictEqual(node._validatorManager.size, 0);
   });
 
   it('removes validator', () => {
     node.addValidator({ publicKey: 'validator-to-remove', eScore: 50 });
-    expect(node._validatorManager.size).toBe(1);
+    assert.strictEqual(node._validatorManager.size, 1);
 
     const removed = node.removeValidator('validator-to-remove', 'test');
-    expect(removed).toBe(true);
-    expect(node._validatorManager.size).toBe(0);
+    assert.strictEqual(removed, true);
+    assert.strictEqual(node._validatorManager.size, 0);
   });
 
   it('penalizes validator and reduces E-Score', () => {
@@ -285,8 +286,8 @@ describe('Validator Set Management', () => {
     node.penalizeValidator('bad-validator', 10, 'test_penalty');
 
     const validator = node.getValidator('bad-validator');
-    expect(validator.eScore).toBe(40);
-    expect(validator.penalties).toBe(10);
+    assert.strictEqual(validator.eScore, 40);
+    assert.strictEqual(validator.penalties, 10);
   });
 
   it('removes validator when penalty drops E-Score below minimum', () => {
@@ -296,8 +297,8 @@ describe('Validator Set Management', () => {
     node.penalizeValidator('very-bad-validator', 10, 'severe_penalty');
 
     // Validator should be removed
-    expect(node.getValidator('very-bad-validator')).toBeNull();
-    expect(node._validatorManager.stats.validatorsPenalized).toBe(1);
+    assert.strictEqual(node.getValidator('very-bad-validator'), null);
+    assert.strictEqual(node._validatorManager.stats.validatorsPenalized, 1);
   });
 
   it('rewards validator for blocks', () => {
@@ -307,9 +308,9 @@ describe('Validator Set Management', () => {
     node.rewardValidator('good-validator', 'block_finalized');
 
     const validator = node.getValidator('good-validator');
-    expect(validator.blocksProposed).toBe(1);
-    expect(validator.blocksFinalized).toBe(1);
-    expect(validator.eScore).toBeGreaterThan(50); // E-Score increased
+    assert.strictEqual(validator.blocksProposed, 1);
+    assert.strictEqual(validator.blocksFinalized, 1);
+    assert.ok(validator.eScore > 50); // E-Score increased
   });
 
   it('updates validator activity on heartbeat', () => {
@@ -321,7 +322,7 @@ describe('Validator Set Management', () => {
     node.updateValidatorActivity('active-validator');
 
     const after = node.getValidator('active-validator').lastSeen;
-    expect(after).toBeGreaterThanOrEqual(before);
+    assert.ok(after >= before);
   });
 
   it('returns validator set status', () => {
@@ -330,10 +331,10 @@ describe('Validator Set Management', () => {
 
     const status = node.getValidatorSetStatus();
 
-    expect(status.total).toBe(2);
-    expect(status.active).toBe(2);
-    expect(status.avgEScore).toBe(50);
-    expect(status.maxValidators).toBe(100);
+    assert.strictEqual(status.total, 2);
+    assert.strictEqual(status.active, 2);
+    assert.strictEqual(status.avgEScore, 50);
+    assert.strictEqual(status.maxValidators, 100);
   });
 
   it('calculates total voting weight', () => {
@@ -345,7 +346,7 @@ describe('Validator Set Management', () => {
     // v1: 50 * 1 * 1 = 50
     // v2: 100 * 10 * 1 = 1000
     // Total: 1050
-    expect(weight).toBe(1050);
+    assert.strictEqual(weight, 1050);
   });
 
   it('checks supermajority correctly (61.8%)', () => {
@@ -355,10 +356,10 @@ describe('Validator Set Management', () => {
     const totalWeight = node.getTotalVotingWeight(); // 100
 
     // 61% = not enough
-    expect(node.hasSupermajority(61)).toBe(false);
+    assert.strictEqual(node.hasSupermajority(61), false);
 
     // 62% = supermajority
-    expect(node.hasSupermajority(62)).toBe(true);
+    assert.strictEqual(node.hasSupermajority(62), true);
   });
 
   it('filters validators by status and E-Score', () => {
@@ -368,8 +369,8 @@ describe('Validator Set Management', () => {
 
     // Filter by minEScore
     const highScore = node.getValidators({ minEScore: 50 });
-    expect(highScore.length).toBe(2);
-    expect(highScore[0].eScore).toBe(80); // Sorted by score
+    assert.strictEqual(highScore.length, 2);
+    assert.strictEqual(highScore[0].eScore, 80); // Sorted by score
   });
 });
 
@@ -398,15 +399,15 @@ describe('Fork Detection', () => {
     node._forkDetector.checkForForks('peer-a', [{ slot: 100, hash: 'hash-aaaa-1111' }], 50);
 
     // No fork yet (only one hash)
-    expect(events.length).toBe(0);
+    assert.strictEqual(events.length, 0);
 
     // Peer B reports DIFFERENT hash for same slot 100 (FORK!)
     node._forkDetector.checkForForks('peer-b', [{ slot: 100, hash: 'hash-bbbb-2222' }], 60);
 
     // Fork should be detected
-    expect(events.length).toBe(1);
-    expect(events[0].slot).toBe(100);
-    expect(events[0].branches).toBe(2);
+    assert.strictEqual(events.length, 1);
+    assert.strictEqual(events[0].slot, 100);
+    assert.strictEqual(events[0].branches, 2);
   });
 
   it('calculates heaviest branch by E-Score', async () => {
@@ -421,8 +422,8 @@ describe('Fork Detection', () => {
     node._forkDetector.checkForForks('peer-b1', [{ slot: 100, hash: 'hash-bbbb' }], 60);
 
     // Fork detected, branch A should be heaviest (90 > 60)
-    expect(events.length).toBe(1);
-    expect(events[0].heaviestBranch).toBe('hash-aaaa'.slice(0, 16));
+    assert.strictEqual(events.length, 1);
+    assert.strictEqual(events[0].heaviestBranch, 'hash-aaaa'.slice(0, 16));
   });
 
   it('returns fork status via getForkStatus()', () => {
@@ -432,10 +433,10 @@ describe('Fork Detection', () => {
 
     const status = node.getForkStatus();
 
-    expect(status.detected).toBe(true);
-    expect(status.forkSlot).toBe(100);
-    expect(status.branches.length).toBe(2);
-    expect(status.stats.forksDetected).toBe(1);
+    assert.strictEqual(status.detected, true);
+    assert.strictEqual(status.forkSlot, 100);
+    assert.strictEqual(status.branches.length, 2);
+    assert.strictEqual(status.stats.forksDetected, 1);
   });
 
   it('cleans up old fork data', () => {
@@ -450,16 +451,16 @@ describe('Fork Detection', () => {
     // Cleanup should remove slots < 50 (150 - 100)
     node._forkDetector._cleanupForkData();
 
-    expect(node._forkDetector._slotHashes.has(49)).toBe(false);
-    expect(node._forkDetector._slotHashes.has(50)).toBe(true);
+    assert.strictEqual(node._forkDetector._slotHashes.has(49), false);
+    assert.strictEqual(node._forkDetector._slotHashes.has(50), true);
   });
 
   it('records block hashes for slots', () => {
     node.recordBlockHash(100, 'hash-100-abc');
     node.recordBlockHash(101, 'hash-101-def');
 
-    expect(node._forkDetector._slotHashes.get(100)?.hash).toBe('hash-100-abc');
-    expect(node._forkDetector._slotHashes.get(101)?.hash).toBe('hash-101-def');
+    assert.strictEqual(node._forkDetector._slotHashes.get(100)?.hash, 'hash-100-abc');
+    assert.strictEqual(node._forkDetector._slotHashes.get(101)?.hash, 'hash-101-def');
   });
 });
 
@@ -497,9 +498,9 @@ describe('State Sync', () => {
 
     // Check that peer slot is tracked
     const peerInfo = node._stateSyncManager.peerSlots.get('peer-id-123');
-    expect(peerInfo).toBeDefined();
-    expect(peerInfo.finalizedSlot).toBe(95);
-    expect(peerInfo.eScore).toBe(75);
+    assert.ok(peerInfo !== undefined);
+    assert.strictEqual(peerInfo.finalizedSlot, 95);
+    assert.strictEqual(peerInfo.eScore, 75);
   });
 
   it('calculates behindBy correctly', async () => {
@@ -520,7 +521,7 @@ describe('State Sync', () => {
     node._checkStateSync();
 
     // Should be behind by the highest peer slot
-    expect(node._stateSyncManager.syncState.behindBy).toBe(150);
+    assert.strictEqual(node._stateSyncManager.syncState.behindBy, 150);
   });
 
   it('emits sync:needed when significantly behind', async () => {
@@ -536,9 +537,9 @@ describe('State Sync', () => {
 
     node._checkStateSync();
 
-    expect(events.length).toBe(1);
-    expect(events[0].behindBy).toBe(100);
-    expect(events[0].bestPeer).toBe('peer-1');
+    assert.strictEqual(events.length, 1);
+    assert.strictEqual(events[0].behindBy, 100);
+    assert.strictEqual(events[0].bestPeer, 'peer-1');
   });
 });
 
@@ -568,45 +569,45 @@ describe('Solana Anchoring', () => {
 
   it('starts with anchoring disabled by default', () => {
     const status = node.getAnchoringStatus();
-    expect(status.enabled).toBe(false);
-    expect(status.cluster).toBe('devnet');
-    expect(status.anchorInterval).toBe(100);
-    expect(status.dryRun).toBe(false);
-    expect(status.hasAnchorer).toBe(false);
+    assert.strictEqual(status.enabled, false);
+    assert.strictEqual(status.cluster, 'devnet');
+    assert.strictEqual(status.anchorInterval, 100);
+    assert.strictEqual(status.dryRun, false);
+    assert.strictEqual(status.hasAnchorer, false);
   });
 
   it('enables anchoring', async () => {
     await node.enableAnchoring({ wallet: 'mock-wallet-keypair' });
 
     const status = node.getAnchoringStatus();
-    expect(status.enabled).toBe(true);
-    expect(status.hasWallet).toBe(true);
+    assert.strictEqual(status.enabled, true);
+    assert.strictEqual(status.hasWallet, true);
   });
 
   it('disables anchoring', async () => {
     await node.enableAnchoring({ wallet: 'mock-wallet' });
-    expect(node.getAnchoringStatus().enabled).toBe(true);
+    assert.strictEqual(node.getAnchoringStatus().enabled, true);
 
     node.disableAnchoring();
-    expect(node.getAnchoringStatus().enabled).toBe(false);
+    assert.strictEqual(node.getAnchoringStatus().enabled, false);
   });
 
   it('shouldAnchor returns true for slots at interval', async () => {
     await node.enableAnchoring({ wallet: 'mock-wallet' });
 
     // Interval is 100, so slot 100, 200, 300 should anchor
-    expect(node.shouldAnchor(100)).toBe(true);
-    expect(node.shouldAnchor(200)).toBe(true);
-    expect(node.shouldAnchor(0)).toBe(true); // 0 % 100 = 0
+    assert.strictEqual(node.shouldAnchor(100), true);
+    assert.strictEqual(node.shouldAnchor(200), true);
+    assert.strictEqual(node.shouldAnchor(0), true); // 0 % 100 = 0
 
     // Non-interval slots should not anchor
-    expect(node.shouldAnchor(50)).toBe(false);
-    expect(node.shouldAnchor(150)).toBe(false);
+    assert.strictEqual(node.shouldAnchor(50), false);
+    assert.strictEqual(node.shouldAnchor(150), false);
   });
 
   it('shouldAnchor returns false when disabled', () => {
     // Anchoring is disabled
-    expect(node.shouldAnchor(100)).toBe(false);
+    assert.strictEqual(node.shouldAnchor(100), false);
   });
 
   it('anchors block and tracks status (fallback simulation)', async () => {
@@ -623,17 +624,17 @@ describe('Solana Anchoring', () => {
 
     const result = await node.anchorBlock(block);
 
-    expect(result.success).toBe(true);
-    expect(result.signature).toContain('sim_'); // Simulated signature
-    expect(result.simulated).toBe(true);
-    expect(events.length).toBe(1);
-    expect(events[0].slot).toBe(100);
+    assert.strictEqual(result.success, true);
+    assert.ok(result.signature.includes('sim_')); // Simulated signature
+    assert.strictEqual(result.simulated, true);
+    assert.strictEqual(events.length, 1);
+    assert.strictEqual(events[0].slot, 100);
 
     // Check status updated
     const status = node.getAnchoringStatus();
-    expect(status.lastAnchorSlot).toBe(100);
-    expect(status.anchored).toBe(1);
-    expect(status.stats.blocksAnchored).toBe(1);
+    assert.strictEqual(status.lastAnchorSlot, 100);
+    assert.strictEqual(status.anchored, 1);
+    assert.strictEqual(status.stats.blocksAnchored, 1);
   });
 
   it('returns null when anchoring without wallet or anchorer', async () => {
@@ -644,7 +645,7 @@ describe('Solana Anchoring', () => {
 
     const result = await node.anchorBlock({ slot: 100, hash: validMerkleRoot });
 
-    expect(result).toBeNull();
+    assert.strictEqual(result, null);
   });
 
   it('fails when block has no valid merkle root', async () => {
@@ -657,8 +658,8 @@ describe('Solana Anchoring', () => {
     });
 
     // Should fail because no 64-char hex found
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('merkle root');
+    assert.strictEqual(result.success, false);
+    assert.ok(result.error.includes('merkle root'));
   });
 
   it('tracks pending, anchored, and failed counts', async () => {
@@ -669,8 +670,8 @@ describe('Solana Anchoring', () => {
     await node.anchorBlock({ slot: 200, hash: validMerkleRoot2, merkleRoot: validMerkleRoot2 });
 
     const status = node.getAnchoringStatus();
-    expect(status.anchored).toBe(2);
-    expect(status.failed).toBe(0);
+    assert.strictEqual(status.anchored, 2);
+    assert.strictEqual(status.failed, 0);
   });
 
   it('getAnchorStatus returns anchor info for hash', async () => {
@@ -679,9 +680,9 @@ describe('Solana Anchoring', () => {
     await node.anchorBlock({ slot: 100, hash: validMerkleRoot, merkleRoot: validMerkleRoot });
 
     const anchorInfo = node.getAnchorStatus(validMerkleRoot);
-    expect(anchorInfo).not.toBeNull();
-    expect(anchorInfo.status).toBe('anchored');
-    expect(anchorInfo.slot).toBe(100);
+    assert.ok(anchorInfo !== null);
+    assert.strictEqual(anchorInfo.status, 'anchored');
+    assert.strictEqual(anchorInfo.slot, 100);
   });
 
   it('verifyAnchor finds signature in cache with source: cache', async () => {
@@ -694,16 +695,16 @@ describe('Solana Anchoring', () => {
     });
 
     const verification = await node.verifyAnchor(result.signature);
-    expect(verification.verified).toBe(true);
-    expect(verification.slot).toBe(100);
-    expect(verification.hash).toBe(validMerkleRoot);
-    expect(verification.source).toBe('cache');
+    assert.strictEqual(verification.verified, true);
+    assert.strictEqual(verification.slot, 100);
+    assert.strictEqual(verification.hash, validMerkleRoot);
+    assert.strictEqual(verification.source, 'cache');
   });
 
   it('verifyAnchor returns false for unknown signature', async () => {
     const verification = await node.verifyAnchor('unknown-signature-xyz');
-    expect(verification.verified).toBe(false);
-    expect(verification.error).toContain('not found');
+    assert.strictEqual(verification.verified, false);
+    assert.ok(verification.error.includes('not found'));
   });
 
   it('onBlockFinalized triggers anchoring when shouldAnchor', async () => {
@@ -719,7 +720,7 @@ describe('Solana Anchoring', () => {
       merkleRoot: validMerkleRoot,
     });
 
-    expect(events.length).toBe(1);
+    assert.strictEqual(events.length, 1);
   });
 
   it('onBlockFinalized records block hash', async () => {
@@ -729,7 +730,7 @@ describe('Solana Anchoring', () => {
       merkleRoot: 'root',
     });
 
-    expect(node._forkDetector._slotHashes.get(50)?.hash).toBe('block-hash-50');
+    assert.strictEqual(node._forkDetector._slotHashes.get(50)?.hash, 'block-hash-50');
   });
 
   it('dryRun mode creates node without real wallet in anchorer', () => {
@@ -741,11 +742,11 @@ describe('Solana Anchoring', () => {
       wallet: 'mock-wallet',
     });
 
-    expect(dryNode._anchoringManager._dryRun).toBe(true);
-    expect(dryNode._anchoringManager._wallet).toBe('mock-wallet');
+    assert.strictEqual(dryNode._anchoringManager._dryRun, true);
+    assert.strictEqual(dryNode._anchoringManager._wallet, 'mock-wallet');
 
     const status = dryNode.getAnchoringStatus();
-    expect(status.dryRun).toBe(true);
+    assert.strictEqual(status.dryRun, true);
   });
 
   it('cleans up anchorer on stop()', async () => {
@@ -753,11 +754,11 @@ describe('Solana Anchoring', () => {
 
     // Manually set an anchorer for test purposes
     node._anchoringManager._anchorer = { getStats: () => ({}) };
-    expect(node._anchoringManager._anchorer).not.toBeNull();
+    assert.ok(node._anchoringManager._anchorer !== null);
 
     await node.stop();
 
-    expect(node._anchoringManager._anchorer).toBeNull();
+    assert.strictEqual(node._anchoringManager._anchorer, null);
   });
 
   it('getAnchoringStatus includes anchorerStats', async () => {
@@ -767,9 +768,9 @@ describe('Solana Anchoring', () => {
     const status = node.getAnchoringStatus();
     // May or may not have anchorer depending on @cynic/anchor availability
     if (status.hasAnchorer) {
-      expect(status.anchorerStats).not.toBeNull();
+      assert.ok(status.anchorerStats !== null);
     } else {
-      expect(status.anchorerStats).toBeNull();
+      assert.strictEqual(status.anchorerStats, null);
     }
   });
 });
@@ -792,7 +793,7 @@ describe('_resolveMerkleRoot', () => {
       merkleRoot: 'b'.repeat(64),
       hash: 'c'.repeat(64),
     });
-    expect(result).toBe(root);
+    assert.strictEqual(result, root);
   });
 
   it('resolves judgmentsRoot second', () => {
@@ -802,7 +803,7 @@ describe('_resolveMerkleRoot', () => {
       merkleRoot: 'c'.repeat(64),
       hash: 'd'.repeat(64),
     });
-    expect(result).toBe(root);
+    assert.strictEqual(result, root);
   });
 
   it('resolves merkleRoot third', () => {
@@ -811,13 +812,13 @@ describe('_resolveMerkleRoot', () => {
       merkleRoot: root,
       hash: 'd'.repeat(64),
     });
-    expect(result).toBe(root);
+    assert.strictEqual(result, root);
   });
 
   it('resolves hash as fallback', () => {
     const root = 'd'.repeat(64);
     const result = node._anchoringManager.resolveMerkleRoot({ hash: root });
-    expect(result).toBe(root);
+    assert.strictEqual(result, root);
   });
 
   it('returns null when no valid 64-char hex found', () => {
@@ -825,17 +826,17 @@ describe('_resolveMerkleRoot', () => {
       hash: 'not-hex',
       merkleRoot: 'too-short',
     });
-    expect(result).toBeNull();
+    assert.strictEqual(result, null);
   });
 
   it('returns null for empty block', () => {
-    expect(node._anchoringManager.resolveMerkleRoot({})).toBeNull();
+    assert.strictEqual(node._anchoringManager.resolveMerkleRoot({}), null);
   });
 
   it('rejects non-hex 64-char strings', () => {
     const result = node._anchoringManager.resolveMerkleRoot({
       hash: 'g'.repeat(64), // 'g' is not hex
     });
-    expect(result).toBeNull();
+    assert.strictEqual(result, null);
   });
 });
