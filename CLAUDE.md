@@ -484,10 +484,11 @@ Confidence: [██████░░░░] 62% ← MAX (φ⁻¹)
 
 ### Next Steps
 - [x] **AXE 3: BURN server.js** ✅ DONE - Extracted to 7 components (366 lines remaining)
+- [x] **BURN poj-chain-manager.js** ✅ DONE - Extracted to 6 components (31 lines remaining)
+- [x] **BURN ServiceInitializer.js** ✅ DONE - Extracted to 6 components (20 lines remaining)
+- [x] Wire persistence to `startEventListeners()` ✅ DONE - Fixed in getCollectivePackAsync
+- [x] Add cleanup cron for dog_events/snapshots ✅ DONE - Added to AutomationExecutor (13min Fibonacci)
 - [ ] **PHASE 2: DECENTRALIZE** - Multi-node consensus, Solana anchoring
-- [ ] Wire persistence to `startEventListeners()` in production startup
-- [ ] Add cleanup cron for dog_events/snapshots tables
-- [ ] Burn remaining monoliths: `poj-chain-manager.js` (1076 lines), `ServiceInitializer.js` (937 lines)
 
 ### Key Files
 ```
