@@ -91,6 +91,9 @@ export class Executor extends EventEmitter {
     // Keypair (loaded during init)
     this.keypair = null;
 
+    // Dynamic E-Score provider (wired by agent on start)
+    this._getEScore = null;
+
     // Active executions
     this.activeExecutions = new Map();
 
@@ -445,6 +448,24 @@ export class Executor extends EventEmitter {
   }
 
   /**
+   * Get dynamic E-Score from the collective or fallback to default
+   * @private
+   * @returns {number} E-Score (0-100)
+   */
+  _getDynamicEScore() {
+    if (this._getEScore) {
+      try {
+        const state = this._getEScore();
+        if (typeof state === 'number') return Math.round(state);
+        if (state?.composite) return Math.round(state.composite);
+      } catch {
+        // Fall through to default
+      }
+    }
+    return 50; // Default when no provider available
+  }
+
+  /**
    * Get swap quote from Jupiter
    * @private
    */
@@ -509,7 +530,7 @@ export class Executor extends EventEmitter {
         paymentToken: SOL_MINT,
         userPubkey: this.config.walletAddress,
         estimatedComputeUnits: 200000,
-        eScore: 50, // Default E-Score
+        eScore: this._getDynamicEScore(),
       }),
       signal: AbortSignal.timeout(5000),
     });

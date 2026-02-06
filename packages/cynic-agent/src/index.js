@@ -24,7 +24,7 @@
 
 import 'dotenv/config';
 import { EventEmitter } from 'eventemitter3';
-import { PHI_INV, PHI_INV_2, createLogger } from '@cynic/core';
+import { PHI_INV, PHI_INV_2, createLogger, globalEventBus, EventType } from '@cynic/core';
 
 import { Perceiver, KNOWN_TOKENS } from './perceiver.js';
 import { Decider } from './decider.js';
@@ -33,17 +33,17 @@ import { Learner } from './learner.js';
 
 const log = createLogger('CynicAgent');
 
-// Lazy-load Guardian to avoid hard dependency on @cynic/node
-let _guardianModule = null;
-async function loadGuardian() {
-  if (_guardianModule !== null) return _guardianModule;
+// Lazy-load CollectivePack to avoid hard dependency on @cynic/node
+let _collectiveModule = null;
+async function loadCollective() {
+  if (_collectiveModule !== null) return _collectiveModule;
   try {
-    const { CollectiveGuardian } = await import('@cynic/node/agents/collective');
-    _guardianModule = CollectiveGuardian;
-    return _guardianModule;
+    const mod = await import('@cynic/node');
+    _collectiveModule = mod;
+    return mod;
   } catch (e) {
-    log.debug('CollectiveGuardian not available', { error: e.message });
-    _guardianModule = false;
+    log.debug('@cynic/node not available', { error: e.message });
+    _collectiveModule = false;
     return null;
   }
 }
@@ -121,7 +121,8 @@ export class CynicAgent extends EventEmitter {
     this.executor = new Executor(options.executor);
     this.learner = new Learner(options.learner);
 
-    // Guardian (wired lazily on start)
+    // Collective (wired lazily on start)
+    this.pack = null;
     this.guardian = null;
 
     // Metrics
@@ -206,15 +207,30 @@ export class CynicAgent extends EventEmitter {
     await this.perceiver.start();
     await this.executor.init();
 
-    // Wire Guardian for risk blocking
+    // Wire CollectivePack (11 Dogs, SharedMemory, AmbientConsensus)
     try {
-      const GuardianClass = await loadGuardian();
-      if (GuardianClass) {
-        this.guardian = new GuardianClass();
-        log.info('Guardian wired for risk blocking');
+      const mod = await loadCollective();
+      if (mod && mod.getCollectivePackAsync) {
+        this.pack = await mod.getCollectivePackAsync();
+        log.info('CollectivePack wired', {
+          agents: this.pack.agents?.size || 0,
+          hasConsensus: !!this.pack.ambientConsensus,
+        });
+
+        // Extract Guardian from the collective
+        if (this.pack.guardian) {
+          this.guardian = this.pack.guardian;
+          log.info('Guardian Dog wired for risk blocking');
+        }
+
+        // Wire E-Score provider to Executor
+        if (mod.calculateCompositeEScore) {
+          this.executor._getEScore = mod.calculateCompositeEScore;
+          log.debug('Dynamic E-Score wired to Executor');
+        }
       }
     } catch (e) {
-      log.debug('Guardian init skipped', { error: e.message });
+      log.debug('Collective init skipped', { error: e.message });
     }
 
     this.isRunning = true;
@@ -231,7 +247,14 @@ export class CynicAgent extends EventEmitter {
     }, 60 * 60 * 1000);
 
     this.emit('started', { name: this.name, timestamp: Date.now() });
-    log.info(`Agent "${this.name}" started`);
+
+    // Announce on globalEventBus
+    globalEventBus.emit(EventType.COMPONENT_READY, {
+      id: `agent:${this.name}`,
+      payload: { component: 'CynicAgent', name: this.name, hasPack: !!this.pack },
+    });
+
+    log.info(`Agent "${this.name}" started`, { hasPack: !!this.pack });
   }
 
   /**
@@ -304,11 +327,50 @@ export class CynicAgent extends EventEmitter {
    */
   async _processOpportunity(opportunity) {
     try {
+      // 0. COLLECTIVE PRE-CHECK: Ask Dogs for consensus before committing resources
+      if (this.pack?.ambientConsensus) {
+        try {
+          const packInput = {
+            type: 'trading_opportunity',
+            content: `${opportunity.direction} ${opportunity.token}: magnitude=${(opportunity.magnitude * 100).toFixed(1)}%`,
+            confidence: opportunity.confidence,
+            source: 'cynic-agent',
+          };
+          const consensus = await this.pack.ambientConsensus.requestVote(packInput);
+          if (consensus && consensus.verdict === 'REJECT') {
+            log.info('Collective rejected opportunity', {
+              token: opportunity.token,
+              agreement: consensus.agreement,
+            });
+            this.state = AgentState.PERCEIVING;
+            return;
+          }
+          // Attach collective confidence to opportunity for downstream use
+          opportunity.collectiveConfidence = consensus?.agreement || null;
+        } catch (e) {
+          log.debug('Collective pre-check skipped', { error: e.message });
+        }
+      }
+
       // 1. JUDGE
       this.state = AgentState.JUDGING;
       const judgment = await this.decider.judge(opportunity);
       this.metrics.judgments++;
       this.emit('judgment', judgment);
+
+      // Emit to globalEventBus for cross-system visibility
+      globalEventBus.emit(EventType.JUDGMENT_CREATED, {
+        id: judgment.id,
+        payload: {
+          qScore: judgment.qScore,
+          verdict: judgment.verdict,
+          confidence: judgment.confidence,
+          itemType: 'trading_opportunity',
+          source: 'cynic-agent',
+          token: opportunity.token,
+          direction: opportunity.direction,
+        },
+      });
 
       // 2. DECIDE
       this.state = AgentState.DECIDING;
@@ -322,7 +384,7 @@ export class CynicAgent extends EventEmitter {
       // 3. GUARDIAN CHECK (between DECIDE and ACT)
       if (decision.action !== 'HOLD' && this.guardian) {
         try {
-          const risk = await this.guardian.analyze({
+          const guardianInput = {
             tool_name: 'execute_trade',
             tool_input: JSON.stringify({
               action: decision.action,
@@ -331,7 +393,10 @@ export class CynicAgent extends EventEmitter {
               confidence: decision.confidence,
               qScore: decision.qScore,
             }),
-          });
+          };
+          // Use Dog's analyze method if available, fallback to execute
+          const analyzeFn = this.guardian.analyze || this.guardian.execute;
+          const risk = await analyzeFn.call(this.guardian, guardianInput);
 
           if (risk.blocked) {
             log.warn('Guardian blocked trade', { reason: risk.message });

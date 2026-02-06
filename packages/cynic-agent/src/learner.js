@@ -10,7 +10,7 @@
 'use strict';
 
 import { EventEmitter } from 'eventemitter3';
-import { PHI_INV, PHI_INV_2, createLogger } from '@cynic/core';
+import { PHI_INV, PHI_INV_2, createLogger, globalEventBus, EventType } from '@cynic/core';
 
 const log = createLogger('Learner');
 
@@ -42,8 +42,8 @@ const DEFAULT_CONFIG = {
   // Minimum samples before adjusting
   minSamples: 5,
 
-  // Persistence
-  persistSignals: process.env.PERSIST_SIGNALS === 'true',
+  // Persistence: always persist — CYNIC remembers everything
+  persistSignals: process.env.PERSIST_SIGNALS !== 'false',
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -213,6 +213,18 @@ export class Learner extends EventEmitter {
     if (this.config.persistSignals) {
       await this._persistSignal(signal);
     }
+
+    // Emit to globalEventBus for collective learning
+    globalEventBus.emit(EventType.USER_FEEDBACK, {
+      id: outcome.id,
+      payload: {
+        source: 'cynic-agent',
+        outcomeType,
+        pnl,
+        success: actionResult.success,
+        winRate: this.metrics.winRate,
+      },
+    });
 
     log.info('Outcome evaluated', {
       outcomeType,

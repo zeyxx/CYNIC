@@ -184,14 +184,43 @@ if (harmonicFeedback && harmonicFeedback.setLearningCallback) {
 
 // =============================================================================
 // SYMBIOSIS CACHE: Last routing/judgment data for visibility (Task #4 + #5)
+// FIX: Now persisted to file for cross-invocation reads
 // "L'humain VOIT ce que CYNIC pense" - Human sees CYNIC's reasoning
 // =============================================================================
-const symbiosisCache = {
-  lastJudgment: null,      // Last Q-Score, verdict, etc.
-  lastConsensus: null,     // Last Dog votes/consensus
-  lastRouting: null,       // Last Kabbalistic routing decision
-  updatedAt: null,
-};
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { homedir } from 'os';
+
+const SYMBIOSIS_CACHE_FILE = path.join(homedir(), '.cynic', 'symbiosis-cache.json');
+
+/**
+ * Load symbiosis cache from file (previous invocation's data)
+ * Each hook invocation is a separate process — this bridges them.
+ */
+function loadSymbiosisCache() {
+  try {
+    if (existsSync(SYMBIOSIS_CACHE_FILE)) {
+      const data = JSON.parse(readFileSync(SYMBIOSIS_CACHE_FILE, 'utf8'));
+      // Only use if less than 5 minutes old
+      if (data.updatedAt && (Date.now() - data.updatedAt) < 300000) {
+        return data;
+      }
+    }
+  } catch { /* ignore */ }
+  return { lastJudgment: null, lastConsensus: null, lastRouting: null, updatedAt: null };
+}
+
+/**
+ * Persist symbiosis cache to file for next invocation
+ */
+function persistSymbiosisCache(cache) {
+  try {
+    const dir = path.join(homedir(), '.cynic');
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    writeFileSync(SYMBIOSIS_CACHE_FILE, JSON.stringify(cache));
+  } catch { /* ignore */ }
+}
+
+const symbiosisCache = loadSymbiosisCache();
 
 /**
  * Update symbiosis cache (called by async handlers)
@@ -653,15 +682,16 @@ async function main() {
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ORCHESTRATION: Full orchestration through UnifiedOrchestrator (Phase 21)
-    // Includes: Decision tracing, pattern recording, learning feedback
+    // FIX: Store promises to await before output (was fire-and-forget → race condition)
+    // FIX: requestJudgment: true (was isError → 90% of tool uses never judged)
     // "Le chien observe et rapporte au cerveau collectif"
     // ═══════════════════════════════════════════════════════════════════════════
     let orchestration = null;
-    orchestrateFull(
+    const orchestrationPromise = orchestrateFull(
       `${toolName}: ${isError ? 'ERROR' : 'SUCCESS'}`,
       {
         eventType: 'tool_result',  // Post-tool event
-        requestJudgment: isError,  // Only judge errors
+        requestJudgment: true,     // Always judge — CYNIC sees everything
         metadata: {
           tool: toolName,
           source: 'observe_hook',
@@ -683,16 +713,16 @@ async function main() {
       if (result?.judgment) {
         updateSymbiosisCache('judgment', result.judgment);
       }
-    }).catch(() => {
-      // Silently ignore - observation is best-effort
-    });
+      return result;
+    }).catch(() => null);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // AUTO-ORCHESTRATOR: Automatic Dog consultation via CollectivePack
+    // FIX: Store promise to await before output (was fire-and-forget)
     // "Le collectif analyse" - All 11 Dogs see every tool result
     // ═══════════════════════════════════════════════════════════════════════════
     const autoOrchestrator = getAutoOrchestratorSync();
-    autoOrchestrator.postAnalyze({
+    const autoOrchestratorPromise = autoOrchestrator.postAnalyze({
       tool: toolName,
       input: toolInput,
       output: toolOutput,
@@ -721,9 +751,8 @@ async function main() {
           leader: result.leader || (result.agentResults?.[0]?.agent),
         });
       }
-    }).catch(() => {
-      // Best-effort - don't fail the hook
-    });
+      return result;
+    }).catch(() => null);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // Q-LEARNING: Record episode for learning pipeline (Task #84 + Task #20)
@@ -1901,6 +1930,24 @@ async function main() {
         }
       }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AWAIT ORCHESTRATION: Make CYNIC's computation VISIBLE to Claude
+    // FIX: Was fire-and-forget → symbiosisCache always empty → Claude blind
+    // Now: await with 2s timeout → real Judge 25-dim + Dog votes in output
+    // "Ohr needs Kelim" — Light needs vessels to be received
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      await Promise.race([
+        Promise.allSettled([orchestrationPromise, autoOrchestratorPromise]),
+        new Promise(resolve => setTimeout(resolve, 2000)),
+      ]);
+    } catch {
+      // Timeout or error — continue with whatever data we have
+    }
+
+    // Persist symbiosis cache to file for cross-invocation fallback
+    persistSymbiosisCache(symbiosisCache);
 
     // If intervention was triggered, output it (priority over auto-judgment)
     if (intervention?.message) {

@@ -12,7 +12,7 @@
 
 import { EventEmitter } from 'eventemitter3';
 import { createSolanaRpc, address } from '@solana/kit';
-import { PHI_INV, PHI_INV_2, createLogger, globalEventBus } from '@cynic/core';
+import { PHI_INV, PHI_INV_2, createLogger, globalEventBus, EventType } from '@cynic/core';
 
 const log = createLogger('Perceiver');
 
@@ -557,6 +557,20 @@ export class Perceiver extends EventEmitter {
     }
 
     this.emit('signal', signal);
+
+    // Emit to globalEventBus for collective visibility
+    globalEventBus.emit(EventType.PATTERN_DETECTED, {
+      id: signal.id,
+      payload: {
+        signalType: signal.type,
+        token: signal.token,
+        mint: signal.mint,
+        source: signal.source || 'perceiver',
+        confidence: signal.confidence || PHI_INV_2,
+        timestamp: signal.timestamp,
+      },
+    });
+
     log.debug('Signal detected', { type: signal.type, token: signal.token });
   }
 

@@ -11,7 +11,7 @@
 'use strict';
 
 import { EventEmitter } from 'eventemitter3';
-import { PHI_INV, PHI_INV_2, PHI_INV_3, createLogger } from '@cynic/core';
+import { PHI_INV, PHI_INV_2, PHI_INV_3, createLogger, globalEventBus, EventType } from '@cynic/core';
 
 const log = createLogger('Decider');
 
