@@ -3,7 +3,7 @@
  *
  * PHASE 2: DECENTRALIZE
  *
- * Tests multi-node orchestration.
+ * Tests multi-node orchestration and extracted SRP components.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -251,7 +251,7 @@ describe('Validator Set Management', () => {
     });
 
     expect(added).toBe(true);
-    expect(node._validators.size).toBe(1);
+    expect(node._validatorManager.size).toBe(1);
 
     const validator = node.getValidator('validator-1-key');
     expect(validator).toBeDefined();
@@ -267,16 +267,16 @@ describe('Validator Set Management', () => {
     });
 
     expect(added).toBe(false);
-    expect(node._validators.size).toBe(0);
+    expect(node._validatorManager.size).toBe(0);
   });
 
   it('removes validator', () => {
     node.addValidator({ publicKey: 'validator-to-remove', eScore: 50 });
-    expect(node._validators.size).toBe(1);
+    expect(node._validatorManager.size).toBe(1);
 
     const removed = node.removeValidator('validator-to-remove', 'test');
     expect(removed).toBe(true);
-    expect(node._validators.size).toBe(0);
+    expect(node._validatorManager.size).toBe(0);
   });
 
   it('penalizes validator and reduces E-Score', () => {
@@ -297,7 +297,7 @@ describe('Validator Set Management', () => {
 
     // Validator should be removed
     expect(node.getValidator('very-bad-validator')).toBeNull();
-    expect(node._stats.validatorsPenalized).toBe(1);
+    expect(node._validatorManager.stats.validatorsPenalized).toBe(1);
   });
 
   it('rewards validator for blocks', () => {
@@ -395,13 +395,13 @@ describe('Fork Detection', () => {
     node.on('fork:detected', (e) => events.push(e));
 
     // Peer A reports hash A for slot 100
-    node._checkForForks('peer-a', [{ slot: 100, hash: 'hash-aaaa-1111' }], 50);
+    node._forkDetector.checkForForks('peer-a', [{ slot: 100, hash: 'hash-aaaa-1111' }], 50);
 
     // No fork yet (only one hash)
     expect(events.length).toBe(0);
 
     // Peer B reports DIFFERENT hash for same slot 100 (FORK!)
-    node._checkForForks('peer-b', [{ slot: 100, hash: 'hash-bbbb-2222' }], 60);
+    node._forkDetector.checkForForks('peer-b', [{ slot: 100, hash: 'hash-bbbb-2222' }], 60);
 
     // Fork should be detected
     expect(events.length).toBe(1);
@@ -414,11 +414,11 @@ describe('Fork Detection', () => {
     node.on('fork:detected', (e) => events.push(e));
 
     // Multiple peers on branch A (total E-Score: 50 + 40 = 90)
-    node._checkForForks('peer-a1', [{ slot: 100, hash: 'hash-aaaa' }], 50);
-    node._checkForForks('peer-a2', [{ slot: 100, hash: 'hash-aaaa' }], 40);
+    node._forkDetector.checkForForks('peer-a1', [{ slot: 100, hash: 'hash-aaaa' }], 50);
+    node._forkDetector.checkForForks('peer-a2', [{ slot: 100, hash: 'hash-aaaa' }], 40);
 
     // One peer on branch B (E-Score: 60)
-    node._checkForForks('peer-b1', [{ slot: 100, hash: 'hash-bbbb' }], 60);
+    node._forkDetector.checkForForks('peer-b1', [{ slot: 100, hash: 'hash-bbbb' }], 60);
 
     // Fork detected, branch A should be heaviest (90 > 60)
     expect(events.length).toBe(1);
@@ -427,8 +427,8 @@ describe('Fork Detection', () => {
 
   it('returns fork status via getForkStatus()', () => {
     // Create a fork
-    node._checkForForks('peer-a', [{ slot: 100, hash: 'hash-aaaa' }], 50);
-    node._checkForForks('peer-b', [{ slot: 100, hash: 'hash-bbbb' }], 60);
+    node._forkDetector.checkForForks('peer-a', [{ slot: 100, hash: 'hash-aaaa' }], 50);
+    node._forkDetector.checkForForks('peer-b', [{ slot: 100, hash: 'hash-bbbb' }], 60);
 
     const status = node.getForkStatus();
 
@@ -441,25 +441,25 @@ describe('Fork Detection', () => {
   it('cleans up old fork data', () => {
     // Record hashes for old slots
     for (let i = 0; i < 150; i++) {
-      node._slotHashes.set(i, { hash: `hash-${i}` });
+      node._forkDetector._slotHashes.set(i, { hash: `hash-${i}` });
     }
 
-    // Simulate consensus at slot 150
-    node._consensus = { lastFinalizedSlot: 150 };
+    // Simulate consensus at slot 150 via the fork detector's dependency
+    node._forkDetector.wire({ getLastFinalizedSlot: () => 150 });
 
     // Cleanup should remove slots < 50 (150 - 100)
-    node._cleanupForkData();
+    node._forkDetector._cleanupForkData();
 
-    expect(node._slotHashes.has(49)).toBe(false);
-    expect(node._slotHashes.has(50)).toBe(true);
+    expect(node._forkDetector._slotHashes.has(49)).toBe(false);
+    expect(node._forkDetector._slotHashes.has(50)).toBe(true);
   });
 
   it('records block hashes for slots', () => {
     node.recordBlockHash(100, 'hash-100-abc');
     node.recordBlockHash(101, 'hash-101-def');
 
-    expect(node._slotHashes.get(100)?.hash).toBe('hash-100-abc');
-    expect(node._slotHashes.get(101)?.hash).toBe('hash-101-def');
+    expect(node._forkDetector._slotHashes.get(100)?.hash).toBe('hash-100-abc');
+    expect(node._forkDetector._slotHashes.get(101)?.hash).toBe('hash-101-def');
   });
 });
 
@@ -496,7 +496,7 @@ describe('State Sync', () => {
     await node._handleHeartbeat(heartbeat, 'peer-id-123');
 
     // Check that peer slot is tracked
-    const peerInfo = node._peerSlots.get('peer-id-123');
+    const peerInfo = node._stateSyncManager.peerSlots.get('peer-id-123');
     expect(peerInfo).toBeDefined();
     expect(peerInfo.finalizedSlot).toBe(95);
     expect(peerInfo.eScore).toBe(75);
@@ -520,7 +520,7 @@ describe('State Sync', () => {
     node._checkStateSync();
 
     // Should be behind by the highest peer slot
-    expect(node._syncState.behindBy).toBe(150);
+    expect(node._stateSyncManager.syncState.behindBy).toBe(150);
   });
 
   it('emits sync:needed when significantly behind', async () => {
@@ -640,7 +640,7 @@ describe('Solana Anchoring', () => {
     await node.enableAnchoring({}); // No wallet, anchorer init may fail gracefully
 
     // Ensure no anchorer either
-    node._anchoring.anchorer = null;
+    node._anchoringManager._anchorer = null;
 
     const result = await node.anchorBlock({ slot: 100, hash: validMerkleRoot });
 
@@ -729,7 +729,7 @@ describe('Solana Anchoring', () => {
       merkleRoot: 'root',
     });
 
-    expect(node._slotHashes.get(50)?.hash).toBe('block-hash-50');
+    expect(node._forkDetector._slotHashes.get(50)?.hash).toBe('block-hash-50');
   });
 
   it('dryRun mode creates node without real wallet in anchorer', () => {
@@ -741,8 +741,8 @@ describe('Solana Anchoring', () => {
       wallet: 'mock-wallet',
     });
 
-    expect(dryNode._anchoring.dryRun).toBe(true);
-    expect(dryNode._anchoring.wallet).toBe('mock-wallet');
+    expect(dryNode._anchoringManager._dryRun).toBe(true);
+    expect(dryNode._anchoringManager._wallet).toBe('mock-wallet');
 
     const status = dryNode.getAnchoringStatus();
     expect(status.dryRun).toBe(true);
@@ -752,12 +752,12 @@ describe('Solana Anchoring', () => {
     await node.enableAnchoring({ wallet: 'mock-wallet' });
 
     // Manually set an anchorer for test purposes
-    node._anchoring.anchorer = { getStats: () => ({}) };
-    expect(node._anchoring.anchorer).not.toBeNull();
+    node._anchoringManager._anchorer = { getStats: () => ({}) };
+    expect(node._anchoringManager._anchorer).not.toBeNull();
 
     await node.stop();
 
-    expect(node._anchoring.anchorer).toBeNull();
+    expect(node._anchoringManager._anchorer).toBeNull();
   });
 
   it('getAnchoringStatus includes anchorerStats', async () => {
@@ -787,7 +787,7 @@ describe('_resolveMerkleRoot', () => {
 
   it('resolves judgments_root first (highest priority)', () => {
     const root = 'a'.repeat(64);
-    const result = node._resolveMerkleRoot({
+    const result = node._anchoringManager.resolveMerkleRoot({
       judgments_root: root,
       merkleRoot: 'b'.repeat(64),
       hash: 'c'.repeat(64),
@@ -797,7 +797,7 @@ describe('_resolveMerkleRoot', () => {
 
   it('resolves judgmentsRoot second', () => {
     const root = 'b'.repeat(64);
-    const result = node._resolveMerkleRoot({
+    const result = node._anchoringManager.resolveMerkleRoot({
       judgmentsRoot: root,
       merkleRoot: 'c'.repeat(64),
       hash: 'd'.repeat(64),
@@ -807,7 +807,7 @@ describe('_resolveMerkleRoot', () => {
 
   it('resolves merkleRoot third', () => {
     const root = 'c'.repeat(64);
-    const result = node._resolveMerkleRoot({
+    const result = node._anchoringManager.resolveMerkleRoot({
       merkleRoot: root,
       hash: 'd'.repeat(64),
     });
@@ -816,12 +816,12 @@ describe('_resolveMerkleRoot', () => {
 
   it('resolves hash as fallback', () => {
     const root = 'd'.repeat(64);
-    const result = node._resolveMerkleRoot({ hash: root });
+    const result = node._anchoringManager.resolveMerkleRoot({ hash: root });
     expect(result).toBe(root);
   });
 
   it('returns null when no valid 64-char hex found', () => {
-    const result = node._resolveMerkleRoot({
+    const result = node._anchoringManager.resolveMerkleRoot({
       hash: 'not-hex',
       merkleRoot: 'too-short',
     });
@@ -829,11 +829,11 @@ describe('_resolveMerkleRoot', () => {
   });
 
   it('returns null for empty block', () => {
-    expect(node._resolveMerkleRoot({})).toBeNull();
+    expect(node._anchoringManager.resolveMerkleRoot({})).toBeNull();
   });
 
   it('rejects non-hex 64-char strings', () => {
-    const result = node._resolveMerkleRoot({
+    const result = node._anchoringManager.resolveMerkleRoot({
       hash: 'g'.repeat(64), // 'g' is not hex
     });
     expect(result).toBeNull();
