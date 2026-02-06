@@ -1,7 +1,15 @@
 /**
- * CYNIC MCP Server
+ * CYNIC MCP Server - Thin Orchestrator
  *
- * Model Context Protocol server for AI tool integration
+ * Model Context Protocol server for AI tool integration.
+ * Delegates to extracted components for each concern:
+ *   - StdioTransport: stdin/stdout JSON-RPC transport
+ *   - JsonRpcHandler: Protocol routing and tool execution
+ *   - RouteHandlers: HTTP route domain logic
+ *   - InitializationPipeline: Post-ServiceInitializer setup
+ *   - ShutdownManager: Graceful multi-component teardown
+ *   - HttpAdapter: HTTP/SSE transport (existing)
+ *   - ServiceInitializer: DIP service factory (existing)
  *
  * Protocol: JSON-RPC 2.0 over stdio or HTTP/SSE
  *
@@ -14,55 +22,29 @@
 
 import { join } from 'path';
 import { fileURLToPath } from 'url';
-import { PHI_INV, PHI_INV_2, IDENTITY, PeriodicScheduler, FibonacciIntervals, EcosystemMonitor } from '@cynic/core';
+import { PHI_INV, IDENTITY, PeriodicScheduler, EcosystemMonitor } from '@cynic/core';
 import { EngineOrchestrator, globalEngineRegistry } from '@cynic/core/engines';
 
-// SRP: HTTP concerns extracted to HttpAdapter
+// SRP: Extracted components
 import { HttpAdapter } from './server/HttpAdapter.js';
-// DIP: Service creation via ServiceInitializer
 import { ServiceInitializer } from './server/ServiceInitializer.js';
+import { StdioTransport } from './server/StdioTransport.js';
+import { JsonRpcHandler } from './server/JsonRpcHandler.js';
+import { RouteHandlers } from './server/RouteHandlers.js';
+import { InitializationPipeline } from './server/InitializationPipeline.js';
+import { ShutdownManager } from './server/ShutdownManager.js';
 
-// Get __dirname equivalent for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = join(__filename, '..');
-import { CYNICJudge, LearningService, ResidualDetector, createEScoreCalculator, createEmergenceLayer, DogOrchestrator, createAutonomousDaemon, getCollectivePack, getCollectivePackAsync, getSharedMemory, getQLearningServiceSingleton, saveCollectiveState, createHeartbeatService, createSLATracker, createConsciousnessBridge, createDefaultChecks, createEmergenceDetector, initializeQLearning } from '@cynic/node';
+import { CYNICJudge, LearningService, ResidualDetector, createEScoreCalculator, createEmergenceLayer, DogOrchestrator, getCollectivePack, getSharedMemory } from '@cynic/node';
 import { createEngineIntegration } from '@cynic/node/judge/engine-integration.js';
 import { UnifiedOrchestrator } from '@cynic/node/orchestration/unified-orchestrator.js';
 import { KabbalisticRouter } from '@cynic/node/orchestration/kabbalistic-router.js';
 import { createPatternDetector } from '@cynic/emergence';
-import { createAllTools } from './tools/index.js';
 import { createThermodynamicsTracker } from './thermodynamics-tracker.js';
-import { PersistenceManager } from './persistence.js';
-import { SessionManager } from './session-manager.js';
-// Solana anchoring support
-import { AnchorQueue, SolanaAnchorer, loadWalletFromFile, loadWalletFromEnv, SolanaCluster } from '@cynic/anchor';
-// Burns verification (for E-Score integration)
 import { createBurnVerifier } from '@cynic/burns';
-import { PoJChainManager } from './poj-chain-manager.js';
-import { BlockchainBridge } from './blockchain-bridge.js';
-import { LibrarianService } from './librarian-service.js';
-import { AuthService } from './auth-service.js';
-import { DiscoveryService } from './discovery-service.js';
-import { XProxyService } from './services/x-proxy.js';
-// Local Privacy Stores (SQLite - privacy by design)
-import { LocalXStore, LocalPrivacyStore, getTelemetry } from '@cynic/persistence';
 
-/**
- * MCP Server for CYNIC
- *
- * Provides brain_cynic_* tools for Claude Code integration:
- * - brain_cynic_judge: Multi-dimensional judgment
- * - brain_cynic_digest: Content extraction
- * - brain_health: System health
- * - brain_search: Knowledge search
- * - brain_patterns: Pattern detection
- * - brain_cynic_feedback: Learning from outcomes
- */
-// HTTP mode constants
-const MAX_BODY_SIZE = 1024 * 1024; // 1MB max request body
-const REQUEST_TIMEOUT_MS = 30000; // 30 second request timeout
-const SHUTDOWN_TIMEOUT_MS = 10000; // 10 second shutdown grace period
-const MAX_RESPONSE_SIZE = 100 * 1024; // 100KB max response size (prevents Claude Code blocking)
+// Get __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = join(__filename, '..');
 
 export class MCPServer {
   /**
@@ -71,11 +53,11 @@ export class MCPServer {
    * @param {Object} [options.node] - CYNICNode instance
    * @param {Object} [options.judge] - CYNICJudge instance
    * @param {Object} [options.persistence] - PersistenceManager instance
-   * @param {Object} [options.sessionManager] - SessionManager instance (for multi-user sessions)
-   * @param {Object} [options.pojChainManager] - PoJChainManager instance (for PoJ blockchain)
-   * @param {Object} [options.librarian] - LibrarianService instance (for documentation caching)
-   * @param {Object} [options.agents] - AgentManager instance (The Four Dogs)
-   * @param {Object} [options.auth] - AuthService instance (for HTTP authentication)
+   * @param {Object} [options.sessionManager] - SessionManager instance
+   * @param {Object} [options.pojChainManager] - PoJChainManager instance
+   * @param {Object} [options.librarian] - LibrarianService instance
+   * @param {Object} [options.agents] - AgentManager instance
+   * @param {Object} [options.auth] - AuthService instance
    * @param {string} [options.dataDir] - Data directory for file-based persistence fallback
    * @param {string} [options.mode] - Transport mode: 'stdio' (default) or 'http'
    * @param {number} [options.port] - HTTP port (default: 3000, only for http mode)
@@ -96,229 +78,139 @@ export class MCPServer {
     // Node instance (optional)
     this.node = options.node || null;
 
-    // E-Score Calculator (for vote weight based on burns/uptime/quality)
-    // This is the bridge between Burns and Judgment weight
+    // E-Score Calculator
     this.eScoreCalculator = options.eScoreCalculator || createEScoreCalculator({
-      burnScale: 1e9,      // 1B scale for burn normalization
-      minJudgments: 10,    // Minimum judgments for quality metric
+      burnScale: 1e9,
+      minJudgments: 10,
     });
 
-    // Learning Service (for RLHF-style weight adjustments)
-    // Tracks feedback sources: tests, commits, PRs, builds, manual
+    // Learning Service
     this.learningService = options.learningService || new LearningService({
-      learningRate: 0.236,  // φ⁻³ - conservative learning
-      decayRate: 0.146,     // φ⁻⁴ - slow decay
-      minFeedback: 5,       // Minimum feedback before learning
+      learningRate: 0.236,   // φ⁻³
+      decayRate: 0.146,      // φ⁻⁴
+      minFeedback: 5,
     });
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // FIX #3: Residual Detector - THE_UNNAMEABLE dimension discovery
-    // "φ distrusts φ" - even dimensions can be incomplete
-    // ═══════════════════════════════════════════════════════════════════════════
+    // Residual Detector - THE_UNNAMEABLE dimension discovery
     this.residualDetector = options.residualDetector || new ResidualDetector({
-      threshold: 0.382,     // φ⁻² - anomaly threshold
-      minSamples: 3,        // Minimum samples before pattern detection
-      maxAnomalies: 1000,   // Bounded memory
+      threshold: 0.382,      // φ⁻²
+      minSamples: 3,
+      maxAnomalies: 1000,
     });
 
     // Engine Orchestrator for philosophical synthesis (73 engines)
-    // Created BEFORE Judge so we can wire it to EngineIntegration
     this.engineOrchestrator = options.engineOrchestrator || new EngineOrchestrator(globalEngineRegistry, {
       defaultStrategy: 'weighted-average',
       timeout: 5000,
     });
 
-    // FIX R3: Engine Integration - Connect 73 philosophy engines to judgment
-    // "The wisdom of the pack" - κυνικός
+    // Engine Integration
     this.engineIntegration = options.engineIntegration || createEngineIntegration({
       registry: globalEngineRegistry,
       orchestrator: this.engineOrchestrator,
     });
 
-    // Judge instance (required) - now wired with E-Score, Learning, ResidualDetector, AND EngineIntegration
+    // Judge instance
     this.judge = options.judge || new CYNICJudge({
       eScoreProvider: this.eScoreCalculator,
       learningService: this.learningService,
-      residualDetector: this.residualDetector,  // FIX #3: Wire THE_UNNAMEABLE
-      engineIntegration: this.engineIntegration,  // FIX R3: Wire 73 philosophy engines
-      consultEngines: true,  // Enable engine consultation by default
+      residualDetector: this.residualDetector,
+      engineIntegration: this.engineIntegration,
+      consultEngines: true,
     });
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // COLLECTIVE SINGLETON - "One pack, one truth"
-    // Use singletons to ensure all components share the same Dogs and Memory
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    // Shared Memory for collective knowledge (Layer 2 + 3) - SINGLETON
+    // Collective Singleton - shared memory and 11 Dogs
     this.sharedMemory = options.sharedMemory || getSharedMemory();
-
-    // Collective Pack with 11 Dogs - SINGLETON
-    // This is the source of truth for all Dog instances
     this.collectivePack = options.collectivePack || getCollectivePack({
       sharedMemory: this.sharedMemory,
       judge: this.judge,
       persistence: options.persistence || null,
-      consensusThreshold: 0.618,  // φ⁻¹
+      consensusThreshold: 0.618,
     });
 
-    // Dog Orchestrator for parallel judgment voting (11 Dogs)
-    // Now properly wired to the CollectivePack singleton!
+    // Dog Orchestrator for parallel judgment voting
     this.dogOrchestrator = options.dogOrchestrator || new DogOrchestrator({
-      collectivePack: this.collectivePack,  // ✅ WIRED to singleton!
+      collectivePack: this.collectivePack,
       sharedMemory: this.sharedMemory,
-      mode: 'parallel',  // All dogs vote in parallel
-      consensusThreshold: 0.618,  // φ⁻¹ consensus
+      mode: 'parallel',
+      consensusThreshold: 0.618,
     });
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // LLM ROUTER - Multi-model routing (Claude primary, Gemini/Ollama validators)
-    // "Le chien choisit le bon outil" - Route to optimal LLM per task type
-    // Lazy-initialized in start() since dynamic imports are async
-    // ═══════════════════════════════════════════════════════════════════════════
+    // LLM Router - lazy-initialized in start()
     this.llmRouter = options.llmRouter || null;
     this.perceptionRouter = options.perceptionRouter || null;
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // FIX R1: KABBALISTIC ROUTER - Lightning Flash through the Tree of Life
-    // Routes decisions through Sefirot with consultations, escalations, and Q-Learning
-    // "L'arbre vit" - The tree lives
-    // ═══════════════════════════════════════════════════════════════════════════
+    // Kabbalistic Router
     this.kabbalisticRouter = options.kabbalisticRouter || new KabbalisticRouter({
       collectivePack: this.collectivePack,
-      // Persistence wired later after initialization
     });
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // UNIFIED ORCHESTRATOR - Single entry point for ALL orchestration
-    // Coordinates: Dog voting, Engine synthesis, Skill invocation, Learning
-    // "φ coordinates all" - κυνικός
-    // ═══════════════════════════════════════════════════════════════════════════
+    // Unified Orchestrator
     this.unifiedOrchestrator = options.unifiedOrchestrator || new UnifiedOrchestrator({
       dogOrchestrator: this.dogOrchestrator,
       engineOrchestrator: this.engineOrchestrator,
-      kabbalisticRouter: this.kabbalisticRouter,  // FIX R1: Wire Kabbalistic routing
+      kabbalisticRouter: this.kabbalisticRouter,
       llmRouter: this.llmRouter,
       perceptionRouter: this.perceptionRouter,
-      persistence: null, // Set later after persistence is initialized
-      eventBus: null, // Will use global event bus
+      persistence: null,
+      eventBus: null,
     });
 
-    // Burn Verifier (optional - requires Solana RPC connection)
-    // When available, automatically syncs with E-Score calculator
+    // Burn Verifier
     this.burnVerifier = options.burnVerifier || null;
-
-    // Wire Burns → E-Score if both are available
-    // This auto-updates E-Score when burns are verified on-chain
     if (this.burnVerifier && this.eScoreCalculator) {
       this.eScoreCalculator.syncWithVerifier(this.burnVerifier);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PHASE 5: BLOCKCHAIN BRIDGE (Onchain is truth)
-    // Connects: Judgment → Block → Anchor → E-Score → Collective
-    // ═══════════════════════════════════════════════════════════════════════════
+    // Blockchain Bridge
     this.blockchainBridge = options.blockchainBridge || null;
-    // Bridge is started later in start() when all dependencies are available
 
     // Data directory for file-based fallback
     this.dataDir = options.dataDir || null;
 
-    // Persistence manager (PostgreSQL + Redis with automatic fallback)
+    // Core services (assigned by ServiceInitializer in _initialize)
     this.persistence = options.persistence || null;
-
-    // Session manager for multi-user isolation (created after persistence)
     this.sessionManager = options.sessionManager || null;
-
-    // PoJ Chain manager for Proof of Judgment blockchain
     this.pojChainManager = options.pojChainManager || null;
-
-    // Librarian service for documentation caching
     this.librarian = options.librarian || null;
-
-    // Ecosystem service for pre-loaded documentation
     this.ecosystem = options.ecosystem || null;
-
-    // Integrator service for cross-project synchronization
     this.integrator = options.integrator || null;
-
-    // Metrics service for monitoring
     this.metrics = options.metrics || null;
-
-    // Graph overlay for relationship tracking
     this.graph = options.graph || null;
-
-    // Judgment-Graph integration (connects judge to graph)
     this.graphIntegration = options.graphIntegration || null;
-
-    // Collective Pack - All 11 Dogs (Sefirot) working as one
-    // This is the unified collective consciousness system
     this.collective = options.collective || null;
-
-    // Discovery service for MCP servers, plugins, and CYNIC nodes
     this.discovery = options.discovery || null;
-
-    // Periodic scheduler for automated tasks (ecosystem awareness)
     this.scheduler = options.scheduler || null;
-
-    // X/Twitter proxy service for social data capture
     this.xProxy = options.xProxy || null;
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // LOCAL PRIVACY STORES (SQLite - "Your data, your device, your choice")
-    // Privacy by design: all sensitive data stays local by default
-    // ═══════════════════════════════════════════════════════════════════════════
     this.localXStore = options.localXStore || null;
     this.localPrivacyStore = options.localPrivacyStore || null;
-
-    // Ecosystem monitor for GitHub tracking
     this.ecosystemMonitor = options.ecosystemMonitor || null;
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // EMERGENCE LAYER (Layer 7 - Keter) - The crown observes all
-    // Integrates: ConsciousnessMonitor, PatternDetector, DimensionDiscovery, CollectiveState
-    // "Le cerveau s'éveille" - κυνικός
-    // ═══════════════════════════════════════════════════════════════════════════
+    // Emergence Layer (Layer 7 - Keter)
     this.emergenceLayer = options.emergenceLayer || createEmergenceLayer({
       nodeId: `cynic_mcp_${Date.now().toString(36)}`,
       eScore: 50,
     });
-
-    // Pattern Detector - also exposed directly for backward compatibility
-    // (emergenceLayer.patterns is the same type but we keep a direct reference)
     this.patternDetector = options.patternDetector || this.emergenceLayer.patterns;
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // THERMODYNAMICS TRACKER (Phase 2)
-    // Tracks heat (errors, frustration) and work (success, progress)
-    // Influences confidence ceiling when critical or low efficiency
-    // "Ἐνέργεια - the activity of being" - κυνικός
-    // ═══════════════════════════════════════════════════════════════════════════
+    // Thermodynamics Tracker
     this.thermodynamics = options.thermodynamics || createThermodynamicsTracker();
 
-    // Stdio streams (for stdio mode)
+    // Stdio streams
     this.input = options.input || process.stdin;
     this.output = options.output || process.stdout;
 
-    // HTTP adapter (for http mode) - SRP: HttpAdapter handles HTTP/SSE
+    // Internal state
     this._httpAdapter = null;
-    this._activeRequests = new Set(); // Track in-flight JSON-RPC requests for graceful shutdown
-
-    // Request buffer for stdin parsing
-    this._buffer = '';
-
-    // Running flag
+    this._activeRequests = new Set();
     this._running = false;
-
-    // FIX #2: Race condition guard
     this._collectiveReady = false;
-
-    // Tool registry (populated on start)
     this.tools = {};
   }
 
   /**
    * Initialize components
-   * DIP: Uses ServiceInitializer for core services
+   * DIP: Uses ServiceInitializer for core services, then InitializationPipeline for the rest
    * @private
    */
   async _initialize() {
@@ -333,7 +225,6 @@ export class MCPServer {
     });
 
     // Initialize core services via DIP pattern
-    // Pass any pre-configured services from constructor
     const services = await initializer.initialize({
       judge: this.judge,
       persistence: this.persistence,
@@ -355,614 +246,9 @@ export class MCPServer {
     // Assign services to this instance
     Object.assign(this, services);
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // FIX: INITIALIZE COLLECTIVE STATE FROM PERSISTENCE
-    // Gap 1 Fix: Ensure Session B restores Session A state
-    // "Memory makes identity" - κυνικός
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (this.persistence) {
-      try {
-        // Re-initialize collectivePack with async persistence loading
-        // This loads: SharedMemory patterns, Q-Learning table, persisted state
-        await getCollectivePackAsync({
-          sharedMemory: this.sharedMemory,
-          judge: this.judge,
-          persistence: this.persistence,
-          consensusThreshold: 0.618,
-        });
-        console.error('   CollectivePack: state restored from persistence');
-        this._collectiveReady = true;  // FIX #2: Collective ready
-      } catch (e) {
-        console.error(`   CollectivePack: persistence load failed (${e.message})`);
-        this._collectiveReady = true;  // FIX #2: Still ready, just without persistence
-      }
-
-      // Initialize LearningService from persistence
-      if (this.learningService?.init) {
-        try {
-          await this.learningService.init();
-          console.error('   LearningService: initialized from persistence');
-        } catch (e) {
-          console.error(`   LearningService: init failed (${e.message})`);
-        }
-      }
-    } else {
-      // FIX #2: No persistence available, collective is ready immediately
-      this._collectiveReady = true;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // WIRE UNIFIED ORCHESTRATOR (now that persistence is available)
-    // "φ coordinates all" - κυνικός
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (this.unifiedOrchestrator && this.persistence) {
-      this.unifiedOrchestrator.persistence = this.persistence;
-      // D10: Wire memoryRetriever for lessons_learned prevention checks
-      if (this.persistence.memoryRetriever) {
-        this.unifiedOrchestrator.memoryRetriever = this.persistence.memoryRetriever;
-      }
-      // D11: Wire psychology provider for burnout/flow-aware routing
-      if (this.persistence.psychology) {
-        this.unifiedOrchestrator.psychologyProvider = this.persistence.psychology;
-      }
-      console.error('   UnifiedOrchestrator: wired with persistence');
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // FIX R1: WIRE KABBALISTIC ROUTER (now that all dependencies are available)
-    // "L'arbre vit" - The tree needs roots (persistence) and energy (learning)
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (this.kabbalisticRouter) {
-      // Wire persistence for Q-learning state retrieval
-      if (this.persistence) {
-        this.kabbalisticRouter.persistence = this.persistence;
-      }
-      // Wire CollectivePack if not already wired
-      if (this.collectivePack && !this.kabbalisticRouter.collectivePack) {
-        this.kabbalisticRouter.collectivePack = this.collectivePack;
-      }
-      // Wire learning service for Q-learning integration
-      if (this.learningService) {
-        this.kabbalisticRouter.setLearningService?.(this.learningService);
-      }
-      // Wire cost optimizer for tier selection
-      if (this.costOptimizer) {
-        this.kabbalisticRouter.setCostOptimizer?.(this.costOptimizer);
-      }
-      console.error('   KabbalisticRouter: wired (Lightning Flash active)');
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // FIX P1: Q-LEARNING INITIALIZATION - Load Q-Table from PostgreSQL
-    // "Le chien apprend" - Q-Table must persist across sessions
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (this.persistence) {
-      try {
-        const loaded = await initializeQLearning(this.persistence);
-        if (loaded) {
-          console.error('   Q-Learning: state loaded from PostgreSQL');
-        } else {
-          console.error('   Q-Learning: initialized (fresh state)');
-        }
-      } catch (e) {
-        console.error(`   Q-Learning: init failed (${e.message})`);
-      }
-
-      // FIX P4: Bridge LearningService to Q-Learning for routing optimization
-      if (this.learningService) {
-        try {
-          const { getQLearningServiceSingleton } = await import('@cynic/node');
-          const qService = getQLearningServiceSingleton();
-          this.learningService.setQLearningService?.(qService);
-          console.error('   Learning→Q-Learning bridge: active');
-        } catch (e) {
-          console.error(`   Learning→Q-Learning bridge: failed (${e.message})`);
-        }
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // LLM ROUTER: Initialize multi-model routing
-    // Claude (primary) + Gemini/Ollama (validators) based on env config
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (!this.llmRouter) {
-      try {
-        const { getRouterWithValidators } = await import('@cynic/llm');
-        this.llmRouter = getRouterWithValidators();
-        if (this.unifiedOrchestrator) {
-          this.unifiedOrchestrator.setLLMRouter(this.llmRouter);
-        }
-        const validatorCount = this.llmRouter.validators?.length || 0;
-        console.error(`   LLMRouter: active (${validatorCount} validators)`);
-      } catch (e) {
-        console.error(`   LLMRouter: unavailable (${e.message})`);
-      }
-    } else if (this.unifiedOrchestrator) {
-      this.unifiedOrchestrator.setLLMRouter(this.llmRouter);
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PERCEPTION ROUTER: Routes info requests to optimal layer (API/MCP/Browser/FS)
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (!this.perceptionRouter) {
-      try {
-        const { getPerceptionRouter } = await import('@cynic/llm');
-        this.perceptionRouter = getPerceptionRouter();
-        console.error('   PerceptionRouter: active');
-      } catch (e) {
-        console.error(`   PerceptionRouter: unavailable (${e.message})`);
-      }
-    }
-
-    // Wire PerceptionRouter to UnifiedOrchestrator (data source awareness)
-    if (this.perceptionRouter && this.unifiedOrchestrator) {
-      this.unifiedOrchestrator.setPerceptionRouter(this.perceptionRouter);
-      console.error('   UnifiedOrchestrator: wired with PerceptionRouter');
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // MCPServer-specific initialization (not in ServiceInitializer)
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    // Initialize Solana anchoring if wallet is configured
-    await this._initializeSolanaAnchoring();
-
-    // Initialize Ecosystem Monitor for GitHub tracking
-    if (!this.ecosystemMonitor) {
-      this.ecosystemMonitor = new EcosystemMonitor({
-        maxCacheSize: 100,
-        onUpdate: (updates, source) => {
-          if (updates.length > 0) {
-            this._broadcastSSEEvent('ecosystem_updates', {
-              count: updates.length,
-              source: source?.name || 'all',
-              highPriority: updates.filter(u => u.priority === 'HIGH' || u.priority === 'CRITICAL').length,
-              timestamp: Date.now(),
-            });
-          }
-        },
-      });
-      this.ecosystemMonitor.registerSolanaDefaults();
-      this.ecosystemMonitor.trackGitHubRepo('anza-xyz', 'agave', {
-        trackReleases: true,
-        trackCommits: false,
-      });
-      console.error(`   EcosystemMonitor: ready (${this.ecosystemMonitor.sources.size} sources)`);
-    }
-
-    // Register ecosystem awareness task with scheduler
-    this._registerSchedulerTasks();
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PHASE 5: BLOCKCHAIN BRIDGE (Onchain is truth)
-    // Wire: Judgment → Block → Anchor → E-Score → Collective
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (!this.blockchainBridge) {
-      this.blockchainBridge = new BlockchainBridge({
-        eScore: this.eScoreCalculator,
-        collective: this.collective,
-        persistence: this.persistence,
-        burnVerifier: this.burnVerifier,
-      });
-      this.blockchainBridge.start();
-      console.error('   BlockchainBridge: active (PoJ → Anchor → E-Score loop)');
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // AUTONOMOUS DAEMON (TIKKUN: Activate dormant infrastructure)
-    // Background task processing, goal tracking, proactive notifications
-    // "Le chien qui veille" - κυνικός
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (!this.autonomousDaemon && this.persistence?.pool) {
-      try {
-        this.autonomousDaemon = createAutonomousDaemon({
-          pool: this.persistence.pool,
-          memoryRetriever: this.persistence?.repositories?.memory,
-          collective: this.collective,
-          goalsRepo: this.persistence?.repositories?.autonomousGoals,
-          tasksRepo: this.persistence?.repositories?.autonomousTasks,
-          notificationsRepo: this.persistence?.repositories?.proactiveNotifications,
-        });
-        await this.autonomousDaemon.start();
-        console.error('   AutonomousDaemon: ACTIVE (Fibonacci intervals, autonomous task processing)');
-      } catch (err) {
-        console.error(`   AutonomousDaemon: FAILED (${err.message})`);
-        this.autonomousDaemon = null;
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // AXE 5: OBSERVE - Continuous health monitoring for 99.9% uptime
-    // HeartbeatService → SLATracker → ConsciousnessBridge
-    // "Le chien surveille tout" - κυνικός
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (!this.heartbeatService && this.persistence?.pool) {
-      try {
-        // Create health checks for all components
-        const healthChecks = createDefaultChecks({
-          pool: this.persistence.pool,
-          redis: this.persistence.redis,
-          mcpUrl: this.mode === 'http' ? `http://localhost:${this.port}` : null,
-          collectivePack: this.collectivePack,
-        });
-
-        // HeartbeatService - continuous health monitoring
-        this.heartbeatService = createHeartbeatService({
-          components: healthChecks,
-          config: {
-            intervalMs: 30000,  // Ping every 30s
-            timeoutMs: 5000,    // 5s component timeout
-          },
-        });
-
-        // SLATracker - 99.9% uptime compliance
-        this.slaTracker = createSLATracker({
-          heartbeat: this.heartbeatService,
-          alertManager: {
-            critical: (msg, data) => console.error(`🔴 SLA CRITICAL: ${msg}`, data),
-            warning: (msg, data) => console.error(`⚠️ SLA WARNING: ${msg}`, data),
-          },
-        });
-
-        // ConsciousnessBridge - wire health to consciousness
-        this.consciousnessBridge = createConsciousnessBridge({
-          consciousness: this.collectivePack?.consciousness || null,
-          heartbeat: this.heartbeatService,
-          slaTracker: this.slaTracker,
-        });
-
-        // Start heartbeat monitoring
-        this.heartbeatService.start();
-        console.error('   HeartbeatService: ACTIVE (30s interval, φ-aligned thresholds)');
-        console.error('   SLATracker: ACTIVE (99.9% uptime target)');
-        console.error('   ConsciousnessBridge: ACTIVE (health → awareness)');
-      } catch (err) {
-        console.error(`   ObservabilityStack: FAILED (${err.message})`);
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // AXE 6: EMERGE - Cross-session pattern detection
-    // Detects: recurring mistakes, successful strategies, user preferences
-    // "From chaos, patterns emerge" - κυνικός
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (!this.emergenceDetector && this.persistence?.pool) {
-      try {
-        this.emergenceDetector = createEmergenceDetector({
-          persistence: this.persistence,
-          memoryRetriever: this.persistence?.repositories?.memory,
-          embedder: this.persistence?.embedder || null,
-          config: {
-            analysisIntervalMs: 60 * 60 * 1000, // 1 hour
-          },
-        });
-
-        // Wire emergence events to consciousness
-        this.emergenceDetector.on('significant_pattern', (data) => {
-          console.error(`🌟 EMERGENCE: ${data.pattern.subject} (${data.pattern.significance})`);
-          if (this.consciousnessBridge) {
-            this.consciousnessBridge.observe('EMERGENCE', {
-              pattern: data.pattern.key,
-              significance: data.pattern.significance,
-              category: data.pattern.category,
-            }, data.pattern.confidence);
-          }
-        });
-
-        this.emergenceDetector.start();
-        console.error('   EmergenceDetector: ACTIVE (1h analysis interval)');
-      } catch (err) {
-        console.error(`   EmergenceDetector: FAILED (${err.message})`);
-      }
-    }
-
-    // Initialize Auth service for HTTP mode
-    if (this.mode === 'http' && !this.auth) {
-      this.auth = new AuthService({
-        publicPaths: ['/', '/health', '/metrics', '/dashboard', '/sse', '/api', '/mcp', '/message'],
-      });
-      const authStatus = this.auth.required ? 'required' : 'optional (dev mode)';
-      console.error(`   Auth: ${authStatus} (${this.auth.apiKeys.size} keys configured)`);
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // LOCAL PRIVACY STORES (SQLite - privacy by design)
-    // "Your data, your device, your choice" - κυνικός
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    // Initialize LocalXStore (for X/Twitter data - always local first)
-    if (!this.localXStore) {
-      try {
-        this.localXStore = new LocalXStore({
-          verbose: process.env.CYNIC_DEBUG === 'true',
-        });
-        await this.localXStore.initialize();
-        console.error(`   LocalXStore: ready (${this.localXStore.dbPath})`);
-      } catch (err) {
-        console.error(`   LocalXStore: FAILED (${err.message})`);
-        this.localXStore = null;
-      }
-    }
-
-    // Initialize LocalPrivacyStore (for E-Score, Learning, Psychology, Patterns)
-    if (!this.localPrivacyStore) {
-      try {
-        this.localPrivacyStore = new LocalPrivacyStore({
-          userId: this.sessionManager?._currentSession?.userId || 'default',
-          verbose: process.env.CYNIC_DEBUG === 'true',
-        });
-        await this.localPrivacyStore.initialize();
-        console.error(`   LocalPrivacyStore: ready (${this.localPrivacyStore.dbPath})`);
-      } catch (err) {
-        console.error(`   LocalPrivacyStore: FAILED (${err.message})`);
-        this.localPrivacyStore = null;
-      }
-    }
-
-    // Initialize X/Twitter proxy service if enabled
-    // Writes to LOCAL SQLite first (privacy-first), cloud sync is optional
-    if (process.env.CYNIC_X_PROXY_ENABLED === 'true' && !this.xProxy) {
-      if (this.localXStore) {
-        this.xProxy = new XProxyService({
-          port: parseInt(process.env.CYNIC_X_PROXY_PORT || '8888'),
-          localStore: this.localXStore,  // PRIMARY: Local SQLite
-          xRepository: this.persistence?.repositories?.xData,  // OPTIONAL: Cloud PostgreSQL
-          sslCaDir: process.env.CYNIC_X_PROXY_CERT_PATH || './.cynic-proxy-certs',
-          verbose: process.env.CYNIC_X_PROXY_VERBOSE === 'true',
-        });
-
-        try {
-          await this.xProxy.start();
-          console.error(`   X Proxy: ENABLED (port ${this.xProxy.port}) - LOCAL FIRST`);
-          console.error(`   Configure browser/system proxy: 127.0.0.1:${this.xProxy.port}`);
-        } catch (err) {
-          console.error(`   X Proxy: FAILED (${err.message})`);
-          this.xProxy = null;
-        }
-      } else {
-        console.error('   X Proxy: DISABLED (LocalXStore not available)');
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // ORACLE: Token scoring (17-dim φ-governed judgment) — lazy init
-    // "Le chien juge les tokens" - κυνικός
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (!this.oracle) {
-      try {
-        const { TokenFetcher, TokenScorer, OracleMemory, OracleWatchlist } =
-          await import('@cynic/observatory/oracle');
-        const fetcher = new TokenFetcher(process.env.HELIUS_API_KEY);
-        const scorer = new TokenScorer();
-        const memory = this.persistence?.pool
-          ? new OracleMemory(this.persistence.pool) : null;
-        const watchlist = (memory && this.persistence?.pool)
-          ? new OracleWatchlist(this.persistence.pool, memory, fetcher, scorer) : null;
-        this.oracle = { fetcher, scorer, memory, watchlist };
-        console.error(`   Oracle: ready (memory: ${!!memory}, watchlist: ${!!watchlist})`);
-      } catch (e) {
-        console.error(`   Oracle: unavailable (${e.message})`);
-        this.oracle = null;
-      }
-    }
-
-    // Register tools with current instances
-    this.tools = createAllTools({
-      judge: this.judge,
-      node: this.node,
-      persistence: this.persistence,
-      collective: this.collective,
-      sessionManager: this.sessionManager,
-      pojChainManager: this.pojChainManager,
-      librarian: this.librarian,
-      ecosystem: this.ecosystem,
-      integrator: this.integrator,
-      metrics: this.metrics,
-      graphIntegration: this.graphIntegration,
-      discovery: this.discovery,
-      learningService: this.learningService,
-      eScoreCalculator: this.eScoreCalculator,
-      // Emergence Layer (Layer 7 - Keter) - consciousness, patterns, dimensions, collective
-      emergenceLayer: this.emergenceLayer,
-      // Pattern Detector for statistical pattern recognition (also in emergenceLayer)
-      patternDetector: this.patternDetector,
-      // Thermodynamics Tracker (Phase 2) - heat/work/efficiency tracking
-      thermodynamics: this.thermodynamics,
-      onJudgment: (judgment) => this._broadcastSSEEvent('judgment', judgment),
-      // Phase 16: Total Memory + Full Autonomy
-      memoryRetriever: this.persistence?.memoryRetriever,
-      goalsRepo: this.persistence?.goals,
-      notificationsRepo: this.persistence?.notifications,
-      tasksRepo: this.persistence?.tasks,
-      // Phase 18: Automation daemon stats
-      automationExecutor: this.automationExecutor,
-      // AXE 5: OBSERVE - Uptime awareness (99.9% target)
-      heartbeat: this.heartbeatService,
-      slaTracker: this.slaTracker,
-      // Phase 21: Claude Flow Integration
-      complexityClassifier: this.complexityClassifier,
-      tieredRouter: this.tieredRouter,
-      agentBooster: this.agentBooster,
-      tokenOptimizer: this.tokenOptimizer,
-      hyperbolicSpace: this.hyperbolicSpace,
-      sona: this.sona,
-      // Phase 22: Wire orchestrators for brain_orchestrate
-      dogOrchestrator: this.dogOrchestrator,
-      engineOrchestrator: this.engineOrchestrator,
-      // X/Twitter Vision
-      xRepository: this.persistence?.repositories?.xData,
-      // Local Privacy Stores (SQLite - privacy by design)
-      localXStore: this.localXStore,
-      localPrivacyStore: this.localPrivacyStore,
-      // Oracle (token scoring - 17-dim)
-      oracle: this.oracle,
-      // Debug tools (brain_debug_*) - "φ distrusts φ, but φ can see φ"
-      sharedMemory: this.sharedMemory,
-      getQLearningService: getQLearningServiceSingleton,
-    });
-
-    // Feed registered tool names to PerceptionRouter for Layer 2 routing
-    if (this.perceptionRouter && this.tools) {
-      this.perceptionRouter.registerMcpTools(Object.keys(this.tools));
-    }
-  }
-
-  /**
-   * Initialize Solana anchoring if configured
-   * @private
-   */
-  async _initializeSolanaAnchoring() {
-    const walletPath = process.env.CYNIC_SOLANA_WALLET || join(__dirname, '../../anchor/test/.devnet-wallet.json');
-    const enableAnchoring = process.env.CYNIC_ENABLE_ANCHORING === 'true';
-
-    if (enableAnchoring) {
-      try {
-        const wallet = loadWalletFromEnv('CYNIC_SOLANA_KEY') || loadWalletFromFile(walletPath);
-        const cluster = process.env.CYNIC_SOLANA_CLUSTER || 'devnet';
-        const clusterUrl = SolanaCluster[cluster.toUpperCase()] || SolanaCluster.DEVNET;
-
-        // Create Solana anchorer with wallet
-        const anchorer = new SolanaAnchorer({
-          cluster: clusterUrl,
-          wallet,
-          useAnchorProgram: true,
-        });
-
-        // Create anchor queue with anchorer
-        this.anchorQueue = new AnchorQueue({
-          anchorer,
-          batchSize: 100,
-          intervalMs: 61800,
-          autoStart: true,
-        });
-
-        if (this.pojChainManager) {
-          this.pojChainManager.setAnchorQueue(this.anchorQueue);
-          console.error(`   Solana Anchoring: ENABLED (${cluster})`);
-          console.error(`   AnchorQueue attached: ${this.pojChainManager.isAnchoringEnabled}`);
-        } else {
-          console.error(`   Solana Anchoring: FAILED - pojChainManager not available`);
-        }
-        const pubKeyStr = wallet.publicKey?.toBase58
-          ? wallet.publicKey.toBase58()
-          : Buffer.from(wallet.publicKey || wallet._publicKey || []).toString('hex');
-        console.error(`   Wallet: ${pubKeyStr.slice(0, 16)}...`);
-      } catch (err) {
-        console.error(`   Solana Anchoring: DISABLED (${err.message})`);
-      }
-    } else {
-      console.error('   Solana Anchoring: disabled (set CYNIC_ENABLE_ANCHORING=true)');
-    }
-  }
-
-  /**
-   * Register scheduler tasks
-   * @private
-   */
-  _registerSchedulerTasks() {
-    if (!this.scheduler) return;
-
-    // Psychology checkpoint - sync every 10 minutes to prevent data loss on crash
-    this.scheduler.register({
-      id: 'psychology_checkpoint',
-      name: 'Psychology Checkpoint',
-      intervalMs: 10 * 60 * 1000, // 10 minutes
-      runImmediately: false,
-      handler: async () => {
-        if (!this.persistence?.psychology || !this.sessionManager?._currentSession) {
-          return { skipped: true, reason: 'no_active_session' };
-        }
-
-        const session = this.sessionManager._currentSession;
-        const userId = session.userId;
-
-        if (!userId) {
-          return { skipped: true, reason: 'no_user_id' };
-        }
-
-        try {
-          // Get current psychology state from collective if available
-          let psychologyData = null;
-
-          if (this.collective?.cynic) {
-            const cynicStats = this.collective.cynic.getStatus?.() || {};
-            psychologyData = {
-              sessionId: session.sessionId,
-              checkpoint: true,
-              timestamp: Date.now(),
-              observedEvents: cynicStats.observedEvents || 0,
-              synthesizedPatterns: cynicStats.synthesizedPatterns || 0,
-              decisions: cynicStats.decisions || 0,
-            };
-          }
-
-          if (psychologyData) {
-            await this.persistence.syncPsychology(userId, psychologyData);
-            console.error(`🧠 [CHECKPOINT] Psychology synced for ${userId.slice(0, 8)}...`);
-            return { synced: true, userId: userId.slice(0, 8) };
-          }
-
-          return { skipped: true, reason: 'no_psychology_data' };
-        } catch (err) {
-          console.error(`🧠 [CHECKPOINT] Psychology sync failed: ${err.message}`);
-          return { error: err.message };
-        }
-      },
-    });
-
-    console.error('   Psychology checkpoint: every 10 minutes');
-
-    this.scheduler.register({
-      id: 'ecosystem_awareness',
-      name: 'Ecosystem Awareness',
-      intervalMs: FibonacciIntervals.SIXHOURLY,
-      runImmediately: false,
-      handler: async () => {
-        console.error('🐕 [Scheduler] Starting ecosystem awareness cycle...');
-
-        const fetchResult = await this.ecosystemMonitor.fetchAll();
-        const highPriorityUpdates = (fetchResult.updates || [])
-          .filter(u => u.priority === 'HIGH' || u.priority === 'CRITICAL');
-
-        let judgedCount = 0;
-        if (highPriorityUpdates.length > 0 && this.graphIntegration) {
-          for (const update of highPriorityUpdates.slice(0, 5)) {
-            try {
-              const item = {
-                type: 'ecosystem_update',
-                content: `${update.type}: ${update.title || 'Update'}\n\n${update.description || ''}`.slice(0, 500),
-                source: update.source,
-                sources: [update.url].filter(Boolean),
-                priority: update.priority,
-                meta: update.meta,
-              };
-              await this.graphIntegration.judgeWithGraph(item, { source: 'ecosystem_monitor' });
-              judgedCount++;
-            } catch (e) {
-              console.error(`🐕 [Scheduler] Judge error: ${e.message}`);
-            }
-          }
-          if (judgedCount > 0) {
-            console.error(`🐕 [Scheduler] Judged ${judgedCount} high-priority updates`);
-          }
-        }
-
-        this._broadcastSSEEvent('ecosystem_cycle', {
-          fetched: fetchResult.fetched || 0,
-          skipped: fetchResult.skipped || 0,
-          errors: fetchResult.errors || 0,
-          updatesFound: fetchResult.updates?.length || 0,
-          highPriority: highPriorityUpdates.length,
-          judged: judgedCount,
-          timestamp: Date.now(),
-        });
-
-        console.error(`🐕 [Scheduler] Ecosystem cycle complete: ${fetchResult.updates?.length || 0} updates, ${judgedCount} judged`);
-        return { fetched: fetchResult.fetched || 0, updatesFound: fetchResult.updates?.length || 0, highPriority: highPriorityUpdates.length, judged: judgedCount };
-      },
-    });
-
-    console.error(`   Scheduler: ready (ecosystem awareness every ${FibonacciIntervals.SIXHOURLY / 3600000}h)`);
+    // Run post-ServiceInitializer pipeline (Q-Learning, LLM routing, Solana, etc.)
+    const pipeline = new InitializationPipeline({ server: this });
+    await pipeline.run();
   }
 
   /**
@@ -977,18 +263,19 @@ export class MCPServer {
 
     this._running = true;
 
+    // Create JSON-RPC handler (shared by both transports)
+    this._jsonRpcHandler = new JsonRpcHandler({ server: this });
+
     if (this.mode === 'http') {
-      // HTTP/SSE mode for remote deployment (Render, etc.)
       await this._startHttpServer();
     } else {
-      // stdio mode for Claude Desktop integration
       this._startStdioServer();
     }
 
     // Log startup to stderr (not interfering with JSON-RPC)
-    console.error(`🐕 ${IDENTITY.name} MCP Server started (${this.name} v${this.version})`);
+    console.error(`${IDENTITY.name} MCP Server started (${this.name} v${this.version})`);
     console.error(`   Mode: ${this.mode}${this.mode === 'http' ? ` (port ${this.port})` : ''}`);
-    console.error(`   κυνικός - "${IDENTITY.philosophy.maxConfidence * 100}% max confidence"`);
+    console.error(`   "${IDENTITY.philosophy.maxConfidence * 100}% max confidence"`);
     console.error(`   Tools: ${Object.keys(this.tools).join(', ')}`);
   }
 
@@ -997,642 +284,35 @@ export class MCPServer {
    * @private
    */
   _startStdioServer() {
-    this.input.setEncoding('utf8');
-    this.input.on('data', (chunk) => this._handleInput(chunk));
-    this.input.on('end', () => this.stop());
+    this._stdioTransport = new StdioTransport({
+      input: this.input,
+      output: this.output,
+      onRequest: (message) => this._jsonRpcHandler.handleRequest(message),
+      onClose: () => this.stop(),
+    });
+    this._stdioTransport.start();
   }
 
   /**
    * Start HTTP server (for remote deployment)
-   * Uses HttpAdapter for SRP compliance
    * @private
    */
   async _startHttpServer() {
-    // Create HttpAdapter with configuration
     this._httpAdapter = new HttpAdapter({
       port: this.port,
       dashboardPath: join(__dirname, 'dashboard'),
       auth: this.auth,
     });
 
-    // Set route handlers (MCPServer provides domain logic)
-    this._httpAdapter.setRoute('health', (req, res) => this._handleHealthRequest(req, res));
-    this._httpAdapter.setRoute('metrics', (req, res, url) => this._handleMetricsRequest(req, res, url));
-    this._httpAdapter.setRoute('mcp', (req, res) => this._handleMcpRequest(req, res));
-    this._httpAdapter.setRoute('api', (req, res, url) => this._handleApiRequest(req, res, url));
-    this._httpAdapter.setRoute('hooks', (req, res, url) => this._handleHooksRequest(req, res, url));
-    this._httpAdapter.setRoute('psychology', (req, res, url) => this._handlePsychologyRequest(req, res, url));
+    // Register route handlers
+    const routes = new RouteHandlers({
+      server: this,
+      jsonRpcHandler: this._jsonRpcHandler,
+    });
+    routes.register(this._httpAdapter);
 
     // Start the HTTP server
     await this._httpAdapter.start();
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // HTTP ROUTE HANDLERS (SRP: Domain-specific logic, HttpAdapter handles transport)
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /**
-   * Handle health check requests
-   * Route: GET / or /health
-   * @private
-   */
-  async _handleHealthRequest(_req, res) {
-    const checks = {
-      database: { status: 'unknown' },
-      redis: { status: 'unknown' },
-      pojChain: { status: 'unknown' },
-      judge: { status: 'unknown' },
-      anchoring: { status: 'unknown' },
-    };
-
-    let overallHealthy = true;
-
-    // Check PostgreSQL
-    try {
-      if (this.persistence?.postgres) {
-        const dbHealth = await this.persistence.postgres.healthCheck?.() ||
-          await this.persistence.postgres.query?.('SELECT 1');
-        checks.database = { status: 'healthy' };
-      } else {
-        checks.database = { status: 'not_configured' };
-      }
-    } catch (err) {
-      checks.database = { status: 'unhealthy', error: err.message };
-      overallHealthy = false;
-    }
-
-    // Check Redis
-    try {
-      if (this.persistence?.redis) {
-        await this.persistence.redis.ping?.();
-        checks.redis = { status: 'healthy' };
-      } else {
-        checks.redis = { status: 'not_configured' };
-      }
-    } catch (err) {
-      checks.redis = { status: 'unhealthy', error: err.message };
-      overallHealthy = false;
-    }
-
-    // Check PoJ Chain
-    try {
-      if (this.pojChainManager) {
-        const pojStatus = this.pojChainManager.getStatus();
-        checks.pojChain = {
-          status: pojStatus.initialized ? 'healthy' : 'initializing',
-          slot: pojStatus.headSlot,
-          pending: pojStatus.pendingJudgments,
-        };
-      } else {
-        checks.pojChain = { status: 'not_configured' };
-      }
-    } catch (err) {
-      checks.pojChain = { status: 'unhealthy', error: err.message };
-      overallHealthy = false;
-    }
-
-    // Check Judge
-    try {
-      if (this.judge) {
-        checks.judge = {
-          status: 'healthy',
-          engines: this.judge.engineRegistry?.getRegisteredEngineIds?.()?.length || 0,
-        };
-      } else {
-        checks.judge = { status: 'not_configured' };
-      }
-    } catch (err) {
-      checks.judge = { status: 'unhealthy', error: err.message };
-      overallHealthy = false;
-    }
-
-    // Check Anchoring
-    try {
-      if (this.anchorQueue) {
-        const stats = this.anchorQueue.getStats?.() || {};
-        checks.anchoring = {
-          status: 'healthy',
-          enabled: true,
-          pending: stats.queueLength || 0,
-          anchored: stats.totalAnchored || 0,
-        };
-      } else {
-        checks.anchoring = { status: 'disabled' };
-      }
-    } catch (err) {
-      checks.anchoring = { status: 'unhealthy', error: err.message };
-    }
-
-    const statusCode = overallHealthy ? 200 : 503;
-    HttpAdapter.sendJson(res, statusCode, {
-      status: overallHealthy ? 'healthy' : 'unhealthy',
-      server: this.name,
-      version: this.version,
-      tools: Object.keys(this.tools).length,
-      uptime: process.uptime(),
-      phi: PHI_INV,
-      checks,
-      timestamp: Date.now(),
-    });
-  }
-
-  /**
-   * Handle metrics requests (Prometheus or HTML)
-   * Route: GET /metrics or /metrics/html
-   * @private
-   */
-  async _handleMetricsRequest(_req, res, url) {
-    if (!this.metrics) {
-      HttpAdapter.sendJson(res, 503, { error: 'Metrics service not available' });
-      return;
-    }
-
-    try {
-      if (url.pathname === '/metrics/html') {
-        // HTML dashboard
-        const html = await this.metrics.toHTML();
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(html);
-      } else {
-        // Prometheus format
-        const prometheus = await this.metrics.toPrometheus();
-        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-        res.end(prometheus);
-      }
-    } catch (err) {
-      res.writeHead(500, { 'Content-Type': 'text/plain' });
-      res.end(`# Error collecting metrics: ${err.message}\n`);
-    }
-  }
-
-  /**
-   * Handle MCP JSON-RPC requests
-   * Route: POST /mcp or /message
-   * @private
-   */
-  async _handleMcpRequest(req, res) {
-    await this._handleHttpMessage(req, res);
-  }
-
-  /**
-   * Handle REST API requests
-   * Route: /api/*
-   * @private
-   */
-  async _handleApiRequest(req, res, url) {
-    const pathname = url.pathname;
-
-    // List all available tools (API discovery)
-    if (pathname === '/api/tools' && req.method === 'GET') {
-      const tools = Object.values(this.tools).map(t => ({
-        name: t.name,
-        description: t.description,
-        inputSchema: t.inputSchema,
-      }));
-      HttpAdapter.sendJson(res, 200, { tools });
-      return;
-    }
-
-    // REST API for specific tool
-    if (pathname.startsWith('/api/tools/')) {
-      await this._handleApiToolRequest(req, res, url);
-      return;
-    }
-
-    // 404 for unknown API routes
-    HttpAdapter.sendJson(res, 404, { error: 'API endpoint not found' });
-  }
-
-  /**
-   * Handle hooks requests
-   * Route: /hooks/*
-   * @private
-   */
-  async _handleHooksRequest(req, res, url) {
-    const pathname = url.pathname;
-
-    // Hook event endpoint - bridges Claude Code hooks to the Collective
-    if (pathname === '/hooks/event' && req.method === 'POST') {
-      await this._handleHookEvent(req, res);
-      return;
-    }
-
-    HttpAdapter.sendJson(res, 404, { error: 'Hook endpoint not found' });
-  }
-
-  /**
-   * Handle psychology requests
-   * Route: /psychology/*
-   * @private
-   */
-  async _handlePsychologyRequest(req, res, url) {
-    const pathname = url.pathname;
-
-    // Sync psychology state to database (called by sleep.cjs)
-    if (pathname === '/psychology/sync' && req.method === 'POST') {
-      await this._handlePsychologySync(req, res);
-      return;
-    }
-
-    // Load psychology state from database (called by awaken.cjs)
-    if (pathname === '/psychology/load' && req.method === 'GET') {
-      await this._handlePsychologyLoad(req, res, url);
-      return;
-    }
-
-    HttpAdapter.sendJson(res, 404, { error: 'Psychology endpoint not found' });
-  }
-
-  /**
-   * Broadcast SSE event to all connected clients
-   * Delegates to HttpAdapter for transport
-   * @param {string} eventType - Event type (judgment, block, alert, etc.)
-   * @param {Object} data - Event data
-   * @private
-   */
-  _broadcastSSEEvent(eventType, data) {
-    if (this._httpAdapter) {
-      this._httpAdapter.broadcast(eventType, data);
-    }
-  }
-
-  /**
-   * Handle REST API tool requests
-   * @private
-   */
-  async _handleApiToolRequest(req, res, url) {
-    // Extract tool name from URL: /api/tools/brain_cynic_judge
-    const toolName = url.pathname.replace('/api/tools/', '');
-
-    const tool = this.tools[toolName];
-    if (!tool) {
-      HttpAdapter.sendJson(res, 404, { error: `Tool not found: ${toolName}` });
-      return;
-    }
-
-    // GET = get tool info, POST = execute tool
-    if (req.method === 'GET') {
-      HttpAdapter.sendJson(res, 200, {
-        name: tool.name,
-        description: tool.description,
-        inputSchema: tool.inputSchema,
-      });
-      return;
-    }
-
-    if (req.method !== 'POST') {
-      HttpAdapter.sendJson(res, 405, { error: 'Method not allowed' });
-      return;
-    }
-
-    try {
-      const body = await HttpAdapter.readBody(req);
-      const args = body ? JSON.parse(body) : {};
-      const toolUseId = `api_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-      // 🐕 COLLECTIVE: PreToolUse check (same as MCP tools/call)
-      if (this.collective) {
-        const preResult = await this.collective.receiveHookEvent({
-          hookType: 'PreToolUse',
-          payload: { tool: toolName, toolUseId, input: args },
-        });
-
-        if (preResult.blocked) {
-          HttpAdapter.sendJson(res, 403, {
-            error: `[BLOCKED] ${preResult.blockMessage || 'Operation blocked by collective'}`,
-            blockedBy: preResult.blockedBy,
-          });
-          return;
-        }
-      }
-
-      // Execute tool
-      console.error(`🐕 [API] Tool ${toolName} called`);
-      const startTime = Date.now();
-      const result = await tool.handler(args);
-      const duration = Date.now() - startTime;
-
-      // 🐕 COLLECTIVE: PostToolUse (non-blocking)
-      if (this.collective) {
-        this.collective.receiveHookEvent({
-          hookType: 'PostToolUse',
-          payload: {
-            tool: toolName,
-            toolUseId,
-            input: args,
-            output: typeof result === 'string' ? result.slice(0, 500) : JSON.stringify(result).slice(0, 500),
-            duration,
-            success: true,
-          },
-        }).catch(() => {});
-      }
-
-      HttpAdapter.sendJson(res, 200, { success: true, result, duration });
-    } catch (err) {
-      console.error(`🐕 [API] Tool ${toolName} error: ${err.message}`);
-      HttpAdapter.sendJson(res, 500, { error: err.message });
-    }
-  }
-
-  /**
-   * Handle hook event from Claude Code
-   * Bridges external hooks to the Collective eventBus
-   *
-   * POST /api/hooks/event
-   * Body: { hookType, payload, userId, sessionId }
-   *
-   * @private
-   */
-  async _handleHookEvent(req, res) {
-    try {
-      const body = await HttpAdapter.readBody(req);
-      const hookData = body ? JSON.parse(body) : {};
-
-      // Validate required fields
-      if (!hookData.hookType) {
-        HttpAdapter.sendJson(res, 400, { error: 'hookType is required' });
-        return;
-      }
-
-      // Check if collective is available
-      if (!this.collective) {
-        HttpAdapter.sendJson(res, 503, { error: 'Collective not initialized' });
-        return;
-      }
-
-      // Forward to collective
-      const result = await this.collective.receiveHookEvent(hookData);
-
-      // Log for debugging
-      console.error(`🐕 [HOOK] ${hookData.hookType} → ${result.delivered || 0} dogs notified`);
-
-      // Broadcast to SSE clients (generic message)
-      this._broadcastSSEEvent('hook:received', {
-        hookType: hookData.hookType,
-        delivered: result.delivered || 0,
-        timestamp: Date.now(),
-      });
-
-      // Also broadcast typed events for Live View (tool timeline + audio)
-      if (hookData.hookType === 'PreToolUse' && hookData.payload) {
-        this._broadcastSSEEvent('tool_pre', {
-          tool: hookData.payload.tool || 'unknown',
-          toolUseId: hookData.payload.toolUseId || `hook_${Date.now()}`,
-          input: hookData.payload.input,
-          timestamp: Date.now(),
-        });
-      } else if (hookData.hookType === 'PostToolUse' && hookData.payload) {
-        this._broadcastSSEEvent('tool_post', {
-          tool: hookData.payload.tool || 'unknown',
-          toolUseId: hookData.payload.toolUseId || `hook_${Date.now()}`,
-          duration: hookData.payload.duration,
-          success: hookData.payload.success !== false,
-          timestamp: Date.now(),
-        });
-      }
-
-      HttpAdapter.sendJson(res, 200, result);
-    } catch (err) {
-      console.error(`🐕 [HOOK] Error: ${err.message}`);
-      HttpAdapter.sendJson(res, 500, { error: err.message });
-    }
-  }
-
-  /**
-   * Handle psychology sync (sleep.cjs → PostgreSQL)
-   * "Le chien apprend. L'apprentissage persiste."
-   * @private
-   */
-  async _handlePsychologySync(req, res) {
-    try {
-      const body = await HttpAdapter.readBody(req);
-      const { userId, data } = body ? JSON.parse(body) : {};
-
-      if (!userId || !data) {
-        HttpAdapter.sendJson(res, 400, { error: 'userId and data are required' });
-        return;
-      }
-
-      if (!this.persistence) {
-        HttpAdapter.sendJson(res, 503, { error: 'Persistence not available' });
-        return;
-      }
-
-      const result = await this.persistence.syncPsychology(userId, data);
-
-      console.error(`🧠 [PSYCHOLOGY] Synced for ${userId}`);
-
-      HttpAdapter.sendJson(res, 200, { success: true, result });
-    } catch (err) {
-      console.error(`🧠 [PSYCHOLOGY] Sync error: ${err.message}`);
-      HttpAdapter.sendJson(res, 500, { error: err.message });
-    }
-  }
-
-  /**
-   * Handle psychology load (awaken.cjs ← PostgreSQL)
-   * "Comprendre l'humain pour mieux l'aider"
-   * @private
-   */
-  async _handlePsychologyLoad(_req, res, url) {
-    try {
-      const userId = url.searchParams.get('userId');
-
-      if (!userId) {
-        HttpAdapter.sendJson(res, 400, { error: 'userId is required' });
-        return;
-      }
-
-      if (!this.persistence) {
-        HttpAdapter.sendJson(res, 503, { error: 'Persistence not available' });
-        return;
-      }
-
-      const data = await this.persistence.loadPsychology(userId);
-
-      if (!data) {
-        HttpAdapter.sendJson(res, 404, { error: 'No psychology data found for user' });
-        return;
-      }
-
-      console.error(`🧠 [PSYCHOLOGY] Loaded for ${userId}`);
-
-      HttpAdapter.sendJson(res, 200, data);
-    } catch (err) {
-      console.error(`🧠 [PSYCHOLOGY] Load error: ${err.message}`);
-      HttpAdapter.sendJson(res, 500, { error: err.message });
-    }
-  }
-
-  /**
-   * Handle HTTP POST message
-   * @private
-   */
-  async _handleHttpMessage(req, res) {
-    const requestId = Symbol('request');
-    this._activeRequests.add(requestId);
-
-    // Set request timeout
-    const timeoutId = setTimeout(() => {
-      if (!res.headersSent) {
-        res.writeHead(408, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          jsonrpc: '2.0',
-          id: null,
-          error: { code: -32000, message: 'Request timeout' },
-        }));
-      }
-      this._activeRequests.delete(requestId);
-    }, REQUEST_TIMEOUT_MS);
-
-    try {
-      // Collect body with size limit
-      let body = '';
-      let bodySize = 0;
-
-      for await (const chunk of req) {
-        bodySize += chunk.length;
-        if (bodySize > MAX_BODY_SIZE) {
-          clearTimeout(timeoutId);
-          this._activeRequests.delete(requestId);
-          res.writeHead(413, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            jsonrpc: '2.0',
-            id: null,
-            error: { code: -32000, message: `Request body too large (max ${MAX_BODY_SIZE} bytes)` },
-          }));
-          return;
-        }
-        body += chunk;
-      }
-
-      const message = JSON.parse(body);
-
-      if (!message.jsonrpc || message.jsonrpc !== '2.0') {
-        clearTimeout(timeoutId);
-        this._activeRequests.delete(requestId);
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          jsonrpc: '2.0',
-          id: message.id,
-          error: { code: -32600, message: 'Invalid JSON-RPC version' },
-        }));
-        return;
-      }
-
-      // Process message
-      const result = await this._handleRequestInternal(message);
-
-      clearTimeout(timeoutId);
-      this._activeRequests.delete(requestId);
-
-      if (result === null) {
-        // Notification - no response
-        res.writeHead(204);
-        res.end();
-        return;
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
-    } catch (err) {
-      clearTimeout(timeoutId);
-      this._activeRequests.delete(requestId);
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        jsonrpc: '2.0',
-        id: null,
-        error: { code: -32700, message: `Parse error: ${err.message}` },
-      }));
-    }
-  }
-
-  /**
-   * Internal request handler (used by both stdio and HTTP)
-   * @private
-   * @returns {Object|null} Response or null for notifications
-   */
-  async _handleRequestInternal(request) {
-    const { id, method, params = {} } = request;
-
-    // DEBUG: Log every request (stderr for MCP protocol)
-    console.error(`🐕 [REQUEST] method=${method} id=${id}`);
-
-    try {
-      let result;
-
-      switch (method) {
-        case 'initialize':
-          result = await this._handleInitialize(params);
-          break;
-
-        case 'initialized':
-        case 'notifications/initialized':
-          return null; // Notification - no response
-
-        case 'tools/list':
-          result = await this._handleToolsList();
-          break;
-
-        case 'tools/call':
-          result = await this._handleToolsCall(params);
-          break;
-
-        case 'resources/list':
-          result = { resources: [] };
-          break;
-
-        case 'prompts/list':
-          result = { prompts: [] };
-          break;
-
-        case 'ping':
-          result = { pong: true, timestamp: Date.now() };
-          break;
-
-        case 'shutdown':
-          await this.stop();
-          return { jsonrpc: '2.0', id, result: { success: true } };
-
-        default:
-          return {
-            jsonrpc: '2.0',
-            id,
-            error: { code: -32601, message: `Method not found: ${method}` },
-          };
-      }
-
-      return { jsonrpc: '2.0', id, result };
-    } catch (err) {
-      // Track errors for user profile aggregation (only for tool calls)
-      if (method === 'tools/call' && this.sessionManager) {
-        // Don't count blocked operations as errors - they're intentional
-        if (!err.message?.includes('[BLOCKED]')) {
-          this.sessionManager.recordError();
-        }
-      }
-
-      // 🐕 SAGE: Share wisdom when errors occur (via Collective)
-      if (this.collective) {
-        this.collective.getWisdom('error_recovery', {
-          errorMessage: err.message,
-          method,
-          context: 'mcp_request_error',
-        }).then(wisdom => {
-          if (wisdom?.message) {
-            console.error(`🐕 Sage wisdom: ${wisdom.message}`);
-          }
-        }).catch(() => {
-          // Sage is non-blocking - ignore errors
-        });
-      }
-
-      return {
-        jsonrpc: '2.0',
-        id,
-        error: { code: -32000, message: err.message },
-      };
-    }
   }
 
   /**
@@ -1640,515 +320,22 @@ export class MCPServer {
    */
   async stop() {
     if (!this._running) return;
-
     this._running = false;
-    console.error('🐕 CYNIC MCP Server shutting down...');
 
-    // Stop HTTP adapter (handles SSE clients and graceful shutdown)
+    const shutdown = new ShutdownManager({ server: this });
+    await shutdown.shutdown();
+  }
+
+  /**
+   * Broadcast SSE event to all connected clients
+   * @param {string} eventType - Event type
+   * @param {Object} data - Event data
+   * @private
+   */
+  _broadcastSSEEvent(eventType, data) {
     if (this._httpAdapter) {
-      await this._httpAdapter.stop(SHUTDOWN_TIMEOUT_MS);
+      this._httpAdapter.broadcast(eventType, data);
     }
-
-    // Flush PoJ chain (create final block from pending judgments)
-    if (this.pojChainManager) {
-      try {
-        await this.pojChainManager.close();
-      } catch (e) {
-        console.error('Error closing PoJ chain:', e.message);
-      }
-    }
-
-    // Stop periodic scheduler
-    if (this.scheduler) {
-      try {
-        this.scheduler.stopAll();
-        console.error('   Scheduler stopped');
-      } catch (e) {
-        console.error('Error stopping scheduler:', e.message);
-      }
-    }
-
-    // Stop discovery health checks
-    if (this.discovery) {
-      try {
-        await this.discovery.shutdown();
-      } catch (e) {
-        console.error('Error shutting down discovery:', e.message);
-      }
-    }
-
-    // Stop automation executor (Phase 18: learning cycles and triggers)
-    if (this.automationExecutor) {
-      try {
-        await this.automationExecutor.stop();
-        console.error('   Automation executor stopped');
-      } catch (e) {
-        console.error('Error stopping automation executor:', e.message);
-      }
-    }
-
-    // Stop autonomous daemon (TIKKUN: graceful shutdown)
-    if (this.autonomousDaemon) {
-      try {
-        await this.autonomousDaemon.stop();
-        console.error('   Autonomous daemon stopped');
-      } catch (e) {
-        console.error('Error stopping autonomous daemon:', e.message);
-      }
-    }
-
-    // Stop observability stack (AXE 5: OBSERVE)
-    if (this.heartbeatService) {
-      try {
-        const status = this.heartbeatService.getStatus();
-        this.heartbeatService.stop();
-        console.error(`   HeartbeatService stopped (uptime: ${(status.metrics.systemUptime * 100).toFixed(2)}%)`);
-      } catch (e) {
-        console.error('Error stopping HeartbeatService:', e.message);
-      }
-    }
-
-    if (this.slaTracker) {
-      try {
-        const report = this.slaTracker.getReport();
-        console.error(`   SLATracker stopped (compliance: ${report.compliance}%, violations: ${report.totalViolations})`);
-      } catch (e) {
-        console.error('Error getting SLA report:', e.message);
-      }
-    }
-
-    // Stop emergence detector (AXE 6: EMERGE)
-    if (this.emergenceDetector) {
-      try {
-        const stats = this.emergenceDetector.getStats();
-        this.emergenceDetector.stop();
-        console.error(`   EmergenceDetector stopped (patterns: ${stats.patternCount}, facts: ${stats.factsStored})`);
-      } catch (e) {
-        console.error('Error stopping EmergenceDetector:', e.message);
-      }
-    }
-
-    // Stop X proxy service
-    if (this.xProxy) {
-      try {
-        const stats = this.xProxy.getStats();
-        await this.xProxy.stop();
-        console.error(`   X Proxy stopped (captured ${stats.tweetsCaptured} tweets, ${stats.usersCaptured} users)`);
-      } catch (e) {
-        console.error('Error stopping X proxy:', e.message);
-      }
-    }
-
-    // Close local privacy stores (SQLite)
-    if (this.localXStore) {
-      try {
-        const stats = this.localXStore.getStats();
-        this.localXStore.close();
-        console.error(`   LocalXStore closed (${stats.tweets} tweets, ${stats.users} users local)`);
-      } catch (e) {
-        console.error('Error closing LocalXStore:', e.message);
-      }
-    }
-
-    if (this.localPrivacyStore) {
-      try {
-        this.localPrivacyStore.close();
-        console.error('   LocalPrivacyStore closed');
-      } catch (e) {
-        console.error('Error closing LocalPrivacyStore:', e.message);
-      }
-    }
-
-    // D5: Save SharedMemory state before closing persistence
-    if (this.persistence) {
-      try {
-        await saveCollectiveState(this.persistence);
-        console.error('   Collective state saved');
-      } catch (e) {
-        console.error('Error saving collective state:', e.message);
-      }
-    }
-
-    // Close persistence connections (handles file-based save automatically)
-    if (this.persistence) {
-      try {
-        await this.persistence.close();
-      } catch (e) {
-        console.error('Error closing persistence:', e.message);
-      }
-    }
-
-    console.error('🐕 CYNIC MCP Server stopped');
-
-    // Only exit process in stdio mode (HTTP mode should stay alive for graceful restart)
-    if (this.mode === 'stdio') {
-      process.exit(0);
-    }
-  }
-
-  /**
-   * Handle incoming stdio data
-   * @private
-   */
-  _handleInput(chunk) {
-    this._buffer += chunk;
-
-    // Process complete JSON-RPC messages (newline-delimited)
-    let newlineIndex;
-    while ((newlineIndex = this._buffer.indexOf('\n')) !== -1) {
-      const line = this._buffer.slice(0, newlineIndex).trim();
-      this._buffer = this._buffer.slice(newlineIndex + 1);
-
-      if (line) {
-        this._processMessage(line);
-      }
-    }
-  }
-
-  /**
-   * Process a JSON-RPC message
-   * @private
-   */
-  async _processMessage(line) {
-    try {
-      const message = JSON.parse(line);
-
-      if (!message.jsonrpc || message.jsonrpc !== '2.0') {
-        this._sendError(message.id, -32600, 'Invalid JSON-RPC version');
-        return;
-      }
-
-      // Handle different message types
-      if (message.method) {
-        await this._handleRequest(message);
-      }
-    } catch (err) {
-      this._sendError(null, -32700, `Parse error: ${err.message}`);
-    }
-  }
-
-  /**
-   * Handle JSON-RPC request (stdio mode)
-   * @private
-   */
-  async _handleRequest(request) {
-    const response = await this._handleRequestInternal(request);
-
-    // Notifications don't get responses
-    if (response === null) {
-      return;
-    }
-
-    // Send response via stdio
-    if (response.error) {
-      this._sendError(response.id, response.error.code, response.error.message);
-    } else {
-      this._sendResponse(response.id, response.result);
-    }
-  }
-
-  /**
-   * Handle initialize request
-   * @private
-   */
-  async _handleInitialize(params) {
-    const { protocolVersion, clientInfo } = params;
-
-    // Log client info
-    if (clientInfo) {
-      console.error(`   Client: ${clientInfo.name} v${clientInfo.version || '?'}`);
-    }
-
-    return {
-      protocolVersion: '2024-11-05',
-      serverInfo: {
-        name: this.name,
-        version: this.version,
-      },
-      capabilities: {
-        tools: {},
-        resources: {},
-        prompts: {},
-      },
-    };
-  }
-
-  /**
-   * Handle tools/list request
-   * @private
-   */
-  async _handleToolsList() {
-    return {
-      tools: Object.values(this.tools).map(tool => ({
-        name: tool.name,
-        description: tool.description,
-        inputSchema: tool.inputSchema,
-      })),
-    };
-  }
-
-  /**
-   * Handle tools/call request
-   * @private
-   */
-  async _handleToolsCall(params) {
-    const { name, arguments: args = {} } = params;
-
-    // DEBUG: Log at very start of tool call (stderr for MCP protocol)
-    console.error(`🐕 [TOOL_CALL] ${name} called at ${new Date().toISOString()}`);
-
-    const tool = this.tools[name];
-    if (!tool) {
-      throw new Error(`Tool not found: ${name}`);
-    }
-
-    // Generate toolUseId for duration tracking (Vibecraft pattern)
-    const toolUseId = `tool_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // UNIFIED ORCHESTRATOR: Single entry point for tool orchestration
-    // Routes through: User profile → KETER routing → DogOrchestrator → Learning
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (this.unifiedOrchestrator) {
-      try {
-        const decision = await this.unifiedOrchestrator.processTool(name, {
-          ...args,
-          toolUseId,
-        });
-
-        // Check if blocked by UnifiedOrchestrator
-        if (decision.outcome === 'BLOCK' || decision.preExecution?.blocked) {
-          const reason = decision.preExecution?.reason || 'Operation blocked by KETER';
-          console.error(`🐕 [BLOCKED] Tool "${name}" blocked: ${reason}`);
-
-          if (this.sessionManager) {
-            this.sessionManager.recordDangerBlocked();
-          }
-
-          throw new Error(`[BLOCKED] ${reason}`);
-        }
-
-        // Broadcast routing decision for visibility
-        this._broadcastSSEEvent('tool_pre', {
-          tool: name,
-          toolUseId,
-          input: args,
-          routing: decision.routing,
-          judgment: decision.judgment ? {
-            score: decision.judgment.score,
-            verdict: decision.judgment.verdict,
-          } : null,
-          timestamp: Date.now(),
-        });
-      } catch (err) {
-        // If UnifiedOrchestrator fails, fall through to collective
-        console.error(`🐕 [WARN] UnifiedOrchestrator error, falling back: ${err.message}`);
-      }
-    }
-
-    // 🐕 COLLECTIVE: PreToolUse → Full pipeline (shouldTrigger → analyze → decide)
-    // Fallback if UnifiedOrchestrator not available or failed
-    if (this.collective && !this.unifiedOrchestrator) {
-      const hookResult = await this.collective.receiveHookEvent({
-        hookType: 'PreToolUse',
-        payload: {
-          tool: name,
-          toolUseId,
-          input: args,
-        },
-      });
-
-      // Check if any Dog blocked the operation
-      if (hookResult.blocked) {
-        const blockedBy = hookResult.blockedBy || 'guardian';
-        const message = hookResult.blockMessage || 'Operation blocked by collective';
-        console.error(`🐕 [BLOCKED] Tool "${name}" blocked by ${blockedBy}: ${message}`);
-
-        // Track danger blocked for user profile aggregation
-        if (this.sessionManager) {
-          this.sessionManager.recordDangerBlocked();
-        }
-
-        throw new Error(`[BLOCKED] ${message}`);
-      }
-
-      // Log warnings from agents
-      for (const result of hookResult.agentResults || []) {
-        if (result.response === 'warn' && result.message) {
-          console.error(`🐕 [WARNING] ${result.agent}: ${result.message}`);
-        }
-      }
-
-      // Broadcast to SSE for Live View
-      this._broadcastSSEEvent('tool_pre', {
-        tool: name,
-        toolUseId,
-        input: args,
-        dogsNotified: hookResult?.delivered || 0,
-        agentsTriggered: hookResult.agentResults?.length || 0,
-        timestamp: Date.now(),
-      });
-    }
-
-    // Execute tool handler
-    const startTime = Date.now();
-    const result = await tool.handler(args);
-    const duration = Date.now() - startTime;
-
-    // Track tool call for user profile aggregation
-    if (this.sessionManager) {
-      this.sessionManager.recordToolCall();
-    }
-
-    // 🐕 COLLECTIVE: PostToolUse → Full pipeline (all 11 Dogs analyze)
-    // Analyst tracks patterns, Scholar extracts knowledge, etc.
-    if (this.collective) {
-      const hookResult = await this.collective.receiveHookEvent({
-        hookType: 'PostToolUse',
-        payload: {
-          tool: name,
-          toolUseId,
-          input: args,
-          output: typeof result === 'string' ? result.slice(0, 500) : JSON.stringify(result).slice(0, 500),
-          duration,
-          success: true,
-        },
-      });
-
-      // Broadcast to SSE for Live View with duration tracking
-      this._broadcastSSEEvent('tool_post', {
-        tool: name,
-        toolUseId,
-        duration,
-        success: true,
-        dogsNotified: hookResult?.delivered || 0,
-        agentsTriggered: hookResult.agentResults?.length || 0,
-        timestamp: Date.now(),
-      });
-    }
-
-    // D7: Record outcome for adaptive perception routing
-    if (this.perceptionRouter) {
-      this.perceptionRouter.recordOutcome('mcp', name, true, duration);
-    }
-
-    // D8: Record tool usage with latency for telemetry
-    try {
-      const telemetry = getTelemetry();
-      if (telemetry) {
-        telemetry.recordToolUse({ tool: name, success: true, latencyMs: duration });
-      }
-    } catch (_) { /* telemetry is best-effort */ }
-
-    // Note: Judgment storage now handled inside createJudgeTool handler
-    // for better access to full judgment data including dimensionScores
-
-    return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify(result, null, 2),
-      }],
-    };
-  }
-
-  /**
-   * Send JSON-RPC response
-   * @private
-   */
-  _sendResponse(id, result) {
-    const response = {
-      jsonrpc: '2.0',
-      id,
-      result,
-    };
-    let json = JSON.stringify(response);
-
-    // Truncate very large responses to prevent Claude Code blocking
-    if (json.length > MAX_RESPONSE_SIZE) {
-      const sizeKB = (json.length / 1024).toFixed(1);
-      console.error(`⚠️ Truncating large MCP response: ${sizeKB}KB → 100KB for request ${id}`);
-
-      // Try to preserve structure by truncating content arrays/strings
-      const truncatedResult = this._truncateResult(result, MAX_RESPONSE_SIZE - 500);
-      const truncatedResponse = {
-        jsonrpc: '2.0',
-        id,
-        result: truncatedResult,
-      };
-      json = JSON.stringify(truncatedResponse);
-    }
-
-    this.output.write(json + '\n');
-  }
-
-  /**
-   * Truncate result to fit within size limit
-   * @private
-   */
-  _truncateResult(result, maxSize) {
-    // If result is a string, truncate it
-    if (typeof result === 'string') {
-      if (result.length > maxSize) {
-        return result.slice(0, maxSize) + '\n\n... [TRUNCATED - response too large]';
-      }
-      return result;
-    }
-
-    // If result has content array (MCP standard format), truncate items
-    if (result && Array.isArray(result.content)) {
-      const truncated = { ...result };
-      truncated.content = result.content.map(item => {
-        if (item.type === 'text' && typeof item.text === 'string') {
-          const textJson = JSON.stringify(item.text);
-          if (textJson.length > maxSize / 2) {
-            return {
-              ...item,
-              text: item.text.slice(0, maxSize / 2) + '\n\n... [TRUNCATED - response too large]',
-            };
-          }
-        }
-        return item;
-      });
-      truncated._truncated = true;
-      return truncated;
-    }
-
-    // For other objects, add truncation warning
-    if (typeof result === 'object' && result !== null) {
-      return {
-        ...result,
-        _truncated: true,
-        _warning: 'Response was truncated due to size limits',
-      };
-    }
-
-    return result;
-  }
-
-  /**
-   * Send JSON-RPC error
-   * @private
-   */
-  _sendError(id, code, message) {
-    const response = {
-      jsonrpc: '2.0',
-      id,
-      error: { code, message },
-    };
-    this.output.write(JSON.stringify(response) + '\n');
-  }
-
-  /**
-   * Send JSON-RPC notification
-   * @private
-   */
-  _sendNotification(method, params) {
-    const notification = {
-      jsonrpc: '2.0',
-      method,
-      params,
-    };
-    this.output.write(JSON.stringify(notification) + '\n');
   }
 
   /**
@@ -2162,19 +349,13 @@ export class MCPServer {
       running: this._running,
       tools: Object.keys(this.tools),
       hasNode: !!this.node,
-      // Unified persistence (PostgreSQL → File → Memory fallback)
       persistenceBackend: this.persistence?._backend || 'none',
       persistenceCapabilities: this.persistence?.capabilities || {},
       judgeStats: this.judge.getStats(),
-      // 🐕 The Collective - All 11 Dogs (Sefirot)
       collective: this.collective?.getSummary() || { initialized: false },
-      // CYNIC meta-state
       cynicState: this.collective?.cynic?.metaState || 'not_initialized',
-      // Multi-user sessions
       sessions: this.sessionManager?.getSummary() || { activeCount: 0 },
-      // PoJ Chain status
       pojChain: this.pojChainManager?.getStatus() || { initialized: false },
-      // Librarian status
       librarian: this.librarian?._initialized
         ? { initialized: true, stats: this.librarian._stats }
         : { initialized: false },
