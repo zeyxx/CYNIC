@@ -105,6 +105,7 @@ CREATE OR REPLACE FUNCTION cleanup_dog_events(max_per_dog INT DEFAULT 10000)
 RETURNS INT AS $$
 DECLARE
   deleted_count INT := 0;
+  rows_affected INT;
   dog_row RECORD;
 BEGIN
   FOR dog_row IN SELECT DISTINCT dog_name FROM dog_events LOOP
@@ -115,7 +116,8 @@ BEGIN
       OFFSET max_per_dog
     )
     DELETE FROM dog_events WHERE id IN (SELECT id FROM excess);
-    GET DIAGNOSTICS deleted_count = deleted_count + ROW_COUNT;
+    GET DIAGNOSTICS rows_affected = ROW_COUNT;
+    deleted_count := deleted_count + rows_affected;
   END LOOP;
   RETURN deleted_count;
 END;
