@@ -9,6 +9,24 @@
 
 'use strict';
 
+// C5.1: HUMAN × PERCEIVE
+export {
+  HumanPerceiver,
+  PerceptionSignal,
+  EnergyLevel,
+  getHumanPerceiver,
+  resetHumanPerceiver,
+} from './human-perceiver.js';
+
+// C5.2: HUMAN × JUDGE
+export {
+  HumanJudge,
+  HumanVerdict,
+  JudgmentDomain,
+  getHumanJudge,
+  resetHumanJudge,
+} from './human-judge.js';
+
 // C5.3: HUMAN × DECIDE
 export {
   HumanAdvisor,
@@ -17,6 +35,15 @@ export {
   getHumanAdvisor,
   resetHumanAdvisor,
 } from './human-advisor.js';
+
+// C5.4: HUMAN × ACT
+export {
+  HumanActor,
+  ActionType,
+  ActionStatus,
+  getHumanActor,
+  resetHumanActor,
+} from './human-actor.js';
 
 // C5.5: HUMAN × LEARN
 export {
