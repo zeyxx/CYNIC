@@ -8,6 +8,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "node scripts/hooks/platform-compat.js || true",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "node scripts/hooks/awaken.js || true",
             "timeout": 15
           }
