@@ -483,19 +483,27 @@ async function main() {
       input = fs.readFileSync(0, 'utf8');
       logger.debug('Sync read', { bytes: input.length });
     } catch (syncErr) {
-      logger.debug('Sync failed, trying async', { error: syncErr.message });
-      // Sync failed, try async read (works with Claude Code's pipe)
-      input = await new Promise((resolve) => {
-        let data = '';
-        process.stdin.setEncoding('utf8');
-        process.stdin.on('data', chunk => { data += chunk; });
-        process.stdin.on('end', () => resolve(data));
-        process.stdin.on('error', () => resolve(''));
-        process.stdin.resume();
-        // Timeout to prevent hanging
-        setTimeout(() => resolve(data), 3000);
-      });
-      if (process.env.CYNIC_DEBUG) console.error('[PERCEIVE] Async read:', input.length, 'bytes');
+      logger.debug('Sync failed', { error: syncErr.message });
+    }
+
+    // If sync read got nothing, try async (race condition on Windows:
+    // readFileSync(0) returns '' instead of throwing when pipe data hasn't arrived yet)
+    if (!input || input.trim().length === 0) {
+      try {
+        input = await new Promise((resolve) => {
+          let data = '';
+          process.stdin.setEncoding('utf8');
+          process.stdin.on('data', chunk => { data += chunk; });
+          process.stdin.on('end', () => resolve(data));
+          process.stdin.on('error', () => resolve(''));
+          process.stdin.resume();
+          // Timeout to prevent hanging
+          setTimeout(() => resolve(data), 3000);
+        });
+        logger.debug('Async fallback', { bytes: input.length });
+      } catch (asyncErr) {
+        logger.debug('Async read failed', { error: asyncErr.message });
+      }
     }
 
     if (!input || input.trim().length === 0) {
