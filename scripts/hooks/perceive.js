@@ -349,7 +349,7 @@ function generateLearningContext(prompt, profile) {
 // "La distance entre le chaos et le réel"
 // =============================================================================
 
-function calculateCYNICDistance({ brainThought, patterns, routing, tierDecision, emergentCount }) {
+function calculateCYNICDistance({ brainThought, patterns, routing, tierDecision, emergentCount, localSignals }) {
   // 7 layers mapped to the universal weight template (harmonized-structure.md §3):
   //   FOUND(φ)  GEN(φ⁻¹)  POWER(1.0)  PIVOT(φ)  EXPR(φ⁻²)  VISION(φ⁻¹)  RECUR(φ⁻¹)
   //   percep    judgment   memory      consensus economics   phi          residual
@@ -357,17 +357,22 @@ function calculateCYNICDistance({ brainThought, patterns, routing, tierDecision,
   // Each delta measures whether that LAYER ACTIVELY SHAPED the response.
   // Binary (0/1) = "did this layer fire?" not "how well did it fire?"
   // Quality comes from the framing directive, not from D itself.
+  //
+  // LOCAL FALLBACKS: When brain MCP is unavailable, local analysis
+  // (intent detection, philosophy modules, temporal/error perception)
+  // can satisfy deltas. D must be calculable without remote calls.
 
   const conf = brainThought?.confidence || 0;
+  const local = localSignals || {};
 
   const deltas = [
-    brainThought !== null ? 1 : 0,                          // δ_perception  (FOUNDATION: is it grounded?)
-    brainThought?.verdict ? 1 : 0,                           // δ_judgment    (GENERATION: does it flow?)
+    (brainThought !== null || local.intentDetected) ? 1 : 0, // δ_perception  (FOUNDATION: grounded — brain OR local intent)
+    (brainThought?.verdict || local.injectionsProduced) ? 1 : 0, // δ_judgment (GENERATION: flows — brain verdict OR local injections)
     (patterns?.patterns?.length || 0) > 0 ? 1 : 0,          // δ_memory      (POWER: does it transform?)
     routing?.suggestedAgent ? 1 : 0,                         // δ_consensus   (PIVOT: is it balanced?)
     tierDecision?.reason !== 'default' ? 1 : 0,              // δ_economics   (EXPRESSION: meaningful routing, not fallback)
-    brainThought !== null && conf > PHI_INV_2                // δ_phi         (VISION: φ-bounded AND meaningful)
-      && conf <= PHI_INV ? 1 : 0,
+    (brainThought !== null && conf > PHI_INV_2               // δ_phi         (VISION: φ-bounded AND meaningful)
+      && conf <= PHI_INV) || local.phiBounded ? 1 : 0,
     (emergentCount || 0) > 0 ? 1 : 0,                       // δ_residual    (RECURSION: points beyond?)
   ];
   const weights = [PHI, PHI_INV, 1.0, PHI, PHI_INV_2, PHI_INV, PHI_INV];
@@ -473,6 +478,27 @@ function safeOutput(data) {
 
 async function main() {
   logger.start();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DEADLINE: Force output before Claude Code's 10s timeout kills the process
+  // Local work finishes in <1s, MCP calls can take 20s+. Output what we have.
+  // ═══════════════════════════════════════════════════════════════════════════
+  let outputSent = false;
+  const DEADLINE_MS = 7000; // 7s — leaves 3s margin before 10s timeout
+  const deadlineTimer = setTimeout(() => {
+    if (!outputSent) {
+      outputSent = true;
+      logger.debug('Deadline hit — flushing partial result');
+      safeOutput(pendingOutput || { continue: true });
+      process.exit(0);
+    }
+  }, DEADLINE_MS);
+  // Don't let the timer keep the process alive if we finish early
+  deadlineTimer.unref();
+
+  // pendingOutput accumulates results — deadline flushes whatever we have
+  let pendingOutput = { continue: true };
+
   try {
     // Read stdin - try sync first, fall back to async
     const fs = await import('fs');
@@ -507,6 +533,7 @@ async function main() {
     }
 
     if (!input || input.trim().length === 0) {
+      outputSent = true;
       safeOutput({ continue: true });
       return;
     }
@@ -516,6 +543,7 @@ async function main() {
 
     // Short prompts don't need context injection
     if (prompt.length < DC.LENGTH.MIN_PROMPT) {
+      outputSent = true;
       safeOutput({ continue: true });
       return;
     }
@@ -714,6 +742,14 @@ async function main() {
         content: prompt.slice(0, 500),  // Truncate for storage
         intents: intentsPreview.map(i => i.intent),
       });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECKPOINT: Update pendingOutput with local-only results before MCP calls
+    // If deadline fires during brain/MCP calls, this is what gets flushed
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (injections.length > 0) {
+      pendingOutput = { continue: true, message: injections.join('\n\n') };
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1387,6 +1423,11 @@ async function main() {
         routing,
         tierDecision,
         emergentCount: emergentPatternCount,
+        localSignals: {
+          intentDetected: intents.length > 0 || skillTriggers.length > 0,
+          injectionsProduced: injections.length > 0,
+          phiBounded: injections.length > 0, // local analysis → φ-bounded by design
+        },
       });
 
       framingDirective = generateFramingDirective(
@@ -1496,7 +1537,28 @@ async function main() {
       timestamp: Date.now(),
     });
 
-    // Output result
+    // Update pendingOutput with full results (brain + local + D)
+    pendingOutput = injections.length > 0
+      ? { continue: true, message: injections.join('\n\n') }
+      : { continue: true };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ALWAYS SHOW D: Compact status line even when dormant
+    // "Le chien montre toujours son état"
+    // ═══════════════════════════════════════════════════════════════════════════
+    const dPct = Math.round(cynicDistance.distance * 100);
+    const activeCount = Object.values(cynicDistance.breakdown).filter(v => v).length;
+    const dCompact = `D=${dPct}% (${activeCount}/7) ${cynicDistance.level}`;
+
+    // If no framing directive but D > 0, add compact D line
+    if (!framingDirective && dPct > 0) {
+      injections.push(`*sniff* ${dCompact}`);
+    }
+
+    // Output result — mark as sent so deadline doesn't double-output
+    if (outputSent) return; // deadline already flushed
+    outputSent = true;
+
     if (injections.length === 0) {
       safeOutput({ continue: true });
     } else {
@@ -1509,7 +1571,10 @@ async function main() {
   } catch (error) {
     // Log error for debugging, but don't block
     logger.error('Hook failed', { error: error.message });
-    safeOutput({ continue: true });
+    if (!outputSent) {
+      outputSent = true;
+      safeOutput({ continue: true });
+    }
   }
 }
 
