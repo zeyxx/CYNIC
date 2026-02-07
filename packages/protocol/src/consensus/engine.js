@@ -389,6 +389,7 @@ export class ConsensusEngine extends EventEmitter {
         vote,
         receivedSlot: this.currentSlot,
       });
+      console.log(`[Consensus] Vote pending: block=${blockHash?.slice(0, 16)} voter=${vote.voter?.slice(0, 16)} from=${fromPeer?.slice(0, 16)} slot=${this.currentSlot} blocks=${this.blocks.size}`);
       return;
     }
 
@@ -913,6 +914,11 @@ export class ConsensusEngine extends EventEmitter {
 
       // Evict votes that are too old (block never arrived)
       if (this.currentSlot - receivedSlot > this.pendingVoteMaxAge) {
+        if (expired < 3) { // Log first 3 evictions for diagnostics
+          const bh = (vote.block_hash || vote.proposal_id || '???').slice(0, 16);
+          const vt = (vote.voter || '???').slice(0, 16);
+          console.warn(`[Consensus] Evicting vote: block=${bh} voter=${vt} age=${this.currentSlot - receivedSlot} slots`);
+        }
         expired++;
         continue;
       }
@@ -929,7 +935,9 @@ export class ConsensusEngine extends EventEmitter {
     }
 
     if (expired > 0) {
-      console.warn(`[Consensus] Evicted ${expired} pending votes (block never received)`);
+      // Gather eviction diagnostics from the votes we just skipped
+      const evictedSample = this.pendingVotes.length > 0 ? null : undefined; // pending list is already rebuilt
+      console.warn(`[Consensus] Evicted ${expired} pending votes (block never received), stillPending=${stillPending.length}, blocks=${this.blocks.size}, slot=${this.currentSlot}`);
     }
 
     this.pendingVotes = stillPending;
