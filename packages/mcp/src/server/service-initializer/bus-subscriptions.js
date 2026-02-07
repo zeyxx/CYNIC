@@ -69,6 +69,12 @@ export function setupBusSubscriptions(services) {
     .map(s => s.trim())
     .filter(Boolean);
 
+  if (networkNodes.length > 0) {
+    log.info('Judgment forwarding enabled', { nodes: networkNodes });
+  } else {
+    log.warn('Judgment forwarding DISABLED — CYNIC_NETWORK_NODES not set');
+  }
+
   subscriptions.push(
     globalEventBus.subscribe(EventType.JUDGMENT_CREATED, (event) => {
       const { qScore, verdict, dimensions } = event.payload || {};
@@ -104,11 +110,11 @@ export function setupBusSubscriptions(services) {
             signal: AbortSignal.timeout(5000),
           })
             .then(r => {
-              if (r.ok) log.debug('Judgment forwarded to network', { node: nodeUrl, id: event.id });
+              if (r.ok) log.info('Judgment forwarded to network', { node: nodeUrl, id: event.id, qScore });
               else log.warn('Judgment forward failed', { node: nodeUrl, status: r.status });
             })
             .catch(err => {
-              log.trace('Judgment forward unreachable', { node: nodeUrl, error: err.message });
+              log.warn('Judgment forward unreachable', { node: nodeUrl, error: err.message });
             });
           break; // One node is enough — gossip propagates to the rest
         }
