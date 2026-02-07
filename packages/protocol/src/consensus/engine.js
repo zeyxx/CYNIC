@@ -606,12 +606,14 @@ export class ConsensusEngine extends EventEmitter {
       }
     }
 
-    // Update our finalized slot if peer is ahead
-    // Guard: don't adopt a latestSlot that's ahead of our currentSlot.
-    // This prevents stale sync data from a previous deployment epoch from
-    // corrupting consensus (blocks would be rejected as "too old").
+    // Update our finalized slot if peer is ahead.
+    // Guard: calculate a fresh slot from current time (not this.currentSlot
+    // which may lag behind if the slot timer hasn't fired yet). Reject any
+    // latestSlot that's ahead of what the current time says — this is stale
+    // data from a previous deployment epoch.
     if (latestSlot > this.lastFinalizedSlot) {
-      if (this.currentSlot === 0 || latestSlot <= this.currentSlot) {
+      const freshSlot = this._calculateSlot(Date.now());
+      if (freshSlot > 0 && latestSlot <= freshSlot) {
         this.lastFinalizedSlot = latestSlot;
       }
     }
