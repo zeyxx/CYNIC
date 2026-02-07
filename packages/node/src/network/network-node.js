@@ -293,6 +293,14 @@ export class CYNICNetworkNode extends EventEmitter {
       this._wireDiscoveryEvents();
       this._discovery.start();
 
+      // Register self in ValidatorManager BEFORE consensus starts (which also
+      // registers self in ConsensusEngine). This keeps VM and consensus in sync
+      // so that validator counts match and self isn't a phantom in consensus.
+      this._validatorManager.addValidator({
+        publicKey: this._publicKey,
+        eScore: this._eScore,
+      });
+
       this._consensus.start({ eScore: this._eScore });
       this._blockProducer.start();
       this._startPeriodicTasks();
@@ -580,10 +588,14 @@ export class CYNICNetworkNode extends EventEmitter {
       case 'BLOCK_REQUEST':
         return this._stateSyncManager.handleBlockRequest(message, senderPeerId);
       case 'VALIDATOR_UPDATE':
+        // Route through ValidatorManager (not directly to consensus) so that
+        // checkInactiveValidators() can track and clean up these validators.
+        // Direct consensus registration creates shadow validators invisible
+        // to the inactivity cleanup — same class of bug as baf5088.
         return this._stateSyncManager.handleValidatorUpdate(
           message,
-          (v) => this._consensus?.registerValidator(v),
-          (pk) => this._consensus?.removeValidator(pk),
+          (v) => this._validatorManager.addValidator(v),
+          (pk) => this._validatorManager.removeValidator(pk),
         );
       case 'FORK_RESOLUTION_REQUEST':
         return this._stateSyncManager.handleForkResolutionRequest(

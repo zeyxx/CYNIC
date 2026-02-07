@@ -283,6 +283,9 @@ export class ValidatorManager extends EventEmitter {
     const timeout = this._config.inactivityTimeout;
 
     for (const [publicKey, validator] of this._validators) {
+      // Never evict self — self doesn't send heartbeats to itself
+      if (publicKey === this._selfPublicKey) continue;
+
       if (validator.status === 'active' && now - validator.lastSeen > timeout) {
         validator.status = 'inactive';
         validator.uptime *= 0.9;
