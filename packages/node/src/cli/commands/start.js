@@ -327,7 +327,7 @@ export async function startCommand(options) {
       const wallet = loadWalletFromEnv('CYNIC_SOLANA_KEY');
       if (wallet) {
         node.setAnchoringWallet(wallet);
-        const pubkey = wallet.publicKey?.toBase58?.() || 'loaded';
+        const pubkey = wallet.publicKey || 'loaded';
         console.log(chalk.green('  [SOL]  ') + `Wallet loaded: ${chalk.cyan(pubkey)}`);
       }
     } catch (err) {
