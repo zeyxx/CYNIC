@@ -220,10 +220,15 @@ export class SolanaAnchoringManager extends EventEmitter {
    * @returns {string|null}
    */
   resolveMerkleRoot(block) {
-    for (const key of ['judgments_root', 'judgmentsRoot', 'merkleRoot', 'hash']) {
+    const ZERO_ROOT = '0'.repeat(64);
+    // Prefer real merkle root (non-zero = block has judgments)
+    for (const key of ['judgments_root', 'judgmentsRoot', 'merkleRoot']) {
       const val = block[key];
-      if (val && /^[a-f0-9]{64}$/i.test(val)) return val;
+      if (val && /^[a-f0-9]{64}$/i.test(val) && val !== ZERO_ROOT) return val;
     }
+    // Fall back to block hash (always unique per slot)
+    const hash = block.hash || block.block_hash;
+    if (hash && /^[a-f0-9]{64}$/i.test(hash)) return hash;
     return null;
   }
 
