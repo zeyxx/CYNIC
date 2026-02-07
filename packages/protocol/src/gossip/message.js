@@ -123,10 +123,10 @@ export function shouldRelay(message) {
     return false;
   }
 
-  // Don't relay control messages
-  if (message.type === MessageType.HEARTBEAT) {
-    return false;
-  }
+  // Heartbeats ARE relayed (TTL=2 allows one-hop relay through hub nodes).
+  // In star topologies, leaf nodes only connect to the seed. Without relay,
+  // validators learned via VALIDATOR_UPDATE never receive heartbeats from
+  // non-directly-connected peers and go stale after inactivityTimeout.
 
   return true;
 }
