@@ -135,8 +135,23 @@ export function createEScoreProvider({ selfPublicKey }) {
    * @param {string} publicKey - Remote validator's public key
    * @param {number} score - E-Score reported in heartbeat
    */
-  function updateRemoteScore(publicKey, score) {
-    _remoteScores.set(publicKey, { score, updatedAt: Date.now() });
+  function updateRemoteScore(publicKey, score, dimensions) {
+    _remoteScores.set(publicKey, { score, dimensions: dimensions || null, updatedAt: Date.now() });
+  }
+
+  /**
+   * Get remote validator's score with 7D breakdown (if available)
+   *
+   * @param {string} publicKey - Remote validator's public key
+   * @returns {{ score: number, dimensions: Object|null }|null}
+   */
+  function getRemoteBreakdown(publicKey) {
+    const cached = _remoteScores.get(publicKey);
+    if (!cached || Date.now() - cached.updatedAt > REMOTE_SCORE_TTL) {
+      _remoteScores.delete(publicKey);
+      return null;
+    }
+    return { score: cached.score, dimensions: cached.dimensions };
   }
 
   /**
@@ -152,5 +167,5 @@ export function createEScoreProvider({ selfPublicKey }) {
     log.info('EScore provider destroyed');
   }
 
-  return { provider, calculator: calc, destroy, updateRemoteScore };
+  return { provider, calculator: calc, destroy, updateRemoteScore, getRemoteBreakdown };
 }

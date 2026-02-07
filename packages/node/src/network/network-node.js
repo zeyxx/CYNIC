@@ -451,7 +451,8 @@ export class CYNICNetworkNode extends EventEmitter {
     // Create a proper gossip message with payload in standard format
     const payload = {
       nodeId: this._publicKey.slice(0, 32),
-      eScore: this._eScore,
+      eScore: this._eScoreProviderInstance?.calculator?.calculate()?.score ?? this._eScore,
+      eScoreDimensions: this._eScoreProviderInstance?.calculator?.calculate()?.breakdown ?? null,
       slot: this._consensus?.currentSlot || 0,
       finalizedSlot: this._consensus?.lastFinalizedSlot || 0,
       finalizedHash: this._consensus?.lastFinalizedHash || null,
@@ -512,6 +513,14 @@ export class CYNICNetworkNode extends EventEmitter {
 
   /** @private */
   _updateValidatorSet() {
+    // Refresh own E-Score from live calculator (piggybacked on 21s validator check)
+    if (this._eScoreProviderInstance?.calculator) {
+      const liveScore = this._eScoreProviderInstance.calculator.calculate().score;
+      if (Math.abs(liveScore - this._eScore) > 0.5) {
+        this.setEScore(liveScore);
+      }
+    }
+
     this._validatorManager.checkInactiveValidators();
 
     const connectedPeers = this._transport?.getConnectedPeers() || [];
@@ -618,7 +627,7 @@ export class CYNICNetworkNode extends EventEmitter {
     // Heartbeat data is in message.payload (standard gossip format)
     // or at top-level for backwards compatibility
     const data = message.payload || message;
-    const { eScore, finalizedSlot, finalizedHash, slot, state, recentHashes, nodeId } = data;
+    const { eScore, eScoreDimensions, finalizedSlot, finalizedHash, slot, state, recentHashes, nodeId } = data;
 
     this._stateSyncManager.updatePeer(peerId, { finalizedSlot, finalizedHash, slot, state, eScore });
     this._validatorManager.updateValidatorActivity(peerId);
@@ -629,7 +638,23 @@ export class CYNICNetworkNode extends EventEmitter {
 
     // Update remote E-Score in provider cache (for cross-node sharing)
     if (eScore !== undefined && this._eScoreProviderInstance?.updateRemoteScore) {
-      this._eScoreProviderInstance.updateRemoteScore(peerId, eScore);
+      this._eScoreProviderInstance.updateRemoteScore(peerId, eScore, eScoreDimensions || null);
+    }
+
+    // Cross-validate RUN dimension against observed uptime (advisory only)
+    if (eScoreDimensions?.run !== undefined) {
+      const validator = this._validatorManager.getValidator(peerId);
+      if (validator && (Date.now() - validator.joinedAt) > 60000) {
+        const observedUptime = validator.uptime;
+        const reportedRun = eScoreDimensions.run / 100;
+        if (Math.abs(reportedRun - observedUptime) > 0.3) {
+          log.warn('E-Score RUN discrepancy', {
+            peer: peerId.slice(0, 16),
+            reportedRun: eScoreDimensions.run,
+            observedUptime: Math.round(observedUptime * 100),
+          });
+        }
+      }
     }
 
     if (recentHashes && recentHashes.length > 0) {

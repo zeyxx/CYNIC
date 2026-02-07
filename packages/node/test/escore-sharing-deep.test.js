@@ -98,6 +98,40 @@ describe('E-Score Cross-Node Sharing', () => {
       assert.equal(typeof esp.updateRemoteScore, 'function');
     });
   });
+
+  // ═══════════════════════════════════════════════════════════
+  // 7D Dimension Sharing
+  // ═══════════════════════════════════════════════════════════
+
+  describe('7D dimension sharing', () => {
+    it('updateRemoteScore stores dimensions', () => {
+      const dims = { burn: 10, build: 20, judge: 30, run: 80, social: 0, graph: 0, hold: 0 };
+      esp.updateRemoteScore(REMOTE_KEY_A, 65, dims);
+
+      const result = esp.getRemoteBreakdown(REMOTE_KEY_A);
+      assert.ok(result);
+      assert.equal(result.score, 65);
+      assert.deepEqual(result.dimensions, dims);
+    });
+
+    it('getRemoteBreakdown returns null for unknown key', () => {
+      const result = esp.getRemoteBreakdown('unknown-key-does-not-exist-0000');
+      assert.equal(result, null);
+    });
+
+    it('updateRemoteScore without dimensions stores null', () => {
+      esp.updateRemoteScore(REMOTE_KEY_B, 55);
+
+      const result = esp.getRemoteBreakdown(REMOTE_KEY_B);
+      assert.ok(result);
+      assert.equal(result.score, 55);
+      assert.equal(result.dimensions, null);
+    });
+
+    it('exposes getRemoteBreakdown in return object', () => {
+      assert.equal(typeof esp.getRemoteBreakdown, 'function');
+    });
+  });
 });
 
 describe('Heartbeat → E-Score Provider Wiring', () => {
@@ -149,6 +183,56 @@ describe('Heartbeat → E-Score Provider Wiring', () => {
     // Now the provider should return the cached remote score
     const score = mockProvider.provider(REMOTE_KEY_A);
     assert.equal(score, 72);
+  });
+
+  it('heartbeat with eScoreDimensions passes them to provider', async () => {
+    const dims = { burn: 5, build: 15, judge: 40, run: 90, social: 0, graph: 0, hold: 0 };
+    const heartbeatMsg = {
+      type: 'HEARTBEAT',
+      payload: {
+        nodeId: REMOTE_KEY_A.slice(0, 32),
+        eScore: 68,
+        eScoreDimensions: dims,
+        slot: 200,
+        finalizedSlot: 199,
+        finalizedHash: 'def456',
+        recentHashes: [],
+        state: 'PARTICIPATING',
+        timestamp: Date.now(),
+      },
+      sender: REMOTE_KEY_A,
+    };
+
+    await node._handleMessage(heartbeatMsg, REMOTE_KEY_A);
+
+    const breakdown = mockProvider.getRemoteBreakdown(REMOTE_KEY_A);
+    assert.ok(breakdown);
+    assert.equal(breakdown.score, 68);
+    assert.deepEqual(breakdown.dimensions, dims);
+  });
+
+  it('heartbeat without eScoreDimensions stores null dimensions', async () => {
+    const heartbeatMsg = {
+      type: 'HEARTBEAT',
+      payload: {
+        nodeId: REMOTE_KEY_A.slice(0, 32),
+        eScore: 55,
+        slot: 300,
+        finalizedSlot: 299,
+        finalizedHash: 'ghi789',
+        recentHashes: [],
+        state: 'PARTICIPATING',
+        timestamp: Date.now(),
+      },
+      sender: REMOTE_KEY_A,
+    };
+
+    await node._handleMessage(heartbeatMsg, REMOTE_KEY_A);
+
+    const breakdown = mockProvider.getRemoteBreakdown(REMOTE_KEY_A);
+    assert.ok(breakdown);
+    assert.equal(breakdown.score, 55);
+    assert.equal(breakdown.dimensions, null);
   });
 
   it('heartbeat without eScore does not crash', async () => {
