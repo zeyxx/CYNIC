@@ -157,12 +157,9 @@ function writeLog(entry) {
 
   const output = config.json ? formatJson(entry) : formatText(entry);
 
-  // Use stderr for warnings and above, stdout for info/debug
-  if (entry.level >= LogLevel.WARN) {
-    console.error(output);
-  } else {
-    console.log(output);
-  }
+  // ALL log output goes to stderr to keep stdout clean for structured data
+  // (hooks, MCP tools, and CLI commands emit JSON on stdout)
+  console.error(output);
 }
 
 /**
