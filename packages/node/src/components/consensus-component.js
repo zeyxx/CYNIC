@@ -19,6 +19,7 @@ import {
   BlockStatus,
   ConsensusGossip,
   createJudgmentBlock,
+  SLOT_DURATION_MS,
 } from '@cynic/protocol';
 
 const log = createLogger('ConsensusComponent');
@@ -55,12 +56,17 @@ export class ConsensusComponent extends EventEmitter {
     this._privateKey = options.privateKey;
 
     // Initialize consensus engine
+    // CRITICAL: slotDuration MUST match BlockProducer's SlotManager (400ms)
+    // to keep slot numbers in the same space. Without this, ConsensusEngine uses
+    // SLOT_MS (61.8ms) while BlockProducer uses SLOT_DURATION_MS (400ms), causing
+    // _pruneStaleBlocks() to prune ALL blocks (cutoff in 61.8ms space >> block slots in 400ms space).
     this._consensus = new ConsensusEngine({
       publicKey: options.publicKey,
       privateKey: options.privateKey,
       eScore: options.eScore,
       burned: options.burned || 0,
       confirmationsForFinality: this._config.confirmationsForFinality,
+      slotDuration: SLOT_DURATION_MS,
     });
 
     // Initialize consensus-gossip bridge (if gossip provided)
