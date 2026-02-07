@@ -260,8 +260,19 @@ export class ValidatorManager extends EventEmitter {
     const validator = this._validators.get(publicKey);
     if (!validator) return;
 
+    const wasInactive = validator.status === 'inactive';
     validator.lastSeen = Date.now();
     validator.status = 'active';
+
+    // Re-register with consensus engine if returning from inactive
+    if (wasInactive) {
+      this._syncToConsensus?.({
+        publicKey,
+        eScore: validator.eScore,
+        burned: validator.burned,
+        uptime: validator.uptime,
+      });
+    }
   }
 
   /**
@@ -275,6 +286,12 @@ export class ValidatorManager extends EventEmitter {
       if (validator.status === 'active' && now - validator.lastSeen > timeout) {
         validator.status = 'inactive';
         validator.uptime *= 0.9;
+
+        // Remove from consensus engine weight calculation.
+        // Without this, phantom validators (briefly-connected peers) dilute
+        // totalWeight and prevent real voters from reaching 61.8% supermajority.
+        // Will be re-added on next heartbeat via updateValidatorActivity().
+        this._removeFromConsensus?.(publicKey);
 
         log.info('Validator marked inactive', {
           publicKey: publicKey.slice(0, 16),
