@@ -271,7 +271,13 @@ export class MCPServer {
     this._jsonRpcHandler = new JsonRpcHandler({ server: this });
 
     if (this.mode === 'http') {
-      await this._startHttpServer();
+      try {
+        await this._startHttpServer();
+      } catch (err) {
+        this._running = false;
+        console.error(`HTTP server startup failed: ${err.message}`);
+        throw err;
+      }
     } else {
       this._startStdioServer();
     }

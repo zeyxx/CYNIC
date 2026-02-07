@@ -11,7 +11,7 @@
 
 'use strict';
 
-import { saveCollectiveState } from '@cynic/node';
+import { saveCollectiveState, getQLearningServiceSingleton } from '@cynic/node';
 
 const SHUTDOWN_TIMEOUT_MS = 10000;
 
@@ -129,6 +129,27 @@ export class ShutdownManager {
         await s.traceStorage.stop();
         const stats = s.traceStorage.stats;
         console.error(`   Tracing stopped (${stats.spansStored} spans stored, ${stats.flushCount} flushes)`);
+      }
+    });
+
+    // Flush Q-Learning routing weights to PostgreSQL
+    await this._safeStop('QLearning', async () => {
+      try {
+        const qService = getQLearningServiceSingleton();
+        if (qService?.flush) {
+          await qService.flush();
+          console.error('   Q-Learning state flushed');
+        }
+      } catch (_) {
+        // Q-Learning may not be initialized — non-fatal
+      }
+    });
+
+    // Save ResidualDetector state (dimension candidates + discoveries)
+    await this._safeStop('ResidualDetector', async () => {
+      if (s.residualDetector?.save) {
+        const saved = await s.residualDetector.save();
+        if (saved) console.error('   ResidualDetector state saved');
       }
     });
 

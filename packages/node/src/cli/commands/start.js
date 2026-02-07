@@ -15,8 +15,11 @@ import fs from 'fs';
 import readline from 'readline';
 import chalk from 'chalk';
 import { generateKeypair, hashBlock } from '@cynic/protocol';
-import { PHI_INV } from '@cynic/core';
+import { PHI_INV, globalEventBus, EventType, createLogger } from '@cynic/core';
 import { CYNICNetworkNode } from '../../network/network-node.js';
+import { BlockStore } from '../../network/block-store.js';
+
+const log = createLogger('StartCommand');
 
 /**
  * Format bytes to human readable
@@ -238,6 +241,7 @@ export async function startCommand(options) {
   };
 
   // Create CYNICNetworkNode — replaces manual transport/gossip/consensus creation
+  const anchoringEnabled = options.anchor || process.env.CYNIC_ANCHORING_ENABLED === 'true';
   node = new CYNICNetworkNode({
     publicKey: keypair.publicKey,
     privateKey: keypair.privateKey,
@@ -246,9 +250,90 @@ export async function startCommand(options) {
     httpHandler,
     seedNodes: peerAddresses.map(a => a.startsWith('ws') ? a : `wss://${a}`),
     eScore: 50,
-    anchoringEnabled: options.anchor || false,
+    anchoringEnabled,
     anchorInterval: options.anchorInterval ? parseInt(options.anchorInterval) : undefined,
+    solanaCluster: process.env.SOLANA_CLUSTER || 'devnet',
+    dryRun: process.env.CYNIC_ANCHORING_DRY_RUN === 'true',
   });
+
+  // ─── PERSISTENCE: Wire BlockStore for finalized block storage ────────────
+  let blockStore = null;
+  const dbUrl = process.env.CYNIC_DATABASE_URL || process.env.DATABASE_URL;
+  if (dbUrl) {
+    try {
+      const pg = await import('pg');
+      const pool = new pg.default.Pool({
+        connectionString: dbUrl,
+        ssl: dbUrl.includes('render.com') ? { rejectUnauthorized: false } : undefined,
+        max: 5,
+        idleTimeoutMillis: 30000,
+      });
+      blockStore = new BlockStore({ pool });
+
+      // Wire for state sync (getBlocks/storeBlock)
+      node.wireBlockStore(blockStore.callbacks());
+      // Wire for anchoring retry sweeps
+      node.wireAnchoringStore(blockStore);
+
+      // Subscribe to BLOCK_FINALIZED → persist to PostgreSQL
+      globalEventBus.subscribe(EventType.BLOCK_FINALIZED, async (event) => {
+        const { blockHash, slot, block } = event.payload || event;
+        if (slot === undefined) return;
+        try {
+          await blockStore.storeBlock({
+            slot,
+            hash: blockHash || block?.hash,
+            proposer: block?.proposer,
+            merkle_root: block?.merkle_root || block?.judgments_root,
+            judgments: block?.judgments || [],
+            judgment_count: block?.judgment_count || block?.judgments?.length || 0,
+            prev_hash: block?.prev_hash,
+            timestamp: block?.timestamp || Date.now(),
+          });
+        } catch (err) {
+          log.warn('Block persistence failed', { slot, error: err.message });
+        }
+      });
+
+      // Subscribe to BLOCK_ANCHORED → persist anchor record
+      globalEventBus.subscribe(EventType.BLOCK_ANCHORED, async (event) => {
+        const { slot, signature, merkleRoot, cluster } = event.payload || event;
+        if (slot === undefined) return;
+        try {
+          await blockStore.storeAnchor({
+            slot,
+            txSignature: signature,
+            status: 'confirmed',
+            merkleRoot,
+            cluster,
+          });
+        } catch (err) {
+          log.warn('Anchor persistence failed', { slot, error: err.message });
+        }
+      });
+
+      console.log(chalk.green('  [DB]   ') + 'BlockStore wired to PostgreSQL');
+    } catch (err) {
+      console.log(chalk.yellow('  [DB]   ') + `PostgreSQL unavailable: ${err.message} (blocks stored in memory)`);
+    }
+  } else {
+    console.log(chalk.gray('  [DB]   ') + 'No DATABASE_URL — blocks stored in memory only');
+  }
+
+  // ─── SOLANA WALLET: Load for production anchoring ────────────────────────
+  if (anchoringEnabled && process.env.CYNIC_SOLANA_KEY) {
+    try {
+      const { loadWalletFromEnv } = await import('@cynic/anchor');
+      const wallet = loadWalletFromEnv('CYNIC_SOLANA_KEY');
+      if (wallet) {
+        node.setAnchoringWallet(wallet);
+        const pubkey = wallet.publicKey?.toBase58?.()?.slice(0, 16) || 'loaded';
+        console.log(chalk.green('  [SOL]  ') + `Wallet loaded: ${chalk.cyan(pubkey)}...`);
+      }
+    } catch (err) {
+      console.log(chalk.yellow('  [SOL]  ') + `Wallet not loaded: ${err.message}`);
+    }
+  }
 
   // Wire event logging
   node.on('peer:connected', ({ peerId, publicKey, address }) => {
@@ -480,11 +565,13 @@ export async function startCommand(options) {
   process.on('SIGINT', async () => {
     console.log(chalk.yellow('\n  Received SIGINT, shutting down...'));
     await node.stop();
+    if (blockStore?._pool) await blockStore._pool.end().catch(() => {});
     process.exit(0);
   });
 
   process.on('SIGTERM', async () => {
     await node.stop();
+    if (blockStore?._pool) await blockStore._pool.end().catch(() => {});
     process.exit(0);
   });
 }

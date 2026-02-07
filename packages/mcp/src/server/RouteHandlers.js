@@ -133,6 +133,21 @@ export class RouteHandlers {
       checks.anchoring = { status: 'unhealthy', error: err.message };
     }
 
+    // Check Collective (Dogs + SharedMemory readiness)
+    try {
+      checks.collective = {
+        status: s._collectiveReady ? 'healthy' : 'initializing',
+        dogsReady: (s.collectivePack?.agents?.length || 0) > 0,
+        dogCount: s.collectivePack?.agents?.length || 0,
+        patternsLoaded: s.sharedMemory?.patterns?.length || 0,
+      };
+      if (!s._collectiveReady) {
+        overallHealthy = false;
+      }
+    } catch (err) {
+      checks.collective = { status: 'unhealthy', error: err.message };
+    }
+
     const statusCode = overallHealthy ? 200 : 503;
     HttpAdapter.sendJson(res, statusCode, {
       status: overallHealthy ? 'healthy' : 'unhealthy',
