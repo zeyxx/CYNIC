@@ -165,7 +165,7 @@ export async function getNetworkNodeAsync(options = {}) {
         if (wallet) {
           node.setAnchoringWallet(wallet);
           log.info('Solana wallet loaded for production anchoring', {
-            pubkey: wallet.publicKey?.toBase58?.()?.slice(0, 16) || 'loaded',
+            pubkey: wallet.publicKey?.slice(0, 16) || 'loaded',
           });
         }
       } catch (err) {

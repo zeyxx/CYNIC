@@ -248,11 +248,10 @@ export class SolanaAnchoringManager extends EventEmitter {
       try {
         const result = await this._anchorer.anchor(merkleRoot, []);
         if (result.success) {
-          log.info('Anchor TX path', {
+          log.debug('Anchor TX path', {
             simulated: !!result.simulated,
             hasWallet: !!this._anchorer.wallet,
             walletPub: this._anchorer.wallet?.publicKey?.slice?.(0, 16) || 'none',
-            sigFull: result.signature?.slice(0, 44),
           });
           return {
             success: true,

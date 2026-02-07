@@ -46,10 +46,6 @@ import cynic, {
   getDialectic,
   getInferenceEngine,
   getPhysicsBridge,
-  getHumanAdvisor,
-  getHumanLearning,
-  getHumanAccountant,
-  getHumanEmergence,
 } from '../lib/index.js';
 
 // Phase 22: Session state and feedback/suggestion engines
@@ -1486,9 +1482,9 @@ async function main() {
     // SYMBIOSIS LAYER (C5.*): Human wellbeing analysis
     // "Le chien protège son humain" — proactive care and intervention
     // ═══════════════════════════════════════════════════════════════════════════
-    const humanAdvisor = getHumanAdvisor();
-    const humanAccountant = getHumanAccountant();
-    const humanLearning = getHumanLearning();
+    const humanAdvisor = null; // TODO: implement getHumanAdvisor in lib
+    const humanAccountant = null;
+    const humanLearning = null;
 
     if (humanAdvisor && psychology) {
       try {
