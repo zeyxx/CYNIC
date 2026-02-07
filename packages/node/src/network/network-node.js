@@ -643,9 +643,8 @@ export class CYNICNetworkNode extends EventEmitter {
     const data = message.payload || message;
     const { eScore, eScoreDimensions, finalizedSlot, finalizedHash, slot, state, recentHashes, nodeId } = data;
 
-    // Guard: skip malformed heartbeats (missing essential fields)
+    // Guard: skip heartbeats without network payload (e.g. stale transport pings)
     if (eScore === undefined && nodeId === undefined) {
-      log.warn('Malformed heartbeat (no eScore or nodeId)', { from: peerId?.slice(0, 16) });
       return;
     }
 

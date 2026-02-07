@@ -22,7 +22,7 @@ import { createServer as createHttpsServer } from 'https';
 import { readFileSync } from 'fs';
 import { serialize, deserialize } from './serializer.js';
 import { PHI, PHI_INV, secureId } from '@cynic/core';
-import { createHeartbeat, signData, verifySignature } from '@cynic/protocol';
+import { signData, verifySignature } from '@cynic/protocol';
 
 /**
  * Connection state
@@ -414,6 +414,13 @@ export class WebSocketTransport extends EventEmitter {
         return;
       }
 
+      // Transport-level keepalive — update connection liveness, don't propagate
+      if (message.type === 'PING') {
+        const conn = this.connections.get(peerId);
+        if (conn) conn.lastSeen = Date.now();
+        return;
+      }
+
       this.emit('message', { message, peerId });
     } catch (err) {
       this.emit('message:error', { peerId, error: err, raw: dataStr.slice(0, 100) });
@@ -786,16 +793,14 @@ export class WebSocketTransport extends EventEmitter {
    * @private
    */
   _sendHeartbeats() {
-    // SECURITY: Only include timestamp for liveness checks
-    // Removed uptime and connection count to prevent fingerprinting
-    const heartbeat = createHeartbeat(
-      {
-        timestamp: Date.now(),
-      },
-      this.publicKey
-    );
-
-    const data = serialize(heartbeat);
+    // Transport-level keepalive. Uses type PING (not HEARTBEAT) to avoid
+    // leaking into the gossip/network layer where HEARTBEAT carries full
+    // validator payload (eScore, nodeId, slot, etc.).
+    const data = serialize({
+      type: 'PING',
+      sender: this.publicKey,
+      timestamp: Date.now(),
+    });
 
     for (const conn of this.connections.values()) {
       if (conn.state === ConnectionState.CONNECTED && conn.ws?.readyState === WebSocket.OPEN) {
