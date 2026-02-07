@@ -607,8 +607,13 @@ export class ConsensusEngine extends EventEmitter {
     }
 
     // Update our finalized slot if peer is ahead
+    // Guard: don't adopt a latestSlot that's ahead of our currentSlot.
+    // This prevents stale sync data from a previous deployment epoch from
+    // corrupting consensus (blocks would be rejected as "too old").
     if (latestSlot > this.lastFinalizedSlot) {
-      this.lastFinalizedSlot = latestSlot;
+      if (this.currentSlot === 0 || latestSlot <= this.currentSlot) {
+        this.lastFinalizedSlot = latestSlot;
+      }
     }
 
     return {
@@ -672,6 +677,15 @@ export class ConsensusEngine extends EventEmitter {
 
     if (this.currentSlot <= previousSlot) return;
 
+    // Detect stale lastFinalizedSlot (e.g. from syncing with a previous deployment epoch)
+    // If lastFinalizedSlot is ahead of currentSlot, it's stale data — reset to 0
+    // so that receiveBlock() stops rejecting valid peer blocks and pruning works correctly.
+    if (this.lastFinalizedSlot > this.currentSlot && this.currentSlot > 0) {
+      console.warn(`[Consensus] Stale lastFinalizedSlot detected: ${this.lastFinalizedSlot} > currentSlot ${this.currentSlot}, resetting`);
+      this.lastFinalizedSlot = 0;
+      this.lastFinalizedBlock = null;
+    }
+
     this.stats.slotsProcessed++;
 
     // Process pending votes
@@ -686,6 +700,11 @@ export class ConsensusEngine extends EventEmitter {
     // Prune old lockouts
     if (this.currentSlot % 100 === 0) {
       this.lockoutManager.prune(this.currentSlot);
+    }
+
+    // Periodic pruning of stale blocks (bounds memory even without finalization)
+    if (this.currentSlot % 50 === 0) {
+      this._pruneStaleBlocks();
     }
 
     this.emit('slot:change', {
@@ -1041,6 +1060,45 @@ export class ConsensusEngine extends EventEmitter {
         prunedBlocks: pruned,
         cutoffSlot,
         remainingBlocks: this.blocks.size,
+      });
+    }
+  }
+
+  /**
+   * Prune stale non-finalized blocks to bound memory.
+   * Uses currentSlot as reference (not lastFinalizedSlot which may be stale).
+   * Called periodically from _onSlotChange regardless of finalization progress.
+   * @private
+   */
+  _pruneStaleBlocks() {
+    const cutoff = this.currentSlot - this.maxBlockHistory;
+    if (cutoff <= 0) return;
+
+    let pruned = 0;
+
+    for (const [hash, record] of this.blocks) {
+      if (record.slot < cutoff && record.status !== BlockStatus.FINALIZED) {
+        this.blocks.delete(hash);
+        this.votes.delete(hash);
+        pruned++;
+      }
+    }
+
+    // Clean slot indices
+    for (const slot of this.slotBlocks.keys()) {
+      if (slot < cutoff) this.slotBlocks.delete(slot);
+    }
+    for (const slot of this.slotProposals.keys()) {
+      if (slot < cutoff) this.slotProposals.delete(slot);
+    }
+
+    if (pruned > 0) {
+      this.emit('consensus:pruned', {
+        event: 'consensus:pruned',
+        prunedBlocks: pruned,
+        cutoffSlot: cutoff,
+        remainingBlocks: this.blocks.size,
+        source: 'periodic',
       });
     }
   }
