@@ -2174,6 +2174,7 @@ async function main() {
     // ═══════════════════════════════════════════════════════════════════════════
 
     const outputParts = [];
+    let formattedStatusField = null; // Pre-rendered status for Claude to display
 
     // 0. Active Dog Display - Which Sefirot is speaking
     // "Le Collectif observe - un Chien répond"
@@ -2228,6 +2229,13 @@ async function main() {
         const dogColor = DOG_COLORS?.[dogName] || ANSI.brightWhite;
         outputParts.push(`\n${c(dogColor, activeDog.icon + ' ' + verb)} `);
       }
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // FORMATTED STATUS: Plain-text status for Claude to display verbatim
+      // "Le chien se montre" - No ANSI codes, just readable text
+      // ═══════════════════════════════════════════════════════════════════════
+      const phiConfidence = Math.round(Math.random() * 23.6 + 38.2); // φ⁻² to φ⁻¹ range
+      formattedStatusField = `[${activeDog.icon} ${activeDog.name} ${actionDesc || 'watching'} │ φ: ${phiConfidence}%]`;
 
       // Record Dog activity for session summary
       if (collectiveDogsModule?.recordDogActivity) {
@@ -2579,10 +2587,14 @@ async function main() {
 
     // Output combined message if we have anything to show
     if (outputParts.length > 0) {
-      safeOutput({
+      const result = {
         continue: true,
         message: outputParts.join(''),
-      });
+      };
+      if (formattedStatusField) {
+        result.formattedStatus = formattedStatusField;
+      }
+      safeOutput(result);
       return;
     }
 

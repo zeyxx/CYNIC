@@ -480,6 +480,26 @@ async function main() {
     if (shouldBlock) {
       output.blockReason = issues.filter(i => i.action === 'block').map(i => i.message).join('; ');
 
+      // Pre-rendered GROWL box for Claude to display verbatim
+      const blockIssues = issues.filter(i => i.action === 'block');
+      const warnIssues = issues.filter(i => i.action === 'warn');
+      const dangerDesc = blockIssues.map(i => i.message).join('\n│ ');
+      const impactLine = `Tool: ${toolName}${filePath ? `, File: ${filePath}` : ''}${command ? `, Cmd: ${command.slice(0, 60)}` : ''}`;
+      const recommendation = warnIssues.length > 0
+        ? `Fix ${blockIssues.length} critical issue(s) and review ${warnIssues.length} warning(s)`
+        : `Fix ${blockIssues.length} critical issue(s) before proceeding`;
+
+      output.formattedWarning = [
+        '┌─────────────────────────────────────────────────────────┐',
+        '│ *GROWL* 🛡️ GUARDIAN WARNING                             │',
+        '├─────────────────────────────────────────────────────────┤',
+        `│ ${dangerDesc}`,
+        '│',
+        `│ Impact: ${impactLine}`,
+        `│ Recommendation: ${recommendation}`,
+        '└─────────────────────────────────────────────────────────┘',
+      ].join('\n');
+
       // Update profile stats
       const profile = loadUserProfile(user.userId);
       updateUserProfile(profile, { stats: { dangerBlocked: (profile.stats?.dangerBlocked || 0) + 1 } });

@@ -200,6 +200,111 @@ function safeOutput(data) {
 }
 
 /**
+ * Build a pre-rendered Markdown banner for Claude to display verbatim.
+ * This eliminates the need for Claude to parse JSON and construct the TUI.
+ *
+ * @param {Object} output - The full session start output object
+ * @returns {string} Ready-to-display Markdown banner
+ */
+function buildFormattedBanner(output) {
+  const lines = [];
+
+  lines.push('═══════════════════════════════════════════════════════════');
+  lines.push('🧠 CYNIC AWAKENING - "Loyal to truth, not to comfort"');
+  lines.push('═══════════════════════════════════════════════════════════');
+  lines.push('');
+
+  // Welcome back message
+  if (output.welcomeBack?.formatted) {
+    lines.push(output.welcomeBack.formatted);
+  } else {
+    lines.push(`*tail wag* ${output.user?.name || 'Humain'}. Ready when you are.`);
+  }
+  lines.push('');
+
+  // Project
+  if (output.project) {
+    lines.push(`── CURRENT PROJECT ────────────────────────────────────────`);
+    lines.push(`   ${output.project.name} [${output.project.type}] on ${output.project.branch}`);
+    lines.push('');
+  }
+
+  // Ecosystem
+  if (output.ecosystem?.length > 0) {
+    lines.push(`── ECOSYSTEM ──────────────────────────────────────────────`);
+    for (const repo of output.ecosystem) {
+      const icon = repo.status === 'ok' ? '✅' : repo.status === 'warning' ? '⚠️' : '🔴';
+      const current = repo.isCurrent ? ' ← here' : '';
+      lines.push(`   ${icon} ${repo.name} [${repo.branch}]${current}`);
+    }
+    lines.push('');
+  }
+
+  // Psychology state
+  if (output.psychology) {
+    const psy = output.psychology;
+    lines.push(`── ÉTAT ───────────────────────────────────────────────────`);
+    lines.push(`   ${psy.emoji} ${psy.state}`);
+    lines.push(`   énergie: [${psy.energy.bar}] ${psy.energy.value}% ${psy.energy.arrow}`);
+    lines.push(`   focus:   [${psy.focus.bar}] ${psy.focus.value}% ${psy.focus.arrow}`);
+    if (psy.composites?.flow) lines.push('   ✨ Flow state - don\'t interrupt!');
+    if (psy.burnoutWarning) lines.push(`   ${psy.burnoutWarning}`);
+    lines.push('');
+  }
+
+  // Thermodynamics
+  if (output.thermodynamics) {
+    const thermo = output.thermodynamics;
+    lines.push(`── THERMODYNAMICS ─────────────────────────────────────────`);
+    lines.push(`   Q (heat): ${thermo.heat}  W (work): ${thermo.work}`);
+    lines.push(`   Temperature: [${thermo.temperatureBar}] ${Math.round(thermo.temperature)}°`);
+    lines.push(`   Efficiency:  [${thermo.efficiencyBar}] ${Math.round(thermo.efficiency)}% (φ max: 62%)`);
+    lines.push('');
+  }
+
+  // Goals
+  if (output.goals?.length > 0) {
+    lines.push(`── 🎯 ACTIVE GOALS ────────────────────────────────────────`);
+    for (const goal of output.goals) {
+      lines.push(`   [${goal.progressBar || progressBar(goal.progress)}] ${goal.progress}% ${goal.title}`);
+    }
+    lines.push('');
+  }
+
+  // Memory restored
+  if (output.memoryRestored?.count > 0) {
+    lines.push(`── 🧠 MEMORY ──────────────────────────────────────────────`);
+    lines.push(`   ${output.memoryRestored.message}`);
+    for (const detail of output.memoryRestored.details || []) {
+      lines.push(`   └─ ${detail}`);
+    }
+    lines.push('');
+  }
+
+  // Dog tree
+  lines.push(`── COLLECTIVE DOGS (Sefirot) ──────────────────────────────`);
+  lines.push(`            🧠 CYNIC (Keter)`);
+  lines.push(`       ╱         │         ╲`);
+  lines.push(` 📊 Analyst  📚 Scholar  🦉 Sage`);
+  lines.push(`       ╲         │         ╱`);
+  lines.push(` 🛡️ Guardian 🔮 Oracle  🏗️ Architect`);
+  lines.push(`       ╲         │         ╱`);
+  lines.push(` 🚀 Deployer 🧹 Janitor 🔍 Scout`);
+  lines.push(`            ╲    │    ╱`);
+  lines.push(`          🗺️ Cartographer`);
+  lines.push('');
+
+  // Boot status
+  const bootMsg = output.boot?.degraded
+    ? `🟡 CYNIC booted in SAFE mode (${output.boot.totalDuration}ms)`
+    : `🧠 CYNIC is AWAKE. φ guides all ratios. (${output.boot?.totalDuration || '?'}ms)`;
+  lines.push(bootMsg);
+  lines.push('═══════════════════════════════════════════════════════════');
+
+  return lines.join('\n');
+}
+
+/**
  * Main handler for SessionStart - CYNIC OS Boot Sequence
  */
 async function main() {
@@ -1797,6 +1902,12 @@ async function main() {
       : `✅ CYNIC fully booted (${output.boot.totalDuration}ms)`;
 
     bootSequence.exitPhase(BOOT_PHASES.READY, true);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PRE-RENDERED BANNER (MANDATORY DISPLAY)
+    // "Le chien se montre" - Claude just displays this, no parsing needed
+    // ═══════════════════════════════════════════════════════════════════════════
+    output.formattedBanner = buildFormattedBanner(output);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // OUTPUT JSON
