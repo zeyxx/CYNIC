@@ -66,6 +66,11 @@ import {
 // Direct brain tool calls for implicit activation
 import { callBrainTool } from '../lib/index.js';
 
+// φ constants for Distance calculation (local to avoid coupling with brain-bridge)
+const PHI = 1.618033988749895;
+const PHI_INV = 0.618033988749895;
+const PHI_INV_2 = 0.381966011250105;
+
 // PlanningGate Integration: Meta-cognition layer
 import { getPlanningGate, PlanningDecision } from '@cynic/node/orchestration';
 
@@ -335,6 +340,116 @@ function generateLearningContext(prompt, profile) {
   } else if (style === 'concise') {
     lines.push('*nod* Brief explanation incoming, as you prefer.');
   }
+
+  return lines.join('\n');
+}
+
+// =============================================================================
+// CYNIC DISTANCE (D) - Measurement functions
+// "La distance entre le chaos et le réel"
+// =============================================================================
+
+function calculateCYNICDistance({ brainThought, patterns, routing, tierDecision, emergentCount }) {
+  // 7 layers mapped to the universal weight template (harmonized-structure.md §3):
+  //   FOUND(φ)  GEN(φ⁻¹)  POWER(1.0)  PIVOT(φ)  EXPR(φ⁻²)  VISION(φ⁻¹)  RECUR(φ⁻¹)
+  //   percep    judgment   memory      consensus economics   phi          residual
+  //
+  // Each delta measures whether that LAYER ACTIVELY SHAPED the response.
+  // Binary (0/1) = "did this layer fire?" not "how well did it fire?"
+  // Quality comes from the framing directive, not from D itself.
+
+  const conf = brainThought?.confidence || 0;
+
+  const deltas = [
+    brainThought !== null ? 1 : 0,                          // δ_perception  (FOUNDATION: is it grounded?)
+    brainThought?.verdict ? 1 : 0,                           // δ_judgment    (GENERATION: does it flow?)
+    (patterns?.patterns?.length || 0) > 0 ? 1 : 0,          // δ_memory      (POWER: does it transform?)
+    routing?.suggestedAgent ? 1 : 0,                         // δ_consensus   (PIVOT: is it balanced?)
+    tierDecision?.reason !== 'default' ? 1 : 0,              // δ_economics   (EXPRESSION: meaningful routing, not fallback)
+    brainThought !== null && conf > PHI_INV_2                // δ_phi         (VISION: φ-bounded AND meaningful)
+      && conf <= PHI_INV ? 1 : 0,
+    (emergentCount || 0) > 0 ? 1 : 0,                       // δ_residual    (RECURSION: points beyond?)
+  ];
+  const weights = [PHI, PHI_INV, 1.0, PHI, PHI_INV_2, PHI_INV, PHI_INV];
+  const names = ['perception', 'judgment', 'memory', 'consensus', 'economics', 'phi', 'residual'];
+
+  let num = 0, den = 0;
+  const breakdown = {};
+  for (let i = 0; i < 7; i++) {
+    num += weights[i] * deltas[i];
+    den += weights[i];
+    breakdown[names[i]] = deltas[i];
+  }
+
+  const distance = den > 0 ? Math.min(num / den, PHI_INV) : 0; // cap at φ⁻¹
+  const level = distance >= PHI_INV_2 ? (distance >= 0.5 ? 'active' : 'awake') : 'dormant';
+  return { distance, level, breakdown };
+}
+
+function generateFramingDirective(D, brainThought, routing, patterns, promptType, profile) {
+  // Only frame when CYNIC is awake (D >= φ⁻² = 38.2%)
+  if (D.distance < PHI_INV_2) return null;
+
+  const lines = [];
+  lines.push('── \u{1F9E0} CYNIC FRAME ────────────────────────────────────────');
+
+  // Distance bar
+  const pct = Math.round(D.distance * 100);
+  const filled = Math.round((D.distance / PHI_INV) * 10);
+  const bar = '\u2588'.repeat(Math.min(filled, 10)) + '\u2591'.repeat(10 - Math.min(filled, 10));
+  lines.push(`   D = ${pct}% [${bar}] ${D.level}`);
+
+  // Show which axioms are active (map 7 deltas → 5 axioms)
+  // perception→CULTURE, judgment→PHI, memory→CULTURE, consensus→VERIFY,
+  // economics→BURN, phi→PHI, residual→FIDELITY
+  const b = D.breakdown;
+  const axiomActive = {
+    PHI: b.judgment || b.phi,
+    VERIFY: b.consensus,
+    CULTURE: b.perception || b.memory,
+    BURN: b.economics,
+    FIDELITY: b.residual,
+  };
+  const activeAxioms = Object.entries(axiomActive).filter(([, v]) => v).map(([k]) => k);
+  if (activeAxioms.length > 0) {
+    lines.push(`   Axioms: ${activeAxioms.join(' \u00d7 ')} (${activeAxioms.length}/5)`);
+  }
+
+  // Lead Dog
+  const dog = routing?.suggestedAgent
+    ? (collectiveDogs?.getDogForAgent(routing.suggestedAgent) || { icon: '\uD83D\uDC15', name: routing.suggestedAgent })
+    : null;
+  if (dog) {
+    const MODES = {
+      'Keter': 'orchestrate', 'Chokmah': 'perceive', 'Binah': 'analyze',
+      'Chesed': 'build', 'Gevurah': 'protect', 'Tiferet': 'harmonize',
+      'Netzach': 'explore', 'Hod': 'deploy', 'Yesod': 'connect', 'Malkhut': 'map',
+    };
+    lines.push(`   Lead: ${dog.icon} ${dog.name} (${dog.sefirah || '?'}) \u2014 ${MODES[dog.sefirah] || 'analyze'} mode`);
+  }
+
+  // Frame: approach directive (maps to dominant axiom)
+  const FRAMES = {
+    security: 'VERIFY: Trust nothing. Prove everything.',
+    architecture: 'PHI: Design before code. Proportion governs.',
+    decision: 'FIDELITY: Skeptical analysis. Question assumptions.',
+    debug: 'VERIFY: Root cause first. No band-aids.',
+    code: 'BURN: Simple, correct, tested.',
+    knowledge: 'CULTURE: Teach to understand, not to impress.',
+  };
+  lines.push(`   Frame: ${FRAMES[promptType] || 'FIDELITY: Direct and honest. Truth over comfort.'}`);
+
+  // Top memory pattern
+  const topPattern = patterns?.patterns?.[0];
+  if (topPattern) {
+    const desc = (topPattern.description || '').slice(0, 60);
+    lines.push(`   Memory: "${desc}" (${topPattern.count || 1}x)`);
+  }
+
+  // Depth
+  const sessions = profile?.stats?.sessions || 0;
+  const isComplex = ['architecture', 'decision', 'security'].includes(promptType);
+  lines.push(`   Depth: ${isComplex ? 'Deep' : 'Moderate'} | User: ${sessions > 10 ? 'experienced' : 'learning'}`);
 
   return lines.join('\n');
 }
@@ -1070,11 +1185,13 @@ async function main() {
     // SYMMETRY BREAKING: Dynamic Dog Personality Emergence
     // "Πάντα ῥεῖ - from unified field to distinct Dogs"
     // ═══════════════════════════════════════════════════════════════════════════
+    let emergentPatternCount = 0;
     if (physicsBridge && prompt.length > DC.LENGTH.MIN_PROMPT) {
       try {
         const dogResult = physicsBridge.processDogEmergence(prompt);
 
         if (dogResult.broken && dogResult.greeting) {
+          emergentPatternCount++;
           // A Dog has emerged! Include its greeting in the response
           injections.push(`── DOG EMERGED ────────────────────────────────────────────
    ${dogResult.greeting}
@@ -1248,6 +1365,36 @@ async function main() {
       }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CYNIC DISTANCE (D): Measure how much CYNIC shaped vs. raw LLM
+    // "La distance entre le chaos et le réel"
+    // ═══════════════════════════════════════════════════════════════════════════
+    let cynicDistance = { distance: 0, level: 'dormant', breakdown: {} };
+    let framingDirective = null;
+
+    try {
+      cynicDistance = calculateCYNICDistance({
+        brainThought,
+        patterns,
+        routing,
+        tierDecision,
+        emergentCount: emergentPatternCount,
+      });
+
+      framingDirective = generateFramingDirective(
+        cynicDistance, brainThought, routing, patterns,
+        detectPromptType(prompt), profile
+      );
+
+      logger.debug('CYNIC Distance', {
+        D: Math.round(cynicDistance.distance * 100) + '%',
+        level: cynicDistance.level,
+        breakdown: cynicDistance.breakdown,
+      });
+    } catch (e) {
+      logger.debug('D calculation failed', { error: e.message });
+    }
+
     for (const { action } of intents) {
       let context = null;
 
@@ -1281,6 +1428,11 @@ async function main() {
     // If prompt has private content, notify user
     if (hasPrivate) {
       injections.push('*sniff* Private content detected - will NOT be stored in collective memory.');
+    }
+
+    // Framing directive is LAST — LLM sees it last, remembers it most (recency bias)
+    if (framingDirective) {
+      injections.push(framingDirective);
     }
 
     // Send to MCP server (non-blocking) - with sanitized prompt
@@ -1326,6 +1478,12 @@ async function main() {
         pattern: errorState.pattern,
         severity: errorState.severity,
         signals: errorState.signals,
+      },
+      // CYNIC Distance metric
+      cynicDistance: {
+        D: cynicDistance.distance,
+        level: cynicDistance.level,
+        breakdown: cynicDistance.breakdown,
       },
       timestamp: Date.now(),
     });
