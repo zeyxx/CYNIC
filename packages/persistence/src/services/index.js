@@ -100,3 +100,14 @@ export {
 export {
   createResidualStorage,
 } from './residual-storage.js';
+
+
+// Consciousness Metrics: Distance D, Thermodynamics, Consciousness transitions
+export {
+  persistDistance,
+  persistThermodynamics,
+  persistConsciousnessTransition,
+  getDistanceTrend,
+  getEfficiencyTrend,
+  persistDistanceFireAndForget,
+} from './consciousness-metrics.js';

@@ -16,8 +16,9 @@
 
 'use strict';
 
-import { PHI_INV, PHI_INV_2, PHI_INV_3 } from '@cynic/core';
+import { PHI_INV, PHI_INV_2, PHI_INV_3, createLogger, globalEventBus } from '@cynic/core';
 
+const log = createLogger("ConsciousnessMonitor");
 /**
  * Consciousness states
  */
@@ -334,6 +335,7 @@ export class ConsciousnessMonitor {
    * @private
    */
   _updateState() {
+    const previousState = this._state;
     const recentObs = this._getRecentObservations(this.windowSize);
 
     if (recentObs.length < 10) {
@@ -369,6 +371,25 @@ export class ConsciousnessMonitor {
       this._state = ConsciousnessState.AWAKENING;
     } else {
       this._state = ConsciousnessState.DORMANT;
+    }
+
+    // Fix 3: Emit state change event on globalEventBus
+    if (this._state !== previousState) {
+      try {
+        globalEventBus.publish("consciousness:changed", {
+          previousState,
+          newState: this._state,
+          awarenessLevel: this._awarenessLevel,
+          totalObservations: this.metrics.totalObservations,
+        }, { source: "ConsciousnessMonitor" });
+        log.info("Consciousness state changed", {
+          from: previousState,
+          to: this._state,
+          awarenessLevel: this._awarenessLevel,
+        });
+      } catch (e) {
+        // Non-blocking
+      }
     }
 
     this._lastUpdate = Date.now();

@@ -313,6 +313,50 @@ export class RelationshipGraph {
    * Get current structure proposals
    * @returns {Array} Structure proposals
    */
+
+  /**
+   * Get weight between two agents (simplified accessor for router)
+   * D1: Closes learning -> routing feedback loop
+   * @param {string} from - Source agent name
+   * @param {string} to - Target agent name
+   * @returns {number} Weight (-1 to 1), or 0 if not found
+   */
+  getWeight(from, to) {
+    const rel = this.getRelationship(from, to);
+    return rel ? rel.weight : 0;
+  }
+
+  /**
+   * Set weight between two agents (used by router to apply learned weights)
+   * D1: Accepts Q-Learning/DPO/Thompson weights and stores them
+   * @param {string} from - Source agent name
+   * @param {string} to - Target agent name
+   * @param {number} weight - New weight value (-1 to 1)
+   */
+  setWeight(from, to, weight) {
+    let rel = this.getRelationship(from, to);
+
+    if (!rel) {
+      rel = {
+        weight: 0,
+        source: 'learned',
+        interactions: 0,
+        positiveOutcomes: 0,
+        negativeOutcomes: 0,
+        createdAt: Date.now(),
+        lastUpdated: Date.now(),
+      };
+    }
+
+    rel.weight = Math.max(-1, Math.min(1, weight));
+    rel.lastUpdated = Date.now();
+    if (rel.source !== 'sefirot_template') {
+      rel.source = 'learned';
+    }
+
+    this._setRelationship(from, to, rel);
+  }
+
   getStructureProposals() {
     return [...this.structureProposals];
   }

@@ -45,6 +45,8 @@ import { PHI_INV, createLogger, globalEventBus, EventType } from '@cynic/core';
 const log = createLogger('CollectivePack');
 import { AgentEventBus } from '../event-bus.js';
 import { AgentEvent, AgentEventMessage, AgentId, ConsensusVote, EventPriority } from '../events.js';
+// Bridge: automation bus for AmbientConsensus hook event forwarding (Fix #2)
+import { getEventBus, EventType as AutomationEventType } from '../../services/event-bus.js';
 import { ProfileCalculator, ProfileLevel } from '../../profile/calculator.js';
 import { OrganicSignals } from '../../profile/organic-signals.js';
 import { LocalStore } from '../../privacy/local-store.js';
@@ -888,6 +890,25 @@ export class CollectivePack {
       }
     } catch (err) {
       log.warn('globalEventBus publish error', { error: err.message });
+    }
+
+    // Fix #2: Bridge hook events to automation bus for AmbientConsensus
+    // AmbientConsensus subscribes on getEventBus() with automation EventType names
+    try {
+      const automationBus = getEventBus();
+      if (hookType === 'PreToolUse') {
+        automationBus.publish(AutomationEventType.HOOK_PRE_TOOL, {
+          tool: payload.tool, input: payload.input, confidence: payload.confidence || 1.0,
+          userId, sessionId, blocked, blockedBy, timestamp: Date.now(),
+        }, { source: 'CollectivePack' });
+      } else if (hookType === 'PostToolUse') {
+        automationBus.publish(AutomationEventType.HOOK_POST_TOOL, {
+          tool: payload.tool, result: payload.output, success: payload.success !== false,
+          error: payload.error, userId, sessionId, timestamp: Date.now(),
+        }, { source: 'CollectivePack' });
+      }
+    } catch (err) {
+      log.warn('Automation bus bridge error (non-critical)', { error: err.message });
     }
 
     // 🐕 Record dog decisions in graph (for relationship tracking)

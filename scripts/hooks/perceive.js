@@ -1440,6 +1440,53 @@ async function main() {
         level: cynicDistance.level,
         breakdown: cynicDistance.breakdown,
       });
+
+      // Persist D: fire-and-forget to MCP (Migration 033)
+      // "Le chien se souvient de sa distance"
+      try {
+        if (cynicDistance.distance > 0) {
+          const dSessionId = sessionState.isInitialized()
+            ? sessionState.getSessionId() : null;
+          const b = cynicDistance.breakdown;
+          const axiomMap = {
+            PHI: b.judgment || b.phi,
+            VERIFY: b.consensus,
+            CULTURE: b.perception || b.memory,
+            BURN: b.economics,
+            FIDELITY: b.residual,
+          };
+          const activeAxioms = Object.entries(axiomMap)
+            .filter(([, v]) => v).map(([k]) => k);
+          // Use direct PostgreSQL if DATABASE_URL available (no MCP dependency)
+          const dbUrl = process.env.DATABASE_URL || process.env.CYNIC_DATABASE_URL;
+          if (dbUrl) {
+            import('@cynic/persistence').then(({ persistDistanceFireAndForget }) => {
+              persistDistanceFireAndForget(dbUrl, dSessionId, {
+                distance: cynicDistance.distance,
+                level: cynicDistance.level,
+                breakdown: cynicDistance.breakdown,
+                activeAxioms,
+                leadDog: routing?.suggestedAgent || null,
+                source: brainThought !== null ? 'brain' : 'local',
+              });
+            }).catch(() => {});
+          } else {
+            // Fallback: try MCP if no DATABASE_URL
+            callBrainTool('brain_persist_distance', {
+              sessionId: dSessionId,
+              distance: cynicDistance.distance,
+              level: cynicDistance.level,
+              breakdown: cynicDistance.breakdown,
+              activeAxioms,
+              leadDog: routing?.suggestedAgent || null,
+              source: brainThought !== null ? 'brain' : 'local',
+            }).catch(() => {});
+          }
+          logger.debug('D persisted (fire-and-forget)');
+        }
+      } catch (e) {
+        logger.debug('D persistence skipped', { error: e.message });
+      }
     } catch (e) {
       logger.debug('D calculation failed', { error: e.message });
     }

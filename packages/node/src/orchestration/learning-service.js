@@ -512,11 +512,13 @@ export class QLearningService {
    * @returns {Object} Dog weights { dogName: weight }
    */
   getRecommendedWeights(features) {
+    // D1: Fall back to current episode features or empty array
+    const resolvedFeatures = features || this.currentEpisode?.features || [];
     const weights = {};
     const actions = this._getAllActions();
 
     for (const action of actions) {
-      const q = this.qTable.get(features, action);
+      const q = this.qTable.get(resolvedFeatures, action);
       // Normalize Q-value to 0-1 weight (sigmoid-like)
       weights[action] = 1 / (1 + Math.exp(-q));
     }

@@ -22,30 +22,31 @@ const log = createLogger('EventBus');
  */
 export const EventType = {
   // Lifecycle events
-  COMPONENT_READY: 'component:ready',
-  COMPONENT_STOPPED: 'component:stopped',
+  /** @unused */ COMPONENT_READY: 'component:ready',
+  /** @unused */ COMPONENT_STOPPED: 'component:stopped',
   COMPONENT_ERROR: 'component:error',
 
   // Judgment events
-  JUDGMENT_REQUESTED: 'judgment:requested',
+  /** @unused */ JUDGMENT_REQUESTED: 'judgment:requested',
   JUDGMENT_CREATED: 'judgment:created',
-  JUDGMENT_UPDATED: 'judgment:updated',
+  /** @unused */ JUDGMENT_UPDATED: 'judgment:updated',
 
   // Engine events
-  ENGINE_REGISTERED: 'engine:registered',
+  /** @unused */ ENGINE_REGISTERED: 'engine:registered',
   ENGINE_CONSULTED: 'engine:consulted',
-  ENGINE_RESULT: 'engine:result',
+  /** @unused */ ENGINE_RESULT: 'engine:result',
 
   // Pattern events
   PATTERN_DETECTED: 'pattern:detected',
-  PATTERN_LEARNED: 'pattern:learned',
+  /** @unused */ PATTERN_LEARNED: 'pattern:learned',
   ANOMALY_DETECTED: 'anomaly:detected',
   DIMENSION_CANDIDATE: 'dimension:candidate',
+  CONSCIOUSNESS_CHANGED: 'consciousness:changed',
 
   // Memory events
-  MEMORY_STORED: 'memory:stored',
-  MEMORY_RETRIEVED: 'memory:retrieved',
-  INSIGHT_CREATED: 'insight:created',
+  /** @unused */ MEMORY_STORED: 'memory:stored',
+  /** @unused */ MEMORY_RETRIEVED: 'memory:retrieved',
+  /** @unused */ INSIGHT_CREATED: 'insight:created',
 
   // User events
   USER_ACTION: 'user:action',
@@ -56,12 +57,12 @@ export const EventType = {
   // Tool events (from hooks)
   TOOL_CALLED: 'tool:called',
   TOOL_COMPLETED: 'tool:completed',
-  TOOL_FAILED: 'tool:failed',
+  /** @unused */ TOOL_FAILED: 'tool:failed',
 
   // Sync events
-  SYNC_REQUESTED: 'sync:requested',
-  SYNC_COMPLETED: 'sync:completed',
-  STATE_CHANGED: 'state:changed',
+  /** @unused */ SYNC_REQUESTED: 'sync:requested',
+  /** @unused */ SYNC_COMPLETED: 'sync:completed',
+  /** @unused */ STATE_CHANGED: 'state:changed',
 
   // Dog collective events
   CYNIC_STATE: 'cynic:state',
@@ -75,8 +76,8 @@ export const EventType = {
   BLOCK_PROPOSED: 'block:proposed',
   BLOCK_ANCHORED: 'block:anchored',
   METRICS_REPORTED: 'metrics:reported',
-  PEER_CONNECTED: 'peer:connected',
-  PEER_DISCONNECTED: 'peer:disconnected',
+  /** @unused */ PEER_CONNECTED: 'peer:connected',
+  /** @unused */ PEER_DISCONNECTED: 'peer:disconnected',
 };
 
 /**

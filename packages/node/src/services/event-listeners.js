@@ -14,6 +14,9 @@
  * - CONSENSUS_COMPLETED: Now persisted to consensus_votes table (AXE 2+)
  * - DogSignal.*: Now persisted to dog_signals table (AXE 2+)
  * - CYNIC_STATE: Now sampled to collective_snapshots table (AXE 2+)
+ * - THREAT_BLOCKED: Now persisted to dog_signals table (Fix #5)
+ * - QUALITY_REPORT: Now persisted to dog_events table (Fix #5)
+ * - VULNERABILITY_DETECTED: Now persisted to dog_signals table (Fix #5)
  *
  * @module @cynic/node/services/event-listeners
  */
@@ -22,6 +25,10 @@
 
 import { createLogger, globalEventBus, EventType } from '@cynic/core';
 import { DogSignal } from '../agents/collective/ambient-consensus.js';
+import { getEventBus, EventType as AutomationEventType } from './event-bus.js';
+import { AgentEvent } from '../agents/events.js';
+import { getThermodynamicState } from '../organism/thermodynamics.js';
+import { persistThermodynamics, persistConsciousnessTransition } from '@cynic/persistence';
 
 const log = createLogger('EventListeners');
 
@@ -59,6 +66,10 @@ const _stats = {
   dogSignalsFailed: 0,
   snapshotsPersisted: 0,
   snapshotsFailed: 0,
+  thermoPersisted: 0,
+  thermoFailed: 0,
+  consciousnessPersisted: 0,
+  consciousnessFailed: 0,
   blocksFinalizedPersisted: 0,
   blocksFinalizedFailed: 0,
   blocksAnchoredPersisted: 0,
@@ -454,6 +465,44 @@ async function handleCynicState(event, persistence, context) {
     _stats.snapshotsFailed++;
     log.debug('Snapshot persistence failed', { error: err.message });
   }
+
+  // Migration 033: Persist thermodynamic snapshot (piggyback on CYNIC_STATE sampling)
+  try {
+    const thermo = getThermodynamicState();
+    if (thermo && persistence) {
+      const stats = thermo.getStats();
+      const ok = await persistThermodynamics(persistence, context.sessionId, {
+        heat: stats.heat,
+        work: stats.work,
+        temperature: stats.temperature,
+        efficiency: stats.efficiency,
+        entropy: stats.events?.total || 0,
+      });
+      if (ok) _stats.thermoPersisted++;
+      else _stats.thermoFailed++;
+    }
+  } catch (thermoErr) {
+    _stats.thermoFailed++;
+    log.debug('Thermodynamic snapshot persistence failed', { error: thermoErr.message });
+  }
+
+  // Migration 033: Persist consciousness state from collective data
+  try {
+    if (persistence && collective) {
+      const ok = await persistConsciousnessTransition(persistence, context.sessionId, {
+        awarenessLevel: collective.averageHealth || 0,
+        state: collective.healthRating || 'DORMANT',
+        avgConfidence: collective.averageHealth || 0,
+        patternCount: event.payload?.memory?.patternCount || 0,
+        predictionAccuracy: 0,
+      });
+      if (ok) _stats.consciousnessPersisted++;
+      else _stats.consciousnessFailed++;
+    }
+  } catch (consErr) {
+    _stats.consciousnessFailed++;
+    log.debug('Consciousness transition persistence failed', { error: consErr.message });
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -550,6 +599,79 @@ async function handleAnchorFailed(event, blockStore) {
   } catch (err) {
     _stats.anchorFailuresFailed++;
     log.debug('Anchor failure persistence failed', { slot, error: err.message });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DOG SPECIALIST EVENT PERSISTENCE (Fix #5)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Handle THREAT_BLOCKED from AgentEventBus (Guardian dog)
+ * Persists to dog_signals table for security audit trail
+ */
+async function handleThreatBlocked(event, persistence, context) {
+  const { threatType, riskLevel, action, reason } = event.payload || {};
+  try {
+    await withRetry(async () => {
+      await persistence.query(
+        `INSERT INTO dog_signals (signal_type, source_dog, payload, session_id)
+         VALUES ($1, $2, $3, $4)`,
+        ['agent:threat:blocked', event.source || 'guardian',
+         JSON.stringify({ threatType, riskLevel, action, reason }), context.sessionId]
+      );
+    }, 'Persist threat blocked');
+    _stats.dogSignalsPersisted++;
+  } catch (err) {
+    _stats.dogSignalsFailed++;
+    log.debug('Threat blocked persistence failed', { error: err.message });
+  }
+}
+
+/**
+ * Handle QUALITY_REPORT from AgentEventBus (Janitor dog)
+ * Persists to dog_events table for code quality tracking
+ */
+async function handleQualityReport(event, persistence, context) {
+  const { score, issues, suggestions, filesAnalyzed } = event.payload || {};
+  try {
+    await withRetry(async () => {
+      await persistence.query(
+        `INSERT INTO dog_events (dog_name, event_type, stats, health, details, session_id)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        ['janitor', 'quality_report',
+         JSON.stringify({ score, issueCount: (issues || []).length, filesAnalyzed }),
+         score > 70 ? 'healthy' : 'degraded',
+         JSON.stringify({ issues, suggestions }), context.sessionId]
+      );
+    }, 'Persist quality report');
+    _stats.dogEventsPersisted++;
+  } catch (err) {
+    _stats.dogEventsFailed++;
+    log.debug('Quality report persistence failed', { error: err.message });
+  }
+}
+
+/**
+ * Handle VULNERABILITY_DETECTED from AgentEventBus (Scout dog)
+ * Persists to dog_signals table for security tracking
+ */
+async function handleVulnerabilityDetected(event, persistence, context) {
+  const { severity, type, description, file, remediation, cveId } = event.payload || {};
+  try {
+    await withRetry(async () => {
+      await persistence.query(
+        `INSERT INTO dog_signals (signal_type, source_dog, payload, session_id)
+         VALUES ($1, $2, $3, $4)`,
+        ['agent:vulnerability:detected', event.source || 'scout',
+         JSON.stringify({ severity, type, description, file, remediation, cveId }),
+         context.sessionId]
+      );
+    }, 'Persist vulnerability detected');
+    _stats.dogSignalsPersisted++;
+  } catch (err) {
+    _stats.dogSignalsFailed++;
+    log.debug('Vulnerability persistence failed', { error: err.message });
   }
 }
 
@@ -844,6 +966,97 @@ export function startEventListeners(options = {}) {
     );
     _unsubscribers.push(unsubDimCandidate);
     log.info('Dimension governance listener wired (WS6)');
+  }
+
+
+  // Fix #4: Automation Bus Orphan Logging
+  // AutomationExecutor publishes events to getEventBus() with zero subscribers.
+  // Add basic INFO-level logging for production visibility.
+  try {
+    const ab = getEventBus();
+    _unsubscribers.push(ab.subscribe(AutomationEventType.LEARNING_CYCLE_COMPLETE, (event) => {
+      try {
+        const d = event.data || event.payload || {};
+        log.info('Learning cycle completed (automation bus)', { trigger: d.trigger, cycleNumber: d.cycleNumber });
+      } catch (e) { log.debug('Learning cycle log error', { error: e.message }); }
+    }));
+    _unsubscribers.push(ab.subscribe(AutomationEventType.TRIGGER_FIRED, (event) => {
+      try {
+        const d = event.data || event.payload || {};
+        log.info('Trigger fired (automation bus)', { triggerId: d.triggerId, name: d.name });
+      } catch (e) { log.debug('Trigger fired log error', { error: e.message }); }
+    }));
+    _unsubscribers.push(ab.subscribe(AutomationEventType.GOAL_COMPLETED, (event) => {
+      try {
+        const d = event.data || event.payload || {};
+        log.info('Goal completed (automation bus)', { goal: d.goal });
+      } catch (e) { log.debug('Goal completed log error', { error: e.message }); }
+    }));
+    log.info('Automation bus orphan listeners wired (Fix #4)');
+  } catch (err) {
+    log.debug('Automation bus listeners skipped', { error: err.message });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Fix #5: Dog Specialist Events -> Persistence
+  // Subscribe to THREAT_BLOCKED, QUALITY_REPORT, VULNERABILITY_DETECTED on
+  // AgentEventBus. These events are emitted by Guardian, Janitor, and Scout
+  // dogs but had zero persistence subscribers.
+  //
+  // AgentEventBus.subscribe() requires a registered agent, so we register a
+  // lightweight 'event-listeners' agent and subscribe through the formal API.
+  // ─────────────────────────────────────────────────────────────────────────────
+  if (persistence?.query && collectivePack?.eventBus) {
+    try {
+      const agentBus = collectivePack.eventBus;
+
+      // Register a lightweight listener agent if not already registered
+      if (!agentBus.isAgentRegistered('event-listeners')) {
+        agentBus.registerAgent('event-listeners');
+      }
+
+      // THREAT_BLOCKED -> dog_signals
+      const threatSubId = agentBus.subscribe(
+        AgentEvent.THREAT_BLOCKED,
+        'event-listeners',
+        (event) => {
+          handleThreatBlocked(event, persistence, context).catch((err) => {
+            log.debug('Threat blocked handler error', { error: err.message });
+          });
+        }
+      );
+      _unsubscribers.push(() => agentBus.unsubscribe(threatSubId));
+
+      // QUALITY_REPORT -> dog_events
+      const qualitySubId = agentBus.subscribe(
+        AgentEvent.QUALITY_REPORT,
+        'event-listeners',
+        (event) => {
+          handleQualityReport(event, persistence, context).catch((err) => {
+            log.debug('Quality report handler error', { error: err.message });
+          });
+        }
+      );
+      _unsubscribers.push(() => agentBus.unsubscribe(qualitySubId));
+
+      // VULNERABILITY_DETECTED -> dog_signals
+      const vulnSubId = agentBus.subscribe(
+        AgentEvent.VULNERABILITY_DETECTED,
+        'event-listeners',
+        (event) => {
+          handleVulnerabilityDetected(event, persistence, context).catch((err) => {
+            log.debug('Vulnerability handler error', { error: err.message });
+          });
+        }
+      );
+      _unsubscribers.push(() => agentBus.unsubscribe(vulnSubId));
+
+      log.info('Dog specialist event listeners wired (Fix #5)', {
+        events: ['THREAT_BLOCKED', 'QUALITY_REPORT', 'VULNERABILITY_DETECTED'],
+      });
+    } catch (err) {
+      log.debug('Dog specialist listeners skipped', { error: err.message });
+    }
   }
 
   _started = true;

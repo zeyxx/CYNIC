@@ -120,15 +120,15 @@ const instance = createMockFactory();
 
 ## Stats
 
-- **Source files**: 82
+- **Source files**: 83
 - **Test files**: 21
-- **Test ratio**: 26%
+- **Test ratio**: 25%
 - **Exports**: 85 named
 
 ## Dimensions (4 Axioms)
 
 ```
-[███░░░░░░░] 26% φ (Confidence)
+[███░░░░░░░] 25% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
 [██████░░░░] 62% Burn (Simplicity)

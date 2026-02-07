@@ -34,12 +34,18 @@ const INTERVALS = {
   TASKS: 2 * 60 * 1000,        // 2 minutes (Fibonacci) - task queue
   GOALS: 8 * 60 * 1000,        // 8 minutes (Fibonacci) - goal progress
   NOTIFICATIONS: 21 * 60 * 1000, // 21 minutes (Fibonacci) - proactive insights
+  GOVERNANCE: 34 * 60 * 1000,  // 34 minutes (F9 Fibonacci) - dimension governance
 };
 
 /**
  * Minimum feedback samples before auto-learning
  */
 const MIN_FEEDBACK_SAMPLES = 5;
+
+/**
+ * Minimum anomaly samples before governance review
+ */
+const MIN_GOVERNANCE_SAMPLES = 5;
 
 /**
  * Automation Executor
@@ -65,6 +71,10 @@ export class AutomationExecutor {
     this.triggerManager = options.triggerManager;
     this.pool = options.pool;
     this.eventBus = options.eventBus || getEventBus();
+
+    // Dimension governance
+    this.residualGovernance = options.residualGovernance || null;
+    this.collectivePack = options.collectivePack || null;
 
     // Autonomy repos
     this.goalsRepo = options.goalsRepo;
@@ -92,6 +102,8 @@ export class AutomationExecutor {
       tasksProcessed: 0,
       goalsUpdated: 0,
       notificationsGenerated: 0,
+      governanceReviews: 0,
+      governancePromotions: 0,
       errors: 0,
       lastLearningCycle: null,
       lastTriggerEval: null,
@@ -99,6 +111,7 @@ export class AutomationExecutor {
       lastTaskProcess: null,
       lastGoalUpdate: null,
       lastNotificationGen: null,
+      lastGovernanceReview: null,
     };
 
     log.debug('Automation executor created');
@@ -271,6 +284,15 @@ export class AutomationExecutor {
       });
     }, this.intervals.NOTIFICATIONS);
     this._intervalHandles.set('notifications', notificationsHandle);
+
+    // Governance review interval (F9 = 34 min Fibonacci)
+    const governanceHandle = setInterval(() => {
+      this._runGovernanceReview().catch((err) => {
+        this.stats.errors++;
+        log.error('Governance review failed', { error: err.message });
+      });
+    }, this.intervals.GOVERNANCE);
+    this._intervalHandles.set('governance', governanceHandle);
 
     log.debug('Intervals started');
   }
@@ -552,11 +574,20 @@ export class AutomationExecutor {
         log.trace('Event data cleanup skipped', { error: e.message });
       }
 
+      // Migration 033: Cleanup consciousness metrics tables (30-day retention)
+      let consciousnessMetricsCleaned = 0;
+      try {
+        await this.pool.query('SELECT cleanup_consciousness_metrics()');
+        consciousnessMetricsCleaned = 1;
+      } catch (e) {
+        // Function may not exist yet (pre-migration 033)
+      }
+
       this.stats.cleanupRuns++;
       this.stats.lastCleanup = Date.now();
 
-      if (eventsDeleted > 0 || dogEventsDeleted > 0 || snapshotsDeleted > 0) {
-        log.debug('Cleanup completed', { eventsDeleted, dogEventsDeleted, snapshotsDeleted });
+      if (eventsDeleted > 0 || dogEventsDeleted > 0 || snapshotsDeleted > 0 || consciousnessMetricsCleaned > 0) {
+        log.debug('Cleanup completed', { eventsDeleted, dogEventsDeleted, snapshotsDeleted, consciousnessMetricsCleaned });
       }
     } catch (err) {
       this.stats.errors++;
@@ -647,6 +678,10 @@ export class AutomationExecutor {
       case 'analyze_patterns':
         // Would analyze patterns from recent session
         return { success: true, analyzed: true };
+
+      case 'governance_review':
+        const govRes = await this._runGovernanceReview();
+        return { success: true, result: govRes };
 
       default:
         log.warn('Unknown task type', { taskType: task.task_type });
@@ -829,6 +864,53 @@ export class AutomationExecutor {
       log.error('Notification generation failed', { error: err.message });
       throw err;
     }
+  }
+
+  /**
+   * Run dimension governance review
+   * Reviews ResidualDetector candidates via CollectivePack voting
+   * @private
+   */
+  async _runGovernanceReview() {
+    if (!this.residualGovernance) {
+      log.trace("No residual governance configured, skipping review");
+      return null;
+    }
+
+    try {
+      const result = await this.residualGovernance.reviewCandidates();
+
+      this.stats.governanceReviews++;
+      this.stats.lastGovernanceReview = Date.now();
+
+      if (result.promoted > 0) {
+        this.stats.governancePromotions += result.promoted;
+      }
+
+      if (result.reviewed > 0 || result.promoted > 0) {
+        log.info("Governance review completed", {
+          reviewed: result.reviewed,
+          promoted: result.promoted,
+          rejected: result.rejected,
+          skipped: result.skipped,
+          cycleNumber: this.stats.governanceReviews,
+        });
+      }
+
+      return result;
+    } catch (err) {
+      this.stats.errors++;
+      log.error("Governance review failed", { error: err.message });
+      throw err;
+    }
+  }
+
+  /**
+   * Manually trigger a governance review
+   * @returns {Promise<Object>} Review result
+   */
+  async triggerGovernanceReview() {
+    return this._runGovernanceReview();
   }
 
   /**

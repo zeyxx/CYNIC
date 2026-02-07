@@ -25,13 +25,16 @@
 
 'use strict';
 
-import { PHI_INV, PHI_INV_2 } from '@cynic/core';
+import { PHI_INV, PHI_INV_2, PHI_INV_3, createLogger } from '@cynic/core';
+import { ThompsonSampler } from '../learning/thompson-sampler.js';
 import { SEFIROT_TEMPLATE } from '../agents/collective/sefirot.js';
 import { RelationshipGraph } from '../agents/collective/relationship-graph.js';
 import { CONSULTATION_MATRIX, getConsultants, shouldConsult } from '@cynic/core/orchestration';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+
+const log = createLogger("KabbalisticRouter");
 
 // Optional integrations (lazy loaded)
 let LearningService = null;
@@ -97,6 +100,12 @@ const TASK_RISK_LEVELS = {
  * Simplified paths for LOW energy states
  * Fewer agents = less complexity = less cognitive load
  */
+/**
+ * Core dogs available when consciousness < AWARE (soft gate)
+ * Fix 3: Reduced agent set during low consciousness states
+ */
+const LOW_CONSCIOUSNESS_DOGS = ["guardian", "scout", "analyst"];
+
 const LOW_ENERGY_PATHS = {
   design: ['guardian', 'analyst'], // Skip architect (complex decisions)
   deployment: ['guardian', 'deployer'], // Skip architect, janitor (less verification)
@@ -277,6 +286,23 @@ export class KabbalisticRouter {
     this.costOptimizer = costOptimizer;
     this._currentEpisodeId = null;
 
+    // D1: DPO weight cache (loaded from routing_weights table)
+    this._dpoWeights = null;
+    this._dpoWeightsTTL = 5 * 60 * 1000; // 5 minutes
+    this._dpoWeightsLastLoad = 0;
+
+    // D1: Thompson Sampler for exploration
+    this.thompsonSampler = new ThompsonSampler();
+    // Initialize arms for all 11 dogs
+    const dogNames = collectivePack.getAllAgents ? collectivePack.getAllAgents().map(d => d.name || d.id) : Object.keys(SEFIROT_TEMPLATE.mappings);
+    for (const name of dogNames) {
+      this.thompsonSampler.initArm(name);
+    }
+
+    // Fix 3: Consciousness state tracking (soft gate)
+    this._consciousnessState = "AWARE";
+    this._awarenessLevel = 0.5;
+
     // Track consultation history for circuit breaker
     this.consultationHistory = new Map();
 
@@ -395,25 +421,36 @@ export class KabbalisticRouter {
     }
 
     // =======================================================================
-    // Q-LEARNING WEIGHT-BASED PATH OPTIMIZATION (D1: Close feedback loop)
+    // D1: LEARNING-INFORMED PATH OPTIMIZATION (Q + DPO + Thompson)
     // =======================================================================
-    // Reorder path by learned weights (highest first), but keep Guardian
-    // at position 0 for security-first tasks (PreToolUse, security, deployment)
-    if (this.learningService) {
-      const weights = this.getLearnedWeights();
-      if (weights && Object.keys(weights).length > 0) {
+    // Load DPO weights (cached, non-blocking)
+    try { await this.loadDPOWeights(); } catch (err) { /* best-effort */ }
+
+    // D1: Thompson exploration - with phi^-2 (23.6%), let Thompson pick entry
+    let thompsonExplored = false;
+    if (this.shouldExplore() && path.length > 1) {
+      const thompsonPick = this.thompsonSelect(path);
+      if (thompsonPick && thompsonPick !== path[0]) {
+        path = [thompsonPick, ...path.filter(d => d !== thompsonPick)];
+        thompsonExplored = true;
+        log.info("Thompson exploration: promoted " + thompsonPick + " to entry", { taskType });
+      }
+    }
+
+    // D1: Reorder by blended weights (Q + DPO), skip if Thompson explored
+    if (!thompsonExplored) {
+      const blended = this.getBlendedWeights();
+      if (blended && Object.keys(blended).length > 0) {
         const securityFirst = ['PreToolUse', 'security', 'deployment'].includes(taskType);
-        const guardianIdx = path.indexOf('guardian');
 
         path = [...path].sort((a, b) => {
-          // Guardian always first for security tasks
           if (securityFirst) {
             if (a === 'guardian') return -1;
             if (b === 'guardian') return 1;
           }
-          const wA = weights[a] || 0.5;
-          const wB = weights[b] || 0.5;
-          return wB - wA; // Descending: highest weight first
+          const wA = blended[a] || 0.5;
+          const wB = blended[b] || 0.5;
+          return wB - wA;
         });
       }
     }
@@ -466,8 +503,15 @@ export class KabbalisticRouter {
     // 7. End learning episode (if enabled)
     if (this.learningService && this._currentEpisodeId) {
       const reward = this._calculateReward(synthesis, context, durationMs);
-      this.learningService.endEpisode(this._currentEpisodeId, reward);
-      this.applyLearnedWeights(); // D1: Close feedback loop — learned weights flow back to routing
+      // D1: Pass proper outcome object (score in 0-100 scale for _calculateReward)
+      this.learningService.endEpisode({
+        score: (reward + 1) * 50, // Convert [-1,1] → [0,100]
+        success: synthesis.hasConsensus && !context.error,
+        blocked: context.blocked,
+      });
+      this.applyLearnedWeights(); // D1: Close feedback loop
+      // D1: Update Thompson Sampler with routing outcome
+      this.updateThompson(path, synthesis.hasConsensus && !context.error); // D1: learned weights flow back to routing
       this._currentEpisodeId = null;
     }
 
@@ -527,6 +571,13 @@ export class KabbalisticRouter {
         topPair: nonCommutative.topPair,
         reordered: nonCommutative.reordered,
       },
+      // D1: Learning metadata
+      learning: {
+        thompsonExplored,
+        hasDPOWeights: !!(this._dpoWeights && Object.keys(this._dpoWeights).length > 0),
+        hasQLearning: !!this.learningService,
+        thompsonStats: this.thompsonSampler.getStats(),
+      },
       // Timing
       durationMs,
       // Error if any
@@ -576,6 +627,29 @@ export class KabbalisticRouter {
    * @param {Object} [temporalContext] - Temporal awareness context
    * @returns {string[]} Path of agent names
    */
+  /**
+   * Subscribe to consciousness state changes
+   * Fix 3: Soft gate - reduce available dogs when consciousness < AWARE
+   *
+   * @param {Object} eventBus - Event bus to subscribe to
+   */
+  subscribeConsciousness(eventBus) {
+    if (eventBus?.subscribe) {
+      eventBus.subscribe("consciousness:changed", (event) => {
+        try {
+          this._consciousnessState = event.payload?.newState || "AWARE";
+          this._awarenessLevel = event.payload?.awarenessLevel || 0.5;
+          log.info("Consciousness state updated in router", {
+            state: this._consciousnessState,
+            level: this._awarenessLevel,
+          });
+        } catch (e) {
+          // Non-blocking
+        }
+      });
+    }
+  }
+
   getPath(taskType, temporalContext = null) {
     // Hardcoded fallback in case LIGHTNING_PATHS isn't loaded due to circular deps
     const hardcodedDefault = ['guardian', 'analyst', 'oracle'];
@@ -585,6 +659,21 @@ export class KabbalisticRouter {
       const simplifiedPath = LOW_ENERGY_PATHS?.[taskType];
       if (Array.isArray(simplifiedPath)) {
         return simplifiedPath;
+      }
+    }
+
+    // Fix 3: Consciousness soft gate - reduce dogs when consciousness < AWARE
+    if (this._consciousnessState === "DORMANT" || this._consciousnessState === "AWAKENING") {
+      const fullPath = LIGHTNING_PATHS?.[taskType] || LIGHTNING_PATHS?.default || hardcodedDefault;
+      const safePath = Array.isArray(fullPath) ? fullPath : hardcodedDefault;
+      const gatedPath = safePath.filter(dog => LOW_CONSCIOUSNESS_DOGS.includes(dog));
+      if (gatedPath.length > 0) {
+        log.info("Consciousness soft gate active", {
+          state: this._consciousnessState,
+          originalPath: safePath,
+          gatedPath,
+        });
+        return gatedPath;
       }
     }
 
@@ -692,10 +781,9 @@ export class KabbalisticRouter {
 
       const durationMs = Date.now() - startTime;
 
-      // Record action to learning service
+      // Record action to learning service (action = dog name, metadata = details)
       if (this.learningService && this._currentEpisodeId) {
-        this.learningService.recordAction(this._currentEpisodeId, {
-          agent: agentName,
+        this.learningService.recordAction(agentName, {
           response,
           confidence,
           latency: durationMs,
@@ -714,10 +802,9 @@ export class KabbalisticRouter {
     } catch (error) {
       const durationMs = Date.now() - startTime;
 
-      // Record error to learning service
+      // Record error to learning service (action = dog name, metadata = details)
       if (this.learningService && this._currentEpisodeId) {
-        this.learningService.recordAction(this._currentEpisodeId, {
-          agent: agentName,
+        this.learningService.recordAction(agentName, {
           response: 'error',
           confidence: 0,
           latency: durationMs,
@@ -1287,6 +1374,16 @@ export class KabbalisticRouter {
       stats.cost = this.costOptimizer.getStats();
     }
 
+    // D1: Thompson Sampler stats
+    stats.thompson = this.thompsonSampler.getStats();
+
+    // D1: DPO cache status
+    stats.dpoCache = {
+      loaded: !!this._dpoWeights,
+      dogs: this._dpoWeights ? Object.keys(this._dpoWeights).length : 0,
+      age: this._dpoWeightsLastLoad ? Date.now() - this._dpoWeightsLastLoad : null,
+    };
+
     return stats;
   }
 
@@ -1337,6 +1434,90 @@ export class KabbalisticRouter {
     }
 
     return true;
+  }
+
+  // ===========================================================================
+  // D1: DPO WEIGHT CONSUMPTION
+  // ===========================================================================
+
+  async loadDPOWeights() {
+    if (this._dpoWeights && (Date.now() - this._dpoWeightsLastLoad) < this._dpoWeightsTTL) {
+      return this._dpoWeights;
+    }
+    if (!this.persistence || !this.persistence.query) return null;
+    try {
+      const result = await this.persistence.query(
+        'SELECT dog_name, weight, confidence FROM routing_weights WHERE service_id = $1',
+        ['default']
+      );
+      if (result && result.rows && result.rows.length > 0) {
+        const agg = {};
+        for (const row of result.rows) {
+          const dog = (row.dog_name || '').toLowerCase();
+          if (!agg[dog]) agg[dog] = { sum: 0, count: 0 };
+          agg[dog].sum += parseFloat(row.weight) || 0.5;
+          agg[dog].count += 1;
+        }
+        this._dpoWeights = {};
+        for (const [dog, data] of Object.entries(agg)) {
+          this._dpoWeights[dog] = data.count > 0 ? data.sum / data.count : 0.5;
+        }
+        this._dpoWeightsLastLoad = Date.now();
+        log.info('DPO weights loaded', { dogs: Object.keys(this._dpoWeights).length });
+        return this._dpoWeights;
+      }
+    } catch (err) {
+      log.debug('DPO weight load failed (non-blocking)', { error: err.message });
+    }
+    return null;
+  }
+
+  // ===========================================================================
+  // D1: BLENDED WEIGHTS (Q-Learning + DPO + Thompson)
+  // ===========================================================================
+
+  getBlendedWeights() {
+    try {
+      const qWeights = this.getLearnedWeights();
+      const dpoWeights = this._dpoWeights;
+      if (!qWeights && !dpoWeights) return null;
+      const allDogs = ['guardian','analyst','architect','scout','scholar','sage','oracle','janitor','deployer','cartographer','cynic'];
+      const blended = {};
+      for (const dog of allDogs) {
+        const qW = qWeights ? (qWeights[dog] || 0.5) : 0.5;
+        const dpoW = dpoWeights ? (dpoWeights[dog] || 0.5) : 0.5;
+        const learnedAvg = (qW + dpoW) / 2;
+        const existingWeight = this.getAgentWeight(dog);
+        blended[dog] = PHI_INV * existingWeight + PHI_INV_2 * learnedAvg;
+      }
+      return blended;
+    } catch (err) {
+      log.debug('Blended weight calculation failed', { error: err.message });
+      return null;
+    }
+  }
+
+  shouldExplore() {
+    return Math.random() < PHI_INV_3;
+  }
+
+  thompsonSelect(candidates) {
+    if (!candidates || candidates.length === 0) return 'guardian';
+    return this.thompsonSampler.selectArm(candidates) || candidates[0];
+  }
+
+  updateThompson(dogs, success) {
+    try {
+      for (const dog of dogs) {
+        this.thompsonSampler.update(dog, success);
+      }
+    } catch (err) {
+      log.debug('Thompson update failed', { error: err.message });
+    }
+  }
+
+  setPersistence(persistence) {
+    this.persistence = persistence;
   }
 }
 

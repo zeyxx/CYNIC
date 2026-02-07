@@ -73,6 +73,12 @@ export {
   resetUnifiedSignalStore,
 } from './unified-signal.js';
 
+// D1: Thompson Sampler for exploration in routing
+// "Le chien explore avec sagesse" - CYNIC
+export {
+  ThompsonSampler,
+} from './thompson-sampler.js';
+
 // UNIFIED BRIDGE - Connects Judge events to UnifiedSignal
 // "Tous les chemins mènent à l'apprentissage" - κυνικός
 export {

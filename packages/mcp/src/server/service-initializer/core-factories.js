@@ -155,6 +155,9 @@ export async function createAutomationExecutorFactory(services) {
     goalsRepo: services.persistence?.goals,
     tasksRepo: services.persistence?.tasks,
     notificationsRepo: services.persistence?.notifications,
+    // Fix 1: Wire dimension governance to automation
+    residualGovernance: services.residualGovernance || null,
+    collectivePack: services.collectivePack || null,
   });
 
   await automationExecutor.start();
@@ -165,6 +168,7 @@ export async function createAutomationExecutorFactory(services) {
     tasksInterval: '2min',
     goalsInterval: '8min',
     notificationsInterval: '21min',
+    governanceInterval: '34min',
   });
 
   return automationExecutor;

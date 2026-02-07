@@ -91,6 +91,10 @@ export class UnifiedOrchestrator extends EventEmitter {
       if (this.costOptimizer) {
         this.kabbalisticRouter.setCostOptimizer(this.costOptimizer);
       }
+      // D1: Wire persistence for DPO weight loading
+      if (this.persistence) {
+        this.kabbalisticRouter.setPersistence(this.persistence);
+      }
     }
 
     // Circuit breakers for external calls

@@ -170,7 +170,9 @@ export class InitializationPipeline {
       if (s.costOptimizer) {
         s.kabbalisticRouter.setCostOptimizer?.(s.costOptimizer);
       }
-      console.error('   KabbalisticRouter: wired (Lightning Flash active)');
+      // Fix 3: Subscribe router to consciousness state changes
+      s.kabbalisticRouter.subscribeConsciousness?.(globalEventBus);
+      console.error('   KabbalisticRouter: wired (Lightning Flash active, consciousness-gated)');
     }
   }
 
@@ -564,6 +566,31 @@ export class InitializationPipeline {
               significance: data.pattern.significance,
               category: data.pattern.category,
             }, data.pattern.confidence);
+          }
+
+          // Fix 2: Feed high-frequency emergence patterns to ResidualDetector
+          try {
+            const pat = data.pattern;
+            if (pat.occurrences >= 8) {
+              const detector = s.collectivePack?.judge?.residualDetector;
+              if (detector) {
+                const syntheticJudgment = {
+                  id: "emergence_" + pat.key + "_" + Date.now(),
+                  dimensions: {},
+                  global_score: Math.round((1 - pat.confidence) * 100),
+                };
+                detector.analyze(syntheticJudgment, {
+                  source: "emergence_detector",
+                  patternKey: pat.key,
+                  category: pat.category,
+                  significance: pat.significance,
+                  occurrences: pat.occurrences,
+                });
+                console.error("EMERGENCE->RESIDUAL: Fed pattern " + pat.key + " (" + pat.occurrences + "x) to ResidualDetector");
+              }
+            }
+          } catch (e) {
+            // Non-blocking: emergence->residual wiring is best-effort
           }
         });
 
