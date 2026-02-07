@@ -40,6 +40,7 @@ export class ConsensusComponent extends EventEmitter {
    * @param {number} options.eScore - Node E-Score
    * @param {number} [options.burned=0] - Burned amount
    * @param {Object} options.gossip - Gossip protocol instance
+   * @param {number} [options.genesisTime] - Shared genesis time for slot alignment
    */
   constructor(options = {}) {
     super();
@@ -48,6 +49,7 @@ export class ConsensusComponent extends EventEmitter {
       enabled: options.enabled ?? true,
       confirmationsForFinality: options.confirmations || 32,
     };
+    this._genesisTime = options.genesisTime || null;
 
     this._publicKey = options.publicKey;
     this._privateKey = options.privateKey;
@@ -98,8 +100,8 @@ export class ConsensusComponent extends EventEmitter {
       uptime: 1.0,
     });
 
-    // Start engine
-    this._consensus.start();
+    // Start engine with shared genesis time (must match BlockProducer)
+    this._consensus.start(this._genesisTime || undefined);
 
     // Start gossip bridge
     if (this._consensusGossip) {

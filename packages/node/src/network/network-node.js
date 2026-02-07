@@ -172,6 +172,7 @@ export class CYNICNetworkNode extends EventEmitter {
       burned: options.burned || 0,
       confirmations: options.confirmations || 32,
       gossip: this._transport.gossip,
+      genesisTime: options.genesisTime || SHARED_GENESIS_TIME,
     });
 
     this._discovery = new PeerDiscovery({
