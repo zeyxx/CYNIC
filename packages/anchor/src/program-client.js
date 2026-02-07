@@ -296,12 +296,17 @@ export class CynicProgramClient {
     });
 
     const tx = new this._Transaction().add(ix);
+    const payerPubkey = keypair.publicKey.toBase58();
+    console.log(`[ANCHOR-TX] Sending anchor_root payer=${payerPubkey} root=${typeof merkleRoot === 'string' ? merkleRoot.slice(0, 16) : 'buffer'} rootPda=${rootPda.toBase58().slice(0, 16)}`);
+
     const signature = await this._sendAndConfirmTransaction(
       this._connection,
       tx,
       [keypair],
       { commitment: 'confirmed' }
     );
+
+    console.log(`[ANCHOR-TX] Confirmed sig=${signature} payer=${payerPubkey}`);
 
     // Get slot from transaction
     const txInfo = await this._connection.getTransaction(signature, {
