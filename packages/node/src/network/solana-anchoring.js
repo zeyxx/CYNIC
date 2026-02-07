@@ -25,7 +25,8 @@ export class SolanaAnchoringManager extends EventEmitter {
    * @param {string} [options.cluster='devnet']
    * @param {Object} [options.wallet=null]
    * @param {boolean} [options.dryRun=false]
-   * @param {number} [options.anchorInterval=100]
+   * @param {number} [options.anchorInterval=500]
+   * @param {string} [options.selfPublicKey=null] - Node's public key (only proposer anchors)
    */
   constructor(options = {}) {
     super();
@@ -34,10 +35,11 @@ export class SolanaAnchoringManager extends EventEmitter {
     this._cluster = options.cluster || 'devnet';
     this._wallet = options.wallet || null;
     this._dryRun = options.dryRun ?? false;
+    this._selfPublicKey = options.selfPublicKey || null;
     this._anchorer = null;
     this._pendingAnchors = new Map();  // blockHash -> { slot, merkleRoot, status, ... }
     this._lastAnchorSlot = 0;
-    this._anchorInterval = options.anchorInterval || 100;
+    this._anchorInterval = options.anchorInterval || 500;
 
     this._stats = {
       blocksAnchored: 0,
@@ -235,7 +237,12 @@ export class SolanaAnchoringManager extends EventEmitter {
   }
 
   /**
-   * Create anchor transaction
+   * Create anchor transaction.
+   *
+   * FIDELITY: When the anchorer exists (real wallet configured) but fails,
+   * we return failure — NOT a simulated success. Simulation is only for
+   * dev/test mode when no anchorer is available at all.
+   *
    * @private
    */
   async _createAnchorTransaction(block) {
@@ -263,13 +270,16 @@ export class SolanaAnchoringManager extends EventEmitter {
             simulated: result.simulated || this._dryRun,
           };
         }
-        log.warn('Anchorer returned failure, falling back to simulation', { error: result.error });
+        // Real failure — do NOT simulate. "Don't trust, verify" means don't lie.
+        log.warn('Anchor failed (no simulation fallback)', { error: result.error });
+        return { success: false, error: result.error || 'Anchor program returned failure' };
       } catch (error) {
-        log.warn('Anchorer error, falling back to simulation', { error: error.message });
+        log.warn('Anchor error (no simulation fallback)', { error: error.message });
+        return { success: false, error: error.message };
       }
     }
 
-    // Fallback simulation
+    // No anchorer available → simulation mode (dev/test only)
     return {
       success: true,
       signature: `sim_${merkleRoot.slice(0, 16)}_${Date.now()}`,
@@ -292,16 +302,29 @@ export class SolanaAnchoringManager extends EventEmitter {
   }
 
   /**
-   * Called when a block is finalized
+   * Called when a block is finalized.
+   * Only the block PROPOSER anchors — prevents N nodes × same wallet × same slot.
+   *
    * @param {Object} block
    * @param {Function} recordBlockHash - ForkDetector's recordBlockHash
    */
   async onBlockFinalized(block, recordBlockHash) {
     recordBlockHash?.(block.slot, block.hash);
 
-    if (this.shouldAnchor(block.slot)) {
-      await this.anchorBlock(block);
+    if (!this.shouldAnchor(block.slot)) return;
+
+    // Only the proposer anchors their own blocks.
+    // If proposer is unknown (undefined/null), anchor anyway (backwards compat).
+    if (block.proposer && this._selfPublicKey && block.proposer !== this._selfPublicKey) {
+      log.debug('Skipping anchor — not the proposer', {
+        slot: block.slot,
+        proposer: block.proposer?.slice(0, 16),
+        self: this._selfPublicKey?.slice(0, 16),
+      });
+      return;
     }
+
+    await this.anchorBlock(block);
   }
 
   /**

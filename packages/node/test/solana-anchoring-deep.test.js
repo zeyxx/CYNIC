@@ -309,6 +309,7 @@ describe('SolanaAnchoringManager - Deep Tests', () => {
     it('updates entry to anchored status', async () => {
       manager = new SolanaAnchoringManager();
       await manager.enable({ wallet: { keypair: 'mock' } });
+      manager._anchorer = null; // Use simulation path (no real wallet in tests)
 
       const block = {
         slot: 100,
@@ -327,6 +328,7 @@ describe('SolanaAnchoringManager - Deep Tests', () => {
     it('emits block:anchored event', async () => {
       manager = new SolanaAnchoringManager();
       await manager.enable({ wallet: { keypair: 'mock' } });
+      manager._anchorer = null; // Use simulation path (no real wallet in tests)
 
       let emitted = null;
       manager.once('block:anchored', (data) => {
@@ -350,6 +352,7 @@ describe('SolanaAnchoringManager - Deep Tests', () => {
     it('updates stats after successful anchor', async () => {
       manager = new SolanaAnchoringManager();
       await manager.enable({ wallet: { keypair: 'mock' } });
+      manager._anchorer = null; // Use simulation path (no real wallet in tests)
 
       const block = {
         slot: 100,
@@ -486,6 +489,7 @@ describe('SolanaAnchoringManager - Deep Tests', () => {
     it('anchors block when shouldAnchor returns true', async () => {
       manager = new SolanaAnchoringManager({ anchorInterval: 100 });
       await manager.enable({ wallet: { keypair: 'mock' } });
+      manager._anchorer = null; // Use simulation path (no real wallet in tests)
 
       const block = {
         slot: 100, // 100 % 100 = 0
@@ -529,8 +533,9 @@ describe('SolanaAnchoringManager - Deep Tests', () => {
     it('getAnchoringStatus returns pending/anchored/failed counts', async () => {
       manager = new SolanaAnchoringManager();
       await manager.enable({ wallet: { keypair: 'mock' } });
+      manager._anchorer = null; // Use simulation path for tests
 
-      // Anchor one successfully
+      // Anchor one successfully (via simulation)
       await manager.anchorBlock({
         slot: 100,
         hash: 'success'.padEnd(64, '0'),
@@ -649,6 +654,7 @@ describe('SolanaAnchoringManager - Deep Tests', () => {
     it('multiple anchors update stats correctly', async () => {
       manager = new SolanaAnchoringManager();
       await manager.enable({ wallet: { keypair: 'mock' } });
+      manager._anchorer = null; // Use simulation path for tests
 
       for (let i = 0; i < 3; i++) {
         await manager.anchorBlock({

@@ -120,7 +120,8 @@ export class CYNICNetworkNode extends EventEmitter {
       cluster: options.solanaCluster || 'devnet',
       wallet: options.wallet || null,
       dryRun: options.dryRun ?? false,
-      anchorInterval: options.anchorInterval || 100,
+      anchorInterval: options.anchorInterval || 500,
+      selfPublicKey: this._publicKey,
     });
     this._stateSyncManager = new StateSyncManager();
     this._blockProducer = new BlockProducer({

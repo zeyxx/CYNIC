@@ -614,6 +614,7 @@ describe('Solana Anchoring', () => {
 
   it('anchors block and tracks status (fallback simulation)', async () => {
     await node.enableAnchoring({ wallet: 'mock-wallet' });
+    node._anchoringManager._anchorer = null; // Use simulation path (no real wallet in tests)
 
     const block = {
       slot: 100,
@@ -666,6 +667,7 @@ describe('Solana Anchoring', () => {
 
   it('tracks pending, anchored, and failed counts', async () => {
     await node.enableAnchoring({ wallet: 'mock-wallet' });
+    node._anchoringManager._anchorer = null; // Use simulation path for tests
 
     // Anchor blocks with valid merkle roots
     await node.anchorBlock({ slot: 100, hash: validMerkleRoot, merkleRoot: validMerkleRoot });
@@ -678,6 +680,7 @@ describe('Solana Anchoring', () => {
 
   it('getAnchorStatus returns anchor info for hash', async () => {
     await node.enableAnchoring({ wallet: 'mock-wallet' });
+    node._anchoringManager._anchorer = null; // Use simulation path for tests
 
     await node.anchorBlock({ slot: 100, hash: validMerkleRoot, merkleRoot: validMerkleRoot });
 
@@ -689,6 +692,7 @@ describe('Solana Anchoring', () => {
 
   it('verifyAnchor finds signature in cache with source: cache', async () => {
     await node.enableAnchoring({ wallet: 'mock-wallet' });
+    node._anchoringManager._anchorer = null; // Use simulation path for tests
 
     const result = await node.anchorBlock({
       slot: 100,
@@ -711,11 +715,12 @@ describe('Solana Anchoring', () => {
 
   it('onBlockFinalized triggers anchoring when shouldAnchor', async () => {
     await node.enableAnchoring({ wallet: 'mock-wallet' });
+    node._anchoringManager._anchorer = null; // Use simulation path for tests
 
     const events = [];
     node.on('block:anchored', (e) => events.push(e));
 
-    // Slot 100 should trigger anchor (interval = 100)
+    // Slot 100 should trigger anchor (interval = 100, set in beforeEach)
     await node.onBlockFinalized({
       slot: 100,
       hash: validMerkleRoot,

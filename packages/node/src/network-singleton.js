@@ -97,7 +97,7 @@ export function getNetworkNode(options = {}) {
     enabled: true,
     // Solana anchoring (opt-in)
     anchoringEnabled: process.env.CYNIC_ANCHORING_ENABLED !== 'false',
-    anchorInterval: parseInt(process.env.CYNIC_ANCHOR_INTERVAL) || 100,
+    anchorInterval: parseInt(process.env.CYNIC_ANCHOR_INTERVAL) || 500,
     solanaCluster: process.env.SOLANA_CLUSTER || 'devnet',
     dryRun: process.env.CYNIC_ANCHORING_DRY_RUN !== 'false',
     ...options,
