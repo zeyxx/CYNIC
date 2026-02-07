@@ -101,15 +101,16 @@ export class ConsensusGossip extends EventEmitter {
     this._originalOnMessage = this.gossip.onMessage;
 
     // Wrap gossip onMessage to intercept consensus messages
-    this.gossip.onMessage = async (message) => {
+    // IMPORTANT: capture fromPeerId — gossip calls onMessage(message, fromPeerId)
+    this.gossip.onMessage = async (message, fromPeerId) => {
       // Handle consensus messages
       if (this._isConsensusMessage(message.type)) {
         await this._onGossipMessage(message);
       }
 
-      // Call original handler for all messages
+      // Call original handler for all messages (preserve fromPeerId)
       if (this._originalOnMessage) {
-        await this._originalOnMessage(message);
+        await this._originalOnMessage(message, fromPeerId);
       }
     };
 

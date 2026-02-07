@@ -363,14 +363,10 @@ export class CYNICNetworkNode extends EventEmitter {
     this._transport.wireEvents({
       onPeerConnected: (peerId, publicKey, address) => {
         this._stats.peersConnected = this._transport.getConnectedPeers().length;
-        // Route through ValidatorManager (not directly to consensus engine)
-        // so that activity tracking and inactivity cleanup work correctly.
-        // Direct consensus.registerValidator() creates shadow validators that
-        // the ValidatorManager can't clean up, diluting consensus weight.
-        this._validatorManager.addValidator({
-          publicKey: publicKey || peerId,
-          eScore: 50,
-        });
+        // Don't register validators here — heartbeat handler does it using
+        // message.sender (the canonical public key). Registering here with
+        // transport-level peerId creates duplicate entries when the transport
+        // ID differs from the message sender identity.
         this.emit('peer:connected', { peerId, publicKey, address });
       },
       onPeerDisconnected: (peerId, code, reason) => {
@@ -634,12 +630,19 @@ export class CYNICNetworkNode extends EventEmitter {
     const data = message.payload || message;
     const { eScore, eScoreDimensions, finalizedSlot, finalizedHash, slot, state, recentHashes, nodeId } = data;
 
-    this._stateSyncManager.updatePeer(peerId, { finalizedSlot, finalizedHash, slot, state, eScore });
-    this._validatorManager.updateValidatorActivity(peerId);
+    // Guard: skip malformed heartbeats (missing essential fields)
+    if (eScore === undefined && nodeId === undefined) {
+      return;
+    }
 
+    this._stateSyncManager.updatePeer(peerId, { finalizedSlot, finalizedHash, slot, state, eScore });
+
+    // Register/update validator via heartbeat (sole registration path).
+    // Uses peerId which is message.sender (canonical public key) from _handleMessage.
     if (eScore && eScore >= 20) {
       this._validatorManager.addValidator({ publicKey: peerId, eScore });
     }
+    this._validatorManager.updateValidatorActivity(peerId);
 
     // Update remote E-Score in provider cache (for cross-node sharing)
     if (eScore !== undefined && this._eScoreProviderInstance?.updateRemoteScore) {
