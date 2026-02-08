@@ -4,7 +4,7 @@
  * Tests for dimensions, CYNIC judge, and residual detector
  */
 
-import { describe, it, beforeEach } from 'node:test';
+import { describe, it, beforeEach } from 'vitest';
 import assert from 'node:assert';
 
 import {
@@ -13,9 +13,9 @@ import {
   getDimensionsForAxiom,
   getDimension,
   dimensionRegistry,
-  CYNICJudge,
-  ResidualDetector,
-} from '../src/index.js';
+} from '../src/judge/dimensions.js';
+import { CYNICJudge } from '../src/judge/judge.js';
+import { ResidualDetector } from '../src/judge/residual.js';
 
 import { PHI, PHI_INV, PHI_INV_2, AXIOMS } from '@cynic/core';
 import { Verdict } from '@cynic/protocol';

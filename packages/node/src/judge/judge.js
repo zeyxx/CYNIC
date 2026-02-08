@@ -28,8 +28,6 @@ import {
   globalEventBus,
   EventType,
 } from '@cynic/core';
-
-const log = createLogger('CYNICJudge');
 import {
   createJudgment,
   validateJudgment,
@@ -74,6 +72,8 @@ import {
 } from '../inference/gaussian.js';
 // Organism metrics for tracking
 import { recordSuccess, recordError, updateHomeostasis } from '../organism/index.js';
+
+const log = createLogger('CYNICJudge');
 
 /**
  * CYNIC Judge - The judgment engine
