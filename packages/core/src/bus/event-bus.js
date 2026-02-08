@@ -78,6 +78,9 @@ export const EventType = {
   METRICS_REPORTED: 'metrics:reported',
   /** @unused */ PEER_CONNECTED: 'peer:connected',
   /** @unused */ PEER_DISCONNECTED: 'peer:disconnected',
+
+  // Learning events
+  EWC_CONSOLIDATION_COMPLETED: 'ewc:consolidation:completed',
 };
 
 /**

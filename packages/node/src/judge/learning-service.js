@@ -26,7 +26,7 @@
 import { EventEmitter } from 'events';
 import {
   PHI_INV, PHI_INV_2, PHI_INV_3, MIN_PATTERN_SOURCES,
-  globalEventBus,
+  globalEventBus, EventType,
 } from '@cynic/core';
 import { getAllDimensions } from './dimensions.js';
 import { FeedbackProcessor, FEEDBACK_SOURCES } from './feedback-processor.js';
@@ -255,6 +255,32 @@ export class LearningService extends EventEmitter {
         }
       }
       this.emit('circuit:learned', { service, type: 'recovered', feedback });
+    });
+
+    // EWC++ Fisher score integration:
+    // After consolidation, locked dimension patterns boost their weight modifiers
+    // High Fisher importance → dimension is reliable → boost weight
+    globalEventBus.on(EventType.EWC_CONSOLIDATION_COMPLETED, (event) => {
+      const patterns = event.payload?.lockedDimensionPatterns;
+      if (!patterns || patterns.length === 0) return;
+
+      let applied = 0;
+      for (const { name, fisher_importance } of patterns) {
+        if (!this._weightModifiers.has(name)) continue;
+        const fisher = parseFloat(fisher_importance) || 0;
+        if (fisher < PHI_INV_2) continue; // Below φ⁻² threshold — ignore
+
+        // Fisher φ⁻² (0.382) → +0, Fisher φ⁻¹ (0.618) → +maxAdjustment × φ⁻³
+        // Gentle boost: locked patterns are trusted more, but capped
+        const normalized = (fisher - PHI_INV_2) / (PHI_INV - PHI_INV_2);
+        const delta = normalized * this.maxAdjustment * PHI_INV_3;
+        this.adjustDimensionWeight(name, delta);
+        applied++;
+      }
+
+      if (applied > 0) {
+        this.emit('fisher:applied', { appliedCount: applied, totalPatterns: patterns.length });
+      }
     });
   }
 

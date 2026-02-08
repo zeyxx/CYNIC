@@ -882,6 +882,37 @@ export async function getCollectivePackAsync(options = {}) {
         const { createEWCService } = await import('@cynic/persistence');
         _ewcService = createEWCService({ db: options.persistence });
         _ewcService.startScheduler();
+
+        // Bridge: EWC consolidation → globalEventBus → LearningService
+        // After consolidation, broadcast locked dimension Fisher scores
+        // so Judge's LearningService can adjust dimension weight modifiers
+        const dbPool = options.persistence;
+        _ewcService.on('consolidation:completed', async (result) => {
+          try {
+            const { rows } = await dbPool.query(`
+              SELECT name, fisher_importance
+              FROM patterns
+              WHERE category = 'dimension'
+                AND consolidation_locked = TRUE
+                AND fisher_importance >= 0.382
+              ORDER BY fisher_importance DESC
+            `);
+
+            globalEventBus.emit(EventType.EWC_CONSOLIDATION_COMPLETED, {
+              payload: {
+                ...result,
+                lockedDimensionPatterns: rows,
+              },
+            });
+
+            if (rows.length > 0) {
+              log.info('EWC Fisher scores broadcast to Judge', { lockedDimensions: rows.length });
+            }
+          } catch (err) {
+            log.debug('EWC Fisher broadcast failed (non-blocking)', { error: err.message });
+          }
+        });
+
         log.info('EWC++ consolidation scheduler started (daily cycle)');
       } catch (err) {
         log.warn('EWC++ service startup failed (non-blocking)', { error: err.message });

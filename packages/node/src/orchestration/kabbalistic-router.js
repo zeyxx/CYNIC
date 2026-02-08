@@ -288,6 +288,7 @@ export class KabbalisticRouter {
 
     // D1: DPO weight cache (loaded from routing_weights table)
     this._dpoWeights = null;
+    this._dpoFisher = null;
     this._dpoWeightsTTL = 5 * 60 * 1000; // 5 minutes
     this._dpoWeightsLastLoad = 0;
 
@@ -1447,23 +1448,32 @@ export class KabbalisticRouter {
     if (!this.persistence || !this.persistence.query) return null;
     try {
       const result = await this.persistence.query(
-        'SELECT dog_name, weight, confidence FROM routing_weights WHERE service_id = $1',
+        'SELECT dog_name, weight, confidence, fisher_score FROM routing_weights WHERE service_id = $1',
         ['default']
       );
       if (result && result.rows && result.rows.length > 0) {
         const agg = {};
+        const fisherAgg = {};
         for (const row of result.rows) {
           const dog = (row.dog_name || '').toLowerCase();
           if (!agg[dog]) agg[dog] = { sum: 0, count: 0 };
           agg[dog].sum += parseFloat(row.weight) || 0.5;
           agg[dog].count += 1;
+          // Track Fisher scores per dog
+          if (!fisherAgg[dog]) fisherAgg[dog] = { sum: 0, count: 0 };
+          fisherAgg[dog].sum += parseFloat(row.fisher_score) || 0;
+          fisherAgg[dog].count += 1;
         }
         this._dpoWeights = {};
+        this._dpoFisher = {};
         for (const [dog, data] of Object.entries(agg)) {
           this._dpoWeights[dog] = data.count > 0 ? data.sum / data.count : 0.5;
         }
+        for (const [dog, data] of Object.entries(fisherAgg)) {
+          this._dpoFisher[dog] = data.count > 0 ? data.sum / data.count : 0;
+        }
         this._dpoWeightsLastLoad = Date.now();
-        log.info('DPO weights loaded', { dogs: Object.keys(this._dpoWeights).length });
+        log.info('DPO weights loaded', { dogs: Object.keys(this._dpoWeights).length, withFisher: Object.keys(this._dpoFisher).length });
         return this._dpoWeights;
       }
     } catch (err) {
@@ -1488,7 +1498,12 @@ export class KabbalisticRouter {
         const dpoW = dpoWeights ? (dpoWeights[dog] || 0.5) : 0.5;
         const learnedAvg = (qW + dpoW) / 2;
         const existingWeight = this.getAgentWeight(dog);
-        blended[dog] = PHI_INV * existingWeight + PHI_INV_2 * learnedAvg;
+        // Fisher modulates trust in learned weights:
+        // fisher=0 → PHI_INV_2 (0.382) trust in learned (default)
+        // fisher=1 → PHI_INV (0.618) trust in learned (max)
+        const fisher = this._dpoFisher?.[dog] || 0;
+        const learnedTrust = PHI_INV_2 + fisher * PHI_INV_3;
+        blended[dog] = (1 - learnedTrust) * existingWeight + learnedTrust * learnedAvg;
       }
       return blended;
     } catch (err) {
