@@ -1022,6 +1022,38 @@ export function startEventListeners(options = {}) {
     log.info('Dimension governance listener wired (WS6)');
   }
 
+  // Fix #6: EmergenceDetector significant patterns → persistence
+  // EmergenceDetector publishes PATTERN_DETECTED on globalEventBus (bridged via collective-singleton).
+  // Persist HIGH/CRITICAL significance patterns to unified_signals for learning loops.
+  if (persistence?.query) {
+    const unsubPattern = globalEventBus.subscribe(EventType.PATTERN_DETECTED, (event) => {
+      try {
+        const d = event.data || event.payload || {};
+        if (!d.source || d.source !== 'EmergenceDetector') return; // Only persist emergence patterns
+        const significance = d.significance || 'low';
+        if (significance !== 'high' && significance !== 'critical') return;
+
+        const id = `ep_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        persistence.query(`
+          INSERT INTO unified_signals (id, source, session_id, input, outcome, metadata)
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [
+          id,
+          'emergence_pattern',
+          context.sessionId || null,
+          JSON.stringify({ category: d.category, key: d.key }),
+          JSON.stringify({ status: significance, reason: d.subject }),
+          JSON.stringify({ occurrences: d.occurrences, confidence: d.confidence }),
+        ]).catch(err => {
+          log.debug('Emergence pattern persistence failed', { error: err.message });
+        });
+        _stats.emergencePatternsPersisted = (_stats.emergencePatternsPersisted || 0) + 1;
+        log.info('Emergence pattern persisted', { category: d.category, key: d.key, significance, occurrences: d.occurrences });
+      } catch (e) { log.debug('Emergence pattern handler error', { error: e.message }); }
+    });
+    _unsubscribers.push(unsubPattern);
+    log.info('Emergence pattern listener wired (Fix #6)');
+  }
 
   // Fix #4: Automation Bus Orphan Logging
   // AutomationExecutor publishes events to getEventBus() with zero subscribers.
