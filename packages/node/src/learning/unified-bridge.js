@@ -148,12 +148,12 @@ export class UnifiedBridge extends EventEmitter {
 
     try {
       const { id, payload } = event;
-      const { qScore, verdict, dimensions, itemType, confidence } = payload;
+      const { qScore, verdict, dimensions, itemType, confidence } = payload || {};
 
       // Create UnifiedSignal from judgment
       const signal = new UnifiedSignal({
         source: SignalSource.CYNIC_JUDGE,
-        sessionId: event.sessionId,
+        sessionId: event.metadata?.sessionId || null,
 
         // Input
         input: {
@@ -215,12 +215,12 @@ export class UnifiedBridge extends EventEmitter {
     this._stats.toolExecutionsReceived++;
 
     try {
-      const { tool, success, duration, error } = event;
+      const { tool, success, duration, error } = event.payload || {};
 
       // Create UnifiedSignal from tool execution
       const signal = new UnifiedSignal({
         source: SignalSource.TOOL_EXECUTION,
-        sessionId: event.sessionId,
+        sessionId: event.metadata?.sessionId || null,
 
         input: {
           itemType: 'tool_call',
@@ -261,7 +261,7 @@ export class UnifiedBridge extends EventEmitter {
    */
   async _handleFeedback(event) {
     try {
-      const { judgmentId, isCorrect, correction, source } = event;
+      const { judgmentId, isCorrect, correction, source: feedbackSource } = event.payload || {};
 
       // Find pending signal
       const signal = this._pending.get(judgmentId);
@@ -269,7 +269,7 @@ export class UnifiedBridge extends EventEmitter {
         // Signal already stored, need to update in store
         await this._updateSignalOutcome(judgmentId, {
           status: isCorrect ? SignalOutcome.CORRECT : SignalOutcome.INCORRECT,
-          reason: correction || source,
+          reason: correction || feedbackSource,
         });
         return;
       }
@@ -278,7 +278,7 @@ export class UnifiedBridge extends EventEmitter {
       signal.outcome = {
         status: isCorrect ? SignalOutcome.CORRECT : SignalOutcome.INCORRECT,
         actualScore: isCorrect ? signal.judgment?.qScore : Math.max(0, (signal.judgment?.qScore || 50) - 30),
-        reason: correction || source,
+        reason: correction || feedbackSource,
       };
 
       // Calculate learning values
