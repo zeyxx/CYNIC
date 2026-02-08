@@ -153,15 +153,21 @@ export class ComplexityClassifier {
    * @private
    */
   _isComplex(content, type, context) {
+    // When local LLM is available, raise the bar for FULL tier
+    // LIGHT (Ollama) can handle medium complexity — save FULL for truly hard work
+    const hasLocalLLM = context?.hasLocalLLM === true;
+    const complexThreshold = hasLocalLLM
+      ? COMPLEXITY_THRESHOLDS.LONG_CONTENT * 2  // 1000 chars with local LLM
+      : COMPLEXITY_THRESHOLDS.LONG_CONTENT;      // 500 chars without
+
     // Long content is complex
-    if (content.length > COMPLEXITY_THRESHOLDS.LONG_CONTENT) return true;
+    if (content.length > complexThreshold) return true;
 
-    // Complex keywords
-    for (const keyword of COMPLEXITY_THRESHOLDS.COMPLEX_KEYWORDS) {
-      if (content.includes(keyword)) return true;
-    }
+    // Complex keywords — but with local LLM, only multi-keyword triggers FULL
+    const complexHits = COMPLEXITY_THRESHOLDS.COMPLEX_KEYWORDS.filter(k => content.includes(k));
+    if (hasLocalLLM ? complexHits.length >= 2 : complexHits.length >= 1) return true;
 
-    // Security-related
+    // Security-related — always FULL regardless of local LLM
     if (content.match(/security|vulnerab|credential|auth/i)) return true;
 
     // Multi-step operations

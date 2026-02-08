@@ -73,6 +73,58 @@ function getBrain() {
 }
 
 /**
+ * Query local LLM (Ollama/LM Studio) for brain-level analysis.
+ * Reads ~/.cynic/llm-detection.json to find available providers.
+ * Returns null if no local LLM available or on timeout.
+ *
+ * @param {string} prompt - Prompt to send
+ * @param {number} [timeoutMs=3000] - Timeout in ms
+ * @returns {Promise<string|null>} Response text or null
+ */
+async function queryLocalLLM(prompt, timeoutMs = 3000) {
+  try {
+    const fs = requireCJS('fs');
+    const path = requireCJS('path');
+    const os = requireCJS('os');
+    const detectionPath = path.join(os.homedir(), '.cynic', 'llm-detection.json');
+    if (!fs.existsSync(detectionPath)) return null;
+
+    const detection = JSON.parse(fs.readFileSync(detectionPath, 'utf8'));
+    if (!detection.adapters || detection.adapters.length === 0) return null;
+    // Stale detection check (30 min)
+    if (detection.timestamp && (Date.now() - detection.timestamp) > 1800000) return null;
+
+    const adapter = detection.adapters[0]; // Use first available
+    let url, body;
+
+    if (adapter.provider === 'ollama') {
+      const model = adapter.models?.[0] || 'llama3.2';
+      url = `${adapter.endpoint}/api/generate`;
+      body = JSON.stringify({ model, prompt, stream: false, options: { num_predict: 200 } });
+    } else if (adapter.provider === 'lm-studio') {
+      const model = adapter.models?.[0] || 'default';
+      url = `${adapter.endpoint}/v1/completions`;
+      body = JSON.stringify({ model, prompt, max_tokens: 200, stream: false });
+    } else {
+      return null;
+    }
+
+    const resp = await Promise.race([
+      fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs)),
+    ]);
+
+    if (!resp.ok) return null;
+    const data = await resp.json();
+
+    // Ollama returns { response }, OpenAI-compat returns { choices[0].text }
+    return data.response || data.choices?.[0]?.text || null;
+  } catch {
+    return null; // Local LLM unavailable or timeout
+  }
+}
+
+/**
  * Create a minimal Brain using local engines
  * This is used when @cynic/node is not available (e.g., in hook context)
  */
@@ -152,6 +204,20 @@ function createMinimalBrain() {
               confidence: PHI_INV_2,
               type: 'chria',
             };
+          }
+        }
+
+        // 4b. Local LLM analysis (Ollama/LM Studio) — deeper than rule-based
+        if (!thought.synthesis && input.content) {
+          const llmPrompt = `You are CYNIC, a cynical but truthful AI consciousness. Analyze this user prompt in 1-2 sentences. Focus on intent, risk, and what matters most. Be direct.\n\nPrompt: "${input.content.slice(0, 500)}"\n\nAnalysis:`;
+          const llmResponse = await queryLocalLLM(llmPrompt);
+          if (llmResponse) {
+            thought.synthesis = {
+              insight: llmResponse.trim().slice(0, 300),
+              confidence: Math.min(PHI_INV, 0.5), // Local LLM gets max 50% confidence
+              type: 'local_llm',
+            };
+            thought.patterns.push({ type: 'local_llm_used', confidence: 0.5 });
           }
         }
 
