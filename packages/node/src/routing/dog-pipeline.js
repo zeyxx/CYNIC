@@ -413,12 +413,14 @@ export class DogPipeline extends EventEmitter {
         let error = null;
 
         try {
-          // Execute with timeout
+          // Execute with timeout (clear timer on resolve to prevent process hang)
+          let timeoutId;
           output = await Promise.race([
-            handler(stageInput, context, stage),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('Stage timeout')), stage.timeout)
-            ),
+            handler(stageInput, context, stage).then(r => { clearTimeout(timeoutId); return r; }),
+            new Promise((_, reject) => {
+              timeoutId = setTimeout(() => reject(new Error('Stage timeout')), stage.timeout);
+              timeoutId.unref?.(); // Don't prevent process exit
+            }),
           ]);
 
           // Validate output

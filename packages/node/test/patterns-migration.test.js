@@ -9,9 +9,19 @@
  * @module @cynic/node/test/patterns-migration
  */
 
-import { describe, it, beforeEach, mock } from 'node:test';
+import { describe, it, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import { globalEventBus } from '@cynic/core';
 import { _resetForTesting, getSharedMemory, getCollectivePackAsync } from '../src/collective-singleton.js';
+
+// =============================================================================
+// CLEANUP HELPER
+// =============================================================================
+
+function cleanupSingletons() {
+  _resetForTesting();
+  globalEventBus.removeAllListeners();
+}
 
 // =============================================================================
 // MOCK HELPERS
@@ -74,10 +84,11 @@ function createSamplePgPatterns(count = 10) {
 
 describe('Patterns Migration (PostgreSQL → SharedMemory)', () => {
   beforeEach(() => {
-    // Reset singletons before each test
     process.env.NODE_ENV = 'test';
     _resetForTesting();
   });
+
+  afterEach(() => cleanupSingletons());
 
   it('should load patterns from PostgreSQL when SharedMemory is empty', async () => {
     // Create 100 sample patterns
@@ -235,6 +246,8 @@ describe('getLockedPatterns() for PostgreSQL sync', () => {
     process.env.NODE_ENV = 'test';
     _resetForTesting();
   });
+
+  afterEach(() => cleanupSingletons());
 
   it('should return locked patterns in PostgreSQL format', async () => {
     const persistence = createMockPersistence([]);

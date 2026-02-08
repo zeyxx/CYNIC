@@ -1568,6 +1568,18 @@ export function _resetForTesting() {
     _solanaWatcher = null;
   }
 
+  // Auto-save: Stop interval
+  if (_autoSaveInterval) {
+    clearInterval(_autoSaveInterval);
+    _autoSaveInterval = null;
+  }
+
+  // LearningScheduler: Stop DPO + Governance crons
+  if (_learningScheduler) {
+    _learningScheduler.stop();
+    _learningScheduler = null;
+  }
+
   // EWC++: Stop consolidation scheduler
   if (_ewcService) {
     _ewcService.stopScheduler();
@@ -1580,12 +1592,30 @@ export function _resetForTesting() {
     _emergenceDetector = null;
   }
 
+  // C6.1: Stop DogStateEmitter (has setInterval that prevents process exit)
+  if (_dogStateEmitter) {
+    _dogStateEmitter.stop();
+    _dogStateEmitter = null;
+  }
+
+  // UnifiedBridge: Stop event subscriptions
+  if (_unifiedBridge) {
+    _unifiedBridge.stop();
+    _unifiedBridge = null;
+  }
+
   // AXE 9: Stop HeartbeatService + ConsciousnessBridge
   if (_heartbeatService) {
     _heartbeatService.stop();
     _heartbeatService = null;
   }
   _consciousnessBridge = null;
+
+  // Human symbiosis singletons
+  _humanAdvisor = null;
+  _humanLearning = null;
+  _humanAccountant = null;
+  _humanEmergence = null;
 
   log.warn('Singletons reset (testing only)');
 }
