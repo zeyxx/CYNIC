@@ -213,19 +213,29 @@ export class DPOOptimizer {
    */
   async _processBatch(batch, weights) {
     let totalLoss = 0;
+    // Gradients accumulated per context_type (pairs don't carry dog info)
     const gradients = new Map();
 
+    // Compute average weight per context_type for loss calculation
+    const contextAvg = new Map();
+    for (const [key, data] of weights) {
+      const ctx = data.contextType;
+      if (!contextAvg.has(ctx)) contextAvg.set(ctx, { sum: 0, count: 0 });
+      const a = contextAvg.get(ctx);
+      a.sum += data.weight;
+      a.count++;
+    }
+
     for (const pair of batch) {
-      const context = pair.context || {};
       const contextType = pair.context_type || 'general';
 
-      // Get weight for this context
-      const key = `${contextType}`;
-      let weight = weights.get(key) || { weight: 0.5, fisher: 0 };
+      // Use average weight across all dogs for this context
+      const avg = contextAvg.get(contextType);
+      const avgWeight = avg ? avg.sum / avg.count : 0.5;
 
       // Compute log probabilities (simplified: weight as log-prob proxy)
-      const logProbChosen = Math.log(weight.weight + 0.001);
-      const logProbRejected = Math.log(1 - weight.weight + 0.001);
+      const logProbChosen = Math.log(avgWeight + 0.001);
+      const logProbRejected = Math.log(1 - avgWeight + 0.001);
 
       // DPO loss: -log(sigmoid(beta * (logProbChosen - logProbRejected)))
       const diff = this.beta * (logProbChosen - logProbRejected);
@@ -235,36 +245,40 @@ export class DPOOptimizer {
       totalLoss += loss;
 
       // Compute gradient: d/dw = -beta * (1 - sigmoid(diff)) / w
-      const grad = -this.beta * (1 - prob) / (weight.weight + 0.001);
+      const grad = -this.beta * (1 - prob) / (avgWeight + 0.001);
 
-      // Accumulate gradients
-      if (!gradients.has(key)) {
-        gradients.set(key, { grad: 0, count: 0 });
+      // Accumulate gradients per context_type
+      if (!gradients.has(contextType)) {
+        gradients.set(contextType, { grad: 0, count: 0 });
       }
-      const g = gradients.get(key);
+      const g = gradients.get(contextType);
       g.grad += grad;
       g.count++;
     }
 
-    // Apply gradients with EWC regularization
-    for (const [key, { grad, count }] of gradients) {
+    // Apply gradients to ALL dogs for each context_type (preserving per-dog differentiation)
+    let applied = 0;
+    for (const [contextType, { grad, count }] of gradients) {
       const avgGrad = grad / count;
-      const weight = weights.get(key) || { weight: 0.5, fisher: 0 };
 
-      // EWC penalty: regularization * fisher * (weight - base_weight)^2
-      const ewcPenalty = this.regularization * weight.fisher * (weight.weight - 0.5);
+      // Apply same delta to every dog:context entry matching this context_type
+      for (const [key, data] of weights) {
+        if (data.contextType !== contextType) continue;
 
-      // Update weight: w = w - lr * (grad + ewc_penalty)
-      const update = this.learningRate * (avgGrad + ewcPenalty);
-      weight.weight = Math.max(0.01, Math.min(0.99, weight.weight - update));
-      weight.updated = true;
+        // EWC penalty: regularization * fisher * (weight - base_weight)^2
+        const ewcPenalty = this.regularization * data.fisher * (data.weight - 0.5);
 
-      weights.set(key, weight);
+        // Update weight: w = w - lr * (grad + ewc_penalty)
+        const update = this.learningRate * (avgGrad + ewcPenalty);
+        data.weight = Math.max(0.01, Math.min(0.99, data.weight - update));
+        data.updated = true;
+      }
+      applied++;
     }
 
     return {
-      loss: totalLoss / batch.length,
-      gradientsApplied: gradients.size,
+      loss: totalLoss / Math.max(batch.length, 1),
+      gradientsApplied: applied,
     };
   }
 
@@ -301,7 +315,10 @@ export class DPOOptimizer {
 
     const weights = new Map();
     for (const row of rows) {
-      const key = `${row.context_type}`;
+      // Key by (dog_name, context_type) to preserve per-dog differentiation.
+      // Previous bug: keyed by context_type alone, causing last-row-wins
+      // and destroying per-dog weights on save.
+      const key = `${row.dog_name}:${row.context_type}`;
       weights.set(key, {
         dogName: row.dog_name,
         contextType: row.context_type,
@@ -330,8 +347,8 @@ export class DPOOptimizer {
       await this.pool.query(`
         UPDATE routing_weights
         SET weight = $1, last_update = NOW(), updated_at = NOW()
-        WHERE service_id = $2 AND context_type = $3
-      `, [data.weight, this.serviceId, data.contextType]);
+        WHERE service_id = $2 AND dog_name = $3 AND context_type = $4
+      `, [data.weight, this.serviceId, data.dogName, data.contextType]);
 
       updated++;
     }
