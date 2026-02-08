@@ -125,11 +125,11 @@ describe('Logger', () => {
       assert.strictEqual(typeof log.fatal, 'function');
     });
 
-    it('should output to stdout for info and below', () => {
+    it('should output to stderr for all levels (stdout kept clean for hooks/MCP)', () => {
       log.info('Test message');
 
       assert.strictEqual(capturedOutput.length, 1);
-      assert.strictEqual(capturedOutput[0].type, 'log');
+      assert.strictEqual(capturedOutput[0].type, 'error');
     });
 
     it('should output to stderr for warn and above', () => {

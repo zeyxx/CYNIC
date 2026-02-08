@@ -1458,7 +1458,7 @@ describe('PatternRepository', () => {
 // ============================================================================
 
 describe('PostgreSQL Integration', () => {
-  const hasPostgres = !!process.env.CYNIC_DATABASE_URL;
+  const hasPostgres = !!process.env.CYNIC_DATABASE_URL && process.env.CYNIC_INTEGRATION_TESTS === '1';
 
   describe('JudgmentRepository Integration', {
     skip: !hasPostgres,

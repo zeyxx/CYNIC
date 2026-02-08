@@ -13,7 +13,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test --experimental-test-module-mocks test/*.test.js"
   },
   "dependencies": {
     "@solana/kit": "^2.1.0",

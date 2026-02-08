@@ -22,7 +22,8 @@ import { RedisClient } from '../src/redis/client.js';
 
 describe('Persistence Connections', () => {
   describe('PostgreSQL', () => {
-    const hasPostgres = !!process.env.CYNIC_DATABASE_URL;
+    // Require explicit opt-in for DB integration tests (env var alone causes timeout failures)
+    const hasPostgres = !!process.env.CYNIC_DATABASE_URL && process.env.CYNIC_INTEGRATION_TESTS === '1';
     let db;
 
     before(async () => {
@@ -118,7 +119,7 @@ describe('Persistence Connections', () => {
   });
 
   describe('Redis', () => {
-    const hasRedis = !!process.env.CYNIC_REDIS_URL;
+    const hasRedis = !!process.env.CYNIC_REDIS_URL && process.env.CYNIC_INTEGRATION_TESTS === '1';
     let redis;
 
     before(async () => {

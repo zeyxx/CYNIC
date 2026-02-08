@@ -331,34 +331,5 @@ describe('@cynic/burns - Integration Tests', () => {
   });
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Real API Test (skipped unless API is available)
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe('@cynic/burns - Real API Tests (conditional)', () => {
-  it('should check if real API is available', async () => {
-    const verifier = createBurnVerifier({
-      timeout: 5000, // Short timeout for check
-    });
-
-    try {
-      // Try to verify a known-invalid signature
-      const result = await verifier.verify(
-        '1111111111111111111111111111111111111111111111111111111111111111'
-      );
-
-      // If we get here, API responded (even if not found)
-      console.log('    Real API response:', result.error || 'verified');
-    } catch (error) {
-      // API not available - this is expected for now
-      console.log('    Real API not available (expected):', error.message);
-    }
-
-    // Test passes regardless - this is informational
-    assert.ok(true, 'API availability check complete');
-  });
-});
-
-console.log('\n═══════════════════════════════════════════════════════════');
-console.log('  🔥 CYNIC Burns Integration Tests');
-console.log('═══════════════════════════════════════════════════════════\n');
+// Real API test removed — network calls leave dangling timers that
+// cause file-level test failure in node:test runner.

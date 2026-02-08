@@ -18,7 +18,7 @@ const mockCalculateFee = mock.fn(() =>
 
 const mockGetRelayerAddress = mock.fn(() => 'RelayerPubkey123');
 
-mock.module('./solana.js', {
+mock.module('../src/solana.js', {
   namedExports: {
     calculateFee: mockCalculateFee,
     getRelayerAddress: mockGetRelayerAddress,

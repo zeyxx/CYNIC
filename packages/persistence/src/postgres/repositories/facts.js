@@ -533,12 +533,12 @@ export class FactsRepository extends BaseRepository {
     }
 
     const { rows } = await this.db.query(sql, params);
-    const stats = rows[0];
+    const stats = rows[0] || {};
 
     return {
-      total: parseInt(stats.total),
-      types: parseInt(stats.types),
-      tools: parseInt(stats.tools),
+      total: parseInt(stats.total) || 0,
+      types: parseInt(stats.types) || 0,
+      tools: parseInt(stats.tools) || 0,
       avgConfidence: parseFloat(stats.avg_confidence) || 0,
       avgRelevance: parseFloat(stats.avg_relevance) || 0,
       totalAccesses: parseInt(stats.total_accesses) || 0,

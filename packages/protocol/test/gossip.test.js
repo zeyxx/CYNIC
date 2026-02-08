@@ -117,13 +117,15 @@ describe('Message Management', () => {
     });
     assert.strictEqual(shouldRelay(expiredTTL), false);
 
+    // Heartbeats ARE relayed (star topology fix: leaf nodes need heartbeats
+    // from non-directly-connected peers via hub relay)
     const heartbeat = createMessage({
       type: MessageType.HEARTBEAT,
       payload: {},
       sender: publicKey,
       ttl: 1,
     });
-    assert.strictEqual(shouldRelay(heartbeat), false);
+    assert.strictEqual(shouldRelay(heartbeat), true);
   });
 
   it('should prepare message for relay', () => {

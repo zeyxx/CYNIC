@@ -29,7 +29,8 @@ import { AutonomousTasksRepository, TaskStatus, TaskType } from '../src/postgres
 import { ProactiveNotificationsRepository, NotificationType } from '../src/postgres/repositories/proactive-notifications.js';
 
 // Check if PostgreSQL is available
-const hasPostgres = !!process.env.CYNIC_DATABASE_URL;
+// Require explicit opt-in: set CYNIC_INTEGRATION_TESTS=1 to run DB tests
+const hasPostgres = !!process.env.CYNIC_DATABASE_URL && process.env.CYNIC_INTEGRATION_TESTS === '1';
 
 // ============================================================================
 // ENUMS TESTS (Unit tests - no DB required)
