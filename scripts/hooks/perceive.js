@@ -839,41 +839,56 @@ async function main() {
     // ═══════════════════════════════════════════════════════════════════════════
     // IMPLICIT BRAIN TOOLS: Auto-activation of dormant tools
     // "Les outils dormants deviennent réflexes"
+    // Run in PARALLEL with 2s timeout to protect deadline budget.
+    // These are supplementary — orchestrate() needs the remaining budget.
     // ═══════════════════════════════════════════════════════════════════════════
+    const MCP_TOOL_TIMEOUT = 2000; // 2s max for supplementary MCP calls
+    const raceTimeout = (promise, ms) => Promise.race([
+      promise,
+      new Promise(resolve => setTimeout(() => resolve(null), ms)),
+    ]);
+
     let complexityResult = null;
     let optimizeResult = null;
 
-    // brain_complexity: Auto-classify prompt complexity (silent, always-on)
-    // Triggers: minPromptLength > 500, hasCodeBlocks
     const hasCodeBlocks = /```[\s\S]*?```/.test(prompt);
-    if (prompt.length > 500 || hasCodeBlocks) {
-      try {
-        complexityResult = await callBrainTool('brain_complexity', {
-          content: prompt.slice(0, 2000), // Limit for analysis
-          mode: 'classify',
-          silent: true,
-        }).catch(() => null);
-        logger.debug('Complexity classified', { result: complexityResult?.tier });
-      } catch (e) {
-        // Silent failure - non-blocking
-      }
-    }
-
-    // brain_optimize: Optimize large prompts for token efficiency
-    // Triggers: minPromptTokens > 4000 (~16KB), hasRepetition
     const estimatedTokens = Math.ceil(prompt.length / 4);
     const hasRepetition = /((?:\b\w+\b.*?){3,})\1/.test(prompt);
+
+    // Launch both MCP calls in parallel (independent of each other)
+    const mcpPromises = [];
+
+    if (prompt.length > 500 || hasCodeBlocks) {
+      mcpPromises.push(
+        raceTimeout(
+          callBrainTool('brain_complexity', {
+            content: prompt.slice(0, 2000),
+            mode: 'classify',
+            silent: true,
+          }).catch(() => null),
+          MCP_TOOL_TIMEOUT
+        ).then(r => { complexityResult = r; })
+      );
+    }
+
     if (estimatedTokens > 4000 || hasRepetition) {
-      try {
-        optimizeResult = await callBrainTool('brain_optimize', {
-          content: prompt.slice(0, 8000),
-          mode: 'analyze', // Just analyze, don't modify
-          silent: true,
-        }).catch(() => null);
-        logger.debug('Optimization analysis', { savings: optimizeResult?.potentialSavings });
-      } catch (e) {
-        // Silent failure - non-blocking
-      }
+      mcpPromises.push(
+        raceTimeout(
+          callBrainTool('brain_optimize', {
+            content: prompt.slice(0, 8000),
+            mode: 'analyze',
+            silent: true,
+          }).catch(() => null),
+          MCP_TOOL_TIMEOUT
+        ).then(r => { optimizeResult = r; })
+      );
+    }
+
+    // Await both in parallel — max 2s total instead of sequential
+    if (mcpPromises.length > 0) {
+      await Promise.allSettled(mcpPromises);
+      if (complexityResult) logger.debug('Complexity classified', { result: complexityResult?.tier });
+      if (optimizeResult) logger.debug('Optimization analysis', { savings: optimizeResult?.potentialSavings });
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
