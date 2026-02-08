@@ -328,6 +328,20 @@ export class ResidualGovernance {
         });
       }
 
+      // R-GAP-1 FIX: Register dimension LIVE in globalDimensionRegistry
+      // Without this, discoveries only take effect on next boot
+      try {
+        const { globalDimensionRegistry } = await import('./dimension-registry.js');
+        globalDimensionRegistry.register(axiom, name, {
+          weight: 1.0,
+          threshold: 50,
+          description: `Discovered dimension (was ${candidate.suggestedName})`,
+        });
+        log.info('ResidualGovernance', `Live-registered dimension ${axiom}.${name} in DimensionRegistry`);
+      } catch (regErr) {
+        log.debug('ResidualGovernance', 'Live registration failed (non-blocking)', { error: regErr.message });
+      }
+
       // Record for DPO learning (this is a "chosen" outcome)
       await this._recordForDPO(candidate, discovery, true);
 

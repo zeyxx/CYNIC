@@ -1053,7 +1053,30 @@ export class AutomationExecutor {
         }
       } catch (e) { /* view may not exist */ }
 
-      // 7. Calibration drift (last 24h)
+      // 7. Burnout trend analysis (last 6h, from psychology_snapshots)
+      try {
+        const { rows: [psy] } = await this.pool.query(
+          `SELECT COUNT(*) AS total,
+                  AVG(burnout_score) AS avg_burnout,
+                  MAX(burnout_score) AS peak_burnout,
+                  AVG(energy) AS avg_energy,
+                  AVG(frustration) AS avg_frustration
+           FROM psychology_snapshots
+           WHERE created_at > NOW() - INTERVAL '6 hours'`
+        );
+        if (psy && parseInt(psy.total) >= 3) {
+          const avgBurnout = parseFloat(psy.avg_burnout) || 0;
+          const peakBurnout = parseFloat(psy.peak_burnout) || 0;
+          const avgEnergy = parseFloat(psy.avg_energy) || 0.5;
+          if (peakBurnout > PHI_INV) {
+            findings.push({ type: 'burnout_active', message: `Burnout peak ${Math.round(peakBurnout * 100)}% in 6h (avg ${Math.round(avgBurnout * 100)}%, energy ${Math.round(avgEnergy * 100)}%)`, severity: 'high' });
+          } else if (avgBurnout > 0.382 && avgEnergy < 0.382) {
+            findings.push({ type: 'burnout_risk', message: `Elevated burnout risk: avg ${Math.round(avgBurnout * 100)}%, low energy ${Math.round(avgEnergy * 100)}%`, severity: 'medium' });
+          }
+        }
+      } catch (e) { /* table may not exist */ }
+
+      // 8. Calibration drift (last 24h)
       try {
         const { rows: [cal] } = await this.pool.query(
           `SELECT COUNT(*) AS total,

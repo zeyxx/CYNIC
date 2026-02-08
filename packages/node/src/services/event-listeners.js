@@ -503,6 +503,49 @@ async function handleCynicState(event, persistence, context) {
     _stats.consciousnessFailed++;
     log.debug('Consciousness transition persistence failed', { error: consErr.message });
   }
+
+  // P-GAP-5: Bridge local psychology file → PostgreSQL psychology_snapshots
+  // BurnoutDetection service exists in persistence but nobody writes to it.
+  // Read the local file (written by observe hook) and persist to DB.
+  try {
+    if (persistence) {
+      const { readFileSync, existsSync } = await import('fs');
+      const { join } = await import('path');
+      const { homedir } = await import('os');
+      const psyPath = join(homedir(), '.cynic', 'psychology', 'state.json');
+      if (existsSync(psyPath)) {
+        const psyState = JSON.parse(readFileSync(psyPath, 'utf8'));
+        // Only persist if recently updated (within 10 min)
+        if (psyState.updatedAt && (Date.now() - psyState.updatedAt) < 10 * 60 * 1000) {
+          const dims = psyState.dimensions || {};
+          const energy = dims.energy?.value ?? 0.5;
+          const focus = dims.focus?.value ?? 0.5;
+          const creativity = dims.creativity?.value ?? 0.5;
+          const frustration = dims.frustration?.value ?? 0.2;
+          // Burnout formula matches BurnoutDetection._calculateBurnoutScore
+          const burnoutScore = Math.min(1, Math.max(0, (1 - energy) * frustration * (1 + (1 - creativity) * 0.618 * 0.5)));
+          const flowScore = Math.min(1, Math.max(0, energy * 0.618 + focus * 0.618 + creativity * 0.382 - frustration * 0.618));
+
+          await persistence.query(`
+            INSERT INTO psychology_snapshots (user_id, session_id, energy, focus, creativity, frustration, burnout_score, flow_score, work_done, heat_generated, error_count)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          `, [
+            context.userId || 'default',
+            context.sessionId || null,
+            energy, focus, creativity, frustration,
+            burnoutScore, flowScore,
+            psyState.temporal?.sessionDuration || 0,
+            0, // heat_generated (could be wired later)
+            0, // error_count (could be wired later)
+          ]);
+          _stats.burnoutPersisted = (_stats.burnoutPersisted || 0) + 1;
+        }
+      }
+    }
+  } catch (burnoutErr) {
+    _stats.burnoutFailed = (_stats.burnoutFailed || 0) + 1;
+    log.debug('Psychology snapshot persistence failed', { error: burnoutErr.message });
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

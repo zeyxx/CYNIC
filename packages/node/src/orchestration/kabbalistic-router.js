@@ -296,6 +296,10 @@ export class KabbalisticRouter {
     this._orchPerf = null;
     this._orchPerfLastLoad = 0;
 
+    // P-GAP-5: Burnout awareness cache (from psychology_snapshots)
+    this._burnoutStatus = null;
+    this._burnoutLastLoad = 0;
+
     // D1: Thompson Sampler for exploration
     this.thompsonSampler = new ThompsonSampler();
     // Initialize arms for all 11 dogs
@@ -431,9 +435,20 @@ export class KabbalisticRouter {
     // =======================================================================
     // D1: LEARNING-INFORMED PATH OPTIMIZATION (Q + DPO + Thompson)
     // =======================================================================
-    // Load DPO weights + orchestration learning (cached, non-blocking)
+    // Load DPO weights + orchestration learning + burnout status (cached, non-blocking)
     try { await this.loadDPOWeights(); } catch (err) { /* best-effort */ }
     try { await this._loadOrchestrationLearning(); } catch (err) { /* best-effort */ }
+    try { await this._loadBurnoutStatus(); } catch (err) { /* best-effort */ }
+
+    // P-GAP-5: Burnout-aware path restriction
+    // If burnout is high (>φ⁻¹), restrict to LOW_ENERGY_PATHS (fewer dogs = less cognitive load)
+    if (this._burnoutStatus?.level === 'high' || this._burnoutStatus?.level === 'critical') {
+      const lowPath = LOW_ENERGY_PATHS[taskType];
+      if (lowPath) {
+        path = lowPath;
+        log.info('Burnout-aware routing: restricted to low-energy path', { taskType, burnoutLevel: this._burnoutStatus.level });
+      }
+    }
 
     // D1: Thompson exploration - with phi^-2 (23.6%), let Thompson pick entry
     let thompsonExplored = false;
@@ -1411,6 +1426,9 @@ export class KabbalisticRouter {
       age: this._orchPerfLastLoad ? Date.now() - this._orchPerfLastLoad : null,
     };
 
+    // P-GAP-5: Burnout awareness
+    stats.burnout = this._burnoutStatus || { level: 'unknown' };
+
     return stats;
   }
 
@@ -1554,6 +1572,66 @@ export class KabbalisticRouter {
       return this._orchPerf;
     } catch (err) {
       log.debug('Orchestration learning load failed (non-blocking)', { error: err.message });
+      return null;
+    }
+  }
+
+  // ===========================================================================
+  // P-GAP-5: BURNOUT-AWARE ROUTING
+  // ===========================================================================
+
+  /**
+   * Load recent burnout status from psychology_snapshots (cached, 5min TTL)
+   * Bridges the data grave: table exists but nobody reads for routing decisions.
+   *
+   * @returns {Promise<Object|null>} { level, score, energy, frustration }
+   */
+  async _loadBurnoutStatus() {
+    if (!this.persistence?.query) return null;
+    if (this._burnoutStatus && (Date.now() - this._burnoutLastLoad) < this._dpoWeightsTTL) {
+      return this._burnoutStatus;
+    }
+
+    try {
+      const { rows: [latest] } = await this.persistence.query(`
+        SELECT burnout_score, energy, frustration, flow_score
+        FROM psychology_snapshots
+        WHERE created_at > NOW() - INTERVAL '30 minutes'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `);
+
+      if (!latest) {
+        this._burnoutStatus = null;
+        this._burnoutLastLoad = Date.now();
+        return null;
+      }
+
+      const burnout = parseFloat(latest.burnout_score) || 0;
+      const energy = parseFloat(latest.energy) || 0.5;
+
+      let level;
+      if (burnout >= (1 - PHI_INV_3)) level = 'critical';      // 76.4%
+      else if (burnout >= PHI_INV) level = 'high';               // 61.8%
+      else if (burnout >= PHI_INV_2) level = 'moderate';         // 38.2%
+      else level = 'low';
+
+      this._burnoutStatus = {
+        level,
+        score: burnout,
+        energy,
+        frustration: parseFloat(latest.frustration) || 0,
+        flow: parseFloat(latest.flow_score) || 0,
+      };
+      this._burnoutLastLoad = Date.now();
+
+      if (level === 'high' || level === 'critical') {
+        log.info('Burnout status loaded: ' + level, { burnout: Math.round(burnout * 100), energy: Math.round(energy * 100) });
+      }
+
+      return this._burnoutStatus;
+    } catch (err) {
+      log.debug('Burnout status load failed (non-blocking)', { error: err.message });
       return null;
     }
   }
