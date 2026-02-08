@@ -42,6 +42,10 @@ import { BlockStore } from './network/block-store.js';
 import { getErrorHandler } from './services/error-handler.js';
 import { getSolanaWatcher, resetSolanaWatcher } from './perception/solana-watcher.js';
 import { getEmergenceDetector } from './services/emergence-detector.js';
+import { createConsciousnessMonitor } from '@cynic/emergence';
+import { getHeartbeatService, createDefaultChecks } from './services/heartbeat-service.js';
+import { getSLATracker } from './services/sla-tracker.js';
+import { wireConsciousness } from './services/consciousness-bridge.js';
 
 const log = createLogger('CollectiveSingleton');
 
@@ -240,6 +244,21 @@ let _solanaWatcher = null;
  * @type {import('./services/emergence-detector.js').EmergenceDetector|null}
  */
 let _emergenceDetector = null;
+
+/**
+ * ConsciousnessBridge singleton
+ * Connects HeartbeatService + SLATracker → ConsciousnessMonitor → ErrorHandler
+ * AXE 9: System health → consciousness awareness
+ * @type {import('./services/consciousness-bridge.js').ConsciousnessBridge|null}
+ */
+let _consciousnessBridge = null;
+
+/**
+ * HeartbeatService singleton
+ * Continuous health monitoring for all system components
+ * @type {import('./services/heartbeat-service.js').HeartbeatService|null}
+ */
+let _heartbeatService = null;
 
 /**
  * EWC++ Consolidation Service singleton
@@ -981,6 +1000,53 @@ export async function getCollectivePackAsync(options = {}) {
       log.warn('ErrorHandler activation failed (non-blocking)', { error: err.message });
     }
 
+    // AXE 9 (CONSCIOUS): Wire ConsciousnessBridge — system health → awareness
+    // Chain: HeartbeatService + SLATracker → ConsciousnessBridge → ConsciousnessMonitor
+    // Also late-binds into ErrorHandler so errors feed consciousness
+    if (!_consciousnessBridge) {
+      try {
+        // 1. Create ConsciousnessMonitor (the "inner eye")
+        const consciousness = createConsciousnessMonitor({ windowSize: 100 });
+
+        // 2. Create HeartbeatService with component health checks
+        const pool = options.persistence?.pool || (options.persistence?.query ? options.persistence : null);
+        const checks = createDefaultChecks({
+          pool,
+          collectivePack: pack,
+        });
+        _heartbeatService = getHeartbeatService({ components: checks });
+
+        // 3. Create SLATracker wired to heartbeat
+        const slaTracker = getSLATracker({ heartbeat: _heartbeatService });
+
+        // 4. Wire everything into ConsciousnessBridge
+        _consciousnessBridge = wireConsciousness({
+          consciousness,
+          heartbeat: _heartbeatService,
+          slaTracker,
+        });
+
+        // 5. Late-bind into ErrorHandler so errors feed consciousness
+        const errorHandler = getErrorHandler();
+        if (errorHandler?.setDependencies) {
+          errorHandler.setDependencies({ consciousness: _consciousnessBridge });
+        }
+
+        // 6. Start heartbeat monitoring
+        _heartbeatService.start();
+
+        log.info('ConsciousnessBridge wired (AXE 9: CONSCIOUS)', {
+          components: Object.keys(checks),
+          hasPool: !!pool,
+          hasSLA: true,
+        });
+      } catch (err) {
+        log.warn('ConsciousnessBridge initialization failed (non-blocking)', { error: err.message });
+        _consciousnessBridge = null;
+        _heartbeatService = null;
+      }
+    }
+
     // AXE 6 (EMERGE): Initialize EmergenceDetector for cross-session pattern analysis
     // Detects recurring mistakes, successful strategies, user preferences, workflow patterns
     // from data graves (dog_events, consensus_votes, collective_snapshots, judgments, etc.)
@@ -1513,6 +1579,13 @@ export function _resetForTesting() {
     _emergenceDetector.stop();
     _emergenceDetector = null;
   }
+
+  // AXE 9: Stop HeartbeatService + ConsciousnessBridge
+  if (_heartbeatService) {
+    _heartbeatService.stop();
+    _heartbeatService = null;
+  }
+  _consciousnessBridge = null;
 
   log.warn('Singletons reset (testing only)');
 }
