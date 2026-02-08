@@ -28,12 +28,14 @@ const log = createLogger('UnifiedSignal');
 export const SignalSource = {
   TOOL_EXECUTION: 'tool_execution',     // MCP tool was called
   JUDGMENT: 'judgment',                  // Judge evaluated something
+  CYNIC_JUDGE: 'cynic_judge',           // CYNIC Judge scored an item
   USER_FEEDBACK: 'user_feedback',        // Human correction
   TEST_RESULT: 'test_result',            // Automated test
   BUILD_RESULT: 'build_result',          // CI/CD outcome
   TRANSACTION: 'transaction',            // Solana tx
   PATTERN: 'pattern',                    // Emergent pattern
   DOG_ACTION: 'dog_action',              // Dog made decision
+  MANUAL: 'manual',                      // Manually recorded signal
 };
 
 /**
@@ -46,6 +48,9 @@ export const SignalOutcome = {
   BLOCKED: 'blocked',
   TIMEOUT: 'timeout',
   UNKNOWN: 'unknown',
+  CORRECT: 'correct',             // Ground truth: judgment was right
+  INCORRECT: 'incorrect',         // Ground truth: judgment was wrong
+  PENDING: 'pending',             // Outcome not yet known
 };
 
 /**
@@ -195,6 +200,7 @@ export class UnifiedSignal {
     // Reward calculation (RL signal)
     switch (this.outcome.status) {
       case SignalOutcome.SUCCESS:
+      case SignalOutcome.CORRECT:
         this.learning.reward = 1.0;
         break;
       case SignalOutcome.PARTIAL:
@@ -204,10 +210,14 @@ export class UnifiedSignal {
         this.learning.reward = 0.8;  // Blocking danger is good
         break;
       case SignalOutcome.FAILURE:
+      case SignalOutcome.INCORRECT:
         this.learning.reward = -0.5;
         break;
       case SignalOutcome.TIMEOUT:
         this.learning.reward = -0.3;
+        break;
+      case SignalOutcome.PENDING:
+        this.learning.reward = null;  // Not yet known
         break;
       default:
         this.learning.reward = 0;
@@ -226,16 +236,17 @@ export class UnifiedSignal {
       } else {
         this.learning.feedbackType = 'overscored';   // We scored too high
       }
-    } else if (this.outcome.status === SignalOutcome.SUCCESS) {
+    } else if (this.outcome.status === SignalOutcome.SUCCESS || this.outcome.status === SignalOutcome.CORRECT) {
       this.learning.feedbackType = 'correct';
-    } else if (this.outcome.status === SignalOutcome.FAILURE) {
+    } else if (this.outcome.status === SignalOutcome.FAILURE || this.outcome.status === SignalOutcome.INCORRECT) {
       this.learning.feedbackType = 'incorrect';
     }
 
-    // DPO pairing eligibility
+    // DPO pairing eligibility (PENDING signals can't pair — no ground truth yet)
     this.learning.canPair =
       this.judgment.qScore !== null &&
       this.outcome.status !== SignalOutcome.UNKNOWN &&
+      this.outcome.status !== SignalOutcome.PENDING &&
       this.learning.feedbackType !== null;
   }
 
