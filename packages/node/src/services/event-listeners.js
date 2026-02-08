@@ -441,7 +441,7 @@ async function handleDogSignal(event, persistence, context) {
  * Handle CYNIC_STATE - periodic collective health snapshots
  * Sampled: only persists every 5th emission to avoid table bloat
  */
-async function handleCynicState(event, persistence, context) {
+async function handleCynicState(event, persistence, context, repositories) {
   _cynicStateCounter++;
   if (_cynicStateCounter % 5 !== 0) return; // Sample every 5th
 
@@ -919,7 +919,7 @@ export function startEventListeners(options = {}) {
     const unsubCynicState = globalEventBus.subscribe(
       EventType.CYNIC_STATE,
       (event) => {
-        handleCynicState(event, persistence, context).catch((err) => {
+        handleCynicState(event, persistence, context, repositories).catch((err) => {
           log.debug('CYNIC state handler error', { error: err.message });
         });
       }

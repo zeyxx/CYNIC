@@ -243,15 +243,15 @@ export class EmergenceDetector extends EventEmitter {
     try {
       const { rows } = await this.persistence.pool.query(`
         SELECT
-          input->>'type' as item_type,
-          result->>'verdict' as verdict,
+          item_type,
+          verdict,
           COUNT(*) as occurrences,
-          AVG((result->>'qScore')::float) as avg_score
+          AVG(q_score) as avg_score
         FROM judgments
         WHERE created_at >= $1
-          AND (result->>'verdict') IN ('HOWL', 'WAG')
-          AND (result->>'qScore')::float >= 70
-        GROUP BY input->>'type', result->>'verdict'
+          AND verdict IN ('HOWL', 'WAG')
+          AND q_score >= 70
+        GROUP BY item_type, verdict
         HAVING COUNT(*) >= $2
         ORDER BY occurrences DESC
         LIMIT 20
@@ -329,13 +329,13 @@ export class EmergenceDetector extends EventEmitter {
       // Analyze session timing patterns
       const { rows } = await this.persistence.pool.query(`
         SELECT
-          EXTRACT(HOUR FROM started_at) as hour,
+          EXTRACT(HOUR FROM created_at) as hour,
           COUNT(*) as session_count,
-          AVG(EXTRACT(EPOCH FROM (ended_at - started_at)) / 60) as avg_duration_min
+          AVG(EXTRACT(EPOCH FROM (last_active_at - created_at)) / 60) as avg_duration_min
         FROM sessions
-        WHERE started_at >= $1
-          AND ended_at IS NOT NULL
-        GROUP BY EXTRACT(HOUR FROM started_at)
+        WHERE created_at >= $1
+          AND last_active_at IS NOT NULL
+        GROUP BY EXTRACT(HOUR FROM created_at)
         HAVING COUNT(*) >= $2
         ORDER BY session_count DESC
         LIMIT 10

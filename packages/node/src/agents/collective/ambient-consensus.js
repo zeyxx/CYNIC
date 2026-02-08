@@ -89,6 +89,12 @@ export class AmbientConsensus {
     // Stored unsubscribe functions (from eventBus.subscribe return value)
     this._unsubscribers = [];
 
+    // Bridge DogSignals to globalEventBus so event-listeners can persist them
+    this._publishSignal = (type, payload) => {
+      this.eventBus.publish(type, payload);
+      globalEventBus.publish(type, { ...payload, timestamp: Date.now() });
+    };
+
     // Bind methods
     this._onPreToolUse = this._onPreToolUse.bind(this);
     this._onPostToolUse = this._onPostToolUse.bind(this);
@@ -151,7 +157,7 @@ export class AmbientConsensus {
 
         if (guardianResult?.blocked) {
           // Guardian veto - emit signal
-          this.eventBus.publish(DogSignal.DANGER_DETECTED, {
+          this._publishSignal(DogSignal.DANGER_DETECTED, {
             source: 'guardian',
             tool,
             reason: guardianResult.reason,
@@ -203,7 +209,7 @@ export class AmbientConsensus {
 
         if (analysis?.patterns?.length > 0) {
           // Emit pattern found signal
-          this.eventBus.publish(DogSignal.PATTERN_FOUND, {
+          this._publishSignal(DogSignal.PATTERN_FOUND, {
             source: 'analyst',
             patterns: analysis.patterns,
             tool,
@@ -238,7 +244,7 @@ export class AmbientConsensus {
         });
 
         if (wisdom) {
-          this.eventBus.publish(DogSignal.WISDOM_SHARED, {
+          this._publishSignal(DogSignal.WISDOM_SHARED, {
             source: 'sage',
             wisdom,
             tool,
