@@ -20,6 +20,7 @@
 
 import { createLogger, PHI_INV } from '@cynic/core';
 import { EventBus, EventType, getEventBus } from './event-bus.js';
+import { PatternLearning } from '@cynic/persistence';
 
 const log = createLogger('AutomationExecutor');
 
@@ -36,6 +37,7 @@ const INTERVALS = {
   NOTIFICATIONS: 21 * 60 * 1000, // 21 minutes (Fibonacci) - proactive insights
   GOVERNANCE: 34 * 60 * 1000,  // 34 minutes (F9 Fibonacci) - dimension governance
   DATA_GRAVES: 21 * 60 * 1000, // 21 minutes (F8 Fibonacci) - data grave analysis
+  PATTERN_LEARNING: 55 * 60 * 1000, // 55 minutes (F10 Fibonacci) - pattern extraction/decay/clustering
 };
 
 /**
@@ -77,6 +79,16 @@ export class AutomationExecutor {
     this.residualGovernance = options.residualGovernance || null;
     this.collectivePack = options.collectivePack || null;
 
+    // Pattern learning (auto-create from pool if not injected)
+    this.patternLearning = options.patternLearning || null;
+    if (!this.patternLearning && this.pool) {
+      try {
+        this.patternLearning = new PatternLearning({ pool: this.pool });
+      } catch (e) {
+        log.debug('PatternLearning auto-create failed (non-blocking)', { error: e.message });
+      }
+    }
+
     // Autonomy repos
     this.goalsRepo = options.goalsRepo;
     this.tasksRepo = options.tasksRepo;
@@ -116,6 +128,10 @@ export class AutomationExecutor {
       dataGraveRuns: 0,
       lastDataGraveRun: null,
       dataGraveFindings: 0,
+      patternLearningRuns: 0,
+      lastPatternLearningRun: null,
+      patternsExtracted: 0,
+      patternsDecayed: 0,
     };
 
     log.debug('Automation executor created');
@@ -306,6 +322,17 @@ export class AutomationExecutor {
       });
     }, this.intervals.DATA_GRAVES);
     this._intervalHandles.set('dataGraves', dataGraveHandle);
+
+    // Pattern learning interval (F10 = 55 min Fibonacci)
+    if (this.patternLearning) {
+      const patternHandle = setInterval(() => {
+        this._runPatternLearning().catch((err) => {
+          this.stats.errors++;
+          log.error('Pattern learning failed', { error: err.message });
+        });
+      }, this.intervals.PATTERN_LEARNING);
+      this._intervalHandles.set('patternLearning', patternHandle);
+    }
 
     log.debug('Intervals started');
   }
@@ -1171,6 +1198,44 @@ export class AutomationExecutor {
     } catch (err) {
       this.stats.errors++;
       log.warn('Data grave analysis failed', { error: err.message });
+    }
+  }
+
+  /**
+   * Run pattern learning cycle (F10 = 55 min Fibonacci).
+   * Extracts patterns from judgments, applies confidence decay, clusters similar patterns.
+   * Activates the PatternLearning service that was built but never wired.
+   * @private
+   */
+  async _runPatternLearning() {
+    if (!this.patternLearning) return;
+
+    try {
+      const result = await this.patternLearning.runCycle();
+      this.stats.patternLearningRuns++;
+      this.stats.lastPatternLearningRun = Date.now();
+      this.stats.patternsExtracted += result.extraction?.extracted?.length || 0;
+      this.stats.patternsDecayed += result.decay?.decayed || 0;
+
+      if ((result.extraction?.extracted?.length || 0) > 0 || (result.decay?.decayed || 0) > 0) {
+        log.info('Pattern learning cycle results', {
+          extracted: result.extraction?.extracted?.length || 0,
+          decayed: result.decay?.decayed || 0,
+          merged: result.clustering?.totalMerged || 0,
+          duration: result.duration,
+        });
+
+        this.eventBus.publish(EventType.AUTOMATION_TICK, {
+          subType: 'pattern_learning',
+          extracted: result.extraction?.extracted?.length || 0,
+          decayed: result.decay?.decayed || 0,
+          merged: result.clustering?.totalMerged || 0,
+          timestamp: Date.now(),
+        }, { source: 'AutomationExecutor' });
+      }
+    } catch (err) {
+      this.stats.errors++;
+      log.warn('Pattern learning cycle failed', { error: err.message });
     }
   }
 

@@ -41,6 +41,7 @@ import { getNetworkNode as getNetworkNodeSync, getNetworkNodeAsync, startNetwork
 import { BlockStore } from './network/block-store.js';
 import { getErrorHandler } from './services/error-handler.js';
 import { getSolanaWatcher, resetSolanaWatcher } from './perception/solana-watcher.js';
+import { getEmergenceDetector } from './services/emergence-detector.js';
 
 const log = createLogger('CollectiveSingleton');
 
@@ -232,6 +233,13 @@ let _networkNode = null;
  * @type {import('./perception/solana-watcher.js').SolanaWatcher|null}
  */
 let _solanaWatcher = null;
+
+/**
+ * AXE 6 (EMERGE): Global EmergenceDetector instance
+ * Detects cross-session patterns from data graves (hourly analysis)
+ * @type {import('./services/emergence-detector.js').EmergenceDetector|null}
+ */
+let _emergenceDetector = null;
 
 /**
  * EWC++ Consolidation Service singleton
@@ -973,6 +981,38 @@ export async function getCollectivePackAsync(options = {}) {
       log.warn('ErrorHandler activation failed (non-blocking)', { error: err.message });
     }
 
+    // AXE 6 (EMERGE): Initialize EmergenceDetector for cross-session pattern analysis
+    // Detects recurring mistakes, successful strategies, user preferences, workflow patterns
+    // from data graves (dog_events, consensus_votes, collective_snapshots, judgments, etc.)
+    if (options.persistence && !_emergenceDetector) {
+      try {
+        const pool = options.persistence.pool || (options.persistence.query ? options.persistence : null);
+        if (pool) {
+          _emergenceDetector = getEmergenceDetector({
+            persistence: { pool },
+            memoryRetriever: _sharedMemory || null,
+          });
+          _emergenceDetector.start();
+
+          // Bridge significant patterns to globalEventBus for Dogs/listeners
+          _emergenceDetector.on('significant_pattern', (pattern) => {
+            globalEventBus.publish(EventType.PATTERN_DETECTED || 'pattern:detected', {
+              source: 'EmergenceDetector',
+              category: pattern.category,
+              key: pattern.key,
+              subject: pattern.subject,
+              occurrences: pattern.occurrences,
+              significance: pattern.significance,
+              confidence: pattern.confidence,
+            });
+          });
+          log.info('EmergenceDetector started (AXE 6: EMERGE)', { analysisInterval: '1h' });
+        }
+      } catch (err) {
+        log.warn('EmergenceDetector initialization failed (non-blocking)', { error: err.message });
+      }
+    }
+
     return pack;
   })();
 
@@ -1466,6 +1506,12 @@ export function _resetForTesting() {
   if (_ewcService) {
     _ewcService.stopScheduler();
     _ewcService = null;
+  }
+
+  // AXE 6: Stop EmergenceDetector
+  if (_emergenceDetector) {
+    _emergenceDetector.stop();
+    _emergenceDetector = null;
   }
 
   log.warn('Singletons reset (testing only)');
