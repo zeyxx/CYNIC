@@ -22,7 +22,7 @@
     "./services/*": "./src/services/*.js"
   },
   "scripts": {
-    "test": "node --test --test-force-exit test/*.test.js",
+    "test": "node --test test/*.test.js",
     "migrate": "node src/postgres/migrate.js"
   },
   "dependencies": {

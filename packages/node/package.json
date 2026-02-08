@@ -40,7 +40,7 @@
   "scripts": {
     "test": "node --test --test-concurrency=4 test/*.test.js",
     "test:seq": "node --test --test-concurrency=1 test/*.test.js",
-    "test:fast": "node --test --test-concurrency=8 --test-force-exit test/*.test.js",
+    "test:fast": "node --test --test-concurrency=8 test/*.test.js",
     "start": "node bin/cynic.js start"
   },
   "dependencies": {
