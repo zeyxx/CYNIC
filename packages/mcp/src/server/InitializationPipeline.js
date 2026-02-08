@@ -472,18 +472,35 @@ export class InitializationPipeline {
   async _initializeAutonomousDaemon() {
     const s = this._server;
 
-    if (!s.autonomousDaemon && s.persistence?.pool) {
+    if (!s.autonomousDaemon) {
       try {
+        // File-based null-safe stubs when PostgreSQL is unavailable
+        // CYNIC must run even without external deps — asymptote of entropy
+        const nullRepo = {
+          _items: [],
+          async create(item) { this._items.push({ ...item, id: `file-${Date.now()}`, created_at: new Date() }); return this._items[this._items.length - 1]; },
+          async findByType(userId, type, opts) { return this._items.filter(i => i.notification_type === type).slice(0, opts?.limit || 10); },
+          async findDueSoon() { return []; },
+          async findRecurring() { return []; },
+          async getAll() { return this._items; },
+          async findById(id) { return this._items.find(i => i.id === id); },
+          async update(id, data) { const i = this._items.find(x => x.id === id); if (i) Object.assign(i, data); return i; },
+          async updateStatus(id, status) { const i = this._items.find(x => x.id === id); if (i) i.status = status; return i; },
+          async resetStuck() { return 0; },
+        };
+
+        const hasPool = !!s.persistence?.pool;
+
         s.autonomousDaemon = createAutonomousDaemon({
-          pool: s.persistence.pool,
-          memoryRetriever: s.persistence?.repositories?.memory,
+          pool: s.persistence?.pool || null,
+          memoryRetriever: s.persistence?.repositories?.memory || null,
           collective: s.collective,
-          goalsRepo: s.persistence?.repositories?.autonomousGoals,
-          tasksRepo: s.persistence?.repositories?.autonomousTasks,
-          notificationsRepo: s.persistence?.repositories?.proactiveNotifications,
+          goalsRepo: s.persistence?.repositories?.autonomousGoals || { ...nullRepo, _items: [] },
+          tasksRepo: s.persistence?.repositories?.autonomousTasks || { ...nullRepo, _items: [] },
+          notificationsRepo: s.persistence?.repositories?.proactiveNotifications || { ...nullRepo, _items: [] },
         });
         await s.autonomousDaemon.start();
-        console.error('   AutonomousDaemon: ACTIVE (Fibonacci intervals, autonomous task processing)');
+        console.error(`   AutonomousDaemon: ACTIVE (Fibonacci intervals${hasPool ? '' : ', file-mode (no PostgreSQL)'})`);
       } catch (err) {
         console.error(`   AutonomousDaemon: FAILED (${err.message})`);
         s.autonomousDaemon = null;

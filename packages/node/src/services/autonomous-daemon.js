@@ -323,6 +323,7 @@ export class AutonomousDaemon {
     // For now, just check for goals nearing deadline
 
     // Get all users with active goals (simplified - in production would paginate)
+    if (!this.pool) return 0; // No PostgreSQL — skip (file-mode)
     const { rows } = await this.pool.query(`
       SELECT DISTINCT user_id FROM autonomous_goals WHERE status = 'active'
       LIMIT 100
@@ -365,6 +366,7 @@ export class AutonomousDaemon {
     // that indicate mistakes or areas for improvement
 
     // For now, just check for recurring lessons
+    if (!this.pool) return 0; // No PostgreSQL — skip (file-mode)
     const { rows } = await this.pool.query(`
       SELECT DISTINCT user_id FROM lessons_learned
       WHERE occurrence_count > 2 AND last_occurred > NOW() - INTERVAL '7 days'
@@ -415,6 +417,7 @@ export class AutonomousDaemon {
     let generated = 0;
 
     // Check for completed goals
+    if (!this.pool) return 0; // No PostgreSQL — skip (file-mode)
     const { rows: completedGoals } = await this.pool.query(`
       SELECT * FROM autonomous_goals
       WHERE status = 'active' AND progress >= 1.0
@@ -453,7 +456,7 @@ export class AutonomousDaemon {
   async _cleanup() {
     try {
       // Use the cleanup function from migration
-      await this.pool.query('SELECT cleanup_total_memory()');
+      if (this.pool) await this.pool.query('SELECT cleanup_total_memory()');
 
       // Reset stuck tasks
       const reset = await this.tasksRepo.resetStuck(30);

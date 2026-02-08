@@ -291,8 +291,19 @@ function createMinimalBrain() {
  * @returns {Promise<Object>} Thought result
  */
 export async function thinkAbout(content, options = {}) {
+  // Tier-based dispatch: LIGHT tier forces MinimalBrain+Ollama path
+  // "Le plus petit chien qui peut faire le travail"
+  const forceLocal = options.tier === 'light' || options.tier === 'local';
+
   // Initialize brain service (async)
-  const brainService = await initBrainService();
+  let brainService;
+  if (forceLocal) {
+    // LIGHT/LOCAL tier → MinimalBrain (rule-based + local LLM)
+    // CYNIC thinks independently, no Claude dependency
+    brainService = _useMinimalBrain ? _brainService : createMinimalBrain();
+  } else {
+    brainService = await initBrainService();
+  }
 
   if (!brainService) {
     // Brain not available - return default response
@@ -319,6 +330,9 @@ export async function thinkAbout(content, options = {}) {
       requestSynthesis: options.requestSynthesis || false,
       checkPatterns: options.checkPatterns !== false,
     });
+
+    // Tag the source so downstream knows which brain was used
+    thought.brainSource = forceLocal ? 'local' : (_useMinimalBrain ? 'minimal' : 'full');
 
     return thought;
   } catch (e) {
