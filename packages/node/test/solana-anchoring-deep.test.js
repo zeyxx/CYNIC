@@ -33,7 +33,10 @@ describe('SolanaAnchoringManager - Deep Tests', () => {
   });
 
   afterEach(() => {
-    if (manager) manager.cleanup();
+    if (manager) {
+      manager.cleanup();
+      manager.removeAllListeners();
+    }
   });
 
   // ==================== 1. Constructor & defaults (~4) ====================

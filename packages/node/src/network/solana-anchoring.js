@@ -110,6 +110,7 @@ export class SolanaAnchoringManager extends EventEmitter {
   /** Disable anchoring */
   disable() {
     this._enabled = false;
+    this._stopRetryTimer();
     log.info('Solana anchoring disabled');
     this.emit('anchoring:disabled');
   }
@@ -421,6 +422,8 @@ export class SolanaAnchoringManager extends EventEmitter {
       () => this._retryFailedAnchors(),
       SolanaAnchoringManager.RETRY_SWEEP_MS
     );
+    // Don't prevent process exit (tests, graceful shutdown)
+    if (this._retryInterval.unref) this._retryInterval.unref();
     log.debug('Retry timer started', { intervalMs: SolanaAnchoringManager.RETRY_SWEEP_MS });
   }
 

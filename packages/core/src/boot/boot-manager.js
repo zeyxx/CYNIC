@@ -90,12 +90,17 @@ export class BootManager extends EventEmitter {
    */
   #bootCompletedAt = null;
 
+  /**
+   * Whether to install signal handlers on boot()
+   * @type {boolean}
+   */
+  #handleSignals = false;
+
   constructor(options = {}) {
     super();
-    const { handleSignals = false } = options;
-    if (handleSignals) {
-      this.#setupSignalHandlers();
-    }
+    // Defer signal handler registration to boot() — registering at import
+    // time keeps the event loop alive and breaks --test-force-exit.
+    this.#handleSignals = options.handleSignals ?? false;
   }
 
   /**
@@ -197,6 +202,12 @@ export class BootManager extends EventEmitter {
     this.#state = BootState.BOOTING;
     this.#bootStartedAt = Date.now();
     this.emit(BootEvent.BOOT_STARTED);
+
+    // Register signal handlers now (deferred from constructor to avoid
+    // keeping the event loop alive on mere import of @cynic/core)
+    if (this.#handleSignals) {
+      this.#setupSignalHandlers();
+    }
 
     try {
       // Resolve dependency order
