@@ -28,7 +28,7 @@ import { DogSignal } from '../agents/collective/ambient-consensus.js';
 import { getEventBus, EventType as AutomationEventType } from './event-bus.js';
 import { AgentEvent } from '../agents/events.js';
 import { getThermodynamicState } from '../organism/thermodynamics.js';
-import { persistThermodynamics, persistConsciousnessTransition } from '@cynic/persistence';
+import { persistThermodynamics, persistConsciousnessTransition, createFileBackedRepo } from '@cynic/persistence';
 
 const log = createLogger('EventListeners');
 
@@ -779,8 +779,17 @@ export function startEventListeners(options = {}) {
   }
 
   if (!repositories) {
-    log.warn('No repositories available - event listeners will be no-ops');
-    repositories = {};
+    // Fallback: file-backed repos so judgments/feedback survive without PostgreSQL
+    try {
+      repositories = {
+        judgments: createFileBackedRepo('judgments'),
+        feedback: createFileBackedRepo('feedback'),
+      };
+      log.info('Using file-backed repos for judgments/feedback (no PostgreSQL)');
+    } catch (err) {
+      log.warn('No repositories available - event listeners will be no-ops', { error: err.message });
+      repositories = {};
+    }
   }
 
   const context = { sessionId, userId };
