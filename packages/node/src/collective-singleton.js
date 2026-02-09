@@ -882,12 +882,26 @@ export async function getCollectivePackAsync(options = {}) {
           // FIX: Create LearningManager instead of reading from pack.learner (was always null)
           // LearningManager auto-initializes DPOProcessor, DPOOptimizer, CalibrationTracker
           // L-GAP-FIX: Must include .feedback repo or pullFeedback() silently returns early
-          const { FeedbackRepository } = await import('@cynic/persistence');
-          const learningManager = new LearningManager({
-            persistence: options.persistence ? {
+          let learningPersistence = null;
+          if (options.persistence) {
+            const { FeedbackRepository } = await import('@cynic/persistence');
+            learningPersistence = {
               query: (sql, params) => options.persistence.query(sql, params),
               feedback: new FeedbackRepository(options.persistence),
-            } : null,
+            };
+          } else {
+            // File-backed fallback: learning survives without PostgreSQL
+            const { createFileBackedRepo } = await import('@cynic/persistence');
+            learningPersistence = {
+              feedback: createFileBackedRepo('feedback'),
+              patterns: createFileBackedRepo('patterns'),
+              knowledge: createFileBackedRepo('knowledge'),
+              patternEvolution: createFileBackedRepo('pattern-evolution'),
+            };
+            log.info('LearningManager using file-backed repos (no PostgreSQL)');
+          }
+          const learningManager = new LearningManager({
+            persistence: learningPersistence,
             eventBus: globalEventBus,
           });
           try { await learningManager.initialize(); } catch { /* non-blocking */ }

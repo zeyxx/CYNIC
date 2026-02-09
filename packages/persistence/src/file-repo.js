@@ -170,6 +170,104 @@ export class FileBackedRepo {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // LEARNING PIPELINE INTERFACE (for feedback/judgment repos)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get unapplied feedback items (for learning cycle consumption)
+   * @param {number} limit
+   * @returns {Object[]}
+   */
+  async findUnapplied(limit = 100) {
+    return this._items
+      .filter(i => i.applied !== true)
+      .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
+      .slice(0, limit);
+  }
+
+  /**
+   * Mark a feedback item as applied (consumed by learning cycle)
+   * @param {string} id
+   * @returns {Object|null}
+   */
+  async markApplied(id) {
+    const item = this._items.find(i => i.id === id);
+    if (!item) return null;
+    item.applied = true;
+    item.applied_at = new Date().toISOString();
+    item.updated_at = new Date().toISOString();
+    this._save();
+    return item;
+  }
+
+  /**
+   * Find items by a linked judgment ID
+   * @param {string} judgmentId
+   * @returns {Object[]}
+   */
+  async findByJudgment(judgmentId) {
+    return this._items
+      .filter(i => i.judgment_id === judgmentId)
+      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PATTERN REPO INTERFACE (for learning pattern persistence)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Upsert a record by category + name (for patterns)
+   * @param {Object} data - Must include category and name
+   * @returns {Object} Created or updated record
+   */
+  async upsert(data) {
+    const existing = this._items.find(
+      i => i.category === data.category && i.name === data.name
+    );
+    if (existing) {
+      Object.assign(existing, data, { updated_at: new Date().toISOString() });
+      this._save();
+      return existing;
+    }
+    return this.create(data);
+  }
+
+  /**
+   * Find items by category field
+   * @param {string} category
+   * @returns {Object[]}
+   */
+  async findByCategory(category) {
+    return this._items.filter(i => i.category === category);
+  }
+
+  /**
+   * Search items by keyword (for knowledge store compatibility)
+   * @param {string} query
+   * @param {Object} [opts]
+   * @returns {Object[]}
+   */
+  async search(query, opts = {}) {
+    const limit = opts.limit || 10;
+    return this._items
+      .filter(i => {
+        if (opts.category && i.category !== opts.category) return false;
+        const text = JSON.stringify(i).toLowerCase();
+        return text.includes((query || '').toLowerCase());
+      })
+      .slice(0, limit);
+  }
+
+  /**
+   * Find items by type field (for patternEvolution compatibility)
+   * @param {string} type
+   * @returns {Object[]}
+   */
+  async findByType(type) {
+    return this._items.filter(i => i.type === type || i.item_type === type);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // DOMAIN-SPECIFIC QUERIES (for daemon compatibility)
   // ═══════════════════════════════════════════════════════════════════════════
 

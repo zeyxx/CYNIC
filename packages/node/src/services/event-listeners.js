@@ -779,13 +779,16 @@ export function startEventListeners(options = {}) {
   }
 
   if (!repositories) {
-    // Fallback: file-backed repos so judgments/feedback survive without PostgreSQL
+    // Fallback: file-backed repos so the full learning chain survives without PostgreSQL
     try {
       repositories = {
         judgments: createFileBackedRepo('judgments'),
         feedback: createFileBackedRepo('feedback'),
+        patterns: createFileBackedRepo('patterns'),
+        knowledge: createFileBackedRepo('knowledge'),
+        patternEvolution: createFileBackedRepo('pattern-evolution'),
       };
-      log.info('Using file-backed repos for judgments/feedback (no PostgreSQL)');
+      log.info('Using file-backed repos for learning pipeline (no PostgreSQL)');
     } catch (err) {
       log.warn('No repositories available - event listeners will be no-ops', { error: err.message });
       repositories = {};
