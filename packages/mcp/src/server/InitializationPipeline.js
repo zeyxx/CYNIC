@@ -218,7 +218,7 @@ export class InitializationPipeline {
     if (!s.llmRouter) {
       try {
         const { getRouterWithValidators } = await import('@cynic/llm');
-        s.llmRouter = getRouterWithValidators();
+        s.llmRouter = await getRouterWithValidators();
         if (s.unifiedOrchestrator) {
           s.unifiedOrchestrator.setLLMRouter(s.llmRouter);
         }

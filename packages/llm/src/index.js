@@ -44,6 +44,7 @@ export {
   getRouterWithValidators,
   createHybridRouter,
   createValidatorsFromEnv,
+  createValidatorsFromDetection,
   _resetLLMRouterForTesting,
   // Cost optimization
   ComplexityClassifier,

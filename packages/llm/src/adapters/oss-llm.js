@@ -32,7 +32,7 @@ export class OSSLLMAdapter extends LLMAdapter {
     this.apiKey = options.apiKey || null;
     this.apiFormat = options.apiFormat || 'ollama'; // 'ollama' or 'openai'
     this.timeout = options.timeout || 30000; // 30s default
-    this.enabled = false; // Disabled by default until configured
+    this.enabled = options.autoEnable ? !!this.endpoint : false;
   }
 
   /**

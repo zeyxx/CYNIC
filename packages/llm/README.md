@@ -49,6 +49,7 @@ const instance = createOllamaValidator();
 | `createLLMRouter()` | Create LLMRouter instance |
 | `createHybridRouter()` | Create HybridRouter instance |
 | `createValidatorsFromEnv()` | Create ValidatorsFromEnv instance |
+| `createValidatorsFromDetection()` | Create ValidatorsFromDetection instance |
 
 ### Singletons
 
@@ -75,7 +76,7 @@ const instance = createOllamaValidator();
 - **Source files**: 11
 - **Test files**: 4
 - **Test ratio**: 36%
-- **Exports**: 36 named
+- **Exports**: 37 named
 
 ## Fractal Structure
 

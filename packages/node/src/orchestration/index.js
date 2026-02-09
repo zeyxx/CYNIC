@@ -162,6 +162,7 @@ export {
   createLMStudioValidator,
   createOpenAIValidator,
   createValidatorsFromEnv,
+  createValidatorsFromDetection,
   getRouterWithValidators,
   // Task #98: AirLLM integration (large models via disk offloading)
   AirLLMAdapter,

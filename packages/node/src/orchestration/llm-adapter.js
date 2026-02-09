@@ -22,6 +22,9 @@
 'use strict';
 
 import { EventEmitter } from 'events';
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { createLogger, PHI_INV, PHI_INV_2 } from '@cynic/core';
 import { calculateSemanticAgreement, SimilarityThresholds } from '@cynic/llm';
 
@@ -817,6 +820,52 @@ export function createValidatorsFromEnv() {
 }
 
 /**
+ * Create validators from ~/.cynic/llm-detection.json
+ *
+ * Written by awaken.js on session start. Zero-config discovery.
+ *
+ * @returns {OSSLLMAdapter[]}
+ */
+export function createValidatorsFromDetection() {
+  const validators = [];
+
+  try {
+    const detectionPath = join(homedir(), '.cynic', 'llm-detection.json');
+    if (!existsSync(detectionPath)) return validators;
+
+    const detection = JSON.parse(readFileSync(detectionPath, 'utf8'));
+
+    // Stale detection check (30 min)
+    if (detection.timestamp && (Date.now() - detection.timestamp) > 1800000) {
+      log.debug('LLM detection file stale (>30min), skipping');
+      return validators;
+    }
+
+    for (const adapter of (detection.adapters || [])) {
+      if (!adapter.available) continue;
+
+      if (adapter.provider === 'ollama') {
+        validators.push(createOllamaValidator({
+          endpoint: adapter.endpoint,
+          model: adapter.models?.[0] || 'llama3.2',
+        }));
+        log.info('Ollama validator from detection', { endpoint: adapter.endpoint, models: adapter.models });
+      } else if (adapter.provider === 'lm-studio') {
+        validators.push(createLMStudioValidator({
+          endpoint: adapter.endpoint,
+          model: adapter.models?.[0] || 'local-model',
+        }));
+        log.info('LM Studio validator from detection', { endpoint: adapter.endpoint, models: adapter.models });
+      }
+    }
+  } catch (err) {
+    log.debug('LLM detection read failed', { error: err.message });
+  }
+
+  return validators;
+}
+
+/**
  * Get a router with validators from environment
  *
  * @param {Object} [options]
@@ -829,6 +878,14 @@ export function getRouterWithValidators(options = {}) {
   if (router.validators.length === 0) {
     const envValidators = createValidatorsFromEnv();
     for (const validator of envValidators) {
+      router.addValidator(validator);
+    }
+  }
+
+  // Fallback: auto-discover from ~/.cynic/llm-detection.json (written by awaken.js)
+  if (router.validators.length === 0) {
+    const detectionValidators = createValidatorsFromDetection();
+    for (const validator of detectionValidators) {
       router.addValidator(validator);
     }
   }
