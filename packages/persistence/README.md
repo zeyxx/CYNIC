@@ -29,6 +29,7 @@ const instance = createMockFactory();
 | `RepositoryFactory` | RepositoryFactory implementation |
 | `FallbackRepositoryFactory` | FallbackRepositoryFactory implementation |
 | `BackendType` | BackendType implementation |
+| `FileBackedRepo` | FileBackedRepo implementation |
 | `BaseRepository` | BaseRepository implementation |
 | `SessionStore` | SessionStore implementation |
 | `BatchQueue` | BatchQueue implementation |
@@ -74,6 +75,7 @@ const instance = createMockFactory();
 |----------|-------------|
 | `createMockFactory()` | Create MockFactory instance |
 | `createFallbackFactory()` | Create FallbackFactory instance |
+| `createFileBackedRepo()` | Create FileBackedRepo instance |
 | `createTableBatchQueue()` | Create TableBatchQueue instance |
 | `createCID()` | Create CID instance |
 | `createRawCID()` | Create RawCID instance |
@@ -120,10 +122,10 @@ const instance = createMockFactory();
 
 ## Stats
 
-- **Source files**: 83
+- **Source files**: 84
 - **Test files**: 21
 - **Test ratio**: 25%
-- **Exports**: 85 named
+- **Exports**: 87 named
 
 ## Dimensions (4 Axioms)
 

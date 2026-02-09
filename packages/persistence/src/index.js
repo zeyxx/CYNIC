@@ -33,6 +33,9 @@ export { RepositoryFactory, createMockFactory } from './factory.js';
 // Fallback Factory (auto-detect PostgreSQL/SQLite)
 export { FallbackRepositoryFactory, BackendType, createFallbackFactory } from './fallback-factory.js';
 
+// File-Backed Repository (last resort, no DB needed)
+export { FileBackedRepo, createFileBackedRepo } from './file-repo.js';
+
 // Repository Interfaces (for extension)
 export { BaseRepository } from './interfaces/IRepository.js';
 
