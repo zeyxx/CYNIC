@@ -828,38 +828,59 @@ export function createValidatorsFromEnv() {
  */
 export function createValidatorsFromDetection() {
   const validators = [];
+  const cynicDir = join(homedir(), '.cynic');
 
+  // Source 1: llm-detection.json (written by awaken.js, new format)
   try {
-    const detectionPath = join(homedir(), '.cynic', 'llm-detection.json');
-    if (!existsSync(detectionPath)) return validators;
+    const detectionPath = join(cynicDir, 'llm-detection.json');
+    if (existsSync(detectionPath)) {
+      const detection = JSON.parse(readFileSync(detectionPath, 'utf8'));
 
-    const detection = JSON.parse(readFileSync(detectionPath, 'utf8'));
+      // Stale detection check (30 min)
+      if (!detection.timestamp || (Date.now() - detection.timestamp) <= 1800000) {
+        for (const adapter of (detection.adapters || [])) {
+          if (!adapter.available) continue;
 
-    // Stale detection check (30 min)
-    if (detection.timestamp && (Date.now() - detection.timestamp) > 1800000) {
-      log.debug('LLM detection file stale (>30min), skipping');
-      return validators;
-    }
-
-    for (const adapter of (detection.adapters || [])) {
-      if (!adapter.available) continue;
-
-      if (adapter.provider === 'ollama') {
-        validators.push(createOllamaValidator({
-          endpoint: adapter.endpoint,
-          model: adapter.models?.[0] || 'llama3.2',
-        }));
-        log.info('Ollama validator from detection', { endpoint: adapter.endpoint, models: adapter.models });
-      } else if (adapter.provider === 'lm-studio') {
-        validators.push(createLMStudioValidator({
-          endpoint: adapter.endpoint,
-          model: adapter.models?.[0] || 'local-model',
-        }));
-        log.info('LM Studio validator from detection', { endpoint: adapter.endpoint, models: adapter.models });
+          if (adapter.provider === 'ollama') {
+            validators.push(createOllamaValidator({
+              endpoint: adapter.endpoint,
+              model: adapter.models?.[0] || 'llama3.2',
+            }));
+            log.info('Ollama validator from detection', { endpoint: adapter.endpoint, models: adapter.models });
+          } else if (adapter.provider === 'lm-studio') {
+            validators.push(createLMStudioValidator({
+              endpoint: adapter.endpoint,
+              model: adapter.models?.[0] || 'local-model',
+            }));
+            log.info('LM Studio validator from detection', { endpoint: adapter.endpoint, models: adapter.models });
+          }
+        }
       }
     }
   } catch (err) {
     log.debug('LLM detection read failed', { error: err.message });
+  }
+
+  // Source 2: llm-bridge.json (legacy format, fallback)
+  if (validators.length === 0) {
+    try {
+      const bridgePath = join(cynicDir, 'llm-bridge.json');
+      if (existsSync(bridgePath)) {
+        const bridge = JSON.parse(readFileSync(bridgePath, 'utf8'));
+
+        // Stale check (48 hours for legacy — Ollama tends to stay running)
+        if (!bridge.lastCheck || (Date.now() - bridge.lastCheck) <= 172800000) {
+          if (bridge.available && bridge.model) {
+            validators.push(createOllamaValidator({
+              model: bridge.model,
+            }));
+            log.info('Ollama validator from llm-bridge (legacy)', { model: bridge.model });
+          }
+        }
+      }
+    } catch (err) {
+      log.debug('LLM bridge read failed', { error: err.message });
+    }
   }
 
   return validators;
