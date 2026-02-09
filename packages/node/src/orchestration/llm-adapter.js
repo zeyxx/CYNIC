@@ -870,11 +870,26 @@ export function createValidatorsFromDetection() {
 
         // Stale check (48 hours for legacy — Ollama tends to stay running)
         if (!bridge.lastCheck || (Date.now() - bridge.lastCheck) <= 172800000) {
-          if (bridge.available && bridge.model) {
-            validators.push(createOllamaValidator({
-              model: bridge.model,
-            }));
-            log.info('Ollama validator from llm-bridge (legacy)', { model: bridge.model });
+          if (bridge.available) {
+            // Register all generation-capable models for tier routing + consensus
+            const models = (bridge.availableModels || [bridge.model]).filter(Boolean);
+            const skipPatterns = /embed|nomic|clip|whisper/i; // Skip non-generation models
+            const registered = new Set();
+
+            for (const model of models) {
+              if (skipPatterns.test(model)) continue;
+              if (registered.has(model)) continue;
+              registered.add(model);
+
+              validators.push(createOllamaValidator({ model }));
+            }
+
+            if (validators.length > 0) {
+              log.info('Ollama validators from llm-bridge (legacy)', {
+                count: validators.length,
+                models: [...registered],
+              });
+            }
           }
         }
       }
