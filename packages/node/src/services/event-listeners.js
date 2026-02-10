@@ -1091,6 +1091,42 @@ export function startEventListeners(options = {}) {
     log.info('Social capture listener wired');
   }
 
+  // P2-B: Persist routing decisions from KabbalisticRouter → orchestration_log
+  // Router emits ORCHESTRATION_COMPLETED after each routing decision.
+  // This closes the data grave: orchestration_log was read by router but never written by it.
+  if (persistence?.query) {
+    const unsubOrch = globalEventBus.subscribe(EventType.ORCHESTRATION_COMPLETED, (event) => {
+      try {
+        const d = event.data || event.payload || {};
+        persistence.query(`
+          INSERT INTO orchestration_log
+            (event_type, sefirah, outcome, domain, suggested_agent, trace, duration_ms, session_id)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [
+          'routing_decision',
+          d.entrySefirah || 'unknown',
+          d.success ? (d.blocked ? 'BLOCK' : 'ALLOW') : 'ERROR',
+          d.taskType || 'unknown',
+          d.entrySefirah || null,
+          JSON.stringify({
+            path: d.path,
+            hasConsensus: d.hasConsensus,
+            confidence: d.confidence,
+            consultationCount: d.consultationCount,
+            thompsonExplored: d.thompsonExplored,
+          }),
+          d.durationMs || null,
+          context.sessionId || null,
+        ]).catch(err => {
+          log.debug('Orchestration log persistence failed', { error: err.message });
+        });
+        _stats.orchestrationDecisionsPersisted = (_stats.orchestrationDecisionsPersisted || 0) + 1;
+      } catch (e) { log.debug('Orchestration completed handler error', { error: e.message }); }
+    });
+    _unsubscribers.push(unsubOrch);
+    log.info('Orchestration completed listener wired (P2-B)');
+  }
+
   // Fix #4: Automation Bus Orphan Logging
   // AutomationExecutor publishes events to getEventBus() with zero subscribers.
   // Add basic INFO-level logging for production visibility.

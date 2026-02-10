@@ -421,10 +421,14 @@ export class CYNICJudge {
       confidence,
       metadata: {
         context: context.type || 'general',
+        queryType: context.queryType || context.type || 'general',
         judgedAt: t0,
         reasoning_path: reasoningPath,
       },
     });
+
+    // P2-A: Expose queryType at top level for JudgmentRepository persistence
+    judgment.queryType = context.queryType || context.type || 'general';
 
     // Enhance judgment with Q-Score data
     judgment.axiomScores = axiomScores;

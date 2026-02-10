@@ -74,7 +74,8 @@ export class FeedbackRepository extends BaseRepository {
       SELECT f.*,
         COALESCE(j.q_score, f.actual_score) AS q_score,
         j.verdict,
-        j.item_type
+        j.item_type,
+        j.query_type
       FROM feedback f
       LEFT JOIN judgments j ON f.judgment_id = j.judgment_id
       WHERE f.applied = FALSE

@@ -77,7 +77,14 @@ export class JudgmentRepository extends BaseRepository {
         ...step,
       }));
 
-    // Try with reasoning_path first, fall back to without if column doesn't exist
+    // P2-A: Extract queryType from context for DPO per-context learning
+    const queryType = judgment.queryType
+      || judgment.context?.queryType
+      || judgment.context?.type
+      || judgment.item?.type
+      || 'general';
+
+    // Try with reasoning_path + query_type first, fall back if columns don't exist
     try {
       const { rows } = await this.db.query(`
         INSERT INTO judgments (
@@ -85,8 +92,8 @@ export class JudgmentRepository extends BaseRepository {
           item_type, item_content, item_hash,
           q_score, global_score, confidence, verdict,
           axiom_scores, dimension_scores, weaknesses,
-          context, reasoning_path
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          context, reasoning_path, query_type
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
         RETURNING *
       `, [
         judgmentId,
@@ -104,12 +111,13 @@ export class JudgmentRepository extends BaseRepository {
         JSON.stringify(judgment.weaknesses || []),
         JSON.stringify(judgment.context || {}),
         JSON.stringify(reasoningPath),
+        queryType,
       ]);
 
       return rows[0];
     } catch (err) {
-      // Fallback: reasoning_path column may not exist (pre-migration)
-      if (err.message?.includes('reasoning_path')) {
+      // Fallback: reasoning_path/query_type columns may not exist (pre-migration)
+      if (err.message?.includes('reasoning_path') || err.message?.includes('query_type')) {
         const { rows } = await this.db.query(`
           INSERT INTO judgments (
             judgment_id, user_id, session_id,

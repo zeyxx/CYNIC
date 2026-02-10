@@ -25,7 +25,7 @@
 
 'use strict';
 
-import { PHI_INV, PHI_INV_2, PHI_INV_3, createLogger } from '@cynic/core';
+import { PHI_INV, PHI_INV_2, PHI_INV_3, createLogger, globalEventBus, EventType } from '@cynic/core';
 import { ThompsonSampler } from '../learning/thompson-sampler.js';
 import { SEFIROT_TEMPLATE } from '../agents/collective/sefirot.js';
 import { RelationshipGraph } from '../agents/collective/relationship-graph.js';
@@ -582,6 +582,20 @@ export class KabbalisticRouter {
         durationMs
       );
     }
+
+    // 9. Emit orchestration event for persistence + learning visibility
+    globalEventBus.publish(EventType.ORCHESTRATION_COMPLETED, {
+      taskType,
+      path: path.slice(0, 5),
+      entrySefirah,
+      success: !context.error,
+      blocked: !!context.blocked,
+      hasConsensus: synthesis.hasConsensus,
+      confidence: synthesis.confidence,
+      durationMs,
+      consultationCount: context.consultations.length,
+      thompsonExplored,
+    });
 
     return {
       success: !context.error,

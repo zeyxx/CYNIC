@@ -129,8 +129,11 @@ export class DPOProcessor {
     const groups = {};
 
     for (const item of feedback) {
-      // Create context key from item_type and source_type
-      const contextKey = `${item.item_type || 'unknown'}:${item.source_type || 'manual'}`;
+      // P2-A: Include query_type for per-context DPO learning
+      // "PreToolUse:routing_outcome" learns different weights than "design:manual"
+      const queryType = item.query_type || item.item_type || 'unknown';
+      const sourceType = item.source_type || 'manual';
+      const contextKey = `${queryType}:${sourceType}`;
 
       if (!groups[contextKey]) {
         groups[contextKey] = [];
