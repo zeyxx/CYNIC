@@ -34,20 +34,20 @@ const log = createLogger('EventBus');
 export const EventType = {
   // Feedback events
   FEEDBACK_RECEIVED: 'feedback:received',
-  FEEDBACK_PROCESSED: 'feedback:processed',
+  FEEDBACK_PROCESSED: 'feedback:processed', // @unused — 0 publishers, 0 subscribers
 
   // Judgment events
   JUDGMENT_CREATED: 'judgment:created',
-  JUDGMENT_REFINED: 'judgment:refined',
+  JUDGMENT_REFINED: 'judgment:refined', // @unused — 0 publishers, 0 subscribers
 
-  // Session events
+  // Session events (subscribers in AutomationExecutor, but published on CORE bus not here)
   SESSION_START: 'session:start',
   SESSION_END: 'session:end',
 
   // Learning events
   LEARNING_CYCLE_START: 'learning:cycle:start',
   LEARNING_CYCLE_COMPLETE: 'learning:cycle:complete',
-  LEARNING_PATTERN_EVOLVED: 'learning:pattern:evolved',
+  LEARNING_PATTERN_EVOLVED: 'learning:pattern:evolved', // @unused — 0 publishers, 0 subscribers
 
   // Trigger events
   TRIGGER_FIRED: 'trigger:fired',
@@ -59,22 +59,22 @@ export const EventType = {
   AUTOMATION_STOP: 'automation:stop',
 
   // Goal events
-  GOAL_CREATED: 'goal:created',
-  GOAL_PROGRESS: 'goal:progress',
+  GOAL_CREATED: 'goal:created', // @unused — GoalsRepo uses MCP tools, not bus events
+  GOAL_PROGRESS: 'goal:progress', // @unused — GoalsRepo uses MCP tools, not bus events
   GOAL_COMPLETED: 'goal:completed',
 
   // Notification events
-  NOTIFICATION_CREATED: 'notification:created',
-  NOTIFICATION_DELIVERED: 'notification:delivered',
+  NOTIFICATION_CREATED: 'notification:created', // @unused — NotificationsRepo uses MCP tools, not bus events
+  NOTIFICATION_DELIVERED: 'notification:delivered', // @unused — NotificationsRepo uses MCP tools, not bus events
 
   // Error events
-  ERROR: 'error',
+  ERROR: 'error', // @unused — errors flow through ErrorHandler → ConsciousnessBridge, not bus
 
   // Hook events (from Claude Code hooks → internal system)
   HOOK_PRE_TOOL: 'hook:pre_tool',
   HOOK_POST_TOOL: 'hook:post_tool',
-  HOOK_SESSION_START: 'hook:session_start',
-  HOOK_SESSION_END: 'hook:session_end',
+  HOOK_SESSION_START: 'hook:session_start', // @unused — hooks use core globalEventBus, not automation bus
+  HOOK_SESSION_END: 'hook:session_end', // @unused — hooks use core globalEventBus, not automation bus
 };
 
 /**

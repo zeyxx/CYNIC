@@ -1209,7 +1209,32 @@ export function startEventListeners(options = {}) {
       } catch (e) { log.debug('Distribution snapshot bridge error', { error: e.message }); }
     }));
 
-    log.info('Automation bus orphan listeners wired (Fix #4 + 4b + AXE 6)');
+    // Fix #4c: Wire remaining automation bus orphans (LEARNING_CYCLE_START, TRIGGER_EVALUATED, AUTOMATION_START/STOP)
+    _unsubscribers.push(ab.subscribe(AutomationEventType.LEARNING_CYCLE_START, (event) => {
+      try {
+        const d = event.data || event.payload || {};
+        log.info('Learning cycle started (automation bus)', { trigger: d.trigger, scheduleType: d.scheduleType });
+      } catch (e) { log.debug('Learning cycle start log error', { error: e.message }); }
+    }));
+    _unsubscribers.push(ab.subscribe(AutomationEventType.TRIGGER_EVALUATED, (event) => {
+      try {
+        const d = event.data || event.payload || {};
+        log.info('Trigger evaluated (automation bus)', { triggerId: d.triggerId, fired: d.fired, reason: d.reason });
+      } catch (e) { log.debug('Trigger evaluated log error', { error: e.message }); }
+    }));
+    _unsubscribers.push(ab.subscribe(AutomationEventType.AUTOMATION_START, (event) => {
+      try {
+        const d = event.data || event.payload || {};
+        log.info('Automation executor started', { intervals: d.intervals, triggerCount: d.triggerCount });
+      } catch (e) { log.debug('Automation start log error', { error: e.message }); }
+    }));
+    _unsubscribers.push(ab.subscribe(AutomationEventType.AUTOMATION_STOP, (event) => {
+      try {
+        log.info('Automation executor stopped');
+      } catch (e) { log.debug('Automation stop log error', { error: e.message }); }
+    }));
+
+    log.info('Automation bus orphan listeners wired (Fix #4 + 4b + 4c + AXE 6)');
   } catch (err) {
     log.debug('Automation bus listeners skipped', { error: err.message });
   }
