@@ -22,6 +22,7 @@ import {
   getSolanaAccountant,
   getSolanaEmergence,
 } from '@cynic/node/solana';
+import { getListenerStats } from '@cynic/node';
 
 /**
  * Create brain_solana tool — unified access to all C2.* cells
@@ -164,8 +165,21 @@ Actions:
         // UNIFIED: Stats + Health
         // ═══════════════════════════════════════════════════════════════
         case 'stats': {
+          // Include pipeline activity stats from event-listeners
+          const listenerStats = getListenerStats?.() || {};
+          const pipelineStats = {
+            judgments: listenerStats.solanaJudgments || 0,
+            decisions: listenerStats.solanaDecisions || 0,
+            actionsRecorded: listenerStats.solanaActionsRecorded || 0,
+            learnings: listenerStats.solanaLearnings || 0,
+            accountingOps: listenerStats.solanaAccountingOps || 0,
+            emergencePatterns: listenerStats.solanaEmergencePatterns || 0,
+            pipelineActive: (listenerStats.solanaJudgments || 0) > 0,
+          };
+
           return {
             action,
+            pipeline: pipelineStats,
             judge: getSolanaJudge().getStats(),
             decider: getSolanaDecider().getStats(),
             actor: getSolanaActor().getStats(),

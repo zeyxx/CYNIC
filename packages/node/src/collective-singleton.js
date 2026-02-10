@@ -52,6 +52,12 @@ import { getCodeDecider, resetCodeDecider } from './code/code-decider.js';
 import { getCynicAccountant, resetCynicAccountant } from './accounting/cynic-accountant.js';
 import { getCodeAccountant, resetCodeAccountant } from './accounting/code-accountant.js';
 import { getHumanActor, resetHumanActor } from './symbiosis/human-actor.js';
+import { getSolanaJudge, resetSolanaJudge } from './solana/solana-judge.js';
+import { getSolanaDecider, resetSolanaDecider } from './solana/solana-decider.js';
+import { getSolanaActor, resetSolanaActor } from './solana/solana-actor.js';
+import { getSolanaLearner, resetSolanaLearner } from './solana/solana-learner.js';
+import { getSolanaAccountant, resetSolanaAccountant } from './solana/solana-accountant.js';
+import { getSolanaEmergence, resetSolanaEmergence } from './solana/solana-emergence.js';
 
 const log = createLogger('CollectiveSingleton');
 
@@ -308,6 +314,48 @@ let _codeAccountant = null;
  * @type {import('./symbiosis/human-actor.js').HumanActor|null}
  */
 let _humanActor = null;
+
+/**
+ * C2.2 (SOLANA × JUDGE): SolanaJudge singleton
+ * Judges transactions, accounts, programs, network state
+ * @type {import('./solana/solana-judge.js').SolanaJudge|null}
+ */
+let _solanaJudge = null;
+
+/**
+ * C2.3 (SOLANA × DECIDE): SolanaDecider singleton
+ * Decides transaction routing: SEND_NOW, QUEUE, RETRY, ABORT, WAIT
+ * @type {import('./solana/solana-decider.js').SolanaDecider|null}
+ */
+let _solanaDecider = null;
+
+/**
+ * C2.4 (SOLANA × ACT): SolanaActor singleton
+ * Executes Solana actions (dry-run default, SOLANA_ACTOR_LIVE=true for real)
+ * @type {import('./solana/solana-actor.js').SolanaActor|null}
+ */
+let _solanaActor = null;
+
+/**
+ * C2.5 (SOLANA × LEARN): SolanaLearner singleton
+ * Learns from transaction outcomes (fee estimation, timing, endpoint reliability)
+ * @type {import('./solana/solana-learner.js').SolanaLearner|null}
+ */
+let _solanaLearner = null;
+
+/**
+ * C2.6 (SOLANA × ACCOUNT): SolanaAccountant singleton
+ * Tracks transaction economics (fees, transfers, compute)
+ * @type {import('./solana/solana-accountant.js').SolanaAccountant|null}
+ */
+let _solanaAccountant = null;
+
+/**
+ * C2.7 (SOLANA × EMERGE): SolanaEmergence singleton
+ * Detects on-chain patterns (spikes, whales, fee anomalies)
+ * @type {import('./solana/solana-emergence.js').SolanaEmergence|null}
+ */
+let _solanaEmergence = null;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DEFAULT OPTIONS
@@ -622,6 +670,13 @@ export function getCollectivePack(options = {}) {
         cynicAccountant: _cynicAccountant,
         codeAccountant: _codeAccountant,
         humanActor: _humanActor,
+        // Solana pipeline singletons (C2.2-C2.7) — may be null in sync path
+        solanaJudge: _solanaJudge,
+        solanaDecider: _solanaDecider,
+        solanaActor: _solanaActor,
+        solanaLearner: _solanaLearner,
+        solanaAccountant: _solanaAccountant,
+        solanaEmergence: _solanaEmergence,
       });
       log.info('EventListeners started - data loops closed (AXE 2)', { hasBlockStore: !!blockStore, hasJudge: !!(finalOptions.judge || _globalPack?.judge) });
 
@@ -805,6 +860,13 @@ export async function getCollectivePackAsync(options = {}) {
         cynicAccountant: _cynicAccountant,
         codeAccountant: _codeAccountant,
         humanActor: _humanActor,
+        // Solana pipeline singletons (C2.2-C2.7)
+        solanaJudge: _solanaJudge,
+        solanaDecider: _solanaDecider,
+        solanaActor: _solanaActor,
+        solanaLearner: _solanaLearner,
+        solanaAccountant: _solanaAccountant,
+        solanaEmergence: _solanaEmergence,
       });
       log.info('EventListeners started on subsequent call with persistence (AXE 2 fix)');
 
@@ -1069,6 +1131,27 @@ export async function getCollectivePackAsync(options = {}) {
       }
     }
 
+    // C2.2-C2.7 (SOLANA × JUDGE/DECIDE/ACT/LEARN/ACCOUNT/EMERGE)
+    // Initialize downstream Solana modules ONLY when SolanaWatcher is active.
+    // No watcher = no events = nothing to process.
+    if (_solanaWatcher) {
+      try {
+        _solanaJudge = getSolanaJudge();
+        _solanaDecider = getSolanaDecider();
+        _solanaActor = getSolanaActor({
+          connection: _solanaWatcher._connection || null,
+        });
+        _solanaLearner = getSolanaLearner();
+        _solanaAccountant = getSolanaAccountant();
+        _solanaEmergence = getSolanaEmergence();
+        log.info('Solana pipeline initialized (C2.2-C2.7)', {
+          hasConnection: !!_solanaWatcher._connection,
+        });
+      } catch (err) {
+        log.warn('Solana pipeline initialization failed (non-blocking)', { error: err.message });
+      }
+    }
+
     // AXE 8 (AWARE): Activate ErrorHandler singleton with global error capture
     try {
       getErrorHandler({ captureGlobal: true });
@@ -1214,6 +1297,14 @@ export async function getCollectivePackAsync(options = {}) {
       if (_codeDecider) systemTopology.registerComponent('codeDecider', _codeDecider);
       if (_cynicAccountant) systemTopology.registerComponent('cynicAccountant', _cynicAccountant);
       if (_codeAccountant) systemTopology.registerComponent('codeAccountant', _codeAccountant);
+
+      // Solana pipeline (C2.2-C2.7)
+      if (_solanaJudge) systemTopology.registerComponent('solanaJudge', _solanaJudge);
+      if (_solanaDecider) systemTopology.registerComponent('solanaDecider', _solanaDecider);
+      if (_solanaActor) systemTopology.registerComponent('solanaActor', _solanaActor);
+      if (_solanaLearner) systemTopology.registerComponent('solanaLearner', _solanaLearner);
+      if (_solanaAccountant) systemTopology.registerComponent('solanaAccountant', _solanaAccountant);
+      if (_solanaEmergence) systemTopology.registerComponent('solanaEmergence', _solanaEmergence);
       if (_humanActor) systemTopology.registerComponent('humanActor', _humanActor);
 
       // Services
@@ -1711,6 +1802,13 @@ export function getSingletonStatus() {
     cynicAccountantInitialized: !!_cynicAccountant,
     codeAccountantInitialized: !!_codeAccountant,
     humanActorInitialized: !!_humanActor,
+    // Solana pipeline (C2.2-C2.7)
+    solanaJudgeInitialized: !!_solanaJudge,
+    solanaDeciderInitialized: !!_solanaDecider,
+    solanaActorInitialized: !!_solanaActor,
+    solanaLearnerInitialized: !!_solanaLearner,
+    solanaAccountantInitialized: !!_solanaAccountant,
+    solanaEmergenceInitialized: !!_solanaEmergence,
   };
 }
 
@@ -1737,6 +1835,24 @@ export function getCodeAccountantSingleton() { return _codeAccountant; }
  * @returns {import('./symbiosis/human-actor.js').HumanActor|null}
  */
 export function getHumanActorSingleton() { return _humanActor; }
+
+/** C2.2: Get SolanaJudge singleton @returns {import('./solana/solana-judge.js').SolanaJudge|null} */
+export function getSolanaJudgeSingleton() { return _solanaJudge; }
+
+/** C2.3: Get SolanaDecider singleton @returns {import('./solana/solana-decider.js').SolanaDecider|null} */
+export function getSolanaDeciderSingleton() { return _solanaDecider; }
+
+/** C2.4: Get SolanaActor singleton @returns {import('./solana/solana-actor.js').SolanaActor|null} */
+export function getSolanaActorSingleton() { return _solanaActor; }
+
+/** C2.5: Get SolanaLearner singleton @returns {import('./solana/solana-learner.js').SolanaLearner|null} */
+export function getSolanaLearnerSingleton() { return _solanaLearner; }
+
+/** C2.6: Get SolanaAccountant singleton @returns {import('./solana/solana-accountant.js').SolanaAccountant|null} */
+export function getSolanaAccountantSingleton() { return _solanaAccountant; }
+
+/** C2.7: Get SolanaEmergence singleton @returns {import('./solana/solana-emergence.js').SolanaEmergence|null} */
+export function getSolanaEmergenceSingleton() { return _solanaEmergence; }
 
 /**
  * Get SolanaWatcher singleton (if initialized)
@@ -1862,6 +1978,14 @@ export function _resetForTesting() {
   if (_cynicAccountant) { resetCynicAccountant(); _cynicAccountant = null; }
   if (_codeAccountant) { resetCodeAccountant(); _codeAccountant = null; }
   if (_humanActor) { resetHumanActor(); _humanActor = null; }
+
+  // Solana pipeline singletons (C2.2-C2.7)
+  if (_solanaJudge) { resetSolanaJudge(); _solanaJudge = null; }
+  if (_solanaDecider) { resetSolanaDecider(); _solanaDecider = null; }
+  if (_solanaActor) { resetSolanaActor(); _solanaActor = null; }
+  if (_solanaLearner) { resetSolanaLearner(); _solanaLearner = null; }
+  if (_solanaAccountant) { resetSolanaAccountant(); _solanaAccountant = null; }
+  if (_solanaEmergence) { resetSolanaEmergence(); _solanaEmergence = null; }
 
   // EventBusBridge: Disconnect nervous systems
   try { eventBusBridge._resetForTesting(); } catch { /* non-blocking */ }
