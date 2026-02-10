@@ -156,6 +156,10 @@ export {
 import { createDistributionTool } from './domains/distribution.js';
 export { createDistributionTool };
 
+// Solana domain (brain_solana — C2.* row of 7×7 matrix)
+import { createSolanaTool } from './domains/solana.js';
+export { createSolanaTool };
+
 // System domain (health, metrics, collective_status, agent_diagnostic, consensus)
 import {
   createHealthTool,
@@ -480,6 +484,7 @@ export function createAllTools(options = {}) {
     createEcosystemTool(ecosystem),
     createEcosystemMonitorTool({ judge, persistence }), // External sources: GitHub, Twitter, Web + auto-analysis
     createDistributionTool(), // $asdfasdfa distribution awareness (services, funnel, ecosystem map)
+    createSolanaTool(), // C2.* row: judge/decide/act/learn/account/emerge on Solana
     createDiscoveryTool(discovery), // MCP servers, plugins, CYNIC nodes
     createPoJChainTool(pojChainManager, persistence),
     createTraceTool(persistence, pojChainManager),
@@ -601,6 +606,7 @@ export default {
   createDocsTool,
   createEcosystemTool,
   createDistributionTool,
+  createSolanaTool,
   createDiscoveryTool,
   createPoJChainTool,
   createTraceTool,
