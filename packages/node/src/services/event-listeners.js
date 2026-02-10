@@ -88,11 +88,18 @@ const _stats = {
   solanaLearnings: 0,
   solanaAccountingOps: 0,
   solanaEmergencePatterns: 0,
-  // Emergence pipeline stats (C1.7, C5.7)
+  // Emergence pipeline stats (C1.7, C4.7, C5.7, C6.7, C7.7)
   codeEmergencePatterns: 0,
   codeEmergenceChanges: 0,
   humanEmergenceSnapshots: 0,
   humanEmergencePatterns: 0,
+  cynicEmergenceDogEvents: 0,
+  cynicEmergenceConsensus: 0,
+  cynicEmergencePatterns: 0,
+  socialEmergenceCaptures: 0,
+  socialEmergencePatterns: 0,
+  cosmosEmergenceSnapshots: 0,
+  cosmosEmergencePatterns: 0,
   startedAt: null,
 };
 
@@ -107,6 +114,15 @@ let _codeEmergenceInterval = null;
 
 /** @type {NodeJS.Timeout|null} Human emergence analysis interval (F9=34min) */
 let _humanEmergenceInterval = null;
+
+/** @type {NodeJS.Timeout|null} Cynic emergence analysis interval (F8=21min) */
+let _cynicEmergenceInterval = null;
+
+/** @type {NodeJS.Timeout|null} Social emergence analysis interval (F10=55min) */
+let _socialEmergenceInterval = null;
+
+/** @type {NodeJS.Timeout|null} Cosmos emergence analysis interval (F11=89min) */
+let _cosmosEmergenceInterval = null;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // RETRY UTILITY
@@ -794,9 +810,12 @@ export function startEventListeners(options = {}) {
     solanaLearner,
     solanaAccountant,
     solanaEmergence,
-    // Emergence pipeline singletons (C1.7, C5.7)
+    // Emergence pipeline singletons (C1.7, C4.7, C5.7, C6.7, C7.7)
     codeEmergence,
     humanEmergence,
+    cynicEmergence,
+    socialEmergence,
+    cosmosEmergence,
   } = options;
 
   // Get or create repositories
@@ -1865,6 +1884,185 @@ export function startEventListeners(options = {}) {
     log.info('HumanEmergence (C5.7) wired to CYNIC_STATE + F9 interval');
   }
 
+  // 4e. DOG_EVENT + CONSENSUS_COMPLETED → CynicEmergence: Feed Dog behavior data (C6.7)
+  if (cynicEmergence) {
+    const unsubCynicEmergenceDog = globalEventBus.subscribe(
+      EventType.DOG_EVENT,
+      (event) => {
+        try {
+          const d = event?.payload || event;
+          cynicEmergence.recordDogEvent({
+            dog: d.dog || d.dogName,
+            eventType: d.eventType || d.type,
+          });
+          _stats.cynicEmergenceDogEvents++;
+        } catch (err) {
+          log.debug('CynicEmergence dog handler error', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubCynicEmergenceDog);
+
+    const unsubCynicEmergenceConsensus = globalEventBus.subscribe(
+      EventType.CONSENSUS_COMPLETED,
+      (event) => {
+        try {
+          const d = event?.payload || event;
+          cynicEmergence.recordConsensus({
+            approved: d.approved,
+            agreement: d.agreement || d.agreementRatio,
+            vetoCount: d.vetoCount || d.vetoes,
+            dogCount: d.dogCount || d.voterCount,
+          });
+          _stats.cynicEmergenceConsensus++;
+        } catch (err) {
+          log.debug('CynicEmergence consensus handler error', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubCynicEmergenceConsensus);
+
+    // Also feed CYNIC_STATE as health snapshots (sampled 1:5)
+    let cynicStateCounter = 0;
+    const unsubCynicEmergenceHealth = globalEventBus.subscribe(
+      EventType.CYNIC_STATE,
+      (event) => {
+        cynicStateCounter++;
+        if (cynicStateCounter % 5 !== 0) return;
+        try {
+          const d = event?.payload || event;
+          cynicEmergence.recordHealthSnapshot({
+            avgHealth: d.health?.avg || d.avgHealth || 0.5,
+            memoryLoad: d.memoryLoad || 0,
+            patternCount: d.patternCount || 0,
+            dogCount: d.dogCount || d.activeDogs || 0,
+          });
+        } catch (err) {
+          log.debug('CynicEmergence health handler error', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubCynicEmergenceHealth);
+
+    // F8=21min: CynicEmergence analysis
+    _cynicEmergenceInterval = setInterval(() => {
+      try {
+        const patterns = cynicEmergence.analyze();
+        if (patterns?.length > 0) {
+          for (const pattern of patterns) {
+            globalEventBus.publish(EventType.PATTERN_DETECTED, {
+              source: 'CynicEmergence',
+              key: pattern.type,
+              significance: pattern.significance || 'medium',
+              category: 'cynic',
+              ...pattern,
+            }, { source: 'cynic-emergence' });
+          }
+          _stats.cynicEmergencePatterns += patterns.length;
+        }
+      } catch (err) {
+        log.debug('Cynic emergence analysis error', { error: err.message });
+      }
+    }, 21 * 60 * 1000); // F8 = 21 minutes
+    _cynicEmergenceInterval.unref();
+
+    log.info('CynicEmergence (C6.7) wired to DOG_EVENT + CONSENSUS_COMPLETED + F8 interval');
+  }
+
+  // 4f. SOCIAL_CAPTURE → SocialEmergence: Feed social interaction data (C4.7)
+  if (socialEmergence) {
+    const unsubSocialEmergence = globalEventBus.subscribe(
+      EventType.SOCIAL_CAPTURE,
+      (event) => {
+        try {
+          const d = event?.payload || event;
+          socialEmergence.recordCapture({
+            platform: d.platform,
+            type: d.type || d.eventType,
+            engagement: d.engagement || d.likes || d.interactions,
+            sentiment: d.sentiment,
+            author: d.author || d.username,
+          });
+          _stats.socialEmergenceCaptures++;
+        } catch (err) {
+          log.debug('SocialEmergence capture handler error', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubSocialEmergence);
+
+    // F10=55min: SocialEmergence analysis
+    _socialEmergenceInterval = setInterval(() => {
+      try {
+        const patterns = socialEmergence.analyze();
+        if (patterns?.length > 0) {
+          for (const pattern of patterns) {
+            globalEventBus.publish(EventType.PATTERN_DETECTED, {
+              source: 'SocialEmergence',
+              key: pattern.type,
+              significance: pattern.significance || 'medium',
+              category: 'social',
+              ...pattern,
+            }, { source: 'social-emergence' });
+          }
+          _stats.socialEmergencePatterns += patterns.length;
+        }
+      } catch (err) {
+        log.debug('Social emergence analysis error', { error: err.message });
+      }
+    }, 55 * 60 * 1000); // F10 = 55 minutes
+    _socialEmergenceInterval.unref();
+
+    log.info('SocialEmergence (C4.7) wired to SOCIAL_CAPTURE + F10 interval');
+  }
+
+  // 4g. PATTERN_DETECTED → CosmosEmergence: Feed cross-domain patterns as ecosystem data (C7.7)
+  if (cosmosEmergence) {
+    const unsubCosmosEmergence = globalEventBus.subscribe(
+      EventType.PATTERN_DETECTED,
+      (event) => {
+        try {
+          const d = event?.payload || event;
+          // Only record patterns from OTHER emergence detectors (avoid self-feeding loop)
+          if (d.source === 'CosmosEmergence') return;
+          cosmosEmergence.recordCrossEvent({
+            repos: [d.category || d.dimension || 'unknown'],
+            eventType: d.key || d.type || 'pattern',
+            significance: d.significance || 'low',
+          });
+          _stats.cosmosEmergenceSnapshots++;
+        } catch (err) {
+          log.debug('CosmosEmergence pattern handler error', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubCosmosEmergence);
+
+    // F11=89min: CosmosEmergence analysis
+    _cosmosEmergenceInterval = setInterval(() => {
+      try {
+        const patterns = cosmosEmergence.analyze();
+        if (patterns?.length > 0) {
+          for (const pattern of patterns) {
+            globalEventBus.publish(EventType.PATTERN_DETECTED, {
+              source: 'CosmosEmergence',
+              key: pattern.type,
+              significance: pattern.significance || 'medium',
+              category: 'cosmos',
+              ...pattern,
+            }, { source: 'cosmos-emergence' });
+          }
+          _stats.cosmosEmergencePatterns += patterns.length;
+        }
+      } catch (err) {
+        log.debug('Cosmos emergence analysis error', { error: err.message });
+      }
+    }, 89 * 60 * 1000); // F11 = 89 minutes
+    _cosmosEmergenceInterval.unref();
+
+    log.info('CosmosEmergence (C7.7) wired to PATTERN_DETECTED + F11 interval');
+  }
+
   _started = true;
   _stats.startedAt = Date.now();
 
@@ -1944,6 +2142,18 @@ export function stopEventListeners() {
   if (_humanEmergenceInterval) {
     clearInterval(_humanEmergenceInterval);
     _humanEmergenceInterval = null;
+  }
+  if (_cynicEmergenceInterval) {
+    clearInterval(_cynicEmergenceInterval);
+    _cynicEmergenceInterval = null;
+  }
+  if (_socialEmergenceInterval) {
+    clearInterval(_socialEmergenceInterval);
+    _socialEmergenceInterval = null;
+  }
+  if (_cosmosEmergenceInterval) {
+    clearInterval(_cosmosEmergenceInterval);
+    _cosmosEmergenceInterval = null;
   }
 
   _unsubscribers = [];

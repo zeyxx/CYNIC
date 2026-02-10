@@ -36,6 +36,9 @@ import { getHumanLearning } from './symbiosis/human-learning.js';
 import { getHumanAccountant } from './symbiosis/human-accountant.js';
 import { getHumanEmergence, resetHumanEmergence } from './symbiosis/human-emergence.js';
 import { getCodeEmergence, resetCodeEmergence } from './emergence/code-emergence.js';
+import { getCynicEmergence, resetCynicEmergence } from './emergence/cynic-emergence.js';
+import { getSocialEmergence, resetSocialEmergence } from './emergence/social-emergence.js';
+import { getCosmosEmergence, resetCosmosEmergence } from './emergence/cosmos-emergence.js';
 import { wireAmbientConsensus } from './agents/collective/ambient-consensus.js';
 import { startEventListeners, stopEventListeners, cleanupOldEventData } from './services/event-listeners.js';
 import { getNetworkNode as getNetworkNodeSync, getNetworkNodeAsync, startNetworkNode, stopNetworkNode, isP2PEnabled } from './network-singleton.js';
@@ -223,6 +226,27 @@ let _humanEmergence = null;
  * @type {CodeEmergence|null}
  */
 let _codeEmergence = null;
+
+/**
+ * C6.7: The global CynicEmergence instance
+ * Detects Dog dominance shifts, consensus quality trends, collective health
+ * @type {CynicEmergence|null}
+ */
+let _cynicEmergence = null;
+
+/**
+ * C4.7: The global SocialEmergence instance
+ * Detects engagement velocity, sentiment drift, influence concentration
+ * @type {SocialEmergence|null}
+ */
+let _socialEmergence = null;
+
+/**
+ * C7.7: The global CosmosEmergence instance
+ * Detects ecosystem health trajectories, activity concentration, cross-repo convergence
+ * @type {CosmosEmergence|null}
+ */
+let _cosmosEmergence = null;
 
 /**
  * Initialization promise to prevent race conditions
@@ -664,7 +688,10 @@ export function getCollectivePack(options = {}) {
     _humanAccountant = getHumanAccountant();
     _humanEmergence = getHumanEmergence();
     _codeEmergence = getCodeEmergence();
-    log.debug('Symbiosis + Emergence layer wired (C5.3-C5.7, C1.7)');
+    _cynicEmergence = getCynicEmergence();
+    _socialEmergence = getSocialEmergence();
+    _cosmosEmergence = getCosmosEmergence();
+    log.debug('Symbiosis + Emergence layer wired (C5.3-C5.7, C1.7, C4.7, C6.7, C7.7)');
 
     // RIGHT SIDE: Wire DECIDE/ACT/ACCOUNT singletons
     // "Le chien décide, agit, et rend des comptes"
@@ -703,9 +730,12 @@ export function getCollectivePack(options = {}) {
         solanaLearner: _solanaLearner,
         solanaAccountant: _solanaAccountant,
         solanaEmergence: _solanaEmergence,
-        // Emergence pipeline singletons (C1.7, C5.7)
+        // Emergence pipeline singletons (C1.7, C4.7, C5.7, C6.7, C7.7)
         codeEmergence: _codeEmergence,
         humanEmergence: _humanEmergence,
+        cynicEmergence: _cynicEmergence,
+        socialEmergence: _socialEmergence,
+        cosmosEmergence: _cosmosEmergence,
       });
       log.info('EventListeners started - data loops closed (AXE 2)', { hasBlockStore: !!blockStore, hasJudge: !!(finalOptions.judge || _globalPack?.judge) });
 
@@ -896,9 +926,12 @@ export async function getCollectivePackAsync(options = {}) {
         solanaLearner: _solanaLearner,
         solanaAccountant: _solanaAccountant,
         solanaEmergence: _solanaEmergence,
-        // Emergence pipeline singletons (C1.7, C5.7)
+        // Emergence pipeline singletons (C1.7, C4.7, C5.7, C6.7, C7.7)
         codeEmergence: _codeEmergence,
         humanEmergence: _humanEmergence,
+        cynicEmergence: _cynicEmergence,
+        socialEmergence: _socialEmergence,
+        cosmosEmergence: _cosmosEmergence,
       });
       log.info('EventListeners started on subsequent call with persistence (AXE 2 fix)');
 
@@ -1325,6 +1358,9 @@ export async function getCollectivePackAsync(options = {}) {
       if (_humanAccountant) systemTopology.registerComponent('humanAccountant', _humanAccountant);
       if (_humanEmergence) systemTopology.registerComponent('humanEmergence', _humanEmergence);
       if (_codeEmergence) systemTopology.registerComponent('codeEmergence', _codeEmergence);
+      if (_cynicEmergence) systemTopology.registerComponent('cynicEmergence', _cynicEmergence);
+      if (_socialEmergence) systemTopology.registerComponent('socialEmergence', _socialEmergence);
+      if (_cosmosEmergence) systemTopology.registerComponent('cosmosEmergence', _cosmosEmergence);
 
       // RIGHT side (DECIDE/ACT/ACCOUNT)
       if (_codeDecider) systemTopology.registerComponent('codeDecider', _codeDecider);
@@ -1842,9 +1878,12 @@ export function getSingletonStatus() {
     solanaLearnerInitialized: !!_solanaLearner,
     solanaAccountantInitialized: !!_solanaAccountant,
     solanaEmergenceInitialized: !!_solanaEmergence,
-    // Emergence pipeline (C1.7, C5.7)
+    // Emergence pipeline (C1.7, C4.7, C5.7, C6.7, C7.7)
     codeEmergenceInitialized: !!_codeEmergence,
     humanEmergenceInitialized: !!_humanEmergence,
+    cynicEmergenceInitialized: !!_cynicEmergence,
+    socialEmergenceInitialized: !!_socialEmergence,
+    cosmosEmergenceInitialized: !!_cosmosEmergence,
   };
 }
 
@@ -1889,6 +1928,15 @@ export function getSolanaAccountantSingleton() { return _solanaAccountant; }
 
 /** C2.7: Get SolanaEmergence singleton @returns {import('./solana/solana-emergence.js').SolanaEmergence|null} */
 export function getSolanaEmergenceSingleton() { return _solanaEmergence; }
+
+/** C6.7: Get CynicEmergence singleton @returns {import('./emergence/cynic-emergence.js').CynicEmergence|null} */
+export function getCynicEmergenceSingleton() { return _cynicEmergence; }
+
+/** C4.7: Get SocialEmergence singleton @returns {import('./emergence/social-emergence.js').SocialEmergence|null} */
+export function getSocialEmergenceSingleton() { return _socialEmergence; }
+
+/** C7.7: Get CosmosEmergence singleton @returns {import('./emergence/cosmos-emergence.js').CosmosEmergence|null} */
+export function getCosmosEmergenceSingleton() { return _cosmosEmergence; }
 
 /**
  * Get SolanaWatcher singleton (if initialized)
@@ -2009,6 +2057,9 @@ export function _resetForTesting() {
   _humanAccountant = null;
   if (_humanEmergence) { resetHumanEmergence(); _humanEmergence = null; }
   if (_codeEmergence) { resetCodeEmergence(); _codeEmergence = null; }
+  if (_cynicEmergence) { resetCynicEmergence(); _cynicEmergence = null; }
+  if (_socialEmergence) { resetSocialEmergence(); _socialEmergence = null; }
+  if (_cosmosEmergence) { resetCosmosEmergence(); _cosmosEmergence = null; }
 
   // RIGHT side singletons (DECIDE/ACT/ACCOUNT)
   if (_codeDecider) { resetCodeDecider(); _codeDecider = null; }
