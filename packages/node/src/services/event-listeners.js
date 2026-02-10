@@ -1787,13 +1787,29 @@ export function startEventListeners(options = {}) {
     );
     _unsubscribers.push(unsubCodeLearnFeedback);
 
-    // 3c⅞. CodeLearner DPO pairs → persist to unified_signals (C1.5 DPO persistence)
-    // DPO pairs are preferred/rejected decision pairs used for routing weight training
+    // 3c⅞. CodeLearner DPO pairs → preference_pairs + unified_signals (C1.5 DPO loop closure)
+    // DPO pairs land in preference_pairs (DPOOptimizer reads these → routing_weights)
+    // Also archived in unified_signals for analytics
     codeLearner.on('dpo_pair', (pair) => {
       try {
         _stats.codeDpoPairs = (_stats.codeDpoPairs || 0) + 1;
 
         if (persistence?.query) {
+          // PRIMARY: Insert into preference_pairs (DPOOptimizer consumes these)
+          persistence.query(`
+            INSERT INTO preference_pairs (chosen, rejected, context, context_type, confidence)
+            VALUES ($1, $2, $3, $4, $5)
+          `, [
+            JSON.stringify(pair.preferred || {}),
+            JSON.stringify(pair.rejected || {}),
+            JSON.stringify({ riskLevel: pair.riskLevel, source: 'CodeLearner' }),
+            pair.context || 'code_decision',
+            pair.confidence || 0.5,
+          ]).catch(err => {
+            log.debug('Code DPO preference_pairs insert failed', { error: err.message });
+          });
+
+          // SECONDARY: Archive in unified_signals for analytics
           const id = `dpo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
           persistence.query(`
             INSERT INTO unified_signals (id, source, session_id, input, outcome, metadata)
@@ -1804,7 +1820,7 @@ export function startEventListeners(options = {}) {
             JSON.stringify({ context: pair.context || 'code_decision', riskLevel: pair.riskLevel }),
             JSON.stringify({ ts: pair.ts || Date.now() }),
           ]).catch(err => {
-            log.debug('Code DPO pair persistence failed', { error: err.message });
+            log.debug('Code DPO unified_signals archive failed', { error: err.message });
           });
         }
       } catch (err) {
@@ -2007,7 +2023,98 @@ export function startEventListeners(options = {}) {
       }
     );
     _unsubscribers.push(unsubHomeostasisState);
-    log.info('HomeostasisTracker (C6.1) wired to JUDGMENT_CREATED + CYNIC_STATE');
+
+    // Feed emergence rate — pattern detection frequency as self-perception
+    const unsubHomeostasisEmergence = globalEventBus.subscribe(
+      EventType.PATTERN_DETECTED,
+      (event) => {
+        try {
+          const p = event.payload || {};
+          const sig = p.significance || 'low';
+          const value = sig === 'critical' ? 1.0
+            : sig === 'high' ? 0.7
+              : sig === 'medium' ? 0.4
+                : 0.2;
+          homeostasis.update('emergenceRate', value);
+          _stats.homeostasisObservations++;
+        } catch (err) {
+          log.debug('Homeostasis emergence handler error', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubHomeostasisEmergence);
+
+    // Feed awareness level — consciousness state as self-perception
+    const unsubHomeostasisAwareness = globalEventBus.subscribe(
+      EventType.CONSCIOUSNESS_CHANGED,
+      (event) => {
+        try {
+          const payload = event.payload || event;
+          const state = payload.newState || payload.state || 'DORMANT';
+          const value = state === 'TRANSCENDENT' ? 0.9
+            : state === 'HEIGHTENED' ? 0.7
+              : state === 'AWARE' ? 0.5
+                : state === 'AWAKENING' ? 0.3
+                  : 0.1;
+          homeostasis.update('awarenessLevel', value);
+          _stats.homeostasisObservations++;
+        } catch (err) {
+          log.debug('Homeostasis awareness handler error', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubHomeostasisAwareness);
+
+    // Feed consensus quality — agreement rate as collective self-perception
+    const unsubHomeostasisConsensus = globalEventBus.subscribe(
+      EventType.CONSENSUS_COMPLETED,
+      (event) => {
+        try {
+          const p = event.payload || event;
+          const agreement = p.agreement ?? p.inference?.weightedAgreement ?? 0.5;
+          homeostasis.update('consensusQuality', agreement);
+          _stats.homeostasisObservations++;
+        } catch (err) {
+          log.debug('Homeostasis consensus handler error', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubHomeostasisConsensus);
+
+    // Feed decision confidence — self-governance decision quality
+    const unsubHomeostasisDecision = globalEventBus.subscribe(
+      'cosmos:decision',
+      (event) => {
+        try {
+          const d = event.payload?.decision || event.payload || {};
+          if (typeof d.confidence === 'number') {
+            homeostasis.update('decisionConfidence', d.confidence);
+            _stats.homeostasisObservations++;
+          }
+        } catch (err) {
+          log.debug('Homeostasis decision handler error', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubHomeostasisDecision);
+
+    const unsubHomeostasisCynicDecision = globalEventBus.subscribe(
+      'cynic:decision',
+      (event) => {
+        try {
+          const d = event.payload || event;
+          if (typeof d.confidence === 'number') {
+            homeostasis.update('decisionConfidence', d.confidence);
+            _stats.homeostasisObservations++;
+          }
+        } catch (err) {
+          log.debug('Homeostasis cynic decision handler error', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubHomeostasisCynicDecision);
+
+    log.info('HomeostasisTracker (C6.1) wired to JUDGMENT_CREATED + CYNIC_STATE + PATTERN_DETECTED + CONSCIOUSNESS_CHANGED + CONSENSUS_COMPLETED + decisions');
   }
 
   // 3h. SESSION_STARTED/ENDED + USER_FEEDBACK → HumanAccountant (C5.6)
