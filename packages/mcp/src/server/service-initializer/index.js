@@ -276,6 +276,11 @@ export class ServiceInitializer {
       services.metaCognition = this.factories.metaCognition(services);
     }
 
+    // P3: Wire BehaviorModifier → Judge (post-construction, step 26 > step 5)
+    if (services.judge?.setBehaviorModifier && services.behaviorModifier) {
+      services.judge.setBehaviorModifier(services.behaviorModifier);
+    }
+
     // 28. Setup event bus subscriptions
     this._busSubscriptions = setupBusSubscriptions(services);
 

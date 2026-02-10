@@ -107,6 +107,7 @@ export class CYNICJudge {
     this.selfSkeptic = options.selfSkeptic || null;
     this.residualDetector = options.residualDetector || null;
     this.calibrationTracker = options.calibrationTracker || null;
+    this.behaviorModifier = options.behaviorModifier || null;
     this._cachedECE = null; // Expected Calibration Error (updated by drift events)
     this.applySkepticism = options.applySkepticism !== false; // Default true
     this.includeUnnameable = options.includeUnnameable !== false; // Default true
@@ -242,6 +243,15 @@ export class CYNICJudge {
    */
   setDimensionRegistry(registry) {
     this.dimensionRegistry = registry;
+  }
+
+  /**
+   * Set behavior modifier (for post-construction injection)
+   * P3: Connects feedback → confidence calibration + dimension weight adjustment
+   * @param {import('../learning/behavior-modifier.js').BehaviorModifier} behaviorModifier
+   */
+  setBehaviorModifier(behaviorModifier) {
+    this.behaviorModifier = behaviorModifier;
   }
 
   /**
@@ -947,6 +957,11 @@ export class CYNICJudge {
         weight = weight * modifier;
       }
 
+      // P3: Apply BehaviorModifier dimension weight adjustment (feedback → weight tuning)
+      if (this.behaviorModifier) {
+        weight *= this.behaviorModifier.getJudgmentWeight(name);
+      }
+
       weightedSum += score * weight;
       totalWeight += weight;
     }
@@ -986,6 +1001,11 @@ export class CYNICJudge {
           if (this.learningService) {
             const modifier = this.learningService.getWeightModifier(dimName);
             weight = weight * modifier;
+          }
+
+          // P3: Apply BehaviorModifier dimension weight adjustment
+          if (this.behaviorModifier) {
+            weight *= this.behaviorModifier.getJudgmentWeight(dimName);
           }
 
           weightedSum += score * weight;
@@ -1096,6 +1116,11 @@ export class CYNICJudge {
       // ECE 38.2% → multiply by 0.618, ECE 61.8% → multiply by 0.382
       const eceAdjustment = Math.max(PHI_INV_2, 1 - this._cachedECE);
       blendedConfidence *= eceAdjustment;
+    }
+
+    // P3: Apply BehaviorModifier confidence calibration (feedback → confidence scale)
+    if (this.behaviorModifier) {
+      blendedConfidence = this.behaviorModifier.applyConfidenceScale(blendedConfidence);
     }
 
     // φ-bound the final result

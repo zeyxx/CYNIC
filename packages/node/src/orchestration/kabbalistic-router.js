@@ -304,6 +304,14 @@ export class KabbalisticRouter {
     this._sonaInsights = null;
     this._sonaInsightsLastLoad = 0;
 
+    // P3: BehaviorModifier state cache (from ~/.cynic/behavior/state.json)
+    this._behaviorState = null;
+    this._behaviorStateLastLoad = 0;
+
+    // P3: MetaCognition state cache (from ~/.cynic/metacognition/state.json)
+    this._metaCogState = null;
+    this._metaCogLastLoad = 0;
+
     // P-GAP-5: Burnout awareness cache (from psychology_snapshots)
     this._burnoutStatus = null;
     this._burnoutLastLoad = 0;
@@ -455,6 +463,16 @@ export class KabbalisticRouter {
       if (lowPath) {
         path = lowPath;
         log.info('Burnout-aware routing: restricted to low-energy path', { taskType, burnoutLevel: this._burnoutStatus.level });
+      }
+    }
+
+    // P3: MetaCognition-aware routing (stuck/thrashing → simplified paths)
+    const metaCogState = this._loadMetaCognitionState();
+    if (metaCogState?.state === 'stuck' || metaCogState?.state === 'thrashing') {
+      const lowPath = LOW_ENERGY_PATHS[taskType];
+      if (lowPath) {
+        path = lowPath;
+        log.info('MetaCognition-aware routing: ' + metaCogState.state + ' → simplified path', { taskType, strategy: metaCogState.currentStrategy });
       }
     }
 
@@ -1706,6 +1724,63 @@ export class KabbalisticRouter {
   }
 
   // ===========================================================================
+  // P3: BEHAVIOR MODIFIER STATE (feedback → routing adjustments)
+  // ===========================================================================
+
+  /**
+   * Load BehaviorModifier state from disk (file-based cross-process bridge).
+   * Reads routing adjustments and confidence scale from ~/.cynic/behavior/state.json
+   * @private
+   * @returns {Object|null} BehaviorContext { confidenceScale, routingPreferences, adjustedWeights }
+   */
+  _loadBehaviorState() {
+    if (this._behaviorState && (Date.now() - this._behaviorStateLastLoad) < this._dpoWeightsTTL) {
+      return this._behaviorState;
+    }
+    try {
+      const stateFile = join(homedir(), '.cynic', 'behavior', 'state.json');
+      if (existsSync(stateFile)) {
+        const raw = readFileSync(stateFile, 'utf8');
+        const state = JSON.parse(raw);
+        // Only use if fresh (30 min TTL) and has routing data
+        if (state?.context && Date.now() - (state.savedAt || 0) < 30 * 60 * 1000) {
+          this._behaviorState = state.context;
+          this._behaviorStateLastLoad = Date.now();
+          return this._behaviorState;
+        }
+      }
+    } catch { /* Non-blocking — BehaviorModifier insights are optional */ }
+    return null;
+  }
+
+  // ===========================================================================
+  // P3: METACOGNITION STATE (stuck/thrashing → simplified routing)
+  // ===========================================================================
+
+  /**
+   * Load MetaCognition state from disk (file-based cross-process bridge).
+   * If stuck or thrashing, router simplifies paths to reduce cognitive load.
+   * @private
+   * @returns {Object|null} { state, currentStrategy, metrics }
+   */
+  _loadMetaCognitionState() {
+    if (this._metaCogState && (Date.now() - this._metaCogLastLoad) < this._dpoWeightsTTL) {
+      return this._metaCogState;
+    }
+    try {
+      const stateFile = join(homedir(), '.cynic', 'metacognition', 'state.json');
+      if (existsSync(stateFile)) {
+        const raw = readFileSync(stateFile, 'utf8');
+        const state = JSON.parse(raw);
+        this._metaCogState = state;
+        this._metaCogLastLoad = Date.now();
+        return this._metaCogState;
+      }
+    } catch { /* Non-blocking — MetaCognition insights are optional */ }
+    return null;
+  }
+
+  // ===========================================================================
   // P1-C: SONA DIMENSION INSIGHTS → DOG WEIGHT MODULATION
   // ===========================================================================
 
@@ -1811,6 +1886,11 @@ export class KabbalisticRouter {
         // P1-C: SONA dimension insight boost (±PHI_INV_3 from dimension correlations)
         if (sonaBoosts?.[dog]) {
           blended[dog] += sonaBoosts[dog];
+        }
+        // P3: BehaviorModifier routing adjustments (feedback → per-dog preference)
+        const behaviorState = this._loadBehaviorState();
+        if (behaviorState?.routingPreferences?.[dog]) {
+          blended[dog] += behaviorState.routingPreferences[dog];
         }
       }
       return blended;

@@ -529,7 +529,10 @@ export class AmbientConsensus {
           input: context.input,
           ...context,
         };
-        judgment = this.pack.judge.judge(item, { type: context.tool ? 'tool_use' : topic });
+        judgment = this.pack.judge.judge(item, {
+          type: context.tool ? 'tool_use' : topic,
+          queryType: context.taskType || context.queryType || context.type || topic,
+        });
         log.debug('Judge scored consensus item', {
           qScore: judgment.qScore,
           verdict: judgment.verdict,
