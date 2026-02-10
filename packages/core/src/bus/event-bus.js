@@ -71,6 +71,9 @@ export const EventType = {
 
   // Orchestration events
   ORCHESTRATION_COMPLETED: 'orchestration:completed',
+
+  // Topology events (self-awareness)
+  TOPOLOGY_CHANGED: 'topology:changed',
 };
 
 /**

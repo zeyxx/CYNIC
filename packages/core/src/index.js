@@ -85,5 +85,8 @@ export * from './llm/index.js';
 // Distributed Tracing (φ-aligned spans, sampling, middleware)
 export * from './tracing/index.js';
 
+// System Topology (self-awareness: mode, services, capabilities, 7×7 matrix)
+export * from './topology/index.js';
+
 // Timer Tracker (test-only debugging for leaked timers)
 export { timerTracker } from './timers.js';

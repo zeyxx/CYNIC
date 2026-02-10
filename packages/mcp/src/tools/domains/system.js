@@ -197,6 +197,42 @@ export function createHealthTool(node, judge, persistence = null, automationExec
         }
       }
 
+      // TOPOLOGY: Self-awareness — CYNIC knows where it runs and what's active
+      try {
+        const { systemTopology } = await import('@cynic/core');
+        const snapshot = systemTopology.snapshot();
+        health.topology = {
+          mode: snapshot.mode,
+          components: snapshot.components,
+          capabilities: snapshot.capabilities,
+          matrix: snapshot.matrix,
+          uptime: snapshot.uptime,
+        };
+      } catch {
+        // Topology not available (non-blocking)
+      }
+
+      // EVENT BUS BRIDGE: Cross-bus communication stats
+      try {
+        const { eventBusBridge } = await import('@cynic/node/services/event-bus-bridge.js');
+        health.eventBusBridge = eventBusBridge.getStats();
+      } catch {
+        // Bridge not available (non-blocking)
+      }
+
+      // MEMORY COORDINATOR: Three memories, one awareness
+      try {
+        const { memoryCoordinator } = await import('@cynic/node/services/memory-coordinator.js');
+        const memStats = memoryCoordinator.getStats();
+        health.memoryCoordinator = {
+          ...memStats,
+          health: memoryCoordinator.getHealth(),
+          drift: memoryCoordinator.detectDrift(),
+        };
+      } catch {
+        // Memory coordinator not available (non-blocking)
+      }
+
       if (verbose) {
         health.judge = judge.getStats();
         health.tools = ['brain_cynic_judge', 'brain_cynic_digest', 'brain_health', 'brain_search', 'brain_patterns', 'brain_cynic_feedback', 'brain_collective_status'];
@@ -208,6 +244,15 @@ export function createHealthTool(node, judge, persistence = null, automationExec
           } catch (e) {
             // Ignore
           }
+        }
+
+        // TOPOLOGY: Full matrix state (verbose only — expensive)
+        try {
+          const { systemTopology } = await import('@cynic/core');
+          health.matrixState = systemTopology.getMatrixState();
+          health.processBoundaries = systemTopology.getProcessBoundaries();
+        } catch {
+          // Topology not available
         }
       }
 
@@ -730,6 +775,73 @@ ${votes.map(v => {
 }
 
 /**
+ * Create topology tool — CYNIC's mirror
+ * "γνῶθι σεαυτόν" (Know thyself) — but with φ⁻¹ doubt
+ *
+ * @returns {Object} Tool definition
+ */
+export function createTopologyTool() {
+  return {
+    name: 'brain_topology',
+    description: 'CYNIC self-awareness: what mode am I running in, what components are active, what capabilities do I have, and what percentage of the 7×7 reality matrix is operational.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        detail: {
+          type: 'string',
+          enum: ['summary', 'matrix', 'services', 'capabilities', 'boundaries'],
+          description: 'Level of detail: summary (default), matrix (7×7 cell states), services (registered services), capabilities (what I can do), boundaries (process isolation)',
+        },
+      },
+    },
+    handler: async (params) => {
+      const { detail = 'summary' } = params;
+
+      try {
+        const { systemTopology } = await import('@cynic/core');
+
+        if (detail === 'matrix') {
+          const matrix = systemTopology.getMatrixState();
+          const completion = systemTopology.getMatrixCompletion();
+          return {
+            matrix,
+            completion,
+            note: 'Each cell shows: active (bool), coverage (0-1), components (present), missing (needed)',
+          };
+        }
+
+        if (detail === 'services') {
+          return {
+            services: systemTopology.getServices(),
+            mode: systemTopology.mode,
+          };
+        }
+
+        if (detail === 'capabilities') {
+          return {
+            mode: systemTopology.mode,
+            capabilities: systemTopology.getCapabilities(),
+            components: systemTopology.getComponentNames(),
+          };
+        }
+
+        if (detail === 'boundaries') {
+          return systemTopology.getProcessBoundaries();
+        }
+
+        // Default: summary snapshot
+        return systemTopology.snapshot();
+      } catch (err) {
+        return {
+          error: `Topology unavailable: ${err.message}`,
+          note: 'SystemTopology may not be initialized yet. Run brain_health first.',
+        };
+      }
+    },
+  };
+}
+
+/**
  * Factory for system domain tools
  */
 export const systemFactory = {
@@ -770,6 +882,9 @@ export const systemFactory = {
       tools.push(createAgentDiagnosticTool(collective));
       tools.push(createConsensusTool(collective));
     }
+
+    // Topology: CYNIC's mirror — always available
+    tools.push(createTopologyTool());
 
     return tools;
   },

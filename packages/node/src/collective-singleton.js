@@ -23,7 +23,7 @@
 
 'use strict';
 
-import { createLogger, PHI_INV, globalEventBus, EventType, EcosystemMonitor } from '@cynic/core';
+import { createLogger, PHI_INV, globalEventBus, EventType, EcosystemMonitor, systemTopology, ServiceStatus } from '@cynic/core';
 import { createCollectivePack } from './agents/collective/index.js';
 import { SharedMemory } from './memory/shared-memory.js';
 import { getQLearningService } from './orchestration/learning-service.js';
@@ -46,6 +46,8 @@ import { createConsciousnessMonitor } from '@cynic/emergence';
 import { getHeartbeatService, createDefaultChecks } from './services/heartbeat-service.js';
 import { getSLATracker } from './services/sla-tracker.js';
 import { wireConsciousness } from './services/consciousness-bridge.js';
+import { eventBusBridge } from './services/event-bus-bridge.js';
+import { memoryCoordinator } from './services/memory-coordinator.js';
 
 const log = createLogger('CollectiveSingleton');
 
@@ -1119,6 +1121,90 @@ export async function getCollectivePackAsync(options = {}) {
       }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TOPOLOGY REGISTRATION — CYNIC knows itself
+    // "γνῶθι σεαυτόν" — register all active components in SystemTopology
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      // Register self-awareness module
+      systemTopology.registerComponent('topology', systemTopology);
+
+      // Core components
+      if (pack) systemTopology.registerComponent('collectivePack', pack);
+      if (pack?.judge) systemTopology.registerComponent('judge', pack.judge);
+      if (_sharedMemory) systemTopology.registerComponent('sharedMemory', _sharedMemory);
+      if (_qLearningService) systemTopology.registerComponent('learning', _qLearningService);
+      if (pack?.ambientConsensus) systemTopology.registerComponent('consensus', pack.ambientConsensus);
+
+      // Router (from LearningScheduler dependencies)
+      if (_learningScheduler?._residualGovernance) systemTopology.registerComponent('residual', _learningScheduler._residualGovernance);
+
+      // Perception
+      if (_dogStateEmitter) systemTopology.registerComponent('dogStateEmitter', _dogStateEmitter);
+      if (_solanaWatcher) systemTopology.registerComponent('solanaWatcher', _solanaWatcher);
+      if (_ecosystemMonitor) systemTopology.registerComponent('ecosystem_tools', _ecosystemMonitor);
+
+      // Learning
+      if (_unifiedBridge) systemTopology.registerComponent('ewc', _unifiedBridge);
+      if (_learningScheduler) systemTopology.registerComponent('learningScheduler', _learningScheduler);
+      if (_reasoningBank) systemTopology.registerComponent('reasoningBank', _reasoningBank);
+
+      // Consciousness
+      if (_consciousnessBridge) systemTopology.registerComponent('consciousness', _consciousnessBridge);
+      if (_heartbeatService) systemTopology.registerComponent('heartbeat', _heartbeatService);
+      if (_emergenceDetector) systemTopology.registerComponent('emergence', _emergenceDetector);
+
+      // Human symbiosis
+      if (_humanAdvisor) systemTopology.registerComponent('humanAdvisor', _humanAdvisor);
+      if (_humanLearning) systemTopology.registerComponent('humanLearning', _humanLearning);
+      if (_humanAccountant) systemTopology.registerComponent('humanAccountant', _humanAccountant);
+      if (_humanEmergence) systemTopology.registerComponent('humanEmergence', _humanEmergence);
+
+      // Services
+      if (options.persistence) {
+        systemTopology.registerService('postgres', {
+          status: ServiceStatus.HEALTHY,
+          location: process.env.DATABASE_URL?.replace(/:[^:]*@/, ':***@') || 'local',
+        });
+      }
+      if (_eventListeners) systemTopology.registerComponent('eventListeners', _eventListeners);
+      if (_networkNode) systemTopology.registerComponent('networkNode', _networkNode);
+
+      const snapshot = systemTopology.snapshot();
+      log.info('SystemTopology registered', {
+        mode: snapshot.mode,
+        components: snapshot.components.length,
+        activeCells: snapshot.matrix.activeCells,
+        completion: snapshot.matrix.completion + '%',
+      });
+    } catch (err) {
+      log.warn('SystemTopology registration failed (non-blocking)', { error: err.message });
+    }
+
+    // ─── EventBusBridge: Connect three nervous systems ────────────────────
+    try {
+      eventBusBridge.start({ agentBus: pack?.eventBus });
+      systemTopology.registerComponent('eventBusBridge', eventBusBridge);
+      log.info('EventBusBridge started', { agentBus: !!pack?.eventBus });
+    } catch (err) {
+      log.warn('EventBusBridge start failed (non-blocking)', { error: err.message });
+    }
+
+    // ─── MemoryCoordinator: Three memories, one awareness ──────────────────
+    try {
+      memoryCoordinator.start({
+        persistence: options.persistence || null,
+        sharedMemory: _sharedMemory || null,
+      });
+      systemTopology.registerComponent('memoryCoordinator', memoryCoordinator);
+      log.info('MemoryCoordinator started', {
+        postgres: !!options.persistence,
+        sharedMemory: !!_sharedMemory,
+      });
+    } catch (err) {
+      log.warn('MemoryCoordinator start failed (non-blocking)', { error: err.message });
+    }
+
     return pack;
   })();
 
@@ -1670,6 +1756,15 @@ export function _resetForTesting() {
   _humanLearning = null;
   _humanAccountant = null;
   _humanEmergence = null;
+
+  // EventBusBridge: Disconnect nervous systems
+  try { eventBusBridge._resetForTesting(); } catch { /* non-blocking */ }
+
+  // MemoryCoordinator: Reset memory awareness
+  try { memoryCoordinator._resetForTesting(); } catch { /* non-blocking */ }
+
+  // SystemTopology: Reset self-awareness
+  try { systemTopology._resetForTesting(); } catch { /* non-blocking */ }
 
   log.warn('Singletons reset (testing only)');
 }
