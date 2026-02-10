@@ -127,9 +127,20 @@ export function createBehaviorModifierFactory(services) {
  * Tracks tool actions, detects stuck/thrashing, recommends strategies
  */
 export function createMetaCognitionFactory() {
+  const mcDir = path.join(os.homedir(), '.cynic', 'metacognition');
+  const stateFile = path.join(mcDir, 'state.json');
+
   const meta = createMetaCognition({
     onStateChange: (newState, prevState, reason) => {
       log.info('MetaCognition state change', { from: prevState, to: newState, reason });
+    },
+    // P5: Persist state on strategy switch (so Router sees mid-session changes)
+    onStrategySwitch: (strategy, reason) => {
+      log.info('MetaCognition strategy switch', { strategy, reason });
+      try {
+        fs.mkdirSync(mcDir, { recursive: true });
+        fs.writeFileSync(stateFile, JSON.stringify(meta.exportState(), null, 2));
+      } catch { /* Non-blocking */ }
     },
   });
   log.debug('MetaCognition ready');
