@@ -309,7 +309,7 @@ const instance = createIdentity();
 
 ### Functions
 
-`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 115 more
+`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 116 more
 
 ## Dependencies
 
@@ -321,7 +321,7 @@ const instance = createIdentity();
 - **Source files**: 256
 - **Test files**: 92
 - **Test ratio**: 36%
-- **Exports**: 427 named
+- **Exports**: 428 named
 
 ## Fractal Structure
 

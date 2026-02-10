@@ -167,6 +167,7 @@ export {
   stopEventListeners,
   getListenerStats,
   cleanupOldEventData,
+  wireSolanaEventListeners,
 } from './collective-singleton.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════

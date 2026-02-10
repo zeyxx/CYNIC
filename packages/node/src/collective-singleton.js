@@ -40,7 +40,7 @@ import { getCynicEmergence, resetCynicEmergence } from './emergence/cynic-emerge
 import { getSocialEmergence, resetSocialEmergence } from './emergence/social-emergence.js';
 import { getCosmosEmergence, resetCosmosEmergence } from './emergence/cosmos-emergence.js';
 import { wireAmbientConsensus } from './agents/collective/ambient-consensus.js';
-import { startEventListeners, stopEventListeners, cleanupOldEventData } from './services/event-listeners.js';
+import { startEventListeners, stopEventListeners, cleanupOldEventData, wireSolanaEventListeners } from './services/event-listeners.js';
 import { getNetworkNode as getNetworkNodeSync, getNetworkNodeAsync, startNetworkNode, stopNetworkNode, isP2PEnabled } from './network-singleton.js';
 import { BlockStore } from './network/block-store.js';
 import { getErrorHandler } from './services/error-handler.js';
@@ -1212,6 +1212,20 @@ export async function getCollectivePackAsync(options = {}) {
         log.info('Solana pipeline initialized (C2.2-C2.7)', {
           hasConnection: !!_solanaWatcher._connection,
         });
+
+        // Late-bind Solana event subscriptions — singletons are now available.
+        // In the sync path, startEventListeners() received null Solana singletons
+        // because SolanaWatcher hadn't started yet. Wire them now.
+        wireSolanaEventListeners({
+          solanaJudge: _solanaJudge,
+          solanaDecider: _solanaDecider,
+          solanaActor: _solanaActor,
+          solanaLearner: _solanaLearner,
+          solanaAccountant: _solanaAccountant,
+          solanaEmergence: _solanaEmergence,
+          persistence: options.persistence,
+          sessionId: options.sessionId,
+        });
       } catch (err) {
         log.warn('Solana pipeline initialization failed (non-blocking)', { error: err.message });
       }
@@ -2095,7 +2109,7 @@ export function _resetForTesting() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // AXE 2: Re-export event listener functions for external use
-export { startEventListeners, stopEventListeners, cleanupOldEventData } from './services/event-listeners.js';
+export { startEventListeners, stopEventListeners, cleanupOldEventData, wireSolanaEventListeners } from './services/event-listeners.js';
 export { getListenerStats } from './services/event-listeners.js';
 
 // PHASE 2: Re-export network singleton for external use

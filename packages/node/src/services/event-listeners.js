@@ -109,6 +109,9 @@ let _cynicStateCounter = 0;
 /** @type {NodeJS.Timeout|null} Solana emergence analysis interval (F8=21min) */
 let _solanaEmergenceInterval = null;
 
+/** @type {boolean} Guard: Solana event subscriptions already wired? */
+let _solanaWired = false;
+
 /** @type {NodeJS.Timeout|null} Code emergence analysis interval (F7=13min) */
 let _codeEmergenceInterval = null;
 
@@ -1364,200 +1367,13 @@ export function startEventListeners(options = {}) {
   // ═════════════════════════════════════════════════════════════════════════════
   // SOLANA PIPELINE WIRING (C2.2-C2.7)
   // "On-chain is truth" — SolanaWatcher → Judge → Decide → Act → Learn → Emerge
+  // Uses wireSolanaEventListeners() — can also be called late from collective-singleton
+  // after C2.2-C2.7 singletons are initialized (they're null in the sync path).
   // ═════════════════════════════════════════════════════════════════════════════
-
-  if (solanaJudge) {
-    // 2a. perception:solana:slot → SolanaJudge (Fibonacci-sampled) + SolanaEmergence
-    const unsubSolanaSlot = globalEventBus.subscribe(
-      'perception:solana:slot',
-      (event) => {
-        try {
-          const slotData = event.payload || event;
-          // Judge network health on every 13th slot (Fibonacci sampling)
-          if (slotData.slot % 13 === 0) {
-            const judgment = solanaJudge.judgeNetwork(slotData);
-            _stats.solanaJudgments++;
-            globalEventBus.publish('solana:judgment', {
-              type: 'network',
-              judgment,
-              slot: slotData.slot,
-            }, { source: 'event-listeners' });
-          }
-          // Feed emergence with activity data
-          if (solanaEmergence) {
-            solanaEmergence.recordActivity({
-              transactionCount: slotData.numTransactions || 1,
-              slot: slotData.slot,
-            });
-          }
-        } catch (err) {
-          log.debug('Solana slot handler error', { error: err.message });
-        }
-      }
-    );
-    _unsubscribers.push(unsubSolanaSlot);
-
-    // 2b. perception:solana:account → SolanaJudge + SolanaAccountant
-    const unsubSolanaAccount = globalEventBus.subscribe(
-      'perception:solana:account',
-      (event) => {
-        try {
-          const accountData = event.payload || event;
-          solanaJudge.judgeAccount(accountData);
-          _stats.solanaJudgments++;
-          if (solanaAccountant) {
-            solanaAccountant.recordTransaction({
-              type: 'account_change',
-              ...accountData,
-            });
-            _stats.solanaAccountingOps++;
-          }
-        } catch (err) {
-          log.debug('Solana account handler error', { error: err.message });
-        }
-      }
-    );
-    _unsubscribers.push(unsubSolanaAccount);
-
-    // 2c. solana:judgment → SolanaDecider (only on GROWL/BARK verdicts)
-    if (solanaDecider) {
-      const unsubSolanaJudgment = globalEventBus.subscribe(
-        'solana:judgment',
-        (event) => {
-          try {
-            const { judgment } = event.payload || {};
-            if (judgment?.verdict === 'GROWL' || judgment?.verdict === 'BARK') {
-              const decision = solanaDecider.decide(judgment, { source: 'auto' });
-              _stats.solanaDecisions++;
-              globalEventBus.publish('solana:decision', {
-                decision,
-                judgment,
-              }, { source: 'event-listeners' });
-            }
-          } catch (err) {
-            log.debug('Solana judgment→decision handler error', { error: err.message });
-          }
-        }
-      );
-      _unsubscribers.push(unsubSolanaJudgment);
-    }
-
-    // 2d. solana:decision → SolanaActor (DRY RUN default) + SolanaLearner
-    if (solanaActor || solanaLearner) {
-      const unsubSolanaDecision = globalEventBus.subscribe(
-        'solana:decision',
-        (event) => {
-          try {
-            const { decision } = event.payload || {};
-            if (!decision) return;
-
-            // DRY RUN: Only execute if SOLANA_ACTOR_LIVE=true
-            const isLive = process.env.SOLANA_ACTOR_LIVE === 'true';
-            if (isLive && solanaActor) {
-              solanaActor.execute(decision.type || decision.action, decision.params || {}).catch(err => {
-                log.debug('SolanaActor.execute failed', { error: err.message });
-              });
-            }
-            _stats.solanaActionsRecorded++;
-
-            // Always record outcome for learning
-            if (solanaLearner) {
-              solanaLearner.recordOutcome({
-                type: decision.type || decision.action,
-                executed: isLive,
-                decision,
-                timestamp: Date.now(),
-              });
-              _stats.solanaLearnings++;
-            }
-          } catch (err) {
-            log.debug('Solana decision→action handler error', { error: err.message });
-          }
-        }
-      );
-      _unsubscribers.push(unsubSolanaDecision);
-    }
-
-    // 2e. Fibonacci-triggered emergence analysis (F8=21min)
-    if (solanaEmergence) {
-      _solanaEmergenceInterval = setInterval(() => {
-        try {
-          const patterns = solanaEmergence.analyze();
-          if (patterns?.length > 0) {
-            for (const pattern of patterns) {
-              globalEventBus.publish(EventType.PATTERN_DETECTED, {
-                source: 'SolanaEmergence',
-                key: pattern.type || pattern.key,
-                significance: pattern.significance || 'medium',
-                category: 'solana',
-                ...pattern,
-              }, { source: 'solana-emergence' });
-            }
-            _stats.solanaEmergencePatterns += patterns.length;
-          }
-        } catch (err) {
-          log.debug('Solana emergence analysis error', { error: err.message });
-        }
-      }, 21 * 60 * 1000); // F8 = 21 minutes
-      _solanaEmergenceInterval.unref();
-    }
-
-    // 2f. Persist solana:judgment and solana:decision → unified_signals
-    if (persistence?.query) {
-      const unsubSolanaJudgmentPersist = globalEventBus.subscribe(
-        'solana:judgment',
-        (event) => {
-          try {
-            const d = event.payload || {};
-            const id = `sj_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-            persistence.query(`
-              INSERT INTO unified_signals (id, source, session_id, input, outcome, metadata)
-              VALUES ($1, $2, $3, $4, $5, $6)
-            `, [
-              id, 'solana_judgment', context.sessionId || null,
-              JSON.stringify({ type: d.type, slot: d.slot }),
-              JSON.stringify({ verdict: d.judgment?.verdict, qScore: d.judgment?.qScore }),
-              JSON.stringify({ dimensions: d.judgment?.dimensions }),
-            ]).catch(err => {
-              log.debug('Solana judgment persistence failed', { error: err.message });
-            });
-          } catch (e) { log.debug('Solana judgment persist error', { error: e.message }); }
-        }
-      );
-      _unsubscribers.push(unsubSolanaJudgmentPersist);
-
-      const unsubSolanaDecisionPersist = globalEventBus.subscribe(
-        'solana:decision',
-        (event) => {
-          try {
-            const d = event.payload || {};
-            const id = `sd_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-            persistence.query(`
-              INSERT INTO unified_signals (id, source, session_id, input, outcome, metadata)
-              VALUES ($1, $2, $3, $4, $5, $6)
-            `, [
-              id, 'solana_decision', context.sessionId || null,
-              JSON.stringify({ type: d.decision?.type, action: d.decision?.action }),
-              JSON.stringify({ verdict: d.judgment?.verdict }),
-              JSON.stringify({ decision: d.decision }),
-            ]).catch(err => {
-              log.debug('Solana decision persistence failed', { error: err.message });
-            });
-          } catch (e) { log.debug('Solana decision persist error', { error: e.message }); }
-        }
-      );
-      _unsubscribers.push(unsubSolanaDecisionPersist);
-    }
-
-    log.info('Solana pipeline event listeners wired (C2.2-C2.7)', {
-      judge: !!solanaJudge,
-      decider: !!solanaDecider,
-      actor: !!solanaActor,
-      learner: !!solanaLearner,
-      accountant: !!solanaAccountant,
-      emergence: !!solanaEmergence,
-    });
-  }
+  wireSolanaEventListeners({
+    solanaJudge, solanaDecider, solanaActor, solanaLearner, solanaAccountant, solanaEmergence,
+    persistence, sessionId: context.sessionId,
+  });
 
   // ═════════════════════════════════════════════════════════════════════════════
   // RIGHT SIDE WIRING (DECIDE/ACT/ACCOUNT/EMERGE)
@@ -2116,6 +1932,243 @@ export function startEventListeners(options = {}) {
   };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// SOLANA PIPELINE LATE-BINDING (C2.2-C2.7)
+// "On-chain is truth" — can be called from startEventListeners() OR late from
+// collective-singleton after SolanaWatcher starts and C2.2-C2.7 are initialized.
+// Guard prevents double-wiring.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Wire Solana pipeline event subscriptions.
+ *
+ * Safe to call multiple times — guarded by _solanaWired flag.
+ * Called from startEventListeners() (if singletons available at start time)
+ * or late from collective-singleton.js (after async SolanaWatcher init).
+ *
+ * @param {Object} opts
+ * @param {Object} [opts.solanaJudge] - SolanaJudge singleton
+ * @param {Object} [opts.solanaDecider] - SolanaDecider singleton
+ * @param {Object} [opts.solanaActor] - SolanaActor singleton
+ * @param {Object} [opts.solanaLearner] - SolanaLearner singleton
+ * @param {Object} [opts.solanaAccountant] - SolanaAccountant singleton
+ * @param {Object} [opts.solanaEmergence] - SolanaEmergence singleton
+ * @param {Object} [opts.persistence] - Persistence layer for unified_signals
+ * @param {string} [opts.sessionId] - Session ID for persistence
+ */
+export function wireSolanaEventListeners({
+  solanaJudge,
+  solanaDecider,
+  solanaActor,
+  solanaLearner,
+  solanaAccountant,
+  solanaEmergence,
+  persistence = null,
+  sessionId = null,
+} = {}) {
+  if (_solanaWired) {
+    log.debug('Solana event listeners already wired — skipping');
+    return;
+  }
+  if (!solanaJudge) {
+    log.debug('Solana event listeners skipped (no solanaJudge)');
+    return;
+  }
+
+  _solanaWired = true;
+
+  // 2a. perception:solana:slot → SolanaJudge (Fibonacci-sampled) + SolanaEmergence
+  const unsubSolanaSlot = globalEventBus.subscribe(
+    'perception:solana:slot',
+    (event) => {
+      try {
+        const slotData = event.payload || event;
+        // Judge network health on every 13th slot (Fibonacci sampling)
+        if (slotData.slot % 13 === 0) {
+          const judgment = solanaJudge.judgeNetwork(slotData);
+          _stats.solanaJudgments++;
+          globalEventBus.publish('solana:judgment', {
+            type: 'network',
+            judgment,
+            slot: slotData.slot,
+          }, { source: 'event-listeners' });
+        }
+        // Feed emergence with activity data
+        if (solanaEmergence) {
+          solanaEmergence.recordActivity({
+            transactionCount: slotData.numTransactions || 1,
+            slot: slotData.slot,
+          });
+        }
+      } catch (err) {
+        log.debug('Solana slot handler error', { error: err.message });
+      }
+    }
+  );
+  _unsubscribers.push(unsubSolanaSlot);
+
+  // 2b. perception:solana:account → SolanaJudge + SolanaAccountant
+  const unsubSolanaAccount = globalEventBus.subscribe(
+    'perception:solana:account',
+    (event) => {
+      try {
+        const accountData = event.payload || event;
+        solanaJudge.judgeAccount(accountData);
+        _stats.solanaJudgments++;
+        if (solanaAccountant) {
+          solanaAccountant.recordTransaction({
+            type: 'account_change',
+            ...accountData,
+          });
+          _stats.solanaAccountingOps++;
+        }
+      } catch (err) {
+        log.debug('Solana account handler error', { error: err.message });
+      }
+    }
+  );
+  _unsubscribers.push(unsubSolanaAccount);
+
+  // 2c. solana:judgment → SolanaDecider (only on GROWL/BARK verdicts)
+  if (solanaDecider) {
+    const unsubSolanaJudgment = globalEventBus.subscribe(
+      'solana:judgment',
+      (event) => {
+        try {
+          const { judgment } = event.payload || {};
+          if (judgment?.verdict === 'GROWL' || judgment?.verdict === 'BARK') {
+            const decision = solanaDecider.decide(judgment, { source: 'auto' });
+            _stats.solanaDecisions++;
+            globalEventBus.publish('solana:decision', {
+              decision,
+              judgment,
+            }, { source: 'event-listeners' });
+          }
+        } catch (err) {
+          log.debug('Solana judgment→decision handler error', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubSolanaJudgment);
+  }
+
+  // 2d. solana:decision → SolanaActor (DRY RUN default) + SolanaLearner
+  if (solanaActor || solanaLearner) {
+    const unsubSolanaDecision = globalEventBus.subscribe(
+      'solana:decision',
+      (event) => {
+        try {
+          const { decision } = event.payload || {};
+          if (!decision) return;
+
+          // DRY RUN: Only execute if SOLANA_ACTOR_LIVE=true
+          const isLive = process.env.SOLANA_ACTOR_LIVE === 'true';
+          if (isLive && solanaActor) {
+            solanaActor.execute(decision.type || decision.action, decision.params || {}).catch(err => {
+              log.debug('SolanaActor.execute failed', { error: err.message });
+            });
+          }
+          _stats.solanaActionsRecorded++;
+
+          // Always record outcome for learning
+          if (solanaLearner) {
+            solanaLearner.recordOutcome({
+              type: decision.type || decision.action,
+              executed: isLive,
+              decision,
+              timestamp: Date.now(),
+            });
+            _stats.solanaLearnings++;
+          }
+        } catch (err) {
+          log.debug('Solana decision→action handler error', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubSolanaDecision);
+  }
+
+  // 2e. Fibonacci-triggered emergence analysis (F8=21min)
+  if (solanaEmergence) {
+    _solanaEmergenceInterval = setInterval(() => {
+      try {
+        const patterns = solanaEmergence.analyze();
+        if (patterns?.length > 0) {
+          for (const pattern of patterns) {
+            globalEventBus.publish(EventType.PATTERN_DETECTED, {
+              source: 'SolanaEmergence',
+              key: pattern.type || pattern.key,
+              significance: pattern.significance || 'medium',
+              category: 'solana',
+              ...pattern,
+            }, { source: 'solana-emergence' });
+          }
+          _stats.solanaEmergencePatterns += patterns.length;
+        }
+      } catch (err) {
+        log.debug('Solana emergence analysis error', { error: err.message });
+      }
+    }, 21 * 60 * 1000); // F8 = 21 minutes
+    _solanaEmergenceInterval.unref();
+  }
+
+  // 2f. Persist solana:judgment and solana:decision → unified_signals
+  if (persistence?.query) {
+    const unsubSolanaJudgmentPersist = globalEventBus.subscribe(
+      'solana:judgment',
+      (event) => {
+        try {
+          const d = event.payload || {};
+          const id = `sj_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          persistence.query(`
+            INSERT INTO unified_signals (id, source, session_id, input, outcome, metadata)
+            VALUES ($1, $2, $3, $4, $5, $6)
+          `, [
+            id, 'solana_judgment', sessionId || null,
+            JSON.stringify({ type: d.type, slot: d.slot }),
+            JSON.stringify({ verdict: d.judgment?.verdict, qScore: d.judgment?.qScore }),
+            JSON.stringify({ dimensions: d.judgment?.dimensions }),
+          ]).catch(err => {
+            log.debug('Solana judgment persistence failed', { error: err.message });
+          });
+        } catch (e) { log.debug('Solana judgment persist error', { error: e.message }); }
+      }
+    );
+    _unsubscribers.push(unsubSolanaJudgmentPersist);
+
+    const unsubSolanaDecisionPersist = globalEventBus.subscribe(
+      'solana:decision',
+      (event) => {
+        try {
+          const d = event.payload || {};
+          const id = `sd_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          persistence.query(`
+            INSERT INTO unified_signals (id, source, session_id, input, outcome, metadata)
+            VALUES ($1, $2, $3, $4, $5, $6)
+          `, [
+            id, 'solana_decision', sessionId || null,
+            JSON.stringify({ type: d.decision?.type, action: d.decision?.action }),
+            JSON.stringify({ verdict: d.judgment?.verdict }),
+            JSON.stringify({ decision: d.decision }),
+          ]).catch(err => {
+            log.debug('Solana decision persistence failed', { error: err.message });
+          });
+        } catch (e) { log.debug('Solana decision persist error', { error: e.message }); }
+      }
+    );
+    _unsubscribers.push(unsubSolanaDecisionPersist);
+  }
+
+  log.info('Solana pipeline event listeners wired (C2.2-C2.7)', {
+    judge: !!solanaJudge,
+    decider: !!solanaDecider,
+    actor: !!solanaActor,
+    learner: !!solanaLearner,
+    accountant: !!solanaAccountant,
+    emergence: !!solanaEmergence,
+  });
+}
+
 /**
  * Stop all event listeners
  */
@@ -2158,6 +2211,7 @@ export function stopEventListeners() {
 
   _unsubscribers = [];
   _started = false;
+  _solanaWired = false;
 
   log.info('Event listeners stopped', { stats: _stats });
 }
