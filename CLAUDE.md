@@ -185,7 +185,7 @@ Cell notation: C{reality}.{analysis}
   Example: C1.2 = CODE × JUDGE (code quality scoring)
   Example: C6.5 = CYNIC × LEARN (Q-Learning, Thompson Sampling)
 
-Current completion: ~40% (CODE/CYNIC ~86%, HUMAN ~57%, SOLANA ~29%)
+Current completion: ~21% (HUMAN ~45%, CYNIC ~31%, CODE ~25%, SOLANA ~20%)
 Target: 100% = true omniscience
 ```
 
