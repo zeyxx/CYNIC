@@ -434,4 +434,47 @@ function extractTweetsRecursive(obj, result, depth = 0) {
   }
 }
 
-export default { parseXResponse };
+/**
+ * Known GraphQL mutations → action types
+ */
+const MUTATION_MAP = {
+  FavoriteTweet:    'like',
+  UnfavoriteTweet:  'unlike',
+  CreateRetweet:    'retweet',
+  DeleteRetweet:    'unretweet',
+  CreateBookmark:   'bookmark',
+  DeleteBookmark:   'unbookmark',
+  CreateTweet:      'tweet',
+  DeleteTweet:      'delete_tweet',
+  // User mutations removed: only tracking tweet-related actions
+};
+
+/**
+ * Parse a GraphQL mutation from request body
+ * @param {string} endpoint - API endpoint path (contains mutation name)
+ * @param {Object} requestBody - Parsed JSON request body
+ * @returns {Object|null} Action object or null if not a tracked mutation
+ */
+export function parseMutation(endpoint, requestBody) {
+  try {
+    // Extract mutation name from endpoint: /i/api/graphql/{queryId}/FavoriteTweet
+    const mutationName = endpoint.split('/').pop()?.split('?')[0];
+    const actionType = MUTATION_MAP[mutationName];
+
+    if (!actionType) return null;
+
+    const vars = requestBody?.variables || {};
+
+    return {
+      actionType,
+      tweetId: vars.tweet_id || vars.source_tweet_id || null,
+      targetUserId: vars.user_id || null,
+      rawVariables: vars,
+      mutationName,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export default { parseXResponse, parseMutation };

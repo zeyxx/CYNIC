@@ -212,6 +212,22 @@ export class LocalXStore {
 
       CREATE INDEX IF NOT EXISTS idx_x_sync_log_entity ON x_sync_log(entity_type, entity_id);
     `);
+
+    // My actions table (likes, RTs, bookmarks, follows)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS x_my_actions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        action_type TEXT NOT NULL,
+        tweet_id TEXT,
+        target_user_id TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        raw_variables TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_x_my_actions_type ON x_my_actions(action_type);
+      CREATE INDEX IF NOT EXISTS idx_x_my_actions_tweet ON x_my_actions(tweet_id);
+      CREATE INDEX IF NOT EXISTS idx_x_my_actions_time ON x_my_actions(created_at DESC);
+    `);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -682,6 +698,69 @@ export class LocalXStore {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // MY ACTIONS (likes, RTs, bookmarks, follows)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Record a user action (like, retweet, bookmark, follow, etc.)
+   * @param {Object} action
+   * @param {string} action.actionType - 'like','unlike','retweet','unretweet','bookmark','unbookmark','follow','unfollow','tweet'
+   * @param {string} [action.tweetId] - Target tweet ID
+   * @param {string} [action.targetUserId] - Target user ID (for follow/unfollow)
+   * @param {Object} [action.rawVariables] - Full mutation variables
+   */
+  recordAction(action) {
+    const stmt = this.db.prepare(`
+      INSERT INTO x_my_actions (action_type, tweet_id, target_user_id, raw_variables)
+      VALUES (?, ?, ?, ?)
+    `);
+    return stmt.run(
+      action.actionType,
+      action.tweetId || null,
+      action.targetUserId || null,
+      action.rawVariables ? JSON.stringify(action.rawVariables) : null,
+    );
+  }
+
+  /**
+   * Get my recent actions
+   * @param {Object} [options]
+   * @param {string} [options.type] - Filter by action type
+   * @param {number} [options.limit=50]
+   * @returns {Array}
+   */
+  getMyActions(options = {}) {
+    const limit = options.limit || 50;
+    if (options.type) {
+      return this.db.prepare(
+        `SELECT a.*, u.username, u.display_name, substr(t.text, 1, 120) as tweet_preview
+         FROM x_my_actions a
+         LEFT JOIN x_tweets t ON a.tweet_id = t.tweet_id
+         LEFT JOIN x_users u ON t.x_user_id = u.x_user_id
+         WHERE a.action_type = ?
+         ORDER BY a.created_at DESC LIMIT ?`,
+      ).all(options.type, limit);
+    }
+    return this.db.prepare(
+      `SELECT a.*, u.username, u.display_name, substr(t.text, 1, 120) as tweet_preview
+       FROM x_my_actions a
+       LEFT JOIN x_tweets t ON a.tweet_id = t.tweet_id
+       LEFT JOIN x_users u ON t.x_user_id = u.x_user_id
+       ORDER BY a.created_at DESC LIMIT ?`,
+    ).all(limit);
+  }
+
+  /**
+   * Get action stats summary
+   * @returns {Object}
+   */
+  getActionStats() {
+    return this.db.prepare(
+      `SELECT action_type, COUNT(*) as count FROM x_my_actions GROUP BY action_type ORDER BY count DESC`,
+    ).all();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // STATS
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -703,11 +782,14 @@ export class LocalXStore {
 
     const privateCount = this.db.prepare('SELECT COUNT(*) as count FROM x_tweets WHERE is_private = 1').get();
 
+    const actions = this.db.prepare('SELECT COUNT(*) as count FROM x_my_actions').get();
+
     return {
       tweets: tweets.count,
       users: users.count,
       trends: trends.count,
       feeds: feeds.count,
+      actions: actions.count,
       syncStats: Object.fromEntries(syncStats.map(s => [s.sync_status, s.count])),
       privateTweets: privateCount.count,
       dbPath: this.dbPath,

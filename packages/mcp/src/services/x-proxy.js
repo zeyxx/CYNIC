@@ -24,7 +24,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { createLogger, globalEventBus, EventType } from '@cynic/core';
-import { parseXResponse } from './x-parser.js';
+import { parseXResponse, parseMutation } from './x-parser.js';
 
 // Diagnostic log file for proxy debugging
 const DIAG_FILE = path.join(os.homedir(), '.cynic', 'x-proxy-diag.log');
@@ -82,6 +82,7 @@ export class XProxyService {
       tweetsCaptured: 0,
       usersCaptured: 0,
       trendsCaptured: 0,
+      actionsCaptured: 0,
       errors: 0,
       startedAt: null,
     };
@@ -189,6 +190,23 @@ export class XProxyService {
     fs.appendFileSync(DIAG_FILE, `[${new Date().toISOString()}] INTERCEPTING: ${path.slice(0, 100)}\n`);
     if (this.verbose) {
       log.debug('Intercepting X API', { path: path.slice(0, 80) });
+    }
+
+    // Capture POST request body (for mutations: likes, RTs, bookmarks)
+    const method = ctx.clientToProxyRequest.method;
+    const reqChunks = [];
+
+    if (method === 'POST') {
+      ctx.onRequestData((ctx, chunk, callback) => {
+        reqChunks.push(chunk);
+        callback(null, chunk); // Pass through unchanged
+      });
+
+      ctx.onRequestEnd((ctx, callback) => {
+        // Parse mutation from request body
+        this._processMutation(path, reqChunks).catch(() => {});
+        callback();
+      });
     }
 
     // Collect response chunks
@@ -333,6 +351,36 @@ export class XProxyService {
           log.debug('Trend store error', { error: err.message });
         }
       }
+    }
+  }
+
+  /**
+   * Process a GraphQL mutation (like, RT, bookmark, etc.)
+   * @private
+   */
+  async _processMutation(path, reqChunks) {
+    if (!this.localStore || reqChunks.length === 0) return;
+
+    try {
+      const body = Buffer.concat(reqChunks).toString('utf8');
+      const data = JSON.parse(body);
+      const action = parseMutation(path, data);
+
+      if (action) {
+        this.localStore.recordAction(action);
+        this._stats.actionsCaptured++;
+
+        fs.appendFileSync(DIAG_FILE, `[${new Date().toISOString()}] ACTION: ${action.actionType} tweet=${action.tweetId}\n`);
+
+        if (this.verbose) {
+          log.debug('Action captured', {
+            type: action.actionType,
+            tweet: action.tweetId,
+          });
+        }
+      }
+    } catch {
+      // Request body may not be JSON (e.g., multipart) — ignore silently
     }
   }
 
