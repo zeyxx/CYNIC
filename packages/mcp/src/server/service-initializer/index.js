@@ -56,6 +56,8 @@ import {
   createTokenOptimizerFactory,
   createHyperbolicSpaceFactory,
   createSONAFactory,
+  createBehaviorModifierFactory,
+  createMetaCognitionFactory,
 } from './claude-flow-factories.js';
 
 import { setupBusSubscriptions, cleanupBusSubscriptions } from './bus-subscriptions.js';
@@ -111,6 +113,8 @@ export class ServiceInitializer {
       tokenOptimizer: () => createTokenOptimizerFactory(),
       hyperbolicSpace: () => createHyperbolicSpaceFactory(),
       sona: (s) => createSONAFactory(s),
+      behaviorModifier: (s) => createBehaviorModifierFactory(s),
+      metaCognition: () => createMetaCognitionFactory(),
     };
   }
 
@@ -262,7 +266,17 @@ export class ServiceInitializer {
       services.sona = this.factories.sona(services);
     }
 
-    // 26. Setup event bus subscriptions
+    // 26. BehaviorModifier (feedback → behavior changes)
+    if (!services.behaviorModifier) {
+      services.behaviorModifier = this.factories.behaviorModifier(services);
+    }
+
+    // 27. MetaCognition (self-monitoring + strategy switching)
+    if (!services.metaCognition) {
+      services.metaCognition = this.factories.metaCognition(services);
+    }
+
+    // 28. Setup event bus subscriptions
     this._busSubscriptions = setupBusSubscriptions(services);
 
     return services;

@@ -214,6 +214,8 @@ const instance = createIdentity();
 | `createCostOptimizer()` | Create CostOptimizer instance |
 | `createLLMRouter()` | Create LLMRouter instance |
 | `createSONA()` | Create SONA instance |
+| `createBehaviorModifier()` | Create BehaviorModifier instance |
+| `createMetaCognition()` | Create MetaCognition instance |
 | `createTokenOptimizer()` | Create TokenOptimizer instance |
 | `createHyperbolicSpace()` | Create HyperbolicSpace instance |
 | `createWorkerPool()` | Create WorkerPool instance |
@@ -268,6 +270,7 @@ const instance = createIdentity();
 | `getQLearningServiceAsync()` | Get QLearningServiceAsync singleton |
 | `getCostOptimizer()` | Get CostOptimizer singleton |
 | `getLLMRouter()` | Get LLMRouter singleton |
+| `getMetaCognition()` | Get MetaCognition singleton |
 | `getUnifiedSignalStore()` | Get UnifiedSignalStore singleton |
 | `getUnifiedBridge()` | Get UnifiedBridge singleton |
 | `getWorkerPool()` | Get WorkerPool singleton |
@@ -318,7 +321,7 @@ const instance = createIdentity();
 - **Source files**: 251
 - **Test files**: 90
 - **Test ratio**: 36%
-- **Exports**: 424 named
+- **Exports**: 427 named
 
 ## Fractal Structure
 
@@ -331,7 +334,7 @@ const instance = createIdentity();
 [████░░░░░░] 36% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
-[████░░░░░░] 44% Burn (Simplicity)
+[████░░░░░░] 43% Burn (Simplicity)
 [██████░░░░] 62% Emergence
 ```
 

@@ -412,6 +412,13 @@ export {
   SONA,
   createSONA,
   SONA_CONFIG,
+  // Behavior Modifier (feedback → behavior changes)
+  BehaviorModifier,
+  createBehaviorModifier,
+  // Meta-Cognition (self-monitoring + strategy switching)
+  MetaCognition,
+  createMetaCognition,
+  getMetaCognition,
   // Unified Learning Pipeline
   UnifiedSignal,
   UnifiedSignalStore,

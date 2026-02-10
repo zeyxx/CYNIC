@@ -10,6 +10,9 @@
 'use strict';
 
 import { globalEventBus, EventType, createLogger } from '@cynic/core';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 
 const log = createLogger('BusSubscriptions');
 
@@ -169,17 +172,49 @@ export function setupBusSubscriptions(services) {
           impact: impact || (success ? 0.7 : 0.3),
         });
       }
+
+      // Feed to BehaviorModifier → actual behavior changes
+      if (services.behaviorModifier) {
+        services.behaviorModifier.processFeedback({
+          type: source === 'explicit' ? 'explicit' : 'implicit_success',
+          outcome: success && !blocked ? 'correct' : 'incorrect',
+          dog: event.payload?.dog,
+          dimension: event.payload?.dimension,
+          taskType: source || 'tool_execution',
+          score: event.payload?.qScore,
+          timestamp: event.timestamp,
+        });
+      }
     })
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // TOOL EVENTS
+  // TOOL EVENTS + META-COGNITION
   // ═══════════════════════════════════════════════════════════════════════════
 
   subscriptions.push(
     globalEventBus.subscribe(EventType.TOOL_COMPLETED, (event) => {
       const { tool, duration, success, blocked, agentCount } = event.payload || {};
       services.metrics?.recordEvent('tool_completed', { tool, duration, success, blocked, agentCount });
+
+      // Feed to MetaCognition → stuck/thrashing/flow detection
+      if (services.metaCognition) {
+        const analysis = services.metaCognition.recordAction({
+          type: blocked ? 'blocked' : 'tool_execution',
+          tool,
+          success: !!success && !blocked,
+          duration: duration || 0,
+        });
+
+        // Log strategy recommendations
+        if (analysis?.recommendation) {
+          log.info('MetaCognition recommendation', {
+            strategy: analysis.recommendation.strategy,
+            reason: analysis.recommendation.reason,
+            state: analysis.state,
+          });
+        }
+      }
     })
   );
 
@@ -193,6 +228,68 @@ export function setupBusSubscriptions(services) {
       if (services.tieredRouter && content) {
         const tier = services.complexityClassifier?.classify({ content });
         services.metrics?.recordEvent('request_routed', { tier: tier?.tier });
+      }
+    })
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SESSION END — Persist learning state
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  subscriptions.push(
+    globalEventBus.subscribe(EventType.SESSION_ENDED, () => {
+      // Persist SONA state to disk (same pattern as Thompson Sampler)
+      if (services.sona) {
+        try {
+          const sonaDir = path.join(os.homedir(), '.cynic', 'sona');
+          fs.mkdirSync(sonaDir, { recursive: true });
+          const state = {
+            stats: services.sona.getStats(),
+            insights: services.sona.getDimensionInsights(),
+            savedAt: Date.now(),
+          };
+          fs.writeFileSync(
+            path.join(sonaDir, 'state.json'),
+            JSON.stringify(state, null, 2),
+          );
+          log.info('SONA state persisted', { observations: state.stats.totalObservations });
+        } catch (e) {
+          log.debug('SONA persist failed', { error: e.message });
+        }
+      }
+
+      // Persist BehaviorModifier state
+      if (services.behaviorModifier) {
+        try {
+          const bmDir = path.join(os.homedir(), '.cynic', 'behavior');
+          fs.mkdirSync(bmDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(bmDir, 'state.json'),
+            JSON.stringify({
+              stats: services.behaviorModifier.getStats(),
+              context: services.behaviorModifier.getBehaviorContext(),
+              savedAt: Date.now(),
+            }, null, 2),
+          );
+          log.info('BehaviorModifier state persisted');
+        } catch (e) {
+          log.debug('BehaviorModifier persist failed', { error: e.message });
+        }
+      }
+
+      // Persist MetaCognition state
+      if (services.metaCognition) {
+        try {
+          const mcDir = path.join(os.homedir(), '.cynic', 'metacognition');
+          fs.mkdirSync(mcDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(mcDir, 'state.json'),
+            JSON.stringify(services.metaCognition.exportState(), null, 2),
+          );
+          log.info('MetaCognition state persisted');
+        } catch (e) {
+          log.debug('MetaCognition persist failed', { error: e.message });
+        }
       }
     })
   );
