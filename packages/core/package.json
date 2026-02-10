@@ -18,7 +18,9 @@
     "./bus": "./src/bus/index.js",
     "./orchestration": "./src/orchestration/index.js",
     "./llm": "./src/llm/index.js",
-    "./tracing": "./src/tracing/index.js"
+    "./tracing": "./src/tracing/index.js",
+    "./ecosystem": "./src/ecosystem/index.js",
+    "./ecosystem/asdfasdfa-ecosystem.js": "./src/ecosystem/asdfasdfa-ecosystem.js"
   },
   "scripts": {
     "test": "node --test test/*.test.js"
