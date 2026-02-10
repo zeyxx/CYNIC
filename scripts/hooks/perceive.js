@@ -58,6 +58,9 @@ import { getCostOptimizer, ComplexityTier } from '@cynic/node';
 // Context compression: Experience curve — inject less as CYNIC learns
 import { contextCompressor } from '@cynic/node/services/context-compressor.js';
 
+// Adaptive injection: Learned activation rates replace hardcoded patterns
+import { injectionProfile } from '@cynic/node/services/injection-profile.js';
+
 // Brain Integration: Unified consciousness layer
 import {
   thinkAbout,
@@ -588,8 +591,9 @@ async function main() {
   // pendingOutput accumulates results — deadline flushes whatever we have
   let pendingOutput = { continue: true };
 
-  // ── Experience Curve: Start context compressor (loads from file) ─────
+  // ── Experience Curve: Start context compressor + injection profile (loads from file) ─────
   try { contextCompressor.start(); } catch { /* non-blocking */ }
+  try { injectionProfile.start(); } catch { /* non-blocking */ }
 
   try {
     // Read stdin - try sync first, fall back to async
@@ -639,6 +643,19 @@ async function main() {
       safeOutput({ continue: true });
       return;
     }
+
+    // ── Engagement detection: does current prompt engage with previous injections? ──
+    // The learning loop: Hook N injects topics → Hook N+1 checks if user engaged
+    try {
+      const prevInjections = injectionProfile.getLastSessionInjections();
+      if (prevInjections.length > 0) {
+        // Force prevInjections into _sessionInjections for updateFromSession to check
+        for (const topic of prevInjections) injectionProfile._sessionInjections.add(topic);
+        injectionProfile.updateFromSession([prompt]);
+        // Clear the temporary injections (will be repopulated by shouldActivate calls)
+        injectionProfile._sessionInjections = new Set();
+      }
+    } catch { /* non-blocking */ }
 
     // Detect user and load profile
     const user = detectUser();
@@ -968,10 +985,10 @@ async function main() {
     // Launch MCP calls in parallel (independent of each other)
     const mcpPromises = [];
 
-    // Ecosystem awareness: keyword-triggered OR periodic, but GATED by staleTTL (5min)
+    // Ecosystem awareness: ADAPTIVE frequency (replaces promptCount % 5) + keyword boost, GATED by staleTTL
     const promptCount = temporalState.promptCount || 1;
     const ecosystemKeywords = /\b(ecosystem|distribution|ship|deploy|skills\.sh|github|render|status|cockpit)\b/i;
-    const wantEcosystem = promptCount % 5 === 1 || ecosystemKeywords.test(prompt);
+    const wantEcosystem = injectionProfile.shouldActivatePeriodic('ecosystem_status', promptCount).activate || ecosystemKeywords.test(prompt);
     if (wantEcosystem && contextCompressor.shouldInject('ecosystem_status', { estimatedChars: 200 }).inject) {
       mcpPromises.push(
         raceTimeout(
@@ -985,9 +1002,9 @@ async function main() {
       );
     }
 
-    // Social awareness: keyword-triggered OR periodic, GATED by staleTTL (5min)
+    // Social awareness: ADAPTIVE frequency (replaces promptCount % 5) + keyword boost, GATED by staleTTL
     const socialKeywords = /\b(twitter|tweet|x\.com|social|community|engagement|follower|sentiment)\b/i;
-    const wantSocial = promptCount % 5 === 1 || socialKeywords.test(prompt);
+    const wantSocial = injectionProfile.shouldActivatePeriodic('social_status', promptCount).activate || socialKeywords.test(prompt);
     if (wantSocial && contextCompressor.shouldInject('social_status', { estimatedChars: 150 }).inject) {
       mcpPromises.push(
         raceTimeout(
@@ -999,8 +1016,8 @@ async function main() {
       );
     }
 
-    // Accounting awareness: periodic, GATED by staleTTL (5min)
-    if (promptCount % 5 === 1 && contextCompressor.shouldInject('accounting_status', { estimatedChars: 150 }).inject) {
+    // Accounting awareness: ADAPTIVE frequency (replaces promptCount % 5), GATED by staleTTL
+    if (injectionProfile.shouldActivatePeriodic('accounting_status', promptCount).activate && contextCompressor.shouldInject('accounting_status', { estimatedChars: 150 }).inject) {
       mcpPromises.push(
         raceTimeout(
           callBrainTool('brain_accounting', {
@@ -1228,8 +1245,8 @@ async function main() {
       const { signals } = temporalState;
       const worldTime = temporalState.worldTime;
 
-      // Late night work warning (priority - health concern)
-      if (signals.lateNightWork && signals.lateNightConfidence > 0.4) {
+      // Late night work warning (priority - health concern) — threshold adapts from feedback
+      if (signals.lateNightWork && signals.lateNightConfidence > injectionProfile.getThreshold('temporal_late_night', 0.4) && injectionProfile.shouldActivate('temporal_late_night').activate) {
         const time = worldTime?.humanReadable?.time || '?';
         const phase = worldTime?.humanReadable?.phase || 'nuit';
         injections.push(`${c(ANSI.brightYellow, '── 🌙 ' + phase.toUpperCase() + ' ─────────────────────────────────────────────')}
@@ -1237,8 +1254,8 @@ async function main() {
    ${c(ANSI.dim, 'L\'énergie circadienne est basse. Repos bientôt?')}`);
       }
 
-      // High-confidence frustration signal
-      else if (signals.possibleFrustration && signals.frustrationConfidence > 0.4) {
+      // High-confidence frustration signal — threshold adapts from feedback
+      else if (signals.possibleFrustration && signals.frustrationConfidence > injectionProfile.getThreshold('temporal_frustration', 0.4) && injectionProfile.shouldActivate('temporal_frustration').activate) {
         const tempo = temporalState.tempo?.toFixed(1) || '?';
         let frustrationMsg = `${c(ANSI.brightYellow, '── ⚡ TEMPO ───────────────────────────────────────────────')}
    ${c(ANSI.brightYellow, '*sniff*')} Rythme rapide détecté (${tempo} prompts/min)
@@ -1252,8 +1269,8 @@ async function main() {
         injections.push(frustrationMsg);
       }
 
-      // High-confidence fatigue signal
-      else if (signals.possibleFatigue && signals.fatigueConfidence > 0.4) {
+      // High-confidence fatigue signal — threshold adapts from feedback
+      else if (signals.possibleFatigue && signals.fatigueConfidence > injectionProfile.getThreshold('temporal_fatigue', 0.4) && injectionProfile.shouldActivate('temporal_fatigue').activate) {
         const duration = temporalState.humanReadable?.sessionDuration || '?';
         const time = worldTime?.humanReadable?.time || '';
         injections.push(`${c(ANSI.yellow, '── 😴 FATIGUE ────────────────────────────────────────────')}
@@ -1261,22 +1278,22 @@ async function main() {
    ${c(ANSI.dim, 'Peut-être une pause serait bénéfique?')}`);
       }
 
-      // Flow state - positive reinforcement (less frequent)
-      else if (signals.possibleFlow && signals.flowConfidence > 0.5 && temporalState.promptCount % 8 === 0) {
+      // Flow state - positive reinforcement — adaptive frequency + threshold
+      else if (signals.possibleFlow && signals.flowConfidence > injectionProfile.getThreshold('temporal_flow', 0.5) && injectionProfile.shouldActivatePeriodic('temporal_flow', temporalState.promptCount).activate) {
         injections.push(`${c(ANSI.brightGreen, '── ✨ FLOW ────────────────────────────────────────────────')}
    ${c(ANSI.brightGreen, '*tail wag*')} Rythme régulier, bon flow.`);
       }
 
-      // Stuck signal
-      else if (signals.possibleStuck && signals.stuckConfidence > 0.4) {
+      // Stuck signal — threshold adapts from feedback
+      else if (signals.possibleStuck && signals.stuckConfidence > injectionProfile.getThreshold('temporal_stuck', 0.4) && injectionProfile.shouldActivate('temporal_stuck').activate) {
         const timeSince = temporalState.humanReadable?.timeSinceLastPrompt || '?';
         injections.push(`${c(ANSI.cyan, '── ⏳ PAUSE ───────────────────────────────────────────────')}
    ${c(ANSI.cyan, '*ears perk*')} Long silence (${timeSince}).
    ${c(ANSI.dim, 'Bloqué? Je peux aider à explorer le problème.')}`);
       }
 
-      // Weekend work note (low priority, occasional)
-      else if (signals.weekendWork && temporalState.promptCount === 3) {
+      // Weekend work note — adaptive activation (was hardcoded promptCount === 3)
+      else if (signals.weekendWork && injectionProfile.shouldActivatePeriodic('temporal_weekend', temporalState.promptCount).activate) {
         const day = worldTime?.humanReadable?.date || 'weekend';
         injections.push(`${c(ANSI.dim, '── 📅 WEEKEND ────────────────────────────────────────────')}
    ${c(ANSI.dim, '*head tilt*')} ${day}. Travail le weekend?
@@ -1291,16 +1308,16 @@ async function main() {
     if (errorState.signals) {
       const { signals: errSignals } = errorState;
 
-      // Critical: consecutive errors (circuit breaker territory)
-      if (errSignals.consecutiveErrors && errorState.consecutiveErrors >= 5) {
+      // Critical: consecutive errors (circuit breaker territory) — threshold adapts
+      if (errSignals.consecutiveErrors && errorState.consecutiveErrors >= Math.round(injectionProfile.getThreshold('error_consecutive', 5))) {
         injections.push(`${c(ANSI.brightRed, '── 🔴 CIRCUIT BREAKER ────────────────────────────────────')}
    ${c(ANSI.brightRed, '*GROWL*')} ${errorState.consecutiveErrors} erreurs consécutives!
    Pattern: ${errorState.pattern}
    ${c(ANSI.brightYellow, 'Peut-être une approche différente?')}`);
       }
 
-      // High error rate warning
-      else if (errSignals.highErrorRate && errorState.errorRate >= 0.38) {
+      // High error rate warning — threshold adapts (was hardcoded φ⁻²)
+      else if (errSignals.highErrorRate && errorState.errorRate >= injectionProfile.getThreshold('error_high_rate', 0.38)) {
         const rateStr = errorState.humanReadable?.errorRate || '?';
         const commonError = errorState.mostCommonError || 'inconnu';
         injections.push(`${c(ANSI.brightYellow, '── ⚠️ ERREURS ────────────────────────────────────────────')}
@@ -1448,7 +1465,7 @@ async function main() {
         } else if (dogResult.nearCritical) {
           // Near emergence threshold - hint at it
           const voice = physicsBridge.getDogVoice();
-          if (voice && Math.random() < DC.PROBABILITY.DOG_HINT) {
+          if (voice && injectionProfile.shouldActivate('dog_hint').activate) {
             injections.push(`── FIELD TENSION ──────────────────────────────────────────
    *sniff* Energy building... ${Math.round(dogResult.fieldEnergy || 0)} / critical threshold`);
           }
@@ -1485,7 +1502,7 @@ async function main() {
         } else if (elenchus.shouldUseMaieutics(prompt)) {
           // For questions, use maieutic mode - guide to discovery
           const maieutic = elenchus.generateMaieuticQuestion(prompt);
-          if (maieutic && Math.random() < DC.PROBABILITY.ELENCHUS) { // φ⁻²
+          if (maieutic && injectionProfile.shouldActivate('elenchus').activate) { // adaptive (was φ⁻²)
             injections.push(`── MAIEUTIC ───────────────────────────────────────────────\n   💡 ${maieutic}`);
           }
         }
@@ -1551,7 +1568,7 @@ async function main() {
       try {
         // Only inject chria when we haven't injected anything else
         // and with φ⁻² probability (38.2%)
-        if (Math.random() < DC.PROBABILITY.CHRIA_WISDOM) {
+        if (injectionProfile.shouldActivate('chria_wisdom').activate) { // adaptive (was φ⁻²)
           const contextTags = intents.map(i => i.intent);
           const chria = chriaDB.getContextualChria(contextTags, prompt);
           if (chria) {
@@ -1586,7 +1603,7 @@ async function main() {
     // ROLE REVERSAL: Detect teaching opportunities
     // "Enseigner, c'est apprendre deux fois"
     // ═══════════════════════════════════════════════════════════════════════════
-    if (roleReversal && prompt.length > DC.LENGTH.ROLE_REVERSAL_MIN && Math.random() < DC.PROBABILITY.ROLE_REVERSAL && contextCompressor.shouldInject('maieutic', { estimatedChars: 150 }).inject) {
+    if (roleReversal && prompt.length > DC.LENGTH.ROLE_REVERSAL_MIN && injectionProfile.shouldActivate('role_reversal').activate && contextCompressor.shouldInject('maieutic', { estimatedChars: 150 }).inject) {
       try {
         const opportunity = roleReversal.detectReversalOpportunity(prompt, {});
         if (opportunity && opportunity.shouldReverse) {
@@ -1605,7 +1622,7 @@ async function main() {
       try {
         // Check for assertion patterns that could be hypotheses
         const assertionPatterns = /(?:I think|I believe|probably|likely|should be|must be|always|never)/i;
-        if (assertionPatterns.test(prompt) && Math.random() < DC.PROBABILITY.MEDIUM) {
+        if (assertionPatterns.test(prompt) && injectionProfile.shouldActivate('hypothesis').activate) { // adaptive (was φ⁻²)
           injections.push(`── HYPOTHESIS ─────────────────────────────────────────────\n   🔬 *sniff* This sounds like a hypothesis. What would falsify it?`);
         }
       } catch (e) {
@@ -1833,8 +1850,9 @@ async function main() {
       });
     }
 
-    // Persist experience curve (non-blocking, before exit)
+    // Persist experience curve + injection profile (non-blocking, before exit)
     try { contextCompressor.stop(); } catch { /* non-blocking */ }
+    try { injectionProfile.stop(); } catch { /* non-blocking */ }
 
     // Exit promptly — AmbientConsensus timers would keep process alive for 5s+
     process.exit(0);
@@ -1842,6 +1860,7 @@ async function main() {
   } catch (error) {
     logger.error('Hook failed', { error: error.message });
     try { contextCompressor.stop(); } catch { /* non-blocking */ }
+    try { injectionProfile.stop(); } catch { /* non-blocking */ }
     if (!outputSent) {
       outputSent = true;
       safeOutput({ continue: true });

@@ -21,6 +21,10 @@ import {
   TOPIC_CONFIG,
   EXPERIENCED_THRESHOLD,
   EXPERT_THRESHOLD,
+  BACKOFF_WINDOW,
+  BACKOFF_QUALITY_THRESHOLD,
+  BACKOFF_DURATION,
+  MAX_OUTCOMES,
 } from '../src/services/context-compressor.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -471,6 +475,195 @@ describe('ContextCompressor', () => {
         assert.ok(typeof config.compressible === 'boolean', `${name} missing compressible`);
         assert.ok('disableAfter' in config, `${name} missing disableAfter`);
       }
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // OUTCOME VERIFICATION (Circuit Breaker)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  describe('Outcome Verification', () => {
+    beforeEach(() => {
+      contextCompressor._resetForTesting();
+      tempPath = getTempStatePath();
+      contextCompressor._setStatePath(tempPath);
+    });
+
+    it('records session outcome', () => {
+      contextCompressor.start();
+      contextCompressor.recordSessionOutcome({ quality: 0.8, errorRate: 0.1, frustration: 0.1 });
+      const outcomes = contextCompressor.getSessionOutcomes();
+      assert.equal(outcomes.length, 1);
+      assert.equal(outcomes[0].quality, 0.8);
+      assert.equal(outcomes[0].errorRate, 0.1);
+    });
+
+    it('keeps rolling window of MAX_OUTCOMES', () => {
+      contextCompressor.start();
+      for (let i = 0; i < MAX_OUTCOMES + 5; i++) {
+        contextCompressor.recordSessionOutcome({ quality: 0.5 + (i * 0.01), errorRate: 0, frustration: 0 });
+      }
+      const outcomes = contextCompressor.getSessionOutcomes();
+      assert.equal(outcomes.length, MAX_OUTCOMES);
+    });
+
+    it('no backoff when quality is high', () => {
+      contextCompressor.start();
+      // Record good sessions
+      for (let i = 0; i < BACKOFF_WINDOW; i++) {
+        contextCompressor.recordSessionOutcome({ quality: 0.9, errorRate: 0.05, frustration: 0.05 });
+      }
+      const status = contextCompressor.getBackoffStatus();
+      assert.equal(status.active, false);
+      assert.equal(status.remaining, 0);
+    });
+
+    it('triggers backoff when quality is consistently low', () => {
+      contextCompressor.start();
+      // All sessions at 'new' level with bad quality
+      for (let i = 0; i < BACKOFF_WINDOW; i++) {
+        contextCompressor.recordSessionOutcome({ quality: 0.2, errorRate: 0.5, frustration: 0.8 });
+      }
+      const status = contextCompressor.getBackoffStatus();
+      assert.equal(status.active, true);
+      assert.ok(status.remaining > 0);
+      assert.equal(status.reason, 'quality_degradation');
+    });
+
+    it('backoff degrades experience level by 1', () => {
+      contextCompressor._resetForTesting();
+      contextCompressor._setStatePath(tempPath);
+      // Simulate experienced user (sessions > EXPERIENCED_THRESHOLD)
+      contextCompressor._totalSessions = EXPERIENCED_THRESHOLD + 1;
+      contextCompressor._running = true;
+
+      // Raw level should be 'experienced'
+      assert.equal(contextCompressor._getExperienceLevel(), 'experienced');
+
+      // Record bad sessions at 'experienced' level
+      for (let i = 0; i < BACKOFF_WINDOW; i++) {
+        contextCompressor.recordSessionOutcome({ quality: 0.1, errorRate: 0.6, frustration: 0.9 });
+      }
+
+      // Effective level should be degraded to 'learning'
+      assert.equal(contextCompressor.getEffectiveExperienceLevel(), 'learning');
+      assert.equal(contextCompressor.getBackoffStatus().rawLevel, 'experienced');
+    });
+
+    it('backoff expires after BACKOFF_DURATION sessions', () => {
+      contextCompressor._totalSessions = EXPERT_THRESHOLD + 1;
+      contextCompressor._running = true;
+
+      // Raw level should be 'expert'
+      assert.equal(contextCompressor._getExperienceLevel(), 'expert');
+
+      // Trigger backoff
+      for (let i = 0; i < BACKOFF_WINDOW; i++) {
+        contextCompressor.recordSessionOutcome({ quality: 0.1, errorRate: 0.6, frustration: 0.9 });
+      }
+      assert.equal(contextCompressor.getBackoffStatus().active, true);
+      assert.equal(contextCompressor.getEffectiveExperienceLevel(), 'experienced');
+
+      // Advance past backoff duration
+      contextCompressor._totalSessions += BACKOFF_DURATION + 1;
+      assert.equal(contextCompressor.getBackoffStatus().active, false);
+      assert.equal(contextCompressor.getEffectiveExperienceLevel(), 'expert');
+    });
+
+    it('cannot degrade below new level', () => {
+      contextCompressor.start();
+      assert.equal(contextCompressor._getExperienceLevel(), 'new');
+
+      // Record terrible sessions
+      for (let i = 0; i < BACKOFF_WINDOW; i++) {
+        contextCompressor.recordSessionOutcome({ quality: 0.0, errorRate: 1.0, frustration: 1.0 });
+      }
+
+      // Still 'new' — can't go lower
+      assert.equal(contextCompressor.getEffectiveExperienceLevel(), 'new');
+    });
+
+    it('getStats includes backoff info', () => {
+      contextCompressor.start();
+      const stats = contextCompressor.getStats();
+      assert.ok('backoff' in stats, 'stats should include backoff');
+      assert.equal(stats.backoff.active, false);
+    });
+
+    it('persists and restores outcomes across sessions', () => {
+      contextCompressor.start();
+      contextCompressor.recordSessionOutcome({ quality: 0.7, errorRate: 0.1, frustration: 0.2 });
+      contextCompressor.stop();
+
+      // Reset in-memory state and reload
+      contextCompressor._resetForTesting();
+      contextCompressor._setStatePath(tempPath);
+      contextCompressor.start();
+
+      const outcomes = contextCompressor.getSessionOutcomes();
+      assert.equal(outcomes.length, 1);
+      assert.equal(outcomes[0].quality, 0.7);
+    });
+
+    it('persists and restores backoff across sessions', () => {
+      contextCompressor._totalSessions = EXPERIENCED_THRESHOLD + 1;
+      contextCompressor._running = true;
+      contextCompressor._setStatePath(tempPath);
+
+      // Trigger backoff
+      for (let i = 0; i < BACKOFF_WINDOW; i++) {
+        contextCompressor.recordSessionOutcome({ quality: 0.1, errorRate: 0.6, frustration: 0.9 });
+      }
+      assert.equal(contextCompressor.getBackoffStatus().active, true);
+      contextCompressor._persistState();
+
+      // Reset and reload
+      const savedSessions = contextCompressor._totalSessions;
+      contextCompressor._resetForTesting();
+      contextCompressor._setStatePath(tempPath);
+      contextCompressor._totalSessions = savedSessions; // Simulate same session count
+      contextCompressor._running = true;
+      contextCompressor._loadState();
+
+      assert.equal(contextCompressor.getBackoffStatus().active, true);
+    });
+
+    it('quality is clamped to [0, 1]', () => {
+      contextCompressor.start();
+      contextCompressor.recordSessionOutcome({ quality: -0.5, errorRate: 0, frustration: 0 });
+      contextCompressor.recordSessionOutcome({ quality: 1.5, errorRate: 0, frustration: 0 });
+      const outcomes = contextCompressor.getSessionOutcomes();
+      assert.equal(outcomes[0].quality, 0);
+      assert.equal(outcomes[1].quality, 1);
+    });
+
+    it('handles missing outcome fields gracefully', () => {
+      contextCompressor.start();
+      contextCompressor.recordSessionOutcome({});
+      const outcomes = contextCompressor.getSessionOutcomes();
+      assert.equal(outcomes[0].quality, 0);
+      assert.equal(outcomes[0].errorRate, 0);
+      assert.equal(outcomes[0].frustration, 0);
+    });
+
+    it('only evaluates outcomes at current level for backoff', () => {
+      // Start as 'new' with bad quality
+      contextCompressor.start();
+      for (let i = 0; i < BACKOFF_WINDOW; i++) {
+        contextCompressor.recordSessionOutcome({ quality: 0.1, errorRate: 0.5, frustration: 0.5 });
+      }
+      // Backoff triggered at 'new' level
+      assert.equal(contextCompressor.getBackoffStatus().active, true);
+
+      // Advance to 'experienced' level
+      contextCompressor._totalSessions = EXPERIENCED_THRESHOLD + 5;
+      contextCompressor._backoffUntilSession = 0; // Clear old backoff
+
+      // Record good sessions at 'experienced' level — no backoff
+      for (let i = 0; i < BACKOFF_WINDOW; i++) {
+        contextCompressor.recordSessionOutcome({ quality: 0.9, errorRate: 0, frustration: 0 });
+      }
+      assert.equal(contextCompressor.getBackoffStatus().active, false);
     });
   });
 });

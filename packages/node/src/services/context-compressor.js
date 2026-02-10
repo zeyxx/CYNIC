@@ -41,6 +41,18 @@ const EXPERIENCED_THRESHOLD = 10;
 /** Session threshold for "expert" — maximum compression */
 const EXPERT_THRESHOLD = 50;
 
+/** Maximum session outcomes to retain (rolling window) */
+const MAX_OUTCOMES = 20;
+
+/** Number of recent sessions to evaluate for backoff */
+const BACKOFF_WINDOW = 3;
+
+/** Quality threshold below which backoff triggers */
+const BACKOFF_QUALITY_THRESHOLD = 0.4;
+
+/** Number of sessions a backoff lasts */
+const BACKOFF_DURATION = 5;
+
 /**
  * Known injection topics and their properties.
  * staleTTL: how long (ms) before this topic can be re-injected
@@ -110,6 +122,10 @@ class ContextCompressor {
 
     // Last stable routing (for dedup)
     this._lastRouting = null;
+
+    // Session outcome history (persisted) — rolling window for backoff circuit breaker
+    this._sessionOutcomes = []; // [{ ts, level, quality, errorRate, frustration }]
+    this._backoffUntilSession = 0; // session count until which backoff is active
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -292,7 +308,9 @@ class ContextCompressor {
       running: this._running,
       uptime: this._running ? Date.now() - this._startedAt : 0,
       totalSessions: this._totalSessions,
-      experienceLevel: this._getExperienceLevel(),
+      experienceLevel: this.getEffectiveExperienceLevel(),
+      rawExperienceLevel: this._getExperienceLevel(),
+      backoff: this.getBackoffStatus(),
       compressionLevel: this._running ? Math.round(this._getCompressionLevel() * 100) : 0,
       session: {
         injections: this._sessionInjections,
@@ -325,6 +343,95 @@ class ContextCompressor {
       sum += signal.maturity;
     }
     return Math.min(sum / this._maturitySignals.size, PHI_INV);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // OUTCOME VERIFICATION: Circuit breaker for compression safety
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Record session quality outcome. Called at session end (sleep.js).
+   * If quality is low at current compression level, triggers backoff.
+   *
+   * @param {{ quality: number, errorRate: number, frustration: number }} outcome
+   *   quality: 0..1 composite score (1 = perfect session)
+   *   errorRate: 0..1 tool error rate
+   *   frustration: 0..1 psychology frustration signal
+   */
+  recordSessionOutcome(outcome) {
+    const level = this._getExperienceLevel();
+    const entry = {
+      ts: Date.now(),
+      session: this._totalSessions,
+      level,
+      quality: Math.max(0, Math.min(1, outcome.quality || 0)),
+      errorRate: outcome.errorRate || 0,
+      frustration: outcome.frustration || 0,
+    };
+
+    this._sessionOutcomes.push(entry);
+
+    // Rolling window: keep only last MAX_OUTCOMES entries
+    if (this._sessionOutcomes.length > MAX_OUTCOMES) {
+      this._sessionOutcomes = this._sessionOutcomes.slice(-MAX_OUTCOMES);
+    }
+
+    // Evaluate backoff: check last BACKOFF_WINDOW sessions at current level
+    const recentAtLevel = this._sessionOutcomes
+      .filter(o => o.level === level)
+      .slice(-BACKOFF_WINDOW);
+
+    if (recentAtLevel.length >= BACKOFF_WINDOW) {
+      const avgQuality = recentAtLevel.reduce((sum, o) => sum + o.quality, 0) / recentAtLevel.length;
+      if (avgQuality < BACKOFF_QUALITY_THRESHOLD) {
+        // Trigger backoff: temporarily degrade experience level
+        this._backoffUntilSession = this._totalSessions + BACKOFF_DURATION;
+      }
+    }
+
+    this._persistState();
+  }
+
+  /**
+   * Get effective experience level, accounting for backoff.
+   * This is what awaken.js should use instead of raw _getExperienceLevel().
+   * @returns {string} 'new' | 'learning' | 'experienced' | 'expert'
+   */
+  getEffectiveExperienceLevel() {
+    const raw = this._getExperienceLevel();
+
+    // If backoff is active, degrade by 1 level
+    if (this._backoffUntilSession > this._totalSessions) {
+      const LEVELS = ['new', 'learning', 'experienced', 'expert'];
+      const idx = LEVELS.indexOf(raw);
+      if (idx > 0) return LEVELS[idx - 1];
+      return raw; // Can't degrade below 'new'
+    }
+
+    return raw;
+  }
+
+  /**
+   * Check if backoff is currently active.
+   * @returns {{ active: boolean, remaining: number, reason: string }}
+   */
+  getBackoffStatus() {
+    const active = this._backoffUntilSession > this._totalSessions;
+    return {
+      active,
+      remaining: active ? this._backoffUntilSession - this._totalSessions : 0,
+      reason: active ? 'quality_degradation' : 'none',
+      rawLevel: this._getExperienceLevel(),
+      effectiveLevel: this.getEffectiveExperienceLevel(),
+    };
+  }
+
+  /**
+   * Get session outcome history.
+   * @returns {Array<{ ts, session, level, quality, errorRate, frustration }>}
+   */
+  getSessionOutcomes() {
+    return [...this._sessionOutcomes];
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -553,6 +660,14 @@ class ContextCompressor {
       if (state.maturitySignals) {
         this._maturitySignals = new Map(Object.entries(state.maturitySignals));
       }
+
+      // Restore session outcomes + backoff
+      if (Array.isArray(state.sessionOutcomes)) {
+        this._sessionOutcomes = state.sessionOutcomes.slice(-MAX_OUTCOMES);
+      }
+      if (state.backoffUntilSession != null) {
+        this._backoffUntilSession = state.backoffUntilSession;
+      }
     } catch {
       // Fresh start — file corrupt or missing
     }
@@ -583,6 +698,8 @@ class ContextCompressor {
         topics,
         maturitySignals,
         lastRouting: this._lastRouting,
+        sessionOutcomes: this._sessionOutcomes.slice(-MAX_OUTCOMES),
+        backoffUntilSession: this._backoffUntilSession,
         lastPersisted: Date.now(),
       };
 
@@ -609,6 +726,8 @@ class ContextCompressor {
     this._totalCharsSaved = 0;
     this._maturitySignals = new Map();
     this._lastRouting = null;
+    this._sessionOutcomes = [];
+    this._backoffUntilSession = 0;
   }
 
   /**
@@ -644,6 +763,8 @@ contextCompressor._loadState = function () {
       if (state.topics) this._topics = new Map(Object.entries(state.topics));
       if (state.lastRouting) this._lastRouting = state.lastRouting;
       if (state.maturitySignals) this._maturitySignals = new Map(Object.entries(state.maturitySignals));
+      if (Array.isArray(state.sessionOutcomes)) this._sessionOutcomes = state.sessionOutcomes.slice(-MAX_OUTCOMES);
+      if (state.backoffUntilSession != null) this._backoffUntilSession = state.backoffUntilSession;
     } catch { /* fresh start */ }
   } else {
     origLoad();
@@ -667,11 +788,13 @@ contextCompressor._persistState = function () {
       topics,
       maturitySignals,
       lastRouting: this._lastRouting,
+      sessionOutcomes: this._sessionOutcomes.slice(-MAX_OUTCOMES),
+      backoffUntilSession: this._backoffUntilSession,
       lastPersisted: Date.now(),
     };
     writeFileSync(targetFile, JSON.stringify(state, null, 2));
   } catch { /* non-blocking */ }
 };
 
-export { contextCompressor, TOPIC_CONFIG, EXPERIENCED_THRESHOLD, EXPERT_THRESHOLD };
+export { contextCompressor, TOPIC_CONFIG, EXPERIENCED_THRESHOLD, EXPERT_THRESHOLD, BACKOFF_WINDOW, BACKOFF_QUALITY_THRESHOLD, BACKOFF_DURATION, MAX_OUTCOMES };
 export default contextCompressor;

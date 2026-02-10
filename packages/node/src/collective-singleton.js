@@ -53,6 +53,7 @@ import { wireConsciousness } from './services/consciousness-bridge.js';
 import { eventBusBridge } from './services/event-bus-bridge.js';
 import { memoryCoordinator } from './services/memory-coordinator.js';
 import { contextCompressor } from './services/context-compressor.js';
+import { injectionProfile } from './services/injection-profile.js';
 import { getCodeDecider, resetCodeDecider } from './code/code-decider.js';
 import { getCodeActor, resetCodeActor } from './code/code-actor.js';
 import { getCynicAccountant, resetCynicAccountant } from './accounting/cynic-accountant.js';
@@ -1552,6 +1553,18 @@ export async function getCollectivePackAsync(options = {}) {
       log.warn('ContextCompressor start failed (non-blocking)', { error: err.message });
     }
 
+    // ─── InjectionProfile: Adaptive injection decisions ─────────────────────
+    try {
+      injectionProfile.start();
+      systemTopology.registerComponent('injectionProfile', injectionProfile);
+      log.info('InjectionProfile started', {
+        sessions: injectionProfile.getStats().totalSessions,
+        engagements: injectionProfile.getStats().totalEngagements,
+      });
+    } catch (err) {
+      log.warn('InjectionProfile start failed (non-blocking)', { error: err.message });
+    }
+
     return pack;
   })();
 
@@ -2240,6 +2253,9 @@ export function _resetForTesting() {
 
   // ContextCompressor: Reset experience curve
   try { contextCompressor._resetForTesting(); } catch { /* non-blocking */ }
+
+  // InjectionProfile: Reset adaptive injection
+  try { injectionProfile._resetForTesting(); } catch { /* non-blocking */ }
 
   // SystemTopology: Reset self-awareness (also resets ProcessRegistry)
   try { systemTopology._resetForTesting(); } catch { /* non-blocking */ }

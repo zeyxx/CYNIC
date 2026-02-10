@@ -41,6 +41,9 @@ import { getHarmonicFeedback, getImplicitFeedback, getSessionPatternsRepository 
 // Consciousness read-back: persist calibration summary at session end
 import { saveConsciousnessState } from './lib/consciousness-readback.js';
 
+// Context compression: record session quality for outcome verification
+import { contextCompressor } from '@cynic/node/services/context-compressor.js';
+
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -810,6 +813,53 @@ async function main() {
         sessionState.cleanup();
       }
     } catch (e) { /* ignore */ }
+
+    // ── Persist injection profile (learned activation weights) ────────────
+    try {
+      const { injectionProfile } = await import('@cynic/node/services/injection-profile.js');
+      injectionProfile.stop();
+    } catch { /* non-blocking */ }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // OUTCOME VERIFICATION: Record session quality for compression safety
+    // "Le chien note si la compression a nui à la qualité"
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      contextCompressor.start(); // loads state
+
+      // Compute quality score from available signals
+      const toolsUsed = output.stats.toolsUsed || 0;
+      const errorsEncountered = output.stats.errorsEncountered || 0;
+      const errorRate = toolsUsed > 0
+        ? Math.min(1, errorsEncountered / toolsUsed)
+        : 0;
+
+      const frustration = output.psychology?.frustration
+        ? output.psychology.frustration / 100  // normalize from 0-100 to 0-1
+        : 0;
+
+      const negativeFeedback = output.learningSummary?.feedbackStats?.negative || 0;
+      const positiveFeedback = output.learningSummary?.feedbackStats?.positive || 0;
+      const feedbackPenalty = negativeFeedback > positiveFeedback ? 0.3 : 0;
+
+      // quality = 1 - penalties (capped at [0, 1])
+      const quality = Math.max(0, Math.min(1,
+        1 - (errorRate * 0.4) - (frustration * 0.3) - feedbackPenalty
+      ));
+
+      contextCompressor.recordSessionOutcome({ quality, errorRate, frustration });
+
+      const backoff = contextCompressor.getBackoffStatus();
+      output.outcomeVerification = {
+        quality: Math.round(quality * 100),
+        errorRate: Math.round(errorRate * 100),
+        frustration: Math.round(frustration * 100),
+        backoffActive: backoff.active,
+        effectiveLevel: backoff.effectiveLevel,
+      };
+
+      contextCompressor.stop();
+    } catch { /* non-blocking */ }
 
     safeOutput(output);
 

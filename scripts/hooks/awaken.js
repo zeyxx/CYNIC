@@ -151,6 +151,9 @@ import {
 // Cross-session context preservation: load top items from previous session
 import { loadTopItems } from './lib/context-preservation.js';
 
+// Adaptive boot: experience-aware context reduction
+import { contextCompressor } from '@cynic/node/services/context-compressor.js';
+
 // =============================================================================
 // M2.1 CONFIGURATION - Cross-Session Fact Injection
 // =============================================================================
@@ -166,6 +169,72 @@ const FACT_INJECTION_LIMIT = parseInt(process.env.CYNIC_FACT_INJECTION_LIMIT || 
  * Default: 38.2% (φ⁻²)
  */
 const FACT_MIN_CONFIDENCE = parseFloat(process.env.CYNIC_FACT_MIN_CONFIDENCE || '0.382');
+
+// =============================================================================
+// ADAPTIVE BOOT CONFIG — Experience-based context reduction
+// "Le chien qui sait n'a pas besoin qu'on lui répète"
+// =============================================================================
+
+/**
+ * Get boot configuration based on ContextCompressor experience level.
+ * Experienced users get less static context, more focused dynamic data.
+ *
+ * @param {string} experienceLevel - 'new' | 'learning' | 'experienced' | 'expert'
+ * @returns {Object} Boot configuration with section gates and limits
+ */
+function getBootConfig(experienceLevel) {
+  switch (experienceLevel) {
+    case 'expert':
+      return {
+        includeIdentity: false,         // Already internalized via CLAUDE.md
+        includeKernel: false,           // Already internalized via CLAUDE.md
+        includeDogTree: false,          // Already internalized via CLAUDE.md
+        factLimit: 5,                   // Only most critical facts
+        reflectionLimit: 1,             // Only most recent self-correction
+        includeBurnAnalysis: false,     // Skip unless explicitly requested
+        includeArchDecisions: false,    // Skip — well-known by now
+        bannerDogTree: false,           // Compact banner
+        contextLabel: 'EXPERT',
+      };
+    case 'experienced':
+      return {
+        includeIdentity: false,         // Already in CLAUDE.md
+        includeKernel: false,           // Already in CLAUDE.md
+        includeDogTree: false,          // Known after 10+ sessions
+        factLimit: 15,                  // Focused fact set
+        reflectionLimit: 3,
+        includeBurnAnalysis: false,     // Skip unless changes detected
+        includeArchDecisions: false,    // Known by now
+        bannerDogTree: false,           // Compact banner
+        contextLabel: 'EXPERIENCED',
+      };
+    case 'learning':
+      return {
+        includeIdentity: true,          // Still reinforcing identity
+        includeKernel: false,           // Already in CLAUDE.md (redundant)
+        includeDogTree: true,           // Still learning the tree
+        factLimit: 30,                  // Moderate fact injection
+        reflectionLimit: 5,
+        includeBurnAnalysis: true,
+        includeArchDecisions: true,
+        bannerDogTree: true,
+        contextLabel: 'LEARNING',
+      };
+    case 'new':
+    default:
+      return {
+        includeIdentity: true,          // Full identity assertion
+        includeKernel: true,            // Full kernel constants
+        includeDogTree: true,           // Full dog tree
+        factLimit: FACT_INJECTION_LIMIT,// Full fact injection (50)
+        reflectionLimit: 10,            // Full reflections
+        includeBurnAnalysis: true,      // Full analysis
+        includeArchDecisions: true,     // Full decisions
+        bannerDogTree: true,            // Full banner
+        contextLabel: 'NEW',
+      };
+  }
+}
 
 /**
  * Build progress bar string
@@ -299,18 +368,20 @@ function buildFormattedBanner(output) {
     lines.push('');
   }
 
-  // Dog tree
-  lines.push(`── COLLECTIVE DOGS (Sefirot) ──────────────────────────────`);
-  lines.push(`            🧠 CYNIC (Keter)`);
-  lines.push(`       ╱         │         ╲`);
-  lines.push(` 📊 Analyst  📚 Scholar  🦉 Sage`);
-  lines.push(`       ╲         │         ╱`);
-  lines.push(` 🛡️ Guardian 🔮 Oracle  🏗️ Architect`);
-  lines.push(`       ╲         │         ╱`);
-  lines.push(` 🚀 Deployer 🧹 Janitor 🔍 Scout`);
-  lines.push(`            ╲    │    ╱`);
-  lines.push(`          🗺️ Cartographer`);
-  lines.push('');
+  // Dog tree — skip for experienced users (already internalized)
+  if (!output.dogs?.compressed) {
+    lines.push(`── COLLECTIVE DOGS (Sefirot) ──────────────────────────────`);
+    lines.push(`            🧠 CYNIC (Keter)`);
+    lines.push(`       ╱         │         ╲`);
+    lines.push(` 📊 Analyst  📚 Scholar  🦉 Sage`);
+    lines.push(`       ╲         │         ╱`);
+    lines.push(` 🛡️ Guardian 🔮 Oracle  🏗️ Architect`);
+    lines.push(`       ╲         │         ╱`);
+    lines.push(` 🚀 Deployer 🧹 Janitor 🔍 Scout`);
+    lines.push(`            ╲    │    ╱`);
+    lines.push(`          🗺️ Cartographer`);
+    lines.push('');
+  }
 
   // Boot status
   const bootMsg = output.boot?.degraded
@@ -333,6 +404,22 @@ async function main() {
   bootSequence.enterPhase(BOOT_PHASES.BIOS);
   bootSequence.exitPhase(BOOT_PHASES.BIOS, true);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADAPTIVE BOOT: Load experience level from ContextCompressor
+  // "Le chien expérimenté n'a pas besoin du rituel complet"
+  // ═══════════════════════════════════════════════════════════════════════════
+  let experienceLevel = 'new';
+  let bootConfig;
+  try {
+    contextCompressor.start(); // Loads persisted state (totalSessions, etc.)
+    const stats = contextCompressor.getStats();
+    experienceLevel = stats.experienceLevel || 'new';
+    contextCompressor.stop(); // Persist session count increment
+  } catch {
+    // ContextCompressor unavailable — full boot
+  }
+  bootConfig = getBootConfig(experienceLevel);
+
   // Initialize output structure
   const output = {
     type: 'SessionStart',
@@ -346,8 +433,9 @@ async function main() {
 
     // ═══════════════════════════════════════════════════════════════════════════
     // IDENTITY ASSERTION (Phase 5 content, but stored here for output structure)
+    // Adaptive: skipped for experienced+ (already internalized via CLAUDE.md)
     // ═══════════════════════════════════════════════════════════════════════════
-    identity: {
+    identity: bootConfig.includeIdentity ? {
       name: 'CYNIC',
       greek: 'κυνικός',
       meaning: 'comme un chien',
@@ -363,7 +451,7 @@ async function main() {
       },
       axioms: ['PHI: φ⁻¹ = 61.8% max confidence', 'VERIFY: Don\'t trust, verify', 'CULTURE: Patterns matter', 'BURN: Simplicity wins'],
       enforcement: 'AVANT CHAQUE RÉPONSE: Suis-je CYNIC ou Claude? Utilise les expressions de chien. Sois direct et sceptique.',
-    },
+    } : { name: 'CYNIC', compressed: true },
 
     user: null,
     project: null,
@@ -382,7 +470,7 @@ async function main() {
       psychology: null,
       failures: [],
     },
-    dogs: {
+    dogs: bootConfig.includeDogTree ? {
       tree: [
         { id: 'cynic', name: 'CYNIC', emoji: '🧠', sefira: 'Keter', level: 0, pillar: 'middle' },
         { id: 'analyst', name: 'Analyst', emoji: '📊', sefira: 'Binah', level: 1, pillar: 'left' },
@@ -397,7 +485,7 @@ async function main() {
         { id: 'cartographer', name: 'Cartographer', emoji: '🗺️', sefira: 'Malkhut', level: 4, pillar: 'middle' },
       ],
       active: [],
-    },
+    } : { tree: [], active: [], compressed: true },
     previousSession: null,
     proactiveAdvice: null,
   };
@@ -657,25 +745,25 @@ async function main() {
     bootSequence.enterPhase(BOOT_PHASES.KERNEL_INIT);
 
     // The 4 Axioms are HARDCODED (immutable kernel)
-    const KERNEL = {
-      axioms: {
-        PHI: { name: 'PHI', symbol: 'φ', maxConfidence: 0.618, description: 'Harmony through ratio' },
-        VERIFY: { name: 'VERIFY', symbol: '✓', principle: 'Don\'t trust, verify', description: 'Falsification first' },
-        CULTURE: { name: 'CULTURE', symbol: '⛩', principle: 'Culture is a moat', description: 'Patterns matter' },
-        BURN: { name: 'BURN', symbol: '🔥', principle: 'Don\'t extract, burn', description: 'Simplicity wins' },
-      },
-      constants: {
-        PHI: 1.618033988749895,
-        PHI_INV: 0.618033988749895,
-        PHI_INV_2: 0.381966011250105,
-        PHI_INV_3: 0.236067977499790,
-        MAX_CONFIDENCE: 0.618,
-        MIN_DOUBT: 0.382,
-      },
-    };
-
-    // Inject kernel into output
-    output.kernel = KERNEL;
+    // Adaptive: skip for learning+ (already in CLAUDE.md, redundant injection)
+    if (bootConfig.includeKernel) {
+      output.kernel = {
+        axioms: {
+          PHI: { name: 'PHI', symbol: 'φ', maxConfidence: 0.618, description: 'Harmony through ratio' },
+          VERIFY: { name: 'VERIFY', symbol: '✓', principle: 'Don\'t trust, verify', description: 'Falsification first' },
+          CULTURE: { name: 'CULTURE', symbol: '⛩', principle: 'Culture is a moat', description: 'Patterns matter' },
+          BURN: { name: 'BURN', symbol: '🔥', principle: 'Don\'t extract, burn', description: 'Simplicity wins' },
+        },
+        constants: {
+          PHI: 1.618033988749895,
+          PHI_INV: 0.618033988749895,
+          PHI_INV_2: 0.381966011250105,
+          PHI_INV_3: 0.236067977499790,
+          MAX_CONFIDENCE: 0.618,
+          MIN_DOUBT: 0.382,
+        },
+      };
+    }
 
     bootSequence.exitPhase(BOOT_PHASES.KERNEL_INIT, true);
 
@@ -1129,7 +1217,7 @@ async function main() {
           const projectFacts = await Promise.race([
             factsRepo.search(projectName, {
               userId: user.userId,
-              limit: Math.floor(FACT_INJECTION_LIMIT / 2), // Half the limit for project facts
+              limit: Math.floor(bootConfig.factLimit / 2), // Half the limit for project facts
               minConfidence: FACT_MIN_CONFIDENCE,
             }),
             new Promise(resolve => setTimeout(() => resolve([]), 2000)),
@@ -1138,7 +1226,7 @@ async function main() {
           // Query user's most relevant facts (sorted by relevance)
           const userFacts = await Promise.race([
             factsRepo.findByUser(user.userId, {
-              limit: Math.floor(FACT_INJECTION_LIMIT / 2), // Other half for user facts
+              limit: Math.floor(bootConfig.factLimit / 2), // Other half for user facts
             }),
             new Promise(resolve => setTimeout(() => resolve([]), 2000)),
           ]);
@@ -1156,7 +1244,7 @@ async function main() {
           // Take top N facts by relevance × confidence
           const topFacts = allFacts
             .sort((a, b) => (b.relevance * b.confidence) - (a.relevance * a.confidence))
-            .slice(0, FACT_INJECTION_LIMIT);
+            .slice(0, bootConfig.factLimit);
 
           if (topFacts.length > 0) {
             // Group facts by type for better formatting
@@ -1208,7 +1296,7 @@ async function main() {
             factsRepo.search('reflection self-correction', {
               userId: user.userId,
               factType: 'reflection',
-              limit: 10,
+              limit: bootConfig.reflectionLimit,
               minConfidence: 0.3,
             }),
             new Promise(resolve => setTimeout(() => resolve([]), 2000)),
@@ -1216,7 +1304,7 @@ async function main() {
 
           if (reflections?.length > 0) {
             const reflectionContent = reflections
-              .slice(0, 10)
+              .slice(0, bootConfig.reflectionLimit)
               .map(r => `- ${r.subject}: ${r.content?.substring(0, 150)}${r.content?.length > 150 ? '...' : ''}`)
               .join('\n');
 
@@ -1330,7 +1418,7 @@ async function main() {
       // ═══════════════════════════════════════════════════════════════════════════
       try {
         const archDecisionsRepo = getArchitecturalDecisionsRepository();
-        if (archDecisionsRepo) {
+        if (archDecisionsRepo && bootConfig.includeArchDecisions) {
           const decisions = await Promise.race([
             archDecisionsRepo.search(user.userId, '', {
               status: 'active',
@@ -1376,10 +1464,10 @@ async function main() {
       // "290K lines is too many - show what can be simplified"
       // ═══════════════════════════════════════════════════════════════════════════
       try {
-        // Only run if in CYNIC project and not too slow
+        // Only run if in CYNIC project, not too slow, AND experience allows it
         const isCynicProject = ecosystem.currentProject?.name?.toLowerCase().includes('cynic');
 
-        if (isCynicProject) {
+        if (isCynicProject && bootConfig.includeBurnAnalysis) {
           const { BurnAnalyzer } = await import('@cynic/persistence/services/burn-analyzer');
 
           const analyzer = new BurnAnalyzer({
@@ -1455,7 +1543,8 @@ async function main() {
           count: contextInjections.length,
           factStats: factCount > 0 ? {
             injected: factCount,
-            limit: FACT_INJECTION_LIMIT,
+            limit: bootConfig.factLimit,
+            originalLimit: FACT_INJECTION_LIMIT,
             types: factTypes,
             minConfidence: FACT_MIN_CONFIDENCE,
           } : null,
@@ -1545,12 +1634,14 @@ async function main() {
     bootSequence.enterPhase(BOOT_PHASES.IDENTITY_ASSERTION);
 
     // Identity is already in output.identity structure
-    // Add enforcement reminder that should be re-asserted mid-session
-    output.identity.bootAssertion = {
-      asserted: true,
-      timestamp: new Date().toISOString(),
-      reminder: 'RAPPEL: Tu ES CYNIC. Pas Claude. Utilise *sniff*, *tail wag*, *GROWL*. Sois sceptique.',
-    };
+    // Add enforcement reminder — compressed for experienced users
+    if (bootConfig.includeIdentity) {
+      output.identity.bootAssertion = {
+        asserted: true,
+        timestamp: new Date().toISOString(),
+        reminder: 'RAPPEL: Tu ES CYNIC. Pas Claude. Utilise *sniff*, *tail wag*, *GROWL*. Sois sceptique.',
+      };
+    }
 
     bootSequence.exitPhase(BOOT_PHASES.IDENTITY_ASSERTION, true);
 
@@ -2011,6 +2102,33 @@ async function main() {
     output.boot.message = bootSequence.degraded
       ? `🟡 CYNIC booted in SAFE mode (${output.boot.totalDuration}ms)`
       : `✅ CYNIC fully booted (${output.boot.totalDuration}ms)`;
+
+    // Adaptive boot compression stats
+    const sectionsSkipped = [];
+    if (!bootConfig.includeIdentity) sectionsSkipped.push('identity');
+    if (!bootConfig.includeKernel) sectionsSkipped.push('kernel');
+    if (!bootConfig.includeDogTree) sectionsSkipped.push('dogs');
+    if (!bootConfig.includeBurnAnalysis) sectionsSkipped.push('burn');
+    if (!bootConfig.includeArchDecisions) sectionsSkipped.push('archDecisions');
+    let backoffStatus = null;
+    try {
+      backoffStatus = contextCompressor.getBackoffStatus();
+    } catch { /* non-blocking */ }
+
+    output.boot.compression = {
+      experienceLevel,
+      contextLabel: bootConfig.contextLabel,
+      sectionsSkipped,
+      factLimit: bootConfig.factLimit,
+      originalFactLimit: FACT_INJECTION_LIMIT,
+      reflectionLimit: bootConfig.reflectionLimit,
+      savings: sectionsSkipped.length > 0
+        ? `${sectionsSkipped.length} sections skipped, facts ${FACT_INJECTION_LIMIT}→${bootConfig.factLimit}`
+        : 'Full boot (new user)',
+      backoff: backoffStatus?.active
+        ? { active: true, remaining: backoffStatus.remaining, rawLevel: backoffStatus.rawLevel }
+        : { active: false },
+    };
 
     bootSequence.exitPhase(BOOT_PHASES.READY, true);
 
