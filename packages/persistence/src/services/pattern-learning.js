@@ -955,6 +955,25 @@ export class PatternLearning {
         }
       }
 
+      // 4. Query data graves in parallel (existing methods, now wired)
+      const [dogBehavior, dogSignals, consensus, collective, tools, calibration] = await Promise.allSettled([
+        this.queryDogBehavioralPatterns(),
+        this.queryDogSignalPatterns(),
+        this.queryConsensusQuality(),
+        this.queryCollectiveTrends(),
+        this.queryToolUsagePatterns(),
+        this.queryCalibrationPatterns(),
+      ]);
+
+      results.dataGraves = {
+        dogBehavior: dogBehavior.status === 'fulfilled' ? dogBehavior.value : null,
+        dogSignals: dogSignals.status === 'fulfilled' ? dogSignals.value : null,
+        consensus: consensus.status === 'fulfilled' ? consensus.value : null,
+        collective: collective.status === 'fulfilled' ? collective.value : null,
+        tools: tools.status === 'fulfilled' ? tools.value : null,
+        calibration: calibration.status === 'fulfilled' ? calibration.value : null,
+      };
+
     } catch (err) {
       log.error('Pattern learning cycle error', { error: err.message });
       results.error = err.message;
@@ -968,6 +987,7 @@ export class PatternLearning {
       extracted: results.extraction?.extracted?.length || 0,
       decayed: results.decay?.decayed || 0,
       merged: results.clustering?.totalMerged || 0,
+      dataGraves: Object.keys(results.dataGraves || {}).filter(k => results.dataGraves[k]).length,
     });
 
     return results;

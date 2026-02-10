@@ -33,6 +33,8 @@ export const PatternCategory = {
   DOG_BEHAVIOR: 'dog_behavior',
   CONSENSUS_QUALITY: 'consensus_quality',
   COLLECTIVE_TREND: 'collective_trend',
+  SOCIAL_SENTIMENT: 'social_sentiment',
+  PSYCHOLOGY_TREND: 'psychology_trend',
 };
 
 /**
@@ -157,16 +159,25 @@ export class EmergenceDetector extends EventEmitter {
         preferences,
         workflows,
         dataGraves,
+        social,
+        psychology,
+        codeHealth,
       ] = await Promise.all([
         this._analyzeRecurringMistakes(),
         this._analyzeSuccessfulStrategies(),
         this._analyzeUserPreferences(),
         this._analyzeWorkflowPatterns(),
         this._analyzeDataGraves(),
+        this._analyzeSocialPatterns(),
+        this._analyzePsychologyTrends(),
+        this._analyzeCodeHealth(),
       ]);
 
       // Process and store significant patterns
-      const allPatterns = [...mistakes, ...strategies, ...preferences, ...workflows, ...dataGraves];
+      const allPatterns = [
+        ...mistakes, ...strategies, ...preferences, ...workflows, ...dataGraves,
+        ...social, ...psychology, ...codeHealth,
+      ];
 
       for (const pattern of allPatterns) {
         await this._processPattern(pattern);
@@ -181,6 +192,9 @@ export class EmergenceDetector extends EventEmitter {
           preferences: preferences.length,
           workflows: workflows.length,
           dataGraves: dataGraves.length,
+          social: social.length,
+          psychology: psychology.length,
+          codeHealth: codeHealth.length,
         },
       });
     } catch (e) {
@@ -517,6 +531,236 @@ export class EmergenceDetector extends EventEmitter {
       }
     } catch (e) {
       log.debug('Data grave analysis failed', { error: e.message });
+    }
+
+    return patterns;
+  }
+
+  /**
+   * Analyze social patterns from unified_signals (SOCIAL_CAPTURE events)
+   * @private
+   */
+  async _analyzeSocialPatterns() {
+    const patterns = [];
+    const cutoff = new Date(Date.now() - this.config.windowMs);
+
+    try {
+      // Social capture velocity — are tweets coming in?
+      const { rows } = await this.persistence.pool.query(`
+        SELECT
+          COUNT(*) as captures,
+          SUM((payload->>'tweets')::int) as total_tweets,
+          SUM((payload->>'users')::int) as total_users,
+          COUNT(DISTINCT DATE_TRUNC('hour', created_at)) as active_hours
+        FROM unified_signals
+        WHERE signal_type = 'social_capture'
+          AND created_at >= $1
+      `, [cutoff]);
+
+      const row = rows[0];
+      if (row && parseInt(row.captures) > 0) {
+        const captures = parseInt(row.captures);
+        const tweets = parseInt(row.total_tweets) || 0;
+        const users = parseInt(row.total_users) || 0;
+        const hours = parseInt(row.active_hours) || 1;
+        const velocity = tweets / hours;
+
+        if (captures >= this.config.minOccurrences) {
+          patterns.push({
+            category: PatternCategory.SOCIAL_SENTIMENT,
+            key: `social:capture_velocity`,
+            subject: `Social capture: ${tweets} tweets from ${users} users`,
+            content: `${velocity.toFixed(1)} tweets/hour over ${hours} active hours`,
+            occurrences: captures,
+            significance: this._getSignificance(captures),
+            velocity,
+            confidence: Math.min(PHI_INV, captures / 50),
+          });
+        }
+      }
+
+      // Topic clusters from social captures (metadata analysis)
+      const { rows: topics } = await this.persistence.pool.query(`
+        SELECT
+          payload->>'source' as source,
+          COUNT(*) as count
+        FROM unified_signals
+        WHERE signal_type = 'social_capture'
+          AND created_at >= $1
+        GROUP BY payload->>'source'
+        HAVING COUNT(*) >= $2
+        ORDER BY count DESC
+        LIMIT 10
+      `, [cutoff, this.config.minOccurrences]);
+
+      for (const topic of topics) {
+        patterns.push({
+          category: PatternCategory.SOCIAL_SENTIMENT,
+          key: `social:source:${topic.source}`,
+          subject: `Social source: ${topic.source}`,
+          content: `${topic.count} captures via ${topic.source}`,
+          occurrences: parseInt(topic.count),
+          significance: this._getSignificance(parseInt(topic.count)),
+          confidence: Math.min(PHI_INV, parseInt(topic.count) / 30),
+        });
+      }
+    } catch (e) {
+      // Table might not exist yet
+    }
+
+    return patterns;
+  }
+
+  /**
+   * Analyze psychology trends from psychology_snapshots (HUMAN dimension)
+   * @private
+   */
+  async _analyzePsychologyTrends() {
+    const patterns = [];
+    const cutoff = new Date(Date.now() - this.config.windowMs);
+
+    try {
+      // Energy and burnout trends
+      const { rows } = await this.persistence.pool.query(`
+        SELECT
+          COUNT(*) as snapshots,
+          AVG(energy) as avg_energy,
+          AVG(focus) as avg_focus,
+          AVG(burnout_risk) as avg_burnout,
+          MIN(energy) as min_energy,
+          MAX(burnout_risk) as max_burnout,
+          COUNT(*) FILTER (WHERE burnout_risk > 0.618) as high_burnout_count
+        FROM psychology_snapshots
+        WHERE created_at >= $1
+      `, [cutoff]);
+
+      const row = rows[0];
+      if (row && parseInt(row.snapshots) >= this.config.minOccurrences) {
+        const snapshots = parseInt(row.snapshots);
+        const avgEnergy = parseFloat(row.avg_energy) || 0;
+        const avgFocus = parseFloat(row.avg_focus) || 0;
+        const avgBurnout = parseFloat(row.avg_burnout) || 0;
+        const highBurnout = parseInt(row.high_burnout_count) || 0;
+
+        // Low energy pattern
+        if (avgEnergy < PHI_INV_2) {
+          patterns.push({
+            category: PatternCategory.PSYCHOLOGY_TREND,
+            key: `psychology:low_energy`,
+            subject: `Low energy trend: avg ${(avgEnergy * 100).toFixed(0)}%`,
+            content: `Energy averaging below φ⁻² (${(PHI_INV_2 * 100).toFixed(0)}%) across ${snapshots} snapshots`,
+            occurrences: snapshots,
+            significance: this._getSignificance(snapshots),
+            avgEnergy,
+            confidence: Math.min(PHI_INV, snapshots / 20),
+          });
+        }
+
+        // Burnout warning pattern
+        if (highBurnout >= this.config.minOccurrences) {
+          patterns.push({
+            category: PatternCategory.PSYCHOLOGY_TREND,
+            key: `psychology:burnout_risk`,
+            subject: `Burnout risk: ${highBurnout} high-risk snapshots`,
+            content: `${highBurnout}/${snapshots} snapshots show burnout > φ⁻¹. Avg: ${(avgBurnout * 100).toFixed(0)}%`,
+            occurrences: highBurnout,
+            significance: this._getSignificance(highBurnout),
+            avgBurnout,
+            confidence: Math.min(PHI_INV, highBurnout / 15),
+          });
+        }
+
+        // Focus decline pattern
+        if (avgFocus < PHI_INV_2) {
+          patterns.push({
+            category: PatternCategory.PSYCHOLOGY_TREND,
+            key: `psychology:low_focus`,
+            subject: `Low focus trend: avg ${(avgFocus * 100).toFixed(0)}%`,
+            content: `Focus averaging below φ⁻² across ${snapshots} snapshots`,
+            occurrences: snapshots,
+            significance: this._getSignificance(snapshots),
+            avgFocus,
+            confidence: Math.min(PHI_INV, snapshots / 20),
+          });
+        }
+      }
+    } catch (e) {
+      // Table might not exist yet
+    }
+
+    return patterns;
+  }
+
+  /**
+   * Analyze code health from judgments and tool_usage (CODE dimension)
+   * @private
+   */
+  async _analyzeCodeHealth() {
+    const patterns = [];
+    const cutoff = new Date(Date.now() - this.config.windowMs);
+
+    try {
+      // Quality decline: increasing BARK/GROWL ratio
+      const { rows: verdicts } = await this.persistence.pool.query(`
+        SELECT
+          verdict,
+          COUNT(*) as count,
+          AVG(q_score) as avg_score
+        FROM judgments
+        WHERE created_at >= $1
+        GROUP BY verdict
+        ORDER BY count DESC
+      `, [cutoff]);
+
+      const total = verdicts.reduce((s, r) => s + parseInt(r.count), 0);
+      const barkGrowl = verdicts
+        .filter(r => r.verdict === 'BARK' || r.verdict === 'GROWL')
+        .reduce((s, r) => s + parseInt(r.count), 0);
+
+      if (total >= this.config.minOccurrences && barkGrowl / total > PHI_INV_2) {
+        patterns.push({
+          category: PatternCategory.CODE_EVOLUTION,
+          key: `code:quality_decline`,
+          subject: `Code quality decline: ${((barkGrowl / total) * 100).toFixed(0)}% negative verdicts`,
+          content: `${barkGrowl}/${total} judgments are BARK/GROWL (threshold: ${(PHI_INV_2 * 100).toFixed(0)}%)`,
+          occurrences: barkGrowl,
+          significance: this._getSignificance(barkGrowl),
+          negativeRatio: barkGrowl / total,
+          confidence: Math.min(PHI_INV, total / 50),
+        });
+      }
+
+      // Tool failure hotspots
+      const { rows: failures } = await this.persistence.pool.query(`
+        SELECT
+          tool_name,
+          COUNT(*) as failure_count,
+          COUNT(*) FILTER (WHERE success = true) as success_count
+        FROM tool_usage
+        WHERE created_at >= $1
+        GROUP BY tool_name
+        HAVING COUNT(*) >= $2
+          AND COUNT(*) FILTER (WHERE success = false) > COUNT(*) FILTER (WHERE success = true)
+        ORDER BY failure_count DESC
+        LIMIT 10
+      `, [cutoff, this.config.minOccurrences]);
+
+      for (const row of failures) {
+        const failCount = parseInt(row.failure_count);
+        const total = failCount + parseInt(row.success_count);
+        patterns.push({
+          category: PatternCategory.CODE_EVOLUTION,
+          key: `code:tool_failure:${row.tool_name}`,
+          subject: `Tool failure hotspot: ${row.tool_name}`,
+          content: `${failCount}/${total} calls failing (>${((failCount / total) * 100).toFixed(0)}%)`,
+          occurrences: failCount,
+          significance: this._getSignificance(failCount),
+          failureRate: failCount / total,
+          confidence: Math.min(PHI_INV, total / 30),
+        });
+      }
+    } catch (e) {
+      // Table might not exist yet
     }
 
     return patterns;
