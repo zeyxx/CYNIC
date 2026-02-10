@@ -58,6 +58,7 @@ import { getCodeDecider, resetCodeDecider } from './code/code-decider.js';
 import { getCodeActor, resetCodeActor } from './code/code-actor.js';
 import { getCodeLearner, resetCodeLearner } from './code/code-learner.js';
 import { getCynicActor, resetCynicActor } from './cynic/cynic-actor.js';
+import { getCynicDecider, resetCynicDecider } from './cynic/cynic-decider.js';
 import { getHomeostasisTracker } from './organism/homeostasis.js';
 import { getCynicAccountant, resetCynicAccountant } from './accounting/cynic-accountant.js';
 import { getCodeAccountant, resetCodeAccountant } from './accounting/code-accountant.js';
@@ -386,6 +387,7 @@ let _cosmosAccountant = null;
  * @type {import('./cynic/cynic-actor.js').CynicActor|null}
  */
 let _cynicActor = null;
+let _cynicDecider = null;
 
 /**
  * HomeostasisTracker singleton (feeds C6.1 CYNIC × PERCEIVE)
@@ -794,6 +796,7 @@ export function getCollectivePack(options = {}) {
       consciousnessMonitor: _consciousnessBridge?.consciousness || null,
       homeostasis: _homeostasis,
     });
+    _cynicDecider = getCynicDecider();
     // COSMOS pipeline (C7.2-C7.5)
     _cosmosJudge = getCosmosJudge();
     _cosmosDecider = getCosmosDecider();
@@ -845,8 +848,9 @@ export function getCollectivePack(options = {}) {
         cynicEmergence: _cynicEmergence,
         socialEmergence: _socialEmergence,
         cosmosEmergence: _cosmosEmergence,
-        // Self-awareness singletons (C6.1, C6.4, C5.6)
+        // Self-awareness singletons (C6.1, C6.3, C6.4, C5.6)
         cynicActor: _cynicActor,
+        cynicDecider: _cynicDecider,
         humanAccountant: _humanAccountant,
         homeostasis: _homeostasis,
         consciousnessMonitor: _consciousnessBridge?.consciousness || null,
@@ -1055,8 +1059,9 @@ export async function getCollectivePackAsync(options = {}) {
         cynicEmergence: _cynicEmergence,
         socialEmergence: _socialEmergence,
         cosmosEmergence: _cosmosEmergence,
-        // Self-awareness singletons (C6.1, C6.4, C5.6)
+        // Self-awareness singletons (C6.1, C6.3, C6.4, C5.6)
         cynicActor: _cynicActor,
+        cynicDecider: _cynicDecider,
         humanAccountant: _humanAccountant,
         homeostasis: _homeostasis,
         consciousnessMonitor: _consciousnessBridge?.consciousness || null,
@@ -1522,6 +1527,7 @@ export async function getCollectivePackAsync(options = {}) {
       if (_solanaEmergence) systemTopology.registerComponent('solanaEmergence', _solanaEmergence);
       if (_humanActor) systemTopology.registerComponent('humanActor', _humanActor);
       if (_cynicActor) systemTopology.registerComponent('cynicActor', _cynicActor);
+      if (_cynicDecider) systemTopology.registerComponent('cynicDecider', _cynicDecider);
       if (_homeostasis) systemTopology.registerComponent('homeostasis', _homeostasis);
 
       // Cosmos pipeline (C7.2-C7.5)
@@ -2054,6 +2060,7 @@ export function getSingletonStatus() {
     cosmosAccountantInitialized: !!_cosmosAccountant,
     humanActorInitialized: !!_humanActor,
     cynicActorInitialized: !!_cynicActor,
+    cynicDeciderInitialized: !!_cynicDecider,
     homeostasisInitialized: !!_homeostasis,
     // Solana pipeline (C2.2-C2.7)
     solanaJudgeInitialized: !!_solanaJudge,
@@ -2120,6 +2127,7 @@ export function getHumanActorSingleton() { return _humanActor; }
 
 /** C6.4: Get CynicActor singleton @returns {import('./cynic/cynic-actor.js').CynicActor|null} */
 export function getCynicActorSingleton() { return _cynicActor; }
+export function getCynicDeciderSingleton() { return _cynicDecider; }
 
 /** Get HomeostasisTracker singleton @returns {import('./organism/homeostasis.js').HomeostasisTracker|null} */
 export function getHomeostasisSingleton() { return _homeostasis; }
@@ -2296,6 +2304,7 @@ export function _resetForTesting() {
   if (_cosmosAccountant) { resetCosmosAccountant(); _cosmosAccountant = null; }
   if (_humanActor) { resetHumanActor(); _humanActor = null; }
   if (_cynicActor) { resetCynicActor(); _cynicActor = null; }
+  if (_cynicDecider) { resetCynicDecider(); _cynicDecider = null; }
   _homeostasis = null; // HomeostasisTracker has no global reset
 
   // Solana pipeline singletons (C2.2-C2.7)

@@ -106,8 +106,9 @@ const _stats = {
   socialEmergencePatterns: 0,
   cosmosEmergenceSnapshots: 0,
   cosmosEmergencePatterns: 0,
-  // Self-awareness stats (C6.1, C6.4, C5.6)
+  // Self-awareness stats (C6.1, C6.3, C6.4, C5.6)
   cynicSelfHealActions: 0,
+  cynicDecisions: 0,
   homeostasisObservations: 0,
   humanSessionsTracked: 0,
   humanActivitiesRecorded: 0,
@@ -839,8 +840,9 @@ export function startEventListeners(options = {}) {
     cynicEmergence,
     socialEmergence,
     cosmosEmergence,
-    // Self-awareness singletons (C6.1, C6.4, C5.6)
+    // Self-awareness singletons (C6.1, C6.3, C6.4, C5.6)
     cynicActor,
+    cynicDecider,
     humanAccountant,
     homeostasis,
     consciousnessMonitor,
@@ -1994,6 +1996,70 @@ export function startEventListeners(options = {}) {
     log.info('HumanAccountant (C5.6) wired to SESSION_STARTED/ENDED + JUDGMENT_CREATED + USER_FEEDBACK');
   }
 
+  // 3i. CynicEmergence.pattern_detected → CynicDecider: Self-governance (C6.3)
+  // Patterns from C6.7 → decisions in C6.3 → actions in C6.4
+  if (cynicDecider && cynicEmergence) {
+    cynicEmergence.on('pattern_detected', (pattern) => {
+      try {
+        const decision = cynicDecider.decideOnPattern(pattern);
+        if (decision && decision.type !== 'acknowledge') {
+          _stats.cynicDecisions = (_stats.cynicDecisions || 0) + 1;
+
+          // Feed actionable decisions to CynicActor (C6.4)
+          if (cynicActor && decision.type === 'rotate_dogs') {
+            // Restrict routing = soft rotation (let underrepresented dogs participate more)
+            cynicActor.processConsciousnessChange({
+              awarenessLevel: 0.4, // Force moderate awareness → restricts to core
+              newState: 'AWAKENING',
+            });
+          }
+
+          // Persist decision to unified_signals
+          if (persistence?.query) {
+            const id = `cd_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            persistence.query(`
+              INSERT INTO unified_signals (id, source, session_id, input, outcome, metadata)
+              VALUES ($1, $2, $3, $4, $5, $6)
+            `, [
+              id, 'cynic_decision', context.sessionId || null,
+              JSON.stringify({ patternType: pattern.type, significance: pattern.significance }),
+              JSON.stringify({ decision: decision.type, urgency: decision.urgency }),
+              JSON.stringify(decision.context || {}),
+            ]).catch(err => {
+              log.debug('CynicDecider persistence failed', { error: err.message });
+            });
+          }
+        }
+      } catch (err) {
+        log.debug('CynicDecider.decideOnPattern failed', { error: err.message });
+      }
+    });
+
+    // Also wire consciousness changes → CynicDecider for preemptive governance
+    const unsubCynicDecideConsciousness = globalEventBus.subscribe(
+      EventType.CONSCIOUSNESS_CHANGED,
+      (event) => {
+        try {
+          const payload = event.payload || event;
+          const stats = cynicActor?.getStats?.() || {};
+          const decision = cynicDecider.decideOnConsciousness({
+            awarenessLevel: payload.awarenessLevel,
+            healthState: stats.currentHealthState || 'nominal',
+            trend: stats.trend || 0,
+          });
+          if (decision) {
+            _stats.cynicDecisions = (_stats.cynicDecisions || 0) + 1;
+          }
+        } catch (err) {
+          log.debug('CynicDecider.decideOnConsciousness failed', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubCynicDecideConsciousness);
+
+    log.info('CynicDecider (C6.3) wired to CynicEmergence patterns + consciousness changes');
+  }
+
   // ═════════════════════════════════════════════════════════════════════════════
   // COSMOS PIPELINE WIRING (C7.2-C7.5)
   // "Le chien juge les étoiles, décide le cap, agit, et apprend"
@@ -2209,7 +2275,31 @@ export function startEventListeners(options = {}) {
     }, 13 * 60 * 1000); // F7 = 13 minutes
     _codeEmergenceInterval.unref();
 
-    log.info('CodeEmergence (C1.7) wired to JUDGMENT_CREATED + F7 interval');
+    // 4b2. CodeEmergence.pattern_detected → persist + feed CodeDecider (C1.7 integration)
+    codeEmergence.on('pattern_detected', (pattern) => {
+      try {
+        // Persist code emergence patterns to unified_signals
+        if (persistence?.query) {
+          const id = `ce_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          persistence.query(`
+            INSERT INTO unified_signals (id, source, session_id, input, outcome, metadata)
+            VALUES ($1, $2, $3, $4, $5, $6)
+          `, [
+            id, 'code_emergence', context.sessionId || null,
+            JSON.stringify({ patternType: pattern.type || pattern.key, significance: pattern.significance }),
+            JSON.stringify({ confidence: pattern.confidence, message: pattern.message }),
+            JSON.stringify(pattern.context || pattern.data || {}),
+          ]).catch(err => {
+            log.debug('Code emergence pattern persistence failed', { error: err.message });
+          });
+        }
+        _stats.codeEmergencePatterns++;
+      } catch (err) {
+        log.debug('CodeEmergence pattern_detected handler error', { error: err.message });
+      }
+    });
+
+    log.info('CodeEmergence (C1.7) wired to JUDGMENT_CREATED + F7 interval + pattern persistence');
   }
 
   // 4c. CYNIC_STATE → HumanEmergence: Feed psychology snapshots as daily data (C5.7)
