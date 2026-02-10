@@ -106,6 +106,11 @@ const _stats = {
   socialEmergencePatterns: 0,
   cosmosEmergenceSnapshots: 0,
   cosmosEmergencePatterns: 0,
+  // Self-awareness stats (C6.1, C6.4, C5.6)
+  cynicSelfHealActions: 0,
+  homeostasisObservations: 0,
+  humanSessionsTracked: 0,
+  humanActivitiesRecorded: 0,
   startedAt: null,
 };
 
@@ -834,6 +839,11 @@ export function startEventListeners(options = {}) {
     cynicEmergence,
     socialEmergence,
     cosmosEmergence,
+    // Self-awareness singletons (C6.1, C6.4, C5.6)
+    cynicActor,
+    humanAccountant,
+    homeostasis,
+    consciousnessMonitor,
   } = options;
 
   // Get or create repositories
@@ -1781,6 +1791,207 @@ export function startEventListeners(options = {}) {
       }
     );
     _unsubscribers.push(unsubPatternAction);
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // SELF-AWARENESS WIRING (C6.1 PERCEIVE, C6.4 ACT, C5.6 ACCOUNT)
+  // "Le chien se connaît, se soigne, et compte les pas de son maître"
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  // 3f. consciousness:changed → CynicActor: Self-healing from degradation (C6.4)
+  if (cynicActor) {
+    const unsubCynicSelfHeal = globalEventBus.subscribe(
+      EventType.CONSCIOUSNESS_CHANGED,
+      (event) => {
+        try {
+          const actions = cynicActor.processConsciousnessChange(event.payload || event);
+
+          for (const action of actions) {
+            _stats.cynicSelfHealActions++;
+
+            // Persist self-healing actions to unified_signals
+            if (persistence?.query) {
+              const id = `sh_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+              persistence.query(`
+                INSERT INTO unified_signals (id, source, session_id, input, outcome, metadata)
+                VALUES ($1, $2, $3, $4, $5, $6)
+              `, [
+                id, 'cynic_self_heal', context.sessionId || null,
+                JSON.stringify({ healthState: action.healthState, reason: action.context?.reason }),
+                JSON.stringify({ action: action.type }),
+                JSON.stringify(action.context || {}),
+              ]).catch(err => {
+                log.debug('Self-heal persistence failed', { error: err.message });
+              });
+            }
+          }
+        } catch (err) {
+          log.debug('CynicActor.processConsciousnessChange failed', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubCynicSelfHeal);
+    log.info('CynicActor (C6.4) wired to consciousness:changed');
+  }
+
+  // 3g. JUDGMENT_CREATED + CYNIC_STATE → HomeostasisTracker: Feed metrics (C6.1 boost)
+  if (homeostasis) {
+    // Feed qScore from judgments into homeostasis baseline
+    const unsubHomeostasisJudgment = globalEventBus.subscribe(
+      EventType.JUDGMENT_CREATED,
+      (event) => {
+        try {
+          const j = event.payload || {};
+          const qScore = j.qScore || j.global_score || j.score;
+          if (typeof qScore === 'number') {
+            homeostasis.update('qScore', qScore / 100); // Normalize to 0-1
+            _stats.homeostasisObservations++;
+          }
+        } catch (err) {
+          log.debug('Homeostasis judgment handler error', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubHomeostasisJudgment);
+
+    // Feed thermodynamic metrics (errorRate, latency)
+    const unsubHomeostasisState = globalEventBus.subscribe(
+      EventType.CYNIC_STATE,
+      (event) => {
+        try {
+          // Sample 1:5 to avoid flooding
+          if (Math.random() > 0.2) return;
+
+          const state = event.payload || {};
+          const thermo = state.thermodynamics || {};
+          if (thermo.errorRate !== undefined) homeostasis.update('errorRate', thermo.errorRate);
+          if (thermo.temperature !== undefined) homeostasis.update('latency', thermo.temperature / 100);
+          if (thermo.efficiency !== undefined) homeostasis.update('successRate', thermo.efficiency);
+          _stats.homeostasisObservations++;
+
+          // Detect perturbation and feed to CynicActor
+          if (cynicActor && homeostasis.isPerturbed?.()) {
+            const metrics = homeostasis.getMetrics?.() || {};
+            for (const [metric, data] of Object.entries(metrics)) {
+              if (data?.perturbed) {
+                cynicActor.processPerturbation({
+                  metric,
+                  deviation: data.deviation || 3,
+                });
+              }
+            }
+          }
+
+          // Feed homeostasis score to ConsciousnessMonitor as observation
+          if (consciousnessMonitor) {
+            const score = homeostasis.getHomeostasis?.() ?? 0.5;
+            consciousnessMonitor.observe('HOMEOSTASIS', {
+              score,
+              status: homeostasis.getStatus?.() || 'unknown',
+            }, score, 'homeostasis-bridge');
+          }
+        } catch (err) {
+          log.debug('Homeostasis state handler error', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubHomeostasisState);
+    log.info('HomeostasisTracker (C6.1) wired to JUDGMENT_CREATED + CYNIC_STATE');
+  }
+
+  // 3h. SESSION_STARTED/ENDED + USER_FEEDBACK → HumanAccountant (C5.6)
+  if (humanAccountant) {
+    // Session start tracking
+    const unsubHumanAcctStart = globalEventBus.subscribe(
+      EventType.SESSION_STARTED,
+      (event) => {
+        try {
+          humanAccountant.startSession({
+            sessionId: context.sessionId,
+            userId: context.userId,
+            ...event.payload,
+          });
+          _stats.humanSessionsTracked++;
+        } catch (err) {
+          log.debug('HumanAccountant.startSession failed', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubHumanAcctStart);
+
+    // Session end tracking + feed summary to HumanEmergence (C5.7)
+    const unsubHumanAcctEnd = globalEventBus.subscribe(
+      EventType.SESSION_ENDED,
+      (event) => {
+        try {
+          const summary = humanAccountant.endSession();
+          _stats.humanSessionsTracked++;
+
+          // Feed session summary to HumanEmergence for pattern analysis (C5.7 boost)
+          if (humanEmergence && summary) {
+            try {
+              humanEmergence.recordDailySnapshot({
+                energy: summary.productivityRating === 'excellent' ? 80 : summary.productivityRating === 'good' ? 60 : 40,
+                focus: summary.efficiency ? summary.efficiency * 100 : 50,
+                tasksCompleted: summary.tasksCompleted || 0,
+                tasksAttempted: summary.tasksAttempted || 0,
+                sessionDuration: summary.durationMs || 0,
+                efficiency: summary.efficiency || 0,
+              });
+            } catch (emergeErr) {
+              log.debug('HumanEmergence session feed failed', { error: emergeErr.message });
+            }
+          }
+        } catch (err) {
+          log.debug('HumanAccountant.endSession failed', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubHumanAcctEnd);
+
+    // Tool use → activity recording (piggyback on JUDGMENT_CREATED as proxy for work)
+    const unsubHumanAcctActivity = globalEventBus.subscribe(
+      EventType.JUDGMENT_CREATED,
+      (event) => {
+        try {
+          const j = event.payload || {};
+          const itemType = j.itemType || j.item_type || '';
+          let activityType = 'coding'; // default
+          if (itemType.includes('review') || itemType.includes('commit')) activityType = 'review';
+          else if (itemType.includes('debug')) activityType = 'debugging';
+          else if (itemType.includes('doc')) activityType = 'documentation';
+          else if (itemType.includes('plan')) activityType = 'planning';
+
+          if (humanAccountant.recordActivity) {
+            humanAccountant.recordActivity(activityType, 60000); // Estimate ~1min per judgment
+          }
+          _stats.humanActivitiesRecorded++;
+        } catch (err) {
+          log.debug('HumanAccountant.recordActivity failed', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubHumanAcctActivity);
+
+    // USER_FEEDBACK → completion tracking
+    const unsubHumanAcctFeedback = globalEventBus.subscribe(
+      EventType.USER_FEEDBACK,
+      (event) => {
+        try {
+          const { type } = event.payload || {};
+          if (!type) return;
+          const success = type === 'positive';
+          if (humanAccountant.recordCompletion) {
+            humanAccountant.recordCompletion(success);
+          }
+        } catch (err) {
+          log.debug('HumanAccountant.recordCompletion failed', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubHumanAcctFeedback);
+
+    log.info('HumanAccountant (C5.6) wired to SESSION_STARTED/ENDED + JUDGMENT_CREATED + USER_FEEDBACK');
   }
 
   // ═════════════════════════════════════════════════════════════════════════════
