@@ -34,7 +34,8 @@ import { getUnifiedBridge } from './learning/unified-bridge.js';
 import { getHumanAdvisor } from './symbiosis/human-advisor.js';
 import { getHumanLearning } from './symbiosis/human-learning.js';
 import { getHumanAccountant } from './symbiosis/human-accountant.js';
-import { getHumanEmergence } from './symbiosis/human-emergence.js';
+import { getHumanEmergence, resetHumanEmergence } from './symbiosis/human-emergence.js';
+import { getCodeEmergence, resetCodeEmergence } from './emergence/code-emergence.js';
 import { wireAmbientConsensus } from './agents/collective/ambient-consensus.js';
 import { startEventListeners, stopEventListeners, cleanupOldEventData } from './services/event-listeners.js';
 import { getNetworkNode as getNetworkNodeSync, getNetworkNodeAsync, startNetworkNode, stopNetworkNode, isP2PEnabled } from './network-singleton.js';
@@ -214,6 +215,14 @@ let _humanAccountant = null;
  * @type {HumanEmergence|null}
  */
 let _humanEmergence = null;
+
+/**
+ * C1.7: The global CodeEmergence instance
+ * Detects code pattern emergence (hotspots, coupling, complexity creep)
+ * "Le code parle à qui sait écouter"
+ * @type {CodeEmergence|null}
+ */
+let _codeEmergence = null;
 
 /**
  * Initialization promise to prevent race conditions
@@ -563,6 +572,22 @@ export function getHumanEmergenceSingleton(options = {}) {
 }
 
 /**
+ * C1.7: Get the CodeEmergence singleton
+ *
+ * CodeEmergence detects patterns in code changes: hotspots, coupling, complexity creep.
+ *
+ * @param {Object} [options] - Options for CodeEmergence
+ * @returns {CodeEmergence} The singleton CodeEmergence instance
+ */
+export function getCodeEmergenceSingleton(options = {}) {
+  if (!_codeEmergence) {
+    _codeEmergence = getCodeEmergence(options);
+    log.debug('CodeEmergence singleton created (C1.7)');
+  }
+  return _codeEmergence;
+}
+
+/**
  * Get the CollectivePack singleton (SYNC version)
  *
  * ⚠️ WARNING: This is the SYNC version. Persistence state may NOT be loaded.
@@ -638,7 +663,8 @@ export function getCollectivePack(options = {}) {
     _humanLearning = getHumanLearning();
     _humanAccountant = getHumanAccountant();
     _humanEmergence = getHumanEmergence();
-    log.debug('Symbiosis layer wired (C5.3-C5.7)');
+    _codeEmergence = getCodeEmergence();
+    log.debug('Symbiosis + Emergence layer wired (C5.3-C5.7, C1.7)');
 
     // RIGHT SIDE: Wire DECIDE/ACT/ACCOUNT singletons
     // "Le chien décide, agit, et rend des comptes"
@@ -677,6 +703,9 @@ export function getCollectivePack(options = {}) {
         solanaLearner: _solanaLearner,
         solanaAccountant: _solanaAccountant,
         solanaEmergence: _solanaEmergence,
+        // Emergence pipeline singletons (C1.7, C5.7)
+        codeEmergence: _codeEmergence,
+        humanEmergence: _humanEmergence,
       });
       log.info('EventListeners started - data loops closed (AXE 2)', { hasBlockStore: !!blockStore, hasJudge: !!(finalOptions.judge || _globalPack?.judge) });
 
@@ -867,6 +896,9 @@ export async function getCollectivePackAsync(options = {}) {
         solanaLearner: _solanaLearner,
         solanaAccountant: _solanaAccountant,
         solanaEmergence: _solanaEmergence,
+        // Emergence pipeline singletons (C1.7, C5.7)
+        codeEmergence: _codeEmergence,
+        humanEmergence: _humanEmergence,
       });
       log.info('EventListeners started on subsequent call with persistence (AXE 2 fix)');
 
@@ -1292,6 +1324,7 @@ export async function getCollectivePackAsync(options = {}) {
       if (_humanLearning) systemTopology.registerComponent('humanLearning', _humanLearning);
       if (_humanAccountant) systemTopology.registerComponent('humanAccountant', _humanAccountant);
       if (_humanEmergence) systemTopology.registerComponent('humanEmergence', _humanEmergence);
+      if (_codeEmergence) systemTopology.registerComponent('codeEmergence', _codeEmergence);
 
       // RIGHT side (DECIDE/ACT/ACCOUNT)
       if (_codeDecider) systemTopology.registerComponent('codeDecider', _codeDecider);
@@ -1809,6 +1842,9 @@ export function getSingletonStatus() {
     solanaLearnerInitialized: !!_solanaLearner,
     solanaAccountantInitialized: !!_solanaAccountant,
     solanaEmergenceInitialized: !!_solanaEmergence,
+    // Emergence pipeline (C1.7, C5.7)
+    codeEmergenceInitialized: !!_codeEmergence,
+    humanEmergenceInitialized: !!_humanEmergence,
   };
 }
 
@@ -1971,7 +2007,8 @@ export function _resetForTesting() {
   _humanAdvisor = null;
   _humanLearning = null;
   _humanAccountant = null;
-  _humanEmergence = null;
+  if (_humanEmergence) { resetHumanEmergence(); _humanEmergence = null; }
+  if (_codeEmergence) { resetCodeEmergence(); _codeEmergence = null; }
 
   // RIGHT side singletons (DECIDE/ACT/ACCOUNT)
   if (_codeDecider) { resetCodeDecider(); _codeDecider = null; }

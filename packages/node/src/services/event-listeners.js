@@ -88,6 +88,11 @@ const _stats = {
   solanaLearnings: 0,
   solanaAccountingOps: 0,
   solanaEmergencePatterns: 0,
+  // Emergence pipeline stats (C1.7, C5.7)
+  codeEmergencePatterns: 0,
+  codeEmergenceChanges: 0,
+  humanEmergenceSnapshots: 0,
+  humanEmergencePatterns: 0,
   startedAt: null,
 };
 
@@ -96,6 +101,12 @@ let _cynicStateCounter = 0;
 
 /** @type {NodeJS.Timeout|null} Solana emergence analysis interval (F8=21min) */
 let _solanaEmergenceInterval = null;
+
+/** @type {NodeJS.Timeout|null} Code emergence analysis interval (F7=13min) */
+let _codeEmergenceInterval = null;
+
+/** @type {NodeJS.Timeout|null} Human emergence analysis interval (F9=34min) */
+let _humanEmergenceInterval = null;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // RETRY UTILITY
@@ -783,6 +794,9 @@ export function startEventListeners(options = {}) {
     solanaLearner,
     solanaAccountant,
     solanaEmergence,
+    // Emergence pipeline singletons (C1.7, C5.7)
+    codeEmergence,
+    humanEmergence,
   } = options;
 
   // Get or create repositories
@@ -1730,6 +1744,127 @@ export function startEventListeners(options = {}) {
     });
   }
 
+  // ═════════════════════════════════════════════════════════════════════════════
+  // EMERGE COLUMN WIRING (C1.7 CodeEmergence, C5.7 HumanEmergence)
+  // "Le chien voit les patterns que l'humain ne voit pas"
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  // 4a. JUDGMENT_CREATED → CodeEmergence: Feed code judgments as change data (C1.7)
+  if (codeEmergence) {
+    const unsubCodeEmergenceJudgment = globalEventBus.subscribe(
+      EventType.JUDGMENT_CREATED,
+      (event) => {
+        try {
+          const j = event.payload || {};
+          // Only feed code-related judgments
+          if (!j.itemType && !j.item_type) return;
+          const itemType = j.itemType || j.item_type || '';
+          if (!itemType.includes('code') && !itemType.includes('commit') && !itemType.includes('file')) return;
+
+          codeEmergence.recordChange({
+            filePath: j.query?.filePath || j.query?.path || j.itemId || 'unknown',
+            linesAdded: j.query?.linesAdded || 0,
+            linesRemoved: j.query?.linesRemoved || 0,
+            imports: j.query?.imports || [],
+            complexityDelta: j.score ? (j.score > 60 ? -0.05 : 0.05) : 0,
+          }, {
+            sessionId: j.sessionId,
+            userId: j.userId,
+          });
+          _stats.codeEmergenceChanges++;
+        } catch (err) {
+          log.debug('CodeEmergence judgment handler error', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubCodeEmergenceJudgment);
+
+    // 4b. Fibonacci-triggered code emergence analysis (F7=13min)
+    _codeEmergenceInterval = setInterval(() => {
+      try {
+        const patterns = codeEmergence.getPatterns();
+        if (patterns?.length > 0) {
+          for (const pattern of patterns) {
+            // Only publish NEW patterns (not already emitted)
+            if (!pattern._emitted) {
+              globalEventBus.publish(EventType.PATTERN_DETECTED, {
+                source: 'CodeEmergence',
+                key: pattern.type || pattern.key,
+                significance: pattern.significance || 'medium',
+                category: 'code',
+                ...pattern,
+              }, { source: 'code-emergence' });
+              pattern._emitted = true;
+              _stats.codeEmergencePatterns++;
+            }
+          }
+        }
+      } catch (err) {
+        log.debug('Code emergence analysis error', { error: err.message });
+      }
+    }, 13 * 60 * 1000); // F7 = 13 minutes
+    _codeEmergenceInterval.unref();
+
+    log.info('CodeEmergence (C1.7) wired to JUDGMENT_CREATED + F7 interval');
+  }
+
+  // 4c. CYNIC_STATE → HumanEmergence: Feed psychology snapshots as daily data (C5.7)
+  if (humanEmergence) {
+    const unsubHumanEmergenceState = globalEventBus.subscribe(
+      EventType.CYNIC_STATE,
+      (event) => {
+        try {
+          // Sample at same rate as CYNIC_STATE persistence (1:5)
+          // Use a separate counter to avoid coupling with main CYNIC_STATE handler
+          if (Math.random() > 0.2) return; // ~1 in 5
+
+          const state = event.payload || {};
+          const psy = state.psychology || state.humanPsychology || {};
+          const thermo = state.thermodynamics || {};
+
+          humanEmergence.recordDailySnapshot({
+            energy: psy.energy || psy.energyLevel || 50,
+            focus: psy.focus || psy.focusLevel || 50,
+            temperature: thermo.temperature || 0,
+            efficiency: thermo.efficiency || 0,
+            toolCalls: state.toolCalls || 0,
+            sessionDuration: state.sessionDuration || 0,
+            errors: state.errors || 0,
+          });
+          _stats.humanEmergenceSnapshots++;
+        } catch (err) {
+          log.debug('HumanEmergence state handler error', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubHumanEmergenceState);
+
+    // 4d. Fibonacci-triggered human emergence analysis (F9=34min)
+    _humanEmergenceInterval = setInterval(() => {
+      try {
+        const analysis = humanEmergence.analyze();
+        const patterns = analysis?.newPatterns || analysis?.patterns || [];
+        if (patterns.length > 0) {
+          for (const pattern of patterns) {
+            globalEventBus.publish(EventType.PATTERN_DETECTED, {
+              source: 'HumanEmergence',
+              key: pattern.type || pattern.key,
+              significance: pattern.significance?.label || pattern.significance || 'medium',
+              category: 'human',
+              ...pattern,
+            }, { source: 'human-emergence' });
+          }
+          _stats.humanEmergencePatterns += patterns.length;
+        }
+      } catch (err) {
+        log.debug('Human emergence analysis error', { error: err.message });
+      }
+    }, 34 * 60 * 1000); // F9 = 34 minutes
+    _humanEmergenceInterval.unref();
+
+    log.info('HumanEmergence (C5.7) wired to CYNIC_STATE + F9 interval');
+  }
+
   _started = true;
   _stats.startedAt = Date.now();
 
@@ -1797,10 +1932,18 @@ export function stopEventListeners() {
     }
   }
 
-  // AXE 4: Clear Solana emergence analysis interval
+  // AXE 4: Clear emergence analysis intervals
   if (_solanaEmergenceInterval) {
     clearInterval(_solanaEmergenceInterval);
     _solanaEmergenceInterval = null;
+  }
+  if (_codeEmergenceInterval) {
+    clearInterval(_codeEmergenceInterval);
+    _codeEmergenceInterval = null;
+  }
+  if (_humanEmergenceInterval) {
+    clearInterval(_humanEmergenceInterval);
+    _humanEmergenceInterval = null;
   }
 
   _unsubscribers = [];
