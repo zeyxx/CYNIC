@@ -23,7 +23,7 @@
 
 'use strict';
 
-import { createLogger, PHI_INV, globalEventBus, EventType, EcosystemMonitor, systemTopology, ServiceStatus } from '@cynic/core';
+import { createLogger, PHI_INV, globalEventBus, EventType, EcosystemMonitor, systemTopology, ServiceStatus, processRegistry } from '@cynic/core';
 import { createCollectivePack } from './agents/collective/index.js';
 import { SharedMemory } from './memory/shared-memory.js';
 import { getQLearningService } from './orchestration/learning-service.js';
@@ -1181,6 +1181,21 @@ export async function getCollectivePackAsync(options = {}) {
       log.warn('SystemTopology registration failed (non-blocking)', { error: err.message });
     }
 
+    // ─── ProcessRegistry: Announce to cross-process registry ──────────────
+    // Gap #6 fix: MCP/Daemon announce themselves so hooks know who's alive
+    try {
+      const mode = systemTopology.mode;
+      if (mode === 'mcp' || mode === 'daemon') {
+        const endpoint = mode === 'mcp'
+          ? (process.env.CYNIC_MCP_URL || null)
+          : (process.env.CYNIC_DAEMON_URL || process.env.CYNIC_NETWORK_NODES || null);
+        systemTopology.announceSelf({ endpoint });
+        log.info('ProcessRegistry: announced', { mode, endpoint: endpoint || 'none' });
+      }
+    } catch (err) {
+      log.warn('ProcessRegistry announcement failed (non-blocking)', { error: err.message });
+    }
+
     // ─── EventBusBridge: Connect three nervous systems ────────────────────
     try {
       eventBusBridge.start({ agentBus: pack?.eventBus });
@@ -1763,8 +1778,11 @@ export function _resetForTesting() {
   // MemoryCoordinator: Reset memory awareness
   try { memoryCoordinator._resetForTesting(); } catch { /* non-blocking */ }
 
-  // SystemTopology: Reset self-awareness
+  // SystemTopology: Reset self-awareness (also resets ProcessRegistry)
   try { systemTopology._resetForTesting(); } catch { /* non-blocking */ }
+
+  // ProcessRegistry: Explicit reset (in case topology reset missed it)
+  try { processRegistry._resetForTesting(); } catch { /* non-blocking */ }
 
   log.warn('Singletons reset (testing only)');
 }

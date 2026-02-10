@@ -789,8 +789,8 @@ export function createTopologyTool() {
       properties: {
         detail: {
           type: 'string',
-          enum: ['summary', 'matrix', 'services', 'capabilities', 'boundaries'],
-          description: 'Level of detail: summary (default), matrix (7×7 cell states), services (registered services), capabilities (what I can do), boundaries (process isolation)',
+          enum: ['summary', 'matrix', 'services', 'capabilities', 'boundaries', 'peers'],
+          description: 'Level of detail: summary (default), matrix (7×7 cell states), services (registered services), capabilities (what I can do), boundaries (process isolation), peers (cross-process discovery)',
         },
       },
     },
@@ -827,6 +827,13 @@ export function createTopologyTool() {
 
         if (detail === 'boundaries') {
           return systemTopology.getProcessBoundaries();
+        }
+
+        if (detail === 'peers') {
+          return {
+            ...systemTopology.getPeerSummary(),
+            boundaries: systemTopology.getProcessBoundaries(),
+          };
         }
 
         // Default: summary snapshot

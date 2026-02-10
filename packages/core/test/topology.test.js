@@ -13,8 +13,11 @@
  * @module @cynic/core/test/topology
  */
 
-import { describe, it, beforeEach } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'path';
+import os from 'os';
+import fs from 'fs';
 
 import {
   systemTopology,
@@ -24,11 +27,22 @@ import {
   AnalysisDimension,
 } from '../src/topology/system-topology.js';
 
+import { processRegistry } from '../src/topology/process-registry.js';
 import { PHI_INV } from '../src/axioms/constants.js';
+
+// Isolated registry path for test
+const TEST_REGISTRY_DIR = path.join(os.tmpdir(), '.cynic-test-topo', `${process.pid}`);
+const TEST_REGISTRY_FILE = path.join(TEST_REGISTRY_DIR, 'registry.json');
 
 describe('SystemTopology', () => {
   beforeEach(() => {
     systemTopology._resetForTesting();
+    processRegistry._setRegistryPath(TEST_REGISTRY_FILE);
+  });
+
+  afterEach(() => {
+    processRegistry._resetForTesting();
+    try { fs.rmSync(TEST_REGISTRY_DIR, { recursive: true }); } catch { /* ok */ }
   });
 
   describe('Mode Detection', () => {
@@ -261,16 +275,80 @@ describe('SystemTopology', () => {
     });
   });
 
+  // ────────────────────────────────────────────────────────
+  // Gap #6: Cross-Process Discovery
+  // ────────────────────────────────────────────────────────
+
+  describe('Cross-Process Discovery (Gap #6)', () => {
+    it('announceSelf() registers in ProcessRegistry', () => {
+      systemTopology.setMode(ExecutionMode.MCP);
+      const id = systemTopology.announceSelf({ endpoint: 'http://localhost:3000' });
+
+      assert.ok(id, 'Should return process ID');
+      assert.ok(id.startsWith('mcp-'));
+    });
+
+    it('discoverPeers() returns announced processes', () => {
+      systemTopology.setMode(ExecutionMode.MCP);
+      systemTopology.announceSelf();
+
+      const peers = systemTopology.discoverPeers();
+      assert.ok(peers.processes.length >= 1, 'Should find at least self');
+    });
+
+    it('isPeerAvailable() checks specific mode', () => {
+      systemTopology.setMode(ExecutionMode.MCP);
+      systemTopology.announceSelf();
+
+      const mcpCheck = systemTopology.isPeerAvailable('mcp');
+      assert.equal(mcpCheck.available, true);
+      assert.equal(mcpCheck.pid, process.pid);
+
+      const daemonCheck = systemTopology.isPeerAvailable('daemon');
+      assert.equal(daemonCheck.available, false);
+    });
+
+    it('getPeerSummary() groups by mode', () => {
+      systemTopology.setMode(ExecutionMode.DAEMON);
+      systemTopology.announceSelf();
+
+      const summary = systemTopology.getPeerSummary();
+      assert.ok(summary.total >= 1);
+      assert.ok(summary.byMode.daemon);
+    });
+
+    it('departSelf() removes from registry', () => {
+      systemTopology.setMode(ExecutionMode.MCP);
+      systemTopology.announceSelf();
+      assert.equal(systemTopology.isPeerAvailable('mcp').available, true);
+
+      systemTopology.departSelf();
+      assert.equal(systemTopology.isPeerAvailable('mcp').available, false);
+    });
+
+    it('snapshot() includes peers', () => {
+      systemTopology.setMode(ExecutionMode.MCP);
+      systemTopology.announceSelf();
+
+      const snap = systemTopology.snapshot();
+      assert.ok(snap.peers, 'Snapshot should include peers');
+      assert.ok(snap.peers.total >= 1);
+    });
+  });
+
   describe('Reset', () => {
-    it('clears all state', () => {
+    it('clears all state including ProcessRegistry', () => {
       systemTopology.registerService('test', { status: ServiceStatus.HEALTHY });
       systemTopology.registerComponent('test', {});
+      systemTopology.setMode(ExecutionMode.MCP);
+      systemTopology.announceSelf();
 
       systemTopology._resetForTesting();
 
       assert.equal(systemTopology.getService('test'), null);
       assert.equal(systemTopology.hasComponent('test'), false);
       assert.equal(systemTopology.getComponentNames().length, 0);
+      assert.equal(systemTopology.isPeerAvailable('mcp').available, false);
     });
   });
 });

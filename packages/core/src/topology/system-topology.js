@@ -18,6 +18,7 @@
 
 import { PHI_INV } from '../axioms/constants.js';
 import { createLogger } from '../logger.js';
+import { processRegistry } from './process-registry.js';
 
 const log = createLogger('Topology');
 
@@ -447,6 +448,8 @@ class SystemTopology {
    */
   snapshot() {
     const matrix = this.getMatrixCompletion();
+    let peers = null;
+    try { peers = this.getPeerSummary(); } catch { /* non-blocking */ }
 
     return {
       mode: this.mode,
@@ -460,6 +463,7 @@ class SystemTopology {
         totalCells: matrix.cells,
         confidence: Math.round(matrix.confidence * 1000) / 10,
       },
+      peers,
       phi: {
         maxConfidence: PHI_INV,
         selfAwareness: Math.min(matrix.coverage / 100, PHI_INV),
@@ -469,7 +473,76 @@ class SystemTopology {
   }
 
   // ────────────────────────────────────────────────────────────
-  // PROCESS BOUNDARIES — "Who else is running?"
+  // CROSS-PROCESS DISCOVERY — "Who else is running?"
+  // Gap #6 fix: Uses ProcessRegistry for real peer awareness
+  // ────────────────────────────────────────────────────────────
+
+  /**
+   * Announce this process to the cross-process registry.
+   * Called once at boot by MCP/Daemon. Hooks are ephemeral — they read, not announce.
+   *
+   * @param {Object} [options]
+   * @param {string} [options.endpoint] - HTTP endpoint if reachable
+   * @param {string[]} [options.capabilities] - Extra capabilities
+   * @param {Object} [options.meta] - Extra metadata
+   * @returns {string} processId
+   */
+  announceSelf(options = {}) {
+    const caps = this.getCapabilities();
+    const capList = Object.entries(caps)
+      .filter(([, v]) => v)
+      .map(([k]) => k);
+
+    return processRegistry.announce({
+      mode: this.mode,
+      endpoint: options.endpoint || null,
+      capabilities: [...capList, ...(options.capabilities || [])],
+      meta: {
+        components: this.getComponentNames(),
+        uptime: Date.now() - this._bootTime,
+        ...options.meta,
+      },
+    });
+  }
+
+  /**
+   * Discover peer processes.
+   * @param {Object} [options]
+   * @param {string} [options.mode] - Filter by mode
+   * @param {boolean} [options.includeStale] - Include stale entries
+   * @returns {{ processes: Object[], stale: Object[], self: string|null }}
+   */
+  discoverPeers(options = {}) {
+    return processRegistry.discover(options);
+  }
+
+  /**
+   * Check if a specific peer mode is available.
+   * Fast path for hooks: `topology.isPeerAvailable('mcp')`
+   *
+   * @param {string} mode - Mode to check (e.g., 'mcp', 'daemon')
+   * @returns {{ available: boolean, endpoint: string|null, pid: number|null }}
+   */
+  isPeerAvailable(mode) {
+    return processRegistry.isAvailable(mode);
+  }
+
+  /**
+   * Get peer summary for topology snapshot.
+   */
+  getPeerSummary() {
+    return processRegistry.getPeerSummary();
+  }
+
+  /**
+   * Depart from the registry (shutdown).
+   */
+  departSelf() {
+    processRegistry.depart();
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // PROCESS BOUNDARIES — static documentation
   // ────────────────────────────────────────────────────────────
 
   /**
@@ -541,6 +614,7 @@ class SystemTopology {
     this._components.clear();
     this._listeners = [];
     this._bootTime = Date.now();
+    try { processRegistry._resetForTesting(); } catch { /* non-blocking */ }
   }
 }
 
