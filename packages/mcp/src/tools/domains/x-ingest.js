@@ -11,7 +11,7 @@
 
 'use strict';
 
-import { createLogger, PHI_INV } from '@cynic/core';
+import { createLogger, PHI_INV, globalEventBus, EventType } from '@cynic/core';
 
 const log = createLogger('XIngest');
 
@@ -236,6 +236,15 @@ function _ingestManual(store, { text, username, displayName, isMyTweet }) {
       source: 'manual',
     });
 
+    // Emit SOCIAL_CAPTURE → event bus
+    if (tweet) {
+      try {
+        globalEventBus.publish(EventType.SOCIAL_CAPTURE, {
+          source: 'manual', tweets: 1, users: 1,
+        }, { source: 'XIngest' });
+      } catch { /* non-blocking */ }
+    }
+
     return {
       success: true,
       mode: 'manual',
@@ -346,6 +355,15 @@ async function _ingestUrls(store, urls, { isMyTweet = false }) {
         results.tweets.push({ url, status: 'store_error', error: err.message });
       }
     }
+  }
+
+  // Emit SOCIAL_CAPTURE → event bus (batch)
+  if (results.ingested > 0) {
+    try {
+      globalEventBus.publish(EventType.SOCIAL_CAPTURE, {
+        source: 'oembed', tweets: results.ingested, users: results.ingested,
+      }, { source: 'XIngest' });
+    } catch { /* non-blocking */ }
   }
 
   const total = urls.length;

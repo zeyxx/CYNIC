@@ -22,31 +22,19 @@ const log = createLogger('EventBus');
  */
 export const EventType = {
   // Lifecycle events
-  /** @unused */ COMPONENT_READY: 'component:ready',
-  /** @unused */ COMPONENT_STOPPED: 'component:stopped',
+  COMPONENT_READY: 'component:ready',
+  COMPONENT_STOPPED: 'component:stopped',
   COMPONENT_ERROR: 'component:error',
 
   // Judgment events
-  /** @unused */ JUDGMENT_REQUESTED: 'judgment:requested',
   JUDGMENT_CREATED: 'judgment:created',
-  /** @unused */ JUDGMENT_UPDATED: 'judgment:updated',
-
-  // Engine events
-  /** @unused */ ENGINE_REGISTERED: 'engine:registered',
-  ENGINE_CONSULTED: 'engine:consulted',
-  /** @unused */ ENGINE_RESULT: 'engine:result',
 
   // Pattern events
   PATTERN_DETECTED: 'pattern:detected',
-  /** @unused */ PATTERN_LEARNED: 'pattern:learned',
+  PATTERN_LEARNED: 'pattern:learned',
   ANOMALY_DETECTED: 'anomaly:detected',
   DIMENSION_CANDIDATE: 'dimension:candidate',
   CONSCIOUSNESS_CHANGED: 'consciousness:changed',
-
-  // Memory events
-  /** @unused */ MEMORY_STORED: 'memory:stored',
-  /** @unused */ MEMORY_RETRIEVED: 'memory:retrieved',
-  /** @unused */ INSIGHT_CREATED: 'insight:created',
 
   // User events
   USER_ACTION: 'user:action',
@@ -57,17 +45,14 @@ export const EventType = {
   // Tool events (from hooks)
   TOOL_CALLED: 'tool:called',
   TOOL_COMPLETED: 'tool:completed',
-  /** @unused */ TOOL_FAILED: 'tool:failed',
-
-  // Sync events
-  /** @unused */ SYNC_REQUESTED: 'sync:requested',
-  /** @unused */ SYNC_COMPLETED: 'sync:completed',
-  /** @unused */ STATE_CHANGED: 'state:changed',
 
   // Dog collective events
   CYNIC_STATE: 'cynic:state',
   DOG_EVENT: 'dog:event',
   CONSENSUS_COMPLETED: 'consensus:completed',
+
+  // Social events (SOCIAL dimension)
+  SOCIAL_CAPTURE: 'social:capture',
 
   // Network/P2P events (PHASE 2: DECENTRALIZE)
   NODE_STARTED: 'node:started',
@@ -76,8 +61,9 @@ export const EventType = {
   BLOCK_PROPOSED: 'block:proposed',
   BLOCK_ANCHORED: 'block:anchored',
   METRICS_REPORTED: 'metrics:reported',
-  /** @unused */ PEER_CONNECTED: 'peer:connected',
-  /** @unused */ PEER_DISCONNECTED: 'peer:disconnected',
+  PEER_CONNECTED: 'peer:connected',
+  PEER_DISCONNECTED: 'peer:disconnected',
+  SYNC_COMPLETED: 'sync:completed',
 
   // Learning events
   EWC_CONSOLIDATION_COMPLETED: 'ewc:consolidation:completed',

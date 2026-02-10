@@ -23,7 +23,7 @@ import zlib from 'zlib';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { createLogger } from '@cynic/core';
+import { createLogger, globalEventBus, EventType } from '@cynic/core';
 import { parseXResponse } from './x-parser.js';
 
 // Diagnostic log file for proxy debugging
@@ -303,6 +303,16 @@ export class XProxyService {
       }
 
       fs.appendFileSync(DIAG_FILE, `[${new Date().toISOString()}] STORED: users=${parsed.users.length} tweets=${parsed.tweets.length}\n`);
+
+      // Emit SOCIAL_CAPTURE → event bus (feeds EmergenceDetector + event-listeners)
+      try {
+        globalEventBus.publish(EventType.SOCIAL_CAPTURE, {
+          source: 'proxy',
+          tweets: parsed.tweets.length,
+          users: parsed.users.length,
+          path: path.slice(0, 60),
+        }, { source: 'XProxy' });
+      } catch { /* non-blocking */ }
 
       if (this.verbose) {
         log.debug('Captured locally', {

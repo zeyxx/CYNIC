@@ -1063,6 +1063,34 @@ export function startEventListeners(options = {}) {
     log.info('Emergence pattern listener wired (Fix #6)');
   }
 
+  // SOCIAL: Persist social capture events → unified_signals
+  // XProxyService and XIngest emit SOCIAL_CAPTURE on globalEventBus.
+  // Persist to unified_signals so learning loops can analyze social patterns.
+  if (persistence?.query) {
+    const unsubSocial = globalEventBus.subscribe(EventType.SOCIAL_CAPTURE, (event) => {
+      try {
+        const d = event.data || event.payload || {};
+        const id = `sc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        persistence.query(`
+          INSERT INTO unified_signals (id, source, session_id, input, outcome, metadata)
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [
+          id,
+          'social_capture',
+          context.sessionId || null,
+          JSON.stringify({ source: d.source, tweets: d.tweets, users: d.users }),
+          JSON.stringify({ status: 'captured' }),
+          JSON.stringify({ timestamp: Date.now() }),
+        ]).catch(err => {
+          log.debug('Social capture persistence failed', { error: err.message });
+        });
+        _stats.socialCapturesPersisted = (_stats.socialCapturesPersisted || 0) + 1;
+      } catch (e) { log.debug('Social capture handler error', { error: e.message }); }
+    });
+    _unsubscribers.push(unsubSocial);
+    log.info('Social capture listener wired');
+  }
+
   // Fix #4: Automation Bus Orphan Logging
   // AutomationExecutor publishes events to getEventBus() with zero subscribers.
   // Add basic INFO-level logging for production visibility.

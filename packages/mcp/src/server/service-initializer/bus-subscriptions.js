@@ -123,17 +123,6 @@ export function setupBusSubscriptions(services) {
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ENGINE EVENTS
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  subscriptions.push(
-    globalEventBus.subscribe(EventType.ENGINE_CONSULTED, (event) => {
-      const { engineId, domain } = event.payload || {};
-      services.metrics?.recordEvent('engine_consulted', { engineId, domain });
-    })
-  );
-
-  // ═══════════════════════════════════════════════════════════════════════════
   // ANOMALY EVENTS
   // ═══════════════════════════════════════════════════════════════════════════
 

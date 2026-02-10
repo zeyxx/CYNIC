@@ -414,15 +414,17 @@ describe('EventType', () => {
   });
 
   it('should have judgment events', () => {
-    assert.ok(EventType.JUDGMENT_REQUESTED);
     assert.ok(EventType.JUDGMENT_CREATED);
-    assert.ok(EventType.JUDGMENT_UPDATED);
   });
 
   it('should have pattern events', () => {
     assert.ok(EventType.PATTERN_DETECTED);
     assert.ok(EventType.PATTERN_LEARNED);
     assert.ok(EventType.ANOMALY_DETECTED);
+  });
+
+  it('should have social events', () => {
+    assert.ok(EventType.SOCIAL_CAPTURE);
   });
 
   it('should follow namespace:action format', () => {

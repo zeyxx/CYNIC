@@ -400,7 +400,7 @@ function calculateCYNICDistance({ brainThought, patterns, routing, tierDecision,
   return { distance, level, breakdown };
 }
 
-function generateFramingDirective(D, brainThought, routing, patterns, promptType, profile, { consciousnessState, voteSummary, tierDecision, ecosystemStatus } = {}) {
+function generateFramingDirective(D, brainThought, routing, patterns, promptType, profile, { consciousnessState, voteSummary, tierDecision, ecosystemStatus, socialStatus } = {}) {
   // Only frame when CYNIC is awake (D >= φ⁻² = 38.2%)
   if (D.distance < PHI_INV_2) return null;
 
@@ -488,6 +488,12 @@ function generateFramingDirective(D, brainThought, routing, patterns, promptType
     const total = sources.length;
     const withUpdates = sources.filter(s => s.lastFetch).length;
     lines.push(`   Ecosystem: ${total} sources tracked, ${withUpdates} fetched`);
+  }
+
+  // Social: X/Twitter awareness (when available)
+  if (socialStatus?.totalTweets > 0 || socialStatus?.stats?.totalTweets > 0) {
+    const stats = socialStatus.stats || socialStatus;
+    lines.push(`   Social: ${stats.totalTweets || 0} tweets captured, ${stats.totalUsers || 0} users`);
   }
 
   // Frame: approach directive (maps to dominant axiom)
@@ -923,6 +929,7 @@ async function main() {
     let complexityResult = null;
     let optimizeResult = null;
     let ecosystemStatus = null;
+    let socialStatus = null;
 
     const hasCodeBlocks = /```[\s\S]*?```/.test(prompt);
     const estimatedTokens = Math.ceil(prompt.length / 4);
@@ -942,6 +949,19 @@ async function main() {
           }).catch(() => null),
           MCP_TOOL_TIMEOUT
         ).then(r => { ecosystemStatus = r; })
+      );
+    }
+
+    // Social awareness: every 5th prompt or when prompt mentions twitter/social/community
+    const socialKeywords = /\b(twitter|tweet|x\.com|social|community|engagement|follower|sentiment)\b/i;
+    if (promptCount % 5 === 1 || socialKeywords.test(prompt)) {
+      mcpPromises.push(
+        raceTimeout(
+          callBrainTool('brain_x_feed', {
+            action: 'stats',
+          }).catch(() => null),
+          MCP_TOOL_TIMEOUT
+        ).then(r => { socialStatus = r; })
       );
     }
 
@@ -1570,7 +1590,7 @@ async function main() {
       framingDirective = generateFramingDirective(
         cynicDistance, brainThought, routing, patterns,
         detectPromptType(prompt), profile,
-        { consciousnessState, voteSummary, tierDecision, ecosystemStatus },
+        { consciousnessState, voteSummary, tierDecision, ecosystemStatus, socialStatus },
       );
 
       logger.debug('CYNIC Distance', {
