@@ -152,6 +152,10 @@ export {
 
 // NOTE: Ecosystem tools moved to domains/ecosystem.js
 
+// Distribution domain (brain_distribution — ecosystem distribution awareness)
+import { createDistributionTool } from './domains/distribution.js';
+export { createDistributionTool };
+
 // System domain (health, metrics, collective_status, agent_diagnostic, consensus)
 import {
   createHealthTool,
@@ -159,6 +163,7 @@ import {
   createCollectiveStatusTool,
   createAgentDiagnosticTool,
   createConsensusTool,
+  createTopologyTool,
   systemFactory,
 } from './domains/system.js';
 
@@ -168,6 +173,7 @@ export {
   createCollectiveStatusTool,
   createAgentDiagnosticTool,
   createConsensusTool,
+  createTopologyTool,
   systemFactory,
 };
 
@@ -454,6 +460,7 @@ export function createAllTools(options = {}) {
     createTriggersTool({ judge, persistence }), // Auto-judgment triggers
     createDigestTool(persistence, sessionManager),
     createHealthTool(node, judge, persistence, automationExecutor, thermodynamics, heartbeat, slaTracker),
+    createTopologyTool(), // CYNIC self-awareness: mode, components, 7×7 matrix
     createPsychologyTool(persistence), // Human psychology dashboard
     createSearchTool(persistence),
     // Progressive Search Tools (3-layer retrieval for 10x token savings)
@@ -472,6 +479,7 @@ export function createAllTools(options = {}) {
     createDocsTool(librarian, persistence),
     createEcosystemTool(ecosystem),
     createEcosystemMonitorTool({ judge, persistence }), // External sources: GitHub, Twitter, Web + auto-analysis
+    createDistributionTool(), // $asdfasdfa distribution awareness (services, funnel, ecosystem map)
     createDiscoveryTool(discovery), // MCP servers, plugins, CYNIC nodes
     createPoJChainTool(pojChainManager, persistence),
     createTraceTool(persistence, pojChainManager),
@@ -592,6 +600,7 @@ export default {
   createProfileLoadTool,
   createDocsTool,
   createEcosystemTool,
+  createDistributionTool,
   createDiscoveryTool,
   createPoJChainTool,
   createTraceTool,

@@ -482,8 +482,18 @@ function generateFramingDirective(D, brainThought, routing, patterns, promptType
     lines.push('   Conscience: no read-back (first session or stale)');
   }
 
-  // Ecosystem: distribution awareness (when available)
-  if (ecosystemStatus?.sources?.length > 0) {
+  // Ecosystem: distribution awareness (from brain_distribution or brain_ecosystem_monitor)
+  if (ecosystemStatus?.action === 'snapshot') {
+    // Rich distribution data from brain_distribution
+    const eco = ecosystemStatus.ecosystem || {};
+    const svc = ecosystemStatus.services || {};
+    const funnel = ecosystemStatus.funnel || {};
+    lines.push(`   Distribution: ${eco.builders || '?'} builders, ${eco.repos || '?'} repos, ${svc.healthy || '?'}/${svc.total || '?'} services`);
+    if (funnel.adoption !== undefined) {
+      lines.push(`   Funnel: awareness(${funnel.awareness || '?'}) adoption(${funnel.adoption}) conversion(${funnel.conversion})`);
+    }
+  } else if (ecosystemStatus?.sources?.length > 0) {
+    // Fallback: basic ecosystem_monitor data
     const sources = ecosystemStatus.sources;
     const total = sources.length;
     const withUpdates = sources.filter(s => s.lastFetch).length;
@@ -944,9 +954,12 @@ async function main() {
     if (promptCount % 5 === 1 || ecosystemKeywords.test(prompt)) {
       mcpPromises.push(
         raceTimeout(
-          callBrainTool('brain_ecosystem_monitor', {
-            action: 'sources',
-          }).catch(() => null),
+          callBrainTool('brain_distribution', {
+            action: 'snapshot',
+          }).catch(() =>
+            // Fallback: try ecosystem_monitor if brain_distribution unavailable
+            callBrainTool('brain_ecosystem_monitor', { action: 'sources' }).catch(() => null)
+          ),
           MCP_TOOL_TIMEOUT
         ).then(r => { ecosystemStatus = r; })
       );

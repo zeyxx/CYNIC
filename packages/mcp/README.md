@@ -52,7 +52,7 @@ const instance = new MCPServer();
 
 ## Stats
 
-- **Source files**: 116
+- **Source files**: 117
 - **Test files**: 20
 - **Test ratio**: 17%
 - **Exports**: 12 named
