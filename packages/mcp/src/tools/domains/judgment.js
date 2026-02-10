@@ -1065,20 +1065,23 @@ Actions:
         }
 
         case 'feedback': {
-          if (!params.outcome) {
+          // Tolerate outcome at top level OR nested under feedback object (digest.js pattern)
+          const outcome = params.outcome || params.feedback?.outcome;
+          if (!outcome) {
             throw new Error('outcome required for feedback action');
           }
 
-          const originalScore = params.originalScore || await getJudgment(params.judgmentId) || 50;
+          const feedbackData = params.feedback || {};
+          const originalScore = params.originalScore || feedbackData.originalScore || await getJudgment(params.judgmentId) || 50;
 
           const result = service.processFeedback({
             judgmentId: params.judgmentId,
-            outcome: params.outcome,
-            actualScore: params.actualScore,
+            outcome,
+            actualScore: params.actualScore || feedbackData.actualScore,
             originalScore,
-            itemType: params.itemType || 'unknown',
-            source: 'manual',
-            sourceContext: params.context || {},
+            itemType: params.itemType || feedbackData.itemType || 'unknown',
+            source: feedbackData.source || 'manual',
+            sourceContext: params.context || feedbackData.sourceContext || {},
           });
 
           await saveState();
@@ -1089,11 +1092,11 @@ Actions:
             try {
               await persistence.storeFeedback({
                 judgmentId: params.judgmentId || null,
-                outcome: params.outcome,
-                reason: params.context?.reason || `Manual feedback: ${params.outcome}`,
-                actualScore: params.actualScore || null,
-                sourceType: 'manual',
-                sourceContext: params.context || {},
+                outcome,
+                reason: params.context?.reason || feedbackData.sourceContext?.reason || `Manual feedback: ${outcome}`,
+                actualScore: params.actualScore || feedbackData.actualScore || null,
+                sourceType: feedbackData.source || 'manual',
+                sourceContext: params.context || feedbackData.sourceContext || {},
               });
             } catch (e) {
               // Best-effort — don't block on persistence failure
@@ -1108,7 +1111,7 @@ Actions:
           if (persistence?.query) {
             try {
               const feedbackType = params.context?.type || params.itemType || 'feedback';
-              const isPositive = params.outcome === 'correct';
+              const isPositive = outcome === 'correct';
 
               // Increment frequency for related patterns (positive feedback boosts, negative doesn't)
               if (isPositive) {
@@ -1135,11 +1138,11 @@ Actions:
           try {
             const eventBus = getEventBus();
             eventBus.publish(EventType.FEEDBACK_RECEIVED, {
-              source: 'manual',
-              outcome: params.outcome,
+              source: feedbackData.source || 'manual',
+              outcome,
               judgmentId: params.judgmentId,
               originalScore,
-              actualScore: params.actualScore,
+              actualScore: params.actualScore || feedbackData.actualScore,
               ...result,
             }, { source: 'brain_learning' });
           } catch (e) {
@@ -1148,8 +1151,8 @@ Actions:
 
           return {
             action: 'feedback',
-            source: 'manual',
-            outcome: params.outcome,
+            source: feedbackData.source || 'manual',
+            outcome,
             patternsUpdated,
             ...result,
           };

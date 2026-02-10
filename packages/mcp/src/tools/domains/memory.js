@@ -321,8 +321,17 @@ export function createMemoryStoreTool(memoryRetriever) {
             break;
           }
 
-          default:
-            throw new Error(`Unknown type: ${type}`);
+          default: {
+            // Treat unrecognized types (file_modified, session_learning, etc.) as memory entries
+            const content = params.content;
+            if (!content) throw new Error(`content required for type "${type}"`);
+
+            result = await memoryRetriever.rememberConversation(userId, type, content, {
+              importance: params.importance || params.confidence || 0.5,
+              context: params.context || {},
+            });
+            break;
+          }
         }
 
         return {
