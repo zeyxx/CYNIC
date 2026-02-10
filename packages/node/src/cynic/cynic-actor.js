@@ -157,6 +157,95 @@ export class CynicActor extends EventEmitter {
   }
 
   /**
+   * Process a CynicDecider decision (C6.3 → C6.4 bridge).
+   * Maps self-governance decisions into concrete self-healing actions.
+   *
+   * @param {Object} decision - From CynicDecider.decideOnPattern()
+   * @param {string} decision.type - CynicDecisionType
+   * @param {string} decision.urgency - low/medium/high/critical
+   * @param {Object} decision.context - Decision-specific payload
+   * @returns {Object[]} Actions taken
+   */
+  processDecision(decision) {
+    const { type, urgency, context: ctx } = decision;
+    const actions = [];
+
+    switch (type) {
+      case 'rotate_dogs': {
+        const restrict = this._tryAction(SelfHealAction.RESTRICT_ROUTING, {
+          reason: ctx?.reason || 'dog_rotation_requested',
+          dominantDog: ctx?.dominantDog,
+          source: 'CynicDecider',
+        });
+        if (restrict) actions.push(restrict);
+
+        const refresh = this._tryAction(SelfHealAction.TRIGGER_REFRESH, {
+          reason: 'stimulate_underrepresented_dogs',
+          source: 'CynicDecider',
+        });
+        if (refresh) actions.push(refresh);
+        break;
+      }
+
+      case 'escalate_pattern': {
+        if (urgency === 'critical' || urgency === 'high') {
+          const rateLimit = this._tryAction(SelfHealAction.RATE_LIMIT, {
+            reason: ctx?.reason || 'pattern_escalation',
+            source: 'CynicDecider',
+          });
+          if (rateLimit) actions.push(rateLimit);
+        }
+        break;
+      }
+
+      case 'compact_memory': {
+        const compact = this._tryAction(SelfHealAction.EMERGENCY_COMPACT, {
+          reason: ctx?.reason || 'memory_pressure',
+          load: ctx?.load,
+          source: 'CynicDecider',
+        });
+        if (compact) actions.push(compact);
+        break;
+      }
+
+      case 'pause_learning': {
+        const pause = this._tryAction(SelfHealAction.PAUSE_NONESSENTIAL, {
+          reason: ctx?.reason || 'learning_stagnation',
+          velocity: ctx?.velocity,
+          source: 'CynicDecider',
+        });
+        if (pause) actions.push(pause);
+        break;
+      }
+
+      case 'adjust_thresholds': {
+        // Emit threshold adjustment for router/judge to pick up
+        globalEventBus.emit('cynic:threshold_adjustment', {
+          source: 'CynicActor',
+          cell: 'C6.4',
+          reason: ctx?.reason || 'threshold_adjustment',
+          recommendation: ctx?.recommendation,
+          urgency,
+        });
+        break;
+      }
+
+      default:
+        break;
+    }
+
+    if (actions.length > 0) {
+      log.info('Processed CynicDecider decision', {
+        type,
+        urgency,
+        actionsCount: actions.length,
+      });
+    }
+
+    return actions;
+  }
+
+  /**
    * Process a homeostasis perturbation.
    * Called when HomeostasisTracker detects instability.
    *

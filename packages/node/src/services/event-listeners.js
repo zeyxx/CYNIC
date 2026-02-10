@@ -2234,13 +2234,10 @@ export function startEventListeners(options = {}) {
         if (decision && decision.type !== 'acknowledge') {
           _stats.cynicDecisions = (_stats.cynicDecisions || 0) + 1;
 
-          // Feed actionable decisions to CynicActor (C6.4)
-          if (cynicActor && decision.type === 'rotate_dogs') {
-            // Restrict routing = soft rotation (let underrepresented dogs participate more)
-            cynicActor.processConsciousnessChange({
-              awarenessLevel: 0.4, // Force moderate awareness → restricts to core
-              newState: 'AWAKENING',
-            });
+          // Feed ALL actionable decisions to CynicActor (C6.4 bridge)
+          if (cynicActor?.processDecision) {
+            const actions = cynicActor.processDecision(decision);
+            _stats.cynicSelfHealActions = (_stats.cynicSelfHealActions || 0) + actions.length;
           }
 
           // Persist decision to unified_signals
@@ -2278,6 +2275,28 @@ export function startEventListeners(options = {}) {
           });
           if (decision) {
             _stats.cynicDecisions = (_stats.cynicDecisions || 0) + 1;
+
+            // Forward to CynicActor for execution (C6.4)
+            if (cynicActor?.processDecision) {
+              const actions = cynicActor.processDecision(decision);
+              _stats.cynicSelfHealActions = (_stats.cynicSelfHealActions || 0) + actions.length;
+            }
+
+            // Persist consciousness decision to unified_signals
+            if (persistence?.query) {
+              const id = `ccd_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+              persistence.query(`
+                INSERT INTO unified_signals (id, source, session_id, input, outcome, metadata)
+                VALUES ($1, $2, $3, $4, $5, $6)
+              `, [
+                id, 'cynic_consciousness_decision', context.sessionId || null,
+                JSON.stringify({ awarenessLevel: payload.awarenessLevel, healthState: stats.currentHealthState }),
+                JSON.stringify({ decision: decision.type, urgency: decision.urgency }),
+                JSON.stringify(decision.context || {}),
+              ]).catch(err => {
+                log.debug('Consciousness decision persistence failed', { error: err.message });
+              });
+            }
           }
         } catch (err) {
           log.debug('CynicDecider.decideOnConsciousness failed', { error: err.message });
@@ -2398,6 +2417,15 @@ export function startEventListeners(options = {}) {
                 },
               });
               _stats.cosmosLearnings++;
+            }
+
+            // Feed outcome back to CosmosDecider for calibration (C7.3 loop)
+            if (cosmosDecider?.recordOutcome) {
+              cosmosDecider.recordOutcome({
+                decisionType: decision.decision,
+                result: action ? 'success' : 'failure',
+                reason: action?.message || 'action_executed',
+              });
             }
 
             // Persist cosmos action to unified_signals (C7.4 persistence)
