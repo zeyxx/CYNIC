@@ -117,6 +117,8 @@ const instance = createIdentity();
 | `SignalSource` | SignalSource implementation |
 | `SignalOutcome` | SignalOutcome implementation |
 | `UnifiedBridge` | UnifiedBridge implementation |
+| `ModelTier` | ModelTier implementation |
+| `TaskCategory` | TaskCategory implementation |
 | `TokenOptimizer` | TokenOptimizer implementation |
 | `CompressionStrategy` | CompressionStrategy implementation |
 | `ABBREVIATIONS` | ABBREVIATIONS implementation |
@@ -285,6 +287,7 @@ const instance = createIdentity();
 | `getMetaCognition()` | Get MetaCognition singleton |
 | `getUnifiedSignalStore()` | Get UnifiedSignalStore singleton |
 | `getUnifiedBridge()` | Get UnifiedBridge singleton |
+| `getModelIntelligence()` | Get ModelIntelligence singleton |
 | `getWorkerPool()` | Get WorkerPool singleton |
 | `getSolanaWatcher()` | Get SolanaWatcher singleton |
 | `getDogStateEmitter()` | Get DogStateEmitter singleton |
@@ -328,7 +331,7 @@ const instance = createIdentity();
 
 ### Functions
 
-`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 123 more
+`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 124 more
 
 ## Dependencies
 
@@ -337,10 +340,10 @@ const instance = createIdentity();
 
 ## Stats
 
-- **Source files**: 278
-- **Test files**: 103
+- **Source files**: 279
+- **Test files**: 104
 - **Test ratio**: 37%
-- **Exports**: 454 named
+- **Exports**: 458 named
 
 ## Fractal Structure
 
@@ -353,7 +356,7 @@ const instance = createIdentity();
 [████░░░░░░] 37% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
-[█████░░░░░] 46% Burn (Simplicity)
+[█████░░░░░] 45% Burn (Simplicity)
 [██████░░░░] 62% Emergence
 ```
 

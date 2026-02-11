@@ -435,6 +435,12 @@ export {
   UnifiedBridge,
   getUnifiedBridge,
   resetUnifiedBridge,
+  // Model Intelligence (Thompson Sampling over LLM models)
+  ModelIntelligence,
+  ModelTier,
+  TaskCategory,
+  getModelIntelligence,
+  resetModelIntelligence,
 } from './learning/index.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════

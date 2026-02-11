@@ -65,6 +65,7 @@ import { getCodeAccountant, resetCodeAccountant } from './accounting/code-accoun
 import { getSocialAccountant, resetSocialAccountant } from './accounting/social-accountant.js';
 import { getCosmosAccountant, resetCosmosAccountant } from './accounting/cosmos-accountant.js';
 import { getCostLedger, resetCostLedger } from './accounting/cost-ledger.js';
+import { getModelIntelligence, resetModelIntelligence } from './learning/model-intelligence.js';
 import { getHumanActor, resetHumanActor } from './symbiosis/human-actor.js';
 import { getHumanJudge, resetHumanJudge } from './symbiosis/human-judge.js';
 import { getSolanaJudge, resetSolanaJudge } from './solana/solana-judge.js';
@@ -370,6 +371,13 @@ let _cynicAccountant = null;
  * @type {import('./accounting/cost-ledger.js').CostLedger|null}
  */
 let _costLedger = null;
+
+/**
+ * C6.3+C6.5 (CYNIC×DECIDE + CYNIC×LEARN): ModelIntelligence singleton
+ * Thompson Sampling over LLM models with falsification
+ * @type {import('./learning/model-intelligence.js').ModelIntelligence|null}
+ */
+let _modelIntelligence = null;
 
 /**
  * C1.5 (CODE × LEARN): CodeLearner singleton
@@ -808,6 +816,7 @@ export function getCollectivePack(options = {}) {
     _socialAccountant = getSocialAccountant();
     _cosmosAccountant = getCosmosAccountant();
     _costLedger = getCostLedger();
+    _modelIntelligence = getModelIntelligence();
     _humanActor = getHumanActor();
     // Self-awareness singletons (C6.1, C6.4)
     _homeostasis = getHomeostasisTracker();
@@ -877,6 +886,8 @@ export function getCollectivePack(options = {}) {
         humanJudge: _humanJudge,
         // Cross-cutting cost accounting
         costLedger: _costLedger,
+        // Model intelligence (Thompson over models)
+        modelIntelligence: _modelIntelligence,
       });
       log.info('EventListeners started - data loops closed (AXE 2)', { hasBlockStore: !!blockStore, hasJudge: !!(finalOptions.judge || _globalPack?.judge) });
 
@@ -1092,6 +1103,8 @@ export async function getCollectivePackAsync(options = {}) {
         humanJudge: _humanJudge,
         // Cross-cutting cost accounting
         costLedger: _costLedger,
+        // Model intelligence (Thompson over models)
+        modelIntelligence: _modelIntelligence,
       });
       log.info('EventListeners started on subsequent call with persistence (AXE 2 fix)');
 
@@ -1546,6 +1559,7 @@ export async function getCollectivePackAsync(options = {}) {
       if (_socialAccountant) systemTopology.registerComponent('socialAccountant', _socialAccountant);
       if (_cosmosAccountant) systemTopology.registerComponent('cosmosAccountant', _cosmosAccountant);
       if (_costLedger) systemTopology.registerComponent('costLedger', _costLedger);
+      if (_modelIntelligence) systemTopology.registerComponent('modelIntelligence', _modelIntelligence);
 
       // Solana pipeline (C2.2-C2.7)
       if (_solanaJudge) systemTopology.registerComponent('solanaJudge', _solanaJudge);
@@ -2088,6 +2102,7 @@ export function getSingletonStatus() {
     socialAccountantInitialized: !!_socialAccountant,
     cosmosAccountantInitialized: !!_cosmosAccountant,
     costLedgerInitialized: !!_costLedger,
+    modelIntelligenceInitialized: !!_modelIntelligence,
     humanActorInitialized: !!_humanActor,
     cynicActorInitialized: !!_cynicActor,
     cynicDeciderInitialized: !!_cynicDecider,
@@ -2151,6 +2166,9 @@ export function getCosmosAccountantSingleton() { return _cosmosAccountant; }
 
 /** Cross-cutting: Get CostLedger singleton @returns {import('./accounting/cost-ledger.js').CostLedger|null} */
 export function getCostLedgerSingleton() { return _costLedger; }
+
+/** C6.3+C6.5: Get ModelIntelligence singleton @returns {import('./learning/model-intelligence.js').ModelIntelligence|null} */
+export function getModelIntelligenceSingleton() { return _modelIntelligence; }
 
 /**
  * C5.4: Get the HumanActor singleton
@@ -2337,6 +2355,7 @@ export function _resetForTesting() {
   if (_socialAccountant) { resetSocialAccountant(); _socialAccountant = null; }
   if (_cosmosAccountant) { resetCosmosAccountant(); _cosmosAccountant = null; }
   if (_costLedger) { resetCostLedger(); _costLedger = null; }
+  if (_modelIntelligence) { resetModelIntelligence(); _modelIntelligence = null; }
   if (_humanActor) { resetHumanActor(); _humanActor = null; }
   if (_cynicActor) { resetCynicActor(); _cynicActor = null; }
   if (_cynicDecider) { resetCynicDecider(); _cynicDecider = null; }

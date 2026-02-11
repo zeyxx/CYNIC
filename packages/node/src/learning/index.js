@@ -79,6 +79,16 @@ export {
   ThompsonSampler,
 } from './thompson-sampler.js';
 
+// C6.3+C6.5: Model Intelligence - Thompson Sampling over LLM models
+// "Le chien ne suppose pas — il renifle" - κυνικός
+export {
+  ModelIntelligence,
+  ModelTier,
+  TaskCategory,
+  getModelIntelligence,
+  resetModelIntelligence,
+} from './model-intelligence.js';
+
 // UNIFIED BRIDGE - Connects Judge events to UnifiedSignal
 // "Tous les chemins mènent à l'apprentissage" - κυνικός
 export {

@@ -863,6 +863,8 @@ export function startEventListeners(options = {}) {
     humanJudge,
     // Cross-cutting cost accounting
     costLedger,
+    // Model intelligence (Thompson over LLM models)
+    modelIntelligence,
   } = options;
 
   // Get or create repositories
@@ -1583,6 +1585,49 @@ export function startEventListeners(options = {}) {
       }
     );
     _unsubscribers.push(unsubCostSpike);
+  }
+
+  // 3e. TOOL_COMPLETED → ModelIntelligence: Record model outcomes for Thompson learning
+  //     Every tool completion = evidence about whether the current model works for this task.
+  if (modelIntelligence) {
+    const unsubModelOutcome = globalEventBus.subscribe(
+      EventType.TOOL_COMPLETED,
+      (event) => {
+        try {
+          const { tool, result, error, durationMs } = event.payload || {};
+          if (!tool) return;
+
+          // Detect current model (best effort from environment)
+          const detected = modelIntelligence.detectCurrentModel();
+
+          modelIntelligence.recordOutcome({
+            taskType: event.payload?.taskType || 'default',
+            model: detected.tier,
+            success: !error,
+            tool,
+            durationMs: durationMs || 0,
+          });
+
+          _stats.modelOutcomesRecorded = (_stats.modelOutcomesRecorded || 0) + 1;
+        } catch (err) {
+          log.debug('ModelIntelligence.recordOutcome failed', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubModelOutcome);
+
+    // Persist on session end
+    const unsubModelSessionEnd = globalEventBus.subscribe(
+      EventType.SESSION_ENDED,
+      () => {
+        try {
+          modelIntelligence.persist();
+        } catch (err) {
+          log.debug('ModelIntelligence.persist failed', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubModelSessionEnd);
   }
 
   // 3b½. SOCIAL_CAPTURE → SocialAccountant: Track social interaction economics (C4.6)
@@ -2854,6 +2899,7 @@ export function startEventListeners(options = {}) {
       codeActor: !!codeActor,
       cynicAccountant: !!cynicAccountant,
       costLedger: !!costLedger,
+      modelIntelligence: !!modelIntelligence,
       codeAccountant: !!codeAccountant,
       socialAccountant: !!socialAccountant,
       cosmosAccountant: !!cosmosAccountant,
