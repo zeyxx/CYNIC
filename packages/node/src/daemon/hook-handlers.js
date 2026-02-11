@@ -4,7 +4,7 @@
  * Pure functions that handle hook events using in-memory singletons.
  * No MCP calls — all state is in RAM. Events flow to downstream consumers.
  *
- * Phase 3: Full digest migration from scripts/hooks/digest.js (1213 lines → daemon)
+ * Phase 4: Full thin hook coverage — SubagentStart/Stop, Error, Notification handlers
  *
  * "Le chien pense vite quand il vit déjà" - CYNIC
  *
@@ -54,6 +54,95 @@ const WRITE_SENSITIVE_PATTERNS = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// SUBAGENT → DOG MAPPING (ported from scripts/hooks/spawn.js)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const SUBAGENT_TO_DOG = {
+  'Explore': { dog: 'SCOUT', sefirah: 'Netzach' },
+  'Plan': { dog: 'ARCHITECT', sefirah: 'Chesed' },
+  'Bash': { dog: 'CARTOGRAPHER', sefirah: 'Malkhut' },
+  'general-purpose': { dog: 'CYNIC', sefirah: 'Keter' },
+  'cynic-guardian': { dog: 'GUARDIAN', sefirah: 'Gevurah' },
+  'cynic-architect': { dog: 'ARCHITECT', sefirah: 'Chesed' },
+  'cynic-analyst': { dog: 'ANALYST', sefirah: 'Binah' },
+  'cynic-scout': { dog: 'SCOUT', sefirah: 'Netzach' },
+  'cynic-sage': { dog: 'SAGE', sefirah: 'Chochmah' },
+  'cynic-scholar': { dog: 'SCHOLAR', sefirah: 'Daat' },
+  'cynic-oracle': { dog: 'ORACLE', sefirah: 'Tiferet' },
+  'cynic-deployer': { dog: 'DEPLOYER', sefirah: 'Hod' },
+  'cynic-janitor': { dog: 'JANITOR', sefirah: 'Yesod' },
+  'cynic-cartographer': { dog: 'CARTOGRAPHER', sefirah: 'Malkhut' },
+  'cynic-reviewer': { dog: 'ANALYST', sefirah: 'Binah' },
+  'cynic-tester': { dog: 'GUARDIAN', sefirah: 'Gevurah' },
+  'cynic-simplifier': { dog: 'JANITOR', sefirah: 'Yesod' },
+  'cynic-integrator': { dog: 'CARTOGRAPHER', sefirah: 'Malkhut' },
+  'cynic-doc': { dog: 'SCHOLAR', sefirah: 'Daat' },
+  'cynic-librarian': { dog: 'SCHOLAR', sefirah: 'Daat' },
+  'cynic-solana-expert': { dog: 'SAGE', sefirah: 'Chochmah' },
+  'cynic-archivist': { dog: 'SCHOLAR', sefirah: 'Daat' },
+};
+
+/** Active subagents — persistent in daemon RAM across hook invocations */
+const activeSubagents = new Map();
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ERROR PATTERNS (ported from scripts/hooks/error.js)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const ERROR_PATTERNS = [
+  { pattern: /ENOENT|no such file|file not found/i, type: 'file_not_found', severity: 'medium', recoverable: true },
+  { pattern: /EACCES|permission denied|access denied/i, type: 'permission_denied', severity: 'high', recoverable: false },
+  { pattern: /EEXIST|already exists/i, type: 'file_exists', severity: 'low', recoverable: true },
+  { pattern: /ENOSPC|no space left/i, type: 'disk_full', severity: 'critical', recoverable: false },
+  { pattern: /ECONNREFUSED|connection refused/i, type: 'connection_refused', severity: 'high', recoverable: true },
+  { pattern: /ETIMEDOUT|timed out|timeout/i, type: 'timeout', severity: 'medium', recoverable: true },
+  { pattern: /ENOTFOUND|DNS|getaddrinfo/i, type: 'dns_error', severity: 'high', recoverable: true },
+  { pattern: /SyntaxError|Unexpected token/i, type: 'syntax_error', severity: 'high', recoverable: false },
+  { pattern: /TypeError/i, type: 'type_error', severity: 'high', recoverable: false },
+  { pattern: /ReferenceError|is not defined/i, type: 'reference_error', severity: 'high', recoverable: false },
+  { pattern: /fatal:|error: pathspec/i, type: 'git_error', severity: 'medium', recoverable: true },
+  { pattern: /merge conflict|CONFLICT/i, type: 'merge_conflict', severity: 'high', recoverable: false },
+  { pattern: /command not found|not recognized/i, type: 'command_not_found', severity: 'medium', recoverable: false },
+  { pattern: /npm ERR!|yarn error/i, type: 'package_manager_error', severity: 'medium', recoverable: true },
+  { pattern: /exit code [1-9]|exited with code/i, type: 'exit_code_error', severity: 'medium', recoverable: true },
+  { pattern: /401|unauthorized|authentication/i, type: 'auth_error', severity: 'high', recoverable: true },
+  { pattern: /403|forbidden/i, type: 'forbidden', severity: 'high', recoverable: false },
+  { pattern: /429|rate limit|too many requests/i, type: 'rate_limit', severity: 'high', recoverable: true },
+  { pattern: /500|internal server error/i, type: 'server_error', severity: 'high', recoverable: true },
+  { pattern: /heap out of memory|ENOMEM/i, type: 'out_of_memory', severity: 'critical', recoverable: false },
+  { pattern: /EMFILE|too many open files/i, type: 'too_many_files', severity: 'high', recoverable: true },
+];
+
+/** Error history — persistent in daemon RAM for loop detection */
+const errorHistory = [];
+const MAX_ERROR_HISTORY = 50;
+
+/** Consecutive error counter — resets on success */
+let consecutiveErrors = 0;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NOTIFICATION TYPES (ported from scripts/hooks/notify.js)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const NOTIFICATION_TYPES = {
+  error: { severity: 'high', category: 'error' },
+  warning: { severity: 'medium', category: 'warning' },
+  info: { severity: 'low', category: 'info' },
+  success: { severity: 'low', category: 'success' },
+  progress: { severity: 'low', category: 'progress' },
+  complete: { severity: 'low', category: 'complete' },
+  system: { severity: 'medium', category: 'system' },
+  timeout: { severity: 'high', category: 'timeout' },
+  security: { severity: 'critical', category: 'security' },
+  blocked: { severity: 'high', category: 'blocked' },
+};
+
+/** Notification burst tracking — persistent in daemon RAM */
+const notificationHistory = [];
+const BURST_WINDOW_MS = 5 * 60 * 1000;
+const BURST_THRESHOLD = 5;
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // EVENT ROUTER — dispatches hook events to handlers
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -88,6 +177,18 @@ export async function handleHookEvent(event, hookInput) {
         break;
       case 'Stop':
         result = await handleStop(hookInput);
+        break;
+      case 'SubagentStart':
+        result = await handleSubagentStart(hookInput);
+        break;
+      case 'SubagentStop':
+        result = await handleSubagentStop(hookInput);
+        break;
+      case 'Error':
+        result = await handleError(hookInput);
+        break;
+      case 'Notification':
+        result = await handleNotification(hookInput);
         break;
       default:
         result = { continue: true };
@@ -710,8 +811,384 @@ function formatCompactBanner(digest) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// SUBAGENT START — SubagentStart event
+// Maps subagent types to Sefirot dogs, tracks active pack
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Handle SubagentStart — a dog joins the pack
+ *
+ * @param {Object} hookInput - { agent_id, subagent_type, prompt, model, ... }
+ * @returns {Promise<Object>} { continue: true, agentInfo, message }
+ */
+async function handleSubagentStart(hookInput) {
+  const agentId = hookInput?.agent_id || hookInput?.agentId || `agent_${Date.now()}`;
+  const subagentType = hookInput?.subagent_type || hookInput?.subagentType || 'general-purpose';
+  const prompt = hookInput?.prompt || '';
+  const model = hookInput?.model || 'default';
+
+  const mapping = SUBAGENT_TO_DOG[subagentType] || { dog: 'CYNIC', sefirah: 'Keter' };
+
+  const agentInfo = {
+    id: agentId,
+    type: subagentType,
+    dog: mapping.dog,
+    sefirah: mapping.sefirah,
+    model,
+    startTime: Date.now(),
+    promptLength: prompt.length,
+  };
+  activeSubagents.set(agentId, agentInfo);
+
+  // Emit for learning loops
+  try {
+    globalEventBus.emit(EventType.SUBAGENT_STARTED || 'subagent:started', {
+      type: 'subagent_spawn',
+      agentId,
+      subagentType,
+      dog: mapping.dog,
+      sefirah: mapping.sefirah,
+      model,
+      promptLength: prompt.length,
+      timestamp: Date.now(),
+    });
+  } catch { /* non-blocking */ }
+
+  log.debug('Subagent started', { agentId, dog: mapping.dog });
+
+  return {
+    continue: true,
+    agentInfo,
+    message: `${mapping.dog} (${mapping.sefirah}) dispatched`,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SUBAGENT STOP — SubagentStop event
+// Records outcome, cleans up tracking
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Handle SubagentStop — a dog returns from the field
+ *
+ * @param {Object} hookInput - { agent_id, success, result, duration_ms, ... }
+ * @returns {Promise<Object>} { continue: true, agentInfo, message }
+ */
+async function handleSubagentStop(hookInput) {
+  const agentId = hookInput?.agent_id || hookInput?.agentId;
+  const success = hookInput?.success !== false;
+  const durationMs = hookInput?.duration_ms || hookInput?.durationMs || 0;
+
+  const agentInfo = activeSubagents.get(agentId) || {
+    dog: 'UNKNOWN', sefirah: 'Unknown', type: 'unknown', startTime: Date.now() - durationMs,
+  };
+  const actualDuration = durationMs || (Date.now() - agentInfo.startTime);
+
+  activeSubagents.delete(agentId);
+
+  // Emit for learning loops
+  try {
+    globalEventBus.emit(EventType.SUBAGENT_STOPPED || 'subagent:stopped', {
+      type: 'subagent_complete',
+      agentId,
+      dog: agentInfo.dog,
+      sefirah: agentInfo.sefirah,
+      success,
+      durationMs: actualDuration,
+      timestamp: Date.now(),
+    });
+  } catch { /* non-blocking */ }
+
+  // Reset consecutive errors on successful subagent
+  if (success) consecutiveErrors = 0;
+
+  log.debug('Subagent stopped', { agentId, dog: agentInfo.dog, success, durationMs: actualDuration });
+
+  return {
+    continue: true,
+    agentInfo,
+    message: success
+      ? `${agentInfo.dog} returns (${Math.round(actualDuration / 1000)}s)`
+      : `${agentInfo.dog} encountered issues (${Math.round(actualDuration / 1000)}s)`,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ERROR — Error event
+// Classifies errors, detects loops, tracks escalation
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Handle Error event — the dog smells trouble
+ *
+ * @param {Object} hookInput - { tool_name, error, tool_input, ... }
+ * @returns {Promise<Object>} { continue: true, classification, context, patterns, escalation }
+ */
+async function handleError(hookInput) {
+  const toolName = hookInput?.tool_name || hookInput?.toolName || '';
+  const errorMessage = hookInput?.error || hookInput?.error_message || hookInput?.errorMessage || '';
+  const toolInput = hookInput?.tool_input || hookInput?.toolInput || {};
+
+  // Classify error
+  const classification = classifyError(errorMessage);
+
+  // Extract context
+  const context = extractErrorContext(errorMessage, toolInput);
+
+  // Track consecutive errors
+  consecutiveErrors++;
+
+  // Detect repeated patterns (loop detection)
+  const patterns = detectErrorPatterns(errorMessage, classification);
+
+  // Build escalation level
+  let escalation = null;
+  if (consecutiveErrors >= 5) {
+    escalation = 'strict';
+  } else if (consecutiveErrors >= 3) {
+    escalation = 'cautious';
+  }
+
+  // Emit for learning loops
+  try {
+    globalEventBus.emit(EventType.ERROR_OCCURRED || 'error:occurred', {
+      type: 'tool_error',
+      tool: toolName,
+      errorType: classification.type,
+      severity: classification.severity,
+      recoverable: classification.recoverable,
+      consecutiveErrors,
+      patterns: patterns.map(p => p.signature),
+      timestamp: Date.now(),
+    });
+  } catch { /* non-blocking */ }
+
+  log.debug('Error handled', { tool: toolName, type: classification.type, consecutive: consecutiveErrors });
+
+  // Build output
+  const output = {
+    continue: true,
+    tool: { name: toolName },
+    error: errorMessage.slice(0, 500),
+    classification,
+    context,
+    patterns,
+    escalation,
+    consecutiveErrors,
+  };
+
+  // Add message for high severity or repeated errors
+  if (classification.severity === 'critical' || patterns.length > 0) {
+    const parts = [`${classification.type} (${classification.severity})`];
+    if (context.suggestion) parts.push(context.suggestion);
+    if (patterns.length > 0) parts.push(patterns[0].suggestion);
+    output.message = `*growl* Error: ${parts.join(' | ')}`;
+  }
+
+  return output;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NOTIFICATION — Notification event
+// Classifies, detects bursts, escalates high-severity
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Handle Notification event — the dog listens
+ *
+ * @param {Object} hookInput - { type, title, message, source, ... }
+ * @returns {Promise<Object>} { continue: true, classification, burst }
+ */
+async function handleNotification(hookInput) {
+  const notifType = (hookInput?.notification_type || hookInput?.type || 'info').toLowerCase();
+  const title = hookInput?.title || '';
+  const message = hookInput?.message || hookInput?.content || '';
+  const source = hookInput?.source || 'unknown';
+
+  // Classify
+  const classification = classifyNotification(notifType, title, message);
+
+  // Detect burst
+  const burst = detectNotificationBurst(classification.type);
+
+  // Emit for learning loops
+  try {
+    globalEventBus.emit(EventType.NOTIFICATION_RECEIVED || 'notification:received', {
+      type: 'notification',
+      notificationType: classification.type,
+      category: classification.category,
+      severity: classification.severity,
+      source,
+      burst: burst.detected,
+      timestamp: Date.now(),
+    });
+  } catch { /* non-blocking */ }
+
+  log.debug('Notification handled', { type: classification.type, severity: classification.severity });
+
+  const output = {
+    continue: true,
+    classification: {
+      type: classification.type,
+      category: classification.category,
+      severity: classification.severity,
+    },
+    burst: burst.detected ? burst : null,
+  };
+
+  // Show message for high severity or bursts
+  if (classification.severity === 'high' || classification.severity === 'critical' || burst.detected) {
+    const burstNote = burst.detected ? ` (BURST: ${burst.count}x in 5min)` : '';
+    output.message = `*ears perk* ${classification.type.toUpperCase()}: ${title || message.substring(0, 60)}${burstNote}`;
+  }
+
+  return output;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Classify an error message against known patterns.
+ * @param {string} errorMessage
+ * @returns {{ type: string, severity: string, recoverable: boolean }}
+ */
+function classifyError(errorMessage) {
+  for (const { pattern, type, severity, recoverable } of ERROR_PATTERNS) {
+    if (pattern.test(errorMessage)) {
+      return { type, severity, recoverable };
+    }
+  }
+  return { type: 'unknown', severity: 'medium', recoverable: true };
+}
+
+/**
+ * Extract context from error (file, line, command, suggestion).
+ * @param {string} error
+ * @param {Object} toolInput
+ * @returns {Object}
+ */
+function extractErrorContext(error, toolInput) {
+  const context = { file: null, line: null, command: null, suggestion: null };
+
+  const fileMatch = error.match(/(?:at |in |file |path[: ]*)([^\s:]+\.[a-z]+)/i);
+  if (fileMatch) context.file = fileMatch[1];
+
+  const lineMatch = error.match(/:(\d+)(?::(\d+))?/);
+  if (lineMatch) context.line = parseInt(lineMatch[1], 10);
+
+  if (toolInput?.command) context.command = toolInput.command.slice(0, 100);
+
+  const classification = classifyError(error);
+  const suggestions = {
+    file_not_found: 'Check file path spelling. Use Glob to find it.',
+    permission_denied: 'Check file permissions.',
+    syntax_error: 'Review code for syntax issues.',
+    timeout: 'Consider increasing timeout or checking network.',
+    rate_limit: 'Wait before retrying.',
+    merge_conflict: 'Resolve merge conflicts manually.',
+    command_not_found: 'Install required package or check PATH.',
+  };
+  context.suggestion = suggestions[classification.type] || 'Review the error and adjust approach.';
+
+  return context;
+}
+
+/**
+ * Detect repeated error patterns (loop detection).
+ * @param {string} errorMessage
+ * @param {{ type: string }} classification
+ * @returns {Array}
+ */
+function detectErrorPatterns(errorMessage, classification) {
+  const patterns = [];
+
+  errorHistory.push({ type: classification.type, timestamp: Date.now() });
+  if (errorHistory.length > MAX_ERROR_HISTORY) errorHistory.shift();
+
+  // Same error type 3+ times in last 5 entries = loop
+  const recent = errorHistory.slice(-5);
+  const sameCount = recent.filter(e => e.type === classification.type).length;
+  if (sameCount >= 3) {
+    patterns.push({
+      type: 'repeated_error',
+      signature: `repeated_${classification.type}`,
+      description: `Same error type repeated ${sameCount} times`,
+      severity: 'high',
+      suggestion: 'Breaking loop: try a different approach',
+    });
+  }
+
+  // 5+ high/critical in last 10 = escalating
+  const severities = errorHistory.slice(-10);
+  const critCount = severities.filter(e => {
+    const cls = classifyError(e.type); // Re-classify to get severity
+    return cls.severity === 'critical' || cls.severity === 'high';
+  }).length;
+  if (critCount >= 5) {
+    patterns.push({
+      type: 'escalating_errors',
+      signature: 'escalating_severity',
+      description: 'Multiple high-severity errors in succession',
+      severity: 'critical',
+      suggestion: 'Consider pausing and reviewing the approach',
+    });
+  }
+
+  return patterns;
+}
+
+/**
+ * Classify a notification by type and content.
+ * @param {string} type
+ * @param {string} title
+ * @param {string} message
+ * @returns {{ type: string, category: string, severity: string }}
+ */
+function classifyNotification(type, title, message) {
+  if (NOTIFICATION_TYPES[type]) {
+    return { type, ...NOTIFICATION_TYPES[type] };
+  }
+
+  const text = `${title} ${message}`.toLowerCase();
+  if (text.includes('error') || text.includes('failed')) return { type: 'error', ...NOTIFICATION_TYPES.error };
+  if (text.includes('warning') || text.includes('deprecated')) return { type: 'warning', ...NOTIFICATION_TYPES.warning };
+  if (text.includes('timeout') || text.includes('timed out')) return { type: 'timeout', ...NOTIFICATION_TYPES.timeout };
+  if (text.includes('security') || text.includes('vulnerability')) return { type: 'security', ...NOTIFICATION_TYPES.security };
+  if (text.includes('blocked') || text.includes('denied')) return { type: 'blocked', ...NOTIFICATION_TYPES.blocked };
+  if (text.includes('success') || text.includes('completed')) return { type: 'success', ...NOTIFICATION_TYPES.success };
+
+  return { type: 'info', ...NOTIFICATION_TYPES.info };
+}
+
+/**
+ * Detect notification bursts (same type repeatedly in window).
+ * @param {string} type
+ * @returns {{ detected: boolean, type?: string, count?: number, message?: string }}
+ */
+function detectNotificationBurst(type) {
+  const now = Date.now();
+
+  notificationHistory.push({ type, timestamp: now });
+
+  // Prune old entries
+  while (notificationHistory.length > 0 && now - notificationHistory[0].timestamp > BURST_WINDOW_MS) {
+    notificationHistory.shift();
+  }
+
+  const sameType = notificationHistory.filter(n => n.type === type);
+  if (sameType.length >= BURST_THRESHOLD) {
+    return {
+      detected: true,
+      type,
+      count: sameType.length,
+      message: `Notification burst: ${type} (${sameType.length}x in 5min)`,
+    };
+  }
+
+  return { detected: false };
+}
 
 /**
  * Detect danger in a prompt
@@ -740,3 +1217,18 @@ function detectDanger(prompt) {
 
   return null;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TEST EXPORTS — internal state access for testing
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Reset all module-level state for testing isolation */
+export function _resetHandlersForTesting() {
+  activeSubagents.clear();
+  errorHistory.length = 0;
+  notificationHistory.length = 0;
+  consecutiveErrors = 0;
+}
+
+/** Exposed for unit testing */
+export { classifyError, extractErrorContext, classifyNotification, detectNotificationBurst, SUBAGENT_TO_DOG };

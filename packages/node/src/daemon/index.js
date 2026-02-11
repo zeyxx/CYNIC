@@ -220,6 +220,8 @@ export class DaemonServer {
     if (!this.server) return;
 
     return new Promise((resolve) => {
+      // Force-close keep-alive connections (prevents port linger on Windows)
+      this.server.closeAllConnections();
       this.server.close(() => {
         this.server = null;
         this.startTime = null;

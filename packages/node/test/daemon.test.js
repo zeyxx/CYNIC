@@ -4,6 +4,7 @@
  * Tests for daemon server, hook handlers, and HTTP endpoints.
  * Phase 2: service-wiring, watchdog, handleStop, thin stop hook.
  * Phase 3: digest migration — digest-formatter, Q-Learning, markdown export.
+ * Phase 4: thin hooks 12/12 — SubagentStart/Stop, Error, Notification handlers.
  *
  * "Le chien teste le chien" - CYNIC
  */
@@ -15,7 +16,7 @@ import path from 'path';
 import os from 'os';
 
 import { DaemonServer } from '../src/daemon/index.js';
-import { handleHookEvent } from '../src/daemon/hook-handlers.js';
+import { handleHookEvent, _resetHandlersForTesting, classifyError, extractErrorContext, classifyNotification, detectNotificationBurst, SUBAGENT_TO_DOG } from '../src/daemon/hook-handlers.js';
 import { wireDaemonServices, cleanupDaemonServices, isWired, _resetForTesting as resetServiceWiring } from '../src/daemon/service-wiring.js';
 import { Watchdog, HealthLevel, checkRestartSentinel } from '../src/daemon/watchdog.js';
 import { formatRichBanner, formatDigestMarkdown, saveDigest } from '../src/daemon/digest-formatter.js';
@@ -732,15 +733,226 @@ describe('Stop — Digest Integration', () => {
 });
 
 // =============================================================================
+// SUBAGENT HANDLERS — SubagentStart/SubagentStop
+// =============================================================================
+
+describe('SubagentStart/Stop Handlers', () => {
+  beforeEach(() => { _resetHandlersForTesting(); });
+
+  it('should map known subagent type to Sefirot dog', async () => {
+    const result = await handleHookEvent('SubagentStart', {
+      agent_id: 'test-1',
+      subagent_type: 'Explore',
+      prompt: 'Find files',
+      model: 'haiku',
+    });
+    assert.strictEqual(result.continue, true);
+    assert.strictEqual(result.agentInfo.dog, 'SCOUT');
+    assert.strictEqual(result.agentInfo.sefirah, 'Netzach');
+    assert.strictEqual(result.agentInfo.type, 'Explore');
+  });
+
+  it('should default unknown subagent type to CYNIC/Keter', async () => {
+    const result = await handleHookEvent('SubagentStart', {
+      agent_id: 'test-2',
+      subagent_type: 'my-custom-agent',
+    });
+    assert.strictEqual(result.agentInfo.dog, 'CYNIC');
+    assert.strictEqual(result.agentInfo.sefirah, 'Keter');
+  });
+
+  it('should track active subagent and return info on stop', async () => {
+    await handleHookEvent('SubagentStart', {
+      agent_id: 'test-3',
+      subagent_type: 'cynic-guardian',
+    });
+
+    const result = await handleHookEvent('SubagentStop', {
+      agent_id: 'test-3',
+      success: true,
+      duration_ms: 1500,
+    });
+    assert.strictEqual(result.continue, true);
+    assert.strictEqual(result.agentInfo.dog, 'GUARDIAN');
+    assert.ok(result.message.includes('GUARDIAN'));
+    assert.ok(result.message.includes('returns'));
+  });
+
+  it('should handle stop for unknown agent gracefully', async () => {
+    const result = await handleHookEvent('SubagentStop', {
+      agent_id: 'never-started',
+      success: false,
+    });
+    assert.strictEqual(result.continue, true);
+    assert.strictEqual(result.agentInfo.dog, 'UNKNOWN');
+    assert.ok(result.message.includes('issues'));
+  });
+
+  it('should have all expected dog mappings', () => {
+    assert.ok(SUBAGENT_TO_DOG['Explore']);
+    assert.ok(SUBAGENT_TO_DOG['Plan']);
+    assert.ok(SUBAGENT_TO_DOG['cynic-guardian']);
+    assert.ok(SUBAGENT_TO_DOG['cynic-solana-expert']);
+    assert.ok(Object.keys(SUBAGENT_TO_DOG).length >= 18);
+  });
+});
+
+// =============================================================================
+// ERROR HANDLER
+// =============================================================================
+
+describe('Error Handler', () => {
+  beforeEach(() => { _resetHandlersForTesting(); });
+
+  it('should classify known error patterns', () => {
+    assert.strictEqual(classifyError('ENOENT: no such file').type, 'file_not_found');
+    assert.strictEqual(classifyError('SyntaxError: Unexpected token').type, 'syntax_error');
+    assert.strictEqual(classifyError('ECONNREFUSED 127.0.0.1').type, 'connection_refused');
+    assert.strictEqual(classifyError('npm ERR! missing script').type, 'package_manager_error');
+    assert.strictEqual(classifyError('heap out of memory').type, 'out_of_memory');
+    assert.strictEqual(classifyError('429 Too Many Requests').type, 'rate_limit');
+  });
+
+  it('should classify unknown errors as unknown/medium', () => {
+    const cls = classifyError('something weird happened');
+    assert.strictEqual(cls.type, 'unknown');
+    assert.strictEqual(cls.severity, 'medium');
+    assert.strictEqual(cls.recoverable, true);
+  });
+
+  it('should extract file and line from error', () => {
+    const ctx = extractErrorContext('Error at /src/main.js:42:10', {});
+    assert.ok(ctx.file.includes('main.js'));
+    assert.strictEqual(ctx.line, 42);
+  });
+
+  it('should extract command from tool input', () => {
+    const ctx = extractErrorContext('command not found', { command: 'npm run build' });
+    assert.strictEqual(ctx.command, 'npm run build');
+    assert.ok(ctx.suggestion);
+  });
+
+  it('should handle Error event and return classification', async () => {
+    const result = await handleHookEvent('Error', {
+      tool_name: 'Bash',
+      error: 'ENOENT: no such file or directory',
+      tool_input: { command: 'cat missing.txt' },
+    });
+    assert.strictEqual(result.continue, true);
+    assert.strictEqual(result.classification.type, 'file_not_found');
+    assert.strictEqual(result.classification.severity, 'medium');
+    assert.strictEqual(result.consecutiveErrors, 1);
+  });
+
+  it('should track consecutive errors and escalate', async () => {
+    for (let i = 0; i < 5; i++) {
+      await handleHookEvent('Error', { error: 'ENOENT: no such file' });
+    }
+    const result = await handleHookEvent('Error', { error: 'ENOENT again' });
+    assert.strictEqual(result.consecutiveErrors, 6);
+    assert.strictEqual(result.escalation, 'strict');
+  });
+
+  it('should detect repeated error patterns (loop)', async () => {
+    // Trigger same error type 3+ times
+    for (let i = 0; i < 4; i++) {
+      await handleHookEvent('Error', { error: 'SyntaxError: Unexpected token' });
+    }
+    const result = await handleHookEvent('Error', { error: 'SyntaxError: Unexpected (' });
+    assert.ok(result.patterns.length > 0);
+    assert.strictEqual(result.patterns[0].type, 'repeated_error');
+    assert.ok(result.patterns[0].suggestion.includes('different approach'));
+  });
+
+  it('should add message for critical errors', async () => {
+    const result = await handleHookEvent('Error', { error: 'heap out of memory', tool_name: 'Bash' });
+    assert.ok(result.message);
+    assert.ok(result.message.includes('*growl*'));
+  });
+});
+
+// =============================================================================
+// NOTIFICATION HANDLER
+// =============================================================================
+
+describe('Notification Handler', () => {
+  beforeEach(() => { _resetHandlersForTesting(); });
+
+  it('should classify explicit notification types', () => {
+    assert.strictEqual(classifyNotification('error', '', '').severity, 'high');
+    assert.strictEqual(classifyNotification('warning', '', '').severity, 'medium');
+    assert.strictEqual(classifyNotification('security', '', '').severity, 'critical');
+    assert.strictEqual(classifyNotification('info', '', '').severity, 'low');
+  });
+
+  it('should classify by content when type is unknown', () => {
+    const cls = classifyNotification('custom', '', 'Operation failed with errors');
+    assert.strictEqual(cls.type, 'error');
+    assert.strictEqual(cls.severity, 'high');
+  });
+
+  it('should fall back to info for unrecognized content', () => {
+    const cls = classifyNotification('custom', 'hello', 'world');
+    assert.strictEqual(cls.type, 'info');
+    assert.strictEqual(cls.severity, 'low');
+  });
+
+  it('should handle Notification event', async () => {
+    const result = await handleHookEvent('Notification', {
+      type: 'warning',
+      title: 'Deprecation notice',
+      message: 'Function X is deprecated',
+    });
+    assert.strictEqual(result.continue, true);
+    assert.strictEqual(result.classification.type, 'warning');
+    assert.strictEqual(result.classification.category, 'warning');
+  });
+
+  it('should add message for high-severity notifications', async () => {
+    const result = await handleHookEvent('Notification', {
+      type: 'error',
+      title: 'Build failed',
+    });
+    assert.ok(result.message);
+    assert.ok(result.message.includes('*ears perk*'));
+    assert.ok(result.message.includes('ERROR'));
+  });
+
+  it('should detect notification burst', async () => {
+    // Send 5+ same-type notifications
+    for (let i = 0; i < 5; i++) {
+      await handleHookEvent('Notification', { type: 'error', title: `Error ${i}` });
+    }
+    const result = await handleHookEvent('Notification', { type: 'error', title: 'Error 5' });
+    assert.ok(result.burst);
+    assert.strictEqual(result.burst.detected, true);
+    assert.ok(result.burst.count >= 5);
+    assert.ok(result.burst.message.includes('burst'));
+  });
+
+  it('should not detect burst for different types', async () => {
+    await handleHookEvent('Notification', { type: 'error', title: 'E1' });
+    await handleHookEvent('Notification', { type: 'warning', title: 'W1' });
+    await handleHookEvent('Notification', { type: 'info', title: 'I1' });
+    await handleHookEvent('Notification', { type: 'success', title: 'S1' });
+    const result = await handleHookEvent('Notification', { type: 'progress', title: 'P1' });
+    assert.ok(!result.burst);
+  });
+});
+
+// =============================================================================
 // DAEMON SERVER (HTTP integration)
 // =============================================================================
 
 describe('DaemonServer', () => {
   let server;
-  const TEST_PORT = 16180; // Test port to avoid conflicts
+  let testPort;
+  let portCounter = 16180;
 
   beforeEach(async () => {
-    server = new DaemonServer({ port: TEST_PORT, host: '127.0.0.1' });
+    _resetHandlersForTesting();
+    testPort = portCounter++;
+    server = new DaemonServer({ port: testPort, host: '127.0.0.1' });
   });
 
   afterEach(async () => {
@@ -756,7 +968,7 @@ describe('DaemonServer', () => {
   });
 
   it('should construct with custom port', () => {
-    assert.strictEqual(server.port, TEST_PORT);
+    assert.strictEqual(server.port, testPort);
   });
 
   it('should start and stop', async () => {
@@ -772,12 +984,12 @@ describe('DaemonServer', () => {
   it('should respond to /health', async () => {
     await server.start();
 
-    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/health`);
+    const res = await fetch(`http://127.0.0.1:${testPort}/health`);
     assert.strictEqual(res.status, 200);
 
     const health = await res.json();
     assert.strictEqual(health.status, 'healthy');
-    assert.strictEqual(health.port, TEST_PORT);
+    assert.strictEqual(health.port, testPort);
     assert.ok(health.pid > 0);
     assert.ok(health.uptime >= 0);
     assert.ok(health.memoryMB > 0);
@@ -794,7 +1006,7 @@ describe('DaemonServer', () => {
     // Wait for initial check
     await new Promise(r => setTimeout(r, 100));
 
-    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/health`);
+    const res = await fetch(`http://127.0.0.1:${testPort}/health`);
     const health = await res.json();
 
     assert.ok(health.eventLoopLatencyMs !== undefined);
@@ -807,18 +1019,18 @@ describe('DaemonServer', () => {
   it('should respond to /status', async () => {
     await server.start();
 
-    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/status`);
+    const res = await fetch(`http://127.0.0.1:${testPort}/status`);
     assert.strictEqual(res.status, 200);
 
     const status = await res.json();
     assert.ok(status.daemon);
-    assert.strictEqual(status.daemon.port, TEST_PORT);
+    assert.strictEqual(status.daemon.port, testPort);
   });
 
   it('should handle POST /hook/UserPromptSubmit', async () => {
     await server.start();
 
-    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/hook/UserPromptSubmit`, {
+    const res = await fetch(`http://127.0.0.1:${testPort}/hook/UserPromptSubmit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: 'hello world' }),
@@ -832,7 +1044,7 @@ describe('DaemonServer', () => {
   it('should handle POST /hook/PreToolUse — block dangerous command', async () => {
     await server.start();
 
-    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/hook/PreToolUse`, {
+    const res = await fetch(`http://127.0.0.1:${testPort}/hook/PreToolUse`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'rm -rf /' } }),
@@ -847,7 +1059,7 @@ describe('DaemonServer', () => {
   it('should handle POST /hook/PreToolUse — allow safe command', async () => {
     await server.start();
 
-    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/hook/PreToolUse`, {
+    const res = await fetch(`http://127.0.0.1:${testPort}/hook/PreToolUse`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'git status' } }),
@@ -862,7 +1074,7 @@ describe('DaemonServer', () => {
   it('should handle POST /hook/Stop — no ralph-loop', async () => {
     await server.start();
 
-    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/hook/Stop`, {
+    const res = await fetch(`http://127.0.0.1:${testPort}/hook/Stop`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -876,7 +1088,7 @@ describe('DaemonServer', () => {
   it('should return 400 for /llm/ask without prompt', async () => {
     await server.start();
 
-    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/llm/ask`, {
+    const res = await fetch(`http://127.0.0.1:${testPort}/llm/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -889,7 +1101,7 @@ describe('DaemonServer', () => {
   it('should handle /llm/ask with prompt (adapter-dependent)', async () => {
     await server.start();
 
-    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/llm/ask`, {
+    const res = await fetch(`http://127.0.0.1:${testPort}/llm/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: 'test question' }),
@@ -912,7 +1124,7 @@ describe('DaemonServer', () => {
   it('should respond to GET /llm/models', async () => {
     await server.start();
 
-    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/llm/models`);
+    const res = await fetch(`http://127.0.0.1:${testPort}/llm/models`);
     assert.strictEqual(res.status, 200);
 
     const result = await res.json();
@@ -924,7 +1136,7 @@ describe('DaemonServer', () => {
   it('should return 400 for /llm/feedback without required fields', async () => {
     await server.start();
 
-    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/llm/feedback`, {
+    const res = await fetch(`http://127.0.0.1:${testPort}/llm/feedback`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -935,7 +1147,7 @@ describe('DaemonServer', () => {
   it('should accept /llm/feedback with valid fields', async () => {
     await server.start();
 
-    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/llm/feedback`, {
+    const res = await fetch(`http://127.0.0.1:${testPort}/llm/feedback`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ taskType: 'code', model: 'sonnet', success: true }),
@@ -950,7 +1162,7 @@ describe('DaemonServer', () => {
   it('should return 400 for /llm/consensus without prompt', async () => {
     await server.start();
 
-    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/llm/consensus`, {
+    const res = await fetch(`http://127.0.0.1:${testPort}/llm/consensus`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -958,10 +1170,56 @@ describe('DaemonServer', () => {
     assert.strictEqual(res.status, 400);
   });
 
+  it('should handle new hook events via HTTP (Subagent, Error, Notification)', async () => {
+    await server.start();
+
+    // SubagentStart
+    const startRes = await fetch(`http://127.0.0.1:${testPort}/hook/SubagentStart`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent_id: 'http-test', subagent_type: 'Explore' }),
+    });
+    assert.strictEqual(startRes.status, 200);
+    const startResult = await startRes.json();
+    assert.strictEqual(startResult.continue, true);
+    assert.strictEqual(startResult.agentInfo.dog, 'SCOUT');
+
+    // SubagentStop (same agent)
+    const stopRes = await fetch(`http://127.0.0.1:${testPort}/hook/SubagentStop`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent_id: 'http-test', success: true }),
+    });
+    assert.strictEqual(stopRes.status, 200);
+    const stopResult = await stopRes.json();
+    assert.strictEqual(stopResult.agentInfo.dog, 'SCOUT');
+
+    // Error
+    const errRes = await fetch(`http://127.0.0.1:${testPort}/hook/Error`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tool_name: 'Bash', error: 'ENOENT: missing file' }),
+    });
+    assert.strictEqual(errRes.status, 200);
+    const errResult = await errRes.json();
+    assert.strictEqual(errResult.classification.type, 'file_not_found');
+
+    // Notification
+    const notifRes = await fetch(`http://127.0.0.1:${testPort}/hook/Notification`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'warning', title: 'Test notification' }),
+    });
+    assert.strictEqual(notifRes.status, 200);
+    const notifResult = await notifRes.json();
+    assert.strictEqual(notifResult.classification.type, 'warning');
+    assert.strictEqual(notifResult.classification.severity, 'medium');
+  });
+
   it('should handle unknown hook events', async () => {
     await server.start();
 
-    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/hook/UnknownEvent`, {
+    const res = await fetch(`http://127.0.0.1:${testPort}/hook/UnknownEvent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),

@@ -1,6 +1,6 @@
 {
   "_comment": "THIN HOOKS — delegates to CYNIC daemon via HTTP. Auto-starts daemon on first use.",
-  "_coverage": "12/12 Claude Code hook events covered (6 via daemon, 6 via legacy)",
+  "_coverage": "12/12 Claude Code hook events covered (10 via daemon, 2 standalone)",
   "_migration": "Copy this file to hooks.json to activate thin hooks. Revert to hooks-legacy.json for fat hooks.",
   "hooks": {
     "SessionStart": [
@@ -96,7 +96,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/spawn.js start || true",
+            "command": "node scripts/hooks/thin/spawn.js start || true",
             "timeout": 5
           }
         ]
@@ -108,7 +108,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/spawn.js stop || true",
+            "command": "node scripts/hooks/thin/spawn.js stop || true",
             "timeout": 5
           }
         ]
@@ -120,7 +120,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/error.js || true",
+            "command": "node scripts/hooks/thin/error.js || true",
             "timeout": 5
           }
         ]
@@ -132,7 +132,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/notify.js || true",
+            "command": "node scripts/hooks/thin/notify.js || true",
             "timeout": 5
           }
         ]
