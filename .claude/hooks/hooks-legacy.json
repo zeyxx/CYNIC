@@ -1,7 +1,6 @@
 {
-  "_comment": "THIN HOOKS — delegates to CYNIC daemon via HTTP. Auto-starts daemon on first use.",
-  "_coverage": "12/12 Claude Code hook events covered (5 via daemon, 7 via legacy)",
-  "_migration": "Copy this file to hooks.json to activate thin hooks. Revert to hooks-legacy.json for fat hooks.",
+  "_comment": "Using project-relative paths - assumes hooks run from project root",
+  "_coverage": "12/12 Claude Code hook events covered",
   "hooks": {
     "SessionStart": [
       {
@@ -14,7 +13,7 @@
           },
           {
             "type": "command",
-            "command": "node scripts/hooks/thin/awaken.js || true",
+            "command": "node scripts/hooks/awaken.js || true",
             "timeout": 15
           }
         ]
@@ -26,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/thin/sleep.js || true",
+            "command": "node scripts/hooks/sleep.js || true",
             "timeout": 10
           }
         ]
@@ -38,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/thin/perceive.js || true",
+            "command": "node scripts/hooks/perceive.js || true",
             "timeout": 10
           }
         ]
@@ -50,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/thin/guard.js || true",
+            "command": "node scripts/hooks/guard.js || true",
             "timeout": 5
           }
         ]
@@ -62,7 +61,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/thin/observe.js || true",
+            "command": "node scripts/hooks/observe.js || true",
             "timeout": 5
           }
         ]
