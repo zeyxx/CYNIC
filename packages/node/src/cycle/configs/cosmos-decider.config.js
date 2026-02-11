@@ -88,7 +88,9 @@ export const cosmosDeciderConfig = {
   },
 
   updateExtraStats(stats, result) {
-    if (result.decision === CosmosDecisionType.INTERVENE) stats.goalViolations++;
+    if (result.decision === CosmosDecisionType.INTERVENE || result.verdict === 'BARK') {
+      stats.goalViolations++;
+    }
   },
 
   getHealth(decider) {

@@ -833,6 +833,8 @@ export function startEventListeners(options = {}) {
     cynicAccountant,
     codeAccountant,
     socialAccountant,
+    socialDecider,
+    socialActor,
     cosmosAccountant,
     humanActor,
     // Cosmos pipeline singletons (C7.2-C7.5)
@@ -3756,6 +3758,81 @@ export function startEventListeners(options = {}) {
       }
     );
     _unsubscribers.push(unsubSocialJudgmentPersist);
+  }
+
+  // 7a². social:judgment → SocialDecider → social:decision (C4.3)
+  // Pattern: social judgment → decide response → publish decision → downstream SocialActor
+  if (socialDecider) {
+    const unsubSocialDecision = globalEventBus.subscribe(
+      'social:judgment',
+      (event) => {
+        try {
+          const judgment = event.payload || {};
+          if (!judgment.score && judgment.score !== 0) return;
+
+          const result = socialDecider.decide(judgment, {
+            sessionId: context.sessionId || null,
+          });
+
+          if (result) {
+            _stats.socialDecisions = (_stats.socialDecisions || 0) + 1;
+          }
+        } catch (err) {
+          log.debug('social:judgment → social:decision failed', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubSocialDecision);
+    log.info('SocialDecider (C4.3) wired: social:judgment → social:decision');
+  }
+
+  // 7a³. social:decision → SocialActor → social:action (C4.4)
+  // Pattern: social decision → execute advisory action → emit social:action
+  if (socialActor && socialDecider) {
+    const unsubSocialAction = globalEventBus.subscribe(
+      'social:decision',
+      (event) => {
+        try {
+          const decision = event.payload || {};
+          if (!decision.decision) return;
+
+          const result = socialActor.act(decision, {
+            sessionId: context.sessionId || null,
+          });
+
+          if (result) {
+            _stats.socialActions = (_stats.socialActions || 0) + 1;
+
+            // Feed outcome back to decider for calibration
+            socialDecider.recordOutcome({
+              decisionType: decision.decision,
+              result: 'success',
+              reason: 'action_delivered',
+            });
+
+            // Persist to unified_signals
+            if (persistence?.query) {
+              const id = `soa_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+              persistence.query(`
+                INSERT INTO unified_signals (id, source, session_id, input, outcome, metadata)
+                VALUES ($1, $2, $3, $4, $5, $6)
+              `, [
+                id, 'social_action', context.sessionId || null,
+                JSON.stringify({ decision: decision.decision, verdict: decision.verdict }),
+                JSON.stringify({ action: result.type, urgency: result.urgency }),
+                JSON.stringify({ cell: 'C4.4', message: result.message?.slice(0, 200) }),
+              ]).catch(err => {
+                log.debug('social:action persistence failed', { error: err.message });
+              });
+            }
+          }
+        } catch (err) {
+          log.debug('social:decision → social:action failed', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubSocialAction);
+    log.info('SocialActor (C4.4) wired: social:decision → social:action');
   }
 
   // 7b. CYNIC_STATE → cynic:judgment: Self-assessment of collective health (C6.2)

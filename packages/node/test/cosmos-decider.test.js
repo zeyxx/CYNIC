@@ -241,7 +241,7 @@ describe('CosmosDecider', () => {
   describe('getStats', () => {
     it('returns initial stats', () => {
       const stats = decider.getStats();
-      assert.equal(stats.totalDecisions, 0);
+      assert.equal(stats.decisionsTotal, 0);
       assert.equal(stats.goalViolations, 0);
       assert.equal(stats.stabilityHolds, 0);
     });
@@ -249,7 +249,7 @@ describe('CosmosDecider', () => {
     it('tracks decisions by type', () => {
       decider.decide({ score: 60, verdict: 'WAG', type: 'unknown' }, { observationCount: 5 });
       const stats = decider.getStats();
-      assert.equal(stats.totalDecisions, 1);
+      assert.equal(stats.decisionsTotal, 1);
     });
   });
 

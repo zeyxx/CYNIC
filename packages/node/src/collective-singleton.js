@@ -63,6 +63,8 @@ import { getHomeostasisTracker } from './organism/homeostasis.js';
 import { getCynicAccountant, resetCynicAccountant } from './accounting/cynic-accountant.js';
 import { getCodeAccountant, resetCodeAccountant } from './accounting/code-accountant.js';
 import { getSocialAccountant, resetSocialAccountant } from './accounting/social-accountant.js';
+import { getSocialDecider, resetSocialDecider } from './social/social-decider.js';
+import { getSocialActor, resetSocialActor } from './social/social-actor.js';
 import { getCosmosAccountant, resetCosmosAccountant } from './accounting/cosmos-accountant.js';
 import { getCostLedger, resetCostLedger } from './accounting/cost-ledger.js';
 import { getModelIntelligence, resetModelIntelligence } from './learning/model-intelligence.js';
@@ -398,6 +400,20 @@ let _codeAccountant = null;
  * @type {import('./accounting/social-accountant.js').SocialAccountant|null}
  */
 let _socialAccountant = null;
+
+/**
+ * C4.3 (SOCIAL × DECIDE): SocialDecider singleton
+ * Decides social actions based on social:judgment events
+ * @type {import('./social/social-decider.js').SocialDecider|null}
+ */
+let _socialDecider = null;
+
+/**
+ * C4.4 (SOCIAL × ACT): SocialActor singleton
+ * Executes advisory social actions
+ * @type {import('./social/social-actor.js').SocialActor|null}
+ */
+let _socialActor = null;
 
 /**
  * C7.6 (COSMOS × ACCOUNT): CosmosAccountant singleton
@@ -814,6 +830,8 @@ export function getCollectivePack(options = {}) {
     _cynicAccountant = getCynicAccountant();
     _codeAccountant = getCodeAccountant();
     _socialAccountant = getSocialAccountant();
+    _socialDecider = getSocialDecider();
+    _socialActor = getSocialActor();
     _cosmosAccountant = getCosmosAccountant();
     _costLedger = getCostLedger();
     _modelIntelligence = getModelIntelligence();
@@ -856,6 +874,8 @@ export function getCollectivePack(options = {}) {
         cynicAccountant: _cynicAccountant,
         codeAccountant: _codeAccountant,
         socialAccountant: _socialAccountant,
+        socialDecider: _socialDecider,
+        socialActor: _socialActor,
         cosmosAccountant: _cosmosAccountant,
         humanActor: _humanActor,
         // Cosmos pipeline singletons (C7.2-C7.5)
@@ -1073,6 +1093,8 @@ export async function getCollectivePackAsync(options = {}) {
         cynicAccountant: _cynicAccountant,
         codeAccountant: _codeAccountant,
         socialAccountant: _socialAccountant,
+        socialDecider: _socialDecider,
+        socialActor: _socialActor,
         cosmosAccountant: _cosmosAccountant,
         humanActor: _humanActor,
         // Cosmos pipeline singletons (C7.2-C7.5)
@@ -2158,6 +2180,12 @@ export function getCynicAccountantSingleton() { return _cynicAccountant; }
  */
 export function getCodeAccountantSingleton() { return _codeAccountant; }
 
+/** C4.3: Get SocialDecider singleton @returns {import('./social/social-decider.js').SocialDecider|null} */
+export function getSocialDeciderSingleton() { return _socialDecider; }
+
+/** C4.4: Get SocialActor singleton @returns {import('./social/social-actor.js').SocialActor|null} */
+export function getSocialActorSingleton() { return _socialActor; }
+
 /** C4.6: Get SocialAccountant singleton @returns {import('./accounting/social-accountant.js').SocialAccountant|null} */
 export function getSocialAccountantSingleton() { return _socialAccountant; }
 
@@ -2353,6 +2381,8 @@ export function _resetForTesting() {
   if (_cynicAccountant) { resetCynicAccountant(); _cynicAccountant = null; }
   if (_codeAccountant) { resetCodeAccountant(); _codeAccountant = null; }
   if (_socialAccountant) { resetSocialAccountant(); _socialAccountant = null; }
+  if (_socialDecider) { resetSocialDecider(); _socialDecider = null; }
+  if (_socialActor) { resetSocialActor(); _socialActor = null; }
   if (_cosmosAccountant) { resetCosmosAccountant(); _cosmosAccountant = null; }
   if (_costLedger) { resetCostLedger(); _costLedger = null; }
   if (_modelIntelligence) { resetModelIntelligence(); _modelIntelligence = null; }

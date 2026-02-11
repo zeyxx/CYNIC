@@ -639,9 +639,15 @@ async function main() {
     const user = detectUser();
     const profile = loadUserProfile(user.userId);
 
-    const classification = classifyPrompt(prompt, {
-      sessionCount: profile.stats?.sessions || 0,
-    });
+    let classification;
+    try {
+      classification = classifyPrompt(prompt, {
+        sessionCount: profile.stats?.sessions || 0,
+      });
+    } catch {
+      // Fallback: graceful degradation if classifier fails
+      classification = { skip: false, intent: 'general', intents: [], domains: {}, topDomains: [], complexity: 'moderate', tokenBudget: 800 };
+    }
 
     // Smart skip: trivial prompts ("ok", "yes", "/cmd", single chars) get no injection
     if (classification.skip || prompt.length < DC.LENGTH.MIN_PROMPT) {
@@ -1816,7 +1822,7 @@ async function main() {
         complexity: classification.complexity,
         tokenBudget: classification.tokenBudget,
         adjustedBudget,
-        governorZone: measurement?.zone || 'fresh',
+        governorZone: governor.getState().currentZone || 'fresh',
       },
       // Include orchestration decision
       orchestration: orchestration ? {
@@ -1962,6 +1968,7 @@ async function main() {
     process.exit(0);
 
   } catch (error) {
+    process.stderr.write(`[PERCEIVE] OUTER CATCH: ${error.message}\n${error.stack?.slice(0, 500)}\n`);
     logger.error('Hook failed', { error: error.message });
     try { contextCompressor.stop(); } catch { /* non-blocking */ }
     try { injectionProfile.stop(); } catch { /* non-blocking */ }
