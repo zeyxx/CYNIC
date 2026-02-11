@@ -14,6 +14,7 @@
 import express from 'express';
 import { createLogger, PHI_INV, processRegistry } from '@cynic/core';
 import { handleHookEvent } from './hook-handlers.js';
+import { setupLLMEndpoints } from './llm-endpoints.js';
 
 const log = createLogger('Daemon');
 
@@ -135,13 +136,8 @@ export class DaemonServer {
       }
     });
 
-    // LLM ask — Phase 2 stub
-    this.app.post('/llm/ask', (req, res) => {
-      res.status(501).json({
-        error: 'Not implemented',
-        message: 'LLM independence is Phase 2 — coming next session',
-      });
-    });
+    // LLM endpoints — Phase 2: CYNIC calls LLMs directly
+    setupLLMEndpoints(this.app);
   }
 
   /**
@@ -168,7 +164,7 @@ export class DaemonServer {
           processRegistry.announce({
             mode: 'daemon',
             endpoint: `http://${this.host}:${this.port}`,
-            capabilities: ['hooks', 'health', 'status'],
+            capabilities: ['hooks', 'health', 'status', 'llm'],
             meta: { version: '0.1.0' },
           });
         } catch (err) {

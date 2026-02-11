@@ -35,5 +35,12 @@ export {
   createGeminiValidator,
 } from './gemini.js';
 
+// Anthropic adapter (direct API calls — CYNIC's primary brain)
+export {
+  AnthropicAdapter,
+  createAnthropicValidator,
+  MODEL_MAP as AnthropicModelMap,
+} from './anthropic.js';
+
 // Re-export types for convenience
 export { LLMResponse, ConsensusResult } from '../types.js';

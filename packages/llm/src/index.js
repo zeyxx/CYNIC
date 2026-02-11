@@ -34,6 +34,9 @@ export {
   createOpenAIValidator,
   createAirLLMValidator,
   checkAirLLMAvailability,
+  AnthropicAdapter,
+  createAnthropicValidator,
+  AnthropicModelMap,
 } from './adapters/index.js';
 
 // Router (now standalone in @cynic/llm)

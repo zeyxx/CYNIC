@@ -19,7 +19,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { createLogger, PHI_INV } from '@cynic/core';
 import { ConsensusResult, ExecutionTier } from './types.js';
-import { ClaudeCodeAdapter, createOllamaValidator, createLMStudioValidator, createAirLLMValidator, createGeminiValidator } from './adapters/index.js';
+import { ClaudeCodeAdapter, createOllamaValidator, createLMStudioValidator, createAirLLMValidator, createGeminiValidator, createAnthropicValidator } from './adapters/index.js';
 import { calculateSemanticAgreement, SimilarityThresholds } from './similarity.js';
 
 const log = createLogger('LLMRouter');
@@ -264,8 +264,9 @@ export class LLMRouter extends EventEmitter {
         // Prefer small models
         return validators.find(v => v.model?.includes('gemma') || v.model?.includes('qwen')) || validators[0];
       case ExecutionTier.FULL:
-        // Prefer Gemini for FULL tier (design/UI tasks), then medium Ollama models
-        return validators.find(v => v.provider === 'gemini') ||
+        // Prefer Anthropic for FULL tier (primary brain), then Gemini, then medium Ollama
+        return validators.find(v => v.provider === 'anthropic') ||
+               validators.find(v => v.provider === 'gemini') ||
                validators.find(v => v.model?.includes('mistral') || v.model?.includes('llama')) || validators[0];
       case ExecutionTier.DEEP:
         // Prefer AirLLM
@@ -506,6 +507,15 @@ export async function createValidatorsFromEnv() {
             log.info('Created Gemini validator from env');
           } else {
             log.warn('Gemini in CYNIC_VALIDATORS but GEMINI_API_KEY not set');
+          }
+          break;
+        case 'anthropic':
+        case 'claude':
+          if (process.env.ANTHROPIC_API_KEY) {
+            validators.push(createAnthropicValidator());
+            log.info('Created Anthropic validator from env');
+          } else {
+            log.warn('Anthropic in CYNIC_VALIDATORS but ANTHROPIC_API_KEY not set');
           }
           break;
         default:
