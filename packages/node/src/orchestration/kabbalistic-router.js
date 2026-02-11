@@ -334,6 +334,9 @@ export class KabbalisticRouter {
     this._consciousnessState = "AWARE";
     this._awarenessLevel = 0.5;
 
+    // Cost state tracking (from cost:update events)
+    this._costState = { level: 'abundant', velocity: 0, tokensPerMinute: 0 };
+
     // Track consultation history for circuit breaker
     this.consultationHistory = new Map();
 
@@ -547,6 +550,8 @@ export class KabbalisticRouter {
       antifragility,
       // B4: Non-commutative order awareness
       nonCommutative,
+      // Cost awareness (from CostLedger events)
+      costState: this._costState,
     };
 
     // 4. Execute Lightning Flash traversal
@@ -776,6 +781,35 @@ export class KabbalisticRouter {
     }
   }
 
+  /**
+   * Subscribe to cost updates from CostLedger
+   * Budget gate: reduce routing depth when budget is tight
+   *
+   * @param {Object} eventBus - Event bus to subscribe to
+   */
+  subscribeCostUpdates(eventBus) {
+    if (eventBus?.subscribe) {
+      eventBus.subscribe('cost:update', (event) => {
+        try {
+          const { burnRate, budget } = event.payload || {};
+          this._costState = {
+            level: budget?.level || 'abundant',
+            velocity: burnRate?.velocity || 0,
+            tokensPerMinute: burnRate?.tokensPerMinute || 0,
+          };
+          if (this._costState.level === 'critical' || this._costState.level === 'exhausted') {
+            log.info('Cost gate active — reducing routing depth', {
+              level: this._costState.level,
+              velocity: this._costState.velocity,
+            });
+          }
+        } catch (e) {
+          // Non-blocking
+        }
+      });
+    }
+  }
+
   getPath(taskType, temporalContext = null) {
     // Hardcoded fallback in case LIGHTNING_PATHS isn't loaded due to circular deps
     const hardcodedDefault = ['guardian', 'analyst', 'oracle'];
@@ -800,6 +834,22 @@ export class KabbalisticRouter {
           gatedPath,
         });
         return gatedPath;
+      }
+    }
+
+    // Cost gate: truncate path when budget is critical/exhausted
+    if (this._costState.level === 'critical' || this._costState.level === 'exhausted') {
+      const fullPath = LIGHTNING_PATHS?.[taskType] || LIGHTNING_PATHS?.default || hardcodedDefault;
+      const safePath = Array.isArray(fullPath) ? fullPath : hardcodedDefault;
+      // Keep only first 2 dogs (guardian + primary) — skip consultations
+      const truncated = safePath.slice(0, 2);
+      if (truncated.length > 0) {
+        log.info('Cost gate active — truncating path', {
+          level: this._costState.level,
+          originalLength: safePath.length,
+          truncatedLength: truncated.length,
+        });
+        return truncated;
       }
     }
 
@@ -1499,6 +1549,9 @@ export class KabbalisticRouter {
     if (this.costOptimizer) {
       stats.cost = this.costOptimizer.getStats();
     }
+
+    // Cost state from CostLedger events
+    stats.costState = this._costState;
 
     // D1: Thompson Sampler stats
     stats.thompson = this.thompsonSampler.getStats();

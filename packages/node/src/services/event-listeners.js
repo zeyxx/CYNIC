@@ -1552,6 +1552,39 @@ export function startEventListeners(options = {}) {
     _unsubscribers.push(unsubCostSessionEnd);
   }
 
+  // 3d. COST_UPDATE → pattern:detected: Burn rate spike detection
+  //     When token velocity crosses φ⁻¹, emit as anomaly pattern for emergence/learning.
+  if (costLedger) {
+    let _lastCostAlertLevel = 'abundant';
+    const unsubCostSpike = globalEventBus.subscribe(
+      EventType.COST_UPDATE,
+      (event) => {
+        try {
+          const { burnRate, budget } = event.payload || {};
+          const level = budget?.level || 'abundant';
+          const velocity = burnRate?.velocity || 0;
+
+          // Emit pattern when budget transitions to critical/exhausted (one-shot per transition)
+          if ((level === 'critical' || level === 'exhausted') && _lastCostAlertLevel !== level) {
+            globalEventBus.publish(EventType.PATTERN_DETECTED, {
+              category: 'cost_spike',
+              significance: level === 'exhausted' ? 'critical' : 'high',
+              subject: `Token burn rate spike: budget=${level}, velocity=${(velocity * 100).toFixed(1)}%`,
+              data: { level, velocity, tokensPerMinute: burnRate?.tokensPerMinute || 0 },
+            }, { source: 'cost-update-bridge' });
+            log.info('Cost spike pattern emitted', { level, velocity });
+          }
+
+          _lastCostAlertLevel = level;
+          _stats.costUpdateEvents = (_stats.costUpdateEvents || 0) + 1;
+        } catch (err) {
+          log.debug('cost:update → pattern:detected bridge failed', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubCostSpike);
+  }
+
   // 3b½. SOCIAL_CAPTURE → SocialAccountant: Track social interaction economics (C4.6)
   if (socialAccountant) {
     const unsubSocialAccounting = globalEventBus.subscribe(

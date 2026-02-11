@@ -172,7 +172,9 @@ export class InitializationPipeline {
       }
       // Fix 3: Subscribe router to consciousness state changes
       s.kabbalisticRouter.subscribeConsciousness?.(globalEventBus);
-      console.error('   KabbalisticRouter: wired (Lightning Flash active, consciousness-gated)');
+      // Cost gate: subscribe router to CostLedger budget/velocity updates
+      s.kabbalisticRouter.subscribeCostUpdates?.(globalEventBus);
+      console.error('   KabbalisticRouter: wired (Lightning Flash active, consciousness-gated, cost-gated)');
     }
   }
 
