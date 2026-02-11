@@ -1836,7 +1836,33 @@ export function startEventListeners(options = {}) {
       }
     });
 
-    log.info('CodeLearner (C1.5) wired: decisions + feedback + DPO persistence');
+    // 3c⅞b. code:learning → homeostasis + unified_signals (C1.5 downstream)
+    const unsubCodeLearning = globalEventBus.subscribe(
+      'code:learning',
+      (event) => {
+        try {
+          const d = event.payload || event;
+
+          // Feed learning rate to homeostasis
+          if (homeostasis) {
+            const matchRate = codeLearner.getHealth?.()?.matchRate ?? 0.5;
+            homeostasis.update('codeLearningRate', matchRate);
+            _stats.homeostasisObservations++;
+          }
+
+          // Wire to CodeActor.recordResponse() — feedback on recent actions
+          if (codeActor?.recordResponse && d.decisionType) {
+            const response = d.outcome === 'success' ? 'acted' : 'dismiss';
+            codeActor.recordResponse(d.decisionType, response);
+          }
+        } catch (err) {
+          log.debug('code:learning downstream handler error', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubCodeLearning);
+
+    log.info('CodeLearner (C1.5) wired: decisions + feedback + DPO persistence + downstream');
   }
 
   // 3d. CYNIC_STATE → HumanActor: Trigger intervention on burnout risk
