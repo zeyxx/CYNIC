@@ -119,9 +119,47 @@ export class CostLedger extends EventEmitter {
     // Load persisted state
     this._lifetime = this._loadLifetime();
 
+    // Velocity alarm history (for pattern detection)
+    this._velocityAlarms = [];
+
+    // Wire event listeners
+    this._wireEvents();
+
     log.debug('CostLedger initialized', {
       model: this._currentModel,
       budget: this._sessionBudget,
+    });
+  }
+
+  /**
+   * Wire event listeners for velocity tracking.
+   * Closes orphan loop: velocity:alarm → record for historical analysis
+   * @private
+   */
+  _wireEvents() {
+    globalEventBus.on('velocity:alarm', (data) => {
+      const { velocity, trend, tokensPerMinute, action } = data;
+      const alarm = {
+        timestamp: Date.now(),
+        velocity,
+        trend,
+        tokensPerMinute,
+        action,
+        budgetStatus: this.getBudgetStatus().level,
+      };
+      this._velocityAlarms.push(alarm);
+
+      // Keep last 21 alarms (F(8))
+      if (this._velocityAlarms.length > 21) {
+        this._velocityAlarms.shift();
+      }
+
+      log.info('Velocity alarm recorded', {
+        velocity: (velocity * 100).toFixed(1) + '%',
+        trend,
+        tokensPerMinute,
+        alarmCount: this._velocityAlarms.length,
+      });
     });
   }
 

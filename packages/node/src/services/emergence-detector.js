@@ -15,7 +15,7 @@
 'use strict';
 
 import { EventEmitter } from 'events';
-import { PHI_INV, PHI_INV_2 } from '@cynic/core';
+import { PHI_INV, PHI_INV_2, globalEventBus } from '@cynic/core';
 import { createLogger } from '@cynic/core';
 
 const log = createLogger('EmergenceDetector');
@@ -100,6 +100,80 @@ export class EmergenceDetector extends EventEmitter {
       notificationsSent: 0,
       startedAt: null,
     };
+
+    // Event tracking for emergence detection
+    this._velocitySpikes = [];
+    this._learningCycles = [];
+
+    // Wire event listeners
+    this._wireEvents();
+  }
+
+  /**
+   * Wire event listeners for emergence detection.
+   * Closes orphan loops: velocity:alarm, learning:cycle:complete
+   * @private
+   */
+  _wireEvents() {
+    // velocity:alarm → detect velocity spike patterns
+    globalEventBus.on('velocity:alarm', (data) => {
+      this._velocitySpikes.push({
+        timestamp: Date.now(),
+        velocity: data.velocity,
+        trend: data.trend,
+        tokensPerMinute: data.tokensPerMinute,
+      });
+
+      // Keep last 34 spikes (F(9))
+      if (this._velocitySpikes.length > 34) {
+        this._velocitySpikes.shift();
+      }
+
+      // Detect spike clustering (3+ in 10 minutes = pattern)
+      const recentSpikes = this._velocitySpikes.filter(
+        s => Date.now() - s.timestamp < 10 * 60 * 1000
+      );
+      if (recentSpikes.length >= 3) {
+        log.warn('Velocity spike pattern detected', {
+          spikesIn10Min: recentSpikes.length,
+          avgVelocity: recentSpikes.reduce((sum, s) => sum + s.velocity, 0) / recentSpikes.length,
+        });
+        this.emit('pattern:detected', {
+          type: 'velocity_clustering',
+          significance: recentSpikes.length >= 5 ? 'high' : 'medium',
+          spikes: recentSpikes.length,
+        });
+      }
+    });
+
+    // learning:cycle:complete → detect learning convergence patterns
+    globalEventBus.on('learning:cycle:complete', (data) => {
+      this._learningCycles.push({
+        timestamp: Date.now(),
+        module: data.module,
+        converged: data.converged,
+        maturity: data.maturity,
+      });
+
+      // Keep last 55 cycles (F(10))
+      if (this._learningCycles.length > 55) {
+        this._learningCycles.shift();
+      }
+
+      // Detect learning stagnation (5+ non-converged in a row)
+      const recent = this._learningCycles.slice(-5);
+      if (recent.length === 5 && recent.every(c => !c.converged)) {
+        log.warn('Learning stagnation detected', {
+          module: data.module,
+          lastConverged: this._learningCycles.findLast(c => c.converged)?.timestamp || 'never',
+        });
+        this.emit('pattern:detected', {
+          type: 'learning_stagnation',
+          significance: 'high',
+          module: data.module,
+        });
+      }
+    });
   }
 
   /**

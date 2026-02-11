@@ -505,6 +505,22 @@ export class KabbalisticRouter {
       await new Promise(resolve => setTimeout(resolve, throttleMs));
     }
 
+    // Model recommendation: use budget-aware suggestion if available (and no forced tier)
+    if (!forcedTier && this._recommendedModel) {
+      // Map model name to tier: opus→FULL, sonnet→MEDIUM, haiku→LIGHT
+      const modelToTier = {
+        opus: 'FULL',
+        sonnet: 'MEDIUM',
+        haiku: 'LIGHT',
+        ollama: 'LOCAL',
+      };
+      const recommendedTier = modelToTier[this._recommendedModel];
+      if (recommendedTier) {
+        forcedTier = recommendedTier;
+        log.debug('Using model recommendation', { model: this._recommendedModel, tier: recommendedTier });
+      }
+    }
+
     // 0. Cost optimization check (if enabled)
     let costOptimization = null;
     if (this.costOptimizer) {
