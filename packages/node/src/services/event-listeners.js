@@ -1129,6 +1129,30 @@ export function startEventListeners(options = {}) {
     log.info('Dimension governance listener wired (WS6)');
   }
 
+  // Fix #6½: CALIBRATION_DRIFT_DETECTED → PATTERN_DETECTED: Bridge learning→emergence
+  // When CalibrationTracker detects confidence drift, republish as a pattern for the emergence pipeline.
+  {
+    const unsubCalibDrift = globalEventBus.subscribe(
+      EventType.CALIBRATION_DRIFT_DETECTED,
+      (event) => {
+        try {
+          const d = event.payload || event;
+          globalEventBus.publish(EventType.PATTERN_DETECTED, {
+            source: 'CalibrationTracker',
+            key: 'calibration_drift',
+            category: 'learning',
+            significance: d.ece > 0.15 ? 'high' : 'medium',
+            subject: `Calibration drift: ECE=${(d.ece || 0).toFixed(3)} (threshold ${(d.threshold || 0).toFixed(3)})`,
+            data: { ece: d.ece, threshold: d.threshold, totalSamples: d.totalSamples },
+          }, { source: 'calibration-drift-bridge' });
+        } catch (err) {
+          log.debug('calibration:drift → pattern:detected bridge failed', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubCalibDrift);
+  }
+
   // Fix #6: EmergenceDetector significant patterns → persistence
   // EmergenceDetector publishes PATTERN_DETECTED on globalEventBus (bridged via collective-singleton).
   // Persist HIGH/CRITICAL significance patterns to unified_signals for learning loops.
@@ -2247,6 +2271,34 @@ export function startEventListeners(options = {}) {
     log.info('HomeostasisTracker (C6.1) wired to JUDGMENT_CREATED + CYNIC_STATE + PATTERN_DETECTED + CONSCIOUSNESS_CHANGED + CONSENSUS_COMPLETED + decisions');
   }
 
+  // 3g½. cynic:decision → CynicActor: Execute self-governance decisions (C6.3→C6.4)
+  if (cynicActor?.processDecision) {
+    const unsubCynicDecisionAction = globalEventBus.subscribe(
+      'cynic:decision',
+      (event) => {
+        try {
+          const decision = event.payload || event;
+          if (!decision?.type || decision.type === 'acknowledge') return;
+
+          const actions = cynicActor.processDecision(decision);
+          _stats.cynicSelfHealActions = (_stats.cynicSelfHealActions || 0) + actions.length;
+
+          // Publish cynic:action for chain completeness (same pattern as cosmos:action)
+          if (actions.length > 0) {
+            globalEventBus.publish('cynic:action', {
+              source: 'CynicActor',
+              decision: { type: decision.type, urgency: decision.urgency },
+              actions: actions.map(a => ({ type: a.type || a.action, reason: a.reason })),
+            }, { source: 'event-listeners' });
+          }
+        } catch (err) {
+          log.debug('cynic:decision → CynicActor failed', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubCynicDecisionAction);
+  }
+
   // 3h. SESSION_STARTED/ENDED + USER_FEEDBACK → HumanAccountant (C5.6)
   if (humanAccountant) {
     // Session start tracking
@@ -2364,11 +2416,7 @@ export function startEventListeners(options = {}) {
         if (decision && decision.type !== 'acknowledge') {
           _stats.cynicDecisions = (_stats.cynicDecisions || 0) + 1;
 
-          // Feed ALL actionable decisions to CynicActor (C6.4 bridge)
-          if (cynicActor?.processDecision) {
-            const actions = cynicActor.processDecision(decision);
-            _stats.cynicSelfHealActions = (_stats.cynicSelfHealActions || 0) + actions.length;
-          }
+          // CynicActor bridge now handled via cynic:decision event subscriber (below)
 
           // Persist decision to unified_signals
           if (persistence?.query) {
@@ -2406,11 +2454,7 @@ export function startEventListeners(options = {}) {
           if (decision) {
             _stats.cynicDecisions = (_stats.cynicDecisions || 0) + 1;
 
-            // Forward to CynicActor for execution (C6.4)
-            if (cynicActor?.processDecision) {
-              const actions = cynicActor.processDecision(decision);
-              _stats.cynicSelfHealActions = (_stats.cynicSelfHealActions || 0) + actions.length;
-            }
+            // CynicActor bridge now handled via cynic:decision event subscriber (below)
 
             // Persist consciousness decision to unified_signals
             if (persistence?.query) {
