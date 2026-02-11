@@ -91,6 +91,11 @@ const PATTERNS = {
   autoPublish: /getEventBus\(\)\.publish\(\s*(?:EventType\.(\w+)|['"]([^'"]+)['"])/g,
   autoSubscribe: /getEventBus\(\)\.(?:subscribe|on)\(\s*(?:EventType\.(\w+)|['"]([^'"]+)['"])/g,
 
+  // Instance bus: this.eventBus (may be globalEventBus, getEventBus(), or AgentEventBus)
+  // Group 1 captures the FULL constant ref (e.g. SolanaEventType.SLOT_CHANGE)
+  instancePublish: /this\.eventBus\.(?:publish|emit)\(\s*(?:(\w+EventType\.\w+|EventType\.\w+)|['"]([^'"]+)['"])/g,
+  instanceSubscribe: /this\.eventBus\.(?:subscribe|on)\(\s*(?:(\w+EventType\.\w+|EventType\.\w+)|['"]([^'"]+)['"])/g,
+
   // EventType enum definition
   eventTypeDef: /(\w+)\s*:\s*['"]([^'"]+)['"]/g,
 };
@@ -121,10 +126,15 @@ function parseFile(filePath) {
     while ((m = re.exec(content)) !== null) {
       const constName = m[1];
       const literal = m[2];
-      // For localEmit/localOn, group 1 is the literal directly
-      const event = patternKey.startsWith('local')
-        ? m[1]
-        : (literal || `EventType.${constName}`);
+      let event;
+      if (patternKey.startsWith('local')) {
+        event = m[1];
+      } else if (patternKey.startsWith('instance') && constName) {
+        // Instance patterns: group 1 is full ref like SolanaEventType.SLOT_CHANGE
+        event = constName;
+      } else {
+        event = literal || `EventType.${constName}`;
+      }
       const line = lineOf(m[0]);
       const entry = { event, bus, line, file: rel };
 
@@ -151,6 +161,13 @@ function parseFile(filePath) {
   extract('localEmit', 'local', 'pub');
   extract('localOn', 'local', 'sub');
 
+  // Instance bus (this.eventBus) — only count if file uses globalEventBus
+  const usesGlobalBus = /import\s+.*globalEventBus/.test(content) || /this\.eventBus\s*=.*globalEventBus/.test(content);
+  if (usesGlobalBus) {
+    extract('instancePublish', 'global', 'pub');
+    extract('instanceSubscribe', 'global', 'sub');
+  }
+
   return result;
 }
 
@@ -176,6 +193,42 @@ function buildEventTypeMap(filePath) {
   return map;
 }
 
+/**
+ * Build maps from ALL `export const XxxEventType = { ... }` blocks across all files.
+ * Resolves SolanaEventType.SLOT_CHANGE, FilesystemEventType.CHANGE, CoreEventType.X, etc.
+ */
+function buildAllConstantMaps(files) {
+  const maps = {};
+  const enumPattern = /export const (\w+EventType)\s*=\s*\{([\s\S]*?)\};/g;
+  const defRe = /(\w+)\s*:\s*['"]([^'"]+)['"]/g;
+
+  for (const filePath of files) {
+    let content;
+    try { content = readFileSync(filePath, 'utf8'); } catch { continue; }
+
+    let blockMatch;
+    const re = new RegExp(enumPattern.source, enumPattern.flags);
+    while ((blockMatch = re.exec(content)) !== null) {
+      const enumName = blockMatch[1]; // e.g. SolanaEventType
+      const body = blockMatch[2];
+      let m;
+      const defReLocal = new RegExp(defRe.source, defRe.flags);
+      while ((m = defReLocal.exec(body)) !== null) {
+        maps[`${enumName}.${m[1]}`] = m[2];
+      }
+    }
+  }
+
+  // Also alias CoreEventType → EventType (they import from the same source)
+  for (const [key, val] of Object.entries(maps)) {
+    if (key.startsWith('CoreEventType.')) {
+      maps[key.replace('CoreEventType.', 'EventType.')] = val;
+    }
+  }
+
+  return maps;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // GRAPH BUILDER
 // ═══════════════════════════════════════════════════════════════════════════
@@ -183,7 +236,7 @@ function buildEventTypeMap(filePath) {
 function buildGraph(allResults, eventTypeMap) {
   const graph = {
     events: {},
-    buses: { global: { pubs: 0, subs: 0 }, automation: { pubs: 0, subs: 0 }, agent: { pubs: 0, subs: 0 }, local: { pubs: 0, subs: 0 } },
+    buses: { global: { pubs: 0, subs: 0 }, automation: { pubs: 0, subs: 0 }, agent: { pubs: 0, subs: 0 }, instance: { pubs: 0, subs: 0 }, local: { pubs: 0, subs: 0 } },
     files: {},
   };
 
@@ -506,7 +559,8 @@ const files = discoverFiles();
 // 2. EventType maps
 const coreMap = buildEventTypeMap(resolve(ROOT, 'packages/core/src/bus/event-bus.js'));
 const autoMap = buildEventTypeMap(resolve(ROOT, 'packages/node/src/services/event-bus.js'));
-const eventTypeMap = { ...coreMap, ...autoMap };
+const customMaps = buildAllConstantMaps(files);
+const eventTypeMap = { ...coreMap, ...autoMap, ...customMaps };
 
 // 3. Parse
 const results = files.map(f => parseFile(f)).filter(Boolean);

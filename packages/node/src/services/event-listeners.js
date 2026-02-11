@@ -3637,6 +3637,12 @@ export function wireSolanaEventListeners({
           }
           _stats.solanaActionsRecorded++;
 
+          // Publish solana:action for chain completeness (same pattern as cynic:action)
+          globalEventBus.publish('solana:action', {
+            source: 'SolanaActor',
+            decision: { type: decision.type || decision.action, executed: isLive },
+          }, { source: 'event-listeners' });
+
           // Always record outcome for learning
           if (solanaLearner) {
             solanaLearner.recordOutcome({
