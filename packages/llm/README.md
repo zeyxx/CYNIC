@@ -2,7 +2,7 @@
 
 > CYNIC LLM Package Unified LLM integration for the CYNIC ecosystem. Provides: - Multi-LLM routing and consensus - Provider adapters (Ollama, Claude Code, OpenAI-compatible) - AirLLM integration for large models - φ-aligned confidence thresholds
 
-**Category**: llm | **Version**: 0.1.0 | **Quality**: 🟠 needs tests
+**Category**: llm | **Version**: 0.1.0 | **Quality**: 🟡 adequate
 
 ## Installation
 
@@ -33,6 +33,8 @@ const instance = createOllamaValidator();
 | `ClaudeCodeAdapter` | ClaudeCodeAdapter implementation |
 | `OSSLLMAdapter` | OSSLLMAdapter implementation |
 | `AirLLMAdapter` | AirLLMAdapter implementation |
+| `AnthropicAdapter` | AnthropicAdapter implementation |
+| `AnthropicModelMap` | AnthropicModelMap implementation |
 | `LLMRouter` | LLMRouter implementation |
 | `SimilarityThresholds` | SimilarityThresholds implementation |
 | `PerceptionRouter` | PerceptionRouter implementation |
@@ -46,6 +48,7 @@ const instance = createOllamaValidator();
 | `createLMStudioValidator()` | Create LMStudioValidator instance |
 | `createOpenAIValidator()` | Create OpenAIValidator instance |
 | `createAirLLMValidator()` | Create AirLLMValidator instance |
+| `createAnthropicValidator()` | Create AnthropicValidator instance |
 | `createLLMRouter()` | Create LLMRouter instance |
 | `createHybridRouter()` | Create HybridRouter instance |
 | `createValidatorsFromEnv()` | Create ValidatorsFromEnv instance |
@@ -73,10 +76,10 @@ const instance = createOllamaValidator();
 
 ## Stats
 
-- **Source files**: 11
-- **Test files**: 4
-- **Test ratio**: 36%
-- **Exports**: 37 named
+- **Source files**: 12
+- **Test files**: 5
+- **Test ratio**: 42%
+- **Exports**: 40 named
 
 ## Fractal Structure
 
@@ -86,7 +89,7 @@ const instance = createOllamaValidator();
 ## Dimensions (4 Axioms)
 
 ```
-[████░░░░░░] 36% φ (Confidence)
+[████░░░░░░] 42% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
 [░░░░░░░░░░]  0% Burn (Simplicity)

@@ -141,6 +141,7 @@ export const LLMProvider = Object.freeze({
   OPENAI: 'openai',
   LM_STUDIO: 'lm-studio',
   AIRLLM: 'airllm',
+  ANTHROPIC: 'anthropic',
 });
 
 /**

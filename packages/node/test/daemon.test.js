@@ -273,15 +273,89 @@ describe('DaemonServer', () => {
     assert.strictEqual(result.continue, true);
   });
 
-  it('should return 501 for /llm/ask', async () => {
+  it('should return 400 for /llm/ask without prompt', async () => {
     await server.start();
 
     const res = await fetch(`http://127.0.0.1:${TEST_PORT}/llm/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: 'test' }),
+      body: JSON.stringify({}),
     });
-    assert.strictEqual(res.status, 501);
+    assert.strictEqual(res.status, 400);
+    const result = await res.json();
+    assert.ok(result.error.includes('prompt'));
+  });
+
+  it('should handle /llm/ask with prompt (adapter-dependent)', async () => {
+    await server.start();
+
+    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/llm/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: 'test question' }),
+    });
+    // 200 = adapter found and responded, 503 = no adapter, 500 = adapter error
+    const status = res.status;
+    assert.ok(
+      status === 200 || status === 503 || status === 500,
+      `Expected 200, 503, or 500, got ${status}`
+    );
+    const body = await res.json();
+    if (status === 200) {
+      assert.ok(body.content !== undefined, 'Should have content on success');
+      assert.ok(body.tier, 'Should have tier on success');
+    } else if (status === 503) {
+      assert.ok(body.error.includes('No adapter'), 'Should indicate no adapter');
+    }
+  });
+
+  it('should respond to GET /llm/models', async () => {
+    await server.start();
+
+    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/llm/models`);
+    assert.strictEqual(res.status, 200);
+
+    const result = await res.json();
+    assert.ok(Array.isArray(result.models));
+    assert.ok(result.thompson);
+    assert.ok(result.stats);
+  });
+
+  it('should return 400 for /llm/feedback without required fields', async () => {
+    await server.start();
+
+    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/llm/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    assert.strictEqual(res.status, 400);
+  });
+
+  it('should accept /llm/feedback with valid fields', async () => {
+    await server.start();
+
+    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/llm/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskType: 'code', model: 'sonnet', success: true }),
+    });
+    assert.strictEqual(res.status, 200);
+
+    const result = await res.json();
+    assert.strictEqual(result.recorded, true);
+    assert.ok(result.stats);
+  });
+
+  it('should return 400 for /llm/consensus without prompt', async () => {
+    await server.start();
+
+    const res = await fetch(`http://127.0.0.1:${TEST_PORT}/llm/consensus`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    assert.strictEqual(res.status, 400);
   });
 
   it('should handle unknown hook events', async () => {
