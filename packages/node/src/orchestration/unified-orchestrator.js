@@ -17,7 +17,7 @@
 'use strict';
 
 import { EventEmitter } from 'events';
-import { createLogger, PHI_INV, PHI_INV_2, getCircuitBreakerRegistry } from '@cynic/core';
+import { createLogger, PHI_INV, PHI_INV_2, getCircuitBreakerRegistry, globalEventBus } from '@cynic/core';
 import {
   DecisionEvent,
   DecisionStage,
@@ -128,7 +128,89 @@ export class UnifiedOrchestrator extends EventEmitter {
       errors: 0,
     };
 
+    // Subagent lifecycle tracking
+    this._activeSubagents = new Set();
+    this._subagentHistory = [];
+
+    // Wire event listeners
+    this._wireEvents();
+
     log.debug('UnifiedOrchestrator created');
+  }
+
+  /**
+   * Wire event listeners for orchestration awareness.
+   * Closes orphan loops: SUBAGENT_STARTED, SUBAGENT_STOPPED
+   * @private
+   */
+  _wireEvents() {
+    // SUBAGENT_STARTED → track active subagents
+    globalEventBus.on('SUBAGENT_STARTED', (data) => {
+      const { subagentId, taskType, parentId } = data;
+      this._activeSubagents.add(subagentId);
+
+      const record = {
+        timestamp: Date.now(),
+        event: 'started',
+        subagentId,
+        taskType,
+        parentId,
+      };
+      this._subagentHistory.push(record);
+
+      // Keep last 89 subagent events (F(11))
+      if (this._subagentHistory.length > 89) {
+        this._subagentHistory.shift();
+      }
+
+      // Detect spawn storm (5+ subagents started in 30s)
+      const recentStarts = this._subagentHistory.filter(
+        r => r.event === 'started' && Date.now() - r.timestamp < 30_000
+      );
+      if (recentStarts.length >= 5) {
+        log.warn('Subagent spawn storm detected', {
+          activeCount: this._activeSubagents.size,
+          recentStarts: recentStarts.length,
+        });
+        this.emit('spawn:storm', {
+          activeSubagents: this._activeSubagents.size,
+          recentStarts: recentStarts.length,
+        });
+      }
+
+      log.debug('Subagent started', {
+        subagentId,
+        taskType,
+        activeCount: this._activeSubagents.size,
+      });
+    });
+
+    // SUBAGENT_STOPPED → track completion
+    globalEventBus.on('SUBAGENT_STOPPED', (data) => {
+      const { subagentId, success, durationMs } = data;
+      this._activeSubagents.delete(subagentId);
+
+      const record = {
+        timestamp: Date.now(),
+        event: 'stopped',
+        subagentId,
+        success,
+        durationMs,
+      };
+      this._subagentHistory.push(record);
+
+      // Keep last 89 subagent events (F(11))
+      if (this._subagentHistory.length > 89) {
+        this._subagentHistory.shift();
+      }
+
+      log.debug('Subagent stopped', {
+        subagentId,
+        success,
+        durationMs,
+        activeCount: this._activeSubagents.size,
+      });
+    });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

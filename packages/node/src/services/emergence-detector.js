@@ -104,6 +104,7 @@ export class EmergenceDetector extends EventEmitter {
     // Event tracking for emergence detection
     this._velocitySpikes = [];
     this._learningCycles = [];
+    this._errors = [];
 
     // Wire event listeners
     this._wireEvents();
@@ -111,7 +112,7 @@ export class EmergenceDetector extends EventEmitter {
 
   /**
    * Wire event listeners for emergence detection.
-   * Closes orphan loops: velocity:alarm, learning:cycle:complete
+   * Closes orphan loops: velocity:alarm, learning:cycle:complete, ERROR_OCCURRED
    * @private
    */
   _wireEvents() {
@@ -172,6 +173,48 @@ export class EmergenceDetector extends EventEmitter {
           significance: 'high',
           module: data.module,
         });
+      }
+    });
+
+    // ERROR_OCCURRED → detect error clustering patterns
+    globalEventBus.on('ERROR_OCCURRED', (data) => {
+      this._errors.push({
+        timestamp: Date.now(),
+        error: data.error,
+        context: data.context,
+        tool: data.tool,
+        command: data.command,
+      });
+
+      // Keep last 55 errors (F(10))
+      if (this._errors.length > 55) {
+        this._errors.shift();
+      }
+
+      // Detect error clustering (same error 3+ times in 5 minutes)
+      const recentErrors = this._errors.filter(
+        e => Date.now() - e.timestamp < 5 * 60 * 1000
+      );
+      const errorCounts = new Map();
+      for (const err of recentErrors) {
+        const key = err.error?.message || err.error || 'unknown';
+        errorCounts.set(key, (errorCounts.get(key) || 0) + 1);
+      }
+
+      for (const [errorMsg, count] of errorCounts.entries()) {
+        if (count >= 3) {
+          log.warn('Error clustering detected', {
+            error: errorMsg.substring(0, 100),
+            count,
+            recentTotal: recentErrors.length,
+          });
+          this.emit('pattern:detected', {
+            type: 'error_clustering',
+            significance: count >= 5 ? 'high' : 'medium',
+            error: errorMsg,
+            count,
+          });
+        }
       }
     });
   }
