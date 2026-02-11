@@ -4448,13 +4448,250 @@ export function wireSolanaEventListeners({
     _unsubscribers.push(unsubSolanaDecisionPersist);
   }
 
-  log.info('Solana pipeline event listeners wired (C2.2-C2.7)', {
+  // ═════════════════════════════════════════════════════════════════════════════
+  // 2g. perception:solana:connected → SolanaAccountant + SolanaEmergence (C2.1→C2.6/C2.7)
+  //     Track uptime windows, initialize baseline metrics
+  // ═════════════════════════════════════════════════════════════════════════════
+  const unsubSolanaConnected = globalEventBus.subscribe(
+    'perception:solana:connected',
+    (event) => {
+      try {
+        const d = event.payload || event;
+        if (solanaAccountant) {
+          solanaAccountant.recordTransaction({
+            type: 'connection_established',
+            slot: d.slot,
+            timestamp: d.timestamp || Date.now(),
+          });
+          _stats.solanaAccountingOps++;
+        }
+        if (solanaEmergence) {
+          solanaEmergence.recordActivity({
+            type: 'connection',
+            slot: d.slot,
+            transactionCount: 0,
+          });
+        }
+      } catch (err) {
+        log.debug('Solana connected handler error', { error: err.message });
+      }
+    }
+  );
+  _unsubscribers.push(unsubSolanaConnected);
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // 2h. perception:solana:disconnected → SolanaAccountant (C2.1→C2.6)
+  //     Record downtime, close connection session
+  // ═════════════════════════════════════════════════════════════════════════════
+  const unsubSolanaDisconnected = globalEventBus.subscribe(
+    'perception:solana:disconnected',
+    (event) => {
+      try {
+        if (solanaAccountant) {
+          solanaAccountant.recordTransaction({
+            type: 'connection_lost',
+            timestamp: event.payload?.timestamp || Date.now(),
+          });
+          _stats.solanaAccountingOps++;
+        }
+      } catch (err) {
+        log.debug('Solana disconnected handler error', { error: err.message });
+      }
+    }
+  );
+  _unsubscribers.push(unsubSolanaDisconnected);
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // 2i. perception:solana:error → SolanaEmergence (C2.1→C2.7)
+  //     Feed error clusters for anomaly detection
+  // ═════════════════════════════════════════════════════════════════════════════
+  const unsubSolanaError = globalEventBus.subscribe(
+    'perception:solana:error',
+    (event) => {
+      try {
+        const d = event.payload || event;
+        if (solanaEmergence) {
+          solanaEmergence.recordActivity({
+            type: 'error',
+            error: d.error,
+            transactionCount: 0,
+          });
+        }
+        // Persist error for pattern analysis
+        if (persistence?.query) {
+          const id = `se_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          persistence.query(`
+            INSERT INTO unified_signals (id, source, session_id, input, outcome, metadata)
+            VALUES ($1, $2, $3, $4, $5, $6)
+          `, [
+            id, 'solana_perception_error', sessionId || null,
+            JSON.stringify({ error: d.error }),
+            JSON.stringify({ type: 'error' }),
+            JSON.stringify({ stack: d.stack }),
+          ]).catch(() => {});
+        }
+      } catch (err) {
+        log.debug('Solana error handler error', { error: err.message });
+      }
+    }
+  );
+  _unsubscribers.push(unsubSolanaError);
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // 2j. perception:solana:log → SolanaJudge + SolanaLearner (C2.1→C2.2/C2.5)
+  //     Judge transaction quality from logs, learn from patterns
+  // ═════════════════════════════════════════════════════════════════════════════
+  const unsubSolanaLog = globalEventBus.subscribe(
+    'perception:solana:log',
+    (event) => {
+      try {
+        const d = event.payload || event;
+        // Judge transaction if it has a signature (completed tx)
+        if (d.signature) {
+          const judgment = solanaJudge.judgeTransaction({
+            signature: d.signature,
+            slot: d.slot,
+            error: d.error,
+            hasLogs: Array.isArray(d.logs) && d.logs.length > 0,
+          });
+          _stats.solanaJudgments++;
+          // Publish judgment for downstream pipeline
+          globalEventBus.publish('solana:judgment', {
+            type: 'transaction_log',
+            judgment,
+            signature: d.signature,
+            slot: d.slot,
+          }, { source: 'event-listeners' });
+        }
+        // Feed learner with log patterns
+        if (solanaLearner && d.logs?.length > 0) {
+          solanaLearner.recordOutcome({
+            type: 'log_analysis',
+            signature: d.signature,
+            hasError: !!d.error,
+            logCount: d.logs.length,
+            timestamp: Date.now(),
+          });
+          _stats.solanaLearnings++;
+        }
+      } catch (err) {
+        log.debug('Solana log handler error', { error: err.message });
+      }
+    }
+  );
+  _unsubscribers.push(unsubSolanaLog);
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // 2k. perception:solana:program → SolanaJudge + SolanaEmergence (C2.1→C2.2/C2.7)
+  //     Judge program activity, detect program surge patterns
+  // ═════════════════════════════════════════════════════════════════════════════
+  const unsubSolanaProgram = globalEventBus.subscribe(
+    'perception:solana:program',
+    (event) => {
+      try {
+        const d = event.payload || event;
+        // Judge program state
+        const judgment = solanaJudge.judgeProgram({
+          programId: d.programId,
+          pubkey: d.pubkey,
+          slot: d.slot,
+          lamports: d.lamports,
+          dataLength: d.dataLength,
+        });
+        _stats.solanaJudgments++;
+        // Feed emergence with program activity
+        if (solanaEmergence) {
+          solanaEmergence.recordActivity({
+            type: 'program_change',
+            programId: d.programId,
+            slot: d.slot,
+            transactionCount: 1,
+          });
+        }
+      } catch (err) {
+        log.debug('Solana program handler error', { error: err.message });
+      }
+    }
+  );
+  _unsubscribers.push(unsubSolanaProgram);
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // 2l. perception:solana:signature → SolanaAccountant + SolanaLearner (C2.1→C2.6/C2.5)
+  //     Track confirmation success rate, feed feedback loop
+  // ═════════════════════════════════════════════════════════════════════════════
+  const unsubSolanaSignature = globalEventBus.subscribe(
+    'perception:solana:signature',
+    (event) => {
+      try {
+        const d = event.payload || event;
+        if (solanaAccountant) {
+          solanaAccountant.recordTransaction({
+            type: 'signature_confirmation',
+            signature: d.signature,
+            confirmed: d.confirmed,
+            slot: d.slot,
+            timestamp: d.timestamp || Date.now(),
+          });
+          _stats.solanaAccountingOps++;
+        }
+        if (solanaLearner) {
+          solanaLearner.recordOutcome({
+            type: 'confirmation',
+            signature: d.signature,
+            confirmed: d.confirmed,
+            hasError: !!d.error,
+            slot: d.slot,
+            timestamp: Date.now(),
+          });
+          _stats.solanaLearnings++;
+        }
+      } catch (err) {
+        log.debug('Solana signature handler error', { error: err.message });
+      }
+    }
+  );
+  _unsubscribers.push(unsubSolanaSignature);
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // 2m. perception:solana:state → unified_signals persistence (C2.1 health snapshot)
+  //     Archive C2.1 perception health for trend analysis
+  // ═════════════════════════════════════════════════════════════════════════════
+  const unsubSolanaState = globalEventBus.subscribe(
+    'perception:solana:state',
+    (event) => {
+      try {
+        const d = event.payload || event;
+        if (persistence?.query) {
+          const id = `ss_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          persistence.query(`
+            INSERT INTO unified_signals (id, source, session_id, input, outcome, metadata)
+            VALUES ($1, $2, $3, $4, $5, $6)
+          `, [
+            id, 'solana_perception_state', sessionId || null,
+            JSON.stringify({ cell: d.cell, lastSlot: d.lastSlot }),
+            JSON.stringify({ status: d.health?.status, score: d.health?.score }),
+            JSON.stringify({
+              subscriptions: d.subscriptions?.length || 0,
+              isRunning: d.health?.isRunning,
+              errorRate: d.health?.errorRate,
+            }),
+          ]).catch(() => {});
+        }
+      } catch (err) {
+        log.debug('Solana state handler error', { error: err.message });
+      }
+    }
+  );
+  _unsubscribers.push(unsubSolanaState);
+
+  log.info('Solana pipeline event listeners wired (C2.1-C2.7)', {
     judge: !!solanaJudge,
     decider: !!solanaDecider,
     actor: !!solanaActor,
     learner: !!solanaLearner,
     accountant: !!solanaAccountant,
     emergence: !!solanaEmergence,
+    perceptionListeners: 9, // slot, account + 7 new
   });
 }
 

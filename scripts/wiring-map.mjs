@@ -642,6 +642,60 @@ try {
   }
 } catch { /* bridge file not found — skip */ }
 
+// 4c. Inject inter-process bridge (hooks → HTTP → CollectivePack → globalEventBus)
+// CollectivePack.receiveHookEvent() maps hookType → EventType and publishes to globalEventBus.
+// These are real publications invisible to static analysis because they cross process boundaries.
+try {
+  const collectivePath = resolve(ROOT, 'packages/node/src/agents/collective/index.js');
+  const collectiveContent = readFileSync(collectivePath, 'utf8');
+  const collectiveRel = 'packages/node/src/agents/collective/index.js';
+
+  // Detect hookType → EventType mapping pattern:
+  // hookType === 'SessionStart' ? EventType.SESSION_STARTED : ...
+  const hookMappingRe = /hookType\s*===?\s*['"](\w+)['"]\s*\?\s*(?:EventType\.(\w+)|['"]([^'"]+)['"])/g;
+  let m;
+  const injected = new Set();
+  while ((m = hookMappingRe.exec(collectiveContent)) !== null) {
+    const coreConstant = m[2] ? `EventType.${m[2]}` : null;
+    const coreEvent = coreConstant ? (eventTypeMap[coreConstant] || coreConstant) : m[3];
+    if (!coreEvent || injected.has(coreEvent)) continue;
+    injected.add(coreEvent);
+
+    if (!graph.events[coreEvent]) {
+      graph.events[coreEvent] = { publishers: [], subscribers: [], bus: ['global'] };
+    }
+    const already = graph.events[coreEvent].publishers.some(p => p.file === collectiveRel);
+    if (!already) {
+      graph.events[coreEvent].publishers.push({ file: collectiveRel, line: 0, bus: 'global' });
+      if (!graph.events[coreEvent].bus.includes('global')) {
+        graph.events[coreEvent].bus.push('global');
+      }
+      graph.buses.global.pubs++;
+    }
+  }
+
+  // Also detect automation bus publications in receiveHookEvent:
+  // getEventBus().publish('HOOK_PRE_TOOL', ...) or EventTypes.HOOK_PRE_TOOL
+  const autoHookRe = /getEventBus\(\)\.publish\(\s*(?:EventTypes\.(\w+)|['"]([^'"]+)['"])/g;
+  while ((m = autoHookRe.exec(collectiveContent)) !== null) {
+    const autoConstant = m[1] ? `EventTypes.${m[1]}` : null;
+    const autoEvent = autoConstant ? (eventTypeMap[autoConstant] || autoConstant) : m[2];
+    if (!autoEvent || injected.has(autoEvent)) continue;
+    injected.add(autoEvent);
+
+    if (!graph.events[autoEvent]) {
+      graph.events[autoEvent] = { publishers: [], subscribers: [], bus: ['automation'] };
+    }
+    const already = graph.events[autoEvent].publishers.some(p => p.file === collectiveRel);
+    if (!already) {
+      graph.events[autoEvent].publishers.push({ file: collectiveRel, line: 0, bus: 'automation' });
+      if (!graph.events[autoEvent].bus.includes('automation')) {
+        graph.events[autoEvent].bus.push('automation');
+      }
+    }
+  }
+} catch { /* collective not found — skip */ }
+
 // 5. Analyze
 const analysis = analyze(graph);
 
