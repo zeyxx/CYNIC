@@ -406,7 +406,7 @@ function calculateCYNICDistance({ brainThought, patterns, routing, tierDecision,
   return { distance, level, breakdown };
 }
 
-function generateFramingDirective(D, brainThought, routing, patterns, promptType, profile, { consciousnessState, voteSummary, tierDecision, ecosystemStatus, socialStatus, accountingStatus } = {}) {
+function generateFramingDirective(D, brainThought, routing, patterns, promptType, profile, { consciousnessState, voteSummary, tierDecision, ecosystemStatus, socialStatus, accountingStatus, costStatus } = {}) {
   // Only frame when CYNIC is awake (D >= φ⁻² = 38.2%)
   if (D.distance < PHI_INV_2) return null;
 
@@ -522,6 +522,19 @@ function generateFramingDirective(D, brainThought, routing, patterns, promptType
     if (s.humanActionsTriggered > 0) parts.push(`actions: ${s.humanActionsTriggered}`);
     if (parts.length > 0) {
       lines.push(`   Accounting: ${parts.join(' \u2502 ')}`);
+    }
+  }
+
+  // Cost: token velocity + budget awareness (when available)
+  if (costStatus?.burnRate || costStatus?.budget) {
+    const parts = [];
+    if (costStatus.budget?.operations > 0) parts.push(`${costStatus.budget.operations} ops`);
+    if (costStatus.burnRate?.velocity != null) parts.push(`velocity=${Math.round(costStatus.burnRate.velocity * 100)}%`);
+    if (costStatus.budget?.level) parts.push(`budget=${costStatus.budget.level}`);
+    if (costStatus.burnRate?.tokensPerMinute > 0) parts.push(`${costStatus.burnRate.tokensPerMinute} tok/min`);
+    if (costStatus.budget?.timeToLimitMinutes) parts.push(`TTL=${costStatus.budget.timeToLimitMinutes}min`);
+    if (parts.length > 0) {
+      lines.push(`   Cost: ${parts.join(' \u2502 ')}`);
     }
   }
 
@@ -977,6 +990,7 @@ async function main() {
     let ecosystemStatus = null;
     let socialStatus = null;
     let accountingStatus = null;
+    let costStatus = null;
 
     const hasCodeBlocks = /```[\s\S]*?```/.test(prompt);
     const estimatedTokens = Math.ceil(prompt.length / 4);
@@ -1025,6 +1039,19 @@ async function main() {
           }).catch(() => null),
           MCP_TOOL_TIMEOUT
         ).then(r => { accountingStatus = r; })
+      );
+    }
+
+    // Cost awareness: lightweight snapshot of token velocity + budget status
+    // Always attempted (tiny payload ~100 chars), gated only by contextCompressor
+    if (contextCompressor.shouldInject('cost_status', { estimatedChars: 100 }).inject) {
+      mcpPromises.push(
+        raceTimeout(
+          callBrainTool('brain_cost', {
+            action: 'snapshot',
+          }).catch(() => null),
+          MCP_TOOL_TIMEOUT
+        ).then(r => { costStatus = r; })
       );
     }
 
@@ -1655,7 +1682,7 @@ async function main() {
       framingDirective = generateFramingDirective(
         cynicDistance, brainThought, routing, patterns,
         detectPromptType(prompt), profile,
-        { consciousnessState, voteSummary, tierDecision, ecosystemStatus, socialStatus, accountingStatus },
+        { consciousnessState, voteSummary, tierDecision, ecosystemStatus, socialStatus, accountingStatus, costStatus },
       );
 
       logger.debug('CYNIC Distance', {

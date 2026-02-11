@@ -938,6 +938,105 @@ export function createAccountingTool() {
 }
 
 /**
+ * Create cost tool — Universal token cost accounting
+ * Cross-cutting: burn rate, budget status, model recommendation
+ *
+ * "Le chien connaît le prix de sa propre pensée" — κυνικός
+ *
+ * @returns {Object} Tool definition
+ */
+export function createCostTool() {
+  return {
+    name: 'brain_cost',
+    description: 'CYNIC cost accounting: token burn rate, budget status, model recommendation, session/lifetime cost. The economic self-awareness CYNIC was blind to.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['snapshot', 'burn_rate', 'budget', 'recommend', 'lifetime', 'estimate'],
+          description: 'Action: snapshot (all), burn_rate (velocity), budget (consumption), recommend (model suggestion), lifetime (cross-session), estimate (preview cost)',
+        },
+        taskType: {
+          type: 'string',
+          enum: ['simple', 'moderate', 'complex'],
+          description: 'For recommend action: task complexity level',
+        },
+        needsReasoning: {
+          type: 'boolean',
+          description: 'For recommend action: does the task need deep reasoning?',
+        },
+        estimateTokens: {
+          type: 'number',
+          description: 'For estimate action: expected input tokens',
+        },
+      },
+    },
+    handler: async (params) => {
+      const { action = 'snapshot' } = params;
+      const result = { action, timestamp: Date.now() };
+
+      try {
+        const { getCostLedgerSingleton } = await import('@cynic/node/collective-singleton.js');
+        const costLedger = getCostLedgerSingleton();
+
+        if (!costLedger) {
+          result.status = 'not initialized';
+          result.message = '*head tilt* CostLedger not yet initialized. MCP server may still be starting.';
+          return result;
+        }
+
+        if (action === 'snapshot' || action === 'burn_rate') {
+          result.burnRate = costLedger.getBurnRate();
+        }
+
+        if (action === 'snapshot' || action === 'budget') {
+          result.budget = costLedger.getBudgetStatus();
+        }
+
+        if (action === 'snapshot' || action === 'recommend') {
+          result.recommendation = costLedger.recommendModel({
+            taskType: params.taskType || 'moderate',
+            needsReasoning: params.needsReasoning || false,
+          });
+        }
+
+        if (action === 'snapshot') {
+          result.session = costLedger.getSessionSummary();
+          result.model = costLedger.getCurrentModel();
+        }
+
+        if (action === 'lifetime') {
+          result.lifetime = costLedger.getLifetimeStats();
+        }
+
+        if (action === 'estimate') {
+          result.estimate = costLedger.estimate({
+            inputTokens: params.estimateTokens || 0,
+          });
+        }
+
+        // Compact message for perceive.js injection
+        const burnRate = result.burnRate || costLedger.getBurnRate();
+        const budget = result.budget || costLedger.getBudgetStatus();
+        const velocity = burnRate.velocity || 0;
+        const level = budget.level || 'abundant';
+        const ops = budget.operations || 0;
+
+        result.message = `*sniff* Cost: ${ops} ops | velocity=${(velocity * 100).toFixed(1)}% | budget=${level}` +
+          (budget.timeToLimitMinutes ? ` | TTL=${budget.timeToLimitMinutes}min` : '') +
+          ` | ${burnRate.tokensPerMinute || 0} tok/min`;
+      } catch (err) {
+        result.error = err.message;
+        result.message = `*head tilt* Cost unavailable: ${err.message}`;
+      }
+
+      return result;
+    },
+  };
+}
+
+/**
  * Factory for system domain tools
  */
 export const systemFactory = {
@@ -984,6 +1083,9 @@ export const systemFactory = {
 
     // Accounting: RIGHT side economics — always available
     tools.push(createAccountingTool());
+
+    // Cost: Universal token cost accounting — always available
+    tools.push(createCostTool());
 
     return tools;
   },
