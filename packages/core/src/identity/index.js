@@ -662,6 +662,26 @@ export const FOUR_DOGS = {
 };
 
 // =============================================================================
+// VALIDATOR (code-only identity enforcement)
+// =============================================================================
+
+import {
+  validateIdentity,
+  hasForbiddenPhrase,
+  hasDogVoice,
+  extractConfidenceValues,
+  compactViolationSummary,
+} from './validator.js';
+
+export {
+  validateIdentity,
+  hasForbiddenPhrase,
+  hasDogVoice,
+  extractConfidenceValues,
+  compactViolationSummary,
+};
+
+// =============================================================================
 // DEFAULT EXPORT
 // =============================================================================
 
@@ -692,6 +712,13 @@ export default {
   generateReaction,
   t,
   getLanguages,
+
+  // Validator
+  validateIdentity,
+  hasForbiddenPhrase,
+  hasDogVoice,
+  extractConfidenceValues,
+  compactViolationSummary,
 
   // Quick accessors
   divider: TEMPLATES.divider,

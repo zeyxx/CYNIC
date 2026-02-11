@@ -88,5 +88,8 @@ export * from './tracing/index.js';
 // System Topology (self-awareness: mode, services, capabilities, 7×7 matrix)
 export * from './topology/index.js';
 
+// Intelligence (prompt classification, context routing)
+export * from './intelligence/index.js';
+
 // Timer Tracker (test-only debugging for leaked timers)
 export { timerTracker } from './timers.js';
