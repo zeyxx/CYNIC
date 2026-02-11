@@ -54,9 +54,9 @@ export const ModelId = {
  * can be recalibrated via setCostRates().
  */
 const DEFAULT_COST_RATES = {
-  [ModelId.OPUS]:    { input: 15.00,  output: 75.00,  label: 'Claude Opus 4.6' },
+  [ModelId.OPUS]:    { input: 5.00,   output: 25.00,  label: 'Claude Opus 4.6' },
   [ModelId.SONNET]:  { input: 3.00,   output: 15.00,  label: 'Claude Sonnet 4.5' },
-  [ModelId.HAIKU]:   { input: 0.80,   output: 4.00,   label: 'Claude Haiku 4.5' },
+  [ModelId.HAIKU]:   { input: 1.00,   output: 5.00,   label: 'Claude Haiku 4.5' },
   [ModelId.OLLAMA]:  { input: 0,      output: 0,      label: 'Local Ollama (free)' },
   [ModelId.UNKNOWN]: { input: 3.00,   output: 15.00,  label: 'Unknown (Sonnet fallback)' },
 };

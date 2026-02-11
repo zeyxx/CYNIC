@@ -68,15 +68,50 @@ function scanPackages() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function scanEventWiring() {
-  const wiring = { publishers: [], subscribers: [], bridges: [] };
+  const wiring = { publishers: [], subscribers: [], bridges: [], bridgeRules: [] };
 
+  // ── Step 1: Parse all EventType enums → build name-to-value maps ──
+  const enumMap = new Map(); // 'JUDGMENT_CREATED' → 'judgment:created'
+  const enumFiles = [
+    'packages/core/src/bus/event-bus.js',         // CoreEventType
+    'packages/node/src/services/event-bus.js',     // AutomationEventType
+    'packages/node/src/agents/events.js',          // AgentEvent
+  ];
+  for (const f of enumFiles) {
+    const fPath = join(ROOT, f);
+    if (!existsSync(fPath)) continue;
+    const content = readFileSync(fPath, 'utf8');
+    // Match: KEY: 'value' or KEY: "value"
+    const enumRegex = /(\w+)\s*:\s*'([^']+)'/g;
+    let m;
+    while ((m = enumRegex.exec(content)) !== null) {
+      enumMap.set(m[1], m[2]);
+    }
+  }
+
+  /** Resolve an event name: if it's a constant name, return the string value */
+  function resolveEvent(raw) {
+    if (!raw) return null;
+    // Already a string value (contains ':' or lowercase)
+    if (raw.includes(':') || raw === raw.toLowerCase()) return raw;
+    // Try enum lookup
+    return enumMap.get(raw) || raw;
+  }
+
+  // ── Step 2: Scan source files for pub/sub calls ──
+  // All four method names: emit/publish for publishing, on/subscribe for consuming
   const patterns = [
-    { regex: /globalEventBus\.emit\(\s*(?:EventType\.(\w+)|'([^']+)'|"([^"]+)")/g, type: 'publish', bus: 'core' },
-    { regex: /globalEventBus\.on\(\s*(?:EventType\.(\w+)|'([^']+)'|"([^"]+)")/g, type: 'subscribe', bus: 'core' },
-    { regex: /getEventBus\(\)\.(?:emit|publish)\(\s*(?:'([^']+)'|"([^"]+)")/g, type: 'publish', bus: 'automation' },
-    { regex: /getEventBus\(\)\.(?:on|subscribe)\(\s*(?:'([^']+)'|"([^"]+)")/g, type: 'subscribe', bus: 'automation' },
-    { regex: /this\.eventBus\.(?:emit|publish)\(\s*(?:'([^']+)'|"([^"]+)")/g, type: 'publish', bus: 'agent' },
-    { regex: /this\.eventBus\.(?:on|subscribe)\(\s*(?:'([^']+)'|"([^"]+)")/g, type: 'subscribe', bus: 'agent' },
+    { regex: /globalEventBus\.(?:emit|publish)\(\s*(?:(?:EventType|CoreEventType)\.(\w+)|'([^']+)'|"([^"]+)")/g, type: 'publish', bus: 'core' },
+    { regex: /globalEventBus\.(?:on|subscribe)\(\s*(?:(?:EventType|CoreEventType)\.(\w+)|'([^']+)'|"([^"]+)")/g, type: 'subscribe', bus: 'core' },
+    { regex: /getEventBus\(\)\.(?:emit|publish)\(\s*(?:(?:AutomationEventType|EventType)\.(\w+)|'([^']+)'|"([^"]+)")/g, type: 'publish', bus: 'automation' },
+    { regex: /getEventBus\(\)\.(?:on|subscribe)\(\s*(?:(?:AutomationEventType|EventType)\.(\w+)|'([^']+)'|"([^"]+)")/g, type: 'subscribe', bus: 'automation' },
+    { regex: /this\.eventBus\.(?:emit|publish)\(\s*(?:(?:AgentEvent|DogSignal)\.(\w+)|'([^']+)'|"([^"]+)")/g, type: 'publish', bus: 'agent' },
+    { regex: /this\.eventBus\.(?:on|subscribe)\(\s*(?:(?:AgentEvent|DogSignal)\.(\w+)|'([^']+)'|"([^"]+)")/g, type: 'subscribe', bus: 'agent' },
+    // Automation bus via variable: automationBus.subscribe(EventType.X, ...)
+    { regex: /automationBus\.(?:emit|publish)\(\s*(?:(?:AutomationEventType|EventType)\.(\w+)|'([^']+)'|"([^"]+)")/g, type: 'publish', bus: 'automation' },
+    { regex: /automationBus\.(?:on|subscribe)\(\s*(?:(?:AutomationEventType|EventType)\.(\w+)|'([^']+)'|"([^"]+)")/g, type: 'subscribe', bus: 'automation' },
+    // Agent bus via variable: agentBus.subscribe(AgentEvent.X, ...) or agentBus.subscribe(eventType, ...)
+    { regex: /agentBus\.(?:emit|publish|subscribe)\(\s*(?:(?:AgentEvent)\.(\w+)|'([^']+)'|"([^"]+)")/g, type: 'subscribe', bus: 'agent' },
   ];
 
   const srcDirs = ['packages/core/src', 'packages/node/src'];
@@ -93,7 +128,8 @@ function scanEventWiring() {
         regex.lastIndex = 0;
         let match;
         while ((match = regex.exec(content)) !== null) {
-          const event = match[1] || match[2] || match[3];
+          const raw = match[1] || match[2] || match[3];
+          const event = resolveEvent(raw);
           if (!event) continue;
           const entry = { event, file: relPath, bus, type };
           if (type === 'publish') wiring.publishers.push(entry);
@@ -101,11 +137,27 @@ function scanEventWiring() {
         }
       }
 
+      // Detect bridge files and extract forwarding rules
       if (content.includes('EventBusBridge') || content.includes('eventBusBridge')) {
         wiring.bridges.push({ file: relPath });
       }
     });
   }
+
+  // Parse EventBusBridge forwarding maps — these create synthetic pub/sub pairs
+  const bridgePath = join(ROOT, 'packages/node/src/services/event-bus-bridge.js');
+  if (existsSync(bridgePath)) {
+    const bridgeContent = readFileSync(bridgePath, 'utf8');
+    // Match forwarding map entries: [AgentEvent.X]: CoreEventType.Y or [AgentEvent.X]: 'string'
+    const mapRegex = /\[(?:AgentEvent|AutomationEventType|CoreEventType)\.(\w+)\]\s*:\s*(?:(?:CoreEventType|AutomationEventType)\.(\w+)|'([^']+)')/g;
+    let match;
+    while ((match = mapRegex.exec(bridgeContent)) !== null) {
+      const source = resolveEvent(match[1]);
+      const target = resolveEvent(match[2] || match[3]);
+      if (source && target) wiring.bridgeRules.push({ source, target });
+    }
+  }
+
   return wiring;
 }
 
@@ -116,14 +168,20 @@ function scanEventWiring() {
 function scanDaemon() {
   const daemon = { endpoints: [], hookHandlers: [], thinHooks: [], standaloneHooks: [] };
 
-  // Express routes
-  const indexPath = join(ROOT, 'packages/node/src/daemon/index.js');
-  if (existsSync(indexPath)) {
-    const content = readFileSync(indexPath, 'utf8');
-    const routeRegex = /this\.app\.(get|post|put|delete)\(\s*'([^']+)'/g;
+  // Express routes — scan index.js + all files it delegates to (llm-endpoints.js, etc.)
+  const daemonFiles = [
+    'packages/node/src/daemon/index.js',
+    'packages/node/src/daemon/llm-endpoints.js',
+  ];
+  for (const f of daemonFiles) {
+    const fPath = join(ROOT, f);
+    if (!existsSync(fPath)) continue;
+    const content = readFileSync(fPath, 'utf8');
+    // Match both this.app.get and app.get patterns
+    const routeRegex = /(?:this\.)?app\.(get|post|put|delete)\(\s*'([^']+)'/g;
     let match;
     while ((match = routeRegex.exec(content)) !== null) {
-      daemon.endpoints.push({ method: match[1].toUpperCase(), path: match[2] });
+      daemon.endpoints.push({ method: match[1].toUpperCase(), path: match[2], file: basename(f) });
     }
   }
 
@@ -228,11 +286,12 @@ function scanCycleImplementations() {
 
 function scan7x7Matrix() {
   const realities = ['CODE', 'SOLANA', 'MARKET', 'SOCIAL', 'HUMAN', 'CYNIC', 'COSMOS'];
+  const crossRow = 'CROSS';
   const analyses = ['PERCEIVE', 'JUDGE', 'DECIDE', 'ACT', 'LEARN', 'ACCOUNT', 'EMERGE'];
   const nodeDir = join(ROOT, 'packages/node/src');
 
   const matrix = {};
-  for (const r of realities) {
+  for (const r of [...realities, crossRow]) {
     matrix[r] = {};
     for (const a of analyses) {
       matrix[r][a] = { files: 0, lines: 0 };
@@ -246,14 +305,15 @@ function scan7x7Matrix() {
 
   const phaseKeywords = {
     PERCEIVE: ['perceive', 'perception', 'watcher', 'monitor', 'sensor'],
-    JUDGE: ['judge', 'dimension', 'score', 'evaluate', 'residual'],
-    DECIDE: ['decider', 'decide', 'governance', 'router', 'pipeline'],
+    JUDGE: ['judge', 'dimension', 'score', 'evaluate', 'residual', 'calibrat', 'entropy', 'skeptic'],
+    DECIDE: ['decider', 'decide', 'governance', 'router', 'pipeline', 'orchestrat', 'brain', 'circuit', 'planning', 'routing', 'skill'],
     ACT: ['actor', 'act', 'execute', 'action', 'deploy'],
-    LEARN: ['learn', 'sona', 'thompson', 'meta-cognition', 'behavior', 'q-learning'],
+    LEARN: ['learn', 'sona', 'thompson', 'meta-cognition', 'behavior', 'q-learning', 'reasoning', 'intelligence', 'unified-bridge', 'unified-signal'],
     ACCOUNT: ['account', 'cost', 'ledger', 'budget', 'economic'],
     EMERGE: ['emerge', 'emergence', 'detect', 'pattern', 'transcend'],
   };
 
+  // Domain-specific files (R1-R7)
   for (const [reality, dirName] of Object.entries(domainMap)) {
     const domainDir = join(nodeDir, dirName);
     if (!existsSync(domainDir)) continue;
@@ -272,7 +332,33 @@ function scan7x7Matrix() {
     }
   }
 
-  return { matrix, realities, analyses };
+  // Cross-domain files (judge/, orchestration/, learning/, accounting/, emergence/, routing/, cycle/)
+  const crossDirs = {
+    judge: 'JUDGE', orchestration: 'DECIDE', learning: 'LEARN',
+    accounting: 'ACCOUNT', emergence: 'EMERGE', routing: 'DECIDE', cycle: null,
+  };
+  for (const [dir, defaultPhase] of Object.entries(crossDirs)) {
+    const fullDir = join(nodeDir, dir);
+    if (!existsSync(fullDir)) continue;
+
+    for (const file of readdirSync(fullDir)) {
+      if (!file.endsWith('.js')) continue;
+      const lines = readFileSync(join(fullDir, file), 'utf8').split('\n').length;
+      const name = file.toLowerCase();
+
+      // Determine phase from filename (override default if keywords match)
+      let phase = defaultPhase;
+      for (const [p, keywords] of Object.entries(phaseKeywords)) {
+        if (keywords.some(kw => name.includes(kw))) { phase = p; break; }
+      }
+      if (!phase) continue; // cycle/ files without match
+
+      matrix[crossRow][phase].files++;
+      matrix[crossRow][phase].lines += lines;
+    }
+  }
+
+  return { matrix, realities: [...realities, crossRow], analyses };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -406,6 +492,13 @@ function generateMermaid(packages, wiring, daemon, cycle, matrixData, singletons
   }
 
   // ── Event Wiring Health ──
+  // Build bridge equivalence: events connected via EventBusBridge forwarding
+  const bridgeEquiv = new Map(); // source → target (both directions count as connected)
+  for (const rule of (wiring.bridgeRules || [])) {
+    bridgeEquiv.set(rule.source, rule.target);
+    bridgeEquiv.set(rule.target, rule.source);
+  }
+
   const uniqueEvents = new Set();
   for (const p of wiring.publishers) uniqueEvents.add(p.event);
   for (const s of wiring.subscribers) uniqueEvents.add(s.event);
@@ -413,25 +506,48 @@ function generateMermaid(packages, wiring, daemon, cycle, matrixData, singletons
   const orphanPubs = [];
   const orphanSubs = [];
   const healthy = [];
+  const bridged = [];
 
   for (const event of uniqueEvents) {
     const pubs = wiring.publishers.filter(p => p.event === event);
     const subs = wiring.subscribers.filter(s => s.event === event);
-    if (pubs.length > 0 && subs.length > 0) healthy.push({ event, pubs: pubs.length, subs: subs.length });
-    else if (pubs.length > 0) orphanPubs.push({ event, pubs: pubs.length });
-    else orphanSubs.push({ event, subs: subs.length });
+
+    if (pubs.length > 0 && subs.length > 0) {
+      healthy.push({ event, pubs: pubs.length, subs: subs.length });
+    } else if (pubs.length > 0) {
+      // Check if this event is bridged to one that has subscribers
+      const equiv = bridgeEquiv.get(event);
+      const bridgedSubs = equiv ? wiring.subscribers.filter(s => s.event === equiv) : [];
+      if (bridgedSubs.length > 0) {
+        bridged.push({ event, target: equiv, pubs: pubs.length, subs: bridgedSubs.length });
+      } else {
+        orphanPubs.push({ event, pubs: pubs.length });
+      }
+    } else {
+      // Check if this subscriber has a bridged publisher
+      const equiv = bridgeEquiv.get(event);
+      const bridgedPubs = equiv ? wiring.publishers.filter(p => p.event === equiv) : [];
+      if (bridgedPubs.length > 0) {
+        bridged.push({ event, target: equiv, pubs: bridgedPubs.length, subs: subs.length });
+      } else {
+        orphanSubs.push({ event, subs: subs.length });
+      }
+    }
   }
+  const connectedCount = healthy.length + bridged.length;
 
   lines.push('## Event Wiring Health');
   lines.push('');
   lines.push(`| Metric | Count |`);
   lines.push(`|--------|------:|`);
-  lines.push(`| Healthy (pub+sub) | ${healthy.length} |`);
+  lines.push(`| Healthy (direct pub+sub) | ${healthy.length} |`);
+  lines.push(`| Bridged (cross-bus via EventBusBridge) | ${bridged.length} |`);
+  lines.push(`| **Connected (healthy + bridged)** | **${connectedCount}** |`);
   lines.push(`| Orphan publishers | ${orphanPubs.length} |`);
   lines.push(`| Orphan subscribers | ${orphanSubs.length} |`);
   lines.push(`| Total unique events | ${uniqueEvents.size} |`);
-  lines.push(`| Bridge files | ${wiring.bridges.length} |`);
-  const healthPct = uniqueEvents.size > 0 ? Math.round((healthy.length / uniqueEvents.size) * 100) : 0;
+  lines.push(`| Bridge rules | ${(wiring.bridgeRules || []).length} |`);
+  const healthPct = uniqueEvents.size > 0 ? Math.round((connectedCount / uniqueEvents.size) * 100) : 0;
   lines.push(`| **Wiring health** | **${healthPct}%** |`);
   lines.push('');
 
@@ -472,10 +588,10 @@ function generateMermaid(packages, wiring, daemon, cycle, matrixData, singletons
   // ── Daemon Endpoints ──
   lines.push('## Daemon Endpoints');
   lines.push('');
-  lines.push('| Method | Path |');
-  lines.push('|--------|------|');
+  lines.push('| Method | Path | Source |');
+  lines.push('|--------|------|--------|');
   for (const ep of daemon.endpoints) {
-    lines.push(`| ${ep.method} | \`${ep.path}\` |`);
+    lines.push(`| ${ep.method} | \`${ep.path}\` | ${ep.file || 'index.js'} |`);
   }
   lines.push('');
 
@@ -544,7 +660,7 @@ function main() {
   const topology = {
     generated: new Date().toISOString(),
     packages: packages.map(p => ({ name: p.name, src: p.srcFiles, tests: p.testFiles, deps: p.internalDeps })),
-    wiring: { publishers: wiring.publishers.length, subscribers: wiring.subscribers.length, bridges: wiring.bridges.length, uniqueEvents: uniqueEvents.size },
+    wiring: { publishers: wiring.publishers.length, subscribers: wiring.subscribers.length, bridges: wiring.bridges.length, bridgeRules: (wiring.bridgeRules || []).length, uniqueEvents: uniqueEvents.size },
     daemon: { endpoints: daemon.endpoints.length, handlers: daemon.hookHandlers, thinHooks: daemon.thinHooks.length, standalone: daemon.standaloneHooks.length },
     cycle: Object.fromEntries(Object.entries(cycle).map(([k, v]) => [k, v.length])),
     singletons,

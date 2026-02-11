@@ -148,8 +148,8 @@ describe('CostLedger', () => {
         outputTokens: 0,
       });
 
-      // Opus input: $15 per 1M tokens
-      assert.ok(Math.abs(result.cost.input - 15) < 0.01);
+      // Opus input: $5 per 1M tokens (updated 2026-02-11)
+      assert.ok(Math.abs(result.cost.input - 5) < 0.01);
     });
 
     it('should calculate cost using Haiku rates', () => {
@@ -160,8 +160,8 @@ describe('CostLedger', () => {
         outputTokens: 0,
       });
 
-      // Haiku input: $0.80 per 1M tokens
-      assert.ok(Math.abs(result.cost.input - 0.8) < 0.01);
+      // Haiku input: $1.00 per 1M tokens (updated 2026-02-11)
+      assert.ok(Math.abs(result.cost.input - 1.0) < 0.01);
     });
 
     it('should calculate Ollama as free', () => {
@@ -423,8 +423,8 @@ describe('CostLedger', () => {
       const info = ledger.getCurrentModel();
       assert.equal(info.id, ModelId.OPUS);
       assert.ok(info.label.includes('Opus'));
-      assert.equal(info.inputPer1M, 15);
-      assert.equal(info.outputPer1M, 75);
+      assert.equal(info.inputPer1M, 5); // Updated 2026-02-11
+      assert.equal(info.outputPer1M, 25); // Updated 2026-02-11
     });
   });
 

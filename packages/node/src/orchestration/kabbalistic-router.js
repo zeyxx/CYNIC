@@ -31,6 +31,7 @@ import { SEFIROT_TEMPLATE } from '../agents/collective/sefirot.js';
 import { RelationshipGraph } from '../agents/collective/relationship-graph.js';
 import { CONSULTATION_MATRIX, getConsultants, shouldConsult } from '@cynic/core/orchestration';
 import { DOG_DIMENSION_AFFINITY } from '../judge/dimensions.js';
+import { getCostLedger } from '../accounting/cost-ledger.js';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
@@ -407,13 +408,65 @@ export class KabbalisticRouter {
       }
     }
 
+    // =======================================================================
+    // BUDGET CIRCUIT BREAKER (C6.6: CostLedger → Router)
+    // =======================================================================
+    const costLedger = getCostLedger();
+    const budgetStatus = costLedger.getBudgetStatus();
+    const burnRate = costLedger.getBurnRate();
+    const currentHour = new Date().getHours();
+
+    // Circuit breaker: Force Haiku if budget critical OR peak hours + high consumption
+    let forcedTier = null;
+    let throttleMs = 0;
+
+    if (budgetStatus.level === 'exhausted') {
+      forcedTier = 'LOCAL'; // No LLM calls if exhausted
+      log.warn('Budget EXHAUSTED — forcing LOCAL tier', { consumed: budgetStatus.consumedRatio });
+    } else if (budgetStatus.level === 'critical') {
+      forcedTier = 'LIGHT'; // Haiku only if critical
+      log.warn('Budget CRITICAL — forcing LIGHT tier', { consumed: budgetStatus.consumedRatio });
+    } else if (budgetStatus.consumedRatio > PHI_INV && currentHour >= 18 && currentHour < 24) {
+      // Peak hours (18h-24h) + >61.8% budget consumed → downgrade
+      forcedTier = 'LIGHT';
+      log.info('Peak hours budget control — forcing LIGHT tier', {
+        hour: currentHour,
+        consumed: budgetStatus.consumedRatio
+      });
+    } else if (burnRate.velocity > PHI_INV && burnRate.trend === 'accelerating') {
+      // Velocity governor: >61.8% velocity + accelerating → throttle + downgrade
+      forcedTier = 'LIGHT';
+      throttleMs = 500; // 500ms delay to slow down
+      log.warn('High velocity detected — throttling + downgrading', {
+        velocity: burnRate.velocity,
+        trend: burnRate.trend,
+        tokensPerMin: burnRate.tokensPerMinute
+      });
+      globalEventBus.publish('velocity:alarm', {
+        velocity: burnRate.velocity,
+        trend: burnRate.trend,
+        tokensPerMinute: burnRate.tokensPerMinute,
+        action: 'throttle_and_downgrade'
+      });
+    }
+
+    // Apply throttle if needed
+    if (throttleMs > 0) {
+      await new Promise(resolve => setTimeout(resolve, throttleMs));
+    }
+
     // 0. Cost optimization check (if enabled)
     let costOptimization = null;
     if (this.costOptimizer) {
       costOptimization = this.costOptimizer.optimize({
         content: payload.input || payload.content || '',
         type: taskType,
-        context: { complexity: payload.complexity, risk: payload.risk },
+        context: {
+          complexity: payload.complexity,
+          risk: payload.risk,
+          budgetLevel: budgetStatus.level, // Pass budget awareness
+          forcedTier, // Override tier if circuit breaker triggered
+        },
       });
 
       // LOCAL tier = skip full routing
@@ -623,7 +676,28 @@ export class KabbalisticRouter {
       );
     }
 
-    // 9. Emit orchestration event for persistence + learning visibility
+    // 9. Record routing cost (if LLM was used)
+    if (!forcedTier || forcedTier !== 'LOCAL') {
+      try {
+        // Estimate tokens based on complexity (rough heuristic)
+        const estimatedInputTokens = Math.round((payload.input?.length || 500) / 4);
+        const estimatedOutputTokens = Math.round(durationMs / 10); // ~100ms per token
+
+        costLedger.record({
+          type: 'routing',
+          model: forcedTier === 'LIGHT' ? 'haiku' : 'sonnet', // Rough estimate
+          inputTokens: estimatedInputTokens,
+          outputTokens: estimatedOutputTokens,
+          durationMs,
+          source: 'kabbalistic_router',
+          metadata: { taskType, entrySefirah, budgetLevel: budgetStatus.level },
+        });
+      } catch (err) {
+        log.debug('Failed to record routing cost', { error: err.message });
+      }
+    }
+
+    // 10. Emit orchestration event for persistence + learning visibility
     globalEventBus.publish(EventType.ORCHESTRATION_COMPLETED, {
       taskType,
       path: path.slice(0, 5),
@@ -635,6 +709,8 @@ export class KabbalisticRouter {
       durationMs,
       consultationCount: context.consultations.length,
       thompsonExplored,
+      budgetStatus: budgetStatus.level, // Add budget awareness to events
+      forcedTier, // Track if tier was forced
     });
 
     return {
