@@ -50,8 +50,10 @@ export class CalibrationTracker {
     this.serviceId = options.serviceId || 'default';
 
     // Drift detection config
-    // Industry standard: 10% (0.10) - lowered from φ⁻² (38.2%) per learning-validation.md
-    this.driftThreshold = options.driftThreshold || 0.10; // 10% ECE threshold
+    // Industry standard: 5% (0.05) - well-calibrated models should have ECE < 5%
+    // Previous: 10% (too permissive), φ⁻² 38.2% (way too permissive)
+    // Per learning-validation.md §2.1: ECE < 0.05 = well-calibrated, < 0.10 = moderate
+    this.driftThreshold = options.driftThreshold || 0.05; // 5% ECE threshold (industry standard)
     this.minSamplesForAlert = options.minSamplesForAlert || 10;
     this.alertCooldownMs = options.alertCooldownMs || 30 * 60 * 1000; // 30 min
 

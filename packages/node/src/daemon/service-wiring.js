@@ -154,7 +154,7 @@ export async function wireLearningSystem() {
   // 2. SONA — real-time pattern adaptation
   try {
     _sona = createSONA();
-    _sonaListener = (data) => {
+    _sonaListener = async (data) => {
       try {
         if (data?.patternId && data?.dimensionScores) {
           _sona.observe({
@@ -162,6 +162,22 @@ export async function wireLearningSystem() {
             dimensionScores: data.dimensionScores,
             judgmentId: data.judgmentId,
           });
+
+          // GAP-3: Record to learning_events table for G1.2 metric
+          try {
+            const { getPool } = await import('@cynic/persistence');
+            const pool = getPool();
+            await pool.query(`
+              INSERT INTO learning_events (loop_type, event_type, judgment_id, pattern_id, metadata)
+              VALUES ($1, $2, $3, $4, $5)
+            `, [
+              'sona',
+              'observation',
+              data.judgmentId || null,
+              data.patternId || null,
+              JSON.stringify({ dimensionCount: Object.keys(data.dimensionScores || {}).length })
+            ]);
+          } catch { /* non-blocking DB write */ }
         }
       } catch { /* non-blocking */ }
     };
@@ -174,7 +190,7 @@ export async function wireLearningSystem() {
   // 3. BehaviorModifier — feedback → behavior changes
   try {
     _behaviorModifier = createBehaviorModifier();
-    _feedbackListener = (data) => {
+    _feedbackListener = async (data) => {
       try {
         if (_behaviorModifier && data) {
           _behaviorModifier.processFeedback(data);
@@ -182,6 +198,22 @@ export async function wireLearningSystem() {
         if (_sona && data?.judgmentId) {
           _sona.processFeedback(data);
         }
+
+        // GAP-3: Record to learning_events table for G1.2 metric
+        try {
+          const { getPool } = await import('@cynic/persistence');
+          const pool = getPool();
+          await pool.query(`
+            INSERT INTO learning_events (loop_type, event_type, judgment_id, feedback_value, metadata)
+            VALUES ($1, $2, $3, $4, $5)
+          `, [
+            'feedback-loop',
+            'feedback',
+            data?.judgmentId || null,
+            data?.value || null,
+            JSON.stringify({ source: 'behavior-modifier' })
+          ]);
+        } catch { /* non-blocking DB write */ }
       } catch { /* non-blocking */ }
     };
     globalEventBus.on(EventType.USER_FEEDBACK || 'feedback:processed', _feedbackListener);
@@ -193,6 +225,25 @@ export async function wireLearningSystem() {
   // 4. MetaCognition — self-monitoring and strategy switching
   try {
     _metaCognition = getMetaCognition();
+
+    // GAP-3: Record meta-cognition events
+    const metaListener = async (data) => {
+      try {
+        const { getPool } = await import('@cynic/persistence');
+        const pool = getPool();
+        await pool.query(`
+          INSERT INTO learning_events (loop_type, event_type, action_taken, metadata)
+          VALUES ($1, $2, $3, $4)
+        `, [
+          'meta-cognition',
+          data.type || 'strategy-switch',
+          data.action || null,
+          JSON.stringify(data)
+        ]);
+      } catch { /* non-blocking */ }
+    };
+    globalEventBus.on('metacognition:action', metaListener);
+
     log.info('MetaCognition wired — self-monitoring active');
   } catch (err) {
     log.warn('MetaCognition init failed', { error: err.message });

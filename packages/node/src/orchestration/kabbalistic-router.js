@@ -786,6 +786,44 @@ export class KabbalisticRouter {
       forcedTier, // Track if tier was forced
     });
 
+    // Wiring Gap 1: Record routing decision for G1.4 metric
+    log.info('KabbalisticRouter.route', {
+      taskType,
+      path: path.join(' → '),
+      entrySefirah,
+      dogsSelected: context.decisions.map(d => d.agent),
+      confidence: synthesis.confidence,
+      hasConsensus: synthesis.hasConsensus,
+      durationMs
+    });
+
+    // Record to routing_accuracy table (non-blocking)
+    try {
+      const { getPool } = await import('@cynic/persistence');
+      const pool = getPool();
+      await pool.query(`
+        INSERT INTO routing_accuracy (
+          router_type, event_type, dogs_selected, confidence, metadata
+        ) VALUES ($1, $2, $3, $4, $5)
+      `, [
+        'kabbalistic',
+        taskType,
+        context.decisions.map(d => d.agent),
+        synthesis.confidence,
+        JSON.stringify({
+          path,
+          entrySefirah,
+          hasConsensus: synthesis.hasConsensus,
+          budgetLevel: budgetStatus.level,
+          temporal: temporal.energy,
+          durationMs
+        })
+      ]);
+    } catch (err) {
+      // Non-blocking DB write
+      log.debug('Failed to record routing accuracy', { error: err.message });
+    }
+
     return {
       success: !context.error,
       taskType,
