@@ -724,6 +724,125 @@ export class CostLedger extends EventEmitter {
     this._alertedModerate = false;
     this.emit('session:reset');
   }
+
+  /**
+   * Reset budget consumption (for daily/weekly resets or manual reset).
+   * Preserves lifetime stats but resets session consumption.
+   *
+   * @param {string} [reason='manual'] - Reset reason (manual/daily/weekly)
+   */
+  resetBudget(reason = 'manual') {
+    const consumedBefore = this._session.totalTokens;
+    const costBefore = this._session.estimatedCostUSD;
+
+    this.resetSession();
+
+    log.info('Budget reset', {
+      reason,
+      consumedBefore,
+      costBefore: roundTo(costBefore, 4),
+      newBudget: this._sessionBudget,
+    });
+
+    this.emit('budget:reset', {
+      reason,
+      consumedBefore,
+      costBefore: roundTo(costBefore, 4),
+      resetAt: Date.now(),
+    });
+  }
+
+  /**
+   * Schedule automatic budget resets.
+   *
+   * @param {Object} schedule
+   * @param {string} schedule.frequency - 'daily' | 'weekly' | 'monthly'
+   * @param {number} [schedule.hour=0] - Hour to reset (0-23, UTC)
+   * @returns {NodeJS.Timeout} Timer handle (save to cancel later)
+   */
+  scheduleBudgetReset(schedule) {
+    const { frequency = 'daily', hour = 0 } = schedule;
+
+    const msPerHour = 60 * 60 * 1000;
+    const msPerDay = 24 * msPerHour;
+    const msPerWeek = 7 * msPerDay;
+
+    // Calculate ms until next reset
+    const now = new Date();
+    const nextReset = new Date();
+    nextReset.setUTCHours(hour, 0, 0, 0);
+
+    if (frequency === 'daily') {
+      if (nextReset <= now) {
+        nextReset.setUTCDate(nextReset.getUTCDate() + 1);
+      }
+    } else if (frequency === 'weekly') {
+      nextReset.setUTCDate(nextReset.getUTCDate() + (7 - nextReset.getUTCDay()));
+      if (nextReset <= now) {
+        nextReset.setUTCDate(nextReset.getUTCDate() + 7);
+      }
+    } else if (frequency === 'monthly') {
+      nextReset.setUTCDate(1);
+      nextReset.setUTCMonth(nextReset.getUTCMonth() + 1);
+      if (nextReset <= now) {
+        nextReset.setUTCMonth(nextReset.getUTCMonth() + 1);
+      }
+    }
+
+    const msUntilReset = nextReset.getTime() - now.getTime();
+
+    log.info('Budget reset scheduled', {
+      frequency,
+      nextReset: nextReset.toISOString(),
+      msUntilReset,
+    });
+
+    const timer = setTimeout(() => {
+      this.resetBudget(frequency);
+
+      // Reschedule for next period
+      this.scheduleBudgetReset(schedule);
+    }, msUntilReset);
+
+    return timer;
+  }
+
+  /**
+   * Get time until budget reset (if scheduled).
+   * For manual systems tracking budget periods.
+   *
+   * @param {string} frequency - 'daily' | 'weekly' | 'monthly'
+   * @param {number} [hour=0] - Reset hour (UTC)
+   * @returns {Object} { nextReset: Date, msUntilReset: number }
+   */
+  getTimeUntilReset(frequency = 'daily', hour = 0) {
+    const now = new Date();
+    const nextReset = new Date();
+    nextReset.setUTCHours(hour, 0, 0, 0);
+
+    if (frequency === 'daily') {
+      if (nextReset <= now) {
+        nextReset.setUTCDate(nextReset.getUTCDate() + 1);
+      }
+    } else if (frequency === 'weekly') {
+      nextReset.setUTCDate(nextReset.getUTCDate() + (7 - nextReset.getUTCDay()));
+      if (nextReset <= now) {
+        nextReset.setUTCDate(nextReset.getUTCDate() + 7);
+      }
+    } else if (frequency === 'monthly') {
+      nextReset.setUTCDate(1);
+      nextReset.setUTCMonth(nextReset.getUTCMonth() + 1);
+      if (nextReset <= now) {
+        nextReset.setUTCMonth(nextReset.getUTCMonth() + 1);
+      }
+    }
+
+    return {
+      nextReset,
+      msUntilReset: nextReset.getTime() - now.getTime(),
+      hoursUntilReset: roundTo((nextReset.getTime() - now.getTime()) / (60 * 60 * 1000), 1),
+    };
+  }
 }
 
 // =============================================================================

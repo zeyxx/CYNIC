@@ -20,6 +20,7 @@ import { benchmarkCommand } from './commands/benchmark.js';
 import { traceCommand } from './commands/trace.js';
 import { memoryCommand } from './commands/memory.js';
 import { qtableCommand } from './commands/qtable.js';
+import { handleBudgetCommand } from './commands/budget.js';
 import { hooksCommand } from './commands/hooks.js';
 import { judgeCommand } from './commands/judge.js';
 import { daemonCommand } from './commands/daemon.js';
@@ -230,6 +231,13 @@ export function createCLI(program) {
     .alias('m')
     .description('View organism health metrics (week1, autonomy, velocity, snapshot)')
     .action(metricsCommand);
+
+  // Budget command (cost tracking & enforcement)
+  program
+    .command('budget [subcommand]')
+    .alias('b')
+    .description('Manage budget (status, reset, set, schedule)')
+    .action(handleBudgetCommand);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // DAEMON
