@@ -40,11 +40,12 @@ import { getCynicEmergence, resetCynicEmergence } from './emergence/cynic-emerge
 import { getSocialEmergence, resetSocialEmergence } from './emergence/social-emergence.js';
 import { getCosmosEmergence, resetCosmosEmergence } from './emergence/cosmos-emergence.js';
 import { wireAmbientConsensus } from './agents/collective/ambient-consensus.js';
-import { startEventListeners, stopEventListeners, cleanupOldEventData, wireSolanaEventListeners } from './services/event-listeners.js';
+import { startEventListeners, stopEventListeners, cleanupOldEventData, wireSolanaEventListeners, wireMarketEventListeners } from './services/event-listeners.js';
 import { getNetworkNode as getNetworkNodeSync, getNetworkNodeAsync, startNetworkNode, stopNetworkNode, isP2PEnabled } from './network-singleton.js';
 import { BlockStore } from './network/block-store.js';
 import { getErrorHandler } from './services/error-handler.js';
 import { getSolanaWatcher, resetSolanaWatcher } from './perception/solana-watcher.js';
+import { getMarketWatcher, resetMarketWatcher } from './market/market-watcher.js';
 import { getEmergenceDetector } from './services/emergence-detector.js';
 import { createConsciousnessMonitor } from '@cynic/emergence';
 import { getHeartbeatService, createDefaultChecks } from './services/heartbeat-service.js';
@@ -310,6 +311,13 @@ let _networkNode = null;
  * @type {import('./perception/solana-watcher.js').SolanaWatcher|null}
  */
 let _solanaWatcher = null;
+
+/**
+ * C3.1 (MARKET x PERCEIVE): MarketWatcher singleton
+ * Watches $asdfasdfa price, liquidity, and market sentiment
+ * @type {import('./market/market-watcher.js').MarketWatcher|null}
+ */
+let _marketWatcher = null;
 
 /**
  * AXE 6 (EMERGE): Global EmergenceDetector instance
@@ -1448,6 +1456,23 @@ export async function getCollectivePackAsync(options = {}) {
       }
     }
 
+    // C3.1 (MARKET × PERCEIVE): Initialize MarketWatcher
+    // Always initialize market watcher - tracks $asdfasdfa token
+    if (!_marketWatcher) {
+      try {
+        _marketWatcher = getMarketWatcher({ autoStart: true });
+        log.info('MarketWatcher started (C3.1)', {
+          token: _marketWatcher.tokenMint,
+        });
+
+        // Bridge MarketWatcher events → globalEventBus
+        wireMarketEventListeners({ marketWatcher: _marketWatcher });
+      } catch (err) {
+        log.warn('MarketWatcher initialization failed (non-blocking)', { error: err.message });
+        _marketWatcher = null;
+      }
+    }
+
     // AXE 8 (AWARE): Activate ErrorHandler singleton with global error capture
     try {
       getErrorHandler({ captureGlobal: true });
@@ -1571,6 +1596,7 @@ export async function getCollectivePackAsync(options = {}) {
       // Perception
       if (_dogStateEmitter) systemTopology.registerComponent('dogStateEmitter', _dogStateEmitter);
       if (_solanaWatcher) systemTopology.registerComponent('solanaWatcher', _solanaWatcher);
+      if (_marketWatcher) systemTopology.registerComponent('marketWatcher', _marketWatcher);
       if (_ecosystemMonitor) systemTopology.registerComponent('ecosystem_tools', _ecosystemMonitor);
 
       // Learning
@@ -2130,12 +2156,14 @@ export function getSingletonStatus() {
     qLearningInitialized: !!_qLearningService?._initialized,
     networkInitialized: !!_networkNode,
     solanaWatcherInitialized: !!_solanaWatcher,
+    marketWatcherInitialized: !!_marketWatcher,
     isAwakened: _isAwakened,
     sharedMemoryStats: _sharedMemory?.stats || null,
     packStats: _globalPack?.getStats?.() || null,
     qLearningStats: _qLearningService?.getStats?.() || null,
     networkState: _networkNode?.state || null,
     solanaWatcherRunning: _solanaWatcher?._isRunning || false,
+    marketWatcherRunning: _marketWatcher?.running || false,
     ewcServiceRunning: !!_ewcService?.consolidationTimer,
     ewcStats: _ewcService?.stats || null,
     ecosystemMonitorSources: _ecosystemMonitor?.sources?.size || 0,
@@ -2292,6 +2320,15 @@ export function getSolanaWatcherSingleton() {
 }
 
 /**
+ * Get MarketWatcher singleton (if initialized)
+ *
+ * @returns {import('./market/market-watcher.js').MarketWatcher|null} Watcher or null
+ */
+export function getMarketWatcherSingleton() {
+  return _marketWatcher;
+}
+
+/**
  * Get EcosystemMonitor singleton (if initialized)
  *
  * @returns {EcosystemMonitor|null} Monitor or null
@@ -2347,6 +2384,12 @@ export function _resetForTesting() {
   if (_solanaWatcher) {
     resetSolanaWatcher();
     _solanaWatcher = null;
+  }
+
+  // C3.1: Reset MarketWatcher
+  if (_marketWatcher) {
+    resetMarketWatcher();
+    _marketWatcher = null;
   }
 
   // Auto-save: Stop interval
@@ -2493,4 +2536,6 @@ export default {
   stopNetworkNode,
   // C2.1: Solana perception
   getSolanaWatcherSingleton,
+  // C3.1: Market perception
+  getMarketWatcherSingleton,
 };

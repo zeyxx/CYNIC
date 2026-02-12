@@ -5381,10 +5381,94 @@ export async function cleanupOldEventData(persistence, options = {}) {
   return result;
 }
 
+/**
+ * Wire Market event listeners
+ * Bridges MarketWatcher EventEmitter → globalEventBus
+ *
+ * C3.1 (MARKET × PERCEIVE) → future C3.2-C3.7 processors
+ *
+ * @param {Object} options
+ * @param {import('../market/market-watcher.js').MarketWatcher} options.marketWatcher - MarketWatcher instance
+ */
+export function wireMarketEventListeners({ marketWatcher } = {}) {
+  if (!marketWatcher) {
+    log.debug('Market event listeners skipped (no marketWatcher)');
+    return;
+  }
+
+  // Bridge: PRICE_UPDATE → globalEventBus
+  marketWatcher.on('perception:market:price', (event) => {
+    try {
+      globalEventBus.publish('perception:market:price', event, { source: 'marketWatcher' });
+      _stats.marketPriceUpdates = (_stats.marketPriceUpdates || 0) + 1;
+    } catch (err) {
+      log.debug('Market price bridge error', { error: err.message });
+    }
+  });
+
+  // Bridge: LIQUIDITY_CHANGE → globalEventBus
+  marketWatcher.on('perception:market:liquidity', (event) => {
+    try {
+      globalEventBus.publish('perception:market:liquidity', event, { source: 'marketWatcher' });
+      _stats.marketLiquidityUpdates = (_stats.marketLiquidityUpdates || 0) + 1;
+    } catch (err) {
+      log.debug('Market liquidity bridge error', { error: err.message });
+    }
+  });
+
+  // Bridge: VOLUME_SPIKE → globalEventBus
+  marketWatcher.on('perception:market:volume_spike', (event) => {
+    try {
+      globalEventBus.publish('perception:market:volume_spike', event, { source: 'marketWatcher' });
+      _stats.marketVolumeSpikes = (_stats.marketVolumeSpikes || 0) + 1;
+    } catch (err) {
+      log.debug('Market volume spike bridge error', { error: err.message });
+    }
+  });
+
+  // Bridge: HOLDER_CHANGE → globalEventBus
+  marketWatcher.on('perception:market:holders', (event) => {
+    try {
+      globalEventBus.publish('perception:market:holders', event, { source: 'marketWatcher' });
+      _stats.marketHolderUpdates = (_stats.marketHolderUpdates || 0) + 1;
+    } catch (err) {
+      log.debug('Market holder bridge error', { error: err.message });
+    }
+  });
+
+  // Bridge: PRICE_ALERT → globalEventBus (for Judge/Learning)
+  marketWatcher.on('perception:market:price_alert', (event) => {
+    try {
+      globalEventBus.publish('perception:market:price_alert', event, { source: 'marketWatcher' });
+      _stats.marketAlerts = (_stats.marketAlerts || 0) + 1;
+      log.info('Market price alert', {
+        severity: event.severity,
+        direction: event.direction,
+        priceChangePercent: event.priceChangePercent.toFixed(2),
+      });
+    } catch (err) {
+      log.debug('Market alert bridge error', { error: err.message });
+    }
+  });
+
+  // Bridge: ERROR → globalEventBus
+  marketWatcher.on('perception:market:error', (event) => {
+    try {
+      globalEventBus.publish('perception:market:error', event, { source: 'marketWatcher' });
+      _stats.marketErrors = (_stats.marketErrors || 0) + 1;
+    } catch (err) {
+      log.debug('Market error bridge error', { error: err.message });
+    }
+  });
+
+  log.info('Market event listeners wired (C3.1)');
+}
+
 export default {
   startEventListeners,
   stopEventListeners,
   isRunning,
   getListenerStats,
   cleanupOldEventData,
+  wireMarketEventListeners,
 };

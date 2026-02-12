@@ -340,8 +340,8 @@ const instance = createIdentity();
 
 ## Stats
 
-- **Source files**: 302
-- **Test files**: 106
+- **Source files**: 303
+- **Test files**: 107
 - **Test ratio**: 35%
 - **Exports**: 458 named
 
@@ -356,7 +356,7 @@ const instance = createIdentity();
 [████░░░░░░] 35% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
-[█████░░░░░] 49% Burn (Simplicity)
+[█████░░░░░] 50% Burn (Simplicity)
 [██████░░░░] 62% Emergence
 ```
 
