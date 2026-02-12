@@ -357,6 +357,13 @@ export class KabbalisticRouter {
     this._healthLevel = 'healthy';
     this._recommendedModel = null;
 
+    // A2: Hot-swappable learning weights — subscribe to Q-Learning updates
+    this._qLearningSubscription = globalEventBus.subscribe(
+      EventType.QLEARNING_WEIGHT_UPDATE,
+      (event) => this._handleQLearningWeightUpdate(event)
+    );
+    log.debug('KabbalisticRouter subscribed to Q-Learning weight updates');
+
     // Wire event listeners for health-aware routing
     this._wireHealthEvents();
   }
@@ -1765,6 +1772,34 @@ export class KabbalisticRouter {
     }
 
     return true;
+  }
+
+  /**
+   * A2: Handle Q-Learning weight update event (hot-swap)
+   * @private
+   */
+  _handleQLearningWeightUpdate(event) {
+    try {
+      const { state, action, qValue, delta } = event.payload || {};
+      if (!action || qValue === undefined) return;
+
+      // Hot-swap: Update relationship graph immediately (no restart needed)
+      if (this.relationshipGraph?.setWeight) {
+        // action = dog name, qValue = learned weight
+        this.relationshipGraph.setWeight('cynic', action, qValue);
+
+        log.debug('Q-Learning weight hot-swapped', {
+          dog: action,
+          newWeight: qValue.toFixed(3),
+          delta: delta?.toFixed(3),
+        });
+      }
+
+      // Also trigger full weight application to ensure consistency
+      this.applyLearnedWeights();
+    } catch (err) {
+      log.debug('Q-Learning weight update failed', { error: err.message });
+    }
   }
 
   // ===========================================================================

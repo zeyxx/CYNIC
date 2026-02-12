@@ -72,6 +72,7 @@ export const EventType = {
   // Learning events
   EWC_CONSOLIDATION_COMPLETED: 'ewc:consolidation:completed',
   CALIBRATION_DRIFT_DETECTED: 'calibration:drift:detected',
+  QLEARNING_WEIGHT_UPDATE: 'qlearning:weight:update',
 
   // Orchestration events
   ORCHESTRATION_COMPLETED: 'orchestration:completed',

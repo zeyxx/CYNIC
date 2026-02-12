@@ -18,7 +18,7 @@
 
 'use strict';
 
-import { PHI_INV, PHI_INV_2 } from '@cynic/core';
+import { PHI_INV, PHI_INV_2, globalEventBus, EventType } from '@cynic/core';
 
 // =============================================================================
 // CONFIGURATION (φ-aligned)
@@ -453,6 +453,19 @@ export class QLearningService {
 
       this.qTable.set(episode.features, action, newQ);
       this.stats.updates++;
+
+      // A2: Hot-swap routing weights — emit event for live router update
+      try {
+        globalEventBus.publish(EventType.QLEARNING_WEIGHT_UPDATE, {
+          state: episode.features,
+          action,
+          qValue: newQ,
+          delta: newQ - currentQ,
+          serviceId: this.serviceId,
+        }, { source: 'learning-service' });
+      } catch (err) {
+        // Non-blocking — router update is optional enhancement
+      }
     }
   }
 
