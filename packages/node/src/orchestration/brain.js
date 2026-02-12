@@ -27,6 +27,8 @@ import { EventEmitter } from 'events';
 import { createLogger, PHI_INV, PHI_INV_2 } from '@cynic/core';
 
 import { MemoryInjector } from './memory-injector.js';
+import { DogPipeline } from './dog-pipeline.js';
+import { KabbalisticRouter } from './kabbalistic-router.js';
 const log = createLogger('Brain');
 
 /**
@@ -129,6 +131,8 @@ export class Brain extends EventEmitter {
 
     // Core components
     this.dogOrchestrator = options.dogOrchestrator || null;
+    this.dogPipeline = options.dogPipeline || null;
+    this.kabbalisticRouter = options.kabbalisticRouter || null;
     this.engineOrchestrator = options.engineOrchestrator || null;
     this.memoryStore = options.memoryStore || null;
     this.learningService = options.learningService || null;
@@ -156,6 +160,8 @@ export class Brain extends EventEmitter {
 
     log.debug('Brain initialized', {
       hasDogs: !!this.dogOrchestrator,
+      hasDogPipeline: !!this.dogPipeline,
+      hasKabbalisticRouter: !!this.kabbalisticRouter,
       hasEngines: !!this.engineOrchestrator,
       hasMemory: !!this.memoryStore,
       hasLLMRouter: !!this.llmRouter, // Task #91
@@ -589,7 +595,46 @@ export class Brain extends EventEmitter {
       };
 
       // 1. Get local dog judgment (now with memory context)
-      const result = await this.dogOrchestrator.judge(item);
+      // NEW: Use KabbalisticRouter + DogPipeline if available for parallel voting
+      let result;
+      if (this.dogPipeline && this.kabbalisticRouter) {
+        try {
+          // 1a. Select Dogs based on task dimensions
+          const selectedDogs = this.kabbalisticRouter.selectDogsForJudgment({
+            dimensions: item.context?.dimensions || [],
+            taskType: item.itemType,
+          });
+
+          // 1b. Execute Dogs in parallel
+          const pipelineResult = await this.dogPipeline.executeParallel(selectedDogs, item, item.context);
+
+          // 1c. Record votes (non-blocking)
+          this.dogPipeline.recordVotes(pipelineResult.votes, pipelineResult.consensus, item).catch(() => {});
+
+          // 1d. Format result
+          result = {
+            score: pipelineResult.consensus.score,
+            verdict: pipelineResult.consensus.verdict,
+            consensus: pipelineResult.consensus,
+            consensusRatio: pipelineResult.consensus.agreementRatio,
+            votes: pipelineResult.votes,
+            blocked: false,
+            dimensions: item.context?.dimensions || [],
+            selectedDogs,
+            pipelineStats: {
+              successCount: pipelineResult.successCount,
+              timeouts: pipelineResult.timeoutCount,
+              durationMs: pipelineResult.durationMs,
+            },
+          };
+        } catch (pipelineErr) {
+          log.warn('DogPipeline failed, falling back to DogOrchestrator', { error: pipelineErr.message });
+          result = await this.dogOrchestrator.judge(item);
+        }
+      } else {
+        // Fallback: use existing dogOrchestrator
+        result = await this.dogOrchestrator.judge(item);
+      }
 
       const judgment = {
         score: result.score,
@@ -839,6 +884,8 @@ export class Brain extends EventEmitter {
       state: this._state.toJSON(),
       components: {
         hasDogs: !!this.dogOrchestrator,
+      hasDogPipeline: !!this.dogPipeline,
+      hasKabbalisticRouter: !!this.kabbalisticRouter,
         hasEngines: !!this.engineOrchestrator,
         hasMemory: !!this.memoryStore,
         hasLearning: !!this.learningService,

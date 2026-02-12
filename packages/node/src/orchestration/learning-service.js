@@ -468,8 +468,8 @@ export class QLearningService {
 
       // A2: Hot-swap routing weights — emit event for live router update
       try {
-n      // LV-1: Track TD-Error for convergence/drift detection
-      const tdError = Math.abs(target - currentQ);
+        // LV-1: Track TD-Error for convergence/drift detection
+        const tdError = Math.abs(target - currentQ);
       this._trackTDError(tdError, {
         state: episode.features,
         action,
@@ -495,7 +495,8 @@ n      // LV-1: Track TD-Error for convergence/drift detection
    * Calculate reward from outcome
    * @private
    */
-n  /**
+
+  /**
    * Track TD-Error for convergence/drift detection (LV-1)
    * @private
    */
@@ -532,8 +533,8 @@ n  /**
         }
       }
 
-      // Check drift (only if converged)
-      if (this.tdIsConverged && rollingAvg > this.tdDriftThreshold) {
+      // Check drift (if we've EVER converged, and now drifting)
+      if (this.tdLastConvergenceAt !== null && rollingAvg > this.tdDriftThreshold) {
         const now = Date.now();
         const shouldAlert = (now - this.tdLastAlertAt) > this.tdAlertCooldownMs;
 
