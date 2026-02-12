@@ -2213,6 +2213,92 @@ export class KabbalisticRouter {
     }
   }
 
+
+  /**
+   * Select Dogs for parallel judgment based on task dimensions
+   * Uses DOG_DIMENSION_AFFINITY to choose most relevant Dogs
+   *
+   * @param {Object} task - Task to judge
+   * @param {Array<string>} [task.dimensions] - Relevant judgment dimensions
+   * @param {string} [task.taskType] - Task type
+   * @param {Object} [options] - Selection options
+   * @param {number} [options.maxDogs=5] - Maximum Dogs to select
+   * @param {number} [options.minDogs=3] - Minimum Dogs required (quorum)
+   * @param {boolean} [options.useThompson=true] - Use Thompson sampling for exploration
+   * @returns {Array<string>} Selected Dog names
+   */
+  selectDogsForJudgment(task, options = {}) {
+    const maxDogs = options.maxDogs || 5;
+    const minDogs = options.minDogs || 3;
+    const useThompson = options.useThompson !== false;
+
+    const dimensions = task.dimensions || [];
+    const taskType = task.taskType || 'unknown';
+
+    // If no dimensions provided, use default critical Dogs
+    if (dimensions.length === 0) {
+      log.debug('No dimensions provided, selecting default Dogs');
+      return ['guardian', 'cynic', 'analyst'];
+    }
+
+    // Score each Dog by dimension affinity
+    const dogScores = {};
+    const dogNames = Object.keys(DOG_DIMENSION_AFFINITY);
+
+    for (const dogName of dogNames) {
+      const affinities = DOG_DIMENSION_AFFINITY[dogName] || [];
+      const score = affinities.filter(dim => dimensions.includes(dim)).length;
+      dogScores[dogName] = score;
+    }
+
+    // Sort Dogs by affinity score (descending)
+    const rankedDogs = Object.entries(dogScores)
+      .filter(([_, score]) => score > 0) // Only Dogs with relevant dimensions
+      .sort(([_, a], [__, b]) => b - a)
+      .map(([dog, _]) => dog);
+
+    // If we have enough ranked Dogs, select top maxDogs
+    if (rankedDogs.length >= minDogs) {
+      let selectedDogs = rankedDogs.slice(0, maxDogs);
+
+      // Apply Thompson exploration if enabled
+      if (useThompson && this.shouldExplore()) {
+        const exploreIndex = Math.floor(Math.random() * selectedDogs.length);
+        const alternativeDog = this.thompsonSelect(dogNames);
+        if (alternativeDog && !selectedDogs.includes(alternativeDog)) {
+          selectedDogs[exploreIndex] = alternativeDog;
+          log.debug('Thompson exploration: swapped Dog', {
+            removed: rankedDogs[exploreIndex],
+            added: alternativeDog,
+          });
+        }
+      }
+
+      log.debug('Dogs selected for judgment', {
+        taskType,
+        dimensions: dimensions.slice(0, 3),
+        selectedDogs,
+        topScores: selectedDogs.map(d => ({ dog: d, score: dogScores[d] })),
+      });
+
+      return selectedDogs;
+    }
+
+    // Fallback: not enough dimension matches, use critical Dogs + random selection
+    log.warn('Insufficient dimension matches, using fallback selection', {
+      taskType,
+      dimensions: dimensions.length,
+      matches: rankedDogs.length,
+    });
+
+    const criticalDogs = ['guardian', 'cynic', 'analyst'];
+    const remainingDogs = dogNames.filter(d => !criticalDogs.includes(d));
+    const randomDogs = remainingDogs
+      .sort(() => Math.random() - 0.5)
+      .slice(0, maxDogs - criticalDogs.length);
+
+    return [...criticalDogs, ...randomDogs].slice(0, maxDogs);
+  }
   setPersistence(persistence) {
     this.persistence = persistence;
   }
