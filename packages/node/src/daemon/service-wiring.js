@@ -399,8 +399,15 @@ export async function wireOrchestrator() {
     const sharedMemory = pack.sharedMemory;
     log.debug('CollectivePack loaded for orchestrator wiring');
 
+    // 1.5. Wire Q-Learning (load Q-table from DB, track updates for G1.3)
+    // This MUST happen before KabbalisticRouter creation so weights are loaded
+    const { learningService: qLearningService, loaded: qTableLoaded } = await wireQLearning();
+    if (qTableLoaded) {
+      log.info('Q-Learning wired — weights loaded from DB and ready for routing');
+    }
+
     // 2. Get LearningService (Q-Learning for route optimization)
-    const learningService = getQLearningService();
+    const learningService = qLearningService || getQLearningService(); // Use initialized Q-Learning service
     log.debug('LearningService ready');
 
     // 3. Get CostLedger (budget-aware routing)
@@ -542,6 +549,9 @@ function cleanupOrchestrator() {
   _orchestrator = null;
   _kabbalisticRouter = null;
   _dogOrchestrator = null;
+
+  // Cleanup Q-Learning wiring
+  cleanupQLearning();
   _orchestratorWired = false;
 
   log.info('Orchestrator cleaned up');
