@@ -235,7 +235,8 @@ export class QLearningService {
       correctPredictions: 0,
       totalFeedback: 0,
     };
-n    // TD Error tracking (LV-1: convergence/drift detection)
+
+    // TD Error tracking (LV-1: convergence/drift detection)
     this.tdErrors = [];
     this.tdWindowSize = options.tdWindowSize || 100;
     this.tdConvergenceThreshold = options.tdConvergenceThreshold || 0.1;

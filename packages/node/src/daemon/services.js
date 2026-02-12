@@ -17,6 +17,7 @@ import { UnifiedOrchestrator } from '../orchestration/unified-orchestrator.js';
 import { KabbalisticRouter } from '../orchestration/kabbalistic-router.js';
 import { QLearningService } from '../orchestration/learning-service.js';
 import { CollectivePack } from '../agents/collective/index.js';
+import { StatePersister } from '../persistence/state-persister.js';
 
 const log = createLogger('DaemonServices');
 
@@ -38,6 +39,7 @@ export class DaemonServices {
     this.orchestrator = null;
     this.kabbalisticRouter = null;
     this.learningService = null;
+    this.statePersister = null;
 
     // State
     this._isRunning = false;
@@ -74,6 +76,9 @@ export class DaemonServices {
       // 5. Wire perception events to orchestrator
       this._wirePerceptionToOrchestrator();
 
+      // 6. Start state persister (heartbeat snapshots for crash recovery)
+      await this._startStatePersister();
+
       this._isRunning = true;
       log.info('Daemon services started', {
         duration: Date.now() - this._startedAt,
@@ -97,7 +102,12 @@ export class DaemonServices {
 
     log.info('Stopping daemon services...');
 
-    // Stop in reverse order
+    // Stop in reverse order (StatePersister first for final snapshot)
+    if (this.statePersister) {
+      await this.statePersister.stop();
+      this.statePersister = null;
+    }
+
     if (this.filesystemWatcher) {
       await this.filesystemWatcher.stop();
       this.filesystemWatcher = null;
@@ -195,6 +205,24 @@ export class DaemonServices {
     this.filesystemWatcher.start();
 
     log.info('Perception watchers started');
+  }
+
+  /**
+   * Start state persister (crash resilience heartbeat)
+   * @private
+   */
+  async _startStatePersister() {
+    log.debug('Starting state persister...');
+
+    this.statePersister = new StatePersister({
+      daemonServices: this,
+      sessionId: 'daemon-main',
+      intervalMs: 30_000, // 30 seconds
+    });
+
+    await this.statePersister.start();
+
+    log.info('State persister started (30s heartbeat)');
   }
 
   /**
@@ -350,6 +378,7 @@ export class DaemonServices {
         learningService: this.learningService ? {
           stats: this.learningService.getStats(),
         } : null,
+        statePersister: this.statePersister ? this.statePersister.getStatus() : null,
       },
     };
   }
