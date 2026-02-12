@@ -243,7 +243,7 @@ export function isLearningWired() { return _learningWired; }
  *
  * Persists final state and removes event listeners.
  */
-export function cleanupDaemonServices() {
+export async function cleanupDaemonServices() {
   if (!_wired) return;
 
   // Stop periodic persist
@@ -269,6 +269,9 @@ export function cleanupDaemonServices() {
 
   // Clean up learning system
   cleanupLearningSystem();
+
+  // Clean up orchestrator
+  cleanupOrchestrator();
 
   // Clean up watchers
   await cleanupWatchers();
@@ -303,6 +306,193 @@ function cleanupLearningSystem() {
   _metaCognition = null;
   _learningWired = false;
   log.info('Learning system cleaned up');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ORCHESTRATION SYSTEM — UnifiedOrchestrator + KabbalisticRouter + DogOrchestrator
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Wire the orchestration system at daemon boot.
+ *
+ * Creates and wires UnifiedOrchestrator with all routing dependencies:
+ * - KabbalisticRouter (Lightning Flash routing through Tree of Life)
+ * - DogOrchestrator (11 dogs consensus system)
+ * - LearningService (Q-Learning for route optimization)
+ * - CostLedger (budget-aware routing)
+ * - CollectivePack (shared memory + dogs)
+ *
+ * This enables event routing through:
+ * globalEventBus → KabbalisticRouter → Dogs → Consensus → Learning
+ *
+ * Metrics enabled:
+ * - G1.4: ≥20 KabbalisticRouter calls logged
+ * - G1.5: ≥10 LLMRouter routes to non-Anthropic
+ *
+ * @returns {Promise<{ orchestrator: Object|null, kabbalisticRouter: Object|null, dogOrchestrator: Object|null }>}
+ */
+export async function wireOrchestrator() {
+  if (_orchestratorWired) {
+    log.debug('Orchestrator already wired — skipping');
+    return {
+      orchestrator: _orchestrator,
+      kabbalisticRouter: _kabbalisticRouter,
+      dogOrchestrator: _dogOrchestrator,
+    };
+  }
+
+  try {
+    // 1. Get CollectivePack (must be initialized first — contains dogs + shared memory)
+    const pack = await getCollectivePackAsync();
+    const sharedMemory = pack.sharedMemory;
+    log.debug('CollectivePack loaded for orchestrator wiring');
+
+    // 2. Get LearningService (Q-Learning for route optimization)
+    const learningService = getQLearningService();
+    log.debug('LearningService ready');
+
+    // 3. Get CostLedger (budget-aware routing)
+    const costLedger = getCostLedger();
+    log.debug('CostLedger ready');
+
+    // 4. Create KabbalisticRouter (Lightning Flash routing)
+    _kabbalisticRouter = createKabbalisticRouter({
+      collectivePack: pack,
+      learningService,
+      costOptimizer: costLedger, // CostLedger acts as cost optimizer
+    });
+    log.info('KabbalisticRouter created');
+
+    // 5. Create DogOrchestrator (11 dogs consensus)
+    _dogOrchestrator = new DogOrchestrator({
+      collectivePack: pack,
+      sharedMemory,
+      mode: 'parallel', // Run all dogs in parallel for full consensus
+      consensusThreshold: 0.618, // φ⁻¹ consensus threshold
+      useSwarmConsensus: true, // Enable P2.4 swarm consensus
+    });
+    log.info('DogOrchestrator created');
+
+    // 6. Create UnifiedOrchestrator (central coordination facade)
+    _orchestrator = getOrchestrator({
+      kabbalisticRouter: _kabbalisticRouter,
+      dogOrchestrator: _dogOrchestrator,
+      learningService,
+      costOptimizer: costLedger,
+      eventBus: globalEventBus,
+    });
+    log.info('UnifiedOrchestrator created');
+
+    // 7. Wire globalEventBus events to orchestrator routing
+    // This enables automatic routing for key events
+    const eventTypes = [
+      'judgment:request',
+      'tool:use',
+      'hook:guard',
+      'hook:observe',
+      'consensus:needed',
+    ];
+
+    for (const eventType of eventTypes) {
+      globalEventBus.on(eventType, async (data) => {
+        try {
+          // Route event through UnifiedOrchestrator
+          const result = await _orchestrator.process({
+            eventType,
+            content: data.content || data.input || '',
+            context: data.context || {},
+            userContext: data.userContext || {},
+          });
+
+          // Emit result for downstream consumers
+          globalEventBus.emit(`${eventType}:routed`, {
+            original: data,
+            routing: result.routing,
+            outcome: result.outcome,
+            judgment: result.judgment,
+          });
+        } catch (err) {
+          log.debug(`Event routing failed for ${eventType}`, { error: err.message });
+        }
+      });
+    }
+
+    log.info('Event routing wired — globalEventBus → UnifiedOrchestrator');
+
+    _orchestratorWired = true;
+
+    return {
+      orchestrator: _orchestrator,
+      kabbalisticRouter: _kabbalisticRouter,
+      dogOrchestrator: _dogOrchestrator,
+    };
+  } catch (err) {
+    log.warn('Orchestrator wiring failed — daemon still operational', { error: err.message });
+    return {
+      orchestrator: null,
+      kabbalisticRouter: null,
+      dogOrchestrator: null,
+    };
+  }
+}
+
+/**
+ * Get UnifiedOrchestrator singleton (if wired).
+ * @returns {Object|null}
+ */
+export function getOrchestratorSingleton() {
+  return _orchestrator;
+}
+
+/**
+ * Get KabbalisticRouter singleton (if wired).
+ * @returns {Object|null}
+ */
+export function getKabbalisticRouterSingleton() {
+  return _kabbalisticRouter;
+}
+
+/**
+ * Get DogOrchestrator singleton (if wired).
+ * @returns {Object|null}
+ */
+export function getDogOrchestratorSingleton() {
+  return _dogOrchestrator;
+}
+
+/**
+ * Check if orchestrator is wired.
+ * @returns {boolean}
+ */
+export function isOrchestratorWired() {
+  return _orchestratorWired;
+}
+
+/**
+ * Cleanup orchestrator resources.
+ */
+function cleanupOrchestrator() {
+  if (!_orchestratorWired) return;
+
+  // Remove event listeners
+  const eventTypes = [
+    'judgment:request',
+    'tool:use',
+    'hook:guard',
+    'hook:observe',
+    'consensus:needed',
+  ];
+
+  for (const eventType of eventTypes) {
+    globalEventBus.removeAllListeners(eventType);
+  }
+
+  _orchestrator = null;
+  _kabbalisticRouter = null;
+  _dogOrchestrator = null;
+  _orchestratorWired = false;
+
+  log.info('Orchestrator cleaned up');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -542,6 +732,9 @@ export async function _resetForTesting() {
   _behaviorModifier = null;
   _metaCognition = null;
   _learningWired = false;
+
+  // Reset orchestrator
+  cleanupOrchestrator();
 
   // Reset watchers
   await cleanupWatchers();

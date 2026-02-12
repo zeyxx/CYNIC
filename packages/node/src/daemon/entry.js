@@ -18,7 +18,7 @@ import os from 'os';
 import { bootDaemon } from '@cynic/core/boot';
 import { DaemonServer } from './index.js';
 import { processRegistry, createLogger } from '@cynic/core';
-import { wireDaemonServices, wireLearningSystem, wireWatchers, cleanupDaemonServices } from './service-wiring.js';
+import { wireDaemonServices, wireLearningSystem, wireOrchestrator, wireWatchers, cleanupDaemonServices } from './service-wiring.js';
 import { Watchdog, checkRestartSentinel } from './watchdog.js';
 
 const log = createLogger('DaemonEntry');
@@ -102,6 +102,15 @@ async function main() {
       logToFile('WARN', `Learning system wiring failed — daemon still operational: ${err.message}`);
     }
 
+    // Wire orchestrator (UnifiedOrchestrator + KabbalisticRouter + DogOrchestrator)
+    // GAP-1: Enables event routing through Tree of Life → Dogs → Consensus
+    try {
+      await wireOrchestrator();
+      logToFile('INFO', 'Orchestrator wired — event routing through KabbalisticRouter → Dogs → Consensus');
+    } catch (err) {
+      logToFile('WARN', `Orchestrator wiring failed — routing degraded: ${err.message}`);
+    }
+
     // Wire watchers (FileWatcher + SolanaWatcher — perception layer)
     try {
       await wireWatchers();
@@ -128,14 +137,14 @@ async function main() {
   }
 
   // Graceful shutdown handlers
-  function cleanup() {
+  async function cleanup() {
     logToFile('INFO', 'Daemon shutting down...');
     try { if (watchdog) watchdog.stop(); } catch { /* ignore */ }
-    try { cleanupDaemonServices(); } catch { /* ignore */ }
+    try { await cleanupDaemonServices(); } catch { /* ignore */ }
     try { fs.unlinkSync(PID_FILE); } catch { /* ignore */ }
     try { processRegistry.depart(); } catch { /* ignore */ }
     if (server) {
-      server.stop().catch(() => {});
+      await server.stop().catch(() => {});
     }
   }
 
