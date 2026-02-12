@@ -18,7 +18,7 @@ import os from 'os';
 import { bootDaemon } from '@cynic/core/boot';
 import { DaemonServer } from './index.js';
 import { processRegistry, createLogger } from '@cynic/core';
-import { wireDaemonServices, wireLearningSystem, cleanupDaemonServices } from './service-wiring.js';
+import { wireDaemonServices, wireLearningSystem, wireWatchers, cleanupDaemonServices } from './service-wiring.js';
 import { Watchdog, checkRestartSentinel } from './watchdog.js';
 
 const log = createLogger('DaemonEntry');
@@ -100,6 +100,14 @@ async function main() {
       logToFile('INFO', 'Learning system wired — organism breathing');
     } catch (err) {
       logToFile('WARN', `Learning system wiring failed — daemon still operational: ${err.message}`);
+    }
+
+    // Wire watchers (FileWatcher + SolanaWatcher — perception layer)
+    try {
+      await wireWatchers();
+      logToFile('INFO', 'Watchers wired — perception layer active (FilesystemWatcher + SolanaWatcher)');
+    } catch (err) {
+      logToFile('WARN', `Watcher wiring failed — perception degraded: ${err.message}`);
     }
 
     // Start watchdog (self-monitoring)

@@ -379,6 +379,11 @@ export {
 } from './orchestration/index.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Metrics - Data-Driven Organism Measurement
+// ═══════════════════════════════════════════════════════════════════════════════
+export { MetricsDashboard } from './metrics/dashboard.js';
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Routing - Intelligent Request Routing (Claude Flow Integration)
 // ═══════════════════════════════════════════════════════════════════════════════
 export {

@@ -23,6 +23,7 @@ import { qtableCommand } from './commands/qtable.js';
 import { hooksCommand } from './commands/hooks.js';
 import { judgeCommand } from './commands/judge.js';
 import { daemonCommand } from './commands/daemon.js';
+import { metricsCommand } from './commands/metrics.js';
 // Dashboard is loaded lazily to avoid requiring blessed when not needed
 
 const VERSION = '0.2.0';
@@ -218,6 +219,17 @@ export function createCLI(program) {
     .option('--json', 'Output as JSON')
     .option('-v, --verbose', 'Show verbose output')
     .action(hooksCommand);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // METRICS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Metrics command (data-driven progress)
+  program
+    .command('metrics [subcommand]')
+    .alias('m')
+    .description('View organism health metrics (week1, autonomy, velocity, snapshot)')
+    .action(metricsCommand);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // DAEMON

@@ -50,7 +50,8 @@ export class CalibrationTracker {
     this.serviceId = options.serviceId || 'default';
 
     // Drift detection config
-    this.driftThreshold = options.driftThreshold || PHI_INV_2; // 38.2%
+    // Industry standard: 10% (0.10) - lowered from φ⁻² (38.2%) per learning-validation.md
+    this.driftThreshold = options.driftThreshold || 0.10; // 10% ECE threshold
     this.minSamplesForAlert = options.minSamplesForAlert || 10;
     this.alertCooldownMs = options.alertCooldownMs || 30 * 60 * 1000; // 30 min
 

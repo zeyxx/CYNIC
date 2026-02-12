@@ -28,15 +28,15 @@ import { timerTracker } from '@cynic/core';
 
 ## Stats
 
-- **Source files**: 65
+- **Source files**: 67
 - **Test files**: 29
-- **Test ratio**: 45%
+- **Test ratio**: 43%
 - **Exports**: 2 named
 
 ## Dimensions (4 Axioms)
 
 ```
-[████░░░░░░] 45% φ (Confidence)
+[████░░░░░░] 43% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
 [██████░░░░] 62% Burn (Simplicity)

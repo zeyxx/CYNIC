@@ -31,7 +31,11 @@
     "cockpit:logs": "node scripts/daemon/cockpit-daemon.cjs logs",
     "x-vision:setup": "node scripts/setup-x-vision.js --install",
     "x-vision:status": "node scripts/setup-x-vision.js --status",
-    "x-vision:uninstall": "node scripts/setup-x-vision.js --uninstall"
+    "x-vision:uninstall": "node scripts/setup-x-vision.js --uninstall",
+    "metrics:week1": "node packages/node/bin/cynic.js metrics week1",
+    "metrics:autonomy": "node packages/node/bin/cynic.js metrics autonomy",
+    "metrics:velocity": "node packages/node/bin/cynic.js metrics velocity",
+    "metrics:snapshot": "node packages/node/bin/cynic.js metrics snapshot"
   },
   "repository": {
     "type": "git",

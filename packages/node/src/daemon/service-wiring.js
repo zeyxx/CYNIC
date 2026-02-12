@@ -24,6 +24,10 @@ import { getCollectivePackAsync } from '../collective-singleton.js';
 import { createSONA } from '../learning/sona.js';
 import { createBehaviorModifier } from '../learning/behavior-modifier.js';
 import { getMetaCognition } from '../learning/meta-cognition.js';
+import { getOrchestrator } from '../orchestration/unified-orchestrator.js';
+import { createKabbalisticRouter } from '../orchestration/kabbalistic-router.js';
+import { DogOrchestrator } from '../agents/orchestrator.js';
+import { getQLearningService } from '../orchestration/learning-service.js';
 
 const log = createLogger('ServiceWiring');
 
@@ -42,6 +46,12 @@ let _metaCognition = null;
 let _learningPersistTimer = null;
 let _sonaListener = null;
 let _feedbackListener = null;
+
+// Orchestration system state
+let _orchestratorWired = false;
+let _orchestrator = null;
+let _kabbalisticRouter = null;
+let _dogOrchestrator = null;
 
 /**
  * Wire daemon-essential services at boot.
@@ -260,6 +270,9 @@ export function cleanupDaemonServices() {
   // Clean up learning system
   cleanupLearningSystem();
 
+  // Clean up watchers
+  await cleanupWatchers();
+
   _wired = false;
   log.info('Daemon services cleaned up');
 }
@@ -292,6 +305,204 @@ function cleanupLearningSystem() {
   log.info('Learning system cleaned up');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// WATCHERS — perception polling (FileWatcher, SolanaWatcher)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _watchersWired = false;
+let _fileWatcherPoll = null;
+let _solanaWatcherPoll = null;
+let _fsWatcher = null;
+let _solanaWatcher = null;
+
+/** Polling intervals (φ-aligned) */
+const FILE_POLL_INTERVAL = 5000; // 5s
+const SOLANA_POLL_INTERVAL = 30000; // 30s
+const HEARTBEAT_INTERVAL = 60000; // 1 min
+
+/**
+ * Wire watchers — FileWatcher + SolanaWatcher polling.
+ *
+ * Starts polling loops that:
+ * 1. Poll for changes (filesystem via chokidar watch, Solana via slot checks)
+ * 2. Emit events to globalEventBus
+ * 3. Record heartbeats to watcher_heartbeats table
+ *
+ * Handles 429 rate limits gracefully (backs off, logs, continues).
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.db] - PostgreSQL client for heartbeats
+ * @param {string[]} [options.watchPaths] - Paths to watch for filesystem
+ * @param {string} [options.solanaRpcUrl] - Solana RPC URL
+ * @returns {Promise<{ fileWatcher: Object, solanaWatcher: Object }>}
+ */
+export async function wireWatchers(options = {}) {
+  if (_watchersWired) {
+    log.debug('Watchers already wired — skipping');
+    return { fileWatcher: _fsWatcher, solanaWatcher: _solanaWatcher };
+  }
+
+  const { createFilesystemWatcher } = await import('../perception/filesystem-watcher.js');
+  const { getSolanaWatcher } = await import('../perception/solana-watcher.js');
+  const { getPostgresClient } = await import('@cynic/persistence');
+
+  const db = options.db || getPostgresClient();
+
+  // 1. Initialize FilesystemWatcher
+  try {
+    _fsWatcher = createFilesystemWatcher({
+      paths: options.watchPaths || [process.cwd()],
+      eventBus: globalEventBus,
+    });
+    _fsWatcher.start();
+    log.info('FilesystemWatcher started');
+  } catch (err) {
+    log.warn('FilesystemWatcher init failed', { error: err.message });
+  }
+
+  // 2. Initialize SolanaWatcher
+  try {
+    _solanaWatcher = getSolanaWatcher({
+      rpcUrl: options.solanaRpcUrl || process.env.SOLANA_RPC_URL,
+      eventBus: globalEventBus,
+    });
+    await _solanaWatcher.start();
+
+    // Subscribe to slots for active polling
+    await _solanaWatcher.watchSlots();
+
+    log.info('SolanaWatcher started');
+  } catch (err) {
+    log.warn('SolanaWatcher init failed (degraded mode)', { error: err.message });
+  }
+
+  // 3. Start heartbeat polling (records to DB)
+  _fileWatcherPoll = setInterval(async () => {
+    if (!_fsWatcher) return;
+
+    try {
+      const stats = _fsWatcher.getStats();
+      const status = _fsWatcher.isRunning() ? 'active' : 'stopped';
+
+      await _recordHeartbeat(db, {
+        watcher_name: 'FilesystemWatcher',
+        events_polled: stats.eventsEmitted || 0,
+        status,
+        metadata: { filesWatched: stats.filesWatched, uptime: stats.uptime },
+      });
+
+      log.debug('FilesystemWatcher heartbeat', { status, events: stats.eventsEmitted });
+    } catch (err) {
+      log.debug('FilesystemWatcher heartbeat failed', { error: err.message });
+    }
+  }, HEARTBEAT_INTERVAL);
+  _fileWatcherPoll.unref();
+
+  _solanaWatcherPoll = setInterval(async () => {
+    if (!_solanaWatcher) return;
+
+    try {
+      const stats = _solanaWatcher.getStats();
+      const health = _solanaWatcher.getHealth();
+      const status = health.status === 'offline' ? 'stopped'
+        : health.status === 'critical' ? 'error'
+        : 'active';
+
+      await _recordHeartbeat(db, {
+        watcher_name: 'SolanaWatcher',
+        events_polled: stats.eventsEmitted || 0,
+        status,
+        error_message: health.status === 'critical' ? `Error rate: ${(health.errorRate * 100).toFixed(1)}%` : null,
+        metadata: {
+          lastSlot: stats.lastSlot,
+          uptime: stats.uptime,
+          eventsPerMinute: health.eventsPerMinute,
+        },
+      });
+
+      log.debug('SolanaWatcher heartbeat', { status, events: stats.eventsEmitted, slot: stats.lastSlot });
+    } catch (err) {
+      // Handle 429 rate limits gracefully
+      if (err.message?.includes('429')) {
+        log.debug('SolanaWatcher rate limited (429) — backing off');
+        await _recordHeartbeat(db, {
+          watcher_name: 'SolanaWatcher',
+          events_polled: 0,
+          status: 'idle',
+          error_message: 'Rate limited (429)',
+          metadata: { backoff: true },
+        }).catch(() => {}); // Non-blocking
+      } else {
+        log.debug('SolanaWatcher heartbeat failed', { error: err.message });
+      }
+    }
+  }, HEARTBEAT_INTERVAL);
+  _solanaWatcherPoll.unref();
+
+  _watchersWired = true;
+  log.info('Watchers wired — perception layer active');
+
+  return { fileWatcher: _fsWatcher, solanaWatcher: _solanaWatcher };
+}
+
+/**
+ * Record heartbeat to watcher_heartbeats table.
+ * @private
+ */
+async function _recordHeartbeat(db, data) {
+  if (!db) return;
+
+  await db.query(`
+    INSERT INTO watcher_heartbeats
+      (watcher_name, events_polled, status, error_message, metadata)
+    VALUES ($1, $2, $3, $4, $5)
+  `, [
+    data.watcher_name,
+    data.events_polled || 0,
+    data.status || 'active',
+    data.error_message || null,
+    JSON.stringify(data.metadata || {}),
+  ]);
+}
+
+/**
+ * Stop watchers and cleanup.
+ */
+export async function cleanupWatchers() {
+  if (!_watchersWired) return;
+
+  if (_fileWatcherPoll) {
+    clearInterval(_fileWatcherPoll);
+    _fileWatcherPoll = null;
+  }
+
+  if (_solanaWatcherPoll) {
+    clearInterval(_solanaWatcherPoll);
+    _solanaWatcherPoll = null;
+  }
+
+  if (_fsWatcher) {
+    await _fsWatcher.stop();
+    _fsWatcher = null;
+  }
+
+  if (_solanaWatcher) {
+    await _solanaWatcher.stop();
+    _solanaWatcher = null;
+  }
+
+  _watchersWired = false;
+  log.info('Watchers cleaned up');
+}
+
+/**
+ * Check if watchers are wired.
+ * @returns {boolean}
+ */
+export function isWatchersWired() {
+  return _watchersWired;
+}
+
 /**
  * Check if services are wired.
  * @returns {boolean}
@@ -303,7 +514,7 @@ export function isWired() {
 /**
  * Reset for testing — clears all state without persisting.
  */
-export function _resetForTesting() {
+export async function _resetForTesting() {
   if (_persistTimer) {
     clearInterval(_persistTimer);
     _persistTimer = null;
@@ -331,4 +542,7 @@ export function _resetForTesting() {
   _behaviorModifier = null;
   _metaCognition = null;
   _learningWired = false;
+
+  // Reset watchers
+  await cleanupWatchers();
 }
