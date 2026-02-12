@@ -16,6 +16,7 @@ import v8 from 'v8';
 import { createLogger, PHI_INV, processRegistry } from '@cynic/core';
 import { handleHookEvent } from './hook-handlers.js';
 import { setupLLMEndpoints } from './llm-endpoints.js';
+import { DaemonServices } from './services.js';
 
 const log = createLogger('Daemon');
 
@@ -46,6 +47,9 @@ export class DaemonServer {
     this.startTime = null;
     this._requestCounts = new Map();
     this._rateLimitTimer = null;
+
+    // Background services (orchestrator, watchers, learning)
+    this.services = new DaemonServices(options);
 
     this._configure();
     this._setupRoutes();
@@ -136,7 +140,7 @@ export class DaemonServer {
       res.json(health);
     });
 
-    // Full status — ProcessRegistry snapshot
+    // Full status — ProcessRegistry snapshot + Services status
     this.app.get('/status', async (req, res) => {
       try {
         const processes = processRegistry.discover();
@@ -150,6 +154,7 @@ export class DaemonServer {
             memoryMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
             port: this.port,
           },
+          services: this.services.getStatus(),
           processes,
         });
       } catch (err) {
@@ -229,6 +234,14 @@ export class DaemonServer {
       throw new Error('Daemon already running');
     }
 
+    // Start background services FIRST (perception, orchestration, learning)
+    try {
+      await this.services.start();
+    } catch (err) {
+      log.error('Failed to start background services', { error: err.message });
+      throw err;
+    }
+
     return new Promise((resolve, reject) => {
       this.server = this.app.listen(this.port, this.host, () => {
         this.startTime = Date.now();
@@ -244,7 +257,7 @@ export class DaemonServer {
           processRegistry.announce({
             mode: 'daemon',
             endpoint: `http://${this.host}:${this.port}`,
-            capabilities: ['hooks', 'health', 'status', 'llm'],
+            capabilities: ['hooks', 'health', 'status', 'llm', 'perception', 'orchestration'],
             meta: { version: '0.1.0' },
           });
         } catch (err) {
@@ -252,6 +265,7 @@ export class DaemonServer {
         }
 
         log.info(`Daemon listening on ${this.host}:${this.port}`);
+        log.info('Background services: perception, orchestration, learning ACTIVE');
         resolve();
       });
 
@@ -271,6 +285,9 @@ export class DaemonServer {
    * @returns {Promise<void>}
    */
   async stop() {
+    // Stop background services FIRST (graceful shutdown)
+    await this.services.stop();
+
     if (this._rateLimitTimer) {
       clearInterval(this._rateLimitTimer);
       this._rateLimitTimer = null;
