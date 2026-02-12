@@ -73,6 +73,9 @@ export * from './bus/index.js';
 // Circuit Breaker (resilience pattern for service protection)
 export * from './circuit-breaker.js';
 
+// Retry Policy (automatic retry logic with exponential backoff)
+export * from './retry/index.js';
+
 // Context Intelligence (C-Score, budget management, context assembly)
 export * from './context/index.js';
 

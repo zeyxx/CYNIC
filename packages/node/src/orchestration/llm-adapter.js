@@ -25,7 +25,7 @@ import { EventEmitter } from 'events';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { createLogger, PHI_INV, PHI_INV_2 } from '@cynic/core';
+import { createLogger, PHI_INV, PHI_INV_2, createRetryPolicy, getCircuitBreakerRegistry } from '@cynic/core';
 import { calculateSemanticAgreement, SimilarityThresholds } from '@cynic/llm';
 
 const log = createLogger('LLMAdapter');
