@@ -213,9 +213,7 @@ async function takeSnapshot() {
 /**
  * Main metrics command
  */
-export async function metricsCommand(args) {
-  const subcommand = args._[1] || 'week1';
-
+export async function metricsCommand(subcommand = 'week1', options = {}) {
   switch (subcommand) {
     case 'week1':
       await showWeek1Progress();

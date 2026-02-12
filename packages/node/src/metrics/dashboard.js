@@ -341,9 +341,12 @@ export class MetricsDashboard {
 
     // Get Dog diversity (how many different Dogs used in last 24h)
     const { rows: diversityRows } = await this.db.query(`
-      SELECT COUNT(DISTINCT unnest(dogs_selected)) as unique_dogs
-      FROM routing_accuracy
-      WHERE timestamp > NOW() - INTERVAL '24 hours'
+      SELECT COUNT(DISTINCT dog) as unique_dogs
+      FROM (
+        SELECT unnest(dogs_selected) as dog
+        FROM routing_accuracy
+        WHERE timestamp > NOW() - INTERVAL '24 hours'
+      ) subquery
     `);
     const uniqueDogs = parseInt(diversityRows[0]?.unique_dogs || 0);
     const diversityScore = Math.min(uniqueDogs / 11, 1); // Target: all 11 Dogs
