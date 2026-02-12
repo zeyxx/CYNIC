@@ -47,6 +47,7 @@ import { getErrorHandler } from './services/error-handler.js';
 import { getSolanaWatcher, resetSolanaWatcher } from './perception/solana-watcher.js';
 import { getMarketWatcher, resetMarketWatcher } from './market/market-watcher.js';
 import { getFastRouter, resetFastRouter } from './routing/fast-router.js';
+import { getUnifiedEventRouter, resetUnifiedEventRouter } from './services/unified-event-router.js';
 import { getEmergenceDetector } from './services/emergence-detector.js';
 import { createConsciousnessMonitor } from '@cynic/emergence';
 import { getHeartbeatService, createDefaultChecks } from './services/heartbeat-service.js';
@@ -327,6 +328,14 @@ let _marketWatcher = null;
  * @type {import('./routing/fast-router.js').FastRouter|null}
  */
 let _fastRouter = null;
+
+/**
+ * A3 (Unified Event Router): UnifiedEventRouter singleton
+ * Unifies 3 event buses with namespace-based routing
+ * "One nervous system"
+ * @type {import('./services/unified-event-router.js').UnifiedEventRouter|null}
+ */
+let _unifiedEventRouter = null;
 
 /**
  * AXE 6 (EMERGE): Global EmergenceDetector instance
@@ -1496,6 +1505,18 @@ export async function getCollectivePackAsync(options = {}) {
       }
     }
 
+    // A3 (UNIFIED EVENT ROUTER): Initialize UnifiedEventRouter
+    // Unifies 3 event buses with namespace-based automatic routing
+    if (!_unifiedEventRouter) {
+      try {
+        _unifiedEventRouter = getUnifiedEventRouter();
+        log.info('UnifiedEventRouter initialized (A3: Event Bus Unification)');
+      } catch (err) {
+        log.warn('UnifiedEventRouter initialization failed (non-blocking)', { error: err.message });
+        _unifiedEventRouter = null;
+      }
+    }
+
     // AXE 8 (AWARE): Activate ErrorHandler singleton with global error capture
     try {
       getErrorHandler({ captureGlobal: true });
@@ -1621,6 +1642,7 @@ export async function getCollectivePackAsync(options = {}) {
       if (_solanaWatcher) systemTopology.registerComponent('solanaWatcher', _solanaWatcher);
       if (_marketWatcher) systemTopology.registerComponent('marketWatcher', _marketWatcher);
       if (_fastRouter) systemTopology.registerComponent('fastRouter', _fastRouter);
+      if (_unifiedEventRouter) systemTopology.registerComponent('unifiedEventRouter', _unifiedEventRouter);
       if (_ecosystemMonitor) systemTopology.registerComponent('ecosystem_tools', _ecosystemMonitor);
 
       // Learning
@@ -1718,6 +1740,16 @@ export async function getCollectivePackAsync(options = {}) {
       log.info('EventBusBridge started', { agentBus: !!pack?.eventBus });
     } catch (err) {
       log.warn('EventBusBridge start failed (non-blocking)', { error: err.message });
+    }
+
+    // ─── UnifiedEventRouter: Late-bind AgentEventBus ──────────────────────
+    if (_unifiedEventRouter && pack?.eventBus) {
+      try {
+        _unifiedEventRouter.setAgentBus(pack.eventBus);
+        log.info('UnifiedEventRouter: AgentEventBus late-bound');
+      } catch (err) {
+        log.warn('UnifiedEventRouter late-bind failed (non-blocking)', { error: err.message });
+      }
     }
 
     // ─── MemoryCoordinator: Three memories, one awareness ──────────────────
@@ -2182,6 +2214,7 @@ export function getSingletonStatus() {
     solanaWatcherInitialized: !!_solanaWatcher,
     marketWatcherInitialized: !!_marketWatcher,
     fastRouterInitialized: !!_fastRouter,
+    unifiedEventRouterInitialized: !!_unifiedEventRouter,
     isAwakened: _isAwakened,
     sharedMemoryStats: _sharedMemory?.stats || null,
     packStats: _globalPack?.getStats?.() || null,
@@ -2363,6 +2396,15 @@ export function getFastRouterSingleton() {
 }
 
 /**
+ * Get UnifiedEventRouter singleton (if initialized)
+ *
+ * @returns {import('./services/unified-event-router.js').UnifiedEventRouter|null} Router or null
+ */
+export function getUnifiedEventRouterSingleton() {
+  return _unifiedEventRouter;
+}
+
+/**
  * Get EcosystemMonitor singleton (if initialized)
  *
  * @returns {EcosystemMonitor|null} Monitor or null
@@ -2430,6 +2472,12 @@ export function _resetForTesting() {
   if (_fastRouter) {
     resetFastRouter();
     _fastRouter = null;
+  }
+
+  // A3: Reset UnifiedEventRouter
+  if (_unifiedEventRouter) {
+    resetUnifiedEventRouter();
+    _unifiedEventRouter = null;
   }
 
   // Auto-save: Stop interval
