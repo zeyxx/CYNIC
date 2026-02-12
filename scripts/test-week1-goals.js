@@ -82,8 +82,7 @@ async function testWeek1Goals() {
   console.log(chalk.gray(`φ-bounded confidence: max ${(PHI_INV * 100).toFixed(1)}%`));
   console.log(chalk.gray('Week 1 success: 4/5 goals PASS\n'));
 
-  await pool.end();
-
+  // Note: pool cleanup handled by process exit
   // Exit code: 0 if week complete, 1 otherwise
   process.exit(passCount >= 4 ? 0 : 1);
 }
