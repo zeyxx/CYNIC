@@ -46,6 +46,7 @@ import { BlockStore } from './network/block-store.js';
 import { getErrorHandler } from './services/error-handler.js';
 import { getSolanaWatcher, resetSolanaWatcher } from './perception/solana-watcher.js';
 import { getMarketWatcher, resetMarketWatcher } from './market/market-watcher.js';
+import { getFastRouter, resetFastRouter } from './routing/fast-router.js';
 import { getEmergenceDetector } from './services/emergence-detector.js';
 import { createConsciousnessMonitor } from '@cynic/emergence';
 import { getHeartbeatService, createDefaultChecks } from './services/heartbeat-service.js';
@@ -318,6 +319,14 @@ let _solanaWatcher = null;
  * @type {import('./market/market-watcher.js').MarketWatcher|null}
  */
 let _marketWatcher = null;
+
+/**
+ * A1 (Fast Router): FastRouter singleton - Reflex Arc
+ * Bypasses UnifiedOrchestrator for critical events (<100ms response)
+ * "Le chien réagit avant de penser"
+ * @type {import('./routing/fast-router.js').FastRouter|null}
+ */
+let _fastRouter = null;
 
 /**
  * AXE 6 (EMERGE): Global EmergenceDetector instance
@@ -1473,6 +1482,20 @@ export async function getCollectivePackAsync(options = {}) {
       }
     }
 
+    // A1 (FAST ROUTER): Initialize FastRouter - Reflex Arc
+    // Bypasses UnifiedOrchestrator for <100ms critical event response
+    if (!_fastRouter) {
+      try {
+        _fastRouter = getFastRouter({ maxLatency: 100 });
+        log.info('FastRouter initialized (A1: Reflex Arc)', {
+          maxLatency: _fastRouter.maxLatency,
+        });
+      } catch (err) {
+        log.warn('FastRouter initialization failed (non-blocking)', { error: err.message });
+        _fastRouter = null;
+      }
+    }
+
     // AXE 8 (AWARE): Activate ErrorHandler singleton with global error capture
     try {
       getErrorHandler({ captureGlobal: true });
@@ -1597,6 +1620,7 @@ export async function getCollectivePackAsync(options = {}) {
       if (_dogStateEmitter) systemTopology.registerComponent('dogStateEmitter', _dogStateEmitter);
       if (_solanaWatcher) systemTopology.registerComponent('solanaWatcher', _solanaWatcher);
       if (_marketWatcher) systemTopology.registerComponent('marketWatcher', _marketWatcher);
+      if (_fastRouter) systemTopology.registerComponent('fastRouter', _fastRouter);
       if (_ecosystemMonitor) systemTopology.registerComponent('ecosystem_tools', _ecosystemMonitor);
 
       // Learning
@@ -2157,6 +2181,7 @@ export function getSingletonStatus() {
     networkInitialized: !!_networkNode,
     solanaWatcherInitialized: !!_solanaWatcher,
     marketWatcherInitialized: !!_marketWatcher,
+    fastRouterInitialized: !!_fastRouter,
     isAwakened: _isAwakened,
     sharedMemoryStats: _sharedMemory?.stats || null,
     packStats: _globalPack?.getStats?.() || null,
@@ -2329,6 +2354,15 @@ export function getMarketWatcherSingleton() {
 }
 
 /**
+ * Get FastRouter singleton (if initialized)
+ *
+ * @returns {import('./routing/fast-router.js').FastRouter|null} Router or null
+ */
+export function getFastRouterSingleton() {
+  return _fastRouter;
+}
+
+/**
  * Get EcosystemMonitor singleton (if initialized)
  *
  * @returns {EcosystemMonitor|null} Monitor or null
@@ -2390,6 +2424,12 @@ export function _resetForTesting() {
   if (_marketWatcher) {
     resetMarketWatcher();
     _marketWatcher = null;
+  }
+
+  // A1: Reset FastRouter
+  if (_fastRouter) {
+    resetFastRouter();
+    _fastRouter = null;
   }
 
   // Auto-save: Stop interval
