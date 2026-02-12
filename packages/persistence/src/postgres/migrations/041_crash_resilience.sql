@@ -93,7 +93,7 @@ CREATE INDEX idx_dog_pipeline_timestamp ON dog_pipeline_state(timestamp DESC);
 -- Tracks Q-tables, Thompson Sampling, and other learning weights
 -- =============================================================================
 
-CREATE TABLE IF NOT EXISTS learning_state (
+CREATE TABLE IF NOT EXISTS loop_persistence_state (
     id                      SERIAL PRIMARY KEY,
     loop_name               VARCHAR(100) NOT NULL,
     state_type              VARCHAR(50) NOT NULL, -- 'q_table', 'thompson_beta', 'meta_cognition', 'sona_weights'
@@ -109,8 +109,8 @@ CREATE TABLE IF NOT EXISTS learning_state (
     UNIQUE (loop_name, state_type)
 );
 
-CREATE INDEX idx_learning_state_loop ON learning_state(loop_name, state_type);
-CREATE INDEX idx_learning_state_timestamp ON learning_state(timestamp DESC);
+CREATE INDEX idx_loop_persistence_state_loop ON loop_persistence_state(loop_name, state_type);
+CREATE INDEX idx_loop_persistence_state_timestamp ON loop_persistence_state(timestamp DESC);
 
 -- =============================================================================
 -- CRASH LOG
@@ -229,7 +229,7 @@ BEGIN
         l.state_type,
         l.weights,
         l.episode_count
-    FROM learning_state l;
+    FROM loop_persistence_state l;
 END;
 $$ LANGUAGE plpgsql;
 

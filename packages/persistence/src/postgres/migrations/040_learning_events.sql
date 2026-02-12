@@ -40,38 +40,14 @@ CREATE INDEX idx_learning_events_event_type ON learning_events(event_type);
 CREATE INDEX idx_learning_events_judgment ON learning_events(judgment_id);
 
 -- =============================================================================
--- Q-LEARNING STATE (enhance existing table if needed)
+-- Q-LEARNING STATE (already exists from migration 026)
 -- Track Q-values and updates for routing decisions
 -- =============================================================================
 
--- Check if qlearning_state exists, create if not
-CREATE TABLE IF NOT EXISTS qlearning_state (
-    id              SERIAL PRIMARY KEY,
-
-    -- State-Action pair
-    state_key       VARCHAR(200) NOT NULL, -- Hashed representation of state
-    action          VARCHAR(100) NOT NULL, -- Action taken (e.g., 'route_to_ralph')
-
-    -- Q-value
-    q_value         DECIMAL(10,6) DEFAULT 0.0,
-    visit_count     INTEGER DEFAULT 0,
-
-    -- Learning params
-    learning_rate   DECIMAL(5,4) DEFAULT 0.1,
-    discount_factor DECIMAL(5,4) DEFAULT 0.95,
-
-    -- Timestamps
-    created_at      TIMESTAMPTZ DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ DEFAULT NOW(),
-
-    -- Context
-    metadata        JSONB DEFAULT '{}',
-
-    UNIQUE(state_key, action)
-);
-
-CREATE INDEX IF NOT EXISTS idx_qlearning_state_key ON qlearning_state(state_key);
-CREATE INDEX IF NOT EXISTS idx_qlearning_updated ON qlearning_state(updated_at DESC);
+-- NOTE: qlearning_state table already exists from migration 026_qlearning_persistence.sql
+-- Schema: { service_id, q_table (JSONB), exploration_rate, stats, updated_at }
+-- This is the JSONB-based design where the entire Q-table is serialized.
+-- No changes needed here.
 
 -- =============================================================================
 -- HELPER FUNCTIONS
@@ -90,14 +66,22 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Get Q-weight updates today (for G1.3 metric)
+-- Note: qlearning_state from migration 026 uses JSONB for Q-table
+-- We count how many times the Q-table was updated in the last 24 hours
 CREATE OR REPLACE FUNCTION get_qweight_updates_today()
 RETURNS INTEGER AS $$
+DECLARE
+    updates_count INTEGER;
 BEGIN
-    RETURN (
-        SELECT COUNT(*)
-        FROM qlearning_state
-        WHERE updated_at > NOW() - INTERVAL '24 hours'
-    );
+    -- Check if table was updated in last 24 hours
+    -- Migration 026 schema: only one row per service_id ('default')
+    SELECT COALESCE((stats->>'updates')::INTEGER, 0)
+    INTO updates_count
+    FROM qlearning_state
+    WHERE service_id = 'default'
+    AND updated_at > NOW() - INTERVAL '24 hours';
+
+    RETURN COALESCE(updates_count, 0);
 END;
 $$ LANGUAGE plpgsql;
 

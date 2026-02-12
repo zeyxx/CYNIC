@@ -84,9 +84,9 @@ export class LLMRouter {
     // Get budget status
     const budgetStatus = this.costLedger.getBudgetStatus();
 
-    // Get Thompson Sampling recommendation
-    const modelRec = this.modelIntelligence.recommend({
-      taskType: type || 'general',
+    // Get Thompson Sampling recommendation from ModelIntelligence
+    const modelSelection = this.modelIntelligence.selectModel(type || 'general', {
+      budgetLevel: budgetStatus.level,
       needsReasoning: complexity === COMPLEXITY.COMPLEX,
     });
 
@@ -111,8 +111,9 @@ export class LLMRouter {
     }
     // 4. Moderate tasks → Thompson Sampling decides
     else {
-      // Thompson Sampling: explore or exploit?
-      const shouldExplore = modelRec.exploreOllama === true;
+      // Thompson Sampling: ModelIntelligence selected model
+      // If it selected Ollama/Haiku → explore, otherwise exploit
+      const shouldExplore = (modelSelection.model === 'ollama' || modelSelection.model === 'haiku');
 
       if (shouldExplore && budgetStatus.consumedRatio < PHI_INV) {
         // Explore Ollama (under budget → can afford exploration)
@@ -145,7 +146,7 @@ export class LLMRouter {
       model: provider.model,
       tier: provider.tier,
       reason,
-      confidence: reason.includes('thompson') ? modelRec.confidence : 0.8,
+      confidence: reason.includes('thompson') ? modelSelection.confidence : 0.8,
       estimatedCost: provider.cost * (estimatedTokens / 1_000_000),
       budgetLevel: budgetStatus.level,
     };
