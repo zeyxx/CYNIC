@@ -94,6 +94,7 @@ async function main() {
     }
 
     // Wire learning system (collective-singleton, SONA, BehaviorModifier, MetaCognition)
+    // Now that watchdog uses correct heap calculation, try to wire
     try {
       await wireLearningSystem();
       logToFile('INFO', 'Learning system wired — organism breathing');

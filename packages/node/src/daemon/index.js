@@ -12,6 +12,7 @@
 'use strict';
 
 import express from 'express';
+import v8 from 'v8';
 import { createLogger, PHI_INV, processRegistry } from '@cynic/core';
 import { handleHookEvent } from './hook-handlers.js';
 import { setupLLMEndpoints } from './llm-endpoints.js';
@@ -106,13 +107,19 @@ export class DaemonServer {
       const uptime = this.startTime ? Date.now() - this.startTime : 0;
       const mem = process.memoryUsage();
 
+      // Get heap size limit from V8
+      const heapStats = v8.getHeapStatistics();
+      const heapSizeLimit = heapStats.heap_size_limit;
+
       const health = {
         status: 'healthy',
         pid: process.pid,
         uptime,
         uptimeHuman: formatUptime(uptime),
         memoryMB: Math.round(mem.heapUsed / 1024 / 1024),
-        heapUsedPercent: Math.round((mem.heapUsed / mem.heapTotal) * 1000) / 10,
+        heapUsedPercent: Math.round((mem.heapUsed / heapSizeLimit) * 1000) / 10,
+        heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
+        heapLimitMB: Math.round(heapSizeLimit / 1024 / 1024),
         port: this.port,
       };
 
@@ -150,8 +157,67 @@ export class DaemonServer {
       }
     });
 
+    // Memory profiling endpoints (debug only)
+    this._setupProfilingEndpoints();
+
     // LLM endpoints — Phase 2: CYNIC calls LLMs directly
     setupLLMEndpoints(this.app);
+  }
+
+  /**
+   * Setup memory profiling endpoints (debug)
+   * @private
+   */
+  _setupProfilingEndpoints() {
+    // Import dynamically to avoid boot overhead
+    let profiler = null;
+    const getProfiler = async () => {
+      if (!profiler) {
+        profiler = await import('./memory-profiler.js');
+      }
+      return profiler;
+    };
+
+    // Get current memory stats
+    this.app.get('/debug/memory', async (req, res) => {
+      try {
+        const p = await getProfiler();
+        const stats = p.getMemoryStats();
+        res.json(stats);
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // Take a heap snapshot
+    this.app.post('/debug/heap-snapshot', async (req, res) => {
+      try {
+        const p = await getProfiler();
+        const filepath = p.takeHeapSnapshot();
+        res.json({ snapshot: filepath });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // Run a full profiling session
+    this.app.post('/debug/profile', async (req, res) => {
+      try {
+        const duration = parseInt(req.query.duration || '60', 10);
+        const interval = parseInt(req.query.interval || '5', 10);
+
+        const p = await getProfiler();
+
+        // Start profiling in background
+        p.profileMemory(duration, interval).then(result => {
+          log.info('Profiling session complete', result.summary);
+        });
+
+        res.json({ status: 'started', duration, interval });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
   }
 
   /**

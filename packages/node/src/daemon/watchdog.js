@@ -24,6 +24,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import v8 from 'v8';
 import { createLogger, PHI_INV, globalEventBus } from '@cynic/core';
 
 const log = createLogger('Watchdog');
@@ -162,12 +163,15 @@ export class Watchdog {
     const startTime = Date.now();
     const issues = [];
 
-    // 1. Heap usage
+    // 1. Heap usage (compare against heap size limit, NOT heap total)
     const mem = process.memoryUsage();
-    const heapRatio = mem.heapUsed / mem.heapTotal;
+    const heapStats = v8.getHeapStatistics();
+    const heapSizeLimit = heapStats.heap_size_limit;
+    const heapRatio = mem.heapUsed / heapSizeLimit;
     this._metrics.heapRatio = heapRatio;
     this._metrics.heapUsedMB = Math.round(mem.heapUsed / 1024 / 1024);
     this._metrics.heapTotalMB = Math.round(mem.heapTotal / 1024 / 1024);
+    this._metrics.heapLimitMB = Math.round(heapSizeLimit / 1024 / 1024);
 
     if (heapRatio >= HEAP_CRITICAL_RATIO) {
       issues.push({ subsystem: 'heap', level: HealthLevel.CRITICAL, message: `Heap ${(heapRatio * 100).toFixed(1)}% (critical)` });

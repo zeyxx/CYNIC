@@ -144,8 +144,14 @@ async function startDaemon(port, options) {
     '../../daemon/entry.js'
   );
 
-  // Spawn detached daemon
-  const child = spawn(process.execPath, [entryPoint, '--port', String(port)], {
+  // Spawn detached daemon with 2GB heap + inspector for memory profiling
+  const child = spawn(process.execPath, [
+    '--max-old-space-size=2048',
+    '--inspect=9229',
+    entryPoint,
+    '--port',
+    String(port)
+  ], {
     detached: true,
     stdio: ['ignore', 'ignore', 'ignore'],
     env: {
