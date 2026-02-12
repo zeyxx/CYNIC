@@ -235,6 +235,17 @@ export class QLearningService {
       correctPredictions: 0,
       totalFeedback: 0,
     };
+n    // TD Error tracking (LV-1: convergence/drift detection)
+    this.tdErrors = [];
+    this.tdWindowSize = options.tdWindowSize || 100;
+    this.tdConvergenceThreshold = options.tdConvergenceThreshold || 0.1;
+    this.tdDriftThreshold = options.tdDriftThreshold || 0.3;
+    this.tdMinUpdatesForConvergence = options.tdMinUpdatesForConvergence || 50;
+    this.tdIsConverged = false;
+    this.tdLastConvergenceAt = null;
+    this.tdLastDriftAt = null;
+    this.tdLastAlertAt = 0;
+    this.tdAlertCooldownMs = 30 * 60 * 1000; // 30 min
 
     // Debounced persistence (5s debounce)
     this._persistTimeout = null;
@@ -456,6 +467,16 @@ export class QLearningService {
 
       // A2: Hot-swap routing weights — emit event for live router update
       try {
+n      // LV-1: Track TD-Error for convergence/drift detection
+      const tdError = Math.abs(target - currentQ);
+      this._trackTDError(tdError, {
+        state: episode.features,
+        action,
+        currentQ,
+        target,
+        newQ,
+        reward,
+      });
         globalEventBus.publish(EventType.QLEARNING_WEIGHT_UPDATE, {
           state: episode.features,
           action,
@@ -473,6 +494,80 @@ export class QLearningService {
    * Calculate reward from outcome
    * @private
    */
+n  /**
+   * Track TD-Error for convergence/drift detection (LV-1)
+   * @private
+   */
+  _trackTDError(tdError, update) {
+    // Add to rolling window
+    this.tdErrors.push(tdError);
+    if (this.tdErrors.length > this.tdWindowSize) {
+      this.tdErrors.shift();
+    }
+
+    // Calculate rolling average
+    const rollingAvg = this.tdErrors.length > 0
+      ? this.tdErrors.reduce((sum, val) => sum + val, 0) / this.tdErrors.length
+      : null;
+
+    // Check convergence
+    if (this.stats.updates >= this.tdMinUpdatesForConvergence && rollingAvg !== null) {
+      const isConverged = rollingAvg < this.tdConvergenceThreshold;
+      const wasConverged = this.tdIsConverged;
+      this.tdIsConverged = isConverged;
+
+      if (isConverged && !wasConverged) {
+        this.tdLastConvergenceAt = new Date();
+        try {
+          globalEventBus.publish(EventType.QLEARNING_CONVERGED, {
+            serviceId: this.serviceId,
+            rollingAvg,
+            threshold: this.tdConvergenceThreshold,
+            convergedAt: this.tdLastConvergenceAt,
+            totalUpdates: this.stats.updates,
+          }, { source: 'learning-service' });
+        } catch (err) {
+          // Non-blocking
+        }
+      }
+
+      // Check drift (only if converged)
+      if (this.tdIsConverged && rollingAvg > this.tdDriftThreshold) {
+        const now = Date.now();
+        const shouldAlert = (now - this.tdLastAlertAt) > this.tdAlertCooldownMs;
+
+        if (shouldAlert) {
+          this.tdLastAlertAt = now;
+          this.tdLastDriftAt = new Date();
+          try {
+            globalEventBus.publish(EventType.QLEARNING_DRIFT, {
+              serviceId: this.serviceId,
+              rollingAvg,
+              threshold: this.tdDriftThreshold,
+              driftAt: this.tdLastDriftAt,
+              totalUpdates: this.stats.updates,
+            }, { source: 'learning-service' });
+          } catch (err) {
+            // Non-blocking
+          }
+        }
+      }
+    }
+
+    // Emit TD-Error update event
+    try {
+      globalEventBus.publish(EventType.TD_ERROR_UPDATE, {
+        serviceId: this.serviceId,
+        tdError,
+        rollingAvg,
+        isConverged: this.tdIsConverged,
+        totalUpdates: this.stats.updates,
+      }, { source: 'learning-service' });
+    } catch (err) {
+      // Non-blocking
+    }
+  }
+
   _calculateReward(outcome) {
     const rewards = this.config.rewards;
 
@@ -743,6 +838,26 @@ export class QLearningService {
       episodesInMemory: this.episodeHistory.length,
     };
   }
+n  /**
+   * Get TD-Error convergence status (LV-1)
+   */
+  getTDConvergenceStatus() {
+    const rollingAvg = this.tdErrors.length > 0
+      ? this.tdErrors.reduce((sum, val) => sum + val, 0) / this.tdErrors.length
+      : null;
+
+    return {
+      isConverged: this.tdIsConverged,
+      rollingAvgTDError: rollingAvg,
+      convergenceThreshold: this.tdConvergenceThreshold,
+      driftThreshold: this.tdDriftThreshold,
+      totalUpdates: this.stats.updates,
+      convergedAt: this.tdLastConvergenceAt,
+      lastDriftAt: this.tdLastDriftAt,
+      recentTDErrors: [...this.tdErrors].slice(-10), // Last 10 errors
+    };
+  }
+
 
   /**
    * Get best dogs per task type (for debugging)

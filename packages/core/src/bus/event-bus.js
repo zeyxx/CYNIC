@@ -74,6 +74,9 @@ export const EventType = {
   CALIBRATION_DRIFT_DETECTED: 'calibration:drift:detected',
   QLEARNING_WEIGHT_UPDATE: 'qlearning:weight:update',
 
+  TD_ERROR_UPDATE: 'td_error:update',
+  QLEARNING_CONVERGED: 'qlearning:converged',
+  QLEARNING_DRIFT: 'qlearning:drift',
   // Orchestration events
   ORCHESTRATION_COMPLETED: 'orchestration:completed',
 
