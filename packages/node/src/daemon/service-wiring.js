@@ -28,6 +28,7 @@ import { getOrchestrator } from '../orchestration/unified-orchestrator.js';
 import { createKabbalisticRouter } from '../orchestration/kabbalistic-router.js';
 import { DogOrchestrator } from '../agents/orchestrator.js';
 import { getQLearningService } from '../orchestration/learning-service.js';
+import { wireQLearning, cleanupQLearning } from '../orchestration/q-learning-wiring.js';
 
 const log = createLogger('ServiceWiring');
 

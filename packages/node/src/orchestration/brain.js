@@ -26,6 +26,7 @@
 import { EventEmitter } from 'events';
 import { createLogger, PHI_INV, PHI_INV_2 } from '@cynic/core';
 
+import { MemoryInjector } from './memory-injector.js';
 const log = createLogger('Brain');
 
 /**
@@ -136,6 +137,7 @@ export class Brain extends EventEmitter {
     // Task #95: Da'at Bridge - LLM execution orchestrator
     this.llmOrchestrator = options.llmOrchestrator || null;
 
+    this.memoryInjector = options.memoryInjector || new MemoryInjector();
     // State
     this._state = new BrainState();
     this._thoughtHistory = [];
@@ -149,6 +151,7 @@ export class Brain extends EventEmitter {
       patternsDetected: 0,
       avgThinkingTime: 0,
       executionsRequested: 0, // Task #95
+      memoryInjectionsRequested: 0,
     };
 
     log.debug('Brain initialized', {
@@ -557,13 +560,35 @@ export class Brain extends EventEmitter {
     if (!this.dogOrchestrator) return null;
 
     try {
+      // Get memory context for this judgment
+      let memoryContext = null;
+      if (this.memoryInjector) {
+        try {
+          memoryContext = await this.memoryInjector.getMemoryContext({
+            task: input.content?.slice(0, 200),
+            domain: input.type || 'general',
+            tags: input.context?.tags || [],
+            context: input.context?.description || input.content?.slice(0, 300),
+          });
+          this.stats.memoryInjectionsRequested++;
+        } catch (memErr) {
+          log.debug('Memory injection failed, continuing without memory', { 
+            error: memErr.message 
+          });
+        }
+      }
+
       const item = {
         content: input.content,
         itemType: input.type || 'general',
-        context: input.context || {},
+        context: {
+          ...(input.context || {}),
+          // Inject memory context
+          memory: memoryContext,
+        },
       };
 
-      // 1. Get local dog judgment
+      // 1. Get local dog judgment (now with memory context)
       const result = await this.dogOrchestrator.judge(item);
 
       const judgment = {
@@ -576,6 +601,8 @@ export class Brain extends EventEmitter {
         dimensions: result.dimensions,
         // Task #91: Mark as local-only initially
         source: 'dogs',
+        // Track memory usage
+        memoryInjected: !!memoryContext,
       };
 
       // ═══════════════════════════════════════════════════════════════════════
@@ -624,10 +651,6 @@ export class Brain extends EventEmitter {
       return null;
     }
   }
-
-  /**
-   * Request synthesis from engines
-   * @private
    */
   async _requestSynthesis(input) {
     if (!this.engineOrchestrator) return null;

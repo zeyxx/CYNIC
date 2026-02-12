@@ -210,14 +210,17 @@ export class DaemonServices {
 
     // Listen to all filesystem events
     globalEventBus.on(FilesystemEventType.CHANGE, async (data) => {
+      log.info('FileWatcher CHANGE event received', { path: data.path });
       await this._handlePerceptionEvent('fs:change', data);
     });
 
     globalEventBus.on(FilesystemEventType.ADD, async (data) => {
+      log.info('FileWatcher ADD event received', { path: data.path });
       await this._handlePerceptionEvent('fs:add', data);
     });
 
     globalEventBus.on(FilesystemEventType.UNLINK, async (data) => {
+      log.info('FileWatcher UNLINK event received', { path: data.path });
       await this._handlePerceptionEvent('fs:unlink', data);
     });
 
@@ -227,6 +230,8 @@ export class DaemonServices {
   /**
    * Handle perception event and route to orchestrator
    *
+   * GAP-3 CLOSED: Perception → KabbalisticRouter → Q-Learning feedback
+   *
    * @param {string} eventType - Event type (fs:change, fs:add, etc.)
    * @param {Object} data - Event data
    * @private
@@ -235,34 +240,49 @@ export class DaemonServices {
     try {
       log.debug('Perception event received', { eventType, path: data.path });
 
-      // For now, just log the event
-      // TODO: Route to appropriate judges based on file type
-      // - .js/.ts → CodeJudge
-      // - .md → DocumentationJudge
-      // - .json → ConfigJudge
-      // - etc.
+      // Map file extension to task type
+      const taskType = this._inferTaskTypeFromPath(data.path, eventType);
 
-      // Record learning event (for G1.2 metric: learning loops consuming data)
-      if (this.learningService) {
-        // This will be used later for Q-Learning routing
-        // For now, just track that perception is flowing
-        log.debug('Perception event ready for routing', {
-          eventType,
-          path: data.path,
+      // GAP-3: Route through KabbalisticRouter
+      // This automatically:
+      // 1. Starts Q-Learning episode
+      // 2. Routes through Lightning Flash path
+      // 3. Records actions (which dogs processed)
+      // 4. Ends episode with outcome
+      // 5. Updates Q-weights via hot-swap
+      if (this.kabbalisticRouter) {
+        const routingResult = await this.kabbalisticRouter.route({
+          taskType,
+          payload: {
+            input: data.path,
+            content: `File ${eventType}: ${data.path}`,
+            filePath: data.path,
+            eventType,
+            stats: data.stats,
+          },
+          userId: 'daemon',
+          sessionId: 'daemon-perception',
         });
+
+        log.debug('Perception routed', {
+          path: data.path,
+          taskType,
+          entrySefirah: routingResult.entrySefirah,
+          consensus: routingResult.synthesis?.hasConsensus,
+          blocked: routingResult.blocked,
+        });
+
+        // Emit for G1.2 metric tracking (learning loops consuming data)
+        globalEventBus.publish('learning:loop:active', {
+          loopName: 'perception-routing',
+          taskType,
+          path: data.path,
+          success: routingResult.success,
+        });
+
+        // If routing suggests action, delegate to orchestrator
+        // (Future: spawn judges, run skills based on routing.kabbalistic.decisions)
       }
-
-      // TODO (Phase 1, Day 2): Wire to KabbalisticRouter
-      // const routingDecision = await this.kabbalisticRouter.route({
-      //   eventType,
-      //   data,
-      //   dimension: 'CODE', // R1
-      // });
-
-      // TODO (Phase 1, Day 3): Spawn appropriate judges based on routing
-      // if (routingDecision.judges.includes('CodeJudge')) {
-      //   await this.orchestrator.judgeCode(data.path);
-      // }
 
     } catch (error) {
       log.error('Failed to handle perception event', {
@@ -270,6 +290,43 @@ export class DaemonServices {
         error: error.message,
       });
     }
+  }
+
+  /**
+   * Infer task type from file path and event type
+   * @private
+   */
+  _inferTaskTypeFromPath(filePath, eventType) {
+    const ext = filePath.split('.').pop().toLowerCase();
+    const basename = filePath.split(/[\\/]/).pop();
+
+    // Security-sensitive files
+    if (basename.includes('secret') || basename.includes('credential') || basename === '.env') {
+      return 'security';
+    }
+
+    // Code files
+    if (['js', 'ts', 'jsx', 'tsx', 'py', 'rb', 'go', 'rs'].includes(ext)) {
+      return eventType === 'fs:add' ? 'design' : 'PostToolUse';
+    }
+
+    // Documentation
+    if (['md', 'txt', 'rst'].includes(ext)) {
+      return 'knowledge';
+    }
+
+    // Configuration
+    if (['json', 'yaml', 'yml', 'toml', 'ini'].includes(ext)) {
+      return 'design';
+    }
+
+    // Tests
+    if (basename.includes('test') || basename.includes('spec')) {
+      return 'analysis';
+    }
+
+    // Default: treat as analysis task
+    return 'analysis';
   }
 
   /**
