@@ -4,14 +4,14 @@
  * Tracks BWT/FWT metrics to detect if continual learning destroys past knowledge.
  */
 
-const EventEmitter = require('events');
+import { EventEmitter } from 'events';
 
 const PHI_INV = 0.618;
 const FORGETTING_THRESHOLD = -0.1;
 const REEVALUATION_INTERVAL = 100;
 const MIN_TASK_SAMPLES = 5;
 
-class CatastrophicForgettingTracker extends EventEmitter {
+export class CatastrophicForgettingTracker extends EventEmitter {
   constructor({ db, logger }) {
     super();
     this.db = db;
@@ -229,4 +229,4 @@ class CatastrophicForgettingTracker extends EventEmitter {
   }
 }
 
-module.exports = { CatastrophicForgettingTracker, FORGETTING_THRESHOLD, PHI_INV };
+export { FORGETTING_THRESHOLD, PHI_INV };
