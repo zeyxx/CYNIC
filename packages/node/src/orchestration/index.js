@@ -238,3 +238,6 @@ export {
   getChaosGenerator,
   _resetChaosGeneratorForTesting,
 } from '../chaos/index.js';
+
+// MemoryInjector - Collective memory injection into prompts (Wiring Gap 4)
+export { MemoryInjector } from './memory-injector.js';

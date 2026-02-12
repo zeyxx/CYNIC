@@ -651,6 +651,9 @@ export class Brain extends EventEmitter {
       return null;
     }
   }
+  /**
+   * Request synthesis from engines
+   * @private
    */
   async _requestSynthesis(input) {
     if (!this.engineOrchestrator) return null;
