@@ -558,6 +558,87 @@ function cleanupOrchestrator() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONSCIOUSNESS REFLECTION — meta-cognition self-reflection loop
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _consciousnessWired = false;
+let _consciousnessReader = null;
+let _reflectionTimer = null;
+
+const REFLECTION_INTERVAL_MS = 60 * 60 * 1000; // 60 min (φ × 100 ≈ 62 min)
+
+/**
+ * Wire consciousness reflection — periodic self-reflection loop.
+ *
+ * Reads consciousness state from DB (judgments, patterns, learning metrics)
+ * and generates self-reflections for meta-cognition.
+ *
+ * @returns {Promise<{ consciousnessReader: Object|null }>}
+ */
+export async function wireConsciousnessReflection() {
+  if (_consciousnessWired) {
+    log.debug("Consciousness reflection already wired — skipping");
+    return { consciousnessReader: _consciousnessReader };
+  }
+
+  try {
+    const { getConsciousnessReader } = await import("../orchestration/consciousness-reader.js");
+    _consciousnessReader = getConsciousnessReader();
+    await _consciousnessReader.initialize();
+
+    log.info("ConsciousnessReader initialized — starting periodic reflection");
+
+    // Periodic reflection task
+    _reflectionTimer = setInterval(async () => {
+      try {
+        const result = await _consciousnessReader.reflect();
+        log.info("Self-reflection completed", {
+          reflectionId: result.id,
+          confidence: result.reflection.overallConfidence.toFixed(3),
+          concerns: result.reflection.prompts.filter(p => p.concern).length,
+        });
+      } catch (err) {
+        log.warn("Self-reflection failed", { error: err.message });
+      }
+    }, REFLECTION_INTERVAL_MS);
+    _reflectionTimer.unref();
+
+    _consciousnessWired = true;
+    log.info("Consciousness reflection wired — φ observes φ");
+
+    return { consciousnessReader: _consciousnessReader };
+  } catch (err) {
+    log.warn("ConsciousnessReader init failed", { error: err.message });
+    return { consciousnessReader: null };
+  }
+}
+
+/**
+ * Cleanup consciousness reflection.
+ */
+export async function cleanupConsciousnessReflection() {
+  if (!_consciousnessWired) return;
+
+  if (_reflectionTimer) {
+    clearInterval(_reflectionTimer);
+    _reflectionTimer = null;
+  }
+
+  _consciousnessReader = null;
+  _consciousnessWired = false;
+  log.info("Consciousness reflection cleaned up");
+}
+
+/**
+ * Check if consciousness reflection is wired.
+ * @returns {boolean}
+ */
+export function isConsciousnessWired() {
+  return _consciousnessWired;
+}
+
 // WATCHERS — perception polling (FileWatcher, SolanaWatcher)
 // ═══════════════════════════════════════════════════════════════════════════════
 
