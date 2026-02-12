@@ -195,6 +195,30 @@ export {
 } from './planning-gate.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
+// BUDGET & THROTTLE (GAP-5: Cost Control)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Budget Monitor - Tracks budget state and provides throttle recommendations
+export {
+  BudgetMonitor,
+  BudgetLevel,
+  BudgetRecommendation,
+} from './budget-monitor.js';
+
+// Throttle Gate - Stage-by-stage budget-aware throttling
+export {
+  ThrottleGate,
+  ThrottleAction,
+  Stage,
+} from './throttle-gate.js';
+
+// Escalation Logic - HandsOff to FastRouter when budget critical
+export {
+  EscalationLogic,
+  EscalationReason,
+} from './escalation-logic.js';
+
+// ═══════════════════════════════════════════════════════════════════════════
 // CHAOS ENGINEERING
 // ═══════════════════════════════════════════════════════════════════════════
 

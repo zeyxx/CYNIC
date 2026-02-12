@@ -60,15 +60,17 @@ export class BudgetMonitor {
       assessments: 0,
       lastLevel: null,
       levelTransitions: [],
+      tasksTracked: 0, // GAP-5: track unique tasks for G2.5 metric
     };
   }
 
   /**
    * Assess current budget state and provide recommendation.
    *
+   * @param {Object} [taskContext] - Optional task context { taskId, taskType } for tracking
    * @returns {Object} Budget assessment
    */
-  assess() {
+  assess(taskContext = {}) {
     this._stats.assessments++;
 
     // Get budget state from CostLedger
@@ -96,10 +98,15 @@ export class BudgetMonitor {
       log.info('Budget level transition', {
         from: this._stats.lastLevel,
         to: level,
-        consumedRatio: budget.consumedRatio.toFixed(3),
+        consumedRatio: budget.consumedRatio?.toFixed(3),
       });
     }
     this._stats.lastLevel = level;
+
+    // GAP-5: Track task if context provided
+    if (taskContext.taskId) {
+      this._trackTask(taskContext);
+    }
 
     return {
       level,
@@ -112,6 +119,34 @@ export class BudgetMonitor {
       recommendation,
       timestamp: Date.now(),
     };
+  }
+
+  /**
+   * Track task for G2.5 metric.
+   * Records minimal-cost operation in CostLedger with task_id/task_type.
+   *
+   * @param {Object} taskContext - { taskId, taskType }
+   * @private
+   */
+  _trackTask(taskContext) {
+    const { taskId, taskType } = taskContext;
+
+    if (!taskId) return;
+
+    // Record task in CostLedger (0 tokens, just tracking)
+    this.costLedger.record({
+      type: taskType || 'tracked_task',
+      source: 'BudgetMonitor',
+      inputTokens: 0,
+      outputTokens: 0,
+      metadata: {
+        taskId,
+        taskType,
+        trackedAt: Date.now(),
+      },
+    });
+
+    this._stats.tasksTracked++;
   }
 
   /**
@@ -188,6 +223,7 @@ export class BudgetMonitor {
       lastLevel: this._stats.lastLevel,
       transitionCount: this._stats.levelTransitions.length,
       recentTransitions: this._stats.levelTransitions.slice(-5),
+      tasksTracked: this._stats.tasksTracked, // GAP-5: for G2.5 validation
     };
   }
 
@@ -199,6 +235,7 @@ export class BudgetMonitor {
       assessments: 0,
       lastLevel: null,
       levelTransitions: [],
+      tasksTracked: 0,
     };
   }
 }

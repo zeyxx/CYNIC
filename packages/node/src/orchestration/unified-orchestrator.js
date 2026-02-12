@@ -64,6 +64,8 @@ export class UnifiedOrchestrator extends EventEmitter {
    * @param {Object} [options.llmRouter] - LLMRouter instance for multi-model routing
    * @param {Object} [options.perceptionRouter] - PerceptionRouter for data source routing
    * @param {Object} [options.psychologyProvider] - Psychology state provider (D11: calibration wiring)
+   * @param {Object} [options.budgetMonitor] - BudgetMonitor instance (GAP-5: budget tracking)
+   * @param {Object} [options.throttleGate] - ThrottleGate instance (GAP-5: cost control)
    */
   constructor(options = {}) {
     super();
@@ -82,6 +84,8 @@ export class UnifiedOrchestrator extends EventEmitter {
     this.perceptionRouter = options.perceptionRouter || null;
     this.memoryRetriever = options.memoryRetriever || null;
     this.psychologyProvider = options.psychologyProvider || null;
+    this.budgetMonitor = options.budgetMonitor || null; // NEW: GAP-5
+    this.throttleGate = options.throttleGate || null;   // NEW: GAP-5
 
     // Wire learning and cost services to kabbalistic router if available
     if (this.kabbalisticRouter) {
@@ -126,6 +130,8 @@ export class UnifiedOrchestrator extends EventEmitter {
       escalationsTriggered: 0,
       blocked: 0,
       errors: 0,
+      throttled: 0,      // NEW: GAP-5 - operations throttled
+      budgetWarnings: 0, // NEW: GAP-5 - budget warnings received
     };
 
     // Subagent lifecycle tracking
@@ -248,8 +254,25 @@ export class UnifiedOrchestrator extends EventEmitter {
       // 1. Load/cache user profile
       await this._loadUserProfile(event);
 
-      // 2. Route through KETER
-      await this._routeEvent(event);
+      // 1.5. GAP-5: Check budget and throttle if needed (before routing)
+      const throttleDecision = this._checkThrottle('routing', event);
+      if (throttleDecision?.action === 'ESCALATE') {
+        // Escalate to FastRouter immediately
+        event.finalize(DecisionOutcome.ALLOW, ['Escalated to FastRouter due to budget']);
+        this.stats.escalationsTriggered++;
+        this._recordDecision(event);
+        this.emit('budget:escalate', { event, throttle: throttleDecision });
+        return event;
+      } else if (throttleDecision?.action === 'SKIP') {
+        // Skip routing entirely
+        event.finalize(DecisionOutcome.ALLOW, ['Skipped due to budget exhaustion']);
+        this.stats.throttled++;
+        this._recordDecision(event);
+        return event;
+      }
+
+      // 2. Route through KETER (apply throttle params if present)
+      await this._routeEvent(event, throttleDecision?.throttleParams);
 
       // 2.5. Planning gate check (meta-cognition)
       if (this._needsPlanning(event)) {
@@ -277,19 +300,34 @@ export class UnifiedOrchestrator extends EventEmitter {
         return event;
       }
 
-      // 5. Request judgment if needed
+      // 5. Request judgment if needed (with throttle check)
       if (this._needsJudgment(event)) {
-        await this._requestJudgment(event);
+        const judgmentThrottle = this._checkThrottle('judgment', event);
+        if (judgmentThrottle?.action !== 'SKIP') {
+          await this._requestJudgment(event, judgmentThrottle?.throttleParams);
+        } else {
+          this.stats.throttled++;
+        }
       }
 
-      // 6. Request synthesis if needed
+      // 6. Request synthesis if needed (with throttle check)
       if (this._needsSynthesis(event)) {
-        await this._requestSynthesis(event);
+        const synthesisThrottle = this._checkThrottle('synthesis', event);
+        if (synthesisThrottle?.action !== 'SKIP') {
+          await this._requestSynthesis(event, synthesisThrottle?.throttleParams);
+        } else {
+          this.stats.throttled++;
+        }
       }
 
-      // 7. Auto-invoke skill if routing suggests one
+      // 7. Auto-invoke skill if routing suggests one (with throttle check)
       if (this._shouldInvokeSkill(event)) {
-        await this._invokeSkill(event);
+        const skillThrottle = this._checkThrottle('skill', event);
+        if (skillThrottle?.action !== 'SKIP') {
+          await this._invokeSkill(event, skillThrottle?.throttleParams);
+        } else {
+          this.stats.throttled++;
+        }
       }
 
       // 8. Finalize decision
@@ -443,15 +481,58 @@ export class UnifiedOrchestrator extends EventEmitter {
   }
 
   /**
+   * Check throttle gate for a given stage.
+   *
+   * GAP-5: Budget-aware throttling at each orchestration stage.
+   *
+   * @param {string} stage - Stage name (routing, planning, judgment, synthesis, skill)
+   * @param {DecisionEvent} event - Decision event
+   * @returns {Object|null} Throttle decision { action, throttleParams, assessment }
+   * @private
+   */
+  _checkThrottle(stage, event) {
+    if (!this.throttleGate) return null;
+
+    try {
+      const decision = this.throttleGate.decide(stage, {
+        taskId: event.id,
+        taskType: event.eventType,
+        priority: event.context?.priority,
+      });
+
+      // Track budget warnings
+      if (decision.assessment?.level === 'CRITICAL' || decision.assessment?.level === 'EXHAUSTED') {
+        this.stats.budgetWarnings++;
+      }
+
+      // Log throttle decisions
+      if (decision.action !== 'ALLOW') {
+        log.debug('Throttle decision', {
+          stage,
+          action: decision.action,
+          level: decision.assessment?.level,
+          eventId: event.id,
+        });
+      }
+
+      return decision;
+    } catch (err) {
+      log.warn('Throttle check failed, allowing by default', { stage, error: err.message });
+      return { action: 'ALLOW', throttleParams: {}, assessment: {} };
+    }
+  }
+
+  /**
    * Route event through KETER logic
    *
    * FIX R1: Now uses KabbalisticRouter for full Lightning Flash routing
    * instead of simple trigger matching. Falls back to simple routing
    * only if KabbalisticRouter is not available.
    *
+   * @param {Object} [throttleParams] - Throttle parameters from ThrottleGate
    * @private
    */
-  async _routeEvent(event) {
+  async _routeEvent(event, throttleParams = {}) {
     const content = event.content.toLowerCase();
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -740,9 +821,10 @@ export class UnifiedOrchestrator extends EventEmitter {
 
   /**
    * Request judgment from dog orchestrator
+   * @param {Object} [throttleParams] - Throttle parameters (dimensionMode, dimensions)
    * @private
    */
-  async _requestJudgment(event) {
+  async _requestJudgment(event, throttleParams = {}) {
     if (!this.dogOrchestrator) {
       log.debug('No dog orchestrator available, skipping judgment');
       return event;
@@ -788,9 +870,10 @@ export class UnifiedOrchestrator extends EventEmitter {
 
   /**
    * Request synthesis from engine orchestrator
+   * @param {Object} [throttleParams] - Throttle parameters
    * @private
    */
-  async _requestSynthesis(event) {
+  async _requestSynthesis(event, throttleParams = {}) {
     if (!this.engineOrchestrator) {
       log.debug('No engine orchestrator available, skipping synthesis');
       return event;
@@ -831,9 +914,10 @@ export class UnifiedOrchestrator extends EventEmitter {
 
   /**
    * Auto-invoke skill based on routing
+   * @param {Object} [throttleParams] - Throttle parameters
    * @private
    */
-  async _invokeSkill(event) {
+  async _invokeSkill(event, throttleParams = {}) {
     if (!this.skillRegistry) {
       return event;
     }
