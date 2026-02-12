@@ -218,6 +218,12 @@ export {
   EscalationReason,
 } from './escalation-logic.js';
 
+// LLMRouter - Cost-aware multi-model routing (Wiring Gap 2)
+export {
+  LLMRouter as CostAwareLLMRouter,
+  getLLMRouter as getCostAwareLLMRouter,
+} from './llm-router.js';
+
 // ═══════════════════════════════════════════════════════════════════════════
 // CHAOS ENGINEERING
 // ═══════════════════════════════════════════════════════════════════════════
