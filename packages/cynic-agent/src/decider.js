@@ -613,9 +613,10 @@ export class Decider extends EventEmitter {
     const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
     const stdDev = Math.sqrt(variance);
 
-    // High stdDev = low confidence
-    const confidence = 1 - stdDev;
-    return Math.max(0.1, Math.min(PHI_INV, confidence));
+    // High stdDev = low confidence (φ-bounded)
+    const rawConfidence = 1 - stdDev;
+    const confidence = Math.min(rawConfidence, PHI_INV);
+    return Math.max(0.1, confidence);
   }
 
   /**

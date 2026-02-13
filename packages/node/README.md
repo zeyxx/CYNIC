@@ -332,7 +332,7 @@ const instance = createIdentity();
 
 ### Functions
 
-`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 124 more
+`importIdentity`, `exportIdentity`, `calculateCompositeEScore`, `updateEScoreState`, `dimensionRegistry`, `resetLearningScheduler`, `serialize`, `deserialize`, `isValidMessage`, `initializeQLearning` + 125 more
 
 ## Dependencies
 
@@ -341,10 +341,10 @@ const instance = createIdentity();
 
 ## Stats
 
-- **Source files**: 332
+- **Source files**: 345
 - **Test files**: 111
-- **Test ratio**: 33%
-- **Exports**: 459 named
+- **Test ratio**: 32%
+- **Exports**: 460 named
 
 ## Fractal Structure
 
@@ -354,10 +354,10 @@ const instance = createIdentity();
 ## Dimensions (4 Axioms)
 
 ```
-[███░░░░░░░] 33% φ (Confidence)
+[███░░░░░░░] 32% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
-[█████░░░░░] 54% Burn (Simplicity)
+[██████░░░░] 56% Burn (Simplicity)
 [██████░░░░] 62% Emergence
 ```
 

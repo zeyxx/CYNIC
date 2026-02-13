@@ -25,7 +25,7 @@ let pool = null;
 const DEFAULT_CONFIG = {
   max: 21,                    // Fib(8) - max connections
   idleTimeoutMillis: 61800,   // φ⁻¹ × 100000 - idle timeout
-  connectionTimeoutMillis: 3820, // φ⁻² × 10000 - connection timeout
+  connectionTimeoutMillis: 10000, // 10s — remote SSL handshake needs headroom (was 3820, too tight for Render)
   allowExitOnIdle: true,
 };
 

@@ -131,9 +131,9 @@ async function runMigrations(silent = false) {
     const result = await migrate({ silent, exitOnError: false });
     return result;
   } catch (error) {
-    // Try direct import if package import fails
+    // Try direct subpath import if package import fails
     try {
-      const { migrate } = await import('../../../../../../persistence/src/postgres/migrate.js');
+      const { migrate } = await import('@cynic/persistence/postgres/migrate');
       const result = await migrate({ silent, exitOnError: false });
       return result;
     } catch {

@@ -21,6 +21,7 @@ export { codeFactory } from './code.js';
 export { orchestrationFactory } from './orchestration.js';
 export { memoryFactory } from './memory.js';
 export { socialFactory } from './social.js';
+export { xPostFactory } from './x-post.js';
 export { oracleFactory } from './oracle.js';
 export { debugFactory } from './debug.js';
 

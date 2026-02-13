@@ -15,6 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const http = require('http');
 
 const {
   createDashboard,
@@ -110,6 +111,36 @@ function getPatternsInfo() {
 }
 
 /**
+ * Fetch daemon health data (with timeout)
+ */
+async function getDaemonHealth(port = 6180) {
+  return new Promise((resolve) => {
+    const req = http.get({
+      hostname: 'localhost',
+      port,
+      path: '/health',
+      timeout: 1000,
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch {
+          resolve(null);
+        }
+      });
+    });
+
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(null);
+    });
+  });
+}
+
+/**
  * Count agents and skills
  */
 function countComponents() {
@@ -165,10 +196,10 @@ function countComponents() {
 /**
  * Generate the health dashboard using composable builder
  */
-function generateDashboard(enableColor = true) {
+async function generateDashboard(enableColor = true) {
   loadModules();
 
-  // Gather all data first
+  // Gather all data first (including async daemon health)
   const hookNames = ['perceive', 'guard', 'observe', 'awaken', 'digest', 'sleep'];
   const hooks = hookNames.map(checkHook);
   const components = countComponents();
@@ -176,6 +207,7 @@ function generateDashboard(enableColor = true) {
   const patterns = getPatternsInfo();
   const thermo = thermodynamics?.getState();
   const dogsSummary = dogs?.getSessionSummary();
+  const daemonHealth = await getDaemonHealth();
 
   // Calculate aggregate health for voice selection
   const hooksHealthy = hooks.filter(h => h.exists).length === hooks.length;
@@ -187,6 +219,99 @@ function generateDashboard(enableColor = true) {
     title: 'CYNIC HEALTH DASHBOARD',
     subtitle: 'Le chien veille',
   });
+
+  // Daemon status section
+  if (daemonHealth) {
+    dashboard.addSection('DAEMON STATUS', (section, r) => {
+      const statusColor = daemonHealth.running ? ANSI.brightGreen : ANSI.brightRed;
+      const status = daemonHealth.running ? 'RUNNING' : 'STOPPED';
+
+      section
+        .kv('Status:', status, { valueColor: statusColor })
+        .kv('PID:', daemonHealth.pid || 'N/A', { valueColor: ANSI.brightCyan })
+        .kv('Uptime:', daemonHealth.uptime ? `${Math.round(daemonHealth.uptime / 1000)}s` : 'N/A', { valueColor: ANSI.dim });
+
+      if (daemonHealth.services) {
+        section.line('')
+          .kv('  Services:', '', { valueColor: '' })
+          .kv('    LLM Router:', daemonHealth.services.llmRouter ? '✓' : '✗', { valueColor: daemonHealth.services.llmRouter ? ANSI.brightGreen : ANSI.dim })
+          .kv('    Cost Ledger:', daemonHealth.services.costLedger ? '✓' : '✗', { valueColor: daemonHealth.services.costLedger ? ANSI.brightGreen : ANSI.dim })
+          .kv('    Learning Pipeline:', daemonHealth.services.learningPipeline ? '✓' : '✗', { valueColor: daemonHealth.services.learningPipeline ? ANSI.brightGreen : ANSI.dim })
+          .kv('    Data Pipeline:', daemonHealth.services.dataPipeline ? '✓' : '✗', { valueColor: daemonHealth.services.dataPipeline ? ANSI.brightGreen : ANSI.dim })
+          .kv('    Research Runner:', daemonHealth.services.researchRunner ? '✓' : '✗', { valueColor: daemonHealth.services.researchRunner ? ANSI.brightGreen : ANSI.dim });
+      }
+    });
+  } else {
+    dashboard.addSection('DAEMON STATUS', (section, r) => {
+      section
+        .kv('Status:', 'OFFLINE', { valueColor: ANSI.dim })
+        .line(r.indent(r.c(ANSI.dim, 'Start: npm run daemon:start'), 12));
+    });
+  }
+
+  // Budget status section
+  if (daemonHealth?.budget) {
+    dashboard.addSection('BUDGET STATUS', (section, r) => {
+      const b = daemonHealth.budget;
+      const levelColor = b.level === 'ABUNDANT' ? ANSI.brightGreen :
+                         b.level === 'WARNING' ? ANSI.yellow :
+                         b.level === 'CRITICAL' ? ANSI.brightRed :
+                         ANSI.dim;
+
+      section
+        .kv('Level:', b.level, { valueColor: levelColor })
+        .kv('Remaining:', `$${b.remaining?.toFixed(2) || '0.00'}`, { valueColor: ANSI.brightCyan })
+        .kv('Spent:', `$${b.spent?.toFixed(2) || '0.00'}`, { valueColor: ANSI.dim })
+        .kv('Forecast:', b.hoursToExhaustion ? `${b.hoursToExhaustion.toFixed(1)}h` : 'N/A', { valueColor: ANSI.dim });
+    });
+  }
+
+  // Learning systems section
+  if (daemonHealth?.learning) {
+    dashboard.addSection('LEARNING SYSTEMS', (section, r) => {
+      const l = daemonHealth.learning;
+
+      section.kv('Q-Learning:', l.qLearning ? '✓' : '✗', { valueColor: l.qLearning ? ANSI.brightGreen : ANSI.dim });
+      if (l.qEpisodes !== undefined) {
+        section.kv('  Episodes/24h:', `${l.qEpisodes}`, { valueColor: ANSI.brightCyan });
+      }
+
+      section.kv('Thompson Sampling:', l.thompsonSampling ? '✓' : '✗', { valueColor: l.thompsonSampling ? ANSI.brightGreen : ANSI.dim });
+      if (l.thompsonMaturity !== undefined) {
+        section.metric('  Maturity', l.thompsonMaturity * 100, 61.8, { showPct: true });
+      }
+
+      section.kv('Meta-Cognition:', l.metaCognition ? '✓' : '✗', { valueColor: l.metaCognition ? ANSI.brightGreen : ANSI.dim });
+      section.kv('SONA:', l.sona ? '✓' : '✗', { valueColor: l.sona ? ANSI.brightGreen : ANSI.dim });
+      section.kv('Behavior Modifier:', l.behaviorModifier ? '✓' : '✗', { valueColor: l.behaviorModifier ? ANSI.brightGreen : ANSI.dim });
+    });
+  }
+
+  // Data Pipeline section
+  if (daemonHealth?.dataPipeline) {
+    dashboard.addSection('DATA PIPELINE', (section, r) => {
+      const dp = daemonHealth.dataPipeline;
+
+      section
+        .kv('Items Processed:', `${dp.itemsProcessed || 0}`, { valueColor: ANSI.brightCyan })
+        .kv('Cache Hit Rate:', dp.cacheHitRate ? `${Math.round(dp.cacheHitRate * 100)}%` : 'N/A', { valueColor: ANSI.dim })
+        .kv('Compression Ratio:', dp.compressionRatio ? `${Math.round(dp.compressionRatio * 100)}%` : 'N/A', { valueColor: ANSI.dim })
+        .kv('Bytes Saved:', dp.bytesSaved ? `${(dp.bytesSaved / 1024).toFixed(1)}KB` : 'N/A', { valueColor: ANSI.brightGreen });
+    });
+  }
+
+  // Research Runner section
+  if (daemonHealth?.researchRunner) {
+    dashboard.addSection('RESEARCH RUNNER', (section, r) => {
+      const rr = daemonHealth.researchRunner;
+
+      section
+        .kv('Total Protocols:', `${rr.totalProtocols || 0}`, { valueColor: ANSI.brightCyan })
+        .kv('Completed:', `${rr.completedProtocols || 0}`, { valueColor: ANSI.brightGreen })
+        .kv('Failed:', `${rr.failedProtocols || 0}`, { valueColor: rr.failedProtocols > 0 ? ANSI.yellow : ANSI.dim })
+        .metric('Avg Confidence', (rr.avgConfidence || 0) * 100, 61.8, { showPct: true });
+    });
+  }
 
   // Hooks section
   dashboard.addSection('LOCAL HOOKS', (section, r) => {
@@ -252,11 +377,17 @@ function generateDashboard(enableColor = true) {
   if (thermo?.isCritical) {
     voice = '*GROWL* Heat critical! Cool down required.';
     voiceColor = ANSI.brightRed;
+  } else if (!daemonHealth) {
+    voice = '*concerned sniff* Daemon offline. Start with: npm run daemon:start';
+    voiceColor = ANSI.yellow;
+  } else if (daemonHealth?.budget?.level === 'CRITICAL') {
+    voice = '*GROWL* Budget critical! Learning degraded.';
+    voiceColor = ANSI.brightRed;
   } else if (!hooksHealthy) {
     voice = '*concerned sniff* Some hooks missing. Check configuration.';
     voiceColor = ANSI.yellow;
-  } else if (consciousness.score > 50) {
-    voice = '*tail wag* Consciousness rising. The pack strengthens.';
+  } else if (consciousness.score > 50 && daemonHealth?.running) {
+    voice = '*tail wag* Daemon + Consciousness active. Organism breathing.';
     voiceColor = ANSI.brightGreen;
   }
 
@@ -273,7 +404,12 @@ function generateDashboard(enableColor = true) {
 
 if (require.main === module) {
   const enableColor = !process.argv.includes('--no-color');
-  console.log(generateDashboard(enableColor));
+  generateDashboard(enableColor).then(output => {
+    console.log(output);
+  }).catch(err => {
+    console.error('Dashboard generation failed:', err.message);
+    process.exit(1);
+  });
 }
 
 module.exports = {

@@ -636,9 +636,9 @@ export function wireCircuitBreakerToLearning(breaker, options = {}) {
   let bus = eventBus;
   if (!bus) {
     // Use dynamic import to avoid circular deps (async wiring)
-    import('./events.js')
-      .then(events => {
-        bus = events.globalEventBus;
+    import('./bus/index.js')
+      .then(busModule => {
+        bus = busModule.globalEventBus;
         if (bus) wireEvents(breaker, bus, serviceType);
       })
       .catch(() => {

@@ -116,6 +116,10 @@ export class PersistenceManager {
     this._fallback = null;
     this._backend = 'none'; // 'postgres', 'file', 'memory'
 
+    // Connection error tracking (for honest health reporting)
+    this._pgConnectError = null;
+    this._redisConnectError = null;
+
     // ISP: Domain adapters (lazy initialized)
     this._judgmentAdapter = null;
     this._patternAdapter = null;
@@ -154,61 +158,84 @@ export class PersistenceManager {
     );
     const hasRedis = !this._skipDatabase && !!process.env.CYNIC_REDIS_URL;
 
-    // Try PostgreSQL first (production)
+    // Try PostgreSQL first (production) — with retry on transient failure
     if (hasPostgres) {
-      try {
-        this.postgres = new PostgresClient();
-        await this.postgres.connect();
+      const maxAttempts = 2;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          this.postgres = new PostgresClient();
+          await this.postgres.connect();
 
-        // Initialize repositories
-        this._judgments = new JudgmentRepository(this.postgres);
-        this._patterns = new PatternRepository(this.postgres);
-        this._feedback = new FeedbackRepository(this.postgres);
-        this._knowledge = new KnowledgeRepository(this.postgres);
-        this._pojBlocks = new PoJBlockRepository(this.postgres);
-        this._libraryCache = new LibraryCacheRepository(this.postgres);
-        this._triggers = new TriggerRepository(this.postgres);
-        this._discovery = new DiscoveryRepository(this.postgres);
-        this._userLearningProfiles = new UserLearningProfilesRepository(this.postgres);
-        this._psychology = new PsychologyRepository(this.postgres);
-        this._sessions = new SessionRepository(this.postgres);
+          // Initialize repositories
+          this._judgments = new JudgmentRepository(this.postgres);
+          this._patterns = new PatternRepository(this.postgres);
+          this._feedback = new FeedbackRepository(this.postgres);
+          this._knowledge = new KnowledgeRepository(this.postgres);
+          this._pojBlocks = new PoJBlockRepository(this.postgres);
+          this._libraryCache = new LibraryCacheRepository(this.postgres);
+          this._triggers = new TriggerRepository(this.postgres);
+          this._discovery = new DiscoveryRepository(this.postgres);
+          this._userLearningProfiles = new UserLearningProfilesRepository(this.postgres);
+          this._psychology = new PsychologyRepository(this.postgres);
+          this._sessions = new SessionRepository(this.postgres);
 
-        // Phase 16: Total Memory + Full Autonomy repos
-        this._goals = new AutonomousGoalsRepository(this.postgres);
-        this._tasks = new AutonomousTasksRepository(this.postgres);
-        this._notifications = new ProactiveNotificationsRepository(this.postgres);
+          // Phase 16: Total Memory + Full Autonomy repos
+          this._goals = new AutonomousGoalsRepository(this.postgres);
+          this._tasks = new AutonomousTasksRepository(this.postgres);
+          this._notifications = new ProactiveNotificationsRepository(this.postgres);
 
-        // Phase X: X/Twitter Vision
-        this._xData = new XDataRepository(this.postgres);
+          // Phase X: X/Twitter Vision
+          this._xData = new XDataRepository(this.postgres);
 
-        // P1.1: Facts Repository (was disconnected from MCP)
-        this._facts = new FactsRepository(this.postgres);
+          // P1.1: Facts Repository (was disconnected from MCP)
+          this._facts = new FactsRepository(this.postgres);
 
-        // Phase 18: Initialize embedder for vector search
-        // Auto-detects Ollama (local, free) first, falls back to Mock
-        const embedder = getEmbedder();
-        this._memoryRetriever = createMemoryRetriever({ pool: this.postgres, embedder });
-        log.info('Memory retriever initialized', { embedderType: embedder.type });
+          // Phase 18: Initialize embedder for vector search
+          // Auto-detects Ollama (local, free) first, falls back to Mock
+          const embedder = getEmbedder();
+          this._memoryRetriever = createMemoryRetriever({ pool: this.postgres, embedder });
+          log.info('Memory retriever initialized', { embedderType: embedder.type });
 
-        this._backend = 'postgres';
-        log.info('PostgreSQL connected');
-      } catch (err) {
-        log.error('PostgreSQL error', { error: err.message });
-        this.postgres = null;
+          this._backend = 'postgres';
+          this._pgConnectError = null;
+          log.info('PostgreSQL connected', { attempt });
+          break; // Success — exit retry loop
+        } catch (err) {
+          log.error('PostgreSQL connection FAILED', { attempt, maxAttempts, error: err.message, stack: err.stack?.split('\n')[1]?.trim() });
+          this._pgConnectError = err.message;
+          try { await this.postgres?.close(); } catch { /* ignore */ }
+          this.postgres = null;
+
+          if (attempt < maxAttempts) {
+            log.info('Retrying PostgreSQL in 3s...');
+            await new Promise(r => setTimeout(r, 3000));
+          }
+        }
       }
     } else {
-      log.debug('PostgreSQL not configured');
+      log.debug('PostgreSQL not configured', { skipDatabase: this._skipDatabase, hasUrl: !!process.env.CYNIC_DATABASE_URL });
     }
 
-    // Initialize Redis (optional, for caching/sessions)
+    // Initialize Redis (optional, for caching/sessions) — with retry
     if (hasRedis) {
-      try {
-        this.redis = new RedisClient();
-        await this.redis.connect();
-        this.sessionStore = new SessionStore(this.redis);
-        log.info('Redis connected');
-      } catch (err) {
-        log.error('Redis error', { error: err.message });
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          this.redis = new RedisClient();
+          await this.redis.connect();
+          this.sessionStore = new SessionStore(this.redis);
+          this._redisConnectError = null;
+          log.info('Redis connected', { attempt });
+          break;
+        } catch (err) {
+          log.error('Redis connection FAILED', { attempt, error: err.message });
+          this._redisConnectError = err.message;
+          try { await this.redis?.close(); } catch { /* ignore */ }
+          this.redis = null;
+          this.sessionStore = null;
+          if (attempt < 2) {
+            await new Promise(r => setTimeout(r, 2000));
+          }
+        }
       }
     } else {
       log.debug('Redis not configured');
@@ -443,9 +470,17 @@ export class PersistenceManager {
    * Get health status
    */
   async health() {
+    const hasPostgresConfig = !!process.env.CYNIC_DATABASE_URL
+      || (!!process.env.CYNIC_DB_HOST && !!process.env.CYNIC_DB_PASSWORD);
+    const hasRedisConfig = !!process.env.CYNIC_REDIS_URL;
+
     const status = {
-      postgres: { status: 'not_configured' },
-      redis: { status: 'not_configured' },
+      postgres: hasPostgresConfig
+        ? { status: 'connection_failed', error: this._pgConnectError || 'Connection dropped after init' }
+        : { status: 'not_configured' },
+      redis: hasRedisConfig
+        ? { status: 'connection_failed', error: this._redisConnectError || 'Connection dropped after init' }
+        : { status: 'not_configured' },
     };
 
     if (this.postgres) {

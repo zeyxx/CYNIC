@@ -37,3 +37,6 @@ COMMENT ON COLUMN dog_votes.vote_score IS 'Vote score (0=reject, 1=approve, 0.5=
 COMMENT ON COLUMN dog_votes.confidence IS 'Dog confidence in vote (φ-bounded)';
 COMMENT ON COLUMN dog_votes.reasoning IS 'Dog reasoning for vote';
 COMMENT ON COLUMN dog_votes.metadata IS 'Additional metadata (consensus verdict, etc.)';
+
+INSERT INTO _migrations (name) VALUES ('044_dog_votes')
+ON CONFLICT (name) DO NOTHING;

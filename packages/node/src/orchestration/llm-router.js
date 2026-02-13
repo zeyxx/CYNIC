@@ -282,7 +282,7 @@ export class LLMRouter {
       reason,
       degraded,                  // Was this downgraded due to budget?
       circuitBreakerActive: this.circuitBreaker.anthropicBlocked,
-      confidence: reason.includes('thompson') ? modelSelection.confidence : 0.8,
+      confidence: reason.includes('thompson') ? modelSelection.confidence : PHI_INV, // φ⁻¹ fallback
       estimatedCost: provider.cost * (estimatedTokens / 1_000_000),
       budgetLevel: budgetStatus.level,
     };

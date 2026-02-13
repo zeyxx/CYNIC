@@ -16,7 +16,6 @@ import v8 from 'v8';
 import { createLogger, PHI_INV, processRegistry } from '@cynic/core';
 import { handleHookEvent } from './hook-handlers.js';
 import { setupLLMEndpoints } from './llm-endpoints.js';
-import { DaemonServices } from './services.js';
 
 const log = createLogger('Daemon');
 
@@ -47,9 +46,6 @@ export class DaemonServer {
     this.startTime = null;
     this._requestCounts = new Map();
     this._rateLimitTimer = null;
-
-    // Background services (orchestrator, watchers, learning)
-    this.services = new DaemonServices(options);
 
     this._configure();
     this._setupRoutes();
@@ -106,8 +102,8 @@ export class DaemonServer {
       }
     });
 
-    // Health check (enhanced with watchdog data)
-    this.app.get('/health', (req, res) => {
+    // Health check (enhanced with watchdog + services data)
+    this.app.get('/health', async (req, res) => {
       const uptime = this.startTime ? Date.now() - this.startTime : 0;
       const mem = process.memoryUsage();
 
@@ -117,6 +113,7 @@ export class DaemonServer {
 
       const health = {
         status: 'healthy',
+        running: true,
         pid: process.pid,
         uptime,
         uptimeHuman: formatUptime(uptime),
@@ -137,6 +134,72 @@ export class DaemonServer {
         health.consecutiveCritical = wdStatus.consecutiveCritical;
       }
 
+      // Services status (from this.services set by entry.js)
+      try {
+        health.services = {
+          llmRouter: !!this.services?.llmRouter,
+          costLedger: !!this.services?.costLedger,
+          learningPipeline: !!this.services?.learningPipeline,
+          dataPipeline: !!this.services?.dataPipeline,
+          researchRunner: !!this.services?.researchRunner,
+        };
+
+        // Budget status
+        if (this.services?.costLedger) {
+          const budget = await this.services.costLedger.getBudgetState();
+          health.budget = {
+            level: budget.level,
+            remaining: budget.remaining,
+            spent: budget.spent,
+            hoursToExhaustion: budget.hoursToExhaustion,
+          };
+        }
+
+        // Learning systems status
+        const mi = this.services?.modelIntelligence;
+        const lp = this.services?.learningPipeline;
+        if (mi || lp) {
+          health.learning = {
+            qLearning: !!lp?.qLearning,
+            thompsonSampling: !!mi,
+            thompsonMaturity: mi?.getStats?.().samplerMaturity,
+            metaCognition: !!lp?.metaCognition,
+            sona: !!this.services?.sona,
+            behaviorModifier: !!this.services?.behaviorModifier,
+          };
+
+          // Q-Learning stats (from learning pipeline)
+          if (lp?.qLearning?.getStats) {
+            const qStats = lp.qLearning.getStats();
+            health.learning.qEpisodes = qStats.episodeCount || 0;
+          }
+        }
+
+        // Data Pipeline stats
+        if (this.services?.dataPipeline) {
+          const dpStats = this.services.dataPipeline.getStats();
+          health.dataPipeline = {
+            itemsProcessed: dpStats.itemsProcessed || 0,
+            cacheHitRate: dpStats.cache?.hitRate || 0,
+            compressionRatio: dpStats.compressionRatio || 0,
+            bytesSaved: dpStats.bytesSaved || 0,
+          };
+        }
+
+        // Research Runner stats
+        if (this.services?.researchRunner) {
+          const rrStats = this.services.researchRunner.getStats();
+          health.researchRunner = {
+            totalProtocols: rrStats.totalProtocols || 0,
+            completedProtocols: rrStats.completedProtocols || 0,
+            failedProtocols: rrStats.failedProtocols || 0,
+            avgConfidence: rrStats.avgConfidence || 0,
+          };
+        }
+      } catch (err) {
+        log.debug('Health enrichment failed', { error: err.message });
+      }
+
       res.json(health);
     });
 
@@ -154,7 +217,6 @@ export class DaemonServer {
             memoryMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
             port: this.port,
           },
-          services: this.services.getStatus(),
           processes,
         });
       } catch (err) {
@@ -234,13 +296,9 @@ export class DaemonServer {
       throw new Error('Daemon already running');
     }
 
-    // Start background services FIRST (perception, orchestration, learning)
-    try {
-      await this.services.start();
-    } catch (err) {
-      log.error('Failed to start background services', { error: err.message });
-      throw err;
-    }
+    // Background services are wired by entry.js via service-wiring.js
+    // (wireDaemonServices, wireLearningSystem, wireOrchestrator, wireWatchers)
+    // This method only starts the HTTP server
 
     return new Promise((resolve, reject) => {
       this.server = this.app.listen(this.port, this.host, () => {
@@ -285,8 +343,8 @@ export class DaemonServer {
    * @returns {Promise<void>}
    */
   async stop() {
-    // Stop background services FIRST (graceful shutdown)
-    await this.services.stop();
+    // Background services are cleaned up by entry.js via cleanupDaemonServices()
+    // This method only stops the HTTP server
 
     if (this._rateLimitTimer) {
       clearInterval(this._rateLimitTimer);

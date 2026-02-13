@@ -145,7 +145,7 @@ export class AmbientConsensus {
    * - If dangerous or low confidence → trigger consensus
    */
   async _onPreToolUse(event) {
-    const { tool, input, confidence = 1.0 } = event.payload || {};
+    const { tool, input, confidence = PHI_INV } = event.payload || {};
 
     // Skip if tool is undefined (malformed event)
     if (!tool || typeof tool !== 'string') {

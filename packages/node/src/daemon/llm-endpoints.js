@@ -15,6 +15,7 @@
 import { createLogger, PHI_INV } from '@cynic/core';
 import { getModelIntelligence } from '../learning/model-intelligence.js';
 import { getCostLedger } from '../accounting/cost-ledger.js';
+import { getUnifiedLLMRouter, Strategy, BudgetMode, Priority, Complexity } from '../orchestration/unified-llm-router.js';
 
 const log = createLogger('LLMEndpoints');
 
@@ -97,7 +98,7 @@ export function setupLLMEndpoints(app, deps = {}) {
   // ===========================================================================
 
   app.post('/llm/ask', async (req, res) => {
-    const { prompt, taskType, system, temperature, maxTokens, model } = req.body || {};
+    const { prompt, taskType, system, temperature, maxTokens, model, strategy, priority } = req.body || {};
 
     if (!prompt) {
       return res.status(400).json({ error: 'Missing required field: prompt' });
@@ -106,50 +107,24 @@ export function setupLLMEndpoints(app, deps = {}) {
     const startTime = Date.now();
 
     try {
-      const mi = getModelIntelligence();
-      const costLedger = getCostLedger();
-      const validators = await getValidators();
+      const llmRouter = getUnifiedLLMRouter();
 
-      // ModelIntelligence selects optimal tier via Thompson Sampling
-      const budgetStatus = costLedger.getBudgetStatus();
-      const selection = mi.selectModel(taskType || 'default', {
-        budgetLevel: budgetStatus.level,
-        tool: req.body.tool,
-      });
+      // Map taskType to complexity
+      const complexity = taskType === 'simple' ? Complexity.SIMPLE :
+                        taskType === 'complex' ? Complexity.COMPLEX :
+                        Complexity.MODERATE;
 
-      // Override tier if caller specified a model
-      const targetTier = model || selection.model;
-
-      // Resolve adapter for the selected tier
-      const resolved = getAdapterForTier(targetTier, validators);
-
-      if (!resolved) {
-        return res.status(503).json({
-          error: 'No adapter available',
-          message: 'No LLM adapters configured. Set ANTHROPIC_API_KEY, configure Ollama, or add GEMINI_API_KEY.',
-          selectedTier: targetTier,
-          selection,
-        });
-      }
-
-      const { adapter, modelOverride } = resolved;
-
-      // Execute completion
-      const response = await adapter.complete(prompt, {
+      // Execute via UnifiedLLMRouter
+      const response = await llmRouter.call(prompt, {
+        strategy: strategy || Strategy.BEST, // Thompson Sampling by default
+        budget: BudgetMode.ENFORCE,
+        priority: priority || Priority.NORMAL,
+        complexity,
+        timeout: req.body.timeout || 10000,
+        // Pass through model-specific options
         temperature,
         maxTokens,
         system,
-        model: modelOverride,
-      });
-
-      // Record cost
-      costLedger.record({
-        type: 'llm_ask',
-        model: response.model,
-        inputTokens: response.tokens.input,
-        outputTokens: response.tokens.output,
-        durationMs: response.duration,
-        source: 'daemon_llm_ask',
       });
 
       // Record outcome for Thompson learning

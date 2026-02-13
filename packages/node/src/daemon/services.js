@@ -1,16 +1,27 @@
 /**
  * Daemon Services - Orchestration + Perception + Learning
  *
- * Wires all CYNIC services together in the daemon.
- * The nervous system of the organism.
+ * ⚠️ DEPRECATED — 2026-02-13
  *
- * "Connect the organs, blood flows" - κυνικός
+ * This file is OBSOLETE and should not be used.
+ * All service wiring is now handled by service-wiring.js.
  *
+ * BUG: This class created a SECOND CollectivePack instance (line 166),
+ * violating the singleton pattern. The real singleton is in collective-singleton.js.
+ *
+ * Replaced by:
+ * - wireDaemonServices() → ModelIntelligence + CostLedger
+ * - wireLearningSystem() → CollectiveSingleton + SONA + BehaviorModifier + MetaCognition
+ * - wireOrchestrator() → UnifiedOrchestrator + KabbalisticRouter + DogOrchestrator
+ * - wireWatchers() → FileWatcher + SolanaWatcher
+ *
+ * @deprecated Use service-wiring.js instead
  * @module @cynic/node/daemon/services
  */
 
 'use strict';
 
+import path from 'path';
 import { createLogger, globalEventBus } from '@cynic/core';
 import { FilesystemWatcher, FilesystemEventType } from '../perception/filesystem-watcher.js';
 import { UnifiedOrchestrator } from '../orchestration/unified-orchestrator.js';
@@ -196,9 +207,12 @@ export class DaemonServices {
   async _startPerception() {
     log.debug('Starting perception watchers...');
 
-    // FilesystemWatcher - watches code changes
+    // FilesystemWatcher - watches code changes (scoped to packages/ + scripts/ to avoid event loop lag)
     this.filesystemWatcher = new FilesystemWatcher({
-      paths: [process.cwd()],
+      paths: [
+        path.join(process.cwd(), 'packages'),
+        path.join(process.cwd(), 'scripts'),
+      ],
       eventBus: globalEventBus,
     });
 
@@ -237,17 +251,21 @@ export class DaemonServices {
     log.debug('Wiring perception → orchestrator...');
 
     // Listen to all filesystem events
-    globalEventBus.on(FilesystemEventType.CHANGE, async (data) => {
+    // Note: eventBus.publish wraps in CYNICEvent — payload is at event.payload
+    globalEventBus.on(FilesystemEventType.CHANGE, async (event) => {
+      const data = event.payload || event;
       log.info('FileWatcher CHANGE event received', { path: data.path });
       await this._handlePerceptionEvent('fs:change', data);
     });
 
-    globalEventBus.on(FilesystemEventType.ADD, async (data) => {
+    globalEventBus.on(FilesystemEventType.ADD, async (event) => {
+      const data = event.payload || event;
       log.info('FileWatcher ADD event received', { path: data.path });
       await this._handlePerceptionEvent('fs:add', data);
     });
 
-    globalEventBus.on(FilesystemEventType.UNLINK, async (data) => {
+    globalEventBus.on(FilesystemEventType.UNLINK, async (event) => {
+      const data = event.payload || event;
       log.info('FileWatcher UNLINK event received', { path: data.path });
       await this._handlePerceptionEvent('fs:unlink', data);
     });
@@ -308,8 +326,34 @@ export class DaemonServices {
           success: routingResult.success,
         });
 
-        // If routing suggests action, delegate to orchestrator
-        // (Future: spawn judges, run skills based on routing.kabbalistic.decisions)
+        // C1.2: Judge the perception event — creates JUDGMENT_CREATED events
+        // which trigger SONA, EventListeners, and learning pipeline
+        try {
+          const { getCollectivePack } = await import('../collective-singleton.js');
+          const pack = getCollectivePack();
+          if (pack?.judge) {
+            const judgment = pack.judge.judge(
+              { type: 'code_change', content: `${eventType}: ${data.path}`, path: data.path },
+              { type: 'perception', queryType: 'code_change', taskType }
+            );
+
+            globalEventBus.publish('judgment:created', {
+              judgment,
+              source: 'daemon-perception',
+              patternId: `perception:${taskType}`,
+              dimensionScores: judgment.dimensions || {},
+              judgmentId: judgment.id,
+            });
+
+            log.info('Perception judged (C1.2)', {
+              qScore: judgment.qScore,
+              verdict: judgment.qVerdict?.verdict,
+              judgmentId: judgment.id,
+            });
+          }
+        } catch (judgeErr) {
+          log.warn('Perception judgment failed', { error: judgeErr.message });
+        }
       }
 
     } catch (error) {

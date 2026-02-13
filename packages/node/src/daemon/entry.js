@@ -18,7 +18,7 @@ import os from 'os';
 import { bootDaemon } from '@cynic/core/boot';
 import { DaemonServer } from './index.js';
 import { processRegistry, createLogger } from '@cynic/core';
-import { wireDaemonServices, wireLearningSystem, wireOrchestrator, wireWatchers, cleanupDaemonServices } from './service-wiring.js';
+import { wireDaemonServices, wireLearningSystem, wireOrchestrator, wireWatchers, wireConsciousnessReflection, cleanupDaemonServices } from './service-wiring.js';
 import { Watchdog, checkRestartSentinel } from './watchdog.js';
 
 const log = createLogger('DaemonEntry');
@@ -86,8 +86,10 @@ async function main() {
     }
 
     // Wire daemon-essential services (LLM, CostLedger — warm boot)
+    let daemonServices = {};
     try {
-      wireDaemonServices();
+      daemonServices = wireDaemonServices();
+      server.services = daemonServices; // Expose for /health endpoint
       logToFile('INFO', 'Daemon services wired (ModelIntelligence + CostLedger warm)');
     } catch (err) {
       logToFile('WARN', `Service wiring partial: ${err.message}`);
@@ -96,7 +98,9 @@ async function main() {
     // Wire learning system (collective-singleton, SONA, BehaviorModifier, MetaCognition)
     // Now that watchdog uses correct heap calculation, try to wire
     try {
-      await wireLearningSystem();
+      const learningServices = await wireLearningSystem();
+      // Merge learning services into server.services
+      server.services = { ...server.services, ...learningServices };
       logToFile('INFO', 'Learning system wired — organism breathing');
     } catch (err) {
       logToFile('WARN', `Learning system wiring failed — daemon still operational: ${err.message}`);
@@ -117,6 +121,28 @@ async function main() {
       logToFile('INFO', 'Watchers wired — perception layer active (FilesystemWatcher + SolanaWatcher)');
     } catch (err) {
       logToFile('WARN', `Watcher wiring failed — perception degraded: ${err.message}`);
+    }
+
+    // Reset postgres circuit breaker after watcher init
+    // Watcher initialization can cause event loop lag → query timeouts → CB trips
+    // Now that watchers are scoped to packages/ + scripts/, reset the slate
+    try {
+      const { getPool } = await import('@cynic/persistence');
+      const pool = getPool();
+      if (pool) {
+        pool.resetCircuitBreaker();
+        logToFile('INFO', 'Postgres circuit breaker reset after watcher init');
+      }
+    } catch (err) {
+      logToFile('WARN', `CB reset failed (non-critical): ${err.message}`);
+    }
+
+    // Wire consciousness reflection (R3: self-reflection loop)
+    try {
+      await wireConsciousnessReflection();
+      logToFile('INFO', 'Consciousness reflection wired — φ observes φ (60 min cycles)');
+    } catch (err) {
+      logToFile('WARN', `Consciousness reflection failed — meta-cognition degraded: ${err.message}`);
     }
 
     // Start watchdog (self-monitoring)

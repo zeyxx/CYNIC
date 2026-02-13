@@ -7,6 +7,10 @@
   "exports": {
     ".": "./src/index.js",
     "./axioms": "./src/axioms/index.js",
+    "./axioms/immediacy": "./src/axioms/immediacy.js",
+    "./axioms/autonomy": "./src/axioms/autonomy.js",
+    "./axioms/emergence": "./src/axioms/emergence.js",
+    "./axioms/antifragility": "./src/axioms/antifragility.js",
     "./timing": "./src/timing/index.js",
     "./qscore": "./src/qscore/index.js",
     "./identity": "./src/identity/index.js",

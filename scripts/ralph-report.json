@@ -1,0 +1,185 @@
+{
+  "layers": {
+    "database": {
+      "name": "database",
+      "tests": [
+        {
+          "name": "PostgreSQL connection",
+          "pass": true,
+          "duration": "1338.86ms"
+        },
+        {
+          "name": "Migrations applied",
+          "pass": true,
+          "actual": 41,
+          "expected": "≥40"
+        },
+        {
+          "name": "Table: judgments",
+          "pass": true
+        },
+        {
+          "name": "Table: session_patterns",
+          "pass": true
+        },
+        {
+          "name": "Table: qlearning_state",
+          "pass": true
+        },
+        {
+          "name": "Table: learning_events",
+          "pass": true
+        },
+        {
+          "name": "Table: routing_accuracy",
+          "pass": true
+        },
+        {
+          "name": "Table: watcher_heartbeats",
+          "pass": true
+        },
+        {
+          "name": "Table: cost_ledger",
+          "pass": false,
+          "error": "relation \"cost_ledger\" does not exist"
+        },
+        {
+          "name": "Write+Read: learning_events",
+          "pass": true,
+          "id": 2
+        },
+        {
+          "name": "Write+Read: routing_accuracy",
+          "pass": true,
+          "id": 202
+        }
+      ],
+      "passRate": 90.9090909090909,
+      "critical": true
+    },
+    "factories": {
+      "name": "factories",
+      "tests": [
+        {
+          "name": "Factory: getPool",
+          "pass": true
+        },
+        {
+          "name": "Factory: getLLMRouter",
+          "pass": true
+        }
+      ],
+      "passRate": 100,
+      "critical": true
+    },
+    "services": {
+      "name": "services",
+      "tests": [
+        {
+          "name": "LLMRouter.route()",
+          "pass": "simple_task",
+          "result": {
+            "provider": "ollama",
+            "reason": "simple_task"
+          }
+        },
+        {
+          "name": "LLMRouter DB recording",
+          "pass": true,
+          "count": 1
+        }
+      ],
+      "passRate": 100,
+      "critical": false
+    },
+    "orchestration": {
+      "name": "orchestration",
+      "tests": [
+        {
+          "name": "Event bus operational",
+          "pass": true
+        },
+        {
+          "name": "KabbalisticRouter loadable",
+          "pass": true
+        }
+      ],
+      "passRate": 100,
+      "critical": true
+    }
+  },
+  "scientific": {
+    "learning": {
+      "name": "learning",
+      "experiments": [
+        {
+          "name": "Learning events logged",
+          "pass": false,
+          "loopTypes": 0,
+          "events": 0
+        },
+        {
+          "name": "Q-Learning updates (24h)",
+          "pass": false,
+          "actual": 0,
+          "expected": "≥10"
+        }
+      ],
+      "convergence": null
+    },
+    "week1": {
+      "name": "week1",
+      "tests": [
+        {
+          "id": "G1.1",
+          "name": "Watchers polling",
+          "pass": false,
+          "actual": 0,
+          "target": 3
+        },
+        {
+          "id": "G1.2",
+          "name": "Learning loops consuming",
+          "pass": false,
+          "actual": 0,
+          "target": 5
+        },
+        {
+          "id": "G1.3",
+          "name": "Q-weight updates/day",
+          "pass": false,
+          "actual": 0,
+          "target": 10
+        },
+        {
+          "id": "G1.4",
+          "name": "KabbalisticRouter calls",
+          "pass": true,
+          "actual": 197,
+          "target": 20
+        },
+        {
+          "id": "G1.5",
+          "name": "LLMRouter non-Anthropic",
+          "pass": false,
+          "actual": 4,
+          "target": 10
+        }
+      ],
+      "passCount": 1,
+      "totalCount": 5
+    }
+  },
+  "recommendations": [
+    "Run migration to create cost_ledger table",
+    "No learning events - daemon not generating episodes",
+    "G1.3 FAIL: Need ≥10 Q-weight updates/day",
+    "G1.1 FAIL: Watchers polling (0/3)",
+    "G1.2 FAIL: Learning loops consuming (0/5)",
+    "G1.3 FAIL: Q-weight updates/day (0/10)",
+    "G1.5 FAIL: LLMRouter non-Anthropic (4/10)",
+    "Week 1 FAIL: Only 1/5 goals passing (need 4/5)"
+  ],
+  "startTime": 1770925002166,
+  "errors": []
+}

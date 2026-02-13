@@ -100,7 +100,7 @@ export class AgentBooster extends EventEmitter {
 
     for (const { intent, pattern } of INTENT_PATTERNS) {
       if (pattern.test(request)) {
-        return { intent, confidence: 0.9 };
+        return { intent, confidence: PHI_INV }; // φ⁻¹: Pattern match ≠ certainty
       }
     }
 

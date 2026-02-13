@@ -58,3 +58,6 @@ COMMENT ON TABLE forgetting_baselines IS 'C6.5: Task baselines for BWT calculati
 COMMENT ON TABLE forgetting_judgments IS 'C6.5: Individual judgment records for continual learning validation';
 COMMENT ON TABLE forgetting_metrics IS 'C6.5: BWT/FWT metrics snapshots';
 COMMENT ON TABLE forgetting_alerts IS 'C6.5: Catastrophic forgetting alerts (BWT < -0.1)';
+
+INSERT INTO _migrations (name) VALUES ('043_forgetting_metrics')
+ON CONFLICT (name) DO NOTHING;

@@ -15,7 +15,7 @@
 
 import { createLogger, globalEventBus, EventType } from '@cynic/core';
 import { getQLearningServiceAsync } from './learning-service.js';
-import { getPostgresClient } from '@cynic/persistence';
+import { getPool } from '@cynic/persistence';
 
 const log = createLogger('QLearningWiring');
 
@@ -39,7 +39,7 @@ export async function wireQLearning() {
   }
 
   try {
-    const db = getPostgresClient();
+    const db = getPool();
 
     // 1. Initialize LearningService with DB persistence
     const learningService = await getQLearningServiceAsync({

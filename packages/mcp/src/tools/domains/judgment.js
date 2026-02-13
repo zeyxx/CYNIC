@@ -326,7 +326,7 @@ export function createJudgeTool(judge, persistence = null, sessionManager = null
                 category: 'anomaly',
                 name: `anomaly_${isLow ? 'low' : 'high'}_score`,
                 description: `Unusual ${isLow ? 'low' : 'high'} score detected`,
-                confidence: 0.6181,  // Must be >= φ⁻¹ (0.6181 survives DECIMAL(5,4) rounding)
+                confidence: PHI_INV,  // φ⁻¹ limit (DB will round to 0.6180 with DECIMAL(5,4))
                 sourceJudgments: [judgmentId],
                 tags: ['anomaly', isLow ? 'low_score' : 'high_score'],
                 data: { score, verdict, itemType, threshold: isLow ? THRESHOLDS.ANOMALY_LOW : THRESHOLDS.ANOMALY_HIGH },
@@ -721,7 +721,7 @@ export function createRefineTool(judge, persistence = null) {
               category: 'refinement',
               name: `refinement_${learning.type || 'general'}`,
               description: learning.pattern || learning.correction,
-              confidence: 0.6181,  // Must be >= φ⁻¹ (0.6181 survives DECIMAL(5,4) rounding)
+              confidence: PHI_INV,  // φ⁻¹ limit (DB will round to 0.6180 with DECIMAL(5,4))
               sourceJudgments: [judgmentId || 'direct'],
               tags: ['refinement', learning.type, learning.axiom].filter(Boolean),
               data: { learning, improved: result.improved, improvement: result.totalImprovement },
@@ -733,7 +733,7 @@ export function createRefineTool(judge, persistence = null) {
             category: 'self_correction',
             name: 'self_correction_event',
             description: `CYNIC self-corrected judgment with ${result.totalImprovement}% improvement`,
-            confidence: 0.7,
+            confidence: PHI_INV, // φ⁻¹ limit
             sourceJudgments: [judgmentId || 'direct'],
             tags: ['self_correction', 'emergence', 'meta_cognition'],
             data: {

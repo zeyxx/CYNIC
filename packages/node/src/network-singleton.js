@@ -136,7 +136,7 @@ export async function getNetworkNodeAsync(options = {}) {
 
         if (!blockRepo) {
           const { PoJBlockRepository } = await import(
-            '../../../persistence/src/postgres/repositories/poj-blocks.js'
+            '@cynic/persistence/postgres/repositories/poj-blocks'
           );
           blockRepo = new PoJBlockRepository(options.persistence.pool || options.persistence);
         }

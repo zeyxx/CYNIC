@@ -17,18 +17,25 @@
 
 'use strict';
 
+import path from 'path';
 import { createLogger, globalEventBus, EventType } from '@cynic/core';
 import { getModelIntelligence } from '../learning/model-intelligence.js';
 import { getCostLedger } from '../accounting/cost-ledger.js';
+import { getUnifiedLLMRouter } from '../orchestration/unified-llm-router.js';
 import { getCollectivePackAsync } from '../collective-singleton.js';
 import { createSONA } from '../learning/sona.js';
 import { createBehaviorModifier } from '../learning/behavior-modifier.js';
 import { getMetaCognition } from '../learning/meta-cognition.js';
+import { getMetaCognitionController } from '../learning/meta-cognition-controller.js';
 import { getOrchestrator } from '../orchestration/unified-orchestrator.js';
 import { createKabbalisticRouter } from '../orchestration/kabbalistic-router.js';
 import { DogOrchestrator } from '../agents/orchestrator.js';
 import { getQLearningService } from '../orchestration/learning-service.js';
 import { wireQLearning, cleanupQLearning } from '../orchestration/q-learning-wiring.js';
+import { getLearningPipeline } from '../orchestration/learning-pipeline.js';
+import { getDataPipeline } from '../orchestration/data-pipeline.js';
+import { getResearchRunner } from '../orchestration/research-runner.js';
+import { getHotReloadEngine, wireHotReload } from '../deployment/hot-reload.js';
 
 const log = createLogger('ServiceWiring');
 
@@ -44,6 +51,7 @@ let _learningWired = false;
 let _sona = null;
 let _behaviorModifier = null;
 let _metaCognition = null;
+let _metaCognitionController = null;
 let _learningPersistTimer = null;
 let _sonaListener = null;
 let _feedbackListener = null;
@@ -60,7 +68,7 @@ let _dogOrchestrator = null;
  * Force-initializes singletons so they're warm for hook requests.
  * Wires cross-service events and periodic persistence.
  *
- * @returns {{ modelIntelligence: Object, costLedger: Object }}
+ * @returns {{ modelIntelligence: Object, costLedger: Object, llmRouter: Object }}
  */
 export function wireDaemonServices() {
   if (_wired) {
@@ -68,16 +76,35 @@ export function wireDaemonServices() {
     return {
       modelIntelligence: getModelIntelligence(),
       costLedger: getCostLedger(),
+      llmRouter: getUnifiedLLMRouter(),
     };
   }
 
   // 1. Force-initialize singletons (warm, not lazy)
   const mi = getModelIntelligence();
   const costLedger = getCostLedger();
+  const llmRouter = getUnifiedLLMRouter({
+    costLedger,
+    modelIntelligence: mi,
+  });
+  const dataPipeline = getDataPipeline({
+    enableCompression: true,
+    enableDeduplication: true,
+    enableCache: true,
+    cacheSize: 100, // φ-bounded
+  });
+  const researchRunner = getResearchRunner({
+    maxConcurrentProtocols: 3,
+    defaultTimeout: 30000,
+    enableValidation: true,
+  });
 
   log.info('Singletons warm', {
     modelIntelligence: !!mi,
     costLedger: !!costLedger,
+    llmRouter: !!llmRouter,
+    dataPipeline: !!dataPipeline,
+    researchRunner: !!researchRunner,
     thompsonMaturity: mi.getStats().samplerMaturity,
   });
 
@@ -120,7 +147,7 @@ export function wireDaemonServices() {
   _wired = true;
 
   log.info('Daemon services wired');
-  return { modelIntelligence: mi, costLedger };
+  return { modelIntelligence: mi, costLedger, llmRouter, dataPipeline, researchRunner };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -136,27 +163,51 @@ export function wireDaemonServices() {
  *
  * Non-blocking: daemon still runs if learning fails to initialize.
  *
- * @returns {Promise<{ sona: Object|null, behaviorModifier: Object|null, metaCognition: Object|null }>}
+ * @returns {Promise<{ sona: Object|null, behaviorModifier: Object|null, metaCognition: Object|null, learningPipeline: Object|null }>}
  */
 export async function wireLearningSystem() {
   if (_learningWired) {
     log.debug('Learning system already wired — skipping');
-    return { sona: _sona, behaviorModifier: _behaviorModifier, metaCognition: _metaCognition };
+    return {
+      sona: _sona,
+      behaviorModifier: _behaviorModifier,
+      metaCognition: _metaCognition,
+      learningPipeline: getLearningPipeline(),
+    };
   }
 
-  // 1. Boot collective-singleton (the big one — wakes everything)
+  // 1. Boot collective-singleton WITH persistence + judge
+  // Without these, Dogs can't persist memories and no judgments fire → no learning events
   try {
-    await getCollectivePackAsync();
-    log.info('Collective-singleton initialized (Q-Learning, LearningScheduler, EventListeners, Emergence)');
+    const { getPool } = await import('@cynic/persistence');
+    const { CYNICJudge } = await import('../judge/judge.js');
+
+    const pool = getPool();
+    const judge = new CYNICJudge();
+
+    await getCollectivePackAsync({ persistence: pool, judge });
+    log.info('Collective-singleton initialized (Q-Learning, LearningScheduler, EventListeners, Emergence)', {
+      hasPersistence: true,
+      hasJudge: true,
+    });
   } catch (err) {
     log.warn('Collective-singleton init failed — learning degraded', { error: err.message });
+    // Fallback: try without persistence/judge
+    try {
+      await getCollectivePackAsync();
+      log.info('Collective-singleton initialized (degraded — no persistence/judge)');
+    } catch (err2) {
+      log.warn('Collective-singleton fallback also failed', { error: err2.message });
+    }
   }
 
   // 2. SONA — real-time pattern adaptation
   try {
     _sona = createSONA();
-    _sonaListener = async (data) => {
+    _sonaListener = async (event) => {
       try {
+        // Extract payload from CYNICEvent wrapper
+        const data = event?.payload || event;
         if (data?.patternId && data?.dimensionScores) {
           _sona.observe({
             patternId: data.patternId,
@@ -178,7 +229,10 @@ export async function wireLearningSystem() {
               data.patternId || null,
               JSON.stringify({ dimensionCount: Object.keys(data.dimensionScores || {}).length })
             ]);
-          } catch { /* non-blocking DB write */ }
+            log.info('Learning event written', { loop: 'sona', patternId: data.patternId });
+          } catch (dbErr) {
+            log.debug('SONA DB write failed', { error: dbErr.message });
+          }
         }
       } catch { /* non-blocking */ }
     };
@@ -191,8 +245,9 @@ export async function wireLearningSystem() {
   // 3. BehaviorModifier — feedback → behavior changes
   try {
     _behaviorModifier = createBehaviorModifier();
-    _feedbackListener = async (data) => {
+    _feedbackListener = async (event) => {
       try {
+        const data = event?.payload || event;
         if (_behaviorModifier && data) {
           _behaviorModifier.processFeedback(data);
         }
@@ -250,7 +305,20 @@ export async function wireLearningSystem() {
     log.warn('MetaCognition init failed', { error: err.message });
   }
 
-  // 5. Periodic persist for learning singletons (3 min, offset from main persist)
+  // 5. MetaCognitionController — active control over learning parameters
+  try {
+    _metaCognitionController = getMetaCognitionController({
+      metaCognition: _metaCognition,
+      qLearning: getQLearningService(),
+      modelIntelligence: getModelIntelligence(),
+    });
+    _metaCognitionController.start();
+    log.info('MetaCognitionController wired — active learning control enabled');
+  } catch (err) {
+    log.warn('MetaCognitionController init failed', { error: err.message });
+  }
+
+  // 6. Periodic persist for learning singletons (3 min, offset from main persist)
   _learningPersistTimer = setInterval(() => {
     try {
       if (_sona?.getStats) {
@@ -260,10 +328,31 @@ export async function wireLearningSystem() {
   }, 3 * 60 * 1000);
   _learningPersistTimer.unref();
 
+  // 7. LearningPipeline — 5-stage learning orchestration
+  let learningPipeline = null;
+  try {
+    learningPipeline = getLearningPipeline({
+      qLearning: getQLearningService(),
+      modelIntelligence: getModelIntelligence(),
+      metaCognition: _metaCognitionController || _metaCognition, // Prefer controller
+      cycleInterval: 60000, // 60s cycles
+    });
+    learningPipeline.start();
+    log.info('LearningPipeline started (60s cycles)');
+  } catch (err) {
+    log.warn('LearningPipeline init failed', { error: err.message });
+  }
+
   _learningWired = true;
   log.info('Learning system wired — organism breathing');
 
-  return { sona: _sona, behaviorModifier: _behaviorModifier, metaCognition: _metaCognition };
+  return {
+    sona: _sona,
+    behaviorModifier: _behaviorModifier,
+    metaCognition: _metaCognition,
+    metaCognitionController: _metaCognitionController,
+    learningPipeline,
+  };
 }
 
 /**
@@ -283,6 +372,12 @@ export function getBehaviorModifierSingleton() { return _behaviorModifier; }
  * @returns {Object|null}
  */
 export function getMetaCognitionSingleton() { return _metaCognition; }
+
+/**
+ * Get MetaCognitionController singleton (if wired).
+ * @returns {Object|null}
+ */
+export function getMetaCognitionControllerSingleton() { return _metaCognitionController; }
 
 /**
  * Check if learning system is wired.
@@ -353,9 +448,14 @@ function cleanupLearningSystem() {
     _feedbackListener = null;
   }
 
+  if (_metaCognitionController?.stop) {
+    _metaCognitionController.stop();
+  }
+
   _sona = null;
   _behaviorModifier = null;
   _metaCognition = null;
+  _metaCognitionController = null;
   _learningWired = false;
   log.info('Learning system cleaned up');
 }
@@ -677,14 +777,17 @@ export async function wireWatchers(options = {}) {
 
   const { createFilesystemWatcher } = await import('../perception/filesystem-watcher.js');
   const { getSolanaWatcher } = await import('../perception/solana-watcher.js');
-  const { getPostgresClient } = await import('@cynic/persistence');
+  const { getPool } = await import('@cynic/persistence');
 
-  const db = options.db || getPostgresClient();
+  const db = options.db || getPool();
 
   // 1. Initialize FilesystemWatcher
   try {
     _fsWatcher = createFilesystemWatcher({
-      paths: options.watchPaths || [process.cwd()],
+      paths: options.watchPaths || [
+        path.join(process.cwd(), 'packages'),
+        path.join(process.cwd(), 'scripts'),
+      ],
       eventBus: globalEventBus,
     });
     _fsWatcher.start();
@@ -709,7 +812,21 @@ export async function wireWatchers(options = {}) {
     log.warn('SolanaWatcher init failed (degraded mode)', { error: err.message });
   }
 
-  // 3. Start heartbeat polling (records to DB)
+  // 3. Wire Hot-Reload Engine (IMMEDIACY axiom)
+  try {
+    const hotReload = getHotReloadEngine({
+      enabled: options.hotReload !== false, // Enable by default
+    });
+    hotReload.start();
+
+    // Wire to EventBus (FilesystemWatcher emits perception:fs:change)
+    wireHotReload(hotReload, globalEventBus);
+    log.info('HotReloadEngine wired to EventBus (IMMEDIACY axiom active)');
+  } catch (err) {
+    log.warn('HotReloadEngine init failed', { error: err.message });
+  }
+
+  // 4. Start heartbeat polling (records to DB)
   _fileWatcherPoll = setInterval(async () => {
     if (!_fsWatcher) return;
 

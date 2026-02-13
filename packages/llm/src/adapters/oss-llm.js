@@ -268,6 +268,69 @@ export function createOllamaValidator(options = {}) {
 }
 
 /**
+ * Create Llama adapter (Ollama)
+ *
+ * @param {Object} [options]
+ * @param {string} [options.model=llama3.2] - Llama model version
+ * @param {string} [options.endpoint] - Ollama endpoint
+ * @returns {OSSLLMAdapter}
+ */
+export function createLlamaValidator(options = {}) {
+  return createOllamaValidator({
+    ...options,
+    model: options.model || 'llama3.2',
+  });
+}
+
+/**
+ * Create Mistral adapter (Ollama)
+ *
+ * @param {Object} [options]
+ * @param {string} [options.model=mistral] - Mistral model version
+ * @param {string} [options.endpoint] - Ollama endpoint
+ * @returns {OSSLLMAdapter}
+ */
+export function createMistralValidator(options = {}) {
+  return createOllamaValidator({
+    ...options,
+    model: options.model || 'mistral',
+    provider: 'mistral',
+  });
+}
+
+/**
+ * Create DeepSeek adapter (Ollama)
+ *
+ * @param {Object} [options]
+ * @param {string} [options.model=deepseek-coder] - DeepSeek model version
+ * @param {string} [options.endpoint] - Ollama endpoint
+ * @returns {OSSLLMAdapter}
+ */
+export function createDeepSeekValidator(options = {}) {
+  return createOllamaValidator({
+    ...options,
+    model: options.model || 'deepseek-coder',
+    provider: 'deepseek',
+  });
+}
+
+/**
+ * Create Qwen adapter (Ollama)
+ *
+ * @param {Object} [options]
+ * @param {string} [options.model=qwen2.5] - Qwen model version
+ * @param {string} [options.endpoint] - Ollama endpoint
+ * @returns {OSSLLMAdapter}
+ */
+export function createQwenValidator(options = {}) {
+  return createOllamaValidator({
+    ...options,
+    model: options.model || 'qwen2.5',
+    provider: 'qwen',
+  });
+}
+
+/**
  * Create an LM Studio validator (OpenAI-compatible)
  *
  * @param {Object} [options]

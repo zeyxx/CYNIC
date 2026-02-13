@@ -11,6 +11,7 @@
     "./sqlite": "./src/sqlite/index.js",
     "./repositories": "./src/postgres/repositories/index.js",
     "./postgres/repositories/*": "./src/postgres/repositories/*.js",
+    "./postgres/repositories/poj-blocks": "./src/postgres/repositories/poj-blocks.js",
     "./dag": "./src/dag/index.js",
     "./poj": "./src/poj/index.js",
     "./graph": "./src/graph/index.js",
@@ -19,7 +20,10 @@
     "./fallback": "./src/fallback-factory.js",
     "./interfaces": "./src/interfaces/IRepository.js",
     "./services": "./src/services/index.js",
-    "./services/*": "./src/services/*.js"
+    "./services/*": "./src/services/*.js",
+    "./services/trace-storage": "./src/services/trace-storage.js",
+    "./services/codebase-indexer": "./src/services/codebase-indexer.js",
+    "./postgres/migrate": "./src/postgres/migrate.js"
   },
   "scripts": {
     "test": "node --test test/*.test.js",

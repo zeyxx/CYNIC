@@ -19,6 +19,8 @@
 'use strict';
 
 import { PHI_INV, PHI_INV_2, globalEventBus, EventType } from '@cynic/core';
+import { BrierScoreTracker } from '../judge/brier-score-tracker.js';
+import { EWCManager } from './ewc-manager.js';
 
 // =============================================================================
 // CONFIGURATION (φ-aligned)
@@ -248,6 +250,17 @@ export class QLearningService {
     this.tdLastAlertAt = 0;
     this.tdAlertCooldownMs = 30 * 60 * 1000; // 30 min
 
+    // LV-5: EWC Manager for preventing catastrophic forgetting
+    this.ewcManager = options.ewcManager || new EWCManager({
+      lambda: options.ewcLambda || 0.1,
+    });
+    this.episodesSinceConsolidation = 0;
+
+    // Brier Score tracking (LV-4: calibration quality)
+    this.brierTracker = options.brierTracker || new BrierScoreTracker({
+      serviceId: this.serviceId,
+    });
+
     // Debounced persistence (5s debounce)
     this._persistTimeout = null;
     this._persistDebounceMs = 5000;
@@ -383,10 +396,16 @@ export class QLearningService {
   recordAction(action, metadata = {}) {
     if (!this.currentEpisode) return;
 
+    // Capture Q-value and predicted probability for Brier Score tracking
+    const qValue = this.qTable.get(this.currentEpisode.features, action);
+    const predictedProb = 1 / (1 + Math.exp(-qValue)); // Sigmoid normalization
+
     this.currentEpisode.actions.push({
       action,
       metadata,
       timestamp: Date.now(),
+      qValue,
+      predictedProb,
     });
 
     // Record visit
@@ -410,6 +429,19 @@ export class QLearningService {
     const reward = this._calculateReward(outcome);
     episode.reward = reward;
 
+    // Track Brier Score (calibration quality) for each action
+    const success = outcome.success || outcome.type === 'success';
+    for (const action of episode.actions) {
+      if (action.predictedProb !== undefined) {
+        this.brierTracker.record(action.predictedProb, success, {
+          action: action.action,
+          episodeId: episode.id,
+          taskType: episode.context.taskType,
+          qValue: action.qValue,
+        });
+      }
+    }
+
     // Q-learning update for each action
     this._updateQValues(episode, reward);
 
@@ -424,6 +456,13 @@ export class QLearningService {
     this.stats.totalFeedback++;
     if (outcome.success || outcome.type === 'success') {
       this.stats.correctPredictions++;
+    }
+
+    // LV-5: Auto-consolidate after N episodes
+    this.episodesSinceConsolidation++;
+    if (this.ewcManager.shouldConsolidate(this.episodesSinceConsolidation)) {
+      this.consolidateKnowledge().catch(() => {});
+      this.episodesSinceConsolidation = 0;
     }
 
     // Store in history
@@ -443,10 +482,35 @@ export class QLearningService {
   }
 
   /**
+   * Consolidate Q-learning knowledge (LV-5: EWC)
+   * Creates snapshot of Q-table + computes Fisher Information
+   */
+  async consolidateKnowledge(taskId = null) {
+    const event = this.ewcManager.consolidate(this.qTable, taskId);
+
+    try {
+      globalEventBus.publish(EventType.QLEARNING_CONSOLIDATED, {
+        serviceId: this.serviceId,
+        consolidationId: event.consolidationId,
+        fisherStats: event.fisherStats,
+        taskId: event.taskId,
+      }, { source: 'learning-service' });
+    } catch (err) {
+      // Non-blocking
+    }
+
+    await this._doPersist();
+
+    return event;
+  }
+
+  /**
    * Update Q-values using Bellman equation
    * @private
    */
   _updateQValues(episode, reward) {
+    const stateKey = QTable.stateKey(episode.features);
+
     for (let i = 0; i < episode.actions.length; i++) {
       const action = episode.actions[i].action;
       const isLast = i === episode.actions.length - 1;
@@ -459,30 +523,41 @@ export class QLearningService {
           this.qTable.get(episode.features, a)
         ));
 
-      // Q(s,a) += α * (r + γ * max(Q(s',a')) - Q(s,a))
+      // Standard Q-learning target
       const target = reward + this.config.discountFactor * futureQ;
-      const newQ = currentQ + this.config.learningRate * (target - currentQ);
+      const tdError = target - currentQ;
+
+      // LV-5: Calculate EWC penalty BEFORE applying update
+      const ewcPenalty = this.ewcManager.calculateEWCPenalty(stateKey, action, currentQ);
+
+      // Q(s,a) <- Q(s,a) + alpha * [TD-target] - EWC-penalty
+      const standardUpdate = this.config.learningRate * tdError;
+      const newQ = currentQ + standardUpdate - ewcPenalty;
 
       this.qTable.set(episode.features, action, newQ);
       this.stats.updates++;
 
+      // LV-5: Record TD-error for Fisher Information computation
+      this.ewcManager.recordUpdate(stateKey, action, Math.abs(tdError));
+
       // A2: Hot-swap routing weights — emit event for live router update
       try {
         // LV-1: Track TD-Error for convergence/drift detection
-        const tdError = Math.abs(target - currentQ);
-      this._trackTDError(tdError, {
+      this._trackTDError(Math.abs(tdError), {
         state: episode.features,
         action,
         currentQ,
         target,
         newQ,
         reward,
+        ewcPenalty,
       });
         globalEventBus.publish(EventType.QLEARNING_WEIGHT_UPDATE, {
           state: episode.features,
           action,
           qValue: newQ,
           delta: newQ - currentQ,
+          ewcPenalty,
           serviceId: this.serviceId,
         }, { source: 'learning-service' });
       } catch (err) {
@@ -838,6 +913,8 @@ export class QLearningService {
       explorationRate: Math.round(this.explorationRate * 100),
       qTableStats: this.qTable.stats,
       episodesInMemory: this.episodeHistory.length,
+      ewc: this.ewcManager.getStatus(),
+      episodesSinceConsolidation: this.episodesSinceConsolidation,
     };
   }
 n  /**

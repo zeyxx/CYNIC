@@ -19,7 +19,7 @@ const log = createLogger('Perceiver');
 // Dynamic import of SolanaWatcher (handle if not available)
 let SolanaWatcherModule = null;
 try {
-  SolanaWatcherModule = await import('@cynic/node/perception/solana-watcher.js');
+  SolanaWatcherModule = await import('@cynic/node/perception/solana-watcher');
 } catch (e) {
   log.debug('SolanaWatcher not available - API-only mode');
 }

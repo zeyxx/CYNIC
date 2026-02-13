@@ -19,7 +19,18 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { createLogger, PHI_INV } from '@cynic/core';
 import { ConsensusResult, ExecutionTier } from './types.js';
-import { ClaudeCodeAdapter, createOllamaValidator, createLMStudioValidator, createAirLLMValidator, createGeminiValidator, createAnthropicValidator } from './adapters/index.js';
+import {
+  ClaudeCodeAdapter,
+  createOllamaValidator,
+  createLlamaValidator,
+  createMistralValidator,
+  createDeepSeekValidator,
+  createQwenValidator,
+  createLMStudioValidator,
+  createAirLLMValidator,
+  createGeminiValidator,
+  createAnthropicValidator
+} from './adapters/index.js';
 import { calculateSemanticAgreement, SimilarityThresholds } from './similarity.js';
 
 const log = createLogger('LLMRouter');

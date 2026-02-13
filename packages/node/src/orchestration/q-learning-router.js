@@ -407,7 +407,7 @@ export class QLearningRouter {
       action: best.action,
       method: 'exploitation',
       qValue: best.q,
-      confidence: 1.0,
+      confidence: PHI_INV, // φ⁻¹: Even best Q-value has uncertainty
       visits: best.visits,
     };
   }
@@ -594,7 +594,7 @@ export class QLearningRouter {
         selections.push({
           action: dog,
           method: 'required',
-          confidence: 1.0,
+          confidence: PHI_INV, // φ⁻¹: Required ≠ perfect
         });
         availableActions = availableActions.filter(a => a !== dog);
       }

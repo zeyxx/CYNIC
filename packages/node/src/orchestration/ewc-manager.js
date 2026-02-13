@@ -75,7 +75,10 @@ export class FisherTracker {
 
     for (const [key, grad] of this.gradients.entries()) {
       if (grad.count >= EWC_CONFIG.minUpdatesForFisher) {
-        const [stateKey, action] = key.split(':');
+        // Split from last colon (state key may contain colons)
+        const lastColonIndex = key.lastIndexOf(':');
+        const stateKey = key.substring(0, lastColonIndex);
+        const action = key.substring(lastColonIndex + 1);
         const fisher = this.computeFisher(stateKey, action);
         results.set(key, fisher);
       }

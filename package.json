@@ -32,10 +32,14 @@
     "x-vision:setup": "node scripts/setup-x-vision.js --install",
     "x-vision:status": "node scripts/setup-x-vision.js --status",
     "x-vision:uninstall": "node scripts/setup-x-vision.js --uninstall",
-    "metrics:week1": "node packages/node/bin/cynic.js metrics week1",
+    "metrics:week1": "node packages/node/src/cli/commands/week1.js",
     "metrics:autonomy": "node packages/node/bin/cynic.js metrics autonomy",
     "metrics:velocity": "node packages/node/bin/cynic.js metrics velocity",
-    "metrics:snapshot": "node packages/node/bin/cynic.js metrics snapshot"
+    "metrics:snapshot": "node packages/node/bin/cynic.js metrics snapshot",
+    "alive": "node scripts/alive.js",
+    "daemon:start": "node packages/node/src/daemon/entry.js",
+    "daemon:status": "node packages/node/bin/cynic.js daemon status",
+    "migrate": "npm run migrate -w @cynic/persistence"
   },
   "repository": {
     "type": "git",

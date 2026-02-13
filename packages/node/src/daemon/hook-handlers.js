@@ -394,6 +394,24 @@ async function handleAwaken(hookInput) {
   try { contextCompressor.start(); } catch { /* non-blocking */ }
   try { injectionProfile.start(); } catch { /* non-blocking */ }
 
+  // Restore collective memory from PostgreSQL (patterns + Q-Learning)
+  // "Le chien se souvient" — this is what makes CYNIC persistent
+  let memoryStats = {};
+  try {
+    const { restoreState } = await import('../collective-singleton.js');
+    const { getPool } = await import('@cynic/persistence');
+    const pool = getPool();
+    if (pool) {
+      const result = await restoreState(pool);
+      memoryStats = result.stats || {};
+      if (result.restored.length > 0) {
+        log.info('Session memory restored from DB', { components: result.restored });
+      }
+    }
+  } catch (err) {
+    log.debug('Memory restore skipped', { error: err.message });
+  }
+
   // Q-Learning: start episode for this session
   try {
     const ql = getQLearningService();
@@ -413,7 +431,10 @@ async function handleAwaken(hookInput) {
 
   return {
     continue: true,
-    message: '*sniff* CYNIC daemon is awake. Singletons warm. Ready.',
+    memoryRestored: memoryStats,
+    message: memoryStats.patternsLoaded
+      ? `*sniff* CYNIC daemon is awake. ${memoryStats.patternsLoaded} patterns restored. Le chien se souvient.`
+      : '*sniff* CYNIC daemon is awake. Singletons warm. Ready.',
   };
 }
 

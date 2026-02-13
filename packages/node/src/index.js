@@ -148,6 +148,7 @@ export {
   initializeQLearning,
   awakenCynic,
   saveState as saveCollectiveState,
+  restoreState as restoreCollectiveState,
   getSingletonStatus,
   isReady as isCollectiveReady,
   _resetForTesting as _resetCollectiveForTesting,

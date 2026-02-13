@@ -221,6 +221,7 @@ export class CollectivePack {
     // Callbacks for external integration
     this.onDogDecision = options.onDogDecision || null;
     this.persistence = options.persistence || null;
+    this.judge = options.judge || null;
     this.graphIntegration = options.graphIntegration || null;
 
     // Autonomous capabilities (Phase 16: Total Memory + Full Autonomy)

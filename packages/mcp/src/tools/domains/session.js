@@ -201,10 +201,10 @@ function determineOverallState(dimensions = {}, composites = {}) {
  * @param {Object} sessionManager - SessionManager instance
  * @returns {Object} Tool definition
  */
-export function createSessionStartTool(sessionManager) {
+export function createSessionStartTool(sessionManager, persistence = null) {
   return {
     name: 'brain_session_start',
-    description: 'Start a new CYNIC session for a user. Sessions provide isolation and tracking of judgments, digests, and feedback.',
+    description: 'Start a new CYNIC session for a user. Sessions provide isolation and tracking of judgments, digests, and feedback. Automatically restores learned patterns and Q-Learning state from prior sessions.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -237,13 +237,36 @@ export function createSessionStartTool(sessionManager) {
 
       const session = await sessionManager.startSession(userId, { project, metadata });
 
+      // ═══════════════════════════════════════════════════════════════════════════
+      // RESTORE: Load collective state from prior sessions
+      // "Le chien se souvient" — without this, CYNIC has Alzheimer's
+      // ═══════════════════════════════════════════════════════════════════════════
+      let memoryRestored = { restored: [], stats: {} };
+      if (persistence) {
+        try {
+          const { restoreCollectiveState } = await import('@cynic/node');
+          memoryRestored = await restoreCollectiveState(persistence);
+          log.info('Session memory restored', {
+            sessionId: session.sessionId,
+            components: memoryRestored.restored,
+          });
+        } catch (err) {
+          log.warn('Memory restoration failed (session still valid)', { error: err.message });
+        }
+      }
+
       return {
         success: true,
         sessionId: session.sessionId,
         userId: session.userId,
         project: session.project,
         createdAt: session.createdAt,
-        message: `*tail wag* Session started. Your data is now isolated.`,
+        memoryRestored: memoryRestored.restored.length > 0,
+        restoredComponents: memoryRestored.restored,
+        restoredStats: memoryRestored.stats,
+        message: memoryRestored.restored.length > 0
+          ? `*tail wag* Session started. Memory restored: ${memoryRestored.restored.join(', ')}. Le chien se souvient.`
+          : `*tail wag* Session started. No prior memory found (fresh start).`,
       };
     },
   };
@@ -740,7 +763,7 @@ export const sessionFactory = {
 
     // Session management
     if (sessionManager) {
-      tools.push(createSessionStartTool(sessionManager));
+      tools.push(createSessionStartTool(sessionManager, persistence));  // Pass persistence for memory restore
       tools.push(createSessionEndTool(sessionManager, persistence));  // FIX #1: Pass persistence for collective save
     }
 

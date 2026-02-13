@@ -2196,6 +2196,78 @@ export async function saveState(persistence, options = {}) {
   log.info('Collective state saved', { components: savedComponents.join(', ') || 'none' });
 }
 
+/**
+ * Restore collective state from PostgreSQL
+ *
+ * Inverse of saveState(). Loads:
+ * 1. SharedMemory patterns (dimension weights, procedures, feedback)
+ * 2. Q-Learning state (Q-table, exploration rate, episode history)
+ *
+ * Called at session start to give CYNIC persistent memory.
+ * "Le chien se souvient" — without this, every session starts blank.
+ *
+ * @param {Object} persistence - PersistenceManager with query() and pattern repo
+ * @returns {Promise<Object>} Restoration summary { restored: string[], stats: Object }
+ */
+export async function restoreState(persistence) {
+  if (!persistence) return { restored: [], stats: {} };
+
+  const restored = [];
+  const stats = {};
+
+  // 1. Restore SharedMemory patterns from PostgreSQL
+  if (_sharedMemory && _sharedMemory.loadFromPostgres) {
+    try {
+      const patternsRepo = persistence.patterns || persistence.getRepository?.('patterns');
+      if (patternsRepo) {
+        const result = await _sharedMemory.loadFromPostgres(patternsRepo, { limit: 500, minConfidence: 0.1 });
+        if (result.loaded > 0) {
+          restored.push(`Patterns(${result.loaded})`);
+          stats.patternsLoaded = result.loaded;
+        }
+      }
+    } catch (err) {
+      log.warn('SharedMemory restore failed', { error: err.message });
+    }
+  }
+
+  // 2. Restore Q-Learning state from PostgreSQL
+  try {
+    const loaded = await initializeQLearning(persistence);
+    if (loaded) {
+      const qStats = _qLearningService?.getStats?.();
+      restored.push(`Q-Learning(${qStats?.qTableStats?.states || 0} states)`);
+      stats.qStates = qStats?.qTableStats?.states || 0;
+      stats.qEpisodes = qStats?.episodes || 0;
+    }
+  } catch (err) {
+    log.warn('Q-Learning restore failed', { error: err.message });
+  }
+
+  // 3. Load recent observations (CollectivePack context)
+  if (_globalPack && persistence.query) {
+    try {
+      const { rows } = await persistence.query(
+        `SELECT content FROM observations WHERE type = 'collective_state' ORDER BY created_at DESC LIMIT 1`
+      );
+      if (rows.length > 0 && rows[0].content) {
+        stats.lastCollectiveState = 'found';
+        restored.push('CollectivePack(context)');
+      }
+    } catch {
+      // Non-critical — pack starts fresh if no prior state
+    }
+  }
+
+  log.info('Collective state restored', {
+    components: restored.join(', ') || 'none',
+    patternsLoaded: stats.patternsLoaded || 0,
+    qStates: stats.qStates || 0,
+  });
+
+  return { restored, stats };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // STATUS & DIAGNOSTICS
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2611,6 +2683,7 @@ export default {
   initializeQLearning,
   awakenCynic,
   saveState,
+  restoreState,
   getSingletonStatus,
   isReady,
   _resetForTesting,

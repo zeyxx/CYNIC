@@ -323,6 +323,19 @@ export {
   xIngestFactory,
 };
 
+// X Post domain (tweet posting via OAuth 1.0a)
+import {
+  createXPostTool,
+  createXDeleteTool,
+  xPostFactory,
+} from './domains/x-post.js';
+
+export {
+  createXPostTool,
+  createXDeleteTool,
+  xPostFactory,
+};
+
 // Oracle domain (token scoring - 17-dim φ-governed judgment)
 import {
   createOracleScoreTool,
@@ -438,6 +451,8 @@ export function createAllTools(options = {}) {
     localPrivacyStore = null, // LocalPrivacyStore for E-Score, Learning, Psychology
     // Oracle (token scoring)
     oracle = null, // { fetcher, scorer, memory, watchlist }
+    // X Post service (tweet publishing via OAuth 1.0a)
+    xPostService = null, // XPostService for posting tweets
     // Debug tools dependencies
     sharedMemory = null, // SharedMemory for debug_patterns, debug_memory
     getQLearningService = null, // Function to get QLearningService for debug_qlearning
@@ -545,6 +560,11 @@ export function createAllTools(options = {}) {
       createXCoachTool(judge, localXStore),
       createXLearnTool(localXStore),
       createXStyleTool(localXStore),
+    ] : []),
+    // X Post Tools (tweet publishing - requires xPostService with API credentials)
+    ...(xPostService ? [
+      createXPostTool(xPostService, judge),
+      createXDeleteTool(xPostService),
     ] : []),
     // Debug Tools (brain_debug_*: patterns, qlearning, memory, routing, errors)
     // "φ distrusts φ, but φ can see φ" - transparency for debugging

@@ -23,6 +23,7 @@ import { AnchorQueue, SolanaAnchorer, loadWalletFromFile, loadWalletFromEnv, Sol
 import { BlockchainBridge } from '../blockchain-bridge.js';
 import { AuthService } from '../auth-service.js';
 import { XProxyService } from '../services/x-proxy.js';
+import { createXPostService } from '../services/x-post.js';
 import { LocalXStore, LocalPrivacyStore } from '@cynic/persistence';
 import { createAllTools } from '../tools/index.js';
 
@@ -60,6 +61,7 @@ export class InitializationPipeline {
     this._initializeAuth();
     await this._initializeLocalStores();
     await this._initializeXProxy();
+    this._initializeXPostService();
     await this._initializeOracle();
     this._registerTools();
   }
@@ -708,6 +710,30 @@ export class InitializationPipeline {
   }
 
   /**
+   * Initialize X Post Service (tweet publishing)
+   * @private
+   */
+  _initializeXPostService() {
+    const s = this._server;
+
+    if (!s.xPostService) {
+      try {
+        s.xPostService = createXPostService({
+          localXStore: s.localXStore,
+        });
+        if (s.xPostService.isConfigured()) {
+          console.error('   X Post: ENABLED (OAuth 1.0a configured)');
+        } else {
+          console.error('   X Post: credentials not set (add X_API_KEY etc. to .env)');
+        }
+      } catch (err) {
+        console.error(`   X Post: FAILED (${err.message})`);
+        s.xPostService = null;
+      }
+    }
+  }
+
+  /**
    * Initialize Oracle (token scoring)
    * @private
    */
@@ -778,6 +804,7 @@ export class InitializationPipeline {
       xRepository: s.persistence?.repositories?.xData,
       localXStore: s.localXStore,
       localPrivacyStore: s.localPrivacyStore,
+      xPostService: s.xPostService,
       oracle: s.oracle,
       sharedMemory: s.sharedMemory,
       getQLearningService: getQLearningServiceSingleton,

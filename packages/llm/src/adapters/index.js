@@ -18,6 +18,10 @@ export { ClaudeCodeAdapter } from './claude-code.js';
 export {
   OSSLLMAdapter,
   createOllamaValidator,
+  createLlamaValidator,
+  createMistralValidator,
+  createDeepSeekValidator,
+  createQwenValidator,
   createLMStudioValidator,
   createOpenAIValidator,
 } from './oss-llm.js';
