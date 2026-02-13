@@ -186,9 +186,9 @@ export class HotReloadEngine extends EventEmitter {
     this.emit('reload:start', { filePath });
 
     try {
-      // 1. Cache original module (for rollback)
-      if (!this.moduleCache.has(filePath) && require.cache[filePath]) {
-        this.moduleCache.set(filePath, { ...require.cache[filePath] });
+      // 1. Cache timestamp (ES modules don't support rollback like CommonJS)
+      if (!this.moduleCache.has(filePath)) {
+        this.moduleCache.set(filePath, { timestamp: Date.now() });
       }
 
       // 2. Validate if enabled
@@ -196,11 +196,12 @@ export class HotReloadEngine extends EventEmitter {
         await this._validateModule(filePath);
       }
 
-      // 3. Clear from require cache
-      delete require.cache[filePath];
+      // 3. Convert to file:// URL for ES modules
+      const fileUrl = `file:///${filePath.replace(/\\/g, '/')}`;
 
-      // 4. Reload module
-      const reloaded = require(filePath);
+      // 4. Reload module with cache-busting query param
+      const cacheBuster = Date.now();
+      const reloaded = await import(`${fileUrl}?t=${cacheBuster}`);
 
       // 5. Verify it works
       if (this.config.validateBeforeReload) {
@@ -287,13 +288,19 @@ export class HotReloadEngine extends EventEmitter {
   /**
    * Rollback a failed reload
    * @private
+   *
+   * NOTE: ES modules don't support true rollback like CommonJS.
+   * We can only log the failure and continue with the old module.
    */
   async _rollback(filePath) {
     const cached = this.moduleCache.get(filePath);
     if (cached) {
-      require.cache[filePath] = cached;
+      // ES modules: can't restore like require.cache, but we track the failure
       this.stats.rolledBack++;
-      log.info('Module rolled back', { filePath });
+      log.warn('Module reload failed, continuing with previous version', {
+        filePath,
+        originalTimestamp: cached.timestamp
+      });
       this.emit('reload:rollback', { filePath });
     }
   }
