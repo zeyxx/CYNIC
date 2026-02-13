@@ -2198,15 +2198,53 @@ export class KabbalisticRouter {
     return this.thompsonSampler.shouldExplore();
   }
 
-  thompsonSelect(candidates) {
+  async thompsonSelect(candidates) {
     if (!candidates || candidates.length === 0) return 'guardian';
-    return this.thompsonSampler.selectArm(candidates) || candidates[0];
+    const selected = this.thompsonSampler.selectArm(candidates) || candidates[0];
+
+    // Record to learning_events for G1.2 metric
+    try {
+      const { getPool } = await import('@cynic/persistence');
+      const pool = getPool();
+      await pool.query(`
+        INSERT INTO learning_events (loop_type, event_type, action_taken, metadata)
+        VALUES ($1, $2, $3, $4)
+      `, [
+        'thompson-sampling',
+        'selection',
+        selected,
+        JSON.stringify({
+          candidates: candidates.length,
+          armStats: this.thompsonSampler.getStats()
+        })
+      ]);
+    } catch { /* non-blocking DB write */ }
+
+    return selected;
   }
 
-  updateThompson(dogs, success) {
+  async updateThompson(dogs, success) {
     try {
       for (const dog of dogs) {
         this.thompsonSampler.update(dog, success);
+
+        // Record to learning_events for G1.2 metric
+        try {
+          const { getPool } = await import('@cynic/persistence');
+          const pool = getPool();
+          await pool.query(`
+            INSERT INTO learning_events (loop_type, event_type, action_taken, feedback_value, metadata)
+            VALUES ($1, $2, $3, $4, $5)
+          `, [
+            'thompson-sampling',
+            'update',
+            dog,
+            success ? 1.0 : 0.0,
+            JSON.stringify({
+              arm: this.thompsonSampler.arms.get(dog)
+            })
+          ]);
+        } catch { /* non-blocking DB write */ }
       }
     } catch (err) {
       log.debug('Thompson update failed', { error: err.message });

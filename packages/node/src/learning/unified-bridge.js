@@ -201,6 +201,29 @@ export class UnifiedBridge extends EventEmitter {
       this._stats.signalsCreated++;
       this.emit('signal_created', { signalId: signal.id, judgmentId: id });
 
+      // Record to learning_events for G1.2 metric (DPO pair candidate)
+      (async () => {
+        try {
+          const { getPool } = await import('@cynic/persistence');
+          const pool = getPool();
+          await pool.query(`
+            INSERT INTO learning_events (loop_type, event_type, judgment_id, feedback_value, metadata)
+            VALUES ($1, $2, $3, $4, $5)
+          `, [
+            'dpo',
+            'pair-candidate',
+            id,
+            qScore || null,
+            JSON.stringify({
+              signalId: signal.id,
+              source: SignalSource.CYNIC_JUDGE,
+              verdict: verdict?.verdict || verdict,
+              confidence: confidence || null
+            })
+          ]);
+        } catch { /* non-blocking DB write */ }
+      })();
+
     } catch (err) {
       this._stats.errors++;
       log.error('Error handling judgment', { error: err.message });

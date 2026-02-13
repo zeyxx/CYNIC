@@ -225,6 +225,28 @@ export class EWCManager {
       task.consolidatedAt = new Date();
     }
 
+    // Record to learning_events for G1.2 metric
+    (async () => {
+      try {
+        const { getPool } = await import('@cynic/persistence');
+        const pool = getPool();
+        await pool.query(`
+          INSERT INTO learning_events (loop_type, event_type, pattern_id, metadata)
+          VALUES ($1, $2, $3, $4)
+        `, [
+          'ewc-consolidation',
+          'consolidation',
+          taskId || 'general',
+          JSON.stringify({
+            consolidationId: consolidationEvent.consolidationId,
+            taskType: this.currentTask?.taskType,
+            fisherStats: consolidationEvent.fisherStats,
+            qTableStates: qTable.stats?.states || 0
+          })
+        ]);
+      } catch { /* non-blocking DB write */ }
+    })();
+
     return consolidationEvent;
   }
 

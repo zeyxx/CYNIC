@@ -936,6 +936,30 @@ export class EmergenceDetector extends EventEmitter {
       }
 
       this.emit('pattern_detected', { pattern, isNew, isEscalated });
+
+      // Record to learning_events for G1.2 metric
+      (async () => {
+        try {
+          const { getPool } = await import('@cynic/persistence');
+          const pool = getPool();
+          await pool.query(`
+            INSERT INTO learning_events (loop_type, event_type, pattern_id, metadata)
+            VALUES ($1, $2, $3, $4)
+          `, [
+            'emergence',
+            'pattern-detected',
+            pattern.id || pattern.category,
+            JSON.stringify({
+              category: pattern.category,
+              occurrences: pattern.occurrences,
+              significance: pattern.significance,
+              confidence: Math.round((pattern.confidence || 0) * 1000) / 1000,
+              isNew,
+              isEscalated
+            })
+          ]);
+        } catch { /* non-blocking DB write */ }
+      })();
     }
   }
 

@@ -239,6 +239,24 @@ export class CalibrationTracker {
             totalSamples: summary.totalSamples,
           },
         });
+
+        // Record to learning_events for G1.2 metric
+        try {
+          await this.pool.query(`
+            INSERT INTO learning_events (loop_type, event_type, weight_delta, metadata)
+            VALUES ($1, $2, $3, $4)
+          `, [
+            'judgment-calibration',
+            'drift-detected',
+            summary.ece, // ECE is the calibration error (weight delta)
+            JSON.stringify({
+              ece: summary.ece,
+              threshold: summary.threshold,
+              totalSamples: summary.totalSamples,
+              daysAnalyzed: 7
+            })
+          ]);
+        } catch { /* non-blocking DB write */ }
       }
     } catch (err) {
       log.debug('CalibrationTracker', 'Drift check failed (non-blocking)', { error: err.message });

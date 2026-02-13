@@ -249,6 +249,29 @@ export class ResidualDetector {
     this.candidates.set(key, candidate);
     this._markDirty(); // FIX J5: Persist candidate changes
 
+    // Record to learning_events for G1.2 metric
+    (async () => {
+      try {
+        const { getPool } = await import('@cynic/persistence');
+        const pool = getPool();
+        await pool.query(`
+          INSERT INTO learning_events (loop_type, event_type, pattern_id, metadata)
+          VALUES ($1, $2, $3, $4)
+        `, [
+          'residual-detection',
+          'candidate-detected',
+          key,
+          JSON.stringify({
+            weakDimensions: cluster.weakDimensions,
+            avgResidual: Math.round(avgResidual * 1000) / 1000,
+            sampleCount: cluster.samples.length,
+            suggestedName: candidate.suggestedName,
+            confidence: Math.round(candidate.confidence * 1000) / 1000
+          })
+        ]);
+      } catch { /* non-blocking DB write */ }
+    })();
+
     // WS6: Notify when candidate reaches governance threshold
     if (candidate.confidence >= this._governanceThreshold && this.onCandidateReady) {
       try {

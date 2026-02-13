@@ -767,6 +767,28 @@ export class AmbientConsensus {
       // Non-critical - don't break consensus flow
     }
 
+    // Record to learning_events for G1.2 metric
+    try {
+      const { getPool } = await import('@cynic/persistence');
+      const pool = getPool();
+      await pool.query(`
+        INSERT INTO learning_events (loop_type, event_type, action_taken, metadata)
+        VALUES ($1, $2, $3, $4)
+      `, [
+        'dog-votes',
+        'consensus',
+        approved ? 'approved' : 'rejected',
+        JSON.stringify({
+          consensusId,
+          topic,
+          votes: Object.keys(votes).length,
+          agreement: Math.round(agreement * 1000) / 1000,
+          stats: result.stats,
+          entropy: votingEntropy.normalized
+        })
+      ]);
+    } catch { /* non-blocking DB write */ }
+
     return result;
   }
 
