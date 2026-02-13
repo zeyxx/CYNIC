@@ -67,6 +67,14 @@ export class AmbientConsensus {
     this._consensusCount = 0;
     this._lastConsensus = null;
 
+    // Stats for streaming consensus (M2.2)
+    this._streamingStats = {
+      totalConsensus: 0,
+      earlyExits: 0,
+      fullVotes: 0,
+      avgSkippedVotes: 0, // Running average
+    };
+
     // ═══════════════════════════════════════════════════════════════════════
     // MATH MODULE INTEGRATION
     // ═══════════════════════════════════════════════════════════════════════
@@ -297,6 +305,146 @@ export class AmbientConsensus {
         await this.triggerConsensus(data);
         break;
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STREAMING CONSENSUS (M2.2 Optimization)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Calculate voting agreement from partial results
+   * Uses weighted agreement (70% track record, 30% simple majority)
+   *
+   * @private
+   * @param {string[]} voters - Dog names
+   * @param {Object[]} voteResults - Vote results so far
+   * @returns {Object} {agreement, weightedAgreement, simpleAgreement, approveCount, rejectCount}
+   */
+  _calculateAgreement(voters, voteResults) {
+    let approveCount = 0;
+    let rejectCount = 0;
+    let abstainCount = 0;
+    let weightedApprove = 0;
+    let weightedReject = 0;
+    let totalWeight = 0;
+
+    for (let i = 0; i < voteResults.length; i++) {
+      const dogName = voters[i];
+      const voteResult = voteResults[i];
+
+      const voteWeight = this._calculateVoteWeight(dogName, voteResult.vote);
+
+      if (voteResult.vote === 'approve') {
+        approveCount++;
+        weightedApprove += voteWeight.weight;
+      } else if (voteResult.vote === 'reject') {
+        rejectCount++;
+        weightedReject += voteWeight.weight;
+      } else {
+        abstainCount++;
+      }
+
+      if (voteResult.vote !== 'abstain') {
+        totalWeight += voteWeight.weight;
+      }
+    }
+
+    const totalVoters = voteResults.length - abstainCount;
+    const simpleAgreement = totalVoters > 0 ? approveCount / totalVoters : 0;
+    const weightedAgreement = totalWeight > 0 ? weightedApprove / totalWeight : 0;
+
+    // Blend: 70% weighted + 30% simple
+    const agreement = weightedAgreement * 0.7 + simpleAgreement * 0.3;
+
+    return {
+      agreement,
+      weightedAgreement,
+      simpleAgreement,
+      approveCount,
+      rejectCount,
+      abstainCount,
+      totalVoters,
+    };
+  }
+
+  /**
+   * Stream votes and exit early if strong consensus reached
+   *
+   * Early exit conditions (both must be met):
+   * 1. At least 7 Dogs voted (φ-quorum: φ × 11 ≈ 6.798 → 7)
+   * 2. Agreement > 85% (strong consensus)
+   *
+   * @private
+   * @param {string[]} voters - Dog names
+   * @param {Promise[]} votePromises - Vote promises
+   * @param {Object} context - Enriched context
+   * @returns {Promise<Object>} {voteResults, earlyExit, skipped}
+   */
+  async _streamingConsensus(voters, votePromises, context) {
+    const voteResults = [];
+    const PHI_QUORUM = 7; // φ × 11 ≈ 6.798
+    const STRONG_CONSENSUS = 0.85;
+
+    // Process votes as they arrive
+    for (let i = 0; i < votePromises.length; i++) {
+      const voteResult = await votePromises[i];
+      voteResults.push(voteResult);
+
+      // Check for early exit after φ-quorum
+      if (voteResults.length >= PHI_QUORUM) {
+        const { agreement, approveCount, rejectCount, abstainCount, totalVoters } =
+          this._calculateAgreement(voters.slice(0, voteResults.length), voteResults);
+
+        // Strong consensus on EITHER approve OR reject
+        const strongApprove = agreement >= STRONG_CONSENSUS;
+        const strongReject = (1 - agreement) >= STRONG_CONSENSUS;
+
+        // Require BOTH: strong agreement AND enough active voters (φ-quorum for actives too)
+        // This prevents early exit when many Dogs abstain
+        const hasActiveQuorum = totalVoters >= PHI_QUORUM;
+
+        if ((strongApprove || strongReject) && hasActiveQuorum) {
+          const skipped = votePromises.length - voteResults.length;
+
+          log.info('Early consensus exit', {
+            votesCollected: voteResults.length,
+            skipped,
+            agreement: `${(agreement * 100).toFixed(1)}%`,
+            approve: approveCount,
+            reject: rejectCount,
+            abstain: abstainCount,
+          });
+
+          // Update streaming stats
+          this._streamingStats.earlyExits++;
+          // Calculate running average (use totalConsensus + 1 since we haven't incremented it yet)
+          const n = this._streamingStats.totalConsensus + 1;
+          this._streamingStats.avgSkippedVotes =
+            (this._streamingStats.avgSkippedVotes * (n - 1) + skipped) / n;
+
+          return {
+            voteResults,
+            earlyExit: true,
+            skipped,
+            earlyAgreement: agreement,
+          };
+        }
+      }
+    }
+
+    // All votes collected, no early exit
+    log.debug('Full voting completed', {
+      votesCollected: voteResults.length,
+      earlyExit: false,
+    });
+
+    this._streamingStats.fullVotes++;
+
+    return {
+      voteResults,
+      earlyExit: false,
+      skipped: 0,
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -600,8 +748,13 @@ export class AmbientConsensus {
       }
     }
 
-    // Wait for all votes
-    const voteResults = await Promise.all(votePromises);
+    // ═══════════════════════════════════════════════════════════════════════
+    // STREAMING CONSENSUS WITH EARLY EXIT (M2.2 Optimization)
+    // Stop waiting for remaining votes if strong consensus reached (φ-quorum)
+    // ═══════════════════════════════════════════════════════════════════════
+    const streamResult = await this._streamingConsensus(voters, votePromises, enrichedContext);
+    const voteResults = streamResult.voteResults;
+    const earlyExit = streamResult.earlyExit;
 
     // Tally votes with weighted voting and anomaly detection
     const votes = {};
@@ -614,7 +767,8 @@ export class AmbientConsensus {
     let guardianVeto = false;
     const anomalies = [];
 
-    for (let i = 0; i < voters.length; i++) {
+    // Only iterate over collected votes (may be < voters.length due to early exit)
+    for (let i = 0; i < voteResults.length; i++) {
       const dogName = voters[i];
       const voteResult = voteResults[i];
 
@@ -721,7 +875,16 @@ export class AmbientConsensus {
         anomalies,
         hasAnomalies: anomalies.length > 0,
       },
+      // Streaming stats (M2.2)
+      streaming: {
+        earlyExit: streamResult.earlyExit,
+        skipped: streamResult.skipped,
+        earlyAgreement: streamResult.earlyAgreement,
+      },
     };
+
+    // Update streaming stats totals
+    this._streamingStats.totalConsensus++;
 
     // Update dog track records based on outcome
     for (const [dogName, voteData] of Object.entries(votes)) {
@@ -819,6 +982,18 @@ export class AmbientConsensus {
         predictionAccuracy: Math.min(PHI_INV, predictionAccuracy), // φ-bounded
         historySize: this.consensusHistory.length,
         outcomeDistribution: this._getOutcomeDistribution(),
+      },
+      // Streaming consensus stats (M2.2)
+      streaming: {
+        enabled: true,
+        totalConsensus: this._streamingStats.totalConsensus,
+        earlyExits: this._streamingStats.earlyExits,
+        fullVotes: this._streamingStats.fullVotes,
+        earlyExitRate: this._streamingStats.totalConsensus > 0
+          ? this._streamingStats.earlyExits / this._streamingStats.totalConsensus
+          : 0,
+        avgSkippedVotes: Math.round(this._streamingStats.avgSkippedVotes * 10) / 10,
+        avgTimeSaved: Math.round(this._streamingStats.avgSkippedVotes * 20), // ~20ms per vote
       },
     };
   }

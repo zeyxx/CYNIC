@@ -132,6 +132,8 @@ export class UnifiedOrchestrator extends EventEmitter {
       errors: 0,
       throttled: 0,      // NEW: GAP-5 - operations throttled
       budgetWarnings: 0, // NEW: GAP-5 - budget warnings received
+      backgroundTasksQueued: 0, // NEW: Priority 1C - background tasks fired
+      backgroundTasksFailed: 0, // NEW: Priority 1C - background failures
     };
 
     // Subagent lifecycle tracking
@@ -845,6 +847,7 @@ export class UnifiedOrchestrator extends EventEmitter {
         context: event.context,
       };
 
+      // CRITICAL PATH: Get judgment (blocking)
       const result = await this.dogOrchestrator.judge(item);
 
       event.setJudgment({
@@ -859,6 +862,18 @@ export class UnifiedOrchestrator extends EventEmitter {
 
       cb.recordSuccess();
       this.stats.judgmentsRequested++;
+
+      // NON-BLOCKING: Fire background persistence and learning
+      this.stats.backgroundTasksQueued++;
+      this._processJudgmentBackground(event, result)
+        .catch(err => {
+          this.stats.backgroundTasksFailed++;
+          log.debug('Background judgment processing failed (non-critical)', {
+            error: err.message,
+            eventId: event.id
+          });
+        });
+
     } catch (err) {
       cb.recordFailure(err);
       event.recordError('judgment', err);
@@ -866,6 +881,41 @@ export class UnifiedOrchestrator extends EventEmitter {
     }
 
     return event;
+  }
+
+  /**
+   * Process background tasks for judgment
+   * NON-BLOCKING: Persistence, learning updates, event emissions
+   * @private
+   */
+  async _processJudgmentBackground(event, judgmentResult) {
+    await Promise.allSettled([
+      // Persist judgment to database
+      this.persistence?.judgments?.create({
+        judgmentId: judgmentResult.id || `j_${event.id}`,
+        eventId: event.id,
+        score: judgmentResult.score,
+        verdict: judgmentResult.verdict,
+        consensus: judgmentResult.consensus,
+        consensusRatio: judgmentResult.consensusRatio,
+        votes: judgmentResult.votes,
+        dimensions: judgmentResult.dimensions,
+        timestamp: Date.now(),
+      }).catch(err => log.debug('Judgment persist failed', { error: err.message })),
+
+      // Record learning episode
+      this.learningService?.recordEpisode?.({
+        eventId: event.id,
+        judgment: judgmentResult,
+        context: event.context,
+      }).catch(err => log.debug('Learning record failed', { error: err.message })),
+
+      // Emit judgment completion event
+      this.eventBus.publish('judgment:complete', {
+        eventId: event.id,
+        judgment: judgmentResult,
+      }, { source: 'UnifiedOrchestrator' }),
+    ]);
   }
 
   /**
@@ -1096,7 +1146,7 @@ export class UnifiedOrchestrator extends EventEmitter {
    * @private
    */
   _recordDecision(event) {
-    // Add to recent decisions
+    // CRITICAL PATH: Add to in-memory cache (synchronous, fast)
     this._recentDecisions.push({
       id: event.id,
       timestamp: event.timestamp,
@@ -1113,18 +1163,56 @@ export class UnifiedOrchestrator extends EventEmitter {
       this._recentDecisions.shift();
     }
 
-    // Record in tracer if available
-    if (this.decisionTracer) {
-      this.decisionTracer.record(event);
-    }
+    // NON-BLOCKING: Fire background persistence
+    this.stats.backgroundTasksQueued++;
+    this._processDecisionBackground(event)
+      .catch(err => {
+        this.stats.backgroundTasksFailed++;
+        log.debug('Background decision recording failed (non-critical)', {
+          error: err.message,
+          eventId: event.id
+        });
+      });
+  }
 
-    // Emit feedback for learning
-    this.eventBus.publish(EventType.FEEDBACK_RECEIVED, {
-      source: 'orchestration',
-      decisionId: event.id,
-      outcome: event.outcome,
-      judgment: event.judgment,
-    }, { source: 'UnifiedOrchestrator' });
+  /**
+   * Process background tasks for decision recording
+   * NON-BLOCKING: Tracer persistence, event emissions, learning feedback
+   * @private
+   */
+  async _processDecisionBackground(event) {
+    await Promise.allSettled([
+      // Record in tracer if available
+      (async () => {
+        if (this.decisionTracer) {
+          await this.decisionTracer.record(event);
+        }
+      })(),
+
+      // Emit feedback for learning
+      (async () => {
+        await this.eventBus.publish(EventType.FEEDBACK_RECEIVED, {
+          source: 'orchestration',
+          decisionId: event.id,
+          outcome: event.outcome,
+          judgment: event.judgment,
+        }, { source: 'UnifiedOrchestrator' });
+      })(),
+
+      // Persist decision to database
+      (async () => {
+        if (this.persistence?.decisions?.create) {
+          await this.persistence.decisions.create({
+            decisionId: event.id,
+            eventType: event.eventType,
+            outcome: event.outcome,
+            routing: event.routing,
+            judgment: event.judgment,
+            timestamp: event.timestamp,
+          });
+        }
+      })(),
+    ]);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

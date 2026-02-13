@@ -94,6 +94,8 @@ export class CYNICJudge {
    * @param {import('./engine-integration.js').EngineIntegration} [options.engineIntegration] - 73 philosophy engines
    * @param {boolean} [options.consultEngines] - Whether to consult engines during judgment (default: true if engineIntegration provided)
    * @param {DimensionRegistry} [options.dimensionRegistry] - Custom dimension registry (Phase 3 plugin system)
+   * @param {boolean} [options.useWorkerPool=false] - Use worker thread pool for TRUE CPU parallelization (Phase 4)
+   * @param {Object} [options.workerPoolOptions] - Worker pool configuration (pool size, etc.)
    */
   constructor(options = {}) {
     this.customDimensions = options.customDimensions || {};
@@ -119,6 +121,11 @@ export class CYNICJudge {
     this.engineIntegration = options.engineIntegration || null;
     // Enable by default if engineIntegration is provided
     this.consultEngines = options.consultEngines ?? !!this.engineIntegration;
+
+    // Phase 4: Worker thread pool for TRUE CPU parallelization
+    this.useWorkerPool = options.useWorkerPool || false;
+    this.workerPoolOptions = options.workerPoolOptions || {};
+    this.workerPool = null; // Lazy-initialized on first use
 
     // Stats tracking
     this.stats = {
@@ -332,8 +339,8 @@ export class CYNICJudge {
    * @returns {Promise<Object>} Judgment result with Q-Score and engine insights
    */
   async judgeAsync(item, context = {}, options = {}) {
-    // Get base judgment (sync)
-    const judgment = this.judge(item, context);
+    // Get base judgment (now async)
+    const judgment = await this.judge(item, context);
 
     // Optionally consult engines
     const shouldConsult = options.consultEngines ?? this.consultEngines;
@@ -375,9 +382,9 @@ export class CYNICJudge {
    * Judge an item
    * @param {Object} item - Item to judge
    * @param {Object} [context] - Judgment context
-   * @returns {Object} Judgment result with Q-Score
+   * @returns {Promise<Object>} Judgment result with Q-Score
    */
-  judge(item, context = {}) {
+  async judge(item, context = {}) {
     const t0 = Date.now();
 
     // D12: Initialize reasoning path for trajectory capture
@@ -387,7 +394,7 @@ export class CYNICJudge {
     }];
 
     // Score each dimension (D12: enriched with scorer metadata)
-    const dimensionScores = this._scoreDimensions(item, context, reasoningPath);
+    const dimensionScores = await this._scoreDimensions(item, context, reasoningPath);
 
     // Calculate global score (weighted average - legacy)
     const globalScore = this._calculateGlobalScore(dimensionScores);
@@ -638,66 +645,175 @@ export class CYNICJudge {
   }
 
   /**
-   * Score all dimensions for item
+   * Score all dimensions for item (PARALLEL)
+   *
+   * Two modes:
+   * 1. useWorkerPool=false: Promise.all over sync scorers (pseudo-parallel, same thread)
+   * 2. useWorkerPool=true: TRUE CPU parallelization via worker threads
+   *
    * @private
    * @param {Object} item - Item to score
    * @param {Object} context - Context
-   * @returns {Object} Dimension scores
+   * @param {Array} reasoningPath - Reasoning path for trajectory capture
+   * @returns {Promise<Object>} Dimension scores
    */
-  _scoreDimensions(item, context, reasoningPath) {
-    const scores = {};
+  async _scoreDimensions(item, context, reasoningPath) {
+    // Phase 4: Use worker pool if enabled
+    if (this.useWorkerPool) {
+      return this._scoreDimensionsParallel(item, context, reasoningPath);
+    }
+
+    // Legacy mode: Promise.all over sync scorers (backward compatible)
+    const scoringTasks = [];
 
     // Score base dimensions (skip META - calculated after)
     for (const [axiom, dims] of Object.entries(Dimensions)) {
       if (axiom === 'META') continue; // THE_UNNAMEABLE calculated below
 
       for (const [dimName, config] of Object.entries(dims)) {
-        scores[dimName] = this._scoreDimension(dimName, config, item, context, axiom);
-        // D12: Record dimension scoring step
-        if (reasoningPath) {
-          reasoningPath.push({
-            step: reasoningPath.length, type: 'dimension',
-            dimension: dimName, axiom, score: scores[dimName],
-            scorer: config.scorer ? 'custom' : 'default',
-          });
-        }
+        scoringTasks.push(
+          Promise.resolve()
+            .then(() => this._scoreDimension(dimName, config, item, context, axiom))
+            .then(score => ({
+              dimName,
+              axiom,
+              score,
+              scorer: config.scorer ? 'custom' : 'default',
+            }))
+            .catch(err => {
+              log.warn(`Dimension ${dimName} scoring failed`, { error: err.message });
+              return {
+                dimName,
+                axiom,
+                score: 50, // φ-neutral fallback
+                scorer: 'fallback',
+                error: err.message,
+              };
+            })
+        );
       }
     }
 
     // Score custom dimensions (legacy API)
     for (const [dimName, config] of Object.entries(this.customDimensions)) {
-      scores[dimName] = this._scoreDimension(dimName, config, item, context, config.axiom);
+      scoringTasks.push(
+        Promise.resolve()
+          .then(() => this._scoreDimension(dimName, config, item, context, config.axiom))
+          .then(score => ({
+            dimName,
+            axiom: config.axiom,
+            score,
+            scorer: 'custom',
+          }))
+          .catch(err => {
+            log.warn(`Custom dimension ${dimName} scoring failed`, { error: err.message });
+            return {
+              dimName,
+              axiom: config.axiom,
+              score: 50,
+              scorer: 'fallback',
+              error: err.message,
+            };
+          })
+      );
     }
 
     // Score dimensions from DimensionRegistry (Phase 3 plugin system)
-    // This allows runtime extension of dimensions
     if (this.dimensionRegistry) {
       const registeredDims = this.dimensionRegistry.getAll();
       for (const [dimName, config] of Object.entries(registeredDims)) {
-        // Skip if already scored (core dimensions)
-        if (scores[dimName] !== undefined) continue;
+        // Check if already in base/custom dimensions (will be scored above)
+        const alreadyScheduled = scoringTasks.some(task =>
+          task.then(r => r.dimName === dimName)
+        );
+        if (alreadyScheduled) continue;
 
-        // Try registry scorer first
-        const registryScore = this.dimensionRegistry.score(config.axiom, dimName, item, context);
-        if (registryScore !== null) {
-          scores[dimName] = registryScore;
-          if (reasoningPath) {
-            reasoningPath.push({
-              step: reasoningPath.length, type: 'dimension',
-              dimension: dimName, axiom: config.axiom, score: registryScore,
-              scorer: 'registry',
-            });
-          }
-        } else {
-          scores[dimName] = this._scoreDimension(dimName, config, item, context, config.axiom);
-        }
+        scoringTasks.push(
+          Promise.resolve()
+            .then(() => {
+              // Try registry scorer first
+              const registryScore = this.dimensionRegistry.score(config.axiom, dimName, item, context);
+              if (registryScore !== null) {
+                return {
+                  dimName,
+                  axiom: config.axiom,
+                  score: registryScore,
+                  scorer: 'registry',
+                };
+              }
+              // Fallback to standard scorer
+              const score = this._scoreDimension(dimName, config, item, context, config.axiom);
+              return {
+                dimName,
+                axiom: config.axiom,
+                score,
+                scorer: 'default',
+              };
+            })
+            .catch(err => {
+              log.warn(`Registry dimension ${dimName} scoring failed`, { error: err.message });
+              return {
+                dimName,
+                axiom: config.axiom,
+                score: 50,
+                scorer: 'fallback',
+                error: err.message,
+              };
+            })
+        );
       }
     }
 
     // Legacy support: Score discovered dimensions from old registry
-    for (const [dimName, config] of Object.entries(legacyRegistry.getAll())) {
-      if (scores[dimName] === undefined) {
-        scores[dimName] = this._scoreDimension(dimName, config, item, context, config.axiom);
+    const legacyDims = legacyRegistry.getAll();
+    for (const [dimName, config] of Object.entries(legacyDims)) {
+      // Check if already scheduled
+      const alreadyScheduled = scoringTasks.some(task =>
+        task.then(r => r.dimName === dimName)
+      );
+      if (alreadyScheduled) continue;
+
+      scoringTasks.push(
+        Promise.resolve()
+          .then(() => this._scoreDimension(dimName, config, item, context, config.axiom))
+          .then(score => ({
+            dimName,
+            axiom: config.axiom,
+            score,
+            scorer: 'legacy',
+          }))
+          .catch(err => {
+            log.warn(`Legacy dimension ${dimName} scoring failed`, { error: err.message });
+            return {
+              dimName,
+              axiom: config.axiom,
+              score: 50,
+              scorer: 'fallback',
+              error: err.message,
+            };
+          })
+      );
+    }
+
+    // Execute all scoring tasks in parallel
+    const results = await Promise.all(scoringTasks);
+
+    // Collect scores and reasoning path entries
+    const scores = {};
+    for (const result of results) {
+      scores[result.dimName] = result.score;
+
+      // D12: Record dimension scoring step
+      if (reasoningPath) {
+        reasoningPath.push({
+          step: reasoningPath.length,
+          type: 'dimension',
+          dimension: result.dimName,
+          axiom: result.axiom,
+          score: result.score,
+          scorer: result.scorer,
+          error: result.error,
+        });
       }
     }
 
@@ -707,6 +823,119 @@ export class CYNICJudge {
     scores.THE_UNNAMEABLE = this._scoreTheUnnameable(scores);
 
     return scores;
+  }
+
+  /**
+   * Score all dimensions using worker thread pool (TRUE CPU parallelization)
+   *
+   * Distributes dimension scoring across worker threads for actual parallel execution.
+   * Each worker scores its chunk of dimensions independently on different CPU cores.
+   *
+   * @private
+   * @param {Object} item - Item to score
+   * @param {Object} context - Scoring context
+   * @param {Array} reasoningPath - Reasoning path for trajectory capture
+   * @returns {Promise<Object>} Dimension scores
+   */
+  async _scoreDimensionsParallel(item, context, reasoningPath) {
+    // Lazy-initialize worker pool
+    if (!this.workerPool) {
+      const { getWorkerPool } = await import('../workers/judgment-worker-pool.js');
+      this.workerPool = getWorkerPool(this.workerPoolOptions);
+      log.info('Worker pool initialized for TRUE CPU parallelization');
+    }
+
+    // Collect all dimensions to score
+    const dimensionsToScore = [];
+
+    // Base dimensions (skip META - calculated after)
+    for (const [axiom, dims] of Object.entries(Dimensions)) {
+      if (axiom === 'META') continue;
+
+      for (const [dimName, config] of Object.entries(dims)) {
+        dimensionsToScore.push({
+          name: dimName,
+          axiom,
+          config,
+          source: 'base',
+        });
+      }
+    }
+
+    // Custom dimensions (legacy API)
+    for (const [dimName, config] of Object.entries(this.customDimensions)) {
+      dimensionsToScore.push({
+        name: dimName,
+        axiom: config.axiom,
+        config,
+        source: 'custom',
+      });
+    }
+
+    // Registry dimensions (Phase 3 plugin system)
+    if (this.dimensionRegistry) {
+      const registeredDims = this.dimensionRegistry.getAll();
+      for (const [dimName, config] of Object.entries(registeredDims)) {
+        // Skip if already in base/custom
+        const alreadyAdded = dimensionsToScore.some(d => d.name === dimName);
+        if (!alreadyAdded) {
+          dimensionsToScore.push({
+            name: dimName,
+            axiom: config.axiom,
+            config,
+            source: 'registry',
+          });
+        }
+      }
+    }
+
+    // Legacy support: discovered dimensions
+    const legacyDims = legacyRegistry.getAll();
+    for (const [dimName, config] of Object.entries(legacyDims)) {
+      const alreadyAdded = dimensionsToScore.some(d => d.name === dimName);
+      if (!alreadyAdded) {
+        dimensionsToScore.push({
+          name: dimName,
+          axiom: config.axiom,
+          config,
+          source: 'legacy',
+        });
+      }
+    }
+
+    try {
+      // Score all dimensions in parallel via worker pool
+      const scores = await this.workerPool.scoreChunk(dimensionsToScore, item, context);
+
+      // Record reasoning path entries
+      if (reasoningPath) {
+        for (const dim of dimensionsToScore) {
+          reasoningPath.push({
+            step: reasoningPath.length,
+            type: 'dimension',
+            dimension: dim.name,
+            axiom: dim.axiom,
+            score: scores[dim.name],
+            scorer: 'worker',
+            source: dim.source,
+          });
+        }
+      }
+
+      // Calculate THE_UNNAMEABLE (36th dimension)
+      scores.THE_UNNAMEABLE = this._scoreTheUnnameable(scores);
+
+      return scores;
+
+    } catch (err) {
+      log.error('Worker pool scoring failed, falling back to sequential', {
+        error: err.message,
+      });
+
+      // Fallback to sequential scoring on worker failure
+      this.useWorkerPool = false;
+      return this._scoreDimensions(item, context, reasoningPath);
+    }
   }
 
   /**
@@ -2006,12 +2235,12 @@ export class CYNICJudge {
    * Useful when you want to analyze skepticism separately
    * @param {Object} item - Item to judge
    * @param {Object} [context] - Judgment context
-   * @returns {Object} Judgment result (without skepticism applied)
+   * @returns {Promise<Object>} Judgment result (without skepticism applied)
    */
-  judgeRaw(item, context = {}) {
+  async judgeRaw(item, context = {}) {
     const originalSetting = this.applySkepticism;
     this.applySkepticism = false;
-    const judgment = this.judge(item, context);
+    const judgment = await this.judge(item, context);
     this.applySkepticism = originalSetting;
     return judgment;
   }
@@ -2152,6 +2381,19 @@ export class CYNICJudge {
     // Reset Gaussian tracking
     this._qScoreHistory = [];
     this._dimensionScoreHistory.clear();
+  }
+
+  /**
+   * Cleanup resources (for testing and graceful shutdown)
+   * Closes worker pool if active
+   * @returns {Promise<void>}
+   */
+  async cleanup() {
+    if (this.workerPool) {
+      log.info('Closing worker pool');
+      await this.workerPool.close();
+      this.workerPool = null;
+    }
   }
 }
 

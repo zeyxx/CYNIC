@@ -180,6 +180,21 @@ export class MarketWatcher extends EventEmitter {
     return { ...this.stats };
   }
 
+  /**
+   * Get current market state (for concurrent polling)
+   */
+  getState() {
+    return {
+      isRunning: this._isRunning,
+      price: this._lastPrice,
+      volume: this._lastVolume,
+      liquidity: this._lastLiquidity,
+      holderCount: this._lastHolderCount,
+      stats: this.getStats(),
+      timestamp: Date.now(),
+    };
+  }
+
   // =============================================================================
   // PRIVATE POLLING LOOPS
   // =============================================================================

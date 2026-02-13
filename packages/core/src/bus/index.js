@@ -27,6 +27,12 @@ export {
   subscribe,
 } from './event-bus.js';
 
+// Parallel Event Bus (non-blocking dispatch)
+export {
+  ParallelEventBus,
+  createParallelEventBus,
+} from './parallel-event-bus.js';
+
 // Service Registry (dependency injection)
 export {
   ServiceRegistry,

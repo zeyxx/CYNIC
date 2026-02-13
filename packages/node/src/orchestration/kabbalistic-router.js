@@ -797,11 +797,13 @@ export class KabbalisticRouter {
       durationMs
     });
 
-    // Record to routing_accuracy table (non-blocking)
+    // Record to routing_accuracy table (non-blocking, batched)
     try {
       const { getPool } = await import('@cynic/persistence');
+      const { getDBBatchWriter } = await import('../learning/db-batch-writer.js');
       const pool = getPool();
-      await pool.query(`
+      const batchWriter = getDBBatchWriter(pool);
+      batchWriter.add(`
         INSERT INTO routing_accuracy (
           router_type, event_type, dogs_selected, confidence, metadata
         ) VALUES ($1, $2, $3, $4, $5)
@@ -2202,11 +2204,13 @@ export class KabbalisticRouter {
     if (!candidates || candidates.length === 0) return 'guardian';
     const selected = this.thompsonSampler.selectArm(candidates) || candidates[0];
 
-    // Record to learning_events for G1.2 metric
+    // Record to learning_events for G1.2 metric (batched)
     try {
       const { getPool } = await import('@cynic/persistence');
+      const { getDBBatchWriter } = await import('../learning/db-batch-writer.js');
       const pool = getPool();
-      await pool.query(`
+      const batchWriter = getDBBatchWriter(pool);
+      batchWriter.add(`
         INSERT INTO learning_events (loop_type, event_type, action_taken, metadata)
         VALUES ($1, $2, $3, $4)
       `, [
