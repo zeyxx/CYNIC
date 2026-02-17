@@ -165,6 +165,9 @@ async def judge(req: JudgeRequest) -> JudgeResponse:
 
     judgment = await state.orchestrator.run(cell, level=level, budget_usd=req.budget_usd)
 
+    # Write guidance.json — feedback loop to JS hooks (best-effort)
+    _write_guidance(cell, judgment)
+
     # Save for /feedback endpoint (user can rate this judgment)
     state.last_judgment = {
         "state_key": f"{cell.reality}:{cell.analysis}:PRESENT:{cell.lod}",

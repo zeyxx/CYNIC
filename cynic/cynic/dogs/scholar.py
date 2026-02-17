@@ -194,8 +194,10 @@ class ScholarDog(AbstractDog):
         if cell_id and any(e.cell_id == cell_id for e in self._buffer):
             return
 
+        # Ensure string (cell.content may be dict/None)
+        safe_text = cell_text if isinstance(cell_text, str) else str(cell_text)
         entry = BufferEntry(
-            cell_text=cell_text[:2000],  # Cap at 2k chars
+            cell_text=safe_text[:2000],  # Cap at 2k chars
             q_score=phi_bound_score(q_score),
             cell_id=cell_id,
             reality=reality,
@@ -214,7 +216,8 @@ class ScholarDog(AbstractDog):
         """Extract searchable text from a Cell."""
         parts = []
         if cell.content:
-            parts.append(cell.content[:2000])
+            raw = cell.content if isinstance(cell.content, str) else str(cell.content)
+            parts.append(raw[:2000])
         # Augment with structured metadata for better matching
         parts.append(f"reality:{cell.reality}")
         parts.append(f"analysis:{cell.analysis}")

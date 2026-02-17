@@ -153,6 +153,18 @@ class JudgeOrchestrator:
                 },
             ))
 
+            # STEP 5 (LEARN): Feed Scholar its outcome — builds similarity memory.
+            # ScholarDog.learn() is separate from analyze() to avoid feedback contamination.
+            scholar = self.dogs.get(DogId.SCHOLAR)  # type: ignore[assignment]
+            if scholar is not None:
+                cell_text = cell.content or cell.state_key()
+                scholar.learn(
+                    cell_text=cell_text,
+                    q_score=judgment.q_score,
+                    cell_id=cell.cell_id,
+                    reality=cell.reality,
+                )
+
             return judgment
 
         except Exception as e:
