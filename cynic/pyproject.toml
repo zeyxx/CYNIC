@@ -74,6 +74,10 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
+markers = [
+    "integration: requires real Ollama (gemma2:2b) at localhost:11434",
+    "db_integration: requires real PostgreSQL (cynic_py Docker or CYNIC_DATABASE_URL)",
+]
 
 [tool.mypy]
 python_version = "3.9"
