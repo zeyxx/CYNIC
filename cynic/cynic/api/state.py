@@ -19,6 +19,8 @@ from cynic.dogs.cynic_dog import CynicDog
 from cynic.dogs.guardian import GuardianDog
 from cynic.dogs.analyst import AnalystDog
 from cynic.dogs.janitor import JanitorDog
+from cynic.dogs.architect import ArchitectDog
+from cynic.dogs.oracle import OracleDog
 from cynic.judge.orchestrator import JudgeOrchestrator
 from cynic.learning.qlearning import QTable, LearningLoop
 
@@ -58,11 +60,15 @@ def build_kernel(db_pool=None) -> AppState:
 
     # Dogs (non-LLM — always available, no API keys needed)
     cynic_dog = CynicDog()
+    # QTable must exist before OracleDog (Oracle reads it for predictions)
+    qtable = QTable()
     dogs = {
-        DogId.CYNIC:    cynic_dog,
-        DogId.GUARDIAN: GuardianDog(),
-        DogId.ANALYST:  AnalystDog(),
-        DogId.JANITOR:  JanitorDog(),
+        DogId.CYNIC:      cynic_dog,
+        DogId.GUARDIAN:   GuardianDog(),
+        DogId.ANALYST:    AnalystDog(),
+        DogId.JANITOR:    JanitorDog(),
+        DogId.ARCHITECT:  ArchitectDog(),
+        DogId.ORACLE:     OracleDog(qtable=qtable),
     }
 
     axiom_arch = AxiomArchitecture()
@@ -71,9 +77,6 @@ def build_kernel(db_pool=None) -> AppState:
         axiom_arch=axiom_arch,
         cynic_dog=cynic_dog,
     )
-
-    # Learning
-    qtable = QTable()
     learning_loop = LearningLoop(qtable=qtable, pool=db_pool)
     learning_loop.start(get_core_bus())
 

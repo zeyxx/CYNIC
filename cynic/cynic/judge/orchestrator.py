@@ -140,6 +140,19 @@ class JudgeOrchestrator:
                 payload=judgment.to_dict(),
             ))
 
+            # Emit LEARNING_EVENT for ALL cycles (REFLEX/MICRO/MACRO).
+            # Was incorrectly placed inside _cycle_macro only — Q-Learning never fired.
+            await get_core_bus().emit(Event(
+                type=CoreEvent.LEARNING_EVENT,
+                payload={
+                    "judgment_id": judgment.judgment_id,
+                    "state_key": cell.state_key(),
+                    "action": judgment.verdict,
+                    "reward": judgment.q_score / MAX_Q_SCORE,
+                    "loop_name": "JUDGE_ORCHESTRATOR",
+                },
+            ))
+
             return judgment
 
         except Exception as e:
@@ -361,17 +374,7 @@ class JudgeOrchestrator:
         )
         pipeline.final_judgment = judgment
 
-        # STEP 5: LEARN — emit learning event (SONA + Q-Learning will handle async)
-        await get_core_bus().emit(Event(
-            type=CoreEvent.LEARNING_EVENT,
-            payload={
-                "judgment_id": judgment.judgment_id,
-                "state_key": cell.state_key(),
-                "action": verdict.value,
-                "reward": final_q / MAX_Q_SCORE,
-                "loop_name": "JUDGE_ORCHESTRATOR",
-            },
-        ))
+        # STEP 5: LEARN — handled in run() for all cycle levels
 
         # STEP 6: ACCOUNT — emit cost event
         pipeline.total_cost_usd = total_cost

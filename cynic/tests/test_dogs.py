@@ -1,5 +1,5 @@
 """
-Tests: Dogs (Non-LLM — GUARDIAN, ANALYST, CYNIC PBFT)
+Tests: Dogs (Non-LLM — GUARDIAN, ANALYST, CYNIC PBFT, ARCHITECT, ORACLE)
 
 Tests for the L3 REFLEX Dogs. No LLM needed, no network needed.
 These must run in <100ms each.
@@ -12,6 +12,8 @@ from cynic.dogs.base import DogId, DOG_PRIORITY, NON_LLM_DOGS
 from cynic.dogs.guardian import GuardianDog
 from cynic.dogs.analyst import AnalystDog
 from cynic.dogs.cynic_dog import CynicDog
+from cynic.dogs.architect import ArchitectDog
+from cynic.dogs.oracle import OracleDog
 
 
 class TestDogBase:
@@ -198,3 +200,232 @@ class TestCynicDog:
     async def test_health_check(self, cynic_dog):
         health = await cynic_dog.health_check()
         assert health.dog_id == DogId.CYNIC
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ARCHITECT DOG
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestArchitectDog:
+    """ARCHITECT — AST structural quality scoring."""
+
+    @pytest.fixture
+    def architect(self):
+        return ArchitectDog()
+
+    @pytest.fixture
+    def python_cell(self):
+        """A cell with real Python code for structural analysis."""
+        code = """
+import os
+import sys
+
+class SimpleClass:
+    def method_one(self):
+        return 1
+
+    def method_two(self):
+        return 2
+
+def helper():
+    pass
+"""
+        return Cell(reality="CODE", analysis="JUDGE", content=code)
+
+    @pytest.fixture
+    def over_coupled_cell(self):
+        """A cell with too many imports."""
+        code = "\n".join(f"import module_{i}" for i in range(20))
+        return Cell(reality="CODE", analysis="JUDGE", content=code)
+
+    @pytest.fixture
+    def deep_nesting_cell(self):
+        """A cell with very deep nesting."""
+        code = """
+def deeply_nested():
+    if True:
+        for i in range(10):
+            while True:
+                if i > 5:
+                    for j in range(5):
+                        if j > 2:
+                            with open("x") as f:
+                                return f.read()
+"""
+        return Cell(reality="CODE", analysis="JUDGE", content=code)
+
+    @pytest.fixture
+    def god_class_cell(self):
+        """A cell with a God Class (too many methods)."""
+        methods = "\n".join(
+            f"    def method_{i}(self): pass" for i in range(15)
+        )
+        code = f"class GodClass:\n{methods}"
+        return Cell(reality="CODE", analysis="JUDGE", content=code)
+
+    async def test_clean_code_scores_high(self, architect, python_cell):
+        judgment = await architect.analyze(python_cell)
+        assert judgment.dog_id == DogId.ARCHITECT
+        assert judgment.q_score > 30.0  # Clean code → reasonable score
+
+    async def test_over_coupled_code_penalized(self, architect, over_coupled_cell):
+        judgment = await architect.analyze(over_coupled_cell)
+        assert judgment.dog_id == DogId.ARCHITECT
+        assert judgment.q_score < MAX_Q_SCORE  # Coupling should reduce score
+        assert "coupling" in judgment.reasoning.lower() or "import" in judgment.reasoning.lower()
+
+    async def test_deep_nesting_penalized(self, architect, deep_nesting_cell):
+        judgment = await architect.analyze(deep_nesting_cell)
+        assert judgment.q_score < MAX_Q_SCORE
+        assert judgment.evidence.get("max_nesting_depth", 0) > 5
+
+    async def test_god_class_penalized(self, architect, god_class_cell):
+        judgment = await architect.analyze(god_class_cell)
+        assert judgment.q_score < MAX_Q_SCORE
+        assert any("god-class" in v for v in judgment.evidence.get("violations", []))
+
+    async def test_phi_bounds_always_respected(self, architect, python_cell):
+        judgment = await architect.analyze(python_cell)
+        assert 0 <= judgment.q_score <= MAX_Q_SCORE
+        assert 0 <= judgment.confidence <= MAX_CONFIDENCE
+
+    async def test_no_code_uses_metadata(self, architect):
+        """Non-code cell falls back to metadata scoring."""
+        cell = Cell(reality="CODE", analysis="JUDGE", content={"price": 0.042})
+        judgment = await architect.analyze(cell)
+        assert judgment.dog_id == DogId.ARCHITECT
+        assert 0 <= judgment.q_score <= MAX_Q_SCORE
+
+    async def test_syntax_error_handled(self, architect):
+        """Invalid Python returns a syntax error score, doesn't crash."""
+        cell = Cell(reality="CODE", analysis="JUDGE", content="def broken(:pass")
+        judgment = await architect.analyze(cell)
+        assert judgment.dog_id == DogId.ARCHITECT
+        assert judgment.q_score == 0.0  # syntax error → no score
+
+    async def test_non_llm_and_reflex(self, architect):
+        """ARCHITECT must be non-LLM and REFLEX capable."""
+        caps = architect.get_capabilities()
+        assert caps.uses_llm == False
+        assert caps.consciousness_min.name == "REFLEX"
+
+    async def test_health_check(self, architect):
+        health = await architect.health_check()
+        assert health.dog_id == DogId.ARCHITECT
+        assert health.status.value == "HEALTHY"
+
+    async def test_architect_in_non_llm_dogs(self):
+        assert DogId.ARCHITECT in NON_LLM_DOGS
+
+    async def test_veto_never_set(self, architect, python_cell):
+        """ARCHITECT never VETOs — structural issues are advisory."""
+        judgment = await architect.analyze(python_cell)
+        assert judgment.veto == False
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ORACLE DOG
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestOracleDog:
+    """ORACLE — Thompson Sampling prediction from Q-table."""
+
+    @pytest.fixture
+    def fresh_oracle(self):
+        """Oracle with no Q-table — cold start."""
+        return OracleDog(qtable=None)
+
+    @pytest.fixture
+    def oracle_with_qtable(self):
+        """Oracle with a real (empty) Q-table."""
+        from cynic.learning.qlearning import QTable
+        qtable = QTable()
+        return OracleDog(qtable=qtable)
+
+    @pytest.fixture
+    def oracle_with_data(self):
+        """Oracle with Q-table that has accumulated data."""
+        from cynic.learning.qlearning import QTable, LearningSignal
+        qtable = QTable()
+        # Train: WAG is good for CODE:JUDGE:PRESENT:1
+        for _ in range(25):
+            qtable.update(LearningSignal(
+                state_key="CODE:JUDGE:PRESENT:1",
+                action="WAG",
+                reward=0.8,
+            ))
+        # Train: BARK is bad
+        for _ in range(10):
+            qtable.update(LearningSignal(
+                state_key="CODE:JUDGE:PRESENT:1",
+                action="BARK",
+                reward=0.1,
+            ))
+        return OracleDog(qtable=qtable)
+
+    @pytest.fixture
+    def code_judge_cell(self):
+        return Cell(reality="CODE", analysis="JUDGE", content="x = 1", lod=1)
+
+    async def test_cold_oracle_returns_neutral(self, fresh_oracle, code_judge_cell):
+        """No Q-table → neutral GROWL-territory prediction."""
+        judgment = await fresh_oracle.analyze(code_judge_cell)
+        assert judgment.dog_id == DogId.ORACLE
+        # Neutral: 0.5 × 61.8 ≈ 30.9 → GROWL territory
+        assert 25.0 <= judgment.q_score <= 35.0
+        assert judgment.confidence <= 0.25  # Low confidence: no data
+
+    async def test_empty_qtable_returns_neutral(self, oracle_with_qtable, code_judge_cell):
+        """Empty Q-table → cold start → neutral prediction."""
+        judgment = await oracle_with_qtable.analyze(code_judge_cell)
+        assert judgment.dog_id == DogId.ORACLE
+        assert 0 <= judgment.q_score <= MAX_Q_SCORE
+
+    async def test_trained_oracle_predicts_wag(self, oracle_with_data, code_judge_cell):
+        """After WAG training, Oracle should predict WAG for CODE:JUDGE:PRESENT:1."""
+        judgment = await oracle_with_data.analyze(code_judge_cell)
+        assert judgment.dog_id == DogId.ORACLE
+        assert judgment.evidence.get("predicted_action") == "WAG"
+        # WAG Q-value ≈ 0.8 → q_score ≈ 0.8 × 61.8 ≈ 49.4 (WAG territory)
+        assert judgment.q_score > 38.2  # Above GROWL
+
+    async def test_confidence_rises_with_data(self, oracle_with_data, code_judge_cell):
+        """More data → higher confidence."""
+        judgment = await oracle_with_data.analyze(code_judge_cell)
+        assert judgment.confidence > 0.20  # More than cold start
+
+    async def test_phi_bounds_always_respected(self, oracle_with_data, code_judge_cell):
+        judgment = await oracle_with_data.analyze(code_judge_cell)
+        assert 0 <= judgment.q_score <= MAX_Q_SCORE
+        assert 0 <= judgment.confidence <= MAX_CONFIDENCE
+
+    async def test_veto_never_set(self, oracle_with_qtable, code_judge_cell):
+        """Oracle never VETOs — it predicts, not blocks."""
+        judgment = await oracle_with_qtable.analyze(code_judge_cell)
+        assert judgment.veto == False
+
+    async def test_non_llm_and_reflex(self, fresh_oracle):
+        """ORACLE must be non-LLM and REFLEX capable."""
+        caps = fresh_oracle.get_capabilities()
+        assert caps.uses_llm == False
+        assert caps.consciousness_min.name == "REFLEX"
+
+    async def test_supports_all_realities(self, fresh_oracle):
+        """Oracle works for all 7 reality dimensions."""
+        realities = ["CODE", "SOLANA", "MARKET", "SOCIAL", "HUMAN", "CYNIC", "COSMOS"]
+        caps = fresh_oracle.get_capabilities()
+        for r in realities:
+            assert r in caps.supported_realities
+
+    async def test_oracle_in_non_llm_dogs(self):
+        assert DogId.ORACLE in NON_LLM_DOGS
+
+    async def test_health_check_cold(self, fresh_oracle):
+        health = await fresh_oracle.health_check()
+        assert health.dog_id == DogId.ORACLE
+        assert health.status.value == "UNKNOWN"  # No votes yet
+
+    async def test_health_check_after_analysis(self, oracle_with_qtable, code_judge_cell):
+        await oracle_with_qtable.analyze(code_judge_cell)
+        health = await oracle_with_qtable.health_check()
+        assert health.dog_id == DogId.ORACLE

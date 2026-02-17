@@ -69,9 +69,11 @@ class TestDogSetsByLevel:
         assert "GUARDIAN" in reflex
         assert "ANALYST" in reflex
         assert "JANITOR" in reflex
+        assert "ARCHITECT" in reflex   # non-LLM AST analysis
+        assert "ORACLE" in reflex      # non-LLM Thompson Sampling
         # LLM Dogs should NOT be in reflex
         assert "SAGE" not in reflex
-        assert "ORACLE" not in reflex
+        assert "SCHOLAR" not in reflex
 
     def test_micro_dogs_superset_of_reflex(self):
         reflex = dogs_for_level(ConsciousnessLevel.REFLEX)

@@ -78,6 +78,8 @@ NON_LLM_DOGS: Set[str] = {
     DogId.CYNIC,
     DogId.GUARDIAN,
     DogId.ANALYST,
+    DogId.ARCHITECT,
+    DogId.ORACLE,
     DogId.JANITOR,
 }
 

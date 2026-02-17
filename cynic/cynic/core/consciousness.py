@@ -90,10 +90,11 @@ REFLEX_DOGS: Set[str] = {
     "GUARDIAN",    # IsolationForest anomaly detection
     "ANALYST",     # Z3 formal verification
     "JANITOR",     # Ruff AST linting
+    "ARCHITECT",   # AST structural quality (non-LLM)
+    "ORACLE",      # Q-table Thompson Sampling prediction (non-LLM)
 }
 
 MICRO_DOGS: Set[str] = REFLEX_DOGS | {
-    "ORACLE",      # MCTS + Thompson Sampling (can be lightweight)
     "SCHOLAR",     # Vector search (fast embedding lookup)
 }
 
