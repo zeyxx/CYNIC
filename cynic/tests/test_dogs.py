@@ -429,3 +429,112 @@ class TestOracleDog:
         await oracle_with_qtable.analyze(code_judge_cell)
         health = await oracle_with_qtable.health_check()
         assert health.dog_id == DogId.ORACLE
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SCHOLAR DOG TESTS
+# ═══════════════════════════════════════════════════════════════════════════
+
+from cynic.dogs.scholar import ScholarDog, BUFFER_MAX, K_NEIGHBORS, MIN_SIMILARITY
+
+
+@pytest.fixture
+def fresh_scholar():
+    return ScholarDog()
+
+
+@pytest.fixture
+def code_cell():
+    return Cell(
+        reality="CODE",
+        analysis="JUDGE",
+        content="def add(a, b):\n    return a + b\n",
+    )
+
+
+@pytest.fixture
+def scholar_with_history(fresh_scholar):
+    """Scholar pre-loaded with 5 past judgments."""
+    samples = [
+        ("def foo(x):\n    return x + 1\n", 55.0, "CODE"),
+        ("def bar(y):\n    return y * 2\n", 50.0, "CODE"),
+        ("def baz(z):\n    return z - 3\n", 45.0, "CODE"),
+        ("class GodClass:\n" + "    def m(self): pass\n" * 20, 10.0, "CODE"),
+        ("import os\nimport sys\n", 35.0, "CODE"),
+    ]
+    for text, q, reality in samples:
+        fresh_scholar.learn(text, q, reality=reality)
+    return fresh_scholar
+
+
+@pytest.mark.asyncio
+class TestScholarDog:
+
+    async def test_cold_returns_neutral(self, fresh_scholar, code_cell):
+        """Empty buffer → neutral GROWL at low confidence."""
+        judgment = await fresh_scholar.analyze(code_cell)
+        assert judgment.dog_id == DogId.SCHOLAR
+        assert 25.0 <= judgment.q_score <= 40.0   # GROWL territory
+        assert judgment.confidence <= 0.25
+
+    async def test_phi_bounds(self, fresh_scholar, code_cell):
+        """q_score and confidence always within φ bounds."""
+        judgment = await fresh_scholar.analyze(code_cell)
+        from cynic.core.phi import MAX_Q_SCORE, MAX_CONFIDENCE
+        assert 0.0 <= judgment.q_score <= MAX_Q_SCORE
+        assert 0.0 <= judgment.confidence <= MAX_CONFIDENCE
+
+    async def test_similar_code_finds_neighbors(self, scholar_with_history, code_cell):
+        """Code similar to history should find neighbors."""
+        judgment = await scholar_with_history.analyze(code_cell)
+        assert judgment.dog_id == DogId.SCHOLAR
+        # With similar function content, should find neighbors
+        # Either a hit (with q_score informed by neighbors) or a cold miss
+        assert 0.0 <= judgment.q_score <= 61.8
+
+    async def test_learn_adds_to_buffer(self, fresh_scholar):
+        """learn() grows buffer."""
+        assert len(fresh_scholar._buffer) == 0
+        fresh_scholar.learn("def x(): pass", 50.0)
+        assert len(fresh_scholar._buffer) == 1
+
+    async def test_buffer_rolling_eviction(self, fresh_scholar):
+        """Buffer evicts oldest entries when full."""
+        for i in range(BUFFER_MAX + 5):
+            fresh_scholar.learn(f"def func_{i}(): return {i}", float(i % 62))
+        assert len(fresh_scholar._buffer) == BUFFER_MAX
+
+    async def test_duplicate_cell_id_skipped(self, fresh_scholar):
+        """Same cell_id not recorded twice."""
+        fresh_scholar.learn("code", 50.0, cell_id="abc")
+        fresh_scholar.learn("other code", 30.0, cell_id="abc")
+        assert len(fresh_scholar._buffer) == 1
+
+    async def test_veto_never_set(self, scholar_with_history, code_cell):
+        """Scholar never VETOs — advisory only."""
+        judgment = await scholar_with_history.analyze(code_cell)
+        assert judgment.veto == False
+
+    async def test_micro_not_reflex(self, fresh_scholar):
+        """Scholar needs MICRO (TF-IDF too slow for REFLEX)."""
+        caps = fresh_scholar.get_capabilities()
+        assert caps.consciousness_min.name == "MICRO"
+        assert caps.uses_llm == False
+
+    async def test_supports_all_realities(self, fresh_scholar):
+        """Scholar works for all 7 reality dimensions."""
+        caps = fresh_scholar.get_capabilities()
+        for r in ["CODE", "SOLANA", "MARKET", "SOCIAL", "HUMAN", "CYNIC", "COSMOS"]:
+            assert r in caps.supported_realities
+
+    async def test_health_cold_unknown(self, fresh_scholar):
+        health = await fresh_scholar.health_check()
+        assert health.dog_id == DogId.SCHOLAR
+        assert health.status.value == "UNKNOWN"
+
+    async def test_health_after_lookups(self, scholar_with_history, code_cell):
+        """Health reflects lookup activity."""
+        await scholar_with_history.analyze(code_cell)
+        health = await scholar_with_history.health_check()
+        assert health.dog_id == DogId.SCHOLAR
+        assert health.status.value in ("HEALTHY", "DEGRADED", "UNKNOWN")

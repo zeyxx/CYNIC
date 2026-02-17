@@ -21,6 +21,7 @@ from cynic.dogs.analyst import AnalystDog
 from cynic.dogs.janitor import JanitorDog
 from cynic.dogs.architect import ArchitectDog
 from cynic.dogs.oracle import OracleDog
+from cynic.dogs.scholar import ScholarDog
 from cynic.judge.orchestrator import JudgeOrchestrator
 from cynic.learning.qlearning import QTable, LearningLoop
 
@@ -69,6 +70,7 @@ def build_kernel(db_pool=None) -> AppState:
         DogId.JANITOR:    JanitorDog(),
         DogId.ARCHITECT:  ArchitectDog(),
         DogId.ORACLE:     OracleDog(qtable=qtable),
+        DogId.SCHOLAR:    ScholarDog(),
     }
 
     axiom_arch = AxiomArchitecture()
