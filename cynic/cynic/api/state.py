@@ -25,6 +25,7 @@ from cynic.dogs.sage import SageDog
 from cynic.dogs.scholar import ScholarDog
 from cynic.dogs.cartographer import CartographerDog
 from cynic.dogs.deployer import DeployerDog
+from cynic.dogs.scout import ScoutDog
 from cynic.judge.orchestrator import JudgeOrchestrator
 from cynic.judge.residual import ResidualDetector
 from cynic.learning.qlearning import QTable, LearningLoop
@@ -81,6 +82,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         DogId.SCHOLAR:      ScholarDog(),
         DogId.CARTOGRAPHER: CartographerDog(),
         DogId.DEPLOYER:     DeployerDog(),
+        DogId.SCOUT:        ScoutDog(),
     }
 
     # ── Inject LLMRegistry into all LLM-capable dogs ──────────────────────
