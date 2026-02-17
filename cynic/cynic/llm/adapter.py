@@ -388,6 +388,27 @@ class BenchmarkResult:
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# ROUTING CONSTANTS (empirical — benchmarked 2026-02-17)
+# ════════════════════════════════════════════════════════════════════════════
+
+# Models that only do embeddings — never used for text generation
+EMBEDDING_ONLY_MODELS: set = {"nomic-embed-text", "nomic-embed-text:latest"}
+
+# task_type → preferred Ollama model (empirical benchmark results)
+# gemma2:2b: 7-parallel MCTS in 35s, diff=+40.3, 0 failures → FAST judgment
+# mistral:7b: single deep call only (88s/call → timeouts in parallel 7-call MCTS)
+PREFERRED_MODELS: Dict[str, str] = {
+    "temporal_mcts": "gemma2:2b",               # 7-parallel MCTS — must be fast
+    "wisdom":        "gemma2:2b",               # SageDog temporal path
+    "vector_rag":    "gemma2:2b",               # ScholarDog generation (not embeddings)
+    "topology":      "gemma2:2b",               # CartographerDog
+    "deployment":    "gemma2:2b",               # DeployerDog
+    "deep_analysis": "mistral:7b-instruct-q4_0", # Single-call deep review
+    "default":       "gemma2:2b",               # Safe fallback
+}
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # LLM REGISTRY (Dynamic discovery + routing)
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -457,11 +478,29 @@ class LLMRegistry:
     def get_available(self) -> List[LLMAdapter]:
         return [a for aid, a in self._adapters.items() if self._available.get(aid, False)]
 
+    def _is_generation_adapter(self, adapter: LLMAdapter) -> bool:
+        """Return True if adapter can generate text (excludes embedding-only models).
+        Non-string model attributes (e.g. MagicMock in tests) are assumed capable."""
+        model = getattr(adapter, "model", None)
+        if not isinstance(model, str):
+            return True  # Unknown/mock model — assume generation capable
+        return not any(model.startswith(e) for e in EMBEDDING_ONLY_MODELS)
+
+    def get_available_for_generation(self) -> List[LLMAdapter]:
+        """Available adapters that support text generation (not embeddings-only)."""
+        return [a for a in self.get_available() if self._is_generation_adapter(a)]
+
     def get_best_for(self, dog_id: str, task_type: str) -> Optional[LLMAdapter]:
         """
-        Return best LLM for this Dog × Task based on benchmark history.
+        Return best LLM for this Dog × Task.
 
-        Falls back to any available if no data yet.
+        Priority:
+          1. Benchmark history (composite_score — learned from real judgments)
+          2. PREFERRED_MODELS[task_type] (empirical defaults)
+          3. PREFERRED_MODELS["default"] (gemma2:2b)
+          4. Any available generation adapter
+
+        Embedding-only models (nomic-embed-text) are never returned here.
         """
         best_score = -1.0
         best: Optional[LLMAdapter] = None
@@ -469,16 +508,36 @@ class LLMRegistry:
         for aid, adapter in self._adapters.items():
             if not self._available.get(aid, False):
                 continue
+            if not self._is_generation_adapter(adapter):
+                continue
             key = (dog_id, task_type, aid)
             bench = self._benchmarks.get(key)
             if bench and bench.composite_score > best_score:
                 best_score = bench.composite_score
                 best = adapter
 
-        if best is None:
-            avail = self.get_available()
-            return avail[0] if avail else None
-        return best
+        if best is not None:
+            return best
+
+        # No benchmark data — use empirical preferred model for this task type
+        preferred_name = PREFERRED_MODELS.get(task_type, PREFERRED_MODELS["default"])
+        for adapter in self._adapters.values():
+            model = getattr(adapter, "model", None)
+            if self._available.get(adapter.adapter_id, False) and model == preferred_name:
+                return adapter
+
+        # Preferred not installed — any available generation adapter
+        avail = self.get_available_for_generation()
+        return avail[0] if avail else None
+
+    def get_for_temporal_mcts(self) -> Optional[LLMAdapter]:
+        """
+        Return best adapter for 7-parallel temporal MCTS calls.
+
+        Must be fast (<10s/call): gemma2:2b validated at ~5s/call.
+        mistral:7b excluded — 88s/call causes timeouts in asyncio.gather(7).
+        """
+        return self.get_best_for("__temporal_mcts__", "temporal_mcts")
 
     def update_benchmark(
         self, dog_id: str, task_type: str, llm_id: str, result: BenchmarkResult
