@@ -221,7 +221,7 @@ export async function readHookInput() {
       process.stdin.on('end', () => resolve(buf));
       process.stdin.on('error', () => resolve(''));
       process.stdin.resume();
-      setTimeout(() => resolve(buf), 2000);
+      setTimeout(() => resolve(buf), 300);  // 300ms max — hook has 15s total
     });
     if (data && data.trim()) return JSON.parse(data);
   } catch { /* ignore */ }
