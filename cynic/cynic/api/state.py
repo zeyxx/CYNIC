@@ -23,6 +23,7 @@ from cynic.dogs.architect import ArchitectDog
 from cynic.dogs.oracle import OracleDog
 from cynic.dogs.sage import SageDog
 from cynic.dogs.scholar import ScholarDog
+from cynic.dogs.cartographer import CartographerDog
 from cynic.judge.orchestrator import JudgeOrchestrator
 from cynic.judge.residual import ResidualDetector
 from cynic.learning.qlearning import QTable, LearningLoop
@@ -75,6 +76,7 @@ def build_kernel(db_pool=None) -> AppState:
         DogId.ARCHITECT:  ArchitectDog(),
         DogId.ORACLE:     OracleDog(qtable=qtable),
         DogId.SCHOLAR:    ScholarDog(),
+        DogId.CARTOGRAPHER: CartographerDog(),
     }
 
     axiom_arch = AxiomArchitecture()
