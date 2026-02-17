@@ -81,17 +81,17 @@ TOTAL_TEMPORAL_WEIGHT = sum(TEMPORAL_WEIGHTS.values())  # ≈ 8.854
 # ════════════════════════════════════════════════════════════════════════════
 
 TEMPORAL_SYSTEM = """\
-You are a CYNIC judgment engine. Your task: rate content on a scale 0 to 61.8.
-0 = worst/most concerning, 61.8 = best/ideal.
-Respond with ONLY: SCORE: N.N
-No explanation. No other text. Just SCORE: followed by a number.\
+You are a CYNIC judgment engine. Rate content on a scale 0 to 100.
+0 = worst/most concerning, 100 = best/ideal.
+Respond with ONLY: SCORE: N
+No explanation. No other text. Just SCORE: followed by a whole number.\
 """
 
 TEMPORAL_PROMPTS: Dict[str, str] = {
     TemporalPerspective.PAST: """\
 TEMPORAL PERSPECTIVE: PAST
 Looking at established patterns and historical precedents, rate this content.
-High score = aligns with proven patterns. Low score = ignores history, repeats mistakes.
+High score (near 100) = aligns with proven patterns. Low score (near 0) = ignores history, repeats mistakes.
 
 Content to rate:
 {content}
@@ -261,21 +261,29 @@ class TemporalJudgment:
 
 def _parse_score(text: str) -> Optional[float]:
     """
-    Parse LLM response for a numeric score.
+    Parse LLM response for a numeric score in 0-100 range.
 
-    Expected: "SCORE: N.N" but models sometimes format differently.
-    Robust extraction via regex.
+    LLMs universally understand 0-100 scales. We ask for 0-100
+    and convert to CYNIC's 0-61.8 φ-range internally.
+
+    Expected format: "SCORE: N" (whole number preferred).
+    Rejects exact 100 as likely prompt echo without context.
     """
     if not text:
         return None
-    # Primary: "SCORE: N.N" or "SCORE: NN"
+    text = text.strip()
+    # Primary: "SCORE: N" or "SCORE: N.N" — trusted format
     m = re.search(r"SCORE:\s*(\d+(?:\.\d+)?)", text, re.IGNORECASE)
     if m:
-        return min(float(m.group(1)), MAX_Q_SCORE)
-    # Fallback: bare number
-    m = re.search(r"(\d+(?:\.\d+))", text)
+        val_100 = min(float(m.group(1)), 100.0)
+        return (val_100 / 100.0) * MAX_Q_SCORE  # Convert 0-100 → 0-61.8
+    # Fallback: bare number — reject 100 (likely echo of scale max)
+    m = re.search(r"\b(\d+(?:\.\d+)?)\b", text)
     if m:
-        return min(float(m.group(1)), MAX_Q_SCORE)
+        val = float(m.group(1))
+        if val > 100.0 or val == 100.0:
+            return None  # Reject: out of range or echo
+        return (val / 100.0) * MAX_Q_SCORE
     return None
 
 
@@ -297,7 +305,7 @@ async def _judge_perspective(
         req = LLMRequest(
             prompt=prompt,
             system=TEMPORAL_SYSTEM,
-            max_tokens=16,       # We only need "SCORE: N.N"
+            max_tokens=32,       # "SCORE: N.N" + buffer for slow models
             temperature=0.0,     # Deterministic scoring
         )
         resp = await adapter.complete_safe(req)

@@ -60,23 +60,37 @@ def _mock_adapter_counting(base_score: float = 40.0) -> tuple[MagicMock, list]:
 # ════════════════════════════════════════════════════════════════════════════
 
 class TestParseScore:
+    """
+    LLM is asked for 0-100 scale. _parse_score converts to [0, MAX_Q_SCORE].
+    Conversion: val_100 / 100 * MAX_Q_SCORE (61.8)
+    """
+
     def test_standard_format(self):
-        assert _parse_score("SCORE: 45.2") == 45.2
+        # LLM says "SCORE: 45" → 45/100 * 61.8 = 27.81
+        result = _parse_score("SCORE: 45")
+        assert result is not None
+        assert abs(result - 45 / 100 * MAX_Q_SCORE) < 0.01
 
     def test_case_insensitive(self):
-        assert _parse_score("score: 31.5") == 31.5
+        result = _parse_score("score: 50")
+        assert result is not None
+        assert abs(result - 50 / 100 * MAX_Q_SCORE) < 0.01
 
     def test_integer_score(self):
-        assert _parse_score("SCORE: 50") == 50.0
+        result = _parse_score("SCORE: 50")
+        assert result is not None
+        assert abs(result - MAX_Q_SCORE / 2) < 0.01  # 50% → half of max
 
     def test_score_in_sentence(self):
-        result = _parse_score("Based on analysis: SCORE: 38.0 (above average)")
-        assert result == 38.0
+        result = _parse_score("Based on analysis: SCORE: 80 (above average)")
+        assert result is not None
+        assert abs(result - 80 / 100 * MAX_Q_SCORE) < 0.01
 
     def test_bare_number_fallback(self):
-        # No "SCORE:" prefix — fallback to bare number extraction
-        result = _parse_score("42.5")
-        assert result == 42.5
+        # Bare number treated as 0-100 scale
+        result = _parse_score("75")
+        assert result is not None
+        assert abs(result - 75 / 100 * MAX_Q_SCORE) < 0.01
 
     def test_no_score(self):
         assert _parse_score("This is good code") is None
@@ -85,9 +99,14 @@ class TestParseScore:
         assert _parse_score("") is None
 
     def test_caps_at_max_q_score(self):
-        # Score above MAX_Q_SCORE should be clamped
+        # LLM says 100 → MAX_Q_SCORE (61.8)
         result = _parse_score("SCORE: 100")
         assert result == MAX_Q_SCORE
+
+    def test_rejects_exact_100_bare(self):
+        # Bare "100" likely a prompt echo — rejected
+        result = _parse_score("100")
+        assert result is None
 
 
 # ════════════════════════════════════════════════════════════════════════════
