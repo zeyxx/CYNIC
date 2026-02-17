@@ -34,10 +34,22 @@ try {
 
   const result = await callDaemon('UserPromptSubmit', input, { timeout: 8000 });
 
+  // Build proper UserPromptSubmit hook output per Claude Code spec:
+  // https://docs.anthropic.com/en/docs/claude-code/hooks
+  // additionalContext MUST be inside hookSpecificOutput — NOT at top level.
+  const hookOutput = {};
+
+  // Danger warning from daemon (shown as system message to user)
+  if (result.message) {
+    hookOutput.systemMessage = result.message;
+  }
+
   // Inject kernel guidance from last judgment — this is the feedback loop closing.
   // guidance.json was written by the Python kernel after judging the PREVIOUS interaction.
   // CYNIC sees its own past judgment as context for the current response.
   const guidance = readKernelGuidance();
+  let additionalContext = '';
+
   if (guidance) {
     const verdictSymbol = { HOWL: '🟢', WAG: '🟡', GROWL: '🟠', BARK: '🔴' }[guidance.verdict] || '⚪';
     const bar = (score) => {
@@ -47,23 +59,25 @@ try {
     const dogs = Object.entries(guidance.dog_votes || {})
       .map(([dog, score]) => `${dog} ${bar(score)}`)
       .join(' · ');
-    const kernelMsg = [
+    additionalContext = [
       `*sniff* 🧠 Kernel (${guidance.state_key}): ${verdictSymbol} ${guidance.verdict} Q=${guidance.q_score.toFixed(1)} conf=${Math.round(guidance.confidence * 100)}%`,
       dogs ? `  ${dogs}` : '',
     ].filter(Boolean).join('\n');
-
-    // additionalContext must be at the TOP LEVEL of hook output — Claude Code reads it there.
-    // NOT inside hookSpecificOutput (that's a daemon-internal field, not a Claude Code field).
-    const prev = result.additionalContext || '';
-    result.additionalContext = prev ? `${prev}\n\n${kernelMsg}` : kernelMsg;
   }
 
-  safeOutput(result);
+  if (additionalContext) {
+    hookOutput.hookSpecificOutput = {
+      hookEventName: 'UserPromptSubmit',
+      additionalContext,
+    };
+  }
+
+  safeOutput(hookOutput);
 } catch (err) {
   // Log error to file for diagnosis, then degrade gracefully
   try {
     fs.appendFileSync(_ERR_LOG, `[${new Date().toISOString()}] ${err.stack || err.message}\n`);
   } catch { /* ignore */ }
   // Always output valid JSON so Claude Code doesn't show a hook error
-  process.stdout.write(JSON.stringify({ continue: true }) + '\n');
+  process.stdout.write(JSON.stringify({}) + '\n');
 }

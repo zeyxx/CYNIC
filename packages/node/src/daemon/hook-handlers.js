@@ -202,7 +202,7 @@ export async function handleHookEvent(event, hookInput) {
     return result;
   } catch (err) {
     log.error(`Hook ${event} failed`, { error: err.message });
-    return { continue: true, error: err.message };
+    return {};
   }
 }
 
@@ -262,15 +262,16 @@ async function handlePerceive(hookInput) {
     });
   } catch { /* non-blocking */ }
 
-  // 6. Build system-reminder message
+  // 6. Return danger warning via proper Claude Code UserPromptSubmit format.
+  // Per Claude Code hook spec: additionalContext goes in hookSpecificOutput,
+  // systemMessage shown as warning banner to user.
   if (sections.length > 0) {
     return {
-      continue: true,
-      message: sections.join('\n\n'),
+      systemMessage: sections.join('\n\n'),
     };
   }
 
-  return { continue: true };
+  return {};
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
