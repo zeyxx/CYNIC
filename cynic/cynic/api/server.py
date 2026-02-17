@@ -64,6 +64,23 @@ async def lifespan(app: FastAPI):
     """Build the kernel once on startup, tear down on shutdown."""
     logger.info("*sniff* CYNIC kernel booting...")
 
+    # ── LLM Registry: discover all available LLMs ─────────────────────────
+    # Ollama (primary — free, local, parallel)
+    # Claude (API — for MACRO cycle reasoning)
+    # Gemini (API — free tier alternative)
+    from cynic.llm.adapter import get_registry
+    registry = get_registry()
+    discovered = await registry.discover(
+        ollama_url=os.getenv("OLLAMA_URL", "http://localhost:11434"),
+        claude_api_key=os.getenv("ANTHROPIC_API_KEY"),
+        gemini_api_key=os.getenv("GOOGLE_API_KEY"),
+    )
+    if discovered:
+        logger.info("*ears perk* LLMs discovered: %s", discovered)
+    else:
+        logger.info("No LLMs available — heuristic mode only (Ollama not running?)")
+
+    # ── Database pool ──────────────────────────────────────────────────────
     db_pool = None
     db_url = os.getenv("DATABASE_URL")
     if db_url:
@@ -72,19 +89,23 @@ async def lifespan(app: FastAPI):
             db_pool = await asyncpg.create_pool(dsn=db_url, min_size=2, max_size=10)
 
             # Warm-start Q-Table from DB
-            state = build_kernel(db_pool=db_pool)
+            state = build_kernel(db_pool=db_pool, registry=registry)
             loaded = await state.qtable.load_from_db(db_pool)
             logger.info("Q-Table warm-start: %d entries loaded", loaded)
         except Exception as exc:
             logger.warning("DB unavailable (%s) — running without persistence", exc)
             db_pool = None
-            state = build_kernel(db_pool=None)
+            state = build_kernel(db_pool=None, registry=registry)
     else:
         logger.info("No DATABASE_URL — running without persistence")
-        state = build_kernel(db_pool=None)
+        state = build_kernel(db_pool=None, registry=registry)
 
     set_state(state)
-    logger.info("*tail wag* CYNIC kernel alive — %d dogs, learning active", len(state.dogs))
+    llm_count = len(registry.get_available())
+    logger.info(
+        "*tail wag* CYNIC kernel alive — %d dogs, %d LLMs, learning active",
+        len(state.dogs), llm_count,
+    )
 
     yield
 
@@ -517,7 +538,7 @@ async def health() -> HealthResponse:
             "total_updates": learn_stats["total_updates"],
             "pending_flush": learn_stats["pending_flush"],
         },
-        llm_adapters=[],   # populated when LLMRegistry is wired
+        llm_adapters=[a.adapter_id for a in __import__("cynic.llm.adapter", fromlist=["get_registry"]).get_registry().get_available()],
         judgments_total=judge_stats["judgments_total"],
         phi=PHI,
     )

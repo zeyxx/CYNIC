@@ -48,7 +48,7 @@ from cynic.core.phi import PHI_INV, PHI_INV_2, MAX_Q_SCORE, MAX_CONFIDENCE, phi_
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
 from cynic.dogs.base import (
-    AbstractDog, DogCapabilities, DogHealth, DogJudgment,
+    AbstractDog, LLMDog, DogCapabilities, DogHealth, DogJudgment,
     DogId, HealthStatus,
 )
 
@@ -80,14 +80,14 @@ class BufferEntry:
     timestamp: float = field(default_factory=time.time)
 
 
-class ScholarDog(AbstractDog):
+class ScholarDog(LLMDog):
     """
     Scholar (Chesed) — TF-IDF similarity search over past judgment history.
 
-    Analyzes new cells by asking: "Have I seen something like this before?
-    What was the verdict?" Returns a prediction based on K nearest neighbors.
+    Heuristic path: TF-IDF cosine similarity (K nearest neighbors).
+    Temporal MCTS path (when LLM available): 7-perspective temporal judgment.
 
-    Three modes:
+    Three modes (heuristic):
       1. Cold (empty buffer): neutral GROWL at low confidence
       2. Warm (1-20 entries): similarity lookup, moderate confidence
       3. Rich (21+ entries, F(8)): reliable predictions, rising confidence
@@ -97,7 +97,7 @@ class ScholarDog(AbstractDog):
     """
 
     def __init__(self) -> None:
-        super().__init__(DogId.SCHOLAR)
+        super().__init__(DogId.SCHOLAR, task_type="vector_rag")
         self._buffer: List[BufferEntry] = []
         self._vectorizer: Optional[TfidfVectorizer] = None
         self._matrix: Optional[np.ndarray] = None
@@ -111,7 +111,7 @@ class ScholarDog(AbstractDog):
             dog_id=DogId.SCHOLAR,
             sefirot="Chesed — Loving-Kindness",
             consciousness_min=ConsciousnessLevel.MICRO,  # TF-IDF too slow for REFLEX
-            uses_llm=False,
+            uses_llm=True,
             supported_realities={"CODE", "SOLANA", "MARKET", "SOCIAL", "HUMAN", "CYNIC", "COSMOS"},
             supported_analyses={"PERCEIVE", "JUDGE", "DECIDE", "ACT", "LEARN", "ACCOUNT", "EMERGE"},
             technology="TF-IDF cosine similarity (sklearn, in-memory buffer)",
@@ -120,15 +120,58 @@ class ScholarDog(AbstractDog):
 
     async def analyze(self, cell: Cell, **kwargs: Any) -> DogJudgment:
         """
-        Find similar past cells, return weighted-average q_score.
-
-        If buffer is cold or no similar cells found → neutral GROWL.
+        Route to temporal MCTS path (LLM available) or TF-IDF heuristic path.
         """
         start = time.perf_counter()
         self._lookups += 1
-
         cell_text = self._extract_text(cell)
+        adapter = await self.get_llm()
+        if adapter is not None:
+            return await self._temporal_path(cell, cell_text, adapter, start)
+        return await self._heuristic_path(cell, cell_text, start)
 
+    async def _temporal_path(
+        self,
+        cell: Cell,
+        cell_text: str,
+        adapter: Any,
+        start: float,
+    ) -> DogJudgment:
+        """7-perspective temporal MCTS judgment via Ollama."""
+        from cynic.llm.temporal import temporal_judgment
+
+        buffer_ctx = (
+            f"[Scholar memory: {len(self._buffer)} past judgments | "
+            f"Hit ratio: {self._hits / max(self._lookups, 1):.0%}]"
+        )
+        content = f"{cell_text[:1800]}\n\n{buffer_ctx}"
+        tj = await temporal_judgment(adapter, content)
+
+        latency = (time.perf_counter() - start) * 1000
+        judgment = DogJudgment(
+            dog_id=self.dog_id,
+            cell_id=cell.cell_id,
+            q_score=tj.phi_aggregate,
+            confidence=tj.confidence,
+            reasoning=(
+                f"*sniff* Scholar temporal MCTS: Q={tj.phi_aggregate:.1f} "
+                f"from 7 perspectives (buf={len(self._buffer)})"
+            ),
+            evidence=tj.to_dict(),
+            latency_ms=latency,
+            llm_id=tj.llm_id,
+            veto=False,
+        )
+        self.record_judgment(judgment)
+        return judgment
+
+    async def _heuristic_path(
+        self,
+        cell: Cell,
+        cell_text: str,
+        start: float,
+    ) -> DogJudgment:
+        """TF-IDF K-nearest-neighbors over in-session buffer."""
         if len(self._buffer) == 0:
             self._cold_lookups += 1
             return self._neutral_judgment(cell, start, reason="cold-buffer")

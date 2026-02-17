@@ -7,8 +7,8 @@ Chokmah = Wisdom — the flash of primordial insight, the first emanation.
 Responsibilities:
   - Evaluate code/content against CYNIC's 5 axioms (PHI, VERIFY, CULTURE, BURN, FIDELITY)
   - Detect "wisdom markers" — clarity, proportionality, axiomatic alignment
-  - Phase 1: Heuristic scoring (no LLM dependency)
-  - Phase 2: LLM-based semantic reasoning + RDFLib knowledge graph
+  - Phase 1: Heuristic scoring (no LLM dependency) — fast, always available
+  - Phase 2: Temporal MCTS via Ollama (7 parallel perspectives) — MACRO cycle only
 
 Why Sage?
   Chokmah = the spark before form. SAGE detects whether something was built
@@ -17,9 +17,10 @@ Why Sage?
 
 φ-integration:
   Priority: φ² = 2.618 (second after CYNIC)
-  Max confidence: PHI_INV = 0.618 (never certain)
-  consciousness_min: REFLEX (heuristic path runs fast, no I/O)
-  LLM path: MACRO only (LLM call is expensive)
+  Max confidence (heuristic): PHI_INV_2 = 0.382 — honest about uncertainty
+  Max confidence (temporal):  PHI_INV   = 0.618 — 7 perspectives, more certain
+  consciousness_min: REFLEX (heuristic), MACRO (temporal)
+  LLM path: Temporal MCTS — 7 parallel Ollama calls, asyncio.gather()
 
 Scoring (heuristic):
   Five axiom dimensions → weighted geometric mean → Q-score [0, 61.8]
@@ -29,6 +30,10 @@ Scoring (heuristic):
   CULTURE (20%): Code patterns, naming, style — carries culture?
   BURN (20%):    Simple over complex? "Don't extract, burn."
   FIDELITY (20%): Honest purpose? Does it do what it says?
+
+Scoring (temporal MCTS):
+  7 perspectives → φ-weighted geometric mean → Q-score [0, 61.8]
+  Confidence from perspective agreement (high agreement = high confidence)
 
 VETO: impossible — SAGE advises with wisdom, never blocks.
 """
@@ -47,7 +52,7 @@ from cynic.core.phi import (
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
 from cynic.dogs.base import (
-    AbstractDog, DogCapabilities, DogHealth, DogJudgment,
+    LLMDog, DogCapabilities, DogHealth, DogJudgment,
     DogId, HealthStatus,
 )
 
@@ -89,12 +94,14 @@ AXIOM_BASELINE: float = 0.50  # Neutral — CYNIC doubts itself
 HEURISTIC_CONFIDENCE: float = 0.28  # Below PHI_INV_2 — honest about uncertainty
 
 
-class SageDog(AbstractDog):
+class SageDog(LLMDog):
     """
     Sage (Chokmah) — Wisdom evaluator.
 
     Phase 1: Heuristic scoring of the 5 CYNIC axioms via static analysis.
-    Phase 2: LLM-based semantic reasoning (requires LLM registration).
+    Phase 2: Temporal MCTS — 7 parallel Ollama calls via asyncio.gather().
+             7 temporal perspectives (PAST/PRESENT/FUTURE/IDEAL/NEVER/CYCLES/FLOW)
+             → φ-weighted geometric mean → Q-score [0, 61.8]
 
     SAGE provides philosophical grounding to the judgment pipeline —
     "This code was written by someone who understood the problem" vs
@@ -102,28 +109,23 @@ class SageDog(AbstractDog):
     """
 
     def __init__(self) -> None:
-        super().__init__(DogId.SAGE)
+        super().__init__(DogId.SAGE, task_type="wisdom")
         self._heuristic_count: int = 0
         self._llm_count: int = 0
-        self._llm_registry: Optional[Any] = None  # LLMRegistry (optional, injected)
-
-    def set_llm_registry(self, registry: Any) -> None:
-        """Inject LLMRegistry for Phase 2 LLM path."""
-        self._llm_registry = registry
 
     def get_capabilities(self) -> DogCapabilities:
         return DogCapabilities(
             dog_id=DogId.SAGE,
             sefirot="Chokmah — Wisdom",
-            consciousness_min=ConsciousnessLevel.MACRO,  # Runs in MACRO (full cycle)
-            uses_llm=False,  # Phase 1: no LLM dependency
+            consciousness_min=ConsciousnessLevel.MACRO,
+            uses_llm=True,   # Phase 2: Temporal MCTS via Ollama
             supported_realities={
                 "CODE", "SOLANA", "MARKET", "SOCIAL", "HUMAN", "CYNIC", "COSMOS",
             },
             supported_analyses={
                 "PERCEIVE", "JUDGE", "DECIDE", "ACT", "LEARN", "ACCOUNT", "EMERGE",
             },
-            technology="5-axiom heuristic scoring (Phase 1); LLM reasoning (Phase 2)",
+            technology="5-axiom heuristic (Phase 1); Temporal MCTS 7×Ollama (Phase 2)",
             max_concurrent=4,
         )
 
@@ -131,23 +133,81 @@ class SageDog(AbstractDog):
         """
         Evaluate a Cell through the lens of CYNIC's 5 axioms.
 
-        Returns a DogJudgment reflecting the cell's "wisdom quotient" —
-        does it demonstrate bounded scope, verifiability, cultural fit,
-        simplicity, and honest purpose?
+        Phase 1 (heuristic): Fast, always available. Confidence ≤ 0.382.
+        Phase 2 (temporal):  7 parallel Ollama calls via asyncio.gather().
+                             Confidence up to 0.618 (φ-bounded).
+
+        Temporal MCTS auto-selects when LLMRegistry has been injected
+        and an LLM adapter is available.
         """
         start = time.perf_counter()
-
-        # Extract analyzable text from cell
         text = self._extract_text(cell)
-        reality = cell.reality
 
-        # Compute axiom scores
-        axiom_scores = self._score_axioms(text, reality, cell)
+        # Phase 2: Temporal MCTS (if LLM available)
+        adapter = await self.get_llm()
+        if adapter is not None:
+            return await self._temporal_path(cell, text, adapter, start)
 
-        # Weighted geometric mean → final Q-score [0, MAX_Q_SCORE]
+        # Phase 1: Heuristic fallback
+        return self._heuristic_path(cell, text, start)
+
+    async def _temporal_path(
+        self,
+        cell: Cell,
+        text: str,
+        adapter: Any,
+        start: float,
+    ) -> DogJudgment:
+        """
+        Phase 2: 7 parallel temporal perspectives via Ollama.
+
+        This is Chokmah's true power — judging from ALL temporal dimensions
+        simultaneously, then aggregating with φ-weights.
+        """
+        from cynic.llm.temporal import temporal_judgment
+
+        tj = await temporal_judgment(adapter, text or cell.context or "")
+
+        q_score = tj.phi_aggregate
+        confidence = tj.confidence
+        latency = (time.perf_counter() - start) * 1000
+
+        # Best/worst perspectives for reasoning
+        scores = tj.scores
+        best = max(scores.items(), key=lambda kv: kv[1])
+        worst = min(scores.items(), key=lambda kv: kv[1])
+        reasoning = (
+            f"*sniff* Chokmah (temporal): Q={q_score:.1f} via 7 perspectives. "
+            f"Strongest: {best[0]} ({best[1]:.1f}). "
+            f"Weakest: {worst[0]} ({worst[1]:.1f}). "
+            f"LLM: {tj.llm_id}."
+        )
+
+        self._llm_count += 1
+        judgment = DogJudgment(
+            dog_id=self.dog_id,
+            cell_id=cell.cell_id,
+            q_score=phi_bound_score(q_score),
+            confidence=confidence,
+            reasoning=reasoning,
+            evidence=tj.to_dict(),
+            latency_ms=latency,
+            llm_id=tj.llm_id,
+            veto=False,
+        )
+        self.record_judgment(judgment)
+        return judgment
+
+    def _heuristic_path(
+        self,
+        cell: Cell,
+        text: str,
+        start: float,
+    ) -> DogJudgment:
+        """Phase 1: 5-axiom heuristic (no LLM). Always available."""
+        axiom_scores = self._score_axioms(text, cell.reality, cell)
         q_score, confidence, evidence = self._aggregate(axiom_scores, text)
 
-        # Build reasoning narrative
         worst_axiom = min(axiom_scores.items(), key=lambda kv: kv[1])
         best_axiom = max(axiom_scores.items(), key=lambda kv: kv[1])
         reasoning = (
@@ -167,7 +227,7 @@ class SageDog(AbstractDog):
             reasoning=reasoning,
             evidence=evidence,
             latency_ms=latency,
-            veto=False,  # SAGE advises, never blocks
+            veto=False,
         )
         self.record_judgment(judgment)
         return judgment
@@ -459,6 +519,8 @@ class SageDog(AbstractDog):
 
     async def health_check(self) -> DogHealth:
         total = self._judgment_count
+        adapter = await self.get_llm()
+        path = "temporal_mcts" if adapter is not None else "heuristic"
         status = (
             HealthStatus.HEALTHY if total > 0 or self._active
             else HealthStatus.UNKNOWN
@@ -468,8 +530,8 @@ class SageDog(AbstractDog):
             status=status,
             latency_p50_ms=self.avg_latency_ms,
             details=(
-                f"Heuristic judgments: {self._heuristic_count}, "
-                f"LLM judgments: {self._llm_count}, "
-                f"path=heuristic (Phase 1)"
+                f"Heuristic: {self._heuristic_count}, "
+                f"Temporal: {self._llm_count}, "
+                f"path={path}"
             ),
         )

@@ -442,10 +442,10 @@ class TestCartographerCapabilities:
         caps = dog.get_capabilities()
         assert caps.consciousness_min == ConsciousnessLevel.MACRO
 
-    def test_capabilities_no_llm(self):
+    def test_capabilities_uses_llm(self):
         dog = CartographerDog()
         caps = dog.get_capabilities()
-        assert caps.uses_llm is False
+        assert caps.uses_llm is True
 
     def test_capabilities_supports_code_reality(self):
         dog = CartographerDog()

@@ -516,10 +516,10 @@ class TestScholarDog:
         assert judgment.veto == False
 
     async def test_micro_not_reflex(self, fresh_scholar):
-        """Scholar needs MICRO (TF-IDF too slow for REFLEX)."""
+        """Scholar needs MICRO (TF-IDF too slow for REFLEX). Uses LLM when available."""
         caps = fresh_scholar.get_capabilities()
         assert caps.consciousness_min.name == "MICRO"
-        assert caps.uses_llm == False
+        assert caps.uses_llm is True
 
     async def test_supports_all_realities(self, fresh_scholar):
         """Scholar works for all 7 reality dimensions."""

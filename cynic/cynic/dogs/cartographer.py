@@ -56,7 +56,7 @@ from cynic.core.phi import (
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
 from cynic.dogs.base import (
-    AbstractDog, DogCapabilities, DogHealth, DogJudgment,
+    AbstractDog, LLMDog, DogCapabilities, DogHealth, DogJudgment,
     DogId, HealthStatus,
 )
 
@@ -90,21 +90,22 @@ class GraphSnapshot:
     import_edges: List[Tuple[str, str]] = field(default_factory=list)  # (module, dep)
 
 
-class CartographerDog(AbstractDog):
+class CartographerDog(LLMDog):
     """
     Cartographer (Daat) — NetworkX topology mapper.
 
-    Builds a directed dependency/call graph from cell code and scores it:
+    Heuristic path: AST + NetworkX graph scoring (density, centrality, cycles).
+    Temporal MCTS path (when LLM available): 7-perspective temporal judgment.
+
+    Graph dimensions scored:
       - DENSITY:    Edge count vs node count ratio
       - CENTRALITY: Bottleneck nodes with high in-degree
       - CYCLES:     Circular dependency detection
       - ISOLATION:  Unreachable / disconnected nodes
-
-    Falls back to metadata-based scoring for non-CODE cells or unparseable code.
     """
 
     def __init__(self) -> None:
-        super().__init__(DogId.CARTOGRAPHER)
+        super().__init__(DogId.CARTOGRAPHER, task_type="topology")
         self._graphs_built: int = 0
         self._cycles_found: int = 0
         self._fallback_count: int = 0
@@ -114,7 +115,7 @@ class CartographerDog(AbstractDog):
             dog_id=DogId.CARTOGRAPHER,
             sefirot="Daat — Knowledge (hidden sefirot)",
             consciousness_min=ConsciousnessLevel.MACRO,
-            uses_llm=False,
+            uses_llm=True,
             supported_realities={"CODE", "CYNIC"},
             supported_analyses={"PERCEIVE", "JUDGE", "EMERGE"},
             technology="NetworkX 3.x + Python ast (stdlib)",
@@ -123,13 +124,50 @@ class CartographerDog(AbstractDog):
 
     async def analyze(self, cell: Cell, **kwargs: Any) -> DogJudgment:
         """
-        Build dependency/call graph from cell code, score topology.
-
-        If code is not parseable or cell is non-CODE, falls back to
-        metadata-based scoring.
+        Route to temporal MCTS path (LLM available) or NetworkX heuristic path.
         """
         start = time.perf_counter()
+        adapter = await self.get_llm()
+        if adapter is not None:
+            return await self._temporal_path(cell, adapter, start)
+        return await self._heuristic_path(cell, start)
 
+    async def _temporal_path(
+        self,
+        cell: Cell,
+        adapter: Any,
+        start: float,
+    ) -> DogJudgment:
+        """7-perspective temporal MCTS judgment via Ollama."""
+        from cynic.llm.temporal import temporal_judgment
+
+        code_str = self._extract_code(cell)
+        content = code_str[:2000] if code_str else (
+            f"reality:{cell.reality} analysis:{cell.analysis} "
+            f"complexity:{cell.complexity:.2f} novelty:{cell.novelty:.2f}"
+        )
+        tj = await temporal_judgment(adapter, content)
+
+        latency = (time.perf_counter() - start) * 1000
+        judgment = DogJudgment(
+            dog_id=self.dog_id,
+            cell_id=cell.cell_id,
+            q_score=tj.phi_aggregate,
+            confidence=tj.confidence,
+            reasoning=(
+                f"*sniff* Cartographer temporal MCTS: Q={tj.phi_aggregate:.1f} "
+                f"from 7 topology perspectives"
+            ),
+            evidence=tj.to_dict(),
+            latency_ms=latency,
+            llm_id=tj.llm_id,
+            veto=False,
+        )
+        self.record_judgment(judgment)
+        return judgment
+
+    async def _heuristic_path(self, cell: Cell, start: float) -> DogJudgment:
+        """AST + NetworkX graph topology scoring."""
         code_str = self._extract_code(cell)
         violations: List[str] = []
         total_penalty: float = 0.0

@@ -24,6 +24,7 @@ from cynic.dogs.oracle import OracleDog
 from cynic.dogs.sage import SageDog
 from cynic.dogs.scholar import ScholarDog
 from cynic.dogs.cartographer import CartographerDog
+from cynic.dogs.deployer import DeployerDog
 from cynic.judge.orchestrator import JudgeOrchestrator
 from cynic.judge.residual import ResidualDetector
 from cynic.learning.qlearning import QTable, LearningLoop
@@ -55,11 +56,13 @@ class AppState:
         return list(self.orchestrator.dogs.keys())
 
 
-def build_kernel(db_pool=None) -> AppState:
+def build_kernel(db_pool=None, registry=None) -> AppState:
     """
     Wire the full kernel: dogs → orchestrator → learning loop.
 
     db_pool: asyncpg pool (optional — kernel works without DB, just no persistence).
+    registry: LLMRegistry (optional — kernel works without LLM, heuristic mode only).
+              When provided, LLM dogs get registry injected → temporal MCTS enabled.
     """
     logger.info("Building CYNIC kernel...")
 
@@ -68,16 +71,35 @@ def build_kernel(db_pool=None) -> AppState:
     # QTable must exist before OracleDog (Oracle reads it for predictions)
     qtable = QTable()
     dogs = {
-        DogId.CYNIC:      cynic_dog,
-        DogId.SAGE:       SageDog(),
-        DogId.GUARDIAN:   GuardianDog(),
-        DogId.ANALYST:    AnalystDog(),
-        DogId.JANITOR:    JanitorDog(),
-        DogId.ARCHITECT:  ArchitectDog(),
-        DogId.ORACLE:     OracleDog(qtable=qtable),
-        DogId.SCHOLAR:    ScholarDog(),
+        DogId.CYNIC:        cynic_dog,
+        DogId.SAGE:         SageDog(),
+        DogId.GUARDIAN:     GuardianDog(),
+        DogId.ANALYST:      AnalystDog(),
+        DogId.JANITOR:      JanitorDog(),
+        DogId.ARCHITECT:    ArchitectDog(),
+        DogId.ORACLE:       OracleDog(qtable=qtable),
+        DogId.SCHOLAR:      ScholarDog(),
         DogId.CARTOGRAPHER: CartographerDog(),
+        DogId.DEPLOYER:     DeployerDog(),
     }
+
+    # ── Inject LLMRegistry into all LLM-capable dogs ──────────────────────
+    # Dogs use registry to get the best adapter (Ollama first, then Claude).
+    # SageDog → Temporal MCTS (7 parallel Ollama calls, asyncio.gather)
+    # Other LLM dogs → Phase 2 when they implement their LLM paths
+    if registry is not None:
+        llm_dogs_wired = 0
+        for dog in dogs.values():
+            if hasattr(dog, "set_llm_registry"):
+                dog.set_llm_registry(registry)
+                llm_dogs_wired += 1
+        available_count = len(registry.get_available())
+        logger.info(
+            "LLMRegistry injected into %d dogs, %d adapters available",
+            llm_dogs_wired, available_count,
+        )
+    else:
+        logger.info("No LLMRegistry — all dogs run in heuristic mode")
 
     axiom_arch = AxiomArchitecture()
     learning_loop = LearningLoop(qtable=qtable, pool=db_pool)
@@ -95,9 +117,10 @@ def build_kernel(db_pool=None) -> AppState:
     )
 
     logger.info(
-        "Kernel ready: %d dogs, learning loop + residual detector active, pool=%s",
+        "Kernel ready: %d dogs, learning loop + residual detector active, pool=%s, llm=%s",
         len(dogs),
         "connected" if db_pool else "none",
+        f"{len(registry.get_available())} adapters" if registry else "none",
     )
 
     return AppState(
