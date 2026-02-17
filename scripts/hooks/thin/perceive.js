@@ -35,8 +35,9 @@ try {
   const result = await callDaemon('UserPromptSubmit', input, { timeout: 8000 });
 
   // Build proper UserPromptSubmit hook output per Claude Code spec:
-  // https://docs.anthropic.com/en/docs/claude-code/hooks
-  // additionalContext MUST be inside hookSpecificOutput — NOT at top level.
+  // https://code.claude.com/docs/en/hooks.md
+  // For UserPromptSubmit: additionalContext is a TOP-LEVEL field (not inside hookSpecificOutput).
+  // hookSpecificOutput is only used when decision: "block" is set.
   const hookOutput = {};
 
   // Danger warning from daemon (shown as system message to user)
@@ -48,7 +49,6 @@ try {
   // guidance.json was written by the Python kernel after judging the PREVIOUS interaction.
   // CYNIC sees its own past judgment as context for the current response.
   const guidance = readKernelGuidance();
-  let additionalContext = '';
 
   if (guidance) {
     const verdictSymbol = { HOWL: '🟢', WAG: '🟡', GROWL: '🟠', BARK: '🔴' }[guidance.verdict] || '⚪';
@@ -59,17 +59,10 @@ try {
     const dogs = Object.entries(guidance.dog_votes || {})
       .map(([dog, score]) => `${dog} ${bar(score)}`)
       .join(' · ');
-    additionalContext = [
+    hookOutput.additionalContext = [
       `*sniff* 🧠 Kernel (${guidance.state_key}): ${verdictSymbol} ${guidance.verdict} Q=${guidance.q_score.toFixed(1)} conf=${Math.round(guidance.confidence * 100)}%`,
       dogs ? `  ${dogs}` : '',
     ].filter(Boolean).join('\n');
-  }
-
-  if (additionalContext) {
-    hookOutput.hookSpecificOutput = {
-      hookEventName: 'UserPromptSubmit',
-      additionalContext,
-    };
   }
 
   safeOutput(hookOutput);
