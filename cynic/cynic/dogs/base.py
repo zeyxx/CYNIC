@@ -332,3 +332,51 @@ class LLMDog(AbstractDog):
         )
         resp = await adapter.complete(req)
         return resp.content, adapter.llm_id, resp.cost_usd
+
+    def record_judgment(self, judgment: DogJudgment) -> None:
+        """Track latency stats + update LLM benchmark registry."""
+        super().record_judgment(judgment)
+        if judgment.llm_id is not None and self._llm_registry is not None:
+            self._record_benchmark(judgment)
+
+    def _record_benchmark(self, judgment: DogJudgment) -> None:
+        """
+        Feed judgment outcome back into LLMRegistry routing table.
+
+        Converts DogJudgment into a BenchmarkResult and calls
+        registry.update_benchmark() → EMA update → better routing next time.
+
+        Speed target: 3000ms (L1 MACRO budget — longer is penalized)
+        Cost budget:  $0.01 per judgment (Ollama = free = 1.0 score)
+        """
+        from cynic.llm.adapter import BenchmarkResult
+
+        # Normalize speed: 0ms → 1.0, 3000ms → 0.0, beyond → capped at 0
+        speed_score = max(0.0, 1.0 - judgment.latency_ms / _SPEED_TARGET_MS)
+
+        # Normalize cost: free (Ollama) → 1.0, over budget → 0.0
+        if judgment.cost_usd <= 0.0:
+            cost_score = 1.0  # Local inference is free
+        else:
+            cost_score = max(0.0, 1.0 - judgment.cost_usd / _COST_BUDGET_USD)
+
+        result = BenchmarkResult(
+            llm_id=judgment.llm_id,
+            dog_id=self.dog_id,
+            task_type=self.task_type,
+            quality_score=judgment.q_score,   # [0, 61.8] — φ-bounded
+            speed_score=speed_score,           # [0, 1]
+            cost_score=cost_score,             # [0, 1]
+            error_rate=0.0,
+        )
+        self._llm_registry.update_benchmark(
+            dog_id=self.dog_id,
+            task_type=self.task_type,
+            llm_id=judgment.llm_id,
+            result=result,
+        )
+
+
+# ── Benchmark normalisation constants ─────────────────────────────────────
+_SPEED_TARGET_MS: float = 3000.0   # L1 MACRO target — 3s budget per call
+_COST_BUDGET_USD: float = 0.01     # $0.01 per judgment — Ollama = 0 → 1.0
