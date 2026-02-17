@@ -157,6 +157,25 @@ class PolicyResponse(BaseModel):
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# FEEDBACK (explicit user reward signal → Q-Table update)
+# ════════════════════════════════════════════════════════════════════════════
+
+class FeedbackRequest(BaseModel):
+    """POST /feedback — user rates the last kernel judgment (1=bad, 5=good)."""
+    rating: int = Field(ge=1, le=5, description="1=very bad, 5=very good")
+
+
+class FeedbackResponse(BaseModel):
+    """Response from POST /feedback."""
+    state_key: str
+    action: str
+    reward: float = Field(description="Normalized reward applied to Q-Table [0.1, 0.9]")
+    q_value: float = Field(description="Updated Q(s,a) after feedback")
+    visits: int
+    message: str
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # HEALTH
 # ════════════════════════════════════════════════════════════════════════════
 

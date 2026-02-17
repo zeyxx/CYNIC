@@ -11,7 +11,7 @@
 'use strict';
 
 import { callDaemon, readHookInput, safeOutput } from './daemon-client.js';
-import { notifyKernel, readKernelGuidance } from './kernel-client.js';
+import { notifyKernel, readKernelGuidance, sendFeedback } from './kernel-client.js';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -23,6 +23,14 @@ try {
 
   // Notify Python kernel (fire-and-forget — never blocks)
   notifyKernel('UserPromptSubmit', input);
+
+  // Auto-detect implicit feedback in prompt (fire-and-forget)
+  const _prompt = String(input.prompt || '').toLowerCase();
+  if (/merci|parfait|excellent|good\b|great|👍|bien|bravo|super|perfect|awesome|génial|correct/i.test(_prompt)) {
+    sendFeedback(5);
+  } else if (/mauvais|refais|wrong|bad\b|incorrect|👎|nul|faux|redo|re-do/i.test(_prompt)) {
+    sendFeedback(1);
+  }
 
   const result = await callDaemon('UserPromptSubmit', input, { timeout: 8000 });
 

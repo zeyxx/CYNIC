@@ -37,6 +37,7 @@ class AppState:
     learning_loop: LearningLoop
     started_at: float = field(default_factory=time.time)
     _pool: Optional[object] = None  # asyncpg pool (None if no DB)
+    last_judgment: Optional[Dict] = None  # state_key, action, judgment_id — for /feedback
 
     @property
     def uptime_s(self) -> float:

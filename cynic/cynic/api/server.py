@@ -42,6 +42,7 @@ from cynic.api.models import (
     JudgeRequest, JudgeResponse,
     PerceiveRequest, PerceiveResponse,
     LearnRequest, LearnResponse,
+    FeedbackRequest, FeedbackResponse,
     PolicyResponse,
     HealthResponse,
     StatsResponse,
@@ -164,6 +165,13 @@ async def judge(req: JudgeRequest) -> JudgeResponse:
 
     judgment = await state.orchestrator.run(cell, level=level, budget_usd=req.budget_usd)
 
+    # Save for /feedback endpoint (user can rate this judgment)
+    state.last_judgment = {
+        "state_key": f"{cell.reality}:{cell.analysis}:PRESENT:{cell.lod}",
+        "action": judgment.verdict,
+        "judgment_id": judgment.judgment_id,
+    }
+
     return JudgeResponse(
         judgment_id=judgment.judgment_id,
         q_score=round(judgment.q_score, 3),
@@ -282,6 +290,13 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
     # Write guidance.json — feedback loop (best-effort, never blocks)
     _write_guidance(cell, judgment)
 
+    # Save for /feedback endpoint
+    state.last_judgment = {
+        "state_key": f"{cell.reality}:{cell.analysis}:PRESENT:{cell.lod}",
+        "action": judgment.verdict,
+        "judgment_id": judgment.judgment_id,
+    }
+
     return PerceiveResponse(
         cell_id=cell_id,
         source=req.source,
@@ -325,6 +340,57 @@ async def learn(req: LearnRequest) -> LearnResponse:
         confidence=round(confidence, 4),
         wins=entry.wins,
         losses=entry.losses,
+    )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# POST /feedback  (explicit user reward → Q-Table)
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.post("/feedback", response_model=FeedbackResponse)
+async def feedback(req: FeedbackRequest) -> FeedbackResponse:
+    """
+    Inject explicit user feedback into the Q-Table.
+
+    The user rates the last kernel judgment (1=bad, 5=good).
+    Rating maps to reward: (rating - 1) / 4 * 0.8 + 0.1 → [0.1, 0.9]
+    φ-aligned: never reaches 0 or 1 (LAW OF DOUBT — even perfect is not certain).
+
+    This closes the human feedback loop: user experience → Q-Table learning.
+    After enough feedback, CYNIC will predict better verdicts for each context.
+    """
+    state = get_state()
+
+    if state.last_judgment is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No recent judgment to rate — submit a prompt first",
+        )
+
+    last = state.last_judgment
+    # φ-aligned reward: never reaches 0 or 1 (epistemic humility)
+    # 1→0.1, 2→0.3, 3→0.5, 4→0.7, 5→0.9
+    reward = (req.rating - 1) / 4 * 0.8 + 0.1
+
+    signal = LearningSignal(
+        state_key=last["state_key"],
+        action=last["action"],
+        reward=reward,
+        judgment_id=last.get("judgment_id", ""),
+        loop_name="USER_FEEDBACK",
+    )
+    entry = state.qtable.update(signal)
+
+    verdict_emoji = {"HOWL": "🟢", "WAG": "🟡", "GROWL": "🟠", "BARK": "🔴"}.get(last["action"], "⚪")
+    msg = f"*tail wag* Feedback: rating={req.rating}/5 → reward={reward:.2f} → Q[{last['state_key']}][{last['action']}]={entry.q_value:.3f}"
+
+    return FeedbackResponse(
+        state_key=entry.state_key,
+        action=entry.action,
+        reward=round(reward, 3),
+        q_value=round(entry.q_value, 4),
+        visits=entry.visits,
+        message=msg,
     )
 
 

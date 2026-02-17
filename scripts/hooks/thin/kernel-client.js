@@ -95,6 +95,30 @@ export function notifyKernel(hookEvent, hookInput) {
   });
 }
 
+/**
+ * Send explicit user feedback to the kernel.
+ *
+ * Closes the human reward loop: user signal → Q-Table update.
+ * Fire-and-forget: never blocks the hook.
+ *
+ * @param {number} rating  — 1 (bad) to 5 (good)
+ */
+export function sendFeedback(rating) {
+  _postFeedback(rating).catch(() => { /* silent */ });
+}
+
+async function _postFeedback(rating) {
+  if (_kernelAlive === false) return;
+  try {
+    await fetch(`${KERNEL_URL}/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating }),
+      signal: AbortSignal.timeout(500),
+    });
+  } catch { /* kernel down — skip silently */ }
+}
+
 /** Auto-start the Python kernel (fire-and-forget, best-effort) */
 async function _autoStartKernel() {
   const lockFile = path.join(os.homedir(), '.cynic', 'kernel.lock');

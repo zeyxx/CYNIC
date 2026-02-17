@@ -347,3 +347,77 @@ class TestStats:
         r2 = await client.get("/stats")
         count_after = r2.json()["judgments"]["judgments_total"]
         assert count_after == count_before + 1
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# POST /feedback
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestFeedback:
+    async def test_feedback_without_judgment_returns_404(self, client, kernel_state):
+        """No prior judgment → 404."""
+        kernel_state.last_judgment = None
+        resp = await client.post("/feedback", json={"rating": 3})
+        assert resp.status_code == 404
+
+    async def test_feedback_rating_5_gives_high_reward(self, client, kernel_state):
+        """rating=5 → reward=0.9 → Q-value rises above neutral 0.5."""
+        kernel_state.last_judgment = {
+            "state_key": "HUMAN:PERCEIVE:PRESENT:0",
+            "action": "WAG",
+            "judgment_id": "test-123",
+        }
+        resp = await client.post("/feedback", json={"rating": 5})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["reward"] == pytest.approx(0.9, abs=0.01)
+        assert data["q_value"] > 0.5
+        assert data["visits"] == 1
+        assert data["state_key"] == "HUMAN:PERCEIVE:PRESENT:0"
+
+    async def test_feedback_rating_1_gives_low_reward(self, client, kernel_state):
+        """rating=1 → reward=0.1 → Q-value falls below neutral 0.5."""
+        kernel_state.last_judgment = {
+            "state_key": "HUMAN:PERCEIVE:PRESENT:0",
+            "action": "HOWL",
+            "judgment_id": "test-456",
+        }
+        resp = await client.post("/feedback", json={"rating": 1})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["reward"] == pytest.approx(0.1, abs=0.01)
+        assert data["q_value"] < 0.5
+
+    async def test_feedback_rating_3_is_neutral(self, client, kernel_state):
+        """rating=3 → reward=0.5 → Q-value stays near neutral."""
+        kernel_state.last_judgment = {
+            "state_key": "CODE:JUDGE:PRESENT:1",
+            "action": "GROWL",
+            "judgment_id": "test-789",
+        }
+        resp = await client.post("/feedback", json={"rating": 3})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["reward"] == pytest.approx(0.5, abs=0.01)
+        # TD(0): Q stays near 0.5 with neutral reward
+        assert 0.45 < data["q_value"] < 0.55
+
+    async def test_feedback_reward_never_reaches_extremes(self, client, kernel_state):
+        """φ-aligned: reward is always in [0.1, 0.9] — LAW OF DOUBT."""
+        kernel_state.last_judgment = {
+            "state_key": "CYNIC:LEARN:PRESENT:0",
+            "action": "BARK",
+            "judgment_id": "test-000",
+        }
+        for rating in [1, 2, 3, 4, 5]:
+            resp = await client.post("/feedback", json={"rating": rating})
+            assert resp.status_code == 200
+            data = resp.json()
+            assert 0.09 < data["reward"] < 0.91, f"rating={rating} produced extreme reward={data['reward']}"
+
+    async def test_feedback_invalid_rating_rejected(self, client):
+        """rating=0 or rating=6 should be rejected (Pydantic validation)."""
+        resp = await client.post("/feedback", json={"rating": 0})
+        assert resp.status_code == 422
+        resp = await client.post("/feedback", json={"rating": 6})
+        assert resp.status_code == 422
