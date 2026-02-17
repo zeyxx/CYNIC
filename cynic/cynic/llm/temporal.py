@@ -77,88 +77,52 @@ TOTAL_TEMPORAL_WEIGHT = sum(TEMPORAL_WEIGHTS.values())  # ≈ 8.854
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# SYSTEM PROMPTS (compact — Ollama models prefer brevity)
+# SYSTEM PROMPTS
 # ════════════════════════════════════════════════════════════════════════════
+#
+# Architecture: context goes in SYSTEM (not echoed by instruct models like
+# mistral:7b), user message stays minimal (just the content to rate).
+# This fixes mistral echo bug while keeping gemma/qwen working identically.
 
-TEMPORAL_SYSTEM = """\
+TEMPORAL_SYSTEM_BASE = """\
 You are a CYNIC judgment engine. Rate content on a scale 0 to 100.
 0 = worst/most concerning, 100 = best/ideal.
 Respond with ONLY: SCORE: N
 No explanation. No other text. Just SCORE: followed by a whole number.\
 """
 
-TEMPORAL_PROMPTS: Dict[str, str] = {
-    TemporalPerspective.PAST: """\
-TEMPORAL PERSPECTIVE: PAST
-Looking at established patterns and historical precedents, rate this content.
-High score (near 100) = aligns with proven patterns. Low score (near 0) = ignores history, repeats mistakes.
-
-Content to rate:
-{content}
-
-SCORE:\
-""",
-    TemporalPerspective.PRESENT: """\
-TEMPORAL PERSPECTIVE: PRESENT
-In the current moment and context, how valid and appropriate is this?
-High score = valid right now. Low score = outdated or wrong for current context.
-
-Content to rate:
-{content}
-
-SCORE:\
-""",
-    TemporalPerspective.FUTURE: """\
-TEMPORAL PERSPECTIVE: FUTURE
-Considering long-term outcomes, maintenance burden, and future evolution, rate this.
-High score = sustainable, scalable, forward-compatible. Low score = creates future debt.
-
-Content to rate:
-{content}
-
-SCORE:\
-""",
-    TemporalPerspective.IDEAL: """\
-TEMPORAL PERSPECTIVE: IDEAL
-Compared to the ideal version of this, how close does it come?
-High score = near-ideal implementation. Low score = far from what's possible.
-
-Content to rate:
-{content}
-
-SCORE:\
-""",
-    TemporalPerspective.NEVER: """\
-TEMPORAL PERSPECTIVE: NEVER
-What should NEVER be present in good code? Rate the ABSENCE of anti-patterns.
-High score = clean, no violations. Low score = contains things that should never exist.
-
-Content to rate:
-{content}
-
-SCORE:\
-""",
-    TemporalPerspective.CYCLES: """\
-TEMPORAL PERSPECTIVE: CYCLES
-Based on recurring patterns in similar codebases and systems, rate this.
-High score = follows established cycles and proven rhythms. Low score = breaks patterns.
-
-Content to rate:
-{content}
-
-SCORE:\
-""",
-    TemporalPerspective.FLOW: """\
-TEMPORAL PERSPECTIVE: FLOW
-Considering momentum, direction, and current trajectory, rate this.
-High score = flowing in the right direction, building positively. Low score = stagnant or regressing.
-
-Content to rate:
-{content}
-
-SCORE:\
-""",
+# Per-perspective context — injected into system by _judge_perspective.
+# Keeping context in system prompt prevents instruct models from echoing it.
+PERSPECTIVE_CONTEXT: Dict[str, str] = {
+    TemporalPerspective.PAST:
+        "Perspective: PAST — Historical patterns and precedents. "
+        "High = aligns with proven patterns. Low = ignores history, repeats mistakes.",
+    TemporalPerspective.PRESENT:
+        "Perspective: PRESENT — Current validity and appropriateness. "
+        "High = valid right now. Low = outdated or wrong for current context.",
+    TemporalPerspective.FUTURE:
+        "Perspective: FUTURE — Long-term outcomes and sustainability. "
+        "High = maintainable, scalable, forward-compatible. Low = creates future debt.",
+    TemporalPerspective.IDEAL:
+        "Perspective: IDEAL — Distance from the ideal version. "
+        "High = near-ideal implementation. Low = far from what's possible.",
+    TemporalPerspective.NEVER:
+        "Perspective: NEVER — Absence of anti-patterns. "
+        "High = clean, no violations. Low = contains things that should never exist.",
+    TemporalPerspective.CYCLES:
+        "Perspective: CYCLES — Fit with recurring patterns and rhythms. "
+        "High = follows established cycles. Low = breaks patterns.",
+    TemporalPerspective.FLOW:
+        "Perspective: FLOW — Momentum and direction. "
+        "High = building positively. Low = stagnant or regressing.",
 }
+
+# User prompt: minimal — just the content.
+# No perspective header here → nothing for instruct models to echo.
+_USER_PROMPT = "Content:\n\n{content}"
+
+# Keep TEMPORAL_SYSTEM as alias (used by tests that import it directly)
+TEMPORAL_SYSTEM = TEMPORAL_SYSTEM_BASE
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -297,15 +261,19 @@ async def _judge_perspective(
 
     Returns Q-score [0, 61.8] from one LLM call.
     Returns MAX_Q_SCORE/2 (neutral) on failure — fail-safe, not fail-hard.
+
+    Prompt strategy: perspective context lives in the SYSTEM prompt (not
+    echoed by instruct models like mistral). User message is just the content.
     """
     from cynic.llm.adapter import LLMRequest
 
-    prompt = TEMPORAL_PROMPTS[perspective].format(content=content[:2000])
+    system = TEMPORAL_SYSTEM_BASE + "\n\n" + PERSPECTIVE_CONTEXT[perspective]
+    prompt = _USER_PROMPT.format(content=content[:2000])
     try:
         req = LLMRequest(
             prompt=prompt,
-            system=TEMPORAL_SYSTEM,
-            max_tokens=32,       # "SCORE: N.N" + buffer for slow models
+            system=system,
+            max_tokens=32,       # "SCORE: N" — concise by design
             temperature=0.0,     # Deterministic scoring
         )
         resp = await adapter.complete_safe(req)
