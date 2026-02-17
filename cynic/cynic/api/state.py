@@ -21,6 +21,7 @@ from cynic.dogs.analyst import AnalystDog
 from cynic.dogs.janitor import JanitorDog
 from cynic.dogs.architect import ArchitectDog
 from cynic.dogs.oracle import OracleDog
+from cynic.dogs.sage import SageDog
 from cynic.dogs.scholar import ScholarDog
 from cynic.judge.orchestrator import JudgeOrchestrator
 from cynic.judge.residual import ResidualDetector
@@ -67,6 +68,7 @@ def build_kernel(db_pool=None) -> AppState:
     qtable = QTable()
     dogs = {
         DogId.CYNIC:      cynic_dog,
+        DogId.SAGE:       SageDog(),
         DogId.GUARDIAN:   GuardianDog(),
         DogId.ANALYST:    AnalystDog(),
         DogId.JANITOR:    JanitorDog(),
