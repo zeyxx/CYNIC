@@ -39,9 +39,11 @@ if (guidance) {
     dogs ? `  ${dogs}` : '',
   ].filter(Boolean).join('\n');
 
-  // Append to existing message or set as message
+  // additionalContext is the correct field for UserPromptSubmit — Claude reads it
   result.kernelGuidance = guidance; // keep for structured access
-  result.message = result.message ? `${result.message}\n\n${kernelMsg}` : kernelMsg;
+  if (!result.hookSpecificOutput) result.hookSpecificOutput = { hookEventName: 'UserPromptSubmit' };
+  const prev = result.hookSpecificOutput.additionalContext || '';
+  result.hookSpecificOutput.additionalContext = prev ? `${prev}\n\n${kernelMsg}` : kernelMsg;
 }
 
 safeOutput(result);
