@@ -23,6 +23,7 @@ from cynic.dogs.architect import ArchitectDog
 from cynic.dogs.oracle import OracleDog
 from cynic.dogs.scholar import ScholarDog
 from cynic.judge.orchestrator import JudgeOrchestrator
+from cynic.judge.residual import ResidualDetector
 from cynic.learning.qlearning import QTable, LearningLoop
 
 logger = logging.getLogger("cynic.api.state")
@@ -38,6 +39,7 @@ class AppState:
     orchestrator: JudgeOrchestrator
     qtable: QTable
     learning_loop: LearningLoop
+    residual_detector: ResidualDetector
     started_at: float = field(default_factory=time.time)
     _pool: Optional[object] = None  # asyncpg pool (None if no DB)
     last_judgment: Optional[Dict] = None  # state_key, action, judgment_id — for /feedback
@@ -74,16 +76,22 @@ def build_kernel(db_pool=None) -> AppState:
     }
 
     axiom_arch = AxiomArchitecture()
+    learning_loop = LearningLoop(qtable=qtable, pool=db_pool)
+    learning_loop.start(get_core_bus())
+
+    # ResidualDetector — subscribes to JUDGMENT_CREATED, emits EMERGENCE_DETECTED
+    residual_detector = ResidualDetector()
+    residual_detector.start(get_core_bus())
+
     orchestrator = JudgeOrchestrator(
         dogs=dogs,
         axiom_arch=axiom_arch,
         cynic_dog=cynic_dog,
+        residual_detector=residual_detector,
     )
-    learning_loop = LearningLoop(qtable=qtable, pool=db_pool)
-    learning_loop.start(get_core_bus())
 
     logger.info(
-        "Kernel ready: %d dogs, learning loop active, pool=%s",
+        "Kernel ready: %d dogs, learning loop + residual detector active, pool=%s",
         len(dogs),
         "connected" if db_pool else "none",
     )
@@ -92,6 +100,7 @@ def build_kernel(db_pool=None) -> AppState:
         orchestrator=orchestrator,
         qtable=qtable,
         learning_loop=learning_loop,
+        residual_detector=residual_detector,
         _pool=db_pool,
     )
 

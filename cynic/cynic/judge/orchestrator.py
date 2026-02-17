@@ -86,10 +86,12 @@ class JudgeOrchestrator:
         dogs: Dict[str, AbstractDog],
         axiom_arch: AxiomArchitecture,
         cynic_dog: CynicDog,
+        residual_detector=None,
     ) -> None:
         self.dogs = dogs        # {dog_id: AbstractDog}
         self.axiom_arch = axiom_arch
         self.cynic_dog = cynic_dog
+        self.residual_detector = residual_detector  # Optional[ResidualDetector]
         self._judgment_count = 0
         self._consciousness = get_consciousness()
 
@@ -164,6 +166,11 @@ class JudgeOrchestrator:
                     cell_id=cell.cell_id,
                     reality=cell.reality,
                 )
+
+            # STEP 7 (EMERGE): ResidualDetector observes judgment variance.
+            # Synchronous observe() is authoritative; async event handler is secondary.
+            if self.residual_detector is not None:
+                self.residual_detector.observe(judgment)
 
             return judgment
 
@@ -268,6 +275,19 @@ class JudgeOrchestrator:
         # PBFT consensus
         consensus = await self.cynic_dog.pbft_run(cell, pipeline.dog_judgments)
         pipeline.consensus = consensus
+
+        # L2 → L1 ESCALATION: If consensus failed at MICRO, upgrade to full MACRO cycle.
+        # Law: A failed quorum means the Dogs disagree — need more analysis, not less.
+        # Budget guard: Only escalate if remaining budget can cover MACRO overhead.
+        if not consensus.consensus:
+            remaining_budget = cell.budget_usd * (1.0 - PHI_INV_2)  # ~61.8% left
+            if remaining_budget > 0.0001:  # $0.1 milli minimum
+                logger.info(
+                    "L2→L1 escalation: MICRO consensus failed (%d/%d votes) for cell %s → MACRO",
+                    consensus.votes, consensus.quorum, cell.cell_id,
+                )
+                pipeline.level = ConsciousnessLevel.MACRO
+                return await self._cycle_macro(pipeline)
 
         # Axiom scoring at medium depth
         q_scores_micro = [j.q_score for j in pipeline.dog_judgments]
