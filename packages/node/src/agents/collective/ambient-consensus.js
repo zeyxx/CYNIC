@@ -97,10 +97,11 @@ export class AmbientConsensus {
     // Stored unsubscribe functions (from eventBus.subscribe return value)
     this._unsubscribers = [];
 
-    // Bridge DogSignals to globalEventBus so event-listeners can persist them
+    // Publish signals to automation bus ONLY
+    // EventBusBridge will forward to globalEventBus with genealogy tracking
+    // (DogSignals added to AUTOMATION_TO_CORE forwarding rules)
     this._publishSignal = (type, payload) => {
       this.eventBus.publish(type, payload);
-      globalEventBus.publish(type, { ...payload, timestamp: Date.now() });
     };
 
     // Bind methods
@@ -918,17 +919,9 @@ export class AmbientConsensus {
       predictionCorrect: result.inference.predictionCorrect,
     });
 
-    // Emit consensus result (local bus)
+    // Emit consensus result to automation bus
+    // EventBusBridge will forward to globalEventBus with genealogy tracking
     this.eventBus.publish('consensus:completed', result);
-
-    // Also publish to globalEventBus for persistence
-    try {
-      globalEventBus.publish(CoreEventType.CONSENSUS_COMPLETED, result, {
-        source: 'AmbientConsensus',
-      });
-    } catch (e) {
-      // Non-critical - don't break consensus flow
-    }
 
     // Record to learning_events for G1.2 metric
     try {

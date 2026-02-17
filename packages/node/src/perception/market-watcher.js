@@ -304,18 +304,108 @@ export class MarketWatcher extends EventEmitter {
    */
   async _fetchPrice() {
     try {
-      // STUB: Real implementation would query Jupiter, Raydium, or Birdeye API
-      // For now, return mock data for testing
-      if (!this.connection) return null;
+      // Try DexScreener first (free, no API key needed)
+      try {
+        const dexUrl = `https://api.dexscreener.com/latest/dex/tokens/${this.tokenMint}`;
+        const dexResponse = await fetch(dexUrl, {
+          timeout: 5000,
+          headers: { 'User-Agent': 'CYNIC/0.1.0' }
+        });
 
-      // Check RPC is responsive
-      await this.connection.getSlot();
+        if (dexResponse.ok) {
+          const dexData = await dexResponse.json();
+          const price = dexData.pairs?.[0]?.priceUsd;
 
-      // Mock price with slight random walk
-      const basePrice = 0.00042; // $0.00042 (example)
-      const noise = (Math.random() - 0.5) * 0.00001; // ±2.4% noise
-      return basePrice + noise;
+          if (price) {
+            log.debug('DexScreener price fetched', {
+              price: parseFloat(price).toFixed(8),
+              pair: dexData.pairs[0]?.pairAddress?.substring(0, 8)
+            });
+
+            // Emit MARKET_PRICE_UPDATED to globalEventBus
+            globalEventBus.emit(EventType.MARKET_PRICE_UPDATED || 'market:price:updated', {
+              source: 'DexScreener',
+              price: parseFloat(price),
+              tokenMint: this.tokenMint,
+              timestamp: Date.now()
+            });
+
+            return parseFloat(price);
+          }
+        }
+      } catch (err) {
+        log.debug('DexScreener failed, trying Birdeye', { error: err.message });
+      }
+
+      // Fallback 1: Birdeye (requires API key)
+      const birdeyeKey = process.env.BIRDEYE_API_KEY;
+      if (birdeyeKey) {
+        try {
+          const birdeyeUrl = `https://public-api.birdeye.so/defi/price?address=${this.tokenMint}`;
+          const birdeyeResponse = await fetch(birdeyeUrl, {
+            timeout: 5000,
+            headers: {
+              'X-API-KEY': birdeyeKey,
+              'User-Agent': 'CYNIC/0.1.0'
+            }
+          });
+
+          if (birdeyeResponse.ok) {
+            const birdeyeData = await birdeyeResponse.json();
+            const price = birdeyeData.data?.value;
+
+            if (price) {
+              log.debug('Birdeye price fetched', { price: price.toFixed(8) });
+
+              globalEventBus.emit(EventType.MARKET_PRICE_UPDATED || 'market:price:updated', {
+                source: 'Birdeye',
+                price,
+                tokenMint: this.tokenMint,
+                timestamp: Date.now()
+              });
+
+              return price;
+            }
+          }
+        } catch (err) {
+          log.debug('Birdeye failed, trying Jupiter', { error: err.message });
+        }
+      }
+
+      // Fallback 2: Jupiter Price API v4
+      try {
+        const jupiterUrl = `https://price.jup.ag/v4/price?ids=${this.tokenMint}`;
+        const jupiterResponse = await fetch(jupiterUrl, {
+          timeout: 5000,
+          headers: { 'User-Agent': 'CYNIC/0.1.0' }
+        });
+
+        if (jupiterResponse.ok) {
+          const jupiterData = await jupiterResponse.json();
+          const price = jupiterData.data?.[this.tokenMint]?.price;
+
+          if (price) {
+            log.debug('Jupiter price fetched', { price: price.toFixed(8) });
+
+            globalEventBus.emit(EventType.MARKET_PRICE_UPDATED || 'market:price:updated', {
+              source: 'Jupiter',
+              price,
+              tokenMint: this.tokenMint,
+              timestamp: Date.now()
+            });
+
+            return price;
+          }
+        }
+      } catch (err) {
+        log.warn('All price sources failed', { error: err.message });
+      }
+
+      // All sources failed
+      log.error('Failed to fetch price from all sources (DexScreener, Birdeye, Jupiter)');
+      return null;
     } catch (error) {
+      log.error('Price fetch error', { error: error.message });
       throw error;
     }
   }
@@ -327,14 +417,40 @@ export class MarketWatcher extends EventEmitter {
    */
   async _fetchVolume() {
     try {
-      // STUB: Real implementation would query DEX APIs
-      if (!this.connection) return null;
+      // DexScreener provides volume data in the same endpoint
+      const dexUrl = `https://api.dexscreener.com/latest/dex/tokens/${this.tokenMint}`;
+      const response = await fetch(dexUrl, {
+        timeout: 5000,
+        headers: { 'User-Agent': 'CYNIC/0.1.0' }
+      });
 
-      // Mock volume
-      const baseVolume = 150000; // $150k daily volume
-      const noise = (Math.random() - 0.5) * 10000;
-      return baseVolume + noise;
+      if (response.ok) {
+        const data = await response.json();
+        const pair = data.pairs?.[0];
+
+        if (pair?.volume?.h24) {
+          const volume = parseFloat(pair.volume.h24);
+          log.debug('24h volume fetched', {
+            volume: volume.toFixed(2),
+            pair: pair.pairAddress?.substring(0, 8)
+          });
+
+          // Emit MARKET_VOLUME_UPDATED to globalEventBus
+          globalEventBus.emit(EventType.MARKET_VOLUME_UPDATED || 'market:volume:updated', {
+            source: 'DexScreener',
+            volume24h: volume,
+            tokenMint: this.tokenMint,
+            timestamp: Date.now()
+          });
+
+          return volume;
+        }
+      }
+
+      log.warn('Failed to fetch volume from DexScreener');
+      return null;
     } catch (error) {
+      log.debug('Volume fetch error', { error: error.message });
       throw error;
     }
   }

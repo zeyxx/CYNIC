@@ -1,171 +1,318 @@
 /**
- * Tests for CynicActor (C6.4 CYNIC × ACT) — self-healing
+ * CynicActor Test - C6.4 (CYNIC × ACT)
  *
- * @module test/cynic-actor
+ * Test self-optimization actions generated via factory pattern.
+ *
+ * @module @cynic/node/test/cynic-actor.test
  */
 
 'use strict';
 
-import { describe, it, beforeEach } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { getCynicActor, resetCynicActor, CynicActionType } from '../src/cynic/cynic-actor.js';
 
-import { CynicActor, SelfHealAction, HealthState } from '../src/cynic/cynic-actor.js';
-
-describe('CynicActor', () => {
+describe('CynicActor (factory-generated)', () => {
   let actor;
 
   beforeEach(() => {
-    actor = new CynicActor();
+    resetCynicActor();
+    actor = getCynicActor();
   });
 
-  describe('processConsciousnessChange', () => {
-    it('starts in NOMINAL state', () => {
-      const stats = actor.getStats();
-      assert.equal(stats.currentHealthState, HealthState.NOMINAL);
+  afterEach(() => {
+    resetCynicActor();
+  });
+
+  it('should be singleton', () => {
+    const actor2 = getCynicActor();
+    assert.strictEqual(actor, actor2);
+  });
+
+  it('should initialize with correct stats', () => {
+    const stats = actor.getStats();
+    assert.strictEqual(stats.actionsTotal, 0);
+    assert.strictEqual(stats.delivered, 0);
+    assert.ok(stats.byType);
+  });
+
+  it('should handle COMPACT_MEMORY decision', () => {
+    const decision = {
+      type: 'compact_memory',
+      context: {
+        reason: 'memory_pressure_exceeds_goal',
+        load: 0.75,
+      },
+      confidence: 0.58,
+    };
+
+    const result = actor.act(decision, { qScore: 42 });
+
+    assert.ok(result);
+    assert.strictEqual(result.type, CynicActionType.OPTIMIZE_MEMORY);
+    assert.strictEqual(result.status, 'delivered');
+    assert.ok(result.message.includes('*sniff*'));
+    assert.ok(result.message.includes('memory'));
+    assert.strictEqual(result.cell, 'C6.4');
+    assert.strictEqual(result.dimension, 'CYNIC');
+  });
+
+  it('should handle PAUSE_LEARNING decision', () => {
+    const decision = {
+      type: 'pause_learning',
+      context: {
+        reason: 'learning_stagnation',
+        velocity: 0.15,
+      },
+      urgency: 'medium',
+      confidence: 0.52,
+    };
+
+    const result = actor.act(decision);
+
+    assert.ok(result);
+    assert.strictEqual(result.type, CynicActionType.ADJUST_LEARNING);
+    assert.strictEqual(result.urgency, 'medium');
+    assert.ok(result.message.includes('learning'));
+  });
+
+  it('should handle ROTATE_DOGS decision', () => {
+    const decision = {
+      type: 'rotate_dogs',
+      context: {
+        reason: 'dog_dominance_exceeds_goal',
+        dominantDog: 'JUDGE',
+        ratio: 0.72,
+      },
+      confidence: 0.61,
+    };
+
+    const result = actor.act(decision);
+
+    assert.ok(result);
+    assert.strictEqual(result.type, CynicActionType.ROTATE_DOGS);
+    assert.ok(result.message.includes('dog'));
+  });
+
+  it('should handle ESCALATE_PATTERN decision', () => {
+    const decision = {
+      type: 'escalate_pattern',
+      context: {
+        reason: 'guardian_escalation_pattern',
+        escalationCount: 5,
+      },
+      urgency: 'high',
+      confidence: 0.58,
+    };
+
+    const result = actor.act(decision);
+
+    assert.ok(result);
+    assert.strictEqual(result.type, CynicActionType.ESCALATE_ALERT);
+    assert.strictEqual(result.urgency, 'high');
+    assert.ok(result.message.includes('*GROWL*'));
+  });
+
+  it('should handle ADJUST_THRESHOLDS decision', () => {
+    const decision = {
+      type: 'adjust_thresholds',
+      context: {
+        reason: 'consensus_below_goal',
+        approvalRate: 0.35,
+      },
+      confidence: 0.48,
+    };
+
+    const result = actor.act(decision);
+
+    assert.ok(result);
+    assert.strictEqual(result.type, CynicActionType.ADJUST_THRESHOLDS);
+  });
+
+  it('should handle ACKNOWLEDGE decision', () => {
+    const decision = {
+      type: 'acknowledge',
+      context: {
+        reason: 'consensus_quality_change_noted',
+        approvalRate: 0.45,
+      },
+      confidence: 0.42,
+    };
+
+    const result = actor.act(decision);
+
+    assert.ok(result);
+    assert.strictEqual(result.type, CynicActionType.ACKNOWLEDGE);
+    assert.ok(result.message.includes('*yawn*'));
+  });
+
+  it('should respect cooldowns', () => {
+    const decision = {
+      type: 'compact_memory',
+      context: { reason: 'memory_pressure' },
+      confidence: 0.55,
+    };
+
+    // First action succeeds
+    const result1 = actor.act(decision);
+    assert.ok(result1);
+
+    // Second action immediately after is on cooldown
+    const result2 = actor.act(decision);
+    assert.strictEqual(result2, null);
+  });
+
+  it('should update stats correctly', () => {
+    const decisions = [
+      { type: 'compact_memory', context: { reason: 'test1' }, confidence: 0.5 },
+      { type: 'pause_learning', context: { reason: 'test2' }, confidence: 0.5 },
+      { type: 'escalate_pattern', context: { reason: 'test3' }, urgency: 'high', confidence: 0.5 },
+    ];
+
+    decisions.forEach(d => actor.act(d));
+
+    const stats = actor.getStats();
+    assert.strictEqual(stats.actionsTotal, 3);
+    assert.strictEqual(stats.delivered, 3);
+    assert.strictEqual(stats.byType[CynicActionType.OPTIMIZE_MEMORY], 1);
+    assert.strictEqual(stats.byType[CynicActionType.ADJUST_LEARNING], 1);
+    assert.strictEqual(stats.byType[CynicActionType.ESCALATE_ALERT], 1);
+    assert.strictEqual(stats.alertsEscalated, 1);
+    assert.strictEqual(stats.optimizationsExecuted, 1);
+  });
+
+  it('should emit action events', (t, done) => {
+    const decision = {
+      type: 'escalate_pattern',
+      context: { reason: 'test_event' },
+      confidence: 0.55,
+    };
+
+    actor.once('action', (action) => {
+      assert.ok(action);
+      assert.strictEqual(action.type, CynicActionType.ESCALATE_ALERT);
+      done();
     });
 
-    it('records awareness history', () => {
-      actor.processConsciousnessChange({ awarenessLevel: 0.5, newState: 'AWARE' });
-      actor.processConsciousnessChange({ awarenessLevel: 0.6, newState: 'AWARE' });
-      assert.equal(actor.getStats().awarenessHistorySize, 2);
-    });
+    actor.act(decision);
+  });
 
-    it('transitions to DEGRADED on low awareness', () => {
-      // Start from OPTIMAL first
-      actor.processConsciousnessChange({ awarenessLevel: 0.65, newState: 'HEIGHTENED' });
-      assert.equal(actor.getStats().currentHealthState, HealthState.OPTIMAL);
+  it('should track optimization log via postAct', () => {
+    const decision = {
+      type: 'compact_memory',
+      context: { reason: 'memory_optimization_test' },
+      confidence: 0.58,
+    };
 
-      // Now degrade
-      actor.processConsciousnessChange({ awarenessLevel: 0.3, newState: 'AWAKENING' });
-      assert.equal(actor.getStats().currentHealthState, HealthState.DEGRADED);
-    });
+    actor.act(decision);
 
-    it('transitions to CRITICAL on very low awareness', () => {
-      actor.processConsciousnessChange({ awarenessLevel: 0.5, newState: 'AWARE' });
-      actor.processConsciousnessChange({ awarenessLevel: 0.1, newState: 'DORMANT' });
-      assert.equal(actor.getStats().currentHealthState, HealthState.CRITICAL);
-    });
+    // Check optimization log (private field, accessed via internal state)
+    assert.ok(actor._optimizationLog);
+    assert.strictEqual(actor._optimizationLog.length, 1);
+    assert.strictEqual(actor._optimizationLog[0].type, CynicActionType.OPTIMIZE_MEMORY);
+    assert.strictEqual(actor._optimizationLog[0].reason, 'memory_optimization_test');
+  });
 
-    it('takes self-heal actions on degradation', () => {
-      // First get to OPTIMAL
-      actor.processConsciousnessChange({ awarenessLevel: 0.65, newState: 'HEIGHTENED' });
-      // Then crash to CRITICAL
-      const actions = actor.processConsciousnessChange({ awarenessLevel: 0.1, newState: 'DORMANT' });
-      assert.ok(actions.length > 0, 'should take actions');
-      assert.ok(actions.some(a => a.type === SelfHealAction.RESTRICT_ROUTING));
-    });
-
-    it('emits self_heal event on action', (t, done) => {
-      actor.once('self_heal', (event) => {
-        assert.equal(event.cell, 'C6.4');
-        assert.equal(event.dimension, 'CYNIC');
-        done();
+  it('should return health status', () => {
+    // Trigger a few alerts to affect health
+    for (let i = 0; i < 3; i++) {
+      actor.act({
+        type: 'escalate_pattern',
+        context: { reason: `alert_${i}` },
+        confidence: 0.5,
       });
+      // Wait a tiny bit to bypass cooldown (would need to mock time in real scenario)
+      actor._lastAction.clear(); // Hack for test
+    }
 
-      // Force transition
-      actor.processConsciousnessChange({ awarenessLevel: 0.65, newState: 'HEIGHTENED' });
-      actor.processConsciousnessChange({ awarenessLevel: 0.1, newState: 'DORMANT' });
-    });
-
-    it('respects cooldowns', () => {
-      actor.processConsciousnessChange({ awarenessLevel: 0.65, newState: 'HEIGHTENED' });
-      const first = actor.processConsciousnessChange({ awarenessLevel: 0.1, newState: 'DORMANT' });
-      assert.ok(first.length > 0);
-
-      // Immediate re-trigger should be blocked by cooldown
-      actor._currentHealthState = HealthState.OPTIMAL; // Force reset
-      const second = actor.processConsciousnessChange({ awarenessLevel: 0.1, newState: 'DORMANT' });
-      // Some actions should be blocked by cooldown
-      assert.ok(second.length <= first.length);
-    });
-
-    it('tracks recovery', () => {
-      // Degrade
-      actor.processConsciousnessChange({ awarenessLevel: 0.65, newState: 'HEIGHTENED' });
-      actor.processConsciousnessChange({ awarenessLevel: 0.1, newState: 'DORMANT' });
-      assert.equal(actor.getStats().degradationEpisodes, 1);
-
-      // Recover
-      actor.processConsciousnessChange({ awarenessLevel: 0.65, newState: 'HEIGHTENED' });
-      assert.equal(actor.getStats().recoveries, 1);
-    });
-
-    it('handles recovery actions', () => {
-      actor.processConsciousnessChange({ awarenessLevel: 0.65, newState: 'HEIGHTENED' });
-      actor.processConsciousnessChange({ awarenessLevel: 0.1, newState: 'DORMANT' });
-
-      const recoveryActions = actor.processConsciousnessChange({ awarenessLevel: 0.65, newState: 'HEIGHTENED' });
-      assert.ok(recoveryActions.some(a => a.type === SelfHealAction.RESTORE_CAPABILITIES));
-    });
+    const health = actor.getHealth();
+    assert.ok(health);
+    assert.ok(['healthy', 'high_alert_rate'].includes(health.status));
+    assert.ok(typeof health.score === 'number');
+    assert.ok(health.score <= 0.618); // φ⁻¹ bound
+    assert.strictEqual(health.actionsTotal, 3);
   });
 
-  describe('processPerturbation', () => {
-    it('ignores small perturbations', () => {
-      const result = actor.processPerturbation({ metric: 'errorRate', deviation: 2 });
-      assert.equal(result, null);
-    });
+  it('should map reason hints to LLM routing action', () => {
+    const decision = {
+      type: 'adjust_thresholds',
+      context: {
+        reason: 'budget_optimization_via_ollama',
+      },
+      confidence: 0.48,
+    };
 
-    it('rate-limits on error spike', () => {
-      const result = actor.processPerturbation({ metric: 'errorRate', deviation: 4 });
-      assert.ok(result);
-      assert.equal(result.type, SelfHealAction.RATE_LIMIT);
-    });
+    const result = actor.act(decision);
 
-    it('pauses non-essential on latency spike', () => {
-      const result = actor.processPerturbation({ metric: 'latency', deviation: 4 });
-      assert.ok(result);
-      assert.equal(result.type, SelfHealAction.PAUSE_NONESSENTIAL);
-    });
+    assert.ok(result);
+    // Should detect 'ollama' in reason and map to SHIFT_LLM_ROUTING
+    assert.strictEqual(result.type, CynicActionType.SHIFT_LLM_ROUTING);
+    assert.ok(result.message.includes('LLM routing'));
   });
 
-  describe('trend detection', () => {
-    it('returns 0 with insufficient history', () => {
-      const stats = actor.getStats();
-      assert.equal(stats.trend, 0);
-    });
+  it('should include judgment context in result', () => {
+    const decision = {
+      type: 'compact_memory',
+      context: { reason: 'memory_test' },
+      confidence: 0.55,
+    };
 
-    it('detects negative trend', () => {
-      // Feed declining awareness
-      for (let i = 10; i >= 1; i--) {
-        actor.processConsciousnessChange({
-          awarenessLevel: i * 0.06,
-          newState: 'AWARE',
-        });
-      }
-      const trend = actor.getStats().trend;
-      assert.ok(trend < 0, `trend should be negative, got ${trend}`);
-    });
+    const context = {
+      judgmentId: 'judgment_123',
+      qScore: 42,
+    };
 
-    it('detects positive trend', () => {
-      // Feed increasing awareness
-      for (let i = 1; i <= 10; i++) {
-        actor.processConsciousnessChange({
-          awarenessLevel: i * 0.06,
-          newState: 'AWARE',
-        });
-      }
-      const trend = actor.getStats().trend;
-      assert.ok(trend > 0, `trend should be positive, got ${trend}`);
-    });
+    const result = actor.act(decision, context);
+
+    assert.strictEqual(result.judgmentId, 'judgment_123');
+    assert.ok(result.message.includes('Q:42'));
   });
 
-  describe('getHealth', () => {
-    it('returns healthy by default', () => {
-      const health = actor.getHealth();
-      assert.equal(health.status, 'healthy');
-    });
+  it('should handle null action type (no-op)', () => {
+    const decision = {
+      type: 'unknown_decision_type',
+      context: { reason: 'test' },
+      confidence: 0.5,
+    };
 
-    it('returns critical when in critical state', () => {
-      actor.processConsciousnessChange({ awarenessLevel: 0.5, newState: 'AWARE' });
-      actor.processConsciousnessChange({ awarenessLevel: 0.1, newState: 'DORMANT' });
-      const health = actor.getHealth();
-      assert.equal(health.status, 'critical');
-    });
+    // mapDecisionToAction returns null/undefined for unknown types -> defaults to ACKNOWLEDGE
+    const result = actor.act(decision);
 
-    it('caps score at φ⁻¹', () => {
-      actor.processConsciousnessChange({ awarenessLevel: 0.9, newState: 'TRANSCENDENT' });
-      const health = actor.getHealth();
-      assert.ok(health.score <= 0.618 + 0.001, `score ${health.score} should be <= 0.618`);
-    });
+    // ACKNOWLEDGE has no cooldown, so should work
+    assert.ok(result);
+    assert.strictEqual(result.type, CynicActionType.ACKNOWLEDGE);
+  });
+
+  it('should record action response (acted_on / dismissed)', () => {
+    const decision = {
+      type: 'escalate_pattern',
+      context: { reason: 'test_response' },
+      confidence: 0.55,
+    };
+
+    actor.act(decision);
+
+    // Simulate user response
+    actor.recordResponse(CynicActionType.ESCALATE_ALERT, 'acted_on');
+
+    const history = actor.getHistory();
+    assert.ok(history.length > 0);
+    assert.strictEqual(history[history.length - 1].status, 'acted_on');
+  });
+
+  it('should limit history to maxHistory', () => {
+    // maxHistory = 144 (Fib(12))
+    // Create more than 144 actions (mock by bypassing cooldowns)
+    for (let i = 0; i < 150; i++) {
+      actor._lastAction.clear(); // Hack to bypass cooldowns
+      actor.act({
+        type: 'acknowledge',
+        context: { reason: `action_${i}` },
+        confidence: 0.5,
+      });
+    }
+
+    const history = actor.getHistory(200);
+    assert.ok(history.length <= 144);
   });
 });

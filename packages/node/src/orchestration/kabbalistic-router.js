@@ -32,6 +32,7 @@ import { RelationshipGraph } from '../agents/collective/relationship-graph.js';
 import { CONSULTATION_MATRIX, getConsultants, shouldConsult } from '@cynic/core/orchestration';
 import { DOG_DIMENSION_AFFINITY } from '../judge/dimensions.js';
 import { getCostLedger } from '../accounting/cost-ledger.js';
+import { getUnifiedLLMRouter } from './unified-llm-router.js';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
@@ -291,6 +292,10 @@ export class KabbalisticRouter {
     this.codeLearner = codeLearner;
     this._currentEpisodeId = null;
 
+    // UnifiedLLMRouter for budget-aware LLM routing
+    this.llmRouter = getUnifiedLLMRouter();
+    this.costLedger = getCostLedger();
+
     // D1: DPO weight cache (loaded from routing_weights table)
     // Per-context: { contextType → { dog → weight } }
     this._dpoWeightsByContext = null;
@@ -398,6 +403,16 @@ export class KabbalisticRouter {
       const { model, reason, budgetLevel } = data;
       this._recommendedModel = model;
       log.debug('Model recommendation received', { model, reason, budgetLevel });
+
+      // Emit to UnifiedLLMRouter for budget-aware routing decisions
+      if (this.llmRouter) {
+        this.llmRouter.emit('budget:recommendation', {
+          model,
+          reason,
+          budgetLevel,
+          timestamp: Date.now(),
+        });
+      }
     });
 
     log.debug('Health-aware routing events wired');
@@ -997,6 +1012,43 @@ export class KabbalisticRouter {
         }
       });
     }
+  }
+
+  /**
+   * Get budget-aware LLM routing recommendation
+   * Integrates UnifiedLLMRouter for cost-conscious model selection
+   *
+   * @param {string} taskType - Task complexity (simple|moderate|complex)
+   * @param {Object} options - Routing options
+   * @returns {Object} LLM routing decision
+   */
+  getBudgetAwareLLMRoute(taskType = 'moderate', options = {}) {
+    if (!this.costLedger) {
+      return { provider: 'anthropic', model: 'sonnet', tier: 'MEDIUM', reason: 'no cost ledger' };
+    }
+
+    // Get recommendation from CostLedger
+    const recommendation = this.costLedger.recommendModel({
+      taskType,
+      needsReasoning: options.needsReasoning || false,
+    });
+
+    // Map model to tier and provider
+    const modelToTierMap = {
+      opus: { tier: 'FULL', provider: 'anthropic', model: 'opus' },
+      sonnet: { tier: 'MEDIUM', provider: 'anthropic', model: 'sonnet' },
+      haiku: { tier: 'LIGHT', provider: 'anthropic', model: 'haiku' },
+      ollama: { tier: 'LOCAL', provider: 'ollama', model: 'llama3.2:latest' },
+    };
+
+    const route = modelToTierMap[recommendation.model] || modelToTierMap.sonnet;
+
+    return {
+      ...route,
+      reason: recommendation.reason,
+      budgetLevel: recommendation.budgetLevel,
+      confidence: recommendation.confidence,
+    };
   }
 
   getPath(taskType, temporalContext = null) {

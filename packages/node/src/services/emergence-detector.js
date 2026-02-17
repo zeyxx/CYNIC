@@ -17,6 +17,8 @@
 import { EventEmitter } from 'events';
 import { PHI_INV, PHI_INV_2, globalEventBus } from '@cynic/core';
 import { createLogger } from '@cynic/core';
+import { getPool } from '@cynic/persistence';
+import { getDBBatchWriter } from '../learning/db-batch-writer.js';
 
 const log = createLogger('EmergenceDetector');
 
@@ -105,6 +107,13 @@ export class EmergenceDetector extends EventEmitter {
     this._velocitySpikes = [];
     this._learningCycles = [];
     this._errors = [];
+
+    // DB batch writer for learning_events
+    this.pool = options.pool || getPool();
+    this.batchWriter = getDBBatchWriter(this.pool, {
+      bufferLimit: 10,
+      flushIntervalMs: 100,
+    });
 
     // Wire event listeners
     this._wireEvents();
@@ -937,29 +946,23 @@ export class EmergenceDetector extends EventEmitter {
 
       this.emit('pattern_detected', { pattern, isNew, isEscalated });
 
-      // Record to learning_events for G1.2 metric
-      (async () => {
-        try {
-          const { getPool } = await import('@cynic/persistence');
-          const pool = getPool();
-          await pool.query(`
-            INSERT INTO learning_events (loop_type, event_type, pattern_id, metadata)
-            VALUES ($1, $2, $3, $4)
-          `, [
-            'emergence',
-            'pattern-detected',
-            pattern.id || pattern.category,
-            JSON.stringify({
-              category: pattern.category,
-              occurrences: pattern.occurrences,
-              significance: pattern.significance,
-              confidence: Math.round((pattern.confidence || 0) * 1000) / 1000,
-              isNew,
-              isEscalated
-            })
-          ]);
-        } catch { /* non-blocking DB write */ }
-      })();
+      // Record to learning_events for G1.2 metric (batched, non-blocking)
+      this.batchWriter.add(`
+        INSERT INTO learning_events (loop_type, event_type, pattern_id, metadata)
+        VALUES ($1, $2, $3, $4)
+      `, [
+        'emergence',
+        'pattern-detected',
+        pattern.id || pattern.category,
+        JSON.stringify({
+          category: pattern.category,
+          occurrences: pattern.occurrences,
+          significance: pattern.significance,
+          confidence: Math.round((pattern.confidence || 0) * 1000) / 1000,
+          isNew,
+          isEscalated
+        })
+      ]);
     }
   }
 

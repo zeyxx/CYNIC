@@ -24,7 +24,8 @@
     "./llm": "./src/llm/index.js",
     "./tracing": "./src/tracing/index.js",
     "./ecosystem": "./src/ecosystem/index.js",
-    "./ecosystem/asdfasdfa-ecosystem.js": "./src/ecosystem/asdfasdfa-ecosystem.js"
+    "./ecosystem/asdfasdfa-ecosystem.js": "./src/ecosystem/asdfasdfa-ecosystem.js",
+    "./axioms/phi-utils.js": "./src/axioms/phi-utils.js"
   },
   "scripts": {
     "test": "node --test test/*.test.js"

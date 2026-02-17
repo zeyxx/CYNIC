@@ -48,9 +48,9 @@ class MockLearningEventsTable {
       event_type: eventType,
       judgment_id: data.judgment_id || null,
       pattern_id: data.pattern_id || null,
-      feedback_value: data.feedback_value || null,
+      feedback_value: data.feedback_value ?? null, // Use ?? to preserve 0.0
       action_taken: data.action_taken || null,
-      weight_delta: data.weight_delta || null,
+      weight_delta: data.weight_delta ?? null, // Use ?? to preserve 0.0
       metadata: data.metadata || {},
     };
     this.events.push(event);

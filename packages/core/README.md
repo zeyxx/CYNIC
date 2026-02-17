@@ -28,8 +28,8 @@ import { timerTracker } from '@cynic/core';
 
 ## Stats
 
-- **Source files**: 75
-- **Test files**: 30
+- **Source files**: 77
+- **Test files**: 31
 - **Test ratio**: 40%
 - **Exports**: 2 named
 

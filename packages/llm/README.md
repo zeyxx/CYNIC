@@ -2,7 +2,7 @@
 
 > CYNIC LLM Package Unified LLM integration for the CYNIC ecosystem. Provides: - Multi-LLM routing and consensus - Provider adapters (Ollama, Claude Code, OpenAI-compatible) - AirLLM integration for large models - φ-aligned confidence thresholds
 
-**Category**: llm | **Version**: 0.1.0 | **Quality**: 🟡 adequate
+**Category**: llm | **Version**: 0.1.0 | **Quality**: 🔴 critical
 
 ## Installation
 
@@ -39,6 +39,23 @@ const instance = createOllamaValidator();
 | `SimilarityThresholds` | SimilarityThresholds implementation |
 | `PerceptionRouter` | PerceptionRouter implementation |
 | `PerceptionLayer` | PerceptionLayer implementation |
+| `PricingOracle` | PricingOracle implementation |
+| `PageIndex` | PageIndex implementation |
+| `IndexNode` | IndexNode implementation |
+| `Prometheus` | Prometheus implementation |
+| `Atlas` | Atlas implementation |
+| `TaskType` | TaskType implementation |
+| `ExecutionStatus` | ExecutionStatus implementation |
+| `PlanStep` | PlanStep implementation |
+| `ExecutionPlan` | ExecutionPlan implementation |
+| `IntelligentSwitch` | IntelligentSwitch implementation |
+| `Strategy` | Strategy implementation |
+| `Priority` | Priority implementation |
+| `LearningEngine` | LearningEngine implementation |
+| `LearningEvent` | LearningEvent implementation |
+| `EventType` | EventType implementation |
+| `AdapterTracker` | AdapterTracker implementation |
+| `CYNICBridge` | CYNICBridge implementation |
 
 ### Factory Functions
 
@@ -53,6 +70,14 @@ const instance = createOllamaValidator();
 | `createHybridRouter()` | Create HybridRouter instance |
 | `createValidatorsFromEnv()` | Create ValidatorsFromEnv instance |
 | `createValidatorsFromDetection()` | Create ValidatorsFromDetection instance |
+| `createPricingOracle()` | Create PricingOracle instance |
+| `createPageIndex()` | Create PageIndex instance |
+| `createPrometheus()` | Create Prometheus instance |
+| `createAtlas()` | Create Atlas instance |
+| `createIntelligentSwitch()` | Create IntelligentSwitch instance |
+| `createForPriority()` | Create ForPriority instance |
+| `createLearningEngine()` | Create LearningEngine instance |
+| `createCYNICBridge()` | Create CYNICBridge instance |
 
 ### Singletons
 
@@ -61,14 +86,15 @@ const instance = createOllamaValidator();
 | `getLLMRouter()` | Get LLMRouter singleton |
 | `getRouterWithValidators()` | Get RouterWithValidators singleton |
 | `getPerceptionRouter()` | Get PerceptionRouter singleton |
+| `getOracle()` | Get Oracle singleton |
 
 ### Constants
 
-`TIER_COSTS`, `TIER_LATENCIES`, `PHI_INV`
+`TIER_COSTS`, `TIER_LATENCIES`, `PHI_INV`, `PROVIDER_PRICING`, `DEFAULT_CONFIG`
 
 ### Functions
 
-`checkAirLLMAvailability`, `_resetLLMRouterForTesting`, `tokenize`, `removeStopwords`, `jaccardSimilarity`, `textSimilarity`, `clusterBySimilarity`, `calculateSemanticAgreement`, `_resetPerceptionRouterForTesting`, `PHI_INV_2`
+`checkAirLLMAvailability`, `_resetLLMRouterForTesting`, `tokenize`, `removeStopwords`, `jaccardSimilarity`, `textSimilarity`, `clusterBySimilarity`, `calculateSemanticAgreement`, `_resetPerceptionRouterForTesting`, `PHI_INV_2` + 2 more
 
 ## Dependencies
 
@@ -76,10 +102,10 @@ const instance = createOllamaValidator();
 
 ## Stats
 
-- **Source files**: 12
+- **Source files**: 26
 - **Test files**: 5
-- **Test ratio**: 42%
-- **Exports**: 40 named
+- **Test ratio**: 19%
+- **Exports**: 70 named
 
 ## Fractal Structure
 
@@ -89,10 +115,10 @@ const instance = createOllamaValidator();
 ## Dimensions (4 Axioms)
 
 ```
-[████░░░░░░] 42% φ (Confidence)
+[██░░░░░░░░] 19% φ (Confidence)
 [█████░░░░░] 50% Verify
 [█████░░░░░] 50% Culture
-[░░░░░░░░░░]  0% Burn (Simplicity)
+[█░░░░░░░░░] 10% Burn (Simplicity)
 [██░░░░░░░░] 20% Emergence
 ```
 

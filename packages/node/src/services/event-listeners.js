@@ -4692,6 +4692,56 @@ export function startEventListeners(options = {}) {
     _unsubscribers.push(unsubToolCalled);
   }
 
+  // 10f½. TOOL_COMPLETED → USER_FEEDBACK: Feed tool outcomes to learning system
+  //       Bridge: tool success/failure → SONA + BehaviorModifier + MetaCognition
+  //       This closes the learning loop — tools emit completion events, learning consumes them
+  {
+    const unsubToolFeedback = globalEventBus.subscribe(
+      EventType.TOOL_COMPLETED,
+      (event) => {
+        try {
+          const { tool, result, error, input, judgmentId } = event.payload || {};
+          if (!tool) return;
+
+          // Emit USER_FEEDBACK event for learning system consumption
+          globalEventBus.emit(EventType.USER_FEEDBACK, {
+            action: tool,
+            outcome: error ? 'failure' : 'success',
+            type: error ? 'negative' : 'positive',
+            value: error ? -1 : 1,
+            context: { result, error, input },
+            judgmentId: judgmentId || null,
+            timestamp: Date.now(),
+          });
+
+          // Record to learning_events table for G1.2 metric
+          if (persistence?.query) {
+            persistence.query(`
+              INSERT INTO learning_events (loop_type, event_type, judgment_id, feedback_value, metadata)
+              VALUES ($1, $2, $3, $4, $5)
+            `, [
+              'tool-feedback-bridge',
+              'feedback',
+              judgmentId || null,
+              error ? -1 : 1,
+              JSON.stringify({ tool, outcome: error ? 'failure' : 'success' }),
+            ]).catch(() => {});
+          }
+
+          log.debug('Tool feedback bridged to learning system', {
+            tool,
+            outcome: error ? 'failure' : 'success',
+            hasJudgmentId: !!judgmentId,
+          });
+        } catch (err) {
+          log.debug('Tool feedback bridge error', { error: err.message });
+        }
+      }
+    );
+    _unsubscribers.push(unsubToolFeedback);
+    log.info('Tool feedback bridge wired: TOOL_COMPLETED → USER_FEEDBACK');
+  }
+
   // 10g. component:ready → SystemTopology registration (self-awareness)
   //      Published when components finish initialization
   {

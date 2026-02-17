@@ -15,6 +15,8 @@
 'use strict';
 
 import { PHI_INV, PHI_INV_2, PHI_INV_3 } from '@cynic/core';
+import { getPool } from '@cynic/persistence';
+import { getDBBatchWriter } from '../learning/db-batch-writer.js';
 
 export const EWC_CONFIG = {
   lambda: 0.1,
@@ -149,6 +151,13 @@ export class EWCManager {
       ewcPenaltiesApplied: 0,
       avgPenalty: 0,
     };
+
+    // DB batch writer for learning_events
+    this.pool = options.pool || getPool();
+    this.batchWriter = getDBBatchWriter(this.pool, {
+      bufferLimit: 10,
+      flushIntervalMs: 100,
+    });
   }
 
   startTask(taskId, taskType) {
@@ -225,27 +234,21 @@ export class EWCManager {
       task.consolidatedAt = new Date();
     }
 
-    // Record to learning_events for G1.2 metric
-    (async () => {
-      try {
-        const { getPool } = await import('@cynic/persistence');
-        const pool = getPool();
-        await pool.query(`
-          INSERT INTO learning_events (loop_type, event_type, pattern_id, metadata)
-          VALUES ($1, $2, $3, $4)
-        `, [
-          'ewc-consolidation',
-          'consolidation',
-          taskId || 'general',
-          JSON.stringify({
-            consolidationId: consolidationEvent.consolidationId,
-            taskType: this.currentTask?.taskType,
-            fisherStats: consolidationEvent.fisherStats,
-            qTableStates: qTable.stats?.states || 0
-          })
-        ]);
-      } catch { /* non-blocking DB write */ }
-    })();
+    // Record to learning_events for G1.2 metric (batched, non-blocking)
+    this.batchWriter.add(`
+      INSERT INTO learning_events (loop_type, event_type, pattern_id, metadata)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'ewc-consolidation',
+      'consolidation',
+      taskId || 'general',
+      JSON.stringify({
+        consolidationId: consolidationEvent.consolidationId,
+        taskType: this.currentTask?.taskType,
+        fisherStats: consolidationEvent.fisherStats,
+        qTableStates: qTable.stats?.states || 0
+      })
+    ]);
 
     return consolidationEvent;
   }

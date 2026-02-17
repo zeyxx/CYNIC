@@ -19,7 +19,8 @@
 'use strict';
 
 import { EventEmitter } from 'events';
-import { PHI_INV, PHI_INV_2, createLogger } from '@cynic/core';
+import { PHI_INV, PHI_INV_2, createLogger, globalEventBus, EventType } from '@cynic/core';
+import { getUnifiedSignalStore, SignalSource } from '../learning/unified-signal.js';
 
 const log = createLogger('CynicEmergence');
 
@@ -144,6 +145,106 @@ export class CynicEmergence extends EventEmitter {
   }
 
   /**
+   * Accumulate cycle data for pattern detection
+   * This is the main entry point for C6.7 (CYNIC × EMERGE)
+   *
+   * @param {Object} data - Cycle data
+   * @param {string} data.cycleId - Unique cycle identifier
+   * @param {Object} data.judgment - Judgment results
+   * @param {Object} data.decision - Decision made
+   * @param {Object} data.outcome - Outcome (success/failure)
+   * @param {Object} [data.metrics] - Optional metrics (heap, latency, etc)
+   */
+  accumulate({ cycleId, judgment, decision, outcome, metrics = {} }) {
+    const timestamp = Date.now();
+
+    // Accumulate data into rolling buffers
+    if (judgment) {
+      this.recordDogEvent({
+        dog: judgment.dog || 'unknown',
+        eventType: judgment.verdict || 'judgment',
+        timestamp,
+      });
+    }
+
+    if (decision) {
+      this.recordConsensus({
+        approved: decision.approved !== false,
+        agreement: decision.agreementRatio || decision.agreement || 0,
+        vetoCount: decision.vetoCount || 0,
+        dogCount: decision.voterCount || decision.dogCount || 0,
+        timestamp,
+      });
+    }
+
+    if (metrics) {
+      this.recordHealthSnapshot({
+        avgHealth: metrics.health || metrics.avgHealth || 0.5,
+        memoryLoad: metrics.heapUsed || metrics.memoryLoad || 0,
+        patternCount: this._patterns.length,
+        dogCount: metrics.activeDogs || 0,
+        timestamp,
+      });
+    }
+
+    // Run analysis every 10 cycles (configurable)
+    const minCyclesBeforeAnalysis = 10;
+    if (this._dogEvents.length >= minCyclesBeforeAnalysis) {
+      const newPatterns = this.analyze();
+
+      // Emit detected patterns to unified_signals
+      if (newPatterns.length > 0) {
+        this._emitPatternsToUnifiedSignals(newPatterns, cycleId);
+      }
+    }
+  }
+
+  /**
+   * Emit detected patterns to unified_signals table
+   * @private
+   */
+  _emitPatternsToUnifiedSignals(patterns, cycleId) {
+    const store = getUnifiedSignalStore();
+
+    for (const pattern of patterns) {
+      // Emit to global event bus for immediate consumption
+      globalEventBus.publish(EventType.CYNIC_EMERGENCE, {
+        pattern,
+        cycleId,
+        cell: 'C6.7',
+        dimension: 'CYNIC',
+        analysis: 'EMERGE',
+      });
+
+      // Persist to unified_signals for learning
+      try {
+        store.record({
+          source: SignalSource.PATTERN,
+          sessionId: cycleId,
+          itemType: 'cynic_pattern',
+          itemContent: pattern.message,
+          metadata: {
+            patternType: pattern.type,
+            significance: pattern.significance,
+            confidence: pattern.confidence,
+            data: pattern.data,
+            cell: 'C6.7',
+          },
+          outcome: pattern.significance === SignificanceLevel.CRITICAL ? 'critical' : 'success',
+        });
+      } catch (error) {
+        log.error('Failed to persist pattern to unified_signals', { error: error.message });
+      }
+    }
+
+    log.info('Patterns emitted to unified_signals', {
+      count: patterns.length,
+      cycleId,
+      types: patterns.map(p => p.type),
+    });
+  }
+
+  /**
    * Run full emergence analysis
    */
   analyze() {
@@ -209,11 +310,13 @@ export class CynicEmergence extends EventEmitter {
         .sort((a, b) => b[1] - a[1])[0];
 
       if (!prevTop || prevTop[0] !== topDog) {
+        // φ-bound confidence: scale ratio to range [0, φ⁻¹]
+        const phiBoundedConfidence = Math.floor(ratio * PHI_INV * 1000) / 1000; // Round down to avoid float issues
         return {
           type: CynicPatternType.DOG_DOMINANCE_SHIFT,
           significance: ratio > 0.8 ? SignificanceLevel.HIGH : SignificanceLevel.MEDIUM,
           data: { dominantDog: topDog, ratio, previousDominant: prevTop?.[0] || 'none' },
-          confidence: Math.min(ratio, PHI_INV),
+          confidence: Math.min(PHI_INV, phiBoundedConfidence),
           message: `${topDog} dominates ${(ratio * 100).toFixed(0)}% of events`,
         };
       }
@@ -280,7 +383,7 @@ export class CynicEmergence extends EventEmitter {
         type: CynicPatternType.GUARDIAN_ESCALATION,
         significance: vetoRate > PHI_INV ? SignificanceLevel.HIGH : SignificanceLevel.MEDIUM,
         data: { vetoRate, totalVetoes: recent.reduce((s, c) => s + c.vetoCount, 0) },
-        confidence: Math.min(vetoRate, PHI_INV),
+        confidence: Math.min(PHI_INV, vetoRate * PHI_INV), // φ-bound: scale to max φ⁻¹
         message: `Guardian veto rate ${(vetoRate * 100).toFixed(0)}% — high vigilance`,
       };
     }
@@ -323,7 +426,7 @@ export class CynicEmergence extends EventEmitter {
         type: CynicPatternType.MEMORY_PRESSURE,
         significance: avgMemLoad > 0.8 ? SignificanceLevel.CRITICAL : SignificanceLevel.HIGH,
         data: { avgMemoryLoad: avgMemLoad, snapshots: recent.length },
-        confidence: Math.min(avgMemLoad, PHI_INV),
+        confidence: Math.min(PHI_INV, avgMemLoad * PHI_INV_2), // φ-bound: scale to max φ⁻¹
         message: `Memory load at ${(avgMemLoad * 100).toFixed(0)}% — pressure detected`,
       };
     }

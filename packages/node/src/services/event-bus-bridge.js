@@ -36,6 +36,9 @@ import {
 
 import { getEventBus, EventType as AutomationEventType } from './event-bus.js';
 import { AgentEvent } from '../agents/events.js';
+import { DogSignal } from '../agents/collective/ambient-consensus.js';
+
+// Note: CoreEventType is imported at top for CONSENSUS_COMPLETED
 
 const log = createLogger('EventBusBridge');
 
@@ -44,6 +47,12 @@ const log = createLogger('EventBusBridge');
  * Events with this tag are NEVER re-forwarded.
  */
 const BRIDGED_TAG = '_bridged';
+
+/**
+ * Genealogy array to track event lineage across buses.
+ * Each hop adds: `${fromBus}:${eventType}:${timestamp}`
+ */
+const GENEALOGY_TAG = '_genealogy';
 
 /**
  * Bridge agent ID for registering on the AgentEventBus.
@@ -78,6 +87,16 @@ const AGENT_TO_CORE = {
  */
 const AUTOMATION_TO_CORE = {
   [AutomationEventType.LEARNING_CYCLE_COMPLETE]: 'learning:cycle:complete',
+  // Consensus completed (from AmbientConsensus)
+  'consensus:completed': CoreEventType.CONSENSUS_COMPLETED,
+  // DogSignals (from AmbientConsensus) → Core for persistence
+  [DogSignal.DANGER_DETECTED]: DogSignal.DANGER_DETECTED,
+  [DogSignal.PATTERN_FOUND]: DogSignal.PATTERN_FOUND,
+  [DogSignal.RECOMMENDATION]: DogSignal.RECOMMENDATION,
+  [DogSignal.ANALYSIS_COMPLETE]: DogSignal.ANALYSIS_COMPLETE,
+  [DogSignal.CONSENSUS_NEEDED]: DogSignal.CONSENSUS_NEEDED,
+  [DogSignal.WISDOM_SHARED]: DogSignal.WISDOM_SHARED,
+  [DogSignal.EXPLORATION_RESULT]: DogSignal.EXPLORATION_RESULT,
 };
 
 /**
@@ -169,13 +188,30 @@ class EventBusBridge {
     for (const [agentType, coreType] of Object.entries(AGENT_TO_CORE)) {
       try {
         const subId = agentBus.subscribe(agentType, BRIDGE_AGENT_ID, (event) => {
-          // Loop prevention: skip if already bridged
+          // Cycle detection via genealogy tracking
+          const eventId = `agent:${agentType}:${event.timestamp || Date.now()}`;
+          const genealogy = event.metadata?.[GENEALOGY_TAG] || [];
+
+          if (genealogy.includes(eventId)) {
+            this._stats.loopsPrevented++;
+            log.warn('[EventBusBridge] Cycle detected, dropping event', {
+              eventId,
+              genealogy,
+              type: agentType,
+            });
+            return;
+          }
+
+          // Legacy BRIDGED_TAG check (backward compatibility)
           if (event.metadata?.[BRIDGED_TAG]) {
             this._stats.loopsPrevented++;
             return;
           }
 
           try {
+            // Extend genealogy with current hop
+            const newGenealogy = [...genealogy, eventId];
+
             globalEventBus.publish(coreType, {
               ...event.payload,
               _agentSource: event.source,
@@ -183,7 +219,12 @@ class EventBusBridge {
             }, {
               source: `bridge:${event.source}`,
               correlationId: event.correlationId,
-              metadata: { [BRIDGED_TAG]: true, originalBus: 'agent', originalType: agentType },
+              metadata: {
+                [BRIDGED_TAG]: true,
+                [GENEALOGY_TAG]: newGenealogy,
+                originalBus: 'agent',
+                originalType: agentType,
+              },
             });
             this._stats.agentToCore++;
           } catch (err) {
@@ -210,18 +251,42 @@ class EventBusBridge {
 
     for (const [autoType, coreType] of Object.entries(AUTOMATION_TO_CORE)) {
       const unsub = automationBus.subscribe(autoType, (event) => {
-        // Loop prevention
-        if (event.meta?.[BRIDGED_TAG] || event.data?.[BRIDGED_TAG]) {
+        // Normalize metadata location (automation bus uses event.meta, event.data)
+        const metadata = event.metadata || event.meta || {};
+        const eventId = `automation:${autoType}:${event.timestamp || Date.now()}`;
+        const genealogy = metadata[GENEALOGY_TAG] || event.data?.[GENEALOGY_TAG] || [];
+
+        // Cycle detection
+        if (genealogy.includes(eventId)) {
+          this._stats.loopsPrevented++;
+          log.warn('[EventBusBridge] Cycle detected, dropping event', {
+            eventId,
+            genealogy,
+            type: autoType,
+          });
+          return;
+        }
+
+        // Legacy BRIDGED_TAG check (backward compatibility)
+        if (metadata[BRIDGED_TAG] || event.data?.[BRIDGED_TAG]) {
           this._stats.loopsPrevented++;
           return;
         }
 
         try {
+          // Extend genealogy
+          const newGenealogy = [...genealogy, eventId];
+
           globalEventBus.publish(coreType, {
             ...event.data,
           }, {
             source: `bridge:${event.meta?.source || 'automation'}`,
-            metadata: { [BRIDGED_TAG]: true, originalBus: 'automation', originalType: autoType },
+            metadata: {
+              [BRIDGED_TAG]: true,
+              [GENEALOGY_TAG]: newGenealogy,
+              originalBus: 'automation',
+              originalType: autoType,
+            },
           });
           this._stats.automationToCore++;
         } catch (err) {
@@ -243,18 +308,36 @@ class EventBusBridge {
 
     for (const [coreType, autoType] of Object.entries(CORE_TO_AUTOMATION)) {
       const unsub = globalEventBus.subscribe(coreType, (event) => {
-        // Loop prevention
+        // Cycle detection
+        const eventId = `core:${coreType}:${event.timestamp || Date.now()}`;
+        const genealogy = event.metadata?.[GENEALOGY_TAG] || [];
+
+        if (genealogy.includes(eventId)) {
+          this._stats.loopsPrevented++;
+          log.warn('[EventBusBridge] Cycle detected, dropping event', {
+            eventId,
+            genealogy,
+            type: coreType,
+          });
+          return;
+        }
+
+        // Legacy BRIDGED_TAG check (backward compatibility)
         if (event.metadata?.[BRIDGED_TAG]) {
           this._stats.loopsPrevented++;
           return;
         }
 
         try {
+          // Extend genealogy
+          const newGenealogy = [...genealogy, eventId];
+
           automationBus.publish(autoType, {
             ...event.payload,
           }, {
             source: `bridge:${event.source || 'core'}`,
             [BRIDGED_TAG]: true,
+            [GENEALOGY_TAG]: newGenealogy,
           });
           this._stats.coreToAutomation++;
         } catch (err) {
@@ -365,6 +448,7 @@ export const eventBusBridge = new EventBusBridge();
 
 export {
   BRIDGED_TAG,
+  GENEALOGY_TAG,
   BRIDGE_AGENT_ID,
   AGENT_TO_CORE,
   AUTOMATION_TO_CORE,

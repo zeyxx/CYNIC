@@ -46,5 +46,24 @@ export {
   MODEL_MAP as AnthropicModelMap,
 } from './anthropic.js';
 
+// WebSocket Claude Adapter (Vibe Companion style)
+export {
+  WebSocketClaudeAdapter,
+  createWebSocketClaudeAdapter,
+  createFreeClaudeAdapter,
+} from './websocket-claude-adapter.js';
+
+// Intelligent Switch - unified adapter
+export {
+  IntelligentSwitch,
+  createIntelligentSwitch,
+  createForPriority,
+  Strategy,
+  Priority,
+} from './intelligent-switch.js';
+
+// Learning-Enabled Switch
+export { LearningSwitch } from './learning-switch.js';
+
 // Re-export types for convenience
 export { LLMResponse, ConsensusResult } from '../types.js';

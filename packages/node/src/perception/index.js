@@ -52,6 +52,22 @@ export {
   MarketEventType,
 } from './market-watcher.js';
 
+// Social Watcher - C4.1 (SOCIAL × PERCEIVE)
+export {
+  SocialWatcher,
+  SocialEventType,
+  getSocialWatcher,
+  resetSocialWatcher,
+} from './social-watcher.js';
+
+// Cynic Watcher - C6.1 (CYNIC × PERCEIVE)
+export {
+  CynicWatcher,
+  CynicEventType,
+  getCynicWatcher,
+  resetCynicWatcher,
+} from './cynic-watcher.js';
+
 /**
  * Create a unified perception layer with concurrent sensor polling
  *
@@ -71,6 +87,8 @@ export function createPerceptionLayer(options = {}) {
   const { MachineHealthWatcher } = require('./machine-health-watcher.js');
   const { DogStateEmitter } = require('./dog-state-emitter.js');
   const { MarketWatcher } = require('./market-watcher.js');
+  const { SocialWatcher } = require('./social-watcher.js');
+  const { CynicWatcher } = require('./cynic-watcher.js');
 
   const enableConcurrentPolling = options.enableConcurrentPolling !== false;
 
@@ -99,12 +117,26 @@ export function createPerceptionLayer(options = {}) {
     eventBus: options.eventBus,
   });
 
+  const socialWatcher = new SocialWatcher({
+    ...options.social,
+    eventBus: options.eventBus,
+    db: options.db,
+  });
+
+  const cynicWatcher = new CynicWatcher({
+    ...options.cynic,
+    eventBus: options.eventBus,
+    db: options.db,
+  });
+
   return {
     filesystem: fsWatcher,
     solana: solanaWatcher,
     health: healthWatcher,
     dogState: dogStateEmitter,
     market: marketWatcher,
+    social: socialWatcher,
+    cynic: cynicWatcher,
 
     /**
      * Start all watchers
@@ -120,6 +152,8 @@ export function createPerceptionLayer(options = {}) {
           healthWatcher.start(),
           Promise.resolve(dogStateEmitter.start()),
           marketWatcher.start(),
+          socialWatcher.start(),
+          cynicWatcher.start(),
         ]);
 
         const failures = results.filter(r => r.status === 'rejected');
@@ -138,6 +172,8 @@ export function createPerceptionLayer(options = {}) {
         await healthWatcher.start();
         dogStateEmitter.start();
         await marketWatcher.start();
+        await socialWatcher.start();
+        await cynicWatcher.start();
       }
 
       return this;
@@ -156,6 +192,8 @@ export function createPerceptionLayer(options = {}) {
         healthWatcher.stop(),
         Promise.resolve(dogStateEmitter.stop()),
         marketWatcher.stop(),
+        socialWatcher.stop(),
+        cynicWatcher.stop(),
       ]);
 
       const failures = results.filter(r => r.status === 'rejected');
@@ -185,6 +223,8 @@ export function createPerceptionLayer(options = {}) {
         healthResult,
         dogStateResult,
         marketResult,
+        socialResult,
+        cynicResult,
         filesystemResult,
       ] = await Promise.allSettled([
         // Solana: Get current health + subscription state
@@ -206,6 +246,12 @@ export function createPerceptionLayer(options = {}) {
         // Market: Get current state
         Promise.resolve().then(() => marketWatcher.getState()),
 
+        // Social: Get current state
+        Promise.resolve().then(() => socialWatcher.getState()),
+
+        // Cynic: Watch CYNIC's own state
+        cynicWatcher.watch(),
+
         // Filesystem: Get current stats
         Promise.resolve().then(() => fsWatcher.getStats()),
       ]);
@@ -216,13 +262,15 @@ export function createPerceptionLayer(options = {}) {
         health: healthResult.status === 'fulfilled' ? healthResult.value : { error: healthResult.reason?.message },
         dogState: dogStateResult.status === 'fulfilled' ? dogStateResult.value : { error: dogStateResult.reason?.message },
         market: marketResult.status === 'fulfilled' ? marketResult.value : { error: marketResult.reason?.message },
+        social: socialResult.status === 'fulfilled' ? socialResult.value : { error: socialResult.reason?.message },
+        cynic: cynicResult.status === 'fulfilled' ? cynicResult.value : { error: cynicResult.reason?.message },
         filesystem: filesystemResult.status === 'fulfilled' ? filesystemResult.value : { error: filesystemResult.reason?.message },
         timestamp: Date.now(),
         latency: Date.now() - pollStart,
       };
 
       // Log failures
-      const failures = [solanaResult, healthResult, dogStateResult, marketResult, filesystemResult]
+      const failures = [solanaResult, healthResult, dogStateResult, marketResult, socialResult, cynicResult, filesystemResult]
         .filter(r => r.status === 'rejected');
 
       if (failures.length > 0) {
@@ -243,7 +291,9 @@ export function createPerceptionLayer(options = {}) {
         || solanaWatcher.isRunning()
         || !!healthWatcher._isRunning
         || !!dogStateEmitter._intervalId
-        || marketWatcher._isRunning;
+        || marketWatcher._isRunning
+        || socialWatcher._isRunning
+        || cynicWatcher._isRunning;
     },
 
     /**
@@ -256,6 +306,7 @@ export function createPerceptionLayer(options = {}) {
         health: healthWatcher.getHealth(),
         dogState: dogStateEmitter.getStats(),
         market: marketWatcher.stats,
+        cynic: cynicWatcher.stats,
       };
     },
   };

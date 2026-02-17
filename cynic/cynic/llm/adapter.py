@@ -1,0 +1,506 @@
+"""
+CYNIC Universal LLM Adapter — OS-level LLM routing
+
+CYNIC is an OS that routes to the BEST LLM for each Dog × Task.
+
+4 Consciousness Levels (cycle speeds):
+    L3 REFLEX (<10ms):  Non-LLM Dogs only (GUARDIAN/ANALYST/JANITOR/CYNIC)
+    L2 MICRO  (~500ms): Fast LLM calls (Ollama local, small models)
+    L1 MACRO  (~2.85s): Full LLM reasoning (Claude, Gemini, large Ollama)
+    L4 META   (daily):  Meta-learning, weight updates
+
+LLM Selection Architecture:
+    - NOT hardcoded — benchmarking determines optimal routing
+    - Each Dog × Task type has a benchmark-determined best LLM
+    - CYNIC benchmarks quality (Q-Score), speed, cost
+    - Results stored → router improves continuously
+
+Adapters:
+    OllamaAdapter   — Local open source (primary, free, private)
+    ClaudeAdapter   — Anthropic API (claude-sonnet-4.5, etc.)
+    GeminiAdapter   — Google Generative AI (free tier)
+"""
+from __future__ import annotations
+
+import asyncio
+import time
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Tuple
+
+from cynic.core.phi import PHI, PHI_INV, weighted_geometric_mean
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# UNIVERSAL REQUEST / RESPONSE
+# ════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class LLMRequest:
+    """A request to any LLM (unified format)."""
+    prompt: str
+    system: str = ""
+    max_tokens: int = 2048
+    temperature: float = 0.0        # Default: deterministic
+    stream: bool = False
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class LLMResponse:
+    """Response from any LLM (unified format)."""
+    content: str
+    model: str
+    provider: str                   # ollama / claude / gemini
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    cost_usd: float = 0.0
+    latency_ms: float = 0.0
+    error: Optional[str] = None
+
+    @property
+    def total_tokens(self) -> int:
+        return self.prompt_tokens + self.completion_tokens
+
+    @property
+    def is_success(self) -> bool:
+        return self.error is None and bool(self.content)
+
+    @property
+    def tokens_per_second(self) -> float:
+        if self.latency_ms <= 0:
+            return 0.0
+        return self.completion_tokens / (self.latency_ms / 1000.0)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ABSTRACT ADAPTER
+# ════════════════════════════════════════════════════════════════════════════
+
+class LLMAdapter(ABC):
+    """Abstract adapter — same interface for all LLMs."""
+
+    def __init__(self, model: str, provider: str) -> None:
+        self.model = model
+        self.provider = provider
+
+    @property
+    def adapter_id(self) -> str:
+        return f"{self.provider}:{self.model}"
+
+    @abstractmethod
+    async def complete(self, request: LLMRequest) -> LLMResponse:
+        """Send request, return response."""
+        ...
+
+    @abstractmethod
+    async def check_available(self) -> bool:
+        """Ping check — returns True if this LLM is reachable."""
+        ...
+
+    async def complete_safe(self, request: LLMRequest) -> LLMResponse:
+        """Complete with error containment — never raises."""
+        try:
+            return await asyncio.wait_for(self.complete(request), timeout=120.0)
+        except asyncio.TimeoutError:
+            return LLMResponse(
+                content="", model=self.model, provider=self.provider,
+                error="timeout after 120s",
+            )
+        except Exception as exc:
+            return LLMResponse(
+                content="", model=self.model, provider=self.provider,
+                error=str(exc),
+            )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# OLLAMA ADAPTER (Local — PRIMARY for privacy + cost)
+# ════════════════════════════════════════════════════════════════════════════
+
+class OllamaAdapter(LLMAdapter):
+    """
+    Ollama local models adapter via HTTP API.
+
+    CYNIC prefers Ollama by default:
+    - Free (no API cost)
+    - Private (data stays local)
+    - Fast for small models
+
+    Models auto-discovered at startup via list_models().
+    Best model per Dog × Task determined by benchmarking.
+    """
+
+    DEFAULT_URL = "http://localhost:11434"
+
+    def __init__(self, model: str = "llama3.2", base_url: str = DEFAULT_URL) -> None:
+        super().__init__(model=model, provider="ollama")
+        self.base_url = base_url.rstrip("/")
+
+    async def complete(self, request: LLMRequest) -> LLMResponse:
+        import httpx
+
+        start = time.time()
+        messages: List[Dict[str, str]] = []
+        if request.system:
+            messages.append({"role": "system", "content": request.system})
+        messages.append({"role": "user", "content": request.prompt})
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(
+                f"{self.base_url}/api/chat",
+                json={
+                    "model": self.model,
+                    "messages": messages,
+                    "stream": False,
+                    "options": {
+                        "temperature": request.temperature,
+                        "num_predict": request.max_tokens,
+                    },
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        latency_ms = (time.time() - start) * 1000
+        content = data.get("message", {}).get("content", "")
+
+        return LLMResponse(
+            content=content,
+            model=self.model,
+            provider="ollama",
+            prompt_tokens=data.get("prompt_eval_count", 0),
+            completion_tokens=data.get("eval_count", 0),
+            cost_usd=0.0,
+            latency_ms=latency_ms,
+        )
+
+    async def check_available(self) -> bool:
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(f"{self.base_url}/api/tags")
+                return resp.status_code == 200
+        except Exception:
+            return False
+
+    async def list_models(self) -> List[str]:
+        """Return names of all installed Ollama models."""
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(f"{self.base_url}/api/tags")
+                return [m["name"] for m in resp.json().get("models", [])]
+        except Exception:
+            return []
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CLAUDE ADAPTER (Anthropic API)
+# ════════════════════════════════════════════════════════════════════════════
+
+class ClaudeAdapter(LLMAdapter):
+    """
+    Claude adapter via Anthropic Python SDK.
+
+    CYNIC controls Claude as one organ among many — not as master.
+    Claude = language cortex (L1 Macro cycle reasoning).
+    Non-LLM Dogs (GUARDIAN, ANALYST, JANITOR, CYNIC-Dog) are L3 Reflex.
+    """
+
+    # Token pricing (USD per million tokens, approximate 2025)
+    PRICING: Dict[str, Tuple[float, float]] = {
+        "claude-sonnet-4-5-20250929":  (3.0, 15.0),
+        "claude-haiku-4-5-20251001":   (0.8,  4.0),
+        "claude-opus-4-6":             (15.0, 75.0),
+    }
+
+    def __init__(
+        self,
+        model: str = "claude-sonnet-4-5-20250929",
+        api_key: Optional[str] = None,
+    ) -> None:
+        super().__init__(model=model, provider="claude")
+        self._api_key = api_key
+
+    def _estimate_cost(self, prompt_tokens: int, completion_tokens: int) -> float:
+        input_price, output_price = self.PRICING.get(self.model, (3.0, 15.0))
+        return (prompt_tokens * input_price + completion_tokens * output_price) / 1_000_000
+
+    async def complete(self, request: LLMRequest) -> LLMResponse:
+        import anthropic
+
+        start = time.time()
+        client = anthropic.AsyncAnthropic(api_key=self._api_key)
+
+        kwargs: Dict[str, Any] = {
+            "model": self.model,
+            "max_tokens": request.max_tokens,
+            "messages": [{"role": "user", "content": request.prompt}],
+        }
+        if request.system:
+            kwargs["system"] = request.system
+
+        response = await client.messages.create(**kwargs)
+        latency_ms = (time.time() - start) * 1000
+
+        content = response.content[0].text if response.content else ""
+        usage = response.usage
+        cost = self._estimate_cost(usage.input_tokens, usage.output_tokens)
+
+        return LLMResponse(
+            content=content,
+            model=self.model,
+            provider="claude",
+            prompt_tokens=usage.input_tokens,
+            completion_tokens=usage.output_tokens,
+            cost_usd=cost,
+            latency_ms=latency_ms,
+        )
+
+    async def check_available(self) -> bool:
+        try:
+            import anthropic
+            client = anthropic.AsyncAnthropic(api_key=self._api_key)
+            await client.messages.create(
+                model=self.model, max_tokens=1,
+                messages=[{"role": "user", "content": "ping"}],
+            )
+            return True
+        except Exception:
+            return False
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GEMINI ADAPTER (Google Generative AI)
+# ════════════════════════════════════════════════════════════════════════════
+
+class GeminiAdapter(LLMAdapter):
+    """
+    Google Gemini adapter via google-generativeai SDK.
+
+    Models:
+    - gemini-1.5-flash: fast, generous free tier
+    - gemini-1.5-pro: smarter, limited free tier
+    - gemini-2.0-flash: latest fast model
+    """
+
+    def __init__(
+        self,
+        model: str = "gemini-1.5-flash",
+        api_key: Optional[str] = None,
+    ) -> None:
+        super().__init__(model=model, provider="gemini")
+        self._api_key = api_key
+
+    async def complete(self, request: LLMRequest) -> LLMResponse:
+        import google.generativeai as genai  # type: ignore
+
+        if self._api_key:
+            genai.configure(api_key=self._api_key)
+
+        start = time.time()
+        config = genai.types.GenerationConfig(
+            max_output_tokens=request.max_tokens,
+            temperature=request.temperature,
+        )
+        llm = genai.GenerativeModel(
+            model_name=self.model,
+            system_instruction=request.system or None,
+            generation_config=config,
+        )
+
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None, lambda: llm.generate_content(request.prompt)
+        )
+        latency_ms = (time.time() - start) * 1000
+        content = response.text if hasattr(response, "text") else ""
+
+        usage = getattr(response, "usage_metadata", None)
+        p_tokens = getattr(usage, "prompt_token_count", 0) if usage else 0
+        c_tokens = getattr(usage, "candidates_token_count", 0) if usage else 0
+
+        return LLMResponse(
+            content=content,
+            model=self.model,
+            provider="gemini",
+            prompt_tokens=p_tokens,
+            completion_tokens=c_tokens,
+            cost_usd=0.0,
+            latency_ms=latency_ms,
+        )
+
+    async def check_available(self) -> bool:
+        try:
+            import google.generativeai as genai  # type: ignore
+            if self._api_key:
+                genai.configure(api_key=self._api_key)
+            list(genai.list_models())
+            return True
+        except Exception:
+            return False
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# BENCHMARK RESULT
+# ════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class BenchmarkResult:
+    """Benchmark of one LLM for one Dog × Task combination."""
+    llm_id: str
+    dog_id: str
+    task_type: str
+    quality_score: float    # Q-Score from CYNIC Judge [0, 61.8]
+    speed_score: float      # tokens/s (normalized 0-1)
+    cost_score: float       # 1/cost (normalized 0-1, higher=cheaper)
+    error_rate: float = 0.0
+    sample_count: int = 1
+    timestamp: float = field(default_factory=time.time)
+
+    @property
+    def composite_score(self) -> float:
+        """
+        φ-weighted composite: Quality (φ) > Speed (1.0) > Cost (φ⁻¹)
+
+        Quality dominates because CYNIC's purpose is truth, not speed.
+        """
+        if self.quality_score <= 0:
+            return 0.0
+        return weighted_geometric_mean(
+            [self.quality_score / 61.8, self.speed_score, self.cost_score],
+            [PHI, 1.0, PHI_INV],
+        )
+
+    def ema_update(self, new: "BenchmarkResult", alpha: float = 0.3) -> "BenchmarkResult":
+        """Exponential moving average update (continuous learning)."""
+        return BenchmarkResult(
+            llm_id=self.llm_id,
+            dog_id=self.dog_id,
+            task_type=self.task_type,
+            quality_score=alpha * new.quality_score + (1 - alpha) * self.quality_score,
+            speed_score=alpha * new.speed_score + (1 - alpha) * self.speed_score,
+            cost_score=alpha * new.cost_score + (1 - alpha) * self.cost_score,
+            error_rate=alpha * new.error_rate + (1 - alpha) * self.error_rate,
+            sample_count=self.sample_count + 1,
+        )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# LLM REGISTRY (Dynamic discovery + routing)
+# ════════════════════════════════════════════════════════════════════════════
+
+class LLMRegistry:
+    """
+    OS-level LLM registry.
+
+    1. Discovers available LLMs on startup (Ollama models + Claude + Gemini)
+    2. Routes each Dog × Task request to best-performing LLM
+    3. Continuously updates routing table from benchmark results
+    4. CYNIC surpasses single LLMs because it uses THE BEST LLM per task
+    """
+
+    def __init__(self) -> None:
+        self._adapters: Dict[str, LLMAdapter] = {}
+        self._available: Dict[str, bool] = {}
+        self._benchmarks: Dict[Tuple[str, str, str], BenchmarkResult] = {}
+
+    def register(self, adapter: LLMAdapter, available: bool = True) -> None:
+        self._adapters[adapter.adapter_id] = adapter
+        self._available[adapter.adapter_id] = available
+
+    async def discover(
+        self,
+        ollama_url: str = "http://localhost:11434",
+        claude_api_key: Optional[str] = None,
+        gemini_api_key: Optional[str] = None,
+    ) -> List[str]:
+        """
+        Auto-discover all available LLMs.
+
+        Returns list of available adapter IDs.
+        CYNIC benchmarks these at startup to build routing table.
+        """
+        available: List[str] = []
+        tasks = []
+
+        # Ollama: discover all installed models
+        async def _discover_ollama() -> None:
+            probe = OllamaAdapter(model="probe", base_url=ollama_url)
+            if await probe.check_available():
+                models = await probe.list_models()
+                for model_name in models:
+                    adapter = OllamaAdapter(model=model_name, base_url=ollama_url)
+                    self.register(adapter, available=True)
+                    available.append(adapter.adapter_id)
+
+        # Claude
+        async def _discover_claude() -> None:
+            if claude_api_key:
+                adapter = ClaudeAdapter(api_key=claude_api_key)
+                if await adapter.check_available():
+                    self.register(adapter, available=True)
+                    available.append(adapter.adapter_id)
+
+        # Gemini
+        async def _discover_gemini() -> None:
+            if gemini_api_key:
+                adapter = GeminiAdapter(api_key=gemini_api_key)
+                if await adapter.check_available():
+                    self.register(adapter, available=True)
+                    available.append(adapter.adapter_id)
+
+        await asyncio.gather(_discover_ollama(), _discover_claude(), _discover_gemini())
+        return available
+
+    def get_available(self) -> List[LLMAdapter]:
+        return [a for aid, a in self._adapters.items() if self._available.get(aid, False)]
+
+    def get_best_for(self, dog_id: str, task_type: str) -> Optional[LLMAdapter]:
+        """
+        Return best LLM for this Dog × Task based on benchmark history.
+
+        Falls back to any available if no data yet.
+        """
+        best_score = -1.0
+        best: Optional[LLMAdapter] = None
+
+        for aid, adapter in self._adapters.items():
+            if not self._available.get(aid, False):
+                continue
+            key = (dog_id, task_type, aid)
+            bench = self._benchmarks.get(key)
+            if bench and bench.composite_score > best_score:
+                best_score = bench.composite_score
+                best = adapter
+
+        if best is None:
+            avail = self.get_available()
+            return avail[0] if avail else None
+        return best
+
+    def update_benchmark(
+        self, dog_id: str, task_type: str, llm_id: str, result: BenchmarkResult
+    ) -> None:
+        key = (dog_id, task_type, llm_id)
+        existing = self._benchmarks.get(key)
+        self._benchmarks[key] = existing.ema_update(result) if existing else result
+
+    def benchmark_matrix(self, dog_id: str, task_type: str) -> Dict[str, BenchmarkResult]:
+        return {
+            llm_id: r
+            for (d, t, llm_id), r in self._benchmarks.items()
+            if d == dog_id and t == task_type
+        }
+
+
+# Singleton
+_registry: Optional[LLMRegistry] = None
+
+
+def get_registry() -> LLMRegistry:
+    global _registry
+    if _registry is None:
+        _registry = LLMRegistry()
+    return _registry

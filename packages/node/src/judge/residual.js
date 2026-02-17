@@ -16,6 +16,8 @@
 import { PHI_INV_2, PHI_INV, AXIOMS, MIN_PATTERN_SOURCES } from '@cynic/core';
 import { calculateResidual } from '@cynic/protocol';
 import { dimensionRegistry } from './dimensions.js';
+import { getPool } from '@cynic/persistence';
+import { getDBBatchWriter } from '../learning/db-batch-writer.js';
 
 /**
  * Residual Detector - Discovers new dimensions
@@ -44,6 +46,13 @@ export class ResidualDetector {
     this.storage = options.storage || null;
     this._initialized = false;
     this._dirty = false;
+
+    // DB batch writer for learning_events
+    this.pool = options.pool || getPool();
+    this.batchWriter = getDBBatchWriter(this.pool, {
+      bufferLimit: 10,
+      flushIntervalMs: 100,
+    });
 
     // WS6: Governance callback - called when candidate reaches voting threshold
     this.onCandidateReady = options.onCandidateReady || null;
@@ -249,28 +258,22 @@ export class ResidualDetector {
     this.candidates.set(key, candidate);
     this._markDirty(); // FIX J5: Persist candidate changes
 
-    // Record to learning_events for G1.2 metric
-    (async () => {
-      try {
-        const { getPool } = await import('@cynic/persistence');
-        const pool = getPool();
-        await pool.query(`
-          INSERT INTO learning_events (loop_type, event_type, pattern_id, metadata)
-          VALUES ($1, $2, $3, $4)
-        `, [
-          'residual-detection',
-          'candidate-detected',
-          key,
-          JSON.stringify({
-            weakDimensions: cluster.weakDimensions,
-            avgResidual: Math.round(avgResidual * 1000) / 1000,
-            sampleCount: cluster.samples.length,
-            suggestedName: candidate.suggestedName,
-            confidence: Math.round(candidate.confidence * 1000) / 1000
-          })
-        ]);
-      } catch { /* non-blocking DB write */ }
-    })();
+    // Record to learning_events for G1.2 metric (batched, non-blocking)
+    this.batchWriter.add(`
+      INSERT INTO learning_events (loop_type, event_type, pattern_id, metadata)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      'residual-detection',
+      'candidate-detected',
+      key,
+      JSON.stringify({
+        weakDimensions: cluster.weakDimensions,
+        avgResidual: Math.round(avgResidual * 1000) / 1000,
+        sampleCount: cluster.samples.length,
+        suggestedName: candidate.suggestedName,
+        confidence: Math.round(candidate.confidence * 1000) / 1000
+      })
+    ]);
 
     // WS6: Notify when candidate reaches governance threshold
     if (candidate.confidence >= this._governanceThreshold && this.onCandidateReady) {

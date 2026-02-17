@@ -33,6 +33,25 @@ export {
   createParallelEventBus,
 } from './parallel-event-bus.js';
 
+// Unified Event Bus (Phase 1: single taxonomy replacing 3 buses)
+export {
+  UnifiedEventBus,
+  UnifiedEvent,
+  EventCategory,
+  EventPriority,
+  getUnifiedEventBus,
+  createUnifiedEventBus,
+  publish as publishUnified,
+  subscribe as subscribeUnified,
+} from './unified-event-bus.js';
+
+// Event Adapter (Phase 1, Day 2: migration layer)
+export {
+  EventAdapter,
+  createEventAdapter,
+  getTranslationMaps,
+} from './event-adapter.js';
+
 // Service Registry (dependency injection)
 export {
   ServiceRegistry,

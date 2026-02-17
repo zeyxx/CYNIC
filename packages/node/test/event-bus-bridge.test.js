@@ -29,6 +29,7 @@ import { AgentEvent, AgentEventMessage, AgentId } from '../src/agents/events.js'
 import {
   eventBusBridge,
   BRIDGED_TAG,
+  GENEALOGY_TAG,
   BRIDGE_AGENT_ID,
   AGENT_TO_CORE,
   AUTOMATION_TO_CORE,
@@ -448,6 +449,120 @@ describe('EventBusBridge', () => {
 
       // Should NOT appear on core bus (no forwarding rule for KNOWLEDGE_EXTRACTED)
       assert.equal(coreReceived.length, 0);
+    });
+  });
+
+  describe('Genealogy Tracking', () => {
+    it('prevents cycles via genealogy array', async () => {
+      eventBusBridge.start({ agentBus });
+
+      const received = [];
+      globalEventBus.subscribe(CoreEventType.PATTERN_DETECTED, (event) => {
+        received.push(event);
+      });
+
+      // Create an event with genealogy that already includes this event ID
+      const timestamp = Date.now();
+      const eventId = `agent:${AgentEvent.PATTERN_DETECTED}:${timestamp}`;
+
+      const event = new AgentEventMessage(
+        AgentEvent.PATTERN_DETECTED,
+        AgentId.ANALYST,
+        { patternType: 'cycle_test' },
+        {
+          timestamp,
+          metadata: {
+            [GENEALOGY_TAG]: [eventId], // Event already in its own genealogy
+          },
+        }
+      );
+
+      await agentBus.publish(event);
+
+      // Should NOT forward (cycle detected)
+      assert.equal(received.length, 0);
+      assert.equal(eventBusBridge.getStats().loopsPrevented, 1);
+    });
+
+    it('tracks genealogy across multiple hops', async () => {
+      eventBusBridge.start({ agentBus });
+
+      const coreReceived = [];
+      globalEventBus.subscribe(CoreEventType.PATTERN_DETECTED, (event) => {
+        coreReceived.push(event);
+      });
+
+      // Publish an event from agent bus
+      const event = new AgentEventMessage(
+        AgentEvent.PATTERN_DETECTED,
+        AgentId.ANALYST,
+        { patternType: 'multi_hop' }
+      );
+      await agentBus.publish(event);
+
+      // Should appear on core bus with genealogy
+      assert.equal(coreReceived.length, 1);
+      const genealogy = coreReceived[0].metadata[GENEALOGY_TAG];
+      assert.ok(Array.isArray(genealogy));
+      assert.equal(genealogy.length, 1);
+      assert.ok(genealogy[0].startsWith('agent:'));
+    });
+
+    it('extends genealogy with each hop', async () => {
+      eventBusBridge.start({ agentBus });
+
+      const automationBus = getEventBus();
+      const autoReceived = [];
+      automationBus.subscribe(AutomationEventType.JUDGMENT_CREATED, (event) => {
+        autoReceived.push(event);
+      });
+
+      // Publish with existing genealogy
+      globalEventBus.publish(CoreEventType.JUDGMENT_CREATED, {
+        judgmentId: 'j_genealogy',
+      }, {
+        source: 'Judge',
+        metadata: {
+          [GENEALOGY_TAG]: ['previous:hop:123'],
+        },
+      });
+
+      // Should extend genealogy (automation bus events have structure: {type, data, meta})
+      assert.equal(autoReceived.length, 1);
+      // Check both possible locations (root and meta, for compatibility)
+      const genealogy = autoReceived[0][GENEALOGY_TAG] || autoReceived[0].meta?.[GENEALOGY_TAG];
+      assert.ok(Array.isArray(genealogy), 'genealogy should be an array');
+      assert.equal(genealogy.length, 2);
+      assert.equal(genealogy[0], 'previous:hop:123');
+      assert.ok(genealogy[1].startsWith('core:'));
+    });
+
+    it('detects cycles from previous hops', async () => {
+      eventBusBridge.start({ agentBus });
+
+      const automationBus = getEventBus();
+      const autoReceived = [];
+      automationBus.subscribe(AutomationEventType.JUDGMENT_CREATED, (event) => {
+        autoReceived.push(event);
+      });
+
+      const timestamp = Date.now();
+      const eventId = `core:${CoreEventType.JUDGMENT_CREATED}:${timestamp}`;
+
+      // Publish with genealogy that includes this event
+      globalEventBus.publish(CoreEventType.JUDGMENT_CREATED, {
+        judgmentId: 'j_cycle',
+      }, {
+        source: 'Judge',
+        timestamp,
+        metadata: {
+          [GENEALOGY_TAG]: [eventId], // Already visited
+        },
+      });
+
+      // Should NOT forward (cycle detected)
+      assert.equal(autoReceived.length, 0);
+      assert.equal(eventBusBridge.getStats().loopsPrevented, 1);
     });
   });
 });

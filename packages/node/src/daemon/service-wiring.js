@@ -18,10 +18,13 @@
 'use strict';
 
 import path from 'path';
-import { createLogger, globalEventBus, EventType } from '@cynic/core';
+import { createLogger, globalEventBus, EventType, getUnifiedEventBus, createEventAdapter } from '@cynic/core';
+import { getEventBus } from '../services/event-bus.js';
+import { getGlobalEventBus as getAgentEventBus } from '../agents/event-bus.js';
 import { getModelIntelligence } from '../learning/model-intelligence.js';
 import { getCostLedger } from '../accounting/cost-ledger.js';
 import { getUnifiedLLMRouter } from '../orchestration/unified-llm-router.js';
+import { getLLMRouterService } from './llm-router-service.js';
 import { getCollectivePackAsync } from '../collective-singleton.js';
 import { createSONA } from '../learning/sona.js';
 import { createBehaviorModifier } from '../learning/behavior-modifier.js';
@@ -77,12 +80,14 @@ export function wireDaemonServices() {
       modelIntelligence: getModelIntelligence(),
       costLedger: getCostLedger(),
       llmRouter: getUnifiedLLMRouter(),
+      llmRouterService: getLLMRouterService(),
     };
   }
 
   // 1. Force-initialize singletons (warm, not lazy)
   const mi = getModelIntelligence();
   const costLedger = getCostLedger();
+  const llmRouterService = getLLMRouterService(); // Intelligent Claude/Ollama routing
   const llmRouter = getUnifiedLLMRouter({
     costLedger,
     modelIntelligence: mi,
@@ -103,6 +108,7 @@ export function wireDaemonServices() {
     modelIntelligence: !!mi,
     costLedger: !!costLedger,
     llmRouter: !!llmRouter,
+    llmRouterService: !!llmRouterService,
     dataPipeline: !!dataPipeline,
     researchRunner: !!researchRunner,
     thompsonMaturity: mi.getStats().samplerMaturity,
@@ -146,8 +152,101 @@ export function wireDaemonServices() {
 
   _wired = true;
 
-  log.info('Daemon services wired');
-  return { modelIntelligence: mi, costLedger, llmRouter, dataPipeline, researchRunner };
+  log.info('Daemon services wired', {
+    llmRouterService: !!llmRouterService,
+  });
+  return { modelIntelligence: mi, costLedger, llmRouter, llmRouterService, dataPipeline, researchRunner };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// EVENT ADAPTER — Migration layer bridging old buses to unified bus (Phase 1, Day 2)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _adapterWired = false;
+let _eventAdapter = null;
+
+/**
+ * Wire EventAdapter at daemon boot.
+ *
+ * Creates bidirectional bridge between old event buses (Core, Automation, Agent)
+ * and the new UnifiedEventBus. Enables incremental migration with zero breakage.
+ *
+ * Strategy:
+ * - Old events → translated → published to unified bus
+ * - Unified events → translated → published to old buses (for old listeners)
+ * - Both systems work simultaneously during migration
+ *
+ * @returns {{ eventAdapter: Object|null }}
+ */
+export function wireEventAdapter() {
+  if (_adapterWired) {
+    log.debug('EventAdapter already wired — skipping');
+    return { eventAdapter: _eventAdapter };
+  }
+
+  try {
+    // 1. Get bus instances (already imported at top of file)
+    const unifiedBus = getUnifiedEventBus();
+    const automationBus = getEventBus();
+    const agentBus = getAgentEventBus();
+
+    // 2. Create and start adapter
+    _eventAdapter = createEventAdapter({
+      unifiedBus,
+      oldBuses: {
+        core: globalEventBus,
+        automation: automationBus,
+        agent: agentBus,
+      },
+      bidirectional: true, // Enable unified → old routing
+    });
+
+    // Adapter automatically starts on creation (see createEventAdapter)
+    log.info('EventAdapter wired — bidirectional routing active', {
+      oldBusCount: 3,
+      bidirectional: true,
+    });
+
+    _adapterWired = true;
+
+    return { eventAdapter: _eventAdapter };
+  } catch (err) {
+    log.warn('EventAdapter init failed — old buses will remain isolated', {
+      error: err.message,
+    });
+    return { eventAdapter: null };
+  }
+}
+
+/**
+ * Get EventAdapter singleton (if wired).
+ * @returns {Object|null}
+ */
+export function getEventAdapterSingleton() {
+  return _eventAdapter;
+}
+
+/**
+ * Check if EventAdapter is wired.
+ * @returns {boolean}
+ */
+export function isEventAdapterWired() {
+  return _adapterWired;
+}
+
+/**
+ * Cleanup EventAdapter resources.
+ */
+function cleanupEventAdapter() {
+  if (!_adapterWired) return;
+
+  if (_eventAdapter) {
+    _eventAdapter.stop();
+    _eventAdapter = null;
+  }
+
+  _adapterWired = false;
+  log.info('EventAdapter cleaned up');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -237,7 +336,10 @@ export async function wireLearningSystem() {
       } catch { /* non-blocking */ }
     };
     globalEventBus.on(EventType.JUDGMENT_CREATED || 'judgment:created', _sonaListener);
-    log.info('SONA wired — observing judgments');
+
+    // START SONA adaptation loop — this activates real-time learning
+    _sona.start();
+    log.info('SONA wired — observing judgments + adaptation loop started');
   } catch (err) {
     log.warn('SONA init failed', { error: err.message });
   }
@@ -414,6 +516,9 @@ export async function cleanupDaemonServices() {
     log.debug('Final persist failed', { error: err.message });
   }
 
+  // Clean up event adapter
+  cleanupEventAdapter();
+
   // Clean up learning system
   cleanupLearningSystem();
 
@@ -422,6 +527,9 @@ export async function cleanupDaemonServices() {
 
   // Clean up watchers
   await cleanupWatchers();
+
+  // Clean up CYNIC heartbeat
+  await cleanupCynicHeartbeat();
 
   _wired = false;
   log.info('Daemon services cleaned up');
@@ -748,10 +856,24 @@ let _solanaWatcherPoll = null;
 let _fsWatcher = null;
 let _solanaWatcher = null;
 
+// CYNIC HEARTBEAT — autonomous self-observation cycle
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _cynicHeartbeatWired = false;
+let _cynicHeartbeatTimer = null;
+let _cynicWatcher = null;
+let _cynicJudge = null;
+let _cynicDecider = null;
+let _cynicActor = null;
+let _cynicLearner = null;
+let _cynicAccountant = null;
+let _cynicEmergence = null;
+
 /** Polling intervals (φ-aligned) */
 const FILE_POLL_INTERVAL = 5000; // 5s
 const SOLANA_POLL_INTERVAL = 30000; // 30s
 const HEARTBEAT_INTERVAL = 60000; // 1 min
+const CYNIC_CYCLE_INTERVAL = 5 * 60 * 1000; // 5 min — autonomous self-observation
 
 /**
  * Wire watchers — FileWatcher + SolanaWatcher polling.
@@ -953,6 +1075,186 @@ export function isWatchersWired() {
   return _watchersWired;
 }
 
+// =============================================================================
+// CYNIC HEARTBEAT — Autonomous Self-Observation Cycle
+// =============================================================================
+
+/**
+ * Wire CYNIC heartbeat — autonomous self-observation cycle.
+ *
+ * Every 5 minutes, CYNIC runs a full cycle:
+ * 1. PERCEIVE — CynicWatcher observes internal state
+ * 2. JUDGE — Judge scores health with 36 dimensions
+ * 3. DECIDE — CynicDecider chooses optimizations
+ * 4. ACT — CynicActor executes changes
+ * 5. LEARN — CynicLearner updates from outcomes
+ * 6. ACCOUNT — CynicAccountant tracks costs
+ * 7. EMERGE — CynicEmergence detects meta-patterns
+ *
+ * "Le chien s'observe lui-même" - κυνικός
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.db] - PostgreSQL pool
+ * @param {number} [options.interval] - Cycle interval in ms (default: 5min)
+ * @returns {Promise<Object>} Wired components
+ */
+export async function wireCynicHeartbeat(options = {}) {
+  if (_cynicHeartbeatWired) {
+    log.debug('CYNIC heartbeat already wired — skipping');
+    return {
+      watcher: _cynicWatcher,
+      judge: _cynicJudge,
+      decider: _cynicDecider,
+      actor: _cynicActor,
+      learner: _cynicLearner,
+      accountant: _cynicAccountant,
+      emergence: _cynicEmergence,
+    };
+  }
+
+  const { getCynicWatcher } = await import('../perception/cynic-watcher.js');
+  const { CYNICJudge } = await import('../judge/judge.js');
+  const { getCynicDecider } = await import('../cynic/cynic-decider.js');
+  const { getCynicActor } = await import('../cynic/cynic-actor.js');
+  const { getCynicLearner } = await import('../cynic/cynic-learner.js');
+  const { getCynicAccountant } = await import('../cynic/cynic-accountant.js');
+  const { getCynicEmergence } = await import('../emergence/cynic-emergence.js');
+  const { getPool } = await import('@cynic/persistence');
+
+  const db = options.db || getPool();
+  const interval = options.interval || CYNIC_CYCLE_INTERVAL;
+
+  // Initialize components
+  try {
+    _cynicWatcher = getCynicWatcher();
+    _cynicJudge = new CYNICJudge(); // Direct instantiation — no singleton for Judge
+    _cynicDecider = getCynicDecider();
+    _cynicActor = getCynicActor();
+    _cynicLearner = getCynicLearner();
+    _cynicAccountant = getCynicAccountant();
+    _cynicEmergence = getCynicEmergence();
+
+    // Start watcher polling
+    await _cynicWatcher.start();
+
+    log.info('CYNIC components initialized');
+  } catch (err) {
+    log.warn('CYNIC component initialization failed', { error: err.message });
+    throw err;
+  }
+
+  // Start autonomous cycle
+  _cynicHeartbeatTimer = setInterval(async () => {
+    try {
+      const cycleId = `cynic-${Date.now()}`;
+      log.debug('CYNIC cycle starting', { cycleId });
+
+      // 1. PERCEIVE — Observe internal state
+      const observation = await _cynicWatcher.watch();
+
+      // 2. JUDGE — Score health
+      const judgment = await _cynicJudge.judge({
+        domain: 'CYNIC',
+        context: observation,
+      });
+
+      // 3. DECIDE — Choose optimizations
+      const decision = await _cynicDecider.decide(judgment, {
+        db,
+        observation,
+      });
+
+      // 4. ACT — Execute changes
+      const outcome = await _cynicActor.act(decision, {
+        db,
+        compressor: _cynicWatcher.contextCompressor,
+        llmRouter: _cynicWatcher.costLedger?.llmRouter,
+      });
+
+      // 5. LEARN — Update from outcomes
+      await _cynicLearner.learn({
+        cycleId,
+        judgment,
+        decision,
+        outcome,
+      });
+
+      // 6. ACCOUNT — Track costs
+      await _cynicAccountant.account({
+        cycleId,
+        judgment,
+        decision,
+        outcome,
+      });
+
+      // 7. EMERGE — Detect meta-patterns
+      await _cynicEmergence.accumulate({
+        cycleId,
+        judgment,
+        decision,
+        outcome,
+      });
+
+      log.info('CYNIC cycle complete', {
+        cycleId,
+        qScore: judgment.qScore,
+        actions: decision.actions?.length || 0,
+      });
+    } catch (err) {
+      log.warn('CYNIC cycle failed', { error: err.message });
+    }
+  }, interval);
+  _cynicHeartbeatTimer.unref();
+
+  _cynicHeartbeatWired = true;
+  log.info(`CYNIC heartbeat wired — autonomous cycle every ${interval / 1000}s`);
+
+  return {
+    watcher: _cynicWatcher,
+    judge: _cynicJudge,
+    decider: _cynicDecider,
+    actor: _cynicActor,
+    learner: _cynicLearner,
+    accountant: _cynicAccountant,
+    emergence: _cynicEmergence,
+  };
+}
+
+/**
+ * Stop CYNIC heartbeat and cleanup.
+ */
+export async function cleanupCynicHeartbeat() {
+  if (!_cynicHeartbeatWired) return;
+
+  if (_cynicHeartbeatTimer) {
+    clearInterval(_cynicHeartbeatTimer);
+    _cynicHeartbeatTimer = null;
+  }
+
+  if (_cynicWatcher) {
+    await _cynicWatcher.stop();
+  }
+
+  _cynicWatcher = null;
+  _cynicJudge = null;
+  _cynicDecider = null;
+  _cynicActor = null;
+  _cynicLearner = null;
+  _cynicAccountant = null;
+  _cynicEmergence = null;
+
+  _cynicHeartbeatWired = false;
+  log.info('CYNIC heartbeat cleaned up');
+}
+
+/**
+ * Check if CYNIC heartbeat is wired.
+ * @returns {boolean}
+ */
+export function isCynicHeartbeatWired() {
+  return _cynicHeartbeatWired;
+}
+
 /**
  * Check if services are wired.
  * @returns {boolean}
@@ -998,4 +1300,7 @@ export async function _resetForTesting() {
 
   // Reset watchers
   await cleanupWatchers();
+
+  // Reset CYNIC heartbeat
+  await cleanupCynicHeartbeat();
 }

@@ -55,8 +55,16 @@ export const EventType = {
   SOCIAL_CAPTURE: 'social:capture',
   SOCIAL_JUDGMENT: 'social:judgment',
 
+  // Market events (MARKET dimension - C3.x)
+  MARKET_PRICE_UPDATED: 'market:price:updated',
+  MARKET_VOLUME_UPDATED: 'market:volume:updated',
+  MARKET_LIQUIDITY_UPDATED: 'market:liquidity:updated',
+
   // Cynic self-judgment events (C6.2)
   CYNIC_JUDGMENT: 'cynic:judgment',
+
+  // Cynic emergence events (C6.7)
+  CYNIC_EMERGENCE: 'cynic:emergence',
 
   // Network/P2P events (PHASE 2: DECENTRALIZE)
   NODE_STARTED: 'node:started',

@@ -18,7 +18,7 @@ import os from 'os';
 import { bootDaemon } from '@cynic/core/boot';
 import { DaemonServer } from './index.js';
 import { processRegistry, createLogger } from '@cynic/core';
-import { wireDaemonServices, wireLearningSystem, wireOrchestrator, wireWatchers, wireConsciousnessReflection, cleanupDaemonServices } from './service-wiring.js';
+import { wireEventAdapter, wireDaemonServices, wireLearningSystem, wireOrchestrator, wireWatchers, wireConsciousnessReflection, wireCynicHeartbeat, cleanupDaemonServices } from './service-wiring.js';
 import { Watchdog, checkRestartSentinel } from './watchdog.js';
 
 const log = createLogger('DaemonEntry');
@@ -85,6 +85,14 @@ async function main() {
       // Daemon still runs — it can serve hooks even without full boot
     }
 
+    // Wire EventAdapter (MUST happen early — bridges old → unified events)
+    try {
+      const { eventAdapter } = wireEventAdapter();
+      logToFile('INFO', `EventAdapter wired — bidirectional routing ${eventAdapter ? 'active' : 'failed'}`);
+    } catch (err) {
+      logToFile('WARN', `EventAdapter wiring failed (old buses isolated): ${err.message}`);
+    }
+
     // Wire daemon-essential services (LLM, CostLedger — warm boot)
     let daemonServices = {};
     try {
@@ -143,6 +151,14 @@ async function main() {
       logToFile('INFO', 'Consciousness reflection wired — φ observes φ (60 min cycles)');
     } catch (err) {
       logToFile('WARN', `Consciousness reflection failed — meta-cognition degraded: ${err.message}`);
+    }
+
+    // Wire CYNIC heartbeat (autonomous self-observation: 5min cycles)
+    try {
+      await wireCynicHeartbeat();
+      logToFile('INFO', 'CYNIC heartbeat wired — autonomous self-observation (5 min cycles)');
+    } catch (err) {
+      logToFile('WARN', `CYNIC heartbeat failed — self-optimization degraded: ${err.message}`);
     }
 
     // Start watchdog (self-monitoring)

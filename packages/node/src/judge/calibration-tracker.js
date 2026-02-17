@@ -19,6 +19,7 @@
 
 import { getPool } from '@cynic/persistence';
 import { globalEventBus, EventType } from '@cynic/core';
+import { getDBBatchWriter } from '../learning/db-batch-writer.js';
 
 // Simple logger (no external dependency)
 const log = {
@@ -47,6 +48,10 @@ const BUCKET_SIZE = 10;
 export class CalibrationTracker {
   constructor(options = {}) {
     this.pool = options.pool || getPool();
+    this.batchWriter = getDBBatchWriter(this.pool, {
+      bufferLimit: 10, // F(5) - φ-aligned
+      flushIntervalMs: 100, // φ⁻¹ × 161.8ms ≈ 100ms
+    });
     this.serviceId = options.serviceId || 'default';
 
     // Drift detection config
@@ -240,23 +245,21 @@ export class CalibrationTracker {
           },
         });
 
-        // Record to learning_events for G1.2 metric
-        try {
-          await this.pool.query(`
-            INSERT INTO learning_events (loop_type, event_type, weight_delta, metadata)
-            VALUES ($1, $2, $3, $4)
-          `, [
-            'judgment-calibration',
-            'drift-detected',
-            summary.ece, // ECE is the calibration error (weight delta)
-            JSON.stringify({
-              ece: summary.ece,
-              threshold: summary.threshold,
-              totalSamples: summary.totalSamples,
-              daysAnalyzed: 7
-            })
-          ]);
-        } catch { /* non-blocking DB write */ }
+        // Record to learning_events for G1.2 metric (batched, non-blocking)
+        this.batchWriter.add(`
+          INSERT INTO learning_events (loop_type, event_type, weight_delta, metadata)
+          VALUES ($1, $2, $3, $4)
+        `, [
+          'judgment-calibration',
+          'drift-detected',
+          summary.ece, // ECE is the calibration error (weight delta)
+          JSON.stringify({
+            ece: summary.ece,
+            threshold: summary.threshold,
+            totalSamples: summary.totalSamples,
+            daysAnalyzed: 7
+          })
+        ]);
       }
     } catch (err) {
       log.debug('CalibrationTracker', 'Drift check failed (non-blocking)', { error: err.message });

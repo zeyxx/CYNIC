@@ -16,6 +16,7 @@ import { createLogger, PHI_INV } from '@cynic/core';
 import { getModelIntelligence } from '../learning/model-intelligence.js';
 import { getCostLedger } from '../accounting/cost-ledger.js';
 import { getUnifiedLLMRouter, Strategy, BudgetMode, Priority, Complexity } from '../orchestration/unified-llm-router.js';
+import { getLLMRouterService } from './llm-router-service.js';
 
 const log = createLogger('LLMEndpoints');
 
@@ -269,7 +270,67 @@ export function setupLLMEndpoints(app, deps = {}) {
     }
   });
 
-  log.info('LLM endpoints mounted: /llm/ask, /llm/consensus, /llm/models, /llm/feedback');
+  // ===========================================================================
+  // POST /llm/route — Intelligent routing between Claude and Ollama
+  // ===========================================================================
+
+  app.post('/llm/route', async (req, res) => {
+    const { prompt, forceProvider, context } = req.body || {};
+
+    if (!prompt) {
+      return res.status(400).json({ error: 'Missing required field: prompt' });
+    }
+
+    try {
+      const routerService = getLLMRouterService();
+      const result = await routerService.route(prompt, { forceProvider, context });
+
+      // If Ollama was successful, return the response
+      if (result.provider === 'ollama' && result.response) {
+        return res.json({
+          provider: result.provider,
+          model: result.model,
+          response: result.response,
+          latency: result.latency,
+          classification: result.classification,
+          reason: result.reason,
+        });
+      }
+
+      // If Claude is needed (or Ollama failed), return routing decision
+      // Caller must handle Claude API call themselves
+      return res.json({
+        provider: result.provider,
+        model: result.model,
+        passthrough: true, // Caller should use Claude
+        latency: result.latency,
+        classification: result.classification,
+        reason: result.reason,
+        error: result.error,
+      });
+
+    } catch (err) {
+      log.error('LLM routing failed', { error: err.message });
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ===========================================================================
+  // GET /llm/route/stats — Routing statistics
+  // ===========================================================================
+
+  app.get('/llm/route/stats', async (req, res) => {
+    try {
+      const routerService = getLLMRouterService();
+      const stats = routerService.getStats();
+      res.json(stats);
+    } catch (err) {
+      log.error('Routing stats query failed', { error: err.message });
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  log.info('LLM endpoints mounted: /llm/ask, /llm/consensus, /llm/models, /llm/feedback, /llm/route, /llm/route/stats');
 }
 
 export default setupLLMEndpoints;

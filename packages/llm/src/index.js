@@ -76,3 +76,57 @@ export {
 
 // Convenience re-exports from @cynic/core
 export { PHI_INV, PHI_INV_2 } from '@cynic/core';
+
+// Pricing Oracle - Real-time cost calculation
+export {
+  PricingOracle,
+  createPricingOracle,
+  getOracle,
+  calculateCost,
+  compareCosts,
+  PROVIDER_PRICING,
+  DEFAULT_CONFIG,
+} from './pricing/index.js';
+
+// Retrieval - PageIndex (Reasoning-based RAG)
+export {
+  PageIndex,
+  IndexNode,
+  createPageIndex,
+} from './retrieval/index.js';
+
+// Orchestration - Prometheus + Atlas
+export {
+  Prometheus,
+  Atlas,
+  createPrometheus,
+  createAtlas,
+  TaskType,
+  ExecutionStatus,
+  PlanStep,
+  ExecutionPlan,
+} from './orchestration/index.js';
+
+// Intelligent Switch
+export {
+  IntelligentSwitch,
+  createIntelligentSwitch,
+  createForPriority,
+  Strategy,
+  Priority,
+} from './adapters/intelligent-switch.js';
+
+// Learning Engine
+export {
+  LearningEngine,
+  createLearningEngine,
+  LearningEvent,
+  EventType,
+  AdapterTracker,
+} from './learning/index.js';
+
+// CYNIC Bridge - Integration Layer
+export {
+  CYNICBridge,
+  createCYNICBridge,
+} from './integration/cynic-bridge.js';
