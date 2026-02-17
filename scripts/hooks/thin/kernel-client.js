@@ -31,6 +31,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { spawn } from 'child_process';
 
 const KERNEL_PORT = parseInt(process.env.CYNIC_KERNEL_PORT || '8765', 10);
 const KERNEL_URL = `http://127.0.0.1:${KERNEL_PORT}`;
@@ -56,7 +57,7 @@ let _kernelCheckedAt = 0;
 const ALIVE_TTL_MS = 10_000;
 
 const _GUIDANCE_FILE = path.join(os.homedir(), '.cynic', 'guidance.json');
-const _GUIDANCE_STALE_MS = 5 * 60 * 1000; // 5 minutes
+const _GUIDANCE_STALE_MS = 24 * 60 * 60 * 1000; // 24 hours — guidance is learning, not cache
 
 /**
  * Read the kernel's last guidance (written by Python after each /perceive judgment).
@@ -94,6 +95,40 @@ export function notifyKernel(hookEvent, hookInput) {
   });
 }
 
+/** Auto-start the Python kernel (fire-and-forget, best-effort) */
+async function _autoStartKernel() {
+  const lockFile = path.join(os.homedir(), '.cynic', 'kernel.lock');
+  const kernelDir = path.resolve(
+    path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')),
+    '../../../cynic'
+  );
+
+  // Prevent concurrent spawns
+  try { if (fs.existsSync(lockFile)) return; } catch { return; }
+  try { fs.writeFileSync(lockFile, process.pid.toString(), { flag: 'wx' }); } catch { return; }
+
+  try {
+    const child = spawn('python', ['-m', 'cynic.api.entry', '--port', String(KERNEL_PORT)], {
+      cwd: kernelDir,
+      detached: true,
+      stdio: 'ignore',
+      env: { ...process.env, CYNIC_KERNEL_PORT: String(KERNEL_PORT) },
+    });
+    child.unref();
+
+    // Wait up to 3s for kernel to come up
+    for (let i = 0; i < 6; i++) {
+      await new Promise(r => setTimeout(r, 500));
+      try {
+        const r = await fetch(`${KERNEL_URL}/health`, { signal: AbortSignal.timeout(400) });
+        if (r.ok) { _kernelAlive = true; _kernelCheckedAt = Date.now(); break; }
+      } catch { /* retry */ }
+    }
+  } catch { /* silent — no python, no kernel */ } finally {
+    try { fs.unlinkSync(lockFile); } catch { /* ignore */ }
+  }
+}
+
 /**
  * Internal: async send (not exported, never awaited by callers)
  */
@@ -126,9 +161,14 @@ async function _sendToKernel(hookEvent, hookInput) {
     _kernelAlive = resp.ok;
     _kernelCheckedAt = Date.now();
   } catch {
-    // Timeout, ECONNREFUSED, etc. — kernel is down
+    clearTimeout(timer);
+    // Kernel down — try to auto-start (SessionStart or first hook of session)
+    if (hookEvent === 'SessionStart' || hookEvent === 'UserPromptSubmit') {
+      await _autoStartKernel();
+    }
     _kernelAlive = false;
     _kernelCheckedAt = Date.now();
+    return;
   } finally {
     clearTimeout(timer);
   }
