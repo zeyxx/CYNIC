@@ -210,6 +210,145 @@ class TestPerceive:
         assert resp.status_code == 200
         assert len(resp.json()["cell_id"]) == 36  # UUID4
 
+    async def test_perceive_all_realities(self, client):
+        realities = ["CODE", "SOLANA", "MARKET", "SOCIAL", "HUMAN", "CYNIC", "COSMOS"]
+        for r in realities:
+            resp = await client.post("/perceive", json={
+                "source": f"hook:{r}",
+                "reality": r,
+                "data": {"event": "test"},
+                "run_judgment": True,
+                "level": "REFLEX",
+            })
+            assert resp.status_code == 200, f"Failed for reality={r}"
+            assert resp.json()["judgment"]["verdict"] in {"HOWL", "WAG", "GROWL", "BARK"}
+
+    async def test_perceive_q_score_phi_bounded(self, client):
+        resp = await client.post("/perceive", json={
+            "source": "hook:UserPromptSubmit",
+            "reality": "HUMAN",
+            "data": {"prompt": "Write a function that adds two numbers"},
+            "run_judgment": True,
+        })
+        assert resp.status_code == 200
+        q = resp.json()["judgment"]["q_score"]
+        assert 0.0 <= q <= 61.8 + 0.001
+
+    async def test_perceive_confidence_phi_bounded(self, client):
+        resp = await client.post("/perceive", json={
+            "source": "hook:PostToolUse",
+            "reality": "CODE",
+            "data": {"tool": "Bash", "command": "ls"},
+            "run_judgment": True,
+            "level": "REFLEX",
+        })
+        assert resp.status_code == 200
+        assert resp.json()["judgment"]["confidence"] <= 0.618 + 1e-6
+
+    async def test_perceive_sets_last_judgment(self, client, kernel_state):
+        assert kernel_state.last_judgment is None
+        await client.post("/perceive", json={
+            "source": "hook:UserPromptSubmit",
+            "reality": "HUMAN",
+            "data": {"prompt": "hello"},
+            "run_judgment": True,
+        })
+        assert kernel_state.last_judgment is not None
+        assert kernel_state.last_judgment["action"] in {"HOWL", "WAG", "GROWL", "BARK"}
+
+    async def test_perceive_no_judgment_skips_last_judgment(self, client, kernel_state):
+        initial = kernel_state.last_judgment
+        await client.post("/perceive", json={
+            "source": "heartbeat",
+            "reality": "CYNIC",
+            "data": {"tick": 42},
+            "run_judgment": False,
+        })
+        assert kernel_state.last_judgment == initial
+
+    async def test_perceive_closes_feedback_loop(self, client, kernel_state):
+        """perceive → last_judgment → feedback → Q update."""
+        await client.post("/perceive", json={
+            "source": "hook:UserPromptSubmit",
+            "reality": "HUMAN",
+            "data": {"prompt": "build something"},
+            "run_judgment": True,
+        })
+        state_key = kernel_state.last_judgment["state_key"]
+        resp = await client.post("/feedback", json={"rating": 5})
+        assert resp.status_code == 200
+        assert resp.json()["state_key"] == state_key
+        assert resp.json()["q_value"] > 0.5
+
+    async def test_perceive_micro_level(self, client):
+        resp = await client.post("/perceive", json={
+            "source": "hook:PostToolUse",
+            "reality": "CODE",
+            "data": {"file": "test.py"},
+            "run_judgment": True,
+            "level": "MICRO",
+        })
+        assert resp.status_code == 200
+        assert resp.json()["judgment"]["level_used"] == "MICRO"
+
+    async def test_perceive_data_as_string(self, client):
+        resp = await client.post("/perceive", json={
+            "source": "hook:Notification",
+            "reality": "CYNIC",
+            "data": "System notification: test complete",
+            "run_judgment": True,
+        })
+        assert resp.status_code == 200
+        assert resp.json()["judgment"] is not None
+
+    async def test_perceive_data_as_number(self, client):
+        resp = await client.post("/perceive", json={
+            "source": "market-watcher",
+            "reality": "MARKET",
+            "data": 0.04237,
+            "context": "price tick",
+            "run_judgment": True,
+        })
+        assert resp.status_code == 200
+        assert resp.json()["judgment"]["verdict"] in {"HOWL", "WAG", "GROWL", "BARK"}
+
+    async def test_perceive_cell_ids_unique(self, client):
+        ids = set()
+        for _ in range(5):
+            resp = await client.post("/perceive", json={
+                "source": "test",
+                "reality": "CYNIC",
+                "data": "ping",
+                "run_judgment": False,
+            })
+            assert resp.status_code == 200
+            ids.add(resp.json()["cell_id"])
+        assert len(ids) == 5
+
+    async def test_perceive_message_contains_verdict(self, client):
+        resp = await client.post("/perceive", json={
+            "source": "test",
+            "reality": "HUMAN",
+            "data": {"prompt": "test"},
+            "run_judgment": True,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["judgment"]["verdict"] in data["message"]
+
+    async def test_perceive_has_dog_votes(self, client):
+        resp = await client.post("/perceive", json={
+            "source": "test",
+            "reality": "CODE",
+            "data": "def foo(): pass",
+            "run_judgment": True,
+            "level": "REFLEX",
+        })
+        assert resp.status_code == 200
+        votes = resp.json()["judgment"]["dog_votes"]
+        assert isinstance(votes, dict)
+        assert len(votes) > 0
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # POST /learn
