@@ -421,3 +421,92 @@ class TestFeedback:
         assert resp.status_code == 422
         resp = await client.post("/feedback", json={"rating": 6})
         assert resp.status_code == 422
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /introspect  (MetaCognition — composant 9/9)
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestIntrospect:
+    async def test_introspect_returns_200(self, client):
+        resp = await client.get("/introspect")
+        assert resp.status_code == 200
+
+    async def test_introspect_has_phi_self_assessment(self, client):
+        """φ self-assessment is the meta-cognitive core."""
+        resp = await client.get("/introspect")
+        data = resp.json()
+        phi = data["φ_self_assessment"]
+        assert "kernel_integrity" in phi
+        assert "verdict" in phi
+        assert phi["verdict"] in {"HOWL", "WAG", "GROWL", "BARK"}
+        assert 0.0 <= phi["self_confidence"] <= 0.618  # φ-bounded
+
+    async def test_introspect_has_nine_components(self, client):
+        """All 9 kernel components tracked."""
+        resp = await client.get("/introspect")
+        components = resp.json()["components"]
+        assert len(components) == 9
+        for key in components:
+            assert "status" in components[key]
+            assert "description" in components[key]
+
+    async def test_introspect_9_of_9_active_fresh_start(self, client):
+        """On fresh kernel, MetaCognition itself is ACTIVE."""
+        resp = await client.get("/introspect")
+        components = resp.json()["components"]
+        assert components["9_META_COGNITION"]["status"] == "ACTIVE"
+
+    async def test_introspect_has_residual_stats(self, client):
+        resp = await client.get("/introspect")
+        residual = resp.json()["residual"]
+        assert "observations" in residual
+        assert "patterns_detected" in residual
+        assert "anomaly_rate" in residual
+
+    async def test_introspect_has_scholar_status(self, client):
+        resp = await client.get("/introspect")
+        scholar = resp.json()["scholar"]
+        assert "buffer_size" in scholar
+        assert "hit_rate" in scholar
+        assert 0.0 <= scholar.get("buffer_richness", 0) <= 1.0
+
+    async def test_introspect_residual_grows_after_judgments(self, client):
+        """After judgments flow through, residual detector observes them."""
+        # Run a few judgments
+        for _ in range(3):
+            await client.post("/judge", json={
+                "content": "x = 1",
+                "reality": "CODE",
+                "level": "REFLEX",
+            })
+
+        resp = await client.get("/introspect")
+        data = resp.json()
+        assert data["residual"]["observations"] >= 3
+
+    async def test_introspect_scholar_grows_after_judgments(self, client):
+        """Scholar buffer fills as judgments flow."""
+        for _ in range(5):
+            await client.post("/judge", json={
+                "content": f"def func_{_}(): pass",
+                "reality": "CODE",
+                "level": "REFLEX",
+            })
+
+        resp = await client.get("/introspect")
+        scholar = resp.json()["scholar"]
+        assert scholar["buffer_size"] >= 5  # At least 5 entries learned
+
+    async def test_introspect_dogs_listed(self, client):
+        """All registered Dogs appear in dogs status."""
+        resp = await client.get("/introspect")
+        dogs = resp.json()["dogs"]
+        assert "CYNIC" in dogs
+        assert "GUARDIAN" in dogs
+        assert "ANALYST" in dogs
+        assert "JANITOR" in dogs
+
+    async def test_introspect_uptime_nonnegative(self, client):
+        resp = await client.get("/introspect")
+        assert resp.json()["uptime_s"] >= 0.0

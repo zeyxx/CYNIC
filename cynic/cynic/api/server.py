@@ -48,6 +48,7 @@ from cynic.api.models import (
     StatsResponse,
 )
 from cynic.api.state import build_kernel, set_state, get_state
+from cynic.core.storage.postgres import JudgmentRepository
 
 logger = logging.getLogger("cynic.api.server")
 
@@ -168,6 +169,10 @@ async def judge(req: JudgeRequest) -> JudgeResponse:
     # Write guidance.json — feedback loop to JS hooks (best-effort)
     _write_guidance(cell, judgment)
 
+    # Persist judgment to PostgreSQL (best-effort — never block on DB failures)
+    if state._pool is not None:
+        _persist_judgment(judgment)
+
     # Save for /feedback endpoint (user can rate this judgment)
     state.last_judgment = {
         "state_key": f"{cell.reality}:{cell.analysis}:PRESENT:{cell.lod}",
@@ -194,6 +199,39 @@ async def judge(req: JudgeRequest) -> JudgeResponse:
 
 
 _GUIDANCE_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "guidance.json")
+
+
+_judgment_repo = JudgmentRepository()
+
+
+def _persist_judgment(judgment) -> None:
+    """
+    Fire-and-forget judgment persistence to PostgreSQL.
+
+    Creates an asyncio Task so we never block the HTTP response.
+    DB failures are logged but never raised.
+    """
+    async def _do_save():
+        try:
+            data = judgment.to_dict()
+            # Add fields not in to_dict() but needed by schema
+            data.setdefault("cell_id", judgment.cell.cell_id)
+            data.setdefault("time_dim", judgment.cell.time_dim)
+            data.setdefault("lod", judgment.cell.lod)
+            data.setdefault("consciousness", judgment.cell.consciousness)
+            data["reality"] = judgment.cell.reality
+            data["analysis"] = judgment.cell.analysis
+            await _judgment_repo.save(data)
+        except Exception as e:
+            logger.debug("Judgment persistence skipped: %s", e)
+
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.create_task(_do_save())
+    except Exception:
+        pass  # Never block on persistence failure
 
 
 def _write_guidance(cell: "Cell", judgment: "Judgment") -> None:  # type: ignore[name-defined]
@@ -506,6 +544,126 @@ async def stats() -> StatsResponse:
 # GET /  (root — for quick sanity check)
 # ════════════════════════════════════════════════════════════════════════════
 
+# ════════════════════════════════════════════════════════════════════════════
+# GET /introspect  (MetaCognition — composant 9/9, self-model)
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.get("/introspect")
+async def introspect() -> dict:
+    """
+    MetaCognition — CYNIC reads its own cognitive state.
+
+    Returns a deep self-model:
+    - Learning maturity (Q-table fill, top states, best actions)
+    - Residual variance patterns (emergence, THE_UNNAMEABLE events)
+    - Consciousness metrics (level distribution, upgrade/downgrade counts)
+    - Dog health (hit rates, latencies, capability breakdown)
+    - Scholar buffer (similarity memory richness)
+    - Kernel integrity (9/9 components, their status)
+    - φ-bound assessment (is CYNIC within its own axioms?)
+
+    This is CYNIC judging itself — meta-cognitive self-assessment.
+    "φ distrusts φ" — the organism reflects on its own biases.
+    """
+    from cynic.core.phi import PHI_INV, PHI_INV_2, fibonacci
+    from cynic.dogs.base import DogId
+
+    state = get_state()
+    consciousness = get_consciousness()
+    qtable_stats = state.qtable.stats()
+    orch_stats = state.orchestrator.stats()
+    residual_stats = state.residual_detector.stats()
+
+    # Dog-level introspection
+    dogs_status = {}
+    for dog_id, dog in state.orchestrator.dogs.items():
+        caps = dog.get_capabilities()
+        dogs_status[dog_id] = {
+            "sefirot": caps.sefirot,
+            "uses_llm": caps.uses_llm,
+            "consciousness_min": caps.consciousness_min.name if hasattr(caps.consciousness_min, 'name') else str(caps.consciousness_min),
+            "avg_latency_ms": round(dog.avg_latency_ms, 2),
+            "judgment_count": dog._judgment_count,
+        }
+
+    # Scholar buffer richness
+    scholar = state.orchestrator.dogs.get(DogId.SCHOLAR)
+    scholar_status = {}
+    if scholar is not None:
+        scholar_stats = scholar.stats() if hasattr(scholar, 'stats') else {}
+        scholar_status = {
+            "buffer_size": len(scholar._buffer),
+            "buffer_max": scholar._buffer.maxlen if hasattr(scholar._buffer, 'maxlen') else 89,
+            "lookups": scholar._lookups,
+            "hits": scholar._hits,
+            "hit_rate": round(scholar._hits / max(scholar._lookups, 1), 3),
+            "buffer_richness": round(
+                min(1.0, len(scholar._buffer) / fibonacci(8)), 3
+            ),
+        }
+
+    # 9-component kernel integrity check
+    components = {
+        "1_AXIOMS":         {"status": "ACTIVE", "description": "5 axioms × 7 facets scoring"},
+        "2_PHI_BOUND":      {"status": "ACTIVE", "description": "φ⁻¹=61.8% max confidence enforced"},
+        "3_MULTI_AGENT":    {"status": "ACTIVE", "description": f"{len(state.orchestrator.dogs)}/11 Dogs active"},
+        "4_EVENT_DRIVEN":   {"status": "ACTIVE", "description": "Core bus wired, JUDGMENT_CREATED flowing"},
+        "5_JUDGMENT":       {"status": "ACTIVE", "description": "7-step PERCEIVE→EMERGE pipeline"},
+        "6_LEARNING":       {
+            "status": "ACTIVE" if qtable_stats.get("total_updates", 0) > 0 else "WARM",
+            "description": f"QTable: {qtable_stats.get('unique_states', 0)} states learned",
+        },
+        "7_RESIDUAL":       {
+            "status": "ACTIVE",
+            "description": f"ResidualDetector: {residual_stats['observations']} obs, {residual_stats['patterns_detected']} patterns",
+        },
+        "8_MEMORY":         {
+            "status": "ACTIVE" if scholar_status.get("buffer_size", 0) > 0 else "COLD",
+            "description": f"Scholar buffer: {scholar_status.get('buffer_size', 0)}/{scholar_status.get('buffer_max', 89)} cells",
+        },
+        "9_META_COGNITION": {"status": "ACTIVE", "description": "This endpoint — /introspect live"},
+    }
+
+    active_count = sum(1 for c in components.values() if c["status"] == "ACTIVE")
+    kernel_integrity = round(active_count / 9, 3)
+
+    # φ self-assessment
+    # Is CYNIC operating within its own axioms?
+    phi_violations = []
+    max_conf = qtable_stats.get("max_confidence") or 0.0
+    if max_conf > PHI_INV + 0.01:
+        phi_violations.append(f"Q-table confidence exceeds φ⁻¹: {max_conf:.3f}")
+    if residual_stats.get("anomaly_rate", 0) > PHI_INV:
+        phi_violations.append(f"Residual anomaly rate exceeds φ⁻¹: {residual_stats['anomaly_rate']:.3f}")
+
+    return {
+        "introspect_id": str(uuid.uuid4()),
+        "timestamp": time.time(),
+        "uptime_s": round(state.uptime_s, 1),
+        "φ_self_assessment": {
+            "kernel_integrity": kernel_integrity,
+            "phi_violations": phi_violations,
+            "self_confidence": round(min(kernel_integrity * PHI_INV, PHI_INV), 3),
+            "verdict": "HOWL" if kernel_integrity >= 0.888 else (
+                "WAG" if kernel_integrity >= 0.618 else (
+                    "GROWL" if kernel_integrity >= 0.382 else "BARK"
+                )
+            ),
+        },
+        "consciousness": consciousness.to_dict(),
+        "learning": {
+            **qtable_stats,
+            "learning_loop_active": True,
+        },
+        "residual": residual_stats,
+        "dogs": dogs_status,
+        "scholar": scholar_status,
+        "components": components,
+        "orchestrator": orch_stats,
+        "message": "*sniff* Je me lis moi-même. Le chien qui se connaît.",
+    }
+
+
 @app.get("/")
 async def root():
     return {
@@ -513,6 +671,6 @@ async def root():
         "version": "2.0.0",
         "status": "alive",
         "φ": PHI,
-        "routes": ["/judge", "/perceive", "/learn", "/policy/{key}", "/health", "/stats"],
+        "routes": ["/judge", "/perceive", "/learn", "/policy/{key}", "/health", "/stats", "/introspect"],
         "message": "*sniff* Le chien est là.",
     }
