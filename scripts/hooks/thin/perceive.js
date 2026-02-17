@@ -11,7 +11,7 @@
 'use strict';
 
 import { callDaemon, readHookInput, safeOutput } from './daemon-client.js';
-import { notifyKernel } from './kernel-client.js';
+import { notifyKernel, readKernelGuidance } from './kernel-client.js';
 
 const input = await readHookInput();
 
@@ -19,4 +19,13 @@ const input = await readHookInput();
 notifyKernel('UserPromptSubmit', input);
 
 const result = await callDaemon('UserPromptSubmit', input, { timeout: 8000 });
+
+// Inject kernel guidance from last judgment — this is the feedback loop closing.
+// guidance.json was written by the Python kernel after judging the PREVIOUS interaction.
+// CYNIC sees its own past judgment as context for the current response.
+const guidance = readKernelGuidance();
+if (guidance) {
+  result.kernelGuidance = guidance;
+}
+
 safeOutput(result);

@@ -20,6 +20,7 @@ Design principles:
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
@@ -181,6 +182,33 @@ async def judge(req: JudgeRequest) -> JudgeResponse:
     )
 
 
+_GUIDANCE_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "guidance.json")
+
+
+def _write_guidance(cell: "Cell", judgment: "Judgment") -> None:  # type: ignore[name-defined]
+    """
+    Write last judgment as guidance.json — the feedback loop.
+
+    JS hooks read this file at the next UserPromptSubmit to inject
+    kernel recommendations into Claude Code's context.
+    Best-effort: never raises, never blocks the response.
+    """
+    try:
+        os.makedirs(os.path.dirname(_GUIDANCE_PATH), exist_ok=True)
+        with open(_GUIDANCE_PATH, "w", encoding="utf-8") as fh:
+            json.dump({
+                "timestamp": time.time(),
+                "state_key": f"{cell.reality}:{cell.analysis}:PRESENT:{cell.lod}",
+                "verdict": judgment.verdict,
+                "q_score": round(judgment.q_score, 3),
+                "confidence": round(min(judgment.confidence, MAX_CONFIDENCE), 4),
+                "reality": cell.reality,
+                "dog_votes": {k: round(v, 3) for k, v in judgment.dog_votes.items()},
+            }, fh)
+    except Exception:
+        pass  # Best-effort — never propagate
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # POST /perceive  (JS hooks → Python kernel bridge)
 # ════════════════════════════════════════════════════════════════════════════
@@ -250,6 +278,9 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
         duration_ms=round(judgment.duration_ms, 2),
         level_used=level.name,
     )
+
+    # Write guidance.json — feedback loop (best-effort, never blocks)
+    _write_guidance(cell, judgment)
 
     return PerceiveResponse(
         cell_id=cell_id,

@@ -28,6 +28,10 @@
 
 'use strict';
 
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+
 const KERNEL_PORT = parseInt(process.env.CYNIC_KERNEL_PORT || '8765', 10);
 const KERNEL_URL = `http://127.0.0.1:${KERNEL_PORT}`;
 const NOTIFY_TIMEOUT_MS = 800;  // Must not slow down hooks
@@ -50,6 +54,29 @@ const REALITY_MAP = {
 let _kernelAlive = null;
 let _kernelCheckedAt = 0;
 const ALIVE_TTL_MS = 10_000;
+
+const _GUIDANCE_FILE = path.join(os.homedir(), '.cynic', 'guidance.json');
+const _GUIDANCE_STALE_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Read the kernel's last guidance (written by Python after each /perceive judgment).
+ *
+ * This is the feedback loop: kernel judges → writes guidance.json →
+ * next hook reads it → Claude Code sees kernel recommendation.
+ *
+ * @returns {{ state_key, verdict, q_score, confidence, reality, dog_votes, timestamp }|null}
+ */
+export function readKernelGuidance() {
+  try {
+    if (!fs.existsSync(_GUIDANCE_FILE)) return null;
+    const data = JSON.parse(fs.readFileSync(_GUIDANCE_FILE, 'utf8'));
+    // Staleness: ignore guidance older than 5 minutes
+    if (Date.now() - (data.timestamp * 1000) > _GUIDANCE_STALE_MS) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Notify the Python kernel about a hook event.
