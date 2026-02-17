@@ -1,0 +1,349 @@
+"""
+CYNIC API Tests — FastAPI server endpoint coverage
+
+Tests the HTTP bridge without a real DB or LLM.
+All Dogs are non-LLM (GUARDIAN/ANALYST/JANITOR/CYNIC) → pure Python, no external deps.
+
+Pattern: httpx.AsyncClient with app directly (no real server needed).
+"""
+from __future__ import annotations
+
+import pytest
+import pytest_asyncio
+from httpx import AsyncClient, ASGITransport
+
+from cynic.api.server import app
+from cynic.api.state import build_kernel, set_state
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# FIXTURES
+# ════════════════════════════════════════════════════════════════════════════
+
+@pytest_asyncio.fixture(autouse=True)
+async def kernel_state():
+    """Build and wire kernel before each test. No DB, no LLM."""
+    state = build_kernel(db_pool=None)
+    set_state(state)
+    yield state
+    state.learning_loop.stop()
+
+
+@pytest_asyncio.fixture
+async def client():
+    """HTTP client that calls the ASGI app directly (no network)."""
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as c:
+        yield c
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ROOT
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestRoot:
+    async def test_root_returns_alive(self, client):
+        resp = await client.get("/")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "alive"
+        assert data["name"] == "CYNIC Kernel"
+        assert "φ" in data
+
+    async def test_root_lists_routes(self, client):
+        resp = await client.get("/")
+        routes = resp.json()["routes"]
+        assert "/judge" in routes
+        assert "/perceive" in routes
+        assert "/learn" in routes
+        assert "/health" in routes
+        assert "/stats" in routes
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /health
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestHealth:
+    async def test_health_alive(self, client):
+        resp = await client.get("/health")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "alive"
+        assert data["uptime_s"] >= 0
+        assert data["phi"] == pytest.approx(1.618, abs=0.001)
+
+    async def test_health_has_dogs(self, client):
+        resp = await client.get("/health")
+        dogs = resp.json()["dogs"]
+        assert len(dogs) >= 4  # cynic, guardian, analyst, janitor
+
+    async def test_health_learning_active(self, client):
+        resp = await client.get("/health")
+        learning = resp.json()["learning"]
+        assert learning["active"] is True
+        assert learning["states"] == 0  # fresh start
+        assert learning["total_updates"] == 0
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# POST /judge
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestJudge:
+    async def test_judge_basic_code(self, client):
+        resp = await client.post("/judge", json={
+            "content": "def add(a, b): return a + b",
+            "reality": "CODE",
+            "level": "REFLEX",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "judgment_id" in data
+        assert data["verdict"] in {"HOWL", "WAG", "GROWL", "BARK"}
+        assert 0.0 <= data["q_score"] <= 61.8
+        assert 0.0 <= data["confidence"] <= 0.618  # φ-bound
+
+    async def test_judge_confidence_phi_bounded(self, client):
+        """Confidence must never exceed φ⁻¹ = 0.618."""
+        for _ in range(5):
+            resp = await client.post("/judge", json={
+                "content": "x = 1",
+                "reality": "CODE",
+                "level": "REFLEX",
+            })
+            assert resp.status_code == 200
+            assert resp.json()["confidence"] <= 0.618 + 1e-6
+
+    async def test_judge_returns_dog_votes(self, client):
+        resp = await client.post("/judge", json={
+            "content": {"price": 0.042, "volume": 1000},
+            "reality": "MARKET",
+            "level": "REFLEX",
+        })
+        assert resp.status_code == 200
+        votes = resp.json()["dog_votes"]
+        assert len(votes) > 0  # at least one dog voted
+
+    async def test_judge_all_realities(self, client):
+        realities = ["CODE", "SOLANA", "MARKET", "SOCIAL", "HUMAN", "CYNIC", "COSMOS"]
+        for r in realities:
+            resp = await client.post("/judge", json={
+                "content": f"test content for {r}",
+                "reality": r,
+                "level": "REFLEX",
+            })
+            assert resp.status_code == 200, f"Failed for reality={r}"
+            assert resp.json()["verdict"] in {"HOWL", "WAG", "GROWL", "BARK"}
+
+    async def test_judge_invalid_reality_rejected(self, client):
+        resp = await client.post("/judge", json={
+            "content": "test",
+            "reality": "INVALID",
+        })
+        assert resp.status_code == 422  # Pydantic validation error
+
+    async def test_judge_micro_level(self, client):
+        resp = await client.post("/judge", json={
+            "content": "suspicious_content = True",
+            "reality": "CODE",
+            "level": "MICRO",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["level_used"] == "MICRO"
+        assert data["confidence"] <= 0.618 + 1e-6
+
+    async def test_judge_duration_recorded(self, client):
+        resp = await client.post("/judge", json={
+            "content": "hello world",
+            "reality": "HUMAN",
+            "level": "REFLEX",
+        })
+        assert resp.status_code == 200
+        assert resp.json()["duration_ms"] >= 0
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# POST /perceive
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestPerceive:
+    async def test_perceive_from_js_hook(self, client):
+        """Simulate a JS thin hook posting to /perceive."""
+        resp = await client.post("/perceive", json={
+            "source": "observe.js",
+            "reality": "CODE",
+            "data": {"file": "test.py", "event": "file_changed"},
+            "context": "File changed in CODE reality",
+            "run_judgment": True,
+            "level": "REFLEX",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["source"] == "observe.js"
+        assert data["reality"] == "CODE"
+        assert data["judgment"] is not None
+        assert data["judgment"]["verdict"] in {"HOWL", "WAG", "GROWL", "BARK"}
+
+    async def test_perceive_no_judgment(self, client):
+        """run_judgment=False just acknowledges receipt."""
+        resp = await client.post("/perceive", json={
+            "source": "heartbeat",
+            "reality": "CYNIC",
+            "data": {"tick": 1},
+            "run_judgment": False,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["enqueued"] is True
+        assert data["judgment"] is None
+
+    async def test_perceive_has_cell_id(self, client):
+        resp = await client.post("/perceive", json={
+            "source": "test",
+            "reality": "CYNIC",
+            "data": "ping",
+        })
+        assert resp.status_code == 200
+        assert len(resp.json()["cell_id"]) == 36  # UUID4
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# POST /learn
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestLearn:
+    async def test_learn_updates_qtable(self, client, kernel_state):
+        resp = await client.post("/learn", json={
+            "state_key": "CODE:JUDGE:PRESENT:1",
+            "action": "WAG",
+            "reward": 0.8,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["state_key"] == "CODE:JUDGE:PRESENT:1"
+        assert data["action"] == "WAG"
+        assert data["visits"] == 1
+        assert 0.5 < data["q_value"] < 1.0  # Positive reward → Q > neutral 0.5
+
+    async def test_learn_invalid_action_rejected(self, client):
+        resp = await client.post("/learn", json={
+            "state_key": "CODE:JUDGE:PRESENT:1",
+            "action": "WOOF",  # not a valid verdict
+            "reward": 0.5,
+        })
+        assert resp.status_code == 422
+
+    async def test_learn_reward_out_of_range_rejected(self, client):
+        resp = await client.post("/learn", json={
+            "state_key": "CODE:JUDGE:PRESENT:1",
+            "action": "WAG",
+            "reward": 1.5,  # > 1.0
+        })
+        assert resp.status_code == 422
+
+    async def test_learn_confidence_grows_with_visits(self, client, kernel_state):
+        """More signals → higher confidence (capped at φ⁻¹)."""
+        state_key = "CYNIC:LEARN:PRESENT:2"
+        confidences = []
+        for i in range(10):
+            resp = await client.post("/learn", json={
+                "state_key": state_key,
+                "action": "WAG",
+                "reward": 0.7,
+            })
+            assert resp.status_code == 200
+            confidences.append(resp.json()["confidence"])
+
+        # Confidence should grow
+        assert confidences[-1] >= confidences[0]
+        # But never exceed φ⁻¹
+        assert all(c <= 0.618 + 1e-6 for c in confidences)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /policy/{state_key}
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestPolicy:
+    async def test_policy_exploit_unseen_state(self, client):
+        """Unseen state → cautious default (GROWL)."""
+        resp = await client.get("/policy/UNKNOWN:STATE:KEY", params={"mode": "exploit"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["recommended_action"] == "GROWL"  # cautious default
+        assert data["mode"] == "exploit"
+
+    async def test_policy_explore_returns_action(self, client):
+        resp = await client.get("/policy/CODE:JUDGE:PRESENT:1", params={"mode": "explore"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["recommended_action"] in {"BARK", "GROWL", "WAG", "HOWL"}
+
+    async def test_policy_shows_all_actions(self, client):
+        resp = await client.get("/policy/CODE:JUDGE:PRESENT:1")
+        assert resp.status_code == 200
+        top = resp.json()["top_actions"]
+        assert len(top) == 4  # all 4 verdicts
+
+    async def test_policy_invalid_mode_rejected(self, client):
+        resp = await client.get("/policy/some:key", params={"mode": "random"})
+        assert resp.status_code == 422
+
+    async def test_policy_improves_after_learning(self, client, kernel_state):
+        """Policy should prefer WAG after repeated positive WAG signals."""
+        state_key = "CODE:JUDGE:FUTURE:1"
+
+        # Train: WAG is good
+        for _ in range(20):
+            await client.post("/learn", json={
+                "state_key": state_key,
+                "action": "WAG",
+                "reward": 0.9,
+            })
+        # Train: BARK is bad
+        for _ in range(20):
+            await client.post("/learn", json={
+                "state_key": state_key,
+                "action": "BARK",
+                "reward": 0.1,
+            })
+
+        resp = await client.get(f"/policy/{state_key}", params={"mode": "exploit"})
+        assert resp.status_code == 200
+        assert resp.json()["recommended_action"] == "WAG"
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /stats
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestStats:
+    async def test_stats_structure(self, client):
+        resp = await client.get("/stats")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "judgments" in data
+        assert "learning" in data
+        assert "top_states" in data
+        assert "consciousness" in data
+
+    async def test_stats_updates_after_judgment(self, client, kernel_state):
+        # Before
+        r1 = await client.get("/stats")
+        count_before = r1.json()["judgments"]["judgments_total"]
+
+        # Judge something
+        await client.post("/judge", json={
+            "content": "x = 1",
+            "reality": "CODE",
+            "level": "REFLEX",
+        })
+
+        # After
+        r2 = await client.get("/stats")
+        count_after = r2.json()["judgments"]["judgments_total"]
+        assert count_after == count_before + 1
