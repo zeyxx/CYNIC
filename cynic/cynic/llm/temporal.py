@@ -117,9 +117,9 @@ PERSPECTIVE_CONTEXT: Dict[str, str] = {
         "High = building positively. Low = stagnant or regressing.",
 }
 
-# User prompt: minimal — just the content.
-# No perspective header here → nothing for instruct models to echo.
-_USER_PROMPT = "Content:\n\n{content}"
+# User prompt: content in fenced block → prevents instruct models from
+# treating the code as something to continue rather than evaluate.
+_USER_PROMPT = "Rate this. Reply ONLY with SCORE: N (0-100).\n\n```\n{content}\n```"
 
 # Keep TEMPORAL_SYSTEM as alias (used by tests that import it directly)
 TEMPORAL_SYSTEM = TEMPORAL_SYSTEM_BASE
@@ -268,7 +268,10 @@ async def _judge_perspective(
     from cynic.llm.adapter import LLMRequest
 
     system = TEMPORAL_SYSTEM_BASE + "\n\n" + PERSPECTIVE_CONTEXT[perspective]
-    prompt = _USER_PROMPT.format(content=content[:2000])
+    # Sanitise: replace non-ASCII (box-drawing, math symbols) with '?'
+    # Prevents instruct models (mistral) from entering code-completion mode
+    safe_content = content[:2000].encode("ascii", errors="replace").decode("ascii")
+    prompt = _USER_PROMPT.format(content=safe_content)
     try:
         req = LLMRequest(
             prompt=prompt,
