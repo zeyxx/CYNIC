@@ -8,7 +8,8 @@
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hooks/thin/perceive.js\" || true",
-            "timeout": 15
+            "timeout": 15,
+            "async": true
           }
         ]
       }
