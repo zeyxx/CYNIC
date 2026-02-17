@@ -71,7 +71,7 @@ export function readKernelGuidance() {
   try {
     if (!fs.existsSync(_GUIDANCE_FILE)) return null;
     const data = JSON.parse(fs.readFileSync(_GUIDANCE_FILE, 'utf8'));
-    // Staleness: ignore guidance older than 5 minutes
+    // Staleness: ignore guidance older than 24h (guidance is learning, not a cache)
     if (Date.now() - (data.timestamp * 1000) > _GUIDANCE_STALE_MS) return null;
     return data;
   } catch {
@@ -116,9 +116,10 @@ async function _autoStartKernel() {
     });
     child.unref();
 
-    // Wait up to 3s for kernel to come up
+    // Wait up to 3s for kernel to come up.
+    // Timers are unref'd so Node.js can exit if the main hook has already output its JSON.
     for (let i = 0; i < 6; i++) {
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => { const t = setTimeout(r, 500); t.unref(); });
       try {
         const r = await fetch(`${KERNEL_URL}/health`, { signal: AbortSignal.timeout(400) });
         if (r.ok) { _kernelAlive = true; _kernelCheckedAt = Date.now(); break; }
