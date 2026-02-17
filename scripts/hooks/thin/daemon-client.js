@@ -45,11 +45,11 @@ export async function callDaemon(event, hookInput, options = {}) {
     let alive = await isDaemonAlive();
 
     // 2. If not alive, try to auto-start
+    let wakeMessage = null;
     if (!alive) {
       alive = await autoStartDaemon();
       if (alive) {
-        // First wake message
-        safeOutput({ continue: true, message: '*sniff* CYNIC daemon waking up...' });
+        wakeMessage = '*sniff* CYNIC daemon waking up...';
       }
     }
 
@@ -75,6 +75,11 @@ export async function callDaemon(event, hookInput, options = {}) {
     }
 
     const result = await res.json();
+
+    // Inject wake message into result (avoids double-safeOutput anti-pattern)
+    if (wakeMessage && !result.message) {
+      result.message = wakeMessage;
+    }
 
     // Guard hooks can block — check the result
     if (canBlock && result.blocked) {
