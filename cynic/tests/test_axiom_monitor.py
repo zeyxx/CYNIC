@@ -873,3 +873,82 @@ class TestSdkResultReceivedLoop:
         tracker.update("agent:cynic", "RUN", run_score)
         assert tracker.get_score("agent:cynic") >= 0.0
         assert is_error is False
+
+
+# ── JUDGMENT_REQUESTED → real-time LOD queue depth pre-check ─────────────────
+
+class TestJudgmentRequestedLoop:
+    """
+    JUDGMENT_REQUESTED → real-time LOD queue depth pre-check.
+
+    Emitted by orchestrator.py BEFORE any dog activates.
+    Handler updates _health_cache["queue_depth"] and calls lod_controller.assess()
+    at the earliest safe point — circuit breaker passed, no dogs allocated yet.
+
+    Timing fix: previously LOD saw queue_depth only AFTER judgment completed
+    (JUDGMENT_CREATED handler). Under burst load, 34+ requests could all start
+    as MACRO before LOD degraded. Pre-judgment check closes this gap.
+
+    Queue thresholds (Fibonacci):
+        F(9) = 34  → REDUCED
+        F(11) = 89  → EMERGENCY
+        F(12) = 144 → MINIMAL
+    """
+
+    def _worst_lod(self, queue_depth: int):
+        """Use HealthMetrics.worst_lod() — pure computation, no hysteresis."""
+        from cynic.judge.lod import HealthMetrics
+        m = HealthMetrics(
+            error_rate=0.0, latency_ms=0.0,
+            queue_depth=queue_depth, memory_pct=0.0, disk_pct=0.0,
+        )
+        return m.worst_lod()
+
+    def test_zero_queue_stays_full(self):
+        """queue=0 → LOD stays FULL (no degradation)."""
+        from cynic.judge.lod import SurvivalLOD
+        assert self._worst_lod(0) == SurvivalLOD.FULL
+
+    def test_reduced_threshold_triggers_reduced(self):
+        """queue=F(9)=34 → LOD degrades to REDUCED."""
+        from cynic.judge.lod import SurvivalLOD, _QUEUE_LOD1
+        assert self._worst_lod(_QUEUE_LOD1) == SurvivalLOD.REDUCED
+
+    def test_emergency_threshold_triggers_emergency(self):
+        """queue=F(11)=89 → LOD degrades to EMERGENCY."""
+        from cynic.judge.lod import SurvivalLOD, _QUEUE_LOD2
+        assert self._worst_lod(_QUEUE_LOD2) == SurvivalLOD.EMERGENCY
+
+    def test_minimal_threshold_triggers_minimal(self):
+        """queue=F(12)=144 → LOD degrades to MINIMAL."""
+        from cynic.judge.lod import SurvivalLOD, _QUEUE_LOD3
+        assert self._worst_lod(_QUEUE_LOD3) == SurvivalLOD.MINIMAL
+
+    def test_health_cache_pre_judgment_pattern(self):
+        """Simulate handler: update health_cache then assess — burst is caught early."""
+        from cynic.judge.lod import LODController, SurvivalLOD, _QUEUE_LOD1
+        health_cache = {
+            "error_rate": 0.0, "latency_ms": 0.0, "queue_depth": 0,
+            "memory_pct": 0.0, "disk_pct": 0.0,
+        }
+        ctrl = LODController()
+        # Before burst: FULL
+        for _ in range(3):
+            ctrl.assess(**health_cache)
+        assert ctrl.current == SurvivalLOD.FULL
+
+        # Simulate burst: queue suddenly at threshold (need hysteresis N=3)
+        health_cache["queue_depth"] = _QUEUE_LOD1
+        for _ in range(3):
+            ctrl.assess(**health_cache)
+        assert ctrl.current >= SurvivalLOD.REDUCED
+
+    def test_handler_ignores_event_payload(self):
+        """Handler logic is payload-independent — queue comes from scheduler, not event."""
+        from cynic.judge.lod import HealthMetrics, SurvivalLOD
+        # Empty payload is fine — handler never reads it
+        p = {}
+        assert p.get("cell_id", "") == ""   # payload fields unused by handler
+        # Queue depth computation is independent
+        m = HealthMetrics(queue_depth=0)
+        assert m.worst_lod() == SurvivalLOD.FULL

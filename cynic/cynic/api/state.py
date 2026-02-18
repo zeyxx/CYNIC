@@ -753,6 +753,26 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         except Exception:
             pass
 
+    # ── JUDGMENT_REQUESTED → real-time LOD queue depth pre-check ─────────────
+    # Emitted by orchestrator.py at the very start of run() — before any dog activates.
+    # Payload: {"cell_id": str, "reality": str, "level": str}
+    #
+    # TIMING FIX: _health_cache["queue_depth"] is currently only updated inside
+    # _on_judgment_for_intelligence (JUDGMENT_CREATED handler) — i.e., AFTER the
+    # judgment completes. Under burst load, 34+ requests can all start as MACRO
+    # before LOD has a chance to degrade, because queue depth is one cycle behind.
+    #
+    # Subscribing here gives LOD real-time queue depth BEFORE dogs start:
+    #   burst request arrives → queue_depth = N → LOD assessed → may cap at MICRO.
+    # This is the earliest safe point to check — circuit breaker check has already
+    # passed, but no dogs have been allocated yet.
+    async def _on_judgment_requested(event: Event) -> None:
+        try:
+            _health_cache["queue_depth"] = scheduler.total_queue_depth()
+            lod_controller.assess(**_health_cache)
+        except Exception:
+            pass
+
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_intelligence)
     get_core_bus().on(CoreEvent.JUDGMENT_FAILED, _on_judgment_failed)
     get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence_signal)
@@ -766,6 +786,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     get_core_bus().on(CoreEvent.SDK_TOOL_JUDGED, _on_sdk_tool_judged)
     get_core_bus().on(CoreEvent.SDK_SESSION_STARTED, _on_sdk_session_started)
     get_core_bus().on(CoreEvent.SDK_RESULT_RECEIVED, _on_sdk_result_received)
+    get_core_bus().on(CoreEvent.JUDGMENT_REQUESTED, _on_judgment_requested)
 
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),
