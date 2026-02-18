@@ -314,6 +314,30 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         failures = sum(1 for ok in _outcome_window if not ok)
         _health_cache["error_rate"] = failures / len(_outcome_window) if _outcome_window else 0.0
 
+    async def _assess_lod() -> SurvivalLOD:
+        """
+        Call lod_controller.assess(**_health_cache) and emit CONSCIOUSNESS_CHANGED
+        if the LOD level transitions. Central point for all LOD assessments.
+
+        This wrapper keeps lod.py domain-pure (no event bus) while making every
+        LOD transition visible on the bus → subscribers can react to consciousness shifts.
+        """
+        prev   = lod_controller.current
+        result = lod_controller.assess(**_health_cache)
+        if result != prev:
+            await get_core_bus().emit(Event(
+                type=CoreEvent.CONSCIOUSNESS_CHANGED,
+                payload={
+                    "from_lod":  prev.value,
+                    "to_lod":    result.value,
+                    "from_name": prev.name,
+                    "to_name":   result.name,
+                    "direction": "DOWN" if result > prev else "UP",
+                },
+                source="lod_controller",
+            ))
+        return result
+
     async def _on_judgment_for_intelligence(event: Event) -> None:
         try:
             p = event.payload
@@ -329,7 +353,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
             _health_cache["queue_depth"] = scheduler.total_queue_depth()
 
             # δ2: Assess LOD from all accumulated health signals
-            lod_controller.assess(**_health_cache)
+            await _assess_lod()
 
             # γ4: Update E-Score for each Dog that voted
             dog_votes: dict = p.get("dog_votes") or {}
@@ -417,7 +441,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
             if len(_outcome_window) > _OUTCOME_WINDOW:
                 _outcome_window.pop(0)
             _update_error_rate()
-            lod_controller.assess(**_health_cache)
+            await _assess_lod()
             logger.warning(
                 "JUDGMENT_FAILED → error_rate=%.2f, LOD=%s",
                 _health_cache["error_rate"], lod_controller.current.name,
@@ -769,7 +793,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     async def _on_judgment_requested(event: Event) -> None:
         try:
             _health_cache["queue_depth"] = scheduler.total_queue_depth()
-            lod_controller.assess(**_health_cache)
+            await _assess_lod()
         except Exception:
             pass
 
@@ -932,6 +956,56 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         except Exception:
             pass
 
+    # ── CONSCIOUSNESS_CHANGED → ANTIFRAGILITY signal + EScore HOLD update ──
+    # Emitted by _assess_lod() whenever LODController transitions between levels.
+    # Payload: {"from_lod": int, "to_lod": int, "from_name": str,
+    #           "to_name": str, "direction": "UP"|"DOWN"}
+    #
+    # LOD = CYNIC's consciousness level (capacity to perceive/judge/act).
+    # This event is the organism becoming aware of its own state change.
+    #
+    # HOLD dimension = "long-term commitment" — under pressure, does the organism
+    # hold its ground or retreat?
+    #   direction=UP   (recovery)   → HOLD = HOWL_MIN (82.0) — maintaining under stress
+    #   direction=DOWN (degradation) → HOLD = GROWL_MIN (38.2) — retreating, weakening
+    #
+    # ANTIFRAGILITY: recovering from degraded consciousness IS antifragility.
+    # LOD FULL→REDUCED→FULL under load = organism grew through the stress.
+    # DOWN transitions are NOT signalled (stress alone is not antifragility; growth is).
+    async def _on_consciousness_changed(event: Event) -> None:
+        try:
+            p         = event.payload or {}
+            direction = p.get("direction", "DOWN")
+            to_name   = p.get("to_name", "")
+
+            from cynic.core.phi import HOWL_MIN, GROWL_MIN
+
+            # HOLD: commitment quality — recovering = holding; degrading = yielding
+            hold_score = HOWL_MIN if direction == "UP" else GROWL_MIN
+            escore_tracker.update("agent:cynic", "HOLD", hold_score)
+
+            # ANTIFRAGILITY: only on recovery (UP) — survived stress and bounced back
+            if direction == "UP":
+                new_state = axiom_monitor.signal("ANTIFRAGILITY")
+                if new_state == "ACTIVE":
+                    await get_core_bus().emit(Event(
+                        type=CoreEvent.AXIOM_ACTIVATED,
+                        payload={
+                            "axiom":    "ANTIFRAGILITY",
+                            "maturity": axiom_monitor.get_maturity("ANTIFRAGILITY"),
+                            "trigger":  "LOD_RECOVERY",
+                        },
+                        source="consciousness_changed",
+                    ))
+
+            logger.info(
+                "CONSCIOUSNESS_CHANGED: %s → LOD=%s, HOLD=%.1f%s",
+                direction, to_name, hold_score,
+                " ANTIFRAGILITY signalled" if direction == "UP" else "",
+            )
+        except Exception:
+            pass
+
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_intelligence)
     get_core_bus().on(CoreEvent.JUDGMENT_FAILED, _on_judgment_failed)
     get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence_signal)
@@ -950,6 +1024,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     get_core_bus().on(CoreEvent.PERCEPTION_RECEIVED, _on_perception_received)
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_burn)
     get_core_bus().on(CoreEvent.LEARNING_EVENT, _on_learning_event)
+    get_core_bus().on(CoreEvent.CONSCIOUSNESS_CHANGED, _on_consciousness_changed)
 
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),
@@ -1025,7 +1100,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         pressure = event.payload.get("pressure", "WARN")
         used_pct = event.payload.get("used_pct", 0.0)
         _health_cache["disk_pct"] = event.payload.get("disk_pct", used_pct)
-        lod_controller.assess(**_health_cache)
+        await _assess_lod()
 
         logger.warning(
             "DISK_PRESSURE: %s (%.1f%% used) → running StorageGC",
@@ -1039,7 +1114,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         pressure = event.payload.get("pressure", "WARN")
         used_pct = event.payload.get("used_pct", 0.0)
         _health_cache["memory_pct"] = event.payload.get("memory_pct", used_pct)
-        lod_controller.assess(**_health_cache)
+        await _assess_lod()
         logger.warning(
             "MEMORY_PRESSURE: %s (%.1f%% RAM used)",
             pressure, used_pct * 100,

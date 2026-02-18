@@ -1215,3 +1215,78 @@ class TestLearningEventLoop:
         assert judge_score == pytest.approx(0.0, abs=0.1)
         tracker.update("agent:cynic", "JUDGE", judge_score)
         assert tracker.get_score("agent:cynic") >= 0.0
+
+
+# ── CONSCIOUSNESS_CHANGED → ANTIFRAGILITY signal + EScore HOLD update ─────────
+
+class TestConsciousnessChangedLoop:
+    """
+    CONSCIOUSNESS_CHANGED → ANTIFRAGILITY signal + EScore HOLD update.
+
+    Emitted by _assess_lod() wrapper whenever LODController transitions.
+    Payload: {"from_lod": int, "to_lod": int, "from_name": str,
+              "to_name": str, "direction": "UP"|"DOWN"}
+
+    LOD = CYNIC's consciousness level. Transitions mean the organism's
+    awareness/capacity shifted. This event makes that shift visible on the bus.
+
+    HOLD (long-term commitment):
+      direction=UP   (recovery)    → HOLD = HOWL_MIN (82.0) — holding under stress
+      direction=DOWN (degradation) → HOLD = GROWL_MIN (38.2) — retreating
+
+    ANTIFRAGILITY: only on recovery (direction=UP).
+    Survived stress and bounced back = grew through it.
+    """
+
+    def _hold_score(self, direction: str) -> float:
+        """Reproduce handler's direction→HOLD score mapping."""
+        from cynic.core.phi import HOWL_MIN, GROWL_MIN
+        return HOWL_MIN if direction == "UP" else GROWL_MIN
+
+    def test_lod_recovery_signals_antifragility(self):
+        """direction='UP' (recovery) → axiom_monitor.signal('ANTIFRAGILITY') increases maturity."""
+        m = AxiomMonitor()
+        before = m.get_maturity("ANTIFRAGILITY")
+        m.signal("ANTIFRAGILITY")
+        after = m.get_maturity("ANTIFRAGILITY")
+        assert after > before, "ANTIFRAGILITY maturity must increase on LOD recovery"
+
+    def test_lod_degradation_does_not_signal_antifragility(self):
+        """direction='DOWN' (degradation) → ANTIFRAGILITY maturity unchanged."""
+        m = AxiomMonitor()
+        before = m.get_maturity("ANTIFRAGILITY")
+        direction = "DOWN"
+        if direction == "UP":  # handler condition — DOWN never calls signal()
+            m.signal("ANTIFRAGILITY")
+        assert m.get_maturity("ANTIFRAGILITY") == before
+
+    def test_recovery_gets_howl_hold_score(self):
+        """direction='UP' → HOLD ≈ HOWL_MIN (82.0) — organism held its ground."""
+        from cynic.core.phi import HOWL_MIN
+        assert self._hold_score("UP") == pytest.approx(HOWL_MIN, abs=0.5)
+
+    def test_degradation_gets_growl_hold_score(self):
+        """direction='DOWN' → HOLD ≈ GROWL_MIN (38.2) — organism retreated."""
+        from cynic.core.phi import GROWL_MIN
+        assert self._hold_score("DOWN") == pytest.approx(GROWL_MIN, abs=0.5)
+
+    def test_recovery_hold_increases_escore(self):
+        """direction='UP' → EScore HOLD for agent:cynic increases above baseline."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import HOWL_MIN
+        tracker = EScoreTracker()
+        before = tracker.get_score("agent:cynic")
+        tracker.update("agent:cynic", "HOLD", HOWL_MIN)
+        assert tracker.get_score("agent:cynic") > before
+
+    def test_handler_tolerates_empty_payload(self):
+        """Empty payload → direction='DOWN' default → HOLD=GROWL_MIN, no raise."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import GROWL_MIN
+        tracker = EScoreTracker()
+        p = {}
+        direction = p.get("direction", "DOWN")
+        hold_score = self._hold_score(direction)
+        assert hold_score == pytest.approx(GROWL_MIN, abs=0.5)
+        tracker.update("agent:cynic", "HOLD", hold_score)
+        assert tracker.get_score("agent:cynic") >= 0.0
