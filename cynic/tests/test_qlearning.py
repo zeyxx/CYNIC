@@ -311,3 +311,95 @@ def orchestrator():
     }
     cynic_dog = dogs[DogId.CYNIC]
     return JudgeOrchestrator(dogs=dogs, axiom_arch=AxiomArchitecture(), cynic_dog=cynic_dog)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# QTable.matrix_stats — 7×7×7 observability (Goal A: Lazy Materialization)
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestQTableMatrixStats:
+    """
+    QTable.matrix_stats() returns coverage of the 7×7×7 = 343-cell matrix.
+
+    State keys have format:  "REALITY:ANALYSIS:TIME_DIM:action"
+    matrix_stats() extracts the first 3 parts to build dimensional coverage maps.
+    """
+
+    def _sig(self, state_key: str, action: str = "WAG", reward: float = 60.0) -> LearningSignal:
+        return LearningSignal(state_key=state_key, action=action, reward=reward)
+
+    def test_empty_table_zero_coverage(self):
+        """Fresh QTable has no entries → coverage 0.0%."""
+        qt = QTable()
+        stats = qt.matrix_stats()
+        assert stats["total_cells"] == 0
+        assert stats["matrix_343"] == 343
+        assert stats["coverage_pct"] == 0.0
+
+    def test_single_entry_shows_in_stats(self):
+        """One update → total_cells=1, appears in by_reality/by_analysis/by_time_dim."""
+        qt = QTable()
+        qt.update(self._sig("CODE:JUDGE:PRESENT:WAG", reward=70.0))
+        stats = qt.matrix_stats()
+        assert stats["total_cells"] == 1
+        assert stats["by_reality"].get("CODE", 0) == 1
+        assert stats["by_analysis"].get("JUDGE", 0) == 1
+        assert stats["by_time_dim"].get("PRESENT", 0) == 1
+
+    def test_coverage_pct_calculation(self):
+        """34 unique cells → coverage = 34/343*100 ≈ 9.9%."""
+        qt = QTable()
+        time_dims = ["PAST", "PRESENT", "FUTURE", "CYCLE", "TREND", "EMERGENCE", "TRANSCENDENCE"]
+        for i in range(34):
+            td = time_dims[i % len(time_dims)]
+            qt.update(self._sig(f"CODE:JUDGE:{td}:WAG_{i}", reward=50.0))
+        stats = qt.matrix_stats()
+        assert stats["total_cells"] == 34
+        assert abs(stats["coverage_pct"] - round(34 / 343 * 100, 1)) < 0.1
+
+    def test_all_seven_time_dims_distinguishable(self):
+        """All 7 time dimensions generate distinct keys, visible in by_time_dim."""
+        qt = QTable()
+        time_dims = ["PAST", "PRESENT", "FUTURE", "CYCLE", "TREND", "EMERGENCE", "TRANSCENDENCE"]
+        for td in time_dims:
+            qt.update(self._sig(f"CODE:JUDGE:{td}:WAG", reward=60.0))
+        stats = qt.matrix_stats()
+        assert len(stats["by_time_dim"]) == 7
+        for td in time_dims:
+            assert stats["by_time_dim"].get(td, 0) == 1
+
+    def test_multiple_realities_counted(self):
+        """Entries across different realities appear in by_reality."""
+        qt = QTable()
+        for reality in ("CODE", "SOLANA", "MARKET", "SOCIAL", "HUMAN", "CYNIC", "COSMOS"):
+            qt.update(self._sig(f"{reality}:JUDGE:PRESENT:WAG", reward=50.0))
+        stats = qt.matrix_stats()
+        assert len(stats["by_reality"]) == 7
+
+    def test_multiple_analyses_counted(self):
+        """Entries across different analysis dimensions appear in by_analysis."""
+        qt = QTable()
+        for analysis in ("PERCEIVE", "JUDGE", "DECIDE", "ACT", "LEARN", "ACCOUNT", "EMERGE"):
+            qt.update(self._sig(f"CODE:{analysis}:PRESENT:WAG", reward=50.0))
+        stats = qt.matrix_stats()
+        assert len(stats["by_analysis"]) == 7
+
+    def test_duplicate_updates_do_not_inflate_cell_count(self):
+        """Updating the same state key multiple times counts as 1 cell, not N."""
+        qt = QTable()
+        for _ in range(10):
+            qt.update(self._sig("CODE:JUDGE:PRESENT:WAG", reward=70.0))
+        stats = qt.matrix_stats()
+        assert stats["total_cells"] == 1, "Same state key = 1 cell regardless of update count"
+
+    def test_malformed_key_excluded_from_dimensions(self):
+        """Keys without 3 colon-separated parts are excluded from dimensional breakdown."""
+        qt = QTable()
+        # Inject a legacy-format key (no time_dim part) directly into the table
+        qt._table["CODE:JUDGE"] = QEntry(state_key="CODE:JUDGE", action="WAG")
+        qt._table["VALID:JUDGE:PRESENT:WAG"] = QEntry(state_key="VALID:JUDGE:PRESENT:WAG", action="WAG")
+        stats = qt.matrix_stats()
+        # Only the valid key contributes to dimensional breakdown
+        assert stats["by_time_dim"].get("PRESENT", 0) == 1
+        # Both keys count in total_cells
+        assert stats["total_cells"] == 2

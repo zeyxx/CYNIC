@@ -381,6 +381,43 @@ class QTable:
             })
         return sorted(state_data, key=lambda d: d["visits"], reverse=True)[:n]
 
+    def matrix_stats(self) -> dict:
+        """
+        7×7×7 Lazy Materialization coverage report.
+
+        Shows which cells of the 343-cell matrix have been visited.
+        State keys follow format: "REALITY:ANALYSIS:TIME_DIM:LOD"
+
+        Returns dict with:
+          total_cells: states seen (materialized)
+          matrix_343: max possible (7×7×7 = 343, ignoring LOD)
+          coverage_pct: % of 7×7×7 matrix materialized
+          by_reality, by_analysis, by_time_dim: per-dimension counts
+        """
+        by_reality: dict = {}
+        by_analysis: dict = {}
+        by_time_dim: dict = {}
+
+        for sk in self._table:
+            parts = sk.split(":")
+            if len(parts) >= 3:
+                reality, analysis, time_dim = parts[0], parts[1], parts[2]
+                by_reality[reality] = by_reality.get(reality, 0) + 1
+                by_analysis[analysis] = by_analysis.get(analysis, 0) + 1
+                by_time_dim[time_dim] = by_time_dim.get(time_dim, 0) + 1
+
+        total = len(self._table)
+        coverage = round(total / 343 * 100, 1)  # 7×7×7 = 343
+
+        return {
+            "total_cells": total,
+            "matrix_343": 343,
+            "coverage_pct": coverage,
+            "by_reality":   by_reality,
+            "by_analysis":  by_analysis,
+            "by_time_dim":  by_time_dim,
+        }
+
     def reset(self) -> None:
         """Reset Q-Table (for testing). Does NOT touch DB."""
         self._table.clear()

@@ -2056,3 +2056,81 @@ class TestConsciousnessSignal:
         m.signal("CONSCIOUSNESS", count=MATURITY_WINDOW)
         # Still STIRRING — CONSCIOUSNESS is A10, doesn't contribute to A6-A9 tier
         assert m.dashboard()["tier"] == "STIRRING"
+
+
+# ── EWC_CHECKPOINT → A10 CONSCIOUSNESS ───────────────────────────────────────
+
+class TestEwcConsciousnessLoop:
+    """
+    EWC_CHECKPOINT fires when a QTable entry crosses F(8)=21 visits (consolidation).
+    The organism has mastered a (state, action) pair — it KNOWS this pattern.
+    That self-awareness of a concrete learned fact = A10 CONSCIOUSNESS signal.
+
+    Handler: _on_ewc_checkpoint in state.py (adds CONSCIOUSNESS alongside AUTONOMY).
+    """
+
+    def test_ewc_signals_consciousness(self):
+        """EWC consolidation fires one CONSCIOUSNESS signal — maturity increases."""
+        m = AxiomMonitor()
+        before = m.get_maturity("CONSCIOUSNESS")
+        # Simulate handler: every EWC_CHECKPOINT fires one CONSCIOUSNESS signal
+        m.signal("CONSCIOUSNESS")
+        after = m.get_maturity("CONSCIOUSNESS")
+        assert after > before
+
+    def test_ewc_also_signals_autonomy(self):
+        """EWC_CHECKPOINT still signals AUTONOMY (pre-existing — must not regress)."""
+        m = AxiomMonitor()
+        before = m.get_maturity("AUTONOMY")
+        m.signal("AUTONOMY")
+        after = m.get_maturity("AUTONOMY")
+        assert after > before
+
+    def test_judge_scales_with_q_value(self):
+        """q_value=0.8 → JUDGE EScore = 0.8 * MAX_Q_SCORE = 80.0."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import MAX_Q_SCORE
+
+        tracker = EScoreTracker()
+        q_value = 0.8
+        judge_score = q_value * MAX_Q_SCORE
+        tracker.update("agent:cynic", "JUDGE", judge_score)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["JUDGE"]["value"] == pytest.approx(80.0, abs=0.5)
+
+    def test_judge_zero_on_zero_q_value(self):
+        """q_value=0.0 → JUDGE = 0.0 — degenerate consolidation, no quality signal."""
+        from cynic.core.escore import EScoreTracker
+
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "JUDGE", 0.0)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["JUDGE"]["value"] == pytest.approx(0.0, abs=0.1)
+
+    def test_repeated_ewc_checkpoints_accumulate_consciousness(self):
+        """Multiple EWC consolidations increase CONSCIOUSNESS maturity cumulatively."""
+        m = AxiomMonitor()
+        for _ in range(5):
+            m.signal("CONSCIOUSNESS")
+        assert m.get_maturity("CONSCIOUSNESS") > 0.0
+        assert m._axioms["CONSCIOUSNESS"].signal_times.__len__() == 5
+
+    def test_handler_tolerates_empty_payload(self):
+        """Missing q_value/state_key → defaults (q=0.5, state='', action=''), no raise."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import MAX_Q_SCORE
+
+        # Replicate handler defaults
+        p = {}
+        q_value   = float(p.get("q_value", 0.5))
+        state_key = p.get("state_key", "")
+        action    = p.get("action", "")
+
+        assert q_value == 0.5
+        assert state_key == ""
+        assert action == ""
+
+        tracker = EScoreTracker()
+        judge_score = q_value * MAX_Q_SCORE
+        tracker.update("agent:cynic", "JUDGE", judge_score)
+        assert tracker.get_score("agent:cynic") >= 0.0

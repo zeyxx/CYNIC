@@ -731,10 +731,11 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
     # → Next hook call gets SAGE's wisdom. Lagged by one cycle (acceptable).
     # Only enqueue for REFLEX perception (CODE/HUMAN reality) — not self-loops.
     if level == ConsciousnessLevel.REFLEX and cell.reality in ("CODE", "HUMAN", "MARKET", "SOCIAL"):
-        from cynic.core.judgment import Cell as _Cell
+        from cynic.core.judgment import Cell as _Cell, infer_time_dim as _itd2
         macro_cell = _Cell(
             reality=cell.reality,
             analysis="JUDGE",
+            time_dim=cell.time_dim,  # Propagate inferred time_dim to MACRO follow-up
             content=cell.content,
             context=cell.context,
             budget_usd=0.05,       # enough for MACRO + Ollama temporal MCTS
@@ -1550,12 +1551,15 @@ async def ws_sdk(websocket: WebSocket) -> None:
         Fast REFLEX judgment on a tool use request.
         Returns "BARK"/"GROWL"/"WAG"/"HOWL".
         """
-        from cynic.core.judgment import Cell
+        from cynic.core.judgment import Cell, infer_time_dim
+        _tool_content = f"{tool_name}: {json.dumps(tool_input)[:400]}"
+        _tool_ctx = f"SDK tool use — session {session_id[:8]}"
         cell = Cell(
             reality="CODE",
             analysis="JUDGE",
-            content=f"{tool_name}: {json.dumps(tool_input)[:400]}",
-            context=f"SDK tool use — session {session_id[:8]}",
+            time_dim=infer_time_dim(_tool_content, _tool_ctx, "JUDGE"),
+            content=_tool_content,
+            context=_tool_ctx,
             lod=0,
             budget_usd=0.0005,
         )
@@ -1742,9 +1746,10 @@ async def ws_sdk(websocket: WebSocket) -> None:
                         f"Cost: ${cost:.4f} | Error: {is_error} | Type: {task_type}"
                     )
                     try:
-                        from cynic.core.judgment import Cell as _Cell
+                        from cynic.core.judgment import Cell as _Cell, infer_time_dim as _itd
                         quality_cell = _Cell(
                             reality="CODE", analysis="JUDGE",
+                            time_dim=_itd(judgment_content, "", "JUDGE"),
                             content=judgment_content,
                             context=f"SDK quality — session {session_id[:8]}",
                             lod=0, budget_usd=0.001,

@@ -1190,10 +1190,27 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
                     source="ewc_checkpoint",
                 ))
 
+            # A10 CONSCIOUSNESS: consolidation = organism KNOWS this (state, action) pair
+            # with certainty. EWC fires ONCE per entry at F(8)=21 visits — a milestone.
+            # "I have learned this. I am aware that I know it." = self-conscious knowledge.
+            new_state_c = axiom_monitor.signal("CONSCIOUSNESS")
+            if new_state_c == "ACTIVE":
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.AXIOM_ACTIVATED,
+                    payload={
+                        "axiom":    "CONSCIOUSNESS",
+                        "maturity": axiom_monitor.get_maturity("CONSCIOUSNESS"),
+                        "trigger":  "EWC_CHECKPOINT",
+                        "q_value":  round(q_value, 3),
+                    },
+                    source="ewc_checkpoint",
+                ))
+
             logger.info(
-                "EWC_CHECKPOINT: state=%s action=%s q=%.3f → JUDGE EScore=%.1f%s",
+                "EWC_CHECKPOINT: state=%s action=%s q=%.3f → JUDGE EScore=%.1f%s%s",
                 state_key, action, q_value, judge_score,
                 " AUTONOMY signalled" if new_state == "ACTIVE" else "",
+                " CONSCIOUSNESS signalled" if new_state_c == "ACTIVE" else "",
             )
         except Exception:
             pass

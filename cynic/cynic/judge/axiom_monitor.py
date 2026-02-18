@@ -145,6 +145,9 @@ class AxiomMonitor:
         self._prev_states: Dict[str, str] = {
             name: _STATE_DORMANT for name in EMERGENT_AXIOMS
         }
+        # A11 TRANSCENDENCE is a one-way latch: once all A6-A9 become active,
+        # TRANSCENDENCE is permanently achieved (doesn't expire like signal-based axioms)
+        self._transcendence_achieved: bool = False
 
     # ── Signal API ────────────────────────────────────────────────────────
 
@@ -200,18 +203,19 @@ class AxiomMonitor:
 
     def _maybe_signal_transcendence(self) -> None:
         """Auto-signal A11 TRANSCENDENCE if all A6-A9 axioms are ACTIVE."""
+        if self._transcendence_achieved:
+            return  # Already latched — don't re-trigger
         if all(self._axioms[a].is_active() for a in _CORE_EMERGENT):
+            self._transcendence_achieved = True  # One-way latch
             trans = self._axioms.get("TRANSCENDENCE")
             if trans is not None:
-                trans.add_signal()
-                self._total_signals += 1
-                self._prev_states["TRANSCENDENCE"] = _STATE_ACTIVE
                 trans.activation_count += 1
                 if trans.first_activated is None:
                     trans.first_activated = time.time()
-                logger.info(
-                    "AxiomMonitor: TRANSCENDENCE auto-signaled (all A6-A9 active)"
-                )
+            self._total_signals += 1
+            logger.info(
+                "AxiomMonitor: TRANSCENDENCE latched (all A6-A9 active)"
+            )
 
     # ── Query ─────────────────────────────────────────────────────────────
 
@@ -251,8 +255,8 @@ class AxiomMonitor:
         active = self.active_count()
         # A6-A9 active count (excludes A10/A11)
         a6_a9_active = sum(1 for a in _CORE_EMERGENT if self._axioms[a].is_active())
-        # Overall emergence tier — TRANSCENDENT when A11 active (auto-triggered by A6-A9 all active)
-        if self._axioms.get("TRANSCENDENCE") and self._axioms["TRANSCENDENCE"].is_active():
+        # TRANSCENDENCE is a one-way latch — use the flag, not maturity
+        if self._transcendence_achieved:
             tier = "TRANSCENDENT"
         elif a6_a9_active >= 3:
             tier = "AWAKENING"        # 3 of A6-A9 active
