@@ -27,6 +27,8 @@ Thumbs.db
 .env.test
 .env.production
 .env.*.local
+.env.vm
+.env.vm.*
 env.txt
 
 # MCP Configuration (may contain secrets)

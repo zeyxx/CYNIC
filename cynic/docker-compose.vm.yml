@@ -40,7 +40,7 @@ services:
     <<: *default-restart
     command: >
       start --log info
-      --user root --pass cynic_phi_618
+      --user root --pass ${SURREAL_PASS:-cynic_phi_618}
       file:///data/cynic.db
     volumes:
       - cynic-surreal:/data
@@ -67,7 +67,7 @@ services:
     environment:
       POSTGRES_DB: cynic_py
       POSTGRES_USER: cynic
-      POSTGRES_PASSWORD: cynic_phi_618
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cynic_phi_618}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - cynic-pgdata:/var/lib/postgresql/data
@@ -143,13 +143,14 @@ services:
         condition: service_started
     environment:
       # ── Memory — SurrealDB (primary) ─────────────────────────────────────
+      # Real credentials must be set in cynic/.env.vm (never committed)
       SURREAL_URL: ws://surrealdb:8000/rpc
-      SURREAL_USER: root
-      SURREAL_PASS: cynic_phi_618
-      SURREAL_NS: cynic
-      SURREAL_DB: cynic
+      SURREAL_USER: ${SURREAL_USER:-root}
+      SURREAL_PASS: ${SURREAL_PASS:-cynic_phi_618}
+      SURREAL_NS: ${SURREAL_NS:-cynic}
+      SURREAL_DB: ${SURREAL_DB:-cynic}
       # Legacy asyncpg fallback (unset = SurrealDB only)
-      # DATABASE_URL: postgresql://cynic:cynic_phi_618@postgres/cynic_py
+      # DATABASE_URL: postgresql://cynic:${POSTGRES_PASSWORD:-cynic_phi_618}@postgres/cynic_py
 
       # ── Perception ───────────────────────────────────────────────────────
       # REFLEX tier: CPU Ollama in this network (fast, always-on)

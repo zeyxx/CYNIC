@@ -477,7 +477,7 @@ class TestSurrealStorageFacade:
         storage = SurrealStorage(
             url="ws://localhost:8080/rpc",
             user="root",
-            password="cynic_phi_618",
+            password="mock",  # test fixture
             namespace="cynic",
             database="cynic",
         )

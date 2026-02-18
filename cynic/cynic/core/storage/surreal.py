@@ -407,7 +407,7 @@ class SurrealStorage:
         return cls(
             url=os.environ.get("SURREAL_URL", "ws://localhost:8080/rpc"),
             user=os.environ.get("SURREAL_USER", "root"),
-            password=os.environ.get("SURREAL_PASS", "cynic_phi_618"),
+            password=os.environ.get("SURREAL_PASS", "local_dev_only"),
             namespace=os.environ.get("SURREAL_NS", "cynic"),
             database=os.environ.get("SURREAL_DB", "cynic"),
         )
@@ -425,7 +425,7 @@ class SurrealStorage:
         storage = cls(
             url=url or os.environ.get("SURREAL_URL", "ws://localhost:8080/rpc"),
             user=user or os.environ.get("SURREAL_USER", "root"),
-            password=password or os.environ.get("SURREAL_PASS", "cynic_phi_618"),
+            password=password or os.environ.get("SURREAL_PASS", "local_dev_only"),
             namespace=namespace or os.environ.get("SURREAL_NS", "cynic"),
             database=database or os.environ.get("SURREAL_DB", "cynic"),
         )
