@@ -41,19 +41,23 @@ PHI_5: float = PHI_4 * PHI        # φ⁵ = 11.090169943749474
 
 # Max confidence in any judgment (Law of Doubt — "φ distrusts φ")
 MAX_CONFIDENCE: float = PHI_INV          # 0.618 = 61.8%
-MAX_Q_SCORE: float = PHI_INV * 100       # 61.8 (Q-Score scale)
 
-# Verdict thresholds
-HOWL_THRESHOLD: float = PHI_2 * PHI_INV * 100  # ≈ 61.8 × 1.618 ≈ 100 → use 82
-_HOWL_THRESHOLD_EXACT: float = 82.0
-WAG_THRESHOLD: float = MAX_Q_SCORE              # 61.8
-GROWL_THRESHOLD: float = PHI_INV_2 * 100        # 38.2
-BARK_THRESHOLD: float = 0.0
+# Q-Score scale: [0, 100] — HOWL atteignable
+# Confidence is SEPARATE and stays bounded at PHI_INV = 61.8%
+MAX_Q_SCORE: float = 100.0              # Q-Score cap (D1 decision: [0, 100])
+MAX_CONFIDENCE_PCT: float = PHI_INV * 100  # 61.8 — confidence display %
 
-HOWL_MIN: float = 82.0                   # HOWL: 82-100 (φ² × φ⁻¹ → exceptional)
-WAG_MIN: float = MAX_Q_SCORE             # WAG:  ≥61.8 (= φ⁻¹ × 100 → good)
+# Verdict thresholds (φ-aligned, on [0, 100] scale)
+HOWL_MIN: float = 82.0                   # HOWL: ≥82  (φ² × φ⁻¹ × 100 → exceptional)
+WAG_MIN: float = PHI_INV * 100          # WAG:  ≥61.8 (= φ⁻¹ × 100 → good)
 GROWL_MIN: float = PHI_INV_2 * 100      # GROWL: ≥38.2 (= φ⁻² × 100 → needs work)
 BARK_MAX: float = PHI_INV_2 * 100       # BARK: <38.2 (= φ⁻² × 100 → critical)
+
+# Aliases (backward compatibility within codebase)
+HOWL_THRESHOLD: float = HOWL_MIN        # 82.0
+WAG_THRESHOLD: float = WAG_MIN          # 61.8
+GROWL_THRESHOLD: float = GROWL_MIN      # 38.2
+BARK_THRESHOLD: float = 0.0
 
 # Trust / Emergence thresholds
 MIN_DOUBT: float = PHI_INV_2     # 0.382 = minimum doubt (skepticism floor)
@@ -164,7 +168,7 @@ def phi_bound(value: float, min_val: float = 0.0, max_val: float = MAX_CONFIDENC
 
 
 def phi_bound_score(q_score: float) -> float:
-    """Clamp Q-Score to [0, 61.8]."""
+    """Clamp Q-Score to [0, 100]."""
     return max(0.0, min(q_score, MAX_Q_SCORE))
 
 
@@ -316,9 +320,10 @@ def validate_phi_constants() -> None:
         ratio = fibonacci(n) / fibonacci(n - 1)
         assert abs(ratio - PHI) < 0.01, f"F({n})/F({n-1}) doesn't converge to φ"
 
-    # Verdict thresholds sanity
+    # Verdict thresholds sanity (Q-Score scale [0,100], D1 decision)
     assert HOWL_MIN > WAG_MIN > GROWL_MIN > 0, "Verdict thresholds out of order"
-    assert abs(WAG_MIN - MAX_Q_SCORE) < 1e-10, "WAG threshold ≠ MAX_Q_SCORE"
+    assert abs(WAG_MIN - PHI_INV * 100) < 1e-10, "WAG threshold ≠ φ⁻¹×100 (61.8)"
+    assert MAX_Q_SCORE == 100.0, "Q-Score cap must be 100 (D1 decision)"
 
     # E-Score weights sum
     assert abs(E_SCORE_TOTAL_WEIGHT - 10.708) < 0.001, "E-Score weights sum incorrect"

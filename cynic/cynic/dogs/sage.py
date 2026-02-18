@@ -23,16 +23,15 @@ Why Sage?
   LLM path: Temporal MCTS — 7 parallel Ollama calls, asyncio.gather()
 
 Scoring (heuristic):
-  Five axiom dimensions → weighted geometric mean → Q-score [0, 61.8]
+  Five axiom dimensions → domain-weighted geometric mean → Q-score [0, 100]
 
-  PHI (20%):     Scope bounded? Does it avoid over-reach?
-  VERIFY (20%):  Are claims verifiable? No blind assertions?
-  CULTURE (20%): Code patterns, naming, style — carries culture?
-  BURN (20%):    Simple over complex? "Don't extract, burn."
-  FIDELITY (20%): Honest purpose? Does it do what it says?
+  Weights from DEFAULT_CONTEXTUAL_WEIGHTS (φ-derived, domain-specific):
+  CODE:   VERIFY=φ²(2.618), PHI=φ(1.618), BURN=φ(1.618), CULTURE=1.0, FIDELITY=φ⁻¹
+  SOLANA: VERIFY=φ³(4.236), FIDELITY=φ²(2.618), CULTURE=φ, PHI=1.0, BURN=φ⁻¹
+  HUMAN:  FIDELITY=φ³(4.236), CULTURE=φ²(2.618), PHI=φ, VERIFY=1.0, BURN=φ⁻¹
 
 Scoring (temporal MCTS):
-  7 perspectives → φ-weighted geometric mean → Q-score [0, 61.8]
+  7 perspectives → φ-weighted geometric mean → Q-score [0, 100]
   Confidence from perspective agreement (high agreement = high confidence)
 
 VETO: impossible — SAGE advises with wisdom, never blocks.
@@ -49,6 +48,7 @@ from cynic.core.phi import (
     PHI_INV, PHI_INV_2, PHI_INV_3, MAX_Q_SCORE, MAX_CONFIDENCE,
     phi_bound_score, fibonacci,
 )
+from cynic.core.axioms import DEFAULT_CONTEXTUAL_WEIGHTS
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
 from cynic.dogs.base import (
@@ -58,13 +58,13 @@ from cynic.dogs.base import (
 
 logger = logging.getLogger("cynic.dogs.sage")
 
-# SAGE heuristic weights (one per axiom, must sum to 1.0)
-AXIOM_WEIGHT: Dict[str, float] = {
-    "PHI":      0.20,   # Scope bounded
-    "VERIFY":   0.20,   # Claims verifiable
-    "CULTURE":  0.20,   # Carries culture
-    "BURN":     0.20,   # Simplicity
-    "FIDELITY": 0.20,   # Honest purpose
+# Fallback weights — used when domain not found in DEFAULT_CONTEXTUAL_WEIGHTS
+_AXIOM_WEIGHT_FALLBACK: Dict[str, float] = {
+    "PHI":      1.0,
+    "VERIFY":   1.0,
+    "CULTURE":  1.0,
+    "BURN":     1.0,
+    "FIDELITY": 1.0,
 }
 
 # Wisdom markers — patterns that indicate good code
@@ -206,7 +206,7 @@ class SageDog(LLMDog):
     ) -> DogJudgment:
         """Phase 1: 5-axiom heuristic (no LLM). Always available."""
         axiom_scores = self._score_axioms(text, cell.reality, cell)
-        q_score, confidence, evidence = self._aggregate(axiom_scores, text)
+        q_score, confidence, evidence = self._aggregate(axiom_scores, text, cell.reality)
 
         worst_axiom = min(axiom_scores.items(), key=lambda kv: kv[1])
         best_axiom = max(axiom_scores.items(), key=lambda kv: kv[1])
@@ -460,22 +460,29 @@ class SageDog(LLMDog):
         self,
         axiom_scores: Dict[str, float],
         text: str,
+        reality: str = "CODE",
     ) -> Tuple[float, float, Dict[str, Any]]:
         """
-        Weighted geometric mean of axiom scores → Q-score.
+        Domain-weighted geometric mean of axiom scores → Q-score.
 
-        geometric_mean = (∏ score_i^weight_i)^(1/∑weights)
-        → avoids single-dimension masking (one 0 → overall 0)
-        → forces all axioms to be above threshold for good score
+        Uses DEFAULT_CONTEXTUAL_WEIGHTS for the domain (α3 fix).
+        E.g., CODE: VERIFY=φ²=2.618, SOLANA: VERIFY=φ³=4.236.
+
+        geo_mean = exp(Σ w_i·log(s_i) / Σ w_i)  ∈ [0, 1]
+        q_score  = geo_mean × MAX_Q_SCORE         ∈ [0, 100]
         """
         import math
 
-        # Weighted geometric mean
-        log_sum = sum(
-            AXIOM_WEIGHT[ax] * math.log(max(score, 0.01))
-            for ax, score in axiom_scores.items()
-        )
-        geo_mean = math.exp(log_sum)  # ∈ [0.01, 1.0]
+        domain_weights = DEFAULT_CONTEXTUAL_WEIGHTS.get(reality, _AXIOM_WEIGHT_FALLBACK)
+
+        log_sum = 0.0
+        total_weight = 0.0
+        for ax, score in axiom_scores.items():
+            w = domain_weights.get(ax, 1.0)
+            log_sum += w * math.log(max(score, 0.01))
+            total_weight += w
+
+        geo_mean = math.exp(log_sum / total_weight) if total_weight > 0 else 0.0
 
         # Scale to [0, MAX_Q_SCORE]
         q_score = geo_mean * MAX_Q_SCORE

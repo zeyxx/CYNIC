@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 from cynic.core.axioms import AxiomArchitecture
+from cynic.core.heuristic_scorer import HeuristicFacetScorer
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.consciousness import get_consciousness
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
@@ -112,7 +113,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     else:
         logger.info("No LLMRegistry — all dogs run in heuristic mode")
 
-    axiom_arch = AxiomArchitecture()
+    axiom_arch = AxiomArchitecture(facet_scorer=HeuristicFacetScorer())
     learning_loop = LearningLoop(qtable=qtable, pool=db_pool)
     learning_loop.start(get_core_bus())
 

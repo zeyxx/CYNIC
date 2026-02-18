@@ -124,7 +124,7 @@ class TestJudge:
         data = resp.json()
         assert "judgment_id" in data
         assert data["verdict"] in {"HOWL", "WAG", "GROWL", "BARK"}
-        assert 0.0 <= data["q_score"] <= 61.8
+        assert 0.0 <= data["q_score"] <= 100.0
         assert 0.0 <= data["confidence"] <= 0.618  # φ-bound
 
     async def test_judge_confidence_phi_bounded(self, client):
@@ -253,7 +253,7 @@ class TestPerceive:
         })
         assert resp.status_code == 200
         q = resp.json()["judgment"]["q_score"]
-        assert 0.0 <= q <= 61.8 + 0.001
+        assert 0.0 <= q <= 100.0
 
     async def test_perceive_confidence_phi_bounded(self, client):
         resp = await client.post("/perceive", json={

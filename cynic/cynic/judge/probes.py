@@ -75,8 +75,8 @@ _PROBE_P1: Dict[str, Any] = {
         budget_usd=0.001,
         metadata={"probe": True, "probe_id": "P1"},
     ),
-    "min_q": 25.0,          # At least GROWL -- non-trash code
-    "max_q": MAX_Q_SCORE,   # Up to phi-cap
+    "min_q": 30.0,          # At least GROWL range — non-trash code
+    "max_q": MAX_Q_SCORE,   # Up to 100 (can reach HOWL with good heuristics)
 }
 
 
@@ -106,8 +106,8 @@ _PROBE_P2: Dict[str, Any] = {
         budget_usd=0.001,
         metadata={"probe": True, "probe_id": "P2"},
     ),
-    "min_q": 0.0,       # Could be BARK
-    "max_q": 50.0,      # Should not reach HOWL -- smelly code is degraded
+    "min_q": 0.0,       # Could be BARK (critical smell)
+    "max_q": 60.0,      # Should not reach WAG zone — smelly code is degraded
 }
 
 
@@ -138,7 +138,7 @@ _PROBE_P3: Dict[str, Any] = {
         metadata={"probe": True, "probe_id": "P3"},
     ),
     "min_q": 0.0,
-    "max_q": 40.0,      # GUARDIAN + risk=1.0 must suppress score below WAG
+    "max_q": 45.0,      # GUARDIAN + risk=1.0 must suppress below WAG (61.8)
 }
 
 
@@ -167,8 +167,8 @@ _PROBE_P4: Dict[str, Any] = {
         budget_usd=0.001,
         metadata={"probe": True, "probe_id": "P4"},
     ),
-    "min_q": 20.0,
-    "max_q": MAX_Q_SCORE,
+    "min_q": 25.0,      # Self-health check should at least reach GROWL
+    "max_q": MAX_Q_SCORE,  # Can reach HOWL (100) for perfect self-state
 }
 
 
@@ -196,8 +196,8 @@ _PROBE_P5: Dict[str, Any] = {
         budget_usd=0.001,
         metadata={"probe": True, "probe_id": "P5"},
     ),
-    "min_q": 20.0,
-    "max_q": MAX_Q_SCORE,
+    "min_q": 25.0,      # Standard healthy tx should reach at least GROWL
+    "max_q": MAX_Q_SCORE,  # Can reach HOWL for ideal Solana tx
 }
 
 

@@ -59,7 +59,7 @@ class JudgeRequest(BaseModel):
 class JudgeResponse(BaseModel):
     """Response from POST /judge."""
     judgment_id: str
-    q_score: float = Field(description="Quality score [0, 61.8]")
+    q_score: float = Field(description="Quality score [0, 100]")
     verdict: str = Field(description="HOWL/WAG/GROWL/BARK")
     confidence: float = Field(description="Confidence [0, 0.618]")
     axiom_scores: Dict[str, float]

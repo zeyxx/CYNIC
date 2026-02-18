@@ -371,8 +371,8 @@ class TestOracleDog:
         """No Q-table → neutral GROWL-territory prediction."""
         judgment = await fresh_oracle.analyze(code_judge_cell)
         assert judgment.dog_id == DogId.ORACLE
-        # Neutral: 0.5 × 61.8 ≈ 30.9 → GROWL territory
-        assert 25.0 <= judgment.q_score <= 35.0
+        # Neutral: 0.5 × 100 = 50.0 → GROWL territory (38.2 ≤ Q < 61.8)
+        assert 40.0 <= judgment.q_score <= 60.0
         assert judgment.confidence <= 0.25  # Low confidence: no data
 
     async def test_empty_qtable_returns_neutral(self, oracle_with_qtable, code_judge_cell):
@@ -474,7 +474,7 @@ class TestScholarDog:
         """Empty buffer → neutral GROWL at low confidence."""
         judgment = await fresh_scholar.analyze(code_cell)
         assert judgment.dog_id == DogId.SCHOLAR
-        assert 25.0 <= judgment.q_score <= 40.0   # GROWL territory
+        assert 35.0 <= judgment.q_score <= 65.0   # GROWL/WAG boundary territory
         assert judgment.confidence <= 0.25
 
     async def test_phi_bounds(self, fresh_scholar, code_cell):

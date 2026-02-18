@@ -38,6 +38,9 @@ from typing import Callable, Dict, List, Optional
 from cynic.core.phi import (
     AXIOMS_CORE,
     AXIOMS_FACETS,
+    HOWL_MIN,
+    WAG_MIN,
+    GROWL_MIN,
     MAX_Q_SCORE,
     PHI,
     PHI_INV,
@@ -281,12 +284,12 @@ class Verdict(str, Enum):
 
 
 def verdict_from_q_score(q_score: float) -> Verdict:
-    """Map Q-Score [0, 61.8] to verdict."""
-    if q_score >= 82.0:
+    """Map Q-Score [0, 100] to verdict."""
+    if q_score >= HOWL_MIN:       # 82.0
         return Verdict.HOWL
-    elif q_score >= PHI_INV * 100:  # 61.8
+    elif q_score >= WAG_MIN:      # 61.8
         return Verdict.WAG
-    elif q_score >= PHI_INV_2 * 100:  # 38.2
+    elif q_score >= GROWL_MIN:    # 38.2
         return Verdict.GROWL
     else:
         return Verdict.BARK
@@ -454,7 +457,7 @@ class AxiomArchitecture:
         3. Weighted geometric mean of active axiom scores
         4. φ-bound to [0, 61.8]
 
-        Returns Q-Score ∈ [0, 61.8].
+        Returns Q-Score ∈ [0, 100].
         """
         # 1. Emergent activation check
         if metrics:
@@ -479,13 +482,11 @@ class AxiomArchitecture:
         if not values:
             return 0.0
 
-        # 3. Weighted geometric mean
+        # 3. Weighted geometric mean → Q-Score ∈ [0, 100]
         q_raw = weighted_geometric_mean(values, weights)
 
-        # 4. φ-bound (normalize from [0,100] to [0, 61.8])
-        q_score = (q_raw / 100.0) * MAX_Q_SCORE
-
-        return phi_bound_score(q_score)
+        # 4. φ-bound to [0, 100] — NO rescaling (D1 decision: Q-Score [0,100])
+        return phi_bound_score(q_raw)
 
     def score_and_compute(
         self,
@@ -563,7 +564,7 @@ class AxiomArchitecture:
 class FullAxiomResult:
     """Complete result of axiom scoring."""
     domain: str
-    q_score: float                          # [0, 61.8] φ-bounded
+    q_score: float                          # [0, 100] — HOWL ≥82, WAG ≥61.8
     verdict: str                            # HOWL/WAG/GROWL/BARK
     axiom_scores: Dict[str, float]          # {axiom_name: 0-100}
     axiom_details: Dict[str, AxiomScore]    # Detailed breakdown

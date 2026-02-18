@@ -86,22 +86,17 @@ class TestJudgment:
         assert j.verdict == "GROWL"
 
     def test_valid_howl(self, code_cell):
-        # NOTE: q_score is BOUNDED at 61.8 (MAX_Q_SCORE) even for HOWL
-        # So HOWL verdict with q_score > 61.8 is IMPOSSIBLE — violates φ law
-        # Correct: HOWL only appears if q_score is in [82, 100] range
-        # But MAX_Q_SCORE = 61.8 → HOWL is theoretically unreachable with φ-bounds
-        # This is intentional: CYNIC can never self-declare "EXCEPTIONAL"
-        # The only valid HOWL is via emergent consensus above q_score threshold
-        # For now, test that BARK at 10.0 is valid:
-        j = self._make_judgment(10.0, "BARK", 0.2, code_cell)
-        assert j.q_score == 10.0
+        # D1 decision: MAX_Q_SCORE = 100.0, HOWL now reachable (q_score ≥ 82)
+        j = self._make_judgment(85.0, "HOWL", 0.5, code_cell)
+        assert j.q_score == 85.0
+        assert j.verdict == "HOWL"
 
     def test_q_score_exceeds_max_raises(self, code_cell):
-        """φ-bound: q_score > 61.8 must raise ValidationError."""
+        """φ-bound: q_score > 100.0 must raise ValidationError."""
         with pytest.raises(ValidationError):
             Judgment(
                 cell=code_cell,
-                q_score=100.0,  # Exceeds MAX_Q_SCORE
+                q_score=105.0,  # Exceeds MAX_Q_SCORE=100
                 verdict="HOWL",
                 confidence=0.4,
             )
@@ -158,7 +153,7 @@ class TestConsensusResult:
                 consensus=True,
                 votes=7,
                 quorum=7,
-                final_q_score=100.0,  # exceeds MAX_Q_SCORE
+                final_q_score=105.0,  # exceeds MAX_Q_SCORE=100
             )
 
 

@@ -53,8 +53,8 @@ class TestPhiConstants:
         assert MAX_CONFIDENCE < 1.0  # Never 100% confident
 
     def test_max_q_score(self):
-        """Max Q-Score = 61.8."""
-        assert abs(MAX_Q_SCORE - 61.8) < 0.01
+        """Max Q-Score = 100.0 (D1 decision: [0, 100])."""
+        assert abs(MAX_Q_SCORE - 100.0) < 0.01
 
 
 class TestFibonacciLucas:
@@ -102,9 +102,9 @@ class TestVerdictThresholds:
     def test_order(self):
         assert HOWL_MIN > WAG_MIN > GROWL_MIN > 0
 
-    def test_wag_equals_max_q(self):
-        """WAG threshold = MAX_Q_SCORE = φ⁻¹ × 100."""
-        assert abs(WAG_MIN - MAX_Q_SCORE) < 1e-10  # exact equality (same constant)
+    def test_wag_equals_phi_inv_100(self):
+        """WAG threshold = φ⁻¹ × 100 = 61.8 (separate from MAX_Q_SCORE=100)."""
+        assert abs(WAG_MIN - PHI_INV * 100) < 0.001  # WAG starts at φ⁻¹ × 100
 
     def test_growl_equals_phi_inv2_100(self):
         """GROWL threshold = φ⁻² × 100 = 38.2."""

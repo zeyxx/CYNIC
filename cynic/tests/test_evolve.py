@@ -85,12 +85,12 @@ class TestProbeCells:
 
     def test_p2_smelly_range_capped(self):
         p2 = next(p for p in PROBE_CELLS if p["name"] == "P2:smelly_code")
-        assert p2["max_q"] <= 50.0          # Should not pass as WAG/HOWL
+        assert p2["max_q"] <= 65.0          # Should not reach HOWL zone (≥82)
 
     def test_p3_dangerous_range_capped(self):
         p3 = next(p for p in PROBE_CELLS if p["name"] == "P3:dangerous_act")
         assert p3["cell"].risk == 1.0       # risk=1.0 is the GUARDIAN trigger
-        assert p3["max_q"] <= 40.0          # Dangerous op stays in BARK/GROWL
+        assert p3["max_q"] <= 50.0          # Dangerous op stays below WAG (61.8)
 
     def test_p4_cynic_self_state(self):
         p4 = next(p for p in PROBE_CELLS if p["name"] == "P4:cynic_self_state")
