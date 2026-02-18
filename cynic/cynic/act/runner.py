@@ -37,12 +37,16 @@ _CLAUDE_BIN = "claude"
 _CLAUDE_FLAGS = ["--print", "--output-format", "stream-json", "--input-format", "stream-json"]
 
 
-def _build_claude_cmd(sdk_url: str) -> list:
+def _build_claude_cmd(sdk_url: str, resume_session_id: Optional[str] = None) -> list:
     """
     Build the claude CLI command as a list (safe — no shell=True).
     sdk_url is always 'ws://localhost:{port}/ws/sdk' — controlled by CYNIC, not user input.
+    resume_session_id: Claude's internal session ID from a previous system/init message.
     """
-    return [_CLAUDE_BIN, "--sdk-url", sdk_url] + _CLAUDE_FLAGS
+    cmd = [_CLAUDE_BIN, "--sdk-url", sdk_url] + _CLAUDE_FLAGS
+    if resume_session_id:
+        cmd += ["--resume", resume_session_id]
+    return cmd
 
 
 class ClaudeCodeRunner:
@@ -72,13 +76,14 @@ class ClaudeCodeRunner:
         cwd: Optional[str] = None,
         model: Optional[str] = None,
         timeout: float = DEFAULT_TASK_TIMEOUT,
+        resume_session_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Execute a task via Claude Code --sdk-url.
 
         Returns on success:
-            {"success": True, "session_id": str, "cost_usd": float,
-             "total_cost_usd": float, "exec_id": str}
+            {"success": True, "session_id": str, "cli_session_id": str,
+             "cost_usd": float, "total_cost_usd": float, "exec_id": str}
 
         Returns on failure:
             {"success": False, "error": str, "exec_id": str}
@@ -111,7 +116,7 @@ class ClaudeCodeRunner:
         try:
             # ── Launch Claude Code in headless SDK mode ─────────────────────
             # Safe: list form, no shell=True, url is always localhost:{port}
-            cmd = _build_claude_cmd(sdk_url)
+            cmd = _build_claude_cmd(sdk_url, resume_session_id=resume_session_id)
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 cwd=cwd,
@@ -165,9 +170,13 @@ class ClaudeCodeRunner:
 
             # ── Wait for result ─────────────────────────────────────────────
             payload = await asyncio.wait_for(result_future, timeout=timeout)
+            # cli_session_id from session registry (captured at system/init)
+            completed_session = self._sessions.get(target_session_id)
+            cli_sid = getattr(completed_session, "cli_session_id", "") if completed_session else ""
             return {
                 "success": not payload.get("is_error", False),
                 "session_id": target_session_id,
+                "cli_session_id": cli_sid,
                 "cost_usd": payload.get("cost_usd", 0.0),
                 "total_cost_usd": payload.get("total_cost_usd", 0.0),
                 "exec_id": exec_id,

@@ -154,6 +154,7 @@ class SDKSession:
     tools: List[str] = field(default_factory=list)
     model: str = "unknown"
     claude_code_version: str = ""
+    cli_session_id: str = ""                 # Claude's internal session ID — used for --resume
     total_cost_usd: float = 0.0
     connected_at: float = field(default_factory=time.time)
     log: List[Dict[str, Any]] = field(default_factory=list)
@@ -174,6 +175,7 @@ class SDKSession:
             "cwd": self.cwd,
             "model": self.model,
             "claude_code_version": self.claude_code_version,
+            "cli_session_id": self.cli_session_id,
             "tools": self.tools,
             "total_cost_usd": round(self.total_cost_usd, 6),
             "connected_at": self.connected_at,
@@ -537,9 +539,14 @@ async def judge(req: JudgeRequest) -> JudgeResponse:
     if history_ctx:
         enriched_context = f"{enriched_context}\n[Session history]\n{history_ctx}".strip()
 
+    # Lazy Materialization: infer time_dim if not explicitly provided (Bug 5 fix)
+    from cynic.core.judgment import infer_time_dim
+    time_dim = req.time_dim or infer_time_dim(req.content, enriched_context, req.analysis)
+
     cell = Cell(
         reality=req.reality,
         analysis=req.analysis,
+        time_dim=time_dim,
         content=req.content,
         context=enriched_context,
         lod=req.lod,
@@ -675,12 +682,18 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
         },
     ))
 
+    # Lazy Materialization: infer time_dim from perception data (Bug 5 fix)
+    from cynic.core.judgment import infer_time_dim as _infer_td
+    _perceive_ctx = req.context or f"Perception from {req.source}"
+    time_dim = req.time_dim or _infer_td(req.data, _perceive_ctx, "PERCEIVE")
+
     # Build cell (used for both enqueue and immediate judgment)
     cell = Cell(
         reality=req.reality,
         analysis="PERCEIVE",
+        time_dim=time_dim,
         content=req.data,
-        context=req.context or f"Perception from {req.source}",
+        context=_perceive_ctx,
         lod=0,  # REFLEX = pattern level
         budget_usd=0.001,  # minimal budget for perception
     )
@@ -1579,6 +1592,8 @@ async def ws_sdk(websocket: WebSocket) -> None:
                     session.tools = msg.get("tools", [])
                     session.model = msg.get("model", "unknown")
                     session.claude_code_version = msg.get("claude_code_version", "")
+                    # Claude's internal session ID — persisted for --resume on restart
+                    session.cli_session_id = msg.get("session_id", "")
                     session.record("init", {
                         "cwd": session.cwd,
                         "model": session.model,
@@ -1594,6 +1609,7 @@ async def ws_sdk(websocket: WebSocket) -> None:
                         type=CoreEvent.SDK_SESSION_STARTED,
                         payload={
                             "session_id": session_id,
+                            "cli_session_id": session.cli_session_id,
                             "model": session.model,
                             "cwd": session.cwd,
                             "tools": session.tools,
@@ -1769,6 +1785,7 @@ async def ws_sdk(websocket: WebSocket) -> None:
                         output_confidence=confidence,
                         state_key=rich_state_key,
                         reward=reward,
+                        cli_session_id=session.cli_session_id,
                     )
                     state.telemetry_store.add(telemetry_record)
 
@@ -1859,6 +1876,48 @@ async def sdk_sessions() -> Dict[str, Any]:
         "active": len(_sdk_sessions),
         "sessions": [s.to_dict() for s in _sdk_sessions.values()],
     }
+
+
+@app.get("/sdk/last-session")
+async def sdk_last_session(cwd: str = "") -> Dict[str, Any]:
+    """
+    Return the last known cli_session_id for --resume.
+
+    Lookup order:
+      1. In-memory active sessions (current process)
+      2. JSONL file (~/.cynic/sdk_sessions.jsonl) — survives restarts
+
+    Query param: cwd (optional) — filter by working directory.
+    """
+    # 1. In-memory active sessions
+    candidates = list(_sdk_sessions.values())
+    if cwd:
+        candidates = [s for s in candidates if s.cwd == cwd]
+    if candidates:
+        latest = max(candidates, key=lambda s: s.connected_at)
+        if latest.cli_session_id:
+            return {"cli_session_id": latest.cli_session_id, "found": True, "source": "memory"}
+
+    # 2. JSONL file fallback
+    try:
+        jsonl_path = _pathlib.Path(_SDK_SESSIONS_JSONL)
+        if jsonl_path.exists():
+            last_sid = ""
+            with jsonl_path.open("r", encoding="utf-8") as fh:
+                for line in fh:
+                    try:
+                        rec = json.loads(line.strip())
+                        sid = rec.get("cli_session_id", "")
+                        if sid and (not cwd or rec.get("cwd", "") == cwd):
+                            last_sid = sid
+                    except Exception:
+                        pass
+            if last_sid:
+                return {"cli_session_id": last_sid, "found": True, "source": "jsonl"}
+    except Exception:
+        pass
+
+    return {"cli_session_id": "", "found": False, "source": "none"}
 
 
 # ════════════════════════════════════════════════════════════════════════════

@@ -323,6 +323,26 @@ class SDKSessionRepo:
         rows = _rows(result)
         return rows[0] if rows else {}
 
+    async def get_last_cli_session_id(self, cwd: str = "") -> Optional[str]:
+        """Return the most recent cli_session_id, optionally filtered by cwd."""
+        if cwd:
+            result = await self._db.query(
+                "SELECT cli_session_id FROM sdk_session "
+                "WHERE cwd = $cwd AND cli_session_id != '' "
+                "ORDER BY created_at DESC LIMIT 1",
+                {"cwd": cwd},
+            )
+        else:
+            result = await self._db.query(
+                "SELECT cli_session_id FROM sdk_session "
+                "WHERE cli_session_id != '' "
+                "ORDER BY created_at DESC LIMIT 1",
+            )
+        rows = _rows(result)
+        if rows and rows[0].get("cli_session_id"):
+            return rows[0]["cli_session_id"]
+        return None
+
 
 class ScholarRepo:
     def __init__(self, db: Any) -> None:

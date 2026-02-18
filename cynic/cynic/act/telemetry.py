@@ -177,6 +177,10 @@ class SessionTelemetry:
     state_key: str                  # "SDK:{model}:{task_type}:{complexity}"
     reward: float                   # compute_reward() result
 
+    # Resume identity — Claude Code's internal session ID (from system/init)
+    # Used with --resume flag to restart long-running sessions after crashes.
+    cli_session_id: str = ""
+
     timestamp: float = field(default_factory=time.time)
 
 
