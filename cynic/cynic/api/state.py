@@ -449,6 +449,50 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         except Exception:
             pass
 
+    # ── RESIDUAL_HIGH → EMERGENCE signal + EScore JUDGE penalty ───────────
+    # Emitted by orchestrator when residual_variance > PHI_INV (>61.8%).
+    # THE_UNNAMEABLE (50th cell) has been detected — something lies beyond
+    # the 7×7 matrix. By definition this IS emergence: the system encountered
+    # a signal it cannot fully categorize within its current model.
+    #
+    # Two effects:
+    #   1. axiom_monitor.signal("EMERGENCE") — feeds the EMERGENCE axiom chain
+    #      (RESIDUAL_HIGH → EMERGENCE → AXIOM_ACTIVATED → eventually TRANSCENDENCE)
+    #   2. escore_tracker JUDGE penalty — high residual means judgment quality
+    #      was poor for this input; score = (1 - residual) × MAX_Q_SCORE
+    #      residual=0.618 → penalty=38.2 (GROWL floor)
+    #      residual=1.0   → penalty=0   (complete failure to categorize)
+    async def _on_residual_high(event: Event) -> None:
+        try:
+            p = event.payload or {}
+            residual = float(p.get("residual_variance", 0.0))
+            cell_id  = p.get("cell_id", "")
+
+            # 1. THE_UNNAMEABLE = EMERGENCE by definition
+            new_state = axiom_monitor.signal("EMERGENCE")
+            if new_state == "ACTIVE":
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.AXIOM_ACTIVATED,
+                    payload={
+                        "axiom":   "EMERGENCE",
+                        "maturity": axiom_monitor.get_maturity("EMERGENCE"),
+                    },
+                    source="residual_high",
+                ))
+
+            # 2. EScore JUDGE penalty — inversely proportional to residual
+            from cynic.core.phi import MAX_Q_SCORE
+            penalty_score = (1.0 - min(residual, 1.0)) * MAX_Q_SCORE
+            escore_tracker.update("agent:cynic", "JUDGE", penalty_score)
+
+            logger.warning(
+                "RESIDUAL_HIGH: cell=%s residual=%.3f → EMERGENCE signal, "
+                "JUDGE EScore penalty=%.1f",
+                cell_id, residual, penalty_score,
+            )
+        except Exception:
+            pass
+
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_intelligence)
     get_core_bus().on(CoreEvent.JUDGMENT_FAILED, _on_judgment_failed)
     get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence_signal)
@@ -456,6 +500,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     get_core_bus().on(CoreEvent.AXIOM_ACTIVATED, _on_axiom_activated)
     get_core_bus().on(CoreEvent.SELF_IMPROVEMENT_PROPOSED, _on_self_improvement_proposed)
     get_core_bus().on(CoreEvent.TRANSCENDENCE, _on_transcendence)
+    get_core_bus().on(CoreEvent.RESIDUAL_HIGH, _on_residual_high)
 
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),
