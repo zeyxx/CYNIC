@@ -1,0 +1,273 @@
+# CYNIC Organism — Linux Body (docker-compose.vm.yml)
+#
+# CYNIC's body lives here. Not a dev stack — the organism's substrate.
+# Separation: Windows = operator cortex, Docker = organism body.
+#
+# LOD 0 (bootstrap):
+#   docker compose -f docker-compose.vm.yml up -d
+#
+# LOD 1 (bootstrap + claude CLI, E-Score VM >= 38.2):
+#   docker compose -f docker-compose.vm.yml --profile lod1 up -d
+#
+# LOD 2 (+ self-hosted CI/CD, E-Score VM >= 61.8):
+#   docker compose -f docker-compose.vm.yml --profile lod1 --profile lod2 up -d
+#
+# Phase 2 — migrate to VPS:
+#   rsync -avz cynic/ hetzner:/opt/cynic/ && ssh hetzner 'cd /opt/cynic && docker compose -f docker-compose.vm.yml up -d'
+#
+# "Le chien vit dans son propre corps." — κυνικός
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-restart: &default-restart
+  restart: unless-stopped
+
+services:
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # MEMORY — PostgreSQL (long-term memory, cross-session persistence)
+  # Stores: judgments, Q-Table, benchmarks, E-Scores, Scholar buffer, SDK sessions
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  postgres:
+    image: postgres:16-alpine
+    container_name: cynic-postgres
+    <<: *default-restart
+    environment:
+      POSTGRES_DB: cynic_py
+      POSTGRES_USER: cynic
+      POSTGRES_PASSWORD: cynic_phi_618
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - cynic-pgdata:/var/lib/postgresql/data
+    networks:
+      - cynic-body
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cynic -d cynic_py"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging: *default-logging
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # PERCEPTION (REFLEX tier) — Ollama CPU
+  # No GPU: qwen2.5:1.5b for fast local REFLEX judgment (<10ms target)
+  # MACRO tier (SAGE 7x): uses Windows host Ollama GPU via host.docker.internal
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ollama-cpu:
+    image: ollama/ollama:latest
+    container_name: cynic-ollama-cpu
+    <<: *default-restart
+    volumes:
+      - cynic-ollama:/root/.ollama
+    networks:
+      - cynic-body
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags > /dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging: *default-logging
+
+  # One-shot: pull the model on first boot then exits
+  # qwen2.5:1.5b — 1GB, fast CPU inference, adequate for REFLEX tier
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: cynic-ollama-pull
+    restart: "no"
+    networks:
+      - cynic-body
+    volumes:
+      - cynic-ollama:/root/.ollama
+    depends_on:
+      ollama-cpu:
+        condition: service_started
+    entrypoint: >
+      sh -c "
+        echo '*sniff* Waiting for Ollama to be ready...' &&
+        sleep 8 &&
+        OLLAMA_HOST=http://ollama-cpu:11434 ollama pull qwen2.5:1.5b &&
+        echo '*tail wag* Model ready — φ-bound perception enabled'
+      "
+    logging: *default-logging
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # BRAIN — Python Kernel (FastAPI, 11 Dogs, Judge, Learning, Scheduler)
+  # The organism's cognition. Connects to postgres (memory) + ollama (senses).
+  # Port 8000 exposed: Claude Code on Windows connects here for kernel guidance.
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  cynic-kernel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cynic-kernel:latest
+    container_name: cynic-kernel
+    <<: *default-restart
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama-cpu:
+        condition: service_started
+    environment:
+      # ── Memory ───────────────────────────────────────────────────────────
+      DATABASE_URL: postgresql://cynic:cynic_phi_618@postgres/cynic_py
+
+      # ── Perception ───────────────────────────────────────────────────────
+      # REFLEX tier: CPU Ollama in this network (fast, always-on)
+      OLLAMA_URL: http://ollama-cpu:11434
+      # MACRO tier: Windows host GPU Ollama — SAGE 7x parallel calls
+      # Requires: Ollama running on Windows with OLLAMA_ORIGINS=* set
+      # Set to empty string to disable GPU bridge and use CPU for all tiers
+      OLLAMA_GPU_URL: http://host.docker.internal:11434
+
+      # ── Identity ─────────────────────────────────────────────────────────
+      CYNIC_VERSION: "1.0.0-vm"
+      CYNIC_INSTANCE: "vm-body"
+
+      # ── Python ───────────────────────────────────────────────────────────
+      PYTHONUNBUFFERED: "1"
+      LOG_LEVEL: INFO
+
+    ports:
+      - "8000:8000"   # API bridge: Windows Claude Code → VM kernel
+
+    volumes:
+      # Source code (read-only in prod — dev mode: remove :ro)
+      - ./cynic:/app/cynic:ro
+      # Soul: guidance.json, session checkpoints, soul files — persistent
+      - cynic-soul:/root/.cynic
+
+    extra_hosts:
+      # Bridge to Windows host for GPU Ollama access
+      - "host.docker.internal:host-gateway"
+
+    networks:
+      - cynic-body
+
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    logging: *default-logging
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # LANGUAGE CORTEX — Bootstrap (Claude Code CLI, LOD 1+)
+  # The VM's own Claude Code instance, authenticated with the same Pro/Max account.
+  # Enables CYNIC→CYNIC: kernel assigns tasks, bootstrap executes them autonomously.
+  #
+  # Auth: mounts Windows ~/.claude/ credentials (same Pro/Max subscription).
+  # This container IS CYNIC's autonomous hands inside the VM.
+  #
+  # Activate: docker compose --profile lod1 up -d bootstrap
+  # Condition: E-Score VM >= 38.2 (LOD 1 unlocked by LODController)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  bootstrap:
+    build:
+      context: .
+      dockerfile: Dockerfile.bootstrap
+    container_name: cynic-bootstrap
+    <<: *default-restart
+    profiles: ["lod1"]
+    depends_on:
+      cynic-kernel:
+        condition: service_healthy
+    environment:
+      CYNIC_KERNEL_URL: http://cynic-kernel:8000
+      CYNIC_INSTANCE: "vm-bootstrap"
+      # claude CLI picks up auth from ~/.claude/ (mounted below)
+    volumes:
+      # Auth: Windows Pro/Max credentials → mounted into bootstrap home
+      # Docker Desktop on Windows translates USERPROFILE automatically
+      - type: bind
+        source: ${USERPROFILE}/.claude
+        target: /home/cynic/.claude
+        read_only: true
+      # Workspace: CYNIC's own codebase (read-write — bootstrap edits it)
+      - type: bind
+        source: .
+        target: /workspace
+      # Soul: shared with kernel (reads guidance.json written by kernel)
+      - cynic-soul:/home/cynic/.cynic
+    working_dir: /workspace
+    networks:
+      - cynic-body
+    logging: *default-logging
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # HANDS (CI/CD) — GitHub Actions Self-Hosted Runner (LOD 2+)
+  # CYNIC triggers its own tests, linting, auto-PR generation.
+  # Condition: E-Score VM >= 61.8 (LOD 2 — WAG-tier autonomy)
+  #
+  # Setup: generate a runner token from GitHub repo Settings → Actions → Runners
+  # Then set GITHUB_REPO_URL and GITHUB_RUNNER_TOKEN in .env
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  github-runner:
+    image: myoung34/github-runner:latest
+    container_name: cynic-github-runner
+    <<: *default-restart
+    profiles: ["lod2"]
+    depends_on:
+      cynic-kernel:
+        condition: service_healthy
+    environment:
+      REPO_URL: ${GITHUB_REPO_URL}
+      RUNNER_NAME: cynic-vm-runner
+      RUNNER_TOKEN: ${GITHUB_RUNNER_TOKEN}
+      RUNNER_WORKDIR: /tmp/cynic-actions
+      LABELS: "cynic-vm,self-hosted,linux"
+      # Disable auto-update (CYNIC controls its own versioning)
+      DISABLE_AUTO_UPDATE: "true"
+    volumes:
+      # Docker socket: runner can spawn containers for isolated test jobs
+      - /var/run/docker.sock:/var/run/docker.sock
+      - cynic-runner-work:/tmp/cynic-actions
+    networks:
+      - cynic-body
+    logging: *default-logging
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# VOLUMES — Persistent Organism State
+# Named volumes survive container restarts and rebuilds.
+# Back these up before any destructive operations.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+volumes:
+  cynic-pgdata:
+    name: cynic-pgdata
+    # PostgreSQL data — judgments, Q-Table, E-Scores, benchmarks
+    # Size estimate: ~100MB after 100k judgments
+
+  cynic-ollama:
+    name: cynic-ollama
+    # Ollama model weights — qwen2.5:1.5b ≈ 1GB
+    # Shared between ollama-cpu and ollama-pull (one download, one serve)
+
+  cynic-soul:
+    name: cynic-soul
+    # ~/.cynic/ — guidance.json, session checkpoints, soul files
+    # The organism's working memory between API calls
+
+  cynic-runner-work:
+    name: cynic-runner-work
+    # GitHub Actions working directory (LOD 2+)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# NETWORKS — Organism Boundary
+# cynic-body: internal communication only
+# Port 8000 is the single gate between the organism and the outside world
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+networks:
+  cynic-body:
+    name: cynic-body
+    driver: bridge
+    # Internal DNS: postgres, ollama-cpu, cynic-kernel, bootstrap resolve here
+    # External access: only via port 8000 on cynic-kernel

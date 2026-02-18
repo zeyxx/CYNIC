@@ -1,0 +1,52 @@
+# CYNIC Bootstrap — Language Cortex in the VM (Dockerfile.bootstrap)
+#
+# Extends the kernel image with Claude Code CLI.
+# This container IS CYNIC's autonomous language in the VM:
+#   - Reads guidance.json written by the kernel
+#   - Executes tasks assigned by ClaudeCodeRunner (runner.py via kernel API)
+#   - Writes code, runs tests, commits — CYNIC working on CYNIC
+#
+# Auth: ~/.claude/ mounted from Windows host (same Pro/Max account)
+# Used as: profile=lod1, E-Score VM >= 38.2
+#
+# "Le cortex langagier obéit au cerveau." — κυνικός
+
+FROM python:3.11-slim
+
+# ── System deps: same as Dockerfile + Node.js for claude CLI ────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    git \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Claude Code CLI ──────────────────────────────────────────────────────
+# Same version as the operator uses — same Pro/Max account, same binary
+RUN npm install -g @anthropic-ai/claude-code
+
+# ── Python kernel (for running tests, importing cynic modules) ───────────
+WORKDIR /workspace
+
+COPY pyproject.toml ./
+COPY README.md ./
+RUN pip install --no-cache-dir poetry==1.8.3 && \
+    poetry config virtualenvs.create false && \
+    poetry install --no-interaction --no-ansi --only main
+
+COPY cynic/ ./cynic/
+
+# ── Non-root user (matches kernel uid=1000) ──────────────────────────────
+# Home: /home/cynic — .claude/ mounted here by compose
+RUN useradd -m -u 1000 cynic && chown -R cynic:cynic /workspace
+USER cynic
+
+# ── Health: verify claude CLI is accessible ──────────────────────────────
+HEALTHCHECK --interval=60s --timeout=10s --retries=3 \
+    CMD claude --version > /dev/null 2>&1
+
+# Keep alive — kernel sends tasks via ClaudeCodeRunner subprocess spawn
+# The kernel calls: claude --sdk-url ws://cynic-kernel:8000/ws/sdk
+CMD ["bash", "-c", "echo '*ears perk* Bootstrap online — language cortex ready' && sleep infinity"]

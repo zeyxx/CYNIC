@@ -56,6 +56,7 @@ scipy = "^1.13.0"
 
 # Async utilities
 aiofiles = "^23.2.1"
+aiohttp = "^3.9.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.1.0"

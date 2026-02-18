@@ -15,7 +15,6 @@ WORKDIR /app
 
 # Install dependencies before copying source (layer caching)
 COPY pyproject.toml ./
-COPY README.md ./
 
 # Install Poetry + dependencies
 RUN pip install --no-cache-dir poetry==1.8.3 && \
