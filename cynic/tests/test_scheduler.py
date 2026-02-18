@@ -486,3 +486,50 @@ class TestPerceiveWorkerRegistration:
             "Late-registered worker must not be stored in the list"
         )
         await scheduler.stop()
+
+
+class TestSchedulerQueueDepth:
+    """Scheduler.total_queue_depth() feeds LOD health check (queue_depth dimension)."""
+
+    def _make_scheduler(self):
+        from unittest.mock import AsyncMock, MagicMock
+        from cynic.scheduler import DogScheduler
+        orch = MagicMock()
+        orch.run = AsyncMock(return_value=MagicMock(verdict="WAG", q_score=70.0))
+        return DogScheduler(orchestrator=orch)
+
+    def test_empty_queues_depth_zero(self):
+        scheduler = self._make_scheduler()
+        assert scheduler.total_queue_depth() == 0
+
+    def test_depth_increases_after_submit(self):
+        from cynic.core.judgment import Cell
+        from cynic.core.consciousness import ConsciousnessLevel
+        scheduler = self._make_scheduler()
+        cell = Cell(
+            reality="CODE", analysis="JUDGE", time_dim="PRESENT",
+            content="test", context="", risk=0.1, complexity=0.1,
+            budget_usd=0.01,
+        )
+        scheduler.submit(cell, level=ConsciousnessLevel.REFLEX)
+        assert scheduler.total_queue_depth() == 1
+
+    def test_depth_sums_across_levels(self):
+        from cynic.core.judgment import Cell
+        from cynic.core.consciousness import ConsciousnessLevel
+        scheduler = self._make_scheduler()
+        cell = Cell(
+            reality="CODE", analysis="JUDGE", time_dim="PRESENT",
+            content="test", context="", risk=0.1, complexity=0.1,
+            budget_usd=0.01,
+        )
+        scheduler.submit(cell, level=ConsciousnessLevel.REFLEX)
+        scheduler.submit(cell, level=ConsciousnessLevel.MICRO)
+        assert scheduler.total_queue_depth() == 2
+
+    def test_lod_thresholds_match_fibonacci(self):
+        """LOD queue thresholds 34/89/144 are Fibonacci numbers."""
+        from cynic.judge.lod import _QUEUE_LOD1, _QUEUE_LOD2, _QUEUE_LOD3
+        assert _QUEUE_LOD1 == 34   # F(9)
+        assert _QUEUE_LOD2 == 89   # F(11)
+        assert _QUEUE_LOD3 == 144  # F(12)

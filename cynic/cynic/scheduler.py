@@ -276,6 +276,10 @@ class DogScheduler:
             },
         }
 
+    def total_queue_depth(self) -> int:
+        """Total cells waiting across all queues — used by LOD health check."""
+        return sum(q.qsize() for q in self._queues.values())
+
     # ── Tier Workers ─────────────────────────────────────────────────────────
 
     async def _reflex_worker(self, worker_id: int = 0) -> None:

@@ -317,6 +317,8 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
                 _outcome_window.pop(0)
             _update_error_rate()
             _health_cache["latency_ms"] = float(p.get("duration_ms", 0.0))
+            # Scheduler queue depth — LOD thresholds: 34 → REDUCED, 89 → EMERGENCY, 144 → MINIMAL
+            _health_cache["queue_depth"] = scheduler.total_queue_depth()
 
             # δ2: Assess LOD from all accumulated health signals
             lod_controller.assess(**_health_cache)
