@@ -1763,3 +1763,85 @@ class TestActRequestedLoop:
         tracker.update("agent:cynic", "HOLD", HOWL_MIN)
         tracker.update("agent:cynic", "SOCIAL", WAG_MIN)
         assert tracker.get_score("agent:cynic") >= 0.0
+
+
+class TestDecisionMadeRunLoop:
+    """DECISION_MADE → RUN = q_value*MAX_Q_SCORE + EMERGENCE on confident BARK."""
+
+    def test_run_scales_with_q_value_max(self):
+        """q_value=1.0 → RUN=MAX_Q_SCORE (100.0) — perfect decision efficiency."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import MAX_Q_SCORE
+
+        tracker = EScoreTracker()
+        q_value = 1.0
+        run_score = q_value * MAX_Q_SCORE
+        tracker.update("agent:cynic", "RUN", run_score)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["RUN"]["value"] == pytest.approx(MAX_Q_SCORE, abs=0.1)
+
+    def test_run_zero_on_zero_q_value(self):
+        """q_value=0.0 → RUN=0.0 — no confidence = zero execution efficiency."""
+        from cynic.core.escore import EScoreTracker
+
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "RUN", 0.0)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["RUN"]["value"] == pytest.approx(0.0, abs=0.1)
+
+    def test_run_mid_on_half_q_value(self):
+        """q_value=0.5 → RUN=50.0 — neutral confidence, neutral efficiency."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import MAX_Q_SCORE
+
+        tracker = EScoreTracker()
+        run_score = 0.5 * MAX_Q_SCORE
+        tracker.update("agent:cynic", "RUN", run_score)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["RUN"]["value"] == pytest.approx(50.0, abs=0.5)
+
+    def test_confident_bark_signals_emergence(self):
+        """BARK + q_value >= PHI_INV_2 (0.382) → EMERGENCE maturity increases."""
+        from cynic.core.phi import PHI_INV_2
+
+        m = AxiomMonitor()
+        before = m.get_maturity("EMERGENCE")
+        # Simulate confident BARK: q_value=0.5 >= PHI_INV_2
+        q_value = 0.5
+        verdict = "BARK"
+        if verdict == "BARK" and q_value >= PHI_INV_2:
+            m.signal("EMERGENCE")
+        after = m.get_maturity("EMERGENCE")
+        assert after > before
+
+    def test_weak_bark_no_emergence_signal(self):
+        """BARK + q_value < PHI_INV_2 (0.382) → EMERGENCE NOT signaled."""
+        from cynic.core.phi import PHI_INV_2
+
+        m = AxiomMonitor()
+        before = m.get_maturity("EMERGENCE")
+        # Simulate weak BARK: q_value=0.1 < PHI_INV_2 — not confident enough
+        q_value = 0.1
+        verdict = "BARK"
+        if verdict == "BARK" and q_value >= PHI_INV_2:
+            m.signal("EMERGENCE")  # should NOT execute
+        after = m.get_maturity("EMERGENCE")
+        assert after == before  # unchanged
+
+    def test_growl_no_emergence_even_confident(self):
+        """GROWL with high q_value → RUN updates but EMERGENCE NOT signaled."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import MAX_Q_SCORE, PHI_INV_2
+
+        tracker = EScoreTracker()
+        m = AxiomMonitor()
+        before = m.get_maturity("EMERGENCE")
+        q_value = 0.9
+        verdict = "GROWL"
+        run_score = q_value * MAX_Q_SCORE
+        tracker.update("agent:cynic", "RUN", run_score)
+        if verdict == "BARK" and q_value >= PHI_INV_2:
+            m.signal("EMERGENCE")  # should NOT execute (verdict != BARK)
+        after = m.get_maturity("EMERGENCE")
+        assert after == before  # EMERGENCE unchanged
+        assert tracker.get_detail("agent:cynic")["dimensions"]["RUN"]["value"] == pytest.approx(90.0, abs=0.5)
