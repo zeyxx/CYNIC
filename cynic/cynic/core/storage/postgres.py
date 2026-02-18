@@ -210,6 +210,30 @@ CREATE TABLE IF NOT EXISTS residual_history (
     observed_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- SDK Sessions (Claude Code --sdk-url sessions telemetry)
+CREATE TABLE IF NOT EXISTS sdk_sessions (
+    session_id      TEXT        PRIMARY KEY,
+    model           TEXT        NOT NULL DEFAULT 'unknown',
+    task_type       TEXT        NOT NULL DEFAULT 'general',
+    complexity      TEXT        NOT NULL DEFAULT 'trivial',
+    task_preview    TEXT        NOT NULL DEFAULT '',
+    state_key       TEXT        NOT NULL DEFAULT '',
+    tools_sequence  JSONB       NOT NULL DEFAULT '[]',
+    tools_allowed   INTEGER     NOT NULL DEFAULT 0,
+    tools_denied    INTEGER     NOT NULL DEFAULT 0,
+    tool_allow_rate REAL        NOT NULL DEFAULT 1.0 CHECK (tool_allow_rate BETWEEN 0 AND 1),
+    input_tokens    INTEGER     NOT NULL DEFAULT 0,
+    output_tokens   INTEGER     NOT NULL DEFAULT 0,
+    total_cost_usd  REAL        NOT NULL DEFAULT 0 CHECK (total_cost_usd >= 0),
+    duration_s      REAL        NOT NULL DEFAULT 0,
+    is_error        BOOLEAN     NOT NULL DEFAULT FALSE,
+    output_q_score  REAL        NOT NULL DEFAULT 0,
+    output_verdict  TEXT        NOT NULL DEFAULT 'GROWL',
+    output_confidence REAL      NOT NULL DEFAULT 0,
+    reward          REAL        NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_judgments_reality   ON judgments (reality);
 CREATE INDEX IF NOT EXISTS idx_judgments_verdict   ON judgments (verdict);
@@ -218,6 +242,9 @@ CREATE INDEX IF NOT EXISTS idx_learning_loop       ON learning_events (loop_name
 CREATE INDEX IF NOT EXISTS idx_learning_state      ON learning_events (state_key);
 CREATE INDEX IF NOT EXISTS idx_llm_bench_dog       ON llm_benchmarks (dog_id, task_type);
 CREATE INDEX IF NOT EXISTS idx_residual_observed   ON residual_history (observed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sdk_model           ON sdk_sessions (model);
+CREATE INDEX IF NOT EXISTS idx_sdk_task_type       ON sdk_sessions (task_type);
+CREATE INDEX IF NOT EXISTS idx_sdk_created         ON sdk_sessions (created_at DESC);
 """
 
 
@@ -555,3 +582,92 @@ def residuals() -> ResidualRepository:
     if _residual_repo is None:
         _residual_repo = ResidualRepository()
     return _residual_repo
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# SDK SESSION REPOSITORY
+# ════════════════════════════════════════════════════════════════════════════
+
+class SDKSessionRepository:
+    """Persist Claude Code --sdk-url session telemetry for learning analysis."""
+
+    async def save(self, telemetry: Dict[str, Any]) -> None:
+        """
+        Persist one SessionTelemetry record (upsert by session_id).
+        Safe to call multiple times — ON CONFLICT updates the row.
+        """
+        import json as _json
+        async with acquire() as conn:
+            await conn.execute("""
+                INSERT INTO sdk_sessions (
+                    session_id, model, task_type, complexity, task_preview,
+                    state_key, tools_sequence, tools_allowed, tools_denied,
+                    tool_allow_rate, input_tokens, output_tokens, total_cost_usd,
+                    duration_s, is_error, output_q_score, output_verdict,
+                    output_confidence, reward
+                ) VALUES (
+                    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
+                )
+                ON CONFLICT (session_id) DO UPDATE SET
+                    total_cost_usd   = EXCLUDED.total_cost_usd,
+                    output_q_score   = EXCLUDED.output_q_score,
+                    output_verdict   = EXCLUDED.output_verdict,
+                    output_confidence = EXCLUDED.output_confidence,
+                    reward           = EXCLUDED.reward,
+                    is_error         = EXCLUDED.is_error,
+                    duration_s       = EXCLUDED.duration_s
+            """,
+                telemetry["session_id"],
+                telemetry.get("model", "unknown"),
+                telemetry.get("task_type", "general"),
+                telemetry.get("complexity", "trivial"),
+                (telemetry.get("task") or "")[:200],
+                telemetry.get("state_key", ""),
+                _json.dumps(telemetry.get("tools_sequence", [])),
+                int(telemetry.get("tools_allowed", 0)),
+                int(telemetry.get("tools_denied", 0)),
+                float(telemetry.get("tool_allow_rate", 1.0)),
+                int(telemetry.get("input_tokens", 0)),
+                int(telemetry.get("output_tokens", 0)),
+                float(telemetry.get("total_cost_usd", 0.0)),
+                float(telemetry.get("duration_s", 0.0)),
+                bool(telemetry.get("is_error", False)),
+                float(telemetry.get("output_q_score", 0.0)),
+                telemetry.get("output_verdict", "GROWL"),
+                float(telemetry.get("output_confidence", 0.0)),
+                float(telemetry.get("reward", 0.0)),
+            )
+
+    async def recent(self, limit: int = 21) -> List[Dict[str, Any]]:
+        """Return last N sessions ordered most-recent-first."""
+        async with acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT * FROM sdk_sessions ORDER BY created_at DESC LIMIT $1",
+                limit,
+            )
+            return [dict(r) for r in rows]
+
+    async def stats(self) -> Dict[str, Any]:
+        """Aggregate statistics — for /act/telemetry enrichment."""
+        async with acquire() as conn:
+            row = await conn.fetchrow("""
+                SELECT
+                    COUNT(*)                                    AS total,
+                    AVG(total_cost_usd)                         AS avg_cost_usd,
+                    AVG(reward)                                 AS avg_reward,
+                    AVG(output_q_score)                         AS avg_q_score,
+                    SUM(CASE WHEN is_error THEN 1 ELSE 0 END)::REAL / NULLIF(COUNT(*),0)
+                                                                AS error_rate
+                FROM sdk_sessions
+            """)
+            return dict(row) if row else {}
+
+
+_sdk_session_repo: Optional[SDKSessionRepository] = None
+
+
+def sdk_sessions() -> SDKSessionRepository:
+    global _sdk_session_repo
+    if _sdk_session_repo is None:
+        _sdk_session_repo = SDKSessionRepository()
+    return _sdk_session_repo

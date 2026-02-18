@@ -92,6 +92,7 @@ class JudgeOrchestrator:
         self.axiom_arch = axiom_arch
         self.cynic_dog = cynic_dog
         self.residual_detector = residual_detector  # Optional[ResidualDetector]
+        self.benchmark_registry = None  # Optional[BenchmarkRegistry] — set via state.py
         self._judgment_count = 0
         self._consciousness = get_consciousness()
         # evolve() history — last F(8)=21 META cycles
@@ -136,12 +137,16 @@ class JudgeOrchestrator:
                 elapsed = timer.stop()
                 pipeline.total_latency_ms = elapsed
 
-            # Emit JUDGMENT_CREATED
+            # Emit JUDGMENT_CREATED (enriched with cell context for DecideAgent)
             self._judgment_count += 1
             self._consciousness.increment(level)
+            jc_payload = judgment.to_dict()
+            jc_payload["state_key"] = cell.state_key()
+            jc_payload["content_preview"] = str(cell.content or "")[:200]
+            jc_payload["context"] = cell.context or ""
             await get_core_bus().emit(Event(
                 type=CoreEvent.JUDGMENT_CREATED,
-                payload=judgment.to_dict(),
+                payload=jc_payload,
             ))
 
             # Emit LEARNING_EVENT for ALL cycles (REFLEX/MICRO/MACRO).
@@ -225,20 +230,36 @@ class JudgeOrchestrator:
         q_scores = [j.q_score for j in dog_judgments]
         avg_q = sum(q_scores) / len(q_scores) if q_scores else 0.0
 
-        # Axiom scoring (fast-path: only active core axioms)
+        # GUARDIAN veto: any dog can force Q=0 (immune system override)
+        dog_veto = any(j.veto for j in dog_judgments)
+
+        # Hard veto: a Cell explicitly declared as risk=1.0 + analysis=ACT
+        # is absolutely dangerous by construction — no ML needed to detect it.
+        # This is not over-riding GUARDIAN; it IS the GUARDIAN rule for declared danger.
+        hard_veto = cell.risk >= 1.0 and cell.analysis == "ACT"
+
+        veto = hard_veto or dog_veto
+
+        # At REFLEX level, dog heuristics ARE the score.
+        # The axiom facet scorer defaults to 50.0 (no LLM) → always produces 30.9
+        # regardless of content. Dog outputs (GUARDIAN anomaly detection, JANITOR
+        # AST analysis, etc.) are the actual signal at this level.
+        final_q = 0.0 if veto else phi_bound_score(avg_q)
+
+        # Axiom scoring kept for active_axioms tracking and emergent activation only.
         axiom_result = self.axiom_arch.score_and_compute(
             domain=cell.reality,
-            context=str(cell.content)[:500],   # truncate for speed
+            context=str(cell.content)[:500],
             fractal_depth=1,
             metrics={"avg_dog_q": avg_q / MAX_Q_SCORE},
         )
 
-        verdict = verdict_from_q_score(axiom_result.q_score)
+        verdict = verdict_from_q_score(final_q)
         total_cost = sum(j.cost_usd for j in dog_judgments)
 
         return Judgment(
             cell=cell,
-            q_score=axiom_result.q_score,
+            q_score=final_q,
             verdict=verdict.value,
             confidence=min(PHI_INV_2, MAX_CONFIDENCE),  # 38.2% — low confidence at reflex
             axiom_scores=axiom_result.axiom_scores,
@@ -500,6 +521,13 @@ class JudgeOrchestrator:
         self._evolve_history.append(summary)
         if len(self._evolve_history) > 21:
             self._evolve_history.pop(0)
+
+        # Persist probe runs to DB (no-op if benchmark_registry not wired)
+        if self.benchmark_registry is not None:
+            try:
+                await self.benchmark_registry.record_evolve(results)
+            except Exception as exc:
+                logger.warning("BenchmarkRegistry.record_evolve() failed: %s", exc)
 
         await get_core_bus().emit(Event(
             type=CoreEvent.META_CYCLE,

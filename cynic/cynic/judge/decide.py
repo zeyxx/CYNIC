@@ -22,6 +22,50 @@ _PHI_INV_2 = 0.382
 # Verdicts that warrant a policy consultation
 _ALERT_VERDICTS = {"BARK", "GROWL"}
 
+# Realities that produce actionable prompts for the runner
+_ACT_REALITIES = frozenset({"CODE", "CYNIC"})
+
+
+def _build_action_prompt(
+    reality: str,
+    analysis: str,
+    verdict: str,
+    content_preview: str,
+    context: str,
+) -> str:
+    """
+    Convert judgment context → actionable Claude prompt.
+    Rule-based templates — no LLM needed for routing.
+    Called only for BARK/GROWL verdicts.
+    """
+    body = (content_preview or context or "(no detail available)").strip()[:400]
+
+    if reality == "CODE":
+        if verdict == "BARK":
+            return (
+                f"[CYNIC AUTO-ACT] BARK detected on code analysis.\n"
+                f"Please review and fix the following critical issue:\n\n{body}"
+            )
+        return (
+            f"[CYNIC AUTO-ACT] GROWL detected on code analysis.\n"
+            f"Please review the following code quality concern:\n\n{body}"
+        )
+    if reality == "CYNIC":
+        if verdict == "BARK":
+            return (
+                f"[CYNIC AUTO-ACT] BARK on self-assessment ({analysis}).\n"
+                f"Critical organism issue — please investigate:\n\n{body}"
+            )
+        return (
+            f"[CYNIC AUTO-ACT] GROWL on self-assessment ({analysis}).\n"
+            f"Organism quality degradation — please review:\n\n{body}"
+        )
+    # Generic fallback for other realities
+    return (
+        f"[CYNIC AUTO-ACT] {verdict} on {reality}\u00b7{analysis}.\n"
+        f"Please investigate:\n\n{body}"
+    )
+
 
 class DecideAgent:
     """
@@ -62,6 +106,11 @@ class DecideAgent:
         state_key = payload.get("state_key", "")
         judgment_id = payload.get("judgment_id", "")
         q_score = payload.get("q_score", 0.0)
+        # Enriched fields from orchestrator.py (JUDGMENT_CREATED now includes these)
+        reality = payload.get("reality", "")
+        analysis = payload.get("analysis", "")
+        content_preview = payload.get("content_preview", "")
+        context = payload.get("context", "")
 
         if verdict not in _ALERT_VERDICTS or confidence < _PHI_INV_2:
             self._skipped += 1
@@ -76,6 +125,11 @@ class DecideAgent:
         q_entry = self._qtable._table.get(state_key, {}).get(recommended_action, None)
         q_value = q_entry.q_value if q_entry is not None else 0.0
 
+        # Build action prompt (non-empty only for ACT_REALITIES — others get generic)
+        action_prompt = _build_action_prompt(
+            reality, analysis, verdict, content_preview, context
+        )
+
         decision_payload: Dict[str, Any] = {
             "judgment_id": judgment_id,
             "state_key": state_key,
@@ -83,6 +137,9 @@ class DecideAgent:
             "q_value": q_value,
             "confidence": confidence,
             "trigger": "auto_decide",
+            "reality": reality,
+            "content_preview": content_preview,
+            "action_prompt": action_prompt,
         }
 
         bus = get_core_bus()
@@ -94,8 +151,8 @@ class DecideAgent:
 
         self._decisions_made += 1
         logger.info(
-            "DecideAgent decision: verdict=%s state=%s action=%s q=%.3f",
-            verdict, state_key, recommended_action, q_value,
+            "DecideAgent decision: verdict=%s reality=%s state=%s action=%s q=%.3f",
+            verdict, reality, state_key, recommended_action, q_value,
         )
 
     # ---- Stats ------------------------------------------------------------

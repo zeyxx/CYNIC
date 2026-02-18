@@ -57,7 +57,7 @@ from cynic.api.models import (
     StatsResponse,
 )
 from cynic.api.state import build_kernel, set_state, get_state
-from cynic.core.storage.postgres import JudgmentRepository
+from cynic.core.storage.postgres import JudgmentRepository, SDKSessionRepository as _SDKSessionRepo
 
 logger = logging.getLogger("cynic.api.server")
 
@@ -209,6 +209,43 @@ async def lifespan(app: FastAPI):
 
     get_core_bus().on(CoreEvent.ACT_REQUESTED, _on_act_requested)
 
+    # Wire DECISION_MADE → runner.execute() (auto-ACT with budget guard)
+    # Throttle: max 1 auto-act per 60s — prevents runaway judgment → act loops.
+    # Reality filter: only CODE + CYNIC act on code/self (not MARKET/SOLANA).
+    _act_guard = {"last_t": 0.0}
+    _AUTO_ACT_INTERVAL_S = 60.0
+    _AUTO_ACT_REALITIES = frozenset({"CODE", "CYNIC"})
+
+    async def _on_decision_made(event: Event) -> None:
+        if state.runner is None:
+            return
+        p = event.payload or {}
+        if p.get("reality", "") not in _AUTO_ACT_REALITIES:
+            return
+        action_prompt = p.get("action_prompt", "")
+        if not action_prompt:
+            return
+        now = time.time()
+        elapsed = now - _act_guard["last_t"]
+        if elapsed < _AUTO_ACT_INTERVAL_S:
+            logger.debug(
+                "Auto-ACT throttled: %.0fs since last (min=%.0fs)",
+                elapsed, _AUTO_ACT_INTERVAL_S,
+            )
+            return
+        _act_guard["last_t"] = now
+        logger.info(
+            "*ears perk* Auto-ACT fired: reality=%s verdict=%s state=%s",
+            p.get("reality"), p.get("recommended_action"), p.get("state_key"),
+        )
+        asyncio.create_task(state.runner.execute(action_prompt, timeout=120.0))
+
+    get_core_bus().on(CoreEvent.DECISION_MADE, _on_decision_made)
+    logger.info(
+        "*sniff* Auto-ACT loop wired (throttle=%.0fs, realities=%s)",
+        _AUTO_ACT_INTERVAL_S, sorted(_AUTO_ACT_REALITIES),
+    )
+
     llm_count = len(registry.get_available())
     logger.info(
         "*tail wag* CYNIC kernel alive — %d dogs, %d LLMs, learning active, scheduler running, runner ready",
@@ -219,6 +256,7 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("*yawn* CYNIC kernel shutting down...")
+    get_core_bus().off(CoreEvent.DECISION_MADE, _on_decision_made)
     await state.scheduler.stop()
     state.learning_loop.stop()
     if state.runner is not None:
@@ -334,6 +372,7 @@ _GUIDANCE_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "guidance.json"
 
 
 _judgment_repo = JudgmentRepository()
+_sdk_session_repo = _SDKSessionRepo()
 
 
 def _persist_judgment(judgment) -> None:
@@ -850,6 +889,7 @@ async def ws_stream(websocket: WebSocket) -> None:
         CoreEvent.JUDGMENT_CREATED,
         CoreEvent.LEARNING_EVENT,
         CoreEvent.META_CYCLE,
+        CoreEvent.DECISION_MADE,
     ]
     for ev_type in stream_events:
         bus.on(ev_type, on_event)
@@ -1177,6 +1217,17 @@ async def ws_sdk(websocket: WebSocket) -> None:
                         reward=reward,
                     )
                     state.telemetry_store.add(telemetry_record)
+
+                    # Persist to DB (fire-and-forget, best-effort)
+                    if state._pool is not None:
+                        import dataclasses as _dc
+                        _rec_dict = _dc.asdict(telemetry_record)
+                        async def _persist_sdk_session(d=_rec_dict):
+                            try:
+                                await _sdk_session_repo.save(d)
+                            except Exception as _e:
+                                logger.debug("SDK session persist skipped: %s", _e)
+                        asyncio.create_task(_persist_sdk_session())
 
                     await bus.emit(Event(
                         type=CoreEvent.SDK_RESULT_RECEIVED,
