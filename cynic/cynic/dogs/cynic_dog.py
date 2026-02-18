@@ -138,8 +138,10 @@ class CynicDog(AbstractDog):
         factors = []
 
         # Factor 1: budget health
-        budget = kwargs.get("budget_usd", 1.0)
-        budget_ratio = min(budget / 10.0, 1.0)  # normalize to $10 max
+        # Normalize to $0.01 (1 cent) — meaningful at MICRO/REFLEX scale.
+        # Even $0.001/dog = 10% health (tight but viable); $0.01/dog = 100%.
+        budget = kwargs.get("budget_usd", 0.01)
+        budget_ratio = min(budget / 0.01, 1.0)
         factors.append(budget_ratio)
 
         # Factor 2: active Dogs ratio
