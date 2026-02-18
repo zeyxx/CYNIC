@@ -1200,6 +1200,52 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     get_core_bus().on(CoreEvent.CONSENSUS_REACHED, _on_consensus_reached)
     get_core_bus().on(CoreEvent.CONSENSUS_FAILED, _on_consensus_failed)
 
+    # ── USER_CORRECTION → ANTIFRAGILITY signal + EScore JUDGE penalty ─────────
+    # Emitted by server.py /feedback when rating == 1 (explicit correction).
+    # Payload: {"rating": int, "state_key": str, "action": str, "judgment_id": str}
+    #
+    # Distinct from USER_FEEDBACK (all ratings 1-5):
+    #   USER_FEEDBACK → JUDGE EScore = (rating-1)/4 × 100  (general quality signal)
+    #   USER_CORRECTION → JUDGE EScore = 0.0 + ANTIFRAGILITY signal (explicit wrong)
+    #
+    # ANTIFRAGILITY: being told you were wrong and learning from it = the definition
+    # of antifragility. Each correction makes the organism less likely to repeat the
+    # mistake — growth through adversarial feedback.
+    #
+    # JUDGE penalty = 0.0: the user explicitly says the judgment was incorrect.
+    # This reinforces the USER_FEEDBACK JUDGE=0.0 but adds semantic clarity.
+    async def _on_user_correction(event: Event) -> None:
+        try:
+            p         = event.payload or {}
+            action    = p.get("action", "")
+            state_key = p.get("state_key", "")
+
+            # JUDGE penalty: explicit correction = judgment quality = 0
+            escore_tracker.update("agent:cynic", "JUDGE", 0.0)
+
+            # ANTIFRAGILITY: correction = adversarial stress → organism grows
+            new_state = axiom_monitor.signal("ANTIFRAGILITY")
+            if new_state == "ACTIVE":
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.AXIOM_ACTIVATED,
+                    payload={
+                        "axiom":    "ANTIFRAGILITY",
+                        "maturity": axiom_monitor.get_maturity("ANTIFRAGILITY"),
+                        "trigger":  "USER_CORRECTION",
+                    },
+                    source="user_correction",
+                ))
+
+            logger.info(
+                "USER_CORRECTION: state=%s action=%s → JUDGE=0.0%s",
+                state_key, action,
+                " ANTIFRAGILITY signalled" if new_state == "ACTIVE" else "",
+            )
+        except Exception:
+            pass
+
+    get_core_bus().on(CoreEvent.USER_CORRECTION, _on_user_correction)
+
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),
     # /judge (MACRO), or DogScheduler background workers (MACRO with SAGE).

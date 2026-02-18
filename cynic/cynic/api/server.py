@@ -871,6 +871,24 @@ async def feedback(req: FeedbackRequest) -> FeedbackResponse:
     except Exception:
         pass
 
+    # USER_CORRECTION: rating=1 = user explicitly says CYNIC was WRONG.
+    # Separate from USER_FEEDBACK (covers all ratings) — this is the active correction.
+    # ANTIFRAGILITY: being corrected and learning from it = growth through stress.
+    if req.rating == 1:
+        try:
+            await get_core_bus().emit(Event(
+                type=CoreEvent.USER_CORRECTION,
+                payload={
+                    "rating":      req.rating,
+                    "state_key":   last["state_key"],
+                    "action":      last["action"],
+                    "judgment_id": last.get("judgment_id", ""),
+                },
+                source="feedback_endpoint",
+            ))
+        except Exception:
+            pass
+
     # Social loop: user rating → sentiment signal → SocialWatcher → SOCIAL×PERCEIVE
     # sentiment: rating 1→-1.0, 3→0.0, 5→+1.0; volume: rating×10
     _append_social_signal(
