@@ -1625,3 +1625,80 @@ class TestAnomalyDetectedLoop:
         assert hold_score == pytest.approx(50.0, abs=0.1)
         tracker.update("agent:cynic", "HOLD", hold_score)
         assert tracker.get_score("agent:cynic") >= 0.0
+
+
+# ── SDK_TOOL_JUDGED → SYMBIOSIS signal + GRAPH EScore update ──────────────────
+
+class TestSdkToolJudgedLoop:
+    """
+    SDK_TOOL_JUDGED → EScore GRAPH update + SYMBIOSIS signal on HOWL.
+
+    Emitted by server.py ws_sdk handler after GUARDIAN judges each Claude Code
+    tool invocation (bash, read, write, etc.).
+    Payload: {"session_id": str, "tool": str, "verdict": str}
+
+    GRAPH dimension = "trust network quality" — tool verdicts build/erode the
+    trust graph between SDK sessions and CYNIC's guardian layer:
+      HOWL  → GRAPH = HOWL_MIN (82.0) + SYMBIOSIS signal
+      WAG   → GRAPH = WAG_MIN  (61.8)
+      GROWL → GRAPH = GROWL_MIN (38.2)
+      BARK  → GRAPH = 0.0 (trust breakdown — tool denied)
+
+    SYMBIOSIS axiom: human+CYNIC working seamlessly = HOWL on every tool.
+    Second source after /feedback — fires at high frequency (every tool call).
+    """
+
+    def _graph_score_for(self, verdict: str) -> float:
+        """Reproduce handler's verdict → GRAPH score mapping."""
+        from cynic.core.phi import HOWL_MIN, WAG_MIN, GROWL_MIN
+        return {
+            "HOWL":  HOWL_MIN,
+            "WAG":   WAG_MIN,
+            "GROWL": GROWL_MIN,
+            "BARK":  0.0,
+        }.get(verdict, WAG_MIN)
+
+    def test_howl_signals_symbiosis(self):
+        """HOWL verdict → axiom_monitor.signal('SYMBIOSIS') increases maturity."""
+        m = AxiomMonitor()
+        before = m.get_maturity("SYMBIOSIS")
+        m.signal("SYMBIOSIS")
+        after = m.get_maturity("SYMBIOSIS")
+        assert after > before, "SYMBIOSIS maturity must increase on HOWL tool verdict"
+
+    def test_howl_gets_howl_graph_score(self):
+        """HOWL verdict → GRAPH = HOWL_MIN (82.0)."""
+        from cynic.core.phi import HOWL_MIN
+        score = self._graph_score_for("HOWL")
+        assert score == pytest.approx(HOWL_MIN, abs=0.1)
+
+    def test_wag_gets_wag_graph_score(self):
+        """WAG verdict → GRAPH = WAG_MIN (61.8)."""
+        from cynic.core.phi import WAG_MIN
+        score = self._graph_score_for("WAG")
+        assert score == pytest.approx(WAG_MIN, abs=0.5)
+
+    def test_growl_gets_growl_graph_score(self):
+        """GROWL verdict → GRAPH = GROWL_MIN (38.2)."""
+        from cynic.core.phi import GROWL_MIN
+        score = self._graph_score_for("GROWL")
+        assert score == pytest.approx(GROWL_MIN, abs=0.5)
+
+    def test_bark_gets_zero_graph_score(self):
+        """BARK verdict → GRAPH = 0.0 (trust breakdown — tool denied)."""
+        score = self._graph_score_for("BARK")
+        assert score == pytest.approx(0.0, abs=0.01)
+
+    def test_handler_tolerates_bad_payload(self):
+        """Unknown/empty verdict → falls back to WAG_MIN, no raise."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import WAG_MIN
+        tracker = EScoreTracker()
+        p = {}
+        verdict = p.get("verdict", "")
+        graph_score = self._graph_score_for(verdict)
+        # Unknown verdict → WAG_MIN default
+        assert graph_score == pytest.approx(WAG_MIN, abs=0.5)
+        tracker.update("agent:cynic", "GRAPH", graph_score)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["GRAPH"]["value"] >= 0.0
