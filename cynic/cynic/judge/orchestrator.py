@@ -93,6 +93,7 @@ class JudgeOrchestrator:
         self.cynic_dog = cynic_dog
         self.residual_detector = residual_detector  # Optional[ResidualDetector]
         self.benchmark_registry = None  # Optional[BenchmarkRegistry] — set via state.py
+        self.escore_tracker = None  # Optional[EScoreTracker] — injected via state.py
         self._judgment_count = 0
         self._consciousness = get_consciousness()
         # evolve() history — last F(8)=21 META cycles
@@ -358,8 +359,31 @@ class JudgeOrchestrator:
             payload={"cell_id": cell.cell_id, "reality": cell.reality},
         ))
 
-        # STEP 2: JUDGE — all 11 Dogs analyze in parallel
-        all_dogs = list(self.dogs.values())
+        # STEP 2: JUDGE — Dogs filtered by E-Score reputation (LOD↔EScore immune system)
+        dog_items = list(self.dogs.items())  # [(dog_id, dog), ...]
+        if self.escore_tracker is not None:
+            # φ-threshold: GROWL_MIN = 38.2% — below this, Dog is unreliable
+            GROWL_MIN = PHI_INV_2 * MAX_Q_SCORE   # 38.2
+            MIN_ACTIVE = fibonacci(4)              # 3 — safety floor (never run fewer)
+
+            passing = [
+                (did, d) for did, d in dog_items
+                if self.escore_tracker.get_score(f"agent:{did}") >= GROWL_MIN
+                or did == DogId.CYNIC  # Coordinator (PBFT) is never filtered
+            ]
+
+            if len(passing) >= MIN_ACTIVE:
+                skipped_n = len(dog_items) - len(passing)
+                if skipped_n > 0:
+                    passing_ids = {did for did, _ in passing}
+                    skipped_ids = [did for did, _ in dog_items if did not in passing_ids]
+                    logger.info(
+                        "EScore filter: bypassing %d/%d Dogs (E-Score < %.1f): %s",
+                        skipped_n, len(dog_items), GROWL_MIN, skipped_ids,
+                    )
+                dog_items = passing
+
+        all_dogs = [d for _, d in dog_items]
         per_dog_budget = cell.budget_usd / max(len(all_dogs), 1)
         tasks = [dog.analyze(cell, budget_usd=per_dog_budget) for dog in all_dogs]
         dog_judgments_raw = await asyncio.gather(*tasks, return_exceptions=True)

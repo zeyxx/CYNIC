@@ -367,3 +367,84 @@ class TestOrganismHealth:
             health = await dog.health_check()
             # At minimum, no crash — health object returned
             assert health.dog_id is not None
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ESCORE FILTERING TESTS (LOD↔EScore Immune System)
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestEScoreFiltering:
+    """
+    LOD↔EScore routing — Dogs with E-Score < 38.2 (GROWL_MIN) are bypassed
+    in MACRO cycles. CynicDog (PBFT coordinator) is never filtered.
+    Minimum floor: fibonacci(4)=3 Dogs always active.
+
+    E-Score math: a single update with value=1.0 sets JUDGE dimension to 1.0
+    (first-update shortcut), yielding aggregate ≈ 27.7 < 38.2 threshold.
+    """
+
+    @pytest.fixture
+    def fresh_tracker(self):
+        from cynic.core.escore import EScoreTracker
+        return EScoreTracker()
+
+    @pytest.fixture
+    def orchestrator_tracked(self, orchestrator, fresh_tracker):
+        orchestrator.escore_tracker = fresh_tracker
+        return orchestrator
+
+    async def test_no_tracker_all_dogs_run(self, orchestrator, clean_code_cell):
+        """Without EScoreTracker, all dogs run normally (backward compatible)."""
+        assert orchestrator.escore_tracker is None
+        j = await orchestrator.run(clean_code_cell, level=ConsciousnessLevel.MACRO)
+        assert len(j.dog_votes) == 4  # all 4 reflex dogs
+
+    async def test_low_escore_dog_bypassed(self, orchestrator_tracked, fresh_tracker, clean_code_cell):
+        """Dog with E-Score < 38.2 is bypassed in MACRO cycle."""
+        # Drive ANALYST below threshold (1.0 → aggregate ≈ 27.7 < 38.2)
+        fresh_tracker.update(f"agent:{DogId.ANALYST}", "JUDGE", 1.0)
+
+        j = await orchestrator_tracked.run(clean_code_cell, level=ConsciousnessLevel.MACRO)
+
+        assert DogId.ANALYST not in j.dog_votes, "Low-score ANALYST should be bypassed"
+        assert DogId.CYNIC in j.dog_votes         # coordinator always present
+        assert len(j.dog_votes) == 3              # 4 - 1 bypassed = 3 = MIN_ACTIVE
+
+    async def test_cynic_never_filtered(self, orchestrator_tracked, fresh_tracker, clean_code_cell):
+        """CynicDog is never bypassed even with rock-bottom E-Score."""
+        fresh_tracker.update(f"agent:{DogId.CYNIC}", "JUDGE", 1.0)
+
+        j = await orchestrator_tracked.run(clean_code_cell, level=ConsciousnessLevel.MACRO)
+
+        assert DogId.CYNIC in j.dog_votes  # coordinator immune to filtering
+
+    async def test_floor_prevents_over_filtering(self, orchestrator_tracked, fresh_tracker, clean_code_cell):
+        """When filtering would leave < fibonacci(4)=3 Dogs, all Dogs run (floor)."""
+        from cynic.core.phi import fibonacci
+        # Drive 2 non-CYNIC dogs below threshold → would leave CYNIC + GUARDIAN = 2 < 3
+        fresh_tracker.update(f"agent:{DogId.ANALYST}", "JUDGE", 1.0)
+        fresh_tracker.update(f"agent:{DogId.JANITOR}", "JUDGE", 1.0)
+
+        j = await orchestrator_tracked.run(clean_code_cell, level=ConsciousnessLevel.MACRO)
+
+        # Floor: 2 passing < fibonacci(4)=3 → use all dogs
+        assert len(j.dog_votes) == 4
+
+    async def test_high_escore_all_dogs_run(self, orchestrator_tracked, fresh_tracker, clean_code_cell):
+        """Dogs with E-Score above threshold are all included."""
+        for did in [DogId.CYNIC, DogId.GUARDIAN, DogId.ANALYST, DogId.JANITOR]:
+            fresh_tracker.update(f"agent:{did}", "JUDGE", 90.0)
+
+        j = await orchestrator_tracked.run(clean_code_cell, level=ConsciousnessLevel.MACRO)
+
+        assert len(j.dog_votes) == 4  # all 4 pass the threshold
+
+    async def test_escore_filter_not_applied_at_reflex(self, orchestrator_tracked, fresh_tracker, clean_code_cell):
+        """EScore filtering is MACRO-only; REFLEX always runs its full Dog set."""
+        for did in [DogId.CYNIC, DogId.GUARDIAN, DogId.ANALYST, DogId.JANITOR]:
+            fresh_tracker.update(f"agent:{did}", "JUDGE", 1.0)
+
+        j = await orchestrator_tracked.run(clean_code_cell, level=ConsciousnessLevel.REFLEX)
+
+        # REFLEX has its own dog selection (dogs_for_level) — EScore not applied
+        assert len(j.dog_votes) >= 3  # REFLEX always uses its own subset

@@ -211,6 +211,12 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     lod_controller = LODController()
     escore_tracker = EScoreTracker()
 
+    # ── LOD↔EScore immune system — wire tracker into orchestrator ──────────
+    # Orchestrator uses this to bypass Dogs with E-Score < GROWL_MIN (38.2%)
+    # in MACRO cycles. Dogs that consistently score poorly are excluded until
+    # their E-Score recovers above the φ-threshold.
+    orchestrator.escore_tracker = escore_tracker
+
     async def _on_judgment_for_intelligence(event: Event) -> None:
         try:
             p = event.payload
