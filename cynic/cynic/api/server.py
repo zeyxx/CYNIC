@@ -188,6 +188,12 @@ async def lifespan(app: FastAPI):
         logger.info("No DATABASE_URL — running without persistence")
         state = build_kernel(db_pool=None, registry=registry)
 
+    # ── EventBusBridge — wire 3 buses together ────────────────────────────
+    from cynic.core.event_bus import create_default_bridge
+    _bridge = create_default_bridge()
+    _bridge.start()
+    logger.info("EventBusBridge active: %d rules", len(_bridge._rules))
+
     set_state(state)
     state.scheduler.start()
 
@@ -267,6 +273,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("*yawn* CYNIC kernel shutting down...")
     get_core_bus().off(CoreEvent.DECISION_MADE, _on_decision_made)
+    _bridge.stop()
     await state.scheduler.stop()
     state.learning_loop.stop()
     if state.runner is not None:

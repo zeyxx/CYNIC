@@ -347,6 +347,7 @@ class EventBusBridge:
         self._forwarded_count = 0
         self._loop_prevented_count = 0
         self._active = False
+        self._forwarders: Dict[str, Handler] = {}  # bus_id → handler (for cleanup)
 
     def register_bus(self, bus: EventBus) -> None:
         self._buses[bus.bus_id] = bus
@@ -355,22 +356,36 @@ class EventBusBridge:
         self._rules.append(rule)
 
     def start(self) -> None:
-        """Wire all buses according to registered rules. Call BEFORE start()."""
+        """Wire all buses according to registered rules."""
         if self._active:
             return
         self._active = True
 
-        # Register a wildcard handler on each source bus
+        # Register a wildcard handler on each source bus; keep ref for stop()
         source_ids: Set[str] = {r.source_bus_id for r in self._rules}
         for bus_id in source_ids:
             bus = self._buses.get(bus_id)
             if bus:
-                bus.on("*", self._make_forwarder(bus_id))
+                handler = self._make_forwarder(bus_id)
+                self._forwarders[bus_id] = handler
+                bus.on("*", handler)
 
         logger.info(
             "EventBusBridge started — %d buses, %d rules",
             len(self._buses), len(self._rules)
         )
+
+    def stop(self) -> None:
+        """Deregister all wildcard handlers."""
+        if not self._active:
+            return
+        self._active = False
+        for bus_id, handler in self._forwarders.items():
+            bus = self._buses.get(bus_id)
+            if bus:
+                bus.off("*", handler)
+        self._forwarders.clear()
+        logger.info("EventBusBridge stopped")
 
     def _make_forwarder(self, source_bus_id: str) -> Handler:
         """Create a forwarding handler for a specific source bus."""
@@ -483,7 +498,20 @@ def create_default_bridge() -> EventBusBridge:
         source_bus_id="CORE",
         target_bus_id="AUTOMATION",
         event_types={
-            CoreEvent.BUDGET_EXHAUSTED,  # slow down triggers when broke
+            CoreEvent.BUDGET_EXHAUSTED,   # slow down triggers when broke
+            CoreEvent.META_CYCLE,         # evolution tick → external consumers
+            CoreEvent.EMERGENCE_DETECTED, # emergence pattern → automation layer
+            CoreEvent.DECISION_MADE,      # DECIDE result → automation can react
+        },
+    ))
+
+    # CORE → AGENT (extend: META_CYCLE lets Dogs receive evolution context)
+    bridge.add_rule(ForwardRule(
+        source_bus_id="CORE",
+        target_bus_id="AGENT",
+        event_types={
+            CoreEvent.META_CYCLE,
+            CoreEvent.EMERGENCE_DETECTED,
         },
     ))
 

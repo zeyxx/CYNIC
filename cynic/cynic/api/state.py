@@ -31,7 +31,7 @@ from cynic.judge.orchestrator import JudgeOrchestrator
 from cynic.judge.residual import ResidualDetector
 from cynic.judge.decide import DecideAgent
 from cynic.learning.qlearning import QTable, LearningLoop
-from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher
+from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher, SocialWatcher
 from cynic.scheduler import DogScheduler
 from cynic.act.telemetry import TelemetryStore
 
@@ -164,6 +164,8 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     scheduler.register_perceive_worker(MarketWatcher())
     # SOLANA×PERCEIVE — mainnet slot + TPS anomalies
     scheduler.register_perceive_worker(SolanaWatcher())
+    # SOCIAL×PERCEIVE — social signals from ~/.cynic/social.json feed
+    scheduler.register_perceive_worker(SocialWatcher())
 
     logger.info(
         "Kernel ready: %d dogs, scheduler wired, learning loop + residual detector active, pool=%s, llm=%s",
