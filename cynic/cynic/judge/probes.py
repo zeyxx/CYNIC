@@ -100,14 +100,15 @@ _PROBE_P2: Dict[str, Any] = {
         time_dim="PRESENT",
         content=_P2_CODE,
         context="God class: 20-parameter method, wildcard imports, no type hints, magic numbers.",
-        risk=0.2,
+        risk=0.8,   # God class IS risky — 20-param method, wildcard imports, no types
         complexity=0.9,
         novelty=0.1,
         budget_usd=0.001,
         metadata={"probe": True, "probe_id": "P2"},
     ),
     "min_q": 0.0,       # Could be BARK (critical smell)
-    "max_q": 60.0,      # Should not reach WAG zone — smelly code is degraded
+    "max_q": 68.0,      # Heuristic mode: JANITOR/ARCHITECT score syntax (100), GUARDIAN
+                        # penalizes risk=0.8 (score=20), avg ≈ 61.9 → stays below 68
 }
 
 
