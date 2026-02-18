@@ -243,8 +243,8 @@ class QTable:
         Flush pending QEntry updates to PostgreSQL q_table.
 
         q_table schema:
-          state_key TEXT, action TEXT, value FLOAT, visits INT,
-          wins INT, losses INT, updated_at TIMESTAMP
+          state_key TEXT, action TEXT, q_value REAL, visit_count INT,
+          last_updated TIMESTAMPTZ
 
         Returns: number of rows upserted.
         """
@@ -257,13 +257,13 @@ class QTable:
         async with pool.acquire() as conn:
             await conn.executemany(
                 """
-                INSERT INTO q_table (state_key, action, value, visits, updated_at)
+                INSERT INTO q_table (state_key, action, q_value, visit_count, last_updated)
                 VALUES ($1, $2, $3, $4, NOW())
                 ON CONFLICT (state_key, action)
                 DO UPDATE SET
-                    value = EXCLUDED.value,
-                    visits = EXCLUDED.visits,
-                    updated_at = NOW()
+                    q_value = EXCLUDED.q_value,
+                    visit_count = EXCLUDED.visit_count,
+                    last_updated = NOW()
                 """,
                 [(e.state_key, e.action, e.q_value, e.visits) for e in batch],
             )
@@ -278,13 +278,13 @@ class QTable:
         """
         async with pool.acquire() as conn:
             rows = await conn.fetch(
-                "SELECT state_key, action, value, visits FROM q_table"
+                "SELECT state_key, action, q_value, visit_count FROM q_table"
             )
 
         for row in rows:
             entry = self._get_or_create(row["state_key"], row["action"])
-            entry.q_value = float(row["value"])
-            entry.visits = int(row["visits"])
+            entry.q_value = float(row["q_value"])
+            entry.visits = int(row["visit_count"])
             # Reconstruct Thompson arms from visits (approximation)
             # Assume visits split equally between wins/losses + prior
             half = max(entry.visits // 2, 0)

@@ -94,6 +94,8 @@ class JudgeOrchestrator:
         self.residual_detector = residual_detector  # Optional[ResidualDetector]
         self._judgment_count = 0
         self._consciousness = get_consciousness()
+        # evolve() history — last F(8)=21 META cycles
+        self._evolve_history: List[Dict[str, Any]] = []
 
     # ── STEP 0: Entry Point ────────────────────────────────────────────────
 
@@ -424,9 +426,102 @@ class JudgeOrchestrator:
 
         return judgment
 
+    # ── L4 META EVOLUTION ─────────────────────────────────────────────────────
+
+    async def evolve(self) -> Dict[str, Any]:
+        """
+        L4 META: Self-benchmark via 5 canonical probe cells.
+
+        Runs each probe at REFLEX level (no LLM, <200ms total), compares
+        q_scores against expected ranges, detects regression vs previous call.
+
+        Called by DogScheduler._meta_evolve() every ~4 hours.
+        Emits CoreEvent.META_CYCLE with results summary.
+
+        Returns summary dict:
+          pass_rate, pass_count, total, regression, results[]
+        """
+        import asyncio as _asyncio
+        from cynic.judge.probes import PROBE_CELLS, ProbeResult
+
+        results: List[ProbeResult] = []
+
+        for probe in PROBE_CELLS:
+            t0 = time.time()
+            try:
+                judgment = await self.run(
+                    probe["cell"],
+                    level=ConsciousnessLevel.REFLEX,
+                )
+                elapsed = (time.time() - t0) * 1000
+                passed = probe["min_q"] <= judgment.q_score <= probe["max_q"]
+                results.append(ProbeResult(
+                    name=probe["name"],
+                    q_score=judgment.q_score,
+                    verdict=judgment.verdict,
+                    expected_min=probe["min_q"],
+                    expected_max=probe["max_q"],
+                    passed=passed,
+                    duration_ms=elapsed,
+                ))
+            except Exception as exc:
+                elapsed = (time.time() - t0) * 1000
+                logger.warning("evolve() probe %s failed: %s", probe["name"], exc)
+                results.append(ProbeResult(
+                    name=probe["name"],
+                    q_score=0.0,
+                    verdict="BARK",
+                    expected_min=probe["min_q"],
+                    expected_max=probe["max_q"],
+                    passed=False,
+                    duration_ms=elapsed,
+                    error=str(exc),
+                ))
+
+        pass_count = sum(1 for r in results if r.passed)
+        pass_rate = pass_count / len(results) if results else 0.0
+
+        # Regression: pass_rate dropped >20% vs previous evolve()
+        regression = False
+        if self._evolve_history:
+            prev_rate = self._evolve_history[-1]["pass_rate"]
+            regression = pass_rate < prev_rate - 0.20
+
+        summary: Dict[str, Any] = {
+            "timestamp": time.time(),
+            "pass_rate": round(pass_rate, 3),
+            "pass_count": pass_count,
+            "total": len(results),
+            "regression": regression,
+            "results": [r.to_dict() for r in results],
+        }
+
+        # Keep last F(8)=21 evolve() snapshots
+        self._evolve_history.append(summary)
+        if len(self._evolve_history) > 21:
+            self._evolve_history.pop(0)
+
+        await get_core_bus().emit(Event(
+            type=CoreEvent.META_CYCLE,
+            payload={"evolve": summary},
+        ))
+
+        log_line = "evolve() %d/%d probes passed (%.0f%%)%s"
+        logger.info(
+            log_line,
+            pass_count, len(results), pass_rate * 100,
+            " -- REGRESSION DETECTED" if regression else "",
+        )
+
+        return summary
+
     def stats(self) -> Dict[str, Any]:
+        last_evolve = self._evolve_history[-1] if self._evolve_history else None
         return {
             "judgments_total": self._judgment_count,
             "dogs_active": len(self.dogs),
             "consciousness": self._consciousness.to_dict(),
+            "evolve_cycles": len(self._evolve_history),
+            "last_evolve_pass_rate": last_evolve["pass_rate"] if last_evolve else None,
+            "last_evolve_regression": last_evolve["regression"] if last_evolve else False,
         }

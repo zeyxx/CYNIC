@@ -34,15 +34,15 @@ def make_mock_pool(rows: list) -> MagicMock:
     Build a mock asyncpg pool that returns `rows` from conn.fetch().
 
     rows: list of dicts with keys matching q_table schema:
-      state_key, action, value, visits
+      state_key, action, q_value, visit_count
     """
     # Build asyncpg-compatible record-like dicts
     record_rows = [
         {
             "state_key": r["state_key"],
             "action": r["action"],
-            "value": float(r["value"]),
-            "visits": int(r.get("visits", 0)),
+            "q_value": float(r["q_value"]),
+            "visit_count": int(r.get("visit_count", 0)),
         }
         for r in rows
     ]
@@ -80,7 +80,7 @@ class TestQTableLoadFromDB:
     async def test_loads_single_entry(self):
         """Single row loads correctly into Q-table."""
         pool, _ = make_mock_pool([
-            {"state_key": "CODE:JUDGE:PRESENT:1", "action": "WAG", "value": 0.72, "visits": 10},
+            {"state_key": "CODE:JUDGE:PRESENT:1", "action": "WAG", "q_value": 0.72, "visit_count": 10},
         ])
         qtable = QTable()
         count = await qtable.load_from_db(pool)
@@ -91,9 +91,9 @@ class TestQTableLoadFromDB:
     async def test_loads_multiple_states(self):
         """Multiple states/actions load independently."""
         rows = [
-            {"state_key": "CODE:JUDGE:PRESENT:1", "action": "WAG",  "value": 0.80, "visits": 20},
-            {"state_key": "CODE:JUDGE:PRESENT:1", "action": "HOWL", "value": 0.60, "visits": 5},
-            {"state_key": "SOLANA:ACT:PRESENT:1", "action": "BARK", "value": 0.20, "visits": 3},
+            {"state_key": "CODE:JUDGE:PRESENT:1", "action": "WAG",  "q_value": 0.80, "visit_count": 20},
+            {"state_key": "CODE:JUDGE:PRESENT:1", "action": "HOWL", "q_value": 0.60, "visit_count": 5},
+            {"state_key": "SOLANA:ACT:PRESENT:1", "action": "BARK", "q_value": 0.20, "visit_count": 3},
         ]
         pool, _ = make_mock_pool(rows)
         qtable = QTable()
@@ -108,10 +108,10 @@ class TestQTableLoadFromDB:
     async def test_exploit_uses_loaded_values(self):
         """After load, exploit() returns the best pre-learned action."""
         rows = [
-            {"state_key": "s", "action": "WAG",  "value": 0.90, "visits": 50},
-            {"state_key": "s", "action": "BARK", "value": 0.10, "visits": 50},
-            {"state_key": "s", "action": "GROWL","value": 0.40, "visits": 10},
-            {"state_key": "s", "action": "HOWL", "value": 0.60, "visits": 10},
+            {"state_key": "s", "action": "WAG",  "q_value": 0.90, "visit_count": 50},
+            {"state_key": "s", "action": "BARK", "q_value": 0.10, "visit_count": 50},
+            {"state_key": "s", "action": "GROWL","q_value": 0.40, "visit_count": 10},
+            {"state_key": "s", "action": "HOWL", "q_value": 0.60, "visit_count": 10},
         ]
         pool, _ = make_mock_pool(rows)
         qtable = QTable()
@@ -124,7 +124,7 @@ class TestQTableLoadFromDB:
     async def test_visits_reconstructed(self):
         """Visits loaded correctly → confidence grows."""
         rows = [
-            {"state_key": "s", "action": "WAG", "value": 0.70, "visits": 21},
+            {"state_key": "s", "action": "WAG", "q_value": 0.70, "visit_count": 21},
         ]
         pool, _ = make_mock_pool(rows)
         qtable = QTable()
@@ -143,7 +143,7 @@ class TestQTableLoadFromDB:
     async def test_thompson_arms_reconstructed(self):
         """Thompson arms approximate from visits + THOMPSON_PRIOR."""
         rows = [
-            {"state_key": "s", "action": "WAG", "value": 0.70, "visits": 10},
+            {"state_key": "s", "action": "WAG", "q_value": 0.70, "visit_count": 10},
         ]
         pool, _ = make_mock_pool(rows)
         qtable = QTable()
@@ -162,7 +162,7 @@ class TestQTableLoadFromDB:
         qtable.update(LearningSignal(state_key="fresh", action="HOWL", reward=0.9))
 
         pool, _ = make_mock_pool([
-            {"state_key": "loaded", "action": "BARK", "value": 0.2, "visits": 5},
+            {"state_key": "loaded", "action": "BARK", "q_value": 0.2, "visit_count": 5},
         ])
         await qtable.load_from_db(pool)
 
@@ -174,9 +174,9 @@ class TestQTableLoadFromDB:
     async def test_q_values_stay_in_unit_range(self):
         """All loaded Q-values must be in [0, 1]."""
         rows = [
-            {"state_key": "s1", "action": "HOWL", "value": 0.0,  "visits": 0},
-            {"state_key": "s2", "action": "BARK", "value": 1.0,  "visits": 100},
-            {"state_key": "s3", "action": "WAG",  "value": 0.5,  "visits": 5},
+            {"state_key": "s1", "action": "HOWL", "q_value": 0.0,  "visit_count": 0},
+            {"state_key": "s2", "action": "BARK", "q_value": 1.0,  "visit_count": 100},
+            {"state_key": "s3", "action": "WAG",  "q_value": 0.5,  "visit_count": 5},
         ]
         pool, _ = make_mock_pool(rows)
         qtable = QTable()
