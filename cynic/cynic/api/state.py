@@ -157,6 +157,14 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     else:
         logger.info("No LLMRegistry — all dogs run in heuristic mode")
 
+    # ── Scholar ↔ QTable: recursive meta-learning ──────────────────────────
+    # Scholar reads QTable (read-only) to blend historical Q-values with TF-IDF.
+    # Effect: "TF-IDF + QTable both say BARK → higher confidence than either alone"
+    scholar = dogs.get(DogId.SCHOLAR)
+    if scholar is not None and hasattr(scholar, "set_qtable"):
+        scholar.set_qtable(qtable)
+        logger.info("ScholarDog: QTable injected — recursive meta-learning active")
+
     axiom_arch = AxiomArchitecture(facet_scorer=HeuristicFacetScorer())
     learning_loop = LearningLoop(qtable=qtable, pool=db_pool)
     learning_loop.start(get_core_bus())

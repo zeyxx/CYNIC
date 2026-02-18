@@ -27,11 +27,19 @@ Why Scholar?
 
   VETO: impossible — Scholar advises, never blocks.
 
+Scholar ↔ QTable (recursive meta-learning):
+  When QTable is injected (set_qtable), Scholar blends its TF-IDF prediction
+  with QTable's historical Q-value for the current state:
+    blended_q = tfidf_q × (1 - w) + qtable_q × w
+  where w = min(qtable_visits / F(8), 0.618) × PHI_INV_2
+  Effect: "I've seen this 8 times in TF-IDF AND QTable agrees → higher confidence"
+  This is read-only QTable access (no mutation, no side effects).
+
 Design contract:
   - learn(cell_text, q_score) — called after consensus to add to buffer
   - analyze(cell) — TF-IDF lookup against current buffer
   - Buffer is instance-level (reset on restart; Phase 2 = PostgreSQL warm-load)
-  - Never touches QTable, never creates side effects in other systems
+  - May read QTable for confidence weighting (read-only, inject via set_qtable)
 """
 from __future__ import annotations
 
@@ -108,6 +116,7 @@ class ScholarDog(LLMDog):
         self._cold_lookups: int = 0
         self._db_pool: Optional[Any] = None  # asyncpg pool (None = no persistence)
         self._embedder: Optional[EmbeddingProvider] = None  # β1: vector embedder
+        self._qtable: Optional[Any] = None  # QTable (read-only, injected via set_qtable)
 
     def get_capabilities(self) -> DogCapabilities:
         return DogCapabilities(
@@ -220,7 +229,7 @@ class ScholarDog(LLMDog):
             return self._neutral_judgment(cell, start, reason="no-similar-cells")
 
         self._hits += 1
-        q_score, confidence, evidence = self._aggregate(neighbors, sims)
+        q_score, confidence, evidence = self._aggregate(neighbors, sims, state_key=cell.state_key())
 
         reasoning = (
             f"*sniff* Found {len(neighbors)} similar past cells "
@@ -270,6 +279,16 @@ class ScholarDog(LLMDog):
             getattr(embedder, "_model", "unknown"),
             embedder.dimension,
         )
+
+    def set_qtable(self, qtable: Any) -> None:
+        """
+        Inject QTable for recursive meta-learning (read-only access).
+
+        When set, Scholar blends its TF-IDF prediction with QTable's historical
+        Q-value for the current cell's state — the Scholar↔QTable feedback loop.
+        """
+        self._qtable = qtable
+        logger.info("ScholarDog: QTable injected — recursive meta-learning enabled")
 
     async def load_from_db(self, pool: Any) -> int:
         """
@@ -478,12 +497,14 @@ class ScholarDog(LLMDog):
         self,
         neighbor_indices: List[int],
         sims: np.ndarray,
+        state_key: str = "",
     ) -> Tuple[float, float, Dict[str, Any]]:
         """
         Compute q_score and confidence from K neighbors.
 
         q_score = similarity-weighted average of neighbor q_scores
-        confidence = f(best_similarity, consistency, buffer_richness)
+              [+ Q-Table blend if qtable injected]
+        confidence = f(best_similarity, consistency, buffer_richness, qtable_bonus)
         """
         neighbor_q = [self._buffer[i].q_score for i in neighbor_indices]
         neighbor_sims = [float(sims[i]) for i in neighbor_indices]
@@ -504,11 +525,34 @@ class ScholarDog(LLMDog):
         # Buffer richness bonus (rises toward PHI_INV as buffer fills)
         richness = min(1.0, len(self._buffer) / fibonacci(8))  # saturates at F(8)=21
 
-        # Final confidence: best_sim × consistency × richness, bounded to MAX_CONFIDENCE
-        raw_confidence = best_sim * consistency * richness
+        # ── Scholar ↔ QTable recursive meta-learning ─────────────────────────
+        # If QTable has been injected and knows this state, blend its prediction.
+        # Max QTable influence: PHI_INV_2 = 38.2% (never dominates TF-IDF)
+        qtable_blend_applied = False
+        qtable_q = weighted_q  # default: no blend
+        qtable_confidence_bonus = 0.0
+
+        if self._qtable is not None and state_key:
+            qtable_raw = self._qtable.predict_q(state_key, "WAG") * MAX_Q_SCORE  # WAG = neutral pivot
+            qtable_visits = sum(
+                e.visits
+                for e in self._qtable._table.get(state_key, {}).values()
+            )
+            # Blend weight: grows with QTable visits, capped at PHI_INV_2 = 0.382
+            blend_weight = min(qtable_visits / fibonacci(8), PHI_INV_2)
+            if blend_weight > 0:
+                # Blend: TF-IDF stays dominant, QTable provides calibration
+                qtable_q = weighted_q * (1.0 - blend_weight) + qtable_raw * blend_weight
+                # Confidence bonus: QTable agreement with TF-IDF → higher trust
+                agreement = 1.0 - abs(qtable_raw - weighted_q) / MAX_Q_SCORE
+                qtable_confidence_bonus = blend_weight * agreement * PHI_INV_2
+                qtable_blend_applied = True
+
+        # Final confidence: best_sim × consistency × richness + qtable_bonus
+        raw_confidence = best_sim * consistency * richness + qtable_confidence_bonus
         confidence = min(max(raw_confidence, COLD_CONFIDENCE), MAX_CONFIDENCE)
 
-        evidence = {
+        evidence: Dict[str, Any] = {
             "neighbors_found": len(neighbor_indices),
             "best_similarity": round(best_sim, 3),
             "mean_q": round(mean_q, 1),
@@ -517,8 +561,10 @@ class ScholarDog(LLMDog):
             "buffer_size": len(self._buffer),
             "neighbor_realities": [self._buffer[i].reality for i in neighbor_indices],
         }
+        if qtable_blend_applied:
+            evidence["qtable_blend"] = round(qtable_q, 1)
 
-        return weighted_q, confidence, evidence
+        return qtable_q, confidence, evidence
 
     def _neutral_judgment(
         self,
