@@ -271,6 +271,16 @@ async def lifespan(app: FastAPI):
 
         decision_state_key = p.get("state_key", "")
         decision_action = p.get("recommended_action", "WAG")
+        decision_judgment_id = p.get("judgment_id", "")
+
+        # ── Mark matching ActionProposer entry as AUTO_EXECUTED ───────────
+        # Links the auto-ACT path back to the proposal queue (closes the loop).
+        for _a in state.action_proposer.pending():
+            if _a.judgment_id == decision_judgment_id:
+                state.action_proposer.mark_auto_executed(_a.action_id)
+                logger.debug("Auto-ACT: marked proposal %s AUTO_EXECUTED", _a.action_id)
+                break
+
         logger.info(
             "*ears perk* Auto-ACT fired: reality=%s verdict=%s state=%s",
             p.get("reality"), decision_action, decision_state_key,
@@ -788,8 +798,18 @@ async def accept_action(action_id: str) -> Dict[str, Any]:
     except Exception:
         pass
 
+    # ── L1 closure: accepted → fire ACT_REQUESTED → runner executes ──────
+    # This closes the Machine→Actions loop: accept = authorize execution.
+    if action.prompt:
+        await get_core_bus().emit(Event(
+            type=CoreEvent.ACT_REQUESTED,
+            payload={"action": action.prompt, "target": None},
+            source="action_accept",
+        ))
+        logger.info("*ears perk* Action %s → ACT_REQUESTED fired (L1 auto-execute)", action_id)
+
     logger.info("*tail wag* Action %s ACCEPTED by human", action_id)
-    return {"accepted": True, "action": action.to_dict()}
+    return {"accepted": True, "action": action.to_dict(), "executing": bool(action.prompt)}
 
 
 @app.post("/actions/{action_id}/reject")
@@ -804,6 +824,21 @@ async def reject_action(action_id: str) -> Dict[str, Any]:
     action = state.action_proposer.reject(action_id)
     if action is None:
         raise HTTPException(status_code=404, detail=f"Action {action_id} not found")
+
+    # ── L1 closure: rejection → negative QTable signal ───────────────────
+    # Rejection = human says "this decision was wrong" — feed it back.
+    if action.state_key:
+        state.qtable.update(LearningSignal(
+            state_key=action.state_key,
+            action=action.verdict,
+            reward=0.10,  # low reward (near floor) = bad decision signal
+            judgment_id=action.judgment_id,
+            loop_name="ACTION_REJECTED",
+        ))
+        logger.info(
+            "*head tilt* Action %s REJECTED → Q[%s][%s] penalized",
+            action_id, action.state_key, action.verdict,
+        )
 
     logger.info("*head tilt* Action %s REJECTED by human", action_id)
     return {"rejected": True, "action": action.to_dict()}

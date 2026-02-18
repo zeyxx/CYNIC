@@ -423,3 +423,153 @@ class TestStats:
         s = ap.stats()
         assert s["pending"] == 0
         assert s["rejected"] == 1
+
+
+# ── L1 closure — accept→execute, reject→QTable, auto_executed ─────────────────
+
+class TestL1Closure:
+    """
+    Tests for the L1 Machine→Actions loop closure:
+    - accept → ACT_REQUESTED fired (execution triggered)
+    - reject → QTable negative reward (learning from rejection)
+    - auto-ACT → mark_auto_executed() called (queue status linked)
+    """
+
+    def test_accept_fires_act_requested(self):
+        """POST /actions/{id}/accept → executing=True when action has prompt."""
+        import time as _t
+        import uuid
+        from starlette.testclient import TestClient
+        from cynic.api.server import app
+        from cynic.api.state import get_state
+        from cynic.judge.action_proposer import ProposedAction
+
+        # Populate the queue INSIDE TestClient context — lifespan runs first.
+        with TestClient(app) as client:
+            state = get_state()
+            action = ProposedAction(
+                action_id=uuid.uuid4().hex[:8],
+                judgment_id="jid-test",
+                state_key="CODE:JUDGE:PRESENT:0",
+                verdict="BARK",
+                reality="CODE",
+                action_type="INVESTIGATE",
+                description="[BARK] Investigate critical issue in CODE",
+                prompt="[CYNIC AUTO-ACT] Please review the critical issue",
+                q_score=0.25,
+                priority=1,
+                proposed_at=_t.time(),
+                status="PENDING",
+            )
+            state.action_proposer._queue.append(action)
+            state.action_proposer._proposed_total += 1
+
+            resp = client.post(f"/actions/{action.action_id}/accept")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["accepted"] is True
+        assert data.get("executing") is True      # ACT_REQUESTED was fired
+        assert data["action"]["status"] == "ACCEPTED"
+
+    def test_reject_returns_qtable_update(self):
+        """POST /actions/{id}/reject → action REJECTED and QTable penalized."""
+        import time as _t
+        import uuid
+        from starlette.testclient import TestClient
+        from cynic.api.server import app
+        from cynic.api.state import get_state
+        from cynic.judge.action_proposer import ProposedAction
+
+        state_key = "CODE:JUDGE:PRESENT:0"
+
+        with TestClient(app) as client:
+            state = get_state()
+            action = ProposedAction(
+                action_id=uuid.uuid4().hex[:8],
+                judgment_id="jid-rej",
+                state_key=state_key,
+                verdict="BARK",
+                reality="CODE",
+                action_type="INVESTIGATE",
+                description="[BARK] Investigate critical issue",
+                prompt="[CYNIC AUTO-ACT] review critical issue",
+                q_score=0.25,
+                priority=1,
+                proposed_at=_t.time(),
+                status="PENDING",
+            )
+            state.action_proposer._queue.append(action)
+            state.action_proposer._proposed_total += 1
+
+            resp = client.post(f"/actions/{action.action_id}/reject")
+            q_after = state.qtable.predict_q(state_key, "BARK")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["rejected"] is True
+        assert data["action"]["status"] == "REJECTED"
+        # Q-value updated with low reward (reject penalty — below neutral 0.5)
+        assert q_after <= 0.5, f"Expected lower Q after rejection, got {q_after}"
+
+    def test_mark_auto_executed_links_queue(self, tmp_path):
+        """mark_auto_executed() updates status in the in-memory queue."""
+        ap = _proposer_with_tmp(tmp_path)
+        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+            mock_bus.return_value.emit = AsyncMock()
+            asyncio.get_event_loop().run_until_complete(
+                ap._on_decision_made(_make_decision_event(judgment_id="jid-auto"))
+            )
+
+        action = ap.all_actions()[0]
+        assert action.status == "PENDING"
+
+        result = ap.mark_auto_executed(action.action_id)
+        assert result is not None
+        assert result.status == "AUTO_EXECUTED"
+        assert ap.stats()["auto_executed"] == 1
+        assert ap.stats()["pending"] == 0
+
+    def test_auto_executed_not_in_pending(self, tmp_path):
+        """AUTO_EXECUTED actions don't appear in pending()."""
+        ap = _proposer_with_tmp(tmp_path)
+        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+            mock_bus.return_value.emit = AsyncMock()
+            asyncio.get_event_loop().run_until_complete(
+                ap._on_decision_made(_make_decision_event())
+            )
+        action = ap.all_actions()[0]
+        ap.mark_auto_executed(action.action_id)
+        assert len(ap.pending()) == 0
+
+    def test_accept_without_prompt_not_executing(self):
+        """Accept action without prompt → executing=False (no runner spawn)."""
+        import time as _t
+        import uuid
+        from starlette.testclient import TestClient
+        from cynic.api.server import app
+        from cynic.api.state import get_state
+        from cynic.judge.action_proposer import ProposedAction
+
+        with TestClient(app) as client:
+            state = get_state()
+            action = ProposedAction(
+                action_id=uuid.uuid4().hex[:8],
+                judgment_id="jid-noprompt",
+                state_key="CODE:JUDGE:PRESENT:0",
+                verdict="GROWL",
+                reality="MARKET",
+                action_type="MONITOR",
+                description="[GROWL] Monitor MARKET",
+                prompt="",  # no prompt
+                q_score=0.4,
+                priority=3,
+                proposed_at=_t.time(),
+                status="PENDING",
+            )
+            state.action_proposer._queue.append(action)
+
+            resp = client.post(f"/actions/{action.action_id}/accept")
+
+        assert resp.status_code == 200
+        assert resp.json().get("executing") is False
