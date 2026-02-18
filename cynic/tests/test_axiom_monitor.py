@@ -400,3 +400,74 @@ class TestAntifragilitySignal:
         window_clean = [True, True, True, True]
         had2 = len(window_clean) > 1 and any(not ok for ok in window_clean[:-1])
         assert had2 is False
+
+
+class TestTranscendenceLoop:
+    """
+    δ1: TRANSCENDENCE → EScoreTracker JUDGE update for agent:cynic.
+
+    Closes the axiom chain end-to-end:
+        AXIOM_ACTIVATED×4 → TRANSCENDENCE → escore_tracker.update("agent:cynic", JUDGE, MAX_Q_SCORE)
+
+    Peak cognitive capacity demonstrated → CYNIC rewards its own judgment score.
+    """
+
+    def _activate_all(self, monitor: AxiomMonitor) -> None:
+        """Drive all 4 axioms to ACTIVE state."""
+        needed = int(WAG_MIN / MAX_Q_SCORE * MATURITY_WINDOW) + 1
+        for axiom in ("AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY"):
+            for _ in range(needed):
+                monitor.signal(axiom)
+
+    def test_tier_dormant_with_no_signals(self):
+        m = AxiomMonitor()
+        assert m.dashboard()["tier"] == "DORMANT"
+
+    def test_tier_awakening_with_3_axioms(self):
+        """3 axioms active → AWAKENING, not TRANSCENDENT."""
+        m = AxiomMonitor()
+        needed = int(WAG_MIN / MAX_Q_SCORE * MATURITY_WINDOW) + 1
+        for axiom in ("AUTONOMY", "SYMBIOSIS", "EMERGENCE"):
+            for _ in range(needed):
+                m.signal(axiom)
+        assert m.dashboard()["tier"] == "AWAKENING"
+        assert m.active_count() == 3
+
+    def test_tier_transcendent_with_all_4(self):
+        """All 4 axioms active → tier == TRANSCENDENT."""
+        m = AxiomMonitor()
+        self._activate_all(m)
+        assert m.dashboard()["tier"] == "TRANSCENDENT"
+        assert m.active_count() == 4
+
+    def test_cynic_escore_updated_on_transcendence(self):
+        """Simulates _on_transcendence handler: JUDGE update for agent:cynic."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        initial = tracker.get_score("agent:cynic")
+
+        # Simulate what _on_transcendence does
+        tracker.update("agent:cynic", "JUDGE", MAX_Q_SCORE)
+
+        after = tracker.get_score("agent:cynic")
+        assert after > initial, "EScore should increase after JUDGE=MAX_Q_SCORE update"
+
+    def test_cynic_judge_dimension_reaches_high_after_transcendence(self):
+        """After JUDGE=MAX_Q_SCORE update, JUDGE dimension is above GROWL_MIN."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        # Apply multiple updates to drive EMA toward MAX_Q_SCORE
+        for _ in range(5):
+            tracker.update("agent:cynic", "JUDGE", MAX_Q_SCORE)
+        detail = tracker.get_detail("agent:cynic")
+        judge_val = detail["dimensions"]["JUDGE"]["value"]
+        assert judge_val > GROWL_MIN, f"JUDGE dim {judge_val:.1f} should exceed GROWL_MIN={GROWL_MIN}"
+
+    def test_transcendence_idempotent(self):
+        """Triggering TRANSCENDENCE handler twice does not crash or corrupt EScore."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "JUDGE", MAX_Q_SCORE)
+        tracker.update("agent:cynic", "JUDGE", MAX_Q_SCORE)
+        score = tracker.get_score("agent:cynic")
+        assert 0.0 <= score <= MAX_Q_SCORE

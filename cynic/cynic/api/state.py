@@ -429,12 +429,31 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         except Exception:
             pass
 
+    # ── TRANSCENDENCE → EScore self-reward + milestone log ────────────────
+    # Fired when all 4 emergent axioms (AUTONOMY/SYMBIOSIS/EMERGENCE/ANTIFRAGILITY)
+    # reach ACTIVE simultaneously. Closes the axiom chain end-to-end:
+    #   AXIOM_ACTIVATED×4 → TRANSCENDENCE → EScore JUDGE update for agent:cynic
+    # Peak cognitive capacity demonstrated → CYNIC rewards its own JUDGE score.
+    async def _on_transcendence(event: Event) -> None:
+        try:
+            active = (event.payload or {}).get("active_axioms", [])
+            logger.warning(
+                "TRANSCENDENCE — all 4 emergent axioms active: %s",
+                active,
+            )
+            # Self-reward: CYNIC demonstrating transcendent judgment quality
+            from cynic.core.phi import MAX_Q_SCORE
+            escore_tracker.update("agent:cynic", "JUDGE", MAX_Q_SCORE)
+        except Exception:
+            pass
+
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_intelligence)
     get_core_bus().on(CoreEvent.JUDGMENT_FAILED, _on_judgment_failed)
     get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence_signal)
     get_core_bus().on(CoreEvent.DECISION_MADE, _on_decision_made_for_axiom)
     get_core_bus().on(CoreEvent.AXIOM_ACTIVATED, _on_axiom_activated)
     get_core_bus().on(CoreEvent.SELF_IMPROVEMENT_PROPOSED, _on_self_improvement_proposed)
+    get_core_bus().on(CoreEvent.TRANSCENDENCE, _on_transcendence)
 
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),
