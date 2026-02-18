@@ -14,6 +14,8 @@ from cynic.judge.lod import (
     _QUEUE_LOD1, _QUEUE_LOD2, _QUEUE_LOD3,
     _LATENCY_LOD1, _LATENCY_LOD2, _LATENCY_LOD3,
     _ERR_LOD1, _ERR_LOD2, _ERR_LOD3,
+    _DISK_LOD1, _DISK_LOD2, _DISK_LOD3,
+    _MEM_LOD1, _MEM_LOD2, _MEM_LOD3,
 )
 
 
@@ -114,6 +116,53 @@ class TestHealthMetrics:
     def test_below_all_thresholds_is_full(self):
         m = HealthMetrics(error_rate=0.1, latency_ms=500, queue_depth=10)
         assert m.worst_lod() == SurvivalLOD.FULL
+
+    # ── Disk pressure ──────────────────────────────────────────────────────
+
+    def test_disk_lod1_threshold(self):
+        m = HealthMetrics(disk_pct=_DISK_LOD1)
+        assert m.worst_lod() == SurvivalLOD.REDUCED
+
+    def test_disk_lod2_threshold(self):
+        m = HealthMetrics(disk_pct=_DISK_LOD2)
+        assert m.worst_lod() == SurvivalLOD.EMERGENCY
+
+    def test_disk_lod3_threshold(self):
+        m = HealthMetrics(disk_pct=_DISK_LOD3)
+        assert m.worst_lod() == SurvivalLOD.MINIMAL
+
+    def test_disk_below_threshold_is_full(self):
+        m = HealthMetrics(disk_pct=0.5)
+        assert m.worst_lod() == SurvivalLOD.FULL
+
+    # ── Memory pressure ─────────────────────────────────────────────────────
+
+    def test_memory_lod1_threshold(self):
+        m = HealthMetrics(memory_pct=_MEM_LOD1)
+        assert m.worst_lod() == SurvivalLOD.REDUCED
+
+    def test_memory_lod2_threshold(self):
+        m = HealthMetrics(memory_pct=_MEM_LOD2)
+        assert m.worst_lod() == SurvivalLOD.EMERGENCY
+
+    def test_memory_lod3_threshold(self):
+        m = HealthMetrics(memory_pct=_MEM_LOD3)
+        assert m.worst_lod() == SurvivalLOD.MINIMAL
+
+    def test_memory_below_threshold_is_full(self):
+        m = HealthMetrics(memory_pct=0.5)
+        assert m.worst_lod() == SurvivalLOD.FULL
+
+    def test_memory_dominates_when_worst(self):
+        """Memory at LOD3 dominates even when all other metrics are healthy."""
+        m = HealthMetrics(error_rate=0.0, latency_ms=100, queue_depth=5,
+                          disk_pct=0.5, memory_pct=_MEM_LOD3)
+        assert m.worst_lod() == SurvivalLOD.MINIMAL
+
+    def test_disk_and_memory_independent(self):
+        """LOD1 disk does not mask LOD2 memory."""
+        m = HealthMetrics(disk_pct=_DISK_LOD1, memory_pct=_MEM_LOD2)
+        assert m.worst_lod() == SurvivalLOD.EMERGENCY
 
 
 # ── LODController ─────────────────────────────────────────────────────────────
@@ -273,3 +322,59 @@ class TestLODTransitions:
         assert len(transitions) == 1
         assert transitions[0]["from"] == "FULL"
         assert transitions[0]["to"] == "REDUCED"
+
+
+class TestHealthCacheRegressions:
+    """
+    Validate the _health_cache pattern that prevents the accumulated-metrics reset bug.
+
+    Bug: if each sensor calls assess() with only its own dimension, a subsequent
+    assess(memory_pct=0.5) resets disk_pct=0.0 → LOD incorrectly recovers.
+    Fix: pass ALL cached dimensions on every assess() call.
+    """
+
+    def test_disk_not_reset_by_memory_assess(self):
+        """
+        Simulate _health_cache: disk=0.94 then memory=0.5.
+        LOD must stay MINIMAL (disk 90%+) not recover to FULL.
+        """
+        ctrl = LODController()
+        # Step 1 — disk watcher fires: disk critical
+        cache = {"error_rate": 0.0, "latency_ms": 0.0, "queue_depth": 0,
+                 "memory_pct": 0.0, "disk_pct": _DISK_LOD3}
+        ctrl.assess(**cache)
+        assert ctrl.current == SurvivalLOD.MINIMAL
+
+        # Step 2 — memory watcher fires: memory healthy (simulates cache update)
+        cache["memory_pct"] = 0.5
+        ctrl.assess(**cache)  # disk_pct still 0.94 in cache
+        assert ctrl.current == SurvivalLOD.MINIMAL  # Must NOT recover
+
+    def test_memory_not_reset_by_disk_assess(self):
+        """Memory CRITICAL must not be overridden by a healthy disk assess."""
+        ctrl = LODController()
+        cache = {"error_rate": 0.0, "latency_ms": 0.0, "queue_depth": 0,
+                 "memory_pct": _MEM_LOD3, "disk_pct": 0.0}
+        ctrl.assess(**cache)
+        assert ctrl.current == SurvivalLOD.MINIMAL
+
+        cache["disk_pct"] = 0.5
+        ctrl.assess(**cache)  # memory_pct still critical in cache
+        assert ctrl.current == SurvivalLOD.MINIMAL
+
+    def test_combined_sensors_accumulate_correctly(self):
+        """
+        Disk at LOD1, memory at LOD2 → combined worst = EMERGENCY.
+        Subsequent healthy judgment assess() must not reset disk/memory to 0.
+        """
+        ctrl = LODController()
+        cache = {"error_rate": 0.0, "latency_ms": 0.0, "queue_depth": 0,
+                 "memory_pct": _MEM_LOD2, "disk_pct": _DISK_LOD1}
+        ctrl.assess(**cache)
+        assert ctrl.current == SurvivalLOD.EMERGENCY
+
+        # Judgment fires with low error rate — cache preserves disk+memory
+        cache["error_rate"] = 0.01
+        cache["latency_ms"] = 200.0
+        ctrl.assess(**cache)
+        assert ctrl.current == SurvivalLOD.EMERGENCY  # Still EMERGENCY, not recovered

@@ -23,9 +23,9 @@ Trigger metrics:
     memory_pct     → heap memory usage (0.0-1.0)
 
 Thresholds (φ-symmetric):
-    LOD 1: error_rate ≥ PHI_INV_2 (0.382) OR latency_ms ≥ 1000 OR queue_depth ≥ 34 OR disk_pct ≥ 0.618
-    LOD 2: error_rate ≥ PHI_INV   (0.618) OR latency_ms ≥ 2850 OR queue_depth ≥ 89  OR disk_pct ≥ 0.764
-    LOD 3: error_rate ≥ 1.0       OR latency_ms ≥ 5000 OR queue_depth ≥ 144         OR disk_pct ≥ 0.90
+    LOD 1: error_rate ≥ PHI_INV_2 (0.382) OR latency_ms ≥ 1000 OR queue_depth ≥ 34 OR disk_pct ≥ 0.618 OR memory_pct ≥ 0.618
+    LOD 2: error_rate ≥ PHI_INV   (0.618) OR latency_ms ≥ 2850 OR queue_depth ≥ 89  OR disk_pct ≥ 0.764 OR memory_pct ≥ 0.764
+    LOD 3: error_rate ≥ 1.0       OR latency_ms ≥ 5000 OR queue_depth ≥ 144         OR disk_pct ≥ 0.90  OR memory_pct ≥ 0.90
 
 Usage:
     lod = LODController()
@@ -109,9 +109,14 @@ class SurvivalLOD(int, Enum):
 # ── HealthMetrics ─────────────────────────────────────────────────────────
 
 # Disk usage thresholds (φ-derived, fraction of disk used)
-_DISK_LOD1 = PHI_INV      # 0.618 — 61.8% full → REDUCED
+_DISK_LOD1 = PHI_INV        # 0.618 — 61.8% full → REDUCED
 _DISK_LOD2 = 1 - PHI_INV_3  # 0.764 — 76.4% full → EMERGENCY
-_DISK_LOD3 = 0.90          # 90% full → MINIMAL
+_DISK_LOD3 = 0.90            # 90%   full → MINIMAL
+
+# Memory usage thresholds (same φ-scale as disk — fraction of RAM used)
+_MEM_LOD1 = PHI_INV        # 0.618 — 61.8% used → REDUCED
+_MEM_LOD2 = 1 - PHI_INV_3  # 0.764 — 76.4% used → EMERGENCY
+_MEM_LOD3 = 0.90            # 90%   used → MINIMAL
 
 
 @dataclass
@@ -130,19 +135,22 @@ class HealthMetrics:
         if (self.error_rate >= _ERR_LOD3
                 or self.latency_ms >= _LATENCY_LOD3
                 or self.queue_depth >= _QUEUE_LOD3
-                or self.disk_pct >= _DISK_LOD3):
+                or self.disk_pct >= _DISK_LOD3
+                or self.memory_pct >= _MEM_LOD3):
             return SurvivalLOD.MINIMAL
 
         if (self.error_rate >= _ERR_LOD2
                 or self.latency_ms >= _LATENCY_LOD2
                 or self.queue_depth >= _QUEUE_LOD2
-                or self.disk_pct >= _DISK_LOD2):
+                or self.disk_pct >= _DISK_LOD2
+                or self.memory_pct >= _MEM_LOD2):
             return SurvivalLOD.EMERGENCY
 
         if (self.error_rate >= _ERR_LOD1
                 or self.latency_ms >= _LATENCY_LOD1
                 or self.queue_depth >= _QUEUE_LOD1
-                or self.disk_pct >= _DISK_LOD1):
+                or self.disk_pct >= _DISK_LOD1
+                or self.memory_pct >= _MEM_LOD1):
             return SurvivalLOD.REDUCED
 
         return SurvivalLOD.FULL

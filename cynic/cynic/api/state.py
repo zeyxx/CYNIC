@@ -39,7 +39,7 @@ from cynic.judge.axiom_monitor import AxiomMonitor
 from cynic.judge.lod import LODController, SurvivalLOD
 from cynic.core.escore import EScoreTracker
 from cynic.learning.qlearning import QTable, LearningLoop
-from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher, SocialWatcher, DiskWatcher
+from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher, SocialWatcher, DiskWatcher, MemoryWatcher
 from cynic.core.storage.gc import StorageGarbageCollector
 from cynic.perceive import checkpoint as _session_checkpoint
 from cynic.perceive.checkpoint import CHECKPOINT_EVERY
@@ -237,14 +237,24 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
 
     _escore_persist_counter = [0]  # mutable cell for closure
 
+    # ── Shared health cache — prevents accumulated-metrics reset bug ───────
+    # Each sensor calls assess() with only its own dimension; without caching,
+    # a DiskWatcher assess(disk_pct=0.94) would be undone by the next
+    # assess(error_rate=0.01) call (which sets disk_pct=0.0 → LOD recovers).
+    # _health_cache is the single source of truth for ALL lod_controller.assess() calls.
+    _health_cache: Dict = {
+        "error_rate": 0.0, "latency_ms": 0.0, "queue_depth": 0,
+        "memory_pct": 0.0, "disk_pct": 0.0,
+    }
+
     async def _on_judgment_for_intelligence(event: Event) -> None:
         try:
             p = event.payload
-            err_rate = float(p.get("error_rate", 0.0))
-            latency = float(p.get("duration_ms", 0.0))
+            _health_cache["error_rate"] = float(p.get("error_rate", 0.0))
+            _health_cache["latency_ms"] = float(p.get("duration_ms", 0.0))
 
-            # δ2: Assess LOD from judgment health signals
-            lod_controller.assess(error_rate=err_rate, latency_ms=latency)
+            # δ2: Assess LOD from all accumulated health signals
+            lod_controller.assess(**_health_cache)
 
             # γ4: Update E-Score for each Dog that voted
             dog_votes: dict = p.get("dog_votes") or {}
@@ -371,6 +381,8 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     scheduler.register_perceive_worker(SocialWatcher())
     # CYNIC×PERCEIVE — disk pressure (φ-thresholds: 61.8% / 76.4% / 90%)
     scheduler.register_perceive_worker(DiskWatcher())
+    # CYNIC×PERCEIVE — RAM pressure (same φ-thresholds, no psutil needed)
+    scheduler.register_perceive_worker(MemoryWatcher())
 
     # ── StorageGarbageCollector — triggered by DISK_PRESSURE ───────────────
     # Reacts to DiskWatcher's DISK_PRESSURE event.
@@ -380,10 +392,8 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     async def _on_disk_pressure(event: Event) -> None:
         pressure = event.payload.get("pressure", "WARN")
         used_pct = event.payload.get("used_pct", 0.0)
-        disk_pct_val = event.payload.get("disk_pct", used_pct)
-
-        # Update LODController with disk metric
-        lod_controller.assess(disk_pct=disk_pct_val)
+        _health_cache["disk_pct"] = event.payload.get("disk_pct", used_pct)
+        lod_controller.assess(**_health_cache)
 
         logger.warning(
             "DISK_PRESSURE: %s (%.1f%% used) → running StorageGC",
@@ -393,7 +403,18 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         if result.get("total", 0) > 0:
             logger.info("StorageGC freed %d rows (disk was %.1f%% full)", result["total"], used_pct * 100)
 
+    async def _on_memory_pressure(event: Event) -> None:
+        pressure = event.payload.get("pressure", "WARN")
+        used_pct = event.payload.get("used_pct", 0.0)
+        _health_cache["memory_pct"] = event.payload.get("memory_pct", used_pct)
+        lod_controller.assess(**_health_cache)
+        logger.warning(
+            "MEMORY_PRESSURE: %s (%.1f%% RAM used)",
+            pressure, used_pct * 100,
+        )
+
     get_core_bus().on(CoreEvent.DISK_PRESSURE, _on_disk_pressure)
+    get_core_bus().on(CoreEvent.MEMORY_PRESSURE, _on_memory_pressure)
 
     logger.info(
         "Kernel ready: %d dogs, scheduler wired, learning loop + residual detector active, pool=%s, llm=%s",

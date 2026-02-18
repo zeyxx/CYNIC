@@ -103,8 +103,9 @@ class CoreEvent(str, Enum):
     TRANSCENDENCE      = "emergence.transcendence"
     AXIOM_ACTIVATED    = "emergence.axiom_activated"  # A6-A9 threshold crossed
 
-    # Storage / Disk
-    DISK_PRESSURE = "storage.disk_pressure"   # disk usage > φ threshold
+    # Storage / Disk / Memory
+    DISK_PRESSURE   = "storage.disk_pressure"    # disk usage > φ threshold
+    MEMORY_PRESSURE = "system.memory_pressure"   # RAM usage > φ threshold
 
     # Identity
     IDENTITY_VIOLATION = "identity.violation"
