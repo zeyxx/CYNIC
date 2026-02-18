@@ -40,6 +40,7 @@ from cynic.core.event_bus import (
 )
 from cynic.dogs.base import AbstractDog, DogJudgment, DogId
 from cynic.dogs.cynic_dog import CynicDog
+from cynic.judge.circuit_breaker import CircuitBreaker, CircuitState
 
 logger = logging.getLogger("cynic.judge")
 
@@ -98,6 +99,8 @@ class JudgeOrchestrator:
         self._consciousness = get_consciousness()
         # evolve() history — last F(8)=21 META cycles
         self._evolve_history: List[Dict[str, Any]] = []
+        # Circuit breaker — prevents cascade failures (topology M1)
+        self._circuit_breaker = CircuitBreaker()
 
     # ── STEP 0: Entry Point ────────────────────────────────────────────────
 
@@ -114,6 +117,27 @@ class JudgeOrchestrator:
         """
         level = level or self._select_level(cell, budget_usd or cell.budget_usd)
         pipeline = JudgmentPipeline(cell=cell, level=level)
+
+        # Circuit breaker — fast-fail when cascade failure detected (topology M1)
+        if not self._circuit_breaker.allow():
+            cb = self._circuit_breaker
+            logger.warning(
+                "CircuitBreaker %s — fast-failing judgment %s (failures=%d)",
+                cb.state.value, cell.cell_id, cb.failure_count,
+            )
+            await get_core_bus().emit(Event(
+                type=CoreEvent.JUDGMENT_FAILED,
+                payload={
+                    "cell_id": cell.cell_id,
+                    "error": "circuit_open",
+                    "circuit_state": cb.state.value,
+                    "failure_count": cb.failure_count,
+                },
+            ))
+            raise RuntimeError(
+                f"CircuitBreaker OPEN — pipeline suspended "
+                f"({cb.failure_count} consecutive failures)"
+            )
 
         # Emit JUDGMENT_REQUESTED
         await get_core_bus().emit(Event(
@@ -181,12 +205,17 @@ class JudgeOrchestrator:
             if self.residual_detector is not None:
                 self.residual_detector.observe(judgment)
 
+            # Circuit breaker: successful judgment — reset failure counter
+            self._circuit_breaker.record_success()
+
             return judgment
 
         except Exception as e:
             logger.error("Judgment pipeline failed: %s", e, exc_info=True)
             if timer:
                 timer.stop()
+            # Circuit breaker: record failure — may open circuit after threshold
+            self._circuit_breaker.record_failure()
             await get_core_bus().emit(Event(
                 type=CoreEvent.JUDGMENT_FAILED,
                 payload={"cell_id": cell.cell_id, "error": str(e)},
@@ -577,4 +606,5 @@ class JudgeOrchestrator:
             "evolve_cycles": len(self._evolve_history),
             "last_evolve_pass_rate": last_evolve["pass_rate"] if last_evolve else None,
             "last_evolve_regression": last_evolve["regression"] if last_evolve else False,
+            "circuit_breaker": self._circuit_breaker.stats(),
         }
