@@ -2,7 +2,7 @@
 CYNIC PostgreSQL Storage — asyncpg + φ-bound DB constraints
 
 LAW 5: Database constraints MIRROR φ-bounds in Pydantic models.
-  - q_score CHECK (q_score >= 0 AND q_score <= 61.8)
+  - q_score CHECK (q_score >= 0 AND q_score <= 100)
   - confidence CHECK (confidence >= 0 AND confidence <= 0.618)
   - verdict CHECK (verdict IN ('HOWL', 'WAG', 'GROWL', 'BARK'))
 
@@ -234,7 +234,9 @@ CREATE TABLE IF NOT EXISTS sdk_sessions (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Scholar buffer (TF-IDF memory warm-start across restarts)
+-- Scholar buffer (TF-IDF memory warm-start + PGVector semantic search)
+-- β1: embedding column added for pgvector cosine similarity
+-- Requires: CREATE EXTENSION IF NOT EXISTS vector (run separately if pgvector installed)
 CREATE TABLE IF NOT EXISTS scholar_buffer (
     id          BIGSERIAL   PRIMARY KEY,
     cell_id     TEXT        NOT NULL DEFAULT '',
@@ -242,6 +244,8 @@ CREATE TABLE IF NOT EXISTS scholar_buffer (
     q_score     REAL        NOT NULL CHECK (q_score >= 0),
     reality     TEXT        NOT NULL DEFAULT '',
     ts          REAL        NOT NULL DEFAULT 0,
+    embedding   FLOAT[]     NULL,           -- Dense vector (pgvector upgradable to vector type)
+    embed_model TEXT        NOT NULL DEFAULT '',  -- Model that produced the embedding
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -691,25 +695,34 @@ def sdk_sessions() -> SDKSessionRepository:
 
 class ScholarRepository:
     """
-    Persist Scholar Dog's TF-IDF buffer for warm-start across restarts.
+    Persist Scholar Dog's buffer for warm-start across restarts.
 
-    Each entry = one (cell_text, q_score) pair from a completed judgment.
+    Each entry = one (cell_text, q_score, embedding?) pair from a completed judgment.
     On startup, Scholar loads the last BUFFER_MAX entries to recover memory.
     On learn(), new entries are appended (fire-and-forget, best-effort).
+
+    β1 PGVector: append() now optionally stores embedding vector.
+    search_similar_by_embedding() performs cosine similarity via Python
+    (no pgvector extension required — upgradeable to operator <=> later).
     """
 
     async def append(self, entry: Dict[str, Any]) -> None:
-        """Persist one BufferEntry to DB."""
+        """Persist one BufferEntry to DB (with optional embedding)."""
+        embedding = entry.get("embedding")  # List[float] or None
+        embed_model = entry.get("embed_model", "")
         async with acquire() as conn:
             await conn.execute("""
-                INSERT INTO scholar_buffer (cell_id, cell_text, q_score, reality, ts)
-                VALUES ($1, $2, $3, $4, $5)
+                INSERT INTO scholar_buffer
+                    (cell_id, cell_text, q_score, reality, ts, embedding, embed_model)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
             """,
                 entry.get("cell_id", ""),
                 str(entry.get("cell_text", ""))[:2000],
                 float(entry.get("q_score", 0.0)),
                 entry.get("reality", ""),
                 float(entry.get("timestamp", 0.0)),
+                embedding,    # NULL if not provided
+                embed_model,
             )
 
     async def recent_entries(self, limit: int = 89) -> List[Dict[str, Any]]:
@@ -723,6 +736,61 @@ class ScholarRepository:
             """, limit)
             # Reverse so oldest-first (buffer grows from left)
             return list(reversed([dict(r) for r in rows]))
+
+    async def search_similar_by_embedding(
+        self,
+        query_embedding: List[float],
+        limit: int = 10,
+        min_similarity: float = 0.38,
+    ) -> List[Dict[str, Any]]:
+        """
+        Find semantically similar entries via cosine similarity.
+
+        Fetches recent entries with embeddings, computes cosine similarity
+        in Python. Upgradeable to pgvector <=> operator when extension available.
+
+        Returns entries with similarity ≥ min_similarity, sorted desc by sim.
+        """
+        import math
+
+        async with acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT cell_id, cell_text, q_score, reality, ts, embedding
+                FROM scholar_buffer
+                WHERE embedding IS NOT NULL
+                ORDER BY created_at DESC
+                LIMIT 200
+            """)
+
+        if not rows:
+            return []
+
+        q_norm = math.sqrt(sum(v * v for v in query_embedding))
+        if q_norm < 1e-9:
+            return []
+
+        results = []
+        for row in rows:
+            emb = row["embedding"]
+            if not emb or len(emb) != len(query_embedding):
+                continue
+            dot = sum(a * b for a, b in zip(query_embedding, emb))
+            e_norm = math.sqrt(sum(v * v for v in emb))
+            if e_norm < 1e-9:
+                continue
+            sim = dot / (q_norm * e_norm)
+            if sim >= min_similarity:
+                results.append({
+                    "cell_id": row["cell_id"],
+                    "cell_text": row["cell_text"],
+                    "q_score": row["q_score"],
+                    "reality": row["reality"],
+                    "ts": row["ts"],
+                    "similarity": float(sim),
+                })
+
+        results.sort(key=lambda x: x["similarity"], reverse=True)
+        return results[:limit]
 
     async def count(self) -> int:
         """Total entries in scholar_buffer table."""

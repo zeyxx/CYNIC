@@ -47,6 +47,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from cynic.core.phi import PHI_INV, PHI_INV_2, MAX_Q_SCORE, MAX_CONFIDENCE, phi_bound_score, fibonacci
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
+from cynic.core.embeddings import EmbeddingProvider
 from cynic.dogs.base import (
     AbstractDog, LLMDog, DogCapabilities, DogHealth, DogJudgment,
     DogId, HealthStatus,
@@ -106,6 +107,7 @@ class ScholarDog(LLMDog):
         self._hits: int = 0     # Lookups that found ≥1 neighbor above MIN_SIMILARITY
         self._cold_lookups: int = 0
         self._db_pool: Optional[Any] = None  # asyncpg pool (None = no persistence)
+        self._embedder: Optional[EmbeddingProvider] = None  # β1: vector embedder
 
     def get_capabilities(self) -> DogCapabilities:
         return DogCapabilities(
@@ -172,7 +174,22 @@ class ScholarDog(LLMDog):
         cell_text: str,
         start: float,
     ) -> DogJudgment:
-        """TF-IDF K-nearest-neighbors over in-session buffer."""
+        """
+        β1: Try PGVector semantic search first, fall back to TF-IDF in-memory.
+
+        Vector path: embedder + DB available → cosine similarity on stored embeddings
+        TF-IDF path: fallback when no embedder or DB
+        """
+        # β1: PGVector path — embedder + DB + non-empty DB
+        if self._embedder is not None and self._embedder.is_available() and self._db_pool is not None:
+            try:
+                judgment = await self._vector_search_path(cell, cell_text, start)
+                if judgment is not None:
+                    return judgment
+            except Exception as e:
+                logger.debug("ScholarDog: vector search failed, falling back: %s", e)
+
+        # TF-IDF fallback path
         if len(self._buffer) == 0:
             self._cold_lookups += 1
             return self._neutral_judgment(cell, start, reason="cold-buffer")
@@ -236,6 +253,24 @@ class ScholarDog(LLMDog):
         self._db_pool = pool
         logger.info("ScholarDog: DB persistence enabled (pool injected)")
 
+    def set_embedder(self, embedder: EmbeddingProvider) -> None:
+        """
+        β1: Inject embedding provider for PGVector semantic search.
+
+        When set:
+          - learn() generates and persists embeddings alongside text
+          - analyze() uses vector similarity search (DB must be available)
+          - Falls back to TF-IDF if embedder unavailable or DB not set
+
+        Call this at kernel startup, after set_db_pool().
+        """
+        self._embedder = embedder
+        logger.info(
+            "ScholarDog: PGVector enabled (model=%s, dim=%d)",
+            getattr(embedder, "_model", "unknown"),
+            embedder.dimension,
+        )
+
     async def load_from_db(self, pool: Any) -> int:
         """
         Warm-start buffer from DB (call once at kernel startup).
@@ -292,14 +327,23 @@ class ScholarDog(LLMDog):
         if self._db_pool is not None:
             import asyncio
             from cynic.core.storage.postgres import ScholarRepository
+            embedder = self._embedder  # capture before async
+
             async def _persist(e=entry):
                 try:
+                    embedding = None
+                    embed_model = ""
+                    if embedder is not None and embedder.is_available():
+                        embedding = await embedder.embed(e.cell_text)
+                        embed_model = getattr(embedder, "_model", "unknown")
                     await ScholarRepository().append({
                         "cell_id": e.cell_id,
                         "cell_text": e.cell_text,
                         "q_score": e.q_score,
                         "reality": e.reality,
                         "timestamp": e.timestamp,
+                        "embedding": embedding,
+                        "embed_model": embed_model,
                     })
                 except Exception:
                     pass  # Never propagate DB errors from learn()
@@ -309,6 +353,75 @@ class ScholarDog(LLMDog):
                     loop.create_task(_persist())
             except Exception:
                 pass
+
+    # ── β1: PGVector Search ───────────────────────────────────────────────────
+
+    async def _vector_search_path(
+        self,
+        cell: Cell,
+        cell_text: str,
+        start: float,
+    ) -> Optional[DogJudgment]:
+        """
+        β1: Dense vector similarity search against scholar_buffer table.
+
+        1. Embed query text via EmbeddingProvider
+        2. Cosine similarity against stored embeddings (Python, upgradeable to pgvector)
+        3. Aggregate top-K results → q_score + confidence
+
+        Returns None if no results found (caller falls back to TF-IDF).
+        """
+        from cynic.core.storage.postgres import ScholarRepository
+
+        query_vec = await self._embedder.embed(cell_text)  # type: ignore[union-attr]
+        if not query_vec or all(v == 0.0 for v in query_vec):
+            return None
+
+        repo = ScholarRepository()
+        similar = await repo.search_similar_by_embedding(
+            query_embedding=query_vec,
+            limit=K_NEIGHBORS,
+            min_similarity=MIN_SIMILARITY,
+        )
+
+        if not similar:
+            return None
+
+        self._hits += 1
+
+        # Similarity-weighted q_score
+        total_sim = sum(r["similarity"] for r in similar)
+        weighted_q = sum(r["q_score"] * r["similarity"] for r in similar) / total_sim
+        best_sim = max(r["similarity"] for r in similar)
+
+        richness = min(1.0, len(similar) / K_NEIGHBORS)
+        raw_conf = best_sim * richness
+        confidence = min(max(raw_conf, COLD_CONFIDENCE), MAX_CONFIDENCE)
+
+        latency = (time.perf_counter() - start) * 1000
+        reasoning = (
+            f"*sniff* Vector search: {len(similar)} similar embeddings "
+            f"(best sim={best_sim:.0%}) → Q={weighted_q:.1f}"
+        )
+        evidence = {
+            "path": "pgvector",
+            "neighbors_found": len(similar),
+            "best_similarity": round(best_sim, 3),
+            "weighted_q": round(weighted_q, 1),
+            "embed_dim": len(query_vec),
+        }
+        judgment = DogJudgment(
+            dog_id=self.dog_id,
+            cell_id=cell.cell_id,
+            q_score=phi_bound_score(weighted_q),
+            confidence=confidence,
+            reasoning=reasoning,
+            evidence=evidence,
+            latency_ms=latency,
+            veto=False,
+        )
+        self.record_judgment(judgment)
+        return judgment
 
     # ── Internals ────────────────────────────────────────────────────────────
 
