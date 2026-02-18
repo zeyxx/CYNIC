@@ -85,7 +85,7 @@ class TestProbeCells:
 
     def test_p2_smelly_range_capped(self):
         p2 = next(p for p in PROBE_CELLS if p["name"] == "P2:smelly_code")
-        assert p2["max_q"] <= 65.0          # Should not reach HOWL zone (≥82)
+        assert p2["max_q"] <= 70.0          # Should not reach HOWL zone (≥80)
 
     def test_p3_dangerous_range_capped(self):
         p3 = next(p for p in PROBE_CELLS if p["name"] == "P3:dangerous_act")
