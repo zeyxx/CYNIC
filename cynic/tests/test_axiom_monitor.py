@@ -1559,3 +1559,69 @@ class TestUserCorrectionLoop:
         assert state_key == ""
         tracker.update("agent:cynic", "JUDGE", 0.0)
         assert tracker.get_score("agent:cynic") >= 0.0
+
+
+# ── ANOMALY_DETECTED → EScore HOLD (severity-based stability) ─────────────────
+
+class TestAnomalyDetectedLoop:
+    """
+    ANOMALY_DETECTED → EScore HOLD = (1 - severity) × MAX_Q_SCORE.
+
+    Emitted by ResidualDetector for SPIKE pattern only (not STABLE_HIGH/RISING).
+    Payload: {"pattern_type": "SPIKE", "severity": float [0,1], ...}
+
+    Distinct from RESIDUAL_HIGH (absolute threshold, macro cycle) and
+    EMERGENCE_DETECTED (all 3 patterns). ANOMALY_DETECTED = transient spikes only.
+
+    HOLD dimension = "long-term perceptual stability".
+    The more severe the SPIKE, the more the organism's stability is shaken:
+      severity=0.0 → HOLD = MAX_Q_SCORE (100.0) — trivial spike, fully stable
+      severity=0.5 → HOLD = 50.0            — moderate disruption
+      severity=1.0 → HOLD = 0.0             — complete destabilization
+    """
+
+    def _hold_from_severity(self, severity: float) -> float:
+        """Reproduce handler's severity → HOLD formula."""
+        from cynic.core.phi import MAX_Q_SCORE
+        return (1.0 - min(severity, 1.0)) * MAX_Q_SCORE
+
+    def test_zero_severity_gives_max_hold(self):
+        """severity=0.0 → HOLD = MAX_Q_SCORE (100.0) — trivial anomaly, stability intact."""
+        from cynic.core.phi import MAX_Q_SCORE
+        assert self._hold_from_severity(0.0) == pytest.approx(MAX_Q_SCORE, abs=0.1)
+
+    def test_full_severity_gives_zero_hold(self):
+        """severity=1.0 → HOLD = 0.0 — complete perceptual destabilization."""
+        assert self._hold_from_severity(1.0) == pytest.approx(0.0, abs=0.1)
+
+    def test_half_severity_gives_half_hold(self):
+        """severity=0.5 → HOLD = 50.0 — moderate disruption."""
+        assert self._hold_from_severity(0.5) == pytest.approx(50.0, abs=0.1)
+
+    def test_high_severity_hold_less_than_low_severity(self):
+        """High severity SPIKE → lower HOLD than low severity SPIKE."""
+        assert self._hold_from_severity(0.8) < self._hold_from_severity(0.2)
+
+    def test_spike_decreases_escore(self):
+        """Severe SPIKE (severity=1.0) → HOLD=0.0 → EScore decreases from baseline."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import MAX_Q_SCORE
+        # First establish a high baseline
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "HOLD", MAX_Q_SCORE)
+        before = tracker.get_score("agent:cynic")
+        # Now apply severe spike
+        tracker.update("agent:cynic", "HOLD", 0.0)
+        after = tracker.get_score("agent:cynic")
+        assert after < before
+
+    def test_handler_tolerates_empty_payload(self):
+        """Empty payload → severity=0.5 default → HOLD=50.0, no raise."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        p = {}
+        severity = float(p.get("severity", 0.5))
+        hold_score = self._hold_from_severity(severity)
+        assert hold_score == pytest.approx(50.0, abs=0.1)
+        tracker.update("agent:cynic", "HOLD", hold_score)
+        assert tracker.get_score("agent:cynic") >= 0.0

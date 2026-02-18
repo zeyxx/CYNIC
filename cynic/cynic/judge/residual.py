@@ -449,7 +449,7 @@ class ResidualDetector:
             if len(self._patterns) > 100:
                 self._patterns.pop(0)
 
-            # Emit EMERGENCE_DETECTED
+            # Emit EMERGENCE_DETECTED (all patterns: SPIKE, STABLE_HIGH, RISING)
             await get_core_bus().emit(Event(
                 type=CoreEvent.EMERGENCE_DETECTED,
                 source="residual_detector",
@@ -468,3 +468,25 @@ class ResidualDetector:
                 "EMERGENCE_DETECTED emitted: pattern=%s severity=%.3f",
                 pattern.pattern_type, pattern.severity,
             )
+
+            # Emit ANOMALY_DETECTED for SPIKE pattern only.
+            # SPIKE = sudden transient jump (z-score or absolute).
+            # Distinct from STABLE_HIGH/RISING (sustained patterns, not sudden anomalies).
+            # Severity [0,1] quantifies how anomalous the spike was.
+            if pattern.pattern_type == "SPIKE":
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.ANOMALY_DETECTED,
+                    source="residual_detector",
+                    payload={
+                        "pattern_type": pattern.pattern_type,
+                        "severity":     pattern.severity,
+                        "evidence":     pattern.evidence,
+                        "judgment_id":  point.judgment_id,
+                        "reality":      point.reality,
+                        "analysis":     point.analysis,
+                    },
+                ))
+                logger.info(
+                    "ANOMALY_DETECTED emitted: SPIKE severity=%.3f at %s·%s",
+                    pattern.severity, point.reality, point.analysis,
+                )

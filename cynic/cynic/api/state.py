@@ -1246,6 +1246,45 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
 
     get_core_bus().on(CoreEvent.USER_CORRECTION, _on_user_correction)
 
+    # ── ANOMALY_DETECTED → EScore HOLD (severity-based) ──────────────────────
+    # Emitted by ResidualDetector when a SPIKE pattern is detected specifically.
+    # Payload: {"pattern_type": "SPIKE", "severity": float [0,1],
+    #           "evidence": dict, "judgment_id": str, "reality": str, "analysis": str}
+    #
+    # Distinct from RESIDUAL_HIGH (absolute threshold on macro) and
+    # EMERGENCE_DETECTED (all patterns: SPIKE + STABLE_HIGH + RISING).
+    # ANOMALY_DETECTED = SPIKE only = sudden transient jump, not sustained elevation.
+    #
+    # HOLD dimension = "long-term perceptual stability" — how stable is the
+    # organism's current model of reality?
+    #   severity=0.0 → HOLD = MAX_Q_SCORE (100.0) — trivial spike, stability intact
+    #   severity=0.5 → HOLD = 50.0 — moderate disruption
+    #   severity=1.0 → HOLD = 0.0  — complete perceptual destabilization
+    #
+    # The more severe the spike, the more the organism's stability is shaken.
+    # This is the only EScore source where HOLD degrades with spike severity.
+    async def _on_anomaly_detected(event: Event) -> None:
+        try:
+            p        = event.payload or {}
+            severity = float(p.get("severity", 0.5))
+            reality  = p.get("reality", "CODE")
+            analysis = p.get("analysis", "JUDGE")
+
+            from cynic.core.phi import MAX_Q_SCORE
+
+            # HOLD: stability inversely proportional to SPIKE severity
+            hold_score = (1.0 - min(severity, 1.0)) * MAX_Q_SCORE
+            escore_tracker.update("agent:cynic", "HOLD", hold_score)
+
+            logger.info(
+                "ANOMALY_DETECTED: SPIKE severity=%.3f at %s·%s → HOLD EScore=%.1f",
+                severity, reality, analysis, hold_score,
+            )
+        except Exception:
+            pass
+
+    get_core_bus().on(CoreEvent.ANOMALY_DETECTED, _on_anomaly_detected)
+
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),
     # /judge (MACRO), or DogScheduler background workers (MACRO with SAGE).
