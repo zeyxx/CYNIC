@@ -243,6 +243,12 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     # More active axioms → larger budget → deeper judgment → more axiom signals.
     orchestrator.axiom_monitor = axiom_monitor
 
+    # ── δ2→JUDGE: LOD → consciousness cap ──────────────────────────────────
+    # LODController aggregates ALL health signals (disk, memory, error, latency, queue).
+    # Injected into orchestrator so _select_level() respects system health.
+    # LOD 1 REDUCED → MICRO max; LOD 2+ EMERGENCY/MINIMAL → REFLEX only.
+    orchestrator.lod_controller = lod_controller
+
     # ── AccountAgent EScoreTracker injection + start ────────────────────────
     # RUN dimension: AccountAgent rewards efficient Dogs (high Q / low cost).
     # JUDGE dimension: _on_judgment_for_intelligence (below) updates Dog JUDGE.

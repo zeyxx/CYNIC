@@ -378,3 +378,80 @@ class TestHealthCacheRegressions:
         cache["latency_ms"] = 200.0
         ctrl.assess(**cache)
         assert ctrl.current == SurvivalLOD.EMERGENCY  # Still EMERGENCY, not recovered
+
+
+class TestLODOrchestrator:
+    """δ2→JUDGE: LOD level caps orchestrator consciousness level."""
+
+    def _make_orchestrator(self):
+        from unittest.mock import MagicMock
+        from cynic.judge.orchestrator import JudgeOrchestrator
+        from cynic.core.axioms import AxiomArchitecture
+        from cynic.dogs.cynic_dog import CynicDog
+        arch = AxiomArchitecture()
+        cynic_dog = MagicMock(spec=CynicDog)
+        return JudgeOrchestrator(dogs={}, axiom_arch=arch, cynic_dog=cynic_dog)
+
+    def _make_cell(self, consciousness: int = 5):
+        from cynic.core.judgment import Cell
+        return Cell(
+            reality="CODE", analysis="JUDGE", time_dim="PRESENT",
+            content="test", context="", risk=0.5, complexity=0.5,
+            budget_usd=1.0, consciousness=consciousness,
+        )
+
+    def test_no_lod_controller_uses_normal_path(self):
+        from cynic.core.consciousness import ConsciousnessLevel
+        orch = self._make_orchestrator()
+        assert orch.lod_controller is None
+        # consciousness=5 → MACRO in normal path
+        level = orch._select_level(self._make_cell(consciousness=5), 1.0)
+        assert level == ConsciousnessLevel.MACRO
+
+    def test_lod_full_allows_macro(self):
+        from cynic.core.consciousness import ConsciousnessLevel
+        orch = self._make_orchestrator()
+        ctrl = LODController()
+        ctrl.assess()  # all defaults → FULL
+        orch.lod_controller = ctrl
+        level = orch._select_level(self._make_cell(consciousness=5), 1.0)
+        assert level == ConsciousnessLevel.MACRO
+
+    def test_lod_reduced_caps_at_micro(self):
+        from cynic.core.consciousness import ConsciousnessLevel
+        orch = self._make_orchestrator()
+        ctrl = LODController()
+        ctrl.force(SurvivalLOD.REDUCED)
+        orch.lod_controller = ctrl
+        level = orch._select_level(self._make_cell(consciousness=5), 1.0)
+        assert level in (ConsciousnessLevel.MICRO, ConsciousnessLevel.REFLEX)
+        assert level != ConsciousnessLevel.MACRO
+
+    def test_lod_emergency_forces_reflex(self):
+        from cynic.core.consciousness import ConsciousnessLevel
+        orch = self._make_orchestrator()
+        ctrl = LODController()
+        ctrl.force(SurvivalLOD.EMERGENCY)
+        orch.lod_controller = ctrl
+        level = orch._select_level(self._make_cell(consciousness=5), 1.0)
+        assert level == ConsciousnessLevel.REFLEX
+
+    def test_lod_minimal_forces_reflex(self):
+        from cynic.core.consciousness import ConsciousnessLevel
+        orch = self._make_orchestrator()
+        ctrl = LODController()
+        ctrl.force(SurvivalLOD.MINIMAL)
+        orch.lod_controller = ctrl
+        level = orch._select_level(self._make_cell(consciousness=5), 1.0)
+        assert level == ConsciousnessLevel.REFLEX
+
+    def test_lod_takes_priority_over_budget_stress(self):
+        """LOD EMERGENCY beats budget stress alone — returns REFLEX either way."""
+        from cynic.core.consciousness import ConsciousnessLevel
+        orch = self._make_orchestrator()
+        ctrl = LODController()
+        ctrl.force(SurvivalLOD.EMERGENCY)
+        orch.lod_controller = ctrl
+        orch._budget_stress = True  # also stressed, but LOD dominates
+        level = orch._select_level(self._make_cell(consciousness=5), 1.0)
+        assert level == ConsciousnessLevel.REFLEX

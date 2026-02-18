@@ -96,6 +96,7 @@ class JudgeOrchestrator:
         self.benchmark_registry = None  # Optional[BenchmarkRegistry] — set via state.py
         self.escore_tracker = None  # Optional[EScoreTracker] — injected via state.py
         self.axiom_monitor = None  # Optional[AxiomMonitor] — γ3: axiom health → budget multiplier
+        self.lod_controller = None  # Optional[LODController] — δ2: system health → level cap
         self._judgment_count = 0
         self._consciousness = get_consciousness()
         # evolve() history — last F(8)=21 META cycles
@@ -285,6 +286,21 @@ class JudgeOrchestrator:
 
     def _select_level(self, cell: Cell, budget_usd: float) -> ConsciousnessLevel:
         """Auto-select consciousness level based on budget and cell metadata."""
+        # LOD enforcement (health→JUDGE loop): system health caps depth first
+        # LOD aggregates all signals: disk, memory, error rate, latency, queue.
+        # Takes priority — a crashed system can't afford Ollama regardless of budget.
+        if self.lod_controller is not None:
+            from cynic.judge.lod import SurvivalLOD
+            lod = self.lod_controller.current
+            if lod >= SurvivalLOD.EMERGENCY:
+                return ConsciousnessLevel.REFLEX
+            if lod == SurvivalLOD.REDUCED:
+                # Cap at MICRO — same as budget stress
+                suggested = self._consciousness.should_downgrade(budget_usd)
+                if suggested == ConsciousnessLevel.REFLEX:
+                    return ConsciousnessLevel.REFLEX
+                return ConsciousnessLevel.MICRO
+
         # Budget enforcement (ACCOUNT→JUDGE loop): stressed budget caps depth
         if self._budget_exhausted:
             return ConsciousnessLevel.REFLEX
