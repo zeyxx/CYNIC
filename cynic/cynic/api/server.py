@@ -219,6 +219,12 @@ async def lifespan(app: FastAPI):
             import asyncpg  # type: ignore
             db_pool = await asyncpg.create_pool(dsn=db_url, min_size=2, max_size=10)
 
+            # Initialize schema (idempotent — CREATE TABLE IF NOT EXISTS)
+            from cynic.core.storage.postgres import SCHEMA_SQL
+            async with db_pool.acquire() as conn:
+                await conn.execute(SCHEMA_SQL)
+            logger.info("DB schema initialized")
+
             # Warm-start Q-Table from DB
             state = build_kernel(db_pool=db_pool, registry=registry)
             loaded = await state.qtable.load_from_db(db_pool)
