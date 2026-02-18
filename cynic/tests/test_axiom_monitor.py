@@ -1082,3 +1082,69 @@ class TestPerceptionReceivedLoop:
         tracker.update("agent:cynic", "SOCIAL", social_score)
         tracker.update("agent:cynic", "HOLD",   hold_score)
         assert tracker.get_score("agent:cynic") >= 0.0
+
+
+# ── JUDGMENT_CREATED → EScore BURN update ────────────────────────────────────
+
+class TestJudgmentBurnLoop:
+    """
+    JUDGMENT_CREATED → EScore BURN update (φ³=4.236 — highest weight).
+
+    BURN = irreversible compute commitment. Every judgment burns resources;
+    confidence is the commitment proxy: decisive judgment = high-quality burn.
+
+    Formula: min(confidence / MAX_CONFIDENCE, 1.0) × MAX_Q_SCORE
+      confidence=0.618 (max φ-bound) → BURN = 100.0  full commitment
+      confidence=0.382 (φ⁻²)         → BURN ≈ 61.8   WAG-level
+      confidence=0.236 (φ⁻³)         → BURN ≈ 38.2   GROWL-level
+      confidence=0.0                  → BURN =  0.0   uncommitted
+    """
+
+    def _burn_score(self, confidence: float) -> float:
+        """Reproduce handler's confidence→BURN score formula."""
+        from cynic.core.phi import MAX_CONFIDENCE, MAX_Q_SCORE
+        return min(confidence / MAX_CONFIDENCE, 1.0) * MAX_Q_SCORE
+
+    def test_max_confidence_gives_max_burn(self):
+        """confidence=MAX_CONFIDENCE (0.618) → BURN = MAX_Q_SCORE (100.0)."""
+        from cynic.core.phi import MAX_CONFIDENCE, MAX_Q_SCORE
+        score = self._burn_score(MAX_CONFIDENCE)
+        assert score == pytest.approx(MAX_Q_SCORE, abs=0.1)
+
+    def test_phi_inv2_confidence_gives_wag_burn(self):
+        """confidence=φ⁻² (0.382) → BURN ≈ WAG_MIN (61.8)."""
+        from cynic.core.phi import PHI_INV_2, WAG_MIN
+        score = self._burn_score(PHI_INV_2)
+        assert score == pytest.approx(WAG_MIN, abs=0.5)
+
+    def test_phi_inv3_confidence_gives_growl_burn(self):
+        """confidence=φ⁻³ (0.236) → BURN ≈ GROWL_MIN (38.2)."""
+        from cynic.core.phi import PHI_INV_2, GROWL_MIN
+        score = self._burn_score(PHI_INV_2 * PHI_INV_2)  # ~0.146 → 23.6; use literal
+        # Use 0.236 directly (φ⁻³ = 0.618 * 0.382 = ~0.236)
+        score = self._burn_score(0.236)
+        assert score == pytest.approx(GROWL_MIN, abs=1.0)
+
+    def test_zero_confidence_gives_zero_burn(self):
+        """confidence=0.0 → BURN = 0.0 (uncommitted judgment)."""
+        assert self._burn_score(0.0) == pytest.approx(0.0, abs=0.1)
+
+    def test_high_confidence_increases_escore(self):
+        """High confidence judgment → EScore BURN raises above baseline."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import MAX_CONFIDENCE
+        tracker = EScoreTracker()
+        before = tracker.get_score("agent:cynic")
+        tracker.update("agent:cynic", "BURN", self._burn_score(MAX_CONFIDENCE))
+        assert tracker.get_score("agent:cynic") > before
+
+    def test_handler_tolerates_empty_payload(self):
+        """Empty payload → confidence=0.0 → BURN=0.0, no raise."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        p = {}
+        confidence = float(p.get("confidence", 0.0))
+        burn_score = self._burn_score(confidence)
+        assert burn_score == pytest.approx(0.0, abs=0.1)
+        tracker.update("agent:cynic", "BURN", burn_score)
+        assert tracker.get_score("agent:cynic") >= 0.0

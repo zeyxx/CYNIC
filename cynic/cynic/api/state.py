@@ -849,6 +849,40 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         except Exception:
             pass
 
+    # ── JUDGMENT_CREATED → EScore BURN update ─────────────────────────────
+    # Every judgment irreversibly burns compute. BURN = commitment quality.
+    # BURN (φ³=4.236) is the highest-weight EScore dimension — the organism's
+    # irreversible commitment to truth over comfort (FIDELITY axiom).
+    #
+    # Confidence is the best proxy for commitment: high confidence = decisive
+    # judgment = high-quality burn. Low confidence = hedging = wasteful burn.
+    #
+    # Formula: min(confidence / MAX_CONFIDENCE, 1.0) × MAX_Q_SCORE
+    #   confidence=0.618 (max φ-bound) → BURN = 100.0  full commitment
+    #   confidence=0.382 (φ⁻²)         → BURN ≈ 61.8   WAG-level commitment
+    #   confidence=0.236 (φ⁻³)         → BURN ≈ 38.2   GROWL-level
+    #   confidence=0.0                  → BURN =  0.0   uncommitted
+    #
+    # Per-reality context passed so per-reality BURN sub-scores accumulate.
+    async def _on_judgment_for_burn(event: Event) -> None:
+        try:
+            p          = event.payload or {}
+            confidence = float(p.get("confidence", 0.0))
+            reality    = p.get("reality", "CODE")
+            verdict    = p.get("verdict", "")
+
+            from cynic.core.phi import MAX_CONFIDENCE, MAX_Q_SCORE
+
+            burn_score = min(confidence / MAX_CONFIDENCE, 1.0) * MAX_Q_SCORE
+            escore_tracker.update("agent:cynic", "BURN", burn_score, reality=reality)
+
+            logger.debug(
+                "JUDGMENT_CREATED→BURN: verdict=%s conf=%.3f → BURN EScore=%.1f",
+                verdict, confidence, burn_score,
+            )
+        except Exception:
+            pass
+
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_intelligence)
     get_core_bus().on(CoreEvent.JUDGMENT_FAILED, _on_judgment_failed)
     get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence_signal)
@@ -865,6 +899,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     get_core_bus().on(CoreEvent.JUDGMENT_REQUESTED, _on_judgment_requested)
     get_core_bus().on(CoreEvent.USER_FEEDBACK, _on_user_feedback)
     get_core_bus().on(CoreEvent.PERCEPTION_RECEIVED, _on_perception_received)
+    get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_burn)
 
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),
