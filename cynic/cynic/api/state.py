@@ -304,6 +304,12 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     _OUTCOME_WINDOW = 21
     _outcome_window: List[bool] = []
 
+    # Rolling SDK outcome window — F(7)=13 recent SDK sessions (True=success, False=error)
+    # ANTIFRAGILITY signal: current session succeeded AND prior window had at least one error.
+    # SDK sessions are coarser-grained than judgments → F(7)=13 covers similar real-time span.
+    _SDK_OUTCOME_WINDOW = 13  # F(7)
+    _sdk_outcome_window: List[bool] = []
+
     def _update_error_rate() -> None:
         failures = sum(1 for ok in _outcome_window if not ok)
         _health_cache["error_rate"] = failures / len(_outcome_window) if _outcome_window else 0.0
@@ -634,6 +640,119 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         except Exception:
             pass
 
+    # ── SDK_SESSION_STARTED → GRAPH EScore baseline + SYMBIOSIS signal ───────
+    # Emitted by server.py ws_sdk handler when system/init arrives over WebSocket.
+    # Payload: {"session_id": str, "model": str, "cwd": str, "tools": list[str]}
+    #
+    # GRAPH dimension = "trust network quality" — before any tool judgments arrive,
+    # GRAPH has no value for this session. Establish a neutral trust baseline (WAG_MIN)
+    # so the first tool verdict starts from a known reference, not a cold start.
+    #
+    # SYMBIOSIS axiom: a new SDK session IS human+machine collaboration beginning.
+    # Signal once per session start — the connection itself is a collaboration event.
+    async def _on_sdk_session_started(event: Event) -> None:
+        try:
+            p = event.payload or {}
+            session_id = p.get("session_id", "")
+
+            from cynic.core.phi import WAG_MIN
+
+            # 1. Neutral trust baseline for new session — GRAPH dimension
+            escore_tracker.update("agent:cynic", "GRAPH", WAG_MIN)
+
+            # 2. SYMBIOSIS: human+machine collaboration is beginning
+            new_state = axiom_monitor.signal("SYMBIOSIS")
+            if new_state == "ACTIVE":
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.AXIOM_ACTIVATED,
+                    payload={
+                        "axiom":    "SYMBIOSIS",
+                        "maturity": axiom_monitor.get_maturity("SYMBIOSIS"),
+                        "trigger":  "SDK_SESSION_STARTED",
+                    },
+                    source="sdk_session_started",
+                ))
+
+            logger.info(
+                "SDK_SESSION_STARTED: session=%s → GRAPH EScore=%.1f SYMBIOSIS signalled",
+                session_id, WAG_MIN,
+            )
+        except Exception:
+            pass
+
+    # ── SDK_RESULT_RECEIVED → BUILD + RUN EScore + ANTIFRAGILITY signal ──────
+    # Emitted by server.py ws_sdk handler after every completed Claude Code session.
+    # Payload: {"session_id": str, "is_error": bool, "cost_usd": float,
+    #           "total_cost_usd": float, "reward": float, "task_type": str,
+    #           "complexity": float, "output_verdict": str, "output_q_score": float}
+    #
+    # BUILD dimension: ACT quality feeds CYNIC's BUILD reputation.
+    # Parallel to JUDGMENT_CREATED → JUDGE dimension per dog.
+    #
+    # RUN dimension: execution efficiency from cost_usd.
+    #   cost == 0.0        → HOWL_MIN (82.0)  — free Ollama = peak efficiency
+    #   cost < PHI_INV/100 → WAG_MIN  (61.8)  — cheap run = good efficiency
+    #   else               → GROWL_MIN (38.2) — expensive run = marginal
+    #
+    # ANTIFRAGILITY: recovery after stress = antifragility.
+    # Track outcome in _sdk_outcome_window. Signal when:
+    #   - current session succeeded (not is_error)
+    #   - prior window had at least one error
+    async def _on_sdk_result_received(event: Event) -> None:
+        try:
+            p = event.payload or {}
+            session_id     = p.get("session_id", "")
+            is_error       = bool(p.get("is_error", False))
+            cost_usd       = float(p.get("cost_usd", 0.0))
+            output_q_score = float(p.get("output_q_score", 0.0))
+
+            from cynic.core.phi import HOWL_MIN, WAG_MIN, GROWL_MIN, PHI_INV
+
+            # 1. BUILD EScore — ACT quality feeds CYNIC's code contribution dimension
+            escore_tracker.update("agent:cynic", "BUILD", output_q_score)
+
+            # 2. RUN EScore — efficiency from cost (φ-bounded thresholds)
+            if cost_usd == 0.0:
+                run_score = HOWL_MIN        # free Ollama = peak efficiency
+            elif cost_usd < PHI_INV / 100:  # < $0.00618
+                run_score = WAG_MIN
+            else:
+                run_score = GROWL_MIN
+            escore_tracker.update("agent:cynic", "RUN", run_score)
+
+            # 3. ANTIFRAGILITY — track outcome in rolling window
+            success = not is_error
+            _sdk_outcome_window.append(success)
+            if len(_sdk_outcome_window) > _SDK_OUTCOME_WINDOW:
+                _sdk_outcome_window.pop(0)
+
+            had_prior_stress = (
+                len(_sdk_outcome_window) > 1
+                and any(not ok for ok in _sdk_outcome_window[:-1])
+            )
+            if success and had_prior_stress:
+                new_state = axiom_monitor.signal("ANTIFRAGILITY")
+                if new_state == "ACTIVE":
+                    await get_core_bus().emit(Event(
+                        type=CoreEvent.AXIOM_ACTIVATED,
+                        payload={
+                            "axiom":    "ANTIFRAGILITY",
+                            "maturity": axiom_monitor.get_maturity("ANTIFRAGILITY"),
+                            "trigger":  "SDK_RESULT_RECOVERY",
+                        },
+                        source="sdk_result_received",
+                    ))
+
+            logger.info(
+                "SDK_RESULT_RECEIVED: session=%s is_error=%s cost=$%.4f "
+                "→ BUILD=%.1f RUN=%.1f%s",
+                session_id, is_error, cost_usd,
+                output_q_score, run_score,
+                " ANTIFRAGILITY signalled" if (success and had_prior_stress) else "",
+            )
+        except Exception:
+            pass
+
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_intelligence)
     get_core_bus().on(CoreEvent.JUDGMENT_FAILED, _on_judgment_failed)
     get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence_signal)
@@ -645,6 +764,8 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     get_core_bus().on(CoreEvent.ACTION_PROPOSED, _on_action_proposed)
     get_core_bus().on(CoreEvent.META_CYCLE, _on_meta_cycle)
     get_core_bus().on(CoreEvent.SDK_TOOL_JUDGED, _on_sdk_tool_judged)
+    get_core_bus().on(CoreEvent.SDK_SESSION_STARTED, _on_sdk_session_started)
+    get_core_bus().on(CoreEvent.SDK_RESULT_RECEIVED, _on_sdk_result_received)
 
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),

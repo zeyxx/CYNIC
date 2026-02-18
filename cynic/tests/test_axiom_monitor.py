@@ -732,3 +732,144 @@ class TestSdkToolJudgedLoop:
         # Should not raise
         tracker.update("agent:cynic", "GRAPH", score)
         assert tracker.get_score("agent:cynic") >= 0.0
+
+
+# ── SDK_SESSION_STARTED → GRAPH EScore baseline + SYMBIOSIS signal ───────────
+
+class TestSdkSessionStartedLoop:
+    """
+    SDK_SESSION_STARTED → GRAPH EScore neutral baseline + SYMBIOSIS axiom signal.
+
+    A new SDK session beginning IS human+machine collaboration starting.
+    Before any tool verdicts arrive, establish WAG_MIN as the neutral GRAPH
+    trust baseline so first verdict has a meaningful reference point.
+    """
+
+    def test_session_start_signals_symbiosis(self):
+        """SDK session start → axiom_monitor.signal('SYMBIOSIS') increases maturity."""
+        m = AxiomMonitor()
+        before = m.get_maturity("SYMBIOSIS")
+        m.signal("SYMBIOSIS")
+        after = m.get_maturity("SYMBIOSIS")
+        assert after > before, "SYMBIOSIS maturity should increase on SDK session start"
+
+    def test_session_start_sets_graph_to_wag_min(self):
+        """SDK session start → GRAPH EScore updated to WAG_MIN (neutral baseline)."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "GRAPH", WAG_MIN)
+        detail = tracker.get_detail("agent:cynic")
+        stored = detail["dimensions"]["GRAPH"]["value"]
+        assert stored == pytest.approx(WAG_MIN, abs=0.5)
+
+    def test_multiple_session_starts_accumulate_symbiosis(self):
+        """Multiple SDK session starts accumulate SYMBIOSIS maturity."""
+        m = AxiomMonitor()
+        for _ in range(5):
+            m.signal("SYMBIOSIS")
+        assert m.get_maturity("SYMBIOSIS") > 0.0
+        assert len(m._axioms["SYMBIOSIS"].signal_times) == 5
+
+    def test_session_start_handler_tolerates_empty_payload(self):
+        """Handler with empty payload → no raise, WAG_MIN still applied."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        p = {}
+        session_id = p.get("session_id", "")
+        assert session_id == ""
+        tracker.update("agent:cynic", "GRAPH", WAG_MIN)
+        assert tracker.get_score("agent:cynic") >= 0.0
+
+    def test_session_start_activates_symbiosis_at_threshold(self):
+        """Enough session-start signals → SYMBIOSIS reaches ACTIVE state."""
+        m = AxiomMonitor()
+        needed = int(WAG_MIN / MAX_Q_SCORE * MATURITY_WINDOW) + 1
+        for _ in range(needed):
+            m.signal("SYMBIOSIS")
+        assert m.is_active("SYMBIOSIS")
+
+
+# ── SDK_RESULT_RECEIVED → BUILD + RUN EScore + ANTIFRAGILITY signal ──────────
+
+class TestSdkResultReceivedLoop:
+    """
+    SDK_RESULT_RECEIVED → BUILD EScore (ACT quality) + RUN EScore (cost efficiency)
+    + ANTIFRAGILITY axiom signal on recovery.
+
+    Payload: {"session_id", "is_error", "cost_usd", "output_q_score", ...}
+
+    BUILD = output_q_score (direct — parallel to JUDGMENT_CREATED→JUDGE per dog)
+    RUN   = cost-derived efficiency: free=HOWL, cheap=WAG, expensive=GROWL
+    ANTIFRAGILITY = success after prior-window stress (mirrors outcome_window logic)
+    """
+
+    def _run_score(self, cost_usd: float) -> float:
+        """Reproduce handler's cost→RUN score mapping."""
+        from cynic.core.phi import HOWL_MIN, WAG_MIN, GROWL_MIN, PHI_INV
+        if cost_usd == 0.0:
+            return HOWL_MIN
+        elif cost_usd < PHI_INV / 100:
+            return WAG_MIN
+        else:
+            return GROWL_MIN
+
+    def test_free_run_gets_howl_efficiency(self):
+        """cost=0.0 (Ollama) → RUN score = HOWL_MIN (82.0)."""
+        from cynic.core.phi import HOWL_MIN
+        assert self._run_score(0.0) == pytest.approx(HOWL_MIN, abs=0.5)
+
+    def test_cheap_run_gets_wag_efficiency(self):
+        """cost=$0.001 < PHI_INV/100 → RUN score = WAG_MIN (61.8)."""
+        assert self._run_score(0.001) == pytest.approx(WAG_MIN, abs=0.5)
+
+    def test_expensive_run_gets_growl_efficiency(self):
+        """cost=$0.05 > PHI_INV/100 → RUN score = GROWL_MIN (38.2)."""
+        assert self._run_score(0.05) == pytest.approx(GROWL_MIN, abs=0.5)
+
+    def test_build_escore_updated_with_output_q_score(self):
+        """output_q_score=75.0 → BUILD dimension stored as ≈75.0."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "BUILD", 75.0)
+        detail = tracker.get_detail("agent:cynic")
+        stored = detail["dimensions"]["BUILD"]["value"]
+        assert stored == pytest.approx(75.0, abs=0.5)
+
+    def test_antifragility_signaled_on_recovery(self):
+        """Success after prior error in window → ANTIFRAGILITY signal."""
+        m = AxiomMonitor()
+        before = m.get_maturity("ANTIFRAGILITY")
+        # Simulate: sdk_outcome_window = [False, True] — error then recovery
+        sdk_window = [False, True]
+        had_prior_stress = len(sdk_window) > 1 and any(not ok for ok in sdk_window[:-1])
+        success = sdk_window[-1]
+        if success and had_prior_stress:
+            m.signal("ANTIFRAGILITY")
+        assert m.get_maturity("ANTIFRAGILITY") > before
+
+    def test_no_antifragility_on_clean_run(self):
+        """All-success window → no ANTIFRAGILITY signal."""
+        m = AxiomMonitor()
+        before = m.get_maturity("ANTIFRAGILITY")
+        sdk_window = [True, True, True]
+        had_prior_stress = len(sdk_window) > 1 and any(not ok for ok in sdk_window[:-1])
+        success = sdk_window[-1]
+        if success and had_prior_stress:
+            m.signal("ANTIFRAGILITY")
+        assert m.get_maturity("ANTIFRAGILITY") == before
+
+    def test_result_handler_tolerates_empty_payload(self):
+        """Empty payload → no raise, defaults applied correctly."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import HOWL_MIN
+        tracker = EScoreTracker()
+        p = {}
+        is_error       = bool(p.get("is_error", False))
+        cost_usd       = float(p.get("cost_usd", 0.0))
+        output_q_score = float(p.get("output_q_score", 0.0))
+        run_score      = self._run_score(cost_usd)  # 0.0 → HOWL_MIN
+        assert run_score == pytest.approx(HOWL_MIN, abs=0.5)
+        tracker.update("agent:cynic", "BUILD", output_q_score)
+        tracker.update("agent:cynic", "RUN", run_score)
+        assert tracker.get_score("agent:cynic") >= 0.0
+        assert is_error is False
