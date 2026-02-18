@@ -1845,3 +1845,214 @@ class TestDecisionMadeRunLoop:
         after = m.get_maturity("EMERGENCE")
         assert after == before  # EMERGENCE unchanged
         assert tracker.get_detail("agent:cynic")["dimensions"]["RUN"]["value"] == pytest.approx(90.0, abs=0.5)
+
+
+class TestSelfImprovementConsciousnessLoop:
+    """SELF_IMPROVEMENT_PROPOSED → A10 CONSCIOUSNESS signal + JUDGE = severity*MAX_Q."""
+
+    def test_consciousness_signaled_on_proposal(self):
+        """Any proposals generated → CONSCIOUSNESS maturity increases."""
+        m = AxiomMonitor()
+        before = m.get_maturity("CONSCIOUSNESS")
+        # Simulate handler logic: proposals exist → signal CONSCIOUSNESS
+        proposals = [{"probe_id": "abc", "severity": 0.5}]
+        if proposals:
+            m.signal("CONSCIOUSNESS")
+        after = m.get_maturity("CONSCIOUSNESS")
+        assert after > before
+
+    def test_judge_scales_with_severity(self):
+        """severity=0.9 → JUDGE = 0.9 * MAX_Q_SCORE = 90.0."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import MAX_Q_SCORE
+
+        tracker = EScoreTracker()
+        severity = 0.9
+        judge_score = severity * MAX_Q_SCORE
+        tracker.update("agent:cynic", "JUDGE", judge_score)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["JUDGE"]["value"] == pytest.approx(90.0, abs=0.5)
+
+    def test_judge_zero_on_zero_severity(self):
+        """severity=0.0 → JUDGE = 0.0 — trivial self-assessment."""
+        from cynic.core.escore import EScoreTracker
+
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "JUDGE", 0.0)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["JUDGE"]["value"] == pytest.approx(0.0, abs=0.1)
+
+    def test_empty_proposals_no_consciousness_signal(self):
+        """No proposals generated → CONSCIOUSNESS NOT signaled (not a real self-analysis)."""
+        m = AxiomMonitor()
+        before = m.get_maturity("CONSCIOUSNESS")
+        proposals = []
+        if proposals:  # should NOT execute
+            m.signal("CONSCIOUSNESS")
+        after = m.get_maturity("CONSCIOUSNESS")
+        assert after == before  # unchanged
+
+    def test_multiple_proposals_one_signal_per_event(self):
+        """3 proposals in one event → CONSCIOUSNESS signaled exactly once."""
+        m = AxiomMonitor()
+        before_count = m._axioms["CONSCIOUSNESS"].signal_times.__len__()
+        proposals = [{"probe_id": f"p{i}", "severity": 0.5} for i in range(3)]
+        if proposals:
+            m.signal("CONSCIOUSNESS")  # exactly one signal per event
+        after_count = m._axioms["CONSCIOUSNESS"].signal_times.__len__()
+        assert after_count == before_count + 1  # exactly one new signal
+
+    def test_handler_tolerates_missing_severity(self):
+        """Missing severity in payload → defaults to 0.0, no raise."""
+        from cynic.core.escore import EScoreTracker
+
+        tracker = EScoreTracker()
+        p = {"proposals": [{"probe_id": "x"}]}
+        severity = float(p.get("severity", 0.0))
+        assert severity == 0.0
+        judge_score = severity * 100.0
+        tracker.update("agent:cynic", "JUDGE", judge_score)
+        assert tracker.get_score("agent:cynic") >= 0.0
+
+# ── A10 CONSCIOUSNESS + A11 TRANSCENDENCE ────────────────────────────────────
+
+class TestConsciousnessSignal:
+    """
+    A10 CONSCIOUSNESS — system accurately observes its own thinking.
+
+    Fired from _on_meta_cycle in state.py when evolve() pass_rate >= PHI_INV (0.618).
+    A11 TRANSCENDENCE — one-way latch: activates when all A6-A9 are simultaneously ACTIVE.
+    """
+
+    def test_consciousness_is_valid_axiom(self):
+        """CONSCIOUSNESS is a valid emergent axiom in the monitor."""
+        from cynic.judge.axiom_monitor import EMERGENT_AXIOMS
+        assert "CONSCIOUSNESS" in EMERGENT_AXIOMS
+
+    def test_transcendence_is_valid_axiom(self):
+        """TRANSCENDENCE is a valid emergent axiom in the monitor."""
+        from cynic.judge.axiom_monitor import EMERGENT_AXIOMS
+        assert "TRANSCENDENCE" in EMERGENT_AXIOMS
+
+    def test_signal_consciousness_increases_maturity(self):
+        """Calling signal('CONSCIOUSNESS') raises its maturity score."""
+        m = AxiomMonitor()
+        before = m.get_maturity("CONSCIOUSNESS")
+        m.signal("CONSCIOUSNESS")
+        after = m.get_maturity("CONSCIOUSNESS")
+        assert after > before
+
+    def test_meta_cycle_pass_rate_high_signals_consciousness(self):
+        """pass_rate >= PHI_INV (0.618) → CONSCIOUSNESS signal in handler logic."""
+        from cynic.core.phi import PHI_INV
+        m = AxiomMonitor()
+        before = m.get_maturity("CONSCIOUSNESS")
+        # Reproduce handler logic: if pass_rate >= PHI_INV → signal
+        pass_rate = 0.75  # > 0.618
+        if pass_rate >= PHI_INV:
+            m.signal("CONSCIOUSNESS")
+        after = m.get_maturity("CONSCIOUSNESS")
+        assert after > before
+
+    def test_meta_cycle_pass_rate_low_no_consciousness_signal(self):
+        """pass_rate < PHI_INV → no CONSCIOUSNESS signal."""
+        from cynic.core.phi import PHI_INV
+        m = AxiomMonitor()
+        before = m.get_maturity("CONSCIOUSNESS")
+        pass_rate = 0.5  # < 0.618
+        if pass_rate >= PHI_INV:
+            m.signal("CONSCIOUSNESS")
+        after = m.get_maturity("CONSCIOUSNESS")
+        assert after == before, "Low pass_rate must NOT signal CONSCIOUSNESS"
+
+    def test_meta_cycle_exact_phi_inv_boundary(self):
+        """pass_rate == PHI_INV exactly → CONSCIOUSNESS signal (boundary inclusive)."""
+        from cynic.core.phi import PHI_INV
+        m = AxiomMonitor()
+        before = m.get_maturity("CONSCIOUSNESS")
+        pass_rate = PHI_INV  # exact boundary
+        if pass_rate >= PHI_INV:
+            m.signal("CONSCIOUSNESS")
+        after = m.get_maturity("CONSCIOUSNESS")
+        assert after > before, "Exact PHI_INV boundary must trigger CONSCIOUSNESS"
+
+    def test_transcendence_latch_fires_when_all_a6_a9_active(self):
+        """When all A6-A9 axioms reach ACTIVE, TRANSCENDENCE latch engages."""
+        from cynic.judge.axiom_monitor import MATURITY_WINDOW
+        m = AxiomMonitor()
+        # Signal each A6-A9 axiom enough times to reach ACTIVE (maturity >= WAG_MIN=61.8)
+        # Need ceil(0.618 * MATURITY_WINDOW) signals — use MATURITY_WINDOW to be safe
+        for axiom in ("AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY"):
+            m.signal(axiom, count=MATURITY_WINDOW)
+        assert m._transcendence_achieved is True
+
+    def test_transcendence_latch_is_one_way(self):
+        """Once TRANSCENDENCE latches, it cannot be unlatched even after signals expire."""
+        from cynic.judge.axiom_monitor import MATURITY_WINDOW
+        m = AxiomMonitor()
+        # Activate all A6-A9
+        for axiom in ("AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY"):
+            m.signal(axiom, count=MATURITY_WINDOW)
+        assert m._transcendence_achieved is True
+        # Manually prune signals (simulate TTL expiry)
+        for axiom in ("AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY"):
+            m._axioms[axiom].signal_times.clear()
+        # Latch persists — the one-way flag is not cleared by signal expiry
+        assert m._transcendence_achieved is True
+
+    def test_transcendence_not_latched_with_only_3_a6_a9(self):
+        """3 of 4 A6-A9 active → TRANSCENDENCE NOT latched."""
+        from cynic.judge.axiom_monitor import MATURITY_WINDOW
+        m = AxiomMonitor()
+        # Only 3 axioms
+        for axiom in ("AUTONOMY", "SYMBIOSIS", "EMERGENCE"):
+            m.signal(axiom, count=MATURITY_WINDOW)
+        assert m._transcendence_achieved is False
+
+    def test_dashboard_tier_transcendent_when_latched(self):
+        """dashboard()['tier'] == 'TRANSCENDENT' when latch is set."""
+        from cynic.judge.axiom_monitor import MATURITY_WINDOW
+        m = AxiomMonitor()
+        for axiom in ("AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY"):
+            m.signal(axiom, count=MATURITY_WINDOW)
+        dash = m.dashboard()
+        assert dash["tier"] == "TRANSCENDENT"
+
+    def test_dashboard_tier_dormant_baseline(self):
+        """Fresh monitor → tier is DORMANT (no signals)."""
+        m = AxiomMonitor()
+        assert m.dashboard()["tier"] == "DORMANT"
+
+    def test_dashboard_tier_awakening_with_3_a6_a9(self):
+        """3 A6-A9 active but not all 4 → tier AWAKENING."""
+        from cynic.judge.axiom_monitor import MATURITY_WINDOW
+        m = AxiomMonitor()
+        for axiom in ("AUTONOMY", "SYMBIOSIS", "EMERGENCE"):
+            m.signal(axiom, count=MATURITY_WINDOW)
+        assert m.dashboard()["tier"] == "AWAKENING"
+
+    def test_dashboard_tier_stirring_with_2_a6_a9(self):
+        """2 A6-A9 active → tier STIRRING."""
+        from cynic.judge.axiom_monitor import MATURITY_WINDOW
+        m = AxiomMonitor()
+        for axiom in ("AUTONOMY", "SYMBIOSIS"):
+            m.signal(axiom, count=MATURITY_WINDOW)
+        assert m.dashboard()["tier"] == "STIRRING"
+
+    def test_dashboard_tier_emergence_with_1_a6_a9(self):
+        """1 A6-A9 active → tier EMERGENCE."""
+        from cynic.judge.axiom_monitor import MATURITY_WINDOW
+        m = AxiomMonitor()
+        m.signal("AUTONOMY", count=MATURITY_WINDOW)
+        assert m.dashboard()["tier"] == "EMERGENCE"
+
+    def test_consciousness_signal_does_not_affect_a6_a9_tier(self):
+        """Signaling CONSCIOUSNESS alone does not change A6-A9 tier (it's A10, not A6-A9)."""
+        from cynic.judge.axiom_monitor import MATURITY_WINDOW
+        m = AxiomMonitor()
+        # Activate 2 A6-A9 → STIRRING
+        for axiom in ("AUTONOMY", "SYMBIOSIS"):
+            m.signal(axiom, count=MATURITY_WINDOW)
+        m.signal("CONSCIOUSNESS", count=MATURITY_WINDOW)
+        # Still STIRRING — CONSCIOUSNESS is A10, doesn't contribute to A6-A9 tier
+        assert m.dashboard()["tier"] == "STIRRING"

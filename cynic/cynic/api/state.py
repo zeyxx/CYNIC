@@ -515,15 +515,60 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         except Exception:
             pass
 
-    # ── L4→P5 bridge: SELF_IMPROVEMENT_PROPOSED → ActionProposer ─────────────
+    # ── L4→P5 bridge: SELF_IMPROVEMENT_PROPOSED → ActionProposer + A10 + JUDGE ─
     # SelfProber (L4) analyzes QTable/EScore/Residual → emits SelfProposals.
     # ActionProposer (P5) shows them in pending_actions.json alongside DECISION_MADE.
     # Closes the loop: self-insight → human-visible action queue → accept/reject.
+    #
+    # NEW: A10 CONSCIOUSNESS signal + JUDGE EScore
+    # The act of self-analysis (any proposals generated) IS the organism being
+    # conscious of its own cognitive state — the definition of A10 CONSCIOUSNESS.
+    #
+    # JUDGE dimension: severity of self-analysis = judgment quality.
+    # Higher severity = CYNIC found a REAL, important problem = accurate self-judge.
+    #   severity=1.0 → JUDGE=100.0 (identified a critical flaw correctly)
+    #   severity=0.5 → JUDGE=50.0  (moderate self-assessment)
+    #   severity=0.0 → JUDGE=0.0   (trivial or no self-assessment)
+    #
+    # Only fires when there ARE proposals (empty run = not a consciousness event).
     async def _on_self_improvement_proposed(event: Event) -> None:
         try:
-            proposals = (event.payload or {}).get("proposals", [])
-            for p in proposals:
-                action_proposer.propose_self_improvement(p)
+            p         = event.payload or {}
+            proposals = p.get("proposals", [])
+            severity  = float(p.get("severity", 0.0))
+
+            # Route proposals to ActionProposer (existing behavior)
+            for prop in proposals:
+                action_proposer.propose_self_improvement(prop)
+
+            if not proposals:
+                return  # No proposals generated → not a consciousness event
+
+            from cynic.core.phi import MAX_Q_SCORE
+
+            # A10 CONSCIOUSNESS: self-analysis happened = organism aware of own state
+            new_state = axiom_monitor.signal("CONSCIOUSNESS")
+            if new_state == "ACTIVE":
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.AXIOM_ACTIVATED,
+                    payload={
+                        "axiom":    "CONSCIOUSNESS",
+                        "maturity": axiom_monitor.get_maturity("CONSCIOUSNESS"),
+                        "trigger":  "SELF_IMPROVEMENT_PROPOSED",
+                        "count":    len(proposals),
+                    },
+                    source="self_improvement",
+                ))
+
+            # JUDGE EScore: severity of self-analysis = self-judgment quality
+            judge_score = severity * MAX_Q_SCORE
+            escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+
+            logger.info(
+                "SELF_IMPROVEMENT_PROPOSED: count=%d severity=%.3f → "
+                "CONSCIOUSNESS signalled, JUDGE=%.1f",
+                len(proposals), severity, judge_score,
+            )
         except Exception:
             pass
 
