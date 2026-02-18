@@ -306,6 +306,26 @@ class QTable:
         logger.info("Loaded %d Q-entries from DB (warm start)", len(rows))
         return len(rows)
 
+    def load_from_entries(self, entries: List[Dict]) -> int:
+        """
+        Warm-start from a list of dicts (source-agnostic).
+
+        Used by SurrealDB path: server.py fetches rows from SurrealDB,
+        passes them here. Same logic as load_from_db() without asyncpg.
+
+        entries: [{"state_key": str, "action": str, "q_value": float, "visit_count": int}, ...]
+        Returns: number of entries loaded.
+        """
+        for row in entries:
+            entry = self._get_or_create(row["state_key"], row["action"])
+            entry.q_value = float(row.get("q_value", 0.5))
+            entry.visits = int(row.get("visit_count", 0))
+            half = max(entry.visits // 2, 0)
+            entry.wins = THOMPSON_PRIOR + half
+            entry.losses = THOMPSON_PRIOR + (entry.visits - half)
+        logger.info("Loaded %d Q-entries from entries (warm start)", len(entries))
+        return len(entries)
+
     # ── Introspection ──────────────────────────────────────────────────────
 
     def stats(self) -> Dict:

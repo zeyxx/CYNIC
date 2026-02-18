@@ -29,13 +29,41 @@ x-restart: &default-restart
 services:
 
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # MEMORY — PostgreSQL (long-term memory, cross-session persistence)
-  # Stores: judgments, Q-Table, benchmarks, E-Scores, Scholar buffer, SDK sessions
+  # MEMORY — SurrealDB (primary organism memory)
+  # Multi-model: relational + document + graph + vector (HNSW cosine)
+  # Replaces: PostgreSQL + Qdrant + ~/.cynic/*.json files
+  # Port 8080: internal only (kernel connects via ws://surrealdb:8080/rpc)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  surrealdb:
+    image: surrealdb/surrealdb:latest
+    container_name: cynic-surrealdb
+    <<: *default-restart
+    command: >
+      start --log info
+      --user root --pass cynic_phi_618
+      file:///data/cynic.db
+    volumes:
+      - cynic-surreal:/data
+    networks:
+      - cynic-body
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging: *default-logging
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # MEMORY (LEGACY) — PostgreSQL (kept for migration, optional)
+  # Active only when profile 'legacy-db' is used.
+  # Remove once SurrealDB migration is verified stable.
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   postgres:
     image: postgres:16-alpine
     container_name: cynic-postgres
     <<: *default-restart
+    profiles: ["legacy-db"]
     environment:
       POSTGRES_DB: cynic_py
       POSTGRES_USER: cynic
@@ -109,13 +137,19 @@ services:
     container_name: cynic-kernel
     <<: *default-restart
     depends_on:
-      postgres:
+      surrealdb:
         condition: service_healthy
       ollama-cpu:
         condition: service_started
     environment:
-      # ── Memory ───────────────────────────────────────────────────────────
-      DATABASE_URL: postgresql://cynic:cynic_phi_618@postgres/cynic_py
+      # ── Memory — SurrealDB (primary) ─────────────────────────────────────
+      SURREAL_URL: ws://surrealdb:8000/rpc
+      SURREAL_USER: root
+      SURREAL_PASS: cynic_phi_618
+      SURREAL_NS: cynic
+      SURREAL_DB: cynic
+      # Legacy asyncpg fallback (unset = SurrealDB only)
+      # DATABASE_URL: postgresql://cynic:cynic_phi_618@postgres/cynic_py
 
       # ── Perception ───────────────────────────────────────────────────────
       # REFLEX tier: CPU Ollama in this network (fast, always-on)
@@ -240,10 +274,16 @@ services:
 # Back these up before any destructive operations.
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 volumes:
+  cynic-surreal:
+    name: cynic-surreal
+    # SurrealDB data — judgments, Q-Table, E-Scores, Scholar, SDK sessions
+    # Multi-model: replaces postgres + qdrant + json files
+    # Size estimate: ~50MB after 100k judgments (more efficient than postgres)
+
   cynic-pgdata:
     name: cynic-pgdata
-    # PostgreSQL data — judgments, Q-Table, E-Scores, benchmarks
-    # Size estimate: ~100MB after 100k judgments
+    # PostgreSQL data (legacy) — kept for migration safety
+    # Unused once SurrealDB migration is verified stable
 
   cynic-ollama:
     name: cynic-ollama

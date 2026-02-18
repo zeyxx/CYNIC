@@ -315,6 +315,29 @@ class ScholarDog(LLMDog):
             logger.warning("ScholarDog: DB warm-start failed: %s", exc)
             return 0
 
+    def load_from_entries(self, entries: list) -> int:
+        """
+        Warm-start buffer from a list of dicts (source-agnostic).
+
+        Used by SurrealDB path: server.py fetches scholar rows from SurrealDB,
+        passes them here (oldest-first). Same logic as load_from_db() without asyncpg.
+
+        entries: [{"cell_text", "q_score", "cell_id", "reality", "ts"}, ...]
+        Returns: count of entries loaded.
+        """
+        for e in entries:
+            self._buffer.append(BufferEntry(
+                cell_text=e.get("cell_text", ""),
+                q_score=e.get("q_score", NEUTRAL_Q),
+                cell_id=e.get("cell_id", ""),
+                reality=e.get("reality", ""),
+                timestamp=e.get("ts", time.time()),
+            ))
+        if entries:
+            self._matrix_dirty = True
+            logger.info("ScholarDog: warm-start %d entries (load_from_entries)", len(entries))
+        return len(entries)
+
     def learn(self, cell_text: str, q_score: float, cell_id: str = "", reality: str = "") -> None:
         """
         Record a completed judgment into Scholar's memory buffer.

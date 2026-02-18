@@ -216,6 +216,38 @@ class ResidualDetector:
         )
         return len(points)
 
+    def load_from_entries(self, entries: List[Dict[str, Any]]) -> int:
+        """
+        Warm-start from a list of dicts (source-agnostic).
+
+        Used by SurrealDB path: server.py fetches residual rows from SurrealDB,
+        passes them here (oldest-first). Same logic as load_from_db() without asyncpg.
+
+        entries: [{"judgment_id", "residual", "reality", "analysis", "unnameable", ...}, ...]
+        Returns: count of points loaded.
+        """
+        for row in entries:
+            point = ResidualPoint(
+                judgment_id=row.get("judgment_id", ""),
+                residual=float(row.get("residual", 0.0)),
+                reality=row.get("reality", "CODE"),
+                analysis=row.get("analysis", "JUDGE"),
+                unnameable=bool(row.get("unnameable", False)),
+                timestamp=float(row.get("observed_at", time.time())),
+            )
+            self._history.append(point)
+            self._observations += 1
+            if point.residual >= ANOMALY_THRESHOLD:
+                self._anomalies += 1
+                self._consecutive_high += 1
+            else:
+                self._consecutive_high = 0
+        logger.info(
+            "ResidualDetector warm-start (entries): %d points loaded (consecutive_high=%d)",
+            len(entries), self._consecutive_high,
+        )
+        return len(entries)
+
     async def _save_point_to_db(self, point: ResidualPoint) -> None:
         """Fire-and-forget: persist one ResidualPoint to DB."""
         try:

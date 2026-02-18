@@ -211,42 +211,83 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("No LLMs available — heuristic mode only (Ollama not running?)")
 
-    # ── Database pool ──────────────────────────────────────────────────────
+    # ── Storage — SurrealDB (primary) then asyncpg (fallback) ─────────────
+    # Priority: SURREAL_URL > DATABASE_URL > no persistence
+    surreal = None
     db_pool = None
-    db_url = os.getenv("DATABASE_URL")
-    if db_url:
+
+    surreal_url = os.getenv("SURREAL_URL")
+    if surreal_url:
         try:
-            import asyncpg  # type: ignore
-            db_pool = await asyncpg.create_pool(dsn=db_url, min_size=2, max_size=10)
+            from cynic.core.storage.surreal import SurrealStorage
+            surreal = await SurrealStorage.create(
+                url=surreal_url,
+                user=os.getenv("SURREAL_USER", "root"),
+                password=os.getenv("SURREAL_PASS", "cynic_phi_618"),
+                namespace=os.getenv("SURREAL_NS", "cynic"),
+                database=os.getenv("SURREAL_DB", "cynic"),
+            )
+            logger.info("*tail wag* SurrealDB active — primary storage")
+        except Exception as exc:
+            logger.warning("SurrealDB unavailable (%s) — falling back to asyncpg", exc)
+            surreal = None
 
-            # Initialize schema (idempotent — CREATE TABLE IF NOT EXISTS)
-            from cynic.core.storage.postgres import SCHEMA_SQL
-            async with db_pool.acquire() as conn:
-                await conn.execute(SCHEMA_SQL)
-            logger.info("DB schema initialized")
+    if surreal is None:
+        db_url = os.getenv("DATABASE_URL")
+        if db_url:
+            try:
+                import asyncpg  # type: ignore
+                db_pool = await asyncpg.create_pool(dsn=db_url, min_size=2, max_size=10)
+                from cynic.core.storage.postgres import SCHEMA_SQL
+                async with db_pool.acquire() as conn:
+                    await conn.execute(SCHEMA_SQL)
+                logger.info("PostgreSQL active — legacy storage")
+            except Exception as exc:
+                logger.warning("DB unavailable (%s) — running without persistence", exc)
+                db_pool = None
 
-            # Warm-start Q-Table from DB
-            state = build_kernel(db_pool=db_pool, registry=registry)
+    # ── Build kernel (always — persistence is wired after) ─────────────────
+    state = build_kernel(db_pool=db_pool, registry=registry)
+
+    # ── Warm-start from SurrealDB ───────────────────────────────────────────
+    if surreal is not None:
+        try:
+            q_entries = await surreal.qtable.get_all()
+            loaded = state.qtable.load_from_entries(q_entries)
+            logger.info("Q-Table warm-start (SurrealDB): %d entries", loaded)
+
+            residual_rows = await surreal.residuals.recent(limit=89)
+            r_loaded = state.residual_detector.load_from_entries(residual_rows)
+            logger.info("ResidualDetector warm-start (SurrealDB): %d points", r_loaded)
+
+            from cynic.dogs.base import DogId
+            scholar_dog = state.orchestrator.dogs.get(DogId.SCHOLAR)
+            if scholar_dog is not None:
+                scholar_rows = await surreal.scholar.recent_entries(limit=89)
+                s_loaded = scholar_dog.load_from_entries(scholar_rows)
+                logger.info("Scholar warm-start (SurrealDB): %d entries", s_loaded)
+        except Exception as exc:
+            logger.warning("SurrealDB warm-start failed (%s) — starting cold", exc)
+
+    # ── Warm-start from asyncpg (legacy path) ──────────────────────────────
+    elif db_pool is not None:
+        try:
             loaded = await state.qtable.load_from_db(db_pool)
             logger.info("Q-Table warm-start: %d entries loaded", loaded)
 
-            # Warm-start benchmarks + enable persistent routing
             registry.set_db_pool(db_pool)
             bench_loaded = await registry.load_benchmarks_from_db(db_pool)
             logger.info("Benchmark warm-start: %d routing entries loaded", bench_loaded)
 
-            # Warm-start ResidualDetector + enable persistent history
             state.residual_detector.set_db_pool(db_pool)
             residual_loaded = await state.residual_detector.load_from_db(db_pool)
             logger.info("ResidualDetector warm-start: %d points loaded", residual_loaded)
 
-            # Wire BenchmarkRegistry — probe_runs persistence for evolve()
             from cynic.benchmark.registry import BenchmarkRegistry
             await BenchmarkRegistry.create_tables(db_pool)
             state.orchestrator.benchmark_registry = BenchmarkRegistry(db_pool)
             logger.info("BenchmarkRegistry wired: probe runs will be persisted")
 
-            # Warm-start Scholar buffer from DB + enable persistent learning
             from cynic.dogs.base import DogId
             scholar_dog = state.orchestrator.dogs.get(DogId.SCHOLAR)
             if scholar_dog is not None and hasattr(scholar_dog, "set_db_pool"):
@@ -254,12 +295,38 @@ async def lifespan(app: FastAPI):
                 scholar_loaded = await scholar_dog.load_from_db(db_pool)
                 logger.info("Scholar warm-start: %d buffer entries loaded", scholar_loaded)
         except Exception as exc:
-            logger.warning("DB unavailable (%s) — running without persistence", exc)
-            db_pool = None
-            state = build_kernel(db_pool=None, registry=registry)
+            logger.warning("asyncpg warm-start failed (%s)", exc)
     else:
-        logger.info("No DATABASE_URL — running without persistence")
-        state = build_kernel(db_pool=None, registry=registry)
+        logger.info("No storage configured — running without persistence")
+
+    # ── SurrealDB event persistence (judgment + residual + sdk) ────────────
+    if surreal is not None:
+        async def _surreal_persist_judgment(event: Event) -> None:
+            try:
+                p = event.payload or {}
+                jid = p.get("judgment_id")
+                if jid:
+                    await surreal.judgments.save(p)
+                    # Also keep Q-Table in sync
+                    sk = p.get("state_key", "")
+                    verdict = p.get("verdict", "")
+                    q_score = float(p.get("q_score", 0.0))
+                    if sk and verdict:
+                        await surreal.qtable.update(sk, verdict, q_score / 100.0)
+            except Exception:
+                pass
+
+        async def _surreal_persist_residual(event: Event) -> None:
+            try:
+                p = event.payload or {}
+                if p.get("judgment_id"):
+                    await surreal.residuals.append(p)
+            except Exception:
+                pass
+
+        get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _surreal_persist_judgment)
+        get_core_bus().on(CoreEvent.RESIDUAL_HIGH, _surreal_persist_residual)
+        logger.info("SurrealDB persistence wired (JUDGMENT_CREATED + RESIDUAL_HIGH)")
 
     # ── EventBusBridge — wire 3 buses together ────────────────────────────
     from cynic.core.event_bus import create_default_bridge
@@ -387,6 +454,8 @@ async def lifespan(app: FastAPI):
     state.learning_loop.stop()
     if state.runner is not None:
         await state.runner.shutdown()
+    if surreal is not None:
+        await surreal.close()
     if db_pool:
         await state.qtable.flush_to_db(db_pool)
         await db_pool.close()

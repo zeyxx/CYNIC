@@ -10,14 +10,15 @@ packages = [{include = "cynic"}]
 python = "^3.11"
 
 # Core
-asyncpg = "^0.29.0"
 pydantic = "^2.6.0"
 pydantic-settings = "^2.2.0"
 httpx = "^0.27.0"
 
-# Database
-sqlalchemy = {extras = ["asyncio"], version = "^2.0.0"}
-alembic = "^1.13.0"
+# Database — SurrealDB (primary multi-model store)
+surrealdb = "^0.3.2"
+
+# Database — asyncpg (legacy fallback, kept for migration safety)
+asyncpg = "^0.29.0"
 
 # API Daemon
 fastapi = "^0.110.0"
