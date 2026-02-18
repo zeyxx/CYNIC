@@ -34,11 +34,14 @@ from cynic.dogs.scout import ScoutDog
 from cynic.judge.orchestrator import JudgeOrchestrator
 from cynic.judge.residual import ResidualDetector
 from cynic.judge.decide import DecideAgent
+from cynic.judge.account import AccountAgent
 from cynic.judge.axiom_monitor import AxiomMonitor
 from cynic.judge.lod import LODController, SurvivalLOD
 from cynic.core.escore import EScoreTracker
 from cynic.learning.qlearning import QTable, LearningLoop
 from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher, SocialWatcher
+from cynic.perceive import checkpoint as _session_checkpoint
+from cynic.perceive.checkpoint import CHECKPOINT_EVERY
 from cynic.scheduler import DogScheduler
 from cynic.act.telemetry import TelemetryStore
 from cynic.perceive.compressor import ContextCompressor
@@ -94,7 +97,8 @@ class AppState:
     started_at: float = field(default_factory=time.time)
     _pool: Optional[object] = None  # asyncpg pool (None if no DB)
     last_judgment: Optional[Dict] = None  # state_key, action, judgment_id — for /feedback
-    decide_agent: Optional[object] = None  # DecideAgent — auto-decides on BARK/GROWL
+    decide_agent: Optional[object] = None   # DecideAgent — auto-decides on BARK/GROWL
+    account_agent: Optional[object] = None  # AccountAgent — step 6 cost ledger
     runner: Optional[object] = None        # ClaudeCodeRunner — spawns claude autonomously
     telemetry_store: TelemetryStore = field(default_factory=TelemetryStore)  # session data
     context_compressor: ContextCompressor = field(default_factory=ContextCompressor)  # γ2 token budget
@@ -186,6 +190,12 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     decide_agent = DecideAgent(qtable=qtable)
     decide_agent.start(get_core_bus())
 
+    # ── AccountAgent — step 6 (ACCOUNT): cost ledger + budget enforcement ──
+    # Subscribes to JUDGMENT_CREATED. Tracks cost per reality/dog.
+    # Emits BUDGET_WARNING at PHI_INV_2 remaining, BUDGET_EXHAUSTED at 0.
+    # Updates EScore "RUN" dimension: free Ollama + high Q → RUN=100.
+    account_agent = AccountAgent()
+
     # ── EMERGENCE_DETECTED -> META cycle trigger ───────────────────────────
     # When ResidualDetector detects an emergence pattern, submit a META cell
     # to the scheduler so the organism can evolve in response.
@@ -217,10 +227,18 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     # their E-Score recovers above the φ-threshold.
     orchestrator.escore_tracker = escore_tracker
 
+    # ── AccountAgent EScoreTracker injection + start ────────────────────────
+    # RUN dimension: AccountAgent rewards efficient Dogs (high Q / low cost).
+    # JUDGE dimension: _on_judgment_for_intelligence (below) updates Dog JUDGE.
+    # Together: JUDGE tracks prediction accuracy, RUN tracks cost efficiency.
+    account_agent.set_escore_tracker(escore_tracker)
+    account_agent.start(get_core_bus())
+
+    _escore_persist_counter = [0]  # mutable cell for closure
+
     async def _on_judgment_for_intelligence(event: Event) -> None:
         try:
             p = event.payload
-            q = float(p.get("q_score", 0.0))
             err_rate = float(p.get("error_rate", 0.0))
             latency = float(p.get("duration_ms", 0.0))
 
@@ -231,6 +249,11 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
             dog_votes: dict = p.get("dog_votes") or {}
             for dog_id, vote_score in dog_votes.items():
                 escore_tracker.update(f"agent:{dog_id}", "JUDGE", float(vote_score))
+
+            # Persist E-Score to DB every 5 judgments (non-blocking best-effort)
+            _escore_persist_counter[0] += 1
+            if _escore_persist_counter[0] % 5 == 0 and db_pool is not None:
+                await escore_tracker.persist(db_pool)
 
         except Exception:
             pass  # Never block the judgment pipeline
@@ -297,6 +320,10 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     # the Cell context with recent session history before LLM calls.
     # This gives SAGE and other LLM dogs temporal continuity across judgments.
     compressor = ContextCompressor()
+    # Restore session context from last checkpoint (cross-crash continuity)
+    _n_restored = _session_checkpoint.restore(compressor)
+    if _n_restored:
+        logger.info("build_kernel: session checkpoint restored %d chunks", _n_restored)
 
     # ── Compressor ↔ SAGE bidirectional attention loop ─────────────────────
     # SAGE reads compressed context (Compressor→SAGE, existing).
@@ -305,6 +332,8 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     sage = dogs.get(DogId.SAGE)
     if sage is not None and hasattr(sage, "set_compressor"):
         sage.set_compressor(compressor)
+
+    _checkpoint_counter = [0]  # mutable cell for closure
 
     async def _on_judgment_for_compressor(event: Event) -> None:
         try:
@@ -315,6 +344,11 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
             preview = str(p.get("content_preview", ""))[:120].replace("\n", " ")
             summary = f"[{verdict} Q={q:.1f}] {sk}: {preview}"
             compressor.add(summary)
+
+            # γ2: Checkpoint session every CHECKPOINT_EVERY (F(8)=21) judgments
+            _checkpoint_counter[0] += 1
+            if _checkpoint_counter[0] % CHECKPOINT_EVERY == 0:
+                _session_checkpoint.save(compressor)
         except Exception:
             pass  # Never block on compressor errors
 
@@ -350,6 +384,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         scheduler=scheduler,
         _pool=db_pool,
         decide_agent=decide_agent,
+        account_agent=account_agent,
         context_compressor=compressor,
         axiom_monitor=axiom_monitor,
         lod_controller=lod_controller,
@@ -370,3 +405,28 @@ def get_state() -> AppState:
     if _state is None:
         raise RuntimeError("AppState not initialized — lifespan not started")
     return _state
+
+
+async def restore_state(state: AppState) -> None:
+    """
+    Restore persistent state after kernel startup.
+
+    Call this in the FastAPI lifespan, AFTER build_kernel() and set_state().
+    Restores:
+      - EScoreTracker entities from e_scores table (γ4)
+      - ContextCompressor session from ~/.cynic/session-latest.json (γ2)
+    """
+    from cynic.perceive import checkpoint as _ckpt
+
+    pool = state._pool
+
+    # γ4: Restore E-Score reputation (DB)
+    if pool is not None:
+        n = await state.escore_tracker.restore(pool)
+        logger.info("restore_state: EScore restored %d entities", n)
+    else:
+        logger.info("restore_state: no DB pool — EScore not restored")
+
+    # γ2: Restore session context (disk)
+    n = _ckpt.restore(state.context_compressor)
+    logger.info("restore_state: session checkpoint restored %d chunks", n)

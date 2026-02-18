@@ -334,6 +334,51 @@ class ContextCompressor:
             attn.append(1.0)
         return self.compress(self._chunks, effective_budget, chunk_attentions=attn)
 
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Serialize compressor state for checkpointing.
+
+        Returns a JSON-serializable dict with chunks, attention weights,
+        and metadata needed to restore the session across restarts.
+        """
+        attn = list(self._chunk_attention[:len(self._chunks)])
+        while len(attn) < len(self._chunks):
+            attn.append(1.0)
+        return {
+            "chunks": list(self._chunks),
+            "chunk_attention": attn,
+            "max_tokens": self._max_tokens,
+            "compressions": self._compressions,
+            "total_input_tokens": self._total_input_tokens,
+        }
+
+    def restore_from_dict(self, data: Dict[str, Any]) -> int:
+        """
+        Restore compressor state from a checkpoint dict.
+
+        Replaces current state entirely. Trims to _max_chunks if needed.
+        Returns number of chunks restored.
+        """
+        chunks = data.get("chunks", [])
+        attns = data.get("chunk_attention", [])
+
+        # Direct restore — skip add() to preserve attention weights
+        self._chunks = list(chunks)
+        self._chunk_attention = [
+            attns[i] if i < len(attns) else 1.0
+            for i in range(len(chunks))
+        ]
+        self._compressions = data.get("compressions", 0)
+        self._total_input_tokens = data.get("total_input_tokens", 0)
+
+        # Enforce rolling window
+        while len(self._chunks) > self._max_chunks:
+            self._chunks.pop(0)
+            if self._chunk_attention:
+                self._chunk_attention.pop(0)
+
+        return len(self._chunks)
+
     def clear(self) -> None:
         """Clear session history (start of new session)."""
         self._chunks = []

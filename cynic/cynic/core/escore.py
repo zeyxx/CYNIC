@@ -303,6 +303,88 @@ class EScoreTracker:
 
     # ── Private ───────────────────────────────────────────────────────────
 
+    # ── Persistence ───────────────────────────────────────────────────────
+
+    async def persist(self, pool) -> int:
+        """
+        Write all entity scores to the e_scores table.
+
+        Uses ON CONFLICT upsert — safe to call repeatedly.
+        Returns number of entities written.
+        """
+        if not self._entities or pool is None:
+            return 0
+
+        written = 0
+        async with pool.acquire() as conn:
+            for entity_id, entity in self._entities.items():
+                dims = entity.dims
+                get_v = lambda d: dims[d].value if d in dims else DEFAULT_DIM_SCORE  # noqa: E731
+                try:
+                    await conn.execute("""
+                        INSERT INTO e_scores
+                            (agent_id, total, burn_score, build_score, judge_score,
+                             run_score, social_score, graph_score, hold_score)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                        ON CONFLICT (agent_id) DO UPDATE SET
+                            total        = EXCLUDED.total,
+                            burn_score   = EXCLUDED.burn_score,
+                            build_score  = EXCLUDED.build_score,
+                            judge_score  = EXCLUDED.judge_score,
+                            run_score    = EXCLUDED.run_score,
+                            social_score = EXCLUDED.social_score,
+                            graph_score  = EXCLUDED.graph_score,
+                            hold_score   = EXCLUDED.hold_score,
+                            updated_at   = NOW()
+                    """,
+                        entity_id,
+                        entity.aggregate_score(),
+                        get_v("BURN"), get_v("BUILD"), get_v("JUDGE"),
+                        get_v("RUN"), get_v("SOCIAL"), get_v("GRAPH"), get_v("HOLD"),
+                    )
+                    written += 1
+                except Exception as exc:
+                    logger.debug("EScore persist failed for %s: %s", entity_id, exc)
+
+        logger.info("EScoreTracker: persisted %d entities to DB", written)
+        return written
+
+    async def restore(self, pool) -> int:
+        """
+        Load entity scores from e_scores table on startup.
+
+        Directly sets dimension values (no EMA — recovering exact saved state).
+        Returns number of entities restored.
+        """
+        if pool is None:
+            return 0
+        try:
+            async with pool.acquire() as conn:
+                rows = await conn.fetch("SELECT * FROM e_scores")
+
+            dim_columns = {
+                "BURN":   "burn_score",
+                "BUILD":  "build_score",
+                "JUDGE":  "judge_score",
+                "RUN":    "run_score",
+                "SOCIAL": "social_score",
+                "GRAPH":  "graph_score",
+                "HOLD":   "hold_score",
+            }
+            for row in rows:
+                entity = self._get_or_create(row["agent_id"])
+                for dim, col in dim_columns.items():
+                    ds = entity.get_dim(dim)
+                    ds.value = float(row[col])
+                    ds.updates = 1  # mark as initialized (not a fresh default)
+
+            count = len(rows)
+            logger.info("EScoreTracker: restored %d entities from DB", count)
+            return count
+        except Exception as exc:
+            logger.warning("EScoreTracker restore failed: %s", exc)
+            return 0
+
     def _get_or_create(self, entity_id: str) -> EntityScore:
         if entity_id not in self._entities:
             self._entities[entity_id] = EntityScore(entity_id=entity_id)

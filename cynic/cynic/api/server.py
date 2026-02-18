@@ -58,7 +58,7 @@ from cynic.api.models import (
     HealthResponse,
     StatsResponse,
 )
-from cynic.api.state import build_kernel, set_state, get_state
+from cynic.api.state import build_kernel, set_state, get_state, restore_state
 from cynic.core.storage.postgres import JudgmentRepository, SDKSessionRepository as _SDKSessionRepo
 
 logger = logging.getLogger("cynic.api.server")
@@ -195,6 +195,7 @@ async def lifespan(app: FastAPI):
     logger.info("EventBusBridge active: %d rules", len(_bridge._rules))
 
     set_state(state)
+    await restore_state(state)  # γ2 + γ4: EScore + session context (cross-crash)
     state.scheduler.start()
 
     # ── ClaudeCodeRunner — CYNIC spawns Claude Code autonomously ──────────
