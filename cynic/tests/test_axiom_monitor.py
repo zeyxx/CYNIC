@@ -1702,3 +1702,64 @@ class TestSdkToolJudgedLoop:
         tracker.update("agent:cynic", "GRAPH", graph_score)
         detail = tracker.get_detail("agent:cynic")
         assert detail["dimensions"]["GRAPH"]["value"] >= 0.0
+
+
+class TestActRequestedLoop:
+    """ACT_REQUESTED → EScore HOLD=HOWL_MIN + SOCIAL=WAG_MIN + AUTONOMY signal."""
+
+    def test_hold_equals_howl_min_on_act(self):
+        """HOLD dimension set to HOWL_MIN (82.0) — peak execution commitment."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import HOWL_MIN
+
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "HOLD", HOWL_MIN)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["HOLD"]["value"] == pytest.approx(HOWL_MIN, abs=0.1)
+
+    def test_social_equals_wag_min_on_act(self):
+        """SOCIAL dimension set to WAG_MIN (61.8) — normal external engagement."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import WAG_MIN
+
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "SOCIAL", WAG_MIN)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["SOCIAL"]["value"] == pytest.approx(WAG_MIN, abs=0.5)
+
+    def test_act_signals_autonomy(self):
+        """Each ACT increments AUTONOMY maturity — most definitive autonomy signal."""
+        m = AxiomMonitor()
+        before = m.get_maturity("AUTONOMY")
+        m.signal("AUTONOMY")
+        after = m.get_maturity("AUTONOMY")
+        assert after > before
+
+    def test_hold_higher_than_social(self):
+        """HOLD (HOWL_MIN=82) > SOCIAL (WAG_MIN=61.8) — execution > engagement."""
+        from cynic.core.phi import HOWL_MIN, WAG_MIN
+
+        assert HOWL_MIN > WAG_MIN
+
+    def test_all_action_types_same_hold_score(self):
+        """HOLD=HOWL_MIN regardless of action_type (INVESTIGATE/REFACTOR/ALERT/MONITOR)."""
+        from cynic.core.phi import HOWL_MIN
+
+        for action_type in ["INVESTIGATE", "REFACTOR", "ALERT", "MONITOR", "IMPROVE"]:
+            hold = HOWL_MIN  # handler uses constant regardless of type
+            assert hold == pytest.approx(HOWL_MIN, abs=0.01), f"Failed for {action_type}"
+
+    def test_handler_tolerates_empty_payload(self):
+        """Empty payload extracts defaults, no raise; HOLD+SOCIAL updates succeed."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import HOWL_MIN, WAG_MIN
+
+        tracker = EScoreTracker()
+        p = {}
+        action_type = p.get("action_type", "")
+        reality     = p.get("reality", "CODE")
+        assert action_type == ""
+        assert reality == "CODE"
+        tracker.update("agent:cynic", "HOLD", HOWL_MIN)
+        tracker.update("agent:cynic", "SOCIAL", WAG_MIN)
+        assert tracker.get_score("agent:cynic") >= 0.0

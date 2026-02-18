@@ -1285,6 +1285,59 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
 
     get_core_bus().on(CoreEvent.ANOMALY_DETECTED, _on_anomaly_detected)
 
+    # ── ACT_REQUESTED → EScore HOLD + SOCIAL + AUTONOMY signal ───────────────
+    # Emitted by server.py at two sites:
+    #   1. accept_action()  — human approved a ProposedAction
+    #   2. ws_sdk handler   — Claude SDK ACT phase starts
+    # Payload: {"action_id": str, "action_type": str, "prompt": str,
+    #           "reality": str, "verdict": str}
+    #
+    # HOLD dimension = "long-term commitment / execution depth"
+    # ACT is the organism's most committed phase — the organism is now DOING, not
+    # just planning. HOWL_MIN (82.0) signals deep engagement.
+    #
+    # SOCIAL dimension = "organism engaging with external systems"
+    # Every ACT reaches outward (file, shell, API, Claude SDK). WAG_MIN (61.8)
+    # signals normal external engagement.
+    #
+    # AUTONOMY axiom: organism taking autonomous action is the purest signal of
+    # self-direction. Every ACT_REQUESTED increments maturity toward ACTIVE.
+    async def _on_act_requested_for_organism(event: Event) -> None:
+        try:
+            p           = event.payload or {}
+            action_type = p.get("action_type", "")
+            reality     = p.get("reality", "CODE")
+
+            from cynic.core.phi import HOWL_MIN, WAG_MIN
+
+            # HOLD: execution = peak long-term commitment
+            escore_tracker.update("agent:cynic", "HOLD", HOWL_MIN)
+            # SOCIAL: organism engaging with external systems
+            escore_tracker.update("agent:cynic", "SOCIAL", WAG_MIN)
+
+            # AUTONOMY: organism taking autonomous action — most definitive form
+            new_state = axiom_monitor.signal("AUTONOMY")
+            if new_state == "ACTIVE":
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.AXIOM_ACTIVATED,
+                    payload={
+                        "axiom":    "AUTONOMY",
+                        "maturity": axiom_monitor.get_maturity("AUTONOMY"),
+                        "trigger":  "ACT_REQUESTED",
+                    },
+                    source="act_requested",
+                ))
+
+            logger.info(
+                "ACT_REQUESTED: type=%s reality=%s → HOLD=%.1f SOCIAL=%.1f%s",
+                action_type, reality, HOWL_MIN, WAG_MIN,
+                " AUTONOMY signalled" if new_state == "ACTIVE" else "",
+            )
+        except Exception:
+            pass
+
+    get_core_bus().on(CoreEvent.ACT_REQUESTED, _on_act_requested_for_organism)
+
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),
     # /judge (MACRO), or DogScheduler background workers (MACRO with SAGE).
