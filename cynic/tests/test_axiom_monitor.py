@@ -178,3 +178,77 @@ class TestAxiomDashboard:
         d = m.dashboard()
         for ax in EMERGENT_AXIOMS:
             assert ax in d["axioms"]
+
+
+class TestAxiomBudgetMultiplier:
+    """γ3: Axiom health → budget multiplier → consciousness level selection."""
+
+    def _make_orchestrator_with_monitor(self, monitor):
+        """Build a minimal orchestrator with injected axiom_monitor."""
+        from unittest.mock import MagicMock
+        from cynic.judge.orchestrator import JudgeOrchestrator
+        from cynic.core.axioms import AxiomArchitecture
+        from cynic.dogs.cynic_dog import CynicDog
+        arch = AxiomArchitecture()
+        cynic_dog = MagicMock(spec=CynicDog)
+        orch = JudgeOrchestrator(dogs={}, axiom_arch=arch, cynic_dog=cynic_dog)
+        orch.axiom_monitor = monitor
+        return orch
+
+    def test_no_monitor_multiplier_is_one(self):
+        from cynic.judge.orchestrator import JudgeOrchestrator
+        from cynic.core.axioms import AxiomArchitecture
+        from unittest.mock import MagicMock
+        from cynic.dogs.cynic_dog import CynicDog
+        arch = AxiomArchitecture()
+        orch = JudgeOrchestrator(dogs={}, axiom_arch=arch, cynic_dog=MagicMock(spec=CynicDog))
+        assert orch.axiom_monitor is None
+        assert orch._axiom_budget_multiplier() == 1.0
+
+    def test_zero_active_axioms_multiplier(self):
+        m = AxiomMonitor()  # no signals → 0 active
+        orch = self._make_orchestrator_with_monitor(m)
+        mult = orch._axiom_budget_multiplier()
+        # PHI^(0-2) = PHI^-2 = PHI_INV_2 ≈ 0.382
+        assert abs(mult - 0.382) < 0.01
+
+    def test_two_active_axioms_multiplier_neutral(self):
+        m = AxiomMonitor()
+        # Force 2 axioms to ACTIVE by saturating their signal windows
+        for _ in range(MATURITY_WINDOW):
+            m.signal("EMERGENCE")
+            m.signal("AUTONOMY")
+        orch = self._make_orchestrator_with_monitor(m)
+        mult = orch._axiom_budget_multiplier()
+        # PHI^(2-2) = PHI^0 = 1.0
+        assert abs(mult - 1.0) < 0.01
+
+    def test_four_active_axioms_max_multiplier(self):
+        m = AxiomMonitor()
+        for ax in ("EMERGENCE", "AUTONOMY", "SYMBIOSIS", "ANTIFRAGILITY"):
+            for _ in range(MATURITY_WINDOW):
+                m.signal(ax)
+        orch = self._make_orchestrator_with_monitor(m)
+        mult = orch._axiom_budget_multiplier()
+        # PHI^(4-2) = PHI^2 ≈ 2.618
+        assert abs(mult - 2.618) < 0.01
+
+    def test_multiplier_scales_effective_budget(self):
+        """Axiom health should visibly shift the budget used in level selection."""
+        from cynic.core.phi import PHI_INV_2, PHI, PHI_2
+        m_stressed = AxiomMonitor()  # 0 active → multiplier 0.382
+        m_healthy = AxiomMonitor()
+        for ax in ("EMERGENCE", "AUTONOMY", "SYMBIOSIS", "ANTIFRAGILITY"):
+            for _ in range(MATURITY_WINDOW):
+                m_healthy.signal(ax)
+
+        orch_stressed = self._make_orchestrator_with_monitor(m_stressed)
+        orch_healthy = self._make_orchestrator_with_monitor(m_healthy)
+
+        budget = 0.05  # base budget
+        stressed_eff = budget * orch_stressed._axiom_budget_multiplier()
+        healthy_eff = budget * orch_healthy._axiom_budget_multiplier()
+
+        assert stressed_eff < budget < healthy_eff
+        assert abs(stressed_eff - budget * PHI_INV_2) < 0.001
+        assert abs(healthy_eff - budget * PHI_2) < 0.001

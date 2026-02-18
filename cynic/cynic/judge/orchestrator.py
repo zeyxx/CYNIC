@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from cynic.core.phi import (
-    MAX_Q_SCORE, MAX_CONFIDENCE, PHI_INV, PHI_INV_2,
+    MAX_Q_SCORE, MAX_CONFIDENCE, PHI_INV, PHI_INV_2, PHI,
     phi_bound_score, LEARNING_RATE, fibonacci,
 )
 from cynic.core.consciousness import (
@@ -95,6 +95,7 @@ class JudgeOrchestrator:
         self.residual_detector = residual_detector  # Optional[ResidualDetector]
         self.benchmark_registry = None  # Optional[BenchmarkRegistry] — set via state.py
         self.escore_tracker = None  # Optional[EScoreTracker] — injected via state.py
+        self.axiom_monitor = None  # Optional[AxiomMonitor] — γ3: axiom health → budget multiplier
         self._judgment_count = 0
         self._consciousness = get_consciousness()
         # evolve() history — last F(8)=21 META cycles
@@ -115,7 +116,9 @@ class JudgeOrchestrator:
 
         Level auto-selected if None (based on budget and timer health).
         """
-        level = level or self._select_level(cell, budget_usd or cell.budget_usd)
+        # γ3: scale budget by axiom health before level selection
+        effective_budget = (budget_usd or cell.budget_usd) * self._axiom_budget_multiplier()
+        level = level or self._select_level(cell, effective_budget)
         pipeline = JudgmentPipeline(cell=cell, level=level)
 
         # Circuit breaker — fast-fail when cascade failure detected (topology M1)
@@ -221,6 +224,29 @@ class JudgeOrchestrator:
                 payload={"cell_id": cell.cell_id, "error": str(e)},
             ))
             raise
+
+    # ── γ3: AXIOM → BUDGET MULTIPLIER ─────────────────────────────────────
+
+    def _axiom_budget_multiplier(self) -> float:
+        """
+        Compute budget multiplier from emergent axiom health (γ3 loop).
+
+        Active axioms signal a healthy, coordinated organism — it can afford
+        deeper judgment (MACRO). Dormant axioms signal stress — conserve budget.
+
+        Multiplier table (φ-derived):
+            0 active axioms → PHI_INV_2 = 0.382  (stressed  → REFLEX/MICRO)
+            1 active axiom  → PHI_INV   = 0.618  (stirring  → MICRO)
+            2 active axioms → 1.0                (balanced  → MACRO)
+            3 active axioms → PHI       = 1.618  (healthy   → deeper MACRO)
+            4 active axioms → PHI²      = 2.618  (peak      → max depth)
+
+        Formula: PHI ** (active_count - 2)  →  range [0.382, 2.618]
+        """
+        if self.axiom_monitor is None:
+            return 1.0
+        active = self.axiom_monitor.active_count()
+        return PHI ** (active - 2)
 
     # ── LEVEL SELECTION ────────────────────────────────────────────────────
 

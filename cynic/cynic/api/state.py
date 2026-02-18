@@ -238,6 +238,11 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     # their E-Score recovers above the φ-threshold.
     orchestrator.escore_tracker = escore_tracker
 
+    # ── γ3: Axiom→Budget multiplier — wire axiom_monitor into orchestrator ──
+    # Orchestrator scales budget_usd by PHI^(active_count-2) before level selection.
+    # More active axioms → larger budget → deeper judgment → more axiom signals.
+    orchestrator.axiom_monitor = axiom_monitor
+
     # ── AccountAgent EScoreTracker injection + start ────────────────────────
     # RUN dimension: AccountAgent rewards efficient Dogs (high Q / low cost).
     # JUDGE dimension: _on_judgment_for_intelligence (below) updates Dog JUDGE.
