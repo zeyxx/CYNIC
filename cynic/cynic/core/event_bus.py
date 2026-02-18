@@ -109,6 +109,11 @@ class CoreEvent(str, Enum):
     ACT_REQUESTED  = "act.requested"
     DECISION_MADE  = "decide.made"
 
+    # SDK (Claude Code --sdk-url sessions)
+    SDK_SESSION_STARTED  = "sdk.session_started"
+    SDK_TOOL_JUDGED      = "sdk.tool_judged"
+    SDK_RESULT_RECEIVED  = "sdk.result_received"
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # AUTOMATION BUS EVENTS

@@ -27,7 +27,8 @@ import os
 import time
 import uuid
 from contextlib import asynccontextmanager
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -54,6 +55,48 @@ from cynic.core.storage.postgres import JudgmentRepository
 logger = logging.getLogger("cynic.api.server")
 
 _boot_time = time.time()
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# SDK SESSION REGISTRY
+# ════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class SDKSession:
+    """
+    Tracks one active Claude Code --sdk-url WebSocket session.
+
+    Each session is a running `claude --sdk-url ws://localhost:PORT/ws/sdk`
+    process. CYNIC is the server; Claude Code is the client (the HANDS).
+    """
+    session_id: str
+    ws: Any                                  # WebSocket — typed as Any to avoid circular import issues
+    cwd: str = ""
+    tools: List[str] = field(default_factory=list)
+    model: str = "unknown"
+    claude_code_version: str = ""
+    total_cost_usd: float = 0.0
+    connected_at: float = field(default_factory=time.time)
+    log: List[Dict[str, Any]] = field(default_factory=list)
+
+    def record(self, msg_type: str, data: Dict[str, Any]) -> None:
+        self.log.append({"type": msg_type, "data": data, "ts": time.time()})
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "session_id": self.session_id,
+            "cwd": self.cwd,
+            "model": self.model,
+            "claude_code_version": self.claude_code_version,
+            "tools": self.tools,
+            "total_cost_usd": round(self.total_cost_usd, 6),
+            "connected_at": self.connected_at,
+            "events": len(self.log),
+        }
+
+
+# Process-level registry of active SDK sessions
+_sdk_sessions: Dict[str, SDKSession] = {}
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -791,6 +834,341 @@ async def ws_stream(websocket: WebSocket) -> None:
             bus.off(ev_type, on_event)
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# WS /ws/sdk  (Claude Code --sdk-url server — CYNIC is the BRAIN)
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.websocket("/ws/sdk")
+async def ws_sdk(websocket: WebSocket) -> None:
+    """
+    Claude Code SDK WebSocket server.
+
+    Claude Code connects here as a HEADLESS CLIENT when launched with:
+      claude --sdk-url ws://localhost:8765/ws/sdk \\
+             --print --output-format stream-json --input-format stream-json
+
+    CYNIC is the SERVER (the BRAIN). Claude Code is the CLIENT (the HANDS).
+    CYNIC intercepts every tool use, judges it with GUARDIAN (REFLEX level),
+    and learns from every result to build the Q-Table from real usage.
+
+    Message flow (NDJSON — each line is one JSON object):
+
+      CLI → CYNIC: system/init        → record session metadata
+      CLI → CYNIC: can_use_tool       → CYNIC judges → control_response allow/deny
+      CLI → CYNIC: assistant          → record to session log
+      CLI → CYNIC: result             → record cost, emit SDK_RESULT_RECEIVED
+      CLI → CYNIC: keep_alive         → respond keep_alive
+
+      CYNIC → CLI: keep_alive         → heartbeat
+      CYNIC → CLI: user               → send task (via POST /sdk/task)
+      CYNIC → CLI: control_response   → approve/deny/modify tool use
+      CYNIC → CLI: set_model          → switch Sonnet/Haiku mid-session
+
+    Bootstrap loop:
+      Phase 1: CYNIC intercepts all tool calls → builds Q-Table from real Claude sessions
+      Phase 2: Q-Table confidence rises → CYNIC routes simple tasks to Ollama
+      Phase 3: 80%+ tasks → Ollama ($0 cost). Claude only for novel tasks.
+    """
+    await websocket.accept()
+    state = get_state()
+    bus = get_core_bus()
+
+    session_id = str(uuid.uuid4())
+    session = SDKSession(session_id=session_id, ws=websocket)
+    _sdk_sessions[session_id] = session
+
+    logger.info("*ears perk* SDK session connected: %s", session_id)
+
+    async def _send(msg: Dict[str, Any]) -> None:
+        """Send one NDJSON message to Claude Code."""
+        await websocket.send_text(json.dumps(msg) + "\n")
+
+    async def _judge_tool(tool_name: str, tool_input: Dict[str, Any]) -> str:
+        """
+        Fast REFLEX judgment on a tool use request.
+        Returns "BARK"/"GROWL"/"WAG"/"HOWL".
+        """
+        from cynic.core.judgment import Cell
+        cell = Cell(
+            reality="CODE",
+            analysis="JUDGE",
+            content=f"{tool_name}: {json.dumps(tool_input)[:400]}",
+            context=f"SDK tool use — session {session_id[:8]}",
+            lod=0,
+            budget_usd=0.0005,
+        )
+        try:
+            judgment = await state.orchestrator.run(
+                cell, level=ConsciousnessLevel.REFLEX
+            )
+            return judgment.verdict
+        except Exception as exc:
+            logger.warning("SDK tool judgment error: %s", exc)
+            return "WAG"  # Safe default: allow on error
+
+    try:
+        while True:
+            raw = await websocket.receive_text()
+
+            # NDJSON: each frame may contain one or more \n-terminated objects
+            for line in raw.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    msg = json.loads(line)
+                except json.JSONDecodeError:
+                    logger.debug("SDK invalid JSON: %r", line[:100])
+                    continue
+
+                msg_type = msg.get("type", "")
+                msg_subtype = msg.get("subtype", "")
+
+                # ── system/init ──────────────────────────────────────────────
+                if msg_type == "system" and msg_subtype == "init":
+                    session.cwd = msg.get("cwd", "")
+                    session.tools = msg.get("tools", [])
+                    session.model = msg.get("model", "unknown")
+                    session.claude_code_version = msg.get("claude_code_version", "")
+                    session.record("init", {
+                        "cwd": session.cwd,
+                        "model": session.model,
+                        "tools_count": len(session.tools),
+                    })
+
+                    logger.info(
+                        "*sniff* SDK init: model=%s tools=%d cwd=%s",
+                        session.model, len(session.tools), session.cwd,
+                    )
+
+                    await bus.emit(Event(
+                        type=CoreEvent.SDK_SESSION_STARTED,
+                        payload={
+                            "session_id": session_id,
+                            "model": session.model,
+                            "cwd": session.cwd,
+                            "tools": session.tools,
+                        },
+                        source="ws_sdk",
+                    ))
+
+                    # Respond with keep_alive — server is ready
+                    await _send({"type": "keep_alive"})
+
+                # ── can_use_tool (tool permission request) ───────────────────
+                elif msg_type == "control_request" and msg_subtype == "can_use_tool":
+                    request_id = msg.get("request_id", str(uuid.uuid4()))
+                    request = msg.get("request", {})
+                    tool_name = request.get("tool_name", "unknown")
+                    tool_input = request.get("input", {})
+
+                    verdict = await _judge_tool(tool_name, tool_input)
+
+                    if verdict == "BARK":
+                        # GUARDIAN blocks: deny tool use
+                        deny_msg = f"*GROWL* CYNIC GUARDIAN blocked: {tool_name}"
+                        response = {
+                            "type": "control_response",
+                            "response": {
+                                "subtype": "success",
+                                "request_id": request_id,
+                                "response": {
+                                    "behavior": "deny",
+                                    "message": deny_msg,
+                                },
+                            },
+                        }
+                        logger.warning("*GROWL* SDK BLOCKED: %s", tool_name)
+                    else:
+                        # WAG / GROWL / HOWL → allow (GROWL logs warning)
+                        if verdict == "GROWL":
+                            logger.warning("*sniff* SDK WARNED: %s (Q low)", tool_name)
+                        response = {
+                            "type": "control_response",
+                            "response": {
+                                "subtype": "success",
+                                "request_id": request_id,
+                                "response": {
+                                    "behavior": "allow",
+                                    "updatedInput": tool_input,
+                                },
+                            },
+                        }
+
+                    await _send(response)
+
+                    session.record("tool_judged", {
+                        "tool": tool_name,
+                        "verdict": verdict,
+                        "behavior": "deny" if verdict == "BARK" else "allow",
+                    })
+
+                    await bus.emit(Event(
+                        type=CoreEvent.SDK_TOOL_JUDGED,
+                        payload={
+                            "session_id": session_id,
+                            "tool": tool_name,
+                            "verdict": verdict,
+                        },
+                        source="ws_sdk",
+                    ))
+
+                # ── assistant (Claude's response — streaming) ────────────────
+                elif msg_type == "assistant":
+                    message = msg.get("message", {})
+                    usage = message.get("usage", {})
+                    content = message.get("content", [])
+                    text_blocks = sum(1 for b in content if b.get("type") == "text")
+                    tool_blocks = sum(1 for b in content if b.get("type") == "tool_use")
+                    session.record("assistant", {
+                        "text_blocks": text_blocks,
+                        "tool_blocks": tool_blocks,
+                        "input_tokens": usage.get("input_tokens", 0),
+                        "output_tokens": usage.get("output_tokens", 0),
+                    })
+
+                # ── result (task complete) ───────────────────────────────────
+                elif msg_type == "result":
+                    is_error = msg.get("is_error", False)
+                    cost = float(msg.get("total_cost_usd") or 0.0)
+                    session.total_cost_usd += cost
+                    result_subtype = msg.get("subtype", "unknown")
+
+                    session.record("result", {
+                        "subtype": result_subtype,
+                        "is_error": is_error,
+                        "cost_usd": cost,
+                    })
+
+                    # Q-Learning signal from real Claude outcome
+                    reward = 0.2 if is_error else 0.7
+                    from cynic.learning.qlearning import LearningSignal as _LS
+                    signal = _LS(
+                        state_key=f"SDK:{session.model}:TASK",
+                        action="BARK" if is_error else "HOWL",
+                        reward=reward,
+                        judgment_id=session_id,
+                        loop_name="SDK_RESULT",
+                    )
+                    state.qtable.update(signal)
+
+                    await bus.emit(Event(
+                        type=CoreEvent.SDK_RESULT_RECEIVED,
+                        payload={
+                            "session_id": session_id,
+                            "is_error": is_error,
+                            "cost_usd": cost,
+                            "total_cost_usd": round(session.total_cost_usd, 6),
+                            "reward": reward,
+                        },
+                        source="ws_sdk",
+                    ))
+
+                    logger.info(
+                        "*%s* SDK result: %s cost=$%.4f total=$%.4f",
+                        "tail wag" if not is_error else "GROWL",
+                        result_subtype, cost, session.total_cost_usd,
+                    )
+
+                # ── keep_alive ───────────────────────────────────────────────
+                elif msg_type == "keep_alive":
+                    await _send({"type": "keep_alive"})
+
+                # ── everything else: log and ignore ──────────────────────────
+                else:
+                    logger.debug("SDK unhandled: type=%s subtype=%s", msg_type, msg_subtype)
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as exc:
+        logger.error("SDK session error: %s", exc, exc_info=True)
+    finally:
+        _sdk_sessions.pop(session_id, None)
+        logger.info(
+            "*yawn* SDK session ended: %s — %d events, cost=$%.4f",
+            session_id, len(session.log), session.total_cost_usd,
+        )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /sdk/sessions  (list active Claude Code sessions)
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.get("/sdk/sessions")
+async def sdk_sessions() -> Dict[str, Any]:
+    """List all active Claude Code --sdk-url sessions."""
+    return {
+        "active": len(_sdk_sessions),
+        "sessions": [s.to_dict() for s in _sdk_sessions.values()],
+    }
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# POST /sdk/task  (send a task to a connected Claude Code session)
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.post("/sdk/task")
+async def sdk_task(body: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Send a task (user message) to a connected Claude Code session.
+
+    Body: {"session_id": "...", "prompt": "...", "model": "claude-haiku-4-5"}
+
+    If session_id is omitted, uses the most recently connected session.
+    If model is provided, sends set_model before the task (model routing).
+    """
+    session_id = body.get("session_id")
+    prompt = body.get("prompt", "")
+    model_override = body.get("model")
+
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt is required")
+
+    # Resolve session
+    session: Optional[SDKSession] = None
+    if session_id:
+        session = _sdk_sessions.get(session_id)
+    elif _sdk_sessions:
+        # Most recent session
+        session = max(_sdk_sessions.values(), key=lambda s: s.connected_at)
+
+    if session is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No active SDK session. Run: claude --sdk-url ws://HOST:PORT/ws/sdk --print --output-format stream-json --input-format stream-json",
+        )
+
+    # Optional model routing (e.g. switch to Haiku for cheap tasks)
+    if model_override and model_override != session.model:
+        await session.ws.send_text(json.dumps({
+            "type": "control_response",
+            "response": {
+                "subtype": "success",
+                "request_id": str(uuid.uuid4()),
+                "response": {"subtype": "set_model", "model": model_override},
+            },
+        }) + "\n")
+
+    # Send user message
+    msg = {
+        "type": "user",
+        "message": {"role": "user", "content": prompt},
+        "parent_tool_use_id": None,
+        "session_id": session.session_id,
+    }
+    await session.ws.send_text(json.dumps(msg) + "\n")
+    session.record("task_sent", {"prompt": prompt[:200], "model_override": model_override})
+
+    logger.info("*tail wag* SDK task sent to session %s: %s...", session.session_id[:8], prompt[:80])
+
+    return {
+        "sent": True,
+        "session_id": session.session_id,
+        "model": model_override or session.model,
+        "prompt_preview": prompt[:100],
+    }
+
+
 @app.get("/")
 async def root():
     return {
@@ -798,6 +1176,11 @@ async def root():
         "version": "2.0.0",
         "status": "alive",
         "φ": PHI,
-        "routes": ["/judge", "/perceive", "/learn", "/policy/{key}", "/health", "/stats", "/introspect", "/ws/stream"],
+        "routes": [
+            "/judge", "/perceive", "/learn", "/policy/{key}",
+            "/health", "/stats", "/introspect",
+            "/ws/stream", "/ws/sdk",
+            "/sdk/sessions", "/sdk/task",
+        ],
         "message": "*sniff* Le chien est là.",
     }
