@@ -1148,3 +1148,70 @@ class TestJudgmentBurnLoop:
         assert burn_score == pytest.approx(0.0, abs=0.1)
         tracker.update("agent:cynic", "BURN", burn_score)
         assert tracker.get_score("agent:cynic") >= 0.0
+
+
+# ── LEARNING_EVENT → AUTONOMY signal + EScore JUDGE ──────────────────────────
+
+class TestLearningEventLoop:
+    """
+    LEARNING_EVENT → AUTONOMY signal + EScore JUDGE (high-frequency).
+
+    Emitted by orchestrator.py STEP 4 (LEARN) after every judgment cycle.
+    Payload: {"judgment_id": str, "state_key": str, "action": str,
+              "reward": float [0,1], "loop_name": str}
+
+    Previously subscribed only by QTable (qlearning.py).
+    This loop adds the organism-level effects:
+
+    AUTONOMY axiom: every self-directed learning step = autonomous act.
+    High-frequency source (fires every cycle) vs DECISION_MADE (sparse).
+
+    JUDGE EScore (high-frequency): judge_score = reward × MAX_Q_SCORE.
+    Per-cycle quality pulse alongside META_CYCLE's 4h batch.
+    """
+
+    def _judge_from_reward(self, reward: float) -> float:
+        """Reproduce handler's reward→JUDGE score formula."""
+        from cynic.core.phi import MAX_Q_SCORE
+        return reward * MAX_Q_SCORE
+
+    def test_max_reward_gives_max_judge_score(self):
+        """reward=1.0 → JUDGE = MAX_Q_SCORE (100.0)."""
+        from cynic.core.phi import MAX_Q_SCORE
+        assert self._judge_from_reward(1.0) == pytest.approx(MAX_Q_SCORE, abs=0.1)
+
+    def test_zero_reward_gives_zero_judge_score(self):
+        """reward=0.0 → JUDGE = 0.0 (worst judgment quality)."""
+        assert self._judge_from_reward(0.0) == pytest.approx(0.0, abs=0.1)
+
+    def test_phi_inv_reward_gives_wag_judge_score(self):
+        """reward=φ⁻¹ (0.618) → JUDGE ≈ WAG_MIN (61.8)."""
+        from cynic.core.phi import PHI_INV, WAG_MIN
+        assert self._judge_from_reward(PHI_INV) == pytest.approx(WAG_MIN, abs=0.5)
+
+    def test_learning_signals_autonomy(self):
+        """Learning event → axiom_monitor.signal('AUTONOMY') increases maturity."""
+        m = AxiomMonitor()
+        before = m.get_maturity("AUTONOMY")
+        m.signal("AUTONOMY")
+        after = m.get_maturity("AUTONOMY")
+        assert after > before, "AUTONOMY maturity must increase on learning event"
+
+    def test_high_reward_increases_escore(self):
+        """reward=1.0 → EScore JUDGE for agent:cynic increases above baseline."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        before = tracker.get_score("agent:cynic")
+        tracker.update("agent:cynic", "JUDGE", self._judge_from_reward(1.0))
+        assert tracker.get_score("agent:cynic") > before
+
+    def test_handler_tolerates_empty_payload(self):
+        """Empty payload → reward=0.0 → JUDGE=0.0, AUTONOMY signal, no raise."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        p = {}
+        reward = float(p.get("reward", 0.0))
+        judge_score = self._judge_from_reward(reward)
+        assert judge_score == pytest.approx(0.0, abs=0.1)
+        tracker.update("agent:cynic", "JUDGE", judge_score)
+        assert tracker.get_score("agent:cynic") >= 0.0

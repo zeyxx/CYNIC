@@ -883,6 +883,55 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         except Exception:
             pass
 
+    # ── LEARNING_EVENT → AUTONOMY signal + EScore JUDGE (high-frequency) ──
+    # Emitted by orchestrator.py STEP 4 (LEARN) after every judgment cycle.
+    # Payload: {"judgment_id": str, "state_key": str, "action": str,
+    #           "reward": float [0,1], "loop_name": str}
+    #
+    # Currently subscribed only by QTable (qlearning.py). This handler adds
+    # the missing organism-level effects:
+    #
+    # AUTONOMY axiom: CYNIC learning autonomously = the definition of autonomy.
+    # Every self-directed learning step is an autonomous act (no human prompt).
+    # This is the highest-frequency AUTONOMY signal — fires every judgment cycle.
+    # (DECISION_MADE was the only source before; this adds continuous momentum.)
+    #
+    # EScore JUDGE (high-frequency): reward = q_score / MAX_Q_SCORE.
+    # Scale back: judge_score = reward × MAX_Q_SCORE = q_score.
+    # This gives JUDGE a per-cycle quality pulse alongside META_CYCLE's 4h batch.
+    async def _on_learning_event(event: Event) -> None:
+        try:
+            p      = event.payload or {}
+            reward = float(p.get("reward", 0.0))   # [0, 1]
+            action = p.get("action", "")
+
+            from cynic.core.phi import MAX_Q_SCORE
+
+            # 1. JUDGE EScore — judgment quality per cycle
+            judge_score = reward * MAX_Q_SCORE
+            escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+
+            # 2. AUTONOMY — organism learning without human intervention
+            new_state = axiom_monitor.signal("AUTONOMY")
+            if new_state == "ACTIVE":
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.AXIOM_ACTIVATED,
+                    payload={
+                        "axiom":    "AUTONOMY",
+                        "maturity": axiom_monitor.get_maturity("AUTONOMY"),
+                        "trigger":  "LEARNING_EVENT",
+                    },
+                    source="learning_event",
+                ))
+
+            logger.debug(
+                "LEARNING_EVENT: action=%s reward=%.3f → JUDGE EScore=%.1f%s",
+                action, reward, judge_score,
+                " AUTONOMY signalled" if new_state == "ACTIVE" else "",
+            )
+        except Exception:
+            pass
+
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_intelligence)
     get_core_bus().on(CoreEvent.JUDGMENT_FAILED, _on_judgment_failed)
     get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence_signal)
@@ -900,6 +949,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     get_core_bus().on(CoreEvent.USER_FEEDBACK, _on_user_feedback)
     get_core_bus().on(CoreEvent.PERCEPTION_RECEIVED, _on_perception_received)
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_burn)
+    get_core_bus().on(CoreEvent.LEARNING_EVENT, _on_learning_event)
 
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),
