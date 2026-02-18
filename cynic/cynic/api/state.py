@@ -1108,6 +1108,98 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
 
     get_core_bus().on(CoreEvent.Q_TABLE_UPDATED, _on_q_table_updated)
 
+    # ── CONSENSUS_REACHED → SYMBIOSIS signal + EScore BUILD update ────────────
+    # Emitted by orchestrator.run() when PBFT quorum is achieved (dogs agreed).
+    # Payload: {"judgment_id": str, "votes": int, "quorum": int,
+    #           "q_score": float, "verdict": str, "cell_id": str, "reality": str}
+    #
+    # SYMBIOSIS axiom: dogs cooperating harmoniously = collective symbiosis.
+    # Every time the pack reaches consensus, they demonstrate the human+machine
+    # (or machine+machine) seamless collaboration that defines SYMBIOSIS.
+    # Third source after /feedback and SDK tool HOWL — fires on every judgment.
+    #
+    # BUILD: consensus quality = q_score of the final judgment. Dogs agreeing
+    # on a high-quality verdict = high-quality collaborative building.
+    async def _on_consensus_reached(event: Event) -> None:
+        try:
+            p       = event.payload or {}
+            q_score = float(p.get("q_score", 0.0))
+            votes   = int(p.get("votes", 0))
+            verdict = p.get("verdict", "")
+
+            # BUILD: collaborative judgment quality
+            escore_tracker.update("agent:cynic", "BUILD", q_score)
+
+            # SYMBIOSIS: dogs working as one
+            new_state = axiom_monitor.signal("SYMBIOSIS")
+            if new_state == "ACTIVE":
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.AXIOM_ACTIVATED,
+                    payload={
+                        "axiom":    "SYMBIOSIS",
+                        "maturity": axiom_monitor.get_maturity("SYMBIOSIS"),
+                        "trigger":  "CONSENSUS_REACHED",
+                    },
+                    source="consensus_reached",
+                ))
+
+            logger.debug(
+                "CONSENSUS_REACHED: votes=%d verdict=%s q=%.1f → BUILD=%.1f%s",
+                votes, verdict, q_score, q_score,
+                " SYMBIOSIS signalled" if new_state == "ACTIVE" else "",
+            )
+        except Exception:
+            pass
+
+    # ── CONSENSUS_FAILED → EMERGENCE signal + EScore JUDGE penalty ───────────
+    # Emitted by orchestrator.run() when PBFT quorum is NOT achieved.
+    # Payload: {"judgment_id": str, "votes": int, "quorum": int,
+    #           "residual_variance": float, "cell_id": str, "reality": str}
+    #
+    # EMERGENCE: dogs disagreeing = something lies beyond the current model.
+    # THE_UNNAMEABLE (50th cell) manifests as inter-dog disagreement — the
+    # pack cannot categorize this input within their shared axiom space.
+    # Third source after RESIDUAL_HIGH and EMERGENCE_DETECTED.
+    #
+    # JUDGE penalty: partial consensus = judgment quality degraded.
+    # score = (votes / quorum) × MAX_Q_SCORE — proportional to how close
+    # the pack got. votes=0 → 0.0; votes=quorum-1 → (6/7)×100 ≈ 85.7.
+    async def _on_consensus_failed(event: Event) -> None:
+        try:
+            p      = event.payload or {}
+            votes  = int(p.get("votes", 0))
+            quorum = int(p.get("quorum", 7))
+
+            from cynic.core.phi import MAX_Q_SCORE
+
+            # JUDGE penalty: proportional to how close dogs got to consensus
+            judge_score = (votes / max(quorum, 1)) * MAX_Q_SCORE
+            escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+
+            # EMERGENCE: dogs can't agree = hidden complexity = emergence point
+            new_state = axiom_monitor.signal("EMERGENCE")
+            if new_state == "ACTIVE":
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.AXIOM_ACTIVATED,
+                    payload={
+                        "axiom":    "EMERGENCE",
+                        "maturity": axiom_monitor.get_maturity("EMERGENCE"),
+                        "trigger":  "CONSENSUS_FAILED",
+                    },
+                    source="consensus_failed",
+                ))
+
+            logger.info(
+                "CONSENSUS_FAILED: votes=%d/%d → JUDGE EScore=%.1f%s",
+                votes, quorum, judge_score,
+                " EMERGENCE signalled" if new_state == "ACTIVE" else "",
+            )
+        except Exception:
+            pass
+
+    get_core_bus().on(CoreEvent.CONSENSUS_REACHED, _on_consensus_reached)
+    get_core_bus().on(CoreEvent.CONSENSUS_FAILED, _on_consensus_failed)
+
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),
     # /judge (MACRO), or DogScheduler background workers (MACRO with SAGE).

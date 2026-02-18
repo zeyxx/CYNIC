@@ -183,6 +183,35 @@ class JudgeOrchestrator:
                 payload=jc_payload,
             ))
 
+            # Emit CONSENSUS_REACHED or CONSENSUS_FAILED based on final judgment.
+            # Dogs cooperating (PBFT quorum achieved) = CONSENSUS_REACHED.
+            # Dogs failing to agree = CONSENSUS_FAILED.
+            if judgment.consensus_reached:
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.CONSENSUS_REACHED,
+                    payload={
+                        "judgment_id": judgment.judgment_id,
+                        "votes":    judgment.consensus_votes,
+                        "quorum":   judgment.consensus_quorum,
+                        "q_score":  judgment.q_score,
+                        "verdict":  judgment.verdict,
+                        "cell_id":  cell.cell_id,
+                        "reality":  cell.reality,
+                    },
+                ))
+            else:
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.CONSENSUS_FAILED,
+                    payload={
+                        "judgment_id":       judgment.judgment_id,
+                        "votes":             judgment.consensus_votes,
+                        "quorum":            judgment.consensus_quorum,
+                        "residual_variance": judgment.residual_variance,
+                        "cell_id":           cell.cell_id,
+                        "reality":           cell.reality,
+                    },
+                ))
+
             # Emit LEARNING_EVENT for ALL cycles (REFLEX/MICRO/MACRO).
             # Was incorrectly placed inside _cycle_macro only — Q-Learning never fired.
             await get_core_bus().emit(Event(

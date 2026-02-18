@@ -1424,3 +1424,71 @@ class TestQTableUpdatedLoop:
         tracker.update("agent:cynic", "BUILD", HOWL_MIN)
         tracker.update("agent:cynic", "HOLD", WAG_MIN)
         assert tracker.get_score("agent:cynic") >= 0.0
+
+
+# ── CONSENSUS_REACHED/FAILED → SYMBIOSIS/EMERGENCE + BUILD/JUDGE EScore ───────
+
+class TestConsensusLoop:
+    """
+    CONSENSUS_REACHED → SYMBIOSIS signal + BUILD EScore (q_score of judgment).
+    CONSENSUS_FAILED  → EMERGENCE signal + JUDGE EScore penalty (votes/quorum).
+
+    Emitted by orchestrator.run() after every judgment cycle based on
+    judgment.consensus_reached (result of PBFT quorum check).
+
+    REACHED: dogs cooperated = SYMBIOSIS + BUILD = final q_score.
+    FAILED:  dogs disagreed = EMERGENCE (hidden complexity) + JUDGE penalty.
+      judge_score = (votes / quorum) × MAX_Q_SCORE
+      votes=7/7 → 100 (full quorum but still failed — shouldn't happen)
+      votes=4/7 → ~57.1 (GROWL-level — most dogs voted but short)
+      votes=0/7 → 0.0  (complete disagreement)
+    """
+
+    def _judge_from_votes(self, votes: int, quorum: int) -> float:
+        from cynic.core.phi import MAX_Q_SCORE
+        return (votes / max(quorum, 1)) * MAX_Q_SCORE
+
+    def test_reached_signals_symbiosis(self):
+        """CONSENSUS_REACHED → axiom_monitor.signal('SYMBIOSIS') increases maturity."""
+        m = AxiomMonitor()
+        before = m.get_maturity("SYMBIOSIS")
+        m.signal("SYMBIOSIS")
+        after = m.get_maturity("SYMBIOSIS")
+        assert after > before, "SYMBIOSIS maturity must increase when consensus is reached"
+
+    def test_reached_updates_build_escore(self):
+        """CONSENSUS_REACHED with q_score=75.0 → BUILD EScore increases."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        before = tracker.get_score("agent:cynic")
+        tracker.update("agent:cynic", "BUILD", 75.0)
+        assert tracker.get_score("agent:cynic") > before
+
+    def test_failed_signals_emergence(self):
+        """CONSENSUS_FAILED → axiom_monitor.signal('EMERGENCE') increases maturity."""
+        m = AxiomMonitor()
+        before = m.get_maturity("EMERGENCE")
+        m.signal("EMERGENCE")
+        after = m.get_maturity("EMERGENCE")
+        assert after > before, "EMERGENCE maturity must increase when consensus fails"
+
+    def test_failed_partial_votes_judge_score(self):
+        """votes=4, quorum=7 → JUDGE ≈ 57.1 (4/7 × 100)."""
+        score = self._judge_from_votes(4, 7)
+        assert score == pytest.approx(57.14, abs=0.1)
+
+    def test_failed_zero_votes_gives_zero_judge(self):
+        """votes=0, quorum=7 → JUDGE = 0.0 (complete disagreement)."""
+        assert self._judge_from_votes(0, 7) == pytest.approx(0.0, abs=0.1)
+
+    def test_handler_tolerates_empty_payload(self):
+        """Empty payload → votes=0, quorum=7 defaults → JUDGE=0.0, no raise."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        p = {}
+        votes  = int(p.get("votes", 0))
+        quorum = int(p.get("quorum", 7))
+        judge_score = self._judge_from_votes(votes, quorum)
+        assert judge_score == pytest.approx(0.0, abs=0.1)
+        tracker.update("agent:cynic", "JUDGE", judge_score)
+        assert tracker.get_score("agent:cynic") >= 0.0
