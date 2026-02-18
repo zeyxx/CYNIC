@@ -105,6 +105,10 @@ class CoreEvent(str, Enum):
     # Identity
     IDENTITY_VIOLATION = "identity.violation"
 
+    # Decision / Act
+    ACT_REQUESTED  = "act.requested"
+    DECISION_MADE  = "decide.made"
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # AUTOMATION BUS EVENTS

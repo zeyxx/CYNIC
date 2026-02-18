@@ -12,8 +12,9 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 from cynic.core.axioms import AxiomArchitecture
+from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.consciousness import get_consciousness
-from cynic.core.event_bus import get_core_bus
+from cynic.core.event_bus import get_core_bus, Event, CoreEvent
 from cynic.dogs.base import DogId
 from cynic.dogs.cynic_dog import CynicDog
 from cynic.dogs.guardian import GuardianDog
@@ -28,6 +29,7 @@ from cynic.dogs.deployer import DeployerDog
 from cynic.dogs.scout import ScoutDog
 from cynic.judge.orchestrator import JudgeOrchestrator
 from cynic.judge.residual import ResidualDetector
+from cynic.judge.decide import DecideAgent
 from cynic.learning.qlearning import QTable, LearningLoop
 from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher
 from cynic.scheduler import DogScheduler
@@ -50,6 +52,7 @@ class AppState:
     started_at: float = field(default_factory=time.time)
     _pool: Optional[object] = None  # asyncpg pool (None if no DB)
     last_judgment: Optional[Dict] = None  # state_key, action, judgment_id — for /feedback
+    decide_agent: Optional[object] = None  # DecideAgent — auto-decides on BARK/GROWL
 
     @property
     def uptime_s(self) -> float:
@@ -123,6 +126,29 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
 
     scheduler = DogScheduler(orchestrator=orchestrator)
 
+    # ── DecideAgent — subscribes to JUDGMENT_CREATED, auto-decides on BARK/GROWL
+    decide_agent = DecideAgent(qtable=qtable)
+    decide_agent.start(get_core_bus())
+
+    # ── EMERGENCE_DETECTED -> META cycle trigger ───────────────────────────
+    # When ResidualDetector detects an emergence pattern, submit a META cell
+    # to the scheduler so the organism can evolve in response.
+    async def _on_emergence(event: Event) -> None:
+        from cynic.core.judgment import Cell
+        cell = Cell(
+            reality="CYNIC", analysis="EMERGE", time_dim="PRESENT",
+            content=event.payload,
+            context="Emergence detected — META cycle triggered",
+            risk=0.5, complexity=0.6, budget_usd=0.1,
+            metadata={
+                "source": "emergence_trigger",
+                "pattern": event.payload.get("pattern_type", "UNKNOWN") if isinstance(event.payload, dict) else "UNKNOWN",
+            },
+        )
+        scheduler.submit(cell, level=ConsciousnessLevel.META, source="emergence_trigger")
+
+    get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence)
+
     # ── PerceiveWorkers (autonomous sensors) ──────────────────────────────
     # Wired here; actually started when scheduler.start() is called (in lifespan).
     scheduler.register_perceive_worker(GitWatcher())
@@ -143,6 +169,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         residual_detector=residual_detector,
         scheduler=scheduler,
         _pool=db_pool,
+        decide_agent=decide_agent,
     )
 
 

@@ -199,6 +199,17 @@ CREATE TABLE IF NOT EXISTS consciousness_snapshots (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Residual history (rolling window persisted for warm-start)
+CREATE TABLE IF NOT EXISTS residual_history (
+    id              BIGSERIAL   PRIMARY KEY,
+    judgment_id     TEXT        NOT NULL,
+    residual        REAL        NOT NULL CHECK (residual BETWEEN 0 AND 1),
+    reality         TEXT        NOT NULL,
+    analysis        TEXT        NOT NULL,
+    unnameable      BOOLEAN     NOT NULL DEFAULT FALSE,
+    observed_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_judgments_reality   ON judgments (reality);
 CREATE INDEX IF NOT EXISTS idx_judgments_verdict   ON judgments (verdict);
@@ -206,6 +217,7 @@ CREATE INDEX IF NOT EXISTS idx_judgments_created   ON judgments (created_at DESC
 CREATE INDEX IF NOT EXISTS idx_learning_loop       ON learning_events (loop_name);
 CREATE INDEX IF NOT EXISTS idx_learning_state      ON learning_events (state_key);
 CREATE INDEX IF NOT EXISTS idx_llm_bench_dog       ON llm_benchmarks (dog_id, task_type);
+CREATE INDEX IF NOT EXISTS idx_residual_observed   ON residual_history (observed_at DESC);
 """
 
 
@@ -464,6 +476,42 @@ class BenchmarkRepository:
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# RESIDUAL HISTORY REPOSITORY
+# ════════════════════════════════════════════════════════════════════════════
+
+class ResidualRepository:
+    """Persist ResidualDetector history for warm-start across restarts."""
+
+    async def append(self, point: Dict[str, Any]) -> None:
+        """Persist one residual observation."""
+        async with acquire() as conn:
+            await conn.execute("""
+                INSERT INTO residual_history
+                    (judgment_id, residual, reality, analysis, unnameable)
+                VALUES ($1, $2, $3, $4, $5)
+            """,
+                point["judgment_id"],
+                float(point["residual"]),
+                point["reality"],
+                point["analysis"],
+                bool(point.get("unnameable", False)),
+            )
+
+    async def recent(self, limit: int = 21) -> List[Dict[str, Any]]:
+        """Return last `limit` observations ordered oldest-first (for replay)."""
+        async with acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT judgment_id, residual, reality, analysis, unnameable,
+                       EXTRACT(EPOCH FROM observed_at) AS timestamp
+                FROM residual_history
+                ORDER BY observed_at DESC
+                LIMIT $1
+            """, limit)
+            # Reverse: oldest first so they replay in chronological order
+            return list(reversed([dict(r) for r in rows]))
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # REPOSITORY FACTORY
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -471,6 +519,7 @@ _judgment_repo: Optional[JudgmentRepository] = None
 _qtable_repo: Optional[QTableRepository] = None
 _learning_repo: Optional[LearningRepository] = None
 _benchmark_repo: Optional[BenchmarkRepository] = None
+_residual_repo: Optional[ResidualRepository] = None
 
 
 def judgments() -> JudgmentRepository:
@@ -499,3 +548,10 @@ def benchmarks() -> BenchmarkRepository:
     if _benchmark_repo is None:
         _benchmark_repo = BenchmarkRepository()
     return _benchmark_repo
+
+
+def residuals() -> ResidualRepository:
+    global _residual_repo
+    if _residual_repo is None:
+        _residual_repo = ResidualRepository()
+    return _residual_repo

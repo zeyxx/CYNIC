@@ -714,20 +714,25 @@ async def introspect() -> dict:
 @app.websocket("/ws/stream")
 async def ws_stream(websocket: WebSocket) -> None:
     """
-    WebSocket stream — real-time kernel events pushed to client.
+    WebSocket stream — bidirectional real-time kernel events.
 
-    Events streamed:
+    Events streamed (server -> client):
       JUDGMENT_CREATED  — every judgment result
       LEARNING_EVENT    — Q-table updates
       META_CYCLE        — periodic evolution ticks
 
-    Protocol:
-      connect → {"type": "connected", "phi": 1.618...}
-      event   → {"type": <CoreEvent.name>, "payload": {...}, "ts": <float>}
-      ping    → {"type": "ping", "ts": <float>}  (30s keepalive)
+    Messages received (client -> server):
+      {"type": "ACT", "action": "...", "target": "..."} — emitted as ACT_REQUESTED
+      {"type": "ping"}  — responds with {"type": "pong", "ts": ...}
+      Any other type    — ignored silently
 
-    Client disconnect → clean unsubscribe from all events.
-    Queue overflow (>100 buffered events) → events dropped silently.
+    Protocol:
+      connect -> {"type": "connected", "phi": 1.618...}
+      event   -> {"type": <CoreEvent.name>, "payload": {...}, "ts": <float>}
+      ping    -> {"type": "ping", "ts": <float>}  (30s keepalive)
+
+    Client disconnect -> clean unsubscribe from all events.
+    Queue overflow (>100 buffered events) -> events dropped silently.
     """
     await websocket.accept()
     bus = get_core_bus()
@@ -751,8 +756,8 @@ async def ws_stream(websocket: WebSocket) -> None:
     for ev_type in stream_events:
         bus.on(ev_type, on_event)
 
-    try:
-        await websocket.send_json({"type": "connected", "ts": time.time(), "phi": PHI})
+    async def _emit_loop() -> None:
+        """Send queued events to the WebSocket client."""
         while True:
             try:
                 msg = await asyncio.wait_for(queue.get(), timeout=30.0)
@@ -760,6 +765,25 @@ async def ws_stream(websocket: WebSocket) -> None:
             except asyncio.TimeoutError:
                 # Keepalive ping — proves connection is alive
                 await websocket.send_json({"type": "ping", "ts": time.time()})
+
+    async def _receive_loop() -> None:
+        """Receive client messages and route them to the bus or respond directly."""
+        while True:
+            data = await websocket.receive_json()
+            msg_type = data.get("type", "")
+            if msg_type == "ping":
+                await websocket.send_json({"type": "pong", "ts": time.time()})
+            elif msg_type == "ACT":
+                await bus.emit(Event(
+                    type=CoreEvent.ACT_REQUESTED,
+                    payload={"action": data.get("action", ""), "target": data.get("target", "")},
+                    source="ws_client",
+                ))
+            # Any other type: ignored silently
+
+    try:
+        await websocket.send_json({"type": "connected", "ts": time.time(), "phi": PHI})
+        await asyncio.gather(_emit_loop(), _receive_loop())
     except WebSocketDisconnect:
         pass
     finally:

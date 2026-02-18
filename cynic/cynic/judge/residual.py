@@ -97,6 +97,11 @@ class ResidualDetector:
         self._patterns_detected: int = 0
         self._listener_registered: bool = False
         self._consecutive_high: int = 0   # Running count for STABLE_HIGH
+        self._db_pool: Optional[Any] = None
+
+    def set_db_pool(self, pool: Any) -> None:
+        """Wire a DB pool so history observations are persisted automatically."""
+        self._db_pool = pool
 
     # ── Public API ────────────────────────────────────────────────────────
 
@@ -132,6 +137,7 @@ class ResidualDetector:
             unnameable=judgment.unnameable_detected,
         )
         self._history.append(point)
+        self._maybe_persist(point)
 
         if residual >= ANOMALY_THRESHOLD:
             self._anomalies += 1
@@ -158,6 +164,85 @@ class ResidualDetector:
                 for p in self._patterns[-5:]
             ],
         }
+
+    # ── DB Persistence (Phase 2) ──────────────────────────────────────────
+
+    async def load_from_db(self, pool: Any) -> int:
+        """
+        Warm-start _history from DB on boot.
+
+        Loads up to HISTORY_MAXLEN most recent observations (oldest-first).
+        Rebuilds _consecutive_high from loaded history.
+        Returns count of points loaded.
+        """
+        try:
+            async with pool.acquire() as conn:
+                rows = await conn.fetch("""
+                    SELECT judgment_id, residual, reality, analysis, unnameable,
+                           EXTRACT(EPOCH FROM observed_at) AS timestamp
+                    FROM residual_history
+                    ORDER BY observed_at DESC
+                    LIMIT $1
+                """, HISTORY_MAXLEN)
+        except Exception as exc:
+            logger.warning("ResidualDetector warm-start failed: %s", exc)
+            return 0
+
+        if not rows:
+            return 0
+
+        # Replay oldest-first so deque and counters are correct
+        points = list(reversed(rows))
+        for row in points:
+            point = ResidualPoint(
+                judgment_id=row["judgment_id"],
+                residual=float(row["residual"]),
+                reality=row["reality"],
+                analysis=row["analysis"],
+                unnameable=bool(row["unnameable"]),
+                timestamp=float(row["timestamp"]),
+            )
+            self._history.append(point)
+            self._observations += 1
+            if point.residual >= ANOMALY_THRESHOLD:
+                self._anomalies += 1
+                self._consecutive_high += 1
+            else:
+                self._consecutive_high = 0
+
+        logger.info(
+            "ResidualDetector warm-start: %d points loaded (consecutive_high=%d)",
+            len(points), self._consecutive_high,
+        )
+        return len(points)
+
+    async def _save_point_to_db(self, point: ResidualPoint) -> None:
+        """Fire-and-forget: persist one ResidualPoint to DB."""
+        try:
+            async with self._db_pool.acquire() as conn:
+                await conn.execute("""
+                    INSERT INTO residual_history
+                        (judgment_id, residual, reality, analysis, unnameable)
+                    VALUES ($1, $2, $3, $4, $5)
+                """,
+                    point.judgment_id,
+                    point.residual,
+                    point.reality,
+                    point.analysis,
+                    point.unnameable,
+                )
+        except Exception as exc:
+            logger.warning("ResidualDetector persist failed: %s", exc)
+
+    def _maybe_persist(self, point: ResidualPoint) -> None:
+        """Schedule fire-and-forget DB save if pool is set."""
+        if self._db_pool is None:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._save_point_to_db(point))
+        except RuntimeError:
+            pass  # No running loop (sync test context)
 
     # ── Pattern Detection ─────────────────────────────────────────────────
 
@@ -308,6 +393,7 @@ class ResidualDetector:
         )
         self._observations += 1
         self._history.append(point)
+        self._maybe_persist(point)
 
         if residual >= ANOMALY_THRESHOLD:
             self._anomalies += 1
