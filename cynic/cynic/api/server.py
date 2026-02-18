@@ -11,6 +11,7 @@ Routes:
   GET  /policy/{key}   → Query learned policy for a state
   GET  /health         → Kernel health (consciousness, dogs, learning)
   GET  /stats          → Detailed metrics
+  GET  /dashboard      → Live kernel dashboard (WebSocket /ws/stream consumer)
 
 Design principles:
   - No state in route handlers (all state in AppState singleton)
@@ -32,7 +33,8 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from cynic.core.consciousness import ConsciousnessLevel, get_consciousness
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
@@ -170,6 +172,14 @@ async def lifespan(app: FastAPI):
             await BenchmarkRegistry.create_tables(db_pool)
             state.orchestrator.benchmark_registry = BenchmarkRegistry(db_pool)
             logger.info("BenchmarkRegistry wired: probe runs will be persisted")
+
+            # Warm-start Scholar buffer from DB + enable persistent learning
+            from cynic.dogs.base import DogId
+            scholar_dog = state.orchestrator.dogs.get(DogId.SCHOLAR)
+            if scholar_dog is not None and hasattr(scholar_dog, "set_db_pool"):
+                scholar_dog.set_db_pool(db_pool)
+                scholar_loaded = await scholar_dog.load_from_db(db_pool)
+                logger.info("Scholar warm-start: %d buffer entries loaded", scholar_loaded)
         except Exception as exc:
             logger.warning("DB unavailable (%s) — running without persistence", exc)
             db_pool = None
@@ -283,6 +293,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve static files (dashboard.html) — only if directory exists
+import pathlib as _pathlib
+_static_dir = _pathlib.Path(__file__).parent.parent / "static"
+if _static_dir.is_dir():
+    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+
+
+# ── Dashboard convenience route ────────────────────────────────────────────
+@app.get("/dashboard", include_in_schema=False)
+async def dashboard() -> FileResponse:
+    """Serve the live CYNIC kernel dashboard (connects to /ws/stream)."""
+    path = _static_dir / "dashboard.html"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="dashboard.html not found")
+    return FileResponse(str(path), media_type="text/html")
 
 
 # ════════════════════════════════════════════════════════════════════════════

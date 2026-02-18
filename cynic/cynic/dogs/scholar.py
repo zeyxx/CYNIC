@@ -105,6 +105,7 @@ class ScholarDog(LLMDog):
         self._lookups: int = 0
         self._hits: int = 0     # Lookups that found ≥1 neighbor above MIN_SIMILARITY
         self._cold_lookups: int = 0
+        self._db_pool: Optional[Any] = None  # asyncpg pool (None = no persistence)
 
     def get_capabilities(self) -> DogCapabilities:
         return DogCapabilities(
@@ -226,6 +227,40 @@ class ScholarDog(LLMDog):
 
     # ── Learning API ────────────────────────────────────────────────────────
 
+    def set_db_pool(self, pool: Any) -> None:
+        """
+        Inject asyncpg pool for DB persistence.
+        When set, learn() will fire-and-forget append to scholar_buffer table.
+        Call this before any learn() calls for full persistence coverage.
+        """
+        self._db_pool = pool
+        logger.info("ScholarDog: DB persistence enabled (pool injected)")
+
+    async def load_from_db(self, pool: Any) -> int:
+        """
+        Warm-start buffer from DB (call once at kernel startup).
+        Returns number of entries loaded.
+        """
+        from cynic.core.storage.postgres import ScholarRepository
+        try:
+            repo = ScholarRepository()
+            entries = await repo.recent_entries(limit=BUFFER_MAX)
+            for e in entries:
+                self._buffer.append(BufferEntry(
+                    cell_text=e.get("cell_text", ""),
+                    q_score=e.get("q_score", NEUTRAL_Q),
+                    cell_id=e.get("cell_id", ""),
+                    reality=e.get("reality", ""),
+                    timestamp=e.get("ts", time.time()),
+                ))
+            if entries:
+                self._matrix_dirty = True
+                logger.info("ScholarDog: warm-start %d entries from DB", len(entries))
+            return len(entries)
+        except Exception as exc:
+            logger.warning("ScholarDog: DB warm-start failed: %s", exc)
+            return 0
+
     def learn(self, cell_text: str, q_score: float, cell_id: str = "", reality: str = "") -> None:
         """
         Record a completed judgment into Scholar's memory buffer.
@@ -252,6 +287,28 @@ class ScholarDog(LLMDog):
             self._buffer.pop(0)
 
         self._matrix_dirty = True  # Force rebuild on next analyze
+
+        # Persist to DB (fire-and-forget — never block learn())
+        if self._db_pool is not None:
+            import asyncio
+            from cynic.core.storage.postgres import ScholarRepository
+            async def _persist(e=entry):
+                try:
+                    await ScholarRepository().append({
+                        "cell_id": e.cell_id,
+                        "cell_text": e.cell_text,
+                        "q_score": e.q_score,
+                        "reality": e.reality,
+                        "timestamp": e.timestamp,
+                    })
+                except Exception:
+                    pass  # Never propagate DB errors from learn()
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(_persist())
+            except Exception:
+                pass
 
     # ── Internals ────────────────────────────────────────────────────────────
 

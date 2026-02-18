@@ -234,6 +234,17 @@ CREATE TABLE IF NOT EXISTS sdk_sessions (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Scholar buffer (TF-IDF memory warm-start across restarts)
+CREATE TABLE IF NOT EXISTS scholar_buffer (
+    id          BIGSERIAL   PRIMARY KEY,
+    cell_id     TEXT        NOT NULL DEFAULT '',
+    cell_text   TEXT        NOT NULL,
+    q_score     REAL        NOT NULL CHECK (q_score >= 0),
+    reality     TEXT        NOT NULL DEFAULT '',
+    ts          REAL        NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_judgments_reality   ON judgments (reality);
 CREATE INDEX IF NOT EXISTS idx_judgments_verdict   ON judgments (verdict);
@@ -245,6 +256,7 @@ CREATE INDEX IF NOT EXISTS idx_residual_observed   ON residual_history (observed
 CREATE INDEX IF NOT EXISTS idx_sdk_model           ON sdk_sessions (model);
 CREATE INDEX IF NOT EXISTS idx_sdk_task_type       ON sdk_sessions (task_type);
 CREATE INDEX IF NOT EXISTS idx_sdk_created         ON sdk_sessions (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scholar_created     ON scholar_buffer (created_at DESC);
 """
 
 
@@ -671,3 +683,58 @@ def sdk_sessions() -> SDKSessionRepository:
     if _sdk_session_repo is None:
         _sdk_session_repo = SDKSessionRepository()
     return _sdk_session_repo
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# SCHOLAR BUFFER REPOSITORY
+# ════════════════════════════════════════════════════════════════════════════
+
+class ScholarRepository:
+    """
+    Persist Scholar Dog's TF-IDF buffer for warm-start across restarts.
+
+    Each entry = one (cell_text, q_score) pair from a completed judgment.
+    On startup, Scholar loads the last BUFFER_MAX entries to recover memory.
+    On learn(), new entries are appended (fire-and-forget, best-effort).
+    """
+
+    async def append(self, entry: Dict[str, Any]) -> None:
+        """Persist one BufferEntry to DB."""
+        async with acquire() as conn:
+            await conn.execute("""
+                INSERT INTO scholar_buffer (cell_id, cell_text, q_score, reality, ts)
+                VALUES ($1, $2, $3, $4, $5)
+            """,
+                entry.get("cell_id", ""),
+                str(entry.get("cell_text", ""))[:2000],
+                float(entry.get("q_score", 0.0)),
+                entry.get("reality", ""),
+                float(entry.get("timestamp", 0.0)),
+            )
+
+    async def recent_entries(self, limit: int = 89) -> List[Dict[str, Any]]:
+        """Return last `limit` entries oldest-first (for buffer replay)."""
+        async with acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT cell_id, cell_text, q_score, reality, ts
+                FROM scholar_buffer
+                ORDER BY created_at DESC
+                LIMIT $1
+            """, limit)
+            # Reverse so oldest-first (buffer grows from left)
+            return list(reversed([dict(r) for r in rows]))
+
+    async def count(self) -> int:
+        """Total entries in scholar_buffer table."""
+        async with acquire() as conn:
+            return await conn.fetchval("SELECT COUNT(*) FROM scholar_buffer")
+
+
+_scholar_repo: Optional[ScholarRepository] = None
+
+
+def scholar() -> ScholarRepository:
+    global _scholar_repo
+    if _scholar_repo is None:
+        _scholar_repo = ScholarRepository()
+    return _scholar_repo

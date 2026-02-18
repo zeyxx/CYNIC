@@ -31,7 +31,7 @@ from cynic.judge.orchestrator import JudgeOrchestrator
 from cynic.judge.residual import ResidualDetector
 from cynic.judge.decide import DecideAgent
 from cynic.learning.qlearning import QTable, LearningLoop
-from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher
+from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher
 from cynic.scheduler import DogScheduler
 from cynic.act.telemetry import TelemetryStore
 
@@ -154,9 +154,16 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
 
     # ── PerceiveWorkers (autonomous sensors) ──────────────────────────────
     # Wired here; actually started when scheduler.start() is called (in lifespan).
+    # CODE×PERCEIVE — git working tree changes
     scheduler.register_perceive_worker(GitWatcher())
+    # CYNIC×PERCEIVE — timer degradation
     scheduler.register_perceive_worker(HealthWatcher())
+    # CYNIC×LEARN — Q-Table health self-monitoring
     scheduler.register_perceive_worker(SelfWatcher(qtable_getter=lambda: qtable))
+    # MARKET×PERCEIVE — SOL/USD price significant moves
+    scheduler.register_perceive_worker(MarketWatcher())
+    # SOLANA×PERCEIVE — mainnet slot + TPS anomalies
+    scheduler.register_perceive_worker(SolanaWatcher())
 
     logger.info(
         "Kernel ready: %d dogs, scheduler wired, learning loop + residual detector active, pool=%s, llm=%s",
