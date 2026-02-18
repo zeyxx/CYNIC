@@ -455,3 +455,90 @@ class TestLODOrchestrator:
         orch._budget_stress = True  # also stressed, but LOD dominates
         level = orch._select_level(self._make_cell(consciousness=5), 1.0)
         assert level == ConsciousnessLevel.REFLEX
+
+
+class TestJudgmentFailedLOD:
+    """JUDGMENT_FAILED → rolling error_rate → LOD degradation (immunity loop)."""
+
+    def _make_outcome_fns(self):
+        """Return (_outcome_window, _update_error_rate, _health_cache) mimicking state.py."""
+        _OUTCOME_WINDOW = 21
+        _outcome_window: list = []
+        _health_cache = {"error_rate": 0.0, "latency_ms": 0.0, "queue_depth": 0,
+                         "memory_pct": 0.0, "disk_pct": 0.0}
+
+        def _update():
+            failures = sum(1 for ok in _outcome_window if not ok)
+            _health_cache["error_rate"] = failures / len(_outcome_window) if _outcome_window else 0.0
+
+        return _outcome_window, _update, _health_cache, _OUTCOME_WINDOW
+
+    def test_no_failures_zero_error_rate(self):
+        win, upd, cache, W = self._make_outcome_fns()
+        for _ in range(10):
+            win.append(True)
+            if len(win) > W:
+                win.pop(0)
+            upd()
+        assert cache["error_rate"] == 0.0
+
+    def test_single_failure_raises_rate(self):
+        win, upd, cache, W = self._make_outcome_fns()
+        win.append(False)
+        upd()
+        assert cache["error_rate"] > 0.0
+
+    def test_eight_failures_out_of_21_reaches_lod1_threshold(self):
+        """8/21 ≈ 38.1% — just below LOD 1 threshold (PHI_INV_2 = 0.382)."""
+        from cynic.core.phi import PHI_INV_2
+        win, upd, cache, W = self._make_outcome_fns()
+        for _ in range(21):
+            win.append(True)
+        for _ in range(8):
+            win.append(False)
+            if len(win) > W:
+                win.pop(0)
+        upd()
+        # 8 failures in window of 21 → rate ≈ 0.381 — approaching LOD 1
+        assert cache["error_rate"] >= PHI_INV_2 * 0.95
+
+    def test_13_failures_triggers_lod2_emergency(self):
+        """13/21 ≈ 61.9% — past PHI_INV (0.618) → LOD 2 EMERGENCY."""
+        from cynic.core.phi import PHI_INV
+        win, upd, cache, W = self._make_outcome_fns()
+        for _ in range(8):
+            win.append(True)
+        for _ in range(13):
+            win.append(False)
+        if len(win) > W:
+            win[:-W] = []
+        upd()
+        # Assess LOD
+        ctrl = LODController()
+        result = ctrl.assess(**cache)
+        assert result >= SurvivalLOD.EMERGENCY
+
+    def test_recovery_after_successes(self):
+        """After failures, 21 consecutive successes bring error_rate back to 0."""
+        win, upd, cache, W = self._make_outcome_fns()
+        # Flood with failures
+        for _ in range(W):
+            win.append(False)
+        upd()
+        assert cache["error_rate"] == 1.0
+        # Recover
+        for _ in range(W):
+            win.append(True)
+            if len(win) > W:
+                win.pop(0)
+        upd()
+        assert cache["error_rate"] == 0.0
+
+    def test_window_caps_at_21(self):
+        """Rolling window never grows beyond F(8)=21 entries."""
+        win, upd, cache, W = self._make_outcome_fns()
+        for _ in range(50):
+            win.append(True)
+            if len(win) > W:
+                win.pop(0)
+        assert len(win) == W

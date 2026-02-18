@@ -297,10 +297,25 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         "memory_pct": 0.0, "disk_pct": 0.0,
     }
 
+    # Rolling outcome window — F(8)=21 recent judgment results (True=ok, False=failed)
+    # Shared between JUDGMENT_CREATED (success) and JUDGMENT_FAILED (failure).
+    # error_rate = failures / window_size → feeds LOD health check.
+    # Self-healing: after 21 successful judgments, error_rate returns to 0.
+    _OUTCOME_WINDOW = 21
+    _outcome_window: List[bool] = []
+
+    def _update_error_rate() -> None:
+        failures = sum(1 for ok in _outcome_window if not ok)
+        _health_cache["error_rate"] = failures / len(_outcome_window) if _outcome_window else 0.0
+
     async def _on_judgment_for_intelligence(event: Event) -> None:
         try:
             p = event.payload
-            _health_cache["error_rate"] = float(p.get("error_rate", 0.0))
+            # Record success in rolling window; compute real error_rate from outcomes
+            _outcome_window.append(True)
+            if len(_outcome_window) > _OUTCOME_WINDOW:
+                _outcome_window.pop(0)
+            _update_error_rate()
             _health_cache["latency_ms"] = float(p.get("duration_ms", 0.0))
 
             # δ2: Assess LOD from all accumulated health signals
@@ -364,7 +379,26 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         except Exception:
             pass
 
+    # ── JUDGMENT_FAILED → LOD error_rate ──────────────────────────────────
+    # Circuit breaker open OR pipeline exception → record failure in rolling
+    # window → error_rate rises → LOD degrades → cheaper judgment paths.
+    # Self-healing: 21 consecutive successful judgments reset error_rate to 0.
+    async def _on_judgment_failed(event: Event) -> None:
+        try:
+            _outcome_window.append(False)
+            if len(_outcome_window) > _OUTCOME_WINDOW:
+                _outcome_window.pop(0)
+            _update_error_rate()
+            lod_controller.assess(**_health_cache)
+            logger.warning(
+                "JUDGMENT_FAILED → error_rate=%.2f, LOD=%s",
+                _health_cache["error_rate"], lod_controller.current.name,
+            )
+        except Exception:
+            pass
+
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_intelligence)
+    get_core_bus().on(CoreEvent.JUDGMENT_FAILED, _on_judgment_failed)
     get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence_signal)
     get_core_bus().on(CoreEvent.DECISION_MADE, _on_decision_made_for_axiom)
     get_core_bus().on(CoreEvent.AXIOM_ACTIVATED, _on_axiom_activated)
