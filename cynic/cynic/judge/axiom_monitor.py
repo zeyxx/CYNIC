@@ -44,8 +44,15 @@ from cynic.core.phi import (
 
 logger = logging.getLogger("cynic.judge.axiom_monitor")
 
-# Valid emergent axioms
-EMERGENT_AXIOMS = frozenset({"AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY"})
+# Valid emergent axioms (A6-A9) — signal-able by external events
+EMERGENT_AXIOMS = frozenset({
+    "AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY",  # A6-A9
+    "CONSCIOUSNESS",   # A10 — system accurately observes its own thinking
+    "TRANSCENDENCE",   # A11 — all A6-A9 active + phase transition (auto-signaled)
+})
+
+# A6-A9 subset: all must be active to trigger A11 TRANSCENDENCE
+_CORE_EMERGENT = frozenset({"AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY"})
 
 # Signal window: F(9)=34 signals for full maturity
 MATURITY_WINDOW: int = fibonacci(9)   # 34
@@ -180,6 +187,9 @@ class AxiomMonitor:
                     "AxiomMonitor: %s → ACTIVE (maturity=%.1f, activation_count=%d)",
                     axiom, ax.maturity(), ax.activation_count,
                 )
+                # A11 TRANSCENDENCE: auto-signal when all A6-A9 become active
+                if axiom in _CORE_EMERGENT:
+                    self._maybe_signal_transcendence()
             elif new_state == _STATE_STIRRING:
                 logger.debug("AxiomMonitor: %s → STIRRING (maturity=%.1f)", axiom, ax.maturity())
             elif new_state == _STATE_DORMANT and prev_state == _STATE_ACTIVE:
@@ -187,6 +197,21 @@ class AxiomMonitor:
             return new_state
 
         return None
+
+    def _maybe_signal_transcendence(self) -> None:
+        """Auto-signal A11 TRANSCENDENCE if all A6-A9 axioms are ACTIVE."""
+        if all(self._axioms[a].is_active() for a in _CORE_EMERGENT):
+            trans = self._axioms.get("TRANSCENDENCE")
+            if trans is not None:
+                trans.add_signal()
+                self._total_signals += 1
+                self._prev_states["TRANSCENDENCE"] = _STATE_ACTIVE
+                trans.activation_count += 1
+                if trans.first_activated is None:
+                    trans.first_activated = time.time()
+                logger.info(
+                    "AxiomMonitor: TRANSCENDENCE auto-signaled (all A6-A9 active)"
+                )
 
     # ── Query ─────────────────────────────────────────────────────────────
 
@@ -224,14 +249,16 @@ class AxiomMonitor:
             }
         """
         active = self.active_count()
-        # Overall emergence tier
-        if active == 4:
-            tier = "TRANSCENDENT"     # All 4 emergent axioms active
-        elif active >= 3:
-            tier = "AWAKENING"        # 3 active
-        elif active >= 2:
+        # A6-A9 active count (excludes A10/A11)
+        a6_a9_active = sum(1 for a in _CORE_EMERGENT if self._axioms[a].is_active())
+        # Overall emergence tier — TRANSCENDENT when A11 active (auto-triggered by A6-A9 all active)
+        if self._axioms.get("TRANSCENDENCE") and self._axioms["TRANSCENDENCE"].is_active():
+            tier = "TRANSCENDENT"
+        elif a6_a9_active >= 3:
+            tier = "AWAKENING"        # 3 of A6-A9 active
+        elif a6_a9_active >= 2:
             tier = "STIRRING"         # 2 active
-        elif active >= 1:
+        elif a6_a9_active >= 1:
             tier = "EMERGENCE"        # 1 active
         else:
             tier = "DORMANT"          # None active

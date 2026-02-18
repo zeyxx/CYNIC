@@ -28,6 +28,10 @@ class JudgeRequest(BaseModel):
         description="Analysis type: PERCEIVE/JUDGE/DECIDE/ACT/LEARN/ACCOUNT/EMERGE",
     )
     context: str = Field(default="", description="Human-readable context for LLM scoring")
+    time_dim: Optional[str] = Field(
+        default=None,
+        description="Time dimension: PAST/PRESENT/FUTURE/CYCLE/TREND/EMERGENCE/TRANSCENDENCE (inferred if None)",
+    )
     level: Optional[str] = Field(
         default=None,
         description="Consciousness level: REFLEX/MICRO/MACRO (auto-selected if None)",
@@ -92,6 +96,10 @@ class PerceiveRequest(BaseModel):
     )
     data: Any = Field(description="Raw perception data (any JSON-serializable)")
     context: str = Field(default="", description="Human-readable context")
+    time_dim: Optional[str] = Field(
+        default=None,
+        description="Time dimension: PAST/PRESENT/FUTURE/CYCLE/TREND/EMERGENCE/TRANSCENDENCE (inferred if None)",
+    )
     run_judgment: bool = Field(
         default=True,
         description="If True, run full judgment pipeline on this perception",

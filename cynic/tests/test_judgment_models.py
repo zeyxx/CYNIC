@@ -173,3 +173,65 @@ class TestEScore:
     def test_total_bounds(self):
         with pytest.raises(ValidationError):
             EScore(agent_id="test", total=101.0)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# INFER TIME DIM (Bug 5 — Lazy Materialization)
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestInferTimeDim:
+    """infer_time_dim: Lazy Materialization of the 7×7×7 time axis."""
+
+    def _infer(self, content, context="", analysis="JUDGE"):
+        from cynic.core.judgment import infer_time_dim
+        return infer_time_dim(content, context, analysis)
+
+    def test_emerge_analysis_always_transcendence(self):
+        """EMERGE analysis → TRANSCENDENCE regardless of content."""
+        assert self._infer("anything", analysis="EMERGE") == "TRANSCENDENCE"
+
+    def test_git_history_past(self):
+        assert self._infer("git log --oneline HEAD~10") == "PAST"
+
+    def test_diff_context_past(self):
+        assert self._infer("refactor", "previous diff with old function") == "PAST"
+
+    def test_roadmap_future(self):
+        assert self._infer("next sprint plan: add feature X") == "FUTURE"
+
+    def test_trend_content(self):
+        assert self._infer("performance declining over time, growth slowing") == "TREND"
+
+    def test_cycle_sprint(self):
+        assert self._infer("weekly deployment cycle review") == "CYCLE"
+
+    def test_emergence_anomaly(self):
+        assert self._infer("unexpected anomaly in production") == "EMERGENCE"
+
+    def test_unknown_defaults_to_present(self):
+        assert self._infer("function foo(): pass") == "PRESENT"
+
+    def test_state_key_includes_time_dim(self):
+        from cynic.core.judgment import Cell
+        cell = Cell(reality="CODE", analysis="JUDGE", time_dim="PAST", content="x")
+        assert "PAST" in cell.state_key()
+
+    def test_lazy_materialization_seven_dims(self):
+        """Different inputs → different time_dim → 7 state keys from 1 (reality, analysis)."""
+        from cynic.core.judgment import Cell, infer_time_dim
+        inputs = [
+            "function foo()",                              # PRESENT
+            "git log --history",                           # PAST
+            "plan for next quarter roadmap",               # FUTURE
+            "weekly recurring deployment cycle",           # CYCLE
+            "trend rising growth over time",               # TREND
+            "unexpected anomaly novel pattern",            # EMERGENCE
+        ]
+        time_dims = {
+            infer_time_dim(txt, "", "JUDGE") for txt in inputs
+        }
+        # EMERGE analysis gives TRANSCENDENCE separately
+        time_dims.add(infer_time_dim("x", "", "EMERGE"))
+
+        # We should see at least 5 distinct time dims with these inputs
+        assert len(time_dims) >= 5, f"Expected >= 5 distinct time_dims, got {len(time_dims)}: {time_dims}"

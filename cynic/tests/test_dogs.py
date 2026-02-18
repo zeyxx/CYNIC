@@ -168,14 +168,30 @@ class TestCynicDog:
         assert result.votes >= 7
         assert result.final_q_score is not None
 
-    async def test_pbft_below_quorum_fails(self, cynic_dog, code_cell):
-        """Only 4 votes → no quorum → consensus=False."""
+    async def test_pbft_dynamic_quorum_4_dogs_sufficient(self, cynic_dog, code_cell):
+        """Bug 4 fix: 4 active dogs → _compute_quorum(4)=3 → 4 votes >= 3 → consensus=True."""
         from cynic.dogs.base import DogJudgment
         dog_judgments = [
             DogJudgment(dog_id=f"DOG_{i}", cell_id=code_cell.cell_id, q_score=50.0, confidence=0.4)
-            for i in range(4)  # Only 4 votes, need 7
+            for i in range(4)
         ]
         result = await cynic_dog.pbft_run(code_cell, dog_judgments)
+        # Dynamic quorum: _compute_quorum(4)=3, 4 votes >= 3 → consensus
+        assert result.consensus == True
+        assert result.quorum == 3  # dynamic, not hardcoded 7
+
+    async def test_pbft_aggregate_below_quorum_fails(self, cynic_dog, code_cell):
+        """_aggregate() returns failure when commit_votes < quorum."""
+        from cynic.dogs.base import DogJudgment
+        from cynic.dogs.cynic_dog import PBFTRequest
+        # Build a request with quorum=5 but only 3 commit_votes
+        req = PBFTRequest(cell_id=code_cell.cell_id, quorum=5)
+        req.commit_votes = {"DOG_0": 50.0, "DOG_1": 60.0, "DOG_2": 45.0}
+        judgments = [
+            DogJudgment(dog_id=f"DOG_{i}", cell_id=code_cell.cell_id, q_score=50.0, confidence=0.4)
+            for i in range(3)
+        ]
+        result = cynic_dog._aggregate(req, judgments)
         assert result.consensus == False
         assert "Insufficient votes" in (result.reason or "")
 
@@ -200,6 +216,44 @@ class TestCynicDog:
     async def test_health_check(self, cynic_dog):
         health = await cynic_dog.health_check()
         assert health.dog_id == DogId.CYNIC
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════
+# COMPUTE QUORUM
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestComputeQuorum:
+    """_compute_quorum(n): PBFT 2f+1 formula, with small-pack fallback."""
+
+    def test_full_pack_n11(self):
+        from cynic.dogs.cynic_dog import _compute_quorum
+        assert _compute_quorum(11) == 7   # f=3, quorum=7
+
+    def test_n7(self):
+        from cynic.dogs.cynic_dog import _compute_quorum
+        assert _compute_quorum(7) == 5    # f=2, quorum=5
+
+    def test_n5(self):
+        from cynic.dogs.cynic_dog import _compute_quorum
+        assert _compute_quorum(5) == 3    # f=1, quorum=3
+
+    def test_n4(self):
+        from cynic.dogs.cynic_dog import _compute_quorum
+        assert _compute_quorum(4) == 3    # f=1, quorum=3
+
+    def test_n3_fallback(self):
+        """n<4: all dogs must agree (safety fallback)."""
+        from cynic.dogs.cynic_dog import _compute_quorum
+        assert _compute_quorum(3) == 3
+
+    def test_n2_fallback(self):
+        from cynic.dogs.cynic_dog import _compute_quorum
+        assert _compute_quorum(2) == 2
+
+    def test_n1_fallback(self):
+        from cynic.dogs.cynic_dog import _compute_quorum
+        assert _compute_quorum(1) == 1
 
 
 # ════════════════════════════════════════════════════════════════════════════

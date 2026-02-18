@@ -59,6 +59,25 @@ class PBFTPhase(str):
     FAILED      = "FAILED"
 
 
+def _compute_quorum(n: int) -> int:
+    """
+    Compute PBFT quorum for n active Dogs (Bug 4 fix).
+
+    PBFT formula: f = (n-1)//3 Byzantine faults tolerated, quorum = 2f+1.
+    For n < 4 (can't tolerate even 1 fault), require all n votes (safe fallback).
+
+    Examples:
+        n=11 → f=3, quorum=7  (normal full pack)
+        n=7  → f=2, quorum=5
+        n=5  → f=1, quorum=3
+        n=3  → f=0, quorum=3  (fallback: all required)
+    """
+    if n < 4:
+        return n  # Safety: all dogs must agree when pack is very small
+    f = (n - 1) // 3
+    return 2 * f + 1
+
+
 @dataclass
 class PBFTRequest:
     """One PBFT consensus round for a Cell."""
@@ -70,6 +89,7 @@ class PBFTRequest:
     veto_dogs: Set[str] = field(default_factory=set)                # Dogs that vetoed
     started_at: float = field(default_factory=time.time)
     timeout_sec: float = 5.0  # F(5)=5 — Fibonacci-aligned
+    quorum: int = DOGS_QUORUM  # Dynamic: set in pbft_run() via _compute_quorum()
 
     @property
     def is_timed_out(self) -> bool:
@@ -77,7 +97,7 @@ class PBFTRequest:
 
     @property
     def has_quorum(self) -> bool:
-        return len(self.commit_votes) >= DOGS_QUORUM
+        return len(self.commit_votes) >= self.quorum
 
     @property
     def has_veto(self) -> bool:
@@ -204,7 +224,10 @@ class CynicDog(AbstractDog):
 
         Returns ConsensusResult (consensus reached or failed).
         """
-        request = PBFTRequest(cell_id=cell.cell_id)
+        # Bug 4 fix: compute quorum dynamically from actual Dog count
+        # Accounts for LOD filtering (some Dogs bypassed) and Dog failures
+        quorum = _compute_quorum(len(dog_judgments))
+        request = PBFTRequest(cell_id=cell.cell_id, quorum=quorum)
         self._active_requests[request.request_id] = request
 
         agent_bus = get_agent_bus()
@@ -293,18 +316,18 @@ class CynicDog(AbstractDog):
             return ConsensusResult(
                 consensus=False,
                 votes=votes,
-                quorum=DOGS_QUORUM,
+                quorum=request.quorum,
                 reason=f"GUARDIAN VETO by {request.veto_dogs}",
                 dog_judgments=[j.to_dict() for j in dog_judgments],
             )
 
-        # Quorum check
+        # Quorum check (dynamic: 2f+1 for actual active Dogs)
         if not request.has_quorum:
             return ConsensusResult(
                 consensus=False,
                 votes=votes,
-                quorum=DOGS_QUORUM,
-                reason=f"Insufficient votes: {votes}/{DOGS_QUORUM}",
+                quorum=request.quorum,
+                reason=f"Insufficient votes: {votes}/{request.quorum}",
                 dog_judgments=[j.to_dict() for j in dog_judgments],
             )
 
@@ -339,7 +362,7 @@ class CynicDog(AbstractDog):
         return ConsensusResult(
             consensus=True,
             votes=votes,
-            quorum=DOGS_QUORUM,
+            quorum=request.quorum,
             final_q_score=final_q,
             final_verdict=final_verdict,
             final_confidence=final_conf,

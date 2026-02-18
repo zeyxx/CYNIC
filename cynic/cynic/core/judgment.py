@@ -104,6 +104,58 @@ class Cell(BaseModel):
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# LAZY MATERIALIZATION: time_dim inference
+# ════════════════════════════════════════════════════════════════════════════
+
+_TIME_DIM_KEYWORDS: dict = {
+    "PAST":          {"history", "past", "previous", "diff", "git log", "was ", "were ", "old ",
+                      "before", "changelog", "legacy", "prior", "yesterday"},
+    "FUTURE":        {"future", "plan", "next", "predict", "will ", "roadmap", "goal", "upcoming",
+                      "todo", "should ", "proposal", "propose"},
+    "TREND":         {"trend", "growth", "rising", "falling", "declining", "improving", "degrading",
+                      "increase", "decrease", "over time", "week over", "month over"},
+    "CYCLE":         {"cycle", "weekly", "daily", "recurring", "periodic", "sprint", "deployment",
+                      "release", "iteration", "every "},
+    "EMERGENCE":     {"emerge", "novel", "unexpected", "anomaly", "surprise", "new pattern",
+                      "discovered", "unknown", "first time"},
+    "TRANSCENDENCE": {"meta", "self-improvement", "introspect", "self probe", "self_probe",
+                      "consciousness", "axiom", "transcend"},
+}
+
+
+def infer_time_dim(content: str, context: str = "", analysis: str = "JUDGE") -> str:
+    """
+    Lazy Materialization of time_dim: infer from content/context keywords.
+
+    7 time dimensions (7×7×7 matrix, 3rd axis):
+      PAST         — historical data, diffs, git history
+      PRESENT      — current state (default)
+      FUTURE       — plans, predictions, roadmaps
+      CYCLE        — recurring patterns, sprints, deployments
+      TREND        — directional changes over time
+      EMERGENCE    — novel/unexpected patterns
+      TRANSCENDENCE— meta-level self-analysis (analysis=EMERGE always maps here)
+
+    This enables Lazy Materialization: Q-Table states are created on-demand
+    as CYNIC encounters data in each time dimension, not pre-computed.
+    343 states (7×7×7) materialize progressively from real data.
+    """
+    # TRANSCENDENCE: EMERGE analysis is always meta-level
+    if analysis == "EMERGE":
+        return "TRANSCENDENCE"
+
+    text = (str(content) + " " + context).lower()
+
+    # Score each time_dim by keyword matches; pick highest (ties → PRESENT)
+    scores: dict = {dim: 0 for dim in _TIME_DIM_KEYWORDS}
+    for dim, keywords in _TIME_DIM_KEYWORDS.items():
+        scores[dim] = sum(1 for kw in keywords if kw in text)
+
+    best_dim, best_score = max(scores.items(), key=lambda kv: kv[1])
+    return best_dim if best_score > 0 else "PRESENT"
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # JUDGMENT OUTPUT
 # ════════════════════════════════════════════════════════════════════════════
 

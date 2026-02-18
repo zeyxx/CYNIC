@@ -412,20 +412,86 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         except Exception:
             pass
 
-    # δ1: AXIOM_ACTIVATED → log milestone; emit TRANSCENDENCE when all 4 active
+    # ── DECISION_MADE → RUN EScore + EMERGENCE on confident BARK ─────────────
+    # Emitted by DecideAgent for every BARK/GROWL verdict with confidence ≥ φ⁻².
+    # Payload: {"recommended_action": str, "q_value": float [0,1],
+    #           "confidence": float, "reality": str, ...}
+    #
+    # RUN dimension = "execution efficiency" — how well is CYNIC choosing actions?
+    # The q_value IS the QTable's self-assessed quality of the chosen action.
+    #   q_value=1.0 → RUN=100.0  — optimal action, peak efficiency
+    #   q_value=0.5 → RUN=50.0   — neutral
+    #   q_value=0.0 → RUN=0.0    — no confidence in any action (cold start)
+    #
+    # Closes: DecideAgent Q-value → organism efficiency self-model.
+    # Gives RUN a high-frequency source beyond the rare SDK_RESULT_RECEIVED.
+    #
+    # EMERGENCE: a CONFIDENT BARK (q_value ≥ φ⁻² = 0.382) means CYNIC is sure
+    # there's a critical problem. That certainty about badness IS emergence —
+    # a hidden pattern has surfaced clearly enough to justify a bark.
+    # Only BARK triggers EMERGENCE (GROWL = quality concern, not critical).
+    async def _on_decision_made_for_run(event: Event) -> None:
+        try:
+            p       = event.payload or {}
+            q_value = float(p.get("q_value", 0.0))   # [0, 1]
+            verdict = p.get("recommended_action", "")
+
+            from cynic.core.phi import MAX_Q_SCORE, PHI_INV_2
+
+            # RUN EScore — decision quality as execution efficiency
+            run_score = q_value * MAX_Q_SCORE
+            escore_tracker.update("agent:cynic", "RUN", run_score)
+
+            # EMERGENCE: confident BARK = organism sure of a critical problem
+            emergence_signalled = False
+            if verdict == "BARK" and q_value >= PHI_INV_2:
+                new_state = axiom_monitor.signal("EMERGENCE")
+                if new_state == "ACTIVE":
+                    await get_core_bus().emit(Event(
+                        type=CoreEvent.AXIOM_ACTIVATED,
+                        payload={
+                            "axiom":    "EMERGENCE",
+                            "maturity": axiom_monitor.get_maturity("EMERGENCE"),
+                            "trigger":  "CONFIDENT_BARK",
+                        },
+                        source="decision_made",
+                    ))
+                emergence_signalled = True
+
+            logger.debug(
+                "DECISION_MADE: action=%s q=%.3f → RUN EScore=%.1f%s",
+                verdict, q_value, run_score,
+                " EMERGENCE signalled" if emergence_signalled else "",
+            )
+        except Exception:
+            pass
+
+    get_core_bus().on(CoreEvent.DECISION_MADE, _on_decision_made_for_run)
+
+    # δ1: AXIOM_ACTIVATED → log milestone; emit TRANSCENDENCE when all A6-A9 active
+    _A6_A9 = frozenset({"AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY"})
+
     async def _on_axiom_activated(event: Event) -> None:
         try:
             axiom_name = event.payload.get("axiom", "?")
             maturity = event.payload.get("maturity", 0.0)
             active = axiom_monitor.active_axioms()
             logger.info(
-                "AXIOM_ACTIVATED: %s (maturity=%.1f) — %d/%d axioms active: %s",
-                axiom_name, maturity, len(active), 4, active,
+                "AXIOM_ACTIVATED: %s (maturity=%.1f) — active: %s",
+                axiom_name, maturity, active,
             )
-            if len(active) == 4:
+            # A11 TRANSCENDENCE: check specifically A6-A9 (not A10/A11 themselves)
+            a6_a9_active = [a for a in active if a in _A6_A9]
+            if len(a6_a9_active) == 4:
+                # AxiomMonitor auto-signals TRANSCENDENCE via _maybe_signal_transcendence()
+                # but also emit the CoreEvent so _on_transcendence can react
                 await get_core_bus().emit(Event(
                     type=CoreEvent.TRANSCENDENCE,
-                    payload={"active_axioms": active, "tier": "TRANSCENDENT"},
+                    payload={
+                        "active_axioms": active,
+                        "tier": "TRANSCENDENT",
+                        "trigger": f"AXIOM_ACTIVATED:{axiom_name}",
+                    },
                     source="axiom_monitor",
                 ))
         except Exception:
@@ -589,6 +655,22 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
                             "axiom":   "ANTIFRAGILITY",
                             "maturity": axiom_monitor.get_maturity("ANTIFRAGILITY"),
                             "trigger": "META_CYCLE_REGRESSION",
+                        },
+                        source="meta_cycle",
+                    ))
+
+            # 1b. A10 CONSCIOUSNESS — organism accurately perceives its own state
+            # Fires when ≥61.8% of self-probes pass (WAG-level self-awareness)
+            if pass_rate >= PHI_INV:
+                new_state = axiom_monitor.signal("CONSCIOUSNESS")
+                if new_state == "ACTIVE":
+                    await get_core_bus().emit(Event(
+                        type=CoreEvent.AXIOM_ACTIVATED,
+                        payload={
+                            "axiom":    "CONSCIOUSNESS",
+                            "maturity": axiom_monitor.get_maturity("CONSCIOUSNESS"),
+                            "trigger":  "META_CYCLE_HEALTH",
+                            "pass_rate": round(pass_rate, 3),
                         },
                         source="meta_cycle",
                     ))
