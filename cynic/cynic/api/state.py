@@ -36,6 +36,7 @@ from cynic.judge.residual import ResidualDetector
 from cynic.judge.decide import DecideAgent
 from cynic.judge.account import AccountAgent
 from cynic.judge.axiom_monitor import AxiomMonitor
+from cynic.judge.action_proposer import ActionProposer
 from cynic.judge.lod import LODController, SurvivalLOD
 from cynic.core.escore import EScoreTracker
 from cynic.learning.qlearning import QTable, LearningLoop
@@ -103,9 +104,10 @@ class AppState:
     runner: Optional[object] = None        # ClaudeCodeRunner — spawns claude autonomously
     telemetry_store: TelemetryStore = field(default_factory=TelemetryStore)  # session data
     context_compressor: ContextCompressor = field(default_factory=ContextCompressor)  # γ2 token budget
-    axiom_monitor: AxiomMonitor = field(default_factory=AxiomMonitor)    # δ1 emergent axiom tracker
-    lod_controller: LODController = field(default_factory=LODController)  # δ2 graceful degradation
-    escore_tracker: EScoreTracker = field(default_factory=EScoreTracker)  # γ4 reputation scoring
+    axiom_monitor: AxiomMonitor = field(default_factory=AxiomMonitor)       # δ1 emergent axiom tracker
+    lod_controller: LODController = field(default_factory=LODController)   # δ2 graceful degradation
+    escore_tracker: EScoreTracker = field(default_factory=EScoreTracker)   # γ4 reputation scoring
+    action_proposer: ActionProposer = field(default_factory=ActionProposer) # P5 action queue
 
     @property
     def uptime_s(self) -> float:
@@ -190,6 +192,12 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     # ── DecideAgent — subscribes to JUDGMENT_CREATED, auto-decides on BARK/GROWL
     decide_agent = DecideAgent(qtable=qtable)
     decide_agent.start(get_core_bus())
+
+    # ── ActionProposer — P5: DECISION_MADE → ProposedAction queue ─────────
+    # Subscribes to DECISION_MADE (same as _on_decision_made in server.py).
+    # Writes ~/.cynic/pending_actions.json — human-visible action queue.
+    action_proposer = ActionProposer()
+    action_proposer.start(get_core_bus())
 
     # ── AccountAgent — step 6 (ACCOUNT): cost ledger + budget enforcement ──
     # Subscribes to JUDGMENT_CREATED. Tracks cost per reality/dog.
@@ -436,6 +444,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         axiom_monitor=axiom_monitor,
         lod_controller=lod_controller,
         escore_tracker=escore_tracker,
+        action_proposer=action_proposer,
     )
 
 

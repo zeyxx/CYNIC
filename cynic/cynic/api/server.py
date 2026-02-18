@@ -5,13 +5,16 @@ Exposes the Python kernel over HTTP so JS hooks (and anything else) can call it.
 This is the living interface between the legacy JS system and the Python organism.
 
 Routes:
-  POST /judge          → Full judgment pipeline (REFLEX/MICRO/MACRO)
-  POST /perceive       → Accept raw perception, optionally run judgment
-  POST /learn          → Inject learning signal directly into QTable
-  GET  /policy/{key}   → Query learned policy for a state
-  GET  /health         → Kernel health (consciousness, dogs, learning)
-  GET  /stats          → Detailed metrics
-  GET  /dashboard      → Live kernel dashboard (WebSocket /ws/stream consumer)
+  POST /judge                     → Full judgment pipeline (REFLEX/MICRO/MACRO)
+  POST /perceive                  → Accept raw perception, optionally run judgment
+  POST /learn                     → Inject learning signal directly into QTable
+  GET  /actions                   → List proposed actions (PENDING by default)
+  POST /actions/{id}/accept       → Accept a proposed action
+  POST /actions/{id}/reject       → Reject a proposed action
+  GET  /policy/{key}              → Query learned policy for a state
+  GET  /health                    → Kernel health (consciousness, dogs, learning)
+  GET  /stats                     → Detailed metrics
+  GET  /dashboard                 → Live kernel dashboard (WebSocket /ws/stream consumer)
 
 Design principles:
   - No state in route handlers (all state in AppState singleton)
@@ -705,6 +708,91 @@ async def feedback(req: FeedbackRequest) -> FeedbackResponse:
         visits=entry.visits,
         message=msg,
     )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /actions — list proposed actions
+# POST /actions/{id}/accept — approve a proposed action
+# POST /actions/{id}/reject — decline a proposed action
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.get("/actions")
+async def list_actions(
+    status: Optional[str] = Query(default=None, description="Filter by status: PENDING/ACCEPTED/REJECTED/AUTO_EXECUTED"),
+) -> Dict[str, Any]:
+    """
+    List proposed actions from the ActionProposer queue.
+
+    These are the concrete actions CYNIC wants to take after BARK/GROWL judgments.
+    Sorted by priority (1=critical first), then by proposed_at.
+
+    status=PENDING (default)    → actions awaiting human decision
+    status=ACCEPTED             → approved actions
+    status=REJECTED             → declined actions
+    status=AUTO_EXECUTED        → automatically executed by runner
+    status=all                  → full queue
+    """
+    state = get_state()
+    proposer = state.action_proposer
+
+    if status is None or status == "PENDING":
+        actions = proposer.pending()
+    elif status == "all":
+        actions = proposer.all_actions()
+    else:
+        actions = [a for a in proposer.all_actions() if a.status == status.upper()]
+
+    return {
+        "actions": [a.to_dict() for a in actions],
+        "count": len(actions),
+        "stats": proposer.stats(),
+    }
+
+
+@app.post("/actions/{action_id}/accept")
+async def accept_action(action_id: str) -> Dict[str, Any]:
+    """
+    Accept a proposed action — marks it ACCEPTED and signals ANTIFRAGILITY axiom.
+
+    After accepting, the human (or another component) can execute the prompt.
+    CYNIC logs the acceptance and uses it to reinforce the Q-Table next cycle.
+    """
+    state = get_state()
+    action = state.action_proposer.accept(action_id)
+    if action is None:
+        raise HTTPException(status_code=404, detail=f"Action {action_id} not found")
+
+    # ANTIFRAGILITY axiom: human×machine co-decision = adaptive strength
+    try:
+        new_state = state.axiom_monitor.signal("ANTIFRAGILITY")
+        if new_state == "ACTIVE":
+            await get_core_bus().emit(Event(
+                type=CoreEvent.AXIOM_ACTIVATED,
+                payload={"axiom": "ANTIFRAGILITY", "maturity": state.axiom_monitor.get_maturity("ANTIFRAGILITY")},
+                source="action_accept",
+            ))
+    except Exception:
+        pass
+
+    logger.info("*tail wag* Action %s ACCEPTED by human", action_id)
+    return {"accepted": True, "action": action.to_dict()}
+
+
+@app.post("/actions/{action_id}/reject")
+async def reject_action(action_id: str) -> Dict[str, Any]:
+    """
+    Reject a proposed action — marks it REJECTED.
+
+    CYNIC learns from rejections: the next Q-Table update for this state_key
+    will have a lower reward signal (indirect — via the /feedback loop).
+    """
+    state = get_state()
+    action = state.action_proposer.reject(action_id)
+    if action is None:
+        raise HTTPException(status_code=404, detail=f"Action {action_id} not found")
+
+    logger.info("*head tilt* Action %s REJECTED by human", action_id)
+    return {"rejected": True, "action": action.to_dict()}
 
 
 # ════════════════════════════════════════════════════════════════════════════

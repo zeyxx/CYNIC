@@ -111,8 +111,9 @@ class CoreEvent(str, Enum):
     IDENTITY_VIOLATION = "identity.violation"
 
     # Decision / Act
-    ACT_REQUESTED  = "act.requested"
-    DECISION_MADE  = "decide.made"
+    ACT_REQUESTED   = "act.requested"
+    DECISION_MADE   = "decide.made"
+    ACTION_PROPOSED = "action.proposed"   # ActionProposer: proposed action queued
 
     # SDK (Claude Code --sdk-url sessions)
     SDK_SESSION_STARTED  = "sdk.session_started"

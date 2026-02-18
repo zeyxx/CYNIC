@@ -142,7 +142,7 @@ def _lod_str(lod_val: int) -> str:
 # ── Loop completion ────────────────────────────────────────────────────────
 
 _LOOPS = {
-    "L1 Machine→Actions": (42, "❌ ActionProposer missing"),
+    "L1 Machine→Actions": (75, "⚠️  ActionProposer+queue done, no UI yet"),
     "L2 CYNIC↔Claude Code": (68, "⚠️  ACT result→QTable (P6 done)"),
     "L3 Human→CYNIC→Human": (62, "⚠️  /feedback exists, no UI yet"),
     "L4 CYNIC→CYNIC Self": (62, "⚠️  code analysis missing"),
