@@ -796,6 +796,90 @@ async def reject_action(action_id: str) -> Dict[str, Any]:
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# GET  /self-probes          — list self-improvement proposals (L4)
+# POST /self-probes/analyze  — trigger manual analysis
+# POST /self-probes/{probe_id}/dismiss
+# POST /self-probes/{probe_id}/apply
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.get("/self-probes")
+async def list_self_probes(
+    status: Optional[str] = Query(default=None, description="Filter by status: PENDING/APPLIED/DISMISSED/all"),
+) -> Dict[str, Any]:
+    """
+    List SelfProber proposals — CYNIC's analysis of its own performance gaps.
+
+    L4 CYNIC→CYNIC self-improvement loop. Proposals are generated when
+    ResidualDetector detects SPIKE/RISING/STABLE_HIGH patterns and SelfProber
+    analyzes QTable, EScore, and Config recommendations.
+
+    status=PENDING (default) → proposals awaiting review
+    status=all               → full history
+    """
+    state = get_state()
+    prober = state.self_prober
+
+    if status is None or status == "PENDING":
+        proposals = prober.pending()
+    elif status == "all":
+        proposals = prober.all_proposals()
+    else:
+        proposals = [p for p in prober.all_proposals() if p.status == status.upper()]
+
+    return {
+        "proposals": [p.to_dict() for p in proposals],
+        "count": len(proposals),
+        "stats": prober.stats(),
+    }
+
+
+@app.post("/self-probes/analyze")
+async def trigger_self_analysis(
+    pattern_type: str = Query(default="MANUAL"),
+    severity: float = Query(default=0.5, ge=0.0, le=1.0),
+) -> Dict[str, Any]:
+    """
+    Trigger a manual self-analysis run.
+
+    Useful for testing or when you want CYNIC to introspect on demand.
+    Returns newly generated proposals.
+    """
+    state = get_state()
+    prober = state.self_prober
+    new_proposals = prober.analyze(
+        trigger="MANUAL",
+        pattern_type=pattern_type,
+        severity=severity,
+    )
+    return {
+        "proposals": [p.to_dict() for p in new_proposals],
+        "count": len(new_proposals),
+        "stats": prober.stats(),
+    }
+
+
+@app.post("/self-probes/{probe_id}/dismiss")
+async def dismiss_probe(probe_id: str) -> Dict[str, Any]:
+    """Dismiss a self-improvement proposal — marks it DISMISSED."""
+    state = get_state()
+    proposal = state.self_prober.dismiss(probe_id)
+    if proposal is None:
+        raise HTTPException(status_code=404, detail=f"Probe {probe_id} not found")
+    return {"dismissed": True, "proposal": proposal.to_dict()}
+
+
+@app.post("/self-probes/{probe_id}/apply")
+async def apply_probe(probe_id: str) -> Dict[str, Any]:
+    """Mark a self-improvement proposal as APPLIED."""
+    state = get_state()
+    proposal = state.self_prober.apply(probe_id)
+    if proposal is None:
+        raise HTTPException(status_code=404, detail=f"Probe {probe_id} not found")
+    logger.info("*tail wag* Self-probe %s APPLIED", probe_id)
+    return {"applied": True, "proposal": proposal.to_dict()}
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # GET /policy/{state_key}
 # ════════════════════════════════════════════════════════════════════════════
 

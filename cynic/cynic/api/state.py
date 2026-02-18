@@ -37,6 +37,7 @@ from cynic.judge.decide import DecideAgent
 from cynic.judge.account import AccountAgent
 from cynic.judge.axiom_monitor import AxiomMonitor
 from cynic.judge.action_proposer import ActionProposer
+from cynic.judge.self_probe import SelfProber
 from cynic.judge.lod import LODController, SurvivalLOD
 from cynic.core.escore import EScoreTracker
 from cynic.learning.qlearning import QTable, LearningLoop
@@ -108,6 +109,7 @@ class AppState:
     lod_controller: LODController = field(default_factory=LODController)   # δ2 graceful degradation
     escore_tracker: EScoreTracker = field(default_factory=EScoreTracker)   # γ4 reputation scoring
     action_proposer: ActionProposer = field(default_factory=ActionProposer) # P5 action queue
+    self_prober: SelfProber = field(default_factory=SelfProber)             # L4 self-improvement
 
     @property
     def uptime_s(self) -> float:
@@ -242,6 +244,16 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     # Together: JUDGE tracks prediction accuracy, RUN tracks cost efficiency.
     account_agent.set_escore_tracker(escore_tracker)
     account_agent.start(get_core_bus())
+
+    # ── SelfProber — L4 CYNIC→CYNIC self-improvement loop ─────────────────
+    # Subscribes to EMERGENCE_DETECTED. Analyzes QTable, EScore, Residual.
+    # Generates SelfProposal objects → persists to ~/.cynic/self_proposals.json.
+    # Emits SELF_IMPROVEMENT_PROPOSED so downstream can display / act on them.
+    self_prober = SelfProber()
+    self_prober.set_qtable(qtable)
+    self_prober.set_residual_detector(residual_detector)
+    self_prober.set_escore_tracker(escore_tracker)
+    self_prober.start(get_core_bus())
 
     _escore_persist_counter = [0]  # mutable cell for closure
 
@@ -445,6 +457,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         lod_controller=lod_controller,
         escore_tracker=escore_tracker,
         action_proposer=action_proposer,
+        self_prober=self_prober,
     )
 
 

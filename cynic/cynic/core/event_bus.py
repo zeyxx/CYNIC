@@ -113,7 +113,8 @@ class CoreEvent(str, Enum):
     # Decision / Act
     ACT_REQUESTED   = "act.requested"
     DECISION_MADE   = "decide.made"
-    ACTION_PROPOSED = "action.proposed"   # ActionProposer: proposed action queued
+    ACTION_PROPOSED           = "action.proposed"             # ActionProposer: proposed action queued
+    SELF_IMPROVEMENT_PROPOSED = "self.improvement_proposed"   # SelfProber: L4 analysis done
 
     # SDK (Claude Code --sdk-url sessions)
     SDK_SESSION_STARTED  = "sdk.session_started"
