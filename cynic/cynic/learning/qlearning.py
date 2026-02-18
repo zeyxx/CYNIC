@@ -25,6 +25,12 @@ Persistence:
   - Learning rate = φ⁻² / 10 (conservative homeostasis)
   - Confidence cap = φ⁻¹ (61.8% max certainty in any prediction)
   - Thompson α/β = Fibonacci-seeded (F(5)=5 prior, balanced exploration)
+
+EWC (Elastic Weight Consolidation):
+  - Fisher weight = min(visits / F(8), 1.0) — visit count as importance proxy
+  - effective_α = α × (1 - λ × fisher), λ = EWC_PENALTY = φ⁻¹ = 0.618
+  - Effect: New states learn at full α; consolidated states (≥21 visits) learn at 0.382×α
+  - Prevents catastrophic forgetting when task distribution shifts (CODE→MARKET→CODE)
 """
 from __future__ import annotations
 
@@ -38,7 +44,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 from cynic.core.phi import (
-    LEARNING_RATE, MAX_CONFIDENCE, MAX_Q_SCORE, PHI_INV,
+    EWC_PENALTY, LEARNING_RATE, MAX_CONFIDENCE, MAX_Q_SCORE, PHI_INV,
     PHI_INV_2, fibonacci, phi_bound,
 )
 
@@ -167,9 +173,15 @@ class QTable:
         """
         entry = self._get_or_create(signal.state_key, signal.action)
 
-        # TD(0) update (no next-state discount since we have episodic judgments)
+        # TD(0) update with EWC (Elastic Weight Consolidation).
+        # Fisher weight ≈ visits / F(8): heavily-visited entries resist overwriting.
+        # effective_α = α × (1 - λ × fisher)
+        # At visits=0:     effective_α = α         (full learning — unknown state)
+        # At visits=F(8):  effective_α = α × 0.382 (consolidated — resist forgetting)
         old_q = entry.q_value
-        new_q = old_q + self._alpha * (signal.reward - old_q)
+        fisher_weight = min(entry.visits / fibonacci(8), 1.0)
+        effective_alpha = self._alpha * (1.0 - EWC_PENALTY * fisher_weight)
+        new_q = old_q + effective_alpha * (signal.reward - old_q)
         entry.q_value = max(0.0, min(1.0, new_q))
 
         # Thompson arms: win if reward > 0.5 (above neutral), loss otherwise
@@ -310,6 +322,16 @@ class QTable:
             avg = sum(e.q_value for e in actions.values()) / len(actions)
             state_avgs[sk] = round(avg, 3)
 
+        # EWC: average effective learning rate across all entries
+        all_entries = [e for v in self._table.values() for e in v.values()]
+        if all_entries:
+            avg_fisher = sum(min(e.visits / fibonacci(8), 1.0) for e in all_entries) / len(all_entries)
+            avg_effective_alpha = round(self._alpha * (1.0 - EWC_PENALTY * avg_fisher), 5)
+            ewc_consolidated = sum(1 for e in all_entries if e.visits >= fibonacci(8))
+        else:
+            avg_effective_alpha = self._alpha
+            ewc_consolidated = 0
+
         return {
             "states": len(self._table),
             "entries": total_entries,
@@ -320,6 +342,8 @@ class QTable:
             "state_averages": state_avgs,
             "pending_flush": len(self._pending_flush),
             "uptime_s": round(time.time() - self._created_at, 1),
+            "ewc_effective_alpha": avg_effective_alpha,   # adaptive learning rate
+            "ewc_consolidated": ewc_consolidated,          # entries with visits ≥ F(8)
         }
 
     def top_states(self, n: int = 5) -> List[Dict]:
