@@ -484,7 +484,19 @@ class LearningLoop:
                 signal.state_key, signal.action, entry.visits, entry.q_value,
             )
 
-        # Flush to DB every FLUSH_INTERVAL updates
+        # Flush to DB every FLUSH_INTERVAL updates; emit Q_TABLE_UPDATED on success.
         if self._pool and self._updates_since_flush >= self.FLUSH_INTERVAL:
-            await self.qtable.flush_to_db(self._pool)
+            flushed = await self.qtable.flush_to_db(self._pool)
             self._updates_since_flush = 0
+            stats = self.qtable.stats()
+            from cynic.core.event_bus import CoreEvent, Event, get_core_bus
+            await get_core_bus().emit(Event(
+                type=CoreEvent.Q_TABLE_UPDATED,
+                payload={
+                    "flushed":          flushed,
+                    "total_entries":    stats["entries"],
+                    "ewc_consolidated": stats["ewc_consolidated"],
+                    "total_updates":    stats["total_updates"],
+                },
+                source="learning_loop",
+            ))

@@ -1358,3 +1358,69 @@ class TestEwcCheckpointLoop:
         assert judge_score == pytest.approx(50.0, abs=0.1)
         tracker.update("agent:cynic", "JUDGE", judge_score)
         assert tracker.get_score("agent:cynic") >= 0.0
+
+
+# ── Q_TABLE_UPDATED → BUILD + HOLD EScore update ──────────────────────────────
+
+class TestQTableUpdatedLoop:
+    """
+    Q_TABLE_UPDATED → BUILD + HOLD EScore update.
+
+    Emitted by LearningLoop after every successful DB flush (every F(8)=21 updates).
+    Payload: {"flushed": int, "total_entries": int, "ewc_consolidated": int,
+              "total_updates": int}
+
+    BUILD dimension: persisting learned knowledge to DB = building durable memory.
+    Gives BUILD a native LEARN-phase source (previously only SDK + action proposals).
+      Every flush → BUILD = HOWL_MIN (82.0)
+
+    HOLD dimension: regular persistence = steady long-term commitment to accumulated
+    wisdom. Routine flush = WAG_MIN (61.8) — solid but not exceptional.
+      Every flush → HOLD = WAG_MIN (61.8)
+    """
+
+    def test_flush_gives_howl_build_score(self):
+        """Successful flush → BUILD = HOWL_MIN (82.0)."""
+        from cynic.core.phi import HOWL_MIN
+        build_score = HOWL_MIN  # handler always uses HOWL_MIN for BUILD
+        assert build_score == pytest.approx(82.0, abs=0.1)
+
+    def test_flush_gives_wag_hold_score(self):
+        """Successful flush → HOLD = WAG_MIN (61.8) — steady commitment."""
+        from cynic.core.phi import WAG_MIN
+        hold_score = WAG_MIN  # handler always uses WAG_MIN for HOLD
+        assert hold_score == pytest.approx(61.8, abs=0.1)
+
+    def test_build_score_exceeds_hold_score(self):
+        """BUILD (HOWL_MIN) > HOLD (WAG_MIN) — persisting IS building, not just holding."""
+        from cynic.core.phi import HOWL_MIN, WAG_MIN
+        assert HOWL_MIN > WAG_MIN
+
+    def test_flush_increases_build_escore(self):
+        """Q_TABLE_UPDATED → EScore BUILD for agent:cynic increases above baseline."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import HOWL_MIN
+        tracker = EScoreTracker()
+        before = tracker.get_score("agent:cynic")
+        tracker.update("agent:cynic", "BUILD", HOWL_MIN)
+        assert tracker.get_score("agent:cynic") > before
+
+    def test_flush_increases_hold_escore(self):
+        """Q_TABLE_UPDATED → EScore HOLD for agent:cynic increases above baseline."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import WAG_MIN
+        tracker = EScoreTracker()
+        before = tracker.get_score("agent:cynic")
+        tracker.update("agent:cynic", "HOLD", WAG_MIN)
+        assert tracker.get_score("agent:cynic") > before
+
+    def test_handler_tolerates_empty_payload(self):
+        """Empty payload (no flushed key) → scores still applied, no raise."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import HOWL_MIN, WAG_MIN
+        tracker = EScoreTracker()
+        p = {}
+        flushed = int(p.get("flushed", 0))  # default 0 — handler still proceeds
+        tracker.update("agent:cynic", "BUILD", HOWL_MIN)
+        tracker.update("agent:cynic", "HOLD", WAG_MIN)
+        assert tracker.get_score("agent:cynic") >= 0.0

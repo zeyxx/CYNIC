@@ -1073,6 +1073,41 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
 
     get_core_bus().on(CoreEvent.EWC_CHECKPOINT, _on_ewc_checkpoint)
 
+    # ── Q_TABLE_UPDATED → BUILD + HOLD EScore update ──────────────────────────
+    # Emitted by LearningLoop after every successful DB flush (every F(8)=21 updates).
+    # Payload: {"flushed": int, "total_entries": int, "ewc_consolidated": int,
+    #           "total_updates": int}
+    #
+    # BUILD dimension: persisting learned knowledge to durable storage IS a build act.
+    # The organism is building its permanent memory. BUILD = HOWL_MIN (82.0) — any
+    # successful flush is high-quality construction. Gives BUILD a native LEARN-phase
+    # source (previously only SDK results + action proposals, both sparse).
+    #
+    # HOLD dimension: regular persistence = long-term commitment to accumulated wisdom.
+    # Routine flush = steady commitment (WAG_MIN = 61.8), not peak (reserved for
+    # self-monitoring via PERCEPTION_RECEIVED + LOD recovery via CONSCIOUSNESS_CHANGED).
+    async def _on_q_table_updated(event: Event) -> None:
+        try:
+            p       = event.payload or {}
+            flushed = int(p.get("flushed", 0))
+
+            from cynic.core.phi import HOWL_MIN, WAG_MIN
+
+            # BUILD: persisting knowledge = building durable memory
+            escore_tracker.update("agent:cynic", "BUILD", HOWL_MIN)
+
+            # HOLD: routine persistence = steady long-term commitment
+            escore_tracker.update("agent:cynic", "HOLD", WAG_MIN)
+
+            logger.info(
+                "Q_TABLE_UPDATED: flushed=%d → BUILD=%.1f HOLD=%.1f",
+                flushed, HOWL_MIN, WAG_MIN,
+            )
+        except Exception:
+            pass
+
+    get_core_bus().on(CoreEvent.Q_TABLE_UPDATED, _on_q_table_updated)
+
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),
     # /judge (MACRO), or DogScheduler background workers (MACRO with SAGE).
