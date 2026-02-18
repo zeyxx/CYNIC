@@ -2,14 +2,17 @@
 CYNIC ResidualDetector + L2→L1 Escalation Tests
 
 Tests composant 7/9 du kernel.
-No LLM, no DB. Pure in-memory residual pattern detection.
+Covers in-memory pattern detection AND PostgreSQL persistence (β3).
 """
 from __future__ import annotations
 
 import asyncio
+import time
 import pytest
+from unittest.mock import AsyncMock, MagicMock
 
 from cynic.core.phi import MAX_Q_SCORE, PHI_INV, PHI_INV_2
+from cynic.judge.residual import ResidualPoint
 from cynic.core.judgment import Cell, Judgment
 from cynic.core.axioms import AxiomArchitecture
 from cynic.core.consciousness import ConsciousnessLevel
@@ -335,3 +338,161 @@ class TestL2L1Escalation:
         # Must produce a judgment (not raise)
         j = await orch.run(cell, level=ConsciousnessLevel.MICRO)
         assert j.q_score <= MAX_Q_SCORE
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# β3: ResidualDetector DB Persistence
+# ════════════════════════════════════════════════════════════════════════════
+
+def _make_mock_pool(rows: list = None):
+    """Build a mock asyncpg pool that returns rows from conn.fetch()."""
+    record_rows = rows or []
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(return_value=record_rows)
+    conn.execute = AsyncMock(return_value=None)
+    pool = MagicMock()
+    pool.acquire = MagicMock()
+    pool.acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
+    pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+    return pool, conn
+
+
+def _make_row(
+    judgment_id: str = "j1",
+    residual: float = 0.3,
+    reality: str = "CODE",
+    analysis: str = "JUDGE",
+    unnameable: bool = False,
+) -> dict:
+    return {
+        "judgment_id": judgment_id,
+        "residual": residual,
+        "reality": reality,
+        "analysis": analysis,
+        "unnameable": unnameable,
+        "timestamp": time.time(),
+    }
+
+
+class TestResidualPersistence:
+    """ResidualDetector DB persistence — load_from_db + _save_point_to_db."""
+
+    @pytest.mark.asyncio
+    async def test_load_from_db_empty_returns_zero(self):
+        """Empty DB → load returns 0, no history populated."""
+        pool, _ = _make_mock_pool([])
+        det = ResidualDetector()
+        loaded = await det.load_from_db(pool)
+        assert loaded == 0
+        assert len(det._history) == 0
+        assert det._observations == 0
+
+    @pytest.mark.asyncio
+    async def test_load_from_db_populates_history(self):
+        """3 rows → 3 points in _history, observations=3."""
+        rows = [
+            _make_row("j1", residual=0.2),
+            _make_row("j2", residual=0.5),
+            _make_row("j3", residual=0.1),
+        ]
+        pool, _ = _make_mock_pool(rows)
+        det = ResidualDetector()
+        loaded = await det.load_from_db(pool)
+        assert loaded == 3
+        assert det._observations == 3
+        assert len(det._history) == 3
+
+    @pytest.mark.asyncio
+    async def test_load_from_db_counts_anomalies(self):
+        """Anomalies (residual >= 0.382) counted during warm-start."""
+        rows = [
+            _make_row("j1", residual=0.6, unnameable=True),   # anomaly
+            _make_row("j2", residual=0.1),                     # normal
+            _make_row("j3", residual=0.5, unnameable=True),   # anomaly
+        ]
+        pool, _ = _make_mock_pool(rows)
+        det = ResidualDetector()
+        await det.load_from_db(pool)
+        assert det._anomalies == 2
+
+    @pytest.mark.asyncio
+    async def test_load_from_db_rebuilds_consecutive_high(self):
+        """consecutive_high rebuilt correctly from reversed (oldest-first) replay."""
+        # DB returns newest-first; reversed → j3, j2, j1
+        # j3=low → consecutive=0; j2=high → 1; j1=high → 2
+        rows = [
+            _make_row("j1", residual=0.6),   # newest → played last
+            _make_row("j2", residual=0.5),   # played second
+            _make_row("j3", residual=0.1),   # oldest → played first
+        ]
+        pool, _ = _make_mock_pool(rows)
+        det = ResidualDetector()
+        await det.load_from_db(pool)
+        assert det._consecutive_high == 2
+
+    @pytest.mark.asyncio
+    async def test_load_from_db_exception_returns_zero(self):
+        """DB error → returns 0, no crash, no history populated."""
+        pool = MagicMock()
+        pool.acquire = MagicMock()
+        pool.acquire.return_value.__aenter__ = AsyncMock(
+            side_effect=Exception("connection refused")
+        )
+        pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        det = ResidualDetector()
+        loaded = await det.load_from_db(pool)
+        assert loaded == 0
+        assert det._observations == 0
+
+    def test_maybe_persist_without_pool_is_noop(self):
+        """_maybe_persist() with no pool set → no crash, no task."""
+        det = ResidualDetector()
+        point = ResidualPoint(
+            judgment_id="x", residual=0.5, reality="CODE",
+            analysis="JUDGE", unnameable=False,
+        )
+        det._maybe_persist(point)  # Must not raise
+
+    @pytest.mark.asyncio
+    async def test_save_point_to_db_calls_execute(self):
+        """_save_point_to_db issues INSERT with correct judgment_id."""
+        pool, conn = _make_mock_pool()
+        det = ResidualDetector()
+        det._db_pool = pool
+
+        point = ResidualPoint(
+            judgment_id="abc-123", residual=0.42, reality="CODE",
+            analysis="JUDGE", unnameable=True,
+        )
+        await det._save_point_to_db(point)
+
+        conn.execute.assert_called_once()
+        call_args = conn.execute.call_args[0]
+        assert "abc-123" in call_args
+        assert 0.42 in call_args
+
+    @pytest.mark.asyncio
+    async def test_save_point_to_db_handles_exception_gracefully(self):
+        """DB error in _save_point_to_db → warning, no crash."""
+        pool = MagicMock()
+        pool.acquire = MagicMock()
+        pool.acquire.return_value.__aenter__ = AsyncMock(
+            side_effect=Exception("write failed")
+        )
+        pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        det = ResidualDetector()
+        det._db_pool = pool
+        point = ResidualPoint(
+            judgment_id="err", residual=0.1, reality="CODE",
+            analysis="JUDGE", unnameable=False,
+        )
+        await det._save_point_to_db(point)  # Must not raise
+
+    def test_set_db_pool_stores_pool(self):
+        """set_db_pool() sets _db_pool."""
+        pool = MagicMock()
+        det = ResidualDetector()
+        det.set_db_pool(pool)
+        assert det._db_pool is pool
