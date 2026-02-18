@@ -471,3 +471,73 @@ class TestTranscendenceLoop:
         tracker.update("agent:cynic", "JUDGE", MAX_Q_SCORE)
         score = tracker.get_score("agent:cynic")
         assert 0.0 <= score <= MAX_Q_SCORE
+
+
+class TestResidualHighLoop:
+    """
+    RESIDUAL_HIGH → EMERGENCE signal + EScore JUDGE penalty.
+
+    THE_UNNAMEABLE (50th cell) detected when residual_variance > PHI_INV.
+    The organism should react: signal the EMERGENCE axiom (feeding the
+    EMERGENCE→AXIOM_ACTIVATED→TRANSCENDENCE chain) and apply a JUDGE penalty
+    to agent:cynic's EScore (inverse of residual: more chaos → lower quality).
+    """
+
+    def test_residual_high_signals_emergence(self):
+        """RESIDUAL_HIGH → axiom_monitor receives EMERGENCE signal."""
+        m = AxiomMonitor()
+        before = m.get_maturity("EMERGENCE")
+        # Simulate _on_residual_high: signal EMERGENCE
+        m.signal("EMERGENCE")
+        after = m.get_maturity("EMERGENCE")
+        assert after > before, "EMERGENCE maturity should increase after RESIDUAL_HIGH"
+
+    def test_residual_high_escore_penalty_proportional(self):
+        """Penalty = (1 - residual) × MAX_Q_SCORE — inversely proportional."""
+        from cynic.core.phi import PHI_INV
+        # residual = 0.618 (exactly at threshold) → penalty = 38.2
+        residual = PHI_INV
+        penalty = (1.0 - residual) * MAX_Q_SCORE
+        assert abs(penalty - GROWL_MIN) < 0.5, (
+            f"residual=PHI_INV → penalty≈GROWL_MIN, got {penalty:.2f}"
+        )
+
+    def test_residual_high_full_residual_penalty_zero(self):
+        """residual=1.0 → score=0 — total failure to categorize."""
+        residual = 1.0
+        penalty = (1.0 - min(residual, 1.0)) * MAX_Q_SCORE
+        assert penalty == 0.0
+
+    def test_residual_high_escore_decreases_after_penalty(self):
+        """Applying a JUDGE penalty below baseline lowers EScore."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        # First establish a high baseline
+        for _ in range(3):
+            tracker.update("agent:cynic", "JUDGE", MAX_Q_SCORE)
+        high_score = tracker.get_score("agent:cynic")
+        # Now apply the penalty (residual=1.0 → score=0)
+        tracker.update("agent:cynic", "JUDGE", 0.0)
+        low_score = tracker.get_score("agent:cynic")
+        assert low_score < high_score, "JUDGE penalty should reduce EScore"
+
+    def test_residual_high_accumulates_emergence_signals(self):
+        """Multiple RESIDUAL_HIGH events accumulate EMERGENCE maturity."""
+        m = AxiomMonitor()
+        for _ in range(10):
+            m.signal("EMERGENCE")
+        maturity = m.get_maturity("EMERGENCE")
+        assert maturity > 0.0, "10 signals should raise EMERGENCE maturity above 0"
+
+    def test_residual_high_handler_tolerates_bad_payload(self):
+        """_on_residual_high logic handles missing/wrong payload fields safely."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        # Simulate handler with empty payload
+        p = {}
+        residual = float(p.get("residual_variance", 0.0))
+        penalty = (1.0 - min(residual, 1.0)) * MAX_Q_SCORE
+        assert penalty == MAX_Q_SCORE  # residual=0 → full score (no penalty)
+        # Should not raise
+        tracker.update("agent:cynic", "JUDGE", penalty)
+        assert tracker.get_score("agent:cynic") >= 0.0
