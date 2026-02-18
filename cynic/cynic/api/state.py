@@ -333,6 +333,24 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
             if _escore_persist_counter[0] % 5 == 0 and db_pool is not None:
                 await escore_tracker.persist(db_pool)
 
+            # δ1: ANTIFRAGILITY — success after stress = system improves under chaos
+            # Signal when we succeed in a context where prior failures existed.
+            # "Recovery from error" is the ANTIFRAGILITY axiom docstring source.
+            had_stress = len(_outcome_window) > 1 and any(
+                not ok for ok in _outcome_window[:-1]
+            )
+            if had_stress:
+                new_state = axiom_monitor.signal("ANTIFRAGILITY")
+                if new_state == "ACTIVE":
+                    await get_core_bus().emit(Event(
+                        type=CoreEvent.AXIOM_ACTIVATED,
+                        payload={
+                            "axiom":   "ANTIFRAGILITY",
+                            "maturity": axiom_monitor.get_maturity("ANTIFRAGILITY"),
+                        },
+                        source="judgment_intelligence",
+                    ))
+
         except Exception:
             pass  # Never block the judgment pipeline
 

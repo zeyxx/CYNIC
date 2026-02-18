@@ -323,3 +323,80 @@ class TestBudgetEnforcement:
         )
         level = orch._select_level(cell, 1.0)
         assert level == ConsciousnessLevel.REFLEX
+
+
+class TestAntifragilitySignal:
+    """
+    δ1: ANTIFRAGILITY axiom — success after stress = system improves under chaos.
+
+    Signal source: _on_judgment_for_intelligence in state.py
+    Logic: success recorded in outcome window, AND prior window had failures
+           → axiom_monitor.signal("ANTIFRAGILITY")
+    """
+
+    def _make_monitor(self) -> AxiomMonitor:
+        return AxiomMonitor()
+
+    def test_no_signal_on_clean_run(self):
+        """All successes → no stress → no ANTIFRAGILITY signal."""
+        m = self._make_monitor()
+        outcome_window = [True, True, True]  # all successes
+        had_stress = len(outcome_window) > 1 and any(not ok for ok in outcome_window[:-1])
+        if had_stress:
+            m.signal("ANTIFRAGILITY")
+        assert m.get_maturity("ANTIFRAGILITY") == 0.0
+
+    def test_signal_after_failure_then_success(self):
+        """Failure recorded, then success → ANTIFRAGILITY signaled."""
+        m = self._make_monitor()
+        # Simulate: outcome_window = [False, True] (failure then success just added)
+        outcome_window = [False, True]
+        had_stress = len(outcome_window) > 1 and any(not ok for ok in outcome_window[:-1])
+        if had_stress:
+            m.signal("ANTIFRAGILITY")
+        assert m.get_maturity("ANTIFRAGILITY") > 0.0
+
+    def test_signal_count_grows_with_recoveries(self):
+        """Multiple recovery events → maturity grows."""
+        m = self._make_monitor()
+        # 5 recovery events (failure then success each time)
+        for _ in range(5):
+            outcome_window = [False, True]
+            had_stress = len(outcome_window) > 1 and any(not ok for ok in outcome_window[:-1])
+            if had_stress:
+                m.signal("ANTIFRAGILITY")
+        assert m.get_maturity("ANTIFRAGILITY") > 0.0
+        assert m._axioms["ANTIFRAGILITY"].signal_times.__len__() == 5
+
+    def test_signal_not_fired_on_empty_window(self):
+        """Empty window (first-ever judgment) → no stress → no signal."""
+        m = self._make_monitor()
+        outcome_window = [True]  # only the current success
+        had_stress = len(outcome_window) > 1 and any(not ok for ok in outcome_window[:-1])
+        if had_stress:
+            m.signal("ANTIFRAGILITY")
+        assert m.get_maturity("ANTIFRAGILITY") == 0.0
+
+    def test_antifragility_activates_at_threshold(self):
+        """Enough recovery signals → ANTIFRAGILITY reaches ACTIVE state."""
+        m = self._make_monitor()
+        from cynic.core.phi import WAG_MIN, MAX_Q_SCORE
+        needed = int(WAG_MIN / MAX_Q_SCORE * MATURITY_WINDOW) + 1
+        for _ in range(needed):
+            m.signal("ANTIFRAGILITY")
+        assert m.is_active("ANTIFRAGILITY")
+
+    def test_state_py_signal_logic(self):
+        """Validate the exact slice logic used in _on_judgment_for_intelligence."""
+        m = self._make_monitor()
+
+        # Case 1: mixed window ending in success — stress present → signal
+        window_with_failure = [True, False, True, True]  # last = current success
+        had = len(window_with_failure) > 1 and any(not ok for ok in window_with_failure[:-1])
+        assert had is True
+        m.signal("ANTIFRAGILITY")
+
+        # Case 2: all successes — no stress → no signal
+        window_clean = [True, True, True, True]
+        had2 = len(window_clean) > 1 and any(not ok for ok in window_clean[:-1])
+        assert had2 is False
