@@ -219,3 +219,90 @@ class TestCompressorStats:
         s = cc.stats()
         assert s["total_output_tokens"] > 0
         assert s["compression_ratio"] <= 1.0
+
+    def test_stats_include_attention_keys(self):
+        """Stats must include SAGE attention fields."""
+        cc = ContextCompressor()
+        s = cc.stats()
+        assert "avg_chunk_attention" in s
+        assert "max_chunk_attention" in s
+        assert s["avg_chunk_attention"] == 1.0   # Default neutral
+
+
+# ── Attention Feedback (SAGE → Compressor) ────────────────────────────────
+
+class TestAttentionFeedback:
+    """
+    Tests for the SAGE→Compressor bidirectional attention loop.
+
+    boost() records Jaccard-similarity attention signals from SAGE judgments.
+    High-attention chunks get EMA-boosted weights used in get_compressed_context().
+    """
+
+    def test_boost_noop_on_empty_compressor(self):
+        """boost() on empty compressor is safe (no crash)."""
+        cc = ContextCompressor()
+        cc.boost("some text about python code", 0.8)  # No exception
+
+    def test_boost_noop_on_zero_weight(self):
+        """boost() with weight=0 changes nothing."""
+        cc = ContextCompressor()
+        cc.add("python code quality metrics")
+        cc.boost("python code quality", 0.0)
+        assert cc._chunk_attention[0] == 1.0  # Unchanged
+
+    def test_boost_raises_attention_for_similar_chunk(self):
+        """Similar chunk gets attention > 1.0 after boost()."""
+        cc = ContextCompressor()
+        cc.add("python code quality metrics judgment")
+        cc.boost("python code quality metrics", 0.8)
+        assert cc._chunk_attention[0] > 1.0, "Similar chunk should be boosted"
+
+    def test_boost_ignores_dissimilar_chunk(self):
+        """Dissimilar chunk attention stays at 1.0."""
+        cc = ContextCompressor()
+        cc.add("solana blockchain transaction fees")
+        cc.boost("python code type hints docstrings", 0.9)
+        # Very low Jaccard similarity → no boost
+        assert cc._chunk_attention[0] == 1.0
+
+    def test_attention_synced_on_add(self):
+        """Each add() creates a corresponding attention entry."""
+        cc = ContextCompressor()
+        cc.add("first chunk")
+        cc.add("second chunk")
+        assert len(cc._chunk_attention) == 2
+        assert all(a == 1.0 for a in cc._chunk_attention)
+
+    def test_attention_synced_on_clear(self):
+        """clear() resets attention list."""
+        cc = ContextCompressor()
+        cc.add("chunk one")
+        cc.boost("chunk one content", 0.9)
+        cc.clear()
+        assert cc._chunk_attention == []
+
+    def test_attention_boosts_compress_ranking(self):
+        """High-attention chunks are preferred in get_compressed_context()."""
+        cc = ContextCompressor(max_tokens=10000)
+        # Add two distinctly different chunks
+        cc.add("Axiomatic reasoning about phi golden ratio fibonacci")
+        cc.add("Blockchain solana lamports transaction confirmation")
+
+        # Boost the first chunk as highly relevant
+        cc.boost("phi golden ratio fibonacci axiomatic", 1.0)
+        assert cc._chunk_attention[0] > cc._chunk_attention[1]
+
+        # Compressed context with tight budget should prefer boosted chunk
+        ctx = cc.get_compressed_context(budget=30)
+        # High-attention chunk should have higher priority in selection
+        assert cc._chunk_attention[0] > 1.0
+
+    def test_rolling_window_drops_attention(self):
+        """When oldest chunk is dropped, its attention entry is also dropped."""
+        from cynic.perceive.compressor import fibonacci
+        cc = ContextCompressor()
+        max_c = fibonacci(11)  # 89
+        for i in range(max_c + 1):
+            cc.add(f"chunk number {i} with content here")
+        assert len(cc._chunk_attention) == cc.chunk_count

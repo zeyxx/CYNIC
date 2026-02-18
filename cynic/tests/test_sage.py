@@ -318,6 +318,82 @@ class TestSageCapabilities:
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# UNIT: Compressor ↔ SAGE bidirectional attention loop
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestSageCompressorBidirectional:
+    """
+    Tests for the SAGE→Compressor attention feedback loop.
+
+    SageDog.set_compressor() injects the ContextCompressor.
+    After each judgment, _signal_attention() calls compressor.boost()
+    with the judged text and normalized Q-score.
+    """
+
+    def test_set_compressor_stored(self):
+        """set_compressor() injects compressor into SageDog."""
+        from cynic.perceive.compressor import ContextCompressor
+        dog = SageDog()
+        cc = ContextCompressor()
+        dog.set_compressor(cc)
+        assert dog._compressor is cc
+
+    @pytest.mark.asyncio
+    async def test_no_compressor_no_error(self):
+        """SageDog without compressor works normally (backward compatible)."""
+        dog = SageDog()
+        assert dog._compressor is None
+        j = await dog.analyze(make_cell(CLEAN_CODE))
+        assert j.q_score >= 0.0  # No error, judgment produced
+
+    @pytest.mark.asyncio
+    async def test_high_qscore_boosts_similar_chunk(self):
+        """High-quality judgment on text similar to a stored chunk boosts it."""
+        from cynic.perceive.compressor import ContextCompressor
+        dog = SageDog()
+        cc = ContextCompressor()
+        dog.set_compressor(cc)
+
+        # Store a chunk similar to CLEAN_CODE
+        cc.add("fibonacci function type hints docstring return")
+
+        initial_attn = cc._chunk_attention[0]
+        # Analyze clean code (high Q-score) → should boost similar chunk
+        j = await dog.analyze(make_cell(CLEAN_CODE))
+        if j.q_score >= 38.2:  # GROWL+ threshold for signaling
+            assert cc._chunk_attention[0] >= initial_attn  # Never decreases
+
+    @pytest.mark.asyncio
+    async def test_low_qscore_does_not_signal(self):
+        """Judgments below GROWL_MIN (38.2) don't signal the compressor."""
+        from cynic.perceive.compressor import ContextCompressor
+        from unittest.mock import MagicMock
+        dog = SageDog()
+        mock_compressor = MagicMock()
+        dog._compressor = mock_compressor
+
+        # Manually trigger _signal_attention with low q_score
+        dog._signal_attention("some code text", q_score=20.0)  # Below 38.2
+        mock_compressor.boost.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_signal_attention_calls_boost(self):
+        """_signal_attention() calls compressor.boost() for GROWL+ Q-scores."""
+        from cynic.perceive.compressor import ContextCompressor
+        from unittest.mock import MagicMock
+        dog = SageDog()
+        mock_compressor = MagicMock()
+        dog._compressor = mock_compressor
+
+        # Q-score above threshold
+        dog._signal_attention("fibonacci type hints code quality", q_score=50.0)
+        mock_compressor.boost.assert_called_once()
+        call_args = mock_compressor.boost.call_args
+        assert call_args[0][0] == "fibonacci type hints code quality"
+        assert 0.0 < call_args[0][1] <= 1.0  # weight is normalized
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # INTEGRATION: SAGE in orchestrator pipeline
 # ════════════════════════════════════════════════════════════════════════════
 

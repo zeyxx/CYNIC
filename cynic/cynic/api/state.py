@@ -298,6 +298,14 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     # This gives SAGE and other LLM dogs temporal continuity across judgments.
     compressor = ContextCompressor()
 
+    # ── Compressor ↔ SAGE bidirectional attention loop ─────────────────────
+    # SAGE reads compressed context (Compressor→SAGE, existing).
+    # After each judgment, SAGE signals which content was relevant back
+    # to the Compressor (SAGE→Compressor, new — closes the feedback loop).
+    sage = dogs.get(DogId.SAGE)
+    if sage is not None and hasattr(sage, "set_compressor"):
+        sage.set_compressor(compressor)
+
     async def _on_judgment_for_compressor(event: Event) -> None:
         try:
             p = event.payload

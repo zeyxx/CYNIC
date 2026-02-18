@@ -112,6 +112,35 @@ class SageDog(LLMDog):
         super().__init__(DogId.SAGE, task_type="wisdom")
         self._heuristic_count: int = 0
         self._llm_count: int = 0
+        self._compressor: Optional[Any] = None  # ContextCompressor — injected via set_compressor()
+
+    def set_compressor(self, compressor: Any) -> None:
+        """
+        Inject ContextCompressor for bidirectional attention feedback.
+
+        After each judgment, SAGE signals which content was relevant via
+        compressor.boost(), so the Compressor prioritizes high-attention
+        chunks in future compressions.
+        """
+        self._compressor = compressor
+        logger.info("SageDog: ContextCompressor injected — bidirectional attention loop active")
+
+    def _signal_attention(self, text: str, q_score: float) -> None:
+        """
+        Signal to ContextCompressor which content was relevant for this judgment.
+
+        Called after every judgment (heuristic and temporal paths).
+        Only signals for judgments with meaningful Q-score (≥ GROWL_MIN).
+        """
+        if self._compressor is None or not text:
+            return
+        weight = q_score / MAX_Q_SCORE  # Normalize to [0, 1]
+        if weight < PHI_INV_2:          # Only signal for GROWL+ judgments (≥ 38.2%)
+            return
+        try:
+            self._compressor.boost(text, weight)
+        except Exception:
+            pass  # Never let signal errors break the judgment pipeline
 
     def get_capabilities(self) -> DogCapabilities:
         return DogCapabilities(
@@ -196,6 +225,7 @@ class SageDog(LLMDog):
             veto=False,
         )
         self.record_judgment(judgment)
+        self._signal_attention(text, judgment.q_score)  # ← SAGE→Compressor feedback
         return judgment
 
     def _heuristic_path(
@@ -230,6 +260,7 @@ class SageDog(LLMDog):
             veto=False,
         )
         self.record_judgment(judgment)
+        self._signal_attention(text, judgment.q_score)  # ← SAGE→Compressor feedback
         return judgment
 
     # ── Axiom Scoring ─────────────────────────────────────────────────────

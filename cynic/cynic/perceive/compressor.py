@@ -40,6 +40,10 @@ _TOKENS_PER_WORD: float = 1.3
 # Minimum chunk tokens to consider non-trivial
 _MIN_CHUNK_TOKENS: int = 5
 
+# Attention feedback (SAGE → Compressor bidirectional loop)
+_ATTENTION_ALPHA: float = PHI_INV_2          # EMA α = 0.382 — conservative; past dominates
+_ATTENTION_THRESHOLD: float = 0.05           # Min Jaccard similarity to boost a chunk
+
 
 # ── Token utilities ────────────────────────────────────────────────────────
 
@@ -144,6 +148,7 @@ class ContextCompressor:
     def __init__(self, max_tokens: int = DEFAULT_MAX_TOKENS) -> None:
         self._max_tokens = max_tokens
         self._chunks: List[str] = []
+        self._chunk_attention: List[float] = []  # Per-chunk attention weight (default 1.0)
         self._total_input_tokens: int = 0
         self._total_output_tokens: int = 0
         self._compressions: int = 0
@@ -163,20 +168,71 @@ class ContextCompressor:
             return
 
         self._chunks.append(text)
+        self._chunk_attention.append(1.0)  # New chunks start with neutral attention
         self._total_input_tokens += estimate_tokens(text)
 
         # Rolling window — drop oldest when full
         if len(self._chunks) > self._max_chunks:
             dropped = self._chunks.pop(0)
+            if self._chunk_attention:
+                self._chunk_attention.pop(0)
             logger.debug(
                 "ContextCompressor: dropped oldest chunk (%d tokens)",
                 estimate_tokens(dropped),
+            )
+
+    def boost(self, query: str, weight: float) -> None:
+        """
+        Signal attention: query text was relevant to a judgment of quality=weight.
+
+        Updates per-chunk attention via EMA.  Chunks with high Jaccard similarity
+        to query get attention boosted; future compressions will prioritize them.
+
+        Called by SageDog after each judgment to close the feedback loop:
+          Compressor → (context) → SAGE → (attention signal) → Compressor
+
+        Args:
+            query:  Text that SAGE just judged (cell content + context).
+            weight: Judgment quality, normalized [0, 1] (q_score / MAX_Q_SCORE).
+        """
+        if not self._chunks or weight <= 0.0 or not query:
+            return
+
+        # Sync attention list length with chunks
+        while len(self._chunk_attention) < len(self._chunks):
+            self._chunk_attention.append(1.0)
+
+        query_words = frozenset(re.findall(r"\b\w+\b", query.lower()))
+        if not query_words:
+            return
+
+        for i, chunk in enumerate(self._chunks):
+            chunk_words = frozenset(re.findall(r"\b\w+\b", chunk.lower()))
+            if not chunk_words:
+                continue
+
+            # Jaccard similarity: |A ∩ B| / |A ∪ B|
+            inter = len(query_words & chunk_words)
+            union = len(query_words | chunk_words)
+            sim = inter / union if union > 0 else 0.0
+
+            if sim < _ATTENTION_THRESHOLD:
+                continue  # Below noise floor — skip
+
+            # Attention boost: neutral=1.0, max = 1 + weight×sim×φ⁻¹
+            boost_val = 1.0 + weight * sim * PHI_INV
+
+            # EMA update (α = PHI_INV_2 = 0.382 — conservative; past dominates)
+            self._chunk_attention[i] = (
+                (1.0 - _ATTENTION_ALPHA) * self._chunk_attention[i]
+                + _ATTENTION_ALPHA * boost_val
             )
 
     def compress(
         self,
         chunks: List[str],
         budget: int,
+        chunk_attentions: Optional[List[float]] = None,
     ) -> str:
         """
         Compress chunks to fit within token budget.
@@ -219,6 +275,21 @@ class ContextCompressor:
         # Rank sentences by TF-IDF
         scored = _tfidf_score_sentences(sentences)
 
+        # Apply per-chunk attention weights: SAGE feedback boosts similar past chunks
+        if chunk_attentions:
+            # Map each sentence back to its source chunk's attention weight
+            sentence_attn: Dict[str, float] = {}
+            for i, chunk in enumerate(chunks):
+                attn = chunk_attentions[i] if i < len(chunk_attentions) else 1.0
+                for sent in _split_sentences(chunk):
+                    sentence_attn[sent] = attn  # Last chunk wins for duplicates
+            if sentence_attn:
+                scored = [
+                    (s, score * sentence_attn.get(s, 1.0))
+                    for s, score in scored
+                ]
+                scored.sort(key=lambda x: x[1], reverse=True)
+
         # Greedy selection: take highest-scored until budget exhausted
         # Always keep at least the first sentence (recency anchor)
         selected_indices: List[int] = [0]
@@ -247,6 +318,9 @@ class ContextCompressor:
         """
         Return compressed context from accumulated session history.
 
+        Passes per-chunk attention weights to compress() so SAGE-boosted
+        chunks are prioritized over equal-TF-IDF alternatives.
+
         Args:
             budget: Max tokens (defaults to self._max_tokens).
 
@@ -254,14 +328,20 @@ class ContextCompressor:
             Compressed string ready for LLM context injection.
         """
         effective_budget = budget if budget is not None else self._max_tokens
-        return self.compress(self._chunks, effective_budget)
+        # Sync attention list with current chunks
+        attn = list(self._chunk_attention[:len(self._chunks)])
+        while len(attn) < len(self._chunks):
+            attn.append(1.0)
+        return self.compress(self._chunks, effective_budget, chunk_attentions=attn)
 
     def clear(self) -> None:
         """Clear session history (start of new session)."""
         self._chunks = []
+        self._chunk_attention = []
 
     def stats(self) -> Dict[str, Any]:
         """Return compression statistics."""
+        attn = self._chunk_attention[:len(self._chunks)]
         return {
             "chunks": len(self._chunks),
             "total_input_tokens": self._total_input_tokens,
@@ -271,6 +351,8 @@ class ContextCompressor:
                 self._total_output_tokens / max(self._total_input_tokens, 1), 3
             ),
             "max_tokens": self._max_tokens,
+            "avg_chunk_attention": round(sum(attn) / len(attn), 3) if attn else 1.0,
+            "max_chunk_attention": round(max(attn), 3) if attn else 1.0,
         }
 
     @property
