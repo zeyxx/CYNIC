@@ -251,11 +251,36 @@ async def lifespan(app: FastAPI):
             )
             return
         _act_guard["last_t"] = now
+
+        decision_state_key = p.get("state_key", "")
+        decision_action = p.get("recommended_action", "WAG")
         logger.info(
             "*ears perk* Auto-ACT fired: reality=%s verdict=%s state=%s",
-            p.get("reality"), p.get("recommended_action"), p.get("state_key"),
+            p.get("reality"), decision_action, decision_state_key,
         )
-        asyncio.create_task(state.runner.execute(action_prompt, timeout=120.0))
+
+        async def _act_and_learn() -> None:
+            """Execute via CC, then feed result back to the DECISION state Q-entry."""
+            result = await state.runner.execute(action_prompt, timeout=120.0)
+            is_success = result.get("success", False)
+            cost = float(result.get("cost_usd", 0.0))
+            # Reward: compute_reward reuses the SDK telemetry formula
+            reward = compute_reward(not is_success, 0, cost)
+            from cynic.learning.qlearning import LearningSignal as _LS
+            state.qtable.update(_LS(
+                state_key=decision_state_key,
+                action=decision_action,
+                reward=reward,
+                judgment_id=result.get("exec_id", ""),
+                loop_name="ACT_RESULT",
+            ))
+            logger.info(
+                "*%s* ACT_RESULT → Q[%s][%s]=updated reward=%.3f (success=%s cost=$%.4f)",
+                "tail wag" if is_success else "GROWL",
+                decision_state_key, decision_action, reward, is_success, cost,
+            )
+
+        asyncio.create_task(_act_and_learn())
 
     get_core_bus().on(CoreEvent.DECISION_MADE, _on_decision_made)
     logger.info(
