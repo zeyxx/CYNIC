@@ -581,6 +581,59 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         except Exception:
             pass
 
+    # ── SDK_TOOL_JUDGED → SYMBIOSIS signal + GRAPH EScore update ─────────────
+    # Emitted by server.py ws_sdk handler after GUARDIAN judges each tool call.
+    # Payload: {"session_id": str, "tool": str, "verdict": str}
+    #
+    # GRAPH dimension = "trust network quality" — tool verdicts build/erode
+    # the trust graph between SDK sessions and CYNIC's guardian layer.
+    #
+    # SYMBIOSIS axiom: human+CYNIC working seamlessly = HOWL on every tool.
+    # HOWL verdict → signal SYMBIOSIS (second source, after /feedback).
+    #
+    #   HOWL  → GRAPH = HOWL_MIN (82.0)  + SYMBIOSIS signal
+    #   WAG   → GRAPH = WAG_MIN  (61.8)
+    #   GROWL → GRAPH = GROWL_MIN (38.2)
+    #   BARK  → GRAPH = 0.0 (trust breakdown — tool denied)
+    async def _on_sdk_tool_judged(event: Event) -> None:
+        try:
+            p = event.payload or {}
+            verdict    = p.get("verdict", "")
+            tool       = p.get("tool", "")
+
+            from cynic.core.phi import HOWL_MIN, WAG_MIN, GROWL_MIN
+
+            graph_score = {
+                "HOWL":  HOWL_MIN,
+                "WAG":   WAG_MIN,
+                "GROWL": GROWL_MIN,
+                "BARK":  0.0,
+            }.get(verdict, WAG_MIN)
+
+            escore_tracker.update("agent:cynic", "GRAPH", graph_score)
+
+            # SYMBIOSIS: seamless human+machine tool use
+            if verdict == "HOWL":
+                new_state = axiom_monitor.signal("SYMBIOSIS")
+                if new_state == "ACTIVE":
+                    await get_core_bus().emit(Event(
+                        type=CoreEvent.AXIOM_ACTIVATED,
+                        payload={
+                            "axiom":   "SYMBIOSIS",
+                            "maturity": axiom_monitor.get_maturity("SYMBIOSIS"),
+                            "trigger": "SDK_TOOL_HOWL",
+                        },
+                        source="sdk_tool_judged",
+                    ))
+
+            logger.info(
+                "SDK_TOOL_JUDGED: tool=%s verdict=%s → GRAPH EScore=%.1f%s",
+                tool, verdict, graph_score,
+                " SYMBIOSIS signalled" if verdict == "HOWL" else "",
+            )
+        except Exception:
+            pass
+
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_intelligence)
     get_core_bus().on(CoreEvent.JUDGMENT_FAILED, _on_judgment_failed)
     get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence_signal)
@@ -591,6 +644,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     get_core_bus().on(CoreEvent.RESIDUAL_HIGH, _on_residual_high)
     get_core_bus().on(CoreEvent.ACTION_PROPOSED, _on_action_proposed)
     get_core_bus().on(CoreEvent.META_CYCLE, _on_meta_cycle)
+    get_core_bus().on(CoreEvent.SDK_TOOL_JUDGED, _on_sdk_tool_judged)
 
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),
