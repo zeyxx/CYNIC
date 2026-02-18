@@ -203,7 +203,7 @@ class TestSDKResultLearning:
             assert session.total_cost_usd == pytest.approx(0.005, abs=1e-6)
 
     def test_sdk_error_result_gives_low_reward(self):
-        """Error result → reward 0.2 → Q-Table updated with BARK."""
+        """Error result → low reward → Q-Table updated with BARK on rich state key."""
         from cynic.api.state import get_state
         state = get_state()
 
@@ -212,10 +212,11 @@ class TestSDKResultLearning:
             _recv(ws)
             _send(ws, _result(is_error=True, cost=0.002))
 
-        # Q-Table should have a BARK entry for SDK:claude-sonnet-4-6:TASK
+        # Rich state key: SDK:{model}:{task_type}:{complexity}
+        # No task prompt → "general", no tools → "trivial"
         import time as _t
         _t.sleep(0.05)
-        q_bark = state.qtable.predict_q("SDK:claude-sonnet-4-6:TASK", "BARK")
+        q_bark = state.qtable.predict_q("SDK:claude-sonnet-4-6:general:trivial", "BARK")
         assert q_bark > 0
 
 

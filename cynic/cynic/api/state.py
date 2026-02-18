@@ -33,6 +33,7 @@ from cynic.judge.decide import DecideAgent
 from cynic.learning.qlearning import QTable, LearningLoop
 from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher
 from cynic.scheduler import DogScheduler
+from cynic.act.telemetry import TelemetryStore
 
 logger = logging.getLogger("cynic.api.state")
 
@@ -54,6 +55,7 @@ class AppState:
     last_judgment: Optional[Dict] = None  # state_key, action, judgment_id — for /feedback
     decide_agent: Optional[object] = None  # DecideAgent — auto-decides on BARK/GROWL
     runner: Optional[object] = None        # ClaudeCodeRunner — spawns claude autonomously
+    telemetry_store: TelemetryStore = field(default_factory=TelemetryStore)  # session data
 
     @property
     def uptime_s(self) -> float:

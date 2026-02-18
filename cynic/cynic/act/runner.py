@@ -133,6 +133,10 @@ class ClaudeCodeRunner:
                     f"Session {target_session_id} not in registry after connect"
                 )
 
+            # Tag session with task prompt for telemetry (runner path)
+            if hasattr(session, "_task_prompt"):
+                session._task_prompt = prompt
+
             # ── Optional model routing ──────────────────────────────────────
             if model and model != session.model:
                 set_model_msg = {

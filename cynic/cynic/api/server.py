@@ -40,6 +40,13 @@ from cynic.core.judgment import Cell
 from cynic.core.phi import PHI, MAX_CONFIDENCE
 from cynic.learning.qlearning import LearningSignal
 
+from cynic.act.telemetry import (
+    SessionTelemetry as SDKTelemetry,
+    TelemetryStore,
+    classify_task,
+    compute_reward,
+    estimate_complexity,
+)
 from cynic.api.models import (
     JudgeRequest, JudgeResponse,
     PerceiveRequest, PerceiveResponse,
@@ -68,6 +75,9 @@ class SDKSession:
 
     Each session is a running `claude --sdk-url ws://localhost:PORT/ws/sdk`
     process. CYNIC is the server; Claude Code is the client (the HANDS).
+
+    Telemetry fields (prefixed _) are populated during the session and
+    used to build a SessionTelemetry record when the result message arrives.
     """
     session_id: str
     ws: Any                                  # WebSocket — typed as Any to avoid circular import issues
@@ -78,6 +88,13 @@ class SDKSession:
     total_cost_usd: float = 0.0
     connected_at: float = field(default_factory=time.time)
     log: List[Dict[str, Any]] = field(default_factory=list)
+
+    # ── Telemetry (populated during session, consumed at result) ──────────
+    _task_prompt: str = ""                           # last task sent to this session
+    _tool_sequence: List[str] = field(default_factory=list)  # ordered tool names
+    _result_text: str = ""                           # Claude's result description
+    _input_tokens: int = 0                           # accumulated from assistant msgs
+    _output_tokens: int = 0
 
     def record(self, msg_type: str, data: Dict[str, Any]) -> None:
         self.log.append({"type": msg_type, "data": data, "ts": time.time()})
@@ -92,6 +109,7 @@ class SDKSession:
             "total_cost_usd": round(self.total_cost_usd, 6),
             "connected_at": self.connected_at,
             "events": len(self.log),
+            "tool_count": len(self._tool_sequence),
         }
 
 
@@ -1034,10 +1052,12 @@ async def ws_sdk(websocket: WebSocket) -> None:
 
                     await _send(response)
 
+                    behavior = "deny" if verdict == "BARK" else "allow"
+                    session._tool_sequence.append(tool_name)  # telemetry: ordered sequence
                     session.record("tool_judged", {
                         "tool": tool_name,
                         "verdict": verdict,
-                        "behavior": "deny" if verdict == "BARK" else "allow",
+                        "behavior": behavior,
                     })
 
                     await bus.emit(Event(
@@ -1057,6 +1077,9 @@ async def ws_sdk(websocket: WebSocket) -> None:
                     content = message.get("content", [])
                     text_blocks = sum(1 for b in content if b.get("type") == "text")
                     tool_blocks = sum(1 for b in content if b.get("type") == "tool_use")
+                    # Accumulate tokens across all assistant messages for telemetry
+                    session._input_tokens += usage.get("input_tokens", 0)
+                    session._output_tokens += usage.get("output_tokens", 0)
                     session.record("assistant", {
                         "text_blocks": text_blocks,
                         "tool_blocks": tool_blocks,
@@ -1068,26 +1091,92 @@ async def ws_sdk(websocket: WebSocket) -> None:
                 elif msg_type == "result":
                     is_error = msg.get("is_error", False)
                     cost = float(msg.get("total_cost_usd") or 0.0)
-                    session.total_cost_usd += cost
+                    duration_ms = float(msg.get("duration_ms") or 0.0)
+                    result_text = msg.get("result", "")
                     result_subtype = msg.get("subtype", "unknown")
+                    result_usage = msg.get("usage", {})
+
+                    session.total_cost_usd += cost
+                    session._result_text = result_text
+                    # Accumulate final usage
+                    session._input_tokens += result_usage.get("input_tokens", 0)
+                    session._output_tokens += result_usage.get("output_tokens", 0)
 
                     session.record("result", {
                         "subtype": result_subtype,
                         "is_error": is_error,
                         "cost_usd": cost,
+                        "result_text": result_text[:200],
                     })
 
-                    # Q-Learning signal from real Claude outcome
-                    reward = 0.2 if is_error else 0.7
+                    # ── Rich Q-Learning signal (28 states vs 1 before) ───────
+                    task_type = classify_task(session._task_prompt)
+                    complexity = estimate_complexity(session._tool_sequence)
+                    reward = compute_reward(is_error, len(session._tool_sequence), cost)
+                    rich_state_key = f"SDK:{session.model}:{task_type}:{complexity}"
+
                     from cynic.learning.qlearning import LearningSignal as _LS
-                    signal = _LS(
-                        state_key=f"SDK:{session.model}:TASK",
+                    state.qtable.update(_LS(
+                        state_key=rich_state_key,
                         action="BARK" if is_error else "HOWL",
                         reward=reward,
                         judgment_id=session_id,
                         loop_name="SDK_RESULT",
+                    ))
+
+                    # ── Quality judgment of Claude's output (REFLEX) ─────────
+                    judgment_content = (
+                        f"Task: {session._task_prompt[:200]}\n"
+                        f"Result: {result_text[:300]}\n"
+                        f"Tools: {', '.join(session._tool_sequence[:10])}\n"
+                        f"Cost: ${cost:.4f} | Error: {is_error} | Type: {task_type}"
                     )
-                    state.qtable.update(signal)
+                    try:
+                        from cynic.core.judgment import Cell as _Cell
+                        quality_cell = _Cell(
+                            reality="CODE", analysis="JUDGE",
+                            content=judgment_content,
+                            context=f"SDK quality — session {session_id[:8]}",
+                            lod=0, budget_usd=0.001,
+                        )
+                        qj = await state.orchestrator.run(
+                            quality_cell, level=ConsciousnessLevel.REFLEX
+                        )
+                        q_score = round(qj.q_score, 3)
+                        verdict = qj.verdict
+                        confidence = round(min(qj.confidence, MAX_CONFIDENCE), 3)
+                    except Exception as _exc:
+                        logger.debug("Quality judgment skipped: %s", _exc)
+                        q_score, verdict, confidence = 30.0, "GROWL", 0.382
+
+                    # ── Build and store SessionTelemetry ─────────────────────
+                    tool_judgments = [e for e in session.log if e["type"] == "tool_judged"]
+                    allowed = sum(1 for e in tool_judgments if e["data"]["behavior"] == "allow")
+                    denied = sum(1 for e in tool_judgments if e["data"]["behavior"] == "deny")
+
+                    telemetry_record = SDKTelemetry(
+                        session_id=session_id,
+                        task=session._task_prompt[:500],
+                        task_type=task_type,
+                        complexity=complexity,
+                        model=session.model,
+                        tools_sequence=session._tool_sequence.copy(),
+                        tools_allowed=allowed,
+                        tools_denied=denied,
+                        tool_allow_rate=round(allowed / max(len(tool_judgments), 1), 3),
+                        input_tokens=session._input_tokens,
+                        output_tokens=session._output_tokens,
+                        total_cost_usd=round(session.total_cost_usd, 6),
+                        duration_s=round(duration_ms / 1000, 2),
+                        is_error=is_error,
+                        result_text=result_text[:500],
+                        output_q_score=q_score,
+                        output_verdict=verdict,
+                        output_confidence=confidence,
+                        state_key=rich_state_key,
+                        reward=reward,
+                    )
+                    state.telemetry_store.add(telemetry_record)
 
                     await bus.emit(Event(
                         type=CoreEvent.SDK_RESULT_RECEIVED,
@@ -1097,14 +1186,18 @@ async def ws_sdk(websocket: WebSocket) -> None:
                             "cost_usd": cost,
                             "total_cost_usd": round(session.total_cost_usd, 6),
                             "reward": reward,
+                            "task_type": task_type,
+                            "complexity": complexity,
+                            "output_verdict": verdict,
+                            "output_q_score": q_score,
                         },
                         source="ws_sdk",
                     ))
 
                     logger.info(
-                        "*%s* SDK result: %s cost=$%.4f total=$%.4f",
+                        "*%s* SDK result: %s task=%s complexity=%s verdict=%s Q=%.1f cost=$%.4f",
                         "tail wag" if not is_error else "GROWL",
-                        result_subtype, cost, session.total_cost_usd,
+                        result_subtype, task_type, complexity, verdict, q_score, cost,
                     )
 
                 # ── keep_alive ───────────────────────────────────────────────
@@ -1186,6 +1279,9 @@ async def sdk_task(body: Dict[str, Any]) -> Dict[str, Any]:
             },
         }) + "\n")
 
+    # Capture task prompt for telemetry (last task wins — typical single-task sessions)
+    session._task_prompt = prompt
+
     # Send user message
     msg = {
         "type": "user",
@@ -1265,6 +1361,43 @@ async def act_execute(body: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# GET /act/telemetry  (session telemetry — learning measurement layer)
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.get("/act/telemetry")
+async def act_telemetry(
+    n: int = Query(default=10, ge=1, le=100),
+    export: bool = Query(default=False),
+) -> Dict[str, Any]:
+    """
+    Session telemetry — CYNIC's learning measurement layer.
+
+    Returns aggregate stats + recent sessions for H1-H5 hypothesis testing.
+
+    Query params:
+      n=10       → return last N sessions (max 100)
+      export=true → return all sessions (full JSONL export)
+
+    Stats include:
+      - count, error_rate, mean_cost, mean_reward
+      - verdicts (BARK/GROWL/WAG/HOWL distribution)
+      - task_types (debug/refactor/test/review/write/explain/general)
+      - complexities (trivial/simple/medium/complex)
+
+    Research use: GET /act/telemetry?export=true → download for H1-H5 analysis
+    """
+    state = get_state()
+    store = state.telemetry_store
+
+    result = {
+        "stats": store.stats(),
+        "sessions": store.export() if export else store.recent(n),
+        "message": f"*sniff* {len(store)} sessions measured — φ sees all.",
+    }
+    return result
+
+
 @app.get("/")
 async def root():
     return {
@@ -1277,7 +1410,7 @@ async def root():
             "/health", "/stats", "/introspect",
             "/ws/stream", "/ws/sdk",
             "/sdk/sessions", "/sdk/task",
-            "/act/execute",
+            "/act/execute", "/act/telemetry",
         ],
         "message": "*sniff* Le chien est là.",
     }
