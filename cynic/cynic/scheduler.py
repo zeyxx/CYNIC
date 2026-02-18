@@ -134,8 +134,15 @@ class DogScheduler:
         Register an autonomous PerceiveWorker to start alongside tier workers.
 
         Must be called BEFORE start(). Workers are started in start() and
-        cancelled in stop(). Registering after start() has no effect.
+        cancelled in stop(). Registering after start() is ignored with a warning.
         """
+        if self._running:
+            logger.warning(
+                "register_perceive_worker(%s) called after start() — ignored. "
+                "Register workers before calling start().",
+                getattr(worker, "name", repr(worker)),
+            )
+            return
         self._perceive_workers.append(worker)
 
     def start(self) -> None:

@@ -14,6 +14,7 @@ from httpx import AsyncClient, ASGITransport
 
 from cynic.api.server import app
 from cynic.api.state import build_kernel, set_state
+from cynic.core.phi import PHI
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -60,6 +61,7 @@ class TestRoot:
         assert "/learn" in routes
         assert "/health" in routes
         assert "/stats" in routes
+        assert "/ws/stream" in routes
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -86,6 +88,25 @@ class TestHealth:
         assert learning["active"] is True
         assert learning["states"] == 0  # fresh start
         assert learning["total_updates"] == 0
+
+    async def test_health_has_scheduler_field(self, client):
+        """Scheduler stats appear in /health — blind spot fixed."""
+        resp = await client.get("/health")
+        data = resp.json()
+        assert "scheduler" in data
+        sched = data["scheduler"]
+        assert "running" in sched
+        assert "workers_per_level" in sched
+        assert "queues" in sched
+
+    async def test_health_scheduler_worker_counts(self, client):
+        """Scheduler worker counts are φ-derived."""
+        resp = await client.get("/health")
+        workers = resp.json()["scheduler"]["workers_per_level"]
+        assert workers["REFLEX"] == 5   # F(5)
+        assert workers["MICRO"]  == 3   # F(4)
+        assert workers["MACRO"]  == 2   # F(3)
+        assert workers["META"]   == 1
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -649,3 +670,51 @@ class TestIntrospect:
     async def test_introspect_uptime_nonnegative(self, client):
         resp = await client.get("/introspect")
         assert resp.json()["uptime_s"] >= 0.0
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# WS /ws/stream  (real-time event stream)
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestWebSocketStream:
+    """
+    WebSocket tests use starlette.testclient.TestClient (sync) rather than
+    httpx AsyncClient, because WebSocket testing requires a sync interface.
+
+    The module-level kernel_state autouse fixture is async and only applies
+    to async tests. These sync tests use ws_kernel_sync for state setup.
+    """
+
+    @pytest.fixture(autouse=True)
+    def ws_kernel_sync(self):
+        """Sync kernel setup for WebSocket tests — TestClient owns its event loop."""
+        state = build_kernel(db_pool=None)
+        set_state(state)
+        yield
+        state.learning_loop.stop()
+
+    def test_ws_sends_connected_on_open(self):
+        """WebSocket /ws/stream immediately sends 'connected' after handshake."""
+        from starlette.testclient import TestClient
+        with TestClient(app).websocket_connect("/ws/stream") as ws:
+            msg = ws.receive_json()
+        assert msg["type"] == "connected"
+        assert "ts" in msg
+        assert "phi" in msg
+
+    def test_ws_phi_is_golden_ratio(self):
+        """Connected message includes φ = 1.618..."""
+        from starlette.testclient import TestClient
+        with TestClient(app).websocket_connect("/ws/stream") as ws:
+            msg = ws.receive_json()
+        assert msg["type"] == "connected"
+        assert abs(msg["phi"] - PHI) < 0.001
+
+    def test_ws_closes_cleanly(self):
+        """Disconnecting does not raise an exception."""
+        from starlette.testclient import TestClient
+        try:
+            with TestClient(app).websocket_connect("/ws/stream") as ws:
+                ws.receive_json()  # consume "connected"
+        except Exception as exc:
+            pytest.fail(f"WebSocket close raised unexpectedly: {exc}")

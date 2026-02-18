@@ -373,6 +373,40 @@ class TestNWorkers:
         assert "cynic.scheduler.macro.1"  in names   # F(3)-1 = 1
         assert "cynic.scheduler.meta.0"   in names   # single META
 
+    async def test_n_workers_achieve_parallelism(self, scheduler, cell, mock_orchestrator):
+        """
+        5 REFLEX workers process 5 cells concurrently — not sequentially.
+
+        Each cell takes 50ms. Sequential: ~250ms. Parallel (5 workers): ~50ms.
+        We assert completion in < 200ms to prove N-worker parallelism.
+        """
+        async def slow_run(*args, **kwargs):
+            await asyncio.sleep(0.05)   # 50ms per cell
+            result = MagicMock()
+            result.verdict = "WAG"
+            return result
+
+        mock_orchestrator.run.side_effect = slow_run
+        scheduler.start()
+
+        # Submit 5 cells — REFLEX has F(5)=5 workers, so all processed in parallel
+        for _ in range(5):
+            scheduler.submit(cell, level=ConsciousnessLevel.REFLEX, budget_usd=0.001)
+
+        t0 = time.perf_counter()
+        await asyncio.sleep(0.18)   # Wait 180ms — enough for parallel (50ms) not sequential (250ms)
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        await scheduler.stop()
+
+        # All 5 cells must have been processed
+        assert mock_orchestrator.run.call_count == 5, (
+            f"Expected 5 calls, got {mock_orchestrator.run.call_count}"
+        )
+        # Must complete well within sequential time — proves parallelism
+        assert elapsed_ms < 220, (
+            f"Took {elapsed_ms:.0f}ms — expected < 220ms (sequential would be ~250ms)"
+        )
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # PERCEIVE WORKER REGISTRATION
@@ -435,3 +469,20 @@ class TestPerceiveWorkerRegistration:
         assert s["workers_per_level"]["MICRO"]  == 3
         assert s["workers_per_level"]["MACRO"]  == 2
         assert s["workers_per_level"]["META"]   == 1
+
+    async def test_register_after_start_is_ignored(self, scheduler):
+        """register_perceive_worker() after start() is silently dropped — no duplicate tasks."""
+        from cynic.perceive.workers import HealthWatcher
+        scheduler.start()
+        initial_count = len(scheduler._perceive_tasks)
+
+        # Register after start() — must be ignored
+        scheduler.register_perceive_worker(HealthWatcher())
+
+        assert len(scheduler._perceive_tasks) == initial_count, (
+            "Late-registered worker must not create a new task"
+        )
+        assert len(scheduler._perceive_workers) == initial_count, (
+            "Late-registered worker must not be stored in the list"
+        )
+        await scheduler.stop()

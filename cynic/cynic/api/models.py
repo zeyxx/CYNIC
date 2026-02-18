@@ -187,6 +187,7 @@ class HealthResponse(BaseModel):
     consciousness: Dict[str, Any]
     dogs: List[str]
     learning: Dict[str, Any]
+    scheduler: Dict[str, Any] = Field(default_factory=dict)
     llm_adapters: List[str]
     judgments_total: int
     phi: float  # 1.618... (always displayed as reminder)

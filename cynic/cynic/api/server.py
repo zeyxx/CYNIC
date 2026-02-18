@@ -20,6 +20,7 @@ Design principles:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -28,7 +29,7 @@ import uuid
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -97,6 +98,11 @@ async def lifespan(app: FastAPI):
             registry.set_db_pool(db_pool)
             bench_loaded = await registry.load_benchmarks_from_db(db_pool)
             logger.info("Benchmark warm-start: %d routing entries loaded", bench_loaded)
+
+            # Warm-start ResidualDetector + enable persistent history
+            state.residual_detector.set_db_pool(db_pool)
+            residual_loaded = await state.residual_detector.load_from_db(db_pool)
+            logger.info("ResidualDetector warm-start: %d points loaded", residual_loaded)
         except Exception as exc:
             logger.warning("DB unavailable (%s) — running without persistence", exc)
             db_pool = None
@@ -535,6 +541,8 @@ async def health() -> HealthResponse:
     judge_stats = state.orchestrator.stats()
     learn_stats = state.qtable.stats()
 
+    sched_stats = state.scheduler.stats()
+
     # Determine status
     status = "alive"
     if not state.learning_loop._active:
@@ -551,6 +559,7 @@ async def health() -> HealthResponse:
             "total_updates": learn_stats["total_updates"],
             "pending_flush": learn_stats["pending_flush"],
         },
+        scheduler=sched_stats,
         llm_adapters=[a.adapter_id for a in __import__("cynic.llm.adapter", fromlist=["get_registry"]).get_registry().get_available()],
         judgments_total=judge_stats["judgments_total"],
         phi=PHI,
@@ -698,6 +707,66 @@ async def introspect() -> dict:
     }
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# WS /ws/stream  (real-time event stream)
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.websocket("/ws/stream")
+async def ws_stream(websocket: WebSocket) -> None:
+    """
+    WebSocket stream — real-time kernel events pushed to client.
+
+    Events streamed:
+      JUDGMENT_CREATED  — every judgment result
+      LEARNING_EVENT    — Q-table updates
+      META_CYCLE        — periodic evolution ticks
+
+    Protocol:
+      connect → {"type": "connected", "phi": 1.618...}
+      event   → {"type": <CoreEvent.name>, "payload": {...}, "ts": <float>}
+      ping    → {"type": "ping", "ts": <float>}  (30s keepalive)
+
+    Client disconnect → clean unsubscribe from all events.
+    Queue overflow (>100 buffered events) → events dropped silently.
+    """
+    await websocket.accept()
+    bus = get_core_bus()
+    queue: asyncio.Queue = asyncio.Queue(maxsize=100)
+
+    async def on_event(event: Event) -> None:
+        try:
+            queue.put_nowait({
+                "type": event.event_type.name if hasattr(event.event_type, "name") else str(event.event_type),
+                "payload": event.payload,
+                "ts": time.time(),
+            })
+        except asyncio.QueueFull:
+            pass  # Drop silently — client is slow, kernel must not block
+
+    stream_events = [
+        CoreEvent.JUDGMENT_CREATED,
+        CoreEvent.LEARNING_EVENT,
+        CoreEvent.META_CYCLE,
+    ]
+    for ev_type in stream_events:
+        bus.on(ev_type, on_event)
+
+    try:
+        await websocket.send_json({"type": "connected", "ts": time.time(), "phi": PHI})
+        while True:
+            try:
+                msg = await asyncio.wait_for(queue.get(), timeout=30.0)
+                await websocket.send_json(msg)
+            except asyncio.TimeoutError:
+                # Keepalive ping — proves connection is alive
+                await websocket.send_json({"type": "ping", "ts": time.time()})
+    except WebSocketDisconnect:
+        pass
+    finally:
+        for ev_type in stream_events:
+            bus.off(ev_type, on_event)
+
+
 @app.get("/")
 async def root():
     return {
@@ -705,6 +774,6 @@ async def root():
         "version": "2.0.0",
         "status": "alive",
         "φ": PHI,
-        "routes": ["/judge", "/perceive", "/learn", "/policy/{key}", "/health", "/stats", "/introspect"],
+        "routes": ["/judge", "/perceive", "/learn", "/policy/{key}", "/health", "/stats", "/introspect", "/ws/stream"],
         "message": "*sniff* Le chien est là.",
     }
