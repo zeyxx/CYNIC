@@ -520,3 +520,118 @@ class TestSDKL2L1CrossFeed:
         cynic_proposals = [p for p in proposals if p.reality == "CYNIC"]
         assert len(cynic_proposals) >= 1
         assert cynic_proposals[-1].verdict == "BARK"
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Social signal writer — closes SOCIAL×PERCEIVE loop
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestSocialSignalWriter:
+    """
+    γ4-social: human interactions write to social.json → SocialWatcher reads it.
+
+    Tests _append_social_signal() without hitting the filesystem —
+    redirect _SOCIAL_SIGNAL_PATH to a tmp_path for isolation.
+    """
+
+    def _redirect(self, tmp_path):
+        import cynic.api.server as srv_module
+        path = str(tmp_path / "social.json")
+        self._orig = srv_module._SOCIAL_SIGNAL_PATH
+        srv_module._SOCIAL_SIGNAL_PATH = path
+        return path
+
+    def _restore(self):
+        import cynic.api.server as srv_module
+        srv_module._SOCIAL_SIGNAL_PATH = self._orig
+
+    def test_append_creates_file(self, tmp_path):
+        path = self._redirect(tmp_path)
+        try:
+            from cynic.api.server import _append_social_signal
+            import os
+            _append_social_signal("cynic_feedback", 0.5, 30.0, "judgment", "user_rating")
+            assert os.path.exists(path)
+        finally:
+            self._restore()
+
+    def test_append_writes_valid_schema(self, tmp_path):
+        path = self._redirect(tmp_path)
+        try:
+            from cynic.api.server import _append_social_signal
+            _append_social_signal("cynic_interaction", -0.3, 20.0, "action", "reject")
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
+            assert isinstance(data, list)
+            sig = data[0]
+            assert sig["source"] == "cynic_interaction"
+            assert sig["sentiment"] == -0.3
+            assert sig["volume"] == 20.0
+            assert sig["signal_type"] == "reject"
+            assert sig["read"] is False
+            assert "ts" in sig
+        finally:
+            self._restore()
+
+    def test_append_accumulates_multiple_signals(self, tmp_path):
+        path = self._redirect(tmp_path)
+        try:
+            from cynic.api.server import _append_social_signal
+            for i in range(3):
+                _append_social_signal("cynic_feedback", float(i) * 0.2, 10.0, "j", "rating")
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
+            assert len(data) == 3
+        finally:
+            self._restore()
+
+    def test_sentiment_clamped_to_range(self, tmp_path):
+        path = self._redirect(tmp_path)
+        try:
+            from cynic.api.server import _append_social_signal
+            _append_social_signal("test", 99.9, 200.0, "t", "test")
+            with open(path, encoding="utf-8") as fh:
+                sig = json.load(fh)[0]
+            assert sig["sentiment"] == 1.0
+            assert sig["volume"] == 100.0
+        finally:
+            self._restore()
+
+    def test_rolling_cap_prevents_unbounded_growth(self, tmp_path):
+        path = self._redirect(tmp_path)
+        try:
+            from cynic.api.server import _append_social_signal, _SOCIAL_SIGNAL_CAP
+            for i in range(_SOCIAL_SIGNAL_CAP + 5):
+                _append_social_signal("src", 0.0, 10.0, "t", "t")
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
+            assert len(data) == _SOCIAL_SIGNAL_CAP
+        finally:
+            self._restore()
+
+    def test_feedback_endpoint_writes_signal(self, tmp_path):
+        """POST /feedback → _append_social_signal() writes to social.json."""
+        import cynic.api.server as srv_module
+        path = str(tmp_path / "social.json")
+        orig = srv_module._SOCIAL_SIGNAL_PATH
+        srv_module._SOCIAL_SIGNAL_PATH = path
+        try:
+            with TestClient(app) as client:
+                from cynic.api.state import get_state
+                state = get_state()
+                state.last_judgment = {
+                    "state_key": "CODE:JUDGE:PRESENT:1",
+                    "action": "GROWL",
+                    "judgment_id": "test-j",
+                }
+                resp = client.post("/feedback", json={"rating": 4})
+                assert resp.status_code == 200
+            import os
+            assert os.path.exists(path)
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
+            assert len(data) >= 1
+            assert data[-1]["source"] == "cynic_feedback"
+            assert data[-1]["sentiment"] > 0   # rating 4 > neutral 3
+        finally:
+            srv_module._SOCIAL_SIGNAL_PATH = orig

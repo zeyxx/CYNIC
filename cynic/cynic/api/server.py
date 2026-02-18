@@ -83,6 +83,56 @@ def _append_sdk_session_jsonl(record: SDKTelemetry) -> None:
         logger.debug("sdk_sessions.jsonl append skipped: %s", exc)
 
 
+# Path for social signals — SocialWatcher reads; human interactions write.
+_SOCIAL_SIGNAL_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "social.json")
+# Rolling cap: F(8)=21 signals max (prevent unbounded growth)
+_SOCIAL_SIGNAL_CAP = 21
+
+
+def _append_social_signal(
+    source: str,
+    sentiment: float,
+    volume: float,
+    topic: str,
+    signal_type: str,
+) -> None:
+    """
+    Append one social signal to ~/.cynic/social.json (fire-and-forget).
+
+    SocialWatcher reads this file every 89s and submits SOCIAL×PERCEIVE
+    cells. The read=False flag ensures each signal is processed exactly once.
+
+    Closes the Social loop: human interactions → sentiment → SocialWatcher →
+    MICRO judgment → QTable + SYMBIOSIS axiom signal.
+    """
+    try:
+        import time as _t
+        os.makedirs(os.path.dirname(_SOCIAL_SIGNAL_PATH), exist_ok=True)
+        signal = {
+            "ts": _t.time(),
+            "source": source,
+            "sentiment": round(max(-1.0, min(1.0, sentiment)), 3),
+            "volume": round(max(0.0, min(100.0, volume)), 1),
+            "topic": topic,
+            "signal_type": signal_type,
+            "read": False,
+        }
+        if os.path.exists(_SOCIAL_SIGNAL_PATH):
+            with open(_SOCIAL_SIGNAL_PATH, encoding="utf-8") as fh:
+                existing = json.load(fh)
+            if not isinstance(existing, list):
+                existing = [existing]
+        else:
+            existing = []
+        existing.append(signal)
+        if len(existing) > _SOCIAL_SIGNAL_CAP:
+            existing = existing[-_SOCIAL_SIGNAL_CAP:]
+        with open(_SOCIAL_SIGNAL_PATH, "w", encoding="utf-8") as fh:
+            json.dump(existing, fh)
+    except Exception as exc:
+        logger.debug("social.json append skipped: %s", exc)
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # SDK SESSION REGISTRY
 # ════════════════════════════════════════════════════════════════════════════
@@ -721,6 +771,16 @@ async def feedback(req: FeedbackRequest) -> FeedbackResponse:
     except Exception:
         pass
 
+    # Social loop: user rating → sentiment signal → SocialWatcher → SOCIAL×PERCEIVE
+    # sentiment: rating 1→-1.0, 3→0.0, 5→+1.0; volume: rating×10
+    _append_social_signal(
+        source="cynic_feedback",
+        sentiment=(req.rating - 3) / 2.0,
+        volume=float(req.rating * 10),
+        topic=last.get("action", "judgment"),
+        signal_type="user_rating",
+    )
+
     verdict_emoji = {"HOWL": "🟢", "WAG": "🟡", "GROWL": "🟠", "BARK": "🔴"}.get(last["action"], "⚪")
     msg = f"*tail wag* Feedback: rating={req.rating}/5 → reward={reward:.2f} → Q[{last['state_key']}][{last['action']}]={entry.q_value:.3f}"
 
@@ -808,6 +868,15 @@ async def accept_action(action_id: str) -> Dict[str, Any]:
         ))
         logger.info("*ears perk* Action %s → ACT_REQUESTED fired (L1 auto-execute)", action_id)
 
+    # Social loop: accept = positive human×machine interaction
+    _append_social_signal(
+        source="cynic_interaction",
+        sentiment=0.5,
+        volume=30.0,
+        topic=action.action_type or "action",
+        signal_type="accept",
+    )
+
     logger.info("*tail wag* Action %s ACCEPTED by human", action_id)
     return {"accepted": True, "action": action.to_dict(), "executing": bool(action.prompt)}
 
@@ -839,6 +908,15 @@ async def reject_action(action_id: str) -> Dict[str, Any]:
             "*head tilt* Action %s REJECTED → Q[%s][%s] penalized",
             action_id, action.state_key, action.verdict,
         )
+
+    # Social loop: reject = negative interaction (still valuable — CYNIC learns)
+    _append_social_signal(
+        source="cynic_interaction",
+        sentiment=-0.3,
+        volume=20.0,
+        topic=action.action_type or "action",
+        signal_type="reject",
+    )
 
     logger.info("*head tilt* Action %s REJECTED by human", action_id)
     return {"rejected": True, "action": action.to_dict()}
