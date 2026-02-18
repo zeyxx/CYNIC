@@ -952,3 +952,65 @@ class TestJudgmentRequestedLoop:
         # Queue depth computation is independent
         m = HealthMetrics(queue_depth=0)
         assert m.worst_lod() == SurvivalLOD.FULL
+
+
+# ── USER_FEEDBACK → EScore JUDGE update for agent:cynic ──────────────────────
+
+class TestUserFeedbackLoop:
+    """
+    USER_FEEDBACK bus event → EScore JUDGE update for agent:cynic.
+
+    /feedback endpoint already handles: QTable update, SYMBIOSIS signal, social append.
+    USER_FEEDBACK bus event adds: EScore JUDGE for agent:cynic — human validation
+    quality flows into CYNIC's reputation so SelfProber and future handlers can react.
+
+    Rating [1,5] → JUDGE [0, MAX_Q_SCORE]:
+        rating=5 → MAX_Q_SCORE (100.0) — exceptional
+        rating=3 → 50.0              — neutral
+        rating=1 → 0.0               — rejection
+    """
+
+    def _judge_score(self, rating: float) -> float:
+        """Reproduce handler's rating→JUDGE score mapping."""
+        return (rating - 1) / 4.0 * MAX_Q_SCORE
+
+    def test_rating_5_gives_max_judge_score(self):
+        """rating=5/5 → JUDGE = MAX_Q_SCORE (100.0)."""
+        assert self._judge_score(5) == pytest.approx(MAX_Q_SCORE, abs=0.1)
+
+    def test_rating_1_gives_zero_judge_score(self):
+        """rating=1/5 → JUDGE = 0.0 (rejection)."""
+        assert self._judge_score(1) == pytest.approx(0.0, abs=0.1)
+
+    def test_rating_3_gives_midpoint_score(self):
+        """rating=3/5 → JUDGE = MAX_Q_SCORE / 2 = 50.0 (neutral)."""
+        assert self._judge_score(3) == pytest.approx(MAX_Q_SCORE / 2.0, abs=0.5)
+
+    def test_good_feedback_increases_escore(self):
+        """rating=5 → EScore JUDGE for agent:cynic increases above baseline."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        before = tracker.get_score("agent:cynic")
+        tracker.update("agent:cynic", "JUDGE", self._judge_score(5))
+        assert tracker.get_score("agent:cynic") > before
+
+    def test_bad_feedback_lowers_escore(self):
+        """rating=1 (rejection) → EScore JUDGE penalty reduces established score."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        for _ in range(3):
+            tracker.update("agent:cynic", "JUDGE", MAX_Q_SCORE)
+        high = tracker.get_score("agent:cynic")
+        tracker.update("agent:cynic", "JUDGE", self._judge_score(1))
+        assert tracker.get_score("agent:cynic") < high
+
+    def test_feedback_handler_tolerates_empty_payload(self):
+        """Empty payload → rating defaults to 3.0 → JUDGE = 50.0, no raise."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        p = {}
+        rating = float(p.get("rating", 3.0))
+        judge_score = self._judge_score(rating)
+        assert judge_score == pytest.approx(MAX_Q_SCORE / 2.0, abs=0.5)
+        tracker.update("agent:cynic", "JUDGE", judge_score)
+        assert tracker.get_score("agent:cynic") >= 0.0

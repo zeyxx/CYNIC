@@ -851,6 +851,26 @@ async def feedback(req: FeedbackRequest) -> FeedbackResponse:
     except Exception:
         pass
 
+    # USER_FEEDBACK bus event — makes human rating visible organism-wide.
+    # Handlers in state.py react (EScore JUDGE update for agent:cynic).
+    # This is separate from the inline SYMBIOSIS signal above — bus event lets
+    # other components (SelfProber, future handlers) react without touching this code.
+    try:
+        await get_core_bus().emit(Event(
+            type=CoreEvent.USER_FEEDBACK,
+            payload={
+                "rating":       req.rating,
+                "reward":       reward,
+                "sentiment":    (req.rating - 3) / 2.0,
+                "state_key":    last["state_key"],
+                "action":       last["action"],
+                "judgment_id":  last.get("judgment_id", ""),
+            },
+            source="feedback_endpoint",
+        ))
+    except Exception:
+        pass
+
     # Social loop: user rating → sentiment signal → SocialWatcher → SOCIAL×PERCEIVE
     # sentiment: rating 1→-1.0, 3→0.0, 5→+1.0; volume: rating×10
     _append_social_signal(

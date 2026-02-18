@@ -773,6 +773,36 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         except Exception:
             pass
 
+    # ── USER_FEEDBACK → EScore JUDGE update for agent:cynic ──────────────────
+    # Emitted by server.py /feedback endpoint after QTable is updated.
+    # Payload: {"rating": int, "reward": float, "sentiment": float,
+    #           "state_key": str, "action": str, "judgment_id": str}
+    #
+    # SYMBIOSIS signal is already handled inline in server.py (direct call).
+    # QTable update is already done inline in server.py.
+    # This handler adds what was missing: EScore JUDGE update for agent:cynic.
+    #
+    # Human validation quality: rating [1,5] → JUDGE [0, MAX_Q_SCORE]
+    #   rating=5 → 100.0 (MAX_Q_SCORE) — exceptional judgment
+    #   rating=3 → 50.0              — neutral
+    #   rating=1 → 0.0               — rejection
+    async def _on_user_feedback(event: Event) -> None:
+        try:
+            p = event.payload or {}
+            rating = float(p.get("rating", 3.0))
+
+            from cynic.core.phi import MAX_Q_SCORE
+
+            judge_score = (rating - 1) / 4.0 * MAX_Q_SCORE
+            escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+
+            logger.info(
+                "USER_FEEDBACK: rating=%d/5 → JUDGE EScore=%.1f",
+                int(rating), judge_score,
+            )
+        except Exception:
+            pass
+
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_intelligence)
     get_core_bus().on(CoreEvent.JUDGMENT_FAILED, _on_judgment_failed)
     get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence_signal)
@@ -787,6 +817,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     get_core_bus().on(CoreEvent.SDK_SESSION_STARTED, _on_sdk_session_started)
     get_core_bus().on(CoreEvent.SDK_RESULT_RECEIVED, _on_sdk_result_received)
     get_core_bus().on(CoreEvent.JUDGMENT_REQUESTED, _on_judgment_requested)
+    get_core_bus().on(CoreEvent.USER_FEEDBACK, _on_user_feedback)
 
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),

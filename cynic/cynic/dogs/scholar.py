@@ -556,7 +556,8 @@ class ScholarDog(LLMDog):
         qtable_confidence_bonus = 0.0
 
         if self._qtable is not None and state_key:
-            qtable_raw = self._qtable.predict_q(state_key, "WAG") * MAX_Q_SCORE  # WAG = neutral pivot
+            _best_act  = self._qtable.exploit(state_key)  # best known action, not fixed WAG pivot
+            qtable_raw = self._qtable.predict_q(state_key, _best_act) * MAX_Q_SCORE
             qtable_visits = sum(
                 e.visits
                 for e in self._qtable._table.get(state_key, {}).values()

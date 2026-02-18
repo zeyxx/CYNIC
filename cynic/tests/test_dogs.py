@@ -538,3 +538,62 @@ class TestScholarDog:
         health = await scholar_with_history.health_check()
         assert health.dog_id == DogId.SCHOLAR
         assert health.status.value in ("HEALTHY", "DEGRADED", "UNKNOWN")
+
+
+# ── ScholarDog ↔ QTable exploit-pivot ────────────────────────────────────────
+
+class TestScholarQTableBlend:
+    """
+    ScholarDog recursive meta-learning — exploit-pivot correctness.
+
+    Bug (pre-fix): predict_q(state_key, "WAG") — always consulted WAG's Q-value,
+    even when QTable had learned BARK or HOWL as best action for the state.
+    QTable accumulated wisdom that Scholar never exploited.
+
+    Fix: exploit(state_key) → best known action → predict_q(state_key, best_act)
+    Result: Scholar's blend reflects QTable's accumulated learning.
+    """
+
+    def _make_qtable_with_bark(self, state_key: str = "CODE:JUDGE:PRESENT:0"):
+        """QTable trained so BARK is the best action for the given state."""
+        from cynic.learning.qlearning import QTable, LearningSignal
+        qt = QTable()
+        for _ in range(5):
+            qt.update(LearningSignal(
+                state_key=state_key, action="BARK", reward=0.9, loop_name="test",
+            ))
+        qt.update(LearningSignal(
+            state_key=state_key, action="WAG", reward=0.3, loop_name="test",
+        ))
+        return qt
+
+    def test_exploit_returns_best_action(self):
+        """After BARK training, exploit() returns 'BARK' not 'WAG'."""
+        qt = self._make_qtable_with_bark()
+        assert qt.exploit("CODE:JUDGE:PRESENT:0") == "BARK"
+
+    def test_predict_q_bark_higher_than_wag_after_training(self):
+        """After BARK training, predict_q(BARK) > predict_q(WAG)."""
+        qt = self._make_qtable_with_bark()
+        sk = "CODE:JUDGE:PRESENT:0"
+        bark_q = qt.predict_q(sk, "BARK")
+        wag_q  = qt.predict_q(sk, "WAG")
+        assert bark_q > wag_q, f"BARK Q={bark_q:.3f} should exceed WAG Q={wag_q:.3f}"
+
+    def test_exploit_pivot_gives_different_raw_than_wag_pivot(self):
+        """exploit pivot and WAG pivot produce different qtable_raw when BARK is best."""
+        from cynic.learning.qlearning import QTable
+        qt = self._make_qtable_with_bark()
+        sk = "CODE:JUDGE:PRESENT:0"
+        best_act  = qt.exploit(sk)             # "BARK"
+        q_exploit = qt.predict_q(sk, best_act) * MAX_Q_SCORE
+        q_wag     = qt.predict_q(sk, "WAG")    * MAX_Q_SCORE
+        assert best_act != "WAG"
+        assert q_exploit > q_wag  # exploit gives higher signal when BARK is best
+
+    def test_exploit_unknown_state_returns_growl_fallback(self):
+        """Unknown state → exploit() returns 'GROWL' (cautious default, not crash)."""
+        from cynic.learning.qlearning import QTable
+        qt = QTable()
+        result = qt.exploit("UNKNOWN:STATE:PRESENT:0")
+        assert result == "GROWL"
