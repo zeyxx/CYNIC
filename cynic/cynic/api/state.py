@@ -53,6 +53,7 @@ class AppState:
     _pool: Optional[object] = None  # asyncpg pool (None if no DB)
     last_judgment: Optional[Dict] = None  # state_key, action, judgment_id — for /feedback
     decide_agent: Optional[object] = None  # DecideAgent — auto-decides on BARK/GROWL
+    runner: Optional[object] = None        # ClaudeCodeRunner — spawns claude autonomously
 
     @property
     def uptime_s(self) -> float:

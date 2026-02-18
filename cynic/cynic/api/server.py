@@ -146,6 +146,12 @@ async def lifespan(app: FastAPI):
             state.residual_detector.set_db_pool(db_pool)
             residual_loaded = await state.residual_detector.load_from_db(db_pool)
             logger.info("ResidualDetector warm-start: %d points loaded", residual_loaded)
+
+            # Wire BenchmarkRegistry — probe_runs persistence for evolve()
+            from cynic.benchmark.registry import BenchmarkRegistry
+            await BenchmarkRegistry.create_tables(db_pool)
+            state.orchestrator.benchmark_registry = BenchmarkRegistry(db_pool)
+            logger.info("BenchmarkRegistry wired: probe runs will be persisted")
         except Exception as exc:
             logger.warning("DB unavailable (%s) — running without persistence", exc)
             db_pool = None
@@ -156,9 +162,38 @@ async def lifespan(app: FastAPI):
 
     set_state(state)
     state.scheduler.start()
+
+    # ── ClaudeCodeRunner — CYNIC spawns Claude Code autonomously ──────────
+    # CYNIC is the BRAIN. Claude Code is the HANDS.
+    # When ACT_REQUESTED fires (via /ws/stream or internal DECIDE), CYNIC
+    # spawns `claude --sdk-url ws://localhost:PORT/ws/sdk` as a subprocess.
+    # No human needed to launch Claude Code.
+    from cynic.act.runner import ClaudeCodeRunner
+    runner_port = int(os.getenv("PORT", 8765))
+    state.runner = ClaudeCodeRunner(
+        bus=get_core_bus(),
+        sessions_registry=_sdk_sessions,
+        port=runner_port,
+    )
+    logger.info("*sniff* ClaudeCodeRunner wired (port=%d)", runner_port)
+
+    # Wire ACT_REQUESTED → runner.execute() (fire-and-forget)
+    async def _on_act_requested(event: Event) -> None:
+        if state.runner is None:
+            return
+        prompt = event.payload.get("action", "")
+        if not prompt:
+            return
+        cwd = event.payload.get("target")
+        if not isinstance(cwd, str):
+            cwd = None
+        asyncio.create_task(state.runner.execute(prompt, cwd=cwd))
+
+    get_core_bus().on(CoreEvent.ACT_REQUESTED, _on_act_requested)
+
     llm_count = len(registry.get_available())
     logger.info(
-        "*tail wag* CYNIC kernel alive — %d dogs, %d LLMs, learning active, scheduler running",
+        "*tail wag* CYNIC kernel alive — %d dogs, %d LLMs, learning active, scheduler running, runner ready",
         len(state.dogs), llm_count,
     )
 
@@ -168,6 +203,8 @@ async def lifespan(app: FastAPI):
     logger.info("*yawn* CYNIC kernel shutting down...")
     await state.scheduler.stop()
     state.learning_loop.stop()
+    if state.runner is not None:
+        await state.runner.shutdown()
     if db_pool:
         await state.qtable.flush_to_db(db_pool)
         await db_pool.close()
@@ -1169,6 +1206,65 @@ async def sdk_task(body: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# POST /act/execute  (CYNIC spawns Claude Code autonomously)
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.post("/act/execute")
+async def act_execute(body: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    CYNIC executes a task by spawning Claude Code autonomously.
+
+    Body:
+        {"prompt": "...", "cwd": "/path/to/project", "model": "claude-haiku-4-5",
+         "timeout": 300}
+
+    CYNIC launches `claude --sdk-url ws://localhost:PORT/ws/sdk` as a subprocess.
+    Every tool call Claude makes is intercepted and judged by GUARDIAN.
+    The result is returned when Claude's result message arrives.
+
+    This is the ACT phase of the PERCEIVE → JUDGE → DECIDE → ACT cycle.
+    No human needed — CYNIC does it entirely.
+    """
+    state = get_state()
+
+    if state.runner is None:
+        raise HTTPException(
+            status_code=503,
+            detail="ClaudeCodeRunner not initialized — kernel not started via lifespan",
+        )
+
+    prompt = body.get("prompt", "")
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt is required")
+
+    cwd = body.get("cwd")
+    model = body.get("model")
+    timeout = float(body.get("timeout", 300.0))
+
+    logger.info("*ears perk* ACT requested: %s...", prompt[:80])
+
+    result = await state.runner.execute(prompt, cwd=cwd, model=model, timeout=timeout)
+
+    if not result.get("success"):
+        # Log failure but return structured response (not HTTP error)
+        logger.warning("*GROWL* ACT failed: %s", result.get("error"))
+
+    return {
+        "success": result.get("success", False),
+        "session_id": result.get("session_id"),
+        "cost_usd": result.get("cost_usd", 0.0),
+        "total_cost_usd": result.get("total_cost_usd", 0.0),
+        "exec_id": result.get("exec_id"),
+        "error": result.get("error"),
+        "message": (
+            f"*tail wag* Task executed (cost=${result.get('cost_usd', 0.0):.4f})"
+            if result.get("success")
+            else f"*GROWL* Task failed: {result.get('error')}"
+        ),
+    }
+
+
 @app.get("/")
 async def root():
     return {
@@ -1181,6 +1277,7 @@ async def root():
             "/health", "/stats", "/introspect",
             "/ws/stream", "/ws/sdk",
             "/sdk/sessions", "/sdk/task",
+            "/act/execute",
         ],
         "message": "*sniff* Le chien est là.",
     }
