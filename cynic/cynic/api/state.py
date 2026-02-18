@@ -493,6 +493,38 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         except Exception:
             pass
 
+    # ── ACTION_PROPOSED → EScore BUILD update ─────────────────────────────
+    # Emitted by ActionProposer after every DECISION_MADE (BARK/GROWL verdict).
+    # Closes the gap: proposed actions were logged to disk but nothing fed
+    # back into the organism's self-model.
+    #
+    # BUILD dimension = "code/artifact quality contributions" — proposing
+    # an actionable recommendation IS a build act.  Priority maps to score:
+    #   priority 1 (INVESTIGATE, critical)  → BUILD = MAX_Q_SCORE  (100)
+    #   priority 2 (REFACTOR / ALERT)       → BUILD = HOWL_MIN     (82)
+    #   priority 3 (MONITOR)                → BUILD = WAG_MIN      (61.8)
+    #   priority 4 (IMPROVE / FYI)          → BUILD = GROWL_MIN    (38.2)
+    async def _on_action_proposed(event: Event) -> None:
+        try:
+            p = event.payload or {}
+            priority    = int(p.get("priority", 3))
+            action_type = p.get("action_type", "")
+
+            from cynic.core.phi import MAX_Q_SCORE, HOWL_MIN, WAG_MIN, GROWL_MIN
+            score = {
+                1: MAX_Q_SCORE,
+                2: HOWL_MIN,
+                3: WAG_MIN,
+            }.get(priority, GROWL_MIN)
+
+            escore_tracker.update("agent:cynic", "BUILD", score)
+            logger.info(
+                "ACTION_PROPOSED: type=%s priority=%d → BUILD EScore=%.1f",
+                action_type, priority, score,
+            )
+        except Exception:
+            pass
+
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_intelligence)
     get_core_bus().on(CoreEvent.JUDGMENT_FAILED, _on_judgment_failed)
     get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence_signal)
@@ -501,6 +533,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     get_core_bus().on(CoreEvent.SELF_IMPROVEMENT_PROPOSED, _on_self_improvement_proposed)
     get_core_bus().on(CoreEvent.TRANSCENDENCE, _on_transcendence)
     get_core_bus().on(CoreEvent.RESIDUAL_HIGH, _on_residual_high)
+    get_core_bus().on(CoreEvent.ACTION_PROPOSED, _on_action_proposed)
 
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),

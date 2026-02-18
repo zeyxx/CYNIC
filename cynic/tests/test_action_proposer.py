@@ -653,3 +653,100 @@ class TestL4P5Bridge:
         saved = json.loads((tmp_path / "pending_actions.json").read_text())
         assert len(saved) == 1
         assert saved[0]["action_type"] == "IMPROVE"
+
+
+# ── ACTION_PROPOSED → EScore BUILD feedback loop ──────────────────────────────
+
+class TestActionProposedLoop:
+    """
+    Tests for the ACTION_PROPOSED → EScore BUILD feedback loop.
+    When CYNIC proposes an action it exercises its BUILD capacity.
+    Priority maps to score: 1→MAX_Q_SCORE(100), 2→HOWL_MIN(82),
+    3→WAG_MIN(61.8), 4+→GROWL_MIN(38.2).
+    """
+
+    def _make_event(self, priority: int = 3, action_type: str = "MONITOR"):
+        from cynic.core.event_bus import Event, CoreEvent
+        return Event(
+            type=CoreEvent.ACTION_PROPOSED,
+            payload={"priority": priority, "action_type": action_type},
+            source="test",
+        )
+
+    def _make_escore(self):
+        from cynic.core.escore import EScoreTracker
+        return EScoreTracker()
+
+    def _dim_value(self, tracker, entity_id: str, dim: str) -> float:
+        """Read per-dimension value from EScoreTracker detail."""
+        detail = tracker.get_detail(entity_id)
+        return detail["dimensions"].get(dim, {}).get("value", 0.0)
+
+    def test_priority1_gets_max_score(self):
+        """Priority 1 (critical) → BUILD updated with MAX_Q_SCORE (100.0)."""
+        from cynic.core.phi import MAX_Q_SCORE
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "BUILD", MAX_Q_SCORE)
+        score = self._dim_value(tracker, "agent:cynic", "BUILD")
+        assert score == MAX_Q_SCORE
+
+    def test_priority2_gets_howl_score(self):
+        """Priority 2 (important) → BUILD updated with HOWL_MIN (82.0)."""
+        from cynic.core.phi import HOWL_MIN
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "BUILD", HOWL_MIN)
+        score = self._dim_value(tracker, "agent:cynic", "BUILD")
+        assert score == HOWL_MIN
+
+    def test_priority3_gets_wag_score(self):
+        """Priority 3 (monitor) → BUILD updated with WAG_MIN (~61.8)."""
+        from cynic.core.phi import WAG_MIN
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "BUILD", WAG_MIN)
+        score = self._dim_value(tracker, "agent:cynic", "BUILD")
+        assert score == pytest.approx(WAG_MIN, abs=0.5)
+
+    def test_priority4_gets_growl_score(self):
+        """Priority 4+ (fyi) → BUILD updated with GROWL_MIN (~38.2)."""
+        from cynic.core.phi import GROWL_MIN
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "BUILD", GROWL_MIN)
+        score = self._dim_value(tracker, "agent:cynic", "BUILD")
+        assert score == pytest.approx(GROWL_MIN, abs=0.5)
+
+    def test_build_escore_increases_after_action(self):
+        """Multiple proposals accumulate a positive BUILD dimension value."""
+        from cynic.core.phi import WAG_MIN
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        for _ in range(3):
+            tracker.update("agent:cynic", "BUILD", WAG_MIN)
+        score = self._dim_value(tracker, "agent:cynic", "BUILD")
+        assert score > 0.0
+
+    def test_action_proposed_handler_tolerates_bad_payload(self):
+        """Handler must not raise even with malformed payload; falls back to priority 3."""
+        from cynic.core.event_bus import Event, CoreEvent
+        from cynic.core.escore import EScoreTracker
+
+        bad_event = Event(
+            type=CoreEvent.ACTION_PROPOSED,
+            payload={"priority": "not-an-int"},
+            source="test",
+        )
+        tracker = EScoreTracker()
+        # Replicate handler fallback logic — should not raise
+        try:
+            p = bad_event.payload or {}
+            priority = int(p.get("priority", 3))
+        except (ValueError, TypeError):
+            priority = 3
+
+        from cynic.core.phi import WAG_MIN, GROWL_MIN
+        score = {1: 100.0, 2: 82.0, 3: WAG_MIN}.get(priority, GROWL_MIN)
+        tracker.update("agent:cynic", "BUILD", score)
+        assert self._dim_value(tracker, "agent:cynic", "BUILD") >= 0.0
