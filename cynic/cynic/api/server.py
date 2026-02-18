@@ -68,6 +68,20 @@ logger = logging.getLogger("cynic.api.server")
 
 _boot_time = time.time()
 
+# Path for JSONL session persistence (survives restarts)
+_SDK_SESSIONS_JSONL = os.path.join(os.path.expanduser("~"), ".cynic", "sdk_sessions.jsonl")
+
+
+def _append_sdk_session_jsonl(record: SDKTelemetry) -> None:
+    """Append one completed SDK session to JSONL file (fire-and-forget)."""
+    try:
+        import dataclasses as _dc
+        os.makedirs(os.path.dirname(_SDK_SESSIONS_JSONL), exist_ok=True)
+        with open(_SDK_SESSIONS_JSONL, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(_dc.asdict(record)) + "\n")
+    except Exception as exc:
+        logger.debug("sdk_sessions.jsonl append skipped: %s", exc)
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # SDK SESSION REGISTRY
@@ -1527,6 +1541,29 @@ async def ws_sdk(websocket: WebSocket) -> None:
                     )
                     state.telemetry_store.add(telemetry_record)
 
+                    # ── JSONL persistence (survives restarts) ─────────────────
+                    _append_sdk_session_jsonl(telemetry_record)
+
+                    # ── L2→L1 cross-feed: BARK/error → ActionProposer ─────────
+                    # Links L2 (SDK result) → L1 (action queue) automatically.
+                    if is_error or verdict == "BARK":
+                        await bus.emit(Event(
+                            type=CoreEvent.DECISION_MADE,
+                            payload={
+                                "recommended_action": "BARK",
+                                "judgment_id": session_id,
+                                "state_key": rich_state_key,
+                                "reality": "CYNIC",
+                                "content_preview": (session._task_prompt or "")[:60],
+                                "action_prompt": (
+                                    f"SDK session {session_id[:8]} failed ({task_type}). "
+                                    f"Review: {result_text[:200]}"
+                                ),
+                                "q_value": reward,
+                            },
+                            source="sdk_result",
+                        ))
+
                     # Persist to DB (fire-and-forget, best-effort)
                     if state._pool is not None:
                         import dataclasses as _dc
@@ -1663,6 +1700,50 @@ async def sdk_task(body: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# CYNIC → Claude context injection (L2 bidirectional loop)
+# ════════════════════════════════════════════════════════════════════════════
+
+def _enrich_prompt(prompt: str, state) -> str:
+    """
+    Inject CYNIC context into Claude's prompt (CYNIC→Claude direction of L2).
+
+    Prepends a compact block with:
+    - Compressed session history (≤200 tokens from ContextCompressor)
+    - Best learned action from QTable for this task type
+    - QTable confidence level
+
+    Returns enriched prompt when useful context exists, raw prompt otherwise.
+    Skips enrichment if compressor is empty and QTable has no data (early sessions).
+    """
+    task_type = classify_task(prompt)
+    state_key = f"SDK:default:{task_type}:medium"
+
+    best_action = state.qtable.exploit(state_key)
+    confidence = state.qtable.confidence(state_key)
+
+    try:
+        context_summary = state.context_compressor.get_compressed_context(budget=200)
+    except Exception:
+        context_summary = ""
+
+    # Skip enrichment if nothing useful yet (cold start)
+    if not context_summary and confidence < 0.10:
+        return prompt
+
+    lines = ["# CYNIC Context (kernel guidance)"]
+    if context_summary:
+        lines.append(f"## Session history\n{context_summary}")
+    if confidence >= 0.10:
+        lines.append(
+            f"## Learned guidance\n"
+            f"Task type: {task_type} | Suggested approach: {best_action} "
+            f"(confidence: {confidence:.0%})"
+        )
+    lines.append("---\n")
+    return "\n".join(lines) + prompt
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # POST /act/execute  (CYNIC spawns Claude Code autonomously)
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -1700,7 +1781,8 @@ async def act_execute(body: Dict[str, Any]) -> Dict[str, Any]:
 
     logger.info("*ears perk* ACT requested: %s...", prompt[:80])
 
-    result = await state.runner.execute(prompt, cwd=cwd, model=model, timeout=timeout)
+    enriched = _enrich_prompt(prompt, state)
+    result = await state.runner.execute(enriched, cwd=cwd, model=model, timeout=timeout)
 
     if not result.get("success"):
         # Log failure but return structured response (not HTTP error)

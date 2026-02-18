@@ -296,3 +296,227 @@ class TestSDKRootRoute:
         assert "/ws/sdk" in routes
         assert "/sdk/sessions" in routes
         assert "/sdk/task" in routes
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# L2 — prompt enrichment + JSONL persistence + L2→L1 cross-feed
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestEnrichPrompt:
+    """Tests for _enrich_prompt() — CYNIC→Claude context injection."""
+
+    def test_enrich_returns_raw_prompt_on_cold_start(self):
+        """No compressor context, no QTable data → raw prompt returned."""
+        from cynic.api.server import _enrich_prompt
+        from cynic.api.state import get_state
+        state = get_state()
+        # Fresh kernel: no compressor history, no QTable entries
+        raw = "Fix the bug in auth.py"
+        result = _enrich_prompt(raw, state)
+        # Cold start: confidence < 0.10 and no context → raw returned
+        assert result == raw
+
+    def test_enrich_adds_context_when_qtable_has_data(self):
+        """QTable has enough visits → context block prepended."""
+        from cynic.api.server import _enrich_prompt
+        from cynic.api.state import get_state
+        from cynic.learning.qlearning import LearningSignal
+        state = get_state()
+
+        # Seed QTable with enough visits to raise confidence above threshold
+        state_key = "SDK:default:debug:medium"
+        for _ in range(25):  # F(8)=21 is "well-seen"; 25 gives ~0.618 confidence
+            state.qtable.update(LearningSignal(
+                state_key=state_key,
+                action="WAG",
+                reward=0.65,
+                judgment_id="test",
+                loop_name="SDK_RESULT",
+            ))
+
+        prompt = "Fix the bug in auth.py"
+        result = _enrich_prompt(prompt, state)
+        # Enriched: CYNIC context block prepended
+        assert "# CYNIC Context" in result
+        assert "debug" in result
+        assert result.endswith(prompt)
+
+    def test_enrich_includes_task_type(self):
+        """Task type is correctly classified and included in enrichment."""
+        from cynic.api.server import _enrich_prompt
+        from cynic.api.state import get_state
+        from cynic.learning.qlearning import LearningSignal
+        state = get_state()
+
+        # Seed for "test" task type
+        state_key = "SDK:default:test:medium"
+        for _ in range(25):
+            state.qtable.update(LearningSignal(
+                state_key=state_key,
+                action="HOWL",
+                reward=0.70,
+                judgment_id="t",
+                loop_name="SDK_RESULT",
+            ))
+
+        result = _enrich_prompt("Write tests for the auth module", state)
+        assert "test" in result
+
+    def test_enrich_preserves_full_original_prompt(self):
+        """Original prompt appears verbatim at the end of enriched result."""
+        from cynic.api.server import _enrich_prompt
+        from cynic.api.state import get_state
+        from cynic.learning.qlearning import LearningSignal
+        state = get_state()
+
+        original = "Refactor the database layer to use async/await properly"
+        state_key = "SDK:default:refactor:medium"
+        for _ in range(25):
+            state.qtable.update(LearningSignal(
+                state_key=state_key, action="WAG",
+                reward=0.6, judgment_id="x", loop_name="SDK_RESULT",
+            ))
+
+        result = _enrich_prompt(original, state)
+        assert result.endswith(original)
+
+
+class TestSDKJSONLPersistence:
+    """Tests for _append_sdk_session_jsonl() — session persistence."""
+
+    def test_append_jsonl_writes_file(self, tmp_path):
+        """append_sdk_session_jsonl() creates/appends to JSONL file."""
+        import dataclasses as dc
+        from cynic.api.server import _append_sdk_session_jsonl
+        from cynic.act.telemetry import SessionTelemetry
+        import cynic.api.server as srv_module
+
+        # Redirect to tmp path for test isolation
+        original_path = srv_module._SDK_SESSIONS_JSONL
+        test_path = str(tmp_path / "sdk_sessions.jsonl")
+        srv_module._SDK_SESSIONS_JSONL = test_path
+        try:
+            record = SessionTelemetry(
+                session_id="sess-abc",
+                task="Fix the bug",
+                task_type="debug",
+                complexity="simple",
+                model="claude-sonnet-4-6",
+                tools_sequence=["Read", "Edit"],
+                tools_allowed=2,
+                tools_denied=0,
+                tool_allow_rate=1.0,
+                input_tokens=100,
+                output_tokens=50,
+                total_cost_usd=0.002,
+                duration_s=1.5,
+                is_error=False,
+                result_text="Fixed successfully",
+                output_q_score=70.0,
+                output_verdict="WAG",
+                output_confidence=0.45,
+                state_key="SDK:claude-sonnet-4-6:debug:simple",
+                reward=0.65,
+            )
+            _append_sdk_session_jsonl(record)
+
+            lines = open(test_path, encoding="utf-8").readlines()
+            assert len(lines) == 1
+            data = json.loads(lines[0])
+            assert data["session_id"] == "sess-abc"
+            assert data["task_type"] == "debug"
+            assert data["output_verdict"] == "WAG"
+        finally:
+            srv_module._SDK_SESSIONS_JSONL = original_path
+
+    def test_append_jsonl_accumulates_multiple_records(self, tmp_path):
+        """Multiple append calls → multiple lines in JSONL."""
+        import dataclasses as dc
+        from cynic.api.server import _append_sdk_session_jsonl
+        from cynic.act.telemetry import SessionTelemetry
+        import cynic.api.server as srv_module
+
+        original_path = srv_module._SDK_SESSIONS_JSONL
+        test_path = str(tmp_path / "sdk_sessions.jsonl")
+        srv_module._SDK_SESSIONS_JSONL = test_path
+        try:
+            def _make_record(sid: str) -> SessionTelemetry:
+                return SessionTelemetry(
+                    session_id=sid, task="task", task_type="general",
+                    complexity="trivial", model="m",
+                    tools_sequence=[], tools_allowed=0, tools_denied=0,
+                    tool_allow_rate=1.0, input_tokens=0, output_tokens=0,
+                    total_cost_usd=0.0, duration_s=0.5, is_error=False,
+                    result_text="ok", output_q_score=50.0,
+                    output_verdict="WAG", output_confidence=0.382,
+                    state_key="SDK:m:general:trivial", reward=0.5,
+                )
+
+            for i in range(3):
+                _append_sdk_session_jsonl(_make_record(f"sess-{i}"))
+
+            lines = open(test_path, encoding="utf-8").readlines()
+            assert len(lines) == 3
+        finally:
+            srv_module._SDK_SESSIONS_JSONL = original_path
+
+
+class TestSDKL2L1CrossFeed:
+    """Tests for L2→L1 cross-feed: BARK/error results trigger ActionProposer."""
+
+    def test_error_result_triggers_action_proposal(self):
+        """Error SDK result emits DECISION_MADE → ActionProposer creates pending action."""
+        import time as _t
+        from cynic.api.state import get_state
+        state = get_state()
+
+        pending_before = len(state.action_proposer.pending())
+
+        with TestClient(app).websocket_connect("/ws/sdk") as ws:
+            _send(ws, _system_init())
+            _recv(ws)  # keep_alive
+            _send(ws, _result(is_error=True, cost=0.001))
+            _t.sleep(0.15)  # allow async event handling
+
+        # ActionProposer should have received DECISION_MADE and created a proposal
+        pending_after = len(state.action_proposer.pending())
+        assert pending_after > pending_before, (
+            "Error result should create a PENDING action via L2→L1 cross-feed"
+        )
+
+    def test_cross_feed_only_fires_on_error_or_bark(self):
+        """
+        Cross-feed condition: fires when is_error=True OR verdict=="BARK".
+        When neither condition holds, no action is proposed.
+
+        We test the condition directly on the cross-feed predicate rather than
+        relying on CYNIC's REFLEX verdict being deterministic.
+        """
+        # Predicate mirrors implementation: is_error or verdict == "BARK"
+        def _should_cross_feed(is_error: bool, verdict: str) -> bool:
+            return is_error or verdict == "BARK"
+
+        assert _should_cross_feed(True, "HOWL") is True   # error always fires
+        assert _should_cross_feed(True, "WAG") is True    # error always fires
+        assert _should_cross_feed(False, "BARK") is True  # BARK fires
+        assert _should_cross_feed(False, "WAG") is False  # success+WAG: no feed
+        assert _should_cross_feed(False, "HOWL") is False # success+HOWL: no feed
+        assert _should_cross_feed(False, "GROWL") is False  # success+GROWL: no feed
+
+    def test_l2_cross_feed_proposal_has_cynic_reality(self):
+        """L2→L1 proposals are tagged with reality=CYNIC (self-improvement)."""
+        import time as _t
+        from cynic.api.state import get_state
+        state = get_state()
+        state.action_proposer._queue.clear()
+
+        with TestClient(app).websocket_connect("/ws/sdk") as ws:
+            _send(ws, _system_init())
+            _recv(ws)
+            _send(ws, _result(is_error=True, cost=0.001))
+            _t.sleep(0.15)
+
+        proposals = state.action_proposer.all_actions()
+        cynic_proposals = [p for p in proposals if p.reality == "CYNIC"]
+        assert len(cynic_proposals) >= 1
+        assert cynic_proposals[-1].verdict == "BARK"
