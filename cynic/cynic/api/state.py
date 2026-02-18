@@ -316,7 +316,9 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
             if len(_outcome_window) > _OUTCOME_WINDOW:
                 _outcome_window.pop(0)
             _update_error_rate()
-            _health_cache["latency_ms"] = float(p.get("duration_ms", 0.0))
+            # Only REFLEX latency drives LOD — MACRO/MICRO are slow by design
+            if p.get("level_used", "REFLEX") == "REFLEX":
+                _health_cache["latency_ms"] = float(p.get("duration_ms", 0.0))
             # Scheduler queue depth — LOD thresholds: 34 → REDUCED, 89 → EMERGENCY, 144 → MINIMAL
             _health_cache["queue_depth"] = scheduler.total_queue_depth()
 

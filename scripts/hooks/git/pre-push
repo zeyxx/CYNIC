@@ -1,6 +1,6 @@
 #!/bin/bash
 # CYNIC Pre-Push Hook
-# "Vérifie avant de pousser" - κυνικός
+# "Verifie avant de pousser" - kynikos
 #
 # Runs Tikkun validation before allowing push
 # Install with: cp scripts/hooks/git/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
@@ -8,28 +8,30 @@
 set -e
 
 echo ""
-echo "🧠 CYNIC Pre-Push Validation"
-echo "════════════════════════════════════════"
+echo "CYNIC Pre-Push Validation"
+echo "========================================"
 
 # Run quick audit (Da'at only for speed)
 echo ""
 echo "Running Da'at (quick audit)..."
 
-# Strip ANSI color codes before parsing score
-SCORE=$(node scripts/tikkun/daat.mjs 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -oP 'Score: \K\d+' || echo "0")
+# Parse machine-readable score line (CYNIC_SCORE=N, no ANSI codes, no sed needed)
+# Note: sed '\x1b' does NOT work on Windows Git Bash (not interpreted as ESC)
+SCORE=$(node scripts/tikkun/daat.mjs 2>&1 | grep -o 'CYNIC_SCORE=[0-9]*' | cut -d= -f2 || echo "0")
+SCORE=${SCORE:-0}
 
 echo ""
-echo "────────────────────────────────────────"
+echo "----------------------------------------"
 
 if [ "$SCORE" -lt 62 ]; then
-    echo "✗ Score: ${SCORE}% (below φ⁻¹ = 62%)"
+    echo "FAIL Score: ${SCORE}% (below phi^-1 = 62%)"
     echo ""
     echo "*GROWL* Push blocked. Run 'npm run tikkun' for details."
     echo ""
     exit 1
 fi
 
-echo "✓ Score: ${SCORE}% (meets φ⁻¹ threshold)"
+echo "OK Score: ${SCORE}% (meets phi^-1 threshold)"
 echo ""
 echo "*tail wag* Push approved."
 echo ""

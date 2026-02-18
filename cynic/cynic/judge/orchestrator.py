@@ -175,6 +175,7 @@ class JudgeOrchestrator:
             jc_payload = judgment.to_dict()
             jc_payload["state_key"] = cell.state_key()
             jc_payload["reality"] = cell.reality   # needed by guidance.json writer
+            jc_payload["level_used"] = level.name  # needed by LOD latency filter
             jc_payload["content_preview"] = str(cell.content or "")[:200]
             jc_payload["context"] = cell.context or ""
             await get_core_bus().emit(Event(

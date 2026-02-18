@@ -627,7 +627,12 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
             message="Perception enqueued for background MICRO processing",
         )
 
-    level_map = {"REFLEX": ConsciousnessLevel.REFLEX, "MICRO": ConsciousnessLevel.MICRO}
+    level_map = {
+        "REFLEX": ConsciousnessLevel.REFLEX,
+        "MICRO":  ConsciousnessLevel.MICRO,
+        "MACRO":  ConsciousnessLevel.MACRO,
+        "META":   ConsciousnessLevel.META,
+    }
     level = level_map.get(req.level or "REFLEX", ConsciousnessLevel.REFLEX)
 
     judgment = await state.orchestrator.run(cell, level=level)
