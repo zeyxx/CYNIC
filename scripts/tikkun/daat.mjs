@@ -933,6 +933,9 @@ async function runAudit(options = {}) {
     console.log(JSON.stringify(results, null, 2));
   }
 
+  // Machine-readable score for hooks/CI — no ANSI codes, always on its own line
+  process.stdout.write(`CYNIC_SCORE=${results.summary.score}\n`);
+
   return results;
 }
 
@@ -944,4 +947,6 @@ const options = {
   noSave: args.includes('--no-save'),
 };
 
-runAudit(options).catch(console.error);
+runAudit(options)
+  .then(() => process.exit(0))
+  .catch(err => { console.error(err); process.exit(1); });
