@@ -656,6 +656,18 @@ async def feedback(req: FeedbackRequest) -> FeedbackResponse:
     )
     entry = state.qtable.update(signal)
 
+    # SYMBIOSIS axiom: human×machine value creation — human feedback is symbiosis in action
+    try:
+        new_state = state.axiom_monitor.signal("SYMBIOSIS")
+        if new_state == "ACTIVE":
+            await get_core_bus().emit(Event(
+                type=CoreEvent.AXIOM_ACTIVATED,
+                payload={"axiom": "SYMBIOSIS", "maturity": state.axiom_monitor.get_maturity("SYMBIOSIS")},
+                source="user_feedback",
+            ))
+    except Exception:
+        pass
+
     verdict_emoji = {"HOWL": "🟢", "WAG": "🟡", "GROWL": "🟠", "BARK": "🔴"}.get(last["action"], "⚪")
     msg = f"*tail wag* Feedback: rating={req.rating}/5 → reward={reward:.2f} → Q[{last['state_key']}][{last['action']}]={entry.q_value:.3f}"
 

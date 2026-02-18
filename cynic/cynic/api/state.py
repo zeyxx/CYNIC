@@ -221,15 +221,55 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         except Exception:
             pass  # Never block the judgment pipeline
 
-    # δ1: EMERGENCE_DETECTED fires when residual spikes → signal "EMERGENCE" axiom
+    # δ1: EMERGENCE_DETECTED → signal "EMERGENCE" axiom, emit AXIOM_ACTIVATED if threshold crossed
     async def _on_emergence_signal(event: Event) -> None:
         try:
-            axiom_monitor.signal("EMERGENCE")
+            new_state = axiom_monitor.signal("EMERGENCE")
+            if new_state == "ACTIVE":
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.AXIOM_ACTIVATED,
+                    payload={"axiom": "EMERGENCE", "maturity": axiom_monitor.get_maturity("EMERGENCE")},
+                    source="emergence_detector",
+                ))
+        except Exception:
+            pass
+
+    # δ1: DECISION_MADE → signal "AUTONOMY" (Dogs coordinate autonomously)
+    async def _on_decision_made_for_axiom(event: Event) -> None:
+        try:
+            new_state = axiom_monitor.signal("AUTONOMY")
+            if new_state == "ACTIVE":
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.AXIOM_ACTIVATED,
+                    payload={"axiom": "AUTONOMY", "maturity": axiom_monitor.get_maturity("AUTONOMY")},
+                    source="decide_agent",
+                ))
+        except Exception:
+            pass
+
+    # δ1: AXIOM_ACTIVATED → log milestone; emit TRANSCENDENCE when all 4 active
+    async def _on_axiom_activated(event: Event) -> None:
+        try:
+            axiom_name = event.payload.get("axiom", "?")
+            maturity = event.payload.get("maturity", 0.0)
+            active = axiom_monitor.active_axioms()
+            logger.info(
+                "AXIOM_ACTIVATED: %s (maturity=%.1f) — %d/%d axioms active: %s",
+                axiom_name, maturity, len(active), 4, active,
+            )
+            if len(active) == 4:
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.TRANSCENDENCE,
+                    payload={"active_axioms": active, "tier": "TRANSCENDENT"},
+                    source="axiom_monitor",
+                ))
         except Exception:
             pass
 
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_intelligence)
     get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence_signal)
+    get_core_bus().on(CoreEvent.DECISION_MADE, _on_decision_made_for_axiom)
+    get_core_bus().on(CoreEvent.AXIOM_ACTIVATED, _on_axiom_activated)
 
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),

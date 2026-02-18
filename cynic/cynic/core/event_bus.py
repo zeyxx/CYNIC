@@ -101,6 +101,7 @@ class CoreEvent(str, Enum):
     EMERGENCE_DETECTED = "emergence.detected"
     RESIDUAL_HIGH      = "emergence.residual_high"
     TRANSCENDENCE      = "emergence.transcendence"
+    AXIOM_ACTIVATED    = "emergence.axiom_activated"  # A6-A9 threshold crossed
 
     # Identity
     IDENTITY_VIOLATION = "identity.violation"
