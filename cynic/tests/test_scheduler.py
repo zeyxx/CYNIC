@@ -19,7 +19,7 @@ import pytest
 
 from cynic.core.consciousness import ConsciousnessLevel, reset_consciousness
 from cynic.core.judgment import Cell
-from cynic.scheduler import DogScheduler, PerceptionEvent, _QUEUE_CAPACITY
+from cynic.scheduler import DogScheduler, PerceptionEvent, _QUEUE_CAPACITY, _WORKERS_PER_LEVEL
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -39,13 +39,17 @@ def mock_orchestrator():
     """
     Mock JudgeOrchestrator that records calls and returns a WAG verdict.
     run() is an AsyncMock — awaitable and records (cell, level, budget_usd).
+
+    Returns a MagicMock with .verdict attribute (not a dict) to match the
+    Judgment object contract used by _reflex_worker via getattr(result, "verdict").
     """
+    result = MagicMock()
+    result.verdict = "WAG"
+    result.q_score = 50.0
+    result.confidence = 0.38
+
     orch = MagicMock()
-    orch.run = AsyncMock(return_value={
-        "verdict": "WAG",
-        "q_score": 50.0,
-        "confidence": 0.38,
-    })
+    orch.run = AsyncMock(return_value=result)
     return orch
 
 
@@ -215,10 +219,10 @@ class TestLevelInference:
 
 class TestSchedulerLifecycle:
     async def test_start_creates_tasks(self, scheduler):
-        """start() creates 4 asyncio tasks."""
+        """start() creates N tier worker tasks (sum of _WORKERS_PER_LEVEL = 11)."""
         scheduler.start()
         assert scheduler._running
-        assert len(scheduler._tasks) == 4
+        assert len(scheduler._tasks) == sum(_WORKERS_PER_LEVEL.values())  # 5+3+2+1=11
         await scheduler.stop()
 
     async def test_stop_cleans_up(self, scheduler):
@@ -232,7 +236,7 @@ class TestSchedulerLifecycle:
         """Calling start() twice doesn't create duplicate tasks."""
         scheduler.start()
         scheduler.start()  # should warn and skip
-        assert len(scheduler._tasks) == 4
+        assert len(scheduler._tasks) == sum(_WORKERS_PER_LEVEL.values())  # 11, not 22
         await scheduler.stop()
 
     async def test_micro_processes_submitted_cell(self, scheduler, cell, mock_orchestrator):
@@ -276,9 +280,14 @@ class TestSchedulerLifecycle:
         # Make orchestrator return BARK for REFLEX → triggers interrupt
         async def side_effect(*args, **kwargs):
             level = kwargs.get("level")
+            result = MagicMock()
             if level == ConsciousnessLevel.REFLEX:
-                return {"verdict": "BARK", "q_score": 10.0, "confidence": 0.2}
-            return {"verdict": "WAG", "q_score": 50.0, "confidence": 0.38}
+                result.verdict = "BARK"
+                result.q_score = 10.0
+            else:
+                result.verdict = "WAG"
+                result.q_score = 50.0
+            return result
 
         mock_orchestrator.run.side_effect = side_effect
 
@@ -314,3 +323,115 @@ class TestPerceptionEvent:
         """Source field is stored correctly."""
         event = PerceptionEvent(cell=cell, source="reflex_scan")
         assert event.source == "reflex_scan"
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# N-WORKERS — parallel processing within each tier
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestNWorkers:
+    async def test_worker_counts_match_phi_constants(self, scheduler):
+        """Each tier spawns exactly _WORKERS_PER_LEVEL[level] tasks."""
+        scheduler.start()
+        names = [t.get_name() for t in scheduler._tasks]
+        await scheduler.stop()
+
+        for level, expected_n in _WORKERS_PER_LEVEL.items():
+            prefix = f"cynic.scheduler.{level.name.lower()}."
+            count = sum(1 for n in names if n.startswith(prefix))
+            assert count == expected_n, (
+                f"{level.name}: expected {expected_n} workers, got {count}"
+            )
+
+    async def test_total_tier_tasks_is_11(self, scheduler):
+        """5+3+2+1 = 11 tier tasks total."""
+        scheduler.start()
+        assert len(scheduler._tasks) == 11
+        await scheduler.stop()
+
+    async def test_each_cell_processed_exactly_once(self, scheduler, cell, mock_orchestrator):
+        """3 cells submitted → orchestrator called exactly 3 times (not 3×N)."""
+        scheduler.start()
+        for _ in range(3):
+            scheduler.submit(cell, level=ConsciousnessLevel.MICRO, budget_usd=0.03)
+        await asyncio.sleep(ConsciousnessLevel.MICRO.target_ms / 1000.0 * 5)
+        await scheduler.stop()
+        assert mock_orchestrator.run.call_count == 3
+
+    async def test_worker_tasks_named_by_level_and_index(self, scheduler):
+        """Workers named cynic.scheduler.{level}.{i} covering all i in [0, N)."""
+        scheduler.start()
+        names = {t.get_name() for t in scheduler._tasks}
+        await scheduler.stop()
+
+        # Spot-check a few expected names
+        assert "cynic.scheduler.reflex.0" in names
+        assert "cynic.scheduler.reflex.4" in names   # F(5)-1 = 4
+        assert "cynic.scheduler.micro.0"  in names
+        assert "cynic.scheduler.micro.2"  in names   # F(4)-1 = 2
+        assert "cynic.scheduler.macro.0"  in names
+        assert "cynic.scheduler.macro.1"  in names   # F(3)-1 = 1
+        assert "cynic.scheduler.meta.0"   in names   # single META
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# PERCEIVE WORKER REGISTRATION
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestPerceiveWorkerRegistration:
+    def test_register_adds_to_list(self, scheduler):
+        """register_perceive_worker() stores worker before start."""
+        from cynic.perceive.workers import HealthWatcher
+        pw = HealthWatcher()
+        scheduler.register_perceive_worker(pw)
+        assert len(scheduler._perceive_workers) == 1
+
+    async def test_perceive_tasks_created_on_start(self, scheduler):
+        """start() spawns one task per registered PerceiveWorker."""
+        from cynic.perceive.workers import HealthWatcher
+        scheduler.register_perceive_worker(HealthWatcher())
+        scheduler.start()
+        assert len(scheduler._perceive_tasks) == 1
+        await scheduler.stop()
+
+    async def test_perceive_tasks_cleared_on_stop(self, scheduler):
+        """stop() cancels and clears perceive tasks."""
+        from cynic.perceive.workers import HealthWatcher
+        scheduler.register_perceive_worker(HealthWatcher())
+        scheduler.start()
+        await scheduler.stop()
+        assert len(scheduler._perceive_tasks) == 0
+
+    async def test_multiple_perceive_workers(self, scheduler):
+        """Registering 3 workers → 3 perceive tasks."""
+        from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher
+        scheduler.register_perceive_worker(GitWatcher())
+        scheduler.register_perceive_worker(HealthWatcher())
+        scheduler.register_perceive_worker(SelfWatcher())
+        scheduler.start()
+        assert len(scheduler._perceive_tasks) == 3
+        await scheduler.stop()
+
+    async def test_perceive_task_named_after_worker(self, scheduler):
+        """Perceive task name = cynic.perceive.{worker.name}."""
+        from cynic.perceive.workers import GitWatcher
+        scheduler.register_perceive_worker(GitWatcher())
+        scheduler.start()
+        names = {t.get_name() for t in scheduler._perceive_tasks}
+        assert "cynic.perceive.git_watcher" in names
+        await scheduler.stop()
+
+    def test_stats_reports_perceive_worker_count(self, scheduler):
+        """stats()['perceive_workers'] reflects registered count."""
+        from cynic.perceive.workers import HealthWatcher
+        scheduler.register_perceive_worker(HealthWatcher())
+        s = scheduler.stats()
+        assert s["perceive_workers"] == 1
+
+    def test_stats_reports_workers_per_level(self, scheduler):
+        """stats()['workers_per_level'] maps level names to counts."""
+        s = scheduler.stats()
+        assert s["workers_per_level"]["REFLEX"] == 5
+        assert s["workers_per_level"]["MICRO"]  == 3
+        assert s["workers_per_level"]["MACRO"]  == 2
+        assert s["workers_per_level"]["META"]   == 1

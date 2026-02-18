@@ -29,6 +29,7 @@ from cynic.dogs.scout import ScoutDog
 from cynic.judge.orchestrator import JudgeOrchestrator
 from cynic.judge.residual import ResidualDetector
 from cynic.learning.qlearning import QTable, LearningLoop
+from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher
 from cynic.scheduler import DogScheduler
 
 logger = logging.getLogger("cynic.api.state")
@@ -121,6 +122,12 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     )
 
     scheduler = DogScheduler(orchestrator=orchestrator)
+
+    # ── PerceiveWorkers (autonomous sensors) ──────────────────────────────
+    # Wired here; actually started when scheduler.start() is called (in lifespan).
+    scheduler.register_perceive_worker(GitWatcher())
+    scheduler.register_perceive_worker(HealthWatcher())
+    scheduler.register_perceive_worker(SelfWatcher(qtable_getter=lambda: qtable))
 
     logger.info(
         "Kernel ready: %d dogs, scheduler wired, learning loop + residual detector active, pool=%s, llm=%s",

@@ -183,6 +183,17 @@ class CycleTimer:
             self._samples.pop(0)
         return elapsed_ms
 
+    def record(self, elapsed_ms: float) -> None:
+        """
+        Inject a pre-measured elapsed time directly (multi-worker safe).
+
+        Use this instead of start()/stop() when multiple workers share a
+        CycleTimer — avoids the _start race condition between concurrent tasks.
+        """
+        self._samples.append(elapsed_ms)
+        if len(self._samples) > self._max_samples:
+            self._samples.pop(0)
+
     @property
     def p50_ms(self) -> float:
         if not self._samples:
