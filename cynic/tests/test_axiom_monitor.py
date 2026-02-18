@@ -1014,3 +1014,71 @@ class TestUserFeedbackLoop:
         assert judge_score == pytest.approx(MAX_Q_SCORE / 2.0, abs=0.5)
         tracker.update("agent:cynic", "JUDGE", judge_score)
         assert tracker.get_score("agent:cynic") >= 0.0
+
+
+# ── PERCEPTION_RECEIVED → EScore SOCIAL + HOLD update ────────────────────────
+
+class TestPerceptionReceivedLoop:
+    """
+    PERCEPTION_RECEIVED → EScore SOCIAL + HOLD update.
+
+    Emitted at two sites:
+      server.py POST /perceive: {"cell_id": str, "source": str, "reality": str, "data": str}
+      orchestrator.py MACRO cycle step 1: {"cell_id": str, "reality": str}
+
+    SOCIAL = "community engagement quality":
+      SOCIAL/HUMAN/COSMOS reality → SOCIAL = WAG_MIN (61.8) — engaged listener
+      CODE/MARKET/SOLANA/CYNIC   → SOCIAL = GROWL_MIN (38.2) — background monitor
+
+    HOLD = "long-term commitment" — organism staying present and attentive:
+      CYNIC reality → HOLD = HOWL_MIN (82.0) — self-monitoring = deepest commitment
+      any other     → HOLD = WAG_MIN  (61.8) — present and attentive
+    """
+
+    def _social_score(self, reality: str) -> float:
+        from cynic.core.phi import WAG_MIN, GROWL_MIN
+        return WAG_MIN if reality in ("SOCIAL", "HUMAN", "COSMOS") else GROWL_MIN
+
+    def _hold_score(self, reality: str) -> float:
+        from cynic.core.phi import HOWL_MIN, WAG_MIN
+        return HOWL_MIN if reality == "CYNIC" else WAG_MIN
+
+    def test_social_reality_gets_wag_social_score(self):
+        """reality='SOCIAL' → SOCIAL dim ≈ WAG_MIN (61.8) — engaged listener."""
+        from cynic.core.phi import WAG_MIN
+        assert self._social_score("SOCIAL") == pytest.approx(WAG_MIN, abs=0.5)
+
+    def test_human_reality_gets_wag_social_score(self):
+        """reality='HUMAN' → SOCIAL dim ≈ WAG_MIN (61.8) — human context = social."""
+        from cynic.core.phi import WAG_MIN
+        assert self._social_score("HUMAN") == pytest.approx(WAG_MIN, abs=0.5)
+
+    def test_code_reality_gets_growl_social_score(self):
+        """reality='CODE' → SOCIAL dim ≈ GROWL_MIN (38.2) — background monitor."""
+        from cynic.core.phi import GROWL_MIN
+        assert self._social_score("CODE") == pytest.approx(GROWL_MIN, abs=0.5)
+
+    def test_cynic_reality_gets_howl_hold_score(self):
+        """reality='CYNIC' → HOLD dim ≈ HOWL_MIN (82.0) — self-awareness = deep commitment."""
+        from cynic.core.phi import HOWL_MIN
+        assert self._hold_score("CYNIC") == pytest.approx(HOWL_MIN, abs=0.5)
+
+    def test_social_reality_gets_wag_hold_score(self):
+        """reality='SOCIAL' (not CYNIC) → HOLD dim ≈ WAG_MIN (61.8) — present."""
+        from cynic.core.phi import WAG_MIN
+        assert self._hold_score("SOCIAL") == pytest.approx(WAG_MIN, abs=0.5)
+
+    def test_handler_tolerates_missing_payload(self):
+        """Empty payload → reality defaults to 'CODE' → SOCIAL=GROWL_MIN, HOLD=WAG_MIN, no raise."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import GROWL_MIN, WAG_MIN
+        tracker = EScoreTracker()
+        p = {}
+        reality = p.get("reality", "CODE")
+        social_score = self._social_score(reality)
+        hold_score   = self._hold_score(reality)
+        assert social_score == pytest.approx(GROWL_MIN, abs=0.5)
+        assert hold_score   == pytest.approx(WAG_MIN, abs=0.5)
+        tracker.update("agent:cynic", "SOCIAL", social_score)
+        tracker.update("agent:cynic", "HOLD",   hold_score)
+        assert tracker.get_score("agent:cynic") >= 0.0

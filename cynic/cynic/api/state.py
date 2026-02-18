@@ -803,6 +803,52 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         except Exception:
             pass
 
+    # ── PERCEPTION_RECEIVED → EScore SOCIAL + HOLD update ─────────────────
+    # Emitted at TWO sites:
+    #   server.py:669  POST /perceive — {"cell_id": str, "source": str,
+    #                                    "reality": str, "data": str}
+    #   orchestrator.py:473 MACRO cycle STEP 1 — {"cell_id": str, "reality": str}
+    #
+    # SOCIAL dimension = "community engagement quality".
+    # Perception of SOCIAL/HUMAN/COSMOS realities = active listening to community.
+    # Perception of CODE/MARKET/SOLANA/CYNIC = background monitoring = less social.
+    #
+    #   SOCIAL / HUMAN / COSMOS → SOCIAL = WAG_MIN   (61.8)  engaged listener
+    #   CODE / MARKET / SOLANA / CYNIC → SOCIAL = GROWL_MIN (38.2) monitor
+    #
+    # HOLD dimension = "long-term commitment" — organism staying present + attentive.
+    # Any perception = organism is alive and attending → minimum neutral commitment.
+    # CYNIC reality (self-monitoring) = highest introspective commitment → HOWL_MIN.
+    #
+    #   reality == "CYNIC" → HOLD = HOWL_MIN  (82.0) self-awareness = deep commitment
+    #   any other reality  → HOLD = WAG_MIN   (61.8) present + attentive
+    async def _on_perception_received(event: Event) -> None:
+        try:
+            p       = event.payload or {}
+            reality = p.get("reality", "CODE")
+            source  = p.get("source", "")
+
+            from cynic.core.phi import HOWL_MIN, WAG_MIN, GROWL_MIN
+
+            # SOCIAL: direct community engagement vs background monitoring
+            social_score = (
+                WAG_MIN
+                if reality in ("SOCIAL", "HUMAN", "COSMOS")
+                else GROWL_MIN
+            )
+            escore_tracker.update("agent:cynic", "SOCIAL", social_score, reality=reality)
+
+            # HOLD: organism present + attentive; self-monitoring = highest commitment
+            hold_score = HOWL_MIN if reality == "CYNIC" else WAG_MIN
+            escore_tracker.update("agent:cynic", "HOLD", hold_score, reality=reality)
+
+            logger.debug(
+                "PERCEPTION_RECEIVED: reality=%s source=%s → SOCIAL=%.1f HOLD=%.1f",
+                reality, source, social_score, hold_score,
+            )
+        except Exception:
+            pass
+
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_intelligence)
     get_core_bus().on(CoreEvent.JUDGMENT_FAILED, _on_judgment_failed)
     get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence_signal)
@@ -818,6 +864,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     get_core_bus().on(CoreEvent.SDK_RESULT_RECEIVED, _on_sdk_result_received)
     get_core_bus().on(CoreEvent.JUDGMENT_REQUESTED, _on_judgment_requested)
     get_core_bus().on(CoreEvent.USER_FEEDBACK, _on_user_feedback)
+    get_core_bus().on(CoreEvent.PERCEPTION_RECEIVED, _on_perception_received)
 
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),
