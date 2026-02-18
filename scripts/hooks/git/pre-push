@@ -1,38 +1,17 @@
 #!/bin/bash
-# CYNIC Pre-Push Hook
-# "Verifie avant de pousser" - kynikos
-#
-# Runs Tikkun validation before allowing push
-# Install with: cp scripts/hooks/git/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+# CYNIC Pre-Push Hook — Silent mode
+# Runs Da'at validation. Outputs ONLY on failure (blocks push).
+# Silent on success so git push exits 0 cleanly on Windows.
 
-set -e
-
-echo ""
-echo "CYNIC Pre-Push Validation"
-echo "========================================"
-
-# Run quick audit (Da'at only for speed)
-echo ""
-echo "Running Da'at (quick audit)..."
-
-# Parse machine-readable score line (CYNIC_SCORE=N, no ANSI codes, no sed needed)
-# Note: sed '\x1b' does NOT work on Windows Git Bash (not interpreted as ESC)
-SCORE=$(node scripts/tikkun/daat.mjs 2>&1 | grep -o 'CYNIC_SCORE=[0-9]*' | cut -d= -f2 || echo "0")
+SCORE=$(node scripts/tikkun/daat.mjs 2>/dev/null | grep -o 'CYNIC_SCORE=[0-9]*' | cut -d= -f2 || echo "0")
 SCORE=${SCORE:-0}
 
-echo ""
-echo "----------------------------------------"
-
 if [ "$SCORE" -lt 62 ]; then
-    echo "FAIL Score: ${SCORE}% (below phi^-1 = 62%)"
-    echo ""
-    echo "*GROWL* Push blocked. Run 'npm run tikkun' for details."
-    echo ""
+    echo "" >&2
+    echo "*GROWL* Da'at score ${SCORE}% — below φ⁻¹ (62%). Push blocked." >&2
+    echo "Run: node scripts/tikkun/daat.mjs" >&2
+    echo "" >&2
     exit 1
 fi
 
-echo "OK Score: ${SCORE}% (meets phi^-1 threshold)"
-echo ""
-echo "*tail wag* Push approved."
-echo ""
 exit 0
