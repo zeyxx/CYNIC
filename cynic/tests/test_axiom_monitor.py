@@ -252,3 +252,74 @@ class TestAxiomBudgetMultiplier:
         assert stressed_eff < budget < healthy_eff
         assert abs(stressed_eff - budget * PHI_INV_2) < 0.001
         assert abs(healthy_eff - budget * PHI_2) < 0.001
+
+
+class TestBudgetEnforcement:
+    """Budget→LOD loop: BUDGET_WARNING/EXHAUSTED → orchestrator caps judgment depth."""
+
+    def _make_orchestrator(self):
+        from unittest.mock import MagicMock
+        from cynic.judge.orchestrator import JudgeOrchestrator
+        from cynic.core.axioms import AxiomArchitecture
+        from cynic.dogs.cynic_dog import CynicDog
+        arch = AxiomArchitecture()
+        cynic_dog = MagicMock(spec=CynicDog)
+        return JudgeOrchestrator(dogs={}, axiom_arch=arch, cynic_dog=cynic_dog)
+
+    def test_initial_no_stress(self):
+        orch = self._make_orchestrator()
+        assert orch._budget_stress is False
+        assert orch._budget_exhausted is False
+
+    def test_budget_warning_sets_stress(self):
+        orch = self._make_orchestrator()
+        orch.on_budget_warning()
+        assert orch._budget_stress is True
+        assert orch._budget_exhausted is False  # not exhausted yet
+
+    def test_budget_exhausted_sets_both_flags(self):
+        orch = self._make_orchestrator()
+        orch.on_budget_exhausted()
+        assert orch._budget_exhausted is True
+
+    def test_select_level_reflex_when_exhausted(self):
+        from cynic.core.consciousness import ConsciousnessLevel
+        from cynic.core.judgment import Cell
+        orch = self._make_orchestrator()
+        orch.on_budget_exhausted()
+        cell = Cell(
+            reality="CODE", analysis="JUDGE", time_dim="PRESENT",
+            content="test", context="", risk=0.5, complexity=0.5,
+            budget_usd=1.0, consciousness=5,  # would be MACRO without budget flag
+        )
+        level = orch._select_level(cell, 1.0)
+        assert level == ConsciousnessLevel.REFLEX
+
+    def test_select_level_capped_at_micro_under_stress(self):
+        from cynic.core.consciousness import ConsciousnessLevel
+        from cynic.core.judgment import Cell
+        orch = self._make_orchestrator()
+        orch.on_budget_warning()
+        cell = Cell(
+            reality="CODE", analysis="JUDGE", time_dim="PRESENT",
+            content="test", context="", risk=0.5, complexity=0.5,
+            budget_usd=1.0, consciousness=5,  # would be MACRO without stress
+        )
+        level = orch._select_level(cell, 1.0)
+        assert level in (ConsciousnessLevel.MICRO, ConsciousnessLevel.REFLEX)
+        assert level != ConsciousnessLevel.MACRO
+
+    def test_exhausted_overrides_stress(self):
+        """Exhausted takes priority over stress flag."""
+        from cynic.core.consciousness import ConsciousnessLevel
+        from cynic.core.judgment import Cell
+        orch = self._make_orchestrator()
+        orch.on_budget_warning()
+        orch.on_budget_exhausted()
+        cell = Cell(
+            reality="CODE", analysis="JUDGE", time_dim="PRESENT",
+            content="test", context="", risk=0.5, complexity=0.5,
+            budget_usd=1.0, consciousness=5,
+        )
+        level = orch._select_level(cell, 1.0)
+        assert level == ConsciousnessLevel.REFLEX

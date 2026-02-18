@@ -102,6 +102,9 @@ class JudgeOrchestrator:
         self._evolve_history: List[Dict[str, Any]] = []
         # Circuit breaker — prevents cascade failures (topology M1)
         self._circuit_breaker = CircuitBreaker()
+        # Budget stress flags — set by BUDGET_WARNING/EXHAUSTED events
+        self._budget_stress: bool = False      # cap at MICRO when True
+        self._budget_exhausted: bool = False   # cap at REFLEX when True
 
     # ── STEP 0: Entry Point ────────────────────────────────────────────────
 
@@ -248,10 +251,50 @@ class JudgeOrchestrator:
         active = self.axiom_monitor.active_count()
         return PHI ** (active - 2)
 
+    # ── Budget Enforcement (ACCOUNT → JUDGE feedback) ──────────────────────
+
+    def on_budget_warning(self) -> None:
+        """
+        React to BUDGET_WARNING — cap future judgments at MICRO level.
+
+        Called by state.py when AccountAgent emits BUDGET_WARNING (38.2% left).
+        Prevents Ollama MACRO calls while budget is low.
+        """
+        if not self._budget_stress:
+            self._budget_stress = True
+            logger.warning(
+                "*GROWL* Budget stress: capping judgment level at MICRO "
+                "(no MACRO/Ollama until budget resets)"
+            )
+
+    def on_budget_exhausted(self) -> None:
+        """
+        React to BUDGET_EXHAUSTED — cap future judgments at REFLEX level.
+
+        Called by state.py when AccountAgent emits BUDGET_EXHAUSTED (budget=0).
+        Zero LLM calls — pure heuristic until session resets.
+        """
+        if not self._budget_exhausted:
+            self._budget_exhausted = True
+            logger.error(
+                "*GROWL* Budget exhausted: forcing REFLEX-only mode "
+                "(zero LLM calls)"
+            )
+
     # ── LEVEL SELECTION ────────────────────────────────────────────────────
 
     def _select_level(self, cell: Cell, budget_usd: float) -> ConsciousnessLevel:
         """Auto-select consciousness level based on budget and cell metadata."""
+        # Budget enforcement (ACCOUNT→JUDGE loop): stressed budget caps depth
+        if self._budget_exhausted:
+            return ConsciousnessLevel.REFLEX
+        if self._budget_stress:
+            # Allow at most MICRO — no Ollama calls
+            suggested = self._consciousness.should_downgrade(budget_usd)
+            if suggested == ConsciousnessLevel.REFLEX:
+                return ConsciousnessLevel.REFLEX
+            return ConsciousnessLevel.MICRO
+
         suggested = self._consciousness.should_downgrade(budget_usd)
         if suggested:
             return suggested

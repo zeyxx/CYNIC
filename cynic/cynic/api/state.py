@@ -250,6 +250,25 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     account_agent.set_escore_tracker(escore_tracker)
     account_agent.start(get_core_bus())
 
+    # ── Budget→LOD enforcement loop ────────────────────────────────────────
+    # AccountAgent emits BUDGET_WARNING (38.2% remaining) and BUDGET_EXHAUSTED (0).
+    # Orchestrator reacts: stress → cap at MICRO; exhausted → force REFLEX.
+    # Closes the loop: cost pressure → safer, cheaper judgment paths.
+    async def _on_budget_warning(event: Event) -> None:
+        try:
+            orchestrator.on_budget_warning()
+        except Exception:
+            pass
+
+    async def _on_budget_exhausted(event: Event) -> None:
+        try:
+            orchestrator.on_budget_exhausted()
+        except Exception:
+            pass
+
+    get_core_bus().on(CoreEvent.BUDGET_WARNING, _on_budget_warning)
+    get_core_bus().on(CoreEvent.BUDGET_EXHAUSTED, _on_budget_exhausted)
+
     # ── SelfProber — L4 CYNIC→CYNIC self-improvement loop ─────────────────
     # Subscribes to EMERGENCE_DETECTED. Analyzes QTable, EScore, Residual.
     # Generates SelfProposal objects → persists to ~/.cynic/self_proposals.json.
