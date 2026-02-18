@@ -6,6 +6,8 @@ All routes get this via Depends(get_app_state).
 """
 from __future__ import annotations
 
+import json
+import os
 import time
 import logging
 from dataclasses import dataclass, field
@@ -16,6 +18,7 @@ from cynic.core.heuristic_scorer import HeuristicFacetScorer
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.consciousness import get_consciousness
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.core.phi import MAX_CONFIDENCE
 from cynic.dogs.base import DogId
 from cynic.dogs.cynic_dog import CynicDog
 from cynic.dogs.guardian import GuardianDog
@@ -37,6 +40,39 @@ from cynic.scheduler import DogScheduler
 from cynic.act.telemetry import TelemetryStore
 
 logger = logging.getLogger("cynic.api.state")
+
+_GUIDANCE_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "guidance.json")
+
+
+async def _on_judgment_created(event: Event) -> None:
+    """
+    Write guidance.json from ANY judgment source (hook, scheduler, API).
+
+    This is the key feedback loop: JUDGMENT_CREATED fires after every judgment,
+    including MACRO scheduler jobs where SAGE temporal MCTS ran.
+    The hook reads guidance.json on next UserPromptSubmit → Claude Code gets wisdom.
+
+    By subscribing here (not just in /judge and /perceive endpoints),
+    SAGE's Ollama-powered judgments finally reach the feedback loop.
+    """
+    try:
+        p = event.payload
+        os.makedirs(os.path.dirname(_GUIDANCE_PATH), exist_ok=True)
+        with open(_GUIDANCE_PATH, "w", encoding="utf-8") as fh:
+            json.dump({
+                "timestamp": time.time(),
+                "state_key": p.get("state_key", ""),
+                "verdict": p.get("verdict", "WAG"),
+                "q_score": round(float(p.get("q_score", 0.0)), 3),
+                "confidence": round(min(float(p.get("confidence", 0.0)), MAX_CONFIDENCE), 4),
+                "reality": p.get("reality", "CODE"),
+                "dog_votes": {
+                    k: round(float(v), 3)
+                    for k, v in (p.get("dog_votes") or {}).items()
+                },
+            }, fh)
+    except Exception as exc:
+        logger.debug("guidance.json write skipped: %s", exc)
 
 
 @dataclass
@@ -152,6 +188,12 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         scheduler.submit(cell, level=ConsciousnessLevel.META, source="emergence_trigger")
 
     get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence)
+
+    # ── Guidance feedback loop — ALL judgment sources ──────────────────────
+    # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),
+    # /judge (MACRO), or DogScheduler background workers (MACRO with SAGE).
+    # This ensures SAGE's Ollama temporal MCTS reaches the guidance.json loop.
+    get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_created)
 
     # ── PerceiveWorkers (autonomous sensors) ──────────────────────────────
     # Wired here; actually started when scheduler.start() is called (in lifespan).

@@ -53,7 +53,8 @@ try {
   if (guidance) {
     const verdictSymbol = { HOWL: '🟢', WAG: '🟡', GROWL: '🟠', BARK: '🔴' }[guidance.verdict] || '⚪';
     const bar = (score) => {
-      const filled = Math.round((score / 61.803) * 10);
+      // Q-Score scale is [0, 100] (D1 decision). Cap display at 100 (not 61.803).
+      const filled = Math.round((score / 100) * 10);
       return '[' + '█'.repeat(Math.min(filled, 10)) + '░'.repeat(Math.max(10 - filled, 0)) + ']';
     };
     const dogs = Object.entries(guidance.dog_votes || {})

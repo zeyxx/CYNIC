@@ -523,6 +523,23 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
 
     judgment = await state.orchestrator.run(cell, level=level)
 
+    # SAGE amplification: after fast REFLEX, enqueue MACRO to scheduler.
+    # MACRO runs all 11 Dogs including SAGE temporal MCTS (7×Ollama).
+    # JUDGMENT_CREATED handler (in state.py) overwrites guidance.json when done.
+    # → Next hook call gets SAGE's wisdom. Lagged by one cycle (acceptable).
+    # Only enqueue for REFLEX perception (CODE/HUMAN reality) — not self-loops.
+    if level == ConsciousnessLevel.REFLEX and cell.reality in ("CODE", "HUMAN", "MARKET", "SOCIAL"):
+        from cynic.core.judgment import Cell as _Cell
+        macro_cell = _Cell(
+            reality=cell.reality,
+            analysis="JUDGE",
+            content=cell.content,
+            context=cell.context,
+            budget_usd=0.05,       # enough for MACRO + Ollama temporal MCTS
+            consciousness=4,       # REFLECTIVE gradient — deep analysis
+        )
+        state.scheduler.submit(macro_cell, level=ConsciousnessLevel.MACRO, source=f"perceive_bg:{req.source}")
+
     j_resp = JudgeResponse(
         judgment_id=judgment.judgment_id,
         q_score=round(judgment.q_score, 3),
@@ -538,7 +555,8 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
         level_used=level.name,
     )
 
-    # Write guidance.json — feedback loop (best-effort, never blocks)
+    # Write guidance.json — best-effort belt-and-suspenders backup.
+    # Primary writer is now the JUDGMENT_CREATED event handler in state.py.
     _write_guidance(cell, judgment)
 
     # Save for /feedback endpoint
