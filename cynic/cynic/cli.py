@@ -1,22 +1,27 @@
 """
-CYNIC CLI — Terminal status dashboard for the human who needs to see everything.
+CYNIC CLI — Terminal status dashboard + human feedback loop (L3).
 
 Usage:
-  python -m cynic.cli           → full status (default)
-  python -m cynic.cli status    → same
-  python -m cynic.cli health    → quick health check only
-  python -m cynic.cli lod       → LOD level only
-  python -m cynic.cli loops     → 4 feedback loop completion matrix
+  python -m cynic.cli            → full status (default)
+  python -m cynic.cli status     → same
+  python -m cynic.cli health     → quick health check only
+  python -m cynic.cli lod        → LOD level only
+  python -m cynic.cli loops      → 4 feedback loop completion matrix
+  python -m cynic.cli review     → interactive accept/reject pending actions (L3)
+  python -m cynic.cli watch      → live poll: notify when new actions arrive (L3)
+  python -m cynic.cli feedback N → rate last judgment 1-5 (L3)
 
 Reads from (fastest path — no server needed):
   ~/.cynic/guidance.json        → last judgment verdict/Q/dogs
   ~/.cynic/session-latest.json  → session checkpoint info
-  ~/.cynic/pending_actions.json → proposed action queue (P5, future)
+  ~/.cynic/pending_actions.json → proposed action queue
 
 Optionally queries (falls back gracefully if server is down):
   http://localhost:PORT/health
   http://localhost:PORT/lod
   http://localhost:PORT/act/telemetry
+  http://localhost:PORT/actions
+  http://localhost:PORT/feedback
 
 φ-bound: confidence never shown above 61.8%.
 """
@@ -25,10 +30,12 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import sys
 import time
 import urllib.request
-from typing import Any, Dict, Optional
+import urllib.error
+from typing import Any, Dict, List, Optional
 
 # ── Windows UTF-8 fix ──────────────────────────────────────────────────────
 # Windows terminals default to CP1252 which can't render box-drawing chars
@@ -96,6 +103,60 @@ def _api_get(path: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+def _api_post(path: str, body: Optional[Dict] = None) -> Optional[Dict[str, Any]]:
+    """POST to the API. Returns parsed JSON or None on any error."""
+    try:
+        data = json.dumps(body or {}).encode()
+        req = urllib.request.Request(
+            f"{_API}{path}",
+            data=data,
+            headers={"User-Agent": "CYNIC-CLI/2.0", "Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=_API_TIMEOUT) as resp:
+            return json.loads(resp.read().decode())
+    except Exception:
+        return None
+
+
+def _pending_actions() -> tuple[List[Dict], bool]:
+    """
+    Return (pending_actions_list, api_available).
+    Tries API first; falls back to direct file read.
+    """
+    data = _api_get("/actions")
+    if data is not None:
+        return data.get("actions", []), True
+    # File fallback
+    raw = _read_json(_PENDING)
+    if isinstance(raw, list):
+        return [a for a in raw if a.get("status") == "PENDING"], False
+    return [], False
+
+
+def _file_set_status(action_id: str, status: str) -> bool:
+    """
+    Directly update pending_actions.json without the server.
+    Used when API is unreachable. Returns True on success.
+    """
+    try:
+        raw = _read_json(_PENDING)
+        if not isinstance(raw, list):
+            return False
+        for action in raw:
+            if action.get("action_id") == action_id:
+                action["status"] = status
+                break
+        else:
+            return False
+        os.makedirs(_CYNIC_DIR, exist_ok=True)
+        with open(_PENDING, "w", encoding="utf-8") as fh:
+            json.dump(raw, fh, indent=2)
+        return True
+    except Exception:
+        return False
+
+
 # ── Verdict → color ────────────────────────────────────────────────────────
 
 _VERDICT_COLOR = {
@@ -142,11 +203,22 @@ def _lod_str(lod_val: int) -> str:
 # ── Loop completion ────────────────────────────────────────────────────────
 
 _LOOPS = {
-    "L1 Machine→Actions": (75, "⚠️  ActionProposer+queue done, no UI yet"),
+    "L1 Machine→Actions":  (75, "⚠️  ActionProposer+queue done, no web UI"),
     "L2 CYNIC↔Claude Code": (68, "⚠️  ACT result→QTable (P6 done)"),
-    "L3 Human→CYNIC→Human": (62, "⚠️  /feedback exists, no UI yet"),
-    "L4 CYNIC→CYNIC Self": (62, "⚠️  code analysis missing"),
+    "L3 Human→CYNIC→Human": (82, "✅  review/watch/feedback commands live"),
+    "L4 CYNIC→CYNIC Self":  (62, "⚠️  code analysis missing"),
 }
+
+# Action type → display color
+_ATYPE_COLOR = {
+    "INVESTIGATE": "red",
+    "REFACTOR":    "orange",
+    "ALERT":       "yellow",
+    "MONITOR":     "dim",
+}
+
+# Priority → color
+_PRIORITY_COLOR = {1: "red", 2: "orange", 3: "cyan", 4: "dim"}
 
 
 # ── Time ago ───────────────────────────────────────────────────────────────
@@ -186,8 +258,6 @@ def _section(title: str, lines: list) -> None:
     print(_c("bold", "│") + _c("cyan", label) + " " * (w - 2 - len(label)) + _c("bold", "│"))
     print(_c("bold", f"├{'─' * (w - 2)}┤"))
     for line in lines:
-        # Strip ANSI for length calculation
-        import re
         plain = re.sub(r"\033\[[0-9;]*m", "", line)
         padding = max(0, w - 2 - len(plain))
         print(_c("bold", "│") + " " + line + " " * padding + _c("bold", "│"))
@@ -364,6 +434,224 @@ def cmd_loops() -> None:
     print()
 
 
+def _print_action(action: Dict, index: int, total: int) -> None:
+    """Render one proposed action for the review screen."""
+    action_id = action.get("action_id", "?")
+    atype     = action.get("action_type", "?")
+    verdict   = action.get("verdict", "?")
+    priority  = action.get("priority", 3)
+    desc      = action.get("description", "")
+    prompt    = action.get("prompt", "")[:120]
+    ts        = float(action.get("proposed_at", 0))
+
+    atype_col    = _ATYPE_COLOR.get(atype, "white")
+    priority_col = _PRIORITY_COLOR.get(priority, "white")
+    v_col        = _VERDICT_COLOR.get(verdict, "white")
+
+    print()
+    print(_c("bold", f"  [{index}/{total}]  {action_id}  {_ago(ts)}"))
+    print(
+        f"  {_c(atype_col, atype)}"
+        f"  priority={_c(priority_col, str(priority))}"
+        f"  verdict={_c(v_col, verdict)}"
+    )
+    print(f"  {desc}")
+    if prompt.strip():
+        print(f"  {_c('gray', prompt[:100] + ('…' if len(prompt) >= 100 else ''))}")
+
+
+def cmd_review() -> None:
+    """
+    Interactive review of pending proposed actions.
+
+    Shows each PENDING action one at a time.
+    Reads from API if server is running; falls back to direct file read.
+    Writes accept/reject via API if available; falls back to file mode.
+
+    Keys: [a]ccept  [r]eject  [s]kip  [q]uit
+    """
+    pending, api_available = _pending_actions()
+
+    if not pending:
+        print()
+        print(_c("green", "  *tail wag* No pending actions — queue is empty."))
+        print()
+        return
+
+    # Sort by priority (1=critical first), then by age
+    pending.sort(key=lambda a: (a.get("priority", 3), a.get("proposed_at", 0)))
+
+    print()
+    print(_c("bold", f"  CYNIC ACTION REVIEW — {len(pending)} pending"))
+    mode_note = "API mode" if api_available else _c("orange", "file mode (server offline)")
+    print(f"  {_c('dim', mode_note)}  [a]ccept  [r]eject  [s]kip  [q]uit")
+
+    accepted = rejected = skipped = 0
+
+    for i, action in enumerate(pending, 1):
+        action_id = action.get("action_id", "?")
+        _print_action(action, i, len(pending))
+        print()
+
+        try:
+            raw = input("  choice > ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+
+        if raw == "q":
+            break
+        elif raw == "a":
+            if api_available:
+                result = _api_post(f"/actions/{action_id}/accept")
+                ok = result is not None and result.get("accepted")
+            else:
+                ok = _file_set_status(action_id, "ACCEPTED")
+            if ok:
+                print(_c("green", "  *tail wag* Accepted"))
+                accepted += 1
+            else:
+                print(_c("red", "  *GROWL* Failed to accept — check server"))
+        elif raw == "r":
+            if api_available:
+                result = _api_post(f"/actions/{action_id}/reject")
+                ok = result is not None and result.get("rejected")
+            else:
+                ok = _file_set_status(action_id, "REJECTED")
+            if ok:
+                print(_c("orange", "  *head tilt* Rejected"))
+                rejected += 1
+            else:
+                print(_c("red", "  *GROWL* Failed to reject — check server"))
+        else:
+            print(_c("dim", "  skipped"))
+            skipped += 1
+
+    print()
+    print(
+        f"  *yawn* Done.  accepted={_c('green', str(accepted))}"
+        f"  rejected={_c('orange', str(rejected))}"
+        f"  skipped={_c('dim', str(skipped))}"
+    )
+    print()
+
+
+def cmd_watch() -> None:
+    """
+    Poll for new pending actions every N seconds.
+    Notifies when the queue grows. Ctrl+C to stop.
+
+    Usage: python -m cynic.cli watch [interval_seconds]
+    Default interval: 10s.
+    """
+    args = sys.argv[2:]
+    try:
+        interval = int(args[0]) if args else 10
+    except ValueError:
+        interval = 10
+
+    print()
+    print(_c("bold", f"  *sniff* CYNIC WATCH — polling every {interval}s  (Ctrl+C to stop)"))
+    print(_c("dim",  f"  Run 'python -m cynic.cli review' when actions appear"))
+    print()
+
+    last_count = -1
+    last_ids: set = set()
+
+    while True:
+        try:
+            pending, api_ok = _pending_actions()
+        except Exception:
+            pending, api_ok = [], False
+
+        current_ids = {a.get("action_id") for a in pending}
+        new_ids     = current_ids - last_ids
+        count       = len(pending)
+
+        if new_ids and last_ids:
+            # New actions arrived
+            for action_id in new_ids:
+                action = next((a for a in pending if a.get("action_id") == action_id), {})
+                atype  = action.get("action_type", "?")
+                desc   = action.get("description", "")[:60]
+                col    = _ATYPE_COLOR.get(atype, "white")
+                print(
+                    f"  *ears perk* [{_c(col, atype)}] {action_id}  {_c('dim', desc)}"
+                )
+            print(f"  → {count} pending  run 'cynic.cli review' to process")
+        elif count != last_count:
+            if count == 0 and last_count > 0:
+                print(f"  *tail wag* Queue cleared — all actions processed")
+            elif last_count >= 0:
+                status_col = "green" if count == 0 else "yellow"
+                print(f"  {_c(status_col, str(count))} pending actions  {_c('dim', _ago(time.time()))}")
+
+        last_count = count
+        last_ids   = current_ids
+
+        try:
+            time.sleep(interval)
+        except KeyboardInterrupt:
+            print()
+            print(_c("dim", "  *yawn* Watch stopped."))
+            print()
+            break
+
+
+def cmd_feedback() -> None:
+    """
+    Rate the last kernel judgment (1=bad … 5=good).
+
+    Usage: python -m cynic.cli feedback [1-5]
+    Requires server to be running.
+
+    Example:
+      python -m cynic.cli feedback 4   → reward 0.70 → QTable update
+    """
+    args = sys.argv[2:]
+    if not args:
+        print()
+        print(_c("bold", "  Usage: python -m cynic.cli feedback [1-5]"))
+        print()
+        print("  Rates the last judgment seen by the kernel.")
+        print("  Reward mapping (φ-aligned):")
+        for rating, reward in [(1, 0.10), (2, 0.30), (3, 0.50), (4, 0.70), (5, 0.90)]:
+            bar = _bar(reward * 100, max_score=100.0, width=8)
+            print(f"    {rating}/5 → reward {reward:.2f}  {bar}")
+        print()
+        sys.exit(1)
+
+    try:
+        rating = int(args[0])
+    except ValueError:
+        print(_c("red", f"*GROWL* Rating must be 1-5, got: {args[0]}"))
+        sys.exit(1)
+
+    if not (1 <= rating <= 5):
+        print(_c("red", f"*GROWL* Rating out of range: {rating} (must be 1-5)"))
+        sys.exit(1)
+
+    result = _api_post("/feedback", {"rating": rating})
+    if result is None:
+        print(_c("red", f"*GROWL* Server unreachable at {_API}"))
+        sys.exit(1)
+
+    msg     = result.get("message", "")
+    q_value = result.get("q_value", 0.0)
+    reward  = result.get("reward", 0.0)
+    action  = result.get("action", "?")
+    sk      = result.get("state_key", "")[:40]
+
+    reward_col = "green" if reward >= 0.6 else ("cyan" if reward >= 0.4 else "orange")
+    print()
+    print(_c("bold", f"  *tail wag* Feedback: {rating}/5"))
+    print(f"  reward={_c(reward_col, f'{reward:.2f}')}  Q[{action}]={q_value:.4f}")
+    print(f"  {_c('dim', sk)}")
+    if msg:
+        print(f"  {_c('dim', msg[:80])}")
+    print()
+
+
 def _format_s(s: float) -> str:
     if s < 60:
         return f"{s:.0f}s"
@@ -379,10 +667,13 @@ def main() -> None:
     cmd  = args[0] if args else "status"
 
     dispatch = {
-        "status": cmd_status,
-        "health": cmd_health,
-        "lod":    cmd_lod,
-        "loops":  cmd_loops,
+        "status":   cmd_status,
+        "health":   cmd_health,
+        "lod":      cmd_lod,
+        "loops":    cmd_loops,
+        "review":   cmd_review,
+        "watch":    cmd_watch,
+        "feedback": cmd_feedback,
     }
 
     fn = dispatch.get(cmd)
