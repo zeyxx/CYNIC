@@ -39,7 +39,8 @@ from cynic.judge.axiom_monitor import AxiomMonitor
 from cynic.judge.lod import LODController, SurvivalLOD
 from cynic.core.escore import EScoreTracker
 from cynic.learning.qlearning import QTable, LearningLoop
-from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher, SocialWatcher
+from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher, SocialWatcher, DiskWatcher
+from cynic.core.storage.gc import StorageGarbageCollector
 from cynic.perceive import checkpoint as _session_checkpoint
 from cynic.perceive.checkpoint import CHECKPOINT_EVERY
 from cynic.scheduler import DogScheduler
@@ -368,6 +369,31 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     scheduler.register_perceive_worker(SolanaWatcher())
     # SOCIAL×PERCEIVE — social signals from ~/.cynic/social.json feed
     scheduler.register_perceive_worker(SocialWatcher())
+    # CYNIC×PERCEIVE — disk pressure (φ-thresholds: 61.8% / 76.4% / 90%)
+    scheduler.register_perceive_worker(DiskWatcher())
+
+    # ── StorageGarbageCollector — triggered by DISK_PRESSURE ───────────────
+    # Reacts to DiskWatcher's DISK_PRESSURE event.
+    # Pure SQL: prunes BARK judgments, oversized buffers, stale benchmarks.
+    storage_gc = StorageGarbageCollector()
+
+    async def _on_disk_pressure(event: Event) -> None:
+        pressure = event.payload.get("pressure", "WARN")
+        used_pct = event.payload.get("used_pct", 0.0)
+        disk_pct_val = event.payload.get("disk_pct", used_pct)
+
+        # Update LODController with disk metric
+        lod_controller.assess(disk_pct=disk_pct_val)
+
+        logger.warning(
+            "DISK_PRESSURE: %s (%.1f%% used) → running StorageGC",
+            pressure, used_pct * 100,
+        )
+        result = await storage_gc.collect(db_pool)
+        if result.get("total", 0) > 0:
+            logger.info("StorageGC freed %d rows (disk was %.1f%% full)", result["total"], used_pct * 100)
+
+    get_core_bus().on(CoreEvent.DISK_PRESSURE, _on_disk_pressure)
 
     logger.info(
         "Kernel ready: %d dogs, scheduler wired, learning loop + residual detector active, pool=%s, llm=%s",

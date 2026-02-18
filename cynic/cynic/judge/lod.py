@@ -23,9 +23,9 @@ Trigger metrics:
     memory_pct     → heap memory usage (0.0-1.0)
 
 Thresholds (φ-symmetric):
-    LOD 1: error_rate ≥ PHI_INV_2 (0.382) OR latency_ms ≥ 1000 OR queue_depth ≥ 34
-    LOD 2: error_rate ≥ PHI_INV   (0.618) OR latency_ms ≥ 2850 OR queue_depth ≥ 89
-    LOD 3: error_rate ≥ 1.0       OR latency_ms ≥ 5000 OR queue_depth ≥ 144
+    LOD 1: error_rate ≥ PHI_INV_2 (0.382) OR latency_ms ≥ 1000 OR queue_depth ≥ 34 OR disk_pct ≥ 0.618
+    LOD 2: error_rate ≥ PHI_INV   (0.618) OR latency_ms ≥ 2850 OR queue_depth ≥ 89  OR disk_pct ≥ 0.764
+    LOD 3: error_rate ≥ 1.0       OR latency_ms ≥ 5000 OR queue_depth ≥ 144         OR disk_pct ≥ 0.90
 
 Usage:
     lod = LODController()
@@ -108,6 +108,12 @@ class SurvivalLOD(int, Enum):
 
 # ── HealthMetrics ─────────────────────────────────────────────────────────
 
+# Disk usage thresholds (φ-derived, fraction of disk used)
+_DISK_LOD1 = PHI_INV      # 0.618 — 61.8% full → REDUCED
+_DISK_LOD2 = 1 - PHI_INV_3  # 0.764 — 76.4% full → EMERGENCY
+_DISK_LOD3 = 0.90          # 90% full → MINIMAL
+
+
 @dataclass
 class HealthMetrics:
     """System health snapshot for LOD assessment."""
@@ -115,6 +121,7 @@ class HealthMetrics:
     latency_ms: float = 0.0       # Recent p95 latency in ms
     queue_depth: int = 0          # Current queue depth (cells waiting)
     memory_pct: float = 0.0       # Heap memory [0, 1]
+    disk_pct: float = 0.0         # Disk usage fraction [0, 1]
     timestamp: float = field(default_factory=time.time)
 
     def worst_lod(self) -> SurvivalLOD:
@@ -122,17 +129,20 @@ class HealthMetrics:
         # Check LOD 3 first (most severe)
         if (self.error_rate >= _ERR_LOD3
                 or self.latency_ms >= _LATENCY_LOD3
-                or self.queue_depth >= _QUEUE_LOD3):
+                or self.queue_depth >= _QUEUE_LOD3
+                or self.disk_pct >= _DISK_LOD3):
             return SurvivalLOD.MINIMAL
 
         if (self.error_rate >= _ERR_LOD2
                 or self.latency_ms >= _LATENCY_LOD2
-                or self.queue_depth >= _QUEUE_LOD2):
+                or self.queue_depth >= _QUEUE_LOD2
+                or self.disk_pct >= _DISK_LOD2):
             return SurvivalLOD.EMERGENCY
 
         if (self.error_rate >= _ERR_LOD1
                 or self.latency_ms >= _LATENCY_LOD1
-                or self.queue_depth >= _QUEUE_LOD1):
+                or self.queue_depth >= _QUEUE_LOD1
+                or self.disk_pct >= _DISK_LOD1):
             return SurvivalLOD.REDUCED
 
         return SurvivalLOD.FULL
@@ -168,6 +178,7 @@ class LODController:
         latency_ms: float = 0.0,
         queue_depth: int = 0,
         memory_pct: float = 0.0,
+        disk_pct: float = 0.0,
     ) -> SurvivalLOD:
         """
         Assess current system health and return appropriate LOD.
@@ -179,6 +190,7 @@ class LODController:
             latency_ms:  Recent p95 latency in ms
             queue_depth: Current scheduler queue depth
             memory_pct:  Heap memory fraction [0, 1]
+            disk_pct:    Disk usage fraction [0, 1] (0=empty, 1=full)
 
         Returns:
             Recommended SurvivalLOD (also updates self._current).
@@ -191,6 +203,7 @@ class LODController:
             latency_ms=max(0.0, latency_ms),
             queue_depth=max(0, queue_depth),
             memory_pct=max(0.0, min(1.0, memory_pct)),
+            disk_pct=max(0.0, min(1.0, disk_pct)),
         )
         self._history.append(metrics)
         if len(self._history) > 100:
