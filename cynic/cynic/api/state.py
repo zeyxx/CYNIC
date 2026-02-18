@@ -525,6 +525,62 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         except Exception:
             pass
 
+    # ── META_CYCLE → ANTIFRAGILITY signal + EScore JUDGE update ──────────────
+    # Emitted by orchestrator.evolve() every ~4h with self-health data.
+    # pass_rate = fraction of PROBE_CELLS within expected Q-Score range.
+    # regression = pass_rate dropped >20% vs previous cycle.
+    #
+    # ANTIFRAGILITY axiom: organism that SURVIVES stress gets stronger.
+    # Regression IS stress — signal it so ANTIFRAGILITY can unlock.
+    #
+    # EScore JUDGE dimension: "self-assessment quality" — how accurately
+    # CYNIC's internal probes reflect true capability.
+    #   pass_rate ≥ PHI_INV (0.618) → JUDGE = pass_rate × MAX_Q_SCORE
+    #   pass_rate ∈ [PHI_INV_2, PHI_INV) → JUDGE = WAG_MIN (fair)
+    #   pass_rate < PHI_INV_2 (0.382)   → JUDGE = GROWL_MIN (struggling)
+    async def _on_meta_cycle(event: Event) -> None:
+        try:
+            p = event.payload or {}
+            evolve = p.get("evolve", {})
+            pass_rate  = float(evolve.get("pass_rate", 0.0))
+            regression = bool(evolve.get("regression", False))
+
+            from cynic.core.phi import (
+                MAX_Q_SCORE, WAG_MIN, GROWL_MIN, PHI_INV, PHI_INV_2,
+            )
+
+            # 1. ANTIFRAGILITY signal — regression = organism under stress
+            if regression:
+                new_state = axiom_monitor.signal("ANTIFRAGILITY")
+                if new_state == "ACTIVE":
+                    await get_core_bus().emit(Event(
+                        type=CoreEvent.AXIOM_ACTIVATED,
+                        payload={
+                            "axiom":   "ANTIFRAGILITY",
+                            "maturity": axiom_monitor.get_maturity("ANTIFRAGILITY"),
+                            "trigger": "META_CYCLE_REGRESSION",
+                        },
+                        source="meta_cycle",
+                    ))
+
+            # 2. EScore JUDGE update — self-assessment quality
+            if pass_rate >= PHI_INV:
+                judge_score = pass_rate * MAX_Q_SCORE
+            elif pass_rate >= PHI_INV_2:
+                judge_score = WAG_MIN
+            else:
+                judge_score = GROWL_MIN
+
+            escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+            logger.info(
+                "META_CYCLE: pass_rate=%.1f%% regression=%s → "
+                "JUDGE EScore=%.1f%s",
+                pass_rate * 100, regression, judge_score,
+                " ANTIFRAGILITY signalled" if regression else "",
+            )
+        except Exception:
+            pass
+
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_intelligence)
     get_core_bus().on(CoreEvent.JUDGMENT_FAILED, _on_judgment_failed)
     get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence_signal)
@@ -534,6 +590,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     get_core_bus().on(CoreEvent.TRANSCENDENCE, _on_transcendence)
     get_core_bus().on(CoreEvent.RESIDUAL_HIGH, _on_residual_high)
     get_core_bus().on(CoreEvent.ACTION_PROPOSED, _on_action_proposed)
+    get_core_bus().on(CoreEvent.META_CYCLE, _on_meta_cycle)
 
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),

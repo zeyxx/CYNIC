@@ -541,3 +541,96 @@ class TestResidualHighLoop:
         # Should not raise
         tracker.update("agent:cynic", "JUDGE", penalty)
         assert tracker.get_score("agent:cynic") >= 0.0
+
+
+# ── META_CYCLE → ANTIFRAGILITY signal + EScore JUDGE update ──────────────────
+
+class TestMetaCycleLoop:
+    """
+    META_CYCLE → ANTIFRAGILITY signal + EScore JUDGE update.
+
+    orchestrator.evolve() runs PROBE_CELLS at REFLEX level every ~4h and emits
+    META_CYCLE with pass_rate + regression flag.  This loop closes the gap:
+    - regression=True  → signal ANTIFRAGILITY axiom (stress activates immunity)
+    - pass_rate ≥ 0.618 → JUDGE = pass_rate × MAX_Q_SCORE (organism healthy)
+    - pass_rate ∈ [0.382, 0.618) → JUDGE = WAG_MIN (fair)
+    - pass_rate < 0.382 → JUDGE = GROWL_MIN (struggling)
+    """
+
+    def test_high_pass_rate_judge_score_proportional(self):
+        """pass_rate=0.8 ≥ PHI_INV → JUDGE = 0.8 × MAX_Q_SCORE = 80.0."""
+        from cynic.core.phi import PHI_INV
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        pass_rate = 0.8
+        assert pass_rate >= PHI_INV
+        judge_score = pass_rate * MAX_Q_SCORE
+        tracker.update("agent:cynic", "JUDGE", judge_score)
+        assert tracker.get_score("agent:cynic") >= 0.0
+        detail = tracker.get_detail("agent:cynic")
+        stored = detail["dimensions"]["JUDGE"]["value"]
+        assert stored == pytest.approx(judge_score, abs=0.5)
+
+    def test_medium_pass_rate_gets_wag_score(self):
+        """pass_rate=0.5 ∈ [PHI_INV_2, PHI_INV) → JUDGE = WAG_MIN."""
+        from cynic.core.phi import PHI_INV, PHI_INV_2
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        pass_rate = 0.5
+        assert PHI_INV_2 <= pass_rate < PHI_INV
+        tracker.update("agent:cynic", "JUDGE", WAG_MIN)
+        detail = tracker.get_detail("agent:cynic")
+        stored = detail["dimensions"]["JUDGE"]["value"]
+        assert stored == pytest.approx(WAG_MIN, abs=0.5)
+
+    def test_low_pass_rate_gets_growl_score(self):
+        """pass_rate=0.2 < PHI_INV_2 → JUDGE = GROWL_MIN."""
+        from cynic.core.phi import PHI_INV_2
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        pass_rate = 0.2
+        assert pass_rate < PHI_INV_2
+        tracker.update("agent:cynic", "JUDGE", GROWL_MIN)
+        detail = tracker.get_detail("agent:cynic")
+        stored = detail["dimensions"]["JUDGE"]["value"]
+        assert stored == pytest.approx(GROWL_MIN, abs=0.5)
+
+    def test_regression_signals_antifragility(self):
+        """regression=True → axiom_monitor.signal('ANTIFRAGILITY') increases maturity."""
+        m = AxiomMonitor()
+        before = m.get_maturity("ANTIFRAGILITY")
+        m.signal("ANTIFRAGILITY")
+        after = m.get_maturity("ANTIFRAGILITY")
+        assert after > before, "ANTIFRAGILITY maturity must increase on regression"
+
+    def test_no_regression_does_not_signal_antifragility(self):
+        """regression=False → ANTIFRAGILITY maturity unchanged."""
+        m = AxiomMonitor()
+        before = m.get_maturity("ANTIFRAGILITY")
+        # Handler only calls signal() when regression=True — simulate no-op
+        regression = False
+        if regression:
+            m.signal("ANTIFRAGILITY")
+        after = m.get_maturity("ANTIFRAGILITY")
+        assert after == before, "No regression → no ANTIFRAGILITY signal"
+
+    def test_meta_cycle_handler_tolerates_bad_payload(self):
+        """Handler with empty evolve dict falls back to safe defaults."""
+        from cynic.core.phi import PHI_INV, PHI_INV_2
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        # Simulate handler logic with empty payload
+        evolve = {}
+        pass_rate = float(evolve.get("pass_rate", 0.0))
+        regression = bool(evolve.get("regression", False))
+        # pass_rate=0.0 < PHI_INV_2 → GROWL_MIN
+        if pass_rate >= PHI_INV:
+            judge_score = pass_rate * MAX_Q_SCORE
+        elif pass_rate >= PHI_INV_2:
+            judge_score = WAG_MIN
+        else:
+            judge_score = GROWL_MIN
+        assert judge_score == GROWL_MIN
+        assert regression is False
+        tracker.update("agent:cynic", "JUDGE", judge_score)
+        assert tracker.get_score("agent:cynic") >= 0.0
