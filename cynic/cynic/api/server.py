@@ -898,8 +898,49 @@ async def introspect() -> dict:
         "scholar": scholar_status,
         "components": components,
         "orchestrator": orch_stats,
+        # δ1+δ2+γ4 intelligence layer
+        "emergent_axioms": state.axiom_monitor.stats(),
+        "lod": state.lod_controller.status(),
+        "escore_top": state.escore_tracker.top_entities(n=5),
         "message": "*sniff* Je me lis moi-même. Le chien qui se connaît.",
     }
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /axioms  (δ1 Emergent Axiom Dashboard)
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.get("/axioms")
+async def axioms() -> dict:
+    """
+    Emergent Axiom dashboard — A6-A9 activation status.
+
+    Returns live maturity scores and tier for the 4 emergent axioms:
+      A6. AUTONOMY     — Dogs coordinate without human approval
+      A7. SYMBIOSIS    — Human×Machine mutual value creation
+      A8. EMERGENCE    — Patterns beyond core axioms
+      A9. ANTIFRAGILITY — System improves under chaos
+    """
+    state = get_state()
+    return state.axiom_monitor.dashboard()
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /lod  (δ2 Survival LOD status)
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.get("/lod")
+async def lod() -> dict:
+    """
+    Survival LOD status — current graceful degradation level.
+
+    LOD 0 FULL:      All Dogs + LLM + all consciousness levels
+    LOD 1 REDUCED:   Skip slow Dogs, L2 MICRO max
+    LOD 2 EMERGENCY: REFLEX only, no LLM
+    LOD 3 MINIMAL:   GUARDIAN only, survival mode
+    """
+    state = get_state()
+    return state.lod_controller.status()
 
 
 # ════════════════════════════════════════════════════════════════════════════

@@ -34,6 +34,9 @@ from cynic.dogs.scout import ScoutDog
 from cynic.judge.orchestrator import JudgeOrchestrator
 from cynic.judge.residual import ResidualDetector
 from cynic.judge.decide import DecideAgent
+from cynic.judge.axiom_monitor import AxiomMonitor
+from cynic.judge.lod import LODController, SurvivalLOD
+from cynic.core.escore import EScoreTracker
 from cynic.learning.qlearning import QTable, LearningLoop
 from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher, SocialWatcher
 from cynic.scheduler import DogScheduler
@@ -95,6 +98,9 @@ class AppState:
     runner: Optional[object] = None        # ClaudeCodeRunner — spawns claude autonomously
     telemetry_store: TelemetryStore = field(default_factory=TelemetryStore)  # session data
     context_compressor: ContextCompressor = field(default_factory=ContextCompressor)  # γ2 token budget
+    axiom_monitor: AxiomMonitor = field(default_factory=AxiomMonitor)    # δ1 emergent axiom tracker
+    lod_controller: LODController = field(default_factory=LODController)  # δ2 graceful degradation
+    escore_tracker: EScoreTracker = field(default_factory=EScoreTracker)  # γ4 reputation scoring
 
     @property
     def uptime_s(self) -> float:
@@ -191,6 +197,40 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
 
     get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence)
 
+    # ── δ1 AxiomMonitor + δ2 LODController + γ4 EScoreTracker ────────────
+    # Wired to JUDGMENT_CREATED so every judgment updates the living system.
+    axiom_monitor = AxiomMonitor()
+    lod_controller = LODController()
+    escore_tracker = EScoreTracker()
+
+    async def _on_judgment_for_intelligence(event: Event) -> None:
+        try:
+            p = event.payload
+            q = float(p.get("q_score", 0.0))
+            err_rate = float(p.get("error_rate", 0.0))
+            latency = float(p.get("duration_ms", 0.0))
+
+            # δ2: Assess LOD from judgment health signals
+            lod_controller.assess(error_rate=err_rate, latency_ms=latency)
+
+            # γ4: Update E-Score for each Dog that voted
+            dog_votes: dict = p.get("dog_votes") or {}
+            for dog_id, vote_score in dog_votes.items():
+                escore_tracker.update(f"agent:{dog_id}", "JUDGE", float(vote_score))
+
+        except Exception:
+            pass  # Never block the judgment pipeline
+
+    # δ1: EMERGENCE_DETECTED fires when residual spikes → signal "EMERGENCE" axiom
+    async def _on_emergence_signal(event: Event) -> None:
+        try:
+            axiom_monitor.signal("EMERGENCE")
+        except Exception:
+            pass
+
+    get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_intelligence)
+    get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence_signal)
+
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),
     # /judge (MACRO), or DogScheduler background workers (MACRO with SAGE).
@@ -249,6 +289,9 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         _pool=db_pool,
         decide_agent=decide_agent,
         context_compressor=compressor,
+        axiom_monitor=axiom_monitor,
+        lod_controller=lod_controller,
+        escore_tracker=escore_tracker,
     )
 
 

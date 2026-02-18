@@ -728,3 +728,70 @@ class TestWebSocketStream:
             response = ws.receive_json()
         assert response["type"] == "pong"
         assert "ts" in response
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /axioms  (δ1 ε-wiring: AxiomMonitor in kernel)
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestAxiomsEndpoint:
+    async def test_axioms_returns_200(self, client):
+        resp = await client.get("/axioms")
+        assert resp.status_code == 200
+
+    async def test_axioms_has_required_keys(self, client):
+        data = (await client.get("/axioms")).json()
+        assert "active_count" in data
+        assert "total_signals" in data
+        assert "tier" in data
+        assert "axioms" in data
+
+    async def test_axioms_tier_dormant_initially(self, client):
+        data = (await client.get("/axioms")).json()
+        assert data["tier"] == "DORMANT"
+        assert data["active_count"] == 0
+
+    async def test_axioms_lists_all_four_emergent_axioms(self, client):
+        data = (await client.get("/axioms")).json()
+        for ax in ["AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY"]:
+            assert ax in data["axioms"]
+
+    async def test_axioms_in_introspect(self, client):
+        """Introspect now includes emergent_axioms stats."""
+        data = (await client.get("/introspect")).json()
+        assert "emergent_axioms" in data
+        assert "active_count" in data["emergent_axioms"]
+        assert "tier" in data["emergent_axioms"]
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /lod  (δ2 ε-wiring: LODController in kernel)
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestLODEndpoint:
+    async def test_lod_returns_200(self, client):
+        resp = await client.get("/lod")
+        assert resp.status_code == 200
+
+    async def test_lod_has_required_keys(self, client):
+        data = (await client.get("/lod")).json()
+        assert "current_lod" in data
+        assert "current_name" in data
+        assert "allows_llm" in data
+        assert "max_consciousness" in data
+        assert "forced" in data
+
+    async def test_lod_initially_full(self, client):
+        data = (await client.get("/lod")).json()
+        assert data["current_lod"] == 0
+        assert data["current_name"] == "FULL"
+
+    async def test_lod_allows_llm_initially(self, client):
+        data = (await client.get("/lod")).json()
+        assert data["allows_llm"] is True
+
+    async def test_lod_in_introspect(self, client):
+        """Introspect now includes LOD status."""
+        data = (await client.get("/introspect")).json()
+        assert "lod" in data
+        assert "current_lod" in data["lod"]
