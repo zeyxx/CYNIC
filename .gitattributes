@@ -1,0 +1,42 @@
+# CYNIC .gitattributes
+# Force LF line endings for shell scripts — prevents CRLF corruption on Windows
+# Without this, core.autocrlf=true converts LF→CRLF, breaking bash hooks.
+
+# Shell scripts: always LF (bash breaks with CRLF)
+*.sh        eol=lf
+*.bash      eol=lf
+
+# Git hooks (no extension — match by path)
+scripts/hooks/**  eol=lf
+
+# Python scripts
+*.py        eol=lf
+
+# Markdown / text: auto (let git decide per platform)
+*.md        text=auto
+
+# JSON / YAML / TOML: LF
+*.json      eol=lf
+*.yaml      eol=lf
+*.yml       eol=lf
+*.toml      eol=lf
+
+# JS / TS: LF
+*.js        eol=lf
+*.mjs       eol=lf
+*.cjs       eol=lf
+*.ts        eol=lf
+*.tsx       eol=lf
+
+# Binary files: no line ending conversion
+*.pyc       binary
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.pdf       binary
+*.woff      binary
+*.woff2     binary
+*.ttf       binary
+*.eot       binary
