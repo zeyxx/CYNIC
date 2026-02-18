@@ -461,8 +461,28 @@ class LearningLoop:
             logger.warning("Invalid LEARNING_EVENT payload: %s — %s", payload, e)
             return
 
-        self.qtable.update(signal)
+        entry = self.qtable.update(signal)
         self._updates_since_flush += 1
+
+        # Emit EWC_CHECKPOINT when entry first consolidates (visits == F(8) = 21).
+        # Only on the EXACT crossing — never re-emitted for the same entry.
+        if entry.visits == fibonacci(8):
+            from cynic.core.event_bus import CoreEvent, Event, get_core_bus
+            await get_core_bus().emit(Event(
+                type=CoreEvent.EWC_CHECKPOINT,
+                payload={
+                    "state_key": signal.state_key,
+                    "action":    signal.action,
+                    "q_value":   entry.q_value,
+                    "visits":    entry.visits,
+                    "loop_name": signal.loop_name,
+                },
+                source="learning_loop",
+            ))
+            logger.info(
+                "EWC_CHECKPOINT: state=%s action=%s consolidated at %d visits (q=%.3f)",
+                signal.state_key, signal.action, entry.visits, entry.q_value,
+            )
 
         # Flush to DB every FLUSH_INTERVAL updates
         if self._pool and self._updates_since_flush >= self.FLUSH_INTERVAL:

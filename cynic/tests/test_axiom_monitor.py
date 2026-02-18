@@ -1290,3 +1290,71 @@ class TestConsciousnessChangedLoop:
         assert hold_score == pytest.approx(GROWL_MIN, abs=0.5)
         tracker.update("agent:cynic", "HOLD", hold_score)
         assert tracker.get_score("agent:cynic") >= 0.0
+
+
+# ── EWC_CHECKPOINT → AUTONOMY signal + EScore JUDGE update ────────────────────
+
+class TestEwcCheckpointLoop:
+    """
+    EWC_CHECKPOINT → AUTONOMY signal + EScore JUDGE update.
+
+    Emitted by LearningLoop when a QTable entry first crosses F(8)=21 visits
+    (Elastic Weight Consolidation consolidation threshold).
+
+    "Consolidation" = this (state, action) pair is deeply learned — EWC
+    protection now at 100%, effective_alpha reduced to α × (1 - λ) = α × 0.382.
+
+    JUDGE dimension: q_value at consolidation = proven mastery quality.
+      q_value=1.0 → JUDGE=100.0  (always rewarded — peak mastery)
+      q_value=0.5 → JUDGE=50.0   (neutral mastery)
+      q_value=0.0 → JUDGE=0.0    (learned failure pattern)
+
+    AUTONOMY: mastering a state-action pair without human guidance = autonomy.
+    Fires ONCE per (state, action) pair — the consolidation milestone.
+    """
+
+    def _judge_from_q(self, q_value: float) -> float:
+        """Reproduce handler's q_value → JUDGE score formula."""
+        from cynic.core.phi import MAX_Q_SCORE
+        return q_value * MAX_Q_SCORE
+
+    def test_max_q_gives_max_judge_score(self):
+        """q_value=1.0 → JUDGE = MAX_Q_SCORE (100.0) — perfect mastery."""
+        from cynic.core.phi import MAX_Q_SCORE
+        assert self._judge_from_q(1.0) == pytest.approx(MAX_Q_SCORE, abs=0.1)
+
+    def test_zero_q_gives_zero_judge_score(self):
+        """q_value=0.0 → JUDGE = 0.0 — learned failure (still valuable signal)."""
+        assert self._judge_from_q(0.0) == pytest.approx(0.0, abs=0.1)
+
+    def test_phi_inv_q_gives_wag_judge_score(self):
+        """q_value=PHI_INV (0.618) → JUDGE ≈ WAG_MIN (61.8)."""
+        from cynic.core.phi import PHI_INV, WAG_MIN
+        assert self._judge_from_q(PHI_INV) == pytest.approx(WAG_MIN, abs=0.5)
+
+    def test_consolidation_signals_autonomy(self):
+        """EWC_CHECKPOINT → axiom_monitor.signal('AUTONOMY') increases maturity."""
+        m = AxiomMonitor()
+        before = m.get_maturity("AUTONOMY")
+        m.signal("AUTONOMY")
+        after = m.get_maturity("AUTONOMY")
+        assert after > before, "AUTONOMY maturity must increase on EWC consolidation"
+
+    def test_consolidation_increases_escore(self):
+        """EWC_CHECKPOINT with q=0.8 → EScore JUDGE for agent:cynic increases."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        before = tracker.get_score("agent:cynic")
+        tracker.update("agent:cynic", "JUDGE", self._judge_from_q(0.8))
+        assert tracker.get_score("agent:cynic") > before
+
+    def test_handler_tolerates_empty_payload(self):
+        """Empty payload → q_value=0.5 default → JUDGE=50.0, no raise."""
+        from cynic.core.escore import EScoreTracker
+        tracker = EScoreTracker()
+        p = {}
+        q_value = float(p.get("q_value", 0.5))
+        judge_score = self._judge_from_q(q_value)
+        assert judge_score == pytest.approx(50.0, abs=0.1)
+        tracker.update("agent:cynic", "JUDGE", judge_score)
+        assert tracker.get_score("agent:cynic") >= 0.0

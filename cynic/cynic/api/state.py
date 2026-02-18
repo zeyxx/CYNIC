@@ -1026,6 +1026,53 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     get_core_bus().on(CoreEvent.LEARNING_EVENT, _on_learning_event)
     get_core_bus().on(CoreEvent.CONSCIOUSNESS_CHANGED, _on_consciousness_changed)
 
+    # ── EWC_CHECKPOINT → AUTONOMY signal + EScore JUDGE update ───────────────
+    # Emitted by LearningLoop when a QTable entry first crosses F(8)=21 visits.
+    # "Consolidation" = the entry has been visited enough times that EWC protection
+    # kicks in at 100% — this (state, action) pair is deeply learned.
+    #
+    # JUDGE dimension: q_value at consolidation = mastery quality of this transition.
+    #   q_value=1.0 → JUDGE=100.0  (perfect mastery — always rewarded)
+    #   q_value=0.5 → JUDGE=50.0   (neutral mastery)
+    #   q_value=0.0 → JUDGE=0.0    (learned failure — at least CYNIC knows)
+    #
+    # AUTONOMY: mastering a state-action pair without human guidance IS autonomy.
+    # This fires ONCE per (state, action) pair — the consolidation milestone.
+    # Highest quality AUTONOMY signal (rarer and more meaningful than every cycle).
+    async def _on_ewc_checkpoint(event: Event) -> None:
+        try:
+            p         = event.payload or {}
+            q_value   = float(p.get("q_value", 0.5))
+            state_key = p.get("state_key", "")
+            action    = p.get("action", "")
+
+            from cynic.core.phi import MAX_Q_SCORE
+
+            judge_score = q_value * MAX_Q_SCORE
+            escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+
+            new_state = axiom_monitor.signal("AUTONOMY")
+            if new_state == "ACTIVE":
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.AXIOM_ACTIVATED,
+                    payload={
+                        "axiom":    "AUTONOMY",
+                        "maturity": axiom_monitor.get_maturity("AUTONOMY"),
+                        "trigger":  "EWC_CHECKPOINT",
+                    },
+                    source="ewc_checkpoint",
+                ))
+
+            logger.info(
+                "EWC_CHECKPOINT: state=%s action=%s q=%.3f → JUDGE EScore=%.1f%s",
+                state_key, action, q_value, judge_score,
+                " AUTONOMY signalled" if new_state == "ACTIVE" else "",
+            )
+        except Exception:
+            pass
+
+    get_core_bus().on(CoreEvent.EWC_CHECKPOINT, _on_ewc_checkpoint)
+
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),
     # /judge (MACRO), or DogScheduler background workers (MACRO with SAGE).
