@@ -436,6 +436,17 @@ class BenchmarkRepository:
             """, dog_id, task_type)
             return row["llm_id"] if row else None
 
+    async def get_all(self) -> List[Dict[str, Any]]:
+        """Load all benchmarks for warm-start (most recent first)."""
+        async with acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT dog_id, task_type, llm_id,
+                       quality_score, speed_score, cost_score
+                FROM llm_benchmarks
+                ORDER BY created_at DESC
+            """)
+            return [dict(r) for r in rows]
+
     async def matrix(self) -> List[Dict[str, Any]]:
         """Full benchmark matrix (dog × task × llm → score)."""
         async with acquire() as conn:

@@ -23,12 +23,15 @@ Adapters:
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from cynic.core.phi import PHI, PHI_INV, weighted_geometric_mean
+from cynic.core.phi import PHI, PHI_INV, MAX_Q_SCORE, weighted_geometric_mean
+
+logger = logging.getLogger("cynic.llm.adapter")
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -426,6 +429,11 @@ class LLMRegistry:
         self._adapters: Dict[str, LLMAdapter] = {}
         self._available: Dict[str, bool] = {}
         self._benchmarks: Dict[Tuple[str, str, str], BenchmarkResult] = {}
+        self._db_pool: Optional[Any] = None
+
+    def set_db_pool(self, pool: Any) -> None:
+        """Wire a DB pool so benchmark updates are persisted automatically."""
+        self._db_pool = pool
 
     def register(self, adapter: LLMAdapter, available: bool = True) -> None:
         self._adapters[adapter.adapter_id] = adapter
@@ -544,7 +552,77 @@ class LLMRegistry:
     ) -> None:
         key = (dog_id, task_type, llm_id)
         existing = self._benchmarks.get(key)
-        self._benchmarks[key] = existing.ema_update(result) if existing else result
+        updated = existing.ema_update(result) if existing else result
+        self._benchmarks[key] = updated
+
+        if self._db_pool is not None:
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self._save_benchmark_to_db(updated))
+            except RuntimeError:
+                pass  # No running loop — skip (sync test context)
+
+    async def _save_benchmark_to_db(self, result: BenchmarkResult) -> None:
+        """Fire-and-forget: persist benchmark to llm_benchmarks table."""
+        import uuid
+        try:
+            async with self._db_pool.acquire() as conn:
+                await conn.execute("""
+                    INSERT INTO llm_benchmarks
+                        (benchmark_id, dog_id, task_type, llm_id,
+                         quality_score, speed_score, cost_score, composite_score,
+                         latency_ms, cost_usd)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                """,
+                    str(uuid.uuid4()),
+                    result.dog_id,
+                    result.task_type,
+                    result.llm_id,
+                    min(result.quality_score / MAX_Q_SCORE, 1.0),  # Normalize [0,61.8] → [0,1]
+                    result.speed_score,
+                    result.cost_score,
+                    result.composite_score,
+                    0.0,   # latency_ms not tracked in BenchmarkResult
+                    0.0,   # cost_usd not tracked in BenchmarkResult
+                )
+        except Exception as exc:
+            logger.warning("Benchmark persist failed: %s", exc)
+
+    async def load_benchmarks_from_db(self, pool: Any) -> int:
+        """
+        Warm-start _benchmarks from DB on boot.
+
+        DB quality_score is [0,1] (normalized). BenchmarkResult expects [0, MAX_Q_SCORE].
+        We keep only the most recent result per (dog_id, task_type, llm_id).
+        Returns count of entries loaded.
+        """
+        try:
+            async with pool.acquire() as conn:
+                rows = await conn.fetch("""
+                    SELECT dog_id, task_type, llm_id,
+                           quality_score, speed_score, cost_score
+                    FROM llm_benchmarks
+                    ORDER BY created_at DESC
+                """)
+        except Exception as exc:
+            logger.warning("Benchmark warm-start failed: %s", exc)
+            return 0
+
+        loaded = 0
+        for row in rows:
+            key = (row["dog_id"], row["task_type"], row["llm_id"])
+            if key in self._benchmarks:
+                continue  # Keep most recent (already ordered DESC)
+            self._benchmarks[key] = BenchmarkResult(
+                llm_id=row["llm_id"],
+                dog_id=row["dog_id"],
+                task_type=row["task_type"],
+                quality_score=float(row["quality_score"]) * MAX_Q_SCORE,
+                speed_score=float(row["speed_score"]),
+                cost_score=float(row["cost_score"]),
+            )
+            loaded += 1
+        return loaded
 
     def benchmark_matrix(self, dog_id: str, task_type: str) -> Dict[str, BenchmarkResult]:
         return {

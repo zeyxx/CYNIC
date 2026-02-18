@@ -92,6 +92,11 @@ async def lifespan(app: FastAPI):
             state = build_kernel(db_pool=db_pool, registry=registry)
             loaded = await state.qtable.load_from_db(db_pool)
             logger.info("Q-Table warm-start: %d entries loaded", loaded)
+
+            # Warm-start benchmarks + enable persistent routing
+            registry.set_db_pool(db_pool)
+            bench_loaded = await registry.load_benchmarks_from_db(db_pool)
+            logger.info("Benchmark warm-start: %d routing entries loaded", bench_loaded)
         except Exception as exc:
             logger.warning("DB unavailable (%s) — running without persistence", exc)
             db_pool = None
@@ -101,9 +106,10 @@ async def lifespan(app: FastAPI):
         state = build_kernel(db_pool=None, registry=registry)
 
     set_state(state)
+    state.scheduler.start()
     llm_count = len(registry.get_available())
     logger.info(
-        "*tail wag* CYNIC kernel alive — %d dogs, %d LLMs, learning active",
+        "*tail wag* CYNIC kernel alive — %d dogs, %d LLMs, learning active, scheduler running",
         len(state.dogs), llm_count,
     )
 
@@ -111,6 +117,7 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("*yawn* CYNIC kernel shutting down...")
+    await state.scheduler.stop()
     state.learning_loop.stop()
     if db_pool:
         await state.qtable.flush_to_db(db_pool)
@@ -308,16 +315,7 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
         },
     ))
 
-    if not req.run_judgment:
-        return PerceiveResponse(
-            cell_id=cell_id,
-            source=req.source,
-            reality=req.reality,
-            enqueued=True,
-            message="Perception received, judgment skipped (run_judgment=False)",
-        )
-
-    # Build cell from perception and run REFLEX judgment
+    # Build cell (used for both enqueue and immediate judgment)
     cell = Cell(
         reality=req.reality,
         analysis="PERCEIVE",
@@ -326,8 +324,23 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
         lod=0,  # REFLEX = pattern level
         budget_usd=0.001,  # minimal budget for perception
     )
-    # Assign the pre-generated cell_id
     object.__setattr__(cell, "cell_id", cell_id)
+
+    if not req.run_judgment:
+        # Submit to DogScheduler for background MICRO processing
+        state.scheduler.submit(
+            cell,
+            level=ConsciousnessLevel.MICRO,
+            budget_usd=0.03,
+            source=req.source,
+        )
+        return PerceiveResponse(
+            cell_id=cell_id,
+            source=req.source,
+            reality=req.reality,
+            enqueued=True,
+            message="Perception enqueued for background MICRO processing",
+        )
 
     level_map = {"REFLEX": ConsciousnessLevel.REFLEX, "MICRO": ConsciousnessLevel.MICRO}
     level = level_map.get(req.level or "REFLEX", ConsciousnessLevel.REFLEX)

@@ -29,6 +29,7 @@ from cynic.dogs.scout import ScoutDog
 from cynic.judge.orchestrator import JudgeOrchestrator
 from cynic.judge.residual import ResidualDetector
 from cynic.learning.qlearning import QTable, LearningLoop
+from cynic.scheduler import DogScheduler
 
 logger = logging.getLogger("cynic.api.state")
 
@@ -44,6 +45,7 @@ class AppState:
     qtable: QTable
     learning_loop: LearningLoop
     residual_detector: ResidualDetector
+    scheduler: DogScheduler
     started_at: float = field(default_factory=time.time)
     _pool: Optional[object] = None  # asyncpg pool (None if no DB)
     last_judgment: Optional[Dict] = None  # state_key, action, judgment_id — for /feedback
@@ -118,8 +120,10 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         residual_detector=residual_detector,
     )
 
+    scheduler = DogScheduler(orchestrator=orchestrator)
+
     logger.info(
-        "Kernel ready: %d dogs, learning loop + residual detector active, pool=%s, llm=%s",
+        "Kernel ready: %d dogs, scheduler wired, learning loop + residual detector active, pool=%s, llm=%s",
         len(dogs),
         "connected" if db_pool else "none",
         f"{len(registry.get_available())} adapters" if registry else "none",
@@ -130,6 +134,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         qtable=qtable,
         learning_loop=learning_loop,
         residual_detector=residual_detector,
+        scheduler=scheduler,
         _pool=db_pool,
     )
 

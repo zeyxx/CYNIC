@@ -74,6 +74,9 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
+# Default: skip slow integration tests (Ollama + DB required)
+# Run them explicitly: pytest -m integration | pytest -m db_integration
+addopts = "-m 'not integration and not db_integration'"
 markers = [
     "integration: requires real Ollama (gemma2:2b) at localhost:11434",
     "db_integration: requires real PostgreSQL (cynic_py Docker or CYNIC_DATABASE_URL)",
