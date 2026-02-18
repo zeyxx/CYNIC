@@ -399,11 +399,24 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         except Exception:
             pass
 
+    # ── L4→P5 bridge: SELF_IMPROVEMENT_PROPOSED → ActionProposer ─────────────
+    # SelfProber (L4) analyzes QTable/EScore/Residual → emits SelfProposals.
+    # ActionProposer (P5) shows them in pending_actions.json alongside DECISION_MADE.
+    # Closes the loop: self-insight → human-visible action queue → accept/reject.
+    async def _on_self_improvement_proposed(event: Event) -> None:
+        try:
+            proposals = (event.payload or {}).get("proposals", [])
+            for p in proposals:
+                action_proposer.propose_self_improvement(p)
+        except Exception:
+            pass
+
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_intelligence)
     get_core_bus().on(CoreEvent.JUDGMENT_FAILED, _on_judgment_failed)
     get_core_bus().on(CoreEvent.EMERGENCE_DETECTED, _on_emergence_signal)
     get_core_bus().on(CoreEvent.DECISION_MADE, _on_decision_made_for_axiom)
     get_core_bus().on(CoreEvent.AXIOM_ACTIVATED, _on_axiom_activated)
+    get_core_bus().on(CoreEvent.SELF_IMPROVEMENT_PROPOSED, _on_self_improvement_proposed)
 
     # ── Guidance feedback loop — ALL judgment sources ──────────────────────
     # Subscribes to JUDGMENT_CREATED from ANY source: /perceive (REFLEX),

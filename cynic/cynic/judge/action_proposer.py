@@ -217,6 +217,73 @@ class ActionProposer:
             source="action_proposer",
         ))
 
+    # ── L4→P5 bridge: SelfProposal → ProposedAction ──────────────────────────
+
+    def propose_self_improvement(self, proposal: Dict[str, Any]) -> Optional[ProposedAction]:
+        """
+        Convert a SelfProposal dict → ProposedAction (priority=4, action_type=IMPROVE).
+
+        Called by state.py on SELF_IMPROVEMENT_PROPOSED.
+        Closes the L4→P5 feedback loop: self-insight → human-visible action queue.
+
+        proposal: SelfProposal.to_dict() — keys: probe_id, target, recommendation,
+                  dimension, pattern_type, severity, current_value, suggested_value.
+        """
+        try:
+            rec   = (proposal.get("recommendation") or "").strip()
+            target = (proposal.get("target") or "unknown").strip()
+            dim   = proposal.get("dimension", "UNKNOWN")
+            sev   = float(proposal.get("severity", 0.5))
+            if not rec:
+                return None
+
+            # Severity → priority: HIGH (≥0.618) → 2, MEDIUM (≥0.382) → 3, LOW → 4
+            from cynic.core.phi import PHI_INV, PHI_INV_2
+            if sev >= PHI_INV:
+                priority = 2
+            elif sev >= PHI_INV_2:
+                priority = 3
+            else:
+                priority = 4
+
+            desc = f"[IMPROVE/{dim}] {rec}"[:120]
+            prompt = (
+                f"Self-improvement proposal from L4 analysis.\n"
+                f"Target: {target}\n"
+                f"Pattern: {proposal.get('pattern_type', '?')} (severity={sev:.2f})\n"
+                f"Current: {proposal.get('current_value', '?')} → Suggested: {proposal.get('suggested_value', '?')}\n"
+                f"Action: {rec}"
+            )
+
+            action = ProposedAction(
+                action_id   = uuid.uuid4().hex[:8],
+                judgment_id = proposal.get("probe_id", ""),
+                state_key   = target,
+                verdict     = "IMPROVE",
+                reality     = "CYNIC",
+                action_type = "IMPROVE",
+                description = desc,
+                prompt      = prompt[:1000],
+                q_score     = round(sev * 100.0, 1),  # severity → Q-scale
+                priority    = priority,
+                proposed_at = float(proposal.get("proposed_at", time.time())),
+                status      = "PENDING",
+            )
+
+            self._queue.append(action)
+            self._proposed_total += 1
+            if len(self._queue) > _MAX_QUEUE:
+                self._queue = self._queue[-_MAX_QUEUE:]
+            self._save()
+            logger.info(
+                "ActionProposer: %s [IMPROVE/%s] %s (priority=%d) via L4",
+                action.action_id, dim, desc[:50], priority,
+            )
+            return action
+        except Exception as exc:
+            logger.debug("propose_self_improvement failed: %s", exc)
+            return None
+
     # ── Query / Mutation ──────────────────────────────────────────────────────
 
     def pending(self) -> List[ProposedAction]:

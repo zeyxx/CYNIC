@@ -573,3 +573,83 @@ class TestL1Closure:
 
         assert resp.status_code == 200
         assert resp.json().get("executing") is False
+
+
+class TestL4P5Bridge:
+    """L4→P5: SELF_IMPROVEMENT_PROPOSED → ActionProposer.propose_self_improvement()"""
+
+    def _make_proposer(self, tmp_path):
+        from cynic.judge.action_proposer import ActionProposer
+        p = ActionProposer()
+        p._path = str(tmp_path / "pending_actions.json")
+        p._queue = []  # clear items pre-loaded from ~/.cynic/pending_actions.json
+        return p
+
+    def _sample_proposal(self, **overrides):
+        import time
+        base = {
+            "probe_id":        "test-probe-1",
+            "trigger":         "EMERGENCE",
+            "pattern_type":    "SPIKE",
+            "severity":        0.7,
+            "dimension":       "QTABLE",
+            "target":          "CODE:JUDGE:WAG",
+            "recommendation":  "Increase learning rate for CODE×JUDGE",
+            "current_value":   0.038,
+            "suggested_value": 0.1,
+            "proposed_at":     time.time(),
+            "status":          "PENDING",
+        }
+        base.update(overrides)
+        return base
+
+    def test_propose_returns_proposed_action(self, tmp_path):
+        proposer = self._make_proposer(tmp_path)
+        result = proposer.propose_self_improvement(self._sample_proposal())
+        assert result is not None
+        assert result.action_type == "IMPROVE"
+        assert result.reality == "CYNIC"
+        assert result.status == "PENDING"
+
+    def test_propose_description_contains_dimension(self, tmp_path):
+        proposer = self._make_proposer(tmp_path)
+        result = proposer.propose_self_improvement(self._sample_proposal())
+        assert "QTABLE" in result.description
+
+    def test_propose_high_severity_priority_2(self, tmp_path):
+        """severity >= PHI_INV (0.618) → priority 2."""
+        proposer = self._make_proposer(tmp_path)
+        result = proposer.propose_self_improvement(self._sample_proposal(severity=0.7))
+        assert result.priority == 2
+
+    def test_propose_medium_severity_priority_3(self, tmp_path):
+        """severity >= PHI_INV_2 (0.382) → priority 3."""
+        proposer = self._make_proposer(tmp_path)
+        result = proposer.propose_self_improvement(self._sample_proposal(severity=0.5))
+        assert result.priority == 3
+
+    def test_propose_low_severity_priority_4(self, tmp_path):
+        """severity < PHI_INV_2 (0.382) → priority 4 (FYI)."""
+        proposer = self._make_proposer(tmp_path)
+        result = proposer.propose_self_improvement(self._sample_proposal(severity=0.2))
+        assert result.priority == 4
+
+    def test_propose_appears_in_pending(self, tmp_path):
+        proposer = self._make_proposer(tmp_path)
+        proposer.propose_self_improvement(self._sample_proposal())
+        pending = proposer.pending()
+        assert len(pending) == 1
+        assert pending[0].action_type == "IMPROVE"
+
+    def test_propose_empty_recommendation_returns_none(self, tmp_path):
+        proposer = self._make_proposer(tmp_path)
+        result = proposer.propose_self_improvement(self._sample_proposal(recommendation=""))
+        assert result is None
+
+    def test_propose_written_to_disk(self, tmp_path):
+        import json
+        proposer = self._make_proposer(tmp_path)
+        proposer.propose_self_improvement(self._sample_proposal())
+        saved = json.loads((tmp_path / "pending_actions.json").read_text())
+        assert len(saved) == 1
+        assert saved[0]["action_type"] == "IMPROVE"
