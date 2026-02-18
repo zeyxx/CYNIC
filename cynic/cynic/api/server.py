@@ -352,12 +352,18 @@ async def judge(req: JudgeRequest) -> JudgeResponse:
     """
     state = get_state()
 
-    # Build Cell from request
+    # Build Cell — enrich context with compressed session history (γ2)
+    # Gives LLM dogs (SAGE) temporal continuity: "here's what we judged before"
+    history_ctx = state.context_compressor.get_compressed_context(budget=400)
+    enriched_context = req.context or ""
+    if history_ctx:
+        enriched_context = f"{enriched_context}\n[Session history]\n{history_ctx}".strip()
+
     cell = Cell(
         reality=req.reality,
         analysis=req.analysis,
         content=req.content,
-        context=req.context,
+        context=enriched_context,
         lod=req.lod,
         budget_usd=req.budget_usd,
     )
@@ -768,6 +774,7 @@ async def stats() -> StatsResponse:
         learning=state.qtable.stats(),
         top_states=state.qtable.top_states(n=10),
         consciousness=get_consciousness().to_dict(),
+        compressor=state.context_compressor.stats(),
     )
 
 

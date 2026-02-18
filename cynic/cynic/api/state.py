@@ -38,6 +38,7 @@ from cynic.learning.qlearning import QTable, LearningLoop
 from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher, SocialWatcher
 from cynic.scheduler import DogScheduler
 from cynic.act.telemetry import TelemetryStore
+from cynic.perceive.compressor import ContextCompressor
 
 logger = logging.getLogger("cynic.api.state")
 
@@ -93,6 +94,7 @@ class AppState:
     decide_agent: Optional[object] = None  # DecideAgent — auto-decides on BARK/GROWL
     runner: Optional[object] = None        # ClaudeCodeRunner — spawns claude autonomously
     telemetry_store: TelemetryStore = field(default_factory=TelemetryStore)  # session data
+    context_compressor: ContextCompressor = field(default_factory=ContextCompressor)  # γ2 token budget
 
     @property
     def uptime_s(self) -> float:
@@ -195,6 +197,27 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     # This ensures SAGE's Ollama temporal MCTS reaches the guidance.json loop.
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_created)
 
+    # ── ContextCompressor (γ2) — accumulate judgment history ──────────────
+    # Each judgment produces a compact summary → compressor.add()
+    # The /judge endpoint uses compressor.get_compressed_context() to enrich
+    # the Cell context with recent session history before LLM calls.
+    # This gives SAGE and other LLM dogs temporal continuity across judgments.
+    compressor = ContextCompressor()
+
+    async def _on_judgment_for_compressor(event: Event) -> None:
+        try:
+            p = event.payload
+            verdict = p.get("verdict", "?")
+            q = p.get("q_score", 0.0)
+            sk = p.get("state_key", "")
+            preview = str(p.get("content_preview", ""))[:120].replace("\n", " ")
+            summary = f"[{verdict} Q={q:.1f}] {sk}: {preview}"
+            compressor.add(summary)
+        except Exception:
+            pass  # Never block on compressor errors
+
+    get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _on_judgment_for_compressor)
+
     # ── PerceiveWorkers (autonomous sensors) ──────────────────────────────
     # Wired here; actually started when scheduler.start() is called (in lifespan).
     # CODE×PERCEIVE — git working tree changes
@@ -225,6 +248,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         scheduler=scheduler,
         _pool=db_pool,
         decide_agent=decide_agent,
+        context_compressor=compressor,
     )
 
 

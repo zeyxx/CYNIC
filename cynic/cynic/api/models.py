@@ -203,3 +203,4 @@ class StatsResponse(BaseModel):
     learning: Dict[str, Any]
     top_states: List[Dict[str, Any]]
     consciousness: Dict[str, Any]
+    compressor: Dict[str, Any] = Field(default_factory=dict)  # γ2 ContextCompressor stats
