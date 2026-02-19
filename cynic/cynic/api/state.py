@@ -414,7 +414,7 @@ class _KernelBuilder:
             )
             self.scheduler.submit(cell, level=ConsciousnessLevel.META, source="emergence_trigger")
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_budget_warning(self, event: Event) -> None:
         try:
@@ -422,7 +422,7 @@ class _KernelBuilder:
             self.escore_tracker.update(_ESCORE_AGENT_ID, "HOLD", GROWL_MIN)
             logger.warning("BUDGET_WARNING → HOLD EScore=%.1f (financial stress)", GROWL_MIN)
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_budget_exhausted(self, event: Event) -> None:
         try:
@@ -432,7 +432,7 @@ class _KernelBuilder:
             self.escore_tracker.update(_ESCORE_AGENT_ID, "HOLD", 0.0)
             logger.warning("BUDGET_EXHAUSTED → HOLD EScore=0.0 (financial collapse)")
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_judgment_for_intelligence(self, event: Event) -> None:
         try:
@@ -470,8 +470,8 @@ class _KernelBuilder:
             if had_stress:
                 new_state = await self._signal_axiom("ANTIFRAGILITY", "judgment_intelligence")
 
-        except Exception:
-            pass  # Never block the judgment pipeline
+        except Exception:  # Never block the judgment pipeline
+            logger.debug("handler error", exc_info=True)
 
     async def _on_judgment_failed(self, event: Event) -> None:
         try:
@@ -490,14 +490,14 @@ class _KernelBuilder:
                 self._health_cache["error_rate"], self.lod_controller.current.name, GROWL_MIN,
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_judgment_requested(self, event: Event) -> None:
         try:
             self._health_cache["queue_depth"] = self.scheduler.total_queue_depth()
             await self._assess_lod()
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_judgment_for_compressor(self, event: Event) -> None:
         try:
@@ -513,8 +513,8 @@ class _KernelBuilder:
             self._checkpoint_counter += 1
             if self._checkpoint_counter % CHECKPOINT_EVERY == 0:
                 _session_checkpoint.save(self.compressor)
-        except Exception:
-            pass  # Never block on compressor errors
+        except Exception:  # Never block on compressor errors
+            logger.debug("handler error", exc_info=True)
 
     # ═══════════════════════════════════════════════════════════════════════
     # PHASE 4 — Axiom chain handlers
@@ -525,14 +525,14 @@ class _KernelBuilder:
         try:
             new_state = await self._signal_axiom("EMERGENCE", "emergence_detector")
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_decision_made_for_axiom(self, event: Event) -> None:
         """DECISION_MADE → signal "AUTONOMY" axiom."""
         try:
             new_state = await self._signal_axiom("AUTONOMY", "decide_agent")
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_decision_made_for_run(self, event: Event) -> None:
         """DECISION_MADE → RUN EScore + EMERGENCE on confident BARK."""
@@ -558,7 +558,7 @@ class _KernelBuilder:
                 " EMERGENCE signalled" if emergence_signalled else "",
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_axiom_activated(self, event: Event) -> None:
         """AXIOM_ACTIVATED → log milestone; emit TRANSCENDENCE when all A6-A9 active."""
@@ -583,7 +583,7 @@ class _KernelBuilder:
                     source="axiom_monitor",
                 ))
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_self_improvement_proposed(self, event: Event) -> None:
         """SELF_IMPROVEMENT_PROPOSED → ActionProposer + A10 + JUDGE."""
@@ -616,7 +616,7 @@ class _KernelBuilder:
                 len(proposals), severity, judge_score,
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_transcendence(self, event: Event) -> None:
         """TRANSCENDENCE → EScore self-reward + milestone log."""
@@ -628,7 +628,7 @@ class _KernelBuilder:
             )
             self.escore_tracker.update(_ESCORE_AGENT_ID, "JUDGE", MAX_Q_SCORE)
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_residual_high(self, event: Event) -> None:
         """RESIDUAL_HIGH → EMERGENCE signal + EScore JUDGE penalty."""
@@ -650,7 +650,7 @@ class _KernelBuilder:
                 cell_id, residual, penalty_score,
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_action_proposed(self, event: Event) -> None:
         """ACTION_PROPOSED → EScore BUILD update."""
@@ -671,7 +671,7 @@ class _KernelBuilder:
                 action_type, priority, score,
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_meta_cycle(self, event: Event) -> None:
         """META_CYCLE → ANTIFRAGILITY signal + EScore JUDGE update."""
@@ -711,7 +711,7 @@ class _KernelBuilder:
                 " ANTIFRAGILITY signalled" if regression else "",
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     # ═══════════════════════════════════════════════════════════════════════
     # PHASE 5 — EScore dimension handlers
@@ -734,7 +734,7 @@ class _KernelBuilder:
                 verdict, confidence, burn_score,
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_learning_event(self, event: Event) -> None:
         """LEARNING_EVENT → AUTONOMY signal + EScore JUDGE (high-frequency)."""
@@ -757,7 +757,7 @@ class _KernelBuilder:
                 " AUTONOMY signalled" if new_state == "ACTIVE" else "",
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_consciousness_changed(self, event: Event) -> None:
         """CONSCIOUSNESS_CHANGED → ANTIFRAGILITY signal + EScore HOLD update."""
@@ -783,7 +783,7 @@ class _KernelBuilder:
                 " ANTIFRAGILITY signalled" if direction == "UP" else "",
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_user_feedback(self, event: Event) -> None:
         """USER_FEEDBACK → EScore JUDGE update for agent:cynic."""
@@ -804,7 +804,7 @@ class _KernelBuilder:
                 int(rating), judge_score, WAG_MIN,
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_perception_received(self, event: Event) -> None:
         """PERCEPTION_RECEIVED → EScore SOCIAL + HOLD update."""
@@ -831,7 +831,7 @@ class _KernelBuilder:
                 reality, source, social_score, hold_score,
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_ewc_checkpoint(self, event: Event) -> None:
         """EWC_CHECKPOINT → AUTONOMY signal + EScore JUDGE update."""
@@ -860,7 +860,7 @@ class _KernelBuilder:
                 " CONSCIOUSNESS signalled" if new_state_c == "ACTIVE" else "",
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_q_table_updated(self, event: Event) -> None:
         """Q_TABLE_UPDATED → BUILD + HOLD EScore update."""
@@ -880,7 +880,7 @@ class _KernelBuilder:
                 flushed, HOWL_MIN, WAG_MIN,
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_consensus_reached(self, event: Event) -> None:
         """CONSENSUS_REACHED → SYMBIOSIS signal + EScore BUILD update."""
@@ -909,7 +909,7 @@ class _KernelBuilder:
                 " CONSCIOUSNESS signalled" if new_state_c == "ACTIVE" else "",
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_consensus_failed(self, event: Event) -> None:
         """CONSENSUS_FAILED → EMERGENCE signal + EScore JUDGE penalty."""
@@ -932,7 +932,7 @@ class _KernelBuilder:
                 " EMERGENCE signalled" if new_state == "ACTIVE" else "",
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_user_correction(self, event: Event) -> None:
         """USER_CORRECTION → ANTIFRAGILITY signal + EScore JUDGE penalty."""
@@ -953,7 +953,7 @@ class _KernelBuilder:
                 " ANTIFRAGILITY signalled" if new_state == "ACTIVE" else "",
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_anomaly_detected(self, event: Event) -> None:
         """ANOMALY_DETECTED → EScore HOLD (severity-based)."""
@@ -973,7 +973,7 @@ class _KernelBuilder:
                 severity, reality, analysis, hold_score,
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     # ═══════════════════════════════════════════════════════════════════════
     # PHASE 6 — SDK / ACT handlers
@@ -1036,7 +1036,7 @@ class _KernelBuilder:
                 action_id or "(auto)", exec_id, success, cost, escore_score,
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_sdk_tool_judged(self, event: Event) -> None:
         """SDK_TOOL_JUDGED → SYMBIOSIS signal + GRAPH EScore update."""
@@ -1065,7 +1065,7 @@ class _KernelBuilder:
                 " SYMBIOSIS signalled" if verdict == "HOWL" else "",
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_sdk_session_started(self, event: Event) -> None:
         """SDK_SESSION_STARTED → GRAPH EScore baseline + SYMBIOSIS signal."""
@@ -1085,7 +1085,7 @@ class _KernelBuilder:
                 session_id, WAG_MIN,
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_sdk_result_received(self, event: Event) -> None:
         """SDK_RESULT_RECEIVED → BUILD + RUN EScore + ANTIFRAGILITY signal."""
@@ -1132,7 +1132,7 @@ class _KernelBuilder:
                 " ANTIFRAGILITY signalled" if (success and had_prior_stress) else "",
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_act_requested_for_organism(self, event: Event) -> None:
         """ACT_REQUESTED → EScore HOLD + SOCIAL + AUTONOMY signal."""
@@ -1156,7 +1156,7 @@ class _KernelBuilder:
                 " AUTONOMY signalled" if new_state == "ACTIVE" else "",
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     # ═══════════════════════════════════════════════════════════════════════
     # PHASE 7 — Health / disk / memory handlers
@@ -1180,7 +1180,7 @@ class _KernelBuilder:
             if result.get("total", 0) > 0:
                 logger.info("StorageGC freed %d rows (disk was %.1f%% full)", result["total"], used_pct * 100)
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_memory_pressure(self, event: Event) -> None:
         try:
@@ -1197,7 +1197,7 @@ class _KernelBuilder:
                 pressure, used_pct * 100, hold_score,
             )
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_disk_cleared(self, event: Event) -> None:
         try:
@@ -1207,7 +1207,7 @@ class _KernelBuilder:
             logger.info("DISK_CLEARED: disk_pct=%.2f%% → LOD=%s",
                         actual_pct * 100, self.lod_controller.current.name)
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     async def _on_memory_cleared(self, event: Event) -> None:
         try:
@@ -1217,7 +1217,7 @@ class _KernelBuilder:
             logger.info("MEMORY_CLEARED: memory_pct=%.2f%% → LOD=%s",
                         actual_pct * 100, self.lod_controller.current.name)
         except Exception:
-            pass
+            logger.debug("handler error", exc_info=True)
 
     # ═══════════════════════════════════════════════════════════════════════
     # PHASE 8 — Wire event subscriptions
