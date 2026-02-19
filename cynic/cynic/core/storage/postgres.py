@@ -15,7 +15,8 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import Any, Dict, List, Optional
+from typing import Any, List
+
 from collections.abc import AsyncIterator
 
 import asyncpg

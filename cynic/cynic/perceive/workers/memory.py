@@ -5,7 +5,8 @@ import asyncio
 import logging
 import subprocess
 import sys
-from typing import Any, Dict, Optional
+from typing import Any
+
 
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent

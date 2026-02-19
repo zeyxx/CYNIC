@@ -24,7 +24,8 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Optional
+
 
 from cynic.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
 from cynic.core.phi import PHI_INV_2, MAX_Q_SCORE

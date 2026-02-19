@@ -41,7 +41,8 @@ import random
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
+
 
 if TYPE_CHECKING:
     from cynic.core.event_bus import Event, EventBus

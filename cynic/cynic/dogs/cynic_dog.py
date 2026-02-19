@@ -26,7 +26,8 @@ import time
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
+
 
 from cynic.core.phi import (
     DOGS_TOTAL, DOGS_BYZANTINE, DOGS_QUORUM,

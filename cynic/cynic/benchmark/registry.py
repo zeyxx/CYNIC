@@ -18,7 +18,8 @@ from __future__ import annotations
 
 import logging
 import statistics
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
+
 
 if TYPE_CHECKING:
     from cynic.judge.probes import ProbeResult

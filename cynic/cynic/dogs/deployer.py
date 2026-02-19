@@ -45,7 +45,8 @@ import ast
 import logging
 import re
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
+
 
 from cynic.core.phi import (
     PHI_INV, PHI_INV_2, MAX_Q_SCORE, MAX_CONFIDENCE,

@@ -32,7 +32,8 @@ PHILOSOPHY:
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict
+
 from pydantic import BaseModel, ConfigDict, Field
 
 # Shared config: never reject extra fields, allow post-init mutation

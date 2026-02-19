@@ -22,7 +22,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
+
 
 from cynic.core.phi import PHI_INV, PHI_INV_2
 

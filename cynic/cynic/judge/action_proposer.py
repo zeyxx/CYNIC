@@ -43,7 +43,8 @@ import os
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 
 from cynic.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
 from cynic.core.phi import fibonacci

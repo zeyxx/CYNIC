@@ -1,0 +1,115 @@
+============================= test session starts =============================
+platform win32 -- Python 3.9.13, pytest-7.4.3, pluggy-1.5.0
+rootdir: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic
+configfile: pyproject.toml
+plugins: anchorpy-0.18.0, anyio-4.11.0, dash-3.0.3, asyncio-0.21.1, mock-3.14.0, timeout-2.4.0, xprocess-0.18.1
+asyncio: mode=auto
+collected 1831 items / 4 errors / 37 deselected / 1794 selected
+
+=================================== ERRORS ====================================
+_____________________ ERROR collecting tests/test_api.py ______________________
+C:\Program Files\Python39\lib\site-packages\_pytest\python.py:617: in _importtestmodule
+    mod = import_path(self.path, mode=importmode, root=self.config.rootpath)
+C:\Program Files\Python39\lib\site-packages\_pytest\pathlib.py:567: in import_path
+    importlib.import_module(module_name)
+C:\Program Files\Python39\lib\importlib\__init__.py:127: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+<frozen importlib._bootstrap>:1030: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1007: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:986: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:680: in _load_unlocked
+    ???
+C:\Program Files\Python39\lib\site-packages\_pytest\assertion\rewrite.py:186: in exec_module
+    exec(co, module.__dict__)
+tests\test_api.py:15: in <module>
+    from cynic.api.server import app
+cynic\api\server.py:64: in <module>
+    from cynic.api.state import build_kernel, set_state, get_state, restore_state
+E     File "C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\state.py", line 1842
+E       return AppState(
+E       ^
+E   SyntaxError: 'return' outside function
+_______________ ERROR collecting tests/test_api_integration.py ________________
+C:\Program Files\Python39\lib\site-packages\_pytest\python.py:617: in _importtestmodule
+    mod = import_path(self.path, mode=importmode, root=self.config.rootpath)
+C:\Program Files\Python39\lib\site-packages\_pytest\pathlib.py:567: in import_path
+    importlib.import_module(module_name)
+C:\Program Files\Python39\lib\importlib\__init__.py:127: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+<frozen importlib._bootstrap>:1030: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1007: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:986: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:680: in _load_unlocked
+    ???
+C:\Program Files\Python39\lib\site-packages\_pytest\assertion\rewrite.py:186: in exec_module
+    exec(co, module.__dict__)
+tests\test_api_integration.py:25: in <module>
+    from cynic.api.server import app
+cynic\api\server.py:64: in <module>
+    from cynic.api.state import build_kernel, set_state, get_state, restore_state
+E     File "C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\state.py", line 1842
+E       return AppState(
+E       ^
+E   SyntaxError: 'return' outside function
+________________ ERROR collecting tests/test_daemon_startup.py ________________
+C:\Program Files\Python39\lib\site-packages\_pytest\python.py:617: in _importtestmodule
+    mod = import_path(self.path, mode=importmode, root=self.config.rootpath)
+C:\Program Files\Python39\lib\site-packages\_pytest\pathlib.py:567: in import_path
+    importlib.import_module(module_name)
+C:\Program Files\Python39\lib\importlib\__init__.py:127: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+<frozen importlib._bootstrap>:1030: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1007: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:986: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:680: in _load_unlocked
+    ???
+C:\Program Files\Python39\lib\site-packages\_pytest\assertion\rewrite.py:186: in exec_module
+    exec(co, module.__dict__)
+tests\test_daemon_startup.py:20: in <module>
+    import cynic.api.state as _state_mod
+E     File "C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\state.py", line 1842
+E       return AppState(
+E       ^
+E   SyntaxError: 'return' outside function
+_____________________ ERROR collecting tests/test_sdk.py ______________________
+C:\Program Files\Python39\lib\site-packages\_pytest\python.py:617: in _importtestmodule
+    mod = import_path(self.path, mode=importmode, root=self.config.rootpath)
+C:\Program Files\Python39\lib\site-packages\_pytest\pathlib.py:567: in import_path
+    importlib.import_module(module_name)
+C:\Program Files\Python39\lib\importlib\__init__.py:127: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+<frozen importlib._bootstrap>:1030: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1007: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:986: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:680: in _load_unlocked
+    ???
+C:\Program Files\Python39\lib\site-packages\_pytest\assertion\rewrite.py:186: in exec_module
+    exec(co, module.__dict__)
+tests\test_sdk.py:15: in <module>
+    from cynic.api.server import app
+cynic\api\server.py:64: in <module>
+    from cynic.api.state import build_kernel, set_state, get_state, restore_state
+E     File "C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\state.py", line 1842
+E       return AppState(
+E       ^
+E   SyntaxError: 'return' outside function
+=========================== short test summary info ===========================
+ERROR tests/test_api.py
+ERROR tests/test_api_integration.py
+ERROR tests/test_daemon_startup.py
+ERROR tests/test_sdk.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 4 errors during collection !!!!!!!!!!!!!!!!!!!
+====================== 37 deselected, 4 errors in 5.33s =======================
+pytest-xprocess reminder::Be sure to terminate the started process by running 'pytest --xkill' if you have not explicitly done so in your fixture with 'xprocess.getinfo(<process_name>).terminate()'.

@@ -11,7 +11,8 @@ import sys
 import time
 import urllib.request
 import urllib.error
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 
 # ── Windows UTF-8 fix ──────────────────────────────────────────────────────
 # Windows terminals default to CP1252 which can't render box-drawing chars

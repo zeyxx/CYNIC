@@ -37,7 +37,8 @@ import glob
 import logging
 import os
 import time
-from typing import Any, List, Optional
+from typing import Any
+
 
 from cynic.llm.adapter import LLMAdapter, LLMRequest, LLMResponse
 

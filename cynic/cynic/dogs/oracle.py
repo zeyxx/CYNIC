@@ -34,7 +34,8 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
+
 
 from cynic.core.phi import PHI_INV_2, MAX_Q_SCORE, MAX_CONFIDENCE, phi_bound_score
 from cynic.core.consciousness import ConsciousnessLevel

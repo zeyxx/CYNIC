@@ -27,7 +27,8 @@ from __future__ import annotations
 import time
 import logging
 from math import exp, log
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict
+
 
 from cynic.core.phi import WAG_MIN, GROWL_MIN, MAX_Q_SCORE, fibonacci
 

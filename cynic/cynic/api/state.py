@@ -11,7 +11,8 @@ import os
 import time
 import logging
 from dataclasses import dataclass, field
-from typing import Any, TYPE_CHECKING, Dict, List, Optional
+from typing import Any, TYPE_CHECKING
+
 
 if TYPE_CHECKING:
     import asyncpg
@@ -67,6 +68,7 @@ from cynic.act.telemetry import TelemetryStore
 from cynic.act.llm_router import LLMRouter
 from cynic.act.runner import ClaudeCodeRunner
 from cynic.act.auto_benchmark import AutoBenchmark
+from cynic.act.universal import UniversalActuator
 from cynic.judge.mirror import KernelMirror
 from cynic.llm.adapter import LLMRegistry
 from cynic.perceive.compressor import ContextCompressor
@@ -162,6 +164,7 @@ class AppState:
     self_prober: SelfProber = field(default_factory=SelfProber)             # L4 self-improvement
     world_model: WorldModelUpdater = field(default_factory=WorldModelUpdater)  # T27 cross-reality aggregator
     auto_benchmark: AutoBenchmark | None = None
+    universal_actuator: UniversalActuator = field(default_factory=UniversalActuator)
 
     @property
     def uptime_s(self) -> float:

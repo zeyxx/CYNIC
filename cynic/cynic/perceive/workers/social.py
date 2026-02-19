@@ -5,7 +5,8 @@ import asyncio
 import json
 import os
 import time
-from typing import Any, Dict, Optional
+from typing import Any
+
 
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell

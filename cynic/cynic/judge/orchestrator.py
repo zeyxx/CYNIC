@@ -24,7 +24,8 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
+
 
 from cynic.core.phi import (
     MAX_Q_SCORE, MAX_CONFIDENCE, PHI_INV, PHI_INV_2, PHI,

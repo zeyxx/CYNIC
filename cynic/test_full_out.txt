@@ -1,0 +1,91 @@
+============================= test session starts =============================
+platform win32 -- Python 3.9.13, pytest-7.4.3, pluggy-1.5.0
+rootdir: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic
+configfile: pyproject.toml
+plugins: anchorpy-0.18.0, anyio-4.11.0, dash-3.0.3, asyncio-0.21.1, mock-3.14.0, timeout-2.4.0, xprocess-0.18.1
+asyncio: mode=auto
+collected 2081 items / 51 deselected / 2030 selected
+
+tests\test_account.py ............................                       [  1%]
+tests\test_action_budget.py .........                                    [  1%]
+tests\test_action_proposer.py .......................................... [  3%]
+.....................                                                    [  4%]
+tests\test_action_verifier.py ........                                   [  5%]
+tests\test_adapter.py ......................................             [  7%]
+tests\test_amplification_benchmark.py ................................   [  8%]
+tests\test_api.py ...................................................... [ 11%]
+................................                                         [ 13%]
+tests\test_auto_benchmark.py ........                                    [ 13%]
+tests\test_axiom_monitor.py ............................................ [ 15%]
+........................................................................ [ 19%]
+........................................................................ [ 22%]
+................................                                         [ 24%]
+tests\test_benchmark.py ..........................                       [ 25%]
+tests\test_benchmark_persistence.py ..............                       [ 26%]
+tests\test_cartographer.py ............................................. [ 28%]
+.                                                                        [ 28%]
+tests\test_circuit_breaker.py ..........................                 [ 29%]
+tests\test_compressor.py ......................................          [ 31%]
+tests\test_compressor_boost.py .....                                     [ 31%]
+tests\test_consciousness.py ..........................                   [ 33%]
+tests\test_daemon_startup.py ........                                    [ 33%]
+tests\test_decide.py ........................                            [ 34%]
+tests\test_disk_clearance.py ........                                    [ 35%]
+tests\test_dogs.py ..................................................... [ 37%]
+.............                                                            [ 38%]
+tests\test_embeddings.py ..................                              [ 39%]
+tests\test_escore.py ............................                        [ 40%]
+tests\test_event_bus.py ................                                 [ 41%]
+tests\test_events_schema.py ............................................ [ 43%]
+...................................................................      [ 46%]
+tests\test_evolve.py ..........................                          [ 48%]
+tests\test_full_cycle.py ............................                    [ 49%]
+tests\test_heuristic_scorer.py ................                          [ 50%]
+tests\test_holographic_mirror.py .....................                   [ 51%]
+tests\test_human_state.py ......................                         [ 52%]
+tests\test_judgment_models.py ....................................       [ 54%]
+tests\test_llama_cpp.py ................                                 [ 55%]
+tests\test_llm_dogs.py ....................................              [ 56%]
+tests\test_llm_interceptor.py ......                                     [ 57%]
+tests\test_llm_router.py .............................                   [ 58%]
+tests\test_lod.py ...................................................... [ 61%]
+....................                                                     [ 62%]
+tests\test_lod_orchestrator.py ...........................               [ 63%]
+tests\test_mcts_benchmark.py ....................................        [ 65%]
+tests\test_memory_injection.py ................                          [ 66%]
+tests\test_mirror.py ..........................                          [ 67%]
+tests\test_model_profiler.py .................                           [ 68%]
+tests\test_perceive.py .....................................             [ 70%]
+tests\test_phi.py ............................                           [ 71%]
+tests\test_qlearning.py ................................                 [ 72%]
+tests\test_qtable_benchmark.py ......................................... [ 74%]
+..                                                                       [ 75%]
+tests\test_real_benchmark.py .........................................   [ 77%]
+tests\test_residual.py ...............................                   [ 78%]
+tests\test_runner.py .............                                       [ 79%]
+tests\test_runner_live.py ..                                             [ 79%]
+tests\test_sage.py ...................................                   [ 81%]
+tests\test_scheduler.py ...............................................  [ 83%]
+tests\test_scout.py ..............................................       [ 85%]
+tests\test_sdk.py ...............................                        [ 87%]
+tests\test_self_probe.py ..........................................      [ 89%]
+tests\test_soul.py .....................                                 [ 90%]
+tests\test_surreal.py .................................................. [ 92%]
+.........                                                                [ 93%]
+tests\test_telemetry.py ..................................               [ 94%]
+tests\test_temporal.py ............................                      [ 96%]
+tests\test_tui.py .....................................                  [ 98%]
+tests\test_universal_actuator.py ...................                     [ 99%]
+tests\test_warmload.py ..............                                    [ 99%]
+tests\test_world_model.py ......                                         [100%]
+
+============================== warnings summary ===============================
+tests/test_mirror.py::TestKernelMirrorHealth::test_health_improves_with_transcendent_axioms
+  C:\Program Files\Python39\lib\unittest\mock.py:2104: RuntimeWarning: coroutine 'ScholarDog.learn.<locals>._persist' was never awaited
+    self.name = name
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=============== 2030 passed, 51 deselected, 1 warning in 21.48s ===============
+pytest-xprocess reminder::Be sure to terminate the started process by running 'pytest --xkill' if you have not explicitly done so in your fixture with 'xprocess.getinfo(<process_name>).terminate()'.

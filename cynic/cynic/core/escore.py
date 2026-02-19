@@ -35,7 +35,8 @@ import math
 import time
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
+
 
 from cynic.core.phi import (
     E_SCORE_WEIGHTS, E_SCORE_TOTAL_WEIGHT,

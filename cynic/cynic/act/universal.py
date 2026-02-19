@@ -26,7 +26,8 @@ import logging
 import sys
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, List
+
 
 from cynic.core.phi import fibonacci
 

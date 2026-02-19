@@ -36,7 +36,6 @@ import math
 import random
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 from cynic.core.phi import (
     PHI_INV, PHI_INV_2, PHI_2, PHI,

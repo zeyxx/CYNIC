@@ -9,7 +9,8 @@ import os
 import pathlib as _pathlib
 import time
 import uuid
-from typing import Any, Dict
+from typing import Any
+
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse

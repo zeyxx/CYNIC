@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -173,7 +174,7 @@ class Judgment(BaseModel):
     cell: Cell
 
     # Output (φ-bounded)
-    q_score: float = Field(ge=0.0, le=MAX_Q_SCORE, description="Q-Score ∈ [0, 61.8]")
+    q_score: float = Field(ge=0.0, le=MAX_Q_SCORE, description="Q-Score ∈ [0, 100] (MAX_Q_SCORE=100; confidence is φ-bounded to 61.8%)")
     verdict: str = Field(description="HOWL/WAG/GROWL/BARK")
     confidence: float = Field(ge=0.0, le=MAX_CONFIDENCE, description="Confidence ∈ [0, 0.618]")
 

@@ -6,7 +6,8 @@ This lets the API contract evolve independently from the kernel.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from pydantic import BaseModel, Field, field_validator
 
 from cynic.core.phi import MAX_Q_SCORE, MAX_CONFIDENCE

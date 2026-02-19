@@ -14,10 +14,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from cynic.core.storage.surreal import (
-    JudgmentRepo,
-    QTableRepo,
-    LearningRepo,
+    ActionProposalRepo,
     BenchmarkRepo,
+    DogSoulRepo,
+    JudgmentRepo,
+    LearningRepo,
+    QTableRepo,
     ResidualRepo,
     SDKSessionRepo,
     ScholarRepo,
@@ -25,9 +27,9 @@ from cynic.core.storage.surreal import (
     _rec,
     _rows,
     _safe_id,
-    init_storage,
-    get_storage,
     close_storage,
+    get_storage,
+    init_storage,
 )
 
 
@@ -472,6 +474,132 @@ class TestScholarRepo:
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# ACTION PROPOSAL REPO
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestActionProposalRepo:
+    def _action(self, **kw) -> dict:
+        base = {
+            "action_id": "abc12345",
+            "judgment_id": "jid-1",
+            "state_key": "CODE:JUDGE:PRESENT:1",
+            "verdict": "BARK",
+            "reality": "CODE",
+            "action_type": "INVESTIGATE",
+            "description": "Critical issue in core",
+            "prompt": "Investigate the following…",
+            "q_score": 30.0,
+            "priority": 1,
+            "proposed_at": 1_700_000_000.0,
+            "status": "PENDING",
+        }
+        base.update(kw)
+        return base
+
+    @pytest.mark.asyncio
+    async def test_upsert_calls_upsert_with_action_id(self):
+        db = _mock_db()
+        repo = ActionProposalRepo(db)
+        action = self._action()
+        await repo.upsert(action)
+        db.upsert.assert_called_once()
+        rec_id = db.upsert.call_args[0][0]
+        assert "abc12345" in rec_id
+
+    @pytest.mark.asyncio
+    async def test_upsert_adds_updated_at(self):
+        db = _mock_db()
+        repo = ActionProposalRepo(db)
+        await repo.upsert(self._action())
+        data = db.upsert.call_args[0][1]
+        assert "updated_at" in data
+
+    @pytest.mark.asyncio
+    async def test_all_pending_queries_by_status(self):
+        rows = [self._action()]
+        db = _mock_db(query_result=_query_result(rows))
+        repo = ActionProposalRepo(db)
+        result = await repo.all_pending()
+        assert result[0]["action_id"] == "abc12345"
+        sql = db.query.call_args[0][0]
+        assert "PENDING" in sql
+
+    @pytest.mark.asyncio
+    async def test_all_returns_empty_list(self):
+        db = _mock_db(query_result=_query_result([]))
+        repo = ActionProposalRepo(db)
+        result = await repo.all()
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_update_status_passes_status(self):
+        db = _mock_db()
+        repo = ActionProposalRepo(db)
+        await repo.update_status("abc12345", "ACCEPTED")
+        call_vars = db.query.call_args[0][1]
+        assert call_vars["status"] == "ACCEPTED"
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# DOG SOUL REPO
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestDogSoulRepo:
+    def _soul(self, **kw) -> dict:
+        base = {
+            "dog_id": "SCHOLAR",
+            "total_judgments": 42,
+            "avg_q_score": 65.5,
+            "session_count": 3,
+            "top_signals": ["CODE", "JUDGE"],
+            "last_seen": "2026-02-19T12:00:00",
+        }
+        base.update(kw)
+        return base
+
+    @pytest.mark.asyncio
+    async def test_save_upserts_with_dog_id_key(self):
+        db = _mock_db()
+        repo = DogSoulRepo(db)
+        await repo.save(self._soul())
+        db.upsert.assert_called_once()
+        rec_id = db.upsert.call_args[0][0]
+        assert "SCHOLAR" in rec_id.upper()
+
+    @pytest.mark.asyncio
+    async def test_save_adds_updated_at(self):
+        db = _mock_db()
+        repo = DogSoulRepo(db)
+        await repo.save(self._soul())
+        data = db.upsert.call_args[0][1]
+        assert "updated_at" in data
+
+    @pytest.mark.asyncio
+    async def test_get_returns_none_when_not_found(self):
+        db = _mock_db(query_result=_query_result([]))
+        repo = DogSoulRepo(db)
+        result = await repo.get("SCHOLAR")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_returns_soul(self):
+        soul = self._soul()
+        db = _mock_db(query_result=_query_result([soul]))
+        repo = DogSoulRepo(db)
+        result = await repo.get("SCHOLAR")
+        assert result["dog_id"] == "SCHOLAR"
+        assert result["total_judgments"] == 42
+
+    @pytest.mark.asyncio
+    async def test_all_returns_list(self):
+        souls = [self._soul(), self._soul(dog_id="GUARDIAN")]
+        db = _mock_db(query_result=_query_result(souls))
+        repo = DogSoulRepo(db)
+        result = await repo.all()
+        assert len(result) == 2
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # SURREAL STORAGE FACADE
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -496,6 +624,8 @@ class TestSurrealStorageFacade:
         assert isinstance(storage.residuals, ResidualRepo)
         assert isinstance(storage.sdk_sessions, SDKSessionRepo)
         assert isinstance(storage.scholar, ScholarRepo)
+        assert isinstance(storage.action_proposals, ActionProposalRepo)
+        assert isinstance(storage.dog_souls, DogSoulRepo)
 
     @pytest.mark.asyncio
     async def test_ping_returns_true_on_success(self):

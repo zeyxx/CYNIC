@@ -15,7 +15,6 @@ Always: `from cynic.core.phi import PHI, PHI_INV, ...`
 from __future__ import annotations
 
 import math
-from typing import Dict, List, Tuple
 
 
 # ════════════════════════════════════════════════════════════════════════════

@@ -11,7 +11,8 @@ import math
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 
 from cynic.core.phi import phi_bound_score
 from cynic.core.event_bus import CoreEvent, get_core_bus, Event

@@ -28,7 +28,8 @@ import logging
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Deque, Dict, List, Optional
+from typing import Any
+
 
 from cynic.core.phi import (
     PHI_INV, PHI_INV_2, PHI_INV_3, MAX_Q_SCORE, fibonacci,

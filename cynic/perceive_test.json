@@ -1,0 +1,14 @@
+{
+  "source": "code-review",
+  "reality": "CODE",
+  "data": {
+    "file": "cynic/judge/orchestrator.py",
+    "snippet": "CYNIC Judge Orchestrator — Full 7-Step Cycle.\nOrchestrates: PERCEIVE→JUDGE→DECIDE→ACT→LEARN→ACCOUNT→EMERGE.\nConsciousness levels: L3 REFLEX (non-LLM Dogs only), L2 MICRO (voting Dogs), L1 MACRO (full 7-step), L4 META (full + evolution).\nUses PBFT consensus, phi-bounded scoring, EWC learning, Thompson sampling.\nMAX_PARALLEL_DOGS = 11. CircuitBreaker wired. ScholarDog.learn() called in LEARN step.",
+    "lines": 320,
+    "complexity": "high",
+    "patterns": ["PBFT", "Q-Learning", "EWC", "phi-bound", "Thompson-Sampling"]
+  },
+  "context": "Review orchestrator.py — 7-step cycle structure, PBFT consensus, EWC wiring. Is it sound?",
+  "run_judgment": true,
+  "level": "MACRO"
+}

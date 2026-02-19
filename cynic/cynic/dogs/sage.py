@@ -42,7 +42,8 @@ import logging
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Optional
+
 
 from cynic.core.phi import (
     PHI_INV, PHI_INV_2, PHI_INV_3, MAX_Q_SCORE, MAX_CONFIDENCE,

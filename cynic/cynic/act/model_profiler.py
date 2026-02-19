@@ -21,7 +21,8 @@ import logging
 import os
 import time
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List
+
 
 from cynic.core.phi import WAG_MIN, fibonacci
 

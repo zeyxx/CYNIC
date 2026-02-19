@@ -1,7 +1,6 @@
 """CYNIC SelfWatcher — CYNIC×LEARN/MICRO every F(10)=55s."""
 from __future__ import annotations
 
-from typing import Optional
 from collections.abc import Callable
 
 from cynic.core.consciousness import ConsciousnessLevel

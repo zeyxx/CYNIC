@@ -26,7 +26,8 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding

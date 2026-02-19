@@ -1,0 +1,12 @@
+============================= test session starts =============================
+platform win32 -- Python 3.9.13, pytest-7.4.3, pluggy-1.5.0
+rootdir: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic
+configfile: pyproject.toml
+plugins: anchorpy-0.18.0, anyio-4.11.0, dash-3.0.3, asyncio-0.21.1, mock-3.14.0, timeout-2.4.0, xprocess-0.18.1
+asyncio: mode=auto
+collected 12 items
+
+tests\test_world_model.py ............                                   [100%]
+
+============================= 12 passed in 2.25s ==============================
+pytest-xprocess reminder::Be sure to terminate the started process by running 'pytest --xkill' if you have not explicitly done so in your fixture with 'xprocess.getinfo(<process_name>).terminate()'.

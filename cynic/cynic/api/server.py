@@ -288,18 +288,40 @@ async def lifespan(app: FastAPI):
     logger.info("*sniff* ClaudeCodeRunner wired (port=%d)", runner_port)
 
     # Wire ACT_REQUESTED → runner.execute() → ACT_COMPLETED (T30: closed loop)
+    # Routing:
+    #   bash / git_read action types → UniversalActuator (direct, no LLM)
+    #   all other types              → ClaudeCodeRunner (LLM-mediated)
+    _DIRECT_ACTION_TYPES = frozenset({"bash", "git_read"})
+
     async def _on_act_requested(event: Event) -> None:
-        if state.runner is None:
-            return
-        prompt = event.payload.get("action", "")
-        if not prompt:
-            return
-        cwd = event.payload.get("target")
-        if not isinstance(cwd, str):
-            cwd = None
-        action_id = event.payload.get("action_id", "")
+        action_id   = event.payload.get("action_id", "")
+        action_type = (event.payload.get("action_type") or "").lower()
 
         async def _execute_and_emit() -> None:
+            if action_type in _DIRECT_ACTION_TYPES:
+                # Direct execution via UniversalActuator (no LLM overhead)
+                act_result = await state.universal_actuator.dispatch(event.payload)
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.ACT_COMPLETED,
+                    payload={
+                        "action_id": action_id,
+                        "success":   act_result.success,
+                        "cost_usd":  0.0,
+                        "exec_id":   "",
+                        "error":     act_result.error,
+                    },
+                    source="act_requested_handler",
+                ))
+                return
+
+            if state.runner is None:
+                return
+            prompt = event.payload.get("action", "")
+            if not prompt:
+                return
+            cwd = event.payload.get("target")
+            if not isinstance(cwd, str):
+                cwd = None
             result = await state.runner.execute(prompt, cwd=cwd)
             await get_core_bus().emit(Event(
                 type=CoreEvent.ACT_COMPLETED,

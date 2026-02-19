@@ -30,7 +30,8 @@ import logging
 import os
 import time
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 
 logger = logging.getLogger("cynic.storage.surreal")
 
@@ -67,6 +68,8 @@ _SCHEMA_STATEMENTS = [
     # Dimension 768 = standard BERT/sentence-transformers output
     # Falls back gracefully if no embeddings stored
     "DEFINE INDEX IF NOT EXISTS idx_scholar_vec ON scholar FIELDS embedding HNSW DIMENSION 768 DIST COSINE",
+    "DEFINE INDEX IF NOT EXISTS idx_action_status ON action_proposal FIELDS status",
+    "DEFINE INDEX IF NOT EXISTS idx_dog_soul_id ON dog_soul FIELDS dog_id UNIQUE",
 ]
 
 
@@ -390,6 +393,79 @@ class ScholarRepo:
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# ACTION PROPOSAL REPOSITORY
+# ════════════════════════════════════════════════════════════════════════════
+
+class ActionProposalRepo:
+    """Persist ProposedAction queue to SurrealDB (mirrors ~/.cynic/pending_actions.json)."""
+
+    def __init__(self, db: Any) -> None:
+        self._db = db
+
+    async def upsert(self, action: dict[str, Any]) -> None:
+        """Save or update an action proposal by action_id."""
+        await self._db.upsert(_rec("action_proposal", action["action_id"]), {
+            **action,
+            "updated_at": time.time(),
+        })
+
+    async def all_pending(self) -> list[dict[str, Any]]:
+        """Return all PENDING proposals, ordered by priority then proposed_at."""
+        result = await self._db.query(
+            "SELECT * FROM action_proposal "
+            "WHERE status = 'PENDING' "
+            "ORDER BY priority ASC, proposed_at ASC",
+        )
+        return _rows(result)
+
+    async def all(self) -> list[dict[str, Any]]:
+        """Return all proposals (any status), newest first."""
+        result = await self._db.query(
+            "SELECT * FROM action_proposal ORDER BY proposed_at DESC"
+        )
+        return _rows(result)
+
+    async def update_status(self, action_id: str, status: str) -> None:
+        """Update the lifecycle status of a proposal."""
+        await self._db.query(
+            "UPDATE $id SET status = $status, updated_at = $ts",
+            {"id": _rec("action_proposal", action_id), "status": status, "ts": time.time()},
+        )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# DOG SOUL REPOSITORY
+# ════════════════════════════════════════════════════════════════════════════
+
+class DogSoulRepo:
+    """Persist DogSoul cross-session identity to SurrealDB (mirrors ~/.cynic/dogs/{id}/soul.md)."""
+
+    def __init__(self, db: Any) -> None:
+        self._db = db
+
+    async def save(self, soul: dict[str, Any]) -> None:
+        """Upsert a dog's soul record (keyed by dog_id)."""
+        await self._db.upsert(_rec("dog_soul", soul["dog_id"]), {
+            **soul,
+            "updated_at": time.time(),
+        })
+
+    async def get(self, dog_id: str) -> dict[str, Any] | None:
+        """Load a dog's soul by dog_id. Returns None if not found."""
+        result = await self._db.query(
+            "SELECT * FROM $id",
+            {"id": _rec("dog_soul", dog_id.upper())},
+        )
+        rows = _rows(result)
+        return rows[0] if rows else None
+
+    async def all(self) -> list[dict[str, Any]]:
+        """Return all dog souls."""
+        result = await self._db.query("SELECT * FROM dog_soul ORDER BY dog_id ASC")
+        return _rows(result)
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # STORAGE FACADE — one object, all repos
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -508,6 +584,14 @@ class SurrealStorage:
     @property
     def scholar(self) -> ScholarRepo:
         return ScholarRepo(self._conn)
+
+    @property
+    def action_proposals(self) -> ActionProposalRepo:
+        return ActionProposalRepo(self._conn)
+
+    @property
+    def dog_souls(self) -> DogSoulRepo:
+        return DogSoulRepo(self._conn)
 
     async def ping(self) -> bool:
         """Return True if connection is alive."""

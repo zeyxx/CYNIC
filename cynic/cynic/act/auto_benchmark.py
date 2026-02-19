@@ -16,7 +16,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import Any, List, Optional, Tuple
+from typing import Any
+
 
 from cynic.core.phi import fibonacci, WAG_MIN
 

@@ -36,7 +36,8 @@ import re
 import time
 from datetime import datetime, timezone, UTC
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List
+
 
 logger = logging.getLogger("cynic.soul")
 

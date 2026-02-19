@@ -4,7 +4,8 @@ CYNIC act router — act/execute · act/telemetry
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict
+from typing import Any
+
 
 from fastapi import APIRouter, HTTPException, Query
 

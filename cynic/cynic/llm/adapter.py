@@ -29,7 +29,8 @@ import os
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
+
 
 from cynic.core.phi import PHI, PHI_INV, MAX_Q_SCORE, weighted_geometric_mean
 

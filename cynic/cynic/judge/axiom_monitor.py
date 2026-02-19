@@ -35,7 +35,8 @@ import time
 import logging
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Deque, Dict, List, Optional
+from typing import Any, List
+
 
 from cynic.core.phi import (
     WAG_MIN, GROWL_MIN, MAX_Q_SCORE,

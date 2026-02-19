@@ -32,7 +32,8 @@ import os
 import random
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 
 from cynic.core.phi import PHI_INV_2, fibonacci
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent

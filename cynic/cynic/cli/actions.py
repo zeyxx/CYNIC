@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import sys
 import time
-from typing import Dict
 
 from cynic.cli.utils import (
     _API,

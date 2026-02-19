@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import asyncio
 import subprocess
-from typing import Optional
 
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell

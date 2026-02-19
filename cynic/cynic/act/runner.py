@@ -21,7 +21,8 @@ import json
 import logging
 import subprocess
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Optional
+
 
 from cynic.core.event_bus import CoreEvent
 

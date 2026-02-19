@@ -41,7 +41,8 @@ import time
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 
 from cynic.core.phi import (
     PHI_INV, PHI_INV_2, PHI_INV_3,

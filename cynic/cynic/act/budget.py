@@ -18,7 +18,8 @@ from __future__ import annotations
 import time
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any
+
 
 from cynic.core.phi import PHI_INV_2, MAX_Q_SCORE
 

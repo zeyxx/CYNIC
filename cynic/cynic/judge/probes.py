@@ -18,7 +18,8 @@ Ranges are intentionally wide (~+/-20) to survive axiom weight fluctuations.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
+
 
 from cynic.core.judgment import Cell
 from cynic.core.phi import MAX_Q_SCORE

@@ -4,7 +4,6 @@ CYNIC CLI — `tui` command (Textual terminal interface).
 from __future__ import annotations
 
 import sys
-from typing import Optional
 
 from cynic.cli.utils import _c
 
