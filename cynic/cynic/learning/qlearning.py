@@ -41,7 +41,10 @@ import random
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+
+if TYPE_CHECKING:
+    from cynic.core.event_bus import Event, EventBus
 
 from cynic.core.phi import (
     EWC_PENALTY, LEARNING_RATE, MAX_CONFIDENCE, MAX_Q_SCORE, PHI_INV,
@@ -89,7 +92,7 @@ class QEntry:
         y = random.gammavariate(b, 1.0)
         return x / (x + y) if (x + y) > 0 else 0.5
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "state_key": self.state_key,
             "action": self.action,
@@ -328,7 +331,7 @@ class QTable:
 
     # ── Introspection ──────────────────────────────────────────────────────
 
-    def stats(self) -> Dict:
+    def stats(self) -> Dict[str, Any]:
         """Return learning system health metrics."""
         total_entries = sum(len(v) for v in self._table.values())
         total_visits = sum(
@@ -468,7 +471,7 @@ class LearningLoop:
         self._active = False
         self._updates_since_flush: int = 0
 
-    def start(self, event_bus) -> None:
+    def start(self, event_bus: EventBus) -> None:
         """Register LEARNING_EVENT listener on the event bus."""
         from cynic.core.event_bus import CoreEvent
 
@@ -480,7 +483,7 @@ class LearningLoop:
         self._active = False
         logger.info("LearningLoop stopped")
 
-    async def _on_learning_event(self, event) -> None:
+    async def _on_learning_event(self, event: Event) -> None:
         """Handle a LEARNING_EVENT from the orchestrator."""
         if not self._active:
             return

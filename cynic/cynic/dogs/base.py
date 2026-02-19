@@ -29,7 +29,10 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+
+if TYPE_CHECKING:
+    from cynic.llm.adapter import LLMAdapter, LLMRegistry
 
 from cynic.core.phi import (
     PHI, PHI_INV, PHI_INV_2, PHI_INV_3, PHI_2, PHI_3,
@@ -294,14 +297,14 @@ class LLMDog(AbstractDog):
     def __init__(self, dog_id: str, task_type: str = "general") -> None:
         super().__init__(dog_id)
         self.task_type = task_type
-        self._llm_registry: Optional[Any] = None  # LLMRegistry (injected)
-        self._llm_id: Optional[str] = None         # Currently selected LLM
+        self._llm_registry: Optional[LLMRegistry] = None
+        self._llm_id: Optional[str] = None
 
-    def set_llm_registry(self, registry: Any) -> None:
+    def set_llm_registry(self, registry: LLMRegistry) -> None:
         """Inject LLMRegistry (dependency injection, no circular imports)."""
         self._llm_registry = registry
 
-    async def get_llm(self) -> Optional[Any]:
+    async def get_llm(self) -> Optional[LLMAdapter]:
         """Get best LLM for this Dog's task type."""
         if self._llm_registry is None:
             return None

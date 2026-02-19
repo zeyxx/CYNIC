@@ -21,6 +21,11 @@ from cynic.core.heuristic_scorer import HeuristicFacetScorer
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.consciousness import get_consciousness
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.core.events_schema import (
+    ActCompletedPayload,
+    JudgmentCreatedPayload,
+    SdkToolJudgedPayload,
+)
 from cynic.core.phi import (
     MAX_CONFIDENCE,
     MAX_Q_SCORE,
@@ -705,10 +710,10 @@ class _KernelBuilder:
     async def _on_judgment_for_burn(self, event: Event) -> None:
         """JUDGMENT_CREATED → EScore BURN update."""
         try:
-            p          = event.payload or {}
-            confidence = float(p.get("confidence", 0.0))
-            reality    = p.get("reality", "CODE")
-            verdict    = p.get("verdict", "")
+            p          = JudgmentCreatedPayload.model_validate(event.payload or {})
+            confidence = p.confidence
+            reality    = p.reality
+            verdict    = p.verdict
 
 
             burn_score = min(confidence / MAX_CONFIDENCE, 1.0) * MAX_Q_SCORE
@@ -968,11 +973,11 @@ class _KernelBuilder:
         """ACT_COMPLETED → QTable + EScore BUILD + mark_completed + JSONL log."""
         try:
             from cynic.learning.qlearning import LearningSignal as _LS
-            p = event.payload or {}
-            action_id = p.get("action_id", "")
-            success   = bool(p.get("success", False))
-            cost      = float(p.get("cost_usd", 0.0))
-            exec_id   = p.get("exec_id", "")
+            p         = ActCompletedPayload.model_validate(event.payload or {})
+            action_id = p.action_id
+            success   = p.success
+            cost      = p.cost_usd
+            exec_id   = p.exec_id
 
             # 1. Mark action COMPLETED / FAILED in the queue
             if action_id:
@@ -1026,9 +1031,9 @@ class _KernelBuilder:
     async def _on_sdk_tool_judged(self, event: Event) -> None:
         """SDK_TOOL_JUDGED → SYMBIOSIS signal + GRAPH EScore update."""
         try:
-            p = event.payload or {}
-            verdict    = p.get("verdict", "")
-            tool       = p.get("tool", "")
+            p       = SdkToolJudgedPayload.model_validate(event.payload or {})
+            verdict = p.verdict
+            tool    = p.tool
 
 
             graph_score = {
