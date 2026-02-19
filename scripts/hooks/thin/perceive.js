@@ -2,15 +2,15 @@
 /**
  * CYNIC Thin Perceive Hook — UserPromptSubmit
  *
- * Delegates to daemon via HTTP. Auto-starts daemon if needed.
- * Also notifies Python kernel (fire-and-forget) for learning.
- * "Le chien délègue" - CYNIC
+ * Python-kernel-only. No JS daemon dependency.
+ * Notifies kernel (fire-and-forget) and injects last judgment as context.
+ * "Le chien perçoit" - CYNIC
  *
  * @event UserPromptSubmit
  */
 'use strict';
 
-import { callDaemon, readHookInput, safeOutput } from './daemon-client.js';
+import { readHookInput, safeOutput } from './daemon-client.js';
 import { notifyKernel, readKernelGuidance, sendFeedback } from './kernel-client.js';
 import fs from 'fs';
 import os from 'os';
@@ -32,18 +32,9 @@ try {
     sendFeedback(1);
   }
 
-  const result = await callDaemon('UserPromptSubmit', input, { timeout: 8000 });
-
   // Build proper UserPromptSubmit hook output per Claude Code spec:
-  // https://code.claude.com/docs/en/hooks.md
   // For UserPromptSubmit: additionalContext is a TOP-LEVEL field (not inside hookSpecificOutput).
-  // hookSpecificOutput is only used when decision: "block" is set.
   const hookOutput = {};
-
-  // Danger warning from daemon (shown as system message to user)
-  if (result.message) {
-    hookOutput.systemMessage = result.message;
-  }
 
   // Inject kernel guidance from last judgment — this is the feedback loop closing.
   // guidance.json was written by the Python kernel after judging the PREVIOUS interaction.
