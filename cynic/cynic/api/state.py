@@ -274,12 +274,21 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     async def _on_budget_warning(event: Event) -> None:
         try:
             orchestrator.on_budget_warning()
+            # HOLD: financial stress = organism's operational stability under pressure.
+            # GROWL_MIN (38.2): moderate degradation — stressed but still functional.
+            from cynic.core.phi import GROWL_MIN
+            escore_tracker.update("agent:cynic", "HOLD", GROWL_MIN)
+            logger.warning("BUDGET_WARNING → HOLD EScore=%.1f (financial stress)", GROWL_MIN)
         except Exception:
             pass
 
     async def _on_budget_exhausted(event: Event) -> None:
         try:
             orchestrator.on_budget_exhausted()
+            # HOLD: total financial collapse = complete operational destabilization.
+            # 0.0: cannot sustain operations — hardest HOLD signal possible.
+            escore_tracker.update("agent:cynic", "HOLD", 0.0)
+            logger.warning("BUDGET_EXHAUSTED → HOLD EScore=0.0 (financial collapse)")
         except Exception:
             pass
 

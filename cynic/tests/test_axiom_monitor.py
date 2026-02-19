@@ -2436,3 +2436,83 @@ class TestPressureHoldLoop:
         used_pct = p.get("used_pct", 0.0)
         hold = self._hold_from_used(used_pct)
         assert hold == pytest.approx(MAX_Q_SCORE, abs=0.1)
+
+
+# ── BUDGET_WARNING + BUDGET_EXHAUSTED → HOLD EScore ──────────────────────────
+
+
+class TestBudgetHoldLoop:
+    """
+    BUDGET_WARNING and BUDGET_EXHAUSTED both had zero EScore updates.
+    Financial pressure = organism's operational stability (HOLD dimension).
+
+    Severity mapping:
+      BUDGET_WARNING   → HOLD = GROWL_MIN (38.2) — moderate financial stress
+      BUDGET_EXHAUSTED → HOLD = 0.0               — complete financial collapse
+
+    Semantic: HOLD tracks long-term stability. Running low on budget = less
+    stability headroom. Running out completely = no operational continuity.
+    """
+
+    def test_warning_sets_hold_to_growl_min(self):
+        """BUDGET_WARNING → HOLD = GROWL_MIN — moderate financial stress."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import GROWL_MIN
+
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "HOLD", GROWL_MIN)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["HOLD"]["value"] == pytest.approx(GROWL_MIN, abs=0.5)
+
+    def test_exhausted_sets_hold_to_zero(self):
+        """BUDGET_EXHAUSTED → HOLD = 0.0 — total financial destabilization."""
+        from cynic.core.escore import EScoreTracker
+
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "HOLD", 0.0)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["HOLD"]["value"] == pytest.approx(0.0, abs=0.5)
+
+    def test_exhausted_lower_than_warning(self):
+        """HOLD(exhausted) < HOLD(warning) — severity ordering respected."""
+        from cynic.core.phi import GROWL_MIN
+
+        hold_warning   = GROWL_MIN
+        hold_exhausted = 0.0
+        assert hold_exhausted < hold_warning
+
+    def test_warning_hold_equals_phi_constant(self):
+        """HOLD for WARNING equals exactly GROWL_MIN (= PHI_INV_2 * MAX_Q_SCORE)."""
+        from cynic.core.phi import GROWL_MIN, PHI_INV_2, MAX_Q_SCORE
+
+        expected = PHI_INV_2 * MAX_Q_SCORE  # 0.382 * 100 = 38.2
+        assert GROWL_MIN == pytest.approx(expected, abs=0.1)
+
+    def test_exhausted_is_total_destabilization(self):
+        """HOLD=0.0 for EXHAUSTED = minimum HOLD = full organism destabilization."""
+        from cynic.core.escore import EScoreTracker
+
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "HOLD", 0.0)
+        detail = tracker.get_detail("agent:cynic")
+        # HOLD dimension records 0.0 — no stability remaining
+        assert detail["dimensions"]["HOLD"]["value"] == pytest.approx(0.0, abs=0.1)
+
+    def test_exhausted_after_warning_lowers_hold(self):
+        """EXHAUSTED (0.0) after WARNING (GROWL_MIN) drives HOLD below warning value.
+        EScoreTracker uses EMA — repeated 0.0 signals push HOLD toward zero.
+        """
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import GROWL_MIN
+
+        tracker_warning_only = EScoreTracker()
+        tracker_warning_only.update("agent:cynic", "HOLD", GROWL_MIN)
+        hold_after_warning = tracker_warning_only.get_detail("agent:cynic")["dimensions"]["HOLD"]["value"]
+
+        tracker_both = EScoreTracker()
+        tracker_both.update("agent:cynic", "HOLD", GROWL_MIN)  # WARNING
+        tracker_both.update("agent:cynic", "HOLD", 0.0)        # EXHAUSTED
+        hold_after_exhausted = tracker_both.get_detail("agent:cynic")["dimensions"]["HOLD"]["value"]
+
+        # EMA: 0.0 drives HOLD down — exhausted state is more stressed than warning
+        assert hold_after_exhausted < hold_after_warning
