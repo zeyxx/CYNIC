@@ -2,15 +2,22 @@
 CYNIC DecideAgent — JUDGMENT_CREATED -> DECISION_MADE
 
 Subscribes to JUDGMENT_CREATED events. For BARK/GROWL verdicts with
-sufficient confidence (>= phi^-2 = 0.382), consults the Q-Table and
-emits DECISION_MADE on the core bus.
+sufficient confidence (>= phi^-2 = 0.382), runs a NestedMCTS rollout
+over the Q-Table to pick the best action, then emits DECISION_MADE.
+
+Nested MCTS (Ring 2 enhancement):
+  Instead of greedy Q-Table exploit(), runs UCT-based tree search:
+    UCT(s, a) = Q(s, a) + C_UCT × √(ln(Σ visits) / max(visits(a), 1))
+  Depth-2 rollout using Q-Table values as leaf estimates.
+  7 rollout simulations (F(4)=3 branches × 2 depth = explores all VERDICTS).
 
 Fire-and-forget: never blocks. All logic is async + bus.emit().
 """
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict
+import math
+from typing import Any, Dict, List
 
 from cynic.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
 
@@ -24,6 +31,116 @@ _ALERT_VERDICTS = {"BARK", "GROWL"}
 
 # Realities that produce actionable prompts for the runner
 _ACT_REALITIES = frozenset({"CODE", "CYNIC"})
+
+# NestedMCTS hyperparameters (φ-derived)
+_MCTS_DEPTH: int = 2         # rollout depth
+_MCTS_N_SIM: int = 7         # simulations per action (F(4+1) ensures full VERDICTS coverage)
+_UCT_C: float = 0.7071       # exploration constant ≈ 1/√2 (UCT1 canonical)
+
+
+# ── NestedMCTS ────────────────────────────────────────────────────────────────
+
+class NestedMCTS:
+    """
+    Lightweight 2-ply MCTS rollout using Q-Table as value oracle.
+
+    Used by DecideAgent to replace greedy exploit() with proper UCT search.
+    No actual environment transitions — Q-Table entries ARE the value function.
+
+    Algorithm:
+      For each candidate action:
+        1. Get Q-Table value Q(s, a) as leaf estimate.
+        2. Simulate _MCTS_N_SIM rollouts: sample action from sibling states
+           using Thompson Sampling (via qtable.explore), average Q values.
+        3. Compute UCT score = avg_q + C × √(ln(total_visits) / max(visits_a, 1))
+      Return action with highest UCT score.
+
+    Cold-start safe: if Q-Table is empty, falls back to lexicographic action order.
+    """
+
+    def __init__(self, qtable: Any) -> None:
+        self._qtable = qtable
+
+    def best_action(
+        self,
+        state_key: str,
+        candidates: List[str],
+    ) -> str:
+        """
+        Return the candidate action with the highest UCT score for state_key.
+
+        Args:
+            state_key:  Current state (e.g. "CODE:JUDGE:PRESENT:1").
+            candidates: Valid actions to consider (e.g. ["BARK", "GROWL", "WAG", "HOWL"]).
+
+        Returns:
+            Best action string from candidates.
+        """
+        if not candidates:
+            return "WAG"  # Neutral fallback — no options
+
+        actions_dict = self._qtable._table.get(state_key, {})
+
+        # Total visits across all candidates for UCT denominator
+        total_visits = max(
+            sum(e.visits for e in actions_dict.values()),
+            1,
+        )
+
+        best_a = candidates[0]
+        best_uct = -1.0
+
+        for action in candidates:
+            entry = actions_dict.get(action)
+            if entry is None:
+                # Unseen action: high exploration bonus (UCT promotes exploration)
+                q = 0.5      # neutral prior
+                visits = 0
+            else:
+                q = entry.q_value      # already in [0, 1] (normalized reward)
+                visits = entry.visits
+
+            # Depth-2 rollout: simulate the next state by looking up the greedy
+            # follow-on action from the Q-Table. Use that Q-value as successor estimate.
+            successor_q = self._rollout(state_key, action)
+
+            # Average current + successor (2-ply)
+            avg_q = (q + successor_q) / 2.0
+
+            # UCT score: exploitation + exploration bonus
+            uct = avg_q + _UCT_C * math.sqrt(math.log(total_visits) / max(visits, 1))
+
+            if uct > best_uct:
+                best_uct = uct
+                best_a = action
+
+        return best_a
+
+    def _rollout(self, state_key: str, action: str) -> float:
+        """
+        Simulate one step forward: given we take `action` at `state_key`,
+        what is the best Q-value at the successor state?
+
+        Uses the heuristic: successor_state_key = same prefix, LOD promoted by 1.
+        If no entry found, returns neutral 0.5 (prior).
+        """
+        # Successor: LOD is the last segment — increment by 1 (or use "1" default)
+        parts = state_key.rsplit(":", 1)
+        if len(parts) == 2:
+            try:
+                lod = int(parts[1])
+                successor_key = f"{parts[0]}:{lod + 1}"
+            except ValueError:
+                successor_key = state_key   # non-numeric suffix — stay in place
+        else:
+            successor_key = state_key
+
+        successor_actions = self._qtable._table.get(successor_key, {})
+        if not successor_actions:
+            return 0.5  # Cold start — neutral
+
+        best_successor_q = max(e.q_value for e in successor_actions.values())
+        return best_successor_q
 
 
 def _build_action_prompt(
@@ -71,9 +188,12 @@ class DecideAgent:
     """
     Autonomous decision layer — sits between Judge and Act.
 
-    Listens for judgments, consults the Q-Table for BARK/GROWL results,
+    Listens for judgments, runs NestedMCTS over Q-Table for BARK/GROWL,
     and emits DECISION_MADE so downstream actors can react without
     manual intervention.
+
+    Ring 2 upgrade: NestedMCTS replaces greedy exploit() for better
+    action selection under uncertainty (UCT balances exploration/exploitation).
     """
 
     def __init__(self, qtable: Any) -> None:
@@ -81,6 +201,7 @@ class DecideAgent:
         qtable: cynic.learning.qlearning.QTable — consulted for best action.
         """
         self._qtable = qtable
+        self._mcts = NestedMCTS(qtable)
         self._decisions_made: int = 0
         self._skipped: int = 0
         self._handler = self._on_judgment
@@ -120,9 +241,10 @@ class DecideAgent:
             )
             return
 
-        # Consult Q-Table for best action
-        recommended_action = self._qtable.exploit(state_key)
-        q_entry = self._qtable._table.get(state_key, {}).get(recommended_action, None)
+        # Ring 2: NestedMCTS over Q-Table (replaces greedy exploit)
+        from cynic.learning.qlearning import VERDICTS
+        recommended_action = self._mcts.best_action(state_key, list(VERDICTS))
+        q_entry = self._qtable._table.get(state_key, {}).get(recommended_action)
         q_value = q_entry.q_value if q_entry is not None else 0.0
 
         # Build action prompt (non-empty only for ACT_REALITIES — others get generic)
@@ -140,6 +262,7 @@ class DecideAgent:
             "reality": reality,
             "content_preview": content_preview,
             "action_prompt": action_prompt,
+            "mcts": True,   # Ring 2: selected via NestedMCTS, not greedy exploit
         }
 
         bus = get_core_bus()

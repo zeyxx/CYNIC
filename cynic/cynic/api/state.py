@@ -1287,10 +1287,30 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
                     source="consensus_reached",
                 ))
 
+            # A10 CONSCIOUSNESS: pack converged = organism knows what it decided.
+            # Symmetry: CONSENSUS_FAILED → EMERGENCE (unknown complexity)
+            #           CONSENSUS_REACHED → CONSCIOUSNESS (known reality, confirmed)
+            # PBFT quorum = multiple independent observers agreeing = accurate
+            # self-observation of the collective's thinking = A10.
+            new_state_c = axiom_monitor.signal("CONSCIOUSNESS")
+            if new_state_c == "ACTIVE":
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.AXIOM_ACTIVATED,
+                    payload={
+                        "axiom":    "CONSCIOUSNESS",
+                        "maturity": axiom_monitor.get_maturity("CONSCIOUSNESS"),
+                        "trigger":  "CONSENSUS_REACHED",
+                        "verdict":  verdict,
+                        "q_score":  round(q_score, 1),
+                    },
+                    source="consensus_reached",
+                ))
+
             logger.debug(
-                "CONSENSUS_REACHED: votes=%d verdict=%s q=%.1f → BUILD=%.1f%s",
+                "CONSENSUS_REACHED: votes=%d verdict=%s q=%.1f → BUILD=%.1f%s%s",
                 votes, verdict, q_score, q_score,
                 " SYMBIOSIS signalled" if new_state == "ACTIVE" else "",
+                " CONSCIOUSNESS signalled" if new_state_c == "ACTIVE" else "",
             )
         except Exception:
             pass

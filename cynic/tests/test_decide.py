@@ -11,8 +11,8 @@ import pytest
 import pytest_asyncio
 
 from cynic.core.event_bus import CoreEvent, Event, EventBus, reset_all_buses
-from cynic.judge.decide import DecideAgent, _build_action_prompt
-from cynic.learning.qlearning import QTable
+from cynic.judge.decide import DecideAgent, NestedMCTS, _build_action_prompt
+from cynic.learning.qlearning import LearningSignal, QTable, VERDICTS
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
@@ -293,3 +293,132 @@ class TestBuildActionPrompt:
         prompt = _build_action_prompt("CODE", "JUDGE", "BARK", long_content, "")
         # The body inside should be at most 400 chars
         assert len(prompt) < 600  # overall prompt is reasonably bounded
+
+
+# ── Tests: NestedMCTS (Ring 2 — nested MCTS in DECIDE) ──────────────────────
+
+
+class TestNestedMCTS:
+    """
+    NestedMCTS: UCT-based 2-ply rollout using Q-Table as value oracle.
+
+    Ring 2 enhancement: replaces greedy exploit() with proper tree search.
+    UCT formula: Q(s,a) + C × √(ln(N_total) / max(visits_a, 1))
+    Cold-start safe: returns valid candidate when Q-Table is empty.
+    """
+
+    def _qt_with(self, entries: dict) -> QTable:
+        """Build a QTable pre-seeded with {action: (q_value, visits)} at CODE:JUDGE:PRESENT:1."""
+        qt = QTable()
+        sk = "CODE:JUDGE:PRESENT:1"
+        for action, (q, v) in entries.items():
+            sig = LearningSignal(state_key=sk, action=action, reward=q)
+            for _ in range(v):
+                qt.update(sig)
+        return qt
+
+    def test_cold_start_returns_valid_action(self):
+        """Empty Q-Table → still returns a valid action from candidates."""
+        qt = QTable()
+        mcts = NestedMCTS(qt)
+        result = mcts.best_action("CODE:JUDGE:PRESENT:1", VERDICTS)
+        assert result in VERDICTS
+
+    def test_empty_candidates_returns_wag(self):
+        """No candidates → fallback to WAG (neutral)."""
+        qt = QTable()
+        mcts = NestedMCTS(qt)
+        assert mcts.best_action("CODE:JUDGE:PRESENT:1", []) == "WAG"
+
+    def test_single_candidate_returned_directly(self):
+        """One candidate → that candidate is returned."""
+        qt = QTable()
+        mcts = NestedMCTS(qt)
+        assert mcts.best_action("CODE:JUDGE:PRESENT:1", ["HOWL"]) == "HOWL"
+
+    def test_prefers_high_q_action(self):
+        """With no visits (equal exploration bonus), higher Q wins."""
+        qt = QTable()
+        sk = "CODE:JUDGE:PRESENT:1"
+        # Seed: HOWL has high Q (0.82), BARK has low Q (0.2)
+        qt.update(LearningSignal(state_key=sk, action="HOWL", reward=0.82))
+        qt.update(LearningSignal(state_key=sk, action="BARK", reward=0.2))
+        mcts = NestedMCTS(qt)
+        result = mcts.best_action(sk, ["HOWL", "BARK"])
+        assert result == "HOWL"
+
+    def test_explores_unseen_action_over_seen_low_q(self):
+        """Unseen action gets high exploration bonus → preferred over frequently-visited low-Q."""
+        qt = QTable()
+        sk = "CODE:JUDGE:PRESENT:0"
+        # Seed: WAG visited 100 times with very low Q
+        sig_wag = LearningSignal(state_key=sk, action="WAG", reward=0.1)
+        for _ in range(100):
+            qt.update(sig_wag)
+        mcts = NestedMCTS(qt)
+        # HOWL is unseen — its UCT bonus should beat frequently-visited low-Q WAG
+        result = mcts.best_action(sk, ["WAG", "HOWL"])
+        assert result == "HOWL", "Unseen action should be explored over frequently-visited low-Q"
+
+    def test_decision_payload_includes_mcts_flag(self):
+        """DECISION_MADE payload includes mcts=True (Ring 2 marker)."""
+        from cynic.core.event_bus import reset_all_buses, get_core_bus
+        reset_all_buses()
+        bus = get_core_bus()
+        qt = QTable()
+        agent = DecideAgent(qtable=qt)
+        agent.start(bus)
+
+        received = []
+
+        async def capture(event: Event):
+            received.append(event)
+
+        bus.on(CoreEvent.DECISION_MADE, capture)
+
+        import asyncio
+
+        async def _run():
+            await bus.emit(_judgment_event("BARK", confidence=0.5))
+            await asyncio.sleep(0.1)
+
+        asyncio.get_event_loop().run_until_complete(_run())
+
+        assert len(received) == 1
+        assert received[0].payload.get("mcts") is True
+        reset_all_buses()
+
+    def test_mcts_with_populated_qtable_picks_best(self):
+        """With rich Q-Table, MCTS correctly selects highest-value action."""
+        qt = QTable()
+        sk = "CODE:JUDGE:PRESENT:5"
+        # Build a table where GROWL has best UCT score
+        rewards = {"BARK": 0.15, "GROWL": 0.75, "WAG": 0.60, "HOWL": 0.40}
+        for action, reward in rewards.items():
+            # 3 visits each (equal exploration term) → GROWL wins on Q
+            for _ in range(3):
+                qt.update(LearningSignal(state_key=sk, action=action, reward=reward))
+        mcts = NestedMCTS(qt)
+        result = mcts.best_action(sk, VERDICTS)
+        assert result == "GROWL", f"Expected GROWL (highest Q=0.75), got {result}"
+
+    def test_rollout_neutral_when_successor_unseen(self):
+        """_rollout returns 0.5 (neutral prior) when successor state has no Q data."""
+        qt = QTable()
+        mcts = NestedMCTS(qt)
+        val = mcts._rollout("CODE:JUDGE:PRESENT:0", "WAG")
+        assert val == 0.5
+
+    def test_best_action_returns_from_verdicts(self):
+        """best_action always returns a string from the provided candidates list."""
+        qt = QTable()
+        # Seed some random Q data
+        for action in VERDICTS:
+            qt.update(LearningSignal(
+                state_key="CODE:JUDGE:PRESENT:2",
+                action=action,
+                reward=0.5,
+            ))
+        mcts = NestedMCTS(qt)
+        result = mcts.best_action("CODE:JUDGE:PRESENT:2", VERDICTS)
+        assert result in VERDICTS

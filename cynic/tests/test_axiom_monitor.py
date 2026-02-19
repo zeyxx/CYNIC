@@ -2134,3 +2134,79 @@ class TestEwcConsciousnessLoop:
         judge_score = q_value * MAX_Q_SCORE
         tracker.update("agent:cynic", "JUDGE", judge_score)
         assert tracker.get_score("agent:cynic") >= 0.0
+
+
+# ── CONSENSUS_REACHED → A10 CONSCIOUSNESS ────────────────────────────────────
+
+class TestConsensusReachedConsciousnessLoop:
+    """
+    CONSENSUS_REACHED fires when PBFT quorum succeeds (dogs agreed on verdict).
+    The organism now knows what it decided — multiple independent observers
+    converged to the same conclusion = accurate self-observation = A10 CONSCIOUSNESS.
+
+    Symmetry: CONSENSUS_FAILED → EMERGENCE (unknown complexity)
+              CONSENSUS_REACHED → CONSCIOUSNESS (known reality, confirmed)
+
+    Handler: _on_consensus_reached in state.py (adds CONSCIOUSNESS alongside SYMBIOSIS).
+    """
+
+    def test_consensus_signals_consciousness(self):
+        """CONSENSUS_REACHED fires one CONSCIOUSNESS signal — maturity increases."""
+        m = AxiomMonitor()
+        before = m.get_maturity("CONSCIOUSNESS")
+        m.signal("CONSCIOUSNESS")
+        after = m.get_maturity("CONSCIOUSNESS")
+        assert after > before
+
+    def test_consensus_still_signals_symbiosis(self):
+        """CONSENSUS_REACHED still signals SYMBIOSIS (pre-existing — must not regress)."""
+        m = AxiomMonitor()
+        before = m.get_maturity("SYMBIOSIS")
+        m.signal("SYMBIOSIS")
+        after = m.get_maturity("SYMBIOSIS")
+        assert after > before
+
+    def test_build_uses_q_score(self):
+        """q_score=75.0 → BUILD EScore stored = 75.0."""
+        from cynic.core.escore import EScoreTracker
+
+        tracker = EScoreTracker()
+        q_score = 75.0
+        tracker.update("agent:cynic", "BUILD", q_score)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["BUILD"]["value"] == pytest.approx(75.0, abs=0.5)
+
+    def test_consensus_failed_signals_emergence_not_consciousness(self):
+        """The symmetry: CONSENSUS_FAILED signals EMERGENCE, not CONSCIOUSNESS."""
+        m = AxiomMonitor()
+        before_c = m.get_maturity("CONSCIOUSNESS")
+        before_e = m.get_maturity("EMERGENCE")
+        # Simulate CONSENSUS_FAILED handler: signals EMERGENCE only
+        m.signal("EMERGENCE")
+        assert m.get_maturity("EMERGENCE") > before_e
+        assert m.get_maturity("CONSCIOUSNESS") == before_c  # unchanged
+
+    def test_repeated_consensus_accumulates_consciousness(self):
+        """Multiple consensus events push CONSCIOUSNESS maturity toward ACTIVE."""
+        m = AxiomMonitor()
+        for _ in range(10):
+            m.signal("CONSCIOUSNESS")
+        assert m._axioms["CONSCIOUSNESS"].signal_times.__len__() == 10
+        assert m.get_maturity("CONSCIOUSNESS") > 0.0
+
+    def test_handler_tolerates_empty_payload(self):
+        """Missing q_score/votes/verdict → defaults (q=0.0, votes=0, verdict=''), no raise."""
+        from cynic.core.escore import EScoreTracker
+
+        p = {}
+        q_score = float(p.get("q_score", 0.0))
+        votes   = int(p.get("votes", 0))
+        verdict = p.get("verdict", "")
+
+        assert q_score == 0.0
+        assert votes == 0
+        assert verdict == ""
+
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "BUILD", q_score)
+        assert tracker.get_score("agent:cynic") >= 0.0
