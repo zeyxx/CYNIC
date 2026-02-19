@@ -34,14 +34,14 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from cynic.core.consciousness import ConsciousnessLevel, get_consciousness
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
-from cynic.core.judgment import Cell
+from cynic.core.judgment import Cell, Judgment
 from cynic.core.phi import PHI, MAX_CONFIDENCE, WAG_MIN
 from cynic.learning.qlearning import LearningSignal
 
@@ -664,9 +664,26 @@ _static_dir = _pathlib.Path(__file__).parent.parent / "static"
 if _static_dir.is_dir():
     app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
+# ── APIRouters ─────────────────────────────────────────────────────────────
+# Routes are grouped by domain. Each router is registered via
+# app.include_router() at the bottom of this file.
+#
+#   router_core    — judge · perceive · learn · feedback · policy
+#   router_actions — proposed-actions · self-probes
+#   router_health  — health · stats · introspect · axioms · lod · mirror · consciousness
+#   router_sdk     — ws/sdk · sdk/*
+#   router_act     — act/execute · act/telemetry
+#   router_ws      — ws/stream · ws/events
+# ───────────────────────────────────────────────────────────────────────────
+router_core    = APIRouter(tags=["core"])
+router_actions = APIRouter(tags=["actions"])
+router_health  = APIRouter(tags=["health"])
+router_sdk     = APIRouter(tags=["sdk"])
+router_act     = APIRouter(tags=["act"])
+router_ws      = APIRouter(tags=["ws"])
 
 # ── Dashboard convenience route ────────────────────────────────────────────
-@app.get("/dashboard", include_in_schema=False)
+@router_health.get("/dashboard", include_in_schema=False)
 async def dashboard() -> FileResponse:
     """Serve the live CYNIC kernel dashboard (connects to /ws/stream)."""
     path = _static_dir / "dashboard.html"
@@ -696,7 +713,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 # POST /judge
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.post("/judge", response_model=JudgeResponse)
+@router_core.post("/judge", response_model=JudgeResponse)
 async def judge(req: JudgeRequest) -> JudgeResponse:
     """
     Run the full CYNIC judgment pipeline on any content.
@@ -776,7 +793,7 @@ _judgment_repo = JudgmentRepository()
 _sdk_session_repo = _SDKSessionRepo()
 
 
-def _persist_judgment(judgment) -> None:
+def _persist_judgment(judgment: Judgment) -> None:
     """
     Fire-and-forget judgment persistence to PostgreSQL.
 
@@ -834,7 +851,7 @@ def _write_guidance(cell: "Cell", judgment: "Judgment") -> None:  # type: ignore
 # POST /perceive  (JS hooks → Python kernel bridge)
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.post("/perceive", response_model=PerceiveResponse)
+@router_core.post("/perceive", response_model=PerceiveResponse)
 async def perceive(req: PerceiveRequest) -> PerceiveResponse:
     """
     Receive raw perception from any source (JS hooks, external services, etc.).
@@ -959,7 +976,7 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
 # POST /learn
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.post("/learn", response_model=LearnResponse)
+@router_core.post("/learn", response_model=LearnResponse)
 async def learn(req: LearnRequest) -> LearnResponse:
     """
     Inject a learning signal directly into the Q-Table.
@@ -996,7 +1013,7 @@ async def learn(req: LearnRequest) -> LearnResponse:
 # POST /feedback  (explicit user reward → Q-Table)
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.post("/feedback", response_model=FeedbackResponse)
+@router_core.post("/feedback", response_model=FeedbackResponse)
 async def feedback(req: FeedbackRequest) -> FeedbackResponse:
     """
     Inject explicit user feedback into the Q-Table.
@@ -1109,7 +1126,7 @@ async def feedback(req: FeedbackRequest) -> FeedbackResponse:
 # POST /actions/{id}/reject — decline a proposed action
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.get("/actions")
+@router_actions.get("/actions")
 async def list_actions(
     status: Optional[str] = Query(default=None, description="Filter by status: PENDING/ACCEPTED/REJECTED/AUTO_EXECUTED"),
 ) -> Dict[str, Any]:
@@ -1142,7 +1159,7 @@ async def list_actions(
     }
 
 
-@app.post("/actions/{action_id}/accept")
+@router_actions.post("/actions/{action_id}/accept")
 async def accept_action(action_id: str) -> Dict[str, Any]:
     """
     Accept a proposed action — marks it ACCEPTED and signals ANTIFRAGILITY axiom.
@@ -1190,7 +1207,7 @@ async def accept_action(action_id: str) -> Dict[str, Any]:
     return {"accepted": True, "action": action.to_dict(), "executing": bool(action.prompt)}
 
 
-@app.post("/actions/{action_id}/reject")
+@router_actions.post("/actions/{action_id}/reject")
 async def reject_action(action_id: str) -> Dict[str, Any]:
     """
     Reject a proposed action — marks it REJECTED.
@@ -1238,7 +1255,7 @@ async def reject_action(action_id: str) -> Dict[str, Any]:
 # POST /self-probes/{probe_id}/apply
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.get("/self-probes")
+@router_actions.get("/self-probes")
 async def list_self_probes(
     status: Optional[str] = Query(default=None, description="Filter by status: PENDING/APPLIED/DISMISSED/all"),
 ) -> Dict[str, Any]:
@@ -1269,7 +1286,7 @@ async def list_self_probes(
     }
 
 
-@app.post("/self-probes/analyze")
+@router_actions.post("/self-probes/analyze")
 async def trigger_self_analysis(
     pattern_type: str = Query(default="MANUAL"),
     severity: float = Query(default=0.5, ge=0.0, le=1.0),
@@ -1294,7 +1311,7 @@ async def trigger_self_analysis(
     }
 
 
-@app.post("/self-probes/{probe_id}/dismiss")
+@router_actions.post("/self-probes/{probe_id}/dismiss")
 async def dismiss_probe(probe_id: str) -> Dict[str, Any]:
     """Dismiss a self-improvement proposal — marks it DISMISSED."""
     state = get_state()
@@ -1304,7 +1321,7 @@ async def dismiss_probe(probe_id: str) -> Dict[str, Any]:
     return {"dismissed": True, "proposal": proposal.to_dict()}
 
 
-@app.post("/self-probes/{probe_id}/apply")
+@router_actions.post("/self-probes/{probe_id}/apply")
 async def apply_probe(probe_id: str) -> Dict[str, Any]:
     """Mark a self-improvement proposal as APPLIED."""
     state = get_state()
@@ -1319,7 +1336,7 @@ async def apply_probe(probe_id: str) -> Dict[str, Any]:
 # GET /policy/{state_key}
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.get("/policy/{state_key}", response_model=PolicyResponse)
+@router_core.get("/policy/{state_key}", response_model=PolicyResponse)
 async def policy(
     state_key: str,
     mode: str = Query(default="explore", pattern="^(exploit|explore)$"),
@@ -1367,7 +1384,7 @@ async def policy(
 # GET /health
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.get("/health", response_model=HealthResponse)
+@router_health.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     """
     Kernel health — the organism's vital signs.
@@ -1422,7 +1439,7 @@ async def health() -> HealthResponse:
 # GET /stats
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.get("/stats", response_model=StatsResponse)
+@router_health.get("/stats", response_model=StatsResponse)
 async def stats() -> StatsResponse:
     """Detailed kernel metrics — everything CYNIC knows about itself."""
     state = get_state()
@@ -1444,8 +1461,8 @@ async def stats() -> StatsResponse:
 # GET /introspect  (MetaCognition — composant 9/9, self-model)
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.get("/introspect")
-async def introspect() -> dict:
+@router_health.get("/introspect")
+async def introspect() -> Dict[str, Any]:
     """
     MetaCognition — CYNIC reads its own cognitive state.
 
@@ -1568,8 +1585,8 @@ async def introspect() -> dict:
 # GET /axioms  (δ1 Emergent Axiom Dashboard)
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.get("/axioms")
-async def axioms() -> dict:
+@router_health.get("/axioms")
+async def axioms() -> Dict[str, Any]:
     """
     Emergent Axiom dashboard — A6-A9 activation status.
 
@@ -1587,8 +1604,8 @@ async def axioms() -> dict:
 # GET /lod  (δ2 Survival LOD status)
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.get("/lod")
-async def lod() -> dict:
+@router_health.get("/lod")
+async def lod() -> Dict[str, Any]:
     """
     Survival LOD status — current graceful degradation level.
 
@@ -1601,8 +1618,8 @@ async def lod() -> dict:
     return state.lod_controller.status()
 
 
-@app.get("/account/stats")
-async def account_stats() -> dict:
+@router_health.get("/account/stats")
+async def account_stats() -> Dict[str, Any]:
     """
     AccountAgent step-6 ledger — cost tracking + budget enforcement.
 
@@ -1617,8 +1634,8 @@ async def account_stats() -> dict:
     return state.account_agent.stats()
 
 
-@app.get("/decide/stats")
-async def decide_stats() -> dict:
+@router_health.get("/decide/stats")
+async def decide_stats() -> Dict[str, Any]:
     """
     DecideAgent Ring-2 stats — MCTS decision counts.
 
@@ -1631,8 +1648,8 @@ async def decide_stats() -> dict:
     return state.decide_agent.stats()
 
 
-@app.get("/sage/stats")
-async def sage_stats() -> dict:
+@router_health.get("/sage/stats")
+async def sage_stats() -> Dict[str, Any]:
     """
     SAGE Dog temporal MCTS activation stats.
 
@@ -1659,8 +1676,8 @@ async def sage_stats() -> dict:
     }
 
 
-@app.get("/residual/stats")
-async def residual_stats() -> dict:
+@router_health.get("/residual/stats")
+async def residual_stats() -> Dict[str, Any]:
     """
     ResidualDetector stats — residual variance history + pattern detection (T04).
 
@@ -1672,8 +1689,8 @@ async def residual_stats() -> dict:
     return state.residual_detector.stats()
 
 
-@app.get("/llm/benchmarks")
-async def llm_benchmarks() -> dict:
+@router_health.get("/llm/benchmarks")
+async def llm_benchmarks() -> Dict[str, Any]:
     """
     LLM Benchmark routing matrix — per-(dog, task_type, llm_id) perf history (T05).
 
@@ -1700,8 +1717,8 @@ async def llm_benchmarks() -> dict:
     return {"count": len(matrix), "matrix": matrix}
 
 
-@app.get("/auto-benchmark/stats")
-async def auto_benchmark_stats() -> dict:
+@router_health.get("/auto-benchmark/stats")
+async def auto_benchmark_stats() -> Dict[str, Any]:
     """AutoBenchmark probe stats — interval, runs, enabled flag (T09)."""
     state = get_state()
     if state.auto_benchmark is None:
@@ -1709,8 +1726,8 @@ async def auto_benchmark_stats() -> dict:
     return state.auto_benchmark.stats()
 
 
-@app.post("/auto-benchmark/run")
-async def auto_benchmark_run() -> dict:
+@router_health.post("/auto-benchmark/run")
+async def auto_benchmark_run() -> Dict[str, Any]:
     """Trigger an immediate AutoBenchmark round (T09)."""
     state = get_state()
     if state.auto_benchmark is None:
@@ -1719,8 +1736,8 @@ async def auto_benchmark_run() -> dict:
     return {"completed": completed}
 
 
-@app.get("/mirror")
-async def mirror() -> dict:
+@router_health.get("/mirror")
+async def mirror() -> Dict[str, Any]:
     """
     KernelMirror — Ring 3 unified self-reflection snapshot.
 
@@ -1751,7 +1768,7 @@ async def mirror() -> dict:
 _CONSCIOUSNESS_FILE = os.path.join(os.path.expanduser("~"), ".cynic", "consciousness.json")
 
 
-@app.get("/consciousness")
+@router_health.get("/consciousness")
 async def consciousness() -> Dict[str, Any]:
     """
     Unified metathinking output — the organism's complete cognitive state.
@@ -1789,7 +1806,7 @@ async def consciousness() -> Dict[str, Any]:
 # WS /ws/stream  (real-time event stream)
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.websocket("/ws/stream")
+@router_ws.websocket("/ws/stream")
 async def ws_stream(websocket: WebSocket) -> None:
     """
     WebSocket stream — bidirectional real-time kernel events.
@@ -1874,7 +1891,7 @@ async def ws_stream(websocket: WebSocket) -> None:
 # WS /ws/events  (read-only all-events stream with client-side filter)
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.websocket("/ws/events")
+@router_ws.websocket("/ws/events")
 async def ws_events(websocket: WebSocket) -> None:
     """
     Read-only WebSocket — streams ALL CoreEvents with client-side filtering.
@@ -1967,7 +1984,7 @@ async def ws_events(websocket: WebSocket) -> None:
 # WS /ws/sdk  (Claude Code --sdk-url server — CYNIC is the BRAIN)
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.websocket("/ws/sdk")
+@router_sdk.websocket("/ws/sdk")
 async def ws_sdk(websocket: WebSocket) -> None:
     """
     Claude Code SDK WebSocket server.
@@ -2355,7 +2372,7 @@ async def ws_sdk(websocket: WebSocket) -> None:
 # GET /sdk/sessions  (list active Claude Code sessions)
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.get("/sdk/sessions")
+@router_sdk.get("/sdk/sessions")
 async def sdk_sessions() -> Dict[str, Any]:
     """List all active Claude Code --sdk-url sessions."""
     return {
@@ -2364,7 +2381,7 @@ async def sdk_sessions() -> Dict[str, Any]:
     }
 
 
-@app.get("/sdk/routing")
+@router_sdk.get("/sdk/routing")
 async def sdk_routing() -> Dict[str, Any]:
     """
     LLM routing stats — Ring 4 Q-Table driven model selection.
@@ -2378,7 +2395,7 @@ async def sdk_routing() -> Dict[str, Any]:
     return {"available": True, **state.llm_router.stats()}
 
 
-@app.get("/sdk/last-session")
+@router_sdk.get("/sdk/last-session")
 async def sdk_last_session(cwd: str = "") -> Dict[str, Any]:
     """
     Return the last known cli_session_id for --resume.
@@ -2424,7 +2441,7 @@ async def sdk_last_session(cwd: str = "") -> Dict[str, Any]:
 # POST /sdk/task  (send a task to a connected Claude Code session)
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.post("/sdk/task")
+@router_sdk.post("/sdk/task")
 async def sdk_task(body: Dict[str, Any]) -> Dict[str, Any]:
     """
     Send a task (user message) to a connected Claude Code session.
@@ -2537,7 +2554,7 @@ def _enrich_prompt(prompt: str, state) -> str:
 # POST /act/execute  (CYNIC spawns Claude Code autonomously)
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.post("/act/execute")
+@router_act.post("/act/execute")
 async def act_execute(body: Dict[str, Any]) -> Dict[str, Any]:
     """
     CYNIC executes a task by spawning Claude Code autonomously.
@@ -2597,7 +2614,7 @@ async def act_execute(body: Dict[str, Any]) -> Dict[str, Any]:
 # GET /act/telemetry  (session telemetry — learning measurement layer)
 # ════════════════════════════════════════════════════════════════════════════
 
-@app.get("/act/telemetry")
+@router_act.get("/act/telemetry")
 async def act_telemetry(
     n: int = Query(default=10, ge=1, le=100),
     export: bool = Query(default=False),
@@ -2630,8 +2647,8 @@ async def act_telemetry(
     return result
 
 
-@app.get("/")
-async def root():
+@router_health.get("/")
+async def root() -> Dict[str, Any]:
     return {
         "name": "CYNIC Kernel",
         "version": "2.0.0",
@@ -2646,3 +2663,11 @@ async def root():
         ],
         "message": "*sniff* Le chien est là.",
     }
+
+# ── Register all routers ───────────────────────────────────────────────────
+app.include_router(router_core)
+app.include_router(router_actions)
+app.include_router(router_health)
+app.include_router(router_sdk)
+app.include_router(router_act)
+app.include_router(router_ws)
