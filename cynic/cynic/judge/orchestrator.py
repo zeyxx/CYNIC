@@ -245,6 +245,15 @@ class JudgeOrchestrator:
             if self.residual_detector is not None:
                 self.residual_detector.observe(judgment)
 
+            # γ2: SAGE→Compressor attention feedback loop
+            # boost() tells the compressor which content was relevant for this judgment.
+            if self.context_compressor is not None:
+                try:
+                    _content_preview = str(getattr(cell, "content", "") or "")[:200]
+                    self.context_compressor.boost(_content_preview, judgment.q_score / 100.0)
+                except Exception:
+                    pass  # Never block judgment on compressor error
+
             # Circuit breaker: successful judgment — reset failure counter
             self._circuit_breaker.record_success()
 

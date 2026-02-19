@@ -90,6 +90,9 @@ class ProposedAction:
     priority:    int
     proposed_at: float
     status:      str = "PENDING"
+    parent_action_id: Optional[str] = None
+    chain_depth:      int = 0
+    generated_by:     str = "JUDGE"  # JUDGE | VERIFY | SELF
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -168,6 +171,12 @@ class ActionProposer:
         prompt         = p.get("action_prompt", "")
         q_value        = float(p.get("q_value", 0.0))
 
+        # Chain depth inheritance: if event carries parent info, propagate depth
+        parent_action_id: Optional[str] = p.get("parent_action_id", None)
+        parent_chain_depth: int = int(p.get("chain_depth", 0))
+        generated_by: str = p.get("generated_by", "JUDGE")
+        chain_depth = parent_chain_depth + 1 if parent_action_id else 0
+
         if not verdict:
             return
 
@@ -187,6 +196,9 @@ class ActionProposer:
             priority    = priority,
             proposed_at = time.time(),
             status      = "PENDING",
+            parent_action_id = parent_action_id,
+            chain_depth      = chain_depth,
+            generated_by     = generated_by,
         )
 
         self._queue.append(action)

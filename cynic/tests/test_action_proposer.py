@@ -750,3 +750,80 @@ class TestActionProposedLoop:
         score = {1: 100.0, 2: 82.0, 3: WAG_MIN}.get(priority, GROWL_MIN)
         tracker.update("agent:cynic", "BUILD", score)
         assert self._dim_value(tracker, "agent:cynic", "BUILD") >= 0.0
+
+
+# ── Chain depth (T32) ─────────────────────────────────────────────────────────
+
+class TestChainDepth:
+    """
+    Tests for parent_action_id, chain_depth, generated_by fields on ProposedAction.
+    Enforcement: chain_depth >= fibonacci(4) = 3 → EMERGENCE_DETECTED + blocked.
+    """
+
+    def _make_action(self, **overrides):
+        import time
+        base = dict(
+            action_id="ab123456",
+            judgment_id="jid-chain",
+            state_key="CODE:JUDGE:PRESENT:0",
+            verdict="BARK",
+            reality="CODE",
+            action_type="INVESTIGATE",
+            description="[BARK] Investigate critical issue in CODE",
+            prompt="Investigate this",
+            q_score=0.3,
+            priority=1,
+            proposed_at=time.time(),
+        )
+        base.update(overrides)
+        return ProposedAction(**base)
+
+    def test_new_action_has_zero_depth(self):
+        """A freshly constructed ProposedAction has chain_depth == 0."""
+        action = self._make_action()
+        assert action.chain_depth == 0
+
+    def test_parent_action_id_defaults_none(self):
+        """parent_action_id defaults to None."""
+        action = self._make_action()
+        assert action.parent_action_id is None
+
+    def test_generated_by_defaults_judge(self):
+        """generated_by defaults to 'JUDGE'."""
+        action = self._make_action()
+        assert action.generated_by == "JUDGE"
+
+    def test_chain_depth_manual_set(self):
+        """ProposedAction(chain_depth=2) → chain_depth == 2."""
+        action = self._make_action(chain_depth=2)
+        assert action.chain_depth == 2
+
+    def test_parent_action_id_set(self):
+        """parent_action_id can be set to an action ID string."""
+        action = self._make_action(parent_action_id="deadbeef", chain_depth=1)
+        assert action.parent_action_id == "deadbeef"
+        assert action.chain_depth == 1
+
+    def test_on_decision_made_propagates_depth(self, tmp_path):
+        """_on_decision_made with chain_depth=1 in payload → action.chain_depth == 2."""
+        ap = _proposer_with_tmp(tmp_path)
+        event = _make_decision_event(
+            verdict="BARK",
+            reality="CODE",
+            judgment_id="jid-depth-test",
+        )
+        # Inject parent info into payload
+        event.payload["parent_action_id"] = "parent001"
+        event.payload["chain_depth"] = 1
+        event.payload["generated_by"] = "VERIFY"
+
+        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+            mock_bus.return_value.emit = AsyncMock()
+            asyncio.get_event_loop().run_until_complete(
+                ap._on_decision_made(event)
+            )
+
+        action = ap.all_actions()[0]
+        assert action.chain_depth == 2  # parent depth 1 + 1
+        assert action.parent_action_id == "parent001"
+        assert action.generated_by == "VERIFY"

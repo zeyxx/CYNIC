@@ -203,10 +203,26 @@ async def lifespan(app: FastAPI):
     # Gemini (API — free tier alternative)
     from cynic.llm.adapter import get_registry
     registry = get_registry()
+
+    # Local inference env vars (optional — requires llama-cpp-python installed)
+    models_dir = os.getenv("CYNIC_MODELS_DIR")          # e.g. ~/.cynic/models
+    llama_gpu_layers = int(os.getenv("LLAMA_CPP_GPU_LAYERS", "-1"))  # -1=iGPU, 0=CPU
+    llama_threads = int(os.getenv("LLAMA_CPP_THREADS", "8"))
+
+    # Ollama parallel hint — must be set before `ollama serve` (Ollama env var)
+    if os.getenv("OLLAMA_NUM_PARALLEL") is None:
+        logger.info(
+            "Tip: set OLLAMA_NUM_PARALLEL=4 before starting Ollama for "
+            "parallel MCTS (7 calls → 2 batches instead of 7 sequential)"
+        )
+
     discovered = await registry.discover(
         ollama_url=os.getenv("OLLAMA_URL", "http://localhost:11434"),
         claude_api_key=os.getenv("ANTHROPIC_API_KEY"),
         gemini_api_key=os.getenv("GOOGLE_API_KEY"),
+        models_dir=models_dir,
+        llama_gpu_layers=llama_gpu_layers,
+        llama_threads=llama_threads,
     )
     if discovered:
         logger.info("*ears perk* LLMs discovered: %s", discovered)
@@ -405,6 +421,27 @@ async def lifespan(app: FastAPI):
                 state.action_proposer.mark_auto_executed(_a.action_id)
                 logger.debug("Auto-ACT: marked proposal %s AUTO_EXECUTED", _a.action_id)
                 break
+
+        # ── Chain depth enforcement: F(4)=3 max depth ─────────────────────
+        # Prevents INVESTIGATE→REFACTOR→INVESTIGATE runaway loops.
+        # If the proposal derived from this judgment is at depth >= 3, emit
+        # EMERGENCE_DETECTED (pattern: ACTION_CHAIN_MAX_DEPTH) and skip execution.
+        _chain_depth = 0
+        for _ca in state.action_proposer.all_actions():
+            if _ca.judgment_id == decision_judgment_id:
+                _chain_depth = _ca.chain_depth
+                break
+        if _chain_depth >= 3:  # fibonacci(4) = 3
+            await get_core_bus().emit(Event(
+                type=CoreEvent.EMERGENCE_DETECTED,
+                source="action_chain",
+                payload={"pattern_type": "ACTION_CHAIN_MAX_DEPTH", "chain_depth": _chain_depth},
+            ))
+            logger.warning(
+                "*GROWL* ACTION_CHAIN_MAX_DEPTH: chain blocked at depth %d — EMERGENCE_DETECTED",
+                _chain_depth,
+            )
+            return  # skip execution
 
         logger.info(
             "*ears perk* Auto-ACT fired: reality=%s verdict=%s state=%s",

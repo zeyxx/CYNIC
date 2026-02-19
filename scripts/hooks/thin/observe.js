@@ -2,21 +2,33 @@
 /**
  * CYNIC Thin Observe Hook — PostToolUse
  *
- * Delegates to daemon via HTTP. Non-blocking observation.
- * Also notifies Python kernel (fire-and-forget) for learning.
+ * Python-kernel-only. No JS daemon dependency.
+ * Notifies kernel (fire-and-forget) for learning. Non-blocking observation.
  * "Le chien observe" - CYNIC
  *
  * @event PostToolUse
  */
 'use strict';
 
-import { callDaemon, readHookInput, safeOutput } from './daemon-client.js';
+import { readHookInput, safeOutput } from './daemon-client.js';
 import { notifyKernel } from './kernel-client.js';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
-const input = await readHookInput();
+const _ERR_LOG = path.join(os.homedir(), '.cynic', 'hook-error.log');
 
-// Notify Python kernel (fire-and-forget — never blocks)
-notifyKernel('PostToolUse', input);
+try {
+  const input = await readHookInput();
 
-const result = await callDaemon('PostToolUse', input, { timeout: 3000 });
-safeOutput(result);
+  // Notify Python kernel (fire-and-forget — never blocks)
+  notifyKernel('PostToolUse', input);
+
+  // PostToolUse is pure observation — no output needed.
+  safeOutput({});
+} catch (err) {
+  try {
+    fs.appendFileSync(_ERR_LOG, `[${new Date().toISOString()}] observe.js: ${err.stack || err.message}\n`);
+  } catch { /* ignore */ }
+  process.stdout.write(JSON.stringify({}) + '\n');
+}
