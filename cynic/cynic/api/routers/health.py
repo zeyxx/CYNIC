@@ -391,6 +391,43 @@ async def auto_benchmark_run() -> Dict[str, Any]:
     return {"completed": completed}
 
 
+@router_health.get("/benchmark/probe-snapshot")
+async def benchmark_probe_snapshot(window: int = 10, source: str = "evolve") -> Dict[str, Any]:
+    """
+    Rolling aggregate of the last N probe runs per probe (pass_rate, mean_q, std_q).
+
+    Calls BenchmarkRegistry.snapshot() and writes a new benchmark_snapshots row.
+    Returns {} when no DB pool is available (heuristic mode).
+    """
+    state = get_state()
+    reg = getattr(state.orchestrator, "benchmark_registry", None)
+    if reg is None:
+        return {"available": False, "probes": {}}
+    probes = await reg.snapshot(window_runs=window, source=source)
+    return {"available": True, "window": window, "source": source, "probes": probes}
+
+
+@router_health.get("/benchmark/drift-alerts")
+async def benchmark_drift_alerts(threshold: float = 0.15) -> Dict[str, Any]:
+    """
+    Detect probes whose pass_rate dropped >= threshold vs previous snapshot.
+
+    severity: CRITICAL if delta >= 0.30, WARNING otherwise.
+    Returns empty alerts list when no DB pool or insufficient snapshot history.
+    """
+    state = get_state()
+    reg = getattr(state.orchestrator, "benchmark_registry", None)
+    if reg is None:
+        return {"available": False, "threshold": threshold, "alerts": []}
+    alerts = await reg.drift_alerts(threshold=threshold)
+    return {
+        "available": True,
+        "threshold": threshold,
+        "alert_count": len(alerts),
+        "alerts": alerts,
+    }
+
+
 @router_health.get("/mirror")
 async def mirror() -> Dict[str, Any]:
     """

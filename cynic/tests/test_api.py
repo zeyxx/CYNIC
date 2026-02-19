@@ -892,3 +892,99 @@ class TestSdkRoutingEndpoint:
         data = (await client.get("/sdk/routing")).json()
         assert "simple_task_types" in data
         assert "debug" in data["simple_task_types"]
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /benchmark/probe-snapshot  and  GET /benchmark/drift-alerts
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestBenchmarkProbeEndpoints:
+    """
+    BenchmarkRegistry endpoints — no-DB mode returns available:False gracefully;
+    with a mock registry the full response shape is validated.
+    """
+
+    async def test_probe_snapshot_no_db_available_false(self, client):
+        """No DB pool → available:False, empty probes dict."""
+        resp = await client.get("/benchmark/probe-snapshot")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["available"] is False
+        assert data["probes"] == {}
+
+    async def test_drift_alerts_no_db_available_false(self, client):
+        """No DB pool → available:False, empty alerts list."""
+        resp = await client.get("/benchmark/drift-alerts")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["available"] is False
+        assert data["alerts"] == []
+
+    async def test_probe_snapshot_with_mock_registry(self, client, kernel_state):
+        """Mock BenchmarkRegistry returns probe data → endpoint surfaces it."""
+        from unittest.mock import AsyncMock
+        from cynic.api.state import get_state
+
+        mock_reg = AsyncMock()
+        mock_reg.snapshot = AsyncMock(return_value={
+            "P1": {"probe_name": "P1:clean_code", "pass_rate": 0.8,
+                   "mean_q": 72.0, "std_q": 5.0, "run_count": 10},
+        })
+        get_state().orchestrator.benchmark_registry = mock_reg
+
+        resp = await client.get("/benchmark/probe-snapshot", params={"window": 10})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["available"] is True
+        assert data["window"] == 10
+        assert "P1" in data["probes"]
+        assert data["probes"]["P1"]["pass_rate"] == pytest.approx(0.8)
+
+        # Cleanup
+        get_state().orchestrator.benchmark_registry = None
+
+    async def test_drift_alerts_with_mock_registry(self, client, kernel_state):
+        """Mock BenchmarkRegistry returns drift alert → endpoint surfaces it."""
+        from unittest.mock import AsyncMock
+        from cynic.api.state import get_state
+
+        mock_reg = AsyncMock()
+        mock_reg.drift_alerts = AsyncMock(return_value=[{
+            "probe_id": "P2",
+            "probe_name": "P2:phi_constraint",
+            "current_pass_rate": 0.5,
+            "previous_pass_rate": 0.9,
+            "delta": 0.4,
+            "severity": "CRITICAL",
+        }])
+        get_state().orchestrator.benchmark_registry = mock_reg
+
+        resp = await client.get("/benchmark/drift-alerts", params={"threshold": 0.15})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["available"] is True
+        assert data["alert_count"] == 1
+        assert data["alerts"][0]["severity"] == "CRITICAL"
+        assert data["threshold"] == pytest.approx(0.15)
+
+        # Cleanup
+        get_state().orchestrator.benchmark_registry = None
+
+    async def test_drift_alerts_threshold_param(self, client, kernel_state):
+        """Custom threshold is forwarded to drift_alerts()."""
+        from unittest.mock import AsyncMock
+        from cynic.api.state import get_state
+
+        mock_reg = AsyncMock()
+        mock_reg.drift_alerts = AsyncMock(return_value=[])
+        get_state().orchestrator.benchmark_registry = mock_reg
+
+        resp = await client.get("/benchmark/drift-alerts", params={"threshold": 0.30})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["available"] is True
+        assert data["alert_count"] == 0
+        mock_reg.drift_alerts.assert_called_once_with(threshold=0.30)
+
+        # Cleanup
+        get_state().orchestrator.benchmark_registry = None
