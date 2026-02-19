@@ -103,6 +103,7 @@ class AppState:
     decide_agent: Optional[object] = None   # DecideAgent — auto-decides on BARK/GROWL
     account_agent: Optional[object] = None  # AccountAgent — step 6 cost ledger
     runner: Optional[object] = None        # ClaudeCodeRunner — spawns claude autonomously
+    llm_router: Optional[object] = None    # LLMRouter — Ring 4 Q-Table driven model routing
     telemetry_store: TelemetryStore = field(default_factory=TelemetryStore)  # session data
     context_compressor: ContextCompressor = field(default_factory=ContextCompressor)  # γ2 token budget
     axiom_monitor: AxiomMonitor = field(default_factory=AxiomMonitor)       # δ1 emergent axiom tracker
@@ -508,9 +509,20 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
                 _outcome_window.pop(0)
             _update_error_rate()
             await _assess_lod()
+
+            # EScore updates — total pipeline failure deserves the harshest signal.
+            # Compare with CONSENSUS_FAILED (partial: JUDGE ∝ votes/quorum).
+            # Here there are no votes at all — the judgment never completed.
+            #
+            # JUDGE = 0.0: total failure = zero judgment quality
+            # HOLD  = GROWL_MIN: organism destabilized — long-term stability shaken
+            from cynic.core.phi import GROWL_MIN
+            escore_tracker.update("agent:cynic", "JUDGE", 0.0)
+            escore_tracker.update("agent:cynic", "HOLD",  GROWL_MIN)
+
             logger.warning(
-                "JUDGMENT_FAILED → error_rate=%.2f, LOD=%s",
-                _health_cache["error_rate"], lod_controller.current.name,
+                "JUDGMENT_FAILED → error_rate=%.2f, LOD=%s → JUDGE=0.0 HOLD=%.1f",
+                _health_cache["error_rate"], lod_controller.current.name, GROWL_MIN,
             )
         except Exception:
             pass

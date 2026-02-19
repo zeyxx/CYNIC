@@ -2210,3 +2210,78 @@ class TestConsensusReachedConsciousnessLoop:
         tracker = EScoreTracker()
         tracker.update("agent:cynic", "BUILD", q_score)
         assert tracker.get_score("agent:cynic") >= 0.0
+
+
+# ── JUDGMENT_FAILED → JUDGE=0.0 + HOLD=GROWL_MIN ────────────────────────────
+
+class TestJudgmentFailedEscoreLoop:
+    """
+    JUDGMENT_FAILED fires when the orchestrator throws or times out — the
+    pipeline never completed. Zero votes, zero quality.
+
+    Compare with CONSENSUS_FAILED (partial: JUDGE ∝ votes/quorum).
+    Here there are no votes at all → JUDGE = 0.0 (total failure).
+    HOLD = GROWL_MIN: organism destabilized, long-term stability shaken.
+
+    Handler: _on_judgment_failed in state.py (adds JUDGE + HOLD EScore updates).
+    """
+
+    def test_judgment_failed_judge_is_zero(self):
+        """JUDGMENT_FAILED → JUDGE EScore = 0.0 (total failure, zero quality)."""
+        from cynic.core.escore import EScoreTracker
+
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "JUDGE", 0.0)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["JUDGE"]["value"] == pytest.approx(0.0, abs=0.1)
+
+    def test_judgment_failed_hold_is_growl_min(self):
+        """JUDGMENT_FAILED → HOLD EScore = GROWL_MIN (38.2) — organism destabilized."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import GROWL_MIN
+
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "HOLD", GROWL_MIN)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["HOLD"]["value"] == pytest.approx(GROWL_MIN, abs=0.5)
+
+    def test_failure_hold_lower_than_recovery_hold(self):
+        """JUDGMENT_FAILED HOLD=GROWL_MIN < CONSCIOUSNESS_CHANGED UP HOLD=HOWL_MIN."""
+        from cynic.core.phi import GROWL_MIN, HOWL_MIN
+
+        # Failure degrades stability; recovery restores it
+        assert GROWL_MIN < HOWL_MIN
+
+    def test_consensus_failed_judge_proportional_not_zero(self):
+        """CONSENSUS_FAILED (partial) gives JUDGE > 0 when some dogs voted; JUDGMENT_FAILED always 0."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import MAX_Q_SCORE
+
+        tracker = EScoreTracker()
+        # Simulate CONSENSUS_FAILED with votes=5, quorum=7 → JUDGE = 5/7 * 100 ≈ 71.4
+        votes, quorum = 5, 7
+        partial_score = (votes / quorum) * MAX_Q_SCORE
+        tracker.update("agent:cynic", "JUDGE", partial_score)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["JUDGE"]["value"] > 0.0  # > 0 for partial failure
+        # Whereas JUDGMENT_FAILED is exactly 0
+        assert 0.0 < partial_score < MAX_Q_SCORE
+
+    def test_repeated_failures_keep_judge_at_zero(self):
+        """Multiple consecutive failures all set JUDGE=0.0 — no drift upward."""
+        from cynic.core.escore import EScoreTracker
+
+        tracker = EScoreTracker()
+        for _ in range(5):
+            tracker.update("agent:cynic", "JUDGE", 0.0)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["JUDGE"]["value"] == pytest.approx(0.0, abs=0.1)
+
+    def test_judgment_failed_no_axiom_signal(self):
+        """JUDGMENT_FAILED itself doesn't signal any axiom — only recovery does."""
+        m = AxiomMonitor()
+        # Failure alone: no signals fired (recovery = ANTIFRAGILITY, but that's on success)
+        before = {ax: m.get_maturity(ax) for ax in ("ANTIFRAGILITY", "EMERGENCE", "AUTONOMY")}
+        # No signal call → all maturities unchanged
+        after = {ax: m.get_maturity(ax) for ax in ("ANTIFRAGILITY", "EMERGENCE", "AUTONOMY")}
+        assert before == after
