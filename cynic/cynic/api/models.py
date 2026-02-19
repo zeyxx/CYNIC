@@ -199,6 +199,7 @@ class HealthResponse(BaseModel):
     llm_adapters: List[str]
     judgments_total: int
     phi: float  # 1.618... (always displayed as reminder)
+    storage: Dict[str, Any] = Field(default_factory=dict)  # T02: surreal/asyncpg status
 
 
 # ════════════════════════════════════════════════════════════════════════════

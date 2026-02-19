@@ -277,15 +277,16 @@ async def lifespan(app: FastAPI):
     surreal_url = os.getenv("SURREAL_URL")
     if surreal_url:
         try:
-            from cynic.core.storage.surreal import SurrealStorage
-            surreal = await SurrealStorage.create(
+            # T02: use init_storage() so get_storage() works anywhere in the codebase
+            from cynic.core.storage.surreal import init_storage as _surreal_init
+            surreal = await _surreal_init(
                 url=surreal_url,
                 user=os.getenv("SURREAL_USER", "root"),
                 password=os.getenv("SURREAL_PASS", "cynic_phi_618"),
                 namespace=os.getenv("SURREAL_NS", "cynic"),
                 database=os.getenv("SURREAL_DB", "cynic"),
             )
-            logger.info("*tail wag* SurrealDB active — primary storage")
+            logger.info("*tail wag* SurrealDB active — primary storage (singleton set)")
         except Exception as exc:
             logger.warning("SurrealDB unavailable (%s) — falling back to asyncpg", exc)
             surreal = None
@@ -621,7 +622,8 @@ async def lifespan(app: FastAPI):
     if state.runner is not None:
         await state.runner.shutdown()
     if surreal is not None:
-        await surreal.close()
+        from cynic.core.storage.surreal import close_storage as _surreal_close
+        await _surreal_close()
     if db_pool:
         await state.qtable.flush_to_db(db_pool)
         await db_pool.close()
@@ -1375,6 +1377,17 @@ async def health() -> HealthResponse:
     if not state.learning_loop._active:
         status = "degraded"
 
+    # T02: check SurrealDB singleton status (no I/O — just checks if initialized)
+    _storage_status: Dict[str, Any] = {}
+    try:
+        from cynic.core.storage.surreal import get_storage as _get_storage
+        _get_storage()  # raises RuntimeError if not initialized
+        _storage_status["surreal"] = "connected"
+    except RuntimeError:
+        _storage_status["surreal"] = "disconnected"
+    except Exception:
+        _storage_status["surreal"] = "error"
+
     return HealthResponse(
         status=status,
         uptime_s=round(state.uptime_s, 1),
@@ -1390,6 +1403,7 @@ async def health() -> HealthResponse:
         llm_adapters=[a.adapter_id for a in __import__("cynic.llm.adapter", fromlist=["get_registry"]).get_registry().get_available()],
         judgments_total=judge_stats["judgments_total"],
         phi=PHI,
+        storage=_storage_status,
     )
 
 
