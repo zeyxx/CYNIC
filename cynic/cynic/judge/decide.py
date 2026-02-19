@@ -21,6 +21,7 @@ from typing import Any
 
 
 from cynic.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
+from cynic.core.events_schema import DecisionMadePayload
 
 logger = logging.getLogger("cynic.judge.decide")
 
@@ -253,23 +254,22 @@ class DecideAgent:
             reality, analysis, verdict, content_preview, context
         )
 
-        decision_payload: dict[str, Any] = {
-            "judgment_id": judgment_id,
-            "state_key": state_key,
-            "recommended_action": recommended_action,
-            "q_value": q_value,
-            "confidence": confidence,
-            "trigger": "auto_decide",
-            "reality": reality,
-            "content_preview": content_preview,
-            "action_prompt": action_prompt,
-            "mcts": True,   # Ring 2: selected via NestedMCTS, not greedy exploit
-        }
-
         bus = get_core_bus()
-        await bus.emit(Event(
-            type=CoreEvent.DECISION_MADE,
-            payload=decision_payload,
+        await bus.emit(Event.typed(
+            CoreEvent.DECISION_MADE,
+            DecisionMadePayload(
+                verdict=verdict,
+                reality=reality,
+                state_key=state_key,
+                q_value=q_value,
+                confidence=confidence,
+                recommended_action=recommended_action,
+                action_prompt=action_prompt,
+                trigger="auto_decide",
+                mcts=True,
+                judgment_id=judgment_id,
+                content_preview=content_preview,
+            ),
             source="decide_agent",
         ))
 

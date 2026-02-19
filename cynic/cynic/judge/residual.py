@@ -38,6 +38,10 @@ from cynic.core.judgment import Judgment
 from cynic.core.event_bus import (
     get_core_bus, Event, CoreEvent,
 )
+from cynic.core.events_schema import (
+    AnomalyDetectedPayload,
+    EmergenceDetectedPayload,
+)
 
 logger = logging.getLogger("cynic.judge.residual")
 
@@ -451,19 +455,19 @@ class ResidualDetector:
                 self._patterns.pop(0)
 
             # Emit EMERGENCE_DETECTED (all patterns: SPIKE, STABLE_HIGH, RISING)
-            await get_core_bus().emit(Event(
-                type=CoreEvent.EMERGENCE_DETECTED,
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.EMERGENCE_DETECTED,
+                EmergenceDetectedPayload(
+                    pattern_type=pattern.pattern_type,
+                    severity=pattern.severity,
+                    evidence=pattern.evidence,
+                    judgment_id=point.judgment_id,
+                    reality=point.reality,
+                    analysis=point.analysis,
+                    total_anomalies=self._anomalies,
+                    total_patterns=self._patterns_detected,
+                ),
                 source="residual_detector",
-                payload={
-                    "pattern_type": pattern.pattern_type,
-                    "severity": pattern.severity,
-                    "evidence": pattern.evidence,
-                    "judgment_id": point.judgment_id,
-                    "reality": point.reality,
-                    "analysis": point.analysis,
-                    "total_anomalies": self._anomalies,
-                    "total_patterns": self._patterns_detected,
-                },
             ))
             logger.info(
                 "EMERGENCE_DETECTED emitted: pattern=%s severity=%.3f",
@@ -475,17 +479,17 @@ class ResidualDetector:
             # Distinct from STABLE_HIGH/RISING (sustained patterns, not sudden anomalies).
             # Severity [0,1] quantifies how anomalous the spike was.
             if pattern.pattern_type == "SPIKE":
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.ANOMALY_DETECTED,
+                await get_core_bus().emit(Event.typed(
+                    CoreEvent.ANOMALY_DETECTED,
+                    AnomalyDetectedPayload(
+                        severity=pattern.severity,
+                        reality=point.reality,
+                        analysis=point.analysis,
+                        pattern_type=pattern.pattern_type,
+                        evidence=pattern.evidence,
+                        judgment_id=point.judgment_id,
+                    ),
                     source="residual_detector",
-                    payload={
-                        "pattern_type": pattern.pattern_type,
-                        "severity":     pattern.severity,
-                        "evidence":     pattern.evidence,
-                        "judgment_id":  point.judgment_id,
-                        "reality":      point.reality,
-                        "analysis":     point.analysis,
-                    },
                 ))
                 logger.info(
                     "ANOMALY_DETECTED emitted: SPIKE severity=%.3f at %s·%s",

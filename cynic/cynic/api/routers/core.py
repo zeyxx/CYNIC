@@ -16,6 +16,12 @@ from fastapi import APIRouter, HTTPException, Query
 
 from cynic.core.consciousness import ConsciousnessLevel, get_consciousness
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.core.events_schema import (
+    AxiomActivatedPayload,
+    PerceptionReceivedPayload,
+    UserCorrectionPayload,
+    UserFeedbackPayload,
+)
 from cynic.core.judgment import Cell, Judgment
 from cynic.core.phi import MAX_CONFIDENCE
 from cynic.learning.qlearning import LearningSignal
@@ -28,7 +34,6 @@ from cynic.api.models import (
     PolicyResponse,
 )
 from cynic.api.state import get_state
-from cynic.core.storage.postgres import JudgmentRepository
 from cynic.api.routers.utils import _append_social_signal
 
 logger = logging.getLogger("cynic.api.server")
@@ -37,7 +42,17 @@ router_core = APIRouter(tags=["core"])
 
 _GUIDANCE_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "guidance.json")
 
-_judgment_repo = JudgmentRepository()
+# Lazy-resolved judgment repo — avoids module-level storage import
+_judgment_repo: Any = None
+
+
+def _get_judgment_repo() -> Any:
+    """Lazily import and cache JudgmentRepository (only when DB is available)."""
+    global _judgment_repo
+    if _judgment_repo is None:
+        from cynic.core.storage.postgres import JudgmentRepository
+        _judgment_repo = JudgmentRepository()
+    return _judgment_repo
 
 
 def _persist_judgment(judgment: Judgment) -> None:
@@ -49,6 +64,7 @@ def _persist_judgment(judgment: Judgment) -> None:
     """
     async def _do_save():
         try:
+            repo = _get_judgment_repo()
             data = judgment.to_dict()
             # Add fields not in to_dict() but needed by schema
             data.setdefault("cell_id", judgment.cell.cell_id)
@@ -57,7 +73,7 @@ def _persist_judgment(judgment: Judgment) -> None:
             data.setdefault("consciousness", judgment.cell.consciousness)
             data["reality"] = judgment.cell.reality
             data["analysis"] = judgment.cell.analysis
-            await _judgment_repo.save(data)
+            await repo.save(data)
         except Exception as e:
             logger.debug("Judgment persistence skipped: %s", e)
 
@@ -373,9 +389,9 @@ async def feedback(req: FeedbackRequest) -> FeedbackResponse:
     try:
         new_state = state.axiom_monitor.signal("SYMBIOSIS")
         if new_state == "ACTIVE":
-            await get_core_bus().emit(Event(
-                type=CoreEvent.AXIOM_ACTIVATED,
-                payload={"axiom": "SYMBIOSIS", "maturity": state.axiom_monitor.get_maturity("SYMBIOSIS")},
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.AXIOM_ACTIVATED,
+                AxiomActivatedPayload(axiom="SYMBIOSIS", maturity=state.axiom_monitor.get_maturity("SYMBIOSIS"), trigger="user_feedback"),
                 source="user_feedback",
             ))
     except Exception:
@@ -406,14 +422,14 @@ async def feedback(req: FeedbackRequest) -> FeedbackResponse:
     # ANTIFRAGILITY: being corrected and learning from it = growth through stress.
     if req.rating == 1:
         try:
-            await get_core_bus().emit(Event(
-                type=CoreEvent.USER_CORRECTION,
-                payload={
-                    "rating":      req.rating,
-                    "state_key":   last["state_key"],
-                    "action":      last["action"],
-                    "judgment_id": last.get("judgment_id", ""),
-                },
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.USER_CORRECTION,
+                UserCorrectionPayload(
+                    action=last["action"],
+                    state_key=last["state_key"],
+                    rating=req.rating,
+                    judgment_id=last.get("judgment_id", ""),
+                ),
                 source="feedback_endpoint",
             ))
         except Exception:

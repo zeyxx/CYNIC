@@ -38,7 +38,13 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.core.events_schema import (
+    ActCompletedPayload,
+    AxiomActivatedPayload as _AxiomActivatedPayload,
+    EmergenceDetectedPayload as _EmergenceDetectedPayload,
+)
 from cynic.core.phi import WAG_MIN
+from cynic.core.config import CynicConfig
 from cynic.act.telemetry import compute_reward
 
 from cynic.api.state import build_kernel, set_state, get_state, restore_state
@@ -76,20 +82,25 @@ async def lifespan(app: FastAPI):
     _set_instance_id(_instance_id)
 
     # Write ~/.cynic/instance.json — runtime metadata for debugging + MCP tools
+    # ── Load config from env (ONE place for all env vars) ─────────────────
+    config = CynicConfig.from_env()
+    for issue in config.validate():
+        logger.warning(issue)
+
     _instance_meta_path = os.path.join(os.path.expanduser("~"), ".cynic", "instance.json")
     try:
         os.makedirs(os.path.dirname(_instance_meta_path), exist_ok=True)
         with open(_instance_meta_path, "w", encoding="utf-8") as _fh:
             json.dump({
                 "instance_id": _instance_id,
-                "port": int(os.getenv("PORT", 8765)),
+                "port": config.port,
                 "started_at": time.time(),
             }, _fh, indent=2)
     except Exception as _exc:
         logger.debug("instance.json write failed: %s", _exc)
 
     # MCP auto-config for Cursor/Windsurf — non-destructive (never overwrites existing)
-    _mcp_port = int(os.getenv("PORT", 8765))
+    _mcp_port = config.port
     _mcp_config = {"cynic": {"url": f"http://localhost:{_mcp_port}"}}
     for _mcp_target in [
         os.path.join(os.path.expanduser("~"), ".cursor", "mcp.json"),
@@ -111,25 +122,20 @@ async def lifespan(app: FastAPI):
     from cynic.llm.adapter import get_registry
     registry = get_registry()
 
-    # Local inference env vars (optional — requires llama-cpp-python installed)
-    models_dir = os.getenv("CYNIC_MODELS_DIR")          # e.g. ~/.cynic/models
-    llama_gpu_layers = int(os.getenv("LLAMA_CPP_GPU_LAYERS", "-1"))  # -1=iGPU, 0=CPU
-    llama_threads = int(os.getenv("LLAMA_CPP_THREADS", "8"))
-
     # Ollama parallel hint — must be set before `ollama serve` (Ollama env var)
-    if os.getenv("OLLAMA_NUM_PARALLEL") is None:
+    if config.ollama_num_parallel is None:
         logger.info(
             "Tip: set OLLAMA_NUM_PARALLEL=4 before starting Ollama for "
             "parallel MCTS (7 calls → 2 batches instead of 7 sequential)"
         )
 
     discovered = await registry.discover(
-        ollama_url=os.getenv("OLLAMA_URL", "http://localhost:11434"),
-        claude_api_key=os.getenv("ANTHROPIC_API_KEY"),
-        gemini_api_key=os.getenv("GOOGLE_API_KEY"),
-        models_dir=models_dir,
-        llama_gpu_layers=llama_gpu_layers,
-        llama_threads=llama_threads,
+        ollama_url=config.ollama_url,
+        claude_api_key=config.anthropic_api_key,
+        gemini_api_key=config.google_api_key,
+        models_dir=config.models_dir,
+        llama_gpu_layers=config.llama_gpu_layers,
+        llama_threads=config.llama_threads,
     )
     if discovered:
         logger.info("*ears perk* LLMs discovered: %s", discovered)
@@ -141,17 +147,16 @@ async def lifespan(app: FastAPI):
     surreal = None
     db_pool = None
 
-    surreal_url = os.getenv("SURREAL_URL")
-    if surreal_url:
+    if config.has_surreal:
         try:
             # T02: use init_storage() so get_storage() works anywhere in the codebase
             from cynic.core.storage.surreal import init_storage as _surreal_init
             surreal = await _surreal_init(
-                url=surreal_url,
-                user=os.getenv("SURREAL_USER", "root"),
-                password=os.getenv("SURREAL_PASS", "cynic_phi_618"),
-                namespace=os.getenv("SURREAL_NS", "cynic"),
-                database=os.getenv("SURREAL_DB", "cynic"),
+                url=config.surreal_url,
+                user=config.surreal_user,
+                password=config.surreal_pass,
+                namespace=config.surreal_ns,
+                database=config.surreal_db,
             )
             logger.info("*tail wag* SurrealDB active — primary storage (singleton set)")
         except Exception as exc:
@@ -159,7 +164,7 @@ async def lifespan(app: FastAPI):
             surreal = None
 
     if surreal is None:
-        db_url = os.getenv("DATABASE_URL")
+        db_url = config.database_url
         if db_url:
             try:
                 import asyncpg  # type: ignore
@@ -189,6 +194,8 @@ async def lifespan(app: FastAPI):
             from cynic.dogs.base import DogId
             scholar_dog = state.orchestrator.dogs.get(DogId.SCHOLAR)
             if scholar_dog is not None:
+                if hasattr(scholar_dog, "set_scholar_repo"):
+                    scholar_dog.set_scholar_repo(surreal.scholar)
                 scholar_rows = await surreal.scholar.recent_entries(limit=89)
                 s_loaded = scholar_dog.load_from_entries(scholar_rows)
                 logger.info("Scholar warm-start (SurrealDB): %d entries", s_loaded)
@@ -219,9 +226,13 @@ async def lifespan(app: FastAPI):
             logger.info("BenchmarkRegistry wired: probe runs will be persisted")
 
             from cynic.dogs.base import DogId
+            from cynic.core.storage.postgres import ScholarRepository
             scholar_dog = state.orchestrator.dogs.get(DogId.SCHOLAR)
-            if scholar_dog is not None and hasattr(scholar_dog, "set_db_pool"):
-                scholar_dog.set_db_pool(db_pool)
+            if scholar_dog is not None:
+                if hasattr(scholar_dog, "set_scholar_repo"):
+                    scholar_dog.set_scholar_repo(ScholarRepository())
+                if hasattr(scholar_dog, "set_db_pool"):
+                    scholar_dog.set_db_pool(db_pool)
                 scholar_loaded = await scholar_dog.load_from_db(db_pool)
                 logger.info("Scholar warm-start: %d buffer entries loaded", scholar_loaded)
         except Exception as exc:
@@ -279,13 +290,12 @@ async def lifespan(app: FastAPI):
     # spawns `claude --sdk-url ws://localhost:PORT/ws/sdk` as a subprocess.
     # No human needed to launch Claude Code.
     from cynic.act.runner import ClaudeCodeRunner
-    runner_port = int(os.getenv("PORT", 8765))
     state.runner = ClaudeCodeRunner(
         bus=get_core_bus(),
         sessions_registry=_sdk_sessions,
-        port=runner_port,
+        port=config.port,
     )
-    logger.info("*sniff* ClaudeCodeRunner wired (port=%d)", runner_port)
+    logger.info("*sniff* ClaudeCodeRunner wired (port=%d)", config.port)
 
     # Wire ACT_REQUESTED → runner.execute() → ACT_COMPLETED (T30: closed loop)
     # Routing:
@@ -301,15 +311,15 @@ async def lifespan(app: FastAPI):
             if action_type in _DIRECT_ACTION_TYPES:
                 # Direct execution via UniversalActuator (no LLM overhead)
                 act_result = await state.universal_actuator.dispatch(event.payload)
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.ACT_COMPLETED,
-                    payload={
-                        "action_id": action_id,
-                        "success":   act_result.success,
-                        "cost_usd":  0.0,
-                        "exec_id":   "",
-                        "error":     act_result.error,
-                    },
+                await get_core_bus().emit(Event.typed(
+                    CoreEvent.ACT_COMPLETED,
+                    ActCompletedPayload(
+                        action_id=action_id,
+                        success=act_result.success,
+                        cost_usd=0.0,
+                        exec_id="",
+                        error=act_result.error,
+                    ),
                     source="act_requested_handler",
                 ))
                 return
@@ -323,15 +333,15 @@ async def lifespan(app: FastAPI):
             if not isinstance(cwd, str):
                 cwd = None
             result = await state.runner.execute(prompt, cwd=cwd)
-            await get_core_bus().emit(Event(
-                type=CoreEvent.ACT_COMPLETED,
-                payload={
-                    "action_id": action_id,
-                    "success":   result.get("success", False),
-                    "cost_usd":  result.get("cost_usd", 0.0),
-                    "exec_id":   result.get("exec_id", ""),
-                    "error":     result.get("error", ""),
-                },
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.ACT_COMPLETED,
+                ActCompletedPayload(
+                    action_id=action_id,
+                    success=result.get("success", False),
+                    cost_usd=result.get("cost_usd", 0.0),
+                    exec_id=result.get("exec_id", ""),
+                    error=result.get("error", ""),
+                ),
                 source="act_requested_handler",
             ))
 
@@ -388,10 +398,13 @@ async def lifespan(app: FastAPI):
                 break
 
         if _chain_depth >= 3:  # fibonacci(4) = 3
-            await get_core_bus().emit(Event(
-                type=CoreEvent.EMERGENCE_DETECTED,
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.EMERGENCE_DETECTED,
+                _EmergenceDetectedPayload(
+                    pattern_type="ACTION_CHAIN_MAX_DEPTH",
+                    chain_depth=_chain_depth,
+                ),
                 source="action_chain",
-                payload={"pattern_type": "ACTION_CHAIN_MAX_DEPTH", "chain_depth": _chain_depth},
             ))
             logger.warning(
                 "*GROWL* ACTION_CHAIN_MAX_DEPTH: chain blocked at depth %d — EMERGENCE_DETECTED",
@@ -425,15 +438,15 @@ async def lifespan(app: FastAPI):
                 decision_state_key, decision_action, reward, is_success, cost,
             )
             # T30: emit ACT_COMPLETED so _on_act_completed can close the full loop
-            await get_core_bus().emit(Event(
-                type=CoreEvent.ACT_COMPLETED,
-                payload={
-                    "action_id": "",   # auto-ACT has no explicit action_id
-                    "success":  is_success,
-                    "cost_usd": cost,
-                    "exec_id":  result.get("exec_id", ""),
-                    "error":    result.get("error", ""),
-                },
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.ACT_COMPLETED,
+                ActCompletedPayload(
+                    action_id="",
+                    success=is_success,
+                    cost_usd=cost,
+                    exec_id=result.get("exec_id", ""),
+                    error=result.get("error", ""),
+                ),
                 source="auto_act_and_learn",
             ))
 
@@ -472,14 +485,14 @@ async def lifespan(app: FastAPI):
             if health >= WAG_MIN and state.axiom_monitor is not None:
                 new_state_m = state.axiom_monitor.signal("CONSCIOUSNESS")
                 if new_state_m == "ACTIVE":
-                    await get_core_bus().emit(Event(
-                        type=CoreEvent.AXIOM_ACTIVATED,
-                        payload={
-                            "axiom":          "CONSCIOUSNESS",
-                            "maturity":       state.axiom_monitor.get_maturity("CONSCIOUSNESS"),
-                            "trigger":        "MIRROR_SNAPSHOT",
-                            "overall_health": round(health, 1),
-                        },
+                    await get_core_bus().emit(Event.typed(
+                        CoreEvent.AXIOM_ACTIVATED,
+                        _AxiomActivatedPayload(
+                            axiom="CONSCIOUSNESS",
+                            maturity=state.axiom_monitor.get_maturity("CONSCIOUSNESS"),
+                            trigger="MIRROR_SNAPSHOT",
+                            overall_health=round(health, 1),
+                        ),
                         source="mirror",
                     ))
                     logger.info(

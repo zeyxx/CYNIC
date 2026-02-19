@@ -12,9 +12,10 @@ The real reason: it doesn't conflict with common ports (3000, 8000, 8080, 8888).
 """
 import argparse
 import logging
-import os
 
 import uvicorn
+
+from cynic.core.config import CynicConfig
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,9 +26,10 @@ logger = logging.getLogger("cynic.api.entry")
 
 
 def main() -> None:
+    _config = CynicConfig.from_env()
     parser = argparse.ArgumentParser(description="CYNIC Kernel API Server")
     parser.add_argument("--host", default="0.0.0.0", help="Bind host")
-    parser.add_argument("--port", type=int, default=int(os.getenv("PORT", "8765")), help="Bind port")
+    parser.add_argument("--port", type=int, default=_config.port, help="Bind port")
     parser.add_argument("--reload", action="store_true", help="Auto-reload on code changes (dev only)")
     parser.add_argument("--log-level", default="info", choices=["debug", "info", "warning", "error"])
     args = parser.parse_args()

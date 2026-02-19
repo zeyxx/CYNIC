@@ -10,6 +10,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.core.events_schema import AxiomActivatedPayload
 from cynic.learning.qlearning import LearningSignal
 from cynic.api.state import get_state
 from cynic.api.routers.utils import _append_social_signal
@@ -75,9 +76,9 @@ async def accept_action(action_id: str) -> dict[str, Any]:
     try:
         new_state = state.axiom_monitor.signal("ANTIFRAGILITY")
         if new_state == "ACTIVE":
-            await get_core_bus().emit(Event(
-                type=CoreEvent.AXIOM_ACTIVATED,
-                payload={"axiom": "ANTIFRAGILITY", "maturity": state.axiom_monitor.get_maturity("ANTIFRAGILITY")},
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.AXIOM_ACTIVATED,
+                AxiomActivatedPayload(axiom="ANTIFRAGILITY", maturity=state.axiom_monitor.get_maturity("ANTIFRAGILITY"), trigger="action_accept"),
                 source="action_accept",
             ))
     except Exception:

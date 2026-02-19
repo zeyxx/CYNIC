@@ -69,6 +69,8 @@ class OracleDog(AbstractDog):
     This is different from GUARDIAN (anomaly) or JANITOR (current smells).
     """
 
+    DOG_ID = DogId.ORACLE
+
     def __init__(self, qtable=None) -> None:
         """
         qtable: Optional QTable instance for predictions.

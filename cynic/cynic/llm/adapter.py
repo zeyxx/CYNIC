@@ -50,6 +50,9 @@ class LLMRequest:
     temperature: float = 0.0        # Default: deterministic
     stream: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
+    # Tool calling (Ollama/OpenAI format)
+    tools: list[dict] | None = None       # Tool schemas for function calling
+    messages: list[dict] | None = None    # Full message history (overrides prompt if set)
 
 
 @dataclass
@@ -63,6 +66,8 @@ class LLMResponse:
     cost_usd: float = 0.0
     latency_ms: float = 0.0
     error: str | None = None
+    tool_calls: list[dict] | None = None  # Parsed tool calls from response
+    raw_message: Any = None               # Raw provider message object
 
     @property
     def total_tokens(self) -> int:
@@ -117,7 +122,7 @@ def _log_llm_call(response: LLMResponse, request: LLMRequest) -> None:
         with open(_LLM_LOG_PATH, "w", encoding="utf-8") as fh:
             fh.writelines(lines)
     except Exception:
-        pass  # never crash the caller
+        logger.debug("LLM log write failed (non-critical)", exc_info=True)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -209,27 +214,57 @@ class OllamaAdapter(LLMAdapter):
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
         start = time.time()
-        messages: list[dict[str, str]] = []
-        if request.system:
-            messages.append({"role": "system", "content": request.system})
-        messages.append({"role": "user", "content": request.prompt})
+
+        # Build messages: use explicit messages if provided, else prompt-based
+        if request.messages is not None:
+            messages = list(request.messages)
+            # Prepend system if not already present
+            if request.system and (not messages or messages[0].get("role") != "system"):
+                messages.insert(0, {"role": "system", "content": request.system})
+        else:
+            messages = []
+            if request.system:
+                messages.append({"role": "system", "content": request.system})
+            messages.append({"role": "user", "content": request.prompt})
 
         client = _get_ollama_client(self.base_url)
-        response = await client.chat(
-            model=self.model,
-            messages=messages,
-            options={"temperature": request.temperature, "num_predict": request.max_tokens},
-        )
+        kwargs: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "options": {"temperature": request.temperature, "num_predict": request.max_tokens},
+        }
+        if request.tools:
+            kwargs["tools"] = request.tools
+
+        response = await client.chat(**kwargs)
+
         # ollama 0.1.x returns a dict; 0.2+ returns a ChatResponse object
+        tool_calls = None
         if isinstance(response, dict):
-            content = response.get("message", {}).get("content", "")
+            msg_data = response.get("message", {})
+            content = msg_data.get("content", "")
             p_tokens = response.get("prompt_eval_count", 0)
             c_tokens = response.get("eval_count", 0)
+            raw_tc = msg_data.get("tool_calls")
+            if raw_tc:
+                tool_calls = [
+                    {"name": tc["function"]["name"], "arguments": tc["function"]["arguments"]}
+                    for tc in raw_tc if isinstance(tc, dict) and "function" in tc
+                ]
         else:
             msg = getattr(response, "message", None)
             content = getattr(msg, "content", "") if msg else ""
             p_tokens = getattr(response, "prompt_eval_count", 0)
             c_tokens = getattr(response, "eval_count", 0)
+            raw_tc = getattr(msg, "tool_calls", None)
+            if raw_tc:
+                tool_calls = []
+                for tc in raw_tc:
+                    fn = getattr(tc, "function", None) or (tc.get("function") if isinstance(tc, dict) else None)
+                    if fn:
+                        name = getattr(fn, "name", None) or (fn.get("name") if isinstance(fn, dict) else "")
+                        args = getattr(fn, "arguments", None) or (fn.get("arguments") if isinstance(fn, dict) else {})
+                        tool_calls.append({"name": name, "arguments": args})
 
         latency_ms = (time.time() - start) * 1000
         return LLMResponse(
@@ -240,6 +275,8 @@ class OllamaAdapter(LLMAdapter):
             completion_tokens=c_tokens,
             cost_usd=0.0,
             latency_ms=latency_ms,
+            tool_calls=tool_calls or None,
+            raw_message=response,
         )
 
     async def check_available(self) -> bool:

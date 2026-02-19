@@ -69,7 +69,7 @@ async def health() -> HealthResponse:
     # T02: check SurrealDB singleton status (no I/O — just checks if initialized)
     _storage_status: dict[str, Any] = {}
     try:
-        from cynic.core.storage.surreal import get_storage as _get_storage
+        from cynic.core.storage.surreal import get_storage as _get_storage  # noqa: deferred
         _get_storage()  # raises RuntimeError if not initialized
         _storage_status["surreal"] = "connected"
     except RuntimeError:

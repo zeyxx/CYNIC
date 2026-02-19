@@ -83,6 +83,8 @@ class ArchitectDog(AbstractDog):
       ARCHITECT: module-level structure (coupling, nesting, cohesion, balance)
     """
 
+    DOG_ID = DogId.ARCHITECT
+
     def __init__(self) -> None:
         super().__init__(DogId.ARCHITECT)
         self._cells_analyzed: int = 0

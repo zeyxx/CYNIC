@@ -22,15 +22,49 @@ Why this exists:
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 
 
+def _find_python() -> str:
+    """Find the best Python 3.13+ executable.
+
+    Priority:
+      1. sys.executable if it's 3.11+ (StrEnum support)
+      2. 'py -3.13' launcher on Windows
+      3. 'python3.13' on PATH
+      4. Fallback to sys.executable (may fail on 3.9)
+    """
+    if sys.version_info >= (3, 11):
+        return sys.executable
+
+    # Windows py launcher
+    if sys.platform == "win32":
+        py = shutil.which("py")
+        if py:
+            try:
+                r = subprocess.run([py, "-3.13", "-c", "import sys; print(sys.executable)"],
+                                   capture_output=True, text=True, timeout=5)
+                if r.returncode == 0 and r.stdout.strip():
+                    return r.stdout.strip()
+            except Exception:
+                pass
+
+    # Unix-style python3.13
+    p313 = shutil.which("python3.13")
+    if p313:
+        return p313
+
+    return sys.executable
+
+
 def main() -> int:
     args = sys.argv[1:] or ["tests/"]
+    python = _find_python()
     env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
     r = subprocess.run(
-        [sys.executable, "-m", "pytest"] + args,
+        [python, "-m", "pytest"] + args,
         env=env,
         capture_output=True,
         text=True,

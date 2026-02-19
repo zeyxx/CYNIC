@@ -23,6 +23,15 @@ import asyncpg
 from asyncpg import Pool, Connection
 
 from cynic.core.phi import fibonacci, MAX_Q_SCORE, MAX_CONFIDENCE, PHI_INV
+from cynic.core.storage.interface import (
+    JudgmentRepoInterface,
+    QTableRepoInterface,
+    LearningRepoInterface,
+    BenchmarkRepoInterface,
+    ResidualRepoInterface,
+    SDKSessionRepoInterface,
+    ScholarRepoInterface,
+)
 
 logger = logging.getLogger("cynic.storage.postgres")
 
@@ -277,7 +286,7 @@ async def create_schema(dsn: str | None = None) -> None:
 # JUDGMENT REPOSITORY
 # ════════════════════════════════════════════════════════════════════════════
 
-class JudgmentRepository:
+class JudgmentRepository(JudgmentRepoInterface):
     """CRUD for judgments. φ-bound enforced by DB constraints."""
 
     async def save(self, judgment: dict[str, Any]) -> None:
@@ -371,7 +380,7 @@ class JudgmentRepository:
 # Q-TABLE REPOSITORY
 # ════════════════════════════════════════════════════════════════════════════
 
-class QTableRepository:
+class QTableRepository(QTableRepoInterface):
     """Persistent Q-Table for Q-Learning (state_key × action → q_value)."""
 
     async def get(self, state_key: str, action: str) -> float:
@@ -409,12 +418,20 @@ class QTableRepository:
             )
             return {r["action"]: float(r["q_value"]) for r in rows}
 
+    async def get_all(self) -> list[dict[str, Any]]:
+        """Return all Q-entries — used for warm-start."""
+        async with acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT state_key, action, q_value, visit_count FROM q_table"
+            )
+            return [dict(r) for r in rows]
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # LEARNING EVENTS REPOSITORY
 # ════════════════════════════════════════════════════════════════════════════
 
-class LearningRepository:
+class LearningRepository(LearningRepoInterface):
     """Persist learning events from all 11 learning loops."""
 
     async def save(self, event: dict[str, Any]) -> None:
@@ -455,7 +472,7 @@ class LearningRepository:
 # LLM BENCHMARK REPOSITORY
 # ════════════════════════════════════════════════════════════════════════════
 
-class BenchmarkRepository:
+class BenchmarkRepository(BenchmarkRepoInterface):
     """Persist LLM benchmark results for routing decisions."""
 
     async def save(self, result: dict[str, Any]) -> None:
@@ -524,7 +541,7 @@ class BenchmarkRepository:
 # RESIDUAL HISTORY REPOSITORY
 # ════════════════════════════════════════════════════════════════════════════
 
-class ResidualRepository:
+class ResidualRepository(ResidualRepoInterface):
     """Persist ResidualDetector history for warm-start across restarts."""
 
     async def append(self, point: dict[str, Any]) -> None:
@@ -606,7 +623,7 @@ def residuals() -> ResidualRepository:
 # SDK SESSION REPOSITORY
 # ════════════════════════════════════════════════════════════════════════════
 
-class SDKSessionRepository:
+class SDKSessionRepository(SDKSessionRepoInterface):
     """Persist Claude Code --sdk-url session telemetry for learning analysis."""
 
     async def save(self, telemetry: dict[str, Any]) -> None:
@@ -695,7 +712,7 @@ def sdk_sessions() -> SDKSessionRepository:
 # SCHOLAR BUFFER REPOSITORY
 # ════════════════════════════════════════════════════════════════════════════
 
-class ScholarRepository:
+class ScholarRepository(ScholarRepoInterface):
     """
     Persist Scholar Dog's buffer for warm-start across restarts.
 

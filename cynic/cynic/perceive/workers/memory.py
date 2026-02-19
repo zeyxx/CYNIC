@@ -10,6 +10,7 @@ from typing import Any
 
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.core.events_schema import MemoryPressurePayload
 from cynic.core.judgment import Cell
 from cynic.core.phi import PHI_INV, PHI_INV_3, fibonacci
 from cynic.perceive.workers.base import PerceiveWorker
@@ -136,14 +137,14 @@ class MemoryWatcher(PerceiveWorker):
         free_gb  = info["free_gb"]
 
         # Emit MEMORY_PRESSURE on core bus → LODController reacts
-        await get_core_bus().emit(Event(
-            type=CoreEvent.MEMORY_PRESSURE,
-            payload={
-                "used_pct":    round(used_pct, 4),
-                "free_gb":     round(free_gb, 2),
-                "pressure":    pressure,
-                "memory_pct":  round(used_pct, 4),  # alias for LODController
-            },
+        await get_core_bus().emit(Event.typed(
+            CoreEvent.MEMORY_PRESSURE,
+            MemoryPressurePayload(
+                pressure=pressure,
+                used_pct=round(used_pct, 4),
+                memory_pct=round(used_pct, 4),
+                free_gb=round(free_gb, 2),
+            ),
             source="memory_watcher",
         ))
 

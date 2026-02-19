@@ -18,6 +18,12 @@ from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.core.events_schema import (
+    DecisionMadePayload as _DecisionMadePayload,
+    SdkResultReceivedPayload,
+    SdkSessionStartedPayload,
+    SdkToolJudgedPayload,
+)
 from cynic.core.phi import MAX_CONFIDENCE
 from cynic.act.telemetry import (
     SessionTelemetry as SDKTelemetry,
@@ -213,15 +219,15 @@ async def ws_sdk(websocket: WebSocket) -> None:
                         session.model, len(session.tools), session.cwd,
                     )
 
-                    await bus.emit(Event(
-                        type=CoreEvent.SDK_SESSION_STARTED,
-                        payload={
-                            "session_id": session_id,
-                            "cli_session_id": session.cli_session_id,
-                            "model": session.model,
-                            "cwd": session.cwd,
-                            "tools": session.tools,
-                        },
+                    await bus.emit(Event.typed(
+                        CoreEvent.SDK_SESSION_STARTED,
+                        SdkSessionStartedPayload(
+                            session_id=session_id,
+                            cli_session_id=session.cli_session_id,
+                            model=session.model,
+                            cwd=session.cwd,
+                            tools=session.tools,
+                        ),
                         source="ws_sdk",
                     ))
 
@@ -278,13 +284,13 @@ async def ws_sdk(websocket: WebSocket) -> None:
                         "behavior": behavior,
                     })
 
-                    await bus.emit(Event(
-                        type=CoreEvent.SDK_TOOL_JUDGED,
-                        payload={
-                            "session_id": session_id,
-                            "tool": tool_name,
-                            "verdict": verdict,
-                        },
+                    await bus.emit(Event.typed(
+                        CoreEvent.SDK_TOOL_JUDGED,
+                        SdkToolJudgedPayload(
+                            session_id=session_id,
+                            tool=tool_name,
+                            verdict=verdict,
+                        ),
                         source="ws_sdk",
                     ))
 
@@ -404,49 +410,49 @@ async def ws_sdk(websocket: WebSocket) -> None:
                     # ── L2→L1 cross-feed: BARK/error → ActionProposer ─────────
                     # Links L2 (SDK result) → L1 (action queue) automatically.
                     if is_error or verdict == "BARK":
-                        await bus.emit(Event(
-                            type=CoreEvent.DECISION_MADE,
-                            payload={
-                                "recommended_action": "BARK",
-                                "judgment_id": session_id,
-                                "state_key": rich_state_key,
-                                "reality": "CYNIC",
-                                "content_preview": (session._task_prompt or "")[:60],
-                                "action_prompt": (
+                        await bus.emit(Event.typed(
+                            CoreEvent.DECISION_MADE,
+                            _DecisionMadePayload(
+                                recommended_action="BARK",
+                                verdict="BARK",
+                                reality="CYNIC",
+                                state_key=rich_state_key,
+                                q_value=reward,
+                                action_prompt=(
                                     f"SDK session {session_id[:8]} failed ({task_type}). "
                                     f"Review: {result_text[:200]}"
                                 ),
-                                "q_value": reward,
-                            },
+                                judgment_id=session_id,
+                                content_preview=(session._task_prompt or "")[:60],
+                            ),
                             source="sdk_result",
                         ))
 
                     # Persist to DB (fire-and-forget, best-effort)
                     if state._pool is not None:
                         import dataclasses as _dc
-                        from cynic.core.storage.postgres import SDKSessionRepository as _SDKSessionRepo
-                        _sdk_session_repo = _SDKSessionRepo()
                         _rec_dict = _dc.asdict(telemetry_record)
                         async def _persist_sdk_session(d=_rec_dict):
                             try:
-                                await _sdk_session_repo.save(d)
+                                from cynic.core.storage.postgres import SDKSessionRepository as _SDKSessionRepo
+                                await _SDKSessionRepo().save(d)
                             except Exception as _e:
                                 logger.debug("SDK session persist skipped: %s", _e)
                         asyncio.create_task(_persist_sdk_session())
 
-                    await bus.emit(Event(
-                        type=CoreEvent.SDK_RESULT_RECEIVED,
-                        payload={
-                            "session_id": session_id,
-                            "is_error": is_error,
-                            "cost_usd": cost,
-                            "total_cost_usd": round(session.total_cost_usd, 6),
-                            "reward": reward,
-                            "task_type": task_type,
-                            "complexity": complexity,
-                            "output_verdict": verdict,
-                            "output_q_score": q_score,
-                        },
+                    await bus.emit(Event.typed(
+                        CoreEvent.SDK_RESULT_RECEIVED,
+                        SdkResultReceivedPayload(
+                            session_id=session_id,
+                            is_error=is_error,
+                            cost_usd=cost,
+                            output_q_score=q_score,
+                            total_cost_usd=round(session.total_cost_usd, 6),
+                            reward=reward,
+                            task_type=task_type,
+                            complexity=complexity,
+                            output_verdict=verdict,
+                        ),
                         source="ws_sdk",
                     ))
 

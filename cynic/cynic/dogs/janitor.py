@@ -72,6 +72,8 @@ class JanitorDog(AbstractDog):
     Each smell detected reduces q_score by DECAY_PER_SMELL (8 pts).
     """
 
+    DOG_ID = DogId.JANITOR
+
     def __init__(self) -> None:
         super().__init__(DogId.JANITOR)
         self._total_smells_found: int = 0

@@ -120,6 +120,8 @@ class ScoutDog(LLMDog):
     If code links to a URL that 404s — Scout catches it. No LLM required.
     """
 
+    DOG_ID = DogId.SCOUT
+
     def __init__(self) -> None:
         super().__init__(DogId.SCOUT, task_type="web_discovery")
         self._urls_checked: int = 0

@@ -51,6 +51,8 @@ class GuardianDog(AbstractDog):
     When code, transactions, or market data are anomalous → GUARDIAN reacts.
     """
 
+    DOG_ID = DogId.GUARDIAN
+
     def __init__(self) -> None:
         super().__init__(DogId.GUARDIAN)
         # Separate model per reality dimension

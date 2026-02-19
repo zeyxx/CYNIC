@@ -60,6 +60,8 @@ class AnalystDog(AbstractDog):
     In DECIDE domain: checks decision constraints (budget >= cost, quorum >= threshold)
     """
 
+    DOG_ID = DogId.ANALYST
+
     def __init__(self) -> None:
         super().__init__(DogId.ANALYST)
         self._z3_available = Z3_AVAILABLE

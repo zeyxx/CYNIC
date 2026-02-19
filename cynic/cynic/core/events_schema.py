@@ -141,9 +141,10 @@ class PerceptionReceivedPayload(BaseModel):
     """PERCEPTION_RECEIVED — raw perception input received from hook."""
     model_config = _BASE
 
+    cell_id:  str = ""
     reality:  str = "CODE"
     source:   str = ""
-    content:  str = ""
+    data:     str = ""     # truncated perception content
 
 
 class AnomalyDetectedPayload(BaseModel):
@@ -183,8 +184,9 @@ class ActRequestedPayload(BaseModel):
     """ACT_REQUESTED — execution requested for a proposed action."""
     model_config = _BASE
 
+    action:      str = ""    # the prompt/command to execute
+    target:      str = ""    # working directory (optional)
     action_id:   str = ""
-    prompt:      str = ""
     action_type: str = ""
 
 
@@ -277,10 +279,11 @@ class SelfImprovementProposedPayload(BaseModel):
     """SELF_IMPROVEMENT_PROPOSED — SelfProber L4 analysis complete."""
     model_config = _BASE
 
-    proposal_id:   str = ""
-    analysis_type: str = ""   # QTABLE|ESCORE|CONFIG
-    description:   str = ""
-    priority:      int = 3
+    trigger:       str              = ""    # EMERGENCE|SCHEDULE|MANUAL
+    pattern_type:  str              = ""    # SPIKE|RISING|STABLE_HIGH|UNKNOWN
+    severity:      float            = 0.5   # [0, 1]
+    proposals:     list[dict]       = Field(default_factory=list)
+    total_pending: int              = 0
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -288,23 +291,33 @@ class SelfImprovementProposedPayload(BaseModel):
 # ════════════════════════════════════════════════════════════════════════════
 
 class ConsciousnessChangedPayload(BaseModel):
-    """CONSCIOUSNESS_CHANGED — ConsciousnessLevel transitioned."""
+    """CONSCIOUSNESS_CHANGED — LOD (Level of Detail) transitioned."""
     model_config = _BASE
 
     direction:  str = ""    # "UP" | "DOWN"
     from_name:  str = ""
     to_name:    str = ""
-    from_level: int = 0
-    to_level:   int = 0
+    from_lod:   int = 0     # SurvivalLOD.value (0-3)
+    to_lod:     int = 0
 
 
 class BudgetWarningPayload(BaseModel):
-    """BUDGET_WARNING — spend approaching daily cap."""
+    """BUDGET_WARNING — spend approaching session budget φ-threshold."""
     model_config = _BASE
 
-    used_usd: float = 0.0
-    cap_usd:  float = 0.0
-    pct_used: float = 0.0
+    remaining_usd:      float = 0.0
+    total_spent_usd:    float = 0.0
+    ratio_remaining:    float = 0.0
+    session_budget_usd: float = 0.0
+
+
+class BudgetExhaustedPayload(BaseModel):
+    """BUDGET_EXHAUSTED — session budget fully consumed."""
+    model_config = _BASE
+
+    total_spent_usd:    float = 0.0
+    session_budget_usd: float = 0.0
+    overspend_usd:      float = 0.0
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -377,6 +390,10 @@ class UserFeedbackPayload(BaseModel):
     model_config = _BASE
 
     rating:      float = 3.0   # [1, 5]
+    reward:      float = 0.5   # normalised reward [0.1, 0.9]
+    sentiment:   float = 0.0   # (rating - 3) / 2.0
+    state_key:   str   = ""
+    action:      str   = ""
     judgment_id: str   = ""
     comment:     str   = ""
 

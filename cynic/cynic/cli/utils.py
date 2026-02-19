@@ -32,8 +32,9 @@ _PENDING          = os.path.join(_CYNIC_DIR, "pending_actions.json")
 _SDK_SESSIONS_LOG = os.path.join(_CYNIC_DIR, "sdk_sessions.jsonl")
 _CONSCIOUSNESS    = os.path.join(_CYNIC_DIR, "consciousness.json")
 
-# Server (default port; overridable via CYNIC_PORT env)
-_PORT = int(os.getenv("CYNIC_PORT", "8765"))
+# Server (default port from CynicConfig — single source of truth)
+from cynic.core.config import CynicConfig as _CynicConfig
+_PORT = _CynicConfig.from_env().port
 _API  = f"http://localhost:{_PORT}"
 _API_TIMEOUT = 2.0   # never block the CLI for more than 2s
 

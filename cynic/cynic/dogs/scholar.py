@@ -106,6 +106,8 @@ class ScholarDog(LLMDog):
     to grow the buffer. Buffer auto-evicts oldest entries at BUFFER_MAX.
     """
 
+    DOG_ID = DogId.SCHOLAR
+
     def __init__(self) -> None:
         super().__init__(DogId.SCHOLAR, task_type="vector_rag")
         self._buffer: list[BufferEntry] = []
@@ -118,6 +120,7 @@ class ScholarDog(LLMDog):
         self._db_pool: Any | None = None  # asyncpg pool (None = no persistence)
         self._embedder: EmbeddingProvider | None = None  # β1: vector embedder
         self._qtable: Any | None = None  # QTable (read-only, injected via set_qtable)
+        self._scholar_repo: Any | None = None  # ScholarRepoInterface (injected)
 
     def get_capabilities(self) -> DogCapabilities:
         return DogCapabilities(
@@ -291,15 +294,21 @@ class ScholarDog(LLMDog):
         self._qtable = qtable
         logger.info("ScholarDog: QTable injected — recursive meta-learning enabled")
 
+    def set_scholar_repo(self, repo: Any) -> None:
+        """Inject ScholarRepoInterface — decouples from concrete storage backend."""
+        self._scholar_repo = repo
+        logger.info("ScholarDog: Scholar repo injected")
+
     async def load_from_db(self, pool: Any) -> int:
         """
         Warm-start buffer from DB (call once at kernel startup).
         Returns number of entries loaded.
         """
-        from cynic.core.storage.postgres import ScholarRepository
         try:
-            repo = ScholarRepository()
-            entries = await repo.recent_entries(limit=BUFFER_MAX)
+            if self._scholar_repo is None:
+                logger.debug("ScholarDog: no repo injected, skipping DB warm-start")
+                return 0
+            entries = await self._scholar_repo.recent_entries(limit=BUFFER_MAX)
             for e in entries:
                 self._buffer.append(BufferEntry(
                     cell_text=e.get("cell_text", ""),
@@ -367,9 +376,9 @@ class ScholarDog(LLMDog):
         self._matrix_dirty = True  # Force rebuild on next analyze
 
         # Persist to DB (fire-and-forget — never block learn())
-        if self._db_pool is not None:
+        if self._scholar_repo is not None:
             import asyncio
-            from cynic.core.storage.postgres import ScholarRepository
+            repo = self._scholar_repo
             embedder = self._embedder  # capture before async
 
             async def _persist(e=entry):
@@ -379,7 +388,7 @@ class ScholarDog(LLMDog):
                     if embedder is not None and embedder.is_available():
                         embedding = await embedder.embed(e.cell_text)
                         embed_model = getattr(embedder, "_model", "unknown")
-                    await ScholarRepository().append({
+                    await repo.append({
                         "cell_id": e.cell_id,
                         "cell_text": e.cell_text,
                         "q_score": e.q_score,
@@ -412,14 +421,13 @@ class ScholarDog(LLMDog):
 
         Returns None if no results found (caller falls back to TF-IDF).
         """
-        from cynic.core.storage.postgres import ScholarRepository
-
         query_vec = await self._embedder.embed(cell_text)  # type: ignore[union-attr]
         if not query_vec or all(v == 0.0 for v in query_vec):
             return None
 
-        repo = ScholarRepository()
-        similar = await repo.search_similar_by_embedding(
+        if self._scholar_repo is None:
+            return None
+        similar = await self._scholar_repo.search_similar_by_embedding(
             query_embedding=query_vec,
             limit=K_NEIGHBORS,
             min_similarity=MIN_SIMILARITY,

@@ -25,8 +25,11 @@ from cynic.core.event_bus import get_core_bus, Event, CoreEvent
 from cynic.core.world_model import WorldModelUpdater
 from cynic.core.events_schema import (
     ActCompletedPayload,
+    AxiomActivatedPayload,
+    ConsciousnessChangedPayload,
     JudgmentCreatedPayload,
     SdkToolJudgedPayload,
+    TranscendencePayload,
 )
 from cynic.core.phi import (
     MAX_CONFIDENCE,
@@ -38,17 +41,8 @@ from cynic.core.phi import (
     PHI_INV_2,
 )
 from cynic.dogs.base import AbstractDog, DogId
-from cynic.dogs.cynic_dog import CynicDog
-from cynic.dogs.guardian import GuardianDog
-from cynic.dogs.analyst import AnalystDog
-from cynic.dogs.janitor import JanitorDog
-from cynic.dogs.architect import ArchitectDog
+from cynic.dogs.discovery import discover_dogs
 from cynic.dogs.oracle import OracleDog
-from cynic.dogs.sage import SageDog
-from cynic.dogs.scholar import ScholarDog
-from cynic.dogs.cartographer import CartographerDog
-from cynic.dogs.deployer import DeployerDog
-from cynic.dogs.scout import ScoutDog
 from cynic.judge.orchestrator import JudgeOrchestrator
 from cynic.judge.residual import ResidualDetector
 from cynic.judge.decide import DecideAgent
@@ -72,6 +66,7 @@ from cynic.act.universal import UniversalActuator
 from cynic.judge.mirror import KernelMirror
 from cynic.llm.adapter import LLMRegistry
 from cynic.perceive.compressor import ContextCompressor
+from cynic.core.container import DependencyContainer
 
 logger = logging.getLogger("cynic.api.state")
 
@@ -165,6 +160,7 @@ class AppState:
     world_model: WorldModelUpdater = field(default_factory=WorldModelUpdater)  # T27 cross-reality aggregator
     auto_benchmark: AutoBenchmark | None = None
     universal_actuator: UniversalActuator = field(default_factory=UniversalActuator)
+    container: DependencyContainer = field(default_factory=DependencyContainer)
 
     @property
     def uptime_s(self) -> float:
@@ -250,13 +246,13 @@ class _KernelBuilder:
         """
         new_state = self.axiom_monitor.signal(axiom)
         if new_state == "ACTIVE":
-            await get_core_bus().emit(Event(
-                type=CoreEvent.AXIOM_ACTIVATED,
-                payload={
-                    "axiom":    axiom,
-                    "maturity": self.axiom_monitor.get_maturity(axiom),
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.AXIOM_ACTIVATED,
+                AxiomActivatedPayload(
+                    axiom=axiom,
+                    maturity=self.axiom_monitor.get_maturity(axiom),
                     **extra,
-                },
+                ),
                 source=source,
             ))
         return new_state
@@ -267,23 +263,11 @@ class _KernelBuilder:
 
     def _create_components(self) -> None:
         """Create all kernel components and wire their mutual dependencies."""
-        # Dogs (non-LLM — always available, no API keys needed)
-        cynic_dog = CynicDog()
+        # Dogs — auto-discovered from cynic.dogs (no manual import list)
         # QTable must exist before OracleDog (Oracle reads it for predictions)
         self.qtable = QTable()
-        self.dogs = {
-            DogId.CYNIC:        cynic_dog,
-            DogId.SAGE:         SageDog(),
-            DogId.GUARDIAN:     GuardianDog(),
-            DogId.ANALYST:      AnalystDog(),
-            DogId.JANITOR:      JanitorDog(),
-            DogId.ARCHITECT:    ArchitectDog(),
-            DogId.ORACLE:       OracleDog(qtable=self.qtable),
-            DogId.SCHOLAR:      ScholarDog(),
-            DogId.CARTOGRAPHER: CartographerDog(),
-            DogId.DEPLOYER:     DeployerDog(),
-            DogId.SCOUT:        ScoutDog(),
-        }
+        self.dogs = discover_dogs(ORACLE=OracleDog(qtable=self.qtable))
+        cynic_dog = self.dogs[DogId.CYNIC]
 
         # ── Inject LLMRegistry into all LLM-capable dogs ──────────────────
         if self.registry is not None:
@@ -576,13 +560,14 @@ class _KernelBuilder:
             # A11 TRANSCENDENCE: check specifically A6-A9 (not A10/A11 themselves)
             a6_a9_active = [a for a in active if a in self._A6_A9]
             if len(a6_a9_active) == 4:
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.TRANSCENDENCE,
-                    payload={
-                        "active_axioms": active,
-                        "tier": "TRANSCENDENT",
-                        "trigger": f"AXIOM_ACTIVATED:{axiom_name}",
-                    },
+                await get_core_bus().emit(Event.typed(
+                    CoreEvent.TRANSCENDENCE,
+                    TranscendencePayload(
+                        active_axioms=active,
+                        maturity=maturity,
+                        tier="TRANSCENDENT",
+                        trigger=f"AXIOM_ACTIVATED:{axiom_name}",
+                    ),
                     source="axiom_monitor",
                 ))
         except Exception:
@@ -1223,6 +1208,35 @@ class _KernelBuilder:
             logger.debug("handler error", exc_info=True)
 
     # ═══════════════════════════════════════════════════════════════════════
+    # PHASE 7b — Build DependencyContainer (parallel access path to components)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    def _build_container(self) -> DependencyContainer:
+        """Register all kernel components into the DI container."""
+        from cynic.core.config import CynicConfig
+        container = DependencyContainer(CynicConfig.from_env())
+        container.register(QTable, self.qtable)
+        container.register(JudgeOrchestrator, self.orchestrator)
+        container.register(ResidualDetector, self.residual_detector)
+        container.register(DecideAgent, self.decide_agent)
+        container.register(AccountAgent, self.account_agent)
+        container.register(ActionProposer, self.action_proposer)
+        container.register(SelfProber, self.self_prober)
+        container.register(DogScheduler, self.scheduler)
+        container.register(AxiomMonitor, self.axiom_monitor)
+        container.register(LODController, self.lod_controller)
+        container.register(EScoreTracker, self.escore_tracker)
+        container.register(ContextCompressor, self.compressor)
+        container.register(WorldModelUpdater, self.world_model)
+        if self.registry is not None:
+            container.register(LLMRegistry, self.registry)
+        logger.info(
+            "DependencyContainer: %d types registered — %s",
+            len(container.registered_types), container.registered_types,
+        )
+        return container
+
+    # ═══════════════════════════════════════════════════════════════════════
     # PHASE 8 — Wire event subscriptions
     # ═══════════════════════════════════════════════════════════════════════
 
@@ -1331,11 +1345,13 @@ class _KernelBuilder:
             world_model=self.world_model,
             llm_router=self.llm_router,
             kernel_mirror=KernelMirror(),
+            container=self._container,
         )
 
     def build(self) -> AppState:
         """Build and return the fully-wired AppState."""
         self._create_components()
+        self._container = self._build_container()
         self._wire_event_handlers()
         self._wire_perceive_workers()
         return self._make_app_state()

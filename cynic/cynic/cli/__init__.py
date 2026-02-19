@@ -14,6 +14,7 @@ Usage:
   python -m cynic.cli execute ID → accept + execute a pending action (L1 closure)
   python -m cynic.cli sdk [N]  → last N SDK sessions (L2 bidirectional loop)
   python -m cynic.cli consciousness → TUI dashboard (Ring 3 unified metathinking)
+  python -m cynic.cli chat          → interactive coding assistant (CYNIC Code)
 
 Reads from (fastest path — no server needed):
   ~/.cynic/guidance.json        → last judgment verdict/Q/dogs
@@ -43,6 +44,7 @@ from cynic.cli.execute import cmd_execute
 from cynic.cli.sdk import cmd_sdk
 from cynic.cli.consciousness import cmd_consciousness
 from cynic.cli.tui import cmd_tui
+from cynic.cli.chat import cmd_chat
 from cynic.cli.utils import _c
 
 # Re-export PORT/API constants for any consumer that might need them
@@ -61,6 +63,7 @@ __all__ = [
     "cmd_sdk",
     "cmd_consciousness",
     "cmd_tui",
+    "cmd_chat",
     "main",
 ]
 
@@ -82,6 +85,7 @@ def main() -> None:
         "sdk":           cmd_sdk,
         "consciousness": cmd_consciousness,
         "tui":           cmd_tui,
+        "chat":          cmd_chat,
     }
 
     fn = dispatch.get(cmd)

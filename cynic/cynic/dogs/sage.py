@@ -109,6 +109,8 @@ class SageDog(LLMDog):
     "This code grew without intention."
     """
 
+    DOG_ID = DogId.SAGE
+
     def __init__(self) -> None:
         super().__init__(DogId.SAGE, task_type="wisdom")
         self._heuristic_count: int = 0
@@ -141,7 +143,7 @@ class SageDog(LLMDog):
         try:
             self._compressor.boost(text, weight)
         except Exception:
-            pass  # Never let signal errors break the judgment pipeline
+            logger.debug("Compressor boost failed (non-critical)", exc_info=True)
 
     def get_capabilities(self) -> DogCapabilities:
         return DogCapabilities(

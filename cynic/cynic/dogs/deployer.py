@@ -123,6 +123,8 @@ class DeployerDog(LLMDog):
       - Library anti-patterns (sys.exit outside __main__)
     """
 
+    DOG_ID = DogId.DEPLOYER
+
     def __init__(self) -> None:
         super().__init__(DogId.DEPLOYER, task_type="deployment")
         self._secrets_found: int = 0

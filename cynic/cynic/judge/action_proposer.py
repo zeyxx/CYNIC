@@ -47,6 +47,7 @@ from typing import Any
 
 
 from cynic.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
+from cynic.core.events_schema import ActionProposedPayload
 from cynic.core.phi import fibonacci
 
 logger = logging.getLogger("cynic.judge.action_proposer")
@@ -217,16 +218,16 @@ class ActionProposer:
         )
 
         # Emit ACTION_PROPOSED so other components can react
-        await get_core_bus().emit(Event(
-            type=CoreEvent.ACTION_PROPOSED,
-            payload={
-                "action_id":   action.action_id,
-                "action_type": action.action_type,
-                "verdict":     verdict,
-                "reality":     reality,
-                "priority":    priority,
-                "description": desc,
-            },
+        await get_core_bus().emit(Event.typed(
+            CoreEvent.ACTION_PROPOSED,
+            ActionProposedPayload(
+                action_id=action.action_id,
+                action_type=action.action_type,
+                verdict=verdict,
+                reality=reality,
+                priority=priority,
+                description=desc,
+            ),
             source="action_proposer",
         ))
 

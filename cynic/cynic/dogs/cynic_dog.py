@@ -126,6 +126,8 @@ class CynicDog(AbstractDog):
     Non-LLM — runs at L3 REFLEX (<10ms for coordination, ~50ms for aggregation).
     """
 
+    DOG_ID = DogId.CYNIC
+
     def __init__(self) -> None:
         super().__init__(DogId.CYNIC)
         self._active_requests: dict[str, PBFTRequest] = {}

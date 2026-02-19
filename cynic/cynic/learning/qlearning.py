@@ -509,15 +509,16 @@ class LearningLoop:
         # Only on the EXACT crossing — never re-emitted for the same entry.
         if entry.visits == fibonacci(8):
             from cynic.core.event_bus import CoreEvent, Event, get_core_bus
-            await get_core_bus().emit(Event(
-                type=CoreEvent.EWC_CHECKPOINT,
-                payload={
-                    "state_key": signal.state_key,
-                    "action":    signal.action,
-                    "q_value":   entry.q_value,
-                    "visits":    entry.visits,
-                    "loop_name": signal.loop_name,
-                },
+            from cynic.core.events_schema import EwcCheckpointPayload
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.EWC_CHECKPOINT,
+                EwcCheckpointPayload(
+                    q_value=entry.q_value,
+                    state_key=signal.state_key,
+                    action=signal.action,
+                    visits=entry.visits,
+                    loop_name=signal.loop_name,
+                ),
                 source="learning_loop",
             ))
             logger.info(
@@ -531,13 +532,14 @@ class LearningLoop:
             self._updates_since_flush = 0
             stats = self.qtable.stats()
             from cynic.core.event_bus import CoreEvent, Event, get_core_bus
-            await get_core_bus().emit(Event(
-                type=CoreEvent.Q_TABLE_UPDATED,
-                payload={
-                    "flushed":          flushed,
-                    "total_entries":    stats["entries"],
-                    "ewc_consolidated": stats["ewc_consolidated"],
-                    "total_updates":    stats["total_updates"],
-                },
+            from cynic.core.events_schema import QTableUpdatedPayload
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.Q_TABLE_UPDATED,
+                QTableUpdatedPayload(
+                    flushed=flushed,
+                    total_entries=stats["entries"],
+                    ewc_consolidated=stats["ewc_consolidated"],
+                    total_updates=stats["total_updates"],
+                ),
                 source="learning_loop",
             ))

@@ -61,7 +61,8 @@ VERDICT_EMOJI = {
     "BARK": "🔴",
 }
 
-_DEFAULT_PORT = 8042
+from cynic.core.config import CynicConfig as _CynicConfig
+_DEFAULT_PORT = _CynicConfig.from_env().port
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -545,7 +546,7 @@ class CYNICApp(App):
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def run(base_url: str | None = None) -> None:
-    url = base_url or os.getenv("CYNIC_URL", f"http://localhost:{_DEFAULT_PORT}")
+    url = base_url or f"http://localhost:{_DEFAULT_PORT}"
     CYNICApp(base_url=url).run()
 
 

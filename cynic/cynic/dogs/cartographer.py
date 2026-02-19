@@ -105,6 +105,8 @@ class CartographerDog(LLMDog):
       - ISOLATION:  Unreachable / disconnected nodes
     """
 
+    DOG_ID = DogId.CARTOGRAPHER
+
     def __init__(self) -> None:
         super().__init__(DogId.CARTOGRAPHER, task_type="topology")
         self._graphs_built: int = 0

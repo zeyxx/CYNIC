@@ -39,6 +39,14 @@ from cynic.core.axioms import AxiomArchitecture, Verdict, verdict_from_q_score
 from cynic.core.event_bus import (
     get_core_bus, Event, CoreEvent,
 )
+from cynic.core.events_schema import (
+    ConsensusReachedPayload,
+    ConsensusFailedPayload,
+    LearningEventPayload,
+    MetaCyclePayload,
+    PerceptionReceivedPayload,
+    ResidualHighPayload,
+)
 from cynic.dogs.base import AbstractDog, DogJudgment, DogId
 from cynic.dogs.cynic_dog import CynicDog
 from cynic.judge.circuit_breaker import CircuitBreaker, CircuitState
@@ -191,42 +199,42 @@ class JudgeOrchestrator:
             # Dogs cooperating (PBFT quorum achieved) = CONSENSUS_REACHED.
             # Dogs failing to agree = CONSENSUS_FAILED.
             if judgment.consensus_reached:
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.CONSENSUS_REACHED,
-                    payload={
-                        "judgment_id": judgment.judgment_id,
-                        "votes":    judgment.consensus_votes,
-                        "quorum":   judgment.consensus_quorum,
-                        "q_score":  judgment.q_score,
-                        "verdict":  judgment.verdict,
-                        "cell_id":  cell.cell_id,
-                        "reality":  cell.reality,
-                    },
+                await get_core_bus().emit(Event.typed(
+                    CoreEvent.CONSENSUS_REACHED,
+                    ConsensusReachedPayload(
+                        q_score=judgment.q_score,
+                        votes=judgment.consensus_votes,
+                        quorum=judgment.consensus_quorum,
+                        verdict=judgment.verdict,
+                        judgment_id=judgment.judgment_id,
+                        cell_id=cell.cell_id,
+                        reality=cell.reality,
+                    ),
                 ))
             else:
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.CONSENSUS_FAILED,
-                    payload={
-                        "judgment_id":       judgment.judgment_id,
-                        "votes":             judgment.consensus_votes,
-                        "quorum":            judgment.consensus_quorum,
-                        "residual_variance": judgment.residual_variance,
-                        "cell_id":           cell.cell_id,
-                        "reality":           cell.reality,
-                    },
+                await get_core_bus().emit(Event.typed(
+                    CoreEvent.CONSENSUS_FAILED,
+                    ConsensusFailedPayload(
+                        votes=judgment.consensus_votes,
+                        quorum=judgment.consensus_quorum,
+                        judgment_id=judgment.judgment_id,
+                        residual_variance=judgment.residual_variance,
+                        cell_id=cell.cell_id,
+                        reality=cell.reality,
+                    ),
                 ))
 
             # Emit LEARNING_EVENT for ALL cycles (REFLEX/MICRO/MACRO).
             # Was incorrectly placed inside _cycle_macro only — Q-Learning never fired.
-            await get_core_bus().emit(Event(
-                type=CoreEvent.LEARNING_EVENT,
-                payload={
-                    "judgment_id": judgment.judgment_id,
-                    "state_key": cell.state_key(),
-                    "action": judgment.verdict,
-                    "reward": judgment.q_score / MAX_Q_SCORE,
-                    "loop_name": "JUDGE_ORCHESTRATOR",
-                },
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.LEARNING_EVENT,
+                LearningEventPayload(
+                    reward=judgment.q_score / MAX_Q_SCORE,
+                    action=judgment.verdict,
+                    state_key=cell.state_key(),
+                    judgment_id=judgment.judgment_id,
+                    loop_name="JUDGE_ORCHESTRATOR",
+                ),
             ))
 
             # STEP 5 (LEARN): Feed Scholar its outcome — builds similarity memory.
@@ -253,7 +261,7 @@ class JudgeOrchestrator:
                     _content_preview = str(getattr(cell, "content", "") or "")[:200]
                     self.context_compressor.boost(_content_preview, judgment.q_score / 100.0)
                 except Exception:
-                    pass  # Never block judgment on compressor error
+                    logger.debug("Compressor boost failed (non-critical)", exc_info=True)
 
             # Circuit breaker: successful judgment — reset failure counter
             self._circuit_breaker.record_success()
@@ -546,9 +554,9 @@ class JudgeOrchestrator:
         cell = pipeline.cell
 
         # STEP 1: PERCEIVE (already done — cell is the perception result)
-        await get_core_bus().emit(Event(
-            type=CoreEvent.PERCEPTION_RECEIVED,
-            payload={"cell_id": cell.cell_id, "reality": cell.reality},
+        await get_core_bus().emit(Event.typed(
+            CoreEvent.PERCEPTION_RECEIVED,
+            PerceptionReceivedPayload(reality=cell.reality, cell_id=cell.cell_id),
         ))
 
         # STEP 2: JUDGE — Dogs filtered by E-Score reputation (LOD↔EScore immune system)
@@ -673,13 +681,13 @@ class JudgeOrchestrator:
 
         # STEP 7: EMERGE — detect if residual is emergent
         if judgment.unnameable_detected:
-            await get_core_bus().emit(Event(
-                type=CoreEvent.RESIDUAL_HIGH,
-                payload={
-                    "cell_id": cell.cell_id,
-                    "residual_variance": residual,
-                    "judgment_id": judgment.judgment_id,
-                },
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.RESIDUAL_HIGH,
+                ResidualHighPayload(
+                    cell_id=cell.cell_id,
+                    residual_variance=residual,
+                    judgment_id=judgment.judgment_id,
+                ),
             ))
 
         return judgment
@@ -766,9 +774,9 @@ class JudgeOrchestrator:
             except Exception as exc:
                 logger.warning("BenchmarkRegistry.record_evolve() failed: %s", exc)
 
-        await get_core_bus().emit(Event(
-            type=CoreEvent.META_CYCLE,
-            payload={"evolve": summary},
+        await get_core_bus().emit(Event.typed(
+            CoreEvent.META_CYCLE,
+            MetaCyclePayload(evolve=summary),
         ))
 
         log_line = "evolve() %d/%d probes passed (%.0f%%)%s"

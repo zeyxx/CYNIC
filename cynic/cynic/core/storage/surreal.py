@@ -32,6 +32,18 @@ import time
 import uuid
 from typing import Any
 
+from cynic.core.storage.interface import (
+    StorageInterface,
+    JudgmentRepoInterface,
+    QTableRepoInterface,
+    LearningRepoInterface,
+    BenchmarkRepoInterface,
+    ResidualRepoInterface,
+    SDKSessionRepoInterface,
+    ScholarRepoInterface,
+    ActionProposalRepoInterface,
+    DogSoulRepoInterface,
+)
 
 logger = logging.getLogger("cynic.storage.surreal")
 
@@ -100,7 +112,7 @@ def _rows(result: Any) -> list[dict]:
 # REPOSITORIES
 # ════════════════════════════════════════════════════════════════════════════
 
-class JudgmentRepo:
+class JudgmentRepo(JudgmentRepoInterface):
     def __init__(self, db: Any) -> None:
         self._db = db
 
@@ -152,7 +164,7 @@ class JudgmentRepo:
         }
 
 
-class QTableRepo:
+class QTableRepo(QTableRepoInterface):
     def __init__(self, db: Any) -> None:
         self._db = db
 
@@ -165,7 +177,7 @@ class QTableRepo:
             if rec and isinstance(rec, dict):
                 return float(rec.get("q_value", 0.0))
         except Exception:
-            pass
+            logger.debug("QTable get failed for %s/%s", state_key, action, exc_info=True)
         return 0.0
 
     async def update(self, state_key: str, action: str, q_value: float) -> None:
@@ -175,7 +187,7 @@ class QTableRepo:
         try:
             existing = await self._db.select(rec_id)
         except Exception:
-            pass
+            logger.debug("QTable visit fetch failed for %s", rec_id, exc_info=True)
         visits = 1
         if existing and isinstance(existing, dict):
             visits = int(existing.get("visit_count", 0)) + 1
@@ -202,7 +214,7 @@ class QTableRepo:
         return _rows(result)
 
 
-class LearningRepo:
+class LearningRepo(LearningRepoInterface):
     def __init__(self, db: Any) -> None:
         self._db = db
 
@@ -229,7 +241,7 @@ class LearningRepo:
         return {r["loop_name"]: r["cnt"] for r in _rows(result)}
 
 
-class BenchmarkRepo:
+class BenchmarkRepo(BenchmarkRepoInterface):
     def __init__(self, db: Any) -> None:
         self._db = db
 
@@ -275,7 +287,7 @@ class BenchmarkRepo:
         return _rows(result)
 
 
-class ResidualRepo:
+class ResidualRepo(ResidualRepoInterface):
     def __init__(self, db: Any) -> None:
         self._db = db
 
@@ -296,7 +308,7 @@ class ResidualRepo:
         return list(reversed(rows))  # oldest-first for replay
 
 
-class SDKSessionRepo:
+class SDKSessionRepo(SDKSessionRepoInterface):
     def __init__(self, db: Any) -> None:
         self._db = db
 
@@ -347,7 +359,7 @@ class SDKSessionRepo:
         return None
 
 
-class ScholarRepo:
+class ScholarRepo(ScholarRepoInterface):
     def __init__(self, db: Any) -> None:
         self._db = db
 
@@ -396,7 +408,7 @@ class ScholarRepo:
 # ACTION PROPOSAL REPOSITORY
 # ════════════════════════════════════════════════════════════════════════════
 
-class ActionProposalRepo:
+class ActionProposalRepo(ActionProposalRepoInterface):
     """Persist ProposedAction queue to SurrealDB (mirrors ~/.cynic/pending_actions.json)."""
 
     def __init__(self, db: Any) -> None:
@@ -437,7 +449,7 @@ class ActionProposalRepo:
 # DOG SOUL REPOSITORY
 # ════════════════════════════════════════════════════════════════════════════
 
-class DogSoulRepo:
+class DogSoulRepo(DogSoulRepoInterface):
     """Persist DogSoul cross-session identity to SurrealDB (mirrors ~/.cynic/dogs/{id}/soul.md)."""
 
     def __init__(self, db: Any) -> None:
@@ -469,7 +481,7 @@ class DogSoulRepo:
 # STORAGE FACADE — one object, all repos
 # ════════════════════════════════════════════════════════════════════════════
 
-class SurrealStorage:
+class SurrealStorage(StorageInterface):
     """
     CYNIC's unified storage facade over SurrealDB.
 

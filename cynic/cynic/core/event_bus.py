@@ -64,6 +64,51 @@ class Event:
         """True if this event has already passed through bus_id."""
         return bus_id in self._genealogy
 
+    @classmethod
+    def typed(cls, event_type: str, payload: Any, source: str = "") -> Event:
+        """
+        Create Event from a typed payload (dataclass or Pydantic BaseModel).
+
+        Auto-converts to dict for backward compatibility with existing consumers.
+        Accepts dataclass, Pydantic BaseModel, or plain dict.
+        """
+        import dataclasses as _dc
+        if _dc.is_dataclass(payload) and not isinstance(payload, type):
+            data = _dc.asdict(payload)
+        elif hasattr(payload, "model_dump"):  # Pydantic BaseModel
+            data = payload.model_dump()
+        elif isinstance(payload, dict):
+            data = payload
+        else:
+            raise TypeError(
+                f"Event.typed() expects dataclass, BaseModel, or dict — got {type(payload).__name__}"
+            )
+        return cls(type=event_type, payload=data, source=source)
+
+    def as_typed(self, cls: type) -> Any:
+        """
+        Reconstruct typed payload from event.payload dict.
+
+        Closes the type-safety loop:
+          emit: Event.typed(JUDGMENT_CREATED, JudgmentCreatedPayload(...))
+          consume: p = event.as_typed(JudgmentCreatedPayload)
+                   p.verdict  # str — IDE completion, type checked
+
+        Supports Pydantic BaseModel (model_validate) and dataclasses.
+        Returns the typed instance. Raises on validation failure.
+        """
+        data = self.payload or {}
+        if hasattr(cls, "model_validate"):
+            return cls.model_validate(data)
+        import dataclasses as _dc
+        if _dc.is_dataclass(cls):
+            # Filter dict to only fields the dataclass accepts
+            valid = {f.name for f in _dc.fields(cls)}
+            return cls(**{k: v for k, v in data.items() if k in valid})
+        raise TypeError(
+            f"Event.as_typed() expects Pydantic BaseModel or dataclass — got {cls.__name__}"
+        )
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # CORE BUS EVENTS
