@@ -401,6 +401,11 @@ async def lifespan(app: FastAPI):
     await restore_state(state)  # γ2 + γ4: EScore + session context (cross-crash)
     state.scheduler.start()
 
+    # ── AutoBenchmark — periodic LLM probe every 55 min (T09) ────────────
+    from cynic.act.auto_benchmark import AutoBenchmark
+    state.auto_benchmark = AutoBenchmark(registry)
+    state.auto_benchmark.start()
+
     # ── ClaudeCodeRunner — CYNIC spawns Claude Code autonomously ──────────
     # CYNIC is the BRAIN. Claude Code is the HANDS.
     # When ACT_REQUESTED fires (via /ws/stream or internal DECIDE), CYNIC
@@ -622,6 +627,8 @@ async def lifespan(app: FastAPI):
     get_core_bus().off(CoreEvent.DECISION_MADE, _on_decision_made)
     _bridge.stop()
     await state.scheduler.stop()
+    if state.auto_benchmark is not None:
+        await state.auto_benchmark.stop()
     state.learning_loop.stop()
     if state.runner is not None:
         await state.runner.shutdown()
@@ -1691,6 +1698,25 @@ async def llm_benchmarks() -> dict:
         for (dog_id, task_type, llm_id), r in reg._benchmarks.items()
     ]
     return {"count": len(matrix), "matrix": matrix}
+
+
+@app.get("/auto-benchmark/stats")
+async def auto_benchmark_stats() -> dict:
+    """AutoBenchmark probe stats — interval, runs, enabled flag (T09)."""
+    state = get_state()
+    if state.auto_benchmark is None:
+        return {"enabled": False, "runs": 0, "interval_s": 0}
+    return state.auto_benchmark.stats()
+
+
+@app.post("/auto-benchmark/run")
+async def auto_benchmark_run() -> dict:
+    """Trigger an immediate AutoBenchmark round (T09)."""
+    state = get_state()
+    if state.auto_benchmark is None:
+        return {"completed": 0, "message": "auto_benchmark not initialised"}
+    completed = await state.auto_benchmark.run_once()
+    return {"completed": completed}
 
 
 @app.get("/mirror")
