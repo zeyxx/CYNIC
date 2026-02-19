@@ -45,6 +45,9 @@ ruff = "^0.4.0"                # JANITOR: AST linting
 # Learning Algorithms (numpy 2.0: 3.13 wheels + removed deprecated aliases)
 numpy = "^2.0.0"
 
+# TUI
+textual = "^0.80.0"
+
 # Async utilities
 aiofiles = "^23.2.1"
 aiohttp = "^3.9.0"

@@ -208,11 +208,11 @@ class ActionsPanel(Static):
                         f"[bold green]{prefix} {atype}[/bold green]  "
                         f"[{color}]{emoji} {verdict}[/{color}]"
                     )
-                    lines.append(f"  Q=[bold]{q:.1f}[/bold]  [{reality}]")
+                    lines.append(f"  Q=[bold]{q:.1f}[/bold]  [[{reality}]]")
                     lines.append(f"  [dim]{desc}[/dim]")
                     lines.append(
-                        "  [[bold green]a[/bold green]]ccept  "
-                        "[[bold red]r[/bold red]]eject"
+                        "  [dim][[/dim][bold green]a[/bold green][dim]][/dim]ccept  "
+                        "[dim][[/dim][bold red]r[/bold red][dim]][/dim]eject"
                     )
                 else:
                     lines.append(
