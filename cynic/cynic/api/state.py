@@ -11,7 +11,7 @@ import os
 import time
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import Any, TYPE_CHECKING, Dict, List, Optional
 
 if TYPE_CHECKING:
     import asyncpg
@@ -205,6 +205,38 @@ class _KernelBuilder:
         self.self_prober:      SelfProber       = None  # type: ignore[assignment]
         self.compressor:       ContextCompressor = None  # type: ignore[assignment]
         self.storage_gc:       StorageGarbageCollector = None  # type: ignore[assignment]
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # HELPERS
+    # ═══════════════════════════════════════════════════════════════════════
+
+    async def _signal_axiom(self, axiom: str, source: str, **extra: Any) -> str:
+        """Signal an axiom and emit AXIOM_ACTIVATED if it just became ACTIVE.
+
+        Returns the new axiom state string (e.g. ``"ACTIVE"``, ``"RISING"``).
+        Any ``extra`` kwargs are merged into the AXIOM_ACTIVATED payload so
+        callers can attach context (trigger name, score, etc.) without
+        repeating the boilerplate emit block.
+
+        Usage::
+
+            new_state = await self._signal_axiom(
+                "ANTIFRAGILITY", "judgment_intelligence",
+                trigger="RECOVERY",
+            )
+        """
+        new_state = self.axiom_monitor.signal(axiom)
+        if new_state == "ACTIVE":
+            await get_core_bus().emit(Event(
+                type=CoreEvent.AXIOM_ACTIVATED,
+                payload={
+                    "axiom":    axiom,
+                    "maturity": self.axiom_monitor.get_maturity(axiom),
+                    **extra,
+                },
+                source=source,
+            ))
+        return new_state
 
     # ═══════════════════════════════════════════════════════════════════════
     # PHASE 1 — Component creation
@@ -407,16 +439,7 @@ class _KernelBuilder:
                 not ok for ok in self._outcome_window[:-1]
             )
             if had_stress:
-                new_state = self.axiom_monitor.signal("ANTIFRAGILITY")
-                if new_state == "ACTIVE":
-                    await get_core_bus().emit(Event(
-                        type=CoreEvent.AXIOM_ACTIVATED,
-                        payload={
-                            "axiom":   "ANTIFRAGILITY",
-                            "maturity": self.axiom_monitor.get_maturity("ANTIFRAGILITY"),
-                        },
-                        source="judgment_intelligence",
-                    ))
+                new_state = await self._signal_axiom("ANTIFRAGILITY", "judgment_intelligence")
 
         except Exception:
             pass  # Never block the judgment pipeline
@@ -472,26 +495,14 @@ class _KernelBuilder:
     async def _on_emergence_signal(self, event: Event) -> None:
         """EMERGENCE_DETECTED → signal "EMERGENCE" axiom."""
         try:
-            new_state = self.axiom_monitor.signal("EMERGENCE")
-            if new_state == "ACTIVE":
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.AXIOM_ACTIVATED,
-                    payload={"axiom": "EMERGENCE", "maturity": self.axiom_monitor.get_maturity("EMERGENCE")},
-                    source="emergence_detector",
-                ))
+            new_state = await self._signal_axiom("EMERGENCE", "emergence_detector")
         except Exception:
             pass
 
     async def _on_decision_made_for_axiom(self, event: Event) -> None:
         """DECISION_MADE → signal "AUTONOMY" axiom."""
         try:
-            new_state = self.axiom_monitor.signal("AUTONOMY")
-            if new_state == "ACTIVE":
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.AXIOM_ACTIVATED,
-                    payload={"axiom": "AUTONOMY", "maturity": self.axiom_monitor.get_maturity("AUTONOMY")},
-                    source="decide_agent",
-                ))
+            new_state = await self._signal_axiom("AUTONOMY", "decide_agent")
         except Exception:
             pass
 
@@ -511,17 +522,7 @@ class _KernelBuilder:
             # EMERGENCE: confident BARK = organism sure of a critical problem
             emergence_signalled = False
             if verdict == "BARK" and q_value >= PHI_INV_2:
-                new_state = self.axiom_monitor.signal("EMERGENCE")
-                if new_state == "ACTIVE":
-                    await get_core_bus().emit(Event(
-                        type=CoreEvent.AXIOM_ACTIVATED,
-                        payload={
-                            "axiom":    "EMERGENCE",
-                            "maturity": self.axiom_monitor.get_maturity("EMERGENCE"),
-                            "trigger":  "CONFIDENT_BARK",
-                        },
-                        source="decision_made",
-                    ))
+                new_state = await self._signal_axiom("EMERGENCE", "decision_made", trigger="CONFIDENT_BARK")
                 emergence_signalled = True
 
             logger.debug(
@@ -574,18 +575,10 @@ class _KernelBuilder:
             from cynic.core.phi import MAX_Q_SCORE
 
             # A10 CONSCIOUSNESS: self-analysis happened = organism aware of own state
-            new_state = self.axiom_monitor.signal("CONSCIOUSNESS")
-            if new_state == "ACTIVE":
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.AXIOM_ACTIVATED,
-                    payload={
-                        "axiom":    "CONSCIOUSNESS",
-                        "maturity": self.axiom_monitor.get_maturity("CONSCIOUSNESS"),
-                        "trigger":  "SELF_IMPROVEMENT_PROPOSED",
-                        "count":    len(proposals),
-                    },
-                    source="self_improvement",
-                ))
+            new_state = await self._signal_axiom(
+                "CONSCIOUSNESS", "self_improvement",
+                trigger="SELF_IMPROVEMENT_PROPOSED", count=len(proposals),
+            )
 
             # JUDGE EScore: severity of self-analysis = self-judgment quality
             judge_score = severity * MAX_Q_SCORE
@@ -620,16 +613,7 @@ class _KernelBuilder:
             cell_id  = p.get("cell_id", "")
 
             # 1. THE_UNNAMEABLE = EMERGENCE by definition
-            new_state = self.axiom_monitor.signal("EMERGENCE")
-            if new_state == "ACTIVE":
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.AXIOM_ACTIVATED,
-                    payload={
-                        "axiom":   "EMERGENCE",
-                        "maturity": self.axiom_monitor.get_maturity("EMERGENCE"),
-                    },
-                    source="residual_high",
-                ))
+            new_state = await self._signal_axiom("EMERGENCE", "residual_high")
 
             # 2. EScore JUDGE penalty — inversely proportional to residual
             from cynic.core.phi import MAX_Q_SCORE
@@ -680,32 +664,16 @@ class _KernelBuilder:
 
             # 1. ANTIFRAGILITY signal — regression = organism under stress
             if regression:
-                new_state = self.axiom_monitor.signal("ANTIFRAGILITY")
-                if new_state == "ACTIVE":
-                    await get_core_bus().emit(Event(
-                        type=CoreEvent.AXIOM_ACTIVATED,
-                        payload={
-                            "axiom":   "ANTIFRAGILITY",
-                            "maturity": self.axiom_monitor.get_maturity("ANTIFRAGILITY"),
-                            "trigger": "META_CYCLE_REGRESSION",
-                        },
-                        source="meta_cycle",
-                    ))
+                new_state = await self._signal_axiom(
+                    "ANTIFRAGILITY", "meta_cycle", trigger="META_CYCLE_REGRESSION",
+                )
 
             # 1b. A10 CONSCIOUSNESS — organism accurately perceives its own state
             if pass_rate >= PHI_INV:
-                new_state = self.axiom_monitor.signal("CONSCIOUSNESS")
-                if new_state == "ACTIVE":
-                    await get_core_bus().emit(Event(
-                        type=CoreEvent.AXIOM_ACTIVATED,
-                        payload={
-                            "axiom":    "CONSCIOUSNESS",
-                            "maturity": self.axiom_monitor.get_maturity("CONSCIOUSNESS"),
-                            "trigger":  "META_CYCLE_HEALTH",
-                            "pass_rate": round(pass_rate, 3),
-                        },
-                        source="meta_cycle",
-                    ))
+                new_state = await self._signal_axiom(
+                    "CONSCIOUSNESS", "meta_cycle",
+                    trigger="META_CYCLE_HEALTH", pass_rate=round(pass_rate, 3),
+                )
 
             # 2. EScore JUDGE update — self-assessment quality
             if pass_rate >= PHI_INV:
@@ -763,17 +731,7 @@ class _KernelBuilder:
             self.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
 
             # 2. AUTONOMY — organism learning without human intervention
-            new_state = self.axiom_monitor.signal("AUTONOMY")
-            if new_state == "ACTIVE":
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.AXIOM_ACTIVATED,
-                    payload={
-                        "axiom":    "AUTONOMY",
-                        "maturity": self.axiom_monitor.get_maturity("AUTONOMY"),
-                        "trigger":  "LEARNING_EVENT",
-                    },
-                    source="learning_event",
-                ))
+            new_state = await self._signal_axiom("AUTONOMY", "learning_event", trigger="LEARNING_EVENT")
 
             logger.debug(
                 "LEARNING_EVENT: action=%s reward=%.3f → JUDGE EScore=%.1f%s",
@@ -798,17 +756,9 @@ class _KernelBuilder:
 
             # ANTIFRAGILITY: only on recovery (UP) — survived stress and bounced back
             if direction == "UP":
-                new_state = self.axiom_monitor.signal("ANTIFRAGILITY")
-                if new_state == "ACTIVE":
-                    await get_core_bus().emit(Event(
-                        type=CoreEvent.AXIOM_ACTIVATED,
-                        payload={
-                            "axiom":    "ANTIFRAGILITY",
-                            "maturity": self.axiom_monitor.get_maturity("ANTIFRAGILITY"),
-                            "trigger":  "LOD_RECOVERY",
-                        },
-                        source="consciousness_changed",
-                    ))
+                new_state = await self._signal_axiom(
+                    "ANTIFRAGILITY", "consciousness_changed", trigger="LOD_RECOVERY",
+                )
 
             logger.info(
                 "CONSCIOUSNESS_CHANGED: %s → LOD=%s, HOLD=%.1f%s",
@@ -881,31 +831,13 @@ class _KernelBuilder:
             judge_score = q_value * MAX_Q_SCORE
             self.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
 
-            new_state = self.axiom_monitor.signal("AUTONOMY")
-            if new_state == "ACTIVE":
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.AXIOM_ACTIVATED,
-                    payload={
-                        "axiom":    "AUTONOMY",
-                        "maturity": self.axiom_monitor.get_maturity("AUTONOMY"),
-                        "trigger":  "EWC_CHECKPOINT",
-                    },
-                    source="ewc_checkpoint",
-                ))
+            new_state = await self._signal_axiom("AUTONOMY", "ewc_checkpoint", trigger="EWC_CHECKPOINT")
 
             # A10 CONSCIOUSNESS: consolidation = organism KNOWS this (state, action) pair
-            new_state_c = self.axiom_monitor.signal("CONSCIOUSNESS")
-            if new_state_c == "ACTIVE":
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.AXIOM_ACTIVATED,
-                    payload={
-                        "axiom":    "CONSCIOUSNESS",
-                        "maturity": self.axiom_monitor.get_maturity("CONSCIOUSNESS"),
-                        "trigger":  "EWC_CHECKPOINT",
-                        "q_value":  round(q_value, 3),
-                    },
-                    source="ewc_checkpoint",
-                ))
+            new_state_c = await self._signal_axiom(
+                "CONSCIOUSNESS", "ewc_checkpoint",
+                trigger="EWC_CHECKPOINT", q_value=round(q_value, 3),
+            )
 
             logger.info(
                 "EWC_CHECKPOINT: state=%s action=%s q=%.3f → JUDGE EScore=%.1f%s%s",
@@ -949,32 +881,13 @@ class _KernelBuilder:
             self.escore_tracker.update("agent:cynic", "BUILD", q_score)
 
             # SYMBIOSIS: dogs working as one
-            new_state = self.axiom_monitor.signal("SYMBIOSIS")
-            if new_state == "ACTIVE":
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.AXIOM_ACTIVATED,
-                    payload={
-                        "axiom":    "SYMBIOSIS",
-                        "maturity": self.axiom_monitor.get_maturity("SYMBIOSIS"),
-                        "trigger":  "CONSENSUS_REACHED",
-                    },
-                    source="consensus_reached",
-                ))
+            new_state = await self._signal_axiom("SYMBIOSIS", "consensus_reached", trigger="CONSENSUS_REACHED")
 
             # A10 CONSCIOUSNESS: pack converged = organism knows what it decided.
-            new_state_c = self.axiom_monitor.signal("CONSCIOUSNESS")
-            if new_state_c == "ACTIVE":
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.AXIOM_ACTIVATED,
-                    payload={
-                        "axiom":    "CONSCIOUSNESS",
-                        "maturity": self.axiom_monitor.get_maturity("CONSCIOUSNESS"),
-                        "trigger":  "CONSENSUS_REACHED",
-                        "verdict":  verdict,
-                        "q_score":  round(q_score, 1),
-                    },
-                    source="consensus_reached",
-                ))
+            new_state_c = await self._signal_axiom(
+                "CONSCIOUSNESS", "consensus_reached",
+                trigger="CONSENSUS_REACHED", verdict=verdict, q_score=round(q_score, 1),
+            )
 
             logger.debug(
                 "CONSENSUS_REACHED: votes=%d verdict=%s q=%.1f → BUILD=%.1f%s%s",
@@ -999,17 +912,7 @@ class _KernelBuilder:
             self.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
 
             # EMERGENCE: dogs can't agree = hidden complexity = emergence point
-            new_state = self.axiom_monitor.signal("EMERGENCE")
-            if new_state == "ACTIVE":
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.AXIOM_ACTIVATED,
-                    payload={
-                        "axiom":    "EMERGENCE",
-                        "maturity": self.axiom_monitor.get_maturity("EMERGENCE"),
-                        "trigger":  "CONSENSUS_FAILED",
-                    },
-                    source="consensus_failed",
-                ))
+            new_state = await self._signal_axiom("EMERGENCE", "consensus_failed", trigger="CONSENSUS_FAILED")
 
             logger.info(
                 "CONSENSUS_FAILED: votes=%d/%d → JUDGE EScore=%.1f%s",
@@ -1030,17 +933,7 @@ class _KernelBuilder:
             self.escore_tracker.update("agent:cynic", "JUDGE", 0.0)
 
             # ANTIFRAGILITY: correction = adversarial stress → organism grows
-            new_state = self.axiom_monitor.signal("ANTIFRAGILITY")
-            if new_state == "ACTIVE":
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.AXIOM_ACTIVATED,
-                    payload={
-                        "axiom":    "ANTIFRAGILITY",
-                        "maturity": self.axiom_monitor.get_maturity("ANTIFRAGILITY"),
-                        "trigger":  "USER_CORRECTION",
-                    },
-                    source="user_correction",
-                ))
+            new_state = await self._signal_axiom("ANTIFRAGILITY", "user_correction", trigger="USER_CORRECTION")
 
             logger.info(
                 "USER_CORRECTION: state=%s action=%s → JUDGE=0.0%s",
@@ -1155,17 +1048,7 @@ class _KernelBuilder:
 
             # SYMBIOSIS: seamless human+machine tool use
             if verdict == "HOWL":
-                new_state = self.axiom_monitor.signal("SYMBIOSIS")
-                if new_state == "ACTIVE":
-                    await get_core_bus().emit(Event(
-                        type=CoreEvent.AXIOM_ACTIVATED,
-                        payload={
-                            "axiom":   "SYMBIOSIS",
-                            "maturity": self.axiom_monitor.get_maturity("SYMBIOSIS"),
-                            "trigger": "SDK_TOOL_HOWL",
-                        },
-                        source="sdk_tool_judged",
-                    ))
+                new_state = await self._signal_axiom("SYMBIOSIS", "sdk_tool_judged", trigger="SDK_TOOL_HOWL")
 
             logger.info(
                 "SDK_TOOL_JUDGED: tool=%s verdict=%s → GRAPH EScore=%.1f%s",
@@ -1187,17 +1070,7 @@ class _KernelBuilder:
             self.escore_tracker.update("agent:cynic", "GRAPH", WAG_MIN)
 
             # 2. SYMBIOSIS: human+machine collaboration is beginning
-            new_state = self.axiom_monitor.signal("SYMBIOSIS")
-            if new_state == "ACTIVE":
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.AXIOM_ACTIVATED,
-                    payload={
-                        "axiom":    "SYMBIOSIS",
-                        "maturity": self.axiom_monitor.get_maturity("SYMBIOSIS"),
-                        "trigger":  "SDK_SESSION_STARTED",
-                    },
-                    source="sdk_session_started",
-                ))
+            new_state = await self._signal_axiom("SYMBIOSIS", "sdk_session_started", trigger="SDK_SESSION_STARTED")
 
             logger.info(
                 "SDK_SESSION_STARTED: session=%s → GRAPH EScore=%.1f SYMBIOSIS signalled",
@@ -1240,17 +1113,9 @@ class _KernelBuilder:
                 and any(not ok for ok in self._sdk_outcome_window[:-1])
             )
             if success and had_prior_stress:
-                new_state = self.axiom_monitor.signal("ANTIFRAGILITY")
-                if new_state == "ACTIVE":
-                    await get_core_bus().emit(Event(
-                        type=CoreEvent.AXIOM_ACTIVATED,
-                        payload={
-                            "axiom":    "ANTIFRAGILITY",
-                            "maturity": self.axiom_monitor.get_maturity("ANTIFRAGILITY"),
-                            "trigger":  "SDK_RESULT_RECOVERY",
-                        },
-                        source="sdk_result_received",
-                    ))
+                new_state = await self._signal_axiom(
+                    "ANTIFRAGILITY", "sdk_result_received", trigger="SDK_RESULT_RECOVERY",
+                )
 
             logger.info(
                 "SDK_RESULT_RECEIVED: session=%s is_error=%s cost=$%.4f "
@@ -1277,17 +1142,7 @@ class _KernelBuilder:
             self.escore_tracker.update("agent:cynic", "SOCIAL", WAG_MIN)
 
             # AUTONOMY: organism taking autonomous action — most definitive form
-            new_state = self.axiom_monitor.signal("AUTONOMY")
-            if new_state == "ACTIVE":
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.AXIOM_ACTIVATED,
-                    payload={
-                        "axiom":    "AUTONOMY",
-                        "maturity": self.axiom_monitor.get_maturity("AUTONOMY"),
-                        "trigger":  "ACT_REQUESTED",
-                    },
-                    source="act_requested",
-                ))
+            new_state = await self._signal_axiom("AUTONOMY", "act_requested", trigger="ACT_REQUESTED")
 
             logger.info(
                 "ACT_REQUESTED: type=%s reality=%s → HOLD=%.1f SOCIAL=%.1f%s",
