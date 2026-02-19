@@ -29,8 +29,8 @@ from __future__ import annotations
 
 import logging
 import time
-from enum import Enum
-from typing import Any, Dict
+from enum import StrEnum
+from typing import Any
 
 from cynic.core.phi import PHI_INV_2, fibonacci
 
@@ -41,7 +41,7 @@ _FAILURE_THRESHOLD: int = fibonacci(5)          # 5 consecutive failures → OPE
 _COOLDOWN_S: float = PHI_INV_2 * 60             # 22.9s cooldown before HALF_OPEN
 
 
-class CircuitState(str, Enum):
+class CircuitState(StrEnum):
     CLOSED    = "CLOSED"
     OPEN      = "OPEN"
     HALF_OPEN = "HALF_OPEN"

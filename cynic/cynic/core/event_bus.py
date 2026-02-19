@@ -21,8 +21,8 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from enum import StrEnum
+from typing import Any
 from collections.abc import Callable, Coroutine
 
 logger = logging.getLogger("cynic.event_bus")
@@ -69,7 +69,7 @@ class Event:
 # CORE BUS EVENTS
 # ════════════════════════════════════════════════════════════════════════════
 
-class CoreEvent(str, Enum):
+class CoreEvent(StrEnum):
     """Events on the CORE bus (judgment pipeline, learning, consciousness)."""
     # Judgment lifecycle
     JUDGMENT_REQUESTED = "judgment.requested"
@@ -130,7 +130,7 @@ class CoreEvent(str, Enum):
 # AUTOMATION BUS EVENTS
 # ════════════════════════════════════════════════════════════════════════════
 
-class AutomationEvent(str, Enum):
+class AutomationEvent(StrEnum):
     """Events on the AUTOMATION bus (triggers, ticks, scheduled tasks)."""
     TRIGGER_FIRED      = "trigger.fired"
     TRIGGER_BLOCKED    = "trigger.blocked"
@@ -160,7 +160,7 @@ class AutomationEvent(str, Enum):
 # AGENT BUS EVENTS (Dogs)
 # ════════════════════════════════════════════════════════════════════════════
 
-class AgentEvent(str, Enum):
+class AgentEvent(StrEnum):
     """Events on the AGENT bus (Dog signals, PBFT protocol)."""
     # Dog lifecycle
     DOG_ACTIVATED      = "dog.activated"

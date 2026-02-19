@@ -38,8 +38,8 @@ import math
 import re
 import time
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from enum import StrEnum
+from typing import Any
 
 from cynic.core.phi import PHI, PHI_INV, PHI_INV_2, PHI_2, MAX_Q_SCORE, phi_bound_score
 
@@ -50,7 +50,7 @@ logger = logging.getLogger("cynic.llm.temporal")
 # TEMPORAL PERSPECTIVES
 # ════════════════════════════════════════════════════════════════════════════
 
-class TemporalPerspective(str, Enum):
+class TemporalPerspective(StrEnum):
     """The 7 time dimensions of CYNIC's judgment."""
     PAST     = "PAST"      # T1 — Historical patterns
     PRESENT  = "PRESENT"   # T2 — Current validity

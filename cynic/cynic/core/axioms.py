@@ -25,15 +25,14 @@ TIER 3: THE_UNNAMEABLE — Residual inexplicable variance (pointer to ∞)
 Scoring:
     - Each axiom scored 0-100 across 7 fractal facets
     - Contextual weights per domain (CODE/SOLANA/MARKET/SOCIAL/HUMAN/CYNIC/COSMOS)
-    - Weighted geometric mean → Q-Score ∈ [0, 61.8]
+    - Weighted geometric mean → Q-Score ∈ [0, 100] (confidence φ-bounded to 61.8%)
     - Fractal recursion: facets → sub-facets (max 3 levels deep)
 """
 from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Dict, List, Optional
+from enum import StrEnum
 from collections.abc import Callable
 
 from cynic.core.phi import (
@@ -58,7 +57,7 @@ from cynic.core.phi import (
 # AXIOM NAMES & TIER DEFINITIONS
 # ════════════════════════════════════════════════════════════════════════════
 
-class Axiom(str, Enum):
+class Axiom(StrEnum):
     """All 11 axioms + THE_UNNAMEABLE."""
 
     # Tier 0: Core (always active)
@@ -153,7 +152,7 @@ AXIOM_FACETS: dict[str, dict[str, str]] = {
 # CONTEXTUAL WEIGHTS PER DOMAIN
 # ════════════════════════════════════════════════════════════════════════════
 
-class Domain(str, Enum):
+class Domain(StrEnum):
     """7 Reality Dimensions (what exists)."""
     CODE = "CODE"
     SOLANA = "SOLANA"
@@ -277,7 +276,7 @@ EMERGENT_THRESHOLDS: dict[str, EmergentThreshold] = {
 # VERDICT
 # ════════════════════════════════════════════════════════════════════════════
 
-class Verdict(str, Enum):
+class Verdict(StrEnum):
     HOWL = "HOWL"    # 82-61.8: Exceptional (φ² × φ⁻¹)
     WAG = "WAG"      # 61.8-38.2: Good
     GROWL = "GROWL"  # 38.2-0: Needs work

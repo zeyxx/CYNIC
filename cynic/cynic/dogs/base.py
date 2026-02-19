@@ -28,8 +28,8 @@ from __future__ import annotations
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from enum import StrEnum
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from cynic.llm.adapter import LLMAdapter, LLMRegistry
@@ -46,7 +46,7 @@ from cynic.core.consciousness import ConsciousnessLevel, dogs_for_level
 # DOG REGISTRY (all 11 Dogs with their Sefirot)
 # ════════════════════════════════════════════════════════════════════════════
 
-class DogId(str, Enum):
+class DogId(StrEnum):
     """The 11 Dogs — Sefirot of the Kabbalistic Tree of Life."""
     CYNIC         = "CYNIC"        # Keter — Crown (PBFT coordinator)
     SAGE          = "SAGE"         # Chokmah — Wisdom (LLM + RDFLib)
@@ -170,7 +170,7 @@ class DogCapabilities:
 # HEALTH STATUS
 # ════════════════════════════════════════════════════════════════════════════
 
-class HealthStatus(str, Enum):
+class HealthStatus(StrEnum):
     HEALTHY   = "HEALTHY"
     DEGRADED  = "DEGRADED"
     UNHEALTHY = "UNHEALTHY"
