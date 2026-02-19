@@ -23,7 +23,9 @@ Adapters:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import os
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -77,6 +79,47 @@ class LLMResponse:
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# T20 — LLM CALL INTERCEPTOR (persistent JSONL log)
+# ════════════════════════════════════════════════════════════════════════════
+
+_LLM_LOG_PATH: str = os.path.join(os.path.expanduser("~"), ".cynic", "llm_calls.jsonl")
+_LLM_LOG_CAP: int = 233  # F(13) — rolling window
+
+
+def _log_llm_call(response: "LLMResponse", request: "LLMRequest") -> None:
+    """Append one LLM call record to ~/.cynic/llm_calls.jsonl (rolling cap F(13)=233).
+
+    Called from complete_safe() — every Ollama / Claude / Gemini call is captured.
+    Silently swallows all I/O errors so the caller is never affected.
+    """
+    try:
+        record = {
+            "ts": time.time(),
+            "provider": response.provider,
+            "model": response.model,
+            "latency_ms": response.latency_ms,
+            "prompt_tokens": response.prompt_tokens,
+            "completion_tokens": response.completion_tokens,
+            "cost_usd": response.cost_usd,
+            "success": response.is_success,
+            "error": response.error,
+            "prompt_preview": request.prompt[:80],
+        }
+        os.makedirs(os.path.dirname(_LLM_LOG_PATH), exist_ok=True)
+        lines: list = []
+        if os.path.exists(_LLM_LOG_PATH):
+            with open(_LLM_LOG_PATH, "r", encoding="utf-8") as fh:
+                lines = fh.readlines()
+        lines.append(json.dumps(record, ensure_ascii=False) + "\n")
+        if len(lines) > _LLM_LOG_CAP:
+            lines = lines[-_LLM_LOG_CAP:]
+        with open(_LLM_LOG_PATH, "w", encoding="utf-8") as fh:
+            fh.writelines(lines)
+    except Exception:
+        pass  # never crash the caller
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # ABSTRACT ADAPTER
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -102,19 +145,25 @@ class LLMAdapter(ABC):
         ...
 
     async def complete_safe(self, request: LLMRequest) -> LLMResponse:
-        """Complete with error containment — never raises."""
+        """Complete with error containment — never raises.
+
+        Every call (success and error) is appended to ~/.cynic/llm_calls.jsonl
+        by _log_llm_call() for T20 LLMCallInterceptor observability.
+        """
         try:
-            return await asyncio.wait_for(self.complete(request), timeout=120.0)
+            response = await asyncio.wait_for(self.complete(request), timeout=120.0)
         except asyncio.TimeoutError:
-            return LLMResponse(
+            response = LLMResponse(
                 content="", model=self.model, provider=self.provider,
                 error="timeout after 120s",
             )
         except Exception as exc:
-            return LLMResponse(
+            response = LLMResponse(
                 content="", model=self.model, provider=self.provider,
                 error=str(exc),
             )
+        _log_llm_call(response, request)
+        return response
 
 
 # ════════════════════════════════════════════════════════════════════════════
