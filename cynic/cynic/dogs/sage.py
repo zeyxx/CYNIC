@@ -175,7 +175,8 @@ class SageDog(LLMDog):
         # Phase 2: Temporal MCTS (if LLM available)
         adapter = await self.get_llm()
         if adapter is not None:
-            return await self._temporal_path(cell, text, adapter, start)
+            lod_level: int = kwargs.get("lod_level", 0)
+            return await self._temporal_path(cell, text, adapter, start, lod_level=lod_level)
 
         # Phase 1: Heuristic fallback
         return self._heuristic_path(cell, text, start)
@@ -186,16 +187,25 @@ class SageDog(LLMDog):
         text: str,
         adapter: Any,
         start: float,
+        lod_level: int = 0,
     ) -> DogJudgment:
         """
-        Phase 2: 7 parallel temporal perspectives via Ollama.
+        Phase 2: Temporal perspectives via Ollama.
 
-        This is Chokmah's true power — judging from ALL temporal dimensions
-        simultaneously, then aggregating with φ-weights.
+        LOD=FULL (0): full temporal_judgment() — 7 perspectives, rich signal.
+        LOD=REDUCED (1): fast_temporal_judgment() — 3 perspectives, 57% cheaper.
+        Higher LOD values won't reach MACRO (blocked by _apply_lod_cap in orchestrator).
         """
-        from cynic.llm.temporal import temporal_judgment
+        from cynic.llm.temporal import temporal_judgment, fast_temporal_judgment
 
-        tj = await temporal_judgment(adapter, text or cell.context or "")
+        content = text or cell.context or ""
+        if lod_level == 1:
+            # R2: REDUCED LOD — organism under resource pressure → 3-perspective fast path
+            tj = await fast_temporal_judgment(adapter, content)
+            perspective_count = 3
+        else:
+            tj = await temporal_judgment(adapter, content)
+            perspective_count = 7
 
         q_score = tj.phi_aggregate
         confidence = tj.confidence
@@ -206,7 +216,7 @@ class SageDog(LLMDog):
         best = max(scores.items(), key=lambda kv: kv[1])
         worst = min(scores.items(), key=lambda kv: kv[1])
         reasoning = (
-            f"*sniff* Chokmah (temporal): Q={q_score:.1f} via 7 perspectives. "
+            f"*sniff* Chokmah (temporal/{perspective_count}p): Q={q_score:.1f}. "
             f"Strongest: {best[0]} ({best[1]:.1f}). "
             f"Weakest: {worst[0]} ({worst[1]:.1f}). "
             f"LLM: {tj.llm_id}."

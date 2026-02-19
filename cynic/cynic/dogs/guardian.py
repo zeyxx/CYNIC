@@ -93,8 +93,12 @@ class GuardianDog(AbstractDog):
         # Anomalous: q_score near 0
         q_score = phi_bound_score(MAX_Q_SCORE * (1.0 - min(anomaly_score, 1.0)))
 
-        # VETO if danger is extreme
-        veto = danger_level >= VETO_THRESHOLD
+        # R2: Holographic Mirror — organism under stress → more vigilant (lower threshold).
+        # LOD=REDUCED (1): organism under resource pressure → lower threshold to WARN.
+        # LOD=FULL (0) or absent: normal VETO_THRESHOLD (φ² = 2.618).
+        lod_level: int = kwargs.get("lod_level", 0)
+        effective_veto_threshold = WARN_THRESHOLD if lod_level >= 1 else VETO_THRESHOLD
+        veto = danger_level >= effective_veto_threshold
 
         # GUARDIAN confidence: lower than other Dogs by design (immune systems have false positives)
         confidence = PHI_INV_2  # 38.2% — intentionally conservative

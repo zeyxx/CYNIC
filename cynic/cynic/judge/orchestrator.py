@@ -566,7 +566,19 @@ class JudgeOrchestrator:
 
         all_dogs = [d for _, d in dog_items]
         per_dog_budget = cell.budget_usd / max(len(all_dogs), 1)
-        tasks = [dog.analyze(cell, budget_usd=per_dog_budget) for dog in all_dogs]
+
+        # R2: Holographic Mirror — pass organism health context to every Dog.
+        # Dogs receive lod_level + active_axioms so they can adapt depth/sensitivity.
+        organism_kwargs: Dict[str, Any] = {
+            "budget_usd": per_dog_budget,
+            "active_dogs": len(all_dogs),
+        }
+        if self.lod_controller is not None:
+            organism_kwargs["lod_level"] = int(self.lod_controller.current)
+        if self.axiom_monitor is not None:
+            organism_kwargs["active_axioms"] = self.axiom_monitor.active_count()
+
+        tasks = [dog.analyze(cell, **organism_kwargs) for dog in all_dogs]
         dog_judgments_raw = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Filter out errors gracefully

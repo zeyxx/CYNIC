@@ -177,6 +177,14 @@ class CynicDog(AbstractDog):
             success_rate = PHI_INV  # 61.8% — assume moderate health without data
         factors.append(success_rate)
 
+        # Factor 4: axiom health (organism transcendence state) — R2: Holographic Mirror
+        # More active axioms = healthier, more coherent organism.
+        # Only included when passed (MACRO cycle via organism_kwargs); skipped otherwise.
+        active_axioms = kwargs.get("active_axioms")
+        if active_axioms is not None:
+            axiom_ratio = max(active_axioms / 4.0, 0.01)  # 4 emergent axioms max; 0→near-zero
+            factors.append(axiom_ratio)
+
         # Geometric mean of coherence factors → q_score
         if any(f <= 0 for f in factors):
             q_score = 0.0
@@ -193,7 +201,11 @@ class CynicDog(AbstractDog):
             cell_id=cell.cell_id,
             q_score=q_score,
             confidence=PHI_INV * PHI_INV,  # 0.382 — modest confidence for systemic score
-            reasoning=f"Systemic coherence: budget={budget_ratio:.2f}, dogs={dogs_ratio:.2f}, consensus_rate={success_rate:.2f}",
+            reasoning=(
+                f"Systemic coherence: budget={budget_ratio:.2f}, dogs={dogs_ratio:.2f}, "
+                f"consensus_rate={success_rate:.2f}"
+                + (f", axioms={active_axioms}/4" if active_axioms is not None else "")
+            ),
             latency_ms=latency,
             llm_id=None,
         )
