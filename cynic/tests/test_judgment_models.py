@@ -130,6 +130,30 @@ class TestJudgment:
         assert "timestamp" in d
         assert d["verdict"] == "GROWL"
 
+    def test_to_dict_includes_dog_votes(self, code_cell):
+        """Regression test: dog_votes was missing from to_dict(), causing guidance.json
+        to always show {} — event handler _on_judgment_created() overwrote the file
+        with empty dog_votes after _write_guidance() wrote the correct values."""
+        j = Judgment(
+            cell=code_cell,
+            q_score=75.0,
+            verdict="WAG",
+            confidence=0.382,
+            dog_votes={"GUARDIAN": 82.3, "ANALYST": 61.8, "SAGE": 74.1},
+        )
+        d = j.to_dict()
+        assert "dog_votes" in d, "to_dict() must include dog_votes for guidance.json loop"
+        assert d["dog_votes"]["GUARDIAN"] == 82.3
+        assert d["dog_votes"]["ANALYST"] == 61.8
+        assert d["dog_votes"]["SAGE"] == 74.1
+
+    def test_to_dict_empty_dog_votes(self, code_cell):
+        """to_dict() works correctly when dog_votes is empty (REFLEX with no dogs)."""
+        j = Judgment(cell=code_cell, q_score=50.0, verdict="GROWL", confidence=0.3)
+        d = j.to_dict()
+        assert "dog_votes" in d
+        assert d["dog_votes"] == {}
+
     def test_residual_variance_range(self, code_cell):
         j = Judgment(cell=code_cell, q_score=30.0, verdict="BARK", confidence=0.3)
         assert j.residual_variance == 0.0

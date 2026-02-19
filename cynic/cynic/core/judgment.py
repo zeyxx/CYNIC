@@ -242,6 +242,7 @@ class Judgment(BaseModel):
             "confidence": round(self.confidence, 3),
             "axiom_scores": {k: round(v, 2) for k, v in self.axiom_scores.items()},
             "active_axioms": self.active_axioms,
+            "dog_votes": {k: round(v, 3) for k, v in self.dog_votes.items()},
             "consensus_reached": self.consensus_reached,
             "consensus_votes": self.consensus_votes,
             "residual_variance": round(self.residual_variance, 4),
