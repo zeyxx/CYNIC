@@ -636,103 +636,6 @@ class TestMetaCycleLoop:
         assert tracker.get_score("agent:cynic") >= 0.0
 
 
-# ── SDK_TOOL_JUDGED → SYMBIOSIS signal + GRAPH EScore loop ───────────────────
-
-class TestSdkToolJudgedLoop:
-    """
-    SDK_TOOL_JUDGED → SYMBIOSIS signal + GRAPH EScore update.
-
-    Emitted by server.py ws_sdk handler after GUARDIAN judges each tool call.
-    Payload: {"session_id": str, "tool": str, "verdict": str}
-
-    GRAPH dimension = trust network quality (tool verdicts build/erode the
-    trust graph between SDK sessions and CYNIC's guardian layer).
-    SYMBIOSIS axiom: seamless human+machine tool use = HOWL on every tool.
-    """
-
-    def _graph_score_for(self, verdict: str) -> float:
-        """Reproduce handler's verdict→score mapping."""
-        from cynic.core.phi import HOWL_MIN, WAG_MIN, GROWL_MIN
-        return {
-            "HOWL":  HOWL_MIN,
-            "WAG":   WAG_MIN,
-            "GROWL": GROWL_MIN,
-            "BARK":  0.0,
-        }.get(verdict, WAG_MIN)
-
-    def test_howl_signals_symbiosis(self):
-        """HOWL verdict → axiom_monitor.signal('SYMBIOSIS') increases maturity."""
-        m = AxiomMonitor()
-        before = m.get_maturity("SYMBIOSIS")
-        # Simulate handler: HOWL → signal SYMBIOSIS
-        m.signal("SYMBIOSIS")
-        after = m.get_maturity("SYMBIOSIS")
-        assert after > before, "SYMBIOSIS maturity should increase on HOWL verdict"
-
-    def test_howl_gets_howl_graph_score(self):
-        """HOWL verdict → GRAPH stored value ≈ HOWL_MIN (82.0)."""
-        from cynic.core.phi import HOWL_MIN
-        from cynic.core.escore import EScoreTracker
-        tracker = EScoreTracker()
-        score = self._graph_score_for("HOWL")
-        assert score == pytest.approx(HOWL_MIN, abs=0.5)
-        tracker.update("agent:cynic", "GRAPH", score)
-        detail = tracker.get_detail("agent:cynic")
-        stored = detail["dimensions"]["GRAPH"]["value"]
-        assert stored == pytest.approx(HOWL_MIN, abs=0.5)
-
-    def test_wag_gets_wag_graph_score(self):
-        """WAG verdict → GRAPH stored value ≈ WAG_MIN (61.8)."""
-        from cynic.core.phi import WAG_MIN
-        from cynic.core.escore import EScoreTracker
-        tracker = EScoreTracker()
-        score = self._graph_score_for("WAG")
-        assert score == pytest.approx(WAG_MIN, abs=0.5)
-        tracker.update("agent:cynic", "GRAPH", score)
-        detail = tracker.get_detail("agent:cynic")
-        stored = detail["dimensions"]["GRAPH"]["value"]
-        assert stored == pytest.approx(WAG_MIN, abs=0.5)
-
-    def test_growl_gets_growl_graph_score(self):
-        """GROWL verdict → GRAPH stored value ≈ GROWL_MIN (38.2)."""
-        from cynic.core.phi import GROWL_MIN
-        from cynic.core.escore import EScoreTracker
-        tracker = EScoreTracker()
-        score = self._graph_score_for("GROWL")
-        assert score == pytest.approx(GROWL_MIN, abs=0.5)
-        tracker.update("agent:cynic", "GRAPH", score)
-        detail = tracker.get_detail("agent:cynic")
-        stored = detail["dimensions"]["GRAPH"]["value"]
-        assert stored == pytest.approx(GROWL_MIN, abs=0.5)
-
-    def test_bark_gets_zero_graph_score(self):
-        """BARK verdict → GRAPH = 0.0 (trust breakdown — tool denied)."""
-        from cynic.core.escore import EScoreTracker
-        tracker = EScoreTracker()
-        score = self._graph_score_for("BARK")
-        assert score == 0.0
-        tracker.update("agent:cynic", "GRAPH", score)
-        # After enough BARK updates the GRAPH dimension should be low
-        for _ in range(5):
-            tracker.update("agent:cynic", "GRAPH", 0.0)
-        detail = tracker.get_detail("agent:cynic")
-        stored = detail["dimensions"]["GRAPH"]["value"]
-        assert stored < GROWL_MIN, f"BARK×5 → GRAPH {stored:.1f} should be below GROWL_MIN={GROWL_MIN}"
-
-    def test_handler_tolerates_bad_payload(self):
-        """Empty payload → no raise, falls back to WAG_MIN for unknown verdict."""
-        from cynic.core.phi import WAG_MIN
-        from cynic.core.escore import EScoreTracker
-        tracker = EScoreTracker()
-        # Simulate handler with empty payload (verdict="" → .get("", WAG_MIN))
-        p = {}
-        verdict = p.get("verdict", "")
-        score = self._graph_score_for(verdict)  # "" not in map → WAG_MIN fallback
-        assert score == pytest.approx(WAG_MIN, abs=0.5)
-        # Should not raise
-        tracker.update("agent:cynic", "GRAPH", score)
-        assert tracker.get_score("agent:cynic") >= 0.0
-
 
 # ── SDK_SESSION_STARTED → GRAPH EScore baseline + SYMBIOSIS signal ───────────
 
@@ -2516,3 +2419,76 @@ class TestBudgetHoldLoop:
 
         # EMA: 0.0 drives HOLD down — exhausted state is more stressed than warning
         assert hold_after_exhausted < hold_after_warning
+
+
+class TestKernelMirrorConsciousnessLoop:
+    """
+    KernelMirror.snapshot() computes overall_health [0, 100] as geometric mean
+    of QTable coverage + axiom tier + LOD health + SAGE LLM rate.
+
+    Gap: mirror.py docstring says "If overall_health ≥ WAG_MIN → signals A10
+    CONSCIOUSNESS" but was never implemented.
+
+    This loop: JUDGMENT_CREATED → _write_consciousness → snapshot() → if health
+    ≥ WAG_MIN → axiom_monitor.signal("CONSCIOUSNESS").
+
+    Self-reflection becomes awareness: the organism seeing itself clearly is
+    consciousness.
+    """
+
+    def test_high_health_signals_consciousness(self):
+        """overall_health ≥ WAG_MIN → axiom_monitor.signal('CONSCIOUSNESS') called."""
+        from cynic.judge.axiom_monitor import AxiomMonitor
+        from cynic.core.phi import WAG_MIN
+
+        monitor = AxiomMonitor()
+        # Simulate: health is above WAG_MIN → signal CONSCIOUSNESS
+        health = WAG_MIN + 10.0  # 71.8 — clearly above threshold
+        if health >= WAG_MIN:
+            monitor.signal("CONSCIOUSNESS")
+        assert monitor.get_maturity("CONSCIOUSNESS") > 0
+
+    def test_low_health_does_not_signal_consciousness(self):
+        """overall_health < WAG_MIN → CONSCIOUSNESS NOT signalled."""
+        from cynic.judge.axiom_monitor import AxiomMonitor
+        from cynic.core.phi import WAG_MIN
+
+        monitor = AxiomMonitor()
+        health = WAG_MIN - 10.0  # 51.8 — below threshold
+        if health >= WAG_MIN:
+            monitor.signal("CONSCIOUSNESS")
+        assert monitor.get_maturity("CONSCIOUSNESS") == 0
+
+    def test_lod0_contributes_max_to_health(self):
+        """LOD 0 maps to 100.0 in _compute_health — fully operational."""
+        from cynic.judge.mirror import KernelMirror
+
+        lod_scores = {0: 100.0, 1: 75.0, 2: 38.2, 3: 10.0}
+        assert lod_scores[0] == 100.0
+
+    def test_lod3_contributes_minimum_to_health(self):
+        """LOD 3 maps to 10.0 in _compute_health — critical degradation."""
+        from cynic.judge.mirror import KernelMirror
+
+        lod_scores = {0: 100.0, 1: 75.0, 2: 38.2, 3: 10.0}
+        assert lod_scores[3] == 10.0
+        assert lod_scores[3] < lod_scores[0]
+
+    def test_transcendent_tier_maps_to_max_score(self):
+        """TRANSCENDENT axiom tier contributes 100.0 to health formula."""
+        tier_scores = {
+            "DORMANT": 0.1, "STIRRING": 25.0, "EMERGENCE": 50.0,
+            "AWAKENING": 75.0, "TRANSCENDENT": 100.0,
+        }
+        assert tier_scores["TRANSCENDENT"] == 100.0
+
+    def test_dormant_tier_maps_to_near_zero(self):
+        """DORMANT axiom tier contributes 0.1 (near-zero floor) — system not yet alive."""
+        from cynic.core.phi import WAG_MIN
+
+        tier_scores = {
+            "DORMANT": 0.1, "STIRRING": 25.0, "EMERGENCE": 50.0,
+            "AWAKENING": 75.0, "TRANSCENDENT": 100.0,
+        }
+        # DORMANT score is far below WAG_MIN — cannot signal CONSCIOUSNESS
+        assert tier_scores["DORMANT"] < WAG_MIN

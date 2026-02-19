@@ -42,7 +42,7 @@ from fastapi.staticfiles import StaticFiles
 from cynic.core.consciousness import ConsciousnessLevel, get_consciousness
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
 from cynic.core.judgment import Cell
-from cynic.core.phi import PHI, MAX_CONFIDENCE
+from cynic.core.phi import PHI, MAX_CONFIDENCE, WAG_MIN
 from cynic.learning.qlearning import LearningSignal
 
 from cynic.act.telemetry import (
@@ -458,6 +458,30 @@ async def lifespan(app: FastAPI):
         try:
             snap = state.kernel_mirror.snapshot(state)
             diff = state.kernel_mirror.diff(snap)
+
+            # ── KernelMirror → CONSCIOUSNESS signal ───────────────────────────
+            # Ring 3 self-reflection: when the organism sees itself clearly
+            # (overall_health ≥ WAG_MIN = 61.8), signal CONSCIOUSNESS (A10).
+            # This closes the self-model loop: perception → snapshot → awareness.
+            health = snap.get("overall_health", 0.0)
+            if health >= WAG_MIN and state.axiom_monitor is not None:
+                new_state_m = state.axiom_monitor.signal("CONSCIOUSNESS")
+                if new_state_m == "ACTIVE":
+                    await get_core_bus().emit(Event(
+                        type=CoreEvent.AXIOM_ACTIVATED,
+                        payload={
+                            "axiom":          "CONSCIOUSNESS",
+                            "maturity":       state.axiom_monitor.get_maturity("CONSCIOUSNESS"),
+                            "trigger":        "MIRROR_SNAPSHOT",
+                            "overall_health": round(health, 1),
+                        },
+                        source="mirror",
+                    ))
+                    logger.info(
+                        "MIRROR: overall_health=%.1f >= WAG_MIN → CONSCIOUSNESS ACTIVE",
+                        health,
+                    )
+
             payload: dict = {
                 "timestamp": round(now, 3),
                 "uptime_s": round(state.uptime_s, 1),
