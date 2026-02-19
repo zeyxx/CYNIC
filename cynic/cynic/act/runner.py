@@ -36,6 +36,12 @@ SDK_PATH = "/ws/sdk"
 _CLAUDE_BIN = "claude"
 _CLAUDE_FLAGS = ["--print", "--output-format", "stream-json", "--input-format", "stream-json"]
 
+# Default model for CYNIC's own autonomous tasks.
+# Haiku: fast, cheap, sufficient for known-pattern tasks (debug/refactor/test).
+# Override per-call via execute(model="claude-sonnet-4-6") for complex analysis.
+MODEL_HAIKU = "claude-haiku-4-5-20251001"
+MODEL_DEFAULT = MODEL_HAIKU
+
 
 def _build_claude_cmd(sdk_url: str, resume_session_id: Optional[str] = None) -> list:
     """
@@ -74,7 +80,7 @@ class ClaudeCodeRunner:
         self,
         prompt: str,
         cwd: Optional[str] = None,
-        model: Optional[str] = None,
+        model: Optional[str] = MODEL_DEFAULT,
         timeout: float = DEFAULT_TASK_TIMEOUT,
         resume_session_id: Optional[str] = None,
     ) -> Dict[str, Any]:

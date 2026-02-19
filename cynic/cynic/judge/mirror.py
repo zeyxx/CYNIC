@@ -109,7 +109,13 @@ class KernelMirror:
         # EScoreTracker: per-dog reputation
         if hasattr(state, "escore_tracker") and state.escore_tracker is not None:
             try:
-                snap["escore"] = state.escore_tracker.all_scores()
+                snap["escore"] = {
+                    **state.escore_tracker.stats(),
+                    "top": [
+                        {"entity": eid, "score": round(sc, 3)}
+                        for eid, sc in state.escore_tracker.top_entities(5)
+                    ],
+                }
             except Exception as exc:
                 snap["escore"] = {"error": str(exc)}
 
