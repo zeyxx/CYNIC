@@ -21,7 +21,15 @@ from cynic.core.heuristic_scorer import HeuristicFacetScorer
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.consciousness import get_consciousness
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
-from cynic.core.phi import MAX_CONFIDENCE
+from cynic.core.phi import (
+    MAX_CONFIDENCE,
+    MAX_Q_SCORE,
+    HOWL_MIN,
+    WAG_MIN,
+    GROWL_MIN,
+    PHI_INV,
+    PHI_INV_2,
+)
 from cynic.dogs.base import AbstractDog, DogId
 from cynic.dogs.cynic_dog import CynicDog
 from cynic.dogs.guardian import GuardianDog
@@ -60,6 +68,10 @@ from cynic.perceive.compressor import ContextCompressor
 logger = logging.getLogger("cynic.api.state")
 
 _GUIDANCE_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "guidance.json")
+
+# The organism's own identity in the EScore reputation system.
+# Used everywhere CYNIC tracks its own performance — 33 call sites, one constant.
+_ESCORE_AGENT_ID = "agent:cynic"
 
 # Instance ID for multi-instance guidance isolation (set from lifespan startup via set_instance_id())
 _current_instance_id: Optional[str] = None
@@ -373,24 +385,26 @@ class _KernelBuilder:
 
     async def _on_emergence(self, event: Event) -> None:
         """META cycle trigger when ResidualDetector fires."""
-        from cynic.core.judgment import Cell
-        cell = Cell(
-            reality="CYNIC", analysis="EMERGE", time_dim="PRESENT",
-            content=event.payload,
-            context="Emergence detected — META cycle triggered",
-            risk=0.5, complexity=0.6, budget_usd=0.1,
-            metadata={
-                "source": "emergence_trigger",
-                "pattern": event.payload.get("pattern_type", "UNKNOWN") if isinstance(event.payload, dict) else "UNKNOWN",
-            },
-        )
-        self.scheduler.submit(cell, level=ConsciousnessLevel.META, source="emergence_trigger")
+        try:
+            from cynic.core.judgment import Cell
+            cell = Cell(
+                reality="CYNIC", analysis="EMERGE", time_dim="PRESENT",
+                content=event.payload,
+                context="Emergence detected — META cycle triggered",
+                risk=0.5, complexity=0.6, budget_usd=0.1,
+                metadata={
+                    "source": "emergence_trigger",
+                    "pattern": event.payload.get("pattern_type", "UNKNOWN") if isinstance(event.payload, dict) else "UNKNOWN",
+                },
+            )
+            self.scheduler.submit(cell, level=ConsciousnessLevel.META, source="emergence_trigger")
+        except Exception:
+            pass
 
     async def _on_budget_warning(self, event: Event) -> None:
         try:
             self.orchestrator.on_budget_warning()
-            from cynic.core.phi import GROWL_MIN
-            self.escore_tracker.update("agent:cynic", "HOLD", GROWL_MIN)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "HOLD", GROWL_MIN)
             logger.warning("BUDGET_WARNING → HOLD EScore=%.1f (financial stress)", GROWL_MIN)
         except Exception:
             pass
@@ -400,7 +414,7 @@ class _KernelBuilder:
             self.orchestrator.on_budget_exhausted()
             # HOLD: total financial collapse = complete operational destabilization.
             # 0.0: cannot sustain operations — hardest HOLD signal possible.
-            self.escore_tracker.update("agent:cynic", "HOLD", 0.0)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "HOLD", 0.0)
             logger.warning("BUDGET_EXHAUSTED → HOLD EScore=0.0 (financial collapse)")
         except Exception:
             pass
@@ -453,9 +467,8 @@ class _KernelBuilder:
             await self._assess_lod()
 
             # EScore updates — total pipeline failure deserves the harshest signal.
-            from cynic.core.phi import GROWL_MIN
-            self.escore_tracker.update("agent:cynic", "JUDGE", 0.0)
-            self.escore_tracker.update("agent:cynic", "HOLD",  GROWL_MIN)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "JUDGE", 0.0)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "HOLD",  GROWL_MIN)
 
             logger.warning(
                 "JUDGMENT_FAILED → error_rate=%.2f, LOD=%s → JUDGE=0.0 HOLD=%.1f",
@@ -513,11 +526,10 @@ class _KernelBuilder:
             q_value = float(p.get("q_value", 0.0))   # [0, 1]
             verdict = p.get("recommended_action", "")
 
-            from cynic.core.phi import MAX_Q_SCORE, PHI_INV_2
 
             # RUN EScore — decision quality as execution efficiency
             run_score = q_value * MAX_Q_SCORE
-            self.escore_tracker.update("agent:cynic", "RUN", run_score)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "RUN", run_score)
 
             # EMERGENCE: confident BARK = organism sure of a critical problem
             emergence_signalled = False
@@ -572,7 +584,6 @@ class _KernelBuilder:
             if not proposals:
                 return  # No proposals generated → not a consciousness event
 
-            from cynic.core.phi import MAX_Q_SCORE
 
             # A10 CONSCIOUSNESS: self-analysis happened = organism aware of own state
             new_state = await self._signal_axiom(
@@ -582,7 +593,7 @@ class _KernelBuilder:
 
             # JUDGE EScore: severity of self-analysis = self-judgment quality
             judge_score = severity * MAX_Q_SCORE
-            self.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "JUDGE", judge_score)
 
             logger.info(
                 "SELF_IMPROVEMENT_PROPOSED: count=%d severity=%.3f → "
@@ -600,8 +611,7 @@ class _KernelBuilder:
                 "TRANSCENDENCE — all 4 emergent axioms active: %s",
                 active,
             )
-            from cynic.core.phi import MAX_Q_SCORE
-            self.escore_tracker.update("agent:cynic", "JUDGE", MAX_Q_SCORE)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "JUDGE", MAX_Q_SCORE)
         except Exception:
             pass
 
@@ -616,9 +626,8 @@ class _KernelBuilder:
             new_state = await self._signal_axiom("EMERGENCE", "residual_high")
 
             # 2. EScore JUDGE penalty — inversely proportional to residual
-            from cynic.core.phi import MAX_Q_SCORE
             penalty_score = (1.0 - min(residual, 1.0)) * MAX_Q_SCORE
-            self.escore_tracker.update("agent:cynic", "JUDGE", penalty_score)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "JUDGE", penalty_score)
 
             logger.warning(
                 "RESIDUAL_HIGH: cell=%s residual=%.3f → EMERGENCE signal, "
@@ -635,14 +644,13 @@ class _KernelBuilder:
             priority    = int(p.get("priority", 3))
             action_type = p.get("action_type", "")
 
-            from cynic.core.phi import MAX_Q_SCORE, HOWL_MIN, WAG_MIN, GROWL_MIN
             score = {
                 1: MAX_Q_SCORE,
                 2: HOWL_MIN,
                 3: WAG_MIN,
             }.get(priority, GROWL_MIN)
 
-            self.escore_tracker.update("agent:cynic", "BUILD", score)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "BUILD", score)
             logger.info(
                 "ACTION_PROPOSED: type=%s priority=%d → BUILD EScore=%.1f",
                 action_type, priority, score,
@@ -658,9 +666,6 @@ class _KernelBuilder:
             pass_rate  = float(evolve.get("pass_rate", 0.0))
             regression = bool(evolve.get("regression", False))
 
-            from cynic.core.phi import (
-                MAX_Q_SCORE, WAG_MIN, GROWL_MIN, PHI_INV, PHI_INV_2,
-            )
 
             # 1. ANTIFRAGILITY signal — regression = organism under stress
             if regression:
@@ -683,7 +688,7 @@ class _KernelBuilder:
             else:
                 judge_score = GROWL_MIN
 
-            self.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "JUDGE", judge_score)
             logger.info(
                 "META_CYCLE: pass_rate=%.1f%% regression=%s → "
                 "JUDGE EScore=%.1f%s",
@@ -705,10 +710,9 @@ class _KernelBuilder:
             reality    = p.get("reality", "CODE")
             verdict    = p.get("verdict", "")
 
-            from cynic.core.phi import MAX_CONFIDENCE, MAX_Q_SCORE
 
             burn_score = min(confidence / MAX_CONFIDENCE, 1.0) * MAX_Q_SCORE
-            self.escore_tracker.update("agent:cynic", "BURN", burn_score, reality=reality)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "BURN", burn_score, reality=reality)
 
             logger.debug(
                 "JUDGMENT_CREATED→BURN: verdict=%s conf=%.3f → BURN EScore=%.1f",
@@ -724,11 +728,10 @@ class _KernelBuilder:
             reward = float(p.get("reward", 0.0))   # [0, 1]
             action = p.get("action", "")
 
-            from cynic.core.phi import MAX_Q_SCORE
 
             # 1. JUDGE EScore — judgment quality per cycle
             judge_score = reward * MAX_Q_SCORE
-            self.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "JUDGE", judge_score)
 
             # 2. AUTONOMY — organism learning without human intervention
             new_state = await self._signal_axiom("AUTONOMY", "learning_event", trigger="LEARNING_EVENT")
@@ -748,11 +751,10 @@ class _KernelBuilder:
             direction = p.get("direction", "DOWN")
             to_name   = p.get("to_name", "")
 
-            from cynic.core.phi import HOWL_MIN, GROWL_MIN
 
             # HOLD: commitment quality — recovering = holding; degrading = yielding
             hold_score = HOWL_MIN if direction == "UP" else GROWL_MIN
-            self.escore_tracker.update("agent:cynic", "HOLD", hold_score)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "HOLD", hold_score)
 
             # ANTIFRAGILITY: only on recovery (UP) — survived stress and bounced back
             if direction == "UP":
@@ -774,14 +776,13 @@ class _KernelBuilder:
             p = event.payload or {}
             rating = float(p.get("rating", 3.0))
 
-            from cynic.core.phi import MAX_Q_SCORE, WAG_MIN
 
             # JUDGE: rating quality — proportional to [1, 5] → [0, MAX_Q_SCORE]
             judge_score = (rating - 1) / 4.0 * MAX_Q_SCORE
-            self.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "JUDGE", judge_score)
 
             # SOCIAL: human engaged with CYNIC = direct community interaction.
-            self.escore_tracker.update("agent:cynic", "SOCIAL", WAG_MIN)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "SOCIAL", WAG_MIN)
 
             logger.info(
                 "USER_FEEDBACK: rating=%d/5 → JUDGE EScore=%.1f SOCIAL=%.1f",
@@ -797,7 +798,6 @@ class _KernelBuilder:
             reality = p.get("reality", "CODE")
             source  = p.get("source", "")
 
-            from cynic.core.phi import HOWL_MIN, WAG_MIN, GROWL_MIN
 
             # SOCIAL: direct community engagement vs background monitoring
             social_score = (
@@ -805,11 +805,11 @@ class _KernelBuilder:
                 if reality in ("SOCIAL", "HUMAN", "COSMOS")
                 else GROWL_MIN
             )
-            self.escore_tracker.update("agent:cynic", "SOCIAL", social_score, reality=reality)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "SOCIAL", social_score, reality=reality)
 
             # HOLD: organism present + attentive; self-monitoring = highest commitment
             hold_score = HOWL_MIN if reality == "CYNIC" else WAG_MIN
-            self.escore_tracker.update("agent:cynic", "HOLD", hold_score, reality=reality)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "HOLD", hold_score, reality=reality)
 
             logger.debug(
                 "PERCEPTION_RECEIVED: reality=%s source=%s → SOCIAL=%.1f HOLD=%.1f",
@@ -826,10 +826,9 @@ class _KernelBuilder:
             state_key = p.get("state_key", "")
             action    = p.get("action", "")
 
-            from cynic.core.phi import MAX_Q_SCORE
 
             judge_score = q_value * MAX_Q_SCORE
-            self.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "JUDGE", judge_score)
 
             new_state = await self._signal_axiom("AUTONOMY", "ewc_checkpoint", trigger="EWC_CHECKPOINT")
 
@@ -854,13 +853,12 @@ class _KernelBuilder:
             p       = event.payload or {}
             flushed = int(p.get("flushed", 0))
 
-            from cynic.core.phi import HOWL_MIN, WAG_MIN
 
             # BUILD: persisting knowledge = building durable memory
-            self.escore_tracker.update("agent:cynic", "BUILD", HOWL_MIN)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "BUILD", HOWL_MIN)
 
             # HOLD: routine persistence = steady long-term commitment
-            self.escore_tracker.update("agent:cynic", "HOLD", WAG_MIN)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "HOLD", WAG_MIN)
 
             logger.info(
                 "Q_TABLE_UPDATED: flushed=%d → BUILD=%.1f HOLD=%.1f",
@@ -878,7 +876,7 @@ class _KernelBuilder:
             verdict = p.get("verdict", "")
 
             # BUILD: collaborative judgment quality
-            self.escore_tracker.update("agent:cynic", "BUILD", q_score)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "BUILD", q_score)
 
             # SYMBIOSIS: dogs working as one
             new_state = await self._signal_axiom("SYMBIOSIS", "consensus_reached", trigger="CONSENSUS_REACHED")
@@ -905,11 +903,10 @@ class _KernelBuilder:
             votes  = int(p.get("votes", 0))
             quorum = int(p.get("quorum", 7))
 
-            from cynic.core.phi import MAX_Q_SCORE
 
             # JUDGE penalty: proportional to how close dogs got to consensus
             judge_score = (votes / max(quorum, 1)) * MAX_Q_SCORE
-            self.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "JUDGE", judge_score)
 
             # EMERGENCE: dogs can't agree = hidden complexity = emergence point
             new_state = await self._signal_axiom("EMERGENCE", "consensus_failed", trigger="CONSENSUS_FAILED")
@@ -930,7 +927,7 @@ class _KernelBuilder:
             state_key = p.get("state_key", "")
 
             # JUDGE penalty: explicit correction = judgment quality = 0
-            self.escore_tracker.update("agent:cynic", "JUDGE", 0.0)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "JUDGE", 0.0)
 
             # ANTIFRAGILITY: correction = adversarial stress → organism grows
             new_state = await self._signal_axiom("ANTIFRAGILITY", "user_correction", trigger="USER_CORRECTION")
@@ -951,11 +948,10 @@ class _KernelBuilder:
             reality  = p.get("reality", "CODE")
             analysis = p.get("analysis", "JUDGE")
 
-            from cynic.core.phi import MAX_Q_SCORE
 
             # HOLD: stability inversely proportional to SPIKE severity
             hold_score = (1.0 - min(severity, 1.0)) * MAX_Q_SCORE
-            self.escore_tracker.update("agent:cynic", "HOLD", hold_score)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "HOLD", hold_score)
 
             logger.info(
                 "ANOMALY_DETECTED: SPIKE severity=%.3f at %s·%s → HOLD EScore=%.1f",
@@ -971,7 +967,6 @@ class _KernelBuilder:
     async def _on_act_completed(self, event: Event) -> None:
         """ACT_COMPLETED → QTable + EScore BUILD + mark_completed + JSONL log."""
         try:
-            from cynic.core.phi import HOWL_MIN, GROWL_MIN, WAG_MIN
             from cynic.learning.qlearning import LearningSignal as _LS
             p = event.payload or {}
             action_id = p.get("action_id", "")
@@ -995,7 +990,7 @@ class _KernelBuilder:
 
             # 3. EScore BUILD dimension — successful ACT builds the organism
             escore_score = HOWL_MIN if success else GROWL_MIN
-            self.escore_tracker.update("agent:cynic", "BUILD", escore_score)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "BUILD", escore_score)
 
             # 4. JSONL log (rolling cap F(11)=89)
             try:
@@ -1035,7 +1030,6 @@ class _KernelBuilder:
             verdict    = p.get("verdict", "")
             tool       = p.get("tool", "")
 
-            from cynic.core.phi import HOWL_MIN, WAG_MIN, GROWL_MIN
 
             graph_score = {
                 "HOWL":  HOWL_MIN,
@@ -1044,7 +1038,7 @@ class _KernelBuilder:
                 "BARK":  0.0,
             }.get(verdict, WAG_MIN)
 
-            self.escore_tracker.update("agent:cynic", "GRAPH", graph_score)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "GRAPH", graph_score)
 
             # SYMBIOSIS: seamless human+machine tool use
             if verdict == "HOWL":
@@ -1064,10 +1058,9 @@ class _KernelBuilder:
             p = event.payload or {}
             session_id = p.get("session_id", "")
 
-            from cynic.core.phi import WAG_MIN
 
             # 1. Neutral trust baseline for new session — GRAPH dimension
-            self.escore_tracker.update("agent:cynic", "GRAPH", WAG_MIN)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "GRAPH", WAG_MIN)
 
             # 2. SYMBIOSIS: human+machine collaboration is beginning
             new_state = await self._signal_axiom("SYMBIOSIS", "sdk_session_started", trigger="SDK_SESSION_STARTED")
@@ -1088,10 +1081,9 @@ class _KernelBuilder:
             cost_usd       = float(p.get("cost_usd", 0.0))
             output_q_score = float(p.get("output_q_score", 0.0))
 
-            from cynic.core.phi import HOWL_MIN, WAG_MIN, GROWL_MIN, PHI_INV
 
             # 1. BUILD EScore — ACT quality feeds CYNIC's code contribution dimension
-            self.escore_tracker.update("agent:cynic", "BUILD", output_q_score)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "BUILD", output_q_score)
 
             # 2. RUN EScore — efficiency from cost (φ-bounded thresholds)
             if cost_usd == 0.0:
@@ -1100,7 +1092,7 @@ class _KernelBuilder:
                 run_score = WAG_MIN
             else:
                 run_score = GROWL_MIN
-            self.escore_tracker.update("agent:cynic", "RUN", run_score)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "RUN", run_score)
 
             # 3. ANTIFRAGILITY — track outcome in rolling window
             success = not is_error
@@ -1134,12 +1126,11 @@ class _KernelBuilder:
             action_type = p.get("action_type", "")
             reality     = p.get("reality", "CODE")
 
-            from cynic.core.phi import HOWL_MIN, WAG_MIN
 
             # HOLD: execution = peak long-term commitment
-            self.escore_tracker.update("agent:cynic", "HOLD", HOWL_MIN)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "HOLD", HOWL_MIN)
             # SOCIAL: organism engaging with external systems
-            self.escore_tracker.update("agent:cynic", "SOCIAL", WAG_MIN)
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "SOCIAL", WAG_MIN)
 
             # AUTONOMY: organism taking autonomous action — most definitive form
             new_state = await self._signal_axiom("AUTONOMY", "act_requested", trigger="ACT_REQUESTED")
@@ -1157,37 +1148,41 @@ class _KernelBuilder:
     # ═══════════════════════════════════════════════════════════════════════
 
     async def _on_disk_pressure(self, event: Event) -> None:
-        pressure = event.payload.get("pressure", "WARN")
-        used_pct = event.payload.get("used_pct", 0.0)
-        self._health_cache["disk_pct"] = event.payload.get("disk_pct", used_pct)
-        await self._assess_lod()
+        try:
+            pressure = event.payload.get("pressure", "WARN")
+            used_pct = event.payload.get("used_pct", 0.0)
+            self._health_cache["disk_pct"] = event.payload.get("disk_pct", used_pct)
+            await self._assess_lod()
 
-        from cynic.core.phi import MAX_Q_SCORE
-        hold_score = (1.0 - min(used_pct, 1.0)) * MAX_Q_SCORE
-        self.escore_tracker.update("agent:cynic", "HOLD", hold_score)
+            hold_score = (1.0 - min(used_pct, 1.0)) * MAX_Q_SCORE
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "HOLD", hold_score)
 
-        logger.warning(
-            "DISK_PRESSURE: %s (%.1f%% used) → HOLD EScore=%.1f, running StorageGC",
-            pressure, used_pct * 100, hold_score,
-        )
-        result = await self.storage_gc.collect(self.db_pool)
-        if result.get("total", 0) > 0:
-            logger.info("StorageGC freed %d rows (disk was %.1f%% full)", result["total"], used_pct * 100)
+            logger.warning(
+                "DISK_PRESSURE: %s (%.1f%% used) → HOLD EScore=%.1f, running StorageGC",
+                pressure, used_pct * 100, hold_score,
+            )
+            result = await self.storage_gc.collect(self.db_pool)
+            if result.get("total", 0) > 0:
+                logger.info("StorageGC freed %d rows (disk was %.1f%% full)", result["total"], used_pct * 100)
+        except Exception:
+            pass
 
     async def _on_memory_pressure(self, event: Event) -> None:
-        pressure = event.payload.get("pressure", "WARN")
-        used_pct = event.payload.get("used_pct", 0.0)
-        self._health_cache["memory_pct"] = event.payload.get("memory_pct", used_pct)
-        await self._assess_lod()
+        try:
+            pressure = event.payload.get("pressure", "WARN")
+            used_pct = event.payload.get("used_pct", 0.0)
+            self._health_cache["memory_pct"] = event.payload.get("memory_pct", used_pct)
+            await self._assess_lod()
 
-        from cynic.core.phi import MAX_Q_SCORE
-        hold_score = (1.0 - min(used_pct, 1.0)) * MAX_Q_SCORE
-        self.escore_tracker.update("agent:cynic", "HOLD", hold_score)
+            hold_score = (1.0 - min(used_pct, 1.0)) * MAX_Q_SCORE
+            self.escore_tracker.update(_ESCORE_AGENT_ID, "HOLD", hold_score)
 
-        logger.warning(
-            "MEMORY_PRESSURE: %s (%.1f%% RAM used) → HOLD EScore=%.1f",
-            pressure, used_pct * 100, hold_score,
-        )
+            logger.warning(
+                "MEMORY_PRESSURE: %s (%.1f%% RAM used) → HOLD EScore=%.1f",
+                pressure, used_pct * 100, hold_score,
+            )
+        except Exception:
+            pass
 
     async def _on_disk_cleared(self, event: Event) -> None:
         try:
