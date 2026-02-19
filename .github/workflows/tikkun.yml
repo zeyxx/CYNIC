@@ -84,6 +84,49 @@ jobs:
             gevurah-output.txt
           retention-days: 30
 
+  python-tests:
+    name: Python Kernel Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          cd cynic
+          pip install -e .
+          pip install pytest pytest-asyncio pytest-cov pytest-timeout
+
+      - name: Run Python kernel tests
+        run: |
+          cd cynic
+          PYTHONUTF8=1 python -m pytest tests/ -v --tb=short --maxfail=3 2>&1 | tee python-test-output.txt
+          # Extract pass/fail count
+          RESULTS=$(grep -oP '(\d+) passed' python-test-output.txt | tail -1)
+          echo "python_tests=$RESULTS" >> $GITHUB_OUTPUT
+        id: python-tests
+
+      - name: Report Python test results
+        if: always()
+        run: |
+          echo "## Python Kernel Tests" >> $GITHUB_STEP_SUMMARY
+          tail -20 cynic/python-test-output.txt >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Python test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-test-results
+          path: cynic/python-test-output.txt
+          retention-days: 30
+
   nomenclature:
     name: Nomenclature Check
     runs-on: ubuntu-latest
