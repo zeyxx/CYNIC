@@ -106,3 +106,76 @@ class TestWorldModelUpdater:
         snap = updater.snapshot()
         # risk for q=10 is 90; composite_risk should be well above 50
         assert snap["composite_risk"] > 50.0
+
+
+# ── Kernel wiring tests ───────────────────────────────────────────────────────
+
+class TestWorldModelKernelWiring:
+    """
+    Verify WorldModelUpdater is properly wired into AppState / build_kernel().
+
+    These tests exercise the wiring that was previously missing — WorldModel
+    was 0% LIVE (code existed, never instantiated). Now it is LIVE.
+    """
+
+    def test_app_state_has_world_model_field(self):
+        """AppState dataclass must expose world_model as a typed field."""
+        import dataclasses
+        from cynic.api.state import AppState
+        field_names = {f.name for f in dataclasses.fields(AppState)}
+        assert "world_model" in field_names, "world_model not found in AppState fields"
+
+    def test_world_model_field_type_is_world_model_updater(self):
+        """world_model field default_factory creates a WorldModelUpdater instance."""
+        import dataclasses
+        from cynic.api.state import AppState
+        for f in dataclasses.fields(AppState):
+            if f.name == "world_model":
+                # field_factory should produce a WorldModelUpdater
+                instance = f.default_factory()  # type: ignore[misc]
+                assert isinstance(instance, WorldModelUpdater)
+                break
+
+    def test_world_model_starts_on_first_judgment(self):
+        """WorldModelUpdater starts accepting events after start() is called."""
+        updater, bus = _fresh_updater()
+        assert updater._started is True
+
+    async def test_world_model_snapshot_keys(self):
+        """snapshot() always returns the expected keys — contract for /world-state."""
+        updater = WorldModelUpdater()
+        snap = updater.snapshot()
+        required = {"composite_risk", "dominant_reality", "conflicts", "realities",
+                    "judgment_count", "conflict_count", "last_updated"}
+        assert required.issubset(snap.keys()), f"missing keys: {required - snap.keys()}"
+
+    async def test_world_model_tracks_multiple_realities(self):
+        """After judgments in 3 realities, snapshot reflects all 3."""
+        updater, bus = _fresh_updater()
+        for reality in ("CODE", "CYNIC", "HUMAN"):
+            await bus.emit(_make_judgment_event(reality=reality, q_score=60.0))
+        await asyncio.sleep(0)
+
+        snap = updater.snapshot()
+        assert set(snap["realities"].keys()) >= {"CODE", "CYNIC", "HUMAN"}
+        assert snap["judgment_count"] == 3
+
+    def test_world_model_not_none_in_imported_app_state(self):
+        """Default AppState construction gives a live WorldModelUpdater, not None."""
+        from cynic.api.state import AppState
+        from unittest.mock import MagicMock
+        # Minimal AppState construction (required positional fields)
+        mock_orch = MagicMock()
+        mock_qtable = MagicMock()
+        mock_loop = MagicMock()
+        mock_residual = MagicMock()
+        mock_scheduler = MagicMock()
+        state = AppState(
+            orchestrator=mock_orch,
+            qtable=mock_qtable,
+            learning_loop=mock_loop,
+            residual_detector=mock_residual,
+            scheduler=mock_scheduler,
+        )
+        assert state.world_model is not None
+        assert isinstance(state.world_model, WorldModelUpdater)

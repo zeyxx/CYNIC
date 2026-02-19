@@ -21,6 +21,7 @@ from cynic.core.heuristic_scorer import HeuristicFacetScorer
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.consciousness import get_consciousness
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.core.world_model import WorldModelUpdater
 from cynic.core.events_schema import (
     ActCompletedPayload,
     JudgmentCreatedPayload,
@@ -159,6 +160,7 @@ class AppState:
     escore_tracker: EScoreTracker = field(default_factory=EScoreTracker)   # γ4 reputation scoring
     action_proposer: ActionProposer = field(default_factory=ActionProposer) # P5 action queue
     self_prober: SelfProber = field(default_factory=SelfProber)             # L4 self-improvement
+    world_model: WorldModelUpdater = field(default_factory=WorldModelUpdater)  # T27 cross-reality aggregator
     auto_benchmark: Optional[AutoBenchmark] = None
 
     @property
@@ -220,6 +222,7 @@ class _KernelBuilder:
         self.lod_controller:   LODController    = None  # type: ignore[assignment]
         self.escore_tracker:   EScoreTracker    = None  # type: ignore[assignment]
         self.self_prober:      SelfProber       = None  # type: ignore[assignment]
+        self.world_model:      WorldModelUpdater = None  # type: ignore[assignment]
         self.compressor:       ContextCompressor = None  # type: ignore[assignment]
         self.storage_gc:       StorageGarbageCollector = None  # type: ignore[assignment]
 
@@ -355,6 +358,13 @@ class _KernelBuilder:
         self.orchestrator.context_compressor = self.compressor
 
         self.storage_gc = StorageGarbageCollector()
+
+        # ── WorldModelUpdater (T27) — cross-reality state aggregator ──────
+        # Subscribes to JUDGMENT_CREATED; computes composite_risk and
+        # dominant_reality across all 7 realities. Previously coded but
+        # never instantiated (0% LIVE). Now LIVE.
+        self.world_model = WorldModelUpdater()
+        self.world_model.start()
 
     # ═══════════════════════════════════════════════════════════════════════
     # PHASE 2 — LOD / health helpers
@@ -1315,6 +1325,7 @@ class _KernelBuilder:
             escore_tracker=self.escore_tracker,
             action_proposer=self.action_proposer,
             self_prober=self.self_prober,
+            world_model=self.world_model,
             llm_router=self.llm_router,
             kernel_mirror=KernelMirror(),
         )

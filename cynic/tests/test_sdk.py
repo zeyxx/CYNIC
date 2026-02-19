@@ -97,7 +97,7 @@ class TestSDKConnection:
         assert msg["type"] == "keep_alive"
 
     def test_sdk_session_appears_in_registry(self):
-        from cynic.api.server import _sdk_sessions
+        from cynic.api.routers.sdk import _sdk_sessions
         initial = set(_sdk_sessions.keys())
         with TestClient(app).websocket_connect("/ws/sdk") as ws:
             _send(ws, _system_init())
@@ -109,7 +109,7 @@ class TestSDKConnection:
         assert set(_sdk_sessions.keys()) == initial
 
     def test_sdk_session_records_init_metadata(self):
-        from cynic.api.server import _sdk_sessions
+        from cynic.api.routers.sdk import _sdk_sessions
         with TestClient(app).websocket_connect("/ws/sdk") as ws:
             _send(ws, _system_init())
             _recv(ws)
@@ -186,7 +186,7 @@ class TestSDKResultLearning:
         assert after > before
 
     def test_sdk_result_tracks_cost(self):
-        from cynic.api.server import _sdk_sessions
+        from cynic.api.routers.sdk import _sdk_sessions
 
         with TestClient(app).websocket_connect("/ws/sdk") as ws:
             _send(ws, _system_init())
@@ -223,7 +223,7 @@ class TestSDKResultLearning:
 class TestSDKSessions:
 
     def test_sdk_sessions_endpoint_empty_when_no_connections(self):
-        from cynic.api.server import _sdk_sessions
+        from cynic.api.routers.sdk import _sdk_sessions
         _sdk_sessions.clear()
 
         with TestClient(app) as client:
@@ -232,7 +232,7 @@ class TestSDKSessions:
         assert resp.json()["active"] == 0
 
     def test_sdk_sessions_endpoint_shows_active_session(self):
-        from cynic.api.server import _sdk_sessions
+        from cynic.api.routers.sdk import _sdk_sessions
         _sdk_sessions.clear()
 
         with TestClient(app).websocket_connect("/ws/sdk") as ws:
@@ -248,7 +248,7 @@ class TestSDKSessions:
         assert "sessions" in data
 
     def test_sdk_task_endpoint_returns_404_without_session(self):
-        from cynic.api.server import _sdk_sessions
+        from cynic.api.routers.sdk import _sdk_sessions
         _sdk_sessions.clear()
 
         with TestClient(app) as client:
@@ -307,7 +307,7 @@ class TestEnrichPrompt:
 
     def test_enrich_returns_raw_prompt_on_cold_start(self):
         """No compressor context, no QTable data → raw prompt returned."""
-        from cynic.api.server import _enrich_prompt
+        from cynic.api.routers.act import _enrich_prompt
         from cynic.api.state import get_state
         state = get_state()
         # Fresh kernel: no compressor history, no QTable entries
@@ -318,7 +318,7 @@ class TestEnrichPrompt:
 
     def test_enrich_adds_context_when_qtable_has_data(self):
         """QTable has enough visits → context block prepended."""
-        from cynic.api.server import _enrich_prompt
+        from cynic.api.routers.act import _enrich_prompt
         from cynic.api.state import get_state
         from cynic.learning.qlearning import LearningSignal
         state = get_state()
@@ -343,7 +343,7 @@ class TestEnrichPrompt:
 
     def test_enrich_includes_task_type(self):
         """Task type is correctly classified and included in enrichment."""
-        from cynic.api.server import _enrich_prompt
+        from cynic.api.routers.act import _enrich_prompt
         from cynic.api.state import get_state
         from cynic.learning.qlearning import LearningSignal
         state = get_state()
@@ -364,7 +364,7 @@ class TestEnrichPrompt:
 
     def test_enrich_preserves_full_original_prompt(self):
         """Original prompt appears verbatim at the end of enriched result."""
-        from cynic.api.server import _enrich_prompt
+        from cynic.api.routers.act import _enrich_prompt
         from cynic.api.state import get_state
         from cynic.learning.qlearning import LearningSignal
         state = get_state()
@@ -387,14 +387,14 @@ class TestSDKJSONLPersistence:
     def test_append_jsonl_writes_file(self, tmp_path):
         """append_sdk_session_jsonl() creates/appends to JSONL file."""
         import dataclasses as dc
-        from cynic.api.server import _append_sdk_session_jsonl
+        from cynic.api.routers.sdk import _append_sdk_session_jsonl
         from cynic.act.telemetry import SessionTelemetry
-        import cynic.api.server as srv_module
+        import cynic.api.routers.sdk as sdk_module
 
         # Redirect to tmp path for test isolation
-        original_path = srv_module._SDK_SESSIONS_JSONL
+        original_path = sdk_module._SDK_SESSIONS_JSONL
         test_path = str(tmp_path / "sdk_sessions.jsonl")
-        srv_module._SDK_SESSIONS_JSONL = test_path
+        sdk_module._SDK_SESSIONS_JSONL = test_path
         try:
             record = SessionTelemetry(
                 session_id="sess-abc",
@@ -427,18 +427,18 @@ class TestSDKJSONLPersistence:
             assert data["task_type"] == "debug"
             assert data["output_verdict"] == "WAG"
         finally:
-            srv_module._SDK_SESSIONS_JSONL = original_path
+            sdk_module._SDK_SESSIONS_JSONL = original_path
 
     def test_append_jsonl_accumulates_multiple_records(self, tmp_path):
         """Multiple append calls → multiple lines in JSONL."""
         import dataclasses as dc
-        from cynic.api.server import _append_sdk_session_jsonl
+        from cynic.api.routers.sdk import _append_sdk_session_jsonl
         from cynic.act.telemetry import SessionTelemetry
-        import cynic.api.server as srv_module
+        import cynic.api.routers.sdk as sdk_module
 
-        original_path = srv_module._SDK_SESSIONS_JSONL
+        original_path = sdk_module._SDK_SESSIONS_JSONL
         test_path = str(tmp_path / "sdk_sessions.jsonl")
-        srv_module._SDK_SESSIONS_JSONL = test_path
+        sdk_module._SDK_SESSIONS_JSONL = test_path
         try:
             def _make_record(sid: str) -> SessionTelemetry:
                 return SessionTelemetry(
@@ -458,7 +458,7 @@ class TestSDKJSONLPersistence:
             lines = open(test_path, encoding="utf-8").readlines()
             assert len(lines) == 3
         finally:
-            srv_module._SDK_SESSIONS_JSONL = original_path
+            sdk_module._SDK_SESSIONS_JSONL = original_path
 
 
 class TestSDKL2L1CrossFeed:
@@ -535,20 +535,20 @@ class TestSocialSignalWriter:
     """
 
     def _redirect(self, tmp_path):
-        import cynic.api.server as srv_module
+        import cynic.api.routers.utils as utils_module
         path = str(tmp_path / "social.json")
-        self._orig = srv_module._SOCIAL_SIGNAL_PATH
-        srv_module._SOCIAL_SIGNAL_PATH = path
+        self._orig = utils_module._SOCIAL_SIGNAL_PATH
+        utils_module._SOCIAL_SIGNAL_PATH = path
         return path
 
     def _restore(self):
-        import cynic.api.server as srv_module
-        srv_module._SOCIAL_SIGNAL_PATH = self._orig
+        import cynic.api.routers.utils as utils_module
+        utils_module._SOCIAL_SIGNAL_PATH = self._orig
 
     def test_append_creates_file(self, tmp_path):
         path = self._redirect(tmp_path)
         try:
-            from cynic.api.server import _append_social_signal
+            from cynic.api.routers.utils import _append_social_signal
             import os
             _append_social_signal("cynic_feedback", 0.5, 30.0, "judgment", "user_rating")
             assert os.path.exists(path)
@@ -558,7 +558,7 @@ class TestSocialSignalWriter:
     def test_append_writes_valid_schema(self, tmp_path):
         path = self._redirect(tmp_path)
         try:
-            from cynic.api.server import _append_social_signal
+            from cynic.api.routers.utils import _append_social_signal
             _append_social_signal("cynic_interaction", -0.3, 20.0, "action", "reject")
             with open(path, encoding="utf-8") as fh:
                 data = json.load(fh)
@@ -576,7 +576,7 @@ class TestSocialSignalWriter:
     def test_append_accumulates_multiple_signals(self, tmp_path):
         path = self._redirect(tmp_path)
         try:
-            from cynic.api.server import _append_social_signal
+            from cynic.api.routers.utils import _append_social_signal
             for i in range(3):
                 _append_social_signal("cynic_feedback", float(i) * 0.2, 10.0, "j", "rating")
             with open(path, encoding="utf-8") as fh:
@@ -588,7 +588,7 @@ class TestSocialSignalWriter:
     def test_sentiment_clamped_to_range(self, tmp_path):
         path = self._redirect(tmp_path)
         try:
-            from cynic.api.server import _append_social_signal
+            from cynic.api.routers.utils import _append_social_signal
             _append_social_signal("test", 99.9, 200.0, "t", "test")
             with open(path, encoding="utf-8") as fh:
                 sig = json.load(fh)[0]
@@ -600,7 +600,7 @@ class TestSocialSignalWriter:
     def test_rolling_cap_prevents_unbounded_growth(self, tmp_path):
         path = self._redirect(tmp_path)
         try:
-            from cynic.api.server import _append_social_signal, _SOCIAL_SIGNAL_CAP
+            from cynic.api.routers.utils import _append_social_signal, _SOCIAL_SIGNAL_CAP
             for i in range(_SOCIAL_SIGNAL_CAP + 5):
                 _append_social_signal("src", 0.0, 10.0, "t", "t")
             with open(path, encoding="utf-8") as fh:
@@ -611,10 +611,10 @@ class TestSocialSignalWriter:
 
     def test_feedback_endpoint_writes_signal(self, tmp_path):
         """POST /feedback → _append_social_signal() writes to social.json."""
-        import cynic.api.server as srv_module
+        import cynic.api.routers.utils as utils_module
         path = str(tmp_path / "social.json")
-        orig = srv_module._SOCIAL_SIGNAL_PATH
-        srv_module._SOCIAL_SIGNAL_PATH = path
+        orig = utils_module._SOCIAL_SIGNAL_PATH
+        utils_module._SOCIAL_SIGNAL_PATH = path
         try:
             with TestClient(app) as client:
                 from cynic.api.state import get_state
@@ -634,4 +634,4 @@ class TestSocialSignalWriter:
             assert data[-1]["source"] == "cynic_feedback"
             assert data[-1]["sentiment"] > 0   # rating 4 > neutral 3
         finally:
-            srv_module._SOCIAL_SIGNAL_PATH = orig
+            utils_module._SOCIAL_SIGNAL_PATH = orig
