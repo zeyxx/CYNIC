@@ -2,9 +2,9 @@
 # Build: docker build -t cynic-kernel .
 # "φ distrusts φ" — κυνικός
 
-FROM python:3.11-slim
+FROM python:3.13-slim
 
-# System dependencies (for asyncpg, tree-sitter, scikit-learn)
+# System dependencies (for asyncpg C extension, scikit-learn, git hooks)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \

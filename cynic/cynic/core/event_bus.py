@@ -258,18 +258,15 @@ class EventBus:
 
     def emit_sync(self, event: Event) -> None:
         """
-        Emit from sync context (creates task if loop running, else schedules).
+        Emit from sync context (schedules task in the running event loop).
 
         Use only from non-async code. Prefer async emit() everywhere else.
+        Requires a running event loop — satisfied in production (uvicorn).
         """
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                loop.create_task(self.emit(event))
-            else:
-                loop.run_until_complete(self.emit(event))
+            asyncio.get_running_loop().create_task(self.emit(event))
         except RuntimeError:
-            # No event loop — defer until available
+            # No running loop — warn and skip (should not happen in production)
             logger.warning("emit_sync called with no event loop for %s", event.type)
 
     def stats(self) -> Dict[str, Any]:

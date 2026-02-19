@@ -390,9 +390,7 @@ class ScholarDog(LLMDog):
                 except Exception:
                     pass  # Never propagate DB errors from learn()
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    loop.create_task(_persist())
+                asyncio.get_running_loop().create_task(_persist())
             except Exception:
                 pass
 

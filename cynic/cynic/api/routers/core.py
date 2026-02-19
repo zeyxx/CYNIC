@@ -62,9 +62,7 @@ def _persist_judgment(judgment: Judgment) -> None:
 
     import asyncio
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            loop.create_task(_do_save())
+        asyncio.get_running_loop().create_task(_do_save())
     except Exception:
         pass  # Never block on persistence failure
 

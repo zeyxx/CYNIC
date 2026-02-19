@@ -277,7 +277,7 @@ class ScoutDog(LLMDog):
 
     async def _fetch_url(self, url: str) -> FetchResult:
         """Async URL fetch — runs _sync_fetch in thread executor."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         start = time.perf_counter()
         try:
             result = await asyncio.wait_for(

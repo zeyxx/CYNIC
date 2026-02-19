@@ -384,7 +384,7 @@ class GeminiAdapter(LLMAdapter):
             generation_config=config,
         )
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         response = await loop.run_in_executor(
             None, lambda: llm.generate_content(request.prompt)
         )

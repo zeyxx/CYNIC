@@ -134,7 +134,7 @@ class LlamaCppAdapter(LLMAdapter):
 
         start = time.time()
         async with self._lock:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             content = await loop.run_in_executor(
                 None,
                 self._sync_complete,
