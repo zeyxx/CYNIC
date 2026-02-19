@@ -10,7 +10,7 @@ from typing import Any
 
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
-from cynic.core.events_schema import MemoryPressurePayload
+from cynic.core.events_schema import MemoryClearedPayload, MemoryPressurePayload
 from cynic.core.judgment import Cell
 from cynic.core.phi import PHI_INV, PHI_INV_3, fibonacci
 from cynic.perceive.workers.base import PerceiveWorker
@@ -117,12 +117,12 @@ class MemoryWatcher(PerceiveWorker):
             if self._last_level is not None:
                 logger.info("MemoryWatcher: RAM pressure cleared (was %s)", self._last_level)
                 # Emit MEMORY_CLEARED so _health_cache["memory_pct"] resets → LOD recovers
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.MEMORY_CLEARED,
-                    payload={
-                        "memory_pct": round(info["used_pct"], 4),
-                        "free_gb":    round(info["free_gb"], 2),
-                    },
+                await get_core_bus().emit(Event.typed(
+                    CoreEvent.MEMORY_CLEARED,
+                    MemoryClearedPayload(
+                        memory_pct=round(info["used_pct"], 4),
+                        free_gb=round(info["free_gb"], 2),
+                    ),
                     source="memory_watcher",
                 ))
             self._last_level = None

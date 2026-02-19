@@ -10,7 +10,7 @@ from typing import Any
 
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
-from cynic.core.events_schema import DiskPressurePayload
+from cynic.core.events_schema import DiskClearedPayload, DiskPressurePayload
 from cynic.core.judgment import Cell
 from cynic.core.phi import PHI_INV, PHI_INV_3, fibonacci
 from cynic.perceive.workers.base import PerceiveWorker
@@ -87,12 +87,12 @@ class DiskWatcher(PerceiveWorker):
             if self._last_level is not None:
                 logger.info("DiskWatcher: disk pressure cleared (was %s)", self._last_level)
                 # Emit DISK_CLEARED so _health_cache["disk_pct"] resets → LOD recovers
-                await get_core_bus().emit(Event(
-                    type=CoreEvent.DISK_CLEARED,
-                    payload={
-                        "disk_pct": round(info["used_pct"], 4),
-                        "free_gb":  round(info["free_gb"], 2),
-                    },
+                await get_core_bus().emit(Event.typed(
+                    CoreEvent.DISK_CLEARED,
+                    DiskClearedPayload(
+                        disk_pct=round(info["used_pct"], 4),
+                        free_gb=round(info["free_gb"], 2),
+                    ),
                     source="disk_watcher",
                 ))
             self._last_level = None

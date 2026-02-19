@@ -204,14 +204,14 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
     cell_id = str(uuid.uuid4())
 
     # Emit PERCEPTION_RECEIVED on the core bus
-    await get_core_bus().emit(Event(
-        type=CoreEvent.PERCEPTION_RECEIVED,
-        payload={
-            "cell_id": cell_id,
-            "source": req.source,
-            "reality": req.reality,
-            "data": str(req.data)[:500],  # truncate for bus
-        },
+    await get_core_bus().emit(Event.typed(
+        CoreEvent.PERCEPTION_RECEIVED,
+        PerceptionReceivedPayload(
+            cell_id=cell_id,
+            source=req.source,
+            reality=req.reality,
+            data=str(req.data)[:500],  # truncate for bus
+        ),
     ))
 
     # Lazy Materialization: infer time_dim from perception data (Bug 5 fix)
@@ -402,16 +402,16 @@ async def feedback(req: FeedbackRequest) -> FeedbackResponse:
     # This is separate from the inline SYMBIOSIS signal above — bus event lets
     # other components (SelfProber, future handlers) react without touching this code.
     try:
-        await get_core_bus().emit(Event(
-            type=CoreEvent.USER_FEEDBACK,
-            payload={
-                "rating":       req.rating,
-                "reward":       reward,
-                "sentiment":    (req.rating - 3) / 2.0,
-                "state_key":    last["state_key"],
-                "action":       last["action"],
-                "judgment_id":  last.get("judgment_id", ""),
-            },
+        await get_core_bus().emit(Event.typed(
+            CoreEvent.USER_FEEDBACK,
+            UserFeedbackPayload(
+                rating=req.rating,
+                reward=reward,
+                sentiment=(req.rating - 3) / 2.0,
+                state_key=last["state_key"],
+                action=last["action"],
+                judgment_id=last.get("judgment_id", ""),
+            ),
             source="feedback_endpoint",
         ))
     except Exception:

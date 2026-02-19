@@ -368,15 +368,15 @@ class _KernelBuilder:
         prev   = self.lod_controller.current
         result = self.lod_controller.assess(**self._health_cache)
         if result != prev:
-            await get_core_bus().emit(Event(
-                type=CoreEvent.CONSCIOUSNESS_CHANGED,
-                payload={
-                    "from_lod":  prev.value,
-                    "to_lod":    result.value,
-                    "from_name": prev.name,
-                    "to_name":   result.name,
-                    "direction": "DOWN" if result > prev else "UP",
-                },
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.CONSCIOUSNESS_CHANGED,
+                ConsciousnessChangedPayload(
+                    from_lod=prev.value,
+                    to_lod=result.value,
+                    from_name=prev.name,
+                    to_name=result.name,
+                    direction="DOWN" if result > prev else "UP",
+                ),
                 source="lod_controller",
             ))
         return result

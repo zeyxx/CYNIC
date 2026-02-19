@@ -11,6 +11,8 @@ import pytest
 from cynic.core.event_bus import CoreEvent, Event
 from cynic.core.events_schema import (
     JudgmentCreatedPayload,
+    JudgmentRequestedPayload,
+    JudgmentFailedPayload,
     ConsensusReachedPayload,
     ConsensusFailedPayload,
     LearningEventPayload,
@@ -28,6 +30,8 @@ from cynic.core.events_schema import (
     MetaCyclePayload,
     DiskPressurePayload,
     MemoryPressurePayload,
+    DiskClearedPayload,
+    MemoryClearedPayload,
     BudgetWarningPayload,
     BudgetExhaustedPayload,
     SdkSessionStartedPayload,
@@ -44,7 +48,9 @@ from cynic.core.events_schema import (
 # ── Inventory: every CoreEvent that has a typed payload ──────────────
 
 PAYLOAD_MAP: dict[str, type] = {
+    CoreEvent.JUDGMENT_REQUESTED:        JudgmentRequestedPayload,
     CoreEvent.JUDGMENT_CREATED:          JudgmentCreatedPayload,
+    CoreEvent.JUDGMENT_FAILED:           JudgmentFailedPayload,
     CoreEvent.CONSENSUS_REACHED:         ConsensusReachedPayload,
     CoreEvent.CONSENSUS_FAILED:          ConsensusFailedPayload,
     CoreEvent.LEARNING_EVENT:            LearningEventPayload,
@@ -61,7 +67,9 @@ PAYLOAD_MAP: dict[str, type] = {
     CoreEvent.ANOMALY_DETECTED:          AnomalyDetectedPayload,
     CoreEvent.META_CYCLE:                MetaCyclePayload,
     CoreEvent.DISK_PRESSURE:             DiskPressurePayload,
+    CoreEvent.DISK_CLEARED:              DiskClearedPayload,
     CoreEvent.MEMORY_PRESSURE:           MemoryPressurePayload,
+    CoreEvent.MEMORY_CLEARED:            MemoryClearedPayload,
     CoreEvent.BUDGET_WARNING:            BudgetWarningPayload,
     CoreEvent.BUDGET_EXHAUSTED:          BudgetExhaustedPayload,
     CoreEvent.SDK_SESSION_STARTED:       SdkSessionStartedPayload,

@@ -38,6 +38,7 @@ from typing import Any
 
 from cynic.core.phi import PHI_INV_2, fibonacci
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.core.events_schema import SelfImprovementProposedPayload
 
 logger = logging.getLogger("cynic.judge.self_probe")
 
@@ -391,16 +392,16 @@ class SelfProber:
             if not new_proposals:
                 return
 
-            await get_core_bus().emit(Event(
-                type=CoreEvent.SELF_IMPROVEMENT_PROPOSED,
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.SELF_IMPROVEMENT_PROPOSED,
+                SelfImprovementProposedPayload(
+                    trigger="EMERGENCE",
+                    pattern_type=pattern_type,
+                    severity=severity,
+                    proposals=[p.to_dict() for p in new_proposals],
+                    total_pending=len(self.pending()),
+                ),
                 source="self_prober",
-                payload={
-                    "trigger":        "EMERGENCE",
-                    "pattern_type":   pattern_type,
-                    "severity":       severity,
-                    "proposals":      [p.to_dict() for p in new_proposals],
-                    "total_pending":  len(self.pending()),
-                },
             ))
             logger.info(
                 "SelfProber: %d proposals generated (pattern=%s severity=%.3f)",

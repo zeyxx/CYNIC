@@ -65,6 +65,25 @@ class JudgmentCreatedPayload(BaseModel):
     context:         str                = ""
 
 
+class JudgmentRequestedPayload(BaseModel):
+    """JUDGMENT_REQUESTED — orchestrator begins judgment pipeline for a cell."""
+    model_config = _BASE
+
+    cell_id: str = ""
+    reality: str = "CODE"
+    level:   str = ""     # REFLEX|MICRO|MACRO
+
+
+class JudgmentFailedPayload(BaseModel):
+    """JUDGMENT_FAILED — judgment pipeline failed (circuit breaker or exception)."""
+    model_config = _BASE
+
+    cell_id:       str = ""
+    error:         str = ""
+    circuit_state: str = ""      # CircuitState value (only set on circuit breaker path)
+    failure_count: int = 0       # consecutive failures (only set on circuit breaker path)
+
+
 class ConsensusReachedPayload(BaseModel):
     """CONSENSUS_REACHED — PBFT quorum met, judgment accepted."""
     model_config = _BASE
@@ -340,6 +359,22 @@ class MemoryPressurePayload(BaseModel):
     pressure:   str   = "WARN"
     used_pct:   float = 0.0
     memory_pct: float = 0.0    # preferred alias for used_pct
+
+
+class DiskClearedPayload(BaseModel):
+    """DISK_CLEARED — disk pressure resolved (back to OK)."""
+    model_config = _BASE
+
+    disk_pct: float = 0.0
+    free_gb:  float = 0.0
+
+
+class MemoryClearedPayload(BaseModel):
+    """MEMORY_CLEARED — RAM pressure resolved (back to OK)."""
+    model_config = _BASE
+
+    memory_pct: float = 0.0
+    free_gb:    float = 0.0
 
 
 # ════════════════════════════════════════════════════════════════════════════

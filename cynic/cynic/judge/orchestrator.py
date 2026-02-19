@@ -42,6 +42,9 @@ from cynic.core.event_bus import (
 from cynic.core.events_schema import (
     ConsensusReachedPayload,
     ConsensusFailedPayload,
+    JudgmentCreatedPayload,
+    JudgmentFailedPayload,
+    JudgmentRequestedPayload,
     LearningEventPayload,
     MetaCyclePayload,
     PerceptionReceivedPayload,
@@ -144,14 +147,14 @@ class JudgeOrchestrator:
                 "CircuitBreaker %s — fast-failing judgment %s (failures=%d)",
                 cb.state.value, cell.cell_id, cb.failure_count,
             )
-            await get_core_bus().emit(Event(
-                type=CoreEvent.JUDGMENT_FAILED,
-                payload={
-                    "cell_id": cell.cell_id,
-                    "error": "circuit_open",
-                    "circuit_state": cb.state.value,
-                    "failure_count": cb.failure_count,
-                },
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.JUDGMENT_FAILED,
+                JudgmentFailedPayload(
+                    cell_id=cell.cell_id,
+                    error="circuit_open",
+                    circuit_state=cb.state.value,
+                    failure_count=cb.failure_count,
+                ),
             ))
             raise RuntimeError(
                 f"CircuitBreaker OPEN — pipeline suspended "
@@ -159,9 +162,13 @@ class JudgeOrchestrator:
             )
 
         # Emit JUDGMENT_REQUESTED
-        await get_core_bus().emit(Event(
-            type=CoreEvent.JUDGMENT_REQUESTED,
-            payload={"cell_id": cell.cell_id, "reality": cell.reality, "level": level.name},
+        await get_core_bus().emit(Event.typed(
+            CoreEvent.JUDGMENT_REQUESTED,
+            JudgmentRequestedPayload(
+                cell_id=cell.cell_id,
+                reality=cell.reality,
+                level=level.name,
+            ),
         ))
 
         timer = self._consciousness.timers.get(level.name)
@@ -190,9 +197,9 @@ class JudgeOrchestrator:
             jc_payload["level_used"] = level.name  # needed by LOD latency filter
             jc_payload["content_preview"] = str(cell.content or "")[:200]
             jc_payload["context"] = cell.context or ""
-            await get_core_bus().emit(Event(
-                type=CoreEvent.JUDGMENT_CREATED,
-                payload=jc_payload,
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.JUDGMENT_CREATED,
+                JudgmentCreatedPayload.model_validate(jc_payload),
             ))
 
             # Emit CONSENSUS_REACHED or CONSENSUS_FAILED based on final judgment.
@@ -274,9 +281,12 @@ class JudgeOrchestrator:
                 timer.stop()
             # Circuit breaker: record failure — may open circuit after threshold
             self._circuit_breaker.record_failure()
-            await get_core_bus().emit(Event(
-                type=CoreEvent.JUDGMENT_FAILED,
-                payload={"cell_id": cell.cell_id, "error": str(e)},
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.JUDGMENT_FAILED,
+                JudgmentFailedPayload(
+                    cell_id=cell.cell_id,
+                    error=str(e),
+                ),
             ))
             raise
 

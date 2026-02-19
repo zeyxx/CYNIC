@@ -10,7 +10,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
-from cynic.core.events_schema import AxiomActivatedPayload
+from cynic.core.events_schema import ActRequestedPayload, AxiomActivatedPayload
 from cynic.learning.qlearning import LearningSignal
 from cynic.api.state import get_state
 from cynic.api.routers.utils import _append_social_signal
@@ -87,9 +87,12 @@ async def accept_action(action_id: str) -> dict[str, Any]:
     # ── L1 closure: accepted → fire ACT_REQUESTED → runner executes ──────
     # This closes the Machine→Actions loop: accept = authorize execution.
     if action.prompt:
-        await get_core_bus().emit(Event(
-            type=CoreEvent.ACT_REQUESTED,
-            payload={"action": action.prompt, "target": None, "action_id": action.action_id},
+        await get_core_bus().emit(Event.typed(
+            CoreEvent.ACT_REQUESTED,
+            ActRequestedPayload(
+                action=action.prompt,
+                action_id=action.action_id,
+            ),
             source="action_accept",
         ))
         logger.info("*ears perk* Action %s → ACT_REQUESTED fired (L1 auto-execute)", action_id)

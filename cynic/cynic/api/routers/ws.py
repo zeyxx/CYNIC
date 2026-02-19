@@ -12,6 +12,7 @@ from typing import Any
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.core.events_schema import ActRequestedPayload
 from cynic.core.phi import PHI
 
 logger = logging.getLogger("cynic.api.server")
@@ -87,9 +88,12 @@ async def ws_stream(websocket: WebSocket) -> None:
             if msg_type == "ping":
                 await websocket.send_json({"type": "pong", "ts": time.time()})
             elif msg_type == "ACT":
-                await bus.emit(Event(
-                    type=CoreEvent.ACT_REQUESTED,
-                    payload={"action": data.get("action", ""), "target": data.get("target", "")},
+                await bus.emit(Event.typed(
+                    CoreEvent.ACT_REQUESTED,
+                    ActRequestedPayload(
+                        action=data.get("action", ""),
+                        target=data.get("target", ""),
+                    ),
                     source="ws_client",
                 ))
             # Any other type: ignored silently

@@ -28,6 +28,7 @@ from typing import Any, Optional
 
 
 from cynic.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
+from cynic.core.events_schema import BudgetExhaustedPayload, BudgetWarningPayload
 from cynic.core.phi import PHI_INV_2, MAX_Q_SCORE
 
 logger = logging.getLogger("cynic.judge.account")
@@ -138,14 +139,14 @@ class AccountAgent:
 
         if not self._warning_emitted and ratio_remaining <= _WARNING_RATIO:
             self._warning_emitted = True
-            await get_core_bus().emit(Event(
-                type=CoreEvent.BUDGET_WARNING,
-                payload={
-                    "remaining_usd": round(remaining, 4),
-                    "total_spent_usd": round(self._total_cost_usd, 4),
-                    "ratio_remaining": round(ratio_remaining, 3),
-                    "session_budget_usd": self._session_budget_usd,
-                },
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.BUDGET_WARNING,
+                BudgetWarningPayload(
+                    remaining_usd=round(remaining, 4),
+                    total_spent_usd=round(self._total_cost_usd, 4),
+                    ratio_remaining=round(ratio_remaining, 3),
+                    session_budget_usd=self._session_budget_usd,
+                ),
                 source="account_agent",
             ))
             logger.warning(
@@ -155,13 +156,13 @@ class AccountAgent:
 
         if not self._exhausted_emitted and remaining <= 0.0:
             self._exhausted_emitted = True
-            await get_core_bus().emit(Event(
-                type=CoreEvent.BUDGET_EXHAUSTED,
-                payload={
-                    "total_spent_usd": round(self._total_cost_usd, 4),
-                    "session_budget_usd": self._session_budget_usd,
-                    "overspend_usd": round(-remaining, 4),
-                },
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.BUDGET_EXHAUSTED,
+                BudgetExhaustedPayload(
+                    total_spent_usd=round(self._total_cost_usd, 4),
+                    session_budget_usd=self._session_budget_usd,
+                    overspend_usd=round(-remaining, 4),
+                ),
                 source="account_agent",
             ))
             logger.error(
