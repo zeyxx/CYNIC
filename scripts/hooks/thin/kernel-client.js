@@ -56,7 +56,8 @@ let _kernelAlive = null;
 let _kernelCheckedAt = 0;
 const ALIVE_TTL_MS = 10_000;
 
-const _GUIDANCE_FILE = path.join(os.homedir(), '.cynic', 'guidance.json');
+const _CYNIC_DIR = path.join(os.homedir(), '.cynic');
+const _GUIDANCE_FILE = path.join(_CYNIC_DIR, 'guidance.json');
 const _GUIDANCE_STALE_MS = 24 * 60 * 60 * 1000; // 24 hours — guidance is learning, not cache
 
 /**
@@ -65,15 +66,36 @@ const _GUIDANCE_STALE_MS = 24 * 60 * 60 * 1000; // 24 hours — guidance is lear
  * This is the feedback loop: kernel judges → writes guidance.json →
  * next hook reads it → Claude Code sees kernel recommendation.
  *
+ * T35: Multi-instance support — reads all guidance-{instance_id}.json files,
+ * picks the most recent by timestamp. Falls back to guidance.json (single-instance).
+ *
  * @returns {{ state_key, verdict, q_score, confidence, reality, dog_votes, timestamp }|null}
  */
 export function readKernelGuidance() {
   try {
-    if (!fs.existsSync(_GUIDANCE_FILE)) return null;
-    const data = JSON.parse(fs.readFileSync(_GUIDANCE_FILE, 'utf8'));
-    // Staleness: ignore guidance older than 24h (guidance is learning, not a cache)
-    if (Date.now() - (data.timestamp * 1000) > _GUIDANCE_STALE_MS) return null;
-    return data;
+    let best = null;
+
+    // T35: read all guidance-{8hex}.json files (one per running instance)
+    if (fs.existsSync(_CYNIC_DIR)) {
+      const files = fs.readdirSync(_CYNIC_DIR)
+        .filter(f => /^guidance-[0-9a-f]{8}\.json$/.test(f));
+      for (const f of files) {
+        try {
+          const data = JSON.parse(fs.readFileSync(path.join(_CYNIC_DIR, f), 'utf8'));
+          if (Date.now() - (data.timestamp * 1000) <= _GUIDANCE_STALE_MS) {
+            if (!best || data.timestamp > best.timestamp) best = data;
+          }
+        } catch { /* corrupt or unreadable — skip */ }
+      }
+    }
+
+    // Fallback: guidance.json (single-instance / backward compat)
+    if (!best && fs.existsSync(_GUIDANCE_FILE)) {
+      const data = JSON.parse(fs.readFileSync(_GUIDANCE_FILE, 'utf8'));
+      if (Date.now() - (data.timestamp * 1000) <= _GUIDANCE_STALE_MS) best = data;
+    }
+
+    return best;
   } catch {
     return null;
   }

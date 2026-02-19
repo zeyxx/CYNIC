@@ -55,6 +55,15 @@ logger = logging.getLogger("cynic.api.state")
 
 _GUIDANCE_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "guidance.json")
 
+# Instance ID for multi-instance guidance isolation (set from lifespan startup via set_instance_id())
+_current_instance_id: Optional[str] = None
+
+
+def set_instance_id(instance_id: str) -> None:
+    """Set the instance ID used for guidance-{id}.json isolation (T35)."""
+    global _current_instance_id
+    _current_instance_id = instance_id
+
 
 async def _on_judgment_created(event: Event) -> None:
     """
@@ -66,23 +75,36 @@ async def _on_judgment_created(event: Event) -> None:
 
     By subscribing here (not just in /judge and /perceive endpoints),
     SAGE's Ollama-powered judgments finally reach the feedback loop.
+
+    T35: also writes guidance-{instance_id}.json for multi-instance isolation.
+    kernel-client.js reads all guidance-*.json and picks the most recent.
     """
     try:
         p = event.payload
+        payload = {
+            "timestamp": time.time(),
+            "state_key": p.get("state_key", ""),
+            "verdict": p.get("verdict", "WAG"),
+            "q_score": round(float(p.get("q_score", 0.0)), 3),
+            "confidence": round(min(float(p.get("confidence", 0.0)), MAX_CONFIDENCE), 4),
+            "reality": p.get("reality", "CODE"),
+            "dog_votes": {
+                k: round(float(v), 3)
+                for k, v in (p.get("dog_votes") or {}).items()
+            },
+        }
         os.makedirs(os.path.dirname(_GUIDANCE_PATH), exist_ok=True)
+        # Always write guidance.json (backward compat for single-instance hooks)
         with open(_GUIDANCE_PATH, "w", encoding="utf-8") as fh:
-            json.dump({
-                "timestamp": time.time(),
-                "state_key": p.get("state_key", ""),
-                "verdict": p.get("verdict", "WAG"),
-                "q_score": round(float(p.get("q_score", 0.0)), 3),
-                "confidence": round(min(float(p.get("confidence", 0.0)), MAX_CONFIDENCE), 4),
-                "reality": p.get("reality", "CODE"),
-                "dog_votes": {
-                    k: round(float(v), 3)
-                    for k, v in (p.get("dog_votes") or {}).items()
-                },
-            }, fh)
+            json.dump(payload, fh)
+        # Also write guidance-{instance_id}.json for multi-instance isolation (T35)
+        if _current_instance_id:
+            _inst_path = os.path.join(
+                os.path.dirname(_GUIDANCE_PATH),
+                f"guidance-{_current_instance_id}.json",
+            )
+            with open(_inst_path, "w", encoding="utf-8") as fh:
+                json.dump(payload, fh)
     except Exception as exc:
         logger.debug("guidance.json write skipped: %s", exc)
 

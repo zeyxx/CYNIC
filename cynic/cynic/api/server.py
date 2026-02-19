@@ -197,6 +197,46 @@ async def lifespan(app: FastAPI):
     """Build the kernel once on startup, tear down on shutdown."""
     logger.info("*sniff* CYNIC kernel booting...")
 
+    # ── T35: Instance ID + MCP auto-config ────────────────────────────────
+    # Each process gets a unique 8-char hex instance_id.
+    # Solves two problems:
+    #   1. Multi-instance race on guidance.json → each instance writes guidance-{id}.json
+    #   2. Cursor/Windsurf MCP connection → auto-write ~/.cursor/mcp.json if absent
+    _instance_id = uuid.uuid4().hex[:8]
+    logger.info("*sniff* CYNIC instance_id: %s", _instance_id)
+
+    from cynic.api.state import set_instance_id as _set_instance_id
+    _set_instance_id(_instance_id)
+
+    # Write ~/.cynic/instance.json — runtime metadata for debugging + MCP tools
+    _instance_meta_path = os.path.join(os.path.expanduser("~"), ".cynic", "instance.json")
+    try:
+        os.makedirs(os.path.dirname(_instance_meta_path), exist_ok=True)
+        with open(_instance_meta_path, "w", encoding="utf-8") as _fh:
+            json.dump({
+                "instance_id": _instance_id,
+                "port": int(os.getenv("PORT", 8765)),
+                "started_at": time.time(),
+            }, _fh, indent=2)
+    except Exception as _exc:
+        logger.debug("instance.json write failed: %s", _exc)
+
+    # MCP auto-config for Cursor/Windsurf — non-destructive (never overwrites existing)
+    _mcp_port = int(os.getenv("PORT", 8765))
+    _mcp_config = {"cynic": {"url": f"http://localhost:{_mcp_port}"}}
+    for _mcp_target in [
+        os.path.join(os.path.expanduser("~"), ".cursor", "mcp.json"),
+        os.path.join(os.path.expanduser("~"), ".windsurf", "mcp.json"),
+    ]:
+        if not os.path.exists(_mcp_target):
+            try:
+                os.makedirs(os.path.dirname(_mcp_target), exist_ok=True)
+                with open(_mcp_target, "w", encoding="utf-8") as _fh:
+                    json.dump(_mcp_config, _fh, indent=2)
+                logger.info("MCP auto-config written: %s", _mcp_target)
+            except Exception as _mcp_exc:
+                logger.debug("MCP auto-config skipped (%s): %s", _mcp_target, _mcp_exc)
+
     # ── LLM Registry: discover all available LLMs ─────────────────────────
     # Ollama (primary — free, local, parallel)
     # Claude (API — for MACRO cycle reasoning)
