@@ -123,6 +123,8 @@ class JudgeOrchestrator:
         # γ3: scale budget by axiom health before level selection
         effective_budget = (budget_usd or cell.budget_usd) * self._axiom_budget_multiplier()
         level = level or self._select_level(cell, effective_budget)
+        # B2 fix: enforce LOD cap even when level was passed explicitly
+        level = self._apply_lod_cap(level)
         pipeline = JudgmentPipeline(cell=cell, level=level)
 
         # Circuit breaker — fast-fail when cascade failure detected (topology M1)
@@ -312,6 +314,33 @@ class JudgeOrchestrator:
                 "(zero LLM calls)"
             )
 
+    # ── LOD CAP (B2 fix) ───────────────────────────────────────────────────
+
+    def _apply_lod_cap(self, level: ConsciousnessLevel) -> ConsciousnessLevel:
+        """
+        Enforce LOD cap on any level — explicit or auto-selected (B2 fix).
+
+        _select_level() already enforces this for the auto-select path, but:
+          1. run(cell, level=MACRO) bypasses _select_level entirely.
+          2. _cycle_micro escalation calls _cycle_macro directly (no level check).
+        This method is the single enforcement point for both cases.
+        """
+        if self.lod_controller is None:
+            return level
+        from cynic.judge.lod import SurvivalLOD
+        lod = self.lod_controller.current
+        if lod >= SurvivalLOD.EMERGENCY:
+            if level != ConsciousnessLevel.REFLEX:
+                logger.warning(
+                    "LOD cap: %s → REFLEX (LOD=%s, system under stress)",
+                    level.name, lod.name,
+                )
+            return ConsciousnessLevel.REFLEX
+        if lod == SurvivalLOD.REDUCED and level == ConsciousnessLevel.MACRO:
+            logger.info("LOD cap: MACRO → MICRO (LOD=REDUCED)")
+            return ConsciousnessLevel.MICRO
+        return level
+
     # ── LEVEL SELECTION ────────────────────────────────────────────────────
 
     def _select_level(self, cell: Cell, budget_usd: float) -> ConsciousnessLevel:
@@ -448,15 +477,23 @@ class JudgeOrchestrator:
         # L2 → L1 ESCALATION: If consensus failed at MICRO, upgrade to full MACRO cycle.
         # Law: A failed quorum means the Dogs disagree — need more analysis, not less.
         # Budget guard: Only escalate if remaining budget can cover MACRO overhead.
+        # B2 fix: apply LOD cap before escalating — EMERGENCY LOD blocks MACRO.
         if not consensus.consensus:
             remaining_budget = cell.budget_usd * (1.0 - PHI_INV_2)  # ~61.8% left
             if remaining_budget > 0.0001:  # $0.1 milli minimum
-                logger.info(
-                    "L2→L1 escalation: MICRO consensus failed (%d/%d votes) for cell %s → MACRO",
-                    consensus.votes, consensus.quorum, cell.cell_id,
-                )
-                pipeline.level = ConsciousnessLevel.MACRO
-                return await self._cycle_macro(pipeline)
+                capped = self._apply_lod_cap(ConsciousnessLevel.MACRO)
+                if capped != ConsciousnessLevel.MACRO:
+                    logger.info(
+                        "L2→L1 escalation suppressed: LOD cap=%s for cell %s",
+                        capped.name, cell.cell_id,
+                    )
+                else:
+                    logger.info(
+                        "L2→L1 escalation: MICRO consensus failed (%d/%d votes) for cell %s → MACRO",
+                        consensus.votes, consensus.quorum, cell.cell_id,
+                    )
+                    pipeline.level = ConsciousnessLevel.MACRO
+                    return await self._cycle_macro(pipeline)
 
         # Axiom scoring at medium depth
         q_scores_micro = [j.q_score for j in pipeline.dog_judgments]
