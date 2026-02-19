@@ -47,6 +47,7 @@ from cynic.perceive import checkpoint as _session_checkpoint
 from cynic.perceive.checkpoint import CHECKPOINT_EVERY
 from cynic.scheduler import DogScheduler
 from cynic.act.telemetry import TelemetryStore
+from cynic.act.llm_router import LLMRouter
 from cynic.perceive.compressor import ContextCompressor
 
 logger = logging.getLogger("cynic.api.state")
@@ -207,6 +208,13 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     # Emits BUDGET_WARNING at PHI_INV_2 remaining, BUDGET_EXHAUSTED at 0.
     # Updates EScore "RUN" dimension: free Ollama + high Q → RUN=100.
     account_agent = AccountAgent()
+
+    # ── LLMRouter — Ring 4: Q-Table driven model selection ────────────────
+    # After each SDK result, route() checks whether the NEXT task of this
+    # type should use Claude Haiku instead of Sonnet (save ~75% cost).
+    # Gates: confidence ≥ PHI_INV + task in simple set + complexity cheap +
+    # visits ≥ 3. Cold-start safe: always Sonnet until Q-Table is warm.
+    llm_router = LLMRouter()
 
     # ── EMERGENCE_DETECTED -> META cycle trigger ───────────────────────────
     # When ResidualDetector detects an emergence pattern, submit a META cell
@@ -954,14 +962,21 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
             p = event.payload or {}
             rating = float(p.get("rating", 3.0))
 
-            from cynic.core.phi import MAX_Q_SCORE
+            from cynic.core.phi import MAX_Q_SCORE, WAG_MIN
 
+            # JUDGE: rating quality — proportional to [1, 5] → [0, MAX_Q_SCORE]
             judge_score = (rating - 1) / 4.0 * MAX_Q_SCORE
             escore_tracker.update("agent:cynic", "JUDGE", judge_score)
 
+            # SOCIAL: human engaged with CYNIC = direct community interaction.
+            # The ACT of rating is the social signal — quality is captured by JUDGE.
+            # Even a 1-star rating means the human is talking to CYNIC = engagement.
+            # Constant WAG_MIN for all ratings: "present + engaged" baseline.
+            escore_tracker.update("agent:cynic", "SOCIAL", WAG_MIN)
+
             logger.info(
-                "USER_FEEDBACK: rating=%d/5 → JUDGE EScore=%.1f",
-                int(rating), judge_score,
+                "USER_FEEDBACK: rating=%d/5 → JUDGE EScore=%.1f SOCIAL=%.1f",
+                int(rating), judge_score, WAG_MIN,
             )
         except Exception:
             pass
@@ -1633,6 +1648,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         escore_tracker=escore_tracker,
         action_proposer=action_proposer,
         self_prober=self_prober,
+        llm_router=llm_router,
     )
 
 

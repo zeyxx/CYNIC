@@ -2285,3 +2285,88 @@ class TestJudgmentFailedEscoreLoop:
         # No signal call → all maturities unchanged
         after = {ax: m.get_maturity(ax) for ax in ("ANTIFRAGILITY", "EMERGENCE", "AUTONOMY")}
         assert before == after
+
+
+# ── USER_FEEDBACK → SOCIAL EScore ────────────────────────────────────────────
+
+class TestUserFeedbackSocialLoop:
+    """
+    USER_FEEDBACK fires when a human rates a judgment (1-5 stars).
+    The act of rating IS a direct human→CYNIC social interaction.
+
+    Design: SOCIAL = WAG_MIN for ALL ratings.
+    The ACT of engaging is the social signal; JUDGE already captures quality.
+    Even a 1-star rating means the human is talking to CYNIC = engagement.
+
+    Handler: _on_user_feedback in state.py (adds SOCIAL = WAG_MIN alongside JUDGE).
+    """
+
+    def test_social_wag_min_on_positive_feedback(self):
+        """rating=5 → SOCIAL = WAG_MIN (positive engagement = present + engaged)."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import WAG_MIN
+
+        tracker = EScoreTracker()
+        tracker.update("agent:cynic", "SOCIAL", WAG_MIN)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["SOCIAL"]["value"] == pytest.approx(WAG_MIN, abs=0.5)
+
+    def test_social_wag_min_on_negative_feedback(self):
+        """rating=1 → SOCIAL still = WAG_MIN (negative engagement IS engagement)."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import WAG_MIN
+
+        tracker = EScoreTracker()
+        # Even 1-star = human talking to CYNIC → SOCIAL = WAG_MIN
+        tracker.update("agent:cynic", "SOCIAL", WAG_MIN)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["SOCIAL"]["value"] == pytest.approx(WAG_MIN, abs=0.5)
+
+    def test_judge_high_on_positive_feedback(self):
+        """rating=5 → JUDGE = MAX_Q_SCORE (100.0) — exceptional quality."""
+        from cynic.core.escore import EScoreTracker
+        from cynic.core.phi import MAX_Q_SCORE
+
+        tracker = EScoreTracker()
+        rating = 5.0
+        judge_score = (rating - 1) / 4.0 * MAX_Q_SCORE
+        tracker.update("agent:cynic", "JUDGE", judge_score)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["JUDGE"]["value"] == pytest.approx(MAX_Q_SCORE, abs=0.5)
+
+    def test_judge_zero_on_negative_feedback(self):
+        """rating=1 → JUDGE = 0.0 — rejection, zero quality."""
+        from cynic.core.escore import EScoreTracker
+
+        tracker = EScoreTracker()
+        rating = 1.0
+        judge_score = (rating - 1) / 4.0 * 100.0
+        tracker.update("agent:cynic", "JUDGE", judge_score)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["JUDGE"]["value"] == pytest.approx(0.0, abs=0.1)
+
+    def test_social_constant_judge_varies(self):
+        """SOCIAL is constant across ratings; JUDGE varies — they measure different things."""
+        from cynic.core.phi import MAX_Q_SCORE, WAG_MIN
+
+        ratings = [1, 2, 3, 4, 5]
+        judge_scores = [(r - 1) / 4.0 * MAX_Q_SCORE for r in ratings]
+        social_scores = [WAG_MIN for _ in ratings]  # constant
+
+        # JUDGE varies across the range
+        assert max(judge_scores) > min(judge_scores)
+        # SOCIAL does not
+        assert len(set(social_scores)) == 1
+
+    def test_handler_tolerates_missing_rating(self):
+        """Missing rating in payload → defaults to 3.0 (neutral), no raise."""
+        from cynic.core.phi import MAX_Q_SCORE, WAG_MIN
+
+        p = {}
+        rating = float(p.get("rating", 3.0))
+        assert rating == 3.0
+
+        judge_score = (rating - 1) / 4.0 * MAX_Q_SCORE
+        assert judge_score == pytest.approx(50.0, abs=0.5)  # neutral = 50.0
+        # SOCIAL = WAG_MIN regardless
+        assert WAG_MIN == pytest.approx(61.8, abs=0.1)
