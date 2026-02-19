@@ -53,8 +53,8 @@ class GuardianDog(AbstractDog):
     def __init__(self) -> None:
         super().__init__(DogId.GUARDIAN)
         # Separate model per reality dimension
-        self._models: Dict[str, IsolationForest] = {}
-        self._training_data: Dict[str, List[List[float]]] = {}
+        self._models: dict[str, IsolationForest] = {}
+        self._training_data: dict[str, list[list[float]]] = {}
         self._min_training_samples = 13  # F(7) — need enough data to train
         self._trained_realities: set = set()
 
@@ -126,7 +126,7 @@ class GuardianDog(AbstractDog):
         self.record_judgment(judgment)
         return judgment
 
-    def _extract_features(self, cell: Cell) -> List[float]:
+    def _extract_features(self, cell: Cell) -> list[float]:
         """Extract numeric features from cell content for anomaly detection."""
         features = [
             cell.novelty,
@@ -161,7 +161,7 @@ class GuardianDog(AbstractDog):
     def _score_anomaly(
         self,
         reality: str,
-        features: List[float],
+        features: list[float],
     ) -> tuple[float, bool, float]:
         """
         Score anomaly using IsolationForest.
@@ -188,7 +188,7 @@ class GuardianDog(AbstractDog):
 
         return anomaly_score, is_anomaly, danger_level
 
-    def _update_training(self, reality: str, features: List[float]) -> None:
+    def _update_training(self, reality: str, features: list[float]) -> None:
         """Incrementally update training data and retrain if enough samples."""
         if reality not in self._training_data:
             self._training_data[reality] = []
@@ -217,7 +217,7 @@ class GuardianDog(AbstractDog):
         )
 
     # Expose features for Guardian access
-    def _extract_features(self, cell: Cell) -> List[float]:  # type: ignore[override]
+    def _extract_features(self, cell: Cell) -> list[float]:  # type: ignore[override]
         features = [cell.novelty, cell.complexity, cell.risk, float(cell.lod), float(cell.consciousness)]
         content = cell.content
         if isinstance(content, dict):

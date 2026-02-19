@@ -54,18 +54,18 @@ from cynic.judge.qtable_benchmark import (
 # ---------------------------------------------------------------------------
 
 # Raw Q-scores (scale: 0–100) — mean over 200 heuristic runs
-_EMPIRICAL_Q_SCORES: List[float] = [64.18, 66.39, 0.00, 67.51, 67.39]
+_EMPIRICAL_Q_SCORES: list[float] = [64.18, 66.39, 0.00, 67.51, 67.39]
 
 # Empirical sigma (mean per-probe std dev) — near-deterministic in heuristic mode
 _EMPIRICAL_SIGMA_Q: float = 1.206   # raw Q-score units
 _Q_SCALE: float = 100.0             # normalize to [0,1]
 
 # Normalized true_rewards (used by RealKernelTask)
-_EMPIRICAL_TRUE_REWARDS: List[float] = [q / _Q_SCALE for q in _EMPIRICAL_Q_SCORES]
+_EMPIRICAL_TRUE_REWARDS: list[float] = [q / _Q_SCALE for q in _EMPIRICAL_Q_SCORES]
 _SIGMA_REAL: float = _EMPIRICAL_SIGMA_Q / _Q_SCALE   # ~0.012
 
 # Probe labels — (state_key, action) pairs matching canonical probes
-_REAL_PAIRS: List[Tuple[str, str]] = [
+_REAL_PAIRS: list[tuple[str, str]] = [
     ("P1", "clean_code"),
     ("P2", "smelly_code"),
     ("P3", "dangerous_act"),
@@ -100,8 +100,8 @@ class RealKernelTask:
     rng: random.Random = field(default_factory=random.Random)
 
     def __post_init__(self) -> None:
-        self._true_rewards: List[float] = list(_EMPIRICAL_TRUE_REWARDS)
-        self._pair_labels: List[Tuple[str, str]] = list(_REAL_PAIRS)
+        self._true_rewards: list[float] = list(_EMPIRICAL_TRUE_REWARDS)
+        self._pair_labels: list[tuple[str, str]] = list(_REAL_PAIRS)
 
     def true_reward(self, idx: int) -> float:
         return self._true_rewards[idx]
@@ -112,7 +112,7 @@ class RealKernelTask:
         noisy = r + self.rng.gauss(0, self.sigma)
         return max(0.0, min(1.0, noisy))
 
-    def pair(self, idx: int) -> Tuple[str, str]:
+    def pair(self, idx: int) -> tuple[str, str]:
         return self._pair_labels[idx]
 
     @property
@@ -139,7 +139,7 @@ class RealBenchmark:
         (P3 is the strongest anchor — Guardian always scores it 0)
     """
 
-    def __init__(self, task: Optional[RealKernelTask] = None) -> None:
+    def __init__(self, task: RealKernelTask | None = None) -> None:
         self.task = task or RealKernelTask()
 
     def run(
@@ -182,7 +182,7 @@ class RealBenchmark:
         max_steps: int = 500,
         n_seeds: int = 7,
         base_seed: int = 42,
-    ) -> Dict:
+    ) -> dict:
         """
         Run full alpha x EWC grid on real probe data, aggregate over n_seeds.
 
@@ -192,13 +192,13 @@ class RealBenchmark:
           dangerous_probe_shift_standard: same for standard config
           phi_protects_dangerous:        bool — phi resists P3 reversal better
         """
-        configs: List[Tuple[float, bool]] = [
+        configs: list[tuple[float, bool]] = [
             (a, ewc)
             for a in _ALPHA_GRID
             for ewc in (True, False)
         ]
 
-        all_results: Dict[Tuple[float, bool], List[ConvergenceResult]] = {}
+        all_results: dict[tuple[float, bool], list[ConvergenceResult]] = {}
         for cfg in configs:
             alpha, use_ewc = cfg
             runs = [
@@ -212,7 +212,7 @@ class RealBenchmark:
             ]
             all_results[cfg] = runs
 
-        def agg(runs: List[ConvergenceResult]) -> Dict:
+        def agg(runs: list[ConvergenceResult]) -> dict:
             conv_steps = [r.convergence_step or max_steps for r in runs]
             return {
                 "label": runs[0].label,

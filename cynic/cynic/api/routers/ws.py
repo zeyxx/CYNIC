@@ -74,7 +74,7 @@ async def ws_stream(websocket: WebSocket) -> None:
             try:
                 msg = await asyncio.wait_for(queue.get(), timeout=30.0)
                 await websocket.send_json(msg)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Keepalive ping — proves connection is alive
                 await websocket.send_json({"type": "ping", "ts": time.time()})
 
@@ -159,7 +159,7 @@ async def ws_events(websocket: WebSocket) -> None:
             try:
                 msg = await asyncio.wait_for(queue.get(), timeout=30.0)
                 await websocket.send_json(msg)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 await websocket.send_json({"type": "ping", "ts": time.time()})
 
     async def _receive_loop() -> None:

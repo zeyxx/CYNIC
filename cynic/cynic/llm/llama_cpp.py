@@ -44,7 +44,7 @@ from cynic.llm.adapter import LLMAdapter, LLMRequest, LLMResponse
 logger = logging.getLogger("cynic.llm.llama_cpp")
 
 
-def list_local_models(models_dir: str) -> List[str]:
+def list_local_models(models_dir: str) -> list[str]:
     """
     Return absolute paths to .gguf files found under models_dir (recursive).
     Sorted by file size ascending so smaller/faster models are registered first.
@@ -78,8 +78,8 @@ class LlamaCppAdapter(LLMAdapter):
         self._n_threads = n_threads
         self._n_ctx = n_ctx
         self._verbose = verbose
-        self._llm: Optional[Any] = None         # lazy-loaded on first inference
-        self._lock: Optional[asyncio.Semaphore] = None  # lazy-init inside running loop
+        self._llm: Any | None = None         # lazy-loaded on first inference
+        self._lock: asyncio.Semaphore | None = None  # lazy-init inside running loop
 
     # ── Lazy load ────────────────────────────────────────────────────────────
 
@@ -106,7 +106,7 @@ class LlamaCppAdapter(LLMAdapter):
     # ── Synchronous inference (runs in ThreadPoolExecutor) ───────────────────
 
     def _sync_complete(
-        self, messages: List[dict], max_tokens: int, temperature: float
+        self, messages: list[dict], max_tokens: int, temperature: float
     ) -> str:
         """Blocking chat completion — called via run_in_executor."""
         self._load()
@@ -124,7 +124,7 @@ class LlamaCppAdapter(LLMAdapter):
     # ── Public async interface ───────────────────────────────────────────────
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
-        messages: List[dict] = []
+        messages: list[dict] = []
         if request.system:
             messages.append({"role": "system", "content": request.system})
         messages.append({"role": "user", "content": request.prompt})

@@ -25,11 +25,11 @@ class GitWatcher(PerceiveWorker):
     interval_s = float(fibonacci(5))   # 5.0s
     name = "git_watcher"
 
-    def __init__(self, cwd: Optional[str] = None) -> None:
+    def __init__(self, cwd: str | None = None) -> None:
         self._cwd = cwd
-        self._last_hash: Optional[int] = None
+        self._last_hash: int | None = None
 
-    async def sense(self) -> Optional[Cell]:
+    async def sense(self) -> Cell | None:
         loop = asyncio.get_running_loop()
         try:
             result = await loop.run_in_executor(

@@ -47,7 +47,7 @@ class ActResult:
     duration_ms: float = 0.0
     timestamp:   float = field(default_factory=time.time)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "action_type": self.action_type,
             "success":     self.success,
@@ -63,7 +63,7 @@ class ActResult:
 class BaseActuator:
     name: str = "base"
 
-    async def execute(self, payload: Dict[str, Any]) -> ActResult:
+    async def execute(self, payload: dict[str, Any]) -> ActResult:
         raise NotImplementedError(f"{self.__class__.__name__}.execute() not implemented")
 
 
@@ -83,8 +83,8 @@ class BashActuator(BaseActuator):
 
     name = "bash"
 
-    async def execute(self, payload: Dict[str, Any]) -> ActResult:
-        args: List[str] = payload.get("args") or []
+    async def execute(self, payload: dict[str, Any]) -> ActResult:
+        args: list[str] = payload.get("args") or []
         if not args:
             return ActResult("bash", success=False, error="Empty args list")
 
@@ -112,7 +112,7 @@ class BashActuator(BaseActuator):
             )
             return ActResult("bash", success=success, output=out, error=err,
                              duration_ms=duration_ms)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return ActResult("bash", success=False,
                              error=f"Timed out after {timeout}s",
                              duration_ms=(time.perf_counter() - t0) * 1000)
@@ -138,7 +138,7 @@ class GitReadActuator(BaseActuator):
     ALLOWED_SUBCOMMANDS = frozenset({"status", "log", "diff", "show", "branch"})
     _BLOCKED_ARGS       = frozenset({"--force", "-f", "--hard", "--push", "--delete"})
 
-    async def execute(self, payload: Dict[str, Any]) -> ActResult:
+    async def execute(self, payload: dict[str, Any]) -> ActResult:
         subcommand = (payload.get("subcommand") or "status").strip().lower()
         if subcommand not in self.ALLOWED_SUBCOMMANDS:
             return ActResult(
@@ -147,7 +147,7 @@ class GitReadActuator(BaseActuator):
                       f"Allowed: {sorted(self.ALLOWED_SUBCOMMANDS)}"
             )
 
-        extra_args: List[str] = [str(a) for a in (payload.get("args") or [])]
+        extra_args: list[str] = [str(a) for a in (payload.get("args") or [])]
         for arg in extra_args:
             if arg in self._BLOCKED_ARGS:
                 return ActResult("git_read", success=False,
@@ -187,8 +187,8 @@ class UniversalActuator:
     """
 
     def __init__(self) -> None:
-        self._registry: Dict[str, BaseActuator] = {}
-        self._results:  List[ActResult] = []
+        self._registry: dict[str, BaseActuator] = {}
+        self._results:  list[ActResult] = []
         self._max_history = fibonacci(11)  # 89
 
         self.register("bash",     BashActuator())
@@ -198,10 +198,10 @@ class UniversalActuator:
         self._registry[action_type] = actuator
         logger.info("UniversalActuator: registered strategy '%s'", action_type)
 
-    def strategies(self) -> List[str]:
+    def strategies(self) -> list[str]:
         return list(self._registry.keys())
 
-    async def dispatch(self, payload: Dict[str, Any]) -> ActResult:
+    async def dispatch(self, payload: dict[str, Any]) -> ActResult:
         action_type = (payload.get("action_type") or "bash").lower()
         actuator = self._registry.get(action_type)
         if actuator is None:
@@ -216,10 +216,10 @@ class UniversalActuator:
             self._results = self._results[-self._max_history:]
         return result
 
-    def recent_results(self, n: int = 10) -> List[Dict[str, Any]]:
+    def recent_results(self, n: int = 10) -> list[dict[str, Any]]:
         return [r.to_dict() for r in self._results[-n:]]
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         total   = len(self._results)
         success = sum(1 for r in self._results if r.success)
         return {

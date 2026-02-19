@@ -63,7 +63,7 @@ class TemporalPerspective(str, Enum):
 
 # φ-weights for temporal aggregation
 # Future matters more than past — adaptive over regressive
-TEMPORAL_WEIGHTS: Dict[str, float] = {
+TEMPORAL_WEIGHTS: dict[str, float] = {
     TemporalPerspective.IDEAL:   PHI_2,      # φ² = 2.618 — the anchor ceiling
     TemporalPerspective.FUTURE:  PHI,        # φ  = 1.618 — long-term outcomes
     TemporalPerspective.PRESENT: 1.0,        # φ⁰ = 1.000 — current truth
@@ -93,7 +93,7 @@ No explanation. No other text. Just SCORE: followed by a whole number.\
 
 # Per-perspective context — injected into system by _judge_perspective.
 # Keeping context in system prompt prevents instruct models from echoing it.
-PERSPECTIVE_CONTEXT: Dict[str, str] = {
+PERSPECTIVE_CONTEXT: dict[str, str] = {
     TemporalPerspective.PAST:
         "Perspective: PAST — Historical patterns and precedents. "
         "High = aligns with proven patterns. Low = ignores history, repeats mistakes.",
@@ -150,7 +150,7 @@ class TemporalJudgment:
     failed_count: int = 0  # How many perspectives returned errors
 
     @property
-    def scores(self) -> Dict[str, float]:
+    def scores(self) -> dict[str, float]:
         return {
             TemporalPerspective.PAST:    self.past,
             TemporalPerspective.PRESENT: self.present,
@@ -207,7 +207,7 @@ class TemporalJudgment:
         failure_penalty = self.failed_count * 0.05
         return max(0.05, min(PHI_INV, raw - failure_penalty))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "path": "temporal_mcts",
             "llm_id": self.llm_id,
@@ -223,7 +223,7 @@ class TemporalJudgment:
 # TEMPORAL JUDGMENT ENGINE
 # ════════════════════════════════════════════════════════════════════════════
 
-def _parse_score(text: str) -> Optional[float]:
+def _parse_score(text: str) -> float | None:
     """
     Parse LLM response for a numeric score in 0-100 range.
 
@@ -301,7 +301,7 @@ async def _judge_perspective(
 async def temporal_judgment(
     adapter: Any,  # LLMAdapter
     content: str,
-    perspectives: Optional[List[str]] = None,
+    perspectives: list[str] | None = None,
     context: str = "",
 ) -> TemporalJudgment:
     """
@@ -331,7 +331,7 @@ async def temporal_judgment(
         _judge_perspective(adapter, content, p, context=context)
         for p in perspectives
     ]
-    raw_scores: List[float] = await asyncio.gather(*tasks)
+    raw_scores: list[float] = await asyncio.gather(*tasks)
     # ──────────────────────────────────────────────────────────────────────
 
     latency_ms = (time.perf_counter() - start) * 1000

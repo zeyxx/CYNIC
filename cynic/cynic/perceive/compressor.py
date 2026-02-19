@@ -58,7 +58,7 @@ def estimate_tokens(text: str) -> int:
 
 # ── TF-IDF scorer ─────────────────────────────────────────────────────────
 
-def _tfidf_score_sentences(sentences: List[str]) -> List[Tuple[str, float]]:
+def _tfidf_score_sentences(sentences: list[str]) -> list[tuple[str, float]]:
     """
     Score sentences using TF-IDF.
     Falls back to term-frequency scoring if scikit-learn unavailable.
@@ -103,17 +103,17 @@ def _tfidf_score_sentences(sentences: List[str]) -> List[Tuple[str, float]]:
         return _tf_score_sentences(sentences)
 
 
-def _tf_score_sentences(sentences: List[str]) -> List[Tuple[str, float]]:
+def _tf_score_sentences(sentences: list[str]) -> list[tuple[str, float]]:
     """Fallback term-frequency scorer (no sklearn needed)."""
     # Count term frequencies across all sentences
-    all_words: Dict[str, int] = {}
+    all_words: dict[str, int] = {}
     for sent in sentences:
         for word in re.findall(r"\b\w+\b", sent.lower()):
             all_words[word] = all_words.get(word, 0) + 1
 
     # Compute IDF-like inverse frequency weight
     n = len(sentences)
-    idf: Dict[str, float] = {
+    idf: dict[str, float] = {
         word: 1.0 / (count + 1) for word, count in all_words.items()
     }
 
@@ -147,8 +147,8 @@ class ContextCompressor:
 
     def __init__(self, max_tokens: int = DEFAULT_MAX_TOKENS) -> None:
         self._max_tokens = max_tokens
-        self._chunks: List[str] = []
-        self._chunk_attention: List[float] = []  # Per-chunk attention weight (default 1.0)
+        self._chunks: list[str] = []
+        self._chunk_attention: list[float] = []  # Per-chunk attention weight (default 1.0)
         self._total_input_tokens: int = 0
         self._total_output_tokens: int = 0
         self._compressions: int = 0
@@ -230,9 +230,9 @@ class ContextCompressor:
 
     def compress(
         self,
-        chunks: List[str],
+        chunks: list[str],
         budget: int,
-        chunk_attentions: Optional[List[float]] = None,
+        chunk_attentions: list[float] | None = None,
     ) -> str:
         """
         Compress chunks to fit within token budget.
@@ -278,7 +278,7 @@ class ContextCompressor:
         # Apply per-chunk attention weights: SAGE feedback boosts similar past chunks
         if chunk_attentions:
             # Map each sentence back to its source chunk's attention weight
-            sentence_attn: Dict[str, float] = {}
+            sentence_attn: dict[str, float] = {}
             for i, chunk in enumerate(chunks):
                 attn = chunk_attentions[i] if i < len(chunk_attentions) else 1.0
                 for sent in _split_sentences(chunk):
@@ -292,7 +292,7 @@ class ContextCompressor:
 
         # Greedy selection: take highest-scored until budget exhausted
         # Always keep at least the first sentence (recency anchor)
-        selected_indices: List[int] = [0]
+        selected_indices: list[int] = [0]
         used_tokens = estimate_tokens(sentences[0])
         sentence_index = {s: i for i, s in enumerate(sentences)}
 
@@ -314,7 +314,7 @@ class ContextCompressor:
 
         return result
 
-    def get_compressed_context(self, budget: Optional[int] = None) -> str:
+    def get_compressed_context(self, budget: int | None = None) -> str:
         """
         Return compressed context from accumulated session history.
 
@@ -334,7 +334,7 @@ class ContextCompressor:
             attn.append(1.0)
         return self.compress(self._chunks, effective_budget, chunk_attentions=attn)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serialize compressor state for checkpointing.
 
@@ -352,7 +352,7 @@ class ContextCompressor:
             "total_input_tokens": self._total_input_tokens,
         }
 
-    def restore_from_dict(self, data: Dict[str, Any]) -> int:
+    def restore_from_dict(self, data: dict[str, Any]) -> int:
         """
         Restore compressor state from a checkpoint dict.
 
@@ -384,7 +384,7 @@ class ContextCompressor:
         self._chunks = []
         self._chunk_attention = []
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Return compression statistics."""
         attn = self._chunk_attention[:len(self._chunks)]
         return {
@@ -407,7 +407,7 @@ class ContextCompressor:
 
 # ── Sentence splitter ─────────────────────────────────────────────────────
 
-def _split_sentences(text: str) -> List[str]:
+def _split_sentences(text: str) -> list[str]:
     """
     Split text into sentence-like units for scoring.
 
@@ -416,7 +416,7 @@ def _split_sentences(text: str) -> List[str]:
     """
     # Primary split on newlines
     lines = text.splitlines()
-    sentences: List[str] = []
+    sentences: list[str] = []
     for line in lines:
         line = line.strip()
         if not line:

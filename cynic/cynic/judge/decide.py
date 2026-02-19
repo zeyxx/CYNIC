@@ -64,7 +64,7 @@ class NestedMCTS:
     def best_action(
         self,
         state_key: str,
-        candidates: List[str],
+        candidates: list[str],
     ) -> str:
         """
         Return the candidate action with the highest UCT score for state_key.
@@ -252,7 +252,7 @@ class DecideAgent:
             reality, analysis, verdict, content_preview, context
         )
 
-        decision_payload: Dict[str, Any] = {
+        decision_payload: dict[str, Any] = {
             "judgment_id": judgment_id,
             "state_key": state_key,
             "recommended_action": recommended_action,
@@ -280,7 +280,7 @@ class DecideAgent:
 
     # ---- Stats ------------------------------------------------------------
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         return {
             "decisions_made": self._decisions_made,
             "skipped": self._skipped,

@@ -37,7 +37,8 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
+from collections.abc import Callable
 
 from cynic.core.consciousness import (
     ConsciousnessLevel,
@@ -53,7 +54,7 @@ logger = logging.getLogger("cynic.scheduler")
 _QUEUE_CAPACITY = fibonacci(10)  # 55
 
 # Workers per tier — Fibonacci-derived for φ alignment
-_WORKERS_PER_LEVEL: Dict[ConsciousnessLevel, int] = {
+_WORKERS_PER_LEVEL: dict[ConsciousnessLevel, int] = {
     ConsciousnessLevel.REFLEX: fibonacci(5),  # 5 — non-LLM, fast
     ConsciousnessLevel.MICRO:  fibonacci(4),  # 3 — some LLM, 500ms
     ConsciousnessLevel.MACRO:  fibonacci(3),  # 2 — full LLM, Ollama-bound
@@ -110,7 +111,7 @@ class DogScheduler:
         self._consciousness: ConsciousnessState = get_consciousness()
 
         # One bounded queue per level — shared by all N workers of that tier
-        self._queues: Dict[ConsciousnessLevel, asyncio.Queue] = {
+        self._queues: dict[ConsciousnessLevel, asyncio.Queue] = {
             level: asyncio.Queue(maxsize=_QUEUE_CAPACITY)
             for level in ConsciousnessLevel
         }
@@ -119,11 +120,11 @@ class DogScheduler:
         self._micro_interrupt = asyncio.Event()
 
         # Tier worker tasks (N per level)
-        self._tasks: List[asyncio.Task] = []
+        self._tasks: list[asyncio.Task] = []
 
         # PerceiveWorker tasks (autonomous sensors)
-        self._perceive_workers: List[Any] = []   # List[PerceiveWorker]
-        self._perceive_tasks: List[asyncio.Task] = []
+        self._perceive_workers: list[Any] = []   # List[PerceiveWorker]
+        self._perceive_tasks: list[asyncio.Task] = []
 
         self._running = False
 
@@ -209,7 +210,7 @@ class DogScheduler:
     def submit(
         self,
         cell: Cell,
-        level: Optional[ConsciousnessLevel] = None,
+        level: ConsciousnessLevel | None = None,
         budget_usd: float = 0.05,
         source: str = "api",
     ) -> bool:
@@ -248,7 +249,7 @@ class DogScheduler:
 
     # ── Stats ────────────────────────────────────────────────────────────────
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Queue depths, worker counts, CycleTimer stats, cycle counts."""
         timers = self._consciousness.timers
         return {
@@ -430,7 +431,7 @@ class DogScheduler:
         self,
         level: ConsciousnessLevel,
         timeout: float,
-    ) -> Optional[PerceptionEvent]:
+    ) -> PerceptionEvent | None:
         """
         Wait up to `timeout` seconds for one item from the level's queue.
 
@@ -446,12 +447,12 @@ class DogScheduler:
                 return None
             self._queues[level].task_done()
             return item
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return None
 
     async def _meta_evolve(self) -> None:
         """Periodic evolution tick — calls orchestrator.evolve() if present."""
-        evolve_fn: Optional[Callable] = getattr(self._orchestrator, "evolve", None)
+        evolve_fn: Callable | None = getattr(self._orchestrator, "evolve", None)
         if evolve_fn is not None:
             if asyncio.iscoroutinefunction(evolve_fn):
                 await evolve_fn()

@@ -80,7 +80,7 @@ _GUIDANCE_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "guidance.json"
 _ESCORE_AGENT_ID = "agent:cynic"
 
 # Instance ID for multi-instance guidance isolation (set from lifespan startup via set_instance_id())
-_current_instance_id: Optional[str] = None
+_current_instance_id: str | None = None
 
 
 def set_instance_id(instance_id: str) -> None:
@@ -146,12 +146,12 @@ class AppState:
     residual_detector: ResidualDetector
     scheduler: DogScheduler
     started_at: float = field(default_factory=time.time)
-    _pool: Optional[asyncpg.Pool] = None
-    last_judgment: Optional[Dict] = None  # state_key, action, judgment_id — for /feedback
-    decide_agent: Optional[DecideAgent] = None
-    account_agent: Optional[AccountAgent] = None
-    runner: Optional[ClaudeCodeRunner] = None
-    llm_router: Optional[LLMRouter] = None
+    _pool: asyncpg.Pool | None = None
+    last_judgment: dict | None = None  # state_key, action, judgment_id — for /feedback
+    decide_agent: DecideAgent | None = None
+    account_agent: AccountAgent | None = None
+    runner: ClaudeCodeRunner | None = None
+    llm_router: LLMRouter | None = None
     kernel_mirror: KernelMirror = field(default_factory=KernelMirror)  # Ring 3 self-reflection
     telemetry_store: TelemetryStore = field(default_factory=TelemetryStore)  # session data
     context_compressor: ContextCompressor = field(default_factory=ContextCompressor)  # γ2 token budget
@@ -161,14 +161,14 @@ class AppState:
     action_proposer: ActionProposer = field(default_factory=ActionProposer) # P5 action queue
     self_prober: SelfProber = field(default_factory=SelfProber)             # L4 self-improvement
     world_model: WorldModelUpdater = field(default_factory=WorldModelUpdater)  # T27 cross-reality aggregator
-    auto_benchmark: Optional[AutoBenchmark] = None
+    auto_benchmark: AutoBenchmark | None = None
 
     @property
     def uptime_s(self) -> float:
         return time.time() - self.started_at
 
     @property
-    def dogs(self) -> List[str]:
+    def dogs(self) -> list[str]:
         return list(self.orchestrator.dogs.keys())
 
 
@@ -190,25 +190,25 @@ class _KernelBuilder:
 
     def __init__(
         self,
-        db_pool: Optional[asyncpg.Pool] = None,
-        registry: Optional[LLMRegistry] = None,
+        db_pool: asyncpg.Pool | None = None,
+        registry: LLMRegistry | None = None,
     ) -> None:
-        self.db_pool: Optional[asyncpg.Pool]   = db_pool
-        self.registry: Optional[LLMRegistry]   = registry
+        self.db_pool: asyncpg.Pool | None   = db_pool
+        self.registry: LLMRegistry | None   = registry
 
         # ── Shared mutable state (used by multiple event handler methods) ──
         # Prevents the [0]-cell hack that was needed with closures.
-        self._health_cache: Dict[str, float] = {
+        self._health_cache: dict[str, float] = {
             "error_rate": 0.0, "latency_ms": 0.0, "queue_depth": 0.0,
             "memory_pct": 0.0, "disk_pct": 0.0,
         }
-        self._outcome_window:     List[bool] = []
-        self._sdk_outcome_window: List[bool] = []
+        self._outcome_window:     list[bool] = []
+        self._sdk_outcome_window: list[bool] = []
         self._escore_persist_counter = 0
         self._checkpoint_counter     = 0
 
         # ── Component placeholders (set by _create_components) ────────────
-        self.dogs:             Dict[DogId, AbstractDog] = {}
+        self.dogs:             dict[DogId, AbstractDog] = {}
         self.qtable:           QTable           = None  # type: ignore[assignment]
         self.orchestrator:     JudgeOrchestrator = None  # type: ignore[assignment]
         self.scheduler:        DogScheduler     = None  # type: ignore[assignment]
@@ -1020,7 +1020,7 @@ class _KernelBuilder:
                 os.makedirs(os.path.dirname(self._ACT_LOG_PATH), exist_ok=True)
                 lines: list = []
                 if os.path.exists(self._ACT_LOG_PATH):
-                    with open(self._ACT_LOG_PATH, "r", encoding="utf-8") as _fh:
+                    with open(self._ACT_LOG_PATH, encoding="utf-8") as _fh:
                         lines = _fh.readlines()
                 lines.append(_json.dumps(record) + "\n")
                 if len(lines) > self._ACT_LOG_CAP:
@@ -1344,7 +1344,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
 
 
 # Process-level singleton — set during lifespan startup
-_state: Optional[AppState] = None
+_state: AppState | None = None
 
 
 def set_state(state: AppState) -> None:

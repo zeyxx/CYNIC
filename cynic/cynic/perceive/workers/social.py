@@ -36,11 +36,11 @@ class SocialWatcher(PerceiveWorker):
     interval_s = float(fibonacci(11))  # 89.0s
     name = "social_watcher"
 
-    def __init__(self, signal_path: Optional[str] = None) -> None:
+    def __init__(self, signal_path: str | None = None) -> None:
         self._path = signal_path or _SOCIAL_SIGNAL_PATH
         self._last_ts: float = 0.0
 
-    def _read_signal(self) -> Optional[Dict[str, Any]]:
+    def _read_signal(self) -> dict[str, Any] | None:
         """Blocking read — called via run_in_executor."""
         try:
             if not os.path.exists(self._path):
@@ -72,7 +72,7 @@ class SocialWatcher(PerceiveWorker):
         except Exception:
             pass
 
-    async def sense(self) -> Optional[Cell]:
+    async def sense(self) -> Cell | None:
         loop = asyncio.get_running_loop()
         sig = await loop.run_in_executor(None, self._read_signal)
         if sig is None:

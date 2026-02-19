@@ -116,7 +116,7 @@ class AnalystDog(AbstractDog):
         self.record_judgment(judgment)
         return judgment
 
-    def _extract_constraints(self, cell: Cell) -> List[Dict[str, Any]]:
+    def _extract_constraints(self, cell: Cell) -> list[dict[str, Any]]:
         """
         Extract verifiable constraints from cell content.
 
@@ -159,7 +159,7 @@ class AnalystDog(AbstractDog):
 
         return constraints
 
-    def _verify(self, constraints: List[Dict[str, Any]]) -> Tuple[str, Dict[str, Any]]:
+    def _verify(self, constraints: list[dict[str, Any]]) -> tuple[str, dict[str, Any]]:
         """Run Z3 verification. Returns (result, evidence)."""
         if not constraints:
             return "NO_CONSTRAINTS", {}
@@ -168,7 +168,7 @@ class AnalystDog(AbstractDog):
             solver = z3.Solver()
             solver.set("timeout", Z3_TIMEOUT_MS)
 
-            z3_vars: Dict[str, Any] = {}
+            z3_vars: dict[str, Any] = {}
             assertions_added = 0
 
             for c in constraints:
@@ -213,7 +213,7 @@ class AnalystDog(AbstractDog):
             logger.warning("Z3 error: %s", e)
             return "ERROR", {"error": str(e)}
 
-    def _score_result(self, result: str) -> Tuple[float, float]:
+    def _score_result(self, result: str) -> tuple[float, float]:
         """Map Z3 result to (q_score, confidence)."""
         return {
             "PROVED":         (MAX_Q_SCORE, PHI_INV),        # 61.8, 0.618 — proven = max allowed

@@ -41,7 +41,7 @@ _CHECKPOINT_PATH = os.path.join(
 )
 
 
-def save(compressor: "ContextCompressor") -> bool:
+def save(compressor: ContextCompressor) -> bool:
     """
     Serialize ContextCompressor state to ~/.cynic/session-latest.json.
 
@@ -84,7 +84,7 @@ def save(compressor: "ContextCompressor") -> bool:
         return False
 
 
-def restore(compressor: "ContextCompressor") -> int:
+def restore(compressor: ContextCompressor) -> int:
     """
     Restore ContextCompressor state from the last checkpoint.
 

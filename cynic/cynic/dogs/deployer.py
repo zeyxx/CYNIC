@@ -186,9 +186,9 @@ class DeployerDog(LLMDog):
     async def _heuristic_path(self, cell: Cell, start: float) -> DogJudgment:
         """Regex + AST scan for deployment anti-patterns."""
         code_str = self._extract_code(cell)
-        violations: List[str] = []
+        violations: list[str] = []
         total_penalty: float = 0.0
-        evidence: Dict[str, Any] = {}
+        evidence: dict[str, Any] = {}
 
         if code_str:
             violations, total_penalty, evidence = self._score_deployability(code_str)
@@ -224,7 +224,7 @@ class DeployerDog(LLMDog):
 
     # ── Code Extraction ────────────────────────────────────────────────────
 
-    def _extract_code(self, cell: Cell) -> Optional[str]:
+    def _extract_code(self, cell: Cell) -> str | None:
         """Extract code string from cell content."""
         content = cell.content
         if isinstance(content, str) and content.strip():
@@ -241,13 +241,13 @@ class DeployerDog(LLMDog):
     def _score_deployability(
         self,
         code: str,
-    ) -> Tuple[List[str], float, Dict[str, Any]]:
+    ) -> tuple[list[str], float, dict[str, Any]]:
         """
         Scan code for deployment anti-patterns.
 
         Returns: (violations, total_penalty, evidence)
         """
-        violations: List[str] = []
+        violations: list[str] = []
         total_penalty: float = 0.0
 
         lines = code.splitlines()
@@ -320,9 +320,9 @@ class DeployerDog(LLMDog):
 
     # ── Pattern Finders ────────────────────────────────────────────────────
 
-    def _find_debug_artifacts(self, lines: List[str]) -> List[str]:
+    def _find_debug_artifacts(self, lines: list[str]) -> list[str]:
         """Find debug statements in code lines."""
-        hits: List[str] = []
+        hits: list[str] = []
         for line in lines:
             stripped = line.strip()
             if stripped.startswith("#"):
@@ -333,9 +333,9 @@ class DeployerDog(LLMDog):
                     break  # one hit per line
         return hits
 
-    def _find_secrets(self, lines: List[str]) -> List[str]:
+    def _find_secrets(self, lines: list[str]) -> list[str]:
         """Find hardcoded secret patterns."""
-        hits: List[str] = []
+        hits: list[str] = []
         for line in lines:
             stripped = line.strip()
             if stripped.startswith("#"):
@@ -347,9 +347,9 @@ class DeployerDog(LLMDog):
                     break
         return hits
 
-    def _find_todos(self, lines: List[str]) -> List[str]:
+    def _find_todos(self, lines: list[str]) -> list[str]:
         """Find TODO/FIXME/HACK/XXX comment markers."""
-        hits: List[str] = []
+        hits: list[str] = []
         for line in lines:
             for pat in _TODO_PATTERNS:
                 if pat.search(line):
@@ -357,9 +357,9 @@ class DeployerDog(LLMDog):
                     break
         return hits
 
-    def _find_stubs(self, code: str) -> List[str]:
+    def _find_stubs(self, code: str) -> list[str]:
         """Find NotImplementedError raises via AST."""
-        hits: List[str] = []
+        hits: list[str] = []
         try:
             tree = ast.parse(code)
             for node in ast.walk(tree):
@@ -395,9 +395,9 @@ class DeployerDog(LLMDog):
 
     # ── Metadata Fallback ─────────────────────────────────────────────────
 
-    def _metadata_fallback(self, cell: Cell) -> Tuple[List[str], float, Dict[str, Any]]:
+    def _metadata_fallback(self, cell: Cell) -> tuple[list[str], float, dict[str, Any]]:
         """Score non-CODE cells via cell metadata (risk)."""
-        violations: List[str] = []
+        violations: list[str] = []
         penalty = 0.0
 
         # High risk → not deploy-ready

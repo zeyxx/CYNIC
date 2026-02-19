@@ -53,13 +53,13 @@ class Cell(BaseModel):
     context: str = Field(default="", description="Human-readable context string for LLM scoring")
 
     # Structural dimensions
-    dogs_active: List[str] = Field(default_factory=list, description="Dogs involved in this cell")
+    dogs_active: list[str] = Field(default_factory=list, description="Dogs involved in this cell")
     lod: int = Field(default=1, ge=0, le=3, description="Level of Detail (0=pattern, 3=LLM)")
     consciousness: int = Field(default=0, ge=0, le=6, description="Consciousness gradient level")
 
     # Technical dimensions
-    llm_model: Optional[str] = Field(default=None, description="LLM used for this cell")
-    tech_stack: List[str] = Field(default_factory=list)
+    llm_model: str | None = Field(default=None, description="LLM used for this cell")
+    tech_stack: list[str] = Field(default_factory=list)
 
     # Economic dimensions
     budget_usd: float = Field(default=1.0, ge=0.0, description="Budget allocated for this cell")
@@ -72,7 +72,7 @@ class Cell(BaseModel):
     # Metadata
     cell_id: str = Field(default_factory=new_id)
     timestamp: float = Field(default_factory=lambda: datetime.now().timestamp())
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("reality")
     @classmethod
@@ -178,11 +178,11 @@ class Judgment(BaseModel):
     confidence: float = Field(ge=0.0, le=MAX_CONFIDENCE, description="Confidence ∈ [0, 0.618]")
 
     # Breakdown
-    axiom_scores: Dict[str, float] = Field(default_factory=dict)
-    active_axioms: List[str] = Field(default_factory=list)
+    axiom_scores: dict[str, float] = Field(default_factory=dict)
+    active_axioms: list[str] = Field(default_factory=list)
 
     # Consensus info
-    dog_votes: Dict[str, float] = Field(default_factory=dict)    # {dog_id: q_score}
+    dog_votes: dict[str, float] = Field(default_factory=dict)    # {dog_id: q_score}
     consensus_votes: int = Field(default=0)
     consensus_quorum: int = Field(default=7)
     consensus_reached: bool = Field(default=False)
@@ -217,7 +217,7 @@ class Judgment(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def validate_consistency(self) -> "Judgment":
+    def validate_consistency(self) -> Judgment:
         """Verify verdict matches q_score."""
         q = self.q_score
         v = self.verdict
@@ -231,7 +231,7 @@ class Judgment(BaseModel):
             raise ValueError(f"q_score={q} should be BARK, got {v}")
         return self
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "judgment_id": self.judgment_id,
             "cell_id": self.cell.cell_id,
@@ -265,15 +265,15 @@ class ConsensusResult(BaseModel):
     quorum: int = Field(ge=0)
 
     # If consensus reached
-    final_q_score: Optional[float] = Field(default=None, ge=0.0, le=MAX_Q_SCORE)
-    final_verdict: Optional[str] = None
-    final_confidence: Optional[float] = Field(default=None, ge=0.0, le=MAX_CONFIDENCE)
+    final_q_score: float | None = Field(default=None, ge=0.0, le=MAX_Q_SCORE)
+    final_verdict: str | None = None
+    final_confidence: float | None = Field(default=None, ge=0.0, le=MAX_CONFIDENCE)
 
     # Failure reason
-    reason: Optional[str] = None
+    reason: str | None = None
 
     # Dog contributions
-    dog_judgments: List[Dict] = Field(default_factory=list)
+    dog_judgments: list[dict] = Field(default_factory=list)
 
     @property
     def quorum_reached(self) -> bool:
@@ -296,7 +296,7 @@ class EScore(BaseModel):
     """Agent reputation score across 7 φ-weighted dimensions."""
     agent_id: str
     total: float = Field(ge=0.0, le=100.0, description="Total E-Score [0, 100]")
-    dimensions: Dict[str, EScoreDimension] = Field(default_factory=dict)
+    dimensions: dict[str, EScoreDimension] = Field(default_factory=dict)
     timestamp: float = Field(default_factory=lambda: datetime.now().timestamp())
 
     @property
@@ -326,5 +326,5 @@ class PerceptionEvent(BaseModel):
     event_id: str = Field(default_factory=new_id)
     source: str         # CODE/SOLANA/MARKET/SOCIAL
     event_type: str     # file_changed, tx_confirmed, price_tick, etc.
-    data: Dict[str, Any] = Field(default_factory=dict)
+    data: dict[str, Any] = Field(default_factory=dict)
     timestamp: float = Field(default_factory=lambda: datetime.now().timestamp())

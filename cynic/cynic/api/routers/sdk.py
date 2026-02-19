@@ -63,25 +63,25 @@ class SDKSession:
     session_id: str
     ws: Any                                  # WebSocket — typed as Any to avoid circular import issues
     cwd: str = ""
-    tools: List[str] = field(default_factory=list)
+    tools: list[str] = field(default_factory=list)
     model: str = "unknown"
     claude_code_version: str = ""
     cli_session_id: str = ""                 # Claude's internal session ID — used for --resume
     total_cost_usd: float = 0.0
     connected_at: float = field(default_factory=time.time)
-    log: List[Dict[str, Any]] = field(default_factory=list)
+    log: list[dict[str, Any]] = field(default_factory=list)
 
     # ── Telemetry (populated during session, consumed at result) ──────────
     _task_prompt: str = ""                           # last task sent to this session
-    _tool_sequence: List[str] = field(default_factory=list)  # ordered tool names
+    _tool_sequence: list[str] = field(default_factory=list)  # ordered tool names
     _result_text: str = ""                           # Claude's result description
     _input_tokens: int = 0                           # accumulated from assistant msgs
     _output_tokens: int = 0
 
-    def record(self, msg_type: str, data: Dict[str, Any]) -> None:
+    def record(self, msg_type: str, data: dict[str, Any]) -> None:
         self.log.append({"type": msg_type, "data": data, "ts": time.time()})
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "session_id": self.session_id,
             "cwd": self.cwd,
@@ -97,7 +97,7 @@ class SDKSession:
 
 
 # Process-level registry of active SDK sessions
-_sdk_sessions: Dict[str, SDKSession] = {}
+_sdk_sessions: dict[str, SDKSession] = {}
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -145,11 +145,11 @@ async def ws_sdk(websocket: WebSocket) -> None:
 
     logger.info("*ears perk* SDK session connected: %s", session_id)
 
-    async def _send(msg: Dict[str, Any]) -> None:
+    async def _send(msg: dict[str, Any]) -> None:
         """Send one NDJSON message to Claude Code."""
         await websocket.send_text(json.dumps(msg) + "\n")
 
-    async def _judge_tool(tool_name: str, tool_input: Dict[str, Any]) -> str:
+    async def _judge_tool(tool_name: str, tool_input: dict[str, Any]) -> str:
         """
         Fast REFLEX judgment on a tool use request.
         Returns "BARK"/"GROWL"/"WAG"/"HOWL".
@@ -495,7 +495,7 @@ async def ws_sdk(websocket: WebSocket) -> None:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_sdk.get("/sdk/sessions")
-async def sdk_sessions() -> Dict[str, Any]:
+async def sdk_sessions() -> dict[str, Any]:
     """List all active Claude Code --sdk-url sessions."""
     return {
         "active": len(_sdk_sessions),
@@ -504,7 +504,7 @@ async def sdk_sessions() -> Dict[str, Any]:
 
 
 @router_sdk.get("/sdk/routing")
-async def sdk_routing() -> Dict[str, Any]:
+async def sdk_routing() -> dict[str, Any]:
     """
     LLM routing stats — Ring 4 Q-Table driven model selection.
 
@@ -518,7 +518,7 @@ async def sdk_routing() -> Dict[str, Any]:
 
 
 @router_sdk.get("/sdk/last-session")
-async def sdk_last_session(cwd: str = "") -> Dict[str, Any]:
+async def sdk_last_session(cwd: str = "") -> dict[str, Any]:
     """
     Return the last known cli_session_id for --resume.
 
@@ -564,7 +564,7 @@ async def sdk_last_session(cwd: str = "") -> Dict[str, Any]:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_sdk.post("/sdk/task")
-async def sdk_task(body: Dict[str, Any]) -> Dict[str, Any]:
+async def sdk_task(body: dict[str, Any]) -> dict[str, Any]:
     """
     Send a task (user message) to a connected Claude Code session.
 
@@ -581,7 +581,7 @@ async def sdk_task(body: Dict[str, Any]) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail="prompt is required")
 
     # Resolve session
-    session: Optional[SDKSession] = None
+    session: SDKSession | None = None
     if session_id:
         session = _sdk_sessions.get(session_id)
     elif _sdk_sessions:

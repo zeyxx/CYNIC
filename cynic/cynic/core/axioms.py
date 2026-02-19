@@ -33,7 +33,8 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Dict, List, Optional
+from typing import Dict, List, Optional
+from collections.abc import Callable
 
 from cynic.core.phi import (
     AXIOMS_CORE,
@@ -81,16 +82,16 @@ class Axiom(str, Enum):
     THE_UNNAMEABLE = "THE_UNNAMEABLE"
 
 
-CORE_AXIOMS: List[Axiom] = [
+CORE_AXIOMS: list[Axiom] = [
     Axiom.FIDELITY, Axiom.PHI, Axiom.VERIFY, Axiom.CULTURE, Axiom.BURN
 ]
 
-EMERGENT_AXIOMS: List[Axiom] = [
+EMERGENT_AXIOMS: list[Axiom] = [
     Axiom.AUTONOMY, Axiom.SYMBIOSIS, Axiom.EMERGENCE, Axiom.ANTIFRAGILITY,
     Axiom.CONSCIOUSNESS, Axiom.TRANSCENDENCE,
 ]
 
-PRACTICAL_AXIOMS: List[Axiom] = CORE_AXIOMS + [
+PRACTICAL_AXIOMS: list[Axiom] = CORE_AXIOMS + [
     Axiom.AUTONOMY, Axiom.SYMBIOSIS, Axiom.EMERGENCE, Axiom.ANTIFRAGILITY
 ]  # 9 axioms = the "9" the user refers to
 
@@ -99,7 +100,7 @@ PRACTICAL_AXIOMS: List[Axiom] = CORE_AXIOMS + [
 # 7 FACETS PER CORE AXIOM (FRACTAL STRUCTURE)
 # ════════════════════════════════════════════════════════════════════════════
 
-AXIOM_FACETS: Dict[str, Dict[str, str]] = {
+AXIOM_FACETS: dict[str, dict[str, str]] = {
     "FIDELITY": {
         "COMMITMENT":     "Long-term dedication to truth over comfort",
         "ATTUNEMENT":     "Sensitivity to context, nuance, and signal",
@@ -164,7 +165,7 @@ class Domain(str, Enum):
 
 
 # Default contextual weights (φ-symmetric, learned via gradient descent over time)
-DEFAULT_CONTEXTUAL_WEIGHTS: Dict[str, Dict[str, float]] = {
+DEFAULT_CONTEXTUAL_WEIGHTS: dict[str, dict[str, float]] = {
     "CODE": {
         "VERIFY":   PHI_2,     # 2.618 — Formal proof critical in code
         "PHI":      PHI,       # 1.618 — Elegant architecture
@@ -224,11 +225,11 @@ DEFAULT_CONTEXTUAL_WEIGHTS: Dict[str, Dict[str, float]] = {
 @dataclass
 class EmergentThreshold:
     """Conditions required to activate an emergent axiom."""
-    conditions: Dict[str, float]  # {metric_name: min_value}
+    conditions: dict[str, float]  # {metric_name: min_value}
     description: str
 
 
-EMERGENT_THRESHOLDS: Dict[str, EmergentThreshold] = {
+EMERGENT_THRESHOLDS: dict[str, EmergentThreshold] = {
     "AUTONOMY": EmergentThreshold(
         conditions={
             "consensus_strength": PHI_INV,  # 61.8%
@@ -304,7 +305,7 @@ class AxiomScore:
     """Score for a single axiom (0-100, with 7 facet breakdown)."""
     axiom: str
     score: float                        # 0-100, φ-bounded at 61.8
-    facet_scores: Dict[str, float]      # {facet_name: 0-100}
+    facet_scores: dict[str, float]      # {facet_name: 0-100}
     depth: int = 1                      # Fractal recursion depth (1-3)
     timestamp: float = field(default_factory=time.time)
 
@@ -313,19 +314,19 @@ class AxiomScore:
 class AxiomArchitectureState:
     """Runtime state of the axiom system."""
     # Core axioms always active
-    active_axioms: List[str] = field(default_factory=lambda: [
+    active_axioms: list[str] = field(default_factory=lambda: [
         a.value for a in CORE_AXIOMS
     ])
     # Emergent axiom states
-    emergent_states: Dict[str, bool] = field(default_factory=lambda: {
+    emergent_states: dict[str, bool] = field(default_factory=lambda: {
         a.value: False for a in EMERGENT_AXIOMS
     })
     # Learned contextual weights per domain (starts from defaults)
-    learned_weights: Dict[str, Dict[str, float]] = field(
+    learned_weights: dict[str, dict[str, float]] = field(
         default_factory=lambda: {k: dict(v) for k, v in DEFAULT_CONTEXTUAL_WEIGHTS.items()}
     )
     # Activation timestamps
-    activation_log: List[Dict] = field(default_factory=list)
+    activation_log: list[dict] = field(default_factory=list)
 
 
 class AxiomArchitecture:
@@ -343,8 +344,8 @@ class AxiomArchitecture:
 
     def __init__(
         self,
-        state: Optional[AxiomArchitectureState] = None,
-        facet_scorer: Optional[Callable[[str, str, str], float]] = None,
+        state: AxiomArchitectureState | None = None,
+        facet_scorer: Callable[[str, str, str], float] | None = None,
     ) -> None:
         self.state = state or AxiomArchitectureState()
         # External facet scorer (injected for LLM-backed scoring)
@@ -354,7 +355,7 @@ class AxiomArchitecture:
     # ─── Active Axioms ────────────────────────────────────────────────────
 
     @property
-    def active_axioms(self) -> List[str]:
+    def active_axioms(self) -> list[str]:
         """All currently active axioms (core + activated emergent)."""
         active = list(self.state.active_axioms)
         for axiom, is_active in self.state.emergent_states.items():
@@ -362,13 +363,13 @@ class AxiomArchitecture:
                 active.append(axiom)
         return active
 
-    def check_emergent_activation(self, metrics: Dict[str, float]) -> List[str]:
+    def check_emergent_activation(self, metrics: dict[str, float]) -> list[str]:
         """
         Check if any emergent axioms should activate based on current metrics.
 
         Returns list of newly activated axiom names.
         """
-        newly_activated: List[str] = []
+        newly_activated: list[str] = []
 
         for axiom_name, threshold in EMERGENT_THRESHOLDS.items():
             if self.state.emergent_states.get(axiom_name, False):
@@ -418,7 +419,7 @@ class AxiomArchitecture:
             return self._facet_scorer(axiom_name, axiom_name, context)
 
         facets = AXIOM_FACETS[axiom_name]
-        facet_scores: List[float] = []
+        facet_scores: list[float] = []
 
         for facet_name in facets:
             if depth < 3 and facet_name in AXIOM_FACETS:
@@ -445,8 +446,8 @@ class AxiomArchitecture:
     def compute_q_score(
         self,
         domain: str,
-        axiom_scores: Dict[str, float],
-        metrics: Optional[Dict[str, float]] = None,
+        axiom_scores: dict[str, float],
+        metrics: dict[str, float] | None = None,
     ) -> float:
         """
         Compute φ-bounded Q-Score from axiom scores.
@@ -465,8 +466,8 @@ class AxiomArchitecture:
 
         # 2. Get active axioms and their scores
         active = self.active_axioms
-        values: List[float] = []
-        weights: List[float] = []
+        values: list[float] = []
+        weights: list[float] = []
 
         domain_weights = self.state.learned_weights.get(
             domain, DEFAULT_CONTEXTUAL_WEIGHTS.get(domain, {})
@@ -493,23 +494,23 @@ class AxiomArchitecture:
         domain: str,
         context: str,
         fractal_depth: int = 1,
-        metrics: Optional[Dict[str, float]] = None,
-    ) -> "FullAxiomResult":
+        metrics: dict[str, float] | None = None,
+    ) -> FullAxiomResult:
         """
         Full pipeline: score all active axioms + compute Q-Score.
 
         Returns FullAxiomResult with per-axiom breakdown and Q-Score.
         """
         # Score each active axiom
-        axiom_scores: Dict[str, float] = {}
-        axiom_details: Dict[str, AxiomScore] = {}
+        axiom_scores: dict[str, float] = {}
+        axiom_details: dict[str, AxiomScore] = {}
 
         for axiom_name in self.active_axioms:
             score = self.score_axiom_fractal(axiom_name, context, fractal_depth)
             axiom_scores[axiom_name] = score
 
             # Detailed facet breakdown (depth=1 only for performance)
-            facet_scores: Dict[str, float] = {}
+            facet_scores: dict[str, float] = {}
             if axiom_name in AXIOM_FACETS:
                 for facet_name in AXIOM_FACETS[axiom_name]:
                     facet_scores[facet_name] = self._facet_scorer(
@@ -541,7 +542,7 @@ class AxiomArchitecture:
     def update_contextual_weights(
         self,
         domain: str,
-        gradient: Dict[str, float],
+        gradient: dict[str, float],
         learning_rate: float = 0.038,  # φ⁻² / 10
     ) -> None:
         """
@@ -566,12 +567,12 @@ class FullAxiomResult:
     domain: str
     q_score: float                          # [0, 100] — HOWL ≥82, WAG ≥61.8
     verdict: str                            # HOWL/WAG/GROWL/BARK
-    axiom_scores: Dict[str, float]          # {axiom_name: 0-100}
-    axiom_details: Dict[str, AxiomScore]    # Detailed breakdown
-    active_axioms: List[str]                # Which axioms were active
+    axiom_scores: dict[str, float]          # {axiom_name: 0-100}
+    axiom_details: dict[str, AxiomScore]    # Detailed breakdown
+    active_axioms: list[str]                # Which axioms were active
     timestamp: float
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "domain": self.domain,
             "q_score": round(self.q_score, 3),

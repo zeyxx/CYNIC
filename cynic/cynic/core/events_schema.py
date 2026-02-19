@@ -57,7 +57,7 @@ class JudgmentCreatedPayload(BaseModel):
     q_score:         float              = 0.0     # [0, 100] — NOT φ-bounded
     confidence:      float              = 0.0     # φ-bounded ≤ 0.618
     reality:         str                = "CODE"  # CODE|CYNIC|SOLANA|HUMAN|MARKET|SOCIAL|COSMOS
-    dog_votes:       Dict[str, float]   = Field(default_factory=dict)
+    dog_votes:       dict[str, float]   = Field(default_factory=dict)
     judgment_id:     str                = ""
     level_used:      str                = ""      # REFLEX|MICRO|MACRO
     content_preview: str                = ""
@@ -121,7 +121,7 @@ class MetaCyclePayload(BaseModel):
     """
     model_config = _BASE
 
-    evolve: Dict[str, Any] = Field(default_factory=dict)
+    evolve: dict[str, Any] = Field(default_factory=dict)
 
     @property
     def pass_rate(self) -> float:
@@ -228,7 +228,7 @@ class EmergenceDetectedPayload(BaseModel):
 
     pattern_type:    str              = ""    # SPIKE|STABLE_HIGH|RISING
     severity:        float            = 0.5   # [0, 1]
-    evidence:        Dict[str, Any]   = Field(default_factory=dict)
+    evidence:        dict[str, Any]   = Field(default_factory=dict)
     judgment_id:     str              = ""
     reality:         str              = "CODE"
     analysis:        str              = ""
@@ -268,7 +268,7 @@ class TranscendencePayload(BaseModel):
     """
     model_config = _BASE
 
-    active_axioms: List[str] = Field(default_factory=list)
+    active_axioms: list[str] = Field(default_factory=list)
     maturity:      float     = 0.0
 
 

@@ -33,8 +33,8 @@ class RealitySnapshot:
 
 @dataclass
 class WorldState:
-    snapshots: Dict[str, RealitySnapshot] = field(default_factory=dict)
-    conflicts: List[str] = field(default_factory=list)
+    snapshots: dict[str, RealitySnapshot] = field(default_factory=dict)
+    conflicts: list[str] = field(default_factory=list)
     composite_risk: float = 50.0   # phi-weighted geometric mean [0, 100]
     dominant_reality: str = "CODE"  # reality with highest risk (lowest q_score)
     last_updated: float = field(default_factory=time.time)
@@ -115,7 +115,7 @@ class WorldModelUpdater:
     def world_state(self) -> WorldState:
         return self._state
 
-    def snapshot(self) -> Dict[str, Any]:
+    def snapshot(self) -> dict[str, Any]:
         s = self._state
         return {
             "composite_risk": s.composite_risk,
@@ -130,7 +130,7 @@ class WorldModelUpdater:
             "last_updated": round(s.last_updated, 3),
         }
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         return {
             "judgment_count": self._judgment_count,
             "conflict_count": self._conflict_count,

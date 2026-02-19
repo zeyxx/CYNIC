@@ -26,8 +26,8 @@ router_actions = APIRouter(tags=["actions"])
 
 @router_actions.get("/actions")
 async def list_actions(
-    status: Optional[str] = Query(default=None, description="Filter by status: PENDING/ACCEPTED/REJECTED/AUTO_EXECUTED"),
-) -> Dict[str, Any]:
+    status: str | None = Query(default=None, description="Filter by status: PENDING/ACCEPTED/REJECTED/AUTO_EXECUTED"),
+) -> dict[str, Any]:
     """
     List proposed actions from the ActionProposer queue.
 
@@ -58,7 +58,7 @@ async def list_actions(
 
 
 @router_actions.post("/actions/{action_id}/accept")
-async def accept_action(action_id: str) -> Dict[str, Any]:
+async def accept_action(action_id: str) -> dict[str, Any]:
     """
     Accept a proposed action — marks it ACCEPTED and signals ANTIFRAGILITY axiom.
 
@@ -106,7 +106,7 @@ async def accept_action(action_id: str) -> Dict[str, Any]:
 
 
 @router_actions.post("/actions/{action_id}/reject")
-async def reject_action(action_id: str) -> Dict[str, Any]:
+async def reject_action(action_id: str) -> dict[str, Any]:
     """
     Reject a proposed action — marks it REJECTED.
 
@@ -155,8 +155,8 @@ async def reject_action(action_id: str) -> Dict[str, Any]:
 
 @router_actions.get("/self-probes")
 async def list_self_probes(
-    status: Optional[str] = Query(default=None, description="Filter by status: PENDING/APPLIED/DISMISSED/all"),
-) -> Dict[str, Any]:
+    status: str | None = Query(default=None, description="Filter by status: PENDING/APPLIED/DISMISSED/all"),
+) -> dict[str, Any]:
     """
     List SelfProber proposals — CYNIC's analysis of its own performance gaps.
 
@@ -188,7 +188,7 @@ async def list_self_probes(
 async def trigger_self_analysis(
     pattern_type: str = Query(default="MANUAL"),
     severity: float = Query(default=0.5, ge=0.0, le=1.0),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Trigger a manual self-analysis run.
 
@@ -210,7 +210,7 @@ async def trigger_self_analysis(
 
 
 @router_actions.post("/self-probes/{probe_id}/dismiss")
-async def dismiss_probe(probe_id: str) -> Dict[str, Any]:
+async def dismiss_probe(probe_id: str) -> dict[str, Any]:
     """Dismiss a self-improvement proposal — marks it DISMISSED."""
     state = get_state()
     proposal = state.self_prober.dismiss(probe_id)
@@ -220,7 +220,7 @@ async def dismiss_probe(probe_id: str) -> Dict[str, Any]:
 
 
 @router_actions.post("/self-probes/{probe_id}/apply")
-async def apply_probe(probe_id: str) -> Dict[str, Any]:
+async def apply_probe(probe_id: str) -> dict[str, Any]:
     """Mark a self-improvement proposal as APPLIED."""
     state = get_state()
     proposal = state.self_prober.apply(probe_id)

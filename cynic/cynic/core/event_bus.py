@@ -22,7 +22,8 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
+from collections.abc import Callable, Coroutine
 
 logger = logging.getLogger("cynic.event_bus")
 
@@ -40,14 +41,14 @@ class Event:
     If a bus ID appears in genealogy → do NOT re-forward (loop prevention).
     """
     type: str
-    payload: Dict[str, Any] = field(default_factory=dict)
+    payload: dict[str, Any] = field(default_factory=dict)
     event_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: float = field(default_factory=time.time)
     source: str = ""                     # Which Dog/module emitted this
-    _genealogy: List[str] = field(default_factory=list)  # Bus IDs traversed
+    _genealogy: list[str] = field(default_factory=list)  # Bus IDs traversed
     _bridged: bool = False               # True if forwarded by bridge
 
-    def with_genealogy(self, bus_id: str) -> "Event":
+    def with_genealogy(self, bus_id: str) -> Event:
         """Return copy of this event with bus_id appended to genealogy."""
         return Event(
             type=self.type,
@@ -206,8 +207,8 @@ class EventBus:
 
     def __init__(self, bus_id: str) -> None:
         self.bus_id = bus_id
-        self._handlers: Dict[str, List[Handler]] = {}
-        self._history: List[Event] = []
+        self._handlers: dict[str, list[Handler]] = {}
+        self._history: list[Event] = []
         self._max_history = 1000
         self._emitted_count = 0
         self._error_count = 0
@@ -269,7 +270,7 @@ class EventBus:
             # No running loop — warn and skip (should not happen in production)
             logger.warning("emit_sync called with no event loop for %s", event.type)
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         return {
             "bus_id": self.bus_id,
             "emitted": self._emitted_count,
@@ -283,9 +284,9 @@ class EventBus:
 # THREE BUS SINGLETONS
 # ════════════════════════════════════════════════════════════════════════════
 
-_core_bus: Optional[EventBus] = None
-_automation_bus: Optional[EventBus] = None
-_agent_bus: Optional[EventBus] = None
+_core_bus: EventBus | None = None
+_automation_bus: EventBus | None = None
+_agent_bus: EventBus | None = None
 
 
 def get_core_bus() -> EventBus:
@@ -329,8 +330,8 @@ class ForwardRule:
     """A rule for forwarding events between buses."""
     source_bus_id: str
     target_bus_id: str
-    event_types: Set[str]          # Empty set = forward all
-    transform: Optional[Callable[[Event], Event]] = None  # Optional transform
+    event_types: set[str]          # Empty set = forward all
+    transform: Callable[[Event], Event] | None = None  # Optional transform
 
 
 class EventBusBridge:
@@ -349,12 +350,12 @@ class EventBusBridge:
     """
 
     def __init__(self) -> None:
-        self._rules: List[ForwardRule] = []
-        self._buses: Dict[str, EventBus] = {}
+        self._rules: list[ForwardRule] = []
+        self._buses: dict[str, EventBus] = {}
         self._forwarded_count = 0
         self._loop_prevented_count = 0
         self._active = False
-        self._forwarders: Dict[str, Handler] = {}  # bus_id → handler (for cleanup)
+        self._forwarders: dict[str, Handler] = {}  # bus_id → handler (for cleanup)
 
     def register_bus(self, bus: EventBus) -> None:
         self._buses[bus.bus_id] = bus
@@ -369,7 +370,7 @@ class EventBusBridge:
         self._active = True
 
         # Register a wildcard handler on each source bus; keep ref for stop()
-        source_ids: Set[str] = {r.source_bus_id for r in self._rules}
+        source_ids: set[str] = {r.source_bus_id for r in self._rules}
         for bus_id in source_ids:
             bus = self._buses.get(bus_id)
             if bus:
@@ -428,7 +429,7 @@ class EventBusBridge:
 
         return _forward
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         return {
             "active": self._active,
             "buses": list(self._buses.keys()),
@@ -529,16 +530,16 @@ def create_default_bridge() -> EventBusBridge:
 # CONVENIENCE HELPERS
 # ════════════════════════════════════════════════════════════════════════════
 
-async def emit_core(event_type: str, payload: Dict[str, Any], source: str = "") -> None:
+async def emit_core(event_type: str, payload: dict[str, Any], source: str = "") -> None:
     """Emit to CORE bus."""
     await get_core_bus().emit(Event(type=event_type, payload=payload, source=source))
 
 
-async def emit_automation(event_type: str, payload: Dict[str, Any], source: str = "") -> None:
+async def emit_automation(event_type: str, payload: dict[str, Any], source: str = "") -> None:
     """Emit to AUTOMATION bus."""
     await get_automation_bus().emit(Event(type=event_type, payload=payload, source=source))
 
 
-async def emit_agent(event_type: str, payload: Dict[str, Any], source: str = "") -> None:
+async def emit_agent(event_type: str, payload: dict[str, Any], source: str = "") -> None:
     """Emit to AGENT bus."""
     await get_agent_bus().emit(Event(type=event_type, payload=payload, source=source))

@@ -38,7 +38,7 @@ class ProbeResult:
     duration_ms: float
     error: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "q_score": round(self.q_score, 3),
@@ -61,7 +61,7 @@ def phi_aggregate(scores: dict, weights: dict) -> float:
     return math.exp(log_sum / total_weight)
 """
 
-_PROBE_P1: Dict[str, Any] = {
+_PROBE_P1: dict[str, Any] = {
     "name": "P1:clean_code",
     "cell": Cell(
         reality="CODE",
@@ -92,7 +92,7 @@ class GodClass:
         return result
 """
 
-_PROBE_P2: Dict[str, Any] = {
+_PROBE_P2: dict[str, Any] = {
     "name": "P2:smelly_code",
     "cell": Cell(
         reality="CODE",
@@ -115,7 +115,7 @@ _PROBE_P2: Dict[str, Any] = {
 # -- P3: Irreversible ACT (CODE x ACT, risk=1.0) ----------------------------
 # risk=1.0 + analysis=ACT is the GUARDIAN trigger signal.
 # Content is a structured description of what the ACT would do.
-_P3_CONTENT: Dict[str, Any] = {
+_P3_CONTENT: dict[str, Any] = {
     "operation": "irreversible_destructive_act",
     "reversible": False,
     "confirmed": False,
@@ -124,7 +124,7 @@ _P3_CONTENT: Dict[str, Any] = {
     "risk_level": "CRITICAL",
 }
 
-_PROBE_P3: Dict[str, Any] = {
+_PROBE_P3: dict[str, Any] = {
     "name": "P3:dangerous_act",
     "cell": Cell(
         reality="CODE",
@@ -144,7 +144,7 @@ _PROBE_P3: Dict[str, Any] = {
 
 
 # -- P4: CYNIC Self-State (CYNIC x LEARN) ------------------------------------
-_P4_CONTENT: Dict[str, Any] = {
+_P4_CONTENT: dict[str, Any] = {
     "dogs_active": 11,
     "consciousness_level": "MACRO",
     "q_table_entries": 150,
@@ -154,7 +154,7 @@ _P4_CONTENT: Dict[str, Any] = {
     "judgment_count": 42,
 }
 
-_PROBE_P4: Dict[str, Any] = {
+_PROBE_P4: dict[str, Any] = {
     "name": "P4:cynic_self_state",
     "cell": Cell(
         reality="CYNIC",
@@ -174,7 +174,7 @@ _PROBE_P4: Dict[str, Any] = {
 
 
 # -- P5: Standard Solana Transaction (SOLANA x JUDGE) -------------------------
-_P5_CONTENT: Dict[str, Any] = {
+_P5_CONTENT: dict[str, Any] = {
     "signature": "5BkK3mWQaVjRpN7XdFHeTzP1L8uQCsxBnEmk9Y2ZhWvR" + "A" * 42,
     "fee_lamports": 5000,
     "success": True,
@@ -183,7 +183,7 @@ _P5_CONTENT: Dict[str, Any] = {
     "amount_sol": 0.1,
 }
 
-_PROBE_P5: Dict[str, Any] = {
+_PROBE_P5: dict[str, Any] = {
     "name": "P5:solana_tx",
     "cell": Cell(
         reality="SOLANA",
@@ -203,7 +203,7 @@ _PROBE_P5: Dict[str, Any] = {
 
 
 # -- Canonical probe list (ordered P1-P5) ------------------------------------
-PROBE_CELLS: List[Dict[str, Any]] = [
+PROBE_CELLS: list[dict[str, Any]] = [
     _PROBE_P1,
     _PROBE_P2,
     _PROBE_P3,

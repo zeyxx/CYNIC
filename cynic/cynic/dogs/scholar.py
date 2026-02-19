@@ -107,16 +107,16 @@ class ScholarDog(LLMDog):
 
     def __init__(self) -> None:
         super().__init__(DogId.SCHOLAR, task_type="vector_rag")
-        self._buffer: List[BufferEntry] = []
-        self._vectorizer: Optional[TfidfVectorizer] = None
-        self._matrix: Optional[np.ndarray] = None
+        self._buffer: list[BufferEntry] = []
+        self._vectorizer: TfidfVectorizer | None = None
+        self._matrix: np.ndarray | None = None
         self._matrix_dirty: bool = True  # Rebuild matrix on next analyze()
         self._lookups: int = 0
         self._hits: int = 0     # Lookups that found ≥1 neighbor above MIN_SIMILARITY
         self._cold_lookups: int = 0
-        self._db_pool: Optional[Any] = None  # asyncpg pool (None = no persistence)
-        self._embedder: Optional[EmbeddingProvider] = None  # β1: vector embedder
-        self._qtable: Optional[Any] = None  # QTable (read-only, injected via set_qtable)
+        self._db_pool: Any | None = None  # asyncpg pool (None = no persistence)
+        self._embedder: EmbeddingProvider | None = None  # β1: vector embedder
+        self._qtable: Any | None = None  # QTable (read-only, injected via set_qtable)
 
     def get_capabilities(self) -> DogCapabilities:
         return DogCapabilities(
@@ -401,7 +401,7 @@ class ScholarDog(LLMDog):
         cell: Cell,
         cell_text: str,
         start: float,
-    ) -> Optional[DogJudgment]:
+    ) -> DogJudgment | None:
         """
         β1: Dense vector similarity search against scholar_buffer table.
 
@@ -504,7 +504,7 @@ class ScholarDog(LLMDog):
             self._matrix = None
             self._matrix_dirty = False
 
-    def _top_k_neighbors(self, sims: np.ndarray) -> List[int]:
+    def _top_k_neighbors(self, sims: np.ndarray) -> list[int]:
         """Return indices of top-K neighbors above MIN_SIMILARITY, sorted desc."""
         above_threshold = [
             (i, sims[i])
@@ -516,10 +516,10 @@ class ScholarDog(LLMDog):
 
     def _aggregate(
         self,
-        neighbor_indices: List[int],
+        neighbor_indices: list[int],
         sims: np.ndarray,
         state_key: str = "",
-    ) -> Tuple[float, float, Dict[str, Any]]:
+    ) -> tuple[float, float, dict[str, Any]]:
         """
         Compute q_score and confidence from K neighbors.
 
@@ -574,7 +574,7 @@ class ScholarDog(LLMDog):
         raw_confidence = best_sim * consistency * richness + qtable_confidence_bonus
         confidence = min(max(raw_confidence, COLD_CONFIDENCE), MAX_CONFIDENCE)
 
-        evidence: Dict[str, Any] = {
+        evidence: dict[str, Any] = {
             "neighbors_found": len(neighbor_indices),
             "best_similarity": round(best_sim, 3),
             "mean_q": round(mean_q, 1),

@@ -23,7 +23,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
+from collections.abc import Callable, Coroutine
 import time
 
 from cynic.core.phi import fibonacci, PHI_INV, PERCEIVE_CODE_SEC
@@ -85,7 +86,7 @@ class ConsciousnessLevel(Enum):
 
 
 # Dogs available at each consciousness level
-REFLEX_DOGS: Set[str] = {
+REFLEX_DOGS: set[str] = {
     "CYNIC",       # PBFT coordinator (non-LLM)
     "GUARDIAN",    # IsolationForest anomaly detection
     "ANALYST",     # Z3 formal verification
@@ -94,20 +95,20 @@ REFLEX_DOGS: Set[str] = {
     "ORACLE",      # Q-table Thompson Sampling prediction (non-LLM)
 }
 
-MICRO_DOGS: Set[str] = REFLEX_DOGS | {
+MICRO_DOGS: set[str] = REFLEX_DOGS | {
     "SCHOLAR",     # Vector search (fast embedding lookup)
 }
 
-MACRO_DOGS: Set[str] = {
+MACRO_DOGS: set[str] = {
     "CYNIC", "GUARDIAN", "ANALYST", "JANITOR",
     "SAGE", "SCHOLAR", "ORACLE", "ARCHITECT",
     "DEPLOYER", "SCOUT", "CARTOGRAPHER",
 }  # All 11 Dogs
 
-META_DOGS: Set[str] = MACRO_DOGS  # All Dogs participate in evolution
+META_DOGS: set[str] = MACRO_DOGS  # All Dogs participate in evolution
 
 
-def dogs_for_level(level: ConsciousnessLevel) -> Set[str]:
+def dogs_for_level(level: ConsciousnessLevel) -> set[str]:
     """Return the set of Dogs available at a given consciousness level."""
     return {
         ConsciousnessLevel.REFLEX: REFLEX_DOGS,
@@ -165,8 +166,8 @@ class CycleTimer:
     scheduler downgrades concurrent Dogs until performance recovers.
     """
     level: ConsciousnessLevel
-    _samples: List[float] = field(default_factory=list)
-    _start: Optional[float] = field(default=None, init=False)
+    _samples: list[float] = field(default_factory=list)
+    _start: float | None = field(default=None, init=False)
     _max_samples: int = 55  # F(10) — rolling window
 
     def start(self) -> None:
@@ -227,7 +228,7 @@ class CycleTimer:
         else:
             return "CRITICAL"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "level": self.level.name,
             "target_ms": self.level.target_ms,
@@ -268,7 +269,7 @@ class ConsciousnessState:
     meta_cycles: int = 0
 
     # Timers for each level
-    timers: Dict[str, CycleTimer] = field(default_factory=dict)
+    timers: dict[str, CycleTimer] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         for level in ConsciousnessLevel:
@@ -289,7 +290,7 @@ class ConsciousnessState:
     def total_cycles(self) -> int:
         return self.reflex_cycles + self.micro_cycles + self.macro_cycles + self.meta_cycles
 
-    def should_downgrade(self, budget_usd: float) -> Optional[ConsciousnessLevel]:
+    def should_downgrade(self, budget_usd: float) -> ConsciousnessLevel | None:
         """
         Recommend downgrade if budget is low or timers are CRITICAL.
 
@@ -308,7 +309,7 @@ class ConsciousnessState:
 
         return None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "active_level": self.active_level.name,
             "gradient": self.gradient,
@@ -324,7 +325,7 @@ class ConsciousnessState:
 
 
 # Singleton for the organism's consciousness state
-_consciousness: Optional[ConsciousnessState] = None
+_consciousness: ConsciousnessState | None = None
 
 
 def get_consciousness() -> ConsciousnessState:

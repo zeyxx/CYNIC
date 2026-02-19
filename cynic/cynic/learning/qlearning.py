@@ -54,7 +54,7 @@ from cynic.core.phi import (
 logger = logging.getLogger("cynic.learning.qlearning")
 
 # All possible verdicts (actions in Q-space)
-VERDICTS: List[str] = ["BARK", "GROWL", "WAG", "HOWL"]
+VERDICTS: list[str] = ["BARK", "GROWL", "WAG", "HOWL"]
 
 # Thompson prior: Fibonacci(5) = 5 pseudo-observations per arm before real data
 THOMPSON_PRIOR: int = fibonacci(5)  # 5 — neutral prior, not zero
@@ -92,7 +92,7 @@ class QEntry:
         y = random.gammavariate(b, 1.0)
         return x / (x + y) if (x + y) > 0 else 0.5
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "state_key": self.state_key,
             "action": self.action,
@@ -159,10 +159,10 @@ class QTable:
         self._alpha = learning_rate       # ≈ 0.038
         self._gamma = discount            # 0.382 — discount future rewards conservatively
         # Nested dict: {state_key: {action: QEntry}}
-        self._table: Dict[str, Dict[str, QEntry]] = defaultdict(dict)
+        self._table: dict[str, dict[str, QEntry]] = defaultdict(dict)
         self._total_updates: int = 0
         self._total_states: int = 0
-        self._pending_flush: List[QEntry] = []  # batch for async DB write
+        self._pending_flush: list[QEntry] = []  # batch for async DB write
         self._created_at: float = time.time()
 
     # ── Core Update ────────────────────────────────────────────────────────
@@ -225,7 +225,7 @@ class QTable:
         Thompson Sampling policy: sample Beta per action, pick max.
         Natural exploration — no ε-greedy hacks needed.
         """
-        samples: Dict[str, float] = {}
+        samples: dict[str, float] = {}
         for action in VERDICTS:
             entry = self._get_or_create(state_key, action)
             samples[action] = entry.thompson_sample()
@@ -309,7 +309,7 @@ class QTable:
         logger.info("Loaded %d Q-entries from DB (warm start)", len(rows))
         return len(rows)
 
-    def load_from_entries(self, entries: List[Dict]) -> int:
+    def load_from_entries(self, entries: list[dict]) -> int:
         """
         Warm-start from a list of dicts (source-agnostic).
 
@@ -331,7 +331,7 @@ class QTable:
 
     # ── Introspection ──────────────────────────────────────────────────────
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Return learning system health metrics."""
         total_entries = sum(len(v) for v in self._table.values())
         total_visits = sum(
@@ -369,7 +369,7 @@ class QTable:
             "ewc_consolidated": ewc_consolidated,          # entries with visits ≥ F(8)
         }
 
-    def top_states(self, n: int = 5) -> List[Dict]:
+    def top_states(self, n: int = 5) -> list[dict]:
         """Return top-N most visited states with their best actions."""
         state_data = []
         for sk, actions in self._table.items():

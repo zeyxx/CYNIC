@@ -67,7 +67,7 @@ def _persist_judgment(judgment: Judgment) -> None:
         pass  # Never block on persistence failure
 
 
-def _write_guidance(cell: "Cell", judgment: "Judgment") -> None:  # type: ignore[name-defined]
+def _write_guidance(cell: Cell, judgment: Judgment) -> None:  # type: ignore[name-defined]
     """
     Write last judgment as guidance.json — the feedback loop.
 
@@ -490,7 +490,7 @@ async def policy(
 
 
 @router_core.get("/world-state")
-async def get_world_state() -> Dict[str, Any]:
+async def get_world_state() -> dict[str, Any]:
     """
     GET /world-state — Cross-reality state snapshot from WorldModelUpdater.
 

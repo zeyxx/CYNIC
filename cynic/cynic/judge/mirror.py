@@ -53,12 +53,12 @@ class KernelMirror:
     """
 
     def __init__(self) -> None:
-        self._prev_snapshot: Optional[Dict[str, Any]] = None
-        self._penultimate_snapshot: Optional[Dict[str, Any]] = None  # N-2 snapshot for diff
+        self._prev_snapshot: dict[str, Any] | None = None
+        self._penultimate_snapshot: dict[str, Any] | None = None  # N-2 snapshot for diff
         self._snapshot_count: int = 0
         self._created_at: float = time.time()
 
-    def snapshot(self, state: Any) -> Dict[str, Any]:
+    def snapshot(self, state: Any) -> dict[str, Any]:
         """
         Build a full kernel snapshot from the current KernelState.
 
@@ -68,7 +68,7 @@ class KernelMirror:
         Returns:
             Dict with all subsystem stats + overall_health + tier.
         """
-        snap: Dict[str, Any] = {
+        snap: dict[str, Any] = {
             "snapshot_id": self._snapshot_count,
             "timestamp": round(time.time(), 3),
             "uptime_s": round(time.time() - self._created_at, 1),
@@ -149,7 +149,7 @@ class KernelMirror:
         self._snapshot_count += 1
         return snap
 
-    def diff(self, current: Dict[str, Any]) -> Dict[str, Any]:
+    def diff(self, current: dict[str, Any]) -> dict[str, Any]:
         """
         Compute a delta between the penultimate snapshot and current.
 
@@ -170,7 +170,7 @@ class KernelMirror:
     # ── Subsystem extractors ───────────────────────────────────────────────
 
     @staticmethod
-    def _sage_stats(state: Any) -> Dict[str, Any]:
+    def _sage_stats(state: Any) -> dict[str, Any]:
         """Extract SAGE temporal MCTS activation ratio."""
         from cynic.dogs.base import DogId
         # Use canonical path: state.orchestrator.dogs[SAGE]
@@ -199,7 +199,7 @@ class KernelMirror:
         }
 
     @staticmethod
-    def _dog_stats(state: Any) -> Dict[str, Any]:
+    def _dog_stats(state: Any) -> dict[str, Any]:
         """Aggregate judgment telemetry across all Dogs."""
         orch = getattr(state, "orchestrator", None)
         if orch is None:
@@ -217,7 +217,7 @@ class KernelMirror:
     # ── Health scoring ─────────────────────────────────────────────────────
 
     @staticmethod
-    def _compute_health(snap: Dict[str, Any]) -> float:
+    def _compute_health(snap: dict[str, Any]) -> float:
         """
         Compute overall_health [0, 100] as geometric mean of key indicators.
 
@@ -230,7 +230,7 @@ class KernelMirror:
 
         Geometric mean keeps score honest — one bad indicator drags the whole.
         """
-        scores: List[float] = []
+        scores: list[float] = []
 
         # 1. QTable coverage
         qt = snap.get("qtable", {})
@@ -280,17 +280,17 @@ class KernelMirror:
 
 
 def _deep_diff(
-    old: Dict[str, Any],
-    new: Dict[str, Any],
+    old: dict[str, Any],
+    new: dict[str, Any],
     prefix: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Recursively compute leaf-level diff between two nested dicts.
 
     Returns {path: {"old": v, "new": v}} for changed scalar values only.
     Ignores "snapshot_id" and "timestamp" (always different).
     """
-    changes: Dict[str, Any] = {}
+    changes: dict[str, Any] = {}
     _SKIP_KEYS = {"snapshot_id", "timestamp"}
 
     all_keys = set(old.keys()) | set(new.keys())

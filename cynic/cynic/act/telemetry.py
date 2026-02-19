@@ -26,7 +26,7 @@ from typing import Any, Dict, List
 # TASK CLASSIFIER
 # ════════════════════════════════════════════════════════════════════════════
 
-_TASK_KEYWORDS: Dict[str, List[str]] = {
+_TASK_KEYWORDS: dict[str, list[str]] = {
     "debug": [
         "fix", "bug", "error", "debug", "broken", "crash", "exception",
         "traceback", "failing", "issue", "wrong", "incorrect", "doesn't work",
@@ -83,7 +83,7 @@ def classify_task(prompt: str) -> str:
 # COMPLEXITY ESTIMATOR
 # ════════════════════════════════════════════════════════════════════════════
 
-def estimate_complexity(tool_sequence: List[str]) -> str:
+def estimate_complexity(tool_sequence: list[str]) -> str:
     """
     Estimate task complexity from tool usage length.
 
@@ -156,7 +156,7 @@ class SessionTelemetry:
     complexity: str                 # trivial/simple/medium/complex
 
     model: str
-    tools_sequence: List[str]       # ordered: ["Read", "Edit", "Bash", ...]
+    tools_sequence: list[str]       # ordered: ["Read", "Edit", "Bash", ...]
     tools_allowed: int
     tools_denied: int
     tool_allow_rate: float          # 0.0-1.0
@@ -208,14 +208,14 @@ class TelemetryStore:
     def add(self, record: SessionTelemetry) -> None:
         self._records.append(record)
 
-    def recent(self, n: int = 10) -> List[Dict[str, Any]]:
+    def recent(self, n: int = 10) -> list[dict[str, Any]]:
         records = list(self._records)
         return [asdict(r) for r in records[-n:]]
 
-    def export(self) -> List[Dict[str, Any]]:
+    def export(self) -> list[dict[str, Any]]:
         return [asdict(r) for r in self._records]
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         records = list(self._records)
         if not records:
             return {

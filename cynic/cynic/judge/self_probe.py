@@ -73,7 +73,7 @@ class SelfProposal:
     proposed_at: float = field(default_factory=time.time)
     status: str = "PENDING"   # PENDING | APPLIED | DISMISSED
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "probe_id":       self.probe_id,
             "trigger":        self.trigger,
@@ -89,7 +89,7 @@ class SelfProposal:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "SelfProposal":
+    def from_dict(cls, d: dict[str, Any]) -> SelfProposal:
         return cls(
             probe_id=d["probe_id"],
             trigger=d["trigger"],
@@ -124,11 +124,11 @@ class SelfProber:
 
     def __init__(self, proposals_path: str = _PROPOSALS_PATH) -> None:
         self._path = proposals_path
-        self._proposals: List[SelfProposal] = []
+        self._proposals: list[SelfProposal] = []
         self._total_proposed: int = 0
-        self._qtable: Optional[Any] = None
-        self._residual: Optional[Any] = None
-        self._escore: Optional[Any] = None
+        self._qtable: Any | None = None
+        self._residual: Any | None = None
+        self._escore: Any | None = None
         self._registered: bool = False
         self._load()
 
@@ -156,19 +156,19 @@ class SelfProber:
 
     # ── Public API ────────────────────────────────────────────────────────
 
-    def all_proposals(self) -> List[SelfProposal]:
+    def all_proposals(self) -> list[SelfProposal]:
         return list(self._proposals)
 
-    def pending(self) -> List[SelfProposal]:
+    def pending(self) -> list[SelfProposal]:
         return [p for p in self._proposals if p.status == "PENDING"]
 
-    def get(self, probe_id: str) -> Optional[SelfProposal]:
+    def get(self, probe_id: str) -> SelfProposal | None:
         for p in self._proposals:
             if p.probe_id == probe_id:
                 return p
         return None
 
-    def dismiss(self, probe_id: str) -> Optional[SelfProposal]:
+    def dismiss(self, probe_id: str) -> SelfProposal | None:
         for p in self._proposals:
             if p.probe_id == probe_id:
                 p.status = "DISMISSED"
@@ -176,7 +176,7 @@ class SelfProber:
                 return p
         return None
 
-    def apply(self, probe_id: str) -> Optional[SelfProposal]:
+    def apply(self, probe_id: str) -> SelfProposal | None:
         for p in self._proposals:
             if p.probe_id == probe_id:
                 p.status = "APPLIED"
@@ -184,7 +184,7 @@ class SelfProber:
                 return p
         return None
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         counts = {"PENDING": 0, "APPLIED": 0, "DISMISSED": 0}
         for p in self._proposals:
             counts[p.status] = counts.get(p.status, 0) + 1
@@ -203,14 +203,14 @@ class SelfProber:
         trigger: str = "MANUAL",
         pattern_type: str = "UNKNOWN",
         severity: float = 0.5,
-    ) -> List[SelfProposal]:
+    ) -> list[SelfProposal]:
         """
         Run all three analyses and return new proposals generated.
 
         Can be called manually (e.g. from CLI or test) or automatically
         via _on_emergence().
         """
-        new_proposals: List[SelfProposal] = []
+        new_proposals: list[SelfProposal] = []
         new_proposals.extend(self._analyze_qtable(trigger, pattern_type, severity))
         new_proposals.extend(self._analyze_escore(trigger, pattern_type, severity))
         new_proposals.extend(self._analyze_residual(trigger, pattern_type, severity))
@@ -232,7 +232,7 @@ class SelfProber:
 
     def _analyze_qtable(
         self, trigger: str, pattern_type: str, severity: float,
-    ) -> List[SelfProposal]:
+    ) -> list[SelfProposal]:
         """
         Find the worst-performing QTable entry (lowest Q-value with enough visits).
         Generates at most 1 proposal (the single worst entry).
@@ -245,7 +245,7 @@ class SelfProber:
         except AttributeError:
             return []
 
-        worst: Optional[tuple] = None  # (value, visits, state_key, action)
+        worst: tuple | None = None  # (value, visits, state_key, action)
         for state_key, actions in table.items():
             for action, entry in actions.items():
                 value  = float(entry.get("value", 1.0))
@@ -279,7 +279,7 @@ class SelfProber:
 
     def _analyze_escore(
         self, trigger: str, pattern_type: str, severity: float,
-    ) -> List[SelfProposal]:
+    ) -> list[SelfProposal]:
         """
         Find dogs with JUDGE E-Score < 38.2 (below GROWL floor).
         Generates one proposal per underperforming dog (max 3).
@@ -324,7 +324,7 @@ class SelfProber:
 
     def _analyze_residual(
         self, trigger: str, pattern_type: str, severity: float,
-    ) -> List[SelfProposal]:
+    ) -> list[SelfProposal]:
         """
         Pattern-specific parameter suggestions.
           STABLE_HIGH → re-run probe calibration (axiom weights drift)

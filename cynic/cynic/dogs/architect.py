@@ -109,9 +109,9 @@ class ArchitectDog(AbstractDog):
         start = time.perf_counter()
 
         code_str = self._extract_code(cell)
-        violations: List[str] = []
+        violations: list[str] = []
         total_penalty: float = 0.0
-        evidence: Dict[str, Any] = {}
+        evidence: dict[str, Any] = {}
 
         if code_str:
             violations, total_penalty, evidence = self._assess_structure(code_str)
@@ -152,7 +152,7 @@ class ArchitectDog(AbstractDog):
 
     # ── Code Extraction ────────────────────────────────────────────────────
 
-    def _extract_code(self, cell: Cell) -> Optional[str]:
+    def _extract_code(self, cell: Cell) -> str | None:
         """Extract Python code string from cell content (same pattern as JANITOR)."""
         content = cell.content
 
@@ -169,13 +169,13 @@ class ArchitectDog(AbstractDog):
 
     # ── Structural Assessment ──────────────────────────────────────────────
 
-    def _assess_structure(self, code: str) -> Tuple[List[str], float, Dict[str, Any]]:
+    def _assess_structure(self, code: str) -> tuple[list[str], float, dict[str, Any]]:
         """
         Parse code and assess 4 structural dimensions.
 
         Returns: (violations, total_penalty, evidence)
         """
-        violations: List[str] = []
+        violations: list[str] = []
         total_penalty: float = 0.0
 
         try:
@@ -212,10 +212,10 @@ class ArchitectDog(AbstractDog):
         }
         return violations, total_penalty, evidence
 
-    def _check_coupling(self, tree: ast.AST) -> Tuple[List[str], float, int]:
+    def _check_coupling(self, tree: ast.AST) -> tuple[list[str], float, int]:
         """Count imports. > F(7)=13 → coupling violation."""
-        violations: List[str] = []
-        import_names: List[str] = []
+        violations: list[str] = []
+        import_names: list[str] = []
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
@@ -232,9 +232,9 @@ class ArchitectDog(AbstractDog):
         penalty = excess * IMPORT_PENALTY
         return violations, penalty, count
 
-    def _check_nesting(self, tree: ast.AST) -> Tuple[List[str], float, int]:
+    def _check_nesting(self, tree: ast.AST) -> tuple[list[str], float, int]:
         """Measure max nesting depth. > L(4)=7 → god nesting."""
-        violations: List[str] = []
+        violations: list[str] = []
         max_depth = 0
 
         def _depth(node: ast.AST, current: int) -> None:
@@ -259,10 +259,10 @@ class ArchitectDog(AbstractDog):
         penalty = excess * NESTING_PENALTY
         return violations, penalty, max_depth
 
-    def _check_class_cohesion(self, tree: ast.AST) -> Tuple[List[str], float, List[Dict]]:
+    def _check_class_cohesion(self, tree: ast.AST) -> tuple[list[str], float, list[dict]]:
         """Count methods per class. > L(5)=11 → god class."""
-        violations: List[str] = []
-        class_stats: List[Dict] = []
+        violations: list[str] = []
+        class_stats: list[dict] = []
         total_penalty = 0.0
 
         for node in ast.walk(tree):
@@ -281,9 +281,9 @@ class ArchitectDog(AbstractDog):
 
         return violations, total_penalty, class_stats
 
-    def _check_module_balance(self, tree: ast.AST) -> Tuple[List[str], float, int]:
+    def _check_module_balance(self, tree: ast.AST) -> tuple[list[str], float, int]:
         """Count top-level classes. > F(6)=8 → structural sprawl."""
-        violations: List[str] = []
+        violations: list[str] = []
         class_count = sum(
             1 for node in ast.iter_child_nodes(tree)
             if isinstance(node, ast.ClassDef)

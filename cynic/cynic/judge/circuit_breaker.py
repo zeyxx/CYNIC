@@ -143,7 +143,7 @@ class CircuitBreaker:
                 self._failure_threshold,
             )
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Return circuit breaker health snapshot."""
         elapsed_since_open = (
             round(time.time() - self._last_opened_at, 1)

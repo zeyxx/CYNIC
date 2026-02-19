@@ -172,10 +172,10 @@ class LODController:
 
     def __init__(self) -> None:
         self._current: SurvivalLOD = SurvivalLOD.FULL
-        self._forced: Optional[SurvivalLOD] = None
-        self._history: List[HealthMetrics] = []
+        self._forced: SurvivalLOD | None = None
+        self._history: list[HealthMetrics] = []
         self._healthy_streak: int = 0
-        self._transitions: List[Dict[str, Any]] = []
+        self._transitions: list[dict[str, Any]] = []
         self._started_at: float = time.time()
 
     # ── Assessment ────────────────────────────────────────────────────────
@@ -259,7 +259,7 @@ class LODController:
         """True if currently at LOD 0 FULL."""
         return self.current == SurvivalLOD.FULL
 
-    def status(self) -> Dict[str, Any]:
+    def status(self) -> dict[str, Any]:
         """Full LOD controller status dict."""
         lod = self.current
         return {

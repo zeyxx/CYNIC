@@ -80,7 +80,7 @@ def _rec(table: str, key: str) -> str:
     return f"{table}:{_safe_id(key)}"
 
 
-def _rows(result: Any) -> List[Dict]:
+def _rows(result: Any) -> list[dict]:
     """Extract row list from a SurrealDB query result."""
     if not result:
         return []
@@ -101,14 +101,14 @@ class JudgmentRepo:
     def __init__(self, db: Any) -> None:
         self._db = db
 
-    async def save(self, judgment: Dict[str, Any]) -> None:
+    async def save(self, judgment: dict[str, Any]) -> None:
         jid = judgment["judgment_id"]
         await self._db.upsert(_rec("judgment", jid), {
             **judgment,
             "created_at": judgment.get("created_at", time.time()),
         })
 
-    async def get(self, judgment_id: str) -> Optional[Dict[str, Any]]:
+    async def get(self, judgment_id: str) -> dict[str, Any] | None:
         result = await self._db.query(
             "SELECT * FROM judgment WHERE judgment_id = $jid LIMIT 1",
             {"jid": judgment_id},
@@ -117,8 +117,8 @@ class JudgmentRepo:
         return rows[0] if rows else None
 
     async def recent(
-        self, reality: Optional[str] = None, limit: int = 55
-    ) -> List[Dict[str, Any]]:
+        self, reality: str | None = None, limit: int = 55
+    ) -> list[dict[str, Any]]:
         if reality:
             result = await self._db.query(
                 "SELECT * FROM judgment WHERE reality = $r ORDER BY created_at DESC LIMIT $n",
@@ -131,7 +131,7 @@ class JudgmentRepo:
             )
         return _rows(result)
 
-    async def stats(self) -> Dict[str, Any]:
+    async def stats(self) -> dict[str, Any]:
         result = await self._db.query(
             "SELECT verdict, count() AS cnt, math::mean(q_score) AS avg_q "
             "FROM judgment GROUP BY verdict"
@@ -168,7 +168,7 @@ class QTableRepo:
     async def update(self, state_key: str, action: str, q_value: float) -> None:
         rec_id = self._rec_id(state_key, action)
         # Fetch existing to increment visit_count
-        existing: Optional[Dict] = None
+        existing: dict | None = None
         try:
             existing = await self._db.select(rec_id)
         except Exception:
@@ -184,14 +184,14 @@ class QTableRepo:
             "last_updated": time.time(),
         })
 
-    async def get_all_actions(self, state_key: str) -> Dict[str, float]:
+    async def get_all_actions(self, state_key: str) -> dict[str, float]:
         result = await self._db.query(
             "SELECT action, q_value FROM q_entry WHERE state_key = $s",
             {"s": state_key},
         )
         return {r["action"]: float(r["q_value"]) for r in _rows(result)}
 
-    async def get_all(self) -> List[Dict[str, Any]]:
+    async def get_all(self) -> list[dict[str, Any]]:
         """Return all Q-entries — used for warm-start."""
         result = await self._db.query(
             "SELECT state_key, action, q_value, visit_count FROM q_entry"
@@ -203,7 +203,7 @@ class LearningRepo:
     def __init__(self, db: Any) -> None:
         self._db = db
 
-    async def save(self, event: Dict[str, Any]) -> None:
+    async def save(self, event: dict[str, Any]) -> None:
         eid = event.get("event_id", str(uuid.uuid4()))
         await self._db.upsert(_rec("learning_event", eid), {
             **event,
@@ -211,7 +211,7 @@ class LearningRepo:
             "created_at": time.time(),
         })
 
-    async def recent_for_loop(self, loop_name: str, limit: int = 34) -> List[Dict]:
+    async def recent_for_loop(self, loop_name: str, limit: int = 34) -> list[dict]:
         result = await self._db.query(
             "SELECT * FROM learning_event WHERE loop_name = $l "
             "ORDER BY created_at DESC LIMIT $n",
@@ -219,7 +219,7 @@ class LearningRepo:
         )
         return _rows(result)
 
-    async def loop_stats(self) -> Dict[str, int]:
+    async def loop_stats(self) -> dict[str, int]:
         result = await self._db.query(
             "SELECT loop_name, count() AS cnt FROM learning_event GROUP BY loop_name"
         )
@@ -230,7 +230,7 @@ class BenchmarkRepo:
     def __init__(self, db: Any) -> None:
         self._db = db
 
-    async def save(self, result: Dict[str, Any]) -> None:
+    async def save(self, result: dict[str, Any]) -> None:
         bid = result.get("benchmark_id", str(uuid.uuid4()))
         await self._db.upsert(_rec("llm_benchmark", bid), {
             **result,
@@ -238,7 +238,7 @@ class BenchmarkRepo:
             "created_at": time.time(),
         })
 
-    async def best_llm_for(self, dog_id: str, task_type: str) -> Optional[str]:
+    async def best_llm_for(self, dog_id: str, task_type: str) -> str | None:
         since = time.time() - 7 * 86400
         result = await self._db.query(
             "SELECT llm_id, math::mean(composite_score) AS avg_score "
@@ -250,14 +250,14 @@ class BenchmarkRepo:
         rows = _rows(result)
         return rows[0]["llm_id"] if rows else None
 
-    async def get_all(self) -> List[Dict[str, Any]]:
+    async def get_all(self) -> list[dict[str, Any]]:
         result = await self._db.query(
             "SELECT dog_id, task_type, llm_id, quality_score, speed_score, cost_score "
             "FROM llm_benchmark ORDER BY created_at DESC"
         )
         return _rows(result)
 
-    async def matrix(self) -> List[Dict[str, Any]]:
+    async def matrix(self) -> list[dict[str, Any]]:
         since = time.time() - 7 * 86400
         result = await self._db.query(
             "SELECT dog_id, task_type, llm_id, "
@@ -276,14 +276,14 @@ class ResidualRepo:
     def __init__(self, db: Any) -> None:
         self._db = db
 
-    async def append(self, point: Dict[str, Any]) -> None:
+    async def append(self, point: dict[str, Any]) -> None:
         rid = str(uuid.uuid4())
         await self._db.upsert(_rec("residual", rid), {
             **point,
             "observed_at": time.time(),
         })
 
-    async def recent(self, limit: int = 21) -> List[Dict[str, Any]]:
+    async def recent(self, limit: int = 21) -> list[dict[str, Any]]:
         result = await self._db.query(
             "SELECT judgment_id, residual, reality, analysis, unnameable, observed_at "
             "FROM residual ORDER BY observed_at DESC LIMIT $n",
@@ -297,7 +297,7 @@ class SDKSessionRepo:
     def __init__(self, db: Any) -> None:
         self._db = db
 
-    async def save(self, telemetry: Dict[str, Any]) -> None:
+    async def save(self, telemetry: dict[str, Any]) -> None:
         sid = telemetry["session_id"]
         await self._db.upsert(_rec("sdk_session", sid), {
             **telemetry,
@@ -305,14 +305,14 @@ class SDKSessionRepo:
             "created_at": telemetry.get("created_at", time.time()),
         })
 
-    async def recent(self, limit: int = 21) -> List[Dict[str, Any]]:
+    async def recent(self, limit: int = 21) -> list[dict[str, Any]]:
         result = await self._db.query(
             "SELECT * FROM sdk_session ORDER BY created_at DESC LIMIT $n",
             {"n": limit},
         )
         return _rows(result)
 
-    async def stats(self) -> Dict[str, Any]:
+    async def stats(self) -> dict[str, Any]:
         result = await self._db.query(
             "SELECT count() AS total, "
             "math::mean(total_cost_usd) AS avg_cost_usd, "
@@ -323,7 +323,7 @@ class SDKSessionRepo:
         rows = _rows(result)
         return rows[0] if rows else {}
 
-    async def get_last_cli_session_id(self, cwd: str = "") -> Optional[str]:
+    async def get_last_cli_session_id(self, cwd: str = "") -> str | None:
         """Return the most recent cli_session_id, optionally filtered by cwd."""
         if cwd:
             result = await self._db.query(
@@ -348,7 +348,7 @@ class ScholarRepo:
     def __init__(self, db: Any) -> None:
         self._db = db
 
-    async def append(self, entry: Dict[str, Any]) -> None:
+    async def append(self, entry: dict[str, Any]) -> None:
         rid = str(uuid.uuid4())
         await self._db.upsert(_rec("scholar", rid), {
             **entry,
@@ -356,7 +356,7 @@ class ScholarRepo:
             "created_at": time.time(),
         })
 
-    async def recent_entries(self, limit: int = 89) -> List[Dict[str, Any]]:
+    async def recent_entries(self, limit: int = 89) -> list[dict[str, Any]]:
         result = await self._db.query(
             "SELECT cell_id, cell_text, q_score, reality, ts "
             "FROM scholar ORDER BY created_at DESC LIMIT $n",
@@ -367,10 +367,10 @@ class ScholarRepo:
 
     async def search_similar_by_embedding(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         limit: int = 10,
         min_similarity: float = 0.38,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Native HNSW cosine search — replaces Python cosine loop."""
         result = await self._db.query(
             "SELECT cell_id, cell_text, q_score, reality, ts, "
@@ -423,7 +423,7 @@ class SurrealStorage:
         self._conn: Any = None  # AsyncSurreal instance
 
     @classmethod
-    def from_env(cls) -> "SurrealStorage":
+    def from_env(cls) -> SurrealStorage:
         return cls(
             url=os.environ.get("SURREAL_URL", "ws://localhost:8080/rpc"),
             user=os.environ.get("SURREAL_USER", "root"),
@@ -435,12 +435,12 @@ class SurrealStorage:
     @classmethod
     async def create(
         cls,
-        url: Optional[str] = None,
-        user: Optional[str] = None,
-        password: Optional[str] = None,
-        namespace: Optional[str] = None,
-        database: Optional[str] = None,
-    ) -> "SurrealStorage":
+        url: str | None = None,
+        user: str | None = None,
+        password: str | None = None,
+        namespace: str | None = None,
+        database: str | None = None,
+    ) -> SurrealStorage:
         """Factory: connect + create schema. Call once at startup."""
         storage = cls(
             url=url or os.environ.get("SURREAL_URL", "ws://localhost:8080/rpc"),
@@ -522,7 +522,7 @@ class SurrealStorage:
 # SINGLETON — process-level storage instance
 # ════════════════════════════════════════════════════════════════════════════
 
-_storage: Optional[SurrealStorage] = None
+_storage: SurrealStorage | None = None
 
 
 def get_storage() -> SurrealStorage:

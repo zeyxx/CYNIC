@@ -56,7 +56,7 @@ class StorageGarbageCollector:
         self._total_deleted: int = 0
         self._last_run: float = 0.0
 
-    async def collect(self, pool) -> Dict[str, Any]:
+    async def collect(self, pool) -> dict[str, Any]:
         """
         Run one GC pass across all 5 tables.
 
@@ -71,7 +71,7 @@ class StorageGarbageCollector:
 
         t0 = time.perf_counter()
         self._runs += 1
-        results: Dict[str, int] = {}
+        results: dict[str, int] = {}
 
         async with pool.acquire() as conn:
 
@@ -164,7 +164,7 @@ class StorageGarbageCollector:
         )
         return results
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         return {
             "runs": self._runs,
             "total_deleted": self._total_deleted,

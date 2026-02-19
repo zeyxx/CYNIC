@@ -72,7 +72,7 @@ def _bar(score: float, width: int = 10) -> str:
     return "█" * filled + "░" * (width - filled)
 
 
-def _read_json(path: Path) -> Optional[Any]:
+def _read_json(path: Path) -> Any | None:
     try:
         with open(path) as f:
             return json.load(f)
@@ -88,7 +88,7 @@ def _fmt_uptime(seconds: float) -> str:
     return f"{seconds/3600:.1f}h"
 
 
-def _fetch_json(url: str, timeout: float = 2.0) -> Optional[Dict]:
+def _fetch_json(url: str, timeout: float = 2.0) -> dict | None:
     try:
         req = urllib.request.Request(url, headers={"Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -97,7 +97,7 @@ def _fetch_json(url: str, timeout: float = 2.0) -> Optional[Dict]:
         return None
 
 
-def _post_json(url: str, data: dict, timeout: float = 4.0) -> Optional[Dict]:
+def _post_json(url: str, data: dict, timeout: float = 4.0) -> dict | None:
     try:
         body = json.dumps(data).encode()
         req = urllib.request.Request(
@@ -131,8 +131,8 @@ def _local_set_status(action_id: str, status: str) -> None:
 class DogsPanel(Static):
     """Left column: dog reputation bars."""
 
-    def render_dogs(self, dog_votes: Dict[str, float], escore: Dict[str, float]) -> None:
-        lines: List[str] = []
+    def render_dogs(self, dog_votes: dict[str, float], escore: dict[str, float]) -> None:
+        lines: list[str] = []
         lines.append("[bold dim]── DOGS ──────────────[/bold dim]")
         for dog in DOGS_ORDER:
             # Try dog_votes first (last judgment), then escore (reputation)
@@ -161,16 +161,16 @@ class ActionsPanel(Static):
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self._actions: List[Dict] = []
+        self._actions: list[dict] = []
         self._selected: int = 0
 
     @property
-    def selected_action(self) -> Optional[Dict]:
+    def selected_action(self) -> dict | None:
         if self._actions and 0 <= self._selected < len(self._actions):
             return self._actions[self._selected]
         return None
 
-    def refresh_actions(self, all_actions: List[Dict]) -> None:
+    def refresh_actions(self, all_actions: list[dict]) -> None:
         self._actions = [a for a in all_actions if a.get("status") == "PENDING"]
         self._selected = min(self._selected, max(0, len(self._actions) - 1))
         self._render()
@@ -181,7 +181,7 @@ class ActionsPanel(Static):
             self._render()
 
     def _render(self) -> None:
-        lines: List[str] = ["[bold dim]── ACTIONS ─────────[/bold dim]"]
+        lines: list[str] = ["[bold dim]── ACTIONS ─────────[/bold dim]"]
         if not self._actions:
             lines += [
                 "",
@@ -357,8 +357,8 @@ class CYNICApp(App):
             self._q       = guidance.get("q_score", 0.0)
             self._conf    = guidance.get("confidence", 0.0)
 
-            dog_votes: Dict[str, float] = guidance.get("dog_votes") or {}
-            escore: Dict[str, float] = {}
+            dog_votes: dict[str, float] = guidance.get("dog_votes") or {}
+            escore: dict[str, float] = {}
 
             # Enrich with escore from consciousness.json if available
             c = _read_json(CONSCIOUSNESS_FILE)
@@ -405,7 +405,7 @@ class CYNICApp(App):
 
     # ── Stream ────────────────────────────────────────────────────────────────
 
-    def _push_stream_entry(self, guidance: Dict) -> None:
+    def _push_stream_entry(self, guidance: dict) -> None:
         verdict  = guidance.get("verdict", "?")
         q        = guidance.get("q_score", 0.0)
         conf     = guidance.get("confidence", 0.0)
@@ -543,7 +543,7 @@ class CYNICApp(App):
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
-def run(base_url: Optional[str] = None) -> None:
+def run(base_url: str | None = None) -> None:
     url = base_url or os.getenv("CYNIC_URL", f"http://localhost:{_DEFAULT_PORT}")
     CYNICApp(base_url=url).run()
 

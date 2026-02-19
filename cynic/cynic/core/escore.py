@@ -85,9 +85,9 @@ class DimScore:
 class EntityScore:
     """All E-Score data for one entity."""
     entity_id: str
-    dims: Dict[str, DimScore] = field(default_factory=dict)
+    dims: dict[str, DimScore] = field(default_factory=dict)
     # Per-reality: reality → dimension → DimScore
-    reality_dims: Dict[str, Dict[str, DimScore]] = field(default_factory=dict)
+    reality_dims: dict[str, dict[str, DimScore]] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
 
     def get_dim(self, dimension: str) -> DimScore:
@@ -156,7 +156,7 @@ class EScoreTracker:
     """
 
     def __init__(self) -> None:
-        self._entities: Dict[str, EntityScore] = {}
+        self._entities: dict[str, EntityScore] = {}
         self._total_updates: int = 0
         self._created_at: float = time.time()
 
@@ -167,7 +167,7 @@ class EScoreTracker:
         entity_id: str,
         dimension: str,
         value: float,
-        reality: Optional[str] = None,
+        reality: str | None = None,
     ) -> float:
         """
         Record a new score observation for an entity.
@@ -235,7 +235,7 @@ class EScoreTracker:
             return DEFAULT_DIM_SCORE
         return self._entities[entity_id].reality_score(reality)
 
-    def get_detail(self, entity_id: str) -> Dict[str, Any]:
+    def get_detail(self, entity_id: str) -> dict[str, Any]:
         """
         Get full E-Score breakdown for entity.
 
@@ -280,7 +280,7 @@ class EScoreTracker:
             "reality_scores": reality_scores,
         }
 
-    def top_entities(self, n: int = 5) -> List[Tuple[str, float]]:
+    def top_entities(self, n: int = 5) -> list[tuple[str, float]]:
         """
         Return top-N entities by aggregate E-Score (descending).
         """
@@ -294,7 +294,7 @@ class EScoreTracker:
     def entity_count(self) -> int:
         return len(self._entities)
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         return {
             "entities": len(self._entities),
             "total_updates": self._total_updates,

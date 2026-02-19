@@ -9,7 +9,8 @@ from __future__ import annotations
 import asyncio
 import logging
 from abc import ABC, abstractmethod
-from typing import Callable, Optional
+from typing import Optional
+from collections.abc import Callable
 
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
@@ -44,7 +45,7 @@ class PerceiveWorker(ABC):
     name: str = "perceive_worker"
 
     @abstractmethod
-    async def sense(self) -> Optional[Cell]:
+    async def sense(self) -> Cell | None:
         """
         Observe the worker's domain.
 

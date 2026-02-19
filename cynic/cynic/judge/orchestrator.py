@@ -61,9 +61,9 @@ class JudgmentPipeline:
     started_at: float = field(default_factory=time.time)
 
     # Step results
-    dog_judgments: List[DogJudgment] = field(default_factory=list)
-    consensus: Optional[ConsensusResult] = None
-    final_judgment: Optional[Judgment] = None
+    dog_judgments: list[DogJudgment] = field(default_factory=list)
+    consensus: ConsensusResult | None = None
+    final_judgment: Judgment | None = None
 
     # Costs
     total_cost_usd: float = 0.0
@@ -84,7 +84,7 @@ class JudgeOrchestrator:
 
     def __init__(
         self,
-        dogs: Dict[str, AbstractDog],
+        dogs: dict[str, AbstractDog],
         axiom_arch: AxiomArchitecture,
         cynic_dog: CynicDog,
         residual_detector=None,
@@ -101,7 +101,7 @@ class JudgeOrchestrator:
         self._judgment_count = 0
         self._consciousness = get_consciousness()
         # evolve() history — last F(8)=21 META cycles
-        self._evolve_history: List[Dict[str, Any]] = []
+        self._evolve_history: list[dict[str, Any]] = []
         # Circuit breaker — prevents cascade failures (topology M1)
         self._circuit_breaker = CircuitBreaker()
         # Budget stress flags — set by BUDGET_WARNING/EXHAUSTED events
@@ -113,8 +113,8 @@ class JudgeOrchestrator:
     async def run(
         self,
         cell: Cell,
-        level: Optional[ConsciousnessLevel] = None,
-        budget_usd: Optional[float] = None,
+        level: ConsciousnessLevel | None = None,
+        budget_usd: float | None = None,
     ) -> Judgment:
         """
         Run the complete judgment cycle for a Cell.
@@ -408,7 +408,7 @@ class JudgeOrchestrator:
         # Run all reflex Dogs in parallel
         import asyncio
         tasks = [dog.analyze(cell, budget_usd=cell.budget_usd) for dog in active_dogs]
-        dog_judgments: List[DogJudgment] = await asyncio.gather(*tasks, return_exceptions=False)
+        dog_judgments: list[DogJudgment] = await asyncio.gather(*tasks, return_exceptions=False)
         pipeline.dog_judgments = dog_judgments
 
         # Simple majority vote (no full PBFT at L3)
@@ -579,7 +579,7 @@ class JudgeOrchestrator:
 
         # R2: Holographic Mirror — pass organism health context to every Dog.
         # Dogs receive lod_level + active_axioms so they can adapt depth/sensitivity.
-        organism_kwargs: Dict[str, Any] = {
+        organism_kwargs: dict[str, Any] = {
             "budget_usd": per_dog_budget,
             "active_dogs": len(all_dogs),
         }
@@ -685,7 +685,7 @@ class JudgeOrchestrator:
 
     # ── L4 META EVOLUTION ─────────────────────────────────────────────────────
 
-    async def evolve(self) -> Dict[str, Any]:
+    async def evolve(self) -> dict[str, Any]:
         """
         L4 META: Self-benchmark via 5 canonical probe cells.
 
@@ -701,7 +701,7 @@ class JudgeOrchestrator:
         import asyncio as _asyncio
         from cynic.judge.probes import PROBE_CELLS, ProbeResult
 
-        results: List[ProbeResult] = []
+        results: list[ProbeResult] = []
 
         for probe in PROBE_CELLS:
             t0 = time.time()
@@ -744,7 +744,7 @@ class JudgeOrchestrator:
             prev_rate = self._evolve_history[-1]["pass_rate"]
             regression = pass_rate < prev_rate - 0.20
 
-        summary: Dict[str, Any] = {
+        summary: dict[str, Any] = {
             "timestamp": time.time(),
             "pass_rate": round(pass_rate, 3),
             "pass_count": pass_count,
@@ -779,7 +779,7 @@ class JudgeOrchestrator:
 
         return summary
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         last_evolve = self._evolve_history[-1] if self._evolve_history else None
         return {
             "judgments_total": self._judgment_count,

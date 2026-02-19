@@ -72,10 +72,10 @@ _STATE_ACTIVE   = "ACTIVE"    # maturity ≥ WAG_MIN
 class AxiomState:
     """Tracking state for one emergent axiom."""
     name: str
-    signal_times: Deque[float] = field(default_factory=lambda: deque(maxlen=MATURITY_WINDOW))
+    signal_times: deque[float] = field(default_factory=lambda: deque(maxlen=MATURITY_WINDOW))
     activation_count: int = 0
     last_signal: float = 0.0
-    first_activated: Optional[float] = None
+    first_activated: float | None = None
 
     def add_signal(self) -> None:
         """Record a new signal at the current time."""
@@ -109,7 +109,7 @@ class AxiomState:
     def is_active(self) -> bool:
         return self.state() == _STATE_ACTIVE
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         m = self.maturity()
         s = self.state()
         return {
@@ -137,12 +137,12 @@ class AxiomMonitor:
     """
 
     def __init__(self) -> None:
-        self._axioms: Dict[str, AxiomState] = {
+        self._axioms: dict[str, AxiomState] = {
             name: AxiomState(name=name) for name in EMERGENT_AXIOMS
         }
         self._total_signals: int = 0
         self._started_at: float = time.time()
-        self._prev_states: Dict[str, str] = {
+        self._prev_states: dict[str, str] = {
             name: _STATE_DORMANT for name in EMERGENT_AXIOMS
         }
         # A11 TRANSCENDENCE is a one-way latch: once all A6-A9 become active,
@@ -151,7 +151,7 @@ class AxiomMonitor:
 
     # ── Signal API ────────────────────────────────────────────────────────
 
-    def signal(self, axiom: str, count: int = 1) -> Optional[str]:
+    def signal(self, axiom: str, count: int = 1) -> str | None:
         """
         Record a signal for an emergent axiom.
 
@@ -231,7 +231,7 @@ class AxiomMonitor:
             return False
         return self._axioms[axiom].is_active()
 
-    def active_axioms(self) -> List[str]:
+    def active_axioms(self) -> list[str]:
         """Return list of currently active axiom names."""
         return [name for name, ax in self._axioms.items() if ax.is_active()]
 
@@ -239,7 +239,7 @@ class AxiomMonitor:
         """Number of currently active emergent axioms (max 4)."""
         return len(self.active_axioms())
 
-    def dashboard(self) -> Dict[str, Any]:
+    def dashboard(self) -> dict[str, Any]:
         """
         Full emergent axiom dashboard status.
 
@@ -276,7 +276,7 @@ class AxiomMonitor:
             "axioms": {name: ax.to_dict() for name, ax in self._axioms.items()},
         }
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Compact stats (for API health endpoint)."""
         return {
             "active_axioms": self.active_axioms(),

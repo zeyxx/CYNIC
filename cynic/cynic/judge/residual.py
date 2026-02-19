@@ -75,7 +75,7 @@ class ResidualPattern:
     """A detected residual pattern."""
     pattern_type: str        # SPIKE | RISING | STABLE_HIGH
     severity: float          # 0–1 (normalized strength)
-    evidence: Dict[str, Any] = field(default_factory=dict)
+    evidence: dict[str, Any] = field(default_factory=dict)
     timestamp: float = field(default_factory=time.time)
 
 
@@ -90,14 +90,14 @@ class ResidualDetector:
     """
 
     def __init__(self) -> None:
-        self._history: Deque[ResidualPoint] = deque(maxlen=HISTORY_MAXLEN)
-        self._patterns: List[ResidualPattern] = []
+        self._history: deque[ResidualPoint] = deque(maxlen=HISTORY_MAXLEN)
+        self._patterns: list[ResidualPattern] = []
         self._observations: int = 0
         self._anomalies: int = 0
         self._patterns_detected: int = 0
         self._listener_registered: bool = False
         self._consecutive_high: int = 0   # Running count for STABLE_HIGH
-        self._db_pool: Optional[Any] = None
+        self._db_pool: Any | None = None
 
     def set_db_pool(self, pool: Any) -> None:
         """Wire a DB pool so history observations are persisted automatically."""
@@ -119,7 +119,7 @@ class ResidualDetector:
         self._listener_registered = True
         logger.info("ResidualDetector subscribed to JUDGMENT_CREATED")
 
-    def observe(self, judgment: Judgment) -> Optional[ResidualPattern]:
+    def observe(self, judgment: Judgment) -> ResidualPattern | None:
         """
         Synchronously observe a judgment.
 
@@ -151,7 +151,7 @@ class ResidualDetector:
 
         return self._detect_pattern(point, residual)
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         return {
             "observations": self._observations,
             "anomalies": self._anomalies,
@@ -216,7 +216,7 @@ class ResidualDetector:
         )
         return len(points)
 
-    def load_from_entries(self, entries: List[Dict[str, Any]]) -> int:
+    def load_from_entries(self, entries: list[dict[str, Any]]) -> int:
         """
         Warm-start from a list of dicts (source-agnostic).
 
@@ -282,7 +282,7 @@ class ResidualDetector:
         self,
         point: ResidualPoint,
         residual: float,
-    ) -> Optional[ResidualPattern]:
+    ) -> ResidualPattern | None:
         """Check all pattern types. Return first detected."""
         history_vals = [p.residual for p in self._history]
 
@@ -308,8 +308,8 @@ class ResidualDetector:
     def _check_spike(
         self,
         current: float,
-        history: List[float],
-    ) -> Optional[ResidualPattern]:
+        history: list[float],
+    ) -> ResidualPattern | None:
         """SPIKE: current residual is significantly above rolling baseline.
 
         Two modes:
@@ -360,7 +360,7 @@ class ResidualDetector:
                 )
         return None
 
-    def _check_stable_high(self) -> Optional[ResidualPattern]:
+    def _check_stable_high(self) -> ResidualPattern | None:
         """STABLE_HIGH: N consecutive judgments above threshold."""
         if self._consecutive_high >= STABLE_HIGH_N:
             # Severity rises with consecutive count
@@ -376,7 +376,7 @@ class ResidualDetector:
             )
         return None
 
-    def _check_rising(self, history: List[float]) -> Optional[ResidualPattern]:
+    def _check_rising(self, history: list[float]) -> ResidualPattern | None:
         """RISING: Linear slope across last N points > RISING_SLOPE_THRESHOLD."""
         n = len(history)
         if n < MIN_SAMPLES * 2:  # Need more points for reliable slope

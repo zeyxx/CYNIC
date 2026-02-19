@@ -114,10 +114,10 @@ def lucas(n: int) -> int:
 
 
 # Precomputed Fibonacci sequence (F(0) to F(20))
-FIBONACCI: List[int] = [fibonacci(n) for n in range(21)]
+FIBONACCI: list[int] = [fibonacci(n) for n in range(21)]
 
 # Precomputed Lucas sequence (L(0) to L(10))
-LUCAS: List[int] = [lucas(n) for n in range(11)]
+LUCAS: list[int] = [lucas(n) for n in range(11)]
 
 # Architecture derivations from φ
 AXIOMS_CORE: int = fibonacci(5)      # F(5) = 5 → 5 core axioms
@@ -190,7 +190,7 @@ def phi_classify(value: float) -> str:
         return "CRITICAL"
 
 
-def geometric_mean(values: List[float]) -> float:
+def geometric_mean(values: list[float]) -> float:
     """
     Geometric mean (φ-punishes outlier failures).
 
@@ -206,7 +206,7 @@ def geometric_mean(values: List[float]) -> float:
     return math.exp(log_sum / len(values))
 
 
-def weighted_geometric_mean(values: List[float], weights: List[float]) -> float:
+def weighted_geometric_mean(values: list[float], weights: list[float]) -> float:
     """
     Weighted geometric mean for Q-Score computation.
 
@@ -225,7 +225,7 @@ def weighted_geometric_mean(values: List[float], weights: List[float]) -> float:
     return math.exp(log_sum / total_weight)
 
 
-def phi_ratio_split(total: float) -> Tuple[float, float]:
+def phi_ratio_split(total: float) -> tuple[float, float]:
     """
     Split total into φ-aligned ratio.
 
@@ -268,7 +268,7 @@ def phi_temporal_ucb(q_value: float, visits: int, parent_visits: int,
 # E-SCORE 7D WEIGHTS (φ-symmetric sequence)
 # ════════════════════════════════════════════════════════════════════════════
 
-E_SCORE_WEIGHTS: Dict[str, float] = {
+E_SCORE_WEIGHTS: dict[str, float] = {
     "BURN":   PHI_3,    # φ³ = 4.236 — Highest (irreversible commitment)
     "BUILD":  PHI_2,    # φ² = 2.618 — Code contribution quality
     "JUDGE":  PHI,      # φ¹ = 1.618 — Judgment accuracy

@@ -35,10 +35,10 @@ class MarketWatcher(PerceiveWorker):
     name = "market_watcher"
 
     def __init__(self) -> None:
-        self._last_price: Optional[float] = None
+        self._last_price: float | None = None
         self._consecutive_errors: int = 0
 
-    def _fetch_price(self) -> Optional[Dict[str, Any]]:
+    def _fetch_price(self) -> dict[str, Any] | None:
         """Blocking fetch — called via run_in_executor."""
         try:
             req = urllib.request.Request(
@@ -55,7 +55,7 @@ class MarketWatcher(PerceiveWorker):
         except Exception:
             return None
 
-    async def sense(self) -> Optional[Cell]:
+    async def sense(self) -> Cell | None:
         loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(None, self._fetch_price)
 

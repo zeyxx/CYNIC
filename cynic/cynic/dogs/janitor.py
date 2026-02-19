@@ -99,7 +99,7 @@ class JanitorDog(AbstractDog):
         start = time.perf_counter()
 
         code_str = self._extract_code(cell)
-        smells: List[str] = []
+        smells: list[str] = []
 
         if code_str:
             smells = self._detect_smells(code_str)
@@ -148,7 +148,7 @@ class JanitorDog(AbstractDog):
 
     # ── Code Extraction ────────────────────────────────────────────────────
 
-    def _extract_code(self, cell: Cell) -> Optional[str]:
+    def _extract_code(self, cell: Cell) -> str | None:
         """Extract Python code string from cell content."""
         content = cell.content
 
@@ -165,9 +165,9 @@ class JanitorDog(AbstractDog):
 
     # ── Smell Detection ────────────────────────────────────────────────────
 
-    def _detect_smells(self, code: str) -> List[str]:
+    def _detect_smells(self, code: str) -> list[str]:
         """Run all smell detectors on code string. Returns list of smell labels."""
-        smells: List[str] = []
+        smells: list[str] = []
 
         try:
             tree = ast.parse(code)
@@ -183,7 +183,7 @@ class JanitorDog(AbstractDog):
 
         return smells
 
-    def _check_complexity(self, tree: ast.AST) -> List[str]:
+    def _check_complexity(self, tree: ast.AST) -> list[str]:
         """Check cyclomatic complexity via branch count per function."""
         smells = []
         for node in ast.walk(tree):
@@ -199,7 +199,7 @@ class JanitorDog(AbstractDog):
                     smells.append(f"high-complexity:{getattr(node, 'name', '?')}({branches})")
         return smells
 
-    def _check_dead_code(self, tree: ast.AST) -> List[str]:
+    def _check_dead_code(self, tree: ast.AST) -> list[str]:
         """Check for unreachable code after return/raise/break/continue."""
         smells = []
         for node in ast.walk(tree):
@@ -214,7 +214,7 @@ class JanitorDog(AbstractDog):
                             )
         return smells
 
-    def _check_long_functions(self, tree: ast.AST) -> List[str]:
+    def _check_long_functions(self, tree: ast.AST) -> list[str]:
         """Check for functions longer than F(11)=89 lines."""
         smells = []
         for node in ast.walk(tree):
@@ -226,7 +226,7 @@ class JanitorDog(AbstractDog):
                         smells.append(f"long-function:{getattr(node, 'name', '?')}({lines}L)")
         return smells
 
-    def _check_shadowed_builtins(self, tree: ast.AST) -> List[str]:
+    def _check_shadowed_builtins(self, tree: ast.AST) -> list[str]:
         """Check for variables that shadow Python builtins."""
         BUILTINS = {
             "list", "dict", "set", "tuple", "type", "str", "int", "float",
@@ -240,7 +240,7 @@ class JanitorDog(AbstractDog):
                     smells.append(f"shadows-builtin:{name}")
         return list(set(smells))  # Deduplicate
 
-    def _check_import_star(self, tree: ast.AST) -> List[str]:
+    def _check_import_star(self, tree: ast.AST) -> list[str]:
         """Check for 'from X import *' usage (CULTURE violation)."""
         smells = []
         for node in ast.walk(tree):
@@ -250,7 +250,7 @@ class JanitorDog(AbstractDog):
                         smells.append(f"import-star:{node.module or '?'}")
         return smells
 
-    def _check_debt_markers(self, code: str) -> List[str]:
+    def _check_debt_markers(self, code: str) -> list[str]:
         """Check for TODO/FIXME/HACK/XXX debt markers."""
         smells = []
         markers = ("TODO", "FIXME", "HACK", "XXX", "NOQA")

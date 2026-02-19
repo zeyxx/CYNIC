@@ -62,7 +62,7 @@ class DogId(str, Enum):
 
 
 # φ-symmetric priority weights per Dog
-DOG_PRIORITY: Dict[str, float] = {
+DOG_PRIORITY: dict[str, float] = {
     DogId.CYNIC:        PHI_3,      # φ³ = 4.236 — highest, consensus critical
     DogId.SAGE:         PHI_2,      # φ² = 2.618
     DogId.ANALYST:      PHI_2,      # φ² = 2.618
@@ -77,7 +77,7 @@ DOG_PRIORITY: Dict[str, float] = {
 }
 
 # Non-LLM Dogs (L3 REFLEX capable)
-NON_LLM_DOGS: Set[str] = {
+NON_LLM_DOGS: set[str] = {
     DogId.CYNIC,
     DogId.GUARDIAN,
     DogId.ANALYST,
@@ -104,10 +104,10 @@ class DogJudgment:
     q_score: float          # [0, 61.8] — φ-bounded
     confidence: float       # [0, 0.618] — φ-bounded (max uncertainty)
     reasoning: str = ""     # Human-readable explanation
-    evidence: Dict[str, Any] = field(default_factory=dict)  # Supporting data
+    evidence: dict[str, Any] = field(default_factory=dict)  # Supporting data
     latency_ms: float = 0.0
     cost_usd: float = 0.0
-    llm_id: Optional[str] = None  # Which LLM was used (None for non-LLM Dogs)
+    llm_id: str | None = None  # Which LLM was used (None for non-LLM Dogs)
     timestamp: float = field(default_factory=time.time)
     veto: bool = False       # GUARDIAN can veto (blocks execution regardless of votes)
 
@@ -121,7 +121,7 @@ class DogJudgment:
         """Confidence-weighted vote for PBFT aggregation."""
         return self.confidence * DOG_PRIORITY.get(self.dog_id, 1.0)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "dog_id": self.dog_id,
             "cell_id": self.cell_id,
@@ -152,8 +152,8 @@ class DogCapabilities:
     sefirot: str                          # Kabbalistic name
     consciousness_min: ConsciousnessLevel # Minimum level to activate
     uses_llm: bool
-    supported_realities: Set[str]        # Which reality dimensions
-    supported_analyses: Set[str]         # Which analysis types
+    supported_realities: set[str]        # Which reality dimensions
+    supported_analyses: set[str]         # Which analysis types
     technology: str                      # Primary tech (Z3, IsolationForest, etc.)
     max_concurrent: int = 1             # How many parallel instances allowed
 
@@ -268,7 +268,7 @@ class AbstractDog(ABC):
         """φ-weighted priority for DogScheduler."""
         return DOG_PRIORITY.get(self.dog_id, 1.0)
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         return {
             "dog_id": self.dog_id,
             "active": self._active,
@@ -297,14 +297,14 @@ class LLMDog(AbstractDog):
     def __init__(self, dog_id: str, task_type: str = "general") -> None:
         super().__init__(dog_id)
         self.task_type = task_type
-        self._llm_registry: Optional[LLMRegistry] = None
-        self._llm_id: Optional[str] = None
+        self._llm_registry: LLMRegistry | None = None
+        self._llm_id: str | None = None
 
     def set_llm_registry(self, registry: LLMRegistry) -> None:
         """Inject LLMRegistry (dependency injection, no circular imports)."""
         self._llm_registry = registry
 
-    async def get_llm(self) -> Optional[LLMAdapter]:
+    async def get_llm(self) -> LLMAdapter | None:
         """Get best LLM for this Dog's task type."""
         if self._llm_registry is None:
             return None

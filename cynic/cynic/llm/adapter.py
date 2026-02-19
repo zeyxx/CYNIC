@@ -48,7 +48,7 @@ class LLMRequest:
     max_tokens: int = 2048
     temperature: float = 0.0        # Default: deterministic
     stream: bool = False
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -61,7 +61,7 @@ class LLMResponse:
     completion_tokens: int = 0
     cost_usd: float = 0.0
     latency_ms: float = 0.0
-    error: Optional[str] = None
+    error: str | None = None
 
     @property
     def total_tokens(self) -> int:
@@ -86,7 +86,7 @@ _LLM_LOG_PATH: str = os.path.join(os.path.expanduser("~"), ".cynic", "llm_calls.
 _LLM_LOG_CAP: int = 233  # F(13) — rolling window
 
 
-def _log_llm_call(response: "LLMResponse", request: "LLMRequest") -> None:
+def _log_llm_call(response: LLMResponse, request: LLMRequest) -> None:
     """Append one LLM call record to ~/.cynic/llm_calls.jsonl (rolling cap F(13)=233).
 
     Called from complete_safe() — every Ollama / Claude / Gemini call is captured.
@@ -108,7 +108,7 @@ def _log_llm_call(response: "LLMResponse", request: "LLMRequest") -> None:
         os.makedirs(os.path.dirname(_LLM_LOG_PATH), exist_ok=True)
         lines: list = []
         if os.path.exists(_LLM_LOG_PATH):
-            with open(_LLM_LOG_PATH, "r", encoding="utf-8") as fh:
+            with open(_LLM_LOG_PATH, encoding="utf-8") as fh:
                 lines = fh.readlines()
         lines.append(json.dumps(record, ensure_ascii=False) + "\n")
         if len(lines) > _LLM_LOG_CAP:
@@ -152,7 +152,7 @@ class LLMAdapter(ABC):
         """
         try:
             response = await asyncio.wait_for(self.complete(request), timeout=120.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             response = LLMResponse(
                 content="", model=self.model, provider=self.provider,
                 error="timeout after 120s",
@@ -173,7 +173,7 @@ class LLMAdapter(ABC):
 
 # Module-level singleton ollama clients — one per base_url (shared across all
 # OllamaAdapter instances for the same URL — avoids 7 TCP connections per MCTS call)
-_OLLAMA_CLIENTS: Dict[str, Any] = {}
+_OLLAMA_CLIENTS: dict[str, Any] = {}
 
 
 def _get_ollama_client(base_url: str) -> Any:
@@ -208,7 +208,7 @@ class OllamaAdapter(LLMAdapter):
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
         start = time.time()
-        messages: List[Dict[str, str]] = []
+        messages: list[dict[str, str]] = []
         if request.system:
             messages.append({"role": "system", "content": request.system})
         messages.append({"role": "user", "content": request.prompt})
@@ -249,7 +249,7 @@ class OllamaAdapter(LLMAdapter):
         except Exception:
             return False
 
-    async def list_models(self) -> List[str]:
+    async def list_models(self) -> list[str]:
         """Return names of all installed Ollama models."""
         try:
             client = _get_ollama_client(self.base_url)
@@ -283,7 +283,7 @@ class ClaudeAdapter(LLMAdapter):
     """
 
     # Token pricing (USD per million tokens, approximate 2025)
-    PRICING: Dict[str, Tuple[float, float]] = {
+    PRICING: dict[str, tuple[float, float]] = {
         "claude-sonnet-4-5-20250929":  (3.0, 15.0),
         "claude-haiku-4-5-20251001":   (0.8,  4.0),
         "claude-opus-4-6":             (15.0, 75.0),
@@ -292,7 +292,7 @@ class ClaudeAdapter(LLMAdapter):
     def __init__(
         self,
         model: str = "claude-sonnet-4-5-20250929",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
     ) -> None:
         super().__init__(model=model, provider="claude")
         self._api_key = api_key
@@ -307,7 +307,7 @@ class ClaudeAdapter(LLMAdapter):
         start = time.time()
         client = anthropic.AsyncAnthropic(api_key=self._api_key)
 
-        kwargs: Dict[str, Any] = {
+        kwargs: dict[str, Any] = {
             "model": self.model,
             "max_tokens": request.max_tokens,
             "messages": [{"role": "user", "content": request.prompt}],
@@ -362,7 +362,7 @@ class GeminiAdapter(LLMAdapter):
     def __init__(
         self,
         model: str = "gemini-1.5-flash",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
     ) -> None:
         super().__init__(model=model, provider="gemini")
         self._api_key = api_key
@@ -447,7 +447,7 @@ class BenchmarkResult:
             [PHI, 1.0, PHI_INV],
         )
 
-    def ema_update(self, new: "BenchmarkResult", alpha: float = 0.3) -> "BenchmarkResult":
+    def ema_update(self, new: BenchmarkResult, alpha: float = 0.3) -> BenchmarkResult:
         """Exponential moving average update (continuous learning)."""
         return BenchmarkResult(
             llm_id=self.llm_id,
@@ -471,7 +471,7 @@ EMBEDDING_ONLY_MODELS: set = {"nomic-embed-text", "nomic-embed-text:latest"}
 # task_type → preferred Ollama model (empirical benchmark results)
 # gemma2:2b: 7-parallel MCTS in 35s, diff=+40.3, 0 failures → FAST judgment
 # mistral:7b: single deep call only (88s/call → timeouts in parallel 7-call MCTS)
-PREFERRED_MODELS: Dict[str, str] = {
+PREFERRED_MODELS: dict[str, str] = {
     "temporal_mcts": "gemma2:2b",               # 7-parallel MCTS — must be fast
     "wisdom":        "gemma2:2b",               # SageDog temporal path
     "vector_rag":    "gemma2:2b",               # ScholarDog generation (not embeddings)
@@ -497,11 +497,11 @@ class LLMRegistry:
     """
 
     def __init__(self) -> None:
-        self._adapters: Dict[str, LLMAdapter] = {}
-        self._available: Dict[str, bool] = {}
-        self._benchmarks: Dict[Tuple[str, str, str], BenchmarkResult] = {}
-        self._db_pool: Optional[Any] = None
-        self._surreal: Optional[Any] = None
+        self._adapters: dict[str, LLMAdapter] = {}
+        self._available: dict[str, bool] = {}
+        self._benchmarks: dict[tuple[str, str, str], BenchmarkResult] = {}
+        self._db_pool: Any | None = None
+        self._surreal: Any | None = None
 
     def set_db_pool(self, pool: Any) -> None:
         """Wire a DB pool so benchmark updates are persisted automatically."""
@@ -518,12 +518,12 @@ class LLMRegistry:
     async def discover(
         self,
         ollama_url: str = "http://localhost:11434",
-        claude_api_key: Optional[str] = None,
-        gemini_api_key: Optional[str] = None,
-        models_dir: Optional[str] = None,
+        claude_api_key: str | None = None,
+        gemini_api_key: str | None = None,
+        models_dir: str | None = None,
         llama_gpu_layers: int = -1,
         llama_threads: int = 8,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Auto-discover all available LLMs.
 
@@ -537,7 +537,7 @@ class LLMRegistry:
             llama_gpu_layers: Layers to offload to GPU (-1 = all, 0 = CPU only).
             llama_threads: CPU threads for llama-cpp-python inference.
         """
-        available: List[str] = []
+        available: list[str] = []
 
         # Ollama: discover all installed models
         async def _discover_ollama() -> None:
@@ -592,7 +592,7 @@ class LLMRegistry:
         )
         return available
 
-    def get_available(self) -> List[LLMAdapter]:
+    def get_available(self) -> list[LLMAdapter]:
         return [a for aid, a in self._adapters.items() if self._available.get(aid, False)]
 
     def _is_generation_adapter(self, adapter: LLMAdapter) -> bool:
@@ -609,11 +609,11 @@ class LLMRegistry:
             return False
         return True
 
-    def get_available_for_generation(self) -> List[LLMAdapter]:
+    def get_available_for_generation(self) -> list[LLMAdapter]:
         """Available adapters that support text generation (not embeddings-only)."""
         return [a for a in self.get_available() if self._is_generation_adapter(a)]
 
-    def get_best_for(self, dog_id: str, task_type: str) -> Optional[LLMAdapter]:
+    def get_best_for(self, dog_id: str, task_type: str) -> LLMAdapter | None:
         """
         Return best LLM for this Dog × Task.
 
@@ -626,7 +626,7 @@ class LLMRegistry:
         Embedding-only models (nomic-embed-text) are never returned here.
         """
         best_score = -1.0
-        best: Optional[LLMAdapter] = None
+        best: LLMAdapter | None = None
 
         for aid, adapter in self._adapters.items():
             if not self._available.get(aid, False):
@@ -653,7 +653,7 @@ class LLMRegistry:
         avail = self.get_available_for_generation()
         return avail[0] if avail else None
 
-    def get_for_temporal_mcts(self) -> Optional[LLMAdapter]:
+    def get_for_temporal_mcts(self) -> LLMAdapter | None:
         """
         Return best adapter for 7-parallel temporal MCTS calls.
 
@@ -793,7 +793,7 @@ class LLMRegistry:
         logger.info("LLM Benchmark warm-start (SurrealDB): %d entries", loaded)
         return loaded
 
-    def benchmark_matrix(self, dog_id: str, task_type: str) -> Dict[str, BenchmarkResult]:
+    def benchmark_matrix(self, dog_id: str, task_type: str) -> dict[str, BenchmarkResult]:
         return {
             llm_id: r
             for (d, t, llm_id), r in self._benchmarks.items()
@@ -802,7 +802,7 @@ class LLMRegistry:
 
 
 # Singleton
-_registry: Optional[LLMRegistry] = None
+_registry: LLMRegistry | None = None
 
 
 def get_registry() -> LLMRegistry:

@@ -34,7 +34,7 @@ from __future__ import annotations
 import logging
 import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -73,7 +73,7 @@ def _parse_front_matter(text: str) -> tuple[dict, str]:
     body = "\n".join(lines[end + 1:])
     fields: dict = {}
 
-    current_list_key: Optional[str] = None
+    current_list_key: str | None = None
     for line in front_lines:
         # List item
         if re.match(r"^\s+-\s+", line):
@@ -136,19 +136,19 @@ class DogSoul:
         total_judgments: int = 0,
         avg_q_score: float = 0.0,
         session_count: int = 0,
-        top_signals: Optional[List[str]] = None,
+        top_signals: list[str] | None = None,
         last_seen: str = "",
-        soul_root: Optional[Path] = None,
+        soul_root: Path | None = None,
     ) -> None:
         self.dog_id = dog_id.upper()
         self.total_judgments = total_judgments
         self.avg_q_score = avg_q_score
         self.session_count = session_count
-        self.top_signals: List[str] = top_signals or []
+        self.top_signals: list[str] = top_signals or []
         self.last_seen = last_seen
         self._soul_root = soul_root or _DEFAULT_SOUL_ROOT
         # Signal frequency counter (in-session, not persisted directly)
-        self._signal_counts: Dict[str, int] = {}
+        self._signal_counts: dict[str, int] = {}
 
     # ── Path ──────────────────────────────────────────────────────────────
 
@@ -159,7 +159,7 @@ class DogSoul:
     # ── Load / Save ───────────────────────────────────────────────────────
 
     @classmethod
-    def load(cls, dog_id: str, soul_root: Optional[Path] = None) -> "DogSoul":
+    def load(cls, dog_id: str, soul_root: Path | None = None) -> DogSoul:
         """
         Load DogSoul from disk. Returns fresh DogSoul if file doesn't exist.
         """
@@ -190,7 +190,7 @@ class DogSoul:
         """Write soul.md to disk. Creates parent directories if needed."""
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            self.last_seen = datetime.now(tz=timezone.utc).strftime(
+            self.last_seen = datetime.now(tz=UTC).strftime(
                 "%Y-%m-%dT%H:%M:%S"
             )
             fields = {
@@ -210,7 +210,7 @@ class DogSoul:
 
     # ── Update ────────────────────────────────────────────────────────────
 
-    def update(self, q_score: float, signals: Optional[List[str]] = None) -> None:
+    def update(self, q_score: float, signals: list[str] | None = None) -> None:
         """
         Record one judgment result. Updates running average and signal counts.
         Call save() to persist to disk.

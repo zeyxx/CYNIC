@@ -43,7 +43,7 @@ MODEL_HAIKU = "claude-haiku-4-5-20251001"
 MODEL_DEFAULT = MODEL_HAIKU
 
 
-def _build_claude_cmd(sdk_url: str, resume_session_id: Optional[str] = None) -> list:
+def _build_claude_cmd(sdk_url: str, resume_session_id: str | None = None) -> list:
     """
     Build the claude CLI command as a list (safe — no shell=True).
     sdk_url is always 'ws://localhost:{port}/ws/sdk' — controlled by CYNIC, not user input.
@@ -70,20 +70,20 @@ class ClaudeCodeRunner:
     - Two separate timeouts: connect (CONNECT_TIMEOUT) and task timeout
     """
 
-    def __init__(self, bus, sessions_registry: Dict, port: int = 8765):
+    def __init__(self, bus, sessions_registry: dict, port: int = 8765):
         self._bus = bus
         self._sessions = sessions_registry
         self._port = port
-        self._running: Dict[str, Any] = {}  # exec_id → process handle
+        self._running: dict[str, Any] = {}  # exec_id → process handle
 
     async def execute(
         self,
         prompt: str,
-        cwd: Optional[str] = None,
-        model: Optional[str] = MODEL_DEFAULT,
+        cwd: str | None = None,
+        model: str | None = MODEL_DEFAULT,
         timeout: float = DEFAULT_TASK_TIMEOUT,
-        resume_session_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        resume_session_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Execute a task via Claude Code --sdk-url.
 
@@ -101,7 +101,7 @@ class ClaudeCodeRunner:
         session_ready = asyncio.Event()
         loop = asyncio.get_running_loop()
         result_future: asyncio.Future = loop.create_future()
-        target_session_id: Optional[str] = None
+        target_session_id: str | None = None
 
         # ── Register listeners BEFORE spawning ─────────────────────────────
         async def _on_session_started(event) -> None:
@@ -198,7 +198,7 @@ class ClaudeCodeRunner:
                 "exec_id": exec_id,
             }
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error("*GROWL* Claude Code timed out (exec=%s)", exec_id)
             return {"success": False, "error": "timeout", "exec_id": exec_id}
 
@@ -221,7 +221,7 @@ class ClaudeCodeRunner:
                         pass
             self._running.pop(exec_id, None)
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         return {
             "running_processes": len(self._running),
             "sdk_port": self._port,

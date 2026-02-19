@@ -66,7 +66,7 @@ async def health() -> HealthResponse:
         status = "degraded"
 
     # T02: check SurrealDB singleton status (no I/O — just checks if initialized)
-    _storage_status: Dict[str, Any] = {}
+    _storage_status: dict[str, Any] = {}
     try:
         from cynic.core.storage.surreal import get_storage as _get_storage
         _get_storage()  # raises RuntimeError if not initialized
@@ -118,7 +118,7 @@ async def stats() -> StatsResponse:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_health.get("/introspect")
-async def introspect() -> Dict[str, Any]:
+async def introspect() -> dict[str, Any]:
     """
     MetaCognition — CYNIC reads its own cognitive state.
 
@@ -241,7 +241,7 @@ async def introspect() -> Dict[str, Any]:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_health.get("/axioms")
-async def axioms() -> Dict[str, Any]:
+async def axioms() -> dict[str, Any]:
     """
     Emergent Axiom dashboard — A6-A9 activation status.
 
@@ -260,7 +260,7 @@ async def axioms() -> Dict[str, Any]:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_health.get("/lod")
-async def lod() -> Dict[str, Any]:
+async def lod() -> dict[str, Any]:
     """
     Survival LOD status — current graceful degradation level.
 
@@ -274,7 +274,7 @@ async def lod() -> Dict[str, Any]:
 
 
 @router_health.get("/account/stats")
-async def account_stats() -> Dict[str, Any]:
+async def account_stats() -> dict[str, Any]:
     """
     AccountAgent step-6 ledger — cost tracking + budget enforcement.
 
@@ -290,7 +290,7 @@ async def account_stats() -> Dict[str, Any]:
 
 
 @router_health.get("/decide/stats")
-async def decide_stats() -> Dict[str, Any]:
+async def decide_stats() -> dict[str, Any]:
     """
     DecideAgent Ring-2 stats — MCTS decision counts.
 
@@ -304,7 +304,7 @@ async def decide_stats() -> Dict[str, Any]:
 
 
 @router_health.get("/sage/stats")
-async def sage_stats() -> Dict[str, Any]:
+async def sage_stats() -> dict[str, Any]:
     """
     SAGE Dog temporal MCTS activation stats.
 
@@ -332,7 +332,7 @@ async def sage_stats() -> Dict[str, Any]:
 
 
 @router_health.get("/residual/stats")
-async def residual_stats() -> Dict[str, Any]:
+async def residual_stats() -> dict[str, Any]:
     """
     ResidualDetector stats — residual variance history + pattern detection (T04).
 
@@ -345,7 +345,7 @@ async def residual_stats() -> Dict[str, Any]:
 
 
 @router_health.get("/llm/benchmarks")
-async def llm_benchmarks() -> Dict[str, Any]:
+async def llm_benchmarks() -> dict[str, Any]:
     """
     LLM Benchmark routing matrix — per-(dog, task_type, llm_id) perf history (T05).
 
@@ -373,7 +373,7 @@ async def llm_benchmarks() -> Dict[str, Any]:
 
 
 @router_health.get("/auto-benchmark/stats")
-async def auto_benchmark_stats() -> Dict[str, Any]:
+async def auto_benchmark_stats() -> dict[str, Any]:
     """AutoBenchmark probe stats — interval, runs, enabled flag (T09)."""
     state = get_state()
     if state.auto_benchmark is None:
@@ -382,7 +382,7 @@ async def auto_benchmark_stats() -> Dict[str, Any]:
 
 
 @router_health.post("/auto-benchmark/run")
-async def auto_benchmark_run() -> Dict[str, Any]:
+async def auto_benchmark_run() -> dict[str, Any]:
     """Trigger an immediate AutoBenchmark round (T09)."""
     state = get_state()
     if state.auto_benchmark is None:
@@ -392,7 +392,7 @@ async def auto_benchmark_run() -> Dict[str, Any]:
 
 
 @router_health.get("/benchmark/probe-snapshot")
-async def benchmark_probe_snapshot(window: int = 10, source: str = "evolve") -> Dict[str, Any]:
+async def benchmark_probe_snapshot(window: int = 10, source: str = "evolve") -> dict[str, Any]:
     """
     Rolling aggregate of the last N probe runs per probe (pass_rate, mean_q, std_q).
 
@@ -408,7 +408,7 @@ async def benchmark_probe_snapshot(window: int = 10, source: str = "evolve") -> 
 
 
 @router_health.get("/benchmark/drift-alerts")
-async def benchmark_drift_alerts(threshold: float = 0.15) -> Dict[str, Any]:
+async def benchmark_drift_alerts(threshold: float = 0.15) -> dict[str, Any]:
     """
     Detect probes whose pass_rate dropped >= threshold vs previous snapshot.
 
@@ -429,7 +429,7 @@ async def benchmark_drift_alerts(threshold: float = 0.15) -> Dict[str, Any]:
 
 
 @router_health.get("/mirror")
-async def mirror() -> Dict[str, Any]:
+async def mirror() -> dict[str, Any]:
     """
     KernelMirror — Ring 3 unified self-reflection snapshot.
 
@@ -458,7 +458,7 @@ async def mirror() -> Dict[str, Any]:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_health.get("/consciousness")
-async def consciousness() -> Dict[str, Any]:
+async def consciousness() -> dict[str, Any]:
     """
     Unified metathinking output — the organism's complete cognitive state.
 
@@ -480,7 +480,7 @@ async def consciousness() -> Dict[str, Any]:
     # Fallback: live snapshot
     state = get_state()
     snap = state.kernel_mirror.snapshot(state)
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "timestamp": round(time.time(), 3),
         "uptime_s": round(state.uptime_s, 1),
         "mirror": snap,
@@ -492,7 +492,7 @@ async def consciousness() -> Dict[str, Any]:
 
 
 @router_health.get("/")
-async def root() -> Dict[str, Any]:
+async def root() -> dict[str, Any]:
     return {
         "name": "CYNIC Kernel",
         "version": "2.0.0",

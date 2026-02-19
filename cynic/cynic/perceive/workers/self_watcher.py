@@ -1,7 +1,8 @@
 """CYNIC SelfWatcher — CYNIC×LEARN/MICRO every F(10)=55s."""
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Optional
+from collections.abc import Callable
 
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
@@ -24,10 +25,10 @@ class SelfWatcher(PerceiveWorker):
     interval_s = float(fibonacci(10))  # 55.0s
     name = "self_watcher"
 
-    def __init__(self, qtable_getter: Optional[Callable] = None) -> None:
+    def __init__(self, qtable_getter: Callable | None = None) -> None:
         self._qtable_getter = qtable_getter
 
-    async def sense(self) -> Optional[Cell]:
+    async def sense(self) -> Cell | None:
         if self._qtable_getter is None:
             return None
 

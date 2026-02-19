@@ -53,13 +53,13 @@ class AccountAgent:
     def __init__(
         self,
         session_budget_usd: float = _DEFAULT_SESSION_BUDGET_USD,
-        escore_tracker: Optional[Any] = None,
+        escore_tracker: Any | None = None,
     ) -> None:
         self._session_budget_usd = session_budget_usd
         self._escore_tracker = escore_tracker   # Optional[EScoreTracker]
         self._total_cost_usd: float = 0.0
-        self._cost_by_reality: Dict[str, float] = {}
-        self._cost_by_dog: Dict[str, float] = {}
+        self._cost_by_reality: dict[str, float] = {}
+        self._cost_by_dog: dict[str, float] = {}
         self._judgment_count: int = 0
         self._warning_emitted: bool = False
         self._exhausted_emitted: bool = False
@@ -197,7 +197,7 @@ class AccountAgent:
     def budget_remaining_usd(self) -> float:
         return self._session_budget_usd - self._total_cost_usd
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         remaining = self._session_budget_usd - self._total_cost_usd
         ratio_remaining = remaining / max(self._session_budget_usd, 1e-9)
         return {

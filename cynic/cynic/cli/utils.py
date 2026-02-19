@@ -61,7 +61,7 @@ def _c(color: str, text: str) -> str:
 
 # ── File helpers ───────────────────────────────────────────────────────────
 
-def _read_json(path: str) -> Optional[Dict[str, Any]]:
+def _read_json(path: str) -> dict[str, Any] | None:
     try:
         with open(path, encoding="utf-8") as fh:
             return json.load(fh)
@@ -69,7 +69,7 @@ def _read_json(path: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def _api_get(path: str) -> Optional[Dict[str, Any]]:
+def _api_get(path: str) -> dict[str, Any] | None:
     try:
         req = urllib.request.Request(
             f"{_API}{path}",
@@ -81,7 +81,7 @@ def _api_get(path: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def _api_post(path: str, body: Optional[Dict] = None) -> Optional[Dict[str, Any]]:
+def _api_post(path: str, body: dict | None = None) -> dict[str, Any] | None:
     """POST to the API. Returns parsed JSON or None on any error."""
     try:
         data = json.dumps(body or {}).encode()
@@ -97,7 +97,7 @@ def _api_post(path: str, body: Optional[Dict] = None) -> Optional[Dict[str, Any]
         return None
 
 
-def _pending_actions() -> tuple[List[Dict], bool]:
+def _pending_actions() -> tuple[list[dict], bool]:
     """
     Return (pending_actions_list, api_available).
     Tries API first; falls back to direct file read.

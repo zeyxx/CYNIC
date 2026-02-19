@@ -48,7 +48,7 @@ class ModelSample:
         latency_ms: float,
         cost_usd: float,
         q_score: float,
-        ts: Optional[float] = None,
+        ts: float | None = None,
     ) -> None:
         self.task_type  = task_type
         self.model      = model
@@ -57,7 +57,7 @@ class ModelSample:
         self.q_score    = q_score
         self.ts         = ts or time.time()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "task_type":  self.task_type,
             "model":      self.model,
@@ -68,7 +68,7 @@ class ModelSample:
         }
 
     @staticmethod
-    def from_dict(d: Dict[str, Any]) -> "ModelSample":
+    def from_dict(d: dict[str, Any]) -> ModelSample:
         return ModelSample(
             task_type  = d.get("task_type", "general"),
             model      = d.get("model", "unknown"),
@@ -89,10 +89,10 @@ class ModelProfiler:
 
     _MIN_SAMPLES = 3  # F(4) — minimum samples before recommending
 
-    def __init__(self, path: Optional[str] = None) -> None:
+    def __init__(self, path: str | None = None) -> None:
         self._path = path or _PROFILE_PATH
         # _samples[task_type][model] = List[ModelSample]
-        self._samples: Dict[str, Dict[str, List[ModelSample]]] = defaultdict(
+        self._samples: dict[str, dict[str, list[ModelSample]]] = defaultdict(
             lambda: defaultdict(list)
         )
         self._total_recorded = 0
@@ -134,7 +134,7 @@ class ModelProfiler:
 
     # ── Querying ──────────────────────────────────────────────────────────────
 
-    def profile(self, task_type: str) -> Dict[str, Any]:
+    def profile(self, task_type: str) -> dict[str, Any]:
         """
         Summarise all models for a given task_type.
 
@@ -154,7 +154,7 @@ class ModelProfiler:
         task_type = task_type.lower().replace(" ", "_")
         model_data = self._samples.get(task_type, {})
 
-        summary: Dict[str, Any] = {}
+        summary: dict[str, Any] = {}
         for model, samples in model_data.items():
             if not samples:
                 continue
@@ -181,14 +181,14 @@ class ModelProfiler:
             "recommendation_ready": ready,
         }
 
-    def all_profiles(self) -> Dict[str, Any]:
+    def all_profiles(self) -> dict[str, Any]:
         """Return profile for every known task_type."""
         result = {}
         for task_type in list(self._samples.keys()):
             result[task_type] = self.profile(task_type)
         return result
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         task_count = len(self._samples)
         total_samples = sum(
             len(samples)
@@ -203,7 +203,7 @@ class ModelProfiler:
 
     # ── Private ───────────────────────────────────────────────────────────────
 
-    def _pick_best(self, summary: Dict[str, Any]) -> Optional[str]:
+    def _pick_best(self, summary: dict[str, Any]) -> str | None:
         """Pick the cheapest WAG-quality model. Falls back to best avg_q if none qualify."""
         qualified = [
             m for m, d in summary.items()
@@ -219,7 +219,7 @@ class ModelProfiler:
     def _save(self) -> None:
         try:
             os.makedirs(os.path.dirname(self._path), exist_ok=True)
-            data: Dict[str, Any] = {}
+            data: dict[str, Any] = {}
             for task_type, models in self._samples.items():
                 data[task_type] = {
                     model: [s.to_dict() for s in samples]

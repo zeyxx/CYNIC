@@ -86,7 +86,7 @@ class ActionBudget:
             self.reset_at = time.time() + 3600
             logger.info("ActionBudget: hourly reset")
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Stats dict for /budget endpoint."""
         self._maybe_reset()
         return {

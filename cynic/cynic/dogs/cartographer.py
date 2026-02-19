@@ -82,12 +82,12 @@ CARTOGRAPHER_CONFIDENCE: float = 0.450  # Between PHI_INV_2 and PHI_INV
 @dataclass
 class GraphSnapshot:
     """Extracted graph data from AST analysis."""
-    imports: List[str] = field(default_factory=list)      # modules imported
-    functions: List[str] = field(default_factory=list)    # function names
-    classes: List[str] = field(default_factory=list)      # class names
-    calls: List[Tuple[str, str]] = field(default_factory=list)   # (caller, callee)
-    bases: List[Tuple[str, str]] = field(default_factory=list)   # (class, base)
-    import_edges: List[Tuple[str, str]] = field(default_factory=list)  # (module, dep)
+    imports: list[str] = field(default_factory=list)      # modules imported
+    functions: list[str] = field(default_factory=list)    # function names
+    classes: list[str] = field(default_factory=list)      # class names
+    calls: list[tuple[str, str]] = field(default_factory=list)   # (caller, callee)
+    bases: list[tuple[str, str]] = field(default_factory=list)   # (class, base)
+    import_edges: list[tuple[str, str]] = field(default_factory=list)  # (module, dep)
 
 
 class CartographerDog(LLMDog):
@@ -169,9 +169,9 @@ class CartographerDog(LLMDog):
     async def _heuristic_path(self, cell: Cell, start: float) -> DogJudgment:
         """AST + NetworkX graph topology scoring."""
         code_str = self._extract_code(cell)
-        violations: List[str] = []
+        violations: list[str] = []
         total_penalty: float = 0.0
-        evidence: Dict[str, Any] = {}
+        evidence: dict[str, Any] = {}
 
         if code_str:
             snapshot = self._parse_graph(code_str)
@@ -215,7 +215,7 @@ class CartographerDog(LLMDog):
 
     # ── Code Extraction ────────────────────────────────────────────────────
 
-    def _extract_code(self, cell: Cell) -> Optional[str]:
+    def _extract_code(self, cell: Cell) -> str | None:
         """Extract Python code string from cell content."""
         content = cell.content
         if isinstance(content, str) and content.strip():
@@ -229,7 +229,7 @@ class CartographerDog(LLMDog):
 
     # ── AST → GraphSnapshot ────────────────────────────────────────────────
 
-    def _parse_graph(self, code: str) -> Optional[GraphSnapshot]:
+    def _parse_graph(self, code: str) -> GraphSnapshot | None:
         """
         Parse Python code into a GraphSnapshot.
 
@@ -281,7 +281,7 @@ class CartographerDog(LLMDog):
         Only tracks calls where the callee name matches a known function
         in this module (cross-module calls become edges to external nodes).
         """
-        known_funcs: Set[str] = set(snap.functions)
+        known_funcs: set[str] = set(snap.functions)
 
         # Walk function bodies to find calls
         for node in ast.walk(tree):
@@ -294,7 +294,7 @@ class CartographerDog(LLMDog):
                     if callee and callee != caller:
                         snap.calls.append((caller, callee))
 
-    def _name_from_expr(self, expr: ast.expr) -> Optional[str]:
+    def _name_from_expr(self, expr: ast.expr) -> str | None:
         """Extract a simple name from a call expression."""
         if isinstance(expr, ast.Name):
             return expr.id
@@ -334,13 +334,13 @@ class CartographerDog(LLMDog):
         self,
         G: nx.DiGraph,
         snap: GraphSnapshot,
-    ) -> Tuple[List[str], float, Dict[str, Any]]:
+    ) -> tuple[list[str], float, dict[str, Any]]:
         """
         Score the dependency graph on 4 topology dimensions.
 
         Returns: (violations, total_penalty, evidence)
         """
-        violations: List[str] = []
+        violations: list[str] = []
         total_penalty: float = 0.0
 
         node_count = G.number_of_nodes()
@@ -363,7 +363,7 @@ class CartographerDog(LLMDog):
             total_penalty += excess_edges * DENSITY_PENALTY
 
         # ── Dimension 2: Bottleneck nodes (high in-degree) ───────────────
-        bottlenecks: List[str] = []
+        bottlenecks: list[str] = []
         for node, in_deg in G.in_degree():
             if in_deg > MAX_IN_DEGREE:
                 bottlenecks.append(f"{node}({in_deg})")
@@ -423,9 +423,9 @@ class CartographerDog(LLMDog):
 
     # ── Metadata Fallback ─────────────────────────────────────────────────
 
-    def _metadata_fallback(self, cell: Cell) -> Tuple[List[str], float, Dict[str, Any]]:
+    def _metadata_fallback(self, cell: Cell) -> tuple[list[str], float, dict[str, Any]]:
         """Score non-CODE cells via cell metadata (novelty, complexity, risk)."""
-        violations: List[str] = []
+        violations: list[str] = []
         penalty = 0.0
 
         # High complexity → dense graph likely

@@ -32,7 +32,7 @@ def cmd_tui() -> None:
     Usage: python -m cynic.cli tui [--url URL]
     """
     extra = sys.argv[2:]
-    url: Optional[str] = None
+    url: str | None = None
     if "--url" in extra:
         idx = extra.index("--url")
         if idx + 1 < len(extra):

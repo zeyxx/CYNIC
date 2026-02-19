@@ -62,7 +62,7 @@ from cynic.judge.real_benchmark import (
 # ---------------------------------------------------------------------------
 
 # Warm-up levels: number of prior session judgments
-_WARM_LEVELS: List[int] = [0, fibonacci(5), fibonacci(7), 200, 500]
+_WARM_LEVELS: list[int] = [0, fibonacci(5), fibonacci(7), 200, 500]
 # = [0, 5, 13, 200, 500]  — Fibonacci-anchored levels + practical depths
 
 # Test budget per session (steps after warm-load)
@@ -87,11 +87,11 @@ class WarmStartResult:
 
     # Cold start errors (no prior knowledge)
     cold_final_error: float
-    cold_convergence_step: Optional[int]
+    cold_convergence_step: int | None
 
     # Warm start errors (pre-loaded Q-values)
     warm_final_error: float
-    warm_convergence_step: Optional[int]
+    warm_convergence_step: int | None
 
     # Amplification
     amplification_ratio: float   # cold_error / warm_error (>1 = amplified)
@@ -108,7 +108,7 @@ class WarmStartResult:
     def amplified(self) -> bool:
         return self.amplification_ratio > 1.0
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "warm_steps": self.warm_steps,
             "alpha": self.alpha,
@@ -221,7 +221,7 @@ class AmplificationBenchmark:
         test_budget: int = _TEST_BUDGET,
         n_seeds: int = 7,
         base_seed: int = 42,
-    ) -> Dict:
+    ) -> dict:
         """Run n_seeds comparisons at one warm_level, aggregate results."""
         results = [
             _run_warm_cold(
@@ -253,11 +253,11 @@ class AmplificationBenchmark:
 
     def run_grid(
         self,
-        warm_levels: Optional[List[int]] = None,
+        warm_levels: list[int] | None = None,
         test_budget: int = _TEST_BUDGET,
         n_seeds: int = 7,
         base_seed: int = 42,
-    ) -> Dict:
+    ) -> dict:
         """
         Full grid: phi vs standard across all warm_levels.
 

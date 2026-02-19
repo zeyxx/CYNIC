@@ -40,7 +40,7 @@ from cynic.core.phi import (
 
 # ── Temporal weights (same as temporal.py) ────────────────────────────────────
 
-_TEMPORAL_WEIGHTS: Dict[str, float] = {
+_TEMPORAL_WEIGHTS: dict[str, float] = {
     "IDEAL":   PHI_2,    # φ² = 2.618
     "FUTURE":  PHI,      # φ  = 1.618
     "PRESENT": 1.0,      # φ⁰ = 1.000
@@ -144,11 +144,11 @@ class MCTSVariant:
     exploration: float = PHI
 
     def __post_init__(self) -> None:
-        self.nodes: List[MCTSNode] = [
+        self.nodes: list[MCTSNode] = [
             MCTSNode(action=i) for i in range(self.problem.n_actions)
         ]
         self.total_visits: int = 0
-        self.convergence_iter: Optional[int] = None
+        self.convergence_iter: int | None = None
         self.iteration: int = 0
 
     def _select(self) -> MCTSNode:
@@ -205,13 +205,13 @@ class BenchmarkResult:
     max_iterations: int
 
     # Standard MCTS stats
-    standard_convergence_iter: Optional[int]
+    standard_convergence_iter: int | None
     standard_best_value: float
     standard_best_action: int
     standard_found_optimum: bool
 
     # Temporal MCTS stats
-    temporal_convergence_iter: Optional[int]
+    temporal_convergence_iter: int | None
     temporal_best_value: float
     temporal_best_action: int
     temporal_found_optimum: bool
@@ -221,7 +221,7 @@ class BenchmarkResult:
     quality_gain_pct: float     # (temporal_value - standard_value) / standard_value * 100
     duration_ms: float
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "seed": self.seed,
             "max_iterations": self.max_iterations,
@@ -254,7 +254,7 @@ class MCTSBenchmark:
     temporal MCTS achieves ≥ φ² speedup (the architectural hypothesis).
     """
 
-    def __init__(self, problem: Optional[SearchProblem] = None) -> None:
+    def __init__(self, problem: SearchProblem | None = None) -> None:
         self.problem = problem or SearchProblem()
 
     def run(
@@ -329,7 +329,7 @@ class MCTSBenchmark:
         max_iterations: int = 500,
         n_seeds: int = 7,
         base_seed: int = 42,
-    ) -> Dict:
+    ) -> dict:
         """
         Run N seeds, aggregate statistics.
 

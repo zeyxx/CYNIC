@@ -137,7 +137,7 @@ class BenchmarkRegistry:
 
     async def record_evolve(
         self,
-        results: "List[ProbeResult]",
+        results: list[ProbeResult],
         source: str = "evolve",
     ) -> None:
         """
@@ -171,7 +171,7 @@ class BenchmarkRegistry:
         self,
         window_runs: int = 10,
         source: str = "evolve",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Aggregate last N runs per probe, save to benchmark_snapshots.
 
@@ -185,7 +185,7 @@ class BenchmarkRegistry:
             rows = await conn.fetch(_LAST_N_RUNS_SQL, source, window_runs)
 
             # Group by probe_id in Python
-            by_probe: Dict[str, Dict] = {}
+            by_probe: dict[str, dict] = {}
             for row in rows:
                 pid = row["probe_id"]
                 if pid not in by_probe:
@@ -197,7 +197,7 @@ class BenchmarkRegistry:
                 by_probe[pid]["q_scores"].append(row["q_score"])
                 by_probe[pid]["passed"].append(row["passed"])
 
-            result: Dict[str, Any] = {}
+            result: dict[str, Any] = {}
             snapshot_rows = []
 
             for probe_id, data in by_probe.items():
@@ -230,7 +230,7 @@ class BenchmarkRegistry:
     async def drift_alerts(
         self,
         threshold: float = 0.15,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Compare the two most recent snapshots per probe.
 
@@ -246,7 +246,7 @@ class BenchmarkRegistry:
             rows = await conn.fetch(_LAST_2_SNAPSHOTS_SQL)
 
         # Group by probe_id (rows ordered probe_id ASC, rn ASC)
-        by_probe: Dict[str, List[Dict]] = {}
+        by_probe: dict[str, list[dict]] = {}
         for row in rows:
             pid = row["probe_id"]
             by_probe.setdefault(pid, []).append(dict(row))

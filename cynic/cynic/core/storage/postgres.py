@@ -15,7 +15,8 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, Dict, List, Optional
+from collections.abc import AsyncIterator
 
 import asyncpg
 from asyncpg import Pool, Connection
@@ -33,10 +34,10 @@ POOL_MAX = fibonacci(8)   # 21 connections
 # CONNECTION POOL SINGLETON
 # ════════════════════════════════════════════════════════════════════════════
 
-_pool: Optional[Pool] = None
+_pool: Pool | None = None
 
 
-async def get_pool(dsn: Optional[str] = None) -> Pool:
+async def get_pool(dsn: str | None = None) -> Pool:
     """
     Get (or create) the shared asyncpg connection pool.
 
@@ -264,7 +265,7 @@ CREATE INDEX IF NOT EXISTS idx_scholar_created     ON scholar_buffer (created_at
 """
 
 
-async def create_schema(dsn: Optional[str] = None) -> None:
+async def create_schema(dsn: str | None = None) -> None:
     """Create all tables and indexes. Idempotent (IF NOT EXISTS)."""
     async with acquire() as conn:
         await conn.execute(SCHEMA_SQL)
@@ -278,7 +279,7 @@ async def create_schema(dsn: Optional[str] = None) -> None:
 class JudgmentRepository:
     """CRUD for judgments. φ-bound enforced by DB constraints."""
 
-    async def save(self, judgment: Dict[str, Any]) -> None:
+    async def save(self, judgment: dict[str, Any]) -> None:
         """Persist a judgment (upsert by judgment_id)."""
         async with acquire() as conn:
             await conn.execute("""
@@ -326,7 +327,7 @@ class JudgmentRepository:
                 judgment.get("duration_ms", 0.0),
             )
 
-    async def get(self, judgment_id: str) -> Optional[Dict[str, Any]]:
+    async def get(self, judgment_id: str) -> dict[str, Any] | None:
         """Fetch a judgment by ID."""
         async with acquire() as conn:
             row = await conn.fetchrow(
@@ -335,7 +336,7 @@ class JudgmentRepository:
             )
             return dict(row) if row else None
 
-    async def recent(self, reality: Optional[str] = None, limit: int = 55) -> List[Dict[str, Any]]:
+    async def recent(self, reality: str | None = None, limit: int = 55) -> list[dict[str, Any]]:
         """Fetch recent judgments, optionally filtered by reality."""
         async with acquire() as conn:
             if reality:
@@ -350,7 +351,7 @@ class JudgmentRepository:
                 )
             return [dict(r) for r in rows]
 
-    async def stats(self) -> Dict[str, Any]:
+    async def stats(self) -> dict[str, Any]:
         """Quick stats for health dashboard."""
         async with acquire() as conn:
             total = await conn.fetchval("SELECT COUNT(*) FROM judgments")
@@ -398,7 +399,7 @@ class QTableRepository:
                     last_updated = NOW()
             """, state_key, action, q_value)
 
-    async def get_all_actions(self, state_key: str) -> Dict[str, float]:
+    async def get_all_actions(self, state_key: str) -> dict[str, float]:
         """Get all Q-values for a given state."""
         async with acquire() as conn:
             rows = await conn.fetch(
@@ -415,7 +416,7 @@ class QTableRepository:
 class LearningRepository:
     """Persist learning events from all 11 learning loops."""
 
-    async def save(self, event: Dict[str, Any]) -> None:
+    async def save(self, event: dict[str, Any]) -> None:
         async with acquire() as conn:
             await conn.execute("""
                 INSERT INTO learning_events
@@ -432,7 +433,7 @@ class LearningRepository:
                 event.get("q_delta", 0.0),
             )
 
-    async def recent_for_loop(self, loop_name: str, limit: int = 34) -> List[Dict[str, Any]]:
+    async def recent_for_loop(self, loop_name: str, limit: int = 34) -> list[dict[str, Any]]:
         async with acquire() as conn:
             rows = await conn.fetch(
                 "SELECT * FROM learning_events WHERE loop_name=$1 ORDER BY created_at DESC LIMIT $2",
@@ -440,7 +441,7 @@ class LearningRepository:
             )
             return [dict(r) for r in rows]
 
-    async def loop_stats(self) -> Dict[str, int]:
+    async def loop_stats(self) -> dict[str, int]:
         """Count events per learning loop."""
         async with acquire() as conn:
             rows = await conn.fetch(
@@ -456,7 +457,7 @@ class LearningRepository:
 class BenchmarkRepository:
     """Persist LLM benchmark results for routing decisions."""
 
-    async def save(self, result: Dict[str, Any]) -> None:
+    async def save(self, result: dict[str, Any]) -> None:
         async with acquire() as conn:
             await conn.execute("""
                 INSERT INTO llm_benchmarks
@@ -477,7 +478,7 @@ class BenchmarkRepository:
                 result.get("cost_usd", 0.0),
             )
 
-    async def best_llm_for(self, dog_id: str, task_type: str) -> Optional[str]:
+    async def best_llm_for(self, dog_id: str, task_type: str) -> str | None:
         """Return the LLM with the highest composite score (EMA of recent runs)."""
         async with acquire() as conn:
             row = await conn.fetchrow("""
@@ -491,7 +492,7 @@ class BenchmarkRepository:
             """, dog_id, task_type)
             return row["llm_id"] if row else None
 
-    async def get_all(self) -> List[Dict[str, Any]]:
+    async def get_all(self) -> list[dict[str, Any]]:
         """Load all benchmarks for warm-start (most recent first)."""
         async with acquire() as conn:
             rows = await conn.fetch("""
@@ -502,7 +503,7 @@ class BenchmarkRepository:
             """)
             return [dict(r) for r in rows]
 
-    async def matrix(self) -> List[Dict[str, Any]]:
+    async def matrix(self) -> list[dict[str, Any]]:
         """Full benchmark matrix (dog × task × llm → score)."""
         async with acquire() as conn:
             rows = await conn.fetch("""
@@ -525,7 +526,7 @@ class BenchmarkRepository:
 class ResidualRepository:
     """Persist ResidualDetector history for warm-start across restarts."""
 
-    async def append(self, point: Dict[str, Any]) -> None:
+    async def append(self, point: dict[str, Any]) -> None:
         """Persist one residual observation."""
         async with acquire() as conn:
             await conn.execute("""
@@ -540,7 +541,7 @@ class ResidualRepository:
                 bool(point.get("unnameable", False)),
             )
 
-    async def recent(self, limit: int = 21) -> List[Dict[str, Any]]:
+    async def recent(self, limit: int = 21) -> list[dict[str, Any]]:
         """Return last `limit` observations ordered oldest-first (for replay)."""
         async with acquire() as conn:
             rows = await conn.fetch("""
@@ -558,11 +559,11 @@ class ResidualRepository:
 # REPOSITORY FACTORY
 # ════════════════════════════════════════════════════════════════════════════
 
-_judgment_repo: Optional[JudgmentRepository] = None
-_qtable_repo: Optional[QTableRepository] = None
-_learning_repo: Optional[LearningRepository] = None
-_benchmark_repo: Optional[BenchmarkRepository] = None
-_residual_repo: Optional[ResidualRepository] = None
+_judgment_repo: JudgmentRepository | None = None
+_qtable_repo: QTableRepository | None = None
+_learning_repo: LearningRepository | None = None
+_benchmark_repo: BenchmarkRepository | None = None
+_residual_repo: ResidualRepository | None = None
 
 
 def judgments() -> JudgmentRepository:
@@ -607,7 +608,7 @@ def residuals() -> ResidualRepository:
 class SDKSessionRepository:
     """Persist Claude Code --sdk-url session telemetry for learning analysis."""
 
-    async def save(self, telemetry: Dict[str, Any]) -> None:
+    async def save(self, telemetry: dict[str, Any]) -> None:
         """
         Persist one SessionTelemetry record (upsert by session_id).
         Safe to call multiple times — ON CONFLICT updates the row.
@@ -654,7 +655,7 @@ class SDKSessionRepository:
                 float(telemetry.get("reward", 0.0)),
             )
 
-    async def recent(self, limit: int = 21) -> List[Dict[str, Any]]:
+    async def recent(self, limit: int = 21) -> list[dict[str, Any]]:
         """Return last N sessions ordered most-recent-first."""
         async with acquire() as conn:
             rows = await conn.fetch(
@@ -663,7 +664,7 @@ class SDKSessionRepository:
             )
             return [dict(r) for r in rows]
 
-    async def stats(self) -> Dict[str, Any]:
+    async def stats(self) -> dict[str, Any]:
         """Aggregate statistics — for /act/telemetry enrichment."""
         async with acquire() as conn:
             row = await conn.fetchrow("""
@@ -679,7 +680,7 @@ class SDKSessionRepository:
             return dict(row) if row else {}
 
 
-_sdk_session_repo: Optional[SDKSessionRepository] = None
+_sdk_session_repo: SDKSessionRepository | None = None
 
 
 def sdk_sessions() -> SDKSessionRepository:
@@ -706,7 +707,7 @@ class ScholarRepository:
     (no pgvector extension required — upgradeable to operator <=> later).
     """
 
-    async def append(self, entry: Dict[str, Any]) -> None:
+    async def append(self, entry: dict[str, Any]) -> None:
         """Persist one BufferEntry to DB (with optional embedding)."""
         embedding = entry.get("embedding")  # List[float] or None
         embed_model = entry.get("embed_model", "")
@@ -725,7 +726,7 @@ class ScholarRepository:
                 embed_model,
             )
 
-    async def recent_entries(self, limit: int = 89) -> List[Dict[str, Any]]:
+    async def recent_entries(self, limit: int = 89) -> list[dict[str, Any]]:
         """Return last `limit` entries oldest-first (for buffer replay)."""
         async with acquire() as conn:
             rows = await conn.fetch("""
@@ -739,10 +740,10 @@ class ScholarRepository:
 
     async def search_similar_by_embedding(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         limit: int = 10,
         min_similarity: float = 0.38,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Find semantically similar entries via cosine similarity.
 
@@ -798,7 +799,7 @@ class ScholarRepository:
             return await conn.fetchval("SELECT COUNT(*) FROM scholar_buffer")
 
 
-_scholar_repo: Optional[ScholarRepository] = None
+_scholar_repo: ScholarRepository | None = None
 
 
 def scholar() -> ScholarRepository:

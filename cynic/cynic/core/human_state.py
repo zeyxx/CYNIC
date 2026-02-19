@@ -58,7 +58,7 @@ class HumanState:
 
     updated_at: float = field(default_factory=time.time)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         from cynic.core.phi import WAG_MIN, GROWL_MIN, PHI_INV_3
         lod_hint = "FULL"
         effective = min(self.energy, self.focus)
@@ -151,7 +151,7 @@ class HumanStateModel:
 
     # ── Snapshot ───────────────────────────────────────────────────────────
 
-    def snapshot(self) -> Dict[str, Any]:
+    def snapshot(self) -> dict[str, Any]:
         self._apply_decay()
         return self._state.to_dict()
 

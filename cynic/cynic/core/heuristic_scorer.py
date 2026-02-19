@@ -38,7 +38,7 @@ _MAX_SHIFT = 35.0    # Cap total shift from base in each direction
 # Each axiom: (positive_keywords, negative_keywords)
 # Keywords are lowercased substrings to match against lowercased context.
 
-_AXIOM_SIGNALS: Dict[str, Tuple[List[str], List[str]]] = {
+_AXIOM_SIGNALS: dict[str, tuple[list[str], list[str]]] = {
     "FIDELITY": (
         # Truth loyalty: documented, clear, honest, typed
         [
@@ -109,7 +109,7 @@ _AXIOM_SIGNALS: Dict[str, Tuple[List[str], List[str]]] = {
 }
 
 # Facet-level modifiers for high-specificity facets (additive with axiom signals)
-_FACET_MODIFIERS: Dict[str, Tuple[List[str], List[str]]] = {
+_FACET_MODIFIERS: dict[str, tuple[list[str], list[str]]] = {
     # FIDELITY facets
     "CANDOR": (["honest", "clear", "explicit"], ["spin", "hidden", "obfuscated"]),
     "ACCOUNTABILITY": (["tested", "verified", "documented"], ["no tests", "untested"]),
@@ -132,13 +132,13 @@ _FACET_MODIFIERS: Dict[str, Tuple[List[str], List[str]]] = {
 
 # ── Global signals (applied to ALL axioms at half weight) ─────────────────
 
-_GLOBAL_QUALITY: List[str] = [
+_GLOBAL_QUALITY: list[str] = [
     "well-structured", "type hints", "documented", "healthy", "nominal",
     "success", "standard", "verified", "clean", "optimal", "active",
     "learning", "correct",
 ]
 
-_GLOBAL_DANGER: List[str] = [
+_GLOBAL_DANGER: list[str] = [
     "irreversible", "destructive", "unconfirmed", "global blast", "no backup",
     "critical risk", "delete", "drop", "destroy", "blast radius",
 ]

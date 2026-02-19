@@ -1,7 +1,8 @@
 """CYNIC HealthWatcher — CYNIC×PERCEIVE/REFLEX every F(8)=21s."""
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
+from collections.abc import Callable
 
 from cynic.core.consciousness import ConsciousnessLevel, get_consciousness
 from cynic.core.judgment import Cell
@@ -24,12 +25,12 @@ class HealthWatcher(PerceiveWorker):
     interval_s = float(fibonacci(8))   # 21.0s
     name = "health_watcher"
 
-    def __init__(self, get_consciousness_fn: Optional[Callable] = None) -> None:
+    def __init__(self, get_consciousness_fn: Callable | None = None) -> None:
         self._get_consciousness = get_consciousness_fn or get_consciousness
 
-    async def sense(self) -> Optional[Cell]:
+    async def sense(self) -> Cell | None:
         consciousness = self._get_consciousness()
-        degraded: Dict[str, Any] = {
+        degraded: dict[str, Any] = {
             name: timer.to_dict()
             for name, timer in consciousness.timers.items()
             if timer.health in ("DEGRADED", "CRITICAL")

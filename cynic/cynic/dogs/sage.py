@@ -59,7 +59,7 @@ from cynic.dogs.base import (
 logger = logging.getLogger("cynic.dogs.sage")
 
 # Fallback weights — used when domain not found in DEFAULT_CONTEXTUAL_WEIGHTS
-_AXIOM_WEIGHT_FALLBACK: Dict[str, float] = {
+_AXIOM_WEIGHT_FALLBACK: dict[str, float] = {
     "PHI":      1.0,
     "VERIFY":   1.0,
     "CULTURE":  1.0,
@@ -68,7 +68,7 @@ _AXIOM_WEIGHT_FALLBACK: Dict[str, float] = {
 }
 
 # Wisdom markers — patterns that indicate good code
-WISDOM_PATTERNS: List[str] = [
+WISDOM_PATTERNS: list[str] = [
     r"\bdef\s+[a-z][a-z_]{2,30}\s*\(",       # Well-named functions (3-30 chars)
     r"\bclass\s+[A-Z][A-Za-z]{2,30}\s*[:(]", # Well-named classes
     r"\"\"\".*?\"\"\"",                        # Docstrings (at all)
@@ -77,7 +77,7 @@ WISDOM_PATTERNS: List[str] = [
 ]
 
 # Anti-patterns — code smell markers
-SMELL_PATTERNS: List[str] = [
+SMELL_PATTERNS: list[str] = [
     r"\bclass\s+[A-Z][a-zA-Z]*Manager\b",    # "Manager" antipattern
     r"\bclass\s+[A-Z][a-zA-Z]*Helper\b",     # "Helper" antipattern
     r"\bclass\s+[A-Z][a-zA-Z]*Utils?\b",     # "Utils" antipattern
@@ -112,7 +112,7 @@ class SageDog(LLMDog):
         super().__init__(DogId.SAGE, task_type="wisdom")
         self._heuristic_count: int = 0
         self._llm_count: int = 0
-        self._compressor: Optional[Any] = None  # ContextCompressor — injected via set_compressor()
+        self._compressor: Any | None = None  # ContextCompressor — injected via set_compressor()
 
     def set_compressor(self, compressor: Any) -> None:
         """
@@ -288,7 +288,7 @@ class SageDog(LLMDog):
         text: str,
         reality: str,
         cell: Cell,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Score each of the 5 axioms on [0, 1].
 
@@ -507,10 +507,10 @@ class SageDog(LLMDog):
 
     def _aggregate(
         self,
-        axiom_scores: Dict[str, float],
+        axiom_scores: dict[str, float],
         text: str,
         reality: str = "CODE",
-    ) -> Tuple[float, float, Dict[str, Any]]:
+    ) -> tuple[float, float, dict[str, Any]]:
         """
         Domain-weighted geometric mean of axiom scores → Q-score.
 

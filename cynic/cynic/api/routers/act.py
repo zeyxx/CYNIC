@@ -65,7 +65,7 @@ def _enrich_prompt(prompt: str, state) -> str:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_act.post("/act/execute")
-async def act_execute(body: Dict[str, Any]) -> Dict[str, Any]:
+async def act_execute(body: dict[str, Any]) -> dict[str, Any]:
     """
     CYNIC executes a task by spawning Claude Code autonomously.
 
@@ -128,7 +128,7 @@ async def act_execute(body: Dict[str, Any]) -> Dict[str, Any]:
 async def act_telemetry(
     n: int = Query(default=10, ge=1, le=100),
     export: bool = Query(default=False),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Session telemetry — CYNIC's learning measurement layer.
 

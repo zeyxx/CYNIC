@@ -47,7 +47,7 @@ from cynic.dogs.base import (
 logger = logging.getLogger("cynic.dogs.oracle")
 
 # All possible verdicts (actions in Q-space)
-VERDICTS: List[str] = ["BARK", "GROWL", "WAG", "HOWL"]
+VERDICTS: list[str] = ["BARK", "GROWL", "WAG", "HOWL"]
 
 # Confidence when Q-table is cold (below PHI_INV_2 threshold)
 COLD_CONFIDENCE: float = 0.200   # Minimal confidence when predicting from no data

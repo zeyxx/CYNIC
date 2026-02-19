@@ -28,11 +28,11 @@ class JudgeRequest(BaseModel):
         description="Analysis type: PERCEIVE/JUDGE/DECIDE/ACT/LEARN/ACCOUNT/EMERGE",
     )
     context: str = Field(default="", description="Human-readable context for LLM scoring")
-    time_dim: Optional[str] = Field(
+    time_dim: str | None = Field(
         default=None,
         description="Time dimension: PAST/PRESENT/FUTURE/CYCLE/TREND/EMERGENCE/TRANSCENDENCE (inferred if None)",
     )
-    level: Optional[str] = Field(
+    level: str | None = Field(
         default=None,
         description="Consciousness level: REFLEX/MICRO/MACRO (auto-selected if None)",
     )
@@ -50,7 +50,7 @@ class JudgeRequest(BaseModel):
 
     @field_validator("level")
     @classmethod
-    def validate_level(cls, v: Optional[str]) -> Optional[str]:
+    def validate_level(cls, v: str | None) -> str | None:
         if v is None:
             return None
         valid = {"REFLEX", "MICRO", "MACRO"}
@@ -66,8 +66,8 @@ class JudgeResponse(BaseModel):
     q_score: float = Field(description="Quality score [0, 100]")
     verdict: str = Field(description="HOWL/WAG/GROWL/BARK")
     confidence: float = Field(description="Confidence [0, 0.618]")
-    axiom_scores: Dict[str, float]
-    dog_votes: Dict[str, float]
+    axiom_scores: dict[str, float]
+    dog_votes: dict[str, float]
     consensus_reached: bool
     consensus_votes: int
     residual_variance: float = 0.0
@@ -96,7 +96,7 @@ class PerceiveRequest(BaseModel):
     )
     data: Any = Field(description="Raw perception data (any JSON-serializable)")
     context: str = Field(default="", description="Human-readable context")
-    time_dim: Optional[str] = Field(
+    time_dim: str | None = Field(
         default=None,
         description="Time dimension: PAST/PRESENT/FUTURE/CYCLE/TREND/EMERGENCE/TRANSCENDENCE (inferred if None)",
     )
@@ -104,7 +104,7 @@ class PerceiveRequest(BaseModel):
         default=True,
         description="If True, run full judgment pipeline on this perception",
     )
-    level: Optional[str] = Field(default="REFLEX", description="Judgment level")
+    level: str | None = Field(default="REFLEX", description="Judgment level")
 
 
 class PerceiveResponse(BaseModel):
@@ -112,7 +112,7 @@ class PerceiveResponse(BaseModel):
     cell_id: str
     source: str
     reality: str
-    judgment: Optional[JudgeResponse] = None
+    judgment: JudgeResponse | None = None
     enqueued: bool = False
     message: str = ""
 
@@ -161,7 +161,7 @@ class PolicyResponse(BaseModel):
     recommended_action: str
     q_value: float
     confidence: float
-    top_actions: List[Dict[str, Any]]
+    top_actions: list[dict[str, Any]]
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -192,14 +192,14 @@ class HealthResponse(BaseModel):
     status: str  # alive / degraded / dead
     version: str = "2.0.0"
     uptime_s: float
-    consciousness: Dict[str, Any]
-    dogs: List[str]
-    learning: Dict[str, Any]
-    scheduler: Dict[str, Any] = Field(default_factory=dict)
-    llm_adapters: List[str]
+    consciousness: dict[str, Any]
+    dogs: list[str]
+    learning: dict[str, Any]
+    scheduler: dict[str, Any] = Field(default_factory=dict)
+    llm_adapters: list[str]
     judgments_total: int
     phi: float  # 1.618... (always displayed as reminder)
-    storage: Dict[str, Any] = Field(default_factory=dict)  # T02: surreal/asyncpg status
+    storage: dict[str, Any] = Field(default_factory=dict)  # T02: surreal/asyncpg status
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -208,8 +208,8 @@ class HealthResponse(BaseModel):
 
 class StatsResponse(BaseModel):
     """Response from GET /stats — detailed kernel metrics."""
-    judgments: Dict[str, Any]
-    learning: Dict[str, Any]
-    top_states: List[Dict[str, Any]]
-    consciousness: Dict[str, Any]
-    compressor: Dict[str, Any] = Field(default_factory=dict)  # γ2 ContextCompressor stats
+    judgments: dict[str, Any]
+    learning: dict[str, Any]
+    top_states: list[dict[str, Any]]
+    consciousness: dict[str, Any]
+    compressor: dict[str, Any] = Field(default_factory=dict)  # γ2 ContextCompressor stats

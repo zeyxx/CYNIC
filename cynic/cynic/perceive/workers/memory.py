@@ -43,9 +43,9 @@ class MemoryWatcher(PerceiveWorker):
     name = "memory_watcher"
 
     def __init__(self) -> None:
-        self._last_level: Optional[str] = None
+        self._last_level: str | None = None
 
-    def _check_memory(self) -> Optional[Dict[str, Any]]:
+    def _check_memory(self) -> dict[str, Any] | None:
         """Blocking memory check — called via run_in_executor."""
         try:
             if sys.platform == "win32":
@@ -102,7 +102,7 @@ class MemoryWatcher(PerceiveWorker):
             logger.debug("MemoryWatcher check failed: %s", exc)
             return None
 
-    async def sense(self) -> Optional[Cell]:
+    async def sense(self) -> Cell | None:
         loop = asyncio.get_running_loop()
         info = await loop.run_in_executor(None, self._check_memory)
 

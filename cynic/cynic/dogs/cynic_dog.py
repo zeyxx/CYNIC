@@ -84,9 +84,9 @@ class PBFTRequest:
     request_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     cell_id: str = ""
     phase: str = PBFTPhase.PRE_PREPARE
-    prepare_votes: Dict[str, float] = field(default_factory=dict)   # dog_id → q_score
-    commit_votes: Dict[str, float] = field(default_factory=dict)    # dog_id → q_score
-    veto_dogs: Set[str] = field(default_factory=set)                # Dogs that vetoed
+    prepare_votes: dict[str, float] = field(default_factory=dict)   # dog_id → q_score
+    commit_votes: dict[str, float] = field(default_factory=dict)    # dog_id → q_score
+    veto_dogs: set[str] = field(default_factory=set)                # Dogs that vetoed
     started_at: float = field(default_factory=time.time)
     timeout_sec: float = 5.0  # F(5)=5 — Fibonacci-aligned
     quorum: int = DOGS_QUORUM  # Dynamic: set in pbft_run() via _compute_quorum()
@@ -127,8 +127,8 @@ class CynicDog(AbstractDog):
 
     def __init__(self) -> None:
         super().__init__(DogId.CYNIC)
-        self._active_requests: Dict[str, PBFTRequest] = {}
-        self._completed_requests: List[PBFTRequest] = []
+        self._active_requests: dict[str, PBFTRequest] = {}
+        self._completed_requests: list[PBFTRequest] = []
         self._max_completed = 89  # F(11) — keep last 89 consensus records
 
     def get_capabilities(self) -> DogCapabilities:
@@ -226,7 +226,7 @@ class CynicDog(AbstractDog):
     async def pbft_run(
         self,
         cell: Cell,
-        dog_judgments: List[DogJudgment],
+        dog_judgments: list[DogJudgment],
     ) -> ConsensusResult:
         """
         Run a full PBFT consensus round given Dog judgments.
@@ -308,7 +308,7 @@ class CynicDog(AbstractDog):
     def _aggregate(
         self,
         request: PBFTRequest,
-        dog_judgments: List[DogJudgment],
+        dog_judgments: list[DogJudgment],
     ) -> ConsensusResult:
         """
         Aggregate Dog votes into ConsensusResult.

@@ -55,7 +55,7 @@ _STD_ALPHA: float = 0.1                 # standard RL learning rate
 _STD_ALPHA_LABEL: str = "standard"
 
 # Grid: alpha values to test
-_ALPHA_GRID: List[float] = [0.01, _PHI_ALPHA, _STD_ALPHA, 0.2]
+_ALPHA_GRID: list[float] = [0.01, _PHI_ALPHA, _STD_ALPHA, 0.2]
 
 # Number of synthetic state-action pairs = F(7) = 13
 _N_PAIRS: int = fibonacci(7)            # 13
@@ -95,10 +95,10 @@ class SyntheticTask:
     def __post_init__(self) -> None:
         # Deterministic true rewards (set once, phi-distributed)
         # Pairs are (state_key, action) tuples -- labels don't matter for convergence
-        self._true_rewards: List[float] = [
+        self._true_rewards: list[float] = [
             self._compute_true(i) for i in range(self.n_pairs)
         ]
-        self._pair_labels: List[Tuple[str, str]] = [
+        self._pair_labels: list[tuple[str, str]] = [
             (f"STATE_{i}", _action_label(i)) for i in range(self.n_pairs)
         ]
 
@@ -121,7 +121,7 @@ class SyntheticTask:
         noisy = r + self.rng.gauss(0, self.sigma)
         return max(0.0, min(1.0, noisy))
 
-    def pair(self, idx: int) -> Tuple[str, str]:
+    def pair(self, idx: int) -> tuple[str, str]:
         """(state_key, action) for pair idx."""
         return self._pair_labels[idx]
 
@@ -166,9 +166,9 @@ class TD0Learner:
     use_ewc: bool = False
 
     def __post_init__(self) -> None:
-        self._entries: List[QEntry] = [QEntry() for _ in range(self.task.n_pairs)]
+        self._entries: list[QEntry] = [QEntry() for _ in range(self.task.n_pairs)]
         self.steps: int = 0
-        self.convergence_step: Optional[int] = None
+        self.convergence_step: int | None = None
 
     def step(self) -> None:
         """One TD(0) update: update one pair (cyclic round-robin)."""
@@ -245,7 +245,7 @@ class ConvergenceResult:
     seed: int
     max_steps: int
 
-    convergence_step: Optional[int]    # None if did not converge
+    convergence_step: int | None    # None if did not converge
     final_mean_error: float            # mean |Q - true| at end
     final_max_error: float             # max  |Q - true| at end
     q_variance: float                  # variance of Q-values (stability)
@@ -261,7 +261,7 @@ class ConvergenceResult:
         ewc_str = "+EWC" if self.use_ewc else ""
         return f"alpha={self.alpha}{ewc_str}"
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "alpha": self.alpha,
             "use_ewc": self.use_ewc,
@@ -297,7 +297,7 @@ class QTableBenchmark:
       phi_wins_stability:  phi q_variance < standard q_variance
     """
 
-    def __init__(self, task: Optional[SyntheticTask] = None) -> None:
+    def __init__(self, task: SyntheticTask | None = None) -> None:
         self.task = task or SyntheticTask()
 
     def run(
@@ -352,7 +352,7 @@ class QTableBenchmark:
         max_steps: int = 500,
         n_seeds: int = 7,
         base_seed: int = 42,
-    ) -> Dict:
+    ) -> dict:
         """
         Run full alpha x EWC grid, aggregate over n_seeds.
 
@@ -362,13 +362,13 @@ class QTableBenchmark:
           phi_wins_stability:   bool — phi has lower Q-variance vs standard
           phi_wins_convergence: bool — phi converges in fewer or equal steps vs standard
         """
-        configs: List[Tuple[float, bool]] = [
+        configs: list[tuple[float, bool]] = [
             (a, ewc)
             for a in _ALPHA_GRID
             for ewc in (True, False)
         ]
 
-        all_results: Dict[Tuple[float, bool], List[ConvergenceResult]] = {}
+        all_results: dict[tuple[float, bool], list[ConvergenceResult]] = {}
         for cfg in configs:
             alpha, use_ewc = cfg
             runs = [
@@ -382,7 +382,7 @@ class QTableBenchmark:
             ]
             all_results[cfg] = runs
 
-        def agg(runs: List[ConvergenceResult]) -> Dict:
+        def agg(runs: list[ConvergenceResult]) -> dict:
             conv_steps = [r.convergence_step or max_steps for r in runs]
             return {
                 "label": runs[0].label,

@@ -27,7 +27,7 @@ _INTERVAL_S: int = fibonacci(10) * 60  # 3300
 
 # Probe prompts — one per task_type we want to benchmark
 # Minimal to avoid spending real LLM budget on the probe
-_PROBES: List[Tuple[str, str]] = [
+_PROBES: list[tuple[str, str]] = [
     ("temporal_mcts", "Reply with one word: ready"),
     ("general",       "Reply with one word: ok"),
 ]
@@ -47,7 +47,7 @@ class AutoBenchmark:
 
     def __init__(self, registry: Any) -> None:
         self._registry = registry
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
         self._runs = 0
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────

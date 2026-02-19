@@ -229,7 +229,7 @@ class ScoutDog(LLMDog):
 
     # ── URL Extraction ─────────────────────────────────────────────────────
 
-    def _extract_urls(self, cell: Cell) -> List[str]:
+    def _extract_urls(self, cell: Cell) -> list[str]:
         """Extract URLs from cell content. Deduplicated, order preserved."""
         content = cell.content
         if isinstance(content, str):
@@ -270,7 +270,7 @@ class ScoutDog(LLMDog):
 
     # ── Async URL Checking ─────────────────────────────────────────────────
 
-    async def _check_urls(self, urls: List[str]) -> List[FetchResult]:
+    async def _check_urls(self, urls: list[str]) -> list[FetchResult]:
         """Check all URLs concurrently via asyncio.gather."""
         tasks = [self._fetch_url(url) for url in urls]
         return list(await asyncio.gather(*tasks))
@@ -285,7 +285,7 @@ class ScoutDog(LLMDog):
                 timeout=TIMEOUT_SEC + 0.5,  # Slightly more than sync timeout
             )
             return result
-        except asyncio.TimeoutError:
+        except TimeoutError:
             latency = (time.perf_counter() - start) * 1000
             logger.debug("Scout timeout: %s", url)
             return FetchResult(url=url, status=0, content_len=0, latency_ms=latency)
@@ -334,15 +334,15 @@ class ScoutDog(LLMDog):
 
     def _score_results(
         self,
-        results: List[FetchResult],
-    ) -> Tuple[List[str], float, Dict[str, Any]]:
+        results: list[FetchResult],
+    ) -> tuple[list[str], float, dict[str, Any]]:
         """
         Score fetch results → (violations, penalty, evidence).
 
         Perfect: all URLs 200 + rich content → no penalty.
         Bad: timeouts, 4xx, empty pages → penalty each.
         """
-        violations: List[str] = []
+        violations: list[str] = []
         total_penalty: float = 0.0
 
         ok_count = 0

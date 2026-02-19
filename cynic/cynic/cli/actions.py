@@ -16,7 +16,7 @@ from cynic.cli.utils import (
 )
 
 
-def _print_action(action: Dict, index: int, total: int) -> None:
+def _print_action(action: dict, index: int, total: int) -> None:
     """Render one proposed action for the review screen."""
     action_id = action.get("action_id", "?")
     atype     = action.get("action_type", "?")

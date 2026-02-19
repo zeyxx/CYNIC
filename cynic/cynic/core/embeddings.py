@@ -62,7 +62,7 @@ class EmbeddingProvider(ABC):
     """
 
     @abstractmethod
-    async def embed(self, text: str) -> List[float]:
+    async def embed(self, text: str) -> list[float]:
         """Generate embedding vector for text. Returns List[float]."""
 
     @property
@@ -110,7 +110,7 @@ class OllamaEmbedder(EmbeddingProvider):
     def is_available(self) -> bool:
         return self._available and self._error_count < self._MAX_ERRORS
 
-    async def embed(self, text: str) -> List[float]:
+    async def embed(self, text: str) -> list[float]:
         """
         Call Ollama /api/embeddings.
         Returns zero vector on failure (graceful degradation).
@@ -150,7 +150,7 @@ class OllamaEmbedder(EmbeddingProvider):
                     self._available = True
                     return [float(v) for v in vector]
 
-        except (aiohttp.ClientConnectorError, asyncio.TimeoutError) as e:
+        except (TimeoutError, aiohttp.ClientConnectorError) as e:
             self._error_count += 1
             if self._error_count >= self._MAX_ERRORS:
                 self._available = False
@@ -192,7 +192,7 @@ class DummyEmbedder(EmbeddingProvider):
     def is_available(self) -> bool:
         return True
 
-    async def embed(self, text: str) -> List[float]:
+    async def embed(self, text: str) -> list[float]:
         """
         Generate deterministic pseudo-embedding from SHA256 hash.
         Normalized to unit vector.
