@@ -97,6 +97,7 @@ class JudgeOrchestrator:
         self.escore_tracker = None  # Optional[EScoreTracker] — injected via state.py
         self.axiom_monitor = None  # Optional[AxiomMonitor] — γ3: axiom health → budget multiplier
         self.lod_controller = None  # Optional[LODController] — δ2: system health → level cap
+        self.context_compressor = None  # Optional[ContextCompressor] — γ5: memory injection into SAGE
         self._judgment_count = 0
         self._consciousness = get_consciousness()
         # evolve() history — last F(8)=21 META cycles
@@ -577,6 +578,14 @@ class JudgeOrchestrator:
             organism_kwargs["lod_level"] = int(self.lod_controller.current)
         if self.axiom_monitor is not None:
             organism_kwargs["active_axioms"] = self.axiom_monitor.active_count()
+
+        # γ5: Memory injection — pass compressed CYNIC history into organism_kwargs.
+        # SAGE extracts this → injects into every temporal LLM call's system prompt.
+        # Transforms stateless Haiku/Ollama calls into memory-aware judgments.
+        if self.context_compressor is not None:
+            compressed = self.context_compressor.get_compressed_context(budget=200)
+            if compressed:
+                organism_kwargs["compressed_context"] = compressed
 
         tasks = [dog.analyze(cell, **organism_kwargs) for dog in all_dogs]
         dog_judgments_raw = await asyncio.gather(*tasks, return_exceptions=True)

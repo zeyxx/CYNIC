@@ -1565,6 +1565,12 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     if sage is not None and hasattr(sage, "set_compressor"):
         sage.set_compressor(compressor)
 
+    # ── γ5: Orchestrator ↔ Compressor memory injection ─────────────────────
+    # Orchestrator reads compressed history → injects into organism_kwargs
+    # → SAGE extracts compressed_context → passes to each temporal LLM call.
+    # Effect: every Haiku/Ollama call sees CYNIC's accumulated judgment memory.
+    orchestrator.context_compressor = compressor
+
     _checkpoint_counter = [0]  # mutable cell for closure
 
     async def _on_judgment_for_compressor(event: Event) -> None:

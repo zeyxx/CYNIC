@@ -255,6 +255,7 @@ async def _judge_perspective(
     adapter: Any,  # LLMAdapter
     content: str,
     perspective: str,
+    context: str = "",
 ) -> float:
     """
     Single temporal perspective judgment.
@@ -264,10 +265,18 @@ async def _judge_perspective(
 
     Prompt strategy: perspective context lives in the SYSTEM prompt (not
     echoed by instruct models like mistral). User message is just the content.
+
+    context: optional compressed CYNIC memory (QTable patterns, past judgments).
+    Injected into system prompt so LLM has temporal continuity across sessions.
     """
     from cynic.llm.adapter import LLMRequest
 
     system = TEMPORAL_SYSTEM_BASE + "\n\n" + PERSPECTIVE_CONTEXT[perspective]
+    # γ5: Memory injection — prepend compressed CYNIC history to system prompt.
+    # Transforms stateless LLM calls into memory-aware temporal judgments.
+    # Capped at 500 chars to avoid inflating token cost per perspective call.
+    if context:
+        system = system + "\n\nCYNIC Memory Context:\n" + context[:500]
     # Sanitise: replace non-ASCII (box-drawing, math symbols) with '?'
     # Prevents instruct models (mistral) from entering code-completion mode
     safe_content = content[:2000].encode("ascii", errors="replace").decode("ascii")
@@ -293,6 +302,7 @@ async def temporal_judgment(
     adapter: Any,  # LLMAdapter
     content: str,
     perspectives: Optional[List[str]] = None,
+    context: str = "",
 ) -> TemporalJudgment:
     """
     The Temporal MCTS Core: 7 parallel LLM calls via asyncio.gather().
@@ -304,6 +314,9 @@ async def temporal_judgment(
         adapter: Any LLMAdapter (Ollama preferred — free, parallel, local)
         content: Text to judge (code, decision, etc.)
         perspectives: Which perspectives to use (default: all 7)
+        context: Compressed CYNIC memory (≤500 chars) — injected into each
+                 perspective's system prompt for memory-aware judgment.
+                 Transforms stateless Haiku/Ollama into a memory-augmented cortex.
 
     Returns:
         TemporalJudgment with 7 scores + phi_aggregate
@@ -315,7 +328,7 @@ async def temporal_judgment(
 
     # ── THE CORE: 7 PARALLEL LLM CALLS ────────────────────────────────────
     tasks = [
-        _judge_perspective(adapter, content, p)
+        _judge_perspective(adapter, content, p, context=context)
         for p in perspectives
     ]
     raw_scores: List[float] = await asyncio.gather(*tasks)
@@ -345,12 +358,14 @@ async def temporal_judgment(
 async def fast_temporal_judgment(
     adapter: Any,
     content: str,
+    context: str = "",
 ) -> TemporalJudgment:
     """
     Fast path: 3 perspectives only (PRESENT + FUTURE + NEVER) for L2 MICRO cycle.
 
     7 calls → 3 calls: 57% reduction, preserves most signal.
     Same interface, fewer perspectives.
+    context: Compressed CYNIC memory — passed through to each perspective.
     """
     return await temporal_judgment(
         adapter, content,
@@ -359,4 +374,5 @@ async def fast_temporal_judgment(
             TemporalPerspective.FUTURE,
             TemporalPerspective.NEVER,
         ],
+        context=context,
     )

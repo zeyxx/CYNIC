@@ -176,7 +176,11 @@ class SageDog(LLMDog):
         adapter = await self.get_llm()
         if adapter is not None:
             lod_level: int = kwargs.get("lod_level", 0)
-            return await self._temporal_path(cell, text, adapter, start, lod_level=lod_level)
+            compressed_context: str = kwargs.get("compressed_context", "")
+            return await self._temporal_path(
+                cell, text, adapter, start,
+                lod_level=lod_level, compressed_context=compressed_context,
+            )
 
         # Phase 1: Heuristic fallback
         return self._heuristic_path(cell, text, start)
@@ -188,23 +192,27 @@ class SageDog(LLMDog):
         adapter: Any,
         start: float,
         lod_level: int = 0,
+        compressed_context: str = "",
     ) -> DogJudgment:
         """
-        Phase 2: Temporal perspectives via Ollama.
+        Phase 2: Temporal perspectives via Ollama/Haiku.
 
         LOD=FULL (0): full temporal_judgment() — 7 perspectives, rich signal.
         LOD=REDUCED (1): fast_temporal_judgment() — 3 perspectives, 57% cheaper.
         Higher LOD values won't reach MACRO (blocked by _apply_lod_cap in orchestrator).
+
+        compressed_context: CYNIC memory injected into each LLM call's system prompt.
+        Enables memory-aware judgment even with stateless Haiku/Ollama backends.
         """
         from cynic.llm.temporal import temporal_judgment, fast_temporal_judgment
 
         content = text or cell.context or ""
         if lod_level == 1:
             # R2: REDUCED LOD — organism under resource pressure → 3-perspective fast path
-            tj = await fast_temporal_judgment(adapter, content)
+            tj = await fast_temporal_judgment(adapter, content, context=compressed_context)
             perspective_count = 3
         else:
-            tj = await temporal_judgment(adapter, content)
+            tj = await temporal_judgment(adapter, content, context=compressed_context)
             perspective_count = 7
 
         q_score = tj.phi_aggregate
