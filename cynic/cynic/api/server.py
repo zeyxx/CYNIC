@@ -370,7 +370,7 @@ async def lifespan(app: FastAPI):
     )
     logger.info("*sniff* ClaudeCodeRunner wired (port=%d)", runner_port)
 
-    # Wire ACT_REQUESTED → runner.execute() (fire-and-forget)
+    # Wire ACT_REQUESTED → runner.execute() → ACT_COMPLETED (T30: closed loop)
     async def _on_act_requested(event: Event) -> None:
         if state.runner is None:
             return
@@ -380,7 +380,23 @@ async def lifespan(app: FastAPI):
         cwd = event.payload.get("target")
         if not isinstance(cwd, str):
             cwd = None
-        asyncio.create_task(state.runner.execute(prompt, cwd=cwd))
+        action_id = event.payload.get("action_id", "")
+
+        async def _execute_and_emit() -> None:
+            result = await state.runner.execute(prompt, cwd=cwd)
+            await get_core_bus().emit(Event(
+                type=CoreEvent.ACT_COMPLETED,
+                payload={
+                    "action_id": action_id,
+                    "success":   result.get("success", False),
+                    "cost_usd":  result.get("cost_usd", 0.0),
+                    "exec_id":   result.get("exec_id", ""),
+                    "error":     result.get("error", ""),
+                },
+                source="act_requested_handler",
+            ))
+
+        asyncio.create_task(_execute_and_emit())
 
     get_core_bus().on(CoreEvent.ACT_REQUESTED, _on_act_requested)
 
@@ -468,6 +484,18 @@ async def lifespan(app: FastAPI):
                 "tail wag" if is_success else "GROWL",
                 decision_state_key, decision_action, reward, is_success, cost,
             )
+            # T30: emit ACT_COMPLETED so _on_act_completed can close the full loop
+            await get_core_bus().emit(Event(
+                type=CoreEvent.ACT_COMPLETED,
+                payload={
+                    "action_id": "",   # auto-ACT has no explicit action_id
+                    "success":  is_success,
+                    "cost_usd": cost,
+                    "exec_id":  result.get("exec_id", ""),
+                    "error":    result.get("error", ""),
+                },
+                source="auto_act_and_learn",
+            ))
 
         asyncio.create_task(_act_and_learn())
 
@@ -1091,7 +1119,7 @@ async def accept_action(action_id: str) -> Dict[str, Any]:
     if action.prompt:
         await get_core_bus().emit(Event(
             type=CoreEvent.ACT_REQUESTED,
-            payload={"action": action.prompt, "target": None},
+            payload={"action": action.prompt, "target": None, "action_id": action.action_id},
             source="action_accept",
         ))
         logger.info("*ears perk* Action %s → ACT_REQUESTED fired (L1 auto-execute)", action_id)

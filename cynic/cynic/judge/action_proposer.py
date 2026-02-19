@@ -327,6 +327,11 @@ class ActionProposer:
         """Mark action as AUTO_EXECUTED (runner fired it automatically)."""
         return self._set_status(action_id, "AUTO_EXECUTED")
 
+    def mark_completed(self, action_id: str, success: bool) -> Optional[ProposedAction]:
+        """Mark action as COMPLETED or FAILED after execution result arrives (T30)."""
+        status = "COMPLETED" if success else "FAILED"
+        return self._set_status(action_id, status)
+
     def _set_status(self, action_id: str, status: str) -> Optional[ProposedAction]:
         for a in self._queue:
             if a.action_id == action_id:
@@ -373,4 +378,6 @@ class ActionProposer:
             "accepted":       statuses.get("ACCEPTED", 0),
             "rejected":       statuses.get("REJECTED", 0),
             "auto_executed":  statuses.get("AUTO_EXECUTED", 0),
+            "completed":      statuses.get("COMPLETED", 0),
+            "failed":         statuses.get("FAILED", 0),
         }

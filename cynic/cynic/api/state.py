@@ -783,6 +783,80 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     #   WAG   → GRAPH = WAG_MIN  (61.8)
     #   GROWL → GRAPH = GROWL_MIN (38.2)
     #   BARK  → GRAPH = 0.0 (trust breakdown — tool denied)
+    # ── ACT_COMPLETED → QTable + EScore BUILD + mark_completed + JSONL log ────
+    # Emitted by server.py after runner.execute() returns (both human-approval
+    # and auto-ACT paths). Closes the ACT → LEARN loop that was previously open.
+    #
+    # BUILD dimension = "productive action in the world" — successful executions
+    # raise BUILD score; failures lower it. This tracks execution reliability.
+    #
+    # QTable: state_key="ACT_COMPLETED", action="EXECUTE" — generalised Q-entry
+    # shared across all action executions. Captures overall execution quality.
+    #
+    # Notification rail: top pending actions written to consciousness.json by
+    # _on_judgment_created (see below) so the hook can surface them to the human.
+    _ACT_LOG_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "act_results.jsonl")
+    _ACT_LOG_CAP  = 89  # F(11) — rolling window
+
+    async def _on_act_completed(event: Event) -> None:
+        try:
+            from cynic.core.phi import HOWL_MIN, GROWL_MIN, WAG_MIN
+            from cynic.learning.qlearning import LearningSignal as _LS
+            p = event.payload or {}
+            action_id = p.get("action_id", "")
+            success   = bool(p.get("success", False))
+            cost      = float(p.get("cost_usd", 0.0))
+            exec_id   = p.get("exec_id", "")
+
+            # 1. Mark action COMPLETED / FAILED in the queue
+            if action_id:
+                action_proposer.mark_completed(action_id, success)
+
+            # 2. QTable: reward = WAG-level on success, GROWL-level on failure
+            reward = (WAG_MIN / 100.0) if success else (GROWL_MIN / 100.0)
+            qtable.update(_LS(
+                state_key="ACT_COMPLETED",
+                action="EXECUTE",
+                reward=reward,
+                judgment_id=exec_id,
+                loop_name="ACT_COMPLETED",
+            ))
+
+            # 3. EScore BUILD dimension — successful ACT builds the organism
+            escore_score = HOWL_MIN if success else GROWL_MIN
+            escore_tracker.update("agent:cynic", "BUILD", escore_score)
+
+            # 4. JSONL log (rolling cap F(11)=89)
+            try:
+                import json as _json
+                record = {
+                    "ts": time.time(),
+                    "action_id": action_id,
+                    "exec_id":   exec_id,
+                    "success":   success,
+                    "cost_usd":  cost,
+                }
+                os.makedirs(os.path.dirname(_ACT_LOG_PATH), exist_ok=True)
+                lines: list = []
+                if os.path.exists(_ACT_LOG_PATH):
+                    with open(_ACT_LOG_PATH, "r", encoding="utf-8") as _fh:
+                        lines = _fh.readlines()
+                lines.append(_json.dumps(record) + "\n")
+                if len(lines) > _ACT_LOG_CAP:
+                    lines = lines[-_ACT_LOG_CAP:]
+                with open(_ACT_LOG_PATH, "w", encoding="utf-8") as _fh:
+                    _fh.writelines(lines)
+            except Exception:
+                pass
+
+            logger.info(
+                "*%s* ACT_COMPLETED: action=%s exec=%s success=%s cost=$%.4f → BUILD=%.1f",
+                "tail wag" if success else "GROWL",
+                action_id or "(auto)", exec_id, success, cost, escore_score,
+            )
+        except Exception:
+            pass
+
     async def _on_sdk_tool_judged(event: Event) -> None:
         try:
             p = event.payload or {}
@@ -1181,6 +1255,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
     get_core_bus().on(CoreEvent.RESIDUAL_HIGH, _on_residual_high)
     get_core_bus().on(CoreEvent.ACTION_PROPOSED, _on_action_proposed)
     get_core_bus().on(CoreEvent.META_CYCLE, _on_meta_cycle)
+    get_core_bus().on(CoreEvent.ACT_COMPLETED, _on_act_completed)
     get_core_bus().on(CoreEvent.SDK_TOOL_JUDGED, _on_sdk_tool_judged)
     get_core_bus().on(CoreEvent.SDK_SESSION_STARTED, _on_sdk_session_started)
     get_core_bus().on(CoreEvent.SDK_RESULT_RECEIVED, _on_sdk_result_received)
