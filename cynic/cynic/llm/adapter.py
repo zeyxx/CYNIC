@@ -121,9 +121,23 @@ class LLMAdapter(ABC):
 # OLLAMA ADAPTER (Local — PRIMARY for privacy + cost)
 # ════════════════════════════════════════════════════════════════════════════
 
+
+# Module-level singleton ollama clients — one per base_url (shared across all
+# OllamaAdapter instances for the same URL — avoids 7 TCP connections per MCTS call)
+_OLLAMA_CLIENTS: Dict[str, Any] = {}
+
+
+def _get_ollama_client(base_url: str) -> Any:
+    """Return a cached ollama.AsyncClient for base_url, creating one if needed."""
+    import ollama as _ollama  # type: ignore
+    if base_url not in _OLLAMA_CLIENTS:
+        _OLLAMA_CLIENTS[base_url] = _ollama.AsyncClient(host=base_url)
+    return _OLLAMA_CLIENTS[base_url]
+
+
 class OllamaAdapter(LLMAdapter):
     """
-    Ollama local models adapter via HTTP API.
+    Ollama local models adapter via ollama.AsyncClient (singleton per URL).
 
     CYNIC prefers Ollama by default:
     - Free (no API cost)
@@ -132,6 +146,9 @@ class OllamaAdapter(LLMAdapter):
 
     Models auto-discovered at startup via list_models().
     Best model per Dog × Task determined by benchmarking.
+
+    Uses a module-level AsyncClient singleton to avoid creating 7 TCP connections
+    per MCTS asyncio.gather() call.
     """
 
     DEFAULT_URL = "http://localhost:11434"
@@ -141,59 +158,64 @@ class OllamaAdapter(LLMAdapter):
         self.base_url = base_url.rstrip("/")
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
-        import httpx
-
         start = time.time()
         messages: List[Dict[str, str]] = []
         if request.system:
             messages.append({"role": "system", "content": request.system})
         messages.append({"role": "user", "content": request.prompt})
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(
-                f"{self.base_url}/api/chat",
-                json={
-                    "model": self.model,
-                    "messages": messages,
-                    "stream": False,
-                    "options": {
-                        "temperature": request.temperature,
-                        "num_predict": request.max_tokens,
-                    },
-                },
-            )
-            resp.raise_for_status()
-            data = resp.json()
+        client = _get_ollama_client(self.base_url)
+        response = await client.chat(
+            model=self.model,
+            messages=messages,
+            options={"temperature": request.temperature, "num_predict": request.max_tokens},
+        )
+        # ollama 0.1.x returns a dict; 0.2+ returns a ChatResponse object
+        if isinstance(response, dict):
+            content = response.get("message", {}).get("content", "")
+            p_tokens = response.get("prompt_eval_count", 0)
+            c_tokens = response.get("eval_count", 0)
+        else:
+            msg = getattr(response, "message", None)
+            content = getattr(msg, "content", "") if msg else ""
+            p_tokens = getattr(response, "prompt_eval_count", 0)
+            c_tokens = getattr(response, "eval_count", 0)
 
         latency_ms = (time.time() - start) * 1000
-        content = data.get("message", {}).get("content", "")
-
         return LLMResponse(
             content=content,
             model=self.model,
             provider="ollama",
-            prompt_tokens=data.get("prompt_eval_count", 0),
-            completion_tokens=data.get("eval_count", 0),
+            prompt_tokens=p_tokens,
+            completion_tokens=c_tokens,
             cost_usd=0.0,
             latency_ms=latency_ms,
         )
 
     async def check_available(self) -> bool:
         try:
-            import httpx
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(f"{self.base_url}/api/tags")
-                return resp.status_code == 200
+            client = _get_ollama_client(self.base_url)
+            await asyncio.wait_for(client.list(), timeout=5.0)
+            return True
         except Exception:
             return False
 
     async def list_models(self) -> List[str]:
         """Return names of all installed Ollama models."""
         try:
-            import httpx
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.get(f"{self.base_url}/api/tags")
-                return [m["name"] for m in resp.json().get("models", [])]
+            client = _get_ollama_client(self.base_url)
+            resp = await client.list()
+            if isinstance(resp, dict):
+                models = resp.get("models", [])
+            else:
+                models = getattr(resp, "models", []) or []
+            result = []
+            for m in models:
+                if isinstance(m, dict):
+                    result.append(m.get("name", ""))
+                else:
+                    result.append(getattr(m, "name", str(m)))
+            return [n for n in result if n]
         except Exception:
             return []
 
@@ -444,15 +466,24 @@ class LLMRegistry:
         ollama_url: str = "http://localhost:11434",
         claude_api_key: Optional[str] = None,
         gemini_api_key: Optional[str] = None,
+        models_dir: Optional[str] = None,
+        llama_gpu_layers: int = -1,
+        llama_threads: int = 8,
     ) -> List[str]:
         """
         Auto-discover all available LLMs.
 
         Returns list of available adapter IDs.
         CYNIC benchmarks these at startup to build routing table.
+
+        Args:
+            models_dir: Optional path to a directory containing .gguf model files.
+                        If set and llama-cpp-python is installed, LlamaCppAdapter
+                        instances are registered for each .gguf found.
+            llama_gpu_layers: Layers to offload to GPU (-1 = all, 0 = CPU only).
+            llama_threads: CPU threads for llama-cpp-python inference.
         """
         available: List[str] = []
-        tasks = []
 
         # Ollama: discover all installed models
         async def _discover_ollama() -> None:
@@ -480,7 +511,31 @@ class LLMRegistry:
                     self.register(adapter, available=True)
                     available.append(adapter.adapter_id)
 
-        await asyncio.gather(_discover_ollama(), _discover_claude(), _discover_gemini())
+        # LlamaCpp: scan models_dir for .gguf files (silent if not installed)
+        async def _discover_llama_cpp() -> None:
+            if models_dir is None:
+                return
+            try:
+                from cynic.llm.llama_cpp import LlamaCppAdapter, list_local_models  # type: ignore
+                paths = list_local_models(models_dir)
+                for path in paths:
+                    adapter = LlamaCppAdapter(
+                        model_path=path,
+                        n_gpu_layers=llama_gpu_layers,
+                        n_threads=llama_threads,
+                    )
+                    if await adapter.check_available():
+                        self.register(adapter, available=True)
+                        available.append(adapter.adapter_id)
+            except ImportError:
+                pass  # llama-cpp-python not installed — skip silently
+
+        await asyncio.gather(
+            _discover_ollama(),
+            _discover_claude(),
+            _discover_gemini(),
+            _discover_llama_cpp(),
+        )
         return available
 
     def get_available(self) -> List[LLMAdapter]:
@@ -492,7 +547,13 @@ class LLMRegistry:
         model = getattr(adapter, "model", None)
         if not isinstance(model, str):
             return True  # Unknown/mock model — assume generation capable
-        return not any(model.startswith(e) for e in EMBEDDING_ONLY_MODELS)
+        name = model.lower()
+        if any(name.startswith(e.lower()) for e in EMBEDDING_ONLY_MODELS):
+            return False
+        # Also exclude llama_cpp embedding models (contain "embed" in name)
+        if getattr(adapter, "provider", None) == "llama_cpp" and "embed" in name:
+            return False
+        return True
 
     def get_available_for_generation(self) -> List[LLMAdapter]:
         """Available adapters that support text generation (not embeddings-only)."""
