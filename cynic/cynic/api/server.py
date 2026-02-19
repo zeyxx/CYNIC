@@ -440,6 +440,41 @@ async def lifespan(app: FastAPI):
         _AUTO_ACT_INTERVAL_S, sorted(_AUTO_ACT_REALITIES),
     )
 
+    # ── consciousness.json — unified metathinking output (Ring 3) ─────────
+    # Written after every JUDGMENT_CREATED (throttled to F(7)=13s).
+    # Aggregates the full organism state: KernelMirror + LLM routing + guidance.
+    # Read by: TUI dashboard, Claude Code hooks, external monitoring tools.
+    _CONSCIOUSNESS_PATH = os.path.join(
+        os.path.expanduser("~"), ".cynic", "consciousness.json"
+    )
+    _consciousness_last_write = [0.0]
+    _CONSCIOUSNESS_MIN_INTERVAL_S = 13.0  # F(7) — throttle disk writes
+
+    async def _write_consciousness(event: Event) -> None:
+        now = time.time()
+        if now - _consciousness_last_write[0] < _CONSCIOUSNESS_MIN_INTERVAL_S:
+            return
+        _consciousness_last_write[0] = now
+        try:
+            snap = state.kernel_mirror.snapshot(state)
+            diff = state.kernel_mirror.diff(snap)
+            payload: dict = {
+                "timestamp": round(now, 3),
+                "uptime_s": round(state.uptime_s, 1),
+                "mirror": snap,
+                "diff": diff,
+            }
+            if state.llm_router is not None:
+                payload["llm_routing"] = state.llm_router.stats()
+            os.makedirs(os.path.dirname(_CONSCIOUSNESS_PATH), exist_ok=True)
+            with open(_CONSCIOUSNESS_PATH, "w", encoding="utf-8") as fh:
+                json.dump(payload, fh)
+        except Exception as _exc:
+            logger.debug("consciousness.json write skipped: %s", _exc)
+
+    get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _write_consciousness)
+    logger.info("consciousness.json writer armed (throttle=%.0fs)", _CONSCIOUSNESS_MIN_INTERVAL_S)
+
     llm_count = len(registry.get_available())
     logger.info(
         "*tail wag* CYNIC kernel alive — %d dogs, %d LLMs, learning active, scheduler running, runner ready",
@@ -1412,6 +1447,130 @@ async def lod() -> dict:
     return state.lod_controller.status()
 
 
+@app.get("/account/stats")
+async def account_stats() -> dict:
+    """
+    AccountAgent step-6 ledger — cost tracking + budget enforcement.
+
+    Returns per-reality and per-dog cost breakdown, budget remaining,
+    and BUDGET_WARNING / BUDGET_EXHAUSTED event emission status.
+
+    Step 6 of the 7-step cycle: PERCEIVE → JUDGE → DECIDE → ACT → LEARN → ACCOUNT → EMERGE
+    """
+    state = get_state()
+    if state.account_agent is None:
+        return {"error": "AccountAgent not initialized", "total_cost_usd": 0.0}
+    return state.account_agent.stats()
+
+
+@app.get("/decide/stats")
+async def decide_stats() -> dict:
+    """
+    DecideAgent Ring-2 stats — MCTS decision counts.
+
+    Shows decisions_made (BARK/GROWL auto-decided via NestedMCTS) and
+    skipped (WAG/HOWL or low-confidence judgments not escalated).
+    """
+    state = get_state()
+    if state.decide_agent is None:
+        return {"decisions_made": 0, "skipped": 0}
+    return state.decide_agent.stats()
+
+
+@app.get("/sage/stats")
+async def sage_stats() -> dict:
+    """
+    SAGE Dog temporal MCTS activation stats.
+
+    Shows heuristic vs LLM (temporal) judgment counts.
+    llm_activation_rate > 0 → Temporal MCTS is firing (Ollama available).
+    llm_activation_rate == 0 → Heuristic-only mode (Ollama unavailable).
+    """
+    from cynic.dogs.base import DogId
+    state = get_state()
+    orch = state.orchestrator
+    sage = orch.dogs.get(DogId.SAGE) if orch and hasattr(orch, "dogs") else None
+    if sage is None:
+        return {"available": False, "heuristic_count": 0, "llm_count": 0}
+    heuristic = getattr(sage, "_heuristic_count", 0)
+    llm = getattr(sage, "_llm_count", 0)
+    total = heuristic + llm
+    return {
+        "available": True,
+        "heuristic_count": heuristic,
+        "llm_count": llm,
+        "total_judgments": total,
+        "llm_activation_rate": round(llm / total, 3) if total > 0 else 0.0,
+        "temporal_mcts_active": llm > 0,
+    }
+
+
+@app.get("/mirror")
+async def mirror() -> dict:
+    """
+    KernelMirror — Ring 3 unified self-reflection snapshot.
+
+    Aggregates all subsystem stats into a single response:
+      - qtable: 7×7×7 matrix coverage + learning stats
+      - axioms: A6-A11 tier + maturity scores
+      - lod: current LOD + health dimensions
+      - account: budget ledger + cost by reality/dog
+      - escore: per-dog reputation (7 dimensions)
+      - residual: spike/stable/rising signal counts
+      - sage: temporal MCTS vs heuristic ratio
+      - dogs: judgment counts + latency profiles
+      - overall_health: geometric mean [0, 100]
+      - tier: BARK/GROWL/WAG/HOWL
+
+    Use for dashboards, health checks, and CONSCIOUSNESS signal evaluation.
+    """
+    state = get_state()
+    snap = state.kernel_mirror.snapshot(state)
+    snap["diff"] = state.kernel_mirror.diff(snap)
+    return snap
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /consciousness  (unified metathinking output)
+# ════════════════════════════════════════════════════════════════════════════
+
+_CONSCIOUSNESS_FILE = os.path.join(os.path.expanduser("~"), ".cynic", "consciousness.json")
+
+
+@app.get("/consciousness")
+async def consciousness() -> Dict[str, Any]:
+    """
+    Unified metathinking output — the organism's complete cognitive state.
+
+    Returns the contents of ~/.cynic/consciousness.json if available,
+    otherwise falls back to a live mirror snapshot.
+
+    Updated by the kernel after every JUDGMENT_CREATED (throttled to F(7)=13s).
+    """
+    # Try reading pre-written file first (avoids re-computing snapshot)
+    try:
+        import pathlib
+        p = pathlib.Path(_CONSCIOUSNESS_FILE)
+        if p.exists() and (time.time() - p.stat().st_mtime) < 60.0:
+            with p.open("r", encoding="utf-8") as fh:
+                return json.load(fh)
+    except Exception:
+        pass
+
+    # Fallback: live snapshot
+    state = get_state()
+    snap = state.kernel_mirror.snapshot(state)
+    payload: Dict[str, Any] = {
+        "timestamp": round(time.time(), 3),
+        "uptime_s": round(state.uptime_s, 1),
+        "mirror": snap,
+        "diff": state.kernel_mirror.diff(snap),
+    }
+    if state.llm_router is not None:
+        payload["llm_routing"] = state.llm_router.stats()
+    return payload
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # WS /ws/stream  (real-time event stream)
 # ════════════════════════════════════════════════════════════════════════════
@@ -1844,6 +2003,21 @@ async def ws_sdk(websocket: WebSocket) -> None:
                         source="ws_sdk",
                     ))
 
+                    # ── Ring 4 LLM routing suggestion ─────────────────────────
+                    # After recording the result, ask the router whether the NEXT
+                    # task of this type should use Haiku instead of Sonnet.
+                    # route_to_local=True only once Q-Table is warm enough (PHI_INV
+                    # confidence + 3 visits). Cold-start: always stays on Sonnet.
+                    if state.llm_router is not None:
+                        routing = state.llm_router.route(
+                            rich_state_key, state.qtable, task_type, complexity
+                        )
+                        if routing.route_to_local:
+                            logger.info(
+                                "LLM_ROUTER: %s → %s (%s)",
+                                rich_state_key, routing.recommended_model, routing.reason,
+                            )
+
                     logger.info(
                         "*%s* SDK result: %s task=%s complexity=%s verdict=%s Q=%.1f cost=$%.4f",
                         "tail wag" if not is_error else "GROWL",
@@ -1881,6 +2055,20 @@ async def sdk_sessions() -> Dict[str, Any]:
         "active": len(_sdk_sessions),
         "sessions": [s.to_dict() for s in _sdk_sessions.values()],
     }
+
+
+@app.get("/sdk/routing")
+async def sdk_routing() -> Dict[str, Any]:
+    """
+    LLM routing stats — Ring 4 Q-Table driven model selection.
+
+    Shows how often CYNIC routes SDK tasks from Sonnet → Haiku based on
+    accumulated Q-Table confidence. local_rate rises as Q-Table warms up.
+    """
+    state = get_state()
+    if state.llm_router is None:
+        return {"available": False}
+    return {"available": True, **state.llm_router.stats()}
 
 
 @app.get("/sdk/last-session")

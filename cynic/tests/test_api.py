@@ -795,3 +795,100 @@ class TestLODEndpoint:
         data = (await client.get("/introspect")).json()
         assert "lod" in data
         assert "current_lod" in data["lod"]
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /mirror  (KernelMirror — Ring 3 unified self-reflection)
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestMirrorEndpoint:
+    async def test_mirror_returns_200(self, client):
+        resp = await client.get("/mirror")
+        assert resp.status_code == 200
+
+    async def test_mirror_has_required_keys(self, client):
+        data = (await client.get("/mirror")).json()
+        for key in ("snapshot_id", "timestamp", "overall_health", "tier",
+                    "qtable", "axioms", "lod", "sage", "dogs"):
+            assert key in data, f"Missing mirror key: {key}"
+
+    async def test_mirror_health_is_float_in_range(self, client):
+        data = (await client.get("/mirror")).json()
+        h = data["overall_health"]
+        assert isinstance(h, float)
+        assert 0.0 <= h <= 100.0
+
+    async def test_mirror_tier_is_valid(self, client):
+        data = (await client.get("/mirror")).json()
+        assert data["tier"] in ("HOWL", "WAG", "GROWL", "BARK")
+
+    async def test_mirror_includes_diff(self, client):
+        """Two calls to /mirror → second includes diff."""
+        await client.get("/mirror")  # first snapshot (no diff yet)
+        data = (await client.get("/mirror")).json()
+        assert "diff" in data
+        assert isinstance(data["diff"], dict)
+
+    async def test_mirror_snapshot_id_increments(self, client, kernel_state):
+        """Persistent kernel_mirror → snapshot_id increments."""
+        r1 = (await client.get("/mirror")).json()
+        r2 = (await client.get("/mirror")).json()
+        assert r2["snapshot_id"] == r1["snapshot_id"] + 1
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /consciousness  (unified metathinking output)
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestConsciousnessEndpoint:
+    async def test_consciousness_returns_200(self, client):
+        resp = await client.get("/consciousness")
+        assert resp.status_code == 200
+
+    async def test_consciousness_has_mirror_key(self, client):
+        data = (await client.get("/consciousness")).json()
+        assert "mirror" in data
+
+    async def test_consciousness_has_timestamp(self, client):
+        data = (await client.get("/consciousness")).json()
+        assert "timestamp" in data
+        assert data["timestamp"] > 0
+
+    async def test_consciousness_has_llm_routing(self, client):
+        """llm_routing section present when router is wired."""
+        data = (await client.get("/consciousness")).json()
+        assert "llm_routing" in data
+
+    async def test_consciousness_mirror_has_overall_health(self, client):
+        data = (await client.get("/consciousness")).json()
+        assert "overall_health" in data["mirror"]
+        assert 0.0 <= data["mirror"]["overall_health"] <= 100.0
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /sdk/routing  (Ring 4 LLM router stats)
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestSdkRoutingEndpoint:
+    async def test_sdk_routing_returns_200(self, client):
+        resp = await client.get("/sdk/routing")
+        assert resp.status_code == 200
+
+    async def test_sdk_routing_available_true(self, client):
+        data = (await client.get("/sdk/routing")).json()
+        assert data["available"] is True
+
+    async def test_sdk_routing_has_phi_threshold(self, client):
+        data = (await client.get("/sdk/routing")).json()
+        assert "phi_threshold" in data
+        assert abs(data["phi_threshold"] - 0.618) < 0.01
+
+    async def test_sdk_routing_initial_rate_zero(self, client):
+        data = (await client.get("/sdk/routing")).json()
+        assert data["total_routes"] == 0
+        assert data["routes_to_local"] == 0
+
+    async def test_sdk_routing_has_task_types(self, client):
+        data = (await client.get("/sdk/routing")).json()
+        assert "simple_task_types" in data
+        assert "debug" in data["simple_task_types"]

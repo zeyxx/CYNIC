@@ -48,6 +48,7 @@ from cynic.perceive.checkpoint import CHECKPOINT_EVERY
 from cynic.scheduler import DogScheduler
 from cynic.act.telemetry import TelemetryStore
 from cynic.act.llm_router import LLMRouter
+from cynic.judge.mirror import KernelMirror
 from cynic.perceive.compressor import ContextCompressor
 
 logger = logging.getLogger("cynic.api.state")
@@ -105,6 +106,7 @@ class AppState:
     account_agent: Optional[object] = None  # AccountAgent — step 6 cost ledger
     runner: Optional[object] = None        # ClaudeCodeRunner — spawns claude autonomously
     llm_router: Optional[object] = None    # LLMRouter — Ring 4 Q-Table driven model routing
+    kernel_mirror: KernelMirror = field(default_factory=KernelMirror)  # Ring 3 self-reflection
     telemetry_store: TelemetryStore = field(default_factory=TelemetryStore)  # session data
     context_compressor: ContextCompressor = field(default_factory=ContextCompressor)  # γ2 token budget
     axiom_monitor: AxiomMonitor = field(default_factory=AxiomMonitor)       # δ1 emergent axiom tracker
@@ -1605,9 +1607,18 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         _health_cache["disk_pct"] = event.payload.get("disk_pct", used_pct)
         await _assess_lod()
 
+        # HOLD: disk pressure = organism's long-term storage stability degraded.
+        # Formula: (1 - used_pct) × MAX_Q_SCORE — inversely proportional to pressure.
+        #   used_pct=1.0 → HOLD=0.0   (disk full = zero perceptual stability)
+        #   used_pct=0.618 → HOLD≈38.2 (φ-threshold = GROWL_MIN)
+        #   used_pct=0.0 → HOLD=100.0  (no pressure = fully stable)
+        from cynic.core.phi import MAX_Q_SCORE
+        hold_score = (1.0 - min(used_pct, 1.0)) * MAX_Q_SCORE
+        escore_tracker.update("agent:cynic", "HOLD", hold_score)
+
         logger.warning(
-            "DISK_PRESSURE: %s (%.1f%% used) → running StorageGC",
-            pressure, used_pct * 100,
+            "DISK_PRESSURE: %s (%.1f%% used) → HOLD EScore=%.1f, running StorageGC",
+            pressure, used_pct * 100, hold_score,
         )
         result = await storage_gc.collect(db_pool)
         if result.get("total", 0) > 0:
@@ -1618,9 +1629,16 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         used_pct = event.payload.get("used_pct", 0.0)
         _health_cache["memory_pct"] = event.payload.get("memory_pct", used_pct)
         await _assess_lod()
+
+        # HOLD: RAM pressure = organism's working memory stability degraded.
+        # Same formula as DISK_PRESSURE — both are physical pressure on the organism body.
+        from cynic.core.phi import MAX_Q_SCORE
+        hold_score = (1.0 - min(used_pct, 1.0)) * MAX_Q_SCORE
+        escore_tracker.update("agent:cynic", "HOLD", hold_score)
+
         logger.warning(
-            "MEMORY_PRESSURE: %s (%.1f%% RAM used)",
-            pressure, used_pct * 100,
+            "MEMORY_PRESSURE: %s (%.1f%% RAM used) → HOLD EScore=%.1f",
+            pressure, used_pct * 100, hold_score,
         )
 
     get_core_bus().on(CoreEvent.DISK_PRESSURE, _on_disk_pressure)
@@ -1649,6 +1667,7 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
         action_proposer=action_proposer,
         self_prober=self_prober,
         llm_router=llm_router,
+        kernel_mirror=KernelMirror(),
     )
 
 

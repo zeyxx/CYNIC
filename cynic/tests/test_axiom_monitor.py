@@ -2370,3 +2370,69 @@ class TestUserFeedbackSocialLoop:
         assert judge_score == pytest.approx(50.0, abs=0.5)  # neutral = 50.0
         # SOCIAL = WAG_MIN regardless
         assert WAG_MIN == pytest.approx(61.8, abs=0.1)
+
+
+# ── DISK_PRESSURE + MEMORY_PRESSURE → HOLD EScore ───────────────────────────
+
+class TestPressureHoldLoop:
+    """
+    DISK_PRESSURE and MEMORY_PRESSURE both had zero EScore updates.
+    Physical resource pressure = organism's long-term stability degraded.
+
+    Formula: HOLD = (1 - used_pct) × MAX_Q_SCORE
+      used_pct=1.0  → HOLD = 0.0   (fully destabilized)
+      used_pct=0.618 → HOLD ≈ 38.2  (φ-threshold = GROWL_MIN)
+      used_pct=0.0  → HOLD = 100.0  (no pressure = stable)
+
+    Both handlers use the same formula — disk and RAM are symmetric pressures.
+    """
+
+    def _hold_from_used(self, used_pct: float) -> float:
+        from cynic.core.phi import MAX_Q_SCORE
+        return (1.0 - min(used_pct, 1.0)) * MAX_Q_SCORE
+
+    def test_disk_full_hold_near_zero(self):
+        """used_pct=1.0 → HOLD ≈ 0.0 (disk completely full = fully destabilized)."""
+        from cynic.core.escore import EScoreTracker
+
+        tracker = EScoreTracker()
+        hold = self._hold_from_used(1.0)
+        tracker.update("agent:cynic", "HOLD", hold)
+        detail = tracker.get_detail("agent:cynic")
+        assert detail["dimensions"]["HOLD"]["value"] == pytest.approx(0.0, abs=0.5)
+
+    def test_disk_phi_threshold_hold_growl_min(self):
+        """used_pct=0.618 → HOLD ≈ GROWL_MIN (38.2) — φ-threshold pressure."""
+        from cynic.core.phi import GROWL_MIN
+
+        hold = self._hold_from_used(0.618)
+        assert hold == pytest.approx(GROWL_MIN, abs=1.0)
+
+    def test_no_pressure_hold_max(self):
+        """used_pct=0.0 → HOLD = MAX_Q_SCORE (100.0) — no pressure, fully stable."""
+        from cynic.core.phi import MAX_Q_SCORE
+
+        hold = self._hold_from_used(0.0)
+        assert hold == pytest.approx(MAX_Q_SCORE, abs=0.1)
+
+    def test_memory_same_formula_as_disk(self):
+        """MEMORY_PRESSURE uses the same (1 - used_pct) × MAX formula as DISK."""
+        disk_hold   = self._hold_from_used(0.75)
+        memory_hold = self._hold_from_used(0.75)
+        assert disk_hold == pytest.approx(memory_hold, abs=0.01)
+
+    def test_hold_monotonically_decreases_with_pressure(self):
+        """Higher used_pct → lower HOLD (monotonically decreasing)."""
+        pressures = [0.0, 0.3, 0.618, 0.9, 1.0]
+        holds = [self._hold_from_used(p) for p in pressures]
+        for i in range(len(holds) - 1):
+            assert holds[i] >= holds[i + 1]
+
+    def test_handler_tolerates_zero_used_pct(self):
+        """Missing used_pct defaults to 0.0 → HOLD = MAX_Q_SCORE, no raise."""
+        from cynic.core.phi import MAX_Q_SCORE
+
+        p = {}
+        used_pct = p.get("used_pct", 0.0)
+        hold = self._hold_from_used(used_pct)
+        assert hold == pytest.approx(MAX_Q_SCORE, abs=0.1)
