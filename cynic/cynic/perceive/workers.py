@@ -676,6 +676,15 @@ class DiskWatcher(PerceiveWorker):
         if pressure == "OK":
             if self._last_level is not None:
                 logger.info("DiskWatcher: disk pressure cleared (was %s)", self._last_level)
+                # Emit DISK_CLEARED so _health_cache["disk_pct"] resets → LOD recovers
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.DISK_CLEARED,
+                    payload={
+                        "disk_pct": round(info["used_pct"], 4),
+                        "free_gb":  round(info["free_gb"], 2),
+                    },
+                    source="disk_watcher",
+                ))
             self._last_level = None
             return None
 
@@ -829,6 +838,15 @@ class MemoryWatcher(PerceiveWorker):
         if pressure == "OK":
             if self._last_level is not None:
                 logger.info("MemoryWatcher: RAM pressure cleared (was %s)", self._last_level)
+                # Emit MEMORY_CLEARED so _health_cache["memory_pct"] resets → LOD recovers
+                await get_core_bus().emit(Event(
+                    type=CoreEvent.MEMORY_CLEARED,
+                    payload={
+                        "memory_pct": round(info["used_pct"], 4),
+                        "free_gb":    round(info["free_gb"], 2),
+                    },
+                    source="memory_watcher",
+                ))
             self._last_level = None
             return None
 

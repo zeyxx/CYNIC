@@ -1718,6 +1718,99 @@ async def ws_stream(websocket: WebSocket) -> None:
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# WS /ws/events  (read-only all-events stream with client-side filter)
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.websocket("/ws/events")
+async def ws_events(websocket: WebSocket) -> None:
+    """
+    Read-only WebSocket — streams ALL CoreEvents with client-side filtering.
+
+    Protocol:
+      connect  → {"type": "connected", "ts": ..., "phi": 1.618, "all_events": [...]}
+      subscribe → client sends {"type": "subscribe", "events": ["JUDGMENT_CREATED", ...]}
+                 → server only sends matching events (default: all)
+      event    → {"type": <event_name>, "payload": {...}, "source": str, "ts": float}
+      ping     → client sends {"type": "ping"} → server responds {"type": "pong", "ts": ...}
+
+    Client disconnect → clean unsubscribe from all events.
+    Queue overflow (>100 buffered events) → events dropped silently.
+    """
+    await websocket.accept()
+    bus = get_core_bus()
+    queue: asyncio.Queue = asyncio.Queue(maxsize=100)
+
+    # All CoreEvent names → used for connected banner + subscribe validation
+    all_event_names: list = [e.name for e in CoreEvent]
+
+    # Active filter — None = all events pass; set = only matching names pass
+    _active_filter: list = []  # mutable cell (empty = all events)
+    _filter_lock = asyncio.Lock()
+
+    async def on_any_event(event: Event) -> None:
+        name = event.event_type.name if hasattr(event.event_type, "name") else str(event.event_type)
+        async with _filter_lock:
+            passes = (not _active_filter) or (name in _active_filter)
+        if not passes:
+            return
+        try:
+            queue.put_nowait({
+                "type":    name,
+                "payload": event.payload,
+                "source":  getattr(event, "source", ""),
+                "ts":      time.time(),
+            })
+        except asyncio.QueueFull:
+            pass  # Drop silently — client is slow, kernel must not block
+
+    # Subscribe to ALL CoreEvents
+    for ev_type in CoreEvent:
+        bus.on(ev_type, on_any_event)
+
+    async def _emit_loop() -> None:
+        """Send queued events to the WebSocket client."""
+        while True:
+            try:
+                msg = await asyncio.wait_for(queue.get(), timeout=30.0)
+                await websocket.send_json(msg)
+            except asyncio.TimeoutError:
+                await websocket.send_json({"type": "ping", "ts": time.time()})
+
+    async def _receive_loop() -> None:
+        """Receive client messages: subscribe filter or ping."""
+        nonlocal _active_filter
+        while True:
+            data = await websocket.receive_json()
+            msg_type = data.get("type", "")
+            if msg_type == "ping":
+                await websocket.send_json({"type": "pong", "ts": time.time()})
+            elif msg_type == "subscribe":
+                requested = [e for e in (data.get("events") or []) if e in all_event_names]
+                async with _filter_lock:
+                    _active_filter = requested
+                await websocket.send_json({
+                    "type":       "subscribed",
+                    "events":     requested or all_event_names,
+                    "filter_all": not requested,
+                    "ts":         time.time(),
+                })
+
+    try:
+        await websocket.send_json({
+            "type":       "connected",
+            "ts":         time.time(),
+            "phi":        PHI,
+            "all_events": all_event_names,
+        })
+        await asyncio.gather(_emit_loop(), _receive_loop())
+    except WebSocketDisconnect:
+        pass
+    finally:
+        for ev_type in CoreEvent:
+            bus.off(ev_type, on_any_event)
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # WS /ws/sdk  (Claude Code --sdk-url server — CYNIC is the BRAIN)
 # ════════════════════════════════════════════════════════════════════════════
 

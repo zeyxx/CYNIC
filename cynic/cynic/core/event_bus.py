@@ -105,7 +105,9 @@ class CoreEvent(str, Enum):
 
     # Storage / Disk / Memory
     DISK_PRESSURE   = "storage.disk_pressure"    # disk usage > φ threshold
+    DISK_CLEARED    = "storage.disk_cleared"     # disk pressure resolved (back to OK)
     MEMORY_PRESSURE = "system.memory_pressure"   # RAM usage > φ threshold
+    MEMORY_CLEARED  = "system.memory_cleared"    # RAM pressure resolved (back to OK)
 
     # Identity
     IDENTITY_VIOLATION = "identity.violation"

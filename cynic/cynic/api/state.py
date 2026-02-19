@@ -1656,8 +1656,35 @@ def build_kernel(db_pool=None, registry=None) -> AppState:
             pressure, used_pct * 100, hold_score,
         )
 
+    # ── DISK_CLEARED / MEMORY_CLEARED → LOD recovery ──────────────────────
+    # Emitted by DiskWatcher/MemoryWatcher when pressure returns to "OK".
+    # Without these handlers, _health_cache["disk_pct"] / ["memory_pct"] stay
+    # at their last elevated values and LOD never recovers to FULL.
+    # Fix: reset the cache field to the actual (now-low) value → LOD reassesses.
+    async def _on_disk_cleared(event: Event) -> None:
+        try:
+            actual_pct = event.payload.get("disk_pct", 0.0)
+            _health_cache["disk_pct"] = actual_pct
+            await _assess_lod()
+            logger.info("DISK_CLEARED: disk_pct=%.2f%% → LOD=%s",
+                        actual_pct * 100, lod_controller.current.name)
+        except Exception:
+            pass
+
+    async def _on_memory_cleared(event: Event) -> None:
+        try:
+            actual_pct = event.payload.get("memory_pct", 0.0)
+            _health_cache["memory_pct"] = actual_pct
+            await _assess_lod()
+            logger.info("MEMORY_CLEARED: memory_pct=%.2f%% → LOD=%s",
+                        actual_pct * 100, lod_controller.current.name)
+        except Exception:
+            pass
+
     get_core_bus().on(CoreEvent.DISK_PRESSURE, _on_disk_pressure)
+    get_core_bus().on(CoreEvent.DISK_CLEARED, _on_disk_cleared)
     get_core_bus().on(CoreEvent.MEMORY_PRESSURE, _on_memory_pressure)
+    get_core_bus().on(CoreEvent.MEMORY_CLEARED, _on_memory_cleared)
 
     logger.info(
         "Kernel ready: %d dogs, scheduler wired, learning loop + residual detector active, pool=%s, llm=%s",
