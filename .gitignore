@@ -1,3 +1,22 @@
+# Python bytecode (NEVER commit)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+.eggs/
+
+# Python virtual environments
+.venv*/
+venv*/
+
+# Test output artifacts (ephemeral)
+test_*_out.txt
+test_out.txt
+test_output.txt
+test_err.txt
+
 # Dependencies
 node_modules/
 
