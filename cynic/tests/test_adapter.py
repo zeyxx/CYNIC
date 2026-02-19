@@ -509,3 +509,113 @@ class TestRoutingConvergence:
         # Routing should switch
         best_after = reg.get_best_for(DogId.SAGE, "temporal_mcts")
         assert best_after.adapter_id == "ollama:backup"
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# T05: LLM Benchmark persistence via BenchmarkRepo (SurrealDB)
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestBenchmarkSurrealPersistence:
+    """T05 — LLMRegistry persists benchmarks to SurrealDB via BenchmarkRepo."""
+
+    def test_set_surreal_stores_reference(self):
+        """set_surreal() stores the SurrealDB reference."""
+        from cynic.llm.adapter import LLMRegistry
+        reg = LLMRegistry()
+        mock_surreal = MagicMock()
+        reg.set_surreal(mock_surreal)
+        assert reg._surreal is mock_surreal
+
+    @pytest.mark.asyncio
+    async def test_save_benchmark_to_surreal_calls_benchmarks_save(self):
+        """_save_benchmark_to_surreal() calls surreal.benchmarks.save()."""
+        from cynic.llm.adapter import LLMRegistry, BenchmarkResult
+        from unittest.mock import AsyncMock
+        reg = LLMRegistry()
+        mock_surreal = MagicMock()
+        mock_surreal.benchmarks.save = AsyncMock()
+        reg.set_surreal(mock_surreal)
+
+        result = BenchmarkResult(
+            llm_id="ollama:gemma2", dog_id=DogId.SAGE,
+            task_type="temporal_mcts",
+            quality_score=50.0, speed_score=0.8, cost_score=1.0,
+        )
+        await reg._save_benchmark_to_surreal(result)
+        mock_surreal.benchmarks.save.assert_called_once()
+        saved = mock_surreal.benchmarks.save.call_args[0][0]
+        assert saved["llm_id"] == "ollama:gemma2"
+        assert saved["dog_id"] == DogId.SAGE
+
+    @pytest.mark.asyncio
+    async def test_save_benchmark_to_surreal_tolerates_exception(self):
+        """SurrealDB failure in _save_benchmark_to_surreal → no crash."""
+        from cynic.llm.adapter import LLMRegistry, BenchmarkResult
+        from unittest.mock import AsyncMock
+        reg = LLMRegistry()
+        mock_surreal = MagicMock()
+        mock_surreal.benchmarks.save = AsyncMock(side_effect=Exception("surreal down"))
+        reg.set_surreal(mock_surreal)
+
+        result = BenchmarkResult(
+            llm_id="x", dog_id=DogId.SAGE,
+            task_type="temporal_mcts",
+            quality_score=40.0, speed_score=0.8, cost_score=1.0,
+        )
+        await reg._save_benchmark_to_surreal(result)  # Must not raise
+
+    @pytest.mark.asyncio
+    async def test_load_benchmarks_from_surreal_populates_dict(self):
+        """load_benchmarks_from_surreal() fills _benchmarks from SurrealDB rows."""
+        from cynic.llm.adapter import LLMRegistry
+        from unittest.mock import AsyncMock
+        reg = LLMRegistry()
+
+        mock_surreal = MagicMock()
+        mock_surreal.benchmarks.get_all = AsyncMock(return_value=[
+            {"llm_id": "ollama:gemma2", "dog_id": DogId.SAGE, "task_type": "temporal_mcts",
+             "quality_score": 0.8, "speed_score": 0.9, "cost_score": 1.0},
+        ])
+
+        loaded = await reg.load_benchmarks_from_surreal(mock_surreal)
+        assert loaded == 1
+        assert (DogId.SAGE, "temporal_mcts", "ollama:gemma2") in reg._benchmarks
+
+    @pytest.mark.asyncio
+    async def test_load_benchmarks_from_surreal_skips_existing(self):
+        """load_benchmarks_from_surreal() skips keys already in _benchmarks (most-recent wins)."""
+        from cynic.llm.adapter import LLMRegistry, BenchmarkResult
+        from unittest.mock import AsyncMock
+        reg = LLMRegistry()
+
+        # Pre-populate
+        reg.update_benchmark(DogId.SAGE, "temporal_mcts", "ollama:x",
+            BenchmarkResult(llm_id="ollama:x", dog_id=DogId.SAGE,
+                           task_type="temporal_mcts",
+                           quality_score=55.0, speed_score=0.8, cost_score=1.0))
+
+        mock_surreal = MagicMock()
+        mock_surreal.benchmarks.get_all = AsyncMock(return_value=[
+            {"llm_id": "ollama:x", "dog_id": DogId.SAGE, "task_type": "temporal_mcts",
+             "quality_score": 0.1, "speed_score": 0.1, "cost_score": 1.0},
+        ])
+
+        loaded = await reg.load_benchmarks_from_surreal(mock_surreal)
+        assert loaded == 0  # Skipped — key already exists
+        # Original value preserved
+        key = (DogId.SAGE, "temporal_mcts", "ollama:x")
+        assert reg._benchmarks[key].quality_score > 30.0  # Not overwritten
+
+    @pytest.mark.asyncio
+    async def test_load_benchmarks_from_surreal_handles_exception(self):
+        """SurrealDB failure → returns 0, no crash."""
+        from cynic.llm.adapter import LLMRegistry
+        from unittest.mock import AsyncMock
+        reg = LLMRegistry()
+
+        mock_surreal = MagicMock()
+        mock_surreal.benchmarks.get_all = AsyncMock(side_effect=Exception("surreal down"))
+
+        loaded = await reg.load_benchmarks_from_surreal(mock_surreal)
+        assert loaded == 0
+        assert len(reg._benchmarks) == 0

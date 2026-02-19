@@ -325,6 +325,10 @@ async def lifespan(app: FastAPI):
                 scholar_rows = await surreal.scholar.recent_entries(limit=89)
                 s_loaded = scholar_dog.load_from_entries(scholar_rows)
                 logger.info("Scholar warm-start (SurrealDB): %d entries", s_loaded)
+
+            bench_loaded = await registry.load_benchmarks_from_surreal(surreal)
+            logger.info("LLM Benchmark warm-start (SurrealDB): %d entries", bench_loaded)
+            registry.set_surreal(surreal)
         except Exception as exc:
             logger.warning("SurrealDB warm-start failed (%s) — starting cold", exc)
 
@@ -1646,6 +1650,47 @@ async def sage_stats() -> dict:
         "llm_activation_rate": round(llm / total, 3) if total > 0 else 0.0,
         "temporal_mcts_active": llm > 0,
     }
+
+
+@app.get("/residual/stats")
+async def residual_stats() -> dict:
+    """
+    ResidualDetector stats — residual variance history + pattern detection (T04).
+
+    observations > 0  → warm-start succeeded (SurrealDB loaded history on boot)
+    anomaly_rate > 0  → some judgments had high residual variance (≥38.2%)
+    patterns_detected → EMERGENCE patterns found (SPIKE / RISING / STABLE_HIGH)
+    """
+    state = get_state()
+    return state.residual_detector.stats()
+
+
+@app.get("/llm/benchmarks")
+async def llm_benchmarks() -> dict:
+    """
+    LLM Benchmark routing matrix — per-(dog, task_type, llm_id) perf history (T05).
+
+    Persisted to SurrealDB after each update_benchmark() call.
+    Warmed from SurrealDB on boot so routing survives restarts.
+    Used by LLMRouter to select the best LLM for each Dog × Task combination.
+    """
+    from cynic.llm.adapter import get_registry as _get_registry
+    reg = _get_registry()
+    matrix = [
+        {
+            "dog_id":          dog_id,
+            "task_type":       task_type,
+            "llm_id":          llm_id,
+            "quality_score":   round(r.quality_score, 2),
+            "speed_score":     round(r.speed_score, 3),
+            "cost_score":      round(r.cost_score, 3),
+            "composite_score": round(r.composite_score, 3),
+            "error_rate":      round(r.error_rate, 3),
+            "sample_count":    r.sample_count,
+        }
+        for (dog_id, task_type, llm_id), r in reg._benchmarks.items()
+    ]
+    return {"count": len(matrix), "matrix": matrix}
 
 
 @app.get("/mirror")

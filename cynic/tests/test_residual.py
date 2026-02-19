@@ -496,3 +496,59 @@ class TestResidualPersistence:
         det = ResidualDetector()
         det.set_db_pool(pool)
         assert det._db_pool is pool
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# T04: /residual/stats endpoint + SurrealDB warm-start via load_from_entries
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestResidualStatsEndpoint:
+    """T04 — GET /residual/stats exposes detector state after warm-start."""
+
+    def test_stats_returns_observations_key(self):
+        """stats() dict always contains 'observations' key."""
+        det = ResidualDetector()
+        s = det.stats()
+        assert "observations" in s
+
+    def test_stats_observations_zero_on_fresh_detector(self):
+        """Fresh detector: observations=0."""
+        det = ResidualDetector()
+        s = det.stats()
+        assert s["observations"] == 0
+
+    def test_load_from_entries_increments_observations(self):
+        """After load_from_entries, observations > 0."""
+        det = ResidualDetector()
+        entries = [_make_row(f"j{i}", residual=0.2) for i in range(3)]
+        loaded = det.load_from_entries(entries)
+        assert loaded == 3
+        assert det.stats()["observations"] == 3
+
+    def test_load_from_entries_anomaly_counted(self):
+        """Entries with residual >= ANOMALY_THRESHOLD increment anomaly count."""
+        det = ResidualDetector()
+        entries = [
+            _make_row("j1", residual=0.5),   # >= 0.382 → anomaly
+            _make_row("j2", residual=0.1),   # below threshold
+            _make_row("j3", residual=0.9),   # anomaly
+        ]
+        det.load_from_entries(entries)
+        s = det.stats()
+        assert s["anomalies"] == 2
+        assert s["anomaly_rate"] == pytest.approx(2 / 3, abs=0.01)
+
+    def test_stats_after_observe_increments_observations(self):
+        """observe() on a Judgment increments observations in stats."""
+        det = ResidualDetector()
+        j = make_judgment(residual=0.1)
+        det.observe(j)
+        assert det.stats()["observations"] == 1
+
+    def test_stats_history_len_capped_at_maxlen(self):
+        """Loading more entries than HISTORY_MAXLEN caps history_len at 21."""
+        from cynic.judge.residual import HISTORY_MAXLEN
+        det = ResidualDetector()
+        entries = [_make_row(f"j{i}", residual=0.1) for i in range(HISTORY_MAXLEN + 5)]
+        det.load_from_entries(entries)
+        assert det.stats()["history_len"] == HISTORY_MAXLEN

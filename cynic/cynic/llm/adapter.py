@@ -501,10 +501,15 @@ class LLMRegistry:
         self._available: Dict[str, bool] = {}
         self._benchmarks: Dict[Tuple[str, str, str], BenchmarkResult] = {}
         self._db_pool: Optional[Any] = None
+        self._surreal: Optional[Any] = None
 
     def set_db_pool(self, pool: Any) -> None:
         """Wire a DB pool so benchmark updates are persisted automatically."""
         self._db_pool = pool
+
+    def set_surreal(self, surreal: Any) -> None:
+        """Wire SurrealDB so benchmark updates are persisted automatically (T05)."""
+        self._surreal = surreal
 
     def register(self, adapter: LLMAdapter, available: bool = True) -> None:
         self._adapters[adapter.adapter_id] = adapter
@@ -672,6 +677,13 @@ class LLMRegistry:
             except RuntimeError:
                 pass  # No running loop — skip (sync test context)
 
+        if self._surreal is not None:
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self._save_benchmark_to_surreal(updated))
+            except RuntimeError:
+                pass  # No running loop — skip (sync test context)
+
     async def _save_benchmark_to_db(self, result: BenchmarkResult) -> None:
         """Fire-and-forget: persist benchmark to llm_benchmarks table."""
         import uuid
@@ -732,6 +744,53 @@ class LLMRegistry:
                 cost_score=float(row["cost_score"]),
             )
             loaded += 1
+        return loaded
+
+    async def _save_benchmark_to_surreal(self, result: BenchmarkResult) -> None:
+        """Fire-and-forget: persist benchmark to SurrealDB llm_benchmark table (T05)."""
+        try:
+            await self._surreal.benchmarks.save({
+                "llm_id":          result.llm_id,
+                "dog_id":          result.dog_id,
+                "task_type":       result.task_type,
+                "quality_score":   min(result.quality_score / MAX_Q_SCORE, 1.0),
+                "speed_score":     result.speed_score,
+                "cost_score":      result.cost_score,
+                "composite_score": result.composite_score,
+                "sample_count":    result.sample_count,
+                "error_rate":      result.error_rate,
+            })
+        except Exception as exc:
+            logger.warning("SurrealDB benchmark persist failed: %s", exc)
+
+    async def load_benchmarks_from_surreal(self, surreal: Any) -> int:
+        """
+        Warm-start _benchmarks from SurrealDB on boot (T05).
+
+        Mirrors load_benchmarks_from_db() but uses SurrealDB BenchmarkRepo.
+        Returns count of entries loaded.
+        """
+        try:
+            rows = await surreal.benchmarks.get_all()
+        except Exception as exc:
+            logger.warning("SurrealDB benchmark warm-start failed: %s", exc)
+            return 0
+
+        loaded = 0
+        for row in rows:
+            key = (row.get("dog_id", ""), row.get("task_type", ""), row.get("llm_id", ""))
+            if not all(key) or key in self._benchmarks:
+                continue  # Skip incomplete / keep most recent
+            self._benchmarks[key] = BenchmarkResult(
+                llm_id=row["llm_id"],
+                dog_id=row["dog_id"],
+                task_type=row["task_type"],
+                quality_score=float(row.get("quality_score", 0.0)) * MAX_Q_SCORE,
+                speed_score=float(row.get("speed_score", 0.0)),
+                cost_score=float(row.get("cost_score", 0.0)),
+            )
+            loaded += 1
+        logger.info("LLM Benchmark warm-start (SurrealDB): %d entries", loaded)
         return loaded
 
     def benchmark_matrix(self, dog_id: str, task_type: str) -> Dict[str, BenchmarkResult]:
