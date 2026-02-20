@@ -438,19 +438,19 @@ async def _tool_cynic_build(args: dict) -> list[TextContent]:
     version = args.get("version", "latest")
     logger.info("Claude requested: build image version=%s", version)
 
-    result = await _call_cynic("build", {"version": version})
+    # TODO: Wire to actual /build endpoint when implemented
+    # For now: graceful response indicating the feature is planned
+    response = f"""CYNIC Build — PLANNING PHASE
 
-    response = f"""CYNIC Build Result:
+Version:  {version}
+Status:   🔧 Orchestration endpoint not yet implemented
+Message:  The /build endpoint will be available after Phase 1 bootstrap
 
-Version:  {result.get('version', 'N/A')}
-Image:    {result.get('image', 'N/A')}
-Status:   {'✓ Success' if result.get('success') else '✗ Failed'}
-Duration: {result.get('timestamp', 'N/A')}
+To build CYNIC manually:
+  cd CYNIC/cynic
+  docker build -t cynic:{version} -f Dockerfile .
 
-Output (last 500 chars):
-{result.get('output', '')[-500:] if result.get('output') else '(none)'}
-
-Error: {result.get('error') or 'None'}"""
+This tool will automate it in a future phase."""
 
     return [TextContent(type="text", text=response)]
 
@@ -461,22 +461,23 @@ async def _tool_cynic_deploy(args: dict) -> list[TextContent]:
     pull = args.get("pull", True)
     logger.info("Claude requested: deploy to %s (pull=%s)", environment, pull)
 
-    result = await _call_cynic(
-        "deploy",
-        {"environment": environment, "pull": pull},
-    )
-
-    response = f"""CYNIC Deploy Result:
+    # TODO: Wire to actual /deploy endpoint when implemented
+    # For now: graceful response indicating the feature is planned
+    response = f"""CYNIC Deploy — PLANNING PHASE
 
 Environment: {environment}
-Status:      {'✓ Success' if result.get('success') else '✗ Failed'}
-Duration:    {result.get('duration_seconds', 0):.1f}s
-Services:    {', '.join(result.get('services', []))}
-Timestamp:   {result.get('timestamp', 'N/A')}
+Pull latest: {pull}
+Status:      🔧 Orchestration endpoint not yet implemented
+Message:     The /deploy endpoint will be available after Phase 1 bootstrap
 
-Error: {result.get('error') or 'None'}
+To deploy CYNIC manually:
+  # Dev environment
+  docker-compose -f docker/dev.yml up -d
 
-CYNIC is now running in {environment} environment."""
+  # Staging/Prod
+  # (deployment workflow to be defined)
+
+This tool will automate deployment to dev/staging/prod in a future phase."""
 
     return [TextContent(type="text", text=response)]
 

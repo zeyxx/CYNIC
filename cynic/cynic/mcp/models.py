@@ -10,7 +10,7 @@ All Pydantic v2 with JSON serialization.
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 from datetime import datetime
 from pydantic import BaseModel, Field
 
@@ -25,7 +25,7 @@ class ComponentHealthSnapshot(BaseModel):
     status: str  # HEALTHY, DEGRADED, STALLED, FAILED
     timestamp: float
     judgment_count: int
-    last_judgment_id: str | None = None
+    last_judgment_id: Optional[str] = None
 
 
 class RegistrySnapshot(BaseModel):
@@ -77,10 +77,10 @@ class ActResult(BaseModel):
     """Result of action execution."""
     action_id: str
     success: bool
-    output: str | None = None
-    error: str | None = None
+    output: Optional[str] = None
+    error: Optional[str] = None
     execution_time_s: float
-    learning_signal: dict | None = None  # For Q-Table update
+    learning_signal: Optional[dict] = None  # For Q-Table update
 
 
 class ActResponse(BaseModel):
@@ -98,8 +98,8 @@ class FeedbackSignal(BaseModel):
     """Human feedback on a CYNIC judgment."""
     judgment_id: str
     rating: float = Field(ge=-1.0, le=1.0)  # -1 (bad) to +1 (good)
-    comment: str | None = None
-    correction: str | None = None  # Human's better answer
+    comment: Optional[str] = None
+    correction: Optional[str] = None  # Human's better answer
 
 
 class LearnRequest(BaseModel):
@@ -112,7 +112,7 @@ class LearnResult(BaseModel):
     """Result of learning update."""
     judgment_id: str
     qtable_updated: bool
-    new_q_score: float | None = None
+    new_q_score: Optional[float] = None
     learning_rate_applied: float
 
 
