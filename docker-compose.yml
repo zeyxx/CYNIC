@@ -1,140 +1,100 @@
-# CYNIC Development Environment
+# CYNIC Python Kernel — Local Development Stack
 #
-# Run: docker-compose up
+# Services:
+#   postgres-py  — PostgreSQL 16 + pgvector (port 5433, DB: cynic_py)
+#   ollama       — Ollama LLM server (port 11434)
+#   cynic-kernel — CYNIC FastAPI kernel (port 8000)
 #
-# "φ distrusts φ" - κυνικός
+# Quick start:
+#   cd cynic && make up
+#   make logs
+#   make pull-models
+#
+# "φ distrusts φ" — κυνικός
 
 services:
-  # ===========================================================================
-  # CYNIC MCP Server
-  # ===========================================================================
-  cynic-mcp:
-    build:
-      context: .
-      dockerfile: packages/mcp/Dockerfile
-    ports:
-      - "3000:3000"
-    environment:
-      NODE_ENV: development
-      MCP_MODE: http
-      PORT: "3000"
-      # PostgreSQL: component env vars (server constructs URL internally)
-      CYNIC_DB_HOST: postgres
-      CYNIC_DB_PORT: "5432"
-      CYNIC_DB_USER: ${POSTGRES_USER:-cynic}
-      CYNIC_DB_PASSWORD: ${POSTGRES_PASSWORD}
-      CYNIC_DB_NAME: ${POSTGRES_DB:-cynic}
-      CYNIC_REDIS_URL: redis://redis:6379
-      # Solana anchoring
-      CYNIC_ENABLE_ANCHORING: "true"
-      CYNIC_SOLANA_CLUSTER: devnet
-    volumes:
-      # Mount devnet wallet for Solana anchoring (dev only)
-      - ./packages/anchor/test/.devnet-wallet.json:/app/packages/anchor/test/.devnet-wallet.json:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    restart: unless-stopped
 
-  # ===========================================================================
-  # PostgreSQL Database
-  # ===========================================================================
-  postgres:
-    image: postgres:16-alpine
+  # ═══════════════════════════════════════════════════════════════════════
+  # PostgreSQL 16 + pgvector
+  # Port: 5433 (avoids conflict with any existing PG on 5432)
+  # DB: cynic_py
+  # ═══════════════════════════════════════════════════════════════════════
+  postgres-py:
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-cynic}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: ${POSTGRES_DB:-cynic}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cynic_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-cynic_py}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./packages/persistence/sql:/docker-entrypoint-initdb.d:ro
+      - postgres_py_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-cynic} -d $${POSTGRES_DB:-cynic}"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cynic} -d ${POSTGRES_DB:-cynic_py}"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
       start_period: 10s
     restart: unless-stopped
 
-  # ===========================================================================
-  # Redis Cache (Optional)
-  # ===========================================================================
-  redis:
-    image: redis:7-alpine
+  # ═══════════════════════════════════════════════════════════════════════
+  # Ollama — Local LLM Server
+  # Models: gemma2:2b (default), nomic-embed-text (embeddings)
+  # Run `make pull-models` after first `make up`
+  # ═══════════════════════════════════════════════════════════════════════
+  ollama:
+    image: ollama/ollama:latest
     ports:
-      - "6379:6379"
+      - "11434:11434"
     volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  # ===========================================================================
-  # Prometheus (Metrics Collection)
-  # ===========================================================================
-  prometheus:
-    image: prom/prometheus:v2.48.0
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=15d'
-      - '--web.enable-lifecycle'
-    depends_on:
-      - cynic-mcp
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
-
-  # ===========================================================================
-  # Grafana (Dashboards)
-  # ===========================================================================
-  grafana:
-    image: grafana/grafana:10.2.0
-    ports:
-      - "3001:3000"
+      - ollama_models:/root/.ollama
     environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-cynic}
-      GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/cynic-overview.json
-    volumes:
-      - ./monitoring/grafana/provisioning/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
-      - ./monitoring/grafana/provisioning/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - grafana_data:/var/lib/grafana
-    depends_on:
-      - prometheus
+      OLLAMA_KEEP_ALIVE: "24h"
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
-      interval: 30s
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
       timeout: 10s
-      retries: 3
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # CYNIC Python Kernel — FastAPI (port 8000)
+  # Connects to postgres-py + ollama
+  # ═══════════════════════════════════════════════════════════════════════
+  cynic-kernel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      CYNIC_DATABASE_URL: postgresql://${POSTGRES_USER:-cynic}:${POSTGRES_PASSWORD:-cynic_dev}@postgres-py:5432/${POSTGRES_DB:-cynic_py}
+      CYNIC_OLLAMA_URL: http://ollama:11434
+      CYNIC_LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      PYTHONUNBUFFERED: "1"
+    depends_on:
+      postgres-py:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    develop:
+      watch:
+        - action: sync
+          path: ./cynic
+          target: /app/cynic
+        - action: rebuild
+          path: ./pyproject.toml
 
 volumes:
-  postgres_data:
-  redis_data:
-  prometheus_data:
-  grafana_data:
+  postgres_py_data:
+  ollama_models:

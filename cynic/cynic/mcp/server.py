@@ -27,6 +27,7 @@ from cynic.mcp.models import (
     ErrorResponse, ComponentHealthSnapshot, RegistrySnapshot,
 )
 from cynic.mcp.utils import setup_logging
+from cynic.nervous import ComponentSnapshot as NervousComponentSnapshot
 
 logger = logging.getLogger("cynic.mcp.server")
 
@@ -110,22 +111,27 @@ class MCPServer:
                     status=503,
                 )
 
-            # Get ServiceStateRegistry snapshot (Component 1)
-            snapshot = state.service_registry.snapshot()
+            # Get ServiceStateRegistry snapshot (Component 1) — async call
+            snapshot = await state.service_registry.snapshot()
             registry_snap = RegistrySnapshot(
-                timestamp=snapshot.timestamp,
+                timestamp=snapshot.timestamp_ms / 1000.0,  # Convert ms to seconds
                 components=[
                     ComponentHealthSnapshot(
                         name=comp.name,
-                        status=comp.status.name,
-                        timestamp=comp.timestamp,
-                        judgment_count=comp.judgment_count,
+                        status=comp.status.name,  # HealthStatus -> string
+                        timestamp=comp.last_update_ms / 1000.0,  # Convert ms to seconds
+                        judgment_count=0,  # Not tracked in ComponentSnapshot
                         last_judgment_id=comp.last_judgment_id,
                     )
-                    for comp in snapshot.components
+                    for comp in snapshot.components.values()
                 ],
-                health_summary=snapshot.health_counts,
-                total_components=len(snapshot.components),
+                health_summary={
+                    "HEALTHY": snapshot.healthy_count,
+                    "DEGRADED": snapshot.degraded_count,
+                    "STALLED": snapshot.stalled_count,
+                    "FAILED": snapshot.failed_count,
+                },
+                total_components=snapshot.total_components,
             )
 
             resp = ObserveResponse(
@@ -198,18 +204,26 @@ class MCPServer:
             # Parse runner result and convert to ActResult
             success = result_dict.get("success", False)
             error = result_dict.get("error") if not success else None
-            output = result_dict.get("cli_output", "") if success else error
+
+            # On success: session_id, cost_usd, exec_id available
+            # Summarize output
+            output_summary = ""
+            if success:
+                output_summary = f"Session: {result_dict.get('session_id', 'unknown')}, Cost: ${result_dict.get('cost_usd', 0):.4f}"
+            else:
+                output_summary = error or "Unknown error"
 
             from cynic.mcp.models import ActResult
             result = ActResult(
                 action_id=req.action.action_id,
                 success=success,
-                output=output,
+                output=output_summary,
                 error=error,
                 execution_time_s=exec_time,
                 learning_signal={
                     "session_id": result_dict.get("session_id"),
                     "cost_usd": result_dict.get("cost_usd"),
+                    "exec_id": result_dict.get("exec_id"),
                 } if success else None,
             )
 
