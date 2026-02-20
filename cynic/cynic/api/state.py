@@ -653,6 +653,20 @@ class _OrganismAwakener:
         for group in groups:
             registry.register(group)
         logger.info("HandlerRegistry: %d groups discovered", len(groups))
+
+        # ── Compile-time validation (Opportunity #3) ────────────────────────
+        from cynic.api.handlers.validator import HandlerValidator
+        validator = HandlerValidator()
+        issues = validator.validate(groups)
+
+        # Log validation results
+        if issues:
+            logger.warning(validator.report())
+            if validator.has_errors():
+                logger.error("Handler validation FAILED with errors")
+        else:
+            logger.debug("Handler validation: OK")
+
         return registry
 
     # ═══════════════════════════════════════════════════════════════════════

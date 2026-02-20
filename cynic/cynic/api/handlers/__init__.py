@@ -32,6 +32,10 @@ from cynic.api.handlers.introspect import (
     CouplingGrowth,
     HandlerArchitectureIntrospector,
 )
+from cynic.api.handlers.validator import (
+    ValidationIssue,
+    HandlerValidator,
+)
 
 if TYPE_CHECKING:
     from cynic.core.event_bus import EventBus
@@ -176,4 +180,6 @@ __all__ = [
     "ArchitectureSnapshot",
     "CouplingGrowth",
     "HandlerArchitectureIntrospector",
+    "ValidationIssue",
+    "HandlerValidator",
 ]
