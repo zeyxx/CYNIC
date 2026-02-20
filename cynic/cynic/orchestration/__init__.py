@@ -9,8 +9,8 @@ Three subsystems:
   2. versioning — SemVer, releases, migrations
   3. monitor — Continuous health, alerts, metrics
 """
-from .docker import DockerManager
+from .docker import DockerManager, get_docker_manager
 from .versioning import VersionManager
 from .monitor import HealthMonitor
 
-__all__ = ["DockerManager", "VersionManager", "HealthMonitor"]
+__all__ = ["DockerManager", "get_docker_manager", "VersionManager", "HealthMonitor"]
