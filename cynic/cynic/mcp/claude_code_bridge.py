@@ -33,7 +33,7 @@ import aiohttp
 
 # MCP SDK imports
 from mcp.server import Server
-from mcp.types import Tool, TextContent, ToolResult
+from mcp.types import Tool, TextContent, CallToolResult
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -46,7 +46,7 @@ logger = logging.getLogger("cynic.mcp.claude_code_bridge")
 # CYNIC HTTP MCP CLIENT
 # ════════════════════════════════════════════════════════════════════════════
 
-CYNIC_HTTP_BASE = "http://127.0.0.1:7001"
+CYNIC_HTTP_BASE = "http://127.0.0.1:8000"
 TIMEOUT = aiohttp.ClientTimeout(total=30)
 
 
@@ -275,13 +275,13 @@ async def call_tool(name: str, arguments: dict) -> ToolResult:
         elif name == "cynic_stop":
             return await _tool_cynic_stop(arguments)
         else:
-            return ToolResult(
+            return CallToolResult(
                 content=[TextContent(type="text", text=f"Unknown tool: {name}")],
                 isError=True,
             )
     except Exception as exc:
         logger.exception("Tool call failed")
-        return ToolResult(
+        return CallToolResult(
             content=[TextContent(type="text", text=f"Error: {exc}")],
             isError=True,
         )
@@ -319,7 +319,7 @@ Reality: {reality}
 CYNIC is now evaluating through its 11 Sefirot Dogs...
 Expect structured judgment with Q-Score, verdict, and confidence."""
 
-    return ToolResult(content=[TextContent(type="text", text=response)])
+    return CallToolResult(content=[TextContent(type="text", text=response)])
 
 
 async def _tool_observe_cynic(args: dict) -> ToolResult:
@@ -356,7 +356,7 @@ Components Observed: {len(snapshot.get('registry_snapshot', {}).get('components'
     if include_judgments:
         response += f"\n\nRecent Judgments: {len(snapshot.get('recent_judgments', []))}"
 
-    return ToolResult(content=[TextContent(type="text", text=response)])
+    return CallToolResult(content=[TextContent(type="text", text=response)])
 
 
 async def _tool_learn_cynic(args: dict) -> ToolResult:
@@ -389,7 +389,7 @@ Learning Rate: {result.get('result', {}).get('learning_rate_applied', 'N/A')}
 
 CYNIC has incorporated your feedback into its learning loops."""
 
-    return ToolResult(content=[TextContent(type="text", text=response)])
+    return CallToolResult(content=[TextContent(type="text", text=response)])
 
 
 async def _tool_discuss_cynic(args: dict) -> ToolResult:
@@ -416,7 +416,7 @@ CYNIC is considering this message...
 This is where bidirectional consciousness exchange happens.
 CYNIC may ask clarifying questions, propose hypotheses, or challenge assumptions."""
 
-    return ToolResult(content=[TextContent(type="text", text=discussion)])
+    return CallToolResult(content=[TextContent(type="text", text=discussion)])
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -444,7 +444,7 @@ Output (last 500 chars):
 
 Error: {result.get('error') or 'None'}"""
 
-    return ToolResult(content=[TextContent(type="text", text=response)])
+    return CallToolResult(content=[TextContent(type="text", text=response)])
 
 
 async def _tool_cynic_deploy(args: dict) -> ToolResult:
@@ -470,7 +470,7 @@ Error: {result.get('error') or 'None'}
 
 CYNIC is now running in {environment} environment."""
 
-    return ToolResult(content=[TextContent(type="text", text=response)])
+    return CallToolResult(content=[TextContent(type="text", text=response)])
 
 
 async def _tool_cynic_health(args: dict) -> ToolResult:
@@ -497,7 +497,7 @@ async def _tool_cynic_health(args: dict) -> ToolResult:
 
 All systems {'healthy' if all(c.get('status') == 'healthy' for c in result) else 'degraded'}."""
 
-    return ToolResult(content=[TextContent(type="text", text=response)])
+    return CallToolResult(content=[TextContent(type="text", text=response)])
 
 
 async def _tool_cynic_status(args: dict) -> ToolResult:
@@ -518,7 +518,7 @@ Last Deploy:  {result.get('last_deploy', 'None')}
 
 CYNIC is ready for orchestration."""
 
-    return ToolResult(content=[TextContent(type="text", text=response)])
+    return CallToolResult(content=[TextContent(type="text", text=response)])
 
 
 async def _tool_cynic_release(args: dict) -> ToolResult:
@@ -544,7 +544,7 @@ Notes:
 
 CYNIC has released itself with version {result.get('version', 'N/A')}."""
 
-    return ToolResult(content=[TextContent(type="text", text=response)])
+    return CallToolResult(content=[TextContent(type="text", text=response)])
 
 
 async def _tool_cynic_stop(args: dict) -> ToolResult:
@@ -559,7 +559,7 @@ Status:  {result.get('message', 'N/A')}
 
 CYNIC services have been stopped gracefully."""
 
-    return ToolResult(content=[TextContent(type="text", text=response)])
+    return CallToolResult(content=[TextContent(type="text", text=response)])
 
 
 # ════════════════════════════════════════════════════════════════════════════
