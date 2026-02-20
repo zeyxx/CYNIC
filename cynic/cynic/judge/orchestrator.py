@@ -110,6 +110,7 @@ class JudgeOrchestrator:
         self.axiom_monitor = None  # Optional[AxiomMonitor] — γ3: axiom health → budget multiplier
         self.lod_controller = None  # Optional[LODController] — δ2: system health → level cap
         self.context_compressor = None  # Optional[ContextCompressor] — γ5: memory injection into SAGE
+        self.service_registry = None  # Optional[ServiceStateRegistry] — Tier 1 nervous system
         self._judgment_count = 0
         self._consciousness = get_consciousness()
         # evolve() history — last F(8)=21 META cycles
@@ -201,6 +202,22 @@ class JudgeOrchestrator:
                 CoreEvent.JUDGMENT_CREATED,
                 JudgmentCreatedPayload.model_validate(jc_payload),
             ))
+
+            # Tier 1 Nervous System: Record judgment in Service State Registry
+            if self.service_registry is not None:
+                await self.service_registry.record_judgment(
+                    component_name="orchestrator",
+                    judgment_id=judgment.judgment_id,
+                    verdict=judgment.verdict,
+                    q_score=judgment.q_score,
+                    metadata={
+                        "level": level.name,
+                        "state_key": cell.state_key(),
+                        "reality": cell.reality,
+                        "consensus_reached": judgment.consensus_reached,
+                        "confidence": judgment.confidence,
+                    },
+                )
 
             # Emit CONSENSUS_REACHED or CONSENSUS_FAILED based on final judgment.
             # Dogs cooperating (PBFT quorum achieved) = CONSENSUS_REACHED.

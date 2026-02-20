@@ -180,6 +180,31 @@ async def lifespan(app: FastAPI):
     # ── Build kernel (always — persistence is wired after) ─────────────────
     state = build_kernel(db_pool=db_pool, registry=registry)
 
+    # ── Tier 1 Nervous System: Register components on startup ───────────────
+    from cynic.nervous import ComponentType
+    registry_obj = state.service_registry
+    try:
+        # Register major components
+        await registry_obj.register("orchestrator", ComponentType.ORCHESTRATOR)
+        await registry_obj.register("qtable", ComponentType.LEARNER)
+        await registry_obj.register("learning_loop", ComponentType.LEARNER)
+        await registry_obj.register("residual_detector", ComponentType.DETECTOR)
+        await registry_obj.register("axiom_monitor", ComponentType.DETECTOR)
+        await registry_obj.register("lod_controller", ComponentType.DETECTOR)
+        await registry_obj.register("action_proposer", ComponentType.ROUTER)
+        await registry_obj.register("decide_agent", ComponentType.ROUTER)
+        await registry_obj.register("account_agent", ComponentType.ROUTER)
+
+        # Register dogs
+        from cynic.dogs.base import DogId
+        for dog_id in state.orchestrator.dogs.keys():
+            await registry_obj.register(f"dog_{dog_id}", ComponentType.DOG)
+
+        logger.info("Tier 1 Nervous System: %d components registered",
+                   (await registry_obj.snapshot()).total_components)
+    except Exception as exc:
+        logger.warning("Component registration failed: %s", exc)
+
     # ── Warm-start from SurrealDB ───────────────────────────────────────────
     if surreal is not None:
         try:

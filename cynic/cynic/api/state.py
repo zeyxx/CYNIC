@@ -53,6 +53,7 @@ from cynic.judge.self_probe import SelfProber
 from cynic.judge.lod import LODController, SurvivalLOD
 from cynic.core.escore import EScoreTracker
 from cynic.learning.qlearning import QTable, LearningLoop
+from cynic.nervous import ServiceStateRegistry, ComponentType
 from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher, SocialWatcher, DiskWatcher, MemoryWatcher
 from cynic.core.storage.gc import StorageGarbageCollector
 from cynic.perceive import checkpoint as _session_checkpoint
@@ -158,6 +159,7 @@ class AppState:
     action_proposer: ActionProposer = field(default_factory=ActionProposer) # P5 action queue
     self_prober: SelfProber = field(default_factory=SelfProber)             # L4 self-improvement
     world_model: WorldModelUpdater = field(default_factory=WorldModelUpdater)  # T27 cross-reality aggregator
+    service_registry: ServiceStateRegistry = field(default_factory=ServiceStateRegistry)  # Tier 1 nervous system
     auto_benchmark: AutoBenchmark | None = None
     universal_actuator: UniversalActuator = field(default_factory=UniversalActuator)
     container: DependencyContainer = field(default_factory=DependencyContainer)
@@ -225,6 +227,7 @@ class _KernelBuilder:
         self.world_model:      WorldModelUpdater = None  # type: ignore[assignment]
         self.compressor:       ContextCompressor = None  # type: ignore[assignment]
         self.storage_gc:       StorageGarbageCollector = None  # type: ignore[assignment]
+        self.universal_actuator: UniversalActuator = None  # type: ignore[assignment]
 
     # ═══════════════════════════════════════════════════════════════════════
     # HELPERS
@@ -315,14 +318,19 @@ class _KernelBuilder:
 
         self.account_agent = AccountAgent()
         self.llm_router = LLMRouter()
+        self.universal_actuator = UniversalActuator()
 
         self.axiom_monitor  = AxiomMonitor()
         self.lod_controller = LODController()
         self.escore_tracker = EScoreTracker()
 
+        # ── Tier 1 Nervous System: Service State Registry ──────────────────
+        self.service_registry = ServiceStateRegistry()
+
         self.orchestrator.escore_tracker = self.escore_tracker
         self.orchestrator.axiom_monitor  = self.axiom_monitor
         self.orchestrator.lod_controller = self.lod_controller
+        self.orchestrator.service_registry = self.service_registry
 
         self.account_agent.set_escore_tracker(self.escore_tracker)
         self.account_agent.start(get_core_bus())
@@ -383,6 +391,7 @@ class _KernelBuilder:
             axiom={"action_proposer": self.action_proposer},
             sdk={"action_proposer": self.action_proposer, "qtable": self.qtable},
             health={"storage_gc": self.storage_gc, "db_pool": self.db_pool},
+            direct={"universal_actuator": self.universal_actuator, "qtable": self.qtable},
         )
         for group in groups:
             registry.register(group)
@@ -480,6 +489,7 @@ class _KernelBuilder:
             self_prober=self.self_prober,
             world_model=self.world_model,
             llm_router=self.llm_router,
+            universal_actuator=self.universal_actuator,
             kernel_mirror=KernelMirror(),
             container=self._container,
             _handler_registry=self._handler_registry,

@@ -492,6 +492,38 @@ async def consciousness() -> dict[str, Any]:
     return payload
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# GET /internal/registry — Tier 1 Nervous System: Service State Registry
+# ════════════════════════════════════════════════════════════════════════════
+
+@router_health.get("/internal/registry")
+async def internal_registry() -> dict[str, Any]:
+    """
+    Tier 1 Nervous System: Real-time snapshot of all kernel component health.
+
+    Returns:
+        {
+            "timestamp_ms": float,
+            "components": {
+                "orchestrator": {component snapshot},
+                "qtable": {component snapshot},
+                ...
+            },
+            "total_components": int,
+            "healthy_count": int,
+            "degraded_count": int,
+            "stalled_count": int,
+            "failed_count": int,
+        }
+    """
+    state = get_state()
+    if state.service_registry is None:
+        return {"error": "Service registry not available"}
+
+    snapshot = await state.service_registry.snapshot()
+    return snapshot.to_dict()
+
+
 @router_health.get("/")
 async def root() -> dict[str, Any]:
     return {
@@ -505,6 +537,7 @@ async def root() -> dict[str, Any]:
             "/ws/stream", "/ws/sdk",
             "/sdk/sessions", "/sdk/task",
             "/act/execute", "/act/telemetry",
+            "/internal/registry",  # Tier 1 Nervous System
         ],
         "message": "*sniff* Le chien est là.",
     }
