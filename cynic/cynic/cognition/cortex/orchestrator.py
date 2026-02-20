@@ -60,6 +60,167 @@ logger = logging.getLogger("cynic.cognition.cortex")
 MAX_PARALLEL_DOGS = 11
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# CONSCIOUSNESS SCHEDULER — Blended Escalation Policy (Task #8)
+# ════════════════════════════════════════════════════════════════════════════
+
+class ConsciousnessScheduler:
+    """
+    Selects consciousness level based on system state.
+
+    Blends three signals:
+    1. axiom_maturity (0-100): from AxiomMonitor.get_maturity() of active axioms
+    2. e_score (0-100): from EScoreTracker.get_score("CYNIC")
+    3. oracle_confidence (0-1): from Oracle Dog predictions
+
+    Formula:
+        score = (axiom_maturity/100 × 0.4) + (e_score/100 × 0.3) + (oracle_confidence × 0.3)
+
+    Thresholds:
+        score < 0.382  → L3 REFLEX (constrained, non-LLM)
+        score < 0.618  → L2 MICRO  (quick, voting dogs)
+        score < 0.82   → L1 MACRO  (full cycle, all dogs)
+        score ≥ 0.82   → L4 META   (evolution mode, only if all 4 axioms active)
+
+    Respects TIER constraints and LOD caps.
+    """
+
+    def __init__(self, axiom_monitor, escore_tracker, oracle_dog):
+        """
+        Initialize scheduler with required dependencies.
+
+        Args:
+            axiom_monitor: AxiomMonitor instance (provides active_count, get_maturity)
+            escore_tracker: EScoreTracker instance (provides get_score)
+            oracle_dog: Oracle/predictor Dog (provides predict_confidence via analyze)
+        """
+        self.axiom_monitor = axiom_monitor
+        self.escore_tracker = escore_tracker
+        self.oracle_dog = oracle_dog
+
+    async def select_level(
+        self,
+        cell: Cell,
+        current_level: ConsciousnessLevel | None = None,
+    ) -> ConsciousnessLevel:
+        """
+        Auto-select consciousness level by blending system signals.
+
+        Args:
+            cell: The perception/judgment being evaluated
+            current_level: Current level (for hysteresis, not yet implemented)
+
+        Returns:
+            ConsciousnessLevel (L3, L2, L1, or L4)
+        """
+        # Step 1: Gather maturity signals
+        # For now, average the active axioms' maturity scores
+        # (Future: will use AxiomMonitor.blended_maturity() once implemented in Task #10)
+        if self.axiom_monitor and self.axiom_monitor.active_count() > 0:
+            active = self.axiom_monitor.active_axioms()
+            maturities = [self.axiom_monitor.get_maturity(a) for a in active]
+            axiom_maturity = sum(maturities) / len(maturities)
+        else:
+            axiom_maturity = 0.0
+
+        # Step 2: Get E-Score
+        if self.escore_tracker:
+            try:
+                e_score_obj = self.escore_tracker.get_score("CYNIC")
+                # e_score_obj may be a dict or object — handle both
+                if isinstance(e_score_obj, dict):
+                    e_score = e_score_obj.get("q", 0.0)
+                else:
+                    e_score = getattr(e_score_obj, "q", 0.0)
+            except Exception as e:
+                logger.warning("Failed to get E-Score: %s", e)
+                e_score = 0.0
+        else:
+            e_score = 0.0
+
+        # Step 3: Get Oracle confidence
+        if self.oracle_dog:
+            try:
+                oracle_judgment = await self.oracle_dog.analyze(cell, budget_usd=cell.budget_usd)
+                # Oracle Dog returns DogJudgment with confidence in range [0, 1]
+                # (φ-bounded at 0.618 max per PHI constraint)
+                oracle_confidence = min(oracle_judgment.confidence or 0.0, PHI_INV)
+            except Exception as e:
+                logger.warning("Failed to get Oracle confidence: %s", e)
+                oracle_confidence = 0.0
+        else:
+            oracle_confidence = 0.0
+
+        # Step 4: Blend signals (normalized to [0, 1])
+        blended = (
+            (axiom_maturity / 100.0) * 0.4 +  # axiom contributes 40%
+            (e_score / 100.0) * 0.3 +          # e_score contributes 30%
+            oracle_confidence * 0.3            # oracle contributes 30%
+        )
+
+        # Step 5: Map blended score to consciousness level
+        if blended < 0.382:
+            return ConsciousnessLevel.REFLEX
+        elif blended < 0.618:
+            return ConsciousnessLevel.MICRO
+        elif blended < 0.82:
+            return ConsciousnessLevel.MACRO
+        else:
+            # L4 only if all 4 core axioms are active
+            if self.axiom_monitor and self.axiom_monitor.active_count() >= 4:
+                return ConsciousnessLevel.META
+            else:
+                # Fallback to MACRO if not all axioms active
+                return ConsciousnessLevel.MACRO
+
+    def get_signals(self) -> dict[str, float]:
+        """
+        Return current signal values for debugging/monitoring.
+
+        Returns:
+            {
+                "axiom_maturity": float [0, 100],
+                "e_score": float [0, 100],
+                "oracle_confidence": float [0, 0.618],
+                "blended": float [0, 1],
+                "active_axioms": int,
+            }
+        """
+        # Gather signals (non-async version, may use cached values)
+        if self.axiom_monitor and self.axiom_monitor.active_count() > 0:
+            active = self.axiom_monitor.active_axioms()
+            maturities = [self.axiom_monitor.get_maturity(a) for a in active]
+            axiom_maturity = sum(maturities) / len(maturities)
+        else:
+            axiom_maturity = 0.0
+
+        if self.escore_tracker:
+            try:
+                e_score_obj = self.escore_tracker.get_score("CYNIC")
+                if isinstance(e_score_obj, dict):
+                    e_score = e_score_obj.get("q", 0.0)
+                else:
+                    e_score = getattr(e_score_obj, "q", 0.0)
+            except:
+                e_score = 0.0
+        else:
+            e_score = 0.0
+
+        # Blended (oracle_confidence not included in static version)
+        blended = (
+            (axiom_maturity / 100.0) * 0.4 +
+            (e_score / 100.0) * 0.3
+        )
+
+        return {
+            "axiom_maturity": axiom_maturity,
+            "e_score": e_score,
+            "oracle_confidence": 0.0,  # Placeholder (requires async)
+            "blended": blended,
+            "active_axioms": self.axiom_monitor.active_count() if self.axiom_monitor else 0,
+        }
+
+
 @dataclass
 class JudgmentPipeline:
     """
@@ -111,6 +272,7 @@ class JudgeOrchestrator:
         self.lod_controller = None  # Optional[LODController] — δ2: system health → level cap
         self.context_compressor = None  # Optional[ContextCompressor] — γ5: memory injection into SAGE
         self.service_registry = None  # Optional[ServiceStateRegistry] — Tier 1 nervous system
+        self.consciousness_scheduler = None  # Optional[ConsciousnessScheduler] — Task #8: blended escalation
         self._judgment_count = 0
         self._consciousness = get_consciousness()
         # evolve() history — last F(8)=21 META cycles
@@ -136,7 +298,7 @@ class JudgeOrchestrator:
         """
         # γ3: scale budget by axiom health before level selection
         effective_budget = (budget_usd or cell.budget_usd) * self._axiom_budget_multiplier()
-        level = level or self._select_level(cell, effective_budget)
+        level = level or await self._select_level(cell, effective_budget)
         # B2 fix: enforce LOD cap even when level was passed explicitly
         level = self._apply_lod_cap(level)
         pipeline = JudgmentPipeline(cell=cell, level=level)
@@ -389,8 +551,15 @@ class JudgeOrchestrator:
 
     # ── LEVEL SELECTION ────────────────────────────────────────────────────
 
-    def _select_level(self, cell: Cell, budget_usd: float) -> ConsciousnessLevel:
-        """Auto-select consciousness level based on budget and cell metadata."""
+    async def _select_level(self, cell: Cell, budget_usd: float) -> ConsciousnessLevel:
+        """Auto-select consciousness level based on budget and cell metadata.
+
+        Priority order:
+        1. LOD enforcement (system health caps depth)
+        2. Budget enforcement (stress/exhausted caps depth)
+        3. ConsciousnessScheduler (blended axiom + e_score + oracle) if available
+        4. Cell's own consciousness gradient (fallback)
+        """
         # LOD enforcement (health→JUDGE loop): system health caps depth first
         # LOD aggregates all signals: disk, memory, error rate, latency, queue.
         # Takes priority — a crashed system can't afford Ollama regardless of budget.
@@ -416,6 +585,17 @@ class JudgeOrchestrator:
                 return ConsciousnessLevel.REFLEX
             return ConsciousnessLevel.MICRO
 
+        # Task #8: Use ConsciousnessScheduler if available (blended escalation policy)
+        if self.consciousness_scheduler is not None:
+            try:
+                level = await self.consciousness_scheduler.select_level(cell)
+                logger.debug(f"ConsciousnessScheduler selected {level.name}")
+                return level
+            except Exception as e:
+                logger.warning(f"ConsciousnessScheduler failed, falling back: {e}")
+                # Fall through to legacy logic
+
+        # Legacy fallback: budget-based downgrade
         suggested = self._consciousness.should_downgrade(budget_usd)
         if suggested:
             return suggested
