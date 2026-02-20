@@ -81,6 +81,7 @@ from cynic.core.topology import (
     ChangeTracker,
     ChangeAnalyzer,
 )
+from cynic.core.convergence import ConvergenceValidator
 
 logger = logging.getLogger("cynic.api.state")
 
@@ -228,6 +229,7 @@ class SensoryCore:
       - topology_mirror        — L0 Layer 4: topology state
       - change_tracker         — L0 Layer 4.5: change detection
       - change_analyzer        — L0 Layer 4.6: change analysis
+      - convergence_validator  — Phase 3: announcement vs outcome verification
     """
     context_compressor: ContextCompressor = field(default_factory=ContextCompressor)
     service_registry: ServiceStateRegistry = field(default_factory=ServiceStateRegistry)
@@ -241,6 +243,7 @@ class SensoryCore:
     topology_mirror: TopologyMirror | None = None
     change_tracker: ChangeTracker | None = None
     change_analyzer: ChangeAnalyzer | None = None
+    convergence_validator: ConvergenceValidator = field(default_factory=ConvergenceValidator)
 
 
 @dataclass
@@ -410,6 +413,10 @@ class CynicOrganism:
         return self.cognition.audit_trail
 
     @property
+    def convergence_validator(self) -> ConvergenceValidator:
+        return self.senses.convergence_validator
+
+    @property
     def decision_validator(self) -> DecisionValidator | None:
         return self.cognition.decision_validator
 
@@ -512,6 +519,7 @@ class _OrganismAwakener:
         self.topology_mirror:  Any = None  # TopologyMirror
         self.change_tracker:   Any = None  # ChangeTracker
         self.change_analyzer:  Any = None  # ChangeAnalyzer
+        self.convergence_validator: Any = None  # ConvergenceValidator — Phase 3 observability
 
     # ═══════════════════════════════════════════════════════════════════════
     # HELPERS
@@ -699,6 +707,8 @@ class _OrganismAwakener:
         self.change_tracker = ChangeTracker()
         # Layer 4.6: Semantic analysis of changes (impact classification, risk assessment)
         self.change_analyzer = ChangeAnalyzer()
+        # Phase 3: Convergence validator — announcement vs reality verification
+        self.convergence_validator = ConvergenceValidator()
         logger.info("Topology system initialized (L0: organism real-time consciousness)")
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -836,6 +846,28 @@ class _OrganismAwakener:
         # Module-level handlers (not part of any group)
         bus.on(CoreEvent.JUDGMENT_CREATED, _on_judgment_created)  # guidance.json
 
+        # ── Phase 3: Convergence Validator (observability) ──────────────────
+        # Track organism announcements for end-to-end verification
+        async def _on_judgment_announced(evt: Event) -> None:
+            """Record announcement when judgment is made."""
+            try:
+                payload = JudgmentCreatedPayload(**evt.payload)
+                # Record: what organism announced it would do
+                self.convergence_validator.announce(
+                    verdict=payload.verdict,
+                    q_score=payload.q_score,
+                    cell_id=payload.state_key if payload.state_key else None,
+                    action=f"{payload.reality}:{payload.verdict}",
+                    confidence=payload.confidence,
+                )
+                logger.info(
+                    f"[CONVERGENCE] Announced: verdict={payload.verdict} Q={payload.q_score:.1f}"
+                )
+            except Exception as e:
+                logger.error(f"[CONVERGENCE] announce() failed: {e}")
+
+        bus.on(CoreEvent.JUDGMENT_CREATED, _on_judgment_announced)
+
         # ── Topology System Event Wiring (L0: real-time consciousness) ─────
         # Layer 1.5: Log actual file modifications for visibility
         bus.on(CoreEvent.SOURCE_CHANGED, self.change_tracker.on_source_changed)
@@ -915,6 +947,7 @@ class _OrganismAwakener:
             topology_mirror=self.topology_mirror,
             change_tracker=self.change_tracker,
             change_analyzer=self.change_analyzer,
+            convergence_validator=self.convergence_validator,
         )
         memory = MemoryCore(
             kernel_mirror=KernelMirror(),

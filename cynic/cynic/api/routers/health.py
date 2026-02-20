@@ -524,6 +524,45 @@ async def internal_registry() -> dict[str, Any]:
     return snapshot.to_dict()
 
 
+@router_health.get("/convergence/stats")
+async def convergence_stats() -> dict[str, Any]:
+    """
+    Phase 3: Convergence Validator — Announcement vs Reality Verification.
+
+    Tracks what organism announced it would do (verdict, Q-score) vs what actually
+    happened. Used for end-to-end validation that announced behavior matches reality.
+
+    Returns:
+        {
+            "total_announced": int,
+            "total_outcomes": int,
+            "total_matches": int,
+            "convergence_rate": float,  # percentage
+            "recent": [
+                {
+                    "status": "✓ MATCH" | "✗ DIVERGE",
+                    "announced_verdict": str,
+                    "actual_verdict": str,
+                    "latency_ms": float,
+                }
+            ]
+        }
+    """
+    state = get_state()
+    validator = state.convergence_validator
+    if validator is None:
+        return {"error": "Convergence validator not available"}
+
+    stats = validator.stats()
+    return {
+        "total_announced": stats.get("total_announced", 0),
+        "total_outcomes": stats.get("total_outcomes", 0),
+        "total_matches": stats.get("total_matches", 0),
+        "convergence_rate": stats.get("convergence_rate", 0.0),
+        "recent": stats.get("recent", []),
+    }
+
+
 @router_health.get("/")
 async def root() -> dict[str, Any]:
     return {
@@ -538,6 +577,7 @@ async def root() -> dict[str, Any]:
             "/sdk/sessions", "/sdk/task",
             "/act/execute", "/act/telemetry",
             "/internal/registry",  # Tier 1 Nervous System
+            "/convergence/stats",   # Phase 3: Observability
         ],
         "message": "*sniff* Le chien est là.",
     }
