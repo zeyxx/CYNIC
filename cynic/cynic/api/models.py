@@ -185,6 +185,29 @@ class FeedbackResponse(BaseModel):
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# ACCOUNT (Step 6: Cost accounting + EMERGE pattern detection)
+# ════════════════════════════════════════════════════════════════════════════
+
+class AccountRequest(BaseModel):
+    """POST /account — execute ACCOUNT opcode (cost recording + EMERGE detection)."""
+    judgment_id: str = Field(default="", description="Optional: cost a specific judgment")
+    trigger_emerge: bool = Field(default=True, description="Trigger EMERGE pattern detection")
+
+
+class AccountResponse(BaseModel):
+    """Response from POST /account."""
+    cost_usd: float = Field(description="Total cost accumulated this session")
+    budget_remaining_usd: float = Field(description="Budget still available")
+    budget_ratio: float = Field(description="Ratio remaining (0-1)")
+    judgment_count: int = Field(description="Number of judgments processed")
+    warning_emitted: bool = Field(description="Budget warning reached")
+    exhausted_emitted: bool = Field(description="Budget exhausted")
+    emergence_detected: bool = Field(default=False, description="EMERGE triggered")
+    emergence_pattern: str = Field(default="", description="Pattern type (SPIKE/RISING/STABLE_HIGH)")
+    message: str
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # HEALTH
 # ════════════════════════════════════════════════════════════════════════════
 

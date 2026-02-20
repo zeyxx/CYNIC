@@ -21,6 +21,7 @@ from cynic.core.events_schema import (
     PerceptionReceivedPayload,
     UserCorrectionPayload,
     UserFeedbackPayload,
+    EmergenceDetectedPayload,
 )
 from cynic.core.judgment import Cell, Judgment
 from cynic.core.phi import MAX_CONFIDENCE
@@ -31,6 +32,7 @@ from cynic.api.models import (
     PerceiveRequest, PerceiveResponse,
     LearnRequest, LearnResponse,
     FeedbackRequest, FeedbackResponse,
+    AccountRequest, AccountResponse,
     PolicyResponse,
 )
 from cynic.api.state import get_state
@@ -454,6 +456,89 @@ async def feedback(req: FeedbackRequest) -> FeedbackResponse:
         reward=round(reward, 3),
         q_value=round(entry.q_value, 4),
         visits=entry.visits,
+        message=msg,
+    )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# POST /account  (Step 6: Cost accounting + EMERGE pattern detection)
+# ════════════════════════════════════════════════════════════════════════════
+
+@router_core.post("/account", response_model=AccountResponse)
+async def account(req: AccountRequest) -> AccountResponse:
+    """
+    Execute the ACCOUNT opcode (Step 6 of 7-step cycle).
+
+    ACCOUNT is the cost ledger step:
+    1. Cost tracking per judgment, reality, dog
+    2. Budget enforcement (warn at 38.2%, exhaust at 0%)
+    3. EScore-RUN dimension updates (efficiency per dog)
+    4. Trigger EMERGE pattern detection (optional)
+
+    ACCOUNT closes the L1 loop when combined with EMERGE (Step 7).
+    """
+    state = get_state()
+
+    # Get current cost snapshot before triggering EMERGE
+    cost_stats = state.account_agent.stats()
+
+    # Trigger EMERGE pattern detection (Step 7) if requested
+    emergence_detected = False
+    emergence_pattern = ""
+    if req.trigger_emerge and state.residual_detector:
+        try:
+            # ResidualDetector.observe() detects patterns and emits EMERGENCE_DETECTED
+            # if a pattern is found (SPIKE, RISING, STABLE_HIGH)
+            patterns = state.residual_detector.observe()
+            if patterns:
+                emergence_detected = True
+                emergence_pattern = patterns[0].pattern_type if patterns else ""
+
+                # Explicitly emit EMERGENCE_DETECTED for L1→L2 cross-talk
+                await get_core_bus().emit(Event.typed(
+                    CoreEvent.EMERGENCE_DETECTED,
+                    {
+                        "pattern_type": emergence_pattern,
+                        "total_patterns": len(patterns),
+                        "reality": "CODE",  # inferred from most recent judgment
+                        "severity": patterns[0].severity if patterns else 0.5,
+                        "evidence": patterns[0].evidence if patterns else {},
+                    },
+                    source="account_endpoint",
+                ))
+        except Exception as e:
+            logger.debug("EMERGE pattern detection (non-fatal): %s", e)
+
+    # Emit COST_ACCOUNTED event — closes ACCOUNT opcode
+    try:
+        await get_core_bus().emit(Event.typed(
+            CoreEvent.COST_ACCOUNTED,
+            {
+                "total_cost_usd": cost_stats["total_cost_usd"],
+                "judgment_count": cost_stats["judgment_count"],
+                "budget_remaining_usd": cost_stats["budget_remaining_usd"],
+                "emergence_detected": emergence_detected,
+            },
+            source="account_endpoint",
+        ))
+    except Exception as e:
+        logger.debug("COST_ACCOUNTED event (non-fatal): %s", e)
+
+    msg = f"*sniff* ACCOUNT: ${cost_stats['total_cost_usd']:.4f} / ${cost_stats['session_budget_usd']:.2f} spent"
+    if emergence_detected:
+        msg += f" · EMERGE detected: {emergence_pattern}"
+    else:
+        msg += " · EMERGE: no pattern"
+
+    return AccountResponse(
+        cost_usd=round(cost_stats["total_cost_usd"], 4),
+        budget_remaining_usd=round(cost_stats["budget_remaining_usd"], 4),
+        budget_ratio=round(cost_stats["budget_ratio_remaining"], 3),
+        judgment_count=cost_stats["judgment_count"],
+        warning_emitted=cost_stats["warning_emitted"],
+        exhausted_emitted=cost_stats["exhausted_emitted"],
+        emergence_detected=emergence_detected,
+        emergence_pattern=emergence_pattern,
         message=msg,
     )
 

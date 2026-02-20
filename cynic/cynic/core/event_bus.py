@@ -158,12 +158,13 @@ class CoreEvent(StrEnum):
     # Identity
     IDENTITY_VIOLATION = "identity.violation"
 
-    # Decision / Act
+    # Decision / Act / Account
     ACT_REQUESTED   = "act.requested"
     ACT_COMPLETED   = "act.completed"    # execution finished (success or failure)
     DECISION_MADE   = "decide.made"
     ACTION_PROPOSED           = "action.proposed"             # ActionProposer: proposed action queued
     SELF_IMPROVEMENT_PROPOSED = "self.improvement_proposed"   # SelfProber: L4 analysis done
+    COST_ACCOUNTED  = "cost.accounted"   # AccountAgent: ACCOUNT opcode complete
 
     # SDK (Claude Code --sdk-url sessions)
     SDK_SESSION_STARTED  = "sdk.session_started"

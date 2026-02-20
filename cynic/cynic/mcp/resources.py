@@ -6,6 +6,7 @@ Claude Code (via SDK) can query:
   2. Decision traces (for reasoning audit)
   3. Loop closure status (is CYNIC stuck?)
   4. Learned patterns (what does CYNIC know?)
+  5. Hypergraph edges (7D perception-cognition-action links)
 
 These resources bridge L2 feedback loop:
   Claude Code → /ws/sdk → MCP resources → CYNIC state queries
@@ -17,6 +18,36 @@ from __future__ import annotations
 import json
 import time
 from typing import Any, Optional
+from dataclasses import dataclass, asdict
+
+
+@dataclass
+class HyperEdge:
+    """
+    7-dimensional hyper-edge connecting perception → cognition → action.
+
+    The 7 dimensions:
+    1. signal: Raw perception (event source, timestamp)
+    2. symbol: Semantic label (event type, category)
+    3. meaning: Interpreted significance (judgment verdict, Q-score)
+    4. value: Estimated utility (QTable reward estimate)
+    5. decision: Chosen action or response
+    6. action: Executed behavior (what actually happened)
+    7. integration: Loop completion status (cycle closed? residual?)
+    """
+    edge_id: str                    # unique identifier
+    timestamp_ms: float             # when edge was created
+    signal: dict[str, Any]          # raw event + source
+    symbol: str                     # semantic category
+    meaning: dict[str, Any]         # judgment (verdict, Q, confidence)
+    value: float                    # estimated Q-value
+    decision: dict[str, Any]        # proposed action
+    action: dict[str, Any]          # executed action
+    integration: dict[str, Any]     # cycle status
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to JSON-serializable dict."""
+        return asdict(self)
 
 
 class MCPResourceManager:
@@ -257,6 +288,77 @@ class MCPResourceManager:
         except Exception as e:
             return {"error": str(e)}
 
+    async def get_hypergraph_edges(self, limit: int = 50) -> dict[str, Any]:
+        """
+        Get recent 7-dimensional hyper-edges linking perception → cognition → action.
+
+        Resource: /mcp/hypergraph/recent?limit=50
+        """
+        try:
+            edges = []
+            edge_count = 0
+
+            # Gather data from event journal (signals)
+            events = await self.state.event_journal.time_range(
+                start_ms=time.time() * 1000 - 600000,  # last 10 min
+                end_ms=time.time() * 1000,
+            )
+
+            for event in events[-limit:]:
+                # Get corresponding trace (if exists)
+                trace = None
+                if hasattr(event, "judgment_id") and event.judgment_id:
+                    trace = await self.state.decision_tracer.get_trace_by_judgment(
+                        event.judgment_id
+                    )
+
+                # Build hyper-edge
+                edge = HyperEdge(
+                    edge_id=f"he_{event_count:06d}",
+                    timestamp_ms=event.timestamp_ms,
+                    signal={
+                        "event_id": event.event_id,
+                        "source": event.source,
+                        "timestamp_ms": event.timestamp_ms,
+                    },
+                    symbol=event.event_type,
+                    meaning=(
+                        {
+                            "verdict": trace.final_verdict,
+                            "q_score": trace.final_q_score,
+                            "confidence": trace.final_confidence,
+                        }
+                        if trace
+                        else {"verdict": None, "q_score": 0.0, "confidence": 0.0}
+                    ),
+                    value=(
+                        trace.final_q_score if trace else 0.0
+                    ),
+                    decision=(
+                        {
+                            "phase": "JUDGE",
+                            "dogs": len(trace.nodes[0].dog_votes) if trace and trace.nodes else 0,
+                        }
+                        if trace
+                        else {}
+                    ),
+                    action={"executed": False},  # placeholder
+                    integration={
+                        "cycle_phase": "UNKNOWN",
+                        "complete": False,
+                    },
+                )
+                edges.append(edge)
+                edge_count += 1
+
+            return {
+                "edges": [e.to_dict() for e in edges],
+                "count": len(edges),
+                "limit": limit,
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
     async def get_resource(self, uri: str) -> dict[str, Any]:
         """
         Route MCP resource URIs to handlers.
@@ -291,6 +393,9 @@ class MCPResourceManager:
 
             elif uri.startswith("/mcp/events/recent"):
                 return await self.get_event_stream(limit=50)
+
+            elif uri.startswith("/mcp/hypergraph/recent"):
+                return await self.get_hypergraph_edges(limit=50)
 
             else:
                 return {"error": f"Unknown resource: {uri}"}

@@ -48,6 +48,7 @@ from cynic.cli.tui import cmd_tui
 from cynic.cli.chat import cmd_chat
 from cynic.cli.perceive_watch import cmd_perceive_watch
 from cynic.cli.full_loop import cmd_full_loop
+from cynic.cli.battles import cmd_battles
 from cynic.cli.utils import _c
 
 # Re-export PORT/API constants for any consumer that might need them
@@ -69,6 +70,7 @@ __all__ = [
     "cmd_chat",
     "cmd_perceive_watch",
     "cmd_full_loop",
+    "cmd_battles",
     "main",
 ]
 
@@ -93,6 +95,7 @@ def main() -> None:
         "chat":          cmd_chat,
         "perceive-watch": cmd_perceive_watch,
         "full-loop":     cmd_full_loop,
+        "battles":       cmd_battles,
     }
 
     fn = dispatch.get(cmd)

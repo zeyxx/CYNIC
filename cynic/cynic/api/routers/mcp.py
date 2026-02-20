@@ -140,6 +140,20 @@ async def get_recent_events(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/hypergraph/recent")
+async def get_hypergraph_edges(
+    limit: int = Query(50, ge=1, le=500, description="Max hyper-edges to return"),
+    state: CynicOrganism = Depends(get_state),
+) -> dict:
+    """Get recent 7-dimensional hyper-edges linking perception->cognition->action."""
+    try:
+        manager = create_mcp_resources(state)
+        return await manager.get_hypergraph_edges(limit)
+    except Exception as e:
+        logger.error(f"Error fetching hypergraph edges: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/health")
 async def mcp_health(
     state: CynicOrganism = Depends(get_state),
