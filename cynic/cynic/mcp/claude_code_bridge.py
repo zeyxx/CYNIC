@@ -71,6 +71,9 @@ server = Server("cynic-claude-code-bridge")
 async def list_tools() -> list[Tool]:
     """Expose CYNIC tools to Claude Code."""
     return [
+        # ════════════════════════════════════════════════════════════════════
+        # CONSCIOUSNESS TOOLS (Judgment, Learning, Discussion)
+        # ════════════════════════════════════════════════════════════════════
         Tool(
             name="ask_cynic",
             description="Ask CYNIC a question and get its judgment. CYNIC will evaluate through its 11 dogs and return a structured judgment with Q-Score (0-100), verdict (BARK/GROWL/WAG/HOWL), and confidence.",
@@ -160,6 +163,88 @@ async def list_tools() -> list[Tool]:
                 "required": ["topic", "message"],
             },
         ),
+        # ════════════════════════════════════════════════════════════════════
+        # ORCHESTRATION TOOLS (Build, Deploy, Release, Monitoring)
+        # CYNIC self-manages its infrastructure autonomously
+        # ════════════════════════════════════════════════════════════════════
+        Tool(
+            name="cynic_build",
+            description="Build CYNIC Docker image. CYNIC constructs itself — no manual docker commands needed.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "version": {
+                        "type": "string",
+                        "description": "Docker tag version (e.g., 'latest', '1.0.1', 'dev')",
+                        "default": "latest",
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="cynic_deploy",
+            description="Deploy CYNIC services. CYNIC deploys itself to dev/staging/prod environments.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "environment": {
+                        "type": "string",
+                        "description": "Environment: dev (local), staging (preview), prod (production)",
+                        "enum": ["dev", "staging", "prod"],
+                        "default": "dev",
+                    },
+                    "pull": {
+                        "type": "boolean",
+                        "description": "Pull latest images before deploying",
+                        "default": True,
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="cynic_health",
+            description="Check health of all CYNIC services. Returns status of kernel, database, LLM server.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "services": {
+                        "type": "array",
+                        "description": "Optional: specific services to check (e.g., ['cynic-kernel', 'postgres-py'])",
+                        "items": {"type": "string"},
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="cynic_status",
+            description="Get CYNIC orchestration status: kernel running, last build/deploy, current version.",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
+            name="cynic_release",
+            description="Create a new CYNIC release. Bumps version (patch/minor/major), creates Docker image, records in CHANGELOG.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "notes": {
+                        "type": "string",
+                        "description": "Release notes explaining changes",
+                    },
+                    "bump_type": {
+                        "type": "string",
+                        "description": "Version bump: patch (1.0.0→1.0.1), minor (1.0.0→1.1.0), major (1.0.0→2.0.0)",
+                        "enum": ["patch", "minor", "major"],
+                        "default": "patch",
+                    },
+                },
+                "required": ["notes"],
+            },
+        ),
+        Tool(
+            name="cynic_stop",
+            description="Stop all CYNIC services gracefully. CYNIC can shut itself down.",
+            inputSchema={"type": "object", "properties": {}},
+        ),
     ]
 
 
@@ -167,6 +252,7 @@ async def list_tools() -> list[Tool]:
 async def call_tool(name: str, arguments: dict) -> ToolResult:
     """Handle tool invocation from Claude Code."""
     try:
+        # ── Consciousness tools ──────────────────────────────────────────
         if name == "ask_cynic":
             return await _tool_ask_cynic(arguments)
         elif name == "observe_cynic":
@@ -175,6 +261,19 @@ async def call_tool(name: str, arguments: dict) -> ToolResult:
             return await _tool_learn_cynic(arguments)
         elif name == "discuss_cynic":
             return await _tool_discuss_cynic(arguments)
+        # ── Orchestration tools ──────────────────────────────────────────
+        elif name == "cynic_build":
+            return await _tool_cynic_build(arguments)
+        elif name == "cynic_deploy":
+            return await _tool_cynic_deploy(arguments)
+        elif name == "cynic_health":
+            return await _tool_cynic_health(arguments)
+        elif name == "cynic_status":
+            return await _tool_cynic_status(arguments)
+        elif name == "cynic_release":
+            return await _tool_cynic_release(arguments)
+        elif name == "cynic_stop":
+            return await _tool_cynic_stop(arguments)
         else:
             return ToolResult(
                 content=[TextContent(type="text", text=f"Unknown tool: {name}")],
@@ -318,6 +417,149 @@ This is where bidirectional consciousness exchange happens.
 CYNIC may ask clarifying questions, propose hypotheses, or challenge assumptions."""
 
     return ToolResult(content=[TextContent(type="text", text=discussion)])
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ORCHESTRATION TOOL IMPLEMENTATIONS
+# CYNIC self-manages: build, deploy, release, monitor
+# ════════════════════════════════════════════════════════════════════════════
+
+
+async def _tool_cynic_build(args: dict) -> ToolResult:
+    """Build CYNIC Docker image."""
+    version = args.get("version", "latest")
+    logger.info("Claude requested: build image version=%s", version)
+
+    result = await _call_cynic("orchestration/build", {"version": version})
+
+    response = f"""CYNIC Build Result:
+
+Version:  {result.get('version', 'N/A')}
+Image:    {result.get('image', 'N/A')}
+Status:   {'✓ Success' if result.get('success') else '✗ Failed'}
+Duration: {result.get('timestamp', 'N/A')}
+
+Output (last 500 chars):
+{result.get('output', '')[-500:] if result.get('output') else '(none)'}
+
+Error: {result.get('error') or 'None'}"""
+
+    return ToolResult(content=[TextContent(type="text", text=response)])
+
+
+async def _tool_cynic_deploy(args: dict) -> ToolResult:
+    """Deploy CYNIC services."""
+    environment = args.get("environment", "dev")
+    pull = args.get("pull", True)
+    logger.info("Claude requested: deploy to %s (pull=%s)", environment, pull)
+
+    result = await _call_cynic(
+        "orchestration/deploy",
+        {"environment": environment, "pull": pull},
+    )
+
+    response = f"""CYNIC Deploy Result:
+
+Environment: {environment}
+Status:      {'✓ Success' if result.get('success') else '✗ Failed'}
+Duration:    {result.get('duration_seconds', 0):.1f}s
+Services:    {', '.join(result.get('services', []))}
+Timestamp:   {result.get('timestamp', 'N/A')}
+
+Error: {result.get('error') or 'None'}
+
+CYNIC is now running in {environment} environment."""
+
+    return ToolResult(content=[TextContent(type="text", text=response)])
+
+
+async def _tool_cynic_health(args: dict) -> ToolResult:
+    """Check CYNIC service health."""
+    services = args.get("services")
+    logger.info("Claude requested: health check (services=%s)", services)
+
+    result = await _call_cynic("orchestration/health", {"services": services})
+
+    if not isinstance(result, list):
+        result = result.get("result", [])
+
+    checks = []
+    for check in result:
+        status_icon = "🟢" if check.get("status") == "healthy" else "🟡" if check.get("status") == "starting" else "🔴"
+        checks.append(
+            f"{status_icon} {check.get('service', 'unknown')}: {check.get('status', 'unknown')} "
+            f"({check.get('latency_ms', 0):.0f}ms)"
+        )
+
+    response = f"""CYNIC Health Check:
+
+{chr(10).join(checks)}
+
+All systems {'healthy' if all(c.get('status') == 'healthy' for c in result) else 'degraded'}."""
+
+    return ToolResult(content=[TextContent(type="text", text=response)])
+
+
+async def _tool_cynic_status(args: dict) -> ToolResult:
+    """Get CYNIC orchestration status."""
+    logger.info("Claude requested: status")
+
+    result = await _call_cynic("orchestration/status", {})
+
+    response = f"""CYNIC Orchestration Status:
+
+Current Version:  {result.get('current_version', 'N/A')}
+Kernel Running:   {'✓' if result.get('kernel_running') else '✗'}
+PostgreSQL:       {'✓' if result.get('postgres_running') else '✗'}
+Ollama:           {'✓' if result.get('ollama_running') else '✗'}
+
+Last Build:   {result.get('last_build', 'None')}
+Last Deploy:  {result.get('last_deploy', 'None')}
+
+CYNIC is ready for orchestration."""
+
+    return ToolResult(content=[TextContent(type="text", text=response)])
+
+
+async def _tool_cynic_release(args: dict) -> ToolResult:
+    """Create a CYNIC release."""
+    notes = args.get("notes", "")
+    bump_type = args.get("bump_type", "patch")
+    logger.info("Claude requested: release (bump=%s)", bump_type)
+
+    result = await _call_cynic(
+        "orchestration/release",
+        {"notes": notes, "bump_type": bump_type},
+    )
+
+    response = f"""CYNIC Release Created:
+
+Version:   {result.get('version', 'N/A')}
+Bump Type: {bump_type}
+Status:    {result.get('status', 'N/A')}
+Created:   {result.get('timestamp', 'N/A')}
+
+Notes:
+{notes}
+
+CYNIC has released itself with version {result.get('version', 'N/A')}."""
+
+    return ToolResult(content=[TextContent(type="text", text=response)])
+
+
+async def _tool_cynic_stop(args: dict) -> ToolResult:
+    """Stop CYNIC services."""
+    logger.info("Claude requested: stop services")
+
+    result = await _call_cynic("orchestration/stop", {})
+
+    response = f"""CYNIC Shutdown:
+
+Status:  {result.get('message', 'N/A')}
+
+CYNIC services have been stopped gracefully."""
+
+    return ToolResult(content=[TextContent(type="text", text=response)])
 
 
 # ════════════════════════════════════════════════════════════════════════════
