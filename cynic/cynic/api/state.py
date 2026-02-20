@@ -150,11 +150,16 @@ async def _on_judgment_created(event: Event) -> None:
 
 @dataclass
 class CognitionCore:
-    """BRAIN — Judgment, learning, axioms, decisions."""
+    """BRAIN — Judgment, learning, axioms, decisions, safety guardrails."""
     orchestrator: JudgeOrchestrator
     qtable: QTable
     learning_loop: LearningLoop
     residual_detector: ResidualDetector
+    power_limiter: PowerLimiter
+    alignment_checker: AlignmentSafetyChecker
+    human_gate: HumanApprovalGate
+    audit_trail: TransparencyAuditTrail
+    decision_validator: DecisionValidator
     decide_agent: DecideAgent | None = None
     account_agent: AccountAgent | None = None
     axiom_monitor: AxiomMonitor = field(default_factory=AxiomMonitor)
@@ -331,6 +336,27 @@ class CynicOrganism:
     @auto_benchmark.setter
     def auto_benchmark(self, value: AutoBenchmark | None) -> None:
         self.metabolism.auto_benchmark = value
+
+    # ── Guardrails (backward-compat, accessed via cognition) ──
+    @property
+    def power_limiter(self) -> PowerLimiter:
+        return self.cognition.power_limiter
+
+    @property
+    def alignment_checker(self) -> AlignmentSafetyChecker:
+        return self.cognition.alignment_checker
+
+    @property
+    def human_gate(self) -> HumanApprovalGate:
+        return self.cognition.human_gate
+
+    @property
+    def audit_trail(self) -> TransparencyAuditTrail:
+        return self.cognition.audit_trail
+
+    @property
+    def decision_validator(self) -> DecisionValidator | None:
+        return self.cognition.decision_validator
 
     # ── Topology system L0 (backward-compat, accessed via senses) ──
     @property
@@ -810,6 +836,11 @@ class _OrganismAwakener:
             axiom_monitor=self.axiom_monitor,
             lod_controller=self.lod_controller,
             escore_tracker=self.escore_tracker,
+            power_limiter=self.power_limiter,
+            alignment_checker=self.alignment_checker,
+            human_gate=self.human_gate,
+            audit_trail=self.audit_trail,
+            decision_validator=self.decision_validator,
         )
         metabolism = MetabolicCore(
             scheduler=self.scheduler,
