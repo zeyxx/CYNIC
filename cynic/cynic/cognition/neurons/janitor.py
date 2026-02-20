@@ -37,7 +37,7 @@ from cynic.cognition.neurons.base import (
     DogId, HealthStatus,
 )
 
-logger = logging.getLogger("cynic.dogs.janitor")
+logger = logging.getLogger("cynic.cognition.neurons.janitor")
 
 # Ruff CLI (optional — degrades gracefully if absent)
 try:

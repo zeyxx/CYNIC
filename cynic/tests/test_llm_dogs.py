@@ -348,9 +348,9 @@ class TestAllThreeLLMDogInterface:
     """Verify the three dogs share the same LLMDog contract."""
 
     @pytest.mark.parametrize("DogClass,dog_id,task_type", [
-        ("cynic.dogs.scholar.ScholarDog", DogId.SCHOLAR, "vector_rag"),
-        ("cynic.dogs.cartographer.CartographerDog", DogId.CARTOGRAPHER, "topology"),
-        ("cynic.dogs.deployer.DeployerDog", DogId.DEPLOYER, "deployment"),
+        ("cynic.cognition.neurons.scholar.ScholarDog", DogId.SCHOLAR, "vector_rag"),
+        ("cynic.cognition.neurons.cartographer.CartographerDog", DogId.CARTOGRAPHER, "topology"),
+        ("cynic.cognition.neurons.deployer.DeployerDog", DogId.DEPLOYER, "deployment"),
     ])
     def test_dog_identity(self, DogClass, dog_id, task_type):
         import importlib
@@ -365,9 +365,9 @@ class TestAllThreeLLMDogInterface:
         assert hasattr(dog, "get_llm")
 
     @pytest.mark.parametrize("DogClass", [
-        "cynic.dogs.scholar.ScholarDog",
-        "cynic.dogs.cartographer.CartographerDog",
-        "cynic.dogs.deployer.DeployerDog",
+        "cynic.cognition.neurons.scholar.ScholarDog",
+        "cynic.cognition.neurons.cartographer.CartographerDog",
+        "cynic.cognition.neurons.deployer.DeployerDog",
     ])
     @pytest.mark.asyncio
     async def test_temporal_activated_by_registry(self, DogClass):

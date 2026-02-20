@@ -26,7 +26,7 @@ from typing import Any, List
 
 from cynic.core.phi import WAG_MIN, fibonacci
 
-logger = logging.getLogger("cynic.act.model_profiler")
+logger = logging.getLogger("cynic.metabolism.model_profiler")
 
 _PROFILE_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "model_profiles.json")
 _MAX_SAMPLES   = fibonacci(11)  # 89 per (task_type, model) — BURN axiom

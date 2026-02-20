@@ -181,7 +181,7 @@ class ConsciousnessRhythm:
         # Spawn PerceiveWorkers (autonomous sensors)
         for pw in self._perceive_workers:
             task = asyncio.ensure_future(pw.run(self.submit))
-            task.set_name(f"cynic.perceive.{pw.name}")
+            task.set_name(f"cynic.senses.{pw.name}")
             self._perceive_tasks.append(task)
 
         logger.info(

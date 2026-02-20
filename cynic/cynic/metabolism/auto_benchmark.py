@@ -21,7 +21,7 @@ from typing import Any
 
 from cynic.core.phi import fibonacci, WAG_MIN
 
-logger = logging.getLogger("cynic.act.auto_benchmark")
+logger = logging.getLogger("cynic.metabolism.auto_benchmark")
 
 # F(10) × 60s = 3300s (55 min) — φ-aligned learning interval
 _INTERVAL_S: int = fibonacci(10) * 60  # 3300

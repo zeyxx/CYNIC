@@ -59,7 +59,7 @@ from cynic.cognition.neurons.base import (
     DogId, HealthStatus,
 )
 
-logger = logging.getLogger("cynic.dogs.deployer")
+logger = logging.getLogger("cynic.cognition.neurons.deployer")
 
 # ── Thresholds (Fibonacci-aligned) ────────────────────────────────────────
 MAX_DEBUG_ARTIFACTS: int  = fibonacci(5)   # F(5)=5 — max print/pdb/breakpoint

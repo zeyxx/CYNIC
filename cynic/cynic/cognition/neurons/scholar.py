@@ -62,7 +62,7 @@ from cynic.cognition.neurons.base import (
     DogId, HealthStatus,
 )
 
-logger = logging.getLogger("cynic.dogs.scholar")
+logger = logging.getLogger("cynic.cognition.neurons.scholar")
 
 # Buffer capacity: F(11) = 89
 BUFFER_MAX: int = fibonacci(11)  # 89

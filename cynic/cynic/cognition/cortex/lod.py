@@ -49,7 +49,7 @@ from cynic.core.phi import (
     WAG_MIN, GROWL_MIN, fibonacci,
 )
 
-logger = logging.getLogger("cynic.judge.lod")
+logger = logging.getLogger("cynic.cognition.cortex.lod")
 
 # Queue depth thresholds (Fibonacci: 34, 89, 144)
 _QUEUE_LOD1 = fibonacci(9)   # 34

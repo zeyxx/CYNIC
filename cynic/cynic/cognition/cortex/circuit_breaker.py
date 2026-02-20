@@ -34,7 +34,7 @@ from typing import Any
 
 from cynic.core.phi import PHI_INV_2, fibonacci
 
-logger = logging.getLogger("cynic.judge.circuit_breaker")
+logger = logging.getLogger("cynic.cognition.cortex.circuit_breaker")
 
 # φ-derived thresholds
 _FAILURE_THRESHOLD: int = fibonacci(5)          # 5 consecutive failures → OPEN

@@ -15,7 +15,7 @@ from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
 from cynic.core.phi import fibonacci
 
-logger = logging.getLogger("cynic.perceive")
+logger = logging.getLogger("cynic.senses")
 
 
 class PerceiveWorker(ABC):

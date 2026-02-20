@@ -23,7 +23,7 @@ from typing import Any
 from cynic.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
 from cynic.core.events_schema import DecisionMadePayload
 
-logger = logging.getLogger("cynic.judge.decide")
+logger = logging.getLogger("cynic.cognition.cortex.decide")
 
 # phi^-2 = 0.382 — minimum confidence to trigger auto-decide
 _PHI_INV_2 = 0.382

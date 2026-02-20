@@ -60,7 +60,7 @@ from cynic.cognition.neurons.base import (
     DogId, HealthStatus,
 )
 
-logger = logging.getLogger("cynic.dogs.scout")
+logger = logging.getLogger("cynic.cognition.neurons.scout")
 
 # ── Thresholds (Fibonacci-aligned) ────────────────────────────────────────
 MAX_URLS_PER_CELL: int = fibonacci(4)   # F(4)=3  — max URLs checked per cell

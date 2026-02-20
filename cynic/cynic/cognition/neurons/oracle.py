@@ -45,7 +45,7 @@ from cynic.cognition.neurons.base import (
     DogId, HealthStatus,
 )
 
-logger = logging.getLogger("cynic.dogs.oracle")
+logger = logging.getLogger("cynic.cognition.neurons.oracle")
 
 # All possible verdicts (actions in Q-space)
 VERDICTS: list[str] = ["BARK", "GROWL", "WAG", "HOWL"]

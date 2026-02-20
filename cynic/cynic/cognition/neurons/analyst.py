@@ -42,7 +42,7 @@ from cynic.cognition.neurons.base import (
     DogId, HealthStatus,
 )
 
-logger = logging.getLogger("cynic.dogs.analyst")
+logger = logging.getLogger("cynic.cognition.neurons.analyst")
 
 Z3_TIMEOUT_MS = 3000  # 3 seconds max for Z3 (F(8)×21=441ms budget, allow 7× for hard problems)
 

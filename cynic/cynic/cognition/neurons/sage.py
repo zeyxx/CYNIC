@@ -57,7 +57,7 @@ from cynic.cognition.neurons.base import (
     DogId, HealthStatus,
 )
 
-logger = logging.getLogger("cynic.dogs.sage")
+logger = logging.getLogger("cynic.cognition.neurons.sage")
 
 # Fallback weights — used when domain not found in DEFAULT_CONTEXTUAL_WEIGHTS
 _AXIOM_WEIGHT_FALLBACK: dict[str, float] = {

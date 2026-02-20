@@ -31,7 +31,7 @@ from cynic.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
 from cynic.core.events_schema import BudgetExhaustedPayload, BudgetWarningPayload
 from cynic.core.phi import PHI_INV_2, MAX_Q_SCORE
 
-logger = logging.getLogger("cynic.judge.account")
+logger = logging.getLogger("cynic.cognition.cortex.account")
 
 # φ-derived warning threshold: warn when 38.2% of budget remains
 _WARNING_RATIO: float = PHI_INV_2            # 0.382

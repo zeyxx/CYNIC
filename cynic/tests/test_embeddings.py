@@ -136,7 +136,7 @@ class TestScholarDogPGVector:
         scholar._db_pool = mock_pool
 
         # Mock ScholarRepository.search_similar_by_embedding to return empty
-        with patch("cynic.dogs.scholar.ScholarDog._vector_search_path", new_callable=AsyncMock) as mock_vsp:
+        with patch("cynic.cognition.neurons.scholar.ScholarDog._vector_search_path", new_callable=AsyncMock) as mock_vsp:
             mock_vsp.return_value = None  # Vector search returns None → fall back to TF-IDF
             cell = self._make_cell()
             scholar._buffer = []  # Empty buffer for TF-IDF fallback

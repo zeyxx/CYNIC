@@ -50,7 +50,7 @@ from cynic.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
 from cynic.core.events_schema import ActionProposedPayload
 from cynic.core.phi import fibonacci
 
-logger = logging.getLogger("cynic.judge.action_proposer")
+logger = logging.getLogger("cynic.cognition.cortex.action_proposer")
 
 _QUEUE_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "pending_actions.json")
 _MAX_QUEUE  = fibonacci(11)  # 89 — BURN axiom: rolling window

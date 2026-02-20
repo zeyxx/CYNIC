@@ -27,7 +27,7 @@ from typing import Any
 
 from cynic.core.phi import PHI_INV, PHI_INV_2
 
-logger = logging.getLogger("cynic.act.llm_router")
+logger = logging.getLogger("cynic.metabolism.llm_router")
 
 # Task types safe for local/cheap routing (CYNIC has seen enough examples)
 _SIMPLE_TASK_TYPES = frozenset({"debug", "refactor", "test", "explain", "write"})

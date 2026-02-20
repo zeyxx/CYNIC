@@ -184,14 +184,14 @@ class TestActionProposerCore:
     def test_action_id_is_8_chars(self, tmp_path):
         ap = _proposer_with_tmp(tmp_path)
         event = _make_decision_event()
-        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.action_proposer.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             asyncio.get_event_loop().run_until_complete(ap._on_decision_made(event))
         assert len(ap.all_actions()[0].action_id) == 8
 
     def test_multiple_events_stack(self, tmp_path):
         ap = _proposer_with_tmp(tmp_path)
-        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.action_proposer.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             for _ in range(5):
                 asyncio.get_event_loop().run_until_complete(
@@ -201,7 +201,7 @@ class TestActionProposerCore:
 
     def test_pending_sorted_by_priority(self, tmp_path):
         ap = _proposer_with_tmp(tmp_path)
-        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.action_proposer.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             # GROWL CODE → priority 2
             asyncio.get_event_loop().run_until_complete(
@@ -218,7 +218,7 @@ class TestActionProposerCore:
 
     def test_growl_market_action_type_monitor(self, tmp_path):
         ap = _proposer_with_tmp(tmp_path)
-        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.action_proposer.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             asyncio.get_event_loop().run_until_complete(
                 ap._on_decision_made(_make_decision_event(verdict="GROWL", reality="MARKET"))
@@ -231,7 +231,7 @@ class TestActionProposerCore:
 class TestActionLifecycle:
     def _setup(self, tmp_path) -> tuple:
         ap = _proposer_with_tmp(tmp_path)
-        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.action_proposer.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             asyncio.get_event_loop().run_until_complete(
                 ap._on_decision_made(_make_decision_event())
@@ -288,7 +288,7 @@ class TestActionLifecycle:
 class TestPersistence:
     def test_save_creates_json_file(self, tmp_path):
         ap = _proposer_with_tmp(tmp_path)
-        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.action_proposer.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             asyncio.get_event_loop().run_until_complete(
                 ap._on_decision_made(_make_decision_event())
@@ -298,7 +298,7 @@ class TestPersistence:
 
     def test_saved_json_is_list(self, tmp_path):
         ap = _proposer_with_tmp(tmp_path)
-        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.action_proposer.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             asyncio.get_event_loop().run_until_complete(
                 ap._on_decision_made(_make_decision_event())
@@ -312,12 +312,12 @@ class TestPersistence:
     def test_load_restores_actions(self, tmp_path):
         # Write then load
         ap1 = _proposer_with_tmp(tmp_path)
-        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.action_proposer.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             asyncio.get_event_loop().run_until_complete(
                 ap._on_decision_made(_make_decision_event())
             ) if False else None  # Skip — use ap1 directly
-        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.action_proposer.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             asyncio.get_event_loop().run_until_complete(
                 ap1._on_decision_made(_make_decision_event(verdict="BARK"))
@@ -332,7 +332,7 @@ class TestPersistence:
 
     def test_accept_persists_to_disk(self, tmp_path):
         ap = _proposer_with_tmp(tmp_path)
-        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.action_proposer.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             asyncio.get_event_loop().run_until_complete(
                 ap._on_decision_made(_make_decision_event())
@@ -351,7 +351,7 @@ class TestPersistence:
 class TestRollingCap:
     def test_queue_capped_at_max(self, tmp_path):
         ap = _proposer_with_tmp(tmp_path)
-        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.action_proposer.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             for _ in range(_MAX_QUEUE + 10):
                 asyncio.get_event_loop().run_until_complete(
@@ -362,7 +362,7 @@ class TestRollingCap:
     def test_oldest_dropped_when_cap_exceeded(self, tmp_path):
         ap = _proposer_with_tmp(tmp_path)
         first_id = None
-        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.action_proposer.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             for i in range(_MAX_QUEUE + 1):
                 asyncio.get_event_loop().run_until_complete(
@@ -388,7 +388,7 @@ class TestStats:
 
     def test_stats_after_proposal(self, tmp_path):
         ap = _proposer_with_tmp(tmp_path)
-        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.action_proposer.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             asyncio.get_event_loop().run_until_complete(
                 ap._on_decision_made(_make_decision_event())
@@ -400,7 +400,7 @@ class TestStats:
 
     def test_stats_after_accept(self, tmp_path):
         ap = _proposer_with_tmp(tmp_path)
-        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.action_proposer.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             asyncio.get_event_loop().run_until_complete(
                 ap._on_decision_made(_make_decision_event())
@@ -413,7 +413,7 @@ class TestStats:
 
     def test_stats_after_reject(self, tmp_path):
         ap = _proposer_with_tmp(tmp_path)
-        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.action_proposer.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             asyncio.get_event_loop().run_until_complete(
                 ap._on_decision_made(_make_decision_event())
@@ -515,7 +515,7 @@ class TestL1Closure:
     def test_mark_auto_executed_links_queue(self, tmp_path):
         """mark_auto_executed() updates status in the in-memory queue."""
         ap = _proposer_with_tmp(tmp_path)
-        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.action_proposer.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             asyncio.get_event_loop().run_until_complete(
                 ap._on_decision_made(_make_decision_event(judgment_id="jid-auto"))
@@ -533,7 +533,7 @@ class TestL1Closure:
     def test_auto_executed_not_in_pending(self, tmp_path):
         """AUTO_EXECUTED actions don't appear in pending()."""
         ap = _proposer_with_tmp(tmp_path)
-        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.action_proposer.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             asyncio.get_event_loop().run_until_complete(
                 ap._on_decision_made(_make_decision_event())
@@ -817,7 +817,7 @@ class TestChainDepth:
         event.payload["chain_depth"] = 1
         event.payload["generated_by"] = "VERIFY"
 
-        with patch("cynic.judge.action_proposer.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.action_proposer.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             asyncio.get_event_loop().run_until_complete(
                 ap._on_decision_made(event)

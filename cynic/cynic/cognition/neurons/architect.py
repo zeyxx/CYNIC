@@ -49,7 +49,7 @@ from cynic.cognition.neurons.base import (
     DogId, HealthStatus,
 )
 
-logger = logging.getLogger("cynic.dogs.architect")
+logger = logging.getLogger("cynic.cognition.neurons.architect")
 
 # ── Structural Thresholds (Fibonacci/Lucas-aligned) ──────────────────────────
 MAX_IMPORTS: int = 13       # F(7) — max imports before coupling penalty

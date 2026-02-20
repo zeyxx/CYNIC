@@ -43,7 +43,7 @@ from cynic.core.phi import (
     fibonacci, PHI_INV,
 )
 
-logger = logging.getLogger("cynic.judge.axiom_monitor")
+logger = logging.getLogger("cynic.cognition.cortex.axiom_monitor")
 
 # Valid emergent axioms (A6-A9) — signal-able by external events
 EMERGENT_AXIOMS = frozenset({

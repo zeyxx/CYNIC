@@ -61,7 +61,7 @@ from cynic.cognition.neurons.base import (
     DogId, HealthStatus,
 )
 
-logger = logging.getLogger("cynic.dogs.cartographer")
+logger = logging.getLogger("cynic.cognition.neurons.cartographer")
 
 # ── Graph Thresholds (φ-aligned) ──────────────────────────────────────────
 

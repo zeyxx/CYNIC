@@ -31,7 +31,7 @@ from typing import Any, List
 
 from cynic.core.phi import fibonacci
 
-logger = logging.getLogger("cynic.act.universal")
+logger = logging.getLogger("cynic.metabolism.universal")
 
 _MAX_OUTPUT = fibonacci(13)  # 233 chars
 

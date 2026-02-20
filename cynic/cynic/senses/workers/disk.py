@@ -15,7 +15,7 @@ from cynic.core.judgment import Cell
 from cynic.core.phi import PHI_INV, PHI_INV_3, fibonacci
 from cynic.senses.workers.base import PerceiveWorker
 
-logger = logging.getLogger("cynic.perceive")
+logger = logging.getLogger("cynic.senses")
 
 # φ-derived disk usage thresholds (fraction of disk used)
 _DISK_WARN      = PHI_INV        # 0.618 — 61.8% full → GROWL / LOD 1

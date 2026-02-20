@@ -44,7 +44,7 @@ from cynic.cognition.neurons.base import (
     DogId, HealthStatus, DOG_PRIORITY,
 )
 
-logger = logging.getLogger("cynic.dogs.cynic")
+logger = logging.getLogger("cynic.cognition.neurons.cynic")
 
 
 # ════════════════════════════════════════════════════════════════════════════

@@ -23,7 +23,7 @@ from typing import Any
 
 from cynic.core.phi import PHI_INV_2, MAX_Q_SCORE
 
-logger = logging.getLogger("cynic.act.budget")
+logger = logging.getLogger("cynic.metabolism.budget")
 
 HOURLY_CAP_TOKENS: int = 400_000   # ~$0.50/h @ Haiku pricing
 HOURLY_CAP_USD: float = 0.50

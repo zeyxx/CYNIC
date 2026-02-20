@@ -43,7 +43,7 @@ from cynic.core.events_schema import (
     EmergenceDetectedPayload,
 )
 
-logger = logging.getLogger("cynic.judge.residual")
+logger = logging.getLogger("cynic.cognition.cortex.residual")
 
 # Rolling window: F(8) = 21 judgments
 HISTORY_MAXLEN: int = fibonacci(8)   # 21

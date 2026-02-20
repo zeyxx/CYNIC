@@ -178,7 +178,7 @@ class TestInterfaceCompliance:
         for path in dogs_dir.glob("*.py"):
             if path.name.startswith("_"):
                 continue
-            mod_name = f"cynic.dogs.{path.stem}"
+            mod_name = f"cynic.cognition.neurons.{path.stem}"
             try:
                 importlib.import_module(mod_name)
             except Exception:
@@ -256,7 +256,7 @@ class TestInterfaceCompliance:
             if path.name.startswith("_"):
                 continue
             try:
-                mod = importlib.import_module(f"cynic.perceive.workers.{path.stem}")
+                mod = importlib.import_module(f"cynic.senses.workers.{path.stem}")
                 worker_modules.append((path.stem, mod))
             except Exception:
                 pass

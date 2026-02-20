@@ -54,7 +54,7 @@ from cynic.cognition.neurons.base import AbstractDog, DogJudgment, DogId
 from cynic.cognition.neurons.cynic_dog import CynicDog
 from cynic.cognition.cortex.circuit_breaker import CircuitBreaker, CircuitState
 
-logger = logging.getLogger("cynic.judge")
+logger = logging.getLogger("cynic.cognition.cortex")
 
 # Maximum Dogs to run in parallel at L1 MACRO (F(7)=13 > 11, so all 11)
 MAX_PARALLEL_DOGS = 11

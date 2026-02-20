@@ -26,7 +26,7 @@ from typing import Any, Optional
 
 from cynic.core.event_bus import CoreEvent
 
-logger = logging.getLogger("cynic.act.runner")
+logger = logging.getLogger("cynic.metabolism.runner")
 
 # Timeout constants (seconds)
 CONNECT_TIMEOUT = 30.0          # wait for claude to call /ws/sdk

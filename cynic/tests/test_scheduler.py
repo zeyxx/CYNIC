@@ -452,7 +452,7 @@ class TestPerceiveWorkerRegistration:
         scheduler.register_perceive_worker(GitWatcher())
         scheduler.start()
         names = {t.get_name() for t in scheduler._perceive_tasks}
-        assert "cynic.perceive.git_watcher" in names
+        assert "cynic.senses.git_watcher" in names
         await scheduler.stop()
 
     def test_stats_reports_perceive_worker_count(self, scheduler):

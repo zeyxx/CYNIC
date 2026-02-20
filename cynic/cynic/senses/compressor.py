@@ -30,7 +30,7 @@ from typing import Any, List
 
 from cynic.core.phi import PHI_INV, PHI_INV_2, fibonacci
 
-logger = logging.getLogger("cynic.perceive.compressor")
+logger = logging.getLogger("cynic.senses.compressor")
 
 # Default max tokens (F(12) = 144 × 32 ≈ 4096)
 DEFAULT_MAX_TOKENS: int = 4096

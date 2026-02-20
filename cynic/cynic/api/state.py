@@ -170,6 +170,10 @@ class CynicOrganism:
     universal_actuator: UniversalActuator = field(default_factory=UniversalActuator)
     container: DependencyContainer = field(default_factory=DependencyContainer)
     _handler_registry: object = field(default=None)  # HandlerRegistry — for introspection
+    source_watcher: Any = None  # SourceWatcher
+    topology_builder: Any = None  # IncrementalTopologyBuilder
+    hot_reload_coordinator: Any = None  # HotReloadCoordinator
+    topology_mirror: Any = None  # TopologyMirror
 
     @property
     def uptime_s(self) -> float:
@@ -527,6 +531,10 @@ class _OrganismAwakener:
             service_registry=self.service_registry,
             container=self._container,
             _handler_registry=self._handler_registry,
+            source_watcher=self.source_watcher,
+            topology_builder=self.topology_builder,
+            hot_reload_coordinator=self.hot_reload_coordinator,
+            topology_mirror=self.topology_mirror,
         )
 
     def build(self) -> CynicOrganism:

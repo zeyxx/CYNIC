@@ -16,7 +16,7 @@ from typing import Any
 import cynic.cognition.neurons as dogs_pkg
 from cynic.cognition.neurons.base import AbstractDog, DogId
 
-logger = logging.getLogger("cynic.dogs.discovery")
+logger = logging.getLogger("cynic.cognition.neurons.discovery")
 
 
 def discover_dog_classes() -> dict[str, type[AbstractDog]]:
@@ -38,7 +38,7 @@ def discover_dog_classes() -> dict[str, type[AbstractDog]]:
             continue
 
         try:
-            module = importlib.import_module(f"cynic.dogs.{module_name}")
+            module = importlib.import_module(f"cynic.cognition.neurons.{module_name}")
         except Exception:
             logger.warning("Failed to import cynic.cognition.neurons.%s", module_name, exc_info=True)
             continue

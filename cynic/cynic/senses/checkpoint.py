@@ -27,7 +27,7 @@ from cynic.core.phi import fibonacci
 if TYPE_CHECKING:
     from cynic.senses.compressor import ContextCompressor
 
-logger = logging.getLogger("cynic.perceive.checkpoint")
+logger = logging.getLogger("cynic.senses.checkpoint")
 
 # Save every F(8)=21 judgments
 CHECKPOINT_EVERY: int = fibonacci(8)  # 21

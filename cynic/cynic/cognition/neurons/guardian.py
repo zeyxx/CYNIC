@@ -33,7 +33,7 @@ from cynic.cognition.neurons.base import (
     DogId, HealthStatus,
 )
 
-logger = logging.getLogger("cynic.dogs.guardian")
+logger = logging.getLogger("cynic.cognition.neurons.guardian")
 
 # Danger threshold: anomaly score above φ² triggers veto
 VETO_THRESHOLD = PHI_2     # 2.618 — exceptional danger

@@ -32,7 +32,7 @@ from typing import Any, Dict
 
 from cynic.core.phi import WAG_MIN, GROWL_MIN, MAX_Q_SCORE, fibonacci
 
-logger = logging.getLogger("cynic.judge.mirror")
+logger = logging.getLogger("cynic.cognition.cortex.mirror")
 
 # Rolling window for diff history (F(8)=21 snapshots)
 _DIFF_WINDOW: int = fibonacci(8)  # 21
