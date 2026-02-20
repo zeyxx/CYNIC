@@ -132,6 +132,25 @@ class ActHandler(BaseHandler):
         if not decision:
             return None  # No action needed
 
+        # Helper: emit DECISION_MADE for human review (consolidates duplicate emissions)
+        async def emit_decision_made(trigger: str, error: str | None = None) -> None:
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.DECISION_MADE,
+                DecisionMadePayload(
+                    verdict=decision["verdict"],
+                    reality=decision["reality"],
+                    state_key=decision.get("state_key", ""),
+                    q_value=decision.get("q_value", 0.0),
+                    confidence=decision.get("confidence", 0.0),
+                    recommended_action=decision.get("recommended_action", ""),
+                    action_prompt=decision.get("action_prompt", ""),
+                    trigger=trigger,
+                    mcts=True,
+                    judgment_id=decision.get("judgment_id", ""),
+                ),
+                source="orchestrator_act_phase",
+            ))
+
         # GUARDRAIL VALIDATION — DecisionValidator chains all safety checks
         if self.decision_validator:
             try:
@@ -150,23 +169,7 @@ class ActHandler(BaseHandler):
                     f"Decision BLOCKED [{e.guardrail}]: {e.reason} "
                     f"→ {e.recommendation}"
                 )
-                # Emit decision made event (for human review)
-                await get_core_bus().emit(Event.typed(
-                    CoreEvent.DECISION_MADE,
-                    DecisionMadePayload(
-                        verdict=decision["verdict"],
-                        reality=decision["reality"],
-                        state_key=decision.get("state_key", ""),
-                        q_value=decision.get("q_value", 0.0),
-                        confidence=decision.get("confidence", 0.0),
-                        recommended_action=decision.get("recommended_action", ""),
-                        action_prompt=decision.get("action_prompt", ""),
-                        trigger="guardrail_blocked",
-                        mcts=True,
-                        judgment_id=decision.get("judgment_id", ""),
-                    ),
-                    source="orchestrator_act_phase",
-                ))
+                await emit_decision_made(trigger="guardrail_blocked")
                 # Return block result without executing
                 return {
                     "action_id": decision.get("judgment_id", "")[:8],
@@ -182,23 +185,8 @@ class ActHandler(BaseHandler):
         from cynic.cognition.cortex.decide import _ACT_REALITIES
 
         if decision["reality"] not in _ACT_REALITIES:
-            # Still emit DECISION_MADE for human review, but don't auto-execute
-            await get_core_bus().emit(Event.typed(
-                CoreEvent.DECISION_MADE,
-                DecisionMadePayload(
-                    verdict=decision["verdict"],
-                    reality=decision["reality"],
-                    state_key=decision.get("state_key", ""),
-                    q_value=decision.get("q_value", 0.0),
-                    confidence=decision.get("confidence", 0.0),
-                    recommended_action=decision.get("recommended_action", ""),
-                    action_prompt=decision.get("action_prompt", ""),
-                    trigger="not_actionable_reality",
-                    mcts=True,
-                    judgment_id=decision.get("judgment_id", ""),
-                ),
-                source="orchestrator_act_phase",
-            ))
+            # Emit for human review, but don't auto-execute
+            await emit_decision_made(trigger="not_actionable_reality")
             return None
 
         # STEP 4: ACT — execute the action
