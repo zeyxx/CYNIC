@@ -43,9 +43,20 @@ class TestOllamaConnection:
         if not has_ollama:
             pytest.skip("Ollama not available")
 
-        from cynic.llm.adapter import OllamaAdapter
+        from cynic.llm.adapter import OllamaAdapter, LLMRegistry
 
-        adapter = OllamaAdapter(base_url="http://localhost:11434")
+        # Discover available models (CYNIC must know where its LLMs live)
+        registry = LLMRegistry()
+        models = await registry.discover(ollama_url="http://localhost:11434")
+
+        # Get generation-capable models (filter out embedding models)
+        available_gen_models = [m for m in models if not m.startswith("ollama:nomic")]
+        if not available_gen_models:
+            pytest.skip("No generation models available in Ollama")
+
+        selected_model = available_gen_models[0]
+
+        adapter = OllamaAdapter(model=selected_model, base_url="http://localhost:11434")
 
         # Create a real LLM request
         from cynic.llm.adapter import LLMRequest
@@ -54,7 +65,7 @@ class TestOllamaConnection:
                 {"role": "system", "content": "You are a code quality analyzer."},
                 {"role": "user", "content": "Rate this code: def foo(): pass"}
             ],
-            model="qwen2.5-coder:7b",  # Must be pulled locally
+            model=selected_model,
             temperature=0.3,
             max_tokens=100,
         )
@@ -106,20 +117,24 @@ class TestOllamaConnection:
 
     @pytest.mark.asyncio
     async def test_ollama_model_discovery(self, has_ollama):
-        """Test LLMRegistry.discover() finds real models."""
+        """Test LLMRegistry.discover() finds real models and CYNIC knows where they are."""
         if not has_ollama:
             pytest.skip("Ollama not available")
 
         from cynic.llm.adapter import LLMRegistry
 
         registry = LLMRegistry()
-        models = await registry.discover(base_url="http://localhost:11434")
+        # CRITICAL: This discovers where CYNIC's LLMs live
+        all_models = await registry.discover(ollama_url="http://localhost:11434")
 
-        assert len(models) > 0, "Should discover at least one model"
-        assert any("qwen" in m.lower() or "llama" in m.lower() for m in models), \
-            f"Expected qwen or llama model, got {models}"
+        assert len(all_models) > 0, "Should discover at least one model"
 
-        print(f"✓ Discovered models: {models}")
+        # Get generation models (exclude embedding-only models like nomic-embed-text)
+        gen_models = registry.get_available_for_generation()
+        assert len(gen_models) > 0, f"Should have generation models, got only: {all_models}"
+
+        for adapter in gen_models:
+            print(f"✓ CYNIC found generation model: {adapter.model} ({adapter.provider})")
 
     @pytest.mark.asyncio
     async def test_temporal_mcts_with_real_ollama(self, has_ollama):
@@ -131,12 +146,15 @@ class TestOllamaConnection:
         from cynic.llm.adapter import LLMRegistry
 
         registry = LLMRegistry()
-        # Discover available model
-        models = await registry.discover(base_url="http://localhost:11434")
-        if not models:
-            pytest.skip("No models available in Ollama")
+        # Discover where CYNIC's LLMs are
+        all_models = await registry.discover(ollama_url="http://localhost:11434")
 
-        model = models[0]
+        # Get generation models only
+        gen_models = registry.get_available_for_generation()
+        if not gen_models:
+            pytest.skip(f"No generation models in Ollama. Found: {all_models}")
+
+        model = gen_models[0].model
 
         # Run real temporal MCTS with 7 parallel Ollama calls
         cell_content = "def calculate_total(items): return sum([i['price'] * i['qty'] for i in items])"
@@ -154,7 +172,7 @@ class TestOllamaConnection:
         assert 0 <= judgment.confidence <= 0.618, f"Confidence exceeds φ⁻¹: {judgment.confidence}"
         assert len(judgment.perspective_scores) > 0, "Should have perspective scores"
 
-        print(f"✓ Temporal MCTS Q={judgment.q_score:.1f}, perspectives={len(judgment.perspective_scores)}")
+        print(f"✓ Temporal MCTS with {model}: Q={judgment.q_score:.1f}, perspectives={len(judgment.perspective_scores)}")
 
 
 class TestOllamaPerformance:
@@ -162,18 +180,25 @@ class TestOllamaPerformance:
 
     @pytest.mark.asyncio
     async def test_ollama_latency_single_call(self, has_ollama):
-        """Measure single Ollama API call latency."""
+        """Measure single Ollama API call latency with discovered model."""
         if not has_ollama:
             pytest.skip("Ollama not available")
 
         import time
-        from cynic.llm.adapter import OllamaAdapter, LLMRequest
+        from cynic.llm.adapter import OllamaAdapter, LLMRequest, LLMRegistry
 
-        adapter = OllamaAdapter(base_url="http://localhost:11434")
+        registry = LLMRegistry()
+        models = await registry.discover(ollama_url="http://localhost:11434")
+        gen_models = registry.get_available_for_generation()
+        if not gen_models:
+            pytest.skip(f"No generation models found. Ollama has: {models}")
+
+        model_name = gen_models[0].model
+        adapter = OllamaAdapter(model=model_name, base_url="http://localhost:11434")
 
         request = LLMRequest(
             messages=[{"role": "user", "content": "Return the word 'test'."}],
-            model="qwen2.5-coder:7b",
+            model=model_name,
             temperature=0.1,
             max_tokens=10,
         )
@@ -182,7 +207,7 @@ class TestOllamaPerformance:
         response = await adapter.complete(request)
         elapsed_ms = (time.perf_counter() - start) * 1000
 
-        print(f"✓ Ollama single call: {elapsed_ms:.1f}ms")
+        print(f"✓ Ollama single call ({model_name}): {elapsed_ms:.1f}ms")
         # Ollama on CPU can be slow (1-5s), but should complete
         assert elapsed_ms < 30000, f"Ollama call took too long: {elapsed_ms:.1f}ms"
 
@@ -194,13 +219,20 @@ class TestOllamaPerformance:
 
         import time
         import asyncio
-        from cynic.llm.adapter import OllamaAdapter, LLMRequest
+        from cynic.llm.adapter import OllamaAdapter, LLMRequest, LLMRegistry
 
-        adapter = OllamaAdapter(base_url="http://localhost:11434")
+        registry = LLMRegistry()
+        models = await registry.discover(ollama_url="http://localhost:11434")
+        gen_models = registry.get_available_for_generation()
+        if not gen_models:
+            pytest.skip(f"No generation models found. Ollama has: {models}")
+
+        model_name = gen_models[0].model
+        adapter = OllamaAdapter(model=model_name, base_url="http://localhost:11434")
 
         request = LLMRequest(
             messages=[{"role": "user", "content": "Say 'ok'."}],
-            model="qwen2.5-coder:7b",
+            model=model_name,
             temperature=0.1,
             max_tokens=5,
         )
@@ -213,7 +245,7 @@ class TestOllamaPerformance:
         elapsed_ms = (time.perf_counter() - start) * 1000
 
         assert len(responses) == 7, "Should complete all 7 calls"
-        print(f"✓ Ollama 7 parallel calls: {elapsed_ms:.1f}ms ({elapsed_ms/7:.1f}ms per call avg)")
+        print(f"✓ Ollama 7 parallel calls ({model_name}): {elapsed_ms:.1f}ms ({elapsed_ms/7:.1f}ms per call avg)")
 
 
 if __name__ == "__main__":
