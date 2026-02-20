@@ -1,0 +1,10 @@
+$r = Invoke-RestMethod http://localhost:8000/introspect
+Write-Host "=== KERNEL STATE ==="
+Write-Host "Uptime: $($r.uptime_s)s"
+Write-Host "LOD: $($r.lod.current_lod) ($($r.lod.current_name)) | transitions: $($r.lod.total_transitions)"
+Write-Host "Judgments: $($r.orchestrator.judgments_total)"
+Write-Host "QTable states: $($r.learning.states) | updates: $($r.learning.total_updates)"
+Write-Host "Emergent axioms: $($r.emergent_axioms.active_count) active | tier: $($r.emergent_axioms.tier)"
+Write-Host "Residual: $($r.residual.observations) obs | $($r.residual.patterns_detected) patterns"
+Write-Host "Scholar buffer: $($r.scholar.buffer_size)/$($r.scholar.buffer_max)"
+Write-Host "EWC alpha: $($r.learning.ewc_effective_alpha)"

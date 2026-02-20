@@ -133,6 +133,13 @@ class KernelMirror:
         # Dogs: aggregate judgment telemetry
         snap["dogs"] = self._dog_stats(state)
 
+        # Handler Topology: Tier 3 architecture self-awareness
+        if hasattr(state, "_handler_registry") and state._handler_registry is not None:
+            try:
+                snap["handler_topology"] = state._handler_registry.introspect()
+            except Exception as exc:
+                snap["handler_topology"] = {"error": str(exc)}
+
         # Decisions: DecideAgent Ring-2 stats
         if hasattr(state, "decide_agent") and state.decide_agent is not None:
             try:

@@ -1,0 +1,106 @@
+{
+  "summary": {
+    "generated_at": "2026-02-13",
+    "codebase": "CYNIC",
+    "total_llm_calls": 8,
+    "external_apis": 4,
+    "routing_systems": 3
+  },
+  "anthropic_calls": [
+    {
+      "file": "packages/llm/src/adapters/anthropic.js",
+      "lines": "80-187",
+      "class": "AnthropicAdapter",
+      "method": "complete()",
+      "api_call": "client.messages.create(params)",
+      "confidence": "φ-inv (61.8%)",
+      "models": ["claude-opus-4-6", "claude-sonnet-4-5-20250929", "claude-haiku-4-5-20251001"],
+      "description": "Primary brain - direct Anthropic API via SDK"
+    },
+    {
+      "file": "packages/node/src/daemon/llm-endpoints.js",
+      "lines": "100-173",
+      "endpoint": "POST /llm/ask",
+      "purpose": "Primary LLM completion",
+      "router": "UnifiedLLMRouter",
+      "description": "Daemon endpoint routing to Anthropic"
+    }
+  ],
+  "ollama_calls": [
+    {
+      "file": "packages/llm/src/adapters/oss-llm.js",
+      "lines": "123-147",
+      "class": "OSSLLMAdapter",
+      "endpoint": "http://localhost:11434/api/generate",
+      "confidence": "φ-inv-2 (38.2%)",
+      "purpose": "Free local inference for budget-conscious routing"
+    }
+  ],
+  "gemini_calls": [
+    {
+      "file": "packages/llm/src/adapters/gemini.js",
+      "lines": "95-149",
+      "class": "GeminiAdapter",
+      "sdk": "@google/generative-ai",
+      "confidence": "φ-inv-2 (38.2%)",
+      "purpose": "Secondary validator for consensus"
+    }
+  ],
+  "external_apis": [
+    {
+      "api": "Jupiter Price API v3",
+      "endpoint": "https://api.jup.ag/price/v3",
+      "file": "packages/node/src/perception/jupiter-client.js",
+      "purpose": "Token price monitoring"
+    },
+    {
+      "api": "Solana RPC",
+      "endpoint": "https://api.mainnet-beta.solana.com",
+      "file": "packages/node/src/perception/market-watcher.js",
+      "purpose": "Blockchain data queries"
+    }
+  ],
+  "routing_systems": [
+    {
+      "name": "LLMRouter",
+      "file": "packages/node/src/orchestration/llm-router.js",
+      "features": "Cost-aware routing, budget circuit breaker, Thompson Sampling"
+    },
+    {
+      "name": "UnifiedLLMRouter",
+      "file": "packages/node/src/orchestration/unified-llm-router.js",
+      "features": "Multi-model consensus, semantic agreement, tier-based routing"
+    },
+    {
+      "name": "ModelIntelligence",
+      "file": "packages/node/src/learning/model-intelligence.js",
+      "features": "Thompson Sampling learning, continuous improvement"
+    }
+  ],
+  "environment_variables": {
+    "ANTHROPIC_API_KEY": "Required for primary brain",
+    "GEMINI_API_KEY": "Optional for consensus validation",
+    "SOLANA_RPC_URL": "Blockchain queries (default: mainnet-beta)",
+    "JUPITER_API_KEY": "Optional for authenticated price endpoint",
+    "CYNIC_VALIDATORS": "Comma-separated list of validators to enable",
+    "OLLAMA_ENDPOINT": "Local OSS LLM endpoint"
+  },
+  "by_package": {
+    "@cynic/llm": {
+      "adapters": ["anthropic.js", "oss-llm.js", "gemini.js", "base.js", "claude-code.js", "airllm.js"],
+      "purpose": "Provider-specific LLM adapter implementations"
+    },
+    "@cynic/node": {
+      "llm_files": ["daemon/llm-endpoints.js", "orchestration/llm-router.js", "orchestration/unified-llm-router.js", "learning/model-intelligence.js", "accounting/cost-ledger.js", "perception/market-watcher.js", "perception/jupiter-client.js"],
+      "purpose": "Backend with LLM routing, market perception, cost tracking"
+    }
+  },
+  "api_calls_summary": {
+    "anthropic_direct_calls": 3,
+    "ollama_http_calls": 3,
+    "gemini_sdk_calls": 2,
+    "jupiter_http_calls": "Periodic (30s interval)",
+    "solana_rpc_calls": "Periodic (1-15min intervals)",
+    "total_unique_endpoints": 12
+  }
+}

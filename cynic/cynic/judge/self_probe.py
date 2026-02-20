@@ -146,6 +146,10 @@ class SelfProber:
     def set_escore_tracker(self, tracker: Any) -> None:
         self._escore = tracker
 
+    def set_handler_registry(self, registry: Any) -> None:
+        """Inject HandlerRegistry for architecture analysis."""
+        self._handler_registry = registry
+
     # ── Lifecycle ─────────────────────────────────────────────────────────
 
     def start(self, bus=None) -> None:
@@ -217,6 +221,7 @@ class SelfProber:
         new_proposals.extend(self._analyze_qtable(trigger, pattern_type, severity))
         new_proposals.extend(self._analyze_escore(trigger, pattern_type, severity))
         new_proposals.extend(self._analyze_residual(trigger, pattern_type, severity))
+        new_proposals.extend(self._analyze_architecture(trigger, pattern_type, severity))
 
         for proposal in new_proposals:
             self._proposals.append(proposal)
@@ -373,6 +378,55 @@ class SelfProber:
             current_value=0.382,
             suggested_value=0.300,
         )]
+
+    # ── Analysis: Architecture ────────────────────────────────────────────────
+
+    def _analyze_architecture(
+        self, trigger: str, pattern_type: str, severity: float,
+    ) -> list[SelfProposal]:
+        """Handler coupling analysis — the organism understands its own structure."""
+        proposals: list[SelfProposal] = []
+        if not hasattr(self, "_handler_registry") or self._handler_registry is None:
+            return proposals
+
+        try:
+            topo = self._handler_registry.introspect()
+            total_deps = topo.get("total_deps", 0)
+
+            # Check 1: Total dependency count
+            if total_deps > 25:
+                severity_score = min(total_deps / 30, 1.0)
+                proposals.append(SelfProposal(
+                    probe_id=_short_id(),
+                    trigger=trigger,
+                    pattern_type="ARCHITECTURE_COUPLING",
+                    severity=severity_score,
+                    dimension="COUPLING",
+                    target="handler_registry",
+                    recommendation=f"Total handler deps={total_deps} (cap: 25). Consider splitting groups.",
+                    current_value=float(total_deps),
+                    suggested_value=25.0,
+                ))
+
+            # Check 2: Individual group coupling
+            for group in topo.get("groups", []):
+                if len(group.get("dependencies", [])) > 8:
+                    proposals.append(SelfProposal(
+                        probe_id=_short_id(),
+                        trigger=trigger,
+                        pattern_type="ARCHITECTURE_COUPLING",
+                        severity=0.7,
+                        dimension="COUPLING",
+                        target=group["name"],
+                        recommendation=f"{group['name']}: {len(group['dependencies'])} deps (cap: 8). Decompose.",
+                        current_value=float(len(group["dependencies"])),
+                        suggested_value=8.0,
+                    ))
+
+        except Exception:
+            logger.debug("_analyze_architecture error", exc_info=True)
+
+        return proposals
 
     # ── Event handler ─────────────────────────────────────────────────────
 
