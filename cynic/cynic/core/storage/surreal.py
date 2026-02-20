@@ -614,3 +614,110 @@ class SurrealStorage(StorageInterface):
             return False
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# MODULE-LEVEL SINGLETON (Phase 1B: Wrapper for server.py bootstrap)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# CRITICAL: These functions provide backward compatibility with server.py's
+# lifespan bootstrap. They manage a module-level _storage singleton.
+#
+# FUTURE: Will be replaced with injectable pattern in Phase 2A+ once
+# server.py refactored to pass storage through CynicOrganism.state.
+#
+# TODO (Phase 2A): Move storage lifecycle to CynicOrganism + remove these functions
+# ════════════════════════════════════════════════════════════════════════════
+
+_storage: SurrealStorage | None = None
+
+
+async def init_storage(
+    url: str | None = None,
+    user: str | None = None,
+    password: str | None = None,
+    namespace: str | None = None,
+    database: str | None = None,
+) -> SurrealStorage:
+    """
+    Initialize module-level storage singleton.
+
+    Call once from FastAPI lifespan startup (in server.py).
+    Connects to SurrealDB and creates schema.
+
+    Args:
+        url: SurrealDB WebSocket URL (default: SURREAL_URL env var)
+        user: Username (default: SURREAL_USER env var)
+        password: Password (default: SURREAL_PASS env var)
+        namespace: Database namespace (default: SURREAL_NS env var)
+        database: Database name (default: SURREAL_DB env var)
+
+    Returns:
+        The initialized SurrealStorage instance (also stored in _storage global)
+
+    Raises:
+        ImportError: If surrealdb package not installed
+        Exception: If connection fails
+    """
+    global _storage
+
+    if _storage is not None:
+        logger.warning("init_storage: already initialized, returning existing instance")
+        return _storage
+
+    _storage = await SurrealStorage.create(
+        url=url,
+        user=user,
+        password=password,
+        namespace=namespace,
+        database=database,
+    )
+    return _storage
+
+
+def get_storage() -> SurrealStorage:
+    """
+    Retrieve module-level storage singleton.
+
+    Call anywhere in the codebase after init_storage() has been called
+    (i.e., after lifespan startup).
+
+    Returns:
+        The SurrealStorage instance
+
+    Raises:
+        RuntimeError: If init_storage() hasn't been called yet
+    """
+    if _storage is None:
+        raise RuntimeError(
+            "SurrealStorage not initialized. Call init_storage() in lifespan startup first."
+        )
+    return _storage
+
+
+async def close_storage() -> None:
+    """
+    Close module-level storage singleton.
+
+    Call from FastAPI lifespan shutdown (in server.py).
+    Closes the WebSocket connection to SurrealDB.
+    """
+    global _storage
+
+    if _storage is not None:
+        await _storage.close()
+        _storage = None
+        logger.info("*yawn* SurrealDB singleton closed")
+    else:
+        logger.debug("close_storage: no storage to close")
+
+
+def reset_storage() -> None:
+    """
+    Reset module-level storage singleton (TEST ONLY).
+
+    Used in test teardown to clear the singleton for the next test.
+    Should NOT be called in production code.
+    """
+    global _storage
+    _storage = None
+
+
