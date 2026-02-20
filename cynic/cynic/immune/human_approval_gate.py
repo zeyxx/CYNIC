@@ -127,14 +127,14 @@ class HumanApprovalGate:
     def requires_approval(
         self,
         decision: dict[str, Any],
-        alignment_violations: list[dict[str, Any]],
+        alignment_violations: list[dict[str, Any] | "AlignmentViolation"],
     ) -> bool:
         """
         Determine if decision requires human approval.
 
         Args:
             decision: Decision dict from DecideAgent
-            alignment_violations: Results from AlignmentSafetyChecker
+            alignment_violations: Results from AlignmentSafetyChecker (list of AlignmentViolation or dicts)
 
         Returns:
             True if human approval needed before execution
@@ -149,7 +149,14 @@ class HumanApprovalGate:
 
         # Low alignment approval rate
         if alignment_violations:
-            pass_rate = sum(1 for v in alignment_violations if not v.get("blocking", False)) / len(alignment_violations)
+            # Handle both AlignmentViolation objects and dicts
+            def is_blocking(v: Any) -> bool:
+                if hasattr(v, "blocking"):  # AlignmentViolation object
+                    return v.blocking
+                else:  # dict
+                    return v.get("blocking", False)
+
+            pass_rate = sum(1 for v in alignment_violations if not is_blocking(v)) / len(alignment_violations)
             if pass_rate < _LOW_ALIGNMENT_THRESHOLD:
                 return True
 

@@ -1,0 +1,29 @@
+{
+  "_comment": "MINIMAL HOOKS — proven compatible with Claude Code",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/hooks/platform-compat.js || true",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "true",
+            "timeout": 1
+          }
+        ]
+      }
+    ]
+  }
+}
