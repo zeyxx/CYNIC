@@ -511,7 +511,7 @@ class CynicDashboard(Static):
 
 
 # CLI entrypoint
-async def run_tui():
+async def run_tui(cynic_url: str = "http://localhost:8000"):
     """Run the CYNIC TUI dashboard."""
     from textual.app import App
 
@@ -567,15 +567,18 @@ async def run_tui():
             if self._polling_worker:
                 self._polling_worker.cancel()
 
-    # Parse CLI args for CYNIC URL (default: localhost:8000)
-    import sys
-    cynic_url = "http://localhost:8000"
-    if len(sys.argv) > 1:
-        cynic_url = sys.argv[1]
-
     app = CynicApp(cynic_url=cynic_url)
     await app.run_async()
 
 
+def run_tui_sync(cynic_url: str = "http://localhost:8000") -> None:
+    """Synchronous entry point for TUI dashboard."""
+    asyncio.run(run_tui())
+
+
 if __name__ == "__main__":
+    import sys
+    url = "http://localhost:8000"
+    if len(sys.argv) > 1:
+        url = sys.argv[1]
     asyncio.run(run_tui())

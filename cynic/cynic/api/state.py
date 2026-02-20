@@ -585,14 +585,52 @@ class _OrganismAwakener:
     # ═══════════════════════════════════════════════════════════════════════
 
     def _create_services(self) -> object:  # Returns KernelServices
-        """Create KernelServices — the organism's bloodstream."""
-        from cynic.api.handlers.base import KernelServices
-        return KernelServices(
-            escore_tracker=self.escore_tracker,
+        """Create KernelServices — the organism's bloodstream.
+
+        Now decomposed into three domain-specific service groups to prevent god object growth:
+        - CognitionServices: BRAIN (judgment, axioms, LOD, EScore)
+        - MetabolicServices: BODY (execution, scheduling, routing)
+        - SensoryServices: SENSES (compression, registry, topology)
+        """
+        from cynic.api.handlers import KernelServices, CognitionServices, MetabolicServices, SensoryServices
+
+        # BRAIN: Judgment, learning, axioms, consciousness levels
+        cognition = CognitionServices(
+            orchestrator=self.orchestrator,
+            qtable=self.qtable,
+            learning_loop=self.learning_loop,
+            residual_detector=self.residual_detector,
+            decide_agent=self.decide_agent,
             axiom_monitor=self.axiom_monitor,
             lod_controller=self.lod_controller,
+            escore_tracker=self.escore_tracker,
             health_cache=self._health_cache,
         )
+
+        # BODY: Execution, scheduling, routing, telemetry
+        metabolic = MetabolicServices(
+            scheduler=self.scheduler,
+            runner=self.runner,
+            llm_router=self.llm_router,
+            db_pool=self.db_pool,
+        )
+
+        # SENSES: Perception, compression, topology awareness
+        senses = SensoryServices(
+            compressor=self.compressor,
+            service_registry=self.service_registry,
+            world_model=self.world_model,
+        )
+
+        # Unified bloodstream: coordinates the three domains
+        kernel_services = KernelServices(
+            cognition=cognition,
+            metabolic=metabolic,
+            senses=senses,
+        )
+
+        logger.info("KernelServices created: 3 domain-specific service groups wired")
+        return kernel_services
 
     def _create_handler_registry(self, svc: object) -> object:  # Returns HandlerRegistry
         """Discover + register handler groups."""

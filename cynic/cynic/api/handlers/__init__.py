@@ -5,6 +5,12 @@ Manages handler lifecycle:
 1. register() — add handler groups
 2. wire() — subscribe all to event bus
 3. introspect() — reveal coupling and topology
+
+Also exports the new service architecture:
+- KernelServices: unified coordinator
+- CognitionServices: BRAIN operations
+- MetabolicServices: BODY operations
+- SensoryServices: SENSES operations
 """
 
 from __future__ import annotations
@@ -14,9 +20,16 @@ import logging
 import pkgutil
 from typing import TYPE_CHECKING
 
+from cynic.api.handlers.services import (
+    KernelServices,
+    CognitionServices,
+    MetabolicServices,
+    SensoryServices,
+)
+
 if TYPE_CHECKING:
     from cynic.core.event_bus import EventBus
-    from cynic.api.handlers.base import HandlerGroup, KernelServices
+    from cynic.api.handlers.base import HandlerGroup
 
 logger = logging.getLogger("cynic.api.handlers")
 
@@ -149,4 +162,8 @@ def discover_handler_groups(
 __all__ = [
     "HandlerRegistry",
     "discover_handler_groups",
+    "KernelServices",
+    "CognitionServices",
+    "MetabolicServices",
+    "SensoryServices",
 ]

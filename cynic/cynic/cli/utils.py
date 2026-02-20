@@ -19,10 +19,13 @@ from typing import Any
 # or emoji (█, ░, 🟢, etc.). Force UTF-8 output so the dashboard renders.
 if sys.platform == "win32":
     try:
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
-    except AttributeError:
-        pass  # Already wrapped (e.g. pytest captures stdout)
+        # Only wrap if not already wrapped and buffer is actually available
+        if hasattr(sys.stdout, 'buffer') and not isinstance(sys.stdout, io.TextIOWrapper):
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+        if hasattr(sys.stderr, 'buffer') and not isinstance(sys.stderr, io.TextIOWrapper):
+            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError, OSError):
+        pass  # Already wrapped or buffer unavailable
 
 # ── Paths ──────────────────────────────────────────────────────────────────
 _CYNIC_DIR        = os.path.join(os.path.expanduser("~"), ".cynic")
