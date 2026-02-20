@@ -36,9 +36,11 @@ _KEEP_SNAPSHOTS = fibonacci(10)  # 55
 # Max rows deleted per table per GC run (prevents long-running transactions)
 _PRUNE_BATCH = 1_000
 
-# Time-based retention (days)
-_BARK_RETENTION_DAYS = 7
-_BENCH_RETENTION_DAYS = 30
+# Time-based retention (days) — φ-derived
+# BARK: F(6)=8 days (old judgments with lowest Q-Scores pruned first)
+_BARK_RETENTION_DAYS = fibonacci(6)   # 8 days
+# BENCH: F(9)=34 days (LLM benchmark entries kept longer for trending)
+_BENCH_RETENTION_DAYS = fibonacci(9)  # 34 days
 
 
 class StorageGarbageCollector:

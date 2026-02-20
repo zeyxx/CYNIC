@@ -202,6 +202,11 @@ async def lifespan(app: FastAPI):
 
             bench_loaded = await registry.load_benchmarks_from_surreal(surreal)
             logger.info("LLM Benchmark warm-start (SurrealDB): %d entries", bench_loaded)
+
+            action_rows = await surreal.action_proposals.all()
+            ap_loaded = state.action_proposer.load_from_entries(action_rows)
+            logger.info("ActionProposer warm-start (SurrealDB): %d actions", ap_loaded)
+
             registry.set_surreal(surreal)
         except Exception as exc:
             logger.warning("SurrealDB warm-start failed (%s) — starting cold", exc)

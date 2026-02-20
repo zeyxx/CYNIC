@@ -119,12 +119,15 @@ FIBONACCI: list[int] = [fibonacci(n) for n in range(21)]
 LUCAS: list[int] = [lucas(n) for n in range(11)]
 
 # Architecture derivations from φ
+# ⚠️ IMMUTABLE: These constants are φ-locked-in by fractal geometry.
+#    NEVER change these values — all architecture depends on them.
+#    Each is L(4) = 7 = lucas(4) = fundamental to CYNIC's hypercube structure.
 AXIOMS_CORE: int = fibonacci(5)      # F(5) = 5 → 5 core axioms
 AXIOMS_FACETS: int = lucas(4)        # L(4) = 7 → 7 facets per axiom
 DOGS_COUNT: int = lucas(5)           # L(5) = 11 → 11 Dogs (Sefirot)
-REALITY_DIMS: int = lucas(4)         # L(4) = 7 → 7 Reality dimensions
-ANALYSIS_DIMS: int = lucas(4)        # L(4) = 7 → 7 Analysis dimensions
-TIME_DIMS: int = lucas(4)            # L(4) = 7 → 7 Time dimensions
+REALITY_DIMS: int = lucas(4)         # L(4) = 7 → 7 Reality dimensions (IMMUTABLE)
+ANALYSIS_DIMS: int = lucas(4)        # L(4) = 7 → 7 Analysis dimensions (IMMUTABLE)
+TIME_DIMS: int = lucas(4)            # L(4) = 7 → 7 Time dimensions (IMMUTABLE)
 
 
 # ════════════════════════════════════════════════════════════════════════════

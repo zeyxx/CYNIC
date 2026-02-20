@@ -367,6 +367,36 @@ class ActionProposer:
             logger.debug("ActionProposer: load failed: %s", exc)
             self._queue = []
 
+    def load_from_entries(self, entries: list[dict[str, Any]]) -> int:
+        """
+        Warm-start from a list of action dicts (source-agnostic).
+
+        Used by SurrealDB path: server.py fetches rows from SurrealDB,
+        passes them here. Merges with existing queue, dedupes by action_id.
+
+        entries: [{"action_id": str, "status": str, "priority": int, ...}, ...]
+        Returns: number of entries loaded.
+        """
+        existing_ids = {a.action_id for a in self._queue}
+        loaded_count = 0
+
+        for row in entries:
+            try:
+                action = ProposedAction.from_dict(row)
+                if action.action_id not in existing_ids:
+                    self._queue.append(action)
+                    existing_ids.add(action.action_id)
+                    loaded_count += 1
+            except Exception as exc:
+                logger.debug("ActionProposer: failed to load entry: %s", exc)
+
+        # Apply rolling cap (BURN axiom)
+        if len(self._queue) > _MAX_QUEUE:
+            self._queue = self._queue[-_MAX_QUEUE:]
+
+        logger.info("ActionProposer: loaded %d action entries from storage (warm start)", loaded_count)
+        return loaded_count
+
     # ── Stats ─────────────────────────────────────────────────────────────────
 
     def stats(self) -> dict[str, Any]:

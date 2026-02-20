@@ -78,25 +78,36 @@ async def ws_stream(websocket: WebSocket) -> None:
                 await websocket.send_json(msg)
             except TimeoutError:
                 # Keepalive ping — proves connection is alive
-                await websocket.send_json({"type": "ping", "ts": time.time()})
+                try:
+                    await websocket.send_json({"type": "ping", "ts": time.time()})
+                except Exception as exc:
+                    logger.debug("ws/stream ping failed: %s", exc)
+                    raise
+            except Exception as exc:
+                logger.error("ws/stream emit error: %s", exc, exc_info=True)
+                raise
 
     async def _receive_loop() -> None:
         """Receive client messages and route them to the bus or respond directly."""
         while True:
-            data = await websocket.receive_json()
-            msg_type = data.get("type", "")
-            if msg_type == "ping":
-                await websocket.send_json({"type": "pong", "ts": time.time()})
-            elif msg_type == "ACT":
-                await bus.emit(Event.typed(
-                    CoreEvent.ACT_REQUESTED,
-                    ActRequestedPayload(
-                        action=data.get("action", ""),
-                        target=data.get("target", ""),
-                    ),
-                    source="ws_client",
-                ))
-            # Any other type: ignored silently
+            try:
+                data = await websocket.receive_json()
+                msg_type = data.get("type", "")
+                if msg_type == "ping":
+                    await websocket.send_json({"type": "pong", "ts": time.time()})
+                elif msg_type == "ACT":
+                    await bus.emit(Event.typed(
+                        CoreEvent.ACT_REQUESTED,
+                        ActRequestedPayload(
+                            action=data.get("action", ""),
+                            target=data.get("target", ""),
+                        ),
+                        source="ws_client",
+                    ))
+                # Any other type: ignored silently
+            except Exception as exc:
+                logger.error("ws/stream receive error: %s", exc, exc_info=True)
+                raise
 
     try:
         await websocket.send_json({"type": "connected", "ts": time.time(), "phi": PHI})
@@ -165,26 +176,37 @@ async def ws_events(websocket: WebSocket) -> None:
                 msg = await asyncio.wait_for(queue.get(), timeout=30.0)
                 await websocket.send_json(msg)
             except TimeoutError:
-                await websocket.send_json({"type": "ping", "ts": time.time()})
+                try:
+                    await websocket.send_json({"type": "ping", "ts": time.time()})
+                except Exception as exc:
+                    logger.debug("ws/events ping failed: %s", exc)
+                    raise
+            except Exception as exc:
+                logger.error("ws/events emit error: %s", exc, exc_info=True)
+                raise
 
     async def _receive_loop() -> None:
         """Receive client messages: subscribe filter or ping."""
         nonlocal _active_filter
         while True:
-            data = await websocket.receive_json()
-            msg_type = data.get("type", "")
-            if msg_type == "ping":
-                await websocket.send_json({"type": "pong", "ts": time.time()})
-            elif msg_type == "subscribe":
-                requested = [e for e in (data.get("events") or []) if e in all_event_names]
-                async with _filter_lock:
-                    _active_filter = requested
-                await websocket.send_json({
-                    "type":       "subscribed",
-                    "events":     requested or all_event_names,
-                    "filter_all": not requested,
-                    "ts":         time.time(),
-                })
+            try:
+                data = await websocket.receive_json()
+                msg_type = data.get("type", "")
+                if msg_type == "ping":
+                    await websocket.send_json({"type": "pong", "ts": time.time()})
+                elif msg_type == "subscribe":
+                    requested = [e for e in (data.get("events") or []) if e in all_event_names]
+                    async with _filter_lock:
+                        _active_filter = requested
+                    await websocket.send_json({
+                        "type":       "subscribed",
+                        "events":     requested or all_event_names,
+                        "filter_all": not requested,
+                        "ts":         time.time(),
+                    })
+            except Exception as exc:
+                logger.error("ws/events receive error: %s", exc, exc_info=True)
+                raise
 
     try:
         await websocket.send_json({

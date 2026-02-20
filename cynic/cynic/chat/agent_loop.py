@@ -149,7 +149,15 @@ class AgentLoop:
                         tool_call=call,
                     )
 
-                    result = await self.executor.execute(call)
+                    try:
+                        result = await self.executor.execute(call)
+                    except Exception as exc:
+                        logger.error("Tool execution failed (%s): %s", call.name, exc, exc_info=True)
+                        yield AgentEvent(
+                            type=AgentEventType.ERROR,
+                            content=f"Tool {call.name} failed: {str(exc)}",
+                        )
+                        continue
 
                     yield AgentEvent(
                         type=AgentEventType.TOOL_RESULT,
