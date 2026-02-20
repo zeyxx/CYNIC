@@ -15,6 +15,7 @@ Usage:
   python -m cynic.cli sdk [N]  → last N SDK sessions (L2 bidirectional loop)
   python -m cynic.cli consciousness → TUI dashboard (Ring 3 unified metathinking)
   python -m cynic.cli chat          → interactive coding assistant (CYNIC Code)
+  python -m cynic.cli perceive-watch → real git PERCEIVE + JUDGE loop (Phase 2)
 
 Reads from (fastest path — no server needed):
   ~/.cynic/guidance.json        → last judgment verdict/Q/dogs
@@ -45,6 +46,7 @@ from cynic.cli.sdk import cmd_sdk
 from cynic.cli.consciousness import cmd_consciousness
 from cynic.cli.tui import cmd_tui
 from cynic.cli.chat import cmd_chat
+from cynic.cli.perceive_watch import cmd_perceive_watch
 from cynic.cli.utils import _c
 
 # Re-export PORT/API constants for any consumer that might need them
@@ -64,6 +66,7 @@ __all__ = [
     "cmd_consciousness",
     "cmd_tui",
     "cmd_chat",
+    "cmd_perceive_watch",
     "main",
 ]
 
@@ -86,6 +89,7 @@ def main() -> None:
         "consciousness": cmd_consciousness,
         "tui":           cmd_tui,
         "chat":          cmd_chat,
+        "perceive-watch": cmd_perceive_watch,
     }
 
     fn = dispatch.get(cmd)
