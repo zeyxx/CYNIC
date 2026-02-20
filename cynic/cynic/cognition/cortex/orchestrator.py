@@ -49,6 +49,7 @@ from cynic.core.events_schema import (
     MetaCyclePayload,
     PerceptionReceivedPayload,
     ResidualHighPayload,
+    DecisionMadePayload,
 )
 from cynic.cognition.neurons.base import AbstractDog, DogJudgment, DogId
 from cynic.cognition.neurons.cynic_dog import CynicDog
@@ -237,6 +238,8 @@ class JudgmentPipeline:
     dog_judgments: list[DogJudgment] = field(default_factory=list)
     consensus: ConsensusResult | None = None
     final_judgment: Judgment | None = None
+    action_executed: bool = False
+    action_result: dict | None = None
 
     # Costs
     total_cost_usd: float = 0.0
@@ -749,6 +752,113 @@ class JudgeOrchestrator:
             duration_ms=pipeline.elapsed_ms(),
         )
 
+    # ── STEP 3+4: DECIDE + ACT ────────────────────────────────────────────────
+
+    async def _act_phase(self, judgment: Judgment, pipeline: JudgmentPipeline) -> dict | None:
+        """
+        STEP 3 (DECIDE) + STEP 4 (ACT) — unified action execution.
+
+        1. Call DecideAgent.decide_for_judgment() to get action recommendation (DECIDE)
+        2. If recommendation exists and reality warrants action, call runner.execute() (ACT)
+        3. Return action result or None if no action taken
+
+        Args:
+            judgment: Final judgment from JUDGE phase
+            pipeline: JudgmentPipeline (for context/logging)
+
+        Returns:
+            {
+                "action_id": str,
+                "success": bool,
+                "output": str,
+                "duration_ms": float,
+                "error": str or None,
+            }
+            or None if no action warranted
+        """
+        decide_agent = getattr(self, 'decide_agent', None)
+        if not decide_agent:
+            return None
+
+        # STEP 3: DECIDE — run DecideAgent synchronously
+        decision = decide_agent.decide_for_judgment(judgment)
+        if not decision:
+            return None  # No action needed
+
+        # Filter: only execute for actionable realities
+        from cynic.cognition.cortex.decide import _ACT_REALITIES
+        if decision["reality"] not in _ACT_REALITIES:
+            # Still emit DECISION_MADE for human review, but don't auto-execute
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.DECISION_MADE,
+                DecisionMadePayload(
+                    verdict=decision["verdict"],
+                    reality=decision["reality"],
+                    state_key=decision["state_key"],
+                    q_value=decision["q_value"],
+                    confidence=decision["confidence"],
+                    recommended_action=decision["recommended_action"],
+                    action_prompt=decision["action_prompt"],
+                    trigger="decide_phase",
+                    mcts=True,
+                    judgment_id=decision["judgment_id"],
+                ),
+                source="orchestrator_act_phase",
+            ))
+            return None
+
+        # STEP 4: ACT — execute the action
+        runner = getattr(self, 'runner', None)
+        if not runner:
+            logger.warning("No runner available — cannot execute action")
+            return None
+
+        import time
+        t0 = time.perf_counter()
+        try:
+            action_result = await runner.execute(
+                prompt=decision["action_prompt"],
+                timeout=30,
+            )
+            duration_ms = (time.perf_counter() - t0) * 1000
+
+            result = {
+                "action_id": decision.get("judgment_id", "")[:8],
+                "success": action_result.get("success", False),
+                "output": action_result.get("output", ""),
+                "duration_ms": duration_ms,
+                "error": action_result.get("error"),
+            }
+
+            # Emit ACT_COMPLETED event (for feedback loops L3, L4)
+            from cynic.core.events_schema import ActCompletedPayload
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.ACT_COMPLETED,
+                ActCompletedPayload(
+                    success=result["success"],
+                    action_id=result["action_id"],
+                    duration_ms=result["duration_ms"],
+                    error=result["error"],
+                ),
+            ))
+
+            logger.info(
+                "ACT: executed %s (success=%s, %.0fms)",
+                result["action_id"], result["success"], duration_ms,
+            )
+            return result
+
+        except Exception as e:
+            duration_ms = (time.perf_counter() - t0) * 1000
+            logger.error("ACT: execution failed: %s (%.0fms)", e, duration_ms)
+            return {
+                "action_id": decision.get("judgment_id", "")[:8],
+                "success": False,
+                "output": "",
+                "duration_ms": duration_ms,
+                "error": str(e),
+            }
+
     # ── L1 MACRO CYCLE (~2.85s, full 7-step) ──────────────────────────────
 
     async def _cycle_macro(self, pipeline: JudgmentPipeline) -> Judgment:
@@ -880,6 +990,16 @@ class JudgeOrchestrator:
             duration_ms=pipeline.elapsed_ms(),
         )
         pipeline.final_judgment = judgment
+
+        # STEP 3: DECIDE + STEP 4: ACT — integrated into cycle
+        # Call DecideAgent synchronously, then execute immediately
+        action_result = await self._act_phase(judgment, pipeline)
+        if action_result:
+            # Action was executed — record in pipeline
+            pipeline.action_executed = True
+            pipeline.action_result = action_result
+        else:
+            pipeline.action_executed = False
 
         # STEP 5: LEARN — handled in run() for all cycle levels
 

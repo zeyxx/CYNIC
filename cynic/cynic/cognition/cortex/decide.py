@@ -220,6 +220,66 @@ class DecideAgent:
         bus.off(CoreEvent.JUDGMENT_CREATED, self._handler)
         logger.info("DecideAgent stopped")
 
+    # ---- Synchronous Decision Logic ----------------------------------------
+
+    def decide_for_judgment(self, judgment: Any) -> dict[str, Any] | None:
+        """
+        Synchronous decision extraction — used by orchestrator._act_phase().
+
+        Takes a Judgment and returns a decision dict, or None if no action needed.
+        Does NOT emit DECISION_MADE (that's handled by the event handler).
+
+        Args:
+            judgment: cynic.core.judgment.Judgment object
+
+        Returns:
+            {
+                "verdict": str,
+                "reality": str,
+                "state_key": str,
+                "q_value": float,
+                "confidence": float,
+                "recommended_action": str,
+                "action_prompt": str,
+                "judgment_id": str,
+            }
+            or None if no action warranted (verdict not BARK/GROWL, etc.)
+        """
+        verdict = judgment.verdict
+        confidence = judgment.confidence
+        state_key = judgment.cell.state_key() if hasattr(judgment, 'cell') else ""
+
+        # Same filters as _on_judgment
+        if verdict not in _ALERT_VERDICTS or confidence < _PHI_INV_2:
+            return None
+
+        # Run NestedMCTS
+        from cynic.learning.qlearning import VERDICTS
+        recommended_action = self._mcts.best_action(state_key, list(VERDICTS))
+        q_entry = self._qtable._table.get(state_key, {}).get(recommended_action)
+        q_value = q_entry.q_value if q_entry is not None else 0.0
+
+        # Build action prompt
+        reality = judgment.cell.reality if hasattr(judgment, 'cell') else ""
+        analysis = judgment.cell.analysis if hasattr(judgment, 'cell') else ""
+        content_preview = str(getattr(judgment.cell, 'content', ""))[:200] if hasattr(judgment, 'cell') else ""
+        context = judgment.cell.context if hasattr(judgment, 'cell') else ""
+
+        action_prompt = _build_action_prompt(
+            reality, analysis, verdict, content_preview, context
+        )
+
+        return {
+            "verdict": verdict,
+            "reality": reality,
+            "state_key": state_key,
+            "q_value": q_value,
+            "confidence": confidence,
+            "recommended_action": recommended_action,
+            "action_prompt": action_prompt,
+            "judgment_id": judgment.judgment_id,
+        }
+
     # ---- Handler ----------------------------------------------------------
 
     async def _on_judgment(self, event: Event) -> None:
