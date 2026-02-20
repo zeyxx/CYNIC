@@ -177,22 +177,39 @@ class LLMAdapter(ABC):
 # ════════════════════════════════════════════════════════════════════════════
 
 
-# Module-level singleton ollama clients — one per base_url (shared across all
-# OllamaAdapter instances for the same URL — avoids 7 TCP connections per MCTS call)
-_OLLAMA_CLIENTS: dict[str, Any] = {}
+class OllamaConnectionPool:
+    """
+    Manages cached ollama.AsyncClient instances per base_url.
 
+    Instead of module-level singleton, use instance-level pool.
+    Multiple pools can coexist (enables parallel testing, multi-instance deployment).
+    """
 
-def _get_ollama_client(base_url: str) -> Any:
-    """Return a cached ollama.AsyncClient for base_url, creating one if needed."""
-    import ollama as _ollama  # type: ignore
-    if base_url not in _OLLAMA_CLIENTS:
-        _OLLAMA_CLIENTS[base_url] = _ollama.AsyncClient(host=base_url)
-    return _OLLAMA_CLIENTS[base_url]
+    def __init__(self):
+        """Initialize empty client cache."""
+        self._clients: dict[str, Any] = {}
+
+    def get_client(self, base_url: str) -> Any:
+        """Return cached ollama.AsyncClient for base_url, creating if needed."""
+        import ollama as _ollama  # type: ignore
+        if base_url not in self._clients:
+            self._clients[base_url] = _ollama.AsyncClient(host=base_url)
+        return self._clients[base_url]
+
+    async def close_all(self) -> None:
+        """Close all cached clients."""
+        for client in self._clients.values():
+            if hasattr(client, "close"):
+                try:
+                    await client.close()
+                except Exception:
+                    pass
+        self._clients.clear()
 
 
 class OllamaAdapter(LLMAdapter):
     """
-    Ollama local models adapter via ollama.AsyncClient (singleton per URL).
+    Ollama local models adapter via ollama.AsyncClient.
 
     CYNIC prefers Ollama by default:
     - Free (no API cost)
@@ -202,15 +219,28 @@ class OllamaAdapter(LLMAdapter):
     Models auto-discovered at startup via list_models().
     Best model per Dog × Task determined by benchmarking.
 
-    Uses a module-level AsyncClient singleton to avoid creating 7 TCP connections
-    per MCTS asyncio.gather() call.
+    Uses OllamaConnectionPool to cache AsyncClient instances per URL.
+    This avoids creating 7 TCP connections per MCTS asyncio.gather() call,
+    while enabling multi-instance deployment (no global state).
     """
 
     DEFAULT_URL = "http://localhost:11434"
+    _default_pool: OllamaConnectionPool | None = None  # Lazy-initialized for backward compat
 
-    def __init__(self, model: str = "llama3.2", base_url: str = DEFAULT_URL) -> None:
+    def __init__(
+        self,
+        model: str = "llama3.2",
+        base_url: str = DEFAULT_URL,
+        pool: OllamaConnectionPool | None = None,
+    ) -> None:
         super().__init__(model=model, provider="ollama")
         self.base_url = base_url.rstrip("/")
+        # Use provided pool, or create a default one (backward compat)
+        if pool is None:
+            if OllamaAdapter._default_pool is None:
+                OllamaAdapter._default_pool = OllamaConnectionPool()
+            pool = OllamaAdapter._default_pool
+        self.pool = pool
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
         start = time.time()
@@ -227,7 +257,7 @@ class OllamaAdapter(LLMAdapter):
                 messages.append({"role": "system", "content": request.system})
             messages.append({"role": "user", "content": request.prompt})
 
-        client = _get_ollama_client(self.base_url)
+        client = self.pool.get_client(self.base_url)
         kwargs: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
@@ -281,7 +311,7 @@ class OllamaAdapter(LLMAdapter):
 
     async def check_available(self) -> bool:
         try:
-            client = _get_ollama_client(self.base_url)
+            client = self.pool.get_client(self.base_url)
             await asyncio.wait_for(client.list(), timeout=5.0)
             return True
         except Exception:
@@ -290,7 +320,7 @@ class OllamaAdapter(LLMAdapter):
     async def list_models(self) -> list[str]:
         """Return names of all installed Ollama models."""
         try:
-            client = _get_ollama_client(self.base_url)
+            client = self.pool.get_client(self.base_url)
             resp = await client.list()
             if isinstance(resp, dict):
                 models = resp.get("models", [])

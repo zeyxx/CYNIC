@@ -27,9 +27,6 @@ from cynic.core.storage.surreal import (
     _rec,
     _rows,
     _safe_id,
-    close_storage,
-    get_storage,
-    init_storage,
 )
 
 

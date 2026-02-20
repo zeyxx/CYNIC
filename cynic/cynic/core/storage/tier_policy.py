@@ -195,28 +195,3 @@ class StorageTierPolicy:
         }
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# GLOBAL INSTANCE
-# ════════════════════════════════════════════════════════════════════════════
-
-_global_policy: StorageTierPolicy | None = None
-
-
-def get_tier_policy() -> StorageTierPolicy:
-    """Get or create the global storage tier policy instance."""
-    global _global_policy
-    if _global_policy is None:
-        _global_policy = StorageTierPolicy()
-    return _global_policy
-
-
-def reset_tier_policy() -> None:
-    """Reset the global storage tier policy (for testing)."""
-    global _global_policy
-    _global_policy = None
-
-
-def set_tier_policy(policy: StorageTierPolicy | None) -> None:
-    """Set the global storage tier policy (for testing/injection)."""
-    global _global_policy
-    _global_policy = policy

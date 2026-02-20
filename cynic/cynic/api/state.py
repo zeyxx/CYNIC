@@ -65,9 +65,14 @@ from cynic.metabolism.runner import ClaudeCodeRunner
 from cynic.metabolism.auto_benchmark import AutoBenchmark
 from cynic.metabolism.universal import UniversalActuator
 from cynic.cognition.cortex.mirror import KernelMirror
+from cynic.cognition.cortex.decision_validator import DecisionValidator, BlockedDecision
 from cynic.llm.adapter import LLMRegistry
 from cynic.senses.compressor import ContextCompressor
 from cynic.core.container import DependencyContainer
+from cynic.immune.power_limiter import PowerLimiter
+from cynic.immune.alignment_checker import AlignmentSafetyChecker
+from cynic.immune.human_approval_gate import HumanApprovalGate
+from cynic.immune.transparency_audit import TransparencyAuditTrail
 from cynic.core.topology import (
     SourceWatcher,
     IncrementalTopologyBuilder,
@@ -412,6 +417,13 @@ class _OrganismAwakener:
         self.storage_gc:       StorageGarbageCollector = None  # type: ignore[assignment]
         self.universal_actuator: UniversalActuator = None  # type: ignore[assignment]
 
+        # ── Guardrails — Safety checks before ACT phase ──────────────────────
+        self.power_limiter:       PowerLimiter              = None  # type: ignore[assignment]
+        self.alignment_checker:   AlignmentSafetyChecker    = None  # type: ignore[assignment]
+        self.human_gate:          HumanApprovalGate         = None  # type: ignore[assignment]
+        self.audit_trail:         TransparencyAuditTrail    = None  # type: ignore[assignment]
+        self.decision_validator:  DecisionValidator         = None  # type: ignore[assignment]
+
         # ── Topology System (L0: Real-time architecture awareness) ──────────
         self.source_watcher:   Any = None  # SourceWatcher
         self.topology_builder: Any = None  # IncrementalTopologyBuilder
@@ -558,6 +570,33 @@ class _OrganismAwakener:
         self.orchestrator.context_compressor = self.compressor
 
         self.storage_gc = StorageGarbageCollector()
+
+        # ── Guardrails (Safety integration layer) ──────────────────────────
+        # Chain of guardrails that validate decisions before ACT phase:
+        # PowerLimiter → AlignmentChecker → AuditTrail → HumanGate
+        self.power_limiter = PowerLimiter()
+        self.power_limiter.start()
+
+        self.alignment_checker = AlignmentSafetyChecker()
+        self.alignment_checker.start()
+
+        self.audit_trail = TransparencyAuditTrail()
+        self.audit_trail.start()
+
+        self.human_gate = HumanApprovalGate()
+        self.human_gate.start()
+
+        # DecisionValidator is the integration chassis that chains all guardrails
+        self.decision_validator = DecisionValidator(
+            power_limiter=self.power_limiter,
+            alignment_checker=self.alignment_checker,
+            human_gate=self.human_gate,
+            audit_trail=self.audit_trail,
+        )
+
+        # Inject decision_validator into orchestrator so _act_phase() can call it
+        self.orchestrator.decision_validator = self.decision_validator
+        logger.info("Guardrails initialized: PowerLimiter → AlignmentChecker → AuditTrail → HumanGate → DecisionValidator")
 
         # ── WorldModelUpdater (T27) — cross-reality state aggregator ──────
         # Subscribes to JUDGMENT_CREATED; computes composite_risk and

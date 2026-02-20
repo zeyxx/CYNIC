@@ -614,33 +614,3 @@ class SurrealStorage(StorageInterface):
             return False
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# SINGLETON — process-level storage instance
-# ════════════════════════════════════════════════════════════════════════════
-
-_storage: SurrealStorage | None = None
-
-
-def get_storage() -> SurrealStorage:
-    """Get the active SurrealStorage singleton (raises if not initialized)."""
-    if _storage is None:
-        raise RuntimeError(
-            "SurrealStorage not initialized. "
-            "Call init_storage() during server lifespan."
-        )
-    return _storage
-
-
-async def init_storage(**kwargs: Any) -> SurrealStorage:
-    """Connect and initialize the singleton. Returns the instance."""
-    global _storage
-    _storage = await SurrealStorage.create(**kwargs)
-    return _storage
-
-
-async def close_storage() -> None:
-    """Close and clear the singleton."""
-    global _storage
-    if _storage is not None:
-        await _storage.close()
-        _storage = None

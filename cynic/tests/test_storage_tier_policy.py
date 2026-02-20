@@ -19,9 +19,6 @@ from cynic.core.storage.tier_policy import (
     StorageTier,
     StorageTierPolicy,
     OPCODE_STORAGE_MAP,
-    get_tier_policy,
-    set_tier_policy,
-    reset_tier_policy,
 )
 
 
@@ -116,9 +113,7 @@ class TestT2_EventRouting:
     @pytest.mark.asyncio
     async def test_t2_route_event_perceive(self):
         """T2.3: Route PERCEIVE event → HOT."""
-        reset_tier_policy()
         policy = StorageTierPolicy()
-        set_tier_policy(policy)
 
         event = Event(type=CoreEvent.PERCEPTION_RECEIVED, payload={})
         tiers = await policy.route_event(event)

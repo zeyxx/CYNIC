@@ -54,6 +54,7 @@ from cynic.core.events_schema import (
 from cynic.cognition.neurons.base import AbstractDog, DogJudgment, DogId
 from cynic.cognition.neurons.cynic_dog import CynicDog
 from cynic.cognition.cortex.circuit_breaker import CircuitBreaker, CircuitState
+from cynic.cognition.cortex.decision_validator import DecisionValidator, BlockedDecision
 
 logger = logging.getLogger("cynic.cognition.cortex")
 
@@ -756,11 +757,12 @@ class JudgeOrchestrator:
 
     async def _act_phase(self, judgment: Judgment, pipeline: JudgmentPipeline) -> dict | None:
         """
-        STEP 3 (DECIDE) + STEP 4 (ACT) — unified action execution.
+        STEP 3 (DECIDE) + STEP 4 (ACT) — unified action execution with guardrails.
 
         1. Call DecideAgent.decide_for_judgment() to get action recommendation (DECIDE)
-        2. If recommendation exists and reality warrants action, call runner.execute() (ACT)
-        3. Return action result or None if no action taken
+        2. Call DecisionValidator to pass all guardrails (PowerLimiter, Alignment, HumanGate, Audit)
+        3. If validation passes and reality warrants action, call runner.execute() (ACT)
+        4. Return action result or None if no action taken/blocked
 
         Args:
             judgment: Final judgment from JUDGE phase
@@ -774,7 +776,7 @@ class JudgeOrchestrator:
                 "duration_ms": float,
                 "error": str or None,
             }
-            or None if no action warranted
+            or None if no action warranted/blocked
         """
         decide_agent = getattr(self, 'decide_agent', None)
         if not decide_agent:
@@ -784,6 +786,35 @@ class JudgeOrchestrator:
         decision = decide_agent.decide_for_judgment(judgment)
         if not decision:
             return None  # No action needed
+
+        # NEW: GUARDRAIL VALIDATION — DecisionValidator chains all safety checks
+        decision_validator = getattr(self, 'decision_validator', None)
+        if decision_validator:
+            try:
+                validated_decision = await decision_validator.validate_decision(
+                    decision=decision,
+                    judgment=judgment,
+                    recent_judgments=self._recent_judgments[-5:] if hasattr(self, '_recent_judgments') else [],
+                    scheduler=pipeline.scheduler if hasattr(pipeline, 'scheduler') else None,
+                )
+                # Decision passed all guardrails
+                logger.info(f"Decision validated: {decision['verdict']} → proceeding to ACT")
+            except BlockedDecision as e:
+                # Decision blocked by guardrail
+                logger.warning(
+                    f"Decision BLOCKED [{e.guardrail}]: {e.reason} "
+                    f"→ {e.recommendation}"
+                )
+                # Return block result without executing
+                return {
+                    "action_id": decision.get("judgment_id", "")[:8],
+                    "success": False,
+                    "output": "",
+                    "duration_ms": 0.0,
+                    "error": f"[{e.guardrail}] {e.reason}",
+                }
+        else:
+            logger.debug("No DecisionValidator available — skipping guardrail checks")
 
         # Filter: only execute for actionable realities
         from cynic.cognition.cortex.decide import _ACT_REALITIES
