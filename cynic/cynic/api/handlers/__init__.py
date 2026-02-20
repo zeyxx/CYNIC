@@ -26,6 +26,12 @@ from cynic.api.handlers.services import (
     MetabolicServices,
     SensoryServices,
 )
+from cynic.api.handlers.introspect import (
+    HandlerAnalysis,
+    ArchitectureSnapshot,
+    CouplingGrowth,
+    HandlerArchitectureIntrospector,
+)
 
 if TYPE_CHECKING:
     from cynic.core.event_bus import EventBus
@@ -166,4 +172,8 @@ __all__ = [
     "CognitionServices",
     "MetabolicServices",
     "SensoryServices",
+    "HandlerAnalysis",
+    "ArchitectureSnapshot",
+    "CouplingGrowth",
+    "HandlerArchitectureIntrospector",
 ]

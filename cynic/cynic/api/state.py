@@ -542,6 +542,7 @@ class _OrganismAwakener:
         self.self_prober.set_qtable(self.qtable)
         self.self_prober.set_residual_detector(self.residual_detector)
         self.self_prober.set_escore_tracker(self.escore_tracker)
+        # Handler registry is set later after creation — see _wire_event_handlers()
         self.self_prober.start(get_core_bus())
 
         # ── ContextCompressor (γ2) ─────────────────────────────────────────
@@ -694,6 +695,9 @@ class _OrganismAwakener:
 
         # Handler groups (auto-discovered, self-registering)
         self._handler_registry.wire(bus)
+
+        # Wire handler registry to SelfProber for architectural analysis
+        self.self_prober.set_handler_registry(self._handler_registry)
 
         # Module-level handlers (not part of any group)
         bus.on(CoreEvent.JUDGMENT_CREATED, _on_judgment_created)  # guidance.json
