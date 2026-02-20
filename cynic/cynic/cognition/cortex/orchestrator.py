@@ -289,6 +289,37 @@ class JudgeOrchestrator:
         self._budget_stress: bool = False      # cap at MICRO when True
         self._budget_exhausted: bool = False   # cap at REFLEX when True
 
+    def _ensure_composer(self) -> None:
+        """
+        Ensure HandlerComposer is initialized.
+
+        Called automatically by run() if composer is None. This supports:
+        - Tests that manually create orchestrator without build_kernel()
+        - Minimal execution without full kernel initialization
+
+        Creates default handlers for REFLEX/MICRO/MACRO cycles.
+        """
+        if self._composer is not None:
+            return  # Already initialized
+
+        from cynic.cognition.cortex.handlers import (
+            HandlerRegistry, HandlerComposer, LevelSelector, ReflexCycleHandler,
+            MicroCycleHandler, MacroCycleHandler, ActHandler, EvolveHandler,
+            BudgetManager,
+        )
+
+        registry = HandlerRegistry()
+        registry.register("level_selector", LevelSelector(axiom_monitor=self.axiom_monitor, lod_controller=self.lod_controller))
+        registry.register("cycle_reflex", ReflexCycleHandler(dogs=self.dogs, axiom_arch=self.axiom_arch))
+        registry.register("cycle_micro", MicroCycleHandler(dogs=self.dogs, axiom_arch=self.axiom_arch, cynic_dog=self.cynic_dog, lod_controller=self.lod_controller))
+        registry.register("cycle_macro", MacroCycleHandler(dogs=self.dogs, axiom_arch=self.axiom_arch, cynic_dog=self.cynic_dog, lod_controller=self.lod_controller, axiom_monitor=self.axiom_monitor))
+        registry.register("act_executor", ActHandler(runner=None))
+        registry.register("evolve", EvolveHandler())
+        registry.register("budget_manager", BudgetManager())
+
+        self._composer = HandlerComposer(registry)
+        logger.debug("HandlerComposer auto-initialized (test/manual setup mode)")
+
     # ── STEP 0: Entry Point ────────────────────────────────────────────────
 
     async def run(
@@ -303,6 +334,9 @@ class JudgeOrchestrator:
         Level auto-selected if None (based on budget and timer health).
         Delegates all cycle logic to HandlerComposer for explicit, testable, error-checked execution.
         """
+        # Ensure composer is initialized (supports manual orchestrator creation in tests)
+        self._ensure_composer()
+
         pipeline = JudgmentPipeline(cell=cell)
         effective_budget = (budget_usd or cell.budget_usd)
 

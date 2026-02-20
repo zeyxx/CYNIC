@@ -72,9 +72,23 @@ services:
       - "8000:8000"
     environment:
       CYNIC_DATABASE_URL: postgresql://${POSTGRES_USER:-cynic}:${POSTGRES_PASSWORD:-cynic_dev}@postgres-py:5432/${POSTGRES_DB:-cynic_py}
-      CYNIC_OLLAMA_URL: http://ollama:11434
-      CYNIC_LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      OLLAMA_URL: http://ollama:11434
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       PYTHONUNBUFFERED: "1"
+      # Edge case: custom local models directory (e.g., D:\Models on Windows host)
+      # If you have GGUF model files in a local directory, mount them here:
+      # - Update CUSTOM_MODELS_PATH below to your local path
+      # - Set CYNIC_MODELS_DIR to /models (or any container path)
+      # - LlamaCppAdapter will auto-discover .gguf files on startup
+      CYNIC_MODELS_DIR: ${CYNIC_MODELS_DIR:-}
+      LLAMA_CPP_GPU_LAYERS: ${LLAMA_CPP_GPU_LAYERS:--1}
+      LLAMA_CPP_THREADS: ${LLAMA_CPP_THREADS:-8}
+    volumes:
+      # Edge case: mount custom local models directory (optional)
+      # Example: D:\Models on Windows → /models in Docker
+      # Uncomment and set CUSTOM_MODELS_PATH to enable:
+      # - /models:${CUSTOM_MODELS_PATH}
+      - ${CUSTOM_MODELS_PATH:-/tmp/nonexistent}:/models
     depends_on:
       postgres-py:
         condition: service_healthy
@@ -99,3 +113,5 @@ services:
 volumes:
   postgres_py_data:
   ollama_models:
+  # Note: custom_models volume is optional and mounted via CUSTOM_MODELS_PATH
+  # env var from host. Docker doesn't auto-create named volumes for host paths.

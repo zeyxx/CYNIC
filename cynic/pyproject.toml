@@ -55,6 +55,9 @@ textual = "^0.80.0"
 aiofiles = "^23.2.1"
 aiohttp = "^3.9.0"
 
+# Docker Management (native SDK, no CLI friction)
+docker = "^7.0.0"
+
 [tool.poetry.extras]
 local-inference = ["llama-cpp-python"]
 

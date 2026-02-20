@@ -1,12 +1,12 @@
 version: "3.9"
 
 services:
-  # CYNIC Python Kernel
-  cynic-kernel:
+  # CYNIC Python Organism
+  cynic:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: cynic-kernel
+    container_name: cynic
     ports:
       - "8000:8000"
     environment:
@@ -54,7 +54,7 @@ services:
     image: surrealdb/surrealdb:latest
     container_name: cynic-surrealdb
     ports:
-      - "8000:8000"
+      - "8001:8000"
     command: start --user root --pass root memory
     environment:
       SURREAL_PATH: memory
@@ -66,6 +66,29 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+
+  # CYNIC Nervous System Dashboard
+  dashboard:
+    build:
+      context: ../cynic_dashboard
+      dockerfile: Dockerfile
+    container_name: cynic-dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_ORGANISM_URL: "http://cynic:8000"
+      VITE_WS_URL: "ws://cynic:8000"
+    depends_on:
+      cynic:
+        condition: service_healthy
+    networks:
+      - cynic-net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 networks:
   cynic-net:
