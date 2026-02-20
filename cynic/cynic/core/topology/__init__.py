@@ -15,11 +15,11 @@ Events flow:
                                    → TOPOLOGY_ROLLBACK (on failure)
 """
 
-from .file_watcher import SourceWatcher
-from .topology_builder import IncrementalTopologyBuilder
-from .hot_reload import HotReloadCoordinator
-from .topology_mirror import TopologyMirror
-from .payloads import (
+from cynic.core.topology.file_watcher import SourceWatcher
+from cynic.core.topology.topology_builder import IncrementalTopologyBuilder
+from cynic.core.topology.hot_reload import HotReloadCoordinator
+from cynic.core.topology.topology_mirror import TopologyMirror
+from cynic.core.topology.payloads import (
     SourceChangedPayload,
     TopologyChangedPayload,
     TopologyAppliedPayload,

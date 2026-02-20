@@ -10,7 +10,7 @@ from typing import Any
 
 from cynic.core.event_bus import Event, CoreEvent, get_core_bus
 from cynic.core.phi import fibonacci
-from .payloads import SourceChangedPayload
+from cynic.core.topology.payloads import SourceChangedPayload
 
 logger = logging.getLogger("cynic.core.topology.file_watcher")
 

@@ -472,7 +472,7 @@ class _OrganismAwakener:
             "connected" if self.db_pool else "none",
             f"{len(self.registry.get_available())} adapters" if self.registry else "none",
         )
-        return AppState(
+        return CynicOrganism(
             orchestrator=self.orchestrator,
             qtable=self.qtable,
             learning_loop=self.learning_loop,
@@ -491,11 +491,12 @@ class _OrganismAwakener:
             llm_router=self.llm_router,
             universal_actuator=self.universal_actuator,
             kernel_mirror=KernelMirror(),
+            service_registry=self.service_registry,
             container=self._container,
             _handler_registry=self._handler_registry,
         )
 
-    def build(self) -> AppState:
+    def build(self) -> CynicOrganism:
         """Build and return the fully-wired AppState."""
         self._create_components()
         svc = self._create_services()

@@ -8,7 +8,7 @@ from cynic.core.event_bus import Event, CoreEvent
 from cynic.core.events_schema import JudgmentCreatedPayload
 from cynic.core.phi import MAX_CONFIDENCE, MAX_Q_SCORE, HOWL_MIN, WAG_MIN, GROWL_MIN, PHI_INV, PHI_INV_2
 
-from .base import HandlerGroup, KernelServices
+from cynic.api.handlers.base import HandlerGroup, KernelServices
 
 logger = logging.getLogger("cynic.api.handlers.escore")
 

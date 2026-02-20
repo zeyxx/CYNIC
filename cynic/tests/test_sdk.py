@@ -13,7 +13,7 @@ import pytest
 from starlette.testclient import TestClient
 
 from cynic.api.server import app
-from cynic.api.state import build_kernel, set_state
+from cynic.api.state import awaken, set_state
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -23,7 +23,7 @@ from cynic.api.state import build_kernel, set_state
 @pytest.fixture(autouse=True)
 def sdk_kernel_sync():
     """Sync kernel fixture — required because TestClient WebSocket is sync."""
-    state = build_kernel(db_pool=None)
+    state = awaken(db_pool=None)
     set_state(state)
     yield
     state.learning_loop.stop()

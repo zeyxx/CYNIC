@@ -3,15 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import Any
 
 from cynic.core.event_bus import Event, CoreEvent, get_core_bus
-from .payloads import TopologyChangedPayload, TopologyAppliedPayload, TopologyRollbackPayload
-
-if TYPE_CHECKING:
-    from cynic.api.handlers import HandlerRegistry
-    from cynic.api.handlers.base import KernelServices, HandlerGroup
-    from cynic.core.event_bus import EventBus
+from cynic.core.topology.payloads import TopologyChangedPayload, TopologyAppliedPayload, TopologyRollbackPayload
 
 logger = logging.getLogger("cynic.core.topology.hot_reload")
 
@@ -29,9 +24,9 @@ class HotReloadCoordinator:
     async def on_topology_changed(
         self,
         event: Event,
-        registry: HandlerRegistry,
-        bus: EventBus,
-        svc: KernelServices,
+        registry: Any,  # HandlerRegistry
+        bus: Any,  # EventBus
+        svc: Any,  # KernelServices
     ) -> None:
         """
         Apply topology delta with rollback safety.
@@ -121,9 +116,9 @@ class HotReloadCoordinator:
 
     async def _add_handler(
         self,
-        registry: HandlerRegistry,
+        registry: Any,  # HandlerRegistry
         handler_name: str,
-        svc: KernelServices,
+        svc: Any,  # KernelServices
     ) -> None:
         """
         Instantiate and register a new handler.
@@ -141,7 +136,7 @@ class HotReloadCoordinator:
         # For now, we'll assume the discovery already happened
         logger.debug("_add_handler stub: %s", handler_name)
 
-    def _snapshot_registry(self, registry: HandlerRegistry) -> dict:
+    def _snapshot_registry(self, registry: Any) -> dict:  # registry: HandlerRegistry
         """Snapshot current handler registry state (for rollback)."""
         # Return whatever state we need to restore
         # For now, a simple copy of registered groups
@@ -149,7 +144,7 @@ class HotReloadCoordinator:
             "groups": list(registry._groups),
         }
 
-    def _restore_registry(self, registry: HandlerRegistry, snapshot: dict) -> None:
+    def _restore_registry(self, registry: Any, snapshot: dict) -> None:  # registry: HandlerRegistry
         """Restore registry to snapshot state."""
         # Re-assign the groups from snapshot
         registry._groups = snapshot.get("groups", [])

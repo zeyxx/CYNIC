@@ -12,7 +12,7 @@ Tests the full HTTP API with real LLM dogs wired:
     GET  /introspect → dog stats + scholar buffer
 
 Validates the bridge that unit tests mock:
-    HTTP request → AppState → JudgeOrchestrator → SageDog (temporal MCTS) → verdict
+    HTTP request → CynicOrganism → JudgeOrchestrator → SageDog (temporal MCTS) → verdict
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from cynic.api.server import app
-from cynic.api.state import build_kernel, set_state
+from cynic.api.state import awaken, set_state
 from cynic.core.phi import MAX_Q_SCORE, PHI_INV
 from cynic.llm.adapter import LLMRegistry, OllamaAdapter
 
@@ -113,7 +113,7 @@ async def kernel_with_llm(ollama_registry):
     for adapter in ollama_registry.get_available():
         global_reg.register(adapter, available=True)
 
-    state = build_kernel(db_pool=None, registry=ollama_registry)
+    state = awaken(db_pool=None, registry=ollama_registry)
     set_state(state)
     yield state
     state.learning_loop.stop()

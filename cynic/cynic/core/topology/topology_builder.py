@@ -10,9 +10,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from cynic.api.handlers.base import HandlerGroup
 from cynic.core.event_bus import Event, CoreEvent, get_core_bus
-from .payloads import SourceChangedPayload, TopologyChangedPayload, TopologyDelta
+from cynic.core.topology.payloads import SourceChangedPayload, TopologyChangedPayload, TopologyDelta
 
 logger = logging.getLogger("cynic.core.topology.topology_builder")
 
@@ -28,7 +27,7 @@ class IncrementalTopologyBuilder:
     """
 
     def __init__(self):
-        self._previous_inventory: dict[str, HandlerGroup] = {}
+        self._previous_inventory: dict[str, Any] = {}
 
     async def on_source_changed(self, event: Event) -> None:
         """

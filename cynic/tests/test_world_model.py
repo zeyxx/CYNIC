@@ -119,17 +119,17 @@ class TestWorldModelKernelWiring:
     """
 
     def test_app_state_has_world_model_field(self):
-        """AppState dataclass must expose world_model as a typed field."""
+        """CynicOrganism dataclass must expose world_model as a typed field."""
         import dataclasses
-        from cynic.api.state import AppState
-        field_names = {f.name for f in dataclasses.fields(AppState)}
-        assert "world_model" in field_names, "world_model not found in AppState fields"
+        from cynic.api.state import CynicOrganism
+        field_names = {f.name for f in dataclasses.fields(CynicOrganism)}
+        assert "world_model" in field_names, "world_model not found in CynicOrganism fields"
 
     def test_world_model_field_type_is_world_model_updater(self):
         """world_model field default_factory creates a WorldModelUpdater instance."""
         import dataclasses
-        from cynic.api.state import AppState
-        for f in dataclasses.fields(AppState):
+        from cynic.api.state import CynicOrganism
+        for f in dataclasses.fields(CynicOrganism):
             if f.name == "world_model":
                 # field_factory should produce a WorldModelUpdater
                 instance = f.default_factory()  # type: ignore[misc]
@@ -161,16 +161,16 @@ class TestWorldModelKernelWiring:
         assert snap["judgment_count"] == 3
 
     def test_world_model_not_none_in_imported_app_state(self):
-        """Default AppState construction gives a live WorldModelUpdater, not None."""
-        from cynic.api.state import AppState
+        """Default CynicOrganism construction gives a live WorldModelUpdater, not None."""
+        from cynic.api.state import CynicOrganism
         from unittest.mock import MagicMock
-        # Minimal AppState construction (required positional fields)
+        # Minimal CynicOrganism construction (required positional fields)
         mock_orch = MagicMock()
         mock_qtable = MagicMock()
         mock_loop = MagicMock()
         mock_residual = MagicMock()
         mock_scheduler = MagicMock()
-        state = AppState(
+        state = CynicOrganism(
             orchestrator=mock_orch,
             qtable=mock_qtable,
             learning_loop=mock_loop,

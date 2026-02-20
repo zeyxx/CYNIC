@@ -15,7 +15,7 @@ from cynic.core.event_bus import Event, CoreEvent, get_core_bus
 from cynic.core.events_schema import TranscendencePayload
 from cynic.core.phi import MAX_Q_SCORE, PHI_INV, PHI_INV_2, HOWL_MIN, WAG_MIN, GROWL_MIN
 
-from .base import HandlerGroup, KernelServices
+from cynic.api.handlers.base import HandlerGroup, KernelServices
 
 if TYPE_CHECKING:
     from cynic.judge.action_proposer import ActionProposer

@@ -95,7 +95,7 @@ class ConsciousnessRhythm:
     Manages 4-tier concurrent consciousness loops as N asyncio workers.
 
     Usage:
-        scheduler = DogScheduler(orchestrator)
+        scheduler = ConsciousnessRhythm(orchestrator)
         scheduler.register_perceive_worker(GitWatcher())
         scheduler.start()           # begins all tier workers + perceive workers
         # ... serve requests ...
@@ -156,7 +156,7 @@ class ConsciousnessRhythm:
         Total tier workers: 11
         """
         if self._running:
-            logger.warning("DogScheduler already running — ignoring start()")
+            logger.warning("ConsciousnessRhythm already running — ignoring start()")
             return
         self._running = True
 
@@ -185,7 +185,7 @@ class ConsciousnessRhythm:
             self._perceive_tasks.append(task)
 
         logger.info(
-            "DogScheduler started — %d tier workers, %d perceive workers "
+            "ConsciousnessRhythm started — %d tier workers, %d perceive workers "
             "(queues: capacity=%d)",
             total_workers, len(self._perceive_tasks), _QUEUE_CAPACITY,
         )
@@ -204,7 +204,7 @@ class ConsciousnessRhythm:
 
         self._tasks.clear()
         self._perceive_tasks.clear()
-        logger.info("DogScheduler stopped")
+        logger.info("ConsciousnessRhythm stopped")
 
     # ── Submit ───────────────────────────────────────────────────────────────
 

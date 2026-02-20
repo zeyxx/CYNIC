@@ -21,7 +21,7 @@ from .base import HandlerGroup, KernelServices
 
 if TYPE_CHECKING:
     from cynic.judge.orchestrator import JudgeOrchestrator
-    from cynic.scheduler import DogScheduler
+    from cynic.scheduler import ConsciousnessRhythm
     from asyncpg import Pool
     from cynic.perceive.compressor import ContextCompressor
 
@@ -38,7 +38,7 @@ class IntelligenceHandlers(HandlerGroup):
         svc: KernelServices,
         *,
         orchestrator: JudgeOrchestrator,
-        scheduler: DogScheduler,
+        scheduler: ConsciousnessRhythm,
         db_pool: Pool | None,
         compressor,  # ContextCompressor
     ) -> None:

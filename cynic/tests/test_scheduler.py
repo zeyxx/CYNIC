@@ -196,21 +196,21 @@ class TestInterrupt:
 
 class TestLevelInference:
     def test_infer_reflex(self):
-        assert DogScheduler._infer_level(0.005) == ConsciousnessLevel.REFLEX
-        assert DogScheduler._infer_level(0.0)   == ConsciousnessLevel.REFLEX
+        assert ConsciousnessRhythm._infer_level(0.005) == ConsciousnessLevel.REFLEX
+        assert ConsciousnessRhythm._infer_level(0.0)   == ConsciousnessLevel.REFLEX
 
     def test_infer_micro(self):
-        assert DogScheduler._infer_level(0.01)  == ConsciousnessLevel.MICRO
-        assert DogScheduler._infer_level(0.049) == ConsciousnessLevel.MICRO
+        assert ConsciousnessRhythm._infer_level(0.01)  == ConsciousnessLevel.MICRO
+        assert ConsciousnessRhythm._infer_level(0.049) == ConsciousnessLevel.MICRO
 
     def test_infer_macro(self):
-        assert DogScheduler._infer_level(0.05)  == ConsciousnessLevel.MACRO
-        assert DogScheduler._infer_level(1.0)   == ConsciousnessLevel.MACRO
+        assert ConsciousnessRhythm._infer_level(0.05)  == ConsciousnessLevel.MACRO
+        assert ConsciousnessRhythm._infer_level(1.0)   == ConsciousnessLevel.MACRO
 
     def test_phi_boundary(self):
         """PHI_INV = 0.618 → MACRO (above 0.05 threshold)."""
         from cynic.core.phi import PHI_INV
-        assert DogScheduler._infer_level(PHI_INV) == ConsciousnessLevel.MACRO
+        assert ConsciousnessRhythm._infer_level(PHI_INV) == ConsciousnessLevel.MACRO
 
 
 # ════════════════════════════════════════════════════════════════════════════

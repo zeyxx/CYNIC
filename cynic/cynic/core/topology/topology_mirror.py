@@ -11,12 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from cynic.core.event_bus import Event, CoreEvent, get_core_bus
 from cynic.core.phi import fibonacci
-from .payloads import TopologySnapshotPayload
-
-if TYPE_CHECKING:
-    from cynic.judge.mirror import KernelMirror
-    from cynic.api.state import AppState
-    from cynic.core.event_bus import EventBus
+from cynic.core.topology.payloads import TopologySnapshotPayload
 
 logger = logging.getLogger("cynic.core.topology.topology_mirror")
 
@@ -38,9 +33,9 @@ class TopologyMirror:
 
     async def continuous_snapshot(
         self,
-        bus: EventBus,
-        kernel_mirror: KernelMirror,
-        state: AppState,
+        bus: Any,  # EventBus
+        kernel_mirror: Any,  # KernelMirror
+        state: Any,  # AppState
     ) -> None:
         """
         Continuously snapshot organism topology.
