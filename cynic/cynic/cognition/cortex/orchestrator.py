@@ -55,6 +55,7 @@ from cynic.cognition.neurons.base import AbstractDog, DogJudgment, DogId
 from cynic.cognition.neurons.cynic_dog import CynicDog
 from cynic.cognition.cortex.circuit_breaker import CircuitBreaker, CircuitState
 from cynic.cognition.cortex.decision_validator import DecisionValidator, BlockedDecision
+from cynic.cognition.cortex.handlers import HandlerComposer
 
 logger = logging.getLogger("cynic.cognition.cortex")
 
@@ -277,6 +278,7 @@ class JudgeOrchestrator:
         self.context_compressor = None  # Optional[ContextCompressor] — γ5: memory injection into SAGE
         self.service_registry = None  # Optional[ServiceStateRegistry] — Tier 1 nervous system
         self.consciousness_scheduler = None  # Optional[ConsciousnessScheduler] — Task #8: blended escalation
+        self._composer = None  # Optional[HandlerComposer] — Phase 2B: explicit DAG composition
         self._judgment_count = 0
         self._consciousness = get_consciousness()
         # evolve() history — last F(8)=21 META cycles
@@ -296,16 +298,13 @@ class JudgeOrchestrator:
         budget_usd: float | None = None,
     ) -> Judgment:
         """
-        Run the complete judgment cycle for a Cell.
+        Run the complete judgment cycle for a Cell via handler composition DAG.
 
         Level auto-selected if None (based on budget and timer health).
+        Delegates all cycle logic to HandlerComposer for explicit, testable, error-checked execution.
         """
-        # γ3: scale budget by axiom health before level selection
-        effective_budget = (budget_usd or cell.budget_usd) * self._axiom_budget_multiplier()
-        level = level or await self._select_level(cell, effective_budget)
-        # B2 fix: enforce LOD cap even when level was passed explicitly
-        level = self._apply_lod_cap(level)
-        pipeline = JudgmentPipeline(cell=cell, level=level)
+        pipeline = JudgmentPipeline(cell=cell)
+        effective_budget = (budget_usd or cell.budget_usd)
 
         # Circuit breaker — fast-fail when cascade failure detected (topology M1)
         if not self._circuit_breaker.allow():
@@ -334,34 +333,29 @@ class JudgeOrchestrator:
             JudgmentRequestedPayload(
                 cell_id=cell.cell_id,
                 reality=cell.reality,
-                level=level.name,
+                level=level.name if level else "AUTO",
             ),
         ))
 
-        timer = self._consciousness.timers.get(level.name)
-        if timer:
-            timer.start()
-
         try:
-            # Route to appropriate cycle based on consciousness level
-            if level == ConsciousnessLevel.REFLEX:
-                judgment = await self._cycle_reflex(pipeline)
-            elif level == ConsciousnessLevel.MICRO:
-                judgment = await self._cycle_micro(pipeline)
-            else:  # MACRO (L1) — full 7-step cycle
-                judgment = await self._cycle_macro(pipeline)
+            # Compose handlers and execute judgment cycle (Phase 2B DAG)
+            # HandlerComposer handles: level selection + LOD cap + cycle dispatch + act + evolve + budget
+            t_compose_start = time.perf_counter()
+            compose_result = await self._composer.compose(pipeline, level, effective_budget)
+            if not compose_result.success:
+                raise RuntimeError(f"Handler composition failed: {compose_result.error}")
 
-            if timer:
-                elapsed = timer.stop()
-                pipeline.total_latency_ms = elapsed
+            judgment = compose_result.output
+            selected_level = pipeline.level or level or ConsciousnessLevel.MACRO
+            elapsed_compose_ms = (time.perf_counter() - t_compose_start) * 1000
 
             # Emit JUDGMENT_CREATED (enriched with cell context for DecideAgent)
             self._judgment_count += 1
-            self._consciousness.increment(level)
+            self._consciousness.increment(selected_level)
             jc_payload = judgment.to_dict()
             jc_payload["state_key"] = cell.state_key()
             jc_payload["reality"] = cell.reality   # needed by guidance.json writer
-            jc_payload["level_used"] = level.name  # needed by LOD latency filter
+            jc_payload["level_used"] = selected_level.name  # needed by LOD latency filter
             jc_payload["content_preview"] = str(cell.content or "")[:200]
             jc_payload["context"] = cell.context or ""
             await get_core_bus().emit(Event.typed(
@@ -377,7 +371,7 @@ class JudgeOrchestrator:
                     verdict=judgment.verdict,
                     q_score=judgment.q_score,
                     metadata={
-                        "level": level.name,
+                        "level": selected_level.name,
                         "state_key": cell.state_key(),
                         "reality": cell.reality,
                         "consensus_reached": judgment.consensus_reached,
@@ -460,8 +454,6 @@ class JudgeOrchestrator:
 
         except Exception as e:
             logger.error("Judgment pipeline failed: %s", e, exc_info=True)
-            if timer:
-                timer.stop()
             # Circuit breaker: record failure — may open circuit after threshold
             self._circuit_breaker.record_failure()
             await get_core_bus().emit(Event.typed(
