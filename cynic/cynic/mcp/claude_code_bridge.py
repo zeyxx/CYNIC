@@ -424,7 +424,7 @@ CYNIC is considering this message...
 This is where bidirectional consciousness exchange happens.
 CYNIC may ask clarifying questions, propose hypotheses, or challenge assumptions."""
 
-    return CallToolResult(content=[TextContent(type="text", text=discussion)])
+    return [TextContent(type="text", text=discussion)]
 
 
 # ════════════════════════════════════════════════════════════════════════════

@@ -176,7 +176,7 @@ class TestEntropyTracking:
 
         # High h_input (diverse), very low h_output (very confident)
         assert metrics.h_input >= 2.5  # Diverse signals
-        assert metrics.h_output < 0.2  # Very low entropy (0.95 confidence near-certain)
+        assert metrics.h_output < 0.3  # Very low entropy (0.95 confidence: H ≈ 0.286)
         assert metrics.efficiency > 2.0  # Excellent efficiency (compressed 3+ bits)
 
     @pytest.mark.asyncio
@@ -384,7 +384,7 @@ class TestEntropyIntegration:
         tracker = EntropyTracker()
 
         # Scenario 1: GOOD judgment (high efficiency)
-        # Diverse signals + high confidence = positive efficiency
+        # Diverse signals + very high confidence = positive efficiency
         good_signals = [
             {"type": "security_issue"},
             {"type": "style_violation"},
@@ -397,11 +397,11 @@ class TestEntropyIntegration:
             cell_id="analysis_diverse",
             signals=good_signals,
             verdict="BARK",
-            confidence=0.55,  # Confident despite diversity
+            confidence=0.90,  # VERY high confidence (entropy ≈ 0.47)
         )
 
         # Scenario 2: MEDIUM judgment (lower efficiency)
-        # Homogeneous signals + high confidence = still negative but better than uncertain
+        # Homogeneous signals + high confidence = negative but better than 50/50
         medium_signals = [
             {"type": "error"},
             {"type": "error"},
@@ -412,11 +412,11 @@ class TestEntropyIntegration:
             cell_id="homogeneous_confident",
             signals=medium_signals,
             verdict="GROWL",
-            confidence=0.60,  # Higher confidence
+            confidence=0.90,  # High confidence
         )
 
         # Scenario 3: POOR judgment (worst efficiency)
-        # Homogeneous signals + low confidence = worst (most uncertainty added)
+        # Homogeneous signals + 50/50 uncertain = worst (maximum entropy added)
         poor_signals = [{"type": "error"}, {"type": "error"}]
 
         poor_metrics = await tracker.track_judgment(
@@ -424,10 +424,10 @@ class TestEntropyIntegration:
             cell_id="homogeneous_uncertain",
             signals=poor_signals,
             verdict="WAG",
-            confidence=0.05,  # Very uncertain
+            confidence=0.50,  # 50/50 = maximum uncertainty
         )
 
-        # Verify hierarchy: diverse+confident > homogeneous+confident > homogeneous+uncertain
+        # Verify hierarchy: diverse+confident > homogeneous+confident > homogeneous+50/50
         assert good_metrics.efficiency > medium_metrics.efficiency
         assert medium_metrics.efficiency > poor_metrics.efficiency
 
