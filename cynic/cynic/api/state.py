@@ -150,7 +150,24 @@ async def _on_judgment_created(event: Event) -> None:
 
 @dataclass
 class CognitionCore:
-    """BRAIN — Judgment, learning, axioms, decisions, safety guardrails."""
+    """
+    BRAIN — Judgment, learning, axioms, decisions, safety guardrails.
+
+    φ-Explicit: F(6)=8 required fields form the Fibonacci-derived core:
+      1. orchestrator     — Judgment engine
+      2. qtable           — Learning memory
+      3. learning_loop    — Meta-learning
+      4. residual_detector — Anomaly detection
+      5. power_limiter    — Resource guardian
+      6. alignment_checker — Axiom validator
+      7. human_gate       — Approval gating
+      8. audit_trail      — Immutable record
+
+    Optional fields extend cognition without changing φ-core:
+      - decision_validator — Composite of guardrails (wired after instantiation)
+      - decide_agent, account_agent — Specialized agents
+      - axiom_monitor, lod_controller, escore_tracker — Meta-cognition (default_factory)
+    """
     orchestrator: JudgeOrchestrator
     qtable: QTable
     learning_loop: LearningLoop
@@ -159,7 +176,8 @@ class CognitionCore:
     alignment_checker: AlignmentSafetyChecker
     human_gate: HumanApprovalGate
     audit_trail: TransparencyAuditTrail
-    decision_validator: DecisionValidator
+    # Optional: Composite of the 4 required guardrails above
+    decision_validator: DecisionValidator | None = None
     decide_agent: DecideAgent | None = None
     account_agent: AccountAgent | None = None
     axiom_monitor: AxiomMonitor = field(default_factory=AxiomMonitor)
@@ -169,7 +187,19 @@ class CognitionCore:
 
 @dataclass
 class MetabolicCore:
-    """BODY — Execution, scheduling, routing, telemetry."""
+    """
+    BODY — Execution, scheduling, routing, telemetry, actuators.
+
+    φ-Explicit: F(5)=5 required fields form the Fibonacci-derived metabolism:
+      1. scheduler        — Consciousness rhythm controller
+      2. runner           — Autonomous executor (Claude Code SDK)
+      3. llm_router       — LLM selection + routing
+      4. telemetry_store  — Performance metrics
+      5. universal_actuator — Action execution engine
+
+    Optional fields extend metabolism without changing φ-core:
+      - auto_benchmark    — Self-performance tracking
+    """
     scheduler: ConsciousnessRhythm
     runner: ClaudeCodeRunner | None = None
     llm_router: LLMRouter | None = None
@@ -180,24 +210,49 @@ class MetabolicCore:
 
 @dataclass
 class SensoryCore:
-    """NERVOUS SYSTEM — Compression, registry, world model, topology consciousness."""
+    """
+    NERVOUS SYSTEM — Compression, registry, world model, topology consciousness.
+
+    φ-Explicit: F(6)=8 required fields form the Fibonacci-derived nervous system:
+      1. context_compressor    — Memory compression (TF-IDF, rolling cap)
+      2. service_registry      — Runtime health tracking
+      3. event_journal         — Event persistence
+      4. decision_tracer       — Decision auditing
+      5. loop_closure_validator — Loop integrity checks
+      6. world_model           — Environmental state tracking
+      7. source_watcher        — L0 Layer 1: source observation
+      8. topology_builder      — L0 Layer 2: codebase topology mapping
+
+    Optional fields extend perception without changing φ-core:
+      - hot_reload_coordinator — L0 Layer 3: dynamic reload
+      - topology_mirror        — L0 Layer 4: topology state
+      - change_tracker         — L0 Layer 4.5: change detection
+      - change_analyzer        — L0 Layer 4.6: change analysis
+    """
     context_compressor: ContextCompressor = field(default_factory=ContextCompressor)
     service_registry: ServiceStateRegistry = field(default_factory=ServiceStateRegistry)
     event_journal: EventJournal = field(default_factory=EventJournal)
     decision_tracer: DecisionTracer = field(default_factory=DecisionTracer)
     loop_closure_validator: LoopClosureValidator = field(default_factory=LoopClosureValidator)
     world_model: WorldModelUpdater = field(default_factory=WorldModelUpdater)
-    source_watcher: Any = None  # L0 Layer 1 — SourceWatcher
-    topology_builder: Any = None  # L0 Layer 2 — IncrementalTopologyBuilder
-    hot_reload_coordinator: Any = None  # L0 Layer 3 — HotReloadCoordinator
-    topology_mirror: Any = None  # L0 Layer 4 — TopologyMirror
-    change_tracker: Any = None  # L0 Layer 4.5 — ChangeTracker
-    change_analyzer: Any = None  # L0 Layer 4.6 — ChangeAnalyzer
+    source_watcher: SourceWatcher = field(default_factory=SourceWatcher)
+    topology_builder: IncrementalTopologyBuilder = field(default_factory=IncrementalTopologyBuilder)
+    hot_reload_coordinator: HotReloadCoordinator | None = None
+    topology_mirror: TopologyMirror | None = None
+    change_tracker: ChangeTracker | None = None
+    change_analyzer: ChangeAnalyzer | None = None
 
 
 @dataclass
 class MemoryCore:
-    """ARCHIVE — Reflection, proposals, self-improvement."""
+    """
+    ARCHIVE — Reflection, proposals, self-improvement.
+
+    φ-Explicit: F(4)=3 required fields form the Fibonacci-derived memory system:
+      1. kernel_mirror   — Organism self-observation and consciousness snapshots
+      2. action_proposer — Proposed action queue (DECISION_MADE → ProposedAction)
+      3. self_prober     — Self-improvement proposals (L4 meta-cognition)
+    """
     kernel_mirror: KernelMirror = field(default_factory=KernelMirror)
     action_proposer: ActionProposer = field(default_factory=ActionProposer)
     self_prober: SelfProber = field(default_factory=SelfProber)
