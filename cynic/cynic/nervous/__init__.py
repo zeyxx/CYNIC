@@ -20,6 +20,23 @@ from cynic.nervous.service_registry import (
     get_service_registry,
     reset_service_registry,
 )
+from cynic.nervous.event_journal import (
+    EventJournal,
+    EventCategory,
+    JournalEntry,
+)
+from cynic.nervous.decision_trace import (
+    DecisionTracer,
+    DecisionTrace,
+    TraceNode,
+    DogVote,
+    DogRole,
+)
+from cynic.nervous.loop_closure import (
+    LoopClosureValidator,
+    LoopClosureEvent,
+    CyclePhase,
+)
 
 __all__ = [
     "ServiceStateRegistry",
@@ -29,4 +46,15 @@ __all__ = [
     "HealthStatus",
     "get_service_registry",
     "reset_service_registry",
+    "EventJournal",
+    "EventCategory",
+    "JournalEntry",
+    "DecisionTracer",
+    "DecisionTrace",
+    "TraceNode",
+    "DogVote",
+    "DogRole",
+    "LoopClosureValidator",
+    "LoopClosureEvent",
+    "CyclePhase",
 ]

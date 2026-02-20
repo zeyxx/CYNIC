@@ -290,23 +290,27 @@ class EventJournal:
             ]
             return errors
 
+    def _get_stats_unlocked(self) -> dict[str, Any]:
+        """Get stats without acquiring lock (for use when already locked)."""
+        return {
+            **self._stats,
+            "buffer_size": len(self._entries),
+            "buffer_cap": JOURNAL_CAP,
+            "unique_types": len(self._index_by_type),
+            "unique_sources": len(self._index_by_source),
+        }
+
     async def stats(self) -> dict[str, Any]:
         """Get journal statistics."""
         async with self._lock:
-            return {
-                **self._stats,
-                "buffer_size": len(self._entries),
-                "buffer_cap": JOURNAL_CAP,
-                "unique_types": len(self._index_by_type),
-                "unique_sources": len(self._index_by_source),
-            }
+            return self._get_stats_unlocked()
 
     async def snapshot(self) -> dict[str, Any]:
         """Get complete journal state (for testing/debugging)."""
         async with self._lock:
             return {
                 "entries": [e.to_dict() for e in self._entries],
-                "stats": await self.stats(),
+                "stats": self._get_stats_unlocked(),
             }
 
     async def clear(self) -> None:

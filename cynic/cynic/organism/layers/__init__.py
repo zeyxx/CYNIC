@@ -26,7 +26,10 @@ What the outside world sees.
 # Layer 0: Identity (IMPLEMENTED ✅)
 from .identity import OrganismIdentity
 
-# Future layers (coming Week 2-6)
+# Layer 1: Judgment Engine (IMPLEMENTED ✅)
+from .judgment_engine import JudgmentEngine, DogInput, UnifiedJudgment
+
+# Future layers (coming Week 3-6)
 # from .judgment_engine import JudgmentEngine
 # from .organs import OrganSystem
 # from .nervous_system import NervousSystem
@@ -40,4 +43,7 @@ from .identity import OrganismIdentity
 
 __all__ = [
     "OrganismIdentity",
+    "JudgmentEngine",
+    "DogInput",
+    "UnifiedJudgment",
 ]

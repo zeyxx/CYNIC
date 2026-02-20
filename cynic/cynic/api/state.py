@@ -53,7 +53,7 @@ from cynic.cognition.cortex.self_probe import SelfProber
 from cynic.cognition.cortex.lod import LODController, SurvivalLOD
 from cynic.core.escore import EScoreTracker
 from cynic.learning.qlearning import QTable, LearningLoop
-from cynic.nervous import ServiceStateRegistry, ComponentType
+from cynic.nervous import ServiceStateRegistry, ComponentType, EventJournal, DecisionTracer, LoopClosureValidator
 from cynic.senses.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher, SocialWatcher, DiskWatcher, MemoryWatcher
 from cynic.core.storage.gc import StorageGarbageCollector
 from cynic.senses import checkpoint as _session_checkpoint
@@ -173,6 +173,9 @@ class SensoryCore:
     """NERVOUS SYSTEM — Compression, registry, world model, topology consciousness."""
     context_compressor: ContextCompressor = field(default_factory=ContextCompressor)
     service_registry: ServiceStateRegistry = field(default_factory=ServiceStateRegistry)
+    event_journal: EventJournal = field(default_factory=EventJournal)
+    decision_tracer: DecisionTracer = field(default_factory=DecisionTracer)
+    loop_closure_validator: LoopClosureValidator = field(default_factory=LoopClosureValidator)
     world_model: WorldModelUpdater = field(default_factory=WorldModelUpdater)
     source_watcher: Any = None  # L0 Layer 1 — SourceWatcher
     topology_builder: Any = None  # L0 Layer 2 — IncrementalTopologyBuilder
@@ -255,6 +258,18 @@ class CynicOrganism:
     @property
     def context_compressor(self) -> ContextCompressor:
         return self.senses.context_compressor
+
+    @property
+    def event_journal(self) -> EventJournal:
+        return self.senses.event_journal
+
+    @property
+    def decision_tracer(self) -> DecisionTracer:
+        return self.senses.decision_tracer
+
+    @property
+    def loop_closure_validator(self) -> LoopClosureValidator:
+        return self.senses.loop_closure_validator
 
     @property
     def service_registry(self) -> ServiceStateRegistry:
