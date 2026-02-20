@@ -19,7 +19,7 @@ import pytest
 
 from cynic.core.consciousness import ConsciousnessLevel, reset_consciousness
 from cynic.core.judgment import Cell
-from cynic.scheduler import DogScheduler, PerceptionEvent, _QUEUE_CAPACITY, _WORKERS_PER_LEVEL
+from cynic.scheduler import ConsciousnessRhythm, PerceptionEvent, _QUEUE_CAPACITY, _WORKERS_PER_LEVEL
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -55,8 +55,8 @@ def mock_orchestrator():
 
 @pytest.fixture
 def scheduler(mock_orchestrator):
-    """DogScheduler with mock orchestrator (not yet started)."""
-    return DogScheduler(orchestrator=mock_orchestrator)
+    """ConsciousnessRhythm with mock orchestrator (not yet started)."""
+    return ConsciousnessRhythm(orchestrator=mock_orchestrator)
 
 
 @pytest.fixture
@@ -493,10 +493,10 @@ class TestSchedulerQueueDepth:
 
     def _make_scheduler(self):
         from unittest.mock import AsyncMock, MagicMock
-        from cynic.scheduler import DogScheduler
+        from cynic.scheduler import ConsciousnessRhythm
         orch = MagicMock()
         orch.run = AsyncMock(return_value=MagicMock(verdict="WAG", q_score=70.0))
-        return DogScheduler(orchestrator=orch)
+        return ConsciousnessRhythm(orchestrator=orch)
 
     def test_empty_queues_depth_zero(self):
         scheduler = self._make_scheduler()

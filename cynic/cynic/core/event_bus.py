@@ -170,6 +170,13 @@ class CoreEvent(StrEnum):
     SDK_TOOL_JUDGED      = "sdk.tool_judged"
     SDK_RESULT_RECEIVED  = "sdk.result_received"
 
+    # Topology (Real-time kernel architecture updates)
+    SOURCE_CHANGED       = "topology.source_changed"        # FileWatcher: files changed
+    TOPOLOGY_CHANGED     = "topology.topology_changed"      # Builder: handlers added/removed
+    TOPOLOGY_APPLIED     = "topology.topology_applied"      # Coordinator: hot-reload succeeded
+    TOPOLOGY_ROLLBACK    = "topology.topology_rollback"     # Coordinator: hot-reload failed
+    TOPOLOGY_SNAPSHOT    = "topology.topology_snapshot"     # Mirror: architecture snapshot
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # AUTOMATION BUS EVENTS

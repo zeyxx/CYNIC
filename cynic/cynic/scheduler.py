@@ -1,5 +1,5 @@
 """
-CYNIC DogScheduler — 4-Tier Concurrent Consciousness + N Workers
+CYNIC ConsciousnessRhythm — 4-Tier Concurrent Consciousness + N Workers
 
 Architecture decision (2026-02-18):
   4 = L(3) → TIERS     (operating frequency — when to think)
@@ -87,10 +87,10 @@ class PerceptionEvent:
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# DOG SCHEDULER
+# CONSCIOUSNESS RHYTHM
 # ════════════════════════════════════════════════════════════════════════════
 
-class DogScheduler:
+class ConsciousnessRhythm:
     """
     Manages 4-tier concurrent consciousness loops as N asyncio workers.
 

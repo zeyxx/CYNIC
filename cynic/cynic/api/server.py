@@ -17,7 +17,7 @@ Routes:
   GET  /dashboard                 → Live kernel dashboard (WebSocket /ws/stream consumer)
 
 Design principles:
-  - No state in route handlers (all state in AppState singleton)
+  - No state in route handlers (all state in CynicOrganism singleton)
   - φ-bound all confidence values before returning
   - Errors return structured JSON (never HTML 500s)
   - Every response includes judgment_id for traceability
@@ -47,7 +47,7 @@ from cynic.core.phi import WAG_MIN
 from cynic.core.config import CynicConfig
 from cynic.act.telemetry import compute_reward
 
-from cynic.api.state import build_kernel, set_state, get_state, restore_state
+from cynic.api.state import awaken, set_state, get_state, restore_state
 
 from cynic.api.routers.core import router_core
 from cynic.api.routers.actions import router_actions
@@ -177,8 +177,8 @@ async def lifespan(app: FastAPI):
                 logger.warning("DB unavailable (%s) — running without persistence", exc)
                 db_pool = None
 
-    # ── Build kernel (always — persistence is wired after) ─────────────────
-    state = build_kernel(db_pool=db_pool, registry=registry)
+    # ── Awaken organism (always — persistence is wired after) ─────────────────
+    state = awaken(db_pool=db_pool, registry=registry)
 
     # ── Tier 1 Nervous System: Register components on startup ───────────────
     from cynic.nervous import ComponentType

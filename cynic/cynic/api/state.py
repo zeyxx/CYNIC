@@ -1,8 +1,8 @@
 """
-CYNIC API State — Kernel singleton wired at startup.
+CYNIC API State — Organism instance awakened at startup.
 
-One AppState per process. Initialized via FastAPI lifespan.
-All routes get this via Depends(get_app_state).
+One CynicOrganism per process. Initialized via FastAPI lifespan.
+All routes get this via Depends(get_state).
 """
 from __future__ import annotations
 
@@ -58,7 +58,7 @@ from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher, Marke
 from cynic.core.storage.gc import StorageGarbageCollector
 from cynic.perceive import checkpoint as _session_checkpoint
 from cynic.perceive.checkpoint import CHECKPOINT_EVERY
-from cynic.scheduler import DogScheduler
+from cynic.scheduler import ConsciousnessRhythm
 from cynic.act.telemetry import TelemetryStore
 from cynic.act.llm_router import LLMRouter
 from cynic.act.runner import ClaudeCodeRunner
@@ -132,9 +132,9 @@ async def _on_judgment_created(event: Event) -> None:
 
 
 @dataclass
-class AppState:
+class CynicOrganism:
     """
-    The kernel wired and ready.
+    The organism awakened and ready.
 
     Built once at startup, lives for the process lifetime.
     """
@@ -142,7 +142,7 @@ class AppState:
     qtable: QTable
     learning_loop: LearningLoop
     residual_detector: ResidualDetector
-    scheduler: DogScheduler
+    scheduler: ConsciousnessRhythm
     started_at: float = field(default_factory=time.time)
     _pool: asyncpg.Pool | None = None
     last_judgment: dict | None = None  # state_key, action, judgment_id — for /feedback
@@ -174,12 +174,12 @@ class AppState:
         return list(self.orchestrator.dogs.keys())
 
 
-class _KernelBuilder:
+class _OrganismAwakener:
     """
-    One-time kernel builder.
+    One-time organism awakener.
 
-    Holds all build-time state so event handler methods can close over
-    ``self`` instead of a tangle of nested closures.  Call ``build()``
+    Holds all awakening-time state so event handler methods can close over
+    ``self`` instead of a tangle of nested closures.  Call ``awaken()``
     once; the instance is then discarded.
     """
 
@@ -213,7 +213,7 @@ class _KernelBuilder:
         self.dogs:             dict[DogId, AbstractDog] = {}
         self.qtable:           QTable           = None  # type: ignore[assignment]
         self.orchestrator:     JudgeOrchestrator = None  # type: ignore[assignment]
-        self.scheduler:        DogScheduler     = None  # type: ignore[assignment]
+        self.scheduler:        ConsciousnessRhythm = None  # type: ignore[assignment]
         self.learning_loop:    LearningLoop     = None  # type: ignore[assignment]
         self.residual_detector: ResidualDetector = None  # type: ignore[assignment]
         self.decide_agent:     DecideAgent      = None  # type: ignore[assignment]
@@ -308,7 +308,7 @@ class _KernelBuilder:
             residual_detector=self.residual_detector,
         )
 
-        self.scheduler = DogScheduler(orchestrator=self.orchestrator)
+        self.scheduler = ConsciousnessRhythm(orchestrator=self.orchestrator)
 
         self.decide_agent = DecideAgent(qtable=self.qtable)
         self.decide_agent.start(get_core_bus())
@@ -413,7 +413,7 @@ class _KernelBuilder:
         container.register(AccountAgent, self.account_agent)
         container.register(ActionProposer, self.action_proposer)
         container.register(SelfProber, self.self_prober)
-        container.register(DogScheduler, self.scheduler)
+        container.register(ConsciousnessRhythm, self.scheduler)
         container.register(AxiomMonitor, self.axiom_monitor)
         container.register(LODController, self.lod_controller)
         container.register(EScoreTracker, self.escore_tracker)
@@ -506,31 +506,31 @@ class _KernelBuilder:
         return self._make_app_state()
 
 
-def build_kernel(db_pool=None, registry=None) -> AppState:
-    """Build the CYNIC kernel. Call once from lifespan startup."""
-    return _KernelBuilder(db_pool, registry).build()
+def awaken(db_pool=None, registry=None) -> CynicOrganism:
+    """Awaken the CYNIC organism. Call once from lifespan startup."""
+    return _OrganismAwakener(db_pool, registry).build()
 
 
 # Process-level singleton — set during lifespan startup
-_state: AppState | None = None
+_state: CynicOrganism | None = None
 
 
-def set_state(state: AppState) -> None:
+def set_state(state: CynicOrganism) -> None:
     global _state
     _state = state
 
 
-def get_state() -> AppState:
+def get_state() -> CynicOrganism:
     if _state is None:
-        raise RuntimeError("AppState not initialized — lifespan not started")
+        raise RuntimeError("CynicOrganism not initialized — lifespan not started")
     return _state
 
 
-async def restore_state(state: AppState) -> None:
+async def restore_state(state: CynicOrganism) -> None:
     """
-    Restore persistent state after kernel startup.
+    Restore persistent state after organism awakening.
 
-    Call this in the FastAPI lifespan, AFTER build_kernel() and set_state().
+    Call this in the FastAPI lifespan, AFTER awaken() and set_state().
     Restores:
       - EScoreTracker entities from e_scores table (γ4)
       - ContextCompressor session from ~/.cynic/session-latest.json (γ2)
