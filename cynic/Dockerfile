@@ -4,11 +4,14 @@
 
 FROM python:3.13-slim
 
-# System dependencies (for asyncpg C extension, scikit-learn, git hooks)
+# System dependencies (for asyncpg C extension, scikit-learn, git hooks, Node.js/npm)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
     git \
+    curl \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -21,12 +24,20 @@ RUN pip install --no-cache-dir poetry==1.8.3 && \
     poetry config virtualenvs.create false && \
     poetry install --no-interaction --no-ansi --only main
 
+# Install Claude CLI globally (for action execution)
+RUN npm install -g @anthropic-ai/claude-cli@latest && \
+    npm cache clean --force
+
 # Copy source
 COPY cynic/ ./cynic/
 
-# Create non-root user
-RUN useradd -m -u 1000 cynic && chown -R cynic:cynic /app
+# Create non-root user and configure for Claude CLI
+RUN useradd -m -u 1000 cynic && chown -R cynic:cynic /app && \
+    mkdir -p /home/cynic/.claude && chown -R cynic:cynic /home/cynic/.claude
 USER cynic
+
+# Configure Claude CLI path (accessible to cynic user)
+ENV PATH="/home/cynic/.npm/bin:${PATH}"
 
 EXPOSE 8000
 
