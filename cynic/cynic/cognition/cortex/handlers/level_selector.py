@@ -8,6 +8,7 @@ Responsibilities:
 - Enforce budget stress caps
 - Use ConsciousnessScheduler if available
 - Fall back to cell consciousness gradient
+- React to budget warning/exhausted signals
 """
 from __future__ import annotations
 
@@ -161,12 +162,51 @@ class LevelSelector(BaseHandler):
         else:
             return ConsciousnessLevel.MACRO
 
+    def apply_lod_cap(self, level: ConsciousnessLevel) -> ConsciousnessLevel:
+        """
+        Enforce LOD cap on any level — explicit or auto-selected (B2 fix).
+
+        _select_level() already enforces this for the auto-select path, but:
+          1. run(cell, level=MACRO) bypasses _select_level entirely.
+          2. _cycle_micro escalation calls _cycle_macro directly (no level check).
+        This method is the single enforcement point for both cases.
+
+        Args:
+            level: Consciousness level to cap
+
+        Returns:
+            Capped consciousness level
+        """
+        if self.lod_controller is None:
+            return level
+
+        from cynic.cognition.cortex.lod import SurvivalLOD
+
+        lod = self.lod_controller.current
+        if lod >= SurvivalLOD.EMERGENCY:
+            if level != ConsciousnessLevel.REFLEX:
+                logger.warning(
+                    "LOD cap: %s → REFLEX (LOD=%s, system under stress)",
+                    level.name, lod.name,
+                )
+            return ConsciousnessLevel.REFLEX
+        if lod == SurvivalLOD.REDUCED and level == ConsciousnessLevel.MACRO:
+            logger.info("LOD cap: MACRO → MICRO (LOD=REDUCED)")
+            return ConsciousnessLevel.MICRO
+        return level
+
     def set_budget_stress(self, stressed: bool) -> None:
         """Signal budget stress (caps at MICRO)."""
         self._budget_stress = stressed
-        logger.info(f"Budget stress: {stressed}")
+        logger.warning(
+            "*GROWL* Budget stress: capping judgment level at MICRO "
+            "(no MACRO/Ollama until budget resets)"
+        ) if stressed else logger.info("Budget stress cleared")
 
     def set_budget_exhausted(self, exhausted: bool) -> None:
         """Signal budget exhaustion (caps at REFLEX)."""
         self._budget_exhausted = exhausted
-        logger.info(f"Budget exhausted: {exhausted}")
+        logger.error(
+            "*GROWL* Budget exhausted: forcing REFLEX-only mode "
+            "(zero LLM calls)"
+        ) if exhausted else logger.info("Budget exhaustion cleared")
