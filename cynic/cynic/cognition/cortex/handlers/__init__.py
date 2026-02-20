@@ -42,7 +42,8 @@ from cynic.cognition.cortex.handlers.cycle_macro import MacroCycleHandler
 from cynic.cognition.cortex.handlers.act_executor import ActHandler
 from cynic.cognition.cortex.handlers.evolve import EvolveHandler
 from cynic.cognition.cortex.handlers.budget_manager import BudgetManager
-from cynic.cognition.cortex.handlers.registry import HandlerRegistry, discover_handlers
+from cynic.cognition.cortex.handlers.registry import HandlerRegistry
+from cynic.cognition.cortex.handlers.composer import HandlerComposer, HandlerError
 
 __all__ = [
     "BaseHandler",
@@ -55,5 +56,6 @@ __all__ = [
     "EvolveHandler",
     "BudgetManager",
     "HandlerRegistry",
-    "discover_handlers",
+    "HandlerComposer",
+    "HandlerError",
 ]

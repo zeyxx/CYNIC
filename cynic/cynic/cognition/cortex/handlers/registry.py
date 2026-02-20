@@ -1,18 +1,18 @@
 """
-HandlerRegistry — Discover and manage handler groups.
+HandlerRegistry — Centralized consciousness handler instance storage.
 
-Follows the same pattern as LLMRegistry:
-- Introspect current package to find all Handler subclasses
-- Cache instances (singleton per handler class)
-- Enable selection by handler_id
-- Provide metadata for orchestration
+Part of Phase 2B: Orchestration Refactoring — explicit handler composition DAG.
+
+Responsibility:
+- Register handler instances by ID
+- Retrieve handlers by ID
+- Enumerate all handlers (for discovery, introspection)
+- Provide summary metadata (versions, descriptions) for all handlers
 """
 from __future__ import annotations
 
-import importlib
-import inspect
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from cynic.cognition.cortex.handlers.base import BaseHandler
 
@@ -21,83 +21,124 @@ logger = logging.getLogger("cynic.cognition.cortex.handlers.registry")
 
 class HandlerRegistry:
     """
-    Central registry for all available handlers.
+    Centralized registry of consciousness handlers.
 
-    Usage:
-        registry = HandlerRegistry()
-        handlers = registry.discover()  # Find all handlers
-        executor = registry.get("act_handler")  # Get by ID
+    Used by HandlerComposer to dispatch handlers in execution DAG.
+    Handlers registered here are injectable (no god functions, no hidden state lookups).
+
+    Thread-safe: All operations atomic (dict ops in CPython GIL-protected).
     """
 
     def __init__(self) -> None:
-        self._handlers: Dict[str, BaseHandler] = {}  # handler_id → instance
-        self._metadata: Dict[str, dict] = {}  # handler_id → metadata
-        logger.info("HandlerRegistry initialized")
+        """Initialize empty registry."""
+        self.handlers: dict[str, BaseHandler] = {}
 
-    def register(self, handler: BaseHandler) -> None:
-        """Register a handler instance."""
-        handler_id = handler.handler_id
-        self._handlers[handler_id] = handler
-        self._metadata[handler_id] = handler.metadata()
-        logger.info(f"Handler registered: {handler_id} v{handler.version}")
+    def register(self, handler_id: str, handler: BaseHandler) -> None:
+        """
+        Register a handler instance by ID.
 
-    def get(self, handler_id: str) -> Optional[BaseHandler]:
-        """Retrieve a handler by ID."""
-        return self._handlers.get(handler_id)
+        Args:
+            handler_id: Unique handler identifier (e.g., "cycle_reflex", "level_selector")
+            handler: BaseHandler instance
 
-    def all(self) -> Dict[str, BaseHandler]:
-        """Return all registered handlers."""
-        return dict(self._handlers)
+        Raises:
+            ValueError: If handler_id already registered
+        """
+        if handler_id in self.handlers:
+            raise ValueError(
+                f"Handler '{handler_id}' already registered. "
+                "Use unregister() first if replacement intended."
+            )
+        self.handlers[handler_id] = handler
+        logger.debug(f"Registered handler '{handler_id}' ({handler.handler_id})")
 
-    def metadata(self) -> Dict[str, dict]:
-        """Return metadata for all handlers."""
-        return dict(self._metadata)
+    def get(self, handler_id: str) -> BaseHandler:
+        """
+        Retrieve handler by ID.
+
+        Args:
+            handler_id: Unique handler identifier
+
+        Returns:
+            BaseHandler instance
+
+        Raises:
+            KeyError: If handler_id not found
+        """
+        if handler_id not in self.handlers:
+            available = ", ".join(self.list_ids())
+            raise KeyError(
+                f"Handler '{handler_id}' not found. Available: {available}"
+            )
+        return self.handlers[handler_id]
+
+    def all(self) -> dict[str, BaseHandler]:
+        """
+        Get copy of all registered handlers.
+
+        Returns:
+            dict mapping handler_id → BaseHandler instance
+        """
+        return self.handlers.copy()
+
+    def list_ids(self) -> list[str]:
+        """
+        Get list of all registered handler IDs in registration order.
+
+        Returns:
+            list of handler IDs
+        """
+        return list(self.handlers.keys())
+
+    def has(self, handler_id: str) -> bool:
+        """
+        Check if handler is registered.
+
+        Args:
+            handler_id: Unique handler identifier
+
+        Returns:
+            True if registered, False otherwise
+        """
+        return handler_id in self.handlers
 
     def count(self) -> int:
-        """Return number of registered handlers."""
-        return len(self._handlers)
+        """
+        Get number of registered handlers.
 
-    def stats(self) -> dict[str, Any]:
-        """Return registry statistics."""
-        return {
-            "total_handlers": len(self._handlers),
-            "handler_ids": list(self._handlers.keys()),
-            "metadata": self._metadata,
-        }
+        Returns:
+            Integer count
+        """
+        return len(self.handlers)
 
+    def unregister(self, handler_id: str) -> None:
+        """
+        Unregister a handler (for testing, reconfiguration).
 
-def discover_handlers() -> Dict[str, type[BaseHandler]]:
-    """
-    Auto-discover all Handler subclasses in this package.
+        Args:
+            handler_id: Unique handler identifier
 
-    Returns:
-        Dict mapping handler_id → Handler class
-    """
-    handlers: Dict[str, type[BaseHandler]] = {}
+        Raises:
+            KeyError: If handler_id not found
+        """
+        if handler_id not in self.handlers:
+            raise KeyError(f"Handler '{handler_id}' not found")
+        del self.handlers[handler_id]
+        logger.debug(f"Unregistered handler '{handler_id}'")
 
-    # Get all modules in handlers package
-    handler_modules = [
-        "cynic.cognition.cortex.handlers.level_selector",
-        "cynic.cognition.cortex.handlers.cycle_reflex",
-        "cynic.cognition.cortex.handlers.cycle_micro",
-        "cynic.cognition.cortex.handlers.cycle_macro",
-        "cynic.cognition.cortex.handlers.act_executor",
-        "cynic.cognition.cortex.handlers.evolve",
-        "cynic.cognition.cortex.handlers.budget_manager",
-    ]
+    def summary(self) -> dict[str, dict[str, Any]]:
+        """
+        Get summary metadata for all registered handlers.
 
-    for module_name in handler_modules:
-        try:
-            module = importlib.import_module(module_name)
-            # Find all BaseHandler subclasses in this module
-            for name, obj in inspect.getmembers(module, inspect.isclass):
-                if issubclass(obj, BaseHandler) and obj is not BaseHandler:
-                    handlers[obj.handler_id] = obj
-                    logger.debug(f"Discovered handler: {obj.handler_id} ({name})")
-        except ImportError as e:
-            logger.warning(f"Failed to import {module_name}: {e}")
-        except Exception as e:
-            logger.error(f"Error discovering handlers in {module_name}: {e}")
-
-    logger.info(f"*sniff* Handler discovery: {len(handlers)} handlers found")
-    return handlers
+        Returns:
+            dict mapping handler_id → {version, description, handler_class}
+        """
+        result = {}
+        for handler_id, handler in self.handlers.items():
+            result[handler_id] = {
+                "version": handler.version,
+                "description": handler.description,
+                "handler_class": handler.__class__.__name__,
+                "handler_id": handler.handler_id,
+            }
+        return result
