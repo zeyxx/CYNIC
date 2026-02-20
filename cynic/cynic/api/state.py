@@ -718,7 +718,7 @@ class _OrganismAwakener:
             lod_controller=self.lod_controller,
             axiom_monitor=self.axiom_monitor,
             context_compressor=self.compressor,
-            act_phase_fn=None,  # Will be set after handlers are registered
+            act_phase_fn=None,  # ACT handled by composer after cycle, not during
         )
         act_executor = ActHandler(
             decide_agent=self.decide_agent,
