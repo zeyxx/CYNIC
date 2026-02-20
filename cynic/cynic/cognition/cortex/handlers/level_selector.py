@@ -103,64 +103,79 @@ class LevelSelector(BaseHandler):
         """
         Auto-select consciousness level based on budget and cell metadata.
 
-        Priority order:
-        1. LOD enforcement (system health caps depth)
+        Priority order (with LOD cap enforced at each step):
+        1. LOD enforcement (system health caps depth) — absolute priority
         2. Budget enforcement (stress/exhausted caps depth)
         3. ConsciousnessScheduler (blended axiom + e_score + oracle) if available
         4. Cell's own consciousness gradient (fallback)
+
+        All selected levels are capped by apply_lod_cap() before return.
         """
-        # LOD enforcement (health→JUDGE loop): system health caps depth first
+        selected_level = None
+
+        # Step 1: LOD enforcement (health→JUDGE loop): system health caps depth first
+        # This is absolute priority — a crashed system can't afford Ollama regardless
         if self.lod_controller is not None:
             from cynic.cognition.cortex.lod import SurvivalLOD
 
             lod = self.lod_controller.current
             if lod >= SurvivalLOD.EMERGENCY:
-                logger.debug("LOD EMERGENCY → REFLEX")
+                logger.warning("LOD EMERGENCY → REFLEX (system under stress)")
                 return ConsciousnessLevel.REFLEX
             if lod == SurvivalLOD.REDUCED:
-                logger.debug("LOD REDUCED → MICRO (at most)")
+                logger.info("LOD REDUCED: capping at MICRO")
                 consciousness = get_consciousness()
                 suggested = consciousness.should_downgrade(budget_usd)
                 if suggested == ConsciousnessLevel.REFLEX:
                     return ConsciousnessLevel.REFLEX
                 return ConsciousnessLevel.MICRO
 
-        # Budget enforcement (ACCOUNT→JUDGE loop): stressed budget caps depth
+        # Step 2: Budget enforcement (ACCOUNT→JUDGE loop): stressed budget caps depth
         if self._budget_exhausted:
-            logger.debug("Budget exhausted → REFLEX")
+            logger.error("Budget exhausted: forcing REFLEX-only mode")
             return ConsciousnessLevel.REFLEX
         if self._budget_stress:
-            logger.debug("Budget stress → MICRO (at most)")
+            logger.warning("Budget stress: capping at MICRO (no Ollama calls)")
             consciousness = get_consciousness()
             suggested = consciousness.should_downgrade(budget_usd)
             if suggested == ConsciousnessLevel.REFLEX:
                 return ConsciousnessLevel.REFLEX
             return ConsciousnessLevel.MICRO
 
-        # ConsciousnessScheduler (Task #8: blended escalation policy)
+        # Step 3: ConsciousnessScheduler (Task #8: blended escalation policy)
+        # Uses axiom maturity, E-Score, oracle confidence for intelligent selection
         if self.consciousness_scheduler is not None:
             try:
-                level = await self.consciousness_scheduler.select_level(cell)
-                logger.debug(f"ConsciousnessScheduler selected {level.name}")
-                return level
+                selected_level = await self.consciousness_scheduler.select_level(cell)
+                logger.debug(f"ConsciousnessScheduler selected {selected_level.name}")
             except Exception as e:
-                logger.warning(f"ConsciousnessScheduler failed: {e}")
-                # Fall through to legacy logic
+                logger.warning(f"ConsciousnessScheduler failed, falling back: {e}")
+                selected_level = None
 
-        # Legacy fallback: budget-based downgrade
-        consciousness = get_consciousness()
-        suggested = consciousness.should_downgrade(budget_usd)
-        if suggested:
-            logger.debug(f"Budget downgrade → {suggested.name}")
-            return suggested
+        # Step 4: Legacy fallback if scheduler unavailable or failed
+        if selected_level is None:
+            consciousness = get_consciousness()
+            suggested = consciousness.should_downgrade(budget_usd)
+            if suggested:
+                selected_level = suggested
+            else:
+                # Final fallback: cell's own consciousness gradient
+                if cell.consciousness <= 1:
+                    selected_level = ConsciousnessLevel.REFLEX
+                elif cell.consciousness <= 3:
+                    selected_level = ConsciousnessLevel.MICRO
+                else:
+                    selected_level = ConsciousnessLevel.MACRO
 
-        # Use cell's own consciousness gradient to guide level selection
-        if cell.consciousness <= 1:
-            return ConsciousnessLevel.REFLEX
-        elif cell.consciousness <= 3:
-            return ConsciousnessLevel.MICRO
-        else:
-            return ConsciousnessLevel.MACRO
+        # Step 5: Apply LOD cap to final selection
+        # Single enforcement point: ensures LOD cap is applied consistently
+        # (even if ConsciousnessScheduler bypasses internal LOD checks)
+        final_level = self.apply_lod_cap(selected_level)
+
+        if final_level != selected_level:
+            logger.info(f"LOD cap enforced: {selected_level.name} → {final_level.name}")
+
+        return final_level
 
     def apply_lod_cap(self, level: ConsciousnessLevel) -> ConsciousnessLevel:
         """

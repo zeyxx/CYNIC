@@ -1,0 +1,75 @@
+version: "3.9"
+
+services:
+  # CYNIC Python Kernel
+  cynic-kernel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cynic-kernel
+    ports:
+      - "8000:8000"
+    environment:
+      CYNIC_OLLAMA_BASE_URL: "http://ollama:11434"
+      CYNIC_SURREAL_URL: "ws://surrealdb:8000"
+      CYNIC_SURREAL_USER: "root"
+      CYNIC_SURREAL_PASS: "root"
+      PYTHONUNBUFFERED: "1"
+    depends_on:
+      - ollama
+      - surrealdb
+    networks:
+      - cynic-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    volumes:
+      - ./cynic:/app/cynic:ro
+      - ~/.cynic:/root/.cynic
+
+  # Ollama LLM Engine (local inference)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: cynic-ollama
+    ports:
+      - "11434:11434"
+    environment:
+      OLLAMA_HOST: "0.0.0.0:11434"
+    networks:
+      - cynic-net
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # SurrealDB Storage
+  surrealdb:
+    image: surrealdb/surrealdb:latest
+    container_name: cynic-surrealdb
+    ports:
+      - "8000:8000"
+    command: start --user root --pass root memory
+    environment:
+      SURREAL_PATH: memory
+    networks:
+      - cynic-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+networks:
+  cynic-net:
+    driver: bridge
+
+volumes:
+  ollama-models:

@@ -14,6 +14,9 @@ from cynic.core.topology.payloads import SourceChangedPayload
 
 logger = logging.getLogger("cynic.core.topology.file_watcher")
 
+# Compute package root from this file's location
+_CYNIC_ROOT = Path(__file__).resolve().parent.parent.parent  # → /app/cynic
+
 
 class SourceWatcher:
     """
@@ -31,12 +34,12 @@ class SourceWatcher:
     Polling: Every F(7)=13 seconds (efficient, not continuous)
     """
 
-    # Directories to watch → category name
+    # Directories to watch → category name (absolute paths from package root)
     _WATCHED_DIRS = {
-        "handlers": Path("cynic/api/handlers/"),
-        "dogs": Path("cynic/dogs/"),
-        "judge": Path("cynic/judge/"),
-        "cli": Path("cynic/cli/"),
+        "handlers": _CYNIC_ROOT / "api" / "handlers",
+        "dogs": _CYNIC_ROOT / "dogs",
+        "judge": _CYNIC_ROOT / "judge",
+        "cli": _CYNIC_ROOT / "cli",
     }
 
     def __init__(self):
