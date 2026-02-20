@@ -14,13 +14,16 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 from cynic.cognition.cortex.handlers.base import BaseHandler, HandlerResult
-from cynic.core.judgment import Cell, Judgment, JudgmentPipeline
+from cynic.core.judgment import Cell, Judgment
 from cynic.core.consciousness import ConsciousnessLevel, dogs_for_level
 from cynic.core.phi import PHI_INV, PHI_INV_2, MAX_CONFIDENCE, MAX_Q_SCORE
 from cynic.core.axioms import verdict_from_q_score
+
+if TYPE_CHECKING:
+    from cynic.cognition.cortex.orchestrator import JudgmentPipeline
 
 logger = logging.getLogger("cynic.cognition.cortex.handlers.cycle_micro")
 

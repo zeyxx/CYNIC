@@ -16,13 +16,17 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
 from cynic.cognition.cortex.handlers.base import BaseHandler, HandlerResult
-from cynic.core.judgment import Cell, Judgment, JudgmentPipeline, DogId
+from cynic.core.judgment import Cell, Judgment
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.phi import PHI_INV, PHI_INV_2, MAX_CONFIDENCE, MAX_Q_SCORE, phi_bound_score, fibonacci
 from cynic.core.axioms import verdict_from_q_score
+from cynic.cognition.neurons.base import DogId
+
+if TYPE_CHECKING:
+    from cynic.cognition.cortex.orchestrator import JudgmentPipeline
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
 from cynic.core.events_schema import (
     PerceptionReceivedPayload,

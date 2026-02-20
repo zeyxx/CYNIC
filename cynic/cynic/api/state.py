@@ -687,6 +687,60 @@ class _OrganismAwakener:
         self.orchestrator.decision_validator = self.decision_validator
         logger.info("Guardrails initialized: PowerLimiter → AlignmentChecker → AuditTrail → HumanGate → DecisionValidator")
 
+        # ── Phase 2B: Handler Composition DAG ──────────────────────────────────
+        # Create 7 handlers for explicit, testable orchestration
+        from cynic.cognition.cortex.handlers import (
+            HandlerRegistry, HandlerComposer, LevelSelector, ReflexCycleHandler,
+            MicroCycleHandler, MacroCycleHandler, ActHandler, EvolveHandler,
+            BudgetManager,
+        )
+
+        level_selector = LevelSelector(
+            axiom_monitor=self.axiom_monitor,
+            lod_controller=self.lod_controller,
+        )
+        cycle_reflex = ReflexCycleHandler(
+            consciousness=get_consciousness(),
+            dogs=self.dogs,
+        )
+        cycle_micro = MicroCycleHandler(
+            consciousness=get_consciousness(),
+            dogs=self.dogs,
+        )
+        cycle_macro = MacroCycleHandler(
+            consciousness=get_consciousness(),
+            dogs=self.dogs,
+            residual_detector=self.residual_detector,
+        )
+        act_executor = ActHandler(
+            decide_agent=self.decide_agent,
+            decision_validator=self.decision_validator,
+            runner=self.runner,
+        )
+        evolve_handler = EvolveHandler(
+            orchestrator=self.orchestrator,
+            benchmark_registry=self.orchestrator.benchmark_registry,
+        )
+        budget_manager = BudgetManager(
+            axiom_monitor=self.axiom_monitor,
+            lod_controller=self.lod_controller,
+        )
+
+        # Register handlers
+        handler_registry = HandlerRegistry()
+        handler_registry.register("level_selector", level_selector)
+        handler_registry.register("cycle_reflex", cycle_reflex)
+        handler_registry.register("cycle_micro", cycle_micro)
+        handler_registry.register("cycle_macro", cycle_macro)
+        handler_registry.register("act_executor", act_executor)
+        handler_registry.register("evolve", evolve_handler)
+        handler_registry.register("budget_manager", budget_manager)
+
+        # Create composer and wire into orchestrator
+        composer = HandlerComposer(handler_registry)
+        self.orchestrator._composer = composer
+        logger.info("Phase 2B: Handler composition DAG initialized (%d handlers)", handler_registry.count())
+
         # ── WorldModelUpdater (T27) — cross-reality state aggregator ──────
         # Subscribes to JUDGMENT_CREATED; computes composite_risk and
         # dominant_reality across all 7 realities. Previously coded but
