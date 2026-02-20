@@ -20,6 +20,7 @@ from cynic.core.topology.topology_builder import IncrementalTopologyBuilder
 from cynic.core.topology.hot_reload import HotReloadCoordinator
 from cynic.core.topology.topology_mirror import TopologyMirror
 from cynic.core.topology.change_tracker import ChangeTracker
+from cynic.core.topology.change_analyzer import ChangeAnalyzer
 from cynic.core.topology.payloads import (
     SourceChangedPayload,
     TopologyChangedPayload,
@@ -35,6 +36,7 @@ __all__ = [
     "HotReloadCoordinator",
     "TopologyMirror",
     "ChangeTracker",
+    "ChangeAnalyzer",
     "SourceChangedPayload",
     "TopologyChangedPayload",
     "TopologyAppliedPayload",

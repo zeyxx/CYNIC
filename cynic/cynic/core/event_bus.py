@@ -172,6 +172,7 @@ class CoreEvent(StrEnum):
 
     # Topology (Real-time kernel architecture updates)
     SOURCE_CHANGED       = "topology.source_changed"        # FileWatcher: files changed
+    CHANGE_ANALYZED      = "topology.change_analyzed"       # ChangeAnalyzer: semantic analysis of changes
     TOPOLOGY_CHANGED     = "topology.topology_changed"      # Builder: handlers added/removed
     TOPOLOGY_APPLIED     = "topology.topology_applied"      # Coordinator: hot-reload succeeded
     TOPOLOGY_ROLLBACK    = "topology.topology_rollback"     # Coordinator: hot-reload failed

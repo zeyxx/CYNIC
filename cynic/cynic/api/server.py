@@ -55,6 +55,7 @@ from cynic.api.routers.health import router_health
 from cynic.api.routers.sdk import router_sdk, _sdk_sessions
 from cynic.api.routers.act import router_act
 from cynic.api.routers.ws import router_ws
+from cynic.api.routers.topology import router_topology
 
 logger = logging.getLogger("cynic.api.server")
 
@@ -651,3 +652,4 @@ app.include_router(router_health)
 app.include_router(router_sdk)
 app.include_router(router_act)
 app.include_router(router_ws)
+app.include_router(router_topology)

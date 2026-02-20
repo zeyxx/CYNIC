@@ -440,3 +440,28 @@ class UserCorrectionPayload(BaseModel):
     action:    str = ""
     state_key: str = ""
     reason:    str = ""
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# TOPOLOGY (Real-time source code changes)
+# ════════════════════════════════════════════════════════════════════════════
+
+class ChangeAnalyzedPayload(BaseModel):
+    """
+    CHANGE_ANALYZED — ChangeAnalyzer semantic analysis of source changes.
+
+    Enriches raw SOURCE_CHANGED events with impact analysis:
+    - subsystem classification (kernel, api, cognition, etc.)
+    - impact_level risk assessment (LOW/MEDIUM/HIGH/CRITICAL)
+    - suggested_action (MONITOR/REVIEW/ALERT)
+    """
+    model_config = _BASE
+
+    files:              list[str]  = Field(default_factory=list)   # changed filepaths
+    subsystems:         list[str]  = Field(default_factory=list)   # affected subsystems
+    impact_level:       str        = "MEDIUM"   # LOW|MEDIUM|HIGH|CRITICAL
+    risk_estimate:      float      = 0.5        # [0, 1] φ-bounded for display
+    suggested_action:   str        = "MONITOR"  # MONITOR|REVIEW|ALERT
+    timestamp:          float      = 0.0
+    file_count:         int        = 0
+    total_lines:        int        = 0

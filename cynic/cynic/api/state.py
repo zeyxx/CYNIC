@@ -74,6 +74,7 @@ from cynic.core.topology import (
     HotReloadCoordinator,
     TopologyMirror,
     ChangeTracker,
+    ChangeAnalyzer,
 )
 
 logger = logging.getLogger("cynic.api.state")
@@ -176,6 +177,7 @@ class CynicOrganism:
     hot_reload_coordinator: Any = None  # HotReloadCoordinator
     topology_mirror: Any = None  # TopologyMirror
     change_tracker: Any = None  # ChangeTracker — visibility into modifications
+    change_analyzer: Any = None  # ChangeAnalyzer — semantic analysis of changes
 
     @property
     def uptime_s(self) -> float:
@@ -247,6 +249,7 @@ class _OrganismAwakener:
         self.hot_reload_coordinator: Any = None  # HotReloadCoordinator
         self.topology_mirror:  Any = None  # TopologyMirror
         self.change_tracker:   Any = None  # ChangeTracker
+        self.change_analyzer:  Any = None  # ChangeAnalyzer
 
     # ═══════════════════════════════════════════════════════════════════════
     # HELPERS
@@ -404,6 +407,8 @@ class _OrganismAwakener:
         self.topology_mirror = TopologyMirror()
         # Layer 4.5: Real-time change log (visibility into modifications)
         self.change_tracker = ChangeTracker()
+        # Layer 4.6: Semantic analysis of changes (impact classification, risk assessment)
+        self.change_analyzer = ChangeAnalyzer()
         logger.info("Topology system initialized (L0: organism real-time consciousness)")
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -489,6 +494,8 @@ class _OrganismAwakener:
         # ── Topology System Event Wiring (L0: real-time consciousness) ─────
         # Layer 1.5: Log actual file modifications for visibility
         bus.on(CoreEvent.SOURCE_CHANGED, self.change_tracker.on_source_changed)
+        # Layer 4.6: Analyze changes semantically (impact, risk, action)
+        bus.on(CoreEvent.SOURCE_CHANGED, self.change_analyzer.on_source_changed)
         # Layer 2: Detect what changed when SOURCE_CHANGED fires
         bus.on(CoreEvent.SOURCE_CHANGED, self.topology_builder.on_source_changed)
         # Layer 3: Apply topology changes safely when TOPOLOGY_CHANGED fires
@@ -557,6 +564,7 @@ class _OrganismAwakener:
             hot_reload_coordinator=self.hot_reload_coordinator,
             topology_mirror=self.topology_mirror,
             change_tracker=self.change_tracker,
+            change_analyzer=self.change_analyzer,
         )
 
     def build(self) -> CynicOrganism:
