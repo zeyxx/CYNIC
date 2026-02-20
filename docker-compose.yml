@@ -63,9 +63,10 @@ services:
   # CYNIC Python Kernel — FastAPI (port 8000)
   # Connects to postgres-py + ollama
   # ═══════════════════════════════════════════════════════════════════════
-  cynic-kernel:
+  cynic:
+    image: cynic:latest
     build:
-      context: .
+      context: ./cynic
       dockerfile: Dockerfile
     ports:
       - "8000:8000"

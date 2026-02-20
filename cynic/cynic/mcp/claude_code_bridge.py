@@ -46,7 +46,7 @@ logger = logging.getLogger("cynic.mcp.claude_code_bridge")
 # CYNIC HTTP MCP CLIENT
 # ════════════════════════════════════════════════════════════════════════════
 
-CYNIC_HTTP_BASE = "http://127.0.0.1:8000"
+CYNIC_HTTP_BASE = "http://127.0.0.1:8765"
 TIMEOUT = aiohttp.ClientTimeout(total=30)
 
 

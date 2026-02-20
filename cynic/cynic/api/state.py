@@ -139,45 +139,73 @@ async def _on_judgment_created(event: Event) -> None:
         logger.debug("guidance.json write skipped: %s", exc)
 
 
-@dataclass
-class CynicOrganism:
-    """
-    The organism awakened and ready.
+# ═══════════════════════════════════════════════════════════════════════════════
+# FAÇADES — 4 biological role groups (KILL GOD OBJECT)
+# ═══════════════════════════════════════════════════════════════════════════════
 
-    Built once at startup, lives for the process lifetime.
-    """
+@dataclass
+class CognitionCore:
+    """BRAIN — Judgment, learning, axioms, decisions."""
     orchestrator: JudgeOrchestrator
     qtable: QTable
     learning_loop: LearningLoop
     residual_detector: ResidualDetector
+    decide_agent: DecideAgent | None = None
+    account_agent: AccountAgent | None = None
+    axiom_monitor: AxiomMonitor = field(default_factory=AxiomMonitor)
+    lod_controller: LODController = field(default_factory=LODController)
+    escore_tracker: EScoreTracker = field(default_factory=EScoreTracker)
+
+
+@dataclass
+class MetabolicCore:
+    """BODY — Execution, scheduling, routing, telemetry."""
     scheduler: ConsciousnessRhythm
+    runner: ClaudeCodeRunner | None = None
+    llm_router: LLMRouter | None = None
+    telemetry_store: TelemetryStore = field(default_factory=TelemetryStore)
+    universal_actuator: UniversalActuator = field(default_factory=UniversalActuator)
+    auto_benchmark: AutoBenchmark | None = None
+
+
+@dataclass
+class SensoryCore:
+    """NERVOUS SYSTEM — Compression, registry, world model, topology consciousness."""
+    context_compressor: ContextCompressor = field(default_factory=ContextCompressor)
+    service_registry: ServiceStateRegistry = field(default_factory=ServiceStateRegistry)
+    world_model: WorldModelUpdater = field(default_factory=WorldModelUpdater)
+    source_watcher: Any = None  # L0 Layer 1 — SourceWatcher
+    topology_builder: Any = None  # L0 Layer 2 — IncrementalTopologyBuilder
+    hot_reload_coordinator: Any = None  # L0 Layer 3 — HotReloadCoordinator
+    topology_mirror: Any = None  # L0 Layer 4 — TopologyMirror
+    change_tracker: Any = None  # L0 Layer 4.5 — ChangeTracker
+    change_analyzer: Any = None  # L0 Layer 4.6 — ChangeAnalyzer
+
+
+@dataclass
+class MemoryCore:
+    """ARCHIVE — Reflection, proposals, self-improvement."""
+    kernel_mirror: KernelMirror = field(default_factory=KernelMirror)
+    action_proposer: ActionProposer = field(default_factory=ActionProposer)
+    self_prober: SelfProber = field(default_factory=SelfProber)
+
+
+@dataclass
+class CynicOrganism:
+    """
+    The organism awakened and ready — thin envelope wrapping 4 façades.
+
+    Built once at startup, lives for the process lifetime.
+    """
+    cognition: CognitionCore
+    metabolism: MetabolicCore
+    senses: SensoryCore
+    memory: MemoryCore
     started_at: float = field(default_factory=time.time)
     _pool: asyncpg.Pool | None = None
     last_judgment: dict | None = None  # state_key, action, judgment_id — for /feedback
-    decide_agent: DecideAgent | None = None
-    account_agent: AccountAgent | None = None
-    runner: ClaudeCodeRunner | None = None
-    llm_router: LLMRouter | None = None
-    kernel_mirror: KernelMirror = field(default_factory=KernelMirror)  # Ring 3 self-reflection
-    telemetry_store: TelemetryStore = field(default_factory=TelemetryStore)  # session data
-    context_compressor: ContextCompressor = field(default_factory=ContextCompressor)  # γ2 token budget
-    axiom_monitor: AxiomMonitor = field(default_factory=AxiomMonitor)       # δ1 emergent axiom tracker
-    lod_controller: LODController = field(default_factory=LODController)   # δ2 graceful degradation
-    escore_tracker: EScoreTracker = field(default_factory=EScoreTracker)   # γ4 reputation scoring
-    action_proposer: ActionProposer = field(default_factory=ActionProposer) # P5 action queue
-    self_prober: SelfProber = field(default_factory=SelfProber)             # L4 self-improvement
-    world_model: WorldModelUpdater = field(default_factory=WorldModelUpdater)  # T27 cross-reality aggregator
-    service_registry: ServiceStateRegistry = field(default_factory=ServiceStateRegistry)  # Tier 1 nervous system
-    auto_benchmark: AutoBenchmark | None = None
-    universal_actuator: UniversalActuator = field(default_factory=UniversalActuator)
     container: DependencyContainer = field(default_factory=DependencyContainer)
     _handler_registry: object = field(default=None)  # HandlerRegistry — for introspection
-    source_watcher: Any = None  # SourceWatcher
-    topology_builder: Any = None  # IncrementalTopologyBuilder
-    hot_reload_coordinator: Any = None  # HotReloadCoordinator
-    topology_mirror: Any = None  # TopologyMirror
-    change_tracker: Any = None  # ChangeTracker — visibility into modifications
-    change_analyzer: Any = None  # ChangeAnalyzer — semantic analysis of changes
 
     @property
     def uptime_s(self) -> float:
@@ -185,7 +213,133 @@ class CynicOrganism:
 
     @property
     def dogs(self) -> list[str]:
-        return list(self.orchestrator.dogs.keys())
+        return list(self.cognition.orchestrator.dogs.keys())
+
+    # ── Backward-compat properties for old code paths ──
+    @property
+    def orchestrator(self) -> JudgeOrchestrator:
+        return self.cognition.orchestrator
+
+    @property
+    def qtable(self) -> QTable:
+        return self.cognition.qtable
+
+    @property
+    def learning_loop(self) -> LearningLoop:
+        return self.cognition.learning_loop
+
+    @property
+    def residual_detector(self) -> ResidualDetector:
+        return self.cognition.residual_detector
+
+    @property
+    def scheduler(self) -> ConsciousnessRhythm:
+        return self.metabolism.scheduler
+
+    @property
+    def runner(self) -> ClaudeCodeRunner | None:
+        return self.metabolism.runner
+
+    @runner.setter
+    def runner(self, value: ClaudeCodeRunner | None) -> None:
+        self.metabolism.runner = value
+
+    @property
+    def llm_router(self) -> LLMRouter | None:
+        return self.metabolism.llm_router
+
+    @llm_router.setter
+    def llm_router(self, value: LLMRouter | None) -> None:
+        self.metabolism.llm_router = value
+
+    @property
+    def context_compressor(self) -> ContextCompressor:
+        return self.senses.context_compressor
+
+    @property
+    def service_registry(self) -> ServiceStateRegistry:
+        return self.senses.service_registry
+
+    @property
+    def world_model(self) -> WorldModelUpdater:
+        return self.senses.world_model
+
+    @property
+    def kernel_mirror(self) -> KernelMirror:
+        return self.memory.kernel_mirror
+
+    @property
+    def action_proposer(self) -> ActionProposer:
+        return self.memory.action_proposer
+
+    @property
+    def self_prober(self) -> SelfProber:
+        return self.memory.self_prober
+
+    @property
+    def decide_agent(self) -> DecideAgent | None:
+        return self.cognition.decide_agent
+
+    @property
+    def account_agent(self) -> AccountAgent | None:
+        return self.cognition.account_agent
+
+    @property
+    def axiom_monitor(self) -> AxiomMonitor:
+        return self.cognition.axiom_monitor
+
+    @property
+    def lod_controller(self) -> LODController:
+        return self.cognition.lod_controller
+
+    @property
+    def escore_tracker(self) -> EScoreTracker:
+        return self.cognition.escore_tracker
+
+    @property
+    def telemetry_store(self) -> TelemetryStore:
+        return self.metabolism.telemetry_store
+
+    @property
+    def universal_actuator(self) -> UniversalActuator:
+        return self.metabolism.universal_actuator
+
+    @property
+    def auto_benchmark(self) -> AutoBenchmark | None:
+        return self.metabolism.auto_benchmark
+
+    @auto_benchmark.setter
+    def auto_benchmark(self, value: AutoBenchmark | None) -> None:
+        self.metabolism.auto_benchmark = value
+
+    # ── Topology system L0 (backward-compat, accessed via senses) ──
+    @property
+    def source_watcher(self) -> Any:
+        return self.senses.source_watcher
+
+    @property
+    def topology_builder(self) -> Any:
+        return self.senses.topology_builder
+
+    @property
+    def hot_reload_coordinator(self) -> Any:
+        return self.senses.hot_reload_coordinator
+
+    @property
+    def topology_mirror(self) -> Any:
+        return self.senses.topology_mirror
+
+    @property
+    def change_tracker(self) -> Any:
+        return self.senses.change_tracker
+
+    @property
+    def change_analyzer(self) -> Any:
+        return self.senses.change_analyzer
+
+
+# Type alias — old code may reference AppState
+AppState = CynicOrganism
 
 
 class _OrganismAwakener:
@@ -528,7 +682,7 @@ class _OrganismAwakener:
         # CYNIC×PERCEIVE — RAM pressure (same φ-thresholds, no psutil needed)
         self.scheduler.register_perceive_worker(MemoryWatcher())
 
-    def _make_app_state(self) -> AppState:
+    def _make_app_state(self) -> CynicOrganism:
         """Assemble the final AppState from all components."""
         logger.info(
             "Kernel ready: %d dogs, scheduler wired, learning loop + residual detector active, pool=%s, llm=%s",
@@ -536,35 +690,49 @@ class _OrganismAwakener:
             "connected" if self.db_pool else "none",
             f"{len(self.registry.get_available())} adapters" if self.registry else "none",
         )
-        return CynicOrganism(
+        cognition = CognitionCore(
             orchestrator=self.orchestrator,
             qtable=self.qtable,
             learning_loop=self.learning_loop,
             residual_detector=self.residual_detector,
-            scheduler=self.scheduler,
-            _pool=self.db_pool,
             decide_agent=self.decide_agent,
             account_agent=self.account_agent,
-            runner=self.runner,  # ClaudeCodeRunner for autonomous execution
-            context_compressor=self.compressor,
             axiom_monitor=self.axiom_monitor,
             lod_controller=self.lod_controller,
             escore_tracker=self.escore_tracker,
-            action_proposer=self.action_proposer,
-            self_prober=self.self_prober,
-            world_model=self.world_model,
+        )
+        metabolism = MetabolicCore(
+            scheduler=self.scheduler,
+            runner=self.runner,
             llm_router=self.llm_router,
+            telemetry_store=TelemetryStore(),
             universal_actuator=self.universal_actuator,
-            kernel_mirror=KernelMirror(),
+            auto_benchmark=None,
+        )
+        senses = SensoryCore(
+            context_compressor=self.compressor,
             service_registry=self.service_registry,
-            container=self._container,
-            _handler_registry=self._handler_registry,
+            world_model=self.world_model,
             source_watcher=self.source_watcher,
             topology_builder=self.topology_builder,
             hot_reload_coordinator=self.hot_reload_coordinator,
             topology_mirror=self.topology_mirror,
             change_tracker=self.change_tracker,
             change_analyzer=self.change_analyzer,
+        )
+        memory = MemoryCore(
+            kernel_mirror=KernelMirror(),
+            action_proposer=self.action_proposer,
+            self_prober=self.self_prober,
+        )
+        return CynicOrganism(
+            cognition=cognition,
+            metabolism=metabolism,
+            senses=senses,
+            memory=memory,
+            _pool=self.db_pool,
+            container=self._container,
+            _handler_registry=self._handler_registry,
         )
 
     def build(self) -> CynicOrganism:

@@ -579,10 +579,11 @@ async def lifespan(app: FastAPI):
 
     # ── CYNIC Bootstrap ──────────────────────────────────────────────────────
     # Self-initialization: version structure, migrations, env files
-    logger.info("🧬 CYNIC Bootstrap: auto-initialize infrastructure...")
-    from cynic.orchestration.bootstrap import bootstrap_cynic
-    bootstrap_result = await bootstrap_cynic()
-    logger.info("🧬 Bootstrap complete: %s", bootstrap_result)
+    # TODO: Orchestration not yet complete — disabling bootstrap until docker.py implemented
+    logger.info("🧬 CYNIC Bootstrap: SKIPPED (orchestration TBD)...")
+    # from cynic.orchestration.bootstrap import bootstrap_cynic
+    # bootstrap_result = await bootstrap_cynic()
+    # logger.info("🧬 Bootstrap complete: %s", bootstrap_result)
 
     # ── Auto-register API Routers ────────────────────────────────────────────
     # CYNIC discovers and registers all routers automatically
