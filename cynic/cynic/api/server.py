@@ -577,6 +577,21 @@ async def lifespan(app: FastAPI):
         logger.warning("MCP Server failed to start: %s (Claude Code integration unavailable)", _mcp_exc)
         _mcp_server = None
 
+    # ── CYNIC Bootstrap ──────────────────────────────────────────────────────
+    # Self-initialization: version structure, migrations, env files
+    logger.info("🧬 CYNIC Bootstrap: auto-initialize infrastructure...")
+    from cynic.orchestration.bootstrap import bootstrap_cynic
+    bootstrap_result = await bootstrap_cynic()
+    logger.info("🧬 Bootstrap complete: %s", bootstrap_result)
+
+    # ── Auto-register API Routers ────────────────────────────────────────────
+    # CYNIC discovers and registers all routers automatically
+    logger.info("📡 Auto-registering API routers...")
+    from cynic.api.routers.auto_register import auto_register_routers
+    routers_registered = auto_register_routers(app)
+    logger.info("📡 Auto-registered %d router modules: %s",
+               len(routers_registered), list(routers_registered.keys()))
+
     yield
 
     # Shutdown
@@ -646,10 +661,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 
 
 # ── Register all routers ───────────────────────────────────────────────────
-app.include_router(router_core)
-app.include_router(router_actions)
-app.include_router(router_health)
-app.include_router(router_sdk)
-app.include_router(router_act)
-app.include_router(router_ws)
-app.include_router(router_topology)
+# NOTE: Routers are auto-registered in lifespan (bootstrap phase)
+# via auto_register_routers() — no manual include_router needed
+# This ensures: orchestration, auto_register, and any new routers are discovered automatically
+# See: cynic/api/routers/auto_register.py
