@@ -73,6 +73,7 @@ from cynic.core.topology import (
     IncrementalTopologyBuilder,
     HotReloadCoordinator,
     TopologyMirror,
+    ChangeTracker,
 )
 
 logger = logging.getLogger("cynic.api.state")
@@ -174,6 +175,7 @@ class CynicOrganism:
     topology_builder: Any = None  # IncrementalTopologyBuilder
     hot_reload_coordinator: Any = None  # HotReloadCoordinator
     topology_mirror: Any = None  # TopologyMirror
+    change_tracker: Any = None  # ChangeTracker — visibility into modifications
 
     @property
     def uptime_s(self) -> float:
@@ -244,6 +246,7 @@ class _OrganismAwakener:
         self.topology_builder: Any = None  # IncrementalTopologyBuilder
         self.hot_reload_coordinator: Any = None  # HotReloadCoordinator
         self.topology_mirror:  Any = None  # TopologyMirror
+        self.change_tracker:   Any = None  # ChangeTracker
 
     # ═══════════════════════════════════════════════════════════════════════
     # HELPERS
@@ -333,6 +336,18 @@ class _OrganismAwakener:
         self.action_proposer.start(get_core_bus())
 
         self.account_agent = AccountAgent()
+
+        # ── ClaudeCodeRunner (Metabolism × ACT) ───────────────────────────────
+        # Spawns `claude --sdk-url` subprocess for autonomous task execution
+        # Wired to MCP server for Claude Code integration
+        runner_sessions: dict[str, Any] = {}  # session registry for ClaudeCodeRunner
+        self.runner = ClaudeCodeRunner(
+            bus=get_core_bus(),
+            sessions_registry=runner_sessions,
+            port=8765,  # Match FastAPI lifespan port config
+        )
+        logger.info("ClaudeCodeRunner initialized — autonomous Claude Code execution ready")
+
         self.llm_router = LLMRouter()
         self.universal_actuator = UniversalActuator()
 
@@ -387,6 +402,8 @@ class _OrganismAwakener:
         self.hot_reload_coordinator = HotReloadCoordinator()
         # Layer 4: Continuous architecture snapshots
         self.topology_mirror = TopologyMirror()
+        # Layer 4.5: Real-time change log (visibility into modifications)
+        self.change_tracker = ChangeTracker()
         logger.info("Topology system initialized (L0: organism real-time consciousness)")
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -446,6 +463,7 @@ class _OrganismAwakener:
         container.register(EScoreTracker, self.escore_tracker)
         container.register(ContextCompressor, self.compressor)
         container.register(WorldModelUpdater, self.world_model)
+        container.register(ClaudeCodeRunner, self.runner)
         if self.registry is not None:
             container.register(LLMRegistry, self.registry)
         logger.info(
@@ -469,6 +487,8 @@ class _OrganismAwakener:
         bus.on(CoreEvent.JUDGMENT_CREATED, _on_judgment_created)  # guidance.json
 
         # ── Topology System Event Wiring (L0: real-time consciousness) ─────
+        # Layer 1.5: Log actual file modifications for visibility
+        bus.on(CoreEvent.SOURCE_CHANGED, self.change_tracker.on_source_changed)
         # Layer 2: Detect what changed when SOURCE_CHANGED fires
         bus.on(CoreEvent.SOURCE_CHANGED, self.topology_builder.on_source_changed)
         # Layer 3: Apply topology changes safely when TOPOLOGY_CHANGED fires
@@ -518,6 +538,7 @@ class _OrganismAwakener:
             _pool=self.db_pool,
             decide_agent=self.decide_agent,
             account_agent=self.account_agent,
+            runner=self.runner,  # ClaudeCodeRunner for autonomous execution
             context_compressor=self.compressor,
             axiom_monitor=self.axiom_monitor,
             lod_controller=self.lod_controller,
@@ -535,6 +556,7 @@ class _OrganismAwakener:
             topology_builder=self.topology_builder,
             hot_reload_coordinator=self.hot_reload_coordinator,
             topology_mirror=self.topology_mirror,
+            change_tracker=self.change_tracker,
         )
 
     def build(self) -> CynicOrganism:

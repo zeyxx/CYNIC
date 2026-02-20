@@ -550,7 +550,13 @@ async def lifespan(app: FastAPI):
     # ── L0 Real-time Topology System: organism consciousness ──────────────────
     # Start SourceWatcher polling loop (monitors files every 13s)
     asyncio.create_task(state.source_watcher.watch())
-    logger.info("L0 Topology System: real-time architecture monitoring enabled")
+    # Start TopologyMirror continuous snapshots (periodic + event-driven)
+    asyncio.create_task(state.topology_mirror.continuous_snapshot(
+        bus=get_core_bus(),
+        kernel_mirror=state.kernel_mirror,
+        state=state,
+    ))
+    logger.info("L0 Topology System: real-time architecture monitoring + mirroring enabled")
 
     llm_count = len(registry.get_available())
     logger.info(
@@ -558,10 +564,28 @@ async def lifespan(app: FastAPI):
         len(state.dogs), llm_count,
     )
 
+    # ── MCP Server (Bootstrap Bridge to Claude Code) ──────────────────────────
+    # Port is offset from main API port to avoid conflicts
+    _mcp_server_port = config.port + 1
+    from cynic.mcp import MCPServer
+    _mcp_server = MCPServer(port=_mcp_server_port, get_state_fn=get_state)
+    try:
+        await _mcp_server.start()
+        logger.info("*ears perk* MCP Server listening on port %d (Claude Code bridge)", _mcp_server_port)
+    except Exception as _mcp_exc:
+        logger.warning("MCP Server failed to start: %s (Claude Code integration unavailable)", _mcp_exc)
+        _mcp_server = None
+
     yield
 
     # Shutdown
     logger.info("*yawn* CYNIC kernel shutting down...")
+
+    # ── MCP Server Shutdown ──────────────────────────────────────────────────
+    if _mcp_server is not None:
+        await _mcp_server.stop()
+        logger.info("MCP Server stopped")
+
     get_core_bus().off(CoreEvent.DECISION_MADE, _on_decision_made)
     _bridge.stop()
     await state.scheduler.stop()

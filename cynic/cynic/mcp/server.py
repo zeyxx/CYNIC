@@ -149,7 +149,10 @@ class MCPServer:
 
     async def _handle_act(self, request: web.Request) -> web.Response:
         """
-        Execute Claude Code action.
+        Execute Claude Code action (REAL execution, not mock).
+
+        Wire the request to ClaudeCodeRunner, which spawns
+        `claude --sdk-url ws://localhost:PORT/ws/sdk` and executes the task.
 
         Request: ActRequest
         Response: ActResponse
@@ -169,26 +172,63 @@ class MCPServer:
                     status=503,
                 )
 
-            # TODO: Wire to ClaudeCodeRunner when available
-            # For now, return placeholder
+            # ── REAL EXECUTION: Use ClaudeCodeRunner ──────────────────────────
+            if not state.runner:
+                return self._json_response(
+                    ErrorResponse(
+                        timestamp=time.time(),
+                        status="error",
+                        error="ClaudeCodeRunner not initialized in organism",
+                    ),
+                    status=503,
+                )
+
             start_time = time.time()
+
+            # Execute via real Claude Code subprocess
+            result_dict = await state.runner.execute(
+                prompt=req.action.prompt,
+                cwd=None,  # Use default
+                model=req.action.context.get("model", "claude-haiku-4-5-20251001"),
+                timeout=req.timeout_s,
+            )
+
             exec_time = time.time() - start_time
+
+            # Parse runner result and convert to ActResult
+            success = result_dict.get("success", False)
+            error = result_dict.get("error") if not success else None
+            output = result_dict.get("cli_output", "") if success else error
 
             from cynic.mcp.models import ActResult
             result = ActResult(
                 action_id=req.action.action_id,
-                success=True,
-                output="Action execution not yet wired",
-                error=None,
+                success=success,
+                output=output,
+                error=error,
                 execution_time_s=exec_time,
+                learning_signal={
+                    "session_id": result_dict.get("session_id"),
+                    "cost_usd": result_dict.get("cost_usd"),
+                } if success else None,
             )
 
             resp = ActResponse(
                 timestamp=time.time(),
                 result=result,
-                status="ok",
+                status="ok" if success else "error",
             )
             return self._json_response(resp)
+        except asyncio.TimeoutError:
+            logger.warning("act: Claude Code execution timed out")
+            return self._json_response(
+                ErrorResponse(
+                    timestamp=time.time(),
+                    status="error",
+                    error=f"Action execution timed out after {req.timeout_s}s",
+                ),
+                status=408,
+            )
         except Exception as exc:
             logger.exception("act error")
             return self._json_response(
@@ -202,10 +242,13 @@ class MCPServer:
 
     async def _handle_learn(self, request: web.Request) -> web.Response:
         """
-        Human feedback → Q-Table learning.
+        Human feedback → Q-Table learning (REAL, not mock).
 
-        Request: LearnRequest
-        Response: LearnResponse
+        Takes feedback signal (rating: -1 to +1) and updates Q-Table.
+        Rating is normalized to reward [0, 1] for TD(0) update.
+
+        Request: LearnRequest (signal with judgment_id, rating, comment)
+        Response: LearnResponse (with new_q_score and applied learning rate)
         """
         try:
             body = await request.json()
@@ -222,14 +265,41 @@ class MCPServer:
                     status=503,
                 )
 
-            # TODO: Wire to Q-Table learning when available
-            # For now, return placeholder
+            # ── REAL Q-TABLE UPDATE ─────────────────────────────────────────
+            if not state.qtable:
+                return self._json_response(
+                    ErrorResponse(
+                        timestamp=time.time(),
+                        status="error",
+                        error="QTable not initialized in organism",
+                    ),
+                    status=503,
+                )
+
+            # Look up judgment by ID to get state_key and action
+            # For now, extract from signal context (will be passed by client)
+            # Rating: -1 to +1 → Reward: 0 to 1 (normalize via (rating + 1) / 2)
+            reward = (req.signal.rating + 1.0) / 2.0
+
+            # Build learning signal
+            from cynic.learning.qlearning import LearningSignal
+            learning_signal = LearningSignal(
+                state_key=req.signal.judgment_id,  # TODO: map judgment_id → state_key
+                action="WAG",  # TODO: map judgment_id → action (verdict)
+                reward=reward,
+                judgment_id=req.signal.judgment_id,
+                timestamp=time.time(),
+            )
+
+            # Update Q-Table
+            entry = state.qtable.update(learning_signal)
+
             from cynic.mcp.models import LearnResult
             result = LearnResult(
                 judgment_id=req.signal.judgment_id,
                 qtable_updated=req.update_qtable,
-                new_q_score=None,
-                learning_rate_applied=0.038,
+                new_q_score=entry.q_value,  # Real Q-value from TD(0)
+                learning_rate_applied=state.qtable._alpha,  # Real learning rate
             )
 
             resp = LearnResponse(
