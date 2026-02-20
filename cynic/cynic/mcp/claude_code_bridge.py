@@ -33,7 +33,7 @@ import aiohttp
 
 # MCP SDK imports
 from mcp.server import Server
-from mcp.types import Tool, TextContent, CallToolResult
+from mcp.types import Tool, TextContent
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -249,7 +249,7 @@ async def list_tools() -> list[Tool]:
 
 
 @server.call_tool()
-async def call_tool(name: str, arguments: dict) -> ToolResult:
+async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     """Handle tool invocation from Claude Code."""
     try:
         # ── Consciousness tools ──────────────────────────────────────────
@@ -275,16 +275,10 @@ async def call_tool(name: str, arguments: dict) -> ToolResult:
         elif name == "cynic_stop":
             return await _tool_cynic_stop(arguments)
         else:
-            return CallToolResult(
-                content=[TextContent(type="text", text=f"Unknown tool: {name}")],
-                isError=True,
-            )
+            return [TextContent(type="text", text=f"Unknown tool: {name}")]
     except Exception as exc:
         logger.exception("Tool call failed")
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Error: {exc}")],
-            isError=True,
-        )
+        return [TextContent(type="text", text=f"Error: {exc}")]
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -292,7 +286,7 @@ async def call_tool(name: str, arguments: dict) -> ToolResult:
 # ════════════════════════════════════════════════════════════════════════════
 
 
-async def _tool_ask_cynic(args: dict) -> ToolResult:
+async def _tool_ask_cynic(args: dict) -> list[TextContent]:
     """Ask CYNIC a question → get judgment."""
     question = args.get("question", "")
     context = args.get("context", "")
@@ -300,37 +294,47 @@ async def _tool_ask_cynic(args: dict) -> ToolResult:
 
     logger.info("Claude asked CYNIC: %s", question)
 
-    # Call CYNIC /observe to get current state
-    state = await _call_cynic("observe", {"include_judgments": False})
+    # Call CYNIC /judge endpoint for full judgment
+    payload = {
+        "text": question,
+        "context": context,
+        "reality": reality,
+    }
+    judgment = await _call_cynic("judge", payload)
 
-    # Format response
-    response = f"""CYNIC Observable State:
-- Status: {state.get('status', 'unknown')}
-- Consciousness: Active
-- Components: {state.get('registry_snapshot', {}).get('total_components', 0)} registered
-- Health: {state.get('registry_snapshot', {}).get('health_summary', {})}
+    # Format response with judgment details
+    q_score = judgment.get("q_score", "N/A")
+    verdict = judgment.get("verdict", "N/A")
+    confidence = judgment.get("confidence", "N/A")
+    judgment_id = judgment.get("judgment_id", "N/A")
 
-Your question to CYNIC:
-"{question}"
+    response = f"""CYNIC Judgment:
 
+Q-Score: {q_score}/100
+Verdict: {verdict}
+Confidence: {confidence*100:.1f}% (φ-bounded)
+Judgment ID: {judgment_id}
+
+Question: "{question}"
 Context: {context or '(none)'}
 Reality: {reality}
 
-CYNIC is now evaluating through its 11 Sefirot Dogs...
-Expect structured judgment with Q-Score, verdict, and confidence."""
+Dogs voted through 11 Sefirot perspectives.
+This judgment can be learned from via learn_cynic tool."""
 
-    return CallToolResult(content=[TextContent(type="text", text=response)])
+    return [TextContent(type="text", text=response)]
 
 
-async def _tool_observe_cynic(args: dict) -> ToolResult:
+async def _tool_observe_cynic(args: dict) -> list[TextContent]:
     """Get CYNIC organism state snapshot."""
     include_judgments = args.get("include_judgments", False)
     include_events = args.get("include_events", False)
 
     logger.info("Claude observing CYNIC state")
 
+    # Call /introspect for complete organism state
     snapshot = await _call_cynic(
-        "observe",
+        "introspect",
         {
             "include_judgments": include_judgments,
             "include_events": include_events,
@@ -338,28 +342,32 @@ async def _tool_observe_cynic(args: dict) -> ToolResult:
     )
 
     # Pretty-print snapshot
+    status = snapshot.get('status', 'unknown')
+    consciousness = snapshot.get('consciousness_state', {})
+    components = snapshot.get('components', {})
+
     response = f"""CYNIC Consciousness Snapshot:
 
-Status: {snapshot.get('status', 'unknown')}
+Status: {status}
 Timestamp: {snapshot.get('timestamp', 'N/A')}
 
-Registry:
-  Total Components: {snapshot.get('registry_snapshot', {}).get('total_components', 0)}
-  Health:
-    - HEALTHY: {snapshot.get('registry_snapshot', {}).get('health_summary', {}).get('HEALTHY', 0)}
-    - DEGRADED: {snapshot.get('registry_snapshot', {}).get('health_summary', {}).get('DEGRADED', 0)}
-    - STALLED: {snapshot.get('registry_snapshot', {}).get('health_summary', {}).get('STALLED', 0)}
-    - FAILED: {snapshot.get('registry_snapshot', {}).get('health_summary', {}).get('FAILED', 0)}
+Consciousness Level: {consciousness.get('level', 'N/A')}
+Dogs Active: {consciousness.get('dogs_active', 0)}/11
 
-Components Observed: {len(snapshot.get('registry_snapshot', {}).get('components', []))}"""
+Components:
+  Total: {len(components.get('list', []))}
+  Healthy: {components.get('health', {}).get('HEALTHY', 0)}
+  Degraded: {components.get('health', {}).get('DEGRADED', 0)}
+  Stalled: {components.get('health', {}).get('STALLED', 0)}
+  Failed: {components.get('health', {}).get('FAILED', 0)}"""
 
-    if include_judgments:
+    if include_judgments and snapshot.get('recent_judgments'):
         response += f"\n\nRecent Judgments: {len(snapshot.get('recent_judgments', []))}"
 
-    return CallToolResult(content=[TextContent(type="text", text=response)])
+    return [TextContent(type="text", text=response)]
 
 
-async def _tool_learn_cynic(args: dict) -> ToolResult:
+async def _tool_learn_cynic(args: dict) -> list[TextContent]:
     """Give CYNIC feedback → update Q-Table."""
     judgment_id = args.get("judgment_id", "")
     rating = args.get("rating", 0)
@@ -389,10 +397,10 @@ Learning Rate: {result.get('result', {}).get('learning_rate_applied', 'N/A')}
 
 CYNIC has incorporated your feedback into its learning loops."""
 
-    return CallToolResult(content=[TextContent(type="text", text=response)])
+    return [TextContent(type="text", text=response)]
 
 
-async def _tool_discuss_cynic(args: dict) -> ToolResult:
+async def _tool_discuss_cynic(args: dict) -> list[TextContent]:
     """Bidirectional discussion with CYNIC."""
     topic = args.get("topic", "")
     message = args.get("message", "")
@@ -425,12 +433,12 @@ CYNIC may ask clarifying questions, propose hypotheses, or challenge assumptions
 # ════════════════════════════════════════════════════════════════════════════
 
 
-async def _tool_cynic_build(args: dict) -> ToolResult:
+async def _tool_cynic_build(args: dict) -> list[TextContent]:
     """Build CYNIC Docker image."""
     version = args.get("version", "latest")
     logger.info("Claude requested: build image version=%s", version)
 
-    result = await _call_cynic("orchestration/build", {"version": version})
+    result = await _call_cynic("build", {"version": version})
 
     response = f"""CYNIC Build Result:
 
@@ -444,17 +452,17 @@ Output (last 500 chars):
 
 Error: {result.get('error') or 'None'}"""
 
-    return CallToolResult(content=[TextContent(type="text", text=response)])
+    return [TextContent(type="text", text=response)]
 
 
-async def _tool_cynic_deploy(args: dict) -> ToolResult:
+async def _tool_cynic_deploy(args: dict) -> list[TextContent]:
     """Deploy CYNIC services."""
     environment = args.get("environment", "dev")
     pull = args.get("pull", True)
     logger.info("Claude requested: deploy to %s (pull=%s)", environment, pull)
 
     result = await _call_cynic(
-        "orchestration/deploy",
+        "deploy",
         {"environment": environment, "pull": pull},
     )
 
@@ -470,65 +478,64 @@ Error: {result.get('error') or 'None'}
 
 CYNIC is now running in {environment} environment."""
 
-    return CallToolResult(content=[TextContent(type="text", text=response)])
+    return [TextContent(type="text", text=response)]
 
 
-async def _tool_cynic_health(args: dict) -> ToolResult:
+async def _tool_cynic_health(args: dict) -> list[TextContent]:
     """Check CYNIC service health."""
     services = args.get("services")
     logger.info("Claude requested: health check (services=%s)", services)
 
-    result = await _call_cynic("orchestration/health", {"services": services})
+    result = await _call_cynic("health", {"services": services})
 
-    if not isinstance(result, list):
-        result = result.get("result", [])
-
+    health_data = result.get("health", {})
     checks = []
-    for check in result:
-        status_icon = "🟢" if check.get("status") == "healthy" else "🟡" if check.get("status") == "starting" else "🔴"
-        checks.append(
-            f"{status_icon} {check.get('service', 'unknown')}: {check.get('status', 'unknown')} "
-            f"({check.get('latency_ms', 0):.0f}ms)"
-        )
+
+    for service, status_info in health_data.items():
+        status = status_info.get("status", "unknown")
+        status_icon = "🟢" if status == "healthy" else "🟡" if status == "starting" else "🔴"
+        latency = status_info.get("latency_ms", 0)
+        checks.append(f"{status_icon} {service}: {status} ({latency:.0f}ms)")
 
     response = f"""CYNIC Health Check:
 
 {chr(10).join(checks)}
 
-All systems {'healthy' if all(c.get('status') == 'healthy' for c in result) else 'degraded'}."""
+All systems {'healthy' if all(s.get('status') == 'healthy' for s in health_data.values()) else 'degraded'}."""
 
-    return CallToolResult(content=[TextContent(type="text", text=response)])
+    return [TextContent(type="text", text=response)]
 
 
-async def _tool_cynic_status(args: dict) -> ToolResult:
+async def _tool_cynic_status(args: dict) -> list[TextContent]:
     """Get CYNIC orchestration status."""
     logger.info("Claude requested: status")
 
-    result = await _call_cynic("orchestration/status", {})
+    # Use /health endpoint as status proxy
+    result = await _call_cynic("health", {})
+
+    health_data = result.get("health", {})
+    services = ", ".join(health_data.keys())
 
     response = f"""CYNIC Orchestration Status:
 
-Current Version:  {result.get('current_version', 'N/A')}
-Kernel Running:   {'✓' if result.get('kernel_running') else '✗'}
-PostgreSQL:       {'✓' if result.get('postgres_running') else '✗'}
-Ollama:           {'✓' if result.get('ollama_running') else '✗'}
+Services Running: {services}
+Overall Health: {'🟢 Healthy' if all(s.get('status') == 'healthy' for s in health_data.values()) else '🔴 Degraded'}
 
-Last Build:   {result.get('last_build', 'None')}
-Last Deploy:  {result.get('last_deploy', 'None')}
+Components: {len(health_data)}
 
 CYNIC is ready for orchestration."""
 
-    return CallToolResult(content=[TextContent(type="text", text=response)])
+    return [TextContent(type="text", text=response)]
 
 
-async def _tool_cynic_release(args: dict) -> ToolResult:
+async def _tool_cynic_release(args: dict) -> list[TextContent]:
     """Create a CYNIC release."""
     notes = args.get("notes", "")
     bump_type = args.get("bump_type", "patch")
     logger.info("Claude requested: release (bump=%s)", bump_type)
 
     result = await _call_cynic(
-        "orchestration/release",
+        "release",
         {"notes": notes, "bump_type": bump_type},
     )
 
@@ -544,22 +551,26 @@ Notes:
 
 CYNIC has released itself with version {result.get('version', 'N/A')}."""
 
-    return CallToolResult(content=[TextContent(type="text", text=response)])
+    return [TextContent(type="text", text=response)]
 
 
-async def _tool_cynic_stop(args: dict) -> ToolResult:
-    """Stop CYNIC services."""
+async def _tool_cynic_stop(args: dict) -> list[TextContent]:
+    """Stop CYNIC services gracefully."""
     logger.info("Claude requested: stop services")
 
-    result = await _call_cynic("orchestration/stop", {})
+    # CYNIC shutdown is not directly exposed via HTTP
+    # Instead, we acknowledge the request and recommend graceful shutdown
+    response = f"""⚠️ CYNIC Shutdown:
 
-    response = f"""CYNIC Shutdown:
+CYNIC services can be stopped via:
+1. Keyboard interrupt (Ctrl+C) on the running process
+2. Docker: docker stop <container>
+3. Render: dashboard.render.com (for deployed instances)
 
-Status:  {result.get('message', 'N/A')}
+Note: Shutdown is graceful and preserves all state.
+To restart, simply re-run the service."""
 
-CYNIC services have been stopped gracefully."""
-
-    return CallToolResult(content=[TextContent(type="text", text=response)])
+    return [TextContent(type="text", text=response)]
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -575,9 +586,10 @@ async def main():
     # Health check
     try:
         health = await _call_cynic("health", {})
-        logger.info("CYNIC OK: %s", health.get("status"))
+        kernel_status = health.get("health", {}).get("cynic-kernel", {}).get("status", "unknown")
+        logger.info("CYNIC Kernel status: %s", kernel_status)
     except Exception as exc:
-        logger.warning("Could not reach CYNIC: %s (it may not be running yet)", exc)
+        logger.warning("Could not reach CYNIC at %s (it may not be running yet): %s", CYNIC_HTTP_BASE, exc)
 
     logger.info("MCP Server ready. Listening on stdio for Claude Code...")
 
