@@ -107,6 +107,7 @@ async def empirical_campaign(
             cell = Cell(
                 cell_id=f"empirical_{i:04d}",
                 reality="CODE",
+                analysis="JUDGE",
                 content=content,
                 budget_usd=0.01,
             )
@@ -116,12 +117,12 @@ async def empirical_campaign(
             try:
                 # Send judgment request to kernel
                 payload = {
-                    "cell": {
-                        "cell_id": cell.cell_id,
-                        "reality": cell.reality,
-                        "content": cell.content,
-                        "budget_usd": cell.budget_usd,
-                    }
+                    "content": cell.content,
+                    "reality": cell.reality,
+                    "analysis": "JUDGE",  # Analysis type (required by JudgeRequest)
+                    "context": "",
+                    "budget_usd": cell.budget_usd,
+                    "level": "MACRO",  # Force MACRO for full empirical testing
                 }
                 resp = await client.post("/judge", json=payload)
                 resp.raise_for_status()
