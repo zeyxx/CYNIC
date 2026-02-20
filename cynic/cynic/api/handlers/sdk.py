@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from cynic.core.event_bus import Event, CoreEvent
 from cynic.core.phi import MAX_Q_SCORE
 
-from .base import HandlerGroup, KernelServices
+from cynic.api.handlers.base import HandlerGroup, KernelServices
 
 if TYPE_CHECKING:
     from cynic.judge.action_proposer import ActionProposer

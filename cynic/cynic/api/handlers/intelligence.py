@@ -17,7 +17,7 @@ from cynic.core.judgment import Cell
 from cynic.perceive import checkpoint as _session_checkpoint
 from cynic.perceive.checkpoint import CHECKPOINT_EVERY
 
-from .base import HandlerGroup, KernelServices
+from cynic.api.handlers.base import HandlerGroup, KernelServices
 
 if TYPE_CHECKING:
     from cynic.judge.orchestrator import JudgeOrchestrator
