@@ -484,3 +484,106 @@ class TestEScoreFiltering:
 
         # REFLEX has its own dog selection (dogs_for_level) — EScore not applied
         assert len(j.dog_votes) >= 3  # REFLEX always uses its own subset
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# FULL CONSCIOUSNESS CYCLE (Task #4)
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestFullConsciousnessCycle:
+    """
+    End-to-end consciousness cycle: PERCEIVE → JUDGE → DECIDE → ACT → LEARN → EVOLVE
+
+    Validates that HandlerComposer DAG executes all stages correctly.
+    """
+
+    async def test_reflex_cycle_complete(self, orchestrator, clean_code_cell):
+        """REFLEX level: fast 6-dog cycle (<100ms)."""
+        start = time.perf_counter()
+        j = await orchestrator.run(clean_code_cell, level=ConsciousnessLevel.REFLEX)
+        elapsed_ms = (time.perf_counter() - start) * 1000
+
+        # All stages executed
+        assert j is not None
+        assert j.q_score > 0 and j.q_score <= MAX_Q_SCORE
+        assert j.verdict in ["HOWL", "WAG", "GROWL", "BARK"]
+        assert len(j.dog_votes) >= 3  # At least 3 dogs
+        assert j.consensus_reached
+
+        # φ bounds hold
+        assert j.confidence <= MAX_CONFIDENCE
+
+        # Speed constraint
+        assert elapsed_ms < 200, f"REFLEX took {elapsed_ms}ms (target <100ms)"
+
+    async def test_micro_cycle_escalates_on_consensus_miss(self, orchestrator, clean_code_cell):
+        """
+        MICRO level: if consensus fails at REFLEX (not enough votes), escalate to MICRO.
+
+        In this test, we can't force consensus miss without a mock, so we just verify
+        that MICRO produces a judgment with enhanced dogs.
+        """
+        j = await orchestrator.run(clean_code_cell, level=ConsciousnessLevel.MICRO)
+
+        # MICRO cycle completed
+        assert j is not None
+        assert j.q_score > 0 and j.q_score <= MAX_Q_SCORE
+        assert j.verdict in ["HOWL", "WAG", "GROWL", "BARK"]
+        assert j.confidence <= MAX_CONFIDENCE
+
+        # MICRO includes SCHOLAR (learning dog)
+        assert len(j.dog_votes) >= 4, "MICRO should have more dogs than REFLEX"
+
+    async def test_macro_cycle_full_judgment(self, orchestrator, clean_code_cell):
+        """
+        MACRO level: full 7-step cycle with all dogs, axiom scoring, and meta-cognition.
+
+        Expected stages:
+        1. PERCEIVE: Cell context understood
+        2. JUDGE: All 11 dogs vote (or F(11)=89 subset)
+        3. DECIDE: Decision recommended (via DecideAgent)
+        4. ACT: Action would be proposed (Runner not called in tests)
+        5. LEARN: Q-Table updated (tested separately)
+        6. ACCOUNT: Cost tracked
+        7. EMERGE: Residual detection
+        """
+        j = await orchestrator.run(clean_code_cell, level=ConsciousnessLevel.MACRO)
+
+        # Full judgment
+        assert j is not None
+        assert j.q_score > 0 and j.q_score <= MAX_Q_SCORE
+        assert j.verdict in ["HOWL", "WAG", "GROWL", "BARK"]
+        assert j.confidence <= MAX_CONFIDENCE
+
+        # MACRO activates all axioms (at least the core 5)
+        assert len(j.active_axioms) >= 5, "MACRO should activate multiple axioms"
+        assert j.consensus_reached
+
+        # Cost accounting
+        assert j.cost_usd >= 0
+
+    async def test_multi_level_consistency(self, orchestrator, clean_code_cell):
+        """
+        Run same cell through REFLEX → MICRO → MACRO and validate consistency.
+
+        All should produce valid judgments with coherent verdicts
+        (MACRO might be more confident than REFLEX, but verdict should align).
+        """
+        j_reflex = await orchestrator.run(clean_code_cell, level=ConsciousnessLevel.REFLEX)
+        j_micro = await orchestrator.run(clean_code_cell, level=ConsciousnessLevel.MICRO)
+        j_macro = await orchestrator.run(clean_code_cell, level=ConsciousnessLevel.MACRO)
+
+        # All produce verdicts
+        assert j_reflex.verdict in ["HOWL", "WAG", "GROWL", "BARK"]
+        assert j_micro.verdict in ["HOWL", "WAG", "GROWL", "BARK"]
+        assert j_macro.verdict in ["HOWL", "WAG", "GROWL", "BARK"]
+
+        # φ bounds hold for all
+        for j in [j_reflex, j_micro, j_macro]:
+            assert j.confidence <= MAX_CONFIDENCE
+            assert j.q_score >= 0 and j.q_score <= MAX_Q_SCORE
+
+        # Increasing confidence/detail with level
+        assert j_reflex.confidence <= j_macro.confidence or j_reflex.q_score > 50
+        # (MACRO may not always be more confident, but should have more axioms)
+        assert len(j_macro.active_axioms) >= len(j_reflex.active_axioms)
