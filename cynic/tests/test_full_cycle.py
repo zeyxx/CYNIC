@@ -57,12 +57,43 @@ def reflex_dogs() -> Dict[str, AbstractDog]:
 @pytest.fixture
 def orchestrator(reflex_dogs, axiom_arch) -> JudgeOrchestrator:
     """Minimal orchestrator with non-LLM Dogs only."""
+    from cynic.cognition.cortex.handlers import (
+        HandlerRegistry, HandlerComposer, LevelSelector, ReflexCycleHandler,
+        MicroCycleHandler, MacroCycleHandler, ActHandler, EvolveHandler,
+        BudgetManager,
+    )
+    from cynic.core.consciousness import get_consciousness
+
     cynic_dog = reflex_dogs[DogId.CYNIC]
-    return JudgeOrchestrator(
+    orch = JudgeOrchestrator(
         dogs=reflex_dogs,
         axiom_arch=axiom_arch,
         cynic_dog=cynic_dog,
     )
+
+    # Wire Phase 2B composer for testing
+    from cynic.cognition.cortex.axiom_monitor import AxiomMonitor
+    from cynic.cognition.cortex.lod import LODController
+
+    axiom_mon = AxiomMonitor()
+    lod_ctrl = LODController()
+
+    handlers = {
+        "level_selector": LevelSelector(axiom_monitor=axiom_mon, lod_controller=lod_ctrl),
+        "cycle_reflex": ReflexCycleHandler(dogs=reflex_dogs, axiom_arch=axiom_arch),
+        "cycle_micro": MicroCycleHandler(dogs=reflex_dogs, axiom_arch=axiom_arch, cynic_dog=cynic_dog, lod_controller=lod_ctrl),
+        "cycle_macro": MacroCycleHandler(dogs=reflex_dogs, axiom_arch=axiom_arch, cynic_dog=cynic_dog, escore_tracker=None, lod_controller=lod_ctrl, axiom_monitor=axiom_mon),
+        "act_executor": ActHandler(),
+        "evolve": EvolveHandler(),
+        "budget_manager": BudgetManager(axiom_monitor=axiom_mon, lod_controller=lod_ctrl),
+    }
+
+    registry = HandlerRegistry()
+    for hid, handler in handlers.items():
+        registry.register(hid, handler)
+
+    orch._composer = HandlerComposer(registry)
+    return orch
 
 
 @pytest.fixture
@@ -391,6 +422,11 @@ class TestEScoreFiltering:
     @pytest.fixture
     def orchestrator_tracked(self, orchestrator, fresh_tracker):
         orchestrator.escore_tracker = fresh_tracker
+        # Update handler to use the new tracker
+        from cynic.cognition.cortex.handlers import MacroCycleHandler
+        for handler in orchestrator._composer.registry.handlers.values():
+            if isinstance(handler, MacroCycleHandler):
+                handler.escore_tracker = fresh_tracker
         return orchestrator
 
     async def test_no_tracker_all_dogs_run(self, orchestrator, clean_code_cell):

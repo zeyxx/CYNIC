@@ -564,6 +564,7 @@ class _OrganismAwakener:
         self.qtable = QTable()
         self.dogs = discover_dogs(ORACLE=OracleDog(qtable=self.qtable))
         cynic_dog = self.dogs[DogId.CYNIC]
+        self.cynic_dog = cynic_dog  # Store for handler injection later
 
         # ── Inject LLMRegistry into all LLM-capable dogs ──────────────────
         if self.registry is not None:
@@ -700,17 +701,24 @@ class _OrganismAwakener:
             lod_controller=self.lod_controller,
         )
         cycle_reflex = ReflexCycleHandler(
-            consciousness=get_consciousness(),
             dogs=self.dogs,
+            axiom_arch=axiom_arch,
         )
         cycle_micro = MicroCycleHandler(
-            consciousness=get_consciousness(),
             dogs=self.dogs,
+            axiom_arch=axiom_arch,
+            cynic_dog=self.cynic_dog,
+            lod_controller=self.lod_controller,
         )
         cycle_macro = MacroCycleHandler(
-            consciousness=get_consciousness(),
             dogs=self.dogs,
-            residual_detector=self.residual_detector,
+            axiom_arch=axiom_arch,
+            cynic_dog=self.cynic_dog,
+            escore_tracker=self.escore_tracker,
+            lod_controller=self.lod_controller,
+            axiom_monitor=self.axiom_monitor,
+            context_compressor=self.compressor,
+            act_phase_fn=None,  # Will be set after handlers are registered
         )
         act_executor = ActHandler(
             decide_agent=self.decide_agent,

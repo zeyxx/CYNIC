@@ -1,10 +1,11 @@
 from __future__ import annotations
 import logging, time
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 from cynic.cognition.cortex.handlers.base import BaseHandler, HandlerResult
 from cynic.cognition.cortex.handlers.registry import HandlerRegistry
 from cynic.core.consciousness import ConsciousnessLevel
-from cynic.core.judgment import JudgmentPipeline
+if TYPE_CHECKING:
+ from cynic.cognition.cortex.orchestrator import JudgmentPipeline
 logger = logging.getLogger("cynic.cognition.cortex.handlers.composer")
 class HandlerError(Exception):
  def __init__(self, handler_id: str, error: str) -> None:
@@ -18,11 +19,15 @@ class HandlerComposer:
   t0 = time.perf_counter()
   handlers_executed: list[str] = []
   try:
-   level_selector = self.registry.get("level_selector")
-   level_result = await level_selector.execute(pipeline=pipeline, cell=pipeline.cell, budget_usd=budget_usd, requested_level=level)
-   if not level_result.success:
-    raise HandlerError("level_selector", level_result.error)
-   selected_level: ConsciousnessLevel = level_result.output
+   # If level explicitly requested, use it. Otherwise auto-select.
+   if level is not None:
+    selected_level = level
+   else:
+    level_selector = self.registry.get("level_selector")
+    level_result = await level_selector.execute(pipeline=pipeline, cell=pipeline.cell, budget_usd=budget_usd, current_level=level)
+    if not level_result.success:
+     raise HandlerError("level_selector", level_result.error)
+    selected_level: ConsciousnessLevel = level_result.output
    pipeline.level = selected_level
    handlers_executed.append("level_selector")
    cycle_handler_map = {"REFLEX":"cycle_reflex","MICRO":"cycle_micro","MACRO":"cycle_macro"}

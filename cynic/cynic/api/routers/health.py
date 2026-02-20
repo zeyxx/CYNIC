@@ -12,7 +12,7 @@ import uuid
 from typing import Any
 
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 
 from cynic.core.consciousness import get_consciousness
@@ -29,6 +29,34 @@ router_health = APIRouter(tags=["health"])
 _static_dir = _pathlib.Path(__file__).parent.parent.parent / "static"
 
 _CONSCIOUSNESS_FILE = os.path.join(os.path.expanduser("~"), ".cynic", "consciousness.json")
+
+
+# ── Root route: API alive status ────────────────────────────────────────────
+@router_health.get("/", include_in_schema=True)
+async def root(request: Request) -> dict:
+    """
+    Root endpoint — CYNIC kernel is alive.
+
+    Returns:
+        - status: "alive" if all systems nominal
+        - name: "CYNIC Kernel"
+        - φ: The golden ratio (for identity)
+        - routes: List of available API routes
+    """
+    # Collect available routes from the app
+    app = request.app
+    routes = []
+    for route in app.routes:
+        if hasattr(route, "path") and not route.path.startswith("/openapi") and not route.path.startswith("/docs") and not route.path.startswith("/redoc") and not route.path.startswith("/static"):
+            routes.append(route.path)
+    routes.sort()
+
+    return {
+        "status": "alive",
+        "name": "CYNIC Kernel",
+        "φ": f"{PHI:.6f}",  # The golden ratio
+        "routes": routes,
+    }
 
 
 # ── Dashboard convenience route ────────────────────────────────────────────
