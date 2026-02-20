@@ -202,8 +202,8 @@ class OllamaConnectionPool:
             if hasattr(client, "close"):
                 try:
                     await client.close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Error closing client: {e}")
         self._clients.clear()
 
 

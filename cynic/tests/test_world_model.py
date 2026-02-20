@@ -175,11 +175,16 @@ class TestWorldModelKernelWiring:
         from unittest.mock import MagicMock
 
         # Build the four façades required by the new architecture
+        # All 8 required CognitionCore fields (4 core + 4 guardrails)
         cognition = CognitionCore(
             orchestrator=MagicMock(),
             qtable=MagicMock(),
             learning_loop=MagicMock(),
             residual_detector=MagicMock(),
+            power_limiter=MagicMock(),
+            alignment_checker=MagicMock(),
+            human_gate=MagicMock(),
+            audit_trail=MagicMock(),
         )
         metabolism = MetabolicCore(scheduler=MagicMock())
         senses = SensoryCore(

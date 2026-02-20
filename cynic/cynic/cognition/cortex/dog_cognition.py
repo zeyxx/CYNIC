@@ -158,38 +158,82 @@ class DogCognition:
         self, dog_state: DogState, cell: Cell, signals: list[dict[str, Any]]
     ) -> tuple[float, float, str]:
         """
-        JUDGE: Analyze with local expertise.
+        JUDGE: REAL analysis, not noise.
 
-        Domain-specific judgment based on:
-        - What signals are available
-        - What patterns the dog has learned
-        - Local Q-table experience
+        Analyzes signals by type (security, style, performance, etc).
+        Confidence based on: how much we've seen similar patterns + signal diversity.
+        NOT just "count of judgments".
         """
-        # Start with neutral score
+        # PERCEIVE signals — count by type
+        signal_types: dict[str, int] = {}
+        for sig in signals:
+            sig_type = sig.get("type", "unknown")
+            signal_types[sig_type] = signal_types.get(sig_type, 0) + 1
+
+        # JUDGE by signal types (REAL analysis, not noise)
         base_score = 50.0
+        reasoning_points = []
 
-        # Boost score if we have relevant signals
-        if signals:
-            base_score += min(len(signals) * 5.0, 20.0)
+        if not signals:
+            # No signals = uncertain
+            base_score = 45.0
+            reasoning_points.append("no_signals")
+        else:
+            # Score based on WHAT signals, not just COUNT
+            if signal_types.get("security_issue", 0) > 0:
+                # Critical findings boost concern
+                base_score -= min(signal_types["security_issue"] * 8, 25)
+                reasoning_points.append(f"security_issue×{signal_types['security_issue']}")
 
-        # Adjust based on local Q-table experience
+            if signal_types.get("performance_gap", 0) > 0:
+                base_score -= signal_types["performance_gap"] * 3
+                reasoning_points.append(f"perf_gap×{signal_types['performance_gap']}")
+
+            if signal_types.get("style_violation", 0) > 0:
+                base_score -= signal_types["style_violation"] * 1
+                reasoning_points.append(f"style×{signal_types['style_violation']}")
+
+            if signal_types.get("documentation", 0) > 0:
+                base_score -= signal_types["documentation"] * 2
+                reasoning_points.append(f"doc×{signal_types['documentation']}")
+
+            # Signal diversity = confidence boost (more types = more evidence)
+            signal_diversity = len(signal_types)
+            if signal_diversity > 1:
+                # Multiple signal types = more trustworthy
+                base_score += min(signal_diversity * 2, 10)
+                reasoning_points.append(f"diverse×{signal_diversity}")
+
+        # Adjust based on local Q-table (REAL pattern matching, not averaging)
         if hasattr(cell, "id"):
-            local_q = dog_state.cognition.local_qtable.get(str(cell.id), 50.0)
-            base_score = (base_score + local_q) / 2  # Average with experience
+            cell_id = str(cell.id)
+            local_q = dog_state.cognition.local_qtable.get(cell_id)
 
-        # Calculate confidence: higher if we've judged similar things before
-        judgment_freq = dog_state.cognition.judgment_count
-        confidence = min(0.2 + (judgment_freq * 0.01), self.config.max_confidence)
+            if local_q is not None:
+                # Strong prior from experience
+                base_score = base_score * 0.4 + local_q * 0.6  # Weight experience
+                reasoning_points.append(f"prior_Q={local_q:.1f}")
 
-        # Apply decay: older judgments less confident
-        if dog_state.cognition.confidence_history:
-            avg_confidence = sum(dog_state.cognition.confidence_history) / len(
-                dog_state.cognition.confidence_history
-            )
-            confidence = confidence * 0.7 + avg_confidence * 0.3
+        # Confidence: based on signal clarity + pattern frequency (not just judgments)
+        # Clarity: high diversity + few unknown signals
+        clarity = (len(signal_types) / max(len(signals), 1)) if signals else 0
 
-        reasoning = f"[{self.dog_id}] Analyzed with {len(signals)} signals, " \
-                   f"experience={judgment_freq} judgments"
+        # Pattern frequency: how many times seen this state
+        pattern_hits = len([q for q in dog_state.cognition.local_qtable.values()
+                           if abs(q - base_score) < 5])  # Similar past judgments
+
+        confidence = min(
+            0.15 +  # Baseline
+            (clarity * 0.3) +  # Signal clarity matters
+            (pattern_hits / max(len(dog_state.cognition.local_qtable), 1) * 0.2),  # Pattern freq
+            self.config.max_confidence
+        )
+
+        reasoning = f"[{self.dog_id}] {','.join(reasoning_points[:3])} " \
+                   f"score={base_score:.0f} clarity={clarity:.2f}"
+
+        # Clamp score to valid range
+        base_score = max(0.0, min(base_score, self.config.max_q_score))
 
         return base_score, min(confidence, self.config.max_confidence), reasoning
 

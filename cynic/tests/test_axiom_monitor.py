@@ -282,7 +282,8 @@ class TestBudgetEnforcement:
         orch.on_budget_exhausted()
         assert orch._budget_exhausted is True
 
-    def test_select_level_reflex_when_exhausted(self):
+    @pytest.mark.asyncio
+    async def test_select_level_reflex_when_exhausted(self):
         from cynic.core.consciousness import ConsciousnessLevel
         from cynic.core.judgment import Cell
         orch = self._make_orchestrator()
@@ -292,10 +293,11 @@ class TestBudgetEnforcement:
             content="test", context="", risk=0.5, complexity=0.5,
             budget_usd=1.0, consciousness=5,  # would be MACRO without budget flag
         )
-        level = orch._select_level(cell, 1.0)
+        level = await orch._select_level(cell, 1.0)
         assert level == ConsciousnessLevel.REFLEX
 
-    def test_select_level_capped_at_micro_under_stress(self):
+    @pytest.mark.asyncio
+    async def test_select_level_capped_at_micro_under_stress(self):
         from cynic.core.consciousness import ConsciousnessLevel
         from cynic.core.judgment import Cell
         orch = self._make_orchestrator()
@@ -305,11 +307,12 @@ class TestBudgetEnforcement:
             content="test", context="", risk=0.5, complexity=0.5,
             budget_usd=1.0, consciousness=5,  # would be MACRO without stress
         )
-        level = orch._select_level(cell, 1.0)
+        level = await orch._select_level(cell, 1.0)
         assert level in (ConsciousnessLevel.MICRO, ConsciousnessLevel.REFLEX)
         assert level != ConsciousnessLevel.MACRO
 
-    def test_exhausted_overrides_stress(self):
+    @pytest.mark.asyncio
+    async def test_exhausted_overrides_stress(self):
         """Exhausted takes priority over stress flag."""
         from cynic.core.consciousness import ConsciousnessLevel
         from cynic.core.judgment import Cell
@@ -321,7 +324,7 @@ class TestBudgetEnforcement:
             content="test", context="", risk=0.5, complexity=0.5,
             budget_usd=1.0, consciousness=5,
         )
-        level = orch._select_level(cell, 1.0)
+        level = await orch._select_level(cell, 1.0)
         assert level == ConsciousnessLevel.REFLEX
 
 
