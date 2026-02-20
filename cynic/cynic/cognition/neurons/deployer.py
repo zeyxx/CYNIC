@@ -54,7 +54,7 @@ from cynic.core.phi import (
 )
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
-from cynic.dogs.base import (
+from cynic.cognition.neurons.base import (
     AbstractDog, LLMDog, DogCapabilities, DogHealth, DogJudgment,
     DogId, HealthStatus,
 )

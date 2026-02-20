@@ -7,7 +7,7 @@ import subprocess
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
 from cynic.core.phi import fibonacci
-from cynic.perceive.workers.base import PerceiveWorker
+from cynic.senses.workers.base import PerceiveWorker
 
 
 class GitWatcher(PerceiveWorker):

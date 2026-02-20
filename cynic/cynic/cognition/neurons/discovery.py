@@ -13,8 +13,8 @@ import logging
 import pkgutil
 from typing import Any
 
-import cynic.dogs as dogs_pkg
-from cynic.dogs.base import AbstractDog, DogId
+import cynic.cognition.neurons as dogs_pkg
+from cynic.cognition.neurons.base import AbstractDog, DogId
 
 logger = logging.getLogger("cynic.dogs.discovery")
 
@@ -40,7 +40,7 @@ def discover_dog_classes() -> dict[str, type[AbstractDog]]:
         try:
             module = importlib.import_module(f"cynic.dogs.{module_name}")
         except Exception:
-            logger.warning("Failed to import cynic.dogs.%s", module_name, exc_info=True)
+            logger.warning("Failed to import cynic.cognition.neurons.%s", module_name, exc_info=True)
             continue
 
         for attr_name in dir(module):

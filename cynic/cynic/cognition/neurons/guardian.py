@@ -28,7 +28,7 @@ from sklearn.ensemble import IsolationForest
 from cynic.core.phi import PHI_INV, PHI_INV_2, PHI_2, MAX_Q_SCORE, phi_bound_score
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
-from cynic.dogs.base import (
+from cynic.cognition.neurons.base import (
     AbstractDog, DogCapabilities, DogHealth, DogJudgment,
     DogId, HealthStatus,
 )

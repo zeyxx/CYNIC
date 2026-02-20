@@ -29,10 +29,10 @@ logger = logging.getLogger("cynic.cli.full_loop")
 async def cmd_full_loop(auto: bool = False) -> None:
     """Run the complete PERCEIVE → JUDGE → DECIDE → ACT → LEARN loop."""
     try:
-        from cynic.perceive.workers.git import GitWatcher
+        from cynic.senses.workers.git import GitWatcher
         from cynic.core.event_bus import get_core_bus, reset_all_buses
         from cynic.llm.adapter import LLMRegistry
-        from cynic.act.universal import UniversalActuator
+        from cynic.metabolism.universal import UniversalActuator
 
         reset_all_buses()
         bus = get_core_bus()

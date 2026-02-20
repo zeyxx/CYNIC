@@ -40,7 +40,7 @@ import time
 from dataclasses import dataclass, field
 
 from cynic.core.phi import fibonacci
-from cynic.judge.qtable_benchmark import (
+from cynic.cognition.cortex.qtable_benchmark import (
     QEntry,
     TD0Learner,
     ConvergenceResult,
@@ -50,7 +50,7 @@ from cynic.judge.qtable_benchmark import (
     _CONVERGENCE_EPS,
     _EWC_CONSOLIDATE_AT,
 )
-from cynic.judge.real_benchmark import (
+from cynic.cognition.cortex.real_benchmark import (
     RealKernelTask,
     _N_PAIRS_REAL,
 )

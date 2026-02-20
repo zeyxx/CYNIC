@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from unittest.mock import MagicMock, AsyncMock, call
 
-from cynic.judge.account import AccountAgent, _WARNING_RATIO, _DEFAULT_SESSION_BUDGET_USD
+from cynic.cognition.cortex.account import AccountAgent, _WARNING_RATIO, _DEFAULT_SESSION_BUDGET_USD
 from cynic.core.event_bus import CoreEvent, Event, EventBus, reset_all_buses
 from cynic.core.phi import PHI_INV_2
 

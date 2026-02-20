@@ -40,34 +40,40 @@ from cynic.core.phi import (
     PHI_INV,
     PHI_INV_2,
 )
-from cynic.dogs.base import AbstractDog, DogId
-from cynic.dogs.discovery import discover_dogs
-from cynic.dogs.oracle import OracleDog
-from cynic.judge.orchestrator import JudgeOrchestrator
-from cynic.judge.residual import ResidualDetector
-from cynic.judge.decide import DecideAgent
-from cynic.judge.account import AccountAgent
-from cynic.judge.axiom_monitor import AxiomMonitor
-from cynic.judge.action_proposer import ActionProposer
-from cynic.judge.self_probe import SelfProber
-from cynic.judge.lod import LODController, SurvivalLOD
+from cynic.cognition.neurons.base import AbstractDog, DogId
+from cynic.cognition.neurons.discovery import discover_dogs
+from cynic.cognition.neurons.oracle import OracleDog
+from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
+from cynic.cognition.cortex.residual import ResidualDetector
+from cynic.cognition.cortex.decide import DecideAgent
+from cynic.cognition.cortex.account import AccountAgent
+from cynic.cognition.cortex.axiom_monitor import AxiomMonitor
+from cynic.cognition.cortex.action_proposer import ActionProposer
+from cynic.cognition.cortex.self_probe import SelfProber
+from cynic.cognition.cortex.lod import LODController, SurvivalLOD
 from cynic.core.escore import EScoreTracker
 from cynic.learning.qlearning import QTable, LearningLoop
 from cynic.nervous import ServiceStateRegistry, ComponentType
-from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher, SocialWatcher, DiskWatcher, MemoryWatcher
+from cynic.senses.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher, SocialWatcher, DiskWatcher, MemoryWatcher
 from cynic.core.storage.gc import StorageGarbageCollector
-from cynic.perceive import checkpoint as _session_checkpoint
-from cynic.perceive.checkpoint import CHECKPOINT_EVERY
+from cynic.senses import checkpoint as _session_checkpoint
+from cynic.senses.checkpoint import CHECKPOINT_EVERY
 from cynic.scheduler import ConsciousnessRhythm
-from cynic.act.telemetry import TelemetryStore
-from cynic.act.llm_router import LLMRouter
-from cynic.act.runner import ClaudeCodeRunner
-from cynic.act.auto_benchmark import AutoBenchmark
-from cynic.act.universal import UniversalActuator
-from cynic.judge.mirror import KernelMirror
+from cynic.metabolism.telemetry import TelemetryStore
+from cynic.metabolism.llm_router import LLMRouter
+from cynic.metabolism.runner import ClaudeCodeRunner
+from cynic.metabolism.auto_benchmark import AutoBenchmark
+from cynic.metabolism.universal import UniversalActuator
+from cynic.cognition.cortex.mirror import KernelMirror
 from cynic.llm.adapter import LLMRegistry
-from cynic.perceive.compressor import ContextCompressor
+from cynic.senses.compressor import ContextCompressor
 from cynic.core.container import DependencyContainer
+from cynic.core.topology import (
+    SourceWatcher,
+    IncrementalTopologyBuilder,
+    HotReloadCoordinator,
+    TopologyMirror,
+)
 
 logger = logging.getLogger("cynic.api.state")
 
@@ -229,6 +235,12 @@ class _OrganismAwakener:
         self.storage_gc:       StorageGarbageCollector = None  # type: ignore[assignment]
         self.universal_actuator: UniversalActuator = None  # type: ignore[assignment]
 
+        # ── Topology System (L0: Real-time architecture awareness) ──────────
+        self.source_watcher:   Any = None  # SourceWatcher
+        self.topology_builder: Any = None  # IncrementalTopologyBuilder
+        self.hot_reload_coordinator: Any = None  # HotReloadCoordinator
+        self.topology_mirror:  Any = None  # TopologyMirror
+
     # ═══════════════════════════════════════════════════════════════════════
     # HELPERS
     # ═══════════════════════════════════════════════════════════════════════
@@ -267,7 +279,7 @@ class _OrganismAwakener:
 
     def _create_components(self) -> None:
         """Create all kernel components and wire their mutual dependencies."""
-        # Dogs — auto-discovered from cynic.dogs (no manual import list)
+        # Dogs — auto-discovered from cynic.cognition.neurons (no manual import list)
         # QTable must exist before OracleDog (Oracle reads it for predictions)
         self.qtable = QTable()
         self.dogs = discover_dogs(ORACLE=OracleDog(qtable=self.qtable))
@@ -362,6 +374,17 @@ class _OrganismAwakener:
         self.world_model = WorldModelUpdater()
         self.world_model.start()
 
+        # ── Topology System (L0) — Real-time architecture consciousness ────
+        # Layer 1: Monitor source files for changes
+        self.source_watcher = SourceWatcher()
+        # Layer 2: Compute topology delta on SOURCE_CHANGED
+        self.topology_builder = IncrementalTopologyBuilder()
+        # Layer 3: Apply changes safely with rollback
+        self.hot_reload_coordinator = HotReloadCoordinator()
+        # Layer 4: Continuous architecture snapshots
+        self.topology_mirror = TopologyMirror()
+        logger.info("Topology system initialized (L0: organism real-time consciousness)")
+
     # ═══════════════════════════════════════════════════════════════════════
     # NEW METHODS — Handler Registry + Services
     # ═══════════════════════════════════════════════════════════════════════
@@ -440,6 +463,16 @@ class _OrganismAwakener:
 
         # Module-level handlers (not part of any group)
         bus.on(CoreEvent.JUDGMENT_CREATED, _on_judgment_created)  # guidance.json
+
+        # ── Topology System Event Wiring (L0: real-time consciousness) ─────
+        # Layer 2: Detect what changed when SOURCE_CHANGED fires
+        bus.on(CoreEvent.SOURCE_CHANGED, self.topology_builder.on_source_changed)
+        # Layer 3: Apply topology changes safely when TOPOLOGY_CHANGED fires
+        bus.on(CoreEvent.TOPOLOGY_CHANGED, lambda evt: self.hot_reload_coordinator.on_topology_changed(
+            evt, self._handler_registry, bus, None
+        ))
+        # Layer 4: Snapshot organism topology on all changes
+        # (will be started with continuous_snapshot in lifespan)
 
     # ═══════════════════════════════════════════════════════════════════════
     # PHASE 9 — Perceive workers + AppState assembly
@@ -536,7 +569,7 @@ async def restore_state(state: CynicOrganism) -> None:
       - EScoreTracker entities from e_scores table (γ4)
       - ContextCompressor session from ~/.cynic/session-latest.json (γ2)
     """
-    from cynic.perceive import checkpoint as _ckpt
+    from cynic.senses import checkpoint as _ckpt
 
     pool = state._pool
 

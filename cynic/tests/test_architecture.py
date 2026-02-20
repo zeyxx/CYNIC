@@ -193,7 +193,7 @@ class TestInterfaceCompliance:
 
     def test_all_dogs_implement_analyze(self):
         """Every concrete AbstractDog subclass must implement analyze()."""
-        from cynic.dogs.base import AbstractDog
+        from cynic.cognition.neurons.base import AbstractDog
         subclasses = self._get_all_subclasses(AbstractDog)
         assert len(subclasses) >= 10, (
             f"Expected at least 10 dog implementations, found {len(subclasses)}: "
@@ -206,7 +206,7 @@ class TestInterfaceCompliance:
 
     def test_all_dogs_have_dog_id_in_enum(self):
         """Every concrete dog's dog_id should correspond to a DogId enum value."""
-        from cynic.dogs.base import AbstractDog, DogId
+        from cynic.cognition.neurons.base import AbstractDog, DogId
         subclasses = self._get_all_subclasses(AbstractDog)
         valid_ids = set(DogId)
         for cls in subclasses:
@@ -301,7 +301,7 @@ class TestStructuralInvariants:
 
     def test_dog_ids_match_enum(self):
         """DogId enum should have exactly 11 members."""
-        from cynic.dogs.base import DogId
+        from cynic.cognition.neurons.base import DogId
         assert len(DogId) == 11, f"Expected 11 DogIds, got {len(DogId)}"
 
     def test_phi_constants_consistent(self):

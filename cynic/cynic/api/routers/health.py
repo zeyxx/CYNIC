@@ -135,7 +135,7 @@ async def introspect() -> dict[str, Any]:
     This is CYNIC judging itself — meta-cognitive self-assessment.
     "φ distrusts φ" — the organism reflects on its own biases.
     """
-    from cynic.dogs.base import DogId
+    from cynic.cognition.neurons.base import DogId
 
     state = get_state()
     consciousness = get_consciousness()
@@ -313,7 +313,7 @@ async def sage_stats() -> dict[str, Any]:
     llm_activation_rate > 0 → Temporal MCTS is firing (Ollama available).
     llm_activation_rate == 0 → Heuristic-only mode (Ollama unavailable).
     """
-    from cynic.dogs.base import DogId
+    from cynic.cognition.neurons.base import DogId
     state = get_state()
     orch = state.orchestrator
     sage = orch.dogs.get(DogId.SAGE) if orch and hasattr(orch, "dogs") else None

@@ -16,7 +16,7 @@ from __future__ import annotations
 import pytest
 
 from cynic.core.phi import LEARNING_RATE, PHI_INV_2, fibonacci
-from cynic.judge.qtable_benchmark import (
+from cynic.cognition.cortex.qtable_benchmark import (
     SyntheticTask,
     QEntry,
     TD0Learner,

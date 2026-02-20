@@ -10,8 +10,8 @@ from __future__ import annotations
 import pytest
 from unittest.mock import MagicMock
 
-from cynic.judge.orchestrator import JudgeOrchestrator
-from cynic.judge.lod import SurvivalLOD, LODController
+from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
+from cynic.cognition.cortex.lod import SurvivalLOD, LODController
 from cynic.core.consciousness import ConsciousnessLevel
 
 

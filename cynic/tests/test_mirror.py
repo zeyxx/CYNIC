@@ -10,7 +10,7 @@ import time
 import pytest
 from unittest.mock import MagicMock
 
-from cynic.judge.mirror import KernelMirror, _deep_diff
+from cynic.cognition.cortex.mirror import KernelMirror, _deep_diff
 from cynic.core.phi import WAG_MIN, GROWL_MIN
 
 
@@ -25,7 +25,7 @@ def _make_mock_state(
     budget_remaining: float = 9.5,
 ) -> MagicMock:
     """Build a lightweight mock KernelState for mirror tests."""
-    from cynic.dogs.base import DogId
+    from cynic.cognition.neurons.base import DogId
 
     state = MagicMock()
 

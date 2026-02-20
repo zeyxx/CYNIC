@@ -15,7 +15,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from cynic.core.phi import PHI, PHI_INV, PHI_INV_2, MAX_Q_SCORE
-from cynic.dogs.base import DogId, DogJudgment, LLMDog, _SPEED_TARGET_MS, _COST_BUDGET_USD
+from cynic.cognition.neurons.base import DogId, DogJudgment, LLMDog, _SPEED_TARGET_MS, _COST_BUDGET_USD
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -270,7 +270,7 @@ class TestBenchmarkFeedbackLoop:
 
     def _make_llm_dog_with_registry(self):
         """SageDog with a real LLMRegistry injected."""
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         from cynic.llm.adapter import LLMRegistry
         dog = SageDog()
         reg = LLMRegistry()
@@ -281,7 +281,7 @@ class TestBenchmarkFeedbackLoop:
 
     def test_record_judgment_with_llm_id_triggers_benchmark(self):
         """record_judgment(llm_id set) → registry.update_benchmark called."""
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         mock_reg = MagicMock()
         dog.set_llm_registry(mock_reg)
@@ -295,7 +295,7 @@ class TestBenchmarkFeedbackLoop:
 
     def test_record_judgment_no_llm_id_no_benchmark(self):
         """Heuristic path (llm_id=None) does NOT update benchmark."""
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         mock_reg = MagicMock()
         dog.set_llm_registry(mock_reg)
@@ -307,7 +307,7 @@ class TestBenchmarkFeedbackLoop:
 
     def test_record_judgment_no_registry_no_crash(self):
         """Without registry (no LLM mode), record_judgment doesn't crash."""
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         # No registry injected
         j = make_judgment(dog_id=DogId.SAGE, llm_id="ollama:llama3.2")
@@ -315,7 +315,7 @@ class TestBenchmarkFeedbackLoop:
 
     def test_speed_score_fast_call(self):
         """Fast call (<< 3000ms) → high speed score."""
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         mock_reg = MagicMock()
         dog.set_llm_registry(mock_reg)
@@ -329,7 +329,7 @@ class TestBenchmarkFeedbackLoop:
 
     def test_speed_score_slow_call_near_zero(self):
         """Call at 3000ms → speed_score ≈ 0."""
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         mock_reg = MagicMock()
         dog.set_llm_registry(mock_reg)
@@ -342,7 +342,7 @@ class TestBenchmarkFeedbackLoop:
 
     def test_speed_score_beyond_target_clamped_zero(self):
         """Call beyond 3000ms → speed_score clamped to 0."""
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         mock_reg = MagicMock()
         dog.set_llm_registry(mock_reg)
@@ -355,7 +355,7 @@ class TestBenchmarkFeedbackLoop:
 
     def test_cost_score_free_ollama(self):
         """cost_usd=0 (Ollama) → cost_score = 1.0."""
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         mock_reg = MagicMock()
         dog.set_llm_registry(mock_reg)
@@ -368,7 +368,7 @@ class TestBenchmarkFeedbackLoop:
 
     def test_cost_score_over_budget_clamped_zero(self):
         """cost_usd > budget → cost_score = 0."""
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         mock_reg = MagicMock()
         dog.set_llm_registry(mock_reg)
@@ -381,7 +381,7 @@ class TestBenchmarkFeedbackLoop:
 
     def test_cost_score_half_budget(self):
         """cost_usd = $0.005 (half budget) → cost_score = 0.5."""
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         mock_reg = MagicMock()
         dog.set_llm_registry(mock_reg)
@@ -394,7 +394,7 @@ class TestBenchmarkFeedbackLoop:
 
     def test_quality_score_passthrough(self):
         """quality_score in BenchmarkResult = DogJudgment.q_score."""
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         mock_reg = MagicMock()
         dog.set_llm_registry(mock_reg)
@@ -406,7 +406,7 @@ class TestBenchmarkFeedbackLoop:
         assert abs(result.quality_score - 42.0) < 1e-6
 
     def test_error_rate_zero_for_successful_judgment(self):
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         mock_reg = MagicMock()
         dog.set_llm_registry(mock_reg)
@@ -419,7 +419,7 @@ class TestBenchmarkFeedbackLoop:
 
     def test_benchmark_update_passes_dog_id_and_task_type(self):
         """update_benchmark called with correct dog_id + task_type."""
-        from cynic.dogs.scholar import ScholarDog
+        from cynic.cognition.neurons.scholar import ScholarDog
         dog = ScholarDog()  # task_type = "vector_rag"
         mock_reg = MagicMock()
         dog.set_llm_registry(mock_reg)
@@ -452,7 +452,7 @@ class TestRoutingConvergence:
         Simulates 10 judgments: model A (quality=50) vs model B (quality=25).
         After feedback, get_best_for() should return model A.
         """
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         from cynic.llm.adapter import LLMRegistry, BenchmarkResult
 
         reg = LLMRegistry()

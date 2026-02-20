@@ -45,7 +45,7 @@ from cynic.core.events_schema import (
 )
 from cynic.core.phi import WAG_MIN
 from cynic.core.config import CynicConfig
-from cynic.act.telemetry import compute_reward
+from cynic.metabolism.telemetry import compute_reward
 
 from cynic.api.state import awaken, set_state, get_state, restore_state
 
@@ -196,7 +196,7 @@ async def lifespan(app: FastAPI):
         await registry_obj.register("account_agent", ComponentType.ROUTER)
 
         # Register dogs
-        from cynic.dogs.base import DogId
+        from cynic.cognition.neurons.base import DogId
         for dog_id in state.orchestrator.dogs.keys():
             await registry_obj.register(f"dog_{dog_id}", ComponentType.DOG)
 
@@ -216,7 +216,7 @@ async def lifespan(app: FastAPI):
             r_loaded = state.residual_detector.load_from_entries(residual_rows)
             logger.info("ResidualDetector warm-start (SurrealDB): %d points", r_loaded)
 
-            from cynic.dogs.base import DogId
+            from cynic.cognition.neurons.base import DogId
             scholar_dog = state.orchestrator.dogs.get(DogId.SCHOLAR)
             if scholar_dog is not None:
                 if hasattr(scholar_dog, "set_scholar_repo"):
@@ -255,7 +255,7 @@ async def lifespan(app: FastAPI):
             state.orchestrator.benchmark_registry = BenchmarkRegistry(db_pool)
             logger.info("BenchmarkRegistry wired: probe runs will be persisted")
 
-            from cynic.dogs.base import DogId
+            from cynic.cognition.neurons.base import DogId
             from cynic.core.storage.postgres import ScholarRepository
             scholar_dog = state.orchestrator.dogs.get(DogId.SCHOLAR)
             if scholar_dog is not None:
@@ -310,7 +310,7 @@ async def lifespan(app: FastAPI):
     state.scheduler.start()
 
     # ── AutoBenchmark — periodic LLM probe every 55 min (T09) ────────────
-    from cynic.act.auto_benchmark import AutoBenchmark
+    from cynic.metabolism.auto_benchmark import AutoBenchmark
     state.auto_benchmark = AutoBenchmark(registry)
     state.auto_benchmark.start()
 
@@ -319,7 +319,7 @@ async def lifespan(app: FastAPI):
     # When ACT_REQUESTED fires (via /ws/stream or internal DECIDE), CYNIC
     # spawns `claude --sdk-url ws://localhost:PORT/ws/sdk` as a subprocess.
     # No human needed to launch Claude Code.
-    from cynic.act.runner import ClaudeCodeRunner
+    from cynic.metabolism.runner import ClaudeCodeRunner
     state.runner = ClaudeCodeRunner(
         bus=get_core_bus(),
         sessions_registry=_sdk_sessions,
@@ -546,6 +546,11 @@ async def lifespan(app: FastAPI):
 
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _write_consciousness)
     logger.info("consciousness.json writer armed (throttle=%.0fs)", _CONSCIOUSNESS_MIN_INTERVAL_S)
+
+    # ── L0 Real-time Topology System: organism consciousness ──────────────────
+    # Start SourceWatcher polling loop (monitors files every 13s)
+    asyncio.create_task(state.source_watcher.watch())
+    logger.info("L0 Topology System: real-time architecture monitoring enabled")
 
     llm_count = len(registry.get_available())
     logger.info(

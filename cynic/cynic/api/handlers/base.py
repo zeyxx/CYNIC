@@ -17,8 +17,8 @@ from typing import Callable
 
 from cynic.core.event_bus import Event, CoreEvent
 from cynic.core.escore import EScoreTracker
-from cynic.judge.axiom_monitor import AxiomMonitor
-from cynic.judge.lod import LODController
+from cynic.cognition.cortex.axiom_monitor import AxiomMonitor
+from cynic.cognition.cortex.lod import LODController
 
 
 @dataclass

@@ -415,14 +415,14 @@ class TestNWorkers:
 class TestPerceiveWorkerRegistration:
     def test_register_adds_to_list(self, scheduler):
         """register_perceive_worker() stores worker before start."""
-        from cynic.perceive.workers import HealthWatcher
+        from cynic.senses.workers import HealthWatcher
         pw = HealthWatcher()
         scheduler.register_perceive_worker(pw)
         assert len(scheduler._perceive_workers) == 1
 
     async def test_perceive_tasks_created_on_start(self, scheduler):
         """start() spawns one task per registered PerceiveWorker."""
-        from cynic.perceive.workers import HealthWatcher
+        from cynic.senses.workers import HealthWatcher
         scheduler.register_perceive_worker(HealthWatcher())
         scheduler.start()
         assert len(scheduler._perceive_tasks) == 1
@@ -430,7 +430,7 @@ class TestPerceiveWorkerRegistration:
 
     async def test_perceive_tasks_cleared_on_stop(self, scheduler):
         """stop() cancels and clears perceive tasks."""
-        from cynic.perceive.workers import HealthWatcher
+        from cynic.senses.workers import HealthWatcher
         scheduler.register_perceive_worker(HealthWatcher())
         scheduler.start()
         await scheduler.stop()
@@ -438,7 +438,7 @@ class TestPerceiveWorkerRegistration:
 
     async def test_multiple_perceive_workers(self, scheduler):
         """Registering 3 workers → 3 perceive tasks."""
-        from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher
+        from cynic.senses.workers import GitWatcher, HealthWatcher, SelfWatcher
         scheduler.register_perceive_worker(GitWatcher())
         scheduler.register_perceive_worker(HealthWatcher())
         scheduler.register_perceive_worker(SelfWatcher())
@@ -448,7 +448,7 @@ class TestPerceiveWorkerRegistration:
 
     async def test_perceive_task_named_after_worker(self, scheduler):
         """Perceive task name = cynic.perceive.{worker.name}."""
-        from cynic.perceive.workers import GitWatcher
+        from cynic.senses.workers import GitWatcher
         scheduler.register_perceive_worker(GitWatcher())
         scheduler.start()
         names = {t.get_name() for t in scheduler._perceive_tasks}
@@ -457,7 +457,7 @@ class TestPerceiveWorkerRegistration:
 
     def test_stats_reports_perceive_worker_count(self, scheduler):
         """stats()['perceive_workers'] reflects registered count."""
-        from cynic.perceive.workers import HealthWatcher
+        from cynic.senses.workers import HealthWatcher
         scheduler.register_perceive_worker(HealthWatcher())
         s = scheduler.stats()
         assert s["perceive_workers"] == 1
@@ -472,7 +472,7 @@ class TestPerceiveWorkerRegistration:
 
     async def test_register_after_start_is_ignored(self, scheduler):
         """register_perceive_worker() after start() is silently dropped — no duplicate tasks."""
-        from cynic.perceive.workers import HealthWatcher
+        from cynic.senses.workers import HealthWatcher
         scheduler.start()
         initial_count = len(scheduler._perceive_tasks)
 
@@ -529,7 +529,7 @@ class TestSchedulerQueueDepth:
 
     def test_lod_thresholds_match_fibonacci(self):
         """LOD queue thresholds 34/89/144 are Fibonacci numbers."""
-        from cynic.judge.lod import _QUEUE_LOD1, _QUEUE_LOD2, _QUEUE_LOD3
+        from cynic.cognition.cortex.lod import _QUEUE_LOD1, _QUEUE_LOD2, _QUEUE_LOD3
         assert _QUEUE_LOD1 == 34   # F(9)
         assert _QUEUE_LOD2 == 89   # F(11)
         assert _QUEUE_LOD3 == 144  # F(12)

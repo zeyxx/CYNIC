@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, AsyncMock, patch
 from cynic.api.handlers.direct import DirectActionsHandler
 from cynic.api.handlers.base import KernelServices
 from cynic.core.event_bus import Event, CoreEvent
-from cynic.act.universal import ActResult
+from cynic.metabolism.universal import ActResult
 
 
 class TestDirectActionsHandler:

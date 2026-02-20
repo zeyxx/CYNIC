@@ -7,7 +7,7 @@ No LLM, no DB — pure in-memory.
 from __future__ import annotations
 
 import pytest
-from cynic.judge.lod import (
+from cynic.cognition.cortex.lod import (
     SurvivalLOD,
     HealthMetrics,
     LODController,
@@ -385,9 +385,9 @@ class TestLODOrchestrator:
 
     def _make_orchestrator(self):
         from unittest.mock import MagicMock
-        from cynic.judge.orchestrator import JudgeOrchestrator
+        from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
         from cynic.core.axioms import AxiomArchitecture
-        from cynic.dogs.cynic_dog import CynicDog
+        from cynic.cognition.neurons.cynic_dog import CynicDog
         arch = AxiomArchitecture()
         cynic_dog = MagicMock(spec=CynicDog)
         return JudgeOrchestrator(dogs={}, axiom_arch=arch, cynic_dog=cynic_dog)

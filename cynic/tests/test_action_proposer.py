@@ -14,7 +14,7 @@ import asyncio
 import tempfile
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from cynic.judge.action_proposer import (
+from cynic.cognition.cortex.action_proposer import (
     ActionProposer,
     ProposedAction,
     _action_type_and_priority,
@@ -442,7 +442,7 @@ class TestL1Closure:
         from starlette.testclient import TestClient
         from cynic.api.server import app
         from cynic.api.state import get_state
-        from cynic.judge.action_proposer import ProposedAction
+        from cynic.cognition.cortex.action_proposer import ProposedAction
 
         # Populate the queue INSIDE TestClient context — lifespan runs first.
         with TestClient(app) as client:
@@ -479,7 +479,7 @@ class TestL1Closure:
         from starlette.testclient import TestClient
         from cynic.api.server import app
         from cynic.api.state import get_state
-        from cynic.judge.action_proposer import ProposedAction
+        from cynic.cognition.cortex.action_proposer import ProposedAction
 
         state_key = "CODE:JUDGE:PRESENT:0"
 
@@ -549,7 +549,7 @@ class TestL1Closure:
         from starlette.testclient import TestClient
         from cynic.api.server import app
         from cynic.api.state import get_state
-        from cynic.judge.action_proposer import ProposedAction
+        from cynic.cognition.cortex.action_proposer import ProposedAction
 
         with TestClient(app) as client:
             state = get_state()
@@ -579,7 +579,7 @@ class TestL4P5Bridge:
     """L4→P5: SELF_IMPROVEMENT_PROPOSED → ActionProposer.propose_self_improvement()"""
 
     def _make_proposer(self, tmp_path):
-        from cynic.judge.action_proposer import ActionProposer
+        from cynic.cognition.cortex.action_proposer import ActionProposer
         p = ActionProposer()
         p._path = str(tmp_path / "pending_actions.json")
         p._queue = []  # clear items pre-loaded from ~/.cynic/pending_actions.json

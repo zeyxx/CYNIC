@@ -8,7 +8,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from cynic.core.embeddings import DummyEmbedder, OllamaEmbedder
-from cynic.dogs.scholar import ScholarDog
+from cynic.cognition.neurons.scholar import ScholarDog
 from cynic.core.judgment import Cell
 
 

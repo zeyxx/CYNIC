@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from cynic.act.auto_benchmark import AutoBenchmark, _PROBES
+from cynic.metabolism.auto_benchmark import AutoBenchmark, _PROBES
 from cynic.llm.adapter import LLMResponse
 from cynic.core.phi import WAG_MIN
 

@@ -180,7 +180,7 @@ class KernelMirror:
     @staticmethod
     def _sage_stats(state: Any) -> dict[str, Any]:
         """Extract SAGE temporal MCTS activation ratio."""
-        from cynic.dogs.base import DogId
+        from cynic.cognition.neurons.base import DogId
         # Use canonical path: state.orchestrator.dogs[SAGE]
         orch = getattr(state, "orchestrator", None)
         if orch is None:

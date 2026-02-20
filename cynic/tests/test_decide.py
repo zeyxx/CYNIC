@@ -11,7 +11,7 @@ import pytest
 import pytest_asyncio
 
 from cynic.core.event_bus import CoreEvent, Event, EventBus, reset_all_buses
-from cynic.judge.decide import DecideAgent, NestedMCTS, _build_action_prompt
+from cynic.cognition.cortex.decide import DecideAgent, NestedMCTS, _build_action_prompt
 from cynic.learning.qlearning import LearningSignal, QTable, VERDICTS
 
 

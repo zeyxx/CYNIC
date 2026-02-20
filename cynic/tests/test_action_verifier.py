@@ -17,7 +17,7 @@ import time
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from cynic.judge.action_proposer import ActionProposer, ProposedAction
+from cynic.cognition.cortex.action_proposer import ActionProposer, ProposedAction
 from cynic.core.event_bus import CoreEvent, Event, get_core_bus
 
 

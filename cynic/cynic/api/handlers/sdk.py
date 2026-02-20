@@ -11,7 +11,7 @@ from cynic.core.phi import MAX_Q_SCORE
 from cynic.api.handlers.base import HandlerGroup, KernelServices
 
 if TYPE_CHECKING:
-    from cynic.judge.action_proposer import ActionProposer
+    from cynic.cognition.cortex.action_proposer import ActionProposer
     from cynic.learning.qlearning import QTable
 
 logger = logging.getLogger("cynic.api.handlers.sdk")

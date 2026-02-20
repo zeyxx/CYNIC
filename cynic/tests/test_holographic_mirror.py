@@ -16,9 +16,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from cynic.core.judgment import Cell, ConsensusResult
 from cynic.core.phi import PHI_2, PHI_INV, MAX_Q_SCORE
-from cynic.dogs.guardian import GuardianDog, VETO_THRESHOLD, WARN_THRESHOLD
-from cynic.dogs.cynic_dog import CynicDog
-from cynic.judge.orchestrator import JudgeOrchestrator
+from cynic.cognition.neurons.guardian import GuardianDog, VETO_THRESHOLD, WARN_THRESHOLD
+from cynic.cognition.neurons.cynic_dog import CynicDog
+from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -164,7 +164,7 @@ class TestSageLodAwarePath:
 
     def test_full_lod_calls_temporal_judgment(self):
         """LOD=FULL (0) → calls temporal_judgment (7p), NOT fast_temporal_judgment."""
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         cell = _make_cell()
         mock_tj = self._make_mock_tj()
@@ -182,7 +182,7 @@ class TestSageLodAwarePath:
 
     def test_reduced_lod_calls_fast_temporal_judgment(self):
         """LOD=REDUCED (1) → calls fast_temporal_judgment (3p), NOT temporal_judgment."""
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         cell = _make_cell()
         mock_tj = self._make_mock_tj(65.0)
@@ -200,7 +200,7 @@ class TestSageLodAwarePath:
 
     def test_no_lod_kwarg_defaults_to_full_temporal(self):
         """No lod_level kwarg → defaults to 0 → uses full temporal_judgment."""
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         cell = _make_cell()
         mock_tj = self._make_mock_tj()
@@ -218,7 +218,7 @@ class TestSageLodAwarePath:
 
     def test_reduced_lod_reasoning_mentions_3p(self):
         """LOD=REDUCED → reasoning contains '3p' (3 perspectives)."""
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         cell = _make_cell()
         mock_tj = self._make_mock_tj(65.0)
@@ -231,7 +231,7 @@ class TestSageLodAwarePath:
 
     def test_full_lod_reasoning_mentions_7p(self):
         """LOD=FULL → reasoning contains '7p' (7 perspectives)."""
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         cell = _make_cell()
         mock_tj = self._make_mock_tj()
@@ -277,7 +277,7 @@ class TestOrchestratorOrganismKwargs:
 
     def test_lod_controller_passes_lod_level_to_dogs(self):
         """When lod_controller is set, Dogs receive lod_level in kwargs."""
-        from cynic.judge.lod import LODController, SurvivalLOD
+        from cynic.cognition.cortex.lod import LODController, SurvivalLOD
         captured_kwargs: dict = {}
 
         async def capture_analyze(cell, **kwargs):

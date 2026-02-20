@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from cynic.judge.amplification_benchmark import (
+from cynic.cognition.cortex.amplification_benchmark import (
     WarmStartResult,
     AmplificationBenchmark,
     _run_warm_cold,
@@ -21,8 +21,8 @@ from cynic.judge.amplification_benchmark import (
     _TEST_BUDGET,
     _SEED_OFFSET,
 )
-from cynic.judge.qtable_benchmark import _PHI_ALPHA, _STD_ALPHA, _EWC_CONSOLIDATE_AT
-from cynic.judge.real_benchmark import RealKernelTask, _N_PAIRS_REAL
+from cynic.cognition.cortex.qtable_benchmark import _PHI_ALPHA, _STD_ALPHA, _EWC_CONSOLIDATE_AT
+from cynic.cognition.cortex.real_benchmark import RealKernelTask, _N_PAIRS_REAL
 from cynic.core.phi import fibonacci
 
 

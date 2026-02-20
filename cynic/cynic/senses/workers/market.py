@@ -10,7 +10,7 @@ from typing import Any
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
 from cynic.core.phi import fibonacci
-from cynic.perceive.workers.base import PerceiveWorker
+from cynic.senses.workers.base import PerceiveWorker
 
 _COINGECKO_URL = (
     "https://api.coingecko.com/api/v3/simple/price"

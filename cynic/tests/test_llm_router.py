@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from unittest.mock import MagicMock
 
-from cynic.act.llm_router import (
+from cynic.metabolism.llm_router import (
     LLMRouter,
     RoutingDecision,
     MODEL_SONNET,

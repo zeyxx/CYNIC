@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cynic.judge.self_probe import (
+from cynic.cognition.cortex.self_probe import (
     SelfProber,
     SelfProposal,
     _MAX_PROPOSALS,

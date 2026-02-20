@@ -10,7 +10,7 @@ import time
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 
-from cynic.judge.circuit_breaker import CircuitBreaker, CircuitState
+from cynic.cognition.cortex.circuit_breaker import CircuitBreaker, CircuitState
 from cynic.core.phi import fibonacci, PHI_INV_2
 
 
@@ -199,9 +199,9 @@ class TestOrchestratorCircuitBreaker:
     def test_orchestrator_has_circuit_breaker(self):
         from cynic.core.axioms import AxiomArchitecture
         from cynic.core.heuristic_scorer import HeuristicFacetScorer
-        from cynic.dogs.cynic_dog import CynicDog
-        from cynic.judge.orchestrator import JudgeOrchestrator
-        from cynic.judge.circuit_breaker import CircuitBreaker
+        from cynic.cognition.neurons.cynic_dog import CynicDog
+        from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
+        from cynic.cognition.cortex.circuit_breaker import CircuitBreaker
 
         orchestrator = JudgeOrchestrator(
             dogs={},
@@ -214,8 +214,8 @@ class TestOrchestratorCircuitBreaker:
     def test_orchestrator_stats_has_circuit_key(self):
         from cynic.core.axioms import AxiomArchitecture
         from cynic.core.heuristic_scorer import HeuristicFacetScorer
-        from cynic.dogs.cynic_dog import CynicDog
-        from cynic.judge.orchestrator import JudgeOrchestrator
+        from cynic.cognition.neurons.cynic_dog import CynicDog
+        from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
 
         orchestrator = JudgeOrchestrator(
             dogs={},
@@ -234,10 +234,10 @@ class TestOrchestratorCircuitBreaker:
         """
         from cynic.core.axioms import AxiomArchitecture
         from cynic.core.heuristic_scorer import HeuristicFacetScorer
-        from cynic.dogs.cynic_dog import CynicDog
-        from cynic.dogs.base import DogId
-        from cynic.judge.orchestrator import JudgeOrchestrator
-        from cynic.judge.circuit_breaker import CircuitState
+        from cynic.cognition.neurons.cynic_dog import CynicDog
+        from cynic.cognition.neurons.base import DogId
+        from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
+        from cynic.cognition.cortex.circuit_breaker import CircuitState
         from cynic.core.judgment import Cell
         from cynic.core.event_bus import reset_all_buses
 

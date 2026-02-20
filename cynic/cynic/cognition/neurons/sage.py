@@ -52,7 +52,7 @@ from cynic.core.phi import (
 from cynic.core.axioms import DEFAULT_CONTEXTUAL_WEIGHTS
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
-from cynic.dogs.base import (
+from cynic.cognition.neurons.base import (
     LLMDog, DogCapabilities, DogHealth, DogJudgment,
     DogId, HealthStatus,
 )

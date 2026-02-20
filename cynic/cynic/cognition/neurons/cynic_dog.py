@@ -39,7 +39,7 @@ from cynic.core.judgment import Cell, ConsensusResult
 from cynic.core.event_bus import (
     get_agent_bus, get_core_bus, Event, AgentEvent, CoreEvent
 )
-from cynic.dogs.base import (
+from cynic.cognition.neurons.base import (
     AbstractDog, DogCapabilities, DogHealth, DogJudgment,
     DogId, HealthStatus, DOG_PRIORITY,
 )

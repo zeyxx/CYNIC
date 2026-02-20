@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from cynic.act.telemetry import classify_task, compute_reward
+from cynic.metabolism.telemetry import classify_task, compute_reward
 from cynic.api.state import get_state
 
 logger = logging.getLogger("cynic.api.server")

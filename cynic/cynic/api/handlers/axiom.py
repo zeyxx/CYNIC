@@ -18,7 +18,7 @@ from cynic.core.phi import MAX_Q_SCORE, PHI_INV, PHI_INV_2, HOWL_MIN, WAG_MIN, G
 from cynic.api.handlers.base import HandlerGroup, KernelServices
 
 if TYPE_CHECKING:
-    from cynic.judge.action_proposer import ActionProposer
+    from cynic.cognition.cortex.action_proposer import ActionProposer
 
 logger = logging.getLogger("cynic.api.handlers.axiom")
 

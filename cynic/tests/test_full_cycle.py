@@ -25,12 +25,12 @@ from cynic.core.phi import MAX_Q_SCORE, MAX_CONFIDENCE, PHI_INV_2, PHI_INV
 from cynic.core.judgment import Cell, Judgment
 from cynic.core.axioms import AxiomArchitecture, verdict_from_q_score
 from cynic.core.consciousness import ConsciousnessLevel
-from cynic.dogs.base import AbstractDog, DogId
-from cynic.dogs.cynic_dog import CynicDog
-from cynic.dogs.guardian import GuardianDog
-from cynic.dogs.analyst import AnalystDog
-from cynic.dogs.janitor import JanitorDog
-from cynic.judge.orchestrator import JudgeOrchestrator
+from cynic.cognition.neurons.base import AbstractDog, DogId
+from cynic.cognition.neurons.cynic_dog import CynicDog
+from cynic.cognition.neurons.guardian import GuardianDog
+from cynic.cognition.neurons.analyst import AnalystDog
+from cynic.cognition.neurons.janitor import JanitorDog
+from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
 
 
 # ════════════════════════════════════════════════════════════════════════════

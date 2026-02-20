@@ -57,7 +57,7 @@ from cynic.core.phi import PHI_INV, PHI_INV_2, MAX_Q_SCORE, MAX_CONFIDENCE, phi_
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
 from cynic.core.embeddings import EmbeddingProvider
-from cynic.dogs.base import (
+from cynic.cognition.neurons.base import (
     AbstractDog, LLMDog, DogCapabilities, DogHealth, DogJudgment,
     DogId, HealthStatus,
 )

@@ -703,7 +703,7 @@ class TestLoadFromEntriesWiring:
     @pytest.mark.asyncio
     async def test_residual_load_from_entries_uses_surreal_data(self):
         """ResidualDetector.load_from_entries() accepts SurrealDB ResidualRepo.recent() output."""
-        from cynic.judge.residual import ResidualDetector
+        from cynic.cognition.cortex.residual import ResidualDetector
 
         surreal_rows = [
             {
@@ -733,7 +733,7 @@ class TestLoadFromEntriesWiring:
     @pytest.mark.asyncio
     async def test_scholar_load_from_entries_uses_surreal_data(self):
         """ScholarDog.load_from_entries() accepts SurrealDB ScholarRepo.recent_entries() output."""
-        from cynic.dogs.scholar import ScholarDog
+        from cynic.cognition.neurons.scholar import ScholarDog
 
         surreal_rows = [
             {"cell_id": "c1", "cell_text": "def foo(): pass", "q_score": 65.0, "reality": "CODE", "ts": 1.0},

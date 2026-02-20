@@ -10,7 +10,7 @@ import time
 
 import pytest
 
-from cynic.act.telemetry import (
+from cynic.metabolism.telemetry import (
     SessionTelemetry,
     TelemetryStore,
     classify_task,

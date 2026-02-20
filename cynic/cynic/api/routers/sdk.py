@@ -25,7 +25,7 @@ from cynic.core.events_schema import (
     SdkToolJudgedPayload,
 )
 from cynic.core.phi import MAX_CONFIDENCE
-from cynic.act.telemetry import (
+from cynic.metabolism.telemetry import (
     SessionTelemetry as SDKTelemetry,
     classify_task,
     compute_reward,

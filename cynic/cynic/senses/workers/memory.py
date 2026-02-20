@@ -13,7 +13,7 @@ from cynic.core.event_bus import get_core_bus, Event, CoreEvent
 from cynic.core.events_schema import MemoryClearedPayload, MemoryPressurePayload
 from cynic.core.judgment import Cell
 from cynic.core.phi import PHI_INV, PHI_INV_3, fibonacci
-from cynic.perceive.workers.base import PerceiveWorker
+from cynic.senses.workers.base import PerceiveWorker
 
 logger = logging.getLogger("cynic.perceive")
 

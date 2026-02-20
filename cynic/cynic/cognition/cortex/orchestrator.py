@@ -50,9 +50,9 @@ from cynic.core.events_schema import (
     PerceptionReceivedPayload,
     ResidualHighPayload,
 )
-from cynic.dogs.base import AbstractDog, DogJudgment, DogId
-from cynic.dogs.cynic_dog import CynicDog
-from cynic.judge.circuit_breaker import CircuitBreaker, CircuitState
+from cynic.cognition.neurons.base import AbstractDog, DogJudgment, DogId
+from cynic.cognition.neurons.cynic_dog import CynicDog
+from cynic.cognition.cortex.circuit_breaker import CircuitBreaker, CircuitState
 
 logger = logging.getLogger("cynic.judge")
 
@@ -373,7 +373,7 @@ class JudgeOrchestrator:
         """
         if self.lod_controller is None:
             return level
-        from cynic.judge.lod import SurvivalLOD
+        from cynic.cognition.cortex.lod import SurvivalLOD
         lod = self.lod_controller.current
         if lod >= SurvivalLOD.EMERGENCY:
             if level != ConsciousnessLevel.REFLEX:
@@ -395,7 +395,7 @@ class JudgeOrchestrator:
         # LOD aggregates all signals: disk, memory, error rate, latency, queue.
         # Takes priority — a crashed system can't afford Ollama regardless of budget.
         if self.lod_controller is not None:
-            from cynic.judge.lod import SurvivalLOD
+            from cynic.cognition.cortex.lod import SurvivalLOD
             lod = self.lod_controller.current
             if lod >= SurvivalLOD.EMERGENCY:
                 return ConsciousnessLevel.REFLEX
@@ -735,7 +735,7 @@ class JudgeOrchestrator:
           pass_rate, pass_count, total, regression, results[]
         """
         import asyncio as _asyncio
-        from cynic.judge.probes import PROBE_CELLS, ProbeResult
+        from cynic.cognition.cortex.probes import PROBE_CELLS, ProbeResult
 
         results: list[ProbeResult] = []
 

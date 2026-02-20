@@ -14,8 +14,8 @@ import pytest
 from cynic.core.phi import MAX_Q_SCORE, PHI_INV, PHI_INV_2, MAX_CONFIDENCE
 from cynic.core.judgment import Cell
 from cynic.core.consciousness import ConsciousnessLevel
-from cynic.dogs.base import DogId, HealthStatus
-from cynic.dogs.sage import SageDog, HEURISTIC_CONFIDENCE
+from cynic.cognition.neurons.base import DogId, HealthStatus
+from cynic.cognition.neurons.sage import SageDog, HEURISTIC_CONFIDENCE
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -80,7 +80,7 @@ class TestSageDogAnalyze:
     @pytest.mark.asyncio
     async def test_returns_dog_judgment(self):
         """analyze() returns a valid DogJudgment."""
-        from cynic.dogs.base import DogJudgment
+        from cynic.cognition.neurons.base import DogJudgment
         dog = SageDog()
         cell = make_cell(CLEAN_CODE)
         j = await dog.analyze(cell)
@@ -332,7 +332,7 @@ class TestSageCompressorBidirectional:
 
     def test_set_compressor_stored(self):
         """set_compressor() injects compressor into SageDog."""
-        from cynic.perceive.compressor import ContextCompressor
+        from cynic.senses.compressor import ContextCompressor
         dog = SageDog()
         cc = ContextCompressor()
         dog.set_compressor(cc)
@@ -349,7 +349,7 @@ class TestSageCompressorBidirectional:
     @pytest.mark.asyncio
     async def test_high_qscore_boosts_similar_chunk(self):
         """High-quality judgment on text similar to a stored chunk boosts it."""
-        from cynic.perceive.compressor import ContextCompressor
+        from cynic.senses.compressor import ContextCompressor
         dog = SageDog()
         cc = ContextCompressor()
         dog.set_compressor(cc)
@@ -366,7 +366,7 @@ class TestSageCompressorBidirectional:
     @pytest.mark.asyncio
     async def test_low_qscore_does_not_signal(self):
         """Judgments below GROWL_MIN (38.2) don't signal the compressor."""
-        from cynic.perceive.compressor import ContextCompressor
+        from cynic.senses.compressor import ContextCompressor
         from unittest.mock import MagicMock
         dog = SageDog()
         mock_compressor = MagicMock()
@@ -379,7 +379,7 @@ class TestSageCompressorBidirectional:
     @pytest.mark.asyncio
     async def test_signal_attention_calls_boost(self):
         """_signal_attention() calls compressor.boost() for GROWL+ Q-scores."""
-        from cynic.perceive.compressor import ContextCompressor
+        from cynic.senses.compressor import ContextCompressor
         from unittest.mock import MagicMock
         dog = SageDog()
         mock_compressor = MagicMock()
@@ -403,12 +403,12 @@ class TestSageInOrchestrator:
     @pytest.fixture
     def orchestrator_with_sage(self):
         from cynic.core.axioms import AxiomArchitecture
-        from cynic.dogs.base import DogId
-        from cynic.dogs.cynic_dog import CynicDog
-        from cynic.dogs.guardian import GuardianDog
-        from cynic.dogs.analyst import AnalystDog
-        from cynic.dogs.janitor import JanitorDog
-        from cynic.judge.orchestrator import JudgeOrchestrator
+        from cynic.cognition.neurons.base import DogId
+        from cynic.cognition.neurons.cynic_dog import CynicDog
+        from cynic.cognition.neurons.guardian import GuardianDog
+        from cynic.cognition.neurons.analyst import AnalystDog
+        from cynic.cognition.neurons.janitor import JanitorDog
+        from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
 
         cynic_dog = CynicDog()
         sage_dog = SageDog()
@@ -443,12 +443,12 @@ class TestSageInOrchestrator:
     async def test_orchestrator_still_returns_valid_without_sage(self):
         """Orchestrator works fine without SAGE (backward compat)."""
         from cynic.core.axioms import AxiomArchitecture
-        from cynic.dogs.base import DogId
-        from cynic.dogs.cynic_dog import CynicDog
-        from cynic.dogs.guardian import GuardianDog
-        from cynic.dogs.analyst import AnalystDog
-        from cynic.dogs.janitor import JanitorDog
-        from cynic.judge.orchestrator import JudgeOrchestrator
+        from cynic.cognition.neurons.base import DogId
+        from cynic.cognition.neurons.cynic_dog import CynicDog
+        from cynic.cognition.neurons.guardian import GuardianDog
+        from cynic.cognition.neurons.analyst import AnalystDog
+        from cynic.cognition.neurons.janitor import JanitorDog
+        from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
         from cynic.core.event_bus import reset_all_buses
         reset_all_buses()
 

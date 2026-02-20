@@ -9,7 +9,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from cynic.core.phi import MAX_Q_SCORE
-from cynic.judge.probes import ProbeResult
+from cynic.cognition.cortex.probes import ProbeResult
 from cynic.benchmark.registry import BenchmarkRegistry
 
 
@@ -322,7 +322,7 @@ class TestOrchestratorIntegration:
 
     async def test_evolve_calls_record_when_wired(self):
         from unittest.mock import patch, AsyncMock as AM
-        from cynic.judge.orchestrator import JudgeOrchestrator
+        from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
         from cynic.core.judgment import Judgment
         from cynic.core.phi import PHI_INV_2
 
@@ -359,7 +359,7 @@ class TestOrchestratorIntegration:
 
     async def test_evolve_no_crash_if_registry_fails(self):
         """If record_evolve() raises, evolve() must still return summary."""
-        from cynic.judge.orchestrator import JudgeOrchestrator
+        from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
         from cynic.core.judgment import Judgment, Cell
         from cynic.core.phi import PHI_INV_2
         from cynic.core.axioms import verdict_from_q_score
@@ -388,7 +388,7 @@ class TestOrchestratorIntegration:
 
     async def test_evolve_skips_record_if_not_wired(self):
         """benchmark_registry=None (default) → no record call, no error."""
-        from cynic.judge.orchestrator import JudgeOrchestrator
+        from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
         from cynic.core.judgment import Judgment, Cell
         from cynic.core.phi import PHI_INV_2
         from cynic.core.axioms import verdict_from_q_score

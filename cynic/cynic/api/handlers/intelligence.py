@@ -14,16 +14,16 @@ from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.event_bus import Event, CoreEvent
 from cynic.core.phi import GROWL_MIN
 from cynic.core.judgment import Cell
-from cynic.perceive import checkpoint as _session_checkpoint
-from cynic.perceive.checkpoint import CHECKPOINT_EVERY
+from cynic.senses import checkpoint as _session_checkpoint
+from cynic.senses.checkpoint import CHECKPOINT_EVERY
 
 from cynic.api.handlers.base import HandlerGroup, KernelServices
 
 if TYPE_CHECKING:
-    from cynic.judge.orchestrator import JudgeOrchestrator
+    from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
     from cynic.scheduler import ConsciousnessRhythm
     from asyncpg import Pool
-    from cynic.perceive.compressor import ContextCompressor
+    from cynic.senses.compressor import ContextCompressor
 
 logger = logging.getLogger("cynic.api.handlers.intelligence")
 

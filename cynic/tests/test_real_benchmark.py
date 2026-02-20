@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from cynic.judge.real_benchmark import (
+from cynic.cognition.cortex.real_benchmark import (
     RealKernelTask,
     RealBenchmark,
     _EMPIRICAL_TRUE_REWARDS,
@@ -25,7 +25,7 @@ from cynic.judge.real_benchmark import (
     _N_PAIRS_REAL,
     _Q_SCALE,
 )
-from cynic.judge.qtable_benchmark import (
+from cynic.cognition.cortex.qtable_benchmark import (
     TD0Learner,
     QEntry,
     ConvergenceResult,
@@ -355,11 +355,11 @@ class TestPhiHypothesisReal:
 
     def test_real_vs_synthetic_n_pairs(self):
         """Real task has 5 pairs (F(5)), synthetic had 13 (F(7))."""
-        from cynic.judge.qtable_benchmark import _N_PAIRS
+        from cynic.cognition.cortex.qtable_benchmark import _N_PAIRS
         assert _N_PAIRS_REAL < _N_PAIRS
         assert _N_PAIRS_REAL == fibonacci(5)
 
     def test_real_sigma_smaller_than_synthetic(self):
         """Real sigma (0.012) is much smaller than synthetic (0.1)."""
-        from cynic.judge.qtable_benchmark import _SIGMA
+        from cynic.cognition.cortex.qtable_benchmark import _SIGMA
         assert _SIGMA_REAL < _SIGMA

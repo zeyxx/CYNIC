@@ -10,7 +10,7 @@ import asyncio
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 
-from cynic.act.universal import (
+from cynic.metabolism.universal import (
     UniversalActuator,
     BashActuator,
     GitReadActuator,

@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING
 from cynic.core.phi import fibonacci
 
 if TYPE_CHECKING:
-    from cynic.perceive.compressor import ContextCompressor
+    from cynic.senses.compressor import ContextCompressor
 
 logger = logging.getLogger("cynic.perceive.checkpoint")
 

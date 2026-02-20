@@ -17,7 +17,7 @@ import pytest
 from cynic.core.phi import MAX_Q_SCORE, PHI_INV, PHI_INV_2
 from cynic.core.judgment import Cell
 from cynic.core.consciousness import ConsciousnessLevel
-from cynic.dogs.base import DogId, LLMDog
+from cynic.cognition.neurons.base import DogId, LLMDog
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -81,29 +81,29 @@ class App:
 class TestScholarLLMUpgrade:
 
     def test_scholar_extends_llm_dog(self):
-        from cynic.dogs.scholar import ScholarDog
+        from cynic.cognition.neurons.scholar import ScholarDog
         assert issubclass(ScholarDog, LLMDog)
 
     def test_scholar_task_type(self):
-        from cynic.dogs.scholar import ScholarDog
+        from cynic.cognition.neurons.scholar import ScholarDog
         dog = ScholarDog()
         assert dog.task_type == "vector_rag"
 
     def test_scholar_uses_llm_true(self):
-        from cynic.dogs.scholar import ScholarDog
+        from cynic.cognition.neurons.scholar import ScholarDog
         dog = ScholarDog()
         assert dog.get_capabilities().uses_llm is True
 
     def test_scholar_has_set_llm_registry(self):
-        from cynic.dogs.scholar import ScholarDog
+        from cynic.cognition.neurons.scholar import ScholarDog
         dog = ScholarDog()
         assert hasattr(dog, "set_llm_registry")
 
     @pytest.mark.asyncio
     async def test_scholar_heuristic_path_no_llm(self):
         """Without LLM, heuristic path (TF-IDF) is used."""
-        from cynic.dogs.scholar import ScholarDog
-        from cynic.dogs.base import DogJudgment
+        from cynic.cognition.neurons.scholar import ScholarDog
+        from cynic.cognition.neurons.base import DogJudgment
         dog = ScholarDog()
         j = await dog.analyze(make_cell("def foo(): pass"))
         assert isinstance(j, DogJudgment)
@@ -114,8 +114,8 @@ class TestScholarLLMUpgrade:
     @pytest.mark.asyncio
     async def test_scholar_temporal_path_with_llm(self):
         """With LLM injected, temporal MCTS path is used."""
-        from cynic.dogs.scholar import ScholarDog
-        from cynic.dogs.base import DogJudgment
+        from cynic.cognition.neurons.scholar import ScholarDog
+        from cynic.cognition.neurons.base import DogJudgment
         dog = ScholarDog()
         dog.set_llm_registry(_mock_registry(45.0))
         j = await dog.analyze(make_cell(SAMPLE_CODE))
@@ -126,7 +126,7 @@ class TestScholarLLMUpgrade:
 
     @pytest.mark.asyncio
     async def test_scholar_temporal_confidence_bounded(self):
-        from cynic.dogs.scholar import ScholarDog
+        from cynic.cognition.neurons.scholar import ScholarDog
         dog = ScholarDog()
         dog.set_llm_registry(_mock_registry(50.0))
         j = await dog.analyze(make_cell(SAMPLE_CODE))
@@ -134,7 +134,7 @@ class TestScholarLLMUpgrade:
 
     @pytest.mark.asyncio
     async def test_scholar_temporal_evidence_has_path(self):
-        from cynic.dogs.scholar import ScholarDog
+        from cynic.cognition.neurons.scholar import ScholarDog
         dog = ScholarDog()
         dog.set_llm_registry(_mock_registry(40.0))
         j = await dog.analyze(make_cell(SAMPLE_CODE))
@@ -143,7 +143,7 @@ class TestScholarLLMUpgrade:
     @pytest.mark.asyncio
     async def test_scholar_buffer_context_included(self):
         """Buffer info is included in temporal content (dog exercises learn API)."""
-        from cynic.dogs.scholar import ScholarDog
+        from cynic.cognition.neurons.scholar import ScholarDog
         dog = ScholarDog()
         dog.learn("def prev(): pass", 45.0)  # Prime buffer
         dog.set_llm_registry(_mock_registry(50.0))
@@ -158,24 +158,24 @@ class TestScholarLLMUpgrade:
 class TestCartographerLLMUpgrade:
 
     def test_cartographer_extends_llm_dog(self):
-        from cynic.dogs.cartographer import CartographerDog
+        from cynic.cognition.neurons.cartographer import CartographerDog
         assert issubclass(CartographerDog, LLMDog)
 
     def test_cartographer_task_type(self):
-        from cynic.dogs.cartographer import CartographerDog
+        from cynic.cognition.neurons.cartographer import CartographerDog
         dog = CartographerDog()
         assert dog.task_type == "topology"
 
     def test_cartographer_uses_llm_true(self):
-        from cynic.dogs.cartographer import CartographerDog
+        from cynic.cognition.neurons.cartographer import CartographerDog
         dog = CartographerDog()
         assert dog.get_capabilities().uses_llm is True
 
     @pytest.mark.asyncio
     async def test_cartographer_heuristic_path_no_llm(self):
         """Without LLM, NetworkX heuristic path is used."""
-        from cynic.dogs.cartographer import CartographerDog
-        from cynic.dogs.base import DogJudgment
+        from cynic.cognition.neurons.cartographer import CartographerDog
+        from cynic.cognition.neurons.base import DogJudgment
         dog = CartographerDog()
         j = await dog.analyze(make_cell(SAMPLE_CODE))
         assert isinstance(j, DogJudgment)
@@ -186,8 +186,8 @@ class TestCartographerLLMUpgrade:
     @pytest.mark.asyncio
     async def test_cartographer_temporal_path_with_llm(self):
         """With LLM injected, temporal MCTS path is used."""
-        from cynic.dogs.cartographer import CartographerDog
-        from cynic.dogs.base import DogJudgment
+        from cynic.cognition.neurons.cartographer import CartographerDog
+        from cynic.cognition.neurons.base import DogJudgment
         dog = CartographerDog()
         dog.set_llm_registry(_mock_registry(50.0))
         j = await dog.analyze(make_cell(SAMPLE_CODE))
@@ -198,7 +198,7 @@ class TestCartographerLLMUpgrade:
 
     @pytest.mark.asyncio
     async def test_cartographer_temporal_evidence_has_path(self):
-        from cynic.dogs.cartographer import CartographerDog
+        from cynic.cognition.neurons.cartographer import CartographerDog
         dog = CartographerDog()
         dog.set_llm_registry(_mock_registry(45.0))
         j = await dog.analyze(make_cell(SAMPLE_CODE))
@@ -206,7 +206,7 @@ class TestCartographerLLMUpgrade:
 
     @pytest.mark.asyncio
     async def test_cartographer_temporal_confidence_in_range(self):
-        from cynic.dogs.cartographer import CartographerDog
+        from cynic.cognition.neurons.cartographer import CartographerDog
         dog = CartographerDog()
         dog.set_llm_registry(_mock_registry(50.0))
         j = await dog.analyze(make_cell(SAMPLE_CODE))
@@ -215,7 +215,7 @@ class TestCartographerLLMUpgrade:
     @pytest.mark.asyncio
     async def test_cartographer_temporal_no_code_fallback(self):
         """Non-code cell: content derived from cell metadata."""
-        from cynic.dogs.cartographer import CartographerDog
+        from cynic.cognition.neurons.cartographer import CartographerDog
         dog = CartographerDog()
         dog.set_llm_registry(_mock_registry(40.0))
         j = await dog.analyze(make_cell("", reality="SOCIAL"))
@@ -225,7 +225,7 @@ class TestCartographerLLMUpgrade:
     @pytest.mark.asyncio
     async def test_cartographer_heuristic_graphs_built_counter(self):
         """Heuristic path should increment graphs_built counter."""
-        from cynic.dogs.cartographer import CartographerDog
+        from cynic.cognition.neurons.cartographer import CartographerDog
         dog = CartographerDog()  # No LLM → heuristic
         await dog.analyze(make_cell(SAMPLE_CODE))
         assert dog._graphs_built == 1
@@ -233,7 +233,7 @@ class TestCartographerLLMUpgrade:
     @pytest.mark.asyncio
     async def test_cartographer_temporal_graphs_not_counted(self):
         """Temporal path skips NetworkX → graphs_built stays 0."""
-        from cynic.dogs.cartographer import CartographerDog
+        from cynic.cognition.neurons.cartographer import CartographerDog
         dog = CartographerDog()
         dog.set_llm_registry(_mock_registry(50.0))
         await dog.analyze(make_cell(SAMPLE_CODE))
@@ -247,24 +247,24 @@ class TestCartographerLLMUpgrade:
 class TestDeployerLLMUpgrade:
 
     def test_deployer_extends_llm_dog(self):
-        from cynic.dogs.deployer import DeployerDog
+        from cynic.cognition.neurons.deployer import DeployerDog
         assert issubclass(DeployerDog, LLMDog)
 
     def test_deployer_task_type(self):
-        from cynic.dogs.deployer import DeployerDog
+        from cynic.cognition.neurons.deployer import DeployerDog
         dog = DeployerDog()
         assert dog.task_type == "deployment"
 
     def test_deployer_uses_llm_true(self):
-        from cynic.dogs.deployer import DeployerDog
+        from cynic.cognition.neurons.deployer import DeployerDog
         dog = DeployerDog()
         assert dog.get_capabilities().uses_llm is True
 
     @pytest.mark.asyncio
     async def test_deployer_heuristic_path_no_llm(self):
         """Without LLM, regex+AST scan is used."""
-        from cynic.dogs.deployer import DeployerDog
-        from cynic.dogs.base import DogJudgment
+        from cynic.cognition.neurons.deployer import DeployerDog
+        from cynic.cognition.neurons.base import DogJudgment
         dog = DeployerDog()
         j = await dog.analyze(make_cell(SAMPLE_CODE))
         assert isinstance(j, DogJudgment)
@@ -275,8 +275,8 @@ class TestDeployerLLMUpgrade:
     @pytest.mark.asyncio
     async def test_deployer_temporal_path_with_llm(self):
         """With LLM injected, temporal MCTS path is used."""
-        from cynic.dogs.deployer import DeployerDog
-        from cynic.dogs.base import DogJudgment
+        from cynic.cognition.neurons.deployer import DeployerDog
+        from cynic.cognition.neurons.base import DogJudgment
         dog = DeployerDog()
         dog.set_llm_registry(_mock_registry(52.0))
         j = await dog.analyze(make_cell(SAMPLE_CODE))
@@ -287,7 +287,7 @@ class TestDeployerLLMUpgrade:
 
     @pytest.mark.asyncio
     async def test_deployer_temporal_evidence_has_path(self):
-        from cynic.dogs.deployer import DeployerDog
+        from cynic.cognition.neurons.deployer import DeployerDog
         dog = DeployerDog()
         dog.set_llm_registry(_mock_registry(50.0))
         j = await dog.analyze(make_cell(SAMPLE_CODE))
@@ -295,7 +295,7 @@ class TestDeployerLLMUpgrade:
 
     @pytest.mark.asyncio
     async def test_deployer_temporal_confidence_bounded(self):
-        from cynic.dogs.deployer import DeployerDog
+        from cynic.cognition.neurons.deployer import DeployerDog
         dog = DeployerDog()
         dog.set_llm_registry(_mock_registry(50.0))
         j = await dog.analyze(make_cell(SAMPLE_CODE))
@@ -304,7 +304,7 @@ class TestDeployerLLMUpgrade:
     @pytest.mark.asyncio
     async def test_deployer_heuristic_detects_debug_artifacts(self):
         """Heuristic path detects debug statements (no LLM needed)."""
-        from cynic.dogs.deployer import DeployerDog
+        from cynic.cognition.neurons.deployer import DeployerDog
         dog = DeployerDog()
         code_with_prints = "x = 1\n" + "print(x)\n" * 10  # > MAX_DEBUG_ARTIFACTS=5
         j = await dog.analyze(make_cell(code_with_prints))
@@ -313,7 +313,7 @@ class TestDeployerLLMUpgrade:
     @pytest.mark.asyncio
     async def test_deployer_temporal_no_code_fallback(self):
         """Non-code cell: content derived from cell metadata."""
-        from cynic.dogs.deployer import DeployerDog
+        from cynic.cognition.neurons.deployer import DeployerDog
         dog = DeployerDog()
         dog.set_llm_registry(_mock_registry(45.0))
         j = await dog.analyze(make_cell("", reality="SOLANA"))
@@ -323,7 +323,7 @@ class TestDeployerLLMUpgrade:
     @pytest.mark.asyncio
     async def test_deployer_heuristic_secrets_counter(self):
         """Heuristic path increments secrets counter."""
-        from cynic.dogs.deployer import DeployerDog
+        from cynic.cognition.neurons.deployer import DeployerDog
         dog = DeployerDog()  # No LLM → heuristic
         secret_code = 'password = "super_secret_password_123"\n'
         await dog.analyze(make_cell(secret_code))
@@ -332,7 +332,7 @@ class TestDeployerLLMUpgrade:
     @pytest.mark.asyncio
     async def test_deployer_temporal_secrets_not_counted(self):
         """Temporal path skips static scan → secrets_found stays 0."""
-        from cynic.dogs.deployer import DeployerDog
+        from cynic.cognition.neurons.deployer import DeployerDog
         dog = DeployerDog()
         dog.set_llm_registry(_mock_registry(50.0))
         secret_code = 'password = "super_secret_password_123"\n'
