@@ -48,6 +48,10 @@ from cynic.core.phi import (
     PHI_INV, PHI_INV_2, PHI_INV_3,
     WAG_MIN, GROWL_MIN, fibonacci,
 )
+from cynic.core.formulas import (
+    LOD_LEVEL0_LATENCY_MS, LOD_LEVEL1_LATENCY_MS,
+    LOD_LEVEL2_LATENCY_MS, LOD_LEVEL3_LATENCY_MS,
+)
 
 logger = logging.getLogger("cynic.cognition.cortex.lod")
 
@@ -56,10 +60,11 @@ _QUEUE_LOD1 = fibonacci(9)   # 34
 _QUEUE_LOD2 = fibonacci(11)  # 89
 _QUEUE_LOD3 = fibonacci(12)  # 144
 
-# Latency thresholds (ms)
-_LATENCY_LOD1 = 1_000.0    # 1 second
-_LATENCY_LOD2 = 2_850.0    # F(8)×21ms × 100 ≈ 2850ms (L1 MACRO target)
-_LATENCY_LOD3 = 5_000.0    # 5 seconds — critical
+# Latency thresholds (ms) imported from formulas.py
+_LATENCY_LOD0 = LOD_LEVEL0_LATENCY_MS    # 10ms
+_LATENCY_LOD1 = LOD_LEVEL1_LATENCY_MS    # 100ms
+_LATENCY_LOD2 = LOD_LEVEL2_LATENCY_MS    # 500ms (MACRO target)
+_LATENCY_LOD3 = LOD_LEVEL3_LATENCY_MS    # 2850ms (META target)
 
 # Error rate thresholds (φ-symmetric)
 _ERR_LOD1 = PHI_INV_2  # 0.382

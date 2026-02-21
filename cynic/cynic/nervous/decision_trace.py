@@ -44,10 +44,12 @@ else:
         """Polyfill for Python <3.11."""
         pass
 
+from cynic.core.formulas import DECISION_TRACE_CAP
+
 logger = logging.getLogger("cynic.nervous.decision_trace")
 
-# φ-derived rolling cap: F(10) = 55
-TRACE_CAP = 55
+# φ-derived rolling cap: F(10) = 55 (imported from formulas.py)
+TRACE_CAP = DECISION_TRACE_CAP
 
 
 class DogRole(StrEnum):

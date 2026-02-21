@@ -32,6 +32,8 @@ else:
         """Polyfill for Python <3.11."""
         pass
 
+from cynic.core.formulas import SERVICE_REGISTRY_JUDGMENT_CAP
+
 logger = logging.getLogger("cynic.nervous.service_registry")
 
 
@@ -210,9 +212,9 @@ class ServiceStateRegistry:
                 "metadata": metadata or {},
             })
 
-            # Apply rolling cap
-            if len(self._judgment_log) > 89:  # F(11)
-                self._judgment_log = self._judgment_log[-89:]
+            # Apply rolling cap (imported from formulas.py)
+            if len(self._judgment_log) > SERVICE_REGISTRY_JUDGMENT_CAP:
+                self._judgment_log = self._judgment_log[-SERVICE_REGISTRY_JUDGMENT_CAP:]
 
     async def record_metric(
         self,

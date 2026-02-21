@@ -33,6 +33,7 @@ from typing import Any, Optional
 
 
 from cynic.core.phi import PHI, PHI_INV, MAX_Q_SCORE, weighted_geometric_mean
+from cynic.core.formulas import LLM_TIMEOUT_SEC, LLM_DISCOVERY_TIMEOUT_SEC
 
 logger = logging.getLogger("cynic.llm.adapter")
 
@@ -157,11 +158,11 @@ class LLMAdapter(ABC):
         by _log_llm_call() for T20 LLMCallInterceptor observability.
         """
         try:
-            response = await asyncio.wait_for(self.complete(request), timeout=120.0)
+            response = await asyncio.wait_for(self.complete(request), timeout=LLM_TIMEOUT_SEC)
         except TimeoutError:
             response = LLMResponse(
                 content="", model=self.model, provider=self.provider,
-                error="timeout after 120s",
+                error=f"timeout after {LLM_TIMEOUT_SEC}s",
             )
         except Exception as exc:
             response = LLMResponse(
@@ -312,7 +313,7 @@ class OllamaAdapter(LLMAdapter):
     async def check_available(self) -> bool:
         try:
             client = self.pool.get_client(self.base_url)
-            await asyncio.wait_for(client.list(), timeout=5.0)
+            await asyncio.wait_for(client.list(), timeout=LLM_DISCOVERY_TIMEOUT_SEC)
             return True
         except Exception:
             return False

@@ -21,14 +21,15 @@ import time
 from typing import Any
 
 from cynic.chat.tools import ToolCall, ToolResult, DANGEROUS_TOOLS
+from cynic.core.formulas import BASH_OUTPUT_CAP, READ_FILE_CAP, GLOB_MATCH_CAP, GREP_OUTPUT_CAP
 
 logger = logging.getLogger("cynic.chat.executor")
 
-# Output caps (prevent LLM context overflow)
-_BASH_CAP = 8192
-_READ_CAP = 16384
-_GLOB_CAP = 4096
-_GREP_CAP = 4096
+# Output caps imported from formulas.py (centralized constants)
+_BASH_CAP = BASH_OUTPUT_CAP
+_READ_CAP = READ_FILE_CAP
+_GLOB_CAP = GLOB_MATCH_CAP
+_GREP_CAP = GREP_OUTPUT_CAP
 
 
 class ToolExecutor:

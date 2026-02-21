@@ -48,12 +48,12 @@ from typing import Any
 
 from cynic.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
 from cynic.core.events_schema import ActionProposedPayload
-from cynic.core.phi import fibonacci
+from cynic.core.formulas import ACT_LOG_CAP
 
 logger = logging.getLogger("cynic.cognition.cortex.action_proposer")
 
 _QUEUE_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "pending_actions.json")
-_MAX_QUEUE  = fibonacci(11)  # 89 — BURN axiom: rolling window
+_MAX_QUEUE  = ACT_LOG_CAP  # 89 — BURN axiom: rolling window (imported from formulas.py)
 
 # Realities that produce code-level actions (INVESTIGATE/REFACTOR)
 _CODE_REALITIES = frozenset({"CODE", "CYNIC"})

@@ -44,10 +44,12 @@ else:
         """Polyfill for Python <3.11."""
         pass
 
+from cynic.core.formulas import EVENT_JOURNAL_CAP
+
 logger = logging.getLogger("cynic.nervous.event_journal")
 
-# φ-derived rolling cap: F(11) = 89
-JOURNAL_CAP = 89
+# φ-derived rolling cap: F(11) = 89 (imported from formulas.py)
+JOURNAL_CAP = EVENT_JOURNAL_CAP
 
 
 class EventCategory(StrEnum):

@@ -42,10 +42,12 @@ else:
         """Polyfill for Python <3.11."""
         pass
 
+from cynic.core.formulas import LOOP_CLOSURE_CAP
+
 logger = logging.getLogger("cynic.nervous.loop_closure")
 
-# φ-derived rolling cap: F(9) = 34
-CLOSURE_CAP = 34
+# φ-derived rolling cap: F(9) = 34 (imported from formulas.py)
+CLOSURE_CAP = LOOP_CLOSURE_CAP
 
 # Timeout thresholds (milliseconds)
 STALL_THRESHOLD_MS = 5000  # 5 seconds = stalled

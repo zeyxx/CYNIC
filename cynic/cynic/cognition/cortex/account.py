@@ -30,6 +30,7 @@ from typing import Any, Optional
 from cynic.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
 from cynic.core.events_schema import BudgetExhaustedPayload, BudgetWarningPayload
 from cynic.core.phi import PHI_INV_2, MAX_Q_SCORE
+from cynic.core.formulas import COST_EFFICIENCY_CAP_USD
 
 logger = logging.getLogger("cynic.cognition.cortex.account")
 
@@ -40,8 +41,8 @@ _WARNING_RATIO: float = PHI_INV_2            # 0.382
 _DEFAULT_SESSION_BUDGET_USD: float = 10.0
 
 # RUN score calibration: cost_per_q ($/Q-point) → RUN in [0, 100]
-# cost=0 (free Ollama) → 100. cap=$0.02/Q-pt → 0.
-_COST_EFFICIENCY_CAP: float = 0.02          # $/Q-point at which RUN → 0
+# Imported from cynic.core.formulas (centralized, documented)
+_COST_EFFICIENCY_CAP: float = COST_EFFICIENCY_CAP_USD
 
 
 class AccountAgent:

@@ -42,6 +42,9 @@ from cynic.core.phi import (
     WAG_MIN, GROWL_MIN, MAX_Q_SCORE,
     fibonacci, PHI_INV,
 )
+from cynic.core.formulas import (
+    AXIOM_MATURITY_WINDOW_SIZE, SIGNAL_TTL_SEC,
+)
 
 logger = logging.getLogger("cynic.cognition.cortex.axiom_monitor")
 
@@ -55,11 +58,11 @@ EMERGENT_AXIOMS = frozenset({
 # A6-A9 subset: all must be active to trigger A11 TRANSCENDENCE
 _CORE_EMERGENT = frozenset({"AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY"})
 
-# Signal window: F(9)=34 signals for full maturity
-MATURITY_WINDOW: int = fibonacci(9)   # 34
+# Signal window: F(9)=34 signals for full maturity (imported from formulas.py)
+MATURITY_WINDOW: int = AXIOM_MATURITY_WINDOW_SIZE   # 34
 
-# Signals per time window for natural decay (F(8)=21 seconds)
-SIGNAL_TTL_S: float = float(fibonacci(8) * 60)  # 21 minutes — signals expire
+# Signals per time window for natural decay — signals expire (imported from formulas.py)
+SIGNAL_TTL_S: float = SIGNAL_TTL_SEC  # 21 minutes (1260 seconds)
 
 # Axiom state thresholds
 _STATE_DORMANT  = "DORMANT"   # maturity < GROWL_MIN
