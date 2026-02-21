@@ -443,6 +443,42 @@ class ConsciousState:
         except Exception as e:
             logger.error("Failed to load ConsciousState: %s", e)
 
+    async def sync_checkpoint(self) -> None:
+        """
+        SYNC checkpoint: flush all in-memory state to disk atomically.
+
+        Used after critical operations (POST /judge) to ensure
+        data survives process crash. Writes atomically using temp → rename pattern.
+
+        Raises:
+        - OSError: if checkpoint write fails
+        """
+        import os
+        import time
+        import tempfile
+
+        try:
+            data = await self.to_dict()
+            temp_fd, temp_path = tempfile.mkstemp(
+                dir=STATE_FILE.parent,
+                prefix=".conscious_state_tmp_",
+                suffix=".json",
+            )
+            try:
+                with os.fdopen(temp_fd, "w", encoding="utf-8") as fh:
+                    json.dump(data, fh, indent=2)
+                os.replace(temp_path, STATE_FILE)
+                logger.info("ConsciousState checkpoint synced: %s", STATE_FILE)
+            except Exception:
+                try:
+                    os.unlink(temp_path)
+                except:
+                    pass
+                raise
+        except Exception as e:
+            logger.error("ConsciousState sync checkpoint FAILED: %s", e)
+            raise
+
 
 # Singleton instance
 _conscious_state: Optional[ConsciousState] = None
