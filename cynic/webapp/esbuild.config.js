@@ -10,6 +10,12 @@ if (!fs.existsSync('./dist')) {
   fs.mkdirSync('./dist', { recursive: true });
 }
 
+// Copy public/index.html to dist/index.html
+if (fs.existsSync('./public/index.html')) {
+  fs.copyFileSync('./public/index.html', './dist/index.html');
+  console.log('Copied public/index.html to dist/');
+}
+
 const config = {
   entryPoints: ['src/main.ts'],
   bundle: true,
