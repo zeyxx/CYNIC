@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from fastapi import APIRouter, HTTPException, Depends
 
-from cynic.api.state import CynicOrganism, get_state
+from cynic.api.state import CynicOrganism, get_app_container, AppContainer
 from cynic.nervous import EventCategory
 from typing import Optional
 
@@ -27,11 +27,11 @@ router = APIRouter(prefix="/nervous", tags=["nervous"])
 @router.get("/journal/recent")
 async def get_recent_events(
     limit: int = 10,
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get last N events from the journal."""
     try:
-        events = await state.event_journal.recent(limit=limit)
+        events = await container.organism.event_journal.recent(limit=limit)
         return {
             "events": [e.to_dict() for e in events],
             "count": len(events),
@@ -45,11 +45,11 @@ async def get_recent_events(
 async def get_events_by_type(
     event_type: str,
     limit: int = 50,
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get events of a specific type."""
     try:
-        events = await state.event_journal.filter_by_type(event_type, limit=limit)
+        events = await container.organism.event_journal.filter_by_type(event_type, limit=limit)
         return {
             "event_type": event_type,
             "events": [e.to_dict() for e in events],
@@ -64,11 +64,11 @@ async def get_events_by_type(
 async def get_events_by_source(
     source: str,
     limit: int = 50,
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get events from a specific component."""
     try:
-        events = await state.event_journal.filter_by_source(source, limit=limit)
+        events = await container.organism.event_journal.filter_by_source(source, limit=limit)
         return {
             "source": source,
             "events": [e.to_dict() for e in events],
@@ -83,7 +83,7 @@ async def get_events_by_source(
 async def get_events_by_category(
     category: str,
     limit: int = 50,
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get events in a category (phase)."""
     try:
@@ -96,7 +96,7 @@ async def get_events_by_category(
                 detail=f"Invalid category. Valid: {[c.value for c in EventCategory]}"
             )
 
-        events = await state.event_journal.filter_by_category(cat, limit=limit)
+        events = await container.organism.event_journal.filter_by_category(cat, limit=limit)
         return {
             "category": category,
             "events": [e.to_dict() for e in events],
@@ -113,14 +113,14 @@ async def get_events_by_category(
 async def get_events_in_time_range(
     start_ms: float,
     end_ms: float,
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get events within time window [start_ms, end_ms]."""
     try:
         if start_ms > end_ms:
             raise HTTPException(status_code=400, detail="start_ms must be <= end_ms")
 
-        events = await state.event_journal.time_range(start_ms, end_ms)
+        events = await container.organism.event_journal.time_range(start_ms, end_ms)
         return {
             "start_ms": start_ms,
             "end_ms": end_ms,
@@ -138,14 +138,14 @@ async def get_events_in_time_range(
 async def get_causality_chain(
     event_id: str,
     direction: str = "down",
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Trace causality chain (up=causes, down=effects)."""
     try:
         if direction not in ["up", "down"]:
             raise HTTPException(status_code=400, detail="direction must be 'up' or 'down'")
 
-        chain = await state.event_journal.causality_chain(event_id, direction=direction)
+        chain = await container.organism.event_journal.causality_chain(event_id, direction=direction)
         return {
             "event_id": event_id,
             "direction": direction,
@@ -162,7 +162,7 @@ async def get_causality_chain(
 @router.get("/journal/errors")
 async def get_recent_errors(
     since_ms: Optional[float] = None,
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get error events since timestamp."""
     try:
@@ -171,7 +171,7 @@ async def get_recent_errors(
             # Default: last hour
             since_ms = (time.time() - 3600) * 1000.0
 
-        errors = await state.event_journal.errors_since(since_ms)
+        errors = await container.organism.event_journal.errors_since(since_ms)
         return {
             "since_ms": since_ms,
             "errors": [e.to_dict() for e in errors],
@@ -184,11 +184,11 @@ async def get_recent_errors(
 
 @router.get("/journal/stats")
 async def get_journal_stats(
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get journal statistics."""
     try:
-        stats = await state.event_journal.stats()
+        stats = await container.organism.event_journal.stats()
         return {"stats": stats}
     except Exception as e:
         logger.error(f"Error getting journal stats: {e}")
@@ -197,11 +197,11 @@ async def get_journal_stats(
 
 @router.get("/journal/snapshot")
 async def get_journal_snapshot(
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get complete journal state (for debugging)."""
     try:
-        snapshot = await state.event_journal.snapshot()
+        snapshot = await container.organism.event_journal.snapshot()
         return snapshot
     except Exception as e:
         logger.error(f"Error getting journal snapshot: {e}")
@@ -210,11 +210,11 @@ async def get_journal_snapshot(
 
 @router.post("/journal/clear")
 async def clear_journal(
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Clear the event journal (testing only - consider adding auth gate)."""
     try:
-        await state.event_journal.clear()
+        await container.organism.event_journal.clear()
         logger.warning("Event journal cleared by API")
         return {"message": "Event journal cleared"}
     except Exception as e:
@@ -230,11 +230,11 @@ async def clear_journal(
 @router.get("/trace/recent")
 async def get_recent_traces(
     limit: int = 10,
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get last N decision traces."""
     try:
-        traces = await state.decision_tracer.recent_traces(limit=limit)
+        traces = await container.organism.decision_tracer.recent_traces(limit=limit)
         return {
             "traces": [t.to_dict() for t in traces],
             "count": len(traces),
@@ -247,11 +247,11 @@ async def get_recent_traces(
 @router.get("/trace/{trace_id}")
 async def get_trace(
     trace_id: str,
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get a specific decision trace by ID."""
     try:
-        trace = await state.decision_tracer.get_trace(trace_id)
+        trace = await container.organism.decision_tracer.get_trace(trace_id)
         if not trace:
             raise HTTPException(status_code=404, detail=f"Trace {trace_id} not found")
         return {"trace": trace.to_dict()}
@@ -265,11 +265,11 @@ async def get_trace(
 @router.get("/trace/judgment/{judgment_id}")
 async def get_trace_by_judgment(
     judgment_id: str,
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get decision trace for a judgment."""
     try:
-        trace = await state.decision_tracer.get_trace_by_judgment(judgment_id)
+        trace = await container.organism.decision_tracer.get_trace_by_judgment(judgment_id)
         if not trace:
             raise HTTPException(
                 status_code=404,
@@ -287,11 +287,11 @@ async def get_trace_by_judgment(
 async def get_traces_by_verdict(
     verdict: str,
     limit: int = 50,
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get traces filtered by final verdict."""
     try:
-        traces = await state.decision_tracer.traces_by_verdict(verdict, limit=limit)
+        traces = await container.organism.decision_tracer.traces_by_verdict(verdict, limit=limit)
         return {
             "verdict": verdict,
             "traces": [t.to_dict() for t in traces],
@@ -306,11 +306,11 @@ async def get_traces_by_verdict(
 async def get_traces_by_component(
     component: str,
     limit: int = 50,
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get traces that involved a component."""
     try:
-        traces = await state.decision_tracer.traces_by_component(
+        traces = await container.organism.decision_tracer.traces_by_component(
             component, limit=limit
         )
         return {
@@ -325,11 +325,11 @@ async def get_traces_by_component(
 
 @router.get("/trace/stats")
 async def get_trace_stats(
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get trace statistics."""
     try:
-        stats = await state.decision_tracer.stats()
+        stats = await container.organism.decision_tracer.stats()
         return {"stats": stats}
     except Exception as e:
         logger.error(f"Error getting trace stats: {e}")
@@ -338,11 +338,11 @@ async def get_trace_stats(
 
 @router.get("/trace/snapshot")
 async def get_trace_snapshot(
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get complete tracer state (for debugging)."""
     try:
-        snapshot = await state.decision_tracer.snapshot()
+        snapshot = await container.organism.decision_tracer.snapshot()
         return snapshot
     except Exception as e:
         logger.error(f"Error getting trace snapshot: {e}")
@@ -351,11 +351,11 @@ async def get_trace_snapshot(
 
 @router.post("/trace/clear")
 async def clear_traces(
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Clear all traces (testing only)."""
     try:
-        await state.decision_tracer.clear()
+        await container.organism.decision_tracer.clear()
         logger.warning("Decision traces cleared by API")
         return {"message": "Decision traces cleared"}
     except Exception as e:
@@ -371,11 +371,11 @@ async def clear_traces(
 @router.get("/closure/open")
 async def get_open_cycles(
     max_age_ms: Optional[float] = None,
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get cycles currently in progress."""
     try:
-        cycles = await state.loop_closure_validator.get_open_cycles(max_age_ms)
+        cycles = await container.organism.loop_closure_validator.get_open_cycles(max_age_ms)
         return {
             "open_cycles": [c.to_dict() for c in cycles],
             "count": len(cycles),
@@ -388,11 +388,11 @@ async def get_open_cycles(
 @router.get("/closure/stalled")
 async def get_stalled_phases(
     threshold_ms: float = 5000,
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get cycles with stalled phases."""
     try:
-        stalled = await state.loop_closure_validator.get_stalled_phases(threshold_ms)
+        stalled = await container.organism.loop_closure_validator.get_stalled_phases(threshold_ms)
         return {
             "threshold_ms": threshold_ms,
             "stalled_cycles": [c.to_dict() for c in stalled],
@@ -405,11 +405,11 @@ async def get_stalled_phases(
 
 @router.get("/closure/orphans")
 async def get_orphan_judgments(
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get judgments never acted upon."""
     try:
-        orphans = await state.loop_closure_validator.get_orphan_judgments()
+        orphans = await container.organism.loop_closure_validator.get_orphan_judgments()
         return {
             "orphan_judgments": [c.to_dict() for c in orphans],
             "count": len(orphans),
@@ -423,11 +423,11 @@ async def get_orphan_judgments(
 async def get_recent_closures(
     limit: int = 10,
     complete_only: bool = False,
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get recent cycle closures."""
     try:
-        closures = await state.loop_closure_validator.recent_closures(
+        closures = await container.organism.loop_closure_validator.recent_closures(
             limit=limit,
             include_complete_only=complete_only,
         )
@@ -443,11 +443,11 @@ async def get_recent_closures(
 
 @router.get("/closure/stats")
 async def get_closure_stats(
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get loop closure statistics."""
     try:
-        stats = await state.loop_closure_validator.stats()
+        stats = await container.organism.loop_closure_validator.stats()
         return {"stats": stats}
     except Exception as e:
         logger.error(f"Error getting closure stats: {e}")
@@ -456,11 +456,11 @@ async def get_closure_stats(
 
 @router.get("/closure/snapshot")
 async def get_closure_snapshot(
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get complete loop closure state."""
     try:
-        snapshot = await state.loop_closure_validator.snapshot()
+        snapshot = await container.organism.loop_closure_validator.snapshot()
         return snapshot
     except Exception as e:
         logger.error(f"Error getting closure snapshot: {e}")
@@ -469,11 +469,11 @@ async def get_closure_snapshot(
 
 @router.post("/closure/clear")
 async def clear_closures(
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Clear all closure records (testing only)."""
     try:
-        await state.loop_closure_validator.clear()
+        await container.organism.loop_closure_validator.clear()
         logger.warning("Loop closure records cleared by API")
         return {"message": "Loop closure records cleared"}
     except Exception as e:

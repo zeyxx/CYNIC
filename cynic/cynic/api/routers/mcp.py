@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 from fastapi import APIRouter, HTTPException, Depends, Query
 
-from cynic.api.state import CynicOrganism, get_state
+from cynic.api.state import CynicOrganism, get_app_container, AppContainer
 from cynic.mcp.resources import create_mcp_resources
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ router = APIRouter(prefix="/mcp", tags=["mcp"])
 @router.get("/resource")
 async def get_mcp_resource(
     uri: str = Query(..., description="MCP resource URI"),
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """
     Get MCP resource by URI.
@@ -46,7 +46,7 @@ async def get_mcp_resource(
                 detail="URI must start with /mcp/",
             )
 
-        manager = create_mcp_resources(state)
+        manager = create_mcp_resources(container.organism)
         result = await manager.get_resource(uri)
 
         if "error" in result:
@@ -66,11 +66,11 @@ async def get_similar_judgments(
     q_score: float = Query(75.0, description="Target Q-Score"),
     verdict: str = Query("WAG", description="Target verdict (BARK/GROWL/WAG/HOWL)"),
     limit: int = Query(10, ge=1, le=50, description="Max results"),
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Find judgments similar to a given pattern."""
     try:
-        manager = create_mcp_resources(state)
+        manager = create_mcp_resources(container.organism)
         return await manager.get_similar_judgments(q_score, verdict, limit)
     except Exception as e:
         logger.error(f"Error fetching similar judgments: {e}")
@@ -80,11 +80,11 @@ async def get_similar_judgments(
 @router.get("/judgment/{judgment_id}/reasoning")
 async def get_judgment_reasoning(
     judgment_id: str,
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get full reasoning for a judgment (DAG + dog votes + reasoning)."""
     try:
-        manager = create_mcp_resources(state)
+        manager = create_mcp_resources(container.organism)
         result = await manager.get_judgment_reasoning(judgment_id)
 
         if "error" in result:
@@ -100,11 +100,11 @@ async def get_judgment_reasoning(
 
 @router.get("/loops/status")
 async def get_loop_status(
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Check if CYNIC's feedback loops are healthy (is it stuck?)."""
     try:
-        manager = create_mcp_resources(state)
+        manager = create_mcp_resources(container.organism)
         return await manager.get_loop_status()
     except Exception as e:
         logger.error(f"Error checking loop status: {e}")
@@ -114,11 +114,11 @@ async def get_loop_status(
 @router.get("/learning/patterns")
 async def get_learned_patterns(
     limit: int = Query(20, ge=1, le=100, description="Analysis window size"),
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get patterns CYNIC has learned (verdict distribution, dog performance, etc)."""
     try:
-        manager = create_mcp_resources(state)
+        manager = create_mcp_resources(container.organism)
         return await manager.get_learned_patterns(limit)
     except Exception as e:
         logger.error(f"Error fetching learned patterns: {e}")
@@ -129,11 +129,11 @@ async def get_learned_patterns(
 async def get_recent_events(
     since_ms: float = Query(None, description="Only events since this timestamp"),
     limit: int = Query(50, ge=1, le=500, description="Max events to return"),
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get recent event stream for live monitoring."""
     try:
-        manager = create_mcp_resources(state)
+        manager = create_mcp_resources(container.organism)
         return await manager.get_event_stream(since_ms, limit)
     except Exception as e:
         logger.error(f"Error fetching recent events: {e}")
@@ -143,11 +143,11 @@ async def get_recent_events(
 @router.get("/hypergraph/recent")
 async def get_hypergraph_edges(
     limit: int = Query(50, ge=1, le=500, description="Max hyper-edges to return"),
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Get recent 7-dimensional hyper-edges linking perception->cognition->action."""
     try:
-        manager = create_mcp_resources(state)
+        manager = create_mcp_resources(container.organism)
         return await manager.get_hypergraph_edges(limit)
     except Exception as e:
         logger.error(f"Error fetching hypergraph edges: {e}")
@@ -156,11 +156,11 @@ async def get_hypergraph_edges(
 
 @router.get("/health")
 async def mcp_health(
-    state: CynicOrganism = Depends(get_state),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict:
     """Check MCP bridge health."""
     try:
-        manager = create_mcp_resources(state)
+        manager = create_mcp_resources(container.organism)
         loop_status = await manager.get_loop_status()
         return {
             "status": "healthy",
