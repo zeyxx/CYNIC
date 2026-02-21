@@ -6,6 +6,8 @@
 // Import API clients to make them available globally
 import { apiClient } from './api/client';
 import { wsClient } from './api/ws';
+import { loadSchema, clearCache } from './util/schema-loader';
+import { store } from './state/store';
 
 // Export for global access in browser console
 declare global {
@@ -13,6 +15,9 @@ declare global {
     CYNIC: {
       api: typeof apiClient;
       ws: typeof wsClient;
+      store: typeof store;
+      loadSchema: typeof loadSchema;
+      clearSchemaCache: typeof clearCache;
     };
   }
 }
@@ -20,13 +25,28 @@ declare global {
 window.CYNIC = {
   api: apiClient,
   ws: wsClient,
+  store,
+  loadSchema,
+  clearSchemaCache: clearCache,
 };
 
 console.log('*sniff* CYNIC Webapp initialized');
 
 // Initialize the application
-function initializeApp(): void {
+async function initializeApp(): Promise<void> {
   console.log('Initializing CYNIC control panel...');
+
+  // Load schema and populate store
+  try {
+    const schema = await loadSchema();
+    store.setSchema(schema);
+    console.log('*sniff* Schema loaded into store');
+  } catch (error) {
+    console.error(
+      'Failed to load schema:',
+      error instanceof Error ? error.message : String(error)
+    );
+  }
 
   // Set up uptime counter
   const startTime = Date.now();
