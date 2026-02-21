@@ -48,9 +48,11 @@ async function initializeApp(): Promise<void> {
     );
   }
 
-  // Set up uptime counter
+  // Set up uptime counter with cleanup
   const startTime = Date.now();
-  setInterval(() => {
+  let uptimeInterval: ReturnType<typeof setInterval>;
+
+  uptimeInterval = setInterval(() => {
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
     const hours = Math.floor(elapsed / 3600);
     const minutes = Math.floor((elapsed % 3600) / 60);
@@ -63,13 +65,18 @@ async function initializeApp(): Promise<void> {
     }
   }, 1000);
 
-  // Initialize command handlers
-  const commands = document.querySelectorAll('.command-item');
-  commands.forEach((cmd, index) => {
-    cmd.addEventListener('click', () => {
-      const title = (cmd as HTMLElement).querySelector('strong')?.textContent || 'Unknown';
+  // Clean up interval on page unload
+  window.addEventListener('beforeunload', () => {
+    clearInterval(uptimeInterval);
+  });
+
+  // Initialize command handlers using event delegation
+  document.addEventListener('click', (e) => {
+    const cmd = (e.target as HTMLElement).closest('.command-item');
+    if (cmd) {
+      const title = cmd.querySelector('strong')?.textContent || 'Unknown';
       handleCommand(title);
-    });
+    }
   });
 
   // Set initial stats
