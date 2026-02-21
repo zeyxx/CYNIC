@@ -374,6 +374,29 @@ class ConsciousState:
                     return j
             return None
 
+    async def record_pending_judgment(self, judgment_id: str) -> JudgmentSnapshot:
+        """Create a PENDING judgment placeholder (Phase 3: event-driven API).
+
+        Called immediately after POST /judge emits an event, so clients can
+        query the judgment_id and see PENDING status before async processing.
+
+        When the real judgment completes, _on_judgment_created overwrites this.
+        """
+        async with self._state_lock:
+            snapshot = JudgmentSnapshot(
+                judgment_id=judgment_id,
+                timestamp=datetime.now().timestamp(),
+                q_score=0.0,
+                verdict="PENDING",
+                confidence=0.0,
+                dog_votes={},
+                source="api",
+            )
+            self._recent_judgments.append(snapshot)
+            if len(self._recent_judgments) > 89:
+                self._recent_judgments.pop(0)
+            return snapshot
+
     async def get_axiom(self, axiom_id: str) -> Optional[AxiomStatus]:
         """Get status of a single axiom."""
         async with self._state_lock:

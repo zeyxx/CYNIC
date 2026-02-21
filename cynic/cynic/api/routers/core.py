@@ -250,6 +250,10 @@ async def judge(req: JudgeRequest, container: AppContainer = Depends(get_app_con
     await get_core_bus().emit(judgment_event)
     logger.info("Emitted JUDGMENT_REQUESTED: %s", judgment_event.event_id)
 
+    # Record PENDING placeholder in ConsciousState so GET /judge/{id} works immediately
+    judgment_id = judgment_event.event_id
+    await state.conscious_state.record_pending_judgment(judgment_id)
+
     # Phase 0: Sync checkpoint — ensure request is persisted before returning
     # (even if judgment is still processing asynchronously)
     try:
@@ -260,7 +264,7 @@ async def judge(req: JudgeRequest, container: AppContainer = Depends(get_app_con
 
     # Return immediately with processing status
     return JudgeResponse(
-        judgment_id=judgment_event.event_id,
+        judgment_id=judgment_id,
         q_score=0.0,  # Placeholder — not yet judged
         verdict="PENDING",  # NEW: indicate processing status
         confidence=0.0,
@@ -360,6 +364,10 @@ async def perceive(req: PerceiveRequest, container: AppContainer = Depends(get_a
     await get_core_bus().emit(judgment_event)
     logger.info("Emitted JUDGMENT_REQUESTED (perceive): %s", judgment_event.event_id)
 
+    # Record PENDING placeholder in ConsciousState so GET /perceive/{id} works immediately
+    judgment_id = judgment_event.event_id
+    await state.conscious_state.record_pending_judgment(judgment_id)
+
     # Phase 0: Sync checkpoint — ensure perception is persisted before returning
     try:
         await state.conscious_state.sync_checkpoint()
@@ -369,7 +377,7 @@ async def perceive(req: PerceiveRequest, container: AppContainer = Depends(get_a
 
     # Return immediately with processing status
     j_resp = JudgeResponse(
-        judgment_id=judgment_event.event_id,
+        judgment_id=judgment_id,
         q_score=0.0,  # Placeholder — not yet judged
         verdict="PENDING",  # NEW: indicate processing status
         confidence=0.0,
@@ -388,7 +396,7 @@ async def perceive(req: PerceiveRequest, container: AppContainer = Depends(get_a
         source=req.source,
         reality=req.reality,
         judgment=j_resp,
-        message=f"Perception judged (event queued): {judgment_event.event_id}",
+        message=f"Perception judged (event queued): {judgment_id}",
     )
 
 
