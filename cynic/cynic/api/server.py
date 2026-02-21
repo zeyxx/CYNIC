@@ -52,13 +52,7 @@ from cynic.api.state import (
     set_app_container, get_app_container, AppContainer,
 )
 
-from cynic.api.routers.core import router_core
-from cynic.api.routers.actions import router_actions
-from cynic.api.routers.health import router_health
-from cynic.api.routers.sdk import router_sdk, _sdk_sessions
-from cynic.api.routers.act import router_act
-from cynic.api.routers.ws import router_ws
-from cynic.api.routers.topology import router_topology
+from cynic.api.routers.sdk import _sdk_sessions
 
 logger = logging.getLogger("cynic.api.server")
 
