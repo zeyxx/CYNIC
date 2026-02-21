@@ -87,6 +87,7 @@ from cynic.core.topology import (
     ChangeAnalyzer,
 )
 from cynic.core.convergence import ConvergenceValidator
+from cynic.mcp.service import MCPBridge
 from cynic.organism import ConsciousState, get_conscious_state
 from cynic.organism.state_manager import OrganismState, StateLayer, StateSnapshot
 
@@ -133,7 +134,7 @@ class MetabolicCore:
 
 @dataclass
 class SensoryCore:
-    """NERVOUS SYSTEM — Compression, registry, world model, topology."""
+    """NERVOUS SYSTEM — Compression, registry, world model, topology, MCP bridge."""
     context_compressor: ContextCompressor = field(default_factory=ContextCompressor)
     service_registry: ServiceStateRegistry = field(default_factory=ServiceStateRegistry)
     event_journal: EventJournal = field(default_factory=EventJournal)
@@ -147,6 +148,7 @@ class SensoryCore:
     change_tracker: Optional[ChangeTracker] = None
     change_analyzer: Optional[ChangeAnalyzer] = None
     convergence_validator: ConvergenceValidator = field(default_factory=ConvergenceValidator)
+    mcp_bridge: MCPBridge = field(default_factory=lambda: MCPBridge(bus_name="CORE"))
 
 
 @dataclass
@@ -326,6 +328,10 @@ class Organism:
         return self.senses.convergence_validator
 
     @property
+    def mcp_bridge(self) -> MCPBridge:
+        return self.senses.mcp_bridge
+
+    @property
     def decision_validator(self) -> Optional[DecisionValidator]:
         return self.cognition.decision_validator
 
@@ -430,6 +436,9 @@ class _OrganismAwakener:
         self.human_gate:          Optional[HumanApprovalGate] = None
         self.audit_trail:         Optional[TransparencyAuditTrail] = None
         self.decision_validator:  Optional[DecisionValidator] = None
+
+        # ── MCP Bridge (Sensory integration) ────────────────────────────────
+        self.mcp_bridge: Optional[MCPBridge] = None
 
         # ── Topology System (L0: Real-time architecture awareness) ──────────
         self.source_watcher:   Optional[Any] = None  # SourceWatcher
@@ -644,6 +653,10 @@ class _OrganismAwakener:
         # never instantiated (0% LIVE). Now LIVE.
         self.world_model = WorldModelUpdater()
         self.world_model.start()
+
+        # ── MCPBridge (Sensory integration) ────────────────────────────────
+        self.mcp_bridge = MCPBridge(bus_name="CORE")
+        logger.info("MCPBridge initialized (WebSocket /ws/mcp)")
 
         # ── Topology System (L0) — Real-time architecture consciousness ────
         # Layer 1: Monitor source files for changes
@@ -877,6 +890,7 @@ class _OrganismAwakener:
             change_tracker=self.change_tracker,
             change_analyzer=self.change_analyzer,
             convergence_validator=self.convergence_validator,
+            mcp_bridge=self.mcp_bridge,
         )
         memory = MemoryCore(
             kernel_mirror=KernelMirror(),
