@@ -17,7 +17,14 @@ import time
 from fastapi import APIRouter, Depends, HTTPException
 
 from cynic.api.state import get_app_container, AppContainer
-from cynic.api.models.organism_state import StateSnapshotResponse
+from cynic.api.models.organism_state import (
+    StateSnapshotResponse,
+    ConsciousnessResponse,
+    DogsResponse,
+    DogStatus,
+    ActionsResponse,
+    ProposedAction,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -89,4 +96,134 @@ async def get_organism_state_snapshot(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get organism state: {str(exc)}",
+        )
+
+
+@router.get("/consciousness", response_model=ConsciousnessResponse)
+async def get_organism_consciousness(
+    container: AppContainer = Depends(get_app_container),
+) -> ConsciousnessResponse:
+    """
+    GET /api/organism/consciousness — Current consciousness level.
+
+    Returns the current consciousness level (REFLEX|MICRO|MACRO|META)
+    inferred from the organism's metabolic scheduler.
+
+    Response is ConsciousnessResponse (frozen, immutable).
+    """
+    try:
+        organism = container.organism
+
+        # Get consciousness level from scheduler
+        consciousness_level = "REFLEX"  # default
+        if organism.metabolic.scheduler is not None:
+            current_lod = organism.metabolic.scheduler.current_lod
+            # Map LOD to consciousness level
+            if current_lod >= 3:
+                consciousness_level = "META"
+            elif current_lod >= 2:
+                consciousness_level = "MACRO"
+            elif current_lod >= 1:
+                consciousness_level = "MICRO"
+            else:
+                consciousness_level = "REFLEX"
+
+        return ConsciousnessResponse(level=consciousness_level)
+
+    except Exception as exc:
+        logger.exception("Error getting consciousness level: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get consciousness: {str(exc)}",
+        )
+
+
+@router.get("/dogs", response_model=DogsResponse)
+async def get_organism_dogs(
+    container: AppContainer = Depends(get_app_container),
+) -> DogsResponse:
+    """
+    GET /api/organism/dogs — All dogs and their status.
+
+    Returns the current status of all dogs in the organism's orchestrator,
+    including their last verdict, Q-score, confidence, and activity.
+
+    Response is DogsResponse (frozen, immutable).
+    """
+    try:
+        organism = container.organism
+
+        # Get dogs from orchestrator
+        dogs_response: dict[str, DogStatus] = {}
+        if organism.cognition.orchestrator and organism.cognition.orchestrator.dogs:
+            for dog_id, dog in organism.cognition.orchestrator.dogs.items():
+                # Extract values with defaults, ensuring types are correct
+                q_score = getattr(dog, "q_score", 50.0)
+                if not isinstance(q_score, (int, float)):
+                    q_score = 50.0
+
+                verdict = getattr(dog, "verdict", "WAG")
+                if not isinstance(verdict, str):
+                    verdict = "WAG"
+
+                confidence = getattr(dog, "confidence", None)
+                if confidence is not None and not isinstance(confidence, (int, float)):
+                    confidence = None
+
+                activity = getattr(dog, "activity", None)
+                if activity is not None and not isinstance(activity, str):
+                    activity = None
+
+                dogs_response[dog_id] = DogStatus(
+                    q_score=q_score,
+                    verdict=verdict,
+                    confidence=confidence,
+                    activity=activity,
+                )
+
+        return DogsResponse(dogs=dogs_response, count=len(dogs_response))
+
+    except Exception as exc:
+        logger.exception("Error getting dogs: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get dogs: {str(exc)}",
+        )
+
+
+@router.get("/actions", response_model=ActionsResponse)
+async def get_organism_actions(
+    container: AppContainer = Depends(get_app_container),
+) -> ActionsResponse:
+    """
+    GET /api/organism/actions — Pending proposed actions.
+
+    Returns the list of pending proposed actions from the organism's
+    memory action proposer, including action ID, type, priority, and description.
+
+    Response is ActionsResponse (frozen, immutable).
+    """
+    try:
+        organism = container.organism
+
+        # Get pending actions
+        actions: list[ProposedAction] = []
+        if organism.memory.action_proposer:
+            pending_list = organism.memory.action_proposer.pending()
+            if pending_list:
+                for action in pending_list:
+                    actions.append(ProposedAction(
+                        action_id=action.get("action_id", "unknown"),
+                        action_type=action.get("action_type", "MONITOR"),
+                        priority=action.get("priority", 3),
+                        description=action.get("description"),
+                    ))
+
+        return ActionsResponse(actions=actions, count=len(actions))
+
+    except Exception as exc:
+        logger.exception("Error getting actions: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get actions: {str(exc)}",
         )
