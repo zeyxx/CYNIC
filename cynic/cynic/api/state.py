@@ -347,7 +347,13 @@ class _KernelBuilder:
             residual_detector=self.residual_detector,
         )
 
-        self.scheduler = ConsciousnessScheduler(orchestrator=self.orchestrator)
+        # Scheduler needs oracle dog from orchestrator
+        oracle_dog = self.dogs.get(DogId.ORACLE)
+        self.scheduler = ConsciousnessScheduler(
+            axiom_monitor=self.axiom_monitor,
+            escore_tracker=self.escore_tracker,
+            oracle_dog=oracle_dog
+        )
 
         self.decide_agent = DecideAgent(qtable=self.qtable)
         self.decide_agent.start(get_core_bus())

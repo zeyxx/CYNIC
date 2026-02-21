@@ -482,5 +482,5 @@ class SelfProber:
                 for d in data:
                     self._proposals.append(SelfProposal.from_dict(d))
                 self._total_proposed = len(self._proposals)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, FileNotFoundError):
             pass

@@ -21,7 +21,7 @@ logger = logging.getLogger("cynic.cognition.neurons.discovery")
 
 def discover_dog_classes() -> dict[str, type[AbstractDog]]:
     """
-    Scan cynic.dogs for all concrete AbstractDog subclasses with DOG_ID.
+    Scan cynic.cognition.neurons for all concrete AbstractDog subclasses with DOG_ID.
 
     Returns:
         dict mapping DogId value → Dog class (NOT instances).
@@ -38,9 +38,9 @@ def discover_dog_classes() -> dict[str, type[AbstractDog]]:
             continue
 
         try:
-            module = importlib.import_module(f"cynic.dogs.{module_name}")
-        except CynicError:
-            logger.warning("Failed to import cynic.dogs.%s", module_name, exc_info=True)
+            module = importlib.import_module(f"cynic.cognition.neurons.{module_name}")
+        except Exception:
+            logger.warning("Failed to import cynic.cognition.neurons.%s", module_name, exc_info=True)
             continue
 
         for attr_name in dir(module):
