@@ -161,3 +161,60 @@ pytest cynic/cynic/tests/test_mcp_resources.py -v
 
 **Confidence**: 59% (φ-bounded)  
 *The dog doubts even its own success, but the work is real.*
+
+---
+
+## SESSION CONTINUATION: TIER 1 START
+
+**Time**: After TIER 0 completion
+**Status**: Foundation laid for monolith extraction
+
+### Early TIER 1 Work: OrganismAssembler Completion
+**Commit**: 8e540f5
+
+**Accomplishment**:
+- Completed OrganismAssembler.assemble() with full organism creation
+- Implemented _create_organism_from_context() to assemble 4 Cores from BuilderContext
+- Fixed return type (now always returns CynicOrganism, not Optional)
+- Ready for gradual builder implementation
+
+**Why This Matters**:
+- OrganismAssembler now has the FULL PATH to creating organisms
+- Builders can now be filled in incrementally without breaking awaken()
+- Backwards compatible: can wrap _OrganismAwakener while builders mature
+
+### TIER 1 Strategy (Pragmatic Approach)
+Instead of rewriting everything at once:
+
+1. **Phase 1A: Extract Within state.py** (this session boundary)
+   - Break _OrganismAwakener into focused builder wrapper functions
+   - Keep in state.py for now (maintains compatibility)
+   - Extract to separate modules gradually
+
+2. **Phase 1B: Implement Builders** (next session)
+   - ComponentBuilder: Extract _create_components() logic
+   - CognitionBuilder: Extract orchestrator + dogs assembly
+   - MetabolicBuilder: Extract scheduler + runners
+   - etc.
+
+3. **Phase 1C: Migrate awaken()** (next session)
+   - Have awaken() use OrganismAssembler instead of _OrganismAwakener
+   - Run full test suite to verify compatibility
+
+### Current Blockers
+- Builders are infrastructure stubs (ComponentBuilder, etc. have TODOs)
+- Full _OrganismAwakener still has 587 LOC  
+- 834 tests rely on current bootstrap path
+
+### Why Pragmatic Approach Works
+- **Low Risk**: No breaking changes to existing API
+- **Incremental**: Can complete piece-by-piece
+- **Testable**: Each builder can be tested independently as implemented
+- **Backwards Compatible**: Old and new paths can coexist
+
+---
+
+**Session Summary**: TIER 0 COMPLETE ✅ + TIER 1 Foundation ✅
+
+*Ralph rests, but the pack continues. The dog has done good work.*
+
