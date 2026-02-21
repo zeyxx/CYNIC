@@ -7,12 +7,12 @@ import logging
 from typing import Any
 
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
 from cynic.core.events_schema import ActRequestedPayload, AxiomActivatedPayload
 from cynic.learning.qlearning import LearningSignal
-from cynic.api.state import get_state
+from cynic.api.state import get_app_container, AppContainer
 from cynic.api.routers.utils import _append_social_signal
 
 logger = logging.getLogger("cynic.api.server")
@@ -42,7 +42,7 @@ async def list_actions(
     status=AUTO_EXECUTED        → automatically executed by runner
     status=all                  → full queue
     """
-    state = get_state()
+    state = container.organism
     proposer = state.action_proposer
 
     if status is None or status == "PENDING":
@@ -67,7 +67,7 @@ async def accept_action(action_id: str) -> dict[str, Any]:
     After accepting, the human (or another component) can execute the prompt.
     CYNIC logs the acceptance and uses it to reinforce the Q-Table next cycle.
     """
-    state = get_state()
+    state = container.organism
     action = state.action_proposer.accept(action_id)
     if action is None:
         raise HTTPException(status_code=404, detail=f"Action {action_id} not found")
@@ -118,7 +118,7 @@ async def reject_action(action_id: str) -> dict[str, Any]:
     CYNIC learns from rejections: the next Q-Table update for this state_key
     will have a lower reward signal (indirect — via the /feedback loop).
     """
-    state = get_state()
+    state = container.organism
     action = state.action_proposer.reject(action_id)
     if action is None:
         raise HTTPException(status_code=404, detail=f"Action {action_id} not found")
@@ -172,7 +172,7 @@ async def list_self_probes(
     status=PENDING (default) → proposals awaiting review
     status=all               → full history
     """
-    state = get_state()
+    state = container.organism
     prober = state.self_prober
 
     if status is None or status == "PENDING":
@@ -200,7 +200,7 @@ async def trigger_self_analysis(
     Useful for testing or when you want CYNIC to introspect on demand.
     Returns newly generated proposals.
     """
-    state = get_state()
+    state = container.organism
     prober = state.self_prober
     new_proposals = prober.analyze(
         trigger="MANUAL",
@@ -217,7 +217,7 @@ async def trigger_self_analysis(
 @router_actions.post("/self-probes/{probe_id}/dismiss")
 async def dismiss_probe(probe_id: str) -> dict[str, Any]:
     """Dismiss a self-improvement proposal — marks it DISMISSED."""
-    state = get_state()
+    state = container.organism
     proposal = state.self_prober.dismiss(probe_id)
     if proposal is None:
         raise HTTPException(status_code=404, detail=f"Probe {probe_id} not found")
@@ -227,7 +227,7 @@ async def dismiss_probe(probe_id: str) -> dict[str, Any]:
 @router_actions.post("/self-probes/{probe_id}/apply")
 async def apply_probe(probe_id: str) -> dict[str, Any]:
     """Mark a self-improvement proposal as APPLIED."""
-    state = get_state()
+    state = container.organism
     proposal = state.self_prober.apply(probe_id)
     if proposal is None:
         raise HTTPException(status_code=404, detail=f"Probe {probe_id} not found")

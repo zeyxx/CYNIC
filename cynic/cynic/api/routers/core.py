@@ -12,7 +12,7 @@ import uuid
 from typing import Any
 
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from cynic.core.consciousness import ConsciousnessLevel, get_consciousness
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
@@ -35,7 +35,7 @@ from cynic.api.models import (
     AccountRequest, AccountResponse,
     PolicyResponse,
 )
-from cynic.api.state import get_state
+from cynic.api.state import get_app_container, AppContainer
 from cynic.api.routers.utils import _append_social_signal
 
 logger = logging.getLogger("cynic.api.server")
@@ -115,7 +115,7 @@ def _write_guidance(cell: Cell, judgment: Judgment) -> None:  # type: ignore[nam
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_core.post("/judge", response_model=JudgeResponse)
-async def judge(req: JudgeRequest) -> JudgeResponse:
+async def judge(req: JudgeRequest, container: AppContainer = Depends(get_app_container)) -> JudgeResponse:
     """
     Run the full CYNIC judgment pipeline on any content.
 
@@ -125,7 +125,7 @@ async def judge(req: JudgeRequest) -> JudgeResponse:
     - MACRO   → full 7-step cycle (~2.85s), all Dogs, max confidence
     - None    → auto-selected by consciousness state + budget
     """
-    state = get_state()
+    state = container.organism
 
     # Build Cell — enrich context with compressed session history (γ2)
     # Gives LLM dogs (SAGE) temporal continuity: "here's what we judged before"
@@ -192,7 +192,7 @@ async def judge(req: JudgeRequest) -> JudgeResponse:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_core.post("/perceive", response_model=PerceiveResponse)
-async def perceive(req: PerceiveRequest) -> PerceiveResponse:
+async def perceive(req: PerceiveRequest, container: AppContainer = Depends(get_app_container)) -> PerceiveResponse:
     """
     Receive raw perception from any source (JS hooks, external services, etc.).
 
@@ -202,7 +202,7 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
     If run_judgment=True (default), runs a REFLEX judgment on the perception.
     This keeps the JS hooks thin while the Python kernel does the cognitive work.
     """
-    state = get_state()
+    state = container.organism
     cell_id = str(uuid.uuid4())
 
     # Emit PERCEPTION_RECEIVED on the core bus
@@ -317,7 +317,7 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_core.post("/learn", response_model=LearnResponse)
-async def learn(req: LearnRequest) -> LearnResponse:
+async def learn(req: LearnRequest, container: AppContainer = Depends(get_app_container)) -> LearnResponse:
     """
     Inject a learning signal directly into the Q-Table.
 
@@ -326,7 +326,7 @@ async def learn(req: LearnRequest) -> LearnResponse:
     - JS system sending learning signals from its own experience
     - Testing the learning loop from outside
     """
-    state = get_state()
+    state = container.organism
 
     signal = LearningSignal(
         state_key=req.state_key,
@@ -354,7 +354,7 @@ async def learn(req: LearnRequest) -> LearnResponse:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_core.post("/feedback", response_model=FeedbackResponse)
-async def feedback(req: FeedbackRequest) -> FeedbackResponse:
+async def feedback(req: FeedbackRequest, container: AppContainer = Depends(get_app_container)) -> FeedbackResponse:
     """
     Inject explicit user feedback into the Q-Table.
 
@@ -365,7 +365,7 @@ async def feedback(req: FeedbackRequest) -> FeedbackResponse:
     This closes the human feedback loop: user experience → Q-Table learning.
     After enough feedback, CYNIC will predict better verdicts for each context.
     """
-    state = get_state()
+    state = container.organism
 
     if state.last_judgment is None:
         raise HTTPException(
@@ -465,7 +465,7 @@ async def feedback(req: FeedbackRequest) -> FeedbackResponse:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_core.post("/account", response_model=AccountResponse)
-async def account(req: AccountRequest) -> AccountResponse:
+async def account(req: AccountRequest, container: AppContainer = Depends(get_app_container)) -> AccountResponse:
     """
     Execute the ACCOUNT opcode (Step 6 of 7-step cycle).
 
@@ -477,7 +477,7 @@ async def account(req: AccountRequest) -> AccountResponse:
 
     ACCOUNT closes the L1 loop when combined with EMERGE (Step 7).
     """
-    state = get_state()
+    state = container.organism
 
     # Get current cost snapshot before triggering EMERGE
     cost_stats = state.account_agent.stats()
@@ -551,6 +551,7 @@ async def account(req: AccountRequest) -> AccountResponse:
 async def policy(
     state_key: str,
     mode: str = Query(default="explore", pattern="^(exploit|explore)$"),
+    container: AppContainer = Depends(get_app_container),
 ) -> PolicyResponse:
     """
     Query the learned policy for a given state.
@@ -560,7 +561,7 @@ async def policy(
 
     Use exploit in production, explore during learning.
     """
-    state = get_state()
+    state = container.organism
 
     if mode == "exploit":
         action = state.qtable.exploit(state_key)
@@ -592,7 +593,7 @@ async def policy(
 
 
 @router_core.get("/world-state")
-async def get_world_state() -> dict[str, Any]:
+async def get_world_state(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
     GET /world-state — Cross-reality state snapshot from WorldModelUpdater.
 
@@ -600,5 +601,5 @@ async def get_world_state() -> dict[str, Any]:
     active conflicts (HOWL vs BARK across realities), and per-reality
     verdict+q_score. Updated after every JUDGMENT_CREATED event.
     """
-    state = get_state()
+    state = container.organism
     return state.world_model.snapshot()
