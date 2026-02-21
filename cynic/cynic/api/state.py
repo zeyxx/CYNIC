@@ -67,6 +67,7 @@ from cynic.cognition.cortex.mirror import KernelMirror
 from cynic.llm.adapter import LLMRegistry
 from cynic.senses.compressor import ContextCompressor
 from cynic.core.container import DependencyContainer
+from cynic.organism.organism import Organism
 
 logger = logging.getLogger("cynic.api.state")
 
@@ -126,6 +127,10 @@ def get_app_container() -> AppContainer:
     if _app_container is None:
         raise RuntimeError("AppContainer not initialized — lifespan not started")
     return _app_container
+
+
+# Backward compatibility: CynicOrganism is the Organism class
+CynicOrganism = Organism
 
 
 async def _on_judgment_created(event: Event) -> None:

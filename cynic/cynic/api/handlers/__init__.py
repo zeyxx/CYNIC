@@ -160,9 +160,9 @@ def discover_handler_groups(
                     instance = attr(svc=svc, **group_kwargs)
                     groups.append(instance)
                     logger.debug(f"Discovered handler group: {instance.name}")
-                except EventBusError as e:
-                    logger.error(
-                        f"Failed to instantiate {attr_name} from {module_name}: {e}"
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to instantiate {attr_name} from {module_name}: {type(e).__name__}: {e}"
                     )
 
     logger.info(f"Discovered {len(groups)} handler groups")

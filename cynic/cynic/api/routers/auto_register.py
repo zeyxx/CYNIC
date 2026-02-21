@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
+from cynic.core.exceptions import CynicError
 
 logger = logging.getLogger(__name__)
 
