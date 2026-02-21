@@ -42,15 +42,17 @@ from cynic.core.events_schema import (
     AnomalyDetectedPayload,
     EmergenceDetectedPayload,
 )
-from cynic.core.formulas import AXIOM_MATURITY_WINDOW_SIZE
+from cynic.core.formulas import (
+    AXIOM_MATURITY_WINDOW_SIZE, RESIDUAL_MIN_SAMPLES, RESIDUAL_STABLE_HIGH_N,
+)
 
 logger = logging.getLogger("cynic.cognition.cortex.residual")
 
 # Rolling window: F(8) = 21 judgments (imported from formulas.py)
 HISTORY_MAXLEN: int = AXIOM_MATURITY_WINDOW_SIZE   # 21
 
-# Min samples before pattern detection kicks in
-MIN_SAMPLES: int = fibonacci(4)       # 3
+# Min samples before pattern detection kicks in (imported from formulas.py)
+MIN_SAMPLES: int = RESIDUAL_MIN_SAMPLES  # F(4) = 3
 
 # SPIKE: residual > mean + N × std_dev
 SPIKE_SIGMA: float = 2.0
@@ -58,8 +60,8 @@ SPIKE_SIGMA: float = 2.0
 # RISING: slope threshold per judgment
 RISING_SLOPE_THRESHOLD: float = PHI_INV_3   # 0.236 per step = fast rise
 
-# STABLE_HIGH: how many consecutive high residuals
-STABLE_HIGH_N: int = fibonacci(5)     # 5 consecutive
+# STABLE_HIGH: how many consecutive high residuals (imported from formulas.py)
+STABLE_HIGH_N: int = RESIDUAL_STABLE_HIGH_N  # F(5) = 5 consecutive
 
 # Minimum residual to call anything noteworthy (below this = healthy)
 ANOMALY_THRESHOLD: float = PHI_INV_2  # 0.382

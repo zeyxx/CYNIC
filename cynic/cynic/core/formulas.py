@@ -296,6 +296,37 @@ Target: <2.85s for deep reasoning on critical decisions.
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# PATTERN DETECTION (Residual Anomaly Detection)
+# ════════════════════════════════════════════════════════════════════════════
+
+RESIDUAL_MIN_SAMPLES: int = fibonacci(4)  # = 3
+"""
+Minimum number of samples before anomaly detection patterns kick in.
+
+Used by: ResidualDetector.SPIKE, RISING, STABLE_HIGH pattern recognition.
+
+Justification:
+  F(4) = 3 = minimum for trend detection (need at least 3 points to compute slope).
+  Below 3 samples, patterns are noise.
+
+Example:
+  - 1-2 judgments: insufficient data
+  - 3+ judgments: pattern detection active (SPIKE, RISING, STABLE_HIGH)
+"""
+
+RESIDUAL_STABLE_HIGH_N: int = fibonacci(5)  # = 5
+"""
+Number of consecutive high residuals before STABLE_HIGH pattern is flagged.
+
+Used by: ResidualDetector._check_stable_high_pattern().
+
+Justification:
+  F(5) = 5 = minimum for "pattern persistence" (outlier threshold).
+  A single high residual = noise; 5 consecutive = genuine anomaly.
+"""
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # AXIOM MONITORING
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -375,6 +406,8 @@ __all__ = [
     "LOD_LEVEL1_LATENCY_MS",
     "LOD_LEVEL2_LATENCY_MS",
     "LOD_LEVEL3_LATENCY_MS",
+    "RESIDUAL_MIN_SAMPLES",
+    "RESIDUAL_STABLE_HIGH_N",
     "AXIOM_MATURITY_WINDOW_SIZE",
     "AXIOM_ACTIVATION_THRESHOLD",
     "AXIOM_TRANSCENDENCE_THRESHOLD",
