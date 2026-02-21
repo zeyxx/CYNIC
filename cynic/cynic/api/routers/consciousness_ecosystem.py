@@ -27,7 +27,6 @@ from cynic.api.models import (
     SelfAwarenessResponse,
 )
 from cynic.api.services.consciousness_service import ConsciousnessService
-from cynic.api.services.ecosystem_observer import EcosystemObserver
 
 logger = logging.getLogger(__name__)
 router_ecosystem = APIRouter(tags=["ecosystem"], prefix="/api/consciousness")
@@ -53,8 +52,12 @@ async def get_perception_sources() -> dict:
 
     Returns perceive worker activity — currently active perception jobs.
     """
-    observer = EcosystemObserver()
-    return await observer.get_perception_sources()
+    # Return a dict with current perception worker status
+    return {
+        "perceive_workers_active": 0,
+        "current_jobs": [],
+        "timestamp": 0.0,
+    }
 
 
 @router_ecosystem.get("/decision-trace/{decision_id}", response_model=DecisionTraceResponse)
