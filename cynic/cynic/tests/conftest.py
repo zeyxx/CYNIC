@@ -30,7 +30,7 @@ def test_client() -> TestClient:
 # PHASE 3: Real Integration Testing (NO MOCKS)
 # ════════════════════════════════════════════════════════════════════════════
 
-@pytest_asyncio.fixture(autouse=True)
+@pytest_asyncio.fixture()
 async def integration_environment():
     """
     Set up real organism + event buses for integration tests.

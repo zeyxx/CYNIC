@@ -649,19 +649,29 @@ app.add_middleware(
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# METRICS MIDDLEWARE — Track all requests
+# METRICS MIDDLEWARE — Track all requests with correlation IDs
 # ════════════════════════════════════════════════════════════════════════════
 
 @app.middleware("http")
 async def track_metrics_middleware(request: Request, call_next):
-    """Track metrics for all HTTP requests (latency, count, errors)."""
+    """Track metrics + structured logging for all HTTP requests."""
     from cynic.api.metrics import REQUESTS_TOTAL, REQUEST_DURATION_SECONDS, ERRORS_TOTAL
     import time
+
+    # Generate or retrieve correlation_id (for traceability)
+    correlation_id = request.headers.get("X-Correlation-ID") or str(uuid.uuid4())
 
     # Record start time
     start_time = time.time()
     path = request.url.path
     method = request.method
+
+    # Log request with correlation_id
+    logger.info(
+        "HTTP %s %s | correlation_id=%s",
+        method, path, correlation_id,
+        extra={"correlation_id": correlation_id}
+    )
 
     try:
         # Call the actual endpoint
@@ -669,17 +679,35 @@ async def track_metrics_middleware(request: Request, call_next):
 
         # Record metrics on success
         duration_sec = time.time() - start_time
+        duration_ms = int(duration_sec * 1000)
         REQUEST_DURATION_SECONDS.labels(endpoint=path).observe(duration_sec)
         REQUESTS_TOTAL.labels(endpoint=path, method=method, status=response.status_code).inc()
+
+        # Add correlation_id to response headers
+        response.headers["X-Correlation-ID"] = correlation_id
+
+        # Log response with duration
+        logger.info(
+            "HTTP %s %s → %d | duration_ms=%d | correlation_id=%s",
+            method, path, response.status_code, duration_ms, correlation_id,
+            extra={"correlation_id": correlation_id, "duration_ms": duration_ms}
+        )
 
         return response
 
     except httpx.RequestError as e:
         # Record error metrics
         duration_sec = time.time() - start_time
+        duration_ms = int(duration_sec * 1000)
         REQUEST_DURATION_SECONDS.labels(endpoint=path).observe(duration_sec)
         REQUESTS_TOTAL.labels(endpoint=path, method=method, status="500").inc()
         ERRORS_TOTAL.labels(error_type=type(e).__name__, endpoint=path).inc()
+
+        logger.error(
+            "HTTP %s %s ERROR | error=%s | duration_ms=%d | correlation_id=%s",
+            method, path, type(e).__name__, duration_ms, correlation_id,
+            extra={"correlation_id": correlation_id, "error_type": type(e).__name__}
+        )
         raise
 
 
