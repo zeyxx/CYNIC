@@ -1,11 +1,11 @@
 """TDD Tests for 7-Layer consciousness panels."""
 import pytest
-from cynic.cli.dashboard.layers.ecosystem_layer import EcosystemLayer
-from cynic.cli.dashboard.layers.perception_layer import PerceptionLayer
-from cynic.cli.dashboard.layers.topology_layer import TopologyLayer
-from cynic.cli.dashboard.layers.nervous_layer import NervousLayer
-from cynic.cli.dashboard.layers.guardrails_layer import GuardrailsLayer
-from cynic.cli.dashboard.layers.self_aware_layer import SelfAwareLayer
+from cynic.cli.tui_layers.ecosystem_layer import EcosystemLayer
+from cynic.cli.tui_layers.perception_layer import PerceptionLayer
+from cynic.cli.tui_layers.topology_layer import TopologyLayer
+from cynic.cli.tui_layers.nervous_layer import NervousLayer
+from cynic.cli.tui_layers.guardrails_layer import GuardrailsLayer
+from cynic.cli.tui_layers.self_aware_layer import SelfAwareLayer
 
 
 class TestEcosystemLayer:
