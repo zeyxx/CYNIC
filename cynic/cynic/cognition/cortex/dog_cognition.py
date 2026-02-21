@@ -21,11 +21,13 @@ from __future__ import annotations
 import time
 import logging
 from dataclasses import dataclass
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from cynic.cognition.neurons.dog_state import DogState
     from cynic.core.judgment import Cell, DogJudgment
+
+from cynic.core.formulas import QTABLE_ENTRY_CAP
 
 logger = logging.getLogger("cynic.cognition.cortex.dog_cognition")
 
@@ -42,7 +44,7 @@ class DogCognitionConfig:
     min_confidence: float = 0.0
     max_confidence: float = 0.618  # φ-bounded
     confidence_decay: float = 0.95  # Older judgments fade in confidence
-    local_qtable_size: int = 89  # F(11) rolling cap
+    local_qtable_size: int = QTABLE_ENTRY_CAP  # F(11) = 89 rolling cap (imported from formulas.py)
     gossip_threshold: float = 0.5  # Only gossip if confidence > 50%
 
 

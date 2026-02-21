@@ -57,6 +57,7 @@ from cynic.core.phi import PHI_INV, PHI_INV_2, MAX_Q_SCORE, MAX_CONFIDENCE, phi_
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
 from cynic.core.embeddings import EmbeddingProvider
+from cynic.core.formulas import CHAT_MESSAGE_CAP
 from cynic.cognition.neurons.base import (
     AbstractDog, LLMDog, DogCapabilities, DogHealth, DogJudgment,
     DogId, HealthStatus,
@@ -64,8 +65,8 @@ from cynic.cognition.neurons.base import (
 
 logger = logging.getLogger("cynic.cognition.neurons.scholar")
 
-# Buffer capacity: F(11) = 89
-BUFFER_MAX: int = fibonacci(11)  # 89
+# Buffer capacity: F(11) = 89 (imported from formulas.py)
+BUFFER_MAX: int = CHAT_MESSAGE_CAP  # 89
 
 # K nearest neighbors: F(4) = 3
 K_NEIGHBORS: int = fibonacci(4)  # 3

@@ -23,6 +23,7 @@ import asyncpg
 from asyncpg import Pool, Connection
 
 from cynic.core.phi import fibonacci, MAX_Q_SCORE, MAX_CONFIDENCE, PHI_INV
+from cynic.core.formulas import ACT_LOG_CAP
 from cynic.core.storage.interface import (
     JudgmentRepoInterface,
     QTableRepoInterface,
@@ -744,8 +745,8 @@ class ScholarRepository(ScholarRepoInterface):
                 embed_model,
             )
 
-    async def recent_entries(self, limit: int = 89) -> list[dict[str, Any]]:
-        """Return last `limit` entries oldest-first (for buffer replay)."""
+    async def recent_entries(self, limit: int = ACT_LOG_CAP) -> list[dict[str, Any]]:
+        """Return last `limit` entries oldest-first (for buffer replay). Default ACT_LOG_CAP (F(11)=89)."""
         async with acquire() as conn:
             rows = await conn.fetch("""
                 SELECT cell_id, cell_text, q_score, reality, ts

@@ -32,7 +32,7 @@ from typing import Any
 
 
 from cynic.core.phi import (
-    PHI_INV, PHI_INV_2, PHI_INV_3, MAX_Q_SCORE, fibonacci,
+    PHI_INV, PHI_INV_2, PHI_INV_3, MAX_Q_SCORE,
 )
 from cynic.core.judgment import Judgment
 from cynic.core.event_bus import (
@@ -42,11 +42,12 @@ from cynic.core.events_schema import (
     AnomalyDetectedPayload,
     EmergenceDetectedPayload,
 )
+from cynic.core.formulas import AXIOM_MATURITY_WINDOW_SIZE
 
 logger = logging.getLogger("cynic.cognition.cortex.residual")
 
-# Rolling window: F(8) = 21 judgments
-HISTORY_MAXLEN: int = fibonacci(8)   # 21
+# Rolling window: F(8) = 21 judgments (imported from formulas.py)
+HISTORY_MAXLEN: int = AXIOM_MATURITY_WINDOW_SIZE   # 21
 
 # Min samples before pattern detection kicks in
 MIN_SAMPLES: int = fibonacci(4)       # 3

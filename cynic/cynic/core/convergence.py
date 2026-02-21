@@ -19,6 +19,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from cynic.core.formulas import ACT_LOG_CAP
+
 logger = logging.getLogger("cynic.core.convergence")
 
 
@@ -89,7 +91,7 @@ class ConvergenceValidator:
     - Compare: did reality match announcement?
     """
 
-    def __init__(self, capacity: int = 89):  # F(11)
+    def __init__(self, capacity: int = ACT_LOG_CAP):  # F(11) = 89 (imported from formulas.py)
         self.capacity = capacity
         self._announcements: dict[str, Announcement] = {}  # id → announcement
         self._convergences: list[Convergence] = []  # rolling log

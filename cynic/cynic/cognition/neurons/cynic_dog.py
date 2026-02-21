@@ -39,6 +39,7 @@ from cynic.core.judgment import Cell, ConsensusResult
 from cynic.core.event_bus import (
     get_agent_bus, get_core_bus, Event, AgentEvent, CoreEvent
 )
+from cynic.core.formulas import ACT_LOG_CAP
 from cynic.cognition.neurons.base import (
     AbstractDog, DogCapabilities, DogHealth, DogJudgment,
     DogId, HealthStatus, DOG_PRIORITY,
@@ -132,7 +133,7 @@ class CynicDog(AbstractDog):
         super().__init__(DogId.CYNIC)
         self._active_requests: dict[str, PBFTRequest] = {}
         self._completed_requests: list[PBFTRequest] = []
-        self._max_completed = 89  # F(11) — keep last 89 consensus records
+        self._max_completed = ACT_LOG_CAP  # F(11) — keep last 89 consensus records (imported from formulas.py)
 
     def get_capabilities(self) -> DogCapabilities:
         return DogCapabilities(

@@ -39,6 +39,8 @@ from typing import Any, TYPE_CHECKING
 if TYPE_CHECKING:
     from cynic.cognition.neurons.dog_state import DogState
 
+from cynic.core.formulas import CHAT_MESSAGE_CAP
+
 logger = logging.getLogger("cynic.cognition.cortex.entropy_tracker")
 
 
@@ -190,7 +192,7 @@ class EntropyTracker:
     - Alert threshold: if avg_efficiency < 0, system is adding noise
     """
 
-    def __init__(self, max_history: int = 89) -> None:  # F(11)=89
+    def __init__(self, max_history: int = CHAT_MESSAGE_CAP) -> None:  # F(11) = 89 (imported from formulas.py)
         self.max_history = max_history
         self.metrics: list[EntropyMetrics] = []
         self.calculator = EntropyCalculator()

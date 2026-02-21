@@ -32,6 +32,7 @@ from typing import Any
 from cynic.core.phi import PHI_INV, PHI_INV_2, PHI_INV_3, MAX_Q_SCORE, phi_bound_score
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
+from cynic.core.formulas import ACT_LOG_CAP
 from cynic.cognition.neurons.base import (
     AbstractDog, DogCapabilities, DogHealth, DogJudgment,
     DogId, HealthStatus,
@@ -52,7 +53,7 @@ MAX_SMELLS_REPORTED: int = 8   # F(6) = 8 — cap reports
 
 # Complexity thresholds (φ-aligned)
 HIGH_COMPLEXITY: int = 13      # F(7) — cyclomatic complexity ceiling
-HIGH_LINES: int = 89           # F(11) — function line ceiling
+HIGH_LINES: int = ACT_LOG_CAP  # F(11) = 89 — function line ceiling (imported from formulas.py)
 
 
 class JanitorDog(AbstractDog):

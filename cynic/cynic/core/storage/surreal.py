@@ -32,6 +32,7 @@ import time
 import uuid
 from typing import Any
 
+from cynic.core.formulas import ACT_LOG_CAP
 from cynic.core.storage.interface import (
     StorageInterface,
     JudgmentRepoInterface,
@@ -371,7 +372,8 @@ class ScholarRepo(ScholarRepoInterface):
             "created_at": time.time(),
         })
 
-    async def recent_entries(self, limit: int = 89) -> list[dict[str, Any]]:
+    async def recent_entries(self, limit: int = ACT_LOG_CAP) -> list[dict[str, Any]]:
+        # Default: ACT_LOG_CAP (F(11)=89) — keep last 89 scholar entries
         result = await self._db.query(
             "SELECT cell_id, cell_text, q_score, reality, ts "
             "FROM scholar ORDER BY created_at DESC LIMIT $n",

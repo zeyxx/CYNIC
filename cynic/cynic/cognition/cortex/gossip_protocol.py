@@ -32,6 +32,8 @@ from typing import Any, TYPE_CHECKING
 if TYPE_CHECKING:
     from cynic.cognition.neurons.dog_state import DogState
 
+from cynic.core.formulas import CHAT_MESSAGE_CAP
+
 logger = logging.getLogger("cynic.cognition.cortex.gossip_protocol")
 
 
@@ -106,7 +108,7 @@ class GossipProtocol:
     - **Trust**: Each dog learns which siblings are reliable
     """
 
-    def __init__(self, max_message_history: int = 89) -> None:  # F(11)=89
+    def __init__(self, max_message_history: int = CHAT_MESSAGE_CAP) -> None:  # F(11) = 89 (imported from formulas.py)
         self.max_message_history = max_message_history
         self._gossip_messages: dict[str, list[GossipMessage]] = {}
         # peer_dog_id → list of recent GossipMessages
