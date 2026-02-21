@@ -77,9 +77,13 @@ async def _persist_judgment_async(judgment: Judgment) -> None:
         ValueError: if judgment_id is missing
         Exception: if persistence fails (NOT silently caught)
     """
+    import time
+    from cynic.core.persistence_metrics import metrics_collector
+
     if not judgment.judgment_id:
         raise ValueError("judgment_id required for persistence")
 
+    start = time.time()
     try:
         repo = _get_judgment_repo()
         data = judgment.to_dict()
@@ -94,10 +98,14 @@ async def _persist_judgment_async(judgment: Judgment) -> None:
 
         # AWAIT the save — do not fire-and-forget
         await repo.save(data)
-        logger.info("Judgment %s persisted successfully", judgment.judgment_id)
+        duration_ms = (time.time() - start) * 1000
+        metrics_collector.record_metric("persist_judgment", duration_ms, success=True)
+        logger.info("Judgment %s persisted successfully (%.1fms)", judgment.judgment_id, duration_ms)
 
     except Exception as e:
         # RAISE, don't silently log
+        duration_ms = (time.time() - start) * 1000
+        metrics_collector.record_metric("persist_judgment", duration_ms, success=False, error=str(e))
         logger.error("Judgment persistence FAILED: %s", e)
         raise
 
@@ -129,7 +137,10 @@ async def _write_guidance_async(
     Raises:
         OSError: if write fails (NOT silently caught)
     """
+    from cynic.core.persistence_metrics import metrics_collector
+
     guidance_path = path or _GUIDANCE_PATH
+    start = time.time()
 
     try:
         # Ensure directory exists
@@ -160,7 +171,9 @@ async def _write_guidance_async(
 
             # Atomic rename (fails safely if target exists)
             os.replace(temp_path, guidance_path)
-            logger.info("Guidance written atomically: %s", guidance_path)
+            duration_ms = (time.time() - start) * 1000
+            metrics_collector.record_metric("write_guidance", duration_ms, success=True)
+            logger.info("Guidance written atomically (%.1fms): %s", duration_ms, guidance_path)
 
         except Exception:
             # Clean up temp file if rename failed
@@ -172,6 +185,8 @@ async def _write_guidance_async(
 
     except Exception as e:
         # RAISE, don't silently catch
+        duration_ms = (time.time() - start) * 1000
+        metrics_collector.record_metric("write_guidance", duration_ms, success=False, error=str(e))
         logger.error("Guidance write FAILED: %s", e)
         raise
 
