@@ -74,3 +74,53 @@ async def test_memory_layer_clears_on_restart():
         assert state2.get_recent_judgments() == []
         assert state2.get_all_residuals() == {}
         assert state2.get_pending_actions() == []
+
+
+@pytest.mark.asyncio
+async def test_recover_handles_corrupt_persistence_file():
+    """Verify recover() gracefully handles corrupt JSON."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create corrupt persistence file
+        persist_file = Path(tmpdir) / "consciousness.json"
+        persist_file.write_text("{invalid json}")
+
+        # Recovery should not crash
+        state = OrganismState(storage_path=tmpdir)
+        await state.initialize()
+        await state.recover()  # Should not raise
+
+        # Should fall back to default
+        assert state.get_consciousness_level() == "REFLEX"
+
+
+@pytest.mark.asyncio
+async def test_full_lifecycle_init_persist_restart_recover():
+    """End-to-end: init → add data → persist → restart → recover → verify."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # PHASE 1: Init → Add Data
+        state1 = OrganismState(storage_path=tmpdir)
+        await state1.initialize()
+        await state1.update_consciousness_level("MACRO")
+        await state1.set_dogs({
+            "sage": {"model": "ollama"},
+            "guardian": {"model": "claude"},
+        })
+        await state1.add_judgment({"judgment_id": "j1", "q_score": 75.0})
+
+        # PHASE 2: Persist
+        await state1.persist()
+        persist_file = Path(tmpdir) / "consciousness.json"
+        assert persist_file.exists()
+
+        # PHASE 3: Simulated Restart
+        state2 = OrganismState(storage_path=tmpdir)
+        await state2.initialize()
+        await state2.recover()
+
+        # PHASE 4: Verify Recovery
+        # PERSISTENT layer: consciousness level survives restart
+        assert state2.get_consciousness_level() == "MACRO"
+
+        # MEMORY layer: dogs, judgments clear on restart
+        assert state2.get_dogs() == {}  # Dogs in MEMORY, so cleared
+        assert state2.get_recent_judgments() == []  # MEMORY cleared
