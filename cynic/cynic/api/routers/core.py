@@ -102,59 +102,6 @@ async def _persist_judgment_async(judgment: Judgment) -> None:
         raise
 
 
-def _persist_judgment(judgment: Judgment) -> None:
-    """
-    Fire-and-forget judgment persistence to PostgreSQL.
-
-    Creates an asyncio Task so we never block the HTTP response.
-    DB failures are logged but never raised.
-    """
-    async def _do_save():
-        try:
-            repo = _get_judgment_repo()
-            data = judgment.to_dict()
-            # Add fields not in to_dict() but needed by schema
-            data.setdefault("cell_id", judgment.cell.cell_id)
-            data.setdefault("time_dim", judgment.cell.time_dim)
-            data.setdefault("lod", judgment.cell.lod)
-            data.setdefault("consciousness", judgment.cell.consciousness)
-            data["reality"] = judgment.cell.reality
-            data["analysis"] = judgment.cell.analysis
-            await repo.save(data)
-        except Exception as e:
-            logger.debug("Judgment persistence skipped: %s", e)
-
-    import asyncio
-    try:
-        asyncio.get_running_loop().create_task(_do_save())
-    except Exception:
-        pass  # Never block on persistence failure
-
-
-def _write_guidance(cell: Cell, judgment: Judgment) -> None:  # type: ignore[name-defined]
-    """
-    Write last judgment as guidance.json — the feedback loop.
-
-    JS hooks read this file at the next UserPromptSubmit to inject
-    kernel recommendations into Claude Code's context.
-    Best-effort: never raises, never blocks the response.
-    """
-    try:
-        os.makedirs(os.path.dirname(_GUIDANCE_PATH), exist_ok=True)
-        with open(_GUIDANCE_PATH, "w", encoding="utf-8") as fh:
-            json.dump({
-                "timestamp": time.time(),
-                "state_key": f"{cell.reality}:{cell.analysis}:PRESENT:{cell.lod}",
-                "verdict": judgment.verdict,
-                "q_score": round(judgment.q_score, 3),
-                "confidence": round(min(judgment.confidence, MAX_CONFIDENCE), 4),
-                "reality": cell.reality,
-                "dog_votes": {k: round(v, 3) for k, v in judgment.dog_votes.items()},
-            }, fh)
-    except Exception:
-        pass  # Best-effort — never propagate
-
-
 # ════════════════════════════════════════════════════════════════════════════
 # POST /judge
 # ════════════════════════════════════════════════════════════════════════════
