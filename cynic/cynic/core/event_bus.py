@@ -23,8 +23,10 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, TypeVar, Type
 from collections.abc import Callable, Coroutine
+
+T = TypeVar('T')
 
 # Python 3.9 compatibility: StrEnum added in Python 3.11
 if sys.version_info >= (3, 11):
@@ -94,7 +96,7 @@ class Event:
             )
         return cls(type=event_type, payload=data, source=source)
 
-    def as_typed(self, cls: type) -> Any:
+    def as_typed(self, cls: Type[T]) -> T:
         """
         Reconstruct typed payload from event.payload dict.
 

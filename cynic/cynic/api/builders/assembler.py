@@ -6,7 +6,10 @@ This replaces _OrganismAwakener.build() with a composable, observable sequence.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from cynic.api.state import CynicOrganism
 
 from cynic.api.builders.base import BuilderContext
 from cynic.api.builders.component import ComponentBuilder
@@ -51,7 +54,7 @@ class OrganismAssembler:
             WiringBuilder(),
         ]
 
-    async def assemble(self) -> Any:
+    async def assemble(self) -> Optional[CynicOrganism]:
         """
         Run all builders in sequence to create CynicOrganism.
 

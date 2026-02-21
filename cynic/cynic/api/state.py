@@ -414,27 +414,27 @@ class CynicOrganism:
 
     # ── Topology system L0 (backward-compat, accessed via senses) ──
     @property
-    def source_watcher(self) -> Any:
+    def source_watcher(self) -> SourceWatcher:
         return self.senses.source_watcher
 
     @property
-    def topology_builder(self) -> Any:
+    def topology_builder(self) -> IncrementalTopologyBuilder:
         return self.senses.topology_builder
 
     @property
-    def hot_reload_coordinator(self) -> Any:
+    def hot_reload_coordinator(self) -> Optional[HotReloadCoordinator]:
         return self.senses.hot_reload_coordinator
 
     @property
-    def topology_mirror(self) -> Any:
+    def topology_mirror(self) -> Optional[TopologyMirror]:
         return self.senses.topology_mirror
 
     @property
-    def change_tracker(self) -> Any:
+    def change_tracker(self) -> Optional[ChangeTracker]:
         return self.senses.change_tracker
 
     @property
-    def change_analyzer(self) -> Any:
+    def change_analyzer(self) -> Optional[ChangeAnalyzer]:
         return self.senses.change_analyzer
 
 

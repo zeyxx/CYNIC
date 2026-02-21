@@ -7,9 +7,11 @@ When a component needs another, it's auto-injected from the registry.
 This is how a TRUE OS works: components discover each other.
 """
 
-from typing import Dict, Type, Any, Optional, Callable
+from typing import Dict, Type, Any, Optional, Callable, TypeVar
 from dataclasses import dataclass
 import inspect
+
+T = TypeVar('T')
 
 
 @dataclass
@@ -64,7 +66,7 @@ class ServiceRegistry:
             singleton=singleton,
         )
 
-    async def get(self, service_type: Type) -> Any:
+    async def get(self, service_type: Type[T]) -> T:
         """
         Get or create a service instance.
 
@@ -92,7 +94,7 @@ class ServiceRegistry:
 
         return instance
 
-    async def _create_with_injection(self, service_type: Type) -> Any:
+    async def _create_with_injection(self, service_type: Type[T]) -> T:
         """
         Create an instance with auto-injected dependencies.
 

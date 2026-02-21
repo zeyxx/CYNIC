@@ -9,8 +9,11 @@ import logging
 import os
 import time
 import uuid
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
+
+if TYPE_CHECKING:
+    from cynic.core.storage.postgres import JudgmentRepository
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -48,7 +51,7 @@ _GUIDANCE_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "guidance.json"
 _judgment_repo: Any = None
 
 
-def _get_judgment_repo() -> Any:
+def _get_judgment_repo() -> "JudgmentRepository":
     """Lazily import and cache JudgmentRepository (only when DB is available)."""
     global _judgment_repo
     if _judgment_repo is None:
