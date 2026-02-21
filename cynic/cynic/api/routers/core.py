@@ -102,6 +102,80 @@ async def _persist_judgment_async(judgment: Judgment) -> None:
         raise
 
 
+async def _write_guidance_async(
+    cell: Cell,
+    judgment: Judgment,
+    path: str | None = None,
+) -> None:
+    """
+    ASYNC write to guidance.json with atomic file operations — MUST BE AWAITED.
+
+    Writes atomically using temp + rename pattern:
+    1. Write to temporary file
+    2. Atomic rename to final path (atomic on most filesystems)
+    3. Return only after rename completes
+
+    This is the feedback loop to JS hooks: JUDGMENT_CREATED emits this,
+    and JS reads guidance.json to inject recommendations into Claude Code.
+
+    Phase 0 fix: Eliminates race condition where HTTP 200 returned
+    before guidance.json write completes.
+
+    Args:
+        cell: The input cell
+        judgment: The resulting judgment
+        path: Optional override for guidance.json path (for testing)
+
+    Raises:
+        OSError: if write fails (NOT silently caught)
+    """
+    guidance_path = path or _GUIDANCE_PATH
+
+    try:
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(guidance_path), exist_ok=True)
+
+        # Prepare data
+        guidance_data = {
+            "timestamp": time.time(),
+            "state_key": f"{cell.reality}:{cell.analysis}:PRESENT:{cell.lod}",
+            "verdict": judgment.verdict,
+            "q_score": round(judgment.q_score, 3),
+            "confidence": round(min(judgment.confidence, MAX_CONFIDENCE), 4),
+            "reality": cell.reality,
+            "analysis": cell.analysis,
+            "dog_votes": {k: round(v, 3) for k, v in judgment.dog_votes.items()},
+        }
+
+        # Write atomically: write to temp, then rename
+        import tempfile
+        temp_fd, temp_path = tempfile.mkstemp(
+            dir=os.path.dirname(guidance_path),
+            prefix=".guidance_tmp_",
+            suffix=".json",
+        )
+        try:
+            with os.fdopen(temp_fd, "w", encoding="utf-8") as fh:
+                json.dump(guidance_data, fh)
+
+            # Atomic rename (fails safely if target exists)
+            os.replace(temp_path, guidance_path)
+            logger.info("Guidance written atomically: %s", guidance_path)
+
+        except Exception:
+            # Clean up temp file if rename failed
+            try:
+                os.unlink(temp_path)
+            except:
+                pass
+            raise
+
+    except Exception as e:
+        # RAISE, don't silently catch
+        logger.error("Guidance write FAILED: %s", e)
+        raise
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # POST /judge
 # ════════════════════════════════════════════════════════════════════════════
