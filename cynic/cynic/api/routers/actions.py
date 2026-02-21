@@ -28,7 +28,7 @@ router_actions = APIRouter(tags=["actions"])
 
 @router_actions.get("/actions")
 async def list_actions(
-    status: str | None = Query(default=None, description="Filter by status: PENDING/ACCEPTED/REJECTED/AUTO_EXECUTED"),
+    status: Optional[str] = Query(default=None, description="Filter by status: PENDING/ACCEPTED/REJECTED/AUTO_EXECUTED"),
 ) -> dict[str, Any]:
     """
     List proposed actions from the ActionProposer queue.
@@ -160,7 +160,7 @@ async def reject_action(action_id: str) -> dict[str, Any]:
 
 @router_actions.get("/self-probes")
 async def list_self_probes(
-    status: str | None = Query(default=None, description="Filter by status: PENDING/APPLIED/DISMISSED/all"),
+    status: Optional[str] = Query(default=None, description="Filter by status: PENDING/APPLIED/DISMISSED/all"),
 ) -> dict[str, Any]:
     """
     List SelfProber proposals — CYNIC's analysis of its own performance gaps.

@@ -222,7 +222,7 @@ class DecideAgent:
 
     # ---- Synchronous Decision Logic ----------------------------------------
 
-    def decide_for_judgment(self, judgment: Any) -> dict[str, Any] | None:
+    def decide_for_judgment(self, judgment: Any) -> Optional[dict[str, Any]]:
         """
         Synchronous decision extraction — used by orchestrator._act_phase().
 

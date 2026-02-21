@@ -114,7 +114,7 @@ class VersionManager:
         self,
         notes: str,
         docker_image: str,
-        db_migrations: list[str] | None = None,
+        db_migrations: Optional[list[str]] = None,
     ) -> Release:
         """
         Create a release record.

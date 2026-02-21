@@ -588,7 +588,7 @@ async def sdk_task(body: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="prompt is required")
 
     # Resolve session
-    session: SDKSession | None = None
+    session: Optional[SDKSession] = None
     if session_id:
         session = _sdk_sessions.get(session_id)
     elif _sdk_sessions:

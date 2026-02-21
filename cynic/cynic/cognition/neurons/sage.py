@@ -115,7 +115,7 @@ class SageDog(LLMDog):
         super().__init__(DogId.SAGE, task_type="wisdom")
         self._heuristic_count: int = 0
         self._llm_count: int = 0
-        self._compressor: Any | None = None  # ContextCompressor — injected via set_compressor()
+        self._compressor: Optional[Any] = None  # ContextCompressor — injected via set_compressor()
 
     def set_compressor(self, compressor: Any) -> None:
         """

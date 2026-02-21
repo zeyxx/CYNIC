@@ -227,7 +227,7 @@ class DeployerDog(LLMDog):
 
     # ── Code Extraction ────────────────────────────────────────────────────
 
-    def _extract_code(self, cell: Cell) -> str | None:
+    def _extract_code(self, cell: Cell) -> Optional[str]:
         """Extract code string from cell content."""
         content = cell.content
         if isinstance(content, str) and content.strip():

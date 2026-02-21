@@ -26,10 +26,10 @@ class HealthWatcher(PerceiveWorker):
     interval_s = float(fibonacci(8))   # 21.0s
     name = "health_watcher"
 
-    def __init__(self, get_consciousness_fn: Callable | None = None) -> None:
+    def __init__(self, get_consciousness_fn: Optional[Callable] = None) -> None:
         self._get_consciousness = get_consciousness_fn or get_consciousness
 
-    async def sense(self) -> Cell | None:
+    async def sense(self) -> Optional[Cell]:
         consciousness = self._get_consciousness()
         degraded: dict[str, Any] = {
             name: timer.to_dict()

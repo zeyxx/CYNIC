@@ -28,9 +28,18 @@ Usage:
 from __future__ import annotations
 
 import logging
+import sys
 import time
-from enum import StrEnum
+from enum import Enum
 from typing import Any
+
+# Python 3.9 compatibility: StrEnum added in Python 3.11
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+    class StrEnum(str, Enum):
+        """Polyfill for Python <3.11."""
+        pass
 
 from cynic.core.phi import PHI_INV_2, fibonacci
 

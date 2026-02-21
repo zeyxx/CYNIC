@@ -48,7 +48,7 @@ class AutoBenchmark:
 
     def __init__(self, registry: Any) -> None:
         self._registry = registry
-        self._task: asyncio.Task | None = None
+        self._task: asyncio.Optional[Task] = None
         self._runs = 0
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────

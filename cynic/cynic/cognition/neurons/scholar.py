@@ -111,16 +111,16 @@ class ScholarDog(LLMDog):
     def __init__(self) -> None:
         super().__init__(DogId.SCHOLAR, task_type="vector_rag")
         self._buffer: list[BufferEntry] = []
-        self._vectorizer: TfidfVectorizer | None = None
-        self._matrix: np.ndarray | None = None
+        self._vectorizer: Optional[TfidfVectorizer] = None
+        self._matrix: np.Optional[ndarray] = None
         self._matrix_dirty: bool = True  # Rebuild matrix on next analyze()
         self._lookups: int = 0
         self._hits: int = 0     # Lookups that found ≥1 neighbor above MIN_SIMILARITY
         self._cold_lookups: int = 0
-        self._db_pool: Any | None = None  # asyncpg pool (None = no persistence)
-        self._embedder: EmbeddingProvider | None = None  # β1: vector embedder
-        self._qtable: Any | None = None  # QTable (read-only, injected via set_qtable)
-        self._scholar_repo: Any | None = None  # ScholarRepoInterface (injected)
+        self._db_pool: Optional[Any] = None  # asyncpg pool (None = no persistence)
+        self._embedder: Optional[EmbeddingProvider] = None  # β1: vector embedder
+        self._qtable: Optional[Any] = None  # QTable (read-only, injected via set_qtable)
+        self._scholar_repo: Optional[Any] = None  # ScholarRepoInterface (injected)
 
     def get_capabilities(self) -> DogCapabilities:
         return DogCapabilities(
@@ -411,7 +411,7 @@ class ScholarDog(LLMDog):
         cell: Cell,
         cell_text: str,
         start: float,
-    ) -> DogJudgment | None:
+    ) -> Optional[DogJudgment]:
         """
         β1: Dense vector similarity search against scholar_buffer table.
 

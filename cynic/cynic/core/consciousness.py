@@ -168,7 +168,7 @@ class CycleTimer:
     """
     level: ConsciousnessLevel
     _samples: list[float] = field(default_factory=list)
-    _start: float | None = field(default=None, init=False)
+    _start: Optional[float] = field(default=None, init=False)
     _max_samples: int = 55  # F(10) — rolling window
 
     def start(self) -> None:
@@ -291,7 +291,7 @@ class ConsciousnessState:
     def total_cycles(self) -> int:
         return self.reflex_cycles + self.micro_cycles + self.macro_cycles + self.meta_cycles
 
-    def should_downgrade(self, budget_usd: float) -> ConsciousnessLevel | None:
+    def should_downgrade(self, budget_usd: float) -> Optional[ConsciousnessLevel]:
         """
         Recommend downgrade if budget is low or timers are CRITICAL.
 
@@ -326,7 +326,7 @@ class ConsciousnessState:
 
 
 # Singleton for the organism's consciousness state
-_consciousness: ConsciousnessState | None = None
+_consciousness: Optional[ConsciousnessState] = None
 
 
 def get_consciousness() -> ConsciousnessState:

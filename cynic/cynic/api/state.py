@@ -92,7 +92,7 @@ _GUIDANCE_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "guidance.json"
 _ESCORE_AGENT_ID = "agent:cynic"
 
 # Instance ID for multi-instance guidance isolation (set from lifespan startup via set_instance_id())
-_current_instance_id: str | None = None
+_current_instance_id: Optional[str] = None
 
 
 def set_instance_id(instance_id: str) -> None:
@@ -178,9 +178,9 @@ class CognitionCore:
     human_gate: HumanApprovalGate
     audit_trail: TransparencyAuditTrail
     # Optional: Composite of the 4 required guardrails above
-    decision_validator: DecisionValidator | None = None
-    decide_agent: DecideAgent | None = None
-    account_agent: AccountAgent | None = None
+    decision_validator: Optional[DecisionValidator] = None
+    decide_agent: Optional[DecideAgent] = None
+    account_agent: Optional[AccountAgent] = None
     axiom_monitor: AxiomMonitor = field(default_factory=AxiomMonitor)
     lod_controller: LODController = field(default_factory=LODController)
     escore_tracker: EScoreTracker = field(default_factory=EScoreTracker)
@@ -202,11 +202,11 @@ class MetabolicCore:
       - auto_benchmark    — Self-performance tracking
     """
     scheduler: ConsciousnessRhythm
-    runner: ClaudeCodeRunner | None = None
-    llm_router: LLMRouter | None = None
+    runner: Optional[ClaudeCodeRunner] = None
+    llm_router: Optional[LLMRouter] = None
     telemetry_store: TelemetryStore = field(default_factory=TelemetryStore)
     universal_actuator: UniversalActuator = field(default_factory=UniversalActuator)
-    auto_benchmark: AutoBenchmark | None = None
+    auto_benchmark: Optional[AutoBenchmark] = None
 
 
 @dataclass
@@ -239,10 +239,10 @@ class SensoryCore:
     world_model: WorldModelUpdater = field(default_factory=WorldModelUpdater)
     source_watcher: SourceWatcher = field(default_factory=SourceWatcher)
     topology_builder: IncrementalTopologyBuilder = field(default_factory=IncrementalTopologyBuilder)
-    hot_reload_coordinator: HotReloadCoordinator | None = None
-    topology_mirror: TopologyMirror | None = None
-    change_tracker: ChangeTracker | None = None
-    change_analyzer: ChangeAnalyzer | None = None
+    hot_reload_coordinator: Optional[HotReloadCoordinator] = None
+    topology_mirror: Optional[TopologyMirror] = None
+    change_tracker: Optional[ChangeTracker] = None
+    change_analyzer: Optional[ChangeAnalyzer] = None
     convergence_validator: ConvergenceValidator = field(default_factory=ConvergenceValidator)
 
 
@@ -273,8 +273,8 @@ class CynicOrganism:
     senses: SensoryCore
     memory: MemoryCore
     started_at: float = field(default_factory=time.time)
-    _pool: asyncpg.Pool | None = None
-    last_judgment: dict | None = None  # state_key, action, judgment_id — for /feedback
+    _pool: asyncpg.Optional[Pool] = None
+    last_judgment: Optional[dict] = None  # state_key, action, judgment_id — for /feedback
     container: DependencyContainer = field(default_factory=DependencyContainer)
     _handler_registry: object = field(default=None)  # HandlerRegistry — for introspection
 
@@ -308,19 +308,19 @@ class CynicOrganism:
         return self.metabolism.scheduler
 
     @property
-    def runner(self) -> ClaudeCodeRunner | None:
+    def runner(self) -> Optional[ClaudeCodeRunner]:
         return self.metabolism.runner
 
     @runner.setter
-    def runner(self, value: ClaudeCodeRunner | None) -> None:
+    def runner(self, value: Optional[ClaudeCodeRunner]) -> None:
         self.metabolism.runner = value
 
     @property
-    def llm_router(self) -> LLMRouter | None:
+    def llm_router(self) -> Optional[LLMRouter]:
         return self.metabolism.llm_router
 
     @llm_router.setter
-    def llm_router(self, value: LLMRouter | None) -> None:
+    def llm_router(self, value: Optional[LLMRouter]) -> None:
         self.metabolism.llm_router = value
 
     @property
@@ -360,11 +360,11 @@ class CynicOrganism:
         return self.memory.self_prober
 
     @property
-    def decide_agent(self) -> DecideAgent | None:
+    def decide_agent(self) -> Optional[DecideAgent]:
         return self.cognition.decide_agent
 
     @property
-    def account_agent(self) -> AccountAgent | None:
+    def account_agent(self) -> Optional[AccountAgent]:
         return self.cognition.account_agent
 
     @property
@@ -388,11 +388,11 @@ class CynicOrganism:
         return self.metabolism.universal_actuator
 
     @property
-    def auto_benchmark(self) -> AutoBenchmark | None:
+    def auto_benchmark(self) -> Optional[AutoBenchmark]:
         return self.metabolism.auto_benchmark
 
     @auto_benchmark.setter
-    def auto_benchmark(self, value: AutoBenchmark | None) -> None:
+    def auto_benchmark(self, value: Optional[AutoBenchmark]) -> None:
         self.metabolism.auto_benchmark = value
 
     # ── Guardrails (backward-compat, accessed via cognition) ──
@@ -417,7 +417,7 @@ class CynicOrganism:
         return self.senses.convergence_validator
 
     @property
-    def decision_validator(self) -> DecisionValidator | None:
+    def decision_validator(self) -> Optional[DecisionValidator]:
         return self.cognition.decision_validator
 
     # ── Topology system L0 (backward-compat, accessed via senses) ──
@@ -468,11 +468,11 @@ class _OrganismAwakener:
 
     def __init__(
         self,
-        db_pool: asyncpg.Pool | None = None,
-        registry: LLMRegistry | None = None,
+        db_pool: asyncpg.Optional[Pool] = None,
+        registry: Optional[LLMRegistry] = None,
     ) -> None:
-        self.db_pool: asyncpg.Pool | None   = db_pool
-        self.registry: LLMRegistry | None   = registry
+        self.db_pool: asyncpg.Optional[Pool]   = db_pool
+        self.registry: Optional[LLMRegistry]   = registry
 
         # ── Shared mutable state (used by multiple event handler methods) ──
         # Prevents the [0]-cell hack that was needed with closures.
@@ -1043,7 +1043,7 @@ def awaken(db_pool=None, registry=None) -> CynicOrganism:
 
 
 # Process-level singleton — set during lifespan startup
-_state: CynicOrganism | None = None
+_state: Optional[CynicOrganism] = None
 
 
 def set_state(state: CynicOrganism) -> None:

@@ -30,10 +30,20 @@ Scoring:
 """
 from __future__ import annotations
 
+import sys
 import time
 from dataclasses import dataclass, field
-from enum import StrEnum
+from enum import Enum
 from collections.abc import Callable
+from typing import Optional
+
+# Python 3.9 compatibility: StrEnum added in Python 3.11
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+    class StrEnum(str, Enum):
+        """Polyfill for Python <3.11."""
+        pass
 
 from cynic.core.phi import (
     AXIOMS_CORE,
@@ -343,7 +353,7 @@ class AxiomArchitecture:
 
     def __init__(
         self,
-        state: AxiomArchitectureState | None = None,
+        state: Optional[AxiomArchitectureState] = None,
         facet_scorer: Callable[[str, str, str], float] | None = None,
     ) -> None:
         self.state = state or AxiomArchitectureState()
@@ -446,7 +456,7 @@ class AxiomArchitecture:
         self,
         domain: str,
         axiom_scores: dict[str, float],
-        metrics: dict[str, float] | None = None,
+        metrics: Optional[dict[str, float]] = None,
     ) -> float:
         """
         Compute φ-bounded Q-Score from axiom scores.
@@ -493,7 +503,7 @@ class AxiomArchitecture:
         domain: str,
         context: str,
         fractal_depth: int = 1,
-        metrics: dict[str, float] | None = None,
+        metrics: Optional[dict[str, float]] = None,
     ) -> FullAxiomResult:
         """
         Full pipeline: score all active axioms + compute Q-Score.

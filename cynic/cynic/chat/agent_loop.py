@@ -13,10 +13,19 @@ Flow:
 from __future__ import annotations
 
 import logging
+import sys
 import time
 from dataclasses import dataclass, field
-from enum import StrEnum
+from enum import Enum
 from typing import Any, AsyncGenerator
+
+# Python 3.9 compatibility: StrEnum added in Python 3.11
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+    class StrEnum(str, Enum):
+        """Polyfill for Python <3.11."""
+        pass
 
 from cynic.chat.tools import TOOLS, ToolCall, ToolResult
 from cynic.chat.tool_executor import ToolExecutor

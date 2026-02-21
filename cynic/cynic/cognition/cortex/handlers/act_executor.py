@@ -103,7 +103,7 @@ class ActHandler(BaseHandler):
         judgment: Judgment,
         pipeline: Optional[JudgmentPipeline],
         recent_judgments: Optional[list[Any]],
-    ) -> dict | None:
+    ) -> Optional[dict]:
         """
         STEP 3 (DECIDE) + STEP 4 (ACT) — unified action execution with guardrails.
 
@@ -136,7 +136,7 @@ class ActHandler(BaseHandler):
             return None  # No action needed
 
         # Helper: emit DECISION_MADE for human review (consolidates duplicate emissions)
-        async def emit_decision_made(trigger: str, error: str | None = None) -> None:
+        async def emit_decision_made(trigger: str, error: Optional[str] = None) -> None:
             await get_core_bus().emit(Event.typed(
                 CoreEvent.DECISION_MADE,
                 DecisionMadePayload(

@@ -355,7 +355,7 @@ OPCODE_NAMES: list[str] = [
 # HELPER FUNCTIONS
 # ════════════════════════════════════════════════════════════════════════════
 
-def get_opcode_spec(name: str) -> OpcodeSpec | None:
+def get_opcode_spec(name: str) -> Optional[OpcodeSpec]:
     """Get opcode specification by name."""
     return OPCODE_REGISTRY.get(name.upper())
 

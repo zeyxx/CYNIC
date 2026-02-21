@@ -91,7 +91,7 @@ def _bar(score: float, width: int = 10) -> str:
     return "█" * filled + "░" * (width - filled)
 
 
-def _read_json(path: Path) -> Any | None:
+def _read_json(path: Path) -> Optional[Any]:
     try:
         with open(path) as f:
             return json.load(f)
@@ -107,7 +107,7 @@ def _fmt_uptime(seconds: float) -> str:
     return f"{seconds/3600:.1f}h"
 
 
-def _fetch_json(url: str, timeout: float = 2.0) -> dict | None:
+def _fetch_json(url: str, timeout: float = 2.0) -> Optional[dict]:
     try:
         req = urllib.request.Request(url, headers={"Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -116,7 +116,7 @@ def _fetch_json(url: str, timeout: float = 2.0) -> dict | None:
         return None
 
 
-def _post_json(url: str, data: dict, timeout: float = 4.0) -> dict | None:
+def _post_json(url: str, data: dict, timeout: float = 4.0) -> Optional[dict]:
     try:
         body = json.dumps(data).encode()
         req = urllib.request.Request(
@@ -199,7 +199,7 @@ class ActionsPanel(Static):
         self._selected: int = 0
 
     @property
-    def selected_action(self) -> dict | None:
+    def selected_action(self) -> Optional[dict]:
         if self._actions and 0 <= self._selected < len(self._actions):
             return self._actions[self._selected]
         return None
@@ -630,7 +630,7 @@ class CYNICApp(App):
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
-def run(base_url: str | None = None) -> None:
+def run(base_url: Optional[str] = None) -> None:
     url = base_url or f"http://localhost:{_DEFAULT_PORT}"
     CYNICApp(base_url=url).run()
 

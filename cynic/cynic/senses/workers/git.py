@@ -8,6 +8,7 @@ from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
 from cynic.core.phi import fibonacci
 from cynic.senses.workers.base import PerceiveWorker
+from typing import Optional
 
 
 class GitWatcher(PerceiveWorker):
@@ -24,11 +25,11 @@ class GitWatcher(PerceiveWorker):
     interval_s = float(fibonacci(5))   # 5.0s
     name = "git_watcher"
 
-    def __init__(self, cwd: str | None = None) -> None:
+    def __init__(self, cwd: Optional[str] = None) -> None:
         self._cwd = cwd
-        self._last_hash: int | None = None
+        self._last_hash: Optional[int] = None
 
-    async def sense(self) -> Cell | None:
+    async def sense(self) -> Optional[Cell]:
         loop = asyncio.get_running_loop()
         try:
             result = await loop.run_in_executor(

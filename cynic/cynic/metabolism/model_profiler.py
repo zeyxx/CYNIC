@@ -49,7 +49,7 @@ class ModelSample:
         latency_ms: float,
         cost_usd: float,
         q_score: float,
-        ts: float | None = None,
+        ts: Optional[float] = None,
     ) -> None:
         self.task_type  = task_type
         self.model      = model
@@ -90,7 +90,7 @@ class ModelProfiler:
 
     _MIN_SAMPLES = 3  # F(4) — minimum samples before recommending
 
-    def __init__(self, path: str | None = None) -> None:
+    def __init__(self, path: Optional[str] = None) -> None:
         self._path = path or _PROFILE_PATH
         # _samples[task_type][model] = List[ModelSample]
         self._samples: dict[str, dict[str, list[ModelSample]]] = defaultdict(
@@ -204,7 +204,7 @@ class ModelProfiler:
 
     # ── Private ───────────────────────────────────────────────────────────────
 
-    def _pick_best(self, summary: dict[str, Any]) -> str | None:
+    def _pick_best(self, summary: dict[str, Any]) -> Optional[str]:
         """Pick the cheapest WAG-quality model. Falls back to best avg_q if none qualify."""
         qualified = [
             m for m, d in summary.items()

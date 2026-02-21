@@ -129,13 +129,13 @@ class SelfProber:
         self._path = proposals_path
         self._proposals: list[SelfProposal] = []
         self._total_proposed: int = 0
-        self._qtable: Any | None = None
-        self._residual: Any | None = None
-        self._escore: Any | None = None
+        self._qtable: Optional[Any] = None
+        self._residual: Optional[Any] = None
+        self._escore: Optional[Any] = None
         self._registered: bool = False
-        self._handler_registry: Any | None = None
-        self._introspector: Any | None = None
-        self._prev_snapshot: Any | None = None
+        self._handler_registry: Optional[Any] = None
+        self._introspector: Optional[Any] = None
+        self._prev_snapshot: Optional[Any] = None
         self._load()
 
     # ── Injection ─────────────────────────────────────────────────────────
@@ -172,13 +172,13 @@ class SelfProber:
     def pending(self) -> list[SelfProposal]:
         return [p for p in self._proposals if p.status == "PENDING"]
 
-    def get(self, probe_id: str) -> SelfProposal | None:
+    def get(self, probe_id: str) -> Optional[SelfProposal]:
         for p in self._proposals:
             if p.probe_id == probe_id:
                 return p
         return None
 
-    def dismiss(self, probe_id: str) -> SelfProposal | None:
+    def dismiss(self, probe_id: str) -> Optional[SelfProposal]:
         for p in self._proposals:
             if p.probe_id == probe_id:
                 p.status = "DISMISSED"
@@ -186,7 +186,7 @@ class SelfProber:
                 return p
         return None
 
-    def apply(self, probe_id: str) -> SelfProposal | None:
+    def apply(self, probe_id: str) -> Optional[SelfProposal]:
         for p in self._proposals:
             if p.probe_id == probe_id:
                 p.status = "APPLIED"
@@ -256,7 +256,7 @@ class SelfProber:
         except AttributeError:
             return []
 
-        worst: tuple | None = None  # (value, visits, state_key, action)
+        worst: Optional[tuple] = None  # (value, visits, state_key, action)
         for state_key, actions in table.items():
             for action, entry in actions.items():
                 value  = float(entry.get("value", 1.0))

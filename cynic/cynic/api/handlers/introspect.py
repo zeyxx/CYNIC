@@ -71,7 +71,7 @@ class ArchitectureSnapshot:
     handler_analyses: list[HandlerAnalysis]
     total_handlers: int
     total_dependencies: set[str]
-    most_complex_handler: HandlerAnalysis | None
+    most_complex_handler: Optional[HandlerAnalysis]
     average_complexity: float
     complexity_variance: float
 

@@ -18,12 +18,21 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 import time
 import uuid
 from dataclasses import dataclass, field
-from enum import StrEnum
+from enum import Enum
 from typing import Any
 from collections.abc import Callable, Coroutine
+
+# Python 3.9 compatibility: StrEnum added in Python 3.11
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+    class StrEnum(str, Enum):
+        """Polyfill for Python <3.11."""
+        pass
 
 logger = logging.getLogger("cynic.event_bus")
 
@@ -338,9 +347,9 @@ class EventBus:
 # THREE BUS SINGLETONS
 # ════════════════════════════════════════════════════════════════════════════
 
-_core_bus: EventBus | None = None
-_automation_bus: EventBus | None = None
-_agent_bus: EventBus | None = None
+_core_bus: Optional[EventBus] = None
+_automation_bus: Optional[EventBus] = None
+_agent_bus: Optional[EventBus] = None
 
 
 def get_core_bus() -> EventBus:

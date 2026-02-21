@@ -54,8 +54,8 @@ class KernelMirror:
     """
 
     def __init__(self) -> None:
-        self._prev_snapshot: dict[str, Any] | None = None
-        self._penultimate_snapshot: dict[str, Any] | None = None  # N-2 snapshot for diff
+        self._prev_snapshot: Optional[dict[str, Any]] = None
+        self._penultimate_snapshot: Optional[dict[str, Any]] = None  # N-2 snapshot for diff
         self._snapshot_count: int = 0
         self._created_at: float = time.time()
 

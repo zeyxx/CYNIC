@@ -21,7 +21,7 @@ class MetricPoint:
     value: float
     unit: str
     timestamp: datetime
-    tags: dict[str, str] | None = None
+    tags: Optional[dict[str, str]] = None
 
     def to_dict(self):
         return {**asdict(self), "timestamp": self.timestamp.isoformat()}
@@ -53,7 +53,7 @@ class HealthMonitor:
         name: str,
         value: float,
         unit: str = "",
-        tags: dict[str, str] | None = None,
+        tags: Optional[dict[str, str]] = None,
     ) -> None:
         """Record a metric point."""
         metric = MetricPoint(

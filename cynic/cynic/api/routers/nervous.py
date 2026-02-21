@@ -14,11 +14,11 @@ POST /nervous/journal/clear         — Clear journal (testing only)
 from __future__ import annotations
 
 import logging
-from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 
 from cynic.api.state import CynicOrganism, get_state
 from cynic.nervous import EventCategory
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/nervous", tags=["nervous"])

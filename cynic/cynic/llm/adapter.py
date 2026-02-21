@@ -51,8 +51,8 @@ class LLMRequest:
     stream: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
     # Tool calling (Ollama/OpenAI format)
-    tools: list[dict] | None = None       # Tool schemas for function calling
-    messages: list[dict] | None = None    # Full message history (overrides prompt if set)
+    tools: Optional[list[dict]] = None       # Tool schemas for function calling
+    messages: Optional[list[dict]] = None    # Full message history (overrides prompt if set)
 
 
 @dataclass
@@ -65,8 +65,8 @@ class LLMResponse:
     completion_tokens: int = 0
     cost_usd: float = 0.0
     latency_ms: float = 0.0
-    error: str | None = None
-    tool_calls: list[dict] | None = None  # Parsed tool calls from response
+    error: Optional[str] = None
+    tool_calls: Optional[list[dict]] = None  # Parsed tool calls from response
     raw_message: Any = None               # Raw provider message object
 
     @property
@@ -225,13 +225,13 @@ class OllamaAdapter(LLMAdapter):
     """
 
     DEFAULT_URL = "http://localhost:11434"
-    _default_pool: OllamaConnectionPool | None = None  # Lazy-initialized for backward compat
+    _default_pool: Optional[OllamaConnectionPool] = None  # Lazy-initialized for backward compat
 
     def __init__(
         self,
         model: str = "llama3.2",
         base_url: str = DEFAULT_URL,
-        pool: OllamaConnectionPool | None = None,
+        pool: Optional[OllamaConnectionPool] = None,
     ) -> None:
         super().__init__(model=model, provider="ollama")
         self.base_url = base_url.rstrip("/")
@@ -360,7 +360,7 @@ class ClaudeAdapter(LLMAdapter):
     def __init__(
         self,
         model: str = "claude-sonnet-4-5-20250929",
-        api_key: str | None = None,
+        api_key: Optional[str] = None,
     ) -> None:
         super().__init__(model=model, provider="claude")
         self._api_key = api_key
@@ -430,7 +430,7 @@ class GeminiAdapter(LLMAdapter):
     def __init__(
         self,
         model: str = "gemini-1.5-flash",
-        api_key: str | None = None,
+        api_key: Optional[str] = None,
     ) -> None:
         super().__init__(model=model, provider="gemini")
         self._api_key = api_key
@@ -568,8 +568,8 @@ class LLMRegistry:
         self._adapters: dict[str, LLMAdapter] = {}
         self._available: dict[str, bool] = {}
         self._benchmarks: dict[tuple[str, str, str], BenchmarkResult] = {}
-        self._db_pool: Any | None = None
-        self._surreal: Any | None = None
+        self._db_pool: Optional[Any] = None
+        self._surreal: Optional[Any] = None
 
     def set_db_pool(self, pool: Any) -> None:
         """Wire a DB pool so benchmark updates are persisted automatically."""
@@ -586,9 +586,9 @@ class LLMRegistry:
     async def discover(
         self,
         ollama_url: str = "http://localhost:11434",
-        claude_api_key: str | None = None,
-        gemini_api_key: str | None = None,
-        models_dir: str | None = None,
+        claude_api_key: Optional[str] = None,
+        gemini_api_key: Optional[str] = None,
+        models_dir: Optional[str] = None,
         llama_gpu_layers: int = -1,
         llama_threads: int = 8,
     ) -> list[str]:
@@ -681,7 +681,7 @@ class LLMRegistry:
         """Available adapters that support text generation (not embeddings-only)."""
         return [a for a in self.get_available() if self._is_generation_adapter(a)]
 
-    def get_best_for(self, dog_id: str, task_type: str) -> LLMAdapter | None:
+    def get_best_for(self, dog_id: str, task_type: str) -> Optional[LLMAdapter]:
         """
         Return best LLM for this Dog × Task.
 
@@ -694,7 +694,7 @@ class LLMRegistry:
         Embedding-only models (nomic-embed-text) are never returned here.
         """
         best_score = -1.0
-        best: LLMAdapter | None = None
+        best: Optional[LLMAdapter] = None
 
         for aid, adapter in self._adapters.items():
             if not self._available.get(aid, False):
@@ -721,7 +721,7 @@ class LLMRegistry:
         avail = self.get_available_for_generation()
         return avail[0] if avail else None
 
-    def get_for_temporal_mcts(self) -> LLMAdapter | None:
+    def get_for_temporal_mcts(self) -> Optional[LLMAdapter]:
         """
         Return best adapter for 7-parallel temporal MCTS calls.
 
@@ -870,7 +870,7 @@ class LLMRegistry:
 
 
 # Singleton
-_registry: LLMRegistry | None = None
+_registry: Optional[LLMRegistry] = None
 
 
 def get_registry() -> LLMRegistry:

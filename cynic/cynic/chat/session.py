@@ -31,7 +31,7 @@ class ChatMessage:
     """One message in a chat session."""
     role: str                           # user / assistant / system / tool
     content: str = ""
-    tool_calls: list[dict] | None = None  # From assistant
+    tool_calls: Optional[list[dict]] = None  # From assistant
     tool_call_id: str = ""              # For tool result messages
     name: str = ""                      # Tool name (for role=tool)
     timestamp: float = field(default_factory=time.time)
@@ -93,7 +93,7 @@ class ChatSession:
 
     def __init__(
         self,
-        session_id: str | None = None,
+        session_id: Optional[str] = None,
         system_prompt: str = "",
     ) -> None:
         self.session_id = session_id or uuid.uuid4().hex[:12]
@@ -110,7 +110,7 @@ class ChatSession:
         self._append(msg)
         return msg
 
-    def add_assistant(self, content: str, tool_calls: list[dict] | None = None) -> ChatMessage:
+    def add_assistant(self, content: str, tool_calls: Optional[list[dict]] = None) -> ChatMessage:
         """Add an assistant message (text and/or tool calls)."""
         msg = ChatMessage(role="assistant", content=content, tool_calls=tool_calls)
         self._append(msg)

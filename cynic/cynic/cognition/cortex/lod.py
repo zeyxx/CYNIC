@@ -173,7 +173,7 @@ class LODController:
 
     def __init__(self) -> None:
         self._current: SurvivalLOD = SurvivalLOD.FULL
-        self._forced: SurvivalLOD | None = None
+        self._forced: Optional[SurvivalLOD] = None
         self._history: list[HealthMetrics] = []
         self._healthy_streak: int = 0
         self._transitions: list[dict[str, Any]] = []

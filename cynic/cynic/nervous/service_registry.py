@@ -18,10 +18,19 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 import time
 from dataclasses import asdict, dataclass, field
+from enum import Enum
 from typing import Any, Optional
-from enum import StrEnum
+
+# Python 3.9 compatibility: StrEnum added in Python 3.11
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+    class StrEnum(str, Enum):
+        """Polyfill for Python <3.11."""
+        pass
 
 logger = logging.getLogger("cynic.nervous.service_registry")
 

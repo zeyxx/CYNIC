@@ -104,7 +104,7 @@ class ConsciousnessScheduler:
     async def select_level(
         self,
         cell: Cell,
-        current_level: ConsciousnessLevel | None = None,
+        current_level: Optional[ConsciousnessLevel] = None,
     ) -> ConsciousnessLevel:
         """
         Auto-select consciousness level by blending system signals.
@@ -238,10 +238,10 @@ class JudgmentPipeline:
 
     # Step results
     dog_judgments: list[DogJudgment] = field(default_factory=list)
-    consensus: ConsensusResult | None = None
-    final_judgment: Judgment | None = None
+    consensus: Optional[ConsensusResult] = None
+    final_judgment: Optional[Judgment] = None
     action_executed: bool = False
-    action_result: dict | None = None
+    action_result: Optional[dict] = None
 
     # Costs
     total_cost_usd: float = 0.0
@@ -325,8 +325,8 @@ class JudgeOrchestrator:
     async def run(
         self,
         cell: Cell,
-        level: ConsciousnessLevel | None = None,
-        budget_usd: float | None = None,
+        level: Optional[ConsciousnessLevel] = None,
+        budget_usd: Optional[float] = None,
     ) -> Judgment:
         """
         Run the complete judgment cycle for a Cell via handler composition DAG.
@@ -781,7 +781,7 @@ class JudgeOrchestrator:
 
     # ── STEP 3+4: DECIDE + ACT ────────────────────────────────────────────────
 
-    async def _act_phase(self, judgment: Judgment, pipeline: JudgmentPipeline) -> dict | None:
+    async def _act_phase(self, judgment: Judgment, pipeline: JudgmentPipeline) -> Optional[dict]:
         """
         STEP 3 (DECIDE) + STEP 4 (ACT) — unified action execution with guardrails.
 

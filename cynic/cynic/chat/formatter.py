@@ -11,6 +11,7 @@ import io
 
 from cynic.chat.agent_loop import AgentEvent, AgentEventType
 from cynic.chat.tools import ToolCall, ToolResult
+from typing import Optional
 
 # ── Windows UTF-8 fix (same as cli/utils.py) ─────────────────────────────
 if sys.platform == "win32":
@@ -95,7 +96,7 @@ class ChatFormatter:
         elif t == AgentEventType.DONE:
             self._render_done(event)
 
-    def _render_tool_call(self, call: ToolCall | None) -> None:
+    def _render_tool_call(self, call: Optional[ToolCall]) -> None:
         if call is None:
             return
         name = call.name
@@ -108,7 +109,7 @@ class ChatFormatter:
         print()
         print(f"  {icon} {_c(color, _c('bold', name))} {_c('dim', preview)}", flush=True)
 
-    def _render_tool_result(self, result: ToolResult | None) -> None:
+    def _render_tool_result(self, result: Optional[ToolResult]) -> None:
         if result is None:
             return
 

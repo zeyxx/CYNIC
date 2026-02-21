@@ -151,7 +151,7 @@ class JanitorDog(AbstractDog):
 
     # ── Code Extraction ────────────────────────────────────────────────────
 
-    def _extract_code(self, cell: Cell) -> str | None:
+    def _extract_code(self, cell: Cell) -> Optional[str]:
         """Extract Python code string from cell content."""
         content = cell.content
 

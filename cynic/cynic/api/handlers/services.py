@@ -50,7 +50,7 @@ class CognitionServices:
     qtable: QTable
     learning_loop: LearningLoop
     residual_detector: ResidualDetector
-    decide_agent: DecideAgent | None
+    decide_agent: Optional[DecideAgent]
     axiom_monitor: AxiomMonitor
     lod_controller: LODController
     escore_tracker: EScoreTracker
@@ -125,9 +125,9 @@ class MetabolicServices:
     """
 
     scheduler: ConsciousnessRhythm
-    runner: ClaudeCodeRunner | None = None
-    llm_router: LLMRouter | None = None
-    db_pool: Pool | None = None
+    runner: Optional[ClaudeCodeRunner] = None
+    llm_router: Optional[LLMRouter] = None
+    db_pool: Optional[Pool] = None
 
     def is_runner_available(self) -> bool:
         """Check if autonomous task execution is available."""

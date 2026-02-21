@@ -45,7 +45,7 @@ class DogCognitionState:
     confidence_history: list[float] = field(default_factory=list)
     # Recent confidence values (rolling window for stability)
 
-    last_verdict: str | None = None
+    last_verdict: Optional[str] = None
     # Most recent verdict (BARK/GROWL/WAG/HOWL)
 
     last_q_score: float = 0.0

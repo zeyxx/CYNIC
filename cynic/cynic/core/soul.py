@@ -74,7 +74,7 @@ def _parse_front_matter(text: str) -> tuple[dict, str]:
     body = "\n".join(lines[end + 1:])
     fields: dict = {}
 
-    current_list_key: str | None = None
+    current_list_key: Optional[str] = None
     for line in front_lines:
         # List item
         if re.match(r"^\s+-\s+", line):
@@ -137,9 +137,9 @@ class DogSoul:
         total_judgments: int = 0,
         avg_q_score: float = 0.0,
         session_count: int = 0,
-        top_signals: list[str] | None = None,
+        top_signals: Optional[list[str]] = None,
         last_seen: str = "",
-        soul_root: Path | None = None,
+        soul_root: Optional[Path] = None,
     ) -> None:
         self.dog_id = dog_id.upper()
         self.total_judgments = total_judgments
@@ -160,7 +160,7 @@ class DogSoul:
     # ── Load / Save ───────────────────────────────────────────────────────
 
     @classmethod
-    def load(cls, dog_id: str, soul_root: Path | None = None) -> DogSoul:
+    def load(cls, dog_id: str, soul_root: Optional[Path] = None) -> DogSoul:
         """
         Load DogSoul from disk. Returns fresh DogSoul if file doesn't exist.
         """
@@ -211,7 +211,7 @@ class DogSoul:
 
     # ── Update ────────────────────────────────────────────────────────────
 
-    def update(self, q_score: float, signals: list[str] | None = None) -> None:
+    def update(self, q_score: float, signals: Optional[list[str]] = None) -> None:
         """
         Record one judgment result. Updates running average and signal counts.
         Call save() to persist to disk.

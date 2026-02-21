@@ -54,7 +54,7 @@ class DogCognition:
     When done, dog publishes compressed_context for siblings to learn from.
     """
 
-    def __init__(self, dog_id: str, config: DogCognitionConfig | None = None) -> None:
+    def __init__(self, dog_id: str, config: Optional[DogCognitionConfig] = None) -> None:
         self.dog_id = dog_id
         self.config = config or DogCognitionConfig()
         self._judgment_count = 0
@@ -293,7 +293,7 @@ class DogCognition:
 
     def _detect_residual(
         self, dog_state: DogState, q_score: float, confidence: float
-    ) -> dict[str, Any] | None:
+    ) -> Optional[dict[str, Any]]:
         """RESIDUAL: Detect anomalies that signal learning gaps."""
         # Residual if we're low-confidence about a low-score judgment (uncertain + bad)
         if q_score < 38.2 and confidence < 0.3:

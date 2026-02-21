@@ -33,6 +33,7 @@ from __future__ import annotations
 import random
 import time
 from dataclasses import dataclass, field
+from typing import Optional
 
 from cynic.core.phi import fibonacci
 from cynic.cognition.cortex.qtable_benchmark import (
@@ -138,7 +139,7 @@ class RealBenchmark:
         (P3 is the strongest anchor — Guardian always scores it 0)
     """
 
-    def __init__(self, task: RealKernelTask | None = None) -> None:
+    def __init__(self, task: Optional[RealKernelTask] = None) -> None:
         self.task = task or RealKernelTask()
 
     def run(

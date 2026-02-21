@@ -218,7 +218,7 @@ class CartographerDog(LLMDog):
 
     # ── Code Extraction ────────────────────────────────────────────────────
 
-    def _extract_code(self, cell: Cell) -> str | None:
+    def _extract_code(self, cell: Cell) -> Optional[str]:
         """Extract Python code string from cell content."""
         content = cell.content
         if isinstance(content, str) and content.strip():
@@ -232,7 +232,7 @@ class CartographerDog(LLMDog):
 
     # ── AST → GraphSnapshot ────────────────────────────────────────────────
 
-    def _parse_graph(self, code: str) -> GraphSnapshot | None:
+    def _parse_graph(self, code: str) -> Optional[GraphSnapshot]:
         """
         Parse Python code into a GraphSnapshot.
 
@@ -297,7 +297,7 @@ class CartographerDog(LLMDog):
                     if callee and callee != caller:
                         snap.calls.append((caller, callee))
 
-    def _name_from_expr(self, expr: ast.expr) -> str | None:
+    def _name_from_expr(self, expr: ast.expr) -> Optional[str]:
         """Extract a simple name from a call expression."""
         if isinstance(expr, ast.Name):
             return expr.id

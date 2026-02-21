@@ -6,6 +6,7 @@ from __future__ import annotations
 import sys
 
 from cynic.cli.utils import _c
+from typing import Optional
 
 
 def cmd_tui() -> None:
@@ -32,7 +33,7 @@ def cmd_tui() -> None:
            python -m cynic.cli tui --organism (organism dashboard)
     """
     extra = sys.argv[2:]
-    url: str | None = None
+    url: Optional[str] = None
     use_organism = False
 
     if "--url" in extra:

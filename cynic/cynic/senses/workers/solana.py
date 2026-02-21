@@ -19,7 +19,7 @@ _SLOT_LAG_WARNING = 10          # >10 behind tip → lagging
 _HTTP_TIMEOUT = 5.0
 
 
-def _rpc_call(method: str, params: list) -> dict[str, Any] | None:
+def _rpc_call(method: str, params: list) -> Optional[dict[str, Any]]:
     """Blocking Solana JSON-RPC call — called via run_in_executor."""
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
     try:
@@ -55,13 +55,13 @@ class SolanaWatcher(PerceiveWorker):
     interval_s = float(fibonacci(9))   # 34.0s
     name = "solana_watcher"
 
-    def __init__(self, rpc_url: str | None = None) -> None:
+    def __init__(self, rpc_url: Optional[str] = None) -> None:
         global _SOLANA_RPC_URL
         if rpc_url:
             _SOLANA_RPC_URL = rpc_url
-        self._last_slot: int | None = None
+        self._last_slot: Optional[int] = None
 
-    def _fetch_chain_state(self) -> dict[str, Any] | None:
+    def _fetch_chain_state(self) -> Optional[dict[str, Any]]:
         """Blocking — calls getSlot + getRecentPerformanceSamples."""
         slot = _rpc_call("getSlot", [])
         if slot is None:
@@ -76,7 +76,7 @@ class SolanaWatcher(PerceiveWorker):
 
         return {"slot": slot, "tps": round(tps, 1)}
 
-    async def sense(self) -> Cell | None:
+    async def sense(self) -> Optional[Cell]:
         loop = asyncio.get_running_loop()
         state = await loop.run_in_executor(None, self._fetch_chain_state)
 

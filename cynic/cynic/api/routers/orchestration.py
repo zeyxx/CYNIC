@@ -11,12 +11,12 @@ POST /orchestration/release    — Create release
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from cynic.orchestration import DockerManager, VersionManager, HealthMonitor
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/orchestration", tags=["orchestration"])

@@ -39,6 +39,8 @@ import random
 import time
 from dataclasses import dataclass, field
 
+from typing import Optional
+
 from cynic.core.phi import fibonacci
 from cynic.cognition.cortex.qtable_benchmark import (
     QEntry,
@@ -86,11 +88,11 @@ class WarmStartResult:
 
     # Cold start errors (no prior knowledge)
     cold_final_error: float
-    cold_convergence_step: int | None
+    cold_convergence_step: Optional[int]
 
     # Warm start errors (pre-loaded Q-values)
     warm_final_error: float
-    warm_convergence_step: int | None
+    warm_convergence_step: Optional[int]
 
     # Amplification
     amplification_ratio: float   # cold_error / warm_error (>1 = amplified)
@@ -252,7 +254,7 @@ class AmplificationBenchmark:
 
     def run_grid(
         self,
-        warm_levels: list[int] | None = None,
+        warm_levels: Optional[list[int]] = None,
         test_budget: int = _TEST_BUDGET,
         n_seeds: int = 7,
         base_seed: int = 42,

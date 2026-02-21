@@ -233,7 +233,7 @@ class ContextCompressor:
         self,
         chunks: list[str],
         budget: int,
-        chunk_attentions: list[float] | None = None,
+        chunk_attentions: Optional[list[float]] = None,
     ) -> str:
         """
         Compress chunks to fit within token budget.
@@ -315,7 +315,7 @@ class ContextCompressor:
 
         return result
 
-    def get_compressed_context(self, budget: int | None = None) -> str:
+    def get_compressed_context(self, budget: Optional[int] = None) -> str:
         """
         Return compressed context from accumulated session history.
 

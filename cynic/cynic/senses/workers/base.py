@@ -14,6 +14,7 @@ from collections.abc import Callable
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
 from cynic.core.phi import fibonacci
+from typing import Optional
 
 logger = logging.getLogger("cynic.senses")
 
@@ -44,7 +45,7 @@ class PerceiveWorker(ABC):
     name: str = "perceive_worker"
 
     @abstractmethod
-    async def sense(self) -> Cell | None:
+    async def sense(self) -> Optional[Cell]:
         """
         Observe the worker's domain.
 

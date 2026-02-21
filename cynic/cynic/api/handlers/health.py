@@ -20,7 +20,7 @@ class HealthHandlers(HandlerGroup):
     """Resource pressure handling — disk/memory → LOD transition."""
 
     def __init__(
-        self, svc: KernelServices, *, storage_gc, db_pool: Pool | None
+        self, svc: KernelServices, *, storage_gc, db_pool: Optional[Pool]
     ) -> None:
         self._svc = svc
         self._storage_gc = storage_gc

@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
-from typing import Optional
 
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn

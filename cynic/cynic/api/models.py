@@ -29,11 +29,11 @@ class JudgeRequest(BaseModel):
         description="Analysis type: PERCEIVE/JUDGE/DECIDE/ACT/LEARN/ACCOUNT/EMERGE",
     )
     context: str = Field(default="", description="Human-readable context for LLM scoring")
-    time_dim: str | None = Field(
+    time_dim: Optional[str] = Field(
         default=None,
         description="Time dimension: PAST/PRESENT/FUTURE/CYCLE/TREND/EMERGENCE/TRANSCENDENCE (inferred if None)",
     )
-    level: str | None = Field(
+    level: Optional[str] = Field(
         default=None,
         description="Consciousness level: REFLEX/MICRO/MACRO (auto-selected if None)",
     )
@@ -51,7 +51,7 @@ class JudgeRequest(BaseModel):
 
     @field_validator("level")
     @classmethod
-    def validate_level(cls, v: str | None) -> str | None:
+    def validate_level(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return None
         valid = {"REFLEX", "MICRO", "MACRO"}
@@ -97,7 +97,7 @@ class PerceiveRequest(BaseModel):
     )
     data: Any = Field(description="Raw perception data (any JSON-serializable)")
     context: str = Field(default="", description="Human-readable context")
-    time_dim: str | None = Field(
+    time_dim: Optional[str] = Field(
         default=None,
         description="Time dimension: PAST/PRESENT/FUTURE/CYCLE/TREND/EMERGENCE/TRANSCENDENCE (inferred if None)",
     )
@@ -105,7 +105,7 @@ class PerceiveRequest(BaseModel):
         default=True,
         description="If True, run full judgment pipeline on this perception",
     )
-    level: str | None = Field(default="REFLEX", description="Judgment level")
+    level: Optional[str] = Field(default="REFLEX", description="Judgment level")
 
 
 class PerceiveResponse(BaseModel):
@@ -113,7 +113,7 @@ class PerceiveResponse(BaseModel):
     cell_id: str
     source: str
     reality: str
-    judgment: JudgeResponse | None = None
+    judgment: Optional[JudgeResponse] = None
     enqueued: bool = False
     message: str = ""
 

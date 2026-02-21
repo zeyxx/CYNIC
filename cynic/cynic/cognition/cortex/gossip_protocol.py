@@ -115,7 +115,7 @@ class GossipProtocol:
         self._rejected_count = 0
         # Metrics for efficiency validation
 
-    async def publish_gossip(self, dog_state: DogState) -> GossipMessage | None:
+    async def publish_gossip(self, dog_state: DogState) -> Optional[GossipMessage]:
         """
         Create and publish gossip message from dog's current state.
 

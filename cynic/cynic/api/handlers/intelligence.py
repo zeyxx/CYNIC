@@ -39,7 +39,7 @@ class IntelligenceHandlers(HandlerGroup):
         *,
         orchestrator: JudgeOrchestrator,
         scheduler: ConsciousnessRhythm,
-        db_pool: Pool | None,
+        db_pool: Optional[Pool],
         compressor,  # ContextCompressor
     ) -> None:
         self._svc = svc

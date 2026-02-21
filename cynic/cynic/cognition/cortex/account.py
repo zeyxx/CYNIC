@@ -55,7 +55,7 @@ class AccountAgent:
     def __init__(
         self,
         session_budget_usd: float = _DEFAULT_SESSION_BUDGET_USD,
-        escore_tracker: Any | None = None,
+        escore_tracker: Optional[Any] = None,
     ) -> None:
         self._session_budget_usd = session_budget_usd
         self._escore_tracker = escore_tracker   # Optional[EScoreTracker]

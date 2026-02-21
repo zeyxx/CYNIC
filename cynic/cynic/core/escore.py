@@ -168,7 +168,7 @@ class EScoreTracker:
         entity_id: str,
         dimension: str,
         value: float,
-        reality: str | None = None,
+        reality: Optional[str] = None,
     ) -> float:
         """
         Record a new score observation for an entity.

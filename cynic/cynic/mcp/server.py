@@ -39,7 +39,7 @@ class MCPServer:
         self,
         port: int = 8766,
         host: str = "127.0.0.1",
-        get_state_fn: Callable | None = None,  # () -> CynicOrganism
+        get_state_fn: Optional[Callable] = None,  # () -> CynicOrganism
     ):
         """
         Initialize MCP server.
@@ -52,8 +52,8 @@ class MCPServer:
         self.port = port
         self.host = host
         self.get_state_fn = get_state_fn
-        self.app: web.Application | None = None
-        self.runner: web.AppRunner | None = None
+        self.app: web.Optional[Application] = None
+        self.runner: web.Optional[AppRunner] = None
 
     async def start(self) -> None:
         """Start the MCP server."""
@@ -357,7 +357,7 @@ class MCPServer:
 
 async def run_mcp_server(
     port: int = 8766,
-    get_state_fn: Callable | None = None,
+    get_state_fn: Optional[Callable] = None,
 ) -> MCPServer:
     """
     Start MCP server and return it for lifecycle management.

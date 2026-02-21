@@ -544,8 +544,8 @@ async def run_tui(cynic_url: str = "http://localhost:8000"):
             """Initialize app with CYNIC server URL."""
             super().__init__()
             self.cynic_url = cynic_url
-            self.dashboard: CynicDashboard | None = None
-            self._polling_worker: Worker | None = None
+            self.dashboard: Optional[CynicDashboard] = None
+            self._polling_worker: Optional[Worker] = None
 
         def compose(self) -> ComposeResult:
             self.dashboard = CynicDashboard()

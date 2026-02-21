@@ -51,7 +51,7 @@ class BreathingCheck:
 class BreathingCheckWidget(Static):
     """Single breathing check row."""
 
-    check: reactive[BreathingCheck | None] = reactive(None)
+    check: reactive[Optional[BreathingCheck]] = reactive(None)
 
     def render(self) -> RenderableType:
         if not self.check:
@@ -82,7 +82,7 @@ class BreathingPanel(Static):
 class MatrixPanel(Static):
     """7×7 consciousness matrix snapshot."""
 
-    matrix_data: reactive[dict[str, Any] | None] = reactive(None)
+    matrix_data: reactive[Optional[dict[str, Any]]] = reactive(None)
 
     def render(self) -> RenderableType:
         if not self.matrix_data:

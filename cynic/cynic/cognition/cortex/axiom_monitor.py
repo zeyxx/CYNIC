@@ -76,7 +76,7 @@ class AxiomState:
     signal_times: deque[float] = field(default_factory=lambda: deque(maxlen=MATURITY_WINDOW))
     activation_count: int = 0
     last_signal: float = 0.0
-    first_activated: float | None = None
+    first_activated: Optional[float] = None
 
     def add_signal(self) -> None:
         """Record a new signal at the current time."""
@@ -152,7 +152,7 @@ class AxiomMonitor:
 
     # ── Signal API ────────────────────────────────────────────────────────
 
-    def signal(self, axiom: str, count: int = 1) -> str | None:
+    def signal(self, axiom: str, count: int = 1) -> Optional[str]:
         """
         Record a signal for an emergent axiom.
 

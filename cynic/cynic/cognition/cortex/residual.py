@@ -102,7 +102,7 @@ class ResidualDetector:
         self._patterns_detected: int = 0
         self._listener_registered: bool = False
         self._consecutive_high: int = 0   # Running count for STABLE_HIGH
-        self._db_pool: Any | None = None
+        self._db_pool: Optional[Any] = None
 
     def set_db_pool(self, pool: Any) -> None:
         """Wire a DB pool so history observations are persisted automatically."""
@@ -124,7 +124,7 @@ class ResidualDetector:
         self._listener_registered = True
         logger.info("ResidualDetector subscribed to JUDGMENT_CREATED")
 
-    def observe(self, judgment: Judgment) -> ResidualPattern | None:
+    def observe(self, judgment: Judgment) -> Optional[ResidualPattern]:
         """
         Synchronously observe a judgment.
 
@@ -287,7 +287,7 @@ class ResidualDetector:
         self,
         point: ResidualPoint,
         residual: float,
-    ) -> ResidualPattern | None:
+    ) -> Optional[ResidualPattern]:
         """Check all pattern types. Return first detected."""
         history_vals = [p.residual for p in self._history]
 
@@ -314,7 +314,7 @@ class ResidualDetector:
         self,
         current: float,
         history: list[float],
-    ) -> ResidualPattern | None:
+    ) -> Optional[ResidualPattern]:
         """SPIKE: current residual is significantly above rolling baseline.
 
         Two modes:
@@ -365,7 +365,7 @@ class ResidualDetector:
                 )
         return None
 
-    def _check_stable_high(self) -> ResidualPattern | None:
+    def _check_stable_high(self) -> Optional[ResidualPattern]:
         """STABLE_HIGH: N consecutive judgments above threshold."""
         if self._consecutive_high >= STABLE_HIGH_N:
             # Severity rises with consecutive count
@@ -381,7 +381,7 @@ class ResidualDetector:
             )
         return None
 
-    def _check_rising(self, history: list[float]) -> ResidualPattern | None:
+    def _check_rising(self, history: list[float]) -> Optional[ResidualPattern]:
         """RISING: Linear slope across last N points > RISING_SLOPE_THRESHOLD."""
         n = len(history)
         if n < MIN_SAMPLES * 2:  # Need more points for reliable slope

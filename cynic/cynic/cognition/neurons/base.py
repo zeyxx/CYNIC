@@ -25,11 +25,20 @@ E-Score weights and Dog priority:
 """
 from __future__ import annotations
 
+import sys
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import StrEnum
+from enum import Enum
 from typing import TYPE_CHECKING, Any
+
+# Python 3.9 compatibility: StrEnum added in Python 3.11
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+    class StrEnum(str, Enum):
+        """Polyfill for Python <3.11."""
+        pass
 
 if TYPE_CHECKING:
     from cynic.llm.adapter import LLMAdapter, LLMRegistry

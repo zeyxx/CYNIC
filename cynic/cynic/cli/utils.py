@@ -66,7 +66,7 @@ def _c(color: str, text: str) -> str:
 
 # ── File helpers ───────────────────────────────────────────────────────────
 
-def _read_json(path: str) -> dict[str, Any] | None:
+def _read_json(path: str) -> Optional[dict[str, Any]]:
     try:
         with open(path, encoding="utf-8") as fh:
             return json.load(fh)
@@ -74,7 +74,7 @@ def _read_json(path: str) -> dict[str, Any] | None:
         return None
 
 
-def _api_get(path: str) -> dict[str, Any] | None:
+def _api_get(path: str) -> Optional[dict[str, Any]]:
     try:
         req = urllib.request.Request(
             f"{_API}{path}",
@@ -86,7 +86,7 @@ def _api_get(path: str) -> dict[str, Any] | None:
         return None
 
 
-def _api_post(path: str, body: dict | None = None) -> dict[str, Any] | None:
+def _api_post(path: str, body: Optional[dict] = None) -> Optional[dict[str, Any]]:
     """POST to the API. Returns parsed JSON or None on any error."""
     try:
         data = json.dumps(body or {}).encode()

@@ -92,7 +92,7 @@ class ProposedAction:
     priority:    int
     proposed_at: float
     status:      str = "PENDING"
-    parent_action_id: str | None = None
+    parent_action_id: Optional[str] = None
     chain_depth:      int = 0
     generated_by:     str = "JUDGE"  # JUDGE | VERIFY | SELF
 
@@ -144,7 +144,7 @@ class ActionProposer:
     Thread-safe assumption: single asyncio event loop (standard for FastAPI).
     """
 
-    def __init__(self, queue_path: str | None = None) -> None:
+    def __init__(self, queue_path: Optional[str] = None) -> None:
         self._path = queue_path or _QUEUE_PATH
         self._queue: list[ProposedAction] = []
         self._proposed_total: int = 0
@@ -174,7 +174,7 @@ class ActionProposer:
         q_value        = float(p.get("q_value", 0.0))
 
         # Chain depth inheritance: if event carries parent info, propagate depth
-        parent_action_id: str | None = p.get("parent_action_id", None)
+        parent_action_id: Optional[str] = p.get("parent_action_id", None)
         parent_chain_depth: int = int(p.get("chain_depth", 0))
         generated_by: str = p.get("generated_by", "JUDGE")
         chain_depth = parent_chain_depth + 1 if parent_action_id else 0
@@ -233,7 +233,7 @@ class ActionProposer:
 
     # ── L4→P5 bridge: SelfProposal → ProposedAction ──────────────────────────
 
-    def propose_self_improvement(self, proposal: dict[str, Any]) -> ProposedAction | None:
+    def propose_self_improvement(self, proposal: dict[str, Any]) -> Optional[ProposedAction]:
         """
         Convert a SelfProposal dict → ProposedAction (priority=4, action_type=IMPROVE).
 
@@ -311,30 +311,30 @@ class ActionProposer:
         """Full queue, most recent last."""
         return list(self._queue)
 
-    def get(self, action_id: str) -> ProposedAction | None:
+    def get(self, action_id: str) -> Optional[ProposedAction]:
         for a in self._queue:
             if a.action_id == action_id:
                 return a
         return None
 
-    def accept(self, action_id: str) -> ProposedAction | None:
+    def accept(self, action_id: str) -> Optional[ProposedAction]:
         """Mark action as ACCEPTED. Returns the action or None if not found."""
         return self._set_status(action_id, "ACCEPTED")
 
-    def reject(self, action_id: str) -> ProposedAction | None:
+    def reject(self, action_id: str) -> Optional[ProposedAction]:
         """Mark action as REJECTED. Returns the action or None if not found."""
         return self._set_status(action_id, "REJECTED")
 
-    def mark_auto_executed(self, action_id: str) -> ProposedAction | None:
+    def mark_auto_executed(self, action_id: str) -> Optional[ProposedAction]:
         """Mark action as AUTO_EXECUTED (runner fired it automatically)."""
         return self._set_status(action_id, "AUTO_EXECUTED")
 
-    def mark_completed(self, action_id: str, success: bool) -> ProposedAction | None:
+    def mark_completed(self, action_id: str, success: bool) -> Optional[ProposedAction]:
         """Mark action as COMPLETED or FAILED after execution result arrives (T30)."""
         status = "COMPLETED" if success else "FAILED"
         return self._set_status(action_id, status)
 
-    def _set_status(self, action_id: str, status: str) -> ProposedAction | None:
+    def _set_status(self, action_id: str, status: str) -> Optional[ProposedAction]:
         for a in self._queue:
             if a.action_id == action_id:
                 a.status = status

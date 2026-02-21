@@ -211,7 +211,7 @@ class ConsciousnessRhythm:
     def submit(
         self,
         cell: Cell,
-        level: ConsciousnessLevel | None = None,
+        level: Optional[ConsciousnessLevel] = None,
         budget_usd: float = 0.05,
         source: str = "api",
     ) -> bool:
@@ -432,7 +432,7 @@ class ConsciousnessRhythm:
         self,
         level: ConsciousnessLevel,
         timeout: float,
-    ) -> PerceptionEvent | None:
+    ) -> Optional[PerceptionEvent]:
         """
         Wait up to `timeout` seconds for one item from the level's queue.
 
@@ -453,7 +453,7 @@ class ConsciousnessRhythm:
 
     async def _meta_evolve(self) -> None:
         """Periodic evolution tick — calls orchestrator.evolve() if present."""
-        evolve_fn: Callable | None = getattr(self._orchestrator, "evolve", None)
+        evolve_fn: Optional[Callable] = getattr(self._orchestrator, "evolve", None)
         if evolve_fn is not None:
             if asyncio.iscoroutinefunction(evolve_fn):
                 await evolve_fn()

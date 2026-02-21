@@ -45,10 +45,10 @@ class DiskWatcher(PerceiveWorker):
     interval_s = float(fibonacci(9))   # 34.0s
     name = "disk_watcher"
 
-    def __init__(self, path: str | None = None) -> None:
+    def __init__(self, path: Optional[str] = None) -> None:
         # Monitor the drive where ~/.cynic lives (covers DB data dir too)
         self._path = path or os.path.expanduser("~")
-        self._last_level: str | None = None   # deduplicate emissions
+        self._last_level: Optional[str] = None   # deduplicate emissions
 
     def _check_disk(self) -> dict[str, Any]:
         """Blocking disk check — called via run_in_executor."""
@@ -73,7 +73,7 @@ class DiskWatcher(PerceiveWorker):
             "pressure": pressure,
         }
 
-    async def sense(self) -> Cell | None:
+    async def sense(self) -> Optional[Cell]:
         loop = asyncio.get_running_loop()
         try:
             info = await loop.run_in_executor(None, self._check_disk)
