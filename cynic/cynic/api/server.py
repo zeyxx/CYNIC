@@ -712,12 +712,6 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 from cynic.api.routers.observability import router_observability
 app.include_router(router_observability)
 
-# ── Test route (inline) ──────────────────────────────────────────────────────
-# DEBUG: Test if inline routes work via HTTP
-@app.get("/test-inline")
-async def test_inline():
-    return {"message": "inline route works"}
-
 # ── Register all routers ───────────────────────────────────────────────────
 # NOTE: Routers are auto-registered in lifespan (bootstrap phase)
 # via auto_register_routers() — no manual include_router needed
