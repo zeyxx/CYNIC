@@ -144,8 +144,8 @@ class TestPhase3Tier1EndToEnd:
             assert get_resp.status_code == 200
 
             result = get_resp.json()
-            assert result["verdict"] in ["HOWL", "WAG", "GROWL", "BARK"]
-            assert result["q_score"] > 0
+            assert result["judgment"]["verdict"] in ["HOWL", "WAG", "GROWL", "BARK"]
+            assert result["judgment"]["q_score"] > 0
 
     @pytest.mark.asyncio
     async def test_multiple_judgments_independent(self, integration_environment):
