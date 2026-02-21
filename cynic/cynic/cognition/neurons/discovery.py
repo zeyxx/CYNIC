@@ -1,7 +1,7 @@
 """
 CYNIC Dog Auto-Discovery — pkgutil-based registration.
 
-Scans cynic.dogs for all AbstractDog subclasses with a DOG_ID class attribute.
+Scans cynic.cognition.neurons for all AbstractDog subclasses with a DOG_ID class attribute.
 Replaces manual import lists — adding a new dog = add the file + DOG_ID.
 
 φ-Law: BURN — discovery replaces boilerplate.
@@ -13,10 +13,10 @@ import logging
 import pkgutil
 from typing import Any
 
-import cynic.dogs as dogs_pkg
-from cynic.dogs.base import AbstractDog, DogId
+import cynic.cognition.neurons as dogs_pkg
+from cynic.cognition.neurons.base import AbstractDog, DogId
 
-logger = logging.getLogger("cynic.dogs.discovery")
+logger = logging.getLogger("cynic.cognition.neurons.discovery")
 
 
 def discover_dog_classes() -> dict[str, type[AbstractDog]]:

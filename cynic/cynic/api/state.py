@@ -65,7 +65,7 @@ from cynic.metabolism.auto_benchmark import AutoBenchmark
 from cynic.metabolism.universal import UniversalActuator
 from cynic.cognition.cortex.mirror import KernelMirror
 from cynic.llm.adapter import LLMRegistry
-from cynic.perceive.compressor import ContextCompressor
+from cynic.senses.compressor import ContextCompressor
 from cynic.core.container import DependencyContainer
 
 logger = logging.getLogger("cynic.api.state")
@@ -525,7 +525,7 @@ async def restore_state(state: AppState) -> None:
       - EScoreTracker entities from e_scores table (γ4)
       - ContextCompressor session from ~/.cynic/session-latest.json (γ2)
     """
-    from cynic.perceive import checkpoint as _ckpt
+    from cynic.senses import checkpoint as _ckpt
 
     pool = state._pool
 
