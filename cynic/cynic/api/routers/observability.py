@@ -45,6 +45,7 @@ async def get_metrics() -> Response:
     - consciousness_websocket_connections_active: Active WebSocket connections
     - consciousness_errors_total: Errors by type
     """
+    logger.info("DEBUG: /metrics endpoint called")
     metrics_bytes, content_type = get_metrics_text()
     return Response(content=metrics_bytes, media_type=content_type)
 
@@ -72,6 +73,7 @@ async def health_check() -> dict:
             }
         }
     """
+    logger.info("DEBUG: /health endpoint called")
     from cynic.api.state import get_app_container
 
     try:

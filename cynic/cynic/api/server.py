@@ -603,12 +603,6 @@ async def lifespan(app: FastAPI):
     logger.info("📡 Auto-registered %d router modules: %s",
                len(routers_registered), list(routers_registered.keys()))
 
-    # ── Explicitly register observability router ──────────────────────────────
-    # Ensures metrics/health endpoints are always available
-    from cynic.api.routers.observability import router_observability
-    app.include_router(router_observability)
-    logger.info("📡 Observability router registered: /observability/{health,metrics,ready,version}")
-
     yield
 
     # Shutdown
@@ -713,12 +707,19 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     )
 
 
+# ── Register observability router (early, before lifespan) ──────────────────
+# Observability endpoints MUST be available even during startup
+from cynic.api.routers.observability import router_observability
+app.include_router(router_observability)
+
+# ── Test route (inline) ──────────────────────────────────────────────────────
+# DEBUG: Test if inline routes work via HTTP
+@app.get("/test-inline")
+async def test_inline():
+    return {"message": "inline route works"}
+
 # ── Register all routers ───────────────────────────────────────────────────
 # NOTE: Routers are auto-registered in lifespan (bootstrap phase)
 # via auto_register_routers() — no manual include_router needed
 # This ensures: orchestration, auto_register, and any new routers are discovered automatically
 # See: cynic/api/routers/auto_register.py
-
-# Explicitly register observability router (ensures metrics/health endpoints available)
-from cynic.api.routers.observability import router_observability
-app.include_router(router_observability)
