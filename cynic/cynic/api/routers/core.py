@@ -60,6 +60,48 @@ def _get_judgment_repo() -> "JudgmentRepository":
     return _judgment_repo
 
 
+async def _persist_judgment_async(judgment: Judgment) -> None:
+    """
+    ASYNC persistence to PostgreSQL — MUST BE AWAITED.
+
+    This is NOT fire-and-forget. The caller MUST await this function
+    to ensure data is persisted before returning HTTP response.
+
+    Phase 0 fix: Eliminates race condition where HTTP 200 returned
+    before database persistence completes.
+
+    Args:
+        judgment: The judgment to persist
+
+    Raises:
+        ValueError: if judgment_id is missing
+        Exception: if persistence fails (NOT silently caught)
+    """
+    if not judgment.judgment_id:
+        raise ValueError("judgment_id required for persistence")
+
+    try:
+        repo = _get_judgment_repo()
+        data = judgment.to_dict()
+
+        # Add fields not in to_dict() but needed by schema
+        data.setdefault("cell_id", judgment.cell.cell_id)
+        data.setdefault("time_dim", judgment.cell.time_dim)
+        data.setdefault("lod", judgment.cell.lod)
+        data.setdefault("consciousness", judgment.cell.consciousness)
+        data["reality"] = judgment.cell.reality
+        data["analysis"] = judgment.cell.analysis
+
+        # AWAIT the save — do not fire-and-forget
+        await repo.save(data)
+        logger.info("Judgment %s persisted successfully", judgment.judgment_id)
+
+    except Exception as e:
+        # RAISE, don't silently log
+        logger.error("Judgment persistence FAILED: %s", e)
+        raise
+
+
 def _persist_judgment(judgment: Judgment) -> None:
     """
     Fire-and-forget judgment persistence to PostgreSQL.
