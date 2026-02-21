@@ -218,3 +218,169 @@ class TestMCPBridgeHandleCall:
         assert result["status"] == "emitted"
         assert result["tool_name"] == "judge"
         assert "event_id" in result
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# MCPRouter — PROTOCOL TRANSLATION
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestMCPRouterInitialization:
+    """MCPRouter must set up bridge with default tools."""
+
+    def test_router_creates_bridge(self) -> None:
+        from cynic.mcp.router import MCPRouter
+
+        router = MCPRouter()
+        assert router.bridge is not None
+
+    def test_router_registers_default_tools(self) -> None:
+        from cynic.mcp.router import MCPRouter
+
+        router = MCPRouter()
+        assert "ask_cynic" in router.bridge.tools
+        assert "observe_cynic" in router.bridge.tools
+
+    def test_default_tool_schemas_have_required_fields(self) -> None:
+        from cynic.mcp.router import MCPRouter
+
+        router = MCPRouter()
+        for tool in router.bridge.tools.values():
+            assert tool.name
+            assert tool.description
+            assert isinstance(tool.input_schema, dict)
+
+
+class TestMCPRouterToolsList:
+    """tools/list must return registered tools in JSON-RPC format."""
+
+    def test_tools_list_returns_jsonrpc_envelope(self) -> None:
+        from cynic.mcp.router import MCPRouter
+
+        router = MCPRouter()
+        message = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/list",
+        }
+        response = router.handle_message(message)
+        assert response["jsonrpc"] == "2.0"
+        assert response["id"] == 1
+        assert "result" in response
+        assert "error" not in response
+
+    def test_tools_list_contains_default_tools(self) -> None:
+        from cynic.mcp.router import MCPRouter
+
+        router = MCPRouter()
+        message = {"jsonrpc": "2.0", "id": 42, "method": "tools/list"}
+        response = router.handle_message(message)
+        tools = response["result"]["tools"]
+        tool_names = [t["name"] for t in tools]
+        assert "ask_cynic" in tool_names
+        assert "observe_cynic" in tool_names
+
+    def test_tools_list_items_have_schema(self) -> None:
+        from cynic.mcp.router import MCPRouter
+
+        router = MCPRouter()
+        message = {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+        response = router.handle_message(message)
+        for tool in response["result"]["tools"]:
+            assert "name" in tool
+            assert "description" in tool
+            assert "inputSchema" in tool
+
+
+class TestMCPRouterToolsCall:
+    """tools/call must route to bridge.handle_call and wrap result."""
+
+    @pytest.mark.asyncio
+    async def test_tools_call_returns_jsonrpc_result(self) -> None:
+        from cynic.mcp.router import MCPRouter
+
+        router = MCPRouter()
+        await router.bridge.startup()
+
+        message = {
+            "jsonrpc": "2.0",
+            "id": 7,
+            "method": "tools/call",
+            "params": {
+                "name": "ask_cynic",
+                "arguments": {"prompt": "hello"},
+            },
+        }
+        response = await router.handle_message_async(message)
+        assert response["jsonrpc"] == "2.0"
+        assert response["id"] == 7
+        assert "result" in response
+        assert response["result"]["status"] == "emitted"
+
+    @pytest.mark.asyncio
+    async def test_tools_call_unknown_tool_returns_error(self) -> None:
+        from cynic.mcp.router import MCPRouter
+
+        router = MCPRouter()
+        await router.bridge.startup()
+
+        message = {
+            "jsonrpc": "2.0",
+            "id": 9,
+            "method": "tools/call",
+            "params": {
+                "name": "nonexistent_tool",
+                "arguments": {},
+            },
+        }
+        response = await router.handle_message_async(message)
+        assert response["jsonrpc"] == "2.0"
+        assert response["id"] == 9
+        assert "error" in response
+        assert response["error"]["code"] == -32603
+
+    @pytest.mark.asyncio
+    async def test_tools_call_when_bridge_stopped_returns_error(self) -> None:
+        from cynic.mcp.router import MCPRouter
+
+        router = MCPRouter()
+        # Bridge NOT started
+
+        message = {
+            "jsonrpc": "2.0",
+            "id": 11,
+            "method": "tools/call",
+            "params": {
+                "name": "ask_cynic",
+                "arguments": {"prompt": "test"},
+            },
+        }
+        response = await router.handle_message_async(message)
+        assert "error" in response
+        assert response["error"]["code"] == -32603
+
+
+class TestMCPRouterUnknownMethod:
+    """Unknown methods must return JSON-RPC method-not-found error."""
+
+    def test_unknown_method_returns_error(self) -> None:
+        from cynic.mcp.router import MCPRouter
+
+        router = MCPRouter()
+        message = {
+            "jsonrpc": "2.0",
+            "id": 99,
+            "method": "unknown/method",
+        }
+        response = router.handle_message(message)
+        assert response["jsonrpc"] == "2.0"
+        assert response["id"] == 99
+        assert "error" in response
+        assert response["error"]["code"] == -32601
+
+    def test_missing_method_returns_error(self) -> None:
+        from cynic.mcp.router import MCPRouter
+
+        router = MCPRouter()
+        message = {"jsonrpc": "2.0", "id": 5}
+        response = router.handle_message(message)
+        assert "error" in response
