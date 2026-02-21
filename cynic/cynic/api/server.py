@@ -591,12 +591,6 @@ async def lifespan(app: FastAPI):
 
     # ── Auto-register API Routers ────────────────────────────────────────────
     # CYNIC discovers and registers all routers automatically
-    logger.info("📡 Auto-registering API routers...")
-    from cynic.api.routers.auto_register import auto_register_routers
-    routers_registered = auto_register_routers(app)
-    logger.info("📡 Auto-registered %d router modules: %s",
-               len(routers_registered), list(routers_registered.keys()))
-
     yield
 
     # Shutdown
@@ -633,6 +627,16 @@ app = FastAPI(
     version="2.0.0",
     lifespan=lifespan,
 )
+
+# ── Auto-register all routers BEFORE middleware ────────────────────────────
+# Routes must be registered early in app lifecycle so HTTP handler sees them.
+# This fixes the anti-pattern of routes added inside lifespan not being
+# visible to uvicorn's HTTP routing table.
+logger.info("📡 Auto-registering API routers...")
+from cynic.api.routers.auto_register import auto_register_routers
+_routers_registered = auto_register_routers(app)
+logger.info("📡 Auto-registered %d router modules: %s",
+           len(_routers_registered), list(_routers_registered.keys()))
 
 app.add_middleware(
     CORSMiddleware,
