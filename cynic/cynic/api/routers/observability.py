@@ -18,7 +18,6 @@ from pydantic import ValidationError
 from fastapi import APIRouter, Request, Response
 
 from cynic.api.metrics import get_metrics_text
-from cynic.core.event_bus import EventBusError
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +92,7 @@ async def health_check() -> dict:
             },
             "version": "2.0.0",
         }
-    except EventBusError as e:
+    except Exception as e:
         logger.error(f"Health check failed: {e}", exc_info=True)
         return {
             "status": "degraded",

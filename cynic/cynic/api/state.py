@@ -11,7 +11,7 @@ import os
 import time
 import logging
 from dataclasses import dataclass, field
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, Optional
 
 
 if TYPE_CHECKING:
@@ -84,6 +84,48 @@ def set_instance_id(instance_id: str) -> None:
     """Set the instance ID used for guidance-{id}.json isolation (T35)."""
     global _current_instance_id
     _current_instance_id = instance_id
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# APP CONTAINER — Instance-scoped state (no global singletons)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+@dataclass
+class AppContainer:
+    """
+    Instance-scoped application state.
+
+    Replaces global singletons (_state, _current_instance_id, _GUIDANCE_PATH).
+    One container per FastAPI app instance.
+
+    Passed via FastAPI dependency injection: routes call get_app_container().
+    """
+    organism: "CynicOrganism"
+    instance_id: str  # Unique per process (uuid.uuid4().hex[:8])
+    guidance_path: str  # ~/.cynic/guidance-{instance_id}.json
+    started_at: float = field(default_factory=time.time)
+
+    @property
+    def uptime_s(self) -> float:
+        return time.time() - self.started_at
+
+
+# Process-level singleton — set during lifespan startup
+_app_container: Optional[AppContainer] = None
+
+
+def set_app_container(container: AppContainer) -> None:
+    """Set the app container during lifespan startup."""
+    global _app_container
+    _app_container = container
+
+
+def get_app_container() -> AppContainer:
+    """Get the app container (FastAPI dependency)."""
+    if _app_container is None:
+        raise RuntimeError("AppContainer not initialized — lifespan not started")
+    return _app_container
 
 
 async def _on_judgment_created(event: Event) -> None:

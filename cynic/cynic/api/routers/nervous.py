@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from fastapi import APIRouter, HTTPException, Depends
 
-from cynic.api.state import CynicOrganism, get_app_container, AppContainer
+from cynic.api.state import get_app_container, AppContainer
 from cynic.nervous import EventCategory
 from typing import Optional
 

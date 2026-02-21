@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\cortex\mirror.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.1, 10.0, 25.0, 38.2, 50.0, 75.0, 82.0, 100.0, 'AWAKENING', 'BARK', 'DORMANT', 'EMERGENCE', 'GROWL', 'HOWL', 'STIRRING', 'TRANSCENDENT', 'WAG', '_handler_registry', '_heuristic_count', '_judgment_count', '_llm_count', '_veto_count', 'account', 'account_agent', 'available', 'avg_latency_ms', 'axiom_monitor', 'axioms', 'coverage_pct', 'current_lod', 'decide', 'decide_agent', 'dogs', 'entity', 'error', 'escore', 'escore_tracker', 'handler_topology', 'heuristic_count', 'judgment_count', 'llm_activation_rate', 'llm_count', 'lod', 'lod_controller', 'new', 'old', 'orchestrator', 'overall_health', 'qtable', 'residual', 'residual_detector', 'sage', 'score', 'snapshot_id', 'temporal_mcts_active', 'tier', 'timestamp', 'top', 'top_states', 'total_judgments', 'uptime_s', 'veto_count']

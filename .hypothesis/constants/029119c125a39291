@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\senses\workers\solana.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.001, 0.2, 0.3, 0.4, 5.0, 1000, '2.0', 'Content-Type', 'PERCEIVE', 'POST', 'PRESENT', 'SOLANA', 'application/json', 'getSlot', 'id', 'jsonrpc', 'low_tps', 'method', 'numTransactions', 'params', 'result', 'samplePeriodSecs', 'slot', 'slot_stuck', 'solana_watcher', 'source', 'tps']

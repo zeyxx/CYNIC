@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\nervous\loop_closure.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1000.0, 100, 5000, 10000, 'account', 'act', 'buffer_cap', 'buffer_size', 'closed_cycles', 'complete_cycles', 'component', 'created_at_ms', 'decide', 'duration_ms', 'emerge', 'event_id', 'is_complete', 'is_error', 'is_orphan', 'is_stalled', 'judge', 'judgment_id', 'last_phase', 'last_updated_ms', 'learn', 'open_cycles', 'orphan_cycles', 'orphan_rate_percent', 'perceive', 'phase', 'phase_count', 'phases', 'stall_duration_ms', 'stall_rate_percent', 'stalled_at_phase', 'stalled_cycles', 'stats', 'timestamp_ms', 'total_cycle_ms', 'total_cycles']
