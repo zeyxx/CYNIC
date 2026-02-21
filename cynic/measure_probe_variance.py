@@ -226,7 +226,7 @@ def print_report(per_probe: Dict[str, Any], n_runs: int) -> None:
         p1_tight = max(p0 - 0.10, 0.01)
         n_tight = proportion_test_n(p0, p1_tight, alpha=0.05, power=0.80)
         print(f"    Required (Δ=-10%)      : {n_tight}  (+5 → {n_tight+5})")
-    except Exception as e:
+    except ValidationError as e:
         print(f"    [scipy error: {e}]")
 
     # ── φ validation ─────────────────────────────────────────────────────────

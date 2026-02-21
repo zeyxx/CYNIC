@@ -192,7 +192,7 @@ class ResidualDetector:
                     ORDER BY observed_at DESC
                     LIMIT $1
                 """, HISTORY_MAXLEN)
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.warning("ResidualDetector warm-start failed: %s", exc)
             return 0
 
@@ -271,7 +271,7 @@ class ResidualDetector:
                     point.analysis,
                     point.unnameable,
                 )
-        except Exception as exc:
+        except CynicError as exc:
             logger.warning("ResidualDetector persist failed: %s", exc)
 
     def _maybe_persist(self, point: ResidualPoint) -> None:

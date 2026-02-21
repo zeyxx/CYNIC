@@ -294,7 +294,7 @@ class ActionProposer:
                 action.action_id, dim, desc[:50], priority,
             )
             return action
-        except Exception as exc:
+        except asyncpg.Error as exc:
             logger.debug("propose_self_improvement failed: %s", exc)
             return None
 
@@ -351,7 +351,7 @@ class ActionProposer:
             os.makedirs(os.path.dirname(self._path), exist_ok=True)
             with open(self._path, "w", encoding="utf-8") as fh:
                 json.dump([a.to_dict() for a in self._queue], fh, indent=2)
-        except Exception as exc:
+        except OSError as exc:
             logger.debug("ActionProposer: save failed: %s", exc)
 
     def _load(self) -> None:
@@ -363,7 +363,7 @@ class ActionProposer:
             if isinstance(raw, list):
                 self._queue = [ProposedAction.from_dict(d) for d in raw]
                 logger.info("ActionProposer: loaded %d actions from disk", len(self._queue))
-        except Exception as exc:
+        except OSError as exc:
             logger.debug("ActionProposer: load failed: %s", exc)
             self._queue = []
 
@@ -387,7 +387,7 @@ class ActionProposer:
                     self._queue.append(action)
                     existing_ids.add(action.action_id)
                     loaded_count += 1
-            except Exception as exc:
+            except CynicError as exc:
                 logger.debug("ActionProposer: failed to load entry: %s", exc)
 
         # Apply rolling cap (BURN axiom)

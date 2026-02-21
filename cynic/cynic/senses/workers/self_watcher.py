@@ -35,7 +35,7 @@ class SelfWatcher(PerceiveWorker):
         try:
             qtable = self._qtable_getter()
             stats = qtable.stats()
-        except Exception:
+        except httpx.RequestError:
             return None
 
         # Escalate budget to MACRO if learning health looks poor

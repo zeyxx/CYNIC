@@ -39,15 +39,14 @@ from typing import Any
 from cynic.core.phi import PHI_INV_2, fibonacci
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
 from cynic.core.events_schema import SelfImprovementProposedPayload
-from cynic.core.formulas import SELF_PROBE_CAP
 
-logger = logging.getLogger("cynic.cognition.cortex.self_probe")
+logger = logging.getLogger("cynic.judge.self_probe")
 
 _CYNIC_DIR = os.path.join(os.path.expanduser("~"), ".cynic")
 _PROPOSALS_PATH = os.path.join(_CYNIC_DIR, "self_proposals.json")
 
-# Rolling cap: F(10) = 55 (imported from formulas.py)
-_MAX_PROPOSALS: int = SELF_PROBE_CAP   # 55
+# Rolling cap: F(10) = 55
+_MAX_PROPOSALS: int = fibonacci(10)   # 55
 
 # QTable: value below this is "persistently low" (GROWL floor normalized)
 _LOW_Q_THRESHOLD: float = PHI_INV_2   # 0.382
@@ -130,13 +129,10 @@ class SelfProber:
         self._path = proposals_path
         self._proposals: list[SelfProposal] = []
         self._total_proposed: int = 0
-        self._qtable: Optional[Any] = None
-        self._residual: Optional[Any] = None
-        self._escore: Optional[Any] = None
+        self._qtable: Any | None = None
+        self._residual: Any | None = None
+        self._escore: Any | None = None
         self._registered: bool = False
-        self._handler_registry: Optional[Any] = None
-        self._introspector: Optional[Any] = None
-        self._prev_snapshot: Optional[Any] = None
         self._load()
 
     # ── Injection ─────────────────────────────────────────────────────────
@@ -173,13 +169,13 @@ class SelfProber:
     def pending(self) -> list[SelfProposal]:
         return [p for p in self._proposals if p.status == "PENDING"]
 
-    def get(self, probe_id: str) -> Optional[SelfProposal]:
+    def get(self, probe_id: str) -> SelfProposal | None:
         for p in self._proposals:
             if p.probe_id == probe_id:
                 return p
         return None
 
-    def dismiss(self, probe_id: str) -> Optional[SelfProposal]:
+    def dismiss(self, probe_id: str) -> SelfProposal | None:
         for p in self._proposals:
             if p.probe_id == probe_id:
                 p.status = "DISMISSED"
@@ -187,7 +183,7 @@ class SelfProber:
                 return p
         return None
 
-    def apply(self, probe_id: str) -> Optional[SelfProposal]:
+    def apply(self, probe_id: str) -> SelfProposal | None:
         for p in self._proposals:
             if p.probe_id == probe_id:
                 p.status = "APPLIED"
@@ -257,7 +253,7 @@ class SelfProber:
         except AttributeError:
             return []
 
-        worst: Optional[tuple] = None  # (value, visits, state_key, action)
+        worst: tuple | None = None  # (value, visits, state_key, action)
         for state_key, actions in table.items():
             for action, entry in actions.items():
                 value  = float(entry.get("value", 1.0))
@@ -388,104 +384,46 @@ class SelfProber:
     def _analyze_architecture(
         self, trigger: str, pattern_type: str, severity: float,
     ) -> list[SelfProposal]:
-        """
-        Handler coupling + complexity analysis — organism understands its structure.
-
-        Uses HandlerArchitectureIntrospector to detect:
-        1. Coupling growth (added dependencies in existing handlers)
-        2. Complexity regression (handlers becoming more complex)
-        3. Health degradation (overall architecture health score dropping)
-        4. Complex handlers (above refactoring threshold)
-        """
+        """Handler coupling analysis — the organism understands its own structure."""
         proposals: list[SelfProposal] = []
         if not hasattr(self, "_handler_registry") or self._handler_registry is None:
             return proposals
 
         try:
-            # Lazy-initialize introspector
-            if self._introspector is None:
-                from cynic.api.handlers.introspect import HandlerArchitectureIntrospector
-                self._introspector = HandlerArchitectureIntrospector()
+            topo = self._handler_registry.introspect()
+            total_deps = topo.get("total_deps", 0)
 
-            # Get handler groups from registry
-            groups = self._handler_registry._groups if hasattr(self._handler_registry, "_groups") else []
-            if not groups:
-                return proposals
-
-            # Create current snapshot
-            curr_snapshot = self._introspector.snapshot(groups)
-
-            # ── Check 1: Coupling Growth ────────────────────────────────────
-            if self._prev_snapshot is not None:
-                changes = self._introspector.detect_coupling_growth(self._prev_snapshot, curr_snapshot)
-                for change in changes:
-                    # Propose refactoring for coupling growth (severity threshold: 20.0)
-                    if change.severity_score > 20.0:
-                        rec = (
-                            f"Handler '{change.handler_name}' added {len(change.added_dependencies)} "
-                            f"dependencies (severity={change.severity_score:.0f}). "
-                            f"Refactoring candidate: split into smaller handler or move dependencies."
-                        )
-                        proposals.append(SelfProposal(
-                            probe_id=_short_id(),
-                            trigger=trigger,
-                            pattern_type="ARCHITECTURE_COUPLING_GROWTH",
-                            severity=min(change.severity_score / 100.0, 1.0),
-                            dimension="COUPLING",
-                            target=change.handler_name,
-                            recommendation=rec[:240],
-                            current_value=float(change.new_dependency_count),
-                            suggested_value=float(change.prev_dependency_count),
-                        ))
-
-            # ── Check 2: Health Score Degradation ─────────────────────────
-            curr_health = self._introspector.health_score(curr_snapshot)
-            if self._prev_snapshot is not None:
-                prev_health = self._introspector.health_score(self._prev_snapshot)
-                health_delta = prev_health - curr_health
-                if health_delta > 5.0:  # >5% degradation
-                    rec = (
-                        f"Architecture health degraded {health_delta:.1f}% "
-                        f"(was {prev_health:.1f}, now {curr_health:.1f}). "
-                        f"Avg complexity rising: {curr_snapshot.average_complexity:.1f}. "
-                        f"Review handler complexity and dependencies."
-                    )
-                    proposals.append(SelfProposal(
-                        probe_id=_short_id(),
-                        trigger=trigger,
-                        pattern_type="ARCHITECTURE_HEALTH_DEGRADATION",
-                        severity=min(health_delta / 20.0, 1.0),
-                        dimension="HEALTH",
-                        target="overall_architecture",
-                        recommendation=rec[:240],
-                        current_value=curr_health,
-                        suggested_value=prev_health,
-                    ))
-
-            # ── Check 3: Complex Handlers (Above Threshold) ──────────────
-            complex_handlers = self._introspector.find_complex_handlers(curr_snapshot, threshold=50.0)
-            for handler in complex_handlers:
-                rec = (
-                    f"Handler '{handler.name}' complexity={handler.complexity_score:.0f} "
-                    f"({handler.handler_count} handlers, {len(handler.dependencies)} deps). "
-                    f"Refactoring candidate: split into smaller groups or extract dependencies."
-                )
+            # Check 1: Total dependency count
+            if total_deps > 25:
+                severity_score = min(total_deps / 30, 1.0)
                 proposals.append(SelfProposal(
                     probe_id=_short_id(),
                     trigger=trigger,
-                    pattern_type="ARCHITECTURE_COMPLEXITY",
-                    severity=min((handler.complexity_score - 50.0) / 50.0, 1.0),
-                    dimension="COMPLEXITY",
-                    target=handler.name,
-                    recommendation=rec[:240],
-                    current_value=handler.complexity_score,
-                    suggested_value=50.0,
+                    pattern_type="ARCHITECTURE_COUPLING",
+                    severity=severity_score,
+                    dimension="COUPLING",
+                    target="handler_registry",
+                    recommendation=f"Total handler deps={total_deps} (cap: 25). Consider splitting groups.",
+                    current_value=float(total_deps),
+                    suggested_value=25.0,
                 ))
 
-            # Store current snapshot for next comparison
-            self._prev_snapshot = curr_snapshot
+            # Check 2: Individual group coupling
+            for group in topo.get("groups", []):
+                if len(group.get("dependencies", [])) > 8:
+                    proposals.append(SelfProposal(
+                        probe_id=_short_id(),
+                        trigger=trigger,
+                        pattern_type="ARCHITECTURE_COUPLING",
+                        severity=0.7,
+                        dimension="COUPLING",
+                        target=group["name"],
+                        recommendation=f"{group['name']}: {len(group['dependencies'])} deps (cap: 8). Decompose.",
+                        current_value=float(len(group["dependencies"])),
+                        suggested_value=8.0,
+                    ))
 
-        except Exception:
+        except httpx.RequestError:
             logger.debug("_analyze_architecture error", exc_info=True)
 
         return proposals
@@ -523,7 +461,7 @@ class SelfProber:
                 "SelfProber: %d proposals generated (pattern=%s severity=%.3f)",
                 len(new_proposals), pattern_type, severity,
             )
-        except Exception as exc:
+        except CynicError as exc:
             logger.warning("SelfProber._on_emergence error: %s", exc)
 
     # ── Persistence ───────────────────────────────────────────────────────
@@ -533,7 +471,7 @@ class SelfProber:
             os.makedirs(os.path.dirname(self._path), exist_ok=True)
             with open(self._path, "w", encoding="utf-8") as fh:
                 json.dump([p.to_dict() for p in self._proposals], fh, indent=2)
-        except Exception as exc:
+        except OSError as exc:
             logger.debug("SelfProber._save failed: %s", exc)
 
     def _load(self) -> None:
@@ -544,5 +482,5 @@ class SelfProber:
                 for d in data:
                     self._proposals.append(SelfProposal.from_dict(d))
                 self._total_proposed = len(self._proposals)
-        except Exception:
+        except json.JSONDecodeError:
             pass

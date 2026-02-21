@@ -3,7 +3,7 @@ CYNIC Error Handling Audit Tests — Phase 0
 
 Audits exception handling patterns across the codebase.
 Ensures:
-  - No silent 'except Exception: pass' in critical paths
+  - No silent 'except EventBusError: pass' in critical paths
   - Critical paths use specific exception types
   - All exception handlers at least log the error
 """

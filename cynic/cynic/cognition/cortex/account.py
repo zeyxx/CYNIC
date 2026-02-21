@@ -122,13 +122,13 @@ class AccountAgent:
                             self._escore_tracker.update(
                                 f"agent:{dog_id}", "RUN", run_score, reality=reality
                             )
-                        except Exception:
+                        except asyncpg.Error:
                             pass  # Bad reality string etc. — never block
 
             # Budget enforcement — emits BUDGET_WARNING / BUDGET_EXHAUSTED
             await self._check_budget()
 
-        except Exception as exc:
+        except EventBusError as exc:
             logger.debug("AccountAgent._on_judgment (non-fatal): %s", exc)
 
     # ── Budget enforcement ────────────────────────────────────────────────

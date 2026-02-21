@@ -314,7 +314,7 @@ class EventBus:
     async def _run_handler(self, handler: Handler, event: Event) -> None:
         try:
             await handler(event)
-        except Exception as e:
+        except EventBusError as e:
             self._error_count += 1
             logger.error(
                 "Handler error on bus=%s type=%s: %s",

@@ -80,10 +80,10 @@ async def ws_stream(websocket: WebSocket) -> None:
                 # Keepalive ping — proves connection is alive
                 try:
                     await websocket.send_json({"type": "ping", "ts": time.time()})
-                except Exception as exc:
+                except EventBusError as exc:
                     logger.debug("ws/stream ping failed: %s", exc)
                     raise
-            except Exception as exc:
+            except EventBusError as exc:
                 logger.error("ws/stream emit error: %s", exc, exc_info=True)
                 raise
 
@@ -105,7 +105,7 @@ async def ws_stream(websocket: WebSocket) -> None:
                         source="ws_client",
                     ))
                 # Any other type: ignored silently
-            except Exception as exc:
+            except EventBusError as exc:
                 logger.error("ws/stream receive error: %s", exc, exc_info=True)
                 raise
 
@@ -267,10 +267,10 @@ async def ws_events(websocket: WebSocket) -> None:
             except TimeoutError:
                 try:
                     await websocket.send_json({"type": "ping", "ts": time.time()})
-                except Exception as exc:
+                except EventBusError as exc:
                     logger.debug("ws/events ping failed: %s", exc)
                     raise
-            except Exception as exc:
+            except EventBusError as exc:
                 logger.error("ws/events emit error: %s", exc, exc_info=True)
                 raise
 
@@ -293,7 +293,7 @@ async def ws_events(websocket: WebSocket) -> None:
                         "filter_all": not requested,
                         "ts":         time.time(),
                     })
-            except Exception as exc:
+            except httpx.RequestError as exc:
                 logger.error("ws/events receive error: %s", exc, exc_info=True)
                 raise
 

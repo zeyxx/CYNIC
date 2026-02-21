@@ -181,7 +181,7 @@ class TestInterfaceCompliance:
             mod_name = f"cynic.cognition.neurons.{path.stem}"
             try:
                 importlib.import_module(mod_name)
-            except Exception:
+            except httpx.RequestError:
                 pass
 
         result = []
@@ -231,7 +231,7 @@ class TestInterfaceCompliance:
                 continue
             try:
                 importlib.import_module(f"cynic.llm.{path.stem}")
-            except Exception:
+            except asyncio.TimeoutError:
                 pass
 
         for sub in LLMAdapter.__subclasses__():
@@ -258,7 +258,7 @@ class TestInterfaceCompliance:
             try:
                 mod = importlib.import_module(f"cynic.senses.workers.{path.stem}")
                 worker_modules.append((path.stem, mod))
-            except Exception:
+            except CynicError:
                 pass
 
         # At least some workers should exist

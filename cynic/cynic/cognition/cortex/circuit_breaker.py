@@ -21,7 +21,7 @@ Usage:
         result = await do_work()
         cb.record_success()
         return result
-    except Exception:
+    except ValidationError:
         cb.record_failure()
         raise
 """

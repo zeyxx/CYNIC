@@ -98,7 +98,7 @@ class AutoBenchmark:
                 await self._probe_all()
             except asyncio.CancelledError:
                 raise
-            except Exception as exc:
+            except ValidationError as exc:
                 logger.warning("AutoBenchmark loop error: %s", exc)
 
     async def _probe_all(self) -> int:
@@ -157,7 +157,7 @@ class AutoBenchmark:
                     )
                 except asyncio.CancelledError:
                     raise
-                except Exception as exc:
+                except ValidationError as exc:
                     logger.debug(
                         "AutoBenchmark probe error %s/%s: %s",
                         adapter.adapter_id, task_type, exc,

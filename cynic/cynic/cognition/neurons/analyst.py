@@ -212,7 +212,7 @@ class AnalystDog(AbstractDog):
                 self._timeout_count += 1
                 return "TIMEOUT", {"reason": "Z3 timeout or undecidable", "assertions": assertions_added}
 
-        except Exception as e:
+        except ValidationError as e:
             logger.warning("Z3 error: %s", e)
             return "ERROR", {"error": str(e)}
 

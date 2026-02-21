@@ -210,6 +210,6 @@ class ChatSession:
                     "model": data.get("model", ""),
                     "message_count": len(data.get("messages", [])),
                 })
-            except Exception:
+            except json.JSONDecodeError:
                 continue
         return sessions

@@ -81,7 +81,7 @@ class ToolExecutor:
                 output=output,
                 duration_ms=(time.time() - start) * 1000,
             )
-        except Exception as exc:
+        except CynicError as exc:
             return ToolResult(
                 call=call,
                 error=str(exc),
@@ -113,7 +113,7 @@ class ToolExecutor:
                 )
             # Not blocked — proceed with execution
             return None
-        except Exception as exc:
+        except OSError as exc:
             logger.debug("REFLEX judgment skipped: %s", exc)
             return None  # Fail open — don't block on judgment errors
 
@@ -308,7 +308,7 @@ class ToolExecutor:
                     continue
                 try:
                     text = fp.read_text(encoding="utf-8", errors="replace")
-                except Exception:
+                except httpx.RequestError:
                     continue
                 for i, line in enumerate(text.splitlines(), 1):
                     if regex.search(line):

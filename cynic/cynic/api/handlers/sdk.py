@@ -63,7 +63,7 @@ class SDKHandlers(HandlerGroup):
             success_rate = sum(self._sdk_outcome_window) / len(self._sdk_outcome_window)
             self._svc.escore_tracker.update("agent:cynic", "RUN", success_rate * MAX_Q_SCORE)
             logger.info("ACT_COMPLETED: success=%s duration=%.0fms → RUN=%.1f", is_success, duration, success_rate * MAX_Q_SCORE)
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_act_requested_for_organism(self, event: Event) -> None:
@@ -72,7 +72,7 @@ class SDKHandlers(HandlerGroup):
             p = event.payload or {}
             prompt_lines = len(str(p.get("prompt", "")).split("\n"))
             logger.debug("ACT_REQUESTED: prompt=%d lines", prompt_lines)
-        except Exception:
+        except httpx.RequestError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_sdk_tool_judged(self, event: Event) -> None:
@@ -84,7 +84,7 @@ class SDKHandlers(HandlerGroup):
             self._qtable.update_tool_quality(tool_name, q_score)
             self._svc.escore_tracker.update("agent:cynic", "BUILD", q_score * MAX_Q_SCORE)
             logger.debug("SDK_TOOL_JUDGED: tool=%s q=%.3f", tool_name, q_score)
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_sdk_session_started(self, event: Event) -> None:
@@ -93,7 +93,7 @@ class SDKHandlers(HandlerGroup):
             p = event.payload or {}
             session_id = p.get("session_id", "")
             logger.info("SDK_SESSION_STARTED: session=%s", session_id)
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_sdk_result_received(self, event: Event) -> None:
@@ -107,5 +107,5 @@ class SDKHandlers(HandlerGroup):
             if len(self._sdk_outcome_window) > self._SDK_OUTCOME_WINDOW:
                 self._sdk_outcome_window.pop(0)
             logger.debug("SDK_RESULT_RECEIVED: error=%s reward=%.3f", is_error, reward)
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)

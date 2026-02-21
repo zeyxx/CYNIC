@@ -177,7 +177,7 @@ class QTableRepo(QTableRepoInterface):
             rec = await self._db.select(self._rec_id(state_key, action))
             if rec and isinstance(rec, dict):
                 return float(rec.get("q_value", 0.0))
-        except Exception:
+        except httpx.RequestError:
             logger.debug("QTable get failed for %s/%s", state_key, action, exc_info=True)
         return 0.0
 
@@ -187,7 +187,7 @@ class QTableRepo(QTableRepoInterface):
         existing: Optional[dict] = None
         try:
             existing = await self._db.select(rec_id)
-        except Exception:
+        except httpx.RequestError:
             logger.debug("QTable visit fetch failed for %s", rec_id, exc_info=True)
         visits = 1
         if existing and isinstance(existing, dict):
@@ -565,7 +565,7 @@ class SurrealStorage(StorageInterface):
         for stmt in _SCHEMA_STATEMENTS:
             try:
                 await self._conn.query(stmt)
-            except Exception as exc:
+            except OSError as exc:
                 logger.debug("Schema stmt skipped (%s): %s", stmt[:40], exc)
         logger.info("*tail wag* SurrealDB schema ready (%d statements)", len(_SCHEMA_STATEMENTS))
 
@@ -612,7 +612,7 @@ class SurrealStorage(StorageInterface):
         try:
             await self._conn.query("SELECT 1")
             return True
-        except Exception:
+        except asyncpg.Error:
             return False
 
 

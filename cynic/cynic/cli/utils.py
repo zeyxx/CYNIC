@@ -71,7 +71,7 @@ def _read_json(path: str) -> Optional[dict[str, Any]]:
     try:
         with open(path, encoding="utf-8") as fh:
             return json.load(fh)
-    except Exception:
+    except OSError:
         return None
 
 
@@ -83,7 +83,7 @@ def _api_get(path: str) -> Optional[dict[str, Any]]:
         )
         with urllib.request.urlopen(req, timeout=_API_TIMEOUT) as resp:
             return json.loads(resp.read().decode())
-    except Exception:
+    except json.JSONDecodeError:
         return None
 
 
@@ -99,7 +99,7 @@ def _api_post(path: str, body: Optional[dict] = None) -> Optional[dict[str, Any]
         )
         with urllib.request.urlopen(req, timeout=_API_TIMEOUT) as resp:
             return json.loads(resp.read().decode())
-    except Exception:
+    except json.JSONDecodeError:
         return None
 
 
@@ -137,7 +137,7 @@ def _file_set_status(action_id: str, status: str) -> bool:
         with open(_PENDING, "w", encoding="utf-8") as fh:
             json.dump(raw, fh, indent=2)
         return True
-    except Exception:
+    except OSError:
         return False
 
 

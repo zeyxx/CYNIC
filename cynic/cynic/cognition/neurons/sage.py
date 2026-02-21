@@ -142,7 +142,7 @@ class SageDog(LLMDog):
             return
         try:
             self._compressor.boost(text, weight)
-        except Exception:
+        except CynicError:
             logger.debug("Compressor boost failed (non-critical)", exc_info=True)
 
     def get_capabilities(self) -> DogCapabilities:

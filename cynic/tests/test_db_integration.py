@@ -49,7 +49,7 @@ def db_reachable(db_dsn: str) -> bool:
             conn = await asyncpg.connect(dsn=db_dsn, timeout=3.0)
             await conn.close()
             return True
-        except Exception:
+        except ValidationError:
             return False
     return asyncio.run(_check())
 

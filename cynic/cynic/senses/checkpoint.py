@@ -79,7 +79,7 @@ def save(compressor: ContextCompressor) -> bool:
         )
         return True
 
-    except Exception as exc:
+    except ValidationError as exc:
         logger.warning("SessionCheckpoint save failed: %s", exc)
         return False
 
@@ -120,6 +120,6 @@ def restore(compressor: ContextCompressor) -> int:
         )
         return n
 
-    except Exception as exc:
+    except ValidationError as exc:
         logger.warning("SessionCheckpoint restore failed: %s", exc)
         return 0

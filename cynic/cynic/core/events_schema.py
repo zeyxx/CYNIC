@@ -18,7 +18,7 @@ PATTERN (copy this in new handlers):
             q_score = p.q_score        # float, guaranteed
             reality = p.reality        # str, default "CODE"
             ...
-        except Exception:
+        except ValidationError:
             pass
 
 PHILOSOPHY:

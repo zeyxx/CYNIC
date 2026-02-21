@@ -382,7 +382,7 @@ class CartographerDog(LLMDog):
                 self._cycles_found += len(meaningful_cycles)
                 violations.append(f"cycles:{len(meaningful_cycles)}-circular-deps")
                 total_penalty += len(meaningful_cycles) * CYCLE_PENALTY
-        except Exception:
+        except ValidationError:
             pass  # nx may fail on degenerate graphs — skip cycle check
 
         # ── Dimension 4: Isolation (disconnected components) ──────────────
@@ -405,7 +405,7 @@ class CartographerDog(LLMDog):
         try:
             centrality = nx.betweenness_centrality(G)
             top_central = sorted(centrality.items(), key=lambda kv: kv[1], reverse=True)[:3]
-        except Exception:
+        except CynicError:
             top_central = []
 
         evidence = {

@@ -292,7 +292,7 @@ class ScoutDog(LLMDog):
             latency = (time.perf_counter() - start) * 1000
             logger.debug("Scout timeout: %s", url)
             return FetchResult(url=url, status=0, content_len=0, latency_ms=latency)
-        except Exception as e:
+        except httpx.RequestError as e:
             latency = (time.perf_counter() - start) * 1000
             logger.debug("Scout error on %s: %s", url, e)
             return FetchResult(url=url, status=-1, content_len=0, latency_ms=latency)
@@ -329,7 +329,7 @@ class ScoutDog(LLMDog):
         except urllib.error.URLError:
             latency = (time.perf_counter() - start) * 1000
             return FetchResult(url=url, status=-1, content_len=0, latency_ms=latency)
-        except Exception:
+        except httpx.RequestError:
             latency = (time.perf_counter() - start) * 1000
             return FetchResult(url=url, status=-1, content_len=0, latency_ms=latency)
 

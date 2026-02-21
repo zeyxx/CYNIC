@@ -716,7 +716,7 @@ class TestWebSocketStream:
         try:
             with TestClient(app).websocket_connect("/ws/stream") as ws:
                 ws.receive_json()  # consume "connected"
-        except Exception as exc:
+        except ValidationError as exc:
             pytest.fail(f"WebSocket close raised unexpectedly: {exc}")
 
     def test_ws_receives_ping_and_sends_pong(self):

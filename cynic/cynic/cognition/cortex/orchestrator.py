@@ -1128,7 +1128,7 @@ class JudgeOrchestrator:
                     passed=passed,
                     duration_ms=elapsed,
                 ))
-            except Exception as exc:
+            except CynicError as exc:
                 elapsed = (time.time() - t0) * 1000
                 logger.warning("evolve() probe %s failed: %s", probe["name"], exc)
                 results.append(ProbeResult(
@@ -1169,7 +1169,7 @@ class JudgeOrchestrator:
         if self.benchmark_registry is not None:
             try:
                 await self.benchmark_registry.record_evolve(results)
-            except Exception as exc:
+            except CynicError as exc:
                 logger.warning("BenchmarkRegistry.record_evolve() failed: %s", exc)
 
         await get_core_bus().emit(Event.typed(

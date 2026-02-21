@@ -302,7 +302,7 @@ async def _judge_perspective(
         if score is not None:
             return phi_bound_score(score)
         logger.debug("No score parsed from perspective %s: %r", perspective, resp.content[:100])
-    except Exception:
+    except asyncio.TimeoutError:
         logger.debug("Perspective %s failed", perspective, exc_info=True)
     return MAX_Q_SCORE * 0.5  # Neutral on failure
 

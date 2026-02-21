@@ -164,7 +164,7 @@ class LLMAdapter(ABC):
                 content="", model=self.model, provider=self.provider,
                 error=f"timeout after {LLM_TIMEOUT_SEC}s",
             )
-        except Exception as exc:
+        except httpx.RequestError as exc:
             response = LLMResponse(
                 content="", model=self.model, provider=self.provider,
                 error=str(exc),
@@ -776,7 +776,7 @@ class LLMRegistry:
                     0.0,   # latency_ms not tracked in BenchmarkResult
                     0.0,   # cost_usd not tracked in BenchmarkResult
                 )
-        except Exception as exc:
+        except asyncio.TimeoutError as exc:
             logger.warning("Benchmark persist failed: %s", exc)
 
     async def load_benchmarks_from_db(self, pool: Any) -> int:
@@ -795,7 +795,7 @@ class LLMRegistry:
                     FROM llm_benchmarks
                     ORDER BY created_at DESC
                 """)
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.warning("Benchmark warm-start failed: %s", exc)
             return 0
 
@@ -829,7 +829,7 @@ class LLMRegistry:
                 "sample_count":    result.sample_count,
                 "error_rate":      result.error_rate,
             })
-        except Exception as exc:
+        except asyncio.TimeoutError as exc:
             logger.warning("SurrealDB benchmark persist failed: %s", exc)
 
     async def load_benchmarks_from_surreal(self, surreal: Any) -> int:
@@ -841,7 +841,7 @@ class LLMRegistry:
         """
         try:
             rows = await surreal.benchmarks.get_all()
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.warning("SurrealDB benchmark warm-start failed: %s", exc)
             return 0
 

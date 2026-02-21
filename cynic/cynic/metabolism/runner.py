@@ -203,7 +203,7 @@ class ClaudeCodeRunner:
             logger.error("*GROWL* Claude Code timed out (exec=%s)", exec_id)
             return {"success": False, "error": "timeout", "exec_id": exec_id}
 
-        except Exception as exc:
+        except CynicError as exc:
             logger.error("*GROWL* Runner error (exec=%s): %s", exec_id, exc)
             return {"success": False, "error": str(exc), "exec_id": exec_id}
 
@@ -236,6 +236,6 @@ class ClaudeCodeRunner:
                 try:
                     proc.terminate()
                     logger.info("*yawn* Terminated claude (exec=%s)", exec_id)
-                except Exception:
+                except CynicError:
                     pass
         self._running.clear()

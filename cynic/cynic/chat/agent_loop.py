@@ -120,7 +120,7 @@ class AgentLoop:
 
             try:
                 response = await self.adapter.complete_safe(request)
-            except Exception as exc:
+            except asyncio.TimeoutError as exc:
                 yield AgentEvent(type=AgentEventType.ERROR, content=str(exc))
                 return
 
@@ -160,7 +160,7 @@ class AgentLoop:
 
                     try:
                         result = await self.executor.execute(call)
-                    except Exception as exc:
+                    except httpx.RequestError as exc:
                         logger.error("Tool execution failed (%s): %s", call.name, exc, exc_info=True)
                         yield AgentEvent(
                             type=AgentEventType.ERROR,

@@ -110,11 +110,16 @@ def find_exceptions(filepath):
 def suggest_fix(exception_info):
     """Suggest a fix for the exception."""
     line = exception_info['content']
-    suggested = exception_info['suggested_exception'] or "Exception"
+    suggested = exception_info['suggested_exception']
 
-    # Replace 'except Exception' with specific type
-    if 'as e:' in line:
-        fixed = line.replace('except Exception as e:', f'except {suggested} as e:')
+    # DEFAULT for unknown patterns: CynicError (base exception)
+    if not suggested:
+        suggested = "CynicError"
+
+    # Replace 'except Exception' with specific type (handle any variable name)
+    if re.search(r'as \w+:', line):
+        # Has variable binding - replace preserving the variable name
+        fixed = re.sub(r'except Exception (as \w+:)', rf'except {suggested} \1', line)
     else:
         fixed = line.replace('except Exception:', f'except {suggested}:')
 

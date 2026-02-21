@@ -55,5 +55,5 @@ def _append_social_signal(
             existing = existing[-_SOCIAL_SIGNAL_CAP:]
         with open(_SOCIAL_SIGNAL_PATH, "w", encoding="utf-8") as fh:
             json.dump(existing, fh)
-    except Exception as exc:
+    except json.JSONDecodeError as exc:
         logger.debug("social.json append skipped: %s", exc)
