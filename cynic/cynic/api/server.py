@@ -47,7 +47,10 @@ from cynic.core.phi import WAG_MIN
 from cynic.core.config import CynicConfig
 from cynic.metabolism.telemetry import compute_reward
 
-from cynic.api.state import awaken, set_state, get_state, restore_state
+from cynic.api.state import (
+    awaken, set_state, get_state, restore_state,
+    set_app_container, get_app_container, AppContainer,
+)
 
 from cynic.api.routers.core import router_core
 from cynic.api.routers.actions import router_actions
@@ -78,9 +81,6 @@ async def lifespan(app: FastAPI):
     #   2. Cursor/Windsurf MCP connection → auto-write ~/.cursor/mcp.json if absent
     _instance_id = uuid.uuid4().hex[:8]
     logger.info("*sniff* CYNIC instance_id: %s", _instance_id)
-
-    from cynic.api.state import set_instance_id as _set_instance_id
-    _set_instance_id(_instance_id)
 
     # Write ~/.cynic/instance.json — runtime metadata for debugging + MCP tools
     # ── Load config from env (ONE place for all env vars) ─────────────────
@@ -306,8 +306,19 @@ async def lifespan(app: FastAPI):
     _bridge.start()
     logger.info("EventBusBridge active: %d rules", len(_bridge._rules))
 
-    set_state(state)
-    await restore_state(state)  # γ2 + γ4: EScore + session context (cross-crash)
+    # Create AppContainer (replaces global singletons)
+    _guidance_path = os.path.join(
+        os.path.expanduser("~"), ".cynic", f"guidance-{_instance_id}.json"
+    )
+    _container = AppContainer(
+        organism=state,
+        instance_id=_instance_id,
+        guidance_path=_guidance_path,
+    )
+    set_app_container(_container)
+    set_state(state)  # (deprecated, kept for backward compat)
+
+    await restore_state(_container)  # γ2 + γ4: EScore + session context (cross-crash)
     state.scheduler.start()
 
     # ── AutoBenchmark — periodic LLM probe every 55 min (T09) ────────────

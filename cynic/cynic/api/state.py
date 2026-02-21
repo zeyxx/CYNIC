@@ -86,20 +86,9 @@ from cynic.core.convergence import ConvergenceValidator
 
 logger = logging.getLogger("cynic.api.state")
 
-_GUIDANCE_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "guidance.json")
-
 # The organism's own identity in the EScore reputation system.
 # Used everywhere CYNIC tracks its own performance — 33 call sites, one constant.
 _ESCORE_AGENT_ID = "agent:cynic"
-
-# Instance ID for multi-instance guidance isolation (set from lifespan startup via set_instance_id())
-_current_instance_id: Optional[str] = None
-
-
-def set_instance_id(instance_id: str) -> None:
-    """Set the instance ID used for guidance-{id}.json isolation (T35)."""
-    global _current_instance_id
-    _current_instance_id = instance_id
 
 
 async def _on_judgment_created(event: Event) -> None:
@@ -130,18 +119,19 @@ async def _on_judgment_created(event: Event) -> None:
                 for k, v in (p.get("dog_votes") or {}).items()
             },
         }
-        os.makedirs(os.path.dirname(_GUIDANCE_PATH), exist_ok=True)
-        # Always write guidance.json (backward compat for single-instance hooks)
-        with open(_GUIDANCE_PATH, "w", encoding="utf-8") as fh:
+        # Get container for guidance path
+        container = get_app_container()
+        guidance_dir = os.path.dirname(container.guidance_path)
+        os.makedirs(guidance_dir, exist_ok=True)
+
+        # Write instance-specific guidance file
+        with open(container.guidance_path, "w", encoding="utf-8") as fh:
             json.dump(payload, fh)
-        # Also write guidance-{instance_id}.json for multi-instance isolation (T35)
-        if _current_instance_id:
-            _inst_path = os.path.join(
-                os.path.dirname(_GUIDANCE_PATH),
-                f"guidance-{_current_instance_id}.json",
-            )
-            with open(_inst_path, "w", encoding="utf-8") as fh:
-                json.dump(payload, fh)
+
+        # Also write guidance.json for backward compatibility (single-instance hooks)
+        default_guidance = os.path.join(guidance_dir, "guidance.json")
+        with open(default_guidance, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh)
     except Exception as exc:
         logger.debug("guidance.json write skipped: %s", exc)
 
@@ -449,6 +439,73 @@ class CynicOrganism:
 
 # Type alias — old code may reference AppState
 AppState = CynicOrganism
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# APP CONTAINER — Instance-scoped state (no global singletons)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+@dataclass
+class AppContainer:
+    """
+    Instance-scoped application state.
+
+    Replaces global singletons (_state, _current_instance_id, _GUIDANCE_PATH).
+    One container per FastAPI app instance.
+
+    Passed via FastAPI dependency injection: routes call get_app_container().
+    """
+    organism: CynicOrganism
+    instance_id: str  # Unique per process (uuid.uuid4().hex[:8])
+    guidance_path: str  # ~/.cynic/guidance-{instance_id}.json
+    started_at: float = field(default_factory=time.time)
+
+    @property
+    def uptime_s(self) -> float:
+        return time.time() - self.started_at
+
+
+# Process-level singleton — set during lifespan startup (temporary during transition)
+# TODO: Remove after all routes converted to AppContainer dependency injection
+_app_container: Optional[AppContainer] = None
+
+
+def set_app_container(container: AppContainer) -> None:
+    """Set the app container during lifespan startup."""
+    global _app_container
+    _app_container = container
+
+
+def get_app_container() -> AppContainer:
+    """
+    Get the app container (FastAPI dependency).
+
+    Used as: def route(container: AppContainer = Depends(get_app_container))
+    """
+    if _app_container is None:
+        raise RuntimeError("AppContainer not initialized — lifespan not started")
+    return _app_container
+
+
+# ── Backward-compatibility wrappers (deprecated, kept for gradual migration) ──
+
+
+def get_state() -> CynicOrganism:
+    """(DEPRECATED) Use AppContainer instead. Kept for backward compatibility."""
+    return get_app_container().organism
+
+
+def set_state(state: CynicOrganism) -> None:
+    """(DEPRECATED) Use AppContainer instead. Kept for backward compatibility."""
+    # This is now a no-op; lifespan creates AppContainer directly
+    pass
+
+
+def set_instance_id(instance_id: str) -> None:
+    """(DEPRECATED) Instance ID now stored in AppContainer."""
+    # This is a no-op; lifespan sets AppContainer.instance_id
+    pass
 
 
 class _OrganismAwakener:
@@ -1043,32 +1100,18 @@ def awaken(db_pool=None, registry=None) -> CynicOrganism:
     return _OrganismAwakener(db_pool, registry).build()
 
 
-# Process-level singleton — set during lifespan startup
-_state: Optional[CynicOrganism] = None
-
-
-def set_state(state: CynicOrganism) -> None:
-    global _state
-    _state = state
-
-
-def get_state() -> CynicOrganism:
-    if _state is None:
-        raise RuntimeError("CynicOrganism not initialized — lifespan not started")
-    return _state
-
-
-async def restore_state(state: CynicOrganism) -> None:
+async def restore_state(container: AppContainer) -> None:
     """
     Restore persistent state after organism awakening.
 
-    Call this in the FastAPI lifespan, AFTER awaken() and set_state().
+    Call this in the FastAPI lifespan, AFTER awaken() and creating AppContainer.
     Restores:
       - EScoreTracker entities from e_scores table (γ4)
       - ContextCompressor session from ~/.cynic/session-latest.json (γ2)
     """
     from cynic.senses import checkpoint as _ckpt
 
+    state = container.organism
     pool = state._pool
 
     # γ4: Restore E-Score reputation (DB)
