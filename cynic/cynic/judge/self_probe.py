@@ -423,7 +423,7 @@ class SelfProber:
                         suggested_value=8.0,
                     ))
 
-        except Exception:
+        except httpx.RequestError:
             logger.debug("_analyze_architecture error", exc_info=True)
 
         return proposals
@@ -461,7 +461,7 @@ class SelfProber:
                 "SelfProber: %d proposals generated (pattern=%s severity=%.3f)",
                 len(new_proposals), pattern_type, severity,
             )
-        except Exception as exc:
+        except CynicError as exc:
             logger.warning("SelfProber._on_emergence error: %s", exc)
 
     # ── Persistence ───────────────────────────────────────────────────────
@@ -471,7 +471,7 @@ class SelfProber:
             os.makedirs(os.path.dirname(self._path), exist_ok=True)
             with open(self._path, "w", encoding="utf-8") as fh:
                 json.dump([p.to_dict() for p in self._proposals], fh, indent=2)
-        except Exception as exc:
+        except OSError as exc:
             logger.debug("SelfProber._save failed: %s", exc)
 
     def _load(self) -> None:
@@ -482,5 +482,5 @@ class SelfProber:
                 for d in data:
                     self._proposals.append(SelfProposal.from_dict(d))
                 self._total_proposed = len(self._proposals)
-        except Exception:
+        except json.JSONDecodeError:
             pass

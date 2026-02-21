@@ -53,7 +53,7 @@ class HealthHandlers(HandlerGroup):
             self._svc.health_cache["disk_pct"] = disk_pct
             await self._svc.assess_lod()
             logger.warning("DISK_PRESSURE: %.1f%% → LOD=%s", disk_pct, self._svc.lod_controller.current.name)
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_memory_pressure(self, event: Event) -> None:
@@ -64,7 +64,7 @@ class HealthHandlers(HandlerGroup):
             self._svc.health_cache["memory_pct"] = memory_pct
             await self._svc.assess_lod()
             logger.warning("MEMORY_PRESSURE: %.1f%% → LOD=%s", memory_pct, self._svc.lod_controller.current.name)
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_disk_cleared(self, event: Event) -> None:
@@ -75,7 +75,7 @@ class HealthHandlers(HandlerGroup):
             self._svc.health_cache["disk_pct"] = 0.0
             await self._svc.assess_lod()
             logger.info("DISK_CLEARED: freed=%.1f MB → LOD=%s", freed_mb, self._svc.lod_controller.current.name)
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_memory_cleared(self, event: Event) -> None:
@@ -86,5 +86,5 @@ class HealthHandlers(HandlerGroup):
             self._svc.health_cache["memory_pct"] = 0.0
             await self._svc.assess_lod()
             logger.info("MEMORY_CLEARED: freed=%.1f MB → LOD=%s", freed_mb, self._svc.lod_controller.current.name)
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)

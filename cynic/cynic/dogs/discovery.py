@@ -39,7 +39,7 @@ def discover_dog_classes() -> dict[str, type[AbstractDog]]:
 
         try:
             module = importlib.import_module(f"cynic.dogs.{module_name}")
-        except Exception:
+        except CynicError:
             logger.warning("Failed to import cynic.dogs.%s", module_name, exc_info=True)
             continue
 

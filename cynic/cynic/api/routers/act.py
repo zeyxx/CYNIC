@@ -41,7 +41,7 @@ def _enrich_prompt(prompt: str, state) -> str:
 
     try:
         context_summary = state.context_compressor.get_compressed_context(budget=200)
-    except Exception:
+    except httpx.RequestError:
         context_summary = ""
 
     # Skip enrichment if nothing useful yet (cold start)

@@ -34,7 +34,7 @@ class SelfWatcher(PerceiveWorker):
         try:
             qtable = self._qtable_getter()
             stats = qtable.stats()
-        except Exception:
+        except httpx.RequestError:
             return None
 
         return Cell(

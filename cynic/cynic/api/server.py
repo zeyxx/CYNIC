@@ -96,7 +96,7 @@ async def lifespan(app: FastAPI):
                 "port": config.port,
                 "started_at": time.time(),
             }, _fh, indent=2)
-    except Exception as _exc:
+    except OSError as _exc:
         logger.debug("instance.json write failed: %s", _exc)
 
     # MCP auto-config for Cursor/Windsurf — non-destructive (never overwrites existing)
@@ -112,7 +112,7 @@ async def lifespan(app: FastAPI):
                 with open(_mcp_target, "w", encoding="utf-8") as _fh:
                     json.dump(_mcp_config, _fh, indent=2)
                 logger.info("MCP auto-config written: %s", _mcp_target)
-            except Exception as _mcp_exc:
+            except OSError as _mcp_exc:
                 logger.debug("MCP auto-config skipped (%s): %s", _mcp_target, _mcp_exc)
 
     # ── LLM Registry: discover all available LLMs ─────────────────────────
@@ -159,7 +159,7 @@ async def lifespan(app: FastAPI):
                 database=config.surreal_db,
             )
             logger.info("*tail wag* SurrealDB active — primary storage (singleton set)")
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.warning("SurrealDB unavailable (%s) — falling back to asyncpg", exc)
             surreal = None
 
@@ -173,7 +173,7 @@ async def lifespan(app: FastAPI):
                 async with db_pool.acquire() as conn:
                     await conn.execute(SCHEMA_SQL)
                 logger.info("PostgreSQL active — legacy storage")
-            except Exception as exc:
+            except asyncpg.Error as exc:
                 logger.warning("DB unavailable (%s) — running without persistence", exc)
                 db_pool = None
 
@@ -208,7 +208,7 @@ async def lifespan(app: FastAPI):
             logger.info("ActionProposer warm-start (SurrealDB): %d actions", ap_loaded)
 
             registry.set_surreal(surreal)
-        except Exception as exc:
+        except asyncio.TimeoutError as exc:
             logger.warning("SurrealDB warm-start failed (%s) — starting cold", exc)
 
     # ── Warm-start from asyncpg (legacy path) ──────────────────────────────
@@ -240,7 +240,7 @@ async def lifespan(app: FastAPI):
                     scholar_dog.set_db_pool(db_pool)
                 scholar_loaded = await scholar_dog.load_from_db(db_pool)
                 logger.info("Scholar warm-start: %d buffer entries loaded", scholar_loaded)
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.warning("asyncpg warm-start failed (%s)", exc)
     else:
         logger.info("No storage configured — running without persistence")
@@ -259,7 +259,7 @@ async def lifespan(app: FastAPI):
                     q_score = float(p.get("q_score", 0.0))
                     if sk and verdict:
                         await surreal.qtable.update(sk, verdict, q_score / 100.0)
-            except Exception:
+            except asyncpg.Error:
                 pass
 
         async def _surreal_persist_residual(event: Event) -> None:
@@ -267,7 +267,7 @@ async def lifespan(app: FastAPI):
                 p = event.payload or {}
                 if p.get("judgment_id"):
                     await surreal.residuals.append(p)
-            except Exception:
+            except httpx.RequestError:
                 pass
 
         get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _surreal_persist_judgment)
@@ -516,7 +516,7 @@ async def lifespan(app: FastAPI):
             os.makedirs(os.path.dirname(_CONSCIOUSNESS_PATH), exist_ok=True)
             with open(_CONSCIOUSNESS_PATH, "w", encoding="utf-8") as fh:
                 json.dump(payload, fh)
-        except Exception as _exc:
+        except OSError as _exc:
             logger.debug("consciousness.json write skipped: %s", _exc)
 
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _write_consciousness)

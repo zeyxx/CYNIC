@@ -77,7 +77,7 @@ class DiskWatcher(PerceiveWorker):
         loop = asyncio.get_running_loop()
         try:
             info = await loop.run_in_executor(None, self._check_disk)
-        except Exception as exc:
+        except ValidationError as exc:
             logger.debug("DiskWatcher check failed: %s", exc)
             return None
 

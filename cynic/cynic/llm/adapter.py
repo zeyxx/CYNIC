@@ -121,7 +121,7 @@ def _log_llm_call(response: LLMResponse, request: LLMRequest) -> None:
             lines = lines[-_LLM_LOG_CAP:]
         with open(_LLM_LOG_PATH, "w", encoding="utf-8") as fh:
             fh.writelines(lines)
-    except Exception:
+    except OSError:
         logger.debug("LLM log write failed (non-critical)", exc_info=True)
 
 
@@ -163,7 +163,7 @@ class LLMAdapter(ABC):
                 content="", model=self.model, provider=self.provider,
                 error="timeout after 120s",
             )
-        except Exception as exc:
+        except httpx.RequestError as exc:
             response = LLMResponse(
                 content="", model=self.model, provider=self.provider,
                 error=str(exc),
@@ -284,7 +284,7 @@ class OllamaAdapter(LLMAdapter):
             client = _get_ollama_client(self.base_url)
             await asyncio.wait_for(client.list(), timeout=5.0)
             return True
-        except Exception:
+        except httpx.RequestError:
             return False
 
     async def list_models(self) -> list[str]:
@@ -303,7 +303,7 @@ class OllamaAdapter(LLMAdapter):
                 else:
                     result.append(getattr(m, "name", str(m)))
             return [n for n in result if n]
-        except Exception:
+        except httpx.RequestError:
             return []
 
 
@@ -379,7 +379,7 @@ class ClaudeAdapter(LLMAdapter):
                 messages=[{"role": "user", "content": "ping"}],
             )
             return True
-        except Exception:
+        except ValidationError:
             return False
 
 
@@ -450,7 +450,7 @@ class GeminiAdapter(LLMAdapter):
                 genai.configure(api_key=self._api_key)
             list(genai.list_models())
             return True
-        except Exception:
+        except ValidationError:
             return False
 
 
@@ -745,7 +745,7 @@ class LLMRegistry:
                     0.0,   # latency_ms not tracked in BenchmarkResult
                     0.0,   # cost_usd not tracked in BenchmarkResult
                 )
-        except Exception as exc:
+        except asyncio.TimeoutError as exc:
             logger.warning("Benchmark persist failed: %s", exc)
 
     async def load_benchmarks_from_db(self, pool: Any) -> int:
@@ -764,7 +764,7 @@ class LLMRegistry:
                     FROM llm_benchmarks
                     ORDER BY created_at DESC
                 """)
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.warning("Benchmark warm-start failed: %s", exc)
             return 0
 
@@ -798,7 +798,7 @@ class LLMRegistry:
                 "sample_count":    result.sample_count,
                 "error_rate":      result.error_rate,
             })
-        except Exception as exc:
+        except asyncio.TimeoutError as exc:
             logger.warning("SurrealDB benchmark persist failed: %s", exc)
 
     async def load_benchmarks_from_surreal(self, surreal: Any) -> int:
@@ -810,7 +810,7 @@ class LLMRegistry:
         """
         try:
             rows = await surreal.benchmarks.get_all()
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.warning("SurrealDB benchmark warm-start failed: %s", exc)
             return 0
 

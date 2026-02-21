@@ -117,7 +117,7 @@ class BashActuator(BaseActuator):
             return ActResult("bash", success=False,
                              error=f"Timed out after {timeout}s",
                              duration_ms=(time.perf_counter() - t0) * 1000)
-        except Exception as exc:
+        except CynicError as exc:
             return ActResult("bash", success=False, error=str(exc),
                              duration_ms=(time.perf_counter() - t0) * 1000)
 
@@ -172,7 +172,7 @@ class GitReadActuator(BaseActuator):
             logger.info("GitReadActuator: git %s rc=%d", subcommand, proc.returncode)
             return ActResult("git_read", success=(proc.returncode == 0),
                              output=out, error=err, duration_ms=duration_ms)
-        except Exception as exc:
+        except json.JSONDecodeError as exc:
             return ActResult("git_read", success=False, error=str(exc),
                              duration_ms=(time.perf_counter() - t0) * 1000)
 

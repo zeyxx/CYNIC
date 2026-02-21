@@ -170,7 +170,7 @@ async def _run_repl(model_name: str | None = None, resume_id: str | None = None)
             session = ChatSession.load(resume_id)
             session.model = model
             print(_c("dim", f"*sniff* Resumed session {resume_id} ({session.message_count} messages)"))
-        except Exception:
+        except httpx.RequestError:
             print(_c("yellow", f"  Could not load session {resume_id}, starting fresh"))
             session = ChatSession(system_prompt=system_prompt)
             session.model = model
@@ -213,7 +213,7 @@ async def _run_repl(model_name: str | None = None, resume_id: str | None = None)
         if session.message_count % 10 == 0:
             try:
                 session.save()
-            except Exception:
+            except asyncpg.Error:
                 pass
 
 

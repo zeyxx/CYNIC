@@ -31,7 +31,7 @@ def _rpc_call(method: str, params: list) -> dict[str, Any] | None:
         )
         with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT) as resp:
             return json.loads(resp.read().decode()).get("result")
-    except Exception:
+    except json.JSONDecodeError:
         return None
 
 

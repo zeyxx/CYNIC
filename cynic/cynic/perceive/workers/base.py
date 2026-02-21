@@ -85,7 +85,7 @@ class PerceiveWorker(ABC):
             except asyncio.CancelledError:
                 logger.info("PerceiveWorker %s cancelled", self.name)
                 return
-            except Exception as exc:
+            except CynicError as exc:
                 logger.warning("PerceiveWorker %s sense() error: %s", self.name, exc)
 
             # CancelledError raised here exits the loop cleanly

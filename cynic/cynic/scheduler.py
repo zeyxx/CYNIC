@@ -311,7 +311,7 @@ class DogScheduler:
                 if verdict in ("BARK", "GROWL"):
                     self.interrupt_micro()
                     logger.debug("REFLEX worker %d: %s anomaly → MICRO interrupt", worker_id, verdict)
-            except Exception as exc:
+            except httpx.RequestError as exc:
                 logger.warning("REFLEX worker %d error: %s", worker_id, exc)
             finally:
                 elapsed_ms = (time.perf_counter() - t0) * 1000
@@ -346,7 +346,7 @@ class DogScheduler:
                     level=ConsciousnessLevel.MICRO,
                     budget_usd=event.budget_usd,
                 )
-            except Exception as exc:
+            except httpx.RequestError as exc:
                 logger.warning("MICRO worker %d error: %s", worker_id, exc)
             finally:
                 elapsed_ms = (time.perf_counter() - t0) * 1000
@@ -380,7 +380,7 @@ class DogScheduler:
                     level=ConsciousnessLevel.MACRO,
                     budget_usd=event.budget_usd,
                 )
-            except Exception as exc:
+            except httpx.RequestError as exc:
                 logger.warning("MACRO worker %d error: %s", worker_id, exc)
             finally:
                 elapsed_ms = (time.perf_counter() - t0) * 1000
@@ -417,7 +417,7 @@ class DogScheduler:
                     )
                 else:
                     await self._meta_evolve()
-            except Exception as exc:
+            except httpx.RequestError as exc:
                 logger.warning("META loop error: %s", exc)
             finally:
                 elapsed_ms = (time.perf_counter() - t0) * 1000

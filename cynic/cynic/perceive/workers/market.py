@@ -53,7 +53,7 @@ class MarketWatcher(PerceiveWorker):
                 "price_usd": float(sol.get("usd", 0)),
                 "change_24h": float(sol.get("usd_24h_change", 0)),
             }
-        except Exception:
+        except json.JSONDecodeError:
             return None
 
     async def sense(self) -> Cell | None:

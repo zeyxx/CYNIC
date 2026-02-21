@@ -81,7 +81,7 @@ class WorldModelUpdater:
             )
             self._judgment_count += 1
             self._recompute()
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.debug("WorldModelUpdater._on_judgment error: %s", exc)
 
     def _recompute(self) -> None:

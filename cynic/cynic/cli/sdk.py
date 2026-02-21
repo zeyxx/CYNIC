@@ -44,7 +44,7 @@ def cmd_sdk() -> None:
                 if line:
                     try:
                         sessions.append(json.loads(line))
-                    except Exception:
+                    except json.JSONDecodeError:
                         pass
         except FileNotFoundError:
             pass

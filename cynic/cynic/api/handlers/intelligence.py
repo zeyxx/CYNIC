@@ -115,7 +115,7 @@ class IntelligenceHandlers(HandlerGroup):
             self._scheduler.submit(
                 cell, level=ConsciousnessLevel.META, source="emergence_trigger"
             )
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_budget_warning(self, event: Event) -> None:
@@ -124,7 +124,7 @@ class IntelligenceHandlers(HandlerGroup):
             self._orchestrator.on_budget_warning()
             self._svc.escore_tracker.update("agent:cynic", "HOLD", GROWL_MIN)
             logger.warning("BUDGET_WARNING → HOLD EScore=%.1f (financial stress)", GROWL_MIN)
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_budget_exhausted(self, event: Event) -> None:
@@ -135,7 +135,7 @@ class IntelligenceHandlers(HandlerGroup):
             logger.warning(
                 "BUDGET_EXHAUSTED → HOLD EScore=0.0 (financial collapse)"
             )
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_judgment_requested(self, event: Event) -> None:
@@ -145,7 +145,7 @@ class IntelligenceHandlers(HandlerGroup):
                 self._scheduler.total_queue_depth()
             )
             await self._svc.assess_lod()
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_judgment_for_intelligence(self, event: Event) -> None:
@@ -199,7 +199,7 @@ class IntelligenceHandlers(HandlerGroup):
                 self._svc.lod_controller.current.name,
             )
 
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_judgment_failed(self, event: Event) -> None:
@@ -224,7 +224,7 @@ class IntelligenceHandlers(HandlerGroup):
                 self._svc.lod_controller.current.name,
                 GROWL_MIN,
             )
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_judgment_for_compressor(self, event: Event) -> None:
@@ -244,5 +244,5 @@ class IntelligenceHandlers(HandlerGroup):
             if self._checkpoint_counter % CHECKPOINT_EVERY == 0:
                 _session_checkpoint.save(self._compressor)
 
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)

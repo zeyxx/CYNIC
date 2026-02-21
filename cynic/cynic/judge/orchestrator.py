@@ -267,7 +267,7 @@ class JudgeOrchestrator:
                 try:
                     _content_preview = str(getattr(cell, "content", "") or "")[:200]
                     self.context_compressor.boost(_content_preview, judgment.q_score / 100.0)
-                except Exception:
+                except EventBusError:
                     logger.debug("Compressor boost failed (non-critical)", exc_info=True)
 
             # Circuit breaker: successful judgment — reset failure counter
@@ -275,7 +275,7 @@ class JudgeOrchestrator:
 
             return judgment
 
-        except Exception as e:
+        except httpx.RequestError as e:
             logger.error("Judgment pipeline failed: %s", e, exc_info=True)
             if timer:
                 timer.stop()
@@ -740,7 +740,7 @@ class JudgeOrchestrator:
                     passed=passed,
                     duration_ms=elapsed,
                 ))
-            except Exception as exc:
+            except CynicError as exc:
                 elapsed = (time.time() - t0) * 1000
                 logger.warning("evolve() probe %s failed: %s", probe["name"], exc)
                 results.append(ProbeResult(
@@ -781,7 +781,7 @@ class JudgeOrchestrator:
         if self.benchmark_registry is not None:
             try:
                 await self.benchmark_registry.record_evolve(results)
-            except Exception as exc:
+            except CynicError as exc:
                 logger.warning("BenchmarkRegistry.record_evolve() failed: %s", exc)
 
         await get_core_bus().emit(Event.typed(

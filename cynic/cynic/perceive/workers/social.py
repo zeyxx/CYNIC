@@ -54,7 +54,7 @@ class SocialWatcher(PerceiveWorker):
                 if not sig.get("read", False) and sig.get("ts", 0) > self._last_ts:
                     return sig
             return None
-        except Exception:
+        except OSError:
             return None
 
     def _mark_read(self, ts: float) -> None:
@@ -70,7 +70,7 @@ class SocialWatcher(PerceiveWorker):
                     sig["read"] = True
             with open(self._path, "w", encoding="utf-8") as fh:
                 json.dump(signals if isinstance(data, list) else signals[0], fh)
-        except Exception:
+        except OSError:
             pass
 
     async def sense(self) -> Cell | None:

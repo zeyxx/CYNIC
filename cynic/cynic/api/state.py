@@ -126,7 +126,7 @@ async def _on_judgment_created(event: Event) -> None:
             )
             with open(_inst_path, "w", encoding="utf-8") as fh:
                 json.dump(payload, fh)
-    except Exception as exc:
+    except OSError as exc:
         logger.debug("guidance.json write skipped: %s", exc)
 
 

@@ -100,7 +100,7 @@ class MemoryWatcher(PerceiveWorker):
                 "total_gb": total_gb,
                 "pressure": pressure,
             }
-        except Exception as exc:
+        except ValidationError as exc:
             logger.debug("MemoryWatcher check failed: %s", exc)
             return None
 

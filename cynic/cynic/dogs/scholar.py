@@ -199,7 +199,7 @@ class ScholarDog(LLMDog):
                 judgment = await self._vector_search_path(cell, cell_text, start)
                 if judgment is not None:
                     return judgment
-            except Exception as e:
+            except CynicError as e:
                 logger.debug("ScholarDog: vector search failed, falling back: %s", e)
 
         # TF-IDF fallback path
@@ -218,7 +218,7 @@ class ScholarDog(LLMDog):
         # Vectorize query
         try:
             query_vec = self._vectorizer.transform([cell_text])
-        except Exception as e:
+        except asyncpg.Error as e:
             logger.debug("Scholar transform error: %s", e)
             return self._neutral_judgment(cell, start, reason=f"transform-error")
 
@@ -321,7 +321,7 @@ class ScholarDog(LLMDog):
                 self._matrix_dirty = True
                 logger.info("ScholarDog: warm-start %d entries from DB", len(entries))
             return len(entries)
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.warning("ScholarDog: DB warm-start failed: %s", exc)
             return 0
 
@@ -397,11 +397,11 @@ class ScholarDog(LLMDog):
                         "embedding": embedding,
                         "embed_model": embed_model,
                     })
-                except Exception:
+                except httpx.RequestError:
                     pass  # Never propagate DB errors from learn()
             try:
                 asyncio.get_running_loop().create_task(_persist())
-            except Exception:
+            except httpx.RequestError:
                 pass
 
     # ── β1: PGVector Search ───────────────────────────────────────────────────
@@ -507,7 +507,7 @@ class ScholarDog(LLMDog):
             self._matrix = matrix
             self._matrix_dirty = False
             logger.debug("Scholar rebuilt TF-IDF matrix: %d docs", len(self._buffer))
-        except Exception as e:
+        except CynicError as e:
             logger.warning("Scholar TF-IDF rebuild failed: %s", e)
             self._vectorizer = None
             self._matrix = None

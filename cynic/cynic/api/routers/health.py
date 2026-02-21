@@ -74,7 +74,7 @@ async def health() -> HealthResponse:
         _storage_status["surreal"] = "connected"
     except RuntimeError:
         _storage_status["surreal"] = "disconnected"
-    except Exception:
+    except ValidationError:
         _storage_status["surreal"] = "error"
 
     return HealthResponse(
@@ -475,7 +475,7 @@ async def consciousness() -> dict[str, Any]:
         if p.exists() and (time.time() - p.stat().st_mtime) < 60.0:
             with p.open("r", encoding="utf-8") as fh:
                 return json.load(fh)
-    except Exception:
+    except OSError:
         pass
 
     # Fallback: live snapshot

@@ -83,28 +83,28 @@ class KernelMirror:
                     **state.qtable.matrix_stats(),
                     "top_states": state.qtable.top_states(n=3),
                 }
-            except Exception as exc:
+            except CynicError as exc:
                 snap["qtable"] = {"error": str(exc)}
 
         # AxiomMonitor: A6-A11 emergence tier
         if hasattr(state, "axiom_monitor") and state.axiom_monitor is not None:
             try:
                 snap["axioms"] = state.axiom_monitor.dashboard()
-            except Exception as exc:
+            except CynicError as exc:
                 snap["axioms"] = {"error": str(exc)}
 
         # LODController: graceful degradation level
         if hasattr(state, "lod_controller") and state.lod_controller is not None:
             try:
                 snap["lod"] = state.lod_controller.status()
-            except Exception as exc:
+            except CynicError as exc:
                 snap["lod"] = {"error": str(exc)}
 
         # AccountAgent: cost ledger
         if hasattr(state, "account_agent") and state.account_agent is not None:
             try:
                 snap["account"] = state.account_agent.stats()
-            except Exception as exc:
+            except CynicError as exc:
                 snap["account"] = {"error": str(exc)}
 
         # EScoreTracker: per-dog reputation
@@ -117,14 +117,14 @@ class KernelMirror:
                         for eid, sc in state.escore_tracker.top_entities(5)
                     ],
                 }
-            except Exception as exc:
+            except CynicError as exc:
                 snap["escore"] = {"error": str(exc)}
 
         # ResidualDetector: emergence signals
         if hasattr(state, "residual_detector") and state.residual_detector is not None:
             try:
                 snap["residual"] = state.residual_detector.stats()
-            except Exception as exc:
+            except CynicError as exc:
                 snap["residual"] = {"error": str(exc)}
 
         # SAGE: temporal MCTS activation rate
@@ -137,14 +137,14 @@ class KernelMirror:
         if hasattr(state, "_handler_registry") and state._handler_registry is not None:
             try:
                 snap["handler_topology"] = state._handler_registry.introspect()
-            except Exception as exc:
+            except EventBusError as exc:
                 snap["handler_topology"] = {"error": str(exc)}
 
         # Decisions: DecideAgent Ring-2 stats
         if hasattr(state, "decide_agent") and state.decide_agent is not None:
             try:
                 snap["decide"] = state.decide_agent.stats()
-            except Exception as exc:
+            except EventBusError as exc:
                 snap["decide"] = {"error": str(exc)}
 
         # Compute overall_health and tier

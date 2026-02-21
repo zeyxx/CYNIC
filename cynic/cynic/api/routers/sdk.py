@@ -48,7 +48,7 @@ def _append_sdk_session_jsonl(record: SDKTelemetry) -> None:
         os.makedirs(os.path.dirname(_SDK_SESSIONS_JSONL), exist_ok=True)
         with open(_SDK_SESSIONS_JSONL, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(_dc.asdict(record)) + "\n")
-    except Exception as exc:
+    except OSError as exc:
         logger.debug("sdk_sessions.jsonl append skipped: %s", exc)
 
 
@@ -178,7 +178,7 @@ async def ws_sdk(websocket: WebSocket) -> None:
                 cell, level=ConsciousnessLevel.REFLEX
             )
             return judgment.verdict
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.warning("SDK tool judgment error: %s", exc)
             return "WAG"  # Safe default: allow on error
 
@@ -370,7 +370,7 @@ async def ws_sdk(websocket: WebSocket) -> None:
                         q_score = round(qj.q_score, 3)
                         verdict = qj.verdict
                         confidence = round(min(qj.confidence, MAX_CONFIDENCE), 3)
-                    except Exception as _exc:
+                    except httpx.RequestError as _exc:
                         logger.debug("Quality judgment skipped: %s", _exc)
                         q_score, verdict, confidence = 30.0, "GROWL", 0.382
 
@@ -436,7 +436,7 @@ async def ws_sdk(websocket: WebSocket) -> None:
                             try:
                                 from cynic.core.storage.postgres import SDKSessionRepository as _SDKSessionRepo
                                 await _SDKSessionRepo().save(d)
-                            except Exception as _e:
+                            except httpx.RequestError as _e:
                                 logger.debug("SDK session persist skipped: %s", _e)
                         asyncio.create_task(_persist_sdk_session())
 
@@ -487,7 +487,7 @@ async def ws_sdk(websocket: WebSocket) -> None:
 
     except WebSocketDisconnect:
         pass
-    except Exception as exc:
+    except CynicError as exc:
         logger.error("SDK session error: %s", exc, exc_info=True)
     finally:
         _sdk_sessions.pop(session_id, None)
@@ -556,11 +556,11 @@ async def sdk_last_session(cwd: str = "") -> dict[str, Any]:
                         sid = rec.get("cli_session_id", "")
                         if sid and (not cwd or rec.get("cwd", "") == cwd):
                             last_sid = sid
-                    except Exception:
+                    except json.JSONDecodeError:
                         pass
             if last_sid:
                 return {"cli_session_id": last_sid, "found": True, "source": "jsonl"}
-    except Exception:
+    except json.JSONDecodeError:
         pass
 
     return {"cli_session_id": "", "found": False, "source": "none"}

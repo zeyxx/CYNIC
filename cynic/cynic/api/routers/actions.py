@@ -81,7 +81,7 @@ async def accept_action(action_id: str) -> dict[str, Any]:
                 AxiomActivatedPayload(axiom="ANTIFRAGILITY", maturity=state.axiom_monitor.get_maturity("ANTIFRAGILITY"), trigger="action_accept"),
                 source="action_accept",
             ))
-    except Exception:
+    except EventBusError:
         pass
 
     # ── L1 closure: accepted → fire ACT_REQUESTED → runner executes ──────

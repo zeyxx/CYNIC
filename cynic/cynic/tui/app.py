@@ -78,7 +78,7 @@ def _read_json(path: Path) -> Any | None:
     try:
         with open(path) as f:
             return json.load(f)
-    except Exception:
+    except OSError:
         return None
 
 
@@ -95,7 +95,7 @@ def _fetch_json(url: str, timeout: float = 2.0) -> dict | None:
         req = urllib.request.Request(url, headers={"Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read())
-    except Exception:
+    except json.JSONDecodeError:
         return None
 
 
@@ -109,7 +109,7 @@ def _post_json(url: str, data: dict, timeout: float = 4.0) -> dict | None:
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read())
-    except Exception:
+    except json.JSONDecodeError:
         return None
 
 
@@ -124,7 +124,7 @@ def _local_set_status(action_id: str, status: str) -> None:
                 a["status"] = status
         with open(ACTIONS_FILE, "w") as f:
             json.dump(data, f, indent=2)
-    except Exception:
+    except OSError:
         pass
 
 
@@ -391,7 +391,7 @@ class CYNICApp(App):
             if data:
                 self._uptime = data.get("uptime_s", 0.0)
                 self._update_header_and_status()
-        except Exception:
+        except httpx.RequestError:
             pass
 
         try:
@@ -402,7 +402,7 @@ class CYNICApp(App):
             if lod_data:
                 self._lod = lod_data.get("current_lod", 0)
                 self._update_header_and_status()
-        except Exception:
+        except httpx.RequestError:
             pass
 
     # ── Stream ────────────────────────────────────────────────────────────────
@@ -476,7 +476,7 @@ class CYNICApp(App):
             else:
                 _local_set_status(action_id, "ACCEPTED")
                 self._log("✓ Accepted locally (server offline)", "yellow")
-        except Exception as e:
+        except httpx.RequestError as e:
             self._log(f"✗ Accept failed: {e}", "red")
         await self._poll_files()
 
@@ -502,7 +502,7 @@ class CYNICApp(App):
             else:
                 _local_set_status(action_id, "REJECTED")
                 self._log("✓ Rejected locally (server offline)", "yellow")
-        except Exception as e:
+        except httpx.RequestError as e:
             self._log(f"✗ Reject failed: {e}", "red")
         await self._poll_files()
 
@@ -532,7 +532,7 @@ class CYNICApp(App):
                 self._log(f"⭐ Rated {n}/5 — feedback sent to kernel", "cyan")
             else:
                 self._log(f"⭐ Rated {n}/5 (server offline, not persisted)", "yellow")
-        except Exception:
+        except httpx.RequestError:
             self._log(f"⭐ Rated {n}/5 (could not reach server)", "yellow")
 
     # ── Helpers ───────────────────────────────────────────────────────────────

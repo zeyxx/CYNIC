@@ -183,7 +183,7 @@ class DogSoul:
                 last_seen=str(fields.get("last_seen", "")),
                 soul_root=root,
             )
-        except Exception as exc:
+        except json.JSONDecodeError as exc:
             logger.warning("DogSoul: failed to load %s: %s", path, exc)
             return cls(dog_id=dog_id, soul_root=root)
 
@@ -206,7 +206,7 @@ class DogSoul:
             body = self._render_body()
             self.path.write_text(f"{front}\n{body}", encoding="utf-8")
             logger.debug("DogSoul: saved %s (judgments=%d)", self.dog_id, self.total_judgments)
-        except Exception as exc:
+        except OSError as exc:
             logger.warning("DogSoul: save failed for %s: %s", self.dog_id, exc)
 
     # ── Update ────────────────────────────────────────────────────────────

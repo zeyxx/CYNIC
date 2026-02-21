@@ -228,7 +228,7 @@ class ModelProfiler:
                 }
             with open(self._path, "w", encoding="utf-8") as fh:
                 json.dump(data, fh, indent=2)
-        except Exception as exc:
+        except OSError as exc:
             logger.debug("ModelProfiler: save failed: %s", exc)
 
     def _load(self) -> None:
@@ -243,5 +243,5 @@ class ModelProfiler:
                         ModelSample.from_dict(d) for d in samples_raw
                         if isinstance(d, dict)
                     ]
-        except Exception as exc:
+        except OSError as exc:
             logger.debug("ModelProfiler: load failed: %s", exc)

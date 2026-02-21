@@ -48,7 +48,7 @@ def _find_python() -> str:
                                    capture_output=True, text=True, timeout=5)
                 if r.returncode == 0 and r.stdout.strip():
                     return r.stdout.strip()
-            except Exception:
+            except CynicError:
                 pass
 
     # Unix-style python3.13
