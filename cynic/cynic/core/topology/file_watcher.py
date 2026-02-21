@@ -100,11 +100,16 @@ class SourceWatcher:
             try:
                 for py_file in dir_path.glob("*.py"):
                     if py_file.is_file():
-                        # Store relative path + mtime
-                        rel_path = str(py_file.relative_to(Path.cwd()))
+                        # Store relative path + mtime (relative to CYNIC root, not cwd())
+                        # This is portable: works both locally and in Docker
+                        try:
+                            rel_path = str(py_file.relative_to(_CYNIC_ROOT))
+                        except ValueError:
+                            # If file is outside CYNIC_ROOT, use absolute path
+                            rel_path = str(py_file.absolute())
                         result[category][rel_path] = py_file.stat().st_mtime
             except Exception as e:
-                logger.warning("Failed to snapshot %s: %s", category, e)
+                logger.error("Failed to snapshot %s: %s", category, e)
 
         return result
 
