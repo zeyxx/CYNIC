@@ -88,6 +88,7 @@ from cynic.core.topology import (
 )
 from cynic.core.convergence import ConvergenceValidator
 from cynic.organism import ConsciousState, get_conscious_state
+from cynic.organism.state_manager import OrganismState, StateLayer, StateSnapshot
 
 logger = logging.getLogger("cynic.organism.organism")
 
@@ -169,11 +170,14 @@ class Organism:
 
     Built once at startup, lives for the process lifetime.
     This is the root coordinator for all CYNIC activity.
+
+    NEW: Now integrates OrganismState for unified state management (Phase 3 Tier 1).
     """
     cognition: CognitionCore
     metabolism: MetabolicCore
     senses: SensoryCore
     memory: MemoryCore
+    state: OrganismState = field(default_factory=OrganismState)
     started_at: float = field(default_factory=time.time)
     _pool: Optional[Any] = None
     last_judgment: Optional[dict] = None
@@ -348,6 +352,12 @@ class Organism:
     @property
     def change_analyzer(self) -> Optional[ChangeAnalyzer]:
         return self.senses.change_analyzer
+
+    # ── OrganismState unified access ───────────────────────────────────────
+    @property
+    def state_snapshot(self) -> StateSnapshot:
+        """Get immutable snapshot of all three state layers."""
+        return self.state.snapshot()
 
 
 # Type alias for backward compatibility
@@ -873,11 +883,17 @@ class _OrganismAwakener:
             action_proposer=self.action_proposer,
             self_prober=self.self_prober,
         )
+        # Initialize OrganismState with database pool
+        organism_state = OrganismState()
+        # Note: Pool injection happens via setter after creation
+        # (see awaken() or server.py lifespan for async initialization)
+
         return Organism(
             cognition=cognition,
             metabolism=metabolism,
             senses=senses,
             memory=memory,
+            state=organism_state,
             _pool=self.db_pool,
             container=self._container,
             _handler_registry=self._handler_registry,
