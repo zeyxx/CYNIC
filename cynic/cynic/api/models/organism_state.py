@@ -11,6 +11,9 @@ Models:
 - DogsResponse: All dogs and their status
 - ProposedAction: Single proposed action (nested in ActionsResponse)
 - ActionsResponse: All pending proposed actions
+- AccountStatusResponse: Account metrics (balance, spend, learn_rate, reputation)
+- AgentScore: Per-agent E-Score breakdown (nested in EScoreResponse)
+- EScoreResponse: All agent E-Scores and reputation dimensions
 """
 
 from __future__ import annotations
@@ -178,6 +181,137 @@ class ActionsResponse(BaseModel):
     count: int = Field(
         ge=0,
         description="Number of pending actions",
+    )
+
+    model_config = ConfigDict(frozen=True)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ACCOUNT
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class AccountStatusResponse(BaseModel):
+    """
+    Account and budget tracking for CYNIC organism.
+
+    Frozen (immutable) to ensure read-only access via API.
+    """
+
+    timestamp: float = Field(
+        description="Unix timestamp (seconds) when snapshot was taken",
+    )
+    balance_usd: float = Field(
+        ge=0.0,
+        description="Session budget (USD) available",
+    )
+    spent_usd: float = Field(
+        ge=0.0,
+        description="Total cumulative spend (USD) in session",
+    )
+    budget_remaining_usd: float = Field(
+        ge=0.0,
+        description="Budget remaining (USD) = balance - spent",
+    )
+    learn_rate: float = Field(
+        ge=0.0,
+        le=0.618,
+        description="Learning rate [0, φ⁻¹=0.618]",
+    )
+    reputation: float = Field(
+        ge=0.0,
+        le=100.0,
+        description="Overall reputation score [0, 100]",
+    )
+
+    model_config = ConfigDict(frozen=True)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# E-SCORE (REPUTATION)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class AgentScore(BaseModel):
+    """
+    E-Score reputation breakdown for a single agent (dog).
+
+    Nested model used in EScoreResponse.
+    Frozen (immutable).
+
+    7 dimensions (φ-weighted):
+      BURN:   Irreversible token burn (commitment signal)
+      BUILD:  Code/artifact quality contributions
+      JUDGE:  Judgment accuracy (prediction vs reality)
+      RUN:    Execution reliability
+      SOCIAL: Community engagement quality
+      GRAPH:  Network connectivity (trust graph)
+      HOLD:   Long-term commitment
+    """
+
+    agent_id: str = Field(
+        description="Agent identifier (e.g., 'SAGE', 'GUARDIAN', 'ANALYST')",
+    )
+    burn: float = Field(
+        ge=0.0,
+        le=100.0,
+        description="BURN E-Score dimension [0, 100]",
+    )
+    build: float = Field(
+        ge=0.0,
+        le=100.0,
+        description="BUILD E-Score dimension [0, 100]",
+    )
+    judge: float = Field(
+        ge=0.0,
+        le=100.0,
+        description="JUDGE E-Score dimension [0, 100]",
+    )
+    run: float = Field(
+        ge=0.0,
+        le=100.0,
+        description="RUN E-Score dimension [0, 100]",
+    )
+    social: float = Field(
+        ge=0.0,
+        le=100.0,
+        description="SOCIAL E-Score dimension [0, 100]",
+    )
+    graph: float = Field(
+        ge=0.0,
+        le=100.0,
+        description="GRAPH E-Score dimension [0, 100]",
+    )
+    hold: float = Field(
+        ge=0.0,
+        le=100.0,
+        description="HOLD E-Score dimension [0, 100]",
+    )
+    total: float = Field(
+        ge=0.0,
+        le=100.0,
+        description="Aggregate E-Score (φ-weighted geometric mean) [0, 100]",
+    )
+
+    model_config = ConfigDict(frozen=True)
+
+
+class EScoreResponse(BaseModel):
+    """
+    All agents and their current E-Score reputation.
+
+    Frozen (immutable).
+    """
+
+    timestamp: float = Field(
+        description="Unix timestamp (seconds) when snapshot was taken",
+    )
+    agents: List[AgentScore] = Field(
+        description="List of agent E-Scores",
+    )
+    count: int = Field(
+        ge=0,
+        description="Number of agents with E-Score data",
     )
 
     model_config = ConfigDict(frozen=True)

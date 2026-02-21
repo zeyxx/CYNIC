@@ -127,3 +127,79 @@ def test_actions_response_model():
     # Verify frozen - Pydantic v2 raises ValidationError
     with pytest.raises(ValidationError):
         actions_response.count = 10
+
+
+def test_account_status_response_model():
+    """Test AccountStatusResponse model with account metrics."""
+    from cynic.api.models.organism_state import AccountStatusResponse
+
+    # Create account status
+    account = AccountStatusResponse(
+        timestamp=datetime.now().timestamp(),
+        balance_usd=10.0,
+        spent_usd=2.5,
+        budget_remaining_usd=7.5,
+        learn_rate=0.618,
+        reputation=78.5,
+    )
+
+    # Verify fields
+    assert isinstance(account.timestamp, float)
+    assert account.balance_usd == 10.0
+    assert account.spent_usd == 2.5
+    assert account.budget_remaining_usd == 7.5
+    assert account.learn_rate == 0.618
+    assert account.reputation == 78.5
+
+    # Verify frozen - Pydantic v2 raises ValidationError
+    with pytest.raises(ValidationError):
+        account.balance_usd = 20.0
+
+
+def test_escore_response_model():
+    """Test EScoreResponse model with per-agent reputation scores."""
+    from cynic.api.models.organism_state import EScoreResponse, AgentScore
+
+    # Create per-agent scores
+    sage_score = AgentScore(
+        agent_id="SAGE",
+        burn=75.0,
+        build=82.0,
+        judge=88.0,
+        run=90.0,
+        social=65.0,
+        graph=70.0,
+        hold=60.0,
+        total=78.5,
+    )
+
+    guardian_score = AgentScore(
+        agent_id="GUARDIAN",
+        burn=70.0,
+        build=75.0,
+        judge=85.0,
+        run=92.0,
+        social=72.0,
+        graph=68.0,
+        hold=62.0,
+        total=76.2,
+    )
+
+    # Create E-Score response
+    escore_response = EScoreResponse(
+        timestamp=datetime.now().timestamp(),
+        agents=[sage_score, guardian_score],
+        count=2,
+    )
+
+    # Verify structure
+    assert escore_response.count == 2
+    assert len(escore_response.agents) == 2
+    assert escore_response.agents[0].agent_id == "SAGE"
+    assert escore_response.agents[0].total == 78.5
+    assert escore_response.agents[1].agent_id == "GUARDIAN"
+    assert escore_response.agents[1].judge == 85.0
+
+    # Verify frozen - Pydantic v2 raises ValidationError
+    with pytest.raises(ValidationError):
+        escore_response.count = 5
