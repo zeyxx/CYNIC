@@ -190,6 +190,9 @@ class CoreEvent(StrEnum):
     TOPOLOGY_ROLLBACK    = "topology.topology_rollback"     # Coordinator: hot-reload failed
     TOPOLOGY_SNAPSHOT    = "topology.topology_snapshot"     # Mirror: architecture snapshot
 
+    # MCP (Model Context Protocol bridge)
+    MCP_TOOL_CALLED      = "mcp.tool_called"               # MCPRouter: tool call received
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # AUTOMATION BUS EVENTS

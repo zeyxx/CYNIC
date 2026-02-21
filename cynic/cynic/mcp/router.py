@@ -4,9 +4,10 @@ Translates MCP protocol messages into MCPBridge operations:
 - tools/list  -> returns registered tools (synchronous)
 - tools/call  -> invokes bridge.handle_call (async)
 
-Single responsibility: protocol translation only.
-The bridge handles tool registration and event emission.
-The router handles JSON-RPC envelope formatting.
+On each tools/call, emits an MCP_TOOL_CALLED event to the CORE bus
+with full protocol context (request_id, source) before dispatching
+to the bridge.  This connects the WebSocket protocol layer to the
+organism's event-driven architecture.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from cynic.core.event_bus import CoreEvent, Event, get_core_bus
 from cynic.mcp.service import MCPBridge, MCPTool
 
 logger = logging.getLogger(__name__)
@@ -135,10 +137,29 @@ class MCPRouter:
     async def _handle_tools_call(
         self, message: dict[str, Any], msg_id: Any
     ) -> dict[str, Any]:
-        """Route a tools/call message to bridge.handle_call."""
+        """Route a tools/call message to bridge.handle_call.
+
+        Emits an MCP_TOOL_CALLED event to the CORE bus before dispatching
+        to the bridge.  The event carries full protocol context (request_id,
+        source) that the bridge-level event does not include.
+        """
         params = message.get("params", {})
         tool_name = params.get("name", "")
         arguments = params.get("arguments", {})
+
+        # Emit protocol-level event BEFORE bridge dispatch.
+        # Even if bridge.handle_call fails, the organism sees the attempt.
+        event = Event.typed(
+            CoreEvent.MCP_TOOL_CALLED,
+            payload={
+                "tool_name": tool_name,
+                "arguments": arguments,
+                "request_id": msg_id,
+                "source": "websocket",
+            },
+            source="mcp_router",
+        )
+        await get_core_bus().emit(event)
 
         try:
             result = await self.bridge.handle_call(tool_name, arguments)

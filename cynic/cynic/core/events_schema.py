@@ -443,6 +443,25 @@ class UserCorrectionPayload(BaseModel):
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# MCP (Model Context Protocol bridge)
+# ════════════════════════════════════════════════════════════════════════════
+
+class McpToolCalledPayload(BaseModel):
+    """MCP_TOOL_CALLED — MCPRouter received a tool call via WebSocket.
+
+    Emitted when a tools/call JSON-RPC message arrives at the router,
+    before the bridge dispatches the call. Provides full protocol context
+    (request_id, source) that the bridge-level event does not carry.
+    """
+    model_config = _BASE
+
+    tool_name:  str            = ""
+    arguments:  Dict[str, Any] = Field(default_factory=dict)
+    request_id: Any            = None   # JSON-RPC message id (int or str)
+    source:     str            = "websocket"
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # TOPOLOGY (Real-time source code changes)
 # ════════════════════════════════════════════════════════════════════════════
 
