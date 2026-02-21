@@ -48,7 +48,7 @@ from cynic.core.config import CynicConfig
 from cynic.metabolism.telemetry import compute_reward
 
 from cynic.api.state import (
-    awaken, set_state, get_state, restore_state,
+    awaken, restore_state,
     set_app_container, get_app_container, AppContainer,
 )
 
@@ -316,7 +316,6 @@ async def lifespan(app: FastAPI):
         guidance_path=_guidance_path,
     )
     set_app_container(_container)
-    set_state(state)  # (deprecated, kept for backward compat)
 
     await restore_state(_container)  # γ2 + γ4: EScore + session context (cross-crash)
     state.scheduler.start()
