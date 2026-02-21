@@ -516,6 +516,11 @@ def get_state() -> AppState:
     return _state
 
 
+def awaken(db_pool=None, registry=None) -> AppState:
+    """Awaken the CYNIC organism. Call once from lifespan startup."""
+    return build_kernel(db_pool, registry)
+
+
 async def restore_state(state: AppState) -> None:
     """
     Restore persistent state after kernel startup.

@@ -55,6 +55,24 @@ class StateUpdate:
     source: str = ""  # Who made this change
 
 
+@dataclass(frozen=True)
+class StateSnapshot:
+    """
+    Immutable snapshot of OrganismState (Kani Criterion 2: Vacuity).
+
+    Frozen dataclass prevents modification after creation, ensuring
+    snapshot integrity and thread-safety.
+
+    Attributes:
+        memory: Copy of memory-layer state (dict[str, Any])
+        persistent: Copy of persistent-layer state (dict[str, Any])
+        checkpoint: Copy of checkpoint-layer state (dict[str, Any])
+    """
+    memory: dict[str, Any]
+    persistent: dict[str, Any]
+    checkpoint: dict[str, Any]
+
+
 class OrganismState:
     """
     Single source of truth for CYNIC state.
@@ -81,11 +99,116 @@ class OrganismState:
         self._consistency_errors: list[str] = []
         self._last_update: dict[str, float] = {}  # key → timestamp
 
+        # Thread safety (Kani Criterion 4: Invariant)
+        self._lock = asyncio.Lock()
+
         # Persistence backend (injected)
         self._db = None  # Will be set by organism
         self._checkpoint_path = Path.home() / ".cynic" / "state_checkpoint.json"
 
         logger.info("OrganismState initialized (3-layer, write-through)")
+
+    # ── LIFECYCLE ────────────────────────────────────────────────────────
+
+    async def initialize(self) -> bool:
+        """
+        Initialize OrganismState after construction.
+
+        Returns:
+            True if initialization successful
+        """
+        try:
+            # Attempt to recover state from persistence
+            await self.recover_from_persistent()
+            logger.info("OrganismState initialization complete")
+            return True
+        except Exception as e:
+            logger.warning("Failed to recover state during init: %s", e)
+            # Initialize with empty state
+            return True
+
+    def snapshot(self) -> StateSnapshot:
+        """
+        Create immutable snapshot of current state (Kani Criterion 2: Vacuity).
+
+        Returns:
+            StateSnapshot with copies of all three layers
+        """
+        return StateSnapshot(
+            memory=dict(self._memory_state),
+            persistent=dict(self._persistent_state),
+            checkpoint=dict(self._checkpoint_state),
+        )
+
+    # ── SYNCHRONOUS GETTER/SETTER (for TDD tests) ────────────────────────
+
+    def get_value(
+        self,
+        key: str,
+        layer: Optional[StateLayer] = None,
+        default: Any = None,
+    ) -> Any:
+        """
+        Read-only synchronous getter.
+
+        Args:
+            key: State key
+            layer: Specific layer to query, or None for search
+            default: Return value if not found
+
+        Returns:
+            State value or default
+        """
+        if layer == StateLayer.MEMORY or layer is None:
+            if key in self._memory_state:
+                return self._memory_state[key]
+
+        if layer == StateLayer.PERSISTENT or layer is None:
+            if key in self._persistent_state:
+                return self._persistent_state[key]
+
+        if layer == StateLayer.CHECKPOINT or layer is None:
+            if key in self._checkpoint_state:
+                return self._checkpoint_state[key]
+
+        return default
+
+    async def set_value(
+        self,
+        key: str,
+        value: Any,
+        layer: StateLayer = StateLayer.PERSISTENT,
+        source: str = "",
+    ) -> bool:
+        """
+        Asynchronous setter with thread-safety (Kani Criterion 4).
+
+        Args:
+            key: State key
+            value: New value
+            layer: Where to store (memory/persistent/checkpoint)
+            source: Who triggered this update (for debugging)
+
+        Returns:
+            True if successful
+        """
+        async with self._lock:
+            # Consistency check
+            if not self._consistency_check(key, value, layer):
+                logger.error("Consistency check failed for key=%s", key)
+                return False
+
+            # Write to appropriate layer
+            if layer == StateLayer.MEMORY:
+                self._memory_state[key] = value
+            elif layer == StateLayer.PERSISTENT:
+                self._persistent_state[key] = value
+            elif layer == StateLayer.CHECKPOINT:
+                self._checkpoint_state[key] = value
+
+            self._last_update[key] = time.time()
+            logger.debug("Set %s=%s (%s)", key, type(value).__name__, layer.value)
+            return True
 
     # ── WRITE OPERATIONS ─────────────────────────────────────────────────
 

@@ -32,6 +32,7 @@ The organism is:
 from .conscious_state import ConsciousState, get_conscious_state
 from .layers import OrganismIdentity, JudgmentEngine, DogInput, UnifiedJudgment
 from .organism import Organism, awaken
+from .state_manager import OrganismState, StateLayer, StateSnapshot
 
 __all__ = [
     "ConsciousState",
@@ -42,4 +43,7 @@ __all__ = [
     "UnifiedJudgment",
     "Organism",
     "awaken",
+    "OrganismState",
+    "StateLayer",
+    "StateSnapshot",
 ]
