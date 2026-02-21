@@ -18,21 +18,21 @@ Architecture:
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
 from cynic.core.event_bus import (
+    CoreEvent,
     Event,
     EventBus,
     get_agent_bus,
     get_automation_bus,
     get_core_bus,
 )
+from cynic.mcp.metrics import MCPMetrics
 
 logger = logging.getLogger(__name__)
-
-# MCP event type constant
-MCP_TOOL_CALLED = "mcp.tool_called"
 
 
 @dataclass
@@ -69,6 +69,7 @@ class MCPBridge:
         self.is_running = False
         self.tools: dict[str, MCPTool] = {}
         self._bus: EventBus | None = None
+        self.metrics = MCPMetrics()
 
     def _get_bus(self) -> EventBus:
         """Resolve the event bus by name."""
@@ -120,25 +121,56 @@ class MCPBridge:
             RuntimeError: If the bridge is not running.
             KeyError: If the tool is not registered.
         """
-        if not self.is_running:
-            raise RuntimeError(f"MCPBridge is not running — call startup() first")
+        start = time.perf_counter()
+        try:
+            if not self.is_running:
+                raise RuntimeError("MCPBridge is not running — call startup() first")
 
-        if tool_name not in self.tools:
-            raise KeyError(f"Tool {tool_name!r} not registered")
+            if tool_name not in self.tools:
+                raise KeyError(f"Tool {tool_name!r} not registered")
 
-        event = Event(
-            type=MCP_TOOL_CALLED,
-            payload={"tool_name": tool_name, "arguments": arguments},
-            source="mcp_bridge",
-        )
+            event = Event(
+                type=CoreEvent.MCP_TOOL_CALLED,
+                payload={"tool_name": tool_name, "arguments": arguments},
+                source="mcp_bridge",
+            )
 
-        bus = self._get_bus()
-        await bus.emit(event)
+            bus = self._get_bus()
+            await bus.emit(event)
 
-        logger.info("MCP call: tool=%s event_id=%s", tool_name, event.event_id)
+            latency_ms = (time.perf_counter() - start) * 1000
+            self.metrics.record_call(latency_ms, success=True)
 
+            logger.info("MCP call: tool=%s event_id=%s latency=%.1fms", tool_name, event.event_id, latency_ms)
+
+            return {
+                "status": "emitted",
+                "tool_name": tool_name,
+                "event_id": event.event_id,
+            }
+        except Exception:
+            latency_ms = (time.perf_counter() - start) * 1000
+            self.metrics.record_call(latency_ms, success=False)
+            raise
+
+    def get_metrics(self) -> dict[str, Any]:
+        """Return current metrics as a serializable dict."""
+        return self.metrics.to_dict()
+
+    def get_health(self) -> dict[str, Any]:
+        """Return health status of the bridge.
+
+        Returns:
+            Dict with status, uptime, tools count, total calls, and error rate.
+            status is "healthy" when running, "degraded" when stopped.
+        """
+        error_rate = 0.0
+        if self.metrics.total_calls > 0:
+            error_rate = self.metrics.failed_calls / self.metrics.total_calls
         return {
-            "status": "emitted",
-            "tool_name": tool_name,
-            "event_id": event.event_id,
+            "status": "healthy" if self.is_running else "degraded",
+            "uptime_s": round(self.metrics.uptime_s, 2),
+            "tools_registered": len(self.tools),
+            "total_calls": self.metrics.total_calls,
+            "error_rate": error_rate,
         }
