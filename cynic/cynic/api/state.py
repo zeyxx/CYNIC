@@ -411,7 +411,6 @@ class _KernelBuilder:
         from cynic.api.handlers.services import (
             KernelServices, CognitionServices, MetabolicServices, SensoryServices
         )
-        from cynic.senses.service_registry import ServiceStateRegistry
 
         # Create domain-specific service groups
         cognition_svc = CognitionServices(
@@ -428,12 +427,13 @@ class _KernelBuilder:
 
         metabolic_svc = MetabolicServices(
             scheduler=self.scheduler,
-            runner=self.runner,
+            runner=getattr(self, 'runner', None),
             llm_router=self.llm_router,
             db_pool=self.db_pool,
         )
 
-        service_registry = ServiceStateRegistry()
+        # Placeholder service registry (TODO: find actual implementation or define interface)
+        service_registry = {}
         senses_svc = SensoryServices(
             compressor=self.compressor,
             service_registry=service_registry,
