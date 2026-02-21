@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CYNIC Webapp</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #app {
+      display: flex;
+      height: 100vh;
+      gap: 0;
+    }
+
+    .pane {
+      background: white;
+      border-right: 1px solid #ddd;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .pane:last-child {
+      border-right: none;
+    }
+
+    #commands-pane {
+      flex: 0 0 250px;
+      background: #f9f9f9;
+    }
+
+    #main-pane {
+      flex: 1;
+      min-width: 0;
+    }
+
+    #dashboard-pane {
+      flex: 0 0 300px;
+      background: #f0f0f0;
+    }
+
+    h2 {
+      font-size: 18px;
+      margin-bottom: 15px;
+      color: #222;
+      border-bottom: 2px solid #007bff;
+      padding-bottom: 10px;
+    }
+
+    h3 {
+      font-size: 14px;
+      margin-top: 15px;
+      margin-bottom: 10px;
+      color: #555;
+    }
+
+    .command-item,
+    .stat-item {
+      padding: 10px;
+      margin-bottom: 8px;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .command-item:hover,
+    .stat-item:hover {
+      background: #f0f8ff;
+      border-color: #007bff;
+    }
+
+    .stat-value {
+      font-weight: bold;
+      color: #007bff;
+      font-size: 16px;
+      margin-top: 5px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    .status-badge.healthy {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status-badge.warning {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .content-area {
+      margin-top: 20px;
+      padding: 20px;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      min-height: 200px;
+    }
+
+    code {
+      background: #f4f4f4;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+    }
+
+    pre {
+      background: #f4f4f4;
+      padding: 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Commands Pane -->
+    <div id="commands-pane" class="pane">
+      <h2>Commands</h2>
+      <div class="command-item">
+        <strong>Fetch Status</strong>
+        <p style="font-size: 12px; margin-top: 5px; color: #666;">Get current organism state</p>
+      </div>
+      <div class="command-item">
+        <strong>Learn Rate</strong>
+        <p style="font-size: 12px; margin-top: 5px; color: #666;">Adjust learning parameters</p>
+      </div>
+      <div class="command-item">
+        <strong>Confidence Score</strong>
+        <p style="font-size: 12px; margin-top: 5px; color: #666;">View φ-bounded confidence</p>
+      </div>
+      <div class="command-item">
+        <strong>Memory Snapshot</strong>
+        <p style="font-size: 12px; margin-top: 5px; color: #666;">Dump knowledge graph</p>
+      </div>
+      <div class="command-item">
+        <strong>Restart Organism</strong>
+        <p style="font-size: 12px; margin-top: 5px; color: #666;">Restart kernel</p>
+      </div>
+    </div>
+
+    <!-- Main Pane -->
+    <div id="main-pane" class="pane">
+      <h2>CYNIC Control Panel</h2>
+      <div class="content-area">
+        <h3>Welcome to CYNIC Webapp</h3>
+        <p>This is the main control panel for the CYNIC organism. Select a command from the left pane to interact with the system.</p>
+
+        <h3 style="margin-top: 20px;">Getting Started</h3>
+        <ul style="margin-left: 20px; margin-top: 10px;">
+          <li>Monitor organism metrics in the right dashboard</li>
+          <li>Send commands via the left sidebar</li>
+          <li>View real-time updates as they arrive</li>
+          <li>Check confidence scores and learning rates</li>
+        </ul>
+
+        <div id="output" style="margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 4px; border: 1px solid #ddd; min-height: 150px;">
+          <strong>Output:</strong>
+          <pre id="output-log" style="margin-top: 10px; white-space: pre-wrap; word-wrap: break-word;"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dashboard Pane -->
+    <div id="dashboard-pane" class="pane">
+      <h2>Dashboard</h2>
+
+      <h3>System Status</h3>
+      <div class="stat-item">
+        <strong>Uptime</strong>
+        <div class="stat-value" id="stat-uptime">--:--:--</div>
+      </div>
+
+      <div class="stat-item">
+        <strong>Confidence (φ)</strong>
+        <div class="stat-value" id="stat-confidence">58%</div>
+      </div>
+
+      <div class="stat-item">
+        <strong>Learn Rate</strong>
+        <div class="stat-value" id="stat-learn-rate">0.618</div>
+      </div>
+
+      <h3>Memory</h3>
+      <div class="stat-item">
+        <strong>Entities</strong>
+        <div class="stat-value" id="stat-entities">0</div>
+      </div>
+
+      <div class="stat-item">
+        <strong>Relations</strong>
+        <div class="stat-value" id="stat-relations">0</div>
+      </div>
+
+      <h3>Performance</h3>
+      <div class="stat-item">
+        <strong>API Latency</strong>
+        <div class="stat-value" id="stat-latency">--ms</div>
+      </div>
+
+      <div class="stat-item">
+        <strong>Health</strong>
+        <span class="status-badge healthy" id="health-badge">Healthy</span>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="../dist/bundle.js"></script>
+</body>
+</html>
