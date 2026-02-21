@@ -44,6 +44,8 @@ class SourceWatcher:
 
     def __init__(self):
         self._previous_state: dict[str, dict[str, float]] = {}
+        self._snapshot_failures: dict[str, int] = {}  # category → failure count
+        self._last_successful_snapshot: dict[str, float] = {}  # category → timestamp
 
     async def watch(self) -> None:
         """
@@ -108,8 +110,26 @@ class SourceWatcher:
                             # If file is outside CYNIC_ROOT, use absolute path
                             rel_path = str(py_file.absolute())
                         result[category][rel_path] = py_file.stat().st_mtime
+                # Reset failure counter on success
+                if category in self._snapshot_failures:
+                    if self._snapshot_failures[category] > 0:
+                        logger.info("*tail wag* Snapshot %s recovered after %d failures",
+                                  category, self._snapshot_failures[category])
+                        self._snapshot_failures[category] = 0
+                self._last_successful_snapshot[category] = time.time()
             except Exception as e:
-                logger.error("Failed to snapshot %s: %s", category, e)
+                # Track failure + emit alert
+                self._snapshot_failures[category] = self._snapshot_failures.get(category, 0) + 1
+                logger.error(
+                    "*GROWL* Snapshot FAILED %s (attempt %d): %s",
+                    category, self._snapshot_failures[category], e
+                )
+                # Emit critical alert if too many failures
+                if self._snapshot_failures[category] >= 3:
+                    logger.critical(
+                        "CRITICAL: Snapshot %s failed %d times — topology may be stale!",
+                        category, self._snapshot_failures[category]
+                    )
 
         return result
 
@@ -150,3 +170,16 @@ class SourceWatcher:
                 changes[category] = changed_files
 
         return changes
+
+    def get_health(self) -> dict[str, Any]:
+        """
+        Return health status of the watcher.
+
+        Used for diagnostics and monitoring integration.
+        """
+        return {
+            "status": "healthy" if all(f == 0 for f in self._snapshot_failures.values()) else "degraded",
+            "snapshot_failures": dict(self._snapshot_failures),
+            "last_successful_snapshot": dict(self._last_successful_snapshot),
+            "categories_monitored": list(self._WATCHED_DIRS.keys()),
+        }
