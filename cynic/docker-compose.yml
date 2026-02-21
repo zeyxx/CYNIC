@@ -6,6 +6,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        VERSION: ${CYNIC_VERSION:-0.2.0}
+    image: cynic:${CYNIC_VERSION:-0.2.0}
     container_name: cynic
     ports:
       - "8000:8000"

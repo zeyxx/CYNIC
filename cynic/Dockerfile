@@ -1,8 +1,14 @@
 # CYNIC Python Kernel — Docker Image
-# Build: docker build -t cynic-kernel .
+# Build: docker build -t cynic:0.2.0 .
+# Build with version: docker build --build-arg VERSION=0.2.0 -t cynic:0.2.0 .
 # "φ distrusts φ" — κυνικός
 
 FROM python:3.13-slim
+
+# Build arguments for versioning
+ARG VERSION=0.2.0
+LABEL version=${VERSION}
+LABEL description="CYNIC - Living Conscious Organism (κυνικός)"
 
 # System dependencies (for asyncpg C extension, scikit-learn, git hooks, Node.js/npm)
 RUN apt-get update && apt-get install -y --no-install-recommends \
