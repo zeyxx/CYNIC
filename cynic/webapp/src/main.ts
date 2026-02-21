@@ -3,6 +3,25 @@
  * TypeScript vanilla application with esbuild
  */
 
+// Import API clients to make them available globally
+import { apiClient } from './api/client';
+import { wsClient } from './api/ws';
+
+// Export for global access in browser console
+declare global {
+  interface Window {
+    CYNIC: {
+      api: typeof apiClient;
+      ws: typeof wsClient;
+    };
+  }
+}
+
+window.CYNIC = {
+  api: apiClient,
+  ws: wsClient,
+};
+
 console.log('*sniff* CYNIC Webapp initialized');
 
 // Initialize the application
