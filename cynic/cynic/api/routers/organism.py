@@ -24,6 +24,7 @@ from cynic.api.models.organism_state import (
     DogStatus,
     ActionsResponse,
     ProposedAction,
+    AccountStatusResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -226,4 +227,66 @@ async def get_organism_actions(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get actions: {str(exc)}",
+        )
+
+
+@router.get("/account", response_model=AccountStatusResponse)
+async def get_organism_account(
+    container: AppContainer = Depends(get_app_container),
+) -> AccountStatusResponse:
+    """
+    GET /api/organism/account — Account and budget status.
+
+    Returns the organism's account metrics including:
+    - Current session budget (balance_usd)
+    - Total cumulative spend (spent_usd)
+    - Budget remaining (budget_remaining_usd)
+    - Learning rate [0, φ⁻¹=0.618]
+    - Reputation score [0, 100]
+
+    Response is AccountStatusResponse (frozen, immutable).
+    """
+    try:
+        organism = container.organism
+        current_time = time.time()
+
+        # Get account stats from the account_agent
+        account_stats = {}
+        if organism.metabolic.account_agent:
+            account_stats = organism.metabolic.account_agent.stats()
+
+        # Extract fields with defaults
+        balance_usd = float(account_stats.get("session_budget_usd", 10.0))
+        spent_usd = float(account_stats.get("total_cost_usd", 0.0))
+        budget_remaining_usd = float(account_stats.get("budget_remaining_usd", balance_usd - spent_usd))
+
+        # Learn rate: fixed φ⁻¹ = 0.618 for now (can be dynamic later)
+        learn_rate = 0.618
+
+        # Reputation: compute from E-Score tracker if available
+        # For now, default to 50.0 (neutral) if not available
+        reputation = 50.0
+        if organism.cognition.escore_tracker:
+            # Get organism's own E-Score
+            try:
+                escore = await organism.cognition.escore_tracker.get("agent:cynic")
+                if escore and hasattr(escore, "total"):
+                    reputation = float(escore.total)
+            except Exception:
+                pass  # E-Score not available, use default
+
+        return AccountStatusResponse(
+            timestamp=current_time,
+            balance_usd=balance_usd,
+            spent_usd=spent_usd,
+            budget_remaining_usd=budget_remaining_usd,
+            learn_rate=learn_rate,
+            reputation=reputation,
+        )
+
+    except Exception as exc:
+        logger.exception("Error getting account status: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get account status: {str(exc)}",
         )

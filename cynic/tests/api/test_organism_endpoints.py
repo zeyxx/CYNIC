@@ -19,6 +19,7 @@ from cynic.api.models.organism_state import (
     ConsciousnessResponse,
     DogsResponse,
     ActionsResponse,
+    AccountStatusResponse,
 )
 
 
@@ -55,6 +56,20 @@ def mock_organism():
     mock_org.memory.action_proposer.pending = lambda: [
         {"action_id": "action1"},
     ]
+
+    # Mock metabolic system - account_agent
+    mock_account_agent = MagicMock()
+    mock_account_agent.stats = lambda: {
+        "total_cost_usd": 2.5,
+        "session_budget_usd": 10.0,
+        "budget_remaining_usd": 7.5,
+        "budget_ratio_remaining": 0.75,
+        "judgment_count": 15,
+        "warning_emitted": False,
+        "exhausted_emitted": False,
+        "uptime_s": 123.5,
+    }
+    mock_org.metabolic.account_agent = mock_account_agent
 
     return mock_org
 
@@ -460,3 +475,106 @@ def test_consciousness_level_is_valid(client):
     valid_levels = {"REFLEX", "MICRO", "MACRO", "META"}
     assert level in valid_levels, \
         f"consciousness.level '{level}' not in {valid_levels}"
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# PHASE 4 TASK 2: GET /api/organism/account
+# ════════════════════════════════════════════════════════════════════════════
+
+
+def test_get_organism_account(client):
+    """GET /api/organism/account returns AccountStatusResponse (Phase 4 Task 2)."""
+    response = client.get("/api/organism/account")
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+
+    data = response.json()
+
+    # Verify all required fields are present
+    assert "timestamp" in data, "Missing 'timestamp' field"
+    assert "balance_usd" in data, "Missing 'balance_usd' field"
+    assert "spent_usd" in data, "Missing 'spent_usd' field"
+    assert "budget_remaining_usd" in data, "Missing 'budget_remaining_usd' field"
+    assert "learn_rate" in data, "Missing 'learn_rate' field"
+    assert "reputation" in data, "Missing 'reputation' field"
+
+    # Verify field types
+    assert isinstance(data["timestamp"], (int, float)), "timestamp should be numeric"
+    assert isinstance(data["balance_usd"], (int, float)), "balance_usd should be numeric"
+    assert isinstance(data["spent_usd"], (int, float)), "spent_usd should be numeric"
+    assert isinstance(data["budget_remaining_usd"], (int, float)), "budget_remaining_usd should be numeric"
+    assert isinstance(data["learn_rate"], (int, float)), "learn_rate should be numeric"
+    assert isinstance(data["reputation"], (int, float)), "reputation should be numeric"
+
+    # Verify field constraints
+    assert data["balance_usd"] >= 0, "balance_usd should be >= 0"
+    assert data["spent_usd"] >= 0, "spent_usd should be >= 0"
+    assert data["budget_remaining_usd"] >= 0, "budget_remaining_usd should be >= 0"
+    assert 0.0 <= data["learn_rate"] <= 0.618, "learn_rate should be [0, 0.618] (φ⁻¹)"
+    assert 0.0 <= data["reputation"] <= 100.0, "reputation should be [0, 100]"
+
+    # Verify response can be parsed as AccountStatusResponse
+    account = AccountStatusResponse(**data)
+    assert account is not None
+    assert account.timestamp > 0
+    assert account.balance_usd == 10.0  # from mock
+    assert account.spent_usd == 2.5  # from mock
+    assert account.budget_remaining_usd == 7.5  # from mock
+    assert account.learn_rate >= 0.0
+    assert account.reputation >= 0.0
+
+
+def test_account_response_is_frozen_immutable(client):
+    """IMMUTABILITY: AccountStatusResponse is frozen."""
+    response = client.get("/api/organism/account")
+    account = AccountStatusResponse(**response.json())
+
+    # Try to mutate (should raise FrozenInstanceError)
+    try:
+        account.balance_usd = 999.0  # type: ignore
+        assert False, "Should have raised FrozenInstanceError"
+    except Exception as exc:
+        assert "frozen" in str(exc).lower() or "FrozenInstanceError" in type(exc).__name__, \
+            f"Expected FrozenInstanceError, got {type(exc).__name__}: {exc}"
+
+
+def test_account_budget_calculation(client):
+    """CONSISTENCY: budget_remaining_usd = balance_usd - spent_usd."""
+    data = client.get("/api/organism/account").json()
+
+    # Verify budget calculation consistency
+    expected_remaining = data["balance_usd"] - data["spent_usd"]
+    assert data["budget_remaining_usd"] == pytest.approx(expected_remaining, abs=0.01), \
+        f"budget_remaining_usd ({data['budget_remaining_usd']}) should equal " \
+        f"balance_usd ({data['balance_usd']}) - spent_usd ({data['spent_usd']}) = {expected_remaining}"
+
+
+def test_account_learn_rate_within_phi_bound(client):
+    """PHI-BOUND: learn_rate respects φ⁻¹ = 0.618 maximum."""
+    data = client.get("/api/organism/account").json()
+    learn_rate = data["learn_rate"]
+
+    assert learn_rate <= 0.618, \
+        f"learn_rate {learn_rate} exceeds φ⁻¹ = 0.618"
+    assert learn_rate >= 0.0, \
+        f"learn_rate {learn_rate} below 0"
+
+
+def test_account_reputation_within_bounds(client):
+    """BOUNDS: reputation is in [0, 100]."""
+    data = client.get("/api/organism/account").json()
+    reputation = data["reputation"]
+
+    assert 0.0 <= reputation <= 100.0, \
+        f"reputation {reputation} not in [0, 100]"
+
+
+def test_account_timestamp_is_reasonable(client):
+    """SANITY: Account timestamp is a reasonable Unix timestamp."""
+    data = client.get("/api/organism/account").json()
+
+    timestamp = data["timestamp"]
+    assert isinstance(timestamp, (int, float)), "timestamp should be numeric"
+    assert timestamp > 1577836800, \
+        f"timestamp {timestamp} before 2020-01-01 (invalid)"
+    assert timestamp < time.time() + 10, \
+        f"timestamp {timestamp} is in the future (invalid)"
