@@ -408,12 +408,43 @@ class _KernelBuilder:
 
     def _create_services(self) -> object:  # Returns KernelServices
         """Create KernelServices — the organism's bloodstream."""
-        from cynic.api.handlers.base import KernelServices
-        return KernelServices(
-            escore_tracker=self.escore_tracker,
+        from cynic.api.handlers.services import (
+            KernelServices, CognitionServices, MetabolicServices, SensoryServices
+        )
+        from cynic.senses.service_registry import ServiceStateRegistry
+
+        # Create domain-specific service groups
+        cognition_svc = CognitionServices(
+            orchestrator=self.orchestrator,
+            qtable=self.qtable,
+            learning_loop=self.learning_loop,
+            residual_detector=self.residual_detector,
+            decide_agent=self.decide_agent,
             axiom_monitor=self.axiom_monitor,
             lod_controller=self.lod_controller,
+            escore_tracker=self.escore_tracker,
             health_cache=self._health_cache,
+        )
+
+        metabolic_svc = MetabolicServices(
+            scheduler=self.scheduler,
+            runner=self.runner,
+            llm_router=self.llm_router,
+            db_pool=self.db_pool,
+        )
+
+        service_registry = ServiceStateRegistry()
+        senses_svc = SensoryServices(
+            compressor=self.compressor,
+            service_registry=service_registry,
+            world_model=self.world_model,
+        )
+
+        # Combine into unified kernel services
+        return KernelServices(
+            cognition=cognition_svc,
+            metabolic=metabolic_svc,
+            senses=senses_svc,
         )
 
     def _create_handler_registry(self, svc: object) -> object:  # Returns HandlerRegistry
