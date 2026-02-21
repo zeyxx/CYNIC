@@ -92,7 +92,7 @@ async def health_check() -> dict:
             },
             "version": "2.0.0",
         }
-    except Exception as e:
+    except EventBusError as e:
         logger.error(f"Health check failed: {e}", exc_info=True)
         return {
             "status": "degraded",

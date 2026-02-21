@@ -29,15 +29,16 @@ from unittest.mock import MagicMock, AsyncMock, patch
 
 # Minimal imports to avoid circular deps
 from cynic.api.state import (
-    CynicOrganism,
-    CognitionCore,
-    MetabolicCore,
-    SensoryCore,
-    MemoryCore,
+    AppContainer,
+    AppState,
+    awaken,
+    get_app_container,
+    set_app_container,
 )
-from cynic.core.event_bus import EventBus, Event
+from cynic.core.event_bus import get_core_bus, get_automation_bus, get_agent_bus, Event
 
 
+@pytest.mark.integration
 class TestKernelStartupCycle:
     """
     Test 1: Full kernel startup with all 4 cores properly initialized.
@@ -56,12 +57,10 @@ class TestKernelStartupCycle:
         # NOTE: This imports the real awaken() path
         # Must use mock pool to avoid DB connection requirement
         try:
-            from cynic.api.state import awaken
-
             # awaken() creates a real kernel - validate structure only
-            organism = awaken()
-            assert organism is not None
-            assert isinstance(organism, CynicOrganism)
+            state = awaken()
+            assert state is not None
+            assert isinstance(state, AppState)
             print("✓ Kernel startup successful")
         except RuntimeError as e:
             if "AppContainer not initialized" in str(e):
@@ -69,26 +68,24 @@ class TestKernelStartupCycle:
             raise
 
     @pytest.mark.asyncio
-    async def test_kernel_four_cores_present(self):
-        """All 4 cores properly initialized."""
+    async def test_kernel_critical_components_present(self):
+        """All critical kernel components properly initialized."""
         try:
-            from cynic.api.state import awaken
+            state = awaken()
 
-            organism = awaken()
+            # Validate critical components exist
+            assert hasattr(state, 'orchestrator')
+            assert hasattr(state, 'qtable')
+            assert hasattr(state, 'learning_loop')
+            assert hasattr(state, 'scheduler')
 
-            # Validate 4 cores exist
-            assert hasattr(organism, 'cognition')
-            assert hasattr(organism, 'metabolism')
-            assert hasattr(organism, 'senses')
-            assert hasattr(organism, 'memory')
+            # Validate they're not None
+            assert state.orchestrator is not None
+            assert state.qtable is not None
+            assert state.learning_loop is not None
+            assert state.scheduler is not None
 
-            # Validate types
-            assert isinstance(organism.cognition, CognitionCore)
-            assert isinstance(organism.metabolism, MetabolicCore)
-            assert isinstance(organism.senses, SensoryCore)
-            assert isinstance(organism.memory, MemoryCore)
-
-            print("✓ All 4 cores present and typed correctly")
+            print("✓ All critical components present and initialized")
         except RuntimeError as e:
             if "AppContainer not initialized" in str(e):
                 pytest.skip("AppContainer requires FastAPI lifespan")
@@ -98,12 +95,10 @@ class TestKernelStartupCycle:
     async def test_kernel_dogs_collection(self):
         """All 11 dogs properly initialized in orchestrator."""
         try:
-            from cynic.api.state import awaken
-
-            organism = awaken()
+            state = awaken()
 
             # Dogs in orchestrator
-            orchestrator = organism.cognition.orchestrator
+            orchestrator = state.orchestrator
             dogs = orchestrator.dogs if hasattr(orchestrator, 'dogs') else {}
 
             # Should have 11 dogs (or at least > 0 for this test)
@@ -120,6 +115,7 @@ class TestKernelStartupCycle:
             raise
 
 
+@pytest.mark.integration
 class TestDependencyContainerIsolation:
     """
     Test 2: Dependency injection container isolation.

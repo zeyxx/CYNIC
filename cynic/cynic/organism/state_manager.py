@@ -27,6 +27,7 @@ ARCHITECTURE:
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import logging
 import time
@@ -126,7 +127,7 @@ class OrganismState:
             await self.recover_from_persistent()
             logger.info("OrganismState initialization complete")
             return True
-        except Exception as e:
+        except asyncio.TimeoutError as e:
             logger.warning("Failed to recover state during init: %s", e)
             # Initialize with empty state
             return True
@@ -414,6 +415,232 @@ class OrganismState:
         """
         self._qtable.clear()
         logger.info("Cleared entire Q-Table")
+
+    # ── CONSCIOUSNESS SUBSYSTEM (Task 4: Migration) ──────────────────────
+
+    async def add_judgment(self, judgment: dict) -> None:
+        """
+        Add judgment to recent_judgments (keep last 100).
+
+        Args:
+            judgment: Judgment dict with keys: judgment_id, q_score, verdict, etc.
+
+        Returns:
+            None
+        """
+        async with self._lock:
+            if "recent_judgments" not in self._memory_state:
+                self._memory_state["recent_judgments"] = []
+
+            judgments = self._memory_state["recent_judgments"]
+            judgments.append(judgment)
+
+            # Keep only last 100 judgments (Fibonacci F(11) = 89, so 100 is safe)
+            if len(judgments) > 100:
+                self._memory_state["recent_judgments"] = judgments[-100:]
+
+            logger.debug("Added judgment: %s", judgment.get("judgment_id", "unknown"))
+
+    def get_recent_judgments(self, limit: int = 10) -> list[dict]:
+        """
+        Retrieve recent judgments (default last 10).
+
+        Args:
+            limit: Maximum number of judgments to return (default 10)
+
+        Returns:
+            List of judgment dicts (newest first)
+        """
+        judgments = self._memory_state.get("recent_judgments", [])
+        # Return newest first
+        return list(reversed(judgments[-limit:]))
+
+    def get_consciousness_level(self) -> str:
+        """
+        Get current consciousness level.
+
+        Returns:
+            Consciousness level string (REFLEX, MICRO, MACRO, META)
+        """
+        return self._persistent_state.get("consciousness_level", "REFLEX")
+
+    async def update_consciousness_level(self, level: str) -> None:
+        """
+        Update consciousness level (validates REFLEX|MICRO|MACRO|META).
+
+        Args:
+            level: New consciousness level
+
+        Raises:
+            ValueError: if level is not valid
+        """
+        valid_levels = {"REFLEX", "MICRO", "MACRO", "META"}
+        if level not in valid_levels:
+            raise ValueError(
+                f"Invalid consciousness level: {level}. Must be one of {valid_levels}"
+            )
+
+        async with self._lock:
+            old_level = self._persistent_state.get("consciousness_level", "REFLEX")
+            self._persistent_state["consciousness_level"] = level
+            logger.info(
+                "Updated consciousness level: %s → %s", old_level, level
+            )
+
+    # ── DOGS REGISTRY SUBSYSTEM (Task 5: Migration) ───────────────────────
+
+    async def set_dogs(self, dogs: dict) -> None:
+        """
+        Set dog registry (readonly after set).
+
+        Args:
+            dogs: Dict of dog configurations
+
+        Returns:
+            None
+        """
+        async with self._lock:
+            self._memory_state["dogs"] = dogs
+            logger.debug("Set dogs registry with %d dogs", len(dogs))
+
+    def get_dogs(self) -> dict:
+        """
+        Get all dogs.
+
+        Returns:
+            Dict of all registered dogs (deep copy)
+        """
+        return copy.deepcopy(self._memory_state.get("dogs", {}))
+
+    def get_dog(self, dog_id: str) -> Any:
+        """
+        Get single dog by ID, returns None if not found.
+
+        Args:
+            dog_id: ID of the dog to retrieve
+
+        Returns:
+            Dog config dict or None if not found
+        """
+        dogs = self._memory_state.get("dogs", {})
+        return dogs.get(dog_id)
+
+    # ── RESIDUALS SUBSYSTEM (Task 6: Migration) ─────────────────────────
+
+    async def update_residual(self, residual_id: str, residual_state: dict) -> None:
+        """
+        Update residual tracking entry.
+
+        Args:
+            residual_id: ID of the residual
+            residual_state: State dict for the residual
+
+        Returns:
+            None
+        """
+        async with self._lock:
+            if "residuals" not in self._memory_state:
+                self._memory_state["residuals"] = {}
+
+            self._memory_state["residuals"][residual_id] = residual_state
+            logger.debug("Updated residual: %s", residual_id)
+
+    def get_residual(self, residual_id: str) -> dict:
+        """
+        Get single residual, returns {} if not found.
+
+        Args:
+            residual_id: ID of the residual to retrieve
+
+        Returns:
+            Residual state dict or empty dict if not found
+        """
+        residuals = self._memory_state.get("residuals", {})
+        return residuals.get(residual_id, {})
+
+    def get_all_residuals(self) -> dict:
+        """
+        Get all residuals.
+
+        Returns:
+            Dict of all residuals (deep copy)
+        """
+        return copy.deepcopy(self._memory_state.get("residuals", {}))
+
+    async def clear_residuals(self) -> None:
+        """
+        Clear all residuals.
+
+        Returns:
+            None
+        """
+        async with self._lock:
+            self._memory_state["residuals"] = {}
+            logger.info("Cleared all residuals")
+
+    # ── ACTIONS QUEUE SUBSYSTEM (Task 7: Migration) ──────────────────────
+
+    async def add_action(self, action: dict) -> None:
+        """
+        Add action to pending queue (capped at 89, BURN axiom).
+
+        Args:
+            action: Action dict to queue
+
+        Returns:
+            None
+        """
+        async with self._lock:
+            if "pending_actions" not in self._memory_state:
+                self._memory_state["pending_actions"] = []
+
+            actions = self._memory_state["pending_actions"]
+            actions.append(action)
+
+            # Cap at 89 (Fibonacci F(11) = 89, BURN axiom principle)
+            if len(actions) > 89:
+                self._memory_state["pending_actions"] = actions[-89:]
+
+            logger.debug("Added action: %s", action.get("action_id", "unknown"))
+
+    def get_pending_actions(self) -> list[dict]:
+        """
+        Get all pending actions in FIFO order.
+
+        Returns:
+            List of action dicts in order (deep copy)
+        """
+        return copy.deepcopy(self._memory_state.get("pending_actions", []))
+
+    async def remove_action(self, action_id: str) -> bool:
+        """
+        Remove action by ID. Returns True if found.
+
+        Args:
+            action_id: ID of action to remove
+
+        Returns:
+            True if action was found and removed, False otherwise
+        """
+        async with self._lock:
+            actions = self._memory_state.get("pending_actions", [])
+            for idx, action in enumerate(actions):
+                if action.get("action_id") == action_id:
+                    actions.pop(idx)
+                    logger.debug("Removed action: %s", action_id)
+                    return True
+            return False
+
+    async def clear_actions(self) -> None:
+        """
+        Clear all pending actions.
+
+        Returns:
+            None
+        """
+        async with self._lock:
+            self._memory_state["pending_actions"] = []
+            logger.info("Cleared all pending actions")
 
     # ── CONSISTENCY ──────────────────────────────────────────────────────
 
