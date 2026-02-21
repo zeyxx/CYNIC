@@ -125,17 +125,16 @@ class TestPhase3Tier1EndToEnd:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             # Step 1: Send perception (webhook-style)
             post_resp = await client.post("/perceive", json={
-                "content": "GitHub webhook: dependency updated from v1.0 to v2.0",
+                "data": "GitHub webhook: dependency updated from v1.0 to v2.0",
                 "source": "github_webhook",
                 "reality": "CODE",
-                "analysis": "PERCEIVE",
                 "level": "REFLEX",
-                "budget_usd": 0.01,
             })
 
             assert post_resp.status_code == 200
-            perception_id = post_resp.json()["judgment_id"]
-            assert post_resp.json()["verdict"] == "PENDING"
+            post_data = post_resp.json()
+            perception_id = post_data["judgment"]["judgment_id"]
+            assert post_data["judgment"]["verdict"] == "PENDING"
 
             # Step 2: Wait for processing
             await asyncio.sleep(0.5)
@@ -205,16 +204,15 @@ class TestPhase3ResponseModels:
         """POST /perceive response has all required fields."""
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post("/perceive", json={
-                "content": "webhook data",
+                "data": "webhook data",
                 "source": "github",
                 "level": "REFLEX",
-                "budget_usd": 0.01,
             })
 
             data = resp.json()
-            assert "judgment_id" in data
-            assert "verdict" in data
-            assert "q_score" in data
+            assert "judgment" in data
+            assert "verdict" in data["judgment"]
+            assert "q_score" in data["judgment"]
 
 
 # Summary for Phase 3 Tier 1 End-to-End Tests
