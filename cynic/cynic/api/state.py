@@ -488,26 +488,6 @@ def get_app_container() -> AppContainer:
     return _app_container
 
 
-# ── Backward-compatibility wrappers (deprecated, kept for gradual migration) ──
-
-
-def get_state() -> CynicOrganism:
-    """(DEPRECATED) Use AppContainer instead. Kept for backward compatibility."""
-    return get_app_container().organism
-
-
-def set_state(state: CynicOrganism) -> None:
-    """(DEPRECATED) Use AppContainer instead. Kept for backward compatibility."""
-    # This is now a no-op; lifespan creates AppContainer directly
-    pass
-
-
-def set_instance_id(instance_id: str) -> None:
-    """(DEPRECATED) Instance ID now stored in AppContainer."""
-    # This is a no-op; lifespan sets AppContainer.instance_id
-    pass
-
-
 class _OrganismAwakener:
     """
     One-time organism awakener.
