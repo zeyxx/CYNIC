@@ -188,29 +188,52 @@ class ConsciousState:
             dog_votes = payload.get("dog_votes", {})
             source = payload.get("source", "unknown")
 
-            snapshot = JudgmentSnapshot(
-                judgment_id=judgment_id,
-                timestamp=datetime.now().timestamp(),
-                q_score=q_score,
-                verdict=verdict,
-                confidence=confidence,
-                dog_votes=dog_votes,
-                source=source,
-            )
+            # Check if this judgment already exists (e.g., PENDING placeholder from POST /judge)
+            existing_idx = None
+            for idx, j in enumerate(self._recent_judgments):
+                if j.judgment_id == judgment_id:
+                    existing_idx = idx
+                    break
 
-            # Rolling cap: F(11) = 89 recent judgments
-            self._recent_judgments.append(snapshot)
-            if len(self._recent_judgments) > 89:
-                self._recent_judgments.pop(0)
+            if existing_idx is not None:
+                # Update existing record (e.g., PENDING → HOWL)
+                old_verdict = self._recent_judgments[existing_idx].verdict
+                self._recent_judgments[existing_idx] = JudgmentSnapshot(
+                    judgment_id=judgment_id,
+                    timestamp=datetime.now().timestamp(),
+                    q_score=q_score,
+                    verdict=verdict,
+                    confidence=confidence,
+                    dog_votes=dog_votes,
+                    source=source,
+                )
+                logger.debug(
+                    "ConsciousState updated judgment: %s → %s (Q=%.1f)",
+                    old_verdict, verdict, q_score,
+                )
+            else:
+                # Create new record
+                snapshot = JudgmentSnapshot(
+                    judgment_id=judgment_id,
+                    timestamp=datetime.now().timestamp(),
+                    q_score=q_score,
+                    verdict=verdict,
+                    confidence=confidence,
+                    dog_votes=dog_votes,
+                    source=source,
+                )
+                # Rolling cap: F(11) = 89 recent judgments
+                self._recent_judgments.append(snapshot)
+                if len(self._recent_judgments) > 89:
+                    self._recent_judgments.pop(0)
+                logger.debug(
+                    "ConsciousState recorded judgment: Q=%.1f, Verdict=%s",
+                    q_score,
+                    verdict,
+                )
 
             self._judgment_count += 1
             self._last_update = datetime.now().timestamp()
-
-            logger.debug(
-                "ConsciousState recorded judgment: Q=%.1f, Verdict=%s",
-                q_score,
-                verdict,
-            )
 
     async def _on_consciousness_level_changed(self, event):
         """Update consciousness tier (REFLEX → MICRO → MACRO → META)."""
