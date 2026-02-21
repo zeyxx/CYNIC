@@ -19,20 +19,27 @@ from typing import Any
 
 from fastapi import APIRouter, Query
 
-from cynic.api.models import (
-    EcosystemStateResponse,
-    DecisionTraceResponse,
-    TopologyConsciousnessResponse,
-    NervousSystemAuditResponse,
-    SelfAwarenessResponse,
-)
-from cynic.api.services.consciousness_service import ConsciousnessService
+# TODO: These models not yet created — routes disabled for now
+# from cynic.api.models import (
+#     EcosystemStateResponse,
+#     DecisionTraceResponse,
+#     TopologyConsciousnessResponse,
+#     NervousSystemAuditResponse,
+#     SelfAwarenessResponse,
+# )
+try:
+    from cynic.api.services.consciousness_service import ConsciousnessService
+except ImportError:
+    ConsciousnessService = None
 
 logger = logging.getLogger(__name__)
 router_ecosystem = APIRouter(tags=["ecosystem"], prefix="/api/consciousness")
 
+# TODO: Enable routes after models are created
+_ROUTES_DISABLED = True
 
-@router_ecosystem.get("/ecosystem", response_model=EcosystemStateResponse)
+if not _ROUTES_DISABLED:
+    @router_ecosystem.get("/ecosystem", response_model=dict)
 async def get_ecosystem_state() -> EcosystemStateResponse:
     """Layer 1: GET /api/consciousness/ecosystem
 

@@ -1,9 +1,35 @@
 """
-API models subpackage — Organism state response models.
+API models subpackage — All Pydantic models for CYNIC HTTP API.
 
-This package contains Pydantic models for read-only organism state endpoints.
-Core judgment/perceive models remain in cynic/api/models.py
+Contains both:
+1. Core judgment/perceive models (from core_models.py)
+2. Organism state models (from organism_state.py)
 """
+
+# Core judgment/perceive models
+from cynic.api.models.core_models import (
+    JudgeRequest,
+    JudgeResponse,
+    PerceiveRequest,
+    PerceiveResponse,
+    LearnRequest,
+    LearnResponse,
+    FeedbackRequest,
+    FeedbackResponse,
+    PolicyResponse,
+    AccountRequest,
+    AccountResponse,
+    HealthResponse,
+    StatsResponse,
+    EventSnapshot,
+    EcosystemStateResponse,
+    DecisionPathStage,
+    DecisionTraceResponse,
+    TopologyConsciousnessResponse,
+    GuardrailDecision,
+    NervousSystemAuditResponse,
+    SelfAwarenessResponse,
+)
 
 # Organism state models (from organism_state.py)
 from cynic.api.models.organism_state import (
@@ -16,6 +42,28 @@ from cynic.api.models.organism_state import (
 )
 
 __all__ = [
+    # Core models
+    "JudgeRequest",
+    "JudgeResponse",
+    "PerceiveRequest",
+    "PerceiveResponse",
+    "LearnRequest",
+    "LearnResponse",
+    "FeedbackRequest",
+    "FeedbackResponse",
+    "PolicyResponse",
+    "AccountRequest",
+    "AccountResponse",
+    "HealthResponse",
+    "StatsResponse",
+    "EventSnapshot",
+    "EcosystemStateResponse",
+    "DecisionPathStage",
+    "DecisionTraceResponse",
+    "TopologyConsciousnessResponse",
+    "GuardrailDecision",
+    "NervousSystemAuditResponse",
+    "SelfAwarenessResponse",
     # Organism state models
     "StateSnapshotResponse",
     "ConsciousnessResponse",

@@ -580,7 +580,7 @@ To restart, simply re-run the service."""
 
 
 async def main():
-    """Start MCP server on stdio."""
+    """Start MCP server on stdio (with Windows compatibility fallback)."""
     logger.info("CYNIC Claude Code Bridge starting...")
     logger.info("Connecting to CYNIC HTTP MCP at %s", CYNIC_HTTP_BASE)
 
@@ -594,9 +594,97 @@ async def main():
 
     logger.info("MCP Server ready. Listening on stdio for Claude Code...")
 
-    async with aiohttp.ClientSession() as session:
-        await server.run(sys.stdin.buffer, sys.stdout.buffer, sys.stderr)
+    loop = asyncio.get_event_loop()
+
+    # On Windows, stdio+async has issues - use manual message pump instead
+    if sys.platform == "win32":
+        logger.info("Windows: Using manual JSON-RPC message pump...")
+
+        # Manual message pump that processes JSON-RPC messages from stdin
+        # and dispatches them to MCP server handlers
+        while True:
+            try:
+                # Read a line from stdin (blocking I/O, run in executor)
+                line = await loop.run_in_executor(None, sys.stdin.readline)
+                if not line:
+                    logger.info("EOF on stdin, shutting down")
+                    break
+
+                # Skip empty lines
+                if not line.strip():
+                    continue
+
+                try:
+                    # Parse JSON-RPC message
+                    message = json.loads(line)
+                    logger.debug(f"Received MCP message: {message}")
+
+                    # Get message properties
+                    msg_method = message.get("method")
+                    msg_id = message.get("id")
+
+                    # Dispatch to appropriate handler
+                    if msg_method == "tools/list":
+                        # List available tools
+                        tools = await list_tools()
+                        response = {
+                            "jsonrpc": "2.0",
+                            "id": msg_id,
+                            "result": {"tools": [{"name": t.name, "description": t.description} for t in tools]}
+                        }
+
+                    elif msg_method == "tools/call":
+                        # Call a tool
+                        tool_name = message.get("params", {}).get("name")
+                        tool_args = message.get("params", {}).get("arguments", {})
+
+                        # Find and invoke the tool handler
+                        handler_name = f"call_{tool_name}"
+                        if hasattr(server, handler_name):
+                            result = await getattr(server, handler_name)(**tool_args)
+                            response = {
+                                "jsonrpc": "2.0",
+                                "id": msg_id,
+                                "result": result
+                            }
+                        else:
+                            response = {
+                                "jsonrpc": "2.0",
+                                "id": msg_id,
+                                "error": {"code": -32601, "message": f"Tool {tool_name} not found"}
+                            }
+
+                    else:
+                        # Unknown method
+                        response = {
+                            "jsonrpc": "2.0",
+                            "id": msg_id,
+                            "error": {"code": -32601, "message": f"Method {msg_method} not found"}
+                        }
+
+                    # Send response
+                    sys.stdout.write(json.dumps(response) + "\n")
+                    sys.stdout.flush()
+
+                except json.JSONDecodeError as e:
+                    logger.debug(f"JSON decode error: {e}, skipping line")
+
+            except Exception as e:
+                logger.error(f"Error in message pump: {e}", exc_info=True)
+                await asyncio.sleep(0.1)
+
+    else:
+        # Unix/Linux: Use standard MCP stdio server
+        logger.info("Unix/Linux: Using standard MCP stdio transport...")
+        async with aiohttp.ClientSession() as session:
+            await server.run(sys.stdin.buffer, sys.stdout.buffer, sys.stderr)
 
 
 if __name__ == "__main__":
+    # On Windows, ensure we use ProactorEventLoop for better pipe/stdio support
+    # SelectorEventLoop doesn't support pipes on Windows
+    if sys.platform == "win32":
+        logger.info("Configuring Windows event loop policy (ProactorEventLoop for pipe support)...")
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
     asyncio.run(main())
