@@ -86,7 +86,13 @@ class OrganismState:
     - Recovery from persistence layer
     """
 
-    def __init__(self):
+    def __init__(self, storage_path: Optional[str | Path] = None):
+        """
+        Initialize OrganismState with optional persistent storage path.
+
+        Args:
+            storage_path: Optional path for persistence files. Defaults to ~/.cynic/organism_state
+        """
         # Three-layer state
         self._memory_state: dict[str, Any] = {}
         self._persistent_state: dict[str, Any] = {}
@@ -109,9 +115,13 @@ class OrganismState:
 
         # Persistence backend (injected)
         self._db = None  # Will be set by organism
-        self._checkpoint_path = Path.home() / ".cynic" / "state_checkpoint.json"
 
-        logger.info("OrganismState initialized (3-layer, write-through)")
+        # Storage paths (Task 8: Lifecycle integration)
+        self.storage_path = Path(storage_path or Path.home() / ".cynic" / "organism_state")
+        self.storage_path.mkdir(parents=True, exist_ok=True)
+        self._checkpoint_path = self.storage_path / "state_checkpoint.json"
+
+        logger.info("OrganismState initialized (3-layer, write-through, storage=%s)", self.storage_path)
 
     # ── LIFECYCLE ────────────────────────────────────────────────────────
 
@@ -131,6 +141,45 @@ class OrganismState:
             logger.warning("Failed to recover state during init: %s", e)
             # Initialize with empty state
             return True
+
+    async def persist(self) -> None:
+        """
+        Persist consciousness level to disk (PERSISTENT layer).
+
+        Task 8: Lifecycle integration — save state to file for recovery after restart.
+        """
+        async with self._lock:
+            # Get consciousness level from persistent state
+            consciousness_level = self._persistent_state.get("consciousness_level", "REFLEX")
+
+            persist_file = self.storage_path / "consciousness.json"
+            consciousness_data = {
+                "level": consciousness_level,
+                "timestamp": time.time(),
+            }
+            persist_file.write_text(json.dumps(consciousness_data, indent=2))
+            logger.info(f"Persisted consciousness level: {consciousness_level}")
+
+    async def recover(self) -> None:
+        """
+        Recover consciousness level from disk (PERSISTENT layer).
+
+        Task 8: Lifecycle integration — restore state after restart.
+        Clears MEMORY layer (judgments, residuals, actions) as expected on restart.
+        """
+        async with self._lock:
+            persist_file = self.storage_path / "consciousness.json"
+            if not persist_file.exists():
+                logger.info("No persistent state to recover")
+                return
+
+            try:
+                data = json.loads(persist_file.read_text())
+                level = data.get("level", "REFLEX")
+                self._persistent_state["consciousness_level"] = level
+                logger.info(f"Recovered consciousness level: {level}")
+            except Exception as e:
+                logger.error(f"Failed to recover consciousness level: {e}")
 
     def snapshot(self) -> StateSnapshot:
         """
