@@ -36,7 +36,7 @@ async def get_recent_events(
             "events": [e.to_dict() for e in events],
             "count": len(events),
         }
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error fetching recent events: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -55,7 +55,7 @@ async def get_events_by_type(
             "events": [e.to_dict() for e in events],
             "count": len(events),
         }
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error filtering events by type: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -74,7 +74,7 @@ async def get_events_by_source(
             "events": [e.to_dict() for e in events],
             "count": len(events),
         }
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error filtering events by source: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -104,7 +104,7 @@ async def get_events_by_category(
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except ValidationError as e:
         logger.error(f"Error filtering events by category: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -129,7 +129,7 @@ async def get_events_in_time_range(
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error fetching events in time range: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -154,7 +154,7 @@ async def get_causality_chain(
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except ValidationError as e:
         logger.error(f"Error tracing causality: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -177,7 +177,7 @@ async def get_recent_errors(
             "errors": [e.to_dict() for e in errors],
             "count": len(errors),
         }
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error fetching error events: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -190,7 +190,7 @@ async def get_journal_stats(
     try:
         stats = await container.organism.event_journal.stats()
         return {"stats": stats}
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error getting journal stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -203,7 +203,7 @@ async def get_journal_snapshot(
     try:
         snapshot = await container.organism.event_journal.snapshot()
         return snapshot
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error getting journal snapshot: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -217,7 +217,7 @@ async def clear_journal(
         await container.organism.event_journal.clear()
         logger.warning("Event journal cleared by API")
         return {"message": "Event journal cleared"}
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error clearing journal: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -239,7 +239,7 @@ async def get_recent_traces(
             "traces": [t.to_dict() for t in traces],
             "count": len(traces),
         }
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error fetching recent traces: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -257,7 +257,7 @@ async def get_trace(
         return {"trace": trace.to_dict()}
     except HTTPException:
         raise
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error fetching trace: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -278,7 +278,7 @@ async def get_trace_by_judgment(
         return {"trace": trace.to_dict()}
     except HTTPException:
         raise
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error fetching trace by judgment: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -297,7 +297,7 @@ async def get_traces_by_verdict(
             "traces": [t.to_dict() for t in traces],
             "count": len(traces),
         }
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error fetching traces by verdict: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -318,7 +318,7 @@ async def get_traces_by_component(
             "traces": [t.to_dict() for t in traces],
             "count": len(traces),
         }
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error fetching traces by component: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -331,7 +331,7 @@ async def get_trace_stats(
     try:
         stats = await container.organism.decision_tracer.stats()
         return {"stats": stats}
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error getting trace stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -344,7 +344,7 @@ async def get_trace_snapshot(
     try:
         snapshot = await container.organism.decision_tracer.snapshot()
         return snapshot
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error getting trace snapshot: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -358,7 +358,7 @@ async def clear_traces(
         await container.organism.decision_tracer.clear()
         logger.warning("Decision traces cleared by API")
         return {"message": "Decision traces cleared"}
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error clearing traces: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -380,7 +380,7 @@ async def get_open_cycles(
             "open_cycles": [c.to_dict() for c in cycles],
             "count": len(cycles),
         }
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error fetching open cycles: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -398,7 +398,7 @@ async def get_stalled_phases(
             "stalled_cycles": [c.to_dict() for c in stalled],
             "count": len(stalled),
         }
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error fetching stalled phases: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -414,7 +414,7 @@ async def get_orphan_judgments(
             "orphan_judgments": [c.to_dict() for c in orphans],
             "count": len(orphans),
         }
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error fetching orphan judgments: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -436,7 +436,7 @@ async def get_recent_closures(
             "count": len(closures),
             "complete_only": complete_only,
         }
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error fetching recent closures: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -449,7 +449,7 @@ async def get_closure_stats(
     try:
         stats = await container.organism.loop_closure_validator.stats()
         return {"stats": stats}
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error getting closure stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -462,7 +462,7 @@ async def get_closure_snapshot(
     try:
         snapshot = await container.organism.loop_closure_validator.snapshot()
         return snapshot
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error getting closure snapshot: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -476,6 +476,6 @@ async def clear_closures(
         await container.organism.loop_closure_validator.clear()
         logger.warning("Loop closure records cleared by API")
         return {"message": "Loop closure records cleared"}
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error clearing closures: {e}")
         raise HTTPException(status_code=500, detail=str(e))
