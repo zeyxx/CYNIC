@@ -31,6 +31,7 @@ from cynic.core.phi import (
     MAX_Q_SCORE, MAX_CONFIDENCE, PHI_INV, PHI_INV_2, PHI,
     phi_bound_score, LEARNING_RATE, fibonacci,
 )
+from cynic.core.formulas import CONSCIOUSNESS_BLENDING_WEIGHTS
 from cynic.core.consciousness import (
     ConsciousnessLevel, ConsciousnessState, get_consciousness, dogs_for_level,
 )
@@ -155,10 +156,11 @@ class ConsciousnessScheduler:
             oracle_confidence = 0.0
 
         # Step 4: Blend signals (normalized to [0, 1])
+        # Use weights from cynic.core.formulas (centralized, documented)
         blended = (
-            (axiom_maturity / 100.0) * 0.4 +  # axiom contributes 40%
-            (e_score / 100.0) * 0.3 +          # e_score contributes 30%
-            oracle_confidence * 0.3            # oracle contributes 30%
+            (axiom_maturity / 100.0) * CONSCIOUSNESS_BLENDING_WEIGHTS["axiom_maturity"] +
+            (e_score / 100.0) * CONSCIOUSNESS_BLENDING_WEIGHTS["e_score"] +
+            oracle_confidence * CONSCIOUSNESS_BLENDING_WEIGHTS["oracle"]
         )
 
         # Step 5: Map blended score to consciousness level
@@ -210,9 +212,10 @@ class ConsciousnessScheduler:
             e_score = 0.0
 
         # Blended (oracle_confidence not included in static version)
+        # Use weights from cynic.core.formulas (centralized, documented)
         blended = (
-            (axiom_maturity / 100.0) * 0.4 +
-            (e_score / 100.0) * 0.3
+            (axiom_maturity / 100.0) * CONSCIOUSNESS_BLENDING_WEIGHTS["axiom_maturity"] +
+            (e_score / 100.0) * CONSCIOUSNESS_BLENDING_WEIGHTS["e_score"]
         )
 
         return {
