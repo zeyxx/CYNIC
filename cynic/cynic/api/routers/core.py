@@ -102,7 +102,7 @@ async def _persist_judgment_async(judgment: Judgment) -> None:
         metrics_collector.record_metric("persist_judgment", duration_ms, success=True)
         logger.info("Judgment %s persisted successfully (%.1fms)", judgment.judgment_id, duration_ms)
 
-    except Exception as e:
+    except ValidationError as e:
         # RAISE, don't silently log
         duration_ms = (time.time() - start) * 1000
         metrics_collector.record_metric("persist_judgment", duration_ms, success=False, error=str(e))
@@ -175,7 +175,7 @@ async def _write_guidance_async(
             metrics_collector.record_metric("write_guidance", duration_ms, success=True)
             logger.info("Guidance written atomically (%.1fms): %s", duration_ms, guidance_path)
 
-        except Exception:
+        except OSError:
             # Clean up temp file if rename failed
             try:
                 os.unlink(temp_path)
@@ -184,7 +184,7 @@ async def _write_guidance_async(
                 pass
             raise
 
-    except Exception as e:
+    except OSError as e:
         # RAISE, don't silently catch
         duration_ms = (time.time() - start) * 1000
         metrics_collector.record_metric("write_guidance", duration_ms, success=False, error=str(e))
@@ -259,7 +259,7 @@ async def judge(req: JudgeRequest, container: AppContainer = Depends(get_app_con
     # (even if judgment is still processing asynchronously)
     try:
         await state.conscious_state.sync_checkpoint()
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.warning("Checkpoint sync failed after /judge emit: %s", e)
         # Don't block response on checkpoint failure — proceed with return
 
@@ -372,7 +372,7 @@ async def perceive(req: PerceiveRequest, container: AppContainer = Depends(get_a
     # Phase 0: Sync checkpoint — ensure perception is persisted before returning
     try:
         await state.conscious_state.sync_checkpoint()
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.warning("Checkpoint sync failed after /perceive emit: %s", e)
         # Don't block response on checkpoint failure — proceed with return
 
@@ -449,7 +449,7 @@ async def learn(req: LearnRequest, container: AppContainer = Depends(get_app_con
     # Phase 0: Sync checkpoint — ensure learning signal is persisted before returning
     try:
         await state.conscious_state.sync_checkpoint()
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.warning("Checkpoint sync failed after /learn emit: %s", e)
         # Don't block response on checkpoint failure — proceed with return
 
@@ -526,7 +526,7 @@ async def feedback(req: FeedbackRequest, container: AppContainer = Depends(get_a
                 AxiomActivatedPayload(axiom="SYMBIOSIS", maturity=state.axiom_monitor.get_maturity("SYMBIOSIS"), trigger="user_feedback"),
                 source="user_feedback",
             ))
-    except Exception:
+    except EventBusError:
         pass
 
     # USER_FEEDBACK bus event — makes human rating visible organism-wide.
@@ -546,7 +546,7 @@ async def feedback(req: FeedbackRequest, container: AppContainer = Depends(get_a
             ),
             source="feedback_endpoint",
         ))
-    except Exception:
+    except httpx.RequestError:
         pass
 
     # USER_CORRECTION: rating=1 = user explicitly says CYNIC was WRONG.
@@ -564,7 +564,7 @@ async def feedback(req: FeedbackRequest, container: AppContainer = Depends(get_a
                 ),
                 source="feedback_endpoint",
             ))
-        except Exception:
+        except EventBusError:
             pass
 
     # Social loop: user rating → sentiment signal → SocialWatcher → SOCIAL×PERCEIVE
@@ -580,7 +580,7 @@ async def feedback(req: FeedbackRequest, container: AppContainer = Depends(get_a
     # Phase 0: Sync checkpoint — ensure feedback is persisted before returning
     try:
         await state.conscious_state.sync_checkpoint()
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.warning("Checkpoint sync failed after /feedback events: %s", e)
         # Don't block response on checkpoint failure — proceed with return
 
@@ -658,7 +658,7 @@ async def account(req: AccountRequest, container: AppContainer = Depends(get_app
             },
             source="account_endpoint",
         ))
-    except Exception as e:
+    except EventBusError as e:
         logger.debug("COST_ACCOUNTED event (non-fatal): %s", e)
 
     msg = f"*sniff* ACCOUNT: ${cost_stats['total_cost_usd']:.4f} / ${cost_stats['session_budget_usd']:.2f} spent"

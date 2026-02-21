@@ -285,7 +285,7 @@ async def lifespan(app: FastAPI):
                     q_score = float(p.get("q_score", 0.0))
                     if sk and verdict:
                         await surreal.qtable.update(sk, verdict, q_score / 100.0)
-            except Exception:
+            except asyncpg.Error:
                 pass
 
         async def _surreal_persist_residual(event: Event) -> None:
@@ -293,7 +293,7 @@ async def lifespan(app: FastAPI):
                 p = event.payload or {}
                 if p.get("judgment_id"):
                     await surreal.residuals.append(p)
-            except Exception:
+            except httpx.RequestError:
                 pass
 
         get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _surreal_persist_judgment)
@@ -674,7 +674,7 @@ async def track_metrics_middleware(request: Request, call_next):
 
         return response
 
-    except Exception as e:
+    except httpx.RequestError as e:
         # Record error metrics
         duration_sec = time.time() - start_time
         REQUEST_DURATION_SECONDS.labels(endpoint=path).observe(duration_sec)
@@ -706,11 +706,6 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         },
     )
 
-
-# ── Register observability router (early, before lifespan) ──────────────────
-# Observability endpoints MUST be available even during startup
-from cynic.api.routers.observability import router_observability
-app.include_router(router_observability)
 
 # ── Register all routers ───────────────────────────────────────────────────
 # NOTE: Routers are auto-registered in lifespan (bootstrap phase)

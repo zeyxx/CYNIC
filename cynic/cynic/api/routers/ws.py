@@ -155,7 +155,7 @@ async def ws_consciousness_ecosystem(websocket: WebSocket) -> None:
         result = await service.get_ecosystem_state()
         if isinstance(result, dict):
             initial = result
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.warning(f"get_ecosystem_state failed (using fallback): {e}")
 
     async def _emit_loop() -> None:
