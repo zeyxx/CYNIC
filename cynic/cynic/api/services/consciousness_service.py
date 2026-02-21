@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Awaitable, Callable, Optional
 
 from cynic.api.services.ecosystem_observer import EcosystemObserver
 from cynic.api.state import get_app_container
@@ -44,6 +44,34 @@ class ConsciousnessService:
     def __init__(self):
         """Initialize ConsciousnessService (lazy-load components on demand)."""
         self._ecosystem_observer: Optional[EcosystemObserver] = None
+
+    async def _safe_query(
+        self,
+        fn: Callable[[], Awaitable[Any]],
+        fallback: Any,
+        operation_name: str,
+    ) -> Any:
+        """Safely execute query with exception handling and logging.
+
+        Args:
+            fn: Async function to execute
+            fallback: Value to return on failure
+            operation_name: Name for logging (e.g., "get_ecosystem_state")
+
+        Returns:
+            Result of fn() or fallback value on any exception
+        """
+        try:
+            return await fn()
+        except RuntimeError as e:
+            logger.warning(f"AppContainer not initialized for {operation_name}: {e}")
+            return fallback
+        except Exception as e:
+            logger.error(
+                f"Unexpected error in {operation_name}: {type(e).__name__}: {e}",
+                exc_info=True,
+            )
+            return fallback
 
     async def _get_ecosystem_observer(self) -> EcosystemObserver:
         """Get or create EcosystemObserver (lazy-load)."""
@@ -84,7 +112,8 @@ class ConsciousnessService:
         Returns:
             Dict with core_events, automation_events, agent_events, timestamp
         """
-        try:
+
+        async def query():
             container = get_app_container()
             organism = container.organism
 
@@ -93,16 +122,17 @@ class ConsciousnessService:
 
             # Categorize by bus (infer from source or event type)
             core_events = [
-                e.to_dict() for e in all_events
+                e.to_dict()
+                for e in all_events
                 if e.source in ["SAGE", "JUDGE", "ORACLE"]
             ]
             automation_events = [
-                e.to_dict() for e in all_events
+                e.to_dict()
+                for e in all_events
                 if e.source in ["SCHEDULER", "MACRO", "AUTOMATION"]
             ]
             agent_events = [
-                e.to_dict() for e in all_events
-                if e.source in ["AGENT", "API", "PERCEIVE"]
+                e.to_dict() for e in all_events if e.source in ["AGENT", "API", "PERCEIVE"]
             ]
 
             return {
@@ -111,14 +141,15 @@ class ConsciousnessService:
                 "agent_events": agent_events[-10:],
                 "timestamp": datetime.now().timestamp(),
             }
-        except RuntimeError:
-            # AppContainer not initialized — return stub
-            return {
-                "core_events": [],
-                "automation_events": [],
-                "agent_events": [],
-                "timestamp": datetime.now().timestamp(),
-            }
+
+        fallback = {
+            "core_events": [],
+            "automation_events": [],
+            "agent_events": [],
+            "timestamp": datetime.now().timestamp(),
+        }
+
+        return await self._safe_query(query, fallback, "get_ecosystem_state")
 
     async def get_decision_trace(self, decision_id: str) -> Optional[dict[str, Any]]:
         """
@@ -137,7 +168,8 @@ class ConsciousnessService:
         Returns:
             Dict with decision_id, timestamp, and path array of stages
         """
-        try:
+
+        async def query():
             container = get_app_container()
             organism = container.organism
 
@@ -155,27 +187,39 @@ class ConsciousnessService:
             # Extract stages from trace nodes
             path = []
             for node in trace.nodes:
-                stage_name = node.phase.lower() if hasattr(node.phase, 'lower') else str(node.phase)
-                path.append({
-                    "stage": stage_name,
-                    "component": node.component,
-                    "verdict": node.output_verdict or "pending",
-                    "reason": f"processed_by_{node.component}",
-                    "duration_ms": node.duration_ms,
-                })
+                # Type validation: ensure phase is string for .lower()
+                if hasattr(node.phase, "lower"):
+                    stage_name = node.phase.lower()
+                else:
+                    # Type is not string, log warning
+                    logger.warning(
+                        f"node.phase is not string type: {type(node.phase).__name__} = {node.phase}"
+                    )
+                    stage_name = str(node.phase).lower()
+
+                path.append(
+                    {
+                        "stage": stage_name,
+                        "component": node.component,
+                        "verdict": node.output_verdict or "pending",
+                        "reason": f"processed_by_{node.component}",
+                        "duration_ms": node.duration_ms,
+                    }
+                )
 
             return {
                 "decision_id": decision_id,
                 "timestamp": datetime.now().timestamp(),
                 "path": path,
             }
-        except RuntimeError:
-            # AppContainer not initialized
-            return {
-                "decision_id": decision_id,
-                "timestamp": datetime.now().timestamp(),
-                "path": [],
-            }
+
+        fallback = {
+            "decision_id": decision_id,
+            "timestamp": datetime.now().timestamp(),
+            "path": [],
+        }
+
+        return await self._safe_query(query, fallback, "get_decision_trace")
 
     async def get_topology_consciousness(self) -> dict[str, Any]:
         """
@@ -186,52 +230,65 @@ class ConsciousnessService:
         Returns:
             Dict with source_changes_detected, topology_deltas_computed, convergence_validations
         """
-        try:
+
+        async def query():
             container = get_app_container()
             organism = container.organism
 
             # Get convergence validator if available
-            convergence = getattr(organism.senses, 'convergence_validator', None)
+            convergence = getattr(organism.senses, "convergence_validator", None)
 
             announcements = []
             outcomes = []
             if convergence:
-                announcements = getattr(convergence, 'announcements', [])
-                outcomes = getattr(convergence, 'outcomes', [])
+                announcements = getattr(convergence, "announcements", [])
+                outcomes = getattr(convergence, "outcomes", [])
+
+            # Fix Issue 4: Build set once for O(1) membership tests (not O(n²))
+            announced_ids = {
+                o.get("announcement")
+                for o in outcomes
+                if isinstance(o, dict) and "announcement" in o
+            }
+            pending_announcements = [a for a in announcements if a not in announced_ids]
 
             return {
                 "source_changes_detected": len(announcements),
-                "topology_deltas_computed": len([
-                    a for a in announcements
-                    if isinstance(a, dict) and a.get("type") == "topology_change"
-                ]),
+                "topology_deltas_computed": len(
+                    [
+                        a
+                        for a in announcements
+                        if isinstance(a, dict) and a.get("type") == "topology_change"
+                    ]
+                ),
                 "convergence_validations": {
                     "total_announced": len(announcements),
-                    "verified": len([
-                        o for o in outcomes
-                        if isinstance(o, dict) and o.get("verified")
-                    ]),
-                    "pending": len([
-                        a for a in announcements
-                        if a not in [o.get("announcement") for o in outcomes if isinstance(o, dict)]
-                    ]),
+                    "verified": len(
+                        [
+                            o
+                            for o in outcomes
+                            if isinstance(o, dict) and o.get("verified")
+                        ]
+                    ),
+                    "pending": len(pending_announcements),
                 },
                 "recent_changes": announcements[-5:] if announcements else [],
                 "timestamp": datetime.now().timestamp(),
             }
-        except RuntimeError:
-            # AppContainer not initialized
-            return {
-                "source_changes_detected": 0,
-                "topology_deltas_computed": 0,
-                "convergence_validations": {
-                    "total_announced": 0,
-                    "verified": 0,
-                    "pending": 0,
-                },
-                "recent_changes": [],
-                "timestamp": datetime.now().timestamp(),
-            }
+
+        fallback = {
+            "source_changes_detected": 0,
+            "topology_deltas_computed": 0,
+            "convergence_validations": {
+                "total_announced": 0,
+                "verified": 0,
+                "pending": 0,
+            },
+            "recent_changes": [],
+            "timestamp": datetime.now().timestamp(),
+        }
+
+        return await self._safe_query(query, fallback, "get_topology_consciousness")
 
     async def get_guardrail_decisions(self, limit: int = 20) -> list[dict[str, Any]]:
         """
@@ -245,15 +302,16 @@ class ConsciousnessService:
         Returns:
             List of decision dicts with guardrail_type, decision, reason, timestamp
         """
-        try:
+
+        async def query():
             container = get_app_container()
             organism = container.organism
 
             # Get audit trail from immune system
-            audit_trail = getattr(organism.cognition, 'audit_trail', None)
+            audit_trail = getattr(organism.cognition, "audit_trail", None)
 
             decisions = []
-            if audit_trail and hasattr(audit_trail, 'get_recent_decisions'):
+            if audit_trail and hasattr(audit_trail, "get_recent_decisions"):
                 decisions = await audit_trail.get_recent_decisions(limit=limit)
 
             return [
@@ -265,9 +323,8 @@ class ConsciousnessService:
                 }
                 for d in decisions
             ]
-        except RuntimeError:
-            # AppContainer not initialized
-            return []
+
+        return await self._safe_query(query, [], "get_guardrail_decisions")
 
     async def get_self_awareness(self) -> dict[str, Any]:
         """
@@ -279,16 +336,17 @@ class ConsciousnessService:
         Returns:
             Dict with kernel_observations, meta_insights, improvement_proposals, self_assessment
         """
-        try:
+
+        async def query():
             container = get_app_container()
             organism = container.organism
 
             # Get kernel_mirror from memory core
             kernel_mirror = organism.kernel_mirror
 
-            observations = getattr(kernel_mirror, 'observations', [])
-            insights = getattr(kernel_mirror, 'insights', [])
-            proposals = getattr(kernel_mirror, 'proposals', [])
+            observations = getattr(kernel_mirror, "observations", [])
+            insights = getattr(kernel_mirror, "insights", [])
+            proposals = getattr(kernel_mirror, "proposals", [])
 
             return {
                 "kernel_observations": observations[-10:] if observations else [],
@@ -301,19 +359,20 @@ class ConsciousnessService:
                 },
                 "timestamp": datetime.now().timestamp(),
             }
-        except RuntimeError:
-            # AppContainer not initialized
-            return {
-                "kernel_observations": [],
-                "meta_insights": [],
-                "improvement_proposals": [],
-                "self_assessment": {
-                    "total_observations": 0,
-                    "insight_count": 0,
-                    "proposal_count": 0,
-                },
-                "timestamp": datetime.now().timestamp(),
-            }
+
+        fallback = {
+            "kernel_observations": [],
+            "meta_insights": [],
+            "improvement_proposals": [],
+            "self_assessment": {
+                "total_observations": 0,
+                "insight_count": 0,
+                "proposal_count": 0,
+            },
+            "timestamp": datetime.now().timestamp(),
+        }
+
+        return await self._safe_query(query, fallback, "get_self_awareness")
 
     async def get_nervous_system_audit(self, limit: int = 100) -> dict[str, Any]:
         """
@@ -330,7 +389,8 @@ class ConsciousnessService:
         Returns:
             Dict with all_events, decision_reasons, loop_integrity_checks, counts, timestamp
         """
-        try:
+
+        async def query():
             container = get_app_container()
             organism = container.organism
 
@@ -342,14 +402,20 @@ class ConsciousnessService:
             # Query all components
             all_events = await event_journal.recent(limit=limit)
             recent_traces = await decision_tracer.recent_traces(limit=20)
-            loop_checks = getattr(loop_validator, 'recent_checks', [])
+            loop_checks = getattr(loop_validator, "recent_checks", [])
 
             # Format events
             formatted_events = [
                 {
-                    "type": e.event_type if isinstance(e.event_type, str) else getattr(e.event_type, 'name', str(e.event_type)),
-                    "timestamp": getattr(e, 'timestamp_ms', datetime.now().timestamp() * 1000),
-                    "source": getattr(e, 'source', 'unknown'),
+                    "type": (
+                        e.event_type
+                        if isinstance(e.event_type, str)
+                        else getattr(e.event_type, "name", str(e.event_type))
+                    ),
+                    "timestamp": getattr(
+                        e, "timestamp_ms", datetime.now().timestamp() * 1000
+                    ),
+                    "source": getattr(e, "source", "unknown"),
                 }
                 for e in all_events
             ]
@@ -358,9 +424,9 @@ class ConsciousnessService:
             formatted_reasons = [
                 {
                     "judgment_id": t.judgment_id,
-                    "phase_count": len(t.nodes) if hasattr(t, 'nodes') else 0,
-                    "final_verdict": t.final_verdict if hasattr(t, 'final_verdict') else "pending",
-                    "created_at_ms": t.created_at_ms if hasattr(t, 'created_at_ms') else 0,
+                    "phase_count": len(t.nodes) if hasattr(t, "nodes") else 0,
+                    "final_verdict": t.final_verdict if hasattr(t, "final_verdict") else "pending",
+                    "created_at_ms": t.created_at_ms if hasattr(t, "created_at_ms") else 0,
                 }
                 for t in recent_traces
             ]
@@ -372,7 +438,8 @@ class ConsciousnessService:
                     "result": c.get("result", "unknown"),
                     "timestamp": c.get("timestamp", datetime.now().timestamp()),
                 }
-                for c in loop_checks if isinstance(c, dict)
+                for c in loop_checks
+                if isinstance(c, dict)
             ]
 
             return {
@@ -383,13 +450,14 @@ class ConsciousnessService:
                 "decision_count": len(recent_traces),
                 "timestamp": datetime.now().timestamp(),
             }
-        except RuntimeError:
-            # AppContainer not initialized
-            return {
-                "all_events": [],
-                "decision_reasons": [],
-                "loop_integrity_checks": [],
-                "event_count": 0,
-                "decision_count": 0,
-                "timestamp": datetime.now().timestamp(),
-            }
+
+        fallback = {
+            "all_events": [],
+            "decision_reasons": [],
+            "loop_integrity_checks": [],
+            "event_count": 0,
+            "decision_count": 0,
+            "timestamp": datetime.now().timestamp(),
+        }
+
+        return await self._safe_query(query, fallback, "get_nervous_system_audit")
