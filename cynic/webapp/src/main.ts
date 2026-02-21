@@ -164,17 +164,16 @@ function updateDashboard(): void {
 }
 
 function logOutput(message: string): void {
-  const outputLog = document.getElementById('output-log');
-  if (outputLog) {
-    const timestamp = new Date().toLocaleTimeString();
-    const line = `[${timestamp}] ${message}\n`;
-    outputLog.textContent += line;
-    // Auto-scroll to bottom
-    const outputDiv = document.getElementById('output');
-    if (outputDiv) {
-      outputDiv.scrollTop = outputDiv.scrollHeight;
-    }
-  }
+  const output = document.getElementById('output-log');
+  if (!output) return;
+
+  const lineEl = document.createElement('div');
+  const timestamp = new Date().toLocaleTimeString();
+  lineEl.textContent = `[${timestamp}] ${message}`;
+  output.appendChild(lineEl);
+
+  // Auto-scroll to bottom
+  output.scrollTop = output.scrollHeight;
 }
 
 // Start the application when DOM is ready
