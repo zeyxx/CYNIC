@@ -87,7 +87,7 @@ class LevelSelector(BaseHandler):
                     "cell_consciousness": cell.consciousness,
                 },
             )
-        except Exception as e:
+        except EventBusError as e:
             duration_ms = (time.perf_counter() - t0) * 1000
             self._log_error("select_level", e)
             return HandlerResult(
@@ -148,7 +148,7 @@ class LevelSelector(BaseHandler):
             try:
                 selected_level = await self.consciousness_scheduler.select_level(cell)
                 logger.debug(f"ConsciousnessScheduler selected {selected_level.name}")
-            except Exception as e:
+            except CynicError as e:
                 logger.warning(f"ConsciousnessScheduler failed, falling back: {e}")
                 selected_level = None
 

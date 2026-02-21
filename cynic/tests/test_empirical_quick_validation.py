@@ -100,7 +100,7 @@ async def test_empirical_quick_10_judgments():
                 "confidence": judgment.confidence,
             })
 
-        except Exception as e:
+        except asyncio.TimeoutError as e:
             print(f"  ERROR: {e}")
             errors.append({"idx": idx, "error": str(e)})
 

@@ -62,7 +62,7 @@ class EcosystemDashboardApp:
                 self.guardrails.update_from_snapshot(snapshot)
             if self.self_aware:
                 self.self_aware.update_from_snapshot(snapshot)
-        except Exception as e:
+        except asyncpg.Error as e:
             logger.error(f"Error dispatching snapshot: {e}", exc_info=True)
 
     def get_all_layers(self) -> list:

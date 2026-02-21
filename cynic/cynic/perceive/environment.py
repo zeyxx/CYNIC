@@ -182,7 +182,7 @@ class EnvironmentIntrospector:
                 volumes_count=len(volumes),
                 volumes=[v.name for v in volumes],
             )
-        except Exception as e:
+        except CynicError as e:
             return DockerStatus(
                 daemon_running=False,
                 daemon_error=str(e),
@@ -228,7 +228,7 @@ class EnvironmentIntrospector:
             )
             await conn.close()
             postgres_available = True
-        except Exception as e:
+        except asyncpg.Error as e:
             postgres_error = str(e)
 
         # Count state files
@@ -269,7 +269,7 @@ class EnvironmentIntrospector:
                 import urllib.request
                 urllib.request.urlopen(ollama_url, timeout=2)
                 ollama_available = True
-        except Exception as e:
+        except httpx.RequestError as e:
             ollama_error = str(e)
 
         return NetworkStatus(
@@ -302,7 +302,7 @@ class EnvironmentIntrospector:
                         pass  # Skip inaccessible files
 
             return total_size / 1024 / 1024
-        except Exception as e:
+        except httpx.RequestError as e:
             logger.warning(f"Error calculating size of {directory}: {e}")
             return 0.0
 
@@ -342,7 +342,7 @@ class EnvironmentIntrospector:
 
         try:
             return json.loads(self.discoveries_log.read_text())
-        except Exception:
+        except json.JSONDecodeError:
             return {"discoveries": [], "remembered": {}}
 
     def save_discovery(self, key: str, value: Any) -> None:

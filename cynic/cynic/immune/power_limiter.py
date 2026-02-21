@@ -192,7 +192,7 @@ class PowerLimiter:
                 process = psutil.Process()
                 cpu_pct = process.cpu_percent(interval=0.05)
                 memory_pct = process.memory_percent()
-            except Exception as e:
+            except httpx.RequestError as e:
                 logger.debug("Failed to get process metrics: %s", e)
 
         now = time.time()
@@ -220,7 +220,7 @@ class PowerLimiter:
                 process = psutil.Process()
                 cpu_pct = process.cpu_percent(interval=0.05)
                 memory_pct = process.memory_percent()
-            except Exception as e:
+            except httpx.RequestError as e:
                 logger.debug("psutil error: %s", e)
 
         # Task count from scheduler
@@ -232,7 +232,7 @@ class PowerLimiter:
         for queue in queues.values():
             try:
                 queue_depth += queue.qsize()
-            except Exception:
+            except httpx.RequestError:
                 pass
 
         # Rate metrics

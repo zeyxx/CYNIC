@@ -95,7 +95,7 @@ async def test_which_dog_blocks_in_micro():
         print("\nDIAGNOSIS: One of the Dogs above did not return")
         return False
 
-    except Exception as e:
+    except asyncio.TimeoutError as e:
         print(f"\n✗ Error: {e}")
         import traceback
         traceback.print_exc()

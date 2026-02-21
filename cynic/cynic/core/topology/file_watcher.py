@@ -117,7 +117,7 @@ class SourceWatcher:
                                   category, self._snapshot_failures[category])
                         self._snapshot_failures[category] = 0
                 self._last_successful_snapshot[category] = time.time()
-            except Exception as e:
+            except EventBusError as e:
                 # Track failure + emit alert
                 self._snapshot_failures[category] = self._snapshot_failures.get(category, 0) + 1
                 logger.error(

@@ -86,7 +86,7 @@ class TestSDKBridgeRealClaude:
                 or "0.618" in response.raw_message
             )
 
-        except Exception as e:
+        except ValidationError as e:
             pytest.skip(f"Claude API call failed: {e}")
 
     def test_sdk_imports_work(self):

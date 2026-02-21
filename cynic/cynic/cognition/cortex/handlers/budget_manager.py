@@ -79,7 +79,7 @@ class BudgetManager(BaseHandler):
                     "exhausted": self._budget_exhausted,
                 },
             )
-        except Exception as e:
+        except EventBusError as e:
             duration_ms = (time.perf_counter() - t0) * 1000
             self._log_error("execute_budget", e)
             return HandlerResult(

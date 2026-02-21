@@ -473,7 +473,7 @@ class ConsciousState:
             state_dict = await self.to_dict()
             STATE_FILE.write_text(json.dumps(state_dict, indent=2))
             logger.debug("ConsciousState persisted to %s", STATE_FILE)
-        except Exception as e:
+        except json.JSONDecodeError as e:
             logger.error("Failed to save ConsciousState: %s", e)
 
     async def load_from_disk(self):
@@ -495,7 +495,7 @@ class ConsciousState:
                         "error_count", 0
                     )
                 logger.info("ConsciousState loaded from disk: %d judgments", self._judgment_count)
-        except Exception as e:
+        except httpx.RequestError as e:
             logger.error("Failed to load ConsciousState: %s", e)
 
     async def sync_checkpoint(self) -> None:
@@ -524,14 +524,14 @@ class ConsciousState:
                     json.dump(data, fh, indent=2)
                 os.replace(temp_path, STATE_FILE)
                 logger.info("ConsciousState checkpoint synced: %s", STATE_FILE)
-            except Exception:
+            except OSError:
                 try:
                     os.unlink(temp_path)
                 except OSError:
                     # Temp file cleanup failed — not critical
                     pass
                 raise
-        except Exception as e:
+        except ValidationError as e:
             logger.error("ConsciousState sync checkpoint FAILED: %s", e)
             raise
 

@@ -19,6 +19,6 @@ class WiringBuilder(BaseBuilder):
         try:
             # TODO: Extract _wire_event_handlers + _wire_perceive_workers
             context.log(f"{self.builder_id}: completed")
-        except Exception as e:
+        except EventBusError as e:
             logger.error(f"{self.builder_id}: failed — {e}")
             raise RuntimeError(f"WiringBuilder failed: {e}")

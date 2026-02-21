@@ -276,7 +276,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             return await _tool_cynic_stop(arguments)
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
-    except Exception as exc:
+    except CynicError as exc:
         logger.exception("Tool call failed")
         return [TextContent(type="text", text=f"Error: {exc}")]
 
@@ -589,7 +589,7 @@ async def main():
         health = await _call_cynic("health", {})
         kernel_status = health.get("health", {}).get("cynic-kernel", {}).get("status", "unknown")
         logger.info("CYNIC Kernel status: %s", kernel_status)
-    except Exception as exc:
+    except httpx.RequestError as exc:
         logger.warning("Could not reach CYNIC at %s (it may not be running yet): %s", CYNIC_HTTP_BASE, exc)
 
     logger.info("MCP Server ready. Listening on stdio for Claude Code...")

@@ -243,7 +243,7 @@ class TestHandlerEventFlow:
             # Emission succeeded - this is what we're testing
             assert True
             print("✓ Event subscription and emission succeeded")
-        except Exception as e:
+        except EventBusError as e:
             pytest.fail(f"Event emission failed: {e}")
 
     @pytest.mark.asyncio
@@ -268,7 +268,7 @@ class TestHandlerEventFlow:
 
             print("✓ Multiple event emissions succeeded")
             assert True
-        except Exception as e:
+        except EventBusError as e:
             pytest.fail(f"Event emission sequence failed: {e}")
 
 
@@ -394,7 +394,7 @@ class TestLearningLoopIntegration:
             assert entry is not None, "Update should return entry"
             assert isinstance(entry.q_value, float), "Q-value should be numeric"
             print("✓ Learning signal flow validated")
-        except Exception as e:
+        except ValidationError as e:
             pytest.fail(f"Learning signal processing failed: {e}")
 
     @pytest.mark.asyncio

@@ -96,7 +96,7 @@ class ConfigurationAdaptationEngine:
         try:
             prefs = json.loads(self.preferences_log.read_text())
             return prefs.get(key)
-        except Exception:
+        except json.JSONDecodeError:
             return None
 
     def _log_discovery(self, key: str, value: Any, description: str) -> None:
@@ -114,7 +114,7 @@ class ConfigurationAdaptationEngine:
             try:
                 data = json.loads(self.discoveries_log.read_text())
                 existing = data if isinstance(data, list) else []
-            except Exception:
+            except json.JSONDecodeError:
                 pass
 
         # Append and cap at F(11)=89
@@ -146,7 +146,7 @@ class ConfigurationAdaptationEngine:
             temp_file.write_text(json.dumps(prefs, indent=2))
             # Atomic rename (POSIX atomic, Windows replaces)
             temp_file.replace(self.preferences_log)
-        except Exception as e:
+        except json.JSONDecodeError as e:
             logger.error(f"Failed to save preference: {e}")
             if temp_file.exists():
                 temp_file.unlink()

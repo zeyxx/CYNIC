@@ -235,7 +235,7 @@ class OrganismState:
         # Rule 2: Check serializability
         try:
             json.dumps(value, default=str)
-        except Exception as e:
+        except json.JSONDecodeError as e:
             logger.error("CONSISTENCY: %s not JSON-serializable: %s", key, e)
             return False
 
@@ -286,7 +286,7 @@ class OrganismState:
             await self._db.save_state("organism_memory", payload)
             logger.debug("Synced memory state to persistent")
             return True
-        except Exception as e:
+        except asyncpg.Error as e:
             logger.error("Failed to sync memory state: %s", e)
             return False
 
@@ -333,7 +333,7 @@ class OrganismState:
                     )
 
             return True
-        except Exception as e:
+        except ValidationError as e:
             logger.error("Failed to recover state: %s", e)
             return False
 
@@ -368,7 +368,7 @@ class OrganismState:
 
             logger.info("Saved checkpoint to %s", self._checkpoint_path)
             return True
-        except Exception as e:
+        except OSError as e:
             logger.error("Failed to save checkpoint: %s", e)
             return False
 
@@ -430,7 +430,7 @@ class OrganismState:
                     batch.clear()
                     last_flush = time.time()
 
-            except Exception as e:
+            except asyncpg.Error as e:
                 logger.error("Error in update loop: %s", e)
                 await asyncio.sleep(1.0)
 
@@ -469,7 +469,7 @@ class OrganismState:
                     "timestamp": time.time(),
                 }
                 await self._db.save_state("organism_persistent", payload)
-            except Exception as e:
+            except asyncpg.Error as e:
                 logger.error("Failed to persist updates: %s", e)
 
     async def _flush_queue(self) -> None:

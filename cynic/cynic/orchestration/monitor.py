@@ -151,7 +151,7 @@ class HealthMonitor:
                 )
 
                 await asyncio.sleep(interval_seconds)
-            except Exception as e:
+            except httpx.RequestError as e:
                 logger.exception("Monitoring error")
                 await asyncio.sleep(interval_seconds)
 

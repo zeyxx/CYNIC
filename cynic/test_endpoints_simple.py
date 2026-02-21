@@ -24,28 +24,28 @@ try:
     try:
         resp = httpx.get(f"{base_url}/observability/health")
         print(f"Health: {resp.status_code} - {resp.text[:100]}")
-    except Exception as e:
+    except httpx.RequestError as e:
         print(f"Health FAILED: {e}")
 
     # Test metrics endpoint
     try:
         resp = httpx.get(f"{base_url}/observability/metrics")
         print(f"Metrics: {resp.status_code} - {resp.text[:100]}")
-    except Exception as e:
+    except httpx.RequestError as e:
         print(f"Metrics FAILED: {e}")
 
     # Test version endpoint
     try:
         resp = httpx.get(f"{base_url}/observability/version")
         print(f"Version: {resp.status_code} - {resp.text[:100]}")
-    except Exception as e:
+    except httpx.RequestError as e:
         print(f"Version FAILED: {e}")
 
     # Also test consciousness endpoint
     try:
         resp = httpx.get(f"{base_url}/api/consciousness/ecosystem")
         print(f"Consciousness: {resp.status_code} - {resp.text[:100]}")
-    except Exception as e:
+    except httpx.RequestError as e:
         print(f"Consciousness FAILED: {e}")
 
 finally:

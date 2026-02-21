@@ -76,6 +76,6 @@ class GuidanceWriter(HandlerGroup):
                     "Guidance written for judgment %s", judgment.judgment_id
                 )
 
-        except Exception as e:
+        except httpx.RequestError as e:
             logger.warning("Failed to write guidance for judgment: %s", e)
             # Don't fail the system — guidance write is best-effort durability

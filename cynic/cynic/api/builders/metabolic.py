@@ -18,6 +18,6 @@ class MetabolicBuilder(BaseBuilder):
         context.log(f"{self.builder_id}: starting")
         try:
             context.log(f"{self.builder_id}: completed")
-        except Exception as e:
+        except ValidationError as e:
             logger.error(f"{self.builder_id}: failed — {e}")
             raise RuntimeError(f"MetabolicBuilder failed: {e}")

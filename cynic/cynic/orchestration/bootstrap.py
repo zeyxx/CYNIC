@@ -100,7 +100,7 @@ All notable changes to this project will be documented in this file.
                 "changelog_created": not self.changelog_file.exists(),
             }
 
-        except Exception as e:
+        except OSError as e:
             logger.exception("Version structure initialization failed")
             return {"error": str(e)}
 
@@ -160,7 +160,7 @@ CREATE INDEX idx_qtable_visits ON cynic.qtable(visits DESC);
 
             return {"migration_exists": True}
 
-        except Exception as e:
+        except OSError as e:
             logger.exception("Migration creation failed")
             return {"error": str(e)}
 
@@ -197,7 +197,7 @@ NODE_ENV=development
 
             return {"env_file_exists": True}
 
-        except Exception as e:
+        except httpx.RequestError as e:
             logger.exception(".env creation failed")
             return {"error": str(e)}
 
@@ -234,7 +234,7 @@ NODE_ENV=development
 
             return {"gitignore_exists": True}
 
-        except Exception as e:
+        except OSError as e:
             logger.exception(".gitignore update failed")
             return {"error": str(e)}
 

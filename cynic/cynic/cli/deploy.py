@@ -195,7 +195,7 @@ async def main():
             print(__doc__)
             return 1
 
-    except Exception as e:
+    except CynicError as e:
         logger.error(f"Error: {e}", exc_info=True)
         return 1
 

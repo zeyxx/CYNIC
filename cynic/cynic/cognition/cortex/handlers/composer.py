@@ -69,7 +69,7 @@ class HandlerComposer:
   except HandlerError as e:
    duration_ms = (time.perf_counter() - t0) * 1000
    return HandlerResult(success=False, handler_id="composer", error=f"Handler '{e.handler_id}' failed: {e.error}", duration_ms=duration_ms, metadata={"handlers_executed": handlers_executed, "failed_at": e.handler_id})
-  except Exception as e:
+  except EventBusError as e:
    duration_ms = (time.perf_counter() - t0) * 1000
    logger.error(f"Unexpected error: {e}", exc_info=True)
    return HandlerResult(success=False, handler_id="composer", error=f"Unexpected error: {str(e)}", duration_ms=duration_ms, metadata={"handlers_executed": handlers_executed, "exception": e.__class__.__name__})

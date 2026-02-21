@@ -138,7 +138,7 @@ class DogCognition:
 
             return judgment
 
-        except Exception as e:
+        except httpx.RequestError as e:
             self._error_count += 1
             self._last_error = str(e)
             logger.error(f"[{self.dog_id}] Judgment failed: {e}", exc_info=True)

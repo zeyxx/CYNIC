@@ -29,7 +29,7 @@ async def test_scheduler_health():
         print(f"  ✓ Core bus: {type(core_bus).__name__}")
         print(f"  ✓ Automation bus: {type(automation_bus).__name__}")
         print(f"  ✓ Agent bus: {type(agent_bus).__name__}")
-    except Exception as e:
+    except ValidationError as e:
         print(f"  ✗ Error: {e}")
         return False
 
@@ -38,7 +38,7 @@ async def test_scheduler_health():
         scheduler = organism.scheduler
         print(f"  ✓ Scheduler: {type(scheduler).__name__}")
         print(f"  - Is running: {scheduler.running if hasattr(scheduler, 'running') else 'unknown'}")
-    except Exception as e:
+    except ValidationError as e:
         print(f"  ✗ Error: {e}")
         return False
 
@@ -61,7 +61,7 @@ async def test_scheduler_health():
     except asyncio.TimeoutError:
         print(f"  ✗ Event emission TIMED OUT (bus may be blocked)")
         return False
-    except Exception as e:
+    except EventBusError as e:
         print(f"  ✗ Error: {e}")
         return False
 
@@ -74,7 +74,7 @@ async def test_scheduler_health():
             print(f"  ✓ Core bus has {n_subs} subscriber(s)")
         else:
             print(f"  ? Cannot check subscribers (different bus implementation)")
-    except Exception as e:
+    except EventBusError as e:
         print(f"  ? Error checking subscribers: {e}")
 
     print("\n" + "="*70)

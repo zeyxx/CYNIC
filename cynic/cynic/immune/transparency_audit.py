@@ -323,7 +323,7 @@ class TransparencyAuditTrail:
                 self._records = self._records[-_MAX_AUDIT_RECORDS:]
 
             logger.info(f"Loaded {len(self._records)} audit records from {self._storage_path}")
-        except Exception as e:
+        except json.JSONDecodeError as e:
             logger.warning(f"Failed to load audit trail: {e}")
 
     def _save_to_disk(self) -> None:
@@ -332,5 +332,5 @@ class TransparencyAuditTrail:
             with open(self._storage_path, "w") as f:
                 for record in self._records:
                     f.write(record.to_json() + "\n")
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Failed to save audit trail: {e}")

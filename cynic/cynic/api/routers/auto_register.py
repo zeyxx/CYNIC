@@ -91,7 +91,7 @@ def auto_register_routers(app: FastAPI) -> dict[str, Any]:
             else:
                 logger.debug(f"No APIRouter found in {module_name}")
 
-        except Exception as e:
+        except CynicError as e:
             logger.warning(f"Failed to register router {module_name}: {e}")
 
     logger.info(f"Auto-registered {len(registered)} routers: {list(registered.keys())}")

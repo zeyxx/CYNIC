@@ -94,7 +94,7 @@ class ConsciousnessService:
                 endpoint=operation_name
             ).inc()
             return fallback
-        except Exception as e:
+        except CynicError as e:
             logger.error(
                 f"Unexpected error in {operation_name}: {type(e).__name__}: {e}",
                 exc_info=True,

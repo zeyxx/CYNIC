@@ -71,7 +71,7 @@ class EvolveHandler(BaseHandler):
                     "probes_passed": f"{summary['pass_count']}/{summary['total']}",
                 },
             )
-        except Exception as e:
+        except EventBusError as e:
             duration_ms = (time.perf_counter() - t0) * 1000
             self._log_error("execute_evolve", e)
             return HandlerResult(
@@ -118,7 +118,7 @@ class EvolveHandler(BaseHandler):
                         duration_ms=elapsed,
                     )
                 )
-            except Exception as exc:
+            except CynicError as exc:
                 elapsed = (time.time() - t0) * 1000
                 logger.warning("evolve() probe %s failed: %s", probe["name"], exc)
                 results.append(
@@ -161,7 +161,7 @@ class EvolveHandler(BaseHandler):
         if self.benchmark_registry is not None:
             try:
                 await self.benchmark_registry.record_evolve(results)
-            except Exception as exc:
+            except CynicError as exc:
                 logger.warning("BenchmarkRegistry.record_evolve() failed: %s", exc)
 
         await get_core_bus().emit(

@@ -32,7 +32,7 @@ async def test_observability():
                 print(f"   OK Status: {data.get('status')}")
                 print(f"   Uptime: {data.get('uptime_seconds')}s")
                 print(f"   Components: {data.get('components')}")
-            except Exception as e:
+            except httpx.RequestError as e:
                 print(f"   FAIL Error: {e}")
             print()
 
@@ -43,7 +43,7 @@ async def test_observability():
                 data = resp.json()
                 print(f"   OK Ready: {data.get('ready')}")
                 print(f"   Status: {data.get('status')}")
-            except Exception as e:
+            except httpx.RequestError as e:
                 print(f"   FAIL Error: {e}")
             print()
 
@@ -54,7 +54,7 @@ async def test_observability():
                 data = resp.json()
                 print(f"   OK Version: {data.get('version')}")
                 print(f"   Name: {data.get('name')}")
-            except Exception as e:
+            except httpx.RequestError as e:
                 print(f"   FAIL Error: {e}")
             print()
 
@@ -70,7 +70,7 @@ async def test_observability():
                 print(f"   Sample metrics (first 5):")
                 for line in metric_lines[:5]:
                     print(f"     {line}")
-            except Exception as e:
+            except httpx.RequestError as e:
                 print(f"   FAIL Error: {e}")
             print()
 

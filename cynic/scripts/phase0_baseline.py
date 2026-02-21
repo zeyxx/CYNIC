@@ -105,10 +105,10 @@ class Phase0BaselineCollector:
                     if response.status_code == 200:
                         logger.info("✅ API started successfully")
                         return True
-            except Exception as e:
+            except httpx.RequestError as e:
                 logger.error(f"❌ API failed to start: {e}")
                 return False
-        except Exception as e:
+        except httpx.RequestError as e:
             logger.error(f"❌ Failed to start API: {e}")
             return False
 
@@ -130,7 +130,7 @@ class Phase0BaselineCollector:
                 cpu_percent=0,  # Simplified - not critical for baseline
                 process_count=process_count,
             )
-        except Exception as e:
+        except CynicError as e:
             logger.warning(f"⚠️ Failed to collect system metrics: {e}")
             return SystemMetrics(
                 timestamp=time.time(),
@@ -183,7 +183,7 @@ class Phase0BaselineCollector:
                     query_time_ms=10000,
                     status="timeout",
                 )
-            except Exception as e:
+            except asyncpg.Error as e:
                 logger.warning(f"⚠️ Error querying {layer_name}: {e}")
                 return ConsciousnessLayerMetrics(
                     layer_name=layer_name,
@@ -251,7 +251,7 @@ class Phase0BaselineCollector:
             except KeyboardInterrupt:
                 logger.info("⏹️  Measurement interrupted by user")
                 break
-            except Exception as e:
+            except CynicError as e:
                 logger.error(f"❌ Error during measurement: {e}")
                 await asyncio.sleep(SAMPLE_INTERVAL_SECONDS)
 
@@ -366,7 +366,7 @@ class Phase0BaselineCollector:
 
             return True
 
-        except Exception as e:
+        except CynicError as e:
             logger.error(f"❌ Phase 0 failed: {e}", exc_info=True)
             return False
 

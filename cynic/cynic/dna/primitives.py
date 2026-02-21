@@ -240,7 +240,7 @@ async def ACT(
             output=output,
             metrics={"executor": executor},
         )
-    except Exception as e:
+    except EventBusError as e:
         return DNA_Result(
             decision_id=decision.id,
             status="failed",
@@ -290,7 +290,7 @@ async def LEARN(
             "reward": reward,
             "timestamp": datetime.now().isoformat(),
         }
-    except Exception as e:
+    except asyncpg.Error as e:
         return {"error": str(e)}
 
 

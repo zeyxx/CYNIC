@@ -788,7 +788,7 @@ class _OrganismAwakener:
                 logger.info(
                     f"[CONVERGENCE] Announced: verdict={payload.verdict} Q={payload.q_score:.1f}"
                 )
-            except Exception as e:
+            except CynicError as e:
                 logger.error(f"[CONVERGENCE] announce() failed: {e}")
 
         bus.on(CoreEvent.JUDGMENT_CREATED, _on_judgment_announced)

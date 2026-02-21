@@ -39,7 +39,7 @@ class HotReloadCoordinator:
         """
         try:
             payload = event.as_typed(TopologyChangedPayload)
-        except Exception as e:
+        except EventBusError as e:
             logger.warning("Invalid TOPOLOGY_CHANGED payload: %s", e)
             return
 
@@ -67,7 +67,7 @@ class HotReloadCoordinator:
                 try:
                     await self._add_handler(registry, handler_name, svc)
                     logger.debug("Added handler: %s", handler_name)
-                except Exception as e:
+                except EventBusError as e:
                     logger.error("Failed to add handler %s: %s", handler_name, e)
                     raise
 
@@ -91,7 +91,7 @@ class HotReloadCoordinator:
                 len(payload.added_handlers)
             )
 
-        except Exception as e:
+        except EventBusError as e:
             logger.error(
                 "Hot-reload failed: %s — rolling back to snapshot", e
             )
@@ -101,7 +101,7 @@ class HotReloadCoordinator:
                 self._restore_registry(registry, snapshot)
                 registry.wire(bus)
                 logger.debug("Rolled back to previous topology")
-            except Exception as rollback_e:
+            except CynicError as rollback_e:
                 logger.error("Rollback FAILED: %s — organism may be in inconsistent state", rollback_e)
 
             # 7. Emit: TOPOLOGY_ROLLBACK

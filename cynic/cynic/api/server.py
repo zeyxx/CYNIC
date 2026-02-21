@@ -197,7 +197,7 @@ async def lifespan(app: FastAPI):
 
         logger.info("Tier 1 Nervous System: %d components registered",
                    (await registry_obj.snapshot()).total_components)
-    except Exception as exc:
+    except CynicError as exc:
         logger.warning("Component registration failed: %s", exc)
 
     # ── Warm-start from SurrealDB ───────────────────────────────────────────
@@ -577,7 +577,7 @@ async def lifespan(app: FastAPI):
     try:
         await _mcp_server.start()
         logger.info("*ears perk* MCP Server listening on port %d (Claude Code bridge)", _mcp_server_port)
-    except Exception as _mcp_exc:
+    except httpx.RequestError as _mcp_exc:
         logger.warning("MCP Server failed to start: %s (Claude Code integration unavailable)", _mcp_exc)
         _mcp_server = None
 

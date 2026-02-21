@@ -231,7 +231,7 @@ async def test_empirical_campaign_1000_judgments():
                     f" | Errors: {stats['error_rate']*100:.1f}%"
                 )
 
-        except Exception as e:
+        except httpx.RequestError as e:
             collector.record_error(cell_id, str(e), level.name)
             print(f"[ERROR] Judgment {i}: {e}")
 

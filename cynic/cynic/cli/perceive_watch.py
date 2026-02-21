@@ -142,7 +142,7 @@ Return JSON: {{"score": 0-100, "verdict": "BARK|GROWL|WAG|HOWL", "reason": "brie
                 print(f"  Saved to: {perception_file}")
                 print("=" * 60)
 
-            except Exception as e:
+            except asyncpg.Error as e:
                 logger.exception("JUDGE evaluation error")
                 print(f"  ✗ JUDGE error: {e}")
 
@@ -150,7 +150,7 @@ Return JSON: {{"score": 0-100, "verdict": "BARK|GROWL|WAG|HOWL", "reason": "brie
 
         print("\n*yawn* PERCEIVE watch complete (max iterations reached)")
 
-    except Exception as e:
+    except asyncio.TimeoutError as e:
         logger.exception("PERCEIVE watch error")
         print(f"*GROWL* PERCEIVE watch failed: {e}")
         sys.exit(1)

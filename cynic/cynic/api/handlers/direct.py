@@ -73,5 +73,5 @@ class DirectActionsHandler(HandlerGroup):
                 action_type, success, result.duration_ms, success_rate, reward
             )
 
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)

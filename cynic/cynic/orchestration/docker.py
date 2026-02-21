@@ -146,7 +146,7 @@ class DockerManager:
             self._last_build = build_result
             return build_result
 
-        except Exception as exc:
+        except CynicError as exc:
             error_msg = f"Build error: {exc}"
             logger.error(error_msg)
             return BuildResult(
@@ -203,7 +203,7 @@ class DockerManager:
             self._last_deploy = deploy_result
             return deploy_result
 
-        except Exception as exc:
+        except CynicError as exc:
             error_msg = f"Deploy error: {exc}"
             logger.error(error_msg)
             return DeployResult(
@@ -253,7 +253,7 @@ class DockerManager:
                 self._service_health[service] = health
                 health_results.append(health)
 
-            except Exception as exc:
+            except CynicError as exc:
                 health = ServiceHealth(
                     service=service,
                     status="unhealthy",
@@ -284,7 +284,7 @@ class DockerManager:
                 logger.error(error)
                 return {"success": False, "error": error}
 
-        except Exception as exc:
+        except CynicError as exc:
             error_msg = f"Stop error: {exc}"
             logger.error(error_msg)
             return {"success": False, "error": error_msg}
@@ -313,7 +313,7 @@ class DockerManager:
                 # Simple regex: look for "servicename:" at start of line
                 services = re.findall(r"^\s{2}(\w+):", content, re.MULTILINE)
                 return services
-            except Exception as exc:
+            except httpx.RequestError as exc:
                 logger.warning(f"Could not parse compose file: {exc}")
                 return ["cynic-api", "postgres", "ollama"]  # fallback defaults
 

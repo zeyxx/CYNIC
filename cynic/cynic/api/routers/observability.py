@@ -93,7 +93,7 @@ async def health_check() -> dict:
             },
             "version": "2.0.0",
         }
-    except Exception as e:
+    except EventBusError as e:
         logger.error(f"Health check failed: {e}", exc_info=True)
         return {
             "status": "degraded",
@@ -126,7 +126,7 @@ async def readiness() -> dict:
             return {"ready": True, "status": "ready"}
         else:
             return {"ready": False, "status": "warming_up"}
-    except Exception as e:
+    except ValidationError as e:
         logger.warning(f"Readiness check failed: {e}")
         return {"ready": False, "status": "error", "error": str(e)}
 

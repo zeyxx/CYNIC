@@ -635,7 +635,7 @@ class JudgeOrchestrator:
                 level = await self.consciousness_scheduler.select_level(cell)
                 logger.debug(f"ConsciousnessScheduler selected {level.name}")
                 return level
-            except Exception as e:
+            except CynicError as e:
                 logger.warning(f"ConsciousnessScheduler failed, falling back: {e}")
                 # Fall through to legacy logic
 
@@ -919,7 +919,7 @@ class JudgeOrchestrator:
             )
             return result
 
-        except Exception as e:
+        except CynicError as e:
             duration_ms = (time.perf_counter() - t0) * 1000
             logger.error("ACT: execution failed: %s (%.0fms)", e, duration_ms)
             return {

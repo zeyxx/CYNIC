@@ -162,7 +162,7 @@ async def measure_persistence(operation: str, coro):
         duration_ms = (time.time() - start) * 1000
         metrics_collector.record_metric(operation, duration_ms, success=True)
         return result
-    except Exception as e:
+    except CynicError as e:
         duration_ms = (time.time() - start) * 1000
         metrics_collector.record_metric(operation, duration_ms, success=False, error=str(e))
         raise

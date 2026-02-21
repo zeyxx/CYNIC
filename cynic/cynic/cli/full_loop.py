@@ -196,7 +196,7 @@ Provide JSON: {{"score": 0-100, "verdict": "BARK|GROWL|WAG|HOWL", "reason": "...
     except KeyboardInterrupt:
         print("\n*yawn* Interrupted")
         sys.exit(0)
-    except Exception as e:
+    except OSError as e:
         logger.exception("Full loop error")
         print(f"*GROWL* Error: {e}")
         sys.exit(1)

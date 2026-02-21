@@ -24,7 +24,7 @@ def has_ollama():
         import requests
         resp = requests.get("http://localhost:11434/api/tags", timeout=3)
         return resp.status_code == 200
-    except Exception:
+    except httpx.RequestError:
         return False
 
 

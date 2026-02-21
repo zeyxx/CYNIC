@@ -74,7 +74,7 @@ async def empirical_campaign(
         health_resp = httpx.get(f"{kernel_url}/health", timeout=5)
         health_resp.raise_for_status()
         logger.info("Kernel is alive ✓")
-    except Exception as e:
+    except ValidationError as e:
         logger.error(f"Kernel not responding at {kernel_url}: {e}")
         return {"error": f"Kernel not available: {e}", "campaign_id": campaign_id}
 
@@ -99,7 +99,7 @@ async def empirical_campaign(
             # Read file content
             try:
                 content = code_file.read_text()[:1000]  # First 1000 chars
-            except Exception as e:
+            except OSError as e:
                 logger.warning(f"Could not read {code_file}: {e}")
                 continue
 
@@ -158,11 +158,11 @@ async def empirical_campaign(
                         f"Verdict={verdict} Latency={latency_ms:.0f}ms"
                     )
 
-            except Exception as e:
+            except CynicError as e:
                 logger.error(f"Judgment failed for {code_file}: {e}")
                 continue
 
-        except Exception as e:
+        except CynicError as e:
             logger.error(f"Cell creation failed for {code_file}: {e}")
             continue
 
@@ -178,7 +178,7 @@ async def empirical_campaign(
         stats_data = stats_resp.json()
         qtable_states = stats_data.get("learning", {}).get("states", 0)
         qtable_updates = stats_data.get("learning", {}).get("total_updates", 0)
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.warning(f"Could not fetch Q-Table stats: {e}")
         qtable_states = 0
         qtable_updates = 0
@@ -253,7 +253,7 @@ def main() -> None:
     except KeyboardInterrupt:
         logger.info("Campaign interrupted by user")
         sys.exit(0)
-    except Exception as e:
+    except CynicError as e:
         logger.error(f"Campaign failed: {e}", exc_info=True)
         sys.exit(1)
 

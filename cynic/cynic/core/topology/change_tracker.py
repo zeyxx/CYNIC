@@ -47,7 +47,7 @@ class ChangeTracker:
         """
         try:
             payload = event.as_typed(SourceChangedPayload)
-        except Exception as e:
+        except CynicError as e:
             logger.warning("Invalid SOURCE_CHANGED payload: %s", e)
             return
 
@@ -74,7 +74,7 @@ class ChangeTracker:
                         lines = len(file_path.read_text(encoding="utf-8", errors="ignore").splitlines())
                     else:
                         lines = 0
-                except Exception:
+                except httpx.RequestError:
                     lines = 0
 
                 # Build change record
@@ -100,7 +100,7 @@ class ChangeTracker:
                     change_type, filepath, lines, payload.category,
                 )
 
-            except Exception as e:
+            except asyncpg.Error as e:
                 logger.warning("Failed to track change for %s: %s", filepath, e)
 
     async def _append_change(self, record: dict[str, Any]) -> None:
@@ -116,7 +116,7 @@ class ChangeTracker:
             # Enforce rolling cap
             await self._enforce_rolling_cap()
 
-        except Exception as e:
+        except OSError as e:
             logger.warning("Failed to append change: %s", e)
 
     async def _enforce_rolling_cap(self) -> None:
@@ -130,7 +130,7 @@ class ChangeTracker:
                 # Keep only the most recent entries
                 kept_lines = lines[-self._CHANGE_HISTORY_CAP :]
                 self._CHANGES_PATH.write_text("\n".join(kept_lines) + "\n")
-        except Exception as e:
+        except OSError as e:
             logger.warning("Failed to enforce rolling cap: %s", e)
 
     async def get_recent_changes(self, limit: int = 10) -> list[dict]:
@@ -145,6 +145,6 @@ class ChangeTracker:
                 if line.strip():
                     changes.append(json.loads(line))
             return changes
-        except Exception as e:
+        except json.JSONDecodeError as e:
             logger.warning("Failed to read recent changes: %s", e)
             return []

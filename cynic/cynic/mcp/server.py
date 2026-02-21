@@ -142,7 +142,7 @@ class MCPServer:
                 status="ok",
             )
             return self._json_response(resp)
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.exception("observe error")
             return self._json_response(
                 ErrorResponse(
@@ -243,7 +243,7 @@ class MCPServer:
                 ),
                 status=408,
             )
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.exception("act error")
             return self._json_response(
                 ErrorResponse(
@@ -322,7 +322,7 @@ class MCPServer:
                 status="ok",
             )
             return self._json_response(resp)
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.exception("learn error")
             return self._json_response(
                 ErrorResponse(

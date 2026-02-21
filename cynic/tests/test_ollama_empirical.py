@@ -39,7 +39,7 @@ class TestOllamaEmpirical:
             models = resp.json().get("models", [])
             model_names = [m.get("name") for m in models]
             assert OLLAMA_MODEL in model_names, f"Model {OLLAMA_MODEL} not found. Available: {model_names}"
-        except Exception as e:
+        except ValidationError as e:
             pytest.skip(f"Ollama not available: {e}")
 
     def test_ollama_available(self) -> None:
@@ -196,7 +196,7 @@ class TestOllamaVsExpectations:
         try:
             resp = httpx.get(f"{OLLAMA_URL}/api/tags", timeout=5)
             resp.raise_for_status()
-        except Exception as e:
+        except ValidationError as e:
             pytest.skip(f"Ollama not available: {e}")
 
     def test_ollama_vs_mocked_latency(self) -> None:

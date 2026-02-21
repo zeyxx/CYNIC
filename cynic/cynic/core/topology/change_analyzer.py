@@ -71,7 +71,7 @@ class ChangeAnalyzer:
         """
         try:
             payload = event.as_typed(SourceChangedPayload)
-        except Exception as e:
+        except EventBusError as e:
             logger.warning("Invalid SOURCE_CHANGED payload: %s", e)
             return
 

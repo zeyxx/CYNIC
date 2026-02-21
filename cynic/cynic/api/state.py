@@ -40,17 +40,17 @@ from cynic.core.phi import (
     PHI_INV,
     PHI_INV_2,
 )
-from cynic.dogs.base import AbstractDog, DogId
-from cynic.dogs.discovery import discover_dogs
-from cynic.dogs.oracle import OracleDog
-from cynic.judge.orchestrator import JudgeOrchestrator
-from cynic.judge.residual import ResidualDetector
-from cynic.judge.decide import DecideAgent
-from cynic.judge.account import AccountAgent
-from cynic.judge.axiom_monitor import AxiomMonitor
-from cynic.judge.action_proposer import ActionProposer
-from cynic.judge.self_probe import SelfProber
-from cynic.judge.lod import LODController, SurvivalLOD
+from cynic.cognition.neurons.base import AbstractDog, DogId
+from cynic.cognition.neurons.discovery import discover_dogs
+from cynic.cognition.neurons.oracle import OracleDog
+from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
+from cynic.cognition.cortex.residual import ResidualDetector
+from cynic.cognition.cortex.decide import DecideAgent
+from cynic.cognition.cortex.account import AccountAgent
+from cynic.cognition.cortex.axiom_monitor import AxiomMonitor
+from cynic.cognition.cortex.action_proposer import ActionProposer
+from cynic.cognition.cortex.self_probe import SelfProber
+from cynic.cognition.cortex.lod import LODController, SurvivalLOD
 from cynic.core.escore import EScoreTracker
 from cynic.learning.qlearning import QTable, LearningLoop
 from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher, SocialWatcher, DiskWatcher, MemoryWatcher

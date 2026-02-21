@@ -148,7 +148,7 @@ class JudgmentExecutorHandler(HandlerGroup):
             await get_core_bus().emit(created_event)
             logger.debug("Emitted JUDGMENT_CREATED: %s", created_event.event_id)
 
-        except Exception as e:
+        except EventBusError as e:
             logger.error(
                 "JudgmentExecutor failed on %s: %s",
                 event.event_id,
@@ -164,5 +164,5 @@ class JudgmentExecutorHandler(HandlerGroup):
                         source="judgment_executor",
                     )
                 )
-            except Exception:
+            except EventBusError:
                 logger.error("Failed to emit JUDGMENT_FAILED event")

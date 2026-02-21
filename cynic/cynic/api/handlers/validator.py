@@ -98,7 +98,7 @@ class HandlerValidator:
             for _, module_name, _ in pkgutil.iter_modules(_pkg.__path__):
                 if not module_name.startswith("_") and module_name not in ("base", "introspect", "services", "validator"):
                     self._all_module_names.add(module_name)
-        except Exception as e:
+        except EventBusError as e:
             logger.debug("Failed to scan handler modules: %s", e)
 
     def _validate_handler(self, group: HandlerGroup) -> None:
@@ -114,7 +114,7 @@ class HandlerValidator:
                     message=f"subscriptions() must return list, got {type(subs).__name__}",
                 ))
                 return
-        except Exception as e:
+        except EventBusError as e:
             self._issues.append(ValidationIssue(
                 severity="ERROR",
                 category="INVALID",
@@ -127,13 +127,13 @@ class HandlerValidator:
         try:
             from cynic.core.event_bus import CoreEvent
             valid_events = {e.value for e in CoreEvent}
-        except Exception:
+        except EventBusError:
             valid_events = set()
 
         for event_type, handler_fn in subs:
             try:
                 event_value = event_type.value if hasattr(event_type, "value") else str(event_type)
-            except Exception:
+            except EventBusError:
                 event_value = str(event_type)
 
             # Event should be in CoreEvent
@@ -158,7 +158,7 @@ class HandlerValidator:
                     handler_name=group.name,
                     message=f"dependencies() must return frozenset, got {type(deps).__name__}",
                 ))
-        except Exception as e:
+        except EventBusError as e:
             self._issues.append(ValidationIssue(
                 severity="WARNING",
                 category="INVALID",
@@ -180,7 +180,7 @@ class HandlerValidator:
                     if key not in subscription_map:
                         subscription_map[key] = []
                     subscription_map[key].append(group.name)
-            except Exception:
+            except EventBusError:
                 pass
 
         # Check for duplicates (same event, same handler function, multiple groups)

@@ -168,10 +168,10 @@ async def ws_consciousness_ecosystem(websocket: WebSocket) -> None:
                 # Keepalive ping
                 try:
                     await websocket.send_json({"type": "ping", "ts": time.time()})
-                except Exception as exc:
+                except EventBusError as exc:
                     logger.debug("ws/consciousness/ecosystem ping failed: %s", exc)
                     raise
-            except Exception as exc:
+            except EventBusError as exc:
                 logger.error("ws/consciousness/ecosystem emit error: %s", exc, exc_info=True)
                 raise
 
@@ -189,7 +189,7 @@ async def ws_consciousness_ecosystem(websocket: WebSocket) -> None:
                     })
                 except asyncio.QueueFull:
                     pass  # Drop silently if queue is full
-            except Exception as exc:
+            except ValidationError as exc:
                 logger.error("ws/consciousness/ecosystem periodic error: %s", exc)
                 raise
 
@@ -204,7 +204,7 @@ async def ws_consciousness_ecosystem(websocket: WebSocket) -> None:
         await asyncio.gather(_emit_loop(), _periodic_loop())
     except WebSocketDisconnect:
         pass
-    except Exception as exc:
+    except EventBusError as exc:
         logger.error("ws/consciousness/ecosystem error: %s", exc, exc_info=True)
 
 

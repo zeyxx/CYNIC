@@ -74,7 +74,7 @@ async def test_trace_micro_consciousness_hang():
                 for m in models[:3]:
                     print(f"    - {m.get('name', 'unknown')}")
                 return False
-        except Exception as e:
+        except httpx.RequestError as e:
             print(f"  Ollama is OFFLINE or unreachable: {e}")
             print("  → Start Ollama: ollama serve")
             return False

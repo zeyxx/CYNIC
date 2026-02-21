@@ -368,7 +368,7 @@ class CynicDashboard(Static):
             if session:
                 try:
                     await session.__aexit__(None, None, None)
-                except Exception:
+                except asyncpg.Error:
                     pass
 
     async def _update_heartbeat(self, session: "aiohttp.ClientSession") -> None:

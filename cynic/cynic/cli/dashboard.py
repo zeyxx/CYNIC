@@ -217,7 +217,7 @@ class CYNICDashboard:
             resp = await self.client.get(f"{self.kernel_url}/health")
             resp.raise_for_status()
             return resp.json()
-        except Exception as e:
+        except httpx.RequestError as e:
             return {"error": str(e)}
 
     async def fetch_introspect(self) -> dict[str, Any]:
@@ -226,7 +226,7 @@ class CYNICDashboard:
             resp = await self.client.get(f"{self.kernel_url}/introspect")
             resp.raise_for_status()
             return resp.json()
-        except Exception as e:
+        except httpx.RequestError as e:
             return {"error": str(e)}
 
     async def compute_breathing_checks(self, health: dict, introspect: dict) -> list[BreathingCheck]:

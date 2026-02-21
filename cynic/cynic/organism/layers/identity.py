@@ -114,7 +114,7 @@ class OrganismIdentity:
                 if not constraint_fn(judgment):
                     violations.append(axiom_name)
                     axiom_def["violations"].append(axiom_name)
-            except Exception as e:
+            except CynicError as e:
                 # Constraint evaluation failed — also a violation
                 # (object missing required attributes)
                 violations.append(f"{axiom_name}:error")

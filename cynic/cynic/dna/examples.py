@@ -176,7 +176,7 @@ async def example_api_integration():
             else:
                 return {"status": "error", "message": "Could not judge code"}
 
-        except Exception as e:
+        except httpx.RequestError as e:
             return {"status": "error", "message": str(e)}
 
     # Simulate API call

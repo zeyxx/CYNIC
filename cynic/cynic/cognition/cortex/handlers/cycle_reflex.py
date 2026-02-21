@@ -126,7 +126,7 @@ class ReflexCycleHandler(BaseHandler):
                 duration_ms=duration_ms,
                 metadata={"cell_id": cell.cell_id, "level": "REFLEX", "verdict": verdict.value},
             )
-        except Exception as e:
+        except EventBusError as e:
             duration_ms = (time.perf_counter() - t0) * 1000
             self._log_error("execute_reflex", e)
             return HandlerResult(

@@ -97,7 +97,7 @@ class BattleRunner:
             except KeyboardInterrupt:
                 logger.info(_c("yellow", "Interrupted by user"))
                 break
-            except Exception as e:
+            except CynicError as e:
                 logger.error(f"Battle cycle error: {e}", exc_info=True)
                 await asyncio.sleep(interval_s)
 
@@ -137,7 +137,7 @@ class BattleRunner:
                 data = json.loads(resp.read().decode())
                 actions = data.get("actions", [])
                 return [a for a in actions if a.get("status") == "PENDING"]
-        except Exception as e:
+        except json.JSONDecodeError as e:
             logger.warning(f"Could not fetch actions: {e}")
             return []
 
@@ -167,7 +167,7 @@ class BattleRunner:
                     outcome = json.loads(resp.read().decode())
                     executed = outcome.get("executing", False)
                     logger.info(f"  Execution result: {executed}")
-            except Exception as e:
+            except json.JSONDecodeError as e:
                 logger.error(f"  Execution failed: {e}")
                 outcome = {"error": str(e)}
                 executed = False
@@ -202,7 +202,7 @@ class BattleRunner:
                 json.dump(battle.to_dict(), f)
                 f.write("\n")
             logger.info(f"  Logged: {battle.battle_id}")
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Failed to log battle: {e}")
 
 

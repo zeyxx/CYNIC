@@ -108,5 +108,5 @@ class TestStorageRealDB:
 
             await pool.close()
 
-        except Exception as e:
+        except httpx.RequestError as e:
             pytest.skip(f"PostgreSQL connection failed: {e}")

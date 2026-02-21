@@ -136,7 +136,7 @@ class DockerManager:
                         last_error="Container does not exist",
                     )
                     failures.append(f"{service_name}: not found")
-                except Exception as e:
+                except CynicError as e:
                     containers[service_name] = ContainerStatus(
                         name=service_name,
                         image="unknown",

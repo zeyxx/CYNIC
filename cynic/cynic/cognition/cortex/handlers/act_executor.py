@@ -88,7 +88,7 @@ class ActHandler(BaseHandler):
                     "action_executed": bool(action_result),
                 },
             )
-        except Exception as e:
+        except EventBusError as e:
             duration_ms = (time.perf_counter() - t0) * 1000
             self._log_error("execute_act", e)
             return HandlerResult(
@@ -230,7 +230,7 @@ class ActHandler(BaseHandler):
             )
             return result
 
-        except Exception as e:
+        except CynicError as e:
             duration_ms = (time.perf_counter() - t0) * 1000
             logger.error("ACT: execution failed: %s (%.0fms)", e, duration_ms)
             return {

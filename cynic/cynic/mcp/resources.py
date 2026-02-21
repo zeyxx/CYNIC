@@ -97,7 +97,7 @@ class MCPResourceManager:
                 "results": results,
                 "count": len(results),
             }
-        except Exception as e:
+        except asyncpg.Error as e:
             return {"error": str(e), "results": []}
 
     async def get_judgment_reasoning(
@@ -150,7 +150,7 @@ class MCPResourceManager:
             reasoning["trace"] = trace.to_dict()
 
             return reasoning
-        except Exception as e:
+        except CynicError as e:
             return {"error": str(e), "judgment_id": judgment_id}
 
     async def get_loop_status(self) -> dict[str, Any]:
@@ -182,7 +182,7 @@ class MCPResourceManager:
                     "orphaned": [c.judgment_id for c in orphans],
                 },
             }
-        except Exception as e:
+        except httpx.RequestError as e:
             return {"error": str(e)}
 
     async def get_learned_patterns(
@@ -245,7 +245,7 @@ class MCPResourceManager:
                     ),
                 },
             }
-        except Exception as e:
+        except CynicError as e:
             return {"error": str(e)}
 
     async def get_event_stream(
@@ -285,7 +285,7 @@ class MCPResourceManager:
                 ],
                 "count": len(events),
             }
-        except Exception as e:
+        except CynicError as e:
             return {"error": str(e)}
 
     async def get_hypergraph_edges(self, limit: int = 50) -> dict[str, Any]:
@@ -356,7 +356,7 @@ class MCPResourceManager:
                 "count": len(edges),
                 "limit": limit,
             }
-        except Exception as e:
+        except CynicError as e:
             return {"error": str(e)}
 
     async def get_resource(self, uri: str) -> dict[str, Any]:
@@ -400,7 +400,7 @@ class MCPResourceManager:
             else:
                 return {"error": f"Unknown resource: {uri}"}
 
-        except Exception as e:
+        except httpx.RequestError as e:
             return {"error": str(e), "uri": uri}
 
 

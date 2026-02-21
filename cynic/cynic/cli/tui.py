@@ -58,7 +58,7 @@ def cmd_tui() -> None:
         print(_c("dim", "  pip install 'textual>=0.44'"))
         print()
         sys.exit(1)
-    except Exception as e:
+    except httpx.RequestError as e:
         print()
         print(_c("red", f"  *GROWL* Error: {e}"))
         print()

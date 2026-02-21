@@ -375,7 +375,7 @@ class HumanApprovalGate:
                         self._requests.append(request)
 
             logger.info(f"Loaded {len(self._requests)} approval requests")
-        except Exception as e:
+        except json.JSONDecodeError as e:
             logger.warning(f"Failed to load approval requests: {e}")
 
     def _save_to_disk(self) -> None:
@@ -384,5 +384,5 @@ class HumanApprovalGate:
             with open(self._storage_path, "w") as f:
                 for request in self._requests:
                     f.write(request.to_json() + "\n")
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Failed to save approval requests: {e}")

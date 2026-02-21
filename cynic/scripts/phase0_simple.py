@@ -76,10 +76,10 @@ class Phase0Baseline:
                     if response.status_code == 200:
                         logger.info("✅ API started successfully")
                         return True
-            except Exception as e:
+            except httpx.RequestError as e:
                 logger.error(f"❌ API health check failed: {e}")
                 return False
-        except Exception as e:
+        except httpx.RequestError as e:
             logger.error(f"❌ Failed to start API: {e}")
             return False
 
@@ -119,7 +119,7 @@ class Phase0Baseline:
                     "query_time_ms": 10000,
                     "data": None,
                 }
-            except Exception as e:
+            except asyncpg.Error as e:
                 return {
                     "layer_name": layer_name,
                     "endpoint": endpoint,
@@ -195,7 +195,7 @@ class Phase0Baseline:
 
             return True
 
-        except Exception as e:
+        except asyncpg.Error as e:
             logger.error(f"❌ Phase 0 failed: {e}", exc_info=True)
             return False
 

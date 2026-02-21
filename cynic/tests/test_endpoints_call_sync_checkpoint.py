@@ -44,7 +44,7 @@ async def test_judge_endpoint_calls_sync_checkpoint():
                 "context": "test",
                 "budget_usd": 0.01,
             })
-        except Exception:
+        except httpx.RequestError:
             pass  # We're just testing if sync_checkpoint was attempted
 
         # Note: Due to app initialization issues with TestClient, this test

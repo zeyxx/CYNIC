@@ -100,7 +100,7 @@ class TopologyMirror:
 
             self._last_snapshot_time = time.time()
 
-        except Exception as e:
+        except EventBusError as e:
             logger.warning("Failed to snapshot topology: %s", e)
 
     def _write_topology_file(self, snap: dict[str, Any]) -> None:
@@ -117,7 +117,7 @@ class TopologyMirror:
             path.write_text(json.dumps(snap, indent=2))
             logger.debug("Wrote topology snapshot to %s", path)
 
-        except Exception as e:
+        except OSError as e:
             logger.warning("Failed to write topology.json: %s", e)
 
     def _append_topology_history(self, snap: dict[str, Any]) -> None:
@@ -138,5 +138,5 @@ class TopologyMirror:
 
             logger.debug("Appended to topology_history.jsonl")
 
-        except Exception as e:
+        except OSError as e:
             logger.warning("Failed to append topology history: %s", e)

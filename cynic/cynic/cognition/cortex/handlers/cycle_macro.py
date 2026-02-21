@@ -248,7 +248,7 @@ class MacroCycleHandler(BaseHandler):
                     "consensus_reached": judgment.consensus_reached,
                 },
             )
-        except Exception as e:
+        except EventBusError as e:
             duration_ms = (time.perf_counter() - t0) * 1000
             self._log_error("execute_macro", e)
             return HandlerResult(
