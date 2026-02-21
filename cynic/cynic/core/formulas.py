@@ -174,6 +174,15 @@ Justification:
   F(11) = 89 = full judgment history window for complete event sequencing.
 """
 
+SELF_PROBE_CAP: int = fibonacci(10)  # = 55
+"""
+Maximum self-improvement proposals to store.
+
+Justification:
+  F(10) = 55 = same as decision traces (meta-cognition operates on recent decisions).
+  Self-probes are reactions to recent patterns, stored rolling window.
+"""
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # TOOL OUTPUT TRUNCATION (Chat tool safety)
@@ -355,6 +364,7 @@ __all__ = [
     "DECISION_TRACE_CAP",
     "LOOP_CLOSURE_CAP",
     "EVENT_JOURNAL_CAP",
+    "SELF_PROBE_CAP",
     "BASH_OUTPUT_CAP",
     "READ_FILE_CAP",
     "GLOB_MATCH_CAP",

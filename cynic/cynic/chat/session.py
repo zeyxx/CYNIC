@@ -13,13 +13,14 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+from cynic.core.formulas import CHAT_MESSAGE_CAP
 
 # ════════════════════════════════════════════════════════════════════════════
 # CONSTANTS
 # ════════════════════════════════════════════════════════════════════════════
 
 _CHATS_DIR = os.path.join(os.path.expanduser("~"), ".cynic", "chats")
-_MAX_MESSAGES = 89  # F(11) — rolling cap
+_MAX_MESSAGES = CHAT_MESSAGE_CAP  # F(11) = 89 (imported from formulas.py)
 
 
 # ════════════════════════════════════════════════════════════════════════════

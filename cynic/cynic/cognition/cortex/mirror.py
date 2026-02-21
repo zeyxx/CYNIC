@@ -30,12 +30,13 @@ from math import exp, log
 from typing import Any, Dict
 
 
-from cynic.core.phi import WAG_MIN, GROWL_MIN, MAX_Q_SCORE, fibonacci
+from cynic.core.phi import WAG_MIN, GROWL_MIN, MAX_Q_SCORE
+from cynic.core.formulas import AXIOM_MATURITY_WINDOW_SIZE
 
 logger = logging.getLogger("cynic.cognition.cortex.mirror")
 
-# Rolling window for diff history (F(8)=21 snapshots)
-_DIFF_WINDOW: int = fibonacci(8)  # 21
+# Rolling window for diff history (F(8)=21 snapshots) — imported from formulas.py
+_DIFF_WINDOW: int = AXIOM_MATURITY_WINDOW_SIZE  # 21
 
 
 class KernelMirror:

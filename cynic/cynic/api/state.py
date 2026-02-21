@@ -22,6 +22,7 @@ from cynic.core.heuristic_scorer import HeuristicFacetScorer
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.consciousness import get_consciousness
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.core.formulas import ACT_LOG_CAP
 from cynic.core.world_model import WorldModelUpdater
 from cynic.core.events_schema import (
     ActCompletedPayload,
@@ -462,7 +463,7 @@ class _OrganismAwakener:
     # Rolling-window sizes (Fibonacci)
     _OUTCOME_WINDOW     = 21   # F(8) — judgment outcomes
     _SDK_OUTCOME_WINDOW = 13   # F(7) — SDK session outcomes
-    _ACT_LOG_CAP        = 89   # F(11) — ACT result JSONL
+    _ACT_LOG_CAP        = ACT_LOG_CAP  # F(11) — ACT result JSONL (imported from formulas.py)
     _A6_A9 = frozenset({"AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY"})
     _ACT_LOG_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "act_results.jsonl")
 

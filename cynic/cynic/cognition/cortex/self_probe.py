@@ -39,14 +39,15 @@ from typing import Any
 from cynic.core.phi import PHI_INV_2, fibonacci
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
 from cynic.core.events_schema import SelfImprovementProposedPayload
+from cynic.core.formulas import SELF_PROBE_CAP
 
 logger = logging.getLogger("cynic.cognition.cortex.self_probe")
 
 _CYNIC_DIR = os.path.join(os.path.expanduser("~"), ".cynic")
 _PROPOSALS_PATH = os.path.join(_CYNIC_DIR, "self_proposals.json")
 
-# Rolling cap: F(10) = 55
-_MAX_PROPOSALS: int = fibonacci(10)   # 55
+# Rolling cap: F(10) = 55 (imported from formulas.py)
+_MAX_PROPOSALS: int = SELF_PROBE_CAP   # 55
 
 # QTable: value below this is "persistently low" (GROWL floor normalized)
 _LOW_Q_THRESHOLD: float = PHI_INV_2   # 0.382
