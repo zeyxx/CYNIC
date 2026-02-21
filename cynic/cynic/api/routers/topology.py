@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("cynic.api.routers.topology")
 
-router_topology = APIRouter(tags=["topology"], prefix="/changes")
+router_topology = APIRouter(tags=["topology"], prefix="/api/changes")
 
 
 # ════════════════════════════════════════════════════════════════════════════

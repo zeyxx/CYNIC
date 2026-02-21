@@ -21,7 +21,7 @@ from cynic.api.state import CynicOrganism, get_app_container, AppContainer
 from cynic.mcp.resources import create_mcp_resources
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/mcp", tags=["mcp"])
+router = APIRouter(prefix="/api/mcp", tags=["mcp"])
 
 
 @router.get("/resource")

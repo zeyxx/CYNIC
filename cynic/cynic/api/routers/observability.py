@@ -13,15 +13,17 @@ import logging
 import time
 import uuid
 from typing import Optional
+from pydantic import ValidationError
 
 from fastapi import APIRouter, Request, Response
 
 from cynic.api.metrics import get_metrics_text
+from cynic.core.event_bus import EventBusError
 
 logger = logging.getLogger(__name__)
 
 router_observability = APIRouter(
-    prefix="/observability",
+    prefix="/api/observability",
     tags=["observability"],
     responses={404: {"description": "Not found"}},
 )
@@ -36,7 +38,7 @@ async def get_metrics() -> Response:
     Scraped by Prometheus for monitoring.
 
     Example:
-        curl http://localhost:8765/observability/metrics
+        curl http://localhost:8765/api/observability/metrics
 
     Metrics tracked:
     - consciousness_requests_total: Total requests by endpoint/method/status
@@ -59,7 +61,7 @@ async def health_check() -> dict:
     Used by Kubernetes for liveness/readiness probes.
 
     Example:
-        curl http://localhost:8765/observability/health
+        curl http://localhost:8765/api/observability/health
 
     Response:
         {
@@ -79,16 +81,13 @@ async def health_check() -> dict:
     try:
         container = get_app_container()
 
-        # Check consciousness service
-        consciousness_ok = container.consciousness_service is not None
-
         return {
             "status": "healthy",
-            "uptime_seconds": int(time.time() - container.boot_time),
+            "uptime_seconds": int(time.time() - container.started_at),
             "timestamp": time.time(),
             "components": {
                 "api": "healthy",
-                "consciousness_service": "healthy" if consciousness_ok else "degraded",
+                "organism": "healthy",
                 "event_bus": "healthy",
                 "websocket": "healthy",
             },
@@ -101,7 +100,7 @@ async def health_check() -> dict:
             "error": str(e),
             "components": {
                 "api": "healthy",
-                "consciousness_service": "dead",
+                "organism": "degraded",
                 "event_bus": "unknown",
                 "websocket": "unknown",
             },
@@ -120,10 +119,8 @@ async def readiness() -> dict:
         from cynic.api.state import get_app_container
 
         container = get_app_container()
-        is_ready = (
-            container.consciousness_service is not None
-            and container.app is not None
-        )
+        # App is ready once container exists and organism is set
+        is_ready = container.organism is not None
 
         if is_ready:
             return {"ready": True, "status": "ready"}

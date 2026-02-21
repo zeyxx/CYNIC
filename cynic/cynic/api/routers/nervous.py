@@ -21,7 +21,7 @@ from cynic.nervous import EventCategory
 from typing import Optional
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/nervous", tags=["nervous"])
+router = APIRouter(prefix="/api/nervous", tags=["nervous"])
 
 
 @router.get("/journal/recent")

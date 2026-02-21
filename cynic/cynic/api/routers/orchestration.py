@@ -19,7 +19,7 @@ from cynic.orchestration import DockerManager, VersionManager, HealthMonitor
 from typing import Optional
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/orchestration", tags=["orchestration"])
+router = APIRouter(prefix="/api/orchestration", tags=["orchestration"])
 
 
 # ════════════════════════════════════════════════════════════════════════════
