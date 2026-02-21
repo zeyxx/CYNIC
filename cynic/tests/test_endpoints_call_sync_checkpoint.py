@@ -10,7 +10,7 @@ from cynic.core.judgment import Cell
 @pytest.mark.asyncio
 async def test_judge_endpoint_calls_sync_checkpoint():
     """Verify POST /judge calls ConsciousState.sync_checkpoint() before returning."""
-    from cynic.api.state import app
+    from cynic.api.server import app
     from fastapi.testclient import TestClient
 
     client = TestClient(app)
