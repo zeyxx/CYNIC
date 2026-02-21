@@ -75,7 +75,7 @@ class DockerManager:
             self.client.ping()
             logger.info("Docker API connected")
             return True
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Failed to connect Docker API: {e}")
             self.client = None
             return False
@@ -145,7 +145,7 @@ class DockerManager:
                     )
                     failures.append(f"{service_name}: {str(e)}")
 
-        except Exception as e:
+        except httpx.RequestError as e:
             logger.error(f"Error fetching container status: {e}")
 
         all_healthy = len(failures) == 0
@@ -170,7 +170,7 @@ class DockerManager:
             container = self.client.containers.get(service_name)
             logs = container.logs(tail=lines, decode=True)
             return logs
-        except Exception as e:
+        except json.JSONDecodeError as e:
             logger.error(f"Failed to get logs for {service_name}: {e}")
             return None
 
@@ -201,7 +201,7 @@ class DockerManager:
             logger.warning(f"{service_name} not healthy after {wait_healthy_s}s")
             return False
 
-        except Exception as e:
+        except httpx.RequestError as e:
             logger.error(f"Failed to restart {service_name}: {e}")
             return False
 
@@ -254,7 +254,7 @@ class DockerManager:
             logger.warning(f"Failures: {status.failures}")
             return False
 
-        except Exception as e:
+        except httpx.RequestError as e:
             logger.error(f"Deploy failed: {e}")
             return False
 
@@ -274,7 +274,7 @@ class DockerManager:
             logger.info("Stack shutdown complete")
             return True
 
-        except Exception as e:
+        except asyncio.TimeoutError as e:
             logger.error(f"Shutdown failed: {e}")
             return False
 
@@ -299,7 +299,7 @@ class DockerManager:
 
                 await asyncio.sleep(interval_s)
 
-            except Exception as e:
+            except ValidationError as e:
                 logger.error(f"Health check loop error: {e}")
                 await asyncio.sleep(5.0)
 
@@ -309,7 +309,7 @@ class DockerManager:
             filename = self.log_dir / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-status.json"
             with open(filename, "w") as f:
                 json.dump(status.to_dict(), f, indent=2)
-        except Exception as e:
+        except OSError as e:
             logger.warning(f"Failed to write status log: {e}")
 
 

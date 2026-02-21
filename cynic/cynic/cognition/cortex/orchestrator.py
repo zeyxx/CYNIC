@@ -136,7 +136,7 @@ class ConsciousnessScheduler:
                     e_score = e_score_obj.get("q", 0.0)
                 else:
                     e_score = getattr(e_score_obj, "q", 0.0)
-            except Exception as e:
+            except httpx.RequestError as e:
                 logger.warning("Failed to get E-Score: %s", e)
                 e_score = 0.0
         else:
@@ -149,7 +149,7 @@ class ConsciousnessScheduler:
                 # Oracle Dog returns DogJudgment with confidence in range [0, 1]
                 # (φ-bounded at 0.618 max per PHI constraint)
                 oracle_confidence = min(oracle_judgment.confidence or 0.0, PHI_INV)
-            except Exception as e:
+            except httpx.RequestError as e:
                 logger.warning("Failed to get Oracle confidence: %s", e)
                 oracle_confidence = 0.0
         else:
@@ -392,7 +392,7 @@ class JudgeOrchestrator:
             try:
                 from cynic.api.routers.core import _persist_judgment_async
                 await _persist_judgment_async(judgment)
-            except Exception as e:
+            except EventBusError as e:
                 logger.error("Failed to persist judgment immediately: %s", e)
                 # Don't fail the whole orchestrator run — continue to emit event
                 # (judgment_id is still in memory for handlers to use)
@@ -492,7 +492,7 @@ class JudgeOrchestrator:
                 try:
                     _content_preview = str(getattr(cell, "content", "") or "")[:200]
                     self.context_compressor.boost(_content_preview, judgment.q_score / 100.0)
-                except Exception:
+                except EventBusError:
                     logger.debug("Compressor boost failed (non-critical)", exc_info=True)
 
             # Circuit breaker: successful judgment — reset failure counter
@@ -500,7 +500,7 @@ class JudgeOrchestrator:
 
             return judgment
 
-        except Exception as e:
+        except httpx.RequestError as e:
             logger.error("Judgment pipeline failed: %s", e, exc_info=True)
             # Circuit breaker: record failure — may open circuit after threshold
             self._circuit_breaker.record_failure()

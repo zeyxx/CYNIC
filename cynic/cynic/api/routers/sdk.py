@@ -559,11 +559,11 @@ async def sdk_last_session(cwd: str = "") -> dict[str, Any]:
                         sid = rec.get("cli_session_id", "")
                         if sid and (not cwd or rec.get("cwd", "") == cwd):
                             last_sid = sid
-                    except Exception:
+                    except json.JSONDecodeError:
                         pass
             if last_sid:
                 return {"cli_session_id": last_sid, "found": True, "source": "jsonl"}
-    except Exception:
+    except json.JSONDecodeError:
         pass
 
     return {"cli_session_id": "", "found": False, "source": "none"}

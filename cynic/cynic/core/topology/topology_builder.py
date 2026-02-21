@@ -37,7 +37,7 @@ class IncrementalTopologyBuilder:
         """
         try:
             payload = event.as_typed(SourceChangedPayload)
-        except Exception as e:
+        except EventBusError as e:
             logger.warning("Invalid SOURCE_CHANGED payload: %s", e)
             return
 
@@ -123,7 +123,7 @@ class IncrementalTopologyBuilder:
                         result[handler_name] = cls
                         logger.debug("Discovered handler: %s (%s)", handler_name, cls.__name__)
 
-            except Exception as e:
+            except EventBusError as e:
                 logger.warning("Failed to discover %s: %s", filepath, e)
 
         return result

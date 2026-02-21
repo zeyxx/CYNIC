@@ -161,7 +161,7 @@ class OrganismAssembler:
 
             return organism
 
-        except Exception as e:
+        except asyncio.TimeoutError as e:
             logger.error(f"Organism assembly failed: {e}")
             context.log(f"assembly: failed — {e}")
             raise RuntimeError(f"Failed to assemble organism: {e}")

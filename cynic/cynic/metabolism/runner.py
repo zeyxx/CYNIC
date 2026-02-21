@@ -215,10 +215,10 @@ class ClaudeCodeRunner:
                 try:
                     proc.terminate()
                     await asyncio.wait_for(proc.wait(), timeout=5.0)
-                except Exception:
+                except EventBusError:
                     try:
                         proc.kill()
-                    except Exception:
+                    except EventBusError:
                         pass
             self._running.pop(exec_id, None)
 

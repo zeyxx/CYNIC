@@ -56,7 +56,7 @@ async def get_mcp_resource(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error fetching MCP resource {uri}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -72,7 +72,7 @@ async def get_similar_judgments(
     try:
         manager = create_mcp_resources(container.organism)
         return await manager.get_similar_judgments(q_score, verdict, limit)
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error fetching similar judgments: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -93,7 +93,7 @@ async def get_judgment_reasoning(
         return result
     except HTTPException:
         raise
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error fetching judgment reasoning: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -106,7 +106,7 @@ async def get_loop_status(
     try:
         manager = create_mcp_resources(container.organism)
         return await manager.get_loop_status()
-    except Exception as e:
+    except ValidationError as e:
         logger.error(f"Error checking loop status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -120,7 +120,7 @@ async def get_learned_patterns(
     try:
         manager = create_mcp_resources(container.organism)
         return await manager.get_learned_patterns(limit)
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error fetching learned patterns: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -135,7 +135,7 @@ async def get_recent_events(
     try:
         manager = create_mcp_resources(container.organism)
         return await manager.get_event_stream(since_ms, limit)
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error fetching recent events: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -149,7 +149,7 @@ async def get_hypergraph_edges(
     try:
         manager = create_mcp_resources(container.organism)
         return await manager.get_hypergraph_edges(limit)
-    except Exception as e:
+    except httpx.RequestError as e:
         logger.error(f"Error fetching hypergraph edges: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -167,7 +167,7 @@ async def mcp_health(
             "mcp_bridge": "operational",
             "loop_health": loop_status.get("health", {}),
         }
-    except Exception as e:
+    except ValidationError as e:
         logger.error(f"MCP health check failed: {e}")
         return {
             "status": "unhealthy",
