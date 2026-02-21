@@ -226,7 +226,7 @@ async def judge(req: JudgeRequest, container: AppContainer = Depends(get_app_con
     judgment_event = Event.typed(
         CoreEvent.JUDGMENT_REQUESTED,
         {
-            "cell": cell.to_dict(),
+            "cell": cell.model_dump(),
             "level": level.name if level else "AUTO",
             "budget_usd": req.budget_usd,
         },
@@ -244,7 +244,7 @@ async def judge(req: JudgeRequest, container: AppContainer = Depends(get_app_con
         axiom_scores={},
         dog_votes={},
         consensus_reached=False,
-        consensus_votes={},
+        consensus_votes=0,
         residual_variance=0.0,
         unnameable_detected=False,
         cost_usd=0.0,
@@ -328,7 +328,7 @@ async def perceive(req: PerceiveRequest, container: AppContainer = Depends(get_a
     judgment_event = Event.typed(
         CoreEvent.JUDGMENT_REQUESTED,
         {
-            "cell": cell.to_dict(),
+            "cell": cell.model_dump(),
             "level": level.name,
             "budget_usd": cell.budget_usd,
         },
@@ -346,7 +346,7 @@ async def perceive(req: PerceiveRequest, container: AppContainer = Depends(get_a
         axiom_scores={},
         dog_votes={},
         consensus_reached=False,
-        consensus_votes={},
+        consensus_votes=0,
         cost_usd=0.0,
         llm_calls=0,
         duration_ms=0.0,
@@ -723,7 +723,7 @@ async def get_judgment(
             axiom_scores={},
             dog_votes={},
             consensus_reached=False,
-            consensus_votes={},
+            consensus_votes=0,
             residual_variance=0.0,
             unnameable_detected=False,
             cost_usd=0.0,
@@ -741,7 +741,7 @@ async def get_judgment(
         axiom_scores={},  # Would need to store in snapshot
         dog_votes=judgment.dog_votes,
         consensus_reached=False,  # Would need to store in snapshot
-        consensus_votes={},  # Would need to store in snapshot
+        consensus_votes=0,  # Would need to store in snapshot
         residual_variance=0.0,  # Would need to store in snapshot
         unnameable_detected=False,  # Would need to store in snapshot
         cost_usd=0.0,  # Would need to store in snapshot
@@ -779,7 +779,7 @@ async def get_perception_judgment(
                 axiom_scores={},
                 dog_votes={},
                 consensus_reached=False,
-                consensus_votes={},
+                consensus_votes=0,
                 residual_variance=0.0,
                 unnameable_detected=False,
                 cost_usd=0.0,
@@ -799,7 +799,7 @@ async def get_perception_judgment(
         axiom_scores={},
         dog_votes=judgment.dog_votes,
         consensus_reached=False,
-        consensus_votes={},
+        consensus_votes=0,
         cost_usd=0.0,
         llm_calls=0,
         duration_ms=0.0,

@@ -6,7 +6,7 @@ This lets the API contract evolve independently from the kernel.
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -237,3 +237,104 @@ class StatsResponse(BaseModel):
     top_states: list[dict[str, Any]]
     consciousness: dict[str, Any]
     compressor: dict[str, Any] = Field(default_factory=dict)  # γ2 ContextCompressor stats
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CONSCIOUSNESS ECOSYSTEM (7-Layer HUB)
+# ════════════════════════════════════════════════════════════════════════════
+
+class EventSnapshot(BaseModel):
+    """Single event in ecosystem cross-bus topology."""
+    event_id: str = Field(description="Unique event ID")
+    type: str = Field(description="Event type (JUDGMENT_CREATED, LEARNING_EVENT, etc)")
+    bus: str = Field(description="Bus name (core, automation, agent)")
+    source: str = Field(description="Event source (SAGE, JUDGE, SCHEDULER, etc)")
+    timestamp: float = Field(description="Event timestamp (seconds since epoch)")
+    payload: dict[str, Any] = Field(default_factory=dict, description="Event payload")
+
+
+class EcosystemStateResponse(BaseModel):
+    """Layer 1: Cross-bus ecosystem state (all 3 buses)."""
+    core_events: list[EventSnapshot] = Field(description="Core judgment events")
+    automation_events: list[EventSnapshot] = Field(description="Scheduler + automation events")
+    agent_events: list[EventSnapshot] = Field(description="Agent-driven events")
+    timestamp: float = Field(description="Response timestamp")
+
+
+class DecisionPathStage(BaseModel):
+    """One stage in decision path through guardrails."""
+    stage: str = Field(description="Stage name (power_limiter, alignment_checker, etc)")
+    verdict: str = Field(description="Verdict at this stage (approve/reject/pending)")
+    reason: str = Field(description="Reason for verdict")
+    component: Optional[str] = Field(default=None, description="Component name")
+    duration_ms: Optional[float] = Field(default=None, description="Stage duration in ms")
+
+
+class DecisionTraceResponse(BaseModel):
+    """Layer 2: Decision trace through guardrails."""
+    decision_id: str = Field(description="Decision ID")
+    timestamp: float = Field(description="Trace timestamp")
+    path: list[DecisionPathStage] = Field(default_factory=list, description="Path through guardrails")
+
+
+class TopologyConsciousnessResponse(BaseModel):
+    """Layer 3: Architecture consciousness (L0 system topology awareness)."""
+    source_changes_detected: int = Field(description="Count of detected source changes")
+    topology_deltas_computed: int = Field(description="Count of computed topology deltas")
+    convergence_validations: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Convergence validation stats (total_announced, verified, pending)"
+    )
+    recent_changes: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Recent topology changes"
+    )
+    timestamp: float = Field(description="Response timestamp")
+
+
+class GuardrailDecision(BaseModel):
+    """Single guardrail decision record."""
+    guardrail_type: str = Field(description="Type of guardrail (power_limiter, alignment, etc)")
+    decision: str = Field(description="Decision made (approve/reject/throttle)")
+    reason: str = Field(description="Reason for decision")
+    timestamp: float = Field(description="Decision timestamp")
+
+
+class NervousSystemAuditResponse(BaseModel):
+    """Layer 6: Nervous system audit trail (complete event + decision history)."""
+    all_events: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="All events in chronological order"
+    )
+    decision_reasons: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Decision traces (why was action taken)"
+    )
+    loop_integrity_checks: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Loop closure validation checks"
+    )
+    event_count: int = Field(description="Total event count")
+    decision_count: int = Field(description="Total decision count")
+    timestamp: float = Field(description="Response timestamp")
+
+
+class SelfAwarenessResponse(BaseModel):
+    """Layer 5: Organism's self-awareness (kernel_mirror insights & meta-cognition)."""
+    kernel_observations: list[Any] = Field(
+        default_factory=list,
+        description="Introspective observations from kernel_mirror"
+    )
+    meta_insights: list[Any] = Field(
+        default_factory=list,
+        description="Meta-cognitive insights (patterns recognized)"
+    )
+    improvement_proposals: list[Any] = Field(
+        default_factory=list,
+        description="Proposed improvements to self"
+    )
+    self_assessment: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Overall self-assessment (counts, health scores)"
+    )
+    timestamp: float = Field(description="Response timestamp")
