@@ -386,6 +386,16 @@ class JudgeOrchestrator:
             selected_level = pipeline.level or level or ConsciousnessLevel.MACRO
             elapsed_compose_ms = (time.perf_counter() - t_compose_start) * 1000
 
+            # Phase 0: Persist judgment to PostgreSQL immediately after creation
+            # This ensures data survives if process crashes before event handlers run
+            try:
+                from cynic.api.routers.core import _persist_judgment_async
+                await _persist_judgment_async(judgment)
+            except Exception as e:
+                logger.error("Failed to persist judgment immediately: %s", e)
+                # Don't fail the whole orchestrator run — continue to emit event
+                # (judgment_id is still in memory for handlers to use)
+
             # Emit JUDGMENT_CREATED (enriched with cell context for DecideAgent)
             self._judgment_count += 1
             self._consciousness.increment(selected_level)
