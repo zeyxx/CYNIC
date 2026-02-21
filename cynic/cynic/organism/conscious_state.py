@@ -143,21 +143,28 @@ class ConsciousState:
         """
         logger.info("ConsciousState connecting to event buses...")
 
-        # Subscribe to CORE bus events
-        core_bus.on("JUDGMENT_CREATED", self._on_judgment_created)
-        core_bus.on("CONSCIOUSNESS_LEVEL_CHANGED", self._on_consciousness_level_changed)
-        core_bus.on("AXIOM_ACTIVATED", self._on_axiom_activated)
-        core_bus.on("DOG_ACTIVITY", self._on_dog_activity)
-        core_bus.on("ERROR", self._on_error)
+        # Subscribe to CORE bus events (use CoreEvent enum for correct string values)
+        from cynic.core.event_bus import CoreEvent
+        core_bus.on(CoreEvent.JUDGMENT_CREATED, self._on_judgment_created)
+        core_bus.on(CoreEvent.CONSCIOUSNESS_CHANGED, self._on_consciousness_level_changed)
+        core_bus.on(CoreEvent.AXIOM_ACTIVATED, self._on_axiom_activated)
+        # Note: DOG_ACTIVITY and ERROR are not yet defined in CoreEvent enum
+        # core_bus.on("dog.activity", self._on_dog_activity)
+        # core_bus.on("error", self._on_error)
 
         # Subscribe to AUTOMATION bus if available
         if automation_bus:
-            automation_bus.on("DECISION_MADE", self._on_decision_made)
-            automation_bus.on("ACTION_EXECUTED", self._on_action_executed)
+            from cynic.core.event_bus import CoreEvent
+            # DECISION_MADE is in CoreEvent, not AutomationEvent
+            # automation_bus.on(CoreEvent.DECISION_MADE, self._on_decision_made)
+            # Note: ACTION_EXECUTED is not yet defined
+            # automation_bus.on("action.executed", self._on_action_executed)
 
         # Subscribe to AGENT bus if available
         if agent_bus:
-            agent_bus.on("DOG_JUDGMENT", self._on_dog_judgment)
+            # Note: DOG_JUDGMENT is not yet defined in AgentEvent enum
+            # agent_bus.on("dog.judgment", self._on_dog_judgment)
+            pass
 
         logger.info("ConsciousState subscribed to all event buses")
         await self.load_from_disk()
@@ -170,6 +177,8 @@ class ConsciousState:
         """
         # Handle both Event objects and plain dicts (for testing)
         payload = event.payload if hasattr(event, 'payload') else event
+        logger.debug("[ConsciousState] Received JUDGMENT_CREATED event: %s",
+                    event.event_id if hasattr(event, 'event_id') else "unknown")
 
         async with self._state_lock:
             judgment_id = payload.get("judgment_id", "unknown")

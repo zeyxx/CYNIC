@@ -89,11 +89,11 @@ async def test_phase3_event_driven_judge_endpoint(kernel_state):
         print(f"    Judgment ID: {judgment_id}")
         print(f"    Verdict: {data['verdict']} (as expected)")
 
-        # Step 2: Query GET /judge/{id} immediately to check status
-        # NOTE: Phase 3 event-driven pattern requires background worker to process
-        # JUDGMENT_REQUESTED events and emit JUDGMENT_CREATED. For now, just verify
-        # the query endpoint is accessible and handles missing judgments gracefully.
-        print(f"\n[2] Query GET /judge/{judgment_id}...")
+        # Step 2: Wait a bit for handler to process the event
+        print(f"\n[2] Waiting for judgment execution...")
+        await asyncio.sleep(1.0)  # Give handler time to run orchestrator
+
+        print(f"[3] Query GET /judge/{judgment_id}...")
 
         t0 = time.time()
         resp = await client.get(f"/judge/{judgment_id}")

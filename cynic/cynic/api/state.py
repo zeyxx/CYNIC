@@ -889,6 +889,9 @@ class _OrganismAwakener:
                 "db_pool": self.db_pool,
                 "compressor": self.compressor,
             },
+            judgment_executor={
+                "orchestrator": self.orchestrator,
+            },
             axiom={"action_proposer": self.action_proposer},
             sdk={"action_proposer": self.action_proposer, "qtable": self.qtable},
             health={"storage_gc": self.storage_gc, "db_pool": self.db_pool},
