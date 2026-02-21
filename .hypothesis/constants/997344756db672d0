@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\core\config.py
+# hypothesis_version: 6.151.9
+
+[0.382, 0.618, 1024, 8765, '-1', '8', '8765', 'ANTHROPIC_API_KEY', 'CYNIC_DATABASE_URL', 'CYNIC_MODELS_DIR', 'DATABASE_URL', 'GOOGLE_API_KEY', 'INFO', 'LLAMA_CPP_GPU_LAYERS', 'LLAMA_CPP_THREADS', 'LOG_LEVEL', 'OLLAMA_NUM_PARALLEL', 'OLLAMA_URL', 'PORT', 'SURREAL_DB', 'SURREAL_NS', 'SURREAL_PASS', 'SURREAL_URL', 'SURREAL_USER', 'cynic', 'cynic.config', 'cynic_phi_618', 'local_dev_only', 'localhost', 'root']

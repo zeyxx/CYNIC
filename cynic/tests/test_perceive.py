@@ -20,7 +20,7 @@ import pytest
 from cynic.core.consciousness import ConsciousnessLevel, reset_consciousness
 from cynic.core.judgment import Cell
 from cynic.core.phi import fibonacci
-from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher
+from cynic.senses.workers import GitWatcher, HealthWatcher, SelfWatcher
 
 
 # ════════════════════════════════════════════════════════════════════════════

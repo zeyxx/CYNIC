@@ -19,7 +19,7 @@ import pytest
 
 from cynic.core.consciousness import ConsciousnessLevel, reset_consciousness
 from cynic.core.judgment import Cell
-from cynic.scheduler import DogScheduler, PerceptionEvent, _QUEUE_CAPACITY, _WORKERS_PER_LEVEL
+from cynic.scheduler import ConsciousnessRhythm, PerceptionEvent, _QUEUE_CAPACITY, _WORKERS_PER_LEVEL
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -55,8 +55,8 @@ def mock_orchestrator():
 
 @pytest.fixture
 def scheduler(mock_orchestrator):
-    """DogScheduler with mock orchestrator (not yet started)."""
-    return DogScheduler(orchestrator=mock_orchestrator)
+    """ConsciousnessRhythm with mock orchestrator (not yet started)."""
+    return ConsciousnessRhythm(orchestrator=mock_orchestrator)
 
 
 @pytest.fixture
@@ -196,21 +196,21 @@ class TestInterrupt:
 
 class TestLevelInference:
     def test_infer_reflex(self):
-        assert DogScheduler._infer_level(0.005) == ConsciousnessLevel.REFLEX
-        assert DogScheduler._infer_level(0.0)   == ConsciousnessLevel.REFLEX
+        assert ConsciousnessRhythm._infer_level(0.005) == ConsciousnessLevel.REFLEX
+        assert ConsciousnessRhythm._infer_level(0.0)   == ConsciousnessLevel.REFLEX
 
     def test_infer_micro(self):
-        assert DogScheduler._infer_level(0.01)  == ConsciousnessLevel.MICRO
-        assert DogScheduler._infer_level(0.049) == ConsciousnessLevel.MICRO
+        assert ConsciousnessRhythm._infer_level(0.01)  == ConsciousnessLevel.MICRO
+        assert ConsciousnessRhythm._infer_level(0.049) == ConsciousnessLevel.MICRO
 
     def test_infer_macro(self):
-        assert DogScheduler._infer_level(0.05)  == ConsciousnessLevel.MACRO
-        assert DogScheduler._infer_level(1.0)   == ConsciousnessLevel.MACRO
+        assert ConsciousnessRhythm._infer_level(0.05)  == ConsciousnessLevel.MACRO
+        assert ConsciousnessRhythm._infer_level(1.0)   == ConsciousnessLevel.MACRO
 
     def test_phi_boundary(self):
         """PHI_INV = 0.618 → MACRO (above 0.05 threshold)."""
         from cynic.core.phi import PHI_INV
-        assert DogScheduler._infer_level(PHI_INV) == ConsciousnessLevel.MACRO
+        assert ConsciousnessRhythm._infer_level(PHI_INV) == ConsciousnessLevel.MACRO
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -415,14 +415,14 @@ class TestNWorkers:
 class TestPerceiveWorkerRegistration:
     def test_register_adds_to_list(self, scheduler):
         """register_perceive_worker() stores worker before start."""
-        from cynic.perceive.workers import HealthWatcher
+        from cynic.senses.workers import HealthWatcher
         pw = HealthWatcher()
         scheduler.register_perceive_worker(pw)
         assert len(scheduler._perceive_workers) == 1
 
     async def test_perceive_tasks_created_on_start(self, scheduler):
         """start() spawns one task per registered PerceiveWorker."""
-        from cynic.perceive.workers import HealthWatcher
+        from cynic.senses.workers import HealthWatcher
         scheduler.register_perceive_worker(HealthWatcher())
         scheduler.start()
         assert len(scheduler._perceive_tasks) == 1
@@ -430,7 +430,7 @@ class TestPerceiveWorkerRegistration:
 
     async def test_perceive_tasks_cleared_on_stop(self, scheduler):
         """stop() cancels and clears perceive tasks."""
-        from cynic.perceive.workers import HealthWatcher
+        from cynic.senses.workers import HealthWatcher
         scheduler.register_perceive_worker(HealthWatcher())
         scheduler.start()
         await scheduler.stop()
@@ -438,7 +438,7 @@ class TestPerceiveWorkerRegistration:
 
     async def test_multiple_perceive_workers(self, scheduler):
         """Registering 3 workers → 3 perceive tasks."""
-        from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher
+        from cynic.senses.workers import GitWatcher, HealthWatcher, SelfWatcher
         scheduler.register_perceive_worker(GitWatcher())
         scheduler.register_perceive_worker(HealthWatcher())
         scheduler.register_perceive_worker(SelfWatcher())
@@ -448,16 +448,16 @@ class TestPerceiveWorkerRegistration:
 
     async def test_perceive_task_named_after_worker(self, scheduler):
         """Perceive task name = cynic.perceive.{worker.name}."""
-        from cynic.perceive.workers import GitWatcher
+        from cynic.senses.workers import GitWatcher
         scheduler.register_perceive_worker(GitWatcher())
         scheduler.start()
         names = {t.get_name() for t in scheduler._perceive_tasks}
-        assert "cynic.perceive.git_watcher" in names
+        assert "cynic.senses.git_watcher" in names
         await scheduler.stop()
 
     def test_stats_reports_perceive_worker_count(self, scheduler):
         """stats()['perceive_workers'] reflects registered count."""
-        from cynic.perceive.workers import HealthWatcher
+        from cynic.senses.workers import HealthWatcher
         scheduler.register_perceive_worker(HealthWatcher())
         s = scheduler.stats()
         assert s["perceive_workers"] == 1
@@ -472,7 +472,7 @@ class TestPerceiveWorkerRegistration:
 
     async def test_register_after_start_is_ignored(self, scheduler):
         """register_perceive_worker() after start() is silently dropped — no duplicate tasks."""
-        from cynic.perceive.workers import HealthWatcher
+        from cynic.senses.workers import HealthWatcher
         scheduler.start()
         initial_count = len(scheduler._perceive_tasks)
 
@@ -493,10 +493,10 @@ class TestSchedulerQueueDepth:
 
     def _make_scheduler(self):
         from unittest.mock import AsyncMock, MagicMock
-        from cynic.scheduler import DogScheduler
+        from cynic.scheduler import ConsciousnessRhythm
         orch = MagicMock()
         orch.run = AsyncMock(return_value=MagicMock(verdict="WAG", q_score=70.0))
-        return DogScheduler(orchestrator=orch)
+        return ConsciousnessRhythm(orchestrator=orch)
 
     def test_empty_queues_depth_zero(self):
         scheduler = self._make_scheduler()
@@ -529,7 +529,7 @@ class TestSchedulerQueueDepth:
 
     def test_lod_thresholds_match_fibonacci(self):
         """LOD queue thresholds 34/89/144 are Fibonacci numbers."""
-        from cynic.judge.lod import _QUEUE_LOD1, _QUEUE_LOD2, _QUEUE_LOD3
+        from cynic.cognition.cortex.lod import _QUEUE_LOD1, _QUEUE_LOD2, _QUEUE_LOD3
         assert _QUEUE_LOD1 == 34   # F(9)
         assert _QUEUE_LOD2 == 89   # F(11)
         assert _QUEUE_LOD3 == 144  # F(12)

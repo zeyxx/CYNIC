@@ -22,7 +22,7 @@ from typing import Any, TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from cynic.judge.probes import ProbeResult
+    from cynic.cognition.cortex.probes import ProbeResult
 
 logger = logging.getLogger("cynic.benchmark")
 

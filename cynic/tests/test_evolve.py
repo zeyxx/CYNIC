@@ -10,8 +10,8 @@ from typing import Dict, List
 
 from cynic.core.judgment import Cell, Judgment
 from cynic.core.phi import MAX_Q_SCORE, PHI_INV_2
-from cynic.dogs.base import DogJudgment
-from cynic.judge.probes import PROBE_CELLS, ProbeResult
+from cynic.cognition.neurons.base import DogJudgment
+from cynic.cognition.cortex.probes import PROBE_CELLS, ProbeResult
 
 
 # ============================================================================
@@ -46,7 +46,7 @@ def _make_orchestrator(q_score: float = 42.0):
     evolve() delegates to self.run() for each probe, so patching run() is
     sufficient to control the entire evolve() behavior in unit tests.
     """
-    from cynic.judge.orchestrator import JudgeOrchestrator
+    from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
 
     orch = JudgeOrchestrator(
         dogs=MagicMock(),

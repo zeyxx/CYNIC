@@ -10,7 +10,7 @@ import os
 import json
 import tempfile
 import pytest
-from cynic.act.model_profiler import ModelProfiler, ModelSample, TASK_TYPES
+from cynic.metabolism.model_profiler import ModelProfiler, ModelSample, TASK_TYPES
 from cynic.core.phi import WAG_MIN
 
 

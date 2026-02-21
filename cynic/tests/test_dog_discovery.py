@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import pytest
 
-from cynic.dogs.base import AbstractDog, DogId, LLMDog
-from cynic.dogs.discovery import discover_dog_classes, discover_dogs
+from cynic.cognition.neurons.base import AbstractDog, DogId, LLMDog
+from cynic.cognition.neurons.discovery import discover_dog_classes, discover_dogs
 
 
 class TestDiscoverDogClasses:
@@ -70,7 +70,7 @@ class TestDiscoverDogs:
 
     def test_override_oracle(self):
         """Override should replace auto-instantiation."""
-        from cynic.dogs.oracle import OracleDog
+        from cynic.cognition.neurons.oracle import OracleDog
         from cynic.learning.qlearning import QTable
 
         qt = QTable()

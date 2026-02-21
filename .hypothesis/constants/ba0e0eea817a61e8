@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\cortex\circuit_breaker.py
+# hypothesis_version: 6.151.9
+
+[0.0, 'CLOSED', 'HALF_OPEN', 'OPEN', 'cooldown_s', 'elapsed_since_open_s', 'failure_count', 'failure_threshold', 'state']

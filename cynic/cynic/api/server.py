@@ -17,7 +17,7 @@ Routes:
   GET  /dashboard                 → Live kernel dashboard (WebSocket /ws/stream consumer)
 
 Design principles:
-  - No state in route handlers (all state in AppState singleton)
+  - No state in route handlers (all state in CynicOrganism singleton)
   - φ-bound all confidence values before returning
   - Errors return structured JSON (never HTML 500s)
   - Every response includes judgment_id for traceability
@@ -32,6 +32,8 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 
+import httpx
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -45,16 +47,14 @@ from cynic.core.events_schema import (
 )
 from cynic.core.phi import WAG_MIN
 from cynic.core.config import CynicConfig
-from cynic.act.telemetry import compute_reward
+from cynic.metabolism.telemetry import compute_reward
 
-from cynic.api.state import build_kernel, set_state, get_state, restore_state
+from cynic.api.state import (
+    awaken, restore_state,
+    set_app_container, get_app_container, AppContainer,
+)
 
-from cynic.api.routers.core import router_core
-from cynic.api.routers.actions import router_actions
-from cynic.api.routers.health import router_health
-from cynic.api.routers.sdk import router_sdk, _sdk_sessions
-from cynic.api.routers.act import router_act
-from cynic.api.routers.ws import router_ws
+from cynic.api.routers.sdk import _sdk_sessions
 
 logger = logging.getLogger("cynic.api.server")
 
@@ -78,9 +78,6 @@ async def lifespan(app: FastAPI):
     _instance_id = uuid.uuid4().hex[:8]
     logger.info("*sniff* CYNIC instance_id: %s", _instance_id)
 
-    from cynic.api.state import set_instance_id as _set_instance_id
-    _set_instance_id(_instance_id)
-
     # Write ~/.cynic/instance.json — runtime metadata for debugging + MCP tools
     # ── Load config from env (ONE place for all env vars) ─────────────────
     config = CynicConfig.from_env()
@@ -96,7 +93,7 @@ async def lifespan(app: FastAPI):
                 "port": config.port,
                 "started_at": time.time(),
             }, _fh, indent=2)
-    except Exception as _exc:
+    except OSError as _exc:
         logger.debug("instance.json write failed: %s", _exc)
 
     # MCP auto-config for Cursor/Windsurf — non-destructive (never overwrites existing)
@@ -112,7 +109,7 @@ async def lifespan(app: FastAPI):
                 with open(_mcp_target, "w", encoding="utf-8") as _fh:
                     json.dump(_mcp_config, _fh, indent=2)
                 logger.info("MCP auto-config written: %s", _mcp_target)
-            except Exception as _mcp_exc:
+            except OSError as _mcp_exc:
                 logger.debug("MCP auto-config skipped (%s): %s", _mcp_target, _mcp_exc)
 
     # ── LLM Registry: discover all available LLMs ─────────────────────────
@@ -159,7 +156,7 @@ async def lifespan(app: FastAPI):
                 database=config.surreal_db,
             )
             logger.info("*tail wag* SurrealDB active — primary storage (singleton set)")
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.warning("SurrealDB unavailable (%s) — falling back to asyncpg", exc)
             surreal = None
 
@@ -173,12 +170,37 @@ async def lifespan(app: FastAPI):
                 async with db_pool.acquire() as conn:
                     await conn.execute(SCHEMA_SQL)
                 logger.info("PostgreSQL active — legacy storage")
-            except Exception as exc:
+            except asyncpg.Error as exc:
                 logger.warning("DB unavailable (%s) — running without persistence", exc)
                 db_pool = None
 
-    # ── Build kernel (always — persistence is wired after) ─────────────────
-    state = build_kernel(db_pool=db_pool, registry=registry)
+    # ── Awaken organism (always — persistence is wired after) ─────────────────
+    state = awaken(db_pool=db_pool, registry=registry)
+
+    # ── Tier 1 Nervous System: Register components on startup ───────────────
+    from cynic.nervous import ComponentType
+    registry_obj = state.service_registry
+    try:
+        # Register major components
+        await registry_obj.register("orchestrator", ComponentType.ORCHESTRATOR)
+        await registry_obj.register("qtable", ComponentType.LEARNER)
+        await registry_obj.register("learning_loop", ComponentType.LEARNER)
+        await registry_obj.register("residual_detector", ComponentType.DETECTOR)
+        await registry_obj.register("axiom_monitor", ComponentType.DETECTOR)
+        await registry_obj.register("lod_controller", ComponentType.DETECTOR)
+        await registry_obj.register("action_proposer", ComponentType.ROUTER)
+        await registry_obj.register("decide_agent", ComponentType.ROUTER)
+        await registry_obj.register("account_agent", ComponentType.ROUTER)
+
+        # Register dogs
+        from cynic.cognition.neurons.base import DogId
+        for dog_id in state.orchestrator.dogs.keys():
+            await registry_obj.register(f"dog_{dog_id}", ComponentType.DOG)
+
+        logger.info("Tier 1 Nervous System: %d components registered",
+                   (await registry_obj.snapshot()).total_components)
+    except CynicError as exc:
+        logger.warning("Component registration failed: %s", exc)
 
     # ── Warm-start from SurrealDB ───────────────────────────────────────────
     if surreal is not None:
@@ -191,7 +213,7 @@ async def lifespan(app: FastAPI):
             r_loaded = state.residual_detector.load_from_entries(residual_rows)
             logger.info("ResidualDetector warm-start (SurrealDB): %d points", r_loaded)
 
-            from cynic.dogs.base import DogId
+            from cynic.cognition.neurons.base import DogId
             scholar_dog = state.orchestrator.dogs.get(DogId.SCHOLAR)
             if scholar_dog is not None:
                 if hasattr(scholar_dog, "set_scholar_repo"):
@@ -208,7 +230,7 @@ async def lifespan(app: FastAPI):
             logger.info("ActionProposer warm-start (SurrealDB): %d actions", ap_loaded)
 
             registry.set_surreal(surreal)
-        except Exception as exc:
+        except asyncio.TimeoutError as exc:
             logger.warning("SurrealDB warm-start failed (%s) — starting cold", exc)
 
     # ── Warm-start from asyncpg (legacy path) ──────────────────────────────
@@ -230,7 +252,7 @@ async def lifespan(app: FastAPI):
             state.orchestrator.benchmark_registry = BenchmarkRegistry(db_pool)
             logger.info("BenchmarkRegistry wired: probe runs will be persisted")
 
-            from cynic.dogs.base import DogId
+            from cynic.cognition.neurons.base import DogId
             from cynic.core.storage.postgres import ScholarRepository
             scholar_dog = state.orchestrator.dogs.get(DogId.SCHOLAR)
             if scholar_dog is not None:
@@ -240,7 +262,7 @@ async def lifespan(app: FastAPI):
                     scholar_dog.set_db_pool(db_pool)
                 scholar_loaded = await scholar_dog.load_from_db(db_pool)
                 logger.info("Scholar warm-start: %d buffer entries loaded", scholar_loaded)
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.warning("asyncpg warm-start failed (%s)", exc)
     else:
         logger.info("No storage configured — running without persistence")
@@ -259,7 +281,7 @@ async def lifespan(app: FastAPI):
                     q_score = float(p.get("q_score", 0.0))
                     if sk and verdict:
                         await surreal.qtable.update(sk, verdict, q_score / 100.0)
-            except Exception:
+            except asyncpg.Error:
                 pass
 
         async def _surreal_persist_residual(event: Event) -> None:
@@ -267,7 +289,7 @@ async def lifespan(app: FastAPI):
                 p = event.payload or {}
                 if p.get("judgment_id"):
                     await surreal.residuals.append(p)
-            except Exception:
+            except httpx.RequestError:
                 pass
 
         get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _surreal_persist_judgment)
@@ -280,12 +302,34 @@ async def lifespan(app: FastAPI):
     _bridge.start()
     logger.info("EventBusBridge active: %d rules", len(_bridge._rules))
 
-    set_state(state)
-    await restore_state(state)  # γ2 + γ4: EScore + session context (cross-crash)
+    # Create AppContainer (replaces global singletons)
+    _guidance_path = os.path.join(
+        os.path.expanduser("~"), ".cynic", f"guidance-{_instance_id}.json"
+    )
+    _container = AppContainer(
+        organism=state,
+        instance_id=_instance_id,
+        guidance_path=_guidance_path,
+    )
+    set_app_container(_container)
+
+    await restore_state(_container)  # γ2 + γ4: EScore + session context (cross-crash)
+
+    # ── MCPBridge Startup ───────────────────────────────────────────────
+    # Start the MCP protocol bridge so tool calls flow into organism events.
+    # Guard: old AppState has no .senses; new Organism does.
+    _mcp_bridge = getattr(getattr(state, "senses", None), "mcp_bridge", None)
+    if _mcp_bridge is not None:
+        logger.info("MCPBridge: starting...")
+        await _mcp_bridge.startup()
+        logger.info("MCPBridge: ready (bus=%s, tools=%d)", _mcp_bridge.bus_name, len(_mcp_bridge.tools))
+    else:
+        logger.info("MCPBridge: not available (old AppState path — skipping)")
+
     state.scheduler.start()
 
     # ── AutoBenchmark — periodic LLM probe every 55 min (T09) ────────────
-    from cynic.act.auto_benchmark import AutoBenchmark
+    from cynic.metabolism.auto_benchmark import AutoBenchmark
     state.auto_benchmark = AutoBenchmark(registry)
     state.auto_benchmark.start()
 
@@ -294,7 +338,7 @@ async def lifespan(app: FastAPI):
     # When ACT_REQUESTED fires (via /ws/stream or internal DECIDE), CYNIC
     # spawns `claude --sdk-url ws://localhost:PORT/ws/sdk` as a subprocess.
     # No human needed to launch Claude Code.
-    from cynic.act.runner import ClaudeCodeRunner
+    from cynic.metabolism.runner import ClaudeCodeRunner
     state.runner = ClaudeCodeRunner(
         bus=get_core_bus(),
         sessions_registry=_sdk_sessions,
@@ -516,11 +560,22 @@ async def lifespan(app: FastAPI):
             os.makedirs(os.path.dirname(_CONSCIOUSNESS_PATH), exist_ok=True)
             with open(_CONSCIOUSNESS_PATH, "w", encoding="utf-8") as fh:
                 json.dump(payload, fh)
-        except Exception as _exc:
+        except OSError as _exc:
             logger.debug("consciousness.json write skipped: %s", _exc)
 
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _write_consciousness)
     logger.info("consciousness.json writer armed (throttle=%.0fs)", _CONSCIOUSNESS_MIN_INTERVAL_S)
+
+    # ── L0 Real-time Topology System: organism consciousness ──────────────────
+    # Start SourceWatcher polling loop (monitors files every 13s)
+    asyncio.create_task(state.source_watcher.watch())
+    # Start TopologyMirror continuous snapshots (periodic + event-driven)
+    asyncio.create_task(state.topology_mirror.continuous_snapshot(
+        bus=get_core_bus(),
+        kernel_mirror=state.kernel_mirror,
+        state=state,
+    ))
+    logger.info("L0 Topology System: real-time architecture monitoring + mirroring enabled")
 
     llm_count = len(registry.get_available())
     logger.info(
@@ -528,10 +583,44 @@ async def lifespan(app: FastAPI):
         len(state.dogs), llm_count,
     )
 
+    # ── MCP Server (Bootstrap Bridge to Claude Code) ──────────────────────────
+    # Port is offset from main API port to avoid conflicts
+    _mcp_server_port = config.port + 1
+    from cynic.mcp import MCPServer
+    _mcp_server = MCPServer(port=_mcp_server_port, get_state_fn=get_app_container)
+    try:
+        await _mcp_server.start()
+        logger.info("*ears perk* MCP Server listening on port %d (Claude Code bridge)", _mcp_server_port)
+    except httpx.RequestError as _mcp_exc:
+        logger.warning("MCP Server failed to start: %s (Claude Code integration unavailable)", _mcp_exc)
+        _mcp_server = None
+
+    # ── CYNIC Bootstrap ──────────────────────────────────────────────────────
+    # Self-initialization: version structure, migrations, env files
+    # TODO: Orchestration not yet complete — disabling bootstrap until docker.py implemented
+    logger.info("🧬 CYNIC Bootstrap: SKIPPED (orchestration TBD)...")
+    # from cynic.orchestration.bootstrap import bootstrap_cynic
+    # bootstrap_result = await bootstrap_cynic()
+    # logger.info("🧬 Bootstrap complete: %s", bootstrap_result)
+
+    # ── Auto-register API Routers ────────────────────────────────────────────
+    # CYNIC discovers and registers all routers automatically
     yield
 
     # Shutdown
     logger.info("*yawn* CYNIC kernel shutting down...")
+
+    # ── MCPBridge Shutdown ──────────────────────────────────────────────
+    if _mcp_bridge is not None and _mcp_bridge.is_running:
+        logger.info("MCPBridge: shutting down...")
+        await _mcp_bridge.shutdown()
+        logger.info("MCPBridge: stopped")
+
+    # ── MCP Server Shutdown ──────────────────────────────────────────────────
+    if _mcp_server is not None:
+        await _mcp_server.stop()
+        logger.info("MCP Server stopped")
+
     get_core_bus().off(CoreEvent.DECISION_MADE, _on_decision_made)
     _bridge.stop()
     await state.scheduler.stop()
@@ -559,12 +648,86 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ── Auto-register all routers BEFORE middleware ────────────────────────────
+# Routes must be registered early in app lifecycle so HTTP handler sees them.
+# This fixes the anti-pattern of routes added inside lifespan not being
+# visible to uvicorn's HTTP routing table.
+logger.info("📡 Auto-registering API routers...")
+from cynic.api.routers.auto_register import auto_register_routers
+_routers_registered = auto_register_routers(app)
+logger.info("📡 Auto-registered %d router modules: %s",
+           len(_routers_registered), list(_routers_registered.keys()))
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],        # JS hooks call from same machine or Render
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# METRICS MIDDLEWARE — Track all requests with correlation IDs
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.middleware("http")
+async def track_metrics_middleware(request: Request, call_next):
+    """Track metrics + structured logging for all HTTP requests."""
+    from cynic.api.metrics import REQUESTS_TOTAL, REQUEST_DURATION_SECONDS, ERRORS_TOTAL
+    import time
+
+    # Generate or retrieve correlation_id (for traceability)
+    correlation_id = request.headers.get("X-Correlation-ID") or str(uuid.uuid4())
+
+    # Record start time
+    start_time = time.time()
+    path = request.url.path
+    method = request.method
+
+    # Log request with correlation_id
+    logger.info(
+        "HTTP %s %s | correlation_id=%s",
+        method, path, correlation_id,
+        extra={"correlation_id": correlation_id}
+    )
+
+    try:
+        # Call the actual endpoint
+        response = await call_next(request)
+
+        # Record metrics on success
+        duration_sec = time.time() - start_time
+        duration_ms = int(duration_sec * 1000)
+        REQUEST_DURATION_SECONDS.labels(endpoint=path).observe(duration_sec)
+        REQUESTS_TOTAL.labels(endpoint=path, method=method, status=response.status_code).inc()
+
+        # Add correlation_id to response headers
+        response.headers["X-Correlation-ID"] = correlation_id
+
+        # Log response with duration
+        logger.info(
+            "HTTP %s %s → %d | duration_ms=%d | correlation_id=%s",
+            method, path, response.status_code, duration_ms, correlation_id,
+            extra={"correlation_id": correlation_id, "duration_ms": duration_ms}
+        )
+
+        return response
+
+    except httpx.RequestError as e:
+        # Record error metrics
+        duration_sec = time.time() - start_time
+        duration_ms = int(duration_sec * 1000)
+        REQUEST_DURATION_SECONDS.labels(endpoint=path).observe(duration_sec)
+        REQUESTS_TOTAL.labels(endpoint=path, method=method, status="500").inc()
+        ERRORS_TOTAL.labels(error_type=type(e).__name__, endpoint=path).inc()
+
+        logger.error(
+            "HTTP %s %s ERROR | error=%s | duration_ms=%d | correlation_id=%s",
+            method, path, type(e).__name__, duration_ms, correlation_id,
+            extra={"correlation_id": correlation_id, "error_type": type(e).__name__}
+        )
+        raise
+
 
 # Serve static files (dashboard.html) — only if directory exists
 import pathlib as _pathlib
@@ -591,9 +754,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 
 
 # ── Register all routers ───────────────────────────────────────────────────
-app.include_router(router_core)
-app.include_router(router_actions)
-app.include_router(router_health)
-app.include_router(router_sdk)
-app.include_router(router_act)
-app.include_router(router_ws)
+# NOTE: Routers are auto-registered in lifespan (bootstrap phase)
+# via auto_register_routers() — no manual include_router needed
+# This ensures: orchestration, auto_register, and any new routers are discovered automatically
+# See: cynic/api/routers/auto_register.py

@@ -23,6 +23,7 @@ import asyncpg
 from asyncpg import Pool, Connection
 
 from cynic.core.phi import fibonacci, MAX_Q_SCORE, MAX_CONFIDENCE, PHI_INV
+from cynic.core.formulas import ACT_LOG_CAP
 from cynic.core.storage.interface import (
     JudgmentRepoInterface,
     QTableRepoInterface,
@@ -44,10 +45,10 @@ POOL_MAX = fibonacci(8)   # 21 connections
 # CONNECTION POOL SINGLETON
 # ════════════════════════════════════════════════════════════════════════════
 
-_pool: Pool | None = None
+_pool: Optional[Pool] = None
 
 
-async def get_pool(dsn: str | None = None) -> Pool:
+async def get_pool(dsn: Optional[str] = None) -> Pool:
     """
     Get (or create) the shared asyncpg connection pool.
 
@@ -275,7 +276,7 @@ CREATE INDEX IF NOT EXISTS idx_scholar_created     ON scholar_buffer (created_at
 """
 
 
-async def create_schema(dsn: str | None = None) -> None:
+async def create_schema(dsn: Optional[str] = None) -> None:
     """Create all tables and indexes. Idempotent (IF NOT EXISTS)."""
     async with acquire() as conn:
         await conn.execute(SCHEMA_SQL)
@@ -337,7 +338,7 @@ class JudgmentRepository(JudgmentRepoInterface):
                 judgment.get("duration_ms", 0.0),
             )
 
-    async def get(self, judgment_id: str) -> dict[str, Any] | None:
+    async def get(self, judgment_id: str) -> Optional[dict[str, Any]]:
         """Fetch a judgment by ID."""
         async with acquire() as conn:
             row = await conn.fetchrow(
@@ -346,7 +347,7 @@ class JudgmentRepository(JudgmentRepoInterface):
             )
             return dict(row) if row else None
 
-    async def recent(self, reality: str | None = None, limit: int = 55) -> list[dict[str, Any]]:
+    async def recent(self, reality: Optional[str] = None, limit: int = 55) -> list[dict[str, Any]]:
         """Fetch recent judgments, optionally filtered by reality."""
         async with acquire() as conn:
             if reality:
@@ -496,7 +497,7 @@ class BenchmarkRepository(BenchmarkRepoInterface):
                 result.get("cost_usd", 0.0),
             )
 
-    async def best_llm_for(self, dog_id: str, task_type: str) -> str | None:
+    async def best_llm_for(self, dog_id: str, task_type: str) -> Optional[str]:
         """Return the LLM with the highest composite score (EMA of recent runs)."""
         async with acquire() as conn:
             row = await conn.fetchrow("""
@@ -577,11 +578,11 @@ class ResidualRepository(ResidualRepoInterface):
 # REPOSITORY FACTORY
 # ════════════════════════════════════════════════════════════════════════════
 
-_judgment_repo: JudgmentRepository | None = None
-_qtable_repo: QTableRepository | None = None
-_learning_repo: LearningRepository | None = None
-_benchmark_repo: BenchmarkRepository | None = None
-_residual_repo: ResidualRepository | None = None
+_judgment_repo: Optional[JudgmentRepository] = None
+_qtable_repo: Optional[QTableRepository] = None
+_learning_repo: Optional[LearningRepository] = None
+_benchmark_repo: Optional[BenchmarkRepository] = None
+_residual_repo: Optional[ResidualRepository] = None
 
 
 def judgments() -> JudgmentRepository:
@@ -698,7 +699,7 @@ class SDKSessionRepository(SDKSessionRepoInterface):
             return dict(row) if row else {}
 
 
-_sdk_session_repo: SDKSessionRepository | None = None
+_sdk_session_repo: Optional[SDKSessionRepository] = None
 
 
 def sdk_sessions() -> SDKSessionRepository:
@@ -744,8 +745,8 @@ class ScholarRepository(ScholarRepoInterface):
                 embed_model,
             )
 
-    async def recent_entries(self, limit: int = 89) -> list[dict[str, Any]]:
-        """Return last `limit` entries oldest-first (for buffer replay)."""
+    async def recent_entries(self, limit: int = ACT_LOG_CAP) -> list[dict[str, Any]]:
+        """Return last `limit` entries oldest-first (for buffer replay). Default ACT_LOG_CAP (F(11)=89)."""
         async with acquire() as conn:
             rows = await conn.fetch("""
                 SELECT cell_id, cell_text, q_score, reality, ts
@@ -817,7 +818,7 @@ class ScholarRepository(ScholarRepoInterface):
             return await conn.fetchval("SELECT COUNT(*) FROM scholar_buffer")
 
 
-_scholar_repo: ScholarRepository | None = None
+_scholar_repo: Optional[ScholarRepository] = None
 
 
 def scholar() -> ScholarRepository:

@@ -12,13 +12,18 @@ import uuid
 from typing import Any
 
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 
 from cynic.core.consciousness import get_consciousness
 from cynic.core.phi import PHI, PHI_INV, PHI_INV_2, fibonacci, WAG_MIN
+from cynic.core.formulas import (
+    KERNEL_INTEGRITY_HOWL_THRESHOLD,
+    KERNEL_INTEGRITY_WAG_THRESHOLD,
+    KERNEL_INTEGRITY_GROWL_THRESHOLD,
+)
 from cynic.api.models import HealthResponse, StatsResponse
-from cynic.api.state import get_state
+from cynic.api.state import get_app_container, AppContainer
 
 logger = logging.getLogger("cynic.api.server")
 
@@ -29,6 +34,34 @@ router_health = APIRouter(tags=["health"])
 _static_dir = _pathlib.Path(__file__).parent.parent.parent / "static"
 
 _CONSCIOUSNESS_FILE = os.path.join(os.path.expanduser("~"), ".cynic", "consciousness.json")
+
+
+# ── Root route: API alive status ────────────────────────────────────────────
+@router_health.get("/", include_in_schema=True)
+async def root(request: Request) -> dict:
+    """
+    Root endpoint — CYNIC kernel is alive.
+
+    Returns:
+        - status: "alive" if all systems nominal
+        - name: "CYNIC Kernel"
+        - φ: The golden ratio (for identity)
+        - routes: List of available API routes
+    """
+    # Collect available routes from the app
+    app = request.app
+    routes = []
+    for route in app.routes:
+        if hasattr(route, "path") and not route.path.startswith("/openapi") and not route.path.startswith("/docs") and not route.path.startswith("/redoc") and not route.path.startswith("/static"):
+            routes.append(route.path)
+    routes.sort()
+
+    return {
+        "status": "alive",
+        "name": "CYNIC Kernel",
+        "φ": f"{PHI:.6f}",  # The golden ratio
+        "routes": routes,
+    }
 
 
 # ── Dashboard convenience route ────────────────────────────────────────────
@@ -46,7 +79,7 @@ async def dashboard() -> FileResponse:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_health.get("/health", response_model=HealthResponse)
-async def health() -> HealthResponse:
+async def health(container: AppContainer = Depends(get_app_container)) -> HealthResponse:
     """
     Kernel health — the organism's vital signs.
 
@@ -54,7 +87,7 @@ async def health() -> HealthResponse:
     status=degraded → partial functionality (e.g. no DB, no LLM)
     status=dead     → kernel not initialized (should never reach this route)
     """
-    state = get_state()
+    state = container.organism
     consciousness = get_consciousness()
     judge_stats = state.orchestrator.stats()
     learn_stats = state.qtable.stats()
@@ -74,7 +107,7 @@ async def health() -> HealthResponse:
         _storage_status["surreal"] = "connected"
     except RuntimeError:
         _storage_status["surreal"] = "disconnected"
-    except Exception:
+    except ValidationError:
         _storage_status["surreal"] = "error"
 
     return HealthResponse(
@@ -101,9 +134,9 @@ async def health() -> HealthResponse:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_health.get("/stats", response_model=StatsResponse)
-async def stats() -> StatsResponse:
+async def stats(container: AppContainer = Depends(get_app_container)) -> StatsResponse:
     """Detailed kernel metrics — everything CYNIC knows about itself."""
-    state = get_state()
+    state = container.organism
 
     return StatsResponse(
         judgments=state.orchestrator.stats(),
@@ -119,7 +152,7 @@ async def stats() -> StatsResponse:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_health.get("/introspect")
-async def introspect() -> dict[str, Any]:
+async def introspect(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
     MetaCognition — CYNIC reads its own cognitive state.
 
@@ -135,9 +168,9 @@ async def introspect() -> dict[str, Any]:
     This is CYNIC judging itself — meta-cognitive self-assessment.
     "φ distrusts φ" — the organism reflects on its own biases.
     """
-    from cynic.dogs.base import DogId
+    from cynic.cognition.neurons.base import DogId
 
-    state = get_state()
+    state = container.organism
     consciousness = get_consciousness()
     qtable_stats = state.qtable.stats()
     orch_stats = state.orchestrator.stats()
@@ -213,9 +246,9 @@ async def introspect() -> dict[str, Any]:
             "kernel_integrity": kernel_integrity,
             "phi_violations": phi_violations,
             "self_confidence": round(min(kernel_integrity * PHI_INV, PHI_INV), 3),
-            "verdict": "HOWL" if kernel_integrity >= 0.888 else (
-                "WAG" if kernel_integrity >= 0.618 else (
-                    "GROWL" if kernel_integrity >= 0.382 else "BARK"
+            "verdict": "HOWL" if kernel_integrity >= KERNEL_INTEGRITY_HOWL_THRESHOLD else (
+                "WAG" if kernel_integrity >= KERNEL_INTEGRITY_WAG_THRESHOLD else (
+                    "GROWL" if kernel_integrity >= KERNEL_INTEGRITY_GROWL_THRESHOLD else "BARK"
                 )
             ),
         },
@@ -242,7 +275,7 @@ async def introspect() -> dict[str, Any]:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_health.get("/axioms")
-async def axioms() -> dict[str, Any]:
+async def axioms(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
     Emergent Axiom dashboard — A6-A9 activation status.
 
@@ -252,7 +285,7 @@ async def axioms() -> dict[str, Any]:
       A8. EMERGENCE    — Patterns beyond core axioms
       A9. ANTIFRAGILITY — System improves under chaos
     """
-    state = get_state()
+    state = container.organism
     return state.axiom_monitor.dashboard()
 
 
@@ -261,7 +294,7 @@ async def axioms() -> dict[str, Any]:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_health.get("/lod")
-async def lod() -> dict[str, Any]:
+async def lod(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
     Survival LOD status — current graceful degradation level.
 
@@ -270,12 +303,12 @@ async def lod() -> dict[str, Any]:
     LOD 2 EMERGENCY: REFLEX only, no LLM
     LOD 3 MINIMAL:   GUARDIAN only, survival mode
     """
-    state = get_state()
+    state = container.organism
     return state.lod_controller.status()
 
 
 @router_health.get("/account/stats")
-async def account_stats() -> dict[str, Any]:
+async def account_stats(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
     AccountAgent step-6 ledger — cost tracking + budget enforcement.
 
@@ -284,28 +317,28 @@ async def account_stats() -> dict[str, Any]:
 
     Step 6 of the 7-step cycle: PERCEIVE → JUDGE → DECIDE → ACT → LEARN → ACCOUNT → EMERGE
     """
-    state = get_state()
+    state = container.organism
     if state.account_agent is None:
         return {"error": "AccountAgent not initialized", "total_cost_usd": 0.0}
     return state.account_agent.stats()
 
 
 @router_health.get("/decide/stats")
-async def decide_stats() -> dict[str, Any]:
+async def decide_stats(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
     DecideAgent Ring-2 stats — MCTS decision counts.
 
     Shows decisions_made (BARK/GROWL auto-decided via NestedMCTS) and
     skipped (WAG/HOWL or low-confidence judgments not escalated).
     """
-    state = get_state()
+    state = container.organism
     if state.decide_agent is None:
         return {"decisions_made": 0, "skipped": 0}
     return state.decide_agent.stats()
 
 
 @router_health.get("/sage/stats")
-async def sage_stats() -> dict[str, Any]:
+async def sage_stats(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
     SAGE Dog temporal MCTS activation stats.
 
@@ -313,8 +346,8 @@ async def sage_stats() -> dict[str, Any]:
     llm_activation_rate > 0 → Temporal MCTS is firing (Ollama available).
     llm_activation_rate == 0 → Heuristic-only mode (Ollama unavailable).
     """
-    from cynic.dogs.base import DogId
-    state = get_state()
+    from cynic.cognition.neurons.base import DogId
+    state = container.organism
     orch = state.orchestrator
     sage = orch.dogs.get(DogId.SAGE) if orch and hasattr(orch, "dogs") else None
     if sage is None:
@@ -333,7 +366,7 @@ async def sage_stats() -> dict[str, Any]:
 
 
 @router_health.get("/residual/stats")
-async def residual_stats() -> dict[str, Any]:
+async def residual_stats(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
     ResidualDetector stats — residual variance history + pattern detection (T04).
 
@@ -341,7 +374,7 @@ async def residual_stats() -> dict[str, Any]:
     anomaly_rate > 0  → some judgments had high residual variance (≥38.2%)
     patterns_detected → EMERGENCE patterns found (SPIKE / RISING / STABLE_HIGH)
     """
-    state = get_state()
+    state = container.organism
     return state.residual_detector.stats()
 
 
@@ -374,18 +407,18 @@ async def llm_benchmarks() -> dict[str, Any]:
 
 
 @router_health.get("/auto-benchmark/stats")
-async def auto_benchmark_stats() -> dict[str, Any]:
+async def auto_benchmark_stats(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """AutoBenchmark probe stats — interval, runs, enabled flag (T09)."""
-    state = get_state()
+    state = container.organism
     if state.auto_benchmark is None:
         return {"enabled": False, "runs": 0, "interval_s": 0}
     return state.auto_benchmark.stats()
 
 
 @router_health.post("/auto-benchmark/run")
-async def auto_benchmark_run() -> dict[str, Any]:
+async def auto_benchmark_run(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """Trigger an immediate AutoBenchmark round (T09)."""
-    state = get_state()
+    state = container.organism
     if state.auto_benchmark is None:
         return {"completed": 0, "message": "auto_benchmark not initialised"}
     completed = await state.auto_benchmark.run_once()
@@ -393,14 +426,18 @@ async def auto_benchmark_run() -> dict[str, Any]:
 
 
 @router_health.get("/benchmark/probe-snapshot")
-async def benchmark_probe_snapshot(window: int = 10, source: str = "evolve") -> dict[str, Any]:
+async def benchmark_probe_snapshot(
+    window: int = 10,
+    source: str = "evolve",
+    container: AppContainer = Depends(get_app_container),
+) -> dict[str, Any]:
     """
     Rolling aggregate of the last N probe runs per probe (pass_rate, mean_q, std_q).
 
     Calls BenchmarkRegistry.snapshot() and writes a new benchmark_snapshots row.
     Returns {} when no DB pool is available (heuristic mode).
     """
-    state = get_state()
+    state = container.organism
     reg = getattr(state.orchestrator, "benchmark_registry", None)
     if reg is None:
         return {"available": False, "probes": {}}
@@ -409,14 +446,17 @@ async def benchmark_probe_snapshot(window: int = 10, source: str = "evolve") -> 
 
 
 @router_health.get("/benchmark/drift-alerts")
-async def benchmark_drift_alerts(threshold: float = 0.15) -> dict[str, Any]:
+async def benchmark_drift_alerts(
+    threshold: float = 0.15,
+    container: AppContainer = Depends(get_app_container),
+) -> dict[str, Any]:
     """
     Detect probes whose pass_rate dropped >= threshold vs previous snapshot.
 
     severity: CRITICAL if delta >= 0.30, WARNING otherwise.
     Returns empty alerts list when no DB pool or insufficient snapshot history.
     """
-    state = get_state()
+    state = container.organism
     reg = getattr(state.orchestrator, "benchmark_registry", None)
     if reg is None:
         return {"available": False, "threshold": threshold, "alerts": []}
@@ -430,7 +470,7 @@ async def benchmark_drift_alerts(threshold: float = 0.15) -> dict[str, Any]:
 
 
 @router_health.get("/mirror")
-async def mirror() -> dict[str, Any]:
+async def mirror(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
     KernelMirror — Ring 3 unified self-reflection snapshot.
 
@@ -448,7 +488,7 @@ async def mirror() -> dict[str, Any]:
 
     Use for dashboards, health checks, and CONSCIOUSNESS signal evaluation.
     """
-    state = get_state()
+    state = container.organism
     snap = state.kernel_mirror.snapshot(state)
     snap["diff"] = state.kernel_mirror.diff(snap)
     return snap
@@ -459,7 +499,7 @@ async def mirror() -> dict[str, Any]:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_health.get("/consciousness")
-async def consciousness() -> dict[str, Any]:
+async def consciousness(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
     Unified metathinking output — the organism's complete cognitive state.
 
@@ -475,11 +515,11 @@ async def consciousness() -> dict[str, Any]:
         if p.exists() and (time.time() - p.stat().st_mtime) < 60.0:
             with p.open("r", encoding="utf-8") as fh:
                 return json.load(fh)
-    except Exception:
+    except OSError:
         pass
 
     # Fallback: live snapshot
-    state = get_state()
+    state = container.organism
     snap = state.kernel_mirror.snapshot(state)
     payload: dict[str, Any] = {
         "timestamp": round(time.time(), 3),
@@ -490,6 +530,77 @@ async def consciousness() -> dict[str, Any]:
     if state.llm_router is not None:
         payload["llm_routing"] = state.llm_router.stats()
     return payload
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /internal/registry — Tier 1 Nervous System: Service State Registry
+# ════════════════════════════════════════════════════════════════════════════
+
+@router_health.get("/internal/registry")
+async def internal_registry(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
+    """
+    Tier 1 Nervous System: Real-time snapshot of all kernel component health.
+
+    Returns:
+        {
+            "timestamp_ms": float,
+            "components": {
+                "orchestrator": {component snapshot},
+                "qtable": {component snapshot},
+                ...
+            },
+            "total_components": int,
+            "healthy_count": int,
+            "degraded_count": int,
+            "stalled_count": int,
+            "failed_count": int,
+        }
+    """
+    state = container.organism
+    if state.service_registry is None:
+        return {"error": "Service registry not available"}
+
+    snapshot = await state.service_registry.snapshot()
+    return snapshot.to_dict()
+
+
+@router_health.get("/convergence/stats")
+async def convergence_stats(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
+    """
+    Phase 3: Convergence Validator — Announcement vs Reality Verification.
+
+    Tracks what organism announced it would do (verdict, Q-score) vs what actually
+    happened. Used for end-to-end validation that announced behavior matches reality.
+
+    Returns:
+        {
+            "total_announced": int,
+            "total_outcomes": int,
+            "total_matches": int,
+            "convergence_rate": float,  # percentage
+            "recent": [
+                {
+                    "status": "✓ MATCH" | "✗ DIVERGE",
+                    "announced_verdict": str,
+                    "actual_verdict": str,
+                    "latency_ms": float,
+                }
+            ]
+        }
+    """
+    state = container.organism
+    validator = state.convergence_validator
+    if validator is None:
+        return {"error": "Convergence validator not available"}
+
+    stats = validator.stats()
+    return {
+        "total_announced": stats.get("total_announced", 0),
+        "total_outcomes": stats.get("total_outcomes", 0),
+        "total_matches": stats.get("total_matches", 0),
+        "convergence_rate": stats.get("convergence_rate", 0.0),
+        "recent": stats.get("recent", []),
+    }
 
 
 @router_health.get("/")
@@ -505,6 +616,8 @@ async def root() -> dict[str, Any]:
             "/ws/stream", "/ws/sdk",
             "/sdk/sessions", "/sdk/task",
             "/act/execute", "/act/telemetry",
+            "/internal/registry",  # Tier 1 Nervous System
+            "/convergence/stats",   # Phase 3: Observability
         ],
         "message": "*sniff* Le chien est là.",
     }

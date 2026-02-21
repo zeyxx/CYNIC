@@ -23,6 +23,7 @@ Adapters:
 from __future__ import annotations
 
 import asyncio
+import httpx
 import json
 import logging
 import os
@@ -33,6 +34,7 @@ from typing import Any, Optional
 
 
 from cynic.core.phi import PHI, PHI_INV, MAX_Q_SCORE, weighted_geometric_mean
+from cynic.core.formulas import LLM_TIMEOUT_SEC, LLM_DISCOVERY_TIMEOUT_SEC
 
 logger = logging.getLogger("cynic.llm.adapter")
 
@@ -51,8 +53,8 @@ class LLMRequest:
     stream: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
     # Tool calling (Ollama/OpenAI format)
-    tools: list[dict] | None = None       # Tool schemas for function calling
-    messages: list[dict] | None = None    # Full message history (overrides prompt if set)
+    tools: Optional[list[dict]] = None       # Tool schemas for function calling
+    messages: Optional[list[dict]] = None    # Full message history (overrides prompt if set)
 
 
 @dataclass
@@ -65,8 +67,8 @@ class LLMResponse:
     completion_tokens: int = 0
     cost_usd: float = 0.0
     latency_ms: float = 0.0
-    error: str | None = None
-    tool_calls: list[dict] | None = None  # Parsed tool calls from response
+    error: Optional[str] = None
+    tool_calls: Optional[list[dict]] = None  # Parsed tool calls from response
     raw_message: Any = None               # Raw provider message object
 
     @property
@@ -121,7 +123,7 @@ def _log_llm_call(response: LLMResponse, request: LLMRequest) -> None:
             lines = lines[-_LLM_LOG_CAP:]
         with open(_LLM_LOG_PATH, "w", encoding="utf-8") as fh:
             fh.writelines(lines)
-    except Exception:
+    except OSError:
         logger.debug("LLM log write failed (non-critical)", exc_info=True)
 
 
@@ -157,13 +159,13 @@ class LLMAdapter(ABC):
         by _log_llm_call() for T20 LLMCallInterceptor observability.
         """
         try:
-            response = await asyncio.wait_for(self.complete(request), timeout=120.0)
+            response = await asyncio.wait_for(self.complete(request), timeout=LLM_TIMEOUT_SEC)
         except TimeoutError:
             response = LLMResponse(
                 content="", model=self.model, provider=self.provider,
-                error="timeout after 120s",
+                error=f"timeout after {LLM_TIMEOUT_SEC}s",
             )
-        except Exception as exc:
+        except httpx.RequestError as exc:
             response = LLMResponse(
                 content="", model=self.model, provider=self.provider,
                 error=str(exc),
@@ -177,22 +179,39 @@ class LLMAdapter(ABC):
 # ════════════════════════════════════════════════════════════════════════════
 
 
-# Module-level singleton ollama clients — one per base_url (shared across all
-# OllamaAdapter instances for the same URL — avoids 7 TCP connections per MCTS call)
-_OLLAMA_CLIENTS: dict[str, Any] = {}
+class OllamaConnectionPool:
+    """
+    Manages cached ollama.AsyncClient instances per base_url.
 
+    Instead of module-level singleton, use instance-level pool.
+    Multiple pools can coexist (enables parallel testing, multi-instance deployment).
+    """
 
-def _get_ollama_client(base_url: str) -> Any:
-    """Return a cached ollama.AsyncClient for base_url, creating one if needed."""
-    import ollama as _ollama  # type: ignore
-    if base_url not in _OLLAMA_CLIENTS:
-        _OLLAMA_CLIENTS[base_url] = _ollama.AsyncClient(host=base_url)
-    return _OLLAMA_CLIENTS[base_url]
+    def __init__(self):
+        """Initialize empty client cache."""
+        self._clients: dict[str, Any] = {}
+
+    def get_client(self, base_url: str) -> Any:
+        """Return cached ollama.AsyncClient for base_url, creating if needed."""
+        import ollama as _ollama  # type: ignore
+        if base_url not in self._clients:
+            self._clients[base_url] = _ollama.AsyncClient(host=base_url)
+        return self._clients[base_url]
+
+    async def close_all(self) -> None:
+        """Close all cached clients."""
+        for client in self._clients.values():
+            if hasattr(client, "close"):
+                try:
+                    await client.close()
+                except asyncio.TimeoutError as e:
+                    logger.debug(f"Error closing client: {e}")
+        self._clients.clear()
 
 
 class OllamaAdapter(LLMAdapter):
     """
-    Ollama local models adapter via ollama.AsyncClient (singleton per URL).
+    Ollama local models adapter via ollama.AsyncClient.
 
     CYNIC prefers Ollama by default:
     - Free (no API cost)
@@ -202,15 +221,28 @@ class OllamaAdapter(LLMAdapter):
     Models auto-discovered at startup via list_models().
     Best model per Dog × Task determined by benchmarking.
 
-    Uses a module-level AsyncClient singleton to avoid creating 7 TCP connections
-    per MCTS asyncio.gather() call.
+    Uses OllamaConnectionPool to cache AsyncClient instances per URL.
+    This avoids creating 7 TCP connections per MCTS asyncio.gather() call,
+    while enabling multi-instance deployment (no global state).
     """
 
     DEFAULT_URL = "http://localhost:11434"
+    _default_pool: Optional[OllamaConnectionPool] = None  # Lazy-initialized for backward compat
 
-    def __init__(self, model: str = "llama3.2", base_url: str = DEFAULT_URL) -> None:
+    def __init__(
+        self,
+        model: str = "llama3.2",
+        base_url: str = DEFAULT_URL,
+        pool: Optional[OllamaConnectionPool] = None,
+    ) -> None:
         super().__init__(model=model, provider="ollama")
         self.base_url = base_url.rstrip("/")
+        # Use provided pool, or create a default one (backward compat)
+        if pool is None:
+            if OllamaAdapter._default_pool is None:
+                OllamaAdapter._default_pool = OllamaConnectionPool()
+            pool = OllamaAdapter._default_pool
+        self.pool = pool
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
         start = time.time()
@@ -227,7 +259,7 @@ class OllamaAdapter(LLMAdapter):
                 messages.append({"role": "system", "content": request.system})
             messages.append({"role": "user", "content": request.prompt})
 
-        client = _get_ollama_client(self.base_url)
+        client = self.pool.get_client(self.base_url)
         kwargs: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
@@ -281,16 +313,16 @@ class OllamaAdapter(LLMAdapter):
 
     async def check_available(self) -> bool:
         try:
-            client = _get_ollama_client(self.base_url)
-            await asyncio.wait_for(client.list(), timeout=5.0)
+            client = self.pool.get_client(self.base_url)
+            await asyncio.wait_for(client.list(), timeout=LLM_DISCOVERY_TIMEOUT_SEC)
             return True
-        except Exception:
+        except httpx.RequestError:
             return False
 
     async def list_models(self) -> list[str]:
         """Return names of all installed Ollama models."""
         try:
-            client = _get_ollama_client(self.base_url)
+            client = self.pool.get_client(self.base_url)
             resp = await client.list()
             if isinstance(resp, dict):
                 models = resp.get("models", [])
@@ -303,7 +335,7 @@ class OllamaAdapter(LLMAdapter):
                 else:
                     result.append(getattr(m, "name", str(m)))
             return [n for n in result if n]
-        except Exception:
+        except httpx.RequestError:
             return []
 
 
@@ -330,7 +362,7 @@ class ClaudeAdapter(LLMAdapter):
     def __init__(
         self,
         model: str = "claude-sonnet-4-5-20250929",
-        api_key: str | None = None,
+        api_key: Optional[str] = None,
     ) -> None:
         super().__init__(model=model, provider="claude")
         self._api_key = api_key
@@ -379,7 +411,7 @@ class ClaudeAdapter(LLMAdapter):
                 messages=[{"role": "user", "content": "ping"}],
             )
             return True
-        except Exception:
+        except ValidationError:
             return False
 
 
@@ -400,7 +432,7 @@ class GeminiAdapter(LLMAdapter):
     def __init__(
         self,
         model: str = "gemini-1.5-flash",
-        api_key: str | None = None,
+        api_key: Optional[str] = None,
     ) -> None:
         super().__init__(model=model, provider="gemini")
         self._api_key = api_key
@@ -450,7 +482,7 @@ class GeminiAdapter(LLMAdapter):
                 genai.configure(api_key=self._api_key)
             list(genai.list_models())
             return True
-        except Exception:
+        except ValidationError:
             return False
 
 
@@ -538,8 +570,8 @@ class LLMRegistry:
         self._adapters: dict[str, LLMAdapter] = {}
         self._available: dict[str, bool] = {}
         self._benchmarks: dict[tuple[str, str, str], BenchmarkResult] = {}
-        self._db_pool: Any | None = None
-        self._surreal: Any | None = None
+        self._db_pool: Optional[Any] = None
+        self._surreal: Optional[Any] = None
 
     def set_db_pool(self, pool: Any) -> None:
         """Wire a DB pool so benchmark updates are persisted automatically."""
@@ -556,9 +588,9 @@ class LLMRegistry:
     async def discover(
         self,
         ollama_url: str = "http://localhost:11434",
-        claude_api_key: str | None = None,
-        gemini_api_key: str | None = None,
-        models_dir: str | None = None,
+        claude_api_key: Optional[str] = None,
+        gemini_api_key: Optional[str] = None,
+        models_dir: Optional[str] = None,
         llama_gpu_layers: int = -1,
         llama_threads: int = 8,
     ) -> list[str]:
@@ -651,7 +683,7 @@ class LLMRegistry:
         """Available adapters that support text generation (not embeddings-only)."""
         return [a for a in self.get_available() if self._is_generation_adapter(a)]
 
-    def get_best_for(self, dog_id: str, task_type: str) -> LLMAdapter | None:
+    def get_best_for(self, dog_id: str, task_type: str) -> Optional[LLMAdapter]:
         """
         Return best LLM for this Dog × Task.
 
@@ -664,7 +696,7 @@ class LLMRegistry:
         Embedding-only models (nomic-embed-text) are never returned here.
         """
         best_score = -1.0
-        best: LLMAdapter | None = None
+        best: Optional[LLMAdapter] = None
 
         for aid, adapter in self._adapters.items():
             if not self._available.get(aid, False):
@@ -691,7 +723,7 @@ class LLMRegistry:
         avail = self.get_available_for_generation()
         return avail[0] if avail else None
 
-    def get_for_temporal_mcts(self) -> LLMAdapter | None:
+    def get_for_temporal_mcts(self) -> Optional[LLMAdapter]:
         """
         Return best adapter for 7-parallel temporal MCTS calls.
 
@@ -745,7 +777,7 @@ class LLMRegistry:
                     0.0,   # latency_ms not tracked in BenchmarkResult
                     0.0,   # cost_usd not tracked in BenchmarkResult
                 )
-        except Exception as exc:
+        except asyncio.TimeoutError as exc:
             logger.warning("Benchmark persist failed: %s", exc)
 
     async def load_benchmarks_from_db(self, pool: Any) -> int:
@@ -764,7 +796,7 @@ class LLMRegistry:
                     FROM llm_benchmarks
                     ORDER BY created_at DESC
                 """)
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.warning("Benchmark warm-start failed: %s", exc)
             return 0
 
@@ -798,7 +830,7 @@ class LLMRegistry:
                 "sample_count":    result.sample_count,
                 "error_rate":      result.error_rate,
             })
-        except Exception as exc:
+        except asyncio.TimeoutError as exc:
             logger.warning("SurrealDB benchmark persist failed: %s", exc)
 
     async def load_benchmarks_from_surreal(self, surreal: Any) -> int:
@@ -810,7 +842,7 @@ class LLMRegistry:
         """
         try:
             rows = await surreal.benchmarks.get_all()
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.warning("SurrealDB benchmark warm-start failed: %s", exc)
             return 0
 
@@ -840,7 +872,7 @@ class LLMRegistry:
 
 
 # Singleton
-_registry: LLMRegistry | None = None
+_registry: Optional[LLMRegistry] = None
 
 
 def get_registry() -> LLMRegistry:

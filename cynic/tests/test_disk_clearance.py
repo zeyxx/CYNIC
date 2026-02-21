@@ -13,7 +13,7 @@ These tests verify the cache reset pattern and LOD recovery logic directly.
 from __future__ import annotations
 
 import pytest
-from cynic.judge.lod import (
+from cynic.cognition.cortex.lod import (
     SurvivalLOD,
     LODController,
     _DISK_LOD1, _DISK_LOD2,

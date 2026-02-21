@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\senses\workers\__init__.py
+# hypothesis_version: 6.151.9
+
+['DiskWatcher', 'GitWatcher', 'HealthWatcher', 'MarketWatcher', 'MemoryWatcher', 'PerceiveWorker', 'SelfWatcher', 'SocialWatcher', 'SolanaWatcher']

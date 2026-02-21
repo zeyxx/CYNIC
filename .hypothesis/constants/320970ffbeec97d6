@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\nervous\decision_trace.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1.0, 1000.0, 'PERCEIVE', 'avg_depth', 'avg_duration_ms', 'branching_factor', 'buffer_cap', 'buffer_size', 'by_verdict', 'confidence', 'created_at_ms', 'dog_id', 'dog_votes', 'edges', 'error_count', 'final_confidence', 'final_q_score', 'final_verdict', 'has_errors', 'judgment_id', 'last_updated_ms', 'max_depth', 'nodes', 'override', 'perceiver', 'primary', 'q_score', 'reasoning', 'role', 'stats', 'total_duration_ms', 'total_traced', 'trace_id', 'traces', 'unique_verdicts', 'voter', 'witness']

@@ -160,7 +160,7 @@ class OllamaEmbedder(EmbeddingProvider):
                     self._MAX_ERRORS, e,
                 )
             return [0.0] * self._dim
-        except Exception as e:
+        except httpx.RequestError as e:
             self._error_count += 1
             logger.debug("OllamaEmbedder error: %s", e)
             return [0.0] * self._dim

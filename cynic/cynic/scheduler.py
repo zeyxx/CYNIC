@@ -1,5 +1,5 @@
 """
-CYNIC DogScheduler — 4-Tier Concurrent Consciousness + N Workers
+CYNIC ConsciousnessRhythm — 4-Tier Concurrent Consciousness + N Workers
 
 Architecture decision (2026-02-18):
   4 = L(3) → TIERS     (operating frequency — when to think)
@@ -87,15 +87,15 @@ class PerceptionEvent:
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# DOG SCHEDULER
+# CONSCIOUSNESS RHYTHM
 # ════════════════════════════════════════════════════════════════════════════
 
-class DogScheduler:
+class ConsciousnessRhythm:
     """
     Manages 4-tier concurrent consciousness loops as N asyncio workers.
 
     Usage:
-        scheduler = DogScheduler(orchestrator)
+        scheduler = ConsciousnessRhythm(orchestrator)
         scheduler.register_perceive_worker(GitWatcher())
         scheduler.start()           # begins all tier workers + perceive workers
         # ... serve requests ...
@@ -156,7 +156,7 @@ class DogScheduler:
         Total tier workers: 11
         """
         if self._running:
-            logger.warning("DogScheduler already running — ignoring start()")
+            logger.warning("ConsciousnessRhythm already running — ignoring start()")
             return
         self._running = True
 
@@ -181,11 +181,11 @@ class DogScheduler:
         # Spawn PerceiveWorkers (autonomous sensors)
         for pw in self._perceive_workers:
             task = asyncio.ensure_future(pw.run(self.submit))
-            task.set_name(f"cynic.perceive.{pw.name}")
+            task.set_name(f"cynic.senses.{pw.name}")
             self._perceive_tasks.append(task)
 
         logger.info(
-            "DogScheduler started — %d tier workers, %d perceive workers "
+            "ConsciousnessRhythm started — %d tier workers, %d perceive workers "
             "(queues: capacity=%d)",
             total_workers, len(self._perceive_tasks), _QUEUE_CAPACITY,
         )
@@ -204,14 +204,14 @@ class DogScheduler:
 
         self._tasks.clear()
         self._perceive_tasks.clear()
-        logger.info("DogScheduler stopped")
+        logger.info("ConsciousnessRhythm stopped")
 
     # ── Submit ───────────────────────────────────────────────────────────────
 
     def submit(
         self,
         cell: Cell,
-        level: ConsciousnessLevel | None = None,
+        level: Optional[ConsciousnessLevel] = None,
         budget_usd: float = 0.05,
         source: str = "api",
     ) -> bool:
@@ -311,7 +311,7 @@ class DogScheduler:
                 if verdict in ("BARK", "GROWL"):
                     self.interrupt_micro()
                     logger.debug("REFLEX worker %d: %s anomaly → MICRO interrupt", worker_id, verdict)
-            except Exception as exc:
+            except httpx.RequestError as exc:
                 logger.warning("REFLEX worker %d error: %s", worker_id, exc)
             finally:
                 elapsed_ms = (time.perf_counter() - t0) * 1000
@@ -346,7 +346,7 @@ class DogScheduler:
                     level=ConsciousnessLevel.MICRO,
                     budget_usd=event.budget_usd,
                 )
-            except Exception as exc:
+            except httpx.RequestError as exc:
                 logger.warning("MICRO worker %d error: %s", worker_id, exc)
             finally:
                 elapsed_ms = (time.perf_counter() - t0) * 1000
@@ -380,7 +380,7 @@ class DogScheduler:
                     level=ConsciousnessLevel.MACRO,
                     budget_usd=event.budget_usd,
                 )
-            except Exception as exc:
+            except httpx.RequestError as exc:
                 logger.warning("MACRO worker %d error: %s", worker_id, exc)
             finally:
                 elapsed_ms = (time.perf_counter() - t0) * 1000
@@ -417,7 +417,7 @@ class DogScheduler:
                     )
                 else:
                     await self._meta_evolve()
-            except Exception as exc:
+            except httpx.RequestError as exc:
                 logger.warning("META loop error: %s", exc)
             finally:
                 elapsed_ms = (time.perf_counter() - t0) * 1000
@@ -432,7 +432,7 @@ class DogScheduler:
         self,
         level: ConsciousnessLevel,
         timeout: float,
-    ) -> PerceptionEvent | None:
+    ) -> Optional[PerceptionEvent]:
         """
         Wait up to `timeout` seconds for one item from the level's queue.
 
@@ -453,7 +453,7 @@ class DogScheduler:
 
     async def _meta_evolve(self) -> None:
         """Periodic evolution tick — calls orchestrator.evolve() if present."""
-        evolve_fn: Callable | None = getattr(self._orchestrator, "evolve", None)
+        evolve_fn: Optional[Callable] = getattr(self._orchestrator, "evolve", None)
         if evolve_fn is not None:
             if asyncio.iscoroutinefunction(evolve_fn):
                 await evolve_fn()

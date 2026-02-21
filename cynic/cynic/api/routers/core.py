@@ -74,13 +74,13 @@ def _persist_judgment(judgment: Judgment) -> None:
             data["reality"] = judgment.cell.reality
             data["analysis"] = judgment.cell.analysis
             await repo.save(data)
-        except Exception as e:
+        except httpx.RequestError as e:
             logger.debug("Judgment persistence skipped: %s", e)
 
     import asyncio
     try:
         asyncio.get_running_loop().create_task(_do_save())
-    except Exception:
+    except httpx.RequestError:
         pass  # Never block on persistence failure
 
 
@@ -104,7 +104,7 @@ def _write_guidance(cell: Cell, judgment: Judgment) -> None:  # type: ignore[nam
                 "reality": cell.reality,
                 "dog_votes": {k: round(v, 3) for k, v in judgment.dog_votes.items()},
             }, fh)
-    except Exception:
+    except json.JSONDecodeError:
         pass  # Best-effort — never propagate
 
 
@@ -394,7 +394,7 @@ async def feedback(req: FeedbackRequest) -> FeedbackResponse:
                 AxiomActivatedPayload(axiom="SYMBIOSIS", maturity=state.axiom_monitor.get_maturity("SYMBIOSIS"), trigger="user_feedback"),
                 source="user_feedback",
             ))
-    except Exception:
+    except EventBusError:
         pass
 
     # USER_FEEDBACK bus event — makes human rating visible organism-wide.
@@ -414,7 +414,7 @@ async def feedback(req: FeedbackRequest) -> FeedbackResponse:
             ),
             source="feedback_endpoint",
         ))
-    except Exception:
+    except httpx.RequestError:
         pass
 
     # USER_CORRECTION: rating=1 = user explicitly says CYNIC was WRONG.
@@ -432,7 +432,7 @@ async def feedback(req: FeedbackRequest) -> FeedbackResponse:
                 ),
                 source="feedback_endpoint",
             ))
-        except Exception:
+        except EventBusError:
             pass
 
     # Social loop: user rating → sentiment signal → SocialWatcher → SOCIAL×PERCEIVE

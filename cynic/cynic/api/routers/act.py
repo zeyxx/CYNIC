@@ -7,10 +7,11 @@ import logging
 from typing import Any
 
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from cynic.act.telemetry import classify_task, compute_reward
-from cynic.api.state import get_state
+from cynic.core.formulas import CONFIDENCE_ENRICHMENT_MIN_THRESHOLD
+from cynic.metabolism.telemetry import classify_task, compute_reward
+from cynic.api.state import get_app_container, AppContainer
 
 logger = logging.getLogger("cynic.api.server")
 
@@ -41,17 +42,17 @@ def _enrich_prompt(prompt: str, state) -> str:
 
     try:
         context_summary = state.context_compressor.get_compressed_context(budget=200)
-    except Exception:
+    except httpx.RequestError:
         context_summary = ""
 
     # Skip enrichment if nothing useful yet (cold start)
-    if not context_summary and confidence < 0.10:
+    if not context_summary and confidence < CONFIDENCE_ENRICHMENT_MIN_THRESHOLD:
         return prompt
 
     lines = ["# CYNIC Context (kernel guidance)"]
     if context_summary:
         lines.append(f"## Session history\n{context_summary}")
-    if confidence >= 0.10:
+    if confidence >= CONFIDENCE_ENRICHMENT_MIN_THRESHOLD:
         lines.append(
             f"## Learned guidance\n"
             f"Task type: {task_type} | Suggested approach: {best_action} "
@@ -66,7 +67,10 @@ def _enrich_prompt(prompt: str, state) -> str:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_act.post("/act/execute")
-async def act_execute(body: dict[str, Any]) -> dict[str, Any]:
+async def act_execute(
+    body: dict[str, Any],
+    container: AppContainer = Depends(get_app_container),
+) -> dict[str, Any]:
     """
     CYNIC executes a task by spawning Claude Code autonomously.
 
@@ -81,7 +85,7 @@ async def act_execute(body: dict[str, Any]) -> dict[str, Any]:
     This is the ACT phase of the PERCEIVE → JUDGE → DECIDE → ACT cycle.
     No human needed — CYNIC does it entirely.
     """
-    state = get_state()
+    state = container.organism
 
     if state.runner is None:
         raise HTTPException(
@@ -129,6 +133,7 @@ async def act_execute(body: dict[str, Any]) -> dict[str, Any]:
 async def act_telemetry(
     n: int = Query(default=10, ge=1, le=100),
     export: bool = Query(default=False),
+    container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
     """
     Session telemetry — CYNIC's learning measurement layer.
@@ -147,7 +152,7 @@ async def act_telemetry(
 
     Research use: GET /act/telemetry?export=true → download for H1-H5 analysis
     """
-    state = get_state()
+    state = container.organism
     store = state.telemetry_store
 
     result = {

@@ -36,7 +36,7 @@ class DependencyContainer:
     Circular dependency detection prevents infinite loops.
     """
 
-    def __init__(self, config: CynicConfig | None = None) -> None:
+    def __init__(self, config: Optional[CynicConfig] = None) -> None:
         self.config = config or CynicConfig()
         self._instances: dict[type, Any] = {}
         self._factories: dict[type, Callable[[DependencyContainer], Any]] = {}

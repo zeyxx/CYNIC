@@ -209,7 +209,7 @@ class TestEventTypedIntegration:
                 instance = cls()
                 dumped = instance.model_dump()
                 assert isinstance(dumped, dict), f"{cls.__name__}.model_dump() must return dict"
-            except Exception as exc:
+            except ValidationError as exc:
                 pytest.fail(f"{cls.__name__} cannot be constructed with defaults: {exc}")
 
 

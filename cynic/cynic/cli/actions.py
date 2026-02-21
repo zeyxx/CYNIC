@@ -142,7 +142,7 @@ def cmd_watch() -> None:
     while True:
         try:
             pending, api_ok = _pending_actions()
-        except Exception:
+        except CynicError:
             pending, api_ok = [], False
 
         current_ids = {a.get("action_id") for a in pending}

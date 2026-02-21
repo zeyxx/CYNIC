@@ -168,7 +168,7 @@ class EScoreTracker:
         entity_id: str,
         dimension: str,
         value: float,
-        reality: str | None = None,
+        reality: Optional[str] = None,
     ) -> float:
         """
         Record a new score observation for an entity.
@@ -344,7 +344,7 @@ class EScoreTracker:
                         get_v("RUN"), get_v("SOCIAL"), get_v("GRAPH"), get_v("HOLD"),
                     )
                     written += 1
-                except Exception as exc:
+                except httpx.RequestError as exc:
                     logger.debug("EScore persist failed for %s: %s", entity_id, exc)
 
         logger.info("EScoreTracker: persisted %d entities to DB", written)
@@ -382,7 +382,7 @@ class EScoreTracker:
             count = len(rows)
             logger.info("EScoreTracker: restored %d entities from DB", count)
             return count
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.warning("EScoreTracker restore failed: %s", exc)
             return 0
 

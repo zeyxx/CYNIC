@@ -21,14 +21,15 @@ import time
 from typing import Any
 
 from cynic.chat.tools import ToolCall, ToolResult, DANGEROUS_TOOLS
+from cynic.core.formulas import BASH_OUTPUT_CAP, READ_FILE_CAP, GLOB_MATCH_CAP, GREP_OUTPUT_CAP
 
 logger = logging.getLogger("cynic.chat.executor")
 
-# Output caps (prevent LLM context overflow)
-_BASH_CAP = 8192
-_READ_CAP = 16384
-_GLOB_CAP = 4096
-_GREP_CAP = 4096
+# Output caps imported from formulas.py (centralized constants)
+_BASH_CAP = BASH_OUTPUT_CAP
+_READ_CAP = READ_FILE_CAP
+_GLOB_CAP = GLOB_MATCH_CAP
+_GREP_CAP = GREP_OUTPUT_CAP
 
 
 class ToolExecutor:
@@ -41,7 +42,7 @@ class ToolExecutor:
 
     def __init__(
         self,
-        cwd: str | None = None,
+        cwd: Optional[str] = None,
         orchestrator: Any = None,
     ) -> None:
         self.cwd = cwd or os.getcwd()
@@ -80,14 +81,14 @@ class ToolExecutor:
                 output=output,
                 duration_ms=(time.time() - start) * 1000,
             )
-        except Exception as exc:
+        except CynicError as exc:
             return ToolResult(
                 call=call,
                 error=str(exc),
                 duration_ms=(time.time() - start) * 1000,
             )
 
-    async def _judge_before_execute(self, call: ToolCall) -> ToolResult | None:
+    async def _judge_before_execute(self, call: ToolCall) -> Optional[ToolResult]:
         """Run REFLEX judgment on dangerous tools. Returns ToolResult if blocked, None if OK."""
         try:
             from cynic.core.judgment import Cell
@@ -112,7 +113,7 @@ class ToolExecutor:
                 )
             # Not blocked — proceed with execution
             return None
-        except Exception as exc:
+        except OSError as exc:
             logger.debug("REFLEX judgment skipped: %s", exc)
             return None  # Fail open — don't block on judgment errors
 
@@ -171,7 +172,7 @@ class ToolExecutor:
             result = result[:_BASH_CAP] + f"\n... (truncated, {len(result)} total chars)"
         return result or "(no output)"
 
-    async def _exec_read(self, path: str, offset: int | None = None, limit: int | None = None) -> str:
+    async def _exec_read(self, path: str, offset: Optional[int] = None, limit: Optional[int] = None) -> str:
         if not path:
             raise ValueError("Path required")
         resolved = self._resolve_path(path)
@@ -183,7 +184,7 @@ class ToolExecutor:
         return content
 
     @staticmethod
-    def _sync_read(path: str, offset: int | None, limit: int | None) -> str:
+    def _sync_read(path: str, offset: Optional[int], limit: Optional[int]) -> str:
         with open(path, encoding="utf-8", errors="replace") as fh:
             lines = fh.readlines()
 
@@ -241,7 +242,7 @@ class ToolExecutor:
             fh.write(new_content)
         return f"Edited {path} (1 replacement)"
 
-    async def _exec_glob(self, pattern: str, path: str | None = None) -> str:
+    async def _exec_glob(self, pattern: str, path: Optional[str] = None) -> str:
         if not pattern:
             raise ValueError("Pattern required")
         base = pathlib.Path(self._resolve_path(path) if path else self.cwd)
@@ -258,7 +259,7 @@ class ToolExecutor:
             result = result[:_GLOB_CAP] + f"\n... ({len(matches)} total matches)"
         return result
 
-    async def _exec_grep(self, pattern: str, path: str | None = None, glob_filter: str | None = None) -> str:
+    async def _exec_grep(self, pattern: str, path: Optional[str] = None, glob_filter: Optional[str] = None) -> str:
         if not pattern:
             raise ValueError("Pattern required")
         base = self._resolve_path(path) if path else self.cwd
@@ -269,7 +270,7 @@ class ToolExecutor:
         except FileNotFoundError:
             return await self._grep_python(pattern, base, glob_filter)
 
-    async def _grep_rg(self, pattern: str, path: str, glob_filter: str | None) -> str:
+    async def _grep_rg(self, pattern: str, path: str, glob_filter: Optional[str]) -> str:
         cmd = ["rg", "--no-heading", "-n", "--max-count", "50", pattern, path]
         if glob_filter:
             cmd.extend(["--glob", glob_filter])
@@ -285,7 +286,7 @@ class ToolExecutor:
             result = result[:_GREP_CAP] + "\n... (truncated)"
         return result
 
-    async def _grep_python(self, pattern: str, path: str, glob_filter: str | None) -> str:
+    async def _grep_python(self, pattern: str, path: str, glob_filter: Optional[str]) -> str:
         """Fallback grep using Python re module."""
         base = pathlib.Path(path)
         regex = re.compile(pattern)
@@ -307,7 +308,7 @@ class ToolExecutor:
                     continue
                 try:
                     text = fp.read_text(encoding="utf-8", errors="replace")
-                except Exception:
+                except httpx.RequestError:
                     continue
                 for i, line in enumerate(text.splitlines(), 1):
                     if regex.search(line):

@@ -41,19 +41,19 @@ def build_minimal_orchestrator():
     basé sur règles et heuristiques.
     """
     from cynic.core.axioms import AxiomArchitecture
-    from cynic.dogs.base import DogId
-    from cynic.dogs.cynic_dog import CynicDog
-    from cynic.dogs.guardian import GuardianDog
-    from cynic.dogs.analyst import AnalystDog
-    from cynic.dogs.janitor import JanitorDog
-    from cynic.dogs.architect import ArchitectDog
-    from cynic.dogs.oracle import OracleDog
-    from cynic.dogs.sage import SageDog
-    from cynic.dogs.scholar import ScholarDog
-    from cynic.dogs.cartographer import CartographerDog
-    from cynic.dogs.deployer import DeployerDog
-    from cynic.dogs.scout import ScoutDog
-    from cynic.judge.orchestrator import JudgeOrchestrator
+    from cynic.cognition.neurons.base import DogId
+    from cynic.cognition.neurons.cynic_dog import CynicDog
+    from cynic.cognition.neurons.guardian import GuardianDog
+    from cynic.cognition.neurons.analyst import AnalystDog
+    from cynic.cognition.neurons.janitor import JanitorDog
+    from cynic.cognition.neurons.architect import ArchitectDog
+    from cynic.cognition.neurons.oracle import OracleDog
+    from cynic.cognition.neurons.sage import SageDog
+    from cynic.cognition.neurons.scholar import ScholarDog
+    from cynic.cognition.neurons.cartographer import CartographerDog
+    from cynic.cognition.neurons.deployer import DeployerDog
+    from cynic.cognition.neurons.scout import ScoutDog
+    from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
     from cynic.learning.qlearning import QTable
 
     cynic_dog = CynicDog()
@@ -226,7 +226,7 @@ def print_report(per_probe: Dict[str, Any], n_runs: int) -> None:
         p1_tight = max(p0 - 0.10, 0.01)
         n_tight = proportion_test_n(p0, p1_tight, alpha=0.05, power=0.80)
         print(f"    Required (Δ=-10%)      : {n_tight}  (+5 → {n_tight+5})")
-    except Exception as e:
+    except ValidationError as e:
         print(f"    [scipy error: {e}]")
 
     # ── φ validation ─────────────────────────────────────────────────────────

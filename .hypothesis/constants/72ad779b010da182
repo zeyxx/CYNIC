@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\cortex\action_proposer.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.5, 100.0, 120, 1000, '.cynic', 'ACCEPTED', 'ALERT', 'AUTO_EXECUTED', 'BARK', 'CODE', 'COMPLETED', 'CYNIC', 'FAILED', 'IMPROVE', 'INVESTIGATE', 'JUDGE', 'MONITOR', 'PENDING', 'REFACTOR', 'REJECTED', 'UNKNOWN', 'accepted', 'action_prompt', 'action_proposer', 'auto_executed', 'chain_depth', 'completed', 'content_preview', 'dimension', 'failed', 'generated_by', 'judgment_id', 'parent_action_id', 'pending', 'pending_actions.json', 'probe_id', 'proposed_at', 'proposed_total', 'q_value', 'queue_size', 'reality', 'recommendation', 'recommended_action', 'rejected', 'severity', 'state_key', 'target', 'unknown', 'utf-8', 'w', '~']

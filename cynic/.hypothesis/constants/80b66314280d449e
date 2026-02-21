@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\neurons\deployer.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.5, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0, 1000, 2000, '#', '=<REDACTED>', 'ACT', 'CODE', 'CYNIC', 'DECIDE', 'JUDGE', 'NotImplementedError', 'SOLANA', '\\bbreakpoint\\s*\\(', '\\bprint\\s*\\(', '\\bsys\\.exit\\s*\\(', 'breakpoint', 'cell_novelty', 'cell_reality', 'cell_risk', 'code', 'content', 'debug_artifacts', 'deployment', 'fallback', 'hardcoded_secrets', 'has_main_guard', 'ipdb', 'lines', 'missing-main-guard', 'no-code-extracted', 'pdb', 'source', 'stubs', 'text', 'todo_markers', 'total_penalty', 'violations']

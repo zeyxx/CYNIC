@@ -7,7 +7,7 @@ Time manipulation via direct reset_at assignment (standard pattern).
 import time
 import pytest
 
-from cynic.act.budget import ActionBudget, HOURLY_CAP_TOKENS
+from cynic.metabolism.budget import ActionBudget, HOURLY_CAP_TOKENS
 
 
 class TestActionBudget:

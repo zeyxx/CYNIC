@@ -12,19 +12,19 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from cynic.core.phi import MAX_Q_SCORE, PHI_INV, PHI_INV_2
-from cynic.judge.residual import ResidualPoint
+from cynic.cognition.cortex.residual import ResidualPoint
 from cynic.core.judgment import Cell, Judgment
 from cynic.core.axioms import AxiomArchitecture
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.event_bus import get_core_bus, reset_all_buses, Event, CoreEvent
 from cynic.core.axioms import verdict_from_q_score
-from cynic.dogs.base import DogId
-from cynic.dogs.cynic_dog import CynicDog
-from cynic.dogs.guardian import GuardianDog
-from cynic.dogs.analyst import AnalystDog
-from cynic.dogs.janitor import JanitorDog
-from cynic.judge.orchestrator import JudgeOrchestrator
-from cynic.judge.residual import ResidualDetector, ResidualPattern, ANOMALY_THRESHOLD, STABLE_HIGH_N
+from cynic.cognition.neurons.base import DogId
+from cynic.cognition.neurons.cynic_dog import CynicDog
+from cynic.cognition.neurons.guardian import GuardianDog
+from cynic.cognition.neurons.analyst import AnalystDog
+from cynic.cognition.neurons.janitor import JanitorDog
+from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
+from cynic.cognition.cortex.residual import ResidualDetector, ResidualPattern, ANOMALY_THRESHOLD, STABLE_HIGH_N
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -547,7 +547,7 @@ class TestResidualStatsEndpoint:
 
     def test_stats_history_len_capped_at_maxlen(self):
         """Loading more entries than HISTORY_MAXLEN caps history_len at 21."""
-        from cynic.judge.residual import HISTORY_MAXLEN
+        from cynic.cognition.cortex.residual import HISTORY_MAXLEN
         det = ResidualDetector()
         entries = [_make_row(f"j{i}", residual=0.1) for i in range(HISTORY_MAXLEN + 5)]
         det.load_from_entries(entries)

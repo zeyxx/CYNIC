@@ -14,7 +14,7 @@ import random
 import pytest
 
 from cynic.core.phi import PHI, PHI_2, MAX_Q_SCORE
-from cynic.judge.mcts_benchmark import (
+from cynic.cognition.cortex.mcts_benchmark import (
     SearchProblem,
     MCTSNode,
     MCTSVariant,

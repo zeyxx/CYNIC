@@ -182,7 +182,7 @@ class TestFastTemporalContext:
 
 class TestSageCompressedContext:
     def _make_sage_with_mock_adapter(self):
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         sage = SageDog()
         mock_adapter = MagicMock()
         mock_adapter.adapter_id = "mock-haiku"
@@ -260,8 +260,8 @@ class TestSageCompressedContext:
 def _make_orchestrator():
     from cynic.core.axioms import AxiomArchitecture
     from cynic.core.heuristic_scorer import HeuristicFacetScorer
-    from cynic.dogs.cynic_dog import CynicDog
-    from cynic.judge.orchestrator import JudgeOrchestrator
+    from cynic.cognition.neurons.cynic_dog import CynicDog
+    from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
     cynic_dog = CynicDog()
     arch = AxiomArchitecture(facet_scorer=HeuristicFacetScorer())
     return JudgeOrchestrator(dogs={}, axiom_arch=arch, cynic_dog=cynic_dog)

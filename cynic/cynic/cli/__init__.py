@@ -14,7 +14,9 @@ Usage:
   python -m cynic.cli execute ID → accept + execute a pending action (L1 closure)
   python -m cynic.cli sdk [N]  → last N SDK sessions (L2 bidirectional loop)
   python -m cynic.cli consciousness → TUI dashboard (Ring 3 unified metathinking)
+  python -m cynic.cli dashboard     → Health Dashboard (8 breathing checks + 7×7 matrix)
   python -m cynic.cli chat          → interactive coding assistant (CYNIC Code)
+  python -m cynic.cli perceive-watch → real git PERCEIVE + JUDGE loop (Phase 2)
 
 Reads from (fastest path — no server needed):
   ~/.cynic/guidance.json        → last judgment verdict/Q/dogs
@@ -45,6 +47,10 @@ from cynic.cli.sdk import cmd_sdk
 from cynic.cli.consciousness import cmd_consciousness
 from cynic.cli.tui import cmd_tui
 from cynic.cli.chat import cmd_chat
+from cynic.cli.perceive_watch import cmd_perceive_watch
+from cynic.cli.full_loop import cmd_full_loop
+from cynic.cli.battles import cmd_battles
+from cynic.cli.dashboard import cmd_dashboard
 from cynic.cli.utils import _c
 
 # Re-export PORT/API constants for any consumer that might need them
@@ -64,6 +70,10 @@ __all__ = [
     "cmd_consciousness",
     "cmd_tui",
     "cmd_chat",
+    "cmd_perceive_watch",
+    "cmd_full_loop",
+    "cmd_battles",
+    "cmd_dashboard",
     "main",
 ]
 
@@ -86,6 +96,10 @@ def main() -> None:
         "consciousness": cmd_consciousness,
         "tui":           cmd_tui,
         "chat":          cmd_chat,
+        "perceive-watch": cmd_perceive_watch,
+        "full-loop":     cmd_full_loop,
+        "battles":       cmd_battles,
+        "dashboard":     cmd_dashboard,
     }
 
     fn = dispatch.get(cmd)

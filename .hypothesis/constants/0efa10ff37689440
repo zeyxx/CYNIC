@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\metabolism\universal.py
+# hypothesis_version: 6.151.9
+
+[0.0, 15.0, 30.0, 60.0, 1000, '--delete', '--force', '--hard', '--push', '-f', 'Empty args list', 'action_type', 'args', 'base', 'bash', 'branch', 'cwd', 'diff', 'duration_ms', 'error', 'error_count', 'git', 'git_read', 'log', 'output', 'replace', 'show', 'status', 'strategies', 'subcommand', 'success', 'success_count', 'timeout', 'timestamp', 'total_executed', 'utf-8']

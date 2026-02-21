@@ -8,7 +8,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from cynic.core.embeddings import DummyEmbedder, OllamaEmbedder
-from cynic.dogs.scholar import ScholarDog
+from cynic.cognition.neurons.scholar import ScholarDog
 from cynic.core.judgment import Cell
 
 
@@ -136,7 +136,7 @@ class TestScholarDogPGVector:
         scholar._db_pool = mock_pool
 
         # Mock ScholarRepository.search_similar_by_embedding to return empty
-        with patch("cynic.dogs.scholar.ScholarDog._vector_search_path", new_callable=AsyncMock) as mock_vsp:
+        with patch("cynic.cognition.neurons.scholar.ScholarDog._vector_search_path", new_callable=AsyncMock) as mock_vsp:
             mock_vsp.return_value = None  # Vector search returns None → fall back to TF-IDF
             cell = self._make_cell()
             scholar._buffer = []  # Empty buffer for TF-IDF fallback
@@ -182,15 +182,17 @@ class TestScholarDogPGVector:
              "ts": 0.0, "similarity": 0.7},
         ]
 
-        with patch("cynic.core.storage.postgres.ScholarRepository.search_similar_by_embedding",
-                   new_callable=AsyncMock) as mock_search:
-            mock_search.return_value = mock_results
-            cell = self._make_cell()
-            start = 0.0
-            import time
-            start = time.perf_counter()
+        # Mock ScholarDog._scholar_repo directly (what the code actually uses)
+        mock_repo = AsyncMock()
+        mock_repo.search_similar_by_embedding = AsyncMock(return_value=mock_results)
+        scholar._scholar_repo = mock_repo
 
-            judgment = await scholar._vector_search_path(cell, "test text", start)
+        cell = self._make_cell()
+        start = 0.0
+        import time
+        start = time.perf_counter()
+
+        judgment = await scholar._vector_search_path(cell, "test text", start)
 
         assert judgment is not None
         # Weighted q: (70*0.9 + 80*0.7) / (0.9+0.7) = (63+56)/1.6 = 74.375

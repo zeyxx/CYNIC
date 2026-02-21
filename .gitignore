@@ -98,6 +98,7 @@ id.json
 # Claude Code local settings
 .claude/settings.local.json
 .claude/memory/
+.claude/worktrees/
 
 # Temporary build scripts
 docker-build.bat

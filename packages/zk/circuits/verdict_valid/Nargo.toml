@@ -1,7 +1,0 @@
-[package]
-name = "verdict_valid"
-type = "bin"
-authors = ["CYNIC"]
-compiler_version = ">=1.0.0"
-
-[dependencies]

@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\handlers\services.py
+# hypothesis_version: 6.151.9
+
+[200, 'ACTIVE', 'DOWN', 'UP', 'lod_controller']

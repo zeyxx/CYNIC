@@ -27,9 +27,6 @@ from cynic.core.storage.surreal import (
     _rec,
     _rows,
     _safe_id,
-    close_storage,
-    get_storage,
-    init_storage,
 )
 
 
@@ -703,7 +700,7 @@ class TestLoadFromEntriesWiring:
     @pytest.mark.asyncio
     async def test_residual_load_from_entries_uses_surreal_data(self):
         """ResidualDetector.load_from_entries() accepts SurrealDB ResidualRepo.recent() output."""
-        from cynic.judge.residual import ResidualDetector
+        from cynic.cognition.cortex.residual import ResidualDetector
 
         surreal_rows = [
             {
@@ -733,7 +730,7 @@ class TestLoadFromEntriesWiring:
     @pytest.mark.asyncio
     async def test_scholar_load_from_entries_uses_surreal_data(self):
         """ScholarDog.load_from_entries() accepts SurrealDB ScholarRepo.recent_entries() output."""
-        from cynic.dogs.scholar import ScholarDog
+        from cynic.cognition.neurons.scholar import ScholarDog
 
         surreal_rows = [
             {"cell_id": "c1", "cell_text": "def foo(): pass", "q_score": 65.0, "reality": "CODE", "ts": 1.0},
@@ -744,117 +741,3 @@ class TestLoadFromEntriesWiring:
         loaded = scholar.load_from_entries(surreal_rows)
         assert loaded == 2
         assert len(scholar._buffer) == 2
-
-
-# ════════════════════════════════════════════════════════════════════════════
-# T02: init_storage / get_storage / close_storage singleton lifecycle (T02)
-# ════════════════════════════════════════════════════════════════════════════
-
-class TestStorageSingleton:
-    """
-    Tests for init_storage / get_storage / close_storage lifecycle (T02).
-
-    Uses a mock SurrealStorage so no real SurrealDB is required.
-    Each test resets the singleton before and after to avoid cross-test pollution.
-    """
-
-    @pytest.fixture(autouse=True)
-    def reset_singleton(self):
-        """Reset the module-level singleton before and after each test (no I/O)."""
-        import cynic.core.storage.surreal as _sm
-        _sm._storage = None
-        yield
-        _sm._storage = None
-
-    def _make_mock_storage(self) -> SurrealStorage:
-        storage = SurrealStorage(
-            url="ws://localhost:8080/rpc",
-            user="root",
-            password="mock",
-            namespace="cynic",
-            database="cynic",
-        )
-        conn = _mock_db()
-        conn.close = AsyncMock()  # ensure close() is awaitable
-        storage._conn = conn
-        return storage
-
-    def test_get_storage_raises_when_not_initialized(self):
-        """get_storage() raises RuntimeError when init_storage() has not been called."""
-        with pytest.raises(RuntimeError, match="not initialized"):
-            get_storage()
-
-    @pytest.mark.asyncio
-    async def test_init_storage_sets_singleton(self, monkeypatch):
-        """init_storage() sets the module-level singleton accessible via get_storage()."""
-        mock_storage = self._make_mock_storage()
-
-        async def _mock_create(**kwargs):
-            return mock_storage
-
-        import cynic.core.storage.surreal as _surreal_mod
-        monkeypatch.setattr(_surreal_mod.SurrealStorage, "create", _mock_create)
-
-        result = await init_storage(url="ws://localhost:8080/rpc")
-        assert result is mock_storage
-        assert get_storage() is mock_storage
-
-    @pytest.mark.asyncio
-    async def test_close_storage_clears_singleton(self, monkeypatch):
-        """close_storage() clears the singleton so get_storage() raises again."""
-        mock_storage = self._make_mock_storage()
-        mock_storage.close = AsyncMock()
-
-        async def _mock_create(**kwargs):
-            return mock_storage
-
-        import cynic.core.storage.surreal as _surreal_mod
-        monkeypatch.setattr(_surreal_mod.SurrealStorage, "create", _mock_create)
-
-        await init_storage(url="ws://localhost:8080/rpc")
-        assert get_storage() is mock_storage  # initialized
-
-        await close_storage()
-        with pytest.raises(RuntimeError):
-            get_storage()  # cleared
-
-    @pytest.mark.asyncio
-    async def test_close_storage_noop_when_not_initialized(self):
-        """close_storage() is safe to call when no singleton is set."""
-        await close_storage()  # should not raise
-
-    @pytest.mark.asyncio
-    async def test_health_storage_field_reflects_surreal_status(self, monkeypatch):
-        """
-        /health returns storage={"surreal": "connected"} when singleton is set,
-        "disconnected" when not.
-
-        Tests the health-endpoint logic path directly without full lifespan.
-        """
-        import cynic.core.storage.surreal as _surreal_mod
-
-        # Case 1: singleton NOT set → disconnected
-        status_before: dict = {}
-        try:
-            _surreal_mod.get_storage()
-            status_before["surreal"] = "connected"
-        except RuntimeError:
-            status_before["surreal"] = "disconnected"
-        assert status_before["surreal"] == "disconnected"
-
-        # Case 2: singleton SET → connected
-        mock_storage = self._make_mock_storage()
-
-        async def _mock_create(**kwargs):
-            return mock_storage
-
-        monkeypatch.setattr(_surreal_mod.SurrealStorage, "create", _mock_create)
-        await init_storage(url="ws://localhost:8080/rpc")
-
-        status_after: dict = {}
-        try:
-            _surreal_mod.get_storage()
-            status_after["surreal"] = "connected"
-        except RuntimeError:
-            status_after["surreal"] = "disconnected"
-        assert status_after["surreal"] == "connected"

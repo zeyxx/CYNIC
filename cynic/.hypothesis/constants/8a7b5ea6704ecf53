@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\neurons\dog_state.py
+# hypothesis_version: 6.151.9
+
+[0.0, 'cognition', 'dog_id', 'executed_count', 'gossip_peers', 'is_active', 'judgment_count', 'last_judgment_at', 'last_q_score', 'last_verdict', 'memory', 'metabolism', 'time']

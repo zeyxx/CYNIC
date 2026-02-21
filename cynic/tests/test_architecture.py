@@ -178,10 +178,10 @@ class TestInterfaceCompliance:
         for path in dogs_dir.glob("*.py"):
             if path.name.startswith("_"):
                 continue
-            mod_name = f"cynic.dogs.{path.stem}"
+            mod_name = f"cynic.cognition.neurons.{path.stem}"
             try:
                 importlib.import_module(mod_name)
-            except Exception:
+            except httpx.RequestError:
                 pass
 
         result = []
@@ -193,7 +193,7 @@ class TestInterfaceCompliance:
 
     def test_all_dogs_implement_analyze(self):
         """Every concrete AbstractDog subclass must implement analyze()."""
-        from cynic.dogs.base import AbstractDog
+        from cynic.cognition.neurons.base import AbstractDog
         subclasses = self._get_all_subclasses(AbstractDog)
         assert len(subclasses) >= 10, (
             f"Expected at least 10 dog implementations, found {len(subclasses)}: "
@@ -206,7 +206,7 @@ class TestInterfaceCompliance:
 
     def test_all_dogs_have_dog_id_in_enum(self):
         """Every concrete dog's dog_id should correspond to a DogId enum value."""
-        from cynic.dogs.base import AbstractDog, DogId
+        from cynic.cognition.neurons.base import AbstractDog, DogId
         subclasses = self._get_all_subclasses(AbstractDog)
         valid_ids = set(DogId)
         for cls in subclasses:
@@ -231,7 +231,7 @@ class TestInterfaceCompliance:
                 continue
             try:
                 importlib.import_module(f"cynic.llm.{path.stem}")
-            except Exception:
+            except asyncio.TimeoutError:
                 pass
 
         for sub in LLMAdapter.__subclasses__():
@@ -256,9 +256,9 @@ class TestInterfaceCompliance:
             if path.name.startswith("_"):
                 continue
             try:
-                mod = importlib.import_module(f"cynic.perceive.workers.{path.stem}")
+                mod = importlib.import_module(f"cynic.senses.workers.{path.stem}")
                 worker_modules.append((path.stem, mod))
-            except Exception:
+            except CynicError:
                 pass
 
         # At least some workers should exist
@@ -301,7 +301,7 @@ class TestStructuralInvariants:
 
     def test_dog_ids_match_enum(self):
         """DogId enum should have exactly 11 members."""
-        from cynic.dogs.base import DogId
+        from cynic.cognition.neurons.base import DogId
         assert len(DogId) == 11, f"Expected 11 DogIds, got {len(DogId)}"
 
     def test_phi_constants_consistent(self):

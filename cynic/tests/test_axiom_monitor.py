@@ -7,7 +7,7 @@ No LLM, no DB.
 from __future__ import annotations
 
 import pytest
-from cynic.judge.axiom_monitor import (
+from cynic.cognition.cortex.axiom_monitor import (
     AxiomMonitor,
     AxiomState,
     EMERGENT_AXIOMS,
@@ -186,9 +186,9 @@ class TestAxiomBudgetMultiplier:
     def _make_orchestrator_with_monitor(self, monitor):
         """Build a minimal orchestrator with injected axiom_monitor."""
         from unittest.mock import MagicMock
-        from cynic.judge.orchestrator import JudgeOrchestrator
+        from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
         from cynic.core.axioms import AxiomArchitecture
-        from cynic.dogs.cynic_dog import CynicDog
+        from cynic.cognition.neurons.cynic_dog import CynicDog
         arch = AxiomArchitecture()
         cynic_dog = MagicMock(spec=CynicDog)
         orch = JudgeOrchestrator(dogs={}, axiom_arch=arch, cynic_dog=cynic_dog)
@@ -196,10 +196,10 @@ class TestAxiomBudgetMultiplier:
         return orch
 
     def test_no_monitor_multiplier_is_one(self):
-        from cynic.judge.orchestrator import JudgeOrchestrator
+        from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
         from cynic.core.axioms import AxiomArchitecture
         from unittest.mock import MagicMock
-        from cynic.dogs.cynic_dog import CynicDog
+        from cynic.cognition.neurons.cynic_dog import CynicDog
         arch = AxiomArchitecture()
         orch = JudgeOrchestrator(dogs={}, axiom_arch=arch, cynic_dog=MagicMock(spec=CynicDog))
         assert orch.axiom_monitor is None
@@ -259,9 +259,9 @@ class TestBudgetEnforcement:
 
     def _make_orchestrator(self):
         from unittest.mock import MagicMock
-        from cynic.judge.orchestrator import JudgeOrchestrator
+        from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
         from cynic.core.axioms import AxiomArchitecture
-        from cynic.dogs.cynic_dog import CynicDog
+        from cynic.cognition.neurons.cynic_dog import CynicDog
         arch = AxiomArchitecture()
         cynic_dog = MagicMock(spec=CynicDog)
         return JudgeOrchestrator(dogs={}, axiom_arch=arch, cynic_dog=cynic_dog)
@@ -282,7 +282,8 @@ class TestBudgetEnforcement:
         orch.on_budget_exhausted()
         assert orch._budget_exhausted is True
 
-    def test_select_level_reflex_when_exhausted(self):
+    @pytest.mark.asyncio
+    async def test_select_level_reflex_when_exhausted(self):
         from cynic.core.consciousness import ConsciousnessLevel
         from cynic.core.judgment import Cell
         orch = self._make_orchestrator()
@@ -292,10 +293,11 @@ class TestBudgetEnforcement:
             content="test", context="", risk=0.5, complexity=0.5,
             budget_usd=1.0, consciousness=5,  # would be MACRO without budget flag
         )
-        level = orch._select_level(cell, 1.0)
+        level = await orch._select_level(cell, 1.0)
         assert level == ConsciousnessLevel.REFLEX
 
-    def test_select_level_capped_at_micro_under_stress(self):
+    @pytest.mark.asyncio
+    async def test_select_level_capped_at_micro_under_stress(self):
         from cynic.core.consciousness import ConsciousnessLevel
         from cynic.core.judgment import Cell
         orch = self._make_orchestrator()
@@ -305,11 +307,12 @@ class TestBudgetEnforcement:
             content="test", context="", risk=0.5, complexity=0.5,
             budget_usd=1.0, consciousness=5,  # would be MACRO without stress
         )
-        level = orch._select_level(cell, 1.0)
+        level = await orch._select_level(cell, 1.0)
         assert level in (ConsciousnessLevel.MICRO, ConsciousnessLevel.REFLEX)
         assert level != ConsciousnessLevel.MACRO
 
-    def test_exhausted_overrides_stress(self):
+    @pytest.mark.asyncio
+    async def test_exhausted_overrides_stress(self):
         """Exhausted takes priority over stress flag."""
         from cynic.core.consciousness import ConsciousnessLevel
         from cynic.core.judgment import Cell
@@ -321,7 +324,7 @@ class TestBudgetEnforcement:
             content="test", context="", risk=0.5, complexity=0.5,
             budget_usd=1.0, consciousness=5,
         )
-        level = orch._select_level(cell, 1.0)
+        level = await orch._select_level(cell, 1.0)
         assert level == ConsciousnessLevel.REFLEX
 
 
@@ -800,7 +803,7 @@ class TestJudgmentRequestedLoop:
 
     def _worst_lod(self, queue_depth: int):
         """Use HealthMetrics.worst_lod() — pure computation, no hysteresis."""
-        from cynic.judge.lod import HealthMetrics
+        from cynic.cognition.cortex.lod import HealthMetrics
         m = HealthMetrics(
             error_rate=0.0, latency_ms=0.0,
             queue_depth=queue_depth, memory_pct=0.0, disk_pct=0.0,
@@ -809,27 +812,27 @@ class TestJudgmentRequestedLoop:
 
     def test_zero_queue_stays_full(self):
         """queue=0 → LOD stays FULL (no degradation)."""
-        from cynic.judge.lod import SurvivalLOD
+        from cynic.cognition.cortex.lod import SurvivalLOD
         assert self._worst_lod(0) == SurvivalLOD.FULL
 
     def test_reduced_threshold_triggers_reduced(self):
         """queue=F(9)=34 → LOD degrades to REDUCED."""
-        from cynic.judge.lod import SurvivalLOD, _QUEUE_LOD1
+        from cynic.cognition.cortex.lod import SurvivalLOD, _QUEUE_LOD1
         assert self._worst_lod(_QUEUE_LOD1) == SurvivalLOD.REDUCED
 
     def test_emergency_threshold_triggers_emergency(self):
         """queue=F(11)=89 → LOD degrades to EMERGENCY."""
-        from cynic.judge.lod import SurvivalLOD, _QUEUE_LOD2
+        from cynic.cognition.cortex.lod import SurvivalLOD, _QUEUE_LOD2
         assert self._worst_lod(_QUEUE_LOD2) == SurvivalLOD.EMERGENCY
 
     def test_minimal_threshold_triggers_minimal(self):
         """queue=F(12)=144 → LOD degrades to MINIMAL."""
-        from cynic.judge.lod import SurvivalLOD, _QUEUE_LOD3
+        from cynic.cognition.cortex.lod import SurvivalLOD, _QUEUE_LOD3
         assert self._worst_lod(_QUEUE_LOD3) == SurvivalLOD.MINIMAL
 
     def test_health_cache_pre_judgment_pattern(self):
         """Simulate handler: update health_cache then assess — burst is caught early."""
-        from cynic.judge.lod import LODController, SurvivalLOD, _QUEUE_LOD1
+        from cynic.cognition.cortex.lod import LODController, SurvivalLOD, _QUEUE_LOD1
         health_cache = {
             "error_rate": 0.0, "latency_ms": 0.0, "queue_depth": 0,
             "memory_pct": 0.0, "disk_pct": 0.0,
@@ -848,7 +851,7 @@ class TestJudgmentRequestedLoop:
 
     def test_handler_ignores_event_payload(self):
         """Handler logic is payload-independent — queue comes from scheduler, not event."""
-        from cynic.judge.lod import HealthMetrics, SurvivalLOD
+        from cynic.cognition.cortex.lod import HealthMetrics, SurvivalLOD
         # Empty payload is fine — handler never reads it
         p = {}
         assert p.get("cell_id", "") == ""   # payload fields unused by handler
@@ -1829,12 +1832,12 @@ class TestConsciousnessSignal:
 
     def test_consciousness_is_valid_axiom(self):
         """CONSCIOUSNESS is a valid emergent axiom in the monitor."""
-        from cynic.judge.axiom_monitor import EMERGENT_AXIOMS
+        from cynic.cognition.cortex.axiom_monitor import EMERGENT_AXIOMS
         assert "CONSCIOUSNESS" in EMERGENT_AXIOMS
 
     def test_transcendence_is_valid_axiom(self):
         """TRANSCENDENCE is a valid emergent axiom in the monitor."""
-        from cynic.judge.axiom_monitor import EMERGENT_AXIOMS
+        from cynic.cognition.cortex.axiom_monitor import EMERGENT_AXIOMS
         assert "TRANSCENDENCE" in EMERGENT_AXIOMS
 
     def test_signal_consciousness_increases_maturity(self):
@@ -1881,7 +1884,7 @@ class TestConsciousnessSignal:
 
     def test_transcendence_latch_fires_when_all_a6_a9_active(self):
         """When all A6-A9 axioms reach ACTIVE, TRANSCENDENCE latch engages."""
-        from cynic.judge.axiom_monitor import MATURITY_WINDOW
+        from cynic.cognition.cortex.axiom_monitor import MATURITY_WINDOW
         m = AxiomMonitor()
         # Signal each A6-A9 axiom enough times to reach ACTIVE (maturity >= WAG_MIN=61.8)
         # Need ceil(0.618 * MATURITY_WINDOW) signals — use MATURITY_WINDOW to be safe
@@ -1891,7 +1894,7 @@ class TestConsciousnessSignal:
 
     def test_transcendence_latch_is_one_way(self):
         """Once TRANSCENDENCE latches, it cannot be unlatched even after signals expire."""
-        from cynic.judge.axiom_monitor import MATURITY_WINDOW
+        from cynic.cognition.cortex.axiom_monitor import MATURITY_WINDOW
         m = AxiomMonitor()
         # Activate all A6-A9
         for axiom in ("AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY"):
@@ -1905,7 +1908,7 @@ class TestConsciousnessSignal:
 
     def test_transcendence_not_latched_with_only_3_a6_a9(self):
         """3 of 4 A6-A9 active → TRANSCENDENCE NOT latched."""
-        from cynic.judge.axiom_monitor import MATURITY_WINDOW
+        from cynic.cognition.cortex.axiom_monitor import MATURITY_WINDOW
         m = AxiomMonitor()
         # Only 3 axioms
         for axiom in ("AUTONOMY", "SYMBIOSIS", "EMERGENCE"):
@@ -1914,7 +1917,7 @@ class TestConsciousnessSignal:
 
     def test_dashboard_tier_transcendent_when_latched(self):
         """dashboard()['tier'] == 'TRANSCENDENT' when latch is set."""
-        from cynic.judge.axiom_monitor import MATURITY_WINDOW
+        from cynic.cognition.cortex.axiom_monitor import MATURITY_WINDOW
         m = AxiomMonitor()
         for axiom in ("AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY"):
             m.signal(axiom, count=MATURITY_WINDOW)
@@ -1928,7 +1931,7 @@ class TestConsciousnessSignal:
 
     def test_dashboard_tier_awakening_with_3_a6_a9(self):
         """3 A6-A9 active but not all 4 → tier AWAKENING."""
-        from cynic.judge.axiom_monitor import MATURITY_WINDOW
+        from cynic.cognition.cortex.axiom_monitor import MATURITY_WINDOW
         m = AxiomMonitor()
         for axiom in ("AUTONOMY", "SYMBIOSIS", "EMERGENCE"):
             m.signal(axiom, count=MATURITY_WINDOW)
@@ -1936,7 +1939,7 @@ class TestConsciousnessSignal:
 
     def test_dashboard_tier_stirring_with_2_a6_a9(self):
         """2 A6-A9 active → tier STIRRING."""
-        from cynic.judge.axiom_monitor import MATURITY_WINDOW
+        from cynic.cognition.cortex.axiom_monitor import MATURITY_WINDOW
         m = AxiomMonitor()
         for axiom in ("AUTONOMY", "SYMBIOSIS"):
             m.signal(axiom, count=MATURITY_WINDOW)
@@ -1944,14 +1947,14 @@ class TestConsciousnessSignal:
 
     def test_dashboard_tier_emergence_with_1_a6_a9(self):
         """1 A6-A9 active → tier EMERGENCE."""
-        from cynic.judge.axiom_monitor import MATURITY_WINDOW
+        from cynic.cognition.cortex.axiom_monitor import MATURITY_WINDOW
         m = AxiomMonitor()
         m.signal("AUTONOMY", count=MATURITY_WINDOW)
         assert m.dashboard()["tier"] == "EMERGENCE"
 
     def test_consciousness_signal_does_not_affect_a6_a9_tier(self):
         """Signaling CONSCIOUSNESS alone does not change A6-A9 tier (it's A10, not A6-A9)."""
-        from cynic.judge.axiom_monitor import MATURITY_WINDOW
+        from cynic.cognition.cortex.axiom_monitor import MATURITY_WINDOW
         m = AxiomMonitor()
         # Activate 2 A6-A9 → STIRRING
         for axiom in ("AUTONOMY", "SYMBIOSIS"):
@@ -2438,7 +2441,7 @@ class TestKernelMirrorConsciousnessLoop:
 
     def test_high_health_signals_consciousness(self):
         """overall_health ≥ WAG_MIN → axiom_monitor.signal('CONSCIOUSNESS') called."""
-        from cynic.judge.axiom_monitor import AxiomMonitor
+        from cynic.cognition.cortex.axiom_monitor import AxiomMonitor
         from cynic.core.phi import WAG_MIN
 
         monitor = AxiomMonitor()
@@ -2450,7 +2453,7 @@ class TestKernelMirrorConsciousnessLoop:
 
     def test_low_health_does_not_signal_consciousness(self):
         """overall_health < WAG_MIN → CONSCIOUSNESS NOT signalled."""
-        from cynic.judge.axiom_monitor import AxiomMonitor
+        from cynic.cognition.cortex.axiom_monitor import AxiomMonitor
         from cynic.core.phi import WAG_MIN
 
         monitor = AxiomMonitor()
@@ -2461,14 +2464,14 @@ class TestKernelMirrorConsciousnessLoop:
 
     def test_lod0_contributes_max_to_health(self):
         """LOD 0 maps to 100.0 in _compute_health — fully operational."""
-        from cynic.judge.mirror import KernelMirror
+        from cynic.cognition.cortex.mirror import KernelMirror
 
         lod_scores = {0: 100.0, 1: 75.0, 2: 38.2, 3: 10.0}
         assert lod_scores[0] == 100.0
 
     def test_lod3_contributes_minimum_to_health(self):
         """LOD 3 maps to 10.0 in _compute_health — critical degradation."""
-        from cynic.judge.mirror import KernelMirror
+        from cynic.cognition.cortex.mirror import KernelMirror
 
         lod_scores = {0: 100.0, 1: 75.0, 2: 38.2, 3: 10.0}
         assert lod_scores[3] == 10.0

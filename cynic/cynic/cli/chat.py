@@ -22,6 +22,7 @@ from cynic.chat.tool_executor import ToolExecutor
 from cynic.chat.agent_loop import AgentLoop, AgentEventType
 from cynic.chat.session import ChatSession
 from cynic.chat.formatter import ChatFormatter
+from typing import Optional
 
 # ── Model preference order for coding ────────────────────────────────────
 _CODER_MODELS = [
@@ -55,7 +56,7 @@ Working directory: {cwd}
 """
 
 
-def _pick_model(available: list[str], requested: str | None = None) -> str | None:
+def _pick_model(available: list[str], requested: Optional[str] = None) -> Optional[str]:
     """Pick the best coding model from available Ollama models."""
     if requested:
         # Exact match or prefix match
@@ -74,7 +75,7 @@ def _pick_model(available: list[str], requested: str | None = None) -> str | Non
     return available[0] if available else None
 
 
-async def _discover_and_pick(requested_model: str | None) -> tuple:
+async def _discover_and_pick(requested_model: Optional[str]) -> tuple:
     """Discover Ollama models and return (adapter, model_name)."""
     from cynic.llm.adapter import OllamaAdapter
 
@@ -149,7 +150,7 @@ def _handle_command(cmd: str, session: ChatSession, model: str) -> bool:
     return True
 
 
-async def _run_repl(model_name: str | None = None, resume_id: str | None = None) -> None:
+async def _run_repl(model_name: Optional[str] = None, resume_id: Optional[str] = None) -> None:
     """Main REPL loop."""
     from cynic.chat.formatter import _c
 
@@ -170,7 +171,7 @@ async def _run_repl(model_name: str | None = None, resume_id: str | None = None)
             session = ChatSession.load(resume_id)
             session.model = model
             print(_c("dim", f"*sniff* Resumed session {resume_id} ({session.message_count} messages)"))
-        except Exception:
+        except httpx.RequestError:
             print(_c("yellow", f"  Could not load session {resume_id}, starting fresh"))
             session = ChatSession(system_prompt=system_prompt)
             session.model = model
@@ -213,7 +214,7 @@ async def _run_repl(model_name: str | None = None, resume_id: str | None = None)
         if session.message_count % 10 == 0:
             try:
                 session.save()
-            except Exception:
+            except asyncpg.Error:
                 pass
 
 

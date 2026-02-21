@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYNIC Dashboard — Living Organism</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1><span class="cynic-red">CYNIC</span> Dashboard</h1>
+                <p class="subtitle">Live Judgment Visualization • φ-Bounded at 61.8%</p>
+            </div>
+            <div id="status" class="status disconnected">🔴 Disconnected</div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="voting">🐕 Dogs Voting</button>
+            <button class="tab-btn" data-tab="judgment">⚖️ Judgment</button>
+            <button class="tab-btn" data-tab="actions">🎭 Actions</button>
+            <button class="tab-btn" data-tab="stats">📊 Stats</button>
+        </nav>
+
+        <!-- Tab Content -->
+        <main class="tabs-content">
+            <!-- Dogs Voting Tab -->
+            <section id="voting" class="tab-pane active">
+                <div class="two-column">
+                    <div class="col-main">
+                        <div class="card">
+                            <h2>🐕 Byzantine Consensus Voting</h2>
+                            <div id="dogs-list" class="dogs-list">
+                                <p class="text-muted">Awaiting first judgment...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-side">
+                        <div class="card">
+                            <h3>Statistics</h3>
+                            <div class="stat-block">
+                                <div class="stat-label">Average Q-Score</div>
+                                <div class="stat-value" id="avg-score">—</div>
+                            </div>
+                            <div class="stat-block">
+                                <div class="stat-label">Active Dogs</div>
+                                <div class="stat-value" id="active-dogs">0/11</div>
+                            </div>
+                            <div class="stat-block">
+                                <div class="stat-label">Max Q-Score</div>
+                                <div class="stat-value" id="max-score">—</div>
+                            </div>
+                        </div>
+                        <div class="card bg-blue">
+                            <p><strong>φ-Weighted Consensus</strong><br>11 Dogs vote independently. Geometric mean produces final Q-Score. Confidence max 61.8%.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Judgment Tab -->
+            <section id="judgment" class="tab-pane">
+                <div class="two-column">
+                    <div class="col-main">
+                        <div class="card">
+                            <h2>⚖️ Current Judgment</h2>
+                            <div id="judgment-content">
+                                <p class="text-muted">Awaiting first judgment...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-side">
+                        <div class="card">
+                            <h3>Metadata</h3>
+                            <div id="judgment-meta" class="text-small"></div>
+                        </div>
+                        <div class="card bg-purple">
+                            <p><strong>Understanding</strong><br>Every judgment includes Dogs' votes, φ-bounded confidence, and reasoning trace.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Actions Tab -->
+            <section id="actions" class="tab-pane">
+                <div class="card">
+                    <h2>🎭 Proposed Actions</h2>
+                    <p class="text-muted">Human-in-loop decision making. Approve/reject to teach CYNIC.</p>
+                    <div id="actions-list" class="actions-list">
+                        <p class="text-muted">No proposed actions</p>
+                    </div>
+                </div>
+                <div class="card bg-orange">
+                    <p><strong>Actions Close The Loop</strong><br>Each human decision teaches CYNIC via Q-Learning, improving future judgments.</p>
+                </div>
+            </section>
+
+            <!-- Stats Tab -->
+            <section id="stats" class="tab-pane">
+                <div class="grid">
+                    <div class="card">
+                        <h3>Connection</h3>
+                        <div class="stat-block">
+                            <div class="stat-label">Status</div>
+                            <div id="stat-conn" class="stat-value">—</div>
+                        </div>
+                        <div class="stat-block">
+                            <div class="stat-label">Events Received</div>
+                            <div id="stat-events" class="stat-value">0</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Kernel</h3>
+                        <div class="stat-block">
+                            <div class="stat-label">Last Judgment</div>
+                            <div id="stat-last-ts" class="stat-value">—</div>
+                        </div>
+                        <div class="stat-block">
+                            <div class="stat-label">Q-Scores</div>
+                            <div id="stat-judgments" class="stat-value">0</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>φ-Metrics</h3>
+                        <div class="stat-block">
+                            <div class="stat-label">Max Confidence</div>
+                            <div class="stat-value">61.8%</div>
+                        </div>
+                        <div class="stat-block">
+                            <div class="stat-label">Current Confidence</div>
+                            <div id="stat-confidence" class="stat-value">—</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>*sniff* φ-bounded dashboard for visualizing CYNIC's living judgment system.</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

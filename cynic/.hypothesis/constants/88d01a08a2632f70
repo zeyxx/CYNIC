@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\core\storage\gc.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1000, 'cynic.storage.gc', 'duration_ms', 'judgments', 'last_run', 'llm_benchmarks', 'residual_history', 'runs', 'scholar_buffer', 'total', 'total_deleted']

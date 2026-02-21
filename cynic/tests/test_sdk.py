@@ -13,7 +13,7 @@ import pytest
 from starlette.testclient import TestClient
 
 from cynic.api.server import app
-from cynic.api.state import build_kernel, set_state
+from cynic.api.state import awaken, set_state
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -23,7 +23,7 @@ from cynic.api.state import build_kernel, set_state
 @pytest.fixture(autouse=True)
 def sdk_kernel_sync():
     """Sync kernel fixture — required because TestClient WebSocket is sync."""
-    state = build_kernel(db_pool=None)
+    state = awaken(db_pool=None)
     set_state(state)
     yield
     state.learning_loop.stop()
@@ -388,7 +388,7 @@ class TestSDKJSONLPersistence:
         """append_sdk_session_jsonl() creates/appends to JSONL file."""
         import dataclasses as dc
         from cynic.api.routers.sdk import _append_sdk_session_jsonl
-        from cynic.act.telemetry import SessionTelemetry
+        from cynic.metabolism.telemetry import SessionTelemetry
         import cynic.api.routers.sdk as sdk_module
 
         # Redirect to tmp path for test isolation
@@ -433,7 +433,7 @@ class TestSDKJSONLPersistence:
         """Multiple append calls → multiple lines in JSONL."""
         import dataclasses as dc
         from cynic.api.routers.sdk import _append_sdk_session_jsonl
-        from cynic.act.telemetry import SessionTelemetry
+        from cynic.metabolism.telemetry import SessionTelemetry
         import cynic.api.routers.sdk as sdk_module
 
         original_path = sdk_module._SDK_SESSIONS_JSONL

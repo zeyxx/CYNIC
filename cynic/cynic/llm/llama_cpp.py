@@ -79,8 +79,8 @@ class LlamaCppAdapter(LLMAdapter):
         self._n_threads = n_threads
         self._n_ctx = n_ctx
         self._verbose = verbose
-        self._llm: Any | None = None         # lazy-loaded on first inference
-        self._lock: asyncio.Semaphore | None = None  # lazy-init inside running loop
+        self._llm: Optional[Any] = None         # lazy-loaded on first inference
+        self._lock: asyncio.Optional[Semaphore] = None  # lazy-init inside running loop
 
     # ── Lazy load ────────────────────────────────────────────────────────────
 

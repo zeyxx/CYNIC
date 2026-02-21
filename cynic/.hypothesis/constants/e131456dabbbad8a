@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\core\events_schema.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.5, 3.0, 'CODE', 'MEDIUM', 'MONITOR', 'WAG', 'WARN', 'allow', 'pass_rate', 'regression']

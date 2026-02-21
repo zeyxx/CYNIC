@@ -209,7 +209,7 @@ class TestFastTemporalJudgmentReal:
 class TestSageDogReal:
     async def test_temporal_path_activated(self, registry_with_gemma2):
         """With real registry → temporal MCTS path (confidence > heuristic max)."""
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         dog.set_llm_registry(registry_with_gemma2)
 
@@ -222,7 +222,7 @@ class TestSageDogReal:
         )
 
     async def test_good_code_scores_higher_than_bad(self, registry_with_gemma2):
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         dog.set_llm_registry(registry_with_gemma2)
 
@@ -234,7 +234,7 @@ class TestSageDogReal:
 
     async def test_temporal_evidence_in_judgment(self, registry_with_gemma2):
         """Evidence dict must contain 'path': 'temporal_mcts'."""
-        from cynic.dogs.sage import SageDog
+        from cynic.cognition.neurons.sage import SageDog
         dog = SageDog()
         dog.set_llm_registry(registry_with_gemma2)
 

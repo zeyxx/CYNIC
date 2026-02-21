@@ -20,7 +20,7 @@ import pytest
 from cynic.core.phi import MAX_Q_SCORE, PHI_INV, PHI_INV_2
 from cynic.core.judgment import Cell
 from cynic.core.consciousness import ConsciousnessLevel
-from cynic.dogs.base import DogId, LLMDog
+from cynic.cognition.neurons.base import DogId, LLMDog
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -70,7 +70,7 @@ def _mock_registry(score: float = 45.0) -> MagicMock:
 
 def _make_fetch_result(status: int = 200, content_len: int = 512, latency_ms: float = 80.0):
     """Build a FetchResult for patching _sync_fetch."""
-    from cynic.dogs.scout import FetchResult
+    from cynic.cognition.neurons.scout import FetchResult
     return FetchResult(
         url="https://example.com",
         status=status,
@@ -86,33 +86,33 @@ def _make_fetch_result(status: int = 200, content_len: int = 512, latency_ms: fl
 class TestScoutIdentity:
 
     def test_scout_extends_llm_dog(self):
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         assert issubclass(ScoutDog, LLMDog)
 
     def test_scout_dog_id(self):
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         assert dog.dog_id == DogId.SCOUT
 
     def test_scout_task_type(self):
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         assert dog.task_type == "web_discovery"
 
     def test_scout_uses_llm_true(self):
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         assert dog.get_capabilities().uses_llm is True
 
     def test_scout_sefirot_malkuth(self):
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         caps = dog.get_capabilities()
         assert "Malkuth" in caps.sefirot
 
     def test_scout_consciousness_macro(self):
         """Scout is network I/O — too slow for REFLEX."""
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         caps = dog.get_capabilities()
         assert caps.consciousness_min == ConsciousnessLevel.MACRO
@@ -120,20 +120,20 @@ class TestScoutIdentity:
     @pytest.mark.asyncio
     async def test_scout_no_veto(self):
         """Scout discovers — judgments never carry veto=True."""
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         # Even with no URLs, neutral judgment → veto=False
         j = await dog.analyze(make_cell("def foo(): pass"))
         assert j.veto is False
 
     def test_scout_has_llm_interface(self):
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         assert hasattr(dog, "set_llm_registry")
         assert hasattr(dog, "get_llm")
 
     def test_scout_supported_realities(self):
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         realities = dog.get_capabilities().supported_realities
         assert "CODE" in realities
@@ -147,7 +147,7 @@ class TestScoutIdentity:
 class TestFetchResult:
 
     def test_is_ok_200(self):
-        from cynic.dogs.scout import FetchResult
+        from cynic.cognition.neurons.scout import FetchResult
         r = FetchResult(url="u", status=200, content_len=100, latency_ms=50)
         assert r.is_ok is True
         assert r.is_miss is False
@@ -155,25 +155,25 @@ class TestFetchResult:
         assert r.is_error is False
 
     def test_is_miss_404(self):
-        from cynic.dogs.scout import FetchResult
+        from cynic.cognition.neurons.scout import FetchResult
         r = FetchResult(url="u", status=404, content_len=0, latency_ms=30)
         assert r.is_miss is True
         assert r.is_ok is False
 
     def test_is_miss_500(self):
-        from cynic.dogs.scout import FetchResult
+        from cynic.cognition.neurons.scout import FetchResult
         r = FetchResult(url="u", status=500, content_len=0, latency_ms=30)
         assert r.is_miss is True
 
     def test_is_timeout(self):
-        from cynic.dogs.scout import FetchResult
+        from cynic.cognition.neurons.scout import FetchResult
         r = FetchResult(url="u", status=0, content_len=0, latency_ms=2000)
         assert r.is_timeout is True
         assert r.is_ok is False
         assert r.is_miss is False
 
     def test_is_error(self):
-        from cynic.dogs.scout import FetchResult
+        from cynic.cognition.neurons.scout import FetchResult
         r = FetchResult(url="u", status=-1, content_len=0, latency_ms=10)
         assert r.is_error is True
         assert r.is_ok is False
@@ -186,14 +186,14 @@ class TestFetchResult:
 class TestUrlExtraction:
 
     def test_extract_plain_url(self):
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         cell = make_url_cell(["https://example.com/foo"])
         urls = dog._extract_urls(cell)
         assert "https://example.com/foo" in urls
 
     def test_extract_multiple_urls(self):
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         cell = make_url_cell([
             "https://example.com",
@@ -204,14 +204,14 @@ class TestUrlExtraction:
         assert len(urls) == 3
 
     def test_extract_deduplicates(self):
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         cell = make_url_cell(["https://example.com", "https://example.com"])
         urls = dog._extract_urls(cell)
         assert urls.count("https://example.com") == 1
 
     def test_extract_strips_trailing_punctuation(self):
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         cell = Cell(
             reality="CODE", analysis="JUDGE",
@@ -223,7 +223,7 @@ class TestUrlExtraction:
         assert "https://example.com/path." not in urls
 
     def test_extract_from_dict_content(self):
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         cell = Cell(
             reality="SOCIAL", analysis="PERCEIVE",
@@ -234,7 +234,7 @@ class TestUrlExtraction:
         assert "https://twitter.com/test" in urls
 
     def test_extract_no_urls(self):
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         cell = make_cell("def foo(): return 42")
         urls = dog._extract_urls(cell)
@@ -250,8 +250,8 @@ class TestHeuristicPath:
     @pytest.mark.asyncio
     async def test_no_urls_returns_neutral(self):
         """Cell without URLs → neutral judgment (no-urls-found)."""
-        from cynic.dogs.scout import ScoutDog
-        from cynic.dogs.base import DogJudgment
+        from cynic.cognition.neurons.scout import ScoutDog
+        from cynic.cognition.neurons.base import DogJudgment
         dog = ScoutDog()
         j = await dog.analyze(make_cell("def foo(): pass"))  # No URLs
         assert isinstance(j, DogJudgment)
@@ -263,7 +263,7 @@ class TestHeuristicPath:
     @pytest.mark.asyncio
     async def test_all_ok_urls_high_score(self):
         """All URLs 200 OK → no penalty → high Q score."""
-        from cynic.dogs.scout import ScoutDog, FetchResult
+        from cynic.cognition.neurons.scout import ScoutDog, FetchResult
         dog = ScoutDog()
         good = FetchResult(url="https://example.com", status=200, content_len=1024, latency_ms=50)
         with patch.object(ScoutDog, "_sync_fetch", return_value=good):
@@ -277,7 +277,7 @@ class TestHeuristicPath:
     @pytest.mark.asyncio
     async def test_404_url_penalized(self):
         """404 response → MISS_PENALTY applied → lower Q score."""
-        from cynic.dogs.scout import ScoutDog, FetchResult, MISS_PENALTY, BASE_Q
+        from cynic.cognition.neurons.scout import ScoutDog, FetchResult, MISS_PENALTY, BASE_Q
         dog = ScoutDog()
         miss = FetchResult(url="https://dead.example.com", status=404, content_len=0, latency_ms=30)
         with patch.object(ScoutDog, "_sync_fetch", return_value=miss):
@@ -289,7 +289,7 @@ class TestHeuristicPath:
     @pytest.mark.asyncio
     async def test_timeout_penalized(self):
         """Timeout → TIMEOUT_PENALTY applied."""
-        from cynic.dogs.scout import ScoutDog, FetchResult
+        from cynic.cognition.neurons.scout import ScoutDog, FetchResult
         dog = ScoutDog()
         timeout_r = FetchResult(url="https://slow.example.com", status=0, content_len=0, latency_ms=2100)
         with patch.object(ScoutDog, "_sync_fetch", return_value=timeout_r):
@@ -299,7 +299,7 @@ class TestHeuristicPath:
     @pytest.mark.asyncio
     async def test_error_penalized(self):
         """DNS/SSL error → ERROR_PENALTY applied."""
-        from cynic.dogs.scout import ScoutDog, FetchResult
+        from cynic.cognition.neurons.scout import ScoutDog, FetchResult
         dog = ScoutDog()
         err = FetchResult(url="https://notexist.xyz", status=-1, content_len=0, latency_ms=10)
         with patch.object(ScoutDog, "_sync_fetch", return_value=err):
@@ -309,7 +309,7 @@ class TestHeuristicPath:
     @pytest.mark.asyncio
     async def test_empty_content_penalized(self):
         """200 OK but content_len < MIN_CONTENT_LEN → EMPTY_PENALTY."""
-        from cynic.dogs.scout import ScoutDog, FetchResult, MIN_CONTENT_LEN
+        from cynic.cognition.neurons.scout import ScoutDog, FetchResult, MIN_CONTENT_LEN
         dog = ScoutDog()
         empty_r = FetchResult(url="https://empty.example.com", status=200, content_len=5, latency_ms=40)
         assert empty_r.content_len < MIN_CONTENT_LEN
@@ -320,7 +320,7 @@ class TestHeuristicPath:
     @pytest.mark.asyncio
     async def test_max_urls_per_cell_respected(self):
         """Only MAX_URLS_PER_CELL (3) URLs checked even if cell has more."""
-        from cynic.dogs.scout import ScoutDog, FetchResult, MAX_URLS_PER_CELL
+        from cynic.cognition.neurons.scout import ScoutDog, FetchResult, MAX_URLS_PER_CELL
         dog = ScoutDog()
         good = FetchResult(url="x", status=200, content_len=500, latency_ms=30)
         call_count = 0
@@ -338,7 +338,7 @@ class TestHeuristicPath:
     @pytest.mark.asyncio
     async def test_confidence_is_phi_inv2(self):
         """Heuristic path uses SCOUT_CONFIDENCE = PHI_INV_2 (0.382)."""
-        from cynic.dogs.scout import ScoutDog, FetchResult, SCOUT_CONFIDENCE
+        from cynic.cognition.neurons.scout import ScoutDog, FetchResult, SCOUT_CONFIDENCE
         dog = ScoutDog()
         good = FetchResult(url="https://x.com", status=200, content_len=500, latency_ms=30)
         with patch.object(ScoutDog, "_sync_fetch", return_value=good):
@@ -348,7 +348,7 @@ class TestHeuristicPath:
     @pytest.mark.asyncio
     async def test_evidence_structure(self):
         """Evidence has expected keys."""
-        from cynic.dogs.scout import ScoutDog, FetchResult
+        from cynic.cognition.neurons.scout import ScoutDog, FetchResult
         dog = ScoutDog()
         good = FetchResult(url="https://example.com", status=200, content_len=256, latency_ms=50)
         with patch.object(ScoutDog, "_sync_fetch", return_value=good):
@@ -366,7 +366,7 @@ class TestHeuristicPath:
     @pytest.mark.asyncio
     async def test_counters_tracked(self):
         """ScoutDog tracks internal URL stats."""
-        from cynic.dogs.scout import ScoutDog, FetchResult
+        from cynic.cognition.neurons.scout import ScoutDog, FetchResult
         dog = ScoutDog()
         good = FetchResult(url="https://example.com", status=200, content_len=500, latency_ms=30)
         with patch.object(ScoutDog, "_sync_fetch", return_value=good):
@@ -377,7 +377,7 @@ class TestHeuristicPath:
 
     @pytest.mark.asyncio
     async def test_miss_counter_tracked(self):
-        from cynic.dogs.scout import ScoutDog, FetchResult
+        from cynic.cognition.neurons.scout import ScoutDog, FetchResult
         dog = ScoutDog()
         miss = FetchResult(url="https://dead.example.com", status=404, content_len=0, latency_ms=20)
         with patch.object(ScoutDog, "_sync_fetch", return_value=miss):
@@ -395,8 +395,8 @@ class TestTemporalPath:
     @pytest.mark.asyncio
     async def test_temporal_path_activated_by_registry(self):
         """With LLM registry injected, temporal path is used (llm_id set)."""
-        from cynic.dogs.scout import ScoutDog
-        from cynic.dogs.base import DogJudgment
+        from cynic.cognition.neurons.scout import ScoutDog
+        from cynic.cognition.neurons.base import DogJudgment
         dog = ScoutDog()
         dog.set_llm_registry(_mock_registry(48.0))
         j = await dog.analyze(make_cell("Check https://example.com for details"))
@@ -407,7 +407,7 @@ class TestTemporalPath:
 
     @pytest.mark.asyncio
     async def test_temporal_path_evidence_has_path(self):
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         dog.set_llm_registry(_mock_registry(50.0))
         j = await dog.analyze(make_cell("Analysis content"))
@@ -415,7 +415,7 @@ class TestTemporalPath:
 
     @pytest.mark.asyncio
     async def test_temporal_path_confidence_bounded(self):
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         dog.set_llm_registry(_mock_registry(55.0))
         j = await dog.analyze(make_cell("Content"))
@@ -424,7 +424,7 @@ class TestTemporalPath:
     @pytest.mark.asyncio
     async def test_temporal_path_no_veto(self):
         """Scout never vetoes even in temporal path."""
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         dog.set_llm_registry(_mock_registry(10.0))  # Very low score
         j = await dog.analyze(make_cell("Bad content"))
@@ -433,7 +433,7 @@ class TestTemporalPath:
     @pytest.mark.asyncio
     async def test_temporal_skips_url_fetch(self):
         """Temporal path does NOT call _sync_fetch (uses LLM instead)."""
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         dog.set_llm_registry(_mock_registry(50.0))
         with patch.object(ScoutDog, "_sync_fetch") as mock_fetch:
@@ -443,7 +443,7 @@ class TestTemporalPath:
     @pytest.mark.asyncio
     async def test_temporal_path_with_no_urls_still_works(self):
         """Temporal path works even with no URLs in content."""
-        from cynic.dogs.scout import ScoutDog
+        from cynic.cognition.neurons.scout import ScoutDog
         dog = ScoutDog()
         dog.set_llm_registry(_mock_registry(42.0))
         j = await dog.analyze(make_cell("No links here, just plain code."))
@@ -458,8 +458,8 @@ class TestScoutHealth:
 
     @pytest.mark.asyncio
     async def test_health_unknown_when_no_urls_checked(self):
-        from cynic.dogs.scout import ScoutDog
-        from cynic.dogs.base import HealthStatus
+        from cynic.cognition.neurons.scout import ScoutDog
+        from cynic.cognition.neurons.base import HealthStatus
         dog = ScoutDog()
         health = await dog.health_check()
         assert health.dog_id == DogId.SCOUT
@@ -467,8 +467,8 @@ class TestScoutHealth:
 
     @pytest.mark.asyncio
     async def test_health_healthy_when_hit_rate_above_phi_inv2(self):
-        from cynic.dogs.scout import ScoutDog, FetchResult
-        from cynic.dogs.base import HealthStatus
+        from cynic.cognition.neurons.scout import ScoutDog, FetchResult
+        from cynic.cognition.neurons.base import HealthStatus
         dog = ScoutDog()
         good = FetchResult(url="https://example.com", status=200, content_len=500, latency_ms=30)
         with patch.object(ScoutDog, "_sync_fetch", return_value=good):
@@ -479,8 +479,8 @@ class TestScoutHealth:
 
     @pytest.mark.asyncio
     async def test_health_degraded_when_all_misses(self):
-        from cynic.dogs.scout import ScoutDog, FetchResult
-        from cynic.dogs.base import HealthStatus
+        from cynic.cognition.neurons.scout import ScoutDog, FetchResult
+        from cynic.cognition.neurons.base import HealthStatus
         dog = ScoutDog()
         miss = FetchResult(url="https://dead.example.com", status=404, content_len=0, latency_ms=20)
         with patch.object(ScoutDog, "_sync_fetch", return_value=miss):
@@ -491,7 +491,7 @@ class TestScoutHealth:
 
     @pytest.mark.asyncio
     async def test_health_details_string(self):
-        from cynic.dogs.scout import ScoutDog, FetchResult
+        from cynic.cognition.neurons.scout import ScoutDog, FetchResult
         dog = ScoutDog()
         good = FetchResult(url="https://example.com", status=200, content_len=500, latency_ms=30)
         with patch.object(ScoutDog, "_sync_fetch", return_value=good):
@@ -508,27 +508,27 @@ class TestScoutHealth:
 class TestPhiAlignment:
 
     def test_max_urls_is_fibonacci_4(self):
-        from cynic.dogs.scout import MAX_URLS_PER_CELL
+        from cynic.cognition.neurons.scout import MAX_URLS_PER_CELL
         from cynic.core.phi import fibonacci
         assert MAX_URLS_PER_CELL == fibonacci(4)  # 3
 
     def test_timeout_is_fibonacci_3(self):
-        from cynic.dogs.scout import TIMEOUT_SEC
+        from cynic.cognition.neurons.scout import TIMEOUT_SEC
         from cynic.core.phi import fibonacci
         assert TIMEOUT_SEC == fibonacci(3)  # 2
 
     def test_min_content_is_fibonacci_8(self):
-        from cynic.dogs.scout import MIN_CONTENT_LEN
+        from cynic.cognition.neurons.scout import MIN_CONTENT_LEN
         from cynic.core.phi import fibonacci
         assert MIN_CONTENT_LEN == fibonacci(8)  # 21
 
     def test_scout_confidence_is_phi_inv2(self):
-        from cynic.dogs.scout import SCOUT_CONFIDENCE
+        from cynic.cognition.neurons.scout import SCOUT_CONFIDENCE
         assert abs(SCOUT_CONFIDENCE - PHI_INV_2) < 1e-6
 
     def test_q_score_bounded(self):
         """Q score never exceeds MAX_Q_SCORE."""
-        from cynic.dogs.scout import ScoutDog, FetchResult
+        from cynic.cognition.neurons.scout import ScoutDog, FetchResult
         import asyncio
         dog = ScoutDog()
         good = FetchResult(url="https://example.com", status=200, content_len=1024, latency_ms=30)

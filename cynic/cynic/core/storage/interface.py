@@ -9,7 +9,9 @@ state.py references StorageInterface, never concrete classes.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Optional
+
+from cynic.core.formulas import DECISION_TRACE_CAP, ACT_LOG_CAP
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -21,12 +23,12 @@ class JudgmentRepoInterface(ABC):
     async def save(self, judgment: dict[str, Any]) -> None: ...
 
     @abstractmethod
-    async def get(self, judgment_id: str) -> dict[str, Any] | None: ...
+    async def get(self, judgment_id: str) -> Optional[dict[str, Any]]: ...
 
     @abstractmethod
     async def recent(
-        self, reality: str | None = None, limit: int = 55
-    ) -> list[dict[str, Any]]: ...
+        self, reality: Optional[str] = None, limit: int = DECISION_TRACE_CAP
+    ) -> list[dict[str, Any]]: ...  # F(10) = 55 (imported from formulas.py)
 
     @abstractmethod
     async def stats(self) -> dict[str, Any]: ...
@@ -68,7 +70,7 @@ class BenchmarkRepoInterface(ABC):
     @abstractmethod
     async def best_llm_for(
         self, dog_id: str, task_type: str
-    ) -> str | None: ...
+    ) -> Optional[str]: ...
 
     @abstractmethod
     async def get_all(self) -> list[dict[str, Any]]: ...
@@ -102,8 +104,8 @@ class ScholarRepoInterface(ABC):
 
     @abstractmethod
     async def recent_entries(
-        self, limit: int = 89
-    ) -> list[dict[str, Any]]: ...
+        self, limit: int = ACT_LOG_CAP
+    ) -> list[dict[str, Any]]: ...  # F(11) = 89 (imported from formulas.py)
 
     @abstractmethod
     async def search_similar_by_embedding(
@@ -138,7 +140,7 @@ class DogSoulRepoInterface(ABC):
     async def save(self, soul: dict[str, Any]) -> None: ...
 
     @abstractmethod
-    async def get(self, dog_id: str) -> dict[str, Any] | None: ...
+    async def get(self, dog_id: str) -> Optional[dict[str, Any]]: ...
 
     @abstractmethod
     async def all(self) -> list[dict[str, Any]]: ...

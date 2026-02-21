@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from cynic.perceive.compressor import (
+from cynic.senses.compressor import (
     ContextCompressor,
     estimate_tokens,
     _split_sentences,
@@ -107,7 +107,7 @@ class TestContextCompressorBasics:
 
     def test_rolling_window_drops_oldest(self):
         """When max_chunks exceeded, oldest chunk is dropped."""
-        from cynic.perceive.compressor import fibonacci
+        from cynic.senses.compressor import fibonacci
         cc = ContextCompressor()
         max_c = fibonacci(11)  # 89
         for i in range(max_c + 5):
@@ -300,7 +300,7 @@ class TestAttentionFeedback:
 
     def test_rolling_window_drops_attention(self):
         """When oldest chunk is dropped, its attention entry is also dropped."""
-        from cynic.perceive.compressor import fibonacci
+        from cynic.senses.compressor import fibonacci
         cc = ContextCompressor()
         max_c = fibonacci(11)  # 89
         for i in range(max_c + 1):

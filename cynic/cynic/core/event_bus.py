@@ -18,12 +18,23 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 import time
 import uuid
 from dataclasses import dataclass, field
-from enum import StrEnum
-from typing import Any
+from enum import Enum
+from typing import Any, TypeVar, Type
 from collections.abc import Callable, Coroutine
+
+T = TypeVar('T')
+
+# Python 3.9 compatibility: StrEnum added in Python 3.11
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+    class StrEnum(str, Enum):
+        """Polyfill for Python <3.11."""
+        pass
 
 logger = logging.getLogger("cynic.event_bus")
 
@@ -85,7 +96,7 @@ class Event:
             )
         return cls(type=event_type, payload=data, source=source)
 
-    def as_typed(self, cls: type) -> Any:
+    def as_typed(self, cls: Type[T]) -> T:
         """
         Reconstruct typed payload from event.payload dict.
 
@@ -158,17 +169,29 @@ class CoreEvent(StrEnum):
     # Identity
     IDENTITY_VIOLATION = "identity.violation"
 
-    # Decision / Act
+    # Decision / Act / Account
     ACT_REQUESTED   = "act.requested"
     ACT_COMPLETED   = "act.completed"    # execution finished (success or failure)
     DECISION_MADE   = "decide.made"
     ACTION_PROPOSED           = "action.proposed"             # ActionProposer: proposed action queued
     SELF_IMPROVEMENT_PROPOSED = "self.improvement_proposed"   # SelfProber: L4 analysis done
+    COST_ACCOUNTED  = "cost.accounted"   # AccountAgent: ACCOUNT opcode complete
 
     # SDK (Claude Code --sdk-url sessions)
     SDK_SESSION_STARTED  = "sdk.session_started"
     SDK_TOOL_JUDGED      = "sdk.tool_judged"
     SDK_RESULT_RECEIVED  = "sdk.result_received"
+
+    # Topology (Real-time kernel architecture updates)
+    SOURCE_CHANGED       = "topology.source_changed"        # FileWatcher: files changed
+    CHANGE_ANALYZED      = "topology.change_analyzed"       # ChangeAnalyzer: semantic analysis of changes
+    TOPOLOGY_CHANGED     = "topology.topology_changed"      # Builder: handlers added/removed
+    TOPOLOGY_APPLIED     = "topology.topology_applied"      # Coordinator: hot-reload succeeded
+    TOPOLOGY_ROLLBACK    = "topology.topology_rollback"     # Coordinator: hot-reload failed
+    TOPOLOGY_SNAPSHOT    = "topology.topology_snapshot"     # Mirror: architecture snapshot
+
+    # MCP (Model Context Protocol bridge)
+    MCP_TOOL_CALLED      = "mcp.tool_called"               # MCPRouter: tool call received
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -294,7 +317,7 @@ class EventBus:
     async def _run_handler(self, handler: Handler, event: Event) -> None:
         try:
             await handler(event)
-        except Exception as e:
+        except EventBusError as e:
             self._error_count += 1
             logger.error(
                 "Handler error on bus=%s type=%s: %s",
@@ -329,9 +352,9 @@ class EventBus:
 # THREE BUS SINGLETONS
 # ════════════════════════════════════════════════════════════════════════════
 
-_core_bus: EventBus | None = None
-_automation_bus: EventBus | None = None
-_agent_bus: EventBus | None = None
+_core_bus: Optional[EventBus] = None
+_automation_bus: Optional[EventBus] = None
+_agent_bus: Optional[EventBus] = None
 
 
 def get_core_bus() -> EventBus:

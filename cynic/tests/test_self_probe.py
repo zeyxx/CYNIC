@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cynic.judge.self_probe import (
+from cynic.cognition.cortex.self_probe import (
     SelfProber,
     SelfProposal,
     _MAX_PROPOSALS,
@@ -418,7 +418,7 @@ class TestEventHandler:
         sp.set_qtable(_make_qtable([("S", "BARK", 0.1, 5)]))
 
         event = _make_emergence_event("SPIKE", 0.7)
-        with patch("cynic.judge.self_probe.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.self_probe.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             asyncio.get_event_loop().run_until_complete(sp._on_emergence(event))
 
@@ -429,7 +429,7 @@ class TestEventHandler:
         sp.set_qtable(_make_qtable([("S", "BARK", 0.1, 5)]))
 
         event = _make_emergence_event("SPIKE", 0.7)
-        with patch("cynic.judge.self_probe.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.self_probe.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             asyncio.get_event_loop().run_until_complete(sp._on_emergence(event))
             mock_bus.return_value.emit.assert_called_once()
@@ -438,7 +438,7 @@ class TestEventHandler:
         sp = _prober_with_tmp(tmp_path)
         # No qtable, no escore, no residual → no proposals
         event = _make_emergence_event("SPIKE", 0.7)
-        with patch("cynic.judge.self_probe.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.self_probe.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             asyncio.get_event_loop().run_until_complete(sp._on_emergence(event))
             mock_bus.return_value.emit.assert_not_called()
@@ -448,7 +448,7 @@ class TestEventHandler:
         sp.set_residual_detector(_make_residual())
 
         event = _make_emergence_event("STABLE_HIGH", 0.8)
-        with patch("cynic.judge.self_probe.get_core_bus") as mock_bus:
+        with patch("cynic.cognition.cortex.self_probe.get_core_bus") as mock_bus:
             mock_bus.return_value.emit = AsyncMock()
             asyncio.get_event_loop().run_until_complete(sp._on_emergence(event))
 

@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\immune\alignment_checker.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.3, 0.382, 0.618, 1000, 'BARK', 'BURN', 'CRITICAL', 'CULTURE', 'ERROR', 'FIDELITY', 'GROWL', 'PHI', 'VERIFY', 'WARNING', 'action_prompt', 'confidence', 'q_value', 'recent_verdict_count', 'recent_verdicts', 'recommended_action', 'verdict', 'window_size']

@@ -11,7 +11,7 @@ import os
 import time
 import logging
 from dataclasses import dataclass, field
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, Optional
 
 
 if TYPE_CHECKING:
@@ -40,33 +40,34 @@ from cynic.core.phi import (
     PHI_INV,
     PHI_INV_2,
 )
-from cynic.dogs.base import AbstractDog, DogId
-from cynic.dogs.discovery import discover_dogs
-from cynic.dogs.oracle import OracleDog
-from cynic.judge.orchestrator import JudgeOrchestrator
-from cynic.judge.residual import ResidualDetector
-from cynic.judge.decide import DecideAgent
-from cynic.judge.account import AccountAgent
-from cynic.judge.axiom_monitor import AxiomMonitor
-from cynic.judge.action_proposer import ActionProposer
-from cynic.judge.self_probe import SelfProber
-from cynic.judge.lod import LODController, SurvivalLOD
+from cynic.cognition.neurons.base import AbstractDog, DogId
+from cynic.cognition.neurons.discovery import discover_dogs
+from cynic.cognition.neurons.oracle import OracleDog
+from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
+from cynic.cognition.cortex.residual import ResidualDetector
+from cynic.cognition.cortex.decide import DecideAgent
+from cynic.cognition.cortex.account import AccountAgent
+from cynic.cognition.cortex.axiom_monitor import AxiomMonitor
+from cynic.cognition.cortex.action_proposer import ActionProposer
+from cynic.cognition.cortex.self_probe import SelfProber
+from cynic.cognition.cortex.lod import LODController, SurvivalLOD
 from cynic.core.escore import EScoreTracker
 from cynic.learning.qlearning import QTable, LearningLoop
-from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher, SocialWatcher, DiskWatcher, MemoryWatcher
+from cynic.senses.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher, SocialWatcher, DiskWatcher, MemoryWatcher
 from cynic.core.storage.gc import StorageGarbageCollector
-from cynic.perceive import checkpoint as _session_checkpoint
-from cynic.perceive.checkpoint import CHECKPOINT_EVERY
-from cynic.scheduler import DogScheduler
-from cynic.act.telemetry import TelemetryStore
-from cynic.act.llm_router import LLMRouter
-from cynic.act.runner import ClaudeCodeRunner
-from cynic.act.auto_benchmark import AutoBenchmark
-from cynic.act.universal import UniversalActuator
-from cynic.judge.mirror import KernelMirror
+from cynic.senses import checkpoint as _session_checkpoint
+from cynic.senses.checkpoint import CHECKPOINT_EVERY
+from cynic.cognition.cortex.orchestrator import ConsciousnessScheduler
+from cynic.metabolism.telemetry import TelemetryStore
+from cynic.metabolism.llm_router import LLMRouter
+from cynic.metabolism.runner import ClaudeCodeRunner
+from cynic.metabolism.auto_benchmark import AutoBenchmark
+from cynic.metabolism.universal import UniversalActuator
+from cynic.cognition.cortex.mirror import KernelMirror
 from cynic.llm.adapter import LLMRegistry
-from cynic.perceive.compressor import ContextCompressor
+from cynic.senses.compressor import ContextCompressor
 from cynic.core.container import DependencyContainer
+from cynic.organism.organism import Organism
 
 logger = logging.getLogger("cynic.api.state")
 
@@ -84,6 +85,52 @@ def set_instance_id(instance_id: str) -> None:
     """Set the instance ID used for guidance-{id}.json isolation (T35)."""
     global _current_instance_id
     _current_instance_id = instance_id
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# APP CONTAINER — Instance-scoped state (no global singletons)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+@dataclass
+class AppContainer:
+    """
+    Instance-scoped application state.
+
+    Replaces global singletons (_state, _current_instance_id, _GUIDANCE_PATH).
+    One container per FastAPI app instance.
+
+    Passed via FastAPI dependency injection: routes call get_app_container().
+    """
+    organism: "CynicOrganism"
+    instance_id: str  # Unique per process (uuid.uuid4().hex[:8])
+    guidance_path: str  # ~/.cynic/guidance-{instance_id}.json
+    started_at: float = field(default_factory=time.time)
+
+    @property
+    def uptime_s(self) -> float:
+        return time.time() - self.started_at
+
+
+# Process-level singleton — set during lifespan startup
+_app_container: Optional[AppContainer] = None
+
+
+def set_app_container(container: AppContainer) -> None:
+    """Set the app container during lifespan startup."""
+    global _app_container
+    _app_container = container
+
+
+def get_app_container() -> AppContainer:
+    """Get the app container (FastAPI dependency)."""
+    if _app_container is None:
+        raise RuntimeError("AppContainer not initialized — lifespan not started")
+    return _app_container
+
+
+# Backward compatibility: CynicOrganism is the Organism class
+CynicOrganism = Organism
 
 
 async def _on_judgment_created(event: Event) -> None:
@@ -126,7 +173,7 @@ async def _on_judgment_created(event: Event) -> None:
             )
             with open(_inst_path, "w", encoding="utf-8") as fh:
                 json.dump(payload, fh)
-    except Exception as exc:
+    except OSError as exc:
         logger.debug("guidance.json write skipped: %s", exc)
 
 
@@ -141,7 +188,7 @@ class AppState:
     qtable: QTable
     learning_loop: LearningLoop
     residual_detector: ResidualDetector
-    scheduler: DogScheduler
+    scheduler: ConsciousnessScheduler
     started_at: float = field(default_factory=time.time)
     _pool: asyncpg.Pool | None = None
     last_judgment: dict | None = None  # state_key, action, judgment_id — for /feedback
@@ -211,7 +258,7 @@ class _KernelBuilder:
         self.dogs:             dict[DogId, AbstractDog] = {}
         self.qtable:           QTable           = None  # type: ignore[assignment]
         self.orchestrator:     JudgeOrchestrator = None  # type: ignore[assignment]
-        self.scheduler:        DogScheduler     = None  # type: ignore[assignment]
+        self.scheduler:        ConsciousnessScheduler     = None  # type: ignore[assignment]
         self.learning_loop:    LearningLoop     = None  # type: ignore[assignment]
         self.residual_detector: ResidualDetector = None  # type: ignore[assignment]
         self.decide_agent:     DecideAgent      = None  # type: ignore[assignment]
@@ -305,7 +352,13 @@ class _KernelBuilder:
             residual_detector=self.residual_detector,
         )
 
-        self.scheduler = DogScheduler(orchestrator=self.orchestrator)
+        # Scheduler needs oracle dog from orchestrator
+        oracle_dog = self.dogs.get(DogId.ORACLE)
+        self.scheduler = ConsciousnessScheduler(
+            axiom_monitor=self.axiom_monitor,
+            escore_tracker=self.escore_tracker,
+            oracle_dog=oracle_dog
+        )
 
         self.decide_agent = DecideAgent(qtable=self.qtable)
         self.decide_agent.start(get_core_bus())
@@ -360,12 +413,43 @@ class _KernelBuilder:
 
     def _create_services(self) -> object:  # Returns KernelServices
         """Create KernelServices — the organism's bloodstream."""
-        from cynic.api.handlers.base import KernelServices
-        return KernelServices(
-            escore_tracker=self.escore_tracker,
+        from cynic.api.handlers.services import (
+            KernelServices, CognitionServices, MetabolicServices, SensoryServices
+        )
+
+        # Create domain-specific service groups
+        cognition_svc = CognitionServices(
+            orchestrator=self.orchestrator,
+            qtable=self.qtable,
+            learning_loop=self.learning_loop,
+            residual_detector=self.residual_detector,
+            decide_agent=self.decide_agent,
             axiom_monitor=self.axiom_monitor,
             lod_controller=self.lod_controller,
+            escore_tracker=self.escore_tracker,
             health_cache=self._health_cache,
+        )
+
+        metabolic_svc = MetabolicServices(
+            scheduler=self.scheduler,
+            runner=getattr(self, 'runner', None),
+            llm_router=self.llm_router,
+            db_pool=self.db_pool,
+        )
+
+        # Placeholder service registry (TODO: find actual implementation or define interface)
+        service_registry = {}
+        senses_svc = SensoryServices(
+            compressor=self.compressor,
+            service_registry=service_registry,
+            world_model=self.world_model,
+        )
+
+        # Combine into unified kernel services
+        return KernelServices(
+            cognition=cognition_svc,
+            metabolic=metabolic_svc,
+            senses=senses_svc,
         )
 
     def _create_handler_registry(self, svc: object) -> object:  # Returns HandlerRegistry
@@ -404,7 +488,7 @@ class _KernelBuilder:
         container.register(AccountAgent, self.account_agent)
         container.register(ActionProposer, self.action_proposer)
         container.register(SelfProber, self.self_prober)
-        container.register(DogScheduler, self.scheduler)
+        container.register(ConsciousnessScheduler, self.scheduler)
         container.register(AxiomMonitor, self.axiom_monitor)
         container.register(LODController, self.lod_controller)
         container.register(EScoreTracker, self.escore_tracker)
@@ -516,6 +600,11 @@ def get_state() -> AppState:
     return _state
 
 
+def awaken(db_pool=None, registry=None) -> AppState:
+    """Awaken the CYNIC organism. Call once from lifespan startup."""
+    return build_kernel(db_pool, registry)
+
+
 async def restore_state(state: AppState) -> None:
     """
     Restore persistent state after kernel startup.
@@ -525,7 +614,7 @@ async def restore_state(state: AppState) -> None:
       - EScoreTracker entities from e_scores table (γ4)
       - ContextCompressor session from ~/.cynic/session-latest.json (γ2)
     """
-    from cynic.perceive import checkpoint as _ckpt
+    from cynic.senses import checkpoint as _ckpt
 
     pool = state._pool
 

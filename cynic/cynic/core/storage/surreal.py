@@ -32,6 +32,7 @@ import time
 import uuid
 from typing import Any
 
+from cynic.core.formulas import ACT_LOG_CAP
 from cynic.core.storage.interface import (
     StorageInterface,
     JudgmentRepoInterface,
@@ -123,7 +124,7 @@ class JudgmentRepo(JudgmentRepoInterface):
             "created_at": judgment.get("created_at", time.time()),
         })
 
-    async def get(self, judgment_id: str) -> dict[str, Any] | None:
+    async def get(self, judgment_id: str) -> Optional[dict[str, Any]]:
         result = await self._db.query(
             "SELECT * FROM judgment WHERE judgment_id = $jid LIMIT 1",
             {"jid": judgment_id},
@@ -132,7 +133,7 @@ class JudgmentRepo(JudgmentRepoInterface):
         return rows[0] if rows else None
 
     async def recent(
-        self, reality: str | None = None, limit: int = 55
+        self, reality: Optional[str] = None, limit: int = 55
     ) -> list[dict[str, Any]]:
         if reality:
             result = await self._db.query(
@@ -176,17 +177,17 @@ class QTableRepo(QTableRepoInterface):
             rec = await self._db.select(self._rec_id(state_key, action))
             if rec and isinstance(rec, dict):
                 return float(rec.get("q_value", 0.0))
-        except Exception:
+        except httpx.RequestError:
             logger.debug("QTable get failed for %s/%s", state_key, action, exc_info=True)
         return 0.0
 
     async def update(self, state_key: str, action: str, q_value: float) -> None:
         rec_id = self._rec_id(state_key, action)
         # Fetch existing to increment visit_count
-        existing: dict | None = None
+        existing: Optional[dict] = None
         try:
             existing = await self._db.select(rec_id)
-        except Exception:
+        except httpx.RequestError:
             logger.debug("QTable visit fetch failed for %s", rec_id, exc_info=True)
         visits = 1
         if existing and isinstance(existing, dict):
@@ -253,7 +254,7 @@ class BenchmarkRepo(BenchmarkRepoInterface):
             "created_at": time.time(),
         })
 
-    async def best_llm_for(self, dog_id: str, task_type: str) -> str | None:
+    async def best_llm_for(self, dog_id: str, task_type: str) -> Optional[str]:
         since = time.time() - 7 * 86400
         result = await self._db.query(
             "SELECT llm_id, math::mean(composite_score) AS avg_score "
@@ -338,7 +339,7 @@ class SDKSessionRepo(SDKSessionRepoInterface):
         rows = _rows(result)
         return rows[0] if rows else {}
 
-    async def get_last_cli_session_id(self, cwd: str = "") -> str | None:
+    async def get_last_cli_session_id(self, cwd: str = "") -> Optional[str]:
         """Return the most recent cli_session_id, optionally filtered by cwd."""
         if cwd:
             result = await self._db.query(
@@ -371,7 +372,8 @@ class ScholarRepo(ScholarRepoInterface):
             "created_at": time.time(),
         })
 
-    async def recent_entries(self, limit: int = 89) -> list[dict[str, Any]]:
+    async def recent_entries(self, limit: int = ACT_LOG_CAP) -> list[dict[str, Any]]:
+        # Default: ACT_LOG_CAP (F(11)=89) — keep last 89 scholar entries
         result = await self._db.query(
             "SELECT cell_id, cell_text, q_score, reality, ts "
             "FROM scholar ORDER BY created_at DESC LIMIT $n",
@@ -462,7 +464,7 @@ class DogSoulRepo(DogSoulRepoInterface):
             "updated_at": time.time(),
         })
 
-    async def get(self, dog_id: str) -> dict[str, Any] | None:
+    async def get(self, dog_id: str) -> Optional[dict[str, Any]]:
         """Load a dog's soul by dog_id. Returns None if not found."""
         result = await self._db.query(
             "SELECT * FROM $id",
@@ -523,11 +525,11 @@ class SurrealStorage(StorageInterface):
     @classmethod
     async def create(
         cls,
-        url: str | None = None,
-        user: str | None = None,
-        password: str | None = None,
-        namespace: str | None = None,
-        database: str | None = None,
+        url: Optional[str] = None,
+        user: Optional[str] = None,
+        password: Optional[str] = None,
+        namespace: Optional[str] = None,
+        database: Optional[str] = None,
     ) -> SurrealStorage:
         """Factory: connect + create schema. Call once at startup."""
         storage = cls(
@@ -563,7 +565,7 @@ class SurrealStorage(StorageInterface):
         for stmt in _SCHEMA_STATEMENTS:
             try:
                 await self._conn.query(stmt)
-            except Exception as exc:
+            except OSError as exc:
                 logger.debug("Schema stmt skipped (%s): %s", stmt[:40], exc)
         logger.info("*tail wag* SurrealDB schema ready (%d statements)", len(_SCHEMA_STATEMENTS))
 
@@ -610,37 +612,114 @@ class SurrealStorage(StorageInterface):
         try:
             await self._conn.query("SELECT 1")
             return True
-        except Exception:
+        except asyncpg.Error:
             return False
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# SINGLETON — process-level storage instance
+# MODULE-LEVEL SINGLETON (Phase 1B: Wrapper for server.py bootstrap)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# CRITICAL: These functions provide backward compatibility with server.py's
+# lifespan bootstrap. They manage a module-level _storage singleton.
+#
+# FUTURE: Will be replaced with injectable pattern in Phase 2A+ once
+# server.py refactored to pass storage through CynicOrganism.state.
+#
+# TODO (Phase 2A): Move storage lifecycle to CynicOrganism + remove these functions
 # ════════════════════════════════════════════════════════════════════════════
 
-_storage: SurrealStorage | None = None
+_storage: Optional[SurrealStorage] = None
+
+
+async def init_storage(
+    url: Optional[str] = None,
+    user: Optional[str] = None,
+    password: Optional[str] = None,
+    namespace: Optional[str] = None,
+    database: Optional[str] = None,
+) -> SurrealStorage:
+    """
+    Initialize module-level storage singleton.
+
+    Call once from FastAPI lifespan startup (in server.py).
+    Connects to SurrealDB and creates schema.
+
+    Args:
+        url: SurrealDB WebSocket URL (default: SURREAL_URL env var)
+        user: Username (default: SURREAL_USER env var)
+        password: Password (default: SURREAL_PASS env var)
+        namespace: Database namespace (default: SURREAL_NS env var)
+        database: Database name (default: SURREAL_DB env var)
+
+    Returns:
+        The initialized SurrealStorage instance (also stored in _storage global)
+
+    Raises:
+        ImportError: If surrealdb package not installed
+        Exception: If connection fails
+    """
+    global _storage
+
+    if _storage is not None:
+        logger.warning("init_storage: already initialized, returning existing instance")
+        return _storage
+
+    _storage = await SurrealStorage.create(
+        url=url,
+        user=user,
+        password=password,
+        namespace=namespace,
+        database=database,
+    )
+    return _storage
 
 
 def get_storage() -> SurrealStorage:
-    """Get the active SurrealStorage singleton (raises if not initialized)."""
+    """
+    Retrieve module-level storage singleton.
+
+    Call anywhere in the codebase after init_storage() has been called
+    (i.e., after lifespan startup).
+
+    Returns:
+        The SurrealStorage instance
+
+    Raises:
+        RuntimeError: If init_storage() hasn't been called yet
+    """
     if _storage is None:
         raise RuntimeError(
-            "SurrealStorage not initialized. "
-            "Call init_storage() during server lifespan."
+            "SurrealStorage not initialized. Call init_storage() in lifespan startup first."
         )
     return _storage
 
 
-async def init_storage(**kwargs: Any) -> SurrealStorage:
-    """Connect and initialize the singleton. Returns the instance."""
-    global _storage
-    _storage = await SurrealStorage.create(**kwargs)
-    return _storage
-
-
 async def close_storage() -> None:
-    """Close and clear the singleton."""
+    """
+    Close module-level storage singleton.
+
+    Call from FastAPI lifespan shutdown (in server.py).
+    Closes the WebSocket connection to SurrealDB.
+    """
     global _storage
+
     if _storage is not None:
         await _storage.close()
         _storage = None
+        logger.info("*yawn* SurrealDB singleton closed")
+    else:
+        logger.debug("close_storage: no storage to close")
+
+
+def reset_storage() -> None:
+    """
+    Reset module-level storage singleton (TEST ONLY).
+
+    Used in test teardown to clear the singleton for the next test.
+    Should NOT be called in production code.
+    """
+    global _storage
+    _storage = None
+
+

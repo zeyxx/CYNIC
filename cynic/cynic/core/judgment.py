@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
-
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -59,7 +58,7 @@ class Cell(BaseModel):
     consciousness: int = Field(default=0, ge=0, le=6, description="Consciousness gradient level")
 
     # Technical dimensions
-    llm_model: str | None = Field(default=None, description="LLM used for this cell")
+    llm_model: Optional[str] = Field(default=None, description="LLM used for this cell")
     tech_stack: list[str] = Field(default_factory=list)
 
     # Economic dimensions
@@ -266,12 +265,12 @@ class ConsensusResult(BaseModel):
     quorum: int = Field(ge=0)
 
     # If consensus reached
-    final_q_score: float | None = Field(default=None, ge=0.0, le=MAX_Q_SCORE)
-    final_verdict: str | None = None
-    final_confidence: float | None = Field(default=None, ge=0.0, le=MAX_CONFIDENCE)
+    final_q_score: Optional[float] = Field(default=None, ge=0.0, le=MAX_Q_SCORE)
+    final_verdict: Optional[str] = None
+    final_confidence: Optional[float] = Field(default=None, ge=0.0, le=MAX_CONFIDENCE)
 
     # Failure reason
-    reason: str | None = None
+    reason: Optional[str] = None
 
     # Dog contributions
     dog_judgments: list[dict] = Field(default_factory=list)

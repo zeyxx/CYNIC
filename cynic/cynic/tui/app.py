@@ -61,8 +61,25 @@ VERDICT_EMOJI = {
     "BARK": "🔴",
 }
 
+IMPACT_COLOR = {
+    "CRITICAL": "red",
+    "HIGH": "yellow",
+    "MEDIUM": "cyan",
+    "LOW": "dim",
+}
+
+IMPACT_EMOJI = {
+    "CRITICAL": "🔴",
+    "HIGH": "🟠",
+    "MEDIUM": "🟡",
+    "LOW": "⚪",
+}
+
 from cynic.core.config import CynicConfig as _CynicConfig
 _DEFAULT_PORT = _CynicConfig.from_env().port
+
+# Changes file path
+CHANGES_FILE = CYNIC_DIR / "changes.jsonl"
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -74,11 +91,11 @@ def _bar(score: float, width: int = 10) -> str:
     return "█" * filled + "░" * (width - filled)
 
 
-def _read_json(path: Path) -> Any | None:
+def _read_json(path: Path) -> Optional[Any]:
     try:
         with open(path) as f:
             return json.load(f)
-    except Exception:
+    except OSError:
         return None
 
 
@@ -90,16 +107,16 @@ def _fmt_uptime(seconds: float) -> str:
     return f"{seconds/3600:.1f}h"
 
 
-def _fetch_json(url: str, timeout: float = 2.0) -> dict | None:
+def _fetch_json(url: str, timeout: float = 2.0) -> Optional[dict]:
     try:
         req = urllib.request.Request(url, headers={"Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read())
-    except Exception:
+    except json.JSONDecodeError:
         return None
 
 
-def _post_json(url: str, data: dict, timeout: float = 4.0) -> dict | None:
+def _post_json(url: str, data: dict, timeout: float = 4.0) -> Optional[dict]:
     try:
         body = json.dumps(data).encode()
         req = urllib.request.Request(
@@ -109,7 +126,7 @@ def _post_json(url: str, data: dict, timeout: float = 4.0) -> dict | None:
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read())
-    except Exception:
+    except json.JSONDecodeError:
         return None
 
 
@@ -124,8 +141,23 @@ def _local_set_status(action_id: str, status: str) -> None:
                 a["status"] = status
         with open(ACTIONS_FILE, "w") as f:
             json.dump(data, f, indent=2)
-    except Exception:
+    except OSError:
         pass
+
+
+def _read_recent_changes(limit: int = 10) -> list[dict]:
+    """Read recent changes from changes.jsonl (rolling JSONL file)."""
+    try:
+        if not CHANGES_FILE.exists():
+            return []
+        lines = CHANGES_FILE.read_text(encoding="utf-8", errors="ignore").splitlines()
+        changes = []
+        for line in lines[-limit:]:
+            if line.strip():
+                changes.append(json.loads(line))
+        return changes
+    except json.JSONDecodeError:
+        return []
 
 
 # ── Widgets ───────────────────────────────────────────────────────────────────
@@ -167,7 +199,7 @@ class ActionsPanel(Static):
         self._selected: int = 0
 
     @property
-    def selected_action(self) -> dict | None:
+    def selected_action(self) -> Optional[dict]:
         if self._actions and 0 <= self._selected < len(self._actions):
             return self._actions[self._selected]
         return None
@@ -223,6 +255,44 @@ class ActionsPanel(Static):
         self.update("\n".join(lines))
 
 
+class ChangesPanel(Static):
+    """Right column: recent code changes with impact analysis."""
+
+    def render_changes(self, changes: list[dict]) -> None:
+        lines: list[str] = []
+        lines.append("[bold dim]── CHANGES ────────────[/bold dim]")
+
+        if not changes:
+            lines.append("[dim]  (no changes)[/dim]")
+        else:
+            for change in changes[-5:]:  # Show last 5
+                impact = change.get("impact_level", "MEDIUM")
+                risk = change.get("risk_estimate", 0.5)
+                filepath = change.get("filepath", "?")
+                subsys = change.get("subsystem", "?")
+                change_type = change.get("change_type", "?")
+
+                # Shorten filepath to fit in 22 chars
+                fp_short = filepath.split("/")[-1][:18].rstrip()
+
+                emoji = IMPACT_EMOJI.get(impact, "⚪")
+                color = IMPACT_COLOR.get(impact, "white")
+                risk_pct = round(risk * 100)
+
+                lines.append("")
+                lines.append(
+                    f"  [{color}]{emoji} {impact:<8}[/{color}]"
+                )
+                lines.append(
+                    f"  [dim]{fp_short:<18} {change_type}[/dim]"
+                )
+                lines.append(
+                    f"  [dim]risk {risk_pct}% [{subsys}][/dim]"
+                )
+
+        self.update("\n".join(lines))
+
+
 # ── Main App ──────────────────────────────────────────────────────────────────
 
 class CYNICApp(App):
@@ -267,7 +337,15 @@ class CYNICApp(App):
 
     /* ── Right: Actions ── */
     #actions-col {
-        width: 28;
+        width: 26;
+        border-left: solid $primary-darken-2;
+        padding: 0 1;
+        height: 100%;
+    }
+
+    /* ── Far Right: Changes ── */
+    #changes-col {
+        width: 24;
         border-left: solid $primary-darken-2;
         padding: 0 1;
         height: 100%;
@@ -332,6 +410,9 @@ class CYNICApp(App):
             with Vertical(id="actions-col"):
                 yield Static("PENDING ACTIONS", classes="panel-title")
                 yield ActionsPanel(id="actions-panel")
+            with Vertical(id="changes-col"):
+                yield Static("CHANGES", classes="panel-title")
+                yield ChangesPanel(id="changes-panel")
         yield Static("", id="status-bar")
         yield Footer()
 
@@ -379,6 +460,10 @@ class CYNICApp(App):
         actions = actions_raw if isinstance(actions_raw, list) else []
         self.query_one("#actions-panel", ActionsPanel).refresh_actions(actions)
 
+        # Poll recent changes
+        changes = _read_recent_changes(limit=10)
+        self.query_one("#changes-panel", ChangesPanel).render_changes(changes)
+
         self._update_header_and_status()
 
     async def _poll_api(self) -> None:
@@ -391,7 +476,7 @@ class CYNICApp(App):
             if data:
                 self._uptime = data.get("uptime_s", 0.0)
                 self._update_header_and_status()
-        except Exception:
+        except httpx.RequestError:
             pass
 
         try:
@@ -402,7 +487,7 @@ class CYNICApp(App):
             if lod_data:
                 self._lod = lod_data.get("current_lod", 0)
                 self._update_header_and_status()
-        except Exception:
+        except httpx.RequestError:
             pass
 
     # ── Stream ────────────────────────────────────────────────────────────────
@@ -476,7 +561,7 @@ class CYNICApp(App):
             else:
                 _local_set_status(action_id, "ACCEPTED")
                 self._log("✓ Accepted locally (server offline)", "yellow")
-        except Exception as e:
+        except httpx.RequestError as e:
             self._log(f"✗ Accept failed: {e}", "red")
         await self._poll_files()
 
@@ -502,7 +587,7 @@ class CYNICApp(App):
             else:
                 _local_set_status(action_id, "REJECTED")
                 self._log("✓ Rejected locally (server offline)", "yellow")
-        except Exception as e:
+        except httpx.RequestError as e:
             self._log(f"✗ Reject failed: {e}", "red")
         await self._poll_files()
 
@@ -532,7 +617,7 @@ class CYNICApp(App):
                 self._log(f"⭐ Rated {n}/5 — feedback sent to kernel", "cyan")
             else:
                 self._log(f"⭐ Rated {n}/5 (server offline, not persisted)", "yellow")
-        except Exception:
+        except httpx.RequestError:
             self._log(f"⭐ Rated {n}/5 (could not reach server)", "yellow")
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -545,7 +630,7 @@ class CYNICApp(App):
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
-def run(base_url: str | None = None) -> None:
+def run(base_url: Optional[str] = None) -> None:
     url = base_url or f"http://localhost:{_DEFAULT_PORT}"
     CYNICApp(base_url=url).run()
 

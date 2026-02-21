@@ -16,7 +16,7 @@ from typing import Optional
 logger = logging.getLogger("cynic.config")
 
 
-def _opt_int(val: str | None) -> int | None:
+def _opt_int(val: Optional[str]) -> Optional[int]:
     """Parse optional int from env var string."""
     return int(val) if val is not None else None
 

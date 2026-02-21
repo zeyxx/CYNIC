@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\neurons\base.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.01, 0.1, 1.0, 3000.0, 500, 2048, 10000, 'ANALYST', 'ARCHITECT', 'CARTOGRAPHER', 'CYNIC', 'DEGRADED', 'DEPLOYER', 'GUARDIAN', 'HEALTHY', 'JANITOR', 'ORACLE', 'SAGE', 'SCHOLAR', 'SCOUT', 'UNHEALTHY', 'UNKNOWN', 'active', 'avg_latency_ms', 'cell_id', 'confidence', 'cost_usd', 'dog_id', 'error_rate', 'errors', 'general', 'judgments', 'latency_ms', 'llm_id', 'priority', 'q_score', 'reasoning', 'timestamp', 'veto']

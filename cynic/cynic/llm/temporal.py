@@ -36,10 +36,19 @@ import asyncio
 import logging
 import math
 import re
+import sys
 import time
 from dataclasses import dataclass, field
-from enum import StrEnum
+from enum import Enum
 from typing import Any
+
+# Python 3.9 compatibility: StrEnum added in Python 3.11
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+    class StrEnum(str, Enum):
+        """Polyfill for Python <3.11."""
+        pass
 
 from cynic.core.phi import PHI, PHI_INV, PHI_INV_2, PHI_2, MAX_Q_SCORE, phi_bound_score
 
@@ -293,7 +302,7 @@ async def _judge_perspective(
         if score is not None:
             return phi_bound_score(score)
         logger.debug("No score parsed from perspective %s: %r", perspective, resp.content[:100])
-    except Exception:
+    except asyncio.TimeoutError:
         logger.debug("Perspective %s failed", perspective, exc_info=True)
     return MAX_Q_SCORE * 0.5  # Neutral on failure
 

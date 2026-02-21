@@ -80,10 +80,10 @@ async def ws_stream(websocket: WebSocket) -> None:
                 # Keepalive ping — proves connection is alive
                 try:
                     await websocket.send_json({"type": "ping", "ts": time.time()})
-                except Exception as exc:
+                except EventBusError as exc:
                     logger.debug("ws/stream ping failed: %s", exc)
                     raise
-            except Exception as exc:
+            except EventBusError as exc:
                 logger.error("ws/stream emit error: %s", exc, exc_info=True)
                 raise
 
@@ -105,7 +105,7 @@ async def ws_stream(websocket: WebSocket) -> None:
                         source="ws_client",
                     ))
                 # Any other type: ignored silently
-            except Exception as exc:
+            except EventBusError as exc:
                 logger.error("ws/stream receive error: %s", exc, exc_info=True)
                 raise
 
@@ -117,6 +117,95 @@ async def ws_stream(websocket: WebSocket) -> None:
     finally:
         for ev_type in stream_events:
             bus.off(ev_type, on_event)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# WS /ws/consciousness/ecosystem  (live ecosystem snapshot stream)
+# ════════════════════════════════════════════════════════════════════════════
+
+@router_ws.websocket("/ws/consciousness/ecosystem")
+async def ws_consciousness_ecosystem(websocket: WebSocket) -> None:
+    """
+    WebSocket stream: /ws/consciousness/ecosystem
+
+    Protocol:
+      1. Client connects
+      2. Server sends: {\"type\": \"connected\", \"phi\": 1.618, \"initial_snapshot\": {...}}
+      3. Server sends periodic: {\"type\": \"ecosystem_update\", \"payload\": {...}, \"ts\": ...}
+      4. Server sends keepalive: {\"type\": \"ping\", \"ts\": ...} every 30s
+
+    Periodic updates every 5s from ConsciousnessService.get_ecosystem_state().
+    Queue maxsize=50 (drop oldest on overflow).
+    """
+    await websocket.accept()
+
+    from cynic.api.services.consciousness_service import ConsciousnessService
+
+    service = ConsciousnessService()
+    queue: asyncio.Queue = asyncio.Queue(maxsize=50)
+
+    # Get initial snapshot
+    initial = {
+        "core_events": [],
+        "automation_events": [],
+        "agent_events": [],
+        "timestamp": time.time(),
+    }
+    try:
+        result = await service.get_ecosystem_state()
+        if isinstance(result, dict):
+            initial = result
+    except httpx.RequestError as e:
+        logger.warning(f"get_ecosystem_state failed (using fallback): {e}")
+
+    async def _emit_loop() -> None:
+        """Send queued ecosystem updates to the WebSocket client."""
+        while True:
+            try:
+                msg = await asyncio.wait_for(queue.get(), timeout=30.0)
+                await websocket.send_json(msg)
+            except TimeoutError:
+                # Keepalive ping
+                try:
+                    await websocket.send_json({"type": "ping", "ts": time.time()})
+                except EventBusError as exc:
+                    logger.debug("ws/consciousness/ecosystem ping failed: %s", exc)
+                    raise
+            except EventBusError as exc:
+                logger.error("ws/consciousness/ecosystem emit error: %s", exc, exc_info=True)
+                raise
+
+    async def _periodic_loop() -> None:
+        """Get ecosystem snapshots every 5s and queue them."""
+        while True:
+            try:
+                await asyncio.sleep(5.0)
+                snapshot = await service.get_ecosystem_state()
+                try:
+                    queue.put_nowait({
+                        "type": "ecosystem_update",
+                        "payload": snapshot,
+                        "ts": time.time(),
+                    })
+                except asyncio.QueueFull:
+                    pass  # Drop silently if queue is full
+            except ValidationError as exc:
+                logger.error("ws/consciousness/ecosystem periodic error: %s", exc)
+                raise
+
+    try:
+        # Send initial connection message
+        await websocket.send_json({
+            "type": "connected",
+            "phi": PHI,
+            "initial_snapshot": initial,
+        })
+        # Run both loops — if either fails, the whole connection closes
+        await asyncio.gather(_emit_loop(), _periodic_loop())
+    except WebSocketDisconnect:
+        pass
+    except EventBusError as exc:
+        logger.error("ws/consciousness/ecosystem error: %s", exc, exc_info=True)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -178,10 +267,10 @@ async def ws_events(websocket: WebSocket) -> None:
             except TimeoutError:
                 try:
                     await websocket.send_json({"type": "ping", "ts": time.time()})
-                except Exception as exc:
+                except EventBusError as exc:
                     logger.debug("ws/events ping failed: %s", exc)
                     raise
-            except Exception as exc:
+            except EventBusError as exc:
                 logger.error("ws/events emit error: %s", exc, exc_info=True)
                 raise
 
@@ -204,7 +293,7 @@ async def ws_events(websocket: WebSocket) -> None:
                         "filter_all": not requested,
                         "ts":         time.time(),
                     })
-            except Exception as exc:
+            except httpx.RequestError as exc:
                 logger.error("ws/events receive error: %s", exc, exc_info=True)
                 raise
 

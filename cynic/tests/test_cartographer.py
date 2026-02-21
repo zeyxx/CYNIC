@@ -16,8 +16,8 @@ import pytest
 from cynic.core.phi import MAX_Q_SCORE, PHI_INV, PHI_INV_2
 from cynic.core.judgment import Cell
 from cynic.core.consciousness import ConsciousnessLevel
-from cynic.dogs.base import DogId, HealthStatus
-from cynic.dogs.cartographer import (
+from cynic.cognition.neurons.base import DogId, HealthStatus
+from cynic.cognition.neurons.cartographer import (
     CartographerDog, GraphSnapshot,
     MAX_DENSITY_EDGES, MAX_IN_DEGREE, CARTOGRAPHER_CONFIDENCE,
 )
@@ -108,7 +108,7 @@ class TestCartographerAnalyze:
 
     @pytest.mark.asyncio
     async def test_returns_dog_judgment(self):
-        from cynic.dogs.base import DogJudgment
+        from cynic.cognition.neurons.base import DogJudgment
         dog = CartographerDog()
         cell = make_cell(SIMPLE_CODE)
         j = await dog.analyze(cell)
@@ -488,12 +488,12 @@ class TestCartographerInOrchestrator:
     @pytest.fixture
     def orchestrator_with_cartographer(self):
         from cynic.core.axioms import AxiomArchitecture
-        from cynic.dogs.base import DogId
-        from cynic.dogs.cynic_dog import CynicDog
-        from cynic.dogs.guardian import GuardianDog
-        from cynic.dogs.analyst import AnalystDog
-        from cynic.dogs.janitor import JanitorDog
-        from cynic.judge.orchestrator import JudgeOrchestrator
+        from cynic.cognition.neurons.base import DogId
+        from cynic.cognition.neurons.cynic_dog import CynicDog
+        from cynic.cognition.neurons.guardian import GuardianDog
+        from cynic.cognition.neurons.analyst import AnalystDog
+        from cynic.cognition.neurons.janitor import JanitorDog
+        from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
 
         cynic_dog = CynicDog()
         cart_dog = CartographerDog()
@@ -527,12 +527,12 @@ class TestCartographerInOrchestrator:
     async def test_orchestrator_valid_without_cartographer(self):
         """Orchestrator works fine without CARTOGRAPHER."""
         from cynic.core.axioms import AxiomArchitecture
-        from cynic.dogs.base import DogId
-        from cynic.dogs.cynic_dog import CynicDog
-        from cynic.dogs.guardian import GuardianDog
-        from cynic.dogs.analyst import AnalystDog
-        from cynic.dogs.janitor import JanitorDog
-        from cynic.judge.orchestrator import JudgeOrchestrator
+        from cynic.cognition.neurons.base import DogId
+        from cynic.cognition.neurons.cynic_dog import CynicDog
+        from cynic.cognition.neurons.guardian import GuardianDog
+        from cynic.cognition.neurons.analyst import AnalystDog
+        from cynic.cognition.neurons.janitor import JanitorDog
+        from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
         from cynic.core.event_bus import reset_all_buses
         reset_all_buses()
 

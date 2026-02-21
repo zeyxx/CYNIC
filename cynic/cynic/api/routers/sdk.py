@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
@@ -25,13 +25,13 @@ from cynic.core.events_schema import (
     SdkToolJudgedPayload,
 )
 from cynic.core.phi import MAX_CONFIDENCE
-from cynic.act.telemetry import (
+from cynic.metabolism.telemetry import (
     SessionTelemetry as SDKTelemetry,
     classify_task,
     compute_reward,
     estimate_complexity,
 )
-from cynic.api.state import get_state
+from cynic.api.state import get_app_container, AppContainer
 
 logger = logging.getLogger("cynic.api.server")
 
@@ -48,7 +48,7 @@ def _append_sdk_session_jsonl(record: SDKTelemetry) -> None:
         os.makedirs(os.path.dirname(_SDK_SESSIONS_JSONL), exist_ok=True)
         with open(_SDK_SESSIONS_JSONL, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(_dc.asdict(record)) + "\n")
-    except Exception as exc:
+    except OSError as exc:
         logger.debug("sdk_sessions.jsonl append skipped: %s", exc)
 
 
@@ -112,7 +112,10 @@ _sdk_sessions: dict[str, SDKSession] = {}
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_sdk.websocket("/ws/sdk")
-async def ws_sdk(websocket: WebSocket) -> None:
+async def ws_sdk(
+    websocket: WebSocket,
+    container: AppContainer = Depends(get_app_container),
+) -> None:
     """
     Claude Code SDK WebSocket server.
 
@@ -143,7 +146,7 @@ async def ws_sdk(websocket: WebSocket) -> None:
       Phase 3: 80%+ tasks → Ollama ($0 cost). Claude only for novel tasks.
     """
     await websocket.accept()
-    state = get_state()
+    state = container.organism
     bus = get_core_bus()
 
     session_id = str(uuid.uuid4())
@@ -178,7 +181,7 @@ async def ws_sdk(websocket: WebSocket) -> None:
                 cell, level=ConsciousnessLevel.REFLEX
             )
             return judgment.verdict
-        except Exception as exc:
+        except httpx.RequestError as exc:
             logger.warning("SDK tool judgment error: %s", exc)
             return "WAG"  # Safe default: allow on error
 
@@ -370,7 +373,7 @@ async def ws_sdk(websocket: WebSocket) -> None:
                         q_score = round(qj.q_score, 3)
                         verdict = qj.verdict
                         confidence = round(min(qj.confidence, MAX_CONFIDENCE), 3)
-                    except Exception as _exc:
+                    except httpx.RequestError as _exc:
                         logger.debug("Quality judgment skipped: %s", _exc)
                         q_score, verdict, confidence = 30.0, "GROWL", 0.382
 
@@ -436,7 +439,7 @@ async def ws_sdk(websocket: WebSocket) -> None:
                             try:
                                 from cynic.core.storage.postgres import SDKSessionRepository as _SDKSessionRepo
                                 await _SDKSessionRepo().save(d)
-                            except Exception as _e:
+                            except httpx.RequestError as _e:
                                 logger.debug("SDK session persist skipped: %s", _e)
                         asyncio.create_task(_persist_sdk_session())
 
@@ -487,7 +490,7 @@ async def ws_sdk(websocket: WebSocket) -> None:
 
     except WebSocketDisconnect:
         pass
-    except Exception as exc:
+    except CynicError as exc:
         logger.error("SDK session error: %s", exc, exc_info=True)
     finally:
         _sdk_sessions.pop(session_id, None)
@@ -511,14 +514,14 @@ async def sdk_sessions() -> dict[str, Any]:
 
 
 @router_sdk.get("/sdk/routing")
-async def sdk_routing() -> dict[str, Any]:
+async def sdk_routing(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
     LLM routing stats — Ring 4 Q-Table driven model selection.
 
     Shows how often CYNIC routes SDK tasks from Sonnet → Haiku based on
     accumulated Q-Table confidence. local_rate rises as Q-Table warms up.
     """
-    state = get_state()
+    state = container.organism
     if state.llm_router is None:
         return {"available": False}
     return {"available": True, **state.llm_router.stats()}
@@ -556,11 +559,11 @@ async def sdk_last_session(cwd: str = "") -> dict[str, Any]:
                         sid = rec.get("cli_session_id", "")
                         if sid and (not cwd or rec.get("cwd", "") == cwd):
                             last_sid = sid
-                    except Exception:
+                    except json.JSONDecodeError:
                         pass
             if last_sid:
                 return {"cli_session_id": last_sid, "found": True, "source": "jsonl"}
-    except Exception:
+    except json.JSONDecodeError:
         pass
 
     return {"cli_session_id": "", "found": False, "source": "none"}
@@ -588,7 +591,7 @@ async def sdk_task(body: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="prompt is required")
 
     # Resolve session
-    session: SDKSession | None = None
+    session: Optional[SDKSession] = None
     if session_id:
         session = _sdk_sessions.get(session_id)
     elif _sdk_sessions:

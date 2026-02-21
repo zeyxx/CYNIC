@@ -19,13 +19,17 @@ from typing import Any
 # or emoji (█, ░, 🟢, etc.). Force UTF-8 output so the dashboard renders.
 if sys.platform == "win32":
     try:
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
-    except AttributeError:
-        pass  # Already wrapped (e.g. pytest captures stdout)
+        # Only wrap if not already wrapped and buffer is actually available
+        if hasattr(sys.stdout, 'buffer') and not isinstance(sys.stdout, io.TextIOWrapper):
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+        if hasattr(sys.stderr, 'buffer') and not isinstance(sys.stderr, io.TextIOWrapper):
+            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError, OSError):
+        pass  # Already wrapped or buffer unavailable
 
-# ── Paths ──────────────────────────────────────────────────────────────────
-_CYNIC_DIR        = os.path.join(os.path.expanduser("~"), ".cynic")
+# ── Paths ── (portable across host/container via CYNIC_STATE_DIR env var) ──
+# Use CYNIC_STATE_DIR env var if available (Docker), otherwise fall back to ~/.cynic
+_CYNIC_DIR = os.environ.get("CYNIC_STATE_DIR", os.path.join(os.path.expanduser("~"), ".cynic"))
 _GUIDANCE         = os.path.join(_CYNIC_DIR, "guidance.json")
 _CHECKPOINT       = os.path.join(_CYNIC_DIR, "session-latest.json")
 _PENDING          = os.path.join(_CYNIC_DIR, "pending_actions.json")
@@ -63,15 +67,15 @@ def _c(color: str, text: str) -> str:
 
 # ── File helpers ───────────────────────────────────────────────────────────
 
-def _read_json(path: str) -> dict[str, Any] | None:
+def _read_json(path: str) -> Optional[dict[str, Any]]:
     try:
         with open(path, encoding="utf-8") as fh:
             return json.load(fh)
-    except Exception:
+    except OSError:
         return None
 
 
-def _api_get(path: str) -> dict[str, Any] | None:
+def _api_get(path: str) -> Optional[dict[str, Any]]:
     try:
         req = urllib.request.Request(
             f"{_API}{path}",
@@ -79,11 +83,11 @@ def _api_get(path: str) -> dict[str, Any] | None:
         )
         with urllib.request.urlopen(req, timeout=_API_TIMEOUT) as resp:
             return json.loads(resp.read().decode())
-    except Exception:
+    except json.JSONDecodeError:
         return None
 
 
-def _api_post(path: str, body: dict | None = None) -> dict[str, Any] | None:
+def _api_post(path: str, body: Optional[dict] = None) -> Optional[dict[str, Any]]:
     """POST to the API. Returns parsed JSON or None on any error."""
     try:
         data = json.dumps(body or {}).encode()
@@ -95,7 +99,7 @@ def _api_post(path: str, body: dict | None = None) -> dict[str, Any] | None:
         )
         with urllib.request.urlopen(req, timeout=_API_TIMEOUT) as resp:
             return json.loads(resp.read().decode())
-    except Exception:
+    except json.JSONDecodeError:
         return None
 
 
@@ -133,7 +137,7 @@ def _file_set_status(action_id: str, status: str) -> bool:
         with open(_PENDING, "w", encoding="utf-8") as fh:
             json.dump(raw, fh, indent=2)
         return True
-    except Exception:
+    except OSError:
         return False
 
 

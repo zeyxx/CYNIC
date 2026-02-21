@@ -13,7 +13,7 @@ import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 
 from cynic.api.server import app
-from cynic.api.state import build_kernel, set_state
+from cynic.api.state import awaken, set_state
 from cynic.core.phi import PHI
 
 
@@ -23,8 +23,8 @@ from cynic.core.phi import PHI
 
 @pytest_asyncio.fixture(autouse=True)
 async def kernel_state():
-    """Build and wire kernel before each test. No DB, no LLM."""
-    state = build_kernel(db_pool=None)
+    """Awaken and wire organism before each test. No DB, no LLM."""
+    state = awaken(db_pool=None)
     set_state(state)
     yield state
     state.learning_loop.stop()
@@ -687,8 +687,8 @@ class TestWebSocketStream:
 
     @pytest.fixture(autouse=True)
     def ws_kernel_sync(self):
-        """Sync kernel setup for WebSocket tests — TestClient owns its event loop."""
-        state = build_kernel(db_pool=None)
+        """Sync organism setup for WebSocket tests — TestClient owns its event loop."""
+        state = awaken(db_pool=None)
         set_state(state)
         yield
         state.learning_loop.stop()
@@ -716,7 +716,7 @@ class TestWebSocketStream:
         try:
             with TestClient(app).websocket_connect("/ws/stream") as ws:
                 ws.receive_json()  # consume "connected"
-        except Exception as exc:
+        except ValidationError as exc:
             pytest.fail(f"WebSocket close raised unexpectedly: {exc}")
 
     def test_ws_receives_ping_and_sends_pong(self):

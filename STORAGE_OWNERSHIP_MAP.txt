@@ -1,0 +1,172 @@
+CYNIC STORAGE OWNERSHIP MAP
+============================
+
+## LAYER 1: LOCAL FILES (~/.cynic/)
+
+HOT TIER (Real-time, milliseconds):
+  guidance.json              - Last verdict + Q-score + dog votes
+  guidance-{instance_id}.json - Multi-instance isolation
+  consciousness.json         - Unified metathinking snapshot
+  instance.json              - Runtime metadata
+
+  Lifetime: Until next judgment (~500ms)
+  Capacity: ~20KB total
+  Owner: server.py (writes on JUDGMENT_CREATED)
+  Access: Hook reads synchronously
+
+WARM TIER (Session-scoped, seconds to hours):
+  session-latest.json        - ContextCompressor checkpoint
+  pending_actions.json       - Action proposals (L1)
+  sdk_sessions.jsonl         - SDK telemetry (rolling F(13)=233)
+  act_results.jsonl          - ACT results (rolling F(11)=89)
+  llm_calls.jsonl            - LLM call log (rolling F(13)=233)
+
+  Lifetime: 24h max age for checkpoint, rolling cap for JSONL
+  Capacity: ~600KB total
+  Owner: Various (checkpoint.py, action_proposer.py, routers/sdk.py)
+
+COLD TIER (Streaming/archived):
+  chats/{session_id}.json    - Chat session history
+  dogs/{dog_id}/soul.md      - Dog identity (YAML)
+  social.json                - Social signals (rolling F(8)=21)
+  changes.jsonl              - ChangeTracker events
+
+  Lifetime: Permanent (or manual archival)
+  Capacity: ~1.5GB+ (consciousness/ ring buffer)
+  Owner: chat/session.py, core/soul.py, state.py
+
+## LAYER 2: SURREALDB (Primary Database)
+
+12 SCHEMALESS TABLES:
+
+TABLE                  PURPOSE
+judgment               - Verdicts, Q-scores (indexed: reality, verdict, created_at)
+cell                   - Fractal cell values
+q_entry                - Q-Learning state->action->Q (UNIQUE: state+action)
+e_score                - Dog E-Scores (UNIQUE: agent_id)
+scholar                - Semantic buffer (HNSW cosine vector index)
+sdk_session            - Claude Code SDK sessions
+learning_event         - Loop feedback signals
+llm_benchmark          - LLM adapter performance
+residual               - Residual detector spike history
+consciousness_snapshot - Metathinking snapshots
+action_proposal        - All action proposals
+dog_soul               - Dog identity (persistent)
+
+CONNECTION:
+  Primary: Single WebSocket (ws://surrealdb:8080/rpc)
+  Fallback: asyncpg pool (F(6)=8 min, F(8)=21 max connections)
+
+## LAYER 3: POSTGRESQL (Fallback)
+
+Same schema as SurrealDB via direct SQL (no ORM).
+Only used if SurrealDB unavailable.
+
+## LAYER 4: SOLANA BLOCKCHAIN (Not Implemented)
+
+Planned FROZEN tier for critical verdicts (HOWL only, Q >= 82.0).
+Requires manual approval + all 4 A6-A9 axioms active.
+
+## GARBAGE COLLECTION (StorageGarbageCollector)
+
+PRUNE ORDER (BURN AXIOM - LOWEST Q-SCORE FIRST):
+
+PRIORITY  TABLE                    KEEP              RETENTION
+1         judgments (BARK)         Newest only       8 days (F(6))
+2         scholar_buffer           F(11)=89 newest   Infinite
+3         residual_history         F(11)=89 newest   Infinite
+4         llm_benchmarks           Newest only       34 days (F(9))
+5         consciousness_snapshots  F(10)=55 newest   Infinite
+
+TRIGGER: DISK_PRESSURE event (health.py monitoring)
+SAFETY: Max 1000 rows per table per run (protect DB locks)
+
+## DATA LIFECYCLE: HOT -> WARM -> COLD -> FROZEN
+
+HOT (guidance.json):
+  - Written on every judgment (~500ms MICRO, ~2s MACRO)
+  - Read by hook synchronously
+  - Automatic overwrite (no GC)
+
+WARM (session-latest.json + *.jsonl):
+  - Checkpoint: Every F(8)=21 judgments
+  - JSONL: Append-only, rolling trim when size exceeds cap
+  - Restore: On startup (discard if >24h old)
+  - No automatic COLD promotion
+
+COLD (SurrealDB):
+  - Auto-written on judgment completion
+  - Queried by MACRO loops + semantic search
+  - Time-based prune: BARK > 8d deleted
+  - Rolling-cap prune: Keep F(10-11) newest
+
+FROZEN (Solana - placeholder):
+  - HOWL verdicts only (Q >= 82.0)
+  - Requires manual approval
+  - Axiom event triggers
+  - Not yet implemented
+
+## OWNERSHIP & CONTROL
+
+HUMAN-CONTROLLED PROMOTIONS:
+
+Action execute     - Human + API  - POST /actions/{id}/accept
+Action reject      - Human + API  - POST /actions/{id}/reject
+Session archival   - Human + CLI  - cynic.cli chat --export
+Feedback rating    - Human + CLI  - cynic.cli feedback {rating}
+Self-probe apply   - Human + API  - POST /self-probes/{id}/apply
+
+AUTOMATIC PROMOTIONS:
+
+Guidance -> DB       - JUDGMENT_CREATED event (every judgment)
+Session checkpoint   - Timer (every F(8)=21 judgments)
+JSONL append         - On event (real-time)
+GC collect           - DISK_PRESSURE event
+Scholar vector index - SurrealDB on insert
+
+## CURRENT USAGE
+
+~/.cynic/          ~2GB
+  consciousness/    ~1.2GB (ring buffer)
+  auto-judge.json   ~72KB
+  changes.jsonl     ~40KB
+  act_results.jsonl ~100KB
+  sdk_sessions.jsonl ~200KB
+  llm_calls.jsonl   ~200KB
+  *.json files      ~100KB
+
+SurrealDB:         ~500MB (with rolling caps)
+
+## CRITICAL GAPS
+
+1. HOT/WARM Sync
+   Problem: Disk loss loses context
+   Missing: Bi-directional sync on startup
+   Solution: Auto-load last 21 COLD judgments if checkpoint missing
+
+2. Cold-to-Frozen Logic
+   Problem: FROZEN tier not implemented
+   Missing: Voting mechanism for HOWL promotion
+   Solution: Add Solana bridge + axiom voting
+
+3. Explicit Tier Metadata
+   Problem: Tier tracking implicit only
+   Missing: tiering_metadata table
+   Solution: Log all tier transitions
+
+4. Cross-Instance Coordination
+   Problem: Multiple instances race on guidance.json
+   Current: guidance-{id}.json per instance (T35)
+   Missing: SurrealDB instance_id tracking
+   Solution: Add instance_id to all DB records
+
+5. Vector Embedding Lifecycle
+   Problem: Embeddings not tracked for updates
+   Missing: Model version tracking
+   Solution: Re-embed on model upgrade
+
+6. Backup/Recovery
+   Problem: No backup strategy documented
+   Missing: SurrealDB snapshots
+   Solution: SurrealDB -> PostgreSQL sync (24h)
+

@@ -119,17 +119,26 @@ class TestWorldModelKernelWiring:
     """
 
     def test_app_state_has_world_model_field(self):
-        """AppState dataclass must expose world_model as a typed field."""
-        import dataclasses
-        from cynic.api.state import AppState
-        field_names = {f.name for f in dataclasses.fields(AppState)}
-        assert "world_model" in field_names, "world_model not found in AppState fields"
+        """CynicOrganism must expose world_model (via backward-compatible property).
+
+        After the service layer refactor, world_model is nested in SensoryCore,
+        but accessible via a backward-compatible property on CynicOrganism.
+        """
+        from cynic.api.state import CynicOrganism
+        # Check that the property is accessible (via hasattr and callable)
+        assert hasattr(CynicOrganism, "world_model"), "world_model property not found"
+        # Also verify it's a property, not a data field
+        import inspect
+        members = inspect.getmembers(CynicOrganism)
+        world_model_member = next((m for m in members if m[0] == "world_model"), None)
+        assert world_model_member is not None, "world_model not accessible"
+        assert isinstance(world_model_member[1], property), "world_model should be a property"
 
     def test_world_model_field_type_is_world_model_updater(self):
         """world_model field default_factory creates a WorldModelUpdater instance."""
         import dataclasses
-        from cynic.api.state import AppState
-        for f in dataclasses.fields(AppState):
+        from cynic.api.state import CynicOrganism
+        for f in dataclasses.fields(CynicOrganism):
             if f.name == "world_model":
                 # field_factory should produce a WorldModelUpdater
                 instance = f.default_factory()  # type: ignore[misc]
@@ -161,21 +170,35 @@ class TestWorldModelKernelWiring:
         assert snap["judgment_count"] == 3
 
     def test_world_model_not_none_in_imported_app_state(self):
-        """Default AppState construction gives a live WorldModelUpdater, not None."""
-        from cynic.api.state import AppState
+        """After service layer refactor, CynicOrganism provides world_model via backward-compatible property."""
+        from cynic.api.state import CynicOrganism, CognitionCore, MetabolicCore, SensoryCore, MemoryCore
         from unittest.mock import MagicMock
-        # Minimal AppState construction (required positional fields)
-        mock_orch = MagicMock()
-        mock_qtable = MagicMock()
-        mock_loop = MagicMock()
-        mock_residual = MagicMock()
-        mock_scheduler = MagicMock()
-        state = AppState(
-            orchestrator=mock_orch,
-            qtable=mock_qtable,
-            learning_loop=mock_loop,
-            residual_detector=mock_residual,
-            scheduler=mock_scheduler,
+
+        # Build the four façades required by the new architecture
+        # All 8 required CognitionCore fields (4 core + 4 guardrails)
+        cognition = CognitionCore(
+            orchestrator=MagicMock(),
+            qtable=MagicMock(),
+            learning_loop=MagicMock(),
+            residual_detector=MagicMock(),
+            power_limiter=MagicMock(),
+            alignment_checker=MagicMock(),
+            human_gate=MagicMock(),
+            audit_trail=MagicMock(),
+        )
+        metabolism = MetabolicCore(scheduler=MagicMock())
+        senses = SensoryCore(
+            context_compressor=MagicMock(),
+            service_registry=MagicMock(),
+            world_model=WorldModelUpdater(),
+        )
+        memory = MemoryCore()
+
+        state = CynicOrganism(
+            cognition=cognition,
+            metabolism=metabolism,
+            senses=senses,
+            memory=memory,
         )
         assert state.world_model is not None
         assert isinstance(state.world_model, WorldModelUpdater)
