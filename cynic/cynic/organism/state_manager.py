@@ -91,6 +91,10 @@ class OrganismState:
         self._persistent_state: dict[str, Any] = {}
         self._checkpoint_state: dict[str, Any] = {}
 
+        # Q-Table: dict[state_key: str, dict[action: str, q_value: float]]
+        # Stored in memory layer (fast, lost on restart per Phase 2)
+        self._qtable: dict[str, dict[str, float]] = {}
+
         # Update queue (for batching writes)
         self._update_queue: asyncio.Queue[StateUpdate] = asyncio.Queue()
         self._processing = False
@@ -325,6 +329,91 @@ class OrganismState:
             result.update(self._persistent_state)
             result.update(self._memory_state)
             return result
+
+    # ── Q-TABLE SUBSYSTEM (Task 3: Migration) ────────────────────────────────
+
+    async def update_qtable_entry(
+        self,
+        state_key: str,
+        action: str,
+        q_value: float,
+    ) -> None:
+        """
+        Update a single Q-Table entry. Clamps q_value to [0.0, 1.0].
+
+        Args:
+            state_key: State identifier (e.g., "CODE:JUDGE:PRESENT:1")
+            action: Action/verdict (e.g., "BARK", "GROWL", "WAG", "HOWL")
+            q_value: Q-value to store, will be clamped to [0.0, 1.0]
+
+        Returns:
+            None
+        """
+        # Clamp q_value to [0.0, 1.0]
+        clamped_q = max(0.0, min(1.0, q_value))
+
+        # Ensure state exists in Q-table
+        if state_key not in self._qtable:
+            self._qtable[state_key] = {}
+
+        # Set the Q-value
+        self._qtable[state_key][action] = clamped_q
+        logger.debug(
+            "Updated Q-Table[%s][%s] = %.3f (clamped from %.3f)",
+            state_key, action, clamped_q, q_value,
+        )
+
+    def get_qtable_entry(
+        self,
+        state_key: str,
+        action: str,
+    ) -> float:
+        """
+        Retrieve Q-value for (state, action).
+        Returns 0.5 (neutral default) if not found.
+
+        Args:
+            state_key: State identifier
+            action: Action/verdict
+
+        Returns:
+            Q-value in [0.0, 1.0], or 0.5 if not found
+        """
+        if state_key not in self._qtable:
+            return 0.5
+
+        return self._qtable[state_key].get(action, 0.5)
+
+    def get_qtable_entries(
+        self,
+        state_key: str,
+    ) -> dict[str, float]:
+        """
+        Retrieve all actions for a given state.
+
+        Args:
+            state_key: State identifier
+
+        Returns:
+            dict[action: str, q_value: float], empty dict if state not found
+        """
+        if state_key not in self._qtable:
+            return {}
+
+        # Return a copy to prevent external modification
+        return dict(self._qtable[state_key])
+
+    async def clear_qtable(self) -> None:
+        """
+        Clear entire Q-Table (for testing/reset).
+
+        All entries are forgotten. Can continue adding entries after clear.
+
+        Returns:
+            None
+        """
+        self._qtable.clear()
+        logger.info("Cleared entire Q-Table")
 
     # ── CONSISTENCY ──────────────────────────────────────────────────────
 

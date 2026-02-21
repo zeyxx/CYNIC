@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\cortex\residual.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.01, 0.5, 1.0, 2.0, 100, 'CODE', 'JUDGE', 'RISING', 'SPIKE', 'STABLE_HIGH', 'UNKNOWN', 'absolute', 'analysis', 'anomalies', 'anomaly_rate', 'cell', 'consecutive_high', 'current', 'history_len', 'judgment_id', 'jump', 'mean', 'mode', 'observations', 'observed_at', 'patterns_detected', 'reality', 'recent_patterns', 'required', 'residual', 'residual_detector', 'residual_variance', 'severity', 'slope', 'std', 'threshold', 'timestamp', 'type', 'unnameable', 'unnameable_detected', 'window', 'z_score']

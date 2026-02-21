@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\senses\workers\disk.py
+# hypothesis_version: 6.151.9
+
+[0.001, 0.2, 0.4, 0.7, 0.9, 1.0, 100, 1024, 'CRITICAL', 'CYNIC', 'EMERGENCY', 'OK', 'PERCEIVE', 'PRESENT', 'WARN', 'cynic.senses', 'disk_free_gb', 'disk_pressure', 'disk_total_gb', 'disk_used_pct', 'disk_watcher', 'free_gb', 'pressure', 'source', 'total_gb', 'used_pct', '~']

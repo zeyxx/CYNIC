@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\organism\layers\judgment_engine.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.001, 0.01, 0.1, 0.5, 1.0, 2.0, 38.2, 50.0, 61.8, 82.0, 'BARK', 'GROWL', 'HOWL', 'WAG', 'cost_usd', 'dog_input', 'engine_judgment', 'fallback', 'geometric_mean', 'highest_confidence', 'pbft', 'precedent']

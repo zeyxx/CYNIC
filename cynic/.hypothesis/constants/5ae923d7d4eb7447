@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\senses\workers\market.py
+# hypothesis_version: 6.151.9
+
+[0.001, 0.02, 0.2, 1.0, 5.0, 20.0, 'MARKET', 'PERCEIVE', 'PRESENT', 'User-Agent', 'change_24h', 'change_24h_pct', 'market_watcher', 'price_usd', 'sol_usd', 'solana', 'source', 'usd', 'usd_24h_change']

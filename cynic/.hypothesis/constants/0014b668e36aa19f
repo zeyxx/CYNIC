@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\metabolism\auto_benchmark.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1e-09, 0.001, 0.1, 0.5, 1.0, 2.0, 50.0, '0', '1', 'AUTO', 'CYNIC_AUTOBENCH', 'cynic.auto_benchmark', 'enabled', 'general', 'interval_s', 'runs', 'temporal_mcts']

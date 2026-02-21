@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\senses\workers\memory.py
+# hypothesis_version: 6.151.9
+
+[0.001, 0.2, 0.3, 0.6, 0.9, 1.0, 5.0, 100, 1024, '/Value', '/proc/meminfo', '=', 'CRITICAL', 'CYNIC', 'EMERGENCY', 'FreePhysicalMemory=', 'MemAvailable:', 'MemTotal:', 'OK', 'OS', 'PERCEIVE', 'PRESENT', 'WARN', 'cynic.senses', 'free_gb', 'get', 'mem_free_gb', 'mem_pressure', 'mem_total_gb', 'mem_used_pct', 'memory_watcher', 'pressure', 'source', 'total_gb', 'used_pct', 'utf-8', 'win32', 'wmic']

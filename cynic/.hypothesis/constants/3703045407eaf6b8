@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\metabolism\runner.py
+# hypothesis_version: 6.151.9
+
+[0.0, 5.0, 30.0, 300.0, 8765, '--input-format', '--output-format', '--print', '--resume', '--sdk-url', '/ws/sdk', '_task_prompt', 'claude', 'cli_session_id', 'content', 'control_response', 'cost_usd', 'error', 'exec_id', 'is_error', 'message', 'model', 'parent_tool_use_id', 'request_id', 'response', 'returncode', 'role', 'running_processes', 'sdk_path', 'sdk_port', 'session_id', 'set_model', 'stream-json', 'subtype', 'success', 'timeout', 'total_cost_usd', 'type', 'user']

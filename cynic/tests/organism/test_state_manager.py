@@ -379,3 +379,143 @@ async def test_snapshot_immutability():
 
     with pytest.raises(Exception):  # FrozenInstanceError
         snapshot.checkpoint = {"modified": "value"}
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# TIER 7: Q-Table Integration (Task 3 Migration)
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_qtable_update_and_retrieval():
+    """
+    Can update and retrieve Q-Table entries.
+
+    Q-Table format:
+      memory.qtable = dict[str, dict[str, float]]
+      Example: {"CODE:JUDGE:PRESENT:1": {"BARK": 0.75, "GROWL": 0.62}}
+    """
+    state = OrganismState()
+    await state.initialize()
+
+    # Update a Q-value
+    await state.update_qtable_entry("CODE:JUDGE:PRESENT:1", "BARK", 0.75)
+
+    # Retrieve it
+    q_value = state.get_qtable_entry("CODE:JUDGE:PRESENT:1", "BARK")
+    assert q_value == 0.75
+
+    # Update a different action same state
+    await state.update_qtable_entry("CODE:JUDGE:PRESENT:1", "GROWL", 0.62)
+
+    # Retrieve both
+    assert state.get_qtable_entry("CODE:JUDGE:PRESENT:1", "BARK") == 0.75
+    assert state.get_qtable_entry("CODE:JUDGE:PRESENT:1", "GROWL") == 0.62
+
+
+@pytest.mark.asyncio
+async def test_qtable_nonexistent_key_returns_default():
+    """
+    Retrieving a non-existent Q-Table entry returns 0.5 (neutral doubt).
+
+    Per requirements: "Non-existent entries return 0.5 (neutral default)"
+    """
+    state = OrganismState()
+    await state.initialize()
+
+    # Try to get a key that doesn't exist
+    q_value = state.get_qtable_entry("NONEXISTENT:STATE", "BARK")
+    assert q_value == 0.5  # Neutral default
+
+    # Set one value, then try a different action in same state
+    await state.update_qtable_entry("CODE:JUDGE:PRESENT:1", "BARK", 0.75)
+
+    # Get existing
+    assert state.get_qtable_entry("CODE:JUDGE:PRESENT:1", "BARK") == 0.75
+
+    # Get non-existent action in known state
+    assert state.get_qtable_entry("CODE:JUDGE:PRESENT:1", "HOWL") == 0.5
+
+
+@pytest.mark.asyncio
+async def test_qtable_clamping():
+    """
+    Q-values are clamped to [0.0, 1.0] range.
+
+    Per requirements: "Clamps q_value to [0.0, 1.0]"
+    """
+    state = OrganismState()
+    await state.initialize()
+
+    # Try to set value > 1.0 — should be clamped to 1.0
+    await state.update_qtable_entry("STATE1", "ACTION1", 1.5)
+    assert state.get_qtable_entry("STATE1", "ACTION1") == 1.0
+
+    # Try to set value < 0.0 — should be clamped to 0.0
+    await state.update_qtable_entry("STATE2", "ACTION2", -0.5)
+    assert state.get_qtable_entry("STATE2", "ACTION2") == 0.0
+
+    # Valid value in range should pass through unchanged
+    await state.update_qtable_entry("STATE3", "ACTION3", 0.618)
+    assert state.get_qtable_entry("STATE3", "ACTION3") == 0.618
+
+
+@pytest.mark.asyncio
+async def test_qtable_clear():
+    """
+    Clear entire Q-Table (for testing).
+
+    Per requirements: "async def clear_qtable() -> None"
+    """
+    state = OrganismState()
+    await state.initialize()
+
+    # Add some entries
+    await state.update_qtable_entry("STATE1", "ACTION1", 0.75)
+    await state.update_qtable_entry("STATE2", "ACTION2", 0.62)
+    await state.update_qtable_entry("STATE3", "ACTION3", 0.55)
+
+    # Verify they exist
+    assert state.get_qtable_entry("STATE1", "ACTION1") != 0.5
+    assert state.get_qtable_entry("STATE2", "ACTION2") != 0.5
+
+    # Clear Q-Table
+    await state.clear_qtable()
+
+    # All entries should return default (0.5)
+    assert state.get_qtable_entry("STATE1", "ACTION1") == 0.5
+    assert state.get_qtable_entry("STATE2", "ACTION2") == 0.5
+    assert state.get_qtable_entry("STATE3", "ACTION3") == 0.5
+
+    # Can still add new entries after clear
+    await state.update_qtable_entry("STATE4", "ACTION4", 0.9)
+    assert state.get_qtable_entry("STATE4", "ACTION4") == 0.9
+
+
+@pytest.mark.asyncio
+async def test_qtable_get_entries_for_state():
+    """
+    Retrieve all Q-values for a given state (all actions).
+
+    Returns dict[str, float] of {action: q_value}
+    """
+    state = OrganismState()
+    await state.initialize()
+
+    # Add several actions for same state
+    await state.update_qtable_entry("CODE:JUDGE:PRESENT:1", "BARK", 0.75)
+    await state.update_qtable_entry("CODE:JUDGE:PRESENT:1", "GROWL", 0.62)
+    await state.update_qtable_entry("CODE:JUDGE:PRESENT:1", "WAG", 0.55)
+
+    # Get all entries for this state
+    entries = state.get_qtable_entries("CODE:JUDGE:PRESENT:1")
+
+    assert isinstance(entries, dict)
+    assert entries["BARK"] == 0.75
+    assert entries["GROWL"] == 0.62
+    assert entries["WAG"] == 0.55
+
+    # Non-existent state returns empty dict
+    empty_entries = state.get_qtable_entries("NONEXISTENT:STATE")
+    assert isinstance(empty_entries, dict)
+    assert len(empty_entries) == 0

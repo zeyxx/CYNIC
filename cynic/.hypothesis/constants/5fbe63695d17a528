@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\learning\qlearning.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.5, 1.0, 100, 343, ':', 'BARK', 'GROWL', 'HOWL', 'JUDGE_ORCHESTRATOR', 'LearningLoop stopped', 'UNKNOWN', 'WAG', 'action', 'best_action', 'best_q', 'by_analysis', 'by_reality', 'by_time_dim', 'confidence', 'coverage_pct', 'discount', 'entries', 'ewc_consolidated', 'ewc_effective_alpha', 'judgment_id', 'last_updated', 'learning_loop', 'learning_rate', 'loop_name', 'losses', 'matrix_343', 'pending_flush', 'q_value', 'reward', 'state_averages', 'state_key', 'states', 'total_cells', 'total_updates', 'total_visits', 'uptime_s', 'visit_count', 'visits', 'wins']
