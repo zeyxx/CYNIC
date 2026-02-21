@@ -53,17 +53,17 @@ from cynic.cognition.cortex.self_probe import SelfProber
 from cynic.cognition.cortex.lod import LODController, SurvivalLOD
 from cynic.core.escore import EScoreTracker
 from cynic.learning.qlearning import QTable, LearningLoop
-from cynic.perceive.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher, SocialWatcher, DiskWatcher, MemoryWatcher
+from cynic.senses.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketWatcher, SolanaWatcher, SocialWatcher, DiskWatcher, MemoryWatcher
 from cynic.core.storage.gc import StorageGarbageCollector
-from cynic.perceive import checkpoint as _session_checkpoint
-from cynic.perceive.checkpoint import CHECKPOINT_EVERY
-from cynic.scheduler import DogScheduler
-from cynic.act.telemetry import TelemetryStore
-from cynic.act.llm_router import LLMRouter
-from cynic.act.runner import ClaudeCodeRunner
-from cynic.act.auto_benchmark import AutoBenchmark
-from cynic.act.universal import UniversalActuator
-from cynic.judge.mirror import KernelMirror
+from cynic.senses import checkpoint as _session_checkpoint
+from cynic.senses.checkpoint import CHECKPOINT_EVERY
+from cynic.cognition.cortex.orchestrator import DogScheduler
+from cynic.metabolism.telemetry import TelemetryStore
+from cynic.metabolism.llm_router import LLMRouter
+from cynic.metabolism.runner import ClaudeCodeRunner
+from cynic.metabolism.auto_benchmark import AutoBenchmark
+from cynic.metabolism.universal import UniversalActuator
+from cynic.cognition.cortex.mirror import KernelMirror
 from cynic.llm.adapter import LLMRegistry
 from cynic.perceive.compressor import ContextCompressor
 from cynic.core.container import DependencyContainer
