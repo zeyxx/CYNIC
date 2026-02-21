@@ -27,8 +27,9 @@ if sys.platform == "win32":
     except (AttributeError, ValueError, OSError):
         pass  # Already wrapped or buffer unavailable
 
-# ── Paths ──────────────────────────────────────────────────────────────────
-_CYNIC_DIR        = os.path.join(os.path.expanduser("~"), ".cynic")
+# ── Paths ── (portable across host/container via CYNIC_STATE_DIR env var) ──
+# Use CYNIC_STATE_DIR env var if available (Docker), otherwise fall back to ~/.cynic
+_CYNIC_DIR = os.environ.get("CYNIC_STATE_DIR", os.path.join(os.path.expanduser("~"), ".cynic"))
 _GUIDANCE         = os.path.join(_CYNIC_DIR, "guidance.json")
 _CHECKPOINT       = os.path.join(_CYNIC_DIR, "session-latest.json")
 _PENDING          = os.path.join(_CYNIC_DIR, "pending_actions.json")
