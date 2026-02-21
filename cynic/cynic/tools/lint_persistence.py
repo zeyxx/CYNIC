@@ -9,6 +9,7 @@ This tool prevents technical debt by catching async functions that:
 Run: python -m cynic.tools.lint_persistence [--fix]
 """
 import ast
+import os
 import re
 import sys
 from pathlib import Path
@@ -133,10 +134,18 @@ def find_orphaned_async_functions(root_path: Path) -> dict[str, List[str]]:
 
 def main():
     """Main entry point."""
-    root_path = Path.cwd() / "cynic"
+    # Use CYNIC_HOME env var if available (portable across host/container)
+    # Otherwise compute from this file's location
+    cynic_home = os.environ.get("CYNIC_HOME")
+    if cynic_home:
+        root_path = Path(cynic_home) / "cynic"
+    else:
+        # Fallback: compute from file location (this file is at cynic/tools/lint_persistence.py)
+        # So __file__'s parent is cynic/tools, parent.parent is cynic/
+        root_path = Path(__file__).resolve().parent.parent.parent / "cynic"
 
     if not root_path.exists():
-        print(f"Error: {root_path} not found")
+        print(f"Error: {root_path} not found (CYNIC_HOME={cynic_home})")
         sys.exit(1)
 
     print("🔍 Scanning for async linting issues...")

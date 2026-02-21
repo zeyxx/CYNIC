@@ -10,10 +10,16 @@ services:
     ports:
       - "8000:8000"
     environment:
+      # Core paths (portable across host/container)
+      CYNIC_HOME: "/app"
+      CYNIC_STATE_DIR: "/app/state"
+      CYNIC_LOG_LEVEL: "INFO"
+      # LLM & Storage backends
       CYNIC_OLLAMA_BASE_URL: "http://ollama:11434"
       CYNIC_SURREAL_URL: "ws://surrealdb:8000"
       CYNIC_SURREAL_USER: "root"
       CYNIC_SURREAL_PASS: "root"
+      # Python runtime
       PYTHONUNBUFFERED: "1"
     depends_on:
       - ollama
@@ -28,7 +34,7 @@ services:
       start_period: 20s
     volumes:
       - ./cynic:/app/cynic:ro
-      - ~/.cynic:/root/.cynic
+      - cynic-state:/app/state
 
   # Ollama LLM Engine (local inference)
   ollama:
@@ -95,4 +101,5 @@ networks:
     driver: bridge
 
 volumes:
+  cynic-state:
   ollama-models:

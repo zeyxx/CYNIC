@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -121,7 +122,14 @@ Return JSON: {{"score": 0-100, "verdict": "BARK|GROWL|WAG|HOWL", "reason": "brie
                 print(f"  Reasoning: {reason}\n")
 
                 # Store this perception + judgment for next phase
-                perception_file = Path.home() / ".cynic" / "phase2_perception.json"
+                # Use CYNIC_STATE_DIR env var if available (portable across host/container)
+                cynic_state_dir = os.environ.get("CYNIC_STATE_DIR")
+                if cynic_state_dir:
+                    perception_dir = Path(cynic_state_dir)
+                else:
+                    # Fallback to ~/.cynic
+                    perception_dir = Path.home() / ".cynic"
+                perception_file = perception_dir / "phase2_perception.json"
                 perception_file.parent.mkdir(parents=True, exist_ok=True)
                 perception_file.write_text(json.dumps({
                     "timestamp": time.time(),
