@@ -57,7 +57,7 @@ from cynic.senses.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketW
 from cynic.core.storage.gc import StorageGarbageCollector
 from cynic.senses import checkpoint as _session_checkpoint
 from cynic.senses.checkpoint import CHECKPOINT_EVERY
-from cynic.cognition.cortex.orchestrator import DogScheduler
+from cynic.cognition.cortex.orchestrator import ConsciousnessScheduler
 from cynic.metabolism.telemetry import TelemetryStore
 from cynic.metabolism.llm_router import LLMRouter
 from cynic.metabolism.runner import ClaudeCodeRunner
@@ -141,7 +141,7 @@ class AppState:
     qtable: QTable
     learning_loop: LearningLoop
     residual_detector: ResidualDetector
-    scheduler: DogScheduler
+    scheduler: ConsciousnessScheduler
     started_at: float = field(default_factory=time.time)
     _pool: asyncpg.Pool | None = None
     last_judgment: dict | None = None  # state_key, action, judgment_id — for /feedback
@@ -211,7 +211,7 @@ class _KernelBuilder:
         self.dogs:             dict[DogId, AbstractDog] = {}
         self.qtable:           QTable           = None  # type: ignore[assignment]
         self.orchestrator:     JudgeOrchestrator = None  # type: ignore[assignment]
-        self.scheduler:        DogScheduler     = None  # type: ignore[assignment]
+        self.scheduler:        ConsciousnessScheduler     = None  # type: ignore[assignment]
         self.learning_loop:    LearningLoop     = None  # type: ignore[assignment]
         self.residual_detector: ResidualDetector = None  # type: ignore[assignment]
         self.decide_agent:     DecideAgent      = None  # type: ignore[assignment]
@@ -305,7 +305,7 @@ class _KernelBuilder:
             residual_detector=self.residual_detector,
         )
 
-        self.scheduler = DogScheduler(orchestrator=self.orchestrator)
+        self.scheduler = ConsciousnessScheduler(orchestrator=self.orchestrator)
 
         self.decide_agent = DecideAgent(qtable=self.qtable)
         self.decide_agent.start(get_core_bus())
@@ -404,7 +404,7 @@ class _KernelBuilder:
         container.register(AccountAgent, self.account_agent)
         container.register(ActionProposer, self.action_proposer)
         container.register(SelfProber, self.self_prober)
-        container.register(DogScheduler, self.scheduler)
+        container.register(ConsciousnessScheduler, self.scheduler)
         container.register(AxiomMonitor, self.axiom_monitor)
         container.register(LODController, self.lod_controller)
         container.register(EScoreTracker, self.escore_tracker)
