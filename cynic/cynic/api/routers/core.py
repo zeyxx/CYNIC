@@ -235,6 +235,14 @@ async def judge(req: JudgeRequest, container: AppContainer = Depends(get_app_con
     await get_core_bus().emit(judgment_event)
     logger.info("Emitted JUDGMENT_REQUESTED: %s", judgment_event.event_id)
 
+    # Phase 0: Sync checkpoint — ensure request is persisted before returning
+    # (even if judgment is still processing asynchronously)
+    try:
+        await state.conscious_state.sync_checkpoint()
+    except Exception as e:
+        logger.warning("Checkpoint sync failed after /judge emit: %s", e)
+        # Don't block response on checkpoint failure — proceed with return
+
     # Return immediately with processing status
     return JudgeResponse(
         judgment_id=judgment_event.event_id,
@@ -337,6 +345,13 @@ async def perceive(req: PerceiveRequest, container: AppContainer = Depends(get_a
     await get_core_bus().emit(judgment_event)
     logger.info("Emitted JUDGMENT_REQUESTED (perceive): %s", judgment_event.event_id)
 
+    # Phase 0: Sync checkpoint — ensure perception is persisted before returning
+    try:
+        await state.conscious_state.sync_checkpoint()
+    except Exception as e:
+        logger.warning("Checkpoint sync failed after /perceive emit: %s", e)
+        # Don't block response on checkpoint failure — proceed with return
+
     # Return immediately with processing status
     j_resp = JudgeResponse(
         judgment_id=judgment_event.event_id,
@@ -406,6 +421,13 @@ async def learn(req: LearnRequest, container: AppContainer = Depends(get_app_con
     )
     await get_core_bus().emit(learning_event)
     logger.info("Emitted LEARNING_EVENT: %s", learning_event.event_id)
+
+    # Phase 0: Sync checkpoint — ensure learning signal is persisted before returning
+    try:
+        await state.conscious_state.sync_checkpoint()
+    except Exception as e:
+        logger.warning("Checkpoint sync failed after /learn emit: %s", e)
+        # Don't block response on checkpoint failure — proceed with return
 
     return LearnResponse(
         state_key=entry.state_key,
@@ -530,6 +552,13 @@ async def feedback(req: FeedbackRequest, container: AppContainer = Depends(get_a
         topic=last.get("action", "judgment"),
         signal_type="user_rating",
     )
+
+    # Phase 0: Sync checkpoint — ensure feedback is persisted before returning
+    try:
+        await state.conscious_state.sync_checkpoint()
+    except Exception as e:
+        logger.warning("Checkpoint sync failed after /feedback events: %s", e)
+        # Don't block response on checkpoint failure — proceed with return
 
     verdict_emoji = {"HOWL": "🟢", "WAG": "🟡", "GROWL": "🟠", "BARK": "🔴"}.get(last["action"], "⚪")
     msg = f"*tail wag* Feedback: rating={req.rating}/5 → reward={reward:.2f} → Q[{last['state_key']}][{last['action']}]={entry.q_value:.3f}"
