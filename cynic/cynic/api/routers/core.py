@@ -179,7 +179,8 @@ async def _write_guidance_async(
             # Clean up temp file if rename failed
             try:
                 os.unlink(temp_path)
-            except:
+            except OSError:
+                # File might not exist or already cleaned up — that's OK
                 pass
             raise
 

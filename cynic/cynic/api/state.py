@@ -85,7 +85,7 @@ from cynic.core.topology import (
 )
 from cynic.core.convergence import ConvergenceValidator
 from cynic.organism import (
-    Organism, CognitionCore, MetabolicCore, SensoryCore, MemoryCore,
+    Organism,
     ConsciousState, get_conscious_state, awaken as organism_awaken
 )
 

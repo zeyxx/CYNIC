@@ -527,7 +527,8 @@ class ConsciousState:
             except Exception:
                 try:
                     os.unlink(temp_path)
-                except:
+                except OSError:
+                    # Temp file cleanup failed — not critical
                     pass
                 raise
         except Exception as e:

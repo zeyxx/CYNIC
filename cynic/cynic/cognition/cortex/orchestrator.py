@@ -206,7 +206,8 @@ class ConsciousnessScheduler:
                     e_score = e_score_obj.get("q", 0.0)
                 else:
                     e_score = getattr(e_score_obj, "q", 0.0)
-            except:
+            except (AttributeError, KeyError, TypeError):
+                # EScore tracker unavailable or malformed — use default
                 e_score = 0.0
         else:
             e_score = 0.0
