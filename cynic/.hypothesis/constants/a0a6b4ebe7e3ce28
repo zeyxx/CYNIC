@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\neurons\scholar.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.2, 0.5, 0.7, 1.0, 512, 1000, 2000, 'ACCOUNT', 'ACT', 'CODE', 'COSMOS', 'CYNIC', 'DECIDE', 'EMERGE', 'HUMAN', 'JUDGE', 'LEARN', 'MARKET', 'PERCEIVE', 'SOCIAL', 'SOLANA', '_model', 'best_similarity', 'buffer_size', 'cell_id', 'cell_text', 'cold-buffer', 'consistency', 'embed_dim', 'embed_model', 'embedding', 'mean_q', 'neighbor_realities', 'neighbors_found', 'no-data', 'no-similar-cells', 'no-vectorizer', 'path', 'pgvector', 'q_score', 'qtable_blend', 'reality', 'reason', 'similarity', 'timestamp', 'ts', 'unknown', 'vector_rag', 'weighted_q', 'word']

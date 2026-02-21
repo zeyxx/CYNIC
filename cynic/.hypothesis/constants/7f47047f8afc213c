@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\neurons\sage.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.01, 0.04, 0.05, 0.06, 0.08, 0.1, 0.15, 0.2, 0.22, 0.28, 0.3, 0.38, 0.5, 0.55, 0.75, 1.0, 500, 1000, 5000, '"""', '#\\s+\\w', "'''", '([^\\n]{120,})', ',', '-> ', 'ACCOUNT', 'ACT', 'BURN', 'CODE', 'COSMOS', 'CULTURE', 'CYNIC', 'Chokmah — Wisdom', 'DECIDE', 'EMERGE', 'FIDELITY', 'HUMAN', 'JUDGE', 'LEARN', 'MARKET', 'PERCEIVE', 'PHI', 'SOCIAL', 'SOLANA', 'VERIFY', '\\"\\"\\".*?\\"\\"\\"', '\\(ABC\\)|\\(Abstract', '\\b(return|yield)\\b', '\\b[a-z_]{3,}\\b', '\\bglobal\\s+\\w+', '\\bpass\\b\\s*$', '\\btry\\s*:\\s', '^(?:import|from)\\s', 'axioms', 'code', 'compressed_context', 'geometric_mean', 'heuristic', 'lod_level', 'path', 'temporal_mcts', 'text', 'text_length', 'wisdom']

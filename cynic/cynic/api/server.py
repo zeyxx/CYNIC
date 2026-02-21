@@ -314,6 +314,18 @@ async def lifespan(app: FastAPI):
     set_app_container(_container)
 
     await restore_state(_container)  # γ2 + γ4: EScore + session context (cross-crash)
+
+    # ── MCPBridge Startup ───────────────────────────────────────────────
+    # Start the MCP protocol bridge so tool calls flow into organism events.
+    # Guard: old AppState has no .senses; new Organism does.
+    _mcp_bridge = getattr(getattr(state, "senses", None), "mcp_bridge", None)
+    if _mcp_bridge is not None:
+        logger.info("MCPBridge: starting...")
+        await _mcp_bridge.startup()
+        logger.info("MCPBridge: ready (bus=%s, tools=%d)", _mcp_bridge.bus_name, len(_mcp_bridge.tools))
+    else:
+        logger.info("MCPBridge: not available (old AppState path — skipping)")
+
     state.scheduler.start()
 
     # ── AutoBenchmark — periodic LLM probe every 55 min (T09) ────────────
@@ -597,6 +609,12 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("*yawn* CYNIC kernel shutting down...")
+
+    # ── MCPBridge Shutdown ──────────────────────────────────────────────
+    if _mcp_bridge is not None and _mcp_bridge.is_running:
+        logger.info("MCPBridge: shutting down...")
+        await _mcp_bridge.shutdown()
+        logger.info("MCPBridge: stopped")
 
     # ── MCP Server Shutdown ──────────────────────────────────────────────────
     if _mcp_server is not None:

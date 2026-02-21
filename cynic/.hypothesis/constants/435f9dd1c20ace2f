@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\handlers\escore.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.5, 1.0, 3.0, 4.0, 'ANTIFRAGILITY', 'AUTONOMY', 'BUILD', 'BURN', 'CODE', 'CONSCIOUSNESS', 'CONSENSUS_FAILED', 'CONSENSUS_REACHED', 'COSMOS', 'CRITICAL', 'CYNIC', 'DOWN', 'EMERGENCE', 'EWC_CHECKPOINT', 'HOLD', 'HUMAN', 'JUDGE', 'LEARNING_EVENT', 'LOD_RECOVERY', 'SOCIAL', 'SYMBIOSIS', 'UP', 'action', 'agent:cynic', 'axiom_monitor', 'consensus_failed', 'consensus_reached', 'correction_type', 'direction', 'escore', 'escore_tracker', 'ewc_checkpoint', 'flushed', 'handler error', 'learning_event', 'q_score', 'q_value', 'quorum', 'rating', 'reality', 'reward', 'severity', 'state_key', 'verdict', 'votes']

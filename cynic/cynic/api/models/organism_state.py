@@ -14,6 +14,9 @@ Models:
 - AccountStatusResponse: Account metrics (balance, spend, learn_rate, reputation)
 - AgentScore: Per-agent E-Score breakdown (nested in EScoreResponse)
 - EScoreResponse: All agent E-Scores and reputation dimensions
+- PolicyAction: Single learned policy action (nested in PolicyActionsResponse)
+- PolicyActionsResponse: Learned best actions per state from Q-table
+- PolicyStatsResponse: Policy coverage and learning statistics
 """
 
 from __future__ import annotations
@@ -312,6 +315,100 @@ class EScoreResponse(BaseModel):
     count: int = Field(
         ge=0,
         description="Number of agents with E-Score data",
+    )
+
+    model_config = ConfigDict(frozen=True)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# POLICY
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class PolicyAction(BaseModel):
+    """
+    One learned policy action — best action for a state in the Q-table.
+
+    Nested model used in PolicyActionsResponse.
+    Frozen (immutable).
+    """
+
+    state_key: str = Field(
+        description="State identifier (e.g., 'CODE:JUDGE:PRESENT:1')",
+    )
+    best_action: str = Field(
+        description="Highest Q-value action: BARK|GROWL|WAG|HOWL",
+    )
+    q_value: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Q-value estimate for best action [0, 1]",
+    )
+    confidence: float = Field(
+        ge=0.0,
+        le=0.618,
+        description="Confidence in prediction [0, φ⁻¹=0.618]",
+    )
+
+    model_config = ConfigDict(frozen=True)
+
+
+class PolicyActionsResponse(BaseModel):
+    """
+    Learned best actions per state from Q-table.
+
+    Shows CYNIC's learned policy: what action should be taken in each observed state.
+    Frozen (immutable).
+    """
+
+    timestamp: float = Field(
+        description="Unix timestamp (seconds) when snapshot was taken",
+    )
+    actions: List[PolicyAction] = Field(
+        default_factory=list,
+        description="List of learned policy actions (state → best action)",
+    )
+    count: int = Field(
+        ge=0,
+        description="Number of learned policy actions",
+    )
+
+    model_config = ConfigDict(frozen=True)
+
+
+class PolicyStatsResponse(BaseModel):
+    """
+    Policy coverage and learning statistics from Q-table.
+
+    Measures how much of the state space has been explored and learned.
+    Frozen (immutable).
+    """
+
+    timestamp: float = Field(
+        description="Unix timestamp (seconds) when snapshot was taken",
+    )
+    total_states: int = Field(
+        ge=0,
+        description="Number of distinct states seen in Q-table",
+    )
+    total_actions_per_state: float = Field(
+        ge=0.0,
+        description="Average number of actions learned per state",
+    )
+    policy_coverage: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Fraction of states with learned policy [0, 1]",
+    )
+    average_confidence: float = Field(
+        ge=0.0,
+        le=0.618,
+        description="Mean confidence across all learned actions [0, φ⁻¹=0.618]",
+    )
+    max_q_value: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Highest Q-value in table [0, 1]",
     )
 
     model_config = ConfigDict(frozen=True)

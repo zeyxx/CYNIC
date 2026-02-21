@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\core\embeddings.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1e-09, 0.5, 5.0, 200, 384, 768, 1024, 4096, '/', '>f', 'all-minilm', 'all-minilm:l6-v2', 'cynic.embeddings', 'embedding', 'model', 'mxbai-embed-large', 'nomic-embed-text', 'prompt', 'utf-8']

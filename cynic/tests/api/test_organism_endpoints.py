@@ -578,3 +578,145 @@ def test_account_timestamp_is_reasonable(client):
         f"timestamp {timestamp} before 2020-01-01 (invalid)"
     assert timestamp < time.time() + 10, \
         f"timestamp {timestamp} is in the future (invalid)"
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# PHASE 4 TASK 3: GET /api/organism/policy
+# ════════════════════════════════════════════════════════════════════════════
+
+
+def test_get_policy_actions(client):
+    """GET /api/organism/policy/actions returns PolicyActionsResponse (Phase 4 Task 3)."""
+    response = client.get("/api/organism/policy/actions")
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+
+    data = response.json()
+
+    # Verify required fields
+    assert "timestamp" in data, "Missing 'timestamp' field"
+    assert "actions" in data, "Missing 'actions' field"
+    assert "count" in data, "Missing 'count' field"
+
+    # Verify field types
+    assert isinstance(data["timestamp"], (int, float)), "timestamp should be numeric"
+    assert isinstance(data["actions"], list), "actions should be list"
+    assert isinstance(data["count"], int), "count should be int"
+
+    # Verify count matches actions list
+    assert data["count"] == len(data["actions"]), "count should match number of actions"
+
+    # Verify each action has required fields
+    for action in data["actions"]:
+        assert "state_key" in action, "Action missing state_key"
+        assert "best_action" in action, "Action missing best_action"
+        assert "q_value" in action, "Action missing q_value"
+        assert "confidence" in action, "Action missing confidence"
+
+        # Verify field types
+        assert isinstance(action["state_key"], str), "state_key should be string"
+        assert isinstance(action["best_action"], str), "best_action should be string"
+        assert isinstance(action["q_value"], (int, float)), "q_value should be numeric"
+        assert isinstance(action["confidence"], (int, float)), "confidence should be numeric"
+
+        # Verify constraints
+        assert 0.0 <= action["q_value"] <= 1.0, f"q_value should be [0, 1], got {action['q_value']}"
+        assert 0.0 <= action["confidence"] <= 0.618, f"confidence should be [0, 0.618], got {action['confidence']}"
+        assert action["best_action"] in ["BARK", "GROWL", "WAG", "HOWL"], \
+            f"best_action '{action['best_action']}' not valid"
+
+
+def test_get_policy_stats(client):
+    """GET /api/organism/policy/stats returns PolicyStatsResponse (Phase 4 Task 3)."""
+    response = client.get("/api/organism/policy/stats")
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+
+    data = response.json()
+
+    # Verify required fields
+    assert "timestamp" in data, "Missing 'timestamp' field"
+    assert "total_states" in data, "Missing 'total_states' field"
+    assert "total_actions_per_state" in data, "Missing 'total_actions_per_state' field"
+    assert "policy_coverage" in data, "Missing 'policy_coverage' field"
+    assert "average_confidence" in data, "Missing 'average_confidence' field"
+    assert "max_q_value" in data, "Missing 'max_q_value' field"
+
+    # Verify field types
+    assert isinstance(data["timestamp"], (int, float)), "timestamp should be numeric"
+    assert isinstance(data["total_states"], int), "total_states should be int"
+    assert isinstance(data["total_actions_per_state"], (int, float)), "total_actions_per_state should be numeric"
+    assert isinstance(data["policy_coverage"], (int, float)), "policy_coverage should be numeric"
+    assert isinstance(data["average_confidence"], (int, float)), "average_confidence should be numeric"
+    assert isinstance(data["max_q_value"], (int, float)), "max_q_value should be numeric"
+
+    # Verify constraints
+    assert data["total_states"] >= 0, "total_states should be >= 0"
+    assert data["total_actions_per_state"] >= 0.0, "total_actions_per_state should be >= 0"
+    assert 0.0 <= data["policy_coverage"] <= 1.0, f"policy_coverage should be [0, 1], got {data['policy_coverage']}"
+    assert 0.0 <= data["average_confidence"] <= 0.618, f"average_confidence should be [0, 0.618], got {data['average_confidence']}"
+    assert 0.0 <= data["max_q_value"] <= 1.0, f"max_q_value should be [0, 1], got {data['max_q_value']}"
+
+
+def test_policy_responses_are_frozen_immutable(client):
+    """IMMUTABILITY: Policy responses are frozen (read-only)."""
+    from cynic.api.models.organism_state import PolicyActionsResponse, PolicyStatsResponse
+
+    # Test PolicyActionsResponse frozen
+    actions_resp = client.get("/api/organism/policy/actions").json()
+    actions = PolicyActionsResponse(**actions_resp)
+
+    try:
+        actions.count = 999  # type: ignore
+        assert False, "Should have raised FrozenInstanceError"
+    except Exception as exc:
+        assert "frozen" in str(exc).lower() or "FrozenInstanceError" in type(exc).__name__, \
+            f"Expected FrozenInstanceError, got {type(exc).__name__}: {exc}"
+
+    # Test PolicyStatsResponse frozen
+    stats_resp = client.get("/api/organism/policy/stats").json()
+    stats = PolicyStatsResponse(**stats_resp)
+
+    try:
+        stats.total_states = 999  # type: ignore
+        assert False, "Should have raised FrozenInstanceError"
+    except Exception as exc:
+        assert "frozen" in str(exc).lower() or "FrozenInstanceError" in type(exc).__name__, \
+            f"Expected FrozenInstanceError, got {type(exc).__name__}: {exc}"
+
+
+def test_policy_coverage_consistency(client):
+    """CONSISTENCY: If total_states=0, then coverage should be 0. If total_states>0, coverage>0."""
+    stats = client.get("/api/organism/policy/stats").json()
+
+    total_states = stats["total_states"]
+    coverage = stats["policy_coverage"]
+
+    if total_states == 0:
+        assert coverage == 0.0, f"If total_states=0, coverage should be 0, got {coverage}"
+    else:
+        assert coverage > 0.0, f"If total_states>0, coverage should be >0, got {coverage}"
+
+    assert coverage <= 1.0, f"coverage should be <= 1.0, got {coverage}"
+
+
+def test_policy_actions_timestamp_is_reasonable(client):
+    """SANITY: PolicyActionsResponse timestamp is valid Unix timestamp."""
+    data = client.get("/api/organism/policy/actions").json()
+
+    timestamp = data["timestamp"]
+    assert isinstance(timestamp, (int, float)), "timestamp should be numeric"
+    assert timestamp > 1577836800, \
+        f"timestamp {timestamp} before 2020-01-01 (invalid)"
+    assert timestamp < time.time() + 10, \
+        f"timestamp {timestamp} is in the future (invalid)"
+
+
+def test_policy_stats_timestamp_is_reasonable(client):
+    """SANITY: PolicyStatsResponse timestamp is valid Unix timestamp."""
+    data = client.get("/api/organism/policy/stats").json()
+
+    timestamp = data["timestamp"]
+    assert isinstance(timestamp, (int, float)), "timestamp should be numeric"
+    assert timestamp > 1577836800, \
+        f"timestamp {timestamp} before 2020-01-01 (invalid)"
+    assert timestamp < time.time() + 10, \
+        f"timestamp {timestamp} is in the future (invalid)"
