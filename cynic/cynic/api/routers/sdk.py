@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
@@ -31,7 +31,7 @@ from cynic.metabolism.telemetry import (
     compute_reward,
     estimate_complexity,
 )
-from cynic.api.state import get_state
+from cynic.api.state import get_app_container, AppContainer
 
 logger = logging.getLogger("cynic.api.server")
 
@@ -112,7 +112,10 @@ _sdk_sessions: dict[str, SDKSession] = {}
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_sdk.websocket("/ws/sdk")
-async def ws_sdk(websocket: WebSocket) -> None:
+async def ws_sdk(
+    websocket: WebSocket,
+    container: AppContainer = Depends(get_app_container),
+) -> None:
     """
     Claude Code SDK WebSocket server.
 
@@ -143,7 +146,7 @@ async def ws_sdk(websocket: WebSocket) -> None:
       Phase 3: 80%+ tasks → Ollama ($0 cost). Claude only for novel tasks.
     """
     await websocket.accept()
-    state = get_state()
+    state = container.organism
     bus = get_core_bus()
 
     session_id = str(uuid.uuid4())
@@ -511,14 +514,14 @@ async def sdk_sessions() -> dict[str, Any]:
 
 
 @router_sdk.get("/sdk/routing")
-async def sdk_routing() -> dict[str, Any]:
+async def sdk_routing(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
     LLM routing stats — Ring 4 Q-Table driven model selection.
 
     Shows how often CYNIC routes SDK tasks from Sonnet → Haiku based on
     accumulated Q-Table confidence. local_rate rises as Q-Table warms up.
     """
-    state = get_state()
+    state = container.organism
     if state.llm_router is None:
         return {"available": False}
     return {"available": True, **state.llm_router.stats()}
