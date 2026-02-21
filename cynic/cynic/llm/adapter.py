@@ -122,7 +122,7 @@ def _log_llm_call(response: LLMResponse, request: LLMRequest) -> None:
             lines = lines[-_LLM_LOG_CAP:]
         with open(_LLM_LOG_PATH, "w", encoding="utf-8") as fh:
             fh.writelines(lines)
-    except Exception:
+    except OSError:
         logger.debug("LLM log write failed (non-critical)", exc_info=True)
 
 
@@ -203,7 +203,7 @@ class OllamaConnectionPool:
             if hasattr(client, "close"):
                 try:
                     await client.close()
-                except Exception as e:
+                except asyncio.TimeoutError as e:
                     logger.debug(f"Error closing client: {e}")
         self._clients.clear()
 
@@ -315,7 +315,7 @@ class OllamaAdapter(LLMAdapter):
             client = self.pool.get_client(self.base_url)
             await asyncio.wait_for(client.list(), timeout=LLM_DISCOVERY_TIMEOUT_SEC)
             return True
-        except Exception:
+        except httpx.RequestError:
             return False
 
     async def list_models(self) -> list[str]:
@@ -334,7 +334,7 @@ class OllamaAdapter(LLMAdapter):
                 else:
                     result.append(getattr(m, "name", str(m)))
             return [n for n in result if n]
-        except Exception:
+        except httpx.RequestError:
             return []
 
 
@@ -410,7 +410,7 @@ class ClaudeAdapter(LLMAdapter):
                 messages=[{"role": "user", "content": "ping"}],
             )
             return True
-        except Exception:
+        except ValidationError:
             return False
 
 
@@ -481,7 +481,7 @@ class GeminiAdapter(LLMAdapter):
                 genai.configure(api_key=self._api_key)
             list(genai.list_models())
             return True
-        except Exception:
+        except ValidationError:
             return False
 
 

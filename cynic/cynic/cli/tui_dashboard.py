@@ -354,14 +354,14 @@ class CynicDashboard(Static):
                         self._update_soul(session),
                         return_exceptions=True,
                     )
-                except Exception:
+                except asyncpg.Error:
                     # Silent fail on individual endpoint errors
                     pass
 
                 # Poll interval: 2 seconds for responsiveness
                 await asyncio.sleep(2.0)
 
-        except Exception:
+        except asyncpg.Error:
             # Silently handle session creation errors
             pass
         finally:
@@ -382,7 +382,7 @@ class CynicDashboard(Static):
                     heartbeat.judgments_made = data.get("judgments_made", 0)
                     heartbeat.health_score = data.get("health_score", 0.0)
                     heartbeat.uptime_s = data.get("uptime_s", 0)
-        except Exception:
+        except asyncpg.Error:
             pass
 
     async def _update_omniscience(self, session: "aiohttp.ClientSession") -> None:
@@ -402,7 +402,7 @@ class CynicDashboard(Static):
                         }
                         for e in data.get("events", [])
                     ]
-        except Exception:
+        except httpx.RequestError:
             pass
 
     async def _update_omnipresence(self, session: "aiohttp.ClientSession") -> None:
@@ -418,7 +418,7 @@ class CynicDashboard(Static):
                         for dog_name in data["dogs"]:
                             components_status[dog_name.upper()] = "healthy"
                     omnipresence.components_status = components_status
-        except Exception:
+        except httpx.RequestError:
             pass
 
     async def _update_cortex(self, session: "aiohttp.ClientSession") -> None:
@@ -438,7 +438,7 @@ class CynicDashboard(Static):
                         }
                         for t in data.get("traces", [])
                     ]
-        except Exception:
+        except httpx.RequestError:
             pass
 
     async def _update_memory(self, session: "aiohttp.ClientSession") -> None:
@@ -453,7 +453,7 @@ class CynicDashboard(Static):
                         "most_common_verdict": patterns.get("most_common_verdict", "?"),
                         "avg_q_score": f"{patterns.get('avg_q_score', 0):.0f}",
                     }
-        except Exception:
+        except httpx.RequestError:
             pass
 
     async def _update_nerves(self, session: "aiohttp.ClientSession") -> None:
@@ -464,7 +464,7 @@ class CynicDashboard(Static):
                     data = await r.json()
                     nerves = self.query_one(Nerves)
                     nerves.loop_status = data.get("health", {})
-        except Exception:
+        except httpx.RequestError:
             pass
 
     async def _update_soul(self, session: "aiohttp.ClientSession") -> None:
@@ -476,7 +476,7 @@ class CynicDashboard(Static):
                     soul = self.query_one(Soul)
                     soul.axioms_active = len(data.get("active_axioms", []))
                     soul.transcendence_level = data.get("transcendence_level", 0)
-        except Exception:
+        except httpx.RequestError:
             pass
 
     def stop_polling(self) -> None:

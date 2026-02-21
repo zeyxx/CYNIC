@@ -65,14 +65,14 @@ class AxiomHandlers(HandlerGroup):
         """EMERGENCE_DETECTED → signal EMERGENCE axiom."""
         try:
             await self._svc.signal_axiom("EMERGENCE", "emergence_detector")
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_decision_made_for_axiom(self, event: Event) -> None:
         """DECISION_MADE → signal AUTONOMY axiom."""
         try:
             await self._svc.signal_axiom("AUTONOMY", "decide_agent")
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_decision_made_for_run(self, event: Event) -> None:
@@ -103,7 +103,7 @@ class AxiomHandlers(HandlerGroup):
                 run_score,
                 " EMERGENCE signalled" if emergence_signalled else "",
             )
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_axiom_activated(self, event: Event) -> None:
@@ -135,7 +135,7 @@ class AxiomHandlers(HandlerGroup):
                         source="axiom_monitor",
                     )
                 )
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_self_improvement_proposed(self, event: Event) -> None:
@@ -171,7 +171,7 @@ class AxiomHandlers(HandlerGroup):
                 severity,
                 judge_score,
             )
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_transcendence(self, event: Event) -> None:
@@ -183,7 +183,7 @@ class AxiomHandlers(HandlerGroup):
                 active,
             )
             self._svc.escore_tracker.update("agent:cynic", "JUDGE", MAX_Q_SCORE)
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_residual_high(self, event: Event) -> None:
@@ -207,7 +207,7 @@ class AxiomHandlers(HandlerGroup):
                 residual,
                 penalty_score,
             )
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_action_proposed(self, event: Event) -> None:
@@ -230,7 +230,7 @@ class AxiomHandlers(HandlerGroup):
                 priority,
                 score,
             )
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_meta_cycle(self, event: Event) -> None:
@@ -276,5 +276,5 @@ class AxiomHandlers(HandlerGroup):
                 judge_score,
                 " ANTIFRAGILITY signalled" if regression else "",
             )
-        except Exception:
+        except EventBusError:
             logger.debug("handler error", exc_info=True)
