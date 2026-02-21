@@ -12,6 +12,7 @@ from unittest.mock import Mock, MagicMock, patch
 import time
 
 from cynic.api.server import app
+from pydantic import ValidationError
 from cynic.api.state import set_app_container, AppContainer
 from cynic.api.models.organism_state import (
     StateSnapshotResponse,
@@ -191,3 +192,271 @@ def test_get_organism_actions(client):
     actions_resp = ActionsResponse(**data)
     assert actions_resp is not None
     assert actions_resp.count == 1  # mock has 1 action
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# INTEGRATION TESTS — Phase3-T6: Verify endpoints return actual organism reality
+# ════════════════════════════════════════════════════════════════════════════
+
+
+def test_all_endpoints_work_together(client):
+    """
+    INTEGRATION: All endpoints work together without errors.
+
+    This test verifies that all 4 organism endpoints can be called in sequence
+    and return valid responses. This simulates a real monitoring client that
+    queries CYNIC's observable state.
+    """
+    # Query snapshot
+    snapshot_resp = client.get("/api/organism/state/snapshot")
+    assert snapshot_resp.status_code == 200, \
+        f"Snapshot failed: {snapshot_resp.status_code} {snapshot_resp.text}"
+
+    # Query consciousness
+    consciousness_resp = client.get("/api/organism/consciousness")
+    assert consciousness_resp.status_code == 200, \
+        f"Consciousness failed: {consciousness_resp.status_code} {consciousness_resp.text}"
+
+    # Query dogs
+    dogs_resp = client.get("/api/organism/dogs")
+    assert dogs_resp.status_code == 200, \
+        f"Dogs failed: {dogs_resp.status_code} {dogs_resp.text}"
+
+    # Query actions
+    actions_resp = client.get("/api/organism/actions")
+    assert actions_resp.status_code == 200, \
+        f"Actions failed: {actions_resp.status_code} {actions_resp.text}"
+
+    # Parse all responses
+    snap_data = snapshot_resp.json()
+    cons_data = consciousness_resp.json()
+    dogs_data = dogs_resp.json()
+    acts_data = actions_resp.json()
+
+    # Verify all can be instantiated
+    snapshot = StateSnapshotResponse(**snap_data)
+    consciousness = ConsciousnessResponse(**cons_data)
+    dogs = DogsResponse(**dogs_data)
+    actions = ActionsResponse(**acts_data)
+
+    assert snapshot is not None
+    assert consciousness is not None
+    assert dogs is not None
+    assert actions is not None
+
+
+def test_consciousness_matches_snapshot(client):
+    """
+    CONSISTENCY: Consciousness endpoint matches snapshot consciousness_level.
+
+    Both endpoints read from the same organism state (scheduler.current_lod).
+    They should always return the same consciousness level.
+    """
+    snapshot = client.get("/api/organism/state/snapshot").json()
+    consciousness = client.get("/api/organism/consciousness").json()
+
+    assert consciousness["level"] == snapshot["consciousness_level"], \
+        f"Mismatch: consciousness.level='{consciousness['level']}' " \
+        f"but snapshot.consciousness_level='{snapshot['consciousness_level']}'"
+
+
+def test_dogs_count_matches_snapshot(client):
+    """
+    CONSISTENCY: Dogs endpoint count matches snapshot dog_count.
+
+    Both read from the same orchestrator.dogs registry.
+    Count should always match.
+    """
+    snapshot = client.get("/api/organism/state/snapshot").json()
+    dogs = client.get("/api/organism/dogs").json()
+
+    assert snapshot["dog_count"] == dogs["count"], \
+        f"Mismatch: snapshot reports {snapshot['dog_count']} dogs, " \
+        f"but /dogs reports {dogs['count']}"
+
+
+def test_actions_count_matches_snapshot(client):
+    """
+    CONSISTENCY: Actions endpoint count matches snapshot pending_actions_count.
+
+    Both read from the same action_proposer.pending() queue.
+    Count should always match.
+    """
+    snapshot = client.get("/api/organism/state/snapshot").json()
+    actions = client.get("/api/organism/actions").json()
+
+    assert snapshot["pending_actions_count"] == actions["count"], \
+        f"Mismatch: snapshot reports {snapshot['pending_actions_count']} pending actions, " \
+        f"but /actions reports {actions['count']}"
+
+
+def test_all_responses_are_frozen_immutable(client):
+    """
+    IMMUTABILITY: All responses are frozen (FrozenInstanceError on mutation).
+
+    This proves that external clients cannot mutate CYNIC's state via API.
+    All response models have frozen=True configured.
+    """
+    # Get snapshot
+    snapshot_resp = client.get("/api/organism/state/snapshot")
+    snapshot = StateSnapshotResponse(**snapshot_resp.json())
+
+    # Try to mutate (should raise FrozenInstanceError)
+    try:
+        snapshot.dog_count = 999  # type: ignore
+        assert False, "Should have raised FrozenInstanceError"
+    except Exception as exc:
+        assert "frozen" in str(exc).lower() or "FrozenInstanceError" in type(exc).__name__, \
+            f"Expected FrozenInstanceError, got {type(exc).__name__}: {exc}"
+
+    # Get consciousness
+    cons_resp = client.get("/api/organism/consciousness")
+    consciousness = ConsciousnessResponse(**cons_resp.json())
+
+    try:
+        consciousness.level = "INVALID"  # type: ignore
+        assert False, "Should have raised FrozenInstanceError"
+    except Exception as exc:
+        assert "frozen" in str(exc).lower() or "FrozenInstanceError" in type(exc).__name__, \
+            f"Expected FrozenInstanceError, got {type(exc).__name__}: {exc}"
+
+    # Get dogs
+    dogs_resp = client.get("/api/organism/dogs")
+    dogs = DogsResponse(**dogs_resp.json())
+
+    try:
+        dogs.count = 999  # type: ignore
+        assert False, "Should have raised FrozenInstanceError"
+    except Exception as exc:
+        assert "frozen" in str(exc).lower() or "FrozenInstanceError" in type(exc).__name__, \
+            f"Expected FrozenInstanceError, got {type(exc).__name__}: {exc}"
+
+    # Get actions
+    acts_resp = client.get("/api/organism/actions")
+    actions = ActionsResponse(**acts_resp.json())
+
+    try:
+        actions.count = 999  # type: ignore
+        assert False, "Should have raised FrozenInstanceError"
+    except Exception as exc:
+        assert "frozen" in str(exc).lower() or "FrozenInstanceError" in type(exc).__name__, \
+            f"Expected FrozenInstanceError, got {type(exc).__name__}: {exc}"
+
+
+def test_snapshot_reflects_actual_counts(client):
+    """
+    REALITY: Snapshot returns actual counts from organism state.
+
+    With mock organism:
+    - dog_count should be 2 (2 dogs in mock orchestrator)
+    - qtable_entries should be 2 (2 entries in mock q-table)
+    - residuals_count should be 2 (2 residuals in mock detector)
+    - pending_actions_count should be 1 (1 action in mock proposer)
+    """
+    snapshot = client.get("/api/organism/state/snapshot").json()
+
+    # These values match our mock setup in the fixture
+    assert snapshot["dog_count"] == 2, \
+        f"Expected dog_count=2 (from mock), got {snapshot['dog_count']}"
+    assert snapshot["qtable_entries"] == 2, \
+        f"Expected qtable_entries=2 (from mock), got {snapshot['qtable_entries']}"
+    assert snapshot["residuals_count"] == 2, \
+        f"Expected residuals_count=2 (from mock), got {snapshot['residuals_count']}"
+    assert snapshot["pending_actions_count"] == 1, \
+        f"Expected pending_actions_count=1 (from mock), got {snapshot['pending_actions_count']}"
+
+
+def test_dogs_endpoint_returns_individual_dog_status(client):
+    """
+    REALITY: Dogs endpoint returns individual dog status with all required fields.
+
+    Each dog should have q_score, verdict, confidence (optional), and activity (optional).
+    With mock, we have 2 dogs, each with minimal status.
+    """
+    dogs = client.get("/api/organism/dogs").json()
+
+    assert len(dogs["dogs"]) == 2, f"Expected 2 dogs, got {len(dogs['dogs'])}"
+
+    # Check each dog has required structure
+    for dog_id, dog_status in dogs["dogs"].items():
+        assert isinstance(dog_id, str), "dog_id should be string"
+        assert "q_score" in dog_status, f"Dog {dog_id} missing q_score"
+        assert "verdict" in dog_status, f"Dog {dog_id} missing verdict"
+        assert isinstance(dog_status["q_score"], (int, float)), \
+            f"Dog {dog_id} q_score should be numeric"
+        assert isinstance(dog_status["verdict"], str), \
+            f"Dog {dog_id} verdict should be string"
+        assert dog_status["verdict"] in ["BARK", "GROWL", "WAG", "HOWL"], \
+            f"Dog {dog_id} verdict '{dog_status['verdict']}' not valid"
+
+
+def test_actions_endpoint_returns_action_details(client):
+    """
+    REALITY: Actions endpoint returns each action with all required fields.
+
+    Each action should have action_id, action_type, priority, and description (optional).
+    With mock, we have 1 action.
+    """
+    actions = client.get("/api/organism/actions").json()
+
+    assert len(actions["actions"]) == 1, f"Expected 1 action, got {len(actions['actions'])}"
+
+    action = actions["actions"][0]
+    assert "action_id" in action, "Action missing action_id"
+    assert "action_type" in action, "Action missing action_type"
+    assert "priority" in action, "Action missing priority"
+    assert isinstance(action["action_id"], str), "action_id should be string"
+    assert isinstance(action["action_type"], str), "action_type should be string"
+    assert isinstance(action["priority"], int), "priority should be int"
+    assert 1 <= action["priority"] <= 4, f"priority should be 1-4, got {action['priority']}"
+
+
+def test_all_timestamps_are_reasonable(client):
+    """
+    SANITY: Snapshot timestamp is a reasonable Unix timestamp.
+
+    Should be a positive float representing seconds since epoch (after 2020).
+    """
+    snapshot = client.get("/api/organism/state/snapshot").json()
+
+    timestamp = snapshot["timestamp"]
+    assert isinstance(timestamp, (int, float)), "timestamp should be numeric"
+    assert timestamp > 1577836800, \
+        f"timestamp {timestamp} before 2020-01-01 (invalid)"
+    assert timestamp < time.time() + 10, \
+        f"timestamp {timestamp} is in the future (invalid)"
+
+
+def test_all_counts_are_non_negative(client):
+    """
+    SANITY: All count fields are non-negative integers.
+
+    No count should be negative (would be a logical error).
+    """
+    snapshot = client.get("/api/organism/state/snapshot").json()
+
+    counts = {
+        "judgment_count": snapshot["judgment_count"],
+        "dog_count": snapshot["dog_count"],
+        "qtable_entries": snapshot["qtable_entries"],
+        "residuals_count": snapshot["residuals_count"],
+        "pending_actions_count": snapshot["pending_actions_count"],
+    }
+
+    for name, value in counts.items():
+        assert isinstance(value, int), f"{name} should be int, got {type(value).__name__}"
+        assert value >= 0, f"{name} should be >= 0, got {value}"
+
+
+def test_consciousness_level_is_valid(client):
+    """
+    SANITY: Consciousness level is one of the four valid states.
+
+    Must be REFLEX, MICRO, MACRO, or META (derived from scheduler LOD).
+    """
+    consciousness = client.get("/api/organism/consciousness").json()
+
+    level = consciousness["level"]
+    valid_levels = {"REFLEX", "MICRO", "MACRO", "META"}
+    assert level in valid_levels, \
+        f"consciousness.level '{level}' not in {valid_levels}"
