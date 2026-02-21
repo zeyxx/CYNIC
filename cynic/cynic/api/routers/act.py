@@ -9,6 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from cynic.core.formulas import CONFIDENCE_ENRICHMENT_MIN_THRESHOLD
 from cynic.metabolism.telemetry import classify_task, compute_reward
 from cynic.api.state import get_app_container, AppContainer
 
@@ -45,13 +46,13 @@ def _enrich_prompt(prompt: str, state) -> str:
         context_summary = ""
 
     # Skip enrichment if nothing useful yet (cold start)
-    if not context_summary and confidence < 0.10:
+    if not context_summary and confidence < CONFIDENCE_ENRICHMENT_MIN_THRESHOLD:
         return prompt
 
     lines = ["# CYNIC Context (kernel guidance)"]
     if context_summary:
         lines.append(f"## Session history\n{context_summary}")
-    if confidence >= 0.10:
+    if confidence >= CONFIDENCE_ENRICHMENT_MIN_THRESHOLD:
         lines.append(
             f"## Learned guidance\n"
             f"Task type: {task_type} | Suggested approach: {best_action} "

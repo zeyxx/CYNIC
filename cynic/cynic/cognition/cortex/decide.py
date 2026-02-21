@@ -22,6 +22,7 @@ from typing import Any
 
 from cynic.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
 from cynic.core.events_schema import DecisionMadePayload
+from cynic.core.formulas import MCTS_UCT_C
 
 logger = logging.getLogger("cynic.cognition.cortex.decide")
 
@@ -37,7 +38,7 @@ _ACT_REALITIES = frozenset({"CODE", "CYNIC"})
 # NestedMCTS hyperparameters (φ-derived)
 _MCTS_DEPTH: int = 2         # rollout depth
 _MCTS_N_SIM: int = 7         # simulations per action (F(4+1) ensures full VERDICTS coverage)
-_UCT_C: float = 0.7071       # exploration constant ≈ 1/√2 (UCT1 canonical)
+_UCT_C: float = MCTS_UCT_C    # Imported from formulas.py (exploration constant ≈ 1/√2)
 
 
 # ── NestedMCTS ────────────────────────────────────────────────────────────────

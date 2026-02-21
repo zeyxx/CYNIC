@@ -361,6 +361,130 @@ Justification:
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# JUDGMENT VERDICT THRESHOLDS (Kernel introspection + health routing)
+# ════════════════════════════════════════════════════════════════════════════
+
+KERNEL_INTEGRITY_HOWL_THRESHOLD: float = 0.888
+"""
+Kernel integrity score (0-1) above which verdict is HOWL (excellent).
+
+Justification:
+  0.888 ≈ φ² ≈ high-confidence threshold for system health.
+  89% operational = "almost perfect" tier.
+"""
+
+KERNEL_INTEGRITY_WAG_THRESHOLD: float = 0.618
+"""
+Kernel integrity score (0-1) above which verdict is WAG (acceptable).
+
+Justification:
+  0.618 = φ⁻¹ = balanced operational threshold.
+  62% operational = "mostly working" tier.
+"""
+
+KERNEL_INTEGRITY_GROWL_THRESHOLD: float = 0.382
+"""
+Kernel integrity score (0-1) above which verdict is GROWL (degraded).
+
+Justification:
+  0.382 = φ⁻² = minimum acceptable threshold.
+  Below this = BARK (critical failure).
+"""
+
+CONFIDENCE_ENRICHMENT_MIN_THRESHOLD: float = 0.10
+"""
+Minimum QTable confidence (0-1) to enable context enrichment in ACT phase.
+
+Justification:
+  0.10 = 10% = "barely useful" signal.
+  Below 10%, LLM enrichment adds more noise than signal.
+  Skip enrichment for cold starts (confidence < 10%).
+"""
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# HANDLER EXECUTION WINDOWS (Nervous System timing)
+# ════════════════════════════════════════════════════════════════════════════
+
+HANDLER_EXECUTION_WINDOW: int = fibonacci(7)  # = 13
+"""
+Rolling window size for tracking execution window patterns in handlers.
+
+Used by: DirectHandler._EXECUTION_WINDOW
+Justification:
+  F(7) = 13 = "recent execution" window for success tracking.
+  Last 13 executions = ~1-2 minutes of activity at normal rhythm.
+"""
+
+HANDLER_OUTCOME_WINDOW: int = fibonacci(8)  # = 21
+"""
+Rolling window size for tracking outcome patterns in handlers.
+
+Used by: IntelligenceHandler._OUTCOME_WINDOW
+Justification:
+  F(8) = 21 = standard judgment history window.
+  Last 21 outcomes = enough for anomaly detection without lag.
+"""
+
+SDK_OUTCOME_WINDOW: int = fibonacci(7)  # = 13
+"""
+Rolling window size for SDK session outcome tracking.
+
+Used by: SDKHandler._SDK_OUTCOME_WINDOW
+Justification:
+  F(7) = 13 = shorter window for SDK (higher velocity than general handlers).
+  Last 13 SDK outcomes = ~13-26 seconds at normal pacing.
+"""
+
+ESCORE_PERSIST_INTERVAL: int = 5
+"""
+Persist E-Scores to database every N judgments.
+
+Justification:
+  5 = balance between durability (save often) and I/O cost.
+  Persist every 5 judgments ≈ every 1-2 seconds at normal rhythm.
+"""
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# DOG COGNITION & CONSENSUS (Multi-Agent Reasoning)
+# ════════════════════════════════════════════════════════════════════════════
+
+GOSSIP_THRESHOLD: float = 0.5
+"""
+Minimum confidence threshold for dogs to share judgments via gossip protocol.
+
+Used by: DogCognition._gossip_threshold
+Justification:
+  0.5 (50%) = only propagate judgments with moderate+ confidence.
+  Below 50% = too uncertain to influence siblings (avoid noise amplification).
+  At 50%+ = likely correct enough for collective deliberation.
+"""
+
+CONFIDENCE_DECAY_FACTOR: float = 0.95
+"""
+Decay multiplier for judgment confidence over time (per subsequent cycle).
+
+Used by: DogCognition.confidence_decay
+Justification:
+  0.95 = older judgments retain 95% confidence per cycle.
+  After 13 cycles (≈30 seconds): confidence ≈ 0.95^13 ≈ 0.51 (down to 50%).
+  Prevents stale judgments from dominating fresh reasoning.
+"""
+
+MCTS_UCT_C: float = 0.7071
+"""
+Exploration constant for Upper Confidence Bound Tree Search (UCT1).
+
+Used by: NestedMCTS algorithm in decide.py
+Justification:
+  0.7071 ≈ 1/√2 = UCT1 canonical exploration-exploitation balance.
+  Higher C = explore more diverse actions; Lower C = exploit best-known.
+  1/√2 is theoretically optimal for many decision problems (proven in bandits literature).
+"""
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # VALIDATION (document all constants)
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -411,5 +535,16 @@ __all__ = [
     "AXIOM_MATURITY_WINDOW_SIZE",
     "AXIOM_ACTIVATION_THRESHOLD",
     "AXIOM_TRANSCENDENCE_THRESHOLD",
+    "KERNEL_INTEGRITY_HOWL_THRESHOLD",
+    "KERNEL_INTEGRITY_WAG_THRESHOLD",
+    "KERNEL_INTEGRITY_GROWL_THRESHOLD",
+    "CONFIDENCE_ENRICHMENT_MIN_THRESHOLD",
+    "HANDLER_EXECUTION_WINDOW",
+    "HANDLER_OUTCOME_WINDOW",
+    "SDK_OUTCOME_WINDOW",
+    "ESCORE_PERSIST_INTERVAL",
+    "GOSSIP_THRESHOLD",
+    "CONFIDENCE_DECAY_FACTOR",
+    "MCTS_UCT_C",
     "FORMULA_CONSTANTS",
 ]

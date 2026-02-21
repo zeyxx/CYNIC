@@ -17,6 +17,11 @@ from fastapi.responses import FileResponse
 
 from cynic.core.consciousness import get_consciousness
 from cynic.core.phi import PHI, PHI_INV, PHI_INV_2, fibonacci, WAG_MIN
+from cynic.core.formulas import (
+    KERNEL_INTEGRITY_HOWL_THRESHOLD,
+    KERNEL_INTEGRITY_WAG_THRESHOLD,
+    KERNEL_INTEGRITY_GROWL_THRESHOLD,
+)
 from cynic.api.models import HealthResponse, StatsResponse
 from cynic.api.state import get_app_container, AppContainer
 
@@ -241,9 +246,9 @@ async def introspect(container: AppContainer = Depends(get_app_container)) -> di
             "kernel_integrity": kernel_integrity,
             "phi_violations": phi_violations,
             "self_confidence": round(min(kernel_integrity * PHI_INV, PHI_INV), 3),
-            "verdict": "HOWL" if kernel_integrity >= 0.888 else (
-                "WAG" if kernel_integrity >= 0.618 else (
-                    "GROWL" if kernel_integrity >= 0.382 else "BARK"
+            "verdict": "HOWL" if kernel_integrity >= KERNEL_INTEGRITY_HOWL_THRESHOLD else (
+                "WAG" if kernel_integrity >= KERNEL_INTEGRITY_WAG_THRESHOLD else (
+                    "GROWL" if kernel_integrity >= KERNEL_INTEGRITY_GROWL_THRESHOLD else "BARK"
                 )
             ),
         },

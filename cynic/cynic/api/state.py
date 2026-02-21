@@ -10,6 +10,7 @@ import json
 import os
 import time
 import logging
+import threading
 from dataclasses import dataclass, field
 from typing import Any, TYPE_CHECKING
 
@@ -466,26 +467,31 @@ class AppContainer:
         return time.time() - self.started_at
 
 
-# Process-level singleton — set during lifespan startup (temporary during transition)
-# TODO: Remove after all routes converted to AppContainer dependency injection
+# Process-level singleton — set during lifespan startup (thread-safe)
+# FastAPI's lifespan runs once at startup, so Lock overhead is minimal.
+# Protects against multi-threaded scenarios (ASGI servers, concurrent requests).
 _app_container: Optional[AppContainer] = None
+_app_container_lock = threading.RLock()  # Reentrant for nested access
 
 
 def set_app_container(container: AppContainer) -> None:
-    """Set the app container during lifespan startup."""
+    """Set the app container during lifespan startup (thread-safe)."""
     global _app_container
-    _app_container = container
+    with _app_container_lock:
+        _app_container = container
 
 
 def get_app_container() -> AppContainer:
     """
-    Get the app container (FastAPI dependency).
+    Get the app container (FastAPI dependency — thread-safe).
 
     Used as: def route(container: AppContainer = Depends(get_app_container))
+    Raises RuntimeError if lifespan hasn't started yet.
     """
-    if _app_container is None:
-        raise RuntimeError("AppContainer not initialized — lifespan not started")
-    return _app_container
+    with _app_container_lock:
+        if _app_container is None:
+            raise RuntimeError("AppContainer not initialized — lifespan not started")
+        return _app_container
 
 
 class _OrganismAwakener:
