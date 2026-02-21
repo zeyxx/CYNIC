@@ -41,9 +41,9 @@ STATE_DIR.mkdir(exist_ok=True)
 STATE_FILE = STATE_DIR / "conscious_state.json"
 
 
-@dataclass
+@dataclass(frozen=True)
 class DogStatus:
-    """Real-time status of a single dog."""
+    """Real-time status of a single dog (immutable)."""
     dog_id: str
     q_score: float  # Last judgment Q-Score
     verdict: str  # Last verdict
@@ -53,9 +53,9 @@ class DogStatus:
     judgment_count: int  # Total judgments
 
 
-@dataclass
+@dataclass(frozen=True)
 class JudgmentSnapshot:
-    """Lightweight snapshot of recent judgment."""
+    """Lightweight snapshot of recent judgment (immutable)."""
     judgment_id: str
     timestamp: float
     q_score: float
@@ -65,9 +65,9 @@ class JudgmentSnapshot:
     source: str  # "perceive", "sdk", "social"
 
 
-@dataclass
+@dataclass(frozen=True)
 class AxiomStatus:
-    """State of a single axiom."""
+    """State of a single axiom (immutable)."""
     axiom_id: str  # "PHI", "VERIFY", "CULTURE", "BURN", "FIDELITY"
     active: bool
     tier: str  # "A6", "A7", "A8", "A9"
@@ -110,7 +110,6 @@ class ConsciousState:
 
         self._initialized = True
         self._state_lock = asyncio.Lock()
-        self._event_handlers: dict[str, list[Callable]] = {}
 
         # Current organism state
         self._consciousness_level = "REFLEX"
@@ -236,16 +235,23 @@ class ConsciousState:
                     activated_at=None,
                 )
 
-            axiom = self._axioms[axiom_id]
-            axiom.signal_count += 1
-            axiom.maturity = min(
-                axiom.signal_count / 10.0, 100.0
-            )  # 10 signals = 100%
+            # Create new AxiomStatus with updated values (frozen dataclass)
+            old_axiom = self._axioms[axiom_id]
+            new_signal_count = old_axiom.signal_count + 1
+            new_maturity = min(new_signal_count / 10.0, 100.0)
+            was_inactive = not old_axiom.active
+            is_now_active = new_signal_count >= 3 and was_inactive
 
-            # Mark as active if enough signals
-            if axiom.signal_count >= 3 and not axiom.active:
-                axiom.active = True
-                axiom.activated_at = datetime.now().timestamp()
+            self._axioms[axiom_id] = AxiomStatus(
+                axiom_id=axiom_id,
+                active=is_now_active or old_axiom.active,
+                tier=old_axiom.tier,
+                signal_count=new_signal_count,
+                maturity=new_maturity,
+                activated_at=datetime.now().timestamp() if is_now_active else old_axiom.activated_at,
+            )
+
+            if is_now_active:
                 self._axiom_activation_count += 1
                 logger.info("ConsciousState: Axiom %s ACTIVATED", axiom_id)
 
@@ -275,14 +281,17 @@ class ConsciousState:
                     judgment_count=1 if increment_judgment else 0,
                 )
             else:
-                dog = self._dogs[dog_id]
-                dog.activity = activity
-                dog.q_score = q_score
-                dog.verdict = verdict
-                dog.confidence = confidence
-                dog.last_active = datetime.now().timestamp()
-                if increment_judgment:
-                    dog.judgment_count += 1
+                # Create new DogStatus with updated values (frozen dataclass)
+                old_dog = self._dogs[dog_id]
+                self._dogs[dog_id] = DogStatus(
+                    dog_id=dog_id,
+                    q_score=q_score,
+                    verdict=verdict,
+                    confidence=confidence,
+                    activity=activity,
+                    last_active=datetime.now().timestamp(),
+                    judgment_count=old_dog.judgment_count + (1 if increment_judgment else 0),
+                )
 
             self._last_update = datetime.now().timestamp()
 
@@ -337,15 +346,24 @@ class ConsciousState:
         async with self._state_lock:
             return dict(self._dogs)
 
-    async def get_dog(self, dog_id: str) -> Optional[DogStatus]:
-        """Get status of a single dog."""
+    async def get_dog(self, dog_id: str) -> Optional[dict]:
+        """Get status of a single dog (immutable copy)."""
         async with self._state_lock:
-            return self._dogs.get(dog_id)
+            dog = self._dogs.get(dog_id)
+            return asdict(dog) if dog else None
 
     async def get_recent_judgments(self, limit: int = 10) -> list[JudgmentSnapshot]:
         """Get recent judgments (newest first)."""
         async with self._state_lock:
             return list(reversed(self._recent_judgments[-limit:]))
+
+    async def get_judgment_by_id(self, judgment_id: str) -> Optional[JudgmentSnapshot]:
+        """Query for a specific judgment by ID (Phase 3 API query endpoint)."""
+        async with self._state_lock:
+            for j in self._recent_judgments:
+                if j.judgment_id == judgment_id:
+                    return j
+            return None
 
     async def get_axiom(self, axiom_id: str) -> Optional[AxiomStatus]:
         """Get status of a single axiom."""

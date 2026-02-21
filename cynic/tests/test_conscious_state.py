@@ -201,9 +201,9 @@ class TestConsciousStateDogs:
 
         dog = await conscious_state.get_dog("analyst")
         assert dog is not None
-        assert dog.dog_id == "analyst"
-        assert dog.activity == "judging"
-        assert dog.judgment_count == 1
+        assert dog["dog_id"] == "analyst"
+        assert dog["activity"] == "judging"
+        assert dog["judgment_count"] == 1
 
     @pytest.mark.asyncio
     async def test_get_all_dogs(self, conscious_state, mock_event_buses):

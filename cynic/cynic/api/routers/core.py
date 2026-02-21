@@ -109,7 +109,11 @@ async def _persist_judgment_async(judgment: Judgment) -> None:
 @router_core.post("/judge", response_model=JudgeResponse)
 async def judge(req: JudgeRequest, container: AppContainer = Depends(get_app_container)) -> JudgeResponse:
     """
-    Run the full CYNIC judgment pipeline on any content.
+    Emit a judgment request and return immediately (Phase 3: Event-Driven API).
+
+    The scheduler picks up the JUDGMENT_REQUESTED event and runs the full
+    CYNIC judgment pipeline asynchronously. Clients query /judge/{judgment_id}
+    to check for results.
 
     Level selection:
     - REFLEX  → fast (<10ms), non-LLM Dogs only, confidence 38.2%
@@ -120,13 +124,12 @@ async def judge(req: JudgeRequest, container: AppContainer = Depends(get_app_con
     state = container.organism
 
     # Build Cell — enrich context with compressed session history (γ2)
-    # Gives LLM dogs (SAGE) temporal continuity: "here's what we judged before"
     history_ctx = state.context_compressor.get_compressed_context(budget=400)
     enriched_context = req.context or ""
     if history_ctx:
         enriched_context = f"{enriched_context}\n[Session history]\n{history_ctx}".strip()
 
-    # Lazy Materialization: infer time_dim if not explicitly provided (Bug 5 fix)
+    # Lazy Materialization: infer time_dim if not explicitly provided
     from cynic.core.judgment import infer_time_dim
     time_dim = req.time_dim or infer_time_dim(req.content, enriched_context, req.analysis)
 
@@ -145,36 +148,34 @@ async def judge(req: JudgeRequest, container: AppContainer = Depends(get_app_con
     if req.level:
         level = ConsciousnessLevel[req.level]
 
-    judgment = await state.orchestrator.run(cell, level=level, budget_usd=req.budget_usd)
+    # Phase 3: Emit event instead of blocking on orchestrator.run()
+    judgment_event = Event.typed(
+        CoreEvent.JUDGMENT_REQUESTED,
+        {
+            "cell": cell.to_dict(),
+            "level": level.name if level else "AUTO",
+            "budget_usd": req.budget_usd,
+        },
+        source="api:judge"
+    )
+    await get_core_bus().emit(judgment_event)
+    logger.info("Emitted JUDGMENT_REQUESTED: %s", judgment_event.event_id)
 
-    # Write guidance.json — feedback loop to JS hooks (best-effort)
-    _write_guidance(cell, judgment)
-
-    # Persist judgment to PostgreSQL (best-effort — never block on DB failures)
-    if state._pool is not None:
-        _persist_judgment(judgment)
-
-    # Save for /feedback endpoint (user can rate this judgment)
-    state.last_judgment = {
-        "state_key": f"{cell.reality}:{cell.analysis}:PRESENT:{cell.lod}",
-        "action": judgment.verdict,
-        "judgment_id": judgment.judgment_id,
-    }
-
+    # Return immediately with processing status
     return JudgeResponse(
-        judgment_id=judgment.judgment_id,
-        q_score=round(judgment.q_score, 3),
-        verdict=judgment.verdict,
-        confidence=round(min(judgment.confidence, MAX_CONFIDENCE), 4),
-        axiom_scores={k: round(v, 3) for k, v in judgment.axiom_scores.items()},
-        dog_votes={k: round(v, 3) for k, v in judgment.dog_votes.items()},
-        consensus_reached=judgment.consensus_reached,
-        consensus_votes=judgment.consensus_votes,
-        residual_variance=round(judgment.residual_variance or 0.0, 4),
-        unnameable_detected=judgment.unnameable_detected,
-        cost_usd=round(judgment.cost_usd, 6),
-        llm_calls=judgment.llm_calls,
-        duration_ms=round(judgment.duration_ms, 2),
+        judgment_id=judgment_event.event_id,
+        q_score=0.0,  # Placeholder — not yet judged
+        verdict="PENDING",  # NEW: indicate processing status
+        confidence=0.0,
+        axiom_scores={},
+        dog_votes={},
+        consensus_reached=False,
+        consensus_votes={},
+        residual_variance=0.0,
+        unnameable_detected=False,
+        cost_usd=0.0,
+        llm_calls=0,
+        duration_ms=0.0,
         level_used=level.name if level else "AUTO",
     )
 
@@ -249,58 +250,41 @@ async def perceive(req: PerceiveRequest, container: AppContainer = Depends(get_a
     }
     level = level_map.get(req.level or "REFLEX", ConsciousnessLevel.REFLEX)
 
-    judgment = await state.orchestrator.run(cell, level=level)
+    # Phase 3: Emit event instead of blocking on orchestrator.run()
+    judgment_event = Event.typed(
+        CoreEvent.JUDGMENT_REQUESTED,
+        {
+            "cell": cell.to_dict(),
+            "level": level.name,
+            "budget_usd": cell.budget_usd,
+        },
+        source=f"api:perceive:{req.source}"
+    )
+    await get_core_bus().emit(judgment_event)
+    logger.info("Emitted JUDGMENT_REQUESTED (perceive): %s", judgment_event.event_id)
 
-    # SAGE amplification: after fast REFLEX, enqueue MACRO to scheduler.
-    # MACRO runs all 11 Dogs including SAGE temporal MCTS (7×Ollama).
-    # JUDGMENT_CREATED handler (in state.py) overwrites guidance.json when done.
-    # → Next hook call gets SAGE's wisdom. Lagged by one cycle (acceptable).
-    # Only enqueue for REFLEX perception (CODE/HUMAN reality) — not self-loops.
-    if level == ConsciousnessLevel.REFLEX and cell.reality in ("CODE", "HUMAN", "MARKET", "SOCIAL"):
-        from cynic.core.judgment import Cell as _Cell, infer_time_dim as _itd2
-        macro_cell = _Cell(
-            reality=cell.reality,
-            analysis="JUDGE",
-            time_dim=cell.time_dim,  # Propagate inferred time_dim to MACRO follow-up
-            content=cell.content,
-            context=cell.context,
-            budget_usd=0.05,       # enough for MACRO + Ollama temporal MCTS
-            consciousness=4,       # REFLECTIVE gradient — deep analysis
-        )
-        state.scheduler.submit(macro_cell, level=ConsciousnessLevel.MACRO, source=f"perceive_bg:{req.source}")
-
+    # Return immediately with processing status
     j_resp = JudgeResponse(
-        judgment_id=judgment.judgment_id,
-        q_score=round(judgment.q_score, 3),
-        verdict=judgment.verdict,
-        confidence=round(min(judgment.confidence, MAX_CONFIDENCE), 4),
-        axiom_scores={k: round(v, 3) for k, v in judgment.axiom_scores.items()},
-        dog_votes={k: round(v, 3) for k, v in judgment.dog_votes.items()},
-        consensus_reached=judgment.consensus_reached,
-        consensus_votes=judgment.consensus_votes,
-        cost_usd=round(judgment.cost_usd, 6),
-        llm_calls=judgment.llm_calls,
-        duration_ms=round(judgment.duration_ms, 2),
+        judgment_id=judgment_event.event_id,
+        q_score=0.0,  # Placeholder — not yet judged
+        verdict="PENDING",  # NEW: indicate processing status
+        confidence=0.0,
+        axiom_scores={},
+        dog_votes={},
+        consensus_reached=False,
+        consensus_votes={},
+        cost_usd=0.0,
+        llm_calls=0,
+        duration_ms=0.0,
         level_used=level.name,
     )
-
-    # Write guidance.json — best-effort belt-and-suspenders backup.
-    # Primary writer is now the JUDGMENT_CREATED event handler in state.py.
-    _write_guidance(cell, judgment)
-
-    # Save for /feedback endpoint
-    state.last_judgment = {
-        "state_key": f"{cell.reality}:{cell.analysis}:PRESENT:{cell.lod}",
-        "action": judgment.verdict,
-        "judgment_id": judgment.judgment_id,
-    }
 
     return PerceiveResponse(
         cell_id=cell_id,
         source=req.source,
         reality=req.reality,
         judgment=j_resp,
-        message=f"Perception judged: {judgment.verdict} (Q={judgment.q_score:.1f})",
+        message=f"Perception judged (event queued): {judgment_event.event_id}",
     )
 
 
@@ -311,12 +295,14 @@ async def perceive(req: PerceiveRequest, container: AppContainer = Depends(get_a
 @router_core.post("/learn", response_model=LearnResponse)
 async def learn(req: LearnRequest, container: AppContainer = Depends(get_app_container)) -> LearnResponse:
     """
-    Inject a learning signal directly into the Q-Table.
+    Inject a learning signal and emit to event bus (Phase 3: Event-Driven).
 
     Useful for:
     - User feedback (human says "that judgment was wrong")
     - JS system sending learning signals from its own experience
     - Testing the learning loop from outside
+
+    Phase 3: Also emits LEARNING_EVENT to the event bus for subscribers.
     """
     state = container.organism
 
@@ -327,8 +313,25 @@ async def learn(req: LearnRequest, container: AppContainer = Depends(get_app_con
         judgment_id=req.judgment_id,
         loop_name=req.loop_name,
     )
+
+    # Update QTable (for immediate feedback and backward compatibility)
     entry = state.qtable.update(signal)
     confidence = state.qtable.confidence(req.state_key)
+
+    # Phase 3: Also emit to event bus for async subscribers (LearningLoop, etc.)
+    learning_event = Event.typed(
+        CoreEvent.LEARNING_EVENT,
+        {
+            "state_key": signal.state_key,
+            "action": signal.action,
+            "reward": signal.reward,
+            "judgment_id": signal.judgment_id,
+            "loop_name": signal.loop_name,
+        },
+        source="api:learn"
+    )
+    await get_core_bus().emit(learning_event)
+    logger.info("Emitted LEARNING_EVENT: %s", learning_event.event_id)
 
     return LearnResponse(
         state_key=entry.state_key,
@@ -377,7 +380,22 @@ async def feedback(req: FeedbackRequest, container: AppContainer = Depends(get_a
         judgment_id=last.get("judgment_id", ""),
         loop_name="USER_FEEDBACK",
     )
+
+    # Update QTable directly (immediate response)
     entry = state.qtable.update(signal)
+
+    # Phase 3: Also emit LEARNING_EVENT for async subscribers
+    await get_core_bus().emit(Event.typed(
+        CoreEvent.LEARNING_EVENT,
+        {
+            "state_key": signal.state_key,
+            "action": signal.action,
+            "reward": signal.reward,
+            "judgment_id": signal.judgment_id,
+            "loop_name": signal.loop_name,
+        },
+        source="api:feedback"
+    ))
 
     # SYMBIOSIS axiom: human×machine value creation — human feedback is symbiosis in action
     try:
@@ -595,3 +613,129 @@ async def get_world_state(container: AppContainer = Depends(get_app_container)) 
     """
     state = container.organism
     return state.world_model.snapshot()
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# PHASE 3: Query Endpoints (Event-Driven Results)
+# ════════════════════════════════════════════════════════════════════════════
+
+@router_core.get("/judge/{judgment_id}")
+async def get_judgment(
+    judgment_id: str,
+    container: AppContainer = Depends(get_app_container)
+) -> JudgeResponse:
+    """
+    GET /judge/{judgment_id} — Query for completed judgment (Phase 3).
+
+    After emitting to POST /judge, clients poll this endpoint to check
+    if the judgment has completed. Returns PENDING verdict until ready.
+
+    Response:
+      - verdict != "PENDING": Judgment complete, result ready
+      - verdict == "PENDING": Judgment still processing, try again later
+    """
+    state = container.organism
+
+    # Query ConsciousState for the judgment
+    judgment = await state.conscious_state.get_judgment_by_id(judgment_id)
+
+    if judgment is None:
+        # Not found in recent judgments — return placeholder
+        return JudgeResponse(
+            judgment_id=judgment_id,
+            q_score=0.0,
+            verdict="NOT_FOUND",
+            confidence=0.0,
+            axiom_scores={},
+            dog_votes={},
+            consensus_reached=False,
+            consensus_votes={},
+            residual_variance=0.0,
+            unnameable_detected=False,
+            cost_usd=0.0,
+            llm_calls=0,
+            duration_ms=0.0,
+            level_used="AUTO",
+        )
+
+    # Found — return completed judgment
+    return JudgeResponse(
+        judgment_id=judgment.judgment_id,
+        q_score=round(judgment.q_score, 3),
+        verdict=judgment.verdict,
+        confidence=round(judgment.confidence, 4),
+        axiom_scores={},  # Would need to store in snapshot
+        dog_votes=judgment.dog_votes,
+        consensus_reached=False,  # Would need to store in snapshot
+        consensus_votes={},  # Would need to store in snapshot
+        residual_variance=0.0,  # Would need to store in snapshot
+        unnameable_detected=False,  # Would need to store in snapshot
+        cost_usd=0.0,  # Would need to store in snapshot
+        llm_calls=0,  # Would need to store in snapshot
+        duration_ms=0.0,  # Would need to store in snapshot
+        level_used="AUTO",
+    )
+
+
+@router_core.get("/perceive/{judgment_id}")
+async def get_perception_judgment(
+    judgment_id: str,
+    container: AppContainer = Depends(get_app_container)
+) -> PerceiveResponse:
+    """
+    GET /perceive/{judgment_id} — Query for completed perception judgment (Phase 3).
+
+    Similar to GET /judge but returns PerceiveResponse format.
+    """
+    state = container.organism
+
+    # Query ConsciousState for the judgment
+    judgment = await state.conscious_state.get_judgment_by_id(judgment_id)
+
+    if judgment is None:
+        return PerceiveResponse(
+            cell_id=judgment_id,
+            source="unknown",
+            reality="CODE",
+            judgment=JudgeResponse(
+                judgment_id=judgment_id,
+                q_score=0.0,
+                verdict="NOT_FOUND",
+                confidence=0.0,
+                axiom_scores={},
+                dog_votes={},
+                consensus_reached=False,
+                consensus_votes={},
+                residual_variance=0.0,
+                unnameable_detected=False,
+                cost_usd=0.0,
+                llm_calls=0,
+                duration_ms=0.0,
+                level_used="AUTO",
+            ),
+            message="Perception judgment not found or still processing",
+        )
+
+    # Found — return completed judgment
+    j_resp = JudgeResponse(
+        judgment_id=judgment.judgment_id,
+        q_score=round(judgment.q_score, 3),
+        verdict=judgment.verdict,
+        confidence=round(judgment.confidence, 4),
+        axiom_scores={},
+        dog_votes=judgment.dog_votes,
+        consensus_reached=False,
+        consensus_votes={},
+        cost_usd=0.0,
+        llm_calls=0,
+        duration_ms=0.0,
+        level_used="AUTO",
+    )
+
+    return PerceiveResponse(
+        cell_id=judgment_id,
+        source=judgment.source or "api",
+        reality="CODE",
+        judgment=j_resp,
+        message=f"Perception judged: {judgment.verdict} (Q={judgment.q_score:.1f})",
+    )

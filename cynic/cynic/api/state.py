@@ -22,7 +22,7 @@ from cynic.core.axioms import AxiomArchitecture
 from cynic.core.heuristic_scorer import HeuristicFacetScorer
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.consciousness import get_consciousness
-from cynic.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.core.event_bus import get_core_bus, get_automation_bus, get_agent_bus, Event, CoreEvent
 from cynic.core.formulas import ACT_LOG_CAP
 from cynic.core.world_model import WorldModelUpdater
 from cynic.core.events_schema import (
@@ -84,6 +84,7 @@ from cynic.core.topology import (
     ChangeAnalyzer,
 )
 from cynic.core.convergence import ConvergenceValidator
+from cynic.organism import ConsciousState, get_conscious_state
 
 logger = logging.getLogger("cynic.api.state")
 
@@ -243,11 +244,14 @@ class MemoryCore:
     """
     ARCHIVE — Reflection, proposals, self-improvement.
 
-    φ-Explicit: F(4)=3 required fields form the Fibonacci-derived memory system:
-      1. kernel_mirror   — Organism self-observation and consciousness snapshots
-      2. action_proposer — Proposed action queue (DECISION_MADE → ProposedAction)
-      3. self_prober     — Self-improvement proposals (L4 meta-cognition)
+    φ-Explicit: F(5)=5 fields form the Fibonacci-derived memory system:
+      1. conscious_state — Phase 1: Read-only state interface (organism observation port)
+      2. kernel_mirror   — Organism self-observation and consciousness snapshots
+      3. action_proposer — Proposed action queue (DECISION_MADE → ProposedAction)
+      4. self_prober     — Self-improvement proposals (L4 meta-cognition)
+      5. (reserved for future)
     """
+    conscious_state: ConsciousState = field(default_factory=get_conscious_state)
     kernel_mirror: KernelMirror = field(default_factory=KernelMirror)
     action_proposer: ActionProposer = field(default_factory=ActionProposer)
     self_prober: SelfProber = field(default_factory=SelfProber)
@@ -350,6 +354,10 @@ class CynicOrganism:
     @property
     def self_prober(self) -> SelfProber:
         return self.memory.self_prober
+
+    @property
+    def conscious_state(self) -> ConsciousState:
+        return self.memory.conscious_state
 
     @property
     def decide_agent(self) -> Optional[DecideAgent]:
@@ -1091,13 +1099,22 @@ async def restore_state(container: AppContainer) -> None:
     Restore persistent state after organism awakening.
 
     Call this in the FastAPI lifespan, AFTER awaken() and creating AppContainer.
-    Restores:
+    Initializes:
+      - ConsciousState subscriptions to 3 event buses (Phase 1 wiring)
       - EScoreTracker entities from e_scores table (γ4)
       - ContextCompressor session from ~/.cynic/session-latest.json (γ2)
     """
     from cynic.senses import checkpoint as _ckpt
 
     state = container.organism
+
+    # Phase 1: Wire ConsciousState to event buses (organism observation ports)
+    core_bus = get_core_bus()
+    automation_bus = get_automation_bus()
+    agent_bus = get_agent_bus()
+    await state.conscious_state.initialize_from_buses(core_bus, automation_bus, agent_bus)
+    logger.info("restore_state: ConsciousState initialized and subscribed to 3 event buses")
+
     pool = state._pool
 
     # γ4: Restore E-Score reputation (DB)
