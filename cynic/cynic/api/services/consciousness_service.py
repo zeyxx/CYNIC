@@ -22,6 +22,7 @@ from typing import Any, Awaitable, Callable, Optional
 from cynic.api.services.ecosystem_observer import EcosystemObserver
 from cynic.api.state import get_app_container
 from cynic.nervous import EventJournal, DecisionTracer, ServiceStateRegistry
+from cynic.api.metrics import SERVICE_QUERY_DURATION, REQUESTS_TOTAL, ERRORS_TOTAL
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ class ConsciousnessService:
         fallback: Any,
         operation_name: str,
     ) -> Any:
-        """Safely execute query with exception handling and logging.
+        """Safely execute query with exception handling, logging, and metrics.
 
         Args:
             fn: Async function to execute
@@ -61,16 +62,47 @@ class ConsciousnessService:
         Returns:
             Result of fn() or fallback value on any exception
         """
+        start_time = time.time()
+
         try:
-            return await fn()
+            result = await fn()
+
+            # Record success metrics
+            duration_sec = time.time() - start_time
+            SERVICE_QUERY_DURATION.labels(method=operation_name).observe(duration_sec)
+            REQUESTS_TOTAL.labels(
+                endpoint=f"/consciousness/{operation_name}",
+                method="GET",
+                status="200"
+            ).inc()
+
+            logger.info(
+                f"{operation_name} success",
+                extra={
+                    "duration_ms": duration_sec * 1000,
+                    "operation": operation_name,
+                    "status": "success",
+                }
+            )
+
+            return result
+
         except RuntimeError as e:
             logger.warning(f"AppContainer not initialized for {operation_name}: {e}")
+            ERRORS_TOTAL.labels(
+                error_type="AppContainer",
+                endpoint=operation_name
+            ).inc()
             return fallback
         except Exception as e:
             logger.error(
                 f"Unexpected error in {operation_name}: {type(e).__name__}: {e}",
                 exc_info=True,
             )
+            ERRORS_TOTAL.labels(
+                error_type=type(e).__name__,
+                endpoint=operation_name
+            ).inc()
             return fallback
 
     async def _get_ecosystem_observer(self) -> EcosystemObserver:

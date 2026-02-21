@@ -647,6 +647,42 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# ════════════════════════════════════════════════════════════════════════════
+# METRICS MIDDLEWARE — Track all requests
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.middleware("http")
+async def track_metrics_middleware(request: Request, call_next):
+    """Track metrics for all HTTP requests (latency, count, errors)."""
+    from cynic.api.metrics import REQUESTS_TOTAL, REQUEST_DURATION_SECONDS, ERRORS_TOTAL
+    import time
+
+    # Record start time
+    start_time = time.time()
+    path = request.url.path
+    method = request.method
+
+    try:
+        # Call the actual endpoint
+        response = await call_next(request)
+
+        # Record metrics on success
+        duration_sec = time.time() - start_time
+        REQUEST_DURATION_SECONDS.labels(endpoint=path).observe(duration_sec)
+        REQUESTS_TOTAL.labels(endpoint=path, method=method, status=response.status_code).inc()
+
+        return response
+
+    except Exception as e:
+        # Record error metrics
+        duration_sec = time.time() - start_time
+        REQUEST_DURATION_SECONDS.labels(endpoint=path).observe(duration_sec)
+        REQUESTS_TOTAL.labels(endpoint=path, method=method, status="500").inc()
+        ERRORS_TOTAL.labels(error_type=type(e).__name__, endpoint=path).inc()
+        raise
+
+
 # Serve static files (dashboard.html) — only if directory exists
 import pathlib as _pathlib
 _static_dir = _pathlib.Path(__file__).parent.parent / "static"
