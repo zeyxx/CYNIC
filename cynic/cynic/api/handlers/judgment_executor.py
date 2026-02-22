@@ -20,6 +20,7 @@ from cynic.api.handlers.base import HandlerGroup
 from cynic.api.handlers.services import KernelServices
 from cynic.core.event_bus import Event, CoreEvent, get_core_bus
 from cynic.core.consciousness import ConsciousnessLevel
+from cynic.core.exceptions import CynicError
 from cynic.core.events_schema import JudgmentCreatedPayload
 from cynic.core.judgment import Cell
 from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
@@ -148,7 +149,7 @@ class JudgmentExecutorHandler(HandlerGroup):
             await get_core_bus().emit(created_event)
             logger.debug("Emitted JUDGMENT_CREATED: %s", created_event.event_id)
 
-        except EventBusError as e:
+        except CynicError as e:
             logger.error(
                 "JudgmentExecutor failed on %s: %s",
                 event.event_id,
@@ -164,5 +165,5 @@ class JudgmentExecutorHandler(HandlerGroup):
                         source="judgment_executor",
                     )
                 )
-            except EventBusError:
+            except CynicError:
                 logger.error("Failed to emit JUDGMENT_FAILED event")

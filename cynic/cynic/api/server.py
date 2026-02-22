@@ -49,8 +49,9 @@ from cynic.core.phi import WAG_MIN
 from cynic.core.config import CynicConfig
 from cynic.metabolism.telemetry import compute_reward
 
+from cynic.organism.organism import awaken
 from cynic.api.state import (
-    awaken, restore_state,
+    restore_state,
     set_app_container, get_app_container, AppContainer,
 )
 
@@ -178,29 +179,32 @@ async def lifespan(app: FastAPI):
     state = awaken(db_pool=db_pool, registry=registry)
 
     # ── Tier 1 Nervous System: Register components on startup ───────────────
-    from cynic.nervous import ComponentType
-    registry_obj = state.service_registry
-    try:
-        # Register major components
-        await registry_obj.register("orchestrator", ComponentType.ORCHESTRATOR)
-        await registry_obj.register("qtable", ComponentType.LEARNER)
-        await registry_obj.register("learning_loop", ComponentType.LEARNER)
-        await registry_obj.register("residual_detector", ComponentType.DETECTOR)
-        await registry_obj.register("axiom_monitor", ComponentType.DETECTOR)
-        await registry_obj.register("lod_controller", ComponentType.DETECTOR)
-        await registry_obj.register("action_proposer", ComponentType.ROUTER)
-        await registry_obj.register("decide_agent", ComponentType.ROUTER)
-        await registry_obj.register("account_agent", ComponentType.ROUTER)
-
-        # Register dogs
-        from cynic.cognition.neurons.base import DogId
-        for dog_id in state.orchestrator.dogs.keys():
-            await registry_obj.register(f"dog_{dog_id}", ComponentType.DOG)
-
-        logger.info("Tier 1 Nervous System: %d components registered",
-                   (await registry_obj.snapshot()).total_components)
-    except CynicError as exc:
-        logger.warning("Component registration failed: %s", exc)
+    # NOTE: Tier 1 Nervous System requires ServiceStateRegistry on AppState.
+    # Current implementation uses a placeholder dict in state.py:_create_services().
+    # When service_registry is fully implemented, uncomment the code below.
+    #
+    # from cynic.nervous import ComponentType
+    # registry_obj = getattr(state, 'service_registry', None)
+    # if registry_obj is not None:
+    #     try:
+    #         await registry_obj.register("orchestrator", ComponentType.ORCHESTRATOR)
+    #         await registry_obj.register("qtable", ComponentType.LEARNER)
+    #         await registry_obj.register("learning_loop", ComponentType.LEARNER)
+    #         await registry_obj.register("residual_detector", ComponentType.DETECTOR)
+    #         await registry_obj.register("axiom_monitor", ComponentType.DETECTOR)
+    #         await registry_obj.register("lod_controller", ComponentType.DETECTOR)
+    #         await registry_obj.register("action_proposer", ComponentType.ROUTER)
+    #         await registry_obj.register("decide_agent", ComponentType.ROUTER)
+    #         await registry_obj.register("account_agent", ComponentType.ROUTER)
+    #         from cynic.cognition.neurons.base import DogId
+    #         for dog_id in state.orchestrator.dogs.keys():
+    #             await registry_obj.register(f"dog_{dog_id}", ComponentType.DOG)
+    #         logger.info("Tier 1 Nervous System: components registered")
+    #     except CynicError as exc:
+    #         logger.warning("Component registration failed: %s", exc)
+    # else:
+    #     logger.info("Tier 1 Nervous System: skipped (service_registry not available)")
+    logger.info("Tier 1 Nervous System: deferred (ServiceStateRegistry implementation pending)")
 
     # ── Warm-start from SurrealDB ───────────────────────────────────────────
     if surreal is not None:
@@ -567,15 +571,19 @@ async def lifespan(app: FastAPI):
     logger.info("consciousness.json writer armed (throttle=%.0fs)", _CONSCIOUSNESS_MIN_INTERVAL_S)
 
     # ── L0 Real-time Topology System: organism consciousness ──────────────────
-    # Start SourceWatcher polling loop (monitors files every 13s)
-    asyncio.create_task(state.source_watcher.watch())
-    # Start TopologyMirror continuous snapshots (periodic + event-driven)
-    asyncio.create_task(state.topology_mirror.continuous_snapshot(
-        bus=get_core_bus(),
-        kernel_mirror=state.kernel_mirror,
-        state=state,
-    ))
-    logger.info("L0 Topology System: real-time architecture monitoring + mirroring enabled")
+    # NOTE: SourceWatcher and TopologyMirror are not implemented in current AppState.
+    # When these components are added to AppState, uncomment the code below.
+    #
+    # if hasattr(state, 'source_watcher') and state.source_watcher is not None:
+    #     asyncio.create_task(state.source_watcher.watch())
+    # if hasattr(state, 'topology_mirror') and state.topology_mirror is not None:
+    #     asyncio.create_task(state.topology_mirror.continuous_snapshot(
+    #         bus=get_core_bus(),
+    #         kernel_mirror=state.kernel_mirror,
+    #         state=state,
+    #     ))
+    #     logger.info("L0 Topology System: real-time architecture monitoring + mirroring enabled")
+    logger.info("L0 Topology System: deferred (SourceWatcher/TopologyMirror not in AppState)")
 
     llm_count = len(registry.get_available())
     logger.info(

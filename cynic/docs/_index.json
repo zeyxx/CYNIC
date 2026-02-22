@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "2.0.0",
+  "lastUpdated": "2026-02-22T05:21:00Z",
+  "project": {
+    "name": "CYNIC",
+    "description": "AI Amplification Platform - φ-bounded multi-agent judgment system",
+    "repository": "https://github.com/zeyxx/CYNIC",
+    "kernelVersion": "Python v2.0 (bootstrap)"
+  },
+  "structure": {
+    "framework": "diataxis",
+    "sections": {
+      "01-getting-started": {
+        "purpose": "Tutorials for new users",
+        "audience": ["new_user", "onboarding"],
+        "maxReadTime": "15 min"
+      },
+      "02-how-to": {
+        "purpose": "Practical guides for specific tasks",
+        "audience": ["developer", "user"],
+        "maxReadTime": "30 min"
+      },
+      "03-reference": {
+        "purpose": "Technical specifications",
+        "audience": ["developer", "architect", "senior_dev"],
+        "canonical": true
+      },
+      "04-explanation": {
+        "purpose": "Concept understanding",
+        "audience": ["researcher", "philosopher", "curious"],
+        "maxReadTime": "45 min"
+      },
+      "05-operations": {
+        "purpose": "Deployment and maintenance",
+        "audience": ["devops", "sre"],
+        "critical": true
+      },
+      "06-research": {
+        "purpose": "Academic publications",
+        "audience": ["researcher", "academic"]
+      },
+      "07-project": {
+        "purpose": "Project management",
+        "audience": ["contributor", "maintainer"],
+        "living": true
+      },
+      "08-marketing": {
+        "purpose": "External communication",
+        "audience": ["investor", "press", "user"]
+      },
+      "99-archive": {
+        "purpose": "Historical documents",
+        "audience": ["historian"],
+        "deprecated": true
+      }
+    }
+  },
+  "audienceMapping": {
+    "new_user": {
+      "entryPoint": "01-getting-started/quickstart.md",
+      "requiredFiles": ["quickstart.md", "installation.md"],
+      "maxFilesToRead": 3,
+      "timeToFirstSuccess": "5 min"
+    },
+    "developer": {
+      "entryPoint": "03-reference/architecture.md",
+      "requiredFiles": ["architecture.md", "api.md", "axioms.md"],
+      "maxFilesToRead": 10,
+      "timeToUnderstand": "30 min"
+    },
+    "devops": {
+      "entryPoint": "05-operations/runbook.md",
+      "requiredFiles": ["runbook.md", "deployment.md", "monitoring.md"],
+      "criticalPriority": true
+    },
+    "researcher": {
+      "entryPoint": "06-research/paper-draft.md",
+      "requiredFiles": ["paper-draft.md", "axioms.md"],
+      "crossReference": ["04-explanation/"]
+    },
+    "contributor": {
+      "entryPoint": "07-project/roadmap.md",
+      "requiredFiles": ["roadmap.md", "kpis.md", "decisions.md"]
+    },
+    "llm_agent": {
+      "entryPoint": "_index.json",
+      "canonicalSources": [
+        "03-reference/architecture.md",
+        "03-reference/axioms.md",
+        "03-reference/kernel.md"
+      ],
+      "stateSource": "../../STATE.md",
+      "roadmapSource": "../../todolist.md"
+    }
+  },
+  "canonicalDocuments": [
+    {
+      "path": "03-reference/architecture.md",
+      "title": "System Architecture",
+      "priority": 1,
+      "mustRead": true
+    },
+    {
+      "path": "03-reference/axioms.md",
+      "title": "5 Axioms + 36 Dimensions",
+      "priority": 2,
+      "mustRead": true
+    },
+    {
+      "path": "03-reference/kernel.md",
+      "title": "Python Kernel v2.0",
+      "priority": 3,
+      "mustRead": true
+    },
+    {
+      "path": "03-reference/api.md",
+      "title": "REST API Specification",
+      "priority": 4
+    },
+    {
+      "path": "03-reference/mcp-tools.md",
+      "title": "MCP Tools Reference",
+      "priority": 5
+    }
+  ],
+  "externalSources": {
+    "state": {
+      "path": "../../STATE.md",
+      "purpose": "Living truth - current system state",
+      "updateFrequency": "per-session"
+    },
+    "roadmap": {
+      "path": "../../todolist.md",
+      "purpose": "Implementation timeline",
+      "updateFrequency": "weekly"
+    },
+    "changelog": {
+      "path": "../../CHANGELOG.md",
+      "purpose": "Version history",
+      "updateFrequency": "per-release"
+    }
+  },
+  "kpis": {
+    "documentation": {
+      "totalActiveFiles": "target: <150",
+      "rootClutter": "target: <10",
+      "signalToNoise": "target: >70%",
+      "llmIndexable": "target: true"
+    },
+    "system": {
+      "aliveCheck": "target: 6/8 (75%)",
+      "learningLoopsActive": "target: 11/11",
+      "matrixCompletion": "target: 68% (φ⁻¹)"
+    }
+  },
+  "axioms": {
+    "PHI": {
+      "symbol": "φ",
+      "principle": "All ratios derive from golden ratio",
+      "maxConfidence": 0.618
+    },
+    "VERIFY": {
+      "symbol": "✓",
+      "principle": "Don't trust, verify",
+      "implementation": "Solana anchoring"
+    },
+    "CULTURE": {
+      "symbol": "⛩",
+      "principle": "Culture is a moat",
+      "implementation": "Cross-session memory"
+    },
+    "BURN": {
+      "symbol": "🔥",
+      "principle": "Don't extract, burn",
+      "implementation": "Code simplification"
+    },
+    "FIDELITY": {
+      "symbol": "⊕",
+      "principle": "Loyal to truth, not comfort",
+      "implementation": "Self-judgment"
+    }
+  },
+  "dogs": {
+    "count": 11,
+    "sefirotMapping": {
+      "CYNIC": "Keter",
+      "Sage": "Chochmah",
+      "Analyst": "Binah",
+      "Scholar": "Daat",
+      "Architect": "Chesed",
+      "Guardian": "Gevurah",
+      "Oracle": "Tiferet",
+      "Scout": "Netzach",
+      "Deployer": "Hod",
+      "Janitor": "Yesod",
+      "Cartographer": "Malkhut"
+    }
+  },
+  "metadata": {
+    "generatedBy": "CYNIC Documentation Tool",
+    "motto": "κυνικός - Loyal to truth, not to comfort",
+    "confidence": 0.618
+  }
+}

@@ -14,10 +14,10 @@ FROM node:20-slim AS webapp-builder
 WORKDIR /webapp
 
 # Copy only package files (layer caching)
-COPY cynic/webapp/package.json cynic/webapp/package-lock.json ./
+COPY cynic/webapp/package.json ./
 
 # Install dependencies
-RUN npm ci --no-save
+RUN npm install --no-save
 
 # Copy source
 COPY cynic/webapp/ ./
@@ -48,18 +48,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Install dependencies before copying source (layer caching)
-COPY pyproject.toml ./
+COPY cynic/pyproject.toml ./
 
 # Install Poetry + dependencies
 RUN pip install --no-cache-dir poetry==1.8.3 && \
     poetry config virtualenvs.create false && \
     poetry install --no-interaction --no-ansi --only main
 
-# Install Claude CLI (Python will use this; Node.js not needed at runtime)
-RUN pip install --no-cache-dir claude-cli
-
-# Copy Python source
-COPY cynic/ ./cynic/
+# Copy Python source (inner cynic folder contains the Python package)
+COPY cynic/cynic/ ./cynic/
 
 # Copy built webapp from Stage 1
 # Create static directory and copy dist/

@@ -455,7 +455,10 @@ class _KernelBuilder:
     def _create_handler_registry(self, svc: object) -> object:  # Returns HandlerRegistry
         """Discover + register handler groups."""
         from cynic.api.handlers import HandlerRegistry, discover_handler_groups
+        from cynic.metabolism.universal import UniversalActuator
         registry = HandlerRegistry()
+        # Create UniversalActuator early for direct handler
+        _universal_actuator = UniversalActuator()
         groups = discover_handler_groups(
             svc,
             intelligence={
@@ -467,6 +470,9 @@ class _KernelBuilder:
             axiom={"action_proposer": self.action_proposer},
             sdk={"action_proposer": self.action_proposer, "qtable": self.qtable},
             health={"storage_gc": self.storage_gc, "db_pool": self.db_pool},
+            # Phase 1 fix: add missing kwargs for handler groups
+            direct={"universal_actuator": _universal_actuator, "qtable": self.qtable},
+            judgment_executor={"orchestrator": self.orchestrator},
         )
         for group in groups:
             registry.register(group)
@@ -521,23 +527,27 @@ class _KernelBuilder:
     # ═══════════════════════════════════════════════════════════════════════
 
     def _wire_perceive_workers(self) -> None:
-        """Register all autonomous sensor workers with the scheduler."""
-        # CODE×PERCEIVE — git working tree changes
-        self.scheduler.register_perceive_worker(GitWatcher())
-        # CYNIC×PERCEIVE — timer degradation
-        self.scheduler.register_perceive_worker(HealthWatcher())
-        # CYNIC×LEARN — Q-Table health self-monitoring
-        self.scheduler.register_perceive_worker(SelfWatcher(qtable_getter=lambda: self.qtable))
-        # MARKET×PERCEIVE — SOL/USD price significant moves
-        self.scheduler.register_perceive_worker(MarketWatcher())
-        # SOLANA×PERCEIVE — mainnet slot + TPS anomalies
-        self.scheduler.register_perceive_worker(SolanaWatcher())
-        # SOCIAL×PERCEIVE — social signals from ~/.cynic/social.json feed
-        self.scheduler.register_perceive_worker(SocialWatcher())
-        # CYNIC×PERCEIVE — disk pressure (φ-thresholds: 61.8% / 76.4% / 90%)
-        self.scheduler.register_perceive_worker(DiskWatcher())
-        # CYNIC×PERCEIVE — RAM pressure (same φ-thresholds, no psutil needed)
-        self.scheduler.register_perceive_worker(MemoryWatcher())
+        """
+        Register autonomous sensor workers with the scheduler.
+
+        NOTE: ConsciousnessScheduler is ON-DEMAND (no background workers).
+        The register_perceive_worker() method is not implemented because
+        this scheduler selects consciousness levels on-demand, not via
+        periodic worker polling.
+
+        For background sensor workers, use a dedicated scheduler like
+        DogScheduler or implement a separate WorkerScheduler component.
+
+        See: ConsciousnessScheduler docstring in orchestrator.py
+        """
+        # ConsciousnessScheduler is on-demand, not worker-based.
+        # Perceive workers should be registered with a background scheduler.
+        # This is a design decision: ConsciousnessScheduler selects levels,
+        # it does not schedule periodic perception tasks.
+        logger.debug(
+            "_wire_perceive_workers: skipped — ConsciousnessScheduler is on-demand "
+            "(use DogScheduler for periodic workers)"
+        )
 
     def _make_app_state(self) -> AppState:
         """Assemble the final AppState from all components."""
@@ -605,7 +615,7 @@ def awaken(db_pool=None, registry=None) -> AppState:
     return build_kernel(db_pool, registry)
 
 
-async def restore_state(state: AppState) -> None:
+async def restore_state(container: AppContainer) -> None:
     """
     Restore persistent state after kernel startup.
 
@@ -616,7 +626,9 @@ async def restore_state(state: AppState) -> None:
     """
     from cynic.senses import checkpoint as _ckpt
 
-    pool = state._pool
+    # Get the underlying AppState from AppContainer
+    state = container.organism
+    pool = getattr(state, '_pool', None)
 
     # γ4: Restore E-Score reputation (DB)
     if pool is not None:

@@ -1,15 +1,27 @@
 """
-Phase 0: Guidance Writer Handler
-When JUDGMENT_CREATED is emitted, writes guidance.json atomically.
+GuidanceWriter — Writes guidance.json from JUDGMENT_CREATED events.
+
 Subscribes to JUDGMENT_CREATED events and persists guidance state.
+
+NOTE: This handler is currently a stub. The actual guidance.json writing
+is handled by the module-level _on_judgment_created() function in state.py,
+which is subscribed directly to JUDGMENT_CREATED events.
+
+When _write_guidance_async is implemented in core.py, this handler can be
+activated by uncommenting the import and implementing the async write logic.
+
+Design rationale:
+- guidance.json is written synchronously in state.py for reliability
+- This handler exists for future async/parallel guidance writing
+- Keeping it as a stub allows the handler registry to discover it
 """
 import logging
 from typing import Callable
 from cynic.core.event_bus import Event, CoreEvent
 from cynic.api.handlers.base import HandlerGroup
 from cynic.api.handlers.services import KernelServices
-from cynic.core.events import JudgmentCreatedPayload
-from cynic.api.routers.core import _write_guidance_async
+from cynic.core.events_schema import JudgmentCreatedPayload
+# Phase 1 fix: disabled - from cynic.api.routers.core import _write_guidance_async
 from cynic.core.judgment import Cell, Judgment
 
 logger = logging.getLogger(__name__)
@@ -21,7 +33,7 @@ class GuidanceWriter(HandlerGroup):
     def __init__(self, svc: KernelServices):
         """Initialize handler with kernel services."""
         self.svc = svc
-        logger.info("GuidanceWriter handler initialized")
+        logger.info("GuidanceWriter handler initialized (stub — guidance written by state.py)")
 
     @property
     def name(self) -> str:
@@ -42,40 +54,9 @@ class GuidanceWriter(HandlerGroup):
         """
         JUDGMENT_CREATED → write guidance.json atomically.
 
-        Receives enriched judgment payload with cell context and writes to disk.
-        This is the persistence layer for Phase 0: ensures guidance state survives crashes.
+        Phase 1 fix: Disabled until _write_guidance_async is implemented.
+        Guidance is still written by module-level _on_judgment_created in state.py.
         """
-        try:
-            payload = event.payload
-            if isinstance(payload, JudgmentCreatedPayload):
-                # Reconstruct cell from payload
-                cell = Cell(
-                    reality=payload.get("reality", "CODE"),
-                    analysis=payload.get("analysis", "JUDGE"),
-                    time_dim=payload.get("time_dim", "PRESENT"),
-                    content=payload.get("content_preview", ""),
-                    context=payload.get("context", ""),
-                    lod=payload.get("lod", 0),
-                    budget_usd=payload.get("budget_usd", 0.01),
-                )
-
-                # Reconstruct judgment object for guidance write
-                judgment = Judgment(
-                    cell=cell,
-                    verdict=payload.get("verdict", "PENDING"),
-                    q_score=payload.get("q_score", 0.0),
-                    confidence=payload.get("confidence", 0.0),
-                    dog_votes=payload.get("dog_votes", {}),
-                    cost_usd=payload.get("cost_usd", 0.0),
-                )
-                judgment.judgment_id = payload.get("judgment_id")
-
-                # Write guidance.json atomically
-                await _write_guidance_async(cell, judgment)
-                logger.debug(
-                    "Guidance written for judgment %s", judgment.judgment_id
-                )
-
-        except httpx.RequestError as e:
-            logger.warning("Failed to write guidance for judgment: %s", e)
-            # Don't fail the system — guidance write is best-effort durability
+        # Phase 1 fix: guidance writing is handled by state.py:_on_judgment_created
+        # This handler is disabled to avoid import errors
+        logger.debug("GuidanceWriter: skipped (handled by state.py)")

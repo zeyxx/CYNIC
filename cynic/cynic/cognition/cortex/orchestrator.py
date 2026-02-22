@@ -87,6 +87,9 @@ class ConsciousnessScheduler:
         score ≥ 0.82   → L4 META   (evolution mode, only if all 4 axioms active)
 
     Respects TIER constraints and LOD caps.
+
+    Note: This scheduler is ON-DEMAND (no background workers).
+    The start()/stop() methods are no-ops to satisfy the Scheduler interface.
     """
 
     def __init__(self, axiom_monitor, escore_tracker, oracle_dog):
@@ -101,6 +104,50 @@ class ConsciousnessScheduler:
         self.axiom_monitor = axiom_monitor
         self.escore_tracker = escore_tracker
         self.oracle_dog = oracle_dog
+        self._started = False
+
+    def start(self) -> None:
+        """
+        Start the scheduler.
+
+        Note: This is a no-op because ConsciousnessScheduler is ON-DEMAND.
+        It selects levels when select_level() is called, not via background workers.
+        This method exists to satisfy the Scheduler interface contract.
+        """
+        if self._started:
+            logger.debug("ConsciousnessScheduler: already started (idempotent)")
+            return
+        self._started = True
+        logger.info("ConsciousnessScheduler: started (on-demand mode, no background workers)")
+
+    def stop(self) -> None:
+        """
+        Stop the scheduler.
+
+        Note: This is a no-op because ConsciousnessScheduler has no background workers.
+        This method exists to satisfy the Scheduler interface contract.
+        """
+        self._started = False
+        logger.debug("ConsciousnessScheduler: stopped")
+
+    def is_running(self) -> bool:
+        """Check if scheduler is active."""
+        return self._started
+
+    def stats(self) -> dict[str, Any]:
+        """
+        Return scheduler statistics for /health endpoint.
+
+        Returns:
+            {
+                "started": bool,
+                "signals": dict from get_signals(),
+            }
+        """
+        return {
+            "started": self._started,
+            "signals": self.get_signals(),
+        }
 
     async def select_level(
         self,

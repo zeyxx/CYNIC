@@ -59,17 +59,16 @@ services:
       start_period: 30s
     restart: unless-stopped
 
-  # ═══════════════════════════════════════════════════════════════════════
-  # CYNIC Python Kernel — FastAPI (port 8000)
+  # CYNIC Python Kernel — FastAPI (port 8080)
   # Connects to postgres-py + ollama
   # ═══════════════════════════════════════════════════════════════════════
   cynic:
     image: cynic:latest
     build:
-      context: ./cynic
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./cynic/Dockerfile
     ports:
-      - "8000:8000"
+      - "3000:8000"
     environment:
       CYNIC_DATABASE_URL: postgresql://${POSTGRES_USER:-cynic}:${POSTGRES_PASSWORD:-cynic_dev}@postgres-py:5432/${POSTGRES_DB:-cynic_py}
       OLLAMA_URL: http://ollama:11434

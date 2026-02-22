@@ -31,3 +31,7 @@ class ConfigError(CynicError):
 
 class CircuitOpenError(CynicError):
     """Circuit breaker is open — fast-fail to prevent cascade."""
+
+
+class EventBusError(CynicError):
+    """Event bus operation failure (emit, subscribe, handler error)."""
