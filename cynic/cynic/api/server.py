@@ -58,8 +58,11 @@ from cynic.api.state import (
 from cynic.api.error_handler import format_error_for_user
 
 from cynic.api.routers.sdk import _sdk_sessions
+from cynic.observability.structured_logger import StructuredLogger
 
-logger = logging.getLogger("cynic.api.server")
+# Use structured JSON logging for all API server logs
+_structured_logger = StructuredLogger("cynic.api.server")
+logger = _structured_logger.logger  # Use the underlying logger for compatibility
 
 _boot_time = time.time()
 
