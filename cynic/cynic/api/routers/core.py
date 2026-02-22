@@ -25,6 +25,7 @@ from cynic.core.events_schema import (
 from cynic.core.judgment import Cell, Judgment
 from cynic.core.phi import MAX_CONFIDENCE
 from cynic.learning.qlearning import LearningSignal
+from cynic.organism.brain.consensus import get_consensus_engine
 
 from cynic.api.models import (
     JudgeRequest, JudgeResponse,
@@ -153,6 +154,16 @@ async def judge(req: JudgeRequest) -> JudgeResponse:
 
     judgment = await state.orchestrator.run(cell, level=level, budget_usd=req.budget_usd)
 
+    # Wire L2 consensus voting (Task 1.3: β-phase local consensus)
+    # Gathers votes from Dogs and marks judgment as finalized
+    consensus_engine = get_consensus_engine()
+    vote_result = await consensus_engine.gather_votes(judgment, timeout=5.0)
+    await consensus_engine.finalize_judgment(judgment, vote_result)
+    logger.debug(
+        f"Judgment {judgment.judgment_id} consensus: {vote_result.status} "
+        f"({vote_result.votes} votes)"
+    )
+
     # Write guidance.json — feedback loop to JS hooks (best-effort)
     _write_guidance(cell, judgment)
 
@@ -256,6 +267,11 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
     level = level_map.get(req.level or "REFLEX", ConsciousnessLevel.REFLEX)
 
     judgment = await state.orchestrator.run(cell, level=level)
+
+    # Wire L2 consensus voting (Task 1.3: β-phase local consensus)
+    consensus_engine = get_consensus_engine()
+    vote_result = await consensus_engine.gather_votes(judgment, timeout=5.0)
+    await consensus_engine.finalize_judgment(judgment, vote_result)
 
     # SAGE amplification: after fast REFLEX, enqueue MACRO to scheduler.
     # MACRO runs all 11 Dogs including SAGE temporal MCTS (7×Ollama).
