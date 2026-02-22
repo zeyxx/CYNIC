@@ -1,0 +1,226 @@
+/* Command Palette Backdrop */
+.command-palette-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Command Palette Modal */
+.command-palette-modal {
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.16);
+  width: 90%;
+  max-width: 600px;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+/* Search Input */
+.command-palette-search {
+  padding: 12px 16px;
+  border: none;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 16px;
+  outline: none;
+  background-color: #ffffff;
+}
+
+.command-palette-search:focus {
+  background-color: #f5f5f5;
+  border-bottom-color: #0066cc;
+}
+
+.command-palette-search::placeholder {
+  color: #999999;
+}
+
+/* Command List Container */
+.command-palette-list {
+  overflow-y: auto;
+  max-height: 400px;
+  flex: 1;
+  padding: 8px 0;
+}
+
+/* Individual Command Item */
+.command-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.command-item:hover {
+  background-color: #f5f5f5;
+}
+
+.command-item:active {
+  background-color: #eeeeee;
+}
+
+.command-item strong {
+  display: block;
+  color: #333333;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.command-item p {
+  display: block;
+  color: #666666;
+  font-size: 12px;
+  margin: 0;
+  padding: 0;
+  line-height: 1.4;
+}
+
+/* Empty State */
+.command-palette-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: #999999;
+  font-size: 14px;
+}
+
+/* Form Container */
+.command-palette-form-container {
+  padding: 16px;
+  border-top: 1px solid #e0e0e0;
+  overflow-y: auto;
+  max-height: 400px;
+  flex: 1;
+}
+
+.command-palette-form-container form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.command-palette-form-container form h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  color: #333333;
+}
+
+.command-palette-form-container form .form-description {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  color: #666666;
+  line-height: 1.4;
+}
+
+.command-palette-form-container form .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.command-palette-form-container form .field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333333;
+}
+
+.command-palette-form-container form .field .required {
+  color: #cc0000;
+}
+
+.command-palette-form-container form .field input,
+.command-palette-form-container form .field select {
+  padding: 8px 12px;
+  border: 1px solid #cccccc;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.command-palette-form-container form .field input:focus,
+.command-palette-form-container form .field select:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+}
+
+.command-palette-form-container form .field input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.command-palette-form-container form .field .help-text {
+  font-size: 11px;
+  color: #999999;
+  margin-top: 2px;
+}
+
+.command-palette-form-container form button {
+  padding: 8px 12px;
+  background-color: #0066cc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  margin-top: 8px;
+}
+
+.command-palette-form-container form button:hover {
+  background-color: #0052a3;
+}
+
+.command-palette-form-container form button:active {
+  background-color: #003d7a;
+}
+
+/* Scrollbar Styling */
+.command-palette-list::-webkit-scrollbar,
+.command-palette-form-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.command-palette-list::-webkit-scrollbar-track,
+.command-palette-form-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.command-palette-list::-webkit-scrollbar-thumb,
+.command-palette-form-container::-webkit-scrollbar-thumb {
+  background-color: #d0d0d0;
+  border-radius: 3px;
+}
+
+.command-palette-list::-webkit-scrollbar-thumb:hover,
+.command-palette-form-container::-webkit-scrollbar-thumb:hover {
+  background-color: #b0b0b0;
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .command-palette-modal {
+    width: 95%;
+    max-height: 80vh;
+  }
+
+  .command-palette-list {
+    max-height: 300px;
+  }
+
+  .command-palette-form-container {
+    max-height: 300px;
+  }
+}

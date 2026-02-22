@@ -6,7 +6,8 @@
   "main": "dist/bundle.js",
   "scripts": {
     "dev": "node esbuild.config.js",
-    "build": "node esbuild.config.js --prod"
+    "build": "node esbuild.config.js --prod",
+    "test": "vitest run"
   },
   "keywords": [
     "cynic",
@@ -16,7 +17,10 @@
   "author": "CYNIC",
   "license": "MIT",
   "devDependencies": {
+    "@vitest/coverage-v8": "^1.4.0",
+    "esbuild": "^0.20.0",
+    "jsdom": "^28.1.0",
     "typescript": "^5.3.3",
-    "esbuild": "^0.20.0"
+    "vitest": "^1.4.0"
   }
 }
