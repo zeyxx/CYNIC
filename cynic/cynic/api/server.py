@@ -183,6 +183,10 @@ async def lifespan(app: FastAPI):
     # ── Awaken organism (always — persistence is wired after) ─────────────────
     state = awaken(db_pool=db_pool, registry=registry)
 
+    # ── Store state in global variable for endpoints ─────────────────────────
+    from cynic.api.state import set_state as _set_state
+    _set_state(state)
+
     # ── Tier 1 Nervous System: Register components on startup ───────────────
     # NOTE: Tier 1 Nervous System requires ServiceStateRegistry on AppState.
     # Current implementation uses a placeholder dict in state.py:_create_services().

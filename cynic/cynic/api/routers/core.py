@@ -4,6 +4,7 @@ CYNIC core router — judge · perceive · learn · feedback · policy
 from __future__ import annotations
 
 import asyncio
+import httpx
 import json
 import logging
 import os
@@ -16,6 +17,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from cynic.core.consciousness import ConsciousnessLevel, get_consciousness
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.core.exceptions import EventBusError
 from cynic.core.events_schema import (
     AxiomActivatedPayload,
     PerceptionReceivedPayload,

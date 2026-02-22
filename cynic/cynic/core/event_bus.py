@@ -26,6 +26,8 @@ from enum import Enum
 from typing import Any, TypeVar, Type
 from collections.abc import Callable, Coroutine
 
+from cynic.core.exceptions import EventBusError
+
 T = TypeVar('T')
 
 # Python 3.9 compatibility: StrEnum added in Python 3.11
