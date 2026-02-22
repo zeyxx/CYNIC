@@ -35,6 +35,7 @@ from contextlib import asynccontextmanager
 import httpx
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -54,6 +55,7 @@ from cynic.api.state import (
     restore_state,
     set_app_container, get_app_container, AppContainer,
 )
+from cynic.api.error_handler import format_error_for_user
 
 from cynic.api.routers.sdk import _sdk_sessions
 
@@ -748,15 +750,48 @@ if _static_dir.is_dir():
 # ERROR HANDLING
 # ════════════════════════════════════════════════════════════════════════════
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """Handle validation errors with user-friendly messages."""
+    # Extract field and constraint that failed
+    errors = exc.errors()
+    if errors:
+        field = errors[0].get("loc", ["unknown"])[-1]
+        msg = errors[0].get("msg", "Invalid input")
+        error_msg = f"ValidationError: field '{field}' {msg}"
+    else:
+        error_msg = "ValidationError: Invalid request"
+
+    user_friendly = format_error_for_user(error_msg)
+    error_code = user_friendly.split("Error code: ")[-1].strip()
+
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": user_friendly,
+            "code": error_code,
+            "type": "ValidationError",
+        },
+    )
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Catch all errors and format for user (no raw Python exceptions)."""
+    error_msg = str(exc)
+    user_friendly = format_error_for_user(error_msg)
+    error_code = user_friendly.split("Error code: ")[-1].strip()
+
     logger.error("Unhandled error on %s: %s", request.url.path, exc, exc_info=True)
+
     return JSONResponse(
         status_code=500,
         content={
-            "error": str(exc),
-            "path": str(request.url.path),
-            "cynic": "φ distrusts φ — even the kernel can fail",
+            "error": user_friendly,
+            "code": error_code,
+            "type": type(exc).__name__,
         },
     )
 

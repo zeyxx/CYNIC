@@ -14,6 +14,7 @@ import type {
   PolicyResponse,
   ApiError,
 } from '../types/api';
+import { ErrorDisplay, type ErrorResponse } from '../ui/error-display';
 
 /**
  * REST API client for CYNIC backend
@@ -56,23 +57,60 @@ export class CynicApiClient {
     try {
       response = await fetch(url, options);
     } catch (error) {
-      throw new Error(
-        `Network error: ${error instanceof Error ? error.message : String(error)}`
-      );
+      const errorMsg = error instanceof Error ? error.message : String(error);
+
+      // Display network error to user
+      ErrorDisplay.show({
+        error: `Network error: ${errorMsg}\n\nℹ️ Check your internet connection and try again.\n\nError code: #NET`,
+        code: '#NET',
+        type: 'NetworkError',
+      });
+
+      throw new Error(`Network error: ${errorMsg}`);
     }
 
     // Handle non-2xx responses
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      let errorCode = `#${response.status}`;
+      let errorType = 'HTTPError';
 
       try {
-        const errorData = (await response.json()) as ApiError;
-        if (errorData.error?.message) {
-          errorMessage = errorData.error.message;
+        const errorData = (await response.json()) as unknown;
+
+        // New error format (from error_handler.py)
+        if (
+          errorData &&
+          typeof errorData === 'object' &&
+          'error' in errorData &&
+          'code' in errorData
+        ) {
+          const newError = errorData as ErrorResponse;
+          errorMessage = newError.error;
+          errorCode = newError.code;
+          errorType = newError.type;
+        }
+        // Old error format fallback
+        else if (
+          errorData &&
+          typeof errorData === 'object' &&
+          'error' in errorData
+        ) {
+          const oldError = errorData as ApiError;
+          if (oldError.error?.message) {
+            errorMessage = oldError.error.message;
+          }
         }
       } catch {
         // Could not parse error response, use default message
       }
+
+      // Display error to user
+      ErrorDisplay.show({
+        error: errorMessage,
+        code: errorCode,
+        type: errorType,
+      });
 
       throw new Error(errorMessage);
     }
@@ -81,9 +119,16 @@ export class CynicApiClient {
     try {
       return (await response.json()) as T;
     } catch (error) {
-      throw new Error(
-        `Failed to parse response: ${error instanceof Error ? error.message : String(error)}`
-      );
+      const errorMsg = error instanceof Error ? error.message : String(error);
+
+      // Display parse error to user
+      ErrorDisplay.show({
+        error: `An unexpected error occurred while processing the response.\n\nℹ️ Try again or refresh the page.\n\nError code: #PARSE`,
+        code: '#PARSE',
+        type: 'ResponseParseError',
+      });
+
+      throw new Error(`Failed to parse response: ${errorMsg}`);
     }
   }
 
