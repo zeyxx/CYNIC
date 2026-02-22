@@ -24,6 +24,7 @@ from cynic.core.formulas import (
 )
 from cynic.api.models import HealthResponse, StatsResponse
 from cynic.api.state import get_app_container, AppContainer
+from cynic.observability.health import HealthChecker
 
 logger = logging.getLogger("cynic.api.server")
 
@@ -530,6 +531,80 @@ async def consciousness(container: AppContainer = Depends(get_app_container)) ->
     if state.llm_router is not None:
         payload["llm_routing"] = state.llm_router.stats()
     return payload
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /system-health — Comprehensive system health check (Phase 3.3)
+# ════════════════════════════════════════════════════════════════════════════
+
+@router_health.get("/system-health")
+async def system_health(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
+    """
+    Comprehensive system health check with status of all critical subsystems.
+
+    Returns:
+        {
+            "timestamp": ISO8601 timestamp,
+            "overall": "healthy" | "degraded" | "critical",
+            "database": "ok" | "down",
+            "llm": "ok" | "degraded" | "down",
+            "consciousness": "ok" | "down",
+            "event_bus": "ok" | "down",
+            "app": "running" | "degraded",
+            "uptime_s": seconds since kernel started,
+        }
+
+    Status levels:
+        HEALTHY: All systems operational
+        DEGRADED: Optional systems down (e.g., LLM) but core systems working
+        CRITICAL: Core systems (DB, consciousness, event bus) down
+    """
+    from cynic.llm.adapter import get_registry
+
+    state = container.organism
+    registry = get_registry()
+
+    # Create health checker with all system references
+    health_checker = HealthChecker(
+        organism=state,
+        registry=registry,
+        db_pool=getattr(state, "_pool", None),
+        surreal=None,  # Would need to be passed from lifespan context
+    )
+
+    return await health_checker.check()
+
+
+@router_health.get("/system-health/detailed")
+async def system_health_detailed(
+    container: AppContainer = Depends(get_app_container),
+) -> dict[str, Any]:
+    """
+    Detailed system health check with remediation hints.
+
+    Returns comprehensive health status plus helpful hints for fixing any failures.
+    Includes suggestions for:
+        - Database troubleshooting (SurrealDB vs PostgreSQL)
+        - LLM setup (Ollama, Claude API, etc.)
+        - Consciousness diagnostics
+        - Event bus issues
+
+    Useful for operators debugging system failures.
+    """
+    from cynic.llm.adapter import get_registry
+
+    state = container.organism
+    registry = get_registry()
+
+    # Create health checker with all system references
+    health_checker = HealthChecker(
+        organism=state,
+        registry=registry,
+        db_pool=getattr(state, "_pool", None),
+        surreal=None,
+    )
+
+    return await health_checker.check_detailed()
 
 
 # ════════════════════════════════════════════════════════════════════════════
