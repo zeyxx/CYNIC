@@ -20,6 +20,7 @@ This is the HEART of CYNIC. Every judgment flows through here.
 """
 from __future__ import annotations
 
+import httpx
 import logging
 import time
 import uuid
