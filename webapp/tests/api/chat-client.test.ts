@@ -23,9 +23,15 @@ describe('ChatClient', () => {
     const response: ChatResponse = {
       text: 'hello response',
       session_id: 'session-123',
+      code: 'console.log("hello");',
+      language: 'javascript',
+      judgment_id: 'judgment-456',
     };
     expect(response.text).toBe('hello response');
     expect(response.session_id).toBe('session-123');
+    expect(response.code).toBe('console.log("hello");');
+    expect(response.language).toBe('javascript');
+    expect(response.judgment_id).toBe('judgment-456');
   });
 
   it('should throw ValidationError for missing request fields', async () => {

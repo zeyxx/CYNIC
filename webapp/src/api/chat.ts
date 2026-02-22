@@ -8,6 +8,9 @@ export interface ChatRequest {
 export interface ChatResponse {
   text: string;
   session_id: string;
+  code: string;
+  language: string;
+  judgment_id: string;
 }
 
 export class ChatClient {
