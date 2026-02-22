@@ -6,7 +6,9 @@
   "main": "dist/bundle.js",
   "scripts": {
     "dev": "node esbuild.config.js",
-    "build": "node esbuild.config.js --prod"
+    "build": "node esbuild.config.js --prod",
+    "test": "vitest",
+    "test:ui": "vitest --ui"
   },
   "keywords": [
     "cynic",
@@ -17,6 +19,9 @@
   "license": "MIT",
   "devDependencies": {
     "typescript": "^5.3.3",
-    "esbuild": "^0.20.0"
+    "esbuild": "^0.20.0",
+    "vitest": "^1.0.0",
+    "@vitest/ui": "^1.0.0",
+    "jsdom": "^23.0.0"
   }
 }

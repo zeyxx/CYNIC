@@ -8,6 +8,8 @@ import { apiClient } from './api/client';
 import { wsClient } from './api/ws';
 import { loadSchema, clearCache } from './util/schema-loader';
 import { store } from './state/store';
+import { WelcomeScreen } from './ui/welcome';
+import './ui/styles/welcome.css';
 
 // Export for global access in browser console
 declare global {
@@ -35,6 +37,24 @@ console.log('*sniff* CYNIC Webapp initialized');
 // Initialize the application
 async function initializeApp(): Promise<void> {
   console.log('Initializing CYNIC control panel...');
+
+  // Show welcome screen if first session
+  const welcome = new WelcomeScreen();
+  if (welcome.shouldShow()) {
+    const welcomeHTML = welcome.render();
+    document.body.insertAdjacentHTML('beforeend', welcomeHTML);
+
+    const dismissBtn = document.getElementById('welcome-dismiss');
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', () => {
+        welcome.dismiss();
+        const modal = document.getElementById('welcome');
+        if (modal) {
+          modal.remove();
+        }
+      });
+    }
+  }
 
   // Load schema and populate store
   try {
