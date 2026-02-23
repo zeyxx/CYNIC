@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from cynic.api.state import awaken
+from cynic.organism.organism import awaken
 from cynic.core.event_bus import Event, CoreEvent, get_core_bus
 from cynic.core.topology import SourceChangedPayload
 

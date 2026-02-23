@@ -610,9 +610,15 @@ def get_state() -> AppState:
     return _state
 
 
-def awaken(db_pool=None, registry=None) -> AppState:
-    """Awaken the CYNIC organism. Call once from lifespan startup."""
-    return build_kernel(db_pool, registry)
+def awaken(db_pool=None, registry=None):
+    """
+    DEPRECATED: Use cynic.organism.organism.awaken() instead.
+    This function delegates to the real implementation for backward compatibility.
+
+    Returns: Organism (not AppState — Organism is the true type)
+    """
+    from cynic.organism.organism import awaken as organism_awaken
+    return organism_awaken(db_pool, registry)
 
 
 async def restore_state(container: AppContainer) -> None:

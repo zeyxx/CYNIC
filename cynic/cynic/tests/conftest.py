@@ -46,7 +46,8 @@ async def integration_environment():
     No manual fixture injection needed (unless you override it).
     """
     from cynic.api.server import app
-    from cynic.api.state import awaken, AppContainer, set_app_container, restore_state
+    from cynic.organism.organism import awaken
+    from cynic.api.state import AppContainer, set_app_container, restore_state
     from cynic.api.routers.auto_register import auto_register_routers
 
     # Start fresh organism (no database, no LLM calls unless explicitly)

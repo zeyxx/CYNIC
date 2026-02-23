@@ -30,11 +30,10 @@ from unittest.mock import MagicMock, AsyncMock, patch
 # Minimal imports to avoid circular deps
 from cynic.api.state import (
     AppContainer,
-    AppState,
-    awaken,
     get_app_container,
     set_app_container,
 )
+from cynic.organism.organism import awaken, Organism as AppState
 from cynic.core.event_bus import get_core_bus, get_automation_bus, get_agent_bus, Event
 
 
