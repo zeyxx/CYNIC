@@ -4,7 +4,7 @@ CYNIC actions router — proposed-actions · self-probes
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -14,7 +14,6 @@ from cynic.api.state import get_app_container, AppContainer
 from cynic.core.event_bus import get_core_bus, Event, CoreEvent
 from cynic.core.events_schema import ActRequestedPayload, AxiomActivatedPayload
 from cynic.learning.qlearning import LearningSignal
-from cynic.api.state import get_app_container, AppContainer
 from cynic.api.routers.utils import _append_social_signal
 
 logger = logging.getLogger("cynic.api.server")
