@@ -1,0 +1,131 @@
+version: '3.9'
+
+# CYNIC Docker Compose — Local Development & Deployment
+# Usage:
+#   docker-compose up                    # Run all services
+#   docker-compose down                  # Stop and remove
+#   docker-compose logs -f cynic         # Stream logs
+
+services:
+  # PostgreSQL database (optional, for persistence)
+  postgres:
+    image: postgres:16-alpine
+    container_name: cynic-postgres
+    environment:
+      POSTGRES_USER: cynic
+      POSTGRES_PASSWORD: cynic-dev-password
+      POSTGRES_DB: cynic_kernel
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cynic"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cynic-network
+
+  # CYNIC Kernel (Python FastAPI server)
+  cynic:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cynic-kernel
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database configuration
+      DATABASE_URL: postgresql://cynic:cynic-dev-password@postgres:5432/cynic_kernel
+
+      # Optional: Ollama integration
+      OLLAMA_BASE_URL: http://ollama:11434
+
+      # Optional: SurrealDB integration (comment out to use PostgreSQL)
+      # SURREAL_URL: ws://surreal:8000
+      # SURREAL_USER: root
+      # SURREAL_PASS: root
+
+      # API configuration
+      PORT: "8765"
+
+      # Logging
+      LOG_LEVEL: INFO
+    ports:
+      - "8765:8765"  # FastAPI REST API
+      - "8766:8766"  # MCP Server (Claude Code bridge)
+    volumes:
+      - ~/.cynic:/home/cynic/.cynic  # Persist local CYNIC state
+      - ./cynic:/app/cynic:ro        # Mount source code (read-only)
+    networks:
+      - cynic-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # Optional: Ollama for local LLM inference
+  ollama:
+    image: ollama/ollama:latest
+    container_name: cynic-ollama
+    environment:
+      OLLAMA_MODELS: /root/.ollama/models
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - cynic-network
+    # Uncomment to auto-pull a model on startup:
+    # entrypoint: bash -c "ollama pull qwen2:3b && ollama serve"
+
+  # Optional: pgAdmin for PostgreSQL management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: cynic-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@cynic.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - cynic-network
+
+volumes:
+  postgres_data:
+    driver: local
+  ollama_data:
+    driver: local
+
+networks:
+  cynic-network:
+    driver: bridge
+
+# Quick commands:
+#
+# Build image:
+#   docker build -t cynic:latest .
+#
+# Start stack:
+#   docker-compose up -d
+#
+# Check logs:
+#   docker-compose logs -f cynic
+#
+# Access services:
+#   - API: http://localhost:8765
+#   - PostgreSQL: localhost:5432 (cynic/cynic-dev-password)
+#   - pgAdmin: http://localhost:5050 (admin@cynic.local/admin)
+#   - Ollama: http://localhost:11434
+#
+# Stop stack:
+#   docker-compose down
+#
+# Clean up (remove volumes):
+#   docker-compose down -v

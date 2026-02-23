@@ -68,15 +68,16 @@ RUN useradd -m -u 1000 cynic && chown -R cynic:cynic /app && \
     mkdir -p /home/cynic/.claude && chown -R cynic:cynic /home/cynic/.claude
 USER cynic
 
-EXPOSE 8000
+EXPOSE 8765 8766
 
 # Health check endpoint (FastAPI server)
 HEALTHCHECK --interval=15s --timeout=10s --start-period=20s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8765/health')"
 
 # Start CYNIC kernel
-# FastAPI will serve:
+# FastAPI will serve (port 8765):
 #   - /api/* → REST API
 #   - /ws → WebSocket
 #   - / → Static files (dist/bundle.js + index.html)
-CMD ["python", "-m", "uvicorn", "cynic.api.server:app", "--host", "0.0.0.0", "--port", "8000"]
+# MCP Server listens on port 8766 (port + 1)
+CMD ["python", "-m", "uvicorn", "cynic.api.server:app", "--host", "0.0.0.0", "--port", "8765"]
