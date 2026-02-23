@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import traceback
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 
 from cynic.core.consciousness import ConsciousnessLevel
+from cynic.core.exceptions import CynicError
 from cynic.core.judgment import Cell
 from cynic.core.phi import fibonacci
 from typing import Optional
@@ -88,6 +90,12 @@ class PerceiveWorker(ABC):
                 return
             except CynicError as exc:
                 logger.warning("PerceiveWorker %s sense() error: %s", self.name, exc)
+            except Exception as exc:
+                # Catch all unexpected exceptions to prevent silent worker death
+                logger.error(
+                    "PerceiveWorker %s unexpected error in sense(): %s\n%s",
+                    self.name, exc, traceback.format_exc()
+                )
 
             # CancelledError raised here exits the loop cleanly
             await asyncio.sleep(self.interval_s)
