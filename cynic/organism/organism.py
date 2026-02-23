@@ -455,8 +455,6 @@ class _OrganismAwakener:
 
     def _create_components(self) -> None:
         """Create all kernel components and wire their mutual dependencies."""
-        from cynic.api.state import _on_judgment_created
-
         # Dogs — auto-discovered from cynic.cognition.neurons (no manual import list)
         # QTable must exist before OracleDog (Oracle reads it for predictions)
         self.qtable = QTable()
