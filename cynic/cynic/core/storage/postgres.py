@@ -246,6 +246,20 @@ CREATE TABLE IF NOT EXISTS sdk_sessions (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Action proposals (queued actions awaiting approval/rejection)
+CREATE TABLE IF NOT EXISTS action_proposals (
+    id              TEXT        PRIMARY KEY,
+    cell_id         TEXT        NOT NULL,
+    action_type     TEXT        NOT NULL,
+    description     TEXT        NOT NULL,
+    confidence      REAL        NOT NULL CHECK (confidence >= 0 AND confidence <= 100),
+    estimated_cost  REAL        NOT NULL CHECK (estimated_cost >= 0),
+    status          TEXT        NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'EXECUTED')),
+    reason          TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Scholar buffer (TF-IDF memory warm-start + PGVector semantic search)
 -- β1: embedding column added for pgvector cosine similarity
 -- Requires: CREATE EXTENSION IF NOT EXISTS vector (run separately if pgvector installed)
@@ -269,6 +283,7 @@ CREATE INDEX IF NOT EXISTS idx_learning_loop       ON learning_events (loop_name
 CREATE INDEX IF NOT EXISTS idx_learning_state      ON learning_events (state_key);
 CREATE INDEX IF NOT EXISTS idx_llm_bench_dog       ON llm_benchmarks (dog_id, task_type);
 CREATE INDEX IF NOT EXISTS idx_residual_observed   ON residual_history (observed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_action_proposals_status ON action_proposals (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sdk_model           ON sdk_sessions (model);
 CREATE INDEX IF NOT EXISTS idx_sdk_task_type       ON sdk_sessions (task_type);
 CREATE INDEX IF NOT EXISTS idx_sdk_created         ON sdk_sessions (created_at DESC);
