@@ -3,18 +3,15 @@ import { ChatClient } from './api/chat';
 import { LearningClient } from './api/learning';
 import './ui/styles/layout.css';
 
-async function initializeApp(): Promise<void> {
+export async function initializeApp(): Promise<void> {
   const layoutManager = new LayoutManager();
   const chatClient = new ChatClient();
-  const learningClient = new LearningClient();
+  const learningClient = new LearningClient(); // Phase 2: used for feedback submission
 
   let sessionId = `session-${Date.now()}`;
   let lastJudgmentId = '';
   let lastPrompt = '';
   let lastCode = '';
-
-  // Store learningClient reference to enable future learning event submission (Phase 2)
-  void learningClient;
 
   // Mount layout
   const layoutElement = layoutManager.render();
@@ -26,12 +23,13 @@ async function initializeApp(): Promise<void> {
   // Wire chat send event
   chatPanel.onSend(async (text) => {
     // Add user message to history
+    const userTimestamp = Date.now();
     chatPanel.addMessage({
-      id: `msg-${Date.now()}`,
+      id: `msg-${userTimestamp}-${Math.random().toString(36).substr(2, 9)}`,
       role: 'user',
       content: text,
       judgment_id: '',
-      timestamp: Date.now(),
+      timestamp: userTimestamp,
     });
 
     // Store prompt for learning event
@@ -61,14 +59,15 @@ async function initializeApp(): Promise<void> {
       });
 
       // Add assistant message to history
+      const assistantTimestamp = Date.now();
       chatPanel.addMessage({
-        id: `msg-${Date.now()}`,
+        id: `msg-${assistantTimestamp}-${Math.random().toString(36).substr(2, 9)}`,
         role: 'assistant',
         content: `Generated ${response.language} code`,
         code: response.code,
         code_language: response.language,
         judgment_id: lastJudgmentId,
-        timestamp: Date.now(),
+        timestamp: assistantTimestamp,
       });
 
       console.log('*sniff* Chat response received', {
@@ -80,12 +79,13 @@ async function initializeApp(): Promise<void> {
     } catch (error) {
       codePanel.setStatus('error');
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorTimestamp = Date.now();
       chatPanel.addMessage({
-        id: `msg-${Date.now()}`,
+        id: `msg-${errorTimestamp}-${Math.random().toString(36).substr(2, 9)}`,
         role: 'assistant',
         content: `*GROWL* Error: ${errorMessage}`,
         judgment_id: '',
-        timestamp: Date.now(),
+        timestamp: errorTimestamp,
       });
       console.error('*GROWL* Chat error:', error);
     }
