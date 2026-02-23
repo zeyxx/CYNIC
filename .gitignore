@@ -100,6 +100,9 @@ id.json
 .claude/memory/
 .claude/worktrees/
 
+# Git worktrees (project isolation)
+.worktrees/
+
 # Temporary build scripts
 docker-build.bat
 docker-build-log.bat
