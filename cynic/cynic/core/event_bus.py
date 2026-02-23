@@ -317,6 +317,12 @@ class EventBus:
             asyncio.create_task(self._run_handler(handler, event))
 
     async def _run_handler(self, handler: Handler, event: Event) -> None:
+        """
+        Run a single handler with complete isolation.
+
+        If a handler crashes, it won't affect other handlers for the same event.
+        All exceptions are caught and logged.
+        """
         try:
             await handler(event)
         except EventBusError as e:
@@ -324,6 +330,15 @@ class EventBus:
             logger.error(
                 "Handler error on bus=%s type=%s: %s",
                 self.bus_id, event.type, e,
+                exc_info=True,
+            )
+        except Exception as e:
+            # Catch ALL exceptions to isolate handler failures
+            # Prevents one bad handler from blocking others
+            self._error_count += 1
+            logger.error(
+                "Unhandled exception in handler on bus=%s type=%s: %s",
+                self.bus_id, event.type, type(e).__name__,
                 exc_info=True,
             )
 
