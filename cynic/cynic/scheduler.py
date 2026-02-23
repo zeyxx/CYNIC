@@ -122,12 +122,80 @@ class ConsciousnessRhythm:
 
         # Tier worker tasks (N per level)
         self._tasks: list[asyncio.Task] = []
+        # Track tier worker metadata for restart (level, worker_id) → coroutine_fn
+        self._tier_worker_metadata: dict[tuple, tuple] = {}  # (level, id) → (worker_fn, id)
 
         # PerceiveWorker tasks (autonomous sensors)
         self._perceive_workers: list[Any] = []   # List[PerceiveWorker]
         self._perceive_tasks: list[asyncio.Task] = []
+        # Track perceive worker metadata for restart
+        self._perceive_worker_metadata: dict[asyncio.Task, Any] = {}  # task → worker
 
         self._running = False
+
+    # ── Worker Supervision ──────────────────────────────────────────────────────
+
+    def _on_tier_worker_done(self, task: asyncio.Task, level: ConsciousnessLevel, worker_id: int) -> None:
+        """Handle tier worker completion (death/crash) and restart if still running."""
+        try:
+            # Try to get the exception if the worker crashed
+            task.result()
+        except asyncio.CancelledError:
+            logger.debug(f"Tier worker {level.name}:{worker_id} cancelled (expected)")
+            return
+        except Exception as exc:
+            logger.error(f"Tier worker {level.name}:{worker_id} died: {exc}")
+
+        # Only restart if scheduler is still running (not shutting down)
+        if not self._running:
+            logger.debug(f"Tier worker {level.name}:{worker_id} not restarted (scheduler stopped)")
+            return
+
+        # Restart the worker
+        logger.info(f"Restarting tier worker {level.name}:{worker_id}...")
+        worker_fn, _ = self._tier_worker_metadata.get((level, worker_id), (None, None))
+        if worker_fn is None:
+            logger.error(f"Cannot restart {level.name}:{worker_id} — metadata not found")
+            return
+
+        new_task = asyncio.ensure_future(worker_fn(worker_id=worker_id))
+        new_task.set_name(f"cynic.scheduler.{level.name.lower()}.{worker_id}")
+        new_task.add_done_callback(lambda t: self._on_tier_worker_done(t, level, worker_id))
+
+        # Replace in task list
+        try:
+            idx = self._tasks.index(task)
+            self._tasks[idx] = new_task
+        except ValueError:
+            self._tasks.append(new_task)
+
+    def _on_perceive_worker_done(self, task: asyncio.Task, worker: Any) -> None:
+        """Handle perceive worker completion (death/crash) and restart if still running."""
+        try:
+            task.result()
+        except asyncio.CancelledError:
+            logger.debug(f"Perceive worker {worker.name} cancelled (expected)")
+            return
+        except Exception as exc:
+            logger.error(f"Perceive worker {worker.name} died: {exc}")
+
+        # Only restart if scheduler is still running
+        if not self._running:
+            logger.debug(f"Perceive worker {worker.name} not restarted (scheduler stopped)")
+            return
+
+        # Restart the worker
+        logger.info(f"Restarting perceive worker {worker.name}...")
+        new_task = asyncio.ensure_future(worker.run(self.submit))
+        new_task.set_name(f"cynic.senses.{worker.name}")
+        new_task.add_done_callback(lambda t: self._on_perceive_worker_done(t, worker))
+
+        # Replace in task list
+        try:
+            idx = self._perceive_tasks.index(task)
+            self._perceive_tasks[idx] = new_task
+        except ValueError:
+            self._perceive_tasks.append(new_task)
 
     # ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -175,6 +243,10 @@ class ConsciousnessRhythm:
             for i in range(n):
                 task = asyncio.ensure_future(fn(worker_id=i))
                 task.set_name(f"cynic.scheduler.{level.name.lower()}.{i}")
+                # Store metadata for restart
+                self._tier_worker_metadata[(level, i)] = (fn, i)
+                # Add done callback for supervision
+                task.add_done_callback(lambda t, lvl=level, wid=i: self._on_tier_worker_done(t, lvl, wid))
                 self._tasks.append(task)
                 total_workers += 1
 
@@ -182,6 +254,10 @@ class ConsciousnessRhythm:
         for pw in self._perceive_workers:
             task = asyncio.ensure_future(pw.run(self.submit))
             task.set_name(f"cynic.senses.{pw.name}")
+            # Store metadata for restart
+            self._perceive_worker_metadata[task] = pw
+            # Add done callback for supervision
+            task.add_done_callback(lambda t, w=pw: self._on_perceive_worker_done(t, w))
             self._perceive_tasks.append(task)
 
         logger.info(
@@ -204,6 +280,8 @@ class ConsciousnessRhythm:
 
         self._tasks.clear()
         self._perceive_tasks.clear()
+        self._tier_worker_metadata.clear()
+        self._perceive_worker_metadata.clear()
         logger.info("ConsciousnessRhythm stopped")
 
     # ── Submit ───────────────────────────────────────────────────────────────
