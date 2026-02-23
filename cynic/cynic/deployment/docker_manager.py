@@ -184,10 +184,6 @@ class DockerManager:
         except docker.errors.DockerException as e:
             logger.error(f"Failed to get logs for {service_name}: {e}")
             return None
-        except Exception as e:
-            # Catch unexpected exceptions (e.g., from mocks in tests)
-            logger.warning(f"Unexpected error retrieving logs for {service_name}: {e}")
-            return None
 
     async def restart_service(self, service_name: str, wait_healthy_s: float = 30.0) -> bool:
         """Gracefully restart a service and wait for health."""

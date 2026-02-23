@@ -223,7 +223,7 @@ class TestDockerManagerLogsRetrieval:
         mgr = DockerManager()
 
         mock_client = MagicMock()
-        mock_client.containers.get = Mock(side_effect=Exception("Container not found"))
+        mock_client.containers.get = Mock(side_effect=docker.errors.DockerException("Container not found"))
         mgr.client = mock_client
 
         logs = await mgr.get_logs("cynic-kernel")
