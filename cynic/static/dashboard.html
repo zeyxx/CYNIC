@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CYNIC Kernel Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg:      #0a0a0e;
+      --surface: #111116;
+      --border:  #1e1e28;
+      --text:    #c8c8d8;
+      --muted:   #555568;
+      --howl:    #22c55e;
+      --wag:     #eab308;
+      --growl:   #f97316;
+      --bark:    #ef4444;
+      --phi:     #a78bfa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 13px; line-height: 1.5;
+    }
+    header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 20px; border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    header h1 { font-size: 14px; color: var(--phi); letter-spacing: 2px; }
+    #conn-badge {
+      font-size: 11px; padding: 2px 8px; border-radius: 4px;
+      background: var(--bark); color: #fff;
+    }
+    #conn-badge.connected { background: var(--howl); }
+    .grid {
+      display: grid; grid-template-columns: 280px 1fr;
+      gap: 1px; background: var(--border);
+      height: calc(100vh - 45px);
+    }
+    .panel { background: var(--bg); padding: 14px 16px; overflow: auto; }
+    .panel h2 { font-size: 11px; color: var(--muted); letter-spacing: 1px;
+                text-transform: uppercase; margin-bottom: 10px; }
+    #verdict-box {
+      margin: 12px 0; padding: 10px 12px; border-radius: 6px;
+      border: 1px solid var(--border); text-align: center;
+      font-size: 20px; font-weight: bold; letter-spacing: 2px;
+    }
+    #verdict-box.HOWL  { border-color: var(--howl); color: var(--howl); }
+    #verdict-box.WAG   { border-color: var(--wag);  color: var(--wag);  }
+    #verdict-box.GROWL { border-color: var(--growl); color: var(--growl); }
+    #verdict-box.BARK  { border-color: var(--bark); color: var(--bark); }
+    #q-bar-wrap { height: 8px; background: var(--border); border-radius: 4px; margin: 8px 0; }
+    #q-bar { height: 8px; border-radius: 4px; background: var(--phi); transition: width 0.4s; width: 0%; }
+    .q-meta { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 12px; color: var(--muted); }
+    .stat-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--border); }
+    .stat-label { color: var(--muted); }
+    .stat-val { font-weight: bold; }
+    .stat-val.phi { color: var(--phi); }
+    #dog-table { font-size: 11px; width: 100%; border-collapse: collapse; }
+    #dog-table td { padding: 3px 2px; }
+    #dog-table td:last-child { text-align: right; }
+    #log { border-left: 1px solid var(--border); font-size: 12px; }
+    #log-list { list-style: none; }
+    #log-list li {
+      padding: 5px 8px; border-bottom: 1px solid var(--border);
+      display: grid; grid-template-columns: 60px 130px 1fr; gap: 8px;
+    }
+    .log-ts { color: var(--muted); font-size: 11px; }
+    .log-type { color: var(--phi); font-weight: bold; font-size: 11px; }
+    .log-body { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chip {
+      display: inline-block; padding: 1px 5px; border-radius: 3px;
+      font-weight: bold; font-size: 10px; margin-right: 4px;
+    }
+    .chip-HOWL  { background: #14532d; color: var(--howl); }
+    .chip-WAG   { background: #713f12; color: var(--wag); }
+    .chip-GROWL { background: #7c2d12; color: var(--growl); }
+    .chip-BARK  { background: #7f1d1d; color: var(--bark); }
+    .chip-ACT   { background: #3b0764; color: var(--phi); }
+    .chip-SYS   { background: #1e1e28; color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<header>
+  <span style="color:var(--phi);font-size:18px;">κ</span>
+  <h1>CYNIC KERNEL DASHBOARD</h1>
+  <span id="conn-badge">DISCONNECTED</span>
+  <span style="margin-left:auto;color:var(--muted);font-size:11px;">phi=1.618 | conf max 61.8%</span>
+</header>
+
+<div class="grid">
+  <!-- Stats column -->
+  <div class="panel">
+    <h2>Organism Status</h2>
+    <div id="verdict-box">--</div>
+    <div id="q-bar-wrap"><div id="q-bar"></div></div>
+    <div class="q-meta">
+      <span id="q-score-label">Q: --</span>
+      <span id="conf-label">conf: --</span>
+    </div>
+    <div class="stat-row"><span class="stat-label">Judgments</span><span class="stat-val phi" id="s-j">0</span></div>
+    <div class="stat-row"><span class="stat-label">Decisions</span><span class="stat-val" id="s-d">0</span></div>
+    <div class="stat-row"><span class="stat-label">Q-Updates</span><span class="stat-val" id="s-l">0</span></div>
+    <div class="stat-row"><span class="stat-label">Reality</span><span class="stat-val" id="s-r">--</span></div>
+    <div class="stat-row">
+      <span class="stat-label">State</span>
+      <span class="stat-val" id="s-sk" style="font-size:10px;overflow:hidden;text-overflow:ellipsis;">--</span>
+    </div>
+
+    <h2 style="margin-top:16px;">Dog Votes</h2>
+    <table id="dog-table"><tbody id="dog-tbody"></tbody></table>
+  </div>
+
+  <!-- Log column -->
+  <div class="panel" id="log">
+    <h2>Live Events <span style="color:var(--muted);font-weight:normal;">(last 50)</span></h2>
+    <ul id="log-list"></ul>
+  </div>
+</div>
+
+<script>
+  var MAX_LOG = 50;
+  var counts = { j: 0, d: 0, l: 0 };
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function fmtTs() {
+    return new Date().toTimeString().slice(0, 8);
+  }
+
+  function chip(label, variant) {
+    return el('span', 'chip chip-' + variant, label);
+  }
+
+  function appendLog(typeLabel, buildBody) {
+    var list = document.getElementById('log-list');
+    var li = document.createElement('li');
+    li.appendChild(el('span', 'log-ts', fmtTs()));
+    li.appendChild(el('span', 'log-type', typeLabel));
+    var body = el('span', 'log-body');
+    buildBody(body);
+    li.appendChild(body);
+    list.insertBefore(li, list.firstChild);
+    while (list.children.length > MAX_LOG) list.removeChild(list.lastChild);
+  }
+
+  function txt(s) { return document.createTextNode(String(s)); }
+
+  function updateVerdict(verdict, qScore, confidence) {
+    var box = document.getElementById('verdict-box');
+    box.textContent = verdict || '--';
+    box.className = verdict || '';
+    var pct = Math.min((qScore / 61.8) * 100, 100);
+    document.getElementById('q-bar').style.width = pct + '%';
+    document.getElementById('q-score-label').textContent = 'Q: ' + (qScore || 0).toFixed(1);
+    document.getElementById('conf-label').textContent = 'conf: ' + ((confidence || 0) * 100).toFixed(0) + '%';
+  }
+
+  function updateDogs(dogVotes) {
+    if (!dogVotes) return;
+    var tbody = document.getElementById('dog-tbody');
+    while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+    var entries = Object.entries(dogVotes).sort(function(a, b) { return b[1] - a[1]; });
+    entries.forEach(function(kv) {
+      var dog = kv[0], score = kv[1];
+      var filled = Math.round(Math.min(score / 61.8 * 10, 10));
+      var bars = '\u2588'.repeat(filled) + '\u2591'.repeat(10 - filled);
+      var tr = document.createElement('tr');
+      var td1 = el('td', null, dog.slice(0, 10));
+      td1.style.color = 'var(--muted)';
+      var td2 = el('td', null, bars);
+      td2.style.color = 'var(--phi)';
+      td2.style.letterSpacing = '0';
+      var td3 = el('td', null, score.toFixed(1));
+      tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+      tbody.appendChild(tr);
+    });
+  }
+
+  function handleEvent(msg) {
+    var type = msg.type, p = msg.payload || {};
+
+    if (type === 'JUDGMENT_CREATED') {
+      counts.j++;
+      document.getElementById('s-j').textContent = counts.j;
+      document.getElementById('s-r').textContent = p.reality || '--';
+      document.getElementById('s-sk').textContent = p.state_key || '--';
+      updateVerdict(p.verdict, p.q_score, p.confidence);
+      updateDogs(p.dog_votes);
+      appendLog('JUDGMENT', function(body) {
+        body.appendChild(chip(p.verdict || '?', p.verdict || 'SYS'));
+        body.appendChild(txt(' Q=' + (p.q_score || 0).toFixed(1)));
+        body.appendChild(txt(' conf=' + ((p.confidence || 0) * 100).toFixed(0) + '%'));
+        body.appendChild(txt(' ' + (p.reality || '') + '.' + (p.analysis || '')));
+        body.appendChild(txt(' $' + (p.cost_usd || 0).toFixed(5)));
+      });
+
+    } else if (type === 'DECISION_MADE') {
+      counts.d++;
+      document.getElementById('s-d').textContent = counts.d;
+      appendLog('DECISION', function(body) {
+        body.appendChild(chip('->ACT', 'ACT'));
+        body.appendChild(txt(' ' + (p.reality || '?') + ' ' + (p.recommended_action || '?')));
+        body.appendChild(txt(' q=' + (p.q_value || 0).toFixed(3)));
+      });
+
+    } else if (type === 'LEARNING_EVENT') {
+      counts.l++;
+      document.getElementById('s-l').textContent = counts.l;
+      appendLog('LEARNING', function(body) {
+        body.appendChild(txt((p.loop_name || '?') + ' state=' + (p.state_key || '?')));
+        body.appendChild(txt(' r=' + (p.reward || 0).toFixed(3)));
+      });
+
+    } else if (type === 'META_CYCLE') {
+      appendLog('META_CYCLE', function(body) {
+        body.appendChild(txt('tick=' + (p.tick || '?')));
+      });
+
+    } else if (type === 'connected') {
+      appendLog('SYSTEM', function(body) {
+        body.appendChild(txt('Connected | phi=' + (p.phi || '?')));
+      });
+    }
+  }
+
+  function connect() {
+    var host = window.location.host || 'localhost:8765';
+    var badge = document.getElementById('conn-badge');
+    var ws = new WebSocket('ws://' + host + '/ws/stream');
+
+    ws.onopen = function() {
+      badge.textContent = 'CONNECTED';
+      badge.classList.add('connected');
+    };
+    ws.onmessage = function(ev) {
+      try { handleEvent(JSON.parse(ev.data)); } catch (e) { /* ignore parse errors */ }
+    };
+    ws.onclose = function() {
+      badge.textContent = 'DISCONNECTED';
+      badge.classList.remove('connected');
+      appendLog('SYSTEM', function(body) { body.appendChild(txt('Reconnecting in 3s...')); });
+      setTimeout(connect, 3000);
+    };
+    ws.onerror = function() {
+      badge.textContent = 'ERROR';
+      badge.classList.remove('connected');
+    };
+  }
+
+  connect();
+</script>
+</body>
+</html>

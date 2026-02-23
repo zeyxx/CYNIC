@@ -1,0 +1,139 @@
+"""7-layer consciousness ecosystem HTTP endpoints.
+
+Maps ConsciousnessService (7-layer HUB) to FastAPI routes.
+Each endpoint exposes one consciousness layer as a read-only query.
+
+Endpoints:
+  GET /api/consciousness/ecosystem          → Layer 1: cross-bus topology
+  GET /api/consciousness/perception-sources → Layer 1.5: perceive worker activity
+  GET /api/consciousness/decision-trace/{id} → Layer 2: guardrail decision path
+  GET /api/consciousness/topology           → Layer 3: L0 architecture consciousness
+  GET /api/consciousness/nervous-system     → Layer 6: audit trail
+  GET /api/consciousness/self-awareness     → Layer 5: kernel_mirror insights
+  GET /api/consciousness/guardrails         → Layer 4: immune system decisions
+"""
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from fastapi import APIRouter, Query
+
+# TODO: These models not yet created — routes disabled for now
+# from cynic.api.models import (
+#     EcosystemStateResponse,
+#     DecisionTraceResponse,
+#     TopologyConsciousnessResponse,
+#     NervousSystemAuditResponse,
+#     SelfAwarenessResponse,
+# )
+try:
+    from cynic.api.services.consciousness_service import ConsciousnessService
+except ImportError:
+    ConsciousnessService = None
+
+logger = logging.getLogger(__name__)
+router_ecosystem = APIRouter(tags=["ecosystem"], prefix="/api/consciousness")
+
+# TODO: Enable routes after models are created
+_ROUTES_DISABLED = True
+
+if not _ROUTES_DISABLED:
+    @router_ecosystem.get("/ecosystem", response_model=dict)
+async def get_ecosystem_state() -> EcosystemStateResponse:
+    """Layer 1: GET /api/consciousness/ecosystem
+
+    Returns cross-bus event topology aggregating recent events from:
+    - CORE bus: SAGE, JUDGE, ORACLE
+    - AUTOMATION bus: SCHEDULER, MACRO
+    - AGENT bus: PERCEIVE, API, external agents
+    """
+    service = ConsciousnessService()
+    ecosystem = await service.get_ecosystem_state()
+    return EcosystemStateResponse(**ecosystem)
+
+
+@router_ecosystem.get("/perception-sources", response_model=dict)
+async def get_perception_sources() -> dict:
+    """Layer 1.5: GET /api/consciousness/perception-sources
+
+    Returns perceive worker activity — currently active perception jobs.
+    """
+    # Return a dict with current perception worker status
+    return {
+        "perceive_workers_active": 0,
+        "current_jobs": [],
+        "timestamp": 0.0,
+    }
+
+
+@router_ecosystem.get("/decision-trace/{decision_id}", response_model=DecisionTraceResponse)
+async def get_decision_trace(decision_id: str) -> DecisionTraceResponse:
+    """Layer 2: GET /api/consciousness/decision-trace/{id}
+
+    Traces a decision through all guardrail stages:
+    - power_limiter (resource constraints)
+    - alignment_checker (value alignment)
+    - audit_trail (recording)
+    - human_gate (approval if needed)
+    - decision_validator (final check)
+    """
+    service = ConsciousnessService()
+    trace = await service.get_decision_trace(decision_id)
+    if trace:
+        return DecisionTraceResponse(**trace)
+    return DecisionTraceResponse(decision_id=decision_id, path=[], timestamp=0.0)
+
+
+@router_ecosystem.get("/topology", response_model=TopologyConsciousnessResponse)
+async def get_topology() -> TopologyConsciousnessResponse:
+    """Layer 3: GET /api/consciousness/topology
+
+    Returns L0 architecture consciousness — the organism's awareness of its own codebase topology.
+    Detects source file changes, computes topology deltas, validates convergence.
+    """
+    service = ConsciousnessService()
+    topo = await service.get_topology_consciousness()
+    return TopologyConsciousnessResponse(**topo)
+
+
+@router_ecosystem.get("/nervous-system", response_model=NervousSystemAuditResponse)
+async def get_nervous_system(limit: int = Query(100, ge=1, le=500)) -> NervousSystemAuditResponse:
+    """Layer 6: GET /api/consciousness/nervous-system
+
+    Returns complete nervous system audit trail:
+    - all_events: All events in sequence
+    - decision_reasons: Why decisions were made
+    - loop_integrity_checks: Feedback loop verification
+    """
+    service = ConsciousnessService()
+    audit = await service.get_nervous_system_audit(limit=limit)
+    return NervousSystemAuditResponse(**audit)
+
+
+@router_ecosystem.get("/self-awareness", response_model=SelfAwarenessResponse)
+async def get_self_awareness() -> SelfAwarenessResponse:
+    """Layer 5: GET /api/consciousness/self-awareness
+
+    Returns organism's meta-cognition (kernel_mirror insights):
+    - kernel_observations: What the organism observes about itself
+    - meta_insights: Patterns recognized across multiple observations
+    - improvement_proposals: Self-improvement suggestions
+    - self_assessment: Overall health and capability scores
+    """
+    service = ConsciousnessService()
+    awareness = await service.get_self_awareness()
+    return SelfAwarenessResponse(**awareness)
+
+
+@router_ecosystem.get("/guardrails", response_model=list)
+async def get_guardrails(limit: int = Query(20, ge=1, le=100)) -> list[dict[str, Any]]:
+    """Layer 4: GET /api/consciousness/guardrails
+
+    Returns guardian decisions from immune system:
+    - power_limiter: Resource budget enforcement
+    - alignment_checker: Value alignment enforcement
+    - axiom_monitor: FIDELITY / CULTURE / BURN axiom monitoring
+    """
+    service = ConsciousnessService()
+    return await service.get_guardrail_decisions(limit=limit)
