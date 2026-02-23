@@ -32,6 +32,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 
+import asyncpg
 import httpx
 
 from fastapi import FastAPI, Request
