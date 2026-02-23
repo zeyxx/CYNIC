@@ -9,7 +9,7 @@ import logging
 from typing import Optional, TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from cynic.api.state import CynicOrganism
+    from cynic.organism.organism import Organism as CynicOrganism
 
 from cynic.api.builders.base import BuilderContext
 from cynic.api.builders.component import ComponentBuilder
@@ -19,9 +19,10 @@ from cynic.api.builders.sensory import SensoryBuilder
 from cynic.api.builders.memory import MemoryBuilder
 from cynic.api.builders.storage import StorageBuilder
 from cynic.api.builders.wiring import WiringBuilder
-from cynic.api.state import (
-    CognitionCore, MetabolicCore, SensoryCore, MemoryCore, CynicOrganism, KernelMirror
+from cynic.organism.organism import (
+    CognitionCore, MetabolicCore, SensoryCore, MemoryCore, Organism as CynicOrganism
 )
+from cynic.cognition.cortex.mirror import KernelMirror
 from cynic.metabolism.telemetry import TelemetryStore
 
 logger = logging.getLogger("cynic.api.builders.assembler")
