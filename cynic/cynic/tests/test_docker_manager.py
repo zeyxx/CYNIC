@@ -9,7 +9,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, AsyncMock, MagicMock, patch
 
-from cynic.deployment.docker_manager import DockerManager, ContainerStatus, StackStatus
+from cynic.deployment.docker_manager import DockerManager, ContainerStatus, StackStatus, NotFound, docker
 
 
 class TestDockerManagerInitialize:
@@ -20,7 +20,7 @@ class TestDockerManagerInitialize:
         """Should connect to Docker daemon."""
         mgr = DockerManager()
 
-        with patch("docker.from_env") as mock_from_env:
+        with patch("cynic.deployment.docker_manager.docker.from_env") as mock_from_env:
             mock_client = MagicMock()
             mock_client.ping = Mock(return_value=None)  # ping() doesn't raise
             mock_from_env.return_value = mock_client
@@ -36,7 +36,7 @@ class TestDockerManagerInitialize:
         """Should handle connection failure gracefully."""
         mgr = DockerManager()
 
-        with patch("docker.from_env") as mock_from_env:
+        with patch("cynic.deployment.docker_manager.docker.from_env") as mock_from_env:
             mock_from_env.side_effect = Exception("Daemon not running")
 
             result = await mgr.initialize()
@@ -103,8 +103,6 @@ class TestDockerManagerStatus:
         def get_container(name):
             if name in mock_containers:
                 return mock_containers[name]
-            from docker.errors import NotFound
-
             raise NotFound(f"{name} not found")
 
         mock_client = MagicMock()

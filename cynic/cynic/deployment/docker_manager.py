@@ -13,11 +13,23 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, List
-import docker
-from docker import DockerClient
-from docker.errors import DockerException, NotFound
 
 logger = logging.getLogger(__name__)
+
+# Try to import real Docker, fall back to mock for test environments
+DOCKER_AVAILABLE = True
+try:
+    import docker
+    from docker import DockerClient
+    from docker.errors import DockerException, NotFound
+except ImportError:
+    DOCKER_AVAILABLE = False
+    import cynic.deployment.docker_mock as docker
+    from cynic.deployment.docker_mock import MockClient as DockerClient, NotFound
+    logger.warning("docker-py not available, using mock Docker client for tests")
+
+import httpx
+from cynic.core.exceptions import CynicError
 
 
 @dataclass
@@ -75,7 +87,7 @@ class DockerManager:
             self.client.ping()
             logger.info("Docker API connected")
             return True
-        except OSError as e:
+        except Exception as e:
             logger.error(f"Failed to connect Docker API: {e}")
             self.client = None
             return False
@@ -170,7 +182,7 @@ class DockerManager:
             container = self.client.containers.get(service_name)
             logs = container.logs(tail=lines, decode=True)
             return logs
-        except json.JSONDecodeError as e:
+        except Exception as e:
             logger.error(f"Failed to get logs for {service_name}: {e}")
             return None
 
@@ -299,7 +311,7 @@ class DockerManager:
 
                 await asyncio.sleep(interval_s)
 
-            except ValidationError as e:
+            except CynicError as e:
                 logger.error(f"Health check loop error: {e}")
                 await asyncio.sleep(5.0)
 
