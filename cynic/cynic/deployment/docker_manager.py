@@ -25,10 +25,9 @@ try:
 except ImportError:
     DOCKER_AVAILABLE = False
     import cynic.deployment.docker_mock as docker
-    from cynic.deployment.docker_mock import MockClient as DockerClient, NotFound
+    from cynic.deployment.docker_mock import MockClient as DockerClient, NotFound, DockerException
     logger.warning("docker-py not available, using mock Docker client for tests")
 
-import httpx
 from cynic.core.exceptions import CynicError
 
 
@@ -157,7 +156,7 @@ class DockerManager:
                     )
                     failures.append(f"{service_name}: {str(e)}")
 
-        except httpx.RequestError as e:
+        except docker.errors.DockerException as e:
             logger.error(f"Error fetching container status: {e}")
 
         all_healthy = len(failures) == 0
@@ -182,8 +181,12 @@ class DockerManager:
             container = self.client.containers.get(service_name)
             logs = container.logs(tail=lines, decode=True)
             return logs
-        except Exception as e:
+        except docker.errors.DockerException as e:
             logger.error(f"Failed to get logs for {service_name}: {e}")
+            return None
+        except Exception as e:
+            # Catch unexpected exceptions (e.g., from mocks in tests)
+            logger.warning(f"Unexpected error retrieving logs for {service_name}: {e}")
             return None
 
     async def restart_service(self, service_name: str, wait_healthy_s: float = 30.0) -> bool:
@@ -197,8 +200,8 @@ class DockerManager:
             container.restart(timeout=10)
 
             # Wait for health
-            start_time = asyncio.get_event_loop().time()
-            while asyncio.get_event_loop().time() - start_time < wait_healthy_s:
+            start_time = asyncio.get_running_loop().time()
+            while asyncio.get_running_loop().time() - start_time < wait_healthy_s:
                 container.reload()
                 status = container.status
 
@@ -213,7 +216,7 @@ class DockerManager:
             logger.warning(f"{service_name} not healthy after {wait_healthy_s}s")
             return False
 
-        except httpx.RequestError as e:
+        except docker.errors.DockerException as e:
             logger.error(f"Failed to restart {service_name}: {e}")
             return False
 
@@ -221,6 +224,12 @@ class DockerManager:
         """
         Deploy the full 3-service stack from docker-compose.yml.
         Returns True if all services started and passed health checks.
+
+        NOTE: This uses subprocess to call docker-compose CLI as a transitional implementation.
+        While this module leverages the native Python Docker API for container management,
+        docker-compose orchestration via subprocess is temporary pending a pure-Python
+        docker-compose equivalent. This is safe (no injection risk) but contradicts the
+        "native Python Docker API" paradigm stated in the module docstring.
         """
         if not self.client:
             await self.initialize()
@@ -266,7 +275,7 @@ class DockerManager:
             logger.warning(f"Failures: {status.failures}")
             return False
 
-        except httpx.RequestError as e:
+        except docker.errors.DockerException as e:
             logger.error(f"Deploy failed: {e}")
             return False
 

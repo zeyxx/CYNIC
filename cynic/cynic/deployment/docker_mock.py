@@ -9,10 +9,15 @@ Used as a fallback in docker_manager.py when running in test environments.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 
 
-class NotFound(Exception):
+class DockerException(Exception):
+    """Mock base Docker exception (simulates docker.errors.DockerException)."""
+    pass
+
+
+class NotFound(DockerException):
     """Mock NotFound exception (simulates docker.errors.NotFound)."""
     pass
 
@@ -25,15 +30,6 @@ class ContainerStatus(str, Enum):
     STOPPED = "stopped"
     EXITED = "exited"
     DEAD = "dead"
-
-
-class StackStatus(str, Enum):
-    """Mock stack status constants."""
-    DEPLOYING = "deploying"
-    RUNNING = "running"
-    UPDATING = "updating"
-    FAILED = "failed"
-    REMOVING = "removing"
 
 
 @dataclass
@@ -60,7 +56,7 @@ class MockContainer:
         """Mock restart operation (no-op)."""
         pass
 
-    def logs(self, tail: int = 50, decode: bool = True) -> str:
+    def logs(self, tail: int = 50, decode: bool = True) -> Union[str, bytes]:
         """Return mock logs."""
         return "[MOCK] No logs available in mock environment\n"
 
@@ -115,3 +111,13 @@ def from_env() -> MockClient:
         MockClient: A minimal Docker client mock suitable for testing.
     """
     return MockClient()
+
+
+# Create a namespace mock for docker.errors (for compatibility with real docker module)
+class _ErrorsNamespace:
+    """Mock errors namespace (simulates docker.errors module)."""
+    DockerException = DockerException
+    NotFound = NotFound
+
+
+errors = _ErrorsNamespace()
