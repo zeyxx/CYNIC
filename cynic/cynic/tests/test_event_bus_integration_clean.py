@@ -24,6 +24,43 @@ from cynic.core.events_schema import (
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# HELPER FUNCTIONS
+# ════════════════════════════════════════════════════════════════════════════
+
+def _make_judgment_payload(
+    judge_id: str = "judge_1",
+    residual: float = 0.5,
+    confidence: float = 0.75,
+    q_score: float = 50.0,
+    content: str = "test",
+    reality: str = "CODE",
+) -> JudgmentCreatedPayload:
+    """
+    Helper to create JudgmentCreatedPayload with sensible defaults.
+    Reduces boilerplate when emitting multiple events.
+    """
+    return JudgmentCreatedPayload(
+        judgment_id=new_id(),
+        cell={
+            "reality": reality,
+            "analysis": "JUDGE",
+            "time_dim": "PRESENT",
+            "content": content,
+            "context": "test",
+            "cell_id": new_id(),
+        },
+        q_score=q_score,
+        verdict="GROWL" if q_score >= 38.2 else "BARK",
+        confidence=confidence,
+        residual_variance=residual,
+        unnameable_detected=False,
+        timestamp=123.0,
+        cost_usd=0.01,
+        llm_calls=1,
+    )
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # FIXTURES
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -396,12 +433,9 @@ async def test_event_genealogy_prevents_reforward(
 ):
     """
     GIVEN: A JUDGMENT_CREATED event with genealogy_path containing "CORE"
-    WHEN: ResidualDetector would emit EMERGENCE_DETECTED back to CORE
-    THEN: The event is NOT re-emitted because CORE is already in genealogy
-
-    Note: This tests the bridge prevention logic, not the detector directly.
-    The detector emits to the CORE bus, but the bridge would prevent
-    an infinite loop if CORE tried to forward back.
+    WHEN: The detector receives the event
+    THEN: The detector handles it correctly and records observation
+          (Bridge logic prevents re-forward, tested separately)
     """
     # Create and start bridge with default rules
     bridge = create_default_bridge()
@@ -525,9 +559,12 @@ async def test_detector_rising_pattern_detection(
 
     await asyncio.sleep(0.2)
 
-    # Should detect RISING or SPIKE pattern
-    stats = detector.stats()
-    assert stats["patterns_detected"] >= 1
+    # Verify pattern detected (RISING or SPIKE — detector recognizes steady increase)
+    assert len(emergence_events) > 0, "No emergence detected"
+    emergence = emergence_events[0]
+    pattern_type = emergence.payload.get("pattern_type", "")
+    assert pattern_type in ("RISING", "SPIKE"), \
+        f"Expected RISING or SPIKE pattern, got: {pattern_type}"
 
 
 @pytest.mark.asyncio
@@ -640,7 +677,7 @@ async def test_detector_resilient_to_malformed_events(
 # SUMMARY
 # ════════════════════════════════════════════════════════════════════════════
 """
-Tests Implemented (6 test functions, 16 assertions):
+Tests Implemented (12 test functions, 27 assertions):
 
 ✓ Test 1: Detector subscribes to JUDGMENT_CREATED on core bus
 ✓ Test 1b: Idempotent start() (no duplicate listeners)
