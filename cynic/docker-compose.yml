@@ -11,10 +11,12 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: cynic-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: cynic
       POSTGRES_PASSWORD: cynic-dev-password
       POSTGRES_DB: cynic_kernel
+      POSTGRES_INITDB_ARGS: "-c shared_buffers=256MB -c effective_cache_size=1GB"
     ports:
       - "5432:5432"
     volumes:
@@ -24,8 +26,20 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    resources:
+      limits:
+        cpus: "1"
+        memory: 512M
+      reservations:
+        cpus: "0.5"
+        memory: 256M
     networks:
       - cynic-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # CYNIC Kernel (Python FastAPI server)
   cynic:
@@ -33,6 +47,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: cynic-kernel
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,6 +68,7 @@ services:
 
       # Logging
       LOG_LEVEL: INFO
+      PYTHONUNBUFFERED: "1"
     ports:
       - "8765:8765"  # FastAPI REST API
       - "8766:8766"  # MCP Server (Claude Code bridge)
@@ -67,11 +83,25 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+    resources:
+      limits:
+        cpus: "2"
+        memory: 2G
+      reservations:
+        cpus: "1"
+        memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+        labels: "app=cynic,service=kernel"
 
   # Optional: Ollama for local LLM inference
   ollama:
     image: ollama/ollama:latest
     container_name: cynic-ollama
+    restart: unless-stopped
     environment:
       OLLAMA_MODELS: /root/.ollama/models
     ports:
@@ -80,6 +110,18 @@ services:
       - ollama_data:/root/.ollama
     networks:
       - cynic-network
+    resources:
+      limits:
+        cpus: "4"
+        memory: 8G
+      reservations:
+        cpus: "2"
+        memory: 4G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
     # Uncomment to auto-pull a model on startup:
     # entrypoint: bash -c "ollama pull qwen2:3b && ollama serve"
 
@@ -87,15 +129,30 @@ services:
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: cynic-pgadmin
+    restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@cynic.local
       PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "True"
     ports:
       - "5050:80"
     depends_on:
       - postgres
     networks:
       - cynic-network
+    resources:
+      limits:
+        cpus: "0.5"
+        memory: 256M
+      reservations:
+        cpus: "0.25"
+        memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_data:
