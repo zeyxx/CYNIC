@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\mcp\resources.py
+# hypothesis_version: 6.151.9
+
+[0.0, 75.0, 1000.0, 100, 300, 999, 1000, 600000, '/', '/mcp/events/recent', '/mcp/judgments/', '/mcp/loops/status', '/reasoning', 'JUDGE', 'UNKNOWN', 'WAG', 'alerts', 'analyzed_traces', 'avg_q_score', 'category', 'complete', 'completion_rate', 'confidence', 'count', 'cycle_phase', 'dag_branching', 'dag_depth', 'dog_id', 'dog_performance', 'dog_votes', 'dogs', 'edges', 'error', 'event_id', 'events', 'executed', 'final_confidence', 'final_q_score', 'final_verdict', 'health', 'is_healthy', 'judgment_id', 'judgments', 'limit', 'most_common_verdict', 'open_cycles', 'orphan_judgments', 'orphaned', 'patterns', 'phase', 'q_score', 'query', 'reasoning', 'results', 'role', 'since_ms', 'source', 'stalled', 'stalled_phases', 'stats', 'timestamp_ms', 'total_duration_ms', 'trace', 'trace_id', 'type', 'uri', 'verdict', 'verdict_distribution']

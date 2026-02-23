@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\core\human_state.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 10.0, 15.0, 20.0, 60.0, 65.0, 75.0, 100.0, 300.0, 100, 'FULL', 'MICRO', 'REFLEX', 'energy', 'focus', 'lod_hint', 'stress', 'updated_at', 'valence']

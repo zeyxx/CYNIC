@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\core\storage\tier_policy.py
+# hypothesis_version: 6.151.9
+
+[100, 'cold', 'coverage_pct', 'hot', 'opcode_coverage', 'tier_counts', 'total_events_routed', 'warm']

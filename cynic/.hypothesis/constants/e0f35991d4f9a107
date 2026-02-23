@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\core\opcode_semantics.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.001, 0.01, 0.02, 0.15, 0.5, 1.0, 2.5, 5.0, 'ACCOUNT', 'ACCOUNT completed', 'ACT', 'DECIDE', 'EMERGE', 'JUDGE', 'L1', 'L2', 'L3', 'L4', 'LEARN', 'LEARN completed', 'PERCEIVE', 'Timestamp recorded', 'User budget is known', 'cold', 'frozen', 'hot', 'warm']

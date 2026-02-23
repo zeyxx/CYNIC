@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\routers\actions.py
+# hypothesis_version: 6.151.9
+
+[-0.3, 0.0, 0.1, 0.5, 1.0, 20.0, 30.0, 404, '/actions', '/self-probes', '/self-probes/analyze', 'ACTION_REJECTED', 'ACTIVE', 'ANTIFRAGILITY', 'MANUAL', 'PENDING', 'accept', 'accepted', 'action', 'action_accept', 'actions', 'all', 'applied', 'count', 'cynic.api.server', 'cynic_interaction', 'dismissed', 'executing', 'proposal', 'proposals', 'reject', 'rejected', 'stats']

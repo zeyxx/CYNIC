@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\handlers\introspect.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.3, 0.4, 0.5, 50.0, 80.0, 100.0, 'added_dependencies', 'average_complexity', 'complexity_delta', 'complexity_score', 'complexity_variance', 'dependencies', 'dependency_count', 'event_count', 'events', 'handler_count', 'handler_name', 'handlers', 'most_complex', 'most_complex_score', 'name', 'new_dependency_count', 'removed_dependencies', 'severity_score', 'timestamp', 'total_dependencies', 'total_handlers', 'unique_dependencies']

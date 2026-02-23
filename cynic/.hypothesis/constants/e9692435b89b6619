@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\cortex\real_benchmark.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1.0, 1.206, 3.0, 64.18, 66.39, 67.39, 67.51, 100.0, 500, 1000, 'P1', 'P2', 'P3', 'P4', 'P5', 'alpha', 'clean_code', 'configs', 'converged_rate', 'cynic_self_state', 'dangerous_act', 'label', 'max_steps', 'mean_final_error', 'mean_q_variance', 'n_seeds', 'phi', 'phi_overall_win', 'phi_wins_convergence', 'phi_wins_forgetting', 'phi_wins_stability', 'smelly_code', 'solana_tx', 'standard', 'use_ewc']

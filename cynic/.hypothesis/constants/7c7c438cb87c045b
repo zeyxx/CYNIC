@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\observability\structured_logger.py
+# hypothesis_version: 6.151.9
+
+['(json)', '_', 'args', 'asctime', 'created', 'exc_info', 'exc_text', 'extra', 'filename', 'funcName', 'level', 'levelname', 'levelno', 'lineno', 'logger', 'message', 'module', 'msecs', 'msg', 'name', 'pathname', 'process', 'processName', 'relativeCreated', 'stack_info', 'thread', 'threadName', 'timestamp']

@@ -8,8 +8,14 @@ import { apiClient } from './api/client';
 import { wsClient } from './api/ws';
 import { loadSchema, clearCache } from './util/schema-loader';
 import { store } from './state/store';
+<<<<<<< HEAD
 import { WelcomeScreen } from './ui/welcome';
 import './ui/styles/welcome.css';
+=======
+import { CommandPalette } from './ui/command-palette';
+import { MetricsPanel } from './ui/metrics-dashboard';
+import { invokeCommand, formatCommandResult, displayCommandResult, displayCommandError } from './api/commands';
+>>>>>>> origin/main
 
 // Export for global access in browser console
 declare global {
@@ -20,6 +26,12 @@ declare global {
       store: typeof store;
       loadSchema: typeof loadSchema;
       clearSchemaCache: typeof clearCache;
+      CommandPalette: typeof CommandPalette;
+      MetricsPanel: typeof MetricsPanel;
+      invokeCommand: typeof invokeCommand;
+      formatCommandResult: typeof formatCommandResult;
+      displayCommandResult: typeof displayCommandResult;
+      displayCommandError: typeof displayCommandError;
     };
   }
 }
@@ -30,6 +42,12 @@ window.CYNIC = {
   store,
   loadSchema,
   clearSchemaCache: clearCache,
+  CommandPalette,
+  MetricsPanel,
+  invokeCommand,
+  formatCommandResult,
+  displayCommandResult,
+  displayCommandError,
 };
 
 console.log('*sniff* CYNIC Webapp initialized');
@@ -90,14 +108,9 @@ async function initializeApp(): Promise<void> {
     clearInterval(uptimeInterval);
   });
 
-  // Initialize command handlers using event delegation
-  document.addEventListener('click', (e) => {
-    const cmd = (e.target as HTMLElement).closest('.command-item');
-    if (cmd) {
-      const title = cmd.querySelector('strong')?.textContent || 'Unknown';
-      handleCommand(title);
-    }
-  });
+  // NOTE: Command handlers are now managed by CommandPalette class
+  // The palette opens on keyboard shortcut (or button click)
+  // and handles all command selection internally to avoid duplication
 
   // Set initial stats
   updateDashboard();

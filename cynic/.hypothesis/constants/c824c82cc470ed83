@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\metabolism\model_profiler.py
+# hypothesis_version: 6.151.9
+
+[0.0, 50.0, 100.0, '.cynic', '_', 'architecture', 'avg_cost_usd', 'avg_latency_ms', 'avg_q', 'best_model', 'code_review', 'cost_usd', 'debug', 'docs', 'explain', 'general', 'generate', 'latency_ms', 'model', 'model_profiles.json', 'models', 'q_score', 'recommendation_ready', 'refactor', 'samples', 'security', 'task_type', 'task_types', 'test', 'total_recorded', 'total_samples', 'ts', 'unknown', 'utf-8', 'w', '~']

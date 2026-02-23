@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\cortex\handlers\cycle_macro.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1.0, 200, 500, 1000, '%d Dog(s) failed: %s', '1.0', 'MACRO', 'active_axioms', 'active_dogs', 'avg_dog_q', 'budget_usd', 'cell_id', 'compressed_context', 'consensus_reached', 'consensus_strength', 'cycle_macro', 'execute_macro', 'level', 'lod_level', 'macro_cycle_complete', 'verdict']

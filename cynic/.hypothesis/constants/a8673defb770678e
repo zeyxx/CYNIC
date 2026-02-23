@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\routers\organism.py
+# hypothesis_version: 6.151.9
+
+[-1.0, 0.0, 0.618, 1.0, 10.0, 50.0, 500, '/account', '/actions', '/api/organism', '/consciousness', '/dogs', '/policy/actions', '/policy/stats', '/state/snapshot', 'MACRO', 'META', 'MICRO', 'MONITOR', 'REFLEX', 'WAG', '_table', 'action_id', 'action_type', 'activity', 'agent:cynic', 'budget_remaining_usd', 'confidence', 'description', 'organism', 'priority', 'q_score', 'q_value', 'session_budget_usd', 'total', 'total_cost_usd', 'unknown', 'verdict']

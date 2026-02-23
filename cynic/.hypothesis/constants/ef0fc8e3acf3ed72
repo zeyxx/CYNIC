@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\cortex\lod.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.9, 1.0, 100, 'META', 'MICRO', 'REFLEX', 'allows_llm', 'current_lod', 'current_name', 'description', 'error_rate', 'forced', 'from', 'healthy_streak', 'hysteresis_n', 'latency_ms', 'max_consciousness', 'queue_depth', 'recent_transitions', 'timestamp', 'to', 'total_assessments', 'total_transitions', 'uptime_s']

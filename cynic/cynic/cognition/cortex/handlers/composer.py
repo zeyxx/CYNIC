@@ -4,6 +4,7 @@ from typing import Any, Optional, TYPE_CHECKING
 from cynic.cognition.cortex.handlers.base import BaseHandler, HandlerResult
 from cynic.cognition.cortex.handlers.registry import HandlerRegistry
 from cynic.core.consciousness import ConsciousnessLevel
+from cynic.core.exceptions import EventBusError
 if TYPE_CHECKING:
  from cynic.cognition.cortex.orchestrator import JudgmentPipeline
 logger = logging.getLogger("cynic.cognition.cortex.handlers.composer")

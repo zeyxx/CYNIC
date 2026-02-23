@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\llm\temporal.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.01, 0.05, 0.1, 0.5, 1.0, 100.0, 100, 500, 1000, 2000, 'CYCLES', 'FLOW', 'FUTURE', 'IDEAL', 'NEVER', 'PAST', 'PRESENT', '\\b(\\d+(?:\\.\\d+)?)\\b', 'adapter_id', 'ascii', 'confidence', 'cynic.llm.temporal', 'failed', 'latency_ms', 'llm_id', 'path', 'phi_aggregate', 'replace', 'scores', 'temporal_mcts']

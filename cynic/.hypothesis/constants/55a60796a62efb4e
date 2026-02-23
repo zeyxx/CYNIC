@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\cortex\probes.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.001, 0.038, 0.1, 0.12, 0.2, 0.3, 0.5, 0.8, 0.9, 1.0, 25.0, 30.0, 45.0, 68.0, 150, 5000, 'A', 'ACT', 'CODE', 'CRITICAL', 'CYNIC', 'JUDGE', 'LEARN', 'MACRO', 'P1', 'P1:clean_code', 'P2', 'P2:smelly_code', 'P3', 'P3:dangerous_act', 'P4', 'P4:cynic_self_state', 'P5', 'P5:solana_tx', 'PRESENT', 'SOLANA', 'accounts', 'amount_sol', 'backups', 'blast_radius', 'cell', 'confirmed', 'consciousness_level', 'dogs_active', 'duration_ms', 'error', 'expected_max', 'expected_min', 'fee_lamports', 'global', 'judgment_count', 'learning_rate', 'max_q', 'memory_healthy', 'min_q', 'name', 'operation', 'passed', 'probe', 'probe_id', 'production_db', 'program', 'q_score', 'q_table_entries', 'residual_variance', 'reversible', 'risk_level', 'signature', 'success', 'targets', 'user_data', 'verdict']

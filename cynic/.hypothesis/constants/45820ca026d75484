@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\routers\ws.py
+# hypothesis_version: 6.151.9
+
+[5.0, 30.0, 100, '/ws/events', '/ws/stream', 'ACT', 'action', 'agent_events', 'all_events', 'automation_events', 'connected', 'core_events', 'cynic.api.server', 'ecosystem_update', 'events', 'filter_all', 'initial_snapshot', 'name', 'payload', 'phi', 'ping', 'pong', 'source', 'subscribe', 'subscribed', 'target', 'timestamp', 'ts', 'type', 'ws', 'ws_client']

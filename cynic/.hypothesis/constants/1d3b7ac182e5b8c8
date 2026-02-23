@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\metrics.py
+# hypothesis_version: 6.151.9
+
+[0.01, 0.05, 0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 'ACTIVE_CONNECTIONS', 'ERRORS_TOTAL', 'HEALTH_CHECK_STATUS', 'QUEUE_DEPTH', 'REQUESTS_TOTAL', 'Total errors by type', 'component', 'endpoint', 'error_type', 'get_metrics_text', 'method', 'status']

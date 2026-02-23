@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cli\chat.py
+# hypothesis_version: 6.151.9
+
+['  No saved sessions.', '--model', '--resume', '-m', '-r', '/', '/clear', '/exit', '/help', '/model', '/q', '/quit', '/save', '/sessions', '/status', ':', 'codellama:7b', 'cyan', 'dim', 'gemma2:2b', 'gemma2:9b', 'green', 'llama3.2', 'llama3.2:3b', 'mistral:7b', 'probe', 'qwen2.5-coder:3b', 'qwen2.5-coder:7b', 'qwen3:4b', 'qwen3:8b', 'red', 'yellow']

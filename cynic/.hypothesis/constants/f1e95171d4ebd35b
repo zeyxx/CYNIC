@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\routers\core.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.001, 0.03, 0.05, 0.1, 0.8, 2.0, 5.0, 400, 404, 500, '.cynic', '/feedback', '/judge', '/learn', '/perceive', '/policy/{state_key}', '/world-state', 'ACTIVE', 'AUTO', 'BARK', 'CODE', 'GROWL', 'HOWL', 'HUMAN', 'JUDGE', 'MACRO', 'MARKET', 'META', 'MICRO', 'PERCEIVE', 'REFLEX', 'SOCIAL', 'SYMBIOSIS', 'USER_FEEDBACK', 'WAG', '^(exploit|explore)$', 'action', 'analysis', 'cell_id', 'confidence', 'consciousness', 'core', 'cynic.api.server', 'cynic_feedback', 'dog_votes', 'exploit', 'explore', 'feedback_endpoint', 'guidance.json', 'judgment', 'judgment_id', 'lod', 'q_score', 'q_value', 'reality', 'state_key', 'time_dim', 'timestamp', 'user_feedback', 'user_rating', 'utf-8', 'verdict', 'w', '~', '⚪', '🔴', '🟠', '🟡', '🟢']

@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\cortex\dog_cognition.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.01, 0.038, 0.15, 0.2, 0.3, 0.4, 0.6, 0.618, 0.9, 5.0, 38.2, 45.0, 50.0, 61.8, 82.0, 100.0, 100, 1000, 'BARK', 'DogJudgment', 'GROWL', 'HOWL', 'INSTABILITY', 'PENDING', 'SPIKE', 'WAG', 'cell_id', 'confidence', 'cost_usd', 'documentation', 'dog_id', 'error_count', 'error_rate_pct', 'evidence', 'healthy', 'id', 'judgment_count', 'last_error', 'latency_ms', 'llm_id', 'no_signals', 'performance_gap', 'q_score', 'reasoning', 'residual', 'security_issue', 'signals', 'status', 'style_violation', 'timestamp', 'type', 'unknown', 'variance', 'verdict', 'veto']

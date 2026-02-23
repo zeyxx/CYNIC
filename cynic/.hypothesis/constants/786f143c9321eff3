@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\benchmark\registry.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.15, 0.3, 100, ':', 'CRITICAL', 'WARNING', 'current_pass_rate', 'cynic.benchmark', 'delta', 'evolve', 'mean_q', 'pass_rate', 'passed', 'previous_pass_rate', 'probe_id', 'probe_name', 'q_score', 'q_scores', 'run_count', 'severity', 'std_q']

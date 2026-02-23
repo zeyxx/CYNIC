@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\core\storage\surreal.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.38, 200, 2000, 86400, '-', '/', ':', 'SELECT * FROM $id', 'SELECT 1', 'SURREAL_DB', 'SURREAL_NS', 'SURREAL_PASS', 'SURREAL_URL', 'SURREAL_USER', '_', 'action', 'action_id', 'action_proposal', 'avg_q', 'avg_q_score', 'benchmark_id', 'by_verdict', 'cell_text', 'cli_session_id', 'cnt', 'created_at', 'cwd', 'cynic', 'd', 'dog_id', 'dog_soul', 'event_id', 'id', 'jid', 'judgment', 'judgment_id', 'l', 'last_updated', 'learning_event', 'llm_benchmark', 'llm_id', 'local_dev_only', 'loop_name', 'min_sim', 'n', 'observed_at', 'password', 'q', 'q_entry', 'q_value', 'r', 'residual', 'result', 'root', 's', 'scholar', 'sdk_session', 'session_id', 'since', 'state_key', 'status', 't', 'task', 'task_preview', 'total', 'ts', 'updated_at', 'username', 'verdict', 'visit_count']

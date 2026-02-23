@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\routers\act.py
+# hypothesis_version: 6.151.9
+
+[0.0, 300.0, 100, 200, 400, 503, '---\n', '/act/execute', '/act/telemetry', 'act', 'cost_usd', 'cwd', 'cynic.api.server', 'error', 'exec_id', 'message', 'model', 'prompt', 'prompt is required', 'session_id', 'sessions', 'stats', 'success', 'timeout', 'total_cost_usd']

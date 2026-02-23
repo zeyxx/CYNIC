@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\cortex\qtable_benchmark.py
+# hypothesis_version: 6.151.9
+
+[-0.5, 0.0, 0.01, 0.05, 0.1, 0.2, 0.5, 0.7, 0.9, 0.95, 1.0, 1.6, 2.0, 3.0, 500, 1000, '+EWC', 'BARK', 'GROWL', 'HOWL', 'WAG', 'alpha', 'configs', 'converged', 'converged_rate', 'convergence_step', 'duration_ms', 'final_max_error', 'final_mean_error', 'forgetting_shift', 'label', 'max_steps', 'mean_final_error', 'mean_q_variance', 'n_seeds', 'phi', 'phi_overall_win', 'phi_wins_convergence', 'phi_wins_forgetting', 'phi_wins_stability', 'q_variance', 'seed', 'standard', 'use_ewc']

@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\cortex\entropy_tracker.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1.0, 100, 'alert', 'avg_efficiency', 'category', 'cell_id', 'confidence', 'dog_id', 'efficiency', 'h_input', 'h_output', 'low_efficiency_count', 'max_efficiency', 'min_efficiency', 'neg_efficiency_count', 'neg_efficiency_pct', 'signal_count', 'time', 'timestamp', 'total_tracked', 'tracked', 'type', 'unknown', 'verdict', 'verdict_distribution']

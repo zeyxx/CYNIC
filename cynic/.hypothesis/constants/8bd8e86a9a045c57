@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\orchestration\docker.py
+# hypothesis_version: 6.151.9
+
+[0.0, 500, 1000, '--filter', '--quiet', '-d', '-f', '-t', '.', '.cynic', 'Services stopped', '^\\s{2}(\\w+):', 'build', 'cynic-api', 'dev', 'docker', 'docker-compose', 'docker-compose.yml', 'docker_state.json', 'down', 'duration_s', 'environment', 'error', 'healthy', 'image', 'last_build', 'last_check', 'last_deploy', 'latency_ms', 'latest', 'message', 'missing', 'ollama', 'output', 'postgres', 'ps', 'pull', 'service', 'service_health', 'services', 'status', 'success', 'timestamp', 'unhealthy', 'up', 'version']

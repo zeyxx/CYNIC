@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\routers\observability.py
+# hypothesis_version: 6.151.9
+
+[404, '/api/observability', '/health', '/metrics', '/ready', '/version', '2.0.0', 'CYNIC', 'Not found', 'api', 'components', 'degraded', 'description', 'error', 'event_bus', 'healthy', 'name', 'observability', 'organism', 'ready', 'router_observability', 'status', 'timestamp', 'unknown', 'uptime_seconds', 'version', 'warming_up', 'websocket']

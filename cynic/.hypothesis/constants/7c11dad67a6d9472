@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\cortex\amplification_benchmark.py
+# hypothesis_version: 6.151.9
+
+[1e-09, 1.0, 200, 500, 1000, '+EWC', 'alpha', 'amplification_ratio', 'amplified', 'amplified_rate', 'cold_final_error', 'knowledge_retention', 'mean_cold_error', 'mean_warm_error', 'n_seeds', 'phi_beats_standard', 'phi_curve', 'phi_levels', 'phi_mean_ratio', 'standard_curve', 'standard_levels', 'standard_mean_ratio', 'test_budget', 'use_ewc', 'warm_advantage_grows', 'warm_final_error', 'warm_levels', 'warm_steps']

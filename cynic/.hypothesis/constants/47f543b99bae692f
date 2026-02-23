@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cli\battles.py
+# hypothesis_version: 6.151.9
+
+[b'{}', 0.0, 100, 1000, 3600, 28800, '--dry-run', '--duration', '--interval', '30s', '8h', 'CYNIC', 'Content-Type', 'Interrupted by user', 'No pending actions', 'PENDING', 'POST', 'UNKNOWN', '__main__', 'a', 'action_id', 'action_priority', 'action_type', 'actions', 'application/json', 'battles.jsonl', 'confidence', 'cyan', 'cynic.cli.battles', 'dry_run', 'error', 'executing', 'green', 'h', 'iteration', 'm', 'priority', 'proposer', 's', 'status', 'store_true', 'utf-8', 'yellow']

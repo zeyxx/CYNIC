@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\routers\mcp.py
+# hypothesis_version: 6.151.9
+
+[75.0, 100, 400, 404, 500, '/api/mcp', '/events/recent', '/health', '/hypergraph/recent', '/learning/patterns', '/loops/status', '/mcp/', '/resource', '/similar-judgments', 'Analysis window size', 'MCP resource URI', 'Max events to return', 'Max results', 'Target Q-Score', 'WAG', 'degraded', 'error', 'health', 'healthy', 'loop_health', 'mcp', 'mcp_bridge', 'operational', 'status', 'unhealthy']

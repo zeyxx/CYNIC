@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cli\dashboard.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.1, 5.0, 100, 2000, 3600, 5000, '<2000ms', '<80%', '>10', '?', 'ACCOUNT', 'ACT', 'CODE', 'COSMOS', 'CYNIC', 'Circuit Breaker', 'DB Connected', 'DECIDE', 'Dogs Active', 'EMERGE', 'Event Bus', 'FAIL', 'HUMAN', 'JUDGE', 'Judgment Latency', 'LEARN', 'MARKET', 'Memory Budget', 'OK', 'PERCEIVE', 'Process Alive', 'Q-Table States', 'SOCIAL', 'SOLANA', 'WARN', 'alive', 'closed', 'connected', 'consciousness', 'disconnected', 'dogs', 'error', 'green', 'judgment_count', 'judgments_total', 'kernel_integrity', 'last_latency_ms', 'learning', 'name', 'pending_flush', 'red', 'running', 'states', 'status', 'storage', 'surreal', 'total_updates', 'unknown', 'uptime_s', 'yellow', 'φ_self_assessment', '≥0.1/s', '≥3', '─', '○', '⚙️  Kernel Metrics:', '⚠', '✓', '✗', '🧠 Q-Learning:']

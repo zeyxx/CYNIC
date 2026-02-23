@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\routers\nervous.py
+# hypothesis_version: 6.151.9
+
+[1000.0, 400, 404, 500, 3600, 5000, '/api/nervous', '/closure/clear', '/closure/open', '/closure/orphans', '/closure/recent', '/closure/snapshot', '/closure/stalled', '/closure/stats', '/journal/by-category', '/journal/by-source', '/journal/by-type', '/journal/causality', '/journal/clear', '/journal/errors', '/journal/recent', '/journal/snapshot', '/journal/stats', '/journal/time-range', '/trace/by-component', '/trace/by-verdict', '/trace/clear', '/trace/recent', '/trace/snapshot', '/trace/stats', '/trace/{trace_id}', 'category', 'chain', 'complete_only', 'component', 'count', 'direction', 'down', 'end_ms', 'errors', 'event_id', 'event_type', 'events', 'message', 'nervous', 'open_cycles', 'orphan_judgments', 'recent_closures', 'since_ms', 'source', 'stalled_cycles', 'start_ms', 'stats', 'threshold_ms', 'trace', 'traces', 'up', 'verdict']

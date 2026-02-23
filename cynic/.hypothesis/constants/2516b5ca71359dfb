@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\cortex\decision_validator.py
+# hypothesis_version: 6.151.9
+
+[0.0, '; ', 'AlignmentChecker', 'BARK', 'CRITICAL', 'HIGH', 'HumanApprovalGate', 'PowerLimiter', 'action_prompt', 'alignment_checker', 'audit_trail', 'confidence', 'human_gate', 'judgment_id', 'power_limiter', 'q_score', 'recommended_action', 'verdict']

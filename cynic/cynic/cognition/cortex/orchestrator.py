@@ -41,6 +41,7 @@ from cynic.core.axioms import AxiomArchitecture, Verdict, verdict_from_q_score
 from cynic.core.event_bus import (
     get_core_bus, Event, CoreEvent,
 )
+from cynic.core.exceptions import EventBusError
 from cynic.core.events_schema import (
     ConsensusReachedPayload,
     ConsensusFailedPayload,
@@ -438,9 +439,9 @@ class JudgeOrchestrator:
             # Phase 0: Persist judgment to PostgreSQL immediately after creation
             # This ensures data survives if process crashes before event handlers run
             try:
-                from cynic.api.routers.core import _persist_judgment_async
-                await _persist_judgment_async(judgment)
-            except EventBusError as e:
+                from cynic.api.routers.core import _persist_judgment
+                _persist_judgment(judgment)
+            except Exception as e:
                 logger.error("Failed to persist judgment immediately: %s", e)
                 # Don't fail the whole orchestrator run — continue to emit event
                 # (judgment_id is still in memory for handlers to use)

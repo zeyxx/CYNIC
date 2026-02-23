@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\metabolism\budget.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.5, 1.0, 100, 3600, 400000, 'can_execute', 'cost_usd_this_hour', 'hourly_cap_tokens', 'remaining_pct', 'reset_in_s', 'total_cost_usd', 'total_tokens']

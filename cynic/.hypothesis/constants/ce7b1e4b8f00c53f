@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cli\probes.py
+# hypothesis_version: 6.151.9
+
+[0.4, 0.7, 100.0, 100, '?', 'ALL', 'API mode', 'APPLIED', 'CONFIG', 'DISMISSED', 'ESCORE', 'PENDING', 'QTABLE', 'RESIDUAL', 'bold', 'current_value', 'cyan', 'dim', 'dimension', 'gray', 'green', 'orange', 'pattern_type', 'probe_id', 'proposals', 'proposed_at', 'recommendation', 'red', 'self_proposals.json', 'severity', 'stats', 'status', 'suggested_value', 'target', 'white', 'yellow']

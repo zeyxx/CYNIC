@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\mcp\metrics.py
+# hypothesis_version: 6.151.9
+
+[0.0, 'avg_latency_ms', 'cynic.mcp.metrics', 'failed_calls', 'inf', 'max_latency_ms', 'min_latency_ms', 'successful_calls', 'total_calls', 'uptime_s']

@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\error_handler.py
+# hypothesis_version: 6.151.9
+
+[',', '/app/', 'An error occurred.', 'action', 'apikey', 'asyncpg', 'auth', 'connection', 'constraint', 'critical', 'database', 'friendly', 'internal', 'invalid', 'jwt', 'must be', 'must be ', 'network', 'password', 'postgresql://', 'secret', 'session', 'sql', 'table', 'timeout', 'token', 'token=', 'took too long', 'unknown', 'unreachable', 'validation']

@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\cortex\handlers\act_executor.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1000, '1.0', 'act_executor', 'act_phase_complete', 'action_executed', 'action_id', 'action_prompt', 'confidence', 'duration_ms', 'error', 'execute_act', 'guardrail_blocked', 'judgment_id', 'output', 'q_value', 'reality', 'recommended_action', 'scheduler', 'state_key', 'success', 'verdict']

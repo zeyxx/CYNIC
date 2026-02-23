@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\mcp\server.py
+# hypothesis_version: 6.151.9
+
+[1.0, 2.0, 1000.0, 200, 400, 408, 503, 8766, '/act', '/health', '/learn', '/observe', '127.0.0.1', 'DEGRADED', 'FAILED', 'HEALTHY', 'MCP Server stopped', 'STALLED', 'Unknown error', 'WAG', 'act error', 'application/json', 'cost_usd', 'cynic.mcp', 'cynic.mcp.server', 'error', 'exec_id', 'learn error', 'model', 'model_dump', 'observe error', 'ok', 'session_id', 'status', 'success', 'timestamp']

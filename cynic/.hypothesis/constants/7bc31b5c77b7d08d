@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\mcp\router.py
+# hypothesis_version: 6.151.9
+
+[-32603, -32601, '2.0', 'CORE', 'arguments', 'ask_cynic', 'aspect', 'code', 'description', 'error', 'id', 'inputSchema', 'jsonrpc', 'mcp_router', 'message', 'method', 'name', 'object', 'observe_cynic', 'params', 'prompt', 'properties', 'request_id', 'required', 'result', 'source', 'string', 'tool_name', 'tools', 'tools/call', 'tools/list', 'type', 'websocket']

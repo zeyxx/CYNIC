@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cli\utils.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.618, 0.764, 0.9, 1.0, 2.0, 100.0, 100, 3600, '\x1b[0m', '\x1b[1m', '\x1b[2m', '\x1b[33m', '\x1b[90m', '\x1b[91m', '\x1b[92m', '\x1b[93m', '\x1b[96m', '\x1b[97m', '.cynic', '/actions', 'ALERT', 'BARK', 'CYNIC-CLI/2.0', 'CYNIC_STATE_DIR', 'Content-Type', 'EMERGENCY', 'FULL', 'GROWL', 'HOWL', 'INVESTIGATE', 'L1 Machine→Actions', 'L2 CYNIC↔Claude Code', 'L3 Human→CYNIC→Human', 'L4 CYNIC→CYNIC Self', 'MINIMAL', 'MONITOR', 'PENDING', 'POST', 'REDUCED', 'REFACTOR', 'User-Agent', 'WAG', '\\033\\[[0-9;]*m', 'action_id', 'actions', 'application/json', 'bold', 'buffer', 'consciousness.json', 'cyan', 'dim', 'gray', 'green', 'guidance.json', 'never', 'orange', 'pending_actions.json', 'red', 'replace', 'reset', 'sdk_sessions.jsonl', 'session-latest.json', 'status', 'utf-8', 'w', 'white', 'win32', 'yellow', '~', '│', '⚪', '🔴', '🟠', '🟡', '🟢']

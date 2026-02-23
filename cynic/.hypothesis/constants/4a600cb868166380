@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\models\core_models.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.01, 1.0, '2.0.0', 'API_DIRECT', 'Agent-driven events', 'BARK', 'Budget exhausted', 'CODE', 'COSMOS', 'CYNIC', 'Component name', 'Core judgment events', 'Decision ID', 'Decision timestamp', 'EMERGE triggered', 'Event payload', 'GROWL', 'HOWL', 'HOWL/WAG/GROWL/BARK', 'HUMAN', 'JUDGE', 'Judgment level', 'MACRO', 'MARKET', 'MICRO', 'REFLEX', 'Reason for decision', 'Reason for verdict', 'Response timestamp', 'SOCIAL', 'SOLANA', 'Source judgment ID', 'Stage duration in ms', 'Total decision count', 'Total event count', 'Trace timestamp', 'Unique event ID', 'WAG', 'action', 'level', 'reality']

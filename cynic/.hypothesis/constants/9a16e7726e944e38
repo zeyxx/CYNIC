@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\api\routers\chat.py
+# hypothesis_version: 6.151.9
+
+['/api', '/chat/message', 'Session identifier', 'User message text', 'chat', 'cynic.api.server']

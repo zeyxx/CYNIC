@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cli\tui_layers\guardrails_layer.py
+# hypothesis_version: 6.151.9
+
+['Allow ✅', 'Approval ⏳', 'Block 🔴', 'Count', 'Decision', 'GUARDIAN VERDICTS', 'allow', 'block', 'decision', 'green', 'guardrail_decisions', 'red', 'require_approval', 'right']

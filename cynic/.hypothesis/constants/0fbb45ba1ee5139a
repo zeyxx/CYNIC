@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\organism\state_manager.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.5, 1.0, -100, 100, 1024, '.cynic', 'Added action: %s', 'Added judgment: %s', 'MACRO', 'META', 'MICRO', 'REFLEX', 'Removed action: %s', 'Set %s=%s (%s)', 'Updated residual: %s', 'action_id', 'checkpoint', 'checkpoint_keys', 'consciousness.json', 'consciousness_level', 'consistency_errors', 'data', 'dogs', 'judgment_id', 'last_judgment_time', 'last_updates', 'layer', 'level', 'memory', 'memory_keys', 'organism_memory', 'organism_persistent', 'organism_state', 'pending_actions', 'persistent', 'persistent_keys', 'q_table', 'q_table_hash', 'queue_size', 'recent_judgments', 'residuals', 'timestamp', 'unknown', 'w']

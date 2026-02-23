@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cognition\cortex\handlers\composer.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1000, 'MACRO', 'MICRO', 'REFLEX', 'act_executor', 'budget_manager', 'composer', 'cycle_macro', 'cycle_micro', 'cycle_reflex', 'evolve', 'exception', 'failed_at', 'handlers_executed', 'level', 'level_selector', 'q_score', 'recent_judgments', 'verdict']

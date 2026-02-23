@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cli\health.py
+# hypothesis_version: 6.151.9
+
+[100.0, '/health', '/lod', '?', 'alive', 'bold', 'current_lod', 'cyan', 'green', 'orange', 'red', 'status', 'uptime_s', 'yellow']

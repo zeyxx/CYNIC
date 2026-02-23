@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cli\__init__.py
+# hypothesis_version: 6.151.9
+
+['__main__', 'battles', 'chat', 'cmd_battles', 'cmd_chat', 'cmd_consciousness', 'cmd_dashboard', 'cmd_execute', 'cmd_feedback', 'cmd_full_loop', 'cmd_health', 'cmd_lod', 'cmd_loops', 'cmd_perceive_watch', 'cmd_probes', 'cmd_review', 'cmd_sdk', 'cmd_status', 'cmd_tui', 'cmd_watch', 'consciousness', 'dashboard', 'execute', 'feedback', 'full-loop', 'health', 'lod', 'loops', 'main', 'perceive-watch', 'probes', 'review', 'sdk', 'status', 'tui', 'watch']

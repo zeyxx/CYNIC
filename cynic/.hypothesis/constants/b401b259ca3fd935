@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\core\formulas.py
+# hypothesis_version: 6.151.9
+
+[0.02, 0.1, 0.3, 0.382, 0.4, 0.5, 0.618, 0.7071, 0.888, 0.95, 5.0, 10.0, 100.0, 120.0, 500.0, 2850.0, 4096, 8192, 16384, 'ACT_LOG_CAP', 'BASH_OUTPUT_CAP', 'CHAT_MESSAGE_CAP', 'DECISION_TRACE_CAP', 'EVENT_JOURNAL_CAP', 'FORMULA_CONSTANTS', 'GLOB_MATCH_CAP', 'GOSSIP_THRESHOLD', 'GREP_OUTPUT_CAP', 'LLM_TIMEOUT_SEC', 'LOOP_CLOSURE_CAP', 'MCTS_UCT_C', 'QTABLE_ENTRY_CAP', 'Q_TABLE_FISHER_SCALE', 'READ_FILE_CAP', 'RESIDUAL_MIN_SAMPLES', 'SDK_OUTCOME_WINDOW', 'SELF_PROBE_CAP', 'SIGNAL_TTL_SEC', 'SOCIAL_SIGNAL_CAP', 'act_log_cap', 'axiom_maturity', 'chat_message_cap', 'e_score', 'level0_ms', 'level1_ms', 'level2_ms', 'level3_ms', 'llm_timeout_sec', 'lod_latency_targets', 'oracle', 'q_table_fisher_scale', 'qtable_entry_cap', 'ratio × MAX_Q_SCORE', 'signal_ttl_sec', 'social_signal_cap']

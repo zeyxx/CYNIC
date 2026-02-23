@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\core\topology\file_watcher.py
+# hypothesis_version: 6.151.9
+
+['*.py', 'api', 'categories_monitored', 'cli', 'degraded', 'dogs', 'handlers', 'healthy', 'judge', 'snapshot_failures', 'status', 'watcher:filesystem']

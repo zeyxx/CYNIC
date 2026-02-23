@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\chat\tool_executor.py
+# hypothesis_version: 6.151.9
+
+[120, 1000, '\n... (truncated)', '(empty file)', '(no matches)', '(no output)', '**/*', '--glob', '--max-count', '--no-heading', '-n', '.', '50', 'ACT', 'BARK', 'CODE', 'Empty command', 'Path required', 'Pattern required', 'bash', 'command', 'content', 'cynic.chat.executor', 'edit', 'glob', 'grep', 'limit', 'new_string', 'offset', 'old_string', 'old_string required', 'path', 'pattern', 'read', 'replace', 'rg', 'timeout', 'utf-8', 'w', 'write']

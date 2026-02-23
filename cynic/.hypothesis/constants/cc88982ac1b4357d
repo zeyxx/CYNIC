@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\cli\full_loop.py
+# hypothesis_version: 6.151.9
+
+[0.5, 4.0, 10.0, 38.2, 100, '\n*yawn* Interrupted', '  Execute? [y/n]: ', '  ✓ Worth improving!', '  ✗ Skipped', '--auto', '--short', '.cynic', '61', '=', 'Full loop error', 'GROWL', 'WAG', '__main__', 'action', 'args', 'content', 'cynic.cli.full_loop', 'evaluated', 'files', 'git', 'human_rating', 'phase5_feedback.json', 'reason', 'reward', 'role', 'score', 'scoring', 'status', 'timeout', 'timestamp', 'to_dict', 'user', 'verdict', 'y', '✓ FULL LOOP COMPLETE']

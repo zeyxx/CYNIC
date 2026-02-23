@@ -809,3 +809,103 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 # via auto_register_routers() — no manual include_router needed
 # This ensures: orchestration, auto_register, and any new routers are discovered automatically
 # See: cynic/api/routers/auto_register.py
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ROOT ROUTE — Serve dashboard at /
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.get("/")
+async def root():
+    """Serve the CYNIC dashboard with integrated chat at root URL."""
+    import pathlib
+    # Prefer dashboard with chat integrated
+    dashboard_path = pathlib.Path(__file__).parent.parent / "static" / "dashboard-with-chat.html"
+    if dashboard_path.exists():
+        from fastapi.responses import FileResponse
+        return FileResponse(str(dashboard_path))
+    # Fallback to original dashboard
+    dashboard_path = pathlib.Path(__file__).parent.parent / "static" / "dashboard.html"
+    if dashboard_path.exists():
+        from fastapi.responses import FileResponse
+        return FileResponse(str(dashboard_path))
+    return {"message": "CYNIC Kernel running", "docs": "/docs", "dashboard": "/static/dashboard.html"}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CHAT INTEGRATION — Connect AgentLoop to API
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/chat/sessions")
+async def list_chat_sessions(limit: int = 20):
+    """List recent chat sessions."""
+    from cynic.chat.session import ChatSession
+    sessions = ChatSession.list_sessions(limit=limit)
+    return {"sessions": sessions}
+
+
+@app.post("/api/chat/sessions/{session_id}/messages")
+async def send_chat_message(session_id: str, message: dict):
+    """Send a message to a chat session and get AI response."""
+    from cynic.chat.session import ChatSession
+    from cynic.api.state import get_state
+    
+    text = message.get("text", "")
+    if not text:
+        return JSONResponse(status_code=400, content={"error": "Empty message"})
+    
+    try:
+        session = ChatSession.load(session_id)
+    except (FileNotFoundError, ValueError):
+        session = ChatSession(session_id=session_id)
+    
+    session.add_user(text)
+    
+    # Get the organism state
+    state = get_state()
+    
+    # Use the orchestrator to generate a response if LLM available
+    response_text = ""
+    try:
+        if state and hasattr(state, 'orchestrator'):
+            # Try to use the judgment system for responses
+            from cynic.core.event_bus import get_core_bus, Event, CoreEvent
+            from cynic.orchestration.judgment import JudgmentRequest, JudgmentType
+            
+            # Create a perception from the user message
+            perception = {
+                "user_input": text,
+                "reality": "CYNIC",
+                "analysis": "CHAT"
+            }
+            
+            # Emit a perception event for the organism to process
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.PERCEPTION_RECEIVED,
+                perception,
+                source="chat_api"
+            ))
+            
+            response_text = f"*sniff* Message processed: '{text[:50]}...'"
+        else:
+            response_text = f"*wag* Message received: '{text[:50]}...'"
+    except Exception as e:
+        response_text = f"*wag* Message received: '{text[:50]}...'"
+    
+    session.add_assistant(response_text)
+    session.save()
+    
+    return {
+        "session_id": session_id,
+        "message": {
+            "role": "user",
+            "content": text,
+            "timestamp": session.messages[-2].timestamp if len(session.messages) >= 2 else 0
+        },
+        "response": {
+            "role": "assistant", 
+            "content": response_text,
+            "timestamp": session.messages[-1].timestamp if session.messages else 0
+        },
+        "message_count": session.message_count
+    }

@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\immune\human_approval_gate.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.5, 800, 'AlignmentViolation', 'BARK', 'MEDIUM', 'action_prompt', 'approval_rate', 'approved', 'blocking', 'confidence', 'consecutive_failures', 'escalated', 'pending', 'r', 'rejected', 'status', 'total_requests', 'verdict', 'w']

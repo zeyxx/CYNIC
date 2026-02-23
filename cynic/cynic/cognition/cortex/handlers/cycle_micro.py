@@ -21,6 +21,7 @@ from cynic.core.judgment import Cell, Judgment
 from cynic.core.consciousness import ConsciousnessLevel, dogs_for_level
 from cynic.core.phi import PHI_INV, PHI_INV_2, MAX_CONFIDENCE, MAX_Q_SCORE
 from cynic.core.axioms import verdict_from_q_score
+from cynic.core.exceptions import EventBusError
 
 if TYPE_CHECKING:
     from cynic.cognition.cortex.orchestrator import JudgmentPipeline

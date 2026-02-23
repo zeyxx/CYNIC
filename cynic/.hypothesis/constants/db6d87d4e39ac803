@@ -1,0 +1,4 @@
+# file: C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC\cynic\cynic\immune\power_limiter.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.05, 1.0, 60.0, 70.0, 80.0, 85.0, '_queues', '_tasks', 'action_buffer_size', 'actions_per_min', 'cpu_pct', 'judgment_buffer_size', 'judgments_per_sec', 'memory_pct', 'psutil error: %s']
