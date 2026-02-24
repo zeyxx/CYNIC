@@ -348,7 +348,9 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("MCPBridge: not available (old AppState path — skipping)")
 
-    state.scheduler.start()
+    # DISABLED: Scheduler was consuming 92.55% CPU, blocking HTTP handlers
+    # state.scheduler.start()
+    logger.warning("⚠️  Scheduler DISABLED (CPU exhaustion fix) — consciousness cycles paused")
 
     # ── AutoBenchmark — periodic LLM probe every 55 min (T09) ────────────
     from cynic.metabolism.auto_benchmark import AutoBenchmark
