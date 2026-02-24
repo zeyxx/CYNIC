@@ -34,7 +34,7 @@ from cynic.api.state import (
     set_app_container,
 )
 from cynic.organism.organism import awaken, Organism as AppState
-from cynic.core.event_bus import get_core_bus, get_automation_bus, get_agent_bus, Event
+from cynic.core.event_bus import get_core_bus, get_automation_bus, get_agent_bus, Event, EventBus
 
 
 @pytest.mark.integration
