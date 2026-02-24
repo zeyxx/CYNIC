@@ -72,17 +72,6 @@ class JudgmentRequestedPayload(BaseModel):
     cell_id: str = ""
     reality: str = "CODE"
     level:   str = ""     # REFLEX|MICRO|MACRO
-    cell: dict[str, Any] = Field(default_factory=dict)  # Full cell data dict
-    budget_usd: float = 0.01  # Budget for this judgment
-    source: str = ""  # Source of the request (api:judge, scheduler, etc.)
-++++++ REPLACE</parameter>
-<task_progress>- [x] Analyser les erreurs Pydantic et validation
-- [x] Identifier le endpoint /judge et ses modèles
-- [x] Comprendre l'erreur JUDGMENT_REQUESTED has no cell data
-- [x] Corriger le schema JudgmentRequestedPayload (ajout champ 'cell')
-- [ ] Mettre à jour l'émetteur pour inclure 'cell' dans le payload
-- [ ] Améliorer la robustesse du judgment_executor handler</task_progress>
-</invoke>
 
 
 class JudgmentFailedPayload(BaseModel):

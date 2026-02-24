@@ -56,7 +56,7 @@ function setupTabNavigation() {
 
 // WebSocket Connection
 function connectWebSocket() {
-    const wsUrl = 'ws://localhost:8000/ws/stream';
+    const wsUrl = 'ws://localhost:8765/ws/stream';
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
