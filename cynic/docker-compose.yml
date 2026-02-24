@@ -1,0 +1,104 @@
+# CYNIC Python Kernel — Docker Compose
+# Services: postgres, ollama, cynic
+#
+# Quick start:
+#   cd cynic && docker compose up -d
+#   docker compose logs -f cynic
+#
+# "φ distrusts φ" — κυνικός
+
+services:
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # PostgreSQL 16 + pgvector
+  # Port: 5433 (avoid conflict with existing PG on 5432)
+  # DB: cynic
+  # ═══════════════════════════════════════════════════════════════════════
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cynic}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cynic_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-cynic}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cynic} -d ${POSTGRES_DB:-cynic}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # Ollama — Local LLM Server
+  # Models: llama3.2 (default), nomic-embed-text (embeddings)
+  # Run `docker compose exec ollama ollama pull llama3.2` after first up
+  # ═══════════════════════════════════════════════════════════════════════
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: "24h"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # CYNIC Python Kernel — FastAPI
+  # Connects to postgres + ollama
+  # Ports: 8765 (API), 8766 (MCP)
+  # ═══════════════════════════════════════════════════════════════════════
+  cynic:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8765:8765"
+      - "8766:8766"
+    environment:
+      # Database
+      CYNIC_DATABASE_URL: postgresql://${POSTGRES_USER:-cynic}:${POSTGRES_PASSWORD:-cynic_dev}@postgres:5432/${POSTGRES_DB:-cynic}
+      
+      # LLM
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_NUM_PARALLEL: "4"
+      
+      # Optional: Claude API (for MACRO cycle reasoning)
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      
+      # Optional: Gemini API (consensus validation)
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      # Persist cynic data
+      - cynic_data:/home/cynic/.cynic
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  ollama_models:
+  cynic_data:

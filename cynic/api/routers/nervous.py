@@ -28,7 +28,7 @@ router = APIRouter(prefix="/api/nervous", tags=["nervous"])
 async def get_recent_events(
     limit: int = 10,
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get last N events from the journal."""
     try:
         events = await container.organism.event_journal.recent(limit=limit)
@@ -46,7 +46,7 @@ async def get_events_by_type(
     event_type: str,
     limit: int = 50,
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get events of a specific type."""
     try:
         events = await container.organism.event_journal.filter_by_type(event_type, limit=limit)
@@ -65,7 +65,7 @@ async def get_events_by_source(
     source: str,
     limit: int = 50,
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get events from a specific component."""
     try:
         events = await container.organism.event_journal.filter_by_source(source, limit=limit)
@@ -84,7 +84,7 @@ async def get_events_by_category(
     category: str,
     limit: int = 50,
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get events in a category (phase)."""
     try:
         # Validate category
@@ -114,7 +114,7 @@ async def get_events_in_time_range(
     start_ms: float,
     end_ms: float,
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get events within time window [start_ms, end_ms]."""
     try:
         if start_ms > end_ms:
@@ -139,7 +139,7 @@ async def get_causality_chain(
     event_id: str,
     direction: str = "down",
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Trace causality chain (up=causes, down=effects)."""
     try:
         if direction not in ["up", "down"]:
@@ -163,7 +163,7 @@ async def get_causality_chain(
 async def get_recent_errors(
     since_ms: Optional[float] = None,
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get error events since timestamp."""
     try:
         import time
@@ -185,7 +185,7 @@ async def get_recent_errors(
 @router.get("/journal/stats")
 async def get_journal_stats(
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get journal statistics."""
     try:
         stats = await container.organism.event_journal.stats()
@@ -198,7 +198,7 @@ async def get_journal_stats(
 @router.get("/journal/snapshot")
 async def get_journal_snapshot(
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get complete journal state (for debugging)."""
     try:
         snapshot = await container.organism.event_journal.snapshot()
@@ -211,7 +211,7 @@ async def get_journal_snapshot(
 @router.post("/journal/clear")
 async def clear_journal(
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Clear the event journal (testing only - consider adding auth gate)."""
     try:
         await container.organism.event_journal.clear()
@@ -231,7 +231,7 @@ async def clear_journal(
 async def get_recent_traces(
     limit: int = 10,
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get last N decision traces."""
     try:
         traces = await container.organism.decision_tracer.recent_traces(limit=limit)
@@ -248,7 +248,7 @@ async def get_recent_traces(
 async def get_trace(
     trace_id: str,
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get a specific decision trace by ID."""
     try:
         trace = await container.organism.decision_tracer.get_trace(trace_id)
@@ -266,7 +266,7 @@ async def get_trace(
 async def get_trace_by_judgment(
     judgment_id: str,
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get decision trace for a judgment."""
     try:
         trace = await container.organism.decision_tracer.get_trace_by_judgment(judgment_id)
@@ -288,7 +288,7 @@ async def get_traces_by_verdict(
     verdict: str,
     limit: int = 50,
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get traces filtered by final verdict."""
     try:
         traces = await container.organism.decision_tracer.traces_by_verdict(verdict, limit=limit)
@@ -307,7 +307,7 @@ async def get_traces_by_component(
     component: str,
     limit: int = 50,
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get traces that involved a component."""
     try:
         traces = await container.organism.decision_tracer.traces_by_component(
@@ -326,7 +326,7 @@ async def get_traces_by_component(
 @router.get("/trace/stats")
 async def get_trace_stats(
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get trace statistics."""
     try:
         stats = await container.organism.decision_tracer.stats()
@@ -339,7 +339,7 @@ async def get_trace_stats(
 @router.get("/trace/snapshot")
 async def get_trace_snapshot(
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get complete tracer state (for debugging)."""
     try:
         snapshot = await container.organism.decision_tracer.snapshot()
@@ -352,7 +352,7 @@ async def get_trace_snapshot(
 @router.post("/trace/clear")
 async def clear_traces(
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Clear all traces (testing only)."""
     try:
         await container.organism.decision_tracer.clear()
@@ -372,7 +372,7 @@ async def clear_traces(
 async def get_open_cycles(
     max_age_ms: Optional[float] = None,
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get cycles currently in progress."""
     try:
         cycles = await container.organism.loop_closure_validator.get_open_cycles(max_age_ms)
@@ -389,7 +389,7 @@ async def get_open_cycles(
 async def get_stalled_phases(
     threshold_ms: float = 5000,
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get cycles with stalled phases."""
     try:
         stalled = await container.organism.loop_closure_validator.get_stalled_phases(threshold_ms)
@@ -406,7 +406,7 @@ async def get_stalled_phases(
 @router.get("/closure/orphans")
 async def get_orphan_judgments(
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get judgments never acted upon."""
     try:
         orphans = await container.organism.loop_closure_validator.get_orphan_judgments()
@@ -424,7 +424,7 @@ async def get_recent_closures(
     limit: int = 10,
     complete_only: bool = False,
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get recent cycle closures."""
     try:
         closures = await container.organism.loop_closure_validator.recent_closures(
@@ -444,7 +444,7 @@ async def get_recent_closures(
 @router.get("/closure/stats")
 async def get_closure_stats(
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get loop closure statistics."""
     try:
         stats = await container.organism.loop_closure_validator.stats()
@@ -457,7 +457,7 @@ async def get_closure_stats(
 @router.get("/closure/snapshot")
 async def get_closure_snapshot(
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Get complete loop closure state."""
     try:
         snapshot = await container.organism.loop_closure_validator.snapshot()
@@ -470,7 +470,7 @@ async def get_closure_snapshot(
 @router.post("/closure/clear")
 async def clear_closures(
     container: AppContainer = Depends(get_app_container),
-) -> dict:
+) -> dict[str, Any]:
     """Clear all closure records (testing only)."""
     try:
         await container.organism.loop_closure_validator.clear()

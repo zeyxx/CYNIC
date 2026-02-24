@@ -57,7 +57,7 @@ from cynic.senses.workers import GitWatcher, HealthWatcher, SelfWatcher, MarketW
 from cynic.core.storage.gc import StorageGarbageCollector
 from cynic.senses import checkpoint as _session_checkpoint
 from cynic.senses.checkpoint import CHECKPOINT_EVERY
-from cynic.cognition.cortex.orchestrator import ConsciousnessScheduler
+from cynic.scheduler import ConsciousnessRhythm as ConsciousnessScheduler
 from cynic.metabolism.telemetry import TelemetryStore
 from cynic.metabolism.llm_router import LLMRouter
 from cynic.metabolism.runner import ClaudeCodeRunner

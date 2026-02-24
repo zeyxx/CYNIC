@@ -16,6 +16,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from cynic.orchestration import DockerManager, VersionManager, HealthMonitor
+from cynic.deployment.docker_manager import ContainerStatus
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -204,10 +205,18 @@ async def get_status(
     last_build = docker.last_build()
     last_deploy = docker.last_deploy()
 
+    # Get real container status from Docker
+    stack_status = await docker.get_status()
+    containers = stack_status.containers
+
+    kernel_running = containers.get("cynic-kernel", ContainerStatus(name="cynic-kernel", image="", status="unknown")).status == "running"
+    postgres_running = containers.get("cynic-surrealdb", ContainerStatus(name="cynic-surrealdb", image="", status="unknown")).status == "running"
+    ollama_running = containers.get("cynic-ollama", ContainerStatus(name="cynic-ollama", image="", status="unknown")).status == "running"
+
     return OrchestratorStatus(
-        kernel_running=True,  # TODO: Check actual status
-        postgres_running=True,
-        ollama_running=True,
+        kernel_running=kernel_running,
+        postgres_running=postgres_running,
+        ollama_running=ollama_running,
         last_build=last_build.version if last_build else None,
         last_deploy=last_deploy.timestamp.isoformat() if last_deploy else None,
         current_version=str(version.get_current()),

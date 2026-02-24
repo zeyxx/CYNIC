@@ -70,25 +70,75 @@ class JudgmentExecutorHandler(HandlerGroup):
         Payload structure:
         {
             "cell": {...}  # dict representation of Cell
+            "cell_id": "...",
+            "reality": "CODE",
             "level": "MICRO" | "REFLEX" | "MACRO" | "AUTO"
             "budget_usd": 0.5
+            "source": "..."
         }
         """
         try:
             logger.debug("[HANDLER] JudgmentExecutor received JUDGMENT_REQUESTED: %s", event.event_id)
             payload = event.payload or {}
 
-            # Extract cell from payload (dict form)
+            # Try to extract cell from payload (v2 format with full cell data)
             cell_dict = payload.get("cell", {})
-            if not cell_dict:
-                logger.warning(
-                    "JUDGMENT_REQUESTED has no cell data: %s",
-                    event.event_id,
-                )
-                return
-
-            # Reconstruct Cell from dict
-            cell = Cell(**cell_dict)
+            cell = None
+            
+            if cell_dict:
+                # Reconstruct Cell from dict (v2 format)
+                try:
+                    cell = Cell(**cell_dict)
+                    logger.debug("[HANDLER] Cell reconstructed from full data: %s", cell.cell_id)
+                except Exception as cell_err:
+                    logger.warning(
+                        "[HANDLER] Failed to reconstruct cell from full data: %s - %s",
+                        cell_err,
+                        cell_dict,
+                    )
+                    cell = None
+            
+            # Fallback: construct minimal Cell from individual fields
+            if cell is None:
+                import uuid
+                cell_id = payload.get("cell_id", "")
+                reality = payload.get("reality", "CODE")
+                
+                if not cell_id:
+                    # Generate a placeholder cell_id if none provided
+                    cell_id = str(uuid.uuid4())
+                    logger.info(
+                        "JUDGMENT_REQUESTED no cell_id: generated %s (source=%s)",
+                        cell_id, payload.get("source", "unknown"),
+                    )
+                
+                # Create Cell from available fields (robust fallback)
+                try:
+                    cell = Cell(
+                        cell_id=cell_id,
+                        reality=reality,
+                        analysis=payload.get("analysis", "JUDGE"),
+                        content=payload.get("content", ""),
+                        context=payload.get("context", ""),
+                        budget_usd=payload.get("budget_usd", 0.01),
+                        time_dim=payload.get("time_dim", "PRESENT"),
+                        lod=payload.get("lod", 0),
+                    )
+                    logger.debug("[HANDLER] Cell reconstructed from payload: %s", cell.cell_id)
+                except Exception as cell_err:
+                    # Last resort: create Cell with only required fields
+                    logger.warning(
+                        "JUDGMENT_REQUESTED partial cell data: %s (error=%s, using minimal fallback)",
+                        event.event_id, cell_err,
+                    )
+                    cell = Cell(
+                        cell_id=cell_id,
+                        reality=reality,
+                        analysis="JUDGE",
+                        content=f"Event: {event.event_id}",
+                        context=payload.get("source", "unknown"),
+                        budget_usd=0.01,
+                    )
 
             # Parse level (optional, orchestrator will auto-select if None)
             level_str = payload.get("level", "AUTO")

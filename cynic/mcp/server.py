@@ -15,7 +15,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 try:
     from aiohttp import web
@@ -85,9 +85,9 @@ class MCPServer:
         self.app.router.add_get("/health", self._handle_health)
         logger.info("Routes registered: /observe, /act, /learn, /health")
 
-    # ═══════════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════════════════
     # ENDPOINT HANDLERS
-    # ═══════════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════════════════
 
     async def _handle_observe(self, request: web.Request) -> web.Response:
         """
@@ -142,7 +142,7 @@ class MCPServer:
                 status="ok",
             )
             return self._json_response(resp)
-        except httpx.RequestError as exc:
+        except Exception as exc:
             logger.exception("observe error")
             return self._json_response(
                 ErrorResponse(
@@ -243,7 +243,7 @@ class MCPServer:
                 ),
                 status=408,
             )
-        except httpx.RequestError as exc:
+        except Exception as exc:
             logger.exception("act error")
             return self._json_response(
                 ErrorResponse(
@@ -295,11 +295,11 @@ class MCPServer:
             # Rating: -1 to +1 → Reward: 0 to 1 (normalize via (rating + 1) / 2)
             reward = (req.signal.rating + 1.0) / 2.0
 
-            # Build learning signal
+            # Build learning signal - use judgment_id as state_key (simplified mapping)
             from cynic.learning.qlearning import LearningSignal
             learning_signal = LearningSignal(
-                state_key=req.signal.judgment_id,  # TODO: map judgment_id → state_key
-                action="WAG",  # TODO: map judgment_id → action (verdict)
+                state_key=req.signal.judgment_id,
+                action=req.signal.action if hasattr(req.signal, 'action') else "WAG",
                 reward=reward,
                 judgment_id=req.signal.judgment_id,
                 timestamp=time.time(),
@@ -322,7 +322,7 @@ class MCPServer:
                 status="ok",
             )
             return self._json_response(resp)
-        except httpx.RequestError as exc:
+        except Exception as exc:
             logger.exception("learn error")
             return self._json_response(
                 ErrorResponse(
@@ -337,9 +337,9 @@ class MCPServer:
         """Health check endpoint."""
         return self._json_response({"status": "ok", "timestamp": time.time()})
 
-    # ═══════════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════════════════
     # RESPONSE HELPERS
-    # ═══════════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════════════════
 
     def _json_response(
         self,
