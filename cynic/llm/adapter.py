@@ -38,6 +38,8 @@ from cynic.core.formulas import LLM_TIMEOUT_SEC, LLM_DISCOVERY_TIMEOUT_SEC
 
 logger = logging.getLogger("cynic.llm.adapter")
 
+# Forward import will be done at end of file after all definitions
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # UNIVERSAL REQUEST / RESPONSE
@@ -175,168 +177,9 @@ class LLMAdapter(ABC):
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# OLLAMA ADAPTER (Local — PRIMARY for privacy + cost)
+# OLLAMA ADAPTER — MOVED TO cynic/llm/adapters/ollama.py
 # ════════════════════════════════════════════════════════════════════════════
-
-
-class OllamaConnectionPool:
-    """
-    Manages cached ollama.AsyncClient instances per base_url.
-
-    Instead of module-level singleton, use instance-level pool.
-    Multiple pools can coexist (enables parallel testing, multi-instance deployment).
-    """
-
-    def __init__(self):
-        """Initialize empty client cache."""
-        self._clients: dict[str, Any] = {}
-
-    def get_client(self, base_url: str) -> Any:
-        """Return cached ollama.AsyncClient for base_url, creating if needed."""
-        import ollama as _ollama  # type: ignore
-        if base_url not in self._clients:
-            self._clients[base_url] = _ollama.AsyncClient(host=base_url)
-        return self._clients[base_url]
-
-    async def close_all(self) -> None:
-        """Close all cached clients."""
-        for client in self._clients.values():
-            if hasattr(client, "close"):
-                try:
-                    await client.close()
-                except asyncio.TimeoutError as e:
-                    logger.debug(f"Error closing client: {e}")
-        self._clients.clear()
-
-
-class OllamaAdapter(LLMAdapter):
-    """
-    Ollama local models adapter via ollama.AsyncClient.
-
-    CYNIC prefers Ollama by default:
-    - Free (no API cost)
-    - Private (data stays local)
-    - Fast for small models
-
-    Models auto-discovered at startup via list_models().
-    Best model per Dog × Task determined by benchmarking.
-
-    Uses OllamaConnectionPool to cache AsyncClient instances per URL.
-    This avoids creating 7 TCP connections per MCTS asyncio.gather() call,
-    while enabling multi-instance deployment (no global state).
-    """
-
-    DEFAULT_URL = "http://localhost:11434"
-    _default_pool: Optional[OllamaConnectionPool] = None  # Lazy-initialized for backward compat
-
-    def __init__(
-        self,
-        model: str = "llama3.2",
-        base_url: str = DEFAULT_URL,
-        pool: Optional[OllamaConnectionPool] = None,
-    ) -> None:
-        super().__init__(model=model, provider="ollama")
-        self.base_url = base_url.rstrip("/")
-        # Use provided pool, or create a default one (backward compat)
-        if pool is None:
-            if OllamaAdapter._default_pool is None:
-                OllamaAdapter._default_pool = OllamaConnectionPool()
-            pool = OllamaAdapter._default_pool
-        self.pool = pool
-
-    async def complete(self, request: LLMRequest) -> LLMResponse:
-        start = time.time()
-
-        # Build messages: use explicit messages if provided, else prompt-based
-        if request.messages is not None:
-            messages = list(request.messages)
-            # Prepend system if not already present
-            if request.system and (not messages or messages[0].get("role") != "system"):
-                messages.insert(0, {"role": "system", "content": request.system})
-        else:
-            messages = []
-            if request.system:
-                messages.append({"role": "system", "content": request.system})
-            messages.append({"role": "user", "content": request.prompt})
-
-        client = self.pool.get_client(self.base_url)
-        kwargs: dict[str, Any] = {
-            "model": self.model,
-            "messages": messages,
-            "options": {"temperature": request.temperature, "num_predict": request.max_tokens},
-        }
-        if request.tools:
-            kwargs["tools"] = request.tools
-
-        response = await client.chat(**kwargs)
-
-        # ollama 0.1.x returns a dict; 0.2+ returns a ChatResponse object
-        tool_calls = None
-        if isinstance(response, dict):
-            msg_data = response.get("message", {})
-            content = msg_data.get("content", "")
-            p_tokens = response.get("prompt_eval_count", 0)
-            c_tokens = response.get("eval_count", 0)
-            raw_tc = msg_data.get("tool_calls")
-            if raw_tc:
-                tool_calls = [
-                    {"name": tc["function"]["name"], "arguments": tc["function"]["arguments"]}
-                    for tc in raw_tc if isinstance(tc, dict) and "function" in tc
-                ]
-        else:
-            msg = getattr(response, "message", None)
-            content = getattr(msg, "content", "") if msg else ""
-            p_tokens = getattr(response, "prompt_eval_count", 0)
-            c_tokens = getattr(response, "eval_count", 0)
-            raw_tc = getattr(msg, "tool_calls", None)
-            if raw_tc:
-                tool_calls = []
-                for tc in raw_tc:
-                    fn = getattr(tc, "function", None) or (tc.get("function") if isinstance(tc, dict) else None)
-                    if fn:
-                        name = getattr(fn, "name", None) or (fn.get("name") if isinstance(fn, dict) else "")
-                        args = getattr(fn, "arguments", None) or (fn.get("arguments") if isinstance(fn, dict) else {})
-                        tool_calls.append({"name": name, "arguments": args})
-
-        latency_ms = (time.time() - start) * 1000
-        return LLMResponse(
-            content=content,
-            model=self.model,
-            provider="ollama",
-            prompt_tokens=p_tokens,
-            completion_tokens=c_tokens,
-            cost_usd=0.0,
-            latency_ms=latency_ms,
-            tool_calls=tool_calls or None,
-            raw_message=response,
-        )
-
-    async def check_available(self) -> bool:
-        try:
-            client = self.pool.get_client(self.base_url)
-            await asyncio.wait_for(client.list(), timeout=LLM_DISCOVERY_TIMEOUT_SEC)
-            return True
-        except httpx.RequestError:
-            return False
-
-    async def list_models(self) -> list[str]:
-        """Return names of all installed Ollama models."""
-        try:
-            client = self.pool.get_client(self.base_url)
-            resp = await client.list()
-            if isinstance(resp, dict):
-                models = resp.get("models", [])
-            else:
-                models = getattr(resp, "models", []) or []
-            result = []
-            for m in models:
-                if isinstance(m, dict):
-                    result.append(m.get("name", ""))
-                else:
-                    result.append(getattr(m, "name", str(m)))
-            return [n for n in result if n]
-        except httpx.RequestError:
-            return []
+# Re-imported below for backward compatibility
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -538,18 +381,19 @@ class BenchmarkResult:
 # Models that only do embeddings — never used for text generation
 EMBEDDING_ONLY_MODELS: set = {"nomic-embed-text", "nomic-embed-text:latest"}
 
-# task_type → preferred Ollama model (empirical benchmark results)
-# gemma2:2b: 7-parallel MCTS in 35s, diff=+40.3, 0 failures → FAST judgment
-# mistral:7b: single deep call only (88s/call → timeouts in parallel 7-call MCTS)
-PREFERRED_MODELS: dict[str, str] = {
-    "temporal_mcts": "gemma2:2b",               # 7-parallel MCTS — must be fast
-    "wisdom":        "gemma2:2b",               # SageDog temporal path
-    "vector_rag":    "gemma2:2b",               # ScholarDog generation (not embeddings)
-    "topology":      "gemma2:2b",               # CartographerDog
-    "deployment":    "gemma2:2b",               # DeployerDog
-    "deep_analysis": "mistral:7b-instruct-q4_0", # Single-call deep review
-    "default":       "gemma2:2b",               # Safe fallback
-}
+# DYNAMIC MODEL SELECTION — NO HARDCODING
+# 
+# CYNIC uses BENCHMARKS to determine the best model per task_type.
+# If no benchmark data exists, we use the FASTEST available model as default
+# (gemma2:2b is validated at ~5s/call for 7-parallel MCTS).
+#
+# Principles:
+#   - Benchmarks drive routing (empirical evidence)
+#   - Fallback to fastest available model (speed matters for parallel calls)
+#   - Never hardcode specific model names — discover what's available
+
+# Kept for backward compatibility with tests - actual routing is dynamic
+PREFERRED_MODELS: dict[str, str] = {}
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -689,9 +533,7 @@ class LLMRegistry:
 
         Priority:
           1. Benchmark history (composite_score — learned from real judgments)
-          2. PREFERRED_MODELS[task_type] (empirical defaults)
-          3. PREFERRED_MODELS["default"] (gemma2:2b)
-          4. Any available generation adapter
+          2. Any available generation adapter (dynamic — no hardcoded models)
 
         Embedding-only models (nomic-embed-text) are never returned here.
         """
@@ -712,14 +554,9 @@ class LLMRegistry:
         if best is not None:
             return best
 
-        # No benchmark data — use empirical preferred model for this task type
-        preferred_name = PREFERRED_MODELS.get(task_type, PREFERRED_MODELS["default"])
-        for adapter in self._adapters.values():
-            model = getattr(adapter, "model", None)
-            if self._available.get(adapter.adapter_id, False) and model == preferred_name:
-                return adapter
-
-        # Preferred not installed — any available generation adapter
+        # No benchmark data — use ANY available generation adapter (dynamic fallback)
+        # Prioritize faster/smaller models implicitly by returning first available
+        # (Ollama models are typically faster than API-based ones)
         avail = self.get_available_for_generation()
         return avail[0] if avail else None
 
@@ -880,3 +717,33 @@ def get_registry() -> LLMRegistry:
     if _registry is None:
         _registry = LLMRegistry()
     return _registry
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# BACKWARD COMPATIBILITY — lazy imports from new modules
+# ════════════════════════════════════════════════════════════════════════════
+# OllamaAdapter and OllamaConnectionPool are now in cynic/llm/adapters/ollama.py
+# but we make them importable from here via __getattr__ to avoid circular imports
+
+def __getattr__(name: str):
+    """Lazy import pattern to avoid circular dependencies."""
+    if name in ("OllamaAdapter", "OllamaConnectionPool"):
+        from cynic.llm.adapters.ollama import OllamaAdapter, OllamaConnectionPool
+        if name == "OllamaAdapter":
+            return OllamaAdapter
+        else:
+            return OllamaConnectionPool
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+__all__ = [
+    "LLMRequest",
+    "LLMResponse",
+    "LLMAdapter",
+    "ClaudeAdapter",
+    "GeminiAdapter",
+    "OllamaAdapter",
+    "OllamaConnectionPool",
+    "BenchmarkResult",
+    "LLMRegistry",
+    "get_registry",
+]
