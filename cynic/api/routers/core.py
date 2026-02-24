@@ -301,8 +301,20 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_core.get("/judge/{judgment_id}")
-async def get_judgment_result(judgment_id: str):
-    """Poll for judgment result by ID (Track E event-first API)."""
+async def get_judgment_result(
+    judgment_id: str,
+    timeout_ms: int = Query(default=0, ge=0, description="Max wait in ms. 0=return immediately")
+):
+    """Poll for judgment result by ID (Track E+G: event-first API with resilience).
+
+    Query params:
+      - timeout_ms: Max milliseconds to wait for result (0 = return immediately)
+
+    Returns:
+      - 200 with verdict (if available or failed)
+      - 408 Request Timeout (if timeout_ms exceeded and still PENDING)
+      - 404 Not Found (if judgment_id never seen)
+    """
     # Prefer container.organism.conscious_state (patched in tests)
     from cynic.api.state import container as _container
     conscious_state = None
@@ -313,15 +325,35 @@ async def get_judgment_result(judgment_id: str):
         from cynic.organism.conscious_state import get_conscious_state
         conscious_state = get_conscious_state()
 
-    result = await conscious_state.get_judgment_by_id(judgment_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail="Judgment not found")
+    # Poll with optional timeout
+    start_time = time.time()
+    timeout_s = timeout_ms / 1000.0 if timeout_ms > 0 else 0
 
-    # Handle both real JudgmentSnapshot (dataclass) and dict (from tests/mocks)
-    if hasattr(result, "__dataclass_fields__"):
-        import dataclasses
-        return dataclasses.asdict(result)
-    return result
+    while True:
+        result = await conscious_state.get_judgment_by_id(judgment_id)
+
+        if result is not None:
+            # Got result (PENDING, real verdict, or BARK on failure)
+            if hasattr(result, "__dataclass_fields__"):
+                import dataclasses
+                return dataclasses.asdict(result)
+            return result
+
+        # No result yet
+        if timeout_s > 0:
+            elapsed = time.time() - start_time
+            if elapsed >= timeout_s:
+                # Timeout exceeded, still PENDING
+                raise HTTPException(
+                    status_code=408,
+                    detail=f"Judgment {judgment_id} still PENDING after {timeout_ms}ms",
+                    headers={"Retry-After": "1"}  # Suggest retry in 1 second
+                )
+            # Not timed out yet, wait a bit and retry
+            await asyncio.sleep(min(0.1, timeout_s - elapsed))
+        else:
+            # No timeout, return not found
+            raise HTTPException(status_code=404, detail="Judgment not found")
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -329,8 +361,20 @@ async def get_judgment_result(judgment_id: str):
 # ════════════════════════════════════════════════════════════════════════════
 
 @router_core.get("/perceive/{judgment_id}")
-async def get_perceive_result(judgment_id: str):
-    """Poll for perception result by ID (Track E event-first API)."""
+async def get_perceive_result(
+    judgment_id: str,
+    timeout_ms: int = Query(default=0, ge=0, description="Max wait in ms. 0=return immediately")
+):
+    """Poll for perception result by ID (Track E+G: event-first API with resilience).
+
+    Query params:
+      - timeout_ms: Max milliseconds to wait for result (0 = return immediately)
+
+    Returns:
+      - 200 with verdict (if available or failed)
+      - 408 Request Timeout (if timeout_ms exceeded and still PENDING)
+      - 404 Not Found (if judgment_id never seen)
+    """
     # Prefer container.organism.conscious_state (patched in tests)
     from cynic.api.state import container as _container
     conscious_state = None
@@ -341,15 +385,35 @@ async def get_perceive_result(judgment_id: str):
         from cynic.organism.conscious_state import get_conscious_state
         conscious_state = get_conscious_state()
 
-    result = await conscious_state.get_judgment_by_id(judgment_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail="Judgment not found")
+    # Poll with optional timeout
+    start_time = time.time()
+    timeout_s = timeout_ms / 1000.0 if timeout_ms > 0 else 0
 
-    # Handle both real JudgmentSnapshot (dataclass) and dict (from tests/mocks)
-    if hasattr(result, "__dataclass_fields__"):
-        import dataclasses
-        return dataclasses.asdict(result)
-    return result
+    while True:
+        result = await conscious_state.get_judgment_by_id(judgment_id)
+
+        if result is not None:
+            # Got result (PENDING, real verdict, or BARK on failure)
+            if hasattr(result, "__dataclass_fields__"):
+                import dataclasses
+                return dataclasses.asdict(result)
+            return result
+
+        # No result yet
+        if timeout_s > 0:
+            elapsed = time.time() - start_time
+            if elapsed >= timeout_s:
+                # Timeout exceeded, still PENDING
+                raise HTTPException(
+                    status_code=408,
+                    detail=f"Perception {judgment_id} still PENDING after {timeout_ms}ms",
+                    headers={"Retry-After": "1"}
+                )
+            # Not timed out yet, wait a bit and retry
+            await asyncio.sleep(min(0.1, timeout_s - elapsed))
+        else:
+            # No timeout, return not found
+            raise HTTPException(status_code=404, detail="Perception not found")
 
 
 # ════════════════════════════════════════════════════════════════════════════

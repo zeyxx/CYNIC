@@ -13,6 +13,7 @@ Pattern:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Optional
 
@@ -21,11 +22,15 @@ from cynic.api.handlers.services import KernelServices
 from cynic.core.event_bus import Event, CoreEvent, get_core_bus
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.exceptions import CynicError
-from cynic.core.events_schema import JudgmentCreatedPayload
+from cynic.core.events_schema import JudgmentCreatedPayload, JudgmentFailedPayload
 from cynic.core.judgment import Cell
 from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
+from cynic.cognition.cortex.circuit_breaker import CircuitBreaker
 
 logger = logging.getLogger(__name__)
+
+# Circuit breaker for orchestrator health (prevents cascade failures)
+_orchestrator_breaker = CircuitBreaker()
 
 
 class JudgmentExecutorHandler(HandlerGroup):
@@ -160,18 +165,51 @@ class JudgmentExecutorHandler(HandlerGroup):
                 budget_usd,
             )
 
-            # Run the orchestrator
-            judgment = await self._orchestrator.run(
-                cell=cell,
-                level=level,
-                budget_usd=budget_usd,
-            )
+            # Check circuit breaker health (prevent cascade failures)
+            if not _orchestrator_breaker.allow():
+                logger.warning(
+                    "JudgmentExecutor: Circuit breaker OPEN (%s state), fast-failing %s",
+                    _orchestrator_breaker.state,
+                    cell.cell_id,
+                )
+                await self._emit_judgment_failed(
+                    judgment_id=event.event_id,
+                    cell_id=cell.cell_id,
+                    reason="circuit_breaker_open",
+                    error_message=f"Orchestrator circuit breaker is {_orchestrator_breaker.state}",
+                )
+                return
 
-            logger.info(
-                "JudgmentExecutor: Judgment complete (verdict=%s, Q=%.1f)",
-                judgment.verdict,
-                judgment.q_score,
-            )
+            # Run the orchestrator with timeout (30s max)
+            try:
+                judgment = await asyncio.wait_for(
+                    self._orchestrator.run(
+                        cell=cell,
+                        level=level,
+                        budget_usd=budget_usd,
+                    ),
+                    timeout=30.0,
+                )
+                logger.info(
+                    "JudgmentExecutor: Judgment complete (verdict=%s, Q=%.1f)",
+                    judgment.verdict,
+                    judgment.q_score,
+                )
+                # Record success for circuit breaker
+                _orchestrator_breaker.record_success()
+            except asyncio.TimeoutError:
+                logger.error(
+                    "JudgmentExecutor: Timeout on %s (exceeded 30s)",
+                    cell.cell_id,
+                )
+                _orchestrator_breaker.record_failure()
+                await self._emit_judgment_failed(
+                    judgment_id=event.event_id,
+                    cell_id=cell.cell_id,
+                    reason="orchestrator_timeout",
+                    error_message="Judgment execution exceeded 30s timeout",
+                )
+                return
 
             # Emit JUDGMENT_CREATED so ConsciousState picks it up
             judgment_payload = JudgmentCreatedPayload(
@@ -201,19 +239,67 @@ class JudgmentExecutorHandler(HandlerGroup):
 
         except CynicError as e:
             logger.error(
-                "JudgmentExecutor failed on %s: %s",
+                "JudgmentExecutor Cynic error on %s: %s",
                 event.event_id,
                 e,
                 exc_info=True,
             )
-            # Emit error event so system can track failures
-            try:
-                await get_core_bus().emit(
-                    Event.typed(
-                        CoreEvent.JUDGMENT_FAILED,
-                        {"judgment_id": event.event_id, "error": str(e)},
-                        source="judgment_executor",
-                    )
+            _orchestrator_breaker.record_failure()
+            await self._emit_judgment_failed(
+                judgment_id=event.event_id,
+                cell_id=payload.get("cell_id", ""),
+                reason="cynic_error",
+                error_message=str(e),
+            )
+        except Exception as e:
+            logger.error(
+                "JudgmentExecutor unexpected error on %s: %s",
+                event.event_id,
+                e,
+                exc_info=True,
+            )
+            _orchestrator_breaker.record_failure()
+            await self._emit_judgment_failed(
+                judgment_id=event.event_id,
+                cell_id=payload.get("cell_id", ""),
+                reason="exception",
+                error_message=f"{type(e).__name__}: {e}",
+            )
+
+    async def _emit_judgment_failed(
+        self,
+        judgment_id: str,
+        cell_id: str,
+        reason: str,
+        error_message: str,
+    ) -> None:
+        """Emit JUDGMENT_FAILED event and update ConsciousState."""
+        try:
+            await get_core_bus().emit(
+                Event.typed(
+                    CoreEvent.JUDGMENT_FAILED,
+                    JudgmentFailedPayload(
+                        judgment_id=judgment_id,
+                        cell_id=cell_id,
+                        error=error_message,
+                        circuit_state="",
+                        failure_count=0,
+                    ),
+                    source="judgment_executor",
                 )
-            except CynicError:
-                logger.error("Failed to emit JUDGMENT_FAILED event")
+            )
+            logger.debug(
+                "Emitted JUDGMENT_FAILED for %s (reason=%s)",
+                cell_id,
+                reason,
+            )
+
+            # Also update ConsciousState to reflect BARK (failure verdict)
+            try:
+                from cynic.organism.conscious_state import get_conscious_state
+                await get_conscious_state().record_judgment_failed(judgment_id, reason)
+            except Exception as e:
+                logger.debug("Could not record failure in ConsciousState: %s", e)
+
+        except Exception as e:
+            logger.error("Failed to emit JUDGMENT_FAILED: %s", e, exc_info=True)

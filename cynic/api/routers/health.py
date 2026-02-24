@@ -124,3 +124,55 @@ async def stats(container: AppContainer = Depends(get_app_container)) -> StatsRe
         consciousness=get_consciousness().to_dict(),
         compressor=state.context_compressor.stats(),
     )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /health/events (Track G: Event pipeline metrics)
+# ════════════════════════════════════════════════════════════════════════════
+
+@router_health.get("/health/events")
+async def health_events(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
+    """Event handler pipeline health + metrics (Track G resilience).
+
+    Returns:
+        - status: "alive" or "degraded"
+        - event_handlers: Handler group counts
+        - judgment_pipeline: Pending/completed judgment counts
+        - timestamp: Response timestamp
+    """
+    try:
+        state = container.organism
+
+        # Collect handler stats
+        handler_stats = state._handler_registry.introspect()
+
+        # Get conscious state metrics
+        conscious_state = state.conscious_state
+        recent_judgments = getattr(conscious_state, "_recent_judgments", [])
+
+        pending_count = sum(1 for j in recent_judgments if j.verdict == "PENDING")
+        completed_count = sum(1 for j in recent_judgments if j.verdict != "PENDING")
+        failed_count = sum(1 for j in recent_judgments if j.verdict == "BARK")
+
+        return {
+            "status": "alive",
+            "event_handlers": {
+                "total_groups": handler_stats.get("total_handlers", 0),
+                "total_handlers": handler_stats.get("total_deps", 0),
+                "groups": handler_stats.get("groups", []),
+            },
+            "judgment_pipeline": {
+                "pending_judgments": pending_count,
+                "completed_judgments": completed_count,
+                "failed_judgments": failed_count,
+                "total_capacity": 89,  # F(11) = 89 recent judgments
+            },
+            "timestamp": time.time(),
+        }
+    except Exception as e:
+        logger.error("Error in /health/events: %s", e, exc_info=True)
+        return {
+            "status": "degraded",
+            "message": str(e),
+            "timestamp": time.time(),
+        }

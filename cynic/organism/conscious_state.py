@@ -146,6 +146,7 @@ class ConsciousState:
         # Subscribe to CORE bus events (use CoreEvent enum for correct string values)
         from cynic.core.event_bus import CoreEvent
         core_bus.on(CoreEvent.JUDGMENT_CREATED, self._on_judgment_created)
+        core_bus.on(CoreEvent.JUDGMENT_FAILED, self._on_judgment_failed)  # Track G: resilience
         core_bus.on(CoreEvent.CONSCIOUSNESS_CHANGED, self._on_consciousness_level_changed)
         core_bus.on(CoreEvent.AXIOM_ACTIVATED, self._on_axiom_activated)
         # Note: DOG_ACTIVITY and ERROR are not yet defined in CoreEvent enum
@@ -234,6 +235,22 @@ class ConsciousState:
 
             self._judgment_count += 1
             self._last_update = datetime.now().timestamp()
+
+    async def _on_judgment_failed(self, event):
+        """Handle judgment failure (Track G: resilience).
+
+        Called when handler emits JUDGMENT_FAILED event (timeout, exception, etc).
+        Updates verdict to BARK so polling clients don't wait forever.
+        """
+        payload = event.payload if hasattr(event, 'payload') else event
+        logger.warning("[ConsciousState] Received JUDGMENT_FAILED event: %s",
+                      event.event_id if hasattr(event, 'event_id') else "unknown")
+
+        judgment_id = payload.get("judgment_id", "")
+        reason = payload.get("error", "unknown")
+
+        if judgment_id:
+            await self.record_judgment_failed(judgment_id, reason)
 
     async def _on_consciousness_level_changed(self, event):
         """Update consciousness tier (REFLEX → MICRO → MACRO → META)."""
@@ -414,6 +431,46 @@ class ConsciousState:
                 confidence=0.0,
                 dog_votes={},
                 source="api",
+            )
+            self._recent_judgments.append(snapshot)
+            if len(self._recent_judgments) > 89:
+                self._recent_judgments.pop(0)
+            return snapshot
+
+    async def record_judgment_failed(
+        self, judgment_id: str, reason: str
+    ) -> JudgmentSnapshot:
+        """Record that a judgment failed (Track G: resilience).
+
+        Called when JUDGMENT_FAILED event is emitted by handler.
+        Updates verdict to BARK (failure) so polling clients don't wait forever.
+        """
+        async with self._state_lock:
+            # Find and update existing PENDING snapshot, or create new one
+            for i, snapshot in enumerate(self._recent_judgments):
+                if snapshot.judgment_id == judgment_id:
+                    # Update existing
+                    failed_snapshot = JudgmentSnapshot(
+                        judgment_id=judgment_id,
+                        timestamp=datetime.now().timestamp(),
+                        q_score=0.0,
+                        verdict="BARK",  # Failure = BARK
+                        confidence=0.0,
+                        dog_votes={},
+                        source=f"FAILED:{reason}",
+                    )
+                    self._recent_judgments[i] = failed_snapshot
+                    return failed_snapshot
+
+            # Create new failed snapshot
+            snapshot = JudgmentSnapshot(
+                judgment_id=judgment_id,
+                timestamp=datetime.now().timestamp(),
+                q_score=0.0,
+                verdict="BARK",
+                confidence=0.0,
+                dog_votes={},
+                source=f"FAILED:{reason}",
             )
             self._recent_judgments.append(snapshot)
             if len(self._recent_judgments) > 89:
