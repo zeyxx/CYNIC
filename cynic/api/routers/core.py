@@ -165,6 +165,7 @@ async def judge(req: JudgeRequest) -> JudgeResponse:
                 level=req.level or "",
                 cell=cell.model_dump(),
                 source="api:judge",
+                judgment_id=judgment_id,
             ),
             source="api:judge",
         ))
@@ -272,6 +273,7 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
                 level=req.level or "",
                 cell=cell.model_dump(),
                 source="api:perceive",
+                judgment_id=judgment_id,
             ),
             source="api:perceive",
         ))

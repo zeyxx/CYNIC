@@ -86,6 +86,9 @@ class JudgmentExecutorHandler(HandlerGroup):
             logger.debug("[HANDLER] JudgmentExecutor received JUDGMENT_REQUESTED: %s", event.event_id)
             payload = event.payload or {}
 
+            # Extract judgment_id from payload (thread it through the pipeline to match PENDING entry)
+            judgment_id = payload.get("judgment_id") or event.event_id  # fallback for safety
+
             # Try to extract cell from payload (v2 format with full cell data)
             cell_dict = payload.get("cell", {})
             cell = None
@@ -173,7 +176,7 @@ class JudgmentExecutorHandler(HandlerGroup):
                     cell.cell_id,
                 )
                 await self._emit_judgment_failed(
-                    judgment_id=event.event_id,
+                    judgment_id=judgment_id,
                     cell_id=cell.cell_id,
                     reason="circuit_breaker_open",
                     error_message=f"Orchestrator circuit breaker is {_orchestrator_breaker.state}",
@@ -197,6 +200,13 @@ class JudgmentExecutorHandler(HandlerGroup):
                 )
                 # Record success for circuit breaker
                 _orchestrator_breaker.record_success()
+
+                # Write guidance so JS hooks get async verdict
+                try:
+                    from cynic.api.routers.core import _write_guidance
+                    _write_guidance(cell, judgment)
+                except Exception:
+                    pass  # best-effort
             except asyncio.TimeoutError:
                 logger.error(
                     "JudgmentExecutor: Timeout on %s (exceeded 30s)",
@@ -204,7 +214,7 @@ class JudgmentExecutorHandler(HandlerGroup):
                 )
                 _orchestrator_breaker.record_failure()
                 await self._emit_judgment_failed(
-                    judgment_id=event.event_id,
+                    judgment_id=judgment_id,
                     cell_id=cell.cell_id,
                     reason="orchestrator_timeout",
                     error_message="Judgment execution exceeded 30s timeout",
@@ -213,7 +223,7 @@ class JudgmentExecutorHandler(HandlerGroup):
 
             # Emit JUDGMENT_CREATED so ConsciousState picks it up
             judgment_payload = JudgmentCreatedPayload(
-                judgment_id=event.event_id,  # Use request event ID as judgment ID
+                judgment_id=judgment_id,  # Use the judgment_id from payload (same UUID registered as PENDING)
                 verdict=judgment.verdict,
                 q_score=judgment.q_score,
                 confidence=judgment.confidence,
@@ -246,7 +256,7 @@ class JudgmentExecutorHandler(HandlerGroup):
             )
             _orchestrator_breaker.record_failure()
             await self._emit_judgment_failed(
-                judgment_id=event.event_id,
+                judgment_id=judgment_id,
                 cell_id=payload.get("cell_id", ""),
                 reason="cynic_error",
                 error_message=str(e),
@@ -260,7 +270,7 @@ class JudgmentExecutorHandler(HandlerGroup):
             )
             _orchestrator_breaker.record_failure()
             await self._emit_judgment_failed(
-                judgment_id=event.event_id,
+                judgment_id=judgment_id,
                 cell_id=payload.get("cell_id", ""),
                 reason="exception",
                 error_message=f"{type(e).__name__}: {e}",

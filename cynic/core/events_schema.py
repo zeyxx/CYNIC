@@ -74,6 +74,7 @@ class JudgmentRequestedPayload(BaseModel):
     level:   str = ""     # REFLEX|MICRO|MACRO
     cell:    dict = Field(default_factory=dict)   # full Cell dict for JudgmentExecutorHandler
     source:  str = ""                              # "api:judge" | "api:perceive"
+    judgment_id: str = ""   # UUID from POST /judge or POST /perceive, so executor matches PENDING entry
 
 
 class JudgmentFailedPayload(BaseModel):
@@ -84,6 +85,7 @@ class JudgmentFailedPayload(BaseModel):
     error:         str = ""
     circuit_state: str = ""      # CircuitState value (only set on circuit breaker path)
     failure_count: int = 0       # consecutive failures (only set on circuit breaker path)
+    judgment_id:   str = ""      # UUID from POST /judge, so polling updates reflect failure
 
 
 class ConsensusReachedPayload(BaseModel):
