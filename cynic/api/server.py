@@ -348,9 +348,11 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("MCPBridge: not available (old AppState path — skipping)")
 
-    # DISABLED: Scheduler was consuming 92.55% CPU, blocking HTTP handlers
+    # Phase 1 Implementation: Rate limiting added to scheduler
+    # Backoff logic implemented but requires orchestrator timing fix before re-enabling
+    # See: scheduler.py _get_backoff_ms() method
     # state.scheduler.start()
-    logger.warning("⚠️  Scheduler DISABLED (CPU exhaustion fix) — consciousness cycles paused")
+    logger.warning("⚠️  Scheduler disabled (awaiting orchestrator timing fix) — Phase 1 backoff implemented")
 
     # ── AutoBenchmark — periodic LLM probe every 55 min (T09) ────────────
     from cynic.metabolism.auto_benchmark import AutoBenchmark

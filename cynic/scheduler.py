@@ -369,6 +369,8 @@ class ConsciousnessRhythm:
 
         Multiple workers share the REFLEX queue. On BARK/GROWL verdict,
         fires interrupt_micro() to wake MICRO workers immediately.
+
+        Rate limiting: When queue empty, sleeps adaptively to prevent busy-waiting.
         """
         timer = self._consciousness.timers.get(ConsciousnessLevel.REFLEX.name)
         timeout_s = ConsciousnessLevel.REFLEX.target_ms / 1000.0
@@ -376,6 +378,10 @@ class ConsciousnessRhythm:
         while self._running:
             event = await self._drain_one(ConsciousnessLevel.REFLEX, timeout=timeout_s)
             if event is None:
+                # Queue empty: sleep to prevent CPU thrashing
+                backoff_ms = self._get_backoff_ms(ConsciousnessLevel.REFLEX)
+                if backoff_ms > 0:
+                    await asyncio.sleep(backoff_ms / 1000.0)
                 continue
 
             t0 = time.perf_counter()
@@ -404,6 +410,8 @@ class ConsciousnessRhythm:
 
         Multiple workers share the MICRO queue.
         Worker 0 also responds to REFLEX interrupts (woken by asyncio.Event).
+
+        Rate limiting: When queue empty, sleeps adaptively to prevent CPU thrashing.
         """
         timer = self._consciousness.timers.get(ConsciousnessLevel.MICRO.name)
         timeout_s = ConsciousnessLevel.MICRO.target_ms / 1000.0
@@ -416,6 +424,10 @@ class ConsciousnessRhythm:
 
             event = await self._drain_one(ConsciousnessLevel.MICRO, timeout=timeout_s)
             if event is None:
+                # Queue empty: sleep to prevent CPU thrashing
+                backoff_ms = self._get_backoff_ms(ConsciousnessLevel.MICRO)
+                if backoff_ms > 0:
+                    await asyncio.sleep(backoff_ms / 1000.0)
                 continue
 
             t0 = time.perf_counter()
@@ -443,6 +455,8 @@ class ConsciousnessRhythm:
 
         Multiple workers share the MACRO queue (limited by Ollama capacity).
         Each MACRO call runs 11 Dogs in parallel, SageDog runs 7 Ollama calls.
+
+        Rate limiting: When queue empty, sleeps adaptively to prevent CPU thrashing.
         """
         timer = self._consciousness.timers.get(ConsciousnessLevel.MACRO.name)
         timeout_s = ConsciousnessLevel.MACRO.target_ms / 1000.0
@@ -450,6 +464,10 @@ class ConsciousnessRhythm:
         while self._running:
             event = await self._drain_one(ConsciousnessLevel.MACRO, timeout=timeout_s)
             if event is None:
+                # Queue empty: sleep to prevent CPU thrashing
+                backoff_ms = self._get_backoff_ms(ConsciousnessLevel.MACRO)
+                if backoff_ms > 0:
+                    await asyncio.sleep(backoff_ms / 1000.0)
                 continue
 
             t0 = time.perf_counter()
@@ -476,6 +494,8 @@ class ConsciousnessRhythm:
         L4 META — every ~4h (F(13) × 60s ≈ 233 min).
 
         Single worker. Drains META queue or runs periodic evolution tick.
+
+        Rate limiting: When queue empty, sleeps adaptively to prevent CPU thrashing.
         """
         timer = self._consciousness.timers.get(ConsciousnessLevel.META.name)
         timeout_s = ConsciousnessLevel.META.target_ms / 1000.0
@@ -485,6 +505,13 @@ class ConsciousnessRhythm:
 
             if not self._running:
                 break
+
+            # If queue empty and no event, sleep to prevent CPU thrashing
+            if event is None:
+                backoff_ms = self._get_backoff_ms(ConsciousnessLevel.META)
+                if backoff_ms > 0:
+                    await asyncio.sleep(backoff_ms / 1000.0)
+                    continue
 
             t0 = time.perf_counter()
             try:
@@ -541,6 +568,44 @@ class ConsciousnessRhythm:
             logger.info("META evolution completed")
         else:
             logger.debug("META evolution: orchestrator has no evolve() hook")
+
+    def _get_backoff_ms(self, level: ConsciousnessLevel) -> float:
+        """
+        Adaptive sleep backoff based on queue depth.
+
+        Prevents busy-waiting when queue is empty by sleeping for an interval
+        inversely proportional to queue fill percentage.
+
+        Logic:
+        - Queue empty (0%):     sleep = target_ms / num_workers
+        - Queue 25% full:       sleep = target_ms / 2
+        - Queue 50% full:       sleep = target_ms / 4
+        - Queue 75%+ full:      sleep = 0 (urgent, no backoff)
+
+        This balances responsiveness (low latency when busy) with efficiency
+        (minimal CPU when idle).
+        """
+        queue = self._queues[level]
+        depth = queue.qsize()
+        capacity = _QUEUE_CAPACITY
+        num_workers = _WORKERS_PER_LEVEL[level]
+        target_ms = level.target_ms
+
+        if depth == 0:
+            # Queue empty: sleep for (target_ms / num_workers)
+            # Prevents tight polling loop
+            backoff = target_ms / num_workers
+        elif depth < capacity * 0.25:
+            # Queue 0-25% full: sleep for (target_ms / 2)
+            backoff = target_ms / 2
+        elif depth < capacity * 0.50:
+            # Queue 25-50% full: sleep for (target_ms / 4)
+            backoff = target_ms / 4
+        else:
+            # Queue 50%+ full: no sleep (urgent processing)
+            backoff = 0
+
+        return backoff
 
     @staticmethod
     def _infer_level(budget_usd: float) -> ConsciousnessLevel:
