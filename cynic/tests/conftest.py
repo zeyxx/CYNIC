@@ -5,7 +5,24 @@ import pytest
 import pytest_asyncio
 import asyncio
 import uuid
+from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
+
+
+@pytest.fixture(autouse=True)
+def mock_llm_discovery():
+    """Mock LLM discovery to prevent Ollama timeout hangs in tests.
+
+    Autouse=True: Applies to all tests automatically.
+    Prevents 5-30 second hangs when Ollama isn't running.
+    """
+    from unittest.mock import MagicMock
+    mock_registry = MagicMock()
+    mock_registry.discover = AsyncMock(return_value=[])  # Async method, no LLMs
+    mock_registry.get_available.return_value = []  # Sync method, empty list
+
+    with patch("cynic.llm.adapter.get_registry", return_value=mock_registry):
+        yield
 
 
 @pytest.fixture
