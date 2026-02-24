@@ -160,6 +160,7 @@ class MemoryCore:
     action_proposer: ActionProposer = field(default_factory=ActionProposer)
     self_prober: SelfProber = field(default_factory=SelfProber)
     sona_emitter: Optional[SonaEmitter] = None
+    meta_cognition: Optional[Any] = None  # MetaCognitionHandler
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -220,6 +221,14 @@ class Organism:
     @sona_emitter.setter
     def sona_emitter(self, value: Optional[SonaEmitter]) -> None:
         self.memory.sona_emitter = value
+
+    @property
+    def meta_cognition(self) -> Optional[Any]:
+        return self.memory.meta_cognition
+
+    @meta_cognition.setter
+    def meta_cognition(self, value: Optional[Any]) -> None:
+        self.memory.meta_cognition = value
 
     @property
     def scheduler(self) -> ConsciousnessRhythm:
@@ -434,6 +443,7 @@ class _OrganismAwakener:
         self.axiom_monitor:    Optional[AxiomMonitor] = None
         self.lod_controller:   Optional[LODController] = None
         self.escore_tracker:   Optional[EScoreTracker] = None
+        self.meta_cognition:   Optional[Any] = None  # MetaCognitionHandler
         self.self_prober:      Optional[SelfProber] = None
         self.world_model:      Optional[WorldModelUpdater] = None
         self.compressor:       Optional[ContextCompressor] = None
@@ -539,6 +549,17 @@ class _OrganismAwakener:
         self.axiom_monitor  = AxiomMonitor()
         self.lod_controller = LODController()
         self.escore_tracker = EScoreTracker()
+
+        # ── Meta-Cognition: Adaptive learning from SONA heartbeat ─────────────
+        from cynic.cognition.cortex.handlers.meta_cognition import MetaCognitionHandler
+        self.meta_cognition = MetaCognitionHandler(
+            qtable=self.qtable,
+            learning_loop=self.learning_loop,
+            escore_tracker=self.escore_tracker,
+            bus=get_core_bus(),
+        )
+        self.meta_cognition.start()
+        logger.info("MetaCognitionHandler started — listening to SONA_TICK for organism self-awareness")
 
         # ── Tier 1 Nervous System: Service State Registry ──────────────────
         self.service_registry = ServiceStateRegistry()
@@ -910,6 +931,7 @@ class _OrganismAwakener:
             action_proposer=self.action_proposer,
             self_prober=self.self_prober,
             sona_emitter=self.sona_emitter,
+            meta_cognition=self.meta_cognition,
         )
         # Initialize OrganismState with database pool
         organism_state = OrganismState()
