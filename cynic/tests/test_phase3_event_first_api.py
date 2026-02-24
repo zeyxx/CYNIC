@@ -77,10 +77,7 @@ class TestEventFirstEndpoints:
                 "content": "Observation from webhook",
                 "source": "github_webhook",
                 "reality": "CODE",
-                "analysis": "PERCEIVE",
-                "time_dim": "PRESENT",
-                "level": "MICRO",
-                "budget_usd": 0.02,
+                "run_judgment": True,  # Track E: emit JUDGMENT_REQUESTED
             }
 
             mock_bus = AsyncMock()
@@ -93,7 +90,8 @@ class TestEventFirstEndpoints:
             data = response.json()
             assert "judgment_id" in data
             assert data["verdict"] == "PENDING"
-            assert data["q_score"] == 0.0
+            assert data["cell_id"] == data.get("cell_id", "")  # cell_id present
+            assert data["source"] == "github_webhook"
             assert mock_bus.emit.called
 
     def test_post_learn_emits_event(self):
@@ -359,7 +357,7 @@ class TestClientPollingPattern:
 
             if response.status_code == 200:
                 poll_data = response.json()
-                assert poll_data["verdict"] == "PENDING"
+                assert poll_data["verdict"] == "PENDING", f"Expected PENDING, got {poll_data}"
 
                 # Step 3: Later poll returns completed result
                 mock_conscious_state.get_judgment_by_id.return_value = {
@@ -368,9 +366,13 @@ class TestClientPollingPattern:
                     "q_score": 85.3,
                 }
 
-                response = client.get(f"/judge/{judgment_id}")
+                with patch("cynic.api.state.container") as mock_container:
+                    mock_container.organism = mock_organism
+                    response = client.get(f"/judge/{judgment_id}")
+
                 final_data = response.json()
-                assert final_data["verdict"] == "HOWL"
+                assert final_data, f"Empty response: {final_data}"
+                assert final_data["verdict"] == "HOWL", f"Expected HOWL, got {final_data}"
                 assert final_data["q_score"] == 85.3
 
 

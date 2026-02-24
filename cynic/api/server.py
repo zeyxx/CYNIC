@@ -91,6 +91,12 @@ async def lifespan(app: FastAPI):
     for issue in config.validate():
         logger.warning(issue)
 
+    # ── Test Mode Flag (prevents MCP server/bridge startup) ────────────────
+    # Must be set early so all references use the same value
+    _skip_mcp = os.environ.get("CYNIC_SKIP_MCP_SERVER") == "1"
+    if _skip_mcp:
+        logger.info("Test mode detected: MCP server and bridge will be skipped")
+
     _instance_meta_path = os.path.join(os.path.expanduser("~"), ".cynic", "instance.json")
     try:
         os.makedirs(os.path.dirname(_instance_meta_path), exist_ok=True)
@@ -341,10 +347,13 @@ async def lifespan(app: FastAPI):
     # Start the MCP protocol bridge so tool calls flow into organism events.
     # Guard: old AppState has no .senses; new Organism does.
     _mcp_bridge = getattr(getattr(state, "senses", None), "mcp_bridge", None)
-    if _mcp_bridge is not None:
+    if _mcp_bridge is not None and not _skip_mcp:  # Also skip in test mode
         logger.info("MCPBridge: starting...")
         await _mcp_bridge.startup()
         logger.info("MCPBridge: ready (bus=%s, tools=%d)", _mcp_bridge.bus_name, len(_mcp_bridge.tools))
+    elif _mcp_bridge is not None and _skip_mcp:
+        logger.info("MCPBridge: startup SKIPPED (test mode)")
+        _mcp_bridge = None  # Disable for shutdown too
     else:
         logger.info("MCPBridge: not available (old AppState path — skipping)")
 
@@ -618,13 +627,19 @@ async def lifespan(app: FastAPI):
     def _get_organism():
         container = get_app_container()
         return container.organism if container else None
-    _mcp_server = MCPServer(port=_mcp_server_port, get_state_fn=_get_organism)
-    try:
-        await _mcp_server.start()
-        logger.info("*ears perk* MCP Server listening on port %d (Claude Code bridge)", _mcp_server_port)
-    except httpx.RequestError as _mcp_exc:
-        logger.warning("MCP Server failed to start: %s (Claude Code integration unavailable)", _mcp_exc)
+
+    # Skip MCP server in tests to prevent shutdown hang (Track G fix)
+    if _skip_mcp:
         _mcp_server = None
+        logger.info("MCP Server startup SKIPPED (test mode)")
+    else:
+        _mcp_server = MCPServer(port=_mcp_server_port, get_state_fn=_get_organism)
+        try:
+            await _mcp_server.start()
+            logger.info("*ears perk* MCP Server listening on port %d (Claude Code bridge)", _mcp_server_port)
+        except httpx.RequestError as _mcp_exc:
+            logger.warning("MCP Server failed to start: %s (Claude Code integration unavailable)", _mcp_exc)
+            _mcp_server = None
 
     # ── CYNIC Bootstrap ──────────────────────────────────────────────────────
     # Self-initialization: version structure, migrations, env files

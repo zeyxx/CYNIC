@@ -25,6 +25,23 @@ def mock_llm_discovery():
         yield
 
 
+@pytest.fixture(autouse=True)
+def skip_mcp_server_in_tests():
+    """Skip MCP server startup/shutdown in tests to prevent hang.
+
+    Autouse=True: Applies to all tests automatically.
+    MCP server spawns port 8766 and hangs on teardown between tests.
+    """
+    import os
+    old_env = os.environ.get("CYNIC_SKIP_MCP_SERVER")
+    os.environ["CYNIC_SKIP_MCP_SERVER"] = "1"
+    yield
+    if old_env is None:
+        del os.environ["CYNIC_SKIP_MCP_SERVER"]
+    else:
+        os.environ["CYNIC_SKIP_MCP_SERVER"] = old_env
+
+
 @pytest.fixture
 def test_client() -> TestClient:
     """Create a TestClient with the full CYNIC app.
