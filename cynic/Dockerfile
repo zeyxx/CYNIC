@@ -4,7 +4,7 @@
 
 FROM python:3.13-slim
 
-WORKDIR /app
+WORKDIR /app/cynic
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy pyproject.toml from parent directory
+# Copy pyproject.toml from parent directory (build context is parent)
 COPY ../pyproject.toml .
 
 # Install Python dependencies
@@ -45,7 +45,7 @@ RUN pip install --no-cache-dir \
     "aiohttp>=3.9.0" \
     "docker>=7.0.0"
 
-# Copy source code from parent directory
+# Copy source code from parent directory (cynic/ subdirectory)
 COPY . .
 
 # Create non-root user

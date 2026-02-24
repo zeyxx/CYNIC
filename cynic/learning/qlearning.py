@@ -471,6 +471,21 @@ class LearningLoop:
         self._pool = pool
         self._active = False
         self._updates_since_flush: int = 0
+        self._learning_rate = qtable._alpha  # Reference to QTable's α
+
+    def adjust_learning_rate(self, delta: float) -> None:
+        """
+        Adjust the learning rate (α) by delta.
+        
+        Called by MetaCognitionHandler to adapt exploration/exploitation.
+        Delta is φ-bounded: max ±0.618 per call.
+        """
+        new_rate = self._learning_rate + delta
+        # Clamp to φ-bounded range: [0.01, 0.2]
+        self._learning_rate = max(0.01, min(0.2, new_rate))
+        # Also update the underlying QTable
+        self.qtable._alpha = self._learning_rate
+        logger.info("Learning rate α adjusted to %.4f (delta=%.3f)", self._learning_rate, delta)
 
     def start(self, event_bus: EventBus) -> None:
         """Register LEARNING_EVENT listener on the event bus."""

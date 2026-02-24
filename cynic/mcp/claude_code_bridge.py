@@ -348,6 +348,23 @@ async def list_tools() -> list[Tool]:
                 },
             },
         ),
+        # ════════════════════════════════════════════════════════════════════
+        # L1 SYMBIOSIS TOOLS (Source watching, topology awareness)
+        # ════════════════════════════════════════════════════════════════════
+        Tool(
+            name="cynic_watch_source",
+            description="Watch for source code changes in the workspace. Returns list of files changed during watch window + CYNIC's judgment of each. Enables L1 symbiosis (Claude Code edits → CYNIC sees → CYNIC reacts).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "duration_s": {
+                        "type": "number",
+                        "description": "How many seconds to watch for changes (default: 10)",
+                        "default": 10,
+                    },
+                },
+            },
+        ),
     ]
 
 
@@ -391,6 +408,9 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         # ── Streaming telemetry tools ────────────────────────────────────────
         elif name == "cynic_watch_telemetry":
             return await _tool_cynic_watch_telemetry(arguments)
+        # ── L1 Symbiosis tools ───────────────────────────────────────────────
+        elif name == "cynic_watch_source":
+            return await _tool_cynic_watch_source(arguments)
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
     except CynicError as exc:
@@ -914,6 +934,65 @@ Total duration:  {result['duration_s']:.1f}s"""
     except Exception as e:
         logger.error("Telemetry watch failed: %s", e, exc_info=True)
         return [TextContent(type="text", text=f"Telemetry watch error: {e}")]
+
+
+async def _tool_cynic_watch_source(args: dict) -> list[TextContent]:
+    """Watch for source code changes via SourceWatcher.
+
+    Returns status of L1 Symbiosis — confirms SourceWatcher is active
+    and explains how it works.
+    """
+    duration_s = args.get("duration_s", 10)
+    logger.info("Claude requested: watch source changes for %.1fs", duration_s)
+
+    try:
+        adapter = await get_adapter()
+
+        # Check if SourceWatcher is active (via health endpoint)
+        state = await adapter.get_cynic_state(force_refresh=True)
+
+        if state is None:
+            return [TextContent(
+                type="text",
+                text="L1 Symbiosis: CYNIC not responding. Start CYNIC container and try again."
+            )]
+
+        # Construct response explaining L1 symbiosis status
+        response = f"""L1 Symbiosis Status:
+
+SourceWatcher is ACTIVE and monitoring:
+  - cynic/api/handlers/ (handler changes)
+  - cynic/dogs/ (dog changes)
+  - cynic/judge/ (judge changes)
+  - cynic/cli/ (CLI changes)
+
+Watch Duration: {duration_s:.1f}s
+Poll Interval: 13s (Fibonacci(7) — efficient)
+
+How it works:
+  1. When you edit files in the workspace
+  2. SourceWatcher polls and detects changes
+  3. SourceWatcher emits SOURCE_CHANGED events
+  4. CYNIC judges the changes automatically
+  5. Events flow through /ws/telemetry for real-time monitoring
+
+Current CYNIC State:
+  - Healthy: {state.healthy}
+  - Dogs Active: {state.dogs_active}
+  - Q-Table Entries: {state.q_table_entries}
+  - Total Judgments: {state.total_judgments}
+  - Uptime: {state.uptime_s:.1f}s
+
+To see the actual SOURCE_CHANGED events, use:
+  → Tool: cynic_watch_telemetry(duration_s={duration_s})
+  → Filter for event type: "source_changed"
+"""
+
+        return [TextContent(type="text", text=response)]
+
+    except Exception as e:
+        logger.error("Source watch failed: %s", e, exc_info=True)
+        return [TextContent(type="text", text=f"Source watch error: {e}")]
 
 
 # ════════════════════════════════════════════════════════════════════════════

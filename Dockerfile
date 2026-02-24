@@ -49,7 +49,10 @@ RUN pip install --no-cache-dir \
 COPY . .
 
 # Create non-root user
-RUN useradd -m -u 1000 cynic && chown -R cynic:cynic /app
+RUN useradd -m -u 1000 cynic && \
+    chown -R cynic:cynic /app && \
+    mkdir -p /home/cynic/.cynic && \
+    chown -R cynic:cynic /home/cynic/.cynic
 USER cynic
 
 # Environment variables

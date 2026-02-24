@@ -588,20 +588,17 @@ async def lifespan(app: FastAPI):
     get_core_bus().on(CoreEvent.JUDGMENT_CREATED, _write_consciousness)
     logger.info("consciousness.json writer armed (throttle=%.0fs)", _CONSCIOUSNESS_MIN_INTERVAL_S)
 
-    # ── L0 Real-time Topology System: organism consciousness ──────────────────
-    # NOTE: SourceWatcher and TopologyMirror are not implemented in current AppState.
-    # When these components are added to AppState, uncomment the code below.
-    #
-    # if hasattr(state, 'source_watcher') and state.source_watcher is not None:
-    #     asyncio.create_task(state.source_watcher.watch())
-    # if hasattr(state, 'topology_mirror') and state.topology_mirror is not None:
-    #     asyncio.create_task(state.topology_mirror.continuous_snapshot(
-    #         bus=get_core_bus(),
-    #         kernel_mirror=state.kernel_mirror,
-    #         state=state,
-    #     ))
-    #     logger.info("L0 Topology System: real-time architecture monitoring + mirroring enabled")
-    logger.info("L0 Topology System: deferred (SourceWatcher/TopologyMirror not in AppState)")
+    # ── L1 Symbiosis: Real-time Topology System (SourceWatcher) ──────────────────
+    # When CYNIC_WORKSPACE_PATH is set, activate SourceWatcher to monitor for
+    # file changes. This enables L1 symbiosis: Claude Code edits → CYNIC sees → CYNIC reacts.
+    _workspace_path = os.environ.get("CYNIC_WORKSPACE_PATH")
+    if _workspace_path and os.path.isdir(_workspace_path):
+        from cynic.core.topology.file_watcher import SourceWatcher
+        _watcher = SourceWatcher()
+        asyncio.create_task(_watcher.watch())
+        logger.info("*ears perk* L1 Symbiosis: SourceWatcher activated (watching %s)", _workspace_path)
+    else:
+        logger.info("L1 Symbiosis: SourceWatcher skipped (CYNIC_WORKSPACE_PATH not set or invalid)")
 
     llm_count = len(registry.get_available())
     logger.info(
