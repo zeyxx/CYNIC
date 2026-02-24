@@ -32,6 +32,7 @@ class JudgmentPipeline:
     final_judgment: Optional[Judgment] = None
     action_executed: bool = False
     action_result: Optional[dict] = None
+    learning_applied: bool = False  # Track C: whether learning signal was injected
 
     # Costs
     total_cost_usd: float = 0.0

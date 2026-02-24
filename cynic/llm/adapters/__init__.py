@@ -6,11 +6,13 @@ Exports:
   - OllamaAdapter: Local model inference via ollama
   - ClaudeAdapter: Anthropic Claude API
   - GeminiAdapter: Google Generative AI
+  - DeterministicLLMAdapter: Test adapter for Track C empirical testing
   - LLMRequest/LLMResponse: Unified message format
   - BenchmarkResult: Performance metrics
 """
 from cynic.llm.adapters.interface import LLMAdapterInterface
 from cynic.llm.adapters.ollama import OllamaAdapter, OllamaConnectionPool
+from cynic.llm.adapters.test_adapter import DeterministicLLMAdapter
 from cynic.llm.adapter import (
     LLMRequest,
     LLMResponse,
@@ -25,6 +27,7 @@ __all__ = [
     "LLMAdapterInterface",
     "OllamaAdapter",
     "OllamaConnectionPool",
+    "DeterministicLLMAdapter",
     "ClaudeAdapter",
     "GeminiAdapter",
     "LLMRequest",

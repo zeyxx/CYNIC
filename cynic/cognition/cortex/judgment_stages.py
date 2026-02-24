@@ -269,6 +269,50 @@ class LearnStage(JudgmentStage):
         return pipeline
 
 
+class EmpiricalLearnStage(JudgmentStage):
+    """STEP 5: LEARN (empirical) — Directly inject Q-table learning signal.
+
+    Used by Track C to test learning pipeline without waiting for orchestrator.run().
+    Injects LearningSignal directly into orchestrator.qtable.
+
+    This is the concrete learning implementation for synthetic testing.
+    """
+
+    async def execute(self, pipeline: JudgmentPipeline) -> JudgmentPipeline:
+        judgment = pipeline.final_judgment
+        if judgment is None:
+            return pipeline
+
+        orch = self.orchestrator
+
+        # Build state key from cell (same format as real orchestrator)
+        # Format: "{reality}:{analysis}:PRESENT:0" (LOD = 0 for MACRO)
+        state_key = f"{judgment.cell.reality}:{judgment.cell.analysis}:PRESENT:0"
+
+        # Construct learning signal
+        from cynic.learning.qlearning import LearningSignal
+        signal = LearningSignal(
+            state_key=state_key,
+            action=judgment.verdict.value,  # "BARK", "GROWL", "WAG", "HOWL"
+            reward=judgment.q_score / MAX_Q_SCORE,  # Normalize to [0, 1]
+            judgment_id=judgment.judgment_id,
+            loop_name="EMPIRICAL",
+        )
+
+        # Update Q-table if available
+        if hasattr(orch, 'qtable') and orch.qtable is not None:
+            orch.qtable.update(signal)
+            pipeline.learning_applied = True
+            logger.debug(
+                "EmpiricalLearnStage: Q-table updated (state=%s, action=%s, reward=%.3f)",
+                state_key, signal.action, signal.reward,
+            )
+        else:
+            logger.warning("EmpiricalLearnStage: orchestrator has no qtable")
+
+        return pipeline
+
+
 class AccountStage(JudgmentStage):
     """STEP 6: ACCOUNT — Record cost, E-Score update.
 
