@@ -20,6 +20,7 @@ from cynic.core.judgment import Cell, Judgment
 from cynic.core.consciousness import ConsciousnessLevel, dogs_for_level
 from cynic.core.phi import phi_bound_score, PHI_INV_2, MAX_CONFIDENCE, MAX_Q_SCORE
 from cynic.core.axioms import verdict_from_q_score
+from cynic.core.exceptions import CynicError
 
 if TYPE_CHECKING:
     from cynic.cognition.cortex.orchestrator import JudgmentPipeline
@@ -126,7 +127,7 @@ class ReflexCycleHandler(BaseHandler):
                 duration_ms=duration_ms,
                 metadata={"cell_id": cell.cell_id, "level": "REFLEX", "verdict": verdict.value},
             )
-        except EventBusError as e:
+        except CynicError as e:
             duration_ms = (time.perf_counter() - t0) * 1000
             self._log_error("execute_reflex", e)
             return HandlerResult(

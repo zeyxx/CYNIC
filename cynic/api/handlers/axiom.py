@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from cynic.core.event_bus import Event, CoreEvent, get_core_bus
+from cynic.core.event_bus import Event, CoreEvent, get_core_bus, EventBusError
 from cynic.core.events_schema import TranscendencePayload
 from cynic.core.phi import MAX_Q_SCORE, PHI_INV, PHI_INV_2, HOWL_MIN, WAG_MIN, GROWL_MIN
 

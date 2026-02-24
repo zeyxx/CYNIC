@@ -56,7 +56,7 @@ services:
   # ═══════════════════════════════════════════════════════════════════════
   # CYNIC Python Kernel — FastAPI
   # Connects to postgres + ollama
-  # Ports: 8765 (API), 8766 (MCP)
+  # Ports: 8765 (API), 8766 (MCP HTTP)
   # ═══════════════════════════════════════════════════════════════════════
   cynic:
     build:
@@ -68,17 +68,17 @@ services:
     environment:
       # Database
       CYNIC_DATABASE_URL: postgresql://${POSTGRES_USER:-cynic}:${POSTGRES_PASSWORD:-cynic_dev}@postgres:5432/${POSTGRES_DB:-cynic}
-      
+
       # LLM
       OLLAMA_URL: http://ollama:11434
       OLLAMA_NUM_PARALLEL: "4"
-      
+
       # Optional: Claude API (for MACRO cycle reasoning)
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      
+
       # Optional: Gemini API (consensus validation)
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
-      
+
       # Logging
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       PYTHONUNBUFFERED: "1"
@@ -97,6 +97,49 @@ services:
       retries: 5
       start_period: 30s
     restart: unless-stopped
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # CYNIC MCP Server — Stdio for Cline Integration
+  # Runs CYNIC organism with stdio MCP server only
+  # No HTTP ports (stdio via container exec)
+  # Usage: docker-compose up cynic-mcp
+  # ═══════════════════════════════════════════════════════════════════════
+  cynic-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      # Database
+      CYNIC_DATABASE_URL: postgresql://${POSTGRES_USER:-cynic}:${POSTGRES_PASSWORD:-cynic_dev}@postgres:5432/${POSTGRES_DB:-cynic}
+
+      # LLM
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_NUM_PARALLEL: "4"
+
+      # Optional: Claude API
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+      # Optional: Gemini API
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+
+      # MCP mode: stdio only (no HTTP)
+      CYNIC_MCP_STDIO_ONLY: "1"
+
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      # Persist results from empirical tests
+      - cynic_data:/home/cynic/.cynic
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    # No healthcheck for stdio server (no HTTP endpoints)
+    restart: unless-stopped
+    # MCP runs via stdin/stdout (not exposed as port)
+    # Use: docker exec -i cynic-mcp python -m cynic.mcp
 
 volumes:
   postgres_data:

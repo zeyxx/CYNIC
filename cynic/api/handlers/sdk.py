@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import logging
+
+import httpx
 from typing import TYPE_CHECKING
 
-from cynic.core.event_bus import Event, CoreEvent
+from cynic.core.event_bus import Event, CoreEvent, EventBusError
 from cynic.core.phi import MAX_Q_SCORE
 
 from cynic.api.handlers.base import HandlerGroup, KernelServices

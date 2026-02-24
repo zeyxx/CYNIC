@@ -202,16 +202,17 @@ async def get_status(
     """
     Get overall orchestration status.
     """
-    last_build = docker.last_build()
-    last_deploy = docker.last_deploy()
+    # Get last build/deploy from internal state
+    last_build = docker._last_build
+    last_deploy = docker._last_deploy
 
-    # Get real container status from Docker
-    stack_status = await docker.get_status()
-    containers = stack_status.containers
+    # Get container health status
+    health_results = await docker.health_check()
+    health_dict = {h.service: h.status for h in health_results}
 
-    kernel_running = containers.get("cynic-kernel", ContainerStatus(name="cynic-kernel", image="", status="unknown")).status == "running"
-    postgres_running = containers.get("cynic-surrealdb", ContainerStatus(name="cynic-surrealdb", image="", status="unknown")).status == "running"
-    ollama_running = containers.get("cynic-ollama", ContainerStatus(name="cynic-ollama", image="", status="unknown")).status == "running"
+    kernel_running = "cynic" in health_dict and health_dict["cynic"] == "healthy"
+    postgres_running = "postgres-py" in health_dict and health_dict["postgres-py"] == "healthy"
+    ollama_running = "ollama" in health_dict and health_dict["ollama"] == "healthy"
 
     return OrchestratorStatus(
         kernel_running=kernel_running,

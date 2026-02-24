@@ -18,6 +18,7 @@ from typing import Any, Optional
 from cynic.cognition.cortex.handlers.base import BaseHandler, HandlerResult
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.phi import PHI, PHI_INV, PHI_INV_2
+from cynic.core.event_bus import EventBusError
 
 logger = logging.getLogger("cynic.cognition.cortex.handlers.budget_manager")
 

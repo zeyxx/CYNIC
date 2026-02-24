@@ -1,10 +1,18 @@
 """
 CYNIC MCP — Model Context Protocol bootstrap bridge.
 
-Connects Claude Code ↔ CYNIC organism via three endpoints:
-- /observe  — Get CYNIC state (Component 1 ServiceStateRegistry)
-- /act      — Execute Claude Code actions
-- /learn    — Human feedback for Q-Table learning
+Two implementations:
+1. HTTP MCP Server (aiohttp):
+   - /observe  — Get CYNIC state (Component 1 ServiceStateRegistry)
+   - /act      — Execute Claude Code actions
+   - /learn    — Human feedback for Q-Table learning
+
+2. Stdio MCP Server (for Cline integration):
+   - cynic_run_empirical_test() — Spawn judgment batch tests
+   - cynic_get_job_status() — Poll test progress
+   - cynic_get_results() — Fetch test results
+   - cynic_run_irreducibility_test() — Test axiom necessity
+   - cynic_query_telemetry() — SONA heartbeat metrics
 
 Pure async, Pydantic v2, OpenTelemetry-ready.
 """
@@ -23,8 +31,11 @@ from cynic.mcp.models import (
     FeedbackSignal,
 )
 from cynic.mcp.utils import setup_logging
+from cynic.mcp.empirical_runner import EmpiricalRunner, JobResult
+from cynic.mcp.stdio_server import CynicMCPServer, start_mcp_server
 
 __all__ = [
+    # HTTP MCP
     "MCPServer",
     "run_mcp_server",
     "ObserveRequest",
@@ -39,4 +50,9 @@ __all__ = [
     "ActionProposal",
     "FeedbackSignal",
     "setup_logging",
+    # Stdio MCP
+    "EmpiricalRunner",
+    "JobResult",
+    "CynicMCPServer",
+    "start_mcp_server",
 ]

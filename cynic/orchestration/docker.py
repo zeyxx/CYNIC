@@ -7,6 +7,7 @@ Pure subprocess + JSON state (Docker Desktop API not required).
 from __future__ import annotations
 
 import asyncio
+import httpx
 import json
 import logging
 import re

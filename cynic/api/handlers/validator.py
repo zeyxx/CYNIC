@@ -20,6 +20,8 @@ import pkgutil
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from cynic.core.event_bus import EventBusError
+
 if TYPE_CHECKING:
     from cynic.api.handlers.base import HandlerGroup
     from cynic.core.event_bus import CoreEvent

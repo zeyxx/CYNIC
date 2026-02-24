@@ -13,7 +13,7 @@ Each can grow independently. Each has focused, domain-specific methods.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from cynic.core.event_bus import Event, CoreEvent, get_core_bus
 from cynic.core.escore import EScoreTracker
@@ -177,6 +177,30 @@ class KernelServices:
     cognition: CognitionServices
     metabolic: MetabolicServices
     senses: SensoryServices
+
+    # Backward compatibility: expose escore_tracker at top level for handlers
+    @property
+    def escore_tracker(self) -> EScoreTracker:
+        """Backward compatibility: escore_tracker nested in cognition."""
+        return self.cognition.escore_tracker
+
+    # Backward compatibility: expose axiom_monitor at top level for handlers
+    @property
+    def axiom_monitor(self) -> AxiomMonitor:
+        """Backward compatibility: axiom_monitor nested in cognition."""
+        return self.cognition.axiom_monitor
+
+    # Backward compatibility: expose lod_controller at top level for handlers
+    @property
+    def lod_controller(self) -> LODController:
+        """Backward compatibility: lod_controller nested in cognition."""
+        return self.cognition.lod_controller
+
+    # Backward compatibility: expose health_cache at top level for handlers
+    @property
+    def health_cache(self) -> dict[str, float]:
+        """Backward compatibility: health_cache nested in cognition."""
+        return self.cognition.health_cache
 
     # Backward compatibility: forward axiom operations to cognition
     async def signal_axiom(self, axiom: str, source: str, **extra: Any) -> str:

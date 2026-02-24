@@ -35,6 +35,12 @@ import aiohttp
 from mcp.server import Server
 from mcp.types import Tool, TextContent
 
+
+# Exception types
+class CynicError(Exception):
+    """Base exception for CYNIC-related errors."""
+    pass
+
 logging.basicConfig(
     level=logging.DEBUG,
     format="[%(levelname)s] %(name)s: %(message)s",
@@ -589,7 +595,7 @@ async def main():
         health = await _call_cynic("health", {})
         kernel_status = health.get("health", {}).get("cynic-kernel", {}).get("status", "unknown")
         logger.info("CYNIC Kernel status: %s", kernel_status)
-    except httpx.RequestError as exc:
+    except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
         logger.warning("Could not reach CYNIC at %s (it may not be running yet): %s", CYNIC_HTTP_BASE, exc)
 
     logger.info("MCP Server ready. Listening on stdio for Claude Code...")
@@ -638,20 +644,20 @@ async def main():
                         tool_name = message.get("params", {}).get("name")
                         tool_args = message.get("params", {}).get("arguments", {})
 
-                        # Find and invoke the tool handler
-                        handler_name = f"call_{tool_name}"
-                        if hasattr(server, handler_name):
-                            result = await getattr(server, handler_name)(**tool_args)
+                        try:
+                            # Route to call_tool handler (the MCP dispatcher)
+                            result = await call_tool(tool_name, tool_args)
                             response = {
                                 "jsonrpc": "2.0",
                                 "id": msg_id,
-                                "result": result
+                                "result": [{"type": "text", "text": r.text} for r in result]
                             }
-                        else:
+                        except Exception as e:
+                            logger.exception(f"Tool call failed: {tool_name}")
                             response = {
                                 "jsonrpc": "2.0",
                                 "id": msg_id,
-                                "error": {"code": -32601, "message": f"Tool {tool_name} not found"}
+                                "error": {"code": -32603, "message": str(e)}
                             }
 
                     else:
@@ -676,8 +682,7 @@ async def main():
     else:
         # Unix/Linux: Use standard MCP stdio server
         logger.info("Unix/Linux: Using standard MCP stdio transport...")
-        async with aiohttp.ClientSession() as session:
-            await server.run(sys.stdin.buffer, sys.stdout.buffer, sys.stderr)
+        await server.run(sys.stdin.buffer, sys.stdout.buffer, sys.stderr)
 
 
 if __name__ == "__main__":

@@ -20,7 +20,8 @@ from typing import Any, Optional, TYPE_CHECKING
 from cynic.cognition.cortex.handlers.base import BaseHandler, HandlerResult
 from cynic.cognition.cortex.decision_validator import BlockedDecision
 from cynic.core.judgment import Judgment
-from cynic.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.core.event_bus import get_core_bus, Event, CoreEvent, EventBusError
+from cynic.core.exceptions import CynicError
 from cynic.core.events_schema import DecisionMadePayload, ActCompletedPayload
 
 if TYPE_CHECKING:

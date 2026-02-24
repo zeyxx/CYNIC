@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from cynic.core.event_bus import Event, CoreEvent
+from cynic.core.event_bus import Event, CoreEvent, EventBusError
 
 from cynic.api.handlers.base import HandlerGroup, KernelServices
 

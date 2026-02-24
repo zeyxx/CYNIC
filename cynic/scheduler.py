@@ -48,6 +48,7 @@ from cynic.core.consciousness import (
 )
 from cynic.core.judgment import Cell
 from cynic.core.phi import fibonacci
+import httpx
 
 logger = logging.getLogger("cynic.scheduler")
 

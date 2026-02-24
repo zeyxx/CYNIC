@@ -14,6 +14,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
+from pydantic import ValidationError
 
 from cynic.core.consciousness import get_consciousness
 from cynic.core.phi import PHI, PHI_INV, PHI_INV_2, fibonacci, WAG_MIN
