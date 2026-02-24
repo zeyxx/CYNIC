@@ -11,8 +11,8 @@ processing. It provides:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from .ringbuffer import Ringbuffer
 from .types import LNSPMessage
@@ -52,7 +52,6 @@ class Sensor(ABC):
         pass
 
 
-@dataclass
 class Layer1:
     """Layer 1 manager for raw observation collection.
 
@@ -67,10 +66,6 @@ class Layer1:
         sensors: Dict mapping sensor_id to Sensor instances
         subscribers: List of Layer 2 callbacks to receive observations
     """
-
-    ringbuffer: Ringbuffer[LNSPMessage]
-    sensors: dict[str, Sensor]
-    subscribers: list[Callable[[LNSPMessage], None]]
 
     def __init__(self, capacity: int = 10000) -> None:
         """Initialize Layer1 with ringbuffer capacity.

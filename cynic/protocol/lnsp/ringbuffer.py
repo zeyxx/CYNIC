@@ -6,7 +6,7 @@ natural backpressure for high-frequency sensor streams.
 """
 from __future__ import annotations
 
-from typing import Generic, Optional, TypeVar
+from typing import Generic, TypeVar
 
 T = TypeVar("T")
 
@@ -61,7 +61,7 @@ class Ringbuffer(Generic[T]):
             # Buffer is full, advance read pointer (drop oldest)
             self._read_idx = (self._read_idx + 1) % self.capacity
 
-    def get(self) -> Optional[T]:
+    def get(self) -> T | None:
         """Remove and return oldest item from buffer.
 
         Returns:
@@ -75,7 +75,7 @@ class Ringbuffer(Generic[T]):
         self._count -= 1
         return item
 
-    def peek(self) -> Optional[T]:
+    def peek(self) -> T | None:
         """Return oldest item without removing it.
 
         Returns:
@@ -119,6 +119,6 @@ class Ringbuffer(Generic[T]):
         items: list[T] = []
         while not self.is_empty():
             item = self.get()
-            if item is not None:
-                items.append(item)
+            assert item is not None  # Guaranteed by is_empty() check
+            items.append(item)
         return items

@@ -480,8 +480,7 @@ class TestLayer1Subscription:
 class TestLayer1Overflow:
     """Test ringbuffer overflow behavior."""
 
-    @pytest.mark.asyncio
-    async def test_layer1_ringbuffer_capacity(self):
+    def test_layer1_ringbuffer_capacity(self):
         """Test Layer1 ringbuffer has correct default capacity."""
         layer1 = Layer1()
         stats = layer1.stats()

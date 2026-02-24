@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod +x:*)",
+      "Bash(curl:*)",
+      "Bash(tail:*)",
+      "Bash(cd:*)",
+      "Bash(true:*)",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "Bash(grep:*)",
+      "Bash(head:*)",
+      "Bash(cd /c/Users/zeyxm/Desktop/asdfasdfa/CYNIC-clean && python -m mypy cynic/protocol/lnsp/ --strict 2>&1)",
+      "Bash(cd /c/Users/zeyxm/Desktop/asdfasdfa/CYNIC-clean && python -m ruff check cynic/protocol/lnsp/ 2>&1)",
+      "Bash(cd /c/Users/zeyxm/Desktop/asdfasdfa/CYNIC-clean && mypy --strict cynic/protocol/lnsp/ 2>&1)",
+      "Bash(cd /c/Users/zeyxm/Desktop/asdfasdfa/CYNIC-clean && ruff check cynic/protocol/lnsp/ 2>&1)",
+      "Bash(cd /c/Users/zeyxm/Desktop/asdfasdfa/CYNIC-clean && ruff check cynic/protocol/lnsp/ --fix 2>&1)",
+      "Bash(cd /c/Users/zeyxm/Desktop/asdfasdfa/CYNIC-clean && pytest cynic/tests/protocol/test_lnsp_messages.py -v 2>&1)",
+      "Bash(cd /c/Users/zeyxm/Desktop/asdfasdfa/CYNIC-clean && git add cynic/protocol/lnsp/messages.py cynic/protocol/lnsp/types.py && git commit -m \"$\\(cat <<'EOF'\nstyle\\(lnsp\\): Fix type annotations and import organization\n\n- Add type annotations to route_trace declarations in messages.py \\(4 places\\)\n- Remove unused Optional import from messages.py\n- Remove unused time import from types.py\n- Replace Optional[str] with str | None syntax in types.py \\(3 places\\)\n- Organize imports: future, stdlib \\(alphabetical\\), then typing\n- All tests pass, mypy --strict passes, ruff passes\n\nCo-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>\nEOF\n\\)\" 2>&1)",
+      "Bash(cd /c/Users/zeyxm/Desktop/asdfasdfa/CYNIC-clean && python -m mypy cynic/protocol/lnsp/types.py cynic/protocol/lnsp/messages.py --ignore-missing-imports 2>&1)",
+      "Bash(cd /c/Users/zeyxm/Desktop/asdfasdfa/CYNIC-clean && python -m ruff check cynic/protocol/lnsp/types.py cynic/protocol/lnsp/messages.py 2>&1)"
+    ]
+  }
+}
