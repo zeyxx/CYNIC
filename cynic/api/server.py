@@ -614,7 +614,11 @@ async def lifespan(app: FastAPI):
     # Port is offset from main API port to avoid conflicts
     _mcp_server_port = config.port + 1
     from cynic.mcp import MCPServer
-    _mcp_server = MCPServer(port=_mcp_server_port, get_state_fn=get_app_container)
+    # MCP server expects CynicOrganism, not AppContainer
+    def _get_organism():
+        container = get_app_container()
+        return container.organism if container else None
+    _mcp_server = MCPServer(port=_mcp_server_port, get_state_fn=_get_organism)
     try:
         await _mcp_server.start()
         logger.info("*ears perk* MCP Server listening on port %d (Claude Code bridge)", _mcp_server_port)
