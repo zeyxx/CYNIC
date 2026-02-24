@@ -22,6 +22,8 @@ try:
 except ImportError:
     web = None  # type: ignore[assignment]
 
+from cynic.core.event_bus import get_core_bus, CoreEvent, Event
+from cynic.core.events_schema import UserFeedbackPayload
 from cynic.mcp.models import (
     ObserveRequest, ObserveResponse, ActRequest, ActResponse, LearnRequest, LearnResponse,
     ErrorResponse, ComponentHealthSnapshot, RegistrySnapshot,
@@ -307,6 +309,24 @@ class MCPServer:
 
             # Update Q-Table
             entry = state.qtable.update(learning_signal)
+
+            # Emit USER_FEEDBACK event on CORE bus for learning loops + EScore
+            try:
+                await get_core_bus().emit(Event.typed(
+                    CoreEvent.USER_FEEDBACK,
+                    UserFeedbackPayload(
+                        rating=req.signal.rating,
+                        reward=reward,
+                        sentiment=reward - 0.5,  # [-0.5, 0.5]
+                        state_key=req.signal.judgment_id,
+                        action=req.signal.action if hasattr(req.signal, 'action') else "WAG",
+                        judgment_id=req.signal.judgment_id,
+                        comment=getattr(req.signal, "comment", ""),
+                    ),
+                ))
+            except Exception as event_err:
+                logger.warning("Failed to emit USER_FEEDBACK event: %s", event_err)
+                # Don't fail the whole learn endpoint — continue
 
             from cynic.mcp.models import LearnResult
             result = LearnResult(

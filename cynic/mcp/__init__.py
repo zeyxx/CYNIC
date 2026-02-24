@@ -32,7 +32,15 @@ from cynic.mcp.models import (
 )
 from cynic.mcp.utils import setup_logging
 from cynic.mcp.empirical_runner import EmpiricalRunner, JobResult
-from cynic.mcp.stdio_server import CynicMCPServer, start_mcp_server
+
+# Optional: stdio_server requires 'mcp' package (pip install mcp)
+try:
+    from cynic.mcp.stdio_server import CynicMCPServer, start_mcp_server
+    _HAS_MCP = True
+except ImportError:
+    CynicMCPServer = None  # type: ignore
+    start_mcp_server = None  # type: ignore
+    _HAS_MCP = False
 
 __all__ = [
     # HTTP MCP
@@ -50,7 +58,7 @@ __all__ = [
     "ActionProposal",
     "FeedbackSignal",
     "setup_logging",
-    # Stdio MCP
+    # Stdio MCP (optional)
     "EmpiricalRunner",
     "JobResult",
     "CynicMCPServer",
