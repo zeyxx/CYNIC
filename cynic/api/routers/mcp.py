@@ -15,7 +15,9 @@ This bridges L2 feedback loop: Claude Code ↔ CYNIC observation
 from __future__ import annotations
 
 import logging
+import httpx
 from fastapi import APIRouter, HTTPException, Depends, Query
+from pydantic import ValidationError
 
 from cynic.api.state import get_app_container, AppContainer
 from cynic.mcp.resources import create_mcp_resources

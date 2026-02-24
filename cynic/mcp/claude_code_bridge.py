@@ -18,7 +18,7 @@ Usage:
 
 This will:
 1. Start MCP server on stdio (Claude Code talks to this)
-2. Connect to http://127.0.0.1:7001 (CYNIC MCP HTTP)
+2. Connect to http://127.0.0.1:8765 (CYNIC HTTP API)
 3. Expose tools: ask_cynic, observe_cynic, learn_cynic, discuss
 """
 from __future__ import annotations
@@ -27,6 +27,8 @@ import asyncio
 import json
 import logging
 import sys
+import os
+import subprocess
 from typing import Any
 
 import aiohttp
@@ -58,10 +60,55 @@ logger = logging.getLogger("cynic.mcp.claude_code_bridge")
 _adapter: ClaudeCodeAdapter | None = None
 
 
+async def _ensure_kernel_running(cynic_url: str = "http://127.0.0.1:8765") -> bool:
+    """Try GET /health. If down, start kernel subprocess. Return True if alive."""
+    try:
+        async with aiohttp.ClientSession() as s:
+            async with s.get(f"{cynic_url}/health", timeout=aiohttp.ClientTimeout(total=2)) as r:
+                if r.status == 200:
+                    logger.info("Kernel health check passed")
+                    return True
+    except Exception:
+        pass
+
+    # Kernel is down — try to start it
+    logger.info("Kernel not responding, attempting to start...")
+    repo_root = os.path.join(os.path.dirname(__file__), "..", "..")
+    try:
+        subprocess.Popen(
+            [sys.executable, "-m", "cynic.api.entry", "--port", "8765"],
+            cwd=os.path.abspath(repo_root),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        logger.info("Kernel startup process spawned")
+    except Exception as e:
+        logger.warning(f"Failed to spawn kernel: {e}")
+        return False
+
+    # Poll for up to 8 seconds
+    for attempt in range(16):
+        await asyncio.sleep(0.5)
+        try:
+            async with aiohttp.ClientSession() as s:
+                async with s.get(f"{cynic_url}/health", timeout=aiohttp.ClientTimeout(total=1)) as r:
+                    if r.status == 200:
+                        logger.info("Kernel started successfully after %.1fs", (attempt + 1) * 0.5)
+                        return True
+        except Exception:
+            pass
+
+    logger.warning("Kernel did not start in time — tools will fail gracefully")
+    return False
+
+
 async def get_adapter() -> ClaudeCodeAdapter:
     """Get or create the module-level CYNIC adapter (with context management)."""
     global _adapter
     if _adapter is None:
+        # Ensure kernel is running before creating adapter
+        await _ensure_kernel_running()
+
         _adapter = ClaudeCodeAdapter(cynic_url="http://127.0.0.1:8765", timeout_s=30)
         await _adapter.__aenter__()
         logger.info("CYNIC adapter initialized with HTTP client")
