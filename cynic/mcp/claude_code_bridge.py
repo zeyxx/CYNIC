@@ -331,6 +331,23 @@ async def list_tools() -> list[Tool]:
                 },
             },
         ),
+        # ════════════════════════════════════════════════════════════════════
+        # STREAMING TELEMETRY TOOLS (Real-time monitoring)
+        # ════════════════════════════════════════════════════════════════════
+        Tool(
+            name="cynic_watch_telemetry",
+            description="Watch CYNIC's live telemetry stream. Returns aggregated summary of events (judgments, learning, SONA heartbeats) observed during the watch window. Blocks for duration_s seconds.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "duration_s": {
+                        "type": "number",
+                        "description": "How many seconds to watch (default: 30)",
+                        "default": 30,
+                    },
+                },
+            },
+        ),
     ]
 
 
@@ -371,6 +388,9 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             return await _tool_cynic_test_axiom_irreducibility(arguments)
         elif name == "cynic_query_telemetry":
             return await _tool_cynic_query_telemetry(arguments)
+        # ── Streaming telemetry tools ────────────────────────────────────────
+        elif name == "cynic_watch_telemetry":
+            return await _tool_cynic_watch_telemetry(arguments)
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
     except CynicError as exc:
@@ -860,6 +880,40 @@ Interpretation:
 Status: Organism is {'active' if telemetry.get('total_judgments', 0) > 0 else 'idle'}"""
 
     return [TextContent(type="text", text=response)]
+
+
+async def _tool_cynic_watch_telemetry(args: dict) -> list[TextContent]:
+    """Watch CYNIC telemetry stream and return aggregated summary."""
+    duration_s = args.get("duration_s", 30)
+    logger.info("Claude requested: watch telemetry for %.1fs", duration_s)
+
+    try:
+        adapter = await get_adapter()
+        result = await adapter.stream_telemetry(duration_s=duration_s)
+
+        if "error" in result:
+            return [TextContent(type="text", text=f"Telemetry error: {result['error']}")]
+
+        # Format summary for display
+        response = f"""CYNIC Telemetry Stream (last {result['duration_s']:.1f}s):
+
+Judgments:       {result['judgments_seen']} observed
+  - Avg Q:       {result['avg_q_score']:.1f}
+  - Verdicts:    {result['verdicts']}
+
+Learning:        {result['learning_events_seen']} events
+  - Last rate:   {result['last_learning_rate']:.6f}
+
+Meta-Cycles:     {result['meta_cycles_seen']} ticks
+SONA Ticks:      {result['sona_ticks_seen']} heartbeats
+
+Total duration:  {result['duration_s']:.1f}s"""
+
+        return [TextContent(type="text", text=response)]
+
+    except Exception as e:
+        logger.error("Telemetry watch failed: %s", e, exc_info=True)
+        return [TextContent(type="text", text=f"Telemetry watch error: {e}")]
 
 
 # ════════════════════════════════════════════════════════════════════════════
