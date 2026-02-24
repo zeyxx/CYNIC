@@ -114,12 +114,13 @@ class AppContainer:
 
 # Process-level singleton — set during lifespan startup
 _app_container: Optional[AppContainer] = None
+container: Optional[AppContainer] = None   # Public alias — patched by tests
 
 
-def set_app_container(container: AppContainer) -> None:
+def set_app_container(c: AppContainer) -> None:
     """Set the app container during lifespan startup."""
-    global _app_container
-    _app_container = container
+    global _app_container, container
+    _app_container = container = c
 
 
 def get_app_container() -> AppContainer:

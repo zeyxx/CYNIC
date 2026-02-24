@@ -95,7 +95,8 @@ class PerceiveRequest(BaseModel):
         default="CYNIC",
         description="Reality dimension of this perception",
     )
-    data: Any = Field(description="Raw perception data (any JSON-serializable)")
+    data: Any = Field(default=None, description="Raw perception data (legacy — now optional)")
+    content: Any = Field(default=None, description="Raw perception data (new: Track E clients send 'content')")
     context: str = Field(default="", description="Human-readable context")
     time_dim: Optional[str] = Field(
         default=None,
@@ -113,6 +114,8 @@ class PerceiveResponse(BaseModel):
     cell_id: str
     source: str
     reality: str
+    judgment_id: str = ""             # new: top-level for polling
+    verdict: str = "PENDING"          # new: top-level status
     judgment: Optional[JudgeResponse] = None
     enqueued: bool = False
     message: str = ""

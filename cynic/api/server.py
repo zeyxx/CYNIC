@@ -634,6 +634,18 @@ async def lifespan(app: FastAPI):
     # bootstrap_result = await bootstrap_cynic()
     # logger.info("🧬 Bootstrap complete: %s", bootstrap_result)
 
+    # ── Wire ConsciousState to event buses (Track E) ──────────────────────────
+    # Enables PENDING → real verdict updates for polling endpoints
+    try:
+        from cynic.organism.conscious_state import get_conscious_state
+        from cynic.core.event_bus import get_automation_bus, get_agent_bus
+        await get_conscious_state().initialize_from_buses(
+            get_core_bus(), get_automation_bus(), get_agent_bus()
+        )
+        logger.info("ConsciousState wired to event buses (polling ready)")
+    except Exception as exc:
+        logger.warning("ConsciousState wiring failed (polling returns PENDING only): %s", exc)
+
     # ── Auto-register API Routers ────────────────────────────────────────────
     # CYNIC discovers and registers all routers automatically
     yield

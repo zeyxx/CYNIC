@@ -451,15 +451,18 @@ class LLMRegistry:
             llama_gpu_layers: Layers to offload to GPU (-1 = all, 0 = CPU only).
             llama_threads: CPU threads for llama-cpp-python inference.
         """
+        # Import OllamaAdapter from adapters module (Track B refactor)
+        from cynic.llm.adapters.ollama import OllamaAdapter as _OllamaAdapter
+
         available: list[str] = []
 
         # Ollama: discover all installed models
         async def _discover_ollama() -> None:
-            probe = OllamaAdapter(model="probe", base_url=ollama_url)
+            probe = _OllamaAdapter(model="probe", base_url=ollama_url)
             if await probe.check_available():
                 models = await probe.list_models()
                 for model_name in models:
-                    adapter = OllamaAdapter(model=model_name, base_url=ollama_url)
+                    adapter = _OllamaAdapter(model=model_name, base_url=ollama_url)
                     self.register(adapter, available=True)
                     available.append(adapter.adapter_id)
 

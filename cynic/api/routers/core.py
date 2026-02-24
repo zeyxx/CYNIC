@@ -125,6 +125,9 @@ async def judge(req: JudgeRequest) -> JudgeResponse:
     - MICRO   → medium (~500ms), voting Dogs, confidence 61.8%
     - MACRO   → full 7-step cycle (~2.85s), all Dogs, max confidence
     - None    → auto-selected by consciousness state + budget
+
+    Track E: Event-first API — returns PENDING immediately, processes asynchronously.
+    Clients poll GET /judge/{judgment_id} for results.
     """
     state = get_state()
 
@@ -149,52 +152,46 @@ async def judge(req: JudgeRequest) -> JudgeResponse:
         budget_usd=req.budget_usd,
     )
 
-    # Parse consciousness level
-    level = None
-    if req.level:
-        level = ConsciousnessLevel[req.level]
+    judgment_id = str(uuid.uuid4())
 
-    judgment = await state.orchestrator.run(cell, level=level, budget_usd=req.budget_usd)
+    # Emit JUDGMENT_REQUESTED — fire-and-forget, never block
+    from cynic.core.events_schema import JudgmentRequestedPayload
+    try:
+        await get_core_bus().emit(Event.typed(
+            CoreEvent.JUDGMENT_REQUESTED,
+            JudgmentRequestedPayload(
+                cell_id=cell.cell_id,
+                reality=cell.reality,
+                level=req.level or "",
+                cell=cell.model_dump(),
+                source="api:judge",
+            ),
+            source="api:judge",
+        ))
+    except Exception as exc:
+        logger.warning("JUDGMENT_REQUESTED emission failed: %s", exc)
 
-    # Wire L2 consensus voting (Task 1.3: β-phase local consensus)
-    # Gathers votes from Dogs and marks judgment as finalized
-    consensus_engine = get_consensus_engine()
-    vote_result = await consensus_engine.gather_votes(judgment, timeout=5.0)
-    await consensus_engine.finalize_judgment(judgment, vote_result)
-    logger.debug(
-        f"Judgment {judgment.judgment_id} consensus: {vote_result.status} "
-        f"({vote_result.votes} votes)"
-    )
+    # Record PENDING placeholder for polling
+    try:
+        from cynic.organism.conscious_state import get_conscious_state
+        await get_conscious_state().record_pending_judgment(judgment_id)
+    except Exception as exc:
+        logger.debug("record_pending_judgment skipped: %s", exc)
 
-    # Write guidance.json — feedback loop to JS hooks (best-effort)
-    _write_guidance(cell, judgment)
-
-    # Persist judgment to PostgreSQL (best-effort — never block on DB failures)
-    if state._pool is not None:
-        _persist_judgment(judgment)
-
-    # Save for /feedback endpoint (user can rate this judgment)
-    state.last_judgment = {
-        "state_key": f"{cell.reality}:{cell.analysis}:PRESENT:{cell.lod}",
-        "action": judgment.verdict,
-        "judgment_id": judgment.judgment_id,
-    }
-
+    # Return immediately with PENDING
     return JudgeResponse(
-        judgment_id=judgment.judgment_id,
-        q_score=round(judgment.q_score, 3),
-        verdict=judgment.verdict,
-        confidence=round(min(judgment.confidence, MAX_CONFIDENCE), 4),
-        axiom_scores={k: round(v, 3) for k, v in judgment.axiom_scores.items()},
-        dog_votes={k: round(v, 3) for k, v in judgment.dog_votes.items()},
-        consensus_reached=judgment.consensus_reached,
-        consensus_votes=judgment.consensus_votes,
-        residual_variance=round(judgment.residual_variance or 0.0, 4),
-        unnameable_detected=judgment.unnameable_detected,
-        cost_usd=round(judgment.cost_usd, 6),
-        llm_calls=judgment.llm_calls,
-        duration_ms=round(judgment.duration_ms, 2),
-        level_used=level.name if level else "AUTO",
+        judgment_id=judgment_id,
+        q_score=0.0,
+        verdict="PENDING",
+        confidence=0.0,
+        axiom_scores={},
+        dog_votes={},
+        consensus_reached=False,
+        consensus_votes=0,
+        cost_usd=0.0,
+        llm_calls=0,
+        duration_ms=0.0,
+        level_used=req.level or "AUTO",
     )
 
 
@@ -210,11 +207,15 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
     This is the primary bridge endpoint:
       JS thin hooks → POST /perceive → Python kernel judges it
 
-    If run_judgment=True (default), runs a REFLEX judgment on the perception.
-    This keeps the JS hooks thin while the Python kernel does the cognitive work.
+    Track E: Event-first API — returns PENDING immediately if run_judgment=True.
+    Clients poll GET /perceive/{judgment_id} for results.
     """
     state = get_state()
     cell_id = str(uuid.uuid4())
+    judgment_id = str(uuid.uuid4())
+
+    # Use content if provided (Track E), else fall back to data (legacy)
+    perception_data = req.content if req.content is not None else req.data
 
     # Emit PERCEPTION_RECEIVED on the core bus
     await get_core_bus().emit(Event.typed(
@@ -223,21 +224,21 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
             cell_id=cell_id,
             source=req.source,
             reality=req.reality,
-            data=str(req.data)[:500],  # truncate for bus
+            data=str(perception_data)[:500],  # truncate for bus
         ),
     ))
 
     # Lazy Materialization: infer time_dim from perception data (Bug 5 fix)
     from cynic.core.judgment import infer_time_dim as _infer_td
     _perceive_ctx = req.context or f"Perception from {req.source}"
-    time_dim = req.time_dim or _infer_td(req.data, _perceive_ctx, "PERCEIVE")
+    time_dim = req.time_dim or _infer_td(perception_data, _perceive_ctx, "PERCEIVE")
 
-    # Build cell (used for both enqueue and immediate judgment)
+    # Build cell (used for both enqueue and event emission)
     cell = Cell(
         reality=req.reality,
         analysis="PERCEIVE",
         time_dim=time_dim,
-        content=req.data,
+        content=perception_data,
         context=_perceive_ctx,
         lod=0,  # REFLEX = pattern level
         budget_usd=0.001,  # minimal budget for perception
@@ -260,72 +261,95 @@ async def perceive(req: PerceiveRequest) -> PerceiveResponse:
             message="Perception enqueued for background MICRO processing",
         )
 
-    level_map = {
-        "REFLEX": ConsciousnessLevel.REFLEX,
-        "MICRO":  ConsciousnessLevel.MICRO,
-        "MACRO":  ConsciousnessLevel.MACRO,
-        "META":   ConsciousnessLevel.META,
-    }
-    level = level_map.get(req.level or "REFLEX", ConsciousnessLevel.REFLEX)
+    # Emit JUDGMENT_REQUESTED event — fire-and-forget, never block (Track E)
+    from cynic.core.events_schema import JudgmentRequestedPayload
+    try:
+        await get_core_bus().emit(Event.typed(
+            CoreEvent.JUDGMENT_REQUESTED,
+            JudgmentRequestedPayload(
+                cell_id=cell.cell_id,
+                reality=cell.reality,
+                level=req.level or "",
+                cell=cell.model_dump(),
+                source="api:perceive",
+            ),
+            source="api:perceive",
+        ))
+    except Exception as exc:
+        logger.warning("JUDGMENT_REQUESTED emission (perceive) failed: %s", exc)
 
-    judgment = await state.orchestrator.run(cell, level=level)
+    # Record PENDING placeholder for polling (Track E)
+    try:
+        from cynic.organism.conscious_state import get_conscious_state
+        await get_conscious_state().record_pending_judgment(judgment_id)
+    except Exception as exc:
+        logger.debug("record_pending_judgment skipped: %s", exc)
 
-    # Wire L2 consensus voting (Task 1.3: β-phase local consensus)
-    consensus_engine = get_consensus_engine()
-    vote_result = await consensus_engine.gather_votes(judgment, timeout=5.0)
-    await consensus_engine.finalize_judgment(judgment, vote_result)
-
-    # SAGE amplification: after fast REFLEX, enqueue MACRO to scheduler.
-    # MACRO runs all 11 Dogs including SAGE temporal MCTS (7×Ollama).
-    # JUDGMENT_CREATED handler (in state.py) overwrites guidance.json when done.
-    # → Next hook call gets SAGE's wisdom. Lagged by one cycle (acceptable).
-    # Only enqueue for REFLEX perception (CODE/HUMAN reality) — not self-loops.
-    if level == ConsciousnessLevel.REFLEX and cell.reality in ("CODE", "HUMAN", "MARKET", "SOCIAL"):
-        from cynic.core.judgment import Cell as _Cell, infer_time_dim as _itd2
-        macro_cell = _Cell(
-            reality=cell.reality,
-            analysis="JUDGE",
-            time_dim=cell.time_dim,  # Propagate inferred time_dim to MACRO follow-up
-            content=cell.content,
-            context=cell.context,
-            budget_usd=0.05,       # enough for MACRO + Ollama temporal MCTS
-            consciousness=4,       # REFLECTIVE gradient — deep analysis
-        )
-        state.scheduler.submit(macro_cell, level=ConsciousnessLevel.MACRO, source=f"perceive_bg:{req.source}")
-
-    j_resp = JudgeResponse(
-        judgment_id=judgment.judgment_id,
-        q_score=round(judgment.q_score, 3),
-        verdict=judgment.verdict,
-        confidence=round(min(judgment.confidence, MAX_CONFIDENCE), 4),
-        axiom_scores={k: round(v, 3) for k, v in judgment.axiom_scores.items()},
-        dog_votes={k: round(v, 3) for k, v in judgment.dog_votes.items()},
-        consensus_reached=judgment.consensus_reached,
-        consensus_votes=judgment.consensus_votes,
-        cost_usd=round(judgment.cost_usd, 6),
-        llm_calls=judgment.llm_calls,
-        duration_ms=round(judgment.duration_ms, 2),
-        level_used=level.name,
-    )
-
-    # Write guidance.json — best-effort belt-and-suspenders backup.
-    # Primary writer is now the JUDGMENT_CREATED event handler in state.py.
-    _write_guidance(cell, judgment)
-
-    # Save for /feedback endpoint
-    state.last_judgment = {
-        "state_key": f"{cell.reality}:{cell.analysis}:PRESENT:{cell.lod}",
-        "action": judgment.verdict,
-        "judgment_id": judgment.judgment_id,
-    }
-
+    # Return immediately with PENDING (Track E)
     return PerceiveResponse(
         cell_id=cell_id,
         source=req.source,
         reality=req.reality,
-        judgment=j_resp,
-        message=f"Perception judged: {judgment.verdict} (Q={judgment.q_score:.1f})",
+        judgment_id=judgment_id,
+        verdict="PENDING",
+        message="Perception enqueued",
     )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /judge/{judgment_id} (Track E: polling endpoint)
+# ════════════════════════════════════════════════════════════════════════════
+
+@router_core.get("/judge/{judgment_id}")
+async def get_judgment_result(judgment_id: str):
+    """Poll for judgment result by ID (Track E event-first API)."""
+    # Prefer container.organism.conscious_state (patched in tests)
+    from cynic.api.state import container as _container
+    conscious_state = None
+    if _container is not None:
+        conscious_state = getattr(getattr(_container, "organism", None), "conscious_state", None)
+    # Fallback to singleton (production without full container wiring)
+    if conscious_state is None:
+        from cynic.organism.conscious_state import get_conscious_state
+        conscious_state = get_conscious_state()
+
+    result = await conscious_state.get_judgment_by_id(judgment_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Judgment not found")
+
+    # Handle both real JudgmentSnapshot (dataclass) and dict (from tests/mocks)
+    if hasattr(result, "__dataclass_fields__"):
+        import dataclasses
+        return dataclasses.asdict(result)
+    return result
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GET /perceive/{judgment_id} (Track E: polling endpoint)
+# ════════════════════════════════════════════════════════════════════════════
+
+@router_core.get("/perceive/{judgment_id}")
+async def get_perceive_result(judgment_id: str):
+    """Poll for perception result by ID (Track E event-first API)."""
+    # Prefer container.organism.conscious_state (patched in tests)
+    from cynic.api.state import container as _container
+    conscious_state = None
+    if _container is not None:
+        conscious_state = getattr(getattr(_container, "organism", None), "conscious_state", None)
+    # Fallback to singleton (production without full container wiring)
+    if conscious_state is None:
+        from cynic.organism.conscious_state import get_conscious_state
+        conscious_state = get_conscious_state()
+
+    result = await conscious_state.get_judgment_by_id(judgment_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Judgment not found")
+
+    # Handle both real JudgmentSnapshot (dataclass) and dict (from tests/mocks)
+    if hasattr(result, "__dataclass_fields__"):
+        import dataclasses
+        return dataclasses.asdict(result)
+    return result
 
 
 # ════════════════════════════════════════════════════════════════════════════

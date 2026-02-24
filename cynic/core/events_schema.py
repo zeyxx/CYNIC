@@ -72,6 +72,8 @@ class JudgmentRequestedPayload(BaseModel):
     cell_id: str = ""
     reality: str = "CODE"
     level:   str = ""     # REFLEX|MICRO|MACRO
+    cell:    dict = Field(default_factory=dict)   # full Cell dict for JudgmentExecutorHandler
+    source:  str = ""                              # "api:judge" | "api:perceive"
 
 
 class JudgmentFailedPayload(BaseModel):
