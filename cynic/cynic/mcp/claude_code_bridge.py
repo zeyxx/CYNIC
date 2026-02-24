@@ -245,6 +245,23 @@ async def list_tools() -> list[Tool]:
             description="Stop all CYNIC services gracefully. CYNIC can shut itself down.",
             inputSchema={"type": "object", "properties": {}},
         ),
+        # ════════════════════════════════════════════════════════════════════
+        # TELEMETRY TOOLS (Real-time monitoring)
+        # ════════════════════════════════════════════════════════════════════
+        Tool(
+            name="cynic_watch_telemetry",
+            description="Watch CYNIC's live telemetry stream. Returns aggregated summary of events (judgments, learning, SONA heartbeats) observed during the watch window. Blocks for duration_s seconds.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "duration_s": {
+                        "type": "number",
+                        "description": "How many seconds to watch (default: 30)",
+                        "default": 30,
+                    },
+                },
+            },
+        ),
     ]
 
 
@@ -274,9 +291,12 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             return await _tool_cynic_release(arguments)
         elif name == "cynic_stop":
             return await _tool_cynic_stop(arguments)
+        # ── Telemetry tools ──────────────────────────────────────────────────
+        elif name == "cynic_watch_telemetry":
+            return await _tool_cynic_watch_telemetry(arguments)
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
-    except CynicError as exc:
+    except Exception as exc:
         logger.exception("Tool call failed")
         return [TextContent(type="text", text=f"Error: {exc}")]
 
@@ -572,6 +592,42 @@ Note: Shutdown is graceful and preserves all state.
 To restart, simply re-run the service."""
 
     return [TextContent(type="text", text=response)]
+
+
+async def _tool_cynic_watch_telemetry(args: dict) -> list[TextContent]:
+    """Watch CYNIC telemetry stream and return aggregated summary."""
+    from cynic.mcp.claude_code_adapter import get_adapter
+
+    duration_s = args.get("duration_s", 30)
+    logger.info("Claude requested: watch telemetry for %.1fs", duration_s)
+
+    try:
+        adapter = get_adapter()
+        result = await adapter.stream_telemetry(duration_s=duration_s)
+
+        if "error" in result:
+            return [TextContent(type="text", text=f"Telemetry error: {result['error']}")]
+
+        # Format summary for display
+        response = f"""CYNIC Telemetry (last {result['duration_s']:.1f}s):
+
+Judgments:       {result['judgments_seen']} observed
+  - Avg Q:       {result['avg_q_score']:.1f}
+  - Verdicts:    {result['verdicts']}
+
+Learning:        {result['learning_events_seen']} events
+  - Last rate:   {result['last_learning_rate']:.6f}
+
+Meta-Cycles:     {result['meta_cycles_seen']} ticks
+SONA Ticks:      {result['sona_ticks_seen']} heartbeats
+
+Total duration:  {result['duration_s']:.1f}s"""
+
+        return [TextContent(type="text", text=response)]
+
+    except Exception as e:
+        logger.error("Telemetry watch failed: %s", e, exc_info=True)
+        return [TextContent(type="text", text=f"Telemetry watch error: {e}")]
 
 
 # ════════════════════════════════════════════════════════════════════════════
