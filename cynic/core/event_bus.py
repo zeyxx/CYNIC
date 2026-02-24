@@ -141,6 +141,7 @@ class CoreEvent(StrEnum):
     Q_TABLE_UPDATED    = "learning.q_table_updated"
     EWC_CHECKPOINT     = "learning.ewc_checkpoint"
     SONA_TICK          = "learning.sona_tick"
+    SONA_AGGREGATED    = "learning.sona_aggregated"
     META_CYCLE         = "learning.meta_cycle"
 
     # Perception

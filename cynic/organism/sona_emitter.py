@@ -60,6 +60,16 @@ class SonaEmitter:
         self._running = False
         self._tick_count = 0
         self._start_time = time.time()
+        self._qtable: Optional[Any] = None
+        self._orchestrator: Optional[Any] = None
+
+    def set_qtable(self, qtable: Any) -> None:
+        """Inject QTable for telemetry. Called by organism.py after construction."""
+        self._qtable = qtable
+
+    def set_orchestrator(self, orchestrator: Any) -> None:
+        """Inject JudgeOrchestrator for judgment count. Called by organism.py."""
+        self._orchestrator = orchestrator
 
     def start(self) -> None:
         """
@@ -121,16 +131,34 @@ class SonaEmitter:
         self._tick_count += 1
         uptime_s = time.time() - self._start_time
 
-        # Telemetry payload: these fields are populated by orchestrator
-        # For now, use sensible defaults. The actual q_table_entries, etc.
-        # will be fetched from the orchestrator or DB in Phase 2.
+        # Collect real telemetry from injected components
+        q_table_entries = 0
+        learning_rate   = 0.0
+        ewc_consolidated = 0
+        total_judgments  = 0
+
+        if self._qtable is not None:
+            try:
+                stats = self._qtable.stats()
+                q_table_entries  = stats.get("entries", 0)
+                learning_rate    = stats.get("learning_rate", 0.0)
+                ewc_consolidated = stats.get("ewc_consolidated", 0)
+            except Exception as exc:
+                logger.warning("SonaEmitter: failed to get QTable stats: %s", exc)
+
+        if self._orchestrator is not None:
+            try:
+                total_judgments = getattr(self._orchestrator, "_judgment_count", 0)
+            except Exception as exc:
+                logger.warning("SonaEmitter: failed to get orchestrator judgment count: %s", exc)
+
         payload = SonaTickPayload(
             instance_id="",        # Set by organism.py if multi-instance
-            q_table_entries=0,     # Fetched from Q-Learning pool
-            total_judgments=0,     # Fetched from judgment history
-            learning_rate=0.0,     # Current α from Thompson Sampling
-            ewc_consolidated=0,    # EWC fisher entries locked
-            uptime_s=uptime_s,     # Organism runtime
+            q_table_entries=q_table_entries,
+            total_judgments=total_judgments,
+            learning_rate=learning_rate,
+            ewc_consolidated=ewc_consolidated,
+            uptime_s=uptime_s,
             interval_s=SONA_INTERVAL_S,
             tick_number=self._tick_count,
         )

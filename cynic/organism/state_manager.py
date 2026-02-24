@@ -39,6 +39,24 @@ from enum import Enum
 logger = logging.getLogger("cynic.organism.state_manager")
 
 
+class _FrozenDict(dict):
+    """Immutable dict — raises AttributeError on any write attempt."""
+    def __setitem__(self, key, value):
+        raise AttributeError("StateSnapshot is immutable")
+    def __delitem__(self, key):
+        raise AttributeError("StateSnapshot is immutable")
+    def update(self, *args, **kwargs):
+        raise AttributeError("StateSnapshot is immutable")
+    def clear(self):
+        raise AttributeError("StateSnapshot is immutable")
+    def pop(self, *args):
+        raise AttributeError("StateSnapshot is immutable")
+    def popitem(self):
+        raise AttributeError("StateSnapshot is immutable")
+    def setdefault(self, key, default=None):
+        raise AttributeError("StateSnapshot is immutable")
+
+
 class StateLayer(Enum):
     """Which layer to store state in."""
     MEMORY = "memory"          # RAM only, lost on restart
@@ -72,6 +90,12 @@ class StateSnapshot:
     memory: dict[str, Any]
     persistent: dict[str, Any]
     checkpoint: dict[str, Any]
+
+    def __post_init__(self) -> None:
+        # Deep-copy into frozen wrappers (object.__setattr__ required by frozen=True)
+        object.__setattr__(self, "memory",     _FrozenDict(self.memory))
+        object.__setattr__(self, "persistent", _FrozenDict(self.persistent))
+        object.__setattr__(self, "checkpoint", _FrozenDict(self.checkpoint))
 
 
 class OrganismState:

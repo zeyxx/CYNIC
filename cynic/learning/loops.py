@@ -133,7 +133,7 @@ class SONA:
         # Emit aggregated event
         from cynic.core.events_schema import LearningEventPayload
         await self.event_bus.emit(Event.typed(
-            CoreEvent.LEARNING_EVENT,
+            CoreEvent.SONA_AGGREGATED,
             LearningEventPayload(
                 reward=payload.get("reward", 0.0),
                 action=payload.get("action", "WAG"),
@@ -149,11 +149,11 @@ class SONA:
             return
         
         q_score = judgment.get("q_score", 50.0)
-        
+
         # Trigger DPO loop
         from cynic.core.events_schema import LearningEventPayload
         await self.event_bus.emit(Event.typed(
-            CoreEvent.LEARNING_EVENT,
+            CoreEvent.SONA_AGGREGATED,
             LearningEventPayload(
                 reward=q_score / 100.0,
                 action=judgment.get("verdict", "WAG"),

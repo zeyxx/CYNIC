@@ -140,7 +140,7 @@ Justification:
   Beyond 89 entries per state, marginal information gain decreases.
 """
 
-SERVICE_REGISTRY_JUDGMENT_CAP: int = fibonacci(10)  # = 55
+SERVICE_REGISTRY_JUDGMENT_CAP: int = fibonacci(11)  # = 89
 """
 Maximum judgments to store in ServiceRegistry (Tier 1 Nervous System).
 
