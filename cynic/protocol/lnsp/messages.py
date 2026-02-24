@@ -34,12 +34,10 @@ def _get_timestamp() -> float:
 
 def create_raw_observation(
     observation_type: ObservationType,
+    data: dict[str, Any],
     source: str,
-    instance_id: str,
-    payload: dict[str, Any],
-    target: Optional[str] = None,
-    region: Optional[str] = None,
-    route_trace: Optional[list[str]] = None,
+    instance_id: str = "instance:local",
+    region: str | None = None,
 ) -> LNSPMessage:
     """Create a Layer 1 (RAW) observation message.
 
@@ -52,12 +50,10 @@ def create_raw_observation(
 
     Args:
         observation_type: Type of observation (ObservationType enum)
+        data: Observation data (should include relevant fields for the type)
         source: Originating sensor/component name
-        instance_id: Unique organism instance ID
-        payload: Observation data (should include relevant fields for the type)
-        target: Optional target component
+        instance_id: Unique organism instance ID (default: "instance:local")
         region: Optional region identifier
-        route_trace: Optional existing route trace to append to
 
     Returns:
         LNSPMessage with Layer 1 configuration
@@ -65,20 +61,19 @@ def create_raw_observation(
     Example:
         >>> msg = create_raw_observation(
         ...     ObservationType.METRIC_SAMPLE,
+        ...     data={"cpu": 45.2, "memory": 78.9},
         ...     source="METRICS_COLLECTOR",
         ...     instance_id="org_001",
-        ...     payload={"cpu": 45.2, "memory": 78.9},
         ... )
     """
-    if route_trace is None:
-        route_trace = []
+    route_trace = []
 
     header = MessageHeader(
         layer=Layer.RAW,
         message_id=_generate_message_id(),
         timestamp=_get_timestamp(),
         source=source,
-        target=target,
+        target=None,
         version="1.0.0",
     )
 
@@ -92,7 +87,7 @@ def create_raw_observation(
     # Add observation type to payload
     enriched_payload = {
         "observation_type": observation_type.value,
-        **payload,
+        **data,
     }
 
     return LNSPMessage(header=header, payload=enriched_payload, metadata=metadata)
@@ -104,12 +99,11 @@ def create_raw_observation(
 
 def create_aggregated_state(
     aggregation_type: AggregationType,
+    data: dict[str, Any],
     source: str,
-    instance_id: str,
-    payload: dict[str, Any],
-    target: Optional[str] = None,
-    region: Optional[str] = None,
-    route_trace: Optional[list[str]] = None,
+    based_on: list[str],
+    instance_id: str = "instance:local",
+    region: str | None = None,
 ) -> LNSPMessage:
     """Create a Layer 2 (AGGREGATED) state message.
 
@@ -121,12 +115,11 @@ def create_aggregated_state(
 
     Args:
         aggregation_type: Type of aggregation (AggregationType enum)
+        data: Aggregated state data
         source: Originating component (usually a ganglia/aggregator)
-        instance_id: Unique organism instance ID
-        payload: Aggregated state data
-        target: Optional target component
+        based_on: List of source message IDs this aggregation is based on
+        instance_id: Unique organism instance ID (default: "instance:local")
         region: Optional region identifier
-        route_trace: Optional existing route trace to append to
 
     Returns:
         LNSPMessage with Layer 2 configuration
@@ -134,20 +127,20 @@ def create_aggregated_state(
     Example:
         >>> msg = create_aggregated_state(
         ...     AggregationType.SYSTEM_STATE,
+        ...     data={"health": "GOOD", "uptime": 86400},
         ...     source="SYSTEM_GANGLIA",
+        ...     based_on=["msg_001", "msg_002"],
         ...     instance_id="org_001",
-        ...     payload={"health": "GOOD", "uptime": 86400},
         ... )
     """
-    if route_trace is None:
-        route_trace = []
+    route_trace = []
 
     header = MessageHeader(
         layer=Layer.AGGREGATED,
         message_id=_generate_message_id(),
         timestamp=_get_timestamp(),
         source=source,
-        target=target,
+        target=None,
         version="1.0.0",
     )
 
@@ -158,10 +151,11 @@ def create_aggregated_state(
         feedback=False,
     )
 
-    # Add aggregation type to payload
+    # Add aggregation type and causality tracking to payload
     enriched_payload = {
         "aggregation_type": aggregation_type.value,
-        **payload,
+        "based_on": based_on,
+        **data,
     }
 
     return LNSPMessage(header=header, payload=enriched_payload, metadata=metadata)
@@ -174,13 +168,15 @@ def create_aggregated_state(
 def create_judgment(
     judgment_type: JudgmentType,
     verdict: VerdictType,
+    q_score: float,
+    confidence: float,
+    axiom_scores: dict[str, float],
+    data: dict[str, Any],
     source: str,
-    instance_id: str,
-    payload: dict[str, Any],
-    target: Optional[str] = None,
-    region: Optional[str] = None,
-    route_trace: Optional[list[str]] = None,
-    q_score: Optional[float] = None,
+    target: str,
+    based_on: list[str],
+    instance_id: str = "instance:local",
+    region: str | None = None,
 ) -> LNSPMessage:
     """Create a Layer 3 (JUDGMENT) message.
 
@@ -193,13 +189,15 @@ def create_judgment(
     Args:
         judgment_type: Type of judgment (JudgmentType enum)
         verdict: The verdict (HOWL, GROWL, WAG, BARK)
+        q_score: Confidence/quality score (0-100)
+        confidence: Confidence metric (0-1)
+        axiom_scores: Dict mapping axiom names to scores (0-1)
+        data: Judgment reasoning and details
         source: Originating Dog/Judge name
-        instance_id: Unique organism instance ID
-        payload: Judgment reasoning and details
-        target: Optional target component
+        target: Target component (usually EXECUTIVE)
+        based_on: List of source message IDs this judgment is based on
+        instance_id: Unique organism instance ID (default: "instance:local")
         region: Optional region identifier
-        route_trace: Optional existing route trace to append to
-        q_score: Optional confidence score (0-100)
 
     Returns:
         LNSPMessage with Layer 3 configuration
@@ -208,14 +206,17 @@ def create_judgment(
         >>> msg = create_judgment(
         ...     JudgmentType.STATE_EVALUATION,
         ...     verdict=VerdictType.HOWL,
-        ...     source="SAGE_DOG",
-        ...     instance_id="org_001",
-        ...     payload={"reason": "All metrics in normal range"},
         ...     q_score=92.5,
+        ...     confidence=0.95,
+        ...     axiom_scores={"BURN": 0.9, "CONSENT": 0.85},
+        ...     data={"reason": "All metrics in normal range"},
+        ...     source="SAGE_DOG",
+        ...     target="EXECUTIVE",
+        ...     based_on=["agg_001"],
+        ...     instance_id="org_001",
         ... )
     """
-    if route_trace is None:
-        route_trace = []
+    route_trace = []
 
     header = MessageHeader(
         layer=Layer.JUDGMENT,
@@ -233,12 +234,15 @@ def create_judgment(
         feedback=True,  # Judgments expect feedback
     )
 
-    # Add judgment-specific fields to payload
+    # Add judgment-specific fields and causality tracking to payload
     enriched_payload = {
         "judgment_type": judgment_type.value,
         "verdict": verdict.value,
         "q_score": q_score,
-        **payload,
+        "confidence": confidence,
+        "axiom_scores": axiom_scores,
+        "based_on": based_on,
+        **data,
     }
 
     return LNSPMessage(header=header, payload=enriched_payload, metadata=metadata)
@@ -250,13 +254,12 @@ def create_judgment(
 
 def create_action(
     action_type: ActionType,
+    target: str,
+    action_data: dict[str, Any],
     source: str,
-    instance_id: str,
-    payload: dict[str, Any],
-    target: Optional[str] = None,
-    region: Optional[str] = None,
-    route_trace: Optional[list[str]] = None,
-    closes_action_id: Optional[str] = None,
+    based_on_verdict: str,
+    instance_id: str = "instance:local",
+    region: str | None = None,
 ) -> LNSPMessage:
     """Create a Layer 4 (ACTION) message.
 
@@ -268,13 +271,12 @@ def create_action(
 
     Args:
         action_type: Type of action (ActionType enum)
+        target: Target executor component
+        action_data: Action parameters and execution details
         source: Originating decision component (usually BRAIN/EXECUTIVE)
-        instance_id: Unique organism instance ID
-        payload: Action parameters and execution details
-        target: Optional target executor component
+        based_on_verdict: The verdict message ID that triggered this action
+        instance_id: Unique organism instance ID (default: "instance:local")
         region: Optional region identifier
-        route_trace: Optional existing route trace to append to
-        closes_action_id: Optional ID of action this message completes
 
     Returns:
         LNSPMessage with Layer 4 configuration
@@ -282,14 +284,14 @@ def create_action(
     Example:
         >>> msg = create_action(
         ...     ActionType.EXTERNAL_CALL,
-        ...     source="EXECUTIVE",
-        ...     instance_id="org_001",
         ...     target="BLOCKCHAIN_EXECUTOR",
-        ...     payload={"call": "submit_governance_vote", "args": [...]},
+        ...     action_data={"call": "submit_governance_vote", "args": [...]},
+        ...     source="EXECUTIVE",
+        ...     based_on_verdict="verdict_msg_001",
+        ...     instance_id="org_001",
         ... )
     """
-    if route_trace is None:
-        route_trace = []
+    route_trace = []
 
     header = MessageHeader(
         layer=Layer.ACTION,
@@ -305,13 +307,14 @@ def create_action(
         region=region,
         route_trace=route_trace + [source],
         feedback=True,  # Actions expect feedback (result confirmation)
-        closes_action_id=closes_action_id,
+        closes_action_id=None,
     )
 
-    # Add action-specific fields to payload
+    # Add action-specific fields and verdict causality tracking to payload
     enriched_payload = {
         "action_type": action_type.value,
-        **payload,
+        "based_on_verdict": based_on_verdict,
+        **action_data,
     }
 
     return LNSPMessage(header=header, payload=enriched_payload, metadata=metadata)

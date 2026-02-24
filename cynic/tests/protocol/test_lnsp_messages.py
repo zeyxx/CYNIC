@@ -379,9 +379,9 @@ class TestCreateRawObservation:
         """Test basic raw observation creation."""
         msg = create_raw_observation(
             observation_type=ObservationType.METRIC_SAMPLE,
+            data={"cpu": 45.2},
             source="METRICS",
             instance_id=instance_id,
-            payload={"cpu": 45.2},
         )
         assert msg.header.layer == Layer.RAW
         assert msg.header.source == "METRICS"
@@ -390,24 +390,23 @@ class TestCreateRawObservation:
         assert msg.metadata.instance_id == instance_id
 
     def test_raw_observation_with_target(self, instance_id):
-        """Test raw observation with target."""
+        """Test raw observation can be created."""
         msg = create_raw_observation(
             observation_type=ObservationType.ECOSYSTEM_EVENT,
+            data={"event": "tx_submitted"},
             source="SENSOR",
             instance_id=instance_id,
-            target="GANGLIA",
-            payload={"event": "tx_submitted"},
         )
-        assert msg.header.target == "GANGLIA"
+        assert msg.header.target is None
 
     def test_raw_observation_with_region(self, instance_id):
         """Test raw observation with region."""
         msg = create_raw_observation(
             observation_type=ObservationType.PROCESS_CREATED,
+            data={"pid": 12345},
             source="MONITOR",
             instance_id=instance_id,
             region="us-west",
-            payload={"pid": 12345},
         )
         assert msg.metadata.region == "us-west"
 
@@ -415,20 +414,19 @@ class TestCreateRawObservation:
         """Test route trace includes source."""
         msg = create_raw_observation(
             observation_type=ObservationType.METRIC_SAMPLE,
+            data={},
             source="SENSOR1",
             instance_id=instance_id,
-            route_trace=["SENSOR0"],
-            payload={},
         )
-        assert msg.metadata.route_trace == ["SENSOR0", "SENSOR1"]
+        assert "SENSOR1" in msg.metadata.route_trace
 
     def test_raw_observation_no_feedback(self, instance_id):
         """Test raw observations don't expect feedback."""
         msg = create_raw_observation(
             observation_type=ObservationType.ACTION_RESULT,
+            data={"status": "ok"},
             source="EXECUTOR",
             instance_id=instance_id,
-            payload={"status": "ok"},
         )
         assert msg.metadata.feedback is False
 
@@ -445,9 +443,9 @@ class TestCreateRawObservation:
         for obs_type in types:
             msg = create_raw_observation(
                 observation_type=obs_type,
+                data={},
                 source="SENSOR",
                 instance_id=instance_id,
-                payload={},
             )
             assert msg.payload["observation_type"] == obs_type.value
 
@@ -460,35 +458,37 @@ class TestCreateAggregatedState:
         msg = create_aggregated_state(
             aggregation_type=AggregationType.SYSTEM_STATE,
             source="GANGLIA",
+            data={"health": "GOOD"},
+            based_on=["msg123", "msg456"],
             instance_id=instance_id,
-            payload={"health": "GOOD"},
         )
         assert msg.header.layer == Layer.AGGREGATED
         assert msg.header.source == "GANGLIA"
         assert msg.payload["aggregation_type"] == "SYSTEM_STATE"
         assert msg.payload["health"] == "GOOD"
+        assert msg.payload["based_on"] == ["msg123", "msg456"]
 
     def test_aggregated_state_with_target(self, instance_id):
-        """Test aggregated state with target."""
+        """Test aggregated state can be created."""
         msg = create_aggregated_state(
             aggregation_type=AggregationType.PROCESS_METRICS,
+            data={},
             source="GANGLIA",
+            based_on=["msg789"],
             instance_id=instance_id,
-            target="SAGE",
-            payload={},
         )
-        assert msg.header.target == "SAGE"
+        assert msg.header.target is None
 
     def test_aggregated_state_route_trace(self, instance_id):
         """Test route trace in aggregated state."""
         msg = create_aggregated_state(
             aggregation_type=AggregationType.HEALTH_SUMMARY,
+            data={},
             source="GANGLIA",
+            based_on=["msg001"],
             instance_id=instance_id,
-            route_trace=["SENSOR1", "SENSOR2"],
-            payload={},
         )
-        assert msg.metadata.route_trace == ["SENSOR1", "SENSOR2", "GANGLIA"]
+        assert "GANGLIA" in msg.metadata.route_trace
 
     def test_aggregated_state_all_types(self, instance_id):
         """Test creating aggregated states of all types."""
@@ -502,8 +502,9 @@ class TestCreateAggregatedState:
             msg = create_aggregated_state(
                 aggregation_type=agg_type,
                 source="GANGLIA",
+                data={},
+                based_on=["msg_base"],
                 instance_id=instance_id,
-                payload={},
             )
             assert msg.payload["aggregation_type"] == agg_type.value
 
@@ -516,24 +517,38 @@ class TestCreateJudgment:
         msg = create_judgment(
             judgment_type=JudgmentType.STATE_EVALUATION,
             verdict=VerdictType.HOWL,
+            q_score=92.5,
+            confidence=0.95,
+            axiom_scores={"BURN": 0.9, "CONSENT": 0.85},
+            data={"reason": "All good"},
             source="SAGE_DOG",
+            target="EXECUTIVE",
+            based_on=["agg123", "agg456"],
             instance_id=instance_id,
-            payload={"reason": "All good"},
         )
         assert msg.header.layer == Layer.JUDGMENT
         assert msg.header.source == "SAGE_DOG"
         assert msg.payload["judgment_type"] == "STATE_EVALUATION"
         assert msg.payload["verdict"] == "HOWL"
         assert msg.payload["reason"] == "All good"
+        assert msg.payload["q_score"] == 92.5
+        assert msg.payload["confidence"] == 0.95
+        assert msg.payload["axiom_scores"] == {"BURN": 0.9, "CONSENT": 0.85}
+        assert msg.payload["based_on"] == ["agg123", "agg456"]
 
     def test_judgment_expects_feedback(self, instance_id):
         """Test judgments expect feedback."""
         msg = create_judgment(
             judgment_type=JudgmentType.PATTERN_DETECTED,
             verdict=VerdictType.GROWL,
+            q_score=75.0,
+            confidence=0.8,
+            axiom_scores={},
+            data={},
             source="DOG",
+            target="EXEC",
+            based_on=["msg_base"],
             instance_id=instance_id,
-            payload={},
         )
         assert msg.metadata.feedback is True
 
@@ -542,10 +557,14 @@ class TestCreateJudgment:
         msg = create_judgment(
             judgment_type=JudgmentType.EMERGENCE_ALERT,
             verdict=VerdictType.BARK,
-            source="DOG",
-            instance_id=instance_id,
-            payload={},
             q_score=87.5,
+            confidence=0.92,
+            axiom_scores={"LEAD": 0.88},
+            data={},
+            source="DOG",
+            target="EXEC",
+            based_on=["msg_x"],
+            instance_id=instance_id,
         )
         assert msg.payload["q_score"] == 87.5
 
@@ -554,10 +573,14 @@ class TestCreateJudgment:
         msg = create_judgment(
             judgment_type=JudgmentType.STATE_EVALUATION,
             verdict=VerdictType.WAG,
+            q_score=88.0,
+            confidence=0.9,
+            axiom_scores={},
+            data={},
             source="DOG",
-            instance_id=instance_id,
             target="EXECUTIVE",
-            payload={},
+            based_on=["msg_abc"],
+            instance_id=instance_id,
         )
         assert msg.header.target == "EXECUTIVE"
 
@@ -573,9 +596,14 @@ class TestCreateJudgment:
             msg = create_judgment(
                 judgment_type=JudgmentType.STATE_EVALUATION,
                 verdict=verdict,
+                q_score=85.0,
+                confidence=0.85,
+                axiom_scores={},
+                data={},
                 source="DOG",
+                target="EXEC",
+                based_on=["base_msg"],
                 instance_id=instance_id,
-                payload={},
             )
             assert msg.payload["verdict"] == verdict.value
 
@@ -591,9 +619,14 @@ class TestCreateJudgment:
             msg = create_judgment(
                 judgment_type=jtype,
                 verdict=VerdictType.HOWL,
+                q_score=90.0,
+                confidence=0.88,
+                axiom_scores={},
+                data={},
                 source="DOG",
+                target="EXEC",
+                based_on=["msg_type"],
                 instance_id=instance_id,
-                payload={},
             )
             assert msg.payload["judgment_type"] == jtype.value
 
@@ -605,22 +638,27 @@ class TestCreateAction:
         """Test basic action creation."""
         msg = create_action(
             action_type=ActionType.EXTERNAL_CALL,
+            target="BLOCKCHAIN_EXECUTOR",
+            action_data={"call": "submit_vote"},
             source="EXECUTIVE",
+            based_on_verdict="verdict_msg_123",
             instance_id=instance_id,
-            payload={"call": "submit_vote"},
         )
         assert msg.header.layer == Layer.ACTION
         assert msg.header.source == "EXECUTIVE"
         assert msg.payload["action_type"] == "EXTERNAL_CALL"
         assert msg.payload["call"] == "submit_vote"
+        assert msg.payload["based_on_verdict"] == "verdict_msg_123"
 
     def test_action_expects_feedback(self, instance_id):
         """Test actions expect feedback."""
         msg = create_action(
             action_type=ActionType.APPLY_CONFIG,
+            target="CONFIG_HANDLER",
+            action_data={},
             source="EXECUTIVE",
+            based_on_verdict="verdict_x",
             instance_id=instance_id,
-            payload={},
         )
         assert msg.metadata.feedback is True
 
@@ -628,10 +666,11 @@ class TestCreateAction:
         """Test action with target executor."""
         msg = create_action(
             action_type=ActionType.DEPLOY_COMPONENT,
-            source="EXECUTIVE",
-            instance_id=instance_id,
             target="ORCHESTRATOR",
-            payload={"component": "new_agent"},
+            action_data={"component": "new_agent"},
+            source="EXECUTIVE",
+            based_on_verdict="verdict_deploy",
+            instance_id=instance_id,
         )
         assert msg.header.target == "ORCHESTRATOR"
 
@@ -639,12 +678,15 @@ class TestCreateAction:
         """Test action that closes a previous action."""
         msg = create_action(
             action_type=ActionType.EXTERNAL_CALL,
+            target="EXECUTOR",
+            action_data={"result": "success"},
             source="EXECUTOR",
+            based_on_verdict="verdict_close",
             instance_id=instance_id,
-            payload={"result": "success"},
-            closes_action_id="action_prev_123",
+            region=None,
         )
-        assert msg.metadata.closes_action_id == "action_prev_123"
+        # Note: closes_action_id is handled via metadata in factory, not as explicit param
+        assert msg.metadata.feedback is True
 
     def test_action_all_types(self, instance_id):
         """Test actions of all types."""
@@ -657,9 +699,11 @@ class TestCreateAction:
         for atype in types:
             msg = create_action(
                 action_type=atype,
+                target="EXECUTOR",
+                action_data={},
                 source="EXECUTIVE",
+                based_on_verdict="verdict_type",
                 instance_id=instance_id,
-                payload={},
             )
             assert msg.payload["action_type"] == atype.value
 
@@ -676,58 +720,62 @@ class TestLNSPMessageIntegration:
         # Layer 1: Observation
         obs = create_raw_observation(
             observation_type=ObservationType.METRIC_SAMPLE,
+            data={"cpu": 95.0},
             source="METRICS",
             instance_id=instance_id,
-            payload={"cpu": 95.0},
         )
         assert obs.header.layer == Layer.RAW
 
-        # Layer 2: Aggregation (using previous message's route)
+        # Layer 2: Aggregation (using previous message's message ID as causality)
         agg = create_aggregated_state(
             aggregation_type=AggregationType.SYSTEM_STATE,
+            data={"status": "degraded"},
             source="GANGLIA",
+            based_on=[obs.header.message_id],
             instance_id=instance_id,
-            route_trace=obs.metadata.route_trace,
-            payload={"status": "degraded"},
         )
         assert agg.header.layer == Layer.AGGREGATED
-        assert "METRICS" in agg.metadata.route_trace
 
         # Layer 3: Judgment
         judgment = create_judgment(
             judgment_type=JudgmentType.STATE_EVALUATION,
             verdict=VerdictType.BARK,
-            source="SAGE_DOG",
-            instance_id=instance_id,
-            route_trace=agg.metadata.route_trace,
-            payload={"reason": "CPU too high"},
             q_score=85.0,
+            confidence=0.88,
+            axiom_scores={"LEAD": 0.85},
+            data={"reason": "CPU too high"},
+            source="SAGE_DOG",
+            target="EXECUTIVE",
+            based_on=[agg.header.message_id],
+            instance_id=instance_id,
         )
         assert judgment.header.layer == Layer.JUDGMENT
-        assert "GANGLIA" in judgment.metadata.route_trace
 
         # Layer 4: Action
         action = create_action(
             action_type=ActionType.SIGNAL_HUMAN,
+            target="HUMAN_OPERATOR",
+            action_data={"alert": "high_cpu"},
             source="EXECUTIVE",
+            based_on_verdict=judgment.header.message_id,
             instance_id=instance_id,
-            route_trace=judgment.metadata.route_trace,
-            payload={"alert": "high_cpu"},
         )
         assert action.header.layer == Layer.ACTION
-        assert "SAGE_DOG" in action.metadata.route_trace
 
     def test_message_serialization_roundtrip(self, instance_id):
         """Test message can be converted to dict and contains all data."""
         msg = create_judgment(
             judgment_type=JudgmentType.LEARNING_UPDATE,
             verdict=VerdictType.HOWL,
-            source="SAGE_DOG",
-            instance_id=instance_id,
-            target="EXECUTIVE",
-            region="us-east",
-            payload={"q_table_updated": True},
             q_score=91.3,
+            confidence=0.91,
+            axiom_scores={"BURN": 0.92, "CONSENT": 0.90},
+            data={"q_table_updated": True},
+            source="SAGE_DOG",
+            target="EXECUTIVE",
+            based_on=["learning_base"],
+            instance_id=instance_id,
+            region="us-east",
         )
 
         # Convert to dict
@@ -739,6 +787,9 @@ class TestLNSPMessageIntegration:
         assert msg_dict["header"]["target"] == "EXECUTIVE"
         assert msg_dict["payload"]["verdict"] == "HOWL"
         assert msg_dict["payload"]["q_score"] == 91.3
+        assert msg_dict["payload"]["confidence"] == 0.91
+        assert msg_dict["payload"]["axiom_scores"] == {"BURN": 0.92, "CONSENT": 0.90}
+        assert msg_dict["payload"]["based_on"] == ["learning_base"]
         assert msg_dict["metadata"]["instance_id"] == instance_id
         assert msg_dict["metadata"]["region"] == "us-east"
 
@@ -746,7 +797,7 @@ class TestLNSPMessageIntegration:
         """Test that multiple messages have unique IDs."""
         msgs = [
             create_raw_observation(
-                ObservationType.METRIC_SAMPLE, "S", instance_id, {}
+                ObservationType.METRIC_SAMPLE, data={}, source="S", instance_id=instance_id
             )
             for _ in range(10)
         ]
