@@ -177,7 +177,7 @@ async def lifespan(app: FastAPI):
                 async with db_pool.acquire() as conn:
                     await conn.execute(SCHEMA_SQL)
                 logger.info("PostgreSQL active — legacy storage")
-            except asyncpg.Error as exc:
+            except (asyncpg.PostgresError, Exception) as exc:
                 logger.warning("DB unavailable (%s) — running without persistence", exc)
                 db_pool = None
 
