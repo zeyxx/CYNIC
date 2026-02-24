@@ -642,6 +642,9 @@ async def lifespan(app: FastAPI):
     get_core_bus().off(CoreEvent.DECISION_MADE, _on_decision_made)
     _bridge.stop()
     await state.scheduler.stop()
+    if state.sona_emitter is not None:
+        await state.sona_emitter.stop()
+        logger.info("SonaEmitter stopped — organism heartbeat ceased")
     if state.auto_benchmark is not None:
         await state.auto_benchmark.stop()
     state.learning_loop.stop()

@@ -152,6 +152,27 @@ class MetaCyclePayload(BaseModel):
         return bool(self.evolve.get("regression", False))
 
 
+class SonaTickPayload(BaseModel):
+    """
+    SONA_TICK — emitted by sona_emitter every ~34 minutes (F(9) = 2040 seconds).
+
+    Organism self-assessment signal at META consciousness level.
+    Reports current state of learning systems, uptime, and fitness metrics.
+
+    Subscribed by: learning loops (MCTS, Thompson), meta-cognition, EScore updater.
+    """
+    model_config = _BASE
+
+    instance_id:        str   = ""     # For Type I network identity
+    q_table_entries:    int   = 0      # Q-Table population
+    total_judgments:    int   = 0      # Cumulative judgment count
+    learning_rate:      float = 0.0    # Current α [0, 1]
+    ewc_consolidated:   int   = 0      # Consolidated fisher entries
+    uptime_s:           float = 0.0    # Organism uptime in seconds
+    interval_s:         float = 0.0    # Emission interval (should be ~2040)
+    tick_number:        int   = 0      # Sequence counter
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # PERCEPTION
 # ════════════════════════════════════════════════════════════════════════════

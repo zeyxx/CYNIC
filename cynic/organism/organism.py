@@ -50,6 +50,7 @@ from cynic.cognition.neurons.discovery import discover_dogs
 from cynic.cognition.neurons.oracle import OracleDog
 from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
 from cynic.cognition.cortex.residual import ResidualDetector
+from cynic.organism.sona_emitter import SonaEmitter
 from cynic.cognition.cortex.decide import DecideAgent
 from cynic.cognition.cortex.account import AccountAgent
 from cynic.cognition.cortex.axiom_monitor import AxiomMonitor
@@ -158,6 +159,7 @@ class MemoryCore:
     kernel_mirror: KernelMirror = field(default_factory=KernelMirror)
     action_proposer: ActionProposer = field(default_factory=ActionProposer)
     self_prober: SelfProber = field(default_factory=SelfProber)
+    sona_emitter: Optional[SonaEmitter] = None
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -210,6 +212,14 @@ class Organism:
     @property
     def residual_detector(self) -> ResidualDetector:
         return self.cognition.residual_detector
+
+    @property
+    def sona_emitter(self) -> Optional[SonaEmitter]:
+        return self.memory.sona_emitter
+
+    @sona_emitter.setter
+    def sona_emitter(self, value: Optional[SonaEmitter]) -> None:
+        self.memory.sona_emitter = value
 
     @property
     def scheduler(self) -> ConsciousnessRhythm:
@@ -489,6 +499,11 @@ class _OrganismAwakener:
 
         self.residual_detector = ResidualDetector()
         self.residual_detector.start(get_core_bus())
+
+        # ── SONA: Organism self-assessment heartbeat ─────────────────────────────
+        self.sona_emitter = SonaEmitter(bus=get_core_bus(), db_pool=self.db_pool)
+        self.sona_emitter.start()
+        logger.info("SonaEmitter started — organism heartbeat active")
 
         self.orchestrator = JudgeOrchestrator(
             dogs=self.dogs,
