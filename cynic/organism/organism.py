@@ -909,6 +909,7 @@ class _OrganismAwakener:
             kernel_mirror=KernelMirror(),
             action_proposer=self.action_proposer,
             self_prober=self.self_prober,
+            sona_emitter=self.sona_emitter,
         )
         # Initialize OrganismState with database pool
         organism_state = OrganismState()
