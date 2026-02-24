@@ -12,6 +12,7 @@ Connection pool size: F(6)=8 min, F(8)=21 max (Fibonacci-aligned).
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -339,9 +340,9 @@ class JudgmentRepository(JudgmentRepoInterface):
                 judgment["q_score"],
                 judgment["verdict"],
                 judgment["confidence"],
-                str(judgment.get("axiom_scores", {})),
-                str(judgment.get("active_axioms", [])),
-                str(judgment.get("dog_votes", {})),
+                json.dumps(judgment.get("axiom_scores", {})),
+                json.dumps(judgment.get("active_axioms", [])),
+                json.dumps(judgment.get("dog_votes", {})),
                 judgment.get("consensus_votes", 0),
                 judgment.get("consensus_quorum", 7),
                 judgment.get("consensus_reached", False),

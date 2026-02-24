@@ -103,13 +103,26 @@ class DockerManager:
         self._last_deploy: Optional[DeployResult] = None
         self._service_health: Dict[str, ServiceHealth] = {}
 
-    async def build(self, version: str = "latest") -> BuildResult:
-        """Build CYNIC Docker image."""
-        logger.info(f"Building Docker image version={version}")
+    async def build(self, version: str = "latest", no_cache: bool = False) -> BuildResult:
+        """Build CYNIC Docker image.
+        
+        Args:
+            version: Image tag version
+            no_cache: If True, force rebuild without using cache (default: False - uses cache)
+        """
+        logger.info(f"Building Docker image version={version}, no_cache={no_cache}")
 
         start = datetime.utcnow()
         try:
-            cmd = ["docker", "build", "-t", f"cynic:{version}", "."]
+            # Build command with layer caching
+            cmd = ["docker", "build", "-t", f"cynic:{version}"]
+            
+            # Add cache optimization: use previous image as cache source if not forcing rebuild
+            if not no_cache:
+                # Try to use previous image as cache source
+                cmd.extend(["--cache-from", f"cynic:{version}"])
+            
+            cmd.extend(["--progress=plain", "."])
 
             # Run build
             result = await asyncio.create_subprocess_exec(
@@ -118,6 +131,10 @@ class DockerManager:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
+>>>>>>> REPLACE</parameter>
+<task_progress>- [ ] Créer endpoint /deploy pour Docker
+- [x] Optimiser le build Docker (cache)</task_progress>
+</invoke>
             stdout, stderr = await result.communicate()
             output = (stdout.decode() + stderr.decode()).strip()
 

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from cynic.core.event_bus import Event, CoreEvent
+from cynic.core.event_bus import Event, CoreEvent, EventBusError
 
 from cynic.api.handlers.base import HandlerGroup, KernelServices
 
@@ -52,7 +52,7 @@ class HealthHandlers(HandlerGroup):
             disk_pct = float(p.get("disk_pct", 0.0))
             self._svc.health_cache["disk_pct"] = disk_pct
             await self._svc.assess_lod()
-            logger.warning("DISK_PRESSURE: %.1f%% → LOD=%s", disk_pct, self._svc.lod_controller.current.name)
+            logger.warning("DISK_PRESSURE: %.1f%% → LOD=%s", disk_pct, self._svc.cognition.lod_controller.current.name)
         except EventBusError:
             logger.debug("handler error", exc_info=True)
 
@@ -63,7 +63,7 @@ class HealthHandlers(HandlerGroup):
             memory_pct = float(p.get("memory_pct", 0.0))
             self._svc.health_cache["memory_pct"] = memory_pct
             await self._svc.assess_lod()
-            logger.warning("MEMORY_PRESSURE: %.1f%% → LOD=%s", memory_pct, self._svc.lod_controller.current.name)
+            logger.warning("MEMORY_PRESSURE: %.1f%% → LOD=%s", memory_pct, self._svc.cognition.lod_controller.current.name)
         except EventBusError:
             logger.debug("handler error", exc_info=True)
 
@@ -74,7 +74,7 @@ class HealthHandlers(HandlerGroup):
             freed_mb = float(p.get("freed_mb", 0.0))
             self._svc.health_cache["disk_pct"] = 0.0
             await self._svc.assess_lod()
-            logger.info("DISK_CLEARED: freed=%.1f MB → LOD=%s", freed_mb, self._svc.lod_controller.current.name)
+            logger.info("DISK_CLEARED: freed=%.1f MB → LOD=%s", freed_mb, self._svc.cognition.lod_controller.current.name)
         except EventBusError:
             logger.debug("handler error", exc_info=True)
 
@@ -85,6 +85,6 @@ class HealthHandlers(HandlerGroup):
             freed_mb = float(p.get("freed_mb", 0.0))
             self._svc.health_cache["memory_pct"] = 0.0
             await self._svc.assess_lod()
-            logger.info("MEMORY_CLEARED: freed=%.1f MB → LOD=%s", freed_mb, self._svc.lod_controller.current.name)
+            logger.info("MEMORY_CLEARED: freed=%.1f MB → LOD=%s", freed_mb, self._svc.cognition.lod_controller.current.name)
         except EventBusError:
             logger.debug("handler error", exc_info=True)

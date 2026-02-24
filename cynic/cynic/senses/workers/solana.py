@@ -3,36 +3,98 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import urllib.request
-from typing import Any
-
+from typing import Any, Optional
 
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.judgment import Cell
 from cynic.core.phi import fibonacci
 from cynic.senses.workers.base import PerceiveWorker
 
-_SOLANA_RPC_URL = "https://api.mainnet-beta.solana.com"
-_SOLANA_RPC_HEADERS = {"Content-Type": "application/json"}
+logger = logging.getLogger(__name__)
+
+import os
+
+# Helius RPC - primary choice (user has 1M free credits)
+# Set HELIUS_API_KEY env var to use it, otherwise falls back to public RPCs
+_HELIUS_API_KEY = os.environ.get("HELIUS_API_KEY", "")
+_SOLANA_RPC_URLS = []
+if _HELIUS_API_KEY:
+    _SOLANA_RPC_URLS = [f"https://mainnet.helius-rpc.com/?api-key={_HELIUS_API_KEY}"]
+else:
+    # Fallback to public RPCs (rate limited)
+    _SOLANA_RPC_URLS = [
+        "https://api.mainnet-beta.solana.com",
+        "https://solana-api.projectserum.com",
+        "https://rpc.ankr.com/solana",
+    ]
+_SOLANA_RPC_HEADERS = {
+    "Content-Type": "application/json",
+    "User-Agent": "CYNIC/1.0 SolanaWatcher",
+}
 _TPS_WARNING_THRESHOLD = 1000   # below this → slow network
 _SLOT_LAG_WARNING = 10          # >10 behind tip → lagging
 _HTTP_TIMEOUT = 5.0
+
+# Track current RPC index for round-robin fallback
+_rpc_index = 0
+
+
+def _get_rpc_url() -> str:
+    """Get current RPC URL with round-robin fallback."""
+    global _rpc_index
+    return _SOLANA_RPC_URLS[_rpc_index % len(_SOLANA_RPC_URLS)]
+
+
+def _rotate_rpc() -> None:
+    """Rotate to next RPC endpoint on failure."""
+    global _rpc_index
+    _rpc_index = (_rpc_index + 1) % len(_SOLANA_RPC_URLS)
+    logger.debug("Rotated to RPC index %d: %s", _rpc_index, _get_rpc_url())
 
 
 def _rpc_call(method: str, params: list) -> Optional[dict[str, Any]]:
     """Blocking Solana JSON-RPC call — called via run_in_executor."""
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
-    try:
-        req = urllib.request.Request(
-            _SOLANA_RPC_URL,
-            data=body.encode(),
-            headers=_SOLANA_RPC_HEADERS,
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT) as resp:
-            return json.loads(resp.read().decode()).get("result")
-    except json.JSONDecodeError:
-        return None
+    
+    # Try each RPC endpoint until one works
+    for _ in range(len(_SOLANA_RPC_URLS)):
+        rpc_url = _get_rpc_url()
+        try:
+            req = urllib.request.Request(
+                rpc_url,
+                data=body.encode(),
+                headers=_SOLANA_RPC_HEADERS,
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT) as resp:
+                return json.loads(resp.read().decode()).get("result")
+        except urllib.error.HTTPError as e:
+            if e.code == 403:
+                # 403 Forbidden - likely rate limited, try next RPC
+                logger.warning(
+                    "Solana RPC 403 Forbidden at %s, trying next endpoint",
+                    rpc_url,
+                )
+                _rotate_rpc()
+                continue
+            else:
+                logger.warning("Solana RPC HTTP error %d at %s: %s", e.code, rpc_url, e)
+                _rotate_rpc()
+                continue
+        except urllib.error.URLError as e:
+            logger.warning("Solana RPC connection error at %s: %s", rpc_url, e)
+            _rotate_rpc()
+            continue
+        except json.JSONDecodeError as e:
+            logger.warning("Solana RPC JSON decode error at %s: %s", rpc_url, e)
+            _rotate_rpc()
+            continue
+    
+    # All RPCs failed
+    logger.error("All Solana RPC endpoints failed after %d attempts", len(_SOLANA_RPC_URLS))
+    return None
 
 
 class SolanaWatcher(PerceiveWorker):
@@ -56,9 +118,10 @@ class SolanaWatcher(PerceiveWorker):
     name = "solana_watcher"
 
     def __init__(self, rpc_url: Optional[str] = None) -> None:
-        global _SOLANA_RPC_URL
-        if rpc_url:
-            _SOLANA_RPC_URL = rpc_url
+        # rpc_url param kept for API compatibility but now appends to fallback list
+        global _SOLANA_RPC_URLS
+        if rpc_url and rpc_url not in _SOLANA_RPC_URLS:
+            _SOLANA_RPC_URLS.insert(0, rpc_url)  # User-provided URL takes priority
         self._last_slot: Optional[int] = None
 
     def _fetch_chain_state(self) -> Optional[dict[str, Any]]:

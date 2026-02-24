@@ -8,11 +8,11 @@ Handlers: emergence, budget_warning, budget_exhausted, judgment_requested,
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.event_bus import Event, CoreEvent
-from cynic.core.exceptions import CynicError
+from cynic.core.exceptions import CynicError, EventBusError
 from cynic.core.phi import GROWL_MIN
 from cynic.core.judgment import Cell
 from cynic.senses import checkpoint as _session_checkpoint
@@ -122,7 +122,7 @@ class IntelligenceHandlers(HandlerGroup):
         """BUDGET_WARNING → orchestrator alert + HOLD EScore."""
         try:
             self._orchestrator.on_budget_warning()
-            self._svc.escore_tracker.update("agent:cynic", "HOLD", GROWL_MIN)
+            self._svc.cognition.escore_tracker.update("agent:cynic", "HOLD", GROWL_MIN)
             logger.warning("BUDGET_WARNING → HOLD EScore=%.1f (financial stress)", GROWL_MIN)
         except CynicError:
             logger.debug("handler error", exc_info=True)
@@ -131,7 +131,7 @@ class IntelligenceHandlers(HandlerGroup):
         """BUDGET_EXHAUSTED → orchestrator shutdown + HOLD=0.0."""
         try:
             self._orchestrator.on_budget_exhausted()
-            self._svc.escore_tracker.update("agent:cynic", "HOLD", 0.0)
+            self._svc.cognition.escore_tracker.update("agent:cynic", "HOLD", 0.0)
             logger.warning(
                 "BUDGET_EXHAUSTED → HOLD EScore=0.0 (financial collapse)"
             )
@@ -165,14 +165,14 @@ class IntelligenceHandlers(HandlerGroup):
             # 3. Update E-Score for each Dog that voted
             dog_votes: dict = p.get("dog_votes") or {}
             for dog_id, vote_score in dog_votes.items():
-                self._svc.escore_tracker.update(
+                self._svc.cognition.escore_tracker.update(
                     f"agent:{dog_id}", "JUDGE", float(vote_score)
                 )
 
             # 4. Persist E-Score to DB every 5 judgments (non-blocking)
             self._escore_persist_counter += 1
             if self._escore_persist_counter % 5 == 0 and self._db_pool is not None:
-                await self._svc.escore_tracker.persist(self._db_pool)
+                await self._svc.cognition.escore_tracker.persist(self._db_pool)
 
             # 5. ANTIFRAGILITY — success after stress
             had_stress = len(self._outcome_window) > 1 and any(
@@ -186,7 +186,7 @@ class IntelligenceHandlers(HandlerGroup):
             logger.debug(
                 "JUDGMENT_CREATED→INTELLIGENCE: dogs=%d, LOD=%s",
                 len(dog_votes),
-                self._svc.lod_controller.current.name,
+                self._svc.cognition.lod_controller.current.name,
             )
 
         except CynicError:
@@ -206,12 +206,12 @@ class IntelligenceHandlers(HandlerGroup):
                 await self._svc.assess_lod()
 
             # 3. Harsh EScore — total failure
-            self._svc.escore_tracker.update("agent:cynic", "JUDGE", 0.0)
-            self._svc.escore_tracker.update("agent:cynic", "HOLD", GROWL_MIN)
+            self._svc.cognition.escore_tracker.update("agent:cynic", "JUDGE", 0.0)
+            self._svc.cognition.escore_tracker.update("agent:cynic", "HOLD", GROWL_MIN)
 
             logger.warning(
                 "JUDGMENT_FAILED → LOD=%s → JUDGE=0.0 HOLD=%.1f",
-                self._svc.lod_controller.current.name,
+                self._svc.cognition.lod_controller.current.name,
                 GROWL_MIN,
             )
         except CynicError:

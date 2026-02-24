@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from cynic.core.event_bus import Event, CoreEvent
+from cynic.core.event_bus import Event, CoreEvent, EventBusError
 from cynic.core.phi import MAX_Q_SCORE
 
 from cynic.api.handlers.base import HandlerGroup, KernelServices
@@ -61,7 +61,7 @@ class SDKHandlers(HandlerGroup):
             if len(self._sdk_outcome_window) > self._SDK_OUTCOME_WINDOW:
                 self._sdk_outcome_window.pop(0)
             success_rate = sum(self._sdk_outcome_window) / len(self._sdk_outcome_window)
-            self._svc.escore_tracker.update("agent:cynic", "RUN", success_rate * MAX_Q_SCORE)
+            self._svc.cognition.escore_tracker.update("agent:cynic", "RUN", success_rate * MAX_Q_SCORE)
             logger.info("ACT_COMPLETED: success=%s duration=%.0fms → RUN=%.1f", is_success, duration, success_rate * MAX_Q_SCORE)
         except EventBusError:
             logger.debug("handler error", exc_info=True)
@@ -82,7 +82,7 @@ class SDKHandlers(HandlerGroup):
             tool_name = p.get("tool_name", "")
             q_score = float(p.get("q_score", 0.5))
             self._qtable.update_tool_quality(tool_name, q_score)
-            self._svc.escore_tracker.update("agent:cynic", "BUILD", q_score * MAX_Q_SCORE)
+            self._svc.cognition.escore_tracker.update("agent:cynic", "BUILD", q_score * MAX_Q_SCORE)
             logger.debug("SDK_TOOL_JUDGED: tool=%s q=%.3f", tool_name, q_score)
         except EventBusError:
             logger.debug("handler error", exc_info=True)

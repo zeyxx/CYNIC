@@ -8,14 +8,11 @@ import { apiClient } from './api/client';
 import { wsClient } from './api/ws';
 import { loadSchema, clearCache } from './util/schema-loader';
 import { store } from './state/store';
-<<<<<<< HEAD
 import { WelcomeScreen } from './ui/welcome';
 import './ui/styles/welcome.css';
-=======
 import { CommandPalette } from './ui/command-palette';
 import { MetricsPanel } from './ui/metrics-dashboard';
 import { invokeCommand, formatCommandResult, displayCommandResult, displayCommandError } from './api/commands';
->>>>>>> origin/main
 
 // Export for global access in browser console
 declare global {

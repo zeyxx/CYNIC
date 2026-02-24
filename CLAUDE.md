@@ -355,13 +355,42 @@ CYNIC-new is the implementation of CYNIC itself:
 - `docs/reference/` - **8 canonical docs** (source of truth)
 - `docs/` - Philosophy, architecture, roadmap
 
-**Current Focus** (2026-02-16):
+**Current Focus** (2026-02-24):
 - **Python Kernel Fresh Start** (Week 1 bootstrap)
 - **NO MOCKS** (production-ready from day 1)
 - **Amplification Platform** (make Ollama > Claude via memory + learning)
 - **Self-Building** (CYNIC uses CYNIC to improve CYNIC)
 
 When working on CYNIC, you are working on YOURSELF.
+
+---
+
+## 📁 RÉPOSITORY STRUCTURE
+
+### CYNIC (ACTIF - Python Kernel)
+```
+CYNIC/           ← NOUVEAU repo principal (ex-CYNIC-clean)
+├── cynic/       ← Python kernel propre
+├── docs/        ← Philosophie et architecture
+├── webapp/      ← Frontend JS/TS
+└── ...
+```
+
+### CYNIC-legacy (ARCHIVÉ)
+```
+CYNIC-legacy/    ← Ancien repo (archivé)
+├── cynic/cynic/ ← Ancien Python (reference seulement)
+├── webapp/      ← JS à archiver
+└── ...
+```
+
+### Corrections appliquées:
+1. `senses/workers/solana.py` - Helius RPC + fallback
+2. `api/handlers/judgment_executor.py` - Robustesse Cell
+
+### À faire manuellement:
+- Renommer `CYNIC` → `CYNIC-legacy`
+- Renommer `CYNIC-clean` → `CYNIC`
 
 ---
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from cynic.core.event_bus import Event, CoreEvent, get_core_bus
+from cynic.core.event_bus import Event, CoreEvent, get_core_bus, EventBusError
 from cynic.core.events_schema import TranscendencePayload
 from cynic.core.phi import MAX_Q_SCORE, PHI_INV, PHI_INV_2, HOWL_MIN, WAG_MIN, GROWL_MIN
 
@@ -84,7 +84,7 @@ class AxiomHandlers(HandlerGroup):
 
             # RUN EScore — decision quality as execution efficiency
             run_score = q_value * MAX_Q_SCORE
-            self._svc.escore_tracker.update("agent:cynic", "RUN", run_score)
+            self._svc.cognition.escore_tracker.update("agent:cynic", "RUN", run_score)
 
             # EMERGENCE: confident BARK = organism sure of critical problem
             emergence_signalled = False
@@ -162,7 +162,7 @@ class AxiomHandlers(HandlerGroup):
 
             # JUDGE EScore: self-analysis quality
             judge_score = severity * MAX_Q_SCORE
-            self._svc.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+            self._svc.cognition.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
 
             logger.info(
                 "SELF_IMPROVEMENT_PROPOSED: count=%d severity=%.3f → "
@@ -182,7 +182,7 @@ class AxiomHandlers(HandlerGroup):
                 "TRANSCENDENCE — all 4 emergent axioms active: %s",
                 active,
             )
-            self._svc.escore_tracker.update("agent:cynic", "JUDGE", MAX_Q_SCORE)
+            self._svc.cognition.escore_tracker.update("agent:cynic", "JUDGE", MAX_Q_SCORE)
         except EventBusError:
             logger.debug("handler error", exc_info=True)
 
@@ -198,7 +198,7 @@ class AxiomHandlers(HandlerGroup):
 
             # EScore JUDGE penalty
             penalty_score = (1.0 - min(residual, 1.0)) * MAX_Q_SCORE
-            self._svc.escore_tracker.update("agent:cynic", "JUDGE", penalty_score)
+            self._svc.cognition.escore_tracker.update("agent:cynic", "JUDGE", penalty_score)
 
             logger.warning(
                 "RESIDUAL_HIGH: cell=%s residual=%.3f → EMERGENCE signal, "
@@ -223,7 +223,7 @@ class AxiomHandlers(HandlerGroup):
                 3: WAG_MIN,
             }.get(priority, GROWL_MIN)
 
-            self._svc.escore_tracker.update("agent:cynic", "BUILD", score)
+            self._svc.cognition.escore_tracker.update("agent:cynic", "BUILD", score)
             logger.info(
                 "ACTION_PROPOSED: type=%s priority=%d → BUILD EScore=%.1f",
                 action_type,
@@ -266,7 +266,7 @@ class AxiomHandlers(HandlerGroup):
             else:
                 judge_score = GROWL_MIN
 
-            self._svc.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+            self._svc.cognition.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
 
             logger.info(
                 "META_CYCLE: pass_rate=%.1f%% regression=%s → "

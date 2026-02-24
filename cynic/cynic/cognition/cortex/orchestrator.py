@@ -414,15 +414,26 @@ class JudgeOrchestrator:
                 f"({cb.failure_count} consecutive failures)"
             )
 
-        # Emit JUDGMENT_REQUESTED
+        # Emit JUDGMENT_REQUESTED with full cell data
         await get_core_bus().emit(Event.typed(
             CoreEvent.JUDGMENT_REQUESTED,
             JudgmentRequestedPayload(
                 cell_id=cell.cell_id,
                 reality=cell.reality,
                 level=level.name if level else "AUTO",
+                cell=cell.model_dump(),  # Include full cell data for handlers
+                budget_usd=effective_budget,
+                source="orchestrator:run",
             ),
         ))
+++++++ REPLACE</parameter>
+<task_progress>- [x] Analyser les erreurs Pydantic et validation
+- [x] Identifier le endpoint /judge et ses modèles
+- [x] Comprendre l'erreur JUDGMENT_REQUESTED has no cell data
+- [x] Corriger le schema JudgmentRequestedPayload (ajout champ 'cell')
+- [x] Mettre à jour l'émetteur pour inclure 'cell' dans le payload
+- [ ] Améliorer la robustesse du judgment_executor handler</task_progress>
+</invoke>
 
         try:
             # Compose handlers and execute judgment cycle (Phase 2B DAG)

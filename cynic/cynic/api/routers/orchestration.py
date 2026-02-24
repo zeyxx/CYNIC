@@ -13,7 +13,11 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+>>>>>>> REPLACE</parameter>
+<task_progress>- [x] Créer endpoint /deploy pour Docker
+- [x] Optimiser le build Docker (cache)</task_progress>
+</invoke>
 
 from cynic.orchestration import DockerManager, VersionManager, HealthMonitor
 from typing import Optional
@@ -31,6 +35,14 @@ class BuildRequest(BaseModel):
     """Build request."""
     version: str = "latest"
     services: Optional[list[str]] = None
+    no_cache: bool = Field(
+        default=False,
+        description="Force rebuild without using Docker layer cache"
+    )
+>>>>>>> REPLACE</parameter>
+<task_progress>- [x] Créer endpoint /deploy pour Docker
+- [x] Optimiser le build Docker (cache)</task_progress>
+</invoke>
 
 
 class BuildResponse(BaseModel):
