@@ -35,6 +35,9 @@ import aiohttp
 from mcp.server import Server
 from mcp.types import Tool, TextContent
 
+# CYNIC Adapter — provides high-level access to CYNIC
+from cynic.mcp.claude_code_adapter import ClaudeCodeAdapter
+
 
 # Exception types
 class CynicError(Exception):
@@ -49,21 +52,20 @@ logging.basicConfig(
 logger = logging.getLogger("cynic.mcp.claude_code_bridge")
 
 # ════════════════════════════════════════════════════════════════════════════
-# CYNIC HTTP MCP CLIENT
+# CYNIC ADAPTER INSTANCE — Persistent connection with caching
 # ════════════════════════════════════════════════════════════════════════════
 
-CYNIC_HTTP_BASE = "http://127.0.0.1:8765"
-TIMEOUT = aiohttp.ClientTimeout(total=30)
+_adapter: ClaudeCodeAdapter | None = None
 
 
-async def _call_cynic(endpoint: str, payload: dict) -> dict:
-    """Call CYNIC HTTP MCP endpoint and return response."""
-    url = f"{CYNIC_HTTP_BASE}/{endpoint}"
-    async with aiohttp.ClientSession(timeout=TIMEOUT) as session:
-        async with session.post(url, json=payload) as resp:
-            if resp.status != 200:
-                return {"status": "error", "error": f"HTTP {resp.status}"}
-            return await resp.json()
+async def get_adapter() -> ClaudeCodeAdapter:
+    """Get or create the module-level CYNIC adapter (with context management)."""
+    global _adapter
+    if _adapter is None:
+        _adapter = ClaudeCodeAdapter(cynic_url="http://127.0.0.1:8765", timeout_s=30)
+        await _adapter.__aenter__()
+        logger.info("CYNIC adapter initialized with HTTP client")
+    return _adapter
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -389,13 +391,11 @@ async def _tool_ask_cynic(args: dict) -> list[TextContent]:
 
     logger.info("Claude asked CYNIC: %s", question)
 
-    # Call CYNIC /judge endpoint for full judgment
-    payload = {
-        "text": question,
-        "context": context,
-        "reality": reality,
-    }
-    judgment = await _call_cynic("judge", payload)
+    adapter = await get_adapter()
+    judgment = await adapter.ask_cynic(question=question, context=context, reality=reality)
+
+    if "error" in judgment:
+        return [TextContent(type="text", text=f"Error: {judgment['error']}")]
 
     # Format response with judgment details
     q_score = judgment.get("q_score", "N/A")
@@ -470,25 +470,19 @@ async def _tool_learn_cynic(args: dict) -> list[TextContent]:
 
     logger.info("Claude teaching CYNIC: judgment=%s rating=%f", judgment_id, rating)
 
-    result = await _call_cynic(
-        "learn",
-        {
-            "signal": {
-                "judgment_id": judgment_id,
-                "rating": rating,
-                "comment": comment,
-            },
-            "update_qtable": True,
-        },
-    )
+    adapter = await get_adapter()
+    result = await adapter.teach_cynic(judgment_id=judgment_id, rating=rating, comment=comment)
+
+    if "error" in result:
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
 
     response = f"""CYNIC Learning Update:
 
-Status: {result.get('status', 'error')}
-Judgment ID: {result.get('result', {}).get('judgment_id', 'N/A')}
-Q-Table Updated: {result.get('result', {}).get('qtable_updated', False)}
-New Q-Score: {result.get('result', {}).get('new_q_score', 'N/A')}
-Learning Rate: {result.get('result', {}).get('learning_rate_applied', 'N/A')}
+Status: {result.get('status', 'updated')}
+Judgment ID: {result.get('judgment_id', 'N/A')}
+Q-Table Updated: {result.get('qtable_updated', False)}
+New Q-Score: {result.get('new_q_score', 'N/A')}
+Learning Rate: {result.get('learning_rate', 'N/A')}
 
 CYNIC has incorporated your feedback into its learning loops."""
 
@@ -681,7 +675,11 @@ async def _tool_cynic_run_empirical_test(args: dict) -> list[TextContent]:
 
     logger.info("Claude requested: start empirical test (count=%d, seed=%s)", count, seed)
 
-    result = await _call_cynic("empirical/test/start", {"count": count, "seed": seed})
+    adapter = await get_adapter()
+    result = await adapter.start_empirical_test(count=count, seed=seed)
+
+    if "error" in result:
+        return [TextContent(type="text", text=f"Error starting test: {result['error']}")]
 
     job_id = result.get("job_id", "N/A")
     status = result.get("status", "unknown")
@@ -707,7 +705,8 @@ async def _tool_cynic_get_job_status(args: dict) -> list[TextContent]:
 
     logger.info("Claude checking test status: job_id=%s", job_id)
 
-    status = await _call_cynic(f"empirical/test/{job_id}", {})
+    adapter = await get_adapter()
+    status = await adapter.poll_test_progress(job_id)
 
     if "error" in status:
         return [TextContent(type="text", text=f"Error: {status.get('error')}")]
@@ -746,11 +745,11 @@ async def _tool_cynic_get_test_results(args: dict) -> list[TextContent]:
 
     logger.info("Claude fetching test results: job_id=%s", job_id)
 
-    results = await _call_cynic(f"empirical/test/{job_id}/results", {})
+    adapter = await get_adapter()
+    results = await adapter.get_test_results(job_id)
 
-    if "error" in results or "detail" in results:
-        error = results.get("error") or results.get("detail")
-        return [TextContent(type="text", text=f"Results not ready: {error}")]
+    if "error" in results:
+        return [TextContent(type="text", text=f"Results not ready: {results['error']}")]
 
     q_scores = results.get("q_scores", [])
     avg_q = results.get("avg_q", 0)
@@ -778,8 +777,8 @@ Emergence Events: {emergences}
   (New axiom combinations discovered)
 
 Distribution: {len(q_scores)} data points
-  Lowest 10%: {sorted(q_scores)[len(q_scores)//10]:.1f}
-  Highest 10%: {sorted(q_scores)[9*len(q_scores)//10]:.1f}
+  Lowest 10%: {sorted(q_scores)[len(q_scores)//10] if q_scores else 0:.1f}
+  Highest 10%: {sorted(q_scores)[9*len(q_scores)//10] if q_scores else 0:.1f}
 
 Interpretation:
 - avg_q > 50: Healthy judgment quality
@@ -795,7 +794,8 @@ async def _tool_cynic_test_axiom_irreducibility(args: dict) -> list[TextContent]
 
     logger.info("Claude requested axiom irreducibility test: axiom=%s", axiom)
 
-    results = await _call_cynic("empirical/axioms/test", {"axiom": axiom})
+    adapter = await get_adapter()
+    results = await adapter.test_axiom_irreducibility(axiom=axiom)
 
     if "error" in results:
         return [TextContent(type="text", text=f"Error: {results.get('error')}")]
@@ -835,7 +835,8 @@ async def _tool_cynic_query_telemetry(args: dict) -> list[TextContent]:
 
     logger.info("Claude querying telemetry: metric=%s", metric)
 
-    telemetry = await _call_cynic("empirical/telemetry", {"metric": metric})
+    adapter = await get_adapter()
+    telemetry = await adapter.query_telemetry(metric=metric)
 
     if "error" in telemetry:
         return [TextContent(type="text", text=f"Error: {telemetry.get('error')}")]
@@ -869,15 +870,18 @@ Status: Organism is {'active' if telemetry.get('total_judgments', 0) > 0 else 'i
 async def main():
     """Start MCP server on stdio (with Windows compatibility fallback)."""
     logger.info("CYNIC Claude Code Bridge starting...")
-    logger.info("Connecting to CYNIC HTTP MCP at %s", CYNIC_HTTP_BASE)
+    logger.info("Initializing CYNIC adapter...")
 
-    # Health check
+    # Initialize adapter and check health
     try:
-        health = await _call_cynic("health", {})
-        kernel_status = health.get("health", {}).get("cynic-kernel", {}).get("status", "unknown")
-        logger.info("CYNIC Kernel status: %s", kernel_status)
+        adapter = await get_adapter()
+        is_ready = await adapter.is_cynic_ready(force_refresh=True)
+        if is_ready:
+            logger.info("CYNIC is healthy and ready for Claude Code requests")
+        else:
+            logger.warning("CYNIC health check failed (it may not be running yet)")
     except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
-        logger.warning("Could not reach CYNIC at %s (it may not be running yet): %s", CYNIC_HTTP_BASE, exc)
+        logger.warning("Could not reach CYNIC (it may not be running yet): %s", exc)
 
     logger.info("MCP Server ready. Listening on stdio for Claude Code...")
 
