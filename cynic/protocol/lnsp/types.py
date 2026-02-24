@@ -1,12 +1,10 @@
 """LNSP types, enums, and message schema definitions."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
-from enum import Enum
-from typing import Any, Optional
-import time
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-
+from enum import Enum
+from typing import Any
 
 # ============================================================================
 # Layer Enumeration
@@ -130,7 +128,7 @@ class MessageHeader:
     message_id: str  # 8-char hex
     timestamp: float  # Unix time
     source: str  # Component name
-    target: Optional[str] = None
+    target: str | None = None
     version: str = "1.0.0"
 
     def to_dict(self) -> dict[str, Any]:
@@ -164,10 +162,10 @@ class Metadata:
     """
 
     instance_id: str  # Unique organism ID
-    region: Optional[str] = None
+    region: str | None = None
     route_trace: list[str] = field(default_factory=list)
     feedback: bool = False
-    closes_action_id: Optional[str] = None
+    closes_action_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert metadata to dictionary."""

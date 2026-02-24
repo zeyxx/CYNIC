@@ -1,19 +1,19 @@
 """LNSP message factory functions for creating messages at each layer."""
 from __future__ import annotations
 
-import uuid
 import time
-from typing import Any, Optional
+import uuid
+from typing import Any
 
 from .types import (
+    ActionType,
+    AggregationType,
+    JudgmentType,
     Layer,
     LNSPMessage,
     MessageHeader,
     Metadata,
     ObservationType,
-    AggregationType,
-    JudgmentType,
-    ActionType,
     VerdictType,
 )
 
@@ -66,7 +66,7 @@ def create_raw_observation(
         ...     instance_id="org_001",
         ... )
     """
-    route_trace = []
+    route_trace: list[str] = []
 
     header = MessageHeader(
         layer=Layer.RAW,
@@ -133,7 +133,7 @@ def create_aggregated_state(
         ...     instance_id="org_001",
         ... )
     """
-    route_trace = []
+    route_trace: list[str] = []
 
     header = MessageHeader(
         layer=Layer.AGGREGATED,
@@ -216,7 +216,7 @@ def create_judgment(
         ...     instance_id="org_001",
         ... )
     """
-    route_trace = []
+    route_trace: list[str] = []
 
     header = MessageHeader(
         layer=Layer.JUDGMENT,
@@ -291,7 +291,7 @@ def create_action(
         ...     instance_id="org_001",
         ... )
     """
-    route_trace = []
+    route_trace: list[str] = []
 
     header = MessageHeader(
         layer=Layer.ACTION,
