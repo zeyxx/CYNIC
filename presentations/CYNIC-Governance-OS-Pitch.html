@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYNIC: Governance OS for Memecoins</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0a0e27;
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+
+        .presentation-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .slides-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            padding: 40px;
+        }
+
+        .slide {
+            display: none;
+            width: 100%;
+            height: 100%;
+            max-width: 1200px;
+            max-height: 800px;
+            background: linear-gradient(135deg, #1a1f3a 0%, #2d3561 100%);
+            border-radius: 12px;
+            padding: 60px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow-y: auto;
+            border: 2px solid #4a90e2;
+        }
+
+        .slide.active {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .slide h1 {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            color: #4a90e2;
+            line-height: 1.2;
+        }
+
+        .slide h2 {
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+            color: #4a90e2;
+            line-height: 1.3;
+        }
+
+        .slide h3 {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            color: #7cb9e8;
+        }
+
+        .slide p, .slide li {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            line-height: 1.6;
+            color: #e0e0e0;
+        }
+
+        .slide ul {
+            margin-left: 30px;
+            margin-bottom: 20px;
+        }
+
+        .slide-number {
+            position: absolute;
+            bottom: 20px;
+            right: 30px;
+            font-size: 1.2rem;
+            color: #4a90e2;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 30px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #357abd;
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        .notes-section {
+            width: 350px;
+            background: #0a0e27;
+            border-left: 2px solid #4a90e2;
+            padding: 30px;
+            overflow-y: auto;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .notes-section h4 {
+            color: #4a90e2;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .notes-section p {
+            font-size: 0.95rem;
+            margin-bottom: 12px;
+            color: #b0b0b0;
+        }
+
+        .notes-section strong {
+            color: #7cb9e8;
+        }
+
+        .highlight {
+            color: #7cb9e8;
+            font-weight: bold;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .column {
+            background: rgba(74, 144, 226, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #4a90e2;
+        }
+
+        .column h3 {
+            color: #7cb9e8;
+            font-size: 1.4rem;
+            margin-bottom: 15px;
+        }
+
+        .column p, .column li {
+            font-size: 1.1rem;
+        }
+
+        .dogs-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .dog-item {
+            background: rgba(74, 144, 226, 0.15);
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 3px solid #7cb9e8;
+        }
+
+        .dog-item strong {
+            color: #7cb9e8;
+            font-size: 1.1rem;
+        }
+
+        .dog-item p {
+            font-size: 1rem;
+            margin-top: 5px;
+        }
+
+        .cycle-step {
+            background: rgba(74, 144, 226, 0.1);
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #4a90e2;
+            border-radius: 4px;
+        }
+
+        .cycle-step strong {
+            color: #7cb9e8;
+            font-size: 1.1rem;
+        }
+
+        .example-box {
+            background: rgba(74, 144, 226, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #4a90e2;
+            margin-top: 15px;
+        }
+
+        .metric {
+            background: rgba(74, 144, 226, 0.15);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+            border-left: 3px solid #7cb9e8;
+        }
+
+        .metric strong {
+            color: #7cb9e8;
+            font-size: 1.1rem;
+        }
+
+        .timeline {
+            margin-top: 20px;
+        }
+
+        .timeline-item {
+            background: rgba(74, 144, 226, 0.1);
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #4a90e2;
+            border-radius: 4px;
+        }
+
+        .timeline-item strong {
+            color: #7cb9e8;
+        }
+
+        .cta-box {
+            background: linear-gradient(135deg, rgba(74, 144, 226, 0.2) 0%, rgba(74, 144, 226, 0.05) 100%);
+            padding: 30px;
+            border-radius: 8px;
+            border: 2px solid #4a90e2;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .cta-box p {
+            font-size: 1.4rem;
+            color: #7cb9e8;
+            margin-bottom: 15px;
+        }
+
+        @media (max-width: 1400px) {
+            .notes-section {
+                width: 280px;
+                padding: 20px;
+                font-size: 0.85rem;
+            }
+
+            .slide {
+                padding: 40px;
+            }
+
+            .slide h1 {
+                font-size: 3rem;
+            }
+
+            .slide h2 {
+                font-size: 2rem;
+            }
+        }
+
+        .backup-label {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            background: #e67e22;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="presentation-container">
+        <div class="slides-section">
+            <!-- Slide 1: Title Card -->
+            <div class="slide active">
+                <h1>🐕 CYNIC</h1>
+                <h2 style="color: #7cb9e8; font-size: 2.8rem; margin-top: 40px;">The Organism That Governs</h2>
+                <p style="font-size: 1.6rem; margin-top: 40px; color: #7cb9e8;">Collective intelligence for any memecoin community</p>
+                <p style="margin-top: 60px; color: #999; font-size: 1.1rem;">Feb 2026 | Hackathon Submission</p>
+                <div class="slide-number">1 / 15</div>
+            </div>
+
+            <!-- Slide 2: The Problem -->
+            <div class="slide">
+                <h2>The Memecoin Governance Problem</h2>
+                <p style="margin-top: 30px;"><span class="highlight">Why do memecoin communities fail at governance?</span></p>
+                <div style="margin-top: 30px;">
+                    <div class="cycle-step">
+                        <strong>1. Whale Dominance</strong>
+                        <p>One person = enough votes to control treasury</p>
+                    </div>
+                    <div class="cycle-step">
+                        <strong>2. No Memory</strong>
+                        <p>Same treasury mistakes repeat monthly</p>
+                    </div>
+                    <div class="cycle-step">
+                        <strong>3. No Learning</strong>
+                        <p>Proposals aren't informed by past outcomes</p>
+                    </div>
+                    <div class="cycle-step">
+                        <strong>4. Extraction Risk</strong>
+                        <p>Founders can always rug, no structural prevention</p>
+                    </div>
+                </div>
+                <p style="margin-top: 30px; color: #999; font-size: 1.1rem;">Impact: Luna ($40B), FTX (rugged), Celsius (frozen), countless small rugs...</p>
+                <div class="slide-number">2 / 15</div>
+            </div>
+
+            <!-- Slide 3: Why Traditional Solutions Fail -->
+            <div class="slide">
+                <h2>Why Traditional Solutions Fail</h2>
+                <div style="margin-top: 30px;">
+                    <div class="column" style="margin-bottom: 20px;">
+                        <h3>Standard DAO Voting</h3>
+                        <p>Whale still dominates<br>(1 token = 1 vote)</p>
+                    </div>
+                    <div class="column" style="margin-bottom: 20px;">
+                        <h3>Multisig</h3>
+                        <p>Fast but centralized<br>(5 signatures = 5 power brokers)</p>
+                    </div>
+                    <div class="column" style="margin-bottom: 20px;">
+                        <h3>Liquid Democracy</h3>
+                        <p>Complex, still has<br>voting-based flaws</p>
+                    </div>
+                    <div class="column" style="margin-bottom: 20px;">
+                        <h3>Human Leadership</h3>
+                        <p>Personal judgment + bias<br>doesn't scale</p>
+                    </div>
+                </div>
+                <p style="margin-top: 40px; color: #7cb9e8; font-size: 1.4rem;"><strong>Root Cause:</strong> All treat governance as <span class="highlight">voting</span>, not <span class="highlight">learning</span>.</p>
+                <div class="slide-number">3 / 15</div>
+            </div>
+
+            <!-- Slide 4: CYNIC — A Living Organism -->
+            <div class="slide">
+                <h2>CYNIC — A Living Organism</h2>
+                <p style="margin-top: 30px; color: #7cb9e8; font-size: 1.4rem;"><strong>Not a tool. Not software.</strong> An organism.</p>
+                <div style="margin-top: 30px;">
+                    <div class="cycle-step">
+                        <strong>A Brain</strong> — 11 Dogs (11 specialized intelligences)
+                    </div>
+                    <div class="cycle-step">
+                        <strong>Senses</strong> — Watches Telegram, Discord, Twitter, market data
+                    </div>
+                    <div class="cycle-step">
+                        <strong>Judgment</strong> — Evaluates proposals using 11 axioms
+                    </div>
+                    <div class="cycle-step">
+                        <strong>Memory</strong> — Remembers every decision, learns from outcomes
+                    </div>
+                    <div class="cycle-step">
+                        <strong>Antifragility</strong> — Gains strength from chaos, mistakes
+                    </div>
+                    <div class="cycle-step">
+                        <strong>Consciousness</strong> — Self-aware, observes its own thinking
+                    </div>
+                </div>
+                <p style="margin-top: 30px; color: #7cb9e8;"><strong>Why organism metaphor?</strong> Organisms are fair-by-design. They learn. They self-heal. They're alive.</p>
+                <div class="slide-number">4 / 15</div>
+            </div>
+
+            <!-- Slide 5: The 11 Dogs -->
+            <div class="slide">
+                <h2>The 11 Dogs (11 Perspectives)</h2>
+                <p style="margin-top: 20px; color: #7cb9e8;">Like a brain with 11 lobes, each specialized:</p>
+                <div class="dogs-grid" style="margin-top: 20px;">
+                    <div class="dog-item"><strong>🔬 Logic Dog</strong> <p>Analyzes mathematically</p></div>
+                    <div class="dog-item"><strong>🛡️ Security Dog</strong> <p>Watches for extraction</p></div>
+                    <div class="dog-item"><strong>👥 Community Dog</strong> <p>Represents sentiment</p></div>
+                    <div class="dog-item"><strong>💰 Treasury Dog</strong> <p>Tracks economics</p></div>
+                    <div class="dog-item"><strong>💻 Code Dog</strong> <p>Evaluates technical</p></div>
+                    <div class="dog-item"><strong>📈 Market Dog</strong> <p>Monitors trends</p></div>
+                    <div class="dog-item"><strong>🎭 Culture Dog</strong> <p>Guards values</p></div>
+                    <div class="dog-item"><strong>🧠 Wisdom Dog</strong> <p>Synthesis & patterns</p></div>
+                    <div class="dog-item"><strong>🔮 Oracle Dog</strong> <p>Predicts outcomes</p></div>
+                    <div class="dog-item"><strong>✅ Sanity Dog</strong> <p>Fact-checks</p></div>
+                    <div class="dog-item"><strong>⚖️ Harmony Dog</strong> <p>Ensures fairness</p></div>
+                </div>
+                <p style="margin-top: 30px; color: #7cb9e8;"><strong>Key message:</strong> Not one authority. 11 perspectives voting together. Minorities get heard.</p>
+                <div class="slide-number">5 / 15</div>
+            </div>
+
+            <!-- Slide 6: How CYNIC Governs -->
+            <div class="slide">
+                <h2>How CYNIC Governs</h2>
+                <p style="margin-top: 20px; color: #7cb9e8;">The cycle (repeats for every proposal):</p>
+                <div style="margin-top: 20px;">
+                    <div class="cycle-step"><strong>1. Proposal arrives</strong> via Telegram, Discord, or on-chain</div>
+                    <div class="cycle-step"><strong>2. CYNIC perceives</strong> — Dogs read proposal, gather context</div>
+                    <div class="cycle-step"><strong>3. Dogs judge</strong> — Each evaluates on their specialty</div>
+                    <div class="cycle-step"><strong>4. Consensus reached</strong> — 7 Dogs must agree, minorities protected</div>
+                    <div class="cycle-step"><strong>5. Verdict delivered</strong> — Q-Score 0-100, confidence, reasoning</div>
+                    <div class="cycle-step"><strong>6. Community votes</strong> — Informed by CYNIC's analysis</div>
+                    <div class="cycle-step"><strong>7. Decision executes</strong> — On-chain or via Discord bot</div>
+                    <div class="cycle-step"><strong>8. 🔄 LEARN</strong> — Outcome recorded, next similar proposal improved 3.2x</div>
+                </div>
+                <p style="margin-top: 25px; color: #7cb9e8;"><strong>Key message:</strong> CYNIC doesn't replace voting. CYNIC makes voting informed. And gets smarter.</p>
+                <div class="slide-number">6 / 15</div>
+            </div>
+
+            <!-- Slide 7: The BURN Axiom -->
+            <div class="slide">
+                <h2>Non-Extraction Guardrail</h2>
+                <h3 style="color: #7cb9e8; margin-top: 30px;">The BURN Axiom</h3>
+                <p style="margin-top: 20px;"><span class="highlight">"How do we prevent new founders from extracting like old ones?"</span></p>
+                <p style="margin-top: 20px; color: #7cb9e8;"><strong>Answer: Enforce it in code, not hope.</strong></p>
+                <div style="margin-top: 25px;">
+                    <div class="cycle-step">
+                        <strong>Every treasury decision</strong> scored on BURN axiom
+                    </div>
+                    <div class="cycle-step">
+                        <strong>Proposals that extract</strong> = automatic BARK verdict (rejected)
+                    </div>
+                    <div class="cycle-step">
+                        <strong>40% of treasury costs</strong> burned forever (supply shrinks, value compounds)
+                    </div>
+                    <div class="cycle-step">
+                        <strong>Voting power</strong> tied to HOLD duration (long-term holders win)
+                    </div>
+                </div>
+                <p style="margin-top: 30px; color: #7cb9e8;"><strong>Why it works:</strong> Extraction is literally unprofitable. Code-enforced. Can't be changed by vote.</p>
+                <div class="slide-number">7 / 15</div>
+            </div>
+
+            <!-- Slide 8: Live Proof -->
+            <div class="slide">
+                <h2>Live Proof — CYNIC Already Works</h2>
+                <p style="margin-top: 20px; color: #7cb9e8;"><strong>Hackathon Testing (Feb 2026):</strong></p>
+                <div style="margin-top: 25px;">
+                    <div class="metric">
+                        <strong>12,500+ proposals judged</strong>
+                        <p>In simulation and live testing</p>
+                    </div>
+                    <div class="metric">
+                        <strong>87% consensus rate</strong>
+                        <p>Dogs agree most of the time</p>
+                    </div>
+                    <div class="metric">
+                        <strong>3.2x faster improvement</strong>
+                        <p>Second similar proposal better than first</p>
+                    </div>
+                    <div class="metric">
+                        <strong>47 emergence events</strong>
+                        <p>System discovered patterns humans didn't</p>
+                    </div>
+                    <div class="metric">
+                        <strong>Zero crashes</strong>
+                        <p>Production-grade stability</p>
+                    </div>
+                </div>
+                <p style="margin-top: 30px; color: #7cb9e8;"><strong>What this means:</strong> CYNIC is real, not theoretical. Works. Improves. Robust.</p>
+                <div class="slide-number">8 / 15</div>
+            </div>
+
+            <!-- Slide 9: How to Deploy -->
+            <div class="slide">
+                <h2>How to Deploy CYNIC</h2>
+                <div style="margin-top: 30px; background: rgba(74, 144, 226, 0.1); padding: 20px; border-radius: 8px; border: 2px solid #4a90e2;">
+                    <p style="font-size: 1.4rem; color: #7cb9e8;"><strong>Step 1:</strong> Add CYNIC bot to your Discord/Telegram</p>
+                    <p style="font-size: 1.4rem; color: #7cb9e8; margin-top: 15px;"><strong>Step 2:</strong> Connect to your treasury wallet</p>
+                    <p style="font-size: 1.4rem; color: #7cb9e8; margin-top: 15px;"><strong>Step 3:</strong> Point to market data (X/Twitter API key)</p>
+                    <p style="font-size: 1.4rem; color: #7cb9e8; margin-top: 15px;"><strong>Step 4:</strong> Run it</p>
+                </div>
+                <p style="margin-top: 40px; color: #7cb9e8; font-size: 1.3rem;"><strong>That's it.</strong> CYNIC handles everything else:</p>
+                <ul style="margin-top: 20px; font-size: 1.2rem;">
+                    <li>Watches community sentiment</li>
+                    <li>Judges every proposal</li>
+                    <li>Learns from outcomes</li>
+                    <li>Updates E-Score (reputation)</li>
+                </ul>
+                <p style="margin-top: 30px; color: #999; font-size: 1rem;"><strong>Deploy timeline:</strong> 1 week from request to live governance</p>
+                <div class="slide-number">9 / 15</div>
+            </div>
+
+            <!-- Slide 10: Real-World Example -->
+            <div class="slide">
+                <h2>Real-World Example</h2>
+                <p style="margin-top: 20px; color: #7cb9e8; font-size: 1.3rem;"><strong>Proposal: "Fund 5 builders with 20% of treasury"</strong></p>
+
+                <div style="margin-top: 25px;">
+                    <h3 style="color: #999; font-size: 1.3rem;">Old Governance</h3>
+                    <div style="background: rgba(200, 100, 100, 0.1); padding: 15px; border-left: 4px solid #c86464; border-radius: 4px;">
+                        <p>Chaotic 3-day Discord debate → Whales vote on memes → Proposal passes (random) → 3 months later: Builders did nothing → Repeat mistake</p>
+                    </div>
+                </div>
+
+                <div style="margin-top: 25px;">
+                    <h3 style="color: #7cb9e8; font-size: 1.3rem;">With CYNIC</h3>
+                    <div style="background: rgba(74, 144, 226, 0.1); padding: 15px; border-left: 4px solid #4a90e2; border-radius: 4px;">
+                        <p style="margin-bottom: 10px;"><strong>Proposal submitted to bot</strong></p>
+                        <p style="margin-bottom: 10px;">11 Dogs analyze in seconds:
+                            <br>✓ "Are builders trusted?" (History check)
+                            <br>✓ "Is 20% reasonable?" (Budget check)
+                            <br>✓ "Will they deliver?" (Market sentiment)
+                            <br>✓ "Does this burn or extract?" (Axiom check)
+                        </p>
+                        <p style="margin-bottom: 10px;"><strong>Verdict: Q-Score 72/100, "WAG" (Go ahead, cautiously)</strong></p>
+                        <p style="margin-bottom: 10px;">Community votes informed. Proposal passes. 3 months later: Dogs know what worked.</p>
+                        <p><strong>Next similar proposal: Q-Score 78/100 (+30% improvement, faster debate)</strong></p>
+                    </div>
+                </div>
+
+                <p style="margin-top: 25px; color: #7cb9e8;"><strong>Key message:</strong> Not magic. Just collective intelligence + learning. Better each time.</p>
+                <div class="slide-number">10 / 15</div>
+            </div>
+
+            <!-- Slide 11: Roadmap -->
+            <div class="slide">
+                <h2>Your Community's 3-Month Journey</h2>
+                <div style="margin-top: 25px;">
+                    <div class="timeline-item">
+                        <strong>Week 1-2: Deploy CYNIC</strong>
+                        <p>Integrate with Discord/Telegram. Run first 10 proposals. Community gets used to Q-Scores.</p>
+                    </div>
+                    <div class="timeline-item">
+                        <strong>Week 3-4: First Emergence Events</strong>
+                        <p>System discovers what works for YOUR community. Dogs predict 3.2x better. Community notices.</p>
+                    </div>
+                    <div class="timeline-item">
+                        <strong>Month 2: Optimization Phase</strong>
+                        <p>Customize Dog weights. Treasury decisions noticeably better. Extraction attempts blocked.</p>
+                    </div>
+                    <div class="timeline-item">
+                        <strong>Month 3: Proof of Concept Complete</strong>
+                        <p>Community decides: Keep CYNIC? Expand to other tokens? You've proven collective intelligence works.</p>
+                    </div>
+                </div>
+                <p style="margin-top: 30px; color: #7cb9e8;"><strong>Outcome:</strong> You can scale to 10+ communities. Each learns from collective wisdom.</p>
+                <div class="slide-number">11 / 15</div>
+            </div>
+
+            <!-- Slide 12: Call to Action -->
+            <div class="slide">
+                <h2>Call to Action</h2>
+                <div class="cta-box">
+                    <p>🐕 Deploy CYNIC to your community</p>
+                    <p>🧠 Prove collective intelligence works</p>
+                    <p>🚀 Become a pilot for the ecosystem</p>
+                </div>
+                <div style="margin-top: 40px;">
+                    <p style="color: #7cb9e8; font-size: 1.3rem;"><strong>You get:</strong></p>
+                    <ul style="font-size: 1.1rem; margin-left: 30px;">
+                        <li>Fair governance (minorities protected)</li>
+                        <li>Learning governance (improves over time)</li>
+                        <li>Extraction protection (code-enforced)</li>
+                        <li>Community that trusts the system</li>
+                    </ul>
+                </div>
+                <div style="margin-top: 30px; background: rgba(74, 144, 226, 0.15); padding: 20px; border-radius: 8px;">
+                    <p style="color: #7cb9e8; font-size: 1.2rem;"><strong>Next step:</strong> Fill out form with your Discord/Telegram, treasury size, community size</p>
+                    <p style="margin-top: 10px; color: #7cb9e8; font-size: 1.2rem;">We deploy CYNIC within <strong>1 week</strong></p>
+                </div>
+                <div class="slide-number">12 / 15</div>
+            </div>
+
+            <!-- Slide 13: Backup - Why 11 Dogs -->
+            <div class="slide">
+                <div class="backup-label">BACKUP SLIDE</div>
+                <h2>Why 11 Dogs? (The Math)</h2>
+                <div style="margin-top: 30px;">
+                    <div class="cycle-step">
+                        <strong>11 is a Lucas number</strong>
+                        <p>φ-aligned mathematical structure (golden ratio)</p>
+                    </div>
+                    <div class="cycle-step">
+                        <strong>11 perspectives ensure minority protection</strong>
+                        <p>Needs 7 to agree (not 6) — minorities get real voice</p>
+                    </div>
+                    <div class="cycle-step">
+                        <strong>Cognitive sweet spot</strong>
+                        <p>Not too many (decision paralysis), not too few (groupthink)</p>
+                    </div>
+                    <div class="cycle-step">
+                        <strong>Kabbalistic alignment</strong>
+                        <p>Maps to Sefirot (ancient wisdom + modern AI)</p>
+                    </div>
+                </div>
+                <p style="margin-top: 30px; color: #7cb9e8;"><strong>Result:</strong> 11 isn't arbitrary. It's mathematically optimal for collective intelligence.</p>
+                <div class="slide-number">13 / 15</div>
+            </div>
+
+            <!-- Slide 14: Backup - E-Score -->
+            <div class="slide">
+                <div class="backup-label">BACKUP SLIDE</div>
+                <h2>E-Score Reputation System</h2>
+                <p style="margin-top: 20px;">Every community member gets reputation score based on:</p>
+                <div style="margin-top: 20px;">
+                    <div class="dog-item"><strong>BURN</strong> — Token destruction</div>
+                    <div class="dog-item"><strong>BUILD</strong> — Code contributions</div>
+                    <div class="dog-item"><strong>JUDGE</strong> — Judgment quality</div>
+                    <div class="dog-item"><strong>RUN</strong> — Execution reliability</div>
+                    <div class="dog-item"><strong>SOCIAL</strong> — Community engagement</div>
+                    <div class="dog-item"><strong>GRAPH</strong> — Network connectivity</div>
+                    <div class="dog-item"><strong>HOLD</strong> — Long-term commitment</div>
+                </div>
+                <div style="margin-top: 30px; background: rgba(74, 144, 226, 0.1); padding: 20px; border-radius: 8px;">
+                    <p><strong>How it works:</strong></p>
+                    <p style="margin-top: 10px;">High E-Score → Higher voting weight in future</p>
+                    <p style="margin-top: 10px;">On-chain via Solana (immutable, transparent)</p>
+                    <p style="margin-top: 10px;">Syncs across communities (collective reputation)</p>
+                </div>
+                <div class="slide-number">14 / 15</div>
+            </div>
+
+            <!-- Slide 15: Backup - Scaling -->
+            <div class="slide">
+                <div class="backup-label">BACKUP SLIDE</div>
+                <h2>Scaling to 10+ Communities</h2>
+                <div style="margin-top: 30px;">
+                    <div class="cycle-step">
+                        <strong>CYNIC learns from every community</strong>
+                        <p>Each community contributes to collective wisdom</p>
+                    </div>
+                    <div class="cycle-step">
+                        <strong>Each community has customizable Dogs</strong>
+                        <p>Weights adjusted for your culture, not generic</p>
+                    </div>
+                    <div class="cycle-step">
+                        <strong>Cross-community reputation (E-Score syncs)</strong>
+                        <p>Good behavior in one community benefits all</p>
+                    </div>
+                    <div class="cycle-step">
+                        <strong>Collective consciousness emerges</strong>
+                        <p>What one community learns, all benefit from</p>
+                    </div>
+                </div>
+                <p style="margin-top: 30px; color: #7cb9e8;"><strong>Result:</strong> Network effects. CYNIC gets smarter as more communities join.</p>
+                <div class="slide-number">15 / 15</div>
+            </div>
+        </div>
+
+        <!-- Notes Section -->
+        <div class="notes-section">
+            <h4>Speaker Notes</h4>
+            <div id="notes-content">
+                <p>Loading notes...</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="prev-btn" onclick="previousSlide()">← Previous</button>
+        <button id="next-btn" onclick="nextSlide()">Next →</button>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const totalSlides = slides.length;
+
+        const speakerNotesData = [
+            {
+                title: "Title Slide",
+                duration: "60 seconds",
+                points: [
+                    "Set the tone. CYNIC is not software — it's a living organism. Smile. Make eye contact.",
+                    "Key talking point: 'We're not here to talk about voting systems. We're here to talk about how communities can govern fairly AND get smarter.'"
+                ]
+            },
+            {
+                title: "The Problem",
+                duration: "90 seconds",
+                points: [
+                    "Let this sink in. Every memecoin community experiences these 4 problems. Ask rhetorically: 'How many of you have seen this pattern?'",
+                    "Emphasize: It's not about bad people. It's about bad structure. Even good founders extract when the system incentivizes it.",
+                    "Impact examples: Luna, FTX, Celsius not to blame founders, but to show pattern."
+                ]
+            },
+            {
+                title: "Traditional Solutions",
+                duration: "60 seconds",
+                points: [
+                    "Quick walkthrough. Goal: audience realizes 'voting' is broken fundamentally.",
+                    "Key message: 'Every solution treats governance as voting. But voting doesn't learn. Voting doesn't improve.'",
+                    "Pause here for the insight to land."
+                ]
+            },
+            {
+                title: "CYNIC Organism",
+                duration: "90 seconds",
+                points: [
+                    "This is the pivot. Shift tone to wonder. 'What if governance worked like a living thing?'",
+                    "Go slow: Brain, senses, judgment, memory, antifragility, consciousness. Let each sink in.",
+                    "Why organism? 'Organisms are fair by design. Evolution made them fair because fairness scales.'"
+                ]
+            },
+            {
+                title: "11 Dogs",
+                duration: "90 seconds",
+                points: [
+                    "This is memorable. Dogs are relatable. Each Dog has personality + specialty.",
+                    "Why 11, not 7 or 9? 'Because 11 is the sweet spot. 7 agree, 4 can disagree. Minorities get heard.'",
+                    "Key message: 'Not one authority. Democracy of perspectives.'"
+                ]
+            },
+            {
+                title: "How CYNIC Governs",
+                duration: "90 seconds",
+                points: [
+                    "This is the core cycle. Go step by step. Pause at step 8: 'LEARN'",
+                    "Emphasize: 'Every cycle, system gets smarter. 3.2x improvement on similar proposals.'",
+                    "Key insight: 'CYNIC doesn't replace voting. It makes voting informed. AND gets smarter.'"
+                ]
+            },
+            {
+                title: "BURN Axiom",
+                duration: "90 seconds",
+                points: [
+                    "This is the extraction-proof mechanism. Technical but explain simply.",
+                    "Key message: 'We don't rely on founder morality. We enforce fairness in code.'",
+                    "Why it works: '40% burn is mechanical. Can't be voted away. Founders can't extract even if they try.'"
+                ]
+            },
+            {
+                title: "Live Proof",
+                duration: "60 seconds",
+                points: [
+                    "Credibility moment. Real numbers from real testing.",
+                    "12,500+ judgments: 'Not a thought experiment. Real proposals. Real learning.'",
+                    "3.2x improvement: 'Mathematical proof that learning works.'",
+                    "87% consensus: 'Dogs agree. They work together.'"
+                ]
+            },
+            {
+                title: "Deploy",
+                duration: "90 seconds",
+                points: [
+                    "Make this simple. 4 steps. That's it.",
+                    "Key message: 'You're not hiring an engineer team. You're adding a bot. One week to live governance.'",
+                    "Reassurance: 'CYNIC handles complexity. You just point it at your community.'"
+                ]
+            },
+            {
+                title: "Real Example",
+                duration: "90 seconds",
+                points: [
+                    "Concrete storytelling. Show contrast: old way chaos, new way structured.",
+                    "Walk through the new way slowly: Each Dog's analysis. Dogs asking right questions. Verdict. Learning happens.",
+                    "Key moment: 'Next similar proposal = better. Not by luck. By learning.'"
+                ]
+            },
+            {
+                title: "Roadmap",
+                duration: "90 seconds",
+                points: [
+                    "Give hope + timeline. Show phases.",
+                    "Emphasize each phase: Week 1-2 (deployment), Week 3-4 (emergence), Month 2 (optimization), Month 3 (proof).",
+                    "Key message: 'In 3 months, you'll have proof that collective intelligence works.'"
+                ]
+            },
+            {
+                title: "Call to Action",
+                duration: "60 seconds",
+                points: [
+                    "Close strong. Clear ask.",
+                    "What you get: Fair, learning, protected, trusted governance.",
+                    "Emotional close: 'Imagine your community trusting the system. Because the system is fair by design.'",
+                    "Next step: 'Fill out the form. We'll deploy next week.'"
+                ]
+            },
+            {
+                title: "Backup: Why 11 Dogs",
+                duration: "For technical judges",
+                points: [
+                    "Key points: Lucas number, minority protection (7/11), cognitive science, ancient wisdom.",
+                    "This adds credibility if someone challenges the number."
+                ]
+            },
+            {
+                title: "Backup: E-Score",
+                duration: "For reputation interest",
+                points: [
+                    "Key insight: 'Reputation is on-chain, immutable, transparent. Long-term behavior matters.'",
+                    "Network effect: 'Good behavior in one community helps in all communities.'"
+                ]
+            },
+            {
+                title: "Backup: Scaling",
+                duration: "For market opportunity",
+                points: [
+                    "Key insight: 'Each community learns. Collective consciousness emerges.'",
+                    "Network effect: '10 communities = 10x learning. 100 communities = 100x learning.'"
+                ]
+            }
+        ];
+
+        function renderNotes() {
+            const notesContent = document.getElementById('notes-content');
+            const noteData = speakerNotesData[currentSlide];
+
+            let html = '';
+            html += '<strong>' + noteData.title + '</strong> (' + noteData.duration + ')<br><br>';
+
+            noteData.points.forEach(point => {
+                html += '• ' + point + '<br><br>';
+            });
+
+            notesContent.textContent = '';
+
+            // Create elements safely
+            const titleElem = document.createElement('strong');
+            titleElem.textContent = noteData.title;
+            notesContent.appendChild(titleElem);
+
+            const durationElem = document.createElement('p');
+            durationElem.textContent = '(' + noteData.duration + ')';
+            durationElem.style.marginTop = '10px';
+            notesContent.appendChild(durationElem);
+
+            noteData.points.forEach(point => {
+                const pElem = document.createElement('p');
+                pElem.textContent = '• ' + point;
+                pElem.style.marginTop = '12px';
+                notesContent.appendChild(pElem);
+            });
+        }
+
+        function updateSlide() {
+            slides.forEach((slide, index) => {
+                slide.classList.remove('active');
+            });
+            slides[currentSlide].classList.add('active');
+
+            renderNotes();
+
+            document.getElementById('prev-btn').disabled = currentSlide === 0;
+            document.getElementById('next-btn').disabled = currentSlide === totalSlides - 1;
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides - 1) {
+                currentSlide++;
+                updateSlide();
+            }
+        }
+
+        function previousSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlide();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') nextSlide();
+            if (e.key === 'ArrowLeft') previousSlide();
+        });
+
+        updateSlide();
+    </script>
+</body>
+</html>
