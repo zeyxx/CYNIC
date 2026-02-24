@@ -251,6 +251,84 @@ async def list_tools() -> list[Tool]:
             description="Stop all CYNIC services gracefully. CYNIC can shut itself down.",
             inputSchema={"type": "object", "properties": {}},
         ),
+        # ════════════════════════════════════════════════════════════════════
+        # EMPIRICAL TESTING TOOLS (Autonomous Research)
+        # Claude Code can spawn empirical tests without consuming context
+        # ════════════════════════════════════════════════════════════════════
+        Tool(
+            name="cynic_run_empirical_test",
+            description="Run an empirical test of CYNIC judgment system. Spawns async batch runner with N iterations to measure learning efficiency, Q-scores, and emergence events.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "description": "Number of judgment iterations (default: 1000)",
+                        "default": 1000,
+                    },
+                    "seed": {
+                        "type": "integer",
+                        "description": "Random seed for reproducibility (optional)",
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="cynic_get_job_status",
+            description="Get status and progress of a running empirical test job. Returns progress percentage, iterations done, ETA, and any error messages.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "job_id": {
+                        "type": "string",
+                        "description": "Job ID returned from cynic_run_empirical_test",
+                    },
+                },
+                "required": ["job_id"],
+            },
+        ),
+        Tool(
+            name="cynic_get_test_results",
+            description="Get complete results from a finished empirical test job. Only available when job status == 'complete'. Returns Q-scores, metrics, learning efficiency.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "job_id": {
+                        "type": "string",
+                        "description": "Job ID of completed test",
+                    },
+                },
+                "required": ["job_id"],
+            },
+        ),
+        Tool(
+            name="cynic_test_axiom_irreducibility",
+            description="Test if CYNIC axioms are irreducible (necessary) for judgment quality. Runs iterations with each axiom disabled to measure impact.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "axiom": {
+                        "type": "string",
+                        "description": "Test specific axiom (PHI, VERIFY, CULTURE, BURN, FIDELITY), or null for all 5 axioms",
+                        "enum": ["PHI", "VERIFY", "CULTURE", "BURN", "FIDELITY", None],
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="cynic_query_telemetry",
+            description="Query CYNIC system telemetry from SONA heartbeat. Returns uptime, learning stats, Q-table size, total judgments.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "metric": {
+                        "type": "string",
+                        "description": "Metric: uptime_s, q_table_entries, total_judgments, learning_rate",
+                        "default": "uptime_s",
+                    },
+                },
+            },
+        ),
     ]
 
 
@@ -280,6 +358,17 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             return await _tool_cynic_release(arguments)
         elif name == "cynic_stop":
             return await _tool_cynic_stop(arguments)
+        # ── Empirical testing tools ──────────────────────────────────────
+        elif name == "cynic_run_empirical_test":
+            return await _tool_cynic_run_empirical_test(arguments)
+        elif name == "cynic_get_job_status":
+            return await _tool_cynic_get_job_status(arguments)
+        elif name == "cynic_get_test_results":
+            return await _tool_cynic_get_test_results(arguments)
+        elif name == "cynic_test_axiom_irreducibility":
+            return await _tool_cynic_test_axiom_irreducibility(arguments)
+        elif name == "cynic_query_telemetry":
+            return await _tool_cynic_query_telemetry(arguments)
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
     except CynicError as exc:
@@ -576,6 +665,198 @@ CYNIC services can be stopped via:
 
 Note: Shutdown is graceful and preserves all state.
 To restart, simply re-run the service."""
+
+    return [TextContent(type="text", text=response)]
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# EMPIRICAL TESTING TOOLS — Claude Code Autonomous Research
+# ════════════════════════════════════════════════════════════════════════════
+
+
+async def _tool_cynic_run_empirical_test(args: dict) -> list[TextContent]:
+    """Spawn new empirical test job (async, returns immediately)."""
+    count = args.get("count", 1000)
+    seed = args.get("seed")
+
+    logger.info("Claude requested: start empirical test (count=%d, seed=%s)", count, seed)
+
+    result = await _call_cynic("empirical/test/start", {"count": count, "seed": seed})
+
+    job_id = result.get("job_id", "N/A")
+    status = result.get("status", "unknown")
+
+    response = f"""CYNIC Empirical Test Started
+
+Job ID: {job_id}
+Status: {status}
+Iterations: {count}
+Seed: {seed or 'random'}
+
+The test is running in the background. Use cynic_get_job_status() to poll progress.
+Estimated time: {count // 100} - {count // 50} seconds (50-100ms per iteration)
+
+Once complete (status='complete'), call cynic_get_test_results() to fetch Q-scores, learning efficiency, and emergence counts."""
+
+    return [TextContent(type="text", text=response)]
+
+
+async def _tool_cynic_get_job_status(args: dict) -> list[TextContent]:
+    """Poll test job status and progress."""
+    job_id = args.get("job_id", "")
+
+    logger.info("Claude checking test status: job_id=%s", job_id)
+
+    status = await _call_cynic(f"empirical/test/{job_id}", {})
+
+    if "error" in status:
+        return [TextContent(type="text", text=f"Error: {status.get('error')}")]
+
+    job_status = status.get("status", "unknown")
+    progress = status.get("progress_percent", 0)
+    done = status.get("iterations_done", 0)
+    total = status.get("iterations_total", 0)
+    eta = status.get("eta_s", 0)
+    error_msg = status.get("error_message")
+
+    # Progress bar visualization
+    bar_length = 20
+    filled = int(bar_length * progress / 100)
+    bar = "█" * filled + "░" * (bar_length - filled)
+
+    response = f"""CYNIC Test Job Status
+
+Job ID: {job_id}
+Status: {job_status}
+
+Progress: [{bar}] {progress:.1f}%
+Iterations: {done}/{total}
+ETA: {eta:.0f} seconds (~{eta/60:.1f} minutes)
+
+{f'Error: {error_msg}' if error_msg else 'Running smoothly ✓'}
+
+Next: Call cynic_get_test_results(job_id="{job_id}") when status='complete'"""
+
+    return [TextContent(type="text", text=response)]
+
+
+async def _tool_cynic_get_test_results(args: dict) -> list[TextContent]:
+    """Fetch completed test results (only works when job is complete)."""
+    job_id = args.get("job_id", "")
+
+    logger.info("Claude fetching test results: job_id=%s", job_id)
+
+    results = await _call_cynic(f"empirical/test/{job_id}/results", {})
+
+    if "error" in results or "detail" in results:
+        error = results.get("error") or results.get("detail")
+        return [TextContent(type="text", text=f"Results not ready: {error}")]
+
+    q_scores = results.get("q_scores", [])
+    avg_q = results.get("avg_q", 0)
+    min_q = results.get("min_q", 0)
+    max_q = results.get("max_q", 0)
+    eff = results.get("learning_efficiency", 1.0)
+    emergences = results.get("emergences", 0)
+    duration = results.get("duration_s", 0)
+
+    response = f"""CYNIC Empirical Test Results
+
+Job ID: {job_id}
+Duration: {duration:.1f} seconds (~{duration/60:.1f} minutes)
+
+Q-Score Metrics:
+  Average: {avg_q:.1f}/100
+  Min: {min_q:.1f}/100
+  Max: {max_q:.1f}/100
+  Range: {max_q - min_q:.1f}
+
+Learning Efficiency: {eff:.2f}x baseline
+  (1.0x = no learning, >1.0x = improving)
+
+Emergence Events: {emergences}
+  (New axiom combinations discovered)
+
+Distribution: {len(q_scores)} data points
+  Lowest 10%: {sorted(q_scores)[len(q_scores)//10]:.1f}
+  Highest 10%: {sorted(q_scores)[9*len(q_scores)//10]:.1f}
+
+Interpretation:
+- avg_q > 50: Healthy judgment quality
+- eff > 1.0: Learning is working
+- emergences > 0: Novel patterns discovered"""
+
+    return [TextContent(type="text", text=response)]
+
+
+async def _tool_cynic_test_axiom_irreducibility(args: dict) -> list[TextContent]:
+    """Test if axioms are irreducible (necessary) for judgment quality."""
+    axiom = args.get("axiom")
+
+    logger.info("Claude requested axiom irreducibility test: axiom=%s", axiom)
+
+    results = await _call_cynic("empirical/axioms/test", {"axiom": axiom})
+
+    if "error" in results:
+        return [TextContent(type="text", text=f"Error: {results.get('error')}")]
+
+    impacts = results.get("axiom_impacts", [])
+
+    if not impacts:
+        return [TextContent(type="text", text="No results available")]
+
+    # Format results as table
+    lines = ["CYNIC Axiom Irreducibility Test Results", ""]
+    lines.append("Axiom          | Baseline Q | Disabled Q | Impact % | Irreducible")
+    lines.append("-" * 70)
+
+    for impact in impacts:
+        name = impact.get("name", "?")
+        baseline = impact.get("baseline_q", 0)
+        disabled = impact.get("disabled_q", 0)
+        pct = impact.get("impact_percent", 0)
+        irreducible = "✓" if impact.get("irreducible") else "✗"
+
+        lines.append(f"{name:14} | {baseline:10.1f} | {disabled:10.1f} | {pct:8.1f} | {irreducible}")
+
+    lines.append("")
+    lines.append("Interpretation:")
+    lines.append("- Impact % > 20%: Axiom is essential")
+    lines.append("- Impact % 10-20%: Axiom contributes meaningfully")
+    lines.append("- Impact % < 10%: Axiom has minor effect")
+
+    response = "\n".join(lines)
+    return [TextContent(type="text", text=response)]
+
+
+async def _tool_cynic_query_telemetry(args: dict) -> list[TextContent]:
+    """Query SONA telemetry metrics."""
+    metric = args.get("metric", "uptime_s")
+
+    logger.info("Claude querying telemetry: metric=%s", metric)
+
+    telemetry = await _call_cynic("empirical/telemetry", {"metric": metric})
+
+    if "error" in telemetry:
+        return [TextContent(type="text", text=f"Error: {telemetry.get('error')}")]
+
+    response = f"""CYNIC Telemetry Snapshot
+
+Metric Requested: {metric}
+
+Kernel Uptime: {telemetry.get('uptime_s', 0):.0f} seconds (~{telemetry.get('uptime_s', 0)/3600:.1f} hours)
+
+Learning Statistics:
+  Q-Table Entries: {telemetry.get('q_table_entries', 0):,}
+  Total Judgments: {telemetry.get('total_judgments', 0):,}
+  Learning Rate: {telemetry.get('learning_rate', 0):.4f}
+
+Interpretation:
+- Q-Table growing: Learning is accumulating experience
+- Judgments increasing: Organism is active
+- Learning rate decreasing: Converging to stable policy
+
+Status: Organism is {'active' if telemetry.get('total_judgments', 0) > 0 else 'idle'}"""
 
     return [TextContent(type="text", text=response)]
 

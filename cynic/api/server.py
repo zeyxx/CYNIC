@@ -188,6 +188,14 @@ async def lifespan(app: FastAPI):
     from cynic.api.state import set_state as _set_state
     _set_state(state)
 
+    # ── Initialize empirical router (for Claude Code autonomous testing) ──────
+    try:
+        from cynic.api.routers.empirical import init_empirical_router
+        init_empirical_router(lambda: state)
+        logger.info("Empirical router initialized — Claude Code can run autonomous tests")
+    except Exception as exc:
+        logger.warning("Failed to initialize empirical router: %s (autonomous testing unavailable)", exc)
+
     # ── Tier 1 Nervous System: Register components on startup ───────────────
     # NOTE: Tier 1 Nervous System requires ServiceStateRegistry on AppState.
     # Current implementation uses a placeholder dict in state.py:_create_services().
