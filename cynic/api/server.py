@@ -349,10 +349,10 @@ async def lifespan(app: FastAPI):
         logger.info("MCPBridge: not available (old AppState path — skipping)")
 
     # Phase 1 Implementation: Rate limiting added to scheduler
-    # Backoff logic implemented but requires orchestrator timing fix before re-enabling
-    # See: scheduler.py _get_backoff_ms() method
-    # state.scheduler.start()
-    logger.warning("⚠️  Scheduler disabled (awaiting orchestrator timing fix) — Phase 1 backoff implemented")
+    # Adaptive backoff logic using time.perf_counter() (monotonic timing)
+    # See: scheduler.py _get_backoff_ms() method, pipeline.py elapsed_ms()
+    state.scheduler.start()
+    logger.info("✓ Scheduler enabled with Phase 1 adaptive rate limiting")
 
     # ── AutoBenchmark — periodic LLM probe every 55 min (T09) ────────────
     from cynic.metabolism.auto_benchmark import AutoBenchmark

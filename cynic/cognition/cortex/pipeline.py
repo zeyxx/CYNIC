@@ -24,7 +24,7 @@ class JudgmentPipeline:
     cell: Cell
     level: ConsciousnessLevel = ConsciousnessLevel.MACRO
     pipeline_id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    started_at: float = field(default_factory=time.time)
+    started_at: float = field(default_factory=time.perf_counter)
 
     # Step results
     dog_judgments: list = field(default_factory=list)
@@ -38,4 +38,4 @@ class JudgmentPipeline:
     total_latency_ms: float = 0.0
 
     def elapsed_ms(self) -> float:
-        return (time.time() - self.started_at) * 1000
+        return (time.perf_counter() - self.started_at) * 1000
