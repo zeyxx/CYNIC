@@ -232,9 +232,9 @@ class TestQTable:
             qtable.update(signal)
         
         conf = qtable.confidence("test")
-        
+
         assert conf > 0  # Has visits
-        assert conf <= 0.618  # Capped at PHI_INV
+        assert conf <= 0.618033988749895  # Capped at PHI_INV (φ⁻¹)
 
     def test_stats(self, qtable):
         """Stats should return correct metrics."""
@@ -410,10 +410,10 @@ class TestQTableDBPersistence:
     @pytest.mark.asyncio
     async def test_load_from_db(self, qtable):
         """Should load entries from DB."""
-        mock_pool = AsyncMock()
+        mock_pool = MagicMock()  # Regular mock, not AsyncMock
         mock_conn = AsyncMock()
         mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_pool.acquire.return_value.__aexit__ = AsyncMock()
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
         
         mock_conn.fetch = AsyncMock(return_value=[
             {"state_key": "test", "action": "BARK", "q_value": 0.8, "visit_count": 10}
