@@ -22,9 +22,11 @@ from typing import Any, Optional
 
 try:
     from mcp.server import Server
+    from mcp.server.stdio import stdio_server
     from mcp.types import Tool, TextContent, CallToolResult
-except ImportError:
-    raise ImportError("Install mcp: pip install mcp")
+    from mcp.server.models import InitializationOptions
+except ImportError as e:
+    raise ImportError(f"Install mcp: pip install mcp (error: {e})")
 
 # Alias for backward compatibility
 ToolResult = CallToolResult
@@ -67,7 +69,7 @@ class CynicMCPServer:
     def _setup_tools(self) -> None:
         """Register all tools with MCP server."""
 
-        @self.mcp_server.call_tool
+        @self.mcp_server.call_tool()
         async def handle_tool_call(name: str, arguments: dict):
             """Route tool calls to handlers."""
             try:
@@ -251,9 +253,28 @@ class CynicMCPServer:
         """
         logger.info("Starting CYNIC MCP server (stdio)...")
 
-        # The MCP server reads from stdin and writes to stdout
-        # This is a blocking call that handles the protocol loop
-        await self.mcp_server.run(sys.stdin, sys.stdout, sys.stderr)
+        # Use MCP SDK's built-in stdio_server helper which handles async wrapping
+        async with stdio_server() as (read_stream, write_stream):
+            logger.info("MCP stdio streams connected")
+
+            # Create initialization options for the MCP server
+            from mcp.types import ServerCapabilities
+
+            init_options = InitializationOptions(
+                server_name="CYNIC",
+                server_version="1.0.0",
+                capabilities=ServerCapabilities(),
+                instructions="CYNIC AI organism for memecoin governance decisions"
+            )
+            logger.info(f"MCP server initialized: {init_options.server_name} v{init_options.server_version}")
+
+            # Run the server with the properly wrapped streams
+            await self.mcp_server.run(
+                read_stream,
+                write_stream,
+                init_options,
+                raise_exceptions=True
+            )
 
 
 async def start_mcp_server(organism_getter: callable) -> None:

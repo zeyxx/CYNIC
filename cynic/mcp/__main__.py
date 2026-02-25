@@ -32,7 +32,7 @@ async def main() -> None:
 
     # Import here to ensure async context is ready
     try:
-        from cynic.core.consciousness import Consciousness
+        from cynic.core.consciousness import get_consciousness
         from cynic.mcp.stdio_server import CynicMCPServer
     except ImportError as e:
         logger.error(f"Import error: {e}")
@@ -41,9 +41,8 @@ async def main() -> None:
     logger.info("Initializing CYNIC organism...")
 
     try:
-        # Awaken CYNIC organism
-        consciousness = Consciousness()
-        organism = await consciousness.awaken()
+        # Awaken CYNIC organism (get or create global consciousness state)
+        organism = get_consciousness()
         logger.info("CYNIC organism awakened successfully")
     except Exception as e:
         logger.error(f"Failed to awaken CYNIC: {e}")
@@ -53,28 +52,19 @@ async def main() -> None:
     def get_organism() -> Optional[object]:
         return organism
 
-    # Check if stdio-only mode
-    stdio_only = os.getenv("CYNIC_MCP_STDIO_ONLY", "0") == "1"
-
-    tasks = []
+    # Check if stdio-only mode (default for Claude Code)
+    stdio_only = os.getenv("CYNIC_MCP_STDIO_ONLY", "1") == "1"
 
     if not stdio_only:
-        # Start HTTP MCP server (backwards compatible)
+        # Start HTTP MCP server (backwards compatible, disabled by default)
         try:
             from cynic.mcp.server import MCPServer
 
             http_server = MCPServer(port=8766, get_state_fn=get_organism)
             logger.info("Starting HTTP MCP server at :8766...")
             await http_server.start()
-
-            # Create task that monitors HTTP server (doesn't block)
-            async def http_server_monitor():
-                # HTTP server runs forever once started
-                await asyncio.sleep(float("inf"))
-
-            tasks.append(asyncio.create_task(http_server_monitor()))
         except Exception as e:
-            logger.error(f"Failed to start HTTP MCP server: {e}")
+            logger.warning(f"Failed to start HTTP MCP server (non-critical): {e}")
 
     # Start stdio MCP server (main entry point for Cline)
     logger.info("Starting stdio MCP server for Cline...")
@@ -93,6 +83,9 @@ async def main() -> None:
 
 if __name__ == "__main__":
     try:
+        # On Windows, use ProactorEventLoop for proper stdio handling
+        if sys.platform == "win32":
+            asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Interrupted")
