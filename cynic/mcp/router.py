@@ -12,8 +12,10 @@ organism's event-driven architecture.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from cynic.api.state import get_app_container
@@ -27,6 +29,20 @@ logger = logging.getLogger(__name__)
 # JSON-RPC 2.0 error codes
 _METHOD_NOT_FOUND = -32601
 _INTERNAL_ERROR = -32603
+
+
+@dataclass
+class _CallMetadata:
+    """Metadata for a single concurrent MCP tool call."""
+
+    call_id: int
+    tool_name: str
+    started_at: float
+    task: Optional[asyncio.Task] = None
+    timeout: float = 30.0
+    status: str = "running"  # running, completed, failed, timeout
+    error: Optional[str] = None
+    duration: float = 0.0
 
 
 def _jsonrpc_result(msg_id: Any, result: dict[str, Any]) -> dict[str, Any]:
@@ -57,6 +73,29 @@ class MCPRouter:
     def __init__(self) -> None:
         self.bridge = MCPBridge(bus_name="CORE")
         self._setup_default_tools()
+        # Concurrent call tracking
+        self.active_calls: dict[int, _CallMetadata] = {}
+        self._call_id_counter = 0
+        self._call_lock = asyncio.Lock()
+
+    def _get_next_call_id(self) -> int:
+        """Get the next unique call ID (non-async, called inside async lock)."""
+        self._call_id_counter += 1
+        return self._call_id_counter
+
+    def get_active_calls(self) -> dict[int, dict[str, Any]]:
+        """Get information about all active calls."""
+        return {
+            call_id: {
+                "call_id": meta.call_id,
+                "tool": meta.tool_name,
+                "started_at": meta.started_at,
+                "elapsed": time.time() - meta.started_at,
+                "status": meta.status,
+                "timeout": meta.timeout,
+            }
+            for call_id, meta in self.active_calls.items()
+        }
 
     def _setup_default_tools(self) -> None:
         """Register the two default tools: ask_cynic, observe_cynic."""
@@ -147,40 +186,86 @@ class MCPRouter:
         Other tools route to bridge.handle_call.
 
         Emits an MCP_TOOL_CALLED event to the CORE bus before dispatching.
+        Tracks concurrent calls with unique call IDs.
         """
         params = message.get("params", {})
         tool_name = params.get("name", "")
         arguments = params.get("arguments", {})
 
-        # Emit protocol-level event BEFORE dispatch.
-        # Even if handler fails, the organism sees the attempt.
-        event = Event.typed(
-            CoreEvent.MCP_TOOL_CALLED,
-            payload={
-                "tool_name": tool_name,
-                "arguments": arguments,
-                "request_id": msg_id,
-                "source": "websocket",
-            },
-            source="mcp_router",
+        # Get next call ID (with async-safe counter)
+        async with self._call_lock:
+            call_id = self._get_next_call_id()
+
+        # Create call metadata
+        call_metadata = _CallMetadata(
+            call_id=call_id,
+            tool_name=tool_name,
+            started_at=time.time(),
         )
-        await get_core_bus().emit(event)
+
+        # Track the call
+        self.active_calls[call_id] = call_metadata
+
+        logger.debug(f"[CALL {call_id}] Starting {tool_name}")
 
         try:
-            # Route ask_cynic to orchestrator (returns Judgment result)
-            if tool_name == "ask_cynic":
-                return await self._handle_ask_cynic(msg_id, arguments)
+            # Get current task
+            call_metadata.task = asyncio.current_task()
 
-            # Route observe_cynic to state snapshot
-            if tool_name == "observe_cynic":
-                return await self._handle_observe_cynic(msg_id, arguments)
+            # Emit protocol-level event BEFORE dispatch.
+            # Even if handler fails, the organism sees the attempt.
+            event = Event.typed(
+                CoreEvent.MCP_TOOL_CALLED,
+                payload={
+                    "tool_name": tool_name,
+                    "arguments": arguments,
+                    "request_id": msg_id,
+                    "source": "websocket",
+                    "call_id": call_id,
+                },
+                source="mcp_router",
+            )
+            await get_core_bus().emit(event)
 
-            # All other tools via bridge
-            result = await self.bridge.handle_call(tool_name, arguments)
-            return _jsonrpc_result(msg_id, result)
-        except (KeyError, RuntimeError) as exc:
-            logger.warning("MCP tools/call failed: %s", exc)
+            try:
+                # Route ask_cynic to orchestrator (returns Judgment result)
+                if tool_name == "ask_cynic":
+                    result = await self._handle_ask_cynic(msg_id, arguments)
+
+                # Route observe_cynic to state snapshot
+                elif tool_name == "observe_cynic":
+                    result = await self._handle_observe_cynic(msg_id, arguments)
+
+                # All other tools via bridge
+                else:
+                    tool_result = await self.bridge.handle_call(tool_name, arguments)
+                    result = _jsonrpc_result(msg_id, tool_result)
+
+                # Mark as completed
+                call_metadata.status = "completed"
+                call_metadata.duration = time.time() - call_metadata.started_at
+                logger.debug(f"[CALL {call_id}] {tool_name} completed in {call_metadata.duration:.2f}s")
+
+                return result
+
+            except (KeyError, RuntimeError) as exc:
+                call_metadata.status = "failed"
+                call_metadata.error = str(exc)
+                call_metadata.duration = time.time() - call_metadata.started_at
+                logger.warning(f"[CALL {call_id}] MCP tools/call failed: {exc}")
+                return _jsonrpc_error(msg_id, _INTERNAL_ERROR, str(exc))
+
+        except Exception as exc:
+            call_metadata.status = "failed"
+            call_metadata.error = str(exc)
+            call_metadata.duration = time.time() - call_metadata.started_at
+            logger.exception(f"[CALL {call_id}] Unexpected error in tools/call handler")
             return _jsonrpc_error(msg_id, _INTERNAL_ERROR, str(exc))
+
+        finally:
+            # Clean up from active calls after completion
+            self.active_calls.pop(call_id, None)
+            logger.debug(f"[CALL {call_id}] Cleaned up call metadata")
 
     async def _handle_ask_cynic(
         self, msg_id: Any, arguments: dict[str, Any]
