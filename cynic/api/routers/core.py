@@ -77,14 +77,15 @@ def _persist_judgment(judgment: Judgment) -> None:
             data["reality"] = judgment.cell.reality
             data["analysis"] = judgment.cell.analysis
             await repo.save(data)
-        except httpx.RequestError as e:
-            logger.debug("Judgment persistence skipped: %s", e)
+        except Exception as e:
+            logger.warning("Judgment persistence failed (data may be lost): %s", type(e).__name__, exc_info=True)
 
     import asyncio
     try:
         asyncio.get_running_loop().create_task(_do_save())
-    except httpx.RequestError:
-        pass  # Never block on persistence failure
+    except RuntimeError:
+        # No event loop running, skip persistence
+        logger.warning("No event loop available for persistence task")
 
 
 def _write_guidance(cell: Cell, judgment: Judgment) -> None:  # type: ignore[name-defined]

@@ -150,14 +150,15 @@ class Layer4:
         feedback.metadata.feedback = True
         feedback.metadata.closes_action_id = verdict.header.message_id
 
-        # Call feedback callbacks
+        # Call feedback callbacks — ensure one failure doesn't block others
         for callback in self.feedback_callbacks:
             try:
                 callback(feedback)
-            except Exception:
-                # Callback failed but others should still execute
-                # Continue to next callback silently
-                pass
+            except Exception as e:
+                # Log callback failures but continue executing other callbacks
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Feedback callback failed: {callback.__name__}: {type(e).__name__}: {e}")
 
         return (success, feedback)
 

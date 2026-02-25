@@ -258,3 +258,104 @@ class BurnEvaluator(AxiomEvaluator):
         # 0% waste = 1.0, 100% waste = 0.0
         score = max(0.0, 1.0 - (waste_percent / 100.0))
         return float(min(score, 1.0))
+
+
+class EmergenceEvaluator(AxiomEvaluator):
+    """EMERGENCE Axiom (A6): New patterns arise from collective behavior.
+
+    Evaluates whether the system is detecting and responding to emergent
+    phenomena that weren't explicitly programmed. Scores high when novel
+    patterns or behaviors surface from the interaction of components.
+    """
+    axiom_name = "EMERGENCE"
+
+    async def score(self, state: dict[str, Any]) -> float:
+        """Score state for emergence of novel patterns."""
+        # Check for novel Dog disagreements, unexpected clusters, new Q-values
+        novel_patterns = state.get("novel_patterns", 0)
+        consensus_variance = state.get("consensus_variance", 0.5)
+
+        # High emergence when variance is moderate (not unanimous, not chaotic)
+        emergence_score = 1.0 - abs(consensus_variance - 0.5) * 2
+        emergence_score *= min(1.0, novel_patterns / 3.0)  # Scale by number of new patterns
+
+        return float(max(0.0, min(emergence_score, 1.0)))
+
+
+class AutonomyEvaluator(AxiomEvaluator):
+    """AUTONOMY Axiom (A7): System makes independent, sound decisions.
+
+    Evaluates whether the system is exercising agency without being
+    externally forced. High autonomy when decisions reflect internal
+    evaluation rather than majority conformance.
+    """
+    axiom_name = "AUTONOMY"
+
+    async def score(self, state: dict[str, Any]) -> float:
+        """Score state for autonomous decision-making."""
+        # Check if judgment reflects all Dogs' voices, not just majority
+        dog_votes = state.get("dog_votes", [])
+        if not dog_votes or len(dog_votes) < 2:
+            return 0.5
+
+        # Autonomy high when decisions account for minority views
+        minority_representation = min(dog_votes) / max(dog_votes) if max(dog_votes) > 0 else 0.5
+
+        # Also score based on decision confidence (autonomous = confident but not dogmatic)
+        confidence = state.get("confidence", 0.5)
+        autonomy = (minority_representation * 0.6 + abs(confidence - 0.618) / 0.618 * 0.4)
+
+        return float(max(0.0, min(autonomy, 1.0)))
+
+
+class SymbiosisEvaluator(AxiomEvaluator):
+    """SYMBIOSIS Axiom (A8): Components benefit each other.
+
+    Evaluates whether the system is maintaining healthy relationships
+    between components, Dogs, and external systems. High symbiosis
+    when components improve each other's performance.
+    """
+    axiom_name = "SYMBIOSIS"
+
+    async def score(self, state: dict[str, Any]) -> float:
+        """Score state for symbiotic relationships."""
+        # Check if Dogs are learning from each other
+        dog_agreement = state.get("dog_agreement", 0.5)
+        feedback_loops = state.get("feedback_loops", 0)
+        learning_rate = state.get("learning_rate", 0.0)
+
+        # Symbiosis: moderate agreement (not too aligned, not too diverse)
+        # + active feedback loops + learning happening
+        symbiosis = (
+            (1.0 - abs(dog_agreement - 0.618) / 0.618) * 0.5 +  # Optimal disagreement
+            min(1.0, feedback_loops / 3.0) * 0.3 +  # Multiple feedback paths
+            min(1.0, learning_rate) * 0.2  # System is learning
+        )
+
+        return float(max(0.0, min(symbiosis, 1.0)))
+
+
+class AntifragilityEvaluator(AxiomEvaluator):
+    """ANTIFRAGILITY Axiom (A9): System improves under stress.
+
+    Evaluates whether challenges make the system stronger. High score
+    when errors lead to better future judgments, when contradictions
+    improve understanding, or when adversity triggers learning.
+    """
+    axiom_name = "ANTIFRAGILITY"
+
+    async def score(self, state: dict[str, Any]) -> float:
+        """Score state for antifragile properties."""
+        # Check if the system is learning from failures
+        recent_errors = state.get("recent_errors", 0)
+        q_table_growth = state.get("q_table_growth", 0.0)
+        adaptation_rate = state.get("adaptation_rate", 0.0)
+
+        # Antifragility: errors present but learning happens
+        # System gets stronger as it encounters challenges
+        if recent_errors == 0:
+            return 0.4  # No antifragility without challenges
+
+        antifragility = min(1.0, (q_table_growth + adaptation_rate) / 2.0)
+
+        return float(max(0.0, min(antifragility, 1.0)))
