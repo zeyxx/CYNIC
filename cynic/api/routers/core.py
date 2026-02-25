@@ -330,12 +330,15 @@ async def get_judgment_result(
         from cynic.organism.conscious_state import get_conscious_state
         conscious_state = get_conscious_state()
 
+    logger.info("[DEBUG GET] Polling for judgment_id=%s, conscious_state_id=%s", judgment_id, id(conscious_state))
+
     # Poll with optional timeout
     start_time = time.time()
     timeout_s = timeout_ms / 1000.0 if timeout_ms > 0 else 0
 
     while True:
         result = await conscious_state.get_judgment_by_id(judgment_id)
+        logger.info("[DEBUG GET] get_judgment_by_id returned: %s", result)
 
         if result is not None:
             # Got result (PENDING, real verdict, or BARK on failure)
