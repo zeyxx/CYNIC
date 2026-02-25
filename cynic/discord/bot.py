@@ -40,29 +40,31 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 CYNIC_API_URL = os.getenv("CYNIC_API_URL", "http://localhost:8765")
 CYNIC_API_TIMEOUT = int(os.getenv("CYNIC_API_TIMEOUT", "30"))
 
-if not DISCORD_TOKEN:
-    logger.error("DISCORD_TOKEN not set. Set it in .env file.")
-    sys.exit(1)
-
 
 # Health check task
 @tasks.loop(minutes=5)
 async def check_cynic_health():
     """Check CYNIC API health periodically."""
+    if bot.cynic_session is None or bot.cynic_session.closed:
+        return
+
     try:
         async with bot.cynic_session.get(
             f"{CYNIC_API_URL}/health",
-            timeout=aiohttp.ClientTimeout(total=CYNIC_API_TIMEOUT)
+            timeout=aiohttp.ClientTimeout(total=5)
         ) as resp:
             if resp.status == 200:
                 bot.cynic_ready = True
-                logger.info("✓ CYNIC health check passed")
+                logger.debug("✓ CYNIC health check passed")
             else:
                 bot.cynic_ready = False
                 logger.warning(f"✗ CYNIC health check failed: {resp.status}")
+    except asyncio.TimeoutError:
+        bot.cynic_ready = False
+        logger.warning("✗ CYNIC health check timeout")
     except Exception as e:
         bot.cynic_ready = False
-        logger.error(f"✗ CYNIC health check error: {e}")
+        logger.debug(f"✗ CYNIC health check error: {e}")
 
 @check_cynic_health.before_loop
 async def before_check_cynic():
@@ -87,9 +89,25 @@ async def on_ready():
 
     # Initialize CYNIC session if not already done
     if bot.cynic_session is None:
-        bot.cynic_session = aiohttp.ClientSession()
-        check_cynic_health.start()
-        logger.info("CYNIC Discord bot ready")
+        # Create session with connection limits to prevent leaks
+        connector = aiohttp.TCPConnector(
+            limit=10,
+            limit_per_host=5,
+            ttl_dns_cache=300,
+            enable_cleanup_closed=True
+        )
+        timeout = aiohttp.ClientTimeout(
+            total=CYNIC_API_TIMEOUT,
+            connect=10,
+            sock_read=10
+        )
+        bot.cynic_session = aiohttp.ClientSession(
+            connector=connector,
+            timeout=timeout
+        )
+        if not check_cynic_health.is_running():
+            check_cynic_health.start()
+        logger.info("CYNIC Discord bot ready (session initialized)")
 
     # Sync commands with Discord
     try:
@@ -97,6 +115,29 @@ async def on_ready():
         logger.info("Commands synced with Discord")
     except Exception as e:
         logger.error(f"Failed to sync commands: {e}")
+
+
+@bot.event
+async def on_error(event, *args, **kwargs):
+    """Handle bot errors."""
+    logger.error(f"Error in {event}: {sys.exc_info()}")
+
+
+async def cleanup():
+    """Graceful shutdown of bot and session."""
+    logger.info("Shutting down CYNIC Discord bot...")
+
+    # Stop health check task
+    if check_cynic_health.is_running():
+        check_cynic_health.cancel()
+        logger.info("Health check stopped")
+
+    # Close session
+    if bot.cynic_session and not bot.cynic_session.closed:
+        await bot.cynic_session.close()
+        logger.info("Session closed")
+
+    logger.info("Shutdown complete")
 
 
 # Command group for CYNIC commands
@@ -134,8 +175,7 @@ async def ask_cynic(
 
         async with bot.cynic_session.post(
             f"{CYNIC_API_URL}/judge",
-            json=payload,
-            timeout=aiohttp.ClientTimeout(total=CYNIC_API_TIMEOUT)
+            json=payload
         ) as resp:
             if resp.status != 200:
                 await interaction.followup.send(
@@ -265,8 +305,7 @@ async def teach_cynic(
 
         async with bot.cynic_session.post(
             f"{CYNIC_API_URL}/learn",
-            json=payload,
-            timeout=aiohttp.ClientTimeout(total=CYNIC_API_TIMEOUT)
+            json=payload
         ) as resp:
             if resp.status != 200:
                 await interaction.followup.send(
@@ -346,8 +385,7 @@ async def cynic_status(interaction: discord.Interaction):
     try:
         # Get health
         async with bot.cynic_session.get(
-            f"{CYNIC_API_URL}/health",
-            timeout=aiohttp.ClientTimeout(total=CYNIC_API_TIMEOUT)
+            f"{CYNIC_API_URL}/health"
         ) as resp:
             if resp.status != 200:
                 await interaction.followup.send(
@@ -360,8 +398,7 @@ async def cynic_status(interaction: discord.Interaction):
         # Get telemetry
         try:
             async with bot.cynic_session.get(
-                f"{CYNIC_API_URL}/empirical/telemetry",
-                timeout=aiohttp.ClientTimeout(total=CYNIC_API_TIMEOUT)
+                f"{CYNIC_API_URL}/empirical/telemetry"
             ) as resp:
                 if resp.status == 200:
                     telemetry = await resp.json()
@@ -480,8 +517,7 @@ async def cynic_empirical(
         payload = {"count": count, "seed": None}
         async with bot.cynic_session.post(
             f"{CYNIC_API_URL}/empirical/test/start",
-            json=payload,
-            timeout=aiohttp.ClientTimeout(total=CYNIC_API_TIMEOUT)
+            json=payload
         ) as resp:
             if resp.status != 200:
                 await interaction.followup.send(
@@ -556,8 +592,7 @@ async def cynic_test_results(
 
     try:
         async with bot.cynic_session.get(
-            f"{CYNIC_API_URL}/empirical/test/{job_id}/results",
-            timeout=aiohttp.ClientTimeout(total=CYNIC_API_TIMEOUT)
+            f"{CYNIC_API_URL}/empirical/test/{job_id}/results"
         ) as resp:
             if resp.status == 404:
                 await interaction.followup.send(
@@ -661,16 +696,24 @@ async def on_app_command_error(interaction: discord.Interaction, error: Exceptio
 
 def main():
     """Run the bot."""
+    if not DISCORD_TOKEN:
+        logger.error("DISCORD_TOKEN not set. Set it in .env file.")
+        sys.exit(1)
+
     logger.info("Starting CYNIC Discord bot...")
     logger.info(f"CYNIC API: {CYNIC_API_URL}")
 
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
     try:
-        bot.run(DISCORD_TOKEN)
+        loop.run_until_complete(bot.start(DISCORD_TOKEN))
     except KeyboardInterrupt:
         logger.info("Bot shutdown requested")
-    except Exception as e:
-        logger.error(f"Fatal error: {e}")
-        sys.exit(1)
+    finally:
+        loop.run_until_complete(cleanup())
+        loop.close()
+        logger.info("Event loop closed")
 
 
 if __name__ == "__main__":
