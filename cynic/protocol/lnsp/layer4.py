@@ -156,7 +156,12 @@ class Layer4:
 
         # Call feedback callbacks
         for callback in self.feedback_callbacks:
-            callback(feedback)
+            try:
+                callback(feedback)
+            except Exception:
+                # Callback failed but others should still execute
+                # Continue to next callback silently
+                pass
 
         return (success, feedback)
 
