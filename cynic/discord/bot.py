@@ -168,11 +168,12 @@ async def ask_cynic(
 
     try:
         payload = {
-            "question": question,
+            "content": question,
             "context": context or question,
             "reality": reality,
         }
 
+        # Request judgment (returns immediately with judgment_id)
         async with bot.cynic_session.post(
             f"{CYNIC_API_URL}/judge",
             json=payload
@@ -184,14 +185,49 @@ async def ask_cynic(
                 )
                 return
 
-            result = await resp.json()
+            judgment_req = await resp.json()
+
+        judgment_id = judgment_req.get("judgment_id")
+        if not judgment_id:
+            await interaction.followup.send(
+                "❌ Failed to get judgment ID from CYNIC",
+                ephemeral=True
+            )
+            return
+
+        # Poll for judgment result (async processing)
+        result = None
+        for attempt in range(30):  # 30 attempts = 30 seconds max
+            await asyncio.sleep(1)
+            async with bot.cynic_session.get(
+                f"{CYNIC_API_URL}/judge/{judgment_id}"
+            ) as resp:
+                if resp.status == 200:
+                    result = await resp.json()
+                    verdict = result.get("verdict", "PENDING")
+                    if verdict != "PENDING":
+                        break  # Judgment complete
+                elif resp.status == 404:
+                    await interaction.followup.send(
+                        f"❌ Judgment not found: {judgment_id}",
+                        ephemeral=True
+                    )
+                    return
+
+        if not result or result.get("verdict") == "PENDING":
+            await interaction.followup.send(
+                "⏱️ CYNIC is taking too long. Check results later with: `/cynic_status`",
+                ephemeral=True
+            )
+            return
 
         # Format response
         q_score = result.get("q_score", 0)
         verdict = result.get("verdict", "UNKNOWN")
         confidence = result.get("confidence", 0)
-        explanation = result.get("explanation", "No explanation provided")
-        judgment_id = result.get("judgment_id", "unknown")
+        explanation = result.get("dog_votes", {}) or {}
+        if not explanation:
+            explanation = "Judgment complete"
 
         # Color code by verdict
         verdict_colors = {
@@ -286,7 +322,7 @@ async def teach_cynic(
         )
         return
 
-    # Validate rating
+    # Validate rating (0.0-1.0 scale from Discord, convert to 1-5 for API)
     if not (0.0 <= rating <= 1.0):
         await interaction.response.send_message(
             "❌ Rating must be between 0.0 and 1.0",
@@ -297,19 +333,29 @@ async def teach_cynic(
     await interaction.response.defer(thinking=True)
 
     try:
+        # Convert 0.0-1.0 scale to 1-5 scale expected by API
+        api_rating = int(rating * 4) + 1  # 0.0→1, 0.25→2, 0.5→3, 0.75→4, 1.0→5
+        api_rating = max(1, min(5, api_rating))  # Clamp to [1, 5]
+
         payload = {
-            "judgment_id": judgment_id,
-            "rating": rating,
+            "rating": api_rating,
             "comment": comment or "",
         }
 
+        # Send feedback to API
         async with bot.cynic_session.post(
-            f"{CYNIC_API_URL}/learn",
+            f"{CYNIC_API_URL}/feedback",
             json=payload
         ) as resp:
             if resp.status != 200:
+                error_msg = f"HTTP {resp.status}"
+                try:
+                    error_detail = await resp.json()
+                    error_msg = error_detail.get("detail", error_msg)
+                except:
+                    pass
                 await interaction.followup.send(
-                    f"❌ CYNIC error: HTTP {resp.status}",
+                    f"❌ Feedback failed: {error_msg}",
                     ephemeral=True
                 )
                 return
