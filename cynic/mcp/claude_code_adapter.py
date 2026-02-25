@@ -23,6 +23,8 @@ from dataclasses import dataclass, field
 
 import aiohttp
 
+from cynic.mcp.timeouts import TimeoutConfig, TimeoutCategory
+
 logger = logging.getLogger("cynic.mcp.claude_code_adapter")
 
 
@@ -87,6 +89,53 @@ class ClaudeCodeAdapter:
             await self.session.close()
 
     # ════════════════════════════════════════════════════════════════════════════
+    # TIMEOUT HANDLING
+    # ════════════════════════════════════════════════════════════════════════════
+
+    def _get_timeout_for_tool(self, tool_name: str) -> Optional[float]:
+        """
+        Get context-aware timeout for a tool.
+
+        Args:
+            tool_name: Name of the MCP tool (e.g., "ask_cynic")
+
+        Returns:
+            Timeout in seconds, or None for indefinite (stream tools)
+        """
+        timeout = TimeoutConfig.get_timeout(tool_name)
+        category = TimeoutConfig.get_category(tool_name)
+        logger.debug(f"Tool '{tool_name}' → {category.name} ({timeout}s)")
+        return timeout
+
+    async def _call_with_timeout(
+        self, tool_name: str, coro: Any
+    ) -> Any:
+        """
+        Execute a coroutine with context-aware timeout.
+
+        Args:
+            tool_name: Name of the tool (for timeout lookup)
+            coro: Coroutine to execute
+
+        Returns:
+            Result of the coroutine
+
+        Raises:
+            asyncio.TimeoutError: If timeout exceeded
+        """
+        timeout = self._get_timeout_for_tool(tool_name)
+
+        if timeout is None:
+            # Stream tools - no timeout
+            return await coro
+
+        try:
+            return await asyncio.wait_for(coro, timeout=timeout)
+        except asyncio.TimeoutError:
+            logger.error(f"Tool '{tool_name}' timed out after {timeout}s")
+            raise
+
+    # ════════════════════════════════════════════════════════════════════════════
     # AUTO-DISCOVERY
     # ════════════════════════════════════════════════════════════════════════════
 
@@ -96,6 +145,7 @@ class ClaudeCodeAdapter:
 
         Performs health check + verifies state is accessible.
         Caches result for 60 seconds to avoid repeated queries.
+        Uses FAST (2s) timeout for health checks.
 
         Args:
             force_refresh: Skip cache and do fresh check
@@ -107,28 +157,31 @@ class ClaudeCodeAdapter:
             if not force_refresh and self._state_cache and not self._state_cache.is_stale():
                 return self._state_cache.healthy
 
-            # Fresh health check
-            async with self.session.get(f"{self.cynic_url}/health") as resp:
-                if resp.status != 200:
-                    return False
+            # Fresh health check with FAST timeout
+            async def do_health_check():
+                async with self.session.get(f"{self.cynic_url}/health") as resp:
+                    if resp.status != 200:
+                        return False
 
-                data = await resp.json()
-                health = data.get("health", {})
-                kernel_status = health.get("cynic-kernel", {}).get("status", "unknown")
-                is_healthy = kernel_status == "healthy"
+                    data = await resp.json()
+                    health = data.get("health", {})
+                    kernel_status = health.get("cynic-kernel", {}).get("status", "unknown")
+                    is_healthy = kernel_status == "healthy"
 
-                if is_healthy:
-                    # Cache state
-                    self._state_cache = CynicState(
-                        healthy=True,
-                        consciousness_level=data.get("consciousness", {}).get("level", 0),
-                        dogs_active=data.get("consciousness", {}).get("dogs_active", 0),
-                        uptime_s=data.get("uptime_s", 0),
-                        q_table_entries=data.get("q_table_entries", 0),
-                        total_judgments=data.get("total_judgments", 0),
-                    )
+                    if is_healthy:
+                        # Cache state
+                        self._state_cache = CynicState(
+                            healthy=True,
+                            consciousness_level=data.get("consciousness", {}).get("level", 0),
+                            dogs_active=data.get("consciousness", {}).get("dogs_active", 0),
+                            uptime_s=data.get("uptime_s", 0),
+                            q_table_entries=data.get("q_table_entries", 0),
+                            total_judgments=data.get("total_judgments", 0),
+                        )
 
-                return is_healthy
+                    return is_healthy
+
+            return await self._call_with_timeout("cynic_health", do_health_check())
 
         except (aiohttp.ClientError, asyncio.TimeoutError):
             return False
@@ -159,6 +212,8 @@ class ClaudeCodeAdapter:
         """
         Ask CYNIC a question and get judgment.
 
+        Uses NORMAL (30s) timeout for cognitive operations.
+
         Args:
             question: The question
             context: Optional context (code snippet, etc)
@@ -168,21 +223,25 @@ class ClaudeCodeAdapter:
             {q_score, verdict, confidence, judgment_id, ...}
         """
         try:
-            async with self.session.post(
-                f"{self.cynic_url}/judge",
-                json={"content": question, "context": context, "reality": reality},
-            ) as resp:
-                if resp.status != 200:
-                    return {"error": f"HTTP {resp.status}"}
+            async def do_ask():
+                async with self.session.post(
+                    f"{self.cynic_url}/judge",
+                    json={"content": question, "context": context, "reality": reality},
+                ) as resp:
+                    if resp.status != 200:
+                        return {"error": f"HTTP {resp.status}"}
 
-                result = await resp.json()
-                judgment_id = result.get("judgment_id")
+                    result = await resp.json()
+                    judgment_id = result.get("judgment_id")
 
-                # Cache judgment for later learning
-                if judgment_id:
-                    self._judgment_cache[judgment_id] = result
+                    # Cache judgment for later learning
+                    if judgment_id:
+                        self._judgment_cache[judgment_id] = result
 
-                return result
+                    return result
+
+            return await self._call_with_timeout("ask_cynic", do_ask())
+
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             return {"error": str(e)}
 
@@ -191,6 +250,8 @@ class ClaudeCodeAdapter:
     ) -> dict[str, Any]:
         """
         Teach CYNIC by providing feedback on a judgment.
+
+        Uses NORMAL (30s) timeout for learning operations.
 
         Args:
             judgment_id: ID of judgment to learn from
@@ -201,17 +262,21 @@ class ClaudeCodeAdapter:
             {status, qtable_updated, new_q_score, ...}
         """
         try:
-            async with self.session.post(
-                f"{self.cynic_url}/learn",
-                json={
-                    "signal": {"judgment_id": judgment_id, "rating": rating, "comment": comment},
-                    "update_qtable": True,
-                },
-            ) as resp:
-                if resp.status != 200:
-                    return {"error": f"HTTP {resp.status}"}
+            async def do_teach():
+                async with self.session.post(
+                    f"{self.cynic_url}/learn",
+                    json={
+                        "signal": {"judgment_id": judgment_id, "rating": rating, "comment": comment},
+                        "update_qtable": True,
+                    },
+                ) as resp:
+                    if resp.status != 200:
+                        return {"error": f"HTTP {resp.status}"}
 
-                return await resp.json()
+                    return await resp.json()
+
+            return await self._call_with_timeout("learn_cynic", do_teach())
+
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             return {"error": str(e)}
 
@@ -225,6 +290,8 @@ class ClaudeCodeAdapter:
         """
         Start an empirical test job.
 
+        Uses BATCH (300s) timeout for long-running empirical tests.
+
         Args:
             count: Number of iterations
             seed: Optional random seed
@@ -233,13 +300,17 @@ class ClaudeCodeAdapter:
             {job_id, status, message, count}
         """
         try:
-            async with self.session.post(
-                f"{self.cynic_url}/empirical/test/start", json={"count": count, "seed": seed}
-            ) as resp:
-                if resp.status != 200:
-                    return {"error": f"HTTP {resp.status}"}
+            async def do_start():
+                async with self.session.post(
+                    f"{self.cynic_url}/empirical/test/start", json={"count": count, "seed": seed}
+                ) as resp:
+                    if resp.status != 200:
+                        return {"error": f"HTTP {resp.status}"}
 
-                return await resp.json()
+                    return await resp.json()
+
+            return await self._call_with_timeout("cynic_run_empirical_test", do_start())
+
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             return {"error": str(e)}
 
@@ -252,6 +323,9 @@ class ClaudeCodeAdapter:
     ) -> dict[str, Any]:
         """
         Poll test progress until completion (with optional progress callback).
+
+        Uses BATCH (300s) timeout for individual poll requests.
+        Note: max_wait_s controls total wait time, timeout controls per-request timeout.
 
         Args:
             job_id: Test job ID
@@ -266,28 +340,36 @@ class ClaudeCodeAdapter:
 
         while time.time() - start_time < max_wait_s:
             try:
-                async with self.session.get(f"{self.cynic_url}/empirical/test/{job_id}") as resp:
-                    if resp.status != 200:
-                        return {"error": f"HTTP {resp.status}"}
+                async def do_poll():
+                    async with self.session.get(f"{self.cynic_url}/empirical/test/{job_id}") as resp:
+                        if resp.status != 200:
+                            return {"error": f"HTTP {resp.status}"}
 
-                    status = await resp.json()
+                        status = await resp.json()
 
-                    if "error" in status:
-                        return status
+                        if "error" in status:
+                            return status
 
-                    progress = status.get("progress_percent", 0)
-                    status_str = status.get("status", "unknown")
+                        progress = status.get("progress_percent", 0)
+                        status_str = status.get("status", "unknown")
 
-                    # Call progress callback
-                    if callback:
-                        callback(progress, status_str)
+                        # Call progress callback
+                        if callback:
+                            callback(progress, status_str)
 
-                    # If complete, return
-                    if status_str == "complete":
-                        return status
+                        # If complete, return
+                        if status_str == "complete":
+                            return status
 
-                    # Wait before polling again
-                    await asyncio.sleep(poll_interval_s)
+                        return {"status": status_str, "progress_percent": progress}
+
+                result = await self._call_with_timeout("cynic_run_empirical_test", do_poll())
+
+                if "error" in result or result.get("status") == "complete":
+                    return result
+
+                # Wait before polling again
+                await asyncio.sleep(poll_interval_s)
 
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 return {"error": str(e)}
@@ -298,6 +380,8 @@ class ClaudeCodeAdapter:
         """
         Get completed test results.
 
+        Uses NORMAL (30s) timeout - results are already computed.
+
         Args:
             job_id: Test job ID
 
@@ -305,13 +389,17 @@ class ClaudeCodeAdapter:
             {q_scores, avg_q, learning_efficiency, emergences, duration_s}
         """
         try:
-            async with self.session.get(
-                f"{self.cynic_url}/empirical/test/{job_id}/results"
-            ) as resp:
-                if resp.status != 200:
-                    return {"error": f"HTTP {resp.status}"}
+            async def do_get_results():
+                async with self.session.get(
+                    f"{self.cynic_url}/empirical/test/{job_id}/results"
+                ) as resp:
+                    if resp.status != 200:
+                        return {"error": f"HTTP {resp.status}"}
 
-                return await resp.json()
+                    return await resp.json()
+
+            return await self._call_with_timeout("cynic_query_telemetry", do_get_results())
+
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             return {"error": str(e)}
 
@@ -321,6 +409,8 @@ class ClaudeCodeAdapter:
         """
         Test if axioms are irreducible.
 
+        Uses BATCH (300s) timeout - comprehensive axiom testing can be slow.
+
         Args:
             axiom: Specific axiom or None for all
 
@@ -328,13 +418,17 @@ class ClaudeCodeAdapter:
             {axiom_impacts: [{name, baseline_q, disabled_q, impact_percent, irreducible}]}
         """
         try:
-            async with self.session.post(
-                f"{self.cynic_url}/empirical/axioms/test", json={"axiom": axiom}
-            ) as resp:
-                if resp.status != 200:
-                    return {"error": f"HTTP {resp.status}"}
+            async def do_test():
+                async with self.session.post(
+                    f"{self.cynic_url}/empirical/axioms/test", json={"axiom": axiom}
+                ) as resp:
+                    if resp.status != 200:
+                        return {"error": f"HTTP {resp.status}"}
 
-                return await resp.json()
+                    return await resp.json()
+
+            return await self._call_with_timeout("cynic_test_axiom_irreducibility", do_test())
+
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             return {"error": str(e)}
 
@@ -346,6 +440,8 @@ class ClaudeCodeAdapter:
         """
         Query SONA telemetry metrics.
 
+        Uses NORMAL (30s) timeout for metric queries.
+
         Args:
             metric: Metric name (uptime_s, q_table_entries, total_judgments, learning_rate)
 
@@ -353,13 +449,17 @@ class ClaudeCodeAdapter:
             {metric, value, ...}
         """
         try:
-            async with self.session.get(
-                f"{self.cynic_url}/empirical/telemetry", params={"metric": metric}
-            ) as resp:
-                if resp.status != 200:
-                    return {"error": f"HTTP {resp.status}"}
+            async def do_query():
+                async with self.session.get(
+                    f"{self.cynic_url}/empirical/telemetry", params={"metric": metric}
+                ) as resp:
+                    if resp.status != 200:
+                        return {"error": f"HTTP {resp.status}"}
 
-                return await resp.json()
+                    return await resp.json()
+
+            return await self._call_with_timeout("cynic_query_telemetry", do_query())
+
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             return {"error": str(e)}
 
@@ -424,6 +524,8 @@ class ClaudeCodeAdapter:
         Watch CYNIC telemetry stream for duration_s seconds.
         Collects events and returns aggregated summary.
 
+        Uses STREAM (indefinite) timeout - streaming operations don't have time limits.
+
         Args:
             duration_s: How many seconds to watch (default: 60)
             on_update: Optional callback invoked for each event (for real-time updates)
@@ -449,24 +551,27 @@ class ClaudeCodeAdapter:
             deadline = time.time() + duration_s
             events: list[dict] = []
 
-            async with self.session.ws_connect(ws_url) as ws:
-                async for msg in ws:
-                    if time.time() >= deadline:
-                        break
+            async def do_stream():
+                async with self.session.ws_connect(ws_url) as ws:
+                    async for msg in ws:
+                        if time.time() >= deadline:
+                            break
 
-                    if msg.type == aiohttp.WSMsgType.TEXT:
-                        try:
-                            data = json.loads(msg.data)
-                            events.append(data)
-                            if on_update:
-                                on_update(data)
-                        except json.JSONDecodeError:
-                            logger.warning("Failed to decode WebSocket message: %s", msg.data)
-                    elif msg.type in (aiohttp.WSMsgType.ERROR, aiohttp.WSMsgType.CLOSED):
-                        break
+                        if msg.type == aiohttp.WSMsgType.TEXT:
+                            try:
+                                data = json.loads(msg.data)
+                                events.append(data)
+                                if on_update:
+                                    on_update(data)
+                            except json.JSONDecodeError:
+                                logger.warning("Failed to decode WebSocket message: %s", msg.data)
+                        elif msg.type in (aiohttp.WSMsgType.ERROR, aiohttp.WSMsgType.CLOSED):
+                            break
 
-            actual_duration = time.time() - (deadline - duration_s)
-            return self._summarize_telemetry_events(events, actual_duration)
+                actual_duration = time.time() - (deadline - duration_s)
+                return self._summarize_telemetry_events(events, actual_duration)
+
+            return await self._call_with_timeout("cynic_watch_telemetry", do_stream())
 
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             logger.error("Telemetry streaming failed: %s", e)

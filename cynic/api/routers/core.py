@@ -636,7 +636,7 @@ async def get_world_state() -> dict[str, Any]:
 _governance_lnsp: Any = None
 
 
-async def setup_lnsp_governance() -> Any:
+async def setup_lnsp_governance(gasdf_executor: Any | None = None) -> Any:
     """Initialize LNSP Governance Integration.
 
     Wire GovernanceLNSP into the CYNIC event pipeline:
@@ -645,8 +645,12 @@ async def setup_lnsp_governance() -> Any:
     - Registers 4 sensors (proposal, vote, execution, outcome) with Layer 1
     - Registers 1 handler (governance verdict) with Layer 4
     - Wires all layers together
+    - Optionally wires GASdfExecutor for on-chain verdict execution
 
     Call this from the FastAPI lifespan after organism awakening.
+
+    Args:
+        gasdf_executor: Optional GASdfExecutor for on-chain execution
 
     Returns:
         The initialized GovernanceLNSP instance.
@@ -661,7 +665,7 @@ async def setup_lnsp_governance() -> Any:
         instance_id="instance:governance",
         region="governance"
     )
-    governance_lnsp = GovernanceLNSP(lnsp_manager)
+    governance_lnsp = GovernanceLNSP(lnsp_manager, gasdf_executor=gasdf_executor)
     await governance_lnsp.setup()
 
     # Store for later access (optional, for testing)

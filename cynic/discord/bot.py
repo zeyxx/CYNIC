@@ -927,6 +927,299 @@ async def on_app_command_error(interaction: discord.Interaction, error: Exceptio
         )
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# GOVERNANCE COMMANDS — Memecoin community governance
+# ════════════════════════════════════════════════════════════════════════════
+
+
+@bot.tree.command(name="propose", description="Submit a governance proposal")
+async def propose(
+    interaction: discord.Interaction,
+    title: str,
+    description: str,
+):
+    """
+    Submit a governance proposal to the community.
+    CYNIC will analyze it and issue a verdict.
+
+    Args:
+        title: Proposal title
+        description: Proposal description
+    """
+    if not bot.cynic_ready:
+        await interaction.response.send_message(
+            "❌ CYNIC is not available right now.",
+            ephemeral=True,
+        )
+        return
+
+    await interaction.response.defer(thinking=True)
+
+    try:
+        async with bot.cynic_session.post(
+            f"{CYNIC_API_URL}/api/governance/proposals",
+            json={
+                "community_id": str(interaction.guild_id),
+                "title": title,
+                "description": description,
+                "proposer": str(interaction.user.id),
+            },
+        ) as resp:
+            if resp.status != 200:
+                await interaction.followup.send(
+                    f"❌ Failed to submit proposal: HTTP {resp.status}",
+                    ephemeral=True,
+                )
+                return
+
+            data = await resp.json()
+
+        proposal_id = data.get("proposal_id", "unknown")
+        embed = discord.Embed(
+            title="📋 Proposal Submitted",
+            description=title,
+            color=0x0099FF,
+        )
+        embed.add_field(name="Proposal ID", value=f"`{proposal_id}`", inline=False)
+        embed.add_field(name="Proposer", value=f"<@{interaction.user.id}>", inline=True)
+        embed.add_field(name="Status", value="⏳ Pending CYNIC verdict", inline=True)
+        embed.set_footer(text="Run /verdict <id> in a moment to get CYNIC's judgment")
+
+        await interaction.followup.send(embed=embed)
+        logger.info(f"Proposal submitted: {proposal_id} by {interaction.user}")
+
+    except asyncio.TimeoutError:
+        await interaction.followup.send(
+            "⏱️ Request timed out.",
+            ephemeral=True,
+        )
+    except Exception as e:
+        logger.error(f"Error submitting proposal: {e}")
+        await interaction.followup.send(
+            f"❌ Error: {str(e)[:200]}",
+            ephemeral=True,
+        )
+
+
+@bot.tree.command(name="vote", description="Cast a vote on a proposal")
+async def vote(
+    interaction: discord.Interaction,
+    proposal_id: str,
+    choice: str,
+):
+    """
+    Cast a vote (yes/no/abstain) on a proposal.
+
+    Args:
+        proposal_id: Proposal ID to vote on
+        choice: Your vote (yes/no/abstain)
+    """
+    if not bot.cynic_ready:
+        await interaction.response.send_message(
+            "❌ CYNIC is not available right now.",
+            ephemeral=True,
+        )
+        return
+
+    if choice.lower() not in ("yes", "no", "abstain"):
+        await interaction.response.send_message(
+            "❌ Vote must be 'yes', 'no', or 'abstain'",
+            ephemeral=True,
+        )
+        return
+
+    await interaction.response.defer(thinking=True)
+
+    try:
+        async with bot.cynic_session.post(
+            f"{CYNIC_API_URL}/api/governance/proposals/{proposal_id}/vote",
+            json={
+                "voter": str(interaction.user.id),
+                "vote": choice.lower(),
+            },
+        ) as resp:
+            if resp.status != 200:
+                await interaction.followup.send(
+                    f"❌ Failed to record vote: HTTP {resp.status}",
+                    ephemeral=True,
+                )
+                return
+
+        embed = discord.Embed(
+            title="✅ Vote Recorded",
+            color=0x00FF00,
+        )
+        embed.add_field(name="Proposal", value=f"`{proposal_id}`", inline=True)
+        embed.add_field(name="Your Vote", value=choice.upper(), inline=True)
+        embed.set_footer(text="Community vote + CYNIC verdict determines outcome")
+
+        await interaction.followup.send(embed=embed)
+        logger.info(f"Vote recorded: {proposal_id} — {interaction.user} voted {choice}")
+
+    except asyncio.TimeoutError:
+        await interaction.followup.send(
+            "⏱️ Request timed out.",
+            ephemeral=True,
+        )
+    except Exception as e:
+        logger.error(f"Error recording vote: {e}")
+        await interaction.followup.send(
+            f"❌ Error: {str(e)[:200]}",
+            ephemeral=True,
+        )
+
+
+@bot.tree.command(name="verdict", description="Get CYNIC's verdict on a proposal")
+async def verdict(
+    interaction: discord.Interaction,
+    proposal_id: str,
+):
+    """
+    Get CYNIC's governance verdict for a proposal.
+
+    Args:
+        proposal_id: Proposal ID to get verdict for
+    """
+    if not bot.cynic_ready:
+        await interaction.response.send_message(
+            "❌ CYNIC is not available right now.",
+            ephemeral=True,
+        )
+        return
+
+    await interaction.response.defer(thinking=True)
+
+    try:
+        async with bot.cynic_session.get(
+            f"{CYNIC_API_URL}/api/governance/proposals/{proposal_id}/verdict"
+        ) as resp:
+            if resp.status == 404:
+                await interaction.followup.send(
+                    f"❌ No verdict found for proposal `{proposal_id}` yet.",
+                    ephemeral=True,
+                )
+                return
+            elif resp.status != 200:
+                await interaction.followup.send(
+                    f"❌ Error: HTTP {resp.status}",
+                    ephemeral=True,
+                )
+                return
+
+            data = await resp.json()
+
+        verdict_type = data.get("verdict_type", "UNKNOWN")
+        q_score = data.get("q_score", 0)
+        confidence = data.get("confidence", 0)
+
+        # Color based on verdict
+        verdict_colors = {
+            "APPROVED": 0x00FF00,
+            "TENTATIVE_APPROVE": 0xFFFF00,
+            "CAUTION": 0xFF9900,
+            "REJECT": 0xFF0000,
+        }
+        color = verdict_colors.get(verdict_type, 0x808080)
+
+        embed = discord.Embed(
+            title="🔮 CYNIC Verdict",
+            color=color,
+        )
+        embed.add_field(name="Proposal", value=f"`{proposal_id}`", inline=True)
+        embed.add_field(name="Verdict", value=verdict_type, inline=True)
+        embed.add_field(name="Q-Score", value=f"{q_score:.1f}/100", inline=True)
+        embed.add_field(name="Confidence", value=f"{confidence:.3f}", inline=True)
+
+        axiom_scores = data.get("axiom_scores", {})
+        if axiom_scores:
+            axioms_text = " | ".join(
+                f"{k}={v:.2f}" for k, v in list(axiom_scores.items())[:5]
+            )
+            embed.add_field(name="Axiom Scores", value=f"`{axioms_text}`", inline=False)
+
+        embed.set_footer(text="CYNIC judges with 11 Dogs and 5 Axiomes")
+
+        await interaction.followup.send(embed=embed)
+        logger.info(f"Verdict fetched: {proposal_id} — {verdict_type} (Q={q_score:.1f})")
+
+    except asyncio.TimeoutError:
+        await interaction.followup.send(
+            "⏱️ Request timed out.",
+            ephemeral=True,
+        )
+    except Exception as e:
+        logger.error(f"Error fetching verdict: {e}")
+        await interaction.followup.send(
+            f"❌ Error: {str(e)[:200]}",
+            ephemeral=True,
+        )
+
+
+@bot.tree.command(name="gov_status", description="Check governance system status")
+async def gov_status(interaction: discord.Interaction):
+    """
+    Get status of the governance system.
+    Shows LNSP health, GASdf connectivity, and proposal stats.
+    """
+    if not bot.cynic_ready:
+        await interaction.response.send_message(
+            "❌ CYNIC is not available right now.",
+            ephemeral=True,
+        )
+        return
+
+    await interaction.response.defer(thinking=True)
+
+    try:
+        async with bot.cynic_session.get(
+            f"{CYNIC_API_URL}/api/governance/status"
+        ) as resp:
+            if resp.status != 200:
+                await interaction.followup.send(
+                    f"❌ Error: HTTP {resp.status}",
+                    ephemeral=True,
+                )
+                return
+
+            data = await resp.json()
+
+        status = data.get("status", "unknown")
+        status_color = {
+            "healthy": 0x00FF00,
+            "degraded": 0xFFFF00,
+            "offline": 0xFF0000,
+        }.get(status, 0x808080)
+
+        embed = discord.Embed(
+            title="⚙️ Governance System Status",
+            color=status_color,
+        )
+        embed.add_field(name="Status", value=status.upper(), inline=True)
+        embed.add_field(name="GASdf", value=data.get("gasdf_status", "unknown").upper(), inline=True)
+        embed.add_field(name="Total Proposals", value=str(data.get("proposals_total", 0)), inline=True)
+        embed.add_field(name="Active Proposals", value=str(data.get("proposals_active", 0)), inline=True)
+        embed.add_field(name="Verdicts Issued", value=str(data.get("verdicts_issued", 0)), inline=True)
+        embed.add_field(name="Executions Completed", value=str(data.get("executions_completed", 0)), inline=True)
+        embed.add_field(name="LNSP Sensors", value=str(data.get("lnsp_sensors", 0)), inline=True)
+        embed.add_field(name="LNSP Handlers", value=str(data.get("lnsp_handlers", 0)), inline=True)
+        embed.set_footer(text="CYNIC Governance Bridge")
+
+        await interaction.followup.send(embed=embed)
+        logger.info(f"Governance status fetched: {status}")
+
+    except asyncio.TimeoutError:
+        await interaction.followup.send(
+            "⏱️ Request timed out.",
+            ephemeral=True,
+        )
+    except Exception as e:
+        logger.error(f"Error fetching governance status: {e}")
+        await interaction.followup.send(
+            f"❌ Error: {str(e)[:200]}",
+            ephemeral=True,
+        )
+
+
 def main():
     """Run the bot."""
     if not DISCORD_TOKEN:

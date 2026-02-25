@@ -673,7 +673,24 @@ async def lifespan(app: FastAPI):
     # ── LNSP Governance Integration ─────────────────────────────────────────
     try:
         from cynic.api.routers.core import setup_lnsp_governance
-        await setup_lnsp_governance()
+
+        # Initialize GASdf executor if enabled
+        gasdf_executor = None
+        if os.getenv("GASDF_ENABLED") == "1":
+            try:
+                from cynic.integrations.gasdf.client import GASdfClient
+                from cynic.integrations.gasdf.executor import GASdfExecutor
+
+                client = GASdfClient()
+                gasdf_executor = GASdfExecutor(client)
+                logger.info("GASdf executor initialized for governance verdicts")
+            except Exception as gasdf_exc:
+                logger.warning("GASdf executor initialization failed: %s (on-chain execution unavailable)", gasdf_exc)
+
+        governance = await setup_lnsp_governance(gasdf_executor=gasdf_executor)
+        # Store governance instance in app.state for router access
+        app.state.governance = governance
+        logger.info("Governance instance stored in app.state for REST API access")
     except Exception as exc:
         logger.warning(
             "LNSP Governance Integration failed: %s (governance pipeline unavailable)", exc
