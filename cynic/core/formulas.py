@@ -90,7 +90,7 @@ Justification:
 Note: Can be overridden per adapter via LLMAdapter.timeout config.
 """
 
-LLM_DISCOVERY_TIMEOUT_SEC: float = 5.0
+LLM_DISCOVERY_TIMEOUT_SEC: float = 15.0  # Increased for Ollama HTTP latency on Windows
 """
 Timeout for LLM discovery (list available models) operations.
 
