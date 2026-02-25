@@ -123,17 +123,20 @@ async def submit_proposal(req: ProposalRequest, request: Request) -> ProposalRes
     Submit a new governance proposal to the community.
     CYNIC will analyze it and issue a verdict.
     """
-    governance = request.app.state.get("governance")
+    governance = getattr(request.app.state, "governance", None)
     if not governance:
         raise HTTPException(status_code=503, detail="Governance system not initialized")
 
     proposal_id = str(uuid.uuid4())[:8]
+    import time
     proposal_data = {
         "proposal_id": proposal_id,
         "community_id": req.community_id,
         "title": req.title,
-        "description": req.description,
-        "proposer": req.proposer,
+        "content": req.description,  # Map description to content
+        "submitter_id": req.proposer,  # Map proposer to submitter_id
+        "submission_timestamp": time.time(),
+        "voting_period_hours": 24,  # Default voting period
     }
 
     try:
@@ -157,14 +160,17 @@ async def cast_vote(proposal_id: str, req: VoteRequest, request: Request) -> dic
 
     Cast a vote (yes/no/abstain) on a proposal.
     """
-    governance = request.app.state.get("governance")
+    governance = getattr(request.app.state, "governance", None)
     if not governance:
         raise HTTPException(status_code=503, detail="Governance system not initialized")
 
+    import time
     vote_data = {
         "proposal_id": proposal_id,
-        "voter": req.voter,
-        "vote": req.vote,
+        "voter_id": req.voter,  # Map voter to voter_id
+        "vote_choice": req.vote.upper(),  # Map vote to vote_choice and uppercase
+        "timestamp": time.time(),
+        "community_id": "unknown",  # Would come from context in real system
     }
 
     try:
@@ -188,7 +194,7 @@ async def get_verdict(proposal_id: str, request: Request) -> VerdictResponse:
     Get CYNIC's governance verdict for a proposal.
     Returns verdict type, confidence, axiom scores, and dog votes.
     """
-    governance = request.app.state.get("governance")
+    governance = getattr(request.app.state, "governance", None)
     if not governance:
         raise HTTPException(status_code=503, detail="Governance system not initialized")
 
@@ -220,7 +226,7 @@ async def trigger_execution(
 
     Only executes if GASdf is enabled and a verdict exists.
     """
-    governance = request.app.state.get("governance")
+    governance = getattr(request.app.state, "governance", None)
     if not governance:
         raise HTTPException(status_code=503, detail="Governance system not initialized")
 
@@ -295,15 +301,19 @@ async def record_outcome(
     Record community outcome feedback for learning loop.
     This feeds back into CYNIC's judgment for future proposals.
     """
-    governance = request.app.state.get("governance")
+    governance = getattr(request.app.state, "governance", None)
     if not governance:
         raise HTTPException(status_code=503, detail="Governance system not initialized")
 
+    import time
     outcome_data = {
         "proposal_id": proposal_id,
-        "outcome": req.outcome,
-        "executor": req.executor,
-        "accepted": req.outcome == "approved",
+        "accepted": req.outcome == "approved",  # Map outcome to accepted boolean
+        "funds_received": req.outcome == "approved",  # Assume approved = funds received
+        "community_sentiment": 0.5 if req.outcome == "approved" else -0.5,  # Simple sentiment mapping
+        "feedback_text": f"Outcome: {req.outcome}, Executor: {req.executor}",
+        "timestamp": time.time(),
+        "community_id": "unknown",  # Would come from context in real system
     }
 
     try:
@@ -328,7 +338,7 @@ async def governance_status(request: Request) -> GovernanceStatusResponse:
     Get health and status of the governance system.
     Includes LNSP layer count, GASdf connectivity, and proposal stats.
     """
-    governance = request.app.state.get("governance")
+    governance = getattr(request.app.state, "governance", None)
 
     if not governance:
         return GovernanceStatusResponse(

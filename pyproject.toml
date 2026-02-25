@@ -72,6 +72,9 @@ pytest-docker = "^3.1.0"
 pytest-timeout = "^2.3.0"
 mypy = "^1.9.0"
 
+[tool.poetry.group.bots.dependencies]
+"python-telegram-bot" = "^21.0"
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
