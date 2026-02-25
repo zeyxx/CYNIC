@@ -167,14 +167,14 @@ def create_aggregated_state(
 
 def create_judgment(
     judgment_type: JudgmentType,
-    verdict: VerdictType,
-    q_score: float,
-    confidence: float,
-    axiom_scores: dict[str, float],
     data: dict[str, Any],
     source: str,
-    target: str,
-    based_on: list[str],
+    verdict: VerdictType | None = None,
+    q_score: float = 0.0,
+    confidence: float = 0.0,
+    axiom_scores: dict[str, float] | None = None,
+    target: str | None = None,
+    based_on: list[str] | None = None,
     instance_id: str = "instance:local",
     region: str | None = None,
 ) -> LNSPMessage:
@@ -188,14 +188,14 @@ def create_judgment(
 
     Args:
         judgment_type: Type of judgment (JudgmentType enum)
-        verdict: The verdict (HOWL, GROWL, WAG, BARK)
-        q_score: Confidence/quality score (0-100)
-        confidence: Confidence metric (0-1)
-        axiom_scores: Dict mapping axiom names to scores (0-1)
-        data: Judgment reasoning and details
+        data: Judgment reasoning and details (stored nested under "data" key)
         source: Originating Dog/Judge name
-        target: Target component (usually EXECUTIVE)
-        based_on: List of source message IDs this judgment is based on
+        verdict: The verdict (HOWL, GROWL, WAG, BARK). Optional.
+        q_score: Confidence/quality score (0-1). Default 0.0.
+        confidence: Confidence metric (0-1). Default 0.0.
+        axiom_scores: Dict mapping axiom names to scores (0-1). Optional.
+        target: Target component (usually EXECUTIVE). Optional.
+        based_on: List of source message IDs this judgment is based on. Optional.
         instance_id: Unique organism instance ID (default: "instance:local")
         region: Optional region identifier
 
@@ -234,16 +234,17 @@ def create_judgment(
         feedback=True,  # Judgments expect feedback
     )
 
-    # Add judgment-specific fields and causality tracking to payload
-    enriched_payload = {
+    # Build payload: explicit fields at top level, data dict nested under "data"
+    enriched_payload: dict[str, Any] = {
         "judgment_type": judgment_type.value,
-        "verdict": verdict.value,
         "q_score": q_score,
         "confidence": confidence,
-        "axiom_scores": axiom_scores,
-        "based_on": based_on,
-        **data,
+        "axiom_scores": axiom_scores if axiom_scores is not None else {},
+        "based_on": based_on if based_on is not None else [],
+        "data": data,
     }
+    if verdict is not None:
+        enriched_payload["verdict"] = verdict.value
 
     return LNSPMessage(header=header, payload=enriched_payload, metadata=metadata)
 

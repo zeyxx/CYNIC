@@ -530,7 +530,7 @@ class TestCreateJudgment:
         assert msg.header.source == "SAGE_DOG"
         assert msg.payload["judgment_type"] == "STATE_EVALUATION"
         assert msg.payload["verdict"] == "HOWL"
-        assert msg.payload["reason"] == "All good"
+        assert msg.payload["data"]["reason"] == "All good"
         assert msg.payload["q_score"] == 92.5
         assert msg.payload["confidence"] == 0.95
         assert msg.payload["axiom_scores"] == {"BURN": 0.9, "CONSENT": 0.85}
