@@ -637,7 +637,7 @@ async def lifespan(app: FastAPI):
         try:
             await _mcp_server.start()
             logger.info("*ears perk* MCP Server listening on port %d (Claude Code bridge)", _mcp_server_port)
-        except httpx.RequestError as _mcp_exc:
+        except (httpx.RequestError, OSError) as _mcp_exc:
             logger.warning("MCP Server failed to start: %s (Claude Code integration unavailable)", _mcp_exc)
             _mcp_server = None
 
