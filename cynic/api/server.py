@@ -621,6 +621,9 @@ async def lifespan(app: FastAPI):
 
     # ── MCP Server (Bootstrap Bridge to Claude Code) ──────────────────────────
     # Port is offset from main API port to avoid conflicts
+    # CRITICAL FIX: Start MCP server async (non-blocking) instead of awaiting in lifespan.
+    # The old code: await _mcp_server.start() → blocked FastAPI startup if port conflict.
+    # The new code: asyncio.create_task(_mcp_server.start()) → fire-and-forget.
     _mcp_server_port = config.port + 1
     from cynic.mcp import MCPServer
     # MCP server expects CynicOrganism, not AppContainer
@@ -634,12 +637,17 @@ async def lifespan(app: FastAPI):
         logger.info("MCP Server startup SKIPPED (test mode)")
     else:
         _mcp_server = MCPServer(port=_mcp_server_port, get_state_fn=_get_organism)
-        try:
-            await _mcp_server.start()
-            logger.info("*ears perk* MCP Server listening on port %d (Claude Code bridge)", _mcp_server_port)
-        except (httpx.RequestError, OSError) as _mcp_exc:
-            logger.warning("MCP Server failed to start: %s (Claude Code integration unavailable)", _mcp_exc)
-            _mcp_server = None
+
+        async def _start_mcp_server_async():
+            """Start MCP server in background (non-blocking)."""
+            try:
+                await _mcp_server.start()
+                logger.info("*ears perk* MCP Server listening on port %d (Claude Code bridge)", _mcp_server_port)
+            except (httpx.RequestError, OSError) as _mcp_exc:
+                logger.warning("MCP Server failed to start: %s (Claude Code integration unavailable)", _mcp_exc)
+
+        # Fire-and-forget: start MCP server without blocking FastAPI HTTP startup
+        asyncio.create_task(_start_mcp_server_async())
 
     # ── CYNIC Bootstrap ──────────────────────────────────────────────────────
     # Self-initialization: version structure, migrations, env files
@@ -675,9 +683,15 @@ async def lifespan(app: FastAPI):
         logger.info("MCPBridge: stopped")
 
     # ── MCP Server Shutdown ──────────────────────────────────────────────────
+    # Safe to call even if still starting (startup is fire-and-forget now)
     if _mcp_server is not None:
-        await _mcp_server.stop()
-        logger.info("MCP Server stopped")
+        try:
+            await asyncio.wait_for(_mcp_server.stop(), timeout=2.0)
+            logger.info("MCP Server stopped")
+        except asyncio.TimeoutError:
+            logger.warning("MCP Server shutdown timeout (continuing anyway)")
+        except Exception as exc:
+            logger.warning("MCP Server shutdown error: %s", exc)
 
     get_core_bus().off(CoreEvent.DECISION_MADE, _on_decision_made)
     _bridge.stop()
