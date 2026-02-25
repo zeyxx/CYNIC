@@ -297,13 +297,17 @@ async def _judge_perspective(
             max_tokens=32,       # "SCORE: N" — concise by design
             temperature=0.0,     # Deterministic scoring
         )
-        resp = await adapter.complete_safe(req)
+        # Wrap with timeout to prevent Ollama connection issues from hanging
+        resp = await asyncio.wait_for(adapter.complete_safe(req), timeout=10.0)
         score = _parse_score(resp.content)
         if score is not None:
             return phi_bound_score(score)
         logger.debug("No score parsed from perspective %s: %r", perspective, resp.content[:100])
-    except asyncio.TimeoutError:
-        logger.debug("Perspective %s failed", perspective, exc_info=True)
+    except (asyncio.TimeoutError, asyncio.CancelledError) as e:
+        logger.debug("Perspective %s timed out/cancelled: %s", perspective, type(e).__name__)
+    except Exception as e:
+        # Catch all exceptions (including anyio ValueError on Windows) gracefully
+        logger.debug("Perspective %s failed: %s", perspective, type(e).__name__)
     return MAX_Q_SCORE * 0.5  # Neutral on failure
 
 
@@ -340,7 +344,18 @@ async def temporal_judgment(
         _judge_perspective(adapter, content, p, context=context)
         for p in perspectives
     ]
-    raw_scores: list[float] = await asyncio.gather(*tasks)
+    # Use return_exceptions=True to catch anyio errors without crashing
+    # (Windows httpx bug: ValueError when connection fails)
+    raw_scores_result: list = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Convert results to scores, handling exceptions gracefully
+    raw_scores: list[float] = []
+    for i, result in enumerate(raw_scores_result):
+        if isinstance(result, Exception):
+            logger.debug("Perspective %s failed: %s", perspectives[i] if i < len(perspectives) else "?", result)
+            raw_scores.append(MAX_Q_SCORE * 0.5)  # Neutral on error
+        else:
+            raw_scores.append(result)
     # ──────────────────────────────────────────────────────────────────────
 
     latency_ms = (time.perf_counter() - start) * 1000
