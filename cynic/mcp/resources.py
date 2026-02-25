@@ -16,9 +16,12 @@ MCP protocol: text/uri-list + application/json payloads
 from __future__ import annotations
 
 import json
+import logging
 import time
 from typing import Any, Optional
 from dataclasses import dataclass, asdict
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -97,7 +100,8 @@ class MCPResourceManager:
                 "results": results,
                 "count": len(results),
             }
-        except asyncpg.Error as e:
+        except Exception as e:
+            logger.warning("get_similar_judgments failed: %s", e)
             return {"error": str(e), "results": []}
 
     async def get_judgment_reasoning(
@@ -150,7 +154,8 @@ class MCPResourceManager:
             reasoning["trace"] = trace.to_dict()
 
             return reasoning
-        except CynicError as e:
+        except Exception as e:
+            logger.warning("get_judgment_reasoning failed: %s", e)
             return {"error": str(e), "judgment_id": judgment_id}
 
     async def get_loop_status(self) -> dict[str, Any]:
@@ -182,7 +187,8 @@ class MCPResourceManager:
                     "orphaned": [c.judgment_id for c in orphans],
                 },
             }
-        except httpx.RequestError as e:
+        except Exception as e:
+            logger.warning("get_loop_status failed: %s", e)
             return {"error": str(e)}
 
     async def get_learned_patterns(
@@ -245,7 +251,8 @@ class MCPResourceManager:
                     ),
                 },
             }
-        except CynicError as e:
+        except Exception as e:
+            logger.warning("get_learned_patterns failed: %s", e)
             return {"error": str(e)}
 
     async def get_event_stream(
@@ -285,7 +292,8 @@ class MCPResourceManager:
                 ],
                 "count": len(events),
             }
-        except CynicError as e:
+        except Exception as e:
+            logger.warning("get_event_stream failed: %s", e)
             return {"error": str(e)}
 
     async def get_hypergraph_edges(self, limit: int = 50) -> dict[str, Any]:
@@ -356,7 +364,8 @@ class MCPResourceManager:
                 "count": len(edges),
                 "limit": limit,
             }
-        except CynicError as e:
+        except Exception as e:
+            logger.warning("get_hypergraph_edges failed: %s", e)
             return {"error": str(e)}
 
     async def get_resource(self, uri: str) -> dict[str, Any]:
@@ -400,7 +409,8 @@ class MCPResourceManager:
             else:
                 return {"error": f"Unknown resource: {uri}"}
 
-        except httpx.RequestError as e:
+        except Exception as e:
+            logger.warning("get_resource failed for uri %s: %s", uri, e)
             return {"error": str(e), "uri": uri}
 
 
