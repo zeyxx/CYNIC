@@ -176,9 +176,11 @@ async def judge(req: JudgeRequest) -> JudgeResponse:
     # Record PENDING placeholder for polling
     try:
         from cynic.organism.conscious_state import get_conscious_state
-        await get_conscious_state().record_pending_judgment(judgment_id)
+        logger.info("[DEBUG] Recording pending judgment: %s", judgment_id)
+        pending = await get_conscious_state().record_pending_judgment(judgment_id)
+        logger.info("[DEBUG] Pending judgment recorded: %s", pending)
     except Exception as exc:
-        logger.debug("record_pending_judgment skipped: %s", exc)
+        logger.warning("[DEBUG] record_pending_judgment failed: %s", exc, exc_info=True)
 
     # Return immediately with PENDING
     return JudgeResponse(
@@ -626,3 +628,49 @@ async def get_world_state() -> dict[str, Any]:
     """
     state = get_state()
     return state.world_model.snapshot()
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# LNSP Governance Integration — startup initialization
+# ════════════════════════════════════════════════════════════════════════════
+
+# Module-level singleton — set during lifespan startup via setup_lnsp_governance()
+_governance_lnsp: Any = None
+
+
+async def setup_lnsp_governance() -> Any:
+    """Initialize LNSP Governance Integration.
+
+    Wire GovernanceLNSP into the CYNIC event pipeline:
+    - Creates LNSPManager (instance:governance / region:governance)
+    - Creates GovernanceLNSP bridge
+    - Registers 4 sensors (proposal, vote, execution, outcome) with Layer 1
+    - Registers 1 handler (governance verdict) with Layer 4
+    - Wires all layers together
+
+    Call this from the FastAPI lifespan after organism awakening.
+
+    Returns:
+        The initialized GovernanceLNSP instance.
+    """
+    global _governance_lnsp
+
+    # Initialize LNSP Governance Integration
+    from cynic.protocol.lnsp.governance_integration import GovernanceLNSP
+    from cynic.protocol.lnsp.manager import LNSPManager
+
+    lnsp_manager = LNSPManager(
+        instance_id="instance:governance",
+        region="governance"
+    )
+    governance_lnsp = GovernanceLNSP(lnsp_manager)
+    await governance_lnsp.setup()
+
+    # Store for later access (optional, for testing)
+    _governance_lnsp = governance_lnsp
+    logger.info(
+        "LNSP Governance Integration initialized — %d sensors, %d handlers wired",
+        len(lnsp_manager.layer1.sensors),
+        len(lnsp_manager.layer4.handlers),
+    )
+    return governance_lnsp
