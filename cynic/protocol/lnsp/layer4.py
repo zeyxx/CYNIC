@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from .messages import create_raw_observation
@@ -65,15 +65,10 @@ class Layer4:
         feedback_callbacks: List of callbacks to emit feedback to
     """
 
-    handlers: dict[str, Handler] = None
-    feedback_callbacks: list[Callable[[LNSPMessage], None]] = None
-
-    def __post_init__(self) -> None:
-        """Initialize mutable fields after dataclass creation."""
-        if self.handlers is None:
-            self.handlers = {}
-        if self.feedback_callbacks is None:
-            self.feedback_callbacks = []
+    handlers: dict[str, Handler] = field(default_factory=dict)
+    feedback_callbacks: list[Callable[[LNSPMessage], None]] = field(
+        default_factory=list
+    )
 
     def register_handler(self, handler: Handler) -> None:
         """Register an action handler.
