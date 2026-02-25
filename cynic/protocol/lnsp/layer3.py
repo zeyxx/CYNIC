@@ -237,16 +237,16 @@ class Layer3:
             VerdictType enum value
 
         Thresholds (φ-weighted, max ~0.618):
-        - Q < 0.2: HOWL (problem)
-        - Q 0.2-0.4: GROWL (caution)
-        - Q 0.4-0.6: WAG (healthy)
-        - Q >= 0.6: BARK (excellent)
+        - Q < 0.4: HOWL (problem)
+        - Q 0.4-0.6: GROWL (caution)
+        - Q 0.6-0.8: WAG (healthy)
+        - Q >= 0.8: BARK (excellent)
         """
-        if q_score < 0.2:
+        if q_score < 0.4:
             return VerdictType.HOWL
-        elif q_score < 0.4:
-            return VerdictType.GROWL
         elif q_score < 0.6:
+            return VerdictType.GROWL
+        elif q_score < 0.8:
             return VerdictType.WAG
         else:
             return VerdictType.BARK
