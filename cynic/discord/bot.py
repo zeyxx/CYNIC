@@ -140,6 +140,193 @@ async def cleanup():
     logger.info("Shutdown complete")
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# Help Command
+# ════════════════════════════════════════════════════════════════════════════
+
+@bot.tree.command(name="cynic_help", description="Get help with CYNIC commands")
+async def cynic_help(interaction: discord.Interaction):
+    """Show available CYNIC commands."""
+    embed = discord.Embed(
+        title="CYNIC Commands Help",
+        description="CYNIC is a collective consciousness for governance decisions",
+        color=0x9933FF
+    )
+
+    embed.add_field(
+        name="/ask_cynic",
+        value="Ask CYNIC a question and get a judgment\n`question`: The question to ask\n`context`: Optional background\n`reality`: GENERAL/CODE/MARKET/SOCIAL",
+        inline=False
+    )
+
+    embed.add_field(
+        name="/proposal",
+        value="Submit a governance proposal for CYNIC evaluation\n`title`: Proposal title\n`description`: Full proposal details",
+        inline=False
+    )
+
+    embed.add_field(
+        name="/cynic_status",
+        value="Check CYNIC's health and consciousness level",
+        inline=False
+    )
+
+    embed.add_field(
+        name="/teach_cynic",
+        value="Provide feedback on a judgment to improve learning\n`judgment_id`: ID of judgment to teach\n`feedback`: Was it correct/incorrect?",
+        inline=False
+    )
+
+    embed.set_footer(text="Use /cynic_help for more information")
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Governance Commands
+# ════════════════════════════════════════════════════════════════════════════
+
+@bot.tree.command(name="proposal", description="Submit a governance proposal")
+async def proposal(
+    interaction: discord.Interaction,
+    title: str,
+    description: str,
+    reality: str = "MARKET"
+):
+    """
+    Submit a governance proposal for CYNIC evaluation.
+
+    Args:
+        title: Proposal title
+        description: Full proposal description
+        reality: Governance reality type (default: MARKET)
+    """
+    if not bot.cynic_ready:
+        await interaction.response.send_message(
+            "CYNIC is not available. Try again in a moment.",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.defer(thinking=True)
+
+    try:
+        payload = {
+            "content": f"**{title}**\n\n{description}",
+            "context": f"Governance proposal: {title}",
+            "reality": reality,
+            "analysis": "JUDGE",
+        }
+
+        # Submit proposal to CYNIC
+        async with bot.cynic_session.post(
+            f"{CYNIC_API_URL}/judge",
+            json=payload
+        ) as resp:
+            if resp.status != 200:
+                await interaction.followup.send(
+                    f"Error submitting proposal: HTTP {resp.status}",
+                    ephemeral=True
+                )
+                return
+
+            judgment_req = await resp.json()
+
+        judgment_id = judgment_req.get("judgment_id")
+        if not judgment_id:
+            await interaction.followup.send(
+                "Failed to get proposal ID",
+                ephemeral=True
+            )
+            return
+
+        # Poll for evaluation
+        result = None
+        for attempt in range(30):
+            await asyncio.sleep(1)
+            async with bot.cynic_session.get(
+                f"{CYNIC_API_URL}/judge/{judgment_id}"
+            ) as resp:
+                if resp.status == 200:
+                    result = await resp.json()
+                    if result.get("verdict") != "PENDING":
+                        break
+
+        if not result or result.get("verdict") == "PENDING":
+            await interaction.followup.send(
+                f"Proposal evaluation in progress. Check back in a moment.",
+                ephemeral=True
+            )
+            return
+
+        # Format response
+        verdict = result.get("verdict", "UNKNOWN")
+        q_score = result.get("q_score", 0)
+
+        verdict_emoji = {
+            "HOWL": "🔴",      # Strong yes
+            "WAG": "🟢",       # Yes
+            "GROWL": "🟡",     # Caution
+            "BARK": "🔶",      # Reject
+        }
+
+        verdict_colors = {
+            "HOWL": 0xFF0000,
+            "WAG": 0x00FF00,
+            "GROWL": 0xFFFF00,
+            "BARK": 0xFF6600,
+        }
+
+        emoji = verdict_emoji.get(verdict, "⚪")
+        color = verdict_colors.get(verdict, 0x9933FF)
+
+        embed = discord.Embed(
+            title=f"{emoji} Proposal Evaluation",
+            description=f"**{title}**",
+            color=color
+        )
+
+        embed.add_field(
+            name="CYNIC Verdict",
+            value=verdict,
+            inline=True
+        )
+        embed.add_field(
+            name="Confidence (Q-Score)",
+            value=f"{q_score:.1f}/100",
+            inline=True
+        )
+
+        embed.add_field(
+            name="How to Use This",
+            value="This evaluation helps inform community voting. React with emoji to vote!",
+            inline=False
+        )
+
+        embed.set_footer(text=f"Proposal ID: {judgment_id}")
+
+        msg = await interaction.followup.send(embed=embed)
+
+        # Add voting reactions
+        await msg.add_reaction("👍")  # Support
+        await msg.add_reaction("👎")  # Against
+        await msg.add_reaction("🤷")  # Abstain
+
+        logger.info(f"Proposal submitted: {title} (ID: {judgment_id})")
+
+    except asyncio.TimeoutError:
+        await interaction.followup.send(
+            "Proposal evaluation timed out. Try again.",
+            ephemeral=True
+        )
+    except Exception as e:
+        logger.error(f"Error in proposal command: {e}")
+        await interaction.followup.send(
+            f"Error: {str(e)[:200]}",
+            ephemeral=True
+        )
+
+
 # Command group for CYNIC commands
 @bot.tree.command(name="ask_cynic", description="Ask CYNIC a question")
 async def ask_cynic(

@@ -101,6 +101,38 @@ services:
 
     restart: unless-stopped
 
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Discord Bot — Community Interface
+  # Connects to CYNIC HTTP API (port 8765)
+  # Requires: DISCORD_TOKEN in .env file
+  # ═══════════════════════════════════════════════════════════════════════════════
+  discord:
+    build:
+      context: ./cynic/discord
+      dockerfile: Dockerfile
+    container_name: cynic-discord
+    environment:
+      # Discord
+      DISCORD_TOKEN: ${DISCORD_TOKEN:-}
+
+      # CYNIC API
+      CYNIC_API_URL: http://cynic:8765
+      CYNIC_API_TIMEOUT: "30"
+
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+
+    depends_on:
+      cynic:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+    profiles:
+      - "with-discord"  # Optional: enable with `docker compose --profile with-discord up`
+
 volumes:
   pgdata:
   ollama_models:

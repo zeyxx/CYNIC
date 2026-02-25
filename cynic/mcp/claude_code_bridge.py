@@ -29,7 +29,9 @@ import logging
 import sys
 import os
 import subprocess
-from typing import Any
+import time
+from pathlib import Path
+from typing import Any, Optional
 
 import aiohttp
 
@@ -60,45 +62,165 @@ logger = logging.getLogger("cynic.mcp.claude_code_bridge")
 _adapter: ClaudeCodeAdapter | None = None
 
 
-async def _ensure_kernel_running(cynic_url: str = "http://127.0.0.1:8765") -> bool:
-    """Try GET /health. If down, start kernel subprocess. Return True if alive."""
-    try:
-        async with aiohttp.ClientSession() as s:
-            async with s.get(f"{cynic_url}/health", timeout=aiohttp.ClientTimeout(total=2)) as r:
-                if r.status == 200:
-                    logger.info("Kernel health check passed")
-                    return True
-    except Exception:
-        pass
+async def _spawn_kernel(cynic_url: str = "http://127.0.0.1:8765") -> Optional[subprocess.Popen]:
+    """
+    Spawn CYNIC kernel as a subprocess.
 
-    # Kernel is down — try to start it
-    logger.info("Kernel not responding, attempting to start...")
-    repo_root = os.path.join(os.path.dirname(__file__), "..", "..")
+    Returns:
+        Popen object if spawn successful, None if kernel is already running.
+
+    Raises:
+        RuntimeError: If spawn fails.
+    """
+    logger.info("Attempting to spawn CYNIC kernel subprocess...")
+
     try:
-        subprocess.Popen(
-            [sys.executable, "-m", "cynic.api.entry", "--port", "8765"],
+        # Check if already running
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=2)) as s:
+                async with s.get(f"{cynic_url}/health") as r:
+                    if r.status == 200:
+                        logger.info("Kernel already running, skipping spawn")
+                        return None
+        except Exception:
+            pass  # Kernel is not responding, proceed with spawn
+
+        # Spawn kernel as subprocess
+        repo_root = os.path.join(os.path.dirname(__file__), "..", "..")
+        cmd = [sys.executable, "-m", "cynic.api.entry", "--port", "8765"]
+
+        logger.info("Spawning kernel with command: %s (in %s)", " ".join(cmd), repo_root)
+
+        process = subprocess.Popen(
+            cmd,
             cwd=os.path.abspath(repo_root),
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0,
         )
-        logger.info("Kernel startup process spawned")
-    except Exception as e:
-        logger.warning(f"Failed to spawn kernel: {e}")
-        return False
 
-    # Poll for up to 8 seconds
-    for attempt in range(16):
-        await asyncio.sleep(0.5)
+        logger.info("Kernel spawned with PID: %s", process.pid)
+        return process
+
+    except Exception as exc:
+        logger.error("Failed to spawn kernel: %s", exc, exc_info=True)
+        raise RuntimeError(f"Kernel spawn failed: {exc}") from exc
+
+
+async def _ensure_kernel_running(
+    cynic_url: str = "http://127.0.0.1:8765",
+    timeout: float = 30.0,
+    spawn_if_down: bool = True,
+) -> bool:
+    """
+    Ensure CYNIC kernel is running with exponential backoff retry logic.
+
+    Attempts to reach the kernel's /health endpoint with exponential backoff:
+    - Attempt 1: 0.5s wait
+    - Attempt 2: 1.0s wait
+    - Attempt 3: 2.0s wait
+    - Attempt 4: 4.0s wait
+    - Attempt 5: 8.0s wait (total ~15.5s with timeouts)
+
+    Args:
+        cynic_url: Base URL of CYNIC HTTP API (default: http://127.0.0.1:8765)
+        timeout: Total timeout for all retry attempts (default: 30s)
+        spawn_if_down: If kernel is down, spawn it as subprocess (default: True)
+
+    Returns:
+        True if kernel is healthy and reachable
+        False if kernel is not reachable (even after retries)
+
+    Raises:
+        RuntimeError: If spawn_if_down=True and spawn fails unexpectedly
+    """
+    logger.info(
+        "Ensuring kernel is running at %s (timeout=%.1fs, spawn_if_down=%s)",
+        cynic_url,
+        timeout,
+        spawn_if_down,
+    )
+
+    start_time = time.time()
+    attempt = 0
+    backoff_delays = [0.5, 1.0, 2.0, 4.0, 8.0]  # Exponential backoff schedule (seconds)
+    process: Optional[subprocess.Popen] = None
+
+    # Try to reach kernel with exponential backoff
+    while time.time() - start_time < timeout:
+        attempt += 1
+        elapsed = time.time() - start_time
+
+        logger.debug(
+            "Attempt %d: Checking kernel health at %s (elapsed: %.2fs / %.2fs)",
+            attempt,
+            cynic_url,
+            elapsed,
+            timeout,
+        )
+
         try:
-            async with aiohttp.ClientSession() as s:
-                async with s.get(f"{cynic_url}/health", timeout=aiohttp.ClientTimeout(total=1)) as r:
-                    if r.status == 200:
-                        logger.info("Kernel started successfully after %.1fs", (attempt + 1) * 0.5)
+            # Attempt health check with 5s individual timeout
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+                async with session.get(f"{cynic_url}/health") as resp:
+                    if resp.status == 200:
+                        logger.info("Kernel is healthy and responding")
                         return True
-        except Exception:
-            pass
 
-    logger.warning("Kernel did not start in time — tools will fail gracefully")
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as exc:
+            logger.debug("Health check failed (attempt %d): %s", attempt, type(exc).__name__)
+
+            # If first attempt fails and we haven't spawned yet, try spawning
+            if attempt == 1 and spawn_if_down and process is None:
+                logger.info("Kernel not responding on first attempt, attempting spawn...")
+                try:
+                    process = await _spawn_kernel(cynic_url)
+                except RuntimeError as spawn_exc:
+                    logger.error("Failed to spawn kernel: %s", spawn_exc)
+                    if not spawn_if_down:
+                        return False
+                    raise
+
+        # Calculate backoff delay for next attempt
+        if attempt < len(backoff_delays):
+            delay = backoff_delays[attempt - 1]
+            remaining = timeout - (time.time() - start_time)
+
+            if remaining > delay:
+                logger.debug(
+                    "Waiting %.2fs before retry (attempt %d/%d, remaining: %.2fs)",
+                    delay,
+                    attempt,
+                    len(backoff_delays),
+                    remaining,
+                )
+                await asyncio.sleep(delay)
+            else:
+                logger.debug("Timeout approaching, skipping backoff delay")
+                break
+        else:
+            # All backoff attempts exhausted
+            logger.warning("All retry attempts exhausted (attempt %d)", attempt)
+            break
+
+    # Final attempt after all backoff
+    elapsed = time.time() - start_time
+    logger.debug("Final attempt after %.2fs elapsed", elapsed)
+
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+            async with session.get(f"{cynic_url}/health") as resp:
+                if resp.status == 200:
+                    logger.info("Kernel became healthy on final attempt")
+                    return True
+    except (aiohttp.ClientError, asyncio.TimeoutError, OSError):
+        pass
+
+    logger.error(
+        "Kernel failed to become ready after %.2fs (timeout=%.2fs)",
+        time.time() - start_time,
+        timeout,
+    )
     return False
 
 
@@ -106,8 +228,18 @@ async def get_adapter() -> ClaudeCodeAdapter:
     """Get or create the module-level CYNIC adapter (with context management)."""
     global _adapter
     if _adapter is None:
-        # Ensure kernel is running before creating adapter
-        await _ensure_kernel_running()
+        # Ensure kernel is running with robust startup logic (30s timeout + exponential backoff)
+        kernel_ready = await _ensure_kernel_running(
+            timeout=30.0,
+            spawn_if_down=True,
+        )
+        if kernel_ready:
+            logger.info("Kernel is ready and responding")
+        else:
+            logger.warning(
+                "Kernel did not become ready within timeout, but continuing anyway. "
+                "MCP tools may fail if kernel is not started externally."
+            )
 
         _adapter = ClaudeCodeAdapter(cynic_url="http://127.0.0.1:8765", timeout_s=30)
         await _adapter.__aenter__()
