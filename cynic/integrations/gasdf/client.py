@@ -11,15 +11,15 @@ from .types import GASdfError, GASdfQuote, GASdfStats
 class GASdfClient:
     """Async HTTP client for GASdf REST API.
 
-    The client manages connections to https://asdfasdfa.tech and provides
+    The client manages connections to https://www.asdfasdfa.tech and provides
     methods for health checks, token queries, fee quoting, and transaction submission.
 
     Attributes:
-        base_url: GASdf API base URL (default: https://asdfasdfa.tech)
+        base_url: GASdf API base URL (default: https://www.asdfasdfa.tech)
         timeout: Request timeout in seconds (default: 30)
     """
 
-    base_url: str = "https://asdfasdfa.tech"
+    base_url: str = "https://www.asdfasdfa.tech"
     timeout: int = 30
 
     async def health(self) -> dict[str, Any]:
@@ -31,7 +31,9 @@ class GASdfClient:
         Raises:
             GASdfError: If the request fails or returns non-200 status
         """
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with httpx.AsyncClient(
+            timeout=self.timeout, follow_redirects=True
+        ) as client:
             response = await client.get(f"{self.base_url}/health")
             if response.status_code != 200:
                 raise GASdfError(
@@ -48,13 +50,18 @@ class GASdfClient:
         Raises:
             GASdfError: If the request fails or returns non-200 status
         """
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with httpx.AsyncClient(
+            timeout=self.timeout, follow_redirects=True
+        ) as client:
             response = await client.get(f"{self.base_url}/v1/tokens")
             if response.status_code != 200:
                 raise GASdfError(
                     f"Get tokens failed: {response.status_code} {response.text}"
                 )
-            return cast(list[dict[str, Any]], response.json())
+            data = response.json()
+            # Extract tokens array from response
+            tokens = data.get("tokens", []) if isinstance(data, dict) else data
+            return cast(list[dict[str, Any]], tokens)
 
     async def get_quote(
         self, payment_token: str, user_pubkey: str, amount: int
@@ -72,10 +79,12 @@ class GASdfClient:
         Raises:
             GASdfError: If the request fails or returns non-200 status
         """
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with httpx.AsyncClient(
+            timeout=self.timeout, follow_redirects=True
+        ) as client:
             payload = {
-                "payment_token": payment_token,
-                "user_pubkey": user_pubkey,
+                "paymentToken": payment_token,
+                "userPubkey": user_pubkey,
                 "amount": amount,
             }
             response = await client.post(
@@ -113,7 +122,9 @@ class GASdfClient:
         Raises:
             GASdfError: If the request fails or returns non-200 status
         """
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with httpx.AsyncClient(
+            timeout=self.timeout, follow_redirects=True
+        ) as client:
             payload = {
                 "quote_id": quote_id,
                 "signed_transaction": signed_transaction,
@@ -137,7 +148,9 @@ class GASdfClient:
         Raises:
             GASdfError: If the request fails or returns non-200 status
         """
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with httpx.AsyncClient(
+            timeout=self.timeout, follow_redirects=True
+        ) as client:
             response = await client.get(f"{self.base_url}/v1/stats")
             if response.status_code != 200:
                 raise GASdfError(
@@ -145,8 +158,8 @@ class GASdfClient:
                 )
             data = response.json()
             return GASdfStats(
-                total_burned=data["total_burned"],
-                total_fees=data["total_fees"],
-                num_transactions=data["num_transactions"],
-                average_fee=data["average_fee"],
+                total_burned=data["totalBurned"],
+                total_transactions=data["totalTransactions"],
+                burned_formatted=data["burnedFormatted"],
+                treasury=cast(dict[str, object], data.get("treasury", {})),
             )

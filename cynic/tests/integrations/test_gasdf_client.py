@@ -58,10 +58,13 @@ class TestGASdfClient:
         with patch("httpx.AsyncClient") as mock_client_class:
             mock_response = MagicMock()
             mock_response.status_code = 200
-            mock_response.json.return_value = [
-                {"symbol": "USDC", "address": "0x123"},
-                {"symbol": "SOL", "address": "0x456"},
-            ]
+            mock_response.json.return_value = {
+                "note": "HolDex-verified community tokens...",
+                "tokens": [
+                    {"symbol": "USDC", "mint": "addr123"},
+                    {"symbol": "SOL", "mint": "addr456"},
+                ],
+            }
 
             mock_client = AsyncMock()
             mock_client.__aenter__.return_value = mock_client
@@ -141,10 +144,10 @@ class TestGASdfClient:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {
-                "total_burned": 1000000,
-                "total_fees": 1308900,
-                "num_transactions": 100,
-                "average_fee": 13089,
+                "totalBurned": 1000000,
+                "totalTransactions": 100,
+                "burnedFormatted": "1000000 ASDF",
+                "treasury": {"balance": 5000000},
             }
 
             mock_client = AsyncMock()
@@ -159,7 +162,7 @@ class TestGASdfClient:
 
             assert isinstance(result, GASdfStats)
             assert result.total_burned == 1000000
-            assert result.num_transactions == 100
+            assert result.total_transactions == 100
 
     async def test_error_handling_non_200_status(self) -> None:
         """Test error handling for non-200 responses."""

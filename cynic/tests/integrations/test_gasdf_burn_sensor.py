@@ -25,9 +25,9 @@ class TestGASdfBurnSensor:
         """Test that sensor emits LNSP observation on successful stats fetch."""
         mock_stats = GASdfStats(
             total_burned=1000000,
-            total_fees=1308900,
-            num_transactions=100,
-            average_fee=13089,
+            total_transactions=100,
+            burned_formatted="1000000 ASDF",
+            treasury={"balance": 1308900},
         )
         mock_client.get_stats.return_value = mock_stats
 
@@ -50,9 +50,9 @@ class TestGASdfBurnSensor:
         """Test that observation payload contains stats data."""
         mock_stats = GASdfStats(
             total_burned=5000000,
-            total_fees=6544500,
-            num_transactions=500,
-            average_fee=13089,
+            total_transactions=500,
+            burned_formatted="5000000 ASDF",
+            treasury={"balance": 6544500},
         )
         mock_client.get_stats.return_value = mock_stats
 
@@ -67,8 +67,8 @@ class TestGASdfBurnSensor:
         assert "data" in result.payload
         payload_data = result.payload["data"]
         assert payload_data["total_burned"] == 5000000
-        assert payload_data["total_fees"] == 6544500
-        assert payload_data["num_transactions"] == 500
+        assert payload_data["total_transactions"] == 500
+        assert payload_data["burned_formatted"] == "5000000 ASDF"
 
     async def test_burn_sensor_skips_duplicate_stats(
         self, mock_client: AsyncMock
@@ -76,9 +76,9 @@ class TestGASdfBurnSensor:
         """Test that sensor returns None if stats haven't changed."""
         mock_stats = GASdfStats(
             total_burned=1000000,
-            total_fees=1308900,
-            num_transactions=100,
-            average_fee=13089,
+            total_transactions=100,
+            burned_formatted="1000000 ASDF",
+            treasury={"balance": 1308900},
         )
         mock_client.get_stats.return_value = mock_stats
 
@@ -101,15 +101,15 @@ class TestGASdfBurnSensor:
         """Test that sensor emits when stats change."""
         stats1 = GASdfStats(
             total_burned=1000000,
-            total_fees=1308900,
-            num_transactions=100,
-            average_fee=13089,
+            total_transactions=100,
+            burned_formatted="1000000 ASDF",
+            treasury={"balance": 1308900},
         )
         stats2 = GASdfStats(
             total_burned=2000000,
-            total_fees=2617800,
-            num_transactions=200,
-            average_fee=13089,
+            total_transactions=200,
+            burned_formatted="2000000 ASDF",
+            treasury={"balance": 2617800},
         )
 
         sensor = GASdfBurnSensor(
@@ -148,9 +148,9 @@ class TestGASdfBurnSensor:
         """Test that observation type is ECOSYSTEM_EVENT."""
         mock_stats = GASdfStats(
             total_burned=1000000,
-            total_fees=1308900,
-            num_transactions=100,
-            average_fee=13089,
+            total_transactions=100,
+            burned_formatted="1000000 ASDF",
+            treasury={"balance": 1308900},
         )
         mock_client.get_stats.return_value = mock_stats
 
@@ -170,9 +170,9 @@ class TestGASdfBurnSensor:
         """Test that sensor respects custom instance_id."""
         mock_stats = GASdfStats(
             total_burned=1000000,
-            total_fees=1308900,
-            num_transactions=100,
-            average_fee=13089,
+            total_transactions=100,
+            burned_formatted="1000000 ASDF",
+            treasury={"balance": 1308900},
         )
         mock_client.get_stats.return_value = mock_stats
 

@@ -53,13 +53,13 @@ class GASdfStats:
     """Burn statistics from GASdf.
 
     Attributes:
-        total_burned: Total amount burned to $ASDF
-        total_fees: Total fees collected
-        num_transactions: Number of transactions processed
-        average_fee: Average fee per transaction
+        total_burned: Total amount burned to $ASDF (lamports)
+        total_transactions: Number of transactions processed
+        burned_formatted: Human-readable burned amount
+        treasury: Treasury information dict
     """
 
     total_burned: int
-    total_fees: int
-    num_transactions: int
-    average_fee: float
+    total_transactions: int
+    burned_formatted: str
+    treasury: dict[str, object]
