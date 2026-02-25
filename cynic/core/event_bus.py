@@ -27,8 +27,12 @@ from typing import Any, TypeVar, Type
 from collections.abc import Callable, Coroutine
 
 from cynic.core.exceptions import EventBusError
+from cynic.core.phi import fibonacci
 
 T = TypeVar('T')
+
+# Memory-bounded event history (Fibonacci-derived)
+_EVENT_HISTORY_MAX = fibonacci(10)  # 55 per bus (was 1000 — causing MEMORY_MANAGEMENT blue screen)
 
 # Python 3.9 compatibility: StrEnum added in Python 3.11
 if sys.version_info >= (3, 11):
@@ -280,9 +284,11 @@ class EventBus:
         self.bus_id = bus_id
         self._handlers: dict[str, list[Handler]] = {}
         self._history: list[Event] = []
-        self._max_history = 1000
+        self._max_history = _EVENT_HISTORY_MAX  # F(10)=55 (was 1000)
         self._emitted_count = 0
         self._error_count = 0
+        self._pending_tasks: set = set()  # Track active handler tasks
+        self._handler_timeout_s = 30.0  # Timeout for slow handlers (30s)
 
     def on(self, event_type: str, handler: Handler) -> None:
         """Register a handler for an event type (or '*' for all)."""
@@ -299,7 +305,7 @@ class EventBus:
                 pass
 
     async def emit(self, event: Event) -> None:
-        """Emit an event. All handlers are invoked as asyncio Tasks."""
+        """Emit an event. All handlers are invoked as asyncio Tasks with timeout."""
         self._emitted_count += 1
 
         # Record in history
@@ -313,19 +319,37 @@ class EventBus:
             + self._handlers.get("*", [])
         )
 
-        # Fire as Tasks (fire-and-forget)
+        # Clean up completed tasks periodically (every 100 emits)
+        if self._emitted_count % 100 == 0:
+            self._pending_tasks = {t for t in self._pending_tasks if not t.done()}
+
+        # Fire as Tasks with tracking and timeout
         for handler in handlers:
-            asyncio.create_task(self._run_handler(handler, event))
+            task = asyncio.create_task(
+                asyncio.wait_for(
+                    self._run_handler(handler, event),
+                    timeout=self._handler_timeout_s
+                )
+            )
+            self._pending_tasks.add(task)
+            # Remove task from tracking when done
+            task.add_done_callback(self._pending_tasks.discard)
 
     async def _run_handler(self, handler: Handler, event: Event) -> None:
         """
-        Run a single handler with complete isolation.
+        Run a single handler with complete isolation and timeout.
 
         If a handler crashes, it won't affect other handlers for the same event.
-        All exceptions are caught and logged.
+        All exceptions are caught and logged (including timeout).
         """
         try:
             await handler(event)
+        except asyncio.TimeoutError:
+            self._error_count += 1
+            logger.warning(
+                "Handler timeout (>%.1fs) on bus=%s type=%s",
+                self._handler_timeout_s, self.bus_id, event.type,
+            )
         except EventBusError as e:
             self._error_count += 1
             logger.error(
@@ -357,12 +381,17 @@ class EventBus:
             logger.warning("emit_sync called with no event loop for %s", event.type)
 
     def stats(self) -> dict[str, Any]:
+        # Clean up completed tasks before reporting
+        self._pending_tasks = {t for t in self._pending_tasks if not t.done()}
+
         return {
             "bus_id": self.bus_id,
             "emitted": self._emitted_count,
             "errors": self._error_count,
             "handlers": {k: len(v) for k, v in self._handlers.items()},
             "history_size": len(self._history),
+            "pending_tasks": len(self._pending_tasks),  # Track active tasks
+            "handler_timeout_s": self._handler_timeout_s,
         }
 
 

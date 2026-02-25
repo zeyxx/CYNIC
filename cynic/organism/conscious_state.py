@@ -31,9 +31,12 @@ from typing import Any, Callable, Optional
 import threading
 
 from cynic.core.event_bus import EventBus
-from cynic.core.phi import MAX_CONFIDENCE, PHI_INV, PHI_INV_2
+from cynic.core.phi import MAX_CONFIDENCE, PHI_INV, PHI_INV_2, fibonacci
 
 logger = logging.getLogger(__name__)
+
+# Memory-bounded buffer sizes (Fibonacci-derived)
+_JUDGMENT_BUFFER_MAX = fibonacci(11)  # 89 (was 1000 — causing MEMORY_MANAGEMENT blue screen)
 
 # State directory
 STATE_DIR = Path.home() / ".cynic"
@@ -223,14 +226,16 @@ class ConsciousState:
                     dog_votes=dog_votes,
                     source=source,
                 )
-                # Rolling cap: 1000 recent judgments (Fibonacci(16) ~ 987)
+                # Rolling cap: F(11)=89 judgments (BURN axiom: lowest Q-Score pruned first)
                 self._recent_judgments.append(snapshot)
-                if len(self._recent_judgments) > 1000:
-                    self._recent_judgments.pop(0)
+                if len(self._recent_judgments) > _JUDGMENT_BUFFER_MAX:
+                    await self._prune_judgments_burn_ordered()
                 logger.debug(
-                    "ConsciousState recorded judgment: Q=%.1f, Verdict=%s",
+                    "ConsciousState recorded judgment: Q=%.1f, Verdict=%s (buffer=%d/%d)",
                     q_score,
                     verdict,
+                    len(self._recent_judgments),
+                    _JUDGMENT_BUFFER_MAX,
                 )
 
             self._judgment_count += 1
@@ -344,6 +349,30 @@ class ConsciousState:
 
             self._last_update = datetime.now().timestamp()
 
+    async def _prune_judgments_burn_ordered(self) -> None:
+        """
+        Prune buffer to F(11)=89 entries, deleting lowest Q-Score first (BURN axiom).
+
+        Called when buffer exceeds capacity. Removes the judgment with the
+        lowest Q-Score to follow the BURN principle: consume low-value entropy first.
+        """
+        while len(self._recent_judgments) > _JUDGMENT_BUFFER_MAX:
+            # Find index of judgment with lowest Q-Score
+            min_idx = 0
+            min_q_score = self._recent_judgments[0].q_score
+
+            for idx, judgment in enumerate(self._recent_judgments[1:], start=1):
+                if judgment.q_score < min_q_score:
+                    min_idx = idx
+                    min_q_score = judgment.q_score
+
+            # Remove lowest Q-Score judgment
+            removed = self._recent_judgments.pop(min_idx)
+            logger.debug(
+                "ConsciousState BURN: removed judgment %s (Q=%.1f)",
+                removed.judgment_id, removed.q_score
+            )
+
     async def _on_dog_judgment(self, event):
         """Record individual dog judgment."""
         payload = event.payload if hasattr(event, 'payload') else event
@@ -433,8 +462,8 @@ class ConsciousState:
                 source="api",
             )
             self._recent_judgments.append(snapshot)
-            if len(self._recent_judgments) > 1000:
-                self._recent_judgments.pop(0)
+            if len(self._recent_judgments) > _JUDGMENT_BUFFER_MAX:
+                await self._prune_judgments_burn_ordered()
             return snapshot
 
     async def record_judgment_failed(
@@ -473,8 +502,8 @@ class ConsciousState:
                 source=f"FAILED:{reason}",
             )
             self._recent_judgments.append(snapshot)
-            if len(self._recent_judgments) > 1000:
-                self._recent_judgments.pop(0)
+            if len(self._recent_judgments) > _JUDGMENT_BUFFER_MAX:
+                await self._prune_judgments_burn_ordered()
             return snapshot
 
     async def get_axiom(self, axiom_id: str) -> Optional[AxiomStatus]:
