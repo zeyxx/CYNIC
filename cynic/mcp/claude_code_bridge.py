@@ -600,6 +600,80 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# HELPER FUNCTIONS
+# ════════════════════════════════════════════════════════════════════════════
+
+
+async def _call_cynic(endpoint: str, data: dict) -> dict:
+    """
+    Call a CYNIC API endpoint directly via HTTP.
+
+    Uses curl for reliable cross-platform HTTP calls (works with Windows ProactorEventLoop).
+
+    Args:
+        endpoint: API endpoint name (e.g., "introspect", "health")
+        data: Request data to send
+
+    Returns:
+        Response data as dictionary
+    """
+    adapter = await get_adapter()
+    loop = asyncio.get_event_loop()
+
+    try:
+        import json as json_module
+        import tempfile
+
+        url = f"{adapter.cynic_url}/{endpoint}"
+        data_json = json_module.dumps(data)
+
+        # Write data to temp file for curl
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            f.write(data_json)
+            temp_file = f.name
+
+        try:
+            # Use curl to POST JSON data
+            result = await loop.run_in_executor(
+                None,
+                lambda: subprocess.run(
+                    ["curl", "-s", "-X", "POST", "-H", "Content-Type: application/json",
+                     "-d", f"@{temp_file}", "-m", "10", url],
+                    capture_output=True,
+                    text=True,
+                    timeout=12
+                )
+            )
+
+            if result.returncode == 0 and result.stdout:
+                try:
+                    return json_module.loads(result.stdout)
+                except json_module.JSONDecodeError:
+                    logger.error(f"Failed to parse response from {endpoint}: {result.stdout[:100]}")
+                    return {"error": "Invalid JSON response"}
+            else:
+                logger.error(f"API error calling {endpoint}: curl exit code {result.returncode}")
+                if result.stderr:
+                    logger.debug(f"curl stderr: {result.stderr}")
+                return {"error": f"API error: {result.returncode}"}
+
+        finally:
+            # Clean up temp file
+            try:
+                import os
+                os.unlink(temp_file)
+            except:
+                pass
+
+    except asyncio.TimeoutError:
+        logger.error(f"Timeout calling {endpoint}")
+        return {"error": "Request timeout"}
+    except Exception as e:
+        logger.error(f"Error calling {endpoint}: {e}")
+        return {"error": str(e)}
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # TOOL IMPLEMENTATIONS
 # ════════════════════════════════════════════════════════════════════════════
 
