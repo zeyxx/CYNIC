@@ -171,7 +171,7 @@ class OllamaAdapter(LLMAdapterInterface):
         """Return names of all installed Ollama models."""
         try:
             client = self.pool.get_client(self.base_url)
-            resp = await client.list()
+            resp = await asyncio.wait_for(client.list(), timeout=LLM_DISCOVERY_TIMEOUT_SEC)
             if isinstance(resp, dict):
                 models = resp.get("models", [])
             else:
@@ -183,5 +183,5 @@ class OllamaAdapter(LLMAdapterInterface):
                 else:
                     result.append(getattr(m, "name", str(m)))
             return [n for n in result if n]
-        except httpx.RequestError:
+        except (httpx.RequestError, asyncio.TimeoutError):
             return []
