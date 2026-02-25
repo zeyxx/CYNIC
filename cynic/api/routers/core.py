@@ -176,17 +176,9 @@ async def judge(req: JudgeRequest) -> JudgeResponse:
     # Record PENDING placeholder for polling
     try:
         from cynic.organism.conscious_state import get_conscious_state
-        cs = get_conscious_state()
-        logger.info("[DEBUG POST] Recording pending judgment: %s, conscious_state_id=%s", judgment_id, id(cs))
-        pending = await cs.record_pending_judgment(judgment_id)
-        logger.info("[DEBUG POST] Pending judgment recorded: %s", pending)
-        # Check list size
-        recent = getattr(cs, '_recent_judgments', [])
-        logger.info("[DEBUG POST] After recording: _recent_judgments has %d items", len(recent))
-        if recent and recent[-1]:
-            logger.info("[DEBUG POST] Last judgment in list: %s", recent[-1].judgment_id)
+        await get_conscious_state().record_pending_judgment(judgment_id)
     except Exception as exc:
-        logger.warning("[DEBUG] record_pending_judgment failed: %s", exc, exc_info=True)
+        logger.warning("record_pending_judgment failed: %s", exc, exc_info=True)
 
     # Return immediately with PENDING
     return JudgeResponse(
@@ -336,24 +328,12 @@ async def get_judgment_result(
         from cynic.organism.conscious_state import get_conscious_state
         conscious_state = get_conscious_state()
 
-    logger.info("[DEBUG GET] Polling for judgment_id=%s, conscious_state_id=%s", judgment_id, id(conscious_state))
-
     # Poll with optional timeout
     start_time = time.time()
     timeout_s = timeout_ms / 1000.0 if timeout_ms > 0 else 0
 
     while True:
         result = await conscious_state.get_judgment_by_id(judgment_id)
-        logger.info("[DEBUG GET] get_judgment_by_id returned: %s", result)
-        # Log the list of recent judgments
-        try:
-            recent = getattr(conscious_state, '_recent_judgments', [])
-            logger.info("[DEBUG GET] _recent_judgments has %d items", len(recent))
-            for j in recent:
-                if j.judgment_id == judgment_id:
-                    logger.info("[DEBUG GET] FOUND: %s", j)
-        except Exception as e:
-            logger.info("[DEBUG GET] Could not inspect list: %s", e)
 
         if result is not None:
             # Got result (PENDING, real verdict, or BARK on failure)

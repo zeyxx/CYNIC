@@ -223,9 +223,9 @@ class ConsciousState:
                     dog_votes=dog_votes,
                     source=source,
                 )
-                # Rolling cap: F(11) = 89 recent judgments
+                # Rolling cap: 1000 recent judgments (Fibonacci(16) ~ 987)
                 self._recent_judgments.append(snapshot)
-                if len(self._recent_judgments) > 89:
+                if len(self._recent_judgments) > 1000:
                     self._recent_judgments.pop(0)
                 logger.debug(
                     "ConsciousState recorded judgment: Q=%.1f, Verdict=%s",
@@ -433,7 +433,7 @@ class ConsciousState:
                 source="api",
             )
             self._recent_judgments.append(snapshot)
-            if len(self._recent_judgments) > 89:
+            if len(self._recent_judgments) > 1000:
                 self._recent_judgments.pop(0)
             return snapshot
 
@@ -473,7 +473,7 @@ class ConsciousState:
                 source=f"FAILED:{reason}",
             )
             self._recent_judgments.append(snapshot)
-            if len(self._recent_judgments) > 89:
+            if len(self._recent_judgments) > 1000:
                 self._recent_judgments.pop(0)
             return snapshot
 

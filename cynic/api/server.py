@@ -659,15 +659,12 @@ async def lifespan(app: FastAPI):
 
     # ── Wire ConsciousState to event buses (Track E) ──────────────────────────
     # Enables PENDING → real verdict updates for polling endpoints
-    logger.info("[DEBUG] Starting ConsciousState wiring...")
     try:
         from cynic.organism.conscious_state import get_conscious_state
         from cynic.core.event_bus import get_automation_bus, get_agent_bus
-        logger.info("[DEBUG] Importing modules...")
         core_bus = get_core_bus()
         auto_bus = get_automation_bus()
         agent_bus = get_agent_bus()
-        logger.info("[DEBUG] Got buses, calling initialize_from_buses...")
         await get_conscious_state().initialize_from_buses(core_bus, auto_bus, agent_bus)
         logger.info("ConsciousState wired to event buses (polling ready)")
     except Exception as exc:
