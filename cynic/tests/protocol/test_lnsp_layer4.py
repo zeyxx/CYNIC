@@ -1,8 +1,6 @@
 """Comprehensive tests for LNSP Layer 4: Action Execution and Feedback Loop."""
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 
 from cynic.protocol.lnsp.layer4 import Handler, Layer4
@@ -13,7 +11,6 @@ from cynic.protocol.lnsp.types import (
     ObservationType,
     VerdictType,
 )
-
 
 # ============================================================================
 # Mock Handler for Testing
@@ -303,7 +300,10 @@ class TestLayer4Feedback:
         assert success is True
         assert feedback is not None
         assert feedback.header.source == "test:handler"
-        assert feedback.payload["observation_type"] == ObservationType.ACTION_RESULT.value
+        assert (
+            feedback.payload["observation_type"]
+            == ObservationType.ACTION_RESULT.value
+        )
 
     @pytest.mark.asyncio
     async def test_feedback_tagged_with_closes_action_id(self):
@@ -358,7 +358,10 @@ class TestLayer4Feedback:
         await layer4.execute(verdict)
 
         assert len(received_feedbacks) == 1
-        assert received_feedbacks[0].payload["observation_type"] == ObservationType.ACTION_RESULT.value
+        assert (
+            received_feedbacks[0].payload["observation_type"]
+            == ObservationType.ACTION_RESULT.value
+        )
 
     @pytest.mark.asyncio
     async def test_multiple_callbacks_notified(self):

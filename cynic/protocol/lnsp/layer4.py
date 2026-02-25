@@ -107,7 +107,8 @@ class Layer4:
         Returns:
             Tuple of (success: bool, feedback_message: LNSPMessage | None)
             - success: True if verdict was executed
-            - feedback_message: Layer 1 ACTION_RESULT observation, or None if not executed
+            - feedback_message: Layer 1 ACTION_RESULT observation, or None if
+              not executed
 
         Routing:
             Verdicts are routed to handlers by matching target prefix with
@@ -183,7 +184,11 @@ class Layer4:
         target_prefix = target.split(":")[0] if ":" in target else target
 
         for handler_id, handler in self.handlers.items():
-            handler_prefix = handler_id.split(":")[0] if ":" in handler_id else handler_id
+            handler_prefix = (
+                handler_id.split(":")[0]
+                if ":" in handler_id
+                else handler_id
+            )
 
             if handler_id == f"{handler_prefix}:*" and target_prefix == handler_prefix:
                 return handler
