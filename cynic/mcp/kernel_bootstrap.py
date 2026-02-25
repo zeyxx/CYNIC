@@ -237,7 +237,8 @@ class KernelBootstrap:
         """
         Check if kernel is healthy at cynic_url/health.
 
-        Uses exponential backoff retry logic:
+        Uses curl for reliable health checking (works on Windows with ProactorEventLoop).
+        Implements exponential backoff retry logic:
         - Attempt 1: no wait
         - Attempt 2: 0.5s wait
         - Attempt 3: 1.0s wait
@@ -246,24 +247,32 @@ class KernelBootstrap:
         start_time = time.time()
         attempt = 0
         backoff = [0, 0.5, 1.0, 2.0, 4.0]
+        loop = asyncio.get_event_loop()
 
         while time.time() - start_time < timeout:
             attempt += 1
 
             try:
-                async with aiohttp.ClientSession(
-                    timeout=aiohttp.ClientTimeout(total=HEALTH_CHECK_TIMEOUT)
-                ) as session:
-                    async with session.get(f"{self.cynic_url}/health") as resp:
-                        if resp.status == 200:
-                            elapsed = time.time() - start_time
-                            logger.debug("Health check passed after %.1fs (attempt %d)",
-                                         elapsed, attempt)
-                            return True
+                # Use curl for health check (works reliably on Windows with ProactorEventLoop)
+                result = await loop.run_in_executor(
+                    None,
+                    lambda: subprocess.run(
+                        ["curl", "-s", "-m", "5", f"{self.cynic_url}/health"],
+                        capture_output=True,
+                        text=True,
+                        timeout=6
+                    )
+                )
 
-                logger.debug("Health check failed (attempt %d, status %d)", attempt, resp.status)
+                if result.returncode == 0:
+                    elapsed = time.time() - start_time
+                    logger.debug("Health check passed after %.1fs (attempt %d)",
+                                 elapsed, attempt)
+                    return True
 
-            except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
+                logger.debug("Health check failed (attempt %d, curl exit code %d)", attempt, result.returncode)
+
+            except (OSError, asyncio.TimeoutError, Exception) as e:
                 logger.debug("Health check error (attempt %d): %s", attempt, type(e).__name__)
 
             # Backoff before retry
