@@ -20,7 +20,6 @@ from cynic.protocol.lnsp.types import (
     VerdictType,
 )
 
-
 # ============================================================================
 # Axiom Evaluator Tests
 # ============================================================================
@@ -510,18 +509,18 @@ class TestVerdictMapping:
 
     @pytest.mark.asyncio
     async def test_verdict_bark_excellent(self):
-        """Test BARK verdict threshold is set for Q >= 0.8.
+        """Test BARK verdict threshold for Q >= 0.8.
 
-        Note: Due to φ-weighting (Q = geometric_mean * 0.618), the maximum Q-score
-        is ~0.618, so BARK verdict is reserved for theoretical future use where
-        Q-scoring might be extended beyond φ-weighting. This test verifies the
-        threshold logic is correctly implemented.
+        Note: Due to φ-weighting, max Q-score is ~0.618, so BARK is
+        reserved for future use when Q-scoring might be extended beyond
+        φ-weighting. This test verifies threshold logic is correct.
         """
         judge = Layer3(judge_id="judge:primary")
 
         # The maximum achievable Q-score with φ-weighting is ~0.618
-        # which means BARK (Q >= 0.8) threshold is set but unreachable with current scoring
-        # This is acceptable design: reserved for future extensions
+        # which means BARK (Q >= 0.8) threshold is set but unreachable
+        # with current scoring. This is acceptable design: reserved for
+        # future extensions
         class ExcellentEvaluator(FidelityEvaluator):
             async def score(self, state: dict) -> float:
                 return 1.0

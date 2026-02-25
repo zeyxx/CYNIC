@@ -163,7 +163,7 @@ class ClaudeCodeAdapter:
         try:
             async with self.session.post(
                 f"{self.cynic_url}/judge",
-                json={"text": question, "context": context, "reality": reality},
+                json={"content": question, "context": context, "reality": reality},
             ) as resp:
                 if resp.status != 200:
                     return {"error": f"HTTP {resp.status}"}

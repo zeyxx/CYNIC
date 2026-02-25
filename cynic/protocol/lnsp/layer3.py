@@ -19,6 +19,14 @@ from .axioms import AxiomEvaluator
 from .messages import create_judgment
 from .types import JudgmentType, Layer, LNSPMessage, VerdictType
 
+# Default verdict filter for routing rules
+_DEFAULT_VERDICT_FILTER = ["HOWL", "GROWL", "WAG", "BARK"]
+
+
+def _default_verdict_filter() -> list[str]:
+    """Return default verdict filter."""
+    return list(_DEFAULT_VERDICT_FILTER)
+
 
 @dataclass
 class RoutingRule:
@@ -41,7 +49,7 @@ class RoutingRule:
     target_agent_type: str
     target_agent_id: str
     observable_types: list[str] = field(default_factory=lambda: ["JUDGMENT"])
-    verdict_filter: list[str] = field(default_factory=lambda: ["HOWL", "GROWL", "WAG", "BARK"])
+    verdict_filter: list[str] = field(default_factory=_default_verdict_filter)
     axiom_filter: list[str] | None = None
     emergence_only: bool = False
     priority: str = "medium"

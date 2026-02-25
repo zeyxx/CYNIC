@@ -4,10 +4,9 @@ from __future__ import annotations
 import pytest
 
 from cynic.protocol.lnsp.layer1 import Layer1, Sensor
-from cynic.protocol.lnsp.ringbuffer import Ringbuffer
 from cynic.protocol.lnsp.messages import create_raw_observation
-from cynic.protocol.lnsp.types import ObservationType, LNSPMessage
-
+from cynic.protocol.lnsp.ringbuffer import Ringbuffer
+from cynic.protocol.lnsp.types import LNSPMessage, ObservationType
 
 # ============================================================================
 # Test Fixtures
@@ -387,7 +386,9 @@ class TestLayer1Subscription:
     def test_layer1_subscribe_callback(self):
         """Test subscribing a callback."""
         layer1 = Layer1()
-        callback = lambda msg: None
+
+        def callback(msg: LNSPMessage) -> None:
+            pass
 
         layer1.subscribe(callback)
         assert len(layer1.subscribers) == 1
@@ -396,8 +397,12 @@ class TestLayer1Subscription:
     def test_layer1_subscribe_multiple_callbacks(self):
         """Test subscribing multiple callbacks."""
         layer1 = Layer1()
-        callback1 = lambda msg: None
-        callback2 = lambda msg: None
+
+        def callback1(msg: LNSPMessage) -> None:
+            pass
+
+        def callback2(msg: LNSPMessage) -> None:
+            pass
 
         layer1.subscribe(callback1)
         layer1.subscribe(callback2)

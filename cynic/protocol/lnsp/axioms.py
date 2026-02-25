@@ -75,7 +75,7 @@ class FidelityEvaluator(AxiomEvaluator):
 
         numeric_values = [
             v for v in state.values()
-            if isinstance(v, (int, float)) and not isinstance(v, bool)
+            if isinstance(v, int | float) and not isinstance(v, bool)
         ]
 
         if not numeric_values:
@@ -118,7 +118,7 @@ class PhiEvaluator(AxiomEvaluator):
 
         numeric_values = [
             v for v in state.values()
-            if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0
+            if isinstance(v, int | float) and not isinstance(v, bool) and v > 0
         ]
 
         if len(numeric_values) < 2:
@@ -251,10 +251,10 @@ class BurnEvaluator(AxiomEvaluator):
         waste_percent = state.get("waste_percent", 0.0)
 
         # Ensure waste_percent is numeric
-        if not isinstance(waste_percent, (int, float)):
+        if not isinstance(waste_percent, int | float):
             waste_percent = 0.0
 
         # Score inversely proportional to waste
         # 0% waste = 1.0, 100% waste = 0.0
         score = max(0.0, 1.0 - (waste_percent / 100.0))
-        return min(score, 1.0)
+        return float(min(score, 1.0))
