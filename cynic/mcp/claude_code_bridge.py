@@ -42,6 +42,9 @@ from mcp.types import Tool, TextContent
 # CYNIC Adapter — provides high-level access to CYNIC
 from cynic.mcp.claude_code_adapter import ClaudeCodeAdapter
 
+# CYNIC Kernel Manager — unified initialization and health monitoring
+from cynic.mcp.kernel_manager import get_kernel_manager, shutdown_kernel_manager
+
 
 # Exception types
 class CynicError(Exception):
@@ -225,16 +228,15 @@ async def _ensure_kernel_running(
 
 
 async def get_adapter() -> ClaudeCodeAdapter:
-    """Get or create the module-level CYNIC adapter (with context management)."""
+    """Get or create the module-level CYNIC adapter (with kernel manager coordination)."""
     global _adapter
     if _adapter is None:
-        # Ensure kernel is running with robust startup logic (30s timeout + exponential backoff)
-        kernel_ready = await _ensure_kernel_running(
-            timeout=30.0,
-            spawn_if_down=True,
-        )
+        # Initialize kernel using KernelManager (handles locking, Docker preference, health monitoring)
+        manager = get_kernel_manager()
+        kernel_ready = await manager.initialize()
+
         if kernel_ready:
-            logger.info("Kernel is ready and responding")
+            logger.info("Kernel is ready and responding (via KernelManager)")
         else:
             logger.warning(
                 "Kernel did not become ready within timeout, but continuing anyway. "
@@ -1184,102 +1186,109 @@ async def main():
     logger.info("CYNIC Claude Code Bridge starting...")
     logger.info("Initializing CYNIC adapter...")
 
-    # Initialize adapter and check health
     try:
-        adapter = await get_adapter()
-        is_ready = await adapter.is_cynic_ready(force_refresh=True)
-        if is_ready:
-            logger.info("CYNIC is healthy and ready for Claude Code requests")
-        else:
-            logger.warning("CYNIC health check failed (it may not be running yet)")
-    except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
-        logger.warning("Could not reach CYNIC (it may not be running yet): %s", exc)
+        # Initialize adapter and check health
+        try:
+            adapter = await get_adapter()
+            is_ready = await adapter.is_cynic_ready(force_refresh=True)
+            if is_ready:
+                logger.info("CYNIC is healthy and ready for Claude Code requests")
+            else:
+                logger.warning("CYNIC health check failed (it may not be running yet)")
+        except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+            logger.warning("Could not reach CYNIC (it may not be running yet): %s", exc)
 
-    logger.info("MCP Server ready. Listening on stdio for Claude Code...")
+        logger.info("MCP Server ready. Listening on stdio for Claude Code...")
 
-    loop = asyncio.get_event_loop()
+        loop = asyncio.get_event_loop()
 
-    # On Windows, stdio+async has issues - use manual message pump instead
-    if sys.platform == "win32":
-        logger.info("Windows: Using manual JSON-RPC message pump...")
+        # On Windows, stdio+async has issues - use manual message pump instead
+        if sys.platform == "win32":
+            logger.info("Windows: Using manual JSON-RPC message pump...")
 
-        # Manual message pump that processes JSON-RPC messages from stdin
-        # and dispatches them to MCP server handlers
-        while True:
-            try:
-                # Read a line from stdin (blocking I/O, run in executor)
-                line = await loop.run_in_executor(None, sys.stdin.readline)
-                if not line:
-                    logger.info("EOF on stdin, shutting down")
-                    break
-
-                # Skip empty lines
-                if not line.strip():
-                    continue
-
+            # Manual message pump that processes JSON-RPC messages from stdin
+            # and dispatches them to MCP server handlers
+            while True:
                 try:
-                    # Parse JSON-RPC message
-                    message = json.loads(line)
-                    logger.debug(f"Received MCP message: {message}")
+                    # Read a line from stdin (blocking I/O, run in executor)
+                    line = await loop.run_in_executor(None, sys.stdin.readline)
+                    if not line:
+                        logger.info("EOF on stdin, shutting down")
+                        break
 
-                    # Get message properties
-                    msg_method = message.get("method")
-                    msg_id = message.get("id")
+                    # Skip empty lines
+                    if not line.strip():
+                        continue
 
-                    # Dispatch to appropriate handler
-                    if msg_method == "tools/list":
-                        # List available tools
-                        tools = await list_tools()
-                        response = {
-                            "jsonrpc": "2.0",
-                            "id": msg_id,
-                            "result": {"tools": [{"name": t.name, "description": t.description} for t in tools]}
-                        }
+                    try:
+                        # Parse JSON-RPC message
+                        message = json.loads(line)
+                        logger.debug(f"Received MCP message: {message}")
 
-                    elif msg_method == "tools/call":
-                        # Call a tool
-                        tool_name = message.get("params", {}).get("name")
-                        tool_args = message.get("params", {}).get("arguments", {})
+                        # Get message properties
+                        msg_method = message.get("method")
+                        msg_id = message.get("id")
 
-                        try:
-                            # Route to call_tool handler (the MCP dispatcher)
-                            result = await call_tool(tool_name, tool_args)
+                        # Dispatch to appropriate handler
+                        if msg_method == "tools/list":
+                            # List available tools
+                            tools = await list_tools()
                             response = {
                                 "jsonrpc": "2.0",
                                 "id": msg_id,
-                                "result": [{"type": "text", "text": r.text} for r in result]
+                                "result": {"tools": [{"name": t.name, "description": t.description} for t in tools]}
                             }
-                        except Exception as e:
-                            logger.exception(f"Tool call failed: {tool_name}")
+
+                        elif msg_method == "tools/call":
+                            # Call a tool
+                            tool_name = message.get("params", {}).get("name")
+                            tool_args = message.get("params", {}).get("arguments", {})
+
+                            try:
+                                # Route to call_tool handler (the MCP dispatcher)
+                                result = await call_tool(tool_name, tool_args)
+                                response = {
+                                    "jsonrpc": "2.0",
+                                    "id": msg_id,
+                                    "result": [{"type": "text", "text": r.text} for r in result]
+                                }
+                            except Exception as e:
+                                logger.exception(f"Tool call failed: {tool_name}")
+                                response = {
+                                    "jsonrpc": "2.0",
+                                    "id": msg_id,
+                                    "error": {"code": -32603, "message": str(e)}
+                                }
+
+                        else:
+                            # Unknown method
                             response = {
                                 "jsonrpc": "2.0",
                                 "id": msg_id,
-                                "error": {"code": -32603, "message": str(e)}
+                                "error": {"code": -32601, "message": f"Method {msg_method} not found"}
                             }
 
-                    else:
-                        # Unknown method
-                        response = {
-                            "jsonrpc": "2.0",
-                            "id": msg_id,
-                            "error": {"code": -32601, "message": f"Method {msg_method} not found"}
-                        }
+                        # Send response
+                        sys.stdout.write(json.dumps(response) + "\n")
+                        sys.stdout.flush()
 
-                    # Send response
-                    sys.stdout.write(json.dumps(response) + "\n")
-                    sys.stdout.flush()
+                    except json.JSONDecodeError as e:
+                        logger.debug(f"JSON decode error: {e}, skipping line")
 
-                except json.JSONDecodeError as e:
-                    logger.debug(f"JSON decode error: {e}, skipping line")
+                except Exception as e:
+                    logger.error(f"Error in message pump: {e}", exc_info=True)
+                    await asyncio.sleep(0.1)
 
-            except Exception as e:
-                logger.error(f"Error in message pump: {e}", exc_info=True)
-                await asyncio.sleep(0.1)
+        else:
+            # Unix/Linux: Use standard MCP stdio server
+            logger.info("Unix/Linux: Using standard MCP stdio transport...")
+            await server.run(sys.stdin.buffer, sys.stdout.buffer, sys.stderr)
 
-    else:
-        # Unix/Linux: Use standard MCP stdio server
-        logger.info("Unix/Linux: Using standard MCP stdio transport...")
-        await server.run(sys.stdin.buffer, sys.stdout.buffer, sys.stderr)
+    finally:
+        # Graceful shutdown of kernel manager
+        logger.info("Shutting down kernel manager...")
+        await shutdown_kernel_manager()
+        logger.info("CYNIC Claude Code Bridge stopped")
 
 
 if __name__ == "__main__":
