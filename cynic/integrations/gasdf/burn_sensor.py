@@ -45,9 +45,12 @@ class GASdfBurnSensor(Sensor):
     async def observe(self) -> LNSPMessage | None:
         """Poll GASdf stats and emit observation if changed.
 
+        Monitors community treasury health through fee burn statistics,
+        which indicate governance quality and community engagement.
+
         Returns:
             LNSPMessage with ECOSYSTEM_EVENT observation type,
-            or None if unable to fetch stats.
+            or None if unable to fetch stats or no change detected.
 
         Raises:
             No exceptions raised - errors are logged but not propagated.
@@ -63,10 +66,26 @@ class GASdfBurnSensor(Sensor):
 
             self.last_observed_stats = stats_dict
 
-            # Create observation with stats data
+            # Calculate treasury health metrics
+            treasury_health = self._assess_treasury_health(stats)
+            burn_rate = self._calculate_burn_rate(stats)
+
+            # Create observation with enriched data
             data: dict[str, Any] = {
                 "data": stats_dict,
                 "source": "gasdf",
+                "treasury_health": treasury_health,
+                "burn_rate": burn_rate,
+                "observations": {
+                    "total_burned": stats.total_burned,
+                    "total_transactions": stats.total_transactions,
+                    "average_fee": (
+                        stats.total_burned // stats.total_transactions
+                        if stats.total_transactions > 0
+                        else 0
+                    ),
+                    "treasury_growing": stats.total_burned > 0,
+                },
             }
 
             return create_raw_observation(
@@ -80,3 +99,42 @@ class GASdfBurnSensor(Sensor):
             # Silently skip observation on API errors
             # (network transients, service downtime, etc.)
             return None
+
+    def _assess_treasury_health(self, stats: Any) -> str:
+        """Assess community treasury health based on burn statistics.
+
+        Args:
+            stats: GASdfStats object with burn data
+
+        Returns:
+            Health assessment: excellent/good/fair/poor/unknown
+        """
+        if not hasattr(stats, "total_burned"):
+            return "unknown"
+
+        total_burned = stats.total_burned
+        if total_burned > 10_000_000:  # >10M burned
+            return "excellent"
+        elif total_burned > 1_000_000:  # >1M burned
+            return "good"
+        elif total_burned > 100_000:  # >100K burned
+            return "fair"
+        else:
+            return "poor"
+
+    def _calculate_burn_rate(self, stats: Any) -> float:
+        """Calculate burn rate (tokens burned per transaction).
+
+        Args:
+            stats: GASdfStats object with burn data
+
+        Returns:
+            Average burn per transaction, or 0 if no transactions
+        """
+        if not hasattr(stats, "total_transactions"):
+            return 0.0
+
+        if stats.total_transactions == 0:
+            return 0.0
+
+        return float(stats.total_burned) / float(stats.total_transactions)
