@@ -2,6 +2,12 @@
 CYNIC Governance Bot - Main Discord Bot Implementation
 """
 
+# Windows event loop compatibility fix for aiohttp/aiodns
+import sys
+import asyncio
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 import logging
 import discord
 from discord.ext import commands, tasks
