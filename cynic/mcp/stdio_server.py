@@ -1,13 +1,13 @@
 """
-Stdio MCP Server for CYNIC — Cline integration via Model Context Protocol.
+Stdio MCP Server for CYNIC - Cline integration via Model Context Protocol.
 
 Uses the `mcp` Python package to implement stdio-based MCP server.
 Exposes tools for Cline to call CYNIC autonomously:
-  - cynic_run_empirical_test(count, seed) → run 1000+ judgments
-  - cynic_get_job_status(job_id) → poll progress
-  - cynic_get_results(job_id) → fetch Q-scores + metrics
-  - cynic_run_irreducibility_test(axiom) → test axiom necessity
-  - cynic_query_telemetry(metric) → SONA heartbeat data
+  - cynic_run_empirical_test(count, seed) -> run 1000+ judgments
+  - cynic_get_job_status(job_id) -> poll progress
+  - cynic_get_results(job_id) -> fetch Q-scores + metrics
+  - cynic_run_irreducibility_test(axiom) -> test axiom necessity
+  - cynic_query_telemetry(metric) -> SONA heartbeat data
 
 Runs via stdin/stdout (no HTTP port needed).
 Cline calls via MCP protocol (JSON-RPC over stdio).
@@ -42,13 +42,13 @@ class CynicMCPServer:
 
     Flow:
     1. Cline: "Run an empirical test"
-       → Calls cynic_run_empirical_test(count=1000)
+       -> Calls cynic_run_empirical_test(count=1000)
     2. Server: Spawns async job, returns {job_id: "test-..."}
     3. Cline: "What's the status?"
-       → Calls cynic_get_job_status(job_id="test-...")
+       -> Calls cynic_get_job_status(job_id="test-...")
     4. Server: Returns {progress_percent: 45, eta_s: 300}
     5. [After job completes] Cline: "Get results"
-       → Calls cynic_get_results(job_id)
+       -> Calls cynic_get_results(job_id)
     6. Server: Returns {q_scores: [...], avg_q: 52.4, learning_efficiency: 1.18x}
     """
 

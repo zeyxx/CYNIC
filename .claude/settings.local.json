@@ -91,7 +91,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:pypi.org)",
       "WebSearch",
-      "WebFetch(domain:py-near.readthedocs.io)"
+      "WebFetch(domain:py-near.readthedocs.io)",
+      "Bash(find:*)"
     ]
   }
 }

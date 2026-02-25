@@ -1,15 +1,15 @@
 """
-MCP Server Entry Point — Start CYNIC as MCP server for Cline.
+MCP Server Entry Point - Start CYNIC as MCP server for Cline.
 
 Can run in two modes:
 1. HTTP mode (default): python -m cynic.mcp
-   → Starts FastAPI at :8766 + stdio MCP server
+   Starts FastAPI at :8766 + stdio MCP server
 2. stdio mode only: CYNIC_MCP_STDIO_ONLY=1 python -m cynic.mcp
-   → Starts only stdio MCP (no HTTP)
+   Starts only stdio MCP (no HTTP)
 
 Usage:
   docker-compose up cynic-mcp
-  → Starts CYNIC with both HTTP and stdio MCP
+  - Starts CYNIC with both HTTP and stdio MCP
 """
 from __future__ import annotations
 
@@ -18,6 +18,20 @@ import logging
 import os
 import sys
 from typing import Optional
+
+# Windows UTF-8 encoding fix
+if sys.platform == "win32":
+    os.environ["PYTHONIOENCODING"] = "utf-8"
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
 
 # Setup logging
 logging.basicConfig(
