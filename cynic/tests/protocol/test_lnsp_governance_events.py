@@ -1,12 +1,11 @@
 """Test governance event payloads."""
 from __future__ import annotations
 
-import pytest
 from cynic.protocol.lnsp.governance_events import (
-    GovernanceProposalPayload,
-    GovernanceVotePayload,
     GovernanceExecutionPayload,
     GovernanceOutcomePayload,
+    GovernanceProposalPayload,
+    GovernanceVotePayload,
 )
 
 
