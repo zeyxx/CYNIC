@@ -71,7 +71,14 @@ class ClaudeCodeAdapter:
 
     async def __aenter__(self):
         """Context manager entry."""
-        self.session = aiohttp.ClientSession(timeout=self.timeout)
+        # On Windows, use ThreadedResolver to avoid aiodns SelectorEventLoop requirement
+        import platform
+        if platform.system() == "Windows":
+            resolver = aiohttp.ThreadedResolver()
+            connector = aiohttp.TCPConnector(resolver=resolver, ssl=False)
+            self.session = aiohttp.ClientSession(timeout=self.timeout, connector=connector)
+        else:
+            self.session = aiohttp.ClientSession(timeout=self.timeout)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
