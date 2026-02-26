@@ -14,54 +14,70 @@ cynic_path = Path(__file__).parent.parent
 sys.path.insert(0, str(cynic_path))
 
 
-async def ask_cynic(question: str, context: str = "", reality: str = "GOVERNANCE") -> dict:
+async def ask_cynic(question: str, context: str = "", reality: str = "SOCIAL") -> dict:
     """
     Ask CYNIC a governance question and get judgment.
-    Calls CYNIC directly through Python API.
+    Calls CYNIC organism's orchestrator directly.
 
     Returns:
         {
             "verdict": "HOWL" | "WAG" | "GROWL" | "BARK",
             "q_score": float,
             "confidence": float,
-            "dog_reasoning": {...},
-            "verdict_explanation": str,
-            "judgment_id": str
+            "dog_votes": {...},
+            "axiom_scores": {...},
+            "judgment_id": str,
+            "dog_reasoning": {...},  # Tier 1 explainability
+            "verdict_explanation": str
         }
     """
     try:
         logger.info(f"Asking CYNIC: {question[:100]}...")
 
-        # Call CYNIC directly through Python API
-        from cynic.core.consciousness import get_consciousness
-        from cynic.orchestration.judgment import JudgmentRequest, JudgmentType
+        # Import CYNIC components
+        from cynic.organism.organism import awaken
+        from cynic.core.judgment import Cell
+        from cynic.core.consciousness import ConsciousnessLevel
 
-        organism = get_consciousness()
+        # Get or create the CYNIC organism
+        organism = awaken()
 
-        # Create judgment request
-        judgment_request = JudgmentRequest(
-            query=question,
-            query_context=context,
-            judgment_type=JudgmentType.REFLEX,
-            metadata={"reality": reality, "source": "governance_bot"}
+        # Create a Cell for judgment (CYNIC's internal query format)
+        # Map governance reality to valid CYNIC realities
+        cynic_reality = reality.upper() if reality.upper() in {"CODE", "SOLANA", "MARKET", "SOCIAL", "HUMAN", "CYNIC", "COSMOS"} else "SOCIAL"
+
+        cell = Cell(
+            content=question,
+            context=context,
+            reality=cynic_reality,
+            analysis="JUDGE",
+            lod=1  # Level of detail: 1 is balanced
         )
 
-        # Get judgment from organism
-        judgment = await organism.judge(judgment_request)
+        # Run judgment through orchestrator (CYNIC's main judgment engine)
+        # MICRO consciousness level (~500ms) is good for governance decisions
+        judgment = await organism.orchestrator.run(
+            cell,
+            level=ConsciousnessLevel.MICRO,
+            budget_usd=0.05
+        )
 
         if judgment:
+            # Format response to match governance bot expectations
             judgment_data = {
                 "verdict": judgment.verdict,
                 "q_score": judgment.q_score,
                 "confidence": judgment.confidence,
                 "judgment_id": judgment.judgment_id,
-                "dog_reasoning": judgment.dog_reasoning or {},
-                "verdict_explanation": judgment.verdict_explanation or "",
-                "consensus_reason": judgment.consensus_reason or "",
-                "axiom_scores": dict(judgment.axiom_scores) if judgment.axiom_scores else {},
+                "dog_votes": dict(judgment.dog_votes) if hasattr(judgment, "dog_votes") else {},
+                "axiom_scores": dict(judgment.axiom_scores) if hasattr(judgment, "axiom_scores") else {},
+                # Tier 1 explainability (from our earlier implementation)
+                "dog_reasoning": judgment.dog_reasoning if hasattr(judgment, "dog_reasoning") else {},
+                "verdict_explanation": judgment.verdict_explanation if hasattr(judgment, "verdict_explanation") else "",
+                "consensus_reason": judgment.consensus_reason if hasattr(judgment, "consensus_reason") else "",
             }
 
-            logger.info(f"CYNIC response: {judgment_data.get('verdict')} (Q={judgment_data.get('q_score'):.1f})")
+            logger.info(f"CYNIC response: {judgment_data.get('verdict')} (Q={judgment_data.get('q_score'):.1f}, conf={judgment_data.get('confidence'):.2%})")
             return judgment_data
         else:
             logger.error("No judgment returned from CYNIC")
