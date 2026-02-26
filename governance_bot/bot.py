@@ -547,21 +547,29 @@ async def on_command_error(interaction: discord.Interaction, error: discord.app_
     """Handle command errors"""
     logger.error(f"Command error: {error}")
     try:
-        # Check if interaction was already responded to
+        # After any defer(), we MUST use followup.send() - this avoids race conditions
         if not interaction.response.is_done():
-            await interaction.response.send_message(
-                format_error(f"An error occurred: {error}"),
-                ephemeral=True
-            )
-        else:
-            # Use followup if already deferred/responded
-            await interaction.followup.send(
-                format_error(f"An error occurred: {error}"),
-                ephemeral=True
-            )
+            # Interaction not yet responded to - defer first, then respond
+            try:
+                await interaction.response.defer(ephemeral=True)
+            except (discord.errors.HTTPException, discord.errors.NotFound):
+                # Already deferred/expired - use followup instead
+                pass
+
+        # Always use followup for safety (works whether deferred or already responded)
+        await interaction.followup.send(
+            format_error(f"An error occurred: {error}"),
+            ephemeral=True
+        )
     except discord.errors.NotFound:
-        # Interaction no longer valid (expired)
+        # Interaction no longer valid (expired after 3 seconds)
         logger.warning(f"Could not send error response: interaction expired")
+    except discord.errors.HTTPException as e:
+        # HTTP errors (rate limit, already acknowledged, etc.)
+        if "already been acknowledged" in str(e):
+            logger.warning(f"Interaction already acknowledged, cannot send error response")
+        else:
+            logger.error(f"HTTP error sending error response: {e}")
     except Exception as e:
         logger.error(f"Error sending error response: {e}", exc_info=True)
 

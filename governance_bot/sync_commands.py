@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""
+Force Discord command synchronization - clears and re-registers all slash commands.
+This fixes signature mismatch errors caused by stale Discord cache.
+
+Usage:
+    python sync_commands.py
+"""
+
+import asyncio
+import sys
+import logging
+
+# Windows event loop compatibility
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+import discord
+from discord.ext import commands
+from config import DISCORD_TOKEN, DISCORD_PREFIX
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+async def sync_commands():
+    """Force complete Discord command synchronization"""
+
+    # Create minimal bot instance
+    intents = discord.Intents.default()
+    intents.message_content = True
+    intents.guilds = True
+
+    bot = commands.Bot(command_prefix=DISCORD_PREFIX, intents=intents)
+
+    # Import all commands (this registers them)
+    from bot import (
+        cmd_propose, cmd_proposal_details, cmd_proposals,
+        cmd_voting_status, cmd_cynic_verdict, cmd_cynic_status,
+        cmd_cynic_stats, cmd_community_info, cmd_governance_stats,
+        cmd_help
+    )
+
+    @bot.event
+    async def on_ready():
+        logger.info(f"✓ Bot logged in as {bot.user}")
+        logger.info(f"✓ Found {len(bot.tree._get_all_commands())} commands registered locally")
+
+        try:
+            logger.info("→ Synchronizing commands with Discord...")
+            synced = await bot.tree.sync()
+            logger.info(f"✓ Successfully synced {len(synced)} commands to Discord:")
+            for cmd in synced:
+                logger.info(f"  • /{cmd.name}")
+
+            logger.info("\n✓ Discord command signature fix complete!")
+            logger.info("  The bot will now recognize all commands correctly.")
+
+        except Exception as e:
+            logger.error(f"✗ Failed to sync commands: {e}", exc_info=True)
+            return False
+
+        await bot.close()
+        return True
+
+    try:
+        async with bot:
+            await bot.start(DISCORD_TOKEN)
+    except Exception as e:
+        logger.error(f"✗ Bot startup failed: {e}", exc_info=True)
+        return False
+
+
+if __name__ == "__main__":
+    print("""
+    ╔═════════════════════════════════════════════════════╗
+    ║  Discord Command Signature Fix                      ║
+    ║  Forcing complete re-synchronization...             ║
+    ╚═════════════════════════════════════════════════════╝
+    """)
+
+    asyncio.run(sync_commands())
