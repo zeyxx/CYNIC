@@ -16,7 +16,7 @@ import uuid
 
 from config import DISCORD_TOKEN, DISCORD_PREFIX, CYNIC_MCP_ENABLED
 from database import (
-    init_db, get_session, get_community, create_community,
+    init_db, get_session, session_context, get_community, create_community,
     create_proposal, get_proposal, list_proposals, update_proposal_status,
     update_proposal_judgment, create_vote, count_votes, update_vote_counts,
     is_voting_active, check_voting_closed, get_user_vote
@@ -69,59 +69,58 @@ async def cmd_propose(
     await interaction.response.defer(thinking=True)
 
     try:
-        session = await get_session()
+        async with session_context() as session:
+            # Get community
+            community_id = f"discord_{interaction.guild.id}"
+            community = await get_community(session, community_id)
 
-        # Get community
-        community_id = f"discord_{interaction.guild.id}"
-        community = await get_community(session, community_id)
+            if not community:
+                # Create community if doesn't exist
+                community = await create_community(session, {
+                    "community_id": community_id,
+                    "platform": "discord",
+                    "community_name": interaction.guild.name or "Unknown"
+                })
 
-        if not community:
-            # Create community if doesn't exist
-            community = await create_community(session, {
+            # Create proposal
+            proposal_id = f"prop_{datetime.utcnow().strftime('%Y%m%d')}_{str(uuid.uuid4())[:8]}"
+            now = datetime.utcnow()
+
+            proposal = await create_proposal(session, {
+                "proposal_id": proposal_id,
                 "community_id": community_id,
-                "platform": "discord",
-                "community_name": interaction.guild.name or "Unknown"
+                "proposer_id": str(interaction.user.id),
+                "title": title,
+                "description": description,
+                "category": category,
+                "impact_level": impact_level,
+                "voting_start_time": now,
+                "voting_end_time": now + timedelta(hours=community.voting_period_hours),
+                "voting_status": "PENDING"
             })
 
-        # Create proposal
-        proposal_id = f"prop_{datetime.utcnow().strftime('%Y%m%d')}_{str(uuid.uuid4())[:8]}"
-        now = datetime.utcnow()
+            # Ask CYNIC for judgment
+            if CYNIC_MCP_ENABLED:
+                judgment = await ask_cynic(
+                    question=title,
+                    context=description,
+                    reality="GOVERNANCE"
+                )
 
-        proposal = await create_proposal(session, {
-            "proposal_id": proposal_id,
-            "community_id": community_id,
-            "proposer_id": str(interaction.user.id),
-            "title": title,
-            "description": description,
-            "category": category,
-            "impact_level": impact_level,
-            "voting_start_time": now,
-            "voting_end_time": now + timedelta(hours=community.voting_period_hours),
-            "voting_status": "PENDING"
-        })
+                if judgment.get("verdict") != "PENDING":
+                    await update_proposal_judgment(session, proposal_id, judgment)
+                    proposal.judgment_verdict = judgment.get("verdict")
+                    proposal.judgment_q_score = judgment.get("q_score")
 
-        # Ask CYNIC for judgment
-        if CYNIC_MCP_ENABLED:
-            judgment = await ask_cynic(
-                question=title,
-                context=description,
-                reality="GOVERNANCE"
+            # Format response
+            response = format_proposal_created(
+                proposal_id,
+                proposal.judgment_verdict or "PENDING",
+                proposal.judgment_q_score or 0.0
             )
 
-            if judgment.get("verdict") != "PENDING":
-                await update_proposal_judgment(session, proposal_id, judgment)
-                proposal.judgment_verdict = judgment.get("verdict")
-                proposal.judgment_q_score = judgment.get("q_score")
-
-        # Format response
-        response = format_proposal_created(
-            proposal_id,
-            proposal.judgment_verdict or "PENDING",
-            proposal.judgment_q_score or 0.0
-        )
-
-        await interaction.followup.send(response)
-        logger.info(f"Proposal created: {proposal_id}")
+            await interaction.followup.send(response)
+            logger.info(f"Proposal created: {proposal_id}")
 
     except Exception as e:
         logger.error(f"Error creating proposal: {e}", exc_info=True)
@@ -140,22 +139,22 @@ async def cmd_proposal_details(
     await interaction.response.defer(thinking=True)
 
     try:
-        session = await get_session()
-        proposal = await get_proposal(session, proposal_id)
+        async with session_context() as session:
+            proposal = await get_proposal(session, proposal_id)
 
-        if not proposal:
-            await interaction.followup.send(format_error(f"Proposal {proposal_id} not found"))
-            return
+            if not proposal:
+                await interaction.followup.send(format_error(f"Proposal {proposal_id} not found"))
+                return
 
-        # Create embed
-        embed = await format_proposal_embed(proposal)
-        embed["fields"].append({
-            "name": "Full Description",
-            "value": proposal.description,
-            "inline": False
-        })
+            # Create embed
+            embed = await format_proposal_embed(proposal)
+            embed["fields"].append({
+                "name": "Full Description",
+                "value": proposal.description,
+                "inline": False
+            })
 
-        await interaction.followup.send(embed=discord.Embed.from_dict(embed))
+            await interaction.followup.send(embed=discord.Embed.from_dict(embed))
 
     except Exception as e:
         logger.error(f"Error fetching proposal: {e}")
@@ -174,23 +173,23 @@ async def cmd_proposals(
     await interaction.response.defer(thinking=True)
 
     try:
-        session = await get_session()
-        community_id = f"discord_{interaction.guild.id}"
+        async with session_context() as session:
+            community_id = f"discord_{interaction.guild.id}"
 
-        proposals = await list_proposals(session, community_id, status)
+            proposals = await list_proposals(session, community_id, status)
 
-        if not proposals:
-            await interaction.followup.send(f"No {status} proposals found.")
-            return
+            if not proposals:
+                await interaction.followup.send(f"No {status} proposals found.")
+                return
 
-        # Format as list
-        text = f"📋 **{status} PROPOSALS**\n\n"
-        for prop in proposals[:10]:  # Limit to 10
-            text += f"• **{prop.title}**\n"
-            text += f"  ID: `{prop.proposal_id}`\n"
-            text += f"  Verdict: {prop.judgment_verdict or 'Pending'}\n\n"
+            # Format as list
+            text = f"📋 **{status} PROPOSALS**\n\n"
+            for prop in proposals[:10]:  # Limit to 10
+                text += f"• **{prop.title}**\n"
+                text += f"  ID: `{prop.proposal_id}`\n"
+                text += f"  Verdict: {prop.judgment_verdict or 'Pending'}\n\n"
 
-        await interaction.followup.send(text)
+            await interaction.followup.send(text)
 
     except Exception as e:
         logger.error(f"Error listing proposals: {e}")
@@ -219,31 +218,30 @@ async def cmd_vote(
             await interaction.followup.send(format_error("Vote must be YES, NO, or ABSTAIN"))
             return
 
-        session = await get_session()
+        async with session_context() as session:
+            # Check if voting is active
+            if not await is_voting_active(session, proposal_id):
+                await interaction.followup.send(format_error("Voting is not active for this proposal"))
+                return
 
-        # Check if voting is active
-        if not await is_voting_active(session, proposal_id):
-            await interaction.followup.send(format_error("Voting is not active for this proposal"))
-            return
+            # Record vote
+            vote_id = f"vote_{proposal_id}_{interaction.user.id}"
+            await create_vote(session, {
+                "vote_id": vote_id,
+                "proposal_id": proposal_id,
+                "voter_id": str(interaction.user.id),
+                "vote": vote.upper(),
+                "vote_weight": 1.0,  # TODO: Use real token balance
+                "reasoning": reasoning
+            })
 
-        # Record vote
-        vote_id = f"vote_{proposal_id}_{interaction.user.id}"
-        await create_vote(session, {
-            "vote_id": vote_id,
-            "proposal_id": proposal_id,
-            "voter_id": str(interaction.user.id),
-            "vote": vote.upper(),
-            "vote_weight": 1.0,  # TODO: Use real token balance
-            "reasoning": reasoning
-        })
+            # Update vote counts
+            await update_vote_counts(session, proposal_id)
 
-        # Update vote counts
-        await update_vote_counts(session, proposal_id)
-
-        # Response
-        response = format_vote_recorded(str(interaction.user.id), proposal_id, vote.upper())
-        await interaction.followup.send(response)
-        logger.info(f"Vote recorded: {vote_id}")
+            # Response
+            response = format_vote_recorded(str(interaction.user.id), proposal_id, vote.upper())
+            await interaction.followup.send(response)
+            logger.info(f"Vote recorded: {vote_id}")
 
     except Exception as e:
         logger.error(f"Error recording vote: {e}")
@@ -262,15 +260,15 @@ async def cmd_voting_status(
     await interaction.response.defer(thinking=True)
 
     try:
-        session = await get_session()
-        proposal = await get_proposal(session, proposal_id)
+        async with session_context() as session:
+            proposal = await get_proposal(session, proposal_id)
 
-        if not proposal:
-            await interaction.followup.send(format_error(f"Proposal {proposal_id} not found"))
-            return
+            if not proposal:
+                await interaction.followup.send(format_error(f"Proposal {proposal_id} not found"))
+                return
 
-        response = await format_voting_status(proposal, None)
-        await interaction.followup.send(response)
+            response = await format_voting_status(proposal, None)
+            await interaction.followup.send(response)
 
     except Exception as e:
         logger.error(f"Error fetching voting status: {e}")
@@ -293,27 +291,27 @@ async def cmd_cynic_verdict(
     await interaction.response.defer(thinking=True)
 
     try:
-        session = await get_session()
-        proposal = await get_proposal(session, proposal_id)
+        async with session_context() as session:
+            proposal = await get_proposal(session, proposal_id)
 
-        if not proposal:
-            await interaction.followup.send(format_error(f"Proposal {proposal_id} not found"))
-            return
+            if not proposal:
+                await interaction.followup.send(format_error(f"Proposal {proposal_id} not found"))
+                return
 
-        if not proposal.judgment_verdict:
-            await interaction.followup.send("CYNIC judgment not yet available for this proposal.")
-            return
+            if not proposal.judgment_verdict:
+                await interaction.followup.send("CYNIC judgment not yet available for this proposal.")
+                return
 
-        # Format judgment
-        judgment_data = {
-            "verdict": proposal.judgment_verdict,
-            "q_score": proposal.judgment_q_score or 0.0,
-            "confidence": proposal.judgment_confidence or 0.618,
-            "reasoning": proposal.judgment_data.get("reasoning", "") if proposal.judgment_data else ""
-        }
+            # Format judgment
+            judgment_data = {
+                "verdict": proposal.judgment_verdict,
+                "q_score": proposal.judgment_q_score or 0.0,
+                "confidence": proposal.judgment_confidence or 0.618,
+                "reasoning": proposal.judgment_data.get("reasoning", "") if proposal.judgment_data else ""
+            }
 
-        response = format_cynic_verdict(judgment_data)
-        await interaction.followup.send(response)
+            response = format_cynic_verdict(judgment_data)
+            await interaction.followup.send(response)
 
     except Exception as e:
         logger.error(f"Error fetching CYNIC verdict: {e}")
@@ -356,15 +354,15 @@ async def cmd_community_info(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
 
     try:
-        session = await get_session()
-        community_id = f"discord_{interaction.guild.id}"
-        community = await get_community(session, community_id)
+        async with session_context() as session:
+            community_id = f"discord_{interaction.guild.id}"
+            community = await get_community(session, community_id)
 
-        if not community:
-            await interaction.followup.send("This community hasn't set up governance yet.")
-            return
+            if not community:
+                await interaction.followup.send("This community hasn't set up governance yet.")
+                return
 
-        text = f"""
+            text = f"""
 🏛️ **GOVERNANCE SETTINGS**
 
 **Community:** {community.community_name}
@@ -381,7 +379,7 @@ async def cmd_community_info(interaction: discord.Interaction):
 • NEAR: {'Enabled' if community.near_contract_address else 'Disabled'}
 • CYNIC: {'Enabled' if community.cynic_enabled else 'Disabled'}
 """
-        await interaction.followup.send(text)
+            await interaction.followup.send(text)
 
     except Exception as e:
         logger.error(f"Error fetching community info: {e}")
@@ -397,16 +395,16 @@ async def cmd_governance_stats(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
 
     try:
-        session = await get_session()
-        community_id = f"discord_{interaction.guild.id}"
+        async with session_context() as session:
+            community_id = f"discord_{interaction.guild.id}"
 
-        proposals = await list_proposals(session, community_id)
+            proposals = await list_proposals(session, community_id)
 
-        total = len(proposals)
-        approved = len([p for p in proposals if p.approval_status == "APPROVED"])
-        rejected = len([p for p in proposals if p.approval_status == "REJECTED"])
+            total = len(proposals)
+            approved = len([p for p in proposals if p.approval_status == "APPROVED"])
+            rejected = len([p for p in proposals if p.approval_status == "REJECTED"])
 
-        text = f"""
+            text = f"""
 📊 **GOVERNANCE STATISTICS**
 
 **Proposals:**
@@ -418,7 +416,7 @@ async def cmd_governance_stats(interaction: discord.Interaction):
 **Participation:**
 • Total Votes Cast: {sum(p.yes_votes + p.no_votes for p in proposals):.0f}
 """
-        await interaction.followup.send(text)
+            await interaction.followup.send(text)
 
     except Exception as e:
         logger.error(f"Error fetching governance stats: {e}")
@@ -448,10 +446,10 @@ async def cmd_help(interaction: discord.Interaction):
 async def check_voting_status():
     """Check if voting periods have ended and update statuses"""
     try:
-        session = await get_session()
-        # This would iterate through active proposals and check voting status
-        # Implementation details depend on database queries
-        logger.debug("Checking voting status...")
+        async with session_context() as session:
+            # This would iterate through active proposals and check voting status
+            # Implementation details depend on database queries
+            logger.debug("Checking voting status...")
     except Exception as e:
         logger.error(f"Error in check_voting_status: {e}")
 

@@ -3,6 +3,7 @@ Database operations for Governance Bot
 """
 
 import logging
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker, Session
@@ -38,6 +39,16 @@ async def init_db(db_url: str = DATABASE_URL):
 async def get_session() -> AsyncSession:
     """Get async database session"""
     return async_session()
+
+
+@asynccontextmanager
+async def session_context():
+    """Context manager for automatic session cleanup"""
+    session = await get_session()
+    try:
+        yield session
+    finally:
+        await session.close()
 
 
 # Community operations
