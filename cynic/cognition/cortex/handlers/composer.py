@@ -1,3 +1,27 @@
+"""
+CYNIC Handler Composer — Orchestrates judgment handler chains.
+
+Composes handlers in optimal sequence for each consciousness level:
+
+Handler Chains:
+    REFLEX: level_selector → cycle_reflex → act_executor
+    MICRO: level_selector → cycle_micro → act_executor
+    MACRO: level_selector → cycle_macro → act_executor → evolve (optional)
+
+Each chain is optimized for latency, cost, and thoroughness:
+    REFLEX: <10ms, minimal LLM, rule-based decisions
+    MICRO: ~500ms, single LLM call per Dog
+    MACRO: ~2.85s, full Dog voting + consensus + learning
+
+Typical usage:
+    from cynic.cognition.cortex.handlers.composer import HandlerComposer
+    composer = HandlerComposer(registry)
+    result = await composer.compose(pipeline, level=ConsciousnessLevel.MACRO)
+
+See Also:
+    cynic.cognition.cortex.handlers.base: BaseHandler contract
+    cynic.cognition.cortex.handlers.registry: HandlerRegistry
+"""
 from __future__ import annotations
 import logging, time
 from typing import Any, Optional, TYPE_CHECKING
