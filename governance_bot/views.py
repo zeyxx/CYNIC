@@ -11,7 +11,7 @@ from database import (
     get_proposal, list_proposals, is_voting_active, create_vote,
     update_vote_counts, get_user_vote
 )
-from cynic_integration import ask_cynic
+from cynic_integration import ask_cynic, learn_cynic
 from models import Community
 from formatting import build_proposal_embed
 from config import CYNIC_MCP_ENABLED
@@ -368,3 +368,80 @@ class ProposalListView(discord.ui.View):
         embed.set_footer(text=f"Page {self.current_page + 1}/{total_pages} ({len(self.proposals)} total)")
 
         return embed
+
+
+class OutcomeRatingView(discord.ui.View):
+    """View for rating proposal outcomes with star buttons"""
+
+    def __init__(self, proposal_id: str):
+        super().__init__(timeout=3600)  # 1 hour
+        self.proposal_id = proposal_id
+        self._build_star_buttons()
+
+    def _build_star_buttons(self):
+        """Build the 5-star rating buttons"""
+        star_configs = [
+            (1, "☆", discord.ButtonStyle.red),
+            (2, "☆☆", discord.ButtonStyle.red),
+            (3, "☆☆☆", discord.ButtonStyle.grey),
+            (4, "☆☆☆☆", discord.ButtonStyle.green),
+            (5, "☆☆☆☆☆", discord.ButtonStyle.green),
+        ]
+
+        for stars, label, style in star_configs:
+            btn = discord.ui.Button(
+                label=label,
+                style=style,
+                custom_id=f"rate_{stars}_{self.proposal_id}",
+                row=0
+            )
+            btn.callback = self._rating_callback_factory(stars)
+            self.add_item(btn)
+
+    def _rating_callback_factory(self, stars):
+        """Factory to create rating callback for a specific star count"""
+        async def callback(interaction):
+            await self._handle_rating(interaction, stars)
+        return callback
+
+    async def _handle_rating(self, interaction: discord.Interaction, stars: int):
+        """Handle outcome rating"""
+        try:
+            async with session_context() as session:
+                proposal = await get_proposal(session, self.proposal_id)
+                if not proposal:
+                    await interaction.response.send_message("Proposal not found.", ephemeral=True)
+                    return
+
+                # Update community satisfaction rating
+                proposal.community_satisfaction_rating = float(stars)
+                await session.commit()
+
+                # Learn from outcome
+                verdict = proposal.judgment_verdict or "PENDING"
+                approved = proposal.approval_status == "APPROVED"
+                comment = f"Community rated {stars}/5 stars"
+
+                result = await learn_cynic(
+                    judgment_id=proposal.judgment_id,
+                    verdict=verdict,
+                    approved=approved,
+                    satisfaction=float(stars),
+                    comment=comment
+                )
+
+                # Respond with confirmation
+                star_display = "☆" * stars
+                learning_status = result.get("learning_status", "skipped")
+                status_msg = "CYNIC is learning from this outcome." if learning_status == "completed" else ""
+
+                await interaction.response.send_message(
+                    f"Rated {star_display} ({stars}/5) — {status_msg}",
+                    ephemeral=True
+                )
+
+                logger.info(f"Outcome rated: {self.proposal_id} = {stars}/5 stars, learning_status={learning_status}")
+
+        except Exception as e:
+            logger.error(f"Error handling outcome rating: {e}", exc_info=True)
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)

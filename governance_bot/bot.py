@@ -19,15 +19,16 @@ from database import (
     init_db, get_session, session_context, get_community, create_community,
     create_proposal, get_proposal, list_proposals, update_proposal_status,
     update_proposal_judgment, create_vote, count_votes, update_vote_counts,
-    is_voting_active, check_voting_closed, get_user_vote
+    is_voting_active, check_voting_closed, get_user_vote,
+    get_proposals_needing_outcome, create_learning_outcome, mark_outcome_determined, get_or_create_e_score
 )
 from cynic_integration import ask_cynic, learn_cynic, observe_cynic, get_cynic_status
 from formatting import (
     format_proposal_embed, format_voting_status, format_cynic_verdict,
     format_proposal_created, format_vote_recorded, format_error, format_help,
-    build_proposal_embed
+    build_proposal_embed, build_outcome_embed
 )
-from views import ProposalModal, VotingView, ProposalListView
+from views import ProposalModal, VotingView, ProposalListView, OutcomeRatingView
 
 # Setup logging
 logging.basicConfig(
@@ -35,6 +36,93 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def _find_announcement_channel(guild: discord.Guild) -> discord.TextChannel:
+    """Find an appropriate text channel for announcements"""
+    # Priority: français/général, governance, proposals, general
+    channel_names = ["français", "général", "governance", "proposals", "general"]
+
+    for name in channel_names:
+        for channel in guild.text_channels:
+            if channel.name.lower() == name.lower() and channel.permissions_for(guild.me).send_messages:
+                if channel.permissions_for(guild.me).embed_links:
+                    return channel
+
+    # Fallback: first writable text channel
+    for channel in guild.text_channels:
+        if channel.permissions_for(guild.me).send_messages and channel.permissions_for(guild.me).embed_links:
+            return channel
+
+    return None
+
+
+async def _process_closed_proposal(proposal):
+    """Process a newly-closed proposal: create outcome record, update E-Score, post embed"""
+    try:
+        async with session_context() as session:
+            # 1. Create learning outcome audit record
+            await create_learning_outcome(
+                session,
+                proposal.proposal_id,
+                proposal.approval_status,
+                satisfaction_rating=None  # placeholder, will be updated by community
+            )
+
+            # 2. Update CYNIC E-Score correctness
+            community_id = proposal.community_id
+            cynic_correct = (proposal.judgment_verdict in {"HOWL", "WAG"}) == (proposal.approval_status == "APPROVED")
+
+            # Get current E-Score stats for update
+            from database import update_e_score
+            e_score = await get_or_create_e_score(session, community_id, "CYNIC", "cynic_main")
+            new_total = (e_score.total_judgments or 0) + 1
+            new_correct = (e_score.correct_predictions or 0) + (1 if cynic_correct else 0)
+            new_accuracy = new_correct / new_total if new_total > 0 else 0.0
+
+            await update_e_score(session, community_id, "CYNIC", "cynic_main", {
+                "total_judgments": new_total,
+                "correct_predictions": new_correct,
+                "judgment_accuracy": new_accuracy,
+                "last_update_source": "PROPOSAL_OUTCOME"
+            })
+
+            # 3. Mark outcome as determined (prevents re-processing)
+            await mark_outcome_determined(session, proposal.proposal_id, proposal.approval_status)
+
+        # 4. Find announcement channel and post outcome embed
+        for guild in bot.guilds:
+            if guild.id == int(proposal.community_id.replace("discord_", "")):
+                channel = _find_announcement_channel(guild)
+                if channel:
+                    embed = build_outcome_embed(proposal)
+                    try:
+                        await channel.send(embed=embed, view=OutcomeRatingView(proposal.proposal_id))
+                        logger.info(f"Outcome embed posted for {proposal.proposal_id} in {guild.name}")
+                    except Exception as e:
+                        logger.error(f"Failed to post outcome embed: {e}")
+                break
+
+        # 5. Auto-learn with placeholder rating
+        verdict = proposal.judgment_verdict or "PENDING"
+        approved = proposal.approval_status == "APPROVED"
+        await learn_cynic(
+            judgment_id=proposal.judgment_id,
+            verdict=verdict,
+            approved=approved,
+            satisfaction=3.0,
+            comment="Auto-learning from proposal outcome"
+        )
+
+        logger.info(f"Processed closed proposal: {proposal.proposal_id}")
+
+    except Exception as e:
+        logger.error(f"Error processing closed proposal {proposal.proposal_id}: {e}", exc_info=True)
+
 
 # Bot setup
 intents = discord.Intents.default()
@@ -67,7 +155,12 @@ async def on_ready():
                 bot.add_view(VotingView(proposal_id=proposal.proposal_id))
                 logger.info(f"Registered persistent view: {proposal.proposal_id}")
 
-    check_voting_status.start()
+    try:
+        if not check_voting_status.is_running():
+            check_voting_status.start()
+            logger.info("Background task check_voting_status started")
+    except Exception as e:
+        logger.error(f"Failed to start background task: {e}", exc_info=True)
 
 
 # ============================================================================
@@ -235,6 +328,69 @@ async def cmd_cynic_status(interaction: discord.Interaction):
         await interaction.followup.send(format_error(str(e)))
 
 
+@bot.tree.command(
+    name="cynic_stats",
+    description="View CYNIC learning statistics"
+)
+async def cmd_cynic_stats(interaction: discord.Interaction):
+    """Get CYNIC learning statistics"""
+    await interaction.response.defer(thinking=True)
+
+    try:
+        async with session_context() as session:
+            community_id = f"discord_{interaction.guild.id}"
+            proposals = await list_proposals(session, community_id)
+
+            # Count proposal statuses
+            total = len(proposals)
+            closed = len([p for p in proposals if p.voting_status == "CLOSED"])
+            learned = len([p for p in proposals if p.outcome_determined])
+            approved = len([p for p in proposals if p.approval_status == "APPROVED"])
+            rejected = len([p for p in proposals if p.approval_status == "REJECTED"])
+
+            # Count ratings
+            rated = len([p for p in proposals if p.community_satisfaction_rating is not None])
+            if rated > 0:
+                avg_rating = sum(p.community_satisfaction_rating for p in proposals if p.community_satisfaction_rating is not None) / rated
+            else:
+                avg_rating = 0.0
+
+            # Get CYNIC E-Score
+            e_score = await get_or_create_e_score(session, community_id, "CYNIC", "cynic_main")
+            accuracy = (e_score.judgment_accuracy or 0.0) * 100
+
+            text = f"""
+🧠 **CYNIC LEARNING STATISTICS**
+
+**Proposals:**
+• Total: {total}
+• Closed: {closed}
+• Learned from: {learned}
+
+**Outcomes:**
+• Approved: {approved}
+• Rejected: {rejected}
+
+**Community Feedback:**
+• Rated: {rated}/{learned} outcomes
+• Average rating: {avg_rating:.1f}/5 ☆
+
+**CYNIC Accuracy:**
+• Total judgments: {e_score.total_judgments or 0}
+• Correct predictions: {e_score.correct_predictions or 0}
+• Accuracy: {accuracy:.1f}%
+
+**Learning Signal:**
+Each outcome trains CYNIC via Q-Table TD(0) update through /learn endpoint.
+Community ratings (1-5 stars) inform reward signal for next judgment cycle.
+"""
+            await interaction.followup.send(text)
+
+    except Exception as e:
+        logger.error(f"Error fetching CYNIC stats: {e}")
+        await interaction.followup.send(format_error(str(e)))
+
+
 # ============================================================================
 # COMMUNITY COMMANDS
 # ============================================================================
@@ -338,14 +494,48 @@ async def cmd_help(interaction: discord.Interaction):
 
 @tasks.loop(minutes=5)
 async def check_voting_status():
-    """Check if voting periods have ended and update statuses"""
+    """Background task: close voting on past-deadline proposals and process outcomes"""
     try:
-        async with session_context() as session:
-            # This would iterate through active proposals and check voting status
-            # Implementation details depend on database queries
-            logger.debug("Checking voting status...")
+        logger.info("Background task: check_voting_status starting...")
+
+        # Pass 1: Close ACTIVE proposals for all communities that have passed their voting deadline
+        try:
+            async with session_context() as session:
+                # Get all ACTIVE proposals across all communities
+                from datetime import datetime
+                now = datetime.utcnow()
+
+                # Query all ACTIVE proposals and check if any are past deadline
+                all_active = await list_proposals(session, "", status="ACTIVE") if False else []
+                # Fallback: check all communities from bot.guilds
+                for guild in bot.guilds:
+                    community_id = f"discord_{guild.id}"
+                    active = await list_proposals(session, community_id, status="ACTIVE")
+                    for proposal in active:
+                        if proposal.voting_end_time < now:
+                            await check_voting_closed(session, proposal.proposal_id)
+            logger.debug("Pass 1 complete: voting closed for overdue proposals")
+        except Exception as e:
+            logger.error(f"Error in Pass 1: {e}", exc_info=True)
+
+        # Pass 2: Process newly-closed proposals that need outcome determination
+        try:
+            async with session_context() as session:
+                proposals_needing_outcome = await get_proposals_needing_outcome(session)
+                logger.info(f"Found {len(proposals_needing_outcome)} proposals needing outcome processing")
+
+            for proposal in proposals_needing_outcome:
+                try:
+                    await _process_closed_proposal(proposal)
+                except Exception as e:
+                    logger.error(f"Failed to process proposal {proposal.proposal_id}: {e}", exc_info=True)
+            if proposals_needing_outcome:
+                logger.debug("Pass 2 complete: outcomes processed")
+        except Exception as e:
+            logger.error(f"Error in Pass 2: {e}", exc_info=True)
+
     except Exception as e:
-        logger.error(f"Error in check_voting_status: {e}")
+        logger.error(f"Critical error in check_voting_status: {e}", exc_info=True)
 
 
 # ============================================================================

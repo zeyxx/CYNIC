@@ -108,61 +108,78 @@ async def ask_cynic(question: str, context: str = "", reality: str = "SOCIAL") -
 
 async def learn_cynic(
     judgment_id: str,
-    outcome: bool,
-    actual_metrics: dict = None,
-    feedback_rating: int = 3,
+    verdict: str,
+    approved: bool,
+    satisfaction: float = 3.0,
     comment: str = ""
 ) -> dict:
     """
-    Teach CYNIC from a proposal outcome.
+    Teach CYNIC from a proposal outcome via MCP HTTP server.
 
     Args:
         judgment_id: ID of the judgment to learn from
-        outcome: Whether proposal succeeded (bool)
-        actual_metrics: Actual metrics achieved vs predicted
-        feedback_rating: Community rating 1-5 stars
+        verdict: CYNIC's original verdict (HOWL/WAG/GROWL/BARK)
+        approved: Whether proposal was actually approved
+        satisfaction: Community satisfaction rating (1.0-5.0 stars)
         comment: Optional comment
 
     Returns:
         {
-            "learning_status": "completed",
-            "q_table_updated": bool,
-            "confidence_change": float
+            "learning_status": "completed" | "skipped",
+            "q_table_updated": bool (if completed)
         }
     """
     try:
-        logger.info(f"Teaching CYNIC from judgment {judgment_id}...")
+        logger.info(f"Learning from judgment {judgment_id} (verdict={verdict}, approved={approved})...")
 
-        from cynic.core.consciousness import get_consciousness
-        from cynic.learning.qlearning import LearningSignal
+        from config import CYNIC_MCP_URL
+        import aiohttp
 
-        organism = get_consciousness()
+        # Normalize rating: 1-5 stars → -1.0 to +1.0
+        base = (satisfaction / 5.0) * 2.0 - 1.0  # 1→-0.6, 3→0.2, 5→1.0
+        if not approved:
+            base = -abs(base)  # rejected → always negative
+        rating = max(-1.0, min(1.0, base))
 
-        # Create learning signal from outcome
-        learning_signal = LearningSignal(
-            judgment_id=judgment_id,
-            outcome=outcome,
-            actual_metrics=actual_metrics or {},
-            feedback_rating=feedback_rating,
-            comment=comment
-        )
-
-        # Feed learning signal to organism
-        await organism.learn(learning_signal)
-
-        logger.info(f"CYNIC learning completed for judgment {judgment_id}")
-        return {
-            "learning_status": "completed",
-            "q_table_updated": True,
-            "message": f"Judgment {judgment_id} integrated into learning system"
+        payload = {
+            "signal": {
+                "judgment_id": judgment_id,
+                "rating": rating,
+                "comment": comment
+            },
+            "update_qtable": True
         }
 
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(timeout=timeout) as client:
+            async with client.post(f"{CYNIC_MCP_URL}/learn", json=payload) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    qtable_updated = data.get("result", {}).get("qtable_updated", False)
+                    logger.info(f"CYNIC learning completed: {judgment_id} (rating={rating:.2f}, qtable_updated={qtable_updated})")
+                    return {
+                        "learning_status": "completed",
+                        "q_table_updated": qtable_updated
+                    }
+                else:
+                    logger.warning(f"MCP server returned status {resp.status}")
+                    return {
+                        "learning_status": "skipped",
+                        "q_table_updated": False
+                    }
+
+    except aiohttp.ClientConnectorError as e:
+        # MCP not running - non-fatal, bot continues
+        logger.warning(f"MCP server not available: {e}")
+        return {
+            "learning_status": "skipped",
+            "q_table_updated": False
+        }
     except Exception as e:
         logger.error(f"Error calling learn_cynic: {e}", exc_info=True)
         return {
-            "learning_status": "error",
-            "q_table_updated": False,
-            "error": str(e)
+            "learning_status": "skipped",
+            "q_table_updated": False
         }
 
 

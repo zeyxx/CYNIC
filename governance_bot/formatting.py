@@ -339,3 +339,54 @@ def _build_vote_bar(yes_pct: float, no_pct: float) -> str:
     no_blocks = round((no_pct / 100) * bar_width)
     remaining = bar_width - yes_blocks - no_blocks
     return f"[{'|' * yes_blocks}{'.' * no_blocks}{' ' * remaining}]"
+
+
+def build_outcome_embed(proposal) -> discord.Embed:
+    """Build a rich Discord embed for a proposal outcome"""
+    # Determine color based on outcome
+    is_approved = proposal.approval_status == "APPROVED"
+    color = 0x2ecc71 if is_approved else 0xe74c3c  # green or red
+
+    # Title
+    title_prefix = "✅ APPROVED" if is_approved else "❌ REJECTED"
+    embed = discord.Embed(
+        title=f"{title_prefix} — {proposal.title}",
+        color=color
+    )
+
+    # Final vote bar
+    yes = proposal.yes_votes or 0
+    no = proposal.no_votes or 0
+    abstain = proposal.abstain_votes or 0
+    total = yes + no + abstain
+
+    if total > 0:
+        yes_pct = (yes / total) * 100
+        no_pct = (no / total) * 100
+        bar = _build_vote_bar(yes_pct, no_pct)
+        vote_value = f"YES {yes:.0f} ({yes_pct:.0f}%) | NO {no:.0f} ({no_pct:.0f}%) | ABSTAIN {abstain:.0f}\n{bar}"
+    else:
+        vote_value = "No votes recorded"
+
+    embed.add_field(name="Final Vote", value=vote_value, inline=False)
+
+    # CYNIC verdict + correctness signal
+    if proposal.judgment_verdict:
+        cynic_approved = proposal.judgment_verdict in {"HOWL", "WAG"}
+        matched = cynic_approved == is_approved
+        correctness = "✅ Correct" if matched else "❌ Mismatch"
+
+        verdict_text = f"**{proposal.judgment_verdict}** | Q-Score: **{proposal.judgment_q_score:.1f}/100**\n{correctness}"
+        embed.add_field(name="CYNIC Verdict", value=verdict_text, inline=False)
+
+    # Rate this outcome
+    embed.add_field(
+        name="Rate This Outcome",
+        value="Click a star below to tell CYNIC how well it judged this proposal.",
+        inline=False
+    )
+
+    # Footer
+    embed.set_footer(text=f"ID: {proposal.proposal_id} | Outcome recorded at {datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC")
+
+    return embed

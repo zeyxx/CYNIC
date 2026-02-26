@@ -9,7 +9,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
-from models import Base, Community, Proposal, Vote, EScore, CommunityUser
+from models import Base, Community, Proposal, Vote, EScore, CommunityUser, LearningOutcome
 from config import DATABASE_URL
 
 logger = logging.getLogger(__name__)
@@ -253,6 +253,54 @@ async def check_voting_closed(session: AsyncSession, proposal_id: str) -> bool:
         return True
 
     return False
+
+
+# Learning Outcome operations
+async def get_proposals_needing_outcome(session: AsyncSession) -> list[Proposal]:
+    """Get CLOSED proposals where outcome hasn't been determined yet"""
+    now = datetime.utcnow()
+    query = (select(Proposal)
+        .where(Proposal.voting_status == "CLOSED")
+        .where(Proposal.outcome_determined == False)
+        .where(Proposal.voting_end_time < now))
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def mark_outcome_determined(
+    session: AsyncSession, proposal_id: str, outcome: str, satisfaction_rating: float = None
+):
+    """Mark proposal outcome as determined"""
+    proposal = await get_proposal(session, proposal_id)
+    if proposal:
+        proposal.outcome_determined = True
+        proposal.outcome = outcome
+        if satisfaction_rating is not None:
+            proposal.community_satisfaction_rating = satisfaction_rating
+        proposal.updated_at = datetime.utcnow()
+        await session.commit()
+        logger.info(f"Outcome determined for proposal {proposal_id}: {outcome}")
+
+
+async def create_learning_outcome(
+    session: AsyncSession, proposal_id: str, outcome: str, satisfaction_rating: float = None
+) -> LearningOutcome:
+    """Create learning outcome audit record"""
+    import uuid
+    lo = LearningOutcome(
+        outcome_id=f"lo_{str(uuid.uuid4())[:8]}",
+        proposal_id=proposal_id,
+        outcome=outcome,
+        success_metrics={},
+        predicted_metrics={},
+        community_satisfaction_rating=satisfaction_rating,
+        recorded_at=datetime.utcnow(),
+        learned_at=None
+    )
+    session.add(lo)
+    await session.commit()
+    logger.info(f"Learning outcome recorded: {lo.outcome_id}")
+    return lo
 
 
 # Database cleanup

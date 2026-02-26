@@ -14,6 +14,7 @@ DISCORD_PREFIX = "/"
 # CYNIC Integration
 CYNIC_URL = os.getenv("CYNIC_URL", "http://127.0.0.1:8765")
 CYNIC_MCP_ENABLED = True
+CYNIC_MCP_URL = os.getenv("CYNIC_MCP_URL", "http://127.0.0.1:8766")
 
 # Database
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///governance_bot.db")
