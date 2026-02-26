@@ -297,8 +297,10 @@ class TestDataclassTypes:
         assert isinstance(judgment.verdict, str)
         assert isinstance(judgment.q_score, float)
         assert isinstance(judgment.confidence, float)
-        assert isinstance(judgment.axiom_scores, dict)
-        assert isinstance(judgment.dog_votes, dict)
+        # axiom_scores and dog_votes are wrapped in MappingProxyType (read-only views)
+        # They behave like dicts but are immutable at the top level
+        assert hasattr(judgment.axiom_scores, '__getitem__')  # Dict-like interface
+        assert hasattr(judgment.dog_votes, '__getitem__')     # Dict-like interface
         assert isinstance(judgment.reasoning, str)
         assert isinstance(judgment.latency_ms, float)
 
@@ -347,3 +349,122 @@ class TestPhiBoundedConfidence:
             latency_ms=100.0,
         )
         assert judgment2.confidence == 0.0
+
+
+class TestUnifiedJudgmentDictImmutability:
+    """Test that axiom_scores and dog_votes are truly immutable."""
+
+    def test_unified_judgment_axiom_scores_immutable(self):
+        """axiom_scores should be immutable via MappingProxyType."""
+        judgment = UnifiedJudgment(
+            judgment_id="j123",
+            verdict="HOWL",
+            q_score=85.0,
+            confidence=0.618,
+            axiom_scores={"FIDELITY": 0.9, "PHI": 0.85},
+            dog_votes={},
+            reasoning="Test immutability",
+            latency_ms=100.0,
+        )
+
+        # Attempt to add a new key should raise TypeError
+        with pytest.raises(TypeError):
+            judgment.axiom_scores["NEW_KEY"] = 0.5
+
+        # Attempt to modify existing key should raise TypeError
+        with pytest.raises(TypeError):
+            judgment.axiom_scores["FIDELITY"] = 0.5
+
+        # Original values should still be accessible
+        assert judgment.axiom_scores["FIDELITY"] == 0.9
+        assert judgment.axiom_scores["PHI"] == 0.85
+
+    def test_unified_judgment_dog_votes_immutable(self):
+        """dog_votes top-level structure should be immutable via MappingProxyType."""
+        judgment = UnifiedJudgment(
+            judgment_id="j123",
+            verdict="HOWL",
+            q_score=85.0,
+            confidence=0.618,
+            axiom_scores={"FIDELITY": 0.9},
+            dog_votes={
+                1: {"vote": "HOWL", "q_score": 85.0},
+                2: {"vote": "HOWL", "q_score": 84.0},
+            },
+            reasoning="Test dog votes immutability",
+            latency_ms=100.0,
+        )
+
+        # Attempt to add a new dog vote should raise TypeError
+        # (cannot mutate the MappingProxyType at the top level)
+        with pytest.raises(TypeError):
+            judgment.dog_votes[3] = {"vote": "WAG", "q_score": 75.0}
+
+        # Attempt to delete a dog vote should raise TypeError
+        with pytest.raises(TypeError):
+            del judgment.dog_votes[1]
+
+        # Original values should still be accessible
+        assert judgment.dog_votes[1]["vote"] == "HOWL"
+        assert judgment.dog_votes[1]["q_score"] == 85.0
+        assert judgment.dog_votes[2]["vote"] == "HOWL"
+
+
+class TestDogAgreementScoresValidation:
+    """Test that dog_agreement_scores are validated for bounds [0, 1]."""
+
+    def test_dog_agreement_scores_valid_bounds(self):
+        """Valid bounds should create state successfully."""
+        # All valid values
+        state = UnifiedConsciousState(
+            dog_agreement_scores={
+                1: 0.0,
+                2: 0.5,
+                3: 1.0,
+                4: 0.618,
+            }
+        )
+
+        assert state.dog_agreement_scores[1] == 0.0
+        assert state.dog_agreement_scores[2] == 0.5
+        assert state.dog_agreement_scores[3] == 1.0
+        assert state.dog_agreement_scores[4] == 0.618
+
+    def test_dog_agreement_scores_too_high(self):
+        """Score > 1.0 should raise ValueError."""
+        with pytest.raises(ValueError, match="must be in"):
+            UnifiedConsciousState(dog_agreement_scores={1: 1.5})
+
+    def test_dog_agreement_scores_too_low(self):
+        """Score < 0.0 should raise ValueError."""
+        with pytest.raises(ValueError, match="must be in"):
+            UnifiedConsciousState(dog_agreement_scores={1: -0.1})
+
+    def test_dog_agreement_scores_multiple_invalid(self):
+        """Multiple valid + one invalid should raise on first invalid dog."""
+        with pytest.raises(ValueError, match="Dog 2 agreement score"):
+            UnifiedConsciousState(
+                dog_agreement_scores={
+                    1: 0.5,
+                    2: 1.5,  # Invalid
+                    3: 0.7,
+                }
+            )
+
+    def test_dog_agreement_scores_boundary_values(self):
+        """Test exact boundary values (0.0 and 1.0)."""
+        # Lower bound: 0.0
+        state1 = UnifiedConsciousState(dog_agreement_scores={1: 0.0})
+        assert state1.dog_agreement_scores[1] == 0.0
+
+        # Upper bound: 1.0
+        state2 = UnifiedConsciousState(dog_agreement_scores={11: 1.0})
+        assert state2.dog_agreement_scores[11] == 1.0
+
+        # Just above upper bound
+        with pytest.raises(ValueError):
+            UnifiedConsciousState(dog_agreement_scores={1: 1.0001})
+
+        # Just below lower bound
+        with pytest.raises(ValueError):
+            UnifiedConsciousState(dog_agreement_scores={1: -0.0001})

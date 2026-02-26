@@ -39,6 +39,7 @@ from dataclasses import dataclass, field
 from collections import deque
 from typing import Dict, Any, Optional
 from datetime import datetime
+from types import MappingProxyType
 
 from cynic.core.phi import fibonacci, PHI_INV, MAX_CONFIDENCE
 
@@ -83,7 +84,8 @@ class UnifiedJudgment:
     satisfaction_rating: Optional[float] = None
 
     def __post_init__(self):
-        """Validate φ-bounds (frozen class, so use object.__setattr__)."""
+        """Validate φ-bounds and enforce immutability of dict fields (frozen class)."""
+        # Validate bounds
         if not (0.0 <= self.confidence <= MAX_CONFIDENCE):
             raise ValueError(
                 f"confidence must be ∈ [0, {MAX_CONFIDENCE}], got {self.confidence}"
@@ -103,6 +105,12 @@ class UnifiedJudgment:
                 raise ValueError(
                     f"satisfaction_rating must be ∈ [0, 1], got {self.satisfaction_rating}"
                 )
+
+        # Wrap dict fields with MappingProxyType to enforce true immutability
+        # This prevents external code from mutating axiom_scores and dog_votes
+        # even though the dataclass is frozen=True
+        object.__setattr__(self, "axiom_scores", MappingProxyType(self.axiom_scores))
+        object.__setattr__(self, "dog_votes", MappingProxyType(self.dog_votes))
 
 
 @dataclass(frozen=True)
@@ -236,7 +244,7 @@ class UnifiedConsciousState:
     - Buffers auto-prune via BURN (Fibonacci-bounded)
     - Consensus computed as average of dog_agreement_scores
     - No direct mutation of buffer contents (use add_judgment, add_outcome)
-    - All buffer lookups return immutable UnifiedJudgment/OutcomeOutcome objects
+    - All buffer lookups return immutable UnifiedJudgment/UnifiedLearningOutcome objects
 
     Attributes:
         recent_judgments: JudgmentBuffer tracking last 89 judgments
@@ -249,6 +257,14 @@ class UnifiedConsciousState:
     learning_outcomes: OutcomeBuffer = field(default_factory=OutcomeBuffer)
     total_judgments: int = 0
     dog_agreement_scores: Dict[int, float] = field(default_factory=dict)
+
+    def __post_init__(self):
+        """Validate dog_agreement_scores bounds [0, 1]."""
+        for dog_id, score in self.dog_agreement_scores.items():
+            if not (0.0 <= score <= 1.0):
+                raise ValueError(
+                    f"Dog {dog_id} agreement score must be in [0, 1], got {score}"
+                )
 
     def add_judgment(self, judgment: UnifiedJudgment) -> None:
         """
