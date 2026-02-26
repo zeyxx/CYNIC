@@ -14,6 +14,7 @@ from cynic.observability.cli.views import (
     render_machine_view,
 )
 from cynic.observability.symbiotic_state_manager import get_current_state
+from cynic.cli.dialogue_mode import DialogueMode
 
 
 class CliApp:
@@ -109,9 +110,7 @@ class CliApp:
 
         elif choice == '6':
             # TALK
-            print("\n💬 TALK - Chat")
-            print("-" * 40)
-            print("[Feature not yet implemented]")
+            await self.handle_talk_option()
 
         elif choice == '7':
             # HISTORY
@@ -145,6 +144,75 @@ class CliApp:
         state = await get_current_state()
         view = render_observe_view(state)
         print(view)
+
+    async def handle_talk_option(self) -> None:
+        """Enter interactive dialogue mode with CYNIC.
+
+        Starts a conversation session where the user can ask questions,
+        provide feedback, and explore CYNIC's reasoning in real-time.
+        """
+        print("\n💬 TALK - Interactive Dialogue")
+        print("-" * 60)
+
+        dialogue_mode = DialogueMode()
+
+        try:
+            # Initialize dialogue mode
+            await dialogue_mode.initialize()
+
+            # Show greeting
+            greeting = await dialogue_mode.get_greeting()
+            print(f"\n{greeting}\n")
+
+            # Main dialogue loop
+            while True:
+                try:
+                    user_input = input("You: ").strip()
+                except EOFError:
+                    # Handle end of input gracefully
+                    break
+
+                # Check for exit commands
+                if not user_input:
+                    continue
+                if user_input.lower() in ["back", "exit", "quit", "bye"]:
+                    print("\nCYNIC: Until next time! *wags tail*")
+                    break
+
+                # Process message and get response
+                print("\nCYNIC: Thinking...")
+                try:
+                    response = await dialogue_mode.process_message(user_input)
+                    print(f"CYNIC: {response}\n")
+                except Exception as e:
+                    print(f"Error generating response: {e}\n")
+                    continue
+
+        except KeyboardInterrupt:
+            print("\n\nInterrupted. Returning to menu...")
+        except Exception as e:
+            print(f"Error in dialogue mode: {e}")
+        finally:
+            await dialogue_mode.close()
+
+    async def show_history(self) -> None:
+        """Show conversation history.
+
+        Displays past conversations with CYNIC, organized by timestamp.
+        """
+        print("\n📊 HISTORY - Past Conversations")
+        print("-" * 60)
+        print("[Feature implementation in progress]")
+
+    async def show_feedback(self) -> None:
+        """Show feedback management interface.
+
+        Allows users to review learning metrics, manage Q-Table entries,
+        and provide corrective feedback.
+        """
+        print("\n🎛️  FEEDBACK - Learning Management")
+        print("-" * 60)
+        print("[Feature implementation in progress]")
 
     async def run(self) -> None:
         """Main CLI loop.
