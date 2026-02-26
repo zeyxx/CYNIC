@@ -203,16 +203,21 @@ async def observe_cynic(aspect: str = "consciousness", detailed: bool = False) -
 
         # Get organism snapshot based on aspect
         if aspect == "consciousness":
-            snapshot = organism.get_conscious_snapshot()
+            # Get state from available properties
+            snapshot = f"uptime={organism.uptime_s:.1f}s, dogs={len(organism.dogs)}"
             observation = f"Consciousness state: {snapshot}"
         elif aspect == "learning":
-            snapshot = organism.get_learning_metrics()
+            # Get Q-table stats from learning loop
+            qtable = organism.qtable
+            q_entries = len(qtable.table) if hasattr(qtable, "table") else 0
+            snapshot = f"q_entries={q_entries}"
             observation = f"Learning metrics: {snapshot}"
         elif aspect == "health":
-            snapshot = organism.get_health_status()
+            # Return basic health indicators without calling non-existent methods
+            snapshot = f"status=online, uptime={organism.uptime_s:.1f}s, dogs_active={len(organism.dogs)}"
             observation = f"Organism health: {snapshot}"
         else:
-            snapshot = organism.get_full_snapshot()
+            snapshot = f"uptime={organism.uptime_s:.1f}s, dogs={len(organism.dogs)}"
             observation = f"Full organism snapshot: {snapshot}"
 
         logger.info(f"CYNIC observation complete")
@@ -235,11 +240,17 @@ async def get_cynic_status() -> dict:
         from cynic.core.consciousness import get_consciousness
 
         organism = get_consciousness()
-        health = organism.get_health_status()
+        # Return basic health indicators using available properties
+        health_data = {
+            "uptime_seconds": organism.uptime_s,
+            "dogs_active": len(organism.dogs),
+            "has_orchestrator": organism.orchestrator is not None,
+            "has_learning": organism.learning_loop is not None
+        }
 
         return {
             "status": "online",
-            "data": str(health)
+            "data": health_data
         }
 
     except Exception as e:

@@ -546,10 +546,24 @@ async def check_voting_status():
 async def on_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
     """Handle command errors"""
     logger.error(f"Command error: {error}")
-    await interaction.response.send_message(
-        format_error(f"An error occurred: {error}"),
-        ephemeral=True
-    )
+    try:
+        # Check if interaction was already responded to
+        if not interaction.response.is_done():
+            await interaction.response.send_message(
+                format_error(f"An error occurred: {error}"),
+                ephemeral=True
+            )
+        else:
+            # Use followup if already deferred/responded
+            await interaction.followup.send(
+                format_error(f"An error occurred: {error}"),
+                ephemeral=True
+            )
+    except discord.errors.NotFound:
+        # Interaction no longer valid (expired)
+        logger.warning(f"Could not send error response: interaction expired")
+    except Exception as e:
+        logger.error(f"Error sending error response: {e}", exc_info=True)
 
 
 # ============================================================================
