@@ -2,6 +2,7 @@
 Discord message formatting helpers
 """
 
+import discord
 from datetime import datetime, timedelta
 from models import Proposal, Vote, Community
 from database import count_votes
@@ -263,3 +264,78 @@ def format_help() -> str:
 For more help: /help <command>
 """
     return text.strip()
+
+
+def build_proposal_embed(proposal) -> discord.Embed:
+    """Build a rich Discord embed for a proposal with vote counts and CYNIC verdict"""
+    VERDICT_COLORS = {
+        "HOWL": 0x00FF7F, "WAG": 0xFFD700,
+        "GROWL": 0xFF8C00, "BARK": 0xFF4500,
+    }
+    STATUS_COLORS = {
+        "ACTIVE": 0x3498db, "CLOSED": 0x95a5a6,
+        "APPROVED": 0x2ecc71, "REJECTED": 0xe74c3c,
+    }
+    color = (VERDICT_COLORS.get(proposal.judgment_verdict)
+             or STATUS_COLORS.get(proposal.voting_status, 0x3498db))
+
+    embed = discord.Embed(
+        title=proposal.title,
+        description=proposal.description[:500] + ("..." if len(proposal.description) > 500 else ""),
+        color=color
+    )
+    embed.add_field(name="Category", value=proposal.category or "General", inline=True)
+    embed.add_field(name="Impact", value=proposal.impact_level or "MEDIUM", inline=True)
+    embed.add_field(name="Status", value=proposal.voting_status, inline=True)
+
+    if proposal.judgment_verdict:
+        VERDICT_LABELS = {
+            "HOWL": "HOWL — Highly Recommended",
+            "WAG": "WAG — Lean Approve",
+            "GROWL": "GROWL — Lean Reject",
+            "BARK": "BARK — Not Recommended",
+        }
+        q = proposal.judgment_q_score or 0.0
+        embed.add_field(
+            name="CYNIC Verdict",
+            value=f"{VERDICT_LABELS.get(proposal.judgment_verdict, proposal.judgment_verdict)}\nQ-Score: **{q:.1f}/100**",
+            inline=False
+        )
+    else:
+        embed.add_field(name="CYNIC Verdict", value="Pending...", inline=False)
+
+    yes = proposal.yes_votes or 0
+    no = proposal.no_votes or 0
+    abstain = proposal.abstain_votes or 0
+    total = yes + no + abstain
+    if total > 0:
+        yes_pct = (yes / total) * 100
+        no_pct = (no / total) * 100
+        bar = _build_vote_bar(yes_pct, no_pct)
+        vote_value = f"YES {yes:.0f} ({yes_pct:.0f}%) | NO {no:.0f} ({no_pct:.0f}%) | ABSTAIN {abstain:.0f}\n{bar}"
+    else:
+        vote_value = "No votes yet"
+    embed.add_field(name="Current Votes", value=vote_value, inline=False)
+
+    if proposal.voting_end_time:
+        remaining = proposal.voting_end_time - datetime.utcnow()
+        if remaining.total_seconds() > 0:
+            h = int(remaining.total_seconds() // 3600)
+            m = int((remaining.total_seconds() % 3600) // 60)
+            time_str = f"{h}h {m}m remaining"
+        else:
+            time_str = "Voting closed"
+        embed.set_footer(text=f"ID: {proposal.proposal_id} | {time_str}")
+    else:
+        embed.set_footer(text=f"ID: {proposal.proposal_id}")
+
+    return embed
+
+
+def _build_vote_bar(yes_pct: float, no_pct: float) -> str:
+    """Build a text progress bar showing YES/NO vote distribution"""
+    bar_width = 20
+    yes_blocks = round((yes_pct / 100) * bar_width)
+    no_blocks = round((no_pct / 100) * bar_width)
+    remaining = bar_width - yes_blocks - no_blocks
+    return f"[{'|' * yes_blocks}{'.' * no_blocks}{' ' * remaining}]"

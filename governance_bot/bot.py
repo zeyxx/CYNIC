@@ -24,8 +24,10 @@ from database import (
 from cynic_integration import ask_cynic, learn_cynic, observe_cynic, get_cynic_status
 from formatting import (
     format_proposal_embed, format_voting_status, format_cynic_verdict,
-    format_proposal_created, format_vote_recorded, format_error, format_help
+    format_proposal_created, format_vote_recorded, format_error, format_help,
+    build_proposal_embed
 )
+from views import ProposalModal, VotingView, ProposalListView
 
 # Setup logging
 logging.basicConfig(
@@ -55,6 +57,16 @@ async def on_ready():
         logger.error(f"Failed to sync slash commands: {e}")
 
     await init_db()
+
+    # Register persistent views for active proposals
+    async with session_context() as session:
+        for guild in bot.guilds:
+            community_id = f"discord_{guild.id}"
+            active = await list_proposals(session, community_id, status="ACTIVE")
+            for proposal in active:
+                bot.add_view(VotingView(proposal_id=proposal.proposal_id))
+                logger.info(f"Registered persistent view: {proposal.proposal_id}")
+
     check_voting_status.start()
 
 
@@ -66,73 +78,9 @@ async def on_ready():
     name="propose",
     description="Submit a new governance proposal"
 )
-async def cmd_propose(
-    interaction: discord.Interaction,
-    title: str,
-    description: str,
-    category: str = "COMMUNITY_DECISION",
-    impact_level: str = "MEDIUM"
-):
-    """Submit a new proposal"""
-    await interaction.response.defer(thinking=True)
-
-    try:
-        async with session_context() as session:
-            # Get community
-            community_id = f"discord_{interaction.guild.id}"
-            community = await get_community(session, community_id)
-
-            if not community:
-                # Create community if doesn't exist
-                community = await create_community(session, {
-                    "community_id": community_id,
-                    "platform": "discord",
-                    "community_name": interaction.guild.name or "Unknown"
-                })
-
-            # Create proposal
-            proposal_id = f"prop_{datetime.utcnow().strftime('%Y%m%d')}_{str(uuid.uuid4())[:8]}"
-            now = datetime.utcnow()
-
-            proposal = await create_proposal(session, {
-                "proposal_id": proposal_id,
-                "community_id": community_id,
-                "proposer_id": str(interaction.user.id),
-                "title": title,
-                "description": description,
-                "category": category,
-                "impact_level": impact_level,
-                "voting_start_time": now,
-                "voting_end_time": now + timedelta(hours=community.voting_period_hours),
-                "voting_status": "PENDING"
-            })
-
-            # Ask CYNIC for judgment
-            if CYNIC_MCP_ENABLED:
-                judgment = await ask_cynic(
-                    question=title,
-                    context=description,
-                    reality="GOVERNANCE"
-                )
-
-                if judgment.get("verdict") != "PENDING":
-                    await update_proposal_judgment(session, proposal_id, judgment)
-                    proposal.judgment_verdict = judgment.get("verdict")
-                    proposal.judgment_q_score = judgment.get("q_score")
-
-            # Format response
-            response = format_proposal_created(
-                proposal_id,
-                proposal.judgment_verdict or "PENDING",
-                proposal.judgment_q_score or 0.0
-            )
-
-            await interaction.followup.send(response)
-            logger.info(f"Proposal created: {proposal_id}")
-
-    except Exception as e:
-        logger.error(f"Error creating proposal: {e}", exc_info=True)
-        await interaction.followup.send(format_error(str(e)))
+async def cmd_propose(interaction: discord.Interaction):
+    """Submit a new proposal via modal"""
+    await interaction.response.send_modal(ProposalModal())
 
 
 @bot.tree.command(
@@ -143,7 +91,7 @@ async def cmd_proposal_details(
     interaction: discord.Interaction,
     proposal_id: str
 ):
-    """View proposal details"""
+    """View proposal details with voting"""
     await interaction.response.defer(thinking=True)
 
     try:
@@ -154,15 +102,8 @@ async def cmd_proposal_details(
                 await interaction.followup.send(format_error(f"Proposal {proposal_id} not found"))
                 return
 
-            # Create embed
-            embed = await format_proposal_embed(proposal)
-            embed["fields"].append({
-                "name": "Full Description",
-                "value": proposal.description,
-                "inline": False
-            })
-
-            await interaction.followup.send(embed=discord.Embed.from_dict(embed))
+            embed = build_proposal_embed(proposal)
+            await interaction.followup.send(embed=embed, view=VotingView(proposal_id=proposal_id))
 
     except Exception as e:
         logger.error(f"Error fetching proposal: {e}")
@@ -177,27 +118,20 @@ async def cmd_proposals(
     interaction: discord.Interaction,
     status: str = "ACTIVE"
 ):
-    """List proposals"""
+    """List proposals with pagination"""
     await interaction.response.defer(thinking=True)
 
     try:
         async with session_context() as session:
             community_id = f"discord_{interaction.guild.id}"
-
             proposals = await list_proposals(session, community_id, status)
 
             if not proposals:
                 await interaction.followup.send(f"No {status} proposals found.")
                 return
 
-            # Format as list
-            text = f"📋 **{status} PROPOSALS**\n\n"
-            for prop in proposals[:10]:  # Limit to 10
-                text += f"• **{prop.title}**\n"
-                text += f"  ID: `{prop.proposal_id}`\n"
-                text += f"  Verdict: {prop.judgment_verdict or 'Pending'}\n\n"
-
-            await interaction.followup.send(text)
+            list_view = ProposalListView(proposals=proposals, community_id=community_id)
+            await interaction.followup.send(embed=list_view._build_list_embed(), view=list_view)
 
     except Exception as e:
         logger.error(f"Error listing proposals: {e}")
@@ -205,56 +139,8 @@ async def cmd_proposals(
 
 
 # ============================================================================
-# VOTING COMMANDS
+# VOTING COMMANDS (voting via buttons only — slash command /vote removed)
 # ============================================================================
-
-@bot.tree.command(
-    name="vote",
-    description="Cast your vote on a proposal"
-)
-async def cmd_vote(
-    interaction: discord.Interaction,
-    proposal_id: str,
-    vote: str,
-    reasoning: str = ""
-):
-    """Cast a vote"""
-    await interaction.response.defer(thinking=True)
-
-    try:
-        if vote.upper() not in ["YES", "NO", "ABSTAIN"]:
-            await interaction.followup.send(format_error("Vote must be YES, NO, or ABSTAIN"))
-            return
-
-        async with session_context() as session:
-            # Check if voting is active
-            if not await is_voting_active(session, proposal_id):
-                await interaction.followup.send(format_error("Voting is not active for this proposal"))
-                return
-
-            # Record vote
-            vote_id = f"vote_{proposal_id}_{interaction.user.id}"
-            await create_vote(session, {
-                "vote_id": vote_id,
-                "proposal_id": proposal_id,
-                "voter_id": str(interaction.user.id),
-                "vote": vote.upper(),
-                "vote_weight": 1.0,  # TODO: Use real token balance
-                "reasoning": reasoning
-            })
-
-            # Update vote counts
-            await update_vote_counts(session, proposal_id)
-
-            # Response
-            response = format_vote_recorded(str(interaction.user.id), proposal_id, vote.upper())
-            await interaction.followup.send(response)
-            logger.info(f"Vote recorded: {vote_id}")
-
-    except Exception as e:
-        logger.error(f"Error recording vote: {e}")
-        await interaction.followup.send(format_error(str(e)))
-
 
 @bot.tree.command(
     name="voting_status",
