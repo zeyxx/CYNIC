@@ -256,6 +256,33 @@ class NearSettings(BaseSettings):
         extra = "ignore"
 
 
+class AuthSettings(BaseSettings):
+    """Authentication and authorization settings"""
+
+    jwt_secret: str = Field(
+        default="",
+        description="JWT secret key for signing tokens"
+    )
+    jwt_algorithm: str = Field(
+        default="HS256",
+        description="JWT algorithm for token signing"
+    )
+    jwt_expiry_hours: int = Field(
+        default=24,
+        description="JWT token expiry time in hours",
+        ge=1,
+        le=720
+    )
+    enable_auth: bool = Field(
+        default=False,
+        description="Enable JWT authentication"
+    )
+
+    class Config:
+        env_prefix = "AUTH_"
+        extra = "ignore"
+
+
 class Config(BaseSettings):
     """
     Master Configuration Class
@@ -283,6 +310,7 @@ class Config(BaseSettings):
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     bot: BotSettings = Field(default_factory=BotSettings)
     near: NearSettings = Field(default_factory=NearSettings)
+    auth: AuthSettings = Field(default_factory=AuthSettings)
 
     class Config:
         env_file = ".env"
