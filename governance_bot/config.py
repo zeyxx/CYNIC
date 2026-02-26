@@ -227,6 +227,35 @@ class BotSettings(BaseSettings):
         env_prefix = "BOT_"
 
 
+class NearSettings(BaseSettings):
+    """NEAR blockchain settings"""
+
+    account_id: str = Field(
+        default="",
+        description="NEAR account ID (e.g., governance.testnet)"
+    )
+    network: str = Field(
+        default="testnet",
+        description="NEAR network (testnet or mainnet)"
+    )
+    rpc_url: str = Field(
+        default="https://rpc.testnet.near.org",
+        description="NEAR RPC endpoint"
+    )
+    contract_id: str = Field(
+        default="",
+        description="Governance contract ID"
+    )
+    private_key: str = Field(
+        default="",
+        description="ed25519 private key (base64 encoded)"
+    )
+
+    class Config:
+        env_prefix = "NEAR_"
+        extra = "ignore"
+
+
 class Config(BaseSettings):
     """
     Master Configuration Class
@@ -253,6 +282,7 @@ class Config(BaseSettings):
     features: Features = Field(default_factory=Features)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     bot: BotSettings = Field(default_factory=BotSettings)
+    near: NearSettings = Field(default_factory=NearSettings)
 
     class Config:
         env_file = ".env"
@@ -298,6 +328,20 @@ class Config(BaseSettings):
             raise ValueError(error_msg)
 
         return {"status": "VALID", "issues": 0}
+
+    def validate_near_config(self) -> bool:
+        """Validate NEAR configuration if contract is enabled"""
+        if not self.features.near_execution_enabled:
+            return True
+
+        if not self.near.account_id:
+            raise ValueError("NEAR_ACCOUNT_ID required when NEAR execution enabled")
+        if not self.near.private_key:
+            raise ValueError("NEAR_PRIVATE_KEY required when NEAR execution enabled")
+        if not self.near.contract_id:
+            raise ValueError("NEAR_CONTRACT_ID required when NEAR execution enabled")
+
+        return True
 
     def get_environment_info(self) -> dict:
         """Get current environment configuration"""
