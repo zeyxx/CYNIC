@@ -17,45 +17,69 @@ sys.path.insert(0, str(cynic_path))
 async def ask_cynic(question: str, context: str = "", reality: str = "GOVERNANCE") -> dict:
     """
     Ask CYNIC a governance question and get judgment.
+    Calls CYNIC directly through Python API.
 
     Returns:
         {
             "verdict": "HOWL" | "WAG" | "GROWL" | "BARK",
             "q_score": float,
             "confidence": float,
-            "dogs_voting": {...},
-            "reasoning": str,
-            "estimated_outcome": str
+            "dog_reasoning": {...},
+            "verdict_explanation": str,
+            "judgment_id": str
         }
     """
     try:
-        from cynic.mcp.claude_code_bridge import call_tool
-
         logger.info(f"Asking CYNIC: {question[:100]}...")
 
-        result = await call_tool("ask_cynic", {
-            "question": question,
-            "context": context,
-            "reality": reality
-        })
+        # Call CYNIC directly through Python API
+        from cynic.core.consciousness import get_consciousness
+        from cynic.orchestration.judgment import JudgmentRequest, JudgmentType
 
-        if result and len(result) > 0:
-            judgment_text = result[0].text
+        organism = get_consciousness()
 
-            # Parse judgment response
-            judgment_data = parse_judgment_response(judgment_text)
-            logger.info(f"CYNIC response: {judgment_data.get('verdict')} (Q-Score: {judgment_data.get('q_score')})")
+        # Create judgment request
+        judgment_request = JudgmentRequest(
+            query=question,
+            query_context=context,
+            judgment_type=JudgmentType.REFLEX,
+            metadata={"reality": reality, "source": "governance_bot"}
+        )
 
+        # Get judgment from organism
+        judgment = await organism.judge(judgment_request)
+
+        if judgment:
+            judgment_data = {
+                "verdict": judgment.verdict,
+                "q_score": judgment.q_score,
+                "confidence": judgment.confidence,
+                "judgment_id": judgment.judgment_id,
+                "dog_reasoning": judgment.dog_reasoning or {},
+                "verdict_explanation": judgment.verdict_explanation or "",
+                "consensus_reason": judgment.consensus_reason or "",
+                "axiom_scores": dict(judgment.axiom_scores) if judgment.axiom_scores else {},
+            }
+
+            logger.info(f"CYNIC response: {judgment_data.get('verdict')} (Q={judgment_data.get('q_score'):.1f})")
             return judgment_data
         else:
-            logger.error("No response from CYNIC")
+            logger.error("No judgment returned from CYNIC")
             return {
                 "verdict": "PENDING",
                 "q_score": 0.0,
                 "confidence": 0.0,
-                "error": "No response from CYNIC"
+                "error": "No judgment returned"
             }
 
+    except asyncio.TimeoutError:
+        logger.error("CYNIC request timed out")
+        return {
+            "verdict": "PENDING",
+            "q_score": 0.0,
+            "confidence": 0.0,
+            "error": "CYNIC request timed out"
+        }
     except Exception as e:
         logger.error(f"Error calling ask_cynic: {e}", exc_info=True)
         return {
@@ -91,32 +115,31 @@ async def learn_cynic(
         }
     """
     try:
-        from cynic.mcp.claude_code_bridge import call_tool
-
         logger.info(f"Teaching CYNIC from judgment {judgment_id}...")
 
-        result = await call_tool("learn_cynic", {
-            "judgment_id": judgment_id,
-            "outcome": outcome,
-            "actual_metrics": actual_metrics or {},
-            "feedback_rating": feedback_rating,
-            "comment": comment
-        })
+        from cynic.core.consciousness import get_consciousness
+        from cynic.learning.qlearning import LearningSignal
 
-        if result and len(result) > 0:
-            logger.info(f"CYNIC learning completed")
-            return {
-                "learning_status": "completed",
-                "q_table_updated": True,
-                "message": result[0].text
-            }
-        else:
-            logger.warning("No confirmation from CYNIC learning")
-            return {
-                "learning_status": "pending",
-                "q_table_updated": False,
-                "message": "Learning queued for later processing"
-            }
+        organism = get_consciousness()
+
+        # Create learning signal from outcome
+        learning_signal = LearningSignal(
+            judgment_id=judgment_id,
+            outcome=outcome,
+            actual_metrics=actual_metrics or {},
+            feedback_rating=feedback_rating,
+            comment=comment
+        )
+
+        # Feed learning signal to organism
+        await organism.learn(learning_signal)
+
+        logger.info(f"CYNIC learning completed for judgment {judgment_id}")
+        return {
+            "learning_status": "completed",
+            "q_table_updated": True,
+            "message": f"Judgment {judgment_id} integrated into learning system"
+        }
 
     except Exception as e:
         logger.error(f"Error calling learn_cynic: {e}", exc_info=True)
@@ -139,27 +162,31 @@ async def observe_cynic(aspect: str = "consciousness", detailed: bool = False) -
         Organism state snapshot
     """
     try:
-        from cynic.mcp.claude_code_bridge import call_tool
-
         logger.info(f"Observing CYNIC {aspect}...")
 
-        result = await call_tool("observe_cynic", {
-            "aspect": aspect,
-            "detailed": detailed
-        })
+        from cynic.core.consciousness import get_consciousness
 
-        if result and len(result) > 0:
-            logger.info(f"CYNIC observation complete")
-            return {
-                "status": "success",
-                "observation": result[0].text
-            }
+        organism = get_consciousness()
+
+        # Get organism snapshot based on aspect
+        if aspect == "consciousness":
+            snapshot = organism.get_conscious_snapshot()
+            observation = f"Consciousness state: {snapshot}"
+        elif aspect == "learning":
+            snapshot = organism.get_learning_metrics()
+            observation = f"Learning metrics: {snapshot}"
+        elif aspect == "health":
+            snapshot = organism.get_health_status()
+            observation = f"Organism health: {snapshot}"
         else:
-            logger.warning("No observation from CYNIC")
-            return {
-                "status": "no_data",
-                "observation": "CYNIC not responding to observation request"
-            }
+            snapshot = organism.get_full_snapshot()
+            observation = f"Full organism snapshot: {snapshot}"
+
+        logger.info(f"CYNIC observation complete")
+        return {
+            "status": "success",
+            "observation": observation
+        }
 
     except Exception as e:
         logger.error(f"Error calling observe_cynic: {e}", exc_info=True)
@@ -172,20 +199,15 @@ async def observe_cynic(aspect: str = "consciousness", detailed: bool = False) -
 async def get_cynic_status() -> dict:
     """Get CYNIC kernel health status."""
     try:
-        from cynic.mcp.claude_code_bridge import call_tool
+        from cynic.core.consciousness import get_consciousness
 
-        result = await call_tool("cynic_status", {})
+        organism = get_consciousness()
+        health = organism.get_health_status()
 
-        if result and len(result) > 0:
-            return {
-                "status": "online",
-                "data": result[0].text
-            }
-        else:
-            return {
-                "status": "offline",
-                "error": "No response from CYNIC"
-            }
+        return {
+            "status": "online",
+            "data": str(health)
+        }
 
     except Exception as e:
         logger.error(f"Error getting CYNIC status: {e}")

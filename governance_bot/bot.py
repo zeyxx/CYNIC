@@ -46,6 +46,14 @@ bot = commands.Bot(command_prefix=DISCORD_PREFIX, intents=intents)
 async def on_ready():
     """Bot ready event"""
     logger.info(f"Bot logged in as {bot.user}")
+
+    # Sync slash commands with Discord
+    try:
+        synced = await bot.tree.sync()
+        logger.info(f"Synced {len(synced)} slash commands to Discord")
+    except Exception as e:
+        logger.error(f"Failed to sync slash commands: {e}")
+
     await init_db()
     check_voting_status.start()
 
