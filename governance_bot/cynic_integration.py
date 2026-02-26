@@ -199,25 +199,31 @@ async def observe_cynic(aspect: str = "consciousness", detailed: bool = False) -
 
         from cynic.core.consciousness import get_consciousness
 
-        organism = get_consciousness()
+        consciousness = get_consciousness()
 
-        # Get organism snapshot based on aspect
+        # Get state snapshot using available properties
+        state_dict = consciousness.to_dict() if hasattr(consciousness, 'to_dict') else {}
+
+        # Build observation based on aspect
         if aspect == "consciousness":
-            # Get state from available properties
-            snapshot = f"uptime={organism.uptime_s:.1f}s, dogs={len(organism.dogs)}"
+            level = state_dict.get("active_level", "UNKNOWN")
+            cycles = state_dict.get("cycles", {}).get("total", 0)
+            snapshot = f"level={level}, total_cycles={cycles}"
             observation = f"Consciousness state: {snapshot}"
         elif aspect == "learning":
-            # Get Q-table stats from learning loop
-            qtable = organism.qtable
-            q_entries = len(qtable.table) if hasattr(qtable, "table") else 0
-            snapshot = f"q_entries={q_entries}"
+            cycles = state_dict.get("cycles", {})
+            macro_cycles = cycles.get("MACRO", 0)
+            snapshot = f"macro_cycles={macro_cycles} (judgments completed)"
             observation = f"Learning metrics: {snapshot}"
         elif aspect == "health":
-            # Return basic health indicators without calling non-existent methods
-            snapshot = f"status=online, uptime={organism.uptime_s:.1f}s, dogs_active={len(organism.dogs)}"
+            level = state_dict.get("active_level", "UNKNOWN")
+            timers = state_dict.get("timers", {})
+            critical_count = sum(1 for t in timers.values() if isinstance(t, dict) and t.get("health") == "CRITICAL")
+            snapshot = f"status=online, level={level}, critical_timers={critical_count}"
             observation = f"Organism health: {snapshot}"
         else:
-            snapshot = f"uptime={organism.uptime_s:.1f}s, dogs={len(organism.dogs)}"
+            # Full snapshot
+            snapshot = str(state_dict)
             observation = f"Full organism snapshot: {snapshot}"
 
         logger.info(f"CYNIC observation complete")
@@ -239,18 +245,17 @@ async def get_cynic_status() -> dict:
     try:
         from cynic.core.consciousness import get_consciousness
 
-        organism = get_consciousness()
-        # Return basic health indicators using available properties
-        health_data = {
-            "uptime_seconds": organism.uptime_s,
-            "dogs_active": len(organism.dogs),
-            "has_orchestrator": organism.orchestrator is not None,
-            "has_learning": organism.learning_loop is not None
-        }
+        consciousness = get_consciousness()
+        # Get available state snapshot
+        state_dict = consciousness.to_dict() if hasattr(consciousness, 'to_dict') else {}
 
         return {
             "status": "online",
-            "data": health_data
+            "data": {
+                "active_level": state_dict.get("active_level", "UNKNOWN"),
+                "total_cycles": state_dict.get("cycles", {}).get("total", 0),
+                "gradient": state_dict.get("gradient", 0),
+            }
         }
 
     except Exception as e:
