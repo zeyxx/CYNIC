@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 from datetime import datetime
+from types import MappingProxyType
 
 
 @dataclass(frozen=True)
@@ -13,9 +14,16 @@ class UserMessage:
 
     message_type: str  # "question", "feedback", "exploration"
     content: str
-    user_confidence: float  # [0, 1]
+    user_confidence: float  # [0, 0.618] φ-bounded
     related_judgment_id: Optional[str] = None
     timestamp: float = field(default_factory=lambda: datetime.now().timestamp())
+
+    def __post_init__(self):
+        """Validate φ-bounded confidence."""
+        if not (0 <= self.user_confidence <= 0.618):
+            raise ValueError(
+                f"user_confidence must be φ-bounded [0, 0.618], got {self.user_confidence}"
+            )
 
     @property
     def is_user_message(self) -> bool:
@@ -33,6 +41,18 @@ class CynicMessage:
     axiom_scores: dict[str, float] = field(default_factory=dict)
     source_judgment_id: Optional[str] = None
     timestamp: float = field(default_factory=lambda: datetime.now().timestamp())
+
+    def __post_init__(self):
+        """Validate φ-bounded confidence and wrap axiom_scores in MappingProxyType."""
+        # Validate φ-bounded confidence
+        if not (0 <= self.confidence <= 0.618):
+            raise ValueError(
+                f"confidence must be φ-bounded [0, 0.618], got {self.confidence}"
+            )
+
+        # Wrap axiom_scores in MappingProxyType for true immutability
+        if self.axiom_scores and not isinstance(self.axiom_scores, MappingProxyType):
+            object.__setattr__(self, "axiom_scores", MappingProxyType(self.axiom_scores))
 
     @property
     def is_user_message(self) -> bool:
