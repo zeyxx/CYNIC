@@ -108,3 +108,84 @@ async def integration_environment():
     # Cleanup: stop background scheduler
     if hasattr(organism, 'learning_loop') and organism.learning_loop:
         organism.learning_loop.stop()
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# INTEGRATION TEST FIXTURES FOR GOVERNANCE BOT
+# ════════════════════════════════════════════════════════════════════════════
+
+
+@pytest.fixture
+def mock_discord_client():
+    """Mock Discord bot client for integration tests.
+
+    Provides a mock Discord client with essential attributes:
+    - user: Bot identity
+    - guilds: List of servers the bot is in
+    - get_channel: Method to retrieve channels
+    - http.token: Authentication token
+    """
+    from unittest.mock import MagicMock
+
+    client = AsyncMock()
+    client.user = MagicMock()
+    client.user.name = "TestBot"
+    client.guilds = []
+    client.get_channel = AsyncMock(return_value=MagicMock())
+    return client
+
+
+@pytest.fixture
+def mock_cynic_service():
+    """Mock CYNIC service for integration tests.
+
+    Provides a mock CYNIC service that returns:
+    - judge: Returns verdict, confidence, and reasoning
+    - learn: Records learning outcomes
+    """
+    service = AsyncMock()
+    service.judge = AsyncMock(return_value={
+        "verdict": "WAG",
+        "confidence": 0.5,
+        "reasoning": "Test judgment"
+    })
+    service.learn = AsyncMock(return_value={"success": True})
+    return service
+
+
+@pytest_asyncio.fixture
+async def test_bot(mock_discord_client):
+    """Integration test bot instance.
+
+    Creates a minimal Discord bot for testing command handlers
+    and bot-level functionality. Uses mock Discord client internally.
+    """
+    from discord.ext import commands
+    import discord
+
+    intents = discord.Intents.default()
+    bot = commands.Bot(command_prefix="!", intents=intents)
+    # Inject mock client
+    bot._connection = mock_discord_client
+    bot.http.token = "test_token"
+    return bot
+
+
+@pytest.fixture
+def mock_database():
+    """Mock database with transaction support.
+
+    Provides:
+    - db_mock: Database connection with session_context and health checks
+    - db_health: Separate health check module
+
+    Useful for testing database operations without real DB connections.
+    """
+    db_mock = AsyncMock()
+    db_mock.session_context = AsyncMock()
+    db_mock.verify_data_consistency = AsyncMock(return_value={"status": "healthy"})
+
+    db_health = AsyncMock()
+    db_health.check_health = AsyncMock(return_value={"status": "healthy"})
+
+    return db_mock, db_health
