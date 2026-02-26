@@ -43,6 +43,12 @@ from types import MappingProxyType
 
 from cynic.core.phi import fibonacci, PHI_INV, MAX_CONFIDENCE
 
+# Import TYPE_CHECKING to avoid circular imports
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from cynic.consensus.pbft_engine import PBFTEngine
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # IMMUTABLE DATACLASSES (frozen=True)
@@ -356,3 +362,33 @@ class UnifiedConsciousState:
         # Placeholder for Q-Table integration
         # In practice, would call: q_table.get_prediction_confidence(verdict)
         return 0.5
+
+    async def reach_consensus_judgment(self, judgments: list[UnifiedJudgment]) -> UnifiedJudgment:
+        """
+        Reach Byzantine consensus among Dogs using PBFT algorithm.
+
+        Uses PBFTEngine internally to aggregate judgments from multiple Dogs
+        into a unified consensus verdict.
+
+        Args:
+            judgments: List of UnifiedJudgment objects from Dogs
+
+        Returns:
+            UnifiedJudgment representing consensus verdict with aggregated:
+            - verdict: Consensus verdict (HOWL, WAG, GROWL, BARK)
+            - confidence: Average confidence of agreeing Dogs
+            - q_score: Average Q-score of agreeing Dogs
+            - dog_votes: Aggregated votes from consensual Dogs
+
+        Raises:
+            ValueError: If judgments list is empty
+        """
+        from cynic.consensus.pbft_engine import PBFTEngine
+
+        # Create PBFT engine with 11 Dogs (default)
+        engine = PBFTEngine(num_dogs=11)
+
+        # Reach consensus
+        consensus = await engine.reach_consensus(judgments)
+
+        return consensus
