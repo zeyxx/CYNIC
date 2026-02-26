@@ -1,0 +1,194 @@
+{
+  "timestamp": "2026-02-26T12:46:08.826378",
+  "instances": [
+    {
+      "instance_id": "INSTANCE_001",
+      "community_id": "discord_community_a",
+      "judgments": [
+        {
+          "proposal_id": "TEST_001",
+          "verdict": "WAG",
+          "q_score": 68.16856631541775,
+          "confidence": 0.6180339887498949,
+          "dog_votes": {
+            "ANALYST": 100.0,
+            "ARCHITECT": 0.0,
+            "CYNIC": 85.1799642079243,
+            "GUARDIAN": 100.0,
+            "JANITOR": 92.0,
+            "ORACLE": 50.0,
+            "SCHOLAR": 50.0
+          }
+        },
+        {
+          "proposal_id": "TEST_002",
+          "verdict": "WAG",
+          "q_score": 68.16856631541775,
+          "confidence": 0.6180339887498949,
+          "dog_votes": {
+            "ANALYST": 100.0,
+            "ARCHITECT": 0.0,
+            "CYNIC": 85.1799642079243,
+            "GUARDIAN": 100.0,
+            "JANITOR": 92.0,
+            "ORACLE": 50.0,
+            "SCHOLAR": 50.0
+          }
+        },
+        {
+          "proposal_id": "TEST_003",
+          "verdict": "WAG",
+          "q_score": 68.16856631541775,
+          "confidence": 0.6180339887498949,
+          "dog_votes": {
+            "ANALYST": 100.0,
+            "ARCHITECT": 0.0,
+            "CYNIC": 85.1799642079243,
+            "GUARDIAN": 100.0,
+            "JANITOR": 92.0,
+            "ORACLE": 50.0,
+            "SCHOLAR": 50.0
+          }
+        },
+        {
+          "proposal_id": "TEST_004",
+          "verdict": "WAG",
+          "q_score": 68.16856631541775,
+          "confidence": 0.6180339887498949,
+          "dog_votes": {
+            "ANALYST": 100.0,
+            "ARCHITECT": 0.0,
+            "CYNIC": 85.1799642079243,
+            "GUARDIAN": 100.0,
+            "JANITOR": 92.0,
+            "ORACLE": 50.0,
+            "SCHOLAR": 50.0
+          }
+        },
+        {
+          "proposal_id": "TEST_005",
+          "verdict": "WAG",
+          "q_score": 68.16856631541775,
+          "confidence": 0.6180339887498949,
+          "dog_votes": {
+            "ANALYST": 100.0,
+            "ARCHITECT": 0.0,
+            "CYNIC": 85.1799642079243,
+            "GUARDIAN": 100.0,
+            "JANITOR": 92.0,
+            "ORACLE": 50.0,
+            "SCHOLAR": 50.0
+          }
+        }
+      ],
+      "verdict_summary": {
+        "TEST_001": "WAG",
+        "TEST_002": "WAG",
+        "TEST_003": "WAG",
+        "TEST_004": "WAG",
+        "TEST_005": "WAG"
+      }
+    },
+    {
+      "instance_id": "INSTANCE_002",
+      "community_id": "discord_community_b",
+      "judgments": [
+        {
+          "proposal_id": "TEST_001",
+          "verdict": "WAG",
+          "q_score": 68.16856631541775,
+          "confidence": 0.6180339887498949,
+          "dog_votes": {
+            "ANALYST": 100.0,
+            "ARCHITECT": 0.0,
+            "CYNIC": 85.1799642079243,
+            "GUARDIAN": 100.0,
+            "JANITOR": 92.0,
+            "ORACLE": 50.0,
+            "SCHOLAR": 50.0
+          }
+        },
+        {
+          "proposal_id": "TEST_002",
+          "verdict": "WAG",
+          "q_score": 68.16856631541775,
+          "confidence": 0.6180339887498949,
+          "dog_votes": {
+            "ANALYST": 100.0,
+            "ARCHITECT": 0.0,
+            "CYNIC": 85.1799642079243,
+            "GUARDIAN": 100.0,
+            "JANITOR": 92.0,
+            "ORACLE": 50.0,
+            "SCHOLAR": 50.0
+          }
+        },
+        {
+          "proposal_id": "TEST_003",
+          "verdict": "WAG",
+          "q_score": 68.16856631541775,
+          "confidence": 0.6180339887498949,
+          "dog_votes": {
+            "ANALYST": 100.0,
+            "ARCHITECT": 0.0,
+            "CYNIC": 85.1799642079243,
+            "GUARDIAN": 100.0,
+            "JANITOR": 92.0,
+            "ORACLE": 50.0,
+            "SCHOLAR": 50.0
+          }
+        },
+        {
+          "proposal_id": "TEST_004",
+          "verdict": "WAG",
+          "q_score": 68.16856631541775,
+          "confidence": 0.6180339887498949,
+          "dog_votes": {
+            "ANALYST": 100.0,
+            "ARCHITECT": 0.0,
+            "CYNIC": 85.1799642079243,
+            "GUARDIAN": 100.0,
+            "JANITOR": 92.0,
+            "ORACLE": 50.0,
+            "SCHOLAR": 50.0
+          }
+        },
+        {
+          "proposal_id": "TEST_005",
+          "verdict": "WAG",
+          "q_score": 68.16856631541775,
+          "confidence": 0.6180339887498949,
+          "dog_votes": {
+            "ANALYST": 100.0,
+            "ARCHITECT": 0.0,
+            "CYNIC": 85.1799642079243,
+            "GUARDIAN": 100.0,
+            "JANITOR": 92.0,
+            "ORACLE": 50.0,
+            "SCHOLAR": 50.0
+          }
+        }
+      ],
+      "verdict_summary": {
+        "TEST_001": "WAG",
+        "TEST_002": "WAG",
+        "TEST_003": "WAG",
+        "TEST_004": "WAG",
+        "TEST_005": "WAG"
+      }
+    }
+  ],
+  "isolation_analysis": {
+    "verdict_matches": 5,
+    "verdict_differences": 0,
+    "avg_q_score_delta": 0.0,
+    "max_q_score_delta": 0.0,
+    "isolation_status": "ISOLATED"
+  },
+  "escore_check": {
+    "community_a_escore": 0.618,
+    "community_b_escore": 0.618,
+    "global_reputation_synced": true,
+    "last_sync": "2026-02-26T13:53:59.261205"
+  }
+}

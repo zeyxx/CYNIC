@@ -1,0 +1,4 @@
+2026-02-26 01:08:23,307 - discord.client - INFO - logging in using static token
+2026-02-26 01:08:24,093 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: e7a3f750b3429eb66417a85aa0d22ae8).
+2026-02-26 01:08:26,100 - __main__ - INFO - Bot logged in as CYNIC Governance Bot#4716
+2026-02-26 01:08:26,128 - database - INFO - Database initialized: sqlite+aiosqlite:///governance_bot_test.db

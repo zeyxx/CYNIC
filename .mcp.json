@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "cynic": {
+      "command": "python",
+      "args": ["-m", "cynic.mcp"],
+      "env": {
+        "PYTHONPATH": "/c/Users/zeyxm/Desktop/asdfasdfa/CYNIC-clean"
+      }
+    }
+  }
+}
