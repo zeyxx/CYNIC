@@ -1,0 +1,104 @@
+# =============================================================================
+# CYNIC Governance Bot - Kubernetes Service
+# =============================================================================
+# Service definitions for Kubernetes
+#
+# Deploy: kubectl apply -f kubernetes/service.yaml
+# Status: kubectl get svc -n cynic-governance
+# =============================================================================
+
+---
+# Internal Service for metrics and health checks
+apiVersion: v1
+kind: Service
+metadata:
+  name: governance-bot-metrics
+  namespace: cynic-governance
+  labels:
+    app: governance-bot
+spec:
+  type: ClusterIP
+  ports:
+    - name: metrics
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+  selector:
+    app: governance-bot
+
+---
+# Headless Service for StatefulSet (if needed)
+apiVersion: v1
+kind: Service
+metadata:
+  name: governance-bot-internal
+  namespace: cynic-governance
+  labels:
+    app: governance-bot
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: metrics
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+  selector:
+    app: governance-bot
+
+---
+# NetworkPolicy - restrict traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: governance-bot-netpol
+  namespace: cynic-governance
+spec:
+  podSelector:
+    matchLabels:
+      app: governance-bot
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from Prometheus
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+    # Allow from same namespace
+    - from:
+        - podSelector: {}
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+    # Allow to internet (Discord, CYNIC, etc.)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80
+
+---
+# ServiceMonitor for Prometheus (if using Prometheus Operator)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: governance-bot
+  namespace: cynic-governance
+spec:
+  selector:
+    matchLabels:
+      app: governance-bot
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics

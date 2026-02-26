@@ -138,7 +138,8 @@
       "Bash(taskkill:*)",
       "Bash(/tmp/scan_testclient.py:*)",
       "Bash(done)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(wc:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

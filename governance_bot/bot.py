@@ -20,9 +20,14 @@ from database import (
     create_proposal, get_proposal, list_proposals, update_proposal_status,
     update_proposal_judgment, create_vote, count_votes, update_vote_counts,
     is_voting_active, check_voting_closed, get_user_vote,
-    get_proposals_needing_outcome, create_learning_outcome, mark_outcome_determined, get_or_create_e_score
+    get_proposals_needing_outcome, create_learning_outcome, mark_outcome_determined, get_or_create_e_score,
+    db_health_check, backup_database, restore_database, verify_data_consistency, close_db
 )
 from cynic_integration import ask_cynic, learn_cynic, observe_cynic, get_cynic_status
+from error_handler import (
+    with_error_handling, cynic_circuit_breaker, handle_error,
+    log_error_to_discord, health_check, CYNICUnavailableError
+)
 from formatting import (
     format_proposal_embed, format_voting_status, format_cynic_verdict,
     format_proposal_created, format_vote_recorded, format_error, format_help,
@@ -107,18 +112,27 @@ async def _process_closed_proposal(proposal):
                         logger.error(f"Failed to post outcome embed: {e}")
                 break
 
-        # 5. Auto-learn with placeholder rating
+        # 5. Auto-learn with placeholder rating (with circuit breaker check)
         verdict = proposal.judgment_verdict or "PENDING"
         approved = proposal.approval_status == "APPROVED"
-        await learn_cynic(
-            judgment_id=proposal.judgment_id,
-            verdict=verdict,
-            approved=approved,
-            satisfaction=3.0,
-            comment="Auto-learning from proposal outcome"
-        )
 
-        logger.info(f"Processed closed proposal: {proposal.proposal_id}")
+        if cynic_circuit_breaker.is_available():
+            try:
+                await learn_cynic(
+                    judgment_id=proposal.judgment_id,
+                    verdict=verdict,
+                    approved=approved,
+                    satisfaction=3.0,
+                    comment="Auto-learning from proposal outcome"
+                )
+                cynic_circuit_breaker.record_success()
+                logger.info(f"Processed closed proposal: {proposal.proposal_id}")
+
+            except Exception as cynic_err:
+                logger.error(f"CYNIC auto-learning failed for {proposal.proposal_id}: {cynic_err}")
+                cynic_circuit_breaker.record_failure()
+        else:
+            logger.warning(f"CYNIC unavailable for {proposal.proposal_id}: {cynic_circuit_breaker.get_status()}")
 
     except Exception as e:
         logger.error(f"Error processing closed proposal {proposal.proposal_id}: {e}", exc_info=True)
@@ -136,6 +150,7 @@ bot = commands.Bot(command_prefix=DISCORD_PREFIX, intents=intents)
 async def on_ready():
     """Bot ready event"""
     logger.info(f"Bot logged in as {bot.user}")
+    logger.info(f"Circuit breaker initialized: {cynic_circuit_breaker.get_status()}")
 
     # Sync slash commands with Discord
     try:
@@ -161,6 +176,13 @@ async def on_ready():
             logger.info("Background task check_voting_status started")
     except Exception as e:
         logger.error(f"Failed to start background task: {e}", exc_info=True)
+
+    # Log health status
+    try:
+        health = await health_check(bot)
+        logger.info(f"Health check on ready: {health['bot_status']}, latency={health['discord_latency_ms']}ms")
+    except Exception as e:
+        logger.warning(f"Failed to get health status on startup: {e}")
 
 
 # ============================================================================
@@ -486,6 +508,91 @@ async def cmd_help(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
     help_text = format_help()
     await interaction.followup.send(help_text)
+
+
+@bot.tree.command(
+    name="health",
+    description="Check bot and CYNIC system health"
+)
+async def cmd_health(interaction: discord.Interaction):
+    """Get health status"""
+    await interaction.response.defer(thinking=True)
+
+    try:
+        health_status = await health_check(bot)
+
+        health_text = f"""
+🏥 **SYSTEM HEALTH CHECK**
+
+**Bot Status:** {health_status['bot_status']}
+**Discord Latency:** {health_status['discord_latency_ms']}ms
+**Circuit Breaker:** {health_status['circuit_breaker']}
+
+**Error Metrics:**
+• Total Errors: {health_status['error_metrics']['total_errors']}
+• Last Error: {health_status['error_metrics']['last_error']}
+
+**Timestamp:** {health_status['timestamp']}
+"""
+        await interaction.followup.send(health_text)
+
+    except Exception as e:
+        logger.error(f"Error checking health: {e}")
+        await interaction.followup.send(format_error(f"Health check failed: {e}"))
+
+
+@bot.tree.command(
+    name="database_status",
+    description="Check database health and consistency"
+)
+async def cmd_database_status(interaction: discord.Interaction):
+    """Check database health"""
+    await interaction.response.defer(thinking=True)
+
+    try:
+        # Database health
+        db_health = await db_health_check.check_health()
+
+        # Data consistency
+        consistency = await verify_data_consistency()
+
+        db_text = f"""
+💾 **DATABASE STATUS**
+
+**Health:** {db_health['status']}
+**Tables Found:** {db_health['tables_found']}
+**Connectivity:** {db_health['connectivity']}
+
+**Consistency Check:** {consistency['status']}
+• Issues Found: {consistency['issue_count']}
+
+**Last Check:** {db_health['timestamp']}
+"""
+        await interaction.followup.send(db_text)
+
+    except Exception as e:
+        logger.error(f"Error checking database status: {e}")
+        await interaction.followup.send(format_error(f"Database check failed: {e}"))
+
+
+@bot.tree.command(
+    name="database_backup",
+    description="Create manual database backup"
+)
+async def cmd_database_backup(interaction: discord.Interaction):
+    """Create database backup"""
+    await interaction.response.defer(thinking=True)
+
+    try:
+        backup_file = await backup_database()
+        if backup_file:
+            await interaction.followup.send(f"✅ Database backed up to `{backup_file}`")
+        else:
+            await interaction.followup.send("❌ Backup failed. Check logs for details.")
+
+    except Exception as e:
+        logger.error(f"Error creating backup: {e}")
+        await interaction.followup.send(format_error(f"Backup failed: {e}"))
 
 
 # ============================================================================

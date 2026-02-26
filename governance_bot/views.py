@@ -12,6 +12,7 @@ from database import (
     update_vote_counts, get_user_vote
 )
 from cynic_integration import ask_cynic, learn_cynic
+from error_handler import cynic_circuit_breaker, CYNICUnavailableError, handle_error
 from models import Community
 from formatting import build_proposal_embed
 from config import CYNIC_MCP_ENABLED
@@ -84,19 +85,38 @@ class ProposalModal(discord.ui.Modal, title="Submit Governance Proposal"):
                     "voting_status": "ACTIVE"
                 })
 
-                # Ask CYNIC for judgment
+                # Ask CYNIC for judgment (with circuit breaker check)
                 if CYNIC_MCP_ENABLED:
-                    judgment = await ask_cynic(
-                        question=str(self.proposal_title),
-                        context=str(self.description),
-                        reality="GOVERNANCE"
-                    )
+                    if not cynic_circuit_breaker.is_available():
+                        logger.warning(f"CYNIC unavailable (circuit breaker open): {cynic_circuit_breaker.get_status()}")
+                        await interaction.followup.send(
+                            "⚠️ CYNIC is temporarily unavailable. Proposal created but judgment deferred.",
+                            ephemeral=True
+                        )
+                    else:
+                        try:
+                            judgment = await ask_cynic(
+                                question=str(self.proposal_title),
+                                context=str(self.description),
+                                reality="GOVERNANCE"
+                            )
 
-                    if judgment.get("verdict") != "PENDING":
-                        from database import update_proposal_judgment
-                        await update_proposal_judgment(session, proposal_id, judgment)
-                        proposal.judgment_verdict = judgment.get("verdict")
-                        proposal.judgment_q_score = judgment.get("q_score")
+                            if judgment.get("verdict") != "PENDING":
+                                from database import update_proposal_judgment
+                                await update_proposal_judgment(session, proposal_id, judgment)
+                                proposal.judgment_verdict = judgment.get("verdict")
+                                proposal.judgment_q_score = judgment.get("q_score")
+
+                            # Record success
+                            cynic_circuit_breaker.record_success()
+
+                        except Exception as cynic_err:
+                            logger.error(f"CYNIC judgment failed: {cynic_err}")
+                            cynic_circuit_breaker.record_failure()
+                            await interaction.followup.send(
+                                "⚠️ CYNIC judgment failed. Continuing without verdict.",
+                                ephemeral=True
+                            )
 
                 # Build embed and send with voting buttons
                 embed = build_proposal_embed(proposal)
@@ -417,30 +437,43 @@ class OutcomeRatingView(discord.ui.View):
                 proposal.community_satisfaction_rating = float(stars)
                 await session.commit()
 
-                # Learn from outcome
+                # Learn from outcome (with circuit breaker check)
                 verdict = proposal.judgment_verdict or "PENDING"
                 approved = proposal.approval_status == "APPROVED"
                 comment = f"Community rated {stars}/5 stars"
 
-                result = await learn_cynic(
-                    judgment_id=proposal.judgment_id,
-                    verdict=verdict,
-                    approved=approved,
-                    satisfaction=float(stars),
-                    comment=comment
-                )
+                star_display = "☆" * stars
+                status_msg = ""
+
+                if cynic_circuit_breaker.is_available():
+                    try:
+                        result = await learn_cynic(
+                            judgment_id=proposal.judgment_id,
+                            verdict=verdict,
+                            approved=approved,
+                            satisfaction=float(stars),
+                            comment=comment
+                        )
+
+                        learning_status = result.get("learning_status", "skipped")
+                        status_msg = "CYNIC is learning from this outcome." if learning_status == "completed" else ""
+                        cynic_circuit_breaker.record_success()
+
+                        logger.info(f"Outcome rated: {self.proposal_id} = {stars}/5 stars, learning_status={learning_status}")
+
+                    except Exception as cynic_err:
+                        logger.error(f"CYNIC learning failed: {cynic_err}")
+                        cynic_circuit_breaker.record_failure()
+                        status_msg = "Rating saved, but CYNIC learning skipped."
+                else:
+                    logger.warning(f"CYNIC unavailable (circuit breaker open): {cynic_circuit_breaker.get_status()}")
+                    status_msg = "Rating saved, but CYNIC learning deferred (system unavailable)."
 
                 # Respond with confirmation
-                star_display = "☆" * stars
-                learning_status = result.get("learning_status", "skipped")
-                status_msg = "CYNIC is learning from this outcome." if learning_status == "completed" else ""
-
                 await interaction.response.send_message(
                     f"Rated {star_display} ({stars}/5) — {status_msg}",
                     ephemeral=True
                 )
-
-                logger.info(f"Outcome rated: {self.proposal_id} = {stars}/5 stars, learning_status={learning_status}")
 
         except Exception as e:
             logger.error(f"Error handling outcome rating: {e}", exc_info=True)

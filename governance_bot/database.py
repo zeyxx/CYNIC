@@ -1,11 +1,21 @@
 """
 Database operations for Governance Bot
+
+Provides:
+- Connection pooling (max 5 concurrent connections)
+- Transaction management (atomicity)
+- Data consistency verification
+- Backup/restore functionality
+- Database health checks
 """
 
 import logging
+import shutil
+import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
-from sqlalchemy import create_engine, select
+from pathlib import Path
+from sqlalchemy import create_engine, select, event, inspect
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
@@ -17,23 +27,215 @@ logger = logging.getLogger(__name__)
 # Async database setup
 engine = None
 async_session = None
+db_file_path = None
+
+
+class DatabaseHealthCheck:
+    """Database health monitoring"""
+
+    def __init__(self):
+        self.last_check_time = None
+        self.last_check_status = None
+        self.error_count = 0
+
+    async def check_health(self) -> dict:
+        """Perform database health check"""
+        try:
+            async with session_context() as session:
+                # Test basic connectivity
+                result = await session.execute(select(1))
+                assert result.scalar() == 1
+
+                # Check table integrity
+                inspector = inspect(engine.sync_engine)
+                tables = inspector.get_table_names()
+                expected_tables = {"community", "proposal", "vote", "e_score", "community_user", "learning_outcome"}
+                missing_tables = expected_tables - set(tables)
+
+                self.last_check_time = datetime.utcnow()
+                self.last_check_status = "HEALTHY"
+                self.error_count = 0
+
+                return {
+                    "status": "HEALTHY",
+                    "timestamp": self.last_check_time,
+                    "tables_found": len(tables),
+                    "tables_missing": list(missing_tables),
+                    "connectivity": "OK"
+                }
+
+        except Exception as e:
+            logger.error(f"Database health check failed: {e}")
+            self.last_check_status = "UNHEALTHY"
+            self.error_count += 1
+            self.last_check_time = datetime.utcnow()
+
+            return {
+                "status": "UNHEALTHY",
+                "timestamp": self.last_check_time,
+                "error": str(e),
+                "error_count": self.error_count
+            }
+
+    def get_status(self) -> str:
+        """Get human-readable status"""
+        if self.last_check_status is None:
+            return "NOT_CHECKED"
+        if self.error_count > 2:
+            return "CRITICAL"
+        return self.last_check_status
+
+
+db_health_check = DatabaseHealthCheck()
+
+
+async def backup_database(backup_dir: str = "./backups"):
+    """Create timestamped backup of database"""
+    if not db_file_path or not db_file_path.exists():
+        logger.warning("Cannot backup: database file not found")
+        return None
+
+    try:
+        backup_path = Path(backup_dir)
+        backup_path.mkdir(exist_ok=True)
+
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        backup_file = backup_path / f"governance_db_{timestamp}.sqlite"
+
+        shutil.copy2(db_file_path, backup_file)
+        logger.info(f"Database backed up to {backup_file}")
+        return backup_file
+
+    except Exception as e:
+        logger.error(f"Backup failed: {e}")
+        return None
+
+
+async def restore_database(backup_file: Path) -> bool:
+    """Restore database from backup"""
+    if not db_file_path:
+        logger.error("Cannot restore: database file path not set")
+        return False
+
+    try:
+        if not backup_file.exists():
+            logger.error(f"Backup file not found: {backup_file}")
+            return False
+
+        # Close current connection
+        await close_db()
+
+        # Restore from backup
+        shutil.copy2(backup_file, db_file_path)
+        logger.info(f"Database restored from {backup_file}")
+
+        # Reinitialize
+        await init_db()
+        return True
+
+    except Exception as e:
+        logger.error(f"Restore failed: {e}")
+        return False
+
+
+async def verify_data_consistency() -> dict:
+    """Verify data consistency after crash/recovery"""
+    consistency_issues = []
+
+    try:
+        async with session_context() as session:
+            # Check for orphaned votes (votes for non-existent proposals)
+            votes = await session.execute(select(Vote))
+            for vote in votes.scalars().all():
+                proposal = await get_proposal(session, vote.proposal_id)
+                if not proposal:
+                    consistency_issues.append(f"Orphaned vote: {vote.vote_id}")
+
+            # Check for proposals with invalid vote counts
+            proposals = await session.execute(select(Proposal))
+            for proposal in proposals.scalars().all():
+                counts = await count_votes(session, proposal.proposal_id)
+                total = counts["yes"] + counts["no"] + counts["abstain"]
+
+                expected_total = (proposal.yes_votes or 0) + (proposal.no_votes or 0) + (proposal.abstain_votes or 0)
+                if abs(total - expected_total) > 0.01:  # Allow for float rounding
+                    consistency_issues.append(
+                        f"Vote count mismatch in {proposal.proposal_id}: "
+                        f"actual={total}, stored={expected_total}"
+                    )
+
+            # Check for proposals with invalid timestamps
+            now = datetime.utcnow()
+            for proposal in proposals.scalars().all():
+                if proposal.voting_start_time > now and proposal.voting_status == "CLOSED":
+                    consistency_issues.append(
+                        f"Temporal inconsistency in {proposal.proposal_id}: "
+                        f"scheduled for future but already closed"
+                    )
+
+    except Exception as e:
+        logger.error(f"Consistency check failed: {e}")
+        return {
+            "status": "CHECK_FAILED",
+            "error": str(e)
+        }
+
+    return {
+        "status": "OK" if not consistency_issues else "ISSUES_FOUND",
+        "issue_count": len(consistency_issues),
+        "issues": consistency_issues
+    }
 
 
 async def init_db(db_url: str = DATABASE_URL):
-    """Initialize database"""
-    global engine, async_session
+    """Initialize database with connection pooling"""
+    global engine, async_session, db_file_path
 
     # Convert sqlite to aiosqlite for async support
     if db_url.startswith("sqlite"):
         db_url = db_url.replace("sqlite", "sqlite+aiosqlite", 1)
+        # Extract file path for backup/restore
+        db_file_path = Path(db_url.replace("sqlite+aiosqlite:///", ""))
 
-    engine = create_async_engine(db_url, echo=False)
-    async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    # Create engine with connection pooling
+    # pool_size: max 5 concurrent connections
+    # max_overflow: additional connections allowed when pool exhausted
+    # pool_recycle: recycle connections after 3600 seconds (1 hour)
+    engine = create_async_engine(
+        db_url,
+        echo=False,
+        pool_size=5,
+        max_overflow=10,
+        pool_recycle=3600,
+        pool_pre_ping=True,  # Test connections before using
+    )
 
+    async_session = async_sessionmaker(
+        engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autoflush=False,  # Explicit flush for better transaction control
+    )
+
+    # Create tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     logger.info(f"Database initialized: {db_url}")
+    logger.info("Connection pool configured: pool_size=5, max_overflow=10")
+
+    # Perform health check on startup
+    health = await db_health_check.check_health()
+    logger.info(f"Database health check: {health['status']}")
+
+    # Verify data consistency
+    consistency = await verify_data_consistency()
+    if consistency['status'] == "ISSUES_FOUND":
+        logger.warning(f"Data consistency issues found: {consistency['issue_count']}")
+        for issue in consistency['issues'][:5]:  # Log first 5
+            logger.warning(f"  - {issue}")
+    else:
+        logger.info("Data consistency verified")
 
 
 async def get_session() -> AsyncSession:
@@ -42,8 +244,56 @@ async def get_session() -> AsyncSession:
 
 
 @asynccontextmanager
-async def session_context():
-    """Context manager for automatic session cleanup"""
+async def session_context(auto_commit: bool = True):
+    """
+    Context manager for automatic session cleanup with transaction support.
+
+    Args:
+        auto_commit: If True, automatically commit on successful completion.
+                     If False, caller must explicitly commit/rollback.
+
+    Usage:
+        # Auto-commit (default)
+        async with session_context() as session:
+            await create_proposal(session, data)  # Automatically committed
+
+        # Manual transaction control
+        async with session_context(auto_commit=False) as session:
+            try:
+                await create_proposal(session, data)
+                await session.commit()
+            except Exception as e:
+                await session.rollback()
+                raise
+    """
+    session = await get_session()
+    try:
+        yield session
+        if auto_commit:
+            await session.commit()
+    except Exception as e:
+        await session.rollback()
+        logger.error(f"Transaction rolled back due to error: {e}")
+        raise
+    finally:
+        await session.close()
+
+
+@asynccontextmanager
+async def transaction_context():
+    """
+    Context manager for explicit transaction control.
+    Requires manual commit/rollback.
+
+    Usage:
+        async with transaction_context() as session:
+            try:
+                await session.execute(...)
+                await session.commit()
+            except:
+                await session.rollback()
+                raise
+    """
     session = await get_session()
     try:
         yield session
@@ -304,8 +554,19 @@ async def create_learning_outcome(
 
 
 # Database cleanup
-async def close_db():
-    """Close database connection"""
-    if engine:
-        await engine.dispose()
-        logger.info("Database connection closed")
+async def close_db(create_backup: bool = True):
+    """
+    Close database connection and optionally create backup.
+
+    Args:
+        create_backup: If True, create timestamped backup before closing.
+    """
+    try:
+        if create_backup:
+            await backup_database()
+
+        if engine:
+            await engine.dispose()
+            logger.info("Database connection closed")
+    except Exception as e:
+        logger.error(f"Error closing database: {e}")

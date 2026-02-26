@@ -1,0 +1,311 @@
+# =============================================================================
+# CYNIC Governance Bot - Kubernetes Deployment
+# =============================================================================
+# Production deployment manifest
+#
+# Deploy: kubectl apply -f kubernetes/deployment.yaml
+# Status: kubectl get pods -n cynic-governance
+# Logs:   kubectl logs -n cynic-governance deployment/governance-bot
+# =============================================================================
+
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cynic-governance
+  labels:
+    app: governance-bot
+    environment: production
+
+---
+# ConfigMap for non-sensitive configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: governance-bot-config
+  namespace: cynic-governance
+data:
+  BOT_ENVIRONMENT: "production"
+  BOT_ACTIVITY: "governance decisions"
+  BOT_STATUS: "ACTIVE"
+  DATABASE_POOL_SIZE: "10"
+  DATABASE_MAX_OVERFLOW: "20"
+  DATABASE_BACKUP_ENABLED: "true"
+  CYNIC_TIMEOUT_SECONDS: "30"
+  CYNIC_RETRY_COUNT: "3"
+  CYNIC_MCP_ENABLED: "true"
+  COMMUNITY_VOTING_PERIOD_HOURS: "72"
+  COMMUNITY_QUORUM_PERCENTAGE: "25"
+  COMMUNITY_APPROVAL_THRESHOLD_PERCENTAGE: "50"
+  COMMUNITY_MIN_DOGS_CONSENSUS: "6"
+  FEATURES_GASDF_ENABLED: "true"
+  FEATURES_NEAR_EXECUTION_ENABLED: "false"
+  FEATURES_LEARNING_LOOP_ENABLED: "true"
+  FEATURES_AGENT_MEMBERS_ENABLED: "false"
+  LOGGING_LEVEL: "INFO"
+  LOGGING_FILE: "/app/logs/governance_bot.log"
+  LOGGING_FILE_ENABLED: "true"
+
+---
+# Secret for sensitive data
+apiVersion: v1
+kind: Secret
+metadata:
+  name: governance-bot-secrets
+  namespace: cynic-governance
+type: Opaque
+stringData:
+  DISCORD_TOKEN: "YOUR_DISCORD_TOKEN"  # Replace with actual token
+  DATABASE_URL: "postgresql://cynic:password@postgres-service:5432/governance"  # Replace with actual
+
+---
+# PersistentVolumeClaim for data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: governance-bot-data
+  namespace: cynic-governance
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+# PersistentVolumeClaim for backups
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: governance-bot-backups
+  namespace: cynic-governance
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 50Gi
+
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: governance-bot
+  namespace: cynic-governance
+  labels:
+    app: governance-bot
+    version: v1
+spec:
+  replicas: 2  # HA setup with 2 replicas
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+  selector:
+    matchLabels:
+      app: governance-bot
+
+  template:
+    metadata:
+      labels:
+        app: governance-bot
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+
+    spec:
+      serviceAccountName: governance-bot
+      terminationGracePeriodSeconds: 30
+
+      # Pod Disruption Budget for high availability
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - governance-bot
+                topologyKey: kubernetes.io/hostname
+
+      containers:
+        - name: governance-bot
+          image: cynic-governance-bot:latest
+          imagePullPolicy: Always
+
+          # Port (not exposed in service, internal only)
+          ports:
+            - name: metrics
+              containerPort: 8000
+              protocol: TCP
+
+          # Environment variables from ConfigMap and Secret
+          envFrom:
+            - configMapRef:
+                name: governance-bot-config
+            - secretRef:
+                name: governance-bot-secrets
+
+          # Volume mounts
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: backups
+              mountPath: /app/backups
+            - name: logs
+              mountPath: /app/logs
+
+          # Resource limits and requests
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+          # Security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL
+
+          # Liveness probe (restart if not responding)
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import sys; sys.exit(0)"
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+
+          # Readiness probe (include in service if passing)
+          readinessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "from governance_bot.database import db_health_check; import asyncio; asyncio.run(db_health_check.check_health())"
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 2
+
+          # Startup probe (wait for app to start)
+          startupProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import sys; sys.exit(0)"
+            failureThreshold: 30
+            periodSeconds: 10
+
+      # Volumes
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: governance-bot-data
+        - name: backups
+          persistentVolumeClaim:
+            claimName: governance-bot-backups
+        - name: logs
+          emptyDir: {}
+
+---
+# Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: governance-bot
+  namespace: cynic-governance
+
+---
+# Role for bot permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: governance-bot
+  namespace: cynic-governance
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: governance-bot
+  namespace: cynic-governance
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: governance-bot
+subjects:
+  - kind: ServiceAccount
+    name: governance-bot
+    namespace: cynic-governance
+
+---
+# HorizontalPodAutoscaler for auto-scaling
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: governance-bot
+  namespace: cynic-governance
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: governance-bot
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+---
+# PodDisruptionBudget for high availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: governance-bot
+  namespace: cynic-governance
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: governance-bot
