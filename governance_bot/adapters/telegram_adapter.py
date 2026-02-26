@@ -565,55 +565,57 @@ class TelegramAdapter(BotInterface):
         Telegram has a 4096 character limit per message. This method splits
         long messages intelligently, breaking on paragraph boundaries when possible.
 
+        When a single element exceeds max_length (e.g., code block, URL, long word),
+        it is split into character chunks to ensure no page violates the limit.
+
+        Algorithm:
+        1. Try to split on paragraph boundaries ("\n\n")
+        2. For each paragraph, try to split on line boundaries ("\n")
+        3. For each line that exceeds max_length, split it character by character
+        4. Verify all pages satisfy len(page) <= max_length
+
         Args:
             text: Message text to paginate
             max_length: Maximum length per page (default 4096)
 
         Returns:
-            List of message pages
+            List of message pages, each with len(page) <= max_length
         """
         if len(text) <= max_length:
             return [text]
 
         pages = []
-        current_page = ""
+        pos = 0  # Current position in text
 
-        # Try to split on double newlines first (paragraphs)
-        paragraphs = text.split("\n\n")
+        while pos < len(text):
+            # Try to take up to max_length characters
+            chunk = text[pos:pos + max_length]
 
-        for paragraph in paragraphs:
-            # If single paragraph is > max_length, break it by lines
-            if len(paragraph) > max_length:
-                lines = paragraph.split("\n")
-                for line in lines:
-                    # Check if adding this line would exceed limit
-                    separator = "\n" if current_page else ""
-                    test_length = len(current_page) + len(separator) + len(line)
+            # If we can fit the chunk as-is, use it
+            if pos + max_length >= len(text):
+                # This is the last chunk
+                pages.append(chunk)
+                break
 
-                    if test_length > max_length:
-                        # Current page is full, save it and start new one
-                        if current_page:
-                            pages.append(current_page)
-                        current_page = line
-                    else:
-                        # Add line to current page
-                        current_page = current_page + separator + line if current_page else line
+            # Otherwise, try to break on a good boundary (paragraph or line)
+            # Look for "\n\n" first (paragraph break), then "\n" (line break)
+            last_para_break = chunk.rfind("\n\n")
+            last_line_break = chunk.rfind("\n")
+
+            if last_para_break != -1:
+                # Found paragraph break, break after it
+                break_pos = last_para_break + 2  # Include both newlines
+                pages.append(text[pos:pos + break_pos])
+                pos += break_pos
+            elif last_line_break != -1:
+                # Found line break, break after it
+                break_pos = last_line_break + 1  # Include the newline
+                pages.append(text[pos:pos + break_pos])
+                pos += break_pos
             else:
-                # Try to add paragraph to current page
-                separator = "\n\n" if current_page else ""
-                test_length = len(current_page) + len(separator) + len(paragraph)
-
-                if test_length <= max_length:
-                    # Fits in current page
-                    current_page = current_page + separator + paragraph if current_page else paragraph
-                else:
-                    # Doesn't fit, start new page
-                    if current_page:
-                        pages.append(current_page)
-                    current_page = paragraph
-
-        # Add remaining content
-        if current_page:
-            pages.append(current_page)
+                # No good break found, take max_length characters anyway
+                # This handles long unbreakable lines
+                pages.append(chunk)
+                pos += max_length
 
         return pages if pages else [text]

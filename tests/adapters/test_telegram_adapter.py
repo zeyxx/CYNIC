@@ -707,6 +707,128 @@ class TestTelegramAdapterConcurrentMessages:
         assert all(isinstance(r, BotResponse) for r in responses)
 
 
+class TestTelegramAdapterPaginationEdgeCases:
+    """Test pagination edge cases and line length violations."""
+
+    def test_paginate_message_handles_line_exceeding_max_length(self):
+        """_paginate_message handles lines longer than max_length correctly.
+
+        When a single line exceeds max_length, it should be split into
+        character chunks rather than placed in a page that violates the limit.
+
+        This tests the fix for the bug where a 5000-character line in a
+        message with max_length=50 would result in a page > max_length.
+        """
+        mock_client = Mock()
+        mock_state = Mock(spec=UnifiedConsciousState)
+
+        adapter = TelegramAdapter(client=mock_client, conscious_state=mock_state)
+
+        # Create a message with a line that exceeds max_length
+        # This could be a code block, URL, or very long word
+        very_long_line = "x" * 5000  # 5000 characters exceeds typical max_length
+        max_length = 100
+
+        # Test with the very long line
+        text = f"Header line\n{very_long_line}\nFooter line"
+        pages = adapter._paginate_message(text, max_length=max_length)
+
+        # Verify that:
+        # 1. All pages respect the max_length limit
+        for i, page in enumerate(pages):
+            assert len(page) <= max_length, (
+                f"Page {i} exceeds max_length: "
+                f"len(page)={len(page)}, max_length={max_length}"
+            )
+
+        # 2. Content is preserved (concatenated pages should equal original)
+        reconstructed = "".join(pages)
+        assert reconstructed == text, "Content was lost during pagination"
+
+        # 3. There should be multiple pages (since 5000 > 100)
+        assert len(pages) > 1, "Long content should be split into multiple pages"
+
+    def test_paginate_message_preserves_content_with_long_line(self):
+        """_paginate_message preserves all content when splitting long lines."""
+        mock_client = Mock()
+        mock_state = Mock(spec=UnifiedConsciousState)
+
+        adapter = TelegramAdapter(client=mock_client, conscious_state=mock_state)
+
+        # Create different long line scenarios
+        test_cases = [
+            # (text, max_length, description)
+            ("x" * 500, 100, "Single 500-char line with limit 100"),
+            ("a" * 1000 + "\n" + "b" * 2000, 150, "Two lines, both exceeding limit"),
+            ("Short\n" + "y" * 3000 + "\nShort", 200, "Long line sandwiched between short lines"),
+        ]
+
+        for text, max_length, description in test_cases:
+            pages = adapter._paginate_message(text, max_length=max_length)
+
+            # All pages must be <= max_length
+            for page in pages:
+                assert len(page) <= max_length, (
+                    f"Test case '{description}': Page exceeds limit. "
+                    f"len(page)={len(page)}, max_length={max_length}"
+                )
+
+            # Content must be preserved
+            reconstructed = "".join(pages)
+            assert reconstructed == text, (
+                f"Test case '{description}': Content was lost or modified"
+            )
+
+    def test_paginate_message_handles_unicode_long_lines(self):
+        """_paginate_message handles unicode characters in long lines."""
+        mock_client = Mock()
+        mock_state = Mock(spec=UnifiedConsciousState)
+
+        adapter = TelegramAdapter(client=mock_client, conscious_state=mock_state)
+
+        # Create a long line with unicode characters
+        unicode_line = "你好世界" * 200  # 800 chars of unicode
+        max_length = 100
+
+        text = f"Header\n{unicode_line}\nFooter"
+        pages = adapter._paginate_message(text, max_length=max_length)
+
+        # All pages must respect max_length
+        for page in pages:
+            assert len(page) <= max_length, (
+                f"Unicode page exceeds limit: "
+                f"len(page)={len(page)}, max_length={max_length}"
+            )
+
+        # Content preserved
+        reconstructed = "".join(pages)
+        assert reconstructed == text
+
+    def test_paginate_message_handles_code_blocks_with_long_lines(self):
+        """_paginate_message handles code blocks with lines exceeding max_length."""
+        mock_client = Mock()
+        mock_state = Mock(spec=UnifiedConsciousState)
+
+        adapter = TelegramAdapter(client=mock_client, conscious_state=mock_state)
+
+        # Simulate a code block with a very long line (common edge case)
+        code_block = "```\n" + ("a=b+" * 500) + "\n```"  # Long single line in code
+        max_length = 100
+
+        pages = adapter._paginate_message(code_block, max_length=max_length)
+
+        # Verify constraint
+        for page in pages:
+            assert len(page) <= max_length, (
+                f"Code block page exceeds limit: "
+                f"len(page)={len(page)}, max_length={max_length}"
+            )
+
+        # Content preserved
+        reconstructed = "".join(pages)
+        assert reconstructed == code_block
+
+
 class TestTelegramAdapterIntegration:
     """Integration tests for TelegramAdapter."""
 
