@@ -102,27 +102,34 @@ services:
     restart: unless-stopped
 
   # ═══════════════════════════════════════════════════════════════════════════════
-  # Discord Bot — Community Interface
-  # Connects to CYNIC HTTP API (port 8765)
+  # Governance Bot — Discord Community Governance
+  # Connects to PostgreSQL for governance data
   # Requires: DISCORD_TOKEN in .env file
   # ═══════════════════════════════════════════════════════════════════════════════
-  discord:
+  governance-bot:
     build:
-      context: ./cynic/discord
+      context: ./governance_bot
       dockerfile: Dockerfile
-    container_name: cynic-discord
+    container_name: cynic-governance-bot
     environment:
       # Discord
       DISCORD_TOKEN: ${DISCORD_TOKEN:-}
+      DISCORD_PREFIX: ${DISCORD_PREFIX:-!}
 
-      # CYNIC API
-      CYNIC_API_URL: http://cynic:8765
-      CYNIC_API_TIMEOUT: "30"
+      # Database
+      DATABASE_URL: sqlite:///governance_bot.db
+
+      # CYNIC MCP Integration
+      CYNIC_MCP_ENABLED: "true"
 
       # Logging
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       PYTHONUNBUFFERED: "1"
       PYTHONDONTWRITEBYTECODE: "1"
+
+    volumes:
+      # Persist governance database
+      - governance_data:/app
 
     depends_on:
       cynic:
@@ -131,9 +138,10 @@ services:
     restart: unless-stopped
 
     profiles:
-      - "with-discord"  # Optional: enable with `docker compose --profile with-discord up`
+      - "governance"  # Enable with `docker compose --profile governance up`
 
 volumes:
   pgdata:
   ollama_models:
   cynic_data:
+  governance_data:
