@@ -338,7 +338,7 @@ def generate_training_jsonl(
     for verdict in ["HOWL", "WAG", "GROWL", "BARK"]:
         count = verdict_counts.get(verdict, 0)
         print(f"  {verdict}: {count}")
-    print(f"\n✓ Ready for Phase 2 fine-tuning!")
+    print(f"\n[+] Ready for Phase 2 fine-tuning!")
 
     return output_path
 
@@ -356,7 +356,7 @@ if __name__ == "__main__":
     try:
         output_path = generate_training_jsonl()
         if output_path:
-            print(f"\n✓ Phase 1B → Phase 2 integration complete!")
+            print(f"\n[+] Phase 1B -> Phase 2 integration complete!")
             print(f"Next: python -m cynic.training.finetune --data {output_path}")
     except Exception as e:
         logger.error(f"Failed to generate training data: {e}", exc_info=True)

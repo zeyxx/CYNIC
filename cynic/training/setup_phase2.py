@@ -15,8 +15,8 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from phase1b_integration import generate_training_jsonl
-from data_generator import SYNTHETIC_PROPOSALS
+from .phase1b_integration import generate_training_jsonl
+from .data_generator import SYNTHETIC_PROPOSALS
 
 logging.basicConfig(
     level=logging.INFO,
