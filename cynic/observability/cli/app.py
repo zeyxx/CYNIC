@@ -8,6 +8,13 @@ from __future__ import annotations
 
 import asyncio
 
+from cynic.observability.cli.views import (
+    render_observe_view,
+    render_cynic_view,
+    render_machine_view,
+)
+from cynic.observability.symbiotic_state_manager import get_current_state
+
 
 class CliApp:
     """Main CLI application for CYNIC observability.
@@ -78,9 +85,9 @@ class CliApp:
 
         elif choice == '2':
             # CYNIC MIND
-            print("\n💭 CYNIC MIND - Deep Dive")
-            print("-" * 40)
-            print("[Feature not yet implemented]")
+            state = await get_current_state()
+            view = render_cynic_view(state)
+            print(view)
 
         elif choice == '3':
             # YOUR STATE
@@ -90,9 +97,9 @@ class CliApp:
 
         elif choice == '4':
             # MACHINE
-            print("\n⚙️  MACHINE - Resources")
-            print("-" * 40)
-            print("[Feature not yet implemented]")
+            state = await get_current_state()
+            view = render_machine_view(state)
+            print(view)
 
         elif choice == '5':
             # SYMBIOSIS
@@ -135,12 +142,9 @@ class CliApp:
         Displays a brief snapshot of CYNIC's thinking, Human's state,
         and Machine's resources in one view.
         """
-        print("\n👁️  OBSERVE - Current State Snapshot")
-        print("-" * 60)
-        print("CYNIC Observations:    [Observing...]")
-        print("Human State:           [Monitoring...]")
-        print("Machine Resources:     [Scanning...]")
-        print("-" * 60)
+        state = await get_current_state()
+        view = render_observe_view(state)
+        print(view)
 
     async def run(self) -> None:
         """Main CLI loop.
