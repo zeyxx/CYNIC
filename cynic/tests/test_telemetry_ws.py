@@ -12,7 +12,7 @@ import pytest
 
 from cynic.api.routers.telemetry_ws import ws_telemetry
 from cynic.core.event_bus import Event, CoreEvent, get_core_bus
-from cynic.mcp.claude_code_adapter import ClaudeCodeAdapter, _summarize_telemetry_events
+from cynic.mcp.claude_code_adapter import ClaudeCodeAdapter
 
 
 class TestTelemetryAdapter:
@@ -36,7 +36,7 @@ class TestTelemetryAdapter:
 
     def test_summarize_telemetry_events_empty(self):
         """Test summary with no events."""
-        summary = _summarize_telemetry_events([], 30.0)
+        summary = ClaudeCodeAdapter._summarize_telemetry_events([], 30.0)
         assert summary["judgments_seen"] == 0
         assert summary["learning_events_seen"] == 0
         assert summary["meta_cycles_seen"] == 0
@@ -49,7 +49,7 @@ class TestTelemetryAdapter:
             {"type": "judgment", "q_score": 75, "verdict": "WAG", "ts": 1.0},
             {"type": "judgment", "q_score": 85, "verdict": "HOWL", "ts": 2.0},
         ]
-        summary = _summarize_telemetry_events(events, 10.0)
+        summary = ClaudeCodeAdapter._summarize_telemetry_events(events, 10.0)
         assert summary["judgments_seen"] == 2
         assert summary["avg_q_score"] == 80.0  # (75 + 85) / 2
         assert summary["verdicts"]["WAG"] == 1
@@ -61,7 +61,7 @@ class TestTelemetryAdapter:
             {"type": "learning", "learning_rate": 0.001, "q_table_entries": 512, "ts": 1.0},
             {"type": "learning", "learning_rate": 0.0005, "q_table_entries": 1024, "ts": 2.0},
         ]
-        summary = _summarize_telemetry_events(events, 10.0)
+        summary = ClaudeCodeAdapter._summarize_telemetry_events(events, 10.0)
         assert summary["learning_events_seen"] == 2
         assert summary["last_learning_rate"] == 0.0005
 
@@ -74,7 +74,7 @@ class TestTelemetryAdapter:
             {"type": "sona_tick", "uptime_s": 3600, "total_judgments": 12500, "ts": 4.0},
             {"type": "heartbeat", "ts": 5.0},  # Should be ignored
         ]
-        summary = _summarize_telemetry_events(events, 10.0)
+        summary = ClaudeCodeAdapter._summarize_telemetry_events(events, 10.0)
         assert summary["judgments_seen"] == 1
         assert summary["learning_events_seen"] == 1
         assert summary["meta_cycles_seen"] == 1

@@ -9,6 +9,9 @@ import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+# Skip entire test module if MCP server is not available in test environment
+pytest.importorskip("mcp.server", minversion=None)
+
 from cynic.mcp.claude_code_bridge import (
     get_adapter,
     _tool_cynic_run_empirical_test,

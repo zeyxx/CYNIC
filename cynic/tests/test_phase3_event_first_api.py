@@ -275,28 +275,28 @@ class TestEventEmissionIntegrity:
     async def test_judge_event_payload_structure(self):
         """Verify JUDGMENT_REQUESTED event has correct payload."""
         with TestClient(app) as client:
-        payload = {
-            "content": "code to review",
-            "context": "PR review",
-            "reality": "CODE",
-            "analysis": "JUDGE",
-            "time_dim": "PRESENT",
-            "level": "MACRO",
-            "budget_usd": 0.50,
-        }
+            payload = {
+                "content": "code to review",
+                "context": "PR review",
+                "reality": "CODE",
+                "analysis": "JUDGE",
+                "time_dim": "PRESENT",
+                "level": "MACRO",
+                "budget_usd": 0.50,
+            }
 
-        mock_bus = AsyncMock()
-        mock_bus.emit.return_value = None
+            mock_bus = AsyncMock()
+            mock_bus.emit.return_value = None
 
-        with patch("cynic.api.routers.core.get_core_bus", return_value=mock_bus):
-            response = eventemissionintegrity_client.post("/judge", json=payload)
+            with patch("cynic.api.routers.core.get_core_bus", return_value=mock_bus):
+                response = client.post("/judge", json=payload)
 
-        assert response.status_code == 200
+            assert response.status_code == 200
 
-        # Verify event structure
-        if mock_bus.emit.called:
-            call_args = mock_bus.emit.call_args
-            event = call_args[0][0]
+            # Verify event structure
+            if mock_bus.emit.called:
+                call_args = mock_bus.emit.call_args
+                event = call_args[0][0]
             assert isinstance(event, Event)
             assert event.type == CoreEvent.JUDGMENT_REQUESTED
             assert event.source == "api:judge"
