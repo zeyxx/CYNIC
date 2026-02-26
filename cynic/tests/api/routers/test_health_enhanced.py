@@ -121,6 +121,9 @@ class TestHealthEnhanced:
         # Should succeed if system ready, or 503 if timeout
         assert response.status_code in [200, 503]
         data = response.json()
+        # Response may be nested under 'detail' for error responses
+        if "detail" in data:
+            data = data["detail"]
         assert "timestamp" in data
         assert "waited_seconds" in data
 
@@ -131,12 +134,16 @@ class TestHealthEnhanced:
 
         if response.status_code == 200:
             data = response.json()
+            if "detail" in data:
+                data = data["detail"]
             assert data["status"] == "ready"
             assert "ready_components" in data
             assert data["waited_seconds"] >= 0
         elif response.status_code == 503:
             # System took too long, but that's OK for this test
             data = response.json()
+            if "detail" in data:
+                data = data["detail"]
             assert "waited_seconds" in data
             assert data["waited_seconds"] >= 0
 
@@ -148,6 +155,8 @@ class TestHealthEnhanced:
         # Either ready quickly (200) or timeout (503)
         assert response.status_code in [200, 503]
         data = response.json()
+        if "detail" in data:
+            data = data["detail"]
         assert "waited_seconds" in data
 
     def test_health_full_fails_if_component_down(self, client):
