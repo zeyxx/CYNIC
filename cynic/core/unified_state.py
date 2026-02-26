@@ -324,3 +324,35 @@ class UnifiedConsciousState:
             List of UnifiedLearningOutcome objects (immutable), newest last
         """
         return self.learning_outcomes.get_recent(count)
+
+    def update_from_outcome(self, outcome: UnifiedLearningOutcome) -> None:
+        """
+        Record learning outcome in consciousness and update state.
+
+        This connects judgment → outcome → learning into unified consciousness.
+
+        Args:
+            outcome: UnifiedLearningOutcome to record
+        """
+        self.add_outcome(outcome)
+
+    def get_learned_confidence(self, verdict: str) -> float:
+        """
+        Get confidence for verdict based on learned Q-values.
+
+        This method is designed to be used with a Q-Table to adjust future
+        judgment confidence based on past accuracy.
+
+        Args:
+            verdict: Verdict to get confidence for (HOWL, WAG, GROWL, BARK)
+
+        Returns:
+            Confidence value [0, 1]
+
+        Note:
+            Actual Q-Table integration happens in LearningSession.
+            This method is a placeholder for future unified integration.
+        """
+        # Placeholder for Q-Table integration
+        # In practice, would call: q_table.get_prediction_confidence(verdict)
+        return 0.5

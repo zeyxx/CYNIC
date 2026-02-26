@@ -1,1 +1,0 @@
-"""CYNIC tests."""
