@@ -24,7 +24,7 @@ class TestGovernanceEndpoints:
 
     def test_submit_proposal(self, governanceendpoints_client):
         """POST /api/governance/proposals — submit a new proposal."""
-        response = client.post(
+        response = governanceendpoints_client.post(
             "/api/governance/proposals",
             json={
                 "community_id": "test_community",
@@ -42,7 +42,7 @@ class TestGovernanceEndpoints:
 
     def test_submit_proposal_missing_fields(self, governanceendpoints_client):
         """POST /api/governance/proposals with missing fields should fail."""
-        response = client.post(
+        response = governanceendpoints_client.post(
             "/api/governance/proposals",
             json={
                 "community_id": "test_community",
@@ -55,7 +55,7 @@ class TestGovernanceEndpoints:
     def test_cast_vote(self, governanceendpoints_client):
         """POST /api/governance/proposals/{id}/vote — cast a vote."""
         # First submit a proposal
-        proposal_resp = client.post(
+        proposal_resp = governanceendpoints_client.post(
             "/api/governance/proposals",
             json={
                 "community_id": "test_community",
@@ -67,7 +67,7 @@ class TestGovernanceEndpoints:
         proposal_id = proposal_resp.json()["proposal_id"]
 
         # Cast a vote
-        response = client.post(
+        response = governanceendpoints_client.post(
             f"/api/governance/proposals/{proposal_id}/vote",
             json={
                 "voter": "user_456",
@@ -82,7 +82,7 @@ class TestGovernanceEndpoints:
 
     def test_cast_vote_invalid_choice(self, governanceendpoints_client):
         """POST /api/governance/proposals/{id}/vote with invalid choice should fail."""
-        response = client.post(
+        response = governanceendpoints_client.post(
             "/api/governance/proposals/invalid_id/vote",
             json={
                 "voter": "user_456",
@@ -95,7 +95,7 @@ class TestGovernanceEndpoints:
     def test_get_verdict(self, governanceendpoints_client):
         """GET /api/governance/proposals/{id}/verdict — get CYNIC's verdict."""
         # Submit proposal to populate verdict cache
-        proposal_resp = client.post(
+        proposal_resp = governanceendpoints_client.post(
             "/api/governance/proposals",
             json={
                 "community_id": "test_community",
@@ -107,20 +107,20 @@ class TestGovernanceEndpoints:
         proposal_id = proposal_resp.json()["proposal_id"]
 
         # Try to get verdict (may not exist immediately, but endpoint should work)
-        response = client.get(f"/api/governance/proposals/{proposal_id}/verdict")
+        response = governanceendpoints_client.get(f"/api/governance/proposals/{proposal_id}/verdict")
         # Either we get a verdict or a 404 for new proposal
         assert response.status_code in (200, 404)
 
     def test_get_verdict_not_found(self, governanceendpoints_client):
         """GET /api/governance/proposals/{id}/verdict with non-existent id returns 404."""
-        response = client.get("/api/governance/proposals/nonexistent_id/verdict")
+        response = governanceendpoints_client.get("/api/governance/proposals/nonexistent_id/verdict")
         assert response.status_code == 404
         assert "No verdict found" in response.json()["detail"]
 
     def test_record_outcome(self, governanceendpoints_client):
         """POST /api/governance/proposals/{id}/outcome — record community outcome."""
         # Submit proposal
-        proposal_resp = client.post(
+        proposal_resp = governanceendpoints_client.post(
             "/api/governance/proposals",
             json={
                 "community_id": "test_community",
@@ -132,7 +132,7 @@ class TestGovernanceEndpoints:
         proposal_id = proposal_resp.json()["proposal_id"]
 
         # Record outcome
-        response = client.post(
+        response = governanceendpoints_client.post(
             f"/api/governance/proposals/{proposal_id}/outcome",
             json={
                 "outcome": "approved",
@@ -147,7 +147,7 @@ class TestGovernanceEndpoints:
 
     def test_record_outcome_invalid_choice(self, governanceendpoints_client):
         """POST /api/governance/proposals/{id}/outcome with invalid outcome."""
-        response = client.post(
+        response = governanceendpoints_client.post(
             "/api/governance/proposals/test_id/outcome",
             json={
                 "outcome": "invalid",
@@ -160,7 +160,7 @@ class TestGovernanceEndpoints:
 
     def test_governance_status(self, governanceendpoints_client):
         """GET /api/governance/status — get governance system status."""
-        response = client.get("/api/governance/status")
+        response = governanceendpoints_client.get("/api/governance/status")
         assert response.status_code == 200
         data = response.json()
         assert "status" in data
@@ -178,7 +178,7 @@ class TestGovernanceEndpoints:
 
     def test_governance_status_gasdf_info(self, governanceendpoints_client):
         """GET /api/governance/status includes GASdf connectivity info."""
-        response = client.get("/api/governance/status")
+        response = governanceendpoints_client.get("/api/governance/status")
         assert response.status_code == 200
         data = response.json()
         assert "gasdf_enabled" in data
@@ -188,7 +188,7 @@ class TestGovernanceEndpoints:
 
     def test_governance_status_lnsp_info(self, governanceendpoints_client):
         """GET /api/governance/status includes LNSP layer info."""
-        response = client.get("/api/governance/status")
+        response = governanceendpoints_client.get("/api/governance/status")
         assert response.status_code == 200
         data = response.json()
         assert "lnsp_sensors" in data
@@ -199,7 +199,7 @@ class TestGovernanceEndpoints:
     def test_vote_choices(self, governanceendpoints_client):
         """POST /api/governance/proposals/{id}/vote accepts yes/no/abstain."""
         # Submit proposal
-        proposal_resp = client.post(
+        proposal_resp = governanceendpoints_client.post(
             "/api/governance/proposals",
             json={
                 "community_id": "test_community",
@@ -212,7 +212,7 @@ class TestGovernanceEndpoints:
 
         # Test all vote choices
         for vote_choice in ("yes", "no", "abstain"):
-            response = client.post(
+            response = governanceendpoints_client.post(
                 f"/api/governance/proposals/{proposal_id}/vote",
                 json={
                     "voter": f"user_{vote_choice}",
@@ -224,7 +224,7 @@ class TestGovernanceEndpoints:
 
     def test_vote_case_insensitive(self, governanceendpoints_client):
         """POST /api/governance/proposals/{id}/vote accepts mixed case votes."""
-        proposal_resp = client.post(
+        proposal_resp = governanceendpoints_client.post(
             "/api/governance/proposals",
             json={
                 "community_id": "test_community",
@@ -237,7 +237,7 @@ class TestGovernanceEndpoints:
 
         # Test mixed case
         for vote_choice in ("YES", "No", "ABSTAIN"):
-            response = client.post(
+            response = governanceendpoints_client.post(
                 f"/api/governance/proposals/{proposal_id}/vote",
                 json={
                     "voter": "user_mixed",
@@ -250,7 +250,7 @@ class TestGovernanceEndpoints:
     def test_proposal_lifecycle(self, governanceendpoints_client):
         """Test full proposal lifecycle: submit → vote → outcome → status."""
         # 1. Submit proposal
-        proposal_resp = client.post(
+        proposal_resp = governanceendpoints_client.post(
             "/api/governance/proposals",
             json={
                 "community_id": "community_1",
@@ -274,7 +274,7 @@ class TestGovernanceEndpoints:
             assert vote_resp.status_code == 200
 
         # 3. Record outcome
-        outcome_resp = client.post(
+        outcome_resp = governanceendpoints_client.post(
             f"/api/governance/proposals/{proposal_id}/outcome",
             json={
                 "outcome": "approved",
@@ -284,7 +284,7 @@ class TestGovernanceEndpoints:
         assert outcome_resp.status_code == 200
 
         # 4. Check status
-        status_resp = client.get("/api/governance/status")
+        status_resp = governanceendpoints_client.get("/api/governance/status")
         assert status_resp.status_code == 200
         status_data = status_resp.json()
         assert status_data["proposals_total"] >= 1
@@ -292,7 +292,7 @@ class TestGovernanceEndpoints:
     def test_trigger_execution_no_gasdf(self, governanceendpoints_client):
         """POST /api/governance/proposals/{id}/execution without GASdf returns 503."""
         # Submit proposal to get a proposal_id
-        proposal_resp = client.post(
+        proposal_resp = governanceendpoints_client.post(
             "/api/governance/proposals",
             json={
                 "community_id": "test_community",
@@ -304,7 +304,7 @@ class TestGovernanceEndpoints:
         proposal_id = proposal_resp.json()["proposal_id"]
 
         # Try to execute (will fail if GASDF_ENABLED != 1)
-        response = client.post(
+        response = governanceendpoints_client.post(
             f"/api/governance/proposals/{proposal_id}/execution",
             json={
                 "payment_token": "USDC",
@@ -319,7 +319,7 @@ class TestGovernanceEndpoints:
     def test_endpoint_requires_governance_init(self, governanceendpoints_client):
         """All governance endpoints gracefully handle missing governance instance."""
         # These endpoints should handle missing governance instance
-        response = client.get("/api/governance/status")
+        response = governanceendpoints_client.get("/api/governance/status")
         # Should still return 200 (with degraded/offline status)
         assert response.status_code == 200
         data = response.json()

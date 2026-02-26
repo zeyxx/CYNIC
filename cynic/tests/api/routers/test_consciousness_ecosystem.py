@@ -24,7 +24,7 @@ class TestEcosystemEndpoints:
 
     def test_get_ecosystem_state(self, ecosystemendpoints_client):
         """GET /api/consciousness/ecosystem returns cross-bus topology."""
-        response = client.get("/api/consciousness/ecosystem")
+        response = ecosystemendpoints_client.get("/api/consciousness/ecosystem")
         assert response.status_code == 200
         data = response.json()
         assert "core_events" in data
@@ -37,14 +37,14 @@ class TestEcosystemEndpoints:
 
     def test_get_perception_sources(self, ecosystemendpoints_client):
         """GET /api/consciousness/perception-sources returns perceive worker activity."""
-        response = client.get("/api/consciousness/perception-sources")
+        response = ecosystemendpoints_client.get("/api/consciousness/perception-sources")
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, dict)
 
     def test_get_decision_trace(self, ecosystemendpoints_client):
         """GET /api/consciousness/decision-trace/{id} traces decision through guardrails."""
-        response = client.get("/api/consciousness/decision-trace/test_123")
+        response = ecosystemendpoints_client.get("/api/consciousness/decision-trace/test_123")
         assert response.status_code == 200
         data = response.json()
         assert "decision_id" in data
@@ -54,7 +54,7 @@ class TestEcosystemEndpoints:
 
     def test_get_topology(self, ecosystemendpoints_client):
         """GET /api/consciousness/topology returns architecture consciousness."""
-        response = client.get("/api/consciousness/topology")
+        response = ecosystemendpoints_client.get("/api/consciousness/topology")
         assert response.status_code == 200
         data = response.json()
         assert "source_changes_detected" in data
@@ -64,7 +64,7 @@ class TestEcosystemEndpoints:
 
     def test_get_nervous_system(self, ecosystemendpoints_client):
         """GET /api/consciousness/nervous-system returns audit trail."""
-        response = client.get("/api/consciousness/nervous-system")
+        response = ecosystemendpoints_client.get("/api/consciousness/nervous-system")
         assert response.status_code == 200
         data = response.json()
         assert "all_events" in data
@@ -76,7 +76,7 @@ class TestEcosystemEndpoints:
 
     def test_get_self_awareness(self, ecosystemendpoints_client):
         """GET /api/consciousness/self-awareness returns organism's meta-cognition."""
-        response = client.get("/api/consciousness/self-awareness")
+        response = ecosystemendpoints_client.get("/api/consciousness/self-awareness")
         assert response.status_code == 200
         data = response.json()
         assert "kernel_observations" in data
@@ -87,7 +87,7 @@ class TestEcosystemEndpoints:
 
     def test_get_guardrails(self, ecosystemendpoints_client):
         """GET /api/consciousness/guardrails returns guardian decisions."""
-        response = client.get("/api/consciousness/guardrails")
+        response = ecosystemendpoints_client.get("/api/consciousness/guardrails")
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)

@@ -60,7 +60,7 @@ class TestEventFirstEndpoints:
         mock_bus.emit.return_value = None
 
         with patch("cynic.api.routers.core.get_core_bus", return_value=mock_bus):
-            response = client.post("/judge", json=payload)
+            response = eventfirstendpoints_client.post("/judge", json=payload)
 
         # Validate response
         assert response.status_code == 200
@@ -89,7 +89,7 @@ class TestEventFirstEndpoints:
         mock_bus.emit.return_value = None
 
         with patch("cynic.api.routers.core.get_core_bus", return_value=mock_bus):
-            response = client.post("/perceive", json=payload)
+            response = eventfirstendpoints_client.post("/perceive", json=payload)
 
         assert response.status_code == 200
         data = response.json()
@@ -108,7 +108,7 @@ class TestEventFirstEndpoints:
             "q_score_update": 5.2,
         }
 
-        response = client.post("/learn", json=payload)
+        response = eventfirstendpoints_client.post("/learn", json=payload)
 
         # /learn processes immediately without emitting (direct Q-table update)
         assert response.status_code in [200, 422]  # Might fail if schema doesn't match
@@ -122,7 +122,7 @@ class TestEventFirstEndpoints:
             "correct_verdict": "GROWL",
         }
 
-        response = client.post("/feedback", json=payload)
+        response = eventfirstendpoints_client.post("/feedback", json=payload)
 
         # /feedback processes immediately
         assert response.status_code in [200, 422]
@@ -143,7 +143,7 @@ class TestEventFirstEndpoints:
 
         with patch("cynic.api.state.container") as mock_container:
             mock_container.organism = mock_organism
-            response = client.get(f"/judge/{judgment_id}")
+            response = eventfirstendpoints_client.get(f"/judge/{judgment_id}")
 
         # Should return the judgment record or 404
         assert response.status_code in [200, 404]
@@ -173,7 +173,7 @@ class TestEventFirstEndpoints:
 
         with patch("cynic.api.state.container") as mock_container:
             mock_container.organism = mock_organism
-            response = client.get(f"/judge/{judgment_id}")
+            response = eventfirstendpoints_client.get(f"/judge/{judgment_id}")
 
         assert response.status_code in [200, 404]
         if response.status_code == 200:
@@ -198,7 +198,7 @@ class TestEventFirstEndpoints:
 
         with patch("cynic.api.state.container") as mock_container:
             mock_container.organism = mock_organism
-            response = client.get(f"/perceive/{perception_id}")
+            response = eventfirstendpoints_client.get(f"/perceive/{perception_id}")
 
         assert response.status_code in [200, 404]
         if response.status_code == 200:
@@ -229,7 +229,7 @@ class TestEventDrivenResponseModels:
         mock_bus.emit.return_value = None
 
         with patch("cynic.api.routers.core.get_core_bus", return_value=mock_bus):
-            response = client.post("/judge", json=payload)
+            response = eventdrivenresponsemodels_client.post("/judge", json=payload)
 
         data = response.json()
         # Must have these fields
@@ -254,7 +254,7 @@ class TestEventDrivenResponseModels:
         mock_bus.emit.return_value = None
 
         with patch("cynic.api.routers.core.get_core_bus", return_value=mock_bus):
-            response = client.post("/perceive", json=payload)
+            response = eventdrivenresponsemodels_client.post("/perceive", json=payload)
 
         data = response.json()
         assert "judgment_id" in data
@@ -289,7 +289,7 @@ class TestEventEmissionIntegrity:
         mock_bus.emit.return_value = None
 
         with patch("cynic.api.routers.core.get_core_bus", return_value=mock_bus):
-            response = client.post("/judge", json=payload)
+            response = eventemissionintegrity_client.post("/judge", json=payload)
 
         assert response.status_code == 200
 
@@ -317,7 +317,7 @@ class TestEventEmissionIntegrity:
         mock_bus.emit.return_value = None
 
         with patch("cynic.api.routers.core.get_core_bus", return_value=mock_bus):
-            response = client.post("/perceive", json=payload)
+            response = eventemissionintegrity_client.post("/perceive", json=payload)
 
         assert response.status_code == 200
 
@@ -350,7 +350,7 @@ class TestClientPollingPattern:
         mock_bus.emit.return_value = None
 
         with patch("cynic.api.routers.core.get_core_bus", return_value=mock_bus):
-            response = client.post("/judge", json=post_payload)
+            response = clientpollingpattern_client.post("/judge", json=post_payload)
 
         assert response.status_code == 200
         post_data = response.json()
@@ -370,7 +370,7 @@ class TestClientPollingPattern:
 
         with patch("cynic.api.state.container") as mock_container:
             mock_container.organism = mock_organism
-            response = client.get(f"/judge/{judgment_id}")
+            response = clientpollingpattern_client.get(f"/judge/{judgment_id}")
 
         if response.status_code == 200:
             poll_data = response.json()
@@ -385,7 +385,7 @@ class TestClientPollingPattern:
 
             with patch("cynic.api.state.container") as mock_container:
                 mock_container.organism = mock_organism
-                response = client.get(f"/judge/{judgment_id}")
+                response = clientpollingpattern_client.get(f"/judge/{judgment_id}")
 
             final_data = response.json()
             assert final_data, f"Empty response: {final_data}"
@@ -415,7 +415,7 @@ class TestResponseTimeImprovement:
         mock_bus.emit.return_value = None
 
         with patch("cynic.api.routers.core.get_core_bus", return_value=mock_bus):
-            response = client.post("/judge", json=payload)
+            response = responsetimeimprovement_client.post("/judge", json=payload)
 
         assert response.status_code == 200
         # If old blocking code, would take 2-3 seconds
@@ -434,7 +434,7 @@ class TestResponseTimeImprovement:
         mock_bus.emit.return_value = None
 
         with patch("cynic.api.routers.core.get_core_bus", return_value=mock_bus):
-            response = client.post("/perceive", json=payload)
+            response = responsetimeimprovement_client.post("/perceive", json=payload)
 
         assert response.status_code == 200
 
@@ -453,7 +453,7 @@ class TestErrorHandling:
         """POST /judge should validate required fields."""
         payload = {"content": "test"}  # minimal
 
-        response = client.post("/judge", json=payload)
+        response = errorhandling_client.post("/judge", json=payload)
         # Should either auto-fill defaults or return validation error
         assert response.status_code in [200, 422]
 
@@ -468,7 +468,7 @@ class TestErrorHandling:
 
         with patch("cynic.api.state.container") as mock_container:
             mock_container.organism = mock_organism
-            response = client.get(f"/judge/{fake_id}")
+            response = errorhandling_client.get(f"/judge/{fake_id}")
 
         # Should return 404 or None result
         assert response.status_code in [200, 404]
@@ -485,7 +485,7 @@ class TestErrorHandling:
         mock_bus.emit.side_effect = Exception("Bus error")
 
         with patch("cynic.api.routers.core.get_core_bus", return_value=mock_bus):
-            response = client.post("/judge", json=payload)
+            response = errorhandling_client.post("/judge", json=payload)
 
         # Should not crash - either retry or return error
         assert response.status_code in [200, 500, 503]
