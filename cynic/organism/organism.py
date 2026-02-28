@@ -89,7 +89,6 @@ from cynic.core.topology import (
 )
 from cynic.core.convergence import ConvergenceValidator
 from cynic.mcp.service import MCPBridge
-from cynic.organism import ConsciousState, get_conscious_state
 from cynic.organism.state_manager import OrganismState, StateLayer, StateSnapshot
 
 logger = logging.getLogger("cynic.organism.organism")
@@ -155,7 +154,7 @@ class SensoryCore:
 @dataclass
 class MemoryCore:
     """ARCHIVE — Reflection, proposals, self-improvement."""
-    conscious_state: ConsciousState = field(default_factory=get_conscious_state)
+    state: OrganismState
     kernel_mirror: KernelMirror = field(default_factory=KernelMirror)
     action_proposer: ActionProposer = field(default_factory=ActionProposer)
     self_prober: SelfProber = field(default_factory=SelfProber)
@@ -188,6 +187,7 @@ class Organism:
     last_judgment: Optional[dict] = None
     container: DependencyContainer = field(default_factory=DependencyContainer)
     _handler_registry: object = field(default=None)
+    gossip_manager: Optional[Any] = None  # Set to enable federation (GossipManager)
 
     @property
     def uptime_s(self) -> float:
@@ -383,6 +383,11 @@ class Organism:
     def state_snapshot(self) -> StateSnapshot:
         """Get immutable snapshot of all three state layers."""
         return self.state.snapshot()
+
+    def set_gossip_manager(self, gossip_manager: Optional[Any]) -> None:
+        """Set gossip_manager and wire it to the orchestrator for federation."""
+        self.gossip_manager = gossip_manager
+        self.cognition.orchestrator.gossip_manager = gossip_manager
 
 
 # Type alias for backward compatibility
@@ -727,7 +732,7 @@ class _OrganismAwakener:
 
     def _create_services(self) -> Any:  # Returns KernelServices
         """Create KernelServices — the organism's bloodstream."""
-        from cynic.api.handlers import KernelServices, CognitionServices, MetabolicServices, SensoryServices
+        from cynic.organism.handlers import KernelServices, CognitionServices, MetabolicServices, SensoryServices
 
         cognition = CognitionServices(
             orchestrator=self.orchestrator,
@@ -765,7 +770,7 @@ class _OrganismAwakener:
 
     def _create_handler_registry(self, svc: Any) -> Any:  # Returns HandlerRegistry
         """Discover + register handler groups."""
-        from cynic.api.handlers import HandlerRegistry, discover_handler_groups
+        from cynic.organism.handlers import HandlerRegistry, discover_handler_groups
 
         registry = HandlerRegistry()
         groups = discover_handler_groups(

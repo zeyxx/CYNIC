@@ -104,6 +104,7 @@ class JudgeOrchestrator:
         self.service_registry = None  # Optional[ServiceStateRegistry] — Tier 1 nervous system
         self.consciousness_scheduler = None  # Optional[ConsciousnessScheduler] — Task #8: blended escalation
         self._composer = None  # Optional[HandlerComposer] — Phase 2B: explicit DAG composition
+        self.gossip_manager = None  # Optional[GossipManager] — federation P2P gossip
         self._judgment_count = 0
         self._consciousness = get_consciousness()
         # evolve() history — last F(8)=21 META cycles
@@ -277,6 +278,10 @@ class JudgeOrchestrator:
                     ),
                 ))
 
+                # Record emergence pattern (THE_UNNAMEABLE) for federation sharing
+                if self.gossip_manager is not None:
+                    self.gossip_manager.record_unnameable(cell.reality)
+
             # Emit LEARNING_EVENT for ALL cycles (REFLEX/MICRO/MACRO).
             # Was incorrectly placed inside _cycle_macro only — Q-Learning never fired.
             await get_core_bus().emit(Event.typed(
@@ -318,6 +323,10 @@ class JudgeOrchestrator:
 
             # Circuit breaker: successful judgment — reset failure counter
             self._circuit_breaker.record_success()
+
+            # Trigger gossip batch checking if federation is enabled
+            if self.gossip_manager is not None:
+                self.gossip_manager.on_judgment(self._judgment_count)
 
             return judgment
 
