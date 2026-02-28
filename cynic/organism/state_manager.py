@@ -942,7 +942,7 @@ class OrganismState:
                     batch.clear()
                     last_flush = time.time()
 
-            except asyncpg.Error as e:
+            except Exception as e:
                 logger.error("Error in update loop: %s", e)
                 await asyncio.sleep(1.0)
 

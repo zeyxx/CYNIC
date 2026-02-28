@@ -155,14 +155,18 @@ class MacroCycleHandler(BaseHandler):
             consensus = await self.cynic_dog.pbft_run(cell, pipeline.dog_judgments)
             pipeline.consensus = consensus
 
-            # STEP 2c: Axiom scoring (full depth)
+            # STEP 2c: Axiom scoring (fractal depth from pipeline)
             q_scores_macro = [j.q_score for j in pipeline.dog_judgments]
             avg_q_macro = sum(q_scores_macro) / len(q_scores_macro) if q_scores_macro else 0.0
             consensus_strength = (consensus.votes / consensus.quorum) if consensus and consensus.quorum else 0.0
+            
+            # Use fractal_depth from pipeline (defaults to 3 for MACRO)
+            depth = getattr(pipeline, 'fractal_depth', 3)
+            
             axiom_result = self.axiom_arch.score_and_compute(
                 domain=cell.reality,
                 context=str(cell.content)[:500],
-                fractal_depth=3,
+                fractal_depth=depth,
                 metrics={
                     "avg_dog_q": avg_q_macro / MAX_Q_SCORE,
                     "consensus_strength": consensus_strength,

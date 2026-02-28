@@ -18,7 +18,7 @@ from cynic.core.judgment import Cell
 from cynic.senses import checkpoint as _session_checkpoint
 from cynic.senses.checkpoint import CHECKPOINT_EVERY
 
-from cynic.api.handlers.base import HandlerGroup, KernelServices
+from cynic.organism.handlers.base import HandlerGroup, KernelServices
 
 if TYPE_CHECKING:
     from cynic.cognition.cortex.orchestrator import JudgeOrchestrator
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from asyncpg import Pool
     from cynic.senses.compressor import ContextCompressor
 
-logger = logging.getLogger("cynic.api.handlers.intelligence")
+logger = logging.getLogger("cynic.organism.handlers.intelligence")
 
 
 class IntelligenceHandlers(HandlerGroup):

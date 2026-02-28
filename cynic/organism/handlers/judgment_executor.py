@@ -17,8 +17,8 @@ import asyncio
 import logging
 from typing import Optional
 
-from cynic.api.handlers.base import HandlerGroup
-from cynic.api.handlers.services import KernelServices
+from cynic.organism.handlers.base import HandlerGroup
+from cynic.organism.handlers.services import KernelServices
 from cynic.core.event_bus import Event, CoreEvent, get_core_bus
 from cynic.core.consciousness import ConsciousnessLevel
 from cynic.core.exceptions import CynicError
@@ -71,116 +71,55 @@ class JudgmentExecutorHandler(HandlerGroup):
     async def _on_judgment_requested(self, event: Event) -> None:
         """
         Execute judgment when JUDGMENT_REQUESTED event fires.
-
-        Payload structure:
-        {
-            "cell": {...}  # dict representation of Cell
-            "cell_id": "...",
-            "reality": "CODE",
-            "level": "MICRO" | "REFLEX" | "MACRO" | "AUTO"
-            "budget_usd": 0.5
-            "source": "..."
-        }
         """
         try:
             logger.debug("[HANDLER] JudgmentExecutor received JUDGMENT_REQUESTED: %s", event.event_id)
-            payload = event.payload or {}
+            from cynic.core.events_schema import JudgmentRequestedPayload
+            p = JudgmentRequestedPayload.model_validate(event.payload or {})
 
             # Extract judgment_id from payload (thread it through the pipeline to match PENDING entry)
-            judgment_id = payload.get("judgment_id") or event.event_id  # fallback for safety
+            judgment_id = p.judgment_id or event.event_id  # fallback for safety
 
-            # Try to extract cell from payload (v2 format with full cell data)
-            cell_dict = payload.get("cell", {})
+            # Reconstruct Cell from model data
+            cell_dict = p.cell
             cell = None
             
             if cell_dict:
-                # Reconstruct Cell from dict (v2 format)
                 try:
                     cell = Cell(**cell_dict)
-                    logger.debug("[HANDLER] Cell reconstructed from full data: %s", cell.cell_id)
+                    logger.debug("[HANDLER] Cell reconstructed from model data: %s", cell.cell_id)
                 except Exception as cell_err:
-                    logger.warning(
-                        "[HANDLER] Failed to reconstruct cell from full data: %s - %s",
-                        cell_err,
-                        cell_dict,
-                    )
-                    cell = None
+                    logger.warning("[HANDLER] Failed to reconstruct cell: %s", cell_err)
             
-            # Fallback: construct minimal Cell from individual fields
+            # Fallback for old payloads or errors
             if cell is None:
-                import uuid
-                cell_id = payload.get("cell_id", "")
-                reality = payload.get("reality", "CODE")
-                
-                if not cell_id:
-                    # Generate a placeholder cell_id if none provided
-                    cell_id = str(uuid.uuid4())
-                    logger.info(
-                        "JUDGMENT_REQUESTED no cell_id: generated %s (source=%s)",
-                        cell_id, payload.get("source", "unknown"),
-                    )
-                
-                # Create Cell from available fields (robust fallback)
-                try:
-                    cell = Cell(
-                        cell_id=cell_id,
-                        reality=reality,
-                        analysis=payload.get("analysis", "JUDGE"),
-                        content=payload.get("content", ""),
-                        context=payload.get("context", ""),
-                        budget_usd=payload.get("budget_usd", 0.01),
-                        time_dim=payload.get("time_dim", "PRESENT"),
-                        lod=payload.get("lod", 0),
-                    )
-                    logger.debug("[HANDLER] Cell reconstructed from payload: %s", cell.cell_id)
-                except Exception as cell_err:
-                    # Last resort: create Cell with only required fields
-                    logger.warning(
-                        "JUDGMENT_REQUESTED partial cell data: %s (error=%s, using minimal fallback)",
-                        event.event_id, cell_err,
-                    )
-                    cell = Cell(
-                        cell_id=cell_id,
-                        reality=reality,
-                        analysis="JUDGE",
-                        content=f"Event: {event.event_id}",
-                        context=payload.get("source", "unknown"),
-                        budget_usd=0.01,
-                    )
+                cell = Cell(
+                    cell_id=p.cell_id or str(uuid.uuid4()),
+                    reality=p.reality or "CODE",
+                    analysis="JUDGE",
+                    content=f"Event: {event.event_id}",
+                    budget_usd=0.01,
+                )
 
-            # Parse level (optional, orchestrator will auto-select if None)
-            level_str = payload.get("level", "AUTO")
+            # Parse level
+            level_str = p.level
             level = None
             if level_str and level_str != "AUTO":
                 try:
                     level = ConsciousnessLevel[level_str]
                 except KeyError:
-                    logger.warning("Invalid level %s, using auto-select", level_str)
                     level = None
 
-            # Extract budget
-            budget_usd = payload.get("budget_usd", cell.budget_usd)
-
             logger.info(
-                "JudgmentExecutor: Processing %s judgment (level=%s, budget=$%.2f)",
+                "JudgmentExecutor: Processing %s judgment (level=%s, fractal_depth=%d)",
                 cell.reality,
-                level_str,
-                budget_usd,
+                level_str or "AUTO",
+                p.fractal_depth
             )
 
-            # Check circuit breaker health (prevent cascade failures)
+            # Check circuit breaker
             if not _orchestrator_breaker.allow():
-                logger.warning(
-                    "JudgmentExecutor: Circuit breaker OPEN (%s state), fast-failing %s",
-                    _orchestrator_breaker.state,
-                    cell.cell_id,
-                )
-                await self._emit_judgment_failed(
-                    judgment_id=judgment_id,
-                    cell_id=cell.cell_id,
-                    reason="circuit_breaker_open",
-                    error_message=f"Orchestrator circuit breaker is {_orchestrator_breaker.state}",
-                )
+                await self._emit_judgment_failed(judgment_id, cell.cell_id, "circuit_breaker_open", "Circuit breaker OPEN")
                 return
 
             # Run the orchestrator with timeout (30s max)
@@ -189,7 +128,8 @@ class JudgmentExecutorHandler(HandlerGroup):
                     self._orchestrator.run(
                         cell=cell,
                         level=level,
-                        budget_usd=budget_usd,
+                        budget_usd=cell.budget_usd,
+                        fractal_depth=p.fractal_depth,
                     ),
                     timeout=30.0,
                 )
@@ -201,12 +141,6 @@ class JudgmentExecutorHandler(HandlerGroup):
                 # Record success for circuit breaker
                 _orchestrator_breaker.record_success()
 
-                # Write guidance so JS hooks get async verdict
-                try:
-                    from cynic.api.routers.core import _write_guidance
-                    _write_guidance(cell, judgment)
-                except Exception:
-                    pass  # best-effort
             except asyncio.TimeoutError:
                 logger.error(
                     "JudgmentExecutor: Timeout on %s (exceeded 30s)",

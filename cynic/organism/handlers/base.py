@@ -21,7 +21,7 @@ from typing import Callable
 from cynic.core.event_bus import Event, CoreEvent
 
 # Import the new service architecture
-from cynic.api.handlers.services import (
+from cynic.organism.handlers.services import (
     KernelServices,
     CognitionServices,
     MetabolicServices,

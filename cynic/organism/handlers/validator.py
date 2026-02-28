@@ -2,7 +2,7 @@
 Handler Compile-Time Discovery & Validation — Verify all handlers are properly wired.
 
 Validates:
-1. All handler modules in cynic.api.handlers are discovered
+1. All handler modules in cynic.organism.handlers are discovered
 2. All handler names are unique
 3. All subscribed events are valid CoreEvent types
 4. All declared dependencies are available (or documented as optional)
@@ -23,10 +23,10 @@ from typing import TYPE_CHECKING, Any
 from cynic.core.event_bus import EventBusError
 
 if TYPE_CHECKING:
-    from cynic.api.handlers.base import HandlerGroup
+    from cynic.organism.handlers.base import HandlerGroup
     from cynic.core.event_bus import CoreEvent
 
-logger = logging.getLogger("cynic.api.handlers.validator")
+logger = logging.getLogger("cynic.organism.handlers.validator")
 
 
 @dataclass
@@ -94,13 +94,13 @@ class HandlerValidator:
         return self._issues
 
     def _scan_all_modules(self) -> None:
-        """Scan cynic.api.handlers to find all module names."""
+        """Scan cynic.organism.handlers to find all module names."""
         try:
-            from cynic.api import handlers as _pkg
+            from cynic.organism import handlers as _pkg
             for _, module_name, _ in pkgutil.iter_modules(_pkg.__path__):
                 if not module_name.startswith("_") and module_name not in ("base", "introspect", "services", "validator"):
                     self._all_module_names.add(module_name)
-        except EventBusError as e:
+        except Exception as e:
             logger.debug("Failed to scan handler modules: %s", e)
 
     def _validate_handler(self, group: HandlerGroup) -> None:

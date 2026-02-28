@@ -72,6 +72,7 @@ class JudgmentRequestedPayload(BaseModel):
     cell_id: str = ""
     reality: str = "CODE"
     level:   str = ""     # REFLEX|MICRO|MACRO
+    fractal_depth: int = 1
     cell:    dict = Field(default_factory=dict)   # full Cell dict for JudgmentExecutorHandler
     source:  str = ""                              # "api:judge" | "api:perceive"
     judgment_id: str = ""   # UUID from POST /judge or POST /perceive, so executor matches PENDING entry

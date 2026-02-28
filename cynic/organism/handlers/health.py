@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING, Optional
 
 from cynic.core.event_bus import Event, CoreEvent, EventBusError
 
-from cynic.api.handlers.base import HandlerGroup, KernelServices
+from cynic.organism.handlers.base import HandlerGroup, KernelServices
 
 if TYPE_CHECKING:
     from cynic.core.storage.gc import StorageGarbageCollector
     from asyncpg import Pool
 
-logger = logging.getLogger("cynic.api.handlers.health")
+logger = logging.getLogger("cynic.organism.handlers.health")
 
 
 class HealthHandlers(HandlerGroup):

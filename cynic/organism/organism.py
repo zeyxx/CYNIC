@@ -188,7 +188,6 @@ class Organism:
     last_judgment: Optional[dict] = None
     container: DependencyContainer = field(default_factory=DependencyContainer)
     _handler_registry: object = field(default=None)
-    gossip_manager: Optional[Any] = None  # Set to enable federation (GossipManager)
 
     @property
     def uptime_s(self) -> float:
@@ -288,8 +287,8 @@ class Organism:
         return self.memory.self_prober
 
     @property
-    def conscious_state(self) -> ConsciousState:
-        return self.memory.conscious_state
+    def gossip_manager(self) -> Optional[Any]:
+        return self.memory.gossip_manager
 
     @property
     def decide_agent(self) -> Optional[DecideAgent]:
@@ -836,6 +835,9 @@ class _OrganismAwakener:
         container.register(ContextCompressor, self.compressor)
         container.register(WorldModelUpdater, self.world_model)
         container.register(ClaudeCodeRunner, self.runner)
+        if self.gossip_manager is not None:
+            from cynic.federation.gossip import GossipManager
+            container.register(GossipManager, self.gossip_manager)
         if self.registry is not None:
             container.register(LLMRegistry, self.registry)
         logger.info(
@@ -979,6 +981,7 @@ class _OrganismAwakener:
             action_proposer=self.action_proposer,
             self_prober=self.self_prober,
             sona_emitter=self.sona_emitter,
+            gossip_manager=self.gossip_manager,
             meta_cognition=self.meta_cognition,
         )
 

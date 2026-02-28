@@ -15,12 +15,12 @@ from cynic.core.event_bus import Event, CoreEvent, get_core_bus, EventBusError
 from cynic.core.events_schema import TranscendencePayload
 from cynic.core.phi import MAX_Q_SCORE, PHI_INV, PHI_INV_2, HOWL_MIN, WAG_MIN, GROWL_MIN
 
-from cynic.api.handlers.base import HandlerGroup, KernelServices
+from cynic.organism.handlers.base import HandlerGroup, KernelServices
 
 if TYPE_CHECKING:
     from cynic.cognition.cortex.action_proposer import ActionProposer
 
-logger = logging.getLogger("cynic.api.handlers.axiom")
+logger = logging.getLogger("cynic.organism.handlers.axiom")
 
 # A6-A9: Emergent axioms that trigger TRANSCENDENCE when all 4 active
 _A6_A9 = {"EMERGENCE", "AUTONOMY", "SYMBIOSIS", "ANTIFRAGILITY"}

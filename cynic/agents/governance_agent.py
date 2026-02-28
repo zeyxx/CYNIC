@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from cynic.core.unified_state import UnifiedLearningOutcome
-from cynic.learning.unified_learning import UnifiedQTable
+from cynic.learning.qlearning import QTable, LearningSignal
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ class GovernanceAgent:
         self.learning_history: list[AgentLearningRecord] = []
 
         # Learning systems
-        self.q_table = UnifiedQTable()
+        self.q_table = QTable()
         self.prediction_accuracy = 0.5  # Start neutral
 
         # Agent-specific state
@@ -305,14 +305,16 @@ class GovernanceAgent:
         predicted_verdict = vote_to_verdict[agent_vote.vote]
         actual_verdict = "HOWL" if actual_outcome == "APPROVED" else "BARK"
 
-        outcome = UnifiedLearningOutcome(
+        # Convert outcome to LearningSignal
+        state_key = f"AGENT:{self.agent_id}:{self.agent_type}"
+        signal = LearningSignal(
+            state_key=state_key,
+            action=predicted_verdict,
+            reward=community_satisfaction,
             judgment_id=proposal_id,
-            predicted_verdict=predicted_verdict,
-            actual_verdict=actual_verdict,
-            satisfaction_rating=community_satisfaction,
+            loop_name=f"AGENT_{self.agent_id}"
         )
-
-        self.q_table.update(outcome)
+        self.q_table.update(signal)
 
         logger.info(
             f"Agent {self.agent_id} learned from {proposal_id}: "
@@ -334,6 +336,7 @@ class GovernanceAgent:
                 "profile": "No votes yet",
             }
 
+        state_key = f"AGENT:{self.agent_id}:{self.agent_type}"
         return {
             "agent_id": self.agent_id,
             "agent_type": self.agent_type,
@@ -343,7 +346,7 @@ class GovernanceAgent:
             "abstain_votes": self.voting_patterns["ABSTAIN"],
             "yes_rate": self.voting_patterns["YES"] / len(self.vote_history),
             "accuracy": self.prediction_accuracy,
-            "q_table_confidence": self.q_table.get_prediction_confidence("HOWL"),
+            "q_table_confidence": self.q_table.confidence(state_key),
         }
 
     def __str__(self) -> str:

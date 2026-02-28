@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING
 
 from cynic.core.event_bus import Event, CoreEvent, EventBusError
 
-from cynic.api.handlers.base import HandlerGroup, KernelServices
+from cynic.organism.handlers.base import HandlerGroup, KernelServices
 
 if TYPE_CHECKING:
     from cynic.metabolism.universal import UniversalActuator
     from cynic.learning.qlearning import QTable
 
-logger = logging.getLogger("cynic.api.handlers.direct")
+logger = logging.getLogger("cynic.organism.handlers.direct")
 
 
 class DirectActionsHandler(HandlerGroup):

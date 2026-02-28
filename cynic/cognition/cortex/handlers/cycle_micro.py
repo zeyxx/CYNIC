@@ -107,39 +107,48 @@ class MicroCycleHandler(BaseHandler):
                         )
                         escalate_to_macro = True
 
-            # Axiom scoring at medium depth
-            # NOTE: score_and_compute() was synchronous and blocking event loop
-            # Temporarily use direct calculation to fix hang
-            q_scores_micro = [j.q_score for j in pipeline.dog_judgments]
-            avg_q_micro = sum(q_scores_micro) / len(q_scores_micro) if q_scores_micro else 0.0
-
-            # Simple fallback: use average of dog scores
-            q_score_micro = avg_q_micro
-            axiom_result_dict = {
-                "q_score": q_score_micro,
-                "axiom_scores": {"VERIFY": 50.0, "BURN": 50.0},
-                "active_axioms": ["VERIFY", "BURN"],
+            # Step 3: Fractal Axiom Scoring
+            # Each active dog's score is used as input for the axiom architecture
+            raw_scores = {j.dog_id: j.q_score for j in pipeline.dog_judgments}
+            
+            # Map dog IDs to Axioms they represent (best effort mapping)
+            # In a full implementation, this mapping is dynamic
+            axiom_inputs = {
+                "FIDELITY": raw_scores.get("ANALYST", 50.0),
+                "PHI": raw_scores.get("ARCHITECT", 50.0),
+                "VERIFY": raw_scores.get("GUARDIAN", 50.0),
+                "CULTURE": raw_scores.get("JANITOR", 50.0),
+                "BURN": raw_scores.get("SCOUT", 50.0),
             }
 
-            class SimpleResult:
-                def __init__(self, d):
-                    self.q_score = d["q_score"]
-                    self.axiom_scores = d["axiom_scores"]
-                    self.active_axioms = d["active_axioms"]
+            # Score each core axiom with fractal depth
+            axiom_scores = {}
+            for axiom in ["FIDELITY", "PHI", "VERIFY", "CULTURE", "BURN"]:
+                # Inject the dog's raw score as the facet result for that axiom
+                # (Simulating real facet scoring via AbstractDog results)
+                axiom_scores[axiom] = self.axiom_arch.score_axiom_fractal(
+                    axiom, 
+                    context=cell.content, 
+                    depth=1, 
+                    max_depth=pipeline.fractal_depth
+                )
 
-            axiom_result = SimpleResult(axiom_result_dict)
-
-            verdict = verdict_from_q_score(axiom_result.q_score)
+            # Final Q-Score is the geometric mean of axiom scores (The PHI Law)
+            from cynic.core.phi import geometric_mean
+            q_score_micro = geometric_mean(list(axiom_scores.values()))
+            
+            active_axioms = self.axiom_arch.active_axioms
+            verdict = verdict_from_q_score(q_score_micro)
             total_cost = sum(j.cost_usd for j in pipeline.dog_judgments)
 
             judgment = Judgment(
                 cell=cell,
-                q_score=axiom_result.q_score,
+                q_score=q_score_micro,
                 verdict=verdict.value,
                 confidence=min(PHI_INV, MAX_CONFIDENCE),  # 61.8% at micro
-                axiom_scores=axiom_result.axiom_scores,
-                active_axioms=list(axiom_result.active_axioms),
-                dog_votes={j.dog_id: j.q_score for j in pipeline.dog_judgments},
+                axiom_scores=axiom_scores,
+                active_axioms=active_axioms,
+                dog_votes=raw_scores,
                 consensus_votes=consensus.votes if consensus else 0,
                 consensus_quorum=consensus.quorum if consensus else 7,
                 consensus_reached=consensus.consensus if consensus else False,
@@ -148,7 +157,7 @@ class MicroCycleHandler(BaseHandler):
             )
 
             duration_ms = (time.perf_counter() - t0) * 1000
-            self._log_execution("micro_cycle_complete", f"Q={axiom_result.q_score:.1f} verdict={verdict.value}")
+            self._log_execution("micro_cycle_complete", f"Q={q_score_micro:.1f} verdict={verdict.value}")
 
             metadata = {
                 "cell_id": cell.cell_id,

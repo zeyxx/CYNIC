@@ -410,36 +410,36 @@ class AxiomArchitecture:
         axiom_name: str,
         context: str,
         depth: int = 1,
+        max_depth: int = 3,
     ) -> float:
         """
         Score an axiom with fractal recursion.
 
         depth=1: Score 7 facets → geometric mean (DEFAULT)
-        depth=2: Score each facet's sub-facets (7×7) → φ-bounded
-        depth=3: Maximum depth (φ³ diminishing returns)
+        depth=n: Recursive expansion of facets into sub-axioms.
 
         Returns score [0, 100].
         """
-        if depth > 3:  # φ-bounded recursion depth
+        if depth > max_depth:
             return 50.0  # Neutral at max depth
 
         if axiom_name not in AXIOM_FACETS:
-            # Emergent axiom: score directly via external scorer
+            # Emergent axiom or unknown facet: score directly
             return self._facet_scorer(axiom_name, axiom_name, context)
 
         facets = AXIOM_FACETS[axiom_name]
         facet_scores: list[float] = []
 
         for facet_name in facets:
-            if depth < 3 and facet_name in AXIOM_FACETS:
-                # Recursive: score sub-facets
-                sub_score = self.score_axiom_fractal(facet_name, context, depth + 1)
+            # Recursive check: if the facet name is itself a scoreable axiom
+            if depth < max_depth and facet_name in AXIOM_FACETS:
+                sub_score = self.score_axiom_fractal(facet_name, context, depth + 1, max_depth)
             else:
-                # Leaf: direct scoring
                 sub_score = self._facet_scorer(axiom_name, facet_name, context)
+            
             facet_scores.append(max(0.0, min(100.0, sub_score)))
 
-        return geometric_mean(facet_scores) if facet_scores else 0.0
+        return geometric_mean(facet_scores) if facet_scores else 50.0
 
     def _default_facet_scorer(
         self, axiom_name: str, facet_name: str, context: str

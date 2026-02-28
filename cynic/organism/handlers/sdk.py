@@ -10,13 +10,13 @@ from typing import TYPE_CHECKING
 from cynic.core.event_bus import Event, CoreEvent, EventBusError
 from cynic.core.phi import MAX_Q_SCORE
 
-from cynic.api.handlers.base import HandlerGroup, KernelServices
+from cynic.organism.handlers.base import HandlerGroup, KernelServices
 
 if TYPE_CHECKING:
     from cynic.cognition.cortex.action_proposer import ActionProposer
     from cynic.learning.qlearning import QTable
 
-logger = logging.getLogger("cynic.api.handlers.sdk")
+logger = logging.getLogger("cynic.organism.handlers.sdk")
 
 
 class SDKHandlers(HandlerGroup):

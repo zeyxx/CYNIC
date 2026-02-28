@@ -39,6 +39,7 @@ class JudgeRequest(BaseModel):
     )
     budget_usd: float = Field(default=0.01, ge=0.0, description="Max USD budget for this judgment")
     lod: int = Field(default=1, ge=0, le=3, description="Level of Detail (0=pattern, 3=LLM)")
+    fractal_depth: int = Field(default=1, ge=1, le=55, description="Recursion depth for axiom facets (1=default, 2+=fractal)")
 
     @field_validator("reality")
     @classmethod

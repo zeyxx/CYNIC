@@ -20,28 +20,28 @@ import logging
 import pkgutil
 from typing import TYPE_CHECKING
 
-from cynic.api.handlers.services import (
+from .services import (
     KernelServices,
     CognitionServices,
     MetabolicServices,
     SensoryServices,
 )
-from cynic.api.handlers.introspect import (
+from .introspect import (
     HandlerAnalysis,
     ArchitectureSnapshot,
     CouplingGrowth,
     HandlerArchitectureIntrospector,
 )
-from cynic.api.handlers.validator import (
+from .validator import (
     ValidationIssue,
     HandlerValidator,
 )
 
 if TYPE_CHECKING:
     from cynic.core.event_bus import EventBus
-    from cynic.api.handlers.base import HandlerGroup
+    from .base import HandlerGroup
 
-logger = logging.getLogger("cynic.api.handlers")
+logger = logging.getLogger("cynic.organism.handlers")
 
 
 class HandlerRegistry:
@@ -118,7 +118,7 @@ def discover_handler_groups(
     """
     Auto-discover handler groups — like discover_dogs() but for handlers.
 
-    Scans cynic.api.handlers package for HandlerGroup subclasses.
+    Scans cynic.organism.handlers package for HandlerGroup subclasses.
     Instantiates each with KernelServices + group-specific kwargs.
 
     Args:
@@ -129,19 +129,19 @@ def discover_handler_groups(
     Returns:
         List of instantiated HandlerGroup subclasses
     """
-    from cynic.api.handlers.base import HandlerGroup
+    from .base import HandlerGroup
 
     groups: list[HandlerGroup] = []
 
     # Import all handler modules
-    from cynic.api import handlers as _pkg
+    from cynic.organism import handlers as _pkg
 
     for _, module_name, _ in pkgutil.iter_modules(_pkg.__path__):
         if module_name.startswith("_") or module_name == "base":
             continue
 
         try:
-            mod = importlib.import_module(f"cynic.api.handlers.{module_name}")
+            mod = importlib.import_module(f"cynic.organism.handlers.{module_name}")
         except ImportError as e:
             logger.warning(f"Failed to import handler module {module_name}: {e}")
             continue
