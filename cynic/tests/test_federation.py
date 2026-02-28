@@ -256,4 +256,48 @@ async def test_three_organisms_share_learning():
 
     This will be implemented in Task 8.
     """
-    pass
+    from cynic.federation import GossipManager, FederationPeer, FederationMessage
+    from cynic.learning.unified_learning import UnifiedQTable
+
+    # Create 3 organisms with gossip managers
+    def make_organism(instance_id):
+        # Create a minimal organism with just Q-Table and GossipManager
+        q_table = UnifiedQTable()
+        mgr = GossipManager(instance_id=instance_id, q_table=q_table, batch_size=10)
+        return q_table, mgr
+
+    q_a, mgr_a = make_organism("A")
+    q_b, mgr_b = make_organism("B")
+    q_c, mgr_c = make_organism("C")
+
+    # Wire A → B → C ring topology
+    # A pushes to B, B pushes to C (not all directions, just one-way for this test)
+    mgr_a.add_peer(FederationPeer("B", transport=lambda m: mgr_b.receive(m)))
+    mgr_b.add_peer(FederationPeer("C", transport=lambda m: mgr_c.receive(m)))
+
+    # A makes 10 judgments (enough to trigger batch_size=10 push)
+    for i in range(10):
+        # Simulate judgment by adding entries to A's Q-Table
+        q_a.values[("GOVERNANCE", f"proposal-{i}")] = 70.0 + i
+        # Trigger on_judgment (which may push after batch)
+        mgr_a.on_judgment(i + 1)
+
+    # After 10 judgments, A has pushed to B (batch_size=10)
+    # Now manually push B to C
+    mgr_b.push()
+
+    # Verify C has learned from A (via B)
+    assert len(q_c.values) > 0, "C should have A's entries via B"
+    assert q_c.values[("GOVERNANCE", "proposal-0")] > 0, "C should have merged values from A"
+
+    # Verify gossip stats
+    a_stats = mgr_a.get_stats()
+    assert a_stats["is_federated"] is True
+    assert a_stats["sync_count"] >= 1
+
+    b_stats = mgr_b.get_stats()
+    assert b_stats["total_merged_keys"] > 0
+
+    c_stats = mgr_c.get_stats()
+    # C never pushed, only received
+    assert c_stats["sync_count"] == 0
