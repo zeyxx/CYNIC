@@ -70,6 +70,10 @@ class MachineMonitor:
             timestamp=time.time(),
         )
 
+    async def get_snapshot(self) -> MachineState:
+        """Alias for get_state to match SymbioticStateManager interface."""
+        return await self.get_state()
+
     async def detect_constraints(self) -> list[str]:
         """Detect machine resource constraints and limitations.
 

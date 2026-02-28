@@ -126,6 +126,9 @@ class _OrganismAwakener:
         self.self_prober.start(get_core_bus())
 
         # 2. BODY & METABOLISM
+        from cynic.kernel.organism.layers.embodiment import HardwareBody
+        self.body = HardwareBody()
+        
         self.scheduler = ConsciousnessRhythm(
             axiom_monitor=None,
             escore_tracker=self.escore_tracker,
@@ -173,6 +176,7 @@ class _OrganismAwakener:
         )
         metabolism = MetabolicCore(
             scheduler=self.scheduler,
+            body=self.body,
             runner=self.runner,
             llm_router=self.llm_router,
             telemetry_store=self.telemetry_store
@@ -231,7 +235,7 @@ class _OrganismAwakener:
             federation={"gossip_manager": self.gossip_manager},
             judgment_executor={"orchestrator": self.orchestrator},
             axiom={"action_proposer": self.action_proposer},
-            act_executor={"agency_manager": self.organism_manager}
+            act_executor={"agency_manager": self.organism_manager, "body": self.body}
         )
         for g in groups: handler_registry.register(g)
 

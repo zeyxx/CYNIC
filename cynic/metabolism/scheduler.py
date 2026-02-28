@@ -108,8 +108,9 @@ class ConsciousnessRhythm:
         scheduler.submit(cell, budget_usd=0.01)  # → MICRO
     """
 
-    def __init__(self, orchestrator: Any) -> None:
+    def __init__(self, orchestrator: Any, body: Optional[Any] = None) -> None:
         self._orchestrator = orchestrator
+        self._body = body # HardwareBody
         self._consciousness: ConsciousnessState = get_consciousness()
 
         # One bounded queue per level — shared by all N workers of that tier
@@ -250,6 +251,12 @@ class ConsciousnessRhythm:
                 task.add_done_callback(lambda t, lvl=level, wid=i: self._on_tier_worker_done(t, lvl, wid))
                 self._tasks.append(task)
                 total_workers += 1
+
+        # Spawn Somatic Loop (Body heartbeat)
+        if self._body:
+            somatic_task = asyncio.ensure_future(self._somatic_loop())
+            somatic_task.set_name("cynic.scheduler.somatic")
+            self._tasks.append(somatic_task)
 
         # Spawn PerceiveWorkers (autonomous sensors)
         for pw in self._perceive_workers:
@@ -531,6 +538,20 @@ class ConsciousnessRhythm:
                     timer.record(elapsed_ms)
                 self._consciousness.increment(ConsciousnessLevel.META)
                 logger.info("META cycle complete: %.1fms", elapsed_ms)
+
+    async def _somatic_loop(self) -> None:
+        """Background loop for physical body heartbeat."""
+        if not self._body:
+            return
+
+        while self._running:
+            try:
+                await self._body.pulse()
+            except Exception as e:
+                logger.debug(f"Somatic pulse failed: {e}")
+            
+            # Fibonacci(9) = 34 seconds
+            await asyncio.sleep(34.0)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 

@@ -46,8 +46,9 @@ class CognitionCore:
 
 @dataclass
 class MetabolicCore:
-    """BODY — Execution, scheduling, routing, telemetry."""
+    """BODY — Execution, scheduling, routing, telemetry, physical hardware."""
     scheduler: Any # ConsciousnessRhythm
+    body: Optional[Any] = None # HardwareBody
     runner: Optional[Any] = None # ClaudeCodeRunner
     llm_router: Optional[Any] = None # LLMRouter
     telemetry_store: Any = field(default_factory=lambda: None) # TelemetryStore

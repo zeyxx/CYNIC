@@ -34,6 +34,7 @@ mcp = "^1.5.0"
 # CLI
 typer = {extras = ["all"], version = "^0.12.0"}
 rich = "^13.7.0"
+psutil = "^5.9.0"
 
 # AI / LLM Adapters
 anthropic = "^0.23.0"

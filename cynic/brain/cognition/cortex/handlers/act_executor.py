@@ -51,6 +51,8 @@ class ActHandler(BaseHandler):
         runner: Optional[Any] = None,
         gasdf_executor: Optional[Any] = None,
         agency_manager: Optional[Any] = None,
+        body: Optional[Any] = None,
+        motor_system: Optional[Any] = None,
         **kwargs: Any,
     ) -> None:
         self.decide_agent = decide_agent
@@ -58,6 +60,14 @@ class ActHandler(BaseHandler):
         self.runner = runner
         self.gasdf_executor = gasdf_executor
         self.agency_manager = agency_manager
+        self.body = body
+        
+        # Lazy import to avoid circular dependencies
+        if motor_system is None and self.body:
+            from cynic.kernel.organism.layers.motor import MotorSystem
+            self.motor_system = MotorSystem(body=self.body)
+        else:
+            self.motor_system = motor_system
 
     async def execute(
         self,
@@ -271,10 +281,21 @@ class ActHandler(BaseHandler):
 
         t0 = time.perf_counter()
         try:
-            action_result = await self.runner.execute(
-                prompt=decision["action_prompt"],
-                timeout=30,
-            )
+            # Execute as an Embodied Gesture if MotorSystem is available
+            if self.motor_system:
+                action_result = await self.motor_system.execute_gesture(
+                    action_type="system_action",
+                    effector=self.runner,
+                    params={"prompt": decision["action_prompt"], "timeout": 30},
+                    base_cost=0.01
+                )
+            else:
+                # Fallback to direct execution
+                action_result = await self.runner.execute(
+                    prompt=decision["action_prompt"],
+                    timeout=30,
+                )
+            
             duration_ms = (time.perf_counter() - t0) * 1000
 
             result = {

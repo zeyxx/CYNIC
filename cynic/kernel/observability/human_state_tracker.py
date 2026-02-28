@@ -48,6 +48,10 @@ class HumanStateTracker:
             timestamp=time.time(),
         )
 
+    async def get_snapshot(self) -> HumanState:
+        """Alias for get_state to match SymbioticStateManager interface."""
+        return await self.get_state()
+
     async def report_feedback(
         self,
         feedback_type: str,

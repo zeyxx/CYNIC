@@ -41,6 +41,7 @@ class CliApp:
             ('2', '💭 CYNIC MIND   - Deep dive into CYNIC'),
             ('3', '🧠 YOUR STATE   - Your energy, focus'),
             ('4', '⚙️  MACHINE      - Resources'),
+            ('B', '🦴 BODY         - Live Embodied TUI (NEW)'),
             ('5', '🤝 FEDERATION   - P2P gossip status'),
             ('6', '💬 TALK         - Chat'),
             ('7', '📊 HISTORY      - Decisions'),
@@ -102,6 +103,10 @@ class CliApp:
             view = render_machine_view(state)
             print(view)
 
+        elif choice.upper() == 'B':
+            # LIVE BODY TUI
+            await self.show_body_tui()
+
         elif choice == '5':
             # FEDERATION
             await self.show_federation_status()
@@ -142,6 +147,25 @@ class CliApp:
         state = await get_current_state()
         view = render_observe_view(state)
         print(view)
+
+    async def show_body_tui(self) -> None:
+        """Launch the live Embodied TUI."""
+        print("\n🦴 Launching LIVE BODY TUI...")
+        
+        from cynic.kernel.observability.symbiotic_state_manager import get_symbiotic_state_manager
+        mgr = await get_symbiotic_state_manager()
+        organism = mgr._organism
+        
+        if organism is None:
+            print("⚠️  Organism not awakened. Body TUI might show limited data.")
+        
+        from cynic.interfaces.cli.organism_tui import OrganismTUI
+        tui = OrganismTUI(organism)
+        
+        try:
+            await tui.run()
+        except KeyboardInterrupt:
+            print("\nDetached from body.")
 
     async def show_federation_status(self) -> None:
         """Show P2P gossip federation status.

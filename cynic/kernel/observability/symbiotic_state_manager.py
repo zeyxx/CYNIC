@@ -53,20 +53,47 @@ class SymbioticStateManager:
         machine = await self.machine_monitor.get_snapshot()
         
         # 3. Collect CYNIC core metrics
-        # (Mapping from OrganismState to SymbioticState expected format)
-        cynic_metrics = {}
+        cynic_thinking = "Idle"
+        cynic_planning = []
+        cynic_confidence = 0.618
+        cynic_e_score = 50.0
+        
         if self._organism:
             stats = self._organism.state.get_stats()
-            cynic_metrics = {
-                "total_judgments": stats.get("total_judgments", 0),
-                "consciousness_level": stats.get("consciousness_level", "REFLEX"),
-                "confidence": 0.618, # Default if not computed
-            }
+            cynic_thinking = stats.get("current_analysis", "Processing...")
+            cynic_confidence = stats.get("confidence", 0.618)
+            # Fetch real E-Score if tracker available
+            if hasattr(self._organism, "escore_tracker") and self._organism.escore_tracker:
+                cynic_e_score = self._organism.escore_tracker.get_total_escore()
 
         snapshot = SymbioticState(
-            human=human,
-            machine=machine,
-            cynic=cynic_metrics,
+            # CYNIC
+            cynic_observations={},
+            cynic_thinking=cynic_thinking,
+            cynic_planning=cynic_planning,
+            cynic_confidence=cynic_confidence,
+            cynic_e_score=cynic_e_score,
+            # Human
+            human_energy=human.energy,
+            human_focus=human.focus,
+            human_intentions=human.intentions,
+            human_values=human.values,
+            human_feedback=human.feedback,
+            human_growth_areas=human.growth_areas,
+            # Machine
+            machine_resources={
+                "cpu": machine.cpu_percent,
+                "ram": machine.memory_percent,
+                "disk": machine.disk_percent,
+            },
+            machine_constraints={},
+            machine_capability_delta=[],
+            machine_health=machine.health,
+            # Relationship
+            alignment_score=0.618,
+            conflicts=[],
+            mutual_influences=[],
+            shared_objectives=[],
             timestamp=time.time()
         )
         self._last_snapshot = snapshot
@@ -89,3 +116,8 @@ async def get_symbiotic_state_manager() -> SymbioticStateManager:
                 pass
                 
     return _INSTANCE
+
+async def get_current_state() -> SymbioticState:
+    """Helper to get the current symbiotic snapshot from the singleton manager."""
+    mgr = await get_symbiotic_state_manager()
+    return await mgr.get_current_snapshot()
