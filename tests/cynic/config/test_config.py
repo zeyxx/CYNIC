@@ -13,7 +13,7 @@ from __future__ import annotations
 import os
 import pytest
 
-from cynic.config import Config, get_config, reset_config
+from cynic.kernel.config import Config, get_config, reset_config
 
 
 class TestConfigLoading:

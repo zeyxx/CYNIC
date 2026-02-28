@@ -15,9 +15,9 @@ import asyncio
 from unittest.mock import Mock, AsyncMock, MagicMock, patch
 from typing import Optional
 
-from cynic.bots.bot_interface import BotInterface, BotCommand, BotResponse
-from cynic.core.unified_state import UnifiedConsciousState, UnifiedJudgment
-from governance_bot.adapters.discord_adapter import DiscordAdapter
+from cynic.interfaces.bots.bot_interface import BotInterface, BotCommand, BotResponse
+from cynic.kernel.core.unified_state import UnifiedConsciousState, UnifiedJudgment
+from cynic.interfaces.bots.governance.adapters.discord_adapter import DiscordAdapter
 
 
 class TestDiscordAdapterImplementsInterface:
@@ -420,9 +420,10 @@ class TestDiscordAdapterErrorHandling:
     async def test_exception_in_command_handling_returns_failure(self):
         """Exceptions during command handling are caught and returned as failure."""
         mock_client = Mock()
-        mock_state = Mock(spec=UnifiedConsciousState)
+        from cynic.kernel.organism.state_manager import OrganismState
+        mock_state = Mock(spec=OrganismState)
 
-        # Make conscious_state raise an exception
+        # Make state raise an exception
         mock_state.get_recent_judgments.side_effect = Exception("Database error")
 
         adapter = DiscordAdapter(client=mock_client, conscious_state=mock_state)
@@ -595,7 +596,7 @@ class TestDiscordAdapterLogging:
     async def test_adapter_has_logger(self):
         """DiscordAdapter has or can use logger."""
         import logging
-        from governance_bot.adapters import discord_adapter
+        from cynic.interfaces.bots.governance.adapters import discord_adapter
 
         mock_client = Mock()
         mock_state = Mock(spec=UnifiedConsciousState)

@@ -13,12 +13,12 @@ import asyncio
 import pytest
 from dataclasses import dataclass
 
-from cynic.core.unified_state import UnifiedLearningOutcome, UnifiedJudgment
-from cynic.core.judgment import Cell
-from cynic.core.consciousness import ConsciousnessLevel
-from cynic.core.axioms import AxiomArchitecture, Verdict
-from cynic.learning.unified_learning import UnifiedQTable, LearningSession
-from cynic.organism.organism import awaken
+from cynic.kernel.core.unified_state import UnifiedLearningOutcome, UnifiedJudgment
+from cynic.kernel.core.judgment import Cell
+from cynic.kernel.core.consciousness import ConsciousnessLevel
+from cynic.kernel.core.axioms import AxiomArchitecture, Verdict
+from cynic.brain.learning.unified_learning import UnifiedQTable, LearningSession
+from cynic.kernel.organism.organism import awaken
 
 
 @dataclass

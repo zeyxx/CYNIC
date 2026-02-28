@@ -160,7 +160,7 @@ All major tool call methods now use context-aware timeouts:
 ### Basic Usage
 
 ```python
-from cynic.mcp.claude_code_adapter import ClaudeCodeAdapter
+from cynic.interfaces.mcp.claude_code_adapter import ClaudeCodeAdapter
 
 adapter = ClaudeCodeAdapter()
 
@@ -177,7 +177,7 @@ summary = await adapter.stream_telemetry(duration_s=60)
 ### Getting Timeout Information
 
 ```python
-from cynic.mcp.timeouts import TimeoutConfig
+from cynic.interfaces.mcp.timeouts import TimeoutConfig
 
 # Get timeout for a tool
 timeout = TimeoutConfig.get_timeout("ask_cynic")  # 30.0

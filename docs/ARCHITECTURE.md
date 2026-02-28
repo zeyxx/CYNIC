@@ -108,7 +108,7 @@ Judgment output: q_score, verdict (HOWL/WAG/GROWL/BARK), confidence (φ-bounded)
 ## Getting Started
 
 ```bash
-python -m cynic.cli start
-python -m cynic.cli chat
-python -m cynic.cli status
+python -m cynic.interfaces.cli start
+python -m cynic.interfaces.cli chat
+python -m cynic.interfaces.cli status
 ```

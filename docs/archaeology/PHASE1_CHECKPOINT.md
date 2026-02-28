@@ -14,7 +14,7 @@
 ### Task 1.1: Remove Dual Awakening Paths ✅
 **Objective**: Consolidate organism awakening logic
 **Blockers Found & Resolved**:
-1. ✅ **Dead Import**: Removed `from cynic.api.state import _on_judgment_created` from organism.py:458
+1. ✅ **Dead Import**: Removed `from cynic.interfaces.api.state import _on_judgment_created` from organism.py:458
    - This import was inside `_create_components()` but never used
    - Commit: `17fbbbd`
 
@@ -31,7 +31,7 @@
 **Status**: API layer (state.py) now correctly separated as FastAPI singleton holder
 - `awaken()` in state.py = delegation stub (backward-compat wrapper)
 - `awaken()` in organism.py = real implementation
-- All imports validated: `python -c "from cynic.organism.organism import awaken"` ✓
+- All imports validated: `python -c "from cynic.kernel.organism.organism import awaken"` ✓
 
 ### Task 1.2: Add Type Hints to Critical Routers ✅
 **Objective**: Unblock strict mypy mode for routers
@@ -155,9 +155,9 @@ Ready to:
 ## VALIDATION CHECKLIST
 
 - [x] All 3 files compile: `python -m py_compile` ✓
-- [x] No circular imports: `from cynic.organism.organism import awaken` ✓
-- [x] No circular imports: `from cynic.api.builders.assembler import OrganismAssembler` ✓
-- [x] No circular imports: `from cynic.api.routers.actions import router_actions` ✓
+- [x] No circular imports: `from cynic.kernel.organism.organism import awaken` ✓
+- [x] No circular imports: `from cynic.interfaces.api.builders.assembler import OrganismAssembler` ✓
+- [x] No circular imports: `from cynic.interfaces.api.routers.actions import router_actions` ✓
 - [x] Commits are atomic and well-documented ✓
 - [x] No test files modified (Phase 1 focused on structure)
 - [x] No new dependencies added ✓

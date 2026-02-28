@@ -18,12 +18,12 @@ Perception Functions:
     Prioritization: Routes urgent events to fast decision paths
 
 Typical usage:
-    from cynic.organism.layers import PerceptionUnifier
+    from cynic.kernel.organism.layers import PerceptionUnifier
     perception = PerceptionUnifier()
     unified_cell = perception.integrate(discord_message)
 
 See Also:
-    cynic.organism.layers: 10-layer organism architecture
-    cynic.senses: Sensory worker implementations
-    cynic.core.unified_state: Cell data model
+    cynic.kernel.organism.layers: 10-layer organism architecture
+    cynic.perception.senses: Sensory worker implementations
+    cynic.kernel.core.unified_state: Cell data model
 """

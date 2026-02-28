@@ -132,7 +132,7 @@ Claude Code: "How long has CYNIC been running?"
 1. Claude Code reads `~/.claude/mcp.json`
 2. Finds `cynic-claude-code-bridge` entry
 3. Launches subprocess: `bash run_mcp_bridge.sh`
-4. Subprocess runs: `python -m cynic.mcp.claude_code_bridge`
+4. Subprocess runs: `python -m cynic.interfaces.mcp.claude_code_bridge`
 5. Python process starts MCP stdio server
 6. Claude Code connects via stdin/stdout
 7. Tools become available to Claude Code immediately
@@ -144,9 +144,9 @@ Claude Code (User)
     ↓ (MCP request: "ask_cynic")
 Run MCP Bridge subprocess
     ↓ (stdio)
-cynic.mcp.claude_code_bridge.list_tools()
+cynic.interfaces.mcp.claude_code_bridge.list_tools()
     ↓ (returns tool definition)
-cynic.mcp.claude_code_bridge.call_tool("ask_cynic", args)
+cynic.interfaces.mcp.claude_code_bridge.call_tool("ask_cynic", args)
     ↓ (dispatcher)
 _tool_ask_cynic(args)
     ↓ (HTTP call)

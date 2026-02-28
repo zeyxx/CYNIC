@@ -166,7 +166,7 @@ Find the two failing tests and update assertions:
 ```python
 def test_error_handling_in_similar_judgments():
     """Test that DB errors are handled gracefully."""
-    with patch("cynic.mcp.service.db.query") as mock_query:
+    with patch("cynic.interfaces.mcp.service.db.query") as mock_query:
         mock_query.side_effect = Exception("DB error")
 
         result = router._handle_tools_call("similar_judgments", {"q_score": 50})
@@ -180,7 +180,7 @@ def test_error_handling_in_similar_judgments():
 
 def test_error_handling_in_loop_status():
     """Test that loop status errors are handled gracefully."""
-    with patch("cynic.mcp.service.get_loop_status") as mock_status:
+    with patch("cynic.interfaces.mcp.service.get_loop_status") as mock_status:
         mock_status.side_effect = Exception("loop status error")
 
         result = router._handle_tools_call("loop_status", {})
@@ -244,8 +244,8 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 
-from cynic.mcp.router import MCPRouter
-from cynic.core.events_schema import Event
+from cynic.interfaces.mcp.router import MCPRouter
+from cynic.kernel.core.events_schema import Event
 
 
 class TestWatchTelemetryStreaming:
@@ -422,7 +422,7 @@ async def test_watch_source_streams_file_changes(self, router):
             yield change
             await asyncio.sleep(0.01)
 
-    with patch("cynic.mcp.router.watch_directory") as mock_watch:
+    with patch("cynic.interfaces.mcp.router.watch_directory") as mock_watch:
         mock_watch.return_value = mock_file_watcher()
 
         # Call watch_source
@@ -452,7 +452,7 @@ async def test_watch_source_filters_by_pattern(self, router):
         for change in file_changes:
             yield change
 
-    with patch("cynic.mcp.router.watch_directory") as mock_watch:
+    with patch("cynic.interfaces.mcp.router.watch_directory") as mock_watch:
         mock_watch.return_value = mock_file_watcher()
 
         # Call with pattern filter
@@ -482,7 +482,7 @@ async def test_watch_source_handles_file_deletion(self, router):
         for change in file_changes:
             yield change
 
-    with patch("cynic.mcp.router.watch_directory") as mock_watch:
+    with patch("cynic.interfaces.mcp.router.watch_directory") as mock_watch:
         mock_watch.return_value = mock_file_watcher()
 
         stream_iter = await router._handle_watch_source({"directory": "."})
@@ -554,7 +554,7 @@ import subprocess
 from unittest.mock import AsyncMock, patch, MagicMock
 import logging
 
-from cynic.mcp.claude_code_bridge import _ensure_kernel_running
+from cynic.interfaces.mcp.claude_code_bridge import _ensure_kernel_running
 
 
 class TestKernelStartup:
@@ -563,7 +563,7 @@ class TestKernelStartup:
     @pytest.mark.asyncio
     async def test_kernel_startup_success_fast(self):
         """Test successful startup when kernel responds quickly."""
-        with patch("cynic.mcp.claude_code_bridge.httpx.AsyncClient") as mock_client:
+        with patch("cynic.interfaces.mcp.claude_code_bridge.httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"status": "ready"}
@@ -591,8 +591,8 @@ class TestKernelStartup:
             mock_resp.status_code = 200
             return mock_resp
 
-        with patch("cynic.mcp.claude_code_bridge.httpx.AsyncClient") as mock_client:
-            with patch("cynic.mcp.claude_code_bridge.subprocess.Popen") as mock_popen:
+        with patch("cynic.interfaces.mcp.claude_code_bridge.httpx.AsyncClient") as mock_client:
+            with patch("cynic.interfaces.mcp.claude_code_bridge.subprocess.Popen") as mock_popen:
                 mock_popen.return_value = MagicMock()
 
                 mock_client.return_value.__aenter__.return_value.get = mock_health_check
@@ -608,13 +608,13 @@ class TestKernelStartup:
         """Test that startup waits up to 30s (not 8s)."""
         start_time = asyncio.get_event_loop().time()
 
-        with patch("cynic.mcp.claude_code_bridge.httpx.AsyncClient") as mock_client:
+        with patch("cynic.interfaces.mcp.claude_code_bridge.httpx.AsyncClient") as mock_client:
             # Always timeout
             mock_client.return_value.__aenter__.return_value.get = AsyncMock(
                 side_effect=asyncio.TimeoutError()
             )
 
-            with patch("cynic.mcp.claude_code_bridge.subprocess.Popen"):
+            with patch("cynic.interfaces.mcp.claude_code_bridge.subprocess.Popen"):
                 result = await _ensure_kernel_running(timeout_seconds=30)
 
                 elapsed = asyncio.get_event_loop().time() - start_time
@@ -631,10 +631,10 @@ class TestKernelStartup:
             attempt_log.append(asyncio.get_event_loop().time())
             raise asyncio.TimeoutError()
 
-        with patch("cynic.mcp.claude_code_bridge.httpx.AsyncClient") as mock_client:
+        with patch("cynic.interfaces.mcp.claude_code_bridge.httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.get = mock_health_with_logging
 
-            with patch("cynic.mcp.claude_code_bridge.subprocess.Popen"):
+            with patch("cynic.interfaces.mcp.claude_code_bridge.subprocess.Popen"):
                 try:
                     await _ensure_kernel_running(timeout_seconds=5)
                 except:
@@ -656,14 +656,14 @@ class TestKernelStartup:
     async def test_kernel_startup_logging(self, caplog):
         """Test that startup attempts are logged."""
         with caplog.at_level(logging.DEBUG):
-            with patch("cynic.mcp.claude_code_bridge.httpx.AsyncClient") as mock_client:
+            with patch("cynic.interfaces.mcp.claude_code_bridge.httpx.AsyncClient") as mock_client:
                 mock_response = MagicMock()
                 mock_response.status_code = 200
                 mock_client.return_value.__aenter__.return_value.get = AsyncMock(
                     return_value=mock_response
                 )
 
-                with patch("cynic.mcp.claude_code_bridge.logging.getLogger") as mock_logger:
+                with patch("cynic.interfaces.mcp.claude_code_bridge.logging.getLogger") as mock_logger:
                     mock_logger.return_value = MagicMock()
                     result = await _ensure_kernel_running()
 
@@ -762,7 +762,7 @@ def _spawn_kernel() -> None:
         cmd = [
             sys.executable,
             "-m",
-            "cynic.api.entry",
+            "cynic.interfaces.api.entry",
             "--port",
             os.getenv("CYNIC_PORT", "8765")
         ]
@@ -901,7 +901,7 @@ import pytest
 import os
 from unittest.mock import patch
 
-from cynic.config.ports import PortConfig
+from cynic.kernel.config.ports import PortConfig
 
 
 class TestPortConfiguration:
@@ -974,7 +974,7 @@ File: `cynic/mcp/claude_code_bridge.py`
 
 Add import at top:
 ```python
-from cynic.config.ports import PortConfig
+from cynic.kernel.config.ports import PortConfig
 ```
 
 Update `_ensure_kernel_running` call:
@@ -1003,7 +1003,7 @@ File: `cynic/mcp/claude_code_adapter.py`
 
 Add import:
 ```python
-from cynic.config.ports import PortConfig
+from cynic.kernel.config.ports import PortConfig
 ```
 
 Update URL initialization:
@@ -1025,7 +1025,7 @@ Add environment variable documentation (comment):
   "mcpServers": {
     "cynic": {
       "command": "python",
-      "args": ["-m", "cynic.mcp.claude_code_bridge"],
+      "args": ["-m", "cynic.interfaces.mcp.claude_code_bridge"],
       "cwd": "C:/Users/zeyxm/Desktop/asdfasdfa/CYNIC-clean",
       "env": {
         "PYTHONPATH": "C:/Users/zeyxm/Desktop/asdfasdfa/CYNIC-clean",
@@ -1179,7 +1179,7 @@ File: `cynic/tests/mcp/test_timeout_strategy.py` (NEW)
 """Tests for timeout strategy."""
 
 import pytest
-from cynic.mcp.timeouts import TimeoutConfig, TimeoutCategory
+from cynic.interfaces.mcp.timeouts import TimeoutConfig, TimeoutCategory
 
 
 class TestTimeoutStrategy:
@@ -1257,7 +1257,7 @@ File: `cynic/mcp/claude_code_adapter.py`
 
 Add import:
 ```python
-from cynic.mcp.timeouts import TimeoutConfig
+from cynic.interfaces.mcp.timeouts import TimeoutConfig
 ```
 
 Update HTTP call wrapper:
@@ -1359,7 +1359,7 @@ import pytest
 from httpx import AsyncClient
 from unittest.mock import AsyncMock, patch
 
-from cynic.api.server import create_app
+from cynic.interfaces.api.server import create_app
 
 
 @pytest.fixture
@@ -1453,7 +1453,7 @@ class TestHealthEndpoints:
     async def test_health_ready_fails_if_component_down(self, client):
         """Test /health/ready returns error if any component is down."""
         # Mock a component failure
-        with patch("cynic.api.routers.health.database.is_connected") as mock_db:
+        with patch("cynic.interfaces.api.routers.health.database.is_connected") as mock_db:
             mock_db.return_value = False
 
             response = await client.get("/health/ready")
@@ -1466,7 +1466,7 @@ class TestHealthEndpoints:
     async def test_health_ready_timeout_if_startup_incomplete(self, client):
         """Test /health/ready times out if kernel still starting."""
         # Mock incomplete startup
-        with patch("cynic.api.routers.health.consciousness.is_ready") as mock_ready:
+        with patch("cynic.interfaces.api.routers.health.consciousness.is_ready") as mock_ready:
             mock_ready.return_value = False
 
             response = await client.get("/health/ready?timeout_seconds=1")
@@ -1519,8 +1519,8 @@ async def health_full():
 
     Returns rich data about all system components.
     """
-    from cynic.core.consciousness import consciousness
-    from cynic.api.state import get_state
+    from cynic.kernel.core.consciousness import consciousness
+    from cynic.interfaces.api.state import get_state
 
     state = get_state()
 
@@ -1588,7 +1588,7 @@ async def health_ready(timeout_seconds: int = 30):
 
     Used by Claude Code to wait for kernel full startup.
     """
-    from cynic.core.consciousness import consciousness
+    from cynic.kernel.core.consciousness import consciousness
     import asyncio
 
     start_time = datetime.now()
@@ -1621,7 +1621,7 @@ async def health_ready(timeout_seconds: int = 30):
 def _get_uptime() -> float:
     """Get process uptime in seconds."""
     import time
-    from cynic.api import server  # Get app start time
+    from cynic.interfaces.api import server  # Get app start time
     return time.time() - server.START_TIME
 ```
 
@@ -1680,7 +1680,7 @@ import asyncio
 import time
 from unittest.mock import AsyncMock, patch
 
-from cynic.mcp.router import MCPRouter
+from cynic.interfaces.mcp.router import MCPRouter
 
 
 class TestConcurrentCalls:
@@ -1794,7 +1794,7 @@ class TestConcurrentCalls:
     @pytest.mark.asyncio
     async def test_concurrent_calls_with_different_timeouts(self, router):
         """Test concurrent calls respecting individual timeouts."""
-        from cynic.mcp.timeouts import TimeoutConfig
+        from cynic.interfaces.mcp.timeouts import TimeoutConfig
 
         timings = {}
 
@@ -1990,7 +1990,7 @@ File: `cynic/tests/mcp/test_phase1_integration.py` (NEW)
 import pytest
 from httpx import AsyncClient
 
-from cynic.api.server import create_app
+from cynic.interfaces.api.server import create_app
 
 
 @pytest.mark.asyncio
@@ -2046,7 +2046,7 @@ async def test_phase1_streaming_works():
 @pytest.mark.asyncio
 async def test_phase1_ports_configurable():
     """Test that port configuration is used."""
-    from cynic.config.ports import PortConfig
+    from cynic.kernel.config.ports import PortConfig
 
     # Verify default ports
     assert PortConfig.KERNEL_HTTP_PORT == 8765
@@ -2056,7 +2056,7 @@ async def test_phase1_ports_configurable():
 @pytest.mark.asyncio
 async def test_phase1_timeouts_applied():
     """Test that context-aware timeouts are applied."""
-    from cynic.mcp.timeouts import TimeoutConfig
+    from cynic.interfaces.mcp.timeouts import TimeoutConfig
 
     # Verify timeouts
     assert TimeoutConfig.get_timeout("cynic_health") == 2.0

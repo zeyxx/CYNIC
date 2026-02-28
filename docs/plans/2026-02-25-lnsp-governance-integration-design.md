@@ -230,8 +230,8 @@ event_bus.on(CoreEvent.OUTCOME_FEEDBACK, self.on_outcome_feedback)
 ### Point 2: LNSP Pipeline Initialization
 ```python
 # In CYNIC server startup (cynic/api/routers/core.py):
-from cynic.protocol.lnsp.governance_integration import GovernanceLNSP
-from cynic.protocol.lnsp.manager import LNSPManager
+from cynic.kernel.protocol.lnsp.governance_integration import GovernanceLNSP
+from cynic.kernel.protocol.lnsp.manager import LNSPManager
 
 lnsp_manager = LNSPManager(instance_id="instance:governance", region="governance")
 governance_lnsp = GovernanceLNSP(lnsp_manager)

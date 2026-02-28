@@ -197,12 +197,12 @@ CYNIC uses Fibonacci-bounded buffers for stable, predictable memory:
 
 1. **Check CYNIC is installed:**
    ```bash
-   python -m cynic.mcp --help
+   python -m cynic.interfaces.mcp --help
    ```
 
 2. **Test server startup (5s timeout):**
    ```bash
-   timeout 5 python -m cynic.mcp
+   timeout 5 python -m cynic.interfaces.mcp
    ```
 
 3. **Check .mcp.json syntax:**

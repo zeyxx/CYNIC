@@ -41,7 +41,7 @@ class Organism:
 # cynic/organism/organism.py (IMPROVED)
 from dataclasses import dataclass
 from typing import Tuple, Optional
-from cynic.core.judgment import Decision
+from cynic.kernel.core.judgment import Decision
 
 @dataclass
 class Organism:
@@ -90,7 +90,7 @@ class Organism:
         # CHECK 1: System Health (Consciousness hard cap)
         # ─────────────────────────────────────────────────────────────────
         lod = self.cognition.lod_controller.current
-        from cynic.cognition.cortex.lod import SurvivalLOD
+        from cynic.brain.cognition.cortex.lod import SurvivalLOD
 
         if lod >= SurvivalLOD.EMERGENCY:
             return False, f"[CONSCIOUSNESS] System in EMERGENCY mode (LOD={lod.name}). Cannot execute."
@@ -153,7 +153,7 @@ class Organism:
             proposed_level = await organism.propose_level(cell)
             judgment = await organism.orchestrator.run(cell, level=proposed_level)
         """
-        from cynic.core.consciousness import ConsciousnessLevel
+        from cynic.kernel.core.consciousness import ConsciousnessLevel
 
         # ─────────────────────────────────────────────────────────────────
         # STEP 1: Consciousness suggests level
@@ -243,7 +243,7 @@ class Organism:
                 recommended: ConsciousnessLevel,
             )
         """
-        from cynic.core.consciousness import ConsciousnessLevel
+        from cynic.kernel.core.consciousness import ConsciousnessLevel
 
         # At MACRO level, we use LLM calls. Check FIDELITY axiom.
         if level == ConsciousnessLevel.MACRO:
@@ -369,10 +369,10 @@ import logging
 import time
 from typing import Any, List
 from dataclasses import dataclass
-from cynic.core.event_bus import get_core_bus, Event, CoreEvent
-from cynic.core.judgment import Judgment
+from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.kernel.core.judgment import Judgment
 
-logger = logging.getLogger("cynic.organism.coordinator")
+logger = logging.getLogger("cynic.kernel.organism.coordinator")
 
 
 @dataclass
@@ -633,7 +633,7 @@ class OrganismCoordinator:
         Returns:
             CoordinationSequence with all stress response steps.
         """
-        from cynic.cognition.cortex.lod import SurvivalLOD
+        from cynic.brain.cognition.cortex.lod import SurvivalLOD
 
         sequence = CoordinationSequence(
             event_type="MEMORY_PRESSURE",
@@ -742,7 +742,7 @@ def awaken(db_pool=None, registry=None) -> Organism:
     organism = awakener._make_app_state()
 
     # Wire coordinator to handle major events
-    from cynic.organism.coordinator import OrganismCoordinator
+    from cynic.kernel.organism.coordinator import OrganismCoordinator
 
     coordinator = OrganismCoordinator(organism)
     organism._coordinator = coordinator  # Store reference
@@ -777,9 +777,9 @@ def awaken(db_pool=None, registry=None) -> Organism:
 ```python
 # tests/test_coordinator.py
 import pytest
-from cynic.organism.organism import awaken
-from cynic.organism.coordinator import OrganismCoordinator
-from cynic.core.judgment import Judgment, Cell
+from cynic.kernel.organism.organism import awaken
+from cynic.kernel.organism.coordinator import OrganismCoordinator
+from cynic.kernel.core.judgment import Judgment, Cell
 
 @pytest.mark.asyncio
 async def test_coordinator_judgment_sequence():

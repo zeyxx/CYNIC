@@ -11,12 +11,12 @@ import pytest
 from dataclasses import dataclass, field
 from unittest.mock import MagicMock
 
-from cynic.immune.alignment_checker import (
+from cynic.metabolism.immune.alignment_checker import (
     AlignmentSafetyChecker, AlignmentViolation, _MAX_CONTRADICTIONS_BEFORE_BLOCK,
     _MIN_CONFIDENCE_FOR_HIGH_IMPACT, _VERDICT_BALANCE_WINDOW,
 )
-from cynic.learning.qlearning import VERDICTS
-from cynic.core.phi import fibonacci
+from cynic.brain.learning.qlearning import VERDICTS
+from cynic.kernel.core.phi import fibonacci
 
 
 # ════════════════════════════════════════════════════════════════════════════

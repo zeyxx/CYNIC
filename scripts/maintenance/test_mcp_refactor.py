@@ -26,7 +26,7 @@ async def test_single_instance():
     logger.info("TEST 1: Single MCP Bridge Instance")
     logger.info("=" * 60)
 
-    from cynic.mcp.kernel_manager import get_kernel_manager
+    from cynic.interfaces.mcp.kernel_manager import get_kernel_manager
 
     manager = get_kernel_manager()
     result = await manager.initialize()
@@ -52,7 +52,7 @@ async def test_kernel_reuse():
     logger.info("=" * 60)
 
     # Create a new manager (simulates second MCP bridge instance)
-    from cynic.mcp.kernel_manager import KernelManager
+    from cynic.interfaces.mcp.kernel_manager import KernelManager
 
     manager2 = KernelManager()
     result = await manager2.initialize()
@@ -79,7 +79,7 @@ async def test_mcp_bridge_integration():
     logger.info("TEST 3: MCP Bridge Integration")
     logger.info("=" * 60)
 
-    from cynic.mcp.claude_code_bridge import get_adapter
+    from cynic.interfaces.mcp.claude_code_bridge import get_adapter
 
     adapter = await get_adapter()
     logger.info("MCP adapter initialized")
@@ -100,7 +100,7 @@ async def test_lock_file_coordination():
     logger.info("TEST 4: Lock File Coordination")
     logger.info("=" * 60)
 
-    from cynic.mcp.kernel_lock import get_lock_manager
+    from cynic.interfaces.mcp.kernel_lock import get_lock_manager
     from pathlib import Path
     import json
 
@@ -131,7 +131,7 @@ async def test_health_monitoring():
     logger.info("TEST 5: Health Monitoring")
     logger.info("=" * 60)
 
-    from cynic.mcp.kernel_manager import get_kernel_manager
+    from cynic.interfaces.mcp.kernel_manager import get_kernel_manager
 
     manager = get_kernel_manager()
 

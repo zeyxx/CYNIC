@@ -198,7 +198,7 @@ ENV GASDF_PAYMENT_TOKEN=EPjFWaLb3crLMMLhSKMKLU2z3prNhuqpZTKmarsVmqr
 ### 1. Discord Bot → GASdf
 When `/proposal` is approved by CYNIC:
 ```python
-from cynic.integrations.gasdf import GASdfExecutor, GASdfClient
+from cynic.perception.integrations.gasdf import GASdfExecutor, GASdfClient
 
 config = {
     "api_url": os.getenv("GASDF_API_URL"),
@@ -268,7 +268,7 @@ observation = {
 
 ### Health Check
 ```python
-from cynic.integrations.gasdf import GASdfClient
+from cynic.perception.integrations.gasdf import GASdfClient
 
 client = GASdfClient(
     api_url=os.getenv("GASDF_API_URL"),
@@ -309,7 +309,7 @@ python -m pytest tests/integrations/test_gasdf_executor.py -v
 # Test verdict execution
 python -c "
 import asyncio
-from cynic.integrations.gasdf import GASdfExecutor, GASdfClient
+from cynic.perception.integrations.gasdf import GASdfExecutor, GASdfClient
 
 async def test():
     client = GASdfClient(...)

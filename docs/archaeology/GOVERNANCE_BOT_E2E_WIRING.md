@@ -416,7 +416,7 @@ Verify Q-Table updated
 ### Orchestrator Integration ✅
 ```
 governance_bot.ask_cynic()
-  └─→ cynic.organism.organism.awaken()
+  └─→ cynic.kernel.organism.organism.awaken()
   └─→ orchestrator.run(Cell, ConsciousnessLevel.MICRO)
   └─→ Returns: Judgment (with 11 Dogs + PBFT consensus)
 ```
@@ -424,7 +424,7 @@ governance_bot.ask_cynic()
 ### Q-Table Integration ✅
 ```
 governance_bot.learn_cynic()
-  └─→ cynic.learning.unified_learning.UnifiedQTable
+  └─→ cynic.brain.learning.unified_learning.UnifiedQTable
   └─→ update(UnifiedLearningOutcome)
   └─→ Q-values shift for (predicted, actual) transition
 ```
@@ -441,8 +441,8 @@ governance_bot uses: UnifiedLearningOutcome
 ### Unified Interfaces ✅
 ```
 governance_bot uses: Unified BotInterface pattern
-  - BotCommand (from cynic.bots.bot_interface)
-  - BotResponse (from cynic.bots.bot_interface)
+  - BotCommand (from cynic.interfaces.bots.bot_interface)
+  - BotResponse (from cynic.interfaces.bots.bot_interface)
   - Consistent command/response handling
 ```
 

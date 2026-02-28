@@ -257,7 +257,7 @@ pytest cynic/tests/test_governance_stack.py -v
 pytest cynic/tests/test_governance_stack.py::TestGASdfIntegration -v
 
 # Run with coverage
-pytest cynic/tests/test_governance_stack.py --cov=cynic.integrations
+pytest cynic/tests/test_governance_stack.py --cov=cynic.perception.integrations
 
 # Run with detailed output
 pytest cynic/tests/test_governance_stack.py -vv --tb=long

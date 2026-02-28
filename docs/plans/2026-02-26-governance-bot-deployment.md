@@ -83,7 +83,7 @@ git commit -m "test: add Discord test bot token for governance bot testing"
 First, ensure CYNIC is running (it needs to be for the bot to work):
 ```bash
 cd cynic
-python -m cynic.core.kernel
+python -m cynic.kernel.core.kernel
 ```
 Wait for: `[CYNIC] Kernel started on 127.0.0.1:8765`
 

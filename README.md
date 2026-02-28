@@ -17,7 +17,7 @@ pip install -e ".[dev]"
 pytest tests/
 
 # Start the API server
-python -m cynic.api.entry
+python -m cynic.interfaces.api.entry
 
 # CLI
 cynic --help
@@ -40,7 +40,7 @@ CYNIC now listens and learns! Have real conversations with your organism:
 
 Quick start:
 ```bash
-python -m cynic.cli.main
+python -m cynic.interfaces.cli.main
 # Press [6] to enter TALK mode
 ```
 

@@ -13,10 +13,10 @@ from pathlib import Path
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from cynic.organism.organism import awaken
-from cynic.core.judgment import Cell
-from cynic.core.consciousness import ConsciousnessLevel
-from cynic.core.event_bus import get_core_bus, CoreEvent
+from cynic.kernel.organism.organism import awaken
+from cynic.kernel.core.judgment import Cell
+from cynic.kernel.core.consciousness import ConsciousnessLevel
+from cynic.kernel.core.event_bus import get_core_bus, CoreEvent
 
 # Setup detailed logging
 logging.basicConfig(
@@ -53,7 +53,8 @@ async def run_trace():
         events_captured = []
         async def trace_listener(event):
             events_captured.append(event.type)
-            print(f"  [BUS EVENT] {event.type.value}")
+            type_str = event.type.value if hasattr(event.type, "value") else str(event.type)
+            print(f"  [BUS EVENT] {type_str}")
 
         bus = get_core_bus()
         bus.on(CoreEvent.JUDGMENT_CREATED, trace_listener)
@@ -93,11 +94,10 @@ async def run_trace():
 
         # 6. Verify State Persistence
         logger.info("Step 5: Verifying State Manager (awaiting memory consolidation)...")
-        # Give the event bus a moment to process the JUDGMENT_CREATED background task
-        await asyncio.sleep(0.1) 
+        await asyncio.sleep(0.5) 
         
         recent = organism.state.get_recent_judgments(limit=1)
-        if recent and recent[0].get("judgment_id") == judgment.judgment_id:
+        if recent and recent[0].judgment_id == judgment.judgment_id:
             logger.info("✓ Success: Judgment consolidated in OrganismState")
         else:
             logger.warning("✗ Failure: Judgment not found in state")
@@ -114,7 +114,6 @@ async def run_trace():
     finally:
         if 'organism' in locals():
             await organism.state.stop_processing()
-            # Give EventBus tasks a moment to clear
             await asyncio.sleep(0.5)
         print("\n" + "="*60)
         print("  TRACE FINISHED")

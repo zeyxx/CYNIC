@@ -1,11 +1,7 @@
 version: "3.9"
 
 services:
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # PostgreSQL 16 + pgvector
-  # Port: 5433 (avoid conflict with existing PG on 5432)
-  # DB: cynic_py
-  # ═══════════════════════════════════════════════════════════════════════════════
+  # ── DATABASE: PostgreSQL 16 + pgvector ────────────────────────────────
   postgres:
     image: pgvector/pgvector:pg16
     environment:
@@ -21,35 +17,18 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-      start_period: 10s
     restart: unless-stopped
 
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # Ollama — Local LLM Server
-  # Models: llama3.2 (default), nomic-embed-text (embeddings)
-  # Run `docker compose exec ollama ollama pull llama3.2` after first up
-  # ═══════════════════════════════════════════════════════════════════════════════
+  # ── LLM: Ollama Local Server ──────────────────────────────────────────
   ollama:
     image: ollama/ollama:latest
     ports:
       - "11434:11434"
     volumes:
       - ollama_models:/root/.ollama
-    environment:
-      OLLAMA_KEEP_ALIVE: "24h"
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
     restart: unless-stopped
 
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # CYNIC Python Kernel — FastAPI
-  # Connects to postgres + ollama
-  # Ports: 8765 (API), 8766 (MCP HTTP)
-  # ═══════════════════════════════════════════════════════════════════════════════
+  # ── CORE: CYNIC Organism API ──────────────────────────────────────────
   cynic:
     build:
       context: .
@@ -57,91 +36,45 @@ services:
     container_name: cynic
     ports:
       - "8765:8765"
-      - "8766:8766"
     environment:
-      # Database
       DATABASE_URL: postgresql://${POSTGRES_USER:-cynic}:${POSTGRES_PASSWORD:-cynic_dev}@postgres:5432/${POSTGRES_DB:-cynic_py}
-
-      # LLM
       OLLAMA_URL: http://ollama:11434
-      OLLAMA_NUM_PARALLEL: "4"
-
-      # Workspace path for L1 Symbiosis (SourceWatcher)
-      CYNIC_WORKSPACE_PATH: /workspace
-
-      # Optional: Claude API (for MACRO cycle reasoning)
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-
-      # Optional: Gemini API (consensus validation)
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
-
-      # Logging
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      PYTHONUNBUFFERED: "1"
-      PYTHONDONTWRITEBYTECODE: "1"
-
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
     volumes:
-      # Mount host codebase as read-only for L1 symbiosis (SourceWatcher)
-      - .:/workspace:ro
-      # Persist CYNIC data (.cynic directory) with proper permissions
       - cynic_data:/home/cynic/.cynic:rw
-
     depends_on:
       postgres:
         condition: service_healthy
-      ollama:
-        condition: service_started
-
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/health')"]
-      interval: 15s
+      test: ["CMD", "curl", "-f", "http://localhost:8765/"]
+      interval: 30s
       timeout: 10s
-      retries: 5
-      start_period: 30s
-
+      retries: 3
     restart: unless-stopped
 
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # Governance Bot — Discord Community Governance
-  # Connects to PostgreSQL for governance data
-  # Requires: DISCORD_TOKEN in .env file
-  # ═══════════════════════════════════════════════════════════════════════════════
+  # ── BOT: Governance Member (Discord) ──────────────────────────────────
   governance-bot:
     build:
-      context: ./governance_bot
+      context: .
       dockerfile: Dockerfile
     container_name: cynic-governance-bot
+    command: ["python", "cynic/bots/governance/bot.py"]
     environment:
-      # Discord
       DISCORD_TOKEN: ${DISCORD_TOKEN:-}
-      DISCORD_PREFIX: ${DISCORD_PREFIX:-!}
-
-      # Database
-      DATABASE_URL: sqlite:///governance_bot.db
-
-      # CYNIC MCP Integration
-      CYNIC_MCP_ENABLED: "true"
-
-      # Logging
+      # Use the same database as the core organism
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cynic}:${POSTGRES_PASSWORD:-cynic_dev}@postgres:5432/${POSTGRES_DB:-cynic_py}
+      CYNIC_URL: http://cynic:8765
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      PYTHONUNBUFFERED: "1"
-      PYTHONDONTWRITEBYTECODE: "1"
-
-    volumes:
-      # Persist governance database
-      - governance_data:/app
-
     depends_on:
       cynic:
         condition: service_healthy
-
     restart: unless-stopped
-
     profiles:
-      - "governance"  # Enable with `docker compose --profile governance up`
+      - "governance"
 
 volumes:
   pgdata:
   ollama_models:
   cynic_data:
-  governance_data:

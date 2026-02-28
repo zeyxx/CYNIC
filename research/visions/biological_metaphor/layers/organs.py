@@ -18,12 +18,12 @@ Dog Roles:
     ... (7 more specialized judges)
 
 Typical usage:
-    from cynic.organism.layers import OrganSystem
+    from cynic.kernel.organism.layers import OrganSystem
     organs = OrganSystem()
     verdict = await organs.vote(cell)
 
 See Also:
-    cynic.organism.layers: 10-layer organism architecture
-    cynic.cognition.neurons: 11 Dogs implementation
+    cynic.kernel.organism.layers: 10-layer organism architecture
+    cynic.brain.cognition.neurons: 11 Dogs implementation
     cynic.judges: Judge contracts and implementations
 """

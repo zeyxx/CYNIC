@@ -16,8 +16,8 @@ from cynic.metabolism.llm_router import (
     LLMRouter, RoutingDecision, MODEL_SONNET, MODEL_HAIKU,
     _SIMPLE_TASK_TYPES, _CHEAP_COMPLEXITIES, _MIN_VISITS_TO_ROUTE,
 )
-from cynic.learning.qlearning import QTable, LearningSignal
-from cynic.core.phi import PHI_INV
+from cynic.brain.learning.qlearning import QTable, LearningSignal
+from cynic.kernel.core.phi import PHI_INV
 
 
 # ════════════════════════════════════════════════════════════════════════════

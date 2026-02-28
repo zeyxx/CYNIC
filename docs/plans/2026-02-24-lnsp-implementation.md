@@ -157,7 +157,7 @@ import time
 import uuid
 from typing import Any
 
-from cynic.protocol.lnsp.types import (
+from cynic.kernel.protocol.lnsp.types import (
     Layer, MessageHeader, Metadata, LNSPMessage,
     ObservationType, AggregationType, JudgmentType, VerdictType
 )
@@ -297,11 +297,11 @@ Create `cynic/tests/protocol/test_lnsp_messages.py`:
 from __future__ import annotations
 
 import pytest
-from cynic.protocol.lnsp.types import (
+from cynic.kernel.protocol.lnsp.types import (
     Layer, VerdictType, ObservationType, AggregationType,
     JudgmentType, ActionType, MessageHeader, Metadata, LNSPMessage
 )
-from cynic.protocol.lnsp.messages import (
+from cynic.kernel.protocol.lnsp.messages import (
     create_raw_observation, create_aggregated_state,
     create_judgment, create_action
 )
@@ -517,9 +517,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from cynic.protocol.lnsp.messages import create_raw_observation
-from cynic.protocol.lnsp.types import LNSPMessage, ObservationType
-from cynic.protocol.lnsp.ringbuffer import Ringbuffer
+from cynic.kernel.protocol.lnsp.messages import create_raw_observation
+from cynic.kernel.protocol.lnsp.types import LNSPMessage, ObservationType
+from cynic.kernel.protocol.lnsp.ringbuffer import Ringbuffer
 
 
 class Sensor(ABC):
@@ -587,9 +587,9 @@ Create `cynic/tests/protocol/test_lnsp_layer1.py`:
 from __future__ import annotations
 
 import pytest
-from cynic.protocol.lnsp.layer1 import Sensor, Layer1
-from cynic.protocol.lnsp.messages import create_raw_observation
-from cynic.protocol.lnsp.types import ObservationType, LNSPMessage
+from cynic.kernel.protocol.lnsp.layer1 import Sensor, Layer1
+from cynic.kernel.protocol.lnsp.messages import create_raw_observation
+from cynic.kernel.protocol.lnsp.types import ObservationType, LNSPMessage
 
 
 class MockSensor(Sensor):
@@ -694,7 +694,7 @@ async def test_layer1_subscription():
 
 def test_ringbuffer_overflow():
     """Test ringbuffer behavior when full."""
-    from cynic.protocol.lnsp.ringbuffer import Ringbuffer
+    from cynic.kernel.protocol.lnsp.ringbuffer import Ringbuffer
 
     rb = Ringbuffer(capacity=3)
     rb.put("a")
@@ -768,8 +768,8 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 import time
 
-from cynic.protocol.lnsp.messages import create_aggregated_state
-from cynic.protocol.lnsp.types import LNSPMessage, AggregationType
+from cynic.kernel.protocol.lnsp.messages import create_aggregated_state
+from cynic.kernel.protocol.lnsp.types import LNSPMessage, AggregationType
 
 
 class Aggregator(ABC):
@@ -869,9 +869,9 @@ from __future__ import annotations
 
 import pytest
 import time
-from cynic.protocol.lnsp.layer2 import Aggregator, Layer2, TemporalWindow
-from cynic.protocol.lnsp.messages import create_raw_observation, create_aggregated_state
-from cynic.protocol.lnsp.types import ObservationType, AggregationType, LNSPMessage
+from cynic.kernel.protocol.lnsp.layer2 import Aggregator, Layer2, TemporalWindow
+from cynic.kernel.protocol.lnsp.messages import create_raw_observation, create_aggregated_state
+from cynic.kernel.protocol.lnsp.types import ObservationType, AggregationType, LNSPMessage
 
 
 class CountingAggregator(Aggregator):
@@ -1166,9 +1166,9 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 import math
 
-from cynic.protocol.lnsp.messages import create_judgment
-from cynic.protocol.lnsp.types import LNSPMessage, JudgmentType, VerdictType, AggregationType
-from cynic.protocol.lnsp.axioms import AxiomEvaluator
+from cynic.kernel.protocol.lnsp.messages import create_judgment
+from cynic.kernel.protocol.lnsp.types import LNSPMessage, JudgmentType, VerdictType, AggregationType
+from cynic.kernel.protocol.lnsp.axioms import AxiomEvaluator
 
 
 @dataclass
@@ -1279,13 +1279,13 @@ Create `cynic/tests/protocol/test_lnsp_layer3.py`:
 from __future__ import annotations
 
 import pytest
-from cynic.protocol.lnsp.layer3 import Layer3, RoutingRule
-from cynic.protocol.lnsp.axioms import (
+from cynic.kernel.protocol.lnsp.layer3 import Layer3, RoutingRule
+from cynic.kernel.protocol.lnsp.axioms import (
     FidelityEvaluator, PhiEvaluator, VerifyEvaluator,
     CultureEvaluator, BurnEvaluator
 )
-from cynic.protocol.lnsp.messages import create_aggregated_state
-from cynic.protocol.lnsp.types import AggregationType, VerdictType
+from cynic.kernel.protocol.lnsp.messages import create_aggregated_state
+from cynic.kernel.protocol.lnsp.types import AggregationType, VerdictType
 
 
 @pytest.mark.asyncio
@@ -1450,8 +1450,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from cynic.protocol.lnsp.messages import create_action, create_raw_observation
-from cynic.protocol.lnsp.types import (
+from cynic.kernel.protocol.lnsp.messages import create_action, create_raw_observation
+from cynic.kernel.protocol.lnsp.types import (
     LNSPMessage, ActionType, ObservationType, VerdictType
 )
 
@@ -1549,9 +1549,9 @@ Create `cynic/tests/protocol/test_lnsp_layer4.py`:
 from __future__ import annotations
 
 import pytest
-from cynic.protocol.lnsp.layer4 import Handler, Layer4
-from cynic.protocol.lnsp.messages import create_judgment
-from cynic.protocol.lnsp.types import (
+from cynic.kernel.protocol.lnsp.layer4 import Handler, Layer4
+from cynic.kernel.protocol.lnsp.messages import create_judgment
+from cynic.kernel.protocol.lnsp.types import (
     JudgmentType, VerdictType, LNSPMessage
 )
 
@@ -1722,15 +1722,15 @@ from __future__ import annotations
 
 import pytest
 import asyncio
-from cynic.protocol.lnsp.layer1 import Sensor, Layer1
-from cynic.protocol.lnsp.layer2 import Aggregator, Layer2
-from cynic.protocol.lnsp.layer3 import Layer3
-from cynic.protocol.lnsp.layer4 import Handler, Layer4
-from cynic.protocol.lnsp.messages import create_raw_observation
-from cynic.protocol.lnsp.types import (
+from cynic.kernel.protocol.lnsp.layer1 import Sensor, Layer1
+from cynic.kernel.protocol.lnsp.layer2 import Aggregator, Layer2
+from cynic.kernel.protocol.lnsp.layer3 import Layer3
+from cynic.kernel.protocol.lnsp.layer4 import Handler, Layer4
+from cynic.kernel.protocol.lnsp.messages import create_raw_observation
+from cynic.kernel.protocol.lnsp.types import (
     ObservationType, AggregationType, LNSPMessage, JudgmentType
 )
-from cynic.protocol.lnsp.axioms import FidelityEvaluator
+from cynic.kernel.protocol.lnsp.axioms import FidelityEvaluator
 
 
 class TestSensor(Sensor):
@@ -1753,7 +1753,7 @@ class TestAggregator(Aggregator):
     async def aggregate(self, observations: list[LNSPMessage]) -> LNSPMessage | None:
         if not observations:
             return None
-        from cynic.protocol.lnsp.messages import create_aggregated_state
+        from cynic.kernel.protocol.lnsp.messages import create_aggregated_state
         return create_aggregated_state(
             aggregation_type=AggregationType.SYSTEM_STATE,
             data={"obs_count": len(observations)},
@@ -1885,10 +1885,10 @@ from dataclasses import dataclass
 from typing import Any
 import asyncio
 
-from cynic.protocol.lnsp.layer1 import Layer1
-from cynic.protocol.lnsp.layer2 import Layer2
-from cynic.protocol.lnsp.layer3 import Layer3
-from cynic.protocol.lnsp.layer4 import Layer4
+from cynic.kernel.protocol.lnsp.layer1 import Layer1
+from cynic.kernel.protocol.lnsp.layer2 import Layer2
+from cynic.kernel.protocol.lnsp.layer3 import Layer3
+from cynic.kernel.protocol.lnsp.layer4 import Layer4
 
 
 @dataclass
@@ -1965,13 +1965,13 @@ Create `cynic/tests/test_lnsp_integration.py`:
 from __future__ import annotations
 
 import pytest
-from cynic.protocol.lnsp.manager import LNSPManager
-from cynic.protocol.lnsp.layer1 import Sensor
-from cynic.protocol.lnsp.layer2 import Aggregator
-from cynic.protocol.lnsp.layer4 import Handler
-from cynic.protocol.lnsp.messages import create_raw_observation
-from cynic.protocol.lnsp.types import ObservationType, AggregationType, LNSPMessage
-from cynic.protocol.lnsp.axioms import FidelityEvaluator
+from cynic.kernel.protocol.lnsp.manager import LNSPManager
+from cynic.kernel.protocol.lnsp.layer1 import Sensor
+from cynic.kernel.protocol.lnsp.layer2 import Aggregator
+from cynic.kernel.protocol.lnsp.layer4 import Handler
+from cynic.kernel.protocol.lnsp.messages import create_raw_observation
+from cynic.kernel.protocol.lnsp.types import ObservationType, AggregationType, LNSPMessage
+from cynic.kernel.protocol.lnsp.axioms import FidelityEvaluator
 
 
 class MockSensor(Sensor):
@@ -1994,7 +1994,7 @@ class MockAggregator(Aggregator):
     async def aggregate(self, observations: list[LNSPMessage]) -> LNSPMessage | None:
         if not observations:
             return None
-        from cynic.protocol.lnsp.messages import create_aggregated_state
+        from cynic.kernel.protocol.lnsp.messages import create_aggregated_state
         return create_aggregated_state(
             aggregation_type=AggregationType.SYSTEM_STATE,
             data={"healthy": len(observations) > 0},

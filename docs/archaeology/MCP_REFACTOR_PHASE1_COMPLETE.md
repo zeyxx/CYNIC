@@ -62,7 +62,7 @@ Unified kernel initialization (280+ lines)
 
 **Key Features:**
 - Docker-first preference (faster than spawn)
-- Subprocess fallback with Python `cynic.api.entry`
+- Subprocess fallback with Python `cynic.interfaces.api.entry`
 - Exponential backoff health checking
 - Atomic initialization via file lock
 - Owner info tracking (PID, hostname, timestamp)

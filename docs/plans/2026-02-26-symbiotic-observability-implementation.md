@@ -27,7 +27,7 @@
 # cynic/observability/tests/test_models.py
 import pytest
 from dataclasses import is_dataclass, fields
-from cynic.observability.models import SymbioticState
+from cynic.kernel.observability.models import SymbioticState
 
 def test_symbiotic_state_is_frozen_dataclass():
     """SymbioticState must be immutable."""
@@ -90,7 +90,7 @@ python -m pytest cynic/observability/tests/test_models.py::test_symbiotic_state_
 
 Expected output:
 ```
-FAILED - ModuleNotFoundError: No module named 'cynic.observability.models'
+FAILED - ModuleNotFoundError: No module named 'cynic.kernel.observability.models'
 ```
 
 **Step 3: Write minimal implementation**
@@ -170,7 +170,7 @@ git commit -m "feat(observability): Add SymbioticState immutable data model"
 ```python
 # cynic/observability/tests/test_human_state_tracker.py
 import pytest
-from cynic.observability.human_state_tracker import HumanStateTracker
+from cynic.kernel.observability.human_state_tracker import HumanStateTracker
 
 @pytest.mark.asyncio
 async def test_human_state_tracker_initializes():
@@ -214,7 +214,7 @@ python -m pytest cynic/observability/tests/test_human_state_tracker.py::test_hum
 
 Expected:
 ```
-FAILED - ModuleNotFoundError: No module named 'cynic.observability.human_state_tracker'
+FAILED - ModuleNotFoundError: No module named 'cynic.kernel.observability.human_state_tracker'
 ```
 
 **Step 3: Write minimal implementation**
@@ -337,7 +337,7 @@ git commit -m "feat(observability): Add HumanStateTracker for energy/focus/feedb
 # cynic/observability/tests/test_machine_monitor.py
 import pytest
 import psutil
-from cynic.observability.machine_monitor import MachineMonitor
+from cynic.kernel.observability.machine_monitor import MachineMonitor
 
 @pytest.mark.asyncio
 async def test_machine_monitor_initializes():
@@ -376,7 +376,7 @@ python -m pytest cynic/observability/tests/test_machine_monitor.py::test_machine
 
 Expected:
 ```
-FAILED - ModuleNotFoundError: No module named 'cynic.observability.machine_monitor'
+FAILED - ModuleNotFoundError: No module named 'cynic.kernel.observability.machine_monitor'
 ```
 
 **Step 3: Write minimal implementation**
@@ -523,8 +523,8 @@ git commit -m "feat(observability): Add MachineMonitor for resource tracking"
 ```python
 # cynic/observability/tests/test_state_manager.py
 import pytest
-from cynic.observability.symbiotic_state_manager import SymbioticStateManager
-from cynic.observability.models import SymbioticState
+from cynic.kernel.observability.symbiotic_state_manager import SymbioticStateManager
+from cynic.kernel.observability.models import SymbioticState
 
 @pytest.mark.asyncio
 async def test_state_manager_initializes():
@@ -560,7 +560,7 @@ python -m pytest cynic/observability/tests/test_state_manager.py::test_state_man
 
 Expected:
 ```
-FAILED - ModuleNotFoundError: No module named 'cynic.observability.symbiotic_state_manager'
+FAILED - ModuleNotFoundError: No module named 'cynic.kernel.observability.symbiotic_state_manager'
 ```
 
 **Step 3: Write minimal implementation**
@@ -575,9 +575,9 @@ import logging
 import time
 from typing import Optional
 
-from cynic.observability.models import SymbioticState
-from cynic.observability.human_state_tracker import HumanStateTracker
-from cynic.observability.machine_monitor import MachineMonitor
+from cynic.kernel.observability.models import SymbioticState
+from cynic.kernel.observability.human_state_tracker import HumanStateTracker
+from cynic.kernel.observability.machine_monitor import MachineMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -712,7 +712,7 @@ git commit -m "feat(observability): Add SymbioticStateManager for unified state 
 ```python
 # cynic/observability/tests/test_cli.py
 import pytest
-from cynic.observability.cli.app import CliApp
+from cynic.kernel.observability.cli.app import CliApp
 
 @pytest.mark.asyncio
 async def test_cli_app_initializes():
@@ -739,7 +739,7 @@ python -m pytest cynic/observability/tests/test_cli.py::test_cli_app_initializes
 
 Expected:
 ```
-FAILED - ModuleNotFoundError: No module named 'cynic.observability.cli'
+FAILED - ModuleNotFoundError: No module named 'cynic.kernel.observability.cli'
 ```
 
 **Step 3: Write minimal implementation**
@@ -759,7 +759,7 @@ import logging
 from enum import Enum
 from typing import Optional
 
-from cynic.observability.symbiotic_state_manager import get_current_state
+from cynic.kernel.observability.symbiotic_state_manager import get_current_state
 
 logger = logging.getLogger(__name__)
 
@@ -909,7 +909,7 @@ Since this already works, we need to integrate real CYNIC data. Update the state
 ```python
 # Update cynic/observability/symbiotic_state_manager.py
 
-from cynic.organism.conscious_state import get_conscious_state  # Add this import
+from cynic.kernel.organism.conscious_state import get_conscious_state  # Add this import
 
 async def get_state(self) -> SymbioticState:
     """Get current symbiotic state snapshot."""
@@ -971,7 +971,7 @@ git commit -m "feat(observability): Integrate real CYNIC consciousness state"
 ```python
 # cynic/observability/tests/test_cli_views.py
 import pytest
-from cynic.observability.cli.views import render_observe_view
+from cynic.kernel.observability.cli.views import render_observe_view
 
 @pytest.mark.asyncio
 async def test_render_observe_view():
@@ -990,7 +990,7 @@ python -m pytest cynic/observability/tests/test_cli_views.py::test_render_observ
 
 Expected:
 ```
-FAILED - ModuleNotFoundError: No module named 'cynic.observability.cli.views'
+FAILED - ModuleNotFoundError: No module named 'cynic.kernel.observability.cli.views'
 ```
 
 **Step 3: Write minimal implementation**
@@ -1000,7 +1000,7 @@ FAILED - ModuleNotFoundError: No module named 'cynic.observability.cli.views'
 """View renderers for the CLI."""
 from __future__ import annotations
 
-from cynic.observability.symbiotic_state_manager import get_current_state
+from cynic.kernel.observability.symbiotic_state_manager import get_current_state
 
 
 async def render_observe_view() -> str:
@@ -1120,7 +1120,7 @@ async def render_machine_view() -> str:
 
 ```python
 # Update cynic/observability/cli/app.py
-from cynic.observability.cli.views import (
+from cynic.kernel.observability.cli.views import (
     render_observe_view,
     render_cynic_view,
     render_machine_view,
@@ -1183,7 +1183,7 @@ git commit -m "feat(observability): Add OBSERVE, CYNIC, and MACHINE CLI views"
 import asyncio
 import sys
 
-from cynic.observability.cli.app import CliApp
+from cynic.kernel.observability.cli.app import CliApp
 
 
 async def main():
@@ -1207,7 +1207,7 @@ if __name__ == "__main__":
 
 ```bash
 cd C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC-clean
-python -m cynic.cli.main
+python -m cynic.interfaces.cli.main
 ```
 
 You should see the menu. Press `0` to exit.
@@ -1231,8 +1231,8 @@ git commit -m "feat(cli): Add entry point for observability CLI"
 ```python
 # cynic/observability/tests/test_integration.py
 import pytest
-from cynic.observability.symbiotic_state_manager import get_current_state
-from cynic.observability.cli.views import (
+from cynic.kernel.observability.symbiotic_state_manager import get_current_state
+from cynic.kernel.observability.cli.views import (
     render_observe_view,
     render_cynic_view,
     render_machine_view,
@@ -1348,7 +1348,7 @@ User (keyboard control only)
 ## How to Run
 
 ```bash
-python -m cynic.cli.main
+python -m cynic.interfaces.cli.main
 ```
 
 Navigate with arrow keys, Enter to select, `q` to quit.

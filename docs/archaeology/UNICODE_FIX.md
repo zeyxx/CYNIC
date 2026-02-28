@@ -25,7 +25,7 @@ PYTHONIOENCODING=utf-8
 
 ### Option 2: Use Python Flag
 ```bash
-python -X utf8 -m cynic.mcp
+python -X utf8 -m cynic.interfaces.mcp
 ```
 
 ### Option 3: Modify Python Startup

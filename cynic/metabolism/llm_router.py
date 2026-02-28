@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from typing import Any
 
 
-from cynic.core.phi import PHI_INV, PHI_INV_2
+from cynic.kernel.core.phi import PHI_INV, PHI_INV_2
 
 logger = logging.getLogger("cynic.metabolism.llm_router")
 

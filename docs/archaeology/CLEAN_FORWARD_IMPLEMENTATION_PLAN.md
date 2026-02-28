@@ -356,7 +356,7 @@ Add to existing CLI OBSERVE command:
 ```python
 # cynic/cli/main.py (existing)
 async def show_observability():
-    from cynic.observability.dashboard import GovernanceObservable
+    from cynic.kernel.observability.dashboard import GovernanceObservable
 
     observable = GovernanceObservable()
     metrics = observable.get_metrics()
@@ -564,7 +564,7 @@ Connect to Q-Table learning loop:
 
 ```python
 # cynic/learning/unified_learning.py (existing, add this)
-from cynic.learning.axiom_learner import AxiomLearner
+from cynic.brain.learning.axiom_learner import AxiomLearner
 
 class UnifiedQTable:
     def __init__(self, ...):
@@ -748,7 +748,7 @@ Add analytics to observability:
 # cynic/cli/main.py (existing)
 async def show_learning_progress():
     from cynic.analytics.governance_analytics import GovernanceAnalytics
-    from cynic.observability.dashboard import GovernanceObservable
+    from cynic.kernel.observability.dashboard import GovernanceObservable
 
     observable = GovernanceObservable()
     analytics = GovernanceAnalytics()

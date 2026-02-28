@@ -18,7 +18,7 @@ The critical memory leak has been **identified, fixed, and verified**. The bot w
 1. **Calling non-existent methods**
    ```python
    # BEFORE (doesn't work):
-   organism = get_consciousness()  # Returns ConsciousnessState from cynic.core.consciousness
+   organism = get_consciousness()  # Returns ConsciousnessState from cynic.kernel.core.consciousness
    health = organism.get_health_status()  # ← Method doesn't exist!
    ```
 

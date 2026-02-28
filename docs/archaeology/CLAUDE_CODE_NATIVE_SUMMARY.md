@@ -97,7 +97,7 @@ Registers commands + MCP server
     ↓
 On command use:
   - Read .mcp.json
-  - Start: python -m cynic.mcp
+  - Start: python -m cynic.interfaces.mcp
   - Discover tools
   - Register as mcp__plugin_cynic_cynic_organism__*
     ↓
@@ -175,7 +175,7 @@ Each Dog represents an axiom and votes on proposals:
 
 ### 2. CYNIC Package
 - **Location:** `/path/to/CYNIC-clean`
-- **Entry point:** `python -m cynic.mcp`
+- **Entry point:** `python -m cynic.interfaces.mcp`
 - **Mode:** stdio-only (CYNIC_MCP_STDIO_ONLY=1)
 - **Transport:** stdin/stdout
 
@@ -257,8 +257,8 @@ Next judgment is 3.2x better
 3. Restart Claude Code
 
 ### MCP not connecting?
-1. Test: `timeout 5 python -m cynic.mcp`
-2. Check: `python -c "from cynic.mcp import server"`
+1. Test: `timeout 5 python -m cynic.interfaces.mcp`
+2. Check: `python -c "from cynic.interfaces.mcp import server"`
 3. Debug: `claude --debug`
 
 ---

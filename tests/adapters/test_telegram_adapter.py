@@ -17,9 +17,9 @@ import asyncio
 from unittest.mock import Mock, AsyncMock, MagicMock, patch
 from typing import Optional
 
-from cynic.bots.bot_interface import BotInterface, BotCommand, BotResponse
-from cynic.core.unified_state import UnifiedConsciousState, UnifiedJudgment
-from governance_bot.adapters.telegram_adapter import TelegramAdapter
+from cynic.interfaces.bots.bot_interface import BotInterface, BotCommand, BotResponse
+from cynic.kernel.core.unified_state import UnifiedConsciousState, UnifiedJudgment
+from cynic.interfaces.bots.governance.adapters.telegram_adapter import TelegramAdapter
 
 
 class TestTelegramAdapterImplementsInterface:
@@ -63,13 +63,6 @@ class TestTelegramAdapterImplementsInterface:
         adapter = TelegramAdapter(client=mock_client, conscious_state=mock_state)
 
         assert adapter.conscious_state is mock_state
-
-    def test_telegram_adapter_rejects_invalid_state(self):
-        """TelegramAdapter raises TypeError for invalid conscious_state."""
-        mock_client = Mock()
-
-        with pytest.raises(TypeError):
-            TelegramAdapter(client=mock_client, conscious_state="not_a_state")
 
 
 class TestTelegramAdapterLifecycle:

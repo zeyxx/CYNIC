@@ -26,7 +26,7 @@ async def test_tools_list():
     logger.info("TEST 1: MCP tools/list")
     logger.info("=" * 60)
 
-    from cynic.mcp.claude_code_bridge import list_tools
+    from cynic.interfaces.mcp.claude_code_bridge import list_tools
 
     tools = await list_tools()
 
@@ -57,7 +57,7 @@ async def test_cynic_health():
     logger.info("TEST 2: MCP tool - cynic_health")
     logger.info("=" * 60)
 
-    from cynic.mcp.claude_code_bridge import call_tool
+    from cynic.interfaces.mcp.claude_code_bridge import call_tool
 
     try:
         result = await call_tool("cynic_health", {})
@@ -86,7 +86,7 @@ async def test_cynic_status():
     logger.info("TEST 3: MCP tool - cynic_status")
     logger.info("=" * 60)
 
-    from cynic.mcp.claude_code_bridge import call_tool
+    from cynic.interfaces.mcp.claude_code_bridge import call_tool
 
     try:
         result = await call_tool("cynic_status", {})
@@ -120,7 +120,7 @@ async def test_observe_cynic():
     logger.info("TEST 4: MCP tool - observe_cynic")
     logger.info("=" * 60)
 
-    from cynic.mcp.claude_code_bridge import call_tool
+    from cynic.interfaces.mcp.claude_code_bridge import call_tool
 
     try:
         result = await call_tool("observe_cynic", {
@@ -152,7 +152,7 @@ async def test_ask_cynic():
     logger.info("TEST 5: MCP tool - ask_cynic")
     logger.info("=" * 60)
 
-    from cynic.mcp.claude_code_bridge import call_tool
+    from cynic.interfaces.mcp.claude_code_bridge import call_tool
 
     try:
         result = await call_tool("ask_cynic", {
@@ -184,7 +184,7 @@ async def test_json_rpc_protocol():
     logger.info("TEST 6: JSON-RPC Protocol")
     logger.info("=" * 60)
 
-    from cynic.mcp.claude_code_bridge import server
+    from cynic.interfaces.mcp.claude_code_bridge import server
 
     # Test tools/list via JSON-RPC
     logger.info("Simulating tools/list JSON-RPC call...")

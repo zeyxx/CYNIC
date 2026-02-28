@@ -18,12 +18,12 @@ Threat Model:
     L3 (Emergence): Coordinated attacks on consensus
 
 Typical usage:
-    from cynic.organism.layers import ImmuneSystem
+    from cynic.kernel.organism.layers import ImmuneSystem
     immune = ImmuneSystem()
     is_safe = immune.validate(cell)
 
 See Also:
-    cynic.organism.layers: 10-layer organism architecture
-    cynic.core.axioms: Axiom violations trigger immune response
-    cynic.cognition.cortex: Immune veto on judgment output
+    cynic.kernel.organism.layers: 10-layer organism architecture
+    cynic.kernel.core.axioms: Axiom violations trigger immune response
+    cynic.brain.cognition.cortex: Immune veto on judgment output
 """

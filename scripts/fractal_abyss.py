@@ -12,7 +12,7 @@ from pathlib import Path
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from cynic.core.phi import PHI, PHI_INV, geometric_mean
+from cynic.kernel.core.phi import PHI, PHI_INV, geometric_mean
 
 def fractal_score(base_score, depth, max_depth):
     """

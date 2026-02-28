@@ -21,12 +21,12 @@ Integration Points:
     Sensors publish environmental changes
 
 Typical usage:
-    from cynic.organism.layers import NervousSystem
+    from cynic.kernel.organism.layers import NervousSystem
     nervous = NervousSystem()
     await nervous.emit('judgment', judgment)
 
 See Also:
-    cynic.organism.layers: 10-layer organism architecture
-    cynic.core.event_bus: EventBus implementation
+    cynic.kernel.organism.layers: 10-layer organism architecture
+    cynic.kernel.core.event_bus: EventBus implementation
     cynic.nervous: Alternative nervous system components
 """

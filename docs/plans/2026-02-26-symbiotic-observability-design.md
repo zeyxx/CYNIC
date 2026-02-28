@@ -303,14 +303,14 @@ cynic/observability/
 
 ```python
 # Get current symbiotic state (snapshot)
-from cynic.observability.symbiotic_state_manager import get_symbiotic_state
+from cynic.kernel.observability.symbiotic_state_manager import get_symbiotic_state
 state = await get_symbiotic_state()
 print(f"Alignment: {state.alignment_score}")
 print(f"CYNIC confidence: {state.cynic_confidence}")
 print(f"Human energy: {state.human_energy}")
 
 # Listen to real-time updates
-from cynic.observability.telemetry_stream import observe_symbiosis
+from cynic.kernel.observability.telemetry_stream import observe_symbiosis
 async for event in observe_symbiosis():
     if event.type == "alignment_changed":
         print(f"Alignment updated to {event.alignment_score}")
@@ -318,7 +318,7 @@ async for event in observe_symbiosis():
         print(f"Conflict: {event.conflict}")
 
 # Report human feedback
-from cynic.observability.human_state_tracker import report_feedback
+from cynic.kernel.observability.human_state_tracker import report_feedback
 await report_feedback(
     feedback_type="correction",
     message="CYNIC's last judgment was too conservative",
@@ -326,7 +326,7 @@ await report_feedback(
 )
 
 # Check machine constraints before deciding
-from cynic.observability.machine_monitor import get_constraints
+from cynic.kernel.observability.machine_monitor import get_constraints
 constraints = await get_constraints()
 if constraints["ram_percent"] > 75:
     # Delay non-critical operations

@@ -82,7 +82,7 @@ Create `cynic/tests/protocol/test_lnsp_governance_events.py`:
 from __future__ import annotations
 
 import pytest
-from cynic.protocol.lnsp.governance_events import (
+from cynic.kernel.protocol.lnsp.governance_events import (
     GovernanceProposalPayload,
     GovernanceVotePayload,
     GovernanceExecutionPayload,
@@ -195,19 +195,19 @@ Create `cynic/tests/protocol/test_lnsp_governance_sensors.py`:
 from __future__ import annotations
 
 import pytest
-from cynic.protocol.lnsp.governance_sensors import (
+from cynic.kernel.protocol.lnsp.governance_sensors import (
     ProposalSensor,
     VoteSensor,
     ExecutionSensor,
     OutcomeSensor,
 )
-from cynic.protocol.lnsp.governance_events import (
+from cynic.kernel.protocol.lnsp.governance_events import (
     GovernanceProposalPayload,
     GovernanceVotePayload,
     GovernanceExecutionPayload,
     GovernanceOutcomePayload,
 )
-from cynic.protocol.lnsp.types import ObservationType, Layer
+from cynic.kernel.protocol.lnsp.types import ObservationType, Layer
 
 
 @pytest.mark.asyncio
@@ -309,15 +309,15 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from cynic.protocol.lnsp.governance_events import (
+from cynic.kernel.protocol.lnsp.governance_events import (
     GovernanceProposalPayload,
     GovernanceVotePayload,
     GovernanceExecutionPayload,
     GovernanceOutcomePayload,
 )
-from cynic.protocol.lnsp.layer1 import Sensor
-from cynic.protocol.lnsp.messages import create_raw_observation
-from cynic.protocol.lnsp.types import LNSPMessage, ObservationType
+from cynic.kernel.protocol.lnsp.layer1 import Sensor
+from cynic.kernel.protocol.lnsp.messages import create_raw_observation
+from cynic.kernel.protocol.lnsp.types import LNSPMessage, ObservationType
 
 
 class ProposalSensor(Sensor):
@@ -475,9 +475,9 @@ Create `cynic/tests/protocol/test_lnsp_governance_handlers.py`:
 from __future__ import annotations
 
 import pytest
-from cynic.protocol.lnsp.governance_handlers import GovernanceVerdictHandler
-from cynic.protocol.lnsp.messages import create_judgment
-from cynic.protocol.lnsp.types import VerdictType, JudgmentType
+from cynic.kernel.protocol.lnsp.governance_handlers import GovernanceVerdictHandler
+from cynic.kernel.protocol.lnsp.messages import create_judgment
+from cynic.kernel.protocol.lnsp.types import VerdictType, JudgmentType
 
 
 @pytest.mark.asyncio
@@ -587,8 +587,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from cynic.protocol.lnsp.layer4 import Handler
-from cynic.protocol.lnsp.types import LNSPMessage, VerdictType
+from cynic.kernel.protocol.lnsp.layer4 import Handler
+from cynic.kernel.protocol.lnsp.types import LNSPMessage, VerdictType
 
 
 class GovernanceVerdictHandler(Handler):
@@ -676,9 +676,9 @@ Create `cynic/tests/protocol/test_lnsp_governance_integration.py`:
 from __future__ import annotations
 
 import pytest
-from cynic.protocol.lnsp.governance_integration import GovernanceLNSP
-from cynic.protocol.lnsp.manager import LNSPManager
-from cynic.protocol.lnsp.governance_events import GovernanceProposalPayload
+from cynic.kernel.protocol.lnsp.governance_integration import GovernanceLNSP
+from cynic.kernel.protocol.lnsp.manager import LNSPManager
+from cynic.kernel.protocol.lnsp.governance_events import GovernanceProposalPayload
 
 
 @pytest.mark.asyncio
@@ -746,14 +746,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from cynic.protocol.lnsp.governance_handlers import GovernanceVerdictHandler
-from cynic.protocol.lnsp.governance_sensors import (
+from cynic.kernel.protocol.lnsp.governance_handlers import GovernanceVerdictHandler
+from cynic.kernel.protocol.lnsp.governance_sensors import (
     ProposalSensor,
     VoteSensor,
     ExecutionSensor,
     OutcomeSensor,
 )
-from cynic.protocol.lnsp.manager import LNSPManager
+from cynic.kernel.protocol.lnsp.manager import LNSPManager
 
 
 class GovernanceLNSP:
@@ -788,7 +788,7 @@ class GovernanceLNSP:
 
     async def process_proposal(self, proposal: dict[str, Any]) -> None:
         """Process a governance proposal."""
-        from cynic.protocol.lnsp.governance_events import GovernanceProposalPayload
+        from cynic.kernel.protocol.lnsp.governance_events import GovernanceProposalPayload
 
         payload = GovernanceProposalPayload(**proposal)
         self.proposal_sensor.pending_payloads.append(payload)
@@ -796,7 +796,7 @@ class GovernanceLNSP:
 
     async def process_vote(self, vote: dict[str, Any]) -> None:
         """Process a governance vote."""
-        from cynic.protocol.lnsp.governance_events import GovernanceVotePayload
+        from cynic.kernel.protocol.lnsp.governance_events import GovernanceVotePayload
 
         payload = GovernanceVotePayload(**vote)
         self.vote_sensor.pending_payloads.append(payload)
@@ -804,7 +804,7 @@ class GovernanceLNSP:
 
     async def process_execution(self, execution: dict[str, Any]) -> None:
         """Process a governance execution outcome."""
-        from cynic.protocol.lnsp.governance_events import GovernanceExecutionPayload
+        from cynic.kernel.protocol.lnsp.governance_events import GovernanceExecutionPayload
 
         payload = GovernanceExecutionPayload(**execution)
         self.execution_sensor.pending_payloads.append(payload)
@@ -812,7 +812,7 @@ class GovernanceLNSP:
 
     async def process_outcome(self, outcome: dict[str, Any]) -> None:
         """Process community outcome feedback."""
-        from cynic.protocol.lnsp.governance_events import GovernanceOutcomePayload
+        from cynic.kernel.protocol.lnsp.governance_events import GovernanceOutcomePayload
 
         payload = GovernanceOutcomePayload(**outcome)
         self.outcome_sensor.pending_payloads.append(payload)
@@ -861,8 +861,8 @@ Create `cynic/tests/protocol/test_lnsp_event_bus_integration.py`:
 from __future__ import annotations
 
 import pytest
-from cynic.protocol.lnsp.governance_integration import GovernanceLNSP
-from cynic.protocol.lnsp.manager import LNSPManager
+from cynic.kernel.protocol.lnsp.governance_integration import GovernanceLNSP
+from cynic.kernel.protocol.lnsp.manager import LNSPManager
 
 
 @pytest.mark.asyncio
@@ -922,8 +922,8 @@ Find the line where KernelServices or similar initializes, and add:
 # After other service initialization:
 
 # Initialize LNSP Governance Integration
-from cynic.protocol.lnsp.governance_integration import GovernanceLNSP
-from cynic.protocol.lnsp.manager import LNSPManager
+from cynic.kernel.protocol.lnsp.governance_integration import GovernanceLNSP
+from cynic.kernel.protocol.lnsp.manager import LNSPManager
 
 lnsp_manager = LNSPManager(
     instance_id="instance:governance",
@@ -977,8 +977,8 @@ Create `cynic/tests/protocol/test_lnsp_learning_loop.py`:
 from __future__ import annotations
 
 import pytest
-from cynic.protocol.lnsp.governance_integration import GovernanceLNSP
-from cynic.protocol.lnsp.manager import LNSPManager
+from cynic.kernel.protocol.lnsp.governance_integration import GovernanceLNSP
+from cynic.kernel.protocol.lnsp.manager import LNSPManager
 
 
 @pytest.mark.asyncio
@@ -1137,8 +1137,8 @@ Create `cynic/tests/protocol/test_lnsp_governance_e2e.py`:
 from __future__ import annotations
 
 import pytest
-from cynic.protocol.lnsp.governance_integration import GovernanceLNSP
-from cynic.protocol.lnsp.manager import LNSPManager
+from cynic.kernel.protocol.lnsp.governance_integration import GovernanceLNSP
+from cynic.kernel.protocol.lnsp.manager import LNSPManager
 
 
 @pytest.mark.asyncio

@@ -22,8 +22,8 @@ import pytest
 import uuid
 from unittest.mock import Mock, patch, AsyncMock
 
-from cynic.consensus.pbft_engine import PBFTEngine
-from cynic.core.unified_state import UnifiedJudgment, UnifiedConsciousState
+from cynic.brain.consensus.pbft_engine import PBFTEngine
+from cynic.kernel.core.unified_state import UnifiedJudgment, UnifiedConsciousState
 
 
 class TestPBFTEngineInitialization:

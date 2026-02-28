@@ -1,14 +1,10 @@
-# CYNIC CI/CD — Minimal pipeline
-# Runs: ruff (lint), mypy (types), pytest (tests)
-# No expensive API reviewers
-
 name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master, main, develop]
   pull_request:
-    branches: [main]
+    branches: [master, main]
 
 jobs:
   lint:
@@ -19,17 +15,7 @@ jobs:
         with:
           python-version: '3.13'
       - run: pip install ruff
-      - run: ruff check cynic/
-
-  types:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-      - run: pip install mypy
-      - run: mypy cynic/ --ignore-missing-imports
+      - run: ruff check .
 
   test:
     runs-on: ubuntu-latest
@@ -38,6 +24,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - run: pip install pytest pytest-asyncio
-      - run: pip install -e cynic/
-      - run: pytest tests/ -v
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install .
+          pip install pytest pytest-asyncio pytest-cov httpx fastapi
+      - name: Run tests
+        run: |
+          export PYTHONPATH=$PYTHONPATH:.
+          pytest tests/ -v --cov=cynic

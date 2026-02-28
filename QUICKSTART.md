@@ -170,7 +170,7 @@ ls ~/.claude/plugins/cynic/*.md
 
 ```bash
 # Test CYNIC startup
-python -m cynic.mcp --help
+python -m cynic.interfaces.mcp --help
 
 # If fails: pip install -e /path/to/CYNIC-clean
 

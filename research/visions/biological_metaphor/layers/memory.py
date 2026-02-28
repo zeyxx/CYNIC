@@ -18,12 +18,12 @@ Storage Backends:
     S3/Cloud: Distributed backup and archival
 
 Typical usage:
-    from cynic.organism.layers import MemorySubstrate
+    from cynic.kernel.organism.layers import MemorySubstrate
     memory = MemorySubstrate(storage)
     past_judgments = await memory.recall(category='governance')
 
 See Also:
-    cynic.organism.layers: 10-layer organism architecture
-    cynic.core.storage: Abstract storage layer
-    cynic.learning: Uses memory for experience replay
+    cynic.kernel.organism.layers: 10-layer organism architecture
+    cynic.kernel.core.storage: Abstract storage layer
+    cynic.brain.learning: Uses memory for experience replay
 """

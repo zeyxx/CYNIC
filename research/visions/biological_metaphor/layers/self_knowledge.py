@@ -19,12 +19,12 @@ Metacognitive Functions:
     Learning Progress: "Am I improving over time?"
 
 Typical usage:
-    from cynic.organism.layers import SelfKnowledge
+    from cynic.kernel.organism.layers import SelfKnowledge
     self_know = SelfKnowledge()
     health = self_know.get_health_report()
 
 See Also:
-    cynic.organism.layers: 10-layer organism architecture
-    cynic.api.routers.introspection: Web API for self-knowledge
-    cynic.observability: Metrics and monitoring
+    cynic.kernel.organism.layers: 10-layer organism architecture
+    cynic.interfaces.api.routers.introspection: Web API for self-knowledge
+    cynic.kernel.observability: Metrics and monitoring
 """

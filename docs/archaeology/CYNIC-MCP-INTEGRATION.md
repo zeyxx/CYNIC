@@ -91,7 +91,7 @@ In VSCode settings (or `~/.claude/mcp.json`), register CYNIC MCP server:
   "mcpServers": {
     "cynic": {
       "command": "docker",
-      "args": ["exec", "-i", "cynic-mcp", "python", "-m", "cynic.mcp"]
+      "args": ["exec", "-i", "cynic-mcp", "python", "-m", "cynic.interfaces.mcp"]
     }
   }
 }
@@ -338,7 +338,7 @@ Look for:
 Check MCP registration:
 ```bash
 # Option 1: Direct stdio test
-docker exec -i cynic-mcp python -m cynic.mcp < /dev/null
+docker exec -i cynic-mcp python -m cynic.interfaces.mcp < /dev/null
 
 # Option 2: Check HTTP fallback
 curl http://localhost:8766/
@@ -384,7 +384,7 @@ docker-compose up cynic-mcp
 # Terminal 2
 docker exec -i cynic-mcp python -c "
 import asyncio
-from cynic.mcp.empirical_runner import EmpiricalRunner
+from cynic.interfaces.mcp.empirical_runner import EmpiricalRunner
 
 async def test():
     # Mock organism getter

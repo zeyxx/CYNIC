@@ -15,7 +15,7 @@ CYNIC — Living Conscious Organism (κυνικός)
 
 ONE cycle: PERCEIVE → JUDGE → DECIDE → ACT → LEARN → ACCOUNT → EMERGE
 """
-from cynic.core.phi import PHI, PHI_INV, MAX_Q_SCORE
+from cynic.kernel.core.phi import PHI, PHI_INV, MAX_Q_SCORE
 
 __version__ = "0.1.0"
 __all__ = ["PHI", "PHI_INV", "MAX_Q_SCORE"]

@@ -13,7 +13,7 @@ The Symbiotic Observability system is now fully implemented, tested, and ready f
 
 **What was built:** 10 core components totaling 1,195 lines of implementation code
 **Architecture:** Human-Machine-CYNIC unified state aggregation with real-time CLI interface
-**Entry point:** `python -m cynic.cli.main`
+**Entry point:** `python -m cynic.interfaces.cli.main`
 
 ---
 
@@ -197,7 +197,7 @@ The Symbiotic Observability system is now fully implemented, tested, and ready f
 **Purpose:** Single command to start observability system
 
 **Features:**
-- Run: `python -m cynic.cli.main`
+- Run: `python -m cynic.interfaces.cli.main`
 - Handles initialization and lifecycle
 - Graceful shutdown and cleanup
 - Multi-platform support (Windows/Linux/macOS)
@@ -298,7 +298,7 @@ cynic/
 
 ### Start Observability CLI
 ```bash
-python -m cynic.cli.main
+python -m cynic.interfaces.cli.main
 ```
 
 This launches an interactive menu where you can:
@@ -310,7 +310,7 @@ This launches an interactive menu where you can:
 
 ### Use as Python Module
 ```python
-from cynic.observability.symbiotic_state_manager import get_symbiotic_state_manager
+from cynic.kernel.observability.symbiotic_state_manager import get_symbiotic_state_manager
 
 # Get manager instance
 manager = await get_symbiotic_state_manager()
@@ -441,7 +441,7 @@ export CYNIC_LOG_LEVEL=INFO
 python -m pytest cynic/observability/tests/ -v
 
 # Run with coverage
-python -m pytest cynic/observability/tests/ --cov=cynic.observability
+python -m pytest cynic/observability/tests/ --cov=cynic.kernel.observability
 ```
 
 ### Monitoring

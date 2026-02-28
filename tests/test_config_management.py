@@ -18,7 +18,7 @@ from pydantic import ValidationError
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "governance_bot"))
 
-from config import (
+from cynic.interfaces.bots.governance.core.config import (
     Config,
     DiscordSettings,
     CYNICSettings,
@@ -392,7 +392,7 @@ class TestConfigurationBackwardCompatibility:
     def test_old_config_exports_still_available(self):
         """Old-style config exports still work"""
         # These exports should exist for backward compatibility
-        from config import (
+        from cynic.interfaces.bots.governance.core.config import (
             DISCORD_TOKEN,
             DATABASE_URL,
             DEFAULT_VOTING_PERIOD_HOURS,

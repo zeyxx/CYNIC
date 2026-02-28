@@ -169,7 +169,7 @@ def shared_organism():
 @pytest.fixture(scope="session")
 def shared_app():
     """Create ONE FastAPI app at session start."""
-    from cynic.api.server import app
+    from cynic.interfaces.api.server import app
     # Trigger lifespan once
     with TestClient(app) as client:
         yield client.app

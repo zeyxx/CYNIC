@@ -17,12 +17,12 @@ Responsibilities:
     - Tracks external state changes and feedback
 
 Typical usage:
-    from cynic.organism.layers import Embodiment
+    from cynic.kernel.organism.layers import Embodiment
     embodiment = Embodiment()
     await embodiment.act(judgment, action_type='vote')
 
 See Also:
-    cynic.organism.layers: 10-layer organism architecture
-    cynic.organism.motor: Physical/blockchain action execution
+    cynic.kernel.organism.layers: 10-layer organism architecture
+    cynic.kernel.organism.motor: Physical/blockchain action execution
     cynic.discord: Discord embodiment implementation
 """

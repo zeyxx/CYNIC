@@ -96,13 +96,13 @@ async def _on_judgment_requested(self, event: Event) -> None:
         if not cell_dict:
             raise ValueError("Event payload missing 'cell' dict")
 
-        from cynic.core.judgment import Cell
+        from cynic.kernel.core.judgment import Cell
         cell = Cell(**cell_dict)
 
         # Extract level
         level = payload.get("level", "")
         if level:
-            from cynic.core.consciousness import ConsciousnessLevel
+            from cynic.kernel.core.consciousness import ConsciousnessLevel
             try:
                 level_enum = ConsciousnessLevel[level]
             except KeyError:
@@ -164,7 +164,7 @@ async def _emit_judgment_failed(
 ) -> None:
     """Emit JUDGMENT_FAILED event and update ConsciousState."""
     try:
-        from cynic.core.events_schema import JudgmentFailedPayload
+        from cynic.kernel.core.events_schema import JudgmentFailedPayload
         await get_core_bus().emit(Event.typed(
             CoreEvent.JUDGMENT_FAILED,
             JudgmentFailedPayload(
@@ -177,7 +177,7 @@ async def _emit_judgment_failed(
         ))
 
         # Also update ConsciousState to reflect BARK (failure verdict)
-        from cynic.organism.conscious_state import get_conscious_state
+        from cynic.kernel.organism.conscious_state import get_conscious_state
         try:
             await get_conscious_state().record_judgment_failed(judgment_id, reason)
         except Exception as e:
@@ -278,14 +278,14 @@ async def get_judgment_result(
     timeout_s = timeout_ms / 1000.0 if timeout_ms > 0 else 0
 
     # Prefer container.organism.conscious_state (patched in tests)
-    from cynic.api.state import container as _container
+    from cynic.interfaces.api.state import container as _container
     conscious_state = None
     if _container is not None:
         conscious_state = getattr(getattr(_container, "organism", None), "conscious_state", None)
 
     # Fallback to singleton (production)
     if conscious_state is None:
-        from cynic.organism.conscious_state import get_conscious_state
+        from cynic.kernel.organism.conscious_state import get_conscious_state
         conscious_state = get_conscious_state()
 
     # Poll with timeout
@@ -337,12 +337,12 @@ async def health():
 async def health_events():
     """Event handler pipeline health + metrics."""
     try:
-        from cynic.core.event_bus import get_core_bus
-        from cynic.cognition.cortex.handlers.registry import HandlerRegistry
-        from cynic.organism.organism import Organism
+        from cynic.kernel.core.event_bus import get_core_bus
+        from cynic.brain.cognition.cortex.handlers.registry import HandlerRegistry
+        from cynic.kernel.organism.organism import Organism
 
         # Get handler registry from container
-        from cynic.api.state import get_app_container
+        from cynic.interfaces.api.state import get_app_container
         container = get_app_container()
         organism = container.organism if container else None
 
@@ -403,9 +403,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 from uuid import uuid4
 
-from cynic.api.server import app
-from cynic.core.event_bus import Event, CoreEvent
-from cynic.core.events_schema import JudgmentFailedPayload
+from cynic.interfaces.api.server import app
+from cynic.kernel.core.event_bus import Event, CoreEvent
+from cynic.kernel.core.events_schema import JudgmentFailedPayload
 
 
 class TestEventPipelineResilience:
@@ -426,7 +426,7 @@ class TestEventPipelineResilience:
             mock_bus.emit.side_effect = capture_emit
 
             # Trigger judgment request
-            with patch("cynic.api.routers.core.get_core_bus", return_value=mock_bus):
+            with patch("cynic.interfaces.api.routers.core.get_core_bus", return_value=mock_bus):
                 response = client.post("/judge", json={
                     "content": "test code",
                     "reality": "CODE",
@@ -451,7 +451,7 @@ class TestEventPipelineResilience:
             mock_cs = AsyncMock()
             mock_cs.get_judgment_by_id.return_value = None  # Still PENDING
 
-            with patch("cynic.organism.conscious_state.get_conscious_state", return_value=mock_cs):
+            with patch("cynic.kernel.organism.conscious_state.get_conscious_state", return_value=mock_cs):
                 response = client.get(f"/judge/{judgment_id}?timeout_ms=100")
 
             # Should timeout after 100ms
@@ -461,7 +461,7 @@ class TestEventPipelineResilience:
     def test_failed_judgment_returns_bark_verdict(self):
         """Failed judgment shows BARK verdict in polling response."""
         import time
-        from cynic.organism.conscious_state import JudgmentSnapshot
+        from cynic.kernel.organism.conscious_state import JudgmentSnapshot
 
         judgment_id = str(uuid4())
 
@@ -526,7 +526,7 @@ class TestTimeoutBehavior:
             mock_cs.get_judgment_by_id.return_value = None
 
             start = time.time()
-            with patch("cynic.organism.conscious_state.get_conscious_state", return_value=mock_cs):
+            with patch("cynic.kernel.organism.conscious_state.get_conscious_state", return_value=mock_cs):
                 response = client.get(f"/judge/{judgment_id}?timeout_ms=0")
             elapsed = time.time() - start
 
@@ -537,7 +537,7 @@ class TestTimeoutBehavior:
     def test_timeout_waits_for_result(self):
         """timeout_ms > 0 waits if result arrives before timeout."""
         import time
-        from cynic.organism.conscious_state import JudgmentSnapshot
+        from cynic.kernel.organism.conscious_state import JudgmentSnapshot
 
         judgment_id = str(uuid4())
 
@@ -556,7 +556,7 @@ class TestTimeoutBehavior:
         mock_cs.get_judgment_by_id.side_effect = [None, None, result]  # Return after 2 calls
 
         with TestClient(app) as client:
-            with patch("cynic.organism.conscious_state.get_conscious_state", return_value=mock_cs):
+            with patch("cynic.kernel.organism.conscious_state.get_conscious_state", return_value=mock_cs):
                 # This would work in real async context
                 # Simplified test for illustration
                 assert result.verdict == "WAG"
@@ -572,7 +572,7 @@ Prevent cascading failures by stopping requests to failed orchestrator.
 
 **Add near top of file (after imports, around line 30):**
 ```python
-from cynic.cognition.cortex.circuit_breaker import CircuitBreaker
+from cynic.brain.cognition.cortex.circuit_breaker import CircuitBreaker
 
 # Circuit breaker for orchestrator
 _orchestrator_breaker = CircuitBreaker(

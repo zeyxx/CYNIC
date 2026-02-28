@@ -17,12 +17,12 @@ This layer integrates:
     - External authorization constraints
 
 Typical usage:
-    from cynic.organism.layers import AutonomyTiers
+    from cynic.kernel.organism.layers import AutonomyTiers
     autonomy = AutonomyTiers(tier=Tier.AUTONOMOUS)
     can_act = autonomy.can_act(judgment, context)
 
 See Also:
-    cynic.organism.layers: 10-layer organism architecture
-    cynic.organism.layers.perception: Perceives action constraints
-    cynic.learning: Learning feedback constrains autonomy
+    cynic.kernel.organism.layers: 10-layer organism architecture
+    cynic.kernel.organism.layers.perception: Perceives action constraints
+    cynic.brain.learning: Learning feedback constrains autonomy
 """

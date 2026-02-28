@@ -48,7 +48,7 @@
 # cynic/tests/test_value_creation.py
 import pytest
 from dataclasses import is_dataclass, fields
-from cynic.core.value_creation import ValueCreation
+from cynic.kernel.core.value_creation import ValueCreation
 
 def test_value_creation_is_frozen_dataclass():
     """ValueCreation must be immutable frozen dataclass"""
@@ -118,7 +118,7 @@ cd /path/to/CYNIC-clean
 pytest cynic/tests/test_value_creation.py::test_value_creation_is_frozen_dataclass -v
 ```
 
-Expected: `FAILED` with `ModuleNotFoundError: No module named 'cynic.core.value_creation'`
+Expected: `FAILED` with `ModuleNotFoundError: No module named 'cynic.kernel.core.value_creation'`
 
 **Step 3: Write minimal implementation**
 
@@ -209,7 +209,7 @@ git commit -m "feat: add ValueCreation immutable dataclass with 4D impact model"
 # cynic/tests/test_governance_weight.py
 import pytest
 from dataclasses import is_dataclass
-from cynic.core.governance_weight import GovernanceWeight
+from cynic.kernel.core.governance_weight import GovernanceWeight
 
 def test_governance_weight_is_frozen():
     """GovernanceWeight must be immutable"""
@@ -372,7 +372,7 @@ git commit -m "feat: add GovernanceWeight immutable dataclass with axiom bounds"
 # cynic/tests/test_value_creation_engine.py
 import pytest
 from cynic.engines.value_creation_engine import ValueCreationEngine
-from cynic.core.value_creation import ValueCreation
+from cynic.kernel.core.value_creation import ValueCreation
 import time
 
 def test_value_creation_engine_register():
@@ -465,7 +465,7 @@ Expected: `FAILED` with `ModuleNotFoundError`
 ```python
 # cynic/engines/value_creation_engine.py
 from typing import Dict, List, Optional
-from cynic.core.value_creation import ValueCreation
+from cynic.kernel.core.value_creation import ValueCreation
 import threading
 
 class ValueCreationEngine:
@@ -582,7 +582,7 @@ git commit -m "feat: add ValueCreationEngine for tracking and aggregating impact
 import pytest
 import time
 from cynic.engines.value_creation_engine import ValueCreationEngine
-from cynic.core.value_creation import ValueCreation
+from cynic.kernel.core.value_creation import ValueCreation
 
 def test_value_creation_engine_latency_small(benchmark):
     """Measure latency: register + compute impact (10 creations)"""
@@ -731,8 +731,8 @@ git commit -m "test: add latency profiling for ValueCreationEngine with real mea
 import pytest
 from cynic.engines.emergence_engine import EmergenceEngine
 from cynic.engines.value_creation_engine import ValueCreationEngine
-from cynic.core.value_creation import ValueCreation
-from cynic.core.governance_weight import GovernanceWeight
+from cynic.kernel.core.value_creation import ValueCreation
+from cynic.kernel.core.governance_weight import GovernanceWeight
 import time
 import math
 
@@ -872,7 +872,7 @@ import time
 import math
 from typing import Dict, Optional
 from cynic.engines.value_creation_engine import ValueCreationEngine
-from cynic.core.governance_weight import GovernanceWeight
+from cynic.kernel.core.governance_weight import GovernanceWeight
 
 class EmergenceEngine:
     """
@@ -1048,7 +1048,7 @@ import pytest
 import time
 from cynic.engines.emergence_engine import EmergenceEngine
 from cynic.engines.value_creation_engine import ValueCreationEngine
-from cynic.core.value_creation import ValueCreation
+from cynic.kernel.core.value_creation import ValueCreation
 
 def test_emergence_engine_weight_computation_latency(benchmark):
     """Measure latency: compute governance weight from 100 value creations"""
@@ -1163,7 +1163,7 @@ git commit -m "test: add latency profiling for EmergenceEngine"
 # cynic/tests/test_orchestrator_account_step.py
 import pytest
 from cynic.orchestrator.orchestrator import Orchestrator, OrchestratorState
-from cynic.core.value_creation import ValueCreation
+from cynic.kernel.core.value_creation import ValueCreation
 import time
 
 def test_orchestrator_has_account_step():
@@ -1308,7 +1308,7 @@ def step_account(self, learning_result: dict) -> dict:
         temporal_impact = 0.0
 
     # Step 3: Create ValueCreation
-    from cynic.core.value_creation import ValueCreation
+    from cynic.kernel.core.value_creation import ValueCreation
     import uuid
     import time
 
@@ -1511,7 +1511,7 @@ git commit -m "test: add latency profiling for Orchestrator ACCOUNT step and ful
 # cynic/tests/test_coordination_engine.py
 import pytest
 from cynic.engines.coordination_engine import CoordinationEngine
-from cynic.core.value_creation import ValueCreation
+from cynic.kernel.core.value_creation import ValueCreation
 import time
 
 def test_coordination_engine_init():
@@ -1592,7 +1592,7 @@ Expected: `FAILED` with `ModuleNotFoundError`
 ```python
 # cynic/engines/coordination_engine.py
 from typing import Dict, List, Optional
-from cynic.core.value_creation import ValueCreation
+from cynic.kernel.core.value_creation import ValueCreation
 import threading
 
 class CoordinationEngine:
@@ -1713,8 +1713,8 @@ from cynic.orchestrator.orchestrator import Orchestrator
 from cynic.engines.value_creation_engine import ValueCreationEngine
 from cynic.engines.emergence_engine import EmergenceEngine
 from cynic.engines.coordination_engine import CoordinationEngine
-from cynic.core.value_creation import ValueCreation
-from cynic.core.governance_weight import GovernanceWeight
+from cynic.kernel.core.value_creation import ValueCreation
+from cynic.kernel.core.governance_weight import GovernanceWeight
 import time
 
 @pytest.fixture
@@ -1919,7 +1919,7 @@ import pytest
 import time
 import statistics
 from cynic.orchestrator.orchestrator import Orchestrator
-from cynic.core.value_creation import ValueCreation
+from cynic.kernel.core.value_creation import ValueCreation
 
 @pytest.fixture
 def orchestrator_with_data():

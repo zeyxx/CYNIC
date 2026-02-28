@@ -156,7 +156,7 @@ cp .claude/plugins/cynic/* ~/.claude/plugins/cynic/
 ### MCP Server
 
 - **Type:** stdio (local process)
-- **Command:** `python -m cynic.mcp`
+- **Command:** `python -m cynic.interfaces.mcp`
 - **Mode:** CYNIC_MCP_STDIO_ONLY=1 (no HTTP)
 - **Transport:** stdin/stdout
 
@@ -231,7 +231,7 @@ cat ~/.claude/plugins/cynic/plugin.json | grep commands
 
 ```bash
 # Test CYNIC
-python -m cynic.mcp --help
+python -m cynic.interfaces.mcp --help
 
 # Check JSON config
 python -c "import json; json.load(open('~/.claude/plugins/cynic/.mcp.json'))"

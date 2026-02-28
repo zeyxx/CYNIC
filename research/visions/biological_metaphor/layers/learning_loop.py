@@ -17,12 +17,12 @@ Feedback Signals:
     Consensus Strength: Did Dog voting align with outcome?
 
 Typical usage:
-    from cynic.organism.layers import LearningLoop
+    from cynic.kernel.organism.layers import LearningLoop
     learning = LearningLoop(q_table)
     await learning.record_outcome(judgment, feedback)
 
 See Also:
-    cynic.organism.layers: 10-layer organism architecture
-    cynic.learning.unified_learning: Q-Table and session management
-    cynic.core.unified_state: Judgment records for learning
+    cynic.kernel.organism.layers: 10-layer organism architecture
+    cynic.brain.learning.unified_learning: Q-Table and session management
+    cynic.kernel.core.unified_state: Judgment records for learning
 """

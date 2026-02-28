@@ -104,10 +104,10 @@ Result: PASSED ✅
 
 ### Import Verification
 ```
-✅ from cynic.mcp.kernel_lock import KernelLockManager, get_lock_manager
-✅ from cynic.mcp.kernel_bootstrap import KernelBootstrap, BootstrapResult
-✅ from cynic.mcp.kernel_health import KernelHealthMonitor, HealthState
-✅ from cynic.mcp.kernel_manager import get_kernel_manager, shutdown_kernel_manager
+✅ from cynic.interfaces.mcp.kernel_lock import KernelLockManager, get_lock_manager
+✅ from cynic.interfaces.mcp.kernel_bootstrap import KernelBootstrap, BootstrapResult
+✅ from cynic.interfaces.mcp.kernel_health import KernelHealthMonitor, HealthState
+✅ from cynic.interfaces.mcp.kernel_manager import get_kernel_manager, shutdown_kernel_manager
 ```
 
 ### Module Interdependencies
@@ -282,7 +282,7 @@ Saved:   300MB per extra instance
 
 ### For Developers
 ```python
-from cynic.mcp.kernel_manager import get_kernel_manager
+from cynic.interfaces.mcp.kernel_manager import get_kernel_manager
 
 # Get singleton manager
 manager = get_kernel_manager()
