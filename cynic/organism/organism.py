@@ -153,12 +153,13 @@ class SensoryCore:
 
 @dataclass
 class MemoryCore:
-    """ARCHIVE — Reflection, proposals, self-improvement."""
+    """ARCHIVE — Reflection, proposals, self-improvement, federation."""
     state: OrganismState
     kernel_mirror: KernelMirror = field(default_factory=KernelMirror)
     action_proposer: ActionProposer = field(default_factory=ActionProposer)
     self_prober: SelfProber = field(default_factory=SelfProber)
     sona_emitter: Optional[SonaEmitter] = None
+    gossip_manager: Optional[Any] = None  # GossipManager
     meta_cognition: Optional[Any] = None  # MetaCognitionHandler
 
 
@@ -423,6 +424,9 @@ class _OrganismAwakener:
         self.db_pool: Optional[Any]   = db_pool
         self.registry: Optional[LLMRegistry]   = registry
 
+        # ── State Manager (Phase 3) ───────────────────────────────────────
+        self.state = OrganismState()
+
         # ── Shared mutable state (used by multiple event handler methods) ──
         # Prevents the [0]-cell hack that was needed with closures.
         self._health_cache: dict[str, float] = {
@@ -595,6 +599,11 @@ class _OrganismAwakener:
         self.self_prober.set_escore_tracker(self.escore_tracker)
         # Handler registry is set later after creation — see _wire_event_handlers()
         self.self_prober.start(get_core_bus())
+
+        # ── GossipManager (Federation) ───────────────────────────────────
+        from cynic.federation.gossip import GossipManager
+        instance_id = os.environ.get("CYNIC_INSTANCE_ID", os.urandom(4).hex())
+        self.gossip_manager = GossipManager(instance_id=instance_id, q_table=self.qtable)
 
         # ── ContextCompressor (γ2) ─────────────────────────────────────────
         self.compressor = ContextCompressor()
@@ -784,6 +793,9 @@ class _OrganismAwakener:
             judgment_executor={
                 "orchestrator": self.orchestrator,
             },
+            federation={
+                "gossip_manager": self.gossip_manager,
+            },
             axiom={"action_proposer": self.action_proposer},
             sdk={"action_proposer": self.action_proposer, "qtable": self.qtable},
             health={"storage_gc": self.storage_gc, "db_pool": self.db_pool},
@@ -793,7 +805,7 @@ class _OrganismAwakener:
             registry.register(group)
         logger.info("HandlerRegistry: %d groups discovered", len(groups))
 
-        from cynic.api.handlers.validator import HandlerValidator
+        from cynic.organism.handlers.validator import HandlerValidator
         validator = HandlerValidator()
         issues = validator.validate(groups)
 
@@ -962,23 +974,20 @@ class _OrganismAwakener:
             mcp_bridge=self.mcp_bridge,
         )
         memory = MemoryCore(
+            state=self.state,
             kernel_mirror=KernelMirror(),
             action_proposer=self.action_proposer,
             self_prober=self.self_prober,
             sona_emitter=self.sona_emitter,
             meta_cognition=self.meta_cognition,
         )
-        # Initialize OrganismState with database pool
-        organism_state = OrganismState()
-        # Note: Pool injection happens via setter after creation
-        # (see awaken() or server.py lifespan for async initialization)
 
         return Organism(
             cognition=cognition,
             metabolism=metabolism,
             senses=senses,
             memory=memory,
-            state=organism_state,
+            state=self.state,
             _pool=self.db_pool,
             container=self._container,
             _handler_registry=self._handler_registry,

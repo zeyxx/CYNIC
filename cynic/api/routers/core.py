@@ -164,6 +164,7 @@ async def judge(req: JudgeRequest) -> JudgeResponse:
                 cell_id=cell.cell_id,
                 reality=cell.reality,
                 level=req.level or "",
+                fractal_depth=req.fractal_depth,
                 cell=cell.model_dump(),
                 source="api:judge",
                 judgment_id=judgment_id,

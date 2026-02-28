@@ -153,6 +153,7 @@ class JudgeOrchestrator:
         cell: Cell,
         level: Optional[ConsciousnessLevel] = None,
         budget_usd: Optional[float] = None,
+        fractal_depth: int = 1,
     ) -> Judgment:
         """
         Run the complete judgment cycle for a Cell via handler composition DAG.
@@ -163,7 +164,7 @@ class JudgeOrchestrator:
         # Ensure composer is initialized (supports manual orchestrator creation in tests)
         self._ensure_composer()
 
-        pipeline = JudgmentPipeline(cell=cell)
+        pipeline = JudgmentPipeline(cell=cell, fractal_depth=fractal_depth)
         effective_budget = (budget_usd or cell.budget_usd)
 
         # Circuit breaker — fast-fail when cascade failure detected (topology M1)
@@ -187,16 +188,6 @@ class JudgeOrchestrator:
                 f"({cb.failure_count} consecutive failures)"
             )
 
-        # Emit JUDGMENT_REQUESTED
-        await get_core_bus().emit(Event.typed(
-            CoreEvent.JUDGMENT_REQUESTED,
-            JudgmentRequestedPayload(
-                cell_id=cell.cell_id,
-                reality=cell.reality,
-                level=level.name if level else "AUTO",
-            ),
-        ))
-
         try:
             # Compose handlers and execute judgment cycle (Phase 2B DAG)
             # HandlerComposer handles: level selection + LOD cap + cycle dispatch + act + evolve + budget
@@ -208,16 +199,6 @@ class JudgeOrchestrator:
             judgment = compose_result.output
             selected_level = pipeline.level or level or ConsciousnessLevel.MACRO
             elapsed_compose_ms = (time.perf_counter() - t_compose_start) * 1000
-
-            # Phase 0: Persist judgment to PostgreSQL immediately after creation
-            # This ensures data survives if process crashes before event handlers run
-            try:
-                from cynic.api.routers.core import _persist_judgment
-                _persist_judgment(judgment)
-            except Exception as e:
-                logger.error("Failed to persist judgment immediately: %s", e)
-                # Don't fail the whole orchestrator run — continue to emit event
-                # (judgment_id is still in memory for handlers to use)
 
             # Emit JUDGMENT_CREATED (enriched with cell context for DecideAgent)
             self._judgment_count += 1
