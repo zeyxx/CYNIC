@@ -629,6 +629,44 @@ async def get_world_state() -> dict[str, Any]:
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# Federation Endpoints
+# ════════════════════════════════════════════════════════════════════════════
+
+@router_core.get("/federation-status")
+async def get_federation_status() -> dict[str, Any]:
+    """
+    GET /federation-status — P2P gossip federation status.
+
+    Returns federation connectivity details:
+    - is_federated: True if organism has a GossipManager configured
+    - peers: List of peer IDs (k-nearest neighbors)
+    - last_sync: ISO timestamp of last push/receive
+    - sync_count: Total number of syncs
+    - total_merged_keys: Cumulative Q-Table entries merged from peers
+    - sync_frequency_judgments: Batch size threshold for triggering gossip
+    """
+    organism = get_state()
+    if organism is None or not hasattr(organism, 'gossip_manager') or organism.gossip_manager is None:
+        return {
+            "is_federated": False,
+            "peers": [],
+            "last_sync": None,
+            "sync_count": 0,
+            "total_merged_keys": 0,
+            "sync_frequency_judgments": 10
+        }
+    stats = organism.gossip_manager.get_stats()
+    return {
+        "is_federated": stats["is_federated"],
+        "peers": stats["peer_ids"],
+        "last_sync": stats["last_sync"],
+        "sync_count": stats["sync_count"],
+        "total_merged_keys": stats["total_merged_keys"],
+        "sync_frequency_judgments": stats["batch_size"]
+    }
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # LNSP Governance Integration — startup initialization
 # ════════════════════════════════════════════════════════════════════════════
 

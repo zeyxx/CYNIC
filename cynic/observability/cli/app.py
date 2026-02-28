@@ -41,7 +41,7 @@ class CliApp:
             ('2', '💭 CYNIC MIND   - Deep dive into CYNIC'),
             ('3', '🧠 YOUR STATE   - Your energy, focus'),
             ('4', '⚙️  MACHINE      - Resources'),
-            ('5', '🤝 SYMBIOSIS    - Alignment'),
+            ('5', '🤝 FEDERATION   - P2P gossip status'),
             ('6', '💬 TALK         - Chat'),
             ('7', '📊 HISTORY      - Decisions'),
             ('8', '🎛️  FEEDBACK     - Feedback'),
@@ -103,10 +103,8 @@ class CliApp:
             print(view)
 
         elif choice == '5':
-            # SYMBIOSIS
-            print("\n🤝 SYMBIOSIS - Alignment")
-            print("-" * 40)
-            print("[Feature not yet implemented]")
+            # FEDERATION
+            await self.show_federation_status()
 
         elif choice == '6':
             # TALK
@@ -144,6 +142,31 @@ class CliApp:
         state = await get_current_state()
         view = render_observe_view(state)
         print(view)
+
+    async def show_federation_status(self) -> None:
+        """Show P2P gossip federation status.
+
+        Displays GossipManager stats including connected peers,
+        sync count, merged Q-Table keys, and gossip batch size.
+        """
+        print("\n🤝 FEDERATION - P2P Gossip Status")
+        print("-" * 60)
+
+        state = await get_current_state()
+        organism = state.organism if hasattr(state, 'organism') else state
+
+        if not hasattr(organism, 'gossip_manager') or organism.gossip_manager is None:
+            print("  Federated: No (not configured)")
+            return
+
+        stats = organism.gossip_manager.get_stats()
+        print(f"  Federated: {'Yes' if stats['is_federated'] else 'No'}")
+        print(f"  Peers ({stats['peer_count']}): {', '.join(stats['peer_ids']) or 'none'}")
+        print(f"  Sync count: {stats['sync_count']}")
+        print(f"  Last sync: {stats['last_sync'] or 'Never'}")
+        print(f"  Q-Table keys merged: {stats['total_merged_keys']}")
+        print(f"  Sync every: {stats['batch_size']} judgments")
+        print()
 
     async def handle_talk_option(self) -> None:
         """Enter interactive dialogue mode with CYNIC.
