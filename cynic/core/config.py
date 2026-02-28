@@ -61,6 +61,10 @@ class CynicConfig:
     # ── LLM: Ollama tuning ────────────────────────────────────────────────
     ollama_num_parallel: Optional[int] = None
 
+    # ── GASdf: Governance (On-chain execution) ──────────────────────────
+    gasdf_url: str = "http://localhost:8766"
+    gasdf_enabled: bool = False
+
     # ── Runtime ──────────────────────────────────────────────────────────
     port: int = 8765
     log_level: str = "INFO"
@@ -92,6 +96,9 @@ class CynicConfig:
             llama_threads=int(os.getenv("LLAMA_CPP_THREADS", "8")),
             # Ollama tuning
             ollama_num_parallel=_opt_int(os.getenv("OLLAMA_NUM_PARALLEL")),
+            # GASdf
+            gasdf_url=os.getenv("GASDF_URL", "http://localhost:8766"),
+            gasdf_enabled=os.getenv("GASDF_ENABLED") == "1",
             # Runtime
             port=int(os.getenv("PORT", "8765")),
             log_level=os.getenv("LOG_LEVEL", "INFO"),

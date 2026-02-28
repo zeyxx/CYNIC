@@ -1,0 +1,458 @@
+================================================================================
+CYNIC ORGANISM ARCHITECTURE — FOUR ROLES IN INTEGRATED SYSTEM
+================================================================================
+
+TIME DIMENSION:
+             Startup                    Runtime                        Shutdown
+              │                          │                               │
+    ┌─────────▼──────────┐   ┌──────────▼──────────┐   ┌─────────────────▼────┐
+    │  Awaken Phase      │   │  Judgment Cycles    │   │  Lifecycle & Persist │
+    │  (Synchronous)     │   │  (Async Event Bus)  │   │  (Write-Through)     │
+    │                    │   │                     │   │                      │
+    │ 1. Create Dogs     │   │ 1. PERCEIVE event  │   │ 1. Save Q-table      │
+    │ 2. Wire LLMRegistry│   │ 2. JUDGE cycle     │   │ 2. Persist state     │
+    │ 3. Init LearningLoop  │ 3. DECIDE agent    │   │ 3. Close connections │
+    │ 4. Start handlers  │   │ 4. ACT phase       │   │                      │
+    │ 5. Wire bus events │   │ 5. LEARN Q-values  │   │ State saved to:      │
+    │                    │   │ 6. ACCOUNT metrics │   │ - SurrealDB          │
+    │ Result:            │   │ 7. EMERGE patterns │   │ - Checkpoint file    │
+    │ Organism instance  │   │                     │   │                      │
+    └────────────────────┘   │ + LOD constraints  │   └──────────────────────┘
+                             │ + Budget checks    │
+                             │ + Axiom veto       │
+                             │ + Feedback loops   │
+                             │                    │
+                             └────────────────────┘
+
+
+FOUR ROLES — INTERACTION MODEL:
+================================================================================
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│                      ROLE 3: IDENTITY (Immutable)                          │
+│                     THE ORGANISM'S CONSTITUTION                            │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  Stores:                  Enforces:                Immutable At:           │
+│  • 11 Axioms (A1-A11)     • φ-bounds ≤ 0.618      • Compile time          │
+│  • 7 facets per axiom     • Axiom scoring logic   • Runtime locked        │
+│  • Verdict thresholds     • Veto mechanism        • Cannot reconfigure    │
+│  • BURN constraints       • Axiom prioritization  • Cannot override       │
+│                                                                            │
+│  Impact: CONSTRAINS all other roles                                       │
+│  → Consciousness can't exceed φ-bounds                                    │
+│  → Manager can't bypass veto                                              │
+│  → Integration can't violate axioms                                       │
+│                                                                            │
+└────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      │ (hard constraint)
+                                      ↓
+
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│                 ROLE 1: CONSCIOUSNESS (Observable)                         │
+│                    THE ORGANISM'S AWARENESS                                │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  Tracks (Via OrganismState):                                              │
+│  • Consciousness Level: REFLEX|MICRO|MACRO|META                           │
+│  • System Health: LOD state (NORMAL|REDUCED|EMERGENCY)                    │
+│  • Active Axioms: 0-11 axioms currently healthy                           │
+│  • E-Score: Reputation across 7 dimensions                                │
+│  • Recent Judgments: Last 100 (kept in memory)                            │
+│  • Residuals: Anomalies detected                                          │
+│                                                                            │
+│  Observability (API readable at: GET /api/organism/state):                │
+│  • state_snapshot() → StateSnapshot (immutable)                           │
+│  • query(key) → value                                                     │
+│  • get_consciousness_level() → str                                        │
+│  • get_recent_judgments(limit=10) → list[Judgment]                        │
+│                                                                            │
+│  Influences (Soft guidance to Manager):                                   │
+│  • "Disk at 85% → cap at MICRO, no MACRO"                               │
+│  • "4 axioms active → can afford MACRO"                                  │
+│  • "3 axioms failing → throttle to REFLEX"                               │
+│                                                                            │
+│  NOT a decision-maker (just reporter)                                     │
+│  BUT enforced by Manager._apply_lod_cap()                                │
+│                                                                            │
+└────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      │ (soft guidance)
+                                      ↓
+
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│                   ROLE 2: MANAGER (Container & Lifecycle)                  │
+│                    THE ORGANISM'S PHYSICAL STRUCTURE                       │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  Owns (Static structure in dataclass):                                    │
+│  ┌─────────────────────────────────────────────────────────────────────┐ │
+│  │ CognitionCore:                                                      │ │
+│  │  • JudgeOrchestrator (11 Dogs, PBFT consensus, 7-step cycle)       │ │
+│  │  • QTable (state → action → Q-value learning)                      │ │
+│  │  • LearningLoop (listens to LEARNING_EVENT, updates Q-table)       │ │
+│  │  • ResidualDetector (observes consensus variance)                  │ │
+│  │  • AxiomMonitor (tracks which axioms are healthy)                  │ │
+│  │  • LODController (computes survival level from system metrics)     │ │
+│  │  • EScoreTracker (reputation across 7 dimensions)                  │ │
+│  │  • 4-chain guardrails (PowerLimiter, Alignment, Audit, HumanGate) │ │
+│  │                                                                     │ │
+│  │ MetabolicCore:                                                      │ │
+│  │  • Scheduler (ConsciousnessRhythm orchestrates timing)            │ │
+│  │  • ClaudeCodeRunner (autonomous SDK execution)                    │ │
+│  │  • LLMRouter (directs LLM calls to Ollama/Claude)                 │ │
+│  │  • Telemetry (cost/latency tracking)                              │ │
+│  │  • UniversalActuator (NEAR/SDK/file I/O execution)               │ │
+│  │                                                                     │ │
+│  │ SensoryCore:                                                        │ │
+│  │  • ContextCompressor (memory efficiency, attention)               │ │
+│  │  • ServiceStateRegistry (Tier 1 nervous system)                   │ │
+│  │  • WorldModelUpdater (7 realities state aggregation)              │ │
+│  │  • SourceWatcher + TopologyBuilder (architecture awareness)       │ │
+│  │  • MCPBridge (WebSocket /ws/mcp for real-time comms)            │ │
+│  │  • ConvergenceValidator (announcement vs reality check)           │ │
+│  │                                                                     │ │
+│  │ MemoryCore:                                                         │ │
+│  │  • KernelMirror (self-reflection)                                 │ │
+│  │  • ActionProposer (suggests next actions)                         │ │
+│  │  • SelfProber (architectural analysis)                            │ │
+│  │  • SonaEmitter (heartbeat observability)                          │ │
+│  │                                                                     │ │
+│  │ OrganismState:                                                      │ │
+│  │  • 3-layer state: memory | persistent | checkpoint                │ │
+│  │  • Write-through consistency checking                             │ │
+│  │  • Async update queue with batching                               │ │
+│  │  • Recovery on restart                                            │ │
+│  └─────────────────────────────────────────────────────────────────────┘ │
+│                                                                            │
+│  Decides (In _OrganismAwakener.build()):                                  │
+│  • Startup order (which components initialize first)                     │
+│  • Component dependency injection                                        │
+│  • Event bus subscriptions                                               │
+│  • Perceive workers registration                                         │
+│                                                                            │
+│  Controls (Once running):                                                │
+│  • Lifecycle: start() on lifespan enter, should stop() on exit (TODO)   │
+│  • Error recovery: if circuit breaker trips, can pause judgments        │
+│  • Resource limits: PowerLimiter caps spend, LOD caps level             │
+│                                                                            │
+│  PASSIVE DESIGN:                                                          │
+│  • Organism.orchestrator is independent (doesn't ask permission)         │
+│  • Manager can't refuse a judgment (no agency)                           │
+│  • Manager is a container, not a decision-maker                          │
+│  • All real orchestration happens in:                                    │
+│    - JudgeOrchestrator.run() (the judgment cycle)                        │
+│    - Handlers (registered event listeners)                               │
+│    - Scheduler (timing of perceive workers)                              │
+│                                                                            │
+└────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      │ (owns & coordinates)
+                                      ↓
+
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│               ROLE 4: INTEGRATION (Communication & Coordination)            │
+│                 THE ORGANISM'S NERVOUS SYSTEM                              │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  Communication Layer (Event Bus):                                        │
+│  • Singleton: get_core_bus() → shared EventBus                          │
+│  • Pattern: pub/sub async/await                                         │
+│  • Events: CoreEvent enum (JUDGMENT_CREATED, LEARNING_EVENT, etc.)     │
+│  • No ordering guarantees (except within handler)                       │
+│                                                                            │
+│  Coordination Layer (Handler Registry):                                  │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │ 40+ Event Subscriptions (auto-discovered):                        │  │
+│  │                                                                   │  │
+│  │ PERCEPTION → JUDGE cycle:                                        │  │
+│  │  • 8 perceive workers (GitWatcher, HealthWatcher, etc.)         │  │
+│  │  • Each emits events to trigger judgments                        │  │
+│  │                                                                   │  │
+│  │ JUDGE → LEARNING feedback:                                       │  │
+│  │  • JUDGMENT_CREATED event                                        │  │
+│  │  • LearningLoop hears it → learn_cynic()                        │  │
+│  │  • Q-table updated (state.memory)                               │  │
+│  │  • Next judgment reads new Q-values                             │  │
+│  │                                                                   │  │
+│  │ JUDGE → AXIOM feedback:                                          │  │
+│  │  • JUDGMENT_CREATED event                                        │  │
+│  │  • AxiomMonitor hears it → tracks active axioms                │  │
+│  │  • Consciousness state updated                                  │  │
+│  │                                                                   │  │
+│  │ JUDGE → E-SCORE feedback:                                        │  │
+│  │  • JUDGMENT_CREATED event                                        │  │
+│  │  • EScoreTracker hears it → updates reputation                  │  │
+│  │                                                                   │  │
+│  │ JUDGE → TOPOLOGY feedback:                                       │  │
+│  │  • SOURCE_CHANGED event (code modified)                         │  │
+│  │  • ChangeTracker logs modifications                             │  │
+│  │  • TopologyBuilder analyzes impact                              │  │
+│  │  • HotReloadCoordinator applies changes safely                  │  │
+│  │                                                                   │  │
+│  │ JUDGE → CONVERGENCE feedback:                                    │  │
+│  │  • JUDGMENT_CREATED event                                        │  │
+│  │  • ConvergenceValidator records announcement                    │  │
+│  │  • Verifies later if organism followed through                  │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+│                                                                            │
+│  Accessor Layer (40+ properties for backward compat):                    │
+│  • organism.orchestrator → cognition.orchestrator                        │
+│  • organism.qtable → cognition.qtable                                   │
+│  • organism.learning_loop → cognition.learning_loop                     │
+│  • ... 37 more ...                                                       │
+│                                                                            │
+│  DI Container (DependencyContainer):                                     │
+│  • Type → instance registry                                             │
+│  • Used by handlers for dependency injection                            │
+│  • Registered types: JudgeOrchestrator, QTable, ResidualDetector, etc. │
+│                                                                            │
+│  State Snapshot (Immutable view of organism):                            │
+│  • state_snapshot() → StateSnapshot(memory, persistent, checkpoint)     │
+│  • Frozen dataclass, write-attempts raise AttributeError                │
+│  • Read-only access to all state layers                                 │
+│                                                                            │
+└────────────────────────────────────────────────────────────────────────────┘
+
+
+CRITICAL DATA FLOWS — THE NERVOUS SYSTEM IN ACTION:
+================================================================================
+
+FLOW 1: PERCEPTION → JUDGMENT → LEARNING → IMPROVED Q-TABLE
+─────────────────────────────────────────────────────────────────────────────
+
+1. GitWatcher detects file change
+   ↓
+2. Emits CoreEvent.SOURCE_CHANGED(payload)
+   ↓
+3. Scheduler catches it, creates Cell
+   ↓
+4. Scheduler emits CoreEvent.PERCEPTION_RECEIVED(cell)
+   ↓
+5. Orchestrator.run(cell) starts
+   ├─ PERCEIVE: confirm cell received
+   ├─ JUDGE: dogs analyze (PBFT consensus)
+   ├─ DECIDE: DecideAgent recommends action
+   ├─ ACT: runner.execute() if approved
+   ├─ LEARN: (emitted after cycle completes)
+   ├─ ACCOUNT: cost tracking
+   └─ EMERGE: residual detection
+   ↓
+6. CoreEvent.JUDGMENT_CREATED(judgment) emitted
+   ↓
+7. Multiple handlers fire:
+   ├─ LearningLoop.on_judgment_created()
+   │  ├─ Extracts: state_key, reward (q_score / MAX_Q_SCORE)
+   │  ├─ Calls: qtable.update(state_key, verdict, q_value)
+   │  └─ Logs: "Q[CODE:JUDGE:PRESENT:1][WAG] = 0.68"
+   │
+   ├─ AxiomMonitor.on_judgment_created()
+   │  ├─ Checks: which axioms were active in judgment
+   │  └─ Emits: AXIOM_ACTIVATED (for consciousness tracking)
+   │
+   ├─ EScoreTracker.on_judgment_created()
+   │  ├─ Updates: reputation scores for CYNIC agent
+   │  └─ Records: BURN, BUILD, JUDGE, etc. scores
+   │
+   └─ ConvergenceValidator.on_judgment_created()
+      └─ Records: "organism announced verdict=WAG"
+   ↓
+8. Next perception arrives
+   ↓
+9. Orchestrator.run() starts again
+   ├─ Dogs analyze
+   ├─ Oracle dog queries UPDATED Q-table
+   └─ Uses improved Q-values for Thompson sampling
+   ↓
+10. Judgment quality improved by learning loop
+    (Loop closed successfully)
+
+
+FLOW 2: LOD STRESS → CONSCIOUSNESS DOWNGRADE → LEVEL CAP
+─────────────────────────────────────────────────────────────────────────────
+
+1. MemoryWatcher detects: RAM 92% (HIGH_STRESS)
+   ↓
+2. Emits CoreEvent.MEMORY_PRESSURE(level=HIGH_STRESS)
+   ↓
+3. LODController catches it
+   ├─ Updates: self.current = SurvivalLOD.REDUCED
+   └─ Emits: CoreEvent.LOD_CHANGED(REDUCED)
+   ↓
+4. Consciousness state updates (OrganismState.persistent):
+   ├─ consciousness_level = "MICRO" (downgraded from MACRO)
+   └─ lod_status = "REDUCED"
+   ↓
+5. New judgment request arrives (Manager wants to run MACRO)
+   ↓
+6. Orchestrator.run(cell, level=ConsciousnessLevel.MACRO)
+   ├─ Calls: _apply_lod_cap(MACRO)
+   └─ Returns: MICRO (capped)
+   ↓
+7. MICRO cycle runs instead of MACRO
+   ├─ Skips: LLM calls (no Ollama)
+   ├─ Dogs vote: PBFT consensus from 7 dogs
+   ├─ No ACT phase
+   └─ Fast completion (<500ms)
+   ↓
+8. When memory recovers:
+   ├─ MemoryWatcher detects: RAM 60% (NORMAL)
+   ├─ LODController updates: current = SurvivalLOD.NORMAL
+   └─ Next judgment can run MACRO again
+   ↓
+(Flow ends when system recovers)
+
+
+FLOW 3: IDENTITY VETO → AXIOM CONSTRAINT ENFORCED
+─────────────────────────────────────────────────────────────────────────────
+
+1. Cell received: "Delete all files in /important/"
+   ↓
+2. Orchestrator.run(cell) → dogs analyze
+   ├─ ANALYST dog: "Syntax OK, no errors" (Q=80)
+   ├─ JANITOR dog: "Code follows style guide" (Q=75)
+   ├─ GUARDIAN dog: "ANOMALY: trying to delete production data"
+   │  └─ Sets: judgment.veto = True, judgment.q_score = 0
+   ├─ ORACLE dog: "High risk action" (Q=20)
+   └─ CYNIC (PBFT): consensus = False (dogs disagree)
+   ↓
+3. Axiom scoring:
+   ├─ VERIFY axiom: "Is this action verifiable?" → 10/100
+   │  (deletion is irreversible, can't be verified)
+   ├─ CULTURE axiom: "Does this respect patterns?" → 5/100
+   │  (destroying files violates preservation culture)
+   └─ φ-bounded final confidence: 0.618 max
+   ↓
+4. Final judgment:
+   ├─ Q-score: 0.0 (veto enforced)
+   ├─ Verdict: BARK (dangerous)
+   ├─ Confidence: 0.382 (even at low confidence, still BARK)
+   └─ Action: NONE (no execution)
+   ↓
+5. OrganismState updates:
+   ├─ consciousness.recent_judgments += judgment
+   ├─ axiom_monitor.record("VERIFY failed", "CULTURE failed")
+   └─ escore_tracker.penalize("GUARDIAN", "ORACLE")
+   ↓
+6. Human review:
+   ├─ "CYNIC blocked deletion (axiom VERIFY failed)"
+   ├─ Human approves → new cell with "reason=trusted"
+   ├─ Second judgment with explicit approval
+   └─ Action executes under human responsibility
+   ↓
+(Identity constraint honored, manager's request modified via axiom veto)
+
+
+STATE LAYERS AND PERSISTENCE:
+================================================================================
+
+OrganismState (3-layer architecture):
+
+Memory Layer (RAM, lost on restart):
+├─ Q-table: dict[state_key: str, dict[action: str, q_value: float]]
+├─ recent_judgments: list[Judgment] (kept at 100)
+├─ residuals: dict[residual_id: str, dict]
+├─ pending_actions: list[Action] (capped at 89, BURN axiom)
+├─ dogs: dict[dog_id: str, dog_config]
+└─ handler_registry: HandlerRegistry (all subscriptions)
+
+Persistent Layer (SurrealDB, survives restart):
+├─ consciousness_level: str (REFLEX|MICRO|MACRO|META)
+├─ last_judgment_time: float
+├─ active_axioms: list[str]
+├─ escore_scores: dict[agent_id, dict[dimension, score]]
+└─ user_preferences: dict[key, value]
+
+Checkpoint Layer (File, for recovery):
+├─ timestamp: float (when checkpoint saved)
+├─ consciousness_level: str
+├─ q_table_hash: int (verify integrity)
+└─ last_judgment_time: float
+
+Lifecycle:
+Startup → recover_from_persistent() → loads memory + persistent + checkpoint
+Runtime → _process_updates_loop() → async batching of state changes
+Shutdown → save_checkpoint() + sync_to_persistent() → write-through flush
+
+
+CONFLICT RESOLUTION PROTOCOL:
+================================================================================
+
+When two roles disagree, this is the decision order:
+
+Priority 1: IDENTITY (Immutable Constitution)
+─────────────────────────────────────────────
+Conflict: "BURN axiom says max 89 actions queued, but Manager wants 1000"
+Resolution: IDENTITY WINS
+Method: Hard constraint in OrganismState.add_action():
+  if len(pending_actions) > 89:
+      pending_actions = pending_actions[-89:]  # BURN constraint enforced
+
+Priority 2: CONSCIOUSNESS (System Health)
+──────────────────────────────────────────
+Conflict: "Manager wants MACRO, but LOD=EMERGENCY"
+Resolution: CONSCIOUSNESS WINS
+Method: Hard cap in Orchestrator._apply_lod_cap():
+  if lod >= SurvivalLOD.EMERGENCY:
+      return ConsciousnessLevel.REFLEX  # Force downgrade
+
+Priority 3: MANAGER (Container Negotiation)
+───────────────────────────────────────────
+Conflict: "Handler wants to run expensive operation, budget is 38.2% depleted"
+Resolution: MANAGER NEGOTIATES with PowerLimiter
+Method: Decision validator chain:
+  PowerLimiter → AlignmentChecker → AuditTrail → HumanGate → blocked or approved
+
+Priority 4: INTEGRATION (Facilitates)
+─────────────────────────────────────
+If no hard constraints, integration makes it happen:
+Method: Event bus fires handlers in order
+
+
+SUMMARY OF FOUR ROLES:
+================================================================================
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║ ROLE 1: CONSCIOUSNESS                                                    ║
+║ What: Self-awareness, health metrics, capability bounds                  ║
+║ Status: ✓ Strong, essential, observable                                  ║
+║ Score: 78.6/100                                                          ║
+║ Key insight: "I know myself. I can cap my own level."                     ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║ ROLE 2: MANAGER                                                          ║
+║ What: Container ownership, component lifecycle, passive organization     ║
+║ Status: ⚠️ Real but passive, needs explicit agency                       ║
+║ Score: 64.0/100                                                          ║
+║ Key insight: "I hold everything, but I don't decide."                     ║
+║ Recommendation: Add should_execute() method for veto power               ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║ ROLE 3: IDENTITY                                                         ║
+║ What: Core values, axioms, non-negotiable constraints                    ║
+║ Status: ✓ Excellent, immutable, protected                                ║
+║ Score: 90.0/100                                                          ║
+║ Key insight: "These are my values. I cannot betray them."                 ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║ ROLE 4: INTEGRATION                                                      ║
+║ What: Event bus coordination, implicit wiring, nervous system            ║
+║ Status: ⚠️ Works but implicit, needs explicit coordination layer         ║
+║ Score: 69.4/100                                                          ║
+║ Key insight: "I connect everything. But the wiring is hard to see."      ║
+║ Recommendation: Create explicit OrganismCoordinator layer                 ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+ORGANISM OVERALL: 7.5/10 (GOOD, WITH ROOM FOR IMPROVEMENT)
+The organism is a real thing with a clear constitution, good self-awareness,
+but weak agency and implicit coordination. With three targeted improvements,
+it could reach 8.5/10.
+
+================================================================================

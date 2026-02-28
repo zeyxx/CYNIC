@@ -49,11 +49,13 @@ class ActHandler(BaseHandler):
         decide_agent: Optional[Any] = None,
         decision_validator: Optional[Any] = None,
         runner: Optional[Any] = None,
+        gasdf_executor: Optional[Any] = None,
         **kwargs: Any,
     ) -> None:
         self.decide_agent = decide_agent
         self.decision_validator = decision_validator
         self.runner = runner
+        self.gasdf_executor = gasdf_executor
 
     async def execute(
         self,
@@ -75,6 +77,10 @@ class ActHandler(BaseHandler):
         """
         t0 = time.perf_counter()
         try:
+            # Inject gasdf_executor from kwargs if provided (Phase 3 wiring)
+            if "gasdf_executor" in kwargs and self.gasdf_executor is None:
+                self.gasdf_executor = kwargs["gasdf_executor"]
+
             action_result = await self._act_phase(judgment, pipeline, recent_judgments)
             duration_ms = (time.perf_counter() - t0) * 1000
             self._log_execution("act_phase_complete", f"action={bool(action_result)}")
@@ -188,14 +194,81 @@ class ActHandler(BaseHandler):
         # Filter: only execute for actionable realities
         from cynic.cognition.cortex.decide import _ACT_REALITIES
 
-        if decision["reality"] not in _ACT_REALITIES:
+        is_governance = decision["reality"] == "SOCIAL"
+        is_actionable = decision["reality"] in _ACT_REALITIES
+
+        if not is_actionable and not (is_governance and self.gasdf_executor):
             # Emit for human review, but don't auto-execute
             await emit_decision_made(trigger="not_actionable_reality")
             return None
 
         # STEP 4: ACT — execute the action
+        # 4a: GOVERNANCE ACTION (GASdf)
+        if is_governance and self.gasdf_executor:
+            t0 = time.perf_counter()
+            try:
+                # Extract proposal context for gasdf execution
+                proposal_id = decision.get("judgment_id", "")
+                verdict = decision.get("verdict", "UNKNOWN")
+                q_score = decision.get("q_value", 0.0)
+                
+                # Metadata from cell if available
+                cell = judgment.cell if hasattr(judgment, 'cell') else None
+                metadata = {}
+                if cell and hasattr(cell, 'context_dict'):
+                    metadata = cell.context_dict()
+                
+                # Execute on-chain via GASdf
+                result = await self.gasdf_executor.execute_verdict(
+                    proposal_id=proposal_id,
+                    verdict=verdict,
+                    community_id=metadata.get("community_id", "cynic_dao"),
+                    payment_token=metadata.get("payment_token", ""),
+                    user_pubkey=metadata.get("user_pubkey", ""),
+                    signed_transaction=metadata.get("signed_transaction", ""),
+                    payment_token_account=metadata.get("payment_token_account", ""),
+                    q_score=q_score,
+                    proposal_context=metadata
+                )
+                
+                if result:
+                    duration_ms = (time.perf_counter() - t0) * 1000
+                    logger.info("ACT: GASdf execution completed (sig=%s, %.0fms)", result.signature[:8], duration_ms)
+                    
+                    # Emit ACT_COMPLETED event
+                    await get_core_bus().emit(Event.typed(
+                        CoreEvent.ACT_COMPLETED,
+                        ActCompletedPayload(
+                            success=True,
+                            action_id=proposal_id[:8],
+                            duration_ms=duration_ms,
+                            metadata={"signature": result.signature, "status": result.status}
+                        ),
+                    ))
+                    
+                    return {
+                        "action_id": proposal_id[:8],
+                        "success": True,
+                        "output": f"GASdf Signature: {result.signature}",
+                        "duration_ms": duration_ms,
+                    }
+                else:
+                    return None # Skipped (not HOWL/WAG or low confidence)
+
+            except Exception as e:
+                duration_ms = (time.perf_counter() - t0) * 1000
+                logger.error("ACT: GASdf execution failed: %s", e)
+                return {
+                    "action_id": decision.get("judgment_id", "")[:8],
+                    "success": False,
+                    "output": "",
+                    "duration_ms": duration_ms,
+                    "error": str(e),
+                }
+
+        # 4b: SYSTEM ACTION (Runner)
         if not self.runner:
-            logger.warning("No runner available — cannot execute action")
+            logger.warning("No runner available — cannot execute system action")
             return None
 
         t0 = time.perf_counter()

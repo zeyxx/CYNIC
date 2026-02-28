@@ -686,11 +686,21 @@ async def on_command_error(interaction: discord.Interaction, error: discord.app_
 # ============================================================================
 
 async def main():
-    """Start the bot"""
+    """Start the bot with proper cleanup."""
     try:
         await bot.start(DISCORD_TOKEN)
+    except KeyboardInterrupt:
+        logger.info("Bot stopping via KeyboardInterrupt...")
     except Exception as e:
         logger.error(f"Failed to start bot: {e}")
+    finally:
+        # Final cleanup: close database connections and other resources
+        try:
+            logger.info("Closing database connections...")
+            await close_db()
+            logger.info("Cleanup complete")
+        except Exception as cleanup_err:
+            logger.error(f"Error during cleanup: {cleanup_err}")
 
 
 if __name__ == "__main__":

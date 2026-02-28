@@ -16,8 +16,8 @@ sys.path.insert(0, str(cynic_path))
 
 async def ask_cynic(question: str, context: str = "", reality: str = "SOCIAL") -> dict:
     """
-    Ask CYNIC a governance question and get judgment.
-    Calls CYNIC organism's orchestrator directly.
+    Ask CYNIC a governance question and get judgment via HTTP API.
+    Calls CYNIC API /judge and polls for results.
 
     Returns:
         {
@@ -27,77 +27,86 @@ async def ask_cynic(question: str, context: str = "", reality: str = "SOCIAL") -
             "dog_votes": {...},
             "axiom_scores": {...},
             "judgment_id": str,
-            "dog_reasoning": {...},  # Tier 1 explainability
             "verdict_explanation": str
         }
     """
+    import aiohttp
+    import time
+    from config import CYNICSettings
+    
+    settings = CYNICSettings()
+    api_url = str(settings.url).rstrip("/")
+    timeout = aiohttp.ClientTimeout(total=settings.timeout_seconds)
+
     try:
-        logger.info(f"Asking CYNIC: {question[:100]}...")
+        logger.info(f"Asking CYNIC API: {question[:100]}...")
 
-        # Import CYNIC components
-        from cynic.organism.organism import awaken
-        from cynic.core.judgment import Cell
-        from cynic.core.consciousness import ConsciousnessLevel
-
-        # Get or create the CYNIC organism
-        organism = awaken()
-
-        # Create a Cell for judgment (CYNIC's internal query format)
         # Map governance reality to valid CYNIC realities
         cynic_reality = reality.upper() if reality.upper() in {"CODE", "SOLANA", "MARKET", "SOCIAL", "HUMAN", "CYNIC", "COSMOS"} else "SOCIAL"
 
-        cell = Cell(
-            content=question,
-            context=context,
-            reality=cynic_reality,
-            analysis="JUDGE",
-            lod=1  # Level of detail: 1 is balanced
-        )
+        payload = {
+            "content": question,
+            "context": context,
+            "reality": cynic_reality,
+            "analysis": "JUDGE",
+            "level": "MICRO",  # MICRO consciousness level (~500ms) is good for governance decisions
+            "budget_usd": 0.05
+        }
 
-        # Run judgment through orchestrator (CYNIC's main judgment engine)
-        # MICRO consciousness level (~500ms) is good for governance decisions
-        judgment = await organism.orchestrator.run(
-            cell,
-            level=ConsciousnessLevel.MICRO,
-            budget_usd=0.05
-        )
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            # 1. Submit judgment request
+            async with session.post(f"{api_url}/judge", json=payload) as resp:
+                if resp.status != 200:
+                    error_text = await resp.text()
+                    logger.error(f"CYNIC API error (status={resp.status}): {error_text}")
+                    return {"verdict": "PENDING", "error": f"API error: {resp.status}"}
+                
+                initial_data = await resp.json()
+                judgment_id = initial_data.get("judgment_id")
+                
+                if not judgment_id:
+                    logger.error("No judgment_id returned from CYNIC API")
+                    return {"verdict": "PENDING", "error": "No judgment_id returned"}
 
-        if judgment:
-            # Format response to match governance bot expectations
-            judgment_data = {
-                "verdict": judgment.verdict,
-                "q_score": judgment.q_score,
-                "confidence": judgment.confidence,
-                "judgment_id": judgment.judgment_id,
-                "dog_votes": dict(judgment.dog_votes) if hasattr(judgment, "dog_votes") else {},
-                "axiom_scores": dict(judgment.axiom_scores) if hasattr(judgment, "axiom_scores") else {},
-                # Tier 1 explainability (from our earlier implementation)
-                "dog_reasoning": judgment.dog_reasoning if hasattr(judgment, "dog_reasoning") else {},
-                "verdict_explanation": judgment.verdict_explanation if hasattr(judgment, "verdict_explanation") else "",
-                "consensus_reason": judgment.consensus_reason if hasattr(judgment, "consensus_reason") else "",
-            }
+            # 2. Poll for results (Track E: event-first API)
+            max_attempts = 30
+            poll_interval = 0.5
+            
+            for attempt in range(max_attempts):
+                async with session.get(f"{api_url}/judge/{judgment_id}") as resp:
+                    if resp.status == 200:
+                        judgment_data = await resp.json()
+                        verdict = judgment_data.get("verdict")
+                        
+                        if verdict != "PENDING":
+                            logger.info(f"CYNIC response: {verdict} (Q={judgment_data.get('q_score', 0):.1f}, conf={judgment_data.get('confidence', 0):.2%})")
+                            return {
+                                "verdict": verdict,
+                                "q_score": judgment_data.get("q_score", 0.0),
+                                "confidence": judgment_data.get("confidence", 0.0),
+                                "judgment_id": judgment_id,
+                                "dog_votes": judgment_data.get("dog_votes", {}),
+                                "axiom_scores": judgment_data.get("axiom_scores", {}),
+                                "verdict_explanation": judgment_data.get("reasoning", ""),
+                                "consensus_reason": judgment_data.get("consensus_reason", ""),
+                            }
+                    
+                    elif resp.status != 404:
+                        logger.warning(f"Unexpected status while polling judgment {judgment_id}: {resp.status}")
+                
+                await asyncio.sleep(poll_interval)
 
-            logger.info(f"CYNIC response: {judgment_data.get('verdict')} (Q={judgment_data.get('q_score'):.1f}, conf={judgment_data.get('confidence'):.2%})")
-            return judgment_data
-        else:
-            logger.error("No judgment returned from CYNIC")
+            logger.error(f"Timeout waiting for judgment {judgment_id} after {max_attempts} attempts")
             return {
                 "verdict": "PENDING",
                 "q_score": 0.0,
                 "confidence": 0.0,
-                "error": "No judgment returned"
+                "judgment_id": judgment_id,
+                "error": "Timeout waiting for judgment"
             }
 
-    except asyncio.TimeoutError:
-        logger.error("CYNIC request timed out")
-        return {
-            "verdict": "PENDING",
-            "q_score": 0.0,
-            "confidence": 0.0,
-            "error": "CYNIC request timed out"
-        }
     except Exception as e:
-        logger.error(f"Error calling ask_cynic: {e}", exc_info=True)
+        logger.error(f"Error calling ask_cynic API: {e}", exc_info=True)
         return {
             "verdict": "PENDING",
             "q_score": 0.0,

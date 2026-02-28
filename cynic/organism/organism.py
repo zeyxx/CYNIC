@@ -515,11 +515,23 @@ class _OrganismAwakener:
         self.sona_emitter.start()
         logger.info("SonaEmitter started — organism heartbeat active")
 
+        # ── GASdf: Governance (On-chain execution) ──────────────────────────
+        from cynic.core.config import CynicConfig
+        config = CynicConfig.from_env()
+        self.gasdf_executor = None
+        if config.gasdf_enabled:
+            from cynic.integrations.gasdf.client import GASdfClient
+            from cynic.integrations.gasdf.executor import GASdfExecutor
+            gasdf_client = GASdfClient(base_url=config.gasdf_url)
+            self.gasdf_executor = GASdfExecutor(client=gasdf_client)
+            logger.info("GASdfExecutor initialized — on-chain governance active")
+
         self.orchestrator = JudgeOrchestrator(
             dogs=self.dogs,
             axiom_arch=axiom_arch,
             cynic_dog=cynic_dog,
             residual_detector=self.residual_detector,
+            gasdf_executor=self.gasdf_executor,
         )
 
         self.scheduler = ConsciousnessRhythm(orchestrator=self.orchestrator)
@@ -817,10 +829,28 @@ class _OrganismAwakener:
 
     def _wire_event_handlers(self) -> None:
         """Register all event bus subscriptions via HandlerRegistry."""
+        from cynic.core.event_bus import get_core_bus, CoreEvent
         bus = get_core_bus()
 
         # Handler groups (auto-discovered, self-registering)
         self._handler_registry.wire(bus)
+
+        # Core state tracking handlers (Unifies ConsciousState logic)
+        bus.on(CoreEvent.JUDGMENT_CREATED, self._on_judgment_created)
+        bus.on(CoreEvent.CONSCIOUSNESS_CHANGED, self._on_consciousness_changed)
+        
+        logger.info("Organism: event handlers wired (state tracking active)")
+
+    async def _on_judgment_created(self, event: Any) -> None:
+        """Update internal state when a judgment is created."""
+        payload = event.payload if hasattr(event, "payload") else event
+        await self.state.add_judgment(payload)
+        
+    async def _on_consciousness_changed(self, event: Any) -> None:
+        """Update internal state when consciousness level changes."""
+        payload = event.payload if hasattr(event, "payload") else event
+        level = payload.get("level", "REFLEX")
+        await self.state.update_consciousness_level(level)
 
         # Wire handler registry to SelfProber for architectural analysis
         self.self_prober.set_handler_registry(self._handler_registry)

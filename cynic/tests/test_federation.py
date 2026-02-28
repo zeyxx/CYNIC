@@ -46,7 +46,7 @@ class TestMergeEngine:
         from cynic.federation.merge import merge_q_tables
 
         local = UnifiedQTable()
-        local.values[("HOWL", "HOWL")] = 60.0
+        local.values[("GOVERNANCE", "abc")] = 60.0
 
         remote_snapshot = {
             "GOVERNANCE:abc": {
@@ -65,11 +65,16 @@ class TestMergeEngine:
         # Remote has 9 visits vs local 1 → remote weight should be ~0.9
         # Expected merged value: 0.1 * 60 + 0.9 * 90 = 87
         # Allow some variance for different weighting strategies
-        merged_q = local.values.get(("HOWL", "HOWL"), 60.0)
+        merged_q = local.values.get(("GOVERNANCE", "abc"), 60.0)
         assert 85.0 <= merged_q <= 89.0
 
     def test_merge_confidence_clamped_at_phi_inv(self):
-        """Merged confidence never exceeds 0.618 (φ⁻¹)."""
+        """Merged Q-value stays in valid range after high-confidence merge.
+
+        Note: Confidence clamping at φ⁻¹ (0.618) is enforced internally by
+        the merge implementation and not directly observable from Q-values.
+        This test validates that Q-values remain in [0, 1] after merging.
+        """
         from cynic.federation.merge import merge_q_tables
         from cynic.core.phi import PHI_INV
 
@@ -89,15 +94,10 @@ class TestMergeEngine:
 
         merge_q_tables(local, remote_snapshot, peer_total_judgments=100)
 
-        # After merge with high-confidence remote entry, verify that:
-        # 1. The merged Q-value is reasonable (weighted average)
-        # 2. Any internal confidence tracking stays within φ⁻¹ bound (0.618)
+        # After merge with high-confidence remote entry, verify that
+        # the merged Q-value is reasonable (weighted average)
         merged_q = local.values.get(("HOWL", "HOWL"), 0.6)
-        assert 0.0 <= merged_q <= 1.0  # Q-values stay in [0, 1]
-
-        # The key assertion: if merge function stores confidence metadata,
-        # it must be clamped at PHI_INV (0.618)
-        # This will be enforced by the merge implementation
+        assert 0.0 <= merged_q <= 1.0  # Confidence clamping validated by implementation
 
     def test_merge_adopt_unknown_key_with_trust_discount(self):
         """Remote-only entry adopted with 20% confidence discount."""
@@ -203,7 +203,11 @@ class TestGossipManager:
         count = mgr.receive(msg)
 
         # Verify at least one entry was merged
-        assert count >= 0
+        assert count >= 1, "receive() should merge at least one entry"
+        # Verify the merged entry is now in the local table
+        assert ("GOVERNANCE", "abc") in local.values, "Merged entry should be in local table"
+        # Verify the merged q_score matches the remote value
+        assert local.values[("GOVERNANCE", "abc")] == 70.0, "Merged q_score should match remote"
 
     def test_on_judgment_triggers_after_batch(self):
         """on_judgment() triggers push after batch_size judgments."""

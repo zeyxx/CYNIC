@@ -141,7 +141,21 @@
       "Bash(sed:*)",
       "Bash(wc:*)",
       "Bash(\"C:/Users/zeyxm/Desktop/asdfasdfa/CYNIC-clean/cynic/learning/tests/test_memory_store.py\":*)",
-      "Bash(\"C:/Users/zeyxm/Desktop/asdfasdfa/CYNIC-clean/cynic/learning/memory_store.py\":*)"
+      "Bash(\"C:/Users/zeyxm/Desktop/asdfasdfa/CYNIC-clean/cynic/learning/memory_store.py\":*)",
+      "Bash(Get-Process:*)",
+      "Bash(/tmp/analysis_complete.txt:*)",
+      "Bash(/c/Users/zeyxm/Desktop/asdfasdfa/CYNIC-clean/docs/DISTRIBUTION_ANALYSIS_INDEX.md:*)",
+      "Bash(/c/Users/zeyxm/Desktop/asdfasdfa/CYNIC-clean/ANALYSIS_README.md:*)",
+      "Bash(do echo:*)",
+      "Bash(read hash:*)",
+      "Bash(xargs git:*)",
+      "Bash(tr:*)",
+      "Bash(xargs grep:*)",
+      "Bash(test:*)",
+      "Bash(xargs:*)",
+      "Bash(/tmp/task3_compliance_report.md:*)",
+      "Bash(/tmp/task_summary.txt:*)",
+      "Bash(/tmp/proof_summary.txt:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -89,11 +89,13 @@ class JudgeOrchestrator:
         axiom_arch: AxiomArchitecture,
         cynic_dog: CynicDog,
         residual_detector=None,
+        gasdf_executor=None,
     ) -> None:
         self.dogs = dogs        # {dog_id: AbstractDog}
         self.axiom_arch = axiom_arch
         self.cynic_dog = cynic_dog
         self.residual_detector = residual_detector  # Optional[ResidualDetector]
+        self.gasdf_executor = gasdf_executor        # Optional[GASdfExecutor]
         self.benchmark_registry = None  # Optional[BenchmarkRegistry] — set via state.py
         self.escore_tracker = None  # Optional[EScoreTracker] — injected via state.py
         self.axiom_monitor = None  # Optional[AxiomMonitor] — γ3: axiom health → budget multiplier
@@ -136,7 +138,7 @@ class JudgeOrchestrator:
         registry.register("cycle_reflex", ReflexCycleHandler(dogs=self.dogs, axiom_arch=self.axiom_arch))
         registry.register("cycle_micro", MicroCycleHandler(dogs=self.dogs, axiom_arch=self.axiom_arch, cynic_dog=self.cynic_dog, lod_controller=self.lod_controller))
         registry.register("cycle_macro", MacroCycleHandler(dogs=self.dogs, axiom_arch=self.axiom_arch, cynic_dog=self.cynic_dog, lod_controller=self.lod_controller, axiom_monitor=self.axiom_monitor))
-        registry.register("act_executor", ActHandler(runner=None))
+        registry.register("act_executor", ActHandler(runner=None, gasdf_executor=self.gasdf_executor))
         registry.register("evolve", EvolveHandler())
         registry.register("budget_manager", BudgetManager())
 
