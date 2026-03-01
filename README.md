@@ -69,3 +69,4 @@ All confidence scores are bounded by φ⁻¹ = 0.618.
 ## License
 
 MIT
+test verification
