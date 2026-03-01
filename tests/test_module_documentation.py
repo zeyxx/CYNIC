@@ -76,7 +76,7 @@ def test_documentation_quality():
     test_modules = [
         ("cynic", "Main package"),
         ("cynic.kernel.core", "Core infrastructure"),
-        ("cynic.brain.cognition", "Judgment system"),
+        ("cynic.kernel.organism.brain.cognition", "Judgment system"),
         ("cynic.kernel.organism", "Organism architecture"),
     ]
     
@@ -110,7 +110,7 @@ def test_key_modules_exported():
     from cynic.kernel.core.consciousness import ConsciousnessLevel
 
     # Learning exports
-    from cynic.brain.learning.unified_learning import UnifiedQTable
+    from cynic.kernel.organism.brain.learning.unified_learning import UnifiedQTable
 
     print("✓ All key module exports are accessible")
 

@@ -17,7 +17,7 @@ import pytest_asyncio
 from datetime import datetime, UTC
 from unittest.mock import Mock, AsyncMock
 
-from cynic.brain.learning.unified_learning import UnifiedQTable
+from cynic.kernel.organism.brain.learning.unified_learning import UnifiedQTable
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -30,7 +30,7 @@ class TestMergeEngine:
 
     def test_merge_empty_peer(self):
         """Merge with zero-visit peer keeps local values unchanged."""
-        from cynic.perception.federation.merge import merge_q_tables
+        from cynic.kernel.organism.perception.federation.merge import merge_q_tables
 
         local = UnifiedQTable()
         # Add a specific entry to track
@@ -43,7 +43,7 @@ class TestMergeEngine:
 
     def test_merge_weighted_by_visits(self):
         """Peer with more visits contributes more weight."""
-        from cynic.perception.federation.merge import merge_q_tables
+        from cynic.kernel.organism.perception.federation.merge import merge_q_tables
 
         local = UnifiedQTable()
         local.values[("GOVERNANCE", "abc")] = 60.0
@@ -75,7 +75,7 @@ class TestMergeEngine:
         the merge implementation and not directly observable from Q-values.
         This test validates that Q-values remain in [0, 1] after merging.
         """
-        from cynic.perception.federation.merge import merge_q_tables
+        from cynic.kernel.organism.perception.federation.merge import merge_q_tables
         from cynic.kernel.core.phi import PHI_INV
 
         local = UnifiedQTable()
@@ -101,7 +101,7 @@ class TestMergeEngine:
 
     def test_merge_adopt_unknown_key_with_trust_discount(self):
         """Remote-only entry adopted with 20% confidence discount."""
-        from cynic.perception.federation.merge import merge_q_tables
+        from cynic.kernel.organism.perception.federation.merge import merge_q_tables
 
         local = UnifiedQTable()
         remote_snapshot = {
@@ -133,8 +133,8 @@ class TestGossipManager:
 
     def test_gossip_manager_max_k_peers(self):
         """add_peer() raises ValueError if k=3 peers already added."""
-        from cynic.perception.federation.gossip import GossipManager
-        from cynic.perception.federation.peer import FederationPeer
+        from cynic.kernel.organism.perception.federation.gossip import GossipManager
+        from cynic.kernel.organism.perception.federation.peer import FederationPeer
 
         mgr = GossipManager(instance_id="A", q_table=UnifiedQTable(), k=3)
 
@@ -152,8 +152,8 @@ class TestGossipManager:
 
     def test_push_delivers_to_all_peers(self):
         """push() calls transport on all k peers."""
-        from cynic.perception.federation.gossip import GossipManager
-        from cynic.perception.federation.peer import FederationPeer
+        from cynic.kernel.organism.perception.federation.gossip import GossipManager
+        from cynic.kernel.organism.perception.federation.peer import FederationPeer
 
         received = []
 
@@ -171,14 +171,14 @@ class TestGossipManager:
 
         assert len(received) == 2
         # Verify all received messages are FederationMessage type
-        from cynic.perception.federation.protocol import FederationMessage
+        from cynic.kernel.organism.perception.federation.protocol import FederationMessage
 
         assert all(isinstance(m, FederationMessage) for m in received)
 
     def test_receive_merges_into_q_table(self):
         """receive() merges peer's Q-Table into local table."""
-        from cynic.perception.federation.gossip import GossipManager
-        from cynic.perception.federation.protocol import FederationMessage
+        from cynic.kernel.organism.perception.federation.gossip import GossipManager
+        from cynic.kernel.organism.perception.federation.protocol import FederationMessage
 
         local = UnifiedQTable()
         mgr = GossipManager(instance_id="B", q_table=local)
@@ -211,8 +211,8 @@ class TestGossipManager:
 
     def test_on_judgment_triggers_after_batch(self):
         """on_judgment() triggers push after batch_size judgments."""
-        from cynic.perception.federation.gossip import GossipManager
-        from cynic.perception.federation.peer import FederationPeer
+        from cynic.kernel.organism.perception.federation.gossip import GossipManager
+        from cynic.kernel.organism.perception.federation.peer import FederationPeer
 
         received = []
 
@@ -256,8 +256,8 @@ async def test_three_organisms_share_learning():
 
     This will be implemented in Task 8.
     """
-    from cynic.perception.federation import GossipManager, FederationPeer, FederationMessage
-    from cynic.brain.learning.unified_learning import UnifiedQTable
+    from cynic.kernel.organism.perception.federation import GossipManager, FederationPeer, FederationMessage
+    from cynic.kernel.organism.brain.learning.unified_learning import UnifiedQTable
 
     # Create 3 organisms with gossip managers
     def make_organism(instance_id):

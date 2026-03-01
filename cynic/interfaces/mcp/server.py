@@ -297,7 +297,7 @@ class MCPServer:
             reward = (req.signal.rating + 1.0) / 2.0
 
             # Build learning signal - use judgment_id as state_key (simplified mapping)
-            from cynic.brain.learning.qlearning import LearningSignal
+            from cynic.kernel.organism.brain.learning.qlearning import LearningSignal
             learning_signal = LearningSignal(
                 state_key=req.signal.judgment_id,
                 action=req.signal.action if hasattr(req.signal, 'action') else "WAG",

@@ -222,7 +222,7 @@ pub impl Governance {
 ### 1. Discord Bot → NEAR
 When `/proposal` is submitted:
 ```python
-from cynic.perception.integrations.near import NEARExecutor, NEARNetworkConfig
+from cynic.kernel.organism.perception.integrations.near import NEARExecutor, NEARNetworkConfig
 
 config = NEARNetworkConfig(
     network_id="testnet",

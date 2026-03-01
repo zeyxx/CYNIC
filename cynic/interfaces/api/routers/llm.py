@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from cynic.interfaces.api.state import AppContainer, get_app_container
-from cynic.brain.llm.adapter import get_registry
+from cynic.kernel.organism.brain.llm.adapter import get_registry
 
 router = APIRouter(prefix="/brain/llm", tags=["llm"])
 

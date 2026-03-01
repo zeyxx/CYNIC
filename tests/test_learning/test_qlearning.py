@@ -12,7 +12,7 @@ Tests the QTable and LearningLoop classes for:
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from cynic.brain.learning.qlearning import (
+from cynic.kernel.organism.brain.learning.qlearning import (
     QTable, QEntry, LearningSignal, LearningLoop,
     VERDICTS, THOMPSON_PRIOR,
 )

@@ -17,7 +17,7 @@ from cynic.kernel.core.unified_state import UnifiedLearningOutcome, UnifiedJudgm
 from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.axioms import AxiomArchitecture, Verdict
-from cynic.brain.learning.unified_learning import UnifiedQTable, LearningSession
+from cynic.kernel.organism.brain.learning.unified_learning import UnifiedQTable, LearningSession
 from cynic.kernel.organism.organism import awaken
 
 

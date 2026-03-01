@@ -402,7 +402,7 @@ near call governance.testnet execute_proposal \
 In your Python code:
 
 ```python
-from cynic.perception.integrations.near import NEARExecutor, NEARNetworkConfig
+from cynic.kernel.organism.perception.integrations.near import NEARExecutor, NEARNetworkConfig
 import os
 
 # Create config from environment
@@ -487,7 +487,7 @@ Create `scripts/verify_near_testnet.py`:
 
 import asyncio
 import os
-from cynic.perception.integrations.near import NEARExecutor, NEARNetworkConfig
+from cynic.kernel.organism.perception.integrations.near import NEARExecutor, NEARNetworkConfig
 
 async def verify_near_setup():
     """Verify NEAR testnet is configured correctly."""
@@ -608,8 +608,8 @@ Create `scripts/test_near_integration.py`:
 
 import asyncio
 import os
-from cynic.perception.integrations.near import NEARExecutor, NEARNetworkConfig
-from cynic.perception.integrations.gasdf import GASdfExecutor, GASdfClient
+from cynic.kernel.organism.perception.integrations.near import NEARExecutor, NEARNetworkConfig
+from cynic.kernel.organism.perception.integrations.gasdf import GASdfExecutor, GASdfClient
 
 async def test_complete_flow():
     """Test complete governance flow with NEAR testnet."""

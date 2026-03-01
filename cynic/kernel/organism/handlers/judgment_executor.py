@@ -24,8 +24,8 @@ from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.exceptions import CynicError
 from cynic.kernel.core.events_schema import JudgmentCreatedPayload, JudgmentFailedPayload
 from cynic.kernel.core.judgment import Cell
-from cynic.brain.cognition.cortex.orchestrator import JudgeOrchestrator
-from cynic.brain.cognition.cortex.circuit_breaker import CircuitBreaker
+from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
+from cynic.kernel.organism.brain.cognition.cortex.circuit_breaker import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 

@@ -10,8 +10,8 @@ from cynic.kernel.core.event_bus import Event, CoreEvent, EventBusError
 from cynic.kernel.organism.handlers.base import HandlerGroup, KernelServices
 
 if TYPE_CHECKING:
-    from cynic.metabolism.universal import UniversalActuator
-    from cynic.brain.learning.qlearning import QTable
+    from cynic.kernel.organism.metabolism.universal import UniversalActuator
+    from cynic.kernel.organism.brain.learning.qlearning import QTable
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.direct")
 

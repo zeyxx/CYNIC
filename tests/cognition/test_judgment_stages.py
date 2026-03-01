@@ -2,7 +2,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from cynic.brain.cognition.cortex.judgment_stages import (
+from cynic.kernel.organism.brain.cognition.cortex.judgment_stages import (
     JudgmentStage,
     PerceiveStage,
     JudgeStage,
@@ -13,7 +13,7 @@ from cynic.brain.cognition.cortex.judgment_stages import (
     EmergeStage,
     execute_judgment_pipeline,
 )
-from cynic.brain.cognition.cortex.pipeline import JudgmentPipeline
+from cynic.kernel.organism.brain.cognition.cortex.pipeline import JudgmentPipeline
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.judgment import Cell
 
@@ -51,7 +51,7 @@ def test_pipeline():
 @pytest.mark.asyncio
 async def test_perceive_stage_emits_event(mock_orchestrator, test_pipeline):
     """PerceiveStage should emit PERCEPTION_RECEIVED event."""
-    with patch("cynic.brain.cognition.cortex.judgment_stages.get_core_bus") as mock_bus:
+    with patch("cynic.kernel.organism.brain.cognition.cortex.judgment_stages.get_core_bus") as mock_bus:
         mock_bus_instance = AsyncMock()
         mock_bus.return_value = mock_bus_instance
 
@@ -162,7 +162,7 @@ async def test_emerge_stage_detects_anomaly(mock_orchestrator, test_pipeline):
     judgment.judgment_id = "test-judgment-001"
     test_pipeline.final_judgment = judgment
 
-    with patch("cynic.brain.cognition.cortex.judgment_stages.get_core_bus") as mock_bus:
+    with patch("cynic.kernel.organism.brain.cognition.cortex.judgment_stages.get_core_bus") as mock_bus:
         mock_bus_instance = AsyncMock()
         mock_bus.return_value = mock_bus_instance
 
@@ -202,7 +202,7 @@ async def test_execute_judgment_pipeline_full_cycle(mock_orchestrator, test_pipe
         active_axioms=[],
     ))
 
-    with patch("cynic.brain.cognition.cortex.judgment_stages.get_core_bus") as mock_bus:
+    with patch("cynic.kernel.organism.brain.cognition.cortex.judgment_stages.get_core_bus") as mock_bus:
         mock_bus_instance = AsyncMock()
         mock_bus.return_value = mock_bus_instance
 

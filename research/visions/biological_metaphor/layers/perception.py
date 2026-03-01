@@ -24,6 +24,6 @@ Typical usage:
 
 See Also:
     cynic.kernel.organism.layers: 10-layer organism architecture
-    cynic.perception.senses: Sensory worker implementations
+    cynic.kernel.organism.perception.senses: Sensory worker implementations
     cynic.kernel.core.unified_state: Cell data model
 """

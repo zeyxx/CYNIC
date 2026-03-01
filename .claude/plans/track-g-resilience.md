@@ -338,7 +338,7 @@ async def health_events():
     """Event handler pipeline health + metrics."""
     try:
         from cynic.kernel.core.event_bus import get_core_bus
-        from cynic.brain.cognition.cortex.handlers.registry import HandlerRegistry
+        from cynic.kernel.organism.brain.cognition.cortex.handlers.registry import HandlerRegistry
         from cynic.kernel.organism.organism import Organism
 
         # Get handler registry from container
@@ -572,7 +572,7 @@ Prevent cascading failures by stopping requests to failed orchestrator.
 
 **Add near top of file (after imports, around line 30):**
 ```python
-from cynic.brain.cognition.cortex.circuit_breaker import CircuitBreaker
+from cynic.kernel.organism.brain.cognition.cortex.circuit_breaker import CircuitBreaker
 
 # Circuit breaker for orchestrator
 _orchestrator_breaker = CircuitBreaker(

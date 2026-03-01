@@ -151,17 +151,17 @@ You: exit
 ### Access Data Programmatically
 ```python
 # Load dialogue history
-from cynic.brain.dialogue.storage import get_dialogue_store
+from cynic.kernel.organism.brain.dialogue.storage import get_dialogue_store
 store = await get_dialogue_store()
 messages = await store.get_last_n_messages(100)
 
 # Load user preferences
-from cynic.brain.learning.memory_store import get_memory_store
+from cynic.kernel.organism.brain.learning.memory_store import get_memory_store
 memory_store = await get_memory_store()
 memory = await memory_store.load_memory()
 
 # View experiments
-from cynic.brain.learning.experiment_log import ExperimentLog
+from cynic.kernel.organism.brain.learning.experiment_log import ExperimentLog
 log = ExperimentLog(Path.home() / ".cynic" / "phase2")
 experiments = await log.get_all()
 ```

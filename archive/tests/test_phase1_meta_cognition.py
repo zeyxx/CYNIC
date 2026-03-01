@@ -103,7 +103,7 @@ async def test_phase1_trend_analysis():
     handler = organism.meta_cognition
 
     # Build a trend: increasing judgments
-    from cynic.brain.cognition.cortex.handlers.meta_cognition import OrganismHealthMetrics
+    from cynic.kernel.organism.brain.cognition.cortex.handlers.meta_cognition import OrganismHealthMetrics
 
     for i in range(10):
         health = OrganismHealthMetrics(
@@ -130,7 +130,7 @@ async def test_phase1_stagnation_detection():
     organism = awaken()
     handler = organism.meta_cognition
 
-    from cynic.brain.cognition.cortex.handlers.meta_cognition import OrganismHealthMetrics
+    from cynic.kernel.organism.brain.cognition.cortex.handlers.meta_cognition import OrganismHealthMetrics
 
     # Build stagnant trend: same judgments, no Q growth
     for i in range(10):

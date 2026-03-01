@@ -25,10 +25,10 @@ async def cmd_perceive_watch() -> None:
     """Watch git tree for real changes, emit PERCEIVE, score with JUDGE."""
     try:
         # Import kernel components
-        from cynic.perception.senses.workers.git import GitWatcher
+        from cynic.kernel.organism.perception.senses.workers.git import GitWatcher
         from cynic.kernel.core.event_bus import get_core_bus, reset_all_buses
-        from cynic.brain.llm.adapter import LLMRegistry
-        from cynic.brain.cognition.neurons.judge import JudgeOrchestrator
+        from cynic.kernel.organism.brain.llm.adapter import LLMRegistry
+        from cynic.kernel.organism.brain.cognition.neurons.judge import JudgeOrchestrator
 
         # Start fresh
         reset_all_buses()

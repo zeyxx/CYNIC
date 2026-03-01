@@ -243,7 +243,7 @@ If Q-Table grows large (>100k entries), compress periodically:
 
 ```bash
 # In Python
-from cynic.brain.learning.qlearning import QTable
+from cynic.kernel.organism.brain.learning.qlearning import QTable
 qtable.compress()  # Remove low-confidence entries
 await qtable.flush_to_db(db_pool)
 ```

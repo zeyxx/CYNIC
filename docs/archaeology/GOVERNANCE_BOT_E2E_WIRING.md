@@ -424,7 +424,7 @@ governance_bot.ask_cynic()
 ### Q-Table Integration ✅
 ```
 governance_bot.learn_cynic()
-  └─→ cynic.brain.learning.unified_learning.UnifiedQTable
+  └─→ cynic.kernel.organism.brain.learning.unified_learning.UnifiedQTable
   └─→ update(UnifiedLearningOutcome)
   └─→ Q-values shift for (predicted, actual) transition
 ```

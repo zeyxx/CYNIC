@@ -11,7 +11,7 @@ Tests the OllamaAdapter class for:
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from cynic.brain.llm.adapter import OllamaAdapter, OllamaConnectionPool, LLMRequest, LLMResponse
+from cynic.kernel.organism.brain.llm.adapter import OllamaAdapter, OllamaConnectionPool, LLMRequest, LLMResponse
 
 
 class TestOllamaAdapter:
@@ -264,7 +264,7 @@ class TestOllamaConnectionPool:
         """Should create new client for new base_url."""
         pool = OllamaConnectionPool()
         
-        with patch('cynic.brain.llm.adapter.ollama') as mock_ollama:
+        with patch('cynic.kernel.organism.brain.llm.adapter.ollama') as mock_ollama:
             client = pool.get_client("http://localhost:11434")
             
             assert "http://localhost:11434" in pool._clients
@@ -274,7 +274,7 @@ class TestOllamaConnectionPool:
         """Should reuse existing client for same base_url."""
         pool = OllamaConnectionPool()
         
-        with patch('cynic.brain.llm.adapter.ollama') as mock_ollama:
+        with patch('cynic.kernel.organism.brain.llm.adapter.ollama') as mock_ollama:
             client1 = pool.get_client("http://localhost:11434")
             client2 = pool.get_client("http://localhost:11434")
             

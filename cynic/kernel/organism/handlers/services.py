@@ -17,19 +17,19 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from cynic.kernel.core.event_bus import Event, CoreEvent, get_core_bus
 from cynic.kernel.core.escore import EScoreTracker
-from cynic.brain.cognition.cortex.axiom_monitor import AxiomMonitor
-from cynic.brain.cognition.cortex.lod import LODController
+from cynic.kernel.organism.brain.cognition.cortex.axiom_monitor import AxiomMonitor
+from cynic.kernel.organism.brain.cognition.cortex.lod import LODController
 from cynic.kernel.core.events_schema import AxiomActivatedPayload, ConsciousnessChangedPayload
 
 if TYPE_CHECKING:
-    from cynic.brain.cognition.cortex.orchestrator import JudgeOrchestrator
-    from cynic.brain.cognition.cortex.decide import DecideAgent
-    from cynic.brain.cognition.cortex.residual import ResidualDetector
-    from cynic.brain.learning.qlearning import QTable, LearningLoop
-    from cynic.metabolism.scheduler import ConsciousnessRhythm
-    from cynic.metabolism.runner import ClaudeCodeRunner
-    from cynic.metabolism.llm_router import LLMRouter
-    from cynic.perception.senses.compressor import ContextCompressor
+    from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
+    from cynic.kernel.organism.brain.cognition.cortex.decide import DecideAgent
+    from cynic.kernel.organism.brain.cognition.cortex.residual import ResidualDetector
+    from cynic.kernel.organism.brain.learning.qlearning import QTable, LearningLoop
+    from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
+    from cynic.kernel.organism.metabolism.claude_sdk import ClaudeCodeRunner
+    from cynic.kernel.organism.metabolism.llm_router import LLMRouter
+    from cynic.kernel.organism.perception.senses.compressor import ContextCompressor
     from cynic.nervous import ServiceStateRegistry
     from asyncpg import Pool
 

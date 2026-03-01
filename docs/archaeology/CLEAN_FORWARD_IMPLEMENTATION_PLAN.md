@@ -564,7 +564,7 @@ Connect to Q-Table learning loop:
 
 ```python
 # cynic/learning/unified_learning.py (existing, add this)
-from cynic.brain.learning.axiom_learner import AxiomLearner
+from cynic.kernel.organism.brain.learning.axiom_learner import AxiomLearner
 
 class UnifiedQTable:
     def __init__(self, ...):

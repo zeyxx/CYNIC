@@ -245,7 +245,7 @@ class TestCircuitBreakerIntegration:
 
     def test_circuit_breaker_exists(self):
         """Verify CircuitBreaker is importable and instantiable."""
-        from cynic.brain.cognition.cortex.circuit_breaker import CircuitBreaker
+        from cynic.kernel.organism.brain.cognition.cortex.circuit_breaker import CircuitBreaker
 
         cb = CircuitBreaker()
         assert cb is not None
@@ -253,14 +253,14 @@ class TestCircuitBreakerIntegration:
 
     def test_circuit_breaker_allow_when_closed(self):
         """CircuitBreaker.allow() returns True when CLOSED."""
-        from cynic.brain.cognition.cortex.circuit_breaker import CircuitBreaker
+        from cynic.kernel.organism.brain.cognition.cortex.circuit_breaker import CircuitBreaker
 
         cb = CircuitBreaker()
         assert cb.allow() is True
 
     def test_circuit_breaker_opens_after_failures(self):
         """CircuitBreaker opens after threshold failures."""
-        from cynic.brain.cognition.cortex.circuit_breaker import CircuitBreaker
+        from cynic.kernel.organism.brain.cognition.cortex.circuit_breaker import CircuitBreaker
 
         cb = CircuitBreaker(failure_threshold=3)
 
@@ -276,7 +276,7 @@ class TestCircuitBreakerIntegration:
 
     def test_circuit_breaker_record_success_resets(self):
         """CircuitBreaker.record_success() resets failure count."""
-        from cynic.brain.cognition.cortex.circuit_breaker import CircuitBreaker
+        from cynic.kernel.organism.brain.cognition.cortex.circuit_breaker import CircuitBreaker
 
         cb = CircuitBreaker(failure_threshold=3)
 
@@ -297,7 +297,7 @@ class TestCircuitBreakerIntegration:
         from cynic.interfaces.api.handlers.judgment_executor import _orchestrator_breaker
 
         # Verify it's a CircuitBreaker instance
-        from cynic.brain.cognition.cortex.circuit_breaker import CircuitBreaker
+        from cynic.kernel.organism.brain.cognition.cortex.circuit_breaker import CircuitBreaker
         assert isinstance(_orchestrator_breaker, CircuitBreaker)
 
 

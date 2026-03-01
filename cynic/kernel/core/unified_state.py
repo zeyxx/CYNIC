@@ -165,6 +165,6 @@ class UnifiedConsciousState(BaseModel):
 
     async def reach_consensus_judgment(self, judgments: list[UnifiedJudgment]) -> UnifiedJudgment:
         """Reach consensus using PBFT engine (convenience wrapper)."""
-        from cynic.brain.consensus.pbft_engine import PBFTEngine
+        from cynic.kernel.organism.brain.consensus.pbft_engine import PBFTEngine
         engine = PBFTEngine(num_dogs=len(judgments) or 11)
         return await engine.reach_consensus(judgments)

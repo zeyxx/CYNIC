@@ -695,7 +695,7 @@ FEDERATION_SYNC_INTERVAL=60              # sync every 60 seconds
 
 ```python
 import pytest
-from cynic.perception.federation.merge_engine import MergeEngine
+from cynic.kernel.organism.perception.federation.merge_engine import MergeEngine
 
 @pytest.mark.asyncio
 async def test_simple_merge():

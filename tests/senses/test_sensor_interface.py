@@ -1,7 +1,7 @@
 """Test Sensor interface — contract validation."""
 import asyncio
 import pytest
-from cynic.perception.senses.sensor_interface import Sensor, Observation
+from cynic.kernel.organism.perception.senses.sensor_interface import Sensor, Observation
 
 
 class MockSensor(Sensor):

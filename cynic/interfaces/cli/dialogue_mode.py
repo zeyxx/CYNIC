@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from typing import Optional, Any
-from cynic.brain.dialogue.storage import get_dialogue_store
-from cynic.brain.dialogue.models import UserMessage, CynicMessage
-from cynic.brain.dialogue.llm_bridge import LLMBridge
-from cynic.brain.dialogue.reasoning import ReasoningEngine
-from cynic.brain.learning.memory_store import get_memory_store
+from cynic.kernel.organism.brain.dialogue.storage import get_dialogue_store
+from cynic.kernel.organism.brain.dialogue.models import UserMessage, CynicMessage
+from cynic.kernel.organism.brain.dialogue.llm_bridge import LLMBridge
+from cynic.kernel.organism.brain.dialogue.reasoning import ReasoningEngine
+from cynic.kernel.organism.brain.learning.memory_store import get_memory_store
 from cynic.kernel.observability.symbiotic_state_manager import get_current_state
 
 

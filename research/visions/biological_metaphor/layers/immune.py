@@ -25,5 +25,5 @@ Typical usage:
 See Also:
     cynic.kernel.organism.layers: 10-layer organism architecture
     cynic.kernel.core.axioms: Axiom violations trigger immune response
-    cynic.brain.cognition.cortex: Immune veto on judgment output
+    cynic.kernel.organism.brain.cognition.cortex: Immune veto on judgment output
 """

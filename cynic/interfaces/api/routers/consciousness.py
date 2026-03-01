@@ -87,7 +87,7 @@ async def system_health(container: AppContainer = Depends(get_app_container)) ->
         DEGRADED: Optional systems down (e.g., LLM) but core systems working
         CRITICAL: Core systems (DB, consciousness, event bus) down
     """
-    from cynic.brain.llm.adapter import get_registry
+    from cynic.kernel.organism.brain.llm.adapter import get_registry
 
     state = container.organism
     registry = get_registry()
@@ -119,7 +119,7 @@ async def system_health_detailed(
 
     Useful for operators debugging system failures.
     """
-    from cynic.brain.llm.adapter import get_registry
+    from cynic.kernel.organism.brain.llm.adapter import get_registry
 
     state = container.organism
     registry = get_registry()
@@ -178,7 +178,7 @@ async def sage_stats(container: AppContainer = Depends(get_app_container)) -> di
     llm_activation_rate > 0 → Temporal MCTS is firing (Ollama available).
     llm_activation_rate == 0 → Heuristic-only mode (Ollama unavailable).
     """
-    from cynic.brain.cognition.neurons.base import DogId
+    from cynic.kernel.organism.brain.cognition.neurons.base import DogId
     state = container.organism
     orch = state.orchestrator
     sage = orch.dogs.get(DogId.SAGE) if orch and hasattr(orch, "dogs") else None
@@ -219,7 +219,7 @@ async def llm_benchmarks() -> dict[str, Any]:
     Warmed from SurrealDB on boot so routing survives restarts.
     Used by LLMRouter to select the best LLM for each Dog × Task combination.
     """
-    from cynic.brain.llm.adapter import get_registry as _get_registry
+    from cynic.kernel.organism.brain.llm.adapter import get_registry as _get_registry
     reg = _get_registry()
     matrix = [
         {

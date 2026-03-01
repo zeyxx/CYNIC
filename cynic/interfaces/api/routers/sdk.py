@@ -25,7 +25,7 @@ from cynic.kernel.core.events_schema import (
     SdkToolJudgedPayload,
 )
 from cynic.kernel.core.phi import MAX_CONFIDENCE
-from cynic.metabolism.telemetry import (
+from cynic.kernel.organism.metabolism.telemetry import (
     SessionTelemetry as SDKTelemetry,
     classify_task,
     compute_reward,
@@ -342,7 +342,7 @@ async def ws_sdk(
                     reward = compute_reward(is_error, len(session._tool_sequence), cost)
                     rich_state_key = f"SDK:{session.model}:{task_type}:{complexity}"
 
-                    from cynic.brain.learning.qlearning import LearningSignal as _LS
+                    from cynic.kernel.organism.brain.learning.qlearning import LearningSignal as _LS
                     state.qtable.update(_LS(
                         state_key=rich_state_key,
                         action="BARK" if is_error else "HOWL",

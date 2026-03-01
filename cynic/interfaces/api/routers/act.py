@@ -10,7 +10,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from cynic.kernel.core.formulas import CONFIDENCE_ENRICHMENT_MIN_THRESHOLD
-from cynic.metabolism.telemetry import classify_task, compute_reward
+from cynic.kernel.organism.metabolism.telemetry import classify_task, compute_reward
 from cynic.interfaces.api.state import get_app_container, AppContainer
 
 logger = logging.getLogger("cynic.interfaces.api.server")

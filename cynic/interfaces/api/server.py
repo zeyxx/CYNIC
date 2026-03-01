@@ -53,6 +53,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Note: In production, we would pass the actual DB pool here
     await organism.state.start_processing(db=None)
     
+    # 2b. AWAKEN κ-NET (Somatic Broadcaster)
+    from cynic.kernel.protocol.knet_server import get_knet_server
+    await get_knet_server()
+    print("📡 κ-NET Somatic Broadcaster awakened.")
+    logger.info("📡 κ-NET Somatic Broadcaster awakened.")
+
     # 3. CONTEXT (Create the API gateway)
     container = AppContainer(
         organism=organism,
@@ -66,6 +72,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     set_state(organism)
 
     logger.info("✅ CYNIC is AWAKE and RESPIRING (ready in %.2fs)", time.perf_counter() - t0)
+
+    # 3b. SPARK (Initial perception to trigger life)
+    await get_core_bus().emit(Event.typed(
+        CoreEvent.PERCEPTION_RECEIVED,
+        payload={"content": "Organism awakened. System check initiated.", "reality": "CYNIC"},
+        source="system"
+    ))
 
     yield
 
@@ -128,7 +141,9 @@ async def root():
         "timestamp": time.time()
     }
 
+
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8765))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    port = int(os.environ.get("PORT", 58765))
+    # Support IPv6 + IPv4 dual stack
+    uvicorn.run(app, host="::", port=port)

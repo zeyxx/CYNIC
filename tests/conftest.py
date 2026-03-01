@@ -146,7 +146,7 @@ def mock_llm_discovery():
     mock_registry.discover = AsyncMock(return_value=[])  # Async method, no LLMs
     mock_registry.get_available.return_value = []  # Sync method, empty list
 
-    with patch("cynic.brain.llm.adapter.get_registry", return_value=mock_registry):
+    with patch("cynic.kernel.organism.brain.llm.adapter.get_registry", return_value=mock_registry):
         yield
 
 

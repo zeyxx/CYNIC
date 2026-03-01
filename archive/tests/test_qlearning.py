@@ -13,7 +13,7 @@ import pytest
 import math
 import random
 
-from cynic.brain.learning.qlearning import (
+from cynic.kernel.organism.brain.learning.qlearning import (
     QTable, QEntry, LearningSignal, VERDICTS, THOMPSON_PRIOR,
 )
 from cynic.kernel.core.phi import LEARNING_RATE, EWC_PENALTY, fibonacci

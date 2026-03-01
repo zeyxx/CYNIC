@@ -10,7 +10,7 @@ Tests the LLMRegistry class for:
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from cynic.brain.llm.adapter import (
+from cynic.kernel.organism.brain.llm.adapter import (
     LLMRegistry, OllamaAdapter, ClaudeAdapter, GeminiAdapter,
     BenchmarkResult, PREFERRED_MODELS,
 )

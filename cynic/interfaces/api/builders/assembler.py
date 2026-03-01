@@ -22,8 +22,8 @@ from cynic.interfaces.api.builders.wiring import WiringBuilder
 from cynic.kernel.organism.organism import (
     CognitionCore, MetabolicCore, SensoryCore, MemoryCore, Organism as CynicOrganism
 )
-from cynic.brain.cognition.cortex.mirror import KernelMirror
-from cynic.metabolism.telemetry import TelemetryStore
+from cynic.kernel.organism.brain.cognition.cortex.mirror import KernelMirror
+from cynic.kernel.organism.metabolism.telemetry import TelemetryStore
 
 logger = logging.getLogger("cynic.interfaces.api.builders.assembler")
 

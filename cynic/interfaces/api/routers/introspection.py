@@ -45,7 +45,7 @@ async def introspect(container: AppContainer = Depends(get_app_container)) -> di
     This is CYNIC judging itself — meta-cognitive self-assessment.
     "φ distrusts φ" — the organism reflects on its own biases.
     """
-    from cynic.brain.cognition.neurons.base import DogId
+    from cynic.kernel.organism.brain.cognition.neurons.base import DogId
 
     state = container.organism
     consciousness = get_consciousness()

@@ -155,7 +155,10 @@
       "Bash(xargs:*)",
       "Bash(/tmp/task3_compliance_report.md:*)",
       "Bash(/tmp/task_summary.txt:*)",
-      "Bash(/tmp/proof_summary.txt:*)"
+      "Bash(/tmp/proof_summary.txt:*)",
+      "Bash(})",
+      "Bash(}:*)",
+      "Bash(read f:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

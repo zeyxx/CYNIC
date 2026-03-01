@@ -77,7 +77,7 @@ def _pick_model(available: list[str], requested: Optional[str] = None) -> Option
 
 async def _discover_and_pick(requested_model: Optional[str]) -> tuple:
     """Discover Ollama models and return (adapter, model_name)."""
-    from cynic.brain.llm.adapter import OllamaAdapter
+    from cynic.kernel.organism.brain.llm.adapter import OllamaAdapter
 
     probe = OllamaAdapter(model="probe")
     if not await probe.check_available():

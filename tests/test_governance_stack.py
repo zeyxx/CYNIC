@@ -20,15 +20,15 @@ from uuid import uuid4
 
 import pytest
 
-from cynic.perception.integrations.gasdf.client import GASdfClient
-from cynic.perception.integrations.gasdf.executor import GASdfExecutor
-from cynic.perception.integrations.gasdf.types import (
+from cynic.kernel.organism.perception.integrations.gasdf.client import GASdfClient
+from cynic.kernel.organism.perception.integrations.gasdf.executor import GASdfExecutor
+from cynic.kernel.organism.perception.integrations.gasdf.types import (
     GASdfExecutionResult,
     GASdfQuote,
     GASdfStats,
 )
-from cynic.perception.integrations.near.executor import NEARExecutor
-from cynic.perception.integrations.near.types import (
+from cynic.kernel.organism.perception.integrations.near.executor import NEARExecutor
+from cynic.kernel.organism.perception.integrations.near.types import (
     NEARExecutionResult,
     NEARGovernanceProposal,
     NEARNetworkConfig,
@@ -414,7 +414,7 @@ class TestNEARIntegration:
 
     async def test_invalid_vote_type(self, near_executor):
         """Test that invalid vote types are rejected."""
-        from cynic.perception.integrations.near.types import NEARError
+        from cynic.kernel.organism.perception.integrations.near.types import NEARError
 
         with pytest.raises(NEARError):
             await near_executor.record_vote(

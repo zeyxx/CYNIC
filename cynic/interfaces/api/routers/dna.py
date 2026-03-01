@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from cynic.interfaces.api.state import AppContainer, get_app_container
-from cynic.brain.dna import assembly
+from cynic.kernel.organism.brain.dna import assembly
 
 router = APIRouter(prefix="/dna", tags=["dna"])
 
@@ -56,7 +56,7 @@ async def run_custom_chain(
     container: AppContainer = Depends(get_app_container)
 ):
     """Run a custom DNA chain (Perceive -> Judge -> Decide -> Act -> Learn)."""
-    from cynic.brain.dna.primitives import PERCEIVE, run_dna_chain
+    from cynic.kernel.organism.brain.dna.primitives import PERCEIVE, run_dna_chain
     
     cell = await PERCEIVE(source, input_content)
     result = await run_dna_chain(

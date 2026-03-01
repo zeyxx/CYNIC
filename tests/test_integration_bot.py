@@ -77,7 +77,7 @@ class TestBotCommandIntegration:
         db_mock, db_health = mock_database
 
         # Import CircuitBreaker for testing
-        from cynic.brain.cognition.cortex.circuit_breaker import CircuitBreaker
+        from cynic.kernel.organism.brain.cognition.cortex.circuit_breaker import CircuitBreaker
 
         # Create breaker with low threshold for testing
         breaker = CircuitBreaker(failure_threshold=5, cooldown_s=300)
@@ -258,7 +258,7 @@ class TestBotCommandIntegration:
         - Recovery timeout allows transition to HALF_OPEN
         - Successful call transitions back to CLOSED
         """
-        from cynic.brain.cognition.cortex.circuit_breaker import CircuitBreaker
+        from cynic.kernel.organism.brain.cognition.cortex.circuit_breaker import CircuitBreaker
 
         breaker = CircuitBreaker(failure_threshold=3, cooldown_s=1)
 

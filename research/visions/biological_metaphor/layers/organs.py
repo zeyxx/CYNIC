@@ -24,6 +24,6 @@ Typical usage:
 
 See Also:
     cynic.kernel.organism.layers: 10-layer organism architecture
-    cynic.brain.cognition.neurons: 11 Dogs implementation
+    cynic.kernel.organism.brain.cognition.neurons: 11 Dogs implementation
     cynic.judges: Judge contracts and implementations
 """

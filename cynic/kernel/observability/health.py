@@ -17,7 +17,7 @@ from typing import Dict, Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.organism import Organism
-    from cynic.brain.llm.adapter import LLMRegistry
+    from cynic.kernel.organism.brain.llm.adapter import LLMRegistry
 
 logger = logging.getLogger("cynic.kernel.observability.health")
 

@@ -23,6 +23,6 @@ Typical usage:
 
 See Also:
     cynic.kernel.organism.layers: 10-layer organism architecture
-    cynic.brain.learning.unified_learning: Q-Table and session management
+    cynic.kernel.organism.brain.learning.unified_learning: Q-Table and session management
     cynic.kernel.core.unified_state: Judgment records for learning
 """

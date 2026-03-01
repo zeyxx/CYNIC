@@ -17,7 +17,7 @@ from cynic.kernel.core.event_bus import (
     Event, CoreEvent, create_default_bridge,
 )
 from cynic.kernel.core.judgment import Judgment, Cell, new_id
-from cynic.brain.cognition.cortex.residual import ResidualDetector
+from cynic.kernel.organism.brain.cognition.cortex.residual import ResidualDetector
 from cynic.kernel.core.events_schema import (
     JudgmentCreatedPayload, EmergenceDetectedPayload,
 )

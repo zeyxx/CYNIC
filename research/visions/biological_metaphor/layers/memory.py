@@ -25,5 +25,5 @@ Typical usage:
 See Also:
     cynic.kernel.organism.layers: 10-layer organism architecture
     cynic.kernel.core.storage: Abstract storage layer
-    cynic.brain.learning: Uses memory for experience replay
+    cynic.kernel.organism.brain.learning: Uses memory for experience replay
 """

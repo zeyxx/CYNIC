@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cynic.perception.integrations.gasdf.executor import GASdfExecutor
-from cynic.perception.integrations.gasdf.types import GASdfQuote
+from cynic.kernel.organism.perception.integrations.gasdf.executor import GASdfExecutor
+from cynic.kernel.organism.perception.integrations.gasdf.types import GASdfQuote
 from cynic.kernel.protocol.lnsp.governance_integration import GovernanceLNSP
 from cynic.kernel.protocol.lnsp.types import LNSPMessage, Layer, MessageHeader, Metadata
 
@@ -123,7 +123,7 @@ class TestGASdfGovernanceIntegration:
         self, mock_manager: AsyncMock, mock_gasdf_executor: AsyncMock
     ) -> None:
         """Test that executor is called for APPROVED verdicts."""
-        from cynic.perception.integrations.gasdf.types import GASdfExecutionResult
+        from cynic.kernel.organism.perception.integrations.gasdf.types import GASdfExecutionResult
 
         # Mock execution result
         exec_result = GASdfExecutionResult(

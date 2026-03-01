@@ -13,7 +13,7 @@ from cynic.interfaces.api.state import get_app_container, AppContainer
 
 from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
 from cynic.kernel.core.events_schema import ActRequestedPayload, AxiomActivatedPayload
-from cynic.brain.learning.qlearning import LearningSignal
+from cynic.kernel.organism.brain.learning.qlearning import LearningSignal
 from cynic.interfaces.api.routers.utils import _append_social_signal
 
 logger = logging.getLogger("cynic.interfaces.api.server")

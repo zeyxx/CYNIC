@@ -8,8 +8,8 @@ from typing import Any, Dict, List
 
 from cynic.kernel.core.event_bus import EventBus, CoreEvent, Event
 from cynic.kernel.organism.sona_emitter import SonaEmitter
-from cynic.brain.learning.qlearning import LearningLoop
-from cynic.brain.learning.loops import SONA
+from cynic.kernel.organism.brain.learning.qlearning import LearningLoop
+from cynic.kernel.organism.brain.learning.loops import SONA
 from cynic.kernel.organism.state_manager import StateSnapshot, _FrozenDict
 from cynic.kernel.core.events_schema import SonaTickPayload, LearningEventPayload
 

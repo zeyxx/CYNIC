@@ -9,7 +9,7 @@ from typing import Callable, Any
 from cynic.kernel.core.event_bus import Event, CoreEvent
 from cynic.kernel.organism.handlers.base import HandlerGroup
 from cynic.kernel.organism.handlers.services import KernelServices
-from cynic.perception.federation.gossip import GossipManager
+from cynic.kernel.organism.perception.federation.gossip import GossipManager
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.federation")
 

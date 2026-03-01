@@ -30,7 +30,7 @@ else:
 from cynic.interfaces.chat.tools import TOOLS, ToolCall, ToolResult
 from cynic.interfaces.chat.tool_executor import ToolExecutor
 from cynic.interfaces.chat.session import ChatSession
-from cynic.brain.llm.adapter import LLMAdapter, LLMRequest, LLMResponse
+from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRequest, LLMResponse
 
 logger = logging.getLogger("cynic.interfaces.chat.agent")
 

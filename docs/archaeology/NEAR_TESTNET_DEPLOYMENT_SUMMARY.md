@@ -283,7 +283,7 @@ near view governance.testnet get_owner ''
 ### With CYNIC API
 
 ```python
-from cynic.perception.integrations.near import NEARExecutor, NEARNetworkConfig
+from cynic.kernel.organism.perception.integrations.near import NEARExecutor, NEARNetworkConfig
 
 config = NEARNetworkConfig(
     network_id="testnet",
@@ -309,7 +309,7 @@ result = await executor.submit_proposal(
 ### With GASdf
 
 ```python
-from cynic.perception.integrations.gasdf import GASdfExecutor
+from cynic.kernel.organism.perception.integrations.gasdf import GASdfExecutor
 
 # Execute verdict via GASdf
 result = await gasdf_executor.execute_verdict(

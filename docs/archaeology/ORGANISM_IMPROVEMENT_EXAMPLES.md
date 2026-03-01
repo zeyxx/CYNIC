@@ -90,7 +90,7 @@ class Organism:
         # CHECK 1: System Health (Consciousness hard cap)
         # ─────────────────────────────────────────────────────────────────
         lod = self.cognition.lod_controller.current
-        from cynic.brain.cognition.cortex.lod import SurvivalLOD
+        from cynic.kernel.organism.brain.cognition.cortex.lod import SurvivalLOD
 
         if lod >= SurvivalLOD.EMERGENCY:
             return False, f"[CONSCIOUSNESS] System in EMERGENCY mode (LOD={lod.name}). Cannot execute."
@@ -633,7 +633,7 @@ class OrganismCoordinator:
         Returns:
             CoordinationSequence with all stress response steps.
         """
-        from cynic.brain.cognition.cortex.lod import SurvivalLOD
+        from cynic.kernel.organism.brain.cognition.cortex.lod import SurvivalLOD
 
         sequence = CoordinationSequence(
             event_type="MEMORY_PRESSURE",

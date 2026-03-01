@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from cynic.perception.integrations.gasdf.client import GASdfClient
-from cynic.perception.integrations.gasdf.executor import GASdfExecutor
-from cynic.perception.integrations.gasdf.types import GASdfError, GASdfExecutionResult, GASdfQuote
+from cynic.kernel.organism.perception.integrations.gasdf.client import GASdfClient
+from cynic.kernel.organism.perception.integrations.gasdf.executor import GASdfExecutor
+from cynic.kernel.organism.perception.integrations.gasdf.types import GASdfError, GASdfExecutionResult, GASdfQuote
 
 
 class TestGASdfExecutor:

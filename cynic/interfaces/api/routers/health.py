@@ -108,7 +108,7 @@ async def health(container: AppContainer = Depends(get_app_container)) -> Health
             "pending_flush": learn_stats["pending_flush"],
         },
         scheduler=sched_stats,
-        llm_adapters=[a.adapter_id for a in __import__("cynic.brain.llm.adapter", fromlist=["get_registry"]).get_registry().get_available()],
+        llm_adapters=[a.adapter_id for a in __import__("cynic.kernel.organism.brain.llm.adapter", fromlist=["get_registry"]).get_registry().get_available()],
         judgments_total=judge_stats["judgments_total"],
         phi=PHI,
         storage=_storage_status,
@@ -233,7 +233,7 @@ async def health_full(container: AppContainer = Depends(get_app_container)) -> d
 
         # LLM adapter
         try:
-            from cynic.brain.llm.adapter import get_registry
+            from cynic.kernel.organism.brain.llm.adapter import get_registry
             registry = get_registry()
             available = registry.get_available()
             components["llm"] = {
@@ -386,7 +386,7 @@ async def health_ready(
 
             llm_ok = True
             try:
-                from cynic.brain.llm.adapter import get_registry
+                from cynic.kernel.organism.brain.llm.adapter import get_registry
                 registry = get_registry()
                 available = registry.get_available()
                 llm_ok = len(available) > 0

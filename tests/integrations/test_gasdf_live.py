@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from cynic.perception.integrations.gasdf.client import GASdfClient
-from cynic.perception.integrations.gasdf.types import GASdfError
+from cynic.kernel.organism.perception.integrations.gasdf.client import GASdfClient
+from cynic.kernel.organism.perception.integrations.gasdf.types import GASdfError
 
 
 class TestGASdfLiveAPI:
@@ -168,7 +168,7 @@ class TestGASdfExecutorIntegration:
         This tests the full executor flow (quote → submit) against real API
         without actually submitting a transaction (using test data).
         """
-        from cynic.perception.integrations.gasdf.executor import GASdfExecutor
+        from cynic.kernel.organism.perception.integrations.gasdf.executor import GASdfExecutor
 
         client = GASdfClient()
         executor = GASdfExecutor(client)

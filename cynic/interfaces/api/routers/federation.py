@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 
 from cynic.interfaces.api.state import AppContainer, get_app_container
-from cynic.perception.federation.peer import FederationPeer
+from cynic.kernel.organism.perception.federation.peer import FederationPeer
 
 router = APIRouter(prefix="/federation", tags=["federation"])
 
@@ -37,7 +37,7 @@ async def add_peer(peer_id: str, url: str, container: AppContainer = Depends(get
 @router.post("/receive")
 async def receive_gossip(message: dict, container: AppContainer = Depends(get_app_container)):
     """Entry point for incoming gossip from peers."""
-    from cynic.perception.federation.protocol import FederationMessage
+    from cynic.kernel.organism.perception.federation.protocol import FederationMessage
     mgr = container.organism.gossip_manager
     if not mgr:
         return {"status": "IGNORED", "reason": "Federation disabled"}

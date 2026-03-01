@@ -24,5 +24,5 @@ Typical usage:
 See Also:
     cynic.kernel.organism.layers: 10-layer organism architecture
     cynic.kernel.organism.layers.perception: Perceives action constraints
-    cynic.brain.learning: Learning feedback constrains autonomy
+    cynic.kernel.organism.brain.learning: Learning feedback constrains autonomy
 """

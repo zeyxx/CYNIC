@@ -26,7 +26,7 @@ from cynic.kernel.core.events_schema import (
 )
 from cynic.kernel.core.judgment import Cell, Judgment
 from cynic.kernel.core.phi import MAX_CONFIDENCE
-from cynic.brain.learning.qlearning import LearningSignal
+from cynic.kernel.organism.brain.learning.qlearning import LearningSignal
 from cynic.kernel.organism.brain.consensus import get_consensus_engine
 
 from cynic.interfaces.api.models import (
@@ -596,7 +596,7 @@ async def policy(
     confidence = state.qtable.confidence(state_key)
 
     # Top actions for transparency
-    from cynic.brain.learning.qlearning import VERDICTS
+    from cynic.kernel.organism.brain.learning.qlearning import VERDICTS
     top_actions = [
         {
             "action": a,
@@ -627,6 +627,26 @@ async def get_world_state() -> dict[str, Any]:
     """
     state = get_state()
     return state.world_model.snapshot()
+
+
+@router_core.post("/dialogue")
+async def dialogue_proxy(req: dict[str, Any]) -> dict[str, Any]:
+    """
+    Proxy dialogue requests to the internal DialogueMode.
+    Allows remote CLI to use the container's LLM credentials.
+    """
+    from cynic.interfaces.cli.dialogue_mode import DialogueMode
+    dm = DialogueMode()
+    try:
+        text = req.get("text", "")
+        if not text:
+            raise HTTPException(status_code=400, detail="Missing text")
+            
+        response = await dm.process_message(text)
+        return {"response": response}
+    except Exception as e:
+        logger.error(f"Dialogue proxy error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ════════════════════════════════════════════════════════════════════════════

@@ -368,7 +368,7 @@ class TestLearningLoopIntegration:
     @pytest.mark.asyncio
     async def test_learning_signal_flow(self):
         """Learning signals integrate without crashing."""
-        from cynic.brain.learning.qlearning import QTable, LearningSignal
+        from cynic.kernel.organism.brain.learning.qlearning import QTable, LearningSignal
 
         # Create minimal Q-table with correct parameters
         qtable = QTable(learning_rate=0.1, discount=0.382)

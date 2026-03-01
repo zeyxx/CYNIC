@@ -21,7 +21,7 @@
 ```python
 import pytest
 from dataclasses import dataclass
-from cynic.brain.dialogue.models import UserMessage, CynicMessage, DialogueMessage
+from cynic.kernel.organism.brain.dialogue.models import UserMessage, CynicMessage, DialogueMessage
 
 
 def test_user_message_creation():
@@ -162,8 +162,8 @@ import pytest
 import tempfile
 import asyncio
 from pathlib import Path
-from cynic.brain.dialogue.storage import DialogueStore
-from cynic.brain.dialogue.models import UserMessage, CynicMessage
+from cynic.kernel.organism.brain.dialogue.storage import DialogueStore
+from cynic.kernel.organism.brain.dialogue.models import UserMessage, CynicMessage
 
 
 @pytest.fixture
@@ -249,7 +249,7 @@ from typing import Optional, Any
 from dataclasses import asdict
 from datetime import datetime
 
-from cynic.brain.dialogue.models import UserMessage, CynicMessage, DialogueMessage
+from cynic.kernel.organism.brain.dialogue.models import UserMessage, CynicMessage, DialogueMessage
 
 
 class DialogueStore:
@@ -408,7 +408,7 @@ git commit -m "feat(dialogue): Add SQLite storage for dialogue history
 
 ```python
 import pytest
-from cynic.brain.dialogue.reasoning import ReasoningEngine
+from cynic.kernel.organism.brain.dialogue.reasoning import ReasoningEngine
 from unittest.mock import MagicMock
 
 
@@ -620,7 +620,7 @@ git commit -m "feat(dialogue): Add reasoning engine for judgment explanation
 
 ```python
 import pytest
-from cynic.brain.dialogue.llm_bridge import LLMBridge
+from cynic.kernel.organism.brain.dialogue.llm_bridge import LLMBridge
 from unittest.mock import AsyncMock, patch
 
 
@@ -645,7 +645,7 @@ async def test_generate_response_from_reasoning():
         "verbosity": "1-2 sentences max"
     }
 
-    with patch('cynic.brain.dialogue.llm_bridge.AsyncAnthropic') as mock_client:
+    with patch('cynic.kernel.organism.brain.dialogue.llm_bridge.AsyncAnthropic') as mock_client:
         mock_response = AsyncMock()
         mock_response.content[0].text = "I chose WAG because it balances fairness with efficiency."
         mock_client.return_value.messages.create = AsyncMock(return_value=mock_response)
@@ -684,7 +684,7 @@ async def test_handle_api_error():
         "verdict": "WAG"
     }
 
-    with patch('cynic.brain.dialogue.llm_bridge.AsyncAnthropic') as mock_client:
+    with patch('cynic.kernel.organism.brain.dialogue.llm_bridge.AsyncAnthropic') as mock_client:
         mock_client.return_value.messages.create = AsyncMock(
             side_effect=Exception("API Error")
         )
@@ -820,8 +820,8 @@ git commit -m "feat(dialogue): Add Claude API bridge for natural language genera
 
 ```python
 import pytest
-from cynic.brain.learning.relationship_memory import RelationshipMemory
-from cynic.brain.dialogue.models import UserMessage
+from cynic.kernel.organism.brain.learning.relationship_memory import RelationshipMemory
+from cynic.kernel.organism.brain.dialogue.models import UserMessage
 
 
 def test_relationship_memory_creation():
@@ -906,7 +906,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from typing import Optional, Any
-from cynic.brain.dialogue.models import UserMessage
+from cynic.kernel.organism.brain.dialogue.models import UserMessage
 
 
 @dataclass(frozen=True)
@@ -1013,8 +1013,8 @@ import pytest
 import tempfile
 import asyncio
 from pathlib import Path
-from cynic.brain.learning.memory_store import MemoryStore
-from cynic.brain.learning.relationship_memory import RelationshipMemory
+from cynic.kernel.organism.brain.learning.memory_store import MemoryStore
+from cynic.kernel.organism.brain.learning.relationship_memory import RelationshipMemory
 
 
 @pytest.fixture
@@ -1096,7 +1096,7 @@ import asyncio
 from pathlib import Path
 from typing import Optional
 
-from cynic.brain.learning.relationship_memory import RelationshipMemory
+from cynic.kernel.organism.brain.learning.relationship_memory import RelationshipMemory
 
 
 class MemoryStore:
@@ -1229,7 +1229,7 @@ import pytest
 import tempfile
 import asyncio
 from pathlib import Path
-from cynic.brain.learning.experiment_log import Experiment, ExperimentLog
+from cynic.kernel.organism.brain.learning.experiment_log import Experiment, ExperimentLog
 
 
 def test_experiment_creation():
@@ -1454,7 +1454,7 @@ git commit -m "feat(learning): Add experiment log for tracking novel approaches
 
 ```python
 import pytest
-from cynic.brain.collaborative.decision_classifier import DecisionClassifier, DecisionClass
+from cynic.kernel.organism.brain.collaborative.decision_classifier import DecisionClassifier, DecisionClass
 
 
 def test_decision_class_enum():
@@ -1774,11 +1774,11 @@ Expected: `FAILED - DialogueMode not defined`
 from __future__ import annotations
 
 from typing import Optional, Any
-from cynic.brain.dialogue.storage import get_dialogue_store
-from cynic.brain.dialogue.models import UserMessage, CynicMessage
-from cynic.brain.dialogue.llm_bridge import LLMBridge
-from cynic.brain.dialogue.reasoning import ReasoningEngine
-from cynic.brain.learning.memory_store import get_memory_store
+from cynic.kernel.organism.brain.dialogue.storage import get_dialogue_store
+from cynic.kernel.organism.brain.dialogue.models import UserMessage, CynicMessage
+from cynic.kernel.organism.brain.dialogue.llm_bridge import LLMBridge
+from cynic.kernel.organism.brain.dialogue.reasoning import ReasoningEngine
+from cynic.kernel.organism.brain.learning.memory_store import get_memory_store
 from cynic.kernel.observability.symbiotic_state_manager import get_current_state
 
 
@@ -2071,10 +2071,10 @@ git commit -m "feat(cli): Add TALK, HISTORY, FEEDBACK menu options to main CLI
 import pytest
 import tempfile
 from pathlib import Path
-from cynic.brain.dialogue.models import UserMessage, CynicMessage
-from cynic.brain.dialogue.storage import DialogueStore
-from cynic.brain.learning.memory_store import MemoryStore
-from cynic.brain.collaborative.decision_classifier import DecisionClassifier, DecisionClass
+from cynic.kernel.organism.brain.dialogue.models import UserMessage, CynicMessage
+from cynic.kernel.organism.brain.dialogue.storage import DialogueStore
+from cynic.kernel.organism.brain.learning.memory_store import MemoryStore
+from cynic.kernel.organism.brain.collaborative.decision_classifier import DecisionClassifier, DecisionClass
 
 
 @pytest.mark.asyncio

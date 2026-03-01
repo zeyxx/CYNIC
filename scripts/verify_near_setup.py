@@ -6,8 +6,8 @@ import os
 import sys
 from datetime import datetime, timedelta
 
-from cynic.perception.integrations.near import NEARExecutor, NEARNetworkConfig
-from cynic.perception.integrations.near.types import NEARError
+from cynic.kernel.organism.perception.integrations.near import NEARExecutor, NEARNetworkConfig
+from cynic.kernel.organism.perception.integrations.near.types import NEARError
 
 
 async def verify_environment() -> bool:

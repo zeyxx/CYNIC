@@ -197,8 +197,8 @@ pytest cynic/tests/test_imports.py
 ```python
 # cynic/tests/metabolism/test_routing_ab.py
 import pytest
-from cynic.metabolism.llm_router import LLMRouter
-from cynic.metabolism.budget import Budget
+from cynic.kernel.organism.metabolism.llm_router import LLMRouter
+from cynic.kernel.organism.metabolism.budget import Budget
 
 @pytest.mark.parametrize("num_queries", [100, 1000])
 def test_routing_vs_fixed_baseline(num_queries):

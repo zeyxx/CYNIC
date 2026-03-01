@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from cynic.perception.integrations.gasdf.burn_sensor import GASdfBurnSensor
-from cynic.perception.integrations.gasdf.client import GASdfClient
-from cynic.perception.integrations.gasdf.types import GASdfError, GASdfStats
+from cynic.kernel.organism.perception.integrations.gasdf.burn_sensor import GASdfBurnSensor
+from cynic.kernel.organism.perception.integrations.gasdf.client import GASdfClient
+from cynic.kernel.organism.perception.integrations.gasdf.types import GASdfError, GASdfStats
 from cynic.kernel.protocol.lnsp.types import LNSPMessage, ObservationType
 
 

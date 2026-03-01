@@ -33,7 +33,7 @@ async def run_metabolic_trace():
         await organism.state.start_processing()
         
         # 2. Display Hardware Awareness
-        from cynic.metabolism.model_profiler import ModelProfiler
+        from cynic.kernel.organism.metabolism.model_profiler import ModelProfiler
         profiler = ModelProfiler()
         print(f"HARDWARE: {profiler.announce_limits()}\n")
 

@@ -17,7 +17,7 @@ import pytest
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from cynic.perception.integrations.near.types import (
+from cynic.kernel.organism.perception.integrations.near.types import (
     NEARNetworkConfig,
     NEARExecutionResult,
     NEARContractCall,
@@ -25,7 +25,7 @@ from cynic.perception.integrations.near.types import (
     TxStatus,
     NEARError,
 )
-from cynic.perception.integrations.near.executor import NEARExecutor
+from cynic.kernel.organism.perception.integrations.near.executor import NEARExecutor
 
 
 @dataclass

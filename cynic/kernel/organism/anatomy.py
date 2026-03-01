@@ -9,21 +9,21 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from cynic.brain.cognition.cortex.orchestrator import JudgeOrchestrator
-    from cynic.brain.cognition.cortex.residual import ResidualDetector
-    from cynic.brain.cognition.cortex.decide import DecideAgent
-    from cynic.brain.cognition.cortex.account import AccountAgent
-    from cynic.brain.cognition.cortex.self_probe import SelfProber
-    from cynic.brain.cognition.cortex.mirror import KernelMirror
-    from cynic.brain.cognition.cortex.action_proposer import ActionProposer
+    from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
+    from cynic.kernel.organism.brain.cognition.cortex.residual import ResidualDetector
+    from cynic.kernel.organism.brain.cognition.cortex.decide import DecideAgent
+    from cynic.kernel.organism.brain.cognition.cortex.account import AccountAgent
+    from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+    from cynic.kernel.organism.brain.cognition.cortex.mirror import KernelMirror
+    from cynic.kernel.organism.brain.cognition.cortex.action_proposer import ActionProposer
     from cynic.kernel.core.escore import EScoreTracker
-    from cynic.brain.learning.qlearning import QTable, LearningLoop
+    from cynic.kernel.organism.brain.learning.qlearning import QTable, LearningLoop
     from cynic.kernel.core.config import CynicConfig
     from cynic.kernel.core.event_bus import EventBus
     from cynic.kernel.core.consciousness import ConsciousnessRhythm
-    from cynic.metabolism.telemetry import TelemetryStore
-    from cynic.metabolism.llm_router import LLMRouter
-    from cynic.metabolism.runner import ClaudeCodeRunner
+    from cynic.kernel.organism.metabolism.telemetry import TelemetryStore
+    from cynic.kernel.organism.metabolism.llm_router import LLMRouter
+    from cynic.kernel.organism.metabolism.claude_sdk import ClaudeCodeRunner
     from cynic.kernel.core.topology import SourceWatcher, IncrementalTopologyBuilder, HotReloadCoordinator, TopologyMirror, ChangeTracker, ChangeAnalyzer
     from cynic.kernel.core.convergence import ConvergenceValidator
     from cynic.interfaces.mcp.service import MCPBridge

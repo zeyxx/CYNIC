@@ -35,15 +35,13 @@ services:
       dockerfile: Dockerfile
     container_name: cynic
     ports:
-      - "8765:8765"
+      - "58765:58765" # κ-NET Protocol (IPv6/v4)
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-cynic}:${POSTGRES_PASSWORD:-cynic_dev}@postgres:5432/${POSTGRES_DB:-cynic_py}
       OLLAMA_URL: http://ollama:11434
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
-    volumes:
-      - cynic_data:/home/cynic/.cynic:rw
     depends_on:
       postgres:
         condition: service_healthy

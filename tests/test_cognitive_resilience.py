@@ -9,7 +9,7 @@ Simulates hardware stress and verifies the Law of Sovereignty:
 import pytest
 import asyncio
 from unittest.mock import MagicMock, patch
-from cynic.brain.llm.adapter import LLMRegistry, LLMAdapter
+from cynic.kernel.organism.brain.llm.adapter import LLMRegistry, LLMAdapter
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 
 class MockAdapter(LLMAdapter):
@@ -64,9 +64,9 @@ async def test_hardware_aware_discovery():
     mock_profiler.announce_limits.return_value = "LOW RAM SIMULATION"
     
     # Mock list_local_models to return a "heavy" model (10GB)
-    with patch("cynic.brain.llm.llama_cpp.list_local_models", return_value=["heavy_model.gguf"]):
+    with patch("cynic.kernel.organism.brain.llm.llama_cpp.list_local_models", return_value=["heavy_model.gguf"]):
         with patch("os.path.getsize", return_value=10 * 1024**3):
-            with patch("cynic.metabolism.model_profiler.ModelProfiler", return_value=mock_profiler):
+            with patch("cynic.kernel.organism.metabolism.model_profiler.ModelProfiler", return_value=mock_profiler):
                 manifest = await registry.discover(models_dir="/tmp/models")
                 
                 # The heavy model should be rejected due to RAM limits

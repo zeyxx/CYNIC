@@ -52,6 +52,22 @@ class HardwareBody:
         self._last_state: Optional[SomaticState] = None
         self._start_time = time.time()
         self._bus = get_core_bus()
+        # Initial synchronous pulse to seed the state
+        self._sync_pulse()
+
+    def _sync_pulse(self):
+        """Synchronous pulse for initialization."""
+        try:
+            cpu = psutil.cpu_percent(interval=0.1)
+            ram = psutil.virtual_memory().percent
+            disk = psutil.disk_usage('/').percent
+            self._last_state = SomaticState(
+                cpu_percent=cpu,
+                ram_percent=ram,
+                disk_usage=disk
+            )
+        except Exception:
+            self._last_state = SomaticState()
 
     async def pulse(self) -> SomaticState:
         """One heartbeat of the physical body."""

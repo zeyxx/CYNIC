@@ -43,7 +43,7 @@ class TestOllamaConnection:
         if not has_ollama:
             pytest.skip("Ollama not available")
 
-        from cynic.brain.llm.adapter import OllamaAdapter, LLMRegistry
+        from cynic.kernel.organism.brain.llm.adapter import OllamaAdapter, LLMRegistry
 
         # Discover available models (CYNIC must know where its LLMs live)
         registry = LLMRegistry()
@@ -59,7 +59,7 @@ class TestOllamaConnection:
         adapter = OllamaAdapter(model=selected_model, base_url="http://localhost:11434")
 
         # Create a real LLM request
-        from cynic.brain.llm.adapter import LLMRequest
+        from cynic.kernel.organism.brain.llm.adapter import LLMRequest
         request = LLMRequest(
             messages=[
                 {"role": "system", "content": "You are a code quality analyzer."},
@@ -87,8 +87,8 @@ class TestOllamaConnection:
         if not has_ollama:
             pytest.skip("Ollama not available")
 
-        from cynic.brain.cognition.cortex.dog_cognition import DogCognition, DogCognitionConfig
-        from cynic.brain.cognition.neurons.dog_state import DogState
+        from cynic.kernel.organism.brain.cognition.cortex.dog_cognition import DogCognition, DogCognitionConfig
+        from cynic.kernel.organism.brain.cognition.neurons.dog_state import DogState
         from cynic.kernel.core.judgment import Cell
         from unittest.mock import patch, AsyncMock
 
@@ -121,7 +121,7 @@ class TestOllamaConnection:
         if not has_ollama:
             pytest.skip("Ollama not available")
 
-        from cynic.brain.llm.adapter import LLMRegistry
+        from cynic.kernel.organism.brain.llm.adapter import LLMRegistry
 
         registry = LLMRegistry()
         # CRITICAL: This discovers where CYNIC's LLMs live
@@ -142,8 +142,8 @@ class TestOllamaConnection:
         if not has_ollama:
             pytest.skip("Ollama not available")
 
-        from cynic.brain.llm.temporal import temporal_judgment
-        from cynic.brain.llm.adapter import LLMRegistry
+        from cynic.kernel.organism.brain.llm.temporal import temporal_judgment
+        from cynic.kernel.organism.brain.llm.adapter import LLMRegistry
 
         registry = LLMRegistry()
         # Discover where CYNIC's LLMs are
@@ -185,7 +185,7 @@ class TestOllamaPerformance:
             pytest.skip("Ollama not available")
 
         import time
-        from cynic.brain.llm.adapter import OllamaAdapter, LLMRequest, LLMRegistry
+        from cynic.kernel.organism.brain.llm.adapter import OllamaAdapter, LLMRequest, LLMRegistry
 
         registry = LLMRegistry()
         models = await registry.discover(ollama_url="http://localhost:11434")
@@ -219,7 +219,7 @@ class TestOllamaPerformance:
 
         import time
         import asyncio
-        from cynic.brain.llm.adapter import OllamaAdapter, LLMRequest, LLMRegistry
+        from cynic.kernel.organism.brain.llm.adapter import OllamaAdapter, LLMRequest, LLMRegistry
 
         registry = LLMRegistry()
         models = await registry.discover(ollama_url="http://localhost:11434")

@@ -12,11 +12,11 @@ Tests:
 import pytest
 from unittest.mock import MagicMock
 
-from cynic.metabolism.llm_router import (
+from cynic.kernel.organism.metabolism.llm_router import (
     LLMRouter, RoutingDecision, MODEL_SONNET, MODEL_HAIKU,
     _SIMPLE_TASK_TYPES, _CHEAP_COMPLEXITIES, _MIN_VISITS_TO_ROUTE,
 )
-from cynic.brain.learning.qlearning import QTable, LearningSignal
+from cynic.kernel.organism.brain.learning.qlearning import QTable, LearningSignal
 from cynic.kernel.core.phi import PHI_INV
 
 

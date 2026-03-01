@@ -15,7 +15,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from cynic.kernel.organism.organism import awaken
 from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.brain.dna.primitives import PERCEIVE, JUDGE, DECIDE, ACT, LEARN
+from cynic.kernel.organism.brain.dna.primitives import PERCEIVE, JUDGE, DECIDE, ACT, LEARN
 from cynic.kernel.core.phi import PHI
 
 # Setup logging

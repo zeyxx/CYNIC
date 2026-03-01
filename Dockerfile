@@ -8,19 +8,17 @@ WORKDIR /app
 # Install system dependencies for build and runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    python3-dev \
     libpq-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dependency definition
-COPY pyproject.toml .
-
-# Install dependencies from pyproject.toml
-# We use --no-cache-dir to keep the image slim
-RUN pip install --no-cache-dir .
-
-# Copy the entire organism code
+# Copy the entire organism code first
+# (Needed by pip install . to find the package 'cynic')
 COPY . .
+
+# Install dependencies and the project
+RUN pip install --no-cache-dir .
 
 # Environment setup
 ENV PYTHONUNBUFFERED=1 \
@@ -43,4 +41,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8765/ || exit 1
 
 # Default command: Start the API server
-CMD ["python", "cynic/api/server.py"]
+CMD ["python", "cynic/interfaces/api/server.py"]

@@ -1,8 +1,24 @@
-"""Metabolism — Resource Accounting
+"""
+Metabolism — Resource Accounting, Scheduling and Guardrails
 
-The metabolism tracks costs and budgets.
+Tracks costs, budgets, and executes autonomous tasks.
 
 Components:
-- costs.py              Cost ledger
-- budgets.py            Budget allocation (γ multipliers)
+- immune/: Safety guardrails (Axioms, PowerLimiter)
+- claude_sdk.py: Autonomous Claude Code runner
+- scheduler.py: ConsciousnessRhythm scheduling
+- llm_router.py: LLM routing based on metabolic cost
+- telemetry.py: Resource usage tracking
 """
+from .scheduler import ConsciousnessRhythm
+from .llm_router import LLMRouter
+from .claude_sdk import ClaudeCodeRunner
+from .telemetry import SessionTelemetry, TelemetryStore
+
+__all__ = [
+    "ConsciousnessRhythm",
+    "LLMRouter",
+    "ClaudeCodeRunner",
+    "SessionTelemetry",
+    "TelemetryStore",
+]

@@ -17,18 +17,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import json
 import time
 
-from cynic.brain.llm.adapters.test_adapter import DeterministicLLMAdapter
-from cynic.perception.senses.empirical_sensor import EmpiricalSensor
-from cynic.perception.senses.sensor_interface import Observation
-from cynic.brain.cognition.cortex.judgment_stages import (
+from cynic.kernel.organism.brain.llm.adapters.test_adapter import DeterministicLLMAdapter
+from cynic.kernel.organism.perception.senses.empirical_sensor import EmpiricalSensor
+from cynic.kernel.organism.perception.senses.sensor_interface import Observation
+from cynic.kernel.organism.brain.cognition.cortex.judgment_stages import (
     EmpiricalLearnStage,
     PerceiveStage,
     JudgeStage,
 )
-from cynic.brain.cognition.cortex.pipeline import JudgmentPipeline
+from cynic.kernel.organism.brain.cognition.cortex.pipeline import JudgmentPipeline
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.judgment import Cell
-from cynic.brain.learning.qlearning import QTable, LearningSignal
+from cynic.kernel.organism.brain.learning.qlearning import QTable, LearningSignal
 from cynic.kernel.core.phi import fibonacci, MAX_Q_SCORE
 
 
@@ -133,7 +133,7 @@ async def test_scenario_b_escore_dog_filter(mock_orchestrator, test_pipeline):
     After: BAD_DOG's E-Score should drop below 38.2% (GROWL_MIN).
            On cycle 31+, JudgeStage should skip BAD_DOG due to low E-Score.
     """
-    from cynic.brain.cognition.neurons.base import DogId
+    from cynic.kernel.organism.brain.cognition.neurons.base import DogId
 
     # Create mock dogs
     good_dog = AsyncMock()
@@ -335,16 +335,16 @@ async def test_scenario_d_full_empirical_cycle(mock_orchestrator):
 
 def test_deterministic_adapter_imports():
     """Verify all Track C imports work."""
-    from cynic.brain.llm.adapters import DeterministicLLMAdapter
-    from cynic.brain.llm.adapters.test_adapter import DeterministicLLMAdapter as DirectImport
+    from cynic.kernel.organism.brain.llm.adapters import DeterministicLLMAdapter
+    from cynic.kernel.organism.brain.llm.adapters.test_adapter import DeterministicLLMAdapter as DirectImport
 
     assert DeterministicLLMAdapter is DirectImport
 
 
 def test_empirical_sensor_imports():
     """Verify EmpiricalSensor imports work."""
-    from cynic.perception.senses.empirical_sensor import EmpiricalSensor
-    from cynic.perception.senses.sensor_interface import Observation
+    from cynic.kernel.organism.perception.senses.empirical_sensor import EmpiricalSensor
+    from cynic.kernel.organism.perception.senses.sensor_interface import Observation
 
     assert EmpiricalSensor is not None
     assert Observation is not None
@@ -352,14 +352,14 @@ def test_empirical_sensor_imports():
 
 def test_empirical_learn_stage_imports():
     """Verify EmpiricalLearnStage imports work."""
-    from cynic.brain.cognition.cortex.judgment_stages import EmpiricalLearnStage
+    from cynic.kernel.organism.brain.cognition.cortex.judgment_stages import EmpiricalLearnStage
 
     assert EmpiricalLearnStage is not None
 
 
 def test_judgment_pipeline_learning_applied_field():
     """Verify JudgmentPipeline has learning_applied field."""
-    from cynic.brain.cognition.cortex.pipeline import JudgmentPipeline
+    from cynic.kernel.organism.brain.cognition.cortex.pipeline import JudgmentPipeline
     from cynic.kernel.core.judgment import Cell
 
     cell = Cell(

@@ -14,33 +14,42 @@ from cynic.kernel.organism.state_manager import OrganismState
 from cynic.kernel.organism.anatomy import CognitionCore, MetabolicCore, SensoryCore, ArchiveCore
 
 # All component imports
-from cynic.brain.cognition.neurons.discovery import discover_dogs
-from cynic.brain.cognition.neurons.cynic_dog import CynicDog
-from cynic.brain.cognition.neurons.oracle import OracleDog
-from cynic.kernel.core.axioms import AxiomArchitecture, HeuristicFacetScorer
-from cynic.brain.learning.qlearning import QTable, LearningLoop
-from cynic.brain.cognition.cortex.orchestrator import JudgeOrchestrator
-from cynic.brain.cognition.cortex.residual import ResidualDetector
-from cynic.brain.cognition.cortex.decide import DecideAgent
-from cynic.brain.cognition.cortex.action_proposer import ActionProposer
-from cynic.brain.cognition.cortex.account import AccountAgent
-from cynic.brain.cognition.cortex.self_probe import SelfProber
-from cynic.brain.cognition.cortex.mirror import KernelMirror
-from cynic.metabolism.scheduler import ConsciousnessRhythm
-from cynic.metabolism.telemetry import TelemetryStore
-from cynic.metabolism.llm_router import LLMRouter
-from cynic.metabolism.runner import ClaudeCodeRunner
-from cynic.kernel.core.topology import (
-    SourceWatcher, IncrementalTopologyBuilder, ConvergenceValidator
-)
+from cynic.kernel.organism.brain.cognition.neurons.discovery import discover_dogs
+from cynic.kernel.organism.brain.cognition.neurons.cynic_dog import CynicDog
+from cynic.kernel.organism.brain.cognition.neurons.oracle import OracleDog
+from cynic.kernel.core.axioms import AxiomArchitecture
+from cynic.kernel.organism.brain.learning.qlearning import QTable, LearningLoop
+from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
+from cynic.kernel.organism.brain.cognition.cortex.residual import ResidualDetector
+from cynic.kernel.organism.brain.cognition.cortex.decide import DecideAgent
+from cynic.kernel.organism.brain.cognition.cortex.action_proposer import ActionProposer
+from cynic.kernel.organism.brain.cognition.cortex.account import AccountAgent
+from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+from cynic.kernel.organism.brain.cognition.cortex.mirror import KernelMirror
+from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
+from cynic.kernel.organism.metabolism.telemetry import TelemetryStore, SessionTelemetry
+from cynic.kernel.organism.metabolism.llm_router import LLMRouter
+from cynic.kernel.organism.metabolism.claude_sdk import ClaudeCodeRunner
+from cynic.kernel.core.topology import SourceWatcher, IncrementalTopologyBuilder
+from cynic.kernel.core.world_model import WorldModelUpdater
+from cynic.kernel.core.convergence import ConvergenceValidator
 from cynic.interfaces.mcp.service import MCPBridge
 from cynic.kernel.organism.sona_emitter import SonaEmitter
 from cynic.kernel.core.container import DependencyContainer
 from cynic.kernel.core.config import CynicConfig
-from cynic.brain.cognition.cortex.lod import LODController
+from cynic.kernel.organism.brain.cognition.cortex.lod import LODController
 from cynic.kernel.core.escore import EScoreTracker
-from cynic.kernel.core.consciousness import ContextCompressor, get_consciousness
-from cynic.brain.dialogue.agent import DialogueAgent
+from cynic.kernel.core.consciousness import get_consciousness
+from cynic.kernel.organism.perception.senses.compressor import ContextCompressor
+from cynic.kernel.organism.brain.dialogue.agent import DialogueAgent
+
+# Immune System & Guardrails
+from cynic.kernel.organism.metabolism.immune.power_limiter import PowerLimiter
+from cynic.kernel.organism.metabolism.immune.alignment_checker import AlignmentSafetyChecker
+from cynic.kernel.organism.metabolism.immune.human_approval_gate import HumanApprovalGate
+from cynic.kernel.organism.metabolism.immune.transparency_audit import TransparencyAuditTrail
+from cynic.kernel.organism.brain.cognition.cortex.decision_validator import DecisionValidator
+from cynic.kernel.organism.brain.cognition.cortex.axiom_monitor import AxiomMonitor
 
 logger = logging.getLogger("cynic.kernel.organism.factory")
 
@@ -74,7 +83,7 @@ class _OrganismAwakener:
         if scholar and hasattr(scholar, "set_qtable"):
             scholar.set_qtable(self.qtable)
 
-        axiom_arch = AxiomArchitecture(facet_scorer=HeuristicFacetScorer())
+        axiom_arch = AxiomArchitecture()
         # Provide state to axiom arch for dynamic weights
         axiom_arch.state = self.state
 
@@ -87,8 +96,8 @@ class _OrganismAwakener:
         # GASdf Executor (from config)
         gasdf_executor = None
         if self.config.gasdf_enabled:
-            from cynic.perception.integrations.gasdf.client import GASdfClient
-            from cynic.perception.integrations.gasdf.executor import GASdfExecutor
+            from cynic.kernel.organism.perception.integrations.gasdf.client import GASdfClient
+            from cynic.kernel.organism.perception.integrations.gasdf.executor import GASdfExecutor
             client = GASdfClient(base_url=self.config.gasdf_url)
             gasdf_executor = GASdfExecutor(client=client)
 
@@ -110,10 +119,24 @@ class _OrganismAwakener:
         self.llm_router = LLMRouter()
         self.lod_controller = LODController()
         self.escore_tracker = EScoreTracker()
+        
+        # Immune System Instantiation
+        self.axiom_monitor = AxiomMonitor()
+        self.power_limiter = PowerLimiter()
+        self.alignment_checker = AlignmentSafetyChecker()
+        self.human_gate = HumanApprovalGate()
+        self.audit_trail = TransparencyAuditTrail()
+        
+        self.decision_validator = DecisionValidator(
+            power_limiter=self.power_limiter,
+            alignment_checker=self.alignment_checker,
+            human_gate=self.human_gate,
+            audit_trail=self.audit_trail
+        )
 
         # Connect Orchestrator to controllers
         self.orchestrator.escore_tracker = self.escore_tracker
-        self.orchestrator.axiom_monitor = None # AxiomMonitor placeholder
+        self.orchestrator.axiom_monitor = self.axiom_monitor
         self.orchestrator.lod_controller = self.lod_controller
 
         self.account_agent.set_escore_tracker(self.escore_tracker)
@@ -130,11 +153,10 @@ class _OrganismAwakener:
         self.body = HardwareBody()
         
         self.scheduler = ConsciousnessRhythm(
-            axiom_monitor=None,
-            escore_tracker=self.escore_tracker,
-            oracle_dog=self.dogs.get("ORACLE")
+            orchestrator=self.orchestrator,
+            body=self.body
         )
-        self.runner = ClaudeCodeRunner()
+        self.runner = ClaudeCodeRunner(bus=get_core_bus(), sessions_registry={})
         self.telemetry_store = TelemetryStore()
 
         # 3. SENSORY & NERVES
@@ -151,7 +173,7 @@ class _OrganismAwakener:
         self.sona_emitter = SonaEmitter(bus=get_core_bus(), db_pool=self.db_pool)
         self.sona_emitter.start()
 
-        from cynic.perception.federation.gossip import GossipManager
+        from cynic.kernel.organism.perception.federation.gossip import GossipManager
         instance_id = os.environ.get("CYNIC_INSTANCE_ID", os.urandom(4).hex())
         self.gossip_manager = GossipManager(instance_id=instance_id, q_table=self.qtable)
 
@@ -160,7 +182,7 @@ class _OrganismAwakener:
         self.organism_manager = OrganismManager(confidence_provider=self.state)
 
         # Sovereignty (Impact)
-        from cynic.brain.agents.sovereignty import SovereigntyAgent
+        from cynic.kernel.organism.brain.agents.sovereignty import SovereigntyAgent
         self.sovereignty_agent = SovereigntyAgent(state_manager=self.state)
         self.sovereignty_agent.start()
 
@@ -203,6 +225,8 @@ class _OrganismAwakener:
             HandlerRegistry, discover_handler_groups, KernelServices, 
             CognitionServices, MetabolicServices, SensoryServices
         )
+        from cynic.kernel.core.storage.gc import StorageGarbageCollector
+        storage_gc = StorageGarbageCollector() if self.db_pool else None
         
         # Internal Service Mapping
         cognition_svc = CognitionServices(
@@ -213,6 +237,7 @@ class _OrganismAwakener:
             decide_agent=self.decide_agent,
             lod_controller=self.lod_controller,
             escore_tracker=self.escore_tracker,
+            axiom_monitor=self.axiom_monitor,
             health_cache={} # Placeholder
         )
         metabolic_svc = MetabolicServices(
@@ -227,17 +252,26 @@ class _OrganismAwakener:
             world_model=self.world_model
         )
         services = KernelServices(cognition=cognition_svc, metabolic=metabolic_svc, senses=sensory_svc)
-
         handler_registry = HandlerRegistry()
-        groups = discover_handler_groups(
-            services,
-            intelligence={"orchestrator": self.orchestrator, "scheduler": self.scheduler, "db_pool": self.db_pool, "compressor": self.compressor},
-            federation={"gossip_manager": self.gossip_manager},
-            judgment_executor={"orchestrator": self.orchestrator},
-            axiom={"action_proposer": self.action_proposer},
-            act_executor={"agency_manager": self.organism_manager, "body": self.body}
-        )
-        for g in groups: handler_registry.register(g)
+        
+        # Explicit Wiring (Rigueur Senior)
+        from cynic.kernel.organism.handlers.intelligence import IntelligenceHandlers
+        from cynic.kernel.organism.handlers.federation import FederationHandler
+        from cynic.kernel.organism.handlers.axiom import AxiomHandlers
+        from cynic.kernel.organism.handlers.health import HealthHandlers
+        from cynic.kernel.organism.handlers.sdk import SDKHandlers
+        from cynic.kernel.organism.handlers.knet_handler import KNetHandler
+        from cynic.kernel.organism.handlers.meta_cognition import MetaCognitionHandlers
+        from cynic.kernel.organism.handlers.judgment_executor import JudgmentExecutorHandler
+
+        handler_registry.register(IntelligenceHandlers(services, orchestrator=self.orchestrator, scheduler=self.scheduler, db_pool=self.db_pool, compressor=self.compressor))
+        handler_registry.register(FederationHandler(services, gossip_manager=self.gossip_manager))
+        handler_registry.register(AxiomHandlers(services, action_proposer=self.action_proposer))
+        handler_registry.register(HealthHandlers(services, storage_gc=storage_gc, db_pool=self.db_pool))
+        handler_registry.register(SDKHandlers(services, action_proposer=self.action_proposer, qtable=self.qtable))
+        handler_registry.register(KNetHandler(services))
+        handler_registry.register(MetaCognitionHandlers(services))
+        handler_registry.register(JudgmentExecutorHandler(services, orchestrator=self.orchestrator))
 
         # 7. DEPENDENCY CONTAINER
         container = DependencyContainer(self.config)
