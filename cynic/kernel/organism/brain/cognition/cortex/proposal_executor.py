@@ -29,6 +29,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from enum import Enum
@@ -48,15 +49,21 @@ class RiskLevel(Enum):
 class ExecutionResult:
     """Result of proposal execution."""
     success: bool
+    proposal_id: str
     dimension: str
-    message: str
+    message: str = ""
+    error_message: str = ""
+    old_value: Optional[float] = None
     new_value: Optional[float] = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "success": self.success,
+            "proposal_id": self.proposal_id,
             "dimension": self.dimension,
             "message": self.message,
+            "error_message": self.error_message,
+            "old_value": self.old_value,
             "new_value": self.new_value,
         }
 
@@ -129,7 +136,7 @@ class ProposalExecutor:
 
     # — Execution ——————————————————————————————————————————————————————————————
 
-    def execute(self, proposal: Any) -> ExecutionResult:
+    async def execute(self, proposal: Any) -> ExecutionResult:
         """
         Execute a proposal based on its dimension.
 
@@ -142,25 +149,26 @@ class ProposalExecutor:
         dimension = proposal.dimension
 
         if dimension == "QTABLE":
-            return self._execute_qtable(proposal)
+            return await self._execute_qtable(proposal)
         elif dimension == "METRICS":
-            return self._execute_metrics(proposal)
+            return await self._execute_metrics(proposal)
         elif dimension == "ESCORE":
-            return self._execute_escore(proposal)
+            return await self._execute_escore(proposal)
         elif dimension == "RESIDUAL":
-            return self._execute_residual(proposal)
+            return await self._execute_residual(proposal)
         elif dimension == "ARCHITECTURE" or dimension == "COUPLING":
-            return self._execute_architecture(proposal)
+            return await self._execute_architecture(proposal)
         else:
             return ExecutionResult(
                 success=False,
+                proposal_id=proposal.probe_id,
                 dimension=dimension,
                 message=f"Unknown dimension: {dimension}",
             )
 
     # — Dimension Handlers —————————————————————————————————————————————————————
 
-    def _execute_qtable(self, proposal: Any) -> ExecutionResult:
+    async def _execute_qtable(self, proposal: Any) -> ExecutionResult:
         """
         Execute QTABLE dimension proposal.
 
@@ -176,6 +184,7 @@ class ProposalExecutor:
         if self._qtable is None:
             return ExecutionResult(
                 success=False,
+                proposal_id=proposal.probe_id,
                 dimension="QTABLE",
                 message="QTable not injected; cannot execute QTABLE proposal",
             )
@@ -186,11 +195,13 @@ class ProposalExecutor:
             if len(parts) != 2:
                 return ExecutionResult(
                     success=False,
+                    proposal_id=proposal.probe_id,
                     dimension="QTABLE",
                     message=f"Invalid target format: {proposal.target} (expected 'state:action')",
                 )
 
             state_key, action = parts
+            old_value = proposal.current_value
             new_value = proposal.suggested_value
 
             # Try to use update() method if available
@@ -205,8 +216,10 @@ class ProposalExecutor:
                     )
                     return ExecutionResult(
                         success=True,
+                        proposal_id=proposal.probe_id,
                         dimension="QTABLE",
-                        message=f"Updated QTable[{state_key}][{action}] from {proposal.current_value:.4f} to {new_value:.4f}",
+                        message=f"Updated QTable[{state_key}][{action}] from {old_value:.4f} to {new_value:.4f}",
+                        old_value=old_value,
                         new_value=new_value,
                     )
                 except Exception as e:
@@ -226,13 +239,16 @@ class ProposalExecutor:
                     )
                     return ExecutionResult(
                         success=True,
+                        proposal_id=proposal.probe_id,
                         dimension="QTABLE",
-                        message=f"Updated QTable[{state_key}][{action}] from {proposal.current_value:.4f} to {new_value:.4f}",
+                        message=f"Updated QTable[{state_key}][{action}] from {old_value:.4f} to {new_value:.4f}",
+                        old_value=old_value,
                         new_value=new_value,
                     )
 
             return ExecutionResult(
                 success=False,
+                proposal_id=proposal.probe_id,
                 dimension="QTABLE",
                 message=f"QTable entry not found: {state_key}:{action}",
             )
@@ -241,11 +257,13 @@ class ProposalExecutor:
             logger.warning("ProposalExecutor._execute_qtable error: %s", e)
             return ExecutionResult(
                 success=False,
+                proposal_id=proposal.probe_id,
                 dimension="QTABLE",
                 message=f"Execution error: {str(e)}",
+                error_message=str(e),
             )
 
-    def _execute_metrics(self, proposal: Any) -> ExecutionResult:
+    async def _execute_metrics(self, proposal: Any) -> ExecutionResult:
         """
         Execute METRICS dimension proposal.
 
@@ -259,29 +277,35 @@ class ProposalExecutor:
             ExecutionResult
         """
         try:
+            old_value = proposal.current_value
+            new_value = proposal.suggested_value
             message = (
                 f"METRICS proposal recorded: {proposal.target} "
                 f"({proposal.pattern_type}): {proposal.recommendation} "
-                f"(current={proposal.current_value:.2f}, "
-                f"suggested={proposal.suggested_value:.2f})"
+                f"(current={old_value:.2f}, "
+                f"suggested={new_value:.2f})"
             )
             logger.info("ProposalExecutor: %s", message)
             return ExecutionResult(
                 success=True,
+                proposal_id=proposal.probe_id,
                 dimension="METRICS",
                 message=message,
-                new_value=proposal.suggested_value,
+                old_value=old_value,
+                new_value=new_value,
             )
 
         except Exception as e:
             logger.warning("ProposalExecutor._execute_metrics error: %s", e)
             return ExecutionResult(
                 success=False,
+                proposal_id=proposal.probe_id,
                 dimension="METRICS",
                 message=f"Execution error: {str(e)}",
+                error_message=str(e),
             )
 
-    def _execute_escore(self, proposal: Any) -> ExecutionResult:
+    async def _execute_escore(self, proposal: Any) -> ExecutionResult:
         """
         Execute ESCORE dimension proposal.
 
@@ -293,19 +317,24 @@ class ProposalExecutor:
         Returns:
             ExecutionResult (always fails, requires manual review)
         """
+        old_value = proposal.current_value
+        new_value = proposal.suggested_value
         message = (
             f"ESCORE proposal requires manual review: {proposal.target} "
-            f"(current={proposal.current_value:.1f}, "
-            f"suggested={proposal.suggested_value:.1f})"
+            f"(current={old_value:.1f}, "
+            f"suggested={new_value:.1f})"
         )
         logger.info("ProposalExecutor: %s", message)
         return ExecutionResult(
             success=False,
+            proposal_id=proposal.probe_id,
             dimension="ESCORE",
             message=message,
+            old_value=old_value,
+            new_value=new_value,
         )
 
-    def _execute_residual(self, proposal: Any) -> ExecutionResult:
+    async def _execute_residual(self, proposal: Any) -> ExecutionResult:
         """
         Execute RESIDUAL dimension proposal.
 
@@ -324,11 +353,12 @@ class ProposalExecutor:
         logger.info("ProposalExecutor: %s", message)
         return ExecutionResult(
             success=False,
+            proposal_id=proposal.probe_id,
             dimension="RESIDUAL",
             message=message,
         )
 
-    def _execute_architecture(self, proposal: Any) -> ExecutionResult:
+    async def _execute_architecture(self, proposal: Any) -> ExecutionResult:
         """
         Execute ARCHITECTURE dimension proposal.
 
@@ -347,6 +377,7 @@ class ProposalExecutor:
         logger.info("ProposalExecutor: %s", message)
         return ExecutionResult(
             success=False,
+            proposal_id=proposal.probe_id,
             dimension="ARCHITECTURE" if proposal.dimension == "ARCHITECTURE" else "COUPLING",
             message=message,
         )

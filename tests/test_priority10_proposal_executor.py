@@ -95,7 +95,8 @@ class TestRiskClassification:
 class TestProposalExecution:
     """Test proposal execution handlers."""
 
-    def test_5_execute_metrics_proposal_succeeds(self):
+    @pytest.mark.asyncio
+    async def test_5_execute_metrics_proposal_succeeds(self):
         """Test 5: Execute METRICS proposal succeeds (logging only)."""
         executor = ProposalExecutor()
         proposal = SelfProposal(
@@ -110,12 +111,14 @@ class TestProposalExecution:
             suggested_value=30.0,
         )
 
-        result = executor.execute(proposal)
+        result = await executor.execute(proposal)
         assert result.success is True
+        assert result.proposal_id == "p5"
         assert result.dimension == "METRICS"
         assert "logging" in result.message.lower() or "recorded" in result.message.lower()
 
-    def test_6_execute_qtable_proposal_succeeds(self):
+    @pytest.mark.asyncio
+    async def test_6_execute_qtable_proposal_succeeds(self):
         """Test 6: Execute QTABLE proposal succeeds (with injected qtable)."""
         executor = ProposalExecutor()
 
@@ -147,12 +150,14 @@ class TestProposalExecution:
             suggested_value=0.45,
         )
 
-        result = executor.execute(proposal)
+        result = await executor.execute(proposal)
         assert result.success is True
+        assert result.proposal_id == "p6"
         assert result.dimension == "QTABLE"
         assert "updated" in result.message.lower() or "applied" in result.message.lower()
 
-    def test_7_execute_qtable_when_not_injected_fails_gracefully(self):
+    @pytest.mark.asyncio
+    async def test_7_execute_qtable_when_not_injected_fails_gracefully(self):
         """Test 7: Execute QTABLE when QTable not injected fails gracefully."""
         executor = ProposalExecutor()
         # Don't inject qtable
@@ -169,8 +174,9 @@ class TestProposalExecution:
             suggested_value=0.45,
         )
 
-        result = executor.execute(proposal)
+        result = await executor.execute(proposal)
         assert result.success is False
+        assert result.proposal_id == "p7"
         assert "not available" in result.message.lower() or "not injected" in result.message.lower()
 
 
@@ -181,12 +187,14 @@ class TestExecutionResult:
         """Test that ExecutionResult has all required fields."""
         result = ExecutionResult(
             success=True,
+            proposal_id="p1",
             dimension="METRICS",
             message="Test execution",
             new_value=0.5,
         )
 
         assert result.success is True
+        assert result.proposal_id == "p1"
         assert result.dimension == "METRICS"
         assert result.message == "Test execution"
         assert result.new_value == 0.5
@@ -195,9 +203,31 @@ class TestExecutionResult:
         """Test that ExecutionResult.new_value is optional."""
         result = ExecutionResult(
             success=False,
+            proposal_id="p2",
             dimension="QTABLE",
             message="Failed to execute",
         )
 
         assert result.success is False
+        assert result.proposal_id == "p2"
         assert result.new_value is None
+
+    def test_execution_result_all_fields(self):
+        """Test ExecutionResult with all fields populated."""
+        result = ExecutionResult(
+            success=True,
+            proposal_id="p3",
+            dimension="QTABLE",
+            message="Execution succeeded",
+            error_message="",
+            old_value=0.3,
+            new_value=0.45,
+        )
+
+        assert result.success is True
+        assert result.proposal_id == "p3"
+        assert result.dimension == "QTABLE"
+        assert result.message == "Execution succeeded"
+        assert result.error_message == ""
+        assert result.old_value == 0.3
+        assert result.new_value == 0.45
