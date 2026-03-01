@@ -84,7 +84,15 @@ class MasterDog(LLMDog):
             # 2. Attempt LLM Judgment (The "Dream" path)
             adapter = await self.get_llm()
             if adapter:
-                return await self._llm_path(cell, adapter, start)
+                judgment = await self._llm_path(cell, adapter, start)
+                
+                # SAGE-specific: bidirectional attention feedback
+                if self.dog_id == DogId.SAGE and hasattr(self, "_compressor") and self._compressor:
+                    try:
+                        self._compressor.boost(str(cell.content), judgment.q_score)
+                    except Exception: pass
+                    
+                return judgment
             
             # 3. Fallback to Basic Heuristic (The "Instinct" path)
             return await self._heuristic_path(cell, start)
@@ -93,6 +101,22 @@ class MasterDog(LLMDog):
             self._errors += 1
             logger.error(f"MasterDog[{self.dog_id}] analysis failed: {e}", exc_info=True)
             return self._error_judgment(cell, start, str(e))
+
+    # --- SAGE EXPERTISE (World-Maker) ---
+    async def dream_facets(self, axiom: str, reality: str, registry: Any) -> dict[str, str]:
+        """Delegate facet dreaming to expertise plugin if available."""
+        if self.dog_id == DogId.SAGE:
+            from cynic.kernel.organism.brain.cognition.neurons.expertise import dream_facets_expertise
+            adapter = await self.get_llm()
+            if adapter:
+                return await dream_facets_expertise(adapter, axiom, reality, registry)
+        return {}
+
+    def set_compressor(self, compressor: Any) -> None:
+        """Inject ContextCompressor (SAGE only)."""
+        if self.dog_id == DogId.SAGE:
+            self._compressor = compressor
+            logger.info("MasterDog[SAGE]: ContextCompressor injected.")
 
     def _create_judgment(self, cell: Cell, start: float, data: Dict[str, Any]) -> DogJudgment:
         latency = (time.perf_counter() - start) * 1000

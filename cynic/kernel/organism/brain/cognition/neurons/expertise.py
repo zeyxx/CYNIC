@@ -37,6 +37,37 @@ async def scout_expertise(cell: Cell) -> Dict[str, Any]:
         "evidence": {"urls_found": found}
     }
 
+async def dream_facets_expertise(
+    adapter: Any, axiom: str, reality: str, registry: Any
+) -> dict[str, str]:
+    """World-Maker: Generate 7 dynamic facets via LLM."""
+    prompt = f"""
+    Reality Context: {reality}
+    Core Axiom: {axiom}
+    
+    Generate exactly 7 distinct dimensions (facets) to evaluate this axiom 
+    within this reality context. Each facet must have a name (1 word) and a 
+    short description.
+    
+    Format:
+    FACET_NAME: Description
+    """
+    try:
+        response = await adapter.generate(prompt)
+        facets = {}
+        for line in response.splitlines():
+            if ":" in line:
+                parts = line.split(":", 1)
+                name = re.sub(r'^\d+[\.\-\s]+', '', parts[0].strip().upper())
+                desc = parts[1].strip()
+                if name and desc:
+                    facets[name] = desc
+                    await registry.register_facet(axiom, reality, name, desc)
+        return facets
+    except Exception as e:
+        logger.error(f"Expertise: SAGE dream failed for {axiom}/{reality}: {e}")
+        return {}
+
 # --- REGISTRY OF EXPERTISE ---
 EXPERTISE_MAP = {
     "web_discovery": scout_expertise,
