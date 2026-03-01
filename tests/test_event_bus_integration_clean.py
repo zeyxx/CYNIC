@@ -286,11 +286,11 @@ async def test_detector_emits_emergence_detected_on_stable_high(
     # Should have detected STABLE_HIGH pattern and emitted EMERGENCE_DETECTED
     assert len(emergence_events) > 0
 
-    # Check payload
+    # Check payload (EmergenceDetectedPayload Pydantic model)
     emergence_payload = emergence_events[0].payload
-    assert emergence_payload.get("pattern_type") == "STABLE_HIGH"
-    assert "severity" in emergence_payload
-    assert "evidence" in emergence_payload
+    assert emergence_payload.pattern_type == "STABLE_HIGH"
+    assert emergence_payload.severity is not None
+    assert emergence_payload.evidence is not None
 
 
 @pytest.mark.asyncio
@@ -370,10 +370,10 @@ async def test_detector_anomaly_detected_on_spike(
     # Should have detected SPIKE pattern and emitted ANOMALY_DETECTED
     assert len(anomaly_events) > 0
 
-    # Check payload
+    # Check payload (AnomalyDetectedPayload Pydantic model)
     anomaly_payload = anomaly_events[0].payload
-    assert anomaly_payload.get("pattern_type") == "SPIKE"
-    assert anomaly_payload.get("severity") > 0
+    assert anomaly_payload.pattern_type == "SPIKE"
+    assert anomaly_payload.severity > 0
 
 
 @pytest.mark.asyncio
@@ -562,7 +562,7 @@ async def test_detector_rising_pattern_detection(
     # Verify pattern detected (RISING or SPIKE — detector recognizes steady increase)
     assert len(emergence_events) > 0, "No emergence detected"
     emergence = emergence_events[0]
-    pattern_type = emergence.payload.get("pattern_type", "")
+    pattern_type = emergence.payload.pattern_type
     assert pattern_type in ("RISING", "SPIKE"), \
         f"Expected RISING or SPIKE pattern, got: {pattern_type}"
 
