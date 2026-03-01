@@ -16,6 +16,8 @@ from typing import Any
 
 from cynic.kernel.core.formulas import LLM_TIMEOUT_SEC
 from cynic.kernel.core.phi import MAX_Q_SCORE, PHI, PHI_INV, weighted_geometric_mean
+from cynic.kernel.core.vascular import VascularSystem
+import httpx
 
 logger = logging.getLogger("cynic.kernel.organism.brain.llm.adapter")
 
@@ -53,9 +55,17 @@ class LLMResponse:
 class LLMAdapter(ABC):
     """Base for all LLM muscles."""
 
-    def __init__(self, model: str, provider: str) -> None:
+    def __init__(self, model: str, provider: str, vascular: Optional[VascularSystem] = None) -> None:
         self.model = model
         self.provider = provider
+        self.vascular = vascular
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """Helper to get shared client or local fallback."""
+        if self.vascular:
+            return await self.vascular.get_client()
+        # Fallback for tests/unmanaged runs
+        return httpx.AsyncClient(timeout=30.0)
 
     @property
     def adapter_id(self) -> str:

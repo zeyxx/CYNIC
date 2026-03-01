@@ -76,6 +76,9 @@ class _OrganismAwakener:
         # Generate instance identity (SRE standard)
         instance_id = f"CYNIC-{os.environ.get('NODE_NAME', 'LOCAL')}-{uuid.uuid4().hex[:8]}"
         
+        # 0b. VASCULAR SYSTEM (Network IO Pool)
+        self.vascular = VascularSystem(instance_id=instance_id)
+
         # Pre-initialize core bus for injection
         instance_bus = get_core_bus(instance_id)
 
@@ -89,7 +92,7 @@ class _OrganismAwakener:
         
         # 1b. LLM REGISTRY (Isolated)
         from cynic.kernel.organism.brain.llm.adapter import LLMRegistry
-        self.llm_registry = LLMRegistry()
+        self.llm_registry = LLMRegistry(vascular=self.vascular)
 
         # 1c. SERVICE REGISTRY (Isolated)
         from cynic.nervous.service_registry import ServiceStateRegistry
