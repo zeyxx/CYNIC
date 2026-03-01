@@ -158,7 +158,8 @@
       "Bash(/tmp/proof_summary.txt:*)",
       "Bash(})",
       "Bash(}:*)",
-      "Bash(read f:*)"
+      "Bash(read f:*)",
+      "Bash(/tmp/final_summary.txt:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

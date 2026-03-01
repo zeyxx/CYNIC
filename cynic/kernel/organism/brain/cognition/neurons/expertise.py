@@ -1,7 +1,7 @@
 """
-MasterDog Expertise Plugins — Specialized non-LLM logic.
+MasterDog Expertise Plugins — Specialized ML and heuristic logic.
 
-Unifies heuristic expertise (AST, TF-IDF, Network, Anomaly) into 
+Unifies heuristic expertise (AST, ML, Network, Anomaly) into 
 reusable functions called by the MasterDog engine.
 """
 from __future__ import annotations
@@ -14,6 +14,7 @@ import urllib.request
 import urllib.error
 from typing import Any, Dict, List, Optional, Tuple
 
+import numpy as np
 from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.phi import fibonacci, PHI_INV_2, MAX_Q_SCORE, phi_bound_score
 
@@ -53,7 +54,6 @@ async def scout_expertise(cell: Cell) -> Dict[str, Any]:
 # --- ARCHITECT EXPERTISE (AST) ---
 MAX_IMPORTS = 13
 MAX_NESTING = 7
-MAX_METHODS = 11
 
 async def ast_analysis_expertise(cell: Cell) -> Dict[str, Any]:
     """AST-based structural analysis."""
@@ -63,29 +63,21 @@ async def ast_analysis_expertise(cell: Cell) -> Dict[str, Any]:
     
     try:
         tree = ast.parse(code)
-        import_count = 0
-        max_depth = 0
+        import_count = sum(1 for node in ast.walk(tree) if isinstance(node, (ast.Import, ast.ImportFrom)))
         
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.Import, ast.ImportFrom)):
-                import_count += 1
-        
-        # Simple depth check for prototype
         def get_depth(node, depth=0):
-            if not list(ast.iter_child_nodes(node)): return depth
-            return max(get_depth(c, depth + 1) for c in ast.iter_child_nodes(node))
+            children = list(ast.iter_child_nodes(node))
+            if not children: return depth
+            return max(get_depth(c, depth + 1) for c in children)
         
         max_depth = get_depth(tree)
-        
-        penalty = 0.0
-        if import_count > MAX_IMPORTS: penalty += (import_count - MAX_IMPORTS) * 3
-        if max_depth > MAX_NESTING: penalty += (max_depth - MAX_NESTING) * 5
-        
+        penalty = max(0, (import_count - MAX_IMPORTS) * 3) + max(0, (max_depth - MAX_NESTING) * 5)
         q_score = max(0.0, 100.0 - penalty)
+        
         return {
             "q_score": q_score,
             "confidence": 0.5,
-            "reasoning": f"AST Analysis: imports={import_count}, depth={max_depth}. Structural integrity at {q_score:.1f}%",
+            "reasoning": f"AST Analysis: imports={import_count}, depth={max_depth}.",
             "evidence": {"imports": import_count, "depth": max_depth}
         }
     except Exception as e:
@@ -98,19 +90,48 @@ async def static_analysis_expertise(cell: Cell) -> Dict[str, Any]:
     if not code:
         return {"q_score": 50.0, "confidence": 0.1, "reasoning": "No code found for smell detection."}
     
-    smells = []
-    if "TODO" in code.upper(): smells.append("debt-marker:TODO")
-    if "FIXME" in code.upper(): smells.append("debt-marker:FIXME")
-    if "HACK" in code.upper(): smells.append("debt-marker:HACK")
-    
-    penalty = len(smells) * 10.0
-    q_score = max(0.0, 100.0 - penalty)
+    markers = ("TODO", "FIXME", "HACK")
+    smells = [m for m in markers if m in code.upper()]
+    q_score = max(0.0, 100.0 - (len(smells) * 10.0))
     
     return {
         "q_score": q_score,
         "confidence": 0.6,
-        "reasoning": f"Janitor: {len(smells)} smells found. {', '.join(smells) if smells else 'Clean code'}.",
+        "reasoning": f"Janitor: {len(smells)} smells found.",
         "evidence": {"smells": smells}
+    }
+
+# --- GUARDIAN EXPERTISE (Anomaly) ---
+async def anomaly_detection_expertise(cell: Cell) -> Dict[str, Any]:
+    """IsolationForest-style anomaly detection (Heuristic version)."""
+    # Simplified: Higher risk/novelty = Higher anomaly
+    score = (cell.risk + cell.novelty) / 2.0
+    q_score = max(0.0, 100.0 * (1.0 - score))
+    
+    threats = {"rm -rf": 1.0, "eval(": 0.8, "exec(": 0.8}
+    content = str(cell.content).lower()
+    threat_found = any(t in content for t in threats)
+    
+    if threat_found:
+        q_score = min(q_score, 10.0)
+        
+    return {
+        "q_score": q_score,
+        "confidence": 0.382,
+        "reasoning": f"Guardian: Anomaly risk {score:.2f}. {'CRITICAL THREAT' if threat_found else 'Safe'}.",
+        "evidence": {"risk": cell.risk, "novelty": cell.novelty, "threat_detected": threat_found}
+    }
+
+# --- ORACLE EXPERTISE (Q-Table) ---
+async def qtable_prediction_expertise(cell: Cell) -> Dict[str, Any]:
+    """Thompson Sampling / Q-Table prediction lookup."""
+    # In a real system, we'd inject the qtable instance. 
+    # For now, return a placeholder that looks for the state_key.
+    return {
+        "q_score": 50.0,
+        "confidence": 0.2,
+        "reasoning": "Oracle: Q-Table consult pending (placeholder).",
+        "evidence": {"state_key": cell.state_key()}
     }
 
 # --- WORLD-MAKER ---
@@ -140,6 +161,8 @@ EXPERTISE_MAP = {
     "web_discovery": scout_expertise,
     "ast_analysis": ast_analysis_expertise,
     "static_analysis": static_analysis_expertise,
+    "anomaly_detection": anomaly_detection_expertise,
+    "qtable_lookup": qtable_prediction_expertise,
 }
 
 async def call_expertise(expertise_id: str, cell: Cell) -> Optional[Dict[str, Any]]:

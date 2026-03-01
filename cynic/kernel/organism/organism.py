@@ -68,6 +68,34 @@ class Organism:
     @property
     def manager(self): return self.memory.meta_cognition
 
+    # --- Senses Accessors ---
+    @property
+    def source_watcher(self): return self.senses.source_watcher
+    @property
+    def convergence_validator(self): return self.senses.convergence_validator
+    @property
+    def world_model(self): return self.senses.world_model
+    @property
+    def topology_builder(self): return self.senses.topology_builder
+    @property
+    def mcp_bridge(self): return self.senses.mcp_bridge
+
+    # --- Memory Accessors (continued) ---
+    @property
+    def kernel_mirror(self): return self.memory.kernel_mirror
+    @property
+    def self_prober(self): return self.memory.self_prober
+    @property
+    def action_proposer(self): return self.memory.action_proposer
+
+    # --- Other Accessors ---
+    @property
+    def residual_detector(self): return self.cognition.residual_detector
+    @property
+    def account_agent(self): return self.cognition.account_agent
+    @property
+    def llm_router(self): return self.metabolism.llm_router
+
     # --- Event Wiring ---
     def _wire_event_handlers(self) -> None:
         """Register all event bus subscriptions."""
