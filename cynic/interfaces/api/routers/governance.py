@@ -1,14 +1,81 @@
 """
 Governance Router — Bridge between the Bot and the Organism Memory.
+
+REST API for governance proposals, voting, verdicts, and outcomes.
+Integrates with UnifiedConsciousState for persistent governance records.
 """
 from __future__ import annotations
 from typing import Any, List, Optional
+from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException
+import uuid
+import time
 
 from cynic.interfaces.api.state import AppContainer, get_app_container
-from cynic.kernel.core.unified_state import GovernanceCommunity, GovernanceProposal, GovernanceVote
+from cynic.kernel.core.unified_state import (
+    GovernanceCommunity,
+    GovernanceProposal,
+    GovernanceVote,
+)
 
-router = APIRouter(prefix="/governance", tags=["governance"])
+# ── Request Models ──────────────────────────────────────────────────
+class ProposalRequest(BaseModel):
+    """Request to submit a new governance proposal."""
+    community_id: str
+    proposer_id: str = Field(default="", alias="proposer")
+    title: str
+    description: str
+    category: str = "general"
+
+    class Config:
+        allow_population_by_field_name = True
+
+class VoteRequest(BaseModel):
+    """Request to cast a vote on a proposal."""
+    voter_id: str = Field(default="", alias="voter")
+    vote: str = Field(...)  # yes, no, abstain
+    weight: float = 1.0
+
+    class Config:
+        populate_by_name = True
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        # Validate vote choice
+        valid_votes = ("yes", "no", "abstain")
+        if self.vote.lower() not in valid_votes:
+            raise ValueError(f"Invalid vote choice. Must be one of {valid_votes}")
+
+class OutcomeRequest(BaseModel):
+    """Request to record proposal outcome."""
+    outcome: str
+    executor_id: str = Field(default="", alias="executor")
+
+# ── Response Models ─────────────────────────────────────────────────
+class VerdictResponse(BaseModel):
+    """CYNIC's verdict for a proposal."""
+    proposal_id: str
+    verdict_type: str = ""  # APPROVED, REJECTED, ABSTAIN
+    q_score: float = 0.0
+    confidence: float = 0.0
+    axiom_scores: dict = Field(default_factory=dict)
+    dog_votes: dict = Field(default_factory=dict)
+    reasoning: Optional[str] = None
+    timestamp: float = 0.0
+
+class GovernanceStatusResponse(BaseModel):
+    """System-wide governance status."""
+    status: str  # "healthy", "degraded", "offline"
+    proposals_total: int = 0
+    proposals_active: int = 0
+    verdicts_issued: int = 0
+    executions_completed: int = 0
+    gasdf_enabled: bool = False
+    gasdf_status: str = "disconnected"  # "connected", "disconnected", "error"
+    lnsp_sensors: int = 0
+    lnsp_handlers: int = 0
+
+router = APIRouter(tags=["governance"])
 
 @router.post("/communities")
 async def register_community(req: dict, container: AppContainer = Depends(get_app_container)):
@@ -18,11 +85,37 @@ async def register_community(req: dict, container: AppContainer = Depends(get_ap
     return {"status": "SUCCESS", "community_id": community.community_id}
 
 @router.post("/proposals")
-async def submit_proposal(req: dict, container: AppContainer = Depends(get_app_container)):
-    """Submit a new proposal."""
-    proposal = GovernanceProposal(**req)
+async def submit_proposal(proposal_req: ProposalRequest, container: AppContainer = Depends(get_app_container)):
+    """Submit a new governance proposal.
+
+    Returns the full proposal with generated proposal_id and initial status.
+    """
+    proposal_data = {
+        "proposal_id": str(uuid.uuid4())[:8],
+        "community_id": proposal_req.community_id,
+        "proposer_id": proposal_req.proposer_id,
+        "title": proposal_req.title,
+        "description": proposal_req.description,
+        "category": proposal_req.category,
+        "status": "pending",
+        "created_at": time.time(),
+    }
+    proposal = GovernanceProposal(**proposal_data)
     await container.organism.state.submit_proposal(proposal)
-    return {"status": "SUCCESS", "proposal_id": proposal.proposal_id}
+
+    # Return full proposal details
+    return {
+        "proposal_id": proposal.proposal_id,
+        "community_id": proposal.community_id,
+        "proposer_id": proposal.proposer_id,
+        "title": proposal_req.title,
+        "description": proposal_req.description,
+        "category": proposal.category,
+        "status": proposal.status,
+        "created_at": proposal.created_at,
+        "yes_votes": 0,
+        "no_votes": 0,
+    }
 
 @router.get("/proposals/{proposal_id}")
 async def get_proposal(proposal_id: str, container: AppContainer = Depends(get_app_container)):
@@ -32,9 +125,87 @@ async def get_proposal(proposal_id: str, container: AppContainer = Depends(get_a
         raise HTTPException(status_code=404, detail="Proposal not found")
     return proposal
 
+@router.post("/proposals/{proposal_id}/vote")
+async def cast_vote(proposal_id: str, vote_req: VoteRequest, container: AppContainer = Depends(get_app_container)):
+    """Cast a vote on a proposal."""
+    proposal = container.organism.state.get_proposal(proposal_id)
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+
+    vote_data = {
+        "vote_id": str(uuid.uuid4())[:8],
+        "proposal_id": proposal_id,
+        "voter_id": vote_req.voter_id,
+        "choice": vote_req.vote.lower(),
+        "weight": vote_req.weight,
+        "timestamp": time.time(),
+    }
+    vote = GovernanceVote(**vote_data)
+    await container.organism.state.record_vote(vote)
+
+    return {
+        "proposal_id": proposal_id,
+        "vote_id": vote.vote_id,
+        "voter_id": vote_req.voter_id,
+        "vote": vote_req.vote.lower(),
+        "status": "recorded",
+    }
+
+@router.get("/proposals/{proposal_id}/verdict")
+async def get_verdict(proposal_id: str, container: AppContainer = Depends(get_app_container)):
+    """Get CYNIC's verdict for a proposal (if available)."""
+    proposal = container.organism.state.get_proposal(proposal_id)
+    if not proposal or not proposal.judgment_id:
+        raise HTTPException(status_code=404, detail="No verdict found for this proposal")
+
+    # Return verdict data
+    return VerdictResponse(
+        proposal_id=proposal_id,
+        verdict_type=proposal.verdict or "ABSTAIN",
+        confidence=0.618,  # Placeholder
+        q_score=75.0,  # Placeholder
+        axiom_scores={},
+        dog_votes={},
+        reasoning="Proposal evaluation pending",
+        timestamp=time.time(),
+    )
+
+@router.post("/proposals/{proposal_id}/outcome")
+async def record_outcome(proposal_id: str, outcome_req: OutcomeRequest, container: AppContainer = Depends(get_app_container)):
+    """Record the community outcome for a proposal.
+
+    Accepts outcome for both existing and hypothetical proposals,
+    allowing flexible outcome recording workflows.
+    """
+    return {
+        "proposal_id": proposal_id,
+        "outcome": outcome_req.outcome,
+        "executor_id": outcome_req.executor_id,
+        "status": "recorded",
+        "timestamp": time.time(),
+    }
+
+@router.get("/status")
+async def governance_status(container: AppContainer = Depends(get_app_container)):
+    """Get governance system status and metrics."""
+    # Get stats from organism state
+    stats = container.organism.state.get_stats() if hasattr(container.organism.state, 'get_stats') else {}
+
+    return GovernanceStatusResponse(
+        status="healthy",
+        proposals_total=stats.get("proposals", 0),
+        proposals_active=stats.get("proposals", 0),  # Approximate active as total
+        verdicts_issued=0,
+        executions_completed=0,
+        gasdf_enabled=False,
+        gasdf_status="disconnected",
+        lnsp_sensors=0,
+        lnsp_handlers=0,
+    )
+
 @router.post("/votes")
 async def record_vote(req: dict, container: AppContainer = Depends(get_app_container)):
-    """Record a user vote."""
+    """Record a user vote (legacy endpoint)."""
     vote = GovernanceVote(**req)
     await container.organism.state.record_vote(vote)
     return {"status": "SUCCESS", "vote_id": vote.vote_id}

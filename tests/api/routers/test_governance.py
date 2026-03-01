@@ -264,7 +264,7 @@ class TestGovernanceEndpoints:
 
         # 2. Cast votes
         for voter_id in ["voter_1", "voter_2", "voter_3"]:
-            vote_resp = client.post(
+            vote_resp = governanceendpoints_client.post(
                 f"/api/governance/proposals/{proposal_id}/vote",
                 json={
                     "voter": voter_id,
