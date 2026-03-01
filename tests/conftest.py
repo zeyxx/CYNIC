@@ -36,6 +36,8 @@ collect_ignore = [
     # Refactored/removed functionality (5 files)
     "test_topology_integration.py",
     "test_telemetry_ws.py",
+    # Deleted Dog neurons (tests for removed modules)
+    "cognition/test_sage_dog.py",
 ]
 
 
