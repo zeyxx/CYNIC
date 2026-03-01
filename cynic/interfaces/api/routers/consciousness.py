@@ -3,6 +3,7 @@ CYNIC consciousness router — cognitive state & diagnostics: consciousness · h
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -10,10 +11,11 @@ import pathlib as _pathlib
 import time
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
 from cynic.kernel.core.consciousness import get_consciousness
 from cynic.kernel.observability.health import HealthChecker
+from cynic.kernel.core.phi import MAX_CONFIDENCE
 from cynic.interfaces.api.state import get_app_container, AppContainer
 
 logger = logging.getLogger("cynic.interfaces.api.server")
@@ -410,3 +412,57 @@ async def guardrails(container: AppContainer = Depends(get_app_container)) -> li
     """
     # Return empty list (audit trail not directly accessible from organism)
     return []
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# WebSocket /ws/consciousness/ecosystem — Live Consciousness Stream
+# ════════════════════════════════════════════════════════════════════════════
+
+@router_consciousness.websocket("/ws/ecosystem")
+async def websocket_ecosystem(websocket: WebSocket) -> None:
+    """
+    WebSocket /ws/consciousness/ecosystem provides live consciousness stream.
+
+    On connect, sends:
+    - type: "connected"
+    - phi: MAX_CONFIDENCE (golden ratio bound)
+    - initial_snapshot: current consciousness state
+
+    Then periodically sends ecosystem updates.
+    """
+    await websocket.accept()
+
+    try:
+        # Send initial connected message
+        container = get_app_container()
+        state = container.organism
+
+        initial_data = {
+            "type": "connected",
+            "phi": float(MAX_CONFIDENCE),  # φ = 0.618...
+            "initial_snapshot": {
+                "timestamp": round(time.time(), 3),
+                "uptime_s": round(state.uptime_s, 1),
+                "judgment_count": 0,
+                "decision_count": 0,
+            },
+        }
+        await websocket.send_json(initial_data)
+
+        # Keep connection alive, send periodic pings
+        while True:
+            await asyncio.sleep(5)  # Send update every 5 seconds
+            update_data = {
+                "type": "ping",
+                "ts": round(time.time(), 3),
+            }
+            await websocket.send_json(update_data)
+
+    except WebSocketDisconnect:
+        logger.debug("WebSocket /ws/consciousness/ecosystem disconnected")
+    except Exception as e:
+        logger.error("WebSocket /ws/consciousness/ecosystem error: %s", e)
+        try:
+            await websocket.close(code=1011)
+        except Exception:
+            pass
