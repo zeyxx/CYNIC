@@ -87,11 +87,6 @@ class MotorSystem:
             duration_ms = (time.perf_counter() - t0) * 1000
             self._gestures_executed += 1
 
-            # Update state with real spend
-            if self.state and result.get("success"):
-                # Record the BURN
-                await self.state.record_action_cost(actual_cost)
-
             await self.bus.emit(Event.typed(
                 CoreEvent.ACT_COMPLETED,
                 {

@@ -44,6 +44,8 @@ from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
 from cynic.kernel.organism.perception.senses.compressor import ContextCompressor
 from cynic.kernel.organism.sona_emitter import SonaEmitter
 from cynic.kernel.organism.state_manager import OrganismState
+from cynic.kernel.organism.perception.senses.web_eye import WebEye
+from cynic.kernel.organism.metabolism.web_hand import WebHand
 from cynic.kernel.protocol.knet_server import KNetServer
 from cynic.kernel.core.vascular import VascularSystem
 from cynic.kernel.core.storage.surreal import SurrealStorage
@@ -108,7 +110,7 @@ class _OrganismAwakener:
         )
 
         # 1. BASE STATE
-        self.state = OrganismState(instance_id=instance_id, storage=self.storage)
+        self.state = OrganismState(instance_id=instance_id, storage=self.storage, bus=instance_bus)
         
         # 1b. LLM REGISTRY (Isolated)
         from cynic.kernel.organism.brain.llm.adapter import LLMRegistry
@@ -217,6 +219,10 @@ class _OrganismAwakener:
         self.topology_builder = IncrementalTopologyBuilder()
         self.mcp_bridge = MCPBridge(bus_name="CORE")
         self.convergence_validator = ConvergenceValidator()
+        
+        # Web Incarnation
+        self.web_eye = WebEye(bus=instance_bus)
+        self.web_hand = WebHand() # Bound later in organism.start()
 
         from cynic.kernel.organism.perception.senses.internal import InternalSensor
         self.internal_sensor = InternalSensor(bus=instance_bus)
@@ -318,6 +324,7 @@ class _OrganismAwakener:
             scheduler=self.scheduler,
             body=self.body,
             motor=self.motor,
+            web_hand=self.web_hand,
             runner=self.runner,
             llm_router=self.llm_router,
             telemetry_store=self.telemetry_store,
@@ -330,6 +337,7 @@ class _OrganismAwakener:
             topology_builder=self.topology_builder,
             mcp_bridge=self.mcp_bridge,
             market_sensor=self.market_sensor,
+            web_eye=self.web_eye,
             internal_sensor=self.internal_sensor,
             convergence_validator=self.convergence_validator,
             knet_server=self.knet_server,

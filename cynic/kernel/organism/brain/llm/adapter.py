@@ -106,7 +106,8 @@ class BenchmarkResult:
 class LLMRegistry:
     """The intelligence warehouse of the organism."""
 
-    def __init__(self) -> None:
+    def __init__(self, vascular: Optional[VascularSystem] = None) -> None:
+        self.vascular = vascular
         self._adapters: dict[str, LLMAdapter] = {}
         self._available: dict[str, bool] = {}
         self._benchmarks: dict[tuple[str, str, str], BenchmarkResult] = {}
@@ -159,7 +160,7 @@ class LLMRegistry:
         # 2. Local Service (Level 1: Local Network)
         from cynic.kernel.organism.brain.llm.adapters.local_service import OllamaAdapter
 
-        probe = OllamaAdapter(model="probe", base_url=ollama_url)
+        probe = OllamaAdapter(model="probe", base_url=ollama_url, vascular=self.vascular)
         if await probe.check_available():
             self.register(probe)
             self._manifest["available"].append("ollama:local_service")

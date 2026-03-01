@@ -64,17 +64,18 @@ class OrganismSnapshot:
 
 class OrganismState:
     """
-    Manages the organism's memory and persistence.
-    Requires an explicit instance_id for isolation.
+    Manages the organism's memory and persistence as a reactive 'Materialized View'.
+    Listens to the EventBus to update counters and state asynchronously.
     """
 
-    def __init__(self, instance_id: str, storage_dir: str | None = None, storage: Optional[SurrealStorage] = None):
+    def __init__(self, instance_id: str, bus: Any = None, storage_dir: str | None = None, storage: Optional[SurrealStorage] = None):
         self.instance_id = instance_id
         self.storage_dir = Path(
             storage_dir or os.path.join(os.path.expanduser("~"), ".cynic", "organism_state")
         )
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self.storage = storage
+        self.bus = bus
 
         # Internal State Layers
         self._memory_state: dict[str, Any] = {}
@@ -122,19 +123,43 @@ class OrganismState:
                 },
             }
 
-    async def record_action_cost(self, cost_usd: float) -> None:
-        """Track metabolic spending (BURN)."""
+    async def _on_act_completed(self, event: Any) -> None:
+        """Reactive listener for metabolic spending (BURN)."""
+        payload = event.dict_payload if hasattr(event, 'dict_payload') else event.payload
+        cost_usd = payload.get("cost", 0.0)
+        if cost_usd > 0:
+            async with self._lock:
+                self.total_spent_usd += cost_usd
+            await self.update("total_spent_usd", self.total_spent_usd, layer=StateLayer.PERSISTENT)
+
+    async def _on_judgment_created(self, event: Any) -> None:
+        """Reactive listener for judgment tracking and persistence."""
         async with self._lock:
-            self.total_spent_usd += cost_usd
-        await self.update("total_spent_usd", self.total_spent_usd, layer=StateLayer.PERSISTENT)
+            self.total_judgments += 1
+            self.total_cycles += 1
+            # Could infer level from payload to update micro/macro counters here
+            
+        if self.storage:
+            try:
+                payload = event.dict_payload if hasattr(event, 'dict_payload') else event.payload
+                asyncio.create_task(self.storage.judgments.save(payload))
+            except Exception as e:
+                logger.debug(f"SurrealDB save failed: {e}")
 
     async def start_processing(self) -> None:
         if self._processing:
             return
         self._processing = True
         await self.recover()
+        
+        # Wire reactive listeners
+        if self.bus:
+            from cynic.kernel.core.event_bus import CoreEvent
+            self.bus.on(CoreEvent.ACT_COMPLETED, self._on_act_completed)
+            self.bus.on(CoreEvent.JUDGMENT_CREATED, self._on_judgment_created)
+            
         self._loop_task = asyncio.create_task(self._process_updates_loop())
-        logger.info(f"[{self.instance_id}] State respiration started.")
+        logger.info(f"[{self.instance_id}] State respiration started (Reactive).")
 
     async def stop_processing(self) -> None:
         self._processing = False
@@ -151,17 +176,6 @@ class OrganismState:
     async def query(self, key: str, default: Any = None) -> Any:
         async with self._lock:
             return self._memory_state.get(key, self._persistent_state.get(key, self._checkpoint_state.get(key, default)))
-
-    async def add_judgment(self, judgment: Any) -> None:
-        # Simplified for Round 5 focus
-        async with self._lock:
-            self.total_judgments += 1
-        if self.storage:
-            try:
-                j_dict = judgment.to_dict() if hasattr(judgment, "to_dict") else str(judgment)
-                asyncio.create_task(self.storage.judgments.save(j_dict))
-            except Exception as e:
-                logger.debug(f"SurrealDB save failed: {e}")
 
     async def _process_updates_loop(self) -> None:
         while self._processing:

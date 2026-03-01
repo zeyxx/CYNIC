@@ -64,6 +64,7 @@ class MetabolicCore:
     scheduler: ConsciousnessRhythm
     body: Optional[HardwareBody] = None
     motor: Optional[MotorSystem] = None
+    web_hand: Optional[Any] = None
     runner: Optional[ClaudeCodeRunner] = None
     llm_router: Optional[LLMRouter] = None
     telemetry_store: Any = None
@@ -79,6 +80,7 @@ class SensoryCore:
     topology_builder: IncrementalTopologyBuilder
     mcp_bridge: MCPBridge
     market_sensor: Optional[Any] = None
+    web_eye: Optional[Any] = None
     internal_sensor: Optional[Any] = None
     convergence_validator: Optional[ConvergenceValidator] = None
     knet_server: Optional[KNetServer] = None

@@ -134,13 +134,10 @@ class JudgeOrchestrator:
             if judgment is None:
                 raise RuntimeError("Pipeline failed to produce a judgment")
 
-            # 5. Post-Cycle Infrastructure (State, Reputation, Dialogue)
+            # 5. Post-Cycle Infrastructure (Reputation, Dialogue)
             self._judgment_count += 1
             if self._consciousness:
                 self._consciousness.increment(selected_level)
-
-            if self.state_manager:
-                await self.state_manager.add_judgment(judgment)
             
             if self.escore_tracker:
                 for dog_id, score in judgment.dog_votes.items():
