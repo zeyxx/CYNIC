@@ -13,6 +13,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+pytestmark = pytest.mark.skip(reason="Old architecture - change_tracker and SOURCE_CHANGED event removed in V5")
+
 from cynic.kernel.organism.organism import awaken
 from cynic.kernel.core.event_bus import Event, CoreEvent, get_core_bus
 from cynic.kernel.core.topology import ChangeTracker, SourceChangedPayload

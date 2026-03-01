@@ -10,6 +10,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+pytestmark = pytest.mark.skip(reason="Old architecture - ClaudeCodeAdapter.close() and mcp.server removed in V5")
+
 from cynic.interfaces.api.routers.telemetry_ws import ws_telemetry
 from cynic.kernel.core.event_bus import Event, CoreEvent, get_core_bus
 from cynic.interfaces.mcp.claude_code_adapter import ClaudeCodeAdapter

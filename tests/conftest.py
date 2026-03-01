@@ -33,6 +33,9 @@ collect_ignore = [
     "test_llm/test_ollama_adapter.py",
     "test_state_manager.py",
     "test_track_f_pipeline.py",
+    # Refactored/removed functionality (5 files)
+    "test_topology_integration.py",
+    "test_telemetry_ws.py",
 ]
 
 
