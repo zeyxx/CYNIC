@@ -67,23 +67,46 @@ class MasterDog(LLMDog):
         )
 
     async def analyze(self, cell: Cell, **kwargs: Any) -> DogJudgment:
-        """The core analysis loop: Heuristic -> LLM -> Validation."""
+        """The core analysis loop: Expertise -> LLM -> Heuristic Fallback."""
         start = time.perf_counter()
         self._lookups += 1
         
         try:
-            # 1. Attempt LLM Judgment (The "Dream" path)
+            # 1. Attempt Expertise Plugin (Heuristic Specialist)
+            if self.soul.expertise_fn:
+                from cynic.kernel.organism.brain.cognition.neurons.expertise import call_expertise
+                ext_result = await call_expertise(self.soul.expertise_fn, cell)
+                if ext_result and ext_result.get("confidence", 0) > 0.3:
+                    # If expertise is confident enough, we might skip LLM or combine
+                    # For now, let's use it as a high-quality heuristic
+                    return self._create_judgment(cell, start, ext_result)
+
+            # 2. Attempt LLM Judgment (The "Dream" path)
             adapter = await self.get_llm()
             if adapter:
                 return await self._llm_path(cell, adapter, start)
             
-            # 2. Fallback to Heuristic (The "Instinct" path)
+            # 3. Fallback to Basic Heuristic (The "Instinct" path)
             return await self._heuristic_path(cell, start)
             
         except Exception as e:
             self._errors += 1
             logger.error(f"MasterDog[{self.dog_id}] analysis failed: {e}", exc_info=True)
             return self._error_judgment(cell, start, str(e))
+
+    def _create_judgment(self, cell: Cell, start: float, data: Dict[str, Any]) -> DogJudgment:
+        latency = (time.perf_counter() - start) * 1000
+        judgment = DogJudgment(
+            dog_id=self.dog_id,
+            cell_id=cell.cell_id,
+            q_score=phi_bound_score(data.get("q_score", 50.0)),
+            confidence=data.get("confidence", 0.2),
+            reasoning=f"*sniff* {self.dog_id} expertise: {data.get('reasoning')}",
+            evidence=data.get("evidence", {}),
+            latency_ms=latency,
+        )
+        self.record_judgment(judgment)
+        return judgment
 
     async def _llm_path(self, cell: Cell, adapter: Any, start: float) -> DogJudgment:
         """Unified LLM judgment path."""

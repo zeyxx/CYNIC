@@ -96,6 +96,7 @@ SOULS: Dict[DogId, DogSoul] = {
         axioms=["PHI", "CULTURE", "SOCIAL"],
         system_prompt="You are the SCOUT (Hod). Your role is to discover new information, trends, and external connections.",
         heuristic_prompt="discover, trend, social, news, external, connect",
+        expertise_fn="web_discovery"
     ),
     DogId.DEPLOYER: DogSoul(
         dog_id=DogId.DEPLOYER,
