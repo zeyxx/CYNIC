@@ -1,21 +1,15 @@
 """
 CYNIC LLM Router — Ring 4: Q-Table driven model selection
 
-Routes SDK tasks between expensive (Claude Sonnet) and cheap (Claude Haiku
-or local Ollama) based on accumulated Q-Table confidence.
+Routes SDK tasks between Primary (Brain), Fast (Nerves), and Local (Spine)
+models based on accumulated Q-Table confidence and system configuration.
 
 Bootstrap Philosophy:
-  Phase 1 (cold start): All tasks → Claude Sonnet (build Q-Table)
-  Phase 2 (warming):    Simple/trivial → Claude Haiku (save cost)
-  Phase 3 (hot):        80%+ tasks → Haiku/Ollama (maximum savings)
+  Phase 1 (cold start): All tasks → Primary Model (build Q-Table)
+  Phase 2 (warming):    Simple/trivial → Fast Model (save cost)
+  Phase 3 (hot):        80%+ tasks → Fast/Local (maximum savings)
 
-Routing criteria (φ-derived):
-  - confidence ≥ PHI_INV (0.618): Q-Table has seen enough data
-  - task_type in SIMPLE_TYPES: debug, refactor, test, explain, write
-  - complexity in {trivial, simple}: few tools, predictable
-  → route to HAIKU (cheaper, faster, sufficient for known patterns)
-
-Safety: NEVER route complex/review/unknown tasks automatically.
+Safety: NEVER route complex/review/unknown tasks automatically unless in Sovereign mode.
 Always returns a RoutingDecision — callers decide whether to act on it.
 """
 
@@ -47,16 +41,7 @@ _MIN_VISITS_TO_ROUTE: int = 3
 class RoutingDecision:
     """
     LLM routing recommendation from Q-Table analysis.
-
-    Attributes:
-        recommended_model:  Which model to use for the next task.
-        route_to_local:     True if downgrading from Sonnet to Haiku/cheaper.
-        confidence:         Q-Table confidence for this state [0, 0.618].
-        reason:             Human-readable routing explanation.
-        task_type:          Detected task type that influenced decision.
-        complexity:         Detected complexity that influenced decision.
     """
-
     recommended_model: str
     route_to_local: bool
     confidence: float
@@ -67,23 +52,31 @@ class RoutingDecision:
 
 class LLMRouter:
     """
-    Routes SDK tasks to appropriate LLM tier based on Q-Table confidence.
-
-    Designed to be called after each SDK result to determine whether the
-    NEXT task of this type should use a cheaper model.
-
-    Usage:
-        router = LLMRouter()
-        decision = router.route("SDK:claude-sonnet:debug:trivial", qtable, "debug", "trivial")
-        if decision.route_to_local:
-            # Send set_model to switch Claude to Haiku
-            await send({"type": "set_model", "model": decision.recommended_model})
+    Routes SDK tasks to appropriate LLM tier based on Q-Table confidence,
+    Sovereign Mode (Local-First), or Operator Overrides (Slow Mode).
     """
 
     def __init__(self) -> None:
         self._total_routes: int = 0
         self._routes_to_local: int = 0
         self._routes_to_full: int = 0
+        
+        # Pull configuration dynamically
+        from cynic.kernel.core.config import CynicConfig
+        try:
+            from cynic.kernel.core.container import get_container
+            self.config = get_container().get(CynicConfig)
+        except Exception:
+            self.config = CynicConfig.from_env()
+
+        # Sovereignty Check: Do we have any cloud keys?
+        self.sovereign_mode = not any([
+            self.config.anthropic_api_key,
+            self.config.google_api_key
+        ])
+        
+        if self.sovereign_mode:
+            logger.warning("Sovereign Mode Active: No cloud API keys found. Defaulting to Local-First.")
 
     def route(
         self,
@@ -92,25 +85,41 @@ class LLMRouter:
         task_type: str,
         complexity: str,
     ) -> RoutingDecision:
-        """
-        Determine optimal model for the given task type and complexity.
+        """Determine optimal model, prioritizing operator overrides and sovereignty."""
+        
+        # 0. Operator Override: Deep Thought / Slow Mode
+        # If the human forces deep thought, always use the primary "Brain"
+        if getattr(self.config, 'force_slow_mode', False):
+            self._routes_to_full += 1
+            return RoutingDecision(
+                recommended_model=self.config.llm_primary_model,
+                route_to_local=False,
+                confidence=1.0,
+                reason="Operator override: Deep Thought / Slow Mode active.",
+                task_type=task_type,
+                complexity=complexity
+            )
 
-        Args:
-            state_key:  Q-Table state key (e.g. "SDK:claude-sonnet:debug:trivial")
-            qtable:     QTable instance — source of confidence scores
-            task_type:  Task type from classify_task() (debug/refactor/test/...)
-            complexity: Task complexity from estimate_complexity() (trivial/simple/...)
+        # 1. Sovereign override: If no keys, always use local
+        if self.sovereign_mode:
+            self._routes_to_local += 1
+            return RoutingDecision(
+                recommended_model=self.config.llm_local_model,
+                route_to_local=True,
+                confidence=1.0,
+                reason="Sovereign override: Local-First enforcement (no cloud keys).",
+                task_type=task_type,
+                complexity=complexity
+            )
 
-        Returns:
-            RoutingDecision with recommended model + reason.
-        """
         # Get Q-Table confidence for this state
         confidence = qtable.confidence(state_key)
 
         # Gate 1: Minimum confidence threshold (φ⁻¹ = 0.618)
         if confidence < PHI_INV:
+            self._routes_to_full += 1
             return RoutingDecision(
-                recommended_model=MODEL_SONNET,
+                recommended_model=self.config.llm_primary_model,
                 route_to_local=False,
                 confidence=confidence,
                 reason=f"Cold start — confidence {confidence:.3f} < φ⁻¹ ({PHI_INV:.3f})",
@@ -120,8 +129,9 @@ class LLMRouter:
 
         # Gate 2: Task type must be in known-simple set
         if task_type not in _SIMPLE_TASK_TYPES:
+            self._routes_to_full += 1
             return RoutingDecision(
-                recommended_model=MODEL_SONNET,
+                recommended_model=self.config.llm_primary_model,
                 route_to_local=False,
                 confidence=confidence,
                 reason=f"Task '{task_type}' requires full capability (not in simple set)",
@@ -131,8 +141,9 @@ class LLMRouter:
 
         # Gate 3: Complexity must be trivial or simple
         if complexity not in _CHEAP_COMPLEXITIES:
+            self._routes_to_full += 1
             return RoutingDecision(
-                recommended_model=MODEL_SONNET,
+                recommended_model=self.config.llm_primary_model,
                 route_to_local=False,
                 confidence=confidence,
                 reason=f"Complexity '{complexity}' too high for cheap routing",
@@ -145,8 +156,9 @@ class LLMRouter:
         entry = qtable._table.get(state_key, {}).get(best_action)
         visits = entry.visits if entry is not None else 0
         if visits < _MIN_VISITS_TO_ROUTE:
+            self._routes_to_full += 1
             return RoutingDecision(
-                recommended_model=MODEL_SONNET,
+                recommended_model=self.config.llm_primary_model,
                 route_to_local=False,
                 confidence=confidence,
                 reason=f"Insufficient data: {visits} visits < {_MIN_VISITS_TO_ROUTE} minimum",
@@ -154,23 +166,28 @@ class LLMRouter:
                 complexity=complexity,
             )
 
-        # All gates passed → route to Haiku
+        # All gates passed → route to Fast Model (or Local)
         self._total_routes += 1
         self._routes_to_local += 1
+        
+        # Decide between Fast Cloud or Local based on complexity
+        target_model = self.config.llm_local_model if complexity == "trivial" else self.config.llm_fast_model
+        
         logger.info(
-            "LLM_ROUTE: %s/%s → Haiku (conf=%.3f, visits=%d)",
+            "LLM_ROUTE: %s/%s → %s (conf=%.3f, visits=%d)",
             task_type,
             complexity,
+            target_model,
             confidence,
             visits,
         )
         return RoutingDecision(
-            recommended_model=MODEL_HAIKU,
-            route_to_local=True,
+            recommended_model=target_model,
+            route_to_local=(target_model == self.config.llm_local_model),
             confidence=confidence,
             reason=(
                 f"Q-Table confident (conf={confidence:.3f}, visits={visits}): "
-                f"'{task_type}/{complexity}' → Haiku (save ~75% cost)"
+                f"'{task_type}/{complexity}' → {target_model} (optimization)"
             ),
             task_type=task_type,
             complexity=complexity,

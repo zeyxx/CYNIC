@@ -18,8 +18,10 @@ each other's judgment outcomes and emergence patterns.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
-from cynic.kernel.organism.brain.learning.unified_learning import UnifiedQTable
+if TYPE_CHECKING:
+    from cynic.kernel.organism.brain.learning.qlearning import QTable
 from cynic.kernel.organism.perception.federation.merge import merge_q_tables
 from cynic.kernel.organism.perception.federation.peer import FederationPeer
 from cynic.kernel.organism.perception.federation.protocol import FederationMessage
@@ -37,7 +39,7 @@ class GossipManager:
 
     Attributes:
         instance_id: Name of this CYNIC instance (e.g., "instance-A")
-        q_table: Reference to local UnifiedQTable to gossip
+        q_table: Reference to local QTable to gossip
         k: Max peers to maintain (default 3)
         batch_size: Trigger gossip after N judgments (default 10)
     """
@@ -45,7 +47,7 @@ class GossipManager:
     def __init__(
         self,
         instance_id: str,
-        q_table: UnifiedQTable,
+        q_table: QTable,
         k: int = DEFAULT_K,
         batch_size: int = DEFAULT_BATCH,
     ):
@@ -54,7 +56,7 @@ class GossipManager:
 
         Args:
             instance_id: Name of this CYNIC instance
-            q_table: Reference to local UnifiedQTable to gossip
+            q_table: Reference to local QTable to gossip
             k: Max peers to maintain (default 3)
             batch_size: Trigger gossip after N judgments (default 10)
         """
@@ -126,25 +128,42 @@ class GossipManager:
             return 0
 
         # Convert q_table to dict format for federation
+        # QTable stores state_key -> {action -> QEntry}
         q_table_dict = {}
-        for (predicted, actual), q_score in self.q_table.values.items():
-            key = f"{predicted}:{actual}"
-            q_table_dict[key] = {
-                "domain": predicted,
-                "context_hash": actual,
-                "q_score": q_score,
-                "confidence": 0.5,  # Default confidence (not stored in UnifiedQTable)
-                "visits": 1,  # Default visits (not tracked per entry)
-                "satisfaction_avg": 4.0,  # Default satisfaction
-            }
+        # Safely access _table or use items() if available
+        table = getattr(self.q_table, "_table", {})
+        for state_key, actions in table.items():
+            for action, entry in actions.items():
+                key = f"{state_key}:{action}"
+                q_table_dict[key] = {
+                    "domain": state_key,
+                    "action": action,
+                    "q_score": entry.q_value,
+                    "confidence": 0.5,
+                    "visits": entry.visits,
+                    "wins": entry.wins,
+                    "losses": entry.losses,
+                }
 
         message = FederationMessage(
             sender_id=self.instance_id,
             q_table_snapshot=q_table_dict,
-            total_judgments=len(self.q_table.values),
+            total_judgments=len(q_table_dict),
             unnameable_patterns=list(self._unnameable_patterns),
             sent_at=datetime.now(UTC),
         )
+
+        delivered = 0
+        for peer in self._peers:
+            try:
+                peer.send(message)
+                delivered += 1
+            except Exception:
+                pass
+
+        self._sync_count += 1
+        self._last_sync = datetime.now(UTC)
+        return delivered
 
         delivered = 0
         for peer in self._peers:

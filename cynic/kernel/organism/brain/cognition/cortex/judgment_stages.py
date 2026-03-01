@@ -93,12 +93,65 @@ class JudgeStage(JudgmentStage):
     async def execute(self, pipeline: JudgmentPipeline) -> JudgmentPipeline:
         cell = pipeline.cell
         orch = self.orchestrator
+        level = pipeline.level or ConsciousnessLevel.MACRO
 
-        # E-Score filter: skip unreliable Dogs (but keep CYNIC coordinator)
+        # REFLEX (L3): non-LLM Dogs only, no full PBFT, no E-Score filtering needed
+        if level == ConsciousnessLevel.REFLEX:
+            from cynic.kernel.core.consciousness import dogs_for_level
+            reflex_dog_ids = dogs_for_level(ConsciousnessLevel.REFLEX)
+            active_dogs = [d for did, d in orch.dogs.items() if did in reflex_dog_ids]
+
+            tasks = [dog.analyze(cell, budget_usd=cell.budget_usd) for dog in active_dogs]
+            dog_judgments = await asyncio.gather(*tasks, return_exceptions=False)
+            pipeline.dog_judgments = dog_judgments
+
+            # Simple majority vote (no full PBFT at L3)
+            q_scores = [j.q_score for j in dog_judgments]
+            avg_q = sum(q_scores) / len(q_scores) if q_scores else 0.0
+
+            # Veto logic
+            dog_veto = any(j.veto for j in dog_judgments)
+            hard_veto = cell.risk >= 1.0 and cell.analysis == "ACT"
+            veto = hard_veto or dog_veto
+            final_q = 0.0 if veto else phi_bound_score(avg_q)
+
+            axiom_result = await orch.axiom_arch.score_and_compute(
+                domain=cell.reality,
+                context=str(cell.content)[:500],
+                fractal_depth=1,
+                metrics={"avg_dog_q": avg_q / MAX_Q_SCORE},
+            )
+
+            judgment = Judgment(
+                cell=cell,
+                q_score=final_q,
+                verdict=verdict_from_q_score(final_q).value,
+                confidence=min(PHI_INV_2, MAX_CONFIDENCE),
+                axiom_scores=axiom_result.axiom_scores,
+                active_axioms=list(axiom_result.active_axioms),
+                dog_votes={j.dog_id: j.q_score for j in dog_judgments},
+                consensus_votes=len(dog_judgments),
+                consensus_quorum=3,
+                consensus_reached=len(dog_judgments) >= 3,
+                cost_usd=sum(j.cost_usd for j in dog_judgments),
+                llm_calls=0,
+                duration_ms=pipeline.elapsed_ms(),
+            )
+            pipeline.final_judgment = judgment
+            return pipeline
+
+        # MICRO (L2) & MACRO (L1) logic (unified with reputation filtering)
         dog_items = list(orch.dogs.items())
+        
+        # Filter for MICRO if needed
+        if level == ConsciousnessLevel.MICRO:
+            from cynic.kernel.core.consciousness import dogs_for_level
+            micro_ids = dogs_for_level(ConsciousnessLevel.MICRO)
+            dog_items = [(did, d) for did, d in dog_items if did in micro_ids]
+
         if orch.escore_tracker is not None:
-            GROWL_MIN = PHI_INV_2 * MAX_Q_SCORE  # 38.2
-            MIN_ACTIVE = fibonacci(4)  # 3 — safety floor
+            GROWL_MIN = PHI_INV_2 * MAX_Q_SCORE
+            MIN_ACTIVE = fibonacci(4)
 
             passing = [
                 (did, d)
@@ -107,22 +160,17 @@ class JudgeStage(JudgmentStage):
             ]
 
             if len(passing) >= MIN_ACTIVE:
-                skipped_n = len(dog_items) - len(passing)
-                if skipped_n > 0:
-                    passing_ids = {did for did, _ in passing}
-                    skipped_ids = [did for did, _ in dog_items if did not in passing_ids]
-                    logger.info(
-                        "JudgeStage: EScore filter bypassing %d/%d Dogs: %s",
-                        skipped_n,
-                        len(dog_items),
-                        skipped_ids,
-                    )
                 dog_items = passing
 
         all_dogs = [d for _, d in dog_items]
-        per_dog_budget = cell.budget_usd / max(len(all_dogs), 1)
+        
+        # Budget scaling
+        effective_budget = cell.budget_usd
+        if level == ConsciousnessLevel.MICRO:
+            effective_budget *= PHI_INV_2
+            
+        per_dog_budget = effective_budget / max(len(all_dogs), 1)
 
-        # R2: Organism context for Dogs (health, LOD, axioms, memory)
         organism_kwargs: dict[str, Any] = {
             "budget_usd": per_dog_budget,
             "active_dogs": len(all_dogs),
@@ -136,43 +184,31 @@ class JudgeStage(JudgmentStage):
             if compressed:
                 organism_kwargs["compressed_context"] = compressed
 
-        # Run all Dogs in parallel
         tasks = [dog.analyze(cell, **organism_kwargs) for dog in all_dogs]
         dog_judgments_raw = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Filter errors gracefully
         pipeline.dog_judgments = [j for j in dog_judgments_raw if isinstance(j, DogJudgment)]
-        errors = [j for j in dog_judgments_raw if isinstance(j, Exception)]
-        if errors:
-            logger.warning("JudgeStage: %d Dog(s) failed: %s", len(errors), errors)
-
-        # PBFT Consensus
-        consensus = await orch.cynic_dog.pbft_run(cell, pipeline.dog_judgments)
+        
+        # phi-BFT Consensus
+        consensus = await orch.cynic_dog.phi_bft_run(cell, pipeline.dog_judgments)
         pipeline.consensus = consensus
 
         # Axiom scoring
+        depth = 3 if level == ConsciousnessLevel.MACRO else 2
         q_scores = [j.q_score for j in pipeline.dog_judgments]
         avg_q = sum(q_scores) / len(q_scores) if q_scores else 0.0
-        consensus_strength = (
-            (consensus.votes / consensus.quorum) if consensus and consensus.quorum else 0.0
-        )
-
+        
         axiom_result = await orch.axiom_arch.score_and_compute(
             domain=cell.reality,
             context=str(cell.content)[:500],
-            fractal_depth=3,
-            metrics={
-                "avg_dog_q": avg_q / MAX_Q_SCORE,
-                "consensus_strength": consensus_strength,
-            },
+            fractal_depth=depth,
+            metrics={"avg_dog_q": avg_q / MAX_Q_SCORE},
         )
 
-        # Final Q-Score: consensus if available, else axiom score
         final_q = consensus.final_q_score or axiom_result.q_score
         final_q = phi_bound_score(final_q)
-        verdict = verdict_from_q_score(final_q)
-
-        # Residual variance: unexplained variance between Dog votes
+        
+        # Residual variance
         if pipeline.dog_judgments:
             votes = [j.q_score for j in pipeline.dog_judgments]
             mean_v = sum(votes) / len(votes)
@@ -181,13 +217,10 @@ class JudgeStage(JudgmentStage):
         else:
             residual = 0.0
 
-        total_cost = sum(j.cost_usd for j in pipeline.dog_judgments)
-        total_llm_calls = sum(1 for j in pipeline.dog_judgments if j.llm_id)
-
         judgment = Judgment(
             cell=cell,
             q_score=final_q,
-            verdict=verdict.value,
+            verdict=verdict_from_q_score(final_q).value,
             confidence=min(
                 consensus.final_confidence or axiom_result.q_score / MAX_Q_SCORE * PHI_INV,
                 MAX_CONFIDENCE,
@@ -198,21 +231,14 @@ class JudgeStage(JudgmentStage):
             consensus_votes=consensus.votes,
             consensus_quorum=consensus.quorum,
             consensus_reached=consensus.consensus,
-            cost_usd=total_cost,
-            llm_calls=total_llm_calls,
+            cost_usd=sum(j.cost_usd for j in pipeline.dog_judgments),
+            llm_calls=sum(1 for j in pipeline.dog_judgments if j.llm_id),
             residual_variance=residual,
-            unnameable_detected=residual > PHI_INV,  # >61.8% = THE_UNNAMEABLE
+            unnameable_detected=residual > PHI_INV,
             duration_ms=pipeline.elapsed_ms(),
         )
         pipeline.final_judgment = judgment
-        pipeline.total_cost_usd = total_cost
-
-        logger.debug(
-            "JudgeStage: judgment complete (Q=%.1f, verdict=%s, residual=%.3f)",
-            final_q,
-            verdict.value,
-            residual,
-        )
+        pipeline.total_cost_usd = judgment.cost_usd
         return pipeline
 
 
@@ -225,19 +251,17 @@ class DecideStage(JudgmentStage):
     async def execute(self, pipeline: JudgmentPipeline) -> JudgmentPipeline:
         judgment = pipeline.final_judgment
         if judgment is None:
-            logger.warning("DecideStage: no judgment to decide on")
+            return pipeline
+
+        # Skip DECIDE for REFLEX and MICRO (not actionable by default)
+        level = pipeline.level or ConsciousnessLevel.MACRO
+        if level in (ConsciousnessLevel.REFLEX, ConsciousnessLevel.MICRO):
             return pipeline
 
         orch = self.orchestrator
         if orch.decision_validator is not None:
-            # Validate judgment (may block, may pass)
             decision = orch.decision_validator.validate(judgment)
             pipeline.decision = decision
-            logger.debug(
-                "DecideStage: validation decision=%s (approved=%s)",
-                type(decision).__name__,
-                decision.approved if hasattr(decision, "approved") else "N/A",
-            )
         return pipeline
 
 

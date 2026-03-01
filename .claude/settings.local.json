@@ -163,7 +163,8 @@
       "Bash(gh repo:*)",
       "Bash(gh api:*)",
       "Bash(gh auth:*)",
-      "Bash(gh pr:*)"
+      "Bash(gh pr:*)",
+      "Bash(PYTHONIOENCODING=utf-8 timeout 30 python:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

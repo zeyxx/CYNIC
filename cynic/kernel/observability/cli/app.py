@@ -34,7 +34,7 @@ class CliApp:
         if self._organism is None:
             from cynic.kernel.organism.organism import awaken
 
-            self._organism = awaken()
+            self._organism = await awaken()
             await self._organism.start()
 
             # Connect to symbiotic state manager

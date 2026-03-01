@@ -65,6 +65,7 @@ class JudgmentCreatedPayload(BaseModel):
     judgment_id: str = ""
     level_used: str = ""  # REFLEX|MICRO|MACRO
     content_preview: str = ""
+    reasoning: str = ""
     context: str = ""
 
 

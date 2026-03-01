@@ -158,7 +158,7 @@ async def get_judgment(judgment_id: str, container: AppContainer = Depends(get_a
     state = container.organism
     
     # 1. Check if completed
-    recent = state.memory.state.get_recent_judgments(limit=50)
+    recent = await state.memory.state.get_recent_judgments(limit=50)
     for j in recent:
         # Support both real objects and mocks/dicts
         jid = getattr(j, "judgment_id", None) or (j.get("judgment_id") if isinstance(j, dict) else None)
@@ -170,7 +170,7 @@ async def get_judgment(judgment_id: str, container: AppContainer = Depends(get_a
             return res
             
     # 2. Check if pending (via status key)
-    status = state.memory.state.get_judgment_status(judgment_id)
+    status = await state.memory.state.get_judgment_status(judgment_id)
     return {"status": status, "judgment_id": judgment_id, "verdict": status}
 
 

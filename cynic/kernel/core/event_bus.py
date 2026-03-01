@@ -347,26 +347,28 @@ class EventBus:
         }
 
 
-# Singletons
+# Multi-tenancy: isolated buses per instance_id
 _buses: dict[str, EventBus] = {}
 
 
-def get_bus(bus_id: str) -> EventBus:
-    if bus_id not in _buses:
-        _buses[bus_id] = EventBus(bus_id)
-    return _buses[bus_id]
+def get_bus(bus_id: str, instance_id: str = "DEFAULT") -> EventBus:
+    """Retrieve or create an isolated EventBus."""
+    key = f"{instance_id}:{bus_id}"
+    if key not in _buses:
+        _buses[key] = EventBus(bus_id=key)
+    return _buses[key]
 
 
-def get_core_bus() -> EventBus:
-    return get_bus("CORE")
+def get_core_bus(instance_id: str = "DEFAULT") -> EventBus:
+    return get_bus("CORE", instance_id)
 
 
-def get_automation_bus() -> EventBus:
-    return get_bus("AUTOMATION")
+def get_automation_bus(instance_id: str = "DEFAULT") -> EventBus:
+    return get_bus("AUTOMATION", instance_id)
 
 
-def get_agent_bus() -> EventBus:
-    return get_bus("AGENT")
+def get_agent_bus(instance_id: str = "DEFAULT") -> EventBus:
+    return get_bus("AGENT", instance_id)
 
 
 def reset_all_buses() -> None:

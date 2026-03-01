@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import uuid
 
 from cynic.interfaces.mcp.service import MCPBridge
 from cynic.kernel.core.container import get_container
@@ -67,8 +68,11 @@ class _OrganismAwakener:
         except Exception as e:
             logger.warning(f"Factory: SurrealDB not available, falling back to local memory: {e}")
 
+        # Generate instance identity (SRE standard)
+        instance_id = f"CYNIC-{os.environ.get('NODE_NAME', 'LOCAL')}-{uuid.uuid4().hex[:8]}"
+
         # 1. BASE STATE
-        self.state = OrganismState()
+        self.state = OrganismState(storage=self.storage)
 
         # 2. NEURONS (Dogs)
         self.dogs = discover_dogs()
@@ -107,6 +111,7 @@ class _OrganismAwakener:
             cynic_dog=cynic_dog,
             residual_detector=self.residual_detector,
             gasdf_executor=gasdf_executor,
+            state_manager=self.state,
         )
 
         self.decide_agent = DecideAgent(qtable=self.qtable)
@@ -137,7 +142,7 @@ class _OrganismAwakener:
 
         from cynic.kernel.organism.metabolism.claude_sdk import ClaudeCodeRunner
 
-        self.runner = ClaudeCodeRunner(bus=get_core_bus(), sessions_registry={})
+        self.runner = ClaudeCodeRunner(bus=get_core_bus(instance_id), sessions_registry={})
         self.telemetry_store = None  # Placeholder
 
         # 5. SENSES (Perception)
@@ -158,11 +163,9 @@ class _OrganismAwakener:
 
 
         # 6. REFLECTION (Memory & Self)
-        self.sona_emitter = SonaEmitter(bus=get_core_bus(), db_pool=self.db_pool)
+        self.sona_emitter = SonaEmitter(bus=get_core_bus(instance_id), db_pool=self.db_pool)
 
         from cynic.kernel.organism.perception.federation.gossip import GossipManager
-
-        instance_id = os.environ.get("CYNIC_INSTANCE_ID", os.urandom(4).hex())
         self.gossip_manager = GossipManager(instance_id=instance_id, q_table=self.qtable)
 
         # 7. WIRING HANDLERS (New Domain-Specific Pattern)
@@ -205,7 +208,8 @@ class _OrganismAwakener:
         for group in handlers:
             self.handler_registry.register(group)
 
-        self.handler_registry.wire(get_core_bus())
+        # Use the specific instance bus
+        self.handler_registry.wire(get_core_bus(instance_id))
 
         # 8. START AGENTS
         self.account_agent.set_escore_tracker(self.escore_tracker)
@@ -265,6 +269,7 @@ class _OrganismAwakener:
             senses=senses,
             memory=memory,
             state=self.state,
+            instance_id=instance_id,
             _pool=self.db_pool,
             container=get_container(),
         )

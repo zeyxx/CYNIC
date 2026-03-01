@@ -122,7 +122,7 @@ async def submit_proposal(proposal_req: ProposalRequest, container: AppContainer
 @router.get("/proposals/{proposal_id}")
 async def get_proposal(proposal_id: str, container: AppContainer = Depends(get_app_container)):
     """Get a proposal by ID."""
-    proposal = container.organism.state.get_proposal(proposal_id)
+    proposal = await container.organism.state.get_proposal(proposal_id)
     if not proposal:
         raise HTTPException(status_code=404, detail="Proposal not found")
     return proposal
@@ -130,7 +130,7 @@ async def get_proposal(proposal_id: str, container: AppContainer = Depends(get_a
 @router.post("/proposals/{proposal_id}/vote")
 async def cast_vote(proposal_id: str, vote_req: VoteRequest, container: AppContainer = Depends(get_app_container)):
     """Cast a vote on a proposal."""
-    proposal = container.organism.state.get_proposal(proposal_id)
+    proposal = await container.organism.state.get_proposal(proposal_id)
     if not proposal:
         raise HTTPException(status_code=404, detail="Proposal not found")
 
@@ -191,7 +191,7 @@ async def record_outcome(proposal_id: str, outcome_req: OutcomeRequest, containe
 async def governance_status(container: AppContainer = Depends(get_app_container)):
     """Get governance system status and metrics."""
     # Get stats from organism state
-    stats = container.organism.state.get_stats() if hasattr(container.organism.state, 'get_stats') else {}
+    stats = await container.organism.state.get_stats() if hasattr(container.organism.state, 'get_stats') else {}
 
     return GovernanceStatusResponse(
         status="healthy",

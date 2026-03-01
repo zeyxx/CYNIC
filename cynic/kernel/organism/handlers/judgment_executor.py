@@ -146,7 +146,7 @@ class JudgmentExecutorHandler(HandlerGroup):
                 # Record success for circuit breaker
                 _orchestrator_breaker.record_success()
 
-            except TimeoutError:
+            except asyncio.TimeoutError:
                 logger.error(
                     "JudgmentExecutor: Timeout on %s (exceeded 30s)",
                     cell.cell_id,
@@ -160,47 +160,7 @@ class JudgmentExecutorHandler(HandlerGroup):
                 )
                 return
 
-            # Emit JUDGMENT_CREATED so ConsciousState picks it up
-            judgment_payload = JudgmentCreatedPayload(
-                judgment_id=judgment_id,  # Use the judgment_id from payload (same UUID registered as PENDING)
-                verdict=judgment.verdict,
-                q_score=judgment.q_score,
-                confidence=judgment.confidence,
-                reality=cell.reality,
-                analysis=cell.analysis,
-                dog_votes=judgment.dog_votes,
-                axiom_scores=judgment.axiom_scores or {},
-                consensus_reached=judgment.consensus_reached,
-                consensus_votes=len(judgment.dog_votes),
-                cost_usd=judgment.cost_usd,
-                source="api:judgment_executor",
-                state_key=cell.cell_id,
-            )
-
-            created_event = Event.typed(
-                CoreEvent.JUDGMENT_CREATED,
-                judgment_payload,
-                source="judgment_executor",
-            )
-
-            await get_core_bus().emit(created_event)
-            logger.debug("Emitted JUDGMENT_CREATED: %s", created_event.event_id)
-
         except CynicError as e:
-            logger.error(
-                "JudgmentExecutor Cynic error on %s: %s",
-                event.event_id,
-                e,
-                exc_info=True,
-            )
-            _orchestrator_breaker.record_failure()
-            await self._emit_judgment_failed(
-                judgment_id=judgment_id,
-                cell_id=event.dict_payload.get("cell_id", ""),
-                reason="cynic_error",
-                error_message=str(e),
-            )
-        except Exception as e:
             logger.error(
                 "JudgmentExecutor unexpected error on %s: %s",
                 event.event_id,

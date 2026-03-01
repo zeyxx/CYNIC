@@ -94,11 +94,28 @@ class EScoreTracker:
         self._external_sync_url: str | None = None  # For k-NET reputation sharing
 
     def get_profile(self, entity_id: str) -> EScoreProfile:
-        """Get or create reputation profile for an entity."""
+        """Get or create reputation profile for an entity (Synchronous)."""
         if entity_id not in self._profiles:
             # Try to load from state if available
             if self.state:
-                saved = self.state.query(f"escore:profile:{entity_id}")
+                # Use query_sync for legacy synchronous callers
+                query_method = getattr(self.state, "query_sync", self.state.query)
+                saved = query_method(f"escore:profile:{entity_id}")
+                if saved:
+                    if isinstance(saved, dict):
+                        self._profiles[entity_id] = EScoreProfile(**saved)
+                    else:
+                        self._profiles[entity_id] = saved
+                    return self._profiles[entity_id]
+
+            self._profiles[entity_id] = EScoreProfile(entity_id=entity_id)
+        return self._profiles[entity_id]
+
+    async def get_profile_async(self, entity_id: str) -> EScoreProfile:
+        """Get or create reputation profile for an entity (Asynchronous)."""
+        if entity_id not in self._profiles:
+            if self.state:
+                saved = await self.state.query(f"escore:profile:{entity_id}")
                 if saved:
                     if isinstance(saved, dict):
                         self._profiles[entity_id] = EScoreProfile(**saved)

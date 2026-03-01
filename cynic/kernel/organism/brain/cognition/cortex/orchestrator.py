@@ -96,12 +96,14 @@ class JudgeOrchestrator:
         cynic_dog: AbstractDog,
         residual_detector=None,
         gasdf_executor=None,
+        state_manager=None, # Added for cycle feedback
     ) -> None:
         self.dogs = dogs  # {dog_id: AbstractDog}
         self.axiom_arch = axiom_arch
         self.cynic_dog = cynic_dog
-        self.residual_detector = residual_detector  # Optional[ResidualDetector]
-        self.gasdf_executor = gasdf_executor  # Optional[GASdfExecutor]
+        self.residual_detector = residual_detector
+        self.gasdf_executor = gasdf_executor
+        self.state_manager = state_manager
         self.benchmark_registry = None  # Optional[BenchmarkRegistry] — set via state.py
         self.escore_tracker = None  # Optional[EScoreTracker] — injected via state.py
 
@@ -211,6 +213,17 @@ class JudgeOrchestrator:
         self._composer = HandlerComposer(registry)
         logger.debug("HandlerComposer auto-initialized (test/manual setup mode)")
 
+    def record_cycle(self, level: ConsciousnessLevel) -> None:
+        """Manually record a cycle in the state manager (for scheduler meta-pulses)."""
+        if self.state_manager:
+            # Note: No lock here as this is called synchronously from scheduler
+            # The scheduler's worker loop is single-threaded so no race condition
+            self.state_manager.total_cycles += 1
+            if level == ConsciousnessLevel.REFLEX: self.state_manager.reflex_cycles += 1
+            elif level == ConsciousnessLevel.MICRO: self.state_manager.micro_cycles += 1
+            elif level == ConsciousnessLevel.MACRO: self.state_manager.macro_cycles += 1
+            elif level == ConsciousnessLevel.META: self.state_manager.meta_cycles += 1
+
     # ── STEP 0: Entry Point ────────────────────────────────────────────────
 
     async def run(
@@ -272,9 +285,17 @@ class JudgeOrchestrator:
 
             judgment = compose_result.output
             selected_level = pipeline.level or level or ConsciousnessLevel.MACRO
-            (time.perf_counter() - t_compose_start) * 1000
+            
+            # Feedback to State: Increment real cycle counters
+            if self.state_manager:
+                async with self.state_manager._lock:
+                    self.state_manager.total_cycles += 1
+                    if selected_level == ConsciousnessLevel.REFLEX: self.state_manager.reflex_cycles += 1
+                    elif selected_level == ConsciousnessLevel.MICRO: self.state_manager.micro_cycles += 1
+                    elif selected_level == ConsciousnessLevel.MACRO: self.state_manager.macro_cycles += 1
+                    elif selected_level == ConsciousnessLevel.META: self.state_manager.meta_cycles += 1
 
-            # Emit JUDGMENT_CREATED (enriched with cell context for DecideAgent)
+            # Emit JUDGMENT_CREATED
             self._judgment_count += 1
             self._consciousness.increment(selected_level)
             jc_payload = judgment.to_dict()
@@ -282,6 +303,7 @@ class JudgeOrchestrator:
             jc_payload["reality"] = cell.reality  # needed by guidance.json writer
             jc_payload["level_used"] = selected_level.name  # needed by LOD latency filter
             jc_payload["content_preview"] = str(cell.content or "")[:200]
+            jc_payload["reasoning"] = getattr(judgment, "reasoning", "")
             jc_payload["context"] = cell.context or ""
 
             from cynic.kernel.core.nerves import COGNITION

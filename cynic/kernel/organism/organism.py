@@ -34,6 +34,7 @@ class Organism:
     senses: SensoryCore
     memory: ArchiveCore
     state: OrganismState
+    instance_id: str = "DEFAULT"
 
     _pool: Any | None = None
     container: Any = None
@@ -41,11 +42,17 @@ class Organism:
     started_at: float = field(default_factory=time.time)
 
     def __post_init__(self):
+        # Initialize isolated buses for this instance
+        from cynic.kernel.core.event_bus import get_core_bus, get_agent_bus, get_automation_bus
+        self.bus = get_core_bus(self.instance_id)
+        self.agent_bus = get_agent_bus(self.instance_id)
+        self.automation_bus = get_automation_bus(self.instance_id)
+
         self._wire_event_handlers()
         from cynic.interfaces.bots.telegram_bridge import TelegramBridge
 
         self._telegram = TelegramBridge()
-        logger.info("Organism: Post-init complete. Nerves connected.")
+        logger.info(f"Organism [{self.instance_id}]: Nerves connected.")
 
     @property
     def uptime_s(self) -> float:
@@ -140,15 +147,15 @@ class Organism:
     # --- Event Wiring ---
     def _wire_event_handlers(self) -> None:
         """Register all event bus subscriptions."""
-        bus = get_core_bus()
+        # Note: self.bus is initialized in __post_init__ from instance_id
         if self._handler_registry:
-            self._handler_registry.wire(bus)
+            self._handler_registry.wire(self.bus)
 
         # Core state tracking
-        bus.on(CoreEvent.JUDGMENT_CREATED, self._on_judgment_created)
-        bus.on(CoreEvent.CONSCIOUSNESS_CHANGED, self._on_consciousness_changed)
-        bus.on(CoreEvent.ANOMALY_DETECTED, self._on_anomaly_detected)
-        bus.on(CoreEvent.LEARNING_EVENT, self._on_learning_event)
+        self.bus.on(CoreEvent.JUDGMENT_CREATED, self._on_judgment_created)
+        self.bus.on(CoreEvent.CONSCIOUSNESS_CHANGED, self._on_consciousness_changed)
+        self.bus.on(CoreEvent.ANOMALY_DETECTED, self._on_anomaly_detected)
+        self.bus.on(CoreEvent.LEARNING_EVENT, self._on_learning_event)
 
     async def _on_judgment_created(self, event: Event) -> None:
         await self.state.add_judgment(event.dict_payload)
@@ -190,7 +197,7 @@ class Organism:
 
         Strict: Raises RuntimeError if any vital component fails.
         """
-        logger.info("Organism: Starting vital signs...")
+        logger.info(f"Organism [{self.instance_id}]: Starting vital signs...")
 
         try:
             # 1. Start state processing (metrics, history)
@@ -202,7 +209,35 @@ class Organism:
             else:
                 raise RuntimeError("Critical: SonaEmitter missing from ArchiveCore")
 
-            # 3. Start World Model
+            # 3. Start Consciousness Scheduler (Metabolism)
+            if hasattr(self.metabolism, "scheduler") and self.metabolism.scheduler:
+                self.metabolism.scheduler.start()
+                logger.info(f"Organism [{self.instance_id}]: Metabolism (Scheduler) activated.")
+
+            # 4. Trigger Initial Perception (The Awakening)
+            # Force a somatic sensation and a SONA_TICK to populate TUI immediately
+            if hasattr(self.metabolism, "body") and self.metabolism.body:
+                await self.metabolism.body.pulse()
+            
+            from cynic.kernel.core.events_schema import PerceptionReceivedPayload
+            await self.bus.emit(Event.typed(
+                CoreEvent.PERCEPTION_RECEIVED,
+                PerceptionReceivedPayload(
+                    reality="CYNIC",
+                    source="awakening",
+                    data="Organism is now awake. Initialize all systems.",
+                    run_judgment=True
+                ),
+                source="organism"
+            ))
+
+            await self.bus.emit(Event.typed(
+                CoreEvent.SONA_TICK,
+                {"timestamp": time.time(), "source": "awakening"},
+                source="organism"
+            ))
+
+            # 5. Start World Model
             if hasattr(self.senses, "world_model"):
                 # WorldModelUpdater.start is sync event registration
                 self.senses.world_model.start()

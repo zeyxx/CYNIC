@@ -60,7 +60,7 @@ class KNetHandler(HandlerGroup):
 
             # Enrich with global health if it's a heartbeat
             if p_type == PulseType.SOMATIC_SYNC and org:
-                stats = org.state.get_stats()
+                stats = await org.state.get_stats()
                 pulse_data["mind"] = {
                     "status": "AWAKE",
                     "thinking": stats.get("current_analysis", ""),

@@ -1,7 +1,7 @@
 """
 CYNIC Organism TUI — Real-Time Visual Cortex.
 
-High-fidelity terminal interface using the unified OrganismState.
+High-fidelity terminal interface using the unified OrganismState and EventJournal.
 """
 from __future__ import annotations
 
@@ -20,8 +20,6 @@ from rich.progress import BarColumn, Progress, TextColumn
 from rich.table import Table
 from rich.text import Text
 
-from cynic.kernel.core.phi import MAX_Q_SCORE
-
 logger = logging.getLogger("cynic.interfaces.cli.tui")
 
 class OrganismTUI:
@@ -32,6 +30,7 @@ class OrganismTUI:
         self.console = Console()
         self._start_time = time.time()
         self._running = False
+        self._event_buffer = []
 
     def create_layout(self) -> Layout:
         layout = Layout()
@@ -65,7 +64,7 @@ class OrganismTUI:
         )
         return Panel(grid, style="white on blue")
 
-    def get_body_panel(self) -> Panel:
+    async def get_body_panel(self) -> Panel:
         """Somatic Body metrics."""
         progress = Progress(
             TextColumn("{task.description}"),
@@ -75,8 +74,7 @@ class OrganismTUI:
         )
         
         try:
-            stats = self.organism.state.get_stats()
-            # In a real environment, HardwareBody updates these
+            stats = await self.organism.state.get_stats()
             cpu = stats.get("machine_cpu", 0.0)
             ram = stats.get("machine_ram", 0.0)
             
@@ -103,7 +101,7 @@ class OrganismTUI:
         table.add_column("SCORE", justify="right")
         table.add_column("STATUS")
         
-        # Simulated/Fetched Axioms
+        # In a real cycle, these come from AxiomMonitor
         axioms = [("FIDELITY", 61.8), ("PHI", 61.8), ("VERIFY", 100.0), ("CULTURE", 38.2), ("BURN", 61.8)]
         for name, score in axioms:
             status = "WAG" if score >= 61.8 else "GROWL"
@@ -118,52 +116,71 @@ class OrganismTUI:
         table.add_column("DOG")
         table.add_column("SEFIROT")
         table.add_column("SKILL")
+        table.add_column("Q", justify="right")
         
         try:
             dogs = self.organism.cognition.orchestrator.dogs
-            for dog_id, dog in list(dogs.items())[:6]: # Show first 6 for space
-                table.add_row(dog_id, dog.soul.sefirot, dog.soul.expertise_plugin or "None")
+            for dog_id, dog in list(dogs.items())[:6]: # Show first 6
+                table.add_row(dog_id, dog.soul.sefirot, dog.soul.expertise_plugin or "None", "0.50")
         except Exception:
-            table.add_row("Loading Dogs...", "", "")
+            table.add_row("Loading Dogs...", "", "", "")
 
         return Panel(table, title="[bold]SEFIROTIC EXPERTISE[/bold]", border_style="green")
 
     def get_stream_panel(self) -> Panel:
-        """Recent Judgments."""
+        """Nervous Pulse (Event Journal)."""
         table = Table(box=box.SIMPLE, expand=True)
-        table.add_column("ID", style="dim")
-        table.add_column("REALITY")
-        table.add_column("VERDICT")
-        table.add_column("Q-SCORE", justify="right")
+        table.add_column("TIME", style="dim")
+        table.add_column("EVENT")
+        table.add_column("SOURCE")
 
-        try:
-            recent = self.organism.state.get_recent_judgments(limit=5)
-            for j in recent:
-                color = "green" if j.verdict in ("HOWL", "WAG") else "red"
-                table.add_row(j.judgment_id[:8], j.reality, f"[{color}]{j.verdict}[/]", f"{j.q_score:.1f}")
-        except Exception:
-            pass
+        # Read from real internal event buffer
+        events = list(self._event_buffer[-8:])
+        for ev in reversed(events):
+            table.add_row(ev["time"], ev["topic"], ev["source"])
 
-        return Panel(table, title="[bold]CONSCIOUSNESS STREAM[/bold]", border_style="yellow")
+        return Panel(table, title="[bold]NERVOUS PULSE[/bold]", border_style="yellow")
 
-    def render(self) -> Layout:
+    async def render(self) -> Layout:
         layout = self.create_layout()
-        layout["header"].update(self.get_header())
-        layout["body"].update(self.get_body_panel())
-        layout["axioms"].update(self.get_axiom_panel())
-        layout["dogs"].update(self.get_dogs_panel())
-        layout["stream"].update(self.get_stream_panel())
-        layout["footer"].update(Panel(Text("CYNIC: Reality is a choice. Efficiency is a law. PHI is the scale.", justify="center")))
+        try:
+            layout["header"].update(self.get_header())
+            layout["body"].update(await self.get_body_panel())
+            layout["axioms"].update(self.get_axiom_panel())
+            layout["dogs"].update(self.get_dogs_panel())
+            layout["stream"].update(self.get_stream_panel())
+            layout["footer"].update(Panel(Text("Press Ctrl+C to detach consciousness", justify="center")))
+        except Exception as e:
+            layout["main"].update(Panel(f"[bold red]Render Error:[/] {e}"))
         return layout
 
     async def run(self) -> None:
         self._running = True
+        
+        # Subscribe to ALL events to populate the Nervous Pulse panel
+        from cynic.kernel.core.event_bus import get_core_bus
+        bus = get_core_bus()
+        
+        async def _on_any_event(event):
+            try:
+                t = datetime.now().strftime("%H:%M:%S")
+                # Format topic for better visibility
+                topic = event.topic.replace("core.", "")
+                source = event.source[:15]
+                self._event_buffer.append({"time": t, "topic": topic, "source": source})
+                if len(self._event_buffer) > 50: self._event_buffer.pop(0)
+            except Exception:
+                pass
+
+        bus.on("*", _on_any_event)
+
         try:
-            with Live(self.render(), refresh_per_second=2, screen=True) as live:
+            with Live(await self.render(), refresh_per_second=4, screen=True) as live:
                 while self._running:
-                    live.update(self.render())
-                    await asyncio.sleep(0.5)
+                    live.update(await self.render())
+                    await asyncio.sleep(0.25)
         except asyncio.CancelledError:
             pass
         finally:
             self._running = False
+            bus.off("*", _on_any_event)

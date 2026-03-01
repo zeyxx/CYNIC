@@ -127,7 +127,7 @@ class SymbioticStateManager:
             # 3a. Local Instance
             if self._organism:
                 try:
-                    stats = self._organism.state.get_stats()
+                    stats = await self._organism.state.get_stats()
                     cynic_thinking = stats.get("current_analysis", "Processing...")
                     cynic_confidence = stats.get("confidence", 0.618)
                     if hasattr(self._organism, "escore_tracker") and self._organism.escore_tracker:

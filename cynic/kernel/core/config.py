@@ -44,21 +44,25 @@ class CynicConfig:
     # ── Storage: PostgreSQL (fallback) ────────────────────────────────────
     database_url: str | None = None
 
-    # ── LLM: Ollama (primary — local, free) ──────────────────────────────
-    ollama_url: str = "http://localhost:11434"
-
-    # ── LLM: Claude API (MACRO cycle reasoning) ─────────────────────────
+    # ── LLM: Multi-Model Symbiosis (Dynamic Routing) ─────────────────────
+    # CYNIC discovers its capabilities purely from the environment.
+    # No hardcoded names allowed.
+    llm_primary_model: str | None = None
+    llm_fast_model: str | None = None
+    llm_local_model: str | None = None
+    
+    # ── LLM: Operator Overrides ──────────────────────────────────────────
+    force_slow_mode: bool = False # If True, always use primary model regardless of cost/speed
+    
+    # ── LLM: API Keys ────────────────────────────────────────────────────
     anthropic_api_key: str | None = None
-
-    # ── LLM: Gemini API (free tier alternative) ─────────────────────────
     google_api_key: str | None = None
 
-    # ── LLM: Local inference (llama.cpp) ─────────────────────────────────
+    # ── LLM: Local inference (llama.cpp / Ollama) ────────────────────────
+    ollama_url: str = "http://localhost:11434"
     models_dir: str | None = None
     llama_gpu_layers: int = -1
     llama_threads: int = 8
-
-    # ── LLM: Ollama tuning ────────────────────────────────────────────────
     ollama_num_parallel: int | None = None
 
     # ── GASdf: Governance (On-chain execution) ──────────────────────────
@@ -85,18 +89,28 @@ class CynicConfig:
             surreal_ns=os.getenv("SURREAL_NS", "cynic"),
             surreal_db=os.getenv("SURREAL_DB", "cynic"),
             database_url=(os.getenv("CYNIC_DATABASE_URL") or os.getenv("DATABASE_URL")),
-            # LLM
-            ollama_url=os.getenv("OLLAMA_URL", "http://localhost:11434"),
+            
+            # Symbiosis Routing (Discovered by default)
+            llm_primary_model=os.getenv("CYNIC_PRIMARY_MODEL"),
+            llm_fast_model=os.getenv("CYNIC_FAST_MODEL"),
+            llm_local_model=os.getenv("CYNIC_LOCAL_MODEL"),
+            force_slow_mode=os.getenv("CYNIC_FORCE_SLOW_MODE", "0") == "1",
+            
+            # LLM Keys
             anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
             google_api_key=os.getenv("GOOGLE_API_KEY"),
+            
+            # Local Inference
+            ollama_url=os.getenv("OLLAMA_URL", "http://localhost:11434"),
             models_dir=os.getenv("CYNIC_MODELS_DIR", default_models_dir),
             llama_gpu_layers=int(os.getenv("LLAMA_CPP_GPU_LAYERS", "-1")),
             llama_threads=int(os.getenv("LLAMA_CPP_THREADS", "8")),
-            # Ollama tuning
             ollama_num_parallel=_opt_int(os.getenv("OLLAMA_NUM_PARALLEL")),
+            
             # GASdf
             gasdf_url=os.getenv("GASDF_URL", "http://localhost:8766"),
             gasdf_enabled=os.getenv("GASDF_ENABLED") == "1",
+            
             # Runtime
             port=int(os.getenv("PORT", "8765")),
             log_level=os.getenv("LOG_LEVEL", "INFO"),

@@ -103,6 +103,7 @@ EVENT_JOURNAL_CAP = fibonacci(12)  # 144
 DECISION_TRACE_CAP = fibonacci(10)  # 55
 LOOP_CLOSURE_CAP = fibonacci(8)  # 21
 SERVICE_REGISTRY_JUDGMENT_CAP = fibonacci(11)  # 89
+CHAT_MESSAGE_CAP = fibonacci(10) # 55
 
 # Monitoring and Health (Fibonacci-aligned)
 SIGNAL_TTL_SEC = fibonacci(10)  # 55s
@@ -143,8 +144,15 @@ BUDGET_WARNING_PCT = PHI_INV * 100  # 61.8%
 TEMPORAL_MEMORY_WINDOW = fibonacci(8)  # 21
 HISTORY_REPLAY_BATCH = fibonacci(6)  # 8
 
+# Tool Executor Output Capacities
+BASH_OUTPUT_CAP = 30000
+READ_FILE_CAP = 20000
+GLOB_MATCH_CAP = 1000
+GREP_OUTPUT_CAP = 10000
+
 # ════════════════════════════════════════════════════════════════════════════
 # 3. RESILIENCE & BACKOFF
+
 # ════════════════════════════════════════════════════════════════════════════
 
 

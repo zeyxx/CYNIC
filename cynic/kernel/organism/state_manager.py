@@ -20,8 +20,9 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
+from cynic.kernel.core.event_bus import CoreEvent, get_core_bus
 from cynic.kernel.core.unified_state import (
     GovernanceCommunity,
     GovernanceProposal,
@@ -30,6 +31,9 @@ from cynic.kernel.core.unified_state import (
     UnifiedJudgment,
     UnifiedLearningOutcome,
 )
+
+if TYPE_CHECKING:
+    from cynic.kernel.core.storage.surreal import SurrealStorage
 
 logger = logging.getLogger("cynic.kernel.organism.state_manager")
 
@@ -68,11 +72,12 @@ class OrganismState:
     Thread-safe implementation for concurrent UI/Kernel access.
     """
 
-    def __init__(self, storage_dir: str | None = None):
+    def __init__(self, storage_dir: str | None = None, storage: Optional[SurrealStorage] = None):
         self.storage_dir = Path(
             storage_dir or os.path.join(os.path.expanduser("~"), ".cynic", "organism_state")
         )
         self.storage_dir.mkdir(parents=True, exist_ok=True)
+        self.storage = storage  # Real persistence layer (SurrealDB)
 
         # Internal State Layers
         self._memory_state: dict[str, Any] = {}
@@ -105,20 +110,20 @@ class OrganismState:
         self._loop_task: asyncio.Task | None = None
 
         # Concurrency protection
-        self._lock = threading.RLock()  # Use threading.RLock for synchronous accessors
+        self._lock = asyncio.Lock()
 
-    def get_snapshot(self) -> OrganismSnapshot:
+    async def get_snapshot(self) -> OrganismSnapshot:
         """Return the latest immutable snapshot. Lock-free after first take."""
         if self._last_snapshot is None:
-            self.take_snapshot()
+            await self.take_snapshot()
         return self._last_snapshot
 
-    def take_snapshot(self) -> None:
+    async def take_snapshot(self) -> None:
         """Capture current state into an immutable snapshot."""
-        with self._lock:
+        async with self._lock:
             self._last_snapshot = OrganismSnapshot(
                 total_judgments=self.total_judgments,
-                consciousness_level=self.get_consciousness_level(),
+                consciousness_level=await self.get_consciousness_level(),
                 active_axioms=list(self.active_axioms),
                 cycles={
                     "reflex": self.reflex_cycles,
@@ -142,8 +147,24 @@ class OrganismState:
         # Load last checkpoint if exists
         await self.recover()
 
+        # Subscribe to internal events
+        from cynic.kernel.core.event_bus import get_core_bus
+        bus = get_core_bus()
+        bus.on("organism.somatic_sensation", self._on_somatic_sensation)
+
         self._loop_task = asyncio.create_task(self._process_updates_loop())
         logger.info("OrganismState respiration started (storage=%s)", self.storage_dir)
+
+    async def _on_somatic_sensation(self, event: Event) -> None:
+        """Update internal stats from somatic sensors."""
+        p = event.dict_payload or {}
+        async with self._lock:
+            self._memory_state["machine_cpu"] = p.get("cpu", 0.0)
+            self._memory_state["machine_ram"] = p.get("ram", 0.0)
+
+    async def _on_judgment_created(self, event: Event) -> None:
+        """Internal handler for judgments."""
+        await self.add_judgment(event.dict_payload)
 
     async def stop_processing(self) -> None:
         """Graceful shutdown: flush and save."""
@@ -167,7 +188,7 @@ class OrganismState:
         """Record a judgment ID as pending (Track E)."""
         # Store immediately in memory state for fast lookup
         key = f"judgment:{judgment_id}:status"
-        with self._lock:
+        async with self._lock:
             self._memory_state[key] = "PENDING"
 
         # Also queue for persistence
@@ -177,9 +198,9 @@ class OrganismState:
             source="api"
         )
 
-    def get_judgment_status(self, judgment_id: str) -> str:
+    async def get_judgment_status(self, judgment_id: str) -> str:
         """Retrieve status of a judgment (PENDING/COMPLETED/etc)."""
-        return self.query(f"judgment:{judgment_id}:status", default="UNKNOWN")
+        return await self.query(f"judgment:{judgment_id}:status", default="UNKNOWN")
 
     # ── CORE OPERATIONS ─────────────────────────────────────────────────
 
@@ -191,9 +212,9 @@ class OrganismState:
         await self._update_queue.put(update)
         return True
 
-    def query(self, key: str, default: Any = None) -> Any:
+    async def query(self, key: str, default: Any = None) -> Any:
         """Read state (Memory > Persistent > Checkpoint)."""
-        with self._lock:
+        async with self._lock:
             if key in self._memory_state:
                 return self._memory_state[key]
             if key in self._persistent_state:
@@ -201,6 +222,25 @@ class OrganismState:
             if key in self._checkpoint_state:
                 return self._checkpoint_state[key]
             return default
+
+    def query_sync(self, key: str, default: Any = None) -> Any:
+        """Synchronous version of query. DANGEROUS: may block event loop if lock held."""
+        # Check if we're in an async loop
+        try:
+            loop = asyncio.get_running_loop()
+            if loop.is_running():
+                # We are in an async loop, this is risky
+                pass
+        except RuntimeError:
+            pass
+
+        if key in self._memory_state:
+            return self._memory_state[key]
+        if key in self._persistent_state:
+            return self._persistent_state[key]
+        if key in self._checkpoint_state:
+            return self._checkpoint_state[key]
+        return default
 
     # ── CONSCIOUSNESS INTEGRATION ───────────────────────────────────────
 
@@ -219,9 +259,28 @@ class OrganismState:
             else:
                 return
 
-        with self._lock:
+        async with self._lock:
             self.consciousness.add_judgment(judgment)
             self.total_judgments += 1
+
+        # Real Persistence (SurrealDB)
+        if self.storage:
+            try:
+                # 1. Save Judgment record
+                j_dict = judgment.to_dict() if hasattr(judgment, "to_dict") else vars(judgment)
+                asyncio.create_task(self.storage.judgments.save(j_dict))
+                
+                # 2. Update Q-Table if it was a learning outcome
+                # (Normally handled by LEARNING_EVENT, but we ensure consistency here)
+                state_key = j_dict.get("state_key")
+                if state_key:
+                    asyncio.create_task(self.storage.qtable.update(
+                        state_key=state_key,
+                        action=j_dict.get("verdict", "WAG"),
+                        q_value=j_dict.get("q_score", 0.0)
+                    ))
+            except Exception as e:
+                logger.debug("SurrealDB persistence failed: %s", e)
 
         await self.update(
             "judg:recent", list(self.consciousness.recent_judgments.buffer), layer=StateLayer.MEMORY
@@ -236,12 +295,12 @@ class OrganismState:
 
     async def update_consciousness_level(self, level: str) -> None:
         """Update global consciousness level."""
-        with self._lock:
+        async with self._lock:
             self.consciousness.consciousness_level = level
         await self.update("consciousness_level", level, layer=StateLayer.PERSISTENT)
 
-    def get_consciousness_level(self) -> str:
-        return self.query("consciousness_level", "REFLEX")
+    async def get_consciousness_level(self) -> str:
+        return await self.query("consciousness_level", "REFLEX")
 
     # ── GOVERNANCE SUBSYSTEM (Phase 3) ───────────────────────────────────
 
@@ -249,7 +308,7 @@ class OrganismState:
         """Register or update a governance community."""
         key = f"gov:community:{community.community_id}"
         await self.update(key, community, layer=StateLayer.PERSISTENT, source="governance_bot")
-        with self._lock:
+        async with self._lock:
             self.consciousness.add_community(community)
         return True
 
@@ -257,7 +316,7 @@ class OrganismState:
         """Submit a new governance proposal."""
         key = f"gov:proposal:{proposal.proposal_id}"
         await self.update(key, proposal, layer=StateLayer.PERSISTENT, source="governance_bot")
-        with self._lock:
+        async with self._lock:
             self.consciousness.add_proposal(proposal)
         return True
 
@@ -267,31 +326,31 @@ class OrganismState:
         await self.update(key, vote, layer=StateLayer.PERSISTENT, source="governance_bot")
         return True
 
-    def get_proposal(self, proposal_id: str) -> GovernanceProposal | None:
-        return self.query(f"gov:proposal:{proposal_id}")
+    async def get_proposal(self, proposal_id: str) -> GovernanceProposal | None:
+        return await self.query(f"gov:proposal:{proposal_id}")
 
     # ── READ ACCESSORS ──────────────────────────────────────────────────
 
-    def get_recent_judgments(self, limit: int = 10) -> list[UnifiedJudgment]:
+    async def get_recent_judgments(self, limit: int = 10) -> list[UnifiedJudgment]:
         """Retrieve recent judgments (newest first)."""
-        with self._lock:
+        async with self._lock:
             buffer = list(self.consciousness.recent_judgments.buffer)
             recent = buffer[-limit:]
             return list(reversed(recent))
 
-    def get_recent_outcomes(self, limit: int = 10) -> list[UnifiedLearningOutcome]:
+    async def get_recent_outcomes(self, limit: int = 10) -> list[UnifiedLearningOutcome]:
         """Retrieve recent learning outcomes."""
-        with self._lock:
+        async with self._lock:
             buffer = list(self.consciousness.learning_outcomes.buffer)
             recent = buffer[-limit:]
             return list(reversed(recent))
 
-    def get_stats(self) -> dict:
+    async def get_stats(self) -> dict:
         """Get comprehensive organism state statistics (thread-safe)."""
-        with self._lock:
+        async with self._lock:
             return {
                 "total_judgments": self.total_judgments,
-                "consciousness_level": self.get_consciousness_level(),
+                "consciousness_level": await self.get_consciousness_level(),
                 "memory_keys": len(self._memory_state),
                 "persistent_keys": len(self._persistent_state),
                 "queue_size": self._update_queue.qsize(),
@@ -317,7 +376,7 @@ class OrganismState:
                     break
 
                 # Apply to internal dictionaries with lock
-                with self._lock:
+                async with self._lock:
                     if update.layer == StateLayer.MEMORY:
                         self._memory_state[update.key] = update.value
                     elif update.layer == StateLayer.PERSISTENT:
@@ -340,7 +399,7 @@ class OrganismState:
             try:
                 with open(cp_path) as f:
                     data = json.load(f)
-                    with self._lock:
+                    async with self._lock:
                         self._checkpoint_state = data
                 logger.info("OrganismState: recovered from checkpoint")
             except Exception as e:
@@ -351,7 +410,7 @@ class OrganismState:
         cp_path = self.storage_dir / "state_checkpoint.json"
         try:
             # Snapshot state while locked
-            with self._lock:
+            async with self._lock:
                 snapshot = dict(self._persistent_state)
 
             # Write to disk (outside lock)

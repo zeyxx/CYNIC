@@ -67,7 +67,7 @@ class KNetServer:
 
             org = get_state()
             if org:
-                stats = org.state.get_stats()
+                stats = await org.state.get_stats()
                 data = {
                     "mind": {
                         "status": "AWAKE",
