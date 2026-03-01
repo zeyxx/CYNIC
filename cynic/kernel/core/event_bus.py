@@ -20,6 +20,8 @@ from typing import Any, Callable, Coroutine, Optional, Type, TypeVar, Union
 
 logger = logging.getLogger("cynic.kernel.core.event_bus")
 
+T = TypeVar('T')  # Generic type for as_typed() method
+
 class EventBusError(Exception):
     """Base class for all event bus errors."""
     pass
@@ -154,8 +156,10 @@ class CoreEvent(StrEnum):
     ALIGNMENT_FAILED     = "core.alignment_failed"     # Safety check failed
     
     # Topology / Nervous
+    SOURCE_CHANGED       = "topology.source_changed"       # Code file changed (for ChangeAnalyzer)
     TOPOLOGY_CHANGED     = "topology.topology_changed"
     TOPOLOGY_SNAPSHOT    = "topology.topology_snapshot"
+    CHANGE_ANALYZED      = "topology.change_analyzed"      # ChangeAnalyzer completed analysis
 
     # SDK / Developer Tools
     SDK_SESSION_STARTED  = "sdk.session_started"
@@ -196,6 +200,22 @@ class Event:
     @classmethod
     def typed(cls, type: CoreEvent, payload: Any = None, source: str = "unknown") -> Event:
         return cls(type.value, payload, source)
+
+    def as_typed(self, payload_type: Type[T]) -> T:
+        """Cast payload to the specified Pydantic model type."""
+        if self.payload is None:
+            raise EventBusError(f"Event has no payload for type {payload_type.__name__}")
+        if isinstance(self.payload, payload_type):
+            return self.payload
+        # If payload is dict-like, try to construct the model
+        if hasattr(payload_type, "model_validate"):
+            # Pydantic v2
+            return payload_type.model_validate(self.payload)
+        elif hasattr(payload_type, "parse_obj"):
+            # Pydantic v1
+            return payload_type.parse_obj(self.payload)
+        else:
+            raise EventBusError(f"Cannot convert payload to {payload_type.__name__}")
 
     def to_dict(self) -> dict:
         return {
