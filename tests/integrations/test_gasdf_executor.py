@@ -138,7 +138,7 @@ class TestGASdfExecutor:
         executor = GASdfExecutor(mock_client)
         result = await executor.execute_verdict(
             proposal_id="prop_struct",
-            verdict="APPROVED",
+            verdict="HOWL",
             community_id="com_1",
             payment_token="sol",
             user_pubkey="pubkey",
@@ -163,7 +163,7 @@ class TestGASdfExecutor:
         with pytest.raises(GASdfError) as exc_info:
             await executor.execute_verdict(
                 proposal_id="prop_error",
-                verdict="APPROVED",
+                verdict="HOWL",
                 community_id="com_1",
                 payment_token="usdc",
                 user_pubkey="user_pub",
@@ -190,7 +190,7 @@ class TestGASdfExecutor:
         with pytest.raises(GASdfError) as exc_info:
             await executor.execute_verdict(
                 proposal_id="prop_submit_err",
-                verdict="APPROVED",
+                verdict="HOWL",
                 community_id="com_1",
                 payment_token="usdc",
                 user_pubkey="user_pub",
