@@ -97,6 +97,7 @@ class JudgeOrchestrator:
         residual_detector=None,
         gasdf_executor=None,
         state_manager=None, # Added for cycle feedback
+        instance_id: str = "DEFAULT",  # Level 2 multi-instance support
     ) -> None:
         self.dogs = dogs  # {dog_id: AbstractDog}
         self.axiom_arch = axiom_arch
@@ -104,6 +105,7 @@ class JudgeOrchestrator:
         self.residual_detector = residual_detector
         self.gasdf_executor = gasdf_executor
         self.state_manager = state_manager
+        self.instance_id = instance_id  # Store for event emission
         self.benchmark_registry = None  # Optional[BenchmarkRegistry] — set via state.py
         self.escore_tracker = None  # Optional[EScoreTracker] — injected via state.py
 
@@ -136,6 +138,10 @@ class JudgeOrchestrator:
         from cynic.kernel.organism.brain.dialogue.agent import DialogueAgent
 
         self._dialogue_agent = DialogueAgent()
+
+    def _get_instance_bus(self):
+        """Get the instance-specific bus for event emission (Level 2 multi-instance support)."""
+        return get_core_bus(self.instance_id)
 
     async def _on_facets_missing(self, axiom: str, reality: str) -> None:
         """
@@ -259,7 +265,7 @@ class JudgeOrchestrator:
                 cell.cell_id,
                 cb.failure_count,
             )
-            await get_core_bus().emit(
+            await self._get_instance_bus().emit(
                 Event.typed(
                     CoreEvent.JUDGMENT_FAILED,
                     JudgmentFailedPayload(
@@ -330,7 +336,7 @@ class JudgeOrchestrator:
             # Dogs cooperating (PBFT quorum achieved) = CONSENSUS_REACHED.
             # Dogs failing to agree = CONSENSUS_FAILED.
             if judgment.consensus_reached:
-                await get_core_bus().emit(
+                await self._get_instance_bus().emit(
                     Event.typed(
                         CoreEvent.CONSENSUS_REACHED,
                         ConsensusReachedPayload(
@@ -345,7 +351,7 @@ class JudgeOrchestrator:
                     )
                 )
             else:
-                await get_core_bus().emit(
+                await self._get_instance_bus().emit(
                     Event.typed(
                         CoreEvent.CONSENSUS_FAILED,
                         ConsensusFailedPayload(
@@ -365,7 +371,7 @@ class JudgeOrchestrator:
 
             # Emit LEARNING_EVENT for ALL cycles (REFLEX/MICRO/MACRO).
             # Was incorrectly placed inside _cycle_macro only — Q-Learning never fired.
-            await get_core_bus().emit(
+            await self._get_instance_bus().emit(
                 Event.typed(
                     CoreEvent.LEARNING_EVENT,
                     LearningEventPayload(
@@ -433,7 +439,7 @@ class JudgeOrchestrator:
             logger.error("Judgment pipeline failed: %s", e, exc_info=True)
             # Circuit breaker: record failure — may open circuit after threshold
             self._circuit_breaker.record_failure()
-            await get_core_bus().emit(
+            await self._get_instance_bus().emit(
                 Event.typed(
                     CoreEvent.JUDGMENT_FAILED,
                     JudgmentFailedPayload(
@@ -798,7 +804,7 @@ class JudgeOrchestrator:
 
         if decision["reality"] not in _ACT_REALITIES:
             # Still emit DECISION_MADE for human review, but don't auto-execute
-            await get_core_bus().emit(
+            await self._get_instance_bus().emit(
                 Event.typed(
                     CoreEvent.DECISION_MADE,
                     DecisionMadePayload(
@@ -845,7 +851,7 @@ class JudgeOrchestrator:
             # Emit ACT_COMPLETED event (for feedback loops L3, L4)
             from cynic.kernel.core.events_schema import ActCompletedPayload
 
-            await get_core_bus().emit(
+            await self._get_instance_bus().emit(
                 Event.typed(
                     CoreEvent.ACT_COMPLETED,
                     ActCompletedPayload(

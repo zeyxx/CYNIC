@@ -513,12 +513,14 @@ class LearningLoop:
 
     FLUSH_INTERVAL = fibonacci(8)  # F(8) = 21 updates before flush
 
-    def __init__(self, qtable: QTable, pool=None) -> None:
+    def __init__(self, qtable: QTable, pool=None, instance_id: str = "DEFAULT") -> None:
         self.qtable = qtable
         self._pool = pool
         self._active = False
         self._updates_since_flush: int = 0
         self._learning_rate = qtable._alpha  # Reference to QTable's α
+        self.instance_id = instance_id  # Level 2 multi-instance support
+        self._bus = None  # Cached bus reference (set in start())
 
     def adjust_learning_rate(self, delta: float) -> None:
         """
@@ -538,7 +540,8 @@ class LearningLoop:
         """Register LEARNING_EVENT listener on the event bus."""
         from cynic.kernel.core.event_bus import CoreEvent, get_core_bus
 
-        target_bus = event_bus or get_core_bus()
+        target_bus = event_bus or get_core_bus(self.instance_id)
+        self._bus = target_bus  # Cache for use in _on_learning_event
         target_bus.on(CoreEvent.LEARNING_EVENT, self._on_learning_event)
         self._active = True
         logger.info("LearningLoop started — listening for LEARNING_EVENT")
@@ -574,7 +577,7 @@ class LearningLoop:
             from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
             from cynic.kernel.core.events_schema import EwcCheckpointPayload
 
-            await get_core_bus().emit(
+            await self._bus.emit(
                 Event.typed(
                     CoreEvent.EWC_CHECKPOINT,
                     EwcCheckpointPayload(
@@ -603,7 +606,7 @@ class LearningLoop:
             from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
             from cynic.kernel.core.events_schema import QTableUpdatedPayload
 
-            await get_core_bus().emit(
+            await self._bus.emit(
                 Event.typed(
                     CoreEvent.Q_TABLE_UPDATED,
                     QTableUpdatedPayload(

@@ -72,7 +72,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("✅ CYNIC is AWAKE and RESPIRING (ready in %.2fs)", time.perf_counter() - t0)
 
     # 3b. SPARK (Initial perception to trigger life)
-    await get_core_bus().emit(Event.typed(
+    await get_core_bus(instance_id).emit(Event.typed(
         CoreEvent.PERCEPTION_RECEIVED,
         payload={"content": "Organism awakened. System check initiated.", "reality": "CYNIC"},
         source="system"

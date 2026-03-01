@@ -90,8 +90,8 @@ class _OrganismAwakener:
         axiom_arch = AxiomArchitecture()
         axiom_arch.state = self.state
 
-        self.learning_loop = LearningLoop(qtable=self.qtable, pool=self.db_pool)
-        self.learning_loop.start()
+        self.learning_loop = LearningLoop(qtable=self.qtable, pool=self.db_pool, instance_id=instance_id)
+        self.learning_loop.start(event_bus=get_core_bus(instance_id))
 
         self.residual_detector = ResidualDetector()
         self.residual_detector.start()
@@ -112,6 +112,7 @@ class _OrganismAwakener:
             residual_detector=self.residual_detector,
             gasdf_executor=gasdf_executor,
             state_manager=self.state,
+            instance_id=instance_id,
         )
 
         self.decide_agent = DecideAgent(qtable=self.qtable)
