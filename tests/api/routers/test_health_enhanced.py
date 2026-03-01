@@ -220,9 +220,18 @@ class TestHealthIntegration:
         response = integration_client.get("/health/ready?timeout=2")
         elapsed = time.time() - start
 
-        data = response.json()
-        waited = data["waited_seconds"]
+        # Handle both success (200) and timeout (503) responses
+        if response.status_code == 200:
+            data = response.json()
+            waited = data["waited_seconds"]
+        elif response.status_code == 503:
+            data = response.json()
+            # When timeout, waited_seconds is in the detail or top-level
+            waited = data.get("waited_seconds") or data.get("detail", {}).get("waited_seconds")
+        else:
+            assert False, f"Unexpected status code: {response.status_code}"
 
         # Should have reasonable polling resolution
+        assert waited is not None
         assert waited >= 0
         assert waited <= 3  # timeout + some overhead

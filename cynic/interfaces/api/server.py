@@ -127,7 +127,7 @@ from cynic.interfaces.api.routers.llm import router as router_llm
 
 app.include_router(router_core, prefix="/api")
 app.include_router(router_consciousness, prefix="/api/consciousness")
-app.include_router(router_health, prefix="/api/observability")
+app.include_router(router_health)  # Health endpoints at root: /health, /health/full, /health/ready
 app.include_router(router_federation, prefix="/api/federation")
 app.include_router(router_sovereignty, prefix="/api/sovereignty")
 app.include_router(router_governance, prefix="/api/governance")
@@ -138,7 +138,7 @@ app.include_router(router_llm, prefix="/api/llm")
 _routers_registered = {
     "core_router": {"prefix": "/api", "routes": 10},
     "consciousness_ecosystem_router": {"prefix": "/api/consciousness", "routes": 10},
-    "health_router": {"prefix": "/api/observability", "routes": 10},
+    "health_router": {"prefix": "/", "routes": 10},
     "federation_router": {"prefix": "/api/federation", "routes": 5}, 
     "sovereignty_router": {"prefix": "/api/sovereignty", "routes": 5}, 
     "governance_router": {"prefix": "/api/governance", "routes": 5}, 
