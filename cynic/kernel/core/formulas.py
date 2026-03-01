@@ -135,6 +135,14 @@ Q_LEARNING_GAMMA = PHI_INV  # 0.618 (Discount factor)
 Q_LEARNING_ALPHA = PHI_INV_2 / 10  # ~0.038 (Learning rate)
 EXPLORATION_EPSILON = PHI_INV_2  # 0.382 (Initial epsilon)
 
+# Confidence Thresholds (PHI-aligned)
+CONFIDENCE_ENRICHMENT_MIN_THRESHOLD = PHI_INV  # 0.618 (Minimum confidence for context enrichment)
+
+# Kernel Integrity Thresholds (Health-based)
+KERNEL_INTEGRITY_WAG_THRESHOLD = 85.0  # 85% health = wagging (good)
+KERNEL_INTEGRITY_GROWL_THRESHOLD = 60.0  # 60% health = growling (stressed)
+KERNEL_INTEGRITY_HOWL_THRESHOLD = 30.0  # 30% health = howling (critical)
+
 # Economic Constants (PHI-aligned)
 COST_EFFICIENCY_CAP_USD = 0.01  # Base efficiency unit
 BUDGET_HARD_CAP_USD = fibonacci(7)  # 13.0

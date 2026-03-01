@@ -137,6 +137,7 @@ from cynic.interfaces.api.routers.llm import router as router_llm
 from cynic.interfaces.api.routers.mcp import router as router_mcp
 from cynic.interfaces.api.routers.mcp_observability import router as router_mcp_observability
 from cynic.interfaces.api.routers.mcp_websocket import router as router_mcp_websocket
+from cynic.interfaces.api.routers.metrics import router as router_metrics
 from cynic.interfaces.api.routers.nervous import router as router_nervous
 from cynic.interfaces.api.routers.observability import router_observability
 from cynic.interfaces.api.routers.orchestration import router as router_orchestration
@@ -167,6 +168,7 @@ app.include_router(router_introspection)
 app.include_router(router_mcp)
 app.include_router(router_mcp_observability)
 app.include_router(router_mcp_websocket)
+app.include_router(router_metrics)
 app.include_router(router_nervous)
 app.include_router(router_organism)
 app.include_router(router_orchestration)

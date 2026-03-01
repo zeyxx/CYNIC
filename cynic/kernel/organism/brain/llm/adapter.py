@@ -199,3 +199,12 @@ class LLMRegistry:
 
 # --- REGISTRY SINGLETON REMOVED ---
 # Each Organism instance must manage its own LLMRegistry.
+
+
+def get_registry() -> LLMRegistry:
+    """Get the LLMRegistry from the current organism (via container)."""
+    from cynic.interfaces.api.state import get_app_container
+    container = get_app_container()
+    if container is None:
+        raise RuntimeError("No app container available (organism not awake)")
+    return container.organism.archive.llm_registry
