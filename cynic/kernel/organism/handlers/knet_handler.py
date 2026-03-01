@@ -6,19 +6,20 @@ Listens to internal events and broadcasts them as κ-PULSE messages.
 from __future__ import annotations
 
 import logging
+from typing import Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.organism.handlers.base import HandlerGroup
 from cynic.kernel.organism.handlers.services import SensoryServices
 from cynic.kernel.protocol.kpulse import PulseMessage, PulseType
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.knet")
 
-
 class KNetHandler(HandlerGroup):
     """Bridges internal consciousness to the distributed κ-NET nerves."""
 
-    def __init__(self, sensory: SensoryServices) -> None:
+    def __init__(self, sensory: SensoryServices, bus: Optional[EventBus] = None) -> None:
+        super().__init__(bus=bus)
         self._sensory = sensory
         self._server = None
 

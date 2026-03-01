@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, EventBusError
 from cynic.kernel.organism.handlers.base import HandlerGroup
 from cynic.kernel.organism.handlers.services import CognitionServices
 
@@ -18,7 +18,15 @@ logger = logging.getLogger("cynic.kernel.organism.handlers.health")
 class HealthHandlers(HandlerGroup):
     """Health/resource pressure handlers — disk/memory → LOD."""
 
-    def __init__(self, cognition: CognitionServices, *, storage_gc, db_pool: Any | None) -> None:
+    def __init__(
+        self,
+        cognition: CognitionServices,
+        *,
+        storage_gc,
+        db_pool: Any | None,
+        bus: Optional[EventBus] = None,
+    ) -> None:
+        super().__init__(bus=bus)
         self._cognition = cognition
         self._storage_gc = storage_gc
         self._db_pool = db_pool

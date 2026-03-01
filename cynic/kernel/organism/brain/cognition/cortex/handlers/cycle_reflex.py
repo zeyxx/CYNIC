@@ -48,10 +48,16 @@ class ReflexCycleHandler(BaseHandler):
         dogs: dict[str, Any],
         axiom_arch: Any,
         consciousness_state: Any | None = None,
+        escore_tracker: Any | None = None,
+        axiom_monitor: Any | None = None,
+        lod_controller: Any | None = None,
     ) -> None:
         self.dogs = dogs
         self.axiom_arch = axiom_arch
         self.consciousness_state = consciousness_state
+        self.escore_tracker = escore_tracker
+        self.axiom_monitor = axiom_monitor
+        self.lod_controller = lod_controller
 
     async def execute(self, pipeline: JudgmentPipeline, **kwargs: Any) -> HandlerResult:
         """
@@ -65,6 +71,7 @@ class ReflexCycleHandler(BaseHandler):
         """
         t0 = time.perf_counter()
         try:
+            from cynic.kernel.core.consciousness import ConsciousnessLevel
             from cynic.kernel.organism.brain.cognition.cortex.judgment_stages import execute_judgment_pipeline
             
             pipeline.level = ConsciousnessLevel.REFLEX

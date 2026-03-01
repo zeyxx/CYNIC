@@ -43,7 +43,9 @@ class IntelligenceHandlers(HandlerGroup):
         scheduler: ConsciousnessRhythm,
         db_pool: Any | None,
         compressor,  # ContextCompressor
+        bus: Optional[EventBus] = None,
     ) -> None:
+        super().__init__(bus=bus)
         self._cognition = cognition
         self._orchestrator = orchestrator
         self._scheduler = scheduler
@@ -88,7 +90,7 @@ class IntelligenceHandlers(HandlerGroup):
                     lod=1 # Numeric LOD is fine here
                 )
                 
-                await get_core_bus().emit(Event.typed(
+                await self.bus.emit(Event.typed(
                     CoreEvent.JUDGMENT_REQUESTED,
                     JudgmentRequestedPayload(
                         cell_id=cell.cell_id,

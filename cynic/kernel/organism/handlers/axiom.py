@@ -29,7 +29,14 @@ _A6_A9 = {"EMERGENCE", "AUTONOMY", "SYMBIOSIS", "ANTIFRAGILITY"}
 class AxiomHandlers(HandlerGroup):
     """Axiom signaling chain leading to TRANSCENDENCE."""
 
-    def __init__(self, cognition: CognitionServices, *, action_proposer: ActionProposer) -> None:
+    def __init__(
+        self,
+        cognition: CognitionServices,
+        *,
+        action_proposer: ActionProposer,
+        bus: Optional[EventBus] = None,
+    ) -> None:
+        super().__init__(bus=bus)
         self._cognition = cognition
         self._action_proposer = action_proposer
 
@@ -125,7 +132,7 @@ class AxiomHandlers(HandlerGroup):
             # Check if all A6-A9 are active
             a6_a9_active = [a for a in active if a in _A6_A9]
             if len(a6_a9_active) == 4:
-                await get_core_bus().emit(
+                await self.bus.emit(
                     Event.typed(
                         CoreEvent.TRANSCENDENCE,
                         TranscendencePayload(

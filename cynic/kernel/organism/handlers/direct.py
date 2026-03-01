@@ -27,7 +27,9 @@ class DirectActionsHandler(HandlerGroup):
         *,
         universal_actuator: UniversalActuator,
         qtable: QTable,
+        bus: Optional[EventBus] = None,
     ) -> None:
+        super().__init__(bus=bus)
         self._metabolism = metabolism
         self._universal_actuator = universal_actuator
 

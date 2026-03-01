@@ -6,19 +6,21 @@ Listens to SONA_TICK and adjusts internal parameters based on axiom health.
 from __future__ import annotations
 
 import logging
+from typing import Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.organism.handlers.base import HandlerGroup
 from cynic.kernel.organism.handlers.services import CognitionServices
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.meta_cognition")
 
-
 class MetaCognitionHandler(HandlerGroup):
     """Organism self-tuning and parameter adjustment."""
 
-    def __init__(self, cognition: CognitionServices) -> None:
+    def __init__(self, cognition: CognitionServices, bus: Optional[EventBus] = None) -> None:
+        super().__init__(bus=bus)
         self._cognition = cognition
+        self._ticks_processed = 0
 
     @property
     def name(self) -> str:

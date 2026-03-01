@@ -51,11 +51,17 @@ class MicroCycleHandler(BaseHandler):
         axiom_arch: Any,
         cynic_dog: Any | None = None,
         lod_controller: Any | None = None,
+        escore_tracker: Any | None = None,
+        axiom_monitor: Any | None = None,
+        context_compressor: Any | None = None,
     ) -> None:
         self.dogs = dogs
         self.axiom_arch = axiom_arch
         self.cynic_dog = cynic_dog
         self.lod_controller = lod_controller
+        self.escore_tracker = escore_tracker
+        self.axiom_monitor = axiom_monitor
+        self.context_compressor = context_compressor
 
     async def execute(self, pipeline: JudgmentPipeline, **kwargs: Any) -> HandlerResult:
         """
@@ -69,6 +75,7 @@ class MicroCycleHandler(BaseHandler):
         """
         t0 = time.perf_counter()
         try:
+            from cynic.kernel.core.consciousness import ConsciousnessLevel
             from cynic.kernel.organism.brain.cognition.cortex.judgment_stages import execute_judgment_pipeline
             
             pipeline.level = ConsciousnessLevel.MICRO

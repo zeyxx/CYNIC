@@ -22,7 +22,8 @@ logger = logging.getLogger("cynic.kernel.organism.handlers.escore")
 class EScoreHandlers(HandlerGroup):
     """Most independent group — updates 7 EScore dimensions."""
 
-    def __init__(self, cognition: CognitionServices) -> None:
+    def __init__(self, cognition: CognitionServices, bus: Optional[EventBus] = None) -> None:
+        super().__init__(bus=bus)
         self._cognition = cognition
 
     @property

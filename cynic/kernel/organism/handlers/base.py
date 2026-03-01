@@ -17,7 +17,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 
-from cynic.kernel.core.event_bus import CoreEvent
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from cynic.kernel.core.event_bus import CoreEvent, EventBus
 
 # Import the new service architecture
 
@@ -33,6 +36,11 @@ class HandlerGroup(ABC):
 
     This is the "driver interface" — enforcement point for architecture.
     """
+
+    def __init__(self, bus: Optional[EventBus] = None):
+        """Initialize handler with instance-specific bus."""
+        from cynic.kernel.core.event_bus import get_core_bus
+        self.bus = bus or get_core_bus()
 
     @property
     @abstractmethod

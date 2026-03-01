@@ -100,6 +100,7 @@ def discover_handler_groups(
     cognition: CognitionServices,
     metabolic: MetabolicServices,
     sensory: SensoryServices,
+    bus: Optional[EventBus] = None,
     **kwargs: Any,
 ) -> list[HandlerGroup]:
     """
@@ -150,7 +151,7 @@ def discover_handler_groups(
 
                     # Merge domain service with extra specialized kwargs
                     group_kwargs = kwargs.get(module_name, {})
-                    init_args = {param_name: svc_facade}
+                    init_args = {param_name: svc_facade, "bus": bus}
                     init_args.update(group_kwargs)
 
                     instance = attr(**init_args)

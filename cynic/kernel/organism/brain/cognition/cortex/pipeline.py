@@ -27,6 +27,7 @@ class JudgmentPipeline:
     level: ConsciousnessLevel = ConsciousnessLevel.MACRO
     fractal_depth: int = 1
     pipeline_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    trace_id: str = field(default_factory=lambda: f"TR-{uuid.uuid4().hex[:6].upper()}")
     started_at: float = field(default_factory=time.perf_counter)
 
     # Step results

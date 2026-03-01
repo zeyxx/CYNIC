@@ -50,7 +50,9 @@ class JudgmentExecutorHandler(HandlerGroup):
         cognition: CognitionServices,
         *,
         orchestrator: JudgeOrchestrator,
+        bus: Optional[EventBus] = None,
     ) -> None:
+        super().__init__(bus=bus)
         self._cognition = cognition
 
         self._orchestrator = orchestrator
@@ -184,7 +186,7 @@ class JudgmentExecutorHandler(HandlerGroup):
     ) -> None:
         """Emit JUDGMENT_FAILED event and update ConsciousState."""
         try:
-            await get_core_bus().emit(
+            await self.bus.emit(
                 Event.typed(
                     CoreEvent.JUDGMENT_FAILED,
                     JudgmentFailedPayload(

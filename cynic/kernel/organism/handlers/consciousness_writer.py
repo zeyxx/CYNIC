@@ -13,9 +13,9 @@ import json
 import logging
 import os
 import time
-from typing import Any
+from typing import Any, Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.organism.handlers.base import HandlerGroup
 from cynic.kernel.organism.handlers.services import CognitionServices
 
@@ -27,8 +27,9 @@ _CONSCIOUSNESS_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "conscious
 class ConsciousnessWriter(HandlerGroup):
     """Handler group that writes consciousness.json periodically."""
 
-    def __init__(self, cognition: CognitionServices):
+    def __init__(self, cognition: CognitionServices, bus: Optional[EventBus] = None):
         """Initialize handler with cognition services."""
+        super().__init__(bus=bus)
         self._cognition = cognition
         self._last_write = 0.0
         self._write_interval = 13.0  # F(7) seconds throttle

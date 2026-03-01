@@ -191,6 +191,7 @@ class _OrganismAwakener:
             cognition=cog_svc,
             metabolic=meta_svc,
             sensory=sens_svc,
+            bus=get_core_bus(instance_id),
             # Extra kwargs for specific handlers (MUST match module names)
             axiom={"action_proposer": self.action_proposer},
             sdk={"action_proposer": self.action_proposer, "qtable": self.qtable},

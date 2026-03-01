@@ -166,7 +166,10 @@
       "Bash(gh pr:*)",
       "Bash(PYTHONIOENCODING=utf-8 timeout 30 python:*)",
       "Bash(PYTHONIOENCODING=utf-8 pytest:*)",
-      "Bash(PYTHONPATH=. PYTHONIOENCODING=utf-8 pytest:*)"
+      "Bash(PYTHONPATH=. PYTHONIOENCODING=utf-8 pytest:*)",
+      "Bash(PYTHONPATH=. pytest:*)",
+      "Bash(PYTHONPATH=. timeout 180 pytest:*)",
+      "Bash(PYTHONIOENCODING=utf-8 python:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

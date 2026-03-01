@@ -96,36 +96,45 @@ NON_LLM_DOGS: set[str] = {
 }
 
 
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
 # ════════════════════════════════════════════════════════════════════════════
 # DOG JUDGMENT OUTPUT
 # ════════════════════════════════════════════════════════════════════════════
 
 
-@dataclass
-class DogJudgment:
+class DogJudgment(BaseModel):
     """
-    A single Dog's judgment of a Cell.
+    A single Dog's judgment of a Cell (Pydantic V2).
 
     Dogs vote with q_score + confidence.
     PBFT aggregates dog_judgments into ConsensusResult.
+    
+    Supports fractal growth: extra fields are allowed but validated.
     """
+    model_config = ConfigDict(extra="allow", frozen=False)
 
     dog_id: str
     cell_id: str
-    q_score: float  # [0, 61.8] — φ-bounded
-    confidence: float  # [0, 0.618] — φ-bounded (max uncertainty)
+    q_score: float  # [0, 100]
+    confidence: float  # [0, 0.618]
     reasoning: str = ""  # Human-readable explanation
-    evidence: dict[str, Any] = field(default_factory=dict)  # Supporting data
+    evidence: dict[str, Any] = Field(default_factory=dict)  # Supporting data
     latency_ms: float = 0.0
     cost_usd: float = 0.0
     llm_id: str | None = None  # Which LLM was used (None for non-LLM Dogs)
-    timestamp: float = field(default_factory=time.time)
+    timestamp: float = Field(default_factory=time.time)
     veto: bool = False  # GUARDIAN can veto (blocks execution regardless of votes)
 
-    def __post_init__(self) -> None:
-        # Enforce φ-bounds
-        self.q_score = phi_bound_score(self.q_score)
-        self.confidence = min(max(self.confidence, 0.0), MAX_CONFIDENCE)
+    @field_validator("q_score")
+    @classmethod
+    def bound_q_score(cls, v: float) -> float:
+        return max(0.0, min(v, 100.0))
+
+    @field_validator("confidence")
+    @classmethod
+    def bound_confidence(cls, v: float) -> float:
+        return max(0.0, min(v, MAX_CONFIDENCE))
 
     @property
     def vote_weight(self) -> float:
@@ -133,18 +142,8 @@ class DogJudgment:
         return self.confidence * DOG_PRIORITY.get(self.dog_id, 1.0)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "dog_id": self.dog_id,
-            "cell_id": self.cell_id,
-            "q_score": round(self.q_score, 3),
-            "confidence": round(self.confidence, 3),
-            "reasoning": self.reasoning[:500],  # truncate for storage
-            "latency_ms": round(self.latency_ms, 1),
-            "cost_usd": round(self.cost_usd, 6),
-            "llm_id": self.llm_id,
-            "veto": self.veto,
-            "timestamp": self.timestamp,
-        }
+        """Legacy compatibility wrapper."""
+        return self.model_dump()
 
 
 # ════════════════════════════════════════════════════════════════════════════

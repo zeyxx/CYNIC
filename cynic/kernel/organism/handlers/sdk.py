@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 import httpx
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, EventBusError
 from cynic.kernel.core.phi import MAX_Q_SCORE
 from cynic.kernel.organism.handlers.base import HandlerGroup
 from cynic.kernel.organism.handlers.services import MetabolicServices
@@ -25,8 +25,14 @@ class SDKHandlers(HandlerGroup):
     _SDK_OUTCOME_WINDOW = 13  # F(7)
 
     def __init__(
-        self, metabolism: MetabolicServices, *, action_proposer: ActionProposer, qtable: QTable
+        self,
+        metabolism: MetabolicServices,
+        *,
+        action_proposer: ActionProposer,
+        qtable: QTable,
+        bus: Optional[EventBus] = None,
     ) -> None:
+        super().__init__(bus=bus)
         self._metabolism = metabolism
         self._action_proposer = action_proposer
         self._qtable = qtable
