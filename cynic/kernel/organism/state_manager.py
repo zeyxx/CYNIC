@@ -61,6 +61,7 @@ class OrganismState:
         
         # The Living View (Consciousness)
         self.consciousness = UnifiedConsciousState()
+        self.total_judgments = 0
         
         # Async Pipeline
         self._update_queue: asyncio.Queue[StateUpdate] = asyncio.Queue()
@@ -122,6 +123,7 @@ class OrganismState:
                 return
 
         self.consciousness.add_judgment(judgment)
+        self.total_judgments += 1
         await self.update(f"judg:recent", list(self.consciousness.recent_judgments.buffer), layer=StateLayer.MEMORY)
         await self.update(f"judg:record:{judgment.judgment_id}", judgment, layer=StateLayer.PERSISTENT)
 
