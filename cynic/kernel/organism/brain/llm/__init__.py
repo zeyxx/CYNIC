@@ -8,7 +8,7 @@ Provides:
 
 from __future__ import annotations
 
-# Export adapter classes for dynamic loading
-from cynic.kernel.organism.brain.llm.adapters.local_gguf import LlamaCppAdapter as llama_cpp
+# Adapters are loaded dynamically via LLMRegistry.discover()
+# to avoid circular import chains
 
-__all__ = ["llama_cpp"]
+__all__ = []

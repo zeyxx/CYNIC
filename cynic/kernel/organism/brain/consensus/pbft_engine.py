@@ -23,8 +23,10 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
+from typing import TYPE_CHECKING
 
-from cynic.kernel.core.unified_state import UnifiedJudgment
+if TYPE_CHECKING:
+    from cynic.kernel.core.unified_state import UnifiedJudgment
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +176,10 @@ class PBFTEngine:
             aggregated_dog_votes.update(judgment.dog_votes)
 
         # Create consensus judgment
-        consensus_judgment = UnifiedJudgment(
+        # Late import to avoid circular dependency
+        from cynic.kernel.core.unified_state import UnifiedJudgment as UJ
+
+        consensus_judgment = UJ(
             judgment_id=f"consensus-{len(judgments)}-dogs",
             verdict=consensus_verdict,
             q_score=avg_q_score,

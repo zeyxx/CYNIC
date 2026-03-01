@@ -13,9 +13,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    pass
-
-from cynic.kernel.organism.organism import Organism
+    from cynic.kernel.organism.organism import Organism
 
 logger = logging.getLogger("cynic.interfaces.api.state")
 
@@ -31,8 +29,8 @@ def set_instance_id(instance_id: str) -> None:
     _current_instance_id = instance_id
 
 
-# Backward compatibility alias
-CynicOrganism = Organism
+# Backward compatibility alias (lazy to avoid circular import)
+CynicOrganism = None
 
 
 @dataclass
@@ -43,7 +41,7 @@ class AppContainer:
     The AppContainer is the single gateway to the CYNIC Organism for the API.
     It encapsulates the organism instance and process-specific metadata.
     """
-    organism: Organism
+    organism: Organism  # type: ignore[name-defined]
     instance_id: str  # Unique per process
     guidance_path: str  # ~/.cynic/guidance-{instance_id}.json
     started_at: float = field(default_factory=time.time)
@@ -101,28 +99,28 @@ def get_app_container() -> AppContainer:
 
 # â”€â”€ Legacy Compatibility Layer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-def build_kernel(db_pool=None, registry=None) -> Organism:
+def build_kernel(db_pool=None, registry=None) -> "Organism":
     """DEPRECATED: Use awaken()."""
     return awaken(db_pool, registry)
 
 
-_state: Organism | None = None
+_state: "Organism | None" = None
 
 
-def set_state(state: Organism) -> None:
+def set_state(state: "Organism") -> None:
     """Legacy state setter."""
     global _state
     _state = state
 
 
-def get_state() -> Organism:
+def get_state() -> "Organism":
     """Legacy state getter."""
     if _state is None:
         raise RuntimeError("Organism not initialized")
     return _state
 
 
-def awaken(db_pool=None, registry=None) -> Organism:
+def awaken(db_pool=None, registry=None) -> "Organism":
     """Gateway to the true awakening in cynic.kernel.organism.organism."""
     from cynic.kernel.organism.organism import awaken as organism_awaken
     return organism_awaken(db_pool, registry)
