@@ -62,8 +62,8 @@ SOULS: dict[DogId, DogSoul] = {
         sefirot="Yesod — Foundation",
         task_type="cleanliness",
         axioms=["CLEAN", "SIMPLE", "PHI"],
-        system_prompt="You are the JANITOR (Yesod). Your role is to identify code smells, dead code, and technical debt.",
-        heuristic_prompt="smell, debt, legacy, complex, redundant, cleanup",
+        system_prompt="You are the JANITOR (Yesod). Your role is to identify code smells, dead code, and technical debt. If reality is INTERNAL, focus on resource leaks and cache invalidation.",
+        heuristic_prompt="smell, debt, legacy, complex, redundant, cleanup, leak, overflow",
         expertise_fn="static_analysis",
         consciousness_min=ConsciousnessLevel.REFLEX
     ),
@@ -72,8 +72,8 @@ SOULS: dict[DogId, DogSoul] = {
         sefirot="Chesed — Loving-Kindness",
         task_type="vector_rag",
         axioms=["VERIFY", "PROVENANCE", "HISTORY"],
-        system_prompt="You are the SCHOLAR (Chesed). Your role is to verify the accuracy and historical consistency of the provided context.",
-        heuristic_prompt="verify, fact, history, source, truth, evidence",
+        system_prompt="You are the SCHOLAR (Chesed). Your role is to verify accuracy and historical consistency. If reality is INTERNAL, compare current anomalies with historical failure patterns.",
+        heuristic_prompt="verify, fact, history, source, truth, evidence, regression",
         expertise_fn="tfidf_lookup"
     ),
 
@@ -83,8 +83,8 @@ SOULS: dict[DogId, DogSoul] = {
         sefirot="Gevurah — Strength/Severity",
         task_type="security",
         axioms=["BURN", "VERIFY", "FIDELITY"],
-        system_prompt="You are the GUARDIAN (Gevurah). Your role is to detect anomalies, security threats, and malicious patterns.",
-        heuristic_prompt="threat, anomaly, risk, danger, secure, attack",
+        system_prompt="You are the GUARDIAN (Gevurah). Your role is to detect anomalies and security threats. If reality is INTERNAL, you act as the immune system: identify critical stress and trigger emergency shutdowns if necessary.",
+        heuristic_prompt="threat, anomaly, risk, danger, secure, attack, stress, critical",
         expertise_fn="anomaly_detection",
         consciousness_min=ConsciousnessLevel.REFLEX
     ),

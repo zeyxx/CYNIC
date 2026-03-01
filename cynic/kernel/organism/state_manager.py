@@ -45,6 +45,17 @@ class StateUpdate:
     source: str
     timestamp: float = field(default_factory=time.time)
 
+@dataclass(frozen=True)
+class OrganismSnapshot:
+    """An immutable point-in-time view of the organism state."""
+    total_judgments: int
+    consciousness_level: str
+    active_axioms: List[str]
+    cycles: Dict[str, int]
+    memory_keys: int
+    persistent_keys: int
+    timestamp: float = field(default_factory=time.time)
+
 class OrganismState:
     """
     Manages the organism's memory and persistence.
@@ -76,6 +87,9 @@ class OrganismState:
         self.activation_log: list[dict[str, Any]] = []
         self.learned_weights: dict[str, dict[str, float]] = {}
 
+        # The Snapshot (Double Buffer for Scalability)
+        self._last_snapshot: Optional[OrganismSnapshot] = None
+
         # Async Pipeline
         self._update_queue: asyncio.Queue[StateUpdate] = asyncio.Queue()
         self._processing = False
@@ -83,6 +97,30 @@ class OrganismState:
 
         # Concurrency protection
         self._lock = threading.RLock() # Use threading.RLock for synchronous accessors
+
+    def get_snapshot(self) -> OrganismSnapshot:
+        """Return the latest immutable snapshot. Lock-free after first take."""
+        if self._last_snapshot is None:
+            self.take_snapshot()
+        return self._last_snapshot
+
+    def take_snapshot(self) -> None:
+        """Capture current state into an immutable snapshot."""
+        with self._lock:
+            self._last_snapshot = OrganismSnapshot(
+                total_judgments=self.total_judgments,
+                consciousness_level=self.get_consciousness_level(),
+                active_axioms=list(self.active_axioms),
+                cycles={
+                    "reflex": self.reflex_cycles,
+                    "micro": self.micro_cycles,
+                    "macro": self.macro_cycles,
+                    "meta": self.meta_cycles,
+                    "total": self.total_cycles
+                },
+                memory_keys=len(self._memory_state),
+                persistent_keys=len(self._persistent_state)
+            )
 
     # ── LIFECYCLE ───────────────────────────────────────────────────────
 

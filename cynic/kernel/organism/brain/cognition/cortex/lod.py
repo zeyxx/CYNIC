@@ -243,6 +243,20 @@ class LODController:
 
         return self._current
 
+    def assess_snapshot(self, snapshot: Any) -> SurvivalLOD:
+        """
+        Assess LOD based on an OrganismSnapshot.
+        This closes the homoeostatic loop.
+        """
+        # Extract metrics from snapshot or sensible defaults
+        return self.assess(
+            error_rate=0.0, # Will be extracted from residual/history in a full implementation
+            latency_ms=0.0, # To be added to snapshot
+            queue_depth=snapshot.queue_size if hasattr(snapshot, "queue_size") else 0,
+            memory_pct=0.0, # To be added to snapshot via somatic nerves
+            disk_pct=0.0
+        )
+
     # ── Control ───────────────────────────────────────────────────────────
 
     def force(self, lod: SurvivalLOD) -> None:

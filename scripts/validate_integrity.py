@@ -1,46 +1,52 @@
 """
 CI/CD Integrity Script — Agent-side validation.
-
-Checks:
-1. All core modules are importable.
-2. All 11 Dogs are discoverable.
-3. Organism can awaken and start without errors.
+STRICT VERSION: No silent failures.
 """
 import asyncio
 import logging
 import sys
+import traceback
 
-# Disable logging for cleaner output
-logging.basicConfig(level=logging.CRITICAL)
+# Enable info logging to see where it stops
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger("integrity")
 
 async def validate():
+    print("\n--- 🔍 CYNIC STRICT INTEGRITY AUDIT ---")
     
-    # 1. Module Imports
     try:
+        # 1. Module Imports
+        print("Step 1: Core Imports...", end=" ", flush=True)
         from cynic.kernel.organism.brain.cognition.neurons.discovery import discover_dogs
         from cynic.kernel.organism.organism import awaken
-    except Exception:
-        return False
+        from cynic.kernel.core.formulas import get_respiration_interval_s
+        print("OK")
 
-    # 2. Dog Discovery
-    try:
+        # 2. Dog Discovery
+        print("Step 2: Sefirotic Discovery...", end=" ", flush=True)
         dogs = discover_dogs()
-        if len(dogs) == 11:
-            pass
-        else:
+        if len(dogs) != 11:
+            print(f"FAIL: Found {len(dogs)}/11 Dogs")
             return False
-    except Exception:
-        return False
+        print("OK (11 Dogs)")
 
-    # 3. Life Cycle
-    try:
+        # 3. Life Cycle
+        print("Step 3: Organism Life Cycle (Awaken -> Start -> Stop)...", flush=True)
         o = awaken()
         await o.start()
+        print("   - Respiration Active")
         await o.stop()
-    except Exception:
-        return False
+        print("   - Graceful Stop OK")
 
-    return True
+        print("\n✅ ALL SYSTEMS NOMINAL")
+        return True
+
+    except Exception as e:
+        print("\n❌ CRITICAL INTEGRITY FAILURE")
+        print("-" * 40)
+        traceback.print_exc()
+        print("-" * 40)
+        return False
 
 if __name__ == "__main__":
     success = asyncio.run(validate())

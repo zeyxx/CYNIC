@@ -13,7 +13,8 @@ from cynic.kernel.core.phi import (
     MAX_Q_SCORE,
     WAG_MIN,
 )
-from cynic.kernel.organism.handlers.base import HandlerGroup, KernelServices
+from cynic.kernel.organism.handlers.base import HandlerGroup
+from cynic.kernel.organism.handlers.services import KernelServices
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.escore")
 

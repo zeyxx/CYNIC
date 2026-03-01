@@ -41,6 +41,7 @@ class SensoryCore:
     topology_builder: Any # IncrementalTopologyBuilder
     mcp_bridge: Any # MCPBridge
     convergence_validator: Any = None
+    internal_sensor: Any | None = None
 
 @dataclass
 class ArchiveCore:

@@ -540,18 +540,41 @@ class ConsciousnessRhythm:
                 logger.info("META cycle complete: %.1fms", elapsed_ms)
 
     async def _somatic_loop(self) -> None:
-        """Background loop for physical body heartbeat."""
+        """Background loop for physical body heartbeat and homeostasis."""
         if not self._body:
             return
 
+        from cynic.kernel.core.formulas import get_respiration_interval_s
+
         while self._running:
             try:
+                # 1. Pulse the hardware sensors
                 await self._body.pulse()
+                
+                # 2. Homoeostatic Regulation (Assess snapshot)
+                # We extract the LODController from the orchestrator if available
+                lod_ctrl = getattr(self._orchestrator, "lod_controller", None)
+                if lod_ctrl:
+                    from cynic.interfaces.api.state import get_current_state
+                    # Get the unified symbiotic state snapshot
+                    symbiotic_state = await get_current_state()
+                    # The LODController will evaluate error rates, queue depth, etc.
+                    # and throttle consciousness levels if needed.
+                    lod_ctrl.assess(
+                        error_rate=0.0, # Will be wired to actual error tracking later
+                        latency_ms=0.0, # Could be wired to timer stats
+                        queue_depth=self.total_queue_depth(),
+                        memory_pct=symbiotic_state.machine_resources.get("ram", 0.0) / 100.0,
+                        disk_pct=symbiotic_state.machine_resources.get("disk", 0.0) / 100.0
+                    )
             except Exception as e:
                 logger.debug(f"Somatic pulse failed: {e}")
             
-            # Fibonacci(9) = 34 seconds
-            await asyncio.sleep(34.0)
+            # 3. Dynamic Respiration Rate
+            # Slower breathing if healthy, faster if stressed to react quickly?
+            # Or vice versa? Our formula slows down breathing when sick to save energy.
+            interval = get_respiration_interval_s(health_score=100.0) # Default to 100 for now
+            await asyncio.sleep(interval)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 

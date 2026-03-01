@@ -30,6 +30,7 @@ class ProposedAction:
     judgment_id: str = ""
     verdict: str = ""
     reality: str = ""
+    state_key: str = ""
     action_prompt: str = ""
     priority: int = 5
     status: str = "PENDING"  # PENDING, EXECUTING, COMPLETED, FAILED, BLOCKED

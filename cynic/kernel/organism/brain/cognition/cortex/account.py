@@ -20,11 +20,17 @@ class AccountAgent:
     """
     Tracks expenditures and enforces the financial boundary of the organism.
     """
-    def __init__(self, budget_limit_usd: float | None = None):
+    def __init__(self, budget_limit_usd: Optional[float] = None):
         self.limit = budget_limit_usd or BUDGET_HARD_CAP_USD
         self.total_cost_usd = 0.0
         self._warning_sent = False
         self._exhausted_sent = False
+        self.escore_tracker = None
+
+    def set_escore_tracker(self, tracker: Any) -> None:
+        """Inject E-Score tracker for reputation updates."""
+        self.escore_tracker = tracker
+
 
     def start(self):
         """Subscribe to judgment events to track costs."""

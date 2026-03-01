@@ -14,7 +14,8 @@ from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.phi import GROWL_MIN
-from cynic.kernel.organism.handlers.base import HandlerGroup, KernelServices
+from cynic.kernel.organism.handlers.base import HandlerGroup
+from cynic.kernel.organism.handlers.services import KernelServices
 
 if TYPE_CHECKING:
     from asyncpg import Pool

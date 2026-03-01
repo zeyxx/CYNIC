@@ -8,7 +8,8 @@ from __future__ import annotations
 import logging
 
 from cynic.kernel.core.event_bus import CoreEvent, Event
-from cynic.kernel.organism.handlers.base import HandlerGroup, KernelServices
+from cynic.kernel.organism.handlers.base import HandlerGroup
+from cynic.kernel.organism.handlers.services import KernelServices
 from cynic.kernel.protocol.kpulse import PulseMessage, PulseType
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.knet")

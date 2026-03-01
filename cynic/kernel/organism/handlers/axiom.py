@@ -14,7 +14,8 @@ from typing import TYPE_CHECKING
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError, get_core_bus
 from cynic.kernel.core.events_schema import TranscendencePayload
 from cynic.kernel.core.phi import GROWL_MIN, HOWL_MIN, MAX_Q_SCORE, PHI_INV, PHI_INV_2, WAG_MIN
-from cynic.kernel.organism.handlers.base import HandlerGroup, KernelServices
+from cynic.kernel.organism.handlers.base import HandlerGroup
+from cynic.kernel.organism.handlers.services import KernelServices
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.brain.cognition.cortex.action_proposer import ActionProposer

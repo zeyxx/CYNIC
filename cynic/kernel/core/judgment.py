@@ -73,8 +73,17 @@ class Cell(BaseModel):
     timestamp: float = Field(default_factory=lambda: datetime.now().timestamp())
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    # Note: Strict validators removed to allow infinite dynamic dimensions.
-    # The Organism will dynamically process whatever strings are passed here.
+    @model_validator(mode="after")
+    def validate_reality_content(self) -> Cell:
+        """Enforce strict schema based on reality dimension."""
+        from cynic.kernel.core.realities import validate_content
+        # Only validate if content is a dict (raw input)
+        if isinstance(self.content, dict):
+            try:
+                self.content = validate_content(self.reality, self.content)
+            except Exception as e:
+                raise ValueError(f"Content validation failed for reality '{self.reality}': {e}")
+        return self
 
     def state_key(self) -> str:
         """Generate hashable state key for Q-Learning."""

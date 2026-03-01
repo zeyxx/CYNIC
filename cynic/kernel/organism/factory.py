@@ -87,7 +87,7 @@ class _OrganismAwakener:
         self.learning_loop.start(get_core_bus())
 
         self.residual_detector = ResidualDetector()
-        self.residual_detector.start(get_core_bus())
+        self.residual_detector.start()
 
         # GASdf Executor (from config)
         gasdf_executor = None
@@ -106,10 +106,10 @@ class _OrganismAwakener:
         )
 
         self.decide_agent = DecideAgent(qtable=self.qtable)
-        self.decide_agent.start(get_core_bus())
+        self.decide_agent.start()
 
         self.action_proposer = ActionProposer()
-        self.action_proposer.start(get_core_bus())
+        self.action_proposer.start()
 
         self.account_agent = AccountAgent()
         self.llm_router = LLMRouter()
@@ -136,13 +136,13 @@ class _OrganismAwakener:
         self.orchestrator.lod_controller = self.lod_controller
 
         self.account_agent.set_escore_tracker(self.escore_tracker)
-        self.account_agent.start(get_core_bus())
+        self.account_agent.start()
 
         self.self_prober = SelfProber()
         self.self_prober.set_qtable(self.qtable)
         self.self_prober.set_residual_detector(self.residual_detector)
         self.self_prober.set_escore_tracker(self.escore_tracker)
-        self.self_prober.start(get_core_bus())
+        self.self_prober.start()
 
         # 2. BODY & METABOLISM
         from cynic.kernel.organism.layers.embodiment import HardwareBody
@@ -164,6 +164,10 @@ class _OrganismAwakener:
         self.topology_builder = IncrementalTopologyBuilder()
         self.mcp_bridge = MCPBridge(bus_name="CORE")
         self.convergence_validator = ConvergenceValidator()
+        
+        from cynic.kernel.organism.perception.senses.internal import InternalSensor
+        self.internal_sensor = InternalSensor()
+        self.internal_sensor.start()
 
         # 4. MEMORY & FEDERATION
         self.sona_emitter = SonaEmitter(bus=get_core_bus(), db_pool=self.db_pool)

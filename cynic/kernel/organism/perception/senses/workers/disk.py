@@ -8,8 +8,6 @@ import shutil
 from typing import Any
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
-from cynic.kernel.core.events_schema import DiskClearedPayload, DiskPressurePayload
 from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.phi import PHI_INV, PHI_INV_3, fibonacci
 from cynic.kernel.organism.perception.senses.workers.base import PerceiveWorker
@@ -82,18 +80,14 @@ class DiskWatcher(PerceiveWorker):
 
         pressure = info["pressure"]
 
+        from cynic.kernel.core.nerves import SOMATIC
         if pressure == "OK":
             if self._last_level is not None:
                 logger.info("DiskWatcher: disk pressure cleared (was %s)", self._last_level)
-                # Emit DISK_CLEARED so _health_cache["disk_pct"] resets → LOD recovers
-                await get_core_bus().emit(Event.typed(
-                    CoreEvent.DISK_CLEARED,
-                    DiskClearedPayload(
-                        disk_pct=round(info["used_pct"], 4),
-                        free_gb=round(info["free_gb"], 2),
-                    ),
-                    source="disk_watcher",
-                ))
+                await SOMATIC.emit_disk_cleared(
+                    used_pct=round(info["used_pct"], 4),
+                    free_gb=round(info["free_gb"], 2)
+                )
             self._last_level = None
             return None
 
@@ -105,17 +99,12 @@ class DiskWatcher(PerceiveWorker):
         used_pct = info["used_pct"]
         free_gb  = info["free_gb"]
 
-        # Emit DISK_PRESSURE on core bus → StorageGC reacts
-        await get_core_bus().emit(Event.typed(
-            CoreEvent.DISK_PRESSURE,
-            DiskPressurePayload(
-                pressure=pressure,
-                used_pct=round(used_pct, 4),
-                disk_pct=round(used_pct, 4),
-                free_gb=round(free_gb, 2),
-            ),
-            source="disk_watcher",
-        ))
+        # Emit DISK_PRESSURE via nerves
+        await SOMATIC.emit_disk_pressure(
+            pressure=pressure,
+            used_pct=round(used_pct, 4),
+            free_gb=round(free_gb, 2)
+        )
 
         risk = {
             "WARN":      0.4,

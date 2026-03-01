@@ -210,9 +210,10 @@ class DecideAgent:
 
     # ---- Lifecycle --------------------------------------------------------
 
-    def start(self, bus: EventBus) -> None:
+    def start(self, bus: Optional[Any] = None) -> None:
         """Subscribe to JUDGMENT_CREATED. Must be called with a running event loop."""
-        bus.on(CoreEvent.JUDGMENT_CREATED, self._handler)
+        target_bus = bus or get_core_bus()
+        target_bus.on(CoreEvent.JUDGMENT_CREATED, self._handler)
         logger.info("DecideAgent started — subscribed to JUDGMENT_CREATED")
 
     def stop(self, bus: EventBus) -> None:

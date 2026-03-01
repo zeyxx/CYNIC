@@ -43,7 +43,6 @@ from cynic.kernel.core.events_schema import (
     ConsensusFailedPayload,
     ConsensusReachedPayload,
     DecisionMadePayload,
-    JudgmentCreatedPayload,
     JudgmentFailedPayload,
     LearningEventPayload,
     MetaCyclePayload,
@@ -197,6 +196,11 @@ class JudgeOrchestrator:
         # Ensure composer is initialized (supports manual orchestrator creation in tests)
         self._ensure_composer()
 
+        # SURVIVAL LAW: If reality is INTERNAL, force REFLEX to stabilize without LLM stress
+        if cell.reality == "INTERNAL":
+            logger.warning("Orchestrator: INTERNAL PAIN signal received. Forcing REFLEX.")
+            level = ConsciousnessLevel.REFLEX
+
         pipeline = JudgmentPipeline(cell=cell, fractal_depth=fractal_depth)
         effective_budget = (budget_usd or cell.budget_usd)
 
@@ -242,10 +246,9 @@ class JudgeOrchestrator:
             jc_payload["level_used"] = selected_level.name  # needed by LOD latency filter
             jc_payload["content_preview"] = str(cell.content or "")[:200]
             jc_payload["context"] = cell.context or ""
-            await get_core_bus().emit(Event.typed(
-                CoreEvent.JUDGMENT_CREATED,
-                JudgmentCreatedPayload.model_validate(jc_payload),
-            ))
+            
+            from cynic.kernel.core.nerves import COGNITION
+            await COGNITION.emit_judgment(jc_payload)
 
             # Tier 1 Nervous System: Record judgment in Service State Registry
             if self.service_registry is not None:

@@ -9,7 +9,8 @@ import httpx
 
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError
 from cynic.kernel.core.phi import MAX_Q_SCORE
-from cynic.kernel.organism.handlers.base import HandlerGroup, KernelServices
+from cynic.kernel.organism.handlers.base import HandlerGroup
+from cynic.kernel.organism.handlers.services import KernelServices
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.brain.cognition.cortex.action_proposer import ActionProposer

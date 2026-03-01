@@ -8,8 +8,6 @@ import sys
 from typing import Any
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
-from cynic.kernel.core.events_schema import MemoryClearedPayload, MemoryPressurePayload
 from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.phi import PHI_INV, PHI_INV_3, fibonacci
 from cynic.kernel.organism.perception.senses.workers.base import PerceiveWorker
@@ -112,18 +110,14 @@ class MemoryWatcher(PerceiveWorker):
 
         pressure = info["pressure"]
 
+        from cynic.kernel.core.nerves import SOMATIC
         if pressure == "OK":
             if self._last_level is not None:
                 logger.info("MemoryWatcher: RAM pressure cleared (was %s)", self._last_level)
-                # Emit MEMORY_CLEARED so _health_cache["memory_pct"] resets → LOD recovers
-                await get_core_bus().emit(Event.typed(
-                    CoreEvent.MEMORY_CLEARED,
-                    MemoryClearedPayload(
-                        memory_pct=round(info["used_pct"], 4),
-                        free_gb=round(info["free_gb"], 2),
-                    ),
-                    source="memory_watcher",
-                ))
+                await SOMATIC.emit_memory_cleared(
+                    used_pct=round(info["used_pct"], 4),
+                    free_gb=round(info["free_gb"], 2)
+                )
             self._last_level = None
             return None
 
@@ -135,17 +129,12 @@ class MemoryWatcher(PerceiveWorker):
         used_pct = info["used_pct"]
         free_gb  = info["free_gb"]
 
-        # Emit MEMORY_PRESSURE on core bus → LODController reacts
-        await get_core_bus().emit(Event.typed(
-            CoreEvent.MEMORY_PRESSURE,
-            MemoryPressurePayload(
-                pressure=pressure,
-                used_pct=round(used_pct, 4),
-                memory_pct=round(used_pct, 4),
-                free_gb=round(free_gb, 2),
-            ),
-            source="memory_watcher",
-        ))
+        # Emit MEMORY_PRESSURE via nerves
+        await SOMATIC.emit_memory_pressure(
+            pressure=pressure,
+            used_pct=round(used_pct, 4),
+            free_gb=round(free_gb, 2)
+        )
 
         risk = {
             "WARN":      0.3,
