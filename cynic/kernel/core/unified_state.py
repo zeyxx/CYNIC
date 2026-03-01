@@ -362,7 +362,7 @@ class UnifiedConsciousState(BaseModel):
     consciousness_level: str = "REFLEX"
     active_axioms: tuple[str, ...] = Field(default_factory=tuple)
     emergent_states: dict[str, bool] = Field(default_factory=dict)
-    activation_log: tuple[dict, ...] = Field(default_factory=tuple)
+    activation_log: tuple[MappingProxyType, ...] = Field(default_factory=tuple)
 
     @field_validator("dog_agreement_scores", mode="before")
     @classmethod
@@ -391,15 +391,11 @@ class UnifiedConsciousState(BaseModel):
         return sum(scores) / len(scores)
 
     def update_dog_agreement_score(self, dog_id: int, score: float) -> None:
-        """Update a dog agreement score.
-
-        Note: This mutates the dict. For true immutability, phase 3 will convert
-        to a fully immutable pattern with evolve() methods.
-        """
+        """Update a dog agreement score (copy-on-write, no in-place mutation)."""
         if not (0.0 <= score <= 1.0):
             raise ValueError(f"Dog agreement score must be in [0.0, 1.0], got {score}")
 
-        self.dog_agreement_scores[dog_id] = score
+        self.dog_agreement_scores = {**self.dog_agreement_scores, dog_id: score}
 
     def add_axiom(self, axiom: str) -> None:
         """Add active axiom immutably (creates new tuple)."""
@@ -407,16 +403,13 @@ class UnifiedConsciousState(BaseModel):
             self.active_axioms = self.active_axioms + (axiom,)
 
     def set_emergent_state(self, key: str, value: bool) -> None:
-        """Set emergent state.
-
-        Note: This mutates the dict. For true immutability, phase 3 will convert
-        to a fully immutable pattern with evolve() methods.
-        """
-        self.emergent_states[key] = value
+        """Set emergent state (copy-on-write, no in-place mutation)."""
+        self.emergent_states = {**self.emergent_states, key: value}
 
     def log_activation(self, log_entry: dict) -> None:
-        """Add to activation log immutably (creates new tuple)."""
-        self.activation_log = self.activation_log + (log_entry,)
+        """Add to activation log immutably (creates new tuple with frozen entry)."""
+        frozen_entry = MappingProxyType(log_entry.copy())
+        self.activation_log = self.activation_log + (frozen_entry,)
 
     def add_judgment(self, j: UnifiedJudgment):
         """Add judgment to buffer (returns new buffer instance)."""
