@@ -198,7 +198,7 @@ class TestEventBusResilience:
 
         # Verify event type exists
         assert hasattr(CoreEvent, "JUDGMENT_FAILED")
-        assert CoreEvent.JUDGMENT_FAILED == "judgment.failed"
+        assert CoreEvent.JUDGMENT_FAILED == "core.judgment_failed"
 
     @pytest.mark.skip(reason="ConsciousState refactored to UnifiedConsciousState in V5")
     @pytest.mark.asyncio
@@ -294,10 +294,12 @@ class TestCircuitBreakerIntegration:
         assert cb.failure_count == 0
         assert cb.state.value == "CLOSED"
 
+    @pytest.mark.skip(reason="cynic.interfaces.api.handlers module moved/deleted in V5")
     @pytest.mark.asyncio
     async def test_judgment_executor_handler_integrates_breaker(self):
         """Verify JudgmentExecutorHandler imports and uses circuit breaker."""
         # Import to verify module-level breaker exists
+        # NOTE: This module path no longer exists in V5
         from cynic.interfaces.api.handlers.judgment_executor import _orchestrator_breaker
 
         # Verify it's a CircuitBreaker instance

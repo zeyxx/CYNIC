@@ -87,7 +87,7 @@ async def test_judge_stage_creates_judgment(mock_orchestrator, test_pipeline):
         consensus=True,
     ))
     mock_orchestrator.axiom_arch = MagicMock()
-    mock_orchestrator.axiom_arch.score_and_compute = MagicMock(return_value=MagicMock(
+    mock_orchestrator.axiom_arch.score_and_compute = AsyncMock(return_value=MagicMock(
         q_score=50.0,
         axiom_scores={},
         active_axioms=[],
@@ -196,7 +196,7 @@ async def test_execute_judgment_pipeline_full_cycle(mock_orchestrator, test_pipe
         consensus=True,
     ))
     mock_orchestrator.axiom_arch = MagicMock()
-    mock_orchestrator.axiom_arch.score_and_compute = MagicMock(return_value=MagicMock(
+    mock_orchestrator.axiom_arch.score_and_compute = AsyncMock(return_value=MagicMock(
         q_score=50.0,
         axiom_scores={},
         active_axioms=[],
