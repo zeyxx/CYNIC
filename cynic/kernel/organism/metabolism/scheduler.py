@@ -109,7 +109,7 @@ class ConsciousnessRhythm:
 
         # Meta-analysis triggers
         await self.bus.emit(Event.typed(
-            CoreEvent.SONA_TICK,
-            {"timestamp": time.time(), "source": "scheduler"},
+            CoreEvent.META_CYCLE,
+            {"timestamp": time.time()},
             source="scheduler"
         ))

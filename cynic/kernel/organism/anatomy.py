@@ -17,13 +17,13 @@ if TYPE_CHECKING:
     from cynic.kernel.organism.brain.cognition.cortex.account import AccountAgent
     from cynic.kernel.organism.brain.cognition.cortex.axiom_monitor import AxiomMonitor
     from cynic.kernel.organism.brain.cognition.cortex.lod import LODController
-    
+
     from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
     from cynic.kernel.organism.layers.embodiment import HardwareBody
     from cynic.kernel.organism.layers.motor import MotorSystem
     from cynic.kernel.organism.metabolism.claude_sdk import ClaudeCodeRunner
     from cynic.kernel.organism.metabolism.llm_router import LLMRouter
-    
+
     from cynic.kernel.organism.perception.senses.compressor import ContextCompressor
     from cynic.kernel.core.world_model import WorldModelUpdater
     from cynic.kernel.core.topology.file_watcher import SourceWatcher
@@ -32,12 +32,13 @@ if TYPE_CHECKING:
     from cynic.kernel.core.convergence import ConvergenceValidator
     from cynic.kernel.organism.perception.senses.internal import InternalSensor
     from cynic.kernel.protocol.knet_server import KNetServer
-    
+
     from cynic.kernel.organism.state_manager import OrganismState
     from cynic.kernel.organism.brain.cognition.cortex.action_proposer import ActionProposer
     from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
     from cynic.kernel.organism.sona_emitter import SonaEmitter
     from cynic.kernel.perception.federation.gossip import GossipManager
+    from cynic.nervous.event_journal import EventJournal
 
 
 @dataclass(frozen=True)
@@ -90,3 +91,4 @@ class ArchiveCore:
     sona_emitter: Optional[SonaEmitter] = None
     gossip_manager: Optional[Any] = None # GossipManager can have complex cycles
     meta_cognition: Optional[Any] = None
+    journal: Optional[EventJournal] = None

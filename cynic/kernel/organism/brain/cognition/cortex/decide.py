@@ -200,17 +200,17 @@ class DecideAgent:
     action selection under uncertainty (UCT balances exploration/exploitation).
     """
 
-    def __init__(self, qtable: Any, bus: Optional[EventBus] = None) -> None:
+    def __init__(self, bus: EventBus, qtable: Any) -> None:
         """
-        qtable: cynic.kernel.organism.brain.learning.qlearning.QTable â€” consulted for best action.
+        bus: Isolated event bus for this instance.
+        qtable: cynic.kernel.organism.brain.learning.qlearning.QTable — consulted for best action.
         """
+        self._bus = bus
         self._qtable = qtable
         self._mcts = NestedMCTS(qtable)
         self._decisions_made: int = 0
         self._skipped: int = 0
         self._handler = self._on_judgment
-        from cynic.kernel.core.event_bus import CoreEvent, Event
-        self._bus = bus or get_core_bus("DEFAULT")
 
     # ---- Lifecycle --------------------------------------------------------
 

@@ -47,6 +47,8 @@ from cynic.kernel.organism.state_manager import OrganismState
 from cynic.kernel.protocol.knet_server import KNetServer
 from cynic.kernel.core.storage.surreal import SurrealStorage
 from cynic.kernel.core.config import CynicConfig
+from cynic.nervous.event_journal import EventJournal
+from cynic.nervous.bus_journal_adapter import BusJournalAdapter
 
 logger = logging.getLogger("cynic.kernel.organism.factory")
 
@@ -76,6 +78,11 @@ class _OrganismAwakener:
         
         # Pre-initialize core bus for injection
         instance_bus = get_core_bus(instance_id)
+
+        # 0b. EVENT JOURNAL — records every bus event automatically
+        self.journal = EventJournal()
+        self._journal_adapter = BusJournalAdapter(self.journal)
+        instance_bus.on("*", self._journal_adapter.on_event)
 
         # 1. BASE STATE
         self.state = OrganismState(instance_id=instance_id, storage=self.storage)
@@ -309,6 +316,7 @@ class _OrganismAwakener:
             self_prober=self.self_prober,
             sona_emitter=self.sona_emitter,
             gossip_manager=self.gossip_manager,
+            journal=self.journal,
         )
 
         from cynic.kernel.organism.organism import Organism

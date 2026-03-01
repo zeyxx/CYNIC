@@ -517,7 +517,7 @@ class LearningLoop:
     Flushes to DB every F(8)=21 updates.
 
     Usage:
-        loop = LearningLoop(qtable, pool=postgres_pool)
+        loop = LearningLoop(qtable, instance_id=instance_id, pool=postgres_pool)
         loop.start(event_bus)
         # ... CYNIC runs, events flow, Q-Table learns automatically ...
         loop.stop()

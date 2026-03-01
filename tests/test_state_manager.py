@@ -54,7 +54,7 @@ class TestStateLayers:
 
     @pytest.fixture
     def state(self, tmp_path):
-        return OrganismState(storage_path=tmp_path / "test")
+        return OrganismState(instance_id="test-instance", storage_dir=tmp_path / "test")
 
     @pytest.mark.asyncio
     async def test_set_value_memory(self, state):
@@ -118,7 +118,7 @@ class TestQTableSubsystem:
 
     @pytest.fixture
     def state(self, tmp_path):
-        return OrganismState(storage_path=tmp_path / "test")
+        return OrganismState(instance_id="test-instance", storage_dir=tmp_path / "test")
 
     @pytest.mark.asyncio
     async def test_update_qtable_entry(self, state):
@@ -160,7 +160,7 @@ class TestConsciousnessManagement:
 
     @pytest.fixture
     def state(self, tmp_path):
-        return OrganismState(storage_path=tmp_path / "test")
+        return OrganismState(instance_id="test-instance", storage_dir=tmp_path / "test")
 
     def test_get_consciousness_level(self, state):
         """Should return default level."""
@@ -187,7 +187,7 @@ class TestDogsRegistry:
 
     @pytest.fixture
     def state(self, tmp_path):
-        return OrganismState(storage_path=tmp_path / "test")
+        return OrganismState(instance_id="test-instance", storage_dir=tmp_path / "test")
 
     @pytest.mark.asyncio
     async def test_set_dogs(self, state):
@@ -218,7 +218,7 @@ class TestJudgmentTracking:
 
     @pytest.fixture
     def state(self, tmp_path):
-        return OrganismState(storage_path=tmp_path / "test")
+        return OrganismState(instance_id="test-instance", storage_dir=tmp_path / "test")
 
     @pytest.mark.asyncio
     async def test_add_judgment(self, state):
@@ -248,7 +248,7 @@ class TestActionQueue:
 
     @pytest.fixture
     def state(self, tmp_path):
-        return OrganismState(storage_path=tmp_path / "test")
+        return OrganismState(instance_id="test-instance", storage_dir=tmp_path / "test")
 
     @pytest.mark.asyncio
     async def test_add_action(self, state):
@@ -320,7 +320,7 @@ class TestConsistencyChecks:
 
     @pytest.fixture
     def state(self, tmp_path):
-        return OrganismState(storage_path=tmp_path / "test")
+        return OrganismState(instance_id="test-instance", storage_dir=tmp_path / "test")
 
     def test_consistency_errors(self, state):
         """Should track consistency errors."""
@@ -358,7 +358,7 @@ class TestStats:
 
     @pytest.fixture
     def state(self, tmp_path):
-        return OrganismState(storage_path=tmp_path / "test")
+        return OrganismState(instance_id="test-instance", storage_dir=tmp_path / "test")
 
     def test_get_stats(self, state):
         """Should return stats."""

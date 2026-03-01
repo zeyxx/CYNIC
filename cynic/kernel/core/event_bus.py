@@ -67,6 +67,11 @@ class CoreEvent(str, Enum):
     SDK_SESSION_STARTED = "core.sdk_session_started"
     SDK_SESSION_ENDED = "core.sdk_session_ended"
     REPUTATION_SYNC = "core.reputation_sync"
+    # --- Missing values (Priority 5: added to fix latent AttributeError) ---
+    SONA_AGGREGATED = "core.sona_aggregated"
+    INTERNAL_ERROR = "core.internal_error"
+    BUDGET_WARNING = "core.budget_warning"
+    BUDGET_EXHAUSTED = "core.budget_exhausted"
 
 class Event:
     def __init__(self, type: str, payload: Any = None, source: str = "unknown", instance_id: str | None = None):
