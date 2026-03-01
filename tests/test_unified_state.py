@@ -288,8 +288,6 @@ class TestDataclassTypes:
             },
             reasoning="Excellent quality",
             latency_ms=150.5,
-            actual_verdict="HOWL",
-            satisfaction_rating=0.95,
         )
 
         # Verify types

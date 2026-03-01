@@ -8,23 +8,31 @@ from __future__ import annotations
 
 import time
 from collections import deque
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field, ConfigDict
+from types import MappingProxyType
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from cynic.kernel.core.phi import MAX_CONFIDENCE, PHI_INV, fibonacci
 
-# ── Base Model with extra="allow" for flexibility ──
+# ── Base Model for Pydantic-based models with flexibility ──
 class UnifiedModel(BaseModel):
     model_config = ConfigDict(extra="allow", frozen=False)
 
-class UnifiedJudgment(UnifiedModel):
-    """Immutable record of a single judgment verdict."""
+
+@dataclass(frozen=True)
+class UnifiedJudgment:
+    """Immutable record of a single judgment verdict.
+
+    Frozen=True: Cannot be modified after creation.
+    Dicts wrapped in MappingProxyType for deep immutability.
+    """
     judgment_id: str
-    verdict: str # HOWL | WAG | GROWL | BARK
+    verdict: str  # HOWL | WAG | GROWL | BARK
     q_score: float
     confidence: float
-    dog_votes: Dict[Any, Any] = Field(default_factory=dict)
-    axiom_scores: Dict[str, float] = Field(default_factory=dict)
+    axiom_scores: Dict[str, float] = field(default_factory=dict)
+    dog_votes: Dict[Any, Any] = field(default_factory=dict)
     reality: str = "CODE"
     state_key: str = ""
     analysis: str = "JUDGE"
@@ -33,18 +41,37 @@ class UnifiedJudgment(UnifiedModel):
     level_used: str = "REFLEX"
     reasoning: str = ""
     consensus_reason: str = ""
-    timestamp: float = Field(default_factory=time.time)
+    timestamp: float = field(default_factory=time.time)
     consensus_reached: bool = True
     consensus_votes: int = 0
     consensus_quorum: int = 7
+    latency_ms: float = 0.0
 
-class UnifiedLearningOutcome(UnifiedModel):
+    def __post_init__(self):
+        """Wrap dicts in MappingProxyType for true immutability."""
+        # Wrap axiom_scores
+        if self.axiom_scores and not isinstance(self.axiom_scores, MappingProxyType):
+            object.__setattr__(
+                self, "axiom_scores", MappingProxyType(self.axiom_scores)
+            )
+        elif not self.axiom_scores:
+            object.__setattr__(self, "axiom_scores", MappingProxyType({}))
+
+        # Wrap dog_votes
+        if self.dog_votes and not isinstance(self.dog_votes, MappingProxyType):
+            object.__setattr__(self, "dog_votes", MappingProxyType(self.dog_votes))
+        elif not self.dog_votes:
+            object.__setattr__(self, "dog_votes", MappingProxyType({}))
+
+
+@dataclass(frozen=True)
+class UnifiedLearningOutcome:
     """Immutable record of predicted vs actual outcome."""
     judgment_id: str
     predicted_verdict: str
     actual_verdict: str
-    satisfaction_rating: float # [0, 1]
-    timestamp: float = Field(default_factory=time.time)
+    satisfaction_rating: float  # [0, 1]
+    timestamp: float = field(default_factory=time.time)
 
 class ValueCreation(UnifiedModel):
     """Phase 3: Immutable record of a value-creating event."""
@@ -146,6 +173,32 @@ class UnifiedConsciousState(BaseModel):
     active_axioms: list[str] = Field(default_factory=list)
     emergent_states: Dict[str, bool] = Field(default_factory=dict)
     activation_log: list[Dict] = Field(default_factory=list)
+
+    @field_validator("dog_agreement_scores", mode="before")
+    @classmethod
+    def validate_dog_agreement_scores(cls, v: Dict[int, float]) -> Dict[int, float]:
+        """Validate that all dog agreement scores are in [0.0, 1.0]."""
+        if v is None:
+            return {}
+        for dog_id, score in v.items():
+            if not isinstance(score, (int, float)):
+                raise ValueError(f"Dog {dog_id} score must be numeric, got {type(score)}")
+            if not (0.0 <= score <= 1.0):
+                raise ValueError(
+                    f"Dog {dog_id} agreement score must be in [0.0, 1.0], "
+                    f"got {score}"
+                )
+        return v
+
+    def get_consensus_score(self) -> float:
+        """Calculate consensus score as average of dog agreement scores.
+
+        Returns 0.0 if no dogs have agreement scores.
+        """
+        if not self.dog_agreement_scores:
+            return 0.0
+        scores = list(self.dog_agreement_scores.values())
+        return sum(scores) / len(scores)
 
     def add_judgment(self, j: UnifiedJudgment):
         self.recent_judgments.add(j)
