@@ -1,0 +1,65 @@
+name: Multi-Platform Tests
+
+on:
+  push:
+    branches: [ master, main, develop ]
+  pull_request:
+    branches: [ master, main, develop ]
+  schedule:
+    # Run tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  test-matrix:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.12', '3.13']
+      fail-fast: false
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }} on ${{ matrix.os }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install pytest pytest-asyncio pytest-cov
+
+    - name: Run tests
+      run: |
+        pytest tests/ \
+          --cov=cynic \
+          --cov-report=term-missing \
+          -v \
+          --tb=short \
+          -x
+
+    - name: Report coverage
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
+      run: |
+        pip install coverage
+        coverage report --fail-under=50
+
+  test-summary:
+    runs-on: ubuntu-latest
+    if: always()
+    needs: test-matrix
+
+    steps:
+    - name: Check multi-platform results
+      run: |
+        if [ "${{ needs.test-matrix.result }}" == "failure" ]; then
+          echo "❌ Some tests failed on multi-platform matrix"
+          exit 1
+        else
+          echo "✅ All tests passed on all platforms"
+        fi

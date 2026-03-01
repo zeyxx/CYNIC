@@ -1,0 +1,92 @@
+name: Dependency Management
+
+on:
+  schedule:
+    # Check dependencies weekly on Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  update-dependencies:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pip-audit safety
+
+    - name: Audit dependencies with pip-audit
+      continue-on-error: true
+      run: |
+        pip-audit --desc || true
+
+    - name: Check for known vulnerabilities
+      continue-on-error: true
+      run: |
+        safety check --json --output report.json || true
+
+    - name: Generate dependency report
+      run: |
+        pip list > dependencies.txt
+        echo "## Dependency Report" > dependency-report.md
+        echo "" >> dependency-report.md
+        echo "Generated: $(date)" >> dependency-report.md
+        echo "" >> dependency-report.md
+        echo "\`\`\`" >> dependency-report.md
+        cat dependencies.txt >> dependency-report.md
+        echo "\`\`\`" >> dependency-report.md
+
+    - name: Upload dependency report
+      uses: actions/upload-artifact@v3
+      with:
+        name: dependency-report
+        path: dependency-report.md
+
+    - name: Create PR for outdated packages
+      if: github.event_name == 'schedule'
+      uses: peter-evans/create-pull-request@v5
+      with:
+        commit-message: 'chore: Update dependencies'
+        title: 'chore: Update dependencies'
+        body: |
+          This is an automated PR to update project dependencies.
+
+          Please review the dependency changes and run tests to ensure compatibility.
+
+          See dependency-report.md in artifacts for full list.
+        branch: chore/update-dependencies
+        delete-branch: true
+        labels: |
+          dependencies
+          automated
+
+  security-scanning:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+      continue-on-error: true
+
+    - name: Upload Trivy results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+      continue-on-error: true

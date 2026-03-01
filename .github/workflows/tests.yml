@@ -1,0 +1,88 @@
+name: Tests
+
+on:
+  push:
+    branches: [ master, main, develop ]
+  pull_request:
+    branches: [ master, main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+        pip install -e .
+        pip install pytest pytest-asyncio pytest-cov
+
+    - name: Lint with flake8
+      continue-on-error: true
+      run: |
+        pip install flake8
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 cynic --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Exit-zero treats all errors as warnings
+        flake8 cynic --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Test with pytest
+      run: |
+        pytest tests/ \
+          --cov=cynic \
+          --cov-report=xml \
+          --cov-report=term-missing \
+          -v \
+          --tb=short \
+          -x
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+    - name: Generate test report
+      if: always()
+      run: |
+        pytest tests/ \
+          --cov=cynic \
+          --cov-report=html \
+          --html=report.html \
+          --self-contained-html \
+          || true
+
+    - name: Upload test report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-report-${{ matrix.python-version }}
+        path: report.html
+
+  test-summary:
+    runs-on: ubuntu-latest
+    if: always()
+    needs: test
+
+    steps:
+    - name: Check test results
+      run: |
+        if [ "${{ needs.test.result }}" == "failure" ]; then
+          echo "❌ Tests failed"
+          exit 1
+        else
+          echo "✅ All tests passed"
+        fi

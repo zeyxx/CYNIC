@@ -1,0 +1,121 @@
+name: Documentation
+
+on:
+  push:
+    branches: [ master, main, develop ]
+    paths:
+      - 'docs/**'
+      - 'cynic/**'
+      - '.github/workflows/documentation.yml'
+      - 'pyproject.toml'
+  pull_request:
+    branches: [ master, main, develop ]
+    paths:
+      - 'docs/**'
+      - 'cynic/**'
+  workflow_dispatch:
+
+jobs:
+  generate-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install sphinx sphinx-rtd-theme sphinx-autodoc-typehints sphinxcontrib-napoleon
+
+    - name: Generate API documentation
+      run: |
+        mkdir -p docs/api
+        sphinx-apidoc -f -o docs/api cynic
+        echo "✅ API documentation generated"
+
+    - name: Build documentation
+      run: |
+        cd docs
+        make html || echo "⚠️  Documentation build had issues"
+
+    - name: Upload documentation artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: documentation
+        path: docs/_build/html
+
+    - name: Check for documentation warnings
+      continue-on-error: true
+      run: |
+        cd docs
+        make clean
+        make html 2>&1 | tee build.log
+
+        if grep -q "WARNING" build.log; then
+          echo "⚠️  Documentation has warnings"
+          grep "WARNING" build.log
+        fi
+
+  check-docstrings:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pydocstyle
+
+    - name: Check docstring coverage
+      continue-on-error: true
+      run: |
+        pydocstyle cynic --match='(?!test_|_test\.py).*\.py' || true
+
+  readme-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Check README
+      run: |
+        if [ ! -f "README.md" ]; then
+          echo "⚠️  README.md not found"
+        else
+          echo "✅ README.md exists"
+
+          # Check for essential sections
+          for section in "Installation" "Usage" "Contributing"; do
+            if grep -q "## $section" README.md; then
+              echo "✅ $section section found"
+            else
+              echo "⚠️  $section section missing"
+            fi
+          done
+        fi
+
+    - name: Validate links in README
+      continue-on-error: true
+      run: |
+        python -c "
+import re
+with open('README.md', 'r') as f:
+    content = f.read()
+    links = re.findall(r'\[.*?\]\((.*?)\)', content)
+    print(f'Found {len(links)} links in README')
+    for link in links[:10]:
+        print(f'  - {link}')
+"

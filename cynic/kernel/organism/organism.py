@@ -38,6 +38,8 @@ class Organism:
 
     def __post_init__(self):
         self._wire_event_handlers()
+        from cynic.interfaces.bots.telegram_bridge import TelegramBridge
+        self._telegram = TelegramBridge()
         logger.info("Organism: Post-init complete. Nerves connected.")
 
     @property
@@ -106,6 +108,7 @@ class Organism:
         # Core state tracking
         bus.on(CoreEvent.JUDGMENT_CREATED, self._on_judgment_created)
         bus.on(CoreEvent.CONSCIOUSNESS_CHANGED, self._on_consciousness_changed)
+        bus.on(CoreEvent.ANOMALY_DETECTED, self._on_anomaly_detected)
 
     async def _on_judgment_created(self, event: Event) -> None:
         await self.state.add_judgment(event.dict_payload)
@@ -113,6 +116,16 @@ class Organism:
     async def _on_consciousness_changed(self, event: Event) -> None:
         level = event.dict_payload.get("level", "REFLEX")
         await self.state.update_consciousness_level(level)
+
+    async def _on_anomaly_detected(self, event: Event) -> None:
+        """Reflex: notify Telegram on system anomalies."""
+        if hasattr(self, "_telegram") and self._telegram.active:
+            data = event.dict_payload
+            await self._telegram.notify_anomaly(
+                source=data.get("source", event.source),
+                error=data.get("type", "Unknown Anomaly"),
+                details=str(data.get("value", ""))
+            )
 
     async def start(self, db=None) -> None:
         """

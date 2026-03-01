@@ -47,8 +47,9 @@ class HardwareBody:
     Pulls hardware metrics and injects them into the Organism's consciousness.
     """
 
-    def __init__(self, update_interval: float = 34.0) -> None:
-        self.update_interval = update_interval
+    def __init__(self) -> None:
+        from cynic.kernel.core.formulas import get_respiration_interval_s
+        self.update_interval = get_respiration_interval_s()
         self._last_state: Optional[SomaticState] = None
         self._start_time = time.time()
         self._bus = get_core_bus()
@@ -109,11 +110,21 @@ class HardwareBody:
                 payload=state.to_dict()
             ))
             
-            # 3. Log critical somatic alerts
+            # 3. Log and Emit critical somatic alerts
             if cpu > 80.0:
                 logger.warning(f"Somatic Alert: CPU High Stress ({cpu}%)")
+                await self._bus.emit(Event.typed(
+                    CoreEvent.ANOMALY_DETECTED,
+                    payload={"type": "CPU_STRESS", "value": cpu, "source": "somatic"},
+                    source="hardware_body"
+                ))
             if ram > 90.0:
                 logger.error(f"Somatic Alert: Memory Exhaustion imminent ({ram}%)")
+                await self._bus.emit(Event.typed(
+                    CoreEvent.ANOMALY_DETECTED,
+                    payload={"type": "RAM_STRESS", "value": ram, "source": "somatic"},
+                    source="hardware_body"
+                ))
 
             return state
 

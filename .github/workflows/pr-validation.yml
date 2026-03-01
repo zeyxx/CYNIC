@@ -1,0 +1,108 @@
+name: PR Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [ master, main, develop ]
+
+jobs:
+  validate-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Validate PR title
+      run: |
+        PR_TITLE="${{ github.event.pull_request.title }}"
+
+        # Check for conventional commit format
+        if [[ $PR_TITLE =~ ^(feat|fix|docs|style|refactor|perf|test|chore|ci|build)\(.*\): || $PR_TITLE =~ ^(feat|fix|docs|style|refactor|perf|test|chore|ci|build): ]]; then
+          echo "✅ PR title follows conventional commits"
+        else
+          echo "⚠️  PR title should follow conventional commits format"
+          echo "Examples: feat(scope): description, fix: description"
+        fi
+
+    - name: Check PR description
+      run: |
+        DESCRIPTION="${{ github.event.pull_request.body }}"
+
+        if [ -z "$DESCRIPTION" ] || [ "$DESCRIPTION" = "null" ]; then
+          echo "⚠️  PR description is empty - please add details"
+        else
+          echo "✅ PR has description"
+        fi
+
+    - name: Check for breaking changes
+      run: |
+        DESCRIPTION="${{ github.event.pull_request.body }}"
+
+        if [[ $DESCRIPTION == *"BREAKING CHANGE"* ]]; then
+          echo "⚠️  This PR contains breaking changes - ensure migration guide is included"
+        fi
+
+    - name: Validate file changes
+      run: |
+        # Get list of changed files
+        git fetch origin ${{ github.base_ref }}
+        CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+
+        echo "Changed files:"
+        echo "$CHANGED_FILES"
+
+        # Check for large file additions
+        for file in $CHANGED_FILES; do
+          if [ -f "$file" ]; then
+            SIZE=$(wc -c < "$file")
+            SIZE_MB=$((SIZE / 1024 / 1024))
+            if [ $SIZE_MB -gt 10 ]; then
+              echo "⚠️  Large file detected: $file ($SIZE_MB MB)"
+            fi
+          fi
+        done
+
+    - name: Check test coverage impact
+      run: |
+        echo "Checking test coverage for changed files..."
+        CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+
+        # Count test files
+        TEST_FILES=$(echo "$CHANGED_FILES" | grep -c "test_" || echo "0")
+        SOURCE_FILES=$(echo "$CHANGED_FILES" | grep -v "test_" | grep "\.py$" | wc -l)
+
+        echo "Source files changed: $SOURCE_FILES"
+        echo "Test files changed: $TEST_FILES"
+
+        if [ $SOURCE_FILES -gt 0 ] && [ $TEST_FILES -eq 0 ]; then
+          echo "⚠️  Source code changed but no test files modified - consider adding tests"
+        fi
+
+  check-merge-requirements:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Check merge requirements
+      run: |
+        echo "## PR Merge Checklist"
+        echo ""
+        echo "- [ ] All tests passing"
+        echo "- [ ] Code review approved"
+        echo "- [ ] No merge conflicts"
+        echo "- [ ] Documentation updated (if needed)"
+        echo "- [ ] CHANGELOG updated (if needed)"
+        echo "- [ ] No breaking changes (or migration guide included)"
+
+    - name: Summary
+      run: |
+        echo "✅ PR validation complete"
+        echo ""
+        echo "This PR will be automatically merged once:"
+        echo "  1. All status checks pass"
+        echo "  2. At least one approval is received"
+        echo "  3. No changes are requested"

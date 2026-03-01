@@ -114,7 +114,7 @@ class MicroCycleHandler(BaseHandler):
             # Step 3: Fractal Axiom Scoring
             # Each active dog's score is used as input for the axiom architecture
             raw_scores = {j.dog_id: j.q_score for j in pipeline.dog_judgments}
-            
+
             # Map dog IDs to Axioms they represent (best effort mapping)
             # In a full implementation, this mapping is dynamic
             axiom_inputs = {
@@ -126,16 +126,21 @@ class MicroCycleHandler(BaseHandler):
             }
 
             # Score each core axiom with fractal depth
-            axiom_scores = {}
-            for axiom in ["FIDELITY", "PHI", "VERIFY", "CULTURE", "BURN"]:
-                # Inject the dog's raw score as the facet result for that axiom
-                # (Simulating real facet scoring via AbstractDog results)
-                axiom_scores[axiom] = self.axiom_arch.score_axiom_fractal(
-                    axiom, 
-                    context=cell.content, 
-                    depth=1, 
+            # Gather all coroutines and await them in parallel
+            axiom_tasks = {
+                axiom: self.axiom_arch.score_axiom_fractal(
+                    axiom,
+                    context=cell.content,
+                    depth=1,
                     max_depth=pipeline.fractal_depth
                 )
+                for axiom in ["FIDELITY", "PHI", "VERIFY", "CULTURE", "BURN"]
+            }
+
+            # Await all axiom scoring tasks in parallel
+            axiom_scores = {}
+            for axiom, task in axiom_tasks.items():
+                axiom_scores[axiom] = await task
 
             # Final Q-Score is the geometric mean of axiom scores (The PHI Law)
             from cynic.kernel.core.phi import geometric_mean
@@ -145,6 +150,11 @@ class MicroCycleHandler(BaseHandler):
             verdict = verdict_from_q_score(q_score_micro)
             total_cost = sum(j.cost_usd for j in pipeline.dog_judgments)
 
+            # Consensus metrics
+            consensus_votes = len(pipeline.dog_judgments) if consensus else 0
+            consensus_quorum = 7  # Standard quorum for MICRO level
+            consensus_reached = consensus is not None and consensus.confidence >= PHI_INV and not escalate_to_macro
+
             judgment = Judgment(
                 cell=cell,
                 q_score=q_score_micro,
@@ -153,9 +163,9 @@ class MicroCycleHandler(BaseHandler):
                 axiom_scores=axiom_scores,
                 active_axioms=active_axioms,
                 dog_votes=raw_scores,
-                consensus_votes=consensus.votes if consensus else 0,
-                consensus_quorum=consensus.quorum if consensus else 7,
-                consensus_reached=consensus.consensus if consensus else False,
+                consensus_votes=consensus_votes,
+                consensus_quorum=consensus_quorum,
+                consensus_reached=consensus_reached,
                 cost_usd=total_cost,
                 duration_ms=pipeline.elapsed_ms(),
             )

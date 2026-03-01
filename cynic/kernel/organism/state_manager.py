@@ -138,7 +138,16 @@ class OrganismState:
         """Record a judgment in consciousness and queue for persistence."""
         if not isinstance(judgment, UnifiedJudgment):
             if isinstance(judgment, dict):
-                judgment = UnifiedJudgment.model_validate(judgment)
+                # Convert dict to UnifiedJudgment (dataclass, not Pydantic)
+                # Filter dict to only include fields that UnifiedJudgment expects
+                import dataclasses
+                unified_fields = {f.name for f in dataclasses.fields(UnifiedJudgment)}
+                filtered_dict = {k: v for k, v in judgment.items() if k in unified_fields}
+                try:
+                    judgment = UnifiedJudgment(**filtered_dict)
+                except (TypeError, ValueError) as e:
+                    logger.debug(f"Could not create UnifiedJudgment from dict: {e}")
+                    return
             else:
                 return
 
