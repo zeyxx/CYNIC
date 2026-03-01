@@ -90,21 +90,50 @@ class Organism:
         """
         Start the organism's background processing loops.
         Must be called within an active event loop.
-        """
-        # 1. Start state processing (metrics, history)
-        await self.state.start_processing(db=db)
         
-        # 2. Start SONA heartbeat (self-assessment)
-        if hasattr(self.memory, "sona_emitter"):
-            self.memory.sona_emitter.start()
+        Strict: Raises RuntimeError if any vital component fails.
+        """
+        logger.info("Organism: Starting vital signs...")
+        
+        try:
+            # 1. Start state processing (metrics, history)
+            await self.state.start_processing(db=db)
             
-        # 3. Start Gossip (Federation) if applicable
-        if hasattr(self.memory, "gossip_manager"):
-            # GossipManager might need an async start too if it creates tasks
-            if hasattr(self.memory.gossip_manager, "start"):
-                await self.memory.gossip_manager.start()
+            # 2. Start SONA heartbeat (self-assessment)
+            if hasattr(self.memory, "sona_emitter"):
+                self.memory.sona_emitter.start()
+            else:
+                raise RuntimeError("Critical: SonaEmitter missing from ArchiveCore")
+                
+            # 3. Start World Model
+            if hasattr(self.senses, "world_model"):
+                # WorldModelUpdater.start is sync event registration
+                self.senses.world_model.start()
+            
+            # 4. Start Gossip (Federation) if applicable
+            if hasattr(self.memory, "gossip_manager"):
+                if hasattr(self.memory.gossip_manager, "start"):
+                    await self.memory.gossip_manager.start()
 
-        logger.info("Organism: All background loops started.")
+            # 5. INTEGRITY CHECK
+            self._validate_integrity()
+
+            logger.info("Organism: All systems NOMINAL. Respiration active.")
+
+        except Exception as e:
+            logger.critical(f"Organism: FAILED TO START: {e}", exc_info=True)
+            await self.stop()
+            raise RuntimeError(f"Organism startup failed: {e}") from e
+
+    def _validate_integrity(self) -> None:
+        """Verify all attributes expected by UI/API are present."""
+        expected_state_attrs = ["total_judgments", "consciousness", "reflex_cycles"]
+        for attr in expected_state_attrs:
+            if not hasattr(self.state, attr):
+                raise AttributeError(f"Integrity Error: OrganismState missing '{attr}'")
+        
+        if not self.cognition.orchestrator:
+            raise RuntimeError("Integrity Error: CognitionCore missing orchestrator")
 
     async def stop(self) -> None:
         """Graceful shutdown of all loops."""
