@@ -356,6 +356,11 @@ def get_service_registry() -> ServiceStateRegistry:
     return _registry_instance
 
 
+def get_global_registry() -> ServiceStateRegistry:
+    """Alias for get_service_registry() used by factory."""
+    return get_service_registry()
+
+
 def reset_service_registry() -> None:
     """Reset registry singleton (for testing)."""
     global _registry_instance

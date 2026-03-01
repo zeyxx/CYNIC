@@ -119,6 +119,9 @@ class LearningEventPayload(BaseModel):
     reward:    float = 0.0   # [0, 1] normalised reward
     action:    str   = ""
     state_key: str   = ""
+    q_value_old: float = 0.0
+    q_value_new: float = 0.0
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class QTableUpdatedPayload(BaseModel):

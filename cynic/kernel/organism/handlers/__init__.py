@@ -5,12 +5,6 @@ Manages handler lifecycle:
 1. register() — add handler groups
 2. wire() — subscribe all to event bus
 3. introspect() — reveal coupling and topology
-
-Also exports the new service architecture:
-- KernelServices: unified coordinator
-- CognitionServices: BRAIN operations
-- MetabolicServices: BODY operations
-- SensoryServices: SENSES operations
 """
 
 from __future__ import annotations
@@ -18,7 +12,7 @@ from __future__ import annotations
 import importlib
 import logging
 import pkgutil
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .introspect import (
     ArchitectureSnapshot,
@@ -28,7 +22,6 @@ from .introspect import (
 )
 from .services import (
     CognitionServices,
-    KernelServices,
     MetabolicServices,
     SensoryServices,
 )
@@ -39,7 +32,6 @@ from .validator import (
 
 if TYPE_CHECKING:
     from cynic.kernel.core.event_bus import EventBus
-
     from .base import HandlerGroup
 
 logger = logging.getLogger("cynic.kernel.organism.handlers")
@@ -48,9 +40,6 @@ logger = logging.getLogger("cynic.kernel.organism.handlers")
 class HandlerRegistry:
     """
     Handler lifecycle manager — register, wire, introspect.
-
-    Lifecycle: register() → wire(bus) → introspect()
-    Cannot register after wire() (like DogScheduler).
     """
 
     def __init__(self) -> None:
@@ -84,13 +73,7 @@ class HandlerRegistry:
         logger.info(f"HandlerRegistry wired: {len(self._groups)} groups, {total_handlers} handlers")
 
     def introspect(self) -> dict:
-        """Handler topology — used by SelfProber + KernelMirror.
-
-        Returns dict with:
-        - groups: list of group metadata
-        - total_handlers: sum of all handlers
-        - total_deps: unique components across all groups
-        """
+        """Handler topology snapshot."""
         all_deps = set()
         groups_meta = []
 
@@ -114,28 +97,33 @@ class HandlerRegistry:
 
 
 def discover_handler_groups(
-    svc: KernelServices, **kwargs
+    cognition: CognitionServices,
+    metabolic: MetabolicServices,
+    sensory: SensoryServices,
+    **kwargs: Any
 ) -> list[HandlerGroup]:
     """
-    Auto-discover handler groups — like discover_dogs() but for handlers.
-
-    Scans cynic.kernel.organism.handlers package for HandlerGroup subclasses.
-    Instantiates each with KernelServices + group-specific kwargs.
-
-    Args:
-        svc: KernelServices instance (shared bloodstream)
-        **kwargs: group-specific constructor arguments (by module name)
-            Example: {"intelligence": {"orchestrator": ..., "scheduler": ...}}
-
-    Returns:
-        List of instantiated HandlerGroup subclasses
+    Auto-discover and instantiate handler groups by domain.
     """
     from .base import HandlerGroup
 
     groups: list[HandlerGroup] = []
-
-    # Import all handler modules
     from cynic.kernel.organism import handlers as _pkg
+
+    # Domain mapping logic
+    domain_map = {
+        "axiom": (cognition, "cognition"),
+        "health": (cognition, "cognition"),
+        "escore": (cognition, "cognition"),
+        "intelligence": (cognition, "cognition"),
+        "judgment_executor": (cognition, "cognition"),
+        "meta_cognition": (cognition, "cognition"),
+        "guidance_writer": (cognition, "cognition"),
+        "direct": (metabolic, "metabolism"),
+        "sdk": (metabolic, "metabolism"),
+        "knet_handler": (sensory, "sensory"),
+        "federation": (sensory, "sensory"),
+    }
 
     for _, module_name, _ in pkgutil.iter_modules(_pkg.__path__):
         if module_name.startswith("_") or module_name == "base":
@@ -147,7 +135,6 @@ def discover_handler_groups(
             logger.warning(f"Failed to import handler module {module_name}: {e}")
             continue
 
-        # Scan for HandlerGroup subclasses
         for attr_name in dir(mod):
             attr = getattr(mod, attr_name)
             if (
@@ -156,31 +143,22 @@ def discover_handler_groups(
                 and attr is not HandlerGroup
             ):
                 try:
-                    # Instantiate with KernelServices + module-specific kwargs
+                    # Select appropriate service facade and parameter name
+                    config = domain_map.get(module_name, (cognition, "cognition"))
+                    svc_facade, param_name = config
+                    
+                    # Merge domain service with extra specialized kwargs
                     group_kwargs = kwargs.get(module_name, {})
-                    instance = attr(svc=svc, **group_kwargs)
+                    init_args = {param_name: svc_facade}
+                    init_args.update(group_kwargs)
+                    
+                    instance = attr(**init_args)
                     groups.append(instance)
                     logger.debug(f"Discovered handler group: {instance.name}")
                 except Exception as e:
                     logger.warning(
-                        f"Failed to instantiate {attr_name} from {module_name}: {type(e).__name__}: {e}"
+                        f"Failed to instantiate {attr_name} from {module_name}: {e}"
                     )
 
     logger.info(f"Discovered {len(groups)} handler groups")
     return groups
-
-
-__all__ = [
-    "HandlerRegistry",
-    "discover_handler_groups",
-    "KernelServices",
-    "CognitionServices",
-    "MetabolicServices",
-    "SensoryServices",
-    "HandlerAnalysis",
-    "ArchitectureSnapshot",
-    "CouplingGrowth",
-    "HandlerArchitectureIntrospector",
-    "ValidationIssue",
-    "HandlerValidator",
-]

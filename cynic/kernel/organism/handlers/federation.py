@@ -9,7 +9,7 @@ from collections.abc import Callable
 
 from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.organism.handlers.base import HandlerGroup
-from cynic.kernel.organism.handlers.services import KernelServices
+from cynic.kernel.organism.handlers.services import SensoryServices
 from cynic.kernel.organism.perception.federation.gossip import GossipManager
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.federation")
@@ -18,9 +18,9 @@ logger = logging.getLogger("cynic.kernel.organism.handlers.federation")
 class FederationHandler(HandlerGroup):
     """Handler group that manages P2P knowledge sharing."""
 
-    def __init__(self, svc: KernelServices, *, gossip_manager: GossipManager):
-        """Initialize handler with kernel services and gossip manager."""
-        self.svc = svc
+    def __init__(self, sensory: SensoryServices, *, gossip_manager: GossipManager):
+        """Initialize handler with sensory services and gossip manager."""
+        self._sensory = sensory
         self.gossip_manager = gossip_manager
         self._judgment_count = 0
         logger.info("FederationHandler active")

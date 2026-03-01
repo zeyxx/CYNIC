@@ -9,7 +9,7 @@ import logging
 
 from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.organism.handlers.base import HandlerGroup
-from cynic.kernel.organism.handlers.services import KernelServices
+from cynic.kernel.organism.handlers.services import SensoryServices
 from cynic.kernel.protocol.kpulse import PulseMessage, PulseType
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.knet")
@@ -17,8 +17,8 @@ logger = logging.getLogger("cynic.kernel.organism.handlers.knet")
 class KNetHandler(HandlerGroup):
     """Bridges internal consciousness to the distributed κ-NET nerves."""
 
-    def __init__(self, svc: KernelServices) -> None:
-        self._svc = svc
+    def __init__(self, sensory: SensoryServices) -> None:
+        self._sensory = sensory
         self._server = None
 
     @property

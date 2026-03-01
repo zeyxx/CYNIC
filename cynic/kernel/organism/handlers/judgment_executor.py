@@ -24,7 +24,7 @@ from cynic.kernel.core.judgment import Cell
 from cynic.kernel.organism.brain.cognition.cortex.circuit_breaker import CircuitBreaker
 from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
 from cynic.kernel.organism.handlers.base import HandlerGroup
-from cynic.kernel.organism.handlers.services import KernelServices
+from cynic.kernel.organism.handlers.services import CognitionServices
 
 logger = logging.getLogger(__name__)
 
@@ -47,11 +47,12 @@ class JudgmentExecutorHandler(HandlerGroup):
 
     def __init__(
         self,
-        svc: KernelServices,
+        cognition: CognitionServices,
         *,
         orchestrator: JudgeOrchestrator,
-    ):
-        self._svc = svc
+    ) -> None:
+        self._cognition = cognition
+
         self._orchestrator = orchestrator
 
     @property

@@ -9,15 +9,16 @@ import logging
 
 from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.organism.handlers.base import HandlerGroup
-from cynic.kernel.organism.handlers.services import KernelServices
+from cynic.kernel.organism.handlers.services import CognitionServices
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.meta_cognition")
-class MetaCognitionHandlers(HandlerGroup):
+
+
+class MetaCognitionHandler(HandlerGroup):
     """Organism self-tuning and parameter adjustment."""
 
-    def __init__(self, svc: KernelServices) -> None:
-        self._svc = svc
-        self._ticks_processed = 0
+    def __init__(self, cognition: CognitionServices) -> None:
+        self._cognition = cognition
 
     @property
     def name(self) -> str:

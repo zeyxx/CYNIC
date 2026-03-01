@@ -35,6 +35,7 @@ from cynic.kernel.core.convergence import ConvergenceValidator
 from cynic.kernel.organism.sona_emitter import SonaEmitter
 from cynic.kernel.core.escore import EScoreTracker
 from cynic.kernel.core.storage.surreal import init_storage, get_storage
+from cynic.kernel.organism.handlers import HandlerRegistry, discover_handler_groups, CognitionServices, MetabolicServices, SensoryServices
 
 logger = logging.getLogger("cynic.kernel.organism.factory")
 
@@ -51,6 +52,7 @@ class _OrganismAwakener:
     async def build(self):
         """Assembles the 4 cores into a living Organism."""
         from cynic.kernel.organism.brain.cognition.neurons.base import DogId
+        
         # 0. STORAGE (SurrealDB)
         try:
             self.storage = await init_storage()
@@ -68,7 +70,6 @@ class _OrganismAwakener:
         # 3. COGNITION & STRATEGY
         self.qtable = QTable(storage=self.storage.qtable if self.storage else None)
         
-        from cynic.kernel.organism.brain.cognition.neurons.base import DogId
         scholar = self.dogs.get(DogId.SCHOLAR.value)
         if scholar and hasattr(scholar, "set_qtable"):
             scholar.set_qtable(self.qtable)
@@ -114,15 +115,17 @@ class _OrganismAwakener:
         self.escore_tracker = EScoreTracker(state_manager=self.state)
         
         self.axiom_monitor = AxiomMonitor()
-        self.self_prober = None # Initialized below
 
         # 4. METABOLISM (Body & Rhythm)
         self.body = HardwareBody()
         self.scheduler = ConsciousnessRhythm(self.orchestrator)
         self.scheduler.body = self.body
         
+        from cynic.kernel.organism.metabolism.actuators import UniversalActuator, FileActuator
+        self.universal_actuator = UniversalActuator()
+        self.universal_actuator.register("file_write", FileActuator())
+
         from cynic.kernel.organism.metabolism.claude_sdk import ClaudeCodeRunner
-        # Initialize runner with bus and empty registry for now
         self.runner = ClaudeCodeRunner(bus=get_core_bus(), sessions_registry={})
         self.telemetry_store = None # Placeholder
 
@@ -145,7 +148,47 @@ class _OrganismAwakener:
         instance_id = os.environ.get("CYNIC_INSTANCE_ID", os.urandom(4).hex())
         self.gossip_manager = GossipManager(instance_id=instance_id, q_table=self.qtable)
 
-        # 7. WIRING & START
+        # 7. WIRING HANDLERS (New Domain-Specific Pattern)
+        cog_svc = CognitionServices(
+            escore_tracker=self.escore_tracker,
+            axiom_monitor=self.axiom_monitor,
+            lod_controller=self.lod_controller,
+            qtable=self.qtable,
+            health_cache={} # Shared health cache
+        )
+        meta_svc = MetabolicServices(
+            scheduler=self.scheduler,
+            body=self.body,
+            runner=self.runner
+        )
+        from cynic.nervous.service_registry import get_global_registry
+        sens_svc = SensoryServices(
+            compressor=self.context_compressor,
+            service_registry=get_global_registry(),
+            world_model=self.world_model
+        )
+
+        self.handler_registry = HandlerRegistry()
+        handlers = discover_handler_groups(
+            cognition=cog_svc,
+            metabolic=meta_svc,
+            sensory=sens_svc,
+            # Extra kwargs for specific handlers (MUST match module names)
+            axiom={"action_proposer": self.action_proposer},
+            sdk={"action_proposer": self.action_proposer, "qtable": self.qtable},
+            direct={"universal_actuator": self.universal_actuator, "qtable": self.qtable},
+            federation={"gossip_manager": self.gossip_manager},
+            health={"storage_gc": None, "db_pool": self.db_pool},
+            intelligence={"orchestrator": self.orchestrator, "scheduler": self.scheduler, "db_pool": self.db_pool, "compressor": self.context_compressor},
+            judgment_executor={"orchestrator": self.orchestrator}
+        )
+        
+        for group in handlers:
+            self.handler_registry.register(group)
+        
+        self.handler_registry.wire(get_core_bus())
+
+        # 8. START AGENTS
         self.account_agent.set_escore_tracker(self.escore_tracker)
         self.account_agent.start()
 

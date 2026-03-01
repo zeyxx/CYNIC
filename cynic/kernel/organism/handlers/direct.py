@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING
 
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError
 from cynic.kernel.organism.handlers.base import HandlerGroup
-from cynic.kernel.organism.handlers.services import KernelServices
+from cynic.kernel.organism.handlers.services import MetabolicServices
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.brain.learning.qlearning import QTable
-    from cynic.kernel.organism.metabolism.universal import UniversalActuator
+    from cynic.kernel.organism.metabolism.actuator import UniversalActuator
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.direct")
 
@@ -22,10 +22,11 @@ class DirectActionsHandler(HandlerGroup):
     _EXECUTION_WINDOW = 13  # F(7) — rolling success tracking
 
     def __init__(
-        self, svc: KernelServices, *, universal_actuator: UniversalActuator, qtable: QTable
+        self, metabolism: MetabolicServices, *, universal_actuator: UniversalActuator, qtable: QTable
     ) -> None:
-        self._svc = svc
+        self._metabolism = metabolism
         self._universal_actuator = universal_actuator
+
         self._qtable = qtable
         self._execution_window: list[bool] = []
 

@@ -15,11 +15,9 @@ from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.phi import GROWL_MIN
 from cynic.kernel.organism.handlers.base import HandlerGroup
-from cynic.kernel.organism.handlers.services import KernelServices
+from cynic.kernel.organism.handlers.services import CognitionServices
 
 if TYPE_CHECKING:
-    from asyncpg import Pool
-
     from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
     from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
 
@@ -33,14 +31,14 @@ class IntelligenceHandlers(HandlerGroup):
 
     def __init__(
         self,
-        svc: KernelServices,
+        cognition: CognitionServices,
         *,
         orchestrator: JudgeOrchestrator,
         scheduler: ConsciousnessRhythm,
-        db_pool: Pool | None,
+        db_pool: Any | None,
         compressor,  # ContextCompressor
     ) -> None:
-        self._svc = svc
+        self._cognition = cognition
         self._orchestrator = orchestrator
         self._scheduler = scheduler
         self._db_pool = db_pool

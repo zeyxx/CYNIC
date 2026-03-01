@@ -14,7 +14,7 @@ from collections.abc import Callable
 from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.phi import MAX_CONFIDENCE
 from cynic.kernel.organism.handlers.base import HandlerGroup
-from cynic.kernel.organism.handlers.services import KernelServices
+from cynic.kernel.organism.handlers.services import CognitionServices
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.guidance_writer")
 
@@ -24,9 +24,9 @@ _GUIDANCE_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "guidance.json"
 class GuidanceWriter(HandlerGroup):
     """Handler group that writes guidance.json when judgments are created."""
 
-    def __init__(self, svc: KernelServices):
-        """Initialize handler with kernel services."""
-        self.svc = svc
+    def __init__(self, cognition: CognitionServices):
+        """Initialize handler with cognition services."""
+        self._cognition = cognition
         logger.info("GuidanceWriter handler active")
 
     @property
