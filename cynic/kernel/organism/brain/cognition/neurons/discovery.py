@@ -71,30 +71,31 @@ def discover_dog_classes() -> dict[str, type[AbstractDog]]:
 def discover_dogs(**overrides: Any) -> dict[str, AbstractDog]:
     """
     Discover and instantiate all dogs.
-
-    Most dogs are instantiated with no args. Override specific dogs
-    by passing keyword arguments keyed by DogId value:
-
-        dogs = discover_dogs(ORACLE=OracleDog(qtable=my_qtable))
-
-    Returns:
-        dict mapping DogId value → Dog instance.
+    
+    New Path: Uses MasterDog + registry for all 11 Dogs.
+    Legacy Path: Still checks files for custom Dog classes (overrides).
     """
-    classes = discover_dog_classes()
-    dogs: dict[str, AbstractDog] = {}
+    from cynic.kernel.organism.brain.cognition.neurons.master import MasterDog
+    from cynic.kernel.organism.brain.cognition.neurons.registry import get_soul, SOULS
 
-    for dog_id, cls in classes.items():
-        if dog_id in overrides:
-            dogs[dog_id] = overrides[dog_id]
-        else:
-            try:
-                dogs[dog_id] = cls()
-            except TypeError as exc:
-                logger.warning(
-                    "Cannot auto-instantiate %s (needs args): %s. "
-                    "Pass it via overrides.",
-                    cls.__name__,
-                    exc,
-                )
+    # 1. Start with the 11 standard Dogs from registry
+    dogs: dict[str, AbstractDog] = {}
+    for dog_id in DogId:
+        soul = get_soul(dog_id)
+        dogs[dog_id.value] = MasterDog(soul)
+
+    # 2. Apply explicit overrides (passed as args)
+    for dog_id_val, instance in overrides.items():
+        dogs[dog_id_val] = instance
+
+    # 3. Discovery fallback: If a custom class exists in a file, it wins over MasterDog
+    # This ensures backward compatibility during migration
+    classes = discover_dog_classes()
+    for dog_id_val, cls in classes.items():
+        if dog_id_val not in overrides:
+            # Check if it's NOT a MasterDog (real custom class)
+            if "MasterDog" not in cls.__name__:
+                logger.info(f"Discovery: Custom class {cls.__name__} found for {dog_id_val}, overriding MasterDog.")
+                dogs[dog_id_val] = cls()
 
     return dogs
