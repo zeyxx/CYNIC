@@ -29,6 +29,11 @@ def mock_orchestrator():
     orch.context_compressor = None
     orch.decision_validator = None
     orch._act_phase = AsyncMock(return_value={"executed": True})
+
+    # Level 2: Mock the instance bus (used by judgment_stages to emit events)
+    orch.bus = AsyncMock()
+    orch.bus.emit = AsyncMock()
+
     return orch
 
 
@@ -51,17 +56,13 @@ def test_pipeline():
 @pytest.mark.asyncio
 async def test_perceive_stage_emits_event(mock_orchestrator, test_pipeline):
     """PerceiveStage should emit PERCEPTION_RECEIVED event."""
-    with patch("cynic.kernel.organism.brain.cognition.cortex.judgment_stages.get_core_bus") as mock_bus:
-        mock_bus_instance = AsyncMock()
-        mock_bus.return_value = mock_bus_instance
+    stage = PerceiveStage(mock_orchestrator)
+    result = await stage.execute(test_pipeline)
 
-        stage = PerceiveStage(mock_orchestrator)
-        result = await stage.execute(test_pipeline)
-
-        # Verify pipeline returned unchanged
-        assert result is test_pipeline
-        # Verify event emitted
-        mock_bus_instance.emit.assert_called_once()
+    # Verify pipeline returned unchanged
+    assert result is test_pipeline
+    # Verify event emitted on orchestrator's bus
+    mock_orchestrator.bus.emit.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -79,7 +80,7 @@ async def test_judge_stage_creates_judgment(mock_orchestrator, test_pipeline):
 
     mock_orchestrator.dogs = {"TEST_DOG": mock_dog}
     mock_orchestrator.cynic_dog = MagicMock()
-    mock_orchestrator.cynic_dog.pbft_run = AsyncMock(return_value=MagicMock(
+    mock_orchestrator.cynic_dog.phi_bft_run = AsyncMock(return_value=MagicMock(
         final_q_score=50.0,
         final_confidence=0.6,
         votes=1,
@@ -162,15 +163,11 @@ async def test_emerge_stage_detects_anomaly(mock_orchestrator, test_pipeline):
     judgment.judgment_id = "test-judgment-001"
     test_pipeline.final_judgment = judgment
 
-    with patch("cynic.kernel.organism.brain.cognition.cortex.judgment_stages.get_core_bus") as mock_bus:
-        mock_bus_instance = AsyncMock()
-        mock_bus.return_value = mock_bus_instance
+    stage = EmergeStage(mock_orchestrator)
+    await stage.execute(test_pipeline)
 
-        stage = EmergeStage(mock_orchestrator)
-        await stage.execute(test_pipeline)
-
-        # Verify emergence event emitted
-        mock_bus_instance.emit.assert_called_once()
+    # Verify emergence event emitted on orchestrator's bus
+    mock_orchestrator.bus.emit.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -188,7 +185,7 @@ async def test_execute_judgment_pipeline_full_cycle(mock_orchestrator, test_pipe
 
     mock_orchestrator.dogs = {"TEST_DOG": mock_dog}
     mock_orchestrator.cynic_dog = MagicMock()
-    mock_orchestrator.cynic_dog.pbft_run = AsyncMock(return_value=MagicMock(
+    mock_orchestrator.cynic_dog.phi_bft_run = AsyncMock(return_value=MagicMock(
         final_q_score=50.0,
         final_confidence=0.6,
         votes=1,
