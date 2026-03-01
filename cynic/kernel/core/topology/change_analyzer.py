@@ -118,20 +118,22 @@ class ChangeAnalyzer:
         self._analysis_count += 1
 
         # Emit CHANGE_ANALYZED event
-        await get_core_bus().emit(Event.typed(
-            CoreEvent.CHANGE_ANALYZED,
-            ChangeAnalyzedPayload(
-                files=payload.files,
-                subsystems=subsystems_list,
-                impact_level=impact_max,
-                risk_estimate=min(risk_max, 1.0),
-                suggested_action=suggested,
-                timestamp=time.time(),
-                file_count=len(payload.files),
-                total_lines=total_lines,
-            ),
-            source="ChangeAnalyzer",
-        ))
+        await get_core_bus().emit(
+            Event.typed(
+                CoreEvent.CHANGE_ANALYZED,
+                ChangeAnalyzedPayload(
+                    files=payload.files,
+                    subsystems=subsystems_list,
+                    impact_level=impact_max,
+                    risk_estimate=min(risk_max, 1.0),
+                    suggested_action=suggested,
+                    timestamp=time.time(),
+                    file_count=len(payload.files),
+                    total_lines=total_lines,
+                ),
+                source="ChangeAnalyzer",
+            )
+        )
 
         logger.info(
             "CHANGE ANALYZED: %s files → %s subsystem(s), impact=%s, risk=%.2f, action=%s",

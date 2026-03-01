@@ -8,6 +8,7 @@ processing. It provides:
 3. Ringbuffer for overflow-safe buffering
 4. Subscription pattern for Layer 2 callbacks
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

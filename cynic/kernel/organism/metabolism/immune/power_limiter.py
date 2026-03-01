@@ -15,6 +15,7 @@ Architecture:
   - Actions: throttle workers, cap consciousness level, emit warnings
   - Safety: graceful degradation (MACRO → MICRO → REFLEX)
 """
+
 from __future__ import annotations
 
 import logging
@@ -24,6 +25,7 @@ from typing import Any
 
 try:
     import psutil
+
     HAS_PSUTIL = True
 except ImportError:
     HAS_PSUTIL = False
@@ -34,22 +36,23 @@ from cynic.kernel.core.phi import fibonacci
 logger = logging.getLogger("cynic.kernel.organism.metabolism.immune.power_limiter")
 
 # Resource thresholds (φ-derived for sustainable growth)
-_CPU_THRESHOLD_PCT = 80.0          # Auto-throttle at 80% CPU
-_MEMORY_THRESHOLD_PCT = 85.0       # Auto-throttle at 85% memory
+_CPU_THRESHOLD_PCT = 80.0  # Auto-throttle at 80% CPU
+_MEMORY_THRESHOLD_PCT = 85.0  # Auto-throttle at 85% memory
 _QUEUE_DEPTH_CRITICAL = fibonacci(8)  # 21 — beyond this, cap to REFLEX
 _MAX_JUDGMENTS_PER_SEC = fibonacci(5)  # 5 judgments/sec hard limit
-_MAX_ACTIONS_PER_MIN = fibonacci(7)    # 13 actions/min hard limit
+_MAX_ACTIONS_PER_MIN = fibonacci(7)  # 13 actions/min hard limit
 
 
 @dataclass
 class ResourceMetrics:
     """Current system resource state."""
-    cpu_pct: float           # 0-100
-    memory_pct: float        # 0-100
-    task_count: int          # concurrent tasks
-    queue_depth: int         # total cells waiting
+
+    cpu_pct: float  # 0-100
+    memory_pct: float  # 0-100
+    task_count: int  # concurrent tasks
+    queue_depth: int  # total cells waiting
     judgments_last_sec: int  # judgments in past 1s
-    actions_last_min: int    # actions in past 1m
+    actions_last_min: int  # actions in past 1m
 
 
 class PowerLimiter:
@@ -73,7 +76,7 @@ class PowerLimiter:
     def __init__(self) -> None:
         self._start_time = time.time()
         self._judgment_timestamps: list[float] = []  # rolling 1s window
-        self._action_timestamps: list[float] = []    # rolling 1m window
+        self._action_timestamps: list[float] = []  # rolling 1m window
         self._warned_cpu = False
         self._warned_memory = False
 
@@ -98,7 +101,8 @@ class PowerLimiter:
             if not self._warned_cpu:
                 logger.warning(
                     "CPU overloaded: %.1f%% > threshold (%.1f%%)",
-                    metrics.cpu_pct, _CPU_THRESHOLD_PCT,
+                    metrics.cpu_pct,
+                    _CPU_THRESHOLD_PCT,
                 )
                 self._warned_cpu = True
             return False
@@ -109,7 +113,8 @@ class PowerLimiter:
             if not self._warned_memory:
                 logger.warning(
                     "Memory overloaded: %.1f%% > threshold (%.1f%%)",
-                    metrics.memory_pct, _MEMORY_THRESHOLD_PCT,
+                    metrics.memory_pct,
+                    _MEMORY_THRESHOLD_PCT,
                 )
                 self._warned_memory = True
             return False
@@ -148,7 +153,8 @@ class PowerLimiter:
         if metrics.queue_depth > _QUEUE_DEPTH_CRITICAL:
             logger.warning(
                 "Queue backlog critical: %d > %d — capping to REFLEX",
-                metrics.queue_depth, _QUEUE_DEPTH_CRITICAL,
+                metrics.queue_depth,
+                _QUEUE_DEPTH_CRITICAL,
             )
             return ConsciousnessLevel.REFLEX
 
@@ -223,11 +229,11 @@ class PowerLimiter:
                 logger.debug("psutil error: %s", e)
 
         # Task count from scheduler
-        task_count = len(getattr(scheduler, '_tasks', []))
+        task_count = len(getattr(scheduler, "_tasks", []))
 
         # Queue depth from scheduler
         queue_depth = 0
-        queues = getattr(scheduler, '_queues', {})
+        queues = getattr(scheduler, "_queues", {})
         for queue in queues.values():
             try:
                 queue_depth += queue.qsize()

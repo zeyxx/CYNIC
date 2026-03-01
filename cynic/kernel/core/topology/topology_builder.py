@@ -8,9 +8,14 @@ import inspect
 import logging
 import sys
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError
+
+if TYPE_CHECKING:
+    from cynic.kernel.organism.handlers.base import HandlerGroup
+
+from cynic.kernel.core.event_bus import get_core_bus
 from cynic.kernel.core.topology.payloads import (
     SourceChangedPayload,
     TopologyChangedPayload,
@@ -52,7 +57,8 @@ class IncrementalTopologyBuilder:
 
         logger.debug(
             "IncrementalTopologyBuilder processing: %s (%d files)",
-            payload.category, len(payload.files)
+            payload.category,
+            len(payload.files),
         )
 
         # Discover only changed modules
@@ -65,26 +71,32 @@ class IncrementalTopologyBuilder:
         if not self._validate_delta(delta):
             logger.error(
                 "Invalid topology delta: %d added, %d removed, %d modified — SKIPPED",
-                len(delta.added), len(delta.removed), len(delta.modified)
+                len(delta.added),
+                len(delta.removed),
+                len(delta.modified),
             )
             return
 
         # Emit: TOPOLOGY_CHANGED
         bus = get_core_bus()
-        await bus.emit(Event.typed(
-            CoreEvent.TOPOLOGY_CHANGED,
-            TopologyChangedPayload(
-                added_handlers=delta.added,
-                removed_handlers=delta.removed,
-                modified_handlers=delta.modified,
-                timestamp=payload.timestamp,
-            ),
-            source="builder:incremental"
-        ))
+        await bus.emit(
+            Event.typed(
+                CoreEvent.TOPOLOGY_CHANGED,
+                TopologyChangedPayload(
+                    added_handlers=delta.added,
+                    removed_handlers=delta.removed,
+                    modified_handlers=delta.modified,
+                    timestamp=payload.timestamp,
+                ),
+                source="builder:incremental",
+            )
+        )
 
         logger.info(
             "TOPOLOGY_CHANGED emitted: +%d -%d ~%d handlers",
-            len(delta.added), len(delta.removed), len(delta.modified)
+            len(delta.added),
+            len(delta.removed),
+            len(delta.modified),
         )
 
         # Update inventory
@@ -158,10 +170,7 @@ class IncrementalTopologyBuilder:
         """
         added = [name for name in curr if name not in prev]
         removed = [name for name in prev if name not in curr]
-        modified = [
-            name for name in curr
-            if name in prev and prev[name] != curr[name]
-        ]
+        modified = [name for name in curr if name in prev and prev[name] != curr[name]]
 
         return TopologyDelta(
             added=added,

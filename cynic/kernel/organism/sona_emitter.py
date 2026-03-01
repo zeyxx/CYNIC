@@ -17,6 +17,7 @@ Lifecycle:
   # ... run ...
   await sona.stop()      # Cancel gracefully
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -135,15 +136,15 @@ class SonaEmitter:
 
         # Collect real telemetry from injected components
         q_table_entries = 0
-        learning_rate   = 0.0
+        learning_rate = 0.0
         ewc_consolidated = 0
-        total_judgments  = 0
+        total_judgments = 0
 
         if self._qtable is not None:
             try:
                 stats = self._qtable.stats()
-                q_table_entries  = stats.get("entries", 0)
-                learning_rate    = stats.get("learning_rate", 0.0)
+                q_table_entries = stats.get("entries", 0)
+                learning_rate = stats.get("learning_rate", 0.0)
                 ewc_consolidated = stats.get("ewc_consolidated", 0)
             except Exception as exc:
                 logger.warning("SonaEmitter: failed to get QTable stats: %s", exc)
@@ -155,7 +156,7 @@ class SonaEmitter:
                 logger.warning("SonaEmitter: failed to get orchestrator judgment count: %s", exc)
 
         payload = SonaTickPayload(
-            instance_id="",        # Set by organism.py if multi-instance
+            instance_id="",  # Set by organism.py if multi-instance
             q_table_entries=q_table_entries,
             total_judgments=total_judgments,
             learning_rate=learning_rate,
@@ -165,11 +166,13 @@ class SonaEmitter:
             tick_number=self._tick_count,
         )
 
-        await self._bus.emit(Event.typed(
-            CoreEvent.SONA_TICK,
-            payload,
-            source="sona_emitter",
-        ))
+        await self._bus.emit(
+            Event.typed(
+                CoreEvent.SONA_TICK,
+                payload,
+                source="sona_emitter",
+            )
+        )
 
         logger.debug(
             f"SONA_TICK #{self._tick_count} emitted (uptime={uptime_s:.1f}s, "

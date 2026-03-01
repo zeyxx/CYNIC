@@ -11,6 +11,7 @@ Responsibility:
 - Emit all event signals (PERCEPTION_RECEIVED, RESIDUAL_HIGH)
 - ~160 LOC canonical cycle
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -36,7 +37,6 @@ if TYPE_CHECKING:
     from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgmentPipeline
 from cynic.kernel.core.event_bus import (
     CoreEvent,
-    CynicError,
     Event,
     EventBusError,
     get_core_bus,
@@ -67,7 +67,9 @@ class MacroCycleHandler(BaseHandler):
 
     handler_id = "cycle_macro"
     version = "1.0"
-    description = "L1 MACRO cycle: full 7-step cycle with E-Score filtering, PBFT, and action execution"
+    description = (
+        "L1 MACRO cycle: full 7-step cycle with E-Score filtering, PBFT, and action execution"
+    )
 
     def __init__(
         self,
@@ -104,20 +106,23 @@ class MacroCycleHandler(BaseHandler):
             cell = pipeline.cell
 
             # STEP 1: PERCEIVE (already done — cell is the perception result)
-            await get_core_bus().emit(Event.typed(
-                CoreEvent.PERCEPTION_RECEIVED,
-                PerceptionReceivedPayload(reality=cell.reality, cell_id=cell.cell_id),
-            ))
+            await get_core_bus().emit(
+                Event.typed(
+                    CoreEvent.PERCEPTION_RECEIVED,
+                    PerceptionReceivedPayload(reality=cell.reality, cell_id=cell.cell_id),
+                )
+            )
 
             # STEP 2: JUDGE — Dogs filtered by E-Score reputation (LOD↔EScore immune system)
             dog_items = list(self.dogs.items())  # [(dog_id, dog), ...]
             if self.escore_tracker is not None:
                 # φ-threshold: GROWL_MIN = 38.2% — below this, Dog is unreliable
-                GROWL_MIN = PHI_INV_2 * MAX_Q_SCORE   # 38.2
-                MIN_ACTIVE = fibonacci(4)              # 3 — safety floor (never run fewer)
+                GROWL_MIN = PHI_INV_2 * MAX_Q_SCORE  # 38.2
+                MIN_ACTIVE = fibonacci(4)  # 3 — safety floor (never run fewer)
 
                 passing = [
-                    (did, d) for did, d in dog_items
+                    (did, d)
+                    for did, d in dog_items
                     if self.escore_tracker.get_score(f"agent:{did}") >= GROWL_MIN
                     or did == DogId.CYNIC  # Coordinator (PBFT) is never filtered
                 ]
@@ -129,7 +134,10 @@ class MacroCycleHandler(BaseHandler):
                         skipped_ids = [did for did, _ in dog_items if did not in passing_ids]
                         logger.info(
                             "EScore filter: bypassing %d/%d Dogs (E-Score < %.1f): %s",
-                            skipped_n, len(dog_items), GROWL_MIN, skipped_ids,
+                            skipped_n,
+                            len(dog_items),
+                            GROWL_MIN,
+                            skipped_ids,
                         )
                     dog_items = passing
 
@@ -156,28 +164,27 @@ class MacroCycleHandler(BaseHandler):
             dog_judgments_raw = await asyncio.gather(*tasks, return_exceptions=True)
 
             # Filter out errors gracefully
-            pipeline.dog_judgments = [
-                j for j in dog_judgments_raw
-                if isinstance(j, DogJudgment)
-            ]
+            pipeline.dog_judgments = [j for j in dog_judgments_raw if isinstance(j, DogJudgment)]
             errors = [j for j in dog_judgments_raw if isinstance(j, Exception)]
             if errors:
                 logger.warning("%d Dog(s) failed: %s", len(errors), errors)
 
-            # STEP 2b: PBFT Consensus
-            consensus = await self.cynic_dog.pbft_run(cell, pipeline.dog_judgments)
+            # STEP 2b: phi-BFT Consensus (PHI-weighted Byzantine Fault Tolerance)
+            consensus = await self.cynic_dog.phi_bft_run(cell, pipeline.dog_judgments)
             pipeline.consensus = consensus
 
             # STEP 2c: Axiom scoring (fractal depth from pipeline)
             q_scores_macro = [j.q_score for j in pipeline.dog_judgments]
             avg_q_macro = sum(q_scores_macro) / len(q_scores_macro) if q_scores_macro else 0.0
-            consensus_strength = (consensus.votes / consensus.quorum) if consensus and consensus.quorum else 0.0
-            
+            consensus_strength = (
+                (consensus.votes / consensus.quorum) if consensus and consensus.quorum else 0.0
+            )
+
             # Map dog results to axiom inputs (The Interconnection)
             dog_inputs = {j.dog_id: j.q_score for j in pipeline.dog_judgments}
-            
+
             # Use fractal_depth from pipeline (defaults to 3 for MACRO)
-            depth = getattr(pipeline, 'fractal_depth', 3)
+            depth = getattr(pipeline, "fractal_depth", 3)
 
             axiom_result = await self.axiom_arch.score_and_compute(
                 domain=cell.reality,
@@ -200,7 +207,7 @@ class MacroCycleHandler(BaseHandler):
                 votes = [j.q_score for j in pipeline.dog_judgments]
                 mean_v = sum(votes) / len(votes)
                 variance = sum((v - mean_v) ** 2 for v in votes) / len(votes)
-                residual = min(variance / (MAX_Q_SCORE ** 2), 1.0)
+                residual = min(variance / (MAX_Q_SCORE**2), 1.0)
             else:
                 residual = 0.0
 
@@ -245,14 +252,16 @@ class MacroCycleHandler(BaseHandler):
 
             # STEP 7: EMERGE — detect if residual is emergent
             if judgment.unnameable_detected:
-                await get_core_bus().emit(Event.typed(
-                    CoreEvent.RESIDUAL_HIGH,
-                    ResidualHighPayload(
-                        cell_id=cell.cell_id,
-                        residual_variance=residual,
-                        judgment_id=judgment.judgment_id,
-                    ),
-                ))
+                await get_core_bus().emit(
+                    Event.typed(
+                        CoreEvent.RESIDUAL_HIGH,
+                        ResidualHighPayload(
+                            cell_id=cell.cell_id,
+                            residual_variance=residual,
+                            judgment_id=judgment.judgment_id,
+                        ),
+                    )
+                )
 
             duration_ms = (time.perf_counter() - t0) * 1000
             self._log_execution("macro_cycle_complete", f"Q={final_q:.1f} verdict={verdict.value}")

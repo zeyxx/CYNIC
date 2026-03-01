@@ -8,6 +8,7 @@ This interface lets Track C create:
 
 Without modifying existing workers.
 """
+
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -21,10 +22,11 @@ class Observation:
     This is what sensors emit to the perception layer.
     Quality score allows Track C to inject synthetic high/low confidence signals.
     """
-    sensor_id: str              # Unique sensor identifier (e.g., "disk", "solana", "mock_empirical")
-    timestamp: float            # When observation was made
-    data: dict[str, Any]        # Sensor-specific payload
-    quality: float = 1.0        # 0.0–1.0 confidence in observation (1.0 = certain)
+
+    sensor_id: str  # Unique sensor identifier (e.g., "disk", "solana", "mock_empirical")
+    timestamp: float  # When observation was made
+    data: dict[str, Any]  # Sensor-specific payload
+    quality: float = 1.0  # 0.0–1.0 confidence in observation (1.0 = certain)
 
     def is_synthetic(self) -> bool:
         """Returns True if this observation was synthesized (not from real sensor)."""
@@ -77,6 +79,7 @@ class Sensor(ABC):
         try:
             # Try one perceive call with short timeout
             import asyncio
+
             obs = await asyncio.wait_for(self.perceive(), timeout=1.0)
             return obs is not None or True  # availability depends on sensor type
         except (TimeoutError, Exception):

@@ -4,10 +4,11 @@ CYNIC Formulas — The Metabolic Regulator.
 Translates abstract PHI constants into operational system parameters.
 Banish 'Magic Numbers' by deriving all limits from PHI, Fibonacci, and Lucas.
 
-Scaling Law: 
-  As system stress (entropy) increases, limits should contract or expand 
+Scaling Law:
+  As system stress (entropy) increases, limits should contract or expand
   following PHI-geometric ratios.
 """
+
 from __future__ import annotations
 
 import math
@@ -23,10 +24,10 @@ from cynic.kernel.core.phi import (
 
 # Consciousness Blending Weights (for Task #8)
 CONSCIOUSNESS_BLENDING_WEIGHTS = {
-    ConsciousnessLevel.REFLEX: PHI_INV_2, # 0.382
-    ConsciousnessLevel.MICRO: PHI_INV,    # 0.618
-    ConsciousnessLevel.MACRO: 1.0,        # 1.0
-    ConsciousnessLevel.META: PHI,         # 1.618
+    ConsciousnessLevel.REFLEX: PHI_INV_2,  # 0.382
+    ConsciousnessLevel.MICRO: PHI_INV,  # 0.618
+    ConsciousnessLevel.MACRO: 1.0,  # 1.0
+    ConsciousnessLevel.META: PHI,  # 1.618
 }
 
 # Service Registry Judgment Log Cap (rolling window)
@@ -35,6 +36,7 @@ SERVICE_REGISTRY_JUDGMENT_CAP = int(fibonacci(10))  # 55 judgments in rolling lo
 # ════════════════════════════════════════════════════════════════════════════
 # 1. LATENCY BUDGETS (Time-to-Judgment)
 # ════════════════════════════════════════════════════════════════════════════
+
 
 def get_latency_budget_ms(level: ConsciousnessLevel) -> float:
     """
@@ -46,15 +48,16 @@ def get_latency_budget_ms(level: ConsciousnessLevel) -> float:
         ConsciousnessLevel.REFLEX: 0,
         ConsciousnessLevel.MICRO: 1,
         ConsciousnessLevel.MACRO: 2,
-        ConsciousnessLevel.META: 3
+        ConsciousnessLevel.META: 3,
     }
     idx = level_map.get(level, 0)
-    
+
     # REFLEX: 100ms
     # MICRO: ~261ms (100 * PHI^2)
     # MACRO: ~685ms (100 * PHI^4)
     # META:  ~1794ms (100 * PHI^6)
     return 100.0 * (PHI ** (idx * 2))
+
 
 def get_timeout_s(level: ConsciousnessLevel, metabolic_pressure: float = 1.0) -> float:
     """
@@ -67,9 +70,11 @@ def get_timeout_s(level: ConsciousnessLevel, metabolic_pressure: float = 1.0) ->
     # Under high metabolic pressure (CPU/RAM > 80%), reduce timeout to fail fast
     return timeout / metabolic_pressure
 
+
 # ════════════════════════════════════════════════════════════════════════════
 # 2. MEMORY & BUFFER CAPACITIES
 # ════════════════════════════════════════════════════════════════════════════
+
 
 def get_buffer_capacity(importance: int = 1) -> int:
     """
@@ -81,65 +86,67 @@ def get_buffer_capacity(importance: int = 1) -> int:
     fib_idx = 6 + (importance * 2)
     return fibonacci(fib_idx)
 
+
 # Standardized Capacities
 EVENT_HISTORY_CAP = get_buffer_capacity(2)  # 55
-JUDGMENT_BUFFER_CAP = get_buffer_capacity(1) # 21
-LOG_TAIL_CAP = get_buffer_capacity(3)        # 144
+JUDGMENT_BUFFER_CAP = get_buffer_capacity(1)  # 21
+LOG_TAIL_CAP = get_buffer_capacity(3)  # 144
 
 # Residual and Axiom Maturity (Fibonacci-aligned)
-AXIOM_MATURITY_WINDOW_SIZE = fibonacci(8) # 21
-RESIDUAL_MIN_SAMPLES = fibonacci(7)       # 13
-RESIDUAL_STABLE_HIGH_N = fibonacci(5)     # 5
+AXIOM_MATURITY_WINDOW_SIZE = fibonacci(8)  # 21
+RESIDUAL_MIN_SAMPLES = fibonacci(7)  # 13
+RESIDUAL_STABLE_HIGH_N = fibonacci(5)  # 5
 
 # Domain Specific Capacities
-ACT_LOG_CAP = fibonacci(11)               # 89
-EVENT_JOURNAL_CAP = fibonacci(12)         # 144
-DECISION_TRACE_CAP = fibonacci(10)        # 55
-LOOP_CLOSURE_CAP = fibonacci(8)           # 21
-SERVICE_REGISTRY_JUDGMENT_CAP = fibonacci(7) # 13
+ACT_LOG_CAP = fibonacci(11)  # 89
+EVENT_JOURNAL_CAP = fibonacci(12)  # 144
+DECISION_TRACE_CAP = fibonacci(10)  # 55
+LOOP_CLOSURE_CAP = fibonacci(8)  # 21
+SERVICE_REGISTRY_JUDGMENT_CAP = fibonacci(7)  # 13
 
 # Monitoring and Health (Fibonacci-aligned)
-SIGNAL_TTL_SEC = fibonacci(10)            # 55s
-STALL_THRESHOLD_SEC = fibonacci(11)       # 89s
-TOPOLOGY_SNAPSHOT_INTERVAL = fibonacci(12) # 144s
+SIGNAL_TTL_SEC = fibonacci(10)  # 55s
+STALL_THRESHOLD_SEC = fibonacci(11)  # 89s
+TOPOLOGY_SNAPSHOT_INTERVAL = fibonacci(12)  # 144s
 
 # LOD Level Latency Thresholds (PHI-aligned)
-LOD_LEVEL0_LATENCY_MS = 100.0             # REFLEX
-LOD_LEVEL1_LATENCY_MS = 300.0             # MICRO
-LOD_LEVEL2_LATENCY_MS = 1000.0            # MACRO
-LOD_LEVEL3_LATENCY_MS = 3000.0            # META
+LOD_LEVEL0_LATENCY_MS = 100.0  # REFLEX
+LOD_LEVEL1_LATENCY_MS = 300.0  # MICRO
+LOD_LEVEL2_LATENCY_MS = 1000.0  # MACRO
+LOD_LEVEL3_LATENCY_MS = 3000.0  # META
 
 # Metabolic Load Thresholds for LOD scaling
-LOD_LOAD_THRESHOLD_HIGH = PHI_INV * 100   # 61.8%
-LOD_LOAD_THRESHOLD_CRITICAL = 82.0        # HOWL_MIN equivalent
+LOD_LOAD_THRESHOLD_HIGH = PHI_INV * 100  # 61.8%
+LOD_LOAD_THRESHOLD_CRITICAL = 82.0  # HOWL_MIN equivalent
 
 # MCTS and Decision Logic (PHI-aligned)
-MCTS_UCT_C = math.sqrt(2)                 # Standard UCT constant
-MCTS_DEPTH_LIMIT = lucas(4)               # L(4)=7
-MCTS_SIMULATIONS = fibonacci(10)          # F(10)=55
+MCTS_UCT_C = math.sqrt(2)  # Standard UCT constant
+MCTS_DEPTH_LIMIT = lucas(4)  # L(4)=7
+MCTS_SIMULATIONS = fibonacci(10)  # F(10)=55
 
 # LLM Operational Constants
-LLM_TIMEOUT_SEC = 30.0                    # Standard safety timeout
-LLM_DEFAULT_TEMPERATURE = PHI_INV         # 0.618
-MAX_CONTEXT_WINDOW = fibonacci(15)        # 610
+LLM_TIMEOUT_SEC = 30.0  # Standard safety timeout
+LLM_DEFAULT_TEMPERATURE = PHI_INV  # 0.618
+MAX_CONTEXT_WINDOW = fibonacci(15)  # 610
 
 # Learning Parameters
-Q_LEARNING_GAMMA = PHI_INV                # 0.618 (Discount factor)
-Q_LEARNING_ALPHA = PHI_INV_2 / 10         # ~0.038 (Learning rate)
-EXPLORATION_EPSILON = PHI_INV_2           # 0.382 (Initial epsilon)
+Q_LEARNING_GAMMA = PHI_INV  # 0.618 (Discount factor)
+Q_LEARNING_ALPHA = PHI_INV_2 / 10  # ~0.038 (Learning rate)
+EXPLORATION_EPSILON = PHI_INV_2  # 0.382 (Initial epsilon)
 
 # Economic Constants (PHI-aligned)
-COST_EFFICIENCY_CAP_USD = 0.01            # Base efficiency unit
-BUDGET_HARD_CAP_USD = fibonacci(7)        # 13.0
-BUDGET_WARNING_PCT = PHI_INV * 100        # 61.8%
+COST_EFFICIENCY_CAP_USD = 0.01  # Base efficiency unit
+BUDGET_HARD_CAP_USD = fibonacci(7)  # 13.0
+BUDGET_WARNING_PCT = PHI_INV * 100  # 61.8%
 
 # Temporal and History (Fibonacci-aligned)
-TEMPORAL_MEMORY_WINDOW = fibonacci(8)     # 21
-HISTORY_REPLAY_BATCH = fibonacci(6)       # 8
+TEMPORAL_MEMORY_WINDOW = fibonacci(8)  # 21
+HISTORY_REPLAY_BATCH = fibonacci(6)  # 8
 
 # ════════════════════════════════════════════════════════════════════════════
 # 3. RESILIENCE & BACKOFF
 # ════════════════════════════════════════════════════════════════════════════
+
 
 def get_backoff_delay_s(retry_count: int) -> float:
     """
@@ -149,7 +156,8 @@ def get_backoff_delay_s(retry_count: int) -> float:
     2nd retry: 2.61s
     3rd retry: 4.23s
     """
-    return PHI ** retry_count
+    return PHI**retry_count
+
 
 def get_max_retries(criticality: float = 0.5) -> int:
     """
@@ -158,9 +166,11 @@ def get_max_retries(criticality: float = 0.5) -> int:
     """
     return max(1, round(lucas(4) * criticality))
 
+
 # ════════════════════════════════════════════════════════════════════════════
 # 4. RESPIRATION & HEARTBEAT
 # ════════════════════════════════════════════════════════════════════════════
+
 
 def get_respiration_interval_s(health_score: float = 100.0) -> float:
     """
@@ -172,21 +182,23 @@ def get_respiration_interval_s(health_score: float = 100.0) -> float:
     health_factor = 100.0 / max(health_score, 1.0)
     return base_interval * health_factor
 
+
 # ════════════════════════════════════════════════════════════════════════════
 # 5. ECONOMIC SCALING
 # ════════════════════════════════════════════════════════════════════════════
+
 
 def get_cost_threshold_usd(level: ConsciousnessLevel) -> float:
     """
     Max USD cost allowed per judgment.
     Scales geometrically by PHI_INV_2 (0.382).
     """
-    base_cost = 0.01 # $0.01 per REFLEX
+    base_cost = 0.01  # $0.01 per REFLEX
     level_map = {
         ConsciousnessLevel.REFLEX: 0,
         ConsciousnessLevel.MICRO: 1,
         ConsciousnessLevel.MACRO: 2,
-        ConsciousnessLevel.META: 3
+        ConsciousnessLevel.META: 3,
     }
     idx = level_map.get(level, 0)
     # REFLEX: $0.01

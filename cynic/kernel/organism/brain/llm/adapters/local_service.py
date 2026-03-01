@@ -4,6 +4,7 @@ CYNIC Local Service Adapter — Ollama / LocalAI.
 Connects to locally running LLM servers via HTTP API.
 Sovereign but service-based.
 """
+
 from __future__ import annotations
 
 import logging
@@ -14,6 +15,7 @@ import httpx
 from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRequest, LLMResponse
 
 logger = logging.getLogger("cynic.kernel.organism.brain.llm.local_service")
+
 
 class OllamaAdapter(LLMAdapter):
     def __init__(self, model: str, base_url: str = "http://localhost:11434"):
@@ -26,7 +28,7 @@ class OllamaAdapter(LLMAdapter):
             "model": self.model,
             "prompt": f"{request.system}\n\n{request.prompt}" if request.system else request.prompt,
             "stream": False,
-            "options": {"temperature": request.temperature}
+            "options": {"temperature": request.temperature},
         }
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
@@ -37,7 +39,7 @@ class OllamaAdapter(LLMAdapter):
                     content=data["response"],
                     model=self.model,
                     provider="ollama",
-                    latency_ms=(time.time() - start) * 1000
+                    latency_ms=(time.time() - start) * 1000,
                 )
         except Exception as e:
             return LLMResponse(content="", model=self.model, provider="ollama", error=str(e))
@@ -47,4 +49,5 @@ class OllamaAdapter(LLMAdapter):
             async with httpx.AsyncClient(timeout=2.0) as client:
                 resp = await client.get(f"{self._url}/api/tags")
                 return resp.status_code == 200
-        except: return False
+        except:
+            return False

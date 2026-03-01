@@ -3,6 +3,7 @@ Phase 0: Persistence Metrics
 Track latency and success/failure of all persistence operations.
 Used to detect bottlenecks and issues before they cause timeouts.
 """
+
 import logging
 import time
 from collections import defaultdict
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PersistenceMetric:
     """Single persistence operation metric."""
+
     operation: str  # "persist_judgment", "write_guidance", "sync_checkpoint"
     duration_ms: float
     success: bool
@@ -26,12 +28,13 @@ class PersistenceMetric:
 @dataclass
 class PersistenceStatistics:
     """Aggregated statistics for a persistence operation type."""
+
     operation: str
     total_calls: int = 0
     successful_calls: int = 0
     failed_calls: int = 0
     total_duration_ms: float = 0.0
-    min_duration_ms: float = float('inf')
+    min_duration_ms: float = float("inf")
     max_duration_ms: float = 0.0
     last_error: str = ""
 
@@ -78,7 +81,9 @@ class PersistenceMetricsCollector:
         )
         logger.info("PersistenceMetricsCollector initialized")
 
-    def record_metric(self, operation: str, duration_ms: float, success: bool, error: str = "") -> None:
+    def record_metric(
+        self, operation: str, duration_ms: float, success: bool, error: str = ""
+    ) -> None:
         """Record a single persistence operation metric."""
         metric = PersistenceMetric(
             operation=operation,
@@ -113,10 +118,7 @@ class PersistenceMetricsCollector:
 
     def get_statistics(self) -> dict[str, dict]:
         """Get all aggregated statistics."""
-        return {
-            op: stats.to_dict()
-            for op, stats in self.stats.items()
-        }
+        return {op: stats.to_dict() for op, stats in self.stats.items()}
 
     def get_health_check(self) -> dict:
         """Return health check data for monitoring."""

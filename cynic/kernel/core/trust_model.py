@@ -19,6 +19,7 @@ from cynic.kernel.core.phi import MAX_CONFIDENCE, PHI_INV_2, phi_bound_score
 @dataclass
 class TrustMetrics:
     """Snapshot of current trust state."""
+
     human_accept_count: int = 0
     human_reject_count: int = 0
     human_accept_rate: float = 0.0  # (accepts - rejects) / total
@@ -44,7 +45,9 @@ class TrustModel:
 
     def __init__(self):
         self.metrics = TrustMetrics()
-        self.accept_history: list[tuple[datetime, bool, float]] = []  # (time, accepted, human_confidence)
+        self.accept_history: list[
+            tuple[datetime, bool, float]
+        ] = []  # (time, accepted, human_confidence)
         self.q_score_history: list[tuple[datetime, float]] = []  # (time, q_score)
         self.alpha_ema = 0.1  # Exponential moving average smoothing
 
@@ -81,7 +84,8 @@ class TrustModel:
         total = self.metrics.human_accept_count + self.metrics.human_reject_count
         self.metrics.human_accept_rate = (
             (self.metrics.human_accept_count - self.metrics.human_reject_count) / total
-            if total > 0 else 0.0
+            if total > 0
+            else 0.0
         )
 
         # 3. Update human confidence via EMA
@@ -89,8 +93,9 @@ class TrustModel:
         feedback_signal = 1.0 if accepted else -0.5
         user_conf_boosted = min(max(user_confidence * feedback_signal, 0.0), MAX_CONFIDENCE)
 
-        new_conf = (1 - self.alpha_ema) * self.metrics.human_confidence + \
-                   self.alpha_ema * user_conf_boosted
+        new_conf = (
+            1 - self.alpha_ema
+        ) * self.metrics.human_confidence + self.alpha_ema * user_conf_boosted
         self.metrics.human_confidence = min(max(new_conf, 0.0), MAX_CONFIDENCE)
 
         # 4. Track history
@@ -117,11 +122,10 @@ class TrustModel:
         avg_q = sum(q for _, q in recent) / len(recent)
 
         # Completion rate: fraction of accepted actions that succeeded
-        successful = sum(
-            1 for _, accepted, _ in self.accept_history[-10:]
-            if accepted
+        successful = sum(1 for _, accepted, _ in self.accept_history[-10:] if accepted)
+        completion_rate = (
+            successful / len(self.accept_history[-10:]) if self.accept_history else 0.5
         )
-        completion_rate = successful / len(self.accept_history[-10:]) if self.accept_history else 0.5
 
         # Blended utility: average Q × completion rate
         self.metrics.machine_utility = phi_bound_score(
@@ -131,8 +135,7 @@ class TrustModel:
     def _check_symbiosis_ready(self):
         """Can SYMBIOSIS axiom activate?"""
         self.metrics.symbiosis_ready = (
-            self.metrics.human_confidence >= PHI_INV_2 and
-            self.metrics.machine_utility >= PHI_INV_2
+            self.metrics.human_confidence >= PHI_INV_2 and self.metrics.machine_utility >= PHI_INV_2
         )
 
     async def blend_confidence(
@@ -174,14 +177,17 @@ class TrustModel:
 
         # Risk-adjusted thresholds
         risk_thresholds = {
-            "low": 0.3,      # Confident enough? > 30%
-            "medium": 0.5,   # > 50%
-            "high": 0.7,     # > 70%
+            "low": 0.3,  # Confident enough? > 30%
+            "medium": 0.5,  # > 50%
+            "high": 0.7,  # > 70%
         }
         threshold = risk_thresholds.get(action_risk_level, 0.5)
 
         if blended < threshold:
-            return True, f"Blended confidence {blended:.1%} < threshold {threshold:.1%} for {action_risk_level} risk"
+            return (
+                True,
+                f"Blended confidence {blended:.1%} < threshold {threshold:.1%} for {action_risk_level} risk",
+            )
 
         return False, ""
 

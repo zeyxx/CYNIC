@@ -12,12 +12,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 @dataclass
 class ServiceDescriptor:
     """Metadata for a registered service."""
+
     name: str
     service_type: type
     instance: Any | None = None

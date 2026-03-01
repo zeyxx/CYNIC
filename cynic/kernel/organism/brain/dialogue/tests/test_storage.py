@@ -23,6 +23,7 @@ async def dialogue_store():
         time.sleep(0.1)
     finally:
         import shutil
+
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 

@@ -4,6 +4,7 @@ CYNIC PerceiveWorker — Abstract base for all autonomous sensory workers.
 Workers observe their domain at Fibonacci intervals and submit Cells to the
 DogScheduler when something worth judging is detected.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -65,7 +66,9 @@ class PerceiveWorker(ABC):
         """
         logger.info(
             "PerceiveWorker %s started (interval=%.1fs, level=%s)",
-            self.name, self.interval_s, self.level.name,
+            self.name,
+            self.interval_s,
+            self.level.name,
         )
         while True:
             try:
@@ -80,7 +83,9 @@ class PerceiveWorker(ABC):
                     if submitted:
                         logger.debug(
                             "%s: submitted %s to %s",
-                            self.name, cell.cell_id[:8], self.level.name,
+                            self.name,
+                            cell.cell_id[:8],
+                            self.level.name,
                         )
                     else:
                         logger.debug("%s: queue full, cell dropped", self.name)
@@ -93,7 +98,9 @@ class PerceiveWorker(ABC):
                 # Catch all unexpected exceptions to prevent silent worker death
                 logger.error(
                     "PerceiveWorker %s unexpected error in sense(): %s\n%s",
-                    self.name, exc, traceback.format_exc()
+                    self.name,
+                    exc,
+                    traceback.format_exc(),
                 )
 
             # CancelledError raised here exits the loop cleanly

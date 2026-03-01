@@ -1,4 +1,5 @@
 """NEAR Protocol executor for governance actions."""
+
 from __future__ import annotations
 
 import logging
@@ -164,13 +165,9 @@ class NEARExecutor:
             gas=200_000_000_000_000,  # 200 TGas
         )
 
-        return await self._execute_contract_call(
-            executor_id, contract_call, proposal_id, "execute"
-        )
+        return await self._execute_contract_call(executor_id, contract_call, proposal_id, "execute")
 
-    async def query_proposal(
-        self, proposal_id: str
-    ) -> NEARGovernanceProposal:
+    async def query_proposal(self, proposal_id: str) -> NEARGovernanceProposal:
         """Query proposal state from blockchain.
 
         Args:
@@ -193,25 +190,18 @@ class NEARExecutor:
             result_data = result.get("result", {})
             if isinstance(result_data, bytes):
                 import json
+
                 result_data = json.loads(result_data.decode())
 
             return NEARGovernanceProposal(
                 proposal_id=result_data.get("proposal_id", proposal_id),
                 title=result_data.get("title", ""),
                 description=result_data.get("description", ""),
-                cynic_verdict=result_data.get(
-                    "cynic_verdict", "UNKNOWN"
-                ),
-                q_score=float(
-                    result_data.get("cynic_q_score", 0)
-                ),
+                cynic_verdict=result_data.get("cynic_verdict", "UNKNOWN"),
+                q_score=float(result_data.get("cynic_q_score", 0)),
                 votes_for=int(result_data.get("votes_for", 0)),
-                votes_against=int(
-                    result_data.get("votes_against", 0)
-                ),
-                votes_abstain=int(
-                    result_data.get("votes_abstain", 0)
-                ),
+                votes_against=int(result_data.get("votes_against", 0)),
+                votes_abstain=int(result_data.get("votes_abstain", 0)),
                 status=result_data.get("status", "open"),
                 created_at=int(result_data.get("created_at", 0)),
                 expires_at=int(result_data.get("expires_at", 0)),
@@ -272,9 +262,7 @@ class NEARExecutor:
             )
 
         except Exception as e:
-            logger.error(
-                "Contract execution failed: %s (proposal: %s)", e, proposal_id
-            )
+            logger.error("Contract execution failed: %s (proposal: %s)", e, proposal_id)
             raise NEARError(f"Contract execution failed: {e}")
 
     async def wait_for_confirmation(
@@ -305,9 +293,7 @@ class NEARExecutor:
 
         while time.time() - start_time < timeout_seconds:
             try:
-                result = await self.rpc_client.get_transaction_result(
-                    tx_hash, signer_id
-                )
+                result = await self.rpc_client.get_transaction_result(tx_hash, signer_id)
 
                 # Check transaction status
                 outcome = result.get("transaction_outcome", {})
@@ -316,25 +302,17 @@ class NEARExecutor:
                 if "SuccessValue" in status_obj:
                     return NEARExecutionResult(
                         transaction_hash=tx_hash,
-                        block_height=result.get(
-                            "transaction", {}
-                        ).get("block_height", 0),
+                        block_height=result.get("transaction", {}).get("block_height", 0),
                         status=TxStatus.CONFIRMED,
-                        gas_used=outcome.get("outcome", {}).get(
-                            "gas_burnt", 0
-                        ),
+                        gas_used=outcome.get("outcome", {}).get("gas_burnt", 0),
                         outcome=outcome,
                     )
                 elif "Failure" in status_obj:
                     return NEARExecutionResult(
                         transaction_hash=tx_hash,
-                        block_height=result.get(
-                            "transaction", {}
-                        ).get("block_height", 0),
+                        block_height=result.get("transaction", {}).get("block_height", 0),
                         status=TxStatus.FAILED,
-                        gas_used=outcome.get("outcome", {}).get(
-                            "gas_burnt", 0
-                        ),
+                        gas_used=outcome.get("outcome", {}).get("gas_burnt", 0),
                         outcome=outcome,
                     )
 
@@ -342,11 +320,7 @@ class NEARExecutor:
                 await asyncio.sleep(2)
 
             except NEARError as e:
-                logger.debug(
-                    "Transaction not yet finalized: %s", e
-                )
+                logger.debug("Transaction not yet finalized: %s", e)
                 await asyncio.sleep(2)
 
-        raise NEARError(
-            f"Transaction confirmation timeout after {timeout_seconds}s"
-        )
+        raise NEARError(f"Transaction confirmation timeout after {timeout_seconds}s")

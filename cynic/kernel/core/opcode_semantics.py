@@ -9,6 +9,7 @@ Each opcode has immutable semantics:
 - Cost model: Token/USD cost
 - Consciousness gating: Which levels permit this opcode
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -21,17 +22,20 @@ from cynic.kernel.core.consciousness import ConsciousnessLevel
 # STORAGE TIER ENUM
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class StorageTier(Enum):
     """Storage tier mapping (HOT, WARM, COLD, FROZEN)."""
-    HOT = "hot"        # PostgreSQL — indexed, queryable, immediate
-    WARM = "warm"      # Qdrant — semantic vectors, searchable, ~1-30 days
-    COLD = "cold"      # Solana PoJ — immutable proof, archived, 30+ days
+
+    HOT = "hot"  # PostgreSQL — indexed, queryable, immediate
+    WARM = "warm"  # Qdrant — semantic vectors, searchable, ~1-30 days
+    COLD = "cold"  # Solana PoJ — immutable proof, archived, 30+ days
     FROZEN = "frozen"  # Deleted but hash recorded, audit trail only
 
 
 # ════════════════════════════════════════════════════════════════════════════
 # OPCODE SPECIFICATION
 # ════════════════════════════════════════════════════════════════════════════
+
 
 @dataclass
 class OpcodeSpec:
@@ -97,7 +101,7 @@ PERCEIVE_SPEC = OpcodeSpec(
     storage_tiers=[StorageTier.HOT],
     cost_usd=0.001,  # Cheap — no LLM
     consciousness_gates={
-        ConsciousnessLevel.REFLEX: True,   # Always runs
+        ConsciousnessLevel.REFLEX: True,  # Always runs
         ConsciousnessLevel.MICRO: True,
         ConsciousnessLevel.MACRO: True,
         ConsciousnessLevel.META: True,
@@ -133,16 +137,16 @@ JUDGE_SPEC = OpcodeSpec(
     state_transitions=["DECIDE"],
     storage_tiers=[StorageTier.HOT, StorageTier.WARM, StorageTier.COLD],
     cost_usd=lambda level: {
-        "L3": 0.02,      # Local pattern matching
-        "L2": 0.15,      # Quick LLM calls (7 dogs)
-        "L1": 2.50,      # Full MCTS (7 parallel LLM × ~350ms each)
-        "L4": 5.00,      # Evolution + consolidation
+        "L3": 0.02,  # Local pattern matching
+        "L2": 0.15,  # Quick LLM calls (7 dogs)
+        "L1": 2.50,  # Full MCTS (7 parallel LLM × ~350ms each)
+        "L4": 5.00,  # Evolution + consolidation
     }.get(str(level), 1.0),
     consciousness_gates={
-        ConsciousnessLevel.REFLEX: True,   # Non-LLM dogs only
-        ConsciousnessLevel.MICRO: True,    # Quick scoring
-        ConsciousnessLevel.MACRO: True,    # Full judgment
-        ConsciousnessLevel.META: True,     # Evolution judgment
+        ConsciousnessLevel.REFLEX: True,  # Non-LLM dogs only
+        ConsciousnessLevel.MICRO: True,  # Quick scoring
+        ConsciousnessLevel.MACRO: True,  # Full judgment
+        ConsciousnessLevel.META: True,  # Evolution judgment
     },
 )
 
@@ -175,9 +179,9 @@ DECIDE_SPEC = OpcodeSpec(
     cost_usd=0.0,  # Local policy evaluation
     consciousness_gates={
         ConsciousnessLevel.REFLEX: False,  # No decisions
-        ConsciousnessLevel.MICRO: False,   # Observation only
-        ConsciousnessLevel.MACRO: True,    # Full DECIDE
-        ConsciousnessLevel.META: True,     # Meta-decisions
+        ConsciousnessLevel.MICRO: False,  # Observation only
+        ConsciousnessLevel.MACRO: True,  # Full DECIDE
+        ConsciousnessLevel.META: True,  # Meta-decisions
     },
 )
 
@@ -210,9 +214,9 @@ ACT_SPEC = OpcodeSpec(
     cost_usd=lambda: 0.0,  # Varies (bash, file I/O costs extracted separately)
     consciousness_gates={
         ConsciousnessLevel.REFLEX: False,  # No actions
-        ConsciousnessLevel.MICRO: False,   # Read-only
-        ConsciousnessLevel.MACRO: True,    # Full actions
-        ConsciousnessLevel.META: True,     # Meta-actions
+        ConsciousnessLevel.MICRO: False,  # Read-only
+        ConsciousnessLevel.MACRO: True,  # Full actions
+        ConsciousnessLevel.META: True,  # Meta-actions
     },
 )
 
@@ -245,9 +249,9 @@ LEARN_SPEC = OpcodeSpec(
     cost_usd=0.01,  # Local computation
     consciousness_gates={
         ConsciousnessLevel.REFLEX: False,  # No learning
-        ConsciousnessLevel.MICRO: False,   # No LLM training
-        ConsciousnessLevel.MACRO: True,    # Full Q-Learning
-        ConsciousnessLevel.META: True,     # Fisher locking
+        ConsciousnessLevel.MICRO: False,  # No LLM training
+        ConsciousnessLevel.MACRO: True,  # Full Q-Learning
+        ConsciousnessLevel.META: True,  # Fisher locking
     },
 )
 
@@ -353,6 +357,7 @@ OPCODE_NAMES: list[str] = [
 # HELPER FUNCTIONS
 # ════════════════════════════════════════════════════════════════════════════
 
+
 def get_opcode_spec(name: str) -> OpcodeSpec | None:
     """Get opcode specification by name."""
     return OPCODE_REGISTRY.get(name.upper())
@@ -372,11 +377,7 @@ def verify_state_transition(from_opcode: str, to_opcode: str) -> bool:
 
 def opcodes_for_level(level: ConsciousnessLevel) -> list[str]:
     """Return list of opcodes available at given consciousness level."""
-    return [
-        name
-        for name, spec in OPCODE_REGISTRY.items()
-        if spec.gate_for_level(level)
-    ]
+    return [name for name, spec in OPCODE_REGISTRY.items() if spec.gate_for_level(level)]
 
 
 def all_opcodes_documented() -> bool:

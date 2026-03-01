@@ -18,7 +18,7 @@ def test_classify_disk_cleanup():
     decision = {
         "action": "compress_old_traces",
         "impact": "reversible",
-        "time_to_revert": "seconds"
+        "time_to_revert": "seconds",
     }
 
     classification = classifier.classify(decision)
@@ -34,7 +34,7 @@ def test_classify_axiom_weight_change():
         "action": "change_axiom_weight",
         "axiom": "BURN",
         "new_weight": 0.8,
-        "impact": "affects all future judgments"
+        "impact": "affects all future judgments",
     }
 
     classification = classifier.classify(decision)
@@ -48,7 +48,7 @@ def test_classify_novel_experiment():
     decision = {
         "action": "try_dog_combination",
         "dogs": [6, 11],
-        "hypothesis": "Better fairness with harmonic pairing"
+        "hypothesis": "Better fairness with harmonic pairing",
     }
 
     classification = classifier.classify(decision)

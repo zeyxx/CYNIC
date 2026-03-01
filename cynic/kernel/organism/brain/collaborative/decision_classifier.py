@@ -9,6 +9,7 @@ from typing import Any
 
 class DecisionClass(Enum):
     """Classification for decisions."""
+
     AUTONOMOUS = "A"
     CONSULTATION = "B"
     EXPLORATION = "C"
@@ -23,28 +24,26 @@ class DecisionClassifier:
         "compress_old_traces",
         "cleanup_disk",
         "backup_experiment_log",
-        "create_snapshot"
+        "create_snapshot",
     }
 
     ALWAYS_CONSULTATION = {
         "change_axiom_weight",
         "modify_relationship_memory",
         "delete_historical_data",
-        "reset_learning_state"
+        "reset_learning_state",
     }
 
     ALWAYS_EXPLORATION = {
         "try_dog_combination",
         "test_alternative_algorithm",
         "hypothesize_axiom_relationship",
-        "explore_edge_case"
+        "explore_edge_case",
     }
 
     def __init__(self):
         # Track approval/rejection patterns: action → (approvals, rejections)
-        self.decision_history: dict[str, tuple[int, int]] = defaultdict(
-            lambda: (0, 0)
-        )
+        self.decision_history: dict[str, tuple[int, int]] = defaultdict(lambda: (0, 0))
         # Learned classifications
         self.learned_classes: dict[str, DecisionClass] = {}
 
@@ -67,8 +66,7 @@ class DecisionClassifier:
         # Default: ask (consultation) for unknown decisions
         return DecisionClass.CONSULTATION
 
-    def learn_approval(self, decision: dict[str, Any],
-                      actual_class: DecisionClass) -> None:
+    def learn_approval(self, decision: dict[str, Any], actual_class: DecisionClass) -> None:
         """Record approval of a decision type."""
         action = decision.get("action", "unknown")
         approvals, rejections = self.decision_history.get(action, (0, 0))
@@ -93,16 +91,19 @@ class DecisionClassifier:
 
     def get_statistics(self) -> dict[str, Any]:
         """Get classification statistics."""
-        total_autonomous = len([d for d in self.learned_classes.values()
-                               if d == DecisionClass.AUTONOMOUS])
-        total_consultation = len([d for d in self.learned_classes.values()
-                                if d == DecisionClass.CONSULTATION])
-        total_exploration = len([d for d in self.learned_classes.values()
-                               if d == DecisionClass.EXPLORATION])
+        total_autonomous = len(
+            [d for d in self.learned_classes.values() if d == DecisionClass.AUTONOMOUS]
+        )
+        total_consultation = len(
+            [d for d in self.learned_classes.values() if d == DecisionClass.CONSULTATION]
+        )
+        total_exploration = len(
+            [d for d in self.learned_classes.values() if d == DecisionClass.EXPLORATION]
+        )
 
         return {
             "total_learned": len(self.learned_classes),
             "autonomous_count": total_autonomous,
             "consultation_count": total_consultation,
-            "exploration_count": total_exploration
+            "exploration_count": total_exploration,
         }

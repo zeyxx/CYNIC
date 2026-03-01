@@ -22,6 +22,7 @@ Instead of sending raw observations to orchestrator:
   - Low-trust dogs' gossip is validated before believed
   - Trust adapts: correct predictions = +trust, errors = -trust
 """
+
 from __future__ import annotations
 
 import logging
@@ -58,6 +59,7 @@ class GossipMessage:
 
     **Size**: ~200 bytes vs 1000+ bytes for full state → 4-5x compression
     """
+
     dog_id: str
     compressed_context: str  # TF-IDF summary (≤500 chars)
     verdict: str
@@ -108,7 +110,9 @@ class GossipProtocol:
     - **Trust**: Each dog learns which siblings are reliable
     """
 
-    def __init__(self, max_message_history: int = CHAT_MESSAGE_CAP) -> None:  # F(11) = 89 (imported from formulas.py)
+    def __init__(
+        self, max_message_history: int = CHAT_MESSAGE_CAP
+    ) -> None:  # F(11) = 89 (imported from formulas.py)
         self.max_message_history = max_message_history
         self._gossip_messages: dict[str, list[GossipMessage]] = {}
         # peer_dog_id → list of recent GossipMessages
@@ -146,9 +150,7 @@ class GossipProtocol:
             compressed_context=dog_state.senses.compressed_context or "(no context)",
             verdict=dog_state.cognition.last_verdict or "WAG",
             q_score=dog_state.cognition.last_q_score,
-            confidence=min(
-                avg_confidence, 0.618
-            ),  # φ-bounded
+            confidence=min(avg_confidence, 0.618),  # φ-bounded
         )
 
         self._gossip_count += 1
@@ -184,15 +186,11 @@ class GossipProtocol:
         if message.confidence > 0.5 and message.q_score >= 61.8:
             # High-quality gossip: increase trust
             current_trust = dog_state.memory.trust_scores.get(peer_dog_id, 0.5)
-            dog_state.memory.trust_scores[peer_dog_id] = min(
-                current_trust + 0.05, 1.0
-            )
+            dog_state.memory.trust_scores[peer_dog_id] = min(current_trust + 0.05, 1.0)
         elif message.q_score < 38.2:
             # Low-quality gossip: decrease trust
             current_trust = dog_state.memory.trust_scores.get(peer_dog_id, 0.5)
-            dog_state.memory.trust_scores[peer_dog_id] = max(
-                current_trust - 0.05, 0.0
-            )
+            dog_state.memory.trust_scores[peer_dog_id] = max(current_trust - 0.05, 0.0)
 
         logger.debug(
             f"[{dog_state.dog_id}] Received gossip from {peer_dog_id}: "
@@ -270,13 +268,12 @@ class GossipProtocol:
 
         # Geometric mean of Q-scores
         import math
+
         log_sum = sum(math.log(max(msg.q_score, 0.1)) for msg in gossip_messages)
         geo_mean = math.exp(log_sum / len(gossip_messages))
 
         # Average confidence
-        avg_confidence = (
-            sum(msg.confidence for msg in gossip_messages) / len(gossip_messages)
-        )
+        avg_confidence = sum(msg.confidence for msg in gossip_messages) / len(gossip_messages)
 
         # Determine verdict
         if geo_mean >= 82.0:
@@ -304,13 +301,9 @@ class GossipProtocol:
         total = self._gossip_count + self._rejected_count
         rejection_rate = (self._rejected_count / total * 100) if total > 0 else 0.0
 
-        total_messages = sum(
-            len(msgs) for msgs in self._gossip_messages.values()
-        )
+        total_messages = sum(len(msgs) for msgs in self._gossip_messages.values())
         peer_count = len(self._gossip_messages)
-        avg_per_peer = (
-            (total_messages / peer_count) if peer_count > 0 else 0
-        )
+        avg_per_peer = (total_messages / peer_count) if peer_count > 0 else 0
 
         return {
             "gossip_count": self._gossip_count,

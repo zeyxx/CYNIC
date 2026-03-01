@@ -14,6 +14,7 @@ SONA_TICK signal path:
   → Update learning rates + E-Score
   → Organism becomes more self-aware
 """
+
 from __future__ import annotations
 
 import logging
@@ -34,6 +35,7 @@ logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.meta_co
 @dataclass
 class OrganismHealthMetrics:
     """Snapshot of organism health from SONA_TICK."""
+
     uptime_s: float
     q_table_entries: int
     total_judgments: int
@@ -164,7 +166,9 @@ class MetaCognitionHandler(BaseHandler):
             # ── Phase 4: Check for stagnation ──────────────────────────────
             if self._detect_stagnation(trend_analysis):
                 actions_taken.append("STAGNATION_DETECTED — judgment flow low")
-                self._log_execution("stagnation detected", f"JP/m={health.judgments_per_minute:.1f}")
+                self._log_execution(
+                    "stagnation detected", f"JP/m={health.judgments_per_minute:.1f}"
+                )
 
             # ── Phase 5: Adjust E-Score ───────────────────────────────────
             if self.escore_tracker:
@@ -231,9 +235,7 @@ class MetaCognitionHandler(BaseHandler):
         oldest = self._health_window[0].total_judgments
         newest = self._health_window[-1].total_judgments
         judgments_delta = newest - oldest
-        uptime_delta = (
-            self._health_window[-1].uptime_s - self._health_window[0].uptime_s
-        )
+        uptime_delta = self._health_window[-1].uptime_s - self._health_window[0].uptime_s
 
         if uptime_delta > 0:
             judgments_per_second = judgments_delta / uptime_delta
@@ -256,8 +258,9 @@ class MetaCognitionHandler(BaseHandler):
         # φ-bounded: max confidence 61.8% in learning quality
         learning_health = min(
             PHI_INV,  # 61.8% max
-            (q_saturation * 0.5) + (min(1.0, latest.judgments_per_minute / 100) * 0.3) +
-            (min(1.0, latest.ewc_consolidated / 100) / 1000 * 0.2)  # EWC contribution small
+            (q_saturation * 0.5)
+            + (min(1.0, latest.judgments_per_minute / 100) * 0.3)
+            + (min(1.0, latest.ewc_consolidated / 100) / 1000 * 0.2),  # EWC contribution small
         )
 
         return {

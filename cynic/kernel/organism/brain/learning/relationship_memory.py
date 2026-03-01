@@ -49,8 +49,7 @@ class RelationshipMemory:
         new_style = {**self.communication_style, key: value}
         return replace(self, communication_style=new_style)
 
-    def infer_communication_style(self, recent_messages: list[UserMessage]
-                                 ) -> dict[str, str]:
+    def infer_communication_style(self, recent_messages: list[UserMessage]) -> dict[str, str]:
         """Infer communication preferences from recent messages."""
         if not recent_messages:
             return self.communication_style

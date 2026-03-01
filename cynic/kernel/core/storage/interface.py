@@ -6,6 +6,7 @@ state.py references StorageInterface, never concrete classes.
 
 φ-Law: BURN — one interface, not two parallel implementations.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -16,6 +17,7 @@ from cynic.kernel.core.formulas import ACT_LOG_CAP, DECISION_TRACE_CAP
 # ════════════════════════════════════════════════════════════════════════════
 # REPOSITORY INTERFACES
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class JudgmentRepoInterface(ABC):
     @abstractmethod
@@ -38,9 +40,7 @@ class QTableRepoInterface(ABC):
     async def get(self, state_key: str, action: str) -> float: ...
 
     @abstractmethod
-    async def update(
-        self, state_key: str, action: str, q_value: float
-    ) -> None: ...
+    async def update(self, state_key: str, action: str, q_value: float) -> None: ...
 
     @abstractmethod
     async def get_all_actions(self, state_key: str) -> dict[str, float]: ...
@@ -54,9 +54,7 @@ class LearningRepoInterface(ABC):
     async def save(self, event: dict[str, Any]) -> None: ...
 
     @abstractmethod
-    async def recent_for_loop(
-        self, loop_name: str, limit: int = 34
-    ) -> list[dict]: ...
+    async def recent_for_loop(self, loop_name: str, limit: int = 34) -> list[dict]: ...
 
     @abstractmethod
     async def loop_stats(self) -> dict[str, int]: ...
@@ -67,9 +65,7 @@ class BenchmarkRepoInterface(ABC):
     async def save(self, result: dict[str, Any]) -> None: ...
 
     @abstractmethod
-    async def best_llm_for(
-        self, dog_id: str, task_type: str
-    ) -> str | None: ...
+    async def best_llm_for(self, dog_id: str, task_type: str) -> str | None: ...
 
     @abstractmethod
     async def get_all(self) -> list[dict[str, Any]]: ...
@@ -129,9 +125,7 @@ class ActionProposalRepoInterface(ABC):
     async def all(self) -> list[dict[str, Any]]: ...
 
     @abstractmethod
-    async def update_status(
-        self, action_id: str, status: str
-    ) -> None: ...
+    async def update_status(self, action_id: str, status: str) -> None: ...
 
 
 class DogSoulRepoInterface(ABC):
@@ -150,14 +144,13 @@ class AxiomFacetRepoInterface(ABC):
     async def save(self, facet: dict[str, Any]) -> None: ...
 
     @abstractmethod
-    async def get_all(
-        self, axiom: str, reality: str
-    ) -> list[dict[str, Any]]: ...
+    async def get_all(self, axiom: str, reality: str) -> list[dict[str, Any]]: ...
 
 
 # ════════════════════════════════════════════════════════════════════════════
 # STORAGE INTERFACE — the ONE abstraction
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class StorageInterface(ABC):
     """

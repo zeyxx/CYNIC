@@ -14,6 +14,7 @@ Security note: subprocess is launched with a hardcoded argument list (no shell=T
 no string interpolation of untrusted input). This is equivalent to execFile, not exec.
 The sdk_url is derived from our own port constant, not from user-provided data.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -27,8 +28,8 @@ from cynic.kernel.core.event_bus import CoreEvent
 logger = logging.getLogger("cynic.kernel.organism.metabolism.claude_sdk")
 
 # Timeout constants (seconds)
-CONNECT_TIMEOUT = 30.0          # wait for claude to call /ws/sdk
-DEFAULT_TASK_TIMEOUT = 300.0    # wait for result message
+CONNECT_TIMEOUT = 30.0  # wait for claude to call /ws/sdk
+DEFAULT_TASK_TIMEOUT = 300.0  # wait for result message
 SDK_PATH = "/ws/sdk"
 
 # Claude Code CLI command — hardcoded, no shell interpolation
@@ -110,8 +111,10 @@ class ClaudeCodeRunner:
                 session_ready.set()
 
         async def _on_result_received(event) -> None:
-            if (event.dict_payload.get("session_id") == target_session_id
-                    and not result_future.done()):
+            if (
+                event.dict_payload.get("session_id") == target_session_id
+                and not result_future.done()
+            ):
                 result_future.set_result(event.dict_payload)
 
         self._bus.on(CoreEvent.SDK_SESSION_STARTED, _on_session_started)
@@ -131,7 +134,8 @@ class ClaudeCodeRunner:
             self._running[exec_id] = proc
             logger.info(
                 "*ears perk* Spawned claude --sdk-url (pid=%d exec=%s)",
-                proc.pid, exec_id,
+                proc.pid,
+                exec_id,
             )
 
             # ── Wait for session to connect ─────────────────────────────────
@@ -139,9 +143,7 @@ class ClaudeCodeRunner:
 
             session = self._sessions.get(target_session_id)
             if session is None:
-                raise RuntimeError(
-                    f"Session {target_session_id} not in registry after connect"
-                )
+                raise RuntimeError(f"Session {target_session_id} not in registry after connect")
 
             # Tag session with task prompt for telemetry (runner path)
             if hasattr(session, "_task_prompt"):
@@ -170,7 +172,8 @@ class ClaudeCodeRunner:
             await session.ws.send_text(json.dumps(task_msg) + "\n")
             logger.info(
                 "*tail wag* Task sent (exec=%s): %s...",
-                exec_id, prompt[:80],
+                exec_id,
+                prompt[:80],
             )
 
             # ── Wait for result ─────────────────────────────────────────────
@@ -188,9 +191,7 @@ class ClaudeCodeRunner:
             }
 
         except FileNotFoundError:
-            logger.warning(
-                "*head tilt* claude binary not found — install Claude Code CLI"
-            )
+            logger.warning("*head tilt* claude binary not found — install Claude Code CLI")
             return {
                 "success": False,
                 "error": "claude binary not found",

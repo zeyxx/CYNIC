@@ -73,15 +73,10 @@ class SourceWatcher:
                         files=files,
                         timestamp=time.time(),
                     )
-                    await bus.emit(Event.typed(
-                        CoreEvent.SOURCE_CHANGED,
-                        payload,
-                        source="watcher:filesystem"
-                    ))
-                    logger.info(
-                        "SOURCE_CHANGED: %s (%d files)",
-                        category, len(files)
+                    await bus.emit(
+                        Event.typed(CoreEvent.SOURCE_CHANGED, payload, source="watcher:filesystem")
                     )
+                    logger.info("SOURCE_CHANGED: %s (%d files)", category, len(files))
 
             self._previous_state = current_state
 
@@ -113,8 +108,11 @@ class SourceWatcher:
                 # Reset failure counter on success
                 if category in self._snapshot_failures:
                     if self._snapshot_failures[category] > 0:
-                        logger.info("*tail wag* Snapshot %s recovered after %d failures",
-                                  category, self._snapshot_failures[category])
+                        logger.info(
+                            "*tail wag* Snapshot %s recovered after %d failures",
+                            category,
+                            self._snapshot_failures[category],
+                        )
                         self._snapshot_failures[category] = 0
                 self._last_successful_snapshot[category] = time.time()
             except EventBusError as e:
@@ -122,13 +120,16 @@ class SourceWatcher:
                 self._snapshot_failures[category] = self._snapshot_failures.get(category, 0) + 1
                 logger.error(
                     "*GROWL* Snapshot FAILED %s (attempt %d): %s",
-                    category, self._snapshot_failures[category], e
+                    category,
+                    self._snapshot_failures[category],
+                    e,
                 )
                 # Emit critical alert if too many failures
                 if self._snapshot_failures[category] >= 3:
                     logger.critical(
                         "CRITICAL: Snapshot %s failed %d times — topology may be stale!",
-                        category, self._snapshot_failures[category]
+                        category,
+                        self._snapshot_failures[category],
                     )
 
         return result
@@ -178,7 +179,9 @@ class SourceWatcher:
         Used for diagnostics and monitoring integration.
         """
         return {
-            "status": "healthy" if all(f == 0 for f in self._snapshot_failures.values()) else "degraded",
+            "status": "healthy"
+            if all(f == 0 for f in self._snapshot_failures.values())
+            else "degraded",
             "snapshot_failures": dict(self._snapshot_failures),
             "last_successful_snapshot": dict(self._last_successful_snapshot),
             "categories_monitored": list(self._WATCHED_DIRS.keys()),

@@ -14,6 +14,7 @@ Key features:
 The gossip protocol enables multiple CYNIC instances to learn collectively from
 each other's judgment outcomes and emergence patterns.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime

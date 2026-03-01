@@ -3,6 +3,7 @@ Judgment Pipeline — Context for one complete judgment cycle.
 
 Extracted from orchestrator.py to reduce god object complexity.
 """
+
 from __future__ import annotations
 
 import time
@@ -21,6 +22,7 @@ class JudgmentPipeline:
 
     Tracks timing, cost, and intermediate results for all 7 steps.
     """
+
     cell: Cell
     level: ConsciousnessLevel = ConsciousnessLevel.MACRO
     fractal_depth: int = 1

@@ -22,7 +22,11 @@ class DirectActionsHandler(HandlerGroup):
     _EXECUTION_WINDOW = 13  # F(7) — rolling success tracking
 
     def __init__(
-        self, metabolism: MetabolicServices, *, universal_actuator: UniversalActuator, qtable: QTable
+        self,
+        metabolism: MetabolicServices,
+        *,
+        universal_actuator: UniversalActuator,
+        qtable: QTable,
     ) -> None:
         self._metabolism = metabolism
         self._universal_actuator = universal_actuator
@@ -35,11 +39,13 @@ class DirectActionsHandler(HandlerGroup):
         return "direct"
 
     def dependencies(self) -> frozenset[str]:
-        return frozenset({
-            "escore_tracker",
-            "universal_actuator",
-            "qtable",
-        })
+        return frozenset(
+            {
+                "escore_tracker",
+                "universal_actuator",
+                "qtable",
+            }
+        )
 
     def subscriptions(self) -> list[tuple[CoreEvent, callable]]:
         return [
@@ -71,7 +77,11 @@ class DirectActionsHandler(HandlerGroup):
             logger.info(
                 "ACT_REQUESTED dispatched: type=%s success=%s duration=%.0fms "
                 "success_rate=%.2f reward=%.3f",
-                action_type, success, result.duration_ms, success_rate, reward
+                action_type,
+                success,
+                result.duration_ms,
+                success_rate,
+                reward,
             )
 
         except EventBusError:

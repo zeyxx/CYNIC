@@ -1,4 +1,5 @@
 """CYNIC MarketWatcher — MARKET×PERCEIVE/REFLEX every F(9)=34s."""
+
 from __future__ import annotations
 
 import asyncio
@@ -15,7 +16,7 @@ _COINGECKO_URL = (
     "https://api.coingecko.com/api/v3/simple/price"
     "?ids=solana&vs_currencies=usd&include_24hr_change=true"
 )
-_HTTP_TIMEOUT = 5.0         # seconds
+_HTTP_TIMEOUT = 5.0  # seconds
 _MARKET_MOVE_THRESHOLD = 0.02  # 2% price move triggers perception
 
 
@@ -31,7 +32,7 @@ class MarketWatcher(PerceiveWorker):
     """
 
     level = ConsciousnessLevel.REFLEX
-    interval_s = float(fibonacci(9))   # 34.0s
+    interval_s = float(fibonacci(9))  # 34.0s
     name = "market_watcher"
 
     def __init__(self) -> None:
@@ -88,10 +89,7 @@ class MarketWatcher(PerceiveWorker):
                 "sol_usd": price,
                 "change_24h_pct": round(change_24h, 4),
             },
-            context=(
-                f"Market watcher: SOL=${price:.2f} "
-                f"({change_24h:+.2f}% 24h)"
-            ),
+            context=(f"Market watcher: SOL=${price:.2f} " f"({change_24h:+.2f}% 24h)"),
             risk=volatility,
             complexity=0.2,
             budget_usd=0.001,

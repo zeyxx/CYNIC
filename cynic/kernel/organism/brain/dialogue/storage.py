@@ -26,6 +26,7 @@ class DialogueStore:
 
     async def initialize(self) -> None:
         """Create tables and initialize database."""
+
         def _init():
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -57,6 +58,7 @@ class DialogueStore:
         Returns:
             ID of inserted message row.
         """
+
         def _save():
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -72,20 +74,23 @@ class DialogueStore:
             else:
                 related_id = message.source_judgment_id
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO dialogue_messages
                 (timestamp, is_user, message_type, content, confidence,
                  axiom_scores, related_judgment_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                message.timestamp,
-                is_user,
-                message.message_type,
-                message.content,
-                message.user_confidence if is_user else message.confidence,
-                axiom_scores,
-                related_id
-            ))
+            """,
+                (
+                    message.timestamp,
+                    is_user,
+                    message.message_type,
+                    message.content,
+                    message.user_confidence if is_user else message.confidence,
+                    axiom_scores,
+                    related_id,
+                ),
+            )
             conn.commit()
             msg_id = cursor.lastrowid
             conn.close()
@@ -103,15 +108,19 @@ class DialogueStore:
         Returns:
             List of message dictionaries in chronological order.
         """
+
         def _get():
             conn = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM dialogue_messages
                 ORDER BY timestamp DESC
                 LIMIT ?
-            """, (n,))
+            """,
+                (n,),
+            )
             rows = [dict(row) for row in cursor.fetchall()]
             conn.close()
             return list(reversed(rows))  # Return in chronological order
@@ -119,8 +128,9 @@ class DialogueStore:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, _get)
 
-    async def get_conversation_context(self, judgment_id: str,
-                                       context_size: int = 10) -> list[dict[str, Any]]:
+    async def get_conversation_context(
+        self, judgment_id: str, context_size: int = 10
+    ) -> list[dict[str, Any]]:
         """Get messages related to a specific judgment.
 
         Args:
@@ -130,15 +140,19 @@ class DialogueStore:
         Returns:
             List of messages related to the judgment in chronological order.
         """
+
         def _get():
             conn = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM dialogue_messages
                 WHERE related_judgment_id = ?
                 ORDER BY timestamp ASC
-            """, (judgment_id,))
+            """,
+                (judgment_id,),
+            )
             return [dict(row) for row in cursor.fetchall()]
 
         loop = asyncio.get_event_loop()
@@ -163,6 +177,7 @@ async def get_dialogue_store() -> DialogueStore:
     global _dialogue_store
     if _dialogue_store is None:
         from pathlib import Path
+
         store_path = Path.home() / ".cynic" / "phase2" / "dialogue_history.db"
         _dialogue_store = DialogueStore(store_path)
         await _dialogue_store.initialize()

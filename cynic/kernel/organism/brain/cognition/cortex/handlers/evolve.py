@@ -11,6 +11,7 @@ Responsibility:
 - Persist results to benchmark_registry
 - Emit META_CYCLE event
 """
+
 from __future__ import annotations
 
 import logging

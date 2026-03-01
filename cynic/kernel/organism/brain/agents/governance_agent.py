@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AgentVote:
     """Record of an agent's vote."""
+
     agent_id: str
     proposal_id: str
     vote: str  # "YES" | "NO" | "ABSTAIN"
@@ -41,6 +42,7 @@ class AgentVote:
 @dataclass
 class AgentLearningRecord:
     """Record of learning from a governance outcome."""
+
     agent_id: str
     proposal_id: str
     predicted_vote: str
@@ -173,7 +175,11 @@ class GovernanceAgent:
             if cynic_verdict in ["HOWL", "WAG"]:
                 return "NO", 0.4, f"Exploring: Contrary to CYNIC {cynic_verdict} (test alternative)"
             else:
-                return "YES", 0.4, f"Exploring: Contrary to CYNIC {cynic_verdict} (test alternative)"
+                return (
+                    "YES",
+                    0.4,
+                    f"Exploring: Contrary to CYNIC {cynic_verdict} (test alternative)",
+                )
 
         # Otherwise follow CYNIC with lower confidence
         else:
@@ -197,13 +203,29 @@ class GovernanceAgent:
         if self.prediction_accuracy > 0.7:
             # High confidence in past learning → follow CYNIC closely
             if cynic_verdict == "HOWL":
-                return "YES", 0.8 + (self.prediction_accuracy - 0.7), "Learning: Past accuracy high, follow CYNIC"
+                return (
+                    "YES",
+                    0.8 + (self.prediction_accuracy - 0.7),
+                    "Learning: Past accuracy high, follow CYNIC",
+                )
             elif cynic_verdict == "WAG":
-                return "YES" if random.random() < 0.75 else "ABSTAIN", 0.65, "Learning-adjusted WAG strategy"
+                return (
+                    "YES" if random.random() < 0.75 else "ABSTAIN",
+                    0.65,
+                    "Learning-adjusted WAG strategy",
+                )
             elif cynic_verdict == "GROWL":
-                return "ABSTAIN" if random.random() < 0.75 else "NO", 0.6, "Learning-adjusted GROWL strategy"
+                return (
+                    "ABSTAIN" if random.random() < 0.75 else "NO",
+                    0.6,
+                    "Learning-adjusted GROWL strategy",
+                )
             elif cynic_verdict == "BARK":
-                return "NO", 0.8 + (self.prediction_accuracy - 0.7), "Learning: Past accuracy high, follow CYNIC"
+                return (
+                    "NO",
+                    0.8 + (self.prediction_accuracy - 0.7),
+                    "Learning: Past accuracy high, follow CYNIC",
+                )
 
         else:
             # Low confidence → more exploration
@@ -213,9 +235,9 @@ class GovernanceAgent:
         """Community: Adopt community-specific governance culture."""
 
         # Vote based on what past proposals in this community did
-        community_approval_rate = sum(
-            1 for v in self.vote_history if v.vote == "YES"
-        ) / max(1, len(self.vote_history))
+        community_approval_rate = sum(1 for v in self.vote_history if v.vote == "YES") / max(
+            1, len(self.vote_history)
+        )
 
         # If community tends to approve, approve this
         if community_approval_rate > 0.6:
@@ -309,7 +331,7 @@ class GovernanceAgent:
             action=predicted_verdict,
             reward=community_satisfaction,
             judgment_id=proposal_id,
-            loop_name=f"AGENT_{self.agent_id}"
+            loop_name=f"AGENT_{self.agent_id}",
         )
         self.q_table.update(signal)
 

@@ -13,6 +13,7 @@ This turns binary "success/error" into a 28-state Q-Table
 
 For research (H1-H5): export sessions as JSONL → benchmark dataset.
 """
+
 from __future__ import annotations
 
 import json
@@ -27,28 +28,81 @@ from typing import Any
 
 _TASK_KEYWORDS: dict[str, list[str]] = {
     "debug": [
-        "fix", "bug", "error", "debug", "broken", "crash", "exception",
-        "traceback", "failing", "issue", "wrong", "incorrect", "doesn't work",
+        "fix",
+        "bug",
+        "error",
+        "debug",
+        "broken",
+        "crash",
+        "exception",
+        "traceback",
+        "failing",
+        "issue",
+        "wrong",
+        "incorrect",
+        "doesn't work",
     ],
     "refactor": [
-        "refactor", "clean", "simplify", "restructure", "reorganize",
-        "improve", "optimize", "rewrite", "redesign", "modernize",
+        "refactor",
+        "clean",
+        "simplify",
+        "restructure",
+        "reorganize",
+        "improve",
+        "optimize",
+        "rewrite",
+        "redesign",
+        "modernize",
     ],
     "test": [
-        "test", "tests", "testing", "coverage", "spec", "unit", "pytest",
-        "assertion", "mock", "fixture", "integration test",
+        "test",
+        "tests",
+        "testing",
+        "coverage",
+        "spec",
+        "unit",
+        "pytest",
+        "assertion",
+        "mock",
+        "fixture",
+        "integration test",
     ],
     "review": [
-        "review", "analyze", "check", "audit", "assess", "evaluate",
-        "inspect", "scan", "look at", "what's wrong", "code review",
+        "review",
+        "analyze",
+        "check",
+        "audit",
+        "assess",
+        "evaluate",
+        "inspect",
+        "scan",
+        "look at",
+        "what's wrong",
+        "code review",
     ],
     "write": [
-        "write", "create", "implement", "add", "build", "generate",
-        "develop", "make", "new", "scaffold", "boilerplate",
+        "write",
+        "create",
+        "implement",
+        "add",
+        "build",
+        "generate",
+        "develop",
+        "make",
+        "new",
+        "scaffold",
+        "boilerplate",
     ],
     "explain": [
-        "explain", "document", "describe", "comment", "understand",
-        "how does", "what is", "why", "help me understand",
+        "explain",
+        "document",
+        "describe",
+        "comment",
+        "understand",
+        "how does",
+        "what is",
+        "why",
+        "help me understand",
     ],
 }
 
@@ -82,6 +136,7 @@ def classify_task(prompt: str) -> str:
 # COMPLEXITY ESTIMATOR
 # ════════════════════════════════════════════════════════════════════════════
 
+
 def estimate_complexity(tool_sequence: list[str]) -> str:
     """
     Estimate task complexity from tool usage length.
@@ -105,6 +160,7 @@ def estimate_complexity(tool_sequence: list[str]) -> str:
 # ════════════════════════════════════════════════════════════════════════════
 # REWARD FUNCTION
 # ════════════════════════════════════════════════════════════════════════════
+
 
 def compute_reward(
     is_error: bool,
@@ -141,6 +197,7 @@ def compute_reward(
 # SESSION TELEMETRY RECORD
 # ════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class SessionTelemetry:
     """
@@ -149,32 +206,33 @@ class SessionTelemetry:
     The measurement atom for CYNIC's learning and research benchmarks.
     Covers all data needed to test H1-H5 hypotheses.
     """
+
     session_id: str
-    task: str                       # prompt (≤500 chars)
-    task_type: str                  # debug/refactor/test/review/write/explain/general
-    complexity: str                 # trivial/simple/medium/complex
+    task: str  # prompt (≤500 chars)
+    task_type: str  # debug/refactor/test/review/write/explain/general
+    complexity: str  # trivial/simple/medium/complex
 
     model: str
-    tools_sequence: list[str]       # ordered: ["Read", "Edit", "Bash", ...]
+    tools_sequence: list[str]  # ordered: ["Read", "Edit", "Bash", ...]
     tools_allowed: int
     tools_denied: int
-    tool_allow_rate: float          # 0.0-1.0
+    tool_allow_rate: float  # 0.0-1.0
 
-    input_tokens: int               # accumulated across all assistant messages
+    input_tokens: int  # accumulated across all assistant messages
     output_tokens: int
     total_cost_usd: float
-    duration_s: float               # from Claude's result.duration_ms
+    duration_s: float  # from Claude's result.duration_ms
     is_error: bool
-    result_text: str                # Claude's result description (≤500 chars)
+    result_text: str  # Claude's result description (≤500 chars)
 
     # CYNIC quality judgment of the session output (REFLEX level)
-    output_q_score: float           # 0-61.8 (φ-bounded)
-    output_verdict: str             # BARK/GROWL/WAG/HOWL
-    output_confidence: float        # 0-0.618
+    output_q_score: float  # 0-61.8 (φ-bounded)
+    output_verdict: str  # BARK/GROWL/WAG/HOWL
+    output_confidence: float  # 0-0.618
 
     # Learning signal used
-    state_key: str                  # "SDK:{model}:{task_type}:{complexity}"
-    reward: float                   # compute_reward() result
+    state_key: str  # "SDK:{model}:{task_type}:{complexity}"
+    reward: float  # compute_reward() result
 
     # Resume identity — Claude Code's internal session ID (from system/init)
     # Used with --resume flag to restart long-running sessions after crashes.
@@ -186,6 +244,7 @@ class SessionTelemetry:
 # ════════════════════════════════════════════════════════════════════════════
 # TELEMETRY STORE
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class TelemetryStore:
     """
@@ -230,9 +289,7 @@ class TelemetryStore:
             "count": len(records),
             "total_cost_usd": round(sum(costs), 6),
             "mean_cost_usd": round(sum(costs) / len(costs), 6),
-            "error_rate": round(
-                sum(1 for r in records if r.is_error) / len(records), 3
-            ),
+            "error_rate": round(sum(1 for r in records if r.is_error) / len(records), 3),
             "mean_q_score": round(sum(q_scores) / len(q_scores), 2),
             "mean_reward": round(sum(rewards) / len(rewards), 3),
             "verdicts": dict(Counter(r.output_verdict for r in records)),

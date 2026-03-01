@@ -1,9 +1,10 @@
 """
 CYNIC DogSoul — Cross-Session Identity Memory.
 
-Unified Identity: Now supports SurrealDB as the primary memory, 
+Unified Identity: Now supports SurrealDB as the primary memory,
 falling back to local JSON for bootstrapping or local dev.
 """
+
 from __future__ import annotations
 
 import json
@@ -11,15 +12,16 @@ import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
 
 from cynic.kernel.core.storage.interface import DogSoulRepoInterface
 
 logger = logging.getLogger("cynic.kernel.core.soul")
 
+
 @dataclass
 class DogSoul:
     """Represents the persistent identity and wisdom of a Sefirotic Dog."""
+
     dog_id: str
     total_judgments: int = 0
     avg_q_score: float = 50.0
@@ -27,7 +29,7 @@ class DogSoul:
     accumulated_wisdom: str = ""
     last_seen: float = field(default_factory=time.time)
     axiom_weights: dict[str, float] = field(default_factory=dict)
-    
+
     def to_dict(self) -> dict:
         return {
             "dog_id": self.dog_id,
@@ -36,10 +38,10 @@ class DogSoul:
             "confidence_factor": round(self.confidence_factor, 3),
             "last_seen": self.last_seen,
             "axiom_weights": self.axiom_weights,
-            "accumulated_wisdom": self.accumulated_wisdom
+            "accumulated_wisdom": self.accumulated_wisdom,
         }
 
-    async def save(self, repo: Optional[DogSoulRepoInterface] = None):
+    async def save(self, repo: DogSoulRepoInterface | None = None):
         """Persist soul to SurrealDB (primary) or Disk (fallback)."""
         if repo:
             try:
@@ -58,7 +60,7 @@ class DogSoul:
             logger.error(f"Failed to save soul to disk for {self.dog_id}: {e}")
 
     @classmethod
-    async def load(cls, dog_id: str, repo: Optional[DogSoulRepoInterface] = None) -> DogSoul:
+    async def load(cls, dog_id: str, repo: DogSoulRepoInterface | None = None) -> DogSoul:
         """Load soul from SurrealDB (primary) or Disk (fallback)."""
         if repo:
             try:
@@ -77,5 +79,5 @@ class DogSoul:
                     return cls(**data)
             except Exception as e:
                 logger.warning(f"Failed to load soul from disk, using fresh one: {e}")
-        
+
         return cls(dog_id=dog_id)

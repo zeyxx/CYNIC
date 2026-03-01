@@ -1,4 +1,5 @@
 """NEAR Protocol RPC client for blockchain interaction."""
+
 from __future__ import annotations
 
 from typing import Any, cast
@@ -37,9 +38,7 @@ class NEARRPCClient:
         Raises:
             NEARError: If the request fails
         """
-        async with httpx.AsyncClient(
-            timeout=self.timeout, follow_redirects=True
-        ) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
             try:
                 response = await client.post(
                     self.config.rpc_url,
@@ -51,9 +50,7 @@ class NEARRPCClient:
                     },
                 )
                 if response.status_code != 200:
-                    raise NEARError(
-                        f"Health check failed: {response.status_code}"
-                    )
+                    raise NEARError(f"Health check failed: {response.status_code}")
                 return cast(dict[str, Any], response.json())
             except httpx.RequestError as e:
                 raise NEARError(f"RPC connection failed: {e}")
@@ -70,9 +67,7 @@ class NEARRPCClient:
         Raises:
             NEARError: If the request fails
         """
-        async with httpx.AsyncClient(
-            timeout=self.timeout, follow_redirects=True
-        ) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
             response = await client.post(
                 self.config.rpc_url,
                 json={
@@ -87,9 +82,7 @@ class NEARRPCClient:
                 },
             )
             if response.status_code != 200:
-                raise NEARError(
-                    f"Query account failed: {response.status_code}"
-                )
+                raise NEARError(f"Query account failed: {response.status_code}")
             data = response.json()
             if "error" in data:
                 raise NEARError(f"RPC error: {data['error']}")
@@ -119,9 +112,7 @@ class NEARRPCClient:
         Raises:
             NEARError: If the request fails
         """
-        async with httpx.AsyncClient(
-            timeout=self.timeout, follow_redirects=True
-        ) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
             response = await client.post(
                 self.config.rpc_url,
                 json={
@@ -132,17 +123,13 @@ class NEARRPCClient:
                 },
             )
             if response.status_code != 200:
-                raise NEARError(
-                    f"Get block hash failed: {response.status_code}"
-                )
+                raise NEARError(f"Get block hash failed: {response.status_code}")
             data = response.json()
             if "error" in data:
                 raise NEARError(f"RPC error: {data['error']}")
             return cast(str, data["result"]["header"]["hash"])
 
-    async def call_contract(
-        self, contract_id: str, method: str, args: dict
-    ) -> dict[str, Any]:
+    async def call_contract(self, contract_id: str, method: str, args: dict) -> dict[str, Any]:
         """Call a read-only contract method.
 
         Args:
@@ -162,9 +149,7 @@ class NEARRPCClient:
         args_json = json.dumps(args)
         args_base64 = base64.b64encode(args_json.encode()).decode()
 
-        async with httpx.AsyncClient(
-            timeout=self.timeout, follow_redirects=True
-        ) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
             response = await client.post(
                 self.config.rpc_url,
                 json={
@@ -181,9 +166,7 @@ class NEARRPCClient:
                 },
             )
             if response.status_code != 200:
-                raise NEARError(
-                    f"Contract call failed: {response.status_code}"
-                )
+                raise NEARError(f"Contract call failed: {response.status_code}")
             data = response.json()
             if "error" in data:
                 raise NEARError(f"RPC error: {data['error']}")
@@ -201,9 +184,7 @@ class NEARRPCClient:
         Raises:
             NEARError: If submission fails
         """
-        async with httpx.AsyncClient(
-            timeout=self.timeout, follow_redirects=True
-        ) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
             response = await client.post(
                 self.config.rpc_url,
                 json={
@@ -214,17 +195,13 @@ class NEARRPCClient:
                 },
             )
             if response.status_code != 200:
-                raise NEARError(
-                    f"Send transaction failed: {response.status_code}"
-                )
+                raise NEARError(f"Send transaction failed: {response.status_code}")
             data = response.json()
             if "error" in data:
                 raise NEARError(f"RPC error: {data['error']}")
             return cast(dict[str, Any], data.get("result", {}))
 
-    async def get_transaction_result(
-        self, tx_hash: str, account_id: str
-    ) -> dict[str, Any]:
+    async def get_transaction_result(self, tx_hash: str, account_id: str) -> dict[str, Any]:
         """Get transaction result after execution.
 
         Args:
@@ -237,9 +214,7 @@ class NEARRPCClient:
         Raises:
             NEARError: If query fails
         """
-        async with httpx.AsyncClient(
-            timeout=self.timeout, follow_redirects=True
-        ) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
             response = await client.post(
                 self.config.rpc_url,
                 json={
@@ -250,9 +225,7 @@ class NEARRPCClient:
                 },
             )
             if response.status_code != 200:
-                raise NEARError(
-                    f"Query transaction failed: {response.status_code}"
-                )
+                raise NEARError(f"Query transaction failed: {response.status_code}")
             data = response.json()
             if "error" in data:
                 raise NEARError(f"RPC error: {data['error']}")

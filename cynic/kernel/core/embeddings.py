@@ -23,6 +23,7 @@ Usage:
     # In ScholarDog:
     scholar.set_embedder(embedder)  # enables vector search path
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -37,20 +38,21 @@ logger = logging.getLogger("cynic.embeddings")
 
 # Default embedding dimensions per model
 _MODEL_DIMS = {
-    "nomic-embed-text":           768,
-    "nomic-embed-text-v1.5":      768,
-    "all-minilm":                 384,
-    "all-minilm:l6-v2":           384,
-    "mxbai-embed-large":          1024,
-    "snowflake-arctic-embed":     1024,
+    "nomic-embed-text": 768,
+    "nomic-embed-text-v1.5": 768,
+    "all-minilm": 384,
+    "all-minilm:l6-v2": 384,
+    "mxbai-embed-large": 1024,
+    "snowflake-arctic-embed": 1024,
 }
 
 # Default model used when none specified
 DEFAULT_EMBEDDING_MODEL = "nomic-embed-text"
-DEFAULT_EMBEDDING_DIM   = 768  # nomic-embed-text dimension
+DEFAULT_EMBEDDING_DIM = 768  # nomic-embed-text dimension
 
 
 # ── Abstract base ─────────────────────────────────────────────────────────
+
 
 class EmbeddingProvider(ABC):
     """
@@ -74,6 +76,7 @@ class EmbeddingProvider(ABC):
 
 # ── OllamaEmbedder ────────────────────────────────────────────────────────
 
+
 class OllamaEmbedder(EmbeddingProvider):
     """
     Dense embeddings via Ollama /api/embeddings endpoint.
@@ -96,9 +99,9 @@ class OllamaEmbedder(EmbeddingProvider):
         self._model = model
         self._timeout = aiohttp.ClientTimeout(total=timeout_s)
         self._dim: int = _MODEL_DIMS.get(model, DEFAULT_EMBEDDING_DIM)
-        self._available: bool = True   # Optimistic — flipped on connection error
+        self._available: bool = True  # Optimistic — flipped on connection error
         self._error_count: int = 0
-        self._MAX_ERRORS = 3           # Stop trying after 3 consecutive failures
+        self._MAX_ERRORS = 3  # Stop trying after 3 consecutive failures
 
     @property
     def dimension(self) -> int:
@@ -125,7 +128,8 @@ class OllamaEmbedder(EmbeddingProvider):
                         self._error_count += 1
                         logger.warning(
                             "OllamaEmbedder: HTTP %d for model=%s",
-                            resp.status, self._model,
+                            resp.status,
+                            self._model,
                         )
                         return [0.0] * self._dim
 
@@ -140,7 +144,8 @@ class OllamaEmbedder(EmbeddingProvider):
                         self._dim = len(vector)
                         logger.info(
                             "OllamaEmbedder: auto-detected dim=%d for model=%s",
-                            self._dim, self._model,
+                            self._dim,
+                            self._model,
                         )
 
                     self._error_count = 0  # Reset on success
@@ -153,7 +158,8 @@ class OllamaEmbedder(EmbeddingProvider):
                 self._available = False
                 logger.warning(
                     "OllamaEmbedder: disabled after %d errors (last: %s)",
-                    self._MAX_ERRORS, e,
+                    self._MAX_ERRORS,
+                    e,
                 )
             return [0.0] * self._dim
         except httpx.RequestError as e:
@@ -163,6 +169,7 @@ class OllamaEmbedder(EmbeddingProvider):
 
 
 # ── DummyEmbedder ────────────────────────────────────────────────────────
+
 
 class DummyEmbedder(EmbeddingProvider):
     """
@@ -198,10 +205,7 @@ class DummyEmbedder(EmbeddingProvider):
         digest = hashlib.sha256(text.encode("utf-8")).digest()
         # Repeat digest to fill dim floats (4 bytes each = 32 floats per digest)
         raw_bytes = (digest * ((self._dim * 4 // 32) + 1))[: self._dim * 4]
-        floats = [
-            struct.unpack_from(">f", raw_bytes, i * 4)[0]
-            for i in range(self._dim)
-        ]
+        floats = [struct.unpack_from(">f", raw_bytes, i * 4)[0] for i in range(self._dim)]
         # L2-normalize to unit vector
         norm = sum(f * f for f in floats) ** 0.5
         if norm < 1e-9:

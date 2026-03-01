@@ -9,6 +9,7 @@ Usage:
     print(config.discord_token)
     print(config.num_dogs)
 """
+
 from __future__ import annotations
 
 from .config import Config, get_config, reset_config

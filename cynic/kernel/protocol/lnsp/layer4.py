@@ -8,6 +8,7 @@ Components:
 - Handler: Abstract base class for verdict execution
 - Layer4: Manager that routes verdicts to handlers and emits feedback
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -66,9 +67,7 @@ class Layer4:
     """
 
     handlers: dict[str, Handler] = field(default_factory=dict)
-    feedback_callbacks: list[Callable[[LNSPMessage], None]] = field(
-        default_factory=list
-    )
+    feedback_callbacks: list[Callable[[LNSPMessage], None]] = field(default_factory=list)
 
     def register_handler(self, handler: Handler) -> None:
         """Register an action handler.
@@ -157,8 +156,11 @@ class Layer4:
             except Exception as e:
                 # Log callback failures but continue executing other callbacks
                 import logging
+
                 logger = logging.getLogger(__name__)
-                logger.warning(f"Feedback callback failed: {callback.__name__}: {type(e).__name__}: {e}")
+                logger.warning(
+                    f"Feedback callback failed: {callback.__name__}: {type(e).__name__}: {e}"
+                )
 
         return (success, feedback)
 
@@ -185,11 +187,7 @@ class Layer4:
         target_prefix = target.split(":")[0] if ":" in target else target
 
         for handler_id, handler in self.handlers.items():
-            handler_prefix = (
-                handler_id.split(":")[0]
-                if ":" in handler_id
-                else handler_id
-            )
+            handler_prefix = handler_id.split(":")[0] if ":" in handler_id else handler_id
 
             if handler_id == f"{handler_prefix}:*" and target_prefix == handler_prefix:
                 return handler

@@ -1,4 +1,5 @@
 """GASdf integration types and dataclasses."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

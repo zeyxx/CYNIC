@@ -22,10 +22,12 @@ async def test_generate_response_from_reasoning():
         "confidence": 0.5,
         "reasoning_summary": "I chose WAG because...",
         "communication_style": "concise",
-        "verbosity": "1-2 sentences max"
+        "verbosity": "1-2 sentences max",
     }
 
-    with patch('cynic.kernel.organism.brain.dialogue.llm_bridge.AsyncAnthropic') as mock_client_class:
+    with patch(
+        "cynic.kernel.organism.brain.dialogue.llm_bridge.AsyncAnthropic"
+    ) as mock_client_class:
         mock_response = AsyncMock()
         mock_response.content = [AsyncMock()]
         mock_response.content[0].text = "I chose WAG because it balances fairness with efficiency."
@@ -53,7 +55,7 @@ async def test_generate_explanation_prompt():
         "question": "Why WAG?",
         "verdict": "WAG",
         "axiom_scores": {"PHI": 0.85, "BURN": 0.65},
-        "communication_style": "concise"
+        "communication_style": "concise",
     }
 
     prompt = bridge._create_explanation_prompt(context)
@@ -67,16 +69,13 @@ async def test_generate_explanation_prompt():
 @pytest.mark.asyncio
 async def test_handle_api_error():
     """Handle API errors gracefully."""
-    context = {
-        "question": "Why WAG?",
-        "verdict": "WAG"
-    }
+    context = {"question": "Why WAG?", "verdict": "WAG"}
 
-    with patch('cynic.kernel.organism.brain.dialogue.llm_bridge.AsyncAnthropic') as mock_client_class:
+    with patch(
+        "cynic.kernel.organism.brain.dialogue.llm_bridge.AsyncAnthropic"
+    ) as mock_client_class:
         mock_client_instance = AsyncMock()
-        mock_client_instance.messages.create = AsyncMock(
-            side_effect=Exception("API Error")
-        )
+        mock_client_instance.messages.create = AsyncMock(side_effect=Exception("API Error"))
         mock_client_instance.close = AsyncMock()
         mock_client_class.return_value = mock_client_instance
 

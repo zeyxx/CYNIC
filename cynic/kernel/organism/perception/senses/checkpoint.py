@@ -14,6 +14,7 @@ Strategy:
   CHECKPOINT_EVERY = F(8) = 21 judgments
   MAX_AGE_H        = 24 hours (one full day)
 """
+
 from __future__ import annotations
 
 import json
@@ -36,9 +37,7 @@ CHECKPOINT_EVERY: int = fibonacci(8)  # 21
 MAX_AGE_H: float = 24.0
 
 # Checkpoint file location (follows ~/.cynic/ convention)
-_CHECKPOINT_PATH = os.path.join(
-    os.path.expanduser("~"), ".cynic", "session-latest.json"
-)
+_CHECKPOINT_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "session-latest.json")
 
 
 def save(compressor: ContextCompressor) -> bool:
@@ -55,6 +54,7 @@ def save(compressor: ContextCompressor) -> bool:
 
         # Abort if disk critically full (avoid writing to a full disk)
         import shutil
+
         usage = shutil.disk_usage(os.path.dirname(_CHECKPOINT_PATH))
         disk_free_pct = usage.free / usage.total
         if disk_free_pct < 0.05:
@@ -75,7 +75,8 @@ def save(compressor: ContextCompressor) -> bool:
 
         logger.debug(
             "SessionCheckpoint: saved %d chunks to %s",
-            len(data["chunks"]), _CHECKPOINT_PATH,
+            len(data["chunks"]),
+            _CHECKPOINT_PATH,
         )
         return True
 
@@ -109,14 +110,16 @@ def restore(compressor: ContextCompressor) -> int:
         if age_h > MAX_AGE_H:
             logger.info(
                 "SessionCheckpoint: skipping stale checkpoint (%.1fh > %.0fh limit)",
-                age_h, MAX_AGE_H,
+                age_h,
+                MAX_AGE_H,
             )
             return 0
 
         n = compressor.restore_from_dict(data)
         logger.info(
             "SessionCheckpoint: restored %d chunks (checkpoint %.1fh old)",
-            n, age_h,
+            n,
+            age_h,
         )
         return n
 

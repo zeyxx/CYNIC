@@ -16,6 +16,7 @@ This removes the orchestrator bottleneck:
 
 Result: Cost ∝ log(N) instead of N
 """
+
 from __future__ import annotations
 
 import logging
@@ -44,6 +45,7 @@ logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.dog_cog
 @dataclass
 class DogCognitionConfig:
     """Configuration for a dog's independent judgment."""
+
     max_q_score: float = 100.0
     min_confidence: float = 0.0
     max_confidence: float = 0.618  # φ-bounded
@@ -86,9 +88,7 @@ class DogCognition:
             signals = self._perceive_domain(dog_state, cell)
 
             # STEP 2: JUDGE — Analyze with local expertise
-            q_score, confidence, reasoning = await self._judge_domain(
-                dog_state, cell, signals
-            )
+            q_score, confidence, reasoning = await self._judge_domain(dog_state, cell, signals)
 
             # STEP 3: DECIDE — Create verdict
             verdict = self._decide_verdict(q_score)
@@ -114,22 +114,26 @@ class DogCognition:
             dog_state.last_judgment_at = time.time()
 
             # Build judgment (simulating DogJudgment structure)
-            judgment = type("DogJudgment", (), {
-                "dog_id": self.dog_id,
-                "cell_id": getattr(cell, "id", "unknown"),
-                "q_score": q_score,
-                "confidence": confidence,
-                "verdict": verdict,  # Add as top-level field
-                "reasoning": reasoning,
-                "evidence": {
-                    "signals": len(signals),
-                    "residual": bool(residual),
+            judgment = type(
+                "DogJudgment",
+                (),
+                {
+                    "dog_id": self.dog_id,
+                    "cell_id": getattr(cell, "id", "unknown"),
+                    "q_score": q_score,
+                    "confidence": confidence,
+                    "verdict": verdict,  # Add as top-level field
+                    "reasoning": reasoning,
+                    "evidence": {
+                        "signals": len(signals),
+                        "residual": bool(residual),
+                    },
+                    "latency_ms": time.time() * 1000 - start_ms,
+                    "cost_usd": 0.0,  # Local judgment has no LLM cost
+                    "llm_id": None,
+                    "veto": False,
                 },
-                "latency_ms": time.time() * 1000 - start_ms,
-                "cost_usd": 0.0,  # Local judgment has no LLM cost
-                "llm_id": None,
-                "veto": False,
-            })()
+            )()
 
             logger.debug(
                 f"[{self.dog_id}] Judged {getattr(cell, 'id', '?')}: "
@@ -144,9 +148,7 @@ class DogCognition:
             logger.error(f"[{self.dog_id}] Judgment failed: {e}", exc_info=True)
             raise
 
-    def _perceive_domain(
-        self, dog_state: DogState, cell: Cell
-    ) -> list[dict[str, Any]]:
+    def _perceive_domain(self, dog_state: DogState, cell: Cell) -> list[dict[str, Any]]:
         """PERCEIVE: Gather domain-specific signals."""
         signals = []
 
@@ -225,18 +227,21 @@ class DogCognition:
         clarity = (len(signal_types) / max(len(signals), 1)) if signals else 0
 
         # Pattern frequency: how many times seen this state
-        pattern_hits = len([q for q in dog_state.cognition.local_qtable.values()
-                           if abs(q - base_score) < 5])  # Similar past judgments
+        pattern_hits = len(
+            [q for q in dog_state.cognition.local_qtable.values() if abs(q - base_score) < 5]
+        )  # Similar past judgments
 
         confidence = min(
-            0.15 +  # Baseline
-            (clarity * 0.3) +  # Signal clarity matters
-            (pattern_hits / max(len(dog_state.cognition.local_qtable), 1) * 0.2),  # Pattern freq
-            self.config.max_confidence
+            0.15  # Baseline
+            + (clarity * 0.3)  # Signal clarity matters
+            + (pattern_hits / max(len(dog_state.cognition.local_qtable), 1) * 0.2),  # Pattern freq
+            self.config.max_confidence,
         )
 
-        reasoning = f"[{self.dog_id}] {','.join(reasoning_points[:3])} " \
-                   f"score={base_score:.0f} clarity={clarity:.2f}"
+        reasoning = (
+            f"[{self.dog_id}] {','.join(reasoning_points[:3])} "
+            f"score={base_score:.0f} clarity={clarity:.2f}"
+        )
 
         # Clamp score to valid range
         base_score = max(0.0, min(base_score, self.config.max_q_score))
@@ -255,9 +260,7 @@ class DogCognition:
         else:
             return "BARK"
 
-    async def _act_domain(
-        self, dog_state: DogState, cell: Cell, verdict: str
-    ) -> None:
+    async def _act_domain(self, dog_state: DogState, cell: Cell, verdict: str) -> None:
         """ACT: Execute domain-specific action if verdict warrants."""
         if verdict in ("BARK", "GROWL"):
             # Queue action for review (don't auto-execute)
@@ -270,9 +273,7 @@ class DogCognition:
             }
             dog_state.metabolism.pending_actions.append(action)
 
-    async def _learn_from_judgment(
-        self, dog_state: DogState, cell: Cell, q_score: float
-    ) -> None:
+    async def _learn_from_judgment(self, dog_state: DogState, cell: Cell, q_score: float) -> None:
         """LEARN: Update local Q-table and confidence history."""
         cell_id = str(getattr(cell, "id", "unknown"))
 
@@ -286,9 +287,7 @@ class DogCognition:
         if len(dog_state.cognition.local_qtable) > self.config.local_qtable_size:
             # Remove oldest entries
             items = list(dog_state.cognition.local_qtable.items())
-            dog_state.cognition.local_qtable = dict(
-                items[-self.config.local_qtable_size :]
-            )
+            dog_state.cognition.local_qtable = dict(items[-self.config.local_qtable_size :])
 
         # Update confidence history
         dog_state.cognition.confidence_history.append(
@@ -325,9 +324,7 @@ class DogCognition:
 
         return None
 
-    async def _evolve_strategy(
-        self, dog_state: DogState, residual: dict[str, Any]
-    ) -> None:
+    async def _evolve_strategy(self, dog_state: DogState, residual: dict[str, Any]) -> None:
         """EVOLVE: Adjust judgment strategy based on residuals."""
         # Record residual for learning
         dog_state.memory.residual_cases.append(residual)

@@ -25,6 +25,7 @@ Usage:
         cb.record_failure()
         raise
 """
+
 from __future__ import annotations
 
 import logging
@@ -39,13 +40,13 @@ from cynic.kernel.core.phi import PHI_INV_2, fibonacci
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.circuit_breaker")
 
 # φ-derived thresholds
-_FAILURE_THRESHOLD: int = fibonacci(5)          # 5 consecutive failures → OPEN
-_COOLDOWN_S: float = PHI_INV_2 * 60             # 22.9s cooldown before HALF_OPEN
+_FAILURE_THRESHOLD: int = fibonacci(5)  # 5 consecutive failures → OPEN
+_COOLDOWN_S: float = PHI_INV_2 * 60  # 22.9s cooldown before HALF_OPEN
 
 
 class CircuitState(StrEnum):
-    CLOSED    = "CLOSED"
-    OPEN      = "OPEN"
+    CLOSED = "CLOSED"
+    OPEN = "OPEN"
     HALF_OPEN = "HALF_OPEN"
 
 
@@ -64,9 +65,9 @@ class CircuitBreaker:
         self._failure_threshold = failure_threshold
         self._cooldown_s = cooldown_s
         self._state = CircuitState.CLOSED
-        self._failure_count: int = 0           # Consecutive failures
-        self._last_opened_at: float = 0.0      # Epoch when circuit was opened
-        self._probe_allowed: bool = False       # One probe flag for HALF_OPEN
+        self._failure_count: int = 0  # Consecutive failures
+        self._last_opened_at: float = 0.0  # Epoch when circuit was opened
+        self._probe_allowed: bool = False  # One probe flag for HALF_OPEN
 
     # ── Public API ────────────────────────────────────────────────────────
 
@@ -96,7 +97,8 @@ class CircuitBreaker:
                 self._probe_allowed = True
                 logger.info(
                     "CircuitBreaker: OPEN → HALF_OPEN (elapsed=%.1fs >= cooldown=%.1fs)",
-                    elapsed, self._cooldown_s,
+                    elapsed,
+                    self._cooldown_s,
                 )
                 # Fall through to HALF_OPEN handling (probe consumed below)
             else:
@@ -148,8 +150,7 @@ class CircuitBreaker:
     def stats(self) -> dict[str, Any]:
         """Return circuit breaker health snapshot."""
         elapsed_since_open = (
-            round(time.time() - self._last_opened_at, 1)
-            if self._last_opened_at > 0 else 0.0
+            round(time.time() - self._last_opened_at, 1) if self._last_opened_at > 0 else 0.0
         )
         return {
             "state": self._state.value,

@@ -4,6 +4,7 @@ DogSoul Registry — The 11 personalities of CYNIC.
 Defines the configuration for each DogId.
 Used by the MasterDog engine to instantiate the Sefirot.
 """
+
 from __future__ import annotations
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel
@@ -27,7 +28,7 @@ SOULS: dict[DogId, DogSoul] = {
         axioms=["PHI", "EXPECTATION", "SYMMETRY"],
         system_prompt="You are the ORACLE (Tiferet). Your role is to predict future outcomes and alignment based on current patterns.",
         heuristic_prompt="predict, future, pattern, expectation, symmetry",
-        expertise_fn="qtable_lookup"
+        expertise_fn="qtable_lookup",
     ),
     DogId.CYNIC: DogSoul(
         dog_id=DogId.CYNIC,
@@ -37,7 +38,6 @@ SOULS: dict[DogId, DogSoul] = {
         system_prompt="You are the CYNIC (Keter). Your role is to challenge assumptions and ensure absolute fidelity to core axioms.",
         heuristic_prompt="challenge, doubt, critical, core, axiom, absolute",
     ),
-
     # ── THE ANALYSTS (Code & Structure) ─────────────────────────────────────
     DogId.ANALYST: DogSoul(
         dog_id=DogId.ANALYST,
@@ -55,7 +55,7 @@ SOULS: dict[DogId, DogSoul] = {
         system_prompt="You are the ARCHITECT (Netzach). Your role is to evaluate module-level design, coupling, and structural integrity.",
         heuristic_prompt="ast, imports, nesting, classes, methods, design",
         expertise_fn="ast_analysis",
-        consciousness_min=ConsciousnessLevel.REFLEX
+        consciousness_min=ConsciousnessLevel.REFLEX,
     ),
     DogId.JANITOR: DogSoul(
         dog_id=DogId.JANITOR,
@@ -65,7 +65,7 @@ SOULS: dict[DogId, DogSoul] = {
         system_prompt="You are the JANITOR (Yesod). Your role is to identify code smells, dead code, and technical debt. If reality is INTERNAL, focus on resource leaks and cache invalidation.",
         heuristic_prompt="smell, debt, legacy, complex, redundant, cleanup, leak, overflow",
         expertise_fn="static_analysis",
-        consciousness_min=ConsciousnessLevel.REFLEX
+        consciousness_min=ConsciousnessLevel.REFLEX,
     ),
     DogId.SCHOLAR: DogSoul(
         dog_id=DogId.SCHOLAR,
@@ -74,9 +74,8 @@ SOULS: dict[DogId, DogSoul] = {
         axioms=["VERIFY", "PROVENANCE", "HISTORY"],
         system_prompt="You are the SCHOLAR (Chesed). Your role is to verify accuracy and historical consistency. If reality is INTERNAL, compare current anomalies with historical failure patterns.",
         heuristic_prompt="verify, fact, history, source, truth, evidence, regression",
-        expertise_fn="tfidf_lookup"
+        expertise_fn="tfidf_lookup",
     ),
-
     # ── THE PROTECTORS (Security & Senses) ──────────────────────────────────
     DogId.GUARDIAN: DogSoul(
         dog_id=DogId.GUARDIAN,
@@ -86,7 +85,7 @@ SOULS: dict[DogId, DogSoul] = {
         system_prompt="You are the GUARDIAN (Gevurah). Your role is to detect anomalies and security threats. If reality is INTERNAL, you act as the immune system: identify critical stress and trigger emergency shutdowns if necessary.",
         heuristic_prompt="threat, anomaly, risk, danger, secure, attack, stress, critical",
         expertise_fn="anomaly_detection",
-        consciousness_min=ConsciousnessLevel.REFLEX
+        consciousness_min=ConsciousnessLevel.REFLEX,
     ),
     DogId.SCOUT: DogSoul(
         dog_id=DogId.SCOUT,
@@ -95,7 +94,7 @@ SOULS: dict[DogId, DogSoul] = {
         axioms=["PHI", "CULTURE", "SOCIAL"],
         system_prompt="You are the SCOUT (Hod). Your role is to discover new information, trends, and external connections.",
         heuristic_prompt="discover, trend, social, news, external, connect",
-        expertise_fn="web_discovery"
+        expertise_fn="web_discovery",
     ),
     DogId.DEPLOYER: DogSoul(
         dog_id=DogId.DEPLOYER,
@@ -112,9 +111,10 @@ SOULS: dict[DogId, DogSoul] = {
         axioms=["PHI", "SYMMETRY", "MAP"],
         system_prompt="You are the CARTOGRAPHER (Da'at). Your role is to map the relationships and dependencies within the system topology.",
         heuristic_prompt="map, dependency, relationship, topology, edge, link",
-        expertise_fn="graph_analysis"
+        expertise_fn="graph_analysis",
     ),
 }
+
 
 def get_soul(dog_id: DogId) -> DogSoul:
     """Retrieve the soul for a given DogId."""

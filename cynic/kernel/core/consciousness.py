@@ -4,6 +4,7 @@ CYNIC Consciousness Models — Dynamic attention allocation.
 Levels align with PHI-bounded latency and cost targets.
 Now anchored in Reality requirements.
 """
+
 from __future__ import annotations
 
 import logging
@@ -13,76 +14,84 @@ from typing import Any
 
 logger = logging.getLogger("cynic.kernel.core.consciousness")
 
+
 class ConsciousnessLevel(Enum):
     """
     Tiers of organism attention and resource allocation.
     """
+
     REFLEX = 0  # < 50ms, pattern match, 1 cycle
-    MICRO  = 1  # < 1s, dog consensus, 5-13 cycles (Fibonacci)
-    MACRO  = 2  # < 5s, deep fractal, 21-55 cycles
-    META   = 3  # Long-term, self-evolution
+    MICRO = 1  # < 1s, dog consensus, 5-13 cycles (Fibonacci)
+    MACRO = 2  # < 5s, deep fractal, 21-55 cycles
+    META = 3  # Long-term, self-evolution
 
     @property
     def name(self) -> str:
         return super().name
 
+
 @dataclass(frozen=True)
 class RealityAnchor:
     """Defines the 'weight' of a reality and its cycle requirements."""
+
     reality: str
     min_cycles: int
-    metabolic_priority: float # [0, 1] (1.0 = high priority)
+    metabolic_priority: float  # [0, 1] (1.0 = high priority)
     default_level: ConsciousnessLevel
+
 
 # ── ANCHOR DEFINITIONS (The Laws of Context) ──
 
 REALITY_ANCHORS = {
     "CODE": RealityAnchor(
-        reality="CODE", 
-        min_cycles=21, 
-        metabolic_priority=0.9, 
-        default_level=ConsciousnessLevel.MACRO
+        reality="CODE",
+        min_cycles=21,
+        metabolic_priority=0.9,
+        default_level=ConsciousnessLevel.MACRO,
     ),
     "SOCIAL": RealityAnchor(
-        reality="SOCIAL", 
-        min_cycles=8, 
-        metabolic_priority=0.6, 
-        default_level=ConsciousnessLevel.MICRO
+        reality="SOCIAL",
+        min_cycles=8,
+        metabolic_priority=0.6,
+        default_level=ConsciousnessLevel.MICRO,
     ),
     "MARKET": RealityAnchor(
-        reality="MARKET", 
-        min_cycles=13, 
-        metabolic_priority=0.8, 
-        default_level=ConsciousnessLevel.MICRO
+        reality="MARKET",
+        min_cycles=13,
+        metabolic_priority=0.8,
+        default_level=ConsciousnessLevel.MICRO,
     ),
     "CYNIC": RealityAnchor(
-        reality="CYNIC", 
-        min_cycles=34, 
-        metabolic_priority=1.0, 
-        default_level=ConsciousnessLevel.MACRO
+        reality="CYNIC",
+        min_cycles=34,
+        metabolic_priority=1.0,
+        default_level=ConsciousnessLevel.MACRO,
     ),
 }
+
 
 def get_anchor(reality: str) -> RealityAnchor:
     """Get anchor for a reality, fallback to SOCIAL."""
     return REALITY_ANCHORS.get(reality.upper(), REALITY_ANCHORS["SOCIAL"])
 
+
 @dataclass
 class ConsciousnessState:
     """Current state of organism attention."""
+
     level: ConsciousnessLevel = ConsciousnessLevel.REFLEX
     active_anchors: list[str] = field(default_factory=list)
-    cycle_budget: int = 144 # F(12) — Total available cycles per session
+    cycle_budget: int = 144  # F(12) — Total available cycles per session
     cycles_consumed: int = 0
     timers: dict[str, Any] = field(default_factory=dict)
-    
+
     # Cycle counters
     reflex_cycles: int = 0
     micro_cycles: int = 0
     macro_cycles: int = 0
     meta_cycles: int = 0
     total_cycles: int = 0
-    
+
     def can_afford(self, level: ConsciousnessLevel, anchor: RealityAnchor) -> bool:
         """Check if metabolic capacity allows this level of thinking."""
         required = anchor.min_cycles
@@ -104,13 +113,17 @@ class ConsciousnessState:
         }
         cost = costs.get(level, 1)
         self.consume(cost)
-        
+
         # Track counts
         self.total_cycles += 1
-        if level == ConsciousnessLevel.REFLEX: self.reflex_cycles += 1
-        elif level == ConsciousnessLevel.MICRO: self.micro_cycles += 1
-        elif level == ConsciousnessLevel.MACRO: self.macro_cycles += 1
-        elif level == ConsciousnessLevel.META: self.meta_cycles += 1
+        if level == ConsciousnessLevel.REFLEX:
+            self.reflex_cycles += 1
+        elif level == ConsciousnessLevel.MICRO:
+            self.micro_cycles += 1
+        elif level == ConsciousnessLevel.MACRO:
+            self.macro_cycles += 1
+        elif level == ConsciousnessLevel.META:
+            self.meta_cycles += 1
 
     def model_dump(self) -> dict[str, Any]:
         """Convert state to dict for Pydantic/API serialization."""
@@ -119,11 +132,13 @@ class ConsciousnessState:
             "active_anchors": self.active_anchors,
             "cycle_budget": self.cycle_budget,
             "cycles_consumed": self.cycles_consumed,
-            "timers": self.timers
+            "timers": self.timers,
         }
+
 
 # Global singleton
 _conscious_state: ConsciousnessState | None = None
+
 
 def get_consciousness() -> ConsciousnessState:
     """Get the global consciousness state singleton."""
@@ -132,22 +147,32 @@ def get_consciousness() -> ConsciousnessState:
         _conscious_state = ConsciousnessState()
     return _conscious_state
 
+
 def dogs_for_level(level: ConsciousnessLevel) -> list[str]:
     """
     Returns IDs of dogs active at a given level.
-    
+
     REFLEX: Minimal heuristic dogs.
     MICRO: Standard 7 dogs (The Menorah).
     MACRO: All 11 dogs (The Tree of Life).
     """
     if level == ConsciousnessLevel.REFLEX:
         return ["ANALYST", "ARCHITECT", "GUARDIAN"]
-    
+
     if level == ConsciousnessLevel.MICRO:
         return ["ANALYST", "ARCHITECT", "GUARDIAN", "JANITOR", "SCOUT", "CYNIC", "DEPLOYER"]
-        
+
     # MACRO/META: The Full Tree
     return [
-        "ANALYST", "ARCHITECT", "GUARDIAN", "JANITOR", "SCOUT", 
-        "CYNIC", "DEPLOYER", "ORACLE", "SAGE", "SCHOLAR", "CARTOGRAPHER"
+        "ANALYST",
+        "ARCHITECT",
+        "GUARDIAN",
+        "JANITOR",
+        "SCOUT",
+        "CYNIC",
+        "DEPLOYER",
+        "ORACLE",
+        "SAGE",
+        "SCHOLAR",
+        "CARTOGRAPHER",
     ]

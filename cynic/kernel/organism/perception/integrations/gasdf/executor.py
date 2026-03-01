@@ -1,4 +1,5 @@
 """GASdf executor for CYNIC governance verdicts."""
+
 from __future__ import annotations
 
 import logging
@@ -40,9 +41,7 @@ class GASdfExecutor:
         """
         self.client = client
 
-    async def should_execute_verdict(
-        self, verdict: str, q_score: float = 0.5
-    ) -> bool:
+    async def should_execute_verdict(self, verdict: str, q_score: float = 0.5) -> bool:
         """Determine if a verdict should be executed on-chain.
 
         Execution is based on verdict type and confidence (Q-Score).
@@ -159,8 +158,7 @@ class GASdfExecutor:
             burn_amount = int(quote.fee_amount * 0.764)
 
             logger.info(
-                "Verdict executed: proposal=%s signature=%s "
-                "fee=%s burn=%s status=%s",
+                "Verdict executed: proposal=%s signature=%s " "fee=%s burn=%s status=%s",
                 proposal_id,
                 result.signature,
                 quote.fee_amount,
@@ -177,9 +175,7 @@ class GASdfExecutor:
                 verdict,
                 str(e),
             )
-            raise GASdfError(
-                f"Execution failed for proposal {proposal_id}: {str(e)}"
-            ) from e
+            raise GASdfError(f"Execution failed for proposal {proposal_id}: {str(e)}") from e
 
     async def get_execution_reward(self) -> dict[str, Any]:
         """Get cumulative stats for CYNIC learning feedback.
@@ -202,9 +198,7 @@ class GASdfExecutor:
 
             # Calculate reward signal: burn per transaction
             avg_reward = (
-                stats.total_burned / stats.total_transactions
-                if stats.total_transactions > 0
-                else 0
+                stats.total_burned / stats.total_transactions if stats.total_transactions > 0 else 0
             )
 
             # Assess treasury health based on burn rate

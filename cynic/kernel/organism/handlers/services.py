@@ -8,6 +8,7 @@ Decomposes the organism into three functional areas:
 
 φ-Law: VERIFY — explicit dependency injection via domain facades.
 """
+
 from __future__ import annotations
 
 import logging
@@ -89,6 +90,7 @@ class SensoryCoreServices:
     def compress_context(self, limit: int = 200) -> str:
         """Get compressed context within token budget."""
         return self.compressor.get_compressed_context(limit)
+
 
 # SensoryCoreServices is also known as SensoryServices in legacy references
 SensoryServices = SensoryCoreServices

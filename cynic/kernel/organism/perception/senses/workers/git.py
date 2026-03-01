@@ -1,4 +1,5 @@
 """CYNIC GitWatcher — CODE×PERCEIVE/REFLEX every F(5)=5s."""
+
 from __future__ import annotations
 
 import asyncio
@@ -21,7 +22,7 @@ class GitWatcher(PerceiveWorker):
     """
 
     level = ConsciousnessLevel.REFLEX
-    interval_s = float(fibonacci(5))   # 5.0s
+    interval_s = float(fibonacci(5))  # 5.0s
     name = "git_watcher"
 
     def __init__(self, cwd: str | None = None) -> None:
@@ -35,7 +36,9 @@ class GitWatcher(PerceiveWorker):
                 None,
                 lambda: subprocess.run(
                     ["git", "status", "--porcelain"],
-                    capture_output=True, text=True, timeout=3.0,
+                    capture_output=True,
+                    text=True,
+                    timeout=3.0,
                     cwd=self._cwd,
                 ),
             )
@@ -49,7 +52,7 @@ class GitWatcher(PerceiveWorker):
         changes = result.stdout.strip()
         change_hash = hash(changes)
         if change_hash == self._last_hash:
-            return None     # No new changes since last check
+            return None  # No new changes since last check
 
         self._last_hash = change_hash
         lines = changes.splitlines()

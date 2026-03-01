@@ -11,13 +11,9 @@ def test_experiment_creation():
     exp = Experiment(
         hypothesis="Dog 7 + Dog 11 produces better fairness",
         approach=["dogs: [7, 11]", "weights: {BURN: 0.8, CULTURE: 0.7}"],
-        results={
-            "user_satisfaction": 0.85,
-            "q_score_accuracy": 0.78,
-            "fairness_metric": 0.91
-        },
+        results={"user_satisfaction": 0.85, "q_score_accuracy": 0.78, "fairness_metric": 0.91},
         status="successful",
-        iterations=1
+        iterations=1,
     )
 
     assert exp.hypothesis == "Dog 7 + Dog 11 produces better fairness"
@@ -28,13 +24,7 @@ def test_experiment_creation():
 
 def test_experiment_immutability():
     """Experiments are frozen (immutable)."""
-    exp = Experiment(
-        hypothesis="Test",
-        approach=[],
-        results={},
-        status="successful",
-        iterations=1
-    )
+    exp = Experiment(hypothesis="Test", approach=[], results={}, status="successful", iterations=1)
 
     with pytest.raises((AttributeError, TypeError)):
         exp.hypothesis = "Modified"
@@ -51,7 +41,7 @@ async def test_experiment_log_append():
             approach=["approach 1"],
             results={"score": 0.9},
             status="successful",
-            iterations=1
+            iterations=1,
         )
 
         exp_id = await log.append(exp)

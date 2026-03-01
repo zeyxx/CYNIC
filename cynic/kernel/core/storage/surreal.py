@@ -24,6 +24,7 @@ Auth:
   - HNSW cosine = PHI (geometric similarity, not Euclidean noise)
   - Single connection = VERIFY (one truth, no pool state drift)
 """
+
 from __future__ import annotations
 
 import logging
@@ -117,16 +118,20 @@ def _rows(result: Any) -> list[dict]:
 # REPOSITORIES
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class JudgmentRepo(JudgmentRepoInterface):
     def __init__(self, db: Any) -> None:
         self._db = db
 
     async def save(self, judgment: dict[str, Any]) -> None:
         jid = judgment["judgment_id"]
-        await self._db.upsert(_rec("judgment", jid), {
-            **judgment,
-            "created_at": judgment.get("created_at", time.time()),
-        })
+        await self._db.upsert(
+            _rec("judgment", jid),
+            {
+                **judgment,
+                "created_at": judgment.get("created_at", time.time()),
+            },
+        )
 
     async def get(self, judgment_id: str) -> dict[str, Any] | None:
         result = await self._db.query(
@@ -136,9 +141,7 @@ class JudgmentRepo(JudgmentRepoInterface):
         rows = _rows(result)
         return rows[0] if rows else None
 
-    async def recent(
-        self, reality: str | None = None, limit: int = 55
-    ) -> list[dict[str, Any]]:
+    async def recent(self, reality: str | None = None, limit: int = 55) -> list[dict[str, Any]]:
         if reality:
             result = await self._db.query(
                 "SELECT * FROM judgment WHERE reality = $r ORDER BY created_at DESC LIMIT $n",
@@ -159,9 +162,7 @@ class JudgmentRepo(JudgmentRepoInterface):
         rows = _rows(result)
         total = sum(r.get("cnt", 0) for r in rows)
         by_verdict = {r["verdict"]: r["cnt"] for r in rows if "verdict" in r}
-        avg_q = (
-            sum(r.get("avg_q", 0) * r.get("cnt", 0) for r in rows) / max(total, 1)
-        )
+        avg_q = sum(r.get("avg_q", 0) * r.get("cnt", 0) for r in rows) / max(total, 1)
         return {
             "total": total,
             "by_verdict": by_verdict,
@@ -196,13 +197,16 @@ class QTableRepo(QTableRepoInterface):
         visits = 1
         if existing and isinstance(existing, dict):
             visits = int(existing.get("visit_count", 0)) + 1
-        await self._db.upsert(rec_id, {
-            "state_key": state_key,
-            "action": action,
-            "q_value": q_value,
-            "visit_count": visits,
-            "last_updated": time.time(),
-        })
+        await self._db.upsert(
+            rec_id,
+            {
+                "state_key": state_key,
+                "action": action,
+                "q_value": q_value,
+                "visit_count": visits,
+                "last_updated": time.time(),
+            },
+        )
 
     async def get_all_actions(self, state_key: str) -> dict[str, float]:
         result = await self._db.query(
@@ -213,9 +217,7 @@ class QTableRepo(QTableRepoInterface):
 
     async def get_all(self) -> list[dict[str, Any]]:
         """Return all Q-entries — used for warm-start."""
-        result = await self._db.query(
-            "SELECT state_key, action, q_value, visit_count FROM q_entry"
-        )
+        result = await self._db.query("SELECT state_key, action, q_value, visit_count FROM q_entry")
         return _rows(result)
 
 
@@ -225,11 +227,14 @@ class LearningRepo(LearningRepoInterface):
 
     async def save(self, event: dict[str, Any]) -> None:
         eid = event.get("event_id", str(uuid.uuid4()))
-        await self._db.upsert(_rec("learning_event", eid), {
-            **event,
-            "event_id": eid,
-            "created_at": time.time(),
-        })
+        await self._db.upsert(
+            _rec("learning_event", eid),
+            {
+                **event,
+                "event_id": eid,
+                "created_at": time.time(),
+            },
+        )
 
     async def recent_for_loop(self, loop_name: str, limit: int = 34) -> list[dict]:
         result = await self._db.query(
@@ -252,11 +257,14 @@ class BenchmarkRepo(BenchmarkRepoInterface):
 
     async def save(self, result: dict[str, Any]) -> None:
         bid = result.get("benchmark_id", str(uuid.uuid4()))
-        await self._db.upsert(_rec("llm_benchmark", bid), {
-            **result,
-            "benchmark_id": bid,
-            "created_at": time.time(),
-        })
+        await self._db.upsert(
+            _rec("llm_benchmark", bid),
+            {
+                **result,
+                "benchmark_id": bid,
+                "created_at": time.time(),
+            },
+        )
 
     async def best_llm_for(self, dog_id: str, task_type: str) -> str | None:
         since = time.time() - 7 * 86400
@@ -298,10 +306,13 @@ class ResidualRepo(ResidualRepoInterface):
 
     async def append(self, point: dict[str, Any]) -> None:
         rid = str(uuid.uuid4())
-        await self._db.upsert(_rec("residual", rid), {
-            **point,
-            "observed_at": time.time(),
-        })
+        await self._db.upsert(
+            _rec("residual", rid),
+            {
+                **point,
+                "observed_at": time.time(),
+            },
+        )
 
     async def recent(self, limit: int = 21) -> list[dict[str, Any]]:
         result = await self._db.query(
@@ -319,11 +330,14 @@ class SDKSessionRepo(SDKSessionRepoInterface):
 
     async def save(self, telemetry: dict[str, Any]) -> None:
         sid = telemetry["session_id"]
-        await self._db.upsert(_rec("sdk_session", sid), {
-            **telemetry,
-            "task_preview": (telemetry.get("task") or "")[:200],
-            "created_at": telemetry.get("created_at", time.time()),
-        })
+        await self._db.upsert(
+            _rec("sdk_session", sid),
+            {
+                **telemetry,
+                "task_preview": (telemetry.get("task") or "")[:200],
+                "created_at": telemetry.get("created_at", time.time()),
+            },
+        )
 
     async def recent(self, limit: int = 21) -> list[dict[str, Any]]:
         result = await self._db.query(
@@ -370,11 +384,14 @@ class ScholarRepo(ScholarRepoInterface):
 
     async def append(self, entry: dict[str, Any]) -> None:
         rid = str(uuid.uuid4())
-        await self._db.upsert(_rec("scholar", rid), {
-            **entry,
-            "cell_text": str(entry.get("cell_text", ""))[:2000],
-            "created_at": time.time(),
-        })
+        await self._db.upsert(
+            _rec("scholar", rid),
+            {
+                **entry,
+                "cell_text": str(entry.get("cell_text", ""))[:2000],
+                "created_at": time.time(),
+            },
+        )
 
     async def recent_entries(self, limit: int = ACT_LOG_CAP) -> list[dict[str, Any]]:
         # Default: ACT_LOG_CAP (F(11)=89) — keep last 89 scholar entries
@@ -418,10 +435,13 @@ class ActionProposalRepo(ActionProposalRepoInterface):
 
     async def upsert(self, action: dict[str, Any]) -> None:
         """Save or update an action proposal by action_id."""
-        await self._db.upsert(_rec("action_proposal", action["action_id"]), {
-            **action,
-            "updated_at": time.time(),
-        })
+        await self._db.upsert(
+            _rec("action_proposal", action["action_id"]),
+            {
+                **action,
+                "updated_at": time.time(),
+            },
+        )
 
     async def all_pending(self) -> list[dict[str, Any]]:
         """Return all PENDING proposals, ordered by priority then proposed_at."""
@@ -434,9 +454,7 @@ class ActionProposalRepo(ActionProposalRepoInterface):
 
     async def all(self) -> list[dict[str, Any]]:
         """Return all proposals (any status), newest first."""
-        result = await self._db.query(
-            "SELECT * FROM action_proposal ORDER BY proposed_at DESC"
-        )
+        result = await self._db.query("SELECT * FROM action_proposal ORDER BY proposed_at DESC")
         return _rows(result)
 
     async def update_status(self, action_id: str, status: str) -> None:
@@ -455,10 +473,13 @@ class DogSoulRepo(DogSoulRepoInterface):
 
     async def save(self, soul: dict[str, Any]) -> None:
         """Upsert a dog's soul record (keyed by dog_id)."""
-        await self._db.upsert(_rec("dog_soul", soul["dog_id"]), {
-            **soul,
-            "updated_at": time.time(),
-        })
+        await self._db.upsert(
+            _rec("dog_soul", soul["dog_id"]),
+            {
+                **soul,
+                "updated_at": time.time(),
+            },
+        )
 
     async def get(self, dog_id: str) -> dict[str, Any] | None:
         """Load a dog's soul by dog_id. Returns None if not found."""
@@ -485,10 +506,13 @@ class AxiomFacetRepo(AxiomFacetRepoInterface):
         """Upsert a dynamic facet record."""
         # ID: axiom_facet:{axiom}_{reality}_{facet_name}
         fid = f"{facet['axiom']}_{facet['reality']}_{facet['facet']}"
-        await self._db.upsert(_rec("axiom_facet", fid), {
-            **facet,
-            "updated_at": time.time(),
-        })
+        await self._db.upsert(
+            _rec("axiom_facet", fid),
+            {
+                **facet,
+                "updated_at": time.time(),
+            },
+        )
 
     async def get_all(self, axiom: str, reality: str) -> list[dict[str, Any]]:
         """Load all facets for a given axiom/reality."""
@@ -502,6 +526,7 @@ class AxiomFacetRepo(AxiomFacetRepoInterface):
 # ════════════════════════════════════════════════════════════════════════════
 # STORAGE FACADE — one object, all repos
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class SurrealStorage(StorageInterface):
     """
@@ -526,13 +551,14 @@ class SurrealStorage(StorageInterface):
         database: str,
     ) -> None:
         from surrealdb import AsyncSurreal
+
         self._url = url
         self._user = user
         self._password = password
         self._ns = namespace
         self._db_name = database
         self._db = AsyncSurreal(self._url)
-        self._conn = self._db # for backward compatibility
+        self._conn = self._db  # for backward compatibility
 
         # Repos
         self._judgments = JudgmentRepo(self._db)
@@ -583,7 +609,9 @@ class SurrealStorage(StorageInterface):
         await self._db.use(self._ns, self._db_name)
         logger.info(
             "*sniff* SurrealDB connected: %s → %s.%s",
-            self._url, self._ns, self._db_name,
+            self._url,
+            self._ns,
+            self._db_name,
         )
 
     async def close(self) -> None:

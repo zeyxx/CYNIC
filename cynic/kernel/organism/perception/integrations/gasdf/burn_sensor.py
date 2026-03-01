@@ -1,4 +1,5 @@
 """GASdf burn statistics sensor for LNSP integration."""
+
 from __future__ import annotations
 
 import dataclasses

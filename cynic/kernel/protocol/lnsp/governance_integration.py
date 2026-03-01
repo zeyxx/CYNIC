@@ -1,4 +1,5 @@
 """LNSP governance integration bridge."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -73,9 +74,8 @@ class GovernanceLNSP:
                 if self.gasdf_executor is not None:
                     # Schedule async execution (non-blocking)
                     import asyncio
-                    asyncio.create_task(
-                        self._execute_verdict_on_chain(data, proposal_id)
-                    )
+
+                    asyncio.create_task(self._execute_verdict_on_chain(data, proposal_id))
 
         self.manager.layer4.on_feedback(capture_verdict)
 

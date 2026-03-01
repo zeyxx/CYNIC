@@ -15,6 +15,7 @@ Timing:
 - COST_ACCOUNTED → COLD (financial record, archived)
 - EMERGENCE_DETECTED → [WARM, COLD] (replicate for analysis)
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,6 +30,7 @@ logger = logging.getLogger(__name__)
 # ════════════════════════════════════════════════════════════════════════════
 # STORAGE TIER ENUMERATION
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class StorageTier(str, Enum):
     """Storage tier classification for event persistence."""
@@ -45,37 +47,27 @@ class StorageTier(str, Enum):
 OPCODE_STORAGE_MAP: dict[CoreEvent, StorageTier | list[StorageTier]] = {
     # Step 1: PERCEIVE
     CoreEvent.PERCEPTION_RECEIVED: StorageTier.HOT,
-
     # Step 2: JUDGE
     CoreEvent.JUDGMENT_CREATED: [StorageTier.HOT, StorageTier.WARM, StorageTier.COLD],
-
     # Step 3: DECIDE
     CoreEvent.DECISION_MADE: StorageTier.WARM,
-
     # Step 4: ACT
     CoreEvent.ACT_REQUESTED: StorageTier.HOT,
     CoreEvent.ACT_COMPLETED: StorageTier.COLD,
-
     # Step 5: LEARN
     CoreEvent.LEARNING_EVENT: StorageTier.WARM,
     CoreEvent.Q_TABLE_UPDATED: StorageTier.WARM,
-
     # Step 6: ACCOUNT
     CoreEvent.COST_ACCOUNTED: StorageTier.COLD,
-
     # Step 7: EMERGE
     CoreEvent.EMERGENCE_DETECTED: [StorageTier.WARM, StorageTier.COLD],
-
     # Cross-cutting concerns
     CoreEvent.AXIOM_ACTIVATED: StorageTier.WARM,
     CoreEvent.TRANSCENDENCE: [StorageTier.WARM, StorageTier.COLD],
-
     # Self-improvement
     CoreEvent.SELF_IMPROVEMENT_PROPOSED: StorageTier.WARM,
-
     # Consciousness
     CoreEvent.CONSCIOUSNESS_CHANGED: StorageTier.HOT,
-
     # Other events
     CoreEvent.USER_FEEDBACK: StorageTier.WARM,
     CoreEvent.RESIDUAL_HIGH: StorageTier.COLD,
@@ -85,6 +77,7 @@ OPCODE_STORAGE_MAP: dict[CoreEvent, StorageTier | list[StorageTier]] = {
 # ════════════════════════════════════════════════════════════════════════════
 # STORAGE TIER POLICY
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class StorageTierPolicy:
     """
@@ -101,9 +94,7 @@ class StorageTierPolicy:
 
     def __init__(self):
         """Initialize the storage tier policy."""
-        self._tier_counts: dict[StorageTier, int] = {
-            tier: 0 for tier in StorageTier
-        }
+        self._tier_counts: dict[StorageTier, int] = {tier: 0 for tier in StorageTier}
         logger.info("*sniff* StorageTierPolicy initialized")
 
     def get_tiers_for_event(self, event_type: CoreEvent) -> list[StorageTier]:
@@ -182,9 +173,7 @@ class StorageTierPolicy:
         Returns:
             Dictionary with counts per tier and mapping completeness
         """
-        total_mapped = len(
-            [e for e in CoreEvent if e in OPCODE_STORAGE_MAP]
-        )
+        total_mapped = len([e for e in CoreEvent if e in OPCODE_STORAGE_MAP])
         total_events = len(list(CoreEvent))
 
         return {
@@ -193,5 +182,3 @@ class StorageTierPolicy:
             "opcode_coverage": f"{total_mapped}/{total_events}",
             "coverage_pct": round(100 * total_mapped / max(total_events, 1), 1),
         }
-
-

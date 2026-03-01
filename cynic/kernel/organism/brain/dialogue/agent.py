@@ -1,9 +1,10 @@
 """
 DialogueAgent — Human-readable explanation of CYNIC's internal logic.
 
-Uses the ReasoningEngine to structure data and the Universal LLM Registry 
+Uses the ReasoningEngine to structure data and the Universal LLM Registry
 to generate the final explanation, prioritizing local hardware.
 """
+
 from __future__ import annotations
 
 import logging
@@ -14,11 +15,12 @@ from cynic.kernel.organism.brain.llm.adapter import LLMRequest, get_registry
 
 logger = logging.getLogger("cynic.kernel.organism.brain.dialogue.agent")
 
+
 class DialogueAgent:
     """
     The voice of CYNIC.
     """
-    
+
     def __init__(self, reasoning_engine: ReasoningEngine | None = None):
         self.reasoning = reasoning_engine or ReasoningEngine()
         self.registry = get_registry()
@@ -32,11 +34,11 @@ class DialogueAgent:
         # We convert the judgment to dict if it's a model
         j_dict = judgment.model_dump() if hasattr(judgment, "model_dump") else judgment
         context = self.reasoning.format_judgment_reasoning(j_dict)
-        
+
         # 2. Pick best LOCAL model
         # We prioritize 'llama_cpp' or 'ollama' providers
         adapter = self.registry.get_best_for("SAGE", "explanation")
-        
+
         if not adapter:
             logger.warning("DialogueAgent: No LLM adapter available. Returning raw reasoning.")
             return context
@@ -52,13 +54,13 @@ class DialogueAgent:
         
         Provide a concise explanation (2-3 sentences) starting with the verdict.
         """
-        
+
         request = LLMRequest(
             prompt=prompt,
             max_tokens=256,
-            temperature=0.3 # Low temperature for fidelity
+            temperature=0.3,  # Low temperature for fidelity
         )
-        
+
         try:
             response = await adapter.complete_safe(request)
             if response.is_success:

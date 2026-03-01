@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 @dataclass
 class HandlerAnalysis:
     """Single handler's architectural signature."""
+
     name: str
     handler_count: int
     dependencies: frozenset[str]
@@ -67,6 +68,7 @@ class HandlerAnalysis:
 @dataclass
 class ArchitectureSnapshot:
     """Moment-in-time view of handler architecture."""
+
     timestamp: float
     handler_analyses: list[HandlerAnalysis]
     total_handlers: int
@@ -85,9 +87,7 @@ class ArchitectureSnapshot:
             "unique_dependencies": sorted(self.total_dependencies),
             "most_complex": self.most_complex_handler.name if self.most_complex_handler else None,
             "most_complex_score": (
-                self.most_complex_handler.complexity_score
-                if self.most_complex_handler
-                else 0.0
+                self.most_complex_handler.complexity_score if self.most_complex_handler else 0.0
             ),
             "average_complexity": round(self.average_complexity, 1),
             "complexity_variance": round(self.complexity_variance, 2),
@@ -97,6 +97,7 @@ class ArchitectureSnapshot:
 @dataclass
 class CouplingGrowth:
     """Detected coupling change between two snapshots."""
+
     handler_name: str
     prev_dependency_count: int
     new_dependency_count: int
@@ -165,9 +166,7 @@ class HandlerArchitectureIntrospector:
             scores = [a.complexity_score for a in analyses]
             avg_score = sum(scores) / len(scores)
             variance = (
-                sum((s - avg_score) ** 2 for s in scores) / len(scores)
-                if len(scores) > 1
-                else 0.0
+                sum((s - avg_score) ** 2 for s in scores) / len(scores) if len(scores) > 1 else 0.0
             )
             most_complex = max(analyses, key=lambda a: a.complexity_score)
         else:
@@ -218,8 +217,7 @@ class HandlerArchitectureIntrospector:
                         added_dependencies=frozenset(added),
                         removed_dependencies=frozenset(removed),
                         complexity_delta=(
-                            curr_analysis.complexity_score
-                            - prev_analysis.complexity_score
+                            curr_analysis.complexity_score - prev_analysis.complexity_score
                         ),
                     )
                 )

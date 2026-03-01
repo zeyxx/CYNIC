@@ -1,4 +1,5 @@
 """Track human state: energy, focus, intentions, feedback."""
+
 from __future__ import annotations
 
 import logging

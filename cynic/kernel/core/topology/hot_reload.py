@@ -61,10 +61,7 @@ class HotReloadCoordinator:
             # 2. Handle removals (if any)
             # For now, removals are not supported (would require unwiring from bus)
             if payload.removed_handlers:
-                logger.warning(
-                    "Handler removal not yet supported: %s",
-                    payload.removed_handlers
-                )
+                logger.warning("Handler removal not yet supported: %s", payload.removed_handlers)
 
             # 3. Handle additions
             for handler_name in payload.added_handlers:
@@ -80,25 +77,22 @@ class HotReloadCoordinator:
             logger.debug("Handlers wired to event bus")
 
             # 5. Emit: TOPOLOGY_APPLIED
-            await bus.emit(Event.typed(
-                CoreEvent.TOPOLOGY_APPLIED,
-                TopologyAppliedPayload(
-                    handlers_added=len(payload.added_handlers),
-                    handlers_removed=len(payload.removed_handlers),
-                    timestamp=payload.timestamp,
-                ),
-                source="coordinator:hot-reload"
-            ))
-
-            logger.info(
-                "TOPOLOGY_APPLIED: +%d handlers now active",
-                len(payload.added_handlers)
+            await bus.emit(
+                Event.typed(
+                    CoreEvent.TOPOLOGY_APPLIED,
+                    TopologyAppliedPayload(
+                        handlers_added=len(payload.added_handlers),
+                        handlers_removed=len(payload.removed_handlers),
+                        timestamp=payload.timestamp,
+                    ),
+                    source="coordinator:hot-reload",
+                )
             )
+
+            logger.info("TOPOLOGY_APPLIED: +%d handlers now active", len(payload.added_handlers))
 
         except EventBusError as e:
-            logger.error(
-                "Hot-reload failed: %s — rolling back to snapshot", e
-            )
+            logger.error("Hot-reload failed: %s — rolling back to snapshot", e)
 
             # 6. Rollback to snapshot
             try:
@@ -106,17 +100,21 @@ class HotReloadCoordinator:
                 registry.wire(bus)
                 logger.debug("Rolled back to previous topology")
             except CynicError as rollback_e:
-                logger.error("Rollback FAILED: %s — organism may be in inconsistent state", rollback_e)
+                logger.error(
+                    "Rollback FAILED: %s — organism may be in inconsistent state", rollback_e
+                )
 
             # 7. Emit: TOPOLOGY_ROLLBACK
-            await bus.emit(Event.typed(
-                CoreEvent.TOPOLOGY_ROLLBACK,
-                TopologyRollbackPayload(
-                    reason=str(e),
-                    timestamp=payload.timestamp,
-                ),
-                source="coordinator:hot-reload"
-            ))
+            await bus.emit(
+                Event.typed(
+                    CoreEvent.TOPOLOGY_ROLLBACK,
+                    TopologyRollbackPayload(
+                        reason=str(e),
+                        timestamp=payload.timestamp,
+                    ),
+                    source="coordinator:hot-reload",
+                )
+            )
 
     async def _add_handler(
         self,

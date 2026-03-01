@@ -6,6 +6,7 @@ Critical paths use specific exceptions instead of bare 'except Exception'.
 
 φ-Law: VERIFY — typed errors, not silent swallowing.
 """
+
 from __future__ import annotations
 
 

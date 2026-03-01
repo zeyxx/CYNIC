@@ -18,6 +18,7 @@ Consciousness levels dictate which path:
 
 This is the HEART of CYNIC. Every judgment flows through here.
 """
+
 from __future__ import annotations
 
 import logging
@@ -96,23 +97,27 @@ class JudgeOrchestrator:
         residual_detector=None,
         gasdf_executor=None,
     ) -> None:
-        self.dogs = dogs        # {dog_id: AbstractDog}
+        self.dogs = dogs  # {dog_id: AbstractDog}
         self.axiom_arch = axiom_arch
         self.cynic_dog = cynic_dog
         self.residual_detector = residual_detector  # Optional[ResidualDetector]
-        self.gasdf_executor = gasdf_executor        # Optional[GASdfExecutor]
+        self.gasdf_executor = gasdf_executor  # Optional[GASdfExecutor]
         self.benchmark_registry = None  # Optional[BenchmarkRegistry] — set via state.py
         self.escore_tracker = None  # Optional[EScoreTracker] — injected via state.py
-        
+
         # Inject dynamic facet dreaming callback
         self.axiom_arch.on_facets_missing = self._on_facets_missing
 
         # State and services
         self.axiom_monitor = None  # Optional[AxiomMonitor] — γ3: axiom health → budget multiplier
         self.lod_controller = None  # Optional[LODController] — δ2: system health → level cap
-        self.context_compressor = None  # Optional[ContextCompressor] — γ5: memory injection into SAGE
+        self.context_compressor = (
+            None  # Optional[ContextCompressor] — γ5: memory injection into SAGE
+        )
         self.service_registry = None  # Optional[ServiceStateRegistry] — Tier 1 nervous system
-        self.consciousness_scheduler = None  # Optional[ConsciousnessScheduler] — Task #8: blended escalation
+        self.consciousness_scheduler = (
+            None  # Optional[ConsciousnessScheduler] — Task #8: blended escalation
+        )
         self._composer = None  # Optional[HandlerComposer] — Phase 2B: explicit DAG composition
         self.gossip_manager = None  # Optional[GossipManager] — federation P2P gossip
         self._judgment_count = 0
@@ -122,11 +127,12 @@ class JudgeOrchestrator:
         # Circuit breaker — prevents cascade failures (topology M1)
         self._circuit_breaker = CircuitBreaker()
         # Budget stress flags — set by BUDGET_WARNING/EXHAUSTED events
-        self._budget_stress: bool = False      # cap at MICRO when True
-        self._budget_exhausted: bool = False   # cap at REFLEX when True
-        
+        self._budget_stress: bool = False  # cap at MICRO when True
+        self._budget_exhausted: bool = False  # cap at REFLEX when True
+
         # --- Voice of the Organism (Dialogue) ---
         from cynic.kernel.organism.brain.dialogue.agent import DialogueAgent
+
         self._dialogue_agent = DialogueAgent()
 
     async def _on_facets_missing(self, axiom: str, reality: str) -> None:
@@ -135,12 +141,15 @@ class JudgeOrchestrator:
         SAGE (Chokmah) is the Faiseur de Mondes.
         """
         from cynic.kernel.organism.brain.cognition.neurons.base import DogId
+
         sage = self.dogs.get(DogId.SAGE)
         if sage and hasattr(sage, "dream_facets"):
             logger.info(f"Orchestrator: Triggering SAGE to dream facets for {axiom} in {reality}")
             await sage.dream_facets(axiom, reality, self.axiom_arch.registry)
         else:
-            logger.warning(f"Orchestrator: Facets missing for {axiom}/{reality}, but SAGE unavailable to dream.")
+            logger.warning(
+                f"Orchestrator: Facets missing for {axiom}/{reality}, but SAGE unavailable to dream."
+            )
 
     def _ensure_composer(self) -> None:
         """
@@ -167,11 +176,35 @@ class JudgeOrchestrator:
         )
 
         registry = HandlerRegistry()
-        registry.register("level_selector", LevelSelector(axiom_monitor=self.axiom_monitor, lod_controller=self.lod_controller))
-        registry.register("cycle_reflex", ReflexCycleHandler(dogs=self.dogs, axiom_arch=self.axiom_arch))
-        registry.register("cycle_micro", MicroCycleHandler(dogs=self.dogs, axiom_arch=self.axiom_arch, cynic_dog=self.cynic_dog, lod_controller=self.lod_controller))
-        registry.register("cycle_macro", MacroCycleHandler(dogs=self.dogs, axiom_arch=self.axiom_arch, cynic_dog=self.cynic_dog, lod_controller=self.lod_controller, axiom_monitor=self.axiom_monitor))
-        registry.register("act_executor", ActHandler(runner=None, gasdf_executor=self.gasdf_executor))
+        registry.register(
+            "level_selector",
+            LevelSelector(axiom_monitor=self.axiom_monitor, lod_controller=self.lod_controller),
+        )
+        registry.register(
+            "cycle_reflex", ReflexCycleHandler(dogs=self.dogs, axiom_arch=self.axiom_arch)
+        )
+        registry.register(
+            "cycle_micro",
+            MicroCycleHandler(
+                dogs=self.dogs,
+                axiom_arch=self.axiom_arch,
+                cynic_dog=self.cynic_dog,
+                lod_controller=self.lod_controller,
+            ),
+        )
+        registry.register(
+            "cycle_macro",
+            MacroCycleHandler(
+                dogs=self.dogs,
+                axiom_arch=self.axiom_arch,
+                cynic_dog=self.cynic_dog,
+                lod_controller=self.lod_controller,
+                axiom_monitor=self.axiom_monitor,
+            ),
+        )
+        registry.register(
+            "act_executor", ActHandler(runner=None, gasdf_executor=self.gasdf_executor)
+        )
         registry.register("evolve", EvolveHandler(orchestrator=self))
         registry.register("budget_manager", BudgetManager())
 
@@ -202,24 +235,28 @@ class JudgeOrchestrator:
             level = ConsciousnessLevel.REFLEX
 
         pipeline = JudgmentPipeline(cell=cell, fractal_depth=fractal_depth)
-        effective_budget = (budget_usd or cell.budget_usd)
+        effective_budget = budget_usd or cell.budget_usd
 
         # Circuit breaker — fast-fail when cascade failure detected (topology M1)
         if not self._circuit_breaker.allow():
             cb = self._circuit_breaker
             logger.warning(
                 "CircuitBreaker %s — fast-failing judgment %s (failures=%d)",
-                cb.state.value, cell.cell_id, cb.failure_count,
+                cb.state.value,
+                cell.cell_id,
+                cb.failure_count,
             )
-            await get_core_bus().emit(Event.typed(
-                CoreEvent.JUDGMENT_FAILED,
-                JudgmentFailedPayload(
-                    cell_id=cell.cell_id,
-                    error="circuit_open",
-                    circuit_state=cb.state.value,
-                    failure_count=cb.failure_count,
-                ),
-            ))
+            await get_core_bus().emit(
+                Event.typed(
+                    CoreEvent.JUDGMENT_FAILED,
+                    JudgmentFailedPayload(
+                        cell_id=cell.cell_id,
+                        error="circuit_open",
+                        circuit_state=cb.state.value,
+                        failure_count=cb.failure_count,
+                    ),
+                )
+            )
             raise RuntimeError(
                 f"CircuitBreaker OPEN — pipeline suspended "
                 f"({cb.failure_count} consecutive failures)"
@@ -242,12 +279,13 @@ class JudgeOrchestrator:
             self._consciousness.increment(selected_level)
             jc_payload = judgment.to_dict()
             jc_payload["state_key"] = cell.state_key()
-            jc_payload["reality"] = cell.reality   # needed by guidance.json writer
+            jc_payload["reality"] = cell.reality  # needed by guidance.json writer
             jc_payload["level_used"] = selected_level.name  # needed by LOD latency filter
             jc_payload["content_preview"] = str(cell.content or "")[:200]
             jc_payload["context"] = cell.context or ""
-            
+
             from cynic.kernel.core.nerves import COGNITION
+
             await COGNITION.emit_judgment(jc_payload)
 
             # Tier 1 Nervous System: Record judgment in Service State Registry
@@ -270,30 +308,34 @@ class JudgeOrchestrator:
             # Dogs cooperating (PBFT quorum achieved) = CONSENSUS_REACHED.
             # Dogs failing to agree = CONSENSUS_FAILED.
             if judgment.consensus_reached:
-                await get_core_bus().emit(Event.typed(
-                    CoreEvent.CONSENSUS_REACHED,
-                    ConsensusReachedPayload(
-                        q_score=judgment.q_score,
-                        votes=judgment.consensus_votes,
-                        quorum=judgment.consensus_quorum,
-                        verdict=judgment.verdict,
-                        judgment_id=judgment.judgment_id,
-                        cell_id=cell.cell_id,
-                        reality=cell.reality,
-                    ),
-                ))
+                await get_core_bus().emit(
+                    Event.typed(
+                        CoreEvent.CONSENSUS_REACHED,
+                        ConsensusReachedPayload(
+                            q_score=judgment.q_score,
+                            votes=judgment.consensus_votes,
+                            quorum=judgment.consensus_quorum,
+                            verdict=judgment.verdict,
+                            judgment_id=judgment.judgment_id,
+                            cell_id=cell.cell_id,
+                            reality=cell.reality,
+                        ),
+                    )
+                )
             else:
-                await get_core_bus().emit(Event.typed(
-                    CoreEvent.CONSENSUS_FAILED,
-                    ConsensusFailedPayload(
-                        votes=judgment.consensus_votes,
-                        quorum=judgment.consensus_quorum,
-                        judgment_id=judgment.judgment_id,
-                        residual_variance=judgment.residual_variance,
-                        cell_id=cell.cell_id,
-                        reality=cell.reality,
-                    ),
-                ))
+                await get_core_bus().emit(
+                    Event.typed(
+                        CoreEvent.CONSENSUS_FAILED,
+                        ConsensusFailedPayload(
+                            votes=judgment.consensus_votes,
+                            quorum=judgment.consensus_quorum,
+                            judgment_id=judgment.judgment_id,
+                            residual_variance=judgment.residual_variance,
+                            cell_id=cell.cell_id,
+                            reality=cell.reality,
+                        ),
+                    )
+                )
 
                 # Record emergence pattern (THE_UNNAMEABLE) for federation sharing
                 if self.gossip_manager is not None:
@@ -301,16 +343,18 @@ class JudgeOrchestrator:
 
             # Emit LEARNING_EVENT for ALL cycles (REFLEX/MICRO/MACRO).
             # Was incorrectly placed inside _cycle_macro only — Q-Learning never fired.
-            await get_core_bus().emit(Event.typed(
-                CoreEvent.LEARNING_EVENT,
-                LearningEventPayload(
-                    reward=judgment.q_score / MAX_Q_SCORE,
-                    action=judgment.verdict,
-                    state_key=cell.state_key(),
-                    judgment_id=judgment.judgment_id,
-                    loop_name="JUDGE_ORCHESTRATOR",
-                ),
-            ))
+            await get_core_bus().emit(
+                Event.typed(
+                    CoreEvent.LEARNING_EVENT,
+                    LearningEventPayload(
+                        reward=judgment.q_score / MAX_Q_SCORE,
+                        action=judgment.verdict,
+                        state_key=cell.state_key(),
+                        judgment_id=judgment.judgment_id,
+                        loop_name="JUDGE_ORCHESTRATOR",
+                    ),
+                )
+            )
 
             # STEP 5 (LEARN): Feed Scholar its outcome — builds similarity memory.
             # ScholarDog.learn() is separate from analyze() to avoid feedback contamination.
@@ -348,8 +392,7 @@ class JudgeOrchestrator:
             if judgment and not getattr(judgment, "reasoning", ""):
                 try:
                     explanation = await self._dialogue_agent.explain_judgment(
-                        judgment, 
-                        question=str(cell.content)
+                        judgment, question=str(cell.content)
                     )
                     if hasattr(judgment, "model_copy"):
                         judgment = judgment.model_copy(update={"reasoning": explanation})
@@ -368,13 +411,15 @@ class JudgeOrchestrator:
             logger.error("Judgment pipeline failed: %s", e, exc_info=True)
             # Circuit breaker: record failure — may open circuit after threshold
             self._circuit_breaker.record_failure()
-            await get_core_bus().emit(Event.typed(
-                CoreEvent.JUDGMENT_FAILED,
-                JudgmentFailedPayload(
-                    cell_id=cell.cell_id,
-                    error=str(e),
-                ),
-            ))
+            await get_core_bus().emit(
+                Event.typed(
+                    CoreEvent.JUDGMENT_FAILED,
+                    JudgmentFailedPayload(
+                        cell_id=cell.cell_id,
+                        error=str(e),
+                    ),
+                )
+            )
             raise
 
     # ── γ3: AXIOM → BUDGET MULTIPLIER ─────────────────────────────────────
@@ -425,10 +470,7 @@ class JudgeOrchestrator:
         """
         if not self._budget_exhausted:
             self._budget_exhausted = True
-            logger.error(
-                "*GROWL* Budget exhausted: forcing REFLEX-only mode "
-                "(zero LLM calls)"
-            )
+            logger.error("*GROWL* Budget exhausted: forcing REFLEX-only mode " "(zero LLM calls)")
 
     # ── LOD CAP (B2 fix) ───────────────────────────────────────────────────
 
@@ -444,12 +486,14 @@ class JudgeOrchestrator:
         if self.lod_controller is None:
             return level
         from cynic.kernel.organism.brain.cognition.cortex.lod import SurvivalLOD
+
         lod = self.lod_controller.current
         if lod >= SurvivalLOD.EMERGENCY:
             if level != ConsciousnessLevel.REFLEX:
                 logger.warning(
                     "LOD cap: %s → REFLEX (LOD=%s, system under stress)",
-                    level.name, lod.name,
+                    level.name,
+                    lod.name,
                 )
             return ConsciousnessLevel.REFLEX
         if lod == SurvivalLOD.REDUCED and level == ConsciousnessLevel.MACRO:
@@ -473,6 +517,7 @@ class JudgeOrchestrator:
         # Takes priority — a crashed system can't afford Ollama regardless of budget.
         if self.lod_controller is not None:
             from cynic.kernel.organism.brain.cognition.cortex.lod import SurvivalLOD
+
             lod = self.lod_controller.current
             if lod >= SurvivalLOD.EMERGENCY:
                 return ConsciousnessLevel.REFLEX
@@ -531,6 +576,7 @@ class JudgeOrchestrator:
 
         # Run all reflex Dogs in parallel
         import asyncio
+
         tasks = [dog.analyze(cell, budget_usd=cell.budget_usd) for dog in active_dogs]
         dog_judgments: list[DogJudgment] = await asyncio.gather(*tasks, return_exceptions=False)
         pipeline.dog_judgments = dog_judgments
@@ -591,6 +637,7 @@ class JudgeOrchestrator:
         Includes LLM Dogs at reduced budget. No ACT phase.
         """
         import asyncio
+
         cell = pipeline.cell
         micro_dog_ids = dogs_for_level(ConsciousnessLevel.MICRO)
         active_dogs = [d for did, d in self.dogs.items() if did in micro_dog_ids]
@@ -619,12 +666,15 @@ class JudgeOrchestrator:
                 if capped != ConsciousnessLevel.MACRO:
                     logger.info(
                         "L2→L1 escalation suppressed: LOD cap=%s for cell %s",
-                        capped.name, cell.cell_id,
+                        capped.name,
+                        cell.cell_id,
                     )
                 else:
                     logger.info(
                         "L2→L1 escalation: MICRO consensus failed (%d/%d votes) for cell %s → MACRO",
-                        consensus.votes, consensus.quorum, cell.cell_id,
+                        consensus.votes,
+                        consensus.quorum,
+                        cell.cell_id,
                     )
                     pipeline.level = ConsciousnessLevel.MACRO
                     return await self._cycle_macro(pipeline)
@@ -682,7 +732,7 @@ class JudgeOrchestrator:
             }
             or None if no action warranted/blocked
         """
-        decide_agent = getattr(self, 'decide_agent', None)
+        decide_agent = getattr(self, "decide_agent", None)
         if not decide_agent:
             return None
 
@@ -692,22 +742,23 @@ class JudgeOrchestrator:
             return None  # No action needed
 
         # NEW: GUARDRAIL VALIDATION — DecisionValidator chains all safety checks
-        decision_validator = getattr(self, 'decision_validator', None)
+        decision_validator = getattr(self, "decision_validator", None)
         if decision_validator:
             try:
                 await decision_validator.validate_decision(
                     decision=decision,
                     judgment=judgment,
-                    recent_judgments=self._recent_judgments[-5:] if hasattr(self, '_recent_judgments') else [],
-                    scheduler=pipeline.scheduler if hasattr(pipeline, 'scheduler') else None,
+                    recent_judgments=self._recent_judgments[-5:]
+                    if hasattr(self, "_recent_judgments")
+                    else [],
+                    scheduler=pipeline.scheduler if hasattr(pipeline, "scheduler") else None,
                 )
                 # Decision passed all guardrails
                 logger.info(f"Decision validated: {decision['verdict']} → proceeding to ACT")
             except BlockedDecision as e:
                 # Decision blocked by guardrail
                 logger.warning(
-                    f"Decision BLOCKED [{e.guardrail}]: {e.reason} "
-                    f"→ {e.recommendation}"
+                    f"Decision BLOCKED [{e.guardrail}]: {e.reason} " f"→ {e.recommendation}"
                 )
                 # Return block result without executing
                 return {
@@ -722,33 +773,37 @@ class JudgeOrchestrator:
 
         # Filter: only execute for actionable realities
         from cynic.kernel.organism.brain.cognition.cortex.decide import _ACT_REALITIES
+
         if decision["reality"] not in _ACT_REALITIES:
             # Still emit DECISION_MADE for human review, but don't auto-execute
-            await get_core_bus().emit(Event.typed(
-                CoreEvent.DECISION_MADE,
-                DecisionMadePayload(
-                    verdict=decision["verdict"],
-                    reality=decision["reality"],
-                    state_key=decision["state_key"],
-                    q_value=decision["q_value"],
-                    confidence=decision["confidence"],
-                    recommended_action=decision["recommended_action"],
-                    action_prompt=decision["action_prompt"],
-                    trigger="decide_phase",
-                    mcts=True,
-                    judgment_id=decision["judgment_id"],
-                ),
-                source="orchestrator_act_phase",
-            ))
+            await get_core_bus().emit(
+                Event.typed(
+                    CoreEvent.DECISION_MADE,
+                    DecisionMadePayload(
+                        verdict=decision["verdict"],
+                        reality=decision["reality"],
+                        state_key=decision["state_key"],
+                        q_value=decision["q_value"],
+                        confidence=decision["confidence"],
+                        recommended_action=decision["recommended_action"],
+                        action_prompt=decision["action_prompt"],
+                        trigger="decide_phase",
+                        mcts=True,
+                        judgment_id=decision["judgment_id"],
+                    ),
+                    source="orchestrator_act_phase",
+                )
+            )
             return None
 
         # STEP 4: ACT — execute the action
-        runner = getattr(self, 'runner', None)
+        runner = getattr(self, "runner", None)
         if not runner:
             logger.warning("No runner available — cannot execute action")
             return None
 
         import time
+
         t0 = time.perf_counter()
         try:
             action_result = await runner.execute(
@@ -767,19 +822,24 @@ class JudgeOrchestrator:
 
             # Emit ACT_COMPLETED event (for feedback loops L3, L4)
             from cynic.kernel.core.events_schema import ActCompletedPayload
-            await get_core_bus().emit(Event.typed(
-                CoreEvent.ACT_COMPLETED,
-                ActCompletedPayload(
-                    success=result["success"],
-                    action_id=result["action_id"],
-                    duration_ms=result["duration_ms"],
-                    error=result["error"],
-                ),
-            ))
+
+            await get_core_bus().emit(
+                Event.typed(
+                    CoreEvent.ACT_COMPLETED,
+                    ActCompletedPayload(
+                        success=result["success"],
+                        action_id=result["action_id"],
+                        duration_ms=result["duration_ms"],
+                        error=result["error"],
+                    ),
+                )
+            )
 
             logger.info(
                 "ACT: executed %s (success=%s, %.0fms)",
-                result["action_id"], result["success"], duration_ms,
+                result["action_id"],
+                result["success"],
+                duration_ms,
             )
             return result
 
@@ -841,28 +901,32 @@ class JudgeOrchestrator:
                 )
                 elapsed = (time.time() - t0) * 1000
                 passed = probe["min_q"] <= judgment.q_score <= probe["max_q"]
-                results.append(ProbeResult(
-                    name=probe["name"],
-                    q_score=judgment.q_score,
-                    verdict=judgment.verdict,
-                    expected_min=probe["min_q"],
-                    expected_max=probe["max_q"],
-                    passed=passed,
-                    duration_ms=elapsed,
-                ))
+                results.append(
+                    ProbeResult(
+                        name=probe["name"],
+                        q_score=judgment.q_score,
+                        verdict=judgment.verdict,
+                        expected_min=probe["min_q"],
+                        expected_max=probe["max_q"],
+                        passed=passed,
+                        duration_ms=elapsed,
+                    )
+                )
             except CynicError as exc:
                 elapsed = (time.time() - t0) * 1000
                 logger.warning("evolve() probe %s failed: %s", probe["name"], exc)
-                results.append(ProbeResult(
-                    name=probe["name"],
-                    q_score=0.0,
-                    verdict="BARK",
-                    expected_min=probe["min_q"],
-                    expected_max=probe["max_q"],
-                    passed=False,
-                    duration_ms=elapsed,
-                    error=str(exc),
-                ))
+                results.append(
+                    ProbeResult(
+                        name=probe["name"],
+                        q_score=0.0,
+                        verdict="BARK",
+                        expected_min=probe["min_q"],
+                        expected_max=probe["max_q"],
+                        passed=False,
+                        duration_ms=elapsed,
+                        error=str(exc),
+                    )
+                )
 
         pass_count = sum(1 for r in results if r.passed)
         pass_rate = pass_count / len(results) if results else 0.0
@@ -894,15 +958,19 @@ class JudgeOrchestrator:
             except CynicError as exc:
                 logger.warning("BenchmarkRegistry.record_evolve() failed: %s", exc)
 
-        await get_core_bus().emit(Event.typed(
-            CoreEvent.META_CYCLE,
-            MetaCyclePayload(evolve=summary),
-        ))
+        await get_core_bus().emit(
+            Event.typed(
+                CoreEvent.META_CYCLE,
+                MetaCyclePayload(evolve=summary),
+            )
+        )
 
         log_line = "evolve() %d/%d probes passed (%.0f%%)%s"
         logger.info(
             log_line,
-            pass_count, len(results), pass_rate * 100,
+            pass_count,
+            len(results),
+            pass_rate * 100,
             " -- REGRESSION DETECTED" if regression else "",
         )
 
@@ -913,7 +981,9 @@ class JudgeOrchestrator:
         return {
             "judgments_total": self._judgment_count,
             "dogs_active": len(self.dogs),
-            "consciousness": self._consciousness.model_dump() if hasattr(self._consciousness, "model_dump") else str(self._consciousness),
+            "consciousness": self._consciousness.model_dump()
+            if hasattr(self._consciousness, "model_dump")
+            else str(self._consciousness),
             "evolve_cycles": len(self._evolve_history),
             "last_evolve_pass_rate": last_evolve["pass_rate"] if last_evolve else None,
             "last_evolve_regression": last_evolve["regression"] if last_evolve else False,

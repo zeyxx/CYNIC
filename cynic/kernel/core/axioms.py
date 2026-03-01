@@ -28,6 +28,7 @@ Scoring:
     - Weighted geometric mean → Q-Score ∈ [0, 100] (confidence φ-bounded to 61.8%)
     - Fractal recursion: facets → sub-facets (max 3 levels deep)
 """
+
 from __future__ import annotations
 
 import time
@@ -56,6 +57,7 @@ from cynic.kernel.core.phi import (
 # AXIOM NAMES & TIER DEFINITIONS
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class Axiom(StrEnum):
     """All 11 axioms + THE_UNNAMEABLE."""
 
@@ -80,17 +82,22 @@ class Axiom(StrEnum):
     THE_UNNAMEABLE = "THE_UNNAMEABLE"
 
 
-CORE_AXIOMS: list[Axiom] = [
-    Axiom.FIDELITY, Axiom.PHI, Axiom.VERIFY, Axiom.CULTURE, Axiom.BURN
-]
+CORE_AXIOMS: list[Axiom] = [Axiom.FIDELITY, Axiom.PHI, Axiom.VERIFY, Axiom.CULTURE, Axiom.BURN]
 
 EMERGENT_AXIOMS: list[Axiom] = [
-    Axiom.AUTONOMY, Axiom.SYMBIOSIS, Axiom.EMERGENCE, Axiom.ANTIFRAGILITY,
-    Axiom.CONSCIOUSNESS, Axiom.TRANSCENDENCE,
+    Axiom.AUTONOMY,
+    Axiom.SYMBIOSIS,
+    Axiom.EMERGENCE,
+    Axiom.ANTIFRAGILITY,
+    Axiom.CONSCIOUSNESS,
+    Axiom.TRANSCENDENCE,
 ]
 
 PRACTICAL_AXIOMS: list[Axiom] = CORE_AXIOMS + [
-    Axiom.AUTONOMY, Axiom.SYMBIOSIS, Axiom.EMERGENCE, Axiom.ANTIFRAGILITY
+    Axiom.AUTONOMY,
+    Axiom.SYMBIOSIS,
+    Axiom.EMERGENCE,
+    Axiom.ANTIFRAGILITY,
 ]
 
 
@@ -100,48 +107,48 @@ PRACTICAL_AXIOMS: list[Axiom] = CORE_AXIOMS + [
 
 AXIOM_FACETS: dict[str, dict[str, str]] = {
     "FIDELITY": {
-        "COMMITMENT":     "Long-term dedication to truth over comfort",
-        "ATTUNEMENT":     "Sensitivity to context, nuance, and signal",
-        "CANDOR":         "Honesty without spin, deception, or omission",
-        "CONGRUENCE":     "Alignment between stated intent and actual action",
+        "COMMITMENT": "Long-term dedication to truth over comfort",
+        "ATTUNEMENT": "Sensitivity to context, nuance, and signal",
+        "CANDOR": "Honesty without spin, deception, or omission",
+        "CONGRUENCE": "Alignment between stated intent and actual action",
         "ACCOUNTABILITY": "Ownership of consequences (good and bad)",
-        "VIGILANCE":      "Constant questioning of assumptions (self-skepticism)",
-        "KENOSIS":        "Emptying of ego and bias to receive truth clearly",
+        "VIGILANCE": "Constant questioning of assumptions (self-skepticism)",
+        "KENOSIS": "Emptying of ego and bias to receive truth clearly",
     },
     "PHI": {
-        "COHERENCE":    "Logical consistency across all levels",
-        "ELEGANCE":     "Simplicity and beauty in structure",
-        "STRUCTURE":    "Well-organized, comprehensible architecture",
-        "HARMONY":      "Balance between all components (none dominates)",
-        "PRECISION":    "Exactitude in measurement and language",
+        "COHERENCE": "Logical consistency across all levels",
+        "ELEGANCE": "Simplicity and beauty in structure",
+        "STRUCTURE": "Well-organized, comprehensible architecture",
+        "HARMONY": "Balance between all components (none dominates)",
+        "PRECISION": "Exactitude in measurement and language",
         "COMPLETENESS": "Nothing essential is missing",
-        "PROPORTION":   "φ-aligned ratios in scale and scope",
+        "PROPORTION": "φ-aligned ratios in scale and scope",
     },
     "VERIFY": {
-        "ACCURACY":        "Correctness of facts and computations",
-        "PROVENANCE":      "Traceable, verified origin of claims",
-        "INTEGRITY":       "Unmodified since creation (hash/signature)",
-        "VERIFIABILITY":   "Can be independently checked by a third party",
-        "TRANSPARENCY":    "Process and reasoning fully visible",
+        "ACCURACY": "Correctness of facts and computations",
+        "PROVENANCE": "Traceable, verified origin of claims",
+        "INTEGRITY": "Unmodified since creation (hash/signature)",
+        "VERIFIABILITY": "Can be independently checked by a third party",
+        "TRANSPARENCY": "Process and reasoning fully visible",
         "REPRODUCIBILITY": "Results can be replicated with same inputs",
-        "CONSENSUS":       "Agreement among independent validators",
+        "CONSENSUS": "Agreement among independent validators",
     },
     "CULTURE": {
         "AUTHENTICITY": "True to its stated nature and origin",
-        "RESONANCE":    "Aligns with and respects existing patterns",
-        "NOVELTY":      "Brings something genuinely new to the context",
-        "ALIGNMENT":    "Fits the current environment and constraints",
-        "RELEVANCE":    "Matters now, addresses real problems",
-        "IMPACT":       "Changes things in measurable ways",
-        "LINEAGE":      "Honors and builds on what came before",
+        "RESONANCE": "Aligns with and respects existing patterns",
+        "NOVELTY": "Brings something genuinely new to the context",
+        "ALIGNMENT": "Fits the current environment and constraints",
+        "RELEVANCE": "Matters now, addresses real problems",
+        "IMPACT": "Changes things in measurable ways",
+        "LINEAGE": "Honors and builds on what came before",
     },
     "BURN": {
-        "UTILITY":         "Serves a clear, demonstrable purpose",
-        "SUSTAINABILITY":  "Can be maintained without collapse",
-        "EFFICIENCY":      "Minimal waste (tokens, compute, attention)",
-        "VALUE_CREATION":  "Generates measurable worth beyond cost",
-        "SACRIFICE":       "Willingness to give up complexity for clarity",
-        "CONTRIBUTION":    "Adds to the collective whole",
+        "UTILITY": "Serves a clear, demonstrable purpose",
+        "SUSTAINABILITY": "Can be maintained without collapse",
+        "EFFICIENCY": "Minimal waste (tokens, compute, attention)",
+        "VALUE_CREATION": "Generates measurable worth beyond cost",
+        "SACRIFICE": "Willingness to give up complexity for clarity",
+        "CONTRIBUTION": "Adds to the collective whole",
         "IRREVERSIBILITY": "Commitment is demonstrated (cannot be undone)",
     },
 }
@@ -151,8 +158,10 @@ AXIOM_FACETS: dict[str, dict[str, str]] = {
 # CONTEXTUAL WEIGHTS PER DOMAIN
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class Domain(StrEnum):
     """7 Reality Dimensions (what exists)."""
+
     CODE = "CODE"
     SOLANA = "SOLANA"
     MARKET = "MARKET"
@@ -164,53 +173,53 @@ class Domain(StrEnum):
 
 DEFAULT_CONTEXTUAL_WEIGHTS: dict[str, dict[str, float]] = {
     "CODE": {
-        "VERIFY":   PHI_2,     # 2.618
-        "PHI":      PHI,       # 1.618
-        "BURN":     PHI,       # 1.618
-        "CULTURE":  1.0,       # 1.000
-        "FIDELITY": PHI_INV,   # 0.618
+        "VERIFY": PHI_2,  # 2.618
+        "PHI": PHI,  # 1.618
+        "BURN": PHI,  # 1.618
+        "CULTURE": 1.0,  # 1.000
+        "FIDELITY": PHI_INV,  # 0.618
     },
     "SOLANA": {
-        "VERIFY":   PHI_3,     # 4.236
-        "FIDELITY": PHI_2,     # 2.618
-        "CULTURE":  PHI,       # 1.618
-        "PHI":      1.0,       # 1.000
-        "BURN":     PHI_INV,   # 0.618
+        "VERIFY": PHI_3,  # 4.236
+        "FIDELITY": PHI_2,  # 2.618
+        "CULTURE": PHI,  # 1.618
+        "PHI": 1.0,  # 1.000
+        "BURN": PHI_INV,  # 0.618
     },
     "MARKET": {
-        "PHI":      PHI_2,     # 2.618
-        "VERIFY":   PHI,       # 1.618
-        "FIDELITY": PHI,       # 1.618
-        "CULTURE":  1.0,       # 1.000
-        "BURN":     PHI_INV,   # 0.618
+        "PHI": PHI_2,  # 2.618
+        "VERIFY": PHI,  # 1.618
+        "FIDELITY": PHI,  # 1.618
+        "CULTURE": 1.0,  # 1.000
+        "BURN": PHI_INV,  # 0.618
     },
     "SOCIAL": {
-        "CULTURE":  PHI_2,     # 2.618
-        "FIDELITY": PHI,       # 1.618
-        "PHI":      PHI,       # 1.618
-        "VERIFY":   1.0,       # 1.000
-        "BURN":     PHI_INV,   # 0.618
+        "CULTURE": PHI_2,  # 2.618
+        "FIDELITY": PHI,  # 1.618
+        "PHI": PHI,  # 1.618
+        "VERIFY": 1.0,  # 1.000
+        "BURN": PHI_INV,  # 0.618
     },
     "HUMAN": {
-        "FIDELITY": PHI_3,     # 4.236
-        "CULTURE":  PHI_2,     # 2.618
-        "PHI":      PHI,       # 1.618
-        "VERIFY":   1.0,       # 1.000
-        "BURN":     PHI_INV,   # 0.618
+        "FIDELITY": PHI_3,  # 4.236
+        "CULTURE": PHI_2,  # 2.618
+        "PHI": PHI,  # 1.618
+        "VERIFY": 1.0,  # 1.000
+        "BURN": PHI_INV,  # 0.618
     },
     "CYNIC": {
-        "PHI":      PHI_2,     # 2.618
-        "VERIFY":   PHI_2,     # 2.618
-        "FIDELITY": PHI,       # 1.618
-        "BURN":     PHI,       # 1.618
-        "CULTURE":  1.0,       # 1.000
+        "PHI": PHI_2,  # 2.618
+        "VERIFY": PHI_2,  # 2.618
+        "FIDELITY": PHI,  # 1.618
+        "BURN": PHI,  # 1.618
+        "CULTURE": 1.0,  # 1.000
     },
     "COSMOS": {
-        "CULTURE":  PHI_3,     # 4.236
-        "PHI":      PHI_2,     # 2.618
-        "FIDELITY": PHI,       # 1.618
-        "VERIFY":   1.0,       # 1.000
-        "BURN":     PHI_INV,   # 0.618
+        "CULTURE": PHI_3,  # 4.236
+        "PHI": PHI_2,  # 2.618
+        "FIDELITY": PHI,  # 1.618
+        "VERIFY": 1.0,  # 1.000
+        "BURN": PHI_INV,  # 0.618
     },
 }
 
@@ -220,6 +229,7 @@ class FacetRegistry:
     Dynamic registry for Axiom facets.
     Checks SurrealDB first, falls back to static AXIOM_FACETS.
     """
+
     def __init__(self, storage: Any | None = None) -> None:
         self.storage = storage
         self._cache: dict[str, dict[str, str]] = {}
@@ -245,14 +255,18 @@ class FacetRegistry:
             self._cache[cache_key] = facets
         return facets
 
-    async def register_facet(self, axiom: str, reality: str, facet: str, description: str = "") -> None:
+    async def register_facet(
+        self, axiom: str, reality: str, facet: str, description: str = ""
+    ) -> None:
         if self.storage and hasattr(self.storage, "axiom_facets"):
-            await self.storage.axiom_facets.save({
-                "axiom": axiom,
-                "reality": reality,
-                "facet": facet,
-                "description": description,
-            })
+            await self.storage.axiom_facets.save(
+                {
+                    "axiom": axiom,
+                    "reality": reality,
+                    "facet": facet,
+                    "description": description,
+                }
+            )
         cache_key = f"{axiom}:{reality}"
         if cache_key not in self._cache:
             self._cache[cache_key] = {}
@@ -262,6 +276,7 @@ class FacetRegistry:
 # ════════════════════════════════════════════════════════════════════════════
 # ACTIVATION THRESHOLDS
 # ════════════════════════════════════════════════════════════════════════════
+
 
 @dataclass
 class EmergentThreshold:
@@ -301,6 +316,7 @@ EMERGENT_THRESHOLDS: dict[str, EmergentThreshold] = {
 # VERDICT & RESULTS
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class Verdict(StrEnum):
     HOWL = "HOWL"
     WAG = "WAG"
@@ -309,9 +325,12 @@ class Verdict(StrEnum):
 
 
 def verdict_from_q_score(q_score: float) -> Verdict:
-    if q_score >= HOWL_MIN: return Verdict.HOWL
-    if q_score >= WAG_MIN: return Verdict.WAG
-    if q_score >= GROWL_MIN: return Verdict.GROWL
+    if q_score >= HOWL_MIN:
+        return Verdict.HOWL
+    if q_score >= WAG_MIN:
+        return Verdict.WAG
+    if q_score >= GROWL_MIN:
+        return Verdict.GROWL
     return Verdict.BARK
 
 
@@ -348,7 +367,9 @@ class FullAxiomResult:
 @dataclass
 class AxiomArchitectureState:
     active_axioms: list[str] = field(default_factory=lambda: [a.value for a in CORE_AXIOMS])
-    emergent_states: dict[str, bool] = field(default_factory=lambda: {a.value: False for a in EMERGENT_AXIOMS})
+    emergent_states: dict[str, bool] = field(
+        default_factory=lambda: {a.value: False for a in EMERGENT_AXIOMS}
+    )
     learned_weights: dict[str, dict[str, float]] = field(
         default_factory=lambda: {k: dict(v) for k, v in DEFAULT_CONTEXTUAL_WEIGHTS.items()}
     )
@@ -359,8 +380,10 @@ class AxiomArchitectureState:
 # AXIOM ARCHITECTURE
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class AxiomArchitecture:
     """Fractal-Dynamic-Contextual Axiom System."""
+
     def __init__(
         self,
         state: AxiomArchitectureState | None = None,
@@ -384,25 +407,37 @@ class AxiomArchitecture:
     def check_emergent_activation(self, metrics: dict[str, float]) -> list[str]:
         newly_activated = []
         for name, threshold in EMERGENT_THRESHOLDS.items():
-            if self.state.emergent_states.get(name, False): continue
+            if self.state.emergent_states.get(name, False):
+                continue
             if all(metrics.get(k, 0.0) >= v for k, v in threshold.conditions.items()):
                 self.state.emergent_states[name] = True
-                if name not in self.state.active_axioms: self.state.active_axioms.append(name)
-                self.state.activation_log.append({"axiom": name, "timestamp": time.time(), "metrics": dict(metrics)})
+                if name not in self.state.active_axioms:
+                    self.state.active_axioms.append(name)
+                self.state.activation_log.append(
+                    {"axiom": name, "timestamp": time.time(), "metrics": dict(metrics)}
+                )
                 newly_activated.append(name)
         return newly_activated
 
-    async def score_axiom_fractal(self, axiom_name: str, context: str, reality: str = "CYNIC", depth: int = 1, max_depth: int = 3) -> float:
-        if depth > max_depth: return 50.0
+    async def score_axiom_fractal(
+        self,
+        axiom_name: str,
+        context: str,
+        reality: str = "CYNIC",
+        depth: int = 1,
+        max_depth: int = 3,
+    ) -> float:
+        if depth > max_depth:
+            return 50.0
         facets = await self.registry.get_facets(axiom_name, reality)
-        
+
         if not facets:
             # Try to trigger dreaming if callback exists
             if self.on_facets_missing:
                 await self.on_facets_missing(axiom_name, reality)
                 # Retry once after dreaming
                 facets = await self.registry.get_facets(axiom_name, reality)
-            
+
             if not facets:
                 return self._facet_scorer(axiom_name, axiom_name, context)
 
@@ -410,16 +445,22 @@ class AxiomArchitecture:
         for facet_name in facets:
             sub_facets = await self.registry.get_facets(facet_name, reality)
             if depth < max_depth and sub_facets:
-                s = await self.score_axiom_fractal(facet_name, context, reality, depth + 1, max_depth)
+                s = await self.score_axiom_fractal(
+                    facet_name, context, reality, depth + 1, max_depth
+                )
             else:
                 s = self._facet_scorer(axiom_name, facet_name, context)
             scores.append(max(0.0, min(100.0, s)))
         return geometric_mean(scores) if scores else 50.0
 
-    def _default_facet_scorer(self, a, f, c) -> float: return 50.0
+    def _default_facet_scorer(self, a, f, c) -> float:
+        return 50.0
 
-    def compute_q_score(self, domain: str, axiom_scores: dict[str, float], metrics: dict[str, float] | None = None) -> float:
-        if metrics: self.check_emergent_activation(metrics)
+    def compute_q_score(
+        self, domain: str, axiom_scores: dict[str, float], metrics: dict[str, float] | None = None
+    ) -> float:
+        if metrics:
+            self.check_emergent_activation(metrics)
         active = self.active_axioms
         vals, weights = [], []
         dw = self.state.learned_weights.get(domain, DEFAULT_CONTEXTUAL_WEIGHTS.get(domain, {}))
@@ -428,24 +469,49 @@ class AxiomArchitecture:
             weights.append(dw.get(axiom, 1.0))
         return phi_bound_score(weighted_geometric_mean(vals, weights)) if vals else 0.0
 
-    async def score_and_compute(self, domain: str, context: str, fractal_depth: int = 1, metrics: dict[str, float] | None = None, dog_inputs: dict[str, float] | None = None) -> FullAxiomResult:
+    async def score_and_compute(
+        self,
+        domain: str,
+        context: str,
+        fractal_depth: int = 1,
+        metrics: dict[str, float] | None = None,
+        dog_inputs: dict[str, float] | None = None,
+    ) -> FullAxiomResult:
         axiom_scores, axiom_details = {}, {}
         inputs = dog_inputs or {}
         for name in self.active_axioms:
-            score = inputs[name] if name in inputs else await self.score_axiom_fractal(name, context, domain, fractal_depth)
+            score = (
+                inputs[name]
+                if name in inputs
+                else await self.score_axiom_fractal(name, context, domain, fractal_depth)
+            )
             axiom_scores[name] = score
             f_scores = {}
             facets = await self.registry.get_facets(name, domain)
             if facets:
                 for f_name in facets:
                     f_scores[f_name] = inputs.get(f_name, self._facet_scorer(name, f_name, context))
-            axiom_details[name] = AxiomScore(axiom=name, score=score, facet_scores=f_scores, depth=fractal_depth)
+            axiom_details[name] = AxiomScore(
+                axiom=name, score=score, facet_scores=f_scores, depth=fractal_depth
+            )
 
         q = self.compute_q_score(domain, axiom_scores, metrics)
-        return FullAxiomResult(domain=domain, q_score=q, verdict=verdict_from_q_score(q).value, axiom_scores=axiom_scores, axiom_details=axiom_details, active_axioms=list(self.active_axioms), timestamp=time.time())
+        return FullAxiomResult(
+            domain=domain,
+            q_score=q,
+            verdict=verdict_from_q_score(q).value,
+            axiom_scores=axiom_scores,
+            axiom_details=axiom_details,
+            active_axioms=list(self.active_axioms),
+            timestamp=time.time(),
+        )
 
-    def update_contextual_weights(self, domain: str, gradient: dict[str, float], lr: float = 0.038) -> None:
-        if domain not in self.state.learned_weights: self.state.learned_weights[domain] = dict(DEFAULT_CONTEXTUAL_WEIGHTS.get(domain, {}))
+    def update_contextual_weights(
+        self, domain: str, gradient: dict[str, float], lr: float = 0.038
+    ) -> None:
+        if domain not in self.state.learned_weights:
+            self.state.learned_weights[domain] = dict(DEFAULT_CONTEXTUAL_WEIGHTS.get(domain, {}))
         w = self.state.learned_weights[domain]
         for axiom, grad in gradient.items():
-            if axiom in w: w[axiom] = max(0.0, w[axiom] + lr * grad)
+            if axiom in w:
+                w[axiom] = max(0.0, w[axiom] + lr * grad)

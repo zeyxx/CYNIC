@@ -6,6 +6,7 @@ Validation catches insecure defaults and missing backends.
 
 φ-Law: VERIFY — one truth, no scattered defaults.
 """
+
 from __future__ import annotations
 
 import logging
@@ -83,10 +84,7 @@ class CynicConfig:
             surreal_pass=os.getenv("SURREAL_PASS", "local_dev_only"),
             surreal_ns=os.getenv("SURREAL_NS", "cynic"),
             surreal_db=os.getenv("SURREAL_DB", "cynic"),
-            database_url=(
-                os.getenv("CYNIC_DATABASE_URL")
-                or os.getenv("DATABASE_URL")
-            ),
+            database_url=(os.getenv("CYNIC_DATABASE_URL") or os.getenv("DATABASE_URL")),
             # LLM
             ollama_url=os.getenv("OLLAMA_URL", "http://localhost:11434"),
             anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
@@ -111,22 +109,15 @@ class CynicConfig:
         # Storage warnings
         if self.surreal_url is None and self.database_url is None:
             issues.append(
-                "WARN: No storage backend configured "
-                "(set SURREAL_URL or DATABASE_URL)"
+                "WARN: No storage backend configured " "(set SURREAL_URL or DATABASE_URL)"
             )
 
         if self.surreal_pass in ("root", "local_dev_only", "cynic_phi_618"):
             if self.surreal_url and "localhost" not in self.surreal_url:
-                issues.append(
-                    "CRITICAL: Using default SurrealDB password on non-local URL"
-                )
+                issues.append("CRITICAL: Using default SurrealDB password on non-local URL")
 
         # LLM warnings
-        has_any_llm = bool(
-            self.anthropic_api_key
-            or self.google_api_key
-            or self.models_dir
-        )
+        has_any_llm = bool(self.anthropic_api_key or self.google_api_key or self.models_dir)
         if not has_any_llm:
             issues.append(
                 "INFO: No API keys or local models configured — "
@@ -135,9 +126,7 @@ class CynicConfig:
 
         # Port
         if self.port < 1024:
-            issues.append(
-                f"WARN: Port {self.port} requires root/admin privileges"
-            )
+            issues.append(f"WARN: Port {self.port} requires root/admin privileges")
 
         return issues
 

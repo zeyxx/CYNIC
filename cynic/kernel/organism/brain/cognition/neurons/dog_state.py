@@ -16,6 +16,7 @@ This enables:
   3. **Consensus**: Orchestrator aggregates dog votes (not re-judges)
   4. **Scaling**: Cost ∝ log(N), not N (no orchestrator bottleneck per dog)
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -36,6 +37,7 @@ class DogCognitionState:
     - No guardrails (those are organism-level)
     - Own Q-learning for domain-specific patterns
     """
+
     local_qtable: dict[str, float] = field(default_factory=dict)
     # state_key → Q-value for domain-specific decisions
 
@@ -67,6 +69,7 @@ class DogMetabolismState:
     - Security check → flag vulnerability
     - Documentation → generate docstring
     """
+
     pending_actions: list[dict[str, Any]] = field(default_factory=list)
     # Actions queued for execution
 
@@ -92,6 +95,7 @@ class DogSensoryState:
     - ANALYST observes formal verification signals
     - GUARDIAN observes security anomalies
     """
+
     observed_signals: list[dict[str, Any]] = field(default_factory=list)
     # Domain-specific signals this dog has observed
 
@@ -120,6 +124,7 @@ class DogMemoryState:
     - What they were wrong about (residuals)
     - Who they've talked to (gossip history)
     """
+
     learned_patterns: dict[str, float] = field(default_factory=dict)
     # pattern_name → effectiveness_score
 
@@ -156,6 +161,7 @@ class DogState:
     Fractal: Each dog is autonomous, not dependent on orchestrator for decisions.
     Gossip: Dogs exchange compressed_context + verdict, not raw observations.
     """
+
     dog_id: str
     # Which dog this is (SAGE, ANALYST, GUARDIAN, etc.)
 
@@ -202,4 +208,5 @@ class DogState:
     def uptime_s(self) -> float:
         """How long has this dog been alive?"""
         import time
+
         return time.time() - self.created_at

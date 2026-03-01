@@ -20,9 +20,11 @@ from cynic.kernel.core.phi import PHI_INV
 
 logger = logging.getLogger("cynic.kernel.organism.layers.embodiment")
 
+
 @dataclass
 class SomaticState:
     """The physical state of the hardware body."""
+
     cpu_percent: float = 0.0
     ram_percent: float = 0.0
     disk_usage: float = 0.0
@@ -42,6 +44,7 @@ class SomaticState:
             "timestamp": self.timestamp,
         }
 
+
 class HardwareBody:
     """
     The 'Skin' and 'Nerves' of CYNIC.
@@ -50,6 +53,7 @@ class HardwareBody:
 
     def __init__(self) -> None:
         from cynic.kernel.core.formulas import get_respiration_interval_s
+
         self.update_interval = get_respiration_interval_s()
         self._last_state: SomaticState | None = None
         self._start_time = time.time()
@@ -62,12 +66,8 @@ class HardwareBody:
         try:
             cpu = psutil.cpu_percent(interval=0.1)
             ram = psutil.virtual_memory().percent
-            disk = psutil.disk_usage('/').percent
-            self._last_state = SomaticState(
-                cpu_percent=cpu,
-                ram_percent=ram,
-                disk_usage=disk
-            )
+            disk = psutil.disk_usage("/").percent
+            self._last_state = SomaticState(cpu_percent=cpu, ram_percent=ram, disk_usage=disk)
         except Exception:
             self._last_state = SomaticState()
 
@@ -77,13 +77,13 @@ class HardwareBody:
             # 1. Gather hardware metrics
             cpu = psutil.cpu_percent(interval=None)
             ram = psutil.virtual_memory().percent
-            disk = psutil.disk_usage('/').percent
-            
+            disk = psutil.disk_usage("/").percent
+
             # Battery (Optional)
             batt = psutil.sensors_battery()
             batt_percent = batt.percent if batt else None
             is_charging = batt.power_plugged if batt else True
-            
+
             # Temperature (OS Dependent)
             temp = None
             if hasattr(psutil, "sensors_temperatures"):
@@ -101,31 +101,32 @@ class HardwareBody:
                 is_charging=is_charging,
                 cpu_temp=temp,
             )
-            
+
             self._last_state = state
-            
+
             # 2. Emit somatic sensation to the bus
             # This allows cognition to 'feel' the hardware pressure
-            await self._bus.emit(Event(
-                topic="organism.somatic_sensation",
-                payload=state.to_dict()
-            ))
-            
+            await self._bus.emit(Event(topic="organism.somatic_sensation", payload=state.to_dict()))
+
             # 3. Log and Emit critical somatic alerts
             if cpu > 80.0:
                 logger.warning(f"Somatic Alert: CPU High Stress ({cpu}%)")
-                await self._bus.emit(Event.typed(
-                    CoreEvent.ANOMALY_DETECTED,
-                    payload={"type": "CPU_STRESS", "value": cpu, "source": "somatic"},
-                    source="hardware_body"
-                ))
+                await self._bus.emit(
+                    Event.typed(
+                        CoreEvent.ANOMALY_DETECTED,
+                        payload={"type": "CPU_STRESS", "value": cpu, "source": "somatic"},
+                        source="hardware_body",
+                    )
+                )
             if ram > 90.0:
                 logger.error(f"Somatic Alert: Memory Exhaustion imminent ({ram}%)")
-                await self._bus.emit(Event.typed(
-                    CoreEvent.ANOMALY_DETECTED,
-                    payload={"type": "RAM_STRESS", "value": ram, "source": "somatic"},
-                    source="hardware_body"
-                ))
+                await self._bus.emit(
+                    Event.typed(
+                        CoreEvent.ANOMALY_DETECTED,
+                        payload={"type": "RAM_STRESS", "value": ram, "source": "somatic"},
+                        source="hardware_body",
+                    )
+                )
 
             return state
 
@@ -140,10 +141,10 @@ class HardwareBody:
         """
         if not self._last_state:
             return 1.0
-        
+
         # Base cost 1.0, scales up with CPU/RAM pressure
         load = (self._last_state.cpu_percent + self._last_state.ram_percent) / 200.0
         # PHI-weighted penalty for high load
-        penalty = (load ** 2) * (1.0 / PHI_INV)
-        
+        penalty = (load**2) * (1.0 / PHI_INV)
+
         return 1.0 + penalty

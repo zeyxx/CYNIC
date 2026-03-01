@@ -5,6 +5,7 @@ Used to inject deterministic test signals without requiring real sensors
 (disk, git, solana, etc.). Observations are marked as synthetic for
 tracking/filtering.
 """
+
 from __future__ import annotations
 
 import logging
@@ -43,7 +44,9 @@ class EmpiricalSensor(Sensor):
     async def startup(self) -> None:
         """No-op — no I/O required."""
         self._index = 0
-        logger.debug(f"EmpiricalSensor({self._name}) started: {len(self._observations)} observations queued")
+        logger.debug(
+            f"EmpiricalSensor({self._name}) started: {len(self._observations)} observations queued"
+        )
 
     async def perceive(self) -> Observation | None:
         """
@@ -61,7 +64,9 @@ class EmpiricalSensor(Sensor):
 
     async def shutdown(self) -> None:
         """No-op — no resources to clean up."""
-        logger.debug(f"EmpiricalSensor({self._name}) shutdown: {self._index}/{len(self._observations)} observations replayed")
+        logger.debug(
+            f"EmpiricalSensor({self._name}) shutdown: {self._index}/{len(self._observations)} observations replayed"
+        )
 
     def stats(self) -> dict:
         """Return sensor statistics."""

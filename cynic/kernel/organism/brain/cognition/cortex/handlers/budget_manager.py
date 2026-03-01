@@ -9,6 +9,7 @@ Responsibility:
 - Apply LOD cap enforcement to consciousness levels
 - Track stress state for level selection
 """
+
 from __future__ import annotations
 
 import logging
@@ -67,7 +68,9 @@ class BudgetManager(BaseHandler):
                 "effective_budget": round(budget_usd * multiplier, 6) if budget_usd else 0.0,
             }
             duration_ms = (time.perf_counter() - t0) * 1000
-            self._log_execution("budget_check", f"stress={self._budget_stress} exhausted={self._budget_exhausted}")
+            self._log_execution(
+                "budget_check", f"stress={self._budget_stress} exhausted={self._budget_exhausted}"
+            )
 
             return HandlerResult(
                 success=True,
@@ -137,10 +140,7 @@ class BudgetManager(BaseHandler):
         """
         if not self._budget_exhausted:
             self._budget_exhausted = True
-            logger.error(
-                "*GROWL* Budget exhausted: forcing REFLEX-only mode "
-                "(zero LLM calls)"
-            )
+            logger.error("*GROWL* Budget exhausted: forcing REFLEX-only mode " "(zero LLM calls)")
 
     def reset_budget_state(self) -> None:
         """Reset stress and exhaustion flags when budget refills."""

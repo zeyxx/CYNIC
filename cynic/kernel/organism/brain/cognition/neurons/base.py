@@ -23,6 +23,7 @@ E-Score weights and Dog priority:
   SCOUT (Malkuth)    — φ⁻² priority (web, discovery)
   JANITOR (Yesod)    — φ⁻² priority (cleanup, linting)
 """
+
 from __future__ import annotations
 
 import time
@@ -52,34 +53,36 @@ from cynic.kernel.core.phi import (
 # DOG REGISTRY (all 11 Dogs with their Sefirot)
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class DogId(StrEnum):
     """The 11 Dogs — Sefirot of the Kabbalistic Tree of Life."""
-    CYNIC         = "CYNIC"        # Keter — Crown (PBFT coordinator)
-    SAGE          = "SAGE"         # Chokmah — Wisdom (LLM + RDFLib)
-    ANALYST       = "ANALYST"      # Binah — Understanding (Z3)
-    GUARDIAN      = "GUARDIAN"     # Gevurah — Strength (IsolationForest)
-    ORACLE        = "ORACLE"       # Tiferet — Beauty (MCTS + Thompson)
-    ARCHITECT     = "ARCHITECT"    # Netzach — Victory (TreeSitter)
-    CARTOGRAPHER  = "CARTOGRAPHER" # Daat — Knowledge (NetworkX)
-    SCHOLAR       = "SCHOLAR"      # Chesed — Kindness (Qdrant RAG)
-    DEPLOYER      = "DEPLOYER"     # Hod — Splendor (Ansible/K8s)
-    SCOUT         = "SCOUT"        # Malkuth — Kingdom (Scrapy)
-    JANITOR       = "JANITOR"      # Yesod — Foundation (Ruff AST)
+
+    CYNIC = "CYNIC"  # Keter — Crown (PBFT coordinator)
+    SAGE = "SAGE"  # Chokmah — Wisdom (LLM + RDFLib)
+    ANALYST = "ANALYST"  # Binah — Understanding (Z3)
+    GUARDIAN = "GUARDIAN"  # Gevurah — Strength (IsolationForest)
+    ORACLE = "ORACLE"  # Tiferet — Beauty (MCTS + Thompson)
+    ARCHITECT = "ARCHITECT"  # Netzach — Victory (TreeSitter)
+    CARTOGRAPHER = "CARTOGRAPHER"  # Daat — Knowledge (NetworkX)
+    SCHOLAR = "SCHOLAR"  # Chesed — Kindness (Qdrant RAG)
+    DEPLOYER = "DEPLOYER"  # Hod — Splendor (Ansible/K8s)
+    SCOUT = "SCOUT"  # Malkuth — Kingdom (Scrapy)
+    JANITOR = "JANITOR"  # Yesod — Foundation (Ruff AST)
 
 
 # φ-symmetric priority weights per Dog
 DOG_PRIORITY: dict[str, float] = {
-    DogId.CYNIC:        PHI_3,      # φ³ = 4.236 — highest, consensus critical
-    DogId.SAGE:         PHI_2,      # φ² = 2.618
-    DogId.ANALYST:      PHI_2,      # φ² = 2.618
-    DogId.GUARDIAN:     PHI,        # φ  = 1.618
-    DogId.ORACLE:       PHI,        # φ  = 1.618
-    DogId.ARCHITECT:    1.0,        # φ⁰ = 1.000
-    DogId.CARTOGRAPHER: 1.0,        # φ⁰ = 1.000
-    DogId.SCHOLAR:      PHI_INV,    # φ⁻¹ = 0.618
-    DogId.DEPLOYER:     PHI_INV,    # φ⁻¹ = 0.618
-    DogId.SCOUT:        PHI_INV_2,  # φ⁻² = 0.382
-    DogId.JANITOR:      PHI_INV_2,  # φ⁻² = 0.382
+    DogId.CYNIC: PHI_3,  # φ³ = 4.236 — highest, consensus critical
+    DogId.SAGE: PHI_2,  # φ² = 2.618
+    DogId.ANALYST: PHI_2,  # φ² = 2.618
+    DogId.GUARDIAN: PHI,  # φ  = 1.618
+    DogId.ORACLE: PHI,  # φ  = 1.618
+    DogId.ARCHITECT: 1.0,  # φ⁰ = 1.000
+    DogId.CARTOGRAPHER: 1.0,  # φ⁰ = 1.000
+    DogId.SCHOLAR: PHI_INV,  # φ⁻¹ = 0.618
+    DogId.DEPLOYER: PHI_INV,  # φ⁻¹ = 0.618
+    DogId.SCOUT: PHI_INV_2,  # φ⁻² = 0.382
+    DogId.JANITOR: PHI_INV_2,  # φ⁻² = 0.382
 }
 
 # Non-LLM Dogs (L3 REFLEX capable)
@@ -97,6 +100,7 @@ NON_LLM_DOGS: set[str] = {
 # DOG JUDGMENT OUTPUT
 # ════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class DogJudgment:
     """
@@ -105,17 +109,18 @@ class DogJudgment:
     Dogs vote with q_score + confidence.
     PBFT aggregates dog_judgments into ConsensusResult.
     """
+
     dog_id: str
     cell_id: str
-    q_score: float          # [0, 61.8] — φ-bounded
-    confidence: float       # [0, 0.618] — φ-bounded (max uncertainty)
-    reasoning: str = ""     # Human-readable explanation
+    q_score: float  # [0, 61.8] — φ-bounded
+    confidence: float  # [0, 0.618] — φ-bounded (max uncertainty)
+    reasoning: str = ""  # Human-readable explanation
     evidence: dict[str, Any] = field(default_factory=dict)  # Supporting data
     latency_ms: float = 0.0
     cost_usd: float = 0.0
     llm_id: str | None = None  # Which LLM was used (None for non-LLM Dogs)
     timestamp: float = field(default_factory=time.time)
-    veto: bool = False       # GUARDIAN can veto (blocks execution regardless of votes)
+    veto: bool = False  # GUARDIAN can veto (blocks execution regardless of votes)
 
     def __post_init__(self) -> None:
         # Enforce φ-bounds
@@ -146,6 +151,7 @@ class DogJudgment:
 # DOG CAPABILITIES
 # ════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class DogCapabilities:
     """
@@ -154,33 +160,32 @@ class DogCapabilities:
     Capabilities determine which Cells a Dog can usefully analyze.
     MCTS Level 1 selects Dog subsets based on combined capability coverage.
     """
+
     dog_id: str
-    sefirot: str                          # Kabbalistic name
-    consciousness_min: ConsciousnessLevel # Minimum level to activate
+    sefirot: str  # Kabbalistic name
+    consciousness_min: ConsciousnessLevel  # Minimum level to activate
     uses_llm: bool
-    supported_realities: set[str]        # Which reality dimensions
-    supported_analyses: set[str]         # Which analysis types
-    technology: str                      # Primary tech (Z3, IsolationForest, etc.)
-    max_concurrent: int = 1             # How many parallel instances allowed
+    supported_realities: set[str]  # Which reality dimensions
+    supported_analyses: set[str]  # Which analysis types
+    technology: str  # Primary tech (Z3, IsolationForest, etc.)
+    max_concurrent: int = 1  # How many parallel instances allowed
 
     @property
     def can_analyze(self, cell: Cell) -> bool:
         """Check if this Dog can analyze a given Cell."""
-        return (
-            cell.reality in self.supported_realities
-            and cell.analysis in self.supported_analyses
-        )
+        return cell.reality in self.supported_realities and cell.analysis in self.supported_analyses
 
 
 # ════════════════════════════════════════════════════════════════════════════
 # HEALTH STATUS
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class HealthStatus(StrEnum):
-    HEALTHY   = "HEALTHY"
-    DEGRADED  = "DEGRADED"
+    HEALTHY = "HEALTHY"
+    DEGRADED = "DEGRADED"
     UNHEALTHY = "UNHEALTHY"
-    UNKNOWN   = "UNKNOWN"
+    UNKNOWN = "UNKNOWN"
 
 
 @dataclass
@@ -201,6 +206,7 @@ class DogHealth:
 # ════════════════════════════════════════════════════════════════════════════
 # ABSTRACT DOG
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class AbstractDog(ABC):
     """
@@ -290,6 +296,7 @@ class AbstractDog(ABC):
 # LLM DOG BASE (extends AbstractDog with LLM routing)
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class LLMDog(AbstractDog):
     """
     Base class for the 7 LLM-capable Dogs.
@@ -333,6 +340,7 @@ class LLMDog(AbstractDog):
             raise RuntimeError(f"No LLM available for Dog {self.dog_id}")
 
         from cynic.kernel.organism.brain.llm.adapter import LLMRequest
+
         req = LLMRequest(
             prompt=prompt,
             system=system,
@@ -373,9 +381,9 @@ class LLMDog(AbstractDog):
             llm_id=judgment.llm_id,
             dog_id=self.dog_id,
             task_type=self.task_type,
-            quality_score=judgment.q_score,   # [0, 61.8] — φ-bounded
-            speed_score=speed_score,           # [0, 1]
-            cost_score=cost_score,             # [0, 1]
+            quality_score=judgment.q_score,  # [0, 61.8] — φ-bounded
+            speed_score=speed_score,  # [0, 1]
+            cost_score=cost_score,  # [0, 1]
             error_rate=0.0,
         )
         self._llm_registry.update_benchmark(
@@ -387,5 +395,5 @@ class LLMDog(AbstractDog):
 
 
 # ── Benchmark normalisation constants ─────────────────────────────────────
-_SPEED_TARGET_MS: float = 3000.0   # L1 MACRO target — 3s budget per call
-_COST_BUDGET_USD: float = 0.01     # $0.01 per judgment — Ollama = 0 → 1.0
+_SPEED_TARGET_MS: float = 3000.0  # L1 MACRO target — 3s budget per call
+_COST_BUDGET_USD: float = 0.01  # $0.01 per judgment — Ollama = 0 → 1.0

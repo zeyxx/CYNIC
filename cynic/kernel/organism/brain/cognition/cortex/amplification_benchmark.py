@@ -33,6 +33,7 @@ Key phi advantage:
   standard RL: warm values get overwritten as fast as cold values.
   → phi amplification_ratio should be systematically higher than standard.
 """
+
 from __future__ import annotations
 
 import random
@@ -68,10 +69,12 @@ _SEED_OFFSET: int = 1000
 # WarmStartLearner: two-phase learner with knowledge transfer
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class WarmStartResult:
     """Result of one warm vs cold comparison."""
-    warm_steps: int          # Prior session judgments (0 = cold)
+
+    warm_steps: int  # Prior session judgments (0 = cold)
     alpha: float
     use_ewc: bool
     seed: int
@@ -86,8 +89,8 @@ class WarmStartResult:
     warm_convergence_step: int | None
 
     # Amplification
-    amplification_ratio: float   # cold_error / warm_error (>1 = amplified)
-    knowledge_retention: float   # 1 - warm_error/cold_error (>0 = improved)
+    amplification_ratio: float  # cold_error / warm_error (>1 = amplified)
+    knowledge_retention: float  # 1 - warm_error/cold_error (>0 = improved)
 
     duration_ms: float
 
@@ -189,6 +192,7 @@ def _run_warm_cold(
 # AmplificationBenchmark
 # ---------------------------------------------------------------------------
 
+
 class AmplificationBenchmark:
     """
     Benchmark measuring the amplification effect of accumulated knowledge.
@@ -234,12 +238,8 @@ class AmplificationBenchmark:
             "n_seeds": n_seeds,
             "mean_amplification_ratio": round(sum(ratios) / len(ratios), 4),
             "mean_knowledge_retention": round(sum(retentions) / len(retentions), 4),
-            "mean_cold_error": round(
-                sum(r.cold_final_error for r in results) / len(results), 4
-            ),
-            "mean_warm_error": round(
-                sum(r.warm_final_error for r in results) / len(results), 4
-            ),
+            "mean_cold_error": round(sum(r.cold_final_error for r in results) / len(results), 4),
+            "mean_warm_error": round(sum(r.warm_final_error for r in results) / len(results), 4),
             "amplified_rate": sum(1 for r in results if r.amplified) / len(results),
         }
 
@@ -269,16 +269,22 @@ class AmplificationBenchmark:
         for w in warm_levels:
             phi_levels.append(
                 self.run_level(
-                    alpha=_PHI_ALPHA, use_ewc=True,
-                    warm_steps=w, test_budget=test_budget,
-                    n_seeds=n_seeds, base_seed=base_seed,
+                    alpha=_PHI_ALPHA,
+                    use_ewc=True,
+                    warm_steps=w,
+                    test_budget=test_budget,
+                    n_seeds=n_seeds,
+                    base_seed=base_seed,
                 )
             )
             std_levels.append(
                 self.run_level(
-                    alpha=_STD_ALPHA, use_ewc=False,
-                    warm_steps=w, test_budget=test_budget,
-                    n_seeds=n_seeds, base_seed=base_seed,
+                    alpha=_STD_ALPHA,
+                    use_ewc=False,
+                    warm_steps=w,
+                    test_budget=test_budget,
+                    n_seeds=n_seeds,
+                    base_seed=base_seed,
                 )
             )
 

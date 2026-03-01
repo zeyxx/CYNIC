@@ -18,14 +18,10 @@ def mock_conscious_state():
             "BURN": 0.65,
             "FIDELITY": 0.90,
             "VERIFY": 0.70,
-            "CULTURE": 0.75
+            "CULTURE": 0.75,
         },
-        "dog_votes": {
-            "dog_1": "WAG",
-            "dog_5": "HOWL",
-            "dog_11": "WAG"
-        },
-        "consensus_algorithm": "PBFT"
+        "dog_votes": {"dog_1": "WAG", "dog_5": "HOWL", "dog_11": "WAG"},
+        "consensus_algorithm": "PBFT",
     }
     return state
 
@@ -43,17 +39,12 @@ def test_format_judgment_reasoning(mock_conscious_state):
 def test_extract_axiom_explanations():
     """Extract which axioms influenced decision."""
     engine = ReasoningEngine()
-    axiom_scores = {
-        "PHI": 0.85,
-        "BURN": 0.65,
-        "FIDELITY": 0.90
-    }
+    axiom_scores = {"PHI": 0.85, "BURN": 0.65, "FIDELITY": 0.90}
 
     explanations = engine.extract_axiom_explanations(axiom_scores)
     assert len(explanations) == 3
     assert "FIDELITY" in explanations
-    assert any("harmony" in e.lower() or "elegance" in e.lower()
-              for e in explanations.values())
+    assert any("harmony" in e.lower() or "elegance" in e.lower() for e in explanations.values())
 
 
 def test_create_context_for_claude(mock_conscious_state):
@@ -62,7 +53,7 @@ def test_create_context_for_claude(mock_conscious_state):
     context = engine.create_context_for_claude(
         question="Why did you choose WAG?",
         judgment=mock_conscious_state.last_judgment,
-        user_communication_style="concise"
+        user_communication_style="concise",
     )
 
     assert "question" in context

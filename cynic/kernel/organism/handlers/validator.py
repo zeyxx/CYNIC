@@ -30,6 +30,7 @@ logger = logging.getLogger("cynic.kernel.organism.handlers.validator")
 @dataclass
 class ValidationIssue:
     """Single validation problem."""
+
     severity: str  # "ERROR" | "WARNING" | "INFO"
     category: str  # "MISSING" | "DUPLICATE" | "INVALID" | "ORPHAN" | "DEPENDENCY"
     handler_name: str  # Handler affected (or "system" for global issues)
@@ -61,12 +62,14 @@ class HandlerValidator:
         # ── Phase 1: Index discovered handlers ─────────────────────────────
         for group in discovered_groups:
             if group.name in self._discovered_names:
-                self._issues.append(ValidationIssue(
-                    severity="ERROR",
-                    category="DUPLICATE",
-                    handler_name=group.name,
-                    message=f"Duplicate handler name: '{group.name}' found multiple times",
-                ))
+                self._issues.append(
+                    ValidationIssue(
+                        severity="ERROR",
+                        category="DUPLICATE",
+                        handler_name=group.name,
+                        message=f"Duplicate handler name: '{group.name}' found multiple times",
+                    )
+                )
             self._discovered_names.add(group.name)
 
         # ── Phase 2: Scan all handler modules (detect orphans) ─────────────
@@ -75,12 +78,14 @@ class HandlerValidator:
         # ── Phase 3: Check for orphan handlers ────────────────────────────
         orphan_modules = self._all_module_names - self._discovered_names
         for module_name in sorted(orphan_modules):
-            self._issues.append(ValidationIssue(
-                severity="WARNING",
-                category="ORPHAN",
-                handler_name=module_name,
-                message=f"Handler module '{module_name}' exists but was not discovered",
-            ))
+            self._issues.append(
+                ValidationIssue(
+                    severity="WARNING",
+                    category="ORPHAN",
+                    handler_name=module_name,
+                    message=f"Handler module '{module_name}' exists but was not discovered",
+                )
+            )
 
         # ── Phase 4: Validate each handler ───────────────────────────────
         for group in discovered_groups:
@@ -95,8 +100,14 @@ class HandlerValidator:
         """Scan cynic.kernel.organism.handlers to find all module names."""
         try:
             from cynic.kernel.organism import handlers as _pkg
+
             for _, module_name, _ in pkgutil.iter_modules(_pkg.__path__):
-                if not module_name.startswith("_") and module_name not in ("base", "introspect", "services", "validator"):
+                if not module_name.startswith("_") and module_name not in (
+                    "base",
+                    "introspect",
+                    "services",
+                    "validator",
+                ):
                     self._all_module_names.add(module_name)
         except Exception as e:
             logger.debug("Failed to scan handler modules: %s", e)
@@ -107,25 +118,30 @@ class HandlerValidator:
         try:
             subs = group.subscriptions()
             if not isinstance(subs, list):
-                self._issues.append(ValidationIssue(
+                self._issues.append(
+                    ValidationIssue(
+                        severity="ERROR",
+                        category="INVALID",
+                        handler_name=group.name,
+                        message=f"subscriptions() must return list, got {type(subs).__name__}",
+                    )
+                )
+                return
+        except EventBusError as e:
+            self._issues.append(
+                ValidationIssue(
                     severity="ERROR",
                     category="INVALID",
                     handler_name=group.name,
-                    message=f"subscriptions() must return list, got {type(subs).__name__}",
-                ))
-                return
-        except EventBusError as e:
-            self._issues.append(ValidationIssue(
-                severity="ERROR",
-                category="INVALID",
-                handler_name=group.name,
-                message=f"subscriptions() raised exception: {e}",
-            ))
+                    message=f"subscriptions() raised exception: {e}",
+                )
+            )
             return
 
         # Check: all subscribed events are CoreEvent types
         try:
             from cynic.kernel.core.event_bus import CoreEvent
+
             {e.value for e in CoreEvent}
         except EventBusError:
             pass
@@ -141,30 +157,36 @@ class HandlerValidator:
                 # Valid CoreEvent
                 pass
             else:
-                self._issues.append(ValidationIssue(
-                    severity="WARNING",
-                    category="INVALID",
-                    handler_name=group.name,
-                    message=f"Subscription to non-CoreEvent: {event_value}",
-                ))
+                self._issues.append(
+                    ValidationIssue(
+                        severity="WARNING",
+                        category="INVALID",
+                        handler_name=group.name,
+                        message=f"Subscription to non-CoreEvent: {event_value}",
+                    )
+                )
 
         # Check: dependencies() returns frozenset
         try:
             deps = group.dependencies()
             if not isinstance(deps, frozenset):
-                self._issues.append(ValidationIssue(
+                self._issues.append(
+                    ValidationIssue(
+                        severity="WARNING",
+                        category="INVALID",
+                        handler_name=group.name,
+                        message=f"dependencies() must return frozenset, got {type(deps).__name__}",
+                    )
+                )
+        except EventBusError as e:
+            self._issues.append(
+                ValidationIssue(
                     severity="WARNING",
                     category="INVALID",
                     handler_name=group.name,
-                    message=f"dependencies() must return frozenset, got {type(deps).__name__}",
-                ))
-        except EventBusError as e:
-            self._issues.append(ValidationIssue(
-                severity="WARNING",
-                category="INVALID",
-                handler_name=group.name,
-                message=f"dependencies() raised exception: {e}",
-            ))
+                    message=f"dependencies() raised exception: {e}",
+                )
+            )
 
     def _check_duplicate_subscriptions(self, groups: list[HandlerGroup]) -> None:
         """Detect if multiple handlers subscribe to the same (event, handler_fn) pair."""
@@ -186,12 +208,14 @@ class HandlerValidator:
         # Check for duplicates (same event, same handler function, multiple groups)
         for (event_name, handler_name), groups_list in subscription_map.items():
             if len(groups_list) > 1:
-                self._issues.append(ValidationIssue(
-                    severity="INFO",
-                    category="DUPLICATE",
-                    handler_name="|".join(sorted(groups_list)),
-                    message=f"Multiple handlers subscribe to {event_name} via {handler_name}: {groups_list}",
-                ))
+                self._issues.append(
+                    ValidationIssue(
+                        severity="INFO",
+                        category="DUPLICATE",
+                        handler_name="|".join(sorted(groups_list)),
+                        message=f"Multiple handlers subscribe to {event_name} via {handler_name}: {groups_list}",
+                    )
+                )
 
     def report(self) -> str:
         """Generate human-readable validation report."""

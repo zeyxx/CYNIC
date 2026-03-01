@@ -22,6 +22,7 @@ Subsystems aggregated:
   - overall_health [0, 100] — geometric mean of subsystem health indicators
   - If overall_health ≥ WAG_MIN (61.8) → signals A10 CONSCIOUSNESS
 """
+
 from __future__ import annotations
 
 import logging
@@ -181,6 +182,7 @@ class KernelMirror:
     def _sage_stats(state: Any) -> dict[str, Any]:
         """Extract SAGE temporal MCTS activation ratio."""
         from cynic.kernel.organism.brain.cognition.neurons.base import DogId
+
         # Use canonical path: state.orchestrator.dogs[SAGE]
         orch = getattr(state, "orchestrator", None)
         if orch is None:
@@ -248,8 +250,11 @@ class KernelMirror:
         # 2. Axiom tier
         axioms = snap.get("axioms", {})
         tier_scores = {
-            "DORMANT": 0.1, "EMERGENCE": 50.0, "STIRRING": 25.0,
-            "AWAKENING": 75.0, "TRANSCENDENT": 100.0,
+            "DORMANT": 0.1,
+            "EMERGENCE": 50.0,
+            "STIRRING": 25.0,
+            "AWAKENING": 75.0,
+            "TRANSCENDENT": 100.0,
         }
         if isinstance(axioms, dict) and "tier" in axioms:
             scores.append(tier_scores.get(axioms["tier"], 25.0))
@@ -279,12 +284,12 @@ class KernelMirror:
     def _health_tier(health: float) -> str:
         """Map overall_health score to a descriptive tier."""
         if health >= 82.0:
-            return "HOWL"      # All systems optimal
+            return "HOWL"  # All systems optimal
         if health >= WAG_MIN:
-            return "WAG"       # Good health, some gaps
+            return "WAG"  # Good health, some gaps
         if health >= GROWL_MIN:
-            return "GROWL"     # Degraded — attention needed
-        return "BARK"          # Critical — intervention required
+            return "GROWL"  # Degraded — attention needed
+        return "BARK"  # Critical — intervention required
 
 
 def _deep_diff(

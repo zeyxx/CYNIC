@@ -45,9 +45,7 @@ class CynicMessage:
         """Validate φ-bounded confidence and wrap axiom_scores in MappingProxyType."""
         # Validate φ-bounded confidence
         if not (0 <= self.confidence <= 0.618):
-            raise ValueError(
-                f"confidence must be φ-bounded [0, 0.618], got {self.confidence}"
-            )
+            raise ValueError(f"confidence must be φ-bounded [0, 0.618], got {self.confidence}")
 
         # Wrap axiom_scores in MappingProxyType for true immutability
         if self.axiom_scores and not isinstance(self.axiom_scores, MappingProxyType):

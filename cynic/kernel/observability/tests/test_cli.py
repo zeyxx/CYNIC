@@ -1,4 +1,5 @@
 """Tests for CLI Framework."""
+
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -11,7 +12,7 @@ async def test_cli_app_initializes():
     """CliApp can be created and initializes with running flag."""
     app = CliApp()
     assert app is not None
-    assert hasattr(app, '_running')
+    assert hasattr(app, "_running")
     assert app._running is True
 
 
@@ -37,29 +38,29 @@ async def test_cli_menu_structure():
     labels = [item[1] for item in menu_items]
 
     # Menu structure as per requirements
-    assert '1' in keys
-    assert '2' in keys
-    assert '3' in keys
-    assert '4' in keys
-    assert '5' in keys
-    assert '6' in keys
-    assert '7' in keys
-    assert '8' in keys
-    assert '9' in keys
-    assert '0' in keys  # EXIT
+    assert "1" in keys
+    assert "2" in keys
+    assert "3" in keys
+    assert "4" in keys
+    assert "5" in keys
+    assert "6" in keys
+    assert "7" in keys
+    assert "8" in keys
+    assert "9" in keys
+    assert "0" in keys  # EXIT
 
     # Check that labels contain key descriptions
-    labels_str = ' '.join(labels)
-    assert 'OBSERVE' in labels_str
-    assert 'CYNIC' in labels_str or 'MIND' in labels_str
-    assert 'STATE' in labels_str or 'YOUR' in labels_str
-    assert 'MACHINE' in labels_str
-    assert 'SYMBIOSIS' in labels_str or 'ALIGNMENT' in labels_str
-    assert 'TALK' in labels_str or 'CHAT' in labels_str
-    assert 'HISTORY' in labels_str or 'DECISIONS' in labels_str
-    assert 'FEEDBACK' in labels_str
-    assert 'ACTUATE' in labels_str or 'ACTIONS' in labels_str
-    assert 'EXIT' in labels_str
+    labels_str = " ".join(labels)
+    assert "OBSERVE" in labels_str
+    assert "CYNIC" in labels_str or "MIND" in labels_str
+    assert "STATE" in labels_str or "YOUR" in labels_str
+    assert "MACHINE" in labels_str
+    assert "SYMBIOSIS" in labels_str or "ALIGNMENT" in labels_str
+    assert "TALK" in labels_str or "CHAT" in labels_str
+    assert "HISTORY" in labels_str or "DECISIONS" in labels_str
+    assert "FEEDBACK" in labels_str
+    assert "ACTUATE" in labels_str or "ACTIONS" in labels_str
+    assert "EXIT" in labels_str
 
 
 @pytest.mark.asyncio
@@ -67,16 +68,16 @@ async def test_cli_show_menu_displays_menu(capsys):
     """show_menu() displays menu items to stdout."""
     app = CliApp()
 
-    with patch('builtins.input', return_value='0'):
+    with patch("builtins.input", return_value="0"):
         await app.show_menu()
 
     captured = capsys.readouterr()
     output = captured.out
 
     # Menu should contain menu items
-    assert 'OBSERVE' in output
-    assert 'CYNIC' in output or 'MIND' in output
-    assert 'EXIT' in output
+    assert "OBSERVE" in output
+    assert "CYNIC" in output or "MIND" in output
+    assert "EXIT" in output
 
 
 @pytest.mark.asyncio
@@ -84,8 +85,8 @@ async def test_cli_handle_menu_choice_1_observe():
     """handle_menu_choice('1') calls show_observe()."""
     app = CliApp()
 
-    with patch.object(app, 'show_observe', new_callable=AsyncMock) as mock_observe:
-        await app.handle_menu_choice('1')
+    with patch.object(app, "show_observe", new_callable=AsyncMock) as mock_observe:
+        await app.handle_menu_choice("1")
         mock_observe.assert_called_once()
 
 
@@ -95,7 +96,7 @@ async def test_cli_handle_menu_choice_0_exit():
     app = CliApp()
     assert app._running is True
 
-    await app.handle_menu_choice('0')
+    await app.handle_menu_choice("0")
 
     assert app._running is False
 
@@ -107,8 +108,8 @@ async def test_cli_handle_menu_choice_invalid():
     app._running = True
 
     # Should not raise an exception
-    await app.handle_menu_choice('invalid')
-    await app.handle_menu_choice('99')
+    await app.handle_menu_choice("invalid")
+    await app.handle_menu_choice("99")
 
     # App should still be running
     assert app._running is True
@@ -129,8 +130,8 @@ async def test_cli_run_can_start_and_stop():
     app = CliApp()
 
     # Mock the async methods that would be called during run
-    with patch.object(app, 'show_menu', new_callable=AsyncMock) as mock_show_menu:
-        with patch.object(app, 'handle_menu_choice', new_callable=AsyncMock):
+    with patch.object(app, "show_menu", new_callable=AsyncMock) as mock_show_menu:
+        with patch.object(app, "handle_menu_choice", new_callable=AsyncMock):
             # Simulate user pressing exit on first menu display
             async def stop_after_first_call(*args, **kwargs):
                 app._running = False

@@ -4,6 +4,7 @@ Test suite for structured JSON logging system.
 All logs must be valid JSON for machine parsing by monitoring systems.
 No raw text output allowed.
 """
+
 import json
 import logging
 
@@ -16,6 +17,7 @@ def test_logs_are_valid_json():
 
     # Capture logs
     logs = []
+
     class MockHandler(logging.Handler):
         def emit(self, record):
             logs.append(self.format(record))

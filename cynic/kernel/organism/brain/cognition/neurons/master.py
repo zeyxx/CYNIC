@@ -1,56 +1,67 @@
 """
 CYNIC MasterDog — The Unified Sefirotic Intelligence.
 
-A single class to rule all 11 Dogs. 
+A single class to rule all 11 Dogs.
 Reduces 5000+ LOC of duplication to one robust engine driven by a "DogSoul".
 
 φ-Law: BURN — delete redundant code, keep the data essence.
 """
+
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
-from cynic.kernel.core.phi import (
-    PHI_INV, MAX_CONFIDENCE, MAX_Q_SCORE, phi_bound_score,
-    DOGS_QUORUM, DOG_PRIORITY, weighted_geometric_mean
-)
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.judgment import Cell, ConsensusResult
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.kernel.core.phi import (
+    DOG_PRIORITY,
+    phi_bound_score,
+    weighted_geometric_mean,
+)
 from cynic.kernel.organism.brain.cognition.neurons.base import (
-    LLMDog, DogCapabilities, DogHealth, DogJudgment,
-    DogId, HealthStatus,
+    DogCapabilities,
+    DogHealth,
+    DogId,
+    DogJudgment,
+    HealthStatus,
+    LLMDog,
 )
 
 logger = logging.getLogger("cynic.kernel.brain.neurons.master")
 
+
 def _compute_quorum(n: int) -> int:
     """PBFT formula: f = (n-1)//3, quorum = 2f+1."""
-    if n < 4: return n
+    if n < 4:
+        return n
     f = (n - 1) // 3
     return 2 * f + 1
+
 
 @dataclass
 class DogSoul:
     """The configuration-based essence of a Dog."""
+
     dog_id: DogId
     sefirot: str
     task_type: str
-    axioms: List[str]
+    axioms: list[str]
     system_prompt: str
     heuristic_prompt: str
-    
+
     # Behavior tunables
     temperature: float = 0.618
     consciousness_min: ConsciousnessLevel = ConsciousnessLevel.MICRO
-    supported_realities: Set[str] = field(default_factory=lambda: {"CODE", "SOLANA", "MARKET", "SOCIAL", "HUMAN", "CYNIC", "COSMOS"})
-    
+    supported_realities: set[str] = field(
+        default_factory=lambda: {"CODE", "SOLANA", "MARKET", "SOCIAL", "HUMAN", "CYNIC", "COSMOS"}
+    )
+
     # Specialized logic (optional plugins)
-    expertise_fn: Optional[str] = None 
+    expertise_fn: str | None = None
+
 
 class MasterDog(LLMDog):
     """
@@ -64,7 +75,7 @@ class MasterDog(LLMDog):
         self.soul = soul
         self._lookups = 0
         self._errors = 0
-        self._last_latencies: List[float] = []
+        self._last_latencies: list[float] = []
         self._compressor = None
 
     def get_capabilities(self) -> DogCapabilities:
@@ -83,11 +94,12 @@ class MasterDog(LLMDog):
         """The core analysis loop: Expertise -> LLM -> Heuristic Fallback."""
         start = time.perf_counter()
         self._lookups += 1
-        
+
         try:
             # 1. Attempt Expertise Plugin (Heuristic Specialist)
             if self.soul.expertise_fn:
                 from cynic.kernel.organism.brain.cognition.neurons.expertise import call_expertise
+
                 ext_result = await call_expertise(self.soul.expertise_fn, cell)
                 if ext_result and ext_result.get("confidence", 0) > 0.3:
                     return self._create_judgment(cell, start, ext_result)
@@ -99,12 +111,13 @@ class MasterDog(LLMDog):
                 if self.dog_id == DogId.SAGE and self._compressor:
                     try:
                         self._compressor.boost(str(cell.content), judgment.q_score)
-                    except Exception: pass
+                    except Exception:
+                        pass
                 return judgment
-            
+
             # 3. Fallback to Heuristic
             return await self._heuristic_path(cell, start)
-            
+
         except Exception as e:
             self._errors += 1
             logger.error(f"MasterDog[{self.dog_id}] failed: {e}")
@@ -112,11 +125,12 @@ class MasterDog(LLMDog):
 
     async def _llm_path(self, cell: Cell, adapter: Any, start: float) -> DogJudgment:
         from cynic.kernel.organism.brain.llm.temporal import temporal_judgment
+
         content = f"{self.soul.system_prompt}\n\nCONTEXT:\n{cell.content}"
         tj = await temporal_judgment(adapter, content)
         latency = (time.perf_counter() - start) * 1000
         self._last_latencies.append(latency)
-        
+
         judgment = DogJudgment(
             dog_id=self.dog_id,
             cell_id=cell.cell_id,
@@ -147,7 +161,10 @@ class MasterDog(LLMDog):
     # --- SAGE EXPERTISE (World-Maker) ---
     async def dream_facets(self, axiom: str, reality: str, registry: Any) -> dict[str, str]:
         if self.dog_id == DogId.SAGE:
-            from cynic.kernel.organism.brain.cognition.neurons.expertise import dream_facets_expertise
+            from cynic.kernel.organism.brain.cognition.neurons.expertise import (
+                dream_facets_expertise,
+            )
+
             adapter = await self.get_llm()
             if adapter:
                 return await dream_facets_expertise(adapter, axiom, reality, registry)
@@ -157,25 +174,55 @@ class MasterDog(LLMDog):
         if self.dog_id == DogId.SAGE:
             self._compressor = compressor
 
-    # --- PBFT CONSENSUS (CYNIC Role) ---
-    async def pbft_run(self, cell: Cell, dog_judgments: List[DogJudgment]) -> ConsensusResult:
-        """Coordinateur PBFT: agrège les votes des Dogs."""
-        quorum = _compute_quorum(len(dog_judgments))
-        votes = len(dog_judgments)
+    # --- phi-BFT CONSENSUS (CYNIC Coordinator Role) ---
+    async def phi_bft_run(self, cell: Cell, dog_judgments: list[DogJudgment]) -> ConsensusResult:
+        """
+        phi-BFT: PHI-weighted Byzantine Fault Tolerance.
         
+        Logic:
+        1. Quorum Check: Requires 2f+1 votes (7/11).
+        2. Priority Weighting: Each dog's vote is multiplied by its Sefirotic priority (phi^n).
+        3. Harmonic Aggregation: Balanced mean that resists extreme outliers unless high priority.
+        4. Veto: If high-priority dog (GUARDIAN) says BARK, final q_score is capped.
+        """
+        from cynic.kernel.core.axioms import verdict_from_q_score
+        from cynic.kernel.core.phi import DOG_PRIORITY, weighted_geometric_mean
+
+        votes = len(dog_judgments)
+        # f = (n-1)//3 = 3. Quorum = 2f+1 = 7.
+        quorum = _compute_quorum(votes) if votes < 11 else 7
+
         if votes < quorum:
             return ConsensusResult(
-                consensus=False, votes=votes, quorum=quorum,
-                reason=f"Insufficient votes: {votes}/{quorum}",
-                dog_judgments=[j.to_dict() for j in dog_judgments]
+                consensus=False,
+                votes=votes,
+                quorum=quorum,
+                reason=f"Quorum failure: {votes}/{quorum} dogs responded.",
+                dog_judgments=[j.to_dict() for j in dog_judgments],
             )
 
-        # Simple weighted aggregate
-        scores = [j.q_score for j in dog_judgments]
-        weights = [DOG_PRIORITY.get(j.dog_id, 1.0) for j in dog_judgments]
-        
+        # 1. Extraction des scores et poids
+        scores = []
+        weights = []
+        veto_active = False
+
+        for j in dog_judgments:
+            priority = DOG_PRIORITY.get(j.dog_id, 1.0)
+            scores.append(max(j.q_score, 0.1))
+            weights.append(priority)
+
+            # 2. Veto Logic (Guardian/Cynic high confidence BARK)
+            if j.dog_id in ["GUARDIAN", "CYNIC"] and j.q_score < 38.2 and j.confidence > 0.5:
+                veto_active = True
+
+        # 3. Weighted Aggregation (phi-weighted geometric mean)
         final_q = weighted_geometric_mean(scores, weights)
-        from cynic.kernel.core.axioms import verdict_from_q_score
+
+        # 4. Apply Veto
+        if veto_active:
+            final_q = min(final_q, 38.1)  # Force into BARK/GROWL territory
+            logger.warning("phi-BFT: Veto triggered by high-priority dog.")
+
         final_verdict = verdict_from_q_score(final_q).value
 
         return ConsensusResult(
@@ -184,11 +231,11 @@ class MasterDog(LLMDog):
             quorum=quorum,
             final_q_score=phi_bound_score(final_q),
             final_verdict=final_verdict,
-            final_confidence=sum(j.confidence for j in dog_judgments)/max(votes, 1),
-            dog_judgments=[j.to_dict() for j in dog_judgments]
+            final_confidence=sum(j.confidence for j in dog_judgments) / max(votes, 1),
+            dog_judgments=[j.to_dict() for j in dog_judgments],
         )
 
-    def _create_judgment(self, cell: Cell, start: float, data: Dict[str, Any]) -> DogJudgment:
+    def _create_judgment(self, cell: Cell, start: float, data: dict[str, Any]) -> DogJudgment:
         latency = (time.perf_counter() - start) * 1000
         judgment = DogJudgment(
             dog_id=self.dog_id,
@@ -214,10 +261,16 @@ class MasterDog(LLMDog):
         )
 
     async def health_check(self) -> DogHealth:
-        status = HealthStatus.HEALTHY if self._errors / max(self._lookups, 1) < 0.1 else HealthStatus.DEGRADED
+        status = (
+            HealthStatus.HEALTHY
+            if self._errors / max(self._lookups, 1) < 0.1
+            else HealthStatus.DEGRADED
+        )
         return DogHealth(
             dog_id=self.dog_id,
             status=status,
-            latency_p50_ms=sum(self._last_latencies) / max(len(self._last_latencies), 1) if self._last_latencies else 0.0,
-            details=f"Soul: {self.soul.sefirot} | Errors: {self._errors}/{self._lookups}"
+            latency_p50_ms=sum(self._last_latencies) / max(len(self._last_latencies), 1)
+            if self._last_latencies
+            else 0.0,
+            details=f"Soul: {self.soul.sefirot} | Errors: {self._errors}/{self._lookups}",
         )

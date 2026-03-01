@@ -4,6 +4,7 @@ FederationHandler — P2P Knowledge Sharing Organ.
 Listens to JUDGMENT_CREATED and RESIDUAL_HIGH events to trigger gossip
 sharing between federated CYNIC instances.
 """
+
 import logging
 from collections.abc import Callable
 

@@ -20,8 +20,9 @@ class LLMBridge:
         """Generate natural language response from reasoning context."""
         # 1. Check if we should use Remote Proxy (Docker)
         from cynic.kernel.observability.symbiotic_state_manager import get_symbiotic_state_manager
+
         mgr = await get_symbiotic_state_manager()
-        
+
         if mgr.remote_mode and not self.api_key:
             return await self._proxy_to_remote(context, mgr.api_url)
 
@@ -33,14 +34,7 @@ class LLMBridge:
             prompt = self._create_explanation_prompt(context)
 
             message = await self.client.messages.create(
-                model=self.model,
-                max_tokens=256,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ]
+                model=self.model, max_tokens=256, messages=[{"role": "user", "content": prompt}]
             )
 
             return message.content[0].text
@@ -52,6 +46,7 @@ class LLMBridge:
     async def _proxy_to_remote(self, context: dict[str, Any], api_url: str) -> str:
         """Forward dialogue request to the remote container API."""
         import httpx
+
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 # We send the raw user question to the remote /dialogue endpoint
@@ -75,12 +70,18 @@ class LLMBridge:
         verbosity = context.get("verbosity", "2-3 sentences")
 
         # Format axiom info
-        axiom_info = "\n".join([
-            f"- {axiom}: {score:.1%}"
-            for axiom, score in sorted(axiom_scores.items(),
-                                      key=lambda x: x[1],
-                                      reverse=True)
-        ]) if axiom_scores else "No specific axioms scored"
+        axiom_info = (
+            "\n".join(
+                [
+                    f"- {axiom}: {score:.1%}"
+                    for axiom, score in sorted(
+                        axiom_scores.items(), key=lambda x: x[1], reverse=True
+                    )
+                ]
+            )
+            if axiom_scores
+            else "No specific axioms scored"
+        )
 
         prompt = f"""You are CYNIC, an AI organism that judges proposals based on five axioms.
 

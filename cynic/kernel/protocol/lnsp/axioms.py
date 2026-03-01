@@ -10,6 +10,7 @@ Implemented Axioms:
 - CULTURE: State respects community norms
 - BURN: No extraction or waste
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -74,16 +75,14 @@ class FidelityEvaluator(AxiomEvaluator):
             return 0.5  # Neutral for empty state
 
         numeric_values = [
-            v for v in state.values()
-            if isinstance(v, int | float) and not isinstance(v, bool)
+            v for v in state.values() if isinstance(v, int | float) and not isinstance(v, bool)
         ]
 
         if not numeric_values:
             return 0.5  # Neutral if no numeric values to check
 
         in_range_count = sum(
-            1 for v in numeric_values
-            if self._baseline_min <= v <= self._baseline_max
+            1 for v in numeric_values if self._baseline_min <= v <= self._baseline_max
         )
 
         return in_range_count / len(numeric_values)
@@ -117,7 +116,8 @@ class PhiEvaluator(AxiomEvaluator):
             return 0.5  # Neutral for empty state
 
         numeric_values = [
-            v for v in state.values()
+            v
+            for v in state.values()
             if isinstance(v, int | float) and not isinstance(v, bool) and v > 0
         ]
 
@@ -213,10 +213,7 @@ class CultureEvaluator(AxiomEvaluator):
         if not state:
             return 0.0  # No state = no cultural alignment
 
-        present_keys = sum(
-            1 for key in self._expected_keys
-            if key in state
-        )
+        present_keys = sum(1 for key in self._expected_keys if key in state)
 
         return present_keys / len(self._expected_keys)
 
@@ -267,6 +264,7 @@ class EmergenceEvaluator(AxiomEvaluator):
     phenomena that weren't explicitly programmed. Scores high when novel
     patterns or behaviors surface from the interaction of components.
     """
+
     axiom_name = "EMERGENCE"
 
     async def score(self, state: dict[str, Any]) -> float:
@@ -289,6 +287,7 @@ class AutonomyEvaluator(AxiomEvaluator):
     externally forced. High autonomy when decisions reflect internal
     evaluation rather than majority conformance.
     """
+
     axiom_name = "AUTONOMY"
 
     async def score(self, state: dict[str, Any]) -> float:
@@ -303,7 +302,7 @@ class AutonomyEvaluator(AxiomEvaluator):
 
         # Also score based on decision confidence (autonomous = confident but not dogmatic)
         confidence = state.get("confidence", 0.5)
-        autonomy = (minority_representation * 0.6 + abs(confidence - 0.618) / 0.618 * 0.4)
+        autonomy = minority_representation * 0.6 + abs(confidence - 0.618) / 0.618 * 0.4
 
         return float(max(0.0, min(autonomy, 1.0)))
 
@@ -315,6 +314,7 @@ class SymbiosisEvaluator(AxiomEvaluator):
     between components, Dogs, and external systems. High symbiosis
     when components improve each other's performance.
     """
+
     axiom_name = "SYMBIOSIS"
 
     async def score(self, state: dict[str, Any]) -> float:
@@ -327,9 +327,9 @@ class SymbiosisEvaluator(AxiomEvaluator):
         # Symbiosis: moderate agreement (not too aligned, not too diverse)
         # + active feedback loops + learning happening
         symbiosis = (
-            (1.0 - abs(dog_agreement - 0.618) / 0.618) * 0.5 +  # Optimal disagreement
-            min(1.0, feedback_loops / 3.0) * 0.3 +  # Multiple feedback paths
-            min(1.0, learning_rate) * 0.2  # System is learning
+            (1.0 - abs(dog_agreement - 0.618) / 0.618) * 0.5  # Optimal disagreement
+            + min(1.0, feedback_loops / 3.0) * 0.3  # Multiple feedback paths
+            + min(1.0, learning_rate) * 0.2  # System is learning
         )
 
         return float(max(0.0, min(symbiosis, 1.0)))
@@ -342,6 +342,7 @@ class AntifragilityEvaluator(AxiomEvaluator):
     when errors lead to better future judgments, when contradictions
     improve understanding, or when adversity triggers learning.
     """
+
     axiom_name = "ANTIFRAGILITY"
 
     async def score(self, state: dict[str, Any]) -> float:

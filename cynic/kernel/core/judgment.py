@@ -4,6 +4,7 @@ CYNIC Judgment Models — Pydantic v2
 All Pydantic models for the judgment pipeline.
 φ-bounds enforced at model level (LAW 5: database constraints mirror these).
 """
+
 from __future__ import annotations
 
 import uuid
@@ -18,6 +19,7 @@ from cynic.kernel.core.phi import MAX_CONFIDENCE, MAX_Q_SCORE, PHI_INV
 # CORE IDENTIFIERS
 # ════════════════════════════════════════════════════════════════════════════
 
+
 def new_id() -> str:
     """Generate a new UUID4 string identifier."""
     return str(uuid.uuid4())
@@ -26,6 +28,7 @@ def new_id() -> str:
 # ════════════════════════════════════════════════════════════════════════════
 # ∞^N SPACE CELL (A specific state in the infinite hypercube)
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class Cell(BaseModel):
     """
@@ -44,7 +47,7 @@ class Cell(BaseModel):
     )
     time_dim: str = Field(
         default="PRESENT",
-        description="Time dimension (PAST/PRESENT/FUTURE/CYCLE/TREND/EMERGENCE/TRANSCENDENCE)"
+        description="Time dimension (PAST/PRESENT/FUTURE/CYCLE/TREND/EMERGENCE/TRANSCENDENCE)",
     )
 
     # Content
@@ -77,6 +80,7 @@ class Cell(BaseModel):
     def validate_reality_content(self) -> Cell:
         """Enforce strict schema based on reality dimension."""
         from cynic.kernel.core.realities import validate_content
+
         # Only validate if content is a dict (raw input)
         if isinstance(self.content, dict):
             try:
@@ -95,18 +99,82 @@ class Cell(BaseModel):
 # ════════════════════════════════════════════════════════════════════════════
 
 _TIME_DIM_KEYWORDS: dict = {
-    "PAST":          {"history", "past", "previous", "diff", "git log", "was ", "were ", "old ",
-                      "before", "changelog", "legacy", "prior", "yesterday"},
-    "FUTURE":        {"future", "plan", "next", "predict", "will ", "roadmap", "goal", "upcoming",
-                      "todo", "should ", "proposal", "propose"},
-    "TREND":         {"trend", "growth", "rising", "falling", "declining", "improving", "degrading",
-                      "increase", "decrease", "over time", "week over", "month over"},
-    "CYCLE":         {"cycle", "weekly", "daily", "recurring", "periodic", "sprint", "deployment",
-                      "release", "iteration", "every "},
-    "EMERGENCE":     {"emerge", "novel", "unexpected", "anomaly", "surprise", "new pattern",
-                      "discovered", "unknown", "first time"},
-    "TRANSCENDENCE": {"meta", "self-improvement", "introspect", "self probe", "self_probe",
-                      "consciousness", "axiom", "transcend"},
+    "PAST": {
+        "history",
+        "past",
+        "previous",
+        "diff",
+        "git log",
+        "was ",
+        "were ",
+        "old ",
+        "before",
+        "changelog",
+        "legacy",
+        "prior",
+        "yesterday",
+    },
+    "FUTURE": {
+        "future",
+        "plan",
+        "next",
+        "predict",
+        "will ",
+        "roadmap",
+        "goal",
+        "upcoming",
+        "todo",
+        "should ",
+        "proposal",
+        "propose",
+    },
+    "TREND": {
+        "trend",
+        "growth",
+        "rising",
+        "falling",
+        "declining",
+        "improving",
+        "degrading",
+        "increase",
+        "decrease",
+        "over time",
+        "week over",
+        "month over",
+    },
+    "CYCLE": {
+        "cycle",
+        "weekly",
+        "daily",
+        "recurring",
+        "periodic",
+        "sprint",
+        "deployment",
+        "release",
+        "iteration",
+        "every ",
+    },
+    "EMERGENCE": {
+        "emerge",
+        "novel",
+        "unexpected",
+        "anomaly",
+        "surprise",
+        "new pattern",
+        "discovered",
+        "unknown",
+        "first time",
+    },
+    "TRANSCENDENCE": {
+        "meta",
+        "self-improvement",
+        "introspect",
+        "self probe",
+        "self_probe",
+        "consciousness",
+        "axiom",
+        "transcend",
+    },
 }
 
 
@@ -146,6 +214,7 @@ def infer_time_dim(content: str, context: str = "", analysis: str = "JUDGE") -> 
 # JUDGMENT OUTPUT
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class Judgment(BaseModel):
     """
     The result of judging a Cell.
@@ -154,13 +223,18 @@ class Judgment(BaseModel):
     - q_score ∈ [0, 61.8]  — never exceed φ⁻¹ × 100
     - confidence ∈ [0, φ⁻¹]  — max 61.8%
     """
+
     judgment_id: str = Field(default_factory=new_id)
 
     # Input
     cell: Cell
 
     # Output (φ-bounded)
-    q_score: float = Field(ge=0.0, le=MAX_Q_SCORE, description="Q-Score ∈ [0, 100] (MAX_Q_SCORE=100; confidence is φ-bounded to 61.8%)")
+    q_score: float = Field(
+        ge=0.0,
+        le=MAX_Q_SCORE,
+        description="Q-Score ∈ [0, 100] (MAX_Q_SCORE=100; confidence is φ-bounded to 61.8%)",
+    )
     verdict: str = Field(description="HOWL/WAG/GROWL/BARK")
     confidence: float = Field(ge=0.0, le=MAX_CONFIDENCE, description="Confidence ∈ [0, 0.618]")
 
@@ -169,7 +243,7 @@ class Judgment(BaseModel):
     active_axioms: list[str] = Field(default_factory=list)
 
     # Consensus info
-    dog_votes: dict[str, float] = Field(default_factory=dict)    # {dog_id: q_score}
+    dog_votes: dict[str, float] = Field(default_factory=dict)  # {dog_id: q_score}
     consensus_votes: int = Field(default=0)
     consensus_quorum: int = Field(default=7)
     consensus_reached: bool = Field(default=False)
@@ -245,8 +319,10 @@ class Judgment(BaseModel):
 # CONSENSUS RESULT (from PBFT Dogs)
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class ConsensusResult(BaseModel):
     """Result of PBFT consensus among Dogs."""
+
     consensus: bool
     votes: int = Field(ge=0)
     quorum: int = Field(ge=0)
@@ -271,9 +347,11 @@ class ConsensusResult(BaseModel):
 # E-SCORE (Reputation)
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class EScoreDimension(BaseModel):
     """One dimension of E-Score 7D."""
-    name: str       # BURN/BUILD/JUDGE/RUN/SOCIAL/GRAPH/HOLD
+
+    name: str  # BURN/BUILD/JUDGE/RUN/SOCIAL/GRAPH/HOLD
     raw_score: float = Field(ge=0.0)
     weight: float = Field(gt=0.0)
     on_chain: bool = False
@@ -281,6 +359,7 @@ class EScoreDimension(BaseModel):
 
 class EScore(BaseModel):
     """Agent reputation score across 7 φ-weighted dimensions."""
+
     agent_id: str
     total: float = Field(ge=0.0, le=100.0, description="Total E-Score [0, 100]")
     dimensions: dict[str, EScoreDimension] = Field(default_factory=dict)
@@ -296,22 +375,25 @@ class EScore(BaseModel):
 # LEARNING EVENTS
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class LearningEvent(BaseModel):
     """Record of what the system learned from a judgment outcome."""
+
     event_id: str = Field(default_factory=new_id)
-    loop_name: str      # Which loop (Q_LEARNING, THOMPSON, EWC, etc.)
+    loop_name: str  # Which loop (Q_LEARNING, THOMPSON, EWC, etc.)
     judgment_id: str
     state_key: str
     action: str
-    reward: float       # Actual outcome reward
-    q_delta: float = 0.0    # Change in Q-value
+    reward: float  # Actual outcome reward
+    q_delta: float = 0.0  # Change in Q-value
     timestamp: float = Field(default_factory=lambda: datetime.now().timestamp())
 
 
 class PerceptionEvent(BaseModel):
     """Raw perception data from a Watcher."""
+
     event_id: str = Field(default_factory=new_id)
-    source: str         # CODE/SOLANA/MARKET/SOCIAL
-    event_type: str     # file_changed, tx_confirmed, price_tick, etc.
+    source: str  # CODE/SOLANA/MARKET/SOCIAL
+    event_type: str  # file_changed, tx_confirmed, price_tick, etc.
     data: dict[str, Any] = Field(default_factory=dict)
     timestamp: float = Field(default_factory=lambda: datetime.now().timestamp())

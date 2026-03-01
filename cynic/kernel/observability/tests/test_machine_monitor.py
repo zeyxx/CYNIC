@@ -1,4 +1,5 @@
 """Tests for MachineMonitor."""
+
 import pytest
 
 from cynic.kernel.observability.machine_monitor import MachineMonitor, MachineState
@@ -18,13 +19,13 @@ async def test_get_machine_state():
     state = await monitor.get_state()
 
     assert isinstance(state, MachineState)
-    assert hasattr(state, 'cpu_percent')
-    assert hasattr(state, 'memory_percent')
-    assert hasattr(state, 'disk_percent')
-    assert hasattr(state, 'network_bandwidth')
-    assert hasattr(state, 'temperature')
-    assert hasattr(state, 'health')
-    assert hasattr(state, 'timestamp')
+    assert hasattr(state, "cpu_percent")
+    assert hasattr(state, "memory_percent")
+    assert hasattr(state, "disk_percent")
+    assert hasattr(state, "network_bandwidth")
+    assert hasattr(state, "temperature")
+    assert hasattr(state, "health")
+    assert hasattr(state, "timestamp")
 
     # Validate value ranges
     assert 0 <= state.cpu_percent <= 100

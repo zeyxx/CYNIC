@@ -24,6 +24,7 @@ Lifecycle:
   prober.set_escore_tracker(escore_tracker)
   prober.start(get_core_bus())   # subscibe to EMERGENCE_DETECTED
 """
+
 from __future__ import annotations
 
 import json
@@ -44,13 +45,13 @@ _CYNIC_DIR = os.path.join(os.path.expanduser("~"), ".cynic")
 _PROPOSALS_PATH = os.path.join(_CYNIC_DIR, "self_proposals.json")
 
 # Rolling cap: F(10) = 55
-_MAX_PROPOSALS: int = fibonacci(10)   # 55
+_MAX_PROPOSALS: int = fibonacci(10)  # 55
 
 # QTable: value below this is "persistently low" (GROWL floor normalized)
-_LOW_Q_THRESHOLD: float = PHI_INV_2   # 0.382
+_LOW_Q_THRESHOLD: float = PHI_INV_2  # 0.382
 
 # Min visits for a QTable entry to be worth analyzing
-_MIN_VISITS: int = fibonacci(4)       # 3
+_MIN_VISITS: int = fibonacci(4)  # 3
 
 
 def _short_id() -> str:
@@ -59,34 +60,36 @@ def _short_id() -> str:
 
 # ── Dataclass ────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class SelfProposal:
     """One self-improvement recommendation."""
+
     probe_id: str
-    trigger: str        # EMERGENCE | SCHEDULE | MANUAL
-    pattern_type: str   # SPIKE | RISING | STABLE_HIGH | QTABLE | ESCORE | CONFIG
-    severity: float     # [0, 1]
-    dimension: str      # QTABLE | ESCORE | RESIDUAL | CONFIG
-    target: str         # dog name, state_key:action, or parameter name
-    recommendation: str # Human-readable improvement suggestion
+    trigger: str  # EMERGENCE | SCHEDULE | MANUAL
+    pattern_type: str  # SPIKE | RISING | STABLE_HIGH | QTABLE | ESCORE | CONFIG
+    severity: float  # [0, 1]
+    dimension: str  # QTABLE | ESCORE | RESIDUAL | CONFIG
+    target: str  # dog name, state_key:action, or parameter name
+    recommendation: str  # Human-readable improvement suggestion
     current_value: float
     suggested_value: float
     proposed_at: float = field(default_factory=time.time)
-    status: str = "PENDING"   # PENDING | APPLIED | DISMISSED
+    status: str = "PENDING"  # PENDING | APPLIED | DISMISSED
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "probe_id":       self.probe_id,
-            "trigger":        self.trigger,
-            "pattern_type":   self.pattern_type,
-            "severity":       round(self.severity, 4),
-            "dimension":      self.dimension,
-            "target":         self.target,
+            "probe_id": self.probe_id,
+            "trigger": self.trigger,
+            "pattern_type": self.pattern_type,
+            "severity": round(self.severity, 4),
+            "dimension": self.dimension,
+            "target": self.target,
             "recommendation": self.recommendation,
-            "current_value":  round(self.current_value, 4),
+            "current_value": round(self.current_value, 4),
             "suggested_value": round(self.suggested_value, 4),
-            "proposed_at":    self.proposed_at,
-            "status":         self.status,
+            "proposed_at": self.proposed_at,
+            "status": self.status,
         }
 
     @classmethod
@@ -107,6 +110,7 @@ class SelfProposal:
 
 
 # ── SelfProber ───────────────────────────────────────────────────────────────
+
 
 class SelfProber:
     """
@@ -195,10 +199,10 @@ class SelfProber:
             counts[p.status] = counts.get(p.status, 0) + 1
         return {
             "proposed_total": self._total_proposed,
-            "queue_size":     len(self._proposals),
-            "pending":        counts["PENDING"],
-            "applied":        counts["APPLIED"],
-            "dismissed":      counts["DISMISSED"],
+            "queue_size": len(self._proposals),
+            "pending": counts["PENDING"],
+            "applied": counts["APPLIED"],
+            "dismissed": counts["DISMISSED"],
         }
 
     # ── Analysis ──────────────────────────────────────────────────────────
@@ -237,7 +241,10 @@ class SelfProber:
     # ── Analysis: QTable ──────────────────────────────────────────────────
 
     def _analyze_qtable(
-        self, trigger: str, pattern_type: str, severity: float,
+        self,
+        trigger: str,
+        pattern_type: str,
+        severity: float,
     ) -> list[SelfProposal]:
         """
         Find the worst-performing QTable entry (lowest Q-value with enough visits).
@@ -254,7 +261,7 @@ class SelfProber:
         worst: tuple | None = None  # (value, visits, state_key, action)
         for state_key, actions in table.items():
             for action, entry in actions.items():
-                value  = float(entry.get("value", 1.0))
+                value = float(entry.get("value", 1.0))
                 visits = int(entry.get("visits", 0))
                 if visits >= _MIN_VISITS and value < _LOW_Q_THRESHOLD:
                     if worst is None or value < worst[0]:
@@ -269,22 +276,27 @@ class SelfProber:
             f"after {visits} visits (below φ² threshold {_LOW_Q_THRESHOLD:.3f}). "
             f"Investigate heuristic coverage or axiom weights for this cell."
         )
-        return [SelfProposal(
-            probe_id=_short_id(),
-            trigger=trigger,
-            pattern_type=pattern_type,
-            severity=severity,
-            dimension="QTABLE",
-            target=f"{state_key[:30]}:{action}",
-            recommendation=rec[:240],
-            current_value=value,
-            suggested_value=min(value + 0.10, _LOW_Q_THRESHOLD),
-        )]
+        return [
+            SelfProposal(
+                probe_id=_short_id(),
+                trigger=trigger,
+                pattern_type=pattern_type,
+                severity=severity,
+                dimension="QTABLE",
+                target=f"{state_key[:30]}:{action}",
+                recommendation=rec[:240],
+                current_value=value,
+                suggested_value=min(value + 0.10, _LOW_Q_THRESHOLD),
+            )
+        ]
 
     # ── Analysis: EScore ──────────────────────────────────────────────────
 
     def _analyze_escore(
-        self, trigger: str, pattern_type: str, severity: float,
+        self,
+        trigger: str,
+        pattern_type: str,
+        severity: float,
     ) -> list[SelfProposal]:
         """
         Find dogs with JUDGE E-Score < 38.2 (below GROWL floor).
@@ -310,17 +322,19 @@ class SelfProber:
                     f"(below GROWL threshold 38.2). "
                     f"Consider excluding from MACRO cycles until score recovers."
                 )
-                proposals.append(SelfProposal(
-                    probe_id=_short_id(),
-                    trigger=trigger,
-                    pattern_type=pattern_type,
-                    severity=min(severity, (38.2 - judge_score) / 38.2),
-                    dimension="ESCORE",
-                    target=dog_name,
-                    recommendation=rec[:240],
-                    current_value=judge_score,
-                    suggested_value=38.2,
-                ))
+                proposals.append(
+                    SelfProposal(
+                        probe_id=_short_id(),
+                        trigger=trigger,
+                        pattern_type=pattern_type,
+                        severity=min(severity, (38.2 - judge_score) / 38.2),
+                        dimension="ESCORE",
+                        target=dog_name,
+                        recommendation=rec[:240],
+                        current_value=judge_score,
+                        suggested_value=38.2,
+                    )
+                )
             if len(proposals) >= 3:
                 break
 
@@ -329,7 +343,10 @@ class SelfProber:
     # ── Analysis: Residual / Config ───────────────────────────────────────
 
     def _analyze_residual(
-        self, trigger: str, pattern_type: str, severity: float,
+        self,
+        trigger: str,
+        pattern_type: str,
+        severity: float,
     ) -> list[SelfProposal]:
         """
         Pattern-specific parameter suggestions.
@@ -347,17 +364,19 @@ class SelfProber:
                 f"Dogs consistently disagree across {fibonacci(5)} judgments. "
                 f"Run P1-P5 probe calibration to re-baseline axiom weights."
             )
-            return [SelfProposal(
-                probe_id=_short_id(),
-                trigger=trigger,
-                pattern_type=pattern_type,
-                severity=severity,
-                dimension="CONFIG",
-                target="axiom_weights",
-                recommendation=rec[:240],
-                current_value=severity,
-                suggested_value=0.0,
-            )]
+            return [
+                SelfProposal(
+                    probe_id=_short_id(),
+                    trigger=trigger,
+                    pattern_type=pattern_type,
+                    severity=severity,
+                    dimension="CONFIG",
+                    target="axiom_weights",
+                    recommendation=rec[:240],
+                    current_value=severity,
+                    suggested_value=0.0,
+                )
+            ]
 
         # RISING
         rec = (
@@ -365,22 +384,27 @@ class SelfProber:
             f"Dog disagreement is escalating. "
             f"Consider lowering ANOMALY_THRESHOLD (0.382→0.300) or adding dog diversity."
         )
-        return [SelfProposal(
-            probe_id=_short_id(),
-            trigger=trigger,
-            pattern_type=pattern_type,
-            severity=severity,
-            dimension="CONFIG",
-            target="residual_threshold",
-            recommendation=rec[:240],
-            current_value=0.382,
-            suggested_value=0.300,
-        )]
+        return [
+            SelfProposal(
+                probe_id=_short_id(),
+                trigger=trigger,
+                pattern_type=pattern_type,
+                severity=severity,
+                dimension="CONFIG",
+                target="residual_threshold",
+                recommendation=rec[:240],
+                current_value=0.382,
+                suggested_value=0.300,
+            )
+        ]
 
     # ── Analysis: Architecture ────────────────────────────────────────────────
 
     def _analyze_architecture(
-        self, trigger: str, pattern_type: str, severity: float,
+        self,
+        trigger: str,
+        pattern_type: str,
+        severity: float,
     ) -> list[SelfProposal]:
         """Handler coupling analysis — the organism understands its own structure."""
         proposals: list[SelfProposal] = []
@@ -394,32 +418,36 @@ class SelfProber:
             # Check 1: Total dependency count
             if total_deps > 25:
                 severity_score = min(total_deps / 30, 1.0)
-                proposals.append(SelfProposal(
-                    probe_id=_short_id(),
-                    trigger=trigger,
-                    pattern_type="ARCHITECTURE_COUPLING",
-                    severity=severity_score,
-                    dimension="COUPLING",
-                    target="handler_registry",
-                    recommendation=f"Total handler deps={total_deps} (cap: 25). Consider splitting groups.",
-                    current_value=float(total_deps),
-                    suggested_value=25.0,
-                ))
+                proposals.append(
+                    SelfProposal(
+                        probe_id=_short_id(),
+                        trigger=trigger,
+                        pattern_type="ARCHITECTURE_COUPLING",
+                        severity=severity_score,
+                        dimension="COUPLING",
+                        target="handler_registry",
+                        recommendation=f"Total handler deps={total_deps} (cap: 25). Consider splitting groups.",
+                        current_value=float(total_deps),
+                        suggested_value=25.0,
+                    )
+                )
 
             # Check 2: Individual group coupling
             for group in topo.get("groups", []):
                 if len(group.get("dependencies", [])) > 8:
-                    proposals.append(SelfProposal(
-                        probe_id=_short_id(),
-                        trigger=trigger,
-                        pattern_type="ARCHITECTURE_COUPLING",
-                        severity=0.7,
-                        dimension="COUPLING",
-                        target=group["name"],
-                        recommendation=f"{group['name']}: {len(group['dependencies'])} deps (cap: 8). Decompose.",
-                        current_value=float(len(group["dependencies"])),
-                        suggested_value=8.0,
-                    ))
+                    proposals.append(
+                        SelfProposal(
+                            probe_id=_short_id(),
+                            trigger=trigger,
+                            pattern_type="ARCHITECTURE_COUPLING",
+                            severity=0.7,
+                            dimension="COUPLING",
+                            target=group["name"],
+                            recommendation=f"{group['name']}: {len(group['dependencies'])} deps (cap: 8). Decompose.",
+                            current_value=float(len(group["dependencies"])),
+                            suggested_value=8.0,
+                        )
+                    )
 
         except httpx.RequestError:
             logger.debug("_analyze_architecture error", exc_info=True)
@@ -433,31 +461,35 @@ class SelfProber:
         try:
             payload = event.dict_payload if isinstance(event.dict_payload, dict) else {}
             pattern_type = payload.get("pattern_type", "UNKNOWN")
-            severity     = float(payload.get("severity", 0.5))
+            severity = float(payload.get("severity", 0.5))
 
             new_proposals = self.analyze(
-                trigger=     "EMERGENCE",
+                trigger="EMERGENCE",
                 pattern_type=pattern_type,
-                severity=    severity,
+                severity=severity,
             )
 
             if not new_proposals:
                 return
 
-            await get_core_bus().emit(Event.typed(
-                CoreEvent.SELF_IMPROVEMENT_PROPOSED,
-                SelfImprovementProposedPayload(
-                    trigger="EMERGENCE",
-                    pattern_type=pattern_type,
-                    severity=severity,
-                    proposals=[p.to_dict() for p in new_proposals],
-                    total_pending=len(self.pending()),
-                ),
-                source="self_prober",
-            ))
+            await get_core_bus().emit(
+                Event.typed(
+                    CoreEvent.SELF_IMPROVEMENT_PROPOSED,
+                    SelfImprovementProposedPayload(
+                        trigger="EMERGENCE",
+                        pattern_type=pattern_type,
+                        severity=severity,
+                        proposals=[p.to_dict() for p in new_proposals],
+                        total_pending=len(self.pending()),
+                    ),
+                    source="self_prober",
+                )
+            )
             logger.info(
                 "SelfProber: %d proposals generated (pattern=%s severity=%.3f)",
-                len(new_proposals), pattern_type, severity,
+                len(new_proposals),
+                pattern_type,
+                severity,
             )
         except CynicError as exc:
             logger.warning("SelfProber._on_emergence error: %s", exc)

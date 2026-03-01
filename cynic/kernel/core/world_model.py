@@ -5,6 +5,7 @@ Subscribes to JUDGMENT_CREATED, maintains a live WorldState snapshot
 indexed by reality. Computes composite_risk (phi-weighted geo mean).
 Detects conflicts (HOWL vs BARK in different realities).
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,7 +36,7 @@ class RealitySnapshot:
 class WorldState:
     snapshots: dict[str, RealitySnapshot] = field(default_factory=dict)
     conflicts: list[str] = field(default_factory=list)
-    composite_risk: float = 50.0   # phi-weighted geometric mean [0, 100]
+    composite_risk: float = 50.0  # phi-weighted geometric mean [0, 100]
     dominant_reality: str = "CODE"  # reality with highest risk (lowest q_score)
     last_updated: float = field(default_factory=time.time)
 

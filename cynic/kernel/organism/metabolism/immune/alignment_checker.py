@@ -10,6 +10,7 @@ Prevents:
   4. Novel violations of established patterns (CULTURE violation)
   5. Over-extraction or bloat (BURN violation)
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,18 +24,19 @@ logger = logging.getLogger("cynic.kernel.organism.metabolism.immune.alignment_ch
 
 # Axiom thresholds (φ-derived)
 _MIN_CONFIDENCE_FOR_HIGH_IMPACT = 0.382  # φ⁻² — minimum for BARK decisions
-_VERDICT_BALANCE_WINDOW = fibonacci(6)   # 8 judgments — check balance
-_MAX_CONTRADICTIONS_BEFORE_BLOCK = 2     # Contradiction threshold
+_VERDICT_BALANCE_WINDOW = fibonacci(6)  # 8 judgments — check balance
+_MAX_CONTRADICTIONS_BEFORE_BLOCK = 2  # Contradiction threshold
 
 
 @dataclass
 class AlignmentViolation:
     """Records an alignment violation and severity."""
-    axiom: str                  # FIDELITY, PHI, VERIFY, CULTURE, BURN
-    severity: str               # CRITICAL, WARNING, INFO
-    reason: str                 # Explanation
-    blocking: bool              # If True, blocks the decision
-    recommendation: str         # Suggested fix
+
+    axiom: str  # FIDELITY, PHI, VERIFY, CULTURE, BURN
+    severity: str  # CRITICAL, WARNING, INFO
+    reason: str  # Explanation
+    blocking: bool  # If True, blocks the decision
+    recommendation: str  # Suggested fix
 
 
 class AlignmentSafetyChecker:

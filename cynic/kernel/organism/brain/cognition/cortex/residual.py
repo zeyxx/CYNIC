@@ -1,12 +1,13 @@
 """
 ResidualDetector — γ1 entropy sensor.
 
-Measures the variance between Dog judgments. 
+Measures the variance between Dog judgments.
 High variance = High 'Unnameable' content = Emergence potential.
 
 Formula:
   residual = standard_deviation(q_scores) / MAX_Q_SCORE
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,15 +20,17 @@ from cynic.kernel.core.phi import PHI_INV_2
 
 logger = logging.getLogger("cynic.kernel.brain.cognition.residual")
 
+
 class ResidualDetector:
     """
     Senses entropy in the judgment collective.
     Trigger for L4 META cycles and self-improvement proposals.
     """
+
     def __init__(self):
         self._history: list[float] = []
         self._high_residual_count = 0
-        self._threshold = PHI_INV_2 * 100 # ~38.2
+        self._threshold = PHI_INV_2 * 100  # ~38.2
 
     def start(self):
         """Subscribe to judgment events."""
@@ -40,17 +43,17 @@ class ResidualDetector:
         votes = list(judgment.dog_votes.values())
         if len(votes) < 2:
             return 0.0
-            
+
         res = statistics.stdev(votes)
         self._history.append(res)
-        if len(self._history) > 144: # F(12)
+        if len(self._history) > 144:  # F(12)
             self._history.pop(0)
-            
+
         if res > self._threshold:
             self._high_residual_count += 1
         else:
             self._high_residual_count = 0
-            
+
         return res
 
     async def _on_judgment(self, event: Event) -> None:
@@ -63,7 +66,7 @@ class ResidualDetector:
                 return
 
             res = self.observe_dict(votes)
-            
+
             if res > self._threshold:
                 await self._signal_high_entropy(res)
         except Exception as e:
@@ -79,11 +82,13 @@ class ResidualDetector:
         """Emit alert if entropy stays high."""
         if self._high_residual_count >= RESIDUAL_STABLE_HIGH_N:
             logger.warning("HIGH RESIDUAL DETECTED: %.2f (entropy stable)", value)
-            await get_core_bus().emit(Event.typed(
-                CoreEvent.RESIDUAL_HIGH,
-                payload={"residual": value, "count": self._high_residual_count},
-                source="residual_detector"
-            ))
+            await get_core_bus().emit(
+                Event.typed(
+                    CoreEvent.RESIDUAL_HIGH,
+                    payload={"residual": value, "count": self._high_residual_count},
+                    source="residual_detector",
+                )
+            )
 
     def stats(self) -> dict:
         avg_res = sum(self._history) / len(self._history) if self._history else 0.0
@@ -91,5 +96,5 @@ class ResidualDetector:
             "current_residual": round(self._history[-1], 2) if self._history else 0.0,
             "avg_residual": round(avg_res, 2),
             "history_size": len(self._history),
-            "threshold": self._threshold
+            "threshold": self._threshold,
         }

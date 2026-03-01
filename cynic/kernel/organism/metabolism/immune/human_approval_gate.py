@@ -15,6 +15,7 @@ Blocks execution until human:
   - Provides optional notes
   - Confirms understanding of implications
 """
+
 from __future__ import annotations
 
 import json
@@ -38,6 +39,7 @@ _MAX_CONSECUTIVE_FAILURES = 2
 
 class ApprovalStatus(Enum):
     """Status of a human approval request."""
+
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
@@ -47,6 +49,7 @@ class ApprovalStatus(Enum):
 @dataclass
 class ApprovalRequest:
     """Request for human approval of a decision."""
+
     request_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     record_id: str = ""  # From audit trail
 
@@ -156,7 +159,9 @@ class HumanApprovalGate:
                 else:  # dict
                     return v.get("blocking", False)
 
-            pass_rate = sum(1 for v in alignment_violations if not is_blocking(v)) / len(alignment_violations)
+            pass_rate = sum(1 for v in alignment_violations if not is_blocking(v)) / len(
+                alignment_violations
+            )
             if pass_rate < _LOW_ALIGNMENT_THRESHOLD:
                 return True
 
@@ -198,6 +203,7 @@ class HumanApprovalGate:
             ApprovalRequest with request_id
         """
         import time
+
         request = ApprovalRequest(
             record_id=record_id,
             verdict=verdict,
@@ -231,6 +237,7 @@ class HumanApprovalGate:
             Updated ApprovalRequest or None if not found
         """
         import time
+
         request = self._find_request(request_id)
         if request:
             request.status = ApprovalStatus.APPROVED
@@ -260,6 +267,7 @@ class HumanApprovalGate:
             Updated ApprovalRequest or None if not found
         """
         import time
+
         request = self._find_request(request_id)
         if request:
             request.status = ApprovalStatus.REJECTED
@@ -355,7 +363,7 @@ class HumanApprovalGate:
 
         # Enforce rolling cap: F(9)=34 pending + resolved
         if len(self._requests) > fibonacci(9):
-            self._requests = self._requests[-fibonacci(9):]
+            self._requests = self._requests[-fibonacci(9) :]
 
         self._save_to_disk()
 

@@ -14,7 +14,7 @@ class ReasoningEngine:
         "BURN": "Energy expenditure, sustainability, and non-extraction",
         "VERIFY": "Verifiability, accuracy, and truth",
         "CULTURE": "Community resonance, authenticity, and alignment",
-        "FIDELITY": "Faithful execution and authentic intention"
+        "FIDELITY": "Faithful execution and authentic intention",
     }
 
     def format_judgment_reasoning(self, judgment: dict[str, Any]) -> str:
@@ -25,17 +25,13 @@ class ReasoningEngine:
 
         lines = [
             f"I chose {verdict} with confidence {confidence:.1%}",
-            f"Quality score: {q_score}/100"
+            f"Quality score: {q_score}/100",
         ]
 
         # Add axiom influences
         axiom_scores = judgment.get("axiom_scores", {})
         if axiom_scores:
-            high_axioms = sorted(
-                axiom_scores.items(),
-                key=lambda x: x[1],
-                reverse=True
-            )[:3]
+            high_axioms = sorted(axiom_scores.items(), key=lambda x: x[1], reverse=True)[:3]
 
             lines.append("Key axiom influences:")
             for axiom, score in high_axioms:
@@ -50,25 +46,20 @@ class ReasoningEngine:
 
         return "\n".join(lines)
 
-    def extract_axiom_explanations(self, axiom_scores: dict[str, float]
-                                  ) -> dict[str, str]:
+    def extract_axiom_explanations(self, axiom_scores: dict[str, float]) -> dict[str, str]:
         """Extract which axioms mattered and why."""
         explanations = {}
 
-        for axiom, score in sorted(axiom_scores.items(),
-                                   key=lambda x: x[1],
-                                   reverse=True):
+        for axiom, score in sorted(axiom_scores.items(), key=lambda x: x[1], reverse=True):
             if axiom in self.AXIOM_EXPLANATIONS:
                 explanation = self.AXIOM_EXPLANATIONS[axiom]
                 explanations[axiom] = f"{explanation} ({score:.1%})"
 
         return explanations
 
-    def create_context_for_claude(self,
-                                 question: str,
-                                 judgment: dict[str, Any],
-                                 user_communication_style: str = "balanced"
-                                 ) -> dict[str, Any]:
+    def create_context_for_claude(
+        self, question: str, judgment: dict[str, Any], user_communication_style: str = "balanced"
+    ) -> dict[str, Any]:
         """Create structured context for Claude API call."""
         return {
             "question": question,
@@ -78,11 +69,9 @@ class ReasoningEngine:
             "axiom_scores": judgment.get("axiom_scores", {}),
             "dog_votes": judgment.get("dog_votes", {}),
             "reasoning_summary": self.format_judgment_reasoning(judgment),
-            "axiom_explanations": self.extract_axiom_explanations(
-                judgment.get("axiom_scores", {})
-            ),
+            "axiom_explanations": self.extract_axiom_explanations(judgment.get("axiom_scores", {})),
             "communication_style": user_communication_style,
-            "verbosity": self._determine_verbosity(user_communication_style)
+            "verbosity": self._determine_verbosity(user_communication_style),
         }
 
     def _determine_verbosity(self, style: str) -> str:
@@ -90,6 +79,6 @@ class ReasoningEngine:
         verbosity_map = {
             "concise": "1-2 sentences max",
             "balanced": "2-3 sentences with detail",
-            "detailed": "comprehensive explanation with examples"
+            "detailed": "comprehensive explanation with examples",
         }
         return verbosity_map.get(style, verbosity_map["balanced"])

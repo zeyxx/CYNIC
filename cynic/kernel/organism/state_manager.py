@@ -8,6 +8,7 @@ Unified state system with 3 layers:
 
 Implements the "Hippocampus" of the organism.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -19,7 +20,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional, Union
 
 from cynic.kernel.core.unified_state import (
     GovernanceCommunity,
@@ -32,10 +33,12 @@ from cynic.kernel.core.unified_state import (
 
 logger = logging.getLogger("cynic.kernel.organism.state_manager")
 
+
 class StateLayer(Enum):
     MEMORY = "memory"
     PERSISTENT = "persistent"
     CHECKPOINT = "checkpoint"
+
 
 @dataclass
 class StateUpdate:
@@ -45,9 +48,11 @@ class StateUpdate:
     source: str
     timestamp: float = field(default_factory=time.time)
 
+
 @dataclass(frozen=True)
 class OrganismSnapshot:
     """An immutable point-in-time view of the organism state."""
+
     total_judgments: int
     consciousness_level: str
     active_axioms: List[str]
@@ -56,24 +61,28 @@ class OrganismSnapshot:
     persistent_keys: int
     timestamp: float = field(default_factory=time.time)
 
+
 class OrganismState:
     """
     Manages the organism's memory and persistence.
     Thread-safe implementation for concurrent UI/Kernel access.
     """
+
     def __init__(self, storage_dir: str | None = None):
-        self.storage_dir = Path(storage_dir or os.path.join(os.path.expanduser("~"), ".cynic", "organism_state"))
+        self.storage_dir = Path(
+            storage_dir or os.path.join(os.path.expanduser("~"), ".cynic", "organism_state")
+        )
         self.storage_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Internal State Layers
         self._memory_state: dict[str, Any] = {}
         self._persistent_state: dict[str, Any] = {}
         self._checkpoint_state: dict[str, Any] = {}
-        
+
         # The Living View (Consciousness)
         self.consciousness = UnifiedConsciousState()
         self.total_judgments = 0
-        
+
         # Cycle counters
         self.reflex_cycles = 0
         self.micro_cycles = 0
@@ -96,7 +105,7 @@ class OrganismState:
         self._loop_task: asyncio.Task | None = None
 
         # Concurrency protection
-        self._lock = threading.RLock() # Use threading.RLock for synchronous accessors
+        self._lock = threading.RLock()  # Use threading.RLock for synchronous accessors
 
     def get_snapshot(self) -> OrganismSnapshot:
         """Return the latest immutable snapshot. Lock-free after first take."""
@@ -116,10 +125,10 @@ class OrganismState:
                     "micro": self.micro_cycles,
                     "macro": self.macro_cycles,
                     "meta": self.meta_cycles,
-                    "total": self.total_cycles
+                    "total": self.total_cycles,
                 },
                 memory_keys=len(self._memory_state),
-                persistent_keys=len(self._persistent_state)
+                persistent_keys=len(self._persistent_state),
             )
 
     # ── LIFECYCLE ───────────────────────────────────────────────────────
@@ -128,11 +137,11 @@ class OrganismState:
         """Start the background respiration (update loop)."""
         if self._processing:
             return
-        
+
         self._processing = True
         # Load last checkpoint if exists
         await self.recover()
-        
+
         self._loop_task = asyncio.create_task(self._process_updates_loop())
         logger.info("OrganismState respiration started (storage=%s)", self.storage_dir)
 
@@ -141,20 +150,23 @@ class OrganismState:
         self._processing = False
         if self._loop_task:
             # Wake up the loop if it's waiting on the queue
-            self._update_queue.put_nowait(None) # type: ignore
+            self._update_queue.put_nowait(None)  # type: ignore
             await self._loop_task
-            
+
         await self.save_checkpoint()
-        
+
         # Drain EventBus (nervous system)
         from cynic.kernel.core.event_bus import get_core_bus
+
         await get_core_bus().drain(timeout=1.0)
-        
+
         logger.info("OrganismState processing stopped")
 
     # ── CORE OPERATIONS ─────────────────────────────────────────────────
 
-    async def update(self, key: str, value: Any, layer: StateLayer = StateLayer.MEMORY, source: str = "internal") -> bool:
+    async def update(
+        self, key: str, value: Any, layer: StateLayer = StateLayer.MEMORY, source: str = "internal"
+    ) -> bool:
         """Queue a state update."""
         update = StateUpdate(key=key, value=value, layer=layer, source=source)
         await self._update_queue.put(update)
@@ -163,9 +175,12 @@ class OrganismState:
     def query(self, key: str, default: Any = None) -> Any:
         """Read state (Memory > Persistent > Checkpoint)."""
         with self._lock:
-            if key in self._memory_state: return self._memory_state[key]
-            if key in self._persistent_state: return self._persistent_state[key]
-            if key in self._checkpoint_state: return self._checkpoint_state[key]
+            if key in self._memory_state:
+                return self._memory_state[key]
+            if key in self._persistent_state:
+                return self._persistent_state[key]
+            if key in self._checkpoint_state:
+                return self._checkpoint_state[key]
             return default
 
     # ── CONSCIOUSNESS INTEGRATION ───────────────────────────────────────
@@ -177,6 +192,7 @@ class OrganismState:
                 # Convert dict to UnifiedJudgment (dataclass, not Pydantic)
                 # Filter dict to only include fields that UnifiedJudgment expects
                 import dataclasses
+
                 unified_fields = {f.name for f in dataclasses.fields(UnifiedJudgment)}
                 filtered_dict = {k: v for k, v in judgment.items() if k in unified_fields}
                 try:
@@ -190,16 +206,19 @@ class OrganismState:
         with self._lock:
             self.consciousness.add_judgment(judgment)
             self.total_judgments += 1
-            
-        await self.update("judg:recent", list(self.consciousness.recent_judgments.buffer), layer=StateLayer.MEMORY)
-        await self.update(f"judg:record:{judgment.judgment_id}", judgment, layer=StateLayer.PERSISTENT)
+
+        await self.update(
+            "judg:recent", list(self.consciousness.recent_judgments.buffer), layer=StateLayer.MEMORY
+        )
+        await self.update(
+            f"judg:record:{judgment.judgment_id}", judgment, layer=StateLayer.PERSISTENT
+        )
 
     async def update_consciousness_level(self, level: str) -> None:
         """Update global consciousness level."""
         with self._lock:
             self.consciousness.consciousness_level = level
         await self.update("consciousness_level", level, layer=StateLayer.PERSISTENT)
-
 
     def get_consciousness_level(self) -> str:
         return self.query("consciousness_level", "REFLEX")
@@ -263,8 +282,8 @@ class OrganismState:
                     "micro": self.micro_cycles,
                     "macro": self.macro_cycles,
                     "meta": self.meta_cycles,
-                    "total": self.total_cycles
-                }
+                    "total": self.total_cycles,
+                },
             }
 
     # ── INTERNALS ───────────────────────────────────────────────────────
@@ -274,9 +293,9 @@ class OrganismState:
         while self._processing:
             try:
                 update = await asyncio.wait_for(self._update_queue.get(), timeout=0.5)
-                if update is None: # Shutdown signal
+                if update is None:  # Shutdown signal
                     break
-                
+
                 # Apply to internal dictionaries with lock
                 with self._lock:
                     if update.layer == StateLayer.MEMORY:
@@ -285,7 +304,7 @@ class OrganismState:
                         self._persistent_state[update.key] = update.value
                     elif update.layer == StateLayer.CHECKPOINT:
                         self._checkpoint_state[update.key] = update.value
-                
+
                 self._update_queue.task_done()
             except TimeoutError:
                 continue
@@ -312,7 +331,7 @@ class OrganismState:
             # Snapshot state while locked
             with self._lock:
                 snapshot = dict(self._persistent_state)
-            
+
             # Write to disk (outside lock)
             with open(cp_path, "w") as f:
                 json.dump(snapshot, f, indent=2, default=str)

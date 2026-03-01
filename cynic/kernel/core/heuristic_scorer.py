@@ -23,14 +23,15 @@ Example outputs (traced against P1-P5 probe contexts):
   P4 CYNIC self-state → all axioms ≈ 55-60                       → Q ≈ 57 (WAG)
   P5 Solana tx        → VERIFY ≈ 60, FIDELITY ≈ 57              → Q ≈ 58 (WAG)
 """
+
 from __future__ import annotations
 
 # ── Scoring constants ──────────────────────────────────────────────────────
 
-_BASE = 50.0        # Neutral starting point
+_BASE = 50.0  # Neutral starting point
 _SIGNAL_DELTA = 7.0  # Per axiom-signal shift
 _GLOBAL_DELTA = 3.5  # Per global-signal shift (half weight)
-_MAX_SHIFT = 35.0    # Cap total shift from base in each direction
+_MAX_SHIFT = 35.0  # Cap total shift from base in each direction
 
 # ── Axiom-specific signal tables ──────────────────────────────────────────
 # Each axiom: (positive_keywords, negative_keywords)
@@ -40,67 +41,150 @@ _AXIOM_SIGNALS: dict[str, tuple[list[str], list[str]]] = {
     "FIDELITY": (
         # Truth loyalty: documented, clear, honest, typed
         [
-            "documented", "docstring", "type hint", "typed", "clear",
-            "transparent", "honest", "accurate", "named", "readable",
-            "annotated", "explicit", "verifiable",
+            "documented",
+            "docstring",
+            "type hint",
+            "typed",
+            "clear",
+            "transparent",
+            "honest",
+            "accurate",
+            "named",
+            "readable",
+            "annotated",
+            "explicit",
+            "verifiable",
         ],
         # Ambiguous, hidden, deceptive
         [
-            "undocumented", "unclear", "ambiguous", "untyped", "magic number",
-            "hardcoded", "hidden", "obfuscated", "misleading", "no hints",
+            "undocumented",
+            "unclear",
+            "ambiguous",
+            "untyped",
+            "magic number",
+            "hardcoded",
+            "hidden",
+            "obfuscated",
+            "misleading",
+            "no hints",
         ],
     ),
     "PHI": (
         # Harmonic proportion: well-structured, balanced, simple
         [
-            "well-structured", "balanced", "proportional", "utility",
-            "focused", "single", "minimal", "clean", "simple", "elegant",
-            "harmonic", "coherent",
+            "well-structured",
+            "balanced",
+            "proportional",
+            "utility",
+            "focused",
+            "single",
+            "minimal",
+            "clean",
+            "simple",
+            "elegant",
+            "harmonic",
+            "coherent",
         ],
         # Bloated, disproportional, tangled
         [
-            "god class", "20-parameter", "bloated", "massive", "huge",
-            "unbalanced", "tangled", "disproportional", "everything",
+            "god class",
+            "20-parameter",
+            "bloated",
+            "massive",
+            "huge",
+            "unbalanced",
+            "tangled",
+            "disproportional",
+            "everything",
             "messy",
         ],
     ),
     "VERIFY": (
         # Evidence & consensus: typed, tested, verified, documented
         [
-            "type hint", "typed", "tested", "verified", "validated",
-            "documented", "annotated", "signed", "checked", "proven",
-            "consensus", "confirmed", "audited", "traceable",
+            "type hint",
+            "typed",
+            "tested",
+            "verified",
+            "validated",
+            "documented",
+            "annotated",
+            "signed",
+            "checked",
+            "proven",
+            "consensus",
+            "confirmed",
+            "audited",
+            "traceable",
         ],
         # Unverifiable: wildcard imports, no types, unconfirmed
         [
-            "wildcard import", "no hints", "unverified", "untested",
-            "magic number", "no backup", "unconfirmed", "unsigned",
+            "wildcard import",
+            "no hints",
+            "unverified",
+            "untested",
+            "magic number",
+            "no backup",
+            "unconfirmed",
+            "unsigned",
             "unvalidated",
         ],
     ),
     "CULTURE": (
         # Memory & patterns: follows conventions, idiomatic
         [
-            "convention", "pattern", "standard", "idiomatic", "follows",
-            "consistent", "established", "protocol", "best practice",
-            "idiomatic", "aligned",
+            "convention",
+            "pattern",
+            "standard",
+            "idiomatic",
+            "follows",
+            "consistent",
+            "established",
+            "protocol",
+            "best practice",
+            "idiomatic",
+            "aligned",
         ],
         # Anti-patterns, violations, inconsistency
         [
-            "anti-pattern", "god class", "magic number", "inconsistent",
-            "violation", "misuse", "non-standard", "breaks", "deprecated",
+            "anti-pattern",
+            "god class",
+            "magic number",
+            "inconsistent",
+            "violation",
+            "misuse",
+            "non-standard",
+            "breaks",
+            "deprecated",
         ],
     ),
     "BURN": (
         # Simplicity & action: minimal, focused, efficient
         [
-            "simple", "minimal", "utility", "single", "focused", "direct",
-            "lean", "clean", "essential", "atomic", "efficient",
+            "simple",
+            "minimal",
+            "utility",
+            "single",
+            "focused",
+            "direct",
+            "lean",
+            "clean",
+            "essential",
+            "atomic",
+            "efficient",
         ],
         # Complexity, bloat, irreversible destruction
         [
-            "complex", "everything", "god class", "20-parameter", "bloated",
-            "irreversible", "global", "massive", "multi-step", "destructive",
+            "complex",
+            "everything",
+            "god class",
+            "20-parameter",
+            "bloated",
+            "irreversible",
+            "global",
+            "massive",
+            "multi-step",
+            "destructive",
             "wildcard",
         ],
     ),
@@ -131,18 +215,37 @@ _FACET_MODIFIERS: dict[str, tuple[list[str], list[str]]] = {
 # ── Global signals (applied to ALL axioms at half weight) ─────────────────
 
 _GLOBAL_QUALITY: list[str] = [
-    "well-structured", "type hints", "documented", "healthy", "nominal",
-    "success", "standard", "verified", "clean", "optimal", "active",
-    "learning", "correct",
+    "well-structured",
+    "type hints",
+    "documented",
+    "healthy",
+    "nominal",
+    "success",
+    "standard",
+    "verified",
+    "clean",
+    "optimal",
+    "active",
+    "learning",
+    "correct",
 ]
 
 _GLOBAL_DANGER: list[str] = [
-    "irreversible", "destructive", "unconfirmed", "global blast", "no backup",
-    "critical risk", "delete", "drop", "destroy", "blast radius",
+    "irreversible",
+    "destructive",
+    "unconfirmed",
+    "global blast",
+    "no backup",
+    "critical risk",
+    "delete",
+    "drop",
+    "destroy",
+    "blast radius",
 ]
 
 
 # ── HeuristicFacetScorer ───────────────────────────────────────────────────
+
 
 class HeuristicFacetScorer:
     """

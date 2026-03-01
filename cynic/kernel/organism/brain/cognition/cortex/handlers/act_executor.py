@@ -10,6 +10,7 @@ Responsibility:
 - Execute action via Runner (ACT phase)
 - Emit ACT_COMPLETED event + handle blocking
 """
+
 from __future__ import annotations
 
 import logging
@@ -60,10 +61,11 @@ class ActHandler(BaseHandler):
         self.gasdf_executor = gasdf_executor
         self.agency_manager = agency_manager
         self.body = body
-        
+
         # Lazy import to avoid circular dependencies
         if motor_system is None and self.body:
             from cynic.kernel.organism.layers.motor import MotorSystem
+
             self.motor_system = MotorSystem(body=self.body)
         else:
             self.motor_system = motor_system
@@ -131,14 +133,16 @@ class ActHandler(BaseHandler):
             if not should_execute:
                 logger.warning("ACT: Manager VETO applied: %s", reason)
                 # Emit ACT_FAILED to notify the bus that the action was intentionally blocked
-                await get_core_bus().emit(Event.typed(
-                    CoreEvent.ACT_FAILED,
-                    {
-                        "action_id": judgment.judgment_id[:8],
-                        "error": f"VETO: {reason}",
-                        "is_veto": True
-                    }
-                ))
+                await get_core_bus().emit(
+                    Event.typed(
+                        CoreEvent.ACT_FAILED,
+                        {
+                            "action_id": judgment.judgment_id[:8],
+                            "error": f"VETO: {reason}",
+                            "is_veto": True,
+                        },
+                    )
+                )
                 return None
 
         if not self.decide_agent:
@@ -151,27 +155,29 @@ class ActHandler(BaseHandler):
 
         # Helper: emit DECISION_MADE for human review (consolidates duplicate emissions)
         async def emit_decision_made(trigger: str, error: str | None = None) -> None:
-            await get_core_bus().emit(Event.typed(
-                CoreEvent.DECISION_MADE,
-                DecisionMadePayload(
-                    verdict=decision["verdict"],
-                    reality=decision["reality"],
-                    state_key=decision.get("state_key", ""),
-                    q_value=decision.get("q_value", 0.0),
-                    confidence=decision.get("confidence", 0.0),
-                    recommended_action=decision.get("recommended_action", ""),
-                    action_prompt=decision.get("action_prompt", ""),
-                    trigger=trigger,
-                    mcts=True,
-                    judgment_id=decision.get("judgment_id", ""),
-                ),
-                source="orchestrator_act_phase",
-            ))
+            await get_core_bus().emit(
+                Event.typed(
+                    CoreEvent.DECISION_MADE,
+                    DecisionMadePayload(
+                        verdict=decision["verdict"],
+                        reality=decision["reality"],
+                        state_key=decision.get("state_key", ""),
+                        q_value=decision.get("q_value", 0.0),
+                        confidence=decision.get("confidence", 0.0),
+                        recommended_action=decision.get("recommended_action", ""),
+                        action_prompt=decision.get("action_prompt", ""),
+                        trigger=trigger,
+                        mcts=True,
+                        judgment_id=decision.get("judgment_id", ""),
+                    ),
+                    source="orchestrator_act_phase",
+                )
+            )
 
         # GUARDRAIL VALIDATION — DecisionValidator chains all safety checks
         if self.decision_validator:
             try:
-                scheduler = getattr(pipeline, 'scheduler', None) if pipeline else None
+                scheduler = getattr(pipeline, "scheduler", None) if pipeline else None
                 await self.decision_validator.validate_decision(
                     decision=decision,
                     judgment=judgment,
@@ -183,8 +189,7 @@ class ActHandler(BaseHandler):
             except BlockedDecision as e:
                 # Decision blocked by guardrail
                 logger.warning(
-                    f"Decision BLOCKED [{e.guardrail}]: {e.reason} "
-                    f"→ {e.recommendation}"
+                    f"Decision BLOCKED [{e.guardrail}]: {e.reason} " f"→ {e.recommendation}"
                 )
                 await emit_decision_made(trigger="guardrail_blocked")
                 # Return block result without executing
@@ -218,13 +223,13 @@ class ActHandler(BaseHandler):
                 proposal_id = decision.get("judgment_id", "")
                 verdict = decision.get("verdict", "UNKNOWN")
                 q_score = decision.get("q_value", 0.0)
-                
+
                 # Metadata from cell if available
-                cell = judgment.cell if hasattr(judgment, 'cell') else None
+                cell = judgment.cell if hasattr(judgment, "cell") else None
                 metadata = {}
-                if cell and hasattr(cell, 'context_dict'):
+                if cell and hasattr(cell, "context_dict"):
                     metadata = cell.context_dict()
-                
+
                 # Execute on-chain via GASdf
                 result = await self.gasdf_executor.execute_verdict(
                     proposal_id=proposal_id,
@@ -235,24 +240,30 @@ class ActHandler(BaseHandler):
                     signed_transaction=metadata.get("signed_transaction", ""),
                     payment_token_account=metadata.get("payment_token_account", ""),
                     q_score=q_score,
-                    proposal_context=metadata
+                    proposal_context=metadata,
                 )
-                
+
                 if result:
                     duration_ms = (time.perf_counter() - t0) * 1000
-                    logger.info("ACT: GASdf execution completed (sig=%s, %.0fms)", result.signature[:8], duration_ms)
-                    
+                    logger.info(
+                        "ACT: GASdf execution completed (sig=%s, %.0fms)",
+                        result.signature[:8],
+                        duration_ms,
+                    )
+
                     # Emit ACT_COMPLETED event
-                    await get_core_bus().emit(Event.typed(
-                        CoreEvent.ACT_COMPLETED,
-                        ActCompletedPayload(
-                            success=True,
-                            action_id=proposal_id[:8],
-                            duration_ms=duration_ms,
-                            metadata={"signature": result.signature, "status": result.status}
-                        ),
-                    ))
-                    
+                    await get_core_bus().emit(
+                        Event.typed(
+                            CoreEvent.ACT_COMPLETED,
+                            ActCompletedPayload(
+                                success=True,
+                                action_id=proposal_id[:8],
+                                duration_ms=duration_ms,
+                                metadata={"signature": result.signature, "status": result.status},
+                            ),
+                        )
+                    )
+
                     return {
                         "action_id": proposal_id[:8],
                         "success": True,
@@ -260,7 +271,7 @@ class ActHandler(BaseHandler):
                         "duration_ms": duration_ms,
                     }
                 else:
-                    return None # Skipped (not HOWL/WAG or low confidence)
+                    return None  # Skipped (not HOWL/WAG or low confidence)
 
             except Exception as e:
                 duration_ms = (time.perf_counter() - t0) * 1000
@@ -286,7 +297,7 @@ class ActHandler(BaseHandler):
                     action_type="system_action",
                     effector=self.runner,
                     params={"prompt": decision["action_prompt"], "timeout": 30},
-                    base_cost=0.01
+                    base_cost=0.01,
                 )
             else:
                 # Fallback to direct execution
@@ -294,7 +305,7 @@ class ActHandler(BaseHandler):
                     prompt=decision["action_prompt"],
                     timeout=30,
                 )
-            
+
             duration_ms = (time.perf_counter() - t0) * 1000
 
             result = {
@@ -306,19 +317,23 @@ class ActHandler(BaseHandler):
             }
 
             # Emit ACT_COMPLETED event (for feedback loops L3, L4)
-            await get_core_bus().emit(Event.typed(
-                CoreEvent.ACT_COMPLETED,
-                ActCompletedPayload(
-                    success=result["success"],
-                    action_id=result["action_id"],
-                    duration_ms=result["duration_ms"],
-                    error=result["error"],
-                ),
-            ))
+            await get_core_bus().emit(
+                Event.typed(
+                    CoreEvent.ACT_COMPLETED,
+                    ActCompletedPayload(
+                        success=result["success"],
+                        action_id=result["action_id"],
+                        duration_ms=result["duration_ms"],
+                        error=result["error"],
+                    ),
+                )
+            )
 
             logger.info(
                 "ACT: executed %s (success=%s, %.0fms)",
-                result["action_id"], result["success"], duration_ms,
+                result["action_id"],
+                result["success"],
+                duration_ms,
             )
             return result
 

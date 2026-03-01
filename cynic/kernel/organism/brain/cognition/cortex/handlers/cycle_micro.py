@@ -9,6 +9,7 @@ Responsibility:
 - Fast path (~500ms)
 - Escalate to MACRO if consensus fails
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -104,10 +105,14 @@ class MicroCycleHandler(BaseHandler):
                             capped = ConsciousnessLevel.MACRO
 
                     if capped == ConsciousnessLevel.MACRO:
-                        dog_votes = consensus.evidence.get("dog_votes", 0) if consensus.evidence else 0
+                        dog_votes = (
+                            consensus.evidence.get("dog_votes", 0) if consensus.evidence else 0
+                        )
                         logger.info(
                             "L2→L1 escalation: MICRO consensus weak (confidence=%.2f, dogs=%d) for cell %s",
-                            consensus.confidence, dog_votes, cell.cell_id,
+                            consensus.confidence,
+                            dog_votes,
+                            cell.cell_id,
                         )
                         escalate_to_macro = True
 
@@ -129,10 +134,7 @@ class MicroCycleHandler(BaseHandler):
             # Gather all coroutines and await them in parallel
             axiom_tasks = {
                 axiom: self.axiom_arch.score_axiom_fractal(
-                    axiom,
-                    context=cell.content,
-                    depth=1,
-                    max_depth=pipeline.fractal_depth
+                    axiom, context=cell.content, depth=1, max_depth=pipeline.fractal_depth
                 )
                 for axiom in ["FIDELITY", "PHI", "VERIFY", "CULTURE", "BURN"]
             }
@@ -144,8 +146,9 @@ class MicroCycleHandler(BaseHandler):
 
             # Final Q-Score is the geometric mean of axiom scores (The PHI Law)
             from cynic.kernel.core.phi import geometric_mean
+
             q_score_micro = geometric_mean(list(axiom_scores.values()))
-            
+
             active_axioms = self.axiom_arch.active_axioms
             verdict = verdict_from_q_score(q_score_micro)
             total_cost = sum(j.cost_usd for j in pipeline.dog_judgments)
@@ -153,7 +156,9 @@ class MicroCycleHandler(BaseHandler):
             # Consensus metrics
             consensus_votes = len(pipeline.dog_judgments) if consensus else 0
             consensus_quorum = 7  # Standard quorum for MICRO level
-            consensus_reached = consensus is not None and consensus.confidence >= PHI_INV and not escalate_to_macro
+            consensus_reached = (
+                consensus is not None and consensus.confidence >= PHI_INV and not escalate_to_macro
+            )
 
             judgment = Judgment(
                 cell=cell,
@@ -171,7 +176,9 @@ class MicroCycleHandler(BaseHandler):
             )
 
             duration_ms = (time.perf_counter() - t0) * 1000
-            self._log_execution("micro_cycle_complete", f"Q={q_score_micro:.1f} verdict={verdict.value}")
+            self._log_execution(
+                "micro_cycle_complete", f"Q={q_score_micro:.1f} verdict={verdict.value}"
+            )
 
             metadata = {
                 "cell_id": cell.cell_id,

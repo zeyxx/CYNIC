@@ -1,4 +1,5 @@
 """CYNIC Assembly — Compose primitives into workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -17,6 +18,7 @@ from .primitives import (
 # ============================================================================
 # WORKFLOW CLASS (Compose primitives)
 # ============================================================================
+
 
 @dataclass
 class Workflow:
@@ -94,7 +96,7 @@ class Workflow:
         for step_name, original_kwargs in self.steps:
             # Copy kwargs to prevent mutation of the workflow definition
             step_kwargs = original_kwargs.copy()
-            
+
             if step_name == "perceive":
                 source = step_kwargs.pop("source")
                 cell = await PERCEIVE(source, content, metadata=metadata)
@@ -137,6 +139,7 @@ class Workflow:
 # DECORATOR FOR WORKFLOWS (Simple syntax)
 # ============================================================================
 
+
 def cynic_workflow(name: str = None):
     """
     Decorator to create a workflow from a function.
@@ -167,6 +170,7 @@ def cynic_workflow(name: str = None):
 # ============================================================================
 # BUILT-IN WORKFLOWS (Common patterns)
 # ============================================================================
+
 
 async def AUDIT_REPO(
     repo_path: str,
@@ -259,6 +263,7 @@ async def CONTINUOUS_LEARNING(
 # ============================================================================
 # UTILITY FUNCTIONS
 # ============================================================================
+
 
 def list_workflows() -> list[str]:
     """List all available workflows."""

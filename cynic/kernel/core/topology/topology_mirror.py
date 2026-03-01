@@ -92,11 +92,13 @@ class TopologyMirror:
             self._append_topology_history(snap)
 
             # 3. Emit event
-            await bus.emit(Event.typed(
-                CoreEvent.TOPOLOGY_SNAPSHOT,
-                TopologySnapshotPayload(snapshot=snap),
-                source="mirror:topology"
-            ))
+            await bus.emit(
+                Event.typed(
+                    CoreEvent.TOPOLOGY_SNAPSHOT,
+                    TopologySnapshotPayload(snapshot=snap),
+                    source="mirror:topology",
+                )
+            )
 
             self._last_snapshot_time = time.time()
 

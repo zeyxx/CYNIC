@@ -1,4 +1,5 @@
 """Governance event payloads for LNSP integration."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,6 +9,7 @@ from typing import Any
 @dataclass
 class GovernanceProposalPayload:
     """A governance proposal submitted to the community."""
+
     proposal_id: str
     title: str
     content: str
@@ -20,6 +22,7 @@ class GovernanceProposalPayload:
 @dataclass
 class GovernanceVotePayload:
     """A vote cast on a governance proposal."""
+
     proposal_id: str
     voter_id: str
     vote_choice: str  # "YES", "NO", "ABSTAIN"
@@ -30,6 +33,7 @@ class GovernanceVotePayload:
 @dataclass
 class GovernanceExecutionPayload:
     """Outcome of executing a governance decision on-chain."""
+
     proposal_id: str
     success: bool
     tx_hash: str | None
@@ -41,6 +45,7 @@ class GovernanceExecutionPayload:
 @dataclass
 class GovernanceOutcomePayload:
     """Community feedback on a governance decision outcome."""
+
     proposal_id: str
     accepted: bool  # Community accepted the outcome
     funds_received: bool  # Funds reached treasury (if applicable)

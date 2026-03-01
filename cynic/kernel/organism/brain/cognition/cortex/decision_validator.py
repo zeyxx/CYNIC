@@ -13,6 +13,7 @@ before decision proceeds to ACT phase.
 Raises BlockedDecision if any guardrail blocks, with full context
 for escalation/human review.
 """
+
 from __future__ import annotations
 
 import logging
@@ -202,9 +203,7 @@ class DecisionValidator:
                 risk_level="CRITICAL" if verdict == "BARK" else "HIGH",
             )
 
-            logger.warning(
-                f"Decision gated for human approval: {approval_request.request_id}"
-            )
+            logger.warning(f"Decision gated for human approval: {approval_request.request_id}")
 
             raise BlockedDecision(
                 reason=f"Decision requires human approval (ID: {approval_request.request_id})",

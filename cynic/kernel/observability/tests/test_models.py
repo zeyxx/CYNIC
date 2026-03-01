@@ -1,4 +1,5 @@
 """Tests for symbiotic observability data models."""
+
 from dataclasses import fields, is_dataclass
 
 import pytest
@@ -44,16 +45,28 @@ def test_symbiotic_state_has_all_required_fields():
     state_fields = {f.name for f in fields(SymbioticState)}
     required = {
         # CYNIC
-        "cynic_observations", "cynic_thinking", "cynic_planning",
-        "cynic_confidence", "cynic_e_score",
+        "cynic_observations",
+        "cynic_thinking",
+        "cynic_planning",
+        "cynic_confidence",
+        "cynic_e_score",
         # Human
-        "human_energy", "human_focus", "human_intentions", "human_values",
-        "human_feedback", "human_growth_areas",
+        "human_energy",
+        "human_focus",
+        "human_intentions",
+        "human_values",
+        "human_feedback",
+        "human_growth_areas",
         # Machine
-        "machine_resources", "machine_constraints",
-        "machine_capability_delta", "machine_health",
+        "machine_resources",
+        "machine_constraints",
+        "machine_capability_delta",
+        "machine_health",
         # Symbiotic
-        "alignment_score", "conflicts", "mutual_influences",
-        "shared_objectives", "timestamp",
+        "alignment_score",
+        "conflicts",
+        "mutual_influences",
+        "shared_objectives",
+        "timestamp",
     }
     assert required.issubset(state_fields)

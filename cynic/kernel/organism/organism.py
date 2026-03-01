@@ -2,8 +2,9 @@
 CYNIC Organism — The living unified system.
 
 Coordinates Brain, Body, Nerves and Memory via Event-driven architecture.
-One Organism per process. 
+One Organism per process.
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,18 +21,20 @@ MemoryCore = ArchiveCore
 
 logger = logging.getLogger("cynic.kernel.organism")
 
+
 @dataclass
 class Organism:
     """
     The root coordinator for all CYNIC activity.
     Organized into 4 specialized cores.
     """
+
     cognition: CognitionCore
     metabolism: MetabolicCore
     senses: SensoryCore
     memory: ArchiveCore
     state: OrganismState
-    
+
     _pool: Any | None = None
     container: Any = None
     _handler_registry: Any | None = None
@@ -40,6 +43,7 @@ class Organism:
     def __post_init__(self):
         self._wire_event_handlers()
         from cynic.interfaces.bots.telegram_bridge import TelegramBridge
+
         self._telegram = TelegramBridge()
         logger.info("Organism: Post-init complete. Nerves connected.")
 
@@ -49,55 +53,89 @@ class Organism:
 
     # --- Brain Accessors ---
     @property
-    def orchestrator(self): return self.cognition.orchestrator
+    def orchestrator(self):
+        return self.cognition.orchestrator
+
     @property
-    def qtable(self): return self.cognition.qtable
+    def qtable(self):
+        return self.cognition.qtable
+
     @property
-    def learning_loop(self): return self.cognition.learning_loop
+    def learning_loop(self):
+        return self.cognition.learning_loop
+
     @property
-    def dogs(self): return self.cognition.orchestrator.dogs
+    def dogs(self):
+        return self.cognition.orchestrator.dogs
+
     @property
-    def decide_agent(self): return self.cognition.decide_agent
+    def decide_agent(self):
+        return self.cognition.decide_agent
 
     # --- Body Accessors ---
     @property
-    def scheduler(self): return self.metabolism.scheduler
+    def scheduler(self):
+        return self.metabolism.scheduler
+
     @property
-    def runner(self): return self.metabolism.runner
+    def runner(self):
+        return self.metabolism.runner
 
     # --- Memory Accessors ---
     @property
-    def gossip_manager(self): return self.memory.gossip_manager
+    def gossip_manager(self):
+        return self.memory.gossip_manager
+
     @property
-    def manager(self): return self.memory.meta_cognition
+    def manager(self):
+        return self.memory.meta_cognition
 
     # --- Senses Accessors ---
     @property
-    def source_watcher(self): return self.senses.source_watcher
+    def source_watcher(self):
+        return self.senses.source_watcher
+
     @property
-    def convergence_validator(self): return self.senses.convergence_validator
+    def convergence_validator(self):
+        return self.senses.convergence_validator
+
     @property
-    def world_model(self): return self.senses.world_model
+    def world_model(self):
+        return self.senses.world_model
+
     @property
-    def topology_builder(self): return self.senses.topology_builder
+    def topology_builder(self):
+        return self.senses.topology_builder
+
     @property
-    def mcp_bridge(self): return self.senses.mcp_bridge
+    def mcp_bridge(self):
+        return self.senses.mcp_bridge
 
     # --- Memory Accessors (continued) ---
     @property
-    def kernel_mirror(self): return self.memory.kernel_mirror
+    def kernel_mirror(self):
+        return self.memory.kernel_mirror
+
     @property
-    def self_prober(self): return self.memory.self_prober
+    def self_prober(self):
+        return self.memory.self_prober
+
     @property
-    def action_proposer(self): return self.memory.action_proposer
+    def action_proposer(self):
+        return self.memory.action_proposer
 
     # --- Other Accessors ---
     @property
-    def residual_detector(self): return self.cognition.residual_detector
+    def residual_detector(self):
+        return self.cognition.residual_detector
+
     @property
-    def account_agent(self): return self.cognition.account_agent
+    def account_agent(self):
+        return self.cognition.account_agent
+
     @property
-    def llm_router(self): return self.metabolism.llm_router
+    def llm_router(self):
+        return self.metabolism.llm_router
 
     # --- Event Wiring ---
     def _wire_event_handlers(self) -> None:
@@ -114,7 +152,7 @@ class Organism:
 
     async def _on_judgment_created(self, event: Event) -> None:
         await self.state.add_judgment(event.dict_payload)
-        
+
     async def _on_consciousness_changed(self, event: Event) -> None:
         level = event.dict_payload.get("level", "REFLEX")
         await self.state.update_consciousness_level(level)
@@ -126,7 +164,7 @@ class Organism:
             await self._telegram.notify_anomaly(
                 source=data.get("source", event.source),
                 error=data.get("type", "Unknown Anomaly"),
-                details=str(data.get("value", ""))
+                details=str(data.get("value", "")),
             )
 
     async def _on_learning_event(self, event: Event) -> None:
@@ -149,26 +187,26 @@ class Organism:
         """
         Start the organism's background processing loops.
         Must be called within an active event loop.
-        
+
         Strict: Raises RuntimeError if any vital component fails.
         """
         logger.info("Organism: Starting vital signs...")
-        
+
         try:
             # 1. Start state processing (metrics, history)
             await self.state.start_processing(db=db)
-            
+
             # 2. Start SONA heartbeat (self-assessment)
             if hasattr(self.memory, "sona_emitter"):
                 self.memory.sona_emitter.start()
             else:
                 raise RuntimeError("Critical: SonaEmitter missing from ArchiveCore")
-                
+
             # 3. Start World Model
             if hasattr(self.senses, "world_model"):
                 # WorldModelUpdater.start is sync event registration
                 self.senses.world_model.start()
-            
+
             # 4. Start Gossip (Federation) if applicable
             if hasattr(self.memory, "gossip_manager"):
                 if hasattr(self.memory.gossip_manager, "start"):
@@ -190,7 +228,7 @@ class Organism:
         for attr in expected_state_attrs:
             if not hasattr(self.state, attr):
                 raise AttributeError(f"Integrity Error: OrganismState missing '{attr}'")
-        
+
         if not self.cognition.orchestrator:
             raise RuntimeError("Integrity Error: CognitionCore missing orchestrator")
 
@@ -203,7 +241,9 @@ class Organism:
             await self.memory.gossip_manager.stop()
         logger.info("Organism: Dormant.")
 
+
 async def awaken(db_pool=None, registry=None) -> Organism:
     """Delegates to the factory for awakening."""
     from .factory import _OrganismAwakener
+
     return await _OrganismAwakener(db_pool, registry).build()

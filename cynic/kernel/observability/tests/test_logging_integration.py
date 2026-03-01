@@ -3,6 +3,7 @@ Integration tests for JSON logging in FastAPI middleware.
 
 Verifies that HTTP requests are logged as JSON with all required fields.
 """
+
 import json
 import logging
 from io import StringIO
@@ -35,12 +36,11 @@ def app_with_json_logging():
         """Log requests as JSON"""
         app_logger.info(
             f"HTTP {request.method} {request.url.path}",
-            extra={"method": request.method, "path": request.url.path}
+            extra={"method": request.method, "path": request.url.path},
         )
         response = await call_next(request)
         app_logger.info(
-            f"Response {response.status_code}",
-            extra={"status_code": response.status_code}
+            f"Response {response.status_code}", extra={"status_code": response.status_code}
         )
         return response
 
@@ -61,7 +61,7 @@ def test_http_requests_logged_as_json(app_with_json_logging):
 
     # Get logs
     logs_text = log_stream.getvalue()
-    log_lines = [line.strip() for line in logs_text.split('\n') if line.strip()]
+    log_lines = [line.strip() for line in logs_text.split("\n") if line.strip()]
 
     # Verify all logs are valid JSON
     parsed_logs = []
@@ -82,7 +82,7 @@ def test_json_logs_include_method_and_path(app_with_json_logging):
     assert response.status_code == 200
 
     logs_text = log_stream.getvalue()
-    log_lines = [line.strip() for line in logs_text.split('\n') if line.strip()]
+    log_lines = [line.strip() for line in logs_text.split("\n") if line.strip()]
 
     # Find request log
     request_log = None
@@ -106,7 +106,7 @@ def test_json_logs_include_status_code(app_with_json_logging):
     assert response.status_code == 200
 
     logs_text = log_stream.getvalue()
-    log_lines = [line.strip() for line in logs_text.split('\n') if line.strip()]
+    log_lines = [line.strip() for line in logs_text.split("\n") if line.strip()]
 
     # Find response log
     response_log = None
@@ -129,7 +129,7 @@ def test_no_malformed_json_in_logs(app_with_json_logging):
     assert response.status_code == 200
 
     logs_text = log_stream.getvalue()
-    log_lines = [line.strip() for line in logs_text.split('\n') if line.strip()]
+    log_lines = [line.strip() for line in logs_text.split("\n") if line.strip()]
 
     # Verify all lines are valid JSON
     for line in log_lines:

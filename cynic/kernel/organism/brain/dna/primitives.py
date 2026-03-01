@@ -1,4 +1,5 @@
 """CYNIC DNA Primitives — Five core operations (PERCEIVE, JUDGE, DECIDE, ACT, LEARN)."""
+
 from __future__ import annotations
 
 import asyncio
@@ -14,9 +15,11 @@ from cynic.kernel.core.phi import MAX_CONFIDENCE
 # DATA TYPES (What primitives work with)
 # ============================================================================
 
+
 @dataclass
 class DNA_Cell:
     """Input to PERCEIVE: what we observe from reality."""
+
     id: str = field(default_factory=lambda: str(uuid4())[:8])
     source: Literal["code", "git", "social", "market", "health", "solana"] = "code"
     content: str = ""
@@ -46,6 +49,7 @@ class DNA_Cell:
 @dataclass
 class DNA_Judgment:
     """Output of JUDGE: what CYNIC thinks."""
+
     id: str = field(default_factory=lambda: str(uuid4())[:8])
     cell_id: str = ""
     q_score: float = 0.0  # [0, 100]
@@ -59,8 +63,10 @@ class DNA_Judgment:
     def from_judgment(cls, judgment: Any) -> DNA_Judgment:
         """Convert CYNIC Judgment to DNA_Judgment."""
         # Extract explanation/reasoning directly from attributes
-        explanation = getattr(judgment, "reasoning", "") or getattr(judgment, "consensus_reason", "")
-        
+        explanation = getattr(judgment, "reasoning", "") or getattr(
+            judgment, "consensus_reason", ""
+        )
+
         return cls(
             id=getattr(judgment, "judgment_id", ""),
             cell_id=getattr(judgment.cell, "cell_id", "") if hasattr(judgment, "cell") else "",
@@ -75,6 +81,7 @@ class DNA_Judgment:
 @dataclass
 class DNA_Decision:
     """Output of DECIDE: what to do."""
+
     id: str = field(default_factory=lambda: str(uuid4())[:8])
     judgment_id: str = ""
     axiom: str = "PHI"  # Which axiom applied
@@ -87,6 +94,7 @@ class DNA_Decision:
 @dataclass
 class DNA_Result:
     """Output of ACT: what happened."""
+
     id: str = field(default_factory=lambda: str(uuid4())[:8])
     decision_id: str = ""
     status: Literal["success", "failed", "partial"] = "success"
@@ -99,6 +107,7 @@ class DNA_Result:
 # ============================================================================
 # THE FIVE PRIMITIVES
 # ============================================================================
+
 
 async def PERCEIVE(
     source: Literal["code", "git", "social", "market", "health", "solana"],
@@ -158,6 +167,7 @@ async def JUDGE(
 
     # Convert string level to Enum if needed
     from cynic.kernel.core.consciousness import ConsciousnessLevel
+
     level_enum = ConsciousnessLevel[level] if isinstance(level, str) else level
 
     # Run judgment through orchestrator
@@ -312,6 +322,7 @@ async def LEARN(
 # ============================================================================
 # UTILITY: Chain primitives together
 # ============================================================================
+
 
 async def run_dna_chain(
     cell_input: DNA_Cell,

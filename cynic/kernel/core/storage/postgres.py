@@ -10,6 +10,7 @@ Use asyncpg directly — NOT SQLAlchemy ORM. Direct SQL = transparency.
 
 Connection pool size: F(6)=8 min, F(8)=21 max (Fibonacci-aligned).
 """
+
 from __future__ import annotations
 
 import json
@@ -37,8 +38,8 @@ from cynic.kernel.core.storage.interface import (
 logger = logging.getLogger("cynic.storage.postgres")
 
 # Pool size aligned with Fibonacci
-POOL_MIN = fibonacci(6)   # 8 connections
-POOL_MAX = fibonacci(8)   # 21 connections
+POOL_MIN = fibonacci(6)  # 8 connections
+POOL_MAX = fibonacci(8)  # 21 connections
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -302,13 +303,15 @@ async def create_schema(dsn: str | None = None) -> None:
 # JUDGMENT REPOSITORY
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class JudgmentRepository(JudgmentRepoInterface):
     """CRUD for judgments. φ-bound enforced by DB constraints."""
 
     async def save(self, judgment: dict[str, Any]) -> None:
         """Persist a judgment (upsert by judgment_id)."""
         async with acquire() as conn:
-            await conn.execute("""
+            await conn.execute(
+                """
                 INSERT INTO judgments (
                     judgment_id, cell_id, reality, analysis, time_dim,
                     lod, consciousness, q_score, verdict, confidence,
@@ -368,7 +371,8 @@ class JudgmentRepository(JudgmentRepoInterface):
             if reality:
                 rows = await conn.fetch(
                     "SELECT * FROM judgments WHERE reality=$1 ORDER BY created_at DESC LIMIT $2",
-                    reality, limit,
+                    reality,
+                    limit,
                 )
             else:
                 rows = await conn.fetch(
@@ -396,6 +400,7 @@ class JudgmentRepository(JudgmentRepoInterface):
 # Q-TABLE REPOSITORY
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class QTableRepository(QTableRepoInterface):
     """Persistent Q-Table for Q-Learning (state_key × action → q_value)."""
 
@@ -404,7 +409,8 @@ class QTableRepository(QTableRepoInterface):
         async with acquire() as conn:
             val = await conn.fetchval(
                 "SELECT q_value FROM q_table WHERE state_key=$1 AND action=$2",
-                state_key, action,
+                state_key,
+                action,
             )
             return float(val) if val is not None else 0.0
 
@@ -416,14 +422,19 @@ class QTableRepository(QTableRepoInterface):
     ) -> None:
         """Upsert Q-value."""
         async with acquire() as conn:
-            await conn.execute("""
+            await conn.execute(
+                """
                 INSERT INTO q_table (state_key, action, q_value, visit_count, last_updated)
                 VALUES ($1, $2, $3, 1, NOW())
                 ON CONFLICT (state_key, action) DO UPDATE SET
                     q_value = EXCLUDED.q_value,
                     visit_count = q_table.visit_count + 1,
                     last_updated = NOW()
-            """, state_key, action, q_value)
+            """,
+                state_key,
+                action,
+                q_value,
+            )
 
     async def get_all_actions(self, state_key: str) -> dict[str, float]:
         """Get all Q-values for a given state."""
@@ -437,9 +448,7 @@ class QTableRepository(QTableRepoInterface):
     async def get_all(self) -> list[dict[str, Any]]:
         """Return all Q-entries — used for warm-start."""
         async with acquire() as conn:
-            rows = await conn.fetch(
-                "SELECT state_key, action, q_value, visit_count FROM q_table"
-            )
+            rows = await conn.fetch("SELECT state_key, action, q_value, visit_count FROM q_table")
             return [dict(r) for r in rows]
 
 
@@ -447,12 +456,14 @@ class QTableRepository(QTableRepoInterface):
 # LEARNING EVENTS REPOSITORY
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class LearningRepository(LearningRepoInterface):
     """Persist learning events from all 11 learning loops."""
 
     async def save(self, event: dict[str, Any]) -> None:
         async with acquire() as conn:
-            await conn.execute("""
+            await conn.execute(
+                """
                 INSERT INTO learning_events
                     (event_id, loop_name, judgment_id, state_key, action, reward, q_delta)
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -471,7 +482,8 @@ class LearningRepository(LearningRepoInterface):
         async with acquire() as conn:
             rows = await conn.fetch(
                 "SELECT * FROM learning_events WHERE loop_name=$1 ORDER BY created_at DESC LIMIT $2",
-                loop_name, limit,
+                loop_name,
+                limit,
             )
             return [dict(r) for r in rows]
 
@@ -488,12 +500,14 @@ class LearningRepository(LearningRepoInterface):
 # LLM BENCHMARK REPOSITORY
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class BenchmarkRepository(BenchmarkRepoInterface):
     """Persist LLM benchmark results for routing decisions."""
 
     async def save(self, result: dict[str, Any]) -> None:
         async with acquire() as conn:
-            await conn.execute("""
+            await conn.execute(
+                """
                 INSERT INTO llm_benchmarks
                     (benchmark_id, dog_id, task_type, llm_id,
                      quality_score, speed_score, cost_score, composite_score,
@@ -515,7 +529,8 @@ class BenchmarkRepository(BenchmarkRepoInterface):
     async def best_llm_for(self, dog_id: str, task_type: str) -> str | None:
         """Return the LLM with the highest composite score (EMA of recent runs)."""
         async with acquire() as conn:
-            row = await conn.fetchrow("""
+            row = await conn.fetchrow(
+                """
                 SELECT llm_id, AVG(composite_score) as avg_score
                 FROM llm_benchmarks
                 WHERE dog_id=$1 AND task_type=$2
@@ -523,7 +538,10 @@ class BenchmarkRepository(BenchmarkRepoInterface):
                 GROUP BY llm_id
                 ORDER BY avg_score DESC
                 LIMIT 1
-            """, dog_id, task_type)
+            """,
+                dog_id,
+                task_type,
+            )
             return row["llm_id"] if row else None
 
     async def get_all(self) -> list[dict[str, Any]]:
@@ -557,13 +575,15 @@ class BenchmarkRepository(BenchmarkRepoInterface):
 # RESIDUAL HISTORY REPOSITORY
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class ResidualRepository(ResidualRepoInterface):
     """Persist ResidualDetector history for warm-start across restarts."""
 
     async def append(self, point: dict[str, Any]) -> None:
         """Persist one residual observation."""
         async with acquire() as conn:
-            await conn.execute("""
+            await conn.execute(
+                """
                 INSERT INTO residual_history
                     (judgment_id, residual, reality, analysis, unnameable)
                 VALUES ($1, $2, $3, $4, $5)
@@ -578,13 +598,16 @@ class ResidualRepository(ResidualRepoInterface):
     async def recent(self, limit: int = 21) -> list[dict[str, Any]]:
         """Return last `limit` observations ordered oldest-first (for replay)."""
         async with acquire() as conn:
-            rows = await conn.fetch("""
+            rows = await conn.fetch(
+                """
                 SELECT judgment_id, residual, reality, analysis, unnameable,
                        EXTRACT(EPOCH FROM observed_at) AS timestamp
                 FROM residual_history
                 ORDER BY observed_at DESC
                 LIMIT $1
-            """, limit)
+            """,
+                limit,
+            )
             # Reverse: oldest first so they replay in chronological order
             return list(reversed([dict(r) for r in rows]))
 
@@ -639,6 +662,7 @@ def residuals() -> ResidualRepository:
 # SDK SESSION REPOSITORY
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class SDKSessionRepository(SDKSessionRepoInterface):
     """Persist Claude Code --sdk-url session telemetry for learning analysis."""
 
@@ -648,8 +672,10 @@ class SDKSessionRepository(SDKSessionRepoInterface):
         Safe to call multiple times — ON CONFLICT updates the row.
         """
         import json as _json
+
         async with acquire() as conn:
-            await conn.execute("""
+            await conn.execute(
+                """
                 INSERT INTO sdk_sessions (
                     session_id, model, task_type, complexity, task_preview,
                     state_key, tools_sequence, tools_allowed, tools_denied,
@@ -728,6 +754,7 @@ def sdk_sessions() -> SDKSessionRepository:
 # SCHOLAR BUFFER REPOSITORY
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class ScholarRepository(ScholarRepoInterface):
     """
     Persist Scholar Dog's buffer for warm-start across restarts.
@@ -746,7 +773,8 @@ class ScholarRepository(ScholarRepoInterface):
         embedding = entry.get("embedding")  # List[float] or None
         embed_model = entry.get("embed_model", "")
         async with acquire() as conn:
-            await conn.execute("""
+            await conn.execute(
+                """
                 INSERT INTO scholar_buffer
                     (cell_id, cell_text, q_score, reality, ts, embedding, embed_model)
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -756,19 +784,22 @@ class ScholarRepository(ScholarRepoInterface):
                 float(entry.get("q_score", 0.0)),
                 entry.get("reality", ""),
                 float(entry.get("timestamp", 0.0)),
-                embedding,    # NULL if not provided
+                embedding,  # NULL if not provided
                 embed_model,
             )
 
     async def recent_entries(self, limit: int = ACT_LOG_CAP) -> list[dict[str, Any]]:
         """Return last `limit` entries oldest-first (for buffer replay). Default ACT_LOG_CAP (F(11)=89)."""
         async with acquire() as conn:
-            rows = await conn.fetch("""
+            rows = await conn.fetch(
+                """
                 SELECT cell_id, cell_text, q_score, reality, ts
                 FROM scholar_buffer
                 ORDER BY created_at DESC
                 LIMIT $1
-            """, limit)
+            """,
+                limit,
+            )
             # Reverse so oldest-first (buffer grows from left)
             return list(reversed([dict(r) for r in rows]))
 
@@ -815,14 +846,16 @@ class ScholarRepository(ScholarRepoInterface):
                 continue
             sim = dot / (q_norm * e_norm)
             if sim >= min_similarity:
-                results.append({
-                    "cell_id": row["cell_id"],
-                    "cell_text": row["cell_text"],
-                    "q_score": row["q_score"],
-                    "reality": row["reality"],
-                    "ts": row["ts"],
-                    "similarity": float(sim),
-                })
+                results.append(
+                    {
+                        "cell_id": row["cell_id"],
+                        "cell_text": row["cell_text"],
+                        "q_score": row["q_score"],
+                        "reality": row["reality"],
+                        "ts": row["ts"],
+                        "similarity": float(sim),
+                    }
+                )
 
         results.sort(key=lambda x: x["similarity"], reverse=True)
         return results[:limit]

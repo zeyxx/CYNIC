@@ -31,6 +31,7 @@ PerceiveWorkers (autonomous sensors):
   Generate PerceptionEvents without external API calls.
   Workers: GitWatcher, HealthWatcher, SelfWatcher (see perceive/workers.py)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -58,15 +59,16 @@ _QUEUE_CAPACITY = fibonacci(10)  # 55
 # Workers per tier — Fibonacci-derived for φ alignment
 _WORKERS_PER_LEVEL: dict[ConsciousnessLevel, int] = {
     ConsciousnessLevel.REFLEX: fibonacci(5),  # 5 — non-LLM, fast
-    ConsciousnessLevel.MICRO:  fibonacci(4),  # 3 — some LLM, 500ms
-    ConsciousnessLevel.MACRO:  fibonacci(3),  # 2 — full LLM, Ollama-bound
-    ConsciousnessLevel.META:   1,             # singleton — periodic evolution
+    ConsciousnessLevel.MICRO: fibonacci(4),  # 3 — some LLM, 500ms
+    ConsciousnessLevel.MACRO: fibonacci(3),  # 2 — full LLM, Ollama-bound
+    ConsciousnessLevel.META: 1,  # singleton — periodic evolution
 }
 
 
 # ════════════════════════════════════════════════════════════════════════════
 # PERCEPTION EVENT — unit of work for the Scheduler
 # ════════════════════════════════════════════════════════════════════════════
+
 
 @dataclass
 class PerceptionEvent:
@@ -76,6 +78,7 @@ class PerceptionEvent:
     Created by /perceive when run_judgment=False, or by PerceiveWorkers
     when autonomous scanning detects something worth judging.
     """
+
     cell: Cell
     level: ConsciousnessLevel = ConsciousnessLevel.MICRO
     submitted_at: float = field(default_factory=time.time)
@@ -90,6 +93,7 @@ class PerceptionEvent:
 # ════════════════════════════════════════════════════════════════════════════
 # CONSCIOUSNESS RHYTHM
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class ConsciousnessRhythm:
     """
@@ -110,13 +114,12 @@ class ConsciousnessRhythm:
 
     def __init__(self, orchestrator: Any, body: Optional[Any] = None) -> None:
         self._orchestrator = orchestrator
-        self._body = body # HardwareBody
+        self._body = body  # HardwareBody
         self._consciousness: ConsciousnessState = get_consciousness()
 
         # One bounded queue per level — shared by all N workers of that tier
         self._queues: dict[ConsciousnessLevel, asyncio.Queue] = {
-            level: asyncio.Queue(maxsize=_QUEUE_CAPACITY)
-            for level in ConsciousnessLevel
+            level: asyncio.Queue(maxsize=_QUEUE_CAPACITY) for level in ConsciousnessLevel
         }
 
         # REFLEX → MICRO interrupt (fires when REFLEX detects an anomaly)
@@ -128,7 +131,7 @@ class ConsciousnessRhythm:
         self._tier_worker_metadata: dict[tuple, tuple] = {}  # (level, id) → (worker_fn, id)
 
         # PerceiveWorker tasks (autonomous sensors)
-        self._perceive_workers: list[Any] = []   # List[PerceiveWorker]
+        self._perceive_workers: list[Any] = []  # List[PerceiveWorker]
         self._perceive_tasks: list[asyncio.Task] = []
         # Track perceive worker metadata for restart
         self._perceive_worker_metadata: dict[asyncio.Task, Any] = {}  # task → worker
@@ -137,7 +140,9 @@ class ConsciousnessRhythm:
 
     # ── Worker Supervision ──────────────────────────────────────────────────────
 
-    def _on_tier_worker_done(self, task: asyncio.Task, level: ConsciousnessLevel, worker_id: int) -> None:
+    def _on_tier_worker_done(
+        self, task: asyncio.Task, level: ConsciousnessLevel, worker_id: int
+    ) -> None:
         """Handle tier worker completion (death/crash) and restart if still running."""
         try:
             # Try to get the exception if the worker crashed
@@ -233,9 +238,9 @@ class ConsciousnessRhythm:
         # Map each level to its worker coroutine
         worker_fns = {
             ConsciousnessLevel.REFLEX: self._reflex_worker,
-            ConsciousnessLevel.MICRO:  self._micro_worker,
-            ConsciousnessLevel.MACRO:  self._macro_worker,
-            ConsciousnessLevel.META:   self._meta_loop,
+            ConsciousnessLevel.MICRO: self._micro_worker,
+            ConsciousnessLevel.MACRO: self._macro_worker,
+            ConsciousnessLevel.META: self._meta_loop,
         }
 
         # Spawn N workers per tier (shared queue, atomic get())
@@ -248,7 +253,9 @@ class ConsciousnessRhythm:
                 # Store metadata for restart
                 self._tier_worker_metadata[(level, i)] = (fn, i)
                 # Add done callback for supervision
-                task.add_done_callback(lambda t, lvl=level, wid=i: self._on_tier_worker_done(t, lvl, wid))
+                task.add_done_callback(
+                    lambda t, lvl=level, wid=i: self._on_tier_worker_done(t, lvl, wid)
+                )
                 self._tasks.append(task)
                 total_workers += 1
 
@@ -271,13 +278,15 @@ class ConsciousnessRhythm:
         logger.info(
             "ConsciousnessRhythm started — %d tier workers, %d perceive workers "
             "(queues: capacity=%d)",
-            total_workers, len(self._perceive_tasks), _QUEUE_CAPACITY,
+            total_workers,
+            len(self._perceive_tasks),
+            _QUEUE_CAPACITY,
         )
 
     async def stop(self) -> None:
         """Cancel all tasks and wait for graceful shutdown."""
         self._running = False
-        self._micro_interrupt.set()     # Wake any blocked MICRO worker
+        self._micro_interrupt.set()  # Wake any blocked MICRO worker
 
         all_tasks = self._tasks + self._perceive_tasks
         for task in all_tasks:
@@ -320,13 +329,18 @@ class ConsciousnessRhythm:
             queue.put_nowait(event)
             logger.debug(
                 "Submitted %s to %s queue (depth=%d)",
-                cell.cell_id[:8], level.name, queue.qsize(),
+                cell.cell_id[:8],
+                level.name,
+                queue.qsize(),
             )
             return True
         except asyncio.QueueFull:
             logger.warning(
                 "%s queue full (%d/%d) — dropping %s",
-                level.name, queue.qsize(), _QUEUE_CAPACITY, cell.cell_id[:8],
+                level.name,
+                queue.qsize(),
+                _QUEUE_CAPACITY,
+                cell.cell_id[:8],
             )
             return False
 
@@ -345,7 +359,7 @@ class ConsciousnessRhythm:
             "perceive_workers": len(self._perceive_workers),
             "queues": {
                 level.name: {
-                    "depth":    self._queues[level].qsize(),
+                    "depth": self._queues[level].qsize(),
                     "capacity": _QUEUE_CAPACITY,
                 }
                 for level in ConsciousnessLevel
@@ -357,10 +371,10 @@ class ConsciousnessRhythm:
             },
             "cycles": {
                 "REFLEX": self._consciousness.reflex_cycles,
-                "MICRO":  self._consciousness.micro_cycles,
-                "MACRO":  self._consciousness.macro_cycles,
-                "META":   self._consciousness.meta_cycles,
-                "total":  self._consciousness.total_cycles,
+                "MICRO": self._consciousness.micro_cycles,
+                "MACRO": self._consciousness.macro_cycles,
+                "META": self._consciousness.meta_cycles,
+                "total": self._consciousness.total_cycles,
             },
         }
 
@@ -402,7 +416,9 @@ class ConsciousnessRhythm:
                 verdict = getattr(result, "verdict", None)
                 if verdict in ("BARK", "GROWL"):
                     self.interrupt_micro()
-                    logger.debug("REFLEX worker %d: %s anomaly → MICRO interrupt", worker_id, verdict)
+                    logger.debug(
+                        "REFLEX worker %d: %s anomaly → MICRO interrupt", worker_id, verdict
+                    )
             except httpx.RequestError as exc:
                 logger.warning("REFLEX worker %d error: %s", worker_id, exc)
             finally:
@@ -453,7 +469,9 @@ class ConsciousnessRhythm:
                 self._consciousness.increment(ConsciousnessLevel.MICRO)
                 logger.debug(
                     "MICRO worker %d: %.1fms (queue=%d)",
-                    worker_id, elapsed_ms, self._queues[ConsciousnessLevel.MICRO].qsize(),
+                    worker_id,
+                    elapsed_ms,
+                    self._queues[ConsciousnessLevel.MICRO].qsize(),
                 )
 
     async def _macro_worker(self, worker_id: int = 0) -> None:
@@ -493,7 +511,9 @@ class ConsciousnessRhythm:
                 self._consciousness.increment(ConsciousnessLevel.MACRO)
                 logger.debug(
                     "MACRO worker %d: %.1fms (queue=%d)",
-                    worker_id, elapsed_ms, self._queues[ConsciousnessLevel.MACRO].qsize(),
+                    worker_id,
+                    elapsed_ms,
+                    self._queues[ConsciousnessLevel.MACRO].qsize(),
                 )
 
     async def _meta_loop(self, worker_id: int = 0) -> None:
@@ -550,30 +570,31 @@ class ConsciousnessRhythm:
             try:
                 # 1. Pulse the hardware sensors
                 await self._body.pulse()
-                
+
                 # 2. Homoeostatic Regulation (Assess snapshot)
                 # We extract the LODController from the orchestrator if available
                 lod_ctrl = getattr(self._orchestrator, "lod_controller", None)
                 if lod_ctrl:
                     from cynic.interfaces.api.state import get_current_state
+
                     # Get the unified symbiotic state snapshot
                     symbiotic_state = await get_current_state()
                     # The LODController will evaluate error rates, queue depth, etc.
                     # and throttle consciousness levels if needed.
                     lod_ctrl.assess(
-                        error_rate=0.0, # Will be wired to actual error tracking later
-                        latency_ms=0.0, # Could be wired to timer stats
+                        error_rate=0.0,  # Will be wired to actual error tracking later
+                        latency_ms=0.0,  # Could be wired to timer stats
                         queue_depth=self.total_queue_depth(),
                         memory_pct=symbiotic_state.machine_resources.get("ram", 0.0) / 100.0,
-                        disk_pct=symbiotic_state.machine_resources.get("disk", 0.0) / 100.0
+                        disk_pct=symbiotic_state.machine_resources.get("disk", 0.0) / 100.0,
                     )
             except Exception as e:
                 logger.debug(f"Somatic pulse failed: {e}")
-            
+
             # 3. Dynamic Respiration Rate
             # Slower breathing if healthy, faster if stressed to react quickly?
             # Or vice versa? Our formula slows down breathing when sick to save energy.
-            interval = get_respiration_interval_s(health_score=100.0) # Default to 100 for now
+            interval = get_respiration_interval_s(health_score=100.0)  # Default to 100 for now
             await asyncio.sleep(interval)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -592,7 +613,8 @@ class ConsciousnessRhythm:
         """
         try:
             item = await asyncio.wait_for(
-                self._queues[level].get(), timeout=timeout,
+                self._queues[level].get(),
+                timeout=timeout,
             )
             if item is None:
                 return None

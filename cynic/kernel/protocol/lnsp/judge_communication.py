@@ -10,6 +10,7 @@ Components:
 - JudgeConnection: Manages outbound verdict routing to a single instance
 - CentralJudge: Coordinates judge evaluation and verdict distribution
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -43,9 +44,7 @@ class JudgeConnection:
     host: str
     port: int
     judge: CentralJudge
-    verdict_queue: asyncio.Queue[LNSPMessage] = field(
-        default_factory=asyncio.Queue
-    )
+    verdict_queue: asyncio.Queue[LNSPMessage] = field(default_factory=asyncio.Queue)
     is_connected: bool = False
     verdict_count: int = 0
 
@@ -141,15 +140,9 @@ class CentralJudge:
 
     # Internal state
     _judge: Layer3 = field(default_factory=lambda: Layer3("judge:default"))
-    _instance_connections: dict[str, JudgeConnection] = field(
-        default_factory=dict
-    )
-    _verdict_queue: asyncio.Queue[LNSPMessage] = field(
-        default_factory=asyncio.Queue
-    )
-    _subscribers: list[Callable[[LNSPMessage], None]] = field(
-        default_factory=list
-    )
+    _instance_connections: dict[str, JudgeConnection] = field(default_factory=dict)
+    _verdict_queue: asyncio.Queue[LNSPMessage] = field(default_factory=asyncio.Queue)
+    _subscribers: list[Callable[[LNSPMessage], None]] = field(default_factory=list)
     _batching_task: asyncio.Task[None] | None = field(default=None)
     _verdict_stats: dict[str, int] = field(default_factory=dict)
 
@@ -187,9 +180,7 @@ class CentralJudge:
             "dropped_backpressure": 0,
         }
 
-    async def register_instance(
-        self, instance_id: str, host: str, port: int
-    ) -> None:
+    async def register_instance(self, instance_id: str, host: str, port: int) -> None:
         """Register a verdict destination instance.
 
         Creates a JudgeConnection for the instance and prepares it for

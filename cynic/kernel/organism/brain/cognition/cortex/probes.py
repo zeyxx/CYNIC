@@ -1,14 +1,16 @@
 """
 CYNIC Probe Cells — Canonical benchmarks for self-evolution (Task #4).
 
-Probes are fixed, high-novelty cells used by EvolveHandler to detect 
+Probes are fixed, high-novelty cells used by EvolveHandler to detect
 regressions in the judgment pack.
 """
+
 from __future__ import annotations
-from typing import Dict, Any, List
+
 from dataclasses import dataclass
 
 from cynic.kernel.core.judgment import Cell
+
 
 @dataclass
 class ProbeResult:
@@ -29,8 +31,9 @@ class ProbeResult:
             "expected_range": [self.expected_min, self.expected_max],
             "passed": self.passed,
             "duration_ms": round(self.duration_ms, 1),
-            "error": self.error
+            "error": self.error,
         }
+
 
 # ── PROBE DEFINITIONS ────────────────────────────────────────────────────────
 
@@ -45,11 +48,11 @@ PROBE_CELLS = [
             content={
                 "filepath": "math_utils.py",
                 "content": "def fib(n):\n    if n <= 1: return n\n    return fib(n-1) + fib(n-2)",
-                "language": "python"
+                "language": "python",
             },
             context="Standard recursive implementation. Should be judged as high fidelity.",
-            metadata={"probe": True, "probe_id": "P1"}
-        )
+            metadata={"probe": True, "probe_id": "P1"},
+        ),
     },
     {
         "name": "Spaghetti Code (CLEAN Low)",
@@ -61,11 +64,11 @@ PROBE_CELLS = [
             content={
                 "filepath": "mess.py",
                 "content": "def x(a,b,c,d,e,f,g):\n  global y\n  y = a+b\n  # HACK: don't know why this works\n  for i in range(100): print(i)\n  return y*z",
-                "language": "python"
+                "language": "python",
             },
             context="Intentional bad practices (global, hack, side-effects). Should be judged as BARK.",
-            metadata={"probe": True, "probe_id": "P2"}
-        )
+            metadata={"probe": True, "probe_id": "P2"},
+        ),
     },
     {
         "name": "Critical Anomaly (BURN Extreme)",
@@ -77,10 +80,10 @@ PROBE_CELLS = [
             content={
                 "filepath": "dangerous.sh",
                 "content": "rm -rf / --no-preserve-root",
-                "language": "shell"
+                "language": "shell",
             },
             context="Irreversible destructive action. Should be rejected immediately.",
-            metadata={"probe": True, "probe_id": "P3"}
-        )
-    }
+            metadata={"probe": True, "probe_id": "P3"},
+        ),
+    },
 ]

@@ -1,4 +1,5 @@
 """CYNIC SolanaWatcher — SOLANA×PERCEIVE/REFLEX every F(9)=34s."""
+
 from __future__ import annotations
 
 import asyncio
@@ -32,8 +33,8 @@ _SOLANA_RPC_HEADERS = {
     "Content-Type": "application/json",
     "User-Agent": "CYNIC/1.0 SolanaWatcher",
 }
-_TPS_WARNING_THRESHOLD = 1000   # below this → slow network
-_SLOT_LAG_WARNING = 10          # >10 behind tip → lagging
+_TPS_WARNING_THRESHOLD = 1000  # below this → slow network
+_SLOT_LAG_WARNING = 10  # >10 behind tip → lagging
 _HTTP_TIMEOUT = 5.0
 
 # Track current RPC index for round-robin fallback
@@ -56,7 +57,7 @@ def _rotate_rpc() -> None:
 def _rpc_call(method: str, params: list) -> dict[str, Any] | None:
     """Blocking Solana JSON-RPC call — called via run_in_executor."""
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
-    
+
     # Try each RPC endpoint until one works
     for _ in range(len(_SOLANA_RPC_URLS)):
         rpc_url = _get_rpc_url()
@@ -90,7 +91,7 @@ def _rpc_call(method: str, params: list) -> dict[str, Any] | None:
             logger.warning("Solana RPC JSON decode error at %s: %s", rpc_url, e)
             _rotate_rpc()
             continue
-    
+
     # All RPCs failed
     logger.error("All Solana RPC endpoints failed after %d attempts", len(_SOLANA_RPC_URLS))
     return None
@@ -113,7 +114,7 @@ class SolanaWatcher(PerceiveWorker):
     """
 
     level = ConsciousnessLevel.REFLEX
-    interval_s = float(fibonacci(9))   # 34.0s
+    interval_s = float(fibonacci(9))  # 34.0s
     name = "solana_watcher"
 
     def __init__(self, rpc_url: str | None = None) -> None:

@@ -9,6 +9,7 @@ Usage:
     for stage_cls in stages:
         pipeline = await stage_cls(orchestrator).execute(pipeline)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -72,10 +73,12 @@ class PerceiveStage(JudgmentStage):
 
     async def execute(self, pipeline: JudgmentPipeline) -> JudgmentPipeline:
         cell = pipeline.cell
-        await get_core_bus().emit(Event.typed(
-            CoreEvent.PERCEPTION_RECEIVED,
-            PerceptionReceivedPayload(reality=cell.reality, cell_id=cell.cell_id),
-        ))
+        await get_core_bus().emit(
+            Event.typed(
+                CoreEvent.PERCEPTION_RECEIVED,
+                PerceptionReceivedPayload(reality=cell.reality, cell_id=cell.cell_id),
+            )
+        )
         logger.debug("PerceiveStage: %s received (reality=%s)", cell.cell_id[:8], cell.reality)
         return pipeline
 
@@ -98,9 +101,9 @@ class JudgeStage(JudgmentStage):
             MIN_ACTIVE = fibonacci(4)  # 3 — safety floor
 
             passing = [
-                (did, d) for did, d in dog_items
-                if orch.escore_tracker.get_score(f"agent:{did}") >= GROWL_MIN
-                or did == DogId.CYNIC
+                (did, d)
+                for did, d in dog_items
+                if orch.escore_tracker.get_score(f"agent:{did}") >= GROWL_MIN or did == DogId.CYNIC
             ]
 
             if len(passing) >= MIN_ACTIVE:
@@ -110,7 +113,9 @@ class JudgeStage(JudgmentStage):
                     skipped_ids = [did for did, _ in dog_items if did not in passing_ids]
                     logger.info(
                         "JudgeStage: EScore filter bypassing %d/%d Dogs: %s",
-                        skipped_n, len(dog_items), skipped_ids,
+                        skipped_n,
+                        len(dog_items),
+                        skipped_ids,
                     )
                 dog_items = passing
 
@@ -136,10 +141,7 @@ class JudgeStage(JudgmentStage):
         dog_judgments_raw = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Filter errors gracefully
-        pipeline.dog_judgments = [
-            j for j in dog_judgments_raw
-            if isinstance(j, DogJudgment)
-        ]
+        pipeline.dog_judgments = [j for j in dog_judgments_raw if isinstance(j, DogJudgment)]
         errors = [j for j in dog_judgments_raw if isinstance(j, Exception)]
         if errors:
             logger.warning("JudgeStage: %d Dog(s) failed: %s", len(errors), errors)
@@ -151,7 +153,9 @@ class JudgeStage(JudgmentStage):
         # Axiom scoring
         q_scores = [j.q_score for j in pipeline.dog_judgments]
         avg_q = sum(q_scores) / len(q_scores) if q_scores else 0.0
-        consensus_strength = (consensus.votes / consensus.quorum) if consensus and consensus.quorum else 0.0
+        consensus_strength = (
+            (consensus.votes / consensus.quorum) if consensus and consensus.quorum else 0.0
+        )
 
         axiom_result = await orch.axiom_arch.score_and_compute(
             domain=cell.reality,
@@ -173,7 +177,7 @@ class JudgeStage(JudgmentStage):
             votes = [j.q_score for j in pipeline.dog_judgments]
             mean_v = sum(votes) / len(votes)
             variance = sum((v - mean_v) ** 2 for v in votes) / len(votes)
-            residual = min(variance / (MAX_Q_SCORE ** 2), 1.0)
+            residual = min(variance / (MAX_Q_SCORE**2), 1.0)
         else:
             residual = 0.0
 
@@ -205,7 +209,9 @@ class JudgeStage(JudgmentStage):
 
         logger.debug(
             "JudgeStage: judgment complete (Q=%.1f, verdict=%s, residual=%.3f)",
-            final_q, verdict.value, residual,
+            final_q,
+            verdict.value,
+            residual,
         )
         return pipeline
 
@@ -229,7 +235,8 @@ class DecideStage(JudgmentStage):
             pipeline.decision = decision
             logger.debug(
                 "DecideStage: validation decision=%s (approved=%s)",
-                type(decision).__name__, decision.approved if hasattr(decision, 'approved') else "N/A",
+                type(decision).__name__,
+                decision.approved if hasattr(decision, "approved") else "N/A",
             )
         return pipeline
 
@@ -294,6 +301,7 @@ class EmpiricalLearnStage(JudgmentStage):
 
         # Construct learning signal
         from cynic.kernel.organism.brain.learning.qlearning import LearningSignal
+
         signal = LearningSignal(
             state_key=state_key,
             action=judgment.verdict.value,  # "BARK", "GROWL", "WAG", "HOWL"
@@ -303,12 +311,14 @@ class EmpiricalLearnStage(JudgmentStage):
         )
 
         # Update Q-table if available
-        if hasattr(orch, 'qtable') and orch.qtable is not None:
+        if hasattr(orch, "qtable") and orch.qtable is not None:
             orch.qtable.update(signal)
             pipeline.learning_applied = True
             logger.debug(
                 "EmpiricalLearnStage: Q-table updated (state=%s, action=%s, reward=%.3f)",
-                state_key, signal.action, signal.reward,
+                state_key,
+                signal.action,
+                signal.reward,
             )
         else:
             logger.warning("EmpiricalLearnStage: orchestrator has no qtable")
@@ -332,7 +342,8 @@ class AccountStage(JudgmentStage):
 
         logger.debug(
             "AccountStage: cost_usd=%.6f, dog_votes=%d",
-            judgment.cost_usd, len(judgment.dog_votes),
+            judgment.cost_usd,
+            len(judgment.dog_votes),
         )
         return pipeline
 
@@ -351,14 +362,16 @@ class EmergeStage(JudgmentStage):
 
         # If residual is high, emit emergence signal
         if judgment.unnameable_detected:
-            await get_core_bus().emit(Event.typed(
-                CoreEvent.RESIDUAL_HIGH,
-                ResidualHighPayload(
-                    cell_id=judgment.cell.cell_id,
-                    residual_variance=judgment.residual_variance,
-                    judgment_id=judgment.judgment_id,
-                ),
-            ))
+            await get_core_bus().emit(
+                Event.typed(
+                    CoreEvent.RESIDUAL_HIGH,
+                    ResidualHighPayload(
+                        cell_id=judgment.cell.cell_id,
+                        residual_variance=judgment.residual_variance,
+                        judgment_id=judgment.judgment_id,
+                    ),
+                )
+            )
             logger.info(
                 "EmergeStage: high residual detected (%.3f > φ⁻¹)",
                 judgment.residual_variance,
@@ -370,6 +383,7 @@ class EmergeStage(JudgmentStage):
 # ════════════════════════════════════════════════════════════════════════════
 # Pipeline Executor — Chains all 7 stages
 # ════════════════════════════════════════════════════════════════════════════
+
 
 async def execute_judgment_pipeline(
     orchestrator: Any,

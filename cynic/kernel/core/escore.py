@@ -19,6 +19,7 @@ Formula (same geometric mean as phi_aggregate):
 Per-Reality sub-scores:
   Each entity also tracks how E-Score evolves per reality dimension (CODE, SOLANA).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -44,13 +45,13 @@ logger = logging.getLogger("cynic.kernel.core.escore")
 
 # Weights derived from PHI powers
 E_SCORE_WEIGHTS = {
-    "BURN":   PHI_3,      # 4.236
-    "BUILD":  PHI_2,      # 2.618
-    "JUDGE":  PHI,        # 1.618
-    "RUN":    1.0,        # 1.000
-    "SOCIAL": PHI_INV,    # 0.618
-    "GRAPH":  PHI_INV_2,  # 0.382
-    "HOLD":   PHI_INV_3,  # 0.236
+    "BURN": PHI_3,  # 4.236
+    "BUILD": PHI_2,  # 2.618
+    "JUDGE": PHI,  # 1.618
+    "RUN": 1.0,  # 1.000
+    "SOCIAL": PHI_INV,  # 0.618
+    "GRAPH": PHI_INV_2,  # 0.382
+    "HOLD": PHI_INV_3,  # 0.236
 }
 
 E_SCORE_TOTAL_WEIGHT = sum(E_SCORE_WEIGHTS.values())
@@ -59,6 +60,7 @@ E_SCORE_TOTAL_WEIGHT = sum(E_SCORE_WEIGHTS.values())
 @dataclass
 class EScoreProfile:
     """Reputation snapshot for a single entity (Human, Dog, or Service)."""
+
     entity_id: str
     overall_score: float = 50.0
     # Current values for the 7 dimensions [0, 100]
@@ -75,21 +77,21 @@ class EScoreProfile:
             "overall_score": round(self.overall_score, 2),
             "dimensions": {k: round(v, 2) for k, v in self.dimensions.items()},
             "reality_scores": {k: round(v, 2) for k, v in self.reality_scores.items()},
-            "last_updated": self.last_updated
+            "last_updated": self.last_updated,
         }
 
 
 class EScoreTracker:
     """
     Manages reputation tracking across the CYNIC ecosystem.
-    
+
     Persistence is handled via StateManager (StateLayer.PERSISTENT).
     """
 
     def __init__(self, state_manager: Any | None = None):
         self.state = state_manager
         self._profiles: dict[str, EScoreProfile] = {}
-        self._external_sync_url: str | None = None # For k-NET reputation sharing
+        self._external_sync_url: str | None = None  # For k-NET reputation sharing
 
     def get_profile(self, entity_id: str) -> EScoreProfile:
         """Get or create reputation profile for an entity."""
@@ -107,7 +109,7 @@ class EScoreTracker:
             self._profiles[entity_id] = EScoreProfile(entity_id=entity_id)
         return self._profiles[entity_id]
 
-    def update_dimension(self, entity_id: str, dimension: str, value: float, weight: float = 1.0) -> float:
+    def update_dimension(self, entity_id: str, dimension: str, value: float, weight: float = 1.0, **kwargs: Any) -> float:
         """
         Update a specific reputation dimension for an entity.
         Value is blended using EMA (Exponential Moving Average).
@@ -117,25 +119,30 @@ class EScoreTracker:
             return 0.0
 
         profile = self.get_profile(entity_id)
+
+        # Track reality-specific scores if provided
+        reality = kwargs.get("reality")
+        if reality:
+            profile.reality_scores[reality] = value
+
         current = profile.dimensions.get(dimension, 50.0)
-        
+
+
         # EMA blending: alpha = 0.382 (PHI_INV_2) — favors stability
         alpha = PHI_INV_2 * weight
         new_val = (alpha * value) + (1.0 - alpha) * current
         profile.dimensions[dimension] = phi_bound_score(new_val)
-        
+
         # Recalculate overall
         profile.overall_score = self._calculate_aggregate(profile.dimensions)
         profile.last_updated = time.time()
-        
+
         # Persist if state manager is wired
         if self.state:
-            asyncio.create_task(self.state.update(
-                f"escore:profile:{entity_id}", 
-                profile, 
-                source="escore_tracker"
-            ))
-            
+            asyncio.create_task(
+                self.state.update(f"escore:profile:{entity_id}", profile, source="escore_tracker")
+            )
+
         return profile.overall_score
 
     def _calculate_aggregate(self, dimensions: dict[str, float]) -> float:
@@ -144,7 +151,7 @@ class EScoreTracker:
         for dim, val in dimensions.items():
             w = E_SCORE_WEIGHTS.get(dim, 1.0)
             log_sum += w * math.log(max(val, 0.1))
-        
+
         raw_score = math.exp(log_sum / E_SCORE_TOTAL_WEIGHT)
         return phi_bound_score(raw_score)
 
@@ -161,7 +168,7 @@ class EScoreTracker:
         """Fetch reputation score for a peer instance via κ-NET."""
         if not self._external_sync_url:
             return False
-            
+
         try:
             async with httpx.AsyncClient(timeout=2.0) as client:
                 resp = await client.get(f"{self._external_sync_url}/reputation/{peer_id}")
@@ -186,6 +193,6 @@ class EScoreTracker:
             "top_entities": sorted(
                 [{"id": p.entity_id, "score": p.overall_score} for p in self._profiles.values()],
                 key=lambda x: x["score"],
-                reverse=True
-            )[:5]
+                reverse=True,
+            )[:5],
         }

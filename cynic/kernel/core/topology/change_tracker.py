@@ -70,7 +70,9 @@ class ChangeTracker:
                 lines = 0
                 try:
                     if file_path.exists():
-                        lines = len(file_path.read_text(encoding="utf-8", errors="ignore").splitlines())
+                        lines = len(
+                            file_path.read_text(encoding="utf-8", errors="ignore").splitlines()
+                        )
                 except Exception:
                     lines = 0
 
@@ -94,7 +96,10 @@ class ChangeTracker:
 
                 logger.info(
                     "CHANGE TRACKED: %s %s (%d lines, cat=%s)",
-                    change_type, filepath, lines, payload.category,
+                    change_type,
+                    filepath,
+                    lines,
+                    payload.category,
                 )
 
             except Exception as e:
@@ -138,7 +143,7 @@ class ChangeTracker:
 
             lines = self._CHANGES_PATH.read_text(encoding="utf-8", errors="ignore").splitlines()
             changes = []
-            for line in lines[-limit :]:
+            for line in lines[-limit:]:
                 if line.strip():
                     changes.append(json.loads(line))
             return changes

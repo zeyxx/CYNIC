@@ -32,6 +32,7 @@ from .validator import (
 
 if TYPE_CHECKING:
     from cynic.kernel.core.event_bus import EventBus
+
     from .base import HandlerGroup
 
 logger = logging.getLogger("cynic.kernel.organism.handlers")
@@ -65,8 +66,7 @@ class HandlerRegistry:
                 bus.on(event_type, handler_fn)
                 total_handlers += 1
             logger.debug(
-                f"Wired handler group '{group.name}': "
-                f"{len(group.subscriptions())} handlers"
+                f"Wired handler group '{group.name}': " f"{len(group.subscriptions())} handlers"
             )
 
         self._wired = True
@@ -100,7 +100,7 @@ def discover_handler_groups(
     cognition: CognitionServices,
     metabolic: MetabolicServices,
     sensory: SensoryServices,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> list[HandlerGroup]:
     """
     Auto-discover and instantiate handler groups by domain.
@@ -146,19 +146,17 @@ def discover_handler_groups(
                     # Select appropriate service facade and parameter name
                     config = domain_map.get(module_name, (cognition, "cognition"))
                     svc_facade, param_name = config
-                    
+
                     # Merge domain service with extra specialized kwargs
                     group_kwargs = kwargs.get(module_name, {})
                     init_args = {param_name: svc_facade}
                     init_args.update(group_kwargs)
-                    
+
                     instance = attr(**init_args)
                     groups.append(instance)
                     logger.debug(f"Discovered handler group: {instance.name}")
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to instantiate {attr_name} from {module_name}: {e}"
-                    )
+                    logger.warning(f"Failed to instantiate {attr_name} from {module_name}: {e}")
 
     logger.info(f"Discovered {len(groups)} handler groups")
     return groups

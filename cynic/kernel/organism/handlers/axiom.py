@@ -38,11 +38,13 @@ class AxiomHandlers(HandlerGroup):
         return "axiom"
 
     def dependencies(self) -> frozenset[str]:
-        return frozenset({
-            "escore_tracker",
-            "axiom_monitor",
-            "action_proposer",
-        })
+        return frozenset(
+            {
+                "escore_tracker",
+                "axiom_monitor",
+                "action_proposer",
+            }
+        )
 
     def subscriptions(self) -> list[tuple[CoreEvent, callable]]:
         return [
@@ -201,8 +203,7 @@ class AxiomHandlers(HandlerGroup):
             self._cognition.escore_tracker.update_dimension("agent:cynic", "JUDGE", penalty_score)
 
             logger.warning(
-                "RESIDUAL_HIGH: cell=%s residual=%.3f → EMERGENCE signal, "
-                "JUDGE penalty=%.1f",
+                "RESIDUAL_HIGH: cell=%s residual=%.3f → EMERGENCE signal, " "JUDGE penalty=%.1f",
                 cell_id,
                 residual,
                 penalty_score,
@@ -269,8 +270,7 @@ class AxiomHandlers(HandlerGroup):
             self._cognition.escore_tracker.update_dimension("agent:cynic", "JUDGE", judge_score)
 
             logger.info(
-                "META_CYCLE: pass_rate=%.1f%% regression=%s → "
-                "JUDGE EScore=%.1f%s",
+                "META_CYCLE: pass_rate=%.1f%% regression=%s → " "JUDGE EScore=%.1f%s",
                 pass_rate * 100,
                 regression,
                 judge_score,

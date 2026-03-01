@@ -12,6 +12,7 @@ ALL architecture derives from φ via Fibonacci and Lucas sequences:
 IMPORT RULE: NEVER define φ constants elsewhere.
 Always: `from cynic.kernel.core.phi import PHI, PHI_INV, ...`
 """
+
 from __future__ import annotations
 
 import math
@@ -23,14 +24,14 @@ import math
 PHI: float = (1 + math.sqrt(5)) / 2
 """Golden Ratio φ = 1.618033988749895"""
 
-PHI_INV: float = PHI - 1                  # = 1/φ = 0.618033988749895
-PHI_INV_2: float = 2 - PHI                # = 1/φ² = 0.381966011250105
-PHI_INV_3: float = PHI_INV_2 * PHI_INV   # = 1/φ³ = 0.236067977499790
+PHI_INV: float = PHI - 1  # = 1/φ = 0.618033988749895
+PHI_INV_2: float = 2 - PHI  # = 1/φ² = 0.381966011250105
+PHI_INV_3: float = PHI_INV_2 * PHI_INV  # = 1/φ³ = 0.236067977499790
 
-PHI_2: float = PHI * PHI          # φ² = 2.618033988749895
-PHI_3: float = PHI_2 * PHI        # φ³ = 4.236067977499790
-PHI_4: float = PHI_3 * PHI        # φ⁴ = 6.854101966249685
-PHI_5: float = PHI_4 * PHI        # φ⁵ = 11.090169943749474
+PHI_2: float = PHI * PHI  # φ² = 2.618033988749895
+PHI_3: float = PHI_2 * PHI  # φ³ = 4.236067977499790
+PHI_4: float = PHI_3 * PHI  # φ⁴ = 6.854101966249685
+PHI_5: float = PHI_4 * PHI  # φ⁵ = 11.090169943749474
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -38,56 +39,57 @@ PHI_5: float = PHI_4 * PHI        # φ⁵ = 11.090169943749474
 # ════════════════════════════════════════════════════════════════════════════
 
 # Max confidence in any judgment (Law of Doubt — "φ distrusts φ")
-MAX_CONFIDENCE: float = PHI_INV          # 0.618 = 61.8%
+MAX_CONFIDENCE: float = PHI_INV  # 0.618 = 61.8%
 
 # Q-Score scale: [0, 100] — HOWL atteignable
 # Confidence is SEPARATE and stays bounded at PHI_INV = 61.8%
-MAX_Q_SCORE: float = 100.0              # Q-Score cap (D1 decision: [0, 100])
+MAX_Q_SCORE: float = 100.0  # Q-Score cap (D1 decision: [0, 100])
 MAX_CONFIDENCE_PCT: float = PHI_INV * 100  # 61.8 — confidence display %
 
 # Verdict thresholds (φ-aligned, on [0, 100] scale)
-HOWL_MIN: float = 82.0                   # HOWL: ≥82  (φ² × φ⁻¹ × 100 → exceptional)
-WAG_MIN: float = PHI_INV * 100          # WAG:  ≥61.8 (= φ⁻¹ × 100 → good)
-GROWL_MIN: float = PHI_INV_2 * 100      # GROWL: ≥38.2 (= φ⁻² × 100 → needs work)
-BARK_MAX: float = PHI_INV_2 * 100       # BARK: <38.2 (= φ⁻² × 100 → critical)
+HOWL_MIN: float = 82.0  # HOWL: ≥82  (φ² × φ⁻¹ × 100 → exceptional)
+WAG_MIN: float = PHI_INV * 100  # WAG:  ≥61.8 (= φ⁻¹ × 100 → good)
+GROWL_MIN: float = PHI_INV_2 * 100  # GROWL: ≥38.2 (= φ⁻² × 100 → needs work)
+BARK_MAX: float = PHI_INV_2 * 100  # BARK: <38.2 (= φ⁻² × 100 → critical)
 
 # Aliases (backward compatibility within codebase)
-HOWL_THRESHOLD: float = HOWL_MIN        # 82.0
-WAG_THRESHOLD: float = WAG_MIN          # 61.8
-GROWL_THRESHOLD: float = GROWL_MIN      # 38.2
+HOWL_THRESHOLD: float = HOWL_MIN  # 82.0
+WAG_THRESHOLD: float = WAG_MIN  # 61.8
+GROWL_THRESHOLD: float = GROWL_MIN  # 38.2
 BARK_THRESHOLD: float = 0.0
 
 # Trust / Emergence thresholds
-MIN_DOUBT: float = PHI_INV_2     # 0.382 = minimum doubt (skepticism floor)
+MIN_DOUBT: float = PHI_INV_2  # 0.382 = minimum doubt (skepticism floor)
 DEEP_UNCERTAINTY: float = PHI_INV_3  # 0.236 = deep uncertainty marker
 
 # PBFT (11 Dogs, f=3 Byzantine faults)
-DOGS_TOTAL: int = 11         # L(5) = Lucas(5)
-DOGS_BYZANTINE: int = 3      # f = (11 - 1) // 3
-DOGS_QUORUM: int = 7         # 2f+1 = 7 (minimum for consensus)
+DOGS_TOTAL: int = 11  # L(5) = Lucas(5)
+DOGS_BYZANTINE: int = 3  # f = (11 - 1) // 3
+DOGS_QUORUM: int = 7  # 2f+1 = 7 (minimum for consensus)
 
 # MCTS budget split
-MCTS_LEVEL1_RATIO: float = PHI_INV_2   # 38.2% for Dog combination selection
-MCTS_LEVEL2_RATIO: float = PHI_INV     # 61.8% for per-Dog action exploration
+MCTS_LEVEL1_RATIO: float = PHI_INV_2  # 38.2% for Dog combination selection
+MCTS_LEVEL2_RATIO: float = PHI_INV  # 61.8% for per-Dog action exploration
 
 # Learning rates (φ-aligned)
-LEARNING_RATE: float = PHI_INV_2 / 10   # ≈ 0.038 (conservative)
-EWC_PENALTY: float = PHI_INV            # λ = 0.618 (forgetting penalty)
-THOMPSON_CONFIDENCE: float = PHI_INV    # β distribution confidence bound
+LEARNING_RATE: float = PHI_INV_2 / 10  # ≈ 0.038 (conservative)
+EWC_PENALTY: float = PHI_INV  # λ = 0.618 (forgetting penalty)
+THOMPSON_CONFIDENCE: float = PHI_INV  # β distribution confidence bound
 
 # Dog Priorities (PHI-weighted importance)
 # Higher weight = more influence in weighted_geometric_mean
 DOG_PRIORITY: dict[str, float] = {
-    "SAGE": PHI_2,      # 2.618
-    "ANALYST": PHI,     # 1.618
+    "SAGE": PHI_2,  # 2.618
+    "ANALYST": PHI,  # 1.618
     "GUARDIAN": PHI_3,  # 4.236 (Highest priority for security)
-    "CYNIC": 1.0,       # 1.0 (Coordinator)
+    "CYNIC": 1.0,  # 1.0 (Coordinator)
 }
 
 
 # ════════════════════════════════════════════════════════════════════════════
 # FIBONACCI SEQUENCE (for timing, intervals, counts)
 # ════════════════════════════════════════════════════════════════════════════
+
 
 def fibonacci(n: int) -> int:
     """
@@ -130,12 +132,12 @@ LUCAS: list[int] = [lucas(n) for n in range(11)]
 # ⚠️ IMMUTABLE: These constants are φ-locked-in by fractal geometry.
 #    NEVER change these values — all architecture depends on them.
 #    Each is L(4) = 7 = lucas(4) = fundamental to CYNIC's hypercube structure.
-AXIOMS_CORE: int = fibonacci(5)      # F(5) = 5 → 5 core axioms
-AXIOMS_FACETS: int = lucas(4)        # L(4) = 7 → 7 facets per axiom
-DOGS_COUNT: int = lucas(5)           # L(5) = 11 → 11 Dogs (Sefirot)
-REALITY_DIMS: int = lucas(4)         # L(4) = 7 → 7 Reality dimensions (IMMUTABLE)
-ANALYSIS_DIMS: int = lucas(4)        # L(4) = 7 → 7 Analysis dimensions (IMMUTABLE)
-TIME_DIMS: int = lucas(4)            # L(4) = 7 → 7 Time dimensions (IMMUTABLE)
+AXIOMS_CORE: int = fibonacci(5)  # F(5) = 5 → 5 core axioms
+AXIOMS_FACETS: int = lucas(4)  # L(4) = 7 → 7 facets per axiom
+DOGS_COUNT: int = lucas(5)  # L(5) = 11 → 11 Dogs (Sefirot)
+REALITY_DIMS: int = lucas(4)  # L(4) = 7 → 7 Reality dimensions (IMMUTABLE)
+ANALYSIS_DIMS: int = lucas(4)  # L(4) = 7 → 7 Analysis dimensions (IMMUTABLE)
+TIME_DIMS: int = lucas(4)  # L(4) = 7 → 7 Time dimensions (IMMUTABLE)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -143,34 +145,35 @@ TIME_DIMS: int = lucas(4)            # L(4) = 7 → 7 Time dimensions (IMMUTABLE
 # ════════════════════════════════════════════════════════════════════════════
 
 # Perception frequencies (Fibonacci minutes × 60)
-PERCEIVE_CODE_SEC: int = fibonacci(8) * 60    # F(8)=21 → 1260s (21 min)
+PERCEIVE_CODE_SEC: int = fibonacci(8) * 60  # F(8)=21 → 1260s (21 min)
 PERCEIVE_SOLANA_SEC: int = fibonacci(7) * 60  # F(7)=13 → 780s (13 min)
 PERCEIVE_MARKET_SEC: int = fibonacci(6) * 60  # F(6)=8 → 480s (8 min)
 PERCEIVE_SOCIAL_SEC: int = fibonacci(9) * 60  # F(9)=34 → 2040s (34 min)
 
 # Learning batch intervals
-LEARN_BATCH_SEC: int = fibonacci(10) * 60     # F(10)=55 → 3300s (55 min)
-SONA_UPDATE_SEC: int = fibonacci(9) * 60      # F(9)=34 → 2040s (34 min)
+LEARN_BATCH_SEC: int = fibonacci(10) * 60  # F(10)=55 → 3300s (55 min)
+SONA_UPDATE_SEC: int = fibonacci(9) * 60  # F(9)=34 → 2040s (34 min)
 KABBALISTIC_ROUTER_SEC: int = fibonacci(11) * 60  # F(11)=89 → 5340s (89 min)
 
 # Economic intervals
 E_SCORE_UPDATE_SEC: int = fibonacci(11) * 60  # F(11)=89 → 5340s (89 min)
 
 # Emergence detection
-EMERGE_DETECT_SEC: int = fibonacci(12) * 60   # F(12)=144 → 8640s (2.4h)
-TRANSCENDENCE_SEC: int = fibonacci(13) * 60   # F(13)=233 → 13980s (3.9h)
+EMERGE_DETECT_SEC: int = fibonacci(12) * 60  # F(12)=144 → 8640s (2.4h)
+TRANSCENDENCE_SEC: int = fibonacci(13) * 60  # F(13)=233 → 13980s (3.9h)
 
 # Consciousness check: F(13) = 233 judgments triggers meta-cycle
-META_CYCLE_JUDGMENTS: int = fibonacci(13)     # 233
+META_CYCLE_JUDGMENTS: int = fibonacci(13)  # 233
 
 # Meta-cognition: stuck threshold (φ times = ~2-3 repetitions)
-STUCK_REPETITIONS: int = max(2, round(PHI))   # 2
+STUCK_REPETITIONS: int = max(2, round(PHI))  # 2
 STUCK_STAGNATION: int = max(3, round(PHI_2))  # 3
 
 
 # ════════════════════════════════════════════════════════════════════════════
 # φ MATHEMATICS
 # ════════════════════════════════════════════════════════════════════════════
+
 
 def phi_bound(value: float, min_val: float = 0.0, max_val: float = MAX_CONFIDENCE) -> float:
     """Clamp value to φ-aligned range [min_val, max_val]."""
@@ -190,11 +193,11 @@ def phi_classify(value: float) -> str:
     """
     if value >= 0.82:
         return "EXCEPTIONAL"
-    elif value >= PHI_INV:     # 0.618
+    elif value >= PHI_INV:  # 0.618
         return "GOOD"
-    elif value >= PHI_INV_2:   # 0.382
+    elif value >= PHI_INV_2:  # 0.382
         return "MODERATE"
-    elif value >= PHI_INV_3:   # 0.236
+    elif value >= PHI_INV_3:  # 0.236
         return "POOR"
     else:
         return "CRITICAL"
@@ -245,8 +248,9 @@ def phi_ratio_split(total: float) -> tuple[float, float]:
     return (total * PHI_INV_2, total * PHI_INV)
 
 
-def phi_ucb(q_value: float, visits: int, parent_visits: int,
-             exploration: float = math.sqrt(2)) -> float:
+def phi_ucb(
+    q_value: float, visits: int, parent_visits: int, exploration: float = math.sqrt(2)
+) -> float:
     """
     UCB1 formula for MCTS node selection.
 
@@ -259,8 +263,9 @@ def phi_ucb(q_value: float, visits: int, parent_visits: int,
     return exploitation + exploration_term
 
 
-def phi_temporal_ucb(q_value: float, visits: int, parent_visits: int,
-                      depth: int, exploration: float = math.sqrt(2)) -> float:
+def phi_temporal_ucb(
+    q_value: float, visits: int, parent_visits: int, depth: int, exploration: float = math.sqrt(2)
+) -> float:
     """
     Temporal UCB1 (Temporal MCTS innovation).
 
@@ -270,7 +275,7 @@ def phi_temporal_ucb(q_value: float, visits: int, parent_visits: int,
         return float("inf")
     exploitation = q_value / visits
     exploration_term = exploration * math.sqrt(math.log(parent_visits) / visits)
-    temporal_decay = PHI_INV ** depth  # φ⁻¹ per level of depth
+    temporal_decay = PHI_INV**depth  # φ⁻¹ per level of depth
     return exploitation + exploration_term * temporal_decay
 
 
@@ -279,13 +284,13 @@ def phi_temporal_ucb(q_value: float, visits: int, parent_visits: int,
 # ════════════════════════════════════════════════════════════════════════════
 
 E_SCORE_WEIGHTS: dict[str, float] = {
-    "BURN":   PHI_3,    # φ³ = 4.236 — Highest (irreversible commitment)
-    "BUILD":  PHI_2,    # φ² = 2.618 — Code contribution quality
-    "JUDGE":  PHI,      # φ¹ = 1.618 — Judgment accuracy
-    "RUN":    1.0,      # φ⁰ = 1.000 — Execution reliability
+    "BURN": PHI_3,  # φ³ = 4.236 — Highest (irreversible commitment)
+    "BUILD": PHI_2,  # φ² = 2.618 — Code contribution quality
+    "JUDGE": PHI,  # φ¹ = 1.618 — Judgment accuracy
+    "RUN": 1.0,  # φ⁰ = 1.000 — Execution reliability
     "SOCIAL": PHI_INV,  # φ⁻¹ = 0.618 — Community engagement
-    "GRAPH":  PHI_INV_2, # φ⁻² = 0.382 — Network connectivity
-    "HOLD":   PHI_INV_3, # φ⁻³ = 0.236 — Long-term commitment
+    "GRAPH": PHI_INV_2,  # φ⁻² = 0.382 — Network connectivity
+    "HOLD": PHI_INV_3,  # φ⁻³ = 0.236 — Long-term commitment
 }
 
 E_SCORE_TOTAL_WEIGHT: float = sum(E_SCORE_WEIGHTS.values())
@@ -295,6 +300,7 @@ E_SCORE_TOTAL_WEIGHT: float = sum(E_SCORE_WEIGHTS.values())
 # ════════════════════════════════════════════════════════════════════════════
 # VALIDATION (run at import time)
 # ════════════════════════════════════════════════════════════════════════════
+
 
 def validate_phi_constants() -> None:
     """

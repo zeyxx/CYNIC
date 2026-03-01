@@ -73,8 +73,11 @@ class JudgmentExecutorHandler(HandlerGroup):
         Execute judgment when JUDGMENT_REQUESTED event fires.
         """
         try:
-            logger.debug("[HANDLER] JudgmentExecutor received JUDGMENT_REQUESTED: %s", event.event_id)
+            logger.debug(
+                "[HANDLER] JudgmentExecutor received JUDGMENT_REQUESTED: %s", event.event_id
+            )
             from cynic.kernel.core.events_schema import JudgmentRequestedPayload
+
             p = JudgmentRequestedPayload.model_validate(event.dict_payload or {})
 
             # Extract judgment_id from payload (thread it through the pipeline to match PENDING entry)
@@ -83,14 +86,14 @@ class JudgmentExecutorHandler(HandlerGroup):
             # Reconstruct Cell from model data
             cell_dict = p.cell
             cell = None
-            
+
             if cell_dict:
                 try:
                     cell = Cell(**cell_dict)
                     logger.debug("[HANDLER] Cell reconstructed from model data: %s", cell.cell_id)
                 except Exception as cell_err:
                     logger.warning("[HANDLER] Failed to reconstruct cell: %s", cell_err)
-            
+
             # Fallback for old payloads or errors
             if cell is None:
                 cell = Cell(
@@ -114,12 +117,14 @@ class JudgmentExecutorHandler(HandlerGroup):
                 "JudgmentExecutor: Processing %s judgment (level=%s, fractal_depth=%d)",
                 cell.reality,
                 level_str or "AUTO",
-                p.fractal_depth
+                p.fractal_depth,
             )
 
             # Check circuit breaker
             if not _orchestrator_breaker.allow():
-                await self._emit_judgment_failed(judgment_id, cell.cell_id, "circuit_breaker_open", "Circuit breaker OPEN")
+                await self._emit_judgment_failed(
+                    judgment_id, cell.cell_id, "circuit_breaker_open", "Circuit breaker OPEN"
+                )
                 return
 
             # Run the orchestrator with timeout (30s max)
@@ -241,6 +246,7 @@ class JudgmentExecutorHandler(HandlerGroup):
             # Also update ConsciousState to reflect BARK (failure verdict)
             try:
                 from cynic.kernel.organism.conscious_state import get_conscious_state
+
                 await get_conscious_state().record_judgment_failed(judgment_id, reason)
             except Exception as e:
                 logger.debug("Could not record failure in ConsciousState: %s", e)

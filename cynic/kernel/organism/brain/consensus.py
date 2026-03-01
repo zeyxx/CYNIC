@@ -17,6 +17,7 @@ LAWS:
   3. Timeout graceful: local consensus if network unavailable
   4. No blocking: async only, never blocks judgment response
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -71,9 +72,7 @@ class ConsensusEngine:
         self.min_quorum = min_quorum
         logger.info(f"ConsensusEngine initialized (β-phase, local consensus, quorum={min_quorum})")
 
-    async def gather_votes(
-        self, judgment: Any, timeout: float = 5.0
-    ) -> VoteResult:
+    async def gather_votes(self, judgment: Any, timeout: float = 5.0) -> VoteResult:
         """
         Gather consensus votes on a judgment block.
 
@@ -133,9 +132,7 @@ class ConsensusEngine:
                 timestamp=datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
             )
 
-    async def _simulate_local_votes(
-        self, judgment: Any, timeout: float
-    ) -> list[dict[str, Any]]:
+    async def _simulate_local_votes(self, judgment: Any, timeout: float) -> list[dict[str, Any]]:
         """
         Simulate local consensus votes from this instance's Dogs.
 
@@ -160,19 +157,25 @@ class ConsensusEngine:
                     "dog": "guardian",
                     "vote": True,
                     "reason": "security_ok",
-                    "timestamp": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
+                    "timestamp": datetime.now(UTC)
+                    .isoformat(timespec="seconds")
+                    .replace("+00:00", "Z"),
                 },
                 {
                     "dog": "analyst",
                     "vote": True,
                     "reason": "pattern_ok",
-                    "timestamp": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
+                    "timestamp": datetime.now(UTC)
+                    .isoformat(timespec="seconds")
+                    .replace("+00:00", "Z"),
                 },
                 {
                     "dog": "architect",
                     "vote": True,
                     "reason": "structure_ok",
-                    "timestamp": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
+                    "timestamp": datetime.now(UTC)
+                    .isoformat(timespec="seconds")
+                    .replace("+00:00", "Z"),
                 },
             ]
 
@@ -192,9 +195,7 @@ class ConsensusEngine:
             logger.error(f"Error gathering votes: {exc}")
             return []
 
-    async def finalize_judgment(
-        self, judgment: Any, vote_result: VoteResult
-    ) -> bool:
+    async def finalize_judgment(self, judgment: Any, vote_result: VoteResult) -> bool:
         """
         Finalize judgment after consensus voting.
 

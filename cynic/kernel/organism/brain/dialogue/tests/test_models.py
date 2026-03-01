@@ -11,7 +11,7 @@ def test_user_message_creation():
         message_type="question",
         content="Why did you choose WAG?",
         user_confidence=0.5,
-        related_judgment_id=None
+        related_judgment_id=None,
     )
     assert msg.message_type == "question"
     assert msg.content == "Why did you choose WAG?"
@@ -26,7 +26,7 @@ def test_cynic_message_creation():
         content="Dog 5 voted HOWL, Dog 7 voted WAG...",
         confidence=0.618,
         axiom_scores={"PHI": 0.8, "BURN": 0.6},
-        source_judgment_id="j123"
+        source_judgment_id="j123",
     )
     assert msg.message_type == "reasoning"
     assert msg.confidence == 0.618
@@ -40,7 +40,7 @@ def test_message_immutability():
         message_type="feedback",
         content="Try GROWL next time",
         user_confidence=0.5,
-        related_judgment_id=None
+        related_judgment_id=None,
     )
     with pytest.raises((AttributeError, TypeError)):
         msg.content = "Modified"
@@ -104,7 +104,7 @@ def test_cynic_message_axiom_scores_immutable():
         message_type="reasoning",
         content="Because...",
         confidence=0.5,
-        axiom_scores={"PHI": 0.8, "BURN": 0.6}
+        axiom_scores={"PHI": 0.8, "BURN": 0.6},
     )
 
     # axiom_scores should be MappingProxyType
@@ -122,10 +122,7 @@ def test_cynic_message_axiom_scores_immutable():
 def test_cynic_message_empty_axiom_scores():
     """Empty axiom_scores dict should work correctly."""
     msg = CynicMessage(
-        message_type="reasoning",
-        content="Because...",
-        confidence=0.5,
-        axiom_scores={}
+        message_type="reasoning", content="Because...", confidence=0.5, axiom_scores={}
     )
 
     # Empty dict is acceptable

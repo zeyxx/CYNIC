@@ -1,4 +1,5 @@
 """Governance sensors for LNSP Layer 1 observation."""
+
 from __future__ import annotations
 
 import dataclasses

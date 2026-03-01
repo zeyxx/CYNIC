@@ -4,6 +4,7 @@ CYNIC Universal LLM Adapter — OS-level LLM routing.
 Unified format for all AI interactions (Local, CLI, Cloud).
 Implements hardware-aware discovery and EMA-based benchmarking.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -18,9 +19,11 @@ from cynic.kernel.core.phi import MAX_Q_SCORE, PHI, PHI_INV, weighted_geometric_
 
 logger = logging.getLogger("cynic.kernel.organism.brain.llm.adapter")
 
+
 @dataclass
 class LLMRequest:
     """A request to any LLM."""
+
     prompt: str
     system: str = ""
     max_tokens: int = 2048
@@ -28,9 +31,11 @@ class LLMRequest:
     stream: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class LLMResponse:
     """Unified response from any LLM."""
+
     content: str
     model: str
     provider: str
@@ -44,8 +49,10 @@ class LLMResponse:
     def is_success(self) -> bool:
         return self.error is None and bool(self.content)
 
+
 class LLMAdapter(ABC):
     """Base for all LLM muscles."""
+
     def __init__(self, model: str, provider: str) -> None:
         self.model = model
         self.provider = provider
@@ -67,6 +74,7 @@ class LLMAdapter(ABC):
         except Exception as e:
             return LLMResponse(content="", model=self.model, provider=self.provider, error=str(e))
 
+
 @dataclass
 class BenchmarkResult:
     llm_id: str
@@ -81,11 +89,13 @@ class BenchmarkResult:
     def composite_score(self) -> float:
         return weighted_geometric_mean(
             [self.quality_score / MAX_Q_SCORE, self.speed_score, self.cost_score],
-            [PHI, 1.0, PHI_INV]
+            [PHI, 1.0, PHI_INV],
         )
+
 
 class LLMRegistry:
     """The intelligence warehouse of the organism."""
+
     def __init__(self) -> None:
         self._adapters: dict[str, LLMAdapter] = {}
         self._available: dict[str, bool] = {}
@@ -101,7 +111,8 @@ class LLMRegistry:
 
     def _is_generation_adapter(self, adapter: LLMAdapter) -> bool:
         name = adapter.model.lower()
-        if "embed" in name or "nomic" in name: return False
+        if "embed" in name or "nomic" in name:
+            return False
         return True
 
     def get_available_for_generation(self) -> list[LLMAdapter]:
@@ -116,13 +127,14 @@ class LLMRegistry:
     ) -> dict[str, Any]:
         """Hardware-aware discovery of all muscles (V3.5)."""
         from cynic.kernel.organism.metabolism.model_profiler import ModelProfiler
+
         profiler = ModelProfiler()
-        
+
         self._manifest = {
             "timestamp": time.time(),
             "hardware": profiler.announce_limits(),
             "available": [],
-            "rejected": []
+            "rejected": [],
         }
 
         # 1. Local GGUF (Level 0: Pure Sovereignty)
@@ -131,10 +143,12 @@ class LLMRegistry:
                 from cynic.kernel.organism.brain.llm.adapters.local_gguf import LlamaCppAdapter
                 # Placeholder for listing models, in real it scans models_dir
                 # ...
-            except ImportError: pass
+            except ImportError:
+                pass
 
         # 2. Local Service (Level 1: Local Network)
         from cynic.kernel.organism.brain.llm.adapters.local_service import OllamaAdapter
+
         probe = OllamaAdapter(model="probe", base_url=ollama_url)
         if await probe.check_available():
             self.register(probe)
@@ -142,6 +156,7 @@ class LLMRegistry:
 
         # 3. CLI Bridges (Level 2: Binary control)
         from cynic.kernel.organism.brain.llm.adapters.cli_bridge import CLIAdapter
+
         for binary in ["claude", "gemini"]:
             adapter = CLIAdapter(binary=binary, model_alias=f"{binary}-cli")
             if await adapter.check_available():
@@ -156,11 +171,23 @@ class LLMRegistry:
     def get_best_for(self, dog_id: str, task_type: str) -> LLMAdapter | None:
         """Sovereignty-first routing."""
         avail = self.get_available_for_generation()
-        if not avail: return None
-        
+        if not avail:
+            return None
+
         # Priority: llama_cpp > ollama > cli > cloud
-        prio = {"llama_cpp": 0, "ollama": 1, "claude_cli": 2, "gemini_cli": 2, "anthropic": 3, "gemini": 3}
+        prio = {
+            "llama_cpp": 0,
+            "ollama": 1,
+            "claude_cli": 2,
+            "gemini_cli": 2,
+            "anthropic": 3,
+            "gemini": 3,
+        }
         return sorted(avail, key=lambda a: prio.get(a.provider, 99))[0]
 
+
 _registry = LLMRegistry()
-def get_registry() -> LLMRegistry: return _registry
+
+
+def get_registry() -> LLMRegistry:
+    return _registry

@@ -5,6 +5,7 @@ This handler ensures the feedback loop is maintained by persisting the
 latest judgment to a local JSON file. This file is read by external hooks
 and the TUI to provide context for future judgments.
 """
+
 import json
 import logging
 import os
@@ -57,21 +58,18 @@ class GuidanceWriter(HandlerGroup):
                 "q_score": round(float(p.get("q_score", 0.0)), 3),
                 "confidence": round(min(float(p.get("confidence", 0.0)), MAX_CONFIDENCE), 4),
                 "reality": p.get("reality", "CODE"),
-                "dog_votes": {
-                    k: round(float(v), 3)
-                    for k, v in (p.get("dog_votes") or {}).items()
-                },
+                "dog_votes": {k: round(float(v), 3) for k, v in (p.get("dog_votes") or {}).items()},
             }
-            
+
             os.makedirs(os.path.dirname(_GUIDANCE_PATH), exist_ok=True)
-            
+
             # Atomic write via temporary file
             temp_path = _GUIDANCE_PATH + ".tmp"
             with open(temp_path, "w", encoding="utf-8") as fh:
                 json.dump(payload, fh, indent=2)
             os.replace(temp_path, _GUIDANCE_PATH)
-            
+
             logger.debug("GuidanceWriter: guidance.json updated")
-            
+
         except Exception as exc:
             logger.warning("GuidanceWriter: failed to write guidance.json: %s", exc)

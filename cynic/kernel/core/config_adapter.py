@@ -55,7 +55,6 @@ class ConfigurationAdaptationEngine:
         if description:
             pass
 
-
         try:
             # Run blocking I/O in executor thread pool (non-blocking in async context)
             loop = asyncio.get_event_loop()

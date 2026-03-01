@@ -18,6 +18,7 @@ Algorithm:
 
 Deterministic (no randomness), handles tie-breakers hierarchically.
 """
+
 from __future__ import annotations
 
 import logging
@@ -147,9 +148,7 @@ class PBFTEngine:
             )
 
         # Aggregate attributes from Dogs that voted for consensus verdict
-        agreeing_judgments = [
-            j for j in judgments if j.verdict == consensus_verdict
-        ]
+        agreeing_judgments = [j for j in judgments if j.verdict == consensus_verdict]
 
         if not agreeing_judgments:
             # Fallback: use all judgments if none agree with default

@@ -13,6 +13,7 @@ Nested MCTS (Ring 2 enhancement):
 
 Fire-and-forget: never blocks. All logic is async + bus.emit().
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,12 +36,13 @@ _ALERT_VERDICTS = {"BARK", "GROWL"}
 _ACT_REALITIES = frozenset({"CODE", "CYNIC"})
 
 # NestedMCTS hyperparameters (φ-derived)
-_MCTS_DEPTH: int = 2         # rollout depth
-_MCTS_N_SIM: int = 7         # simulations per action (F(4+1) ensures full VERDICTS coverage)
-_UCT_C: float = MCTS_UCT_C    # Imported from formulas.py (exploration constant ≈ 1/√2)
+_MCTS_DEPTH: int = 2  # rollout depth
+_MCTS_N_SIM: int = 7  # simulations per action (F(4+1) ensures full VERDICTS coverage)
+_UCT_C: float = MCTS_UCT_C  # Imported from formulas.py (exploration constant ≈ 1/√2)
 
 
 # ── NestedMCTS ────────────────────────────────────────────────────────────────
+
 
 class NestedMCTS:
     """
@@ -96,10 +98,10 @@ class NestedMCTS:
             entry = actions_dict.get(action)
             if entry is None:
                 # Unseen action: high exploration bonus (UCT promotes exploration)
-                q = 0.5      # neutral prior
+                q = 0.5  # neutral prior
                 visits = 0
             else:
-                q = entry.q_value      # already in [0, 1] (normalized reward)
+                q = entry.q_value  # already in [0, 1] (normalized reward)
                 visits = entry.visits
 
             # Depth-2 rollout: simulate the next state by looking up the greedy
@@ -133,7 +135,7 @@ class NestedMCTS:
                 lod = int(parts[1])
                 successor_key = f"{parts[0]}:{lod + 1}"
             except ValueError:
-                successor_key = state_key   # non-numeric suffix — stay in place
+                successor_key = state_key  # non-numeric suffix — stay in place
         else:
             successor_key = state_key
 
@@ -248,7 +250,7 @@ class DecideAgent:
         """
         verdict = judgment.verdict
         confidence = judgment.confidence
-        state_key = judgment.cell.state_key() if hasattr(judgment, 'cell') else ""
+        state_key = judgment.cell.state_key() if hasattr(judgment, "cell") else ""
 
         # Same filters as _on_judgment
         if verdict not in _ALERT_VERDICTS or confidence < _PHI_INV_2:
@@ -256,19 +258,20 @@ class DecideAgent:
 
         # Run NestedMCTS
         from cynic.kernel.organism.brain.learning.qlearning import VERDICTS
+
         recommended_action = self._mcts.best_action(state_key, list(VERDICTS))
         q_entry = self._qtable._table.get(state_key, {}).get(recommended_action)
         q_value = q_entry.q_value if q_entry is not None else 0.0
 
         # Build action prompt
-        reality = judgment.cell.reality if hasattr(judgment, 'cell') else ""
-        analysis = judgment.cell.analysis if hasattr(judgment, 'cell') else ""
-        content_preview = str(getattr(judgment.cell, 'content', ""))[:200] if hasattr(judgment, 'cell') else ""
-        context = judgment.cell.context if hasattr(judgment, 'cell') else ""
-
-        action_prompt = _build_action_prompt(
-            reality, analysis, verdict, content_preview, context
+        reality = judgment.cell.reality if hasattr(judgment, "cell") else ""
+        analysis = judgment.cell.analysis if hasattr(judgment, "cell") else ""
+        content_preview = (
+            str(getattr(judgment.cell, "content", ""))[:200] if hasattr(judgment, "cell") else ""
         )
+        context = judgment.cell.context if hasattr(judgment, "cell") else ""
+
+        action_prompt = _build_action_prompt(reality, analysis, verdict, content_preview, context)
 
         return {
             "verdict": verdict,
@@ -300,44 +303,50 @@ class DecideAgent:
             self._skipped += 1
             logger.debug(
                 "DecideAgent skip: verdict=%s confidence=%.3f",
-                verdict, confidence,
+                verdict,
+                confidence,
             )
             return
 
         # Ring 2: NestedMCTS over Q-Table (replaces greedy exploit)
         from cynic.kernel.organism.brain.learning.qlearning import VERDICTS
+
         recommended_action = self._mcts.best_action(state_key, list(VERDICTS))
         q_entry = self._qtable._table.get(state_key, {}).get(recommended_action)
         q_value = q_entry.q_value if q_entry is not None else 0.0
 
         # Build action prompt (non-empty only for ACT_REALITIES — others get generic)
-        action_prompt = _build_action_prompt(
-            reality, analysis, verdict, content_preview, context
-        )
+        action_prompt = _build_action_prompt(reality, analysis, verdict, content_preview, context)
 
         bus = get_core_bus()
-        await bus.emit(Event.typed(
-            CoreEvent.DECISION_MADE,
-            DecisionMadePayload(
-                verdict=verdict,
-                reality=reality,
-                state_key=state_key,
-                q_value=q_value,
-                confidence=confidence,
-                recommended_action=recommended_action,
-                action_prompt=action_prompt,
-                trigger="auto_decide",
-                mcts=True,
-                judgment_id=judgment_id,
-                content_preview=content_preview,
-            ),
-            source="decide_agent",
-        ))
+        await bus.emit(
+            Event.typed(
+                CoreEvent.DECISION_MADE,
+                DecisionMadePayload(
+                    verdict=verdict,
+                    reality=reality,
+                    state_key=state_key,
+                    q_value=q_value,
+                    confidence=confidence,
+                    recommended_action=recommended_action,
+                    action_prompt=action_prompt,
+                    trigger="auto_decide",
+                    mcts=True,
+                    judgment_id=judgment_id,
+                    content_preview=content_preview,
+                ),
+                source="decide_agent",
+            )
+        )
 
         self._decisions_made += 1
         logger.info(
             "DecideAgent decision: verdict=%s reality=%s state=%s action=%s q=%.3f",
-            verdict, reality, state_key, recommended_action, q_value,
+            verdict,
+            reality,
+            state_key,
+            recommended_action,
+            q_value,
         )
 
     # ---- Stats ------------------------------------------------------------

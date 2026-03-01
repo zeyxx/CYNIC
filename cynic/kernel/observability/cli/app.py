@@ -33,16 +33,18 @@ class CliApp:
         """Ensure local organism is awakened and started."""
         if self._organism is None:
             from cynic.kernel.organism.organism import awaken
+
             self._organism = awaken()
             await self._organism.start()
-            
+
             # Connect to symbiotic state manager
             from cynic.kernel.observability.symbiotic_state_manager import (
                 get_symbiotic_state_manager,
             )
+
             mgr = await get_symbiotic_state_manager()
             mgr.set_organism(self._organism)
-            
+
         return self._organism
 
     def get_menu_items(self) -> list[tuple[str, str]]:
@@ -54,17 +56,17 @@ class CliApp:
             Labels are descriptive text for the menu option.
         """
         return [
-            ('1', '👁️  OBSERVE     - Watch all three streams'),
-            ('2', '💭 CYNIC MIND   - Deep dive into CYNIC'),
-            ('3', '🧠 YOUR STATE   - Your energy, focus'),
-            ('4', '⚙️  MACHINE      - Resources'),
-            ('B', '🦴 BODY         - Live Embodied TUI (NEW)'),
-            ('5', '🤝 FEDERATION   - P2P gossip status'),
-            ('6', '💬 TALK         - Chat'),
-            ('7', '📊 HISTORY      - Decisions'),
-            ('8', '🎛️  FEEDBACK     - Feedback'),
-            ('9', '🚀 ACTUATE      - Actions'),
-            ('0', 'EXIT'),
+            ("1", "👁️  OBSERVE     - Watch all three streams"),
+            ("2", "💭 CYNIC MIND   - Deep dive into CYNIC"),
+            ("3", "🧠 YOUR STATE   - Your energy, focus"),
+            ("4", "⚙️  MACHINE      - Resources"),
+            ("B", "🦴 BODY         - Live Embodied TUI (NEW)"),
+            ("5", "🤝 FEDERATION   - P2P gossip status"),
+            ("6", "💬 TALK         - Chat"),
+            ("7", "📊 HISTORY      - Decisions"),
+            ("8", "🎛️  FEEDBACK     - Feedback"),
+            ("9", "🚀 ACTUATE      - Actions"),
+            ("0", "EXIT"),
         ]
 
     async def show_menu(self) -> None:
@@ -77,7 +79,6 @@ class CliApp:
         for _key, _label in menu_items:
             pass
 
-
         choice = input("\nEnter choice: ").strip()
         await self.handle_menu_choice(choice)
 
@@ -89,49 +90,49 @@ class CliApp:
         """
         choice = choice.strip()
 
-        if choice == '0':
+        if choice == "0":
             # Exit
             self._running = False
 
-        elif choice == '1':
+        elif choice == "1":
             # OBSERVE
             await self.show_observe()
 
-        elif choice == '2':
+        elif choice == "2":
             # CYNIC MIND
             state = await get_current_state()
             render_cynic_view(state)
 
-        elif choice == '3':
+        elif choice == "3":
             # YOUR STATE
             pass
 
-        elif choice == '4':
+        elif choice == "4":
             # MACHINE
             state = await get_current_state()
             render_machine_view(state)
 
-        elif choice.upper() == 'B':
+        elif choice.upper() == "B":
             # LIVE BODY TUI
             await self.show_body_tui()
 
-        elif choice == '5':
+        elif choice == "5":
             # FEDERATION
             await self.show_federation_status()
 
-        elif choice == '6':
+        elif choice == "6":
             # TALK
             await self.handle_talk_option()
 
-        elif choice == '7':
+        elif choice == "7":
             # HISTORY
             pass
 
-        elif choice == '8':
+        elif choice == "8":
             # FEEDBACK
             pass
 
-        elif choice == '9':
+        elif choice == "9":
             # ACTUATE
             pass
 
@@ -150,12 +151,13 @@ class CliApp:
 
     async def show_body_tui(self) -> None:
         """Launch the live Embodied TUI."""
-        
+
         organism = await self._ensure_organism()
-        
+
         from cynic.interfaces.cli.organism_tui import OrganismTUI
+
         tui = OrganismTUI(organism)
-        
+
         try:
             await tui.run()
         except KeyboardInterrupt:
@@ -169,9 +171,9 @@ class CliApp:
         """
 
         state = await get_current_state()
-        organism = state.organism if hasattr(state, 'organism') else state
+        organism = state.organism if hasattr(state, "organism") else state
 
-        if not hasattr(organism, 'gossip_manager') or organism.gossip_manager is None:
+        if not hasattr(organism, "gossip_manager") or organism.gossip_manager is None:
             return
 
         organism.gossip_manager.get_stats()

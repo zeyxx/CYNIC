@@ -8,6 +8,7 @@ No raw text output — only JSON. This enables:
   - Structured querying by log fields
   - Correlation tracking across requests
 """
+
 import json
 import logging
 from datetime import UTC, datetime
@@ -19,10 +20,29 @@ class JSONFormatter(logging.Formatter):
 
     # Standard logging record attributes to exclude from JSON (not user data)
     _STANDARD_FIELDS = {
-        'name', 'msg', 'args', 'created', 'filename', 'funcName',
-        'levelname', 'levelno', 'lineno', 'module', 'msecs', 'message',
-        'pathname', 'process', 'processName', 'relativeCreated', 'thread',
-        'threadName', 'exc_info', 'exc_text', 'stack_info', 'extra', 'asctime'
+        "name",
+        "msg",
+        "args",
+        "created",
+        "filename",
+        "funcName",
+        "levelname",
+        "levelno",
+        "lineno",
+        "module",
+        "msecs",
+        "message",
+        "pathname",
+        "process",
+        "processName",
+        "relativeCreated",
+        "thread",
+        "threadName",
+        "exc_info",
+        "exc_text",
+        "stack_info",
+        "extra",
+        "asctime",
     }
 
     def format(self, record: logging.LogRecord) -> str:
@@ -41,7 +61,7 @@ class JSONFormatter(logging.Formatter):
 
         # Also include any custom attributes added via logging.extra parameter
         for key, value in record.__dict__.items():
-            if key not in self._STANDARD_FIELDS and not key.startswith('_'):
+            if key not in self._STANDARD_FIELDS and not key.startswith("_"):
                 log_obj[key] = value
 
         return json.dumps(log_obj)

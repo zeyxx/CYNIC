@@ -3,6 +3,7 @@ CYNIC PerceiveWorkers package — backward-compatible re-exports.
 
 All imports from `cynic.perceive.workers` continue to work unchanged.
 """
+
 from cynic.kernel.organism.perception.senses.workers.base import PerceiveWorker
 from cynic.kernel.organism.perception.senses.workers.disk import DiskWatcher
 from cynic.kernel.organism.perception.senses.workers.git import GitWatcher

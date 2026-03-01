@@ -72,10 +72,14 @@ def render_observe_view(state: SymbioticState) -> str:
     # CYNIC section
     lines.append("\n🧠 CYNIC")
     lines.append("-" * 70)
-    lines.append(f"  Confidence:  {_render_progress_bar(state.cynic_confidence, 1.0, 15)} "
-                 f"{_format_percentage(state.cynic_confidence * 100)}")
-    lines.append(f"  E-Score:     {_render_progress_bar(state.cynic_e_score, 1.0, 15)} "
-                 f"{state.cynic_e_score:.3f}")
+    lines.append(
+        f"  Confidence:  {_render_progress_bar(state.cynic_confidence, 1.0, 15)} "
+        f"{_format_percentage(state.cynic_confidence * 100)}"
+    )
+    lines.append(
+        f"  E-Score:     {_render_progress_bar(state.cynic_e_score, 1.0, 15)} "
+        f"{state.cynic_e_score:.3f}"
+    )
     lines.append(f"  Thinking:    {state.cynic_thinking}")
     lines.append("  Planning:")
     for item in state.cynic_planning:
@@ -84,10 +88,14 @@ def render_observe_view(state: SymbioticState) -> str:
     # YOUR STATE section
     lines.append("\n🤝 YOUR STATE")
     lines.append("-" * 70)
-    lines.append(f"  Energy:      {_render_progress_bar(state.human_energy, 10.0, 15)} "
-                 f"{state.human_energy:.1f}/10.0")
-    lines.append(f"  Focus:       {_render_progress_bar(state.human_focus, 10.0, 15)} "
-                 f"{state.human_focus:.1f}/10.0")
+    lines.append(
+        f"  Energy:      {_render_progress_bar(state.human_energy, 10.0, 15)} "
+        f"{state.human_energy:.1f}/10.0"
+    )
+    lines.append(
+        f"  Focus:       {_render_progress_bar(state.human_focus, 10.0, 15)} "
+        f"{state.human_focus:.1f}/10.0"
+    )
     if state.human_intentions:
         lines.append("  Intentions:")
         for intent in state.human_intentions:
@@ -102,22 +110,27 @@ def render_observe_view(state: SymbioticState) -> str:
     # MACHINE CAPACITY section
     lines.append("\n⚙️  MACHINE CAPACITY")
     lines.append("-" * 70)
-    cpu = state.machine_resources.get('cpu_percent', 0.0)
-    memory = state.machine_resources.get('memory_percent', 0.0)
-    disk = state.machine_resources.get('disk_percent', 0.0)
+    cpu = state.machine_resources.get("cpu_percent", 0.0)
+    memory = state.machine_resources.get("memory_percent", 0.0)
+    disk = state.machine_resources.get("disk_percent", 0.0)
 
-    lines.append(f"  CPU:         {_render_progress_bar(cpu, 100.0, 15)} "
-                 f"{_format_percentage(cpu)}")
-    lines.append(f"  Memory:      {_render_progress_bar(memory, 100.0, 15)} "
-                 f"{_format_percentage(memory)}")
-    lines.append(f"  Disk:        {_render_progress_bar(disk, 100.0, 15)} "
-                 f"{_format_percentage(disk)}")
+    lines.append(
+        f"  CPU:         {_render_progress_bar(cpu, 100.0, 15)} " f"{_format_percentage(cpu)}"
+    )
+    lines.append(
+        f"  Memory:      {_render_progress_bar(memory, 100.0, 15)} " f"{_format_percentage(memory)}"
+    )
+    lines.append(
+        f"  Disk:        {_render_progress_bar(disk, 100.0, 15)} " f"{_format_percentage(disk)}"
+    )
 
     # SYMBIOTIC ALIGNMENT section
     lines.append("\n🔗 SYMBIOTIC ALIGNMENT")
     lines.append("-" * 70)
-    lines.append(f"  Alignment:   {_render_progress_bar(state.alignment_score, 1.0, 15)} "
-                 f"{_format_percentage(state.alignment_score * 100)}")
+    lines.append(
+        f"  Alignment:   {_render_progress_bar(state.alignment_score, 1.0, 15)} "
+        f"{_format_percentage(state.alignment_score * 100)}"
+    )
 
     if state.conflicts:
         lines.append("  Conflicts:")
@@ -171,8 +184,10 @@ def render_cynic_view(state: SymbioticState) -> str:
 
     # Confidence
     lines.append("\n  Confidence Level:")
-    lines.append(f"    {_render_progress_bar(state.cynic_confidence, 1.0, 30)} "
-                 f"{_format_percentage(state.cynic_confidence * 100)}")
+    lines.append(
+        f"    {_render_progress_bar(state.cynic_confidence, 1.0, 30)} "
+        f"{_format_percentage(state.cynic_confidence * 100)}"
+    )
 
     # Planning
     lines.append("\n📋 PLANNING ITEMS")
@@ -217,11 +232,11 @@ def render_machine_view(state: SymbioticState) -> str:
     lines.append("\n📊 RESOURCE UTILIZATION")
     lines.append("-" * 70)
 
-    cpu = state.machine_resources.get('cpu_percent', 0.0)
-    memory = state.machine_resources.get('memory_percent', 0.0)
-    disk = state.machine_resources.get('disk_percent', 0.0)
-    temp = state.machine_resources.get('temperature', 0.0)
-    network = state.machine_resources.get('network_bandwidth', 0.0)
+    cpu = state.machine_resources.get("cpu_percent", 0.0)
+    memory = state.machine_resources.get("memory_percent", 0.0)
+    disk = state.machine_resources.get("disk_percent", 0.0)
+    temp = state.machine_resources.get("temperature", 0.0)
+    network = state.machine_resources.get("network_bandwidth", 0.0)
 
     lines.append("  CPU:")
     lines.append(f"    {_render_progress_bar(cpu, 100.0, 30)} {_format_percentage(cpu)}")
@@ -244,24 +259,24 @@ def render_machine_view(state: SymbioticState) -> str:
     lines.append("\n✅ HEALTH INDICATORS")
     lines.append("-" * 70)
 
-    is_healthy = state.machine_health.get('is_healthy', False)
+    is_healthy = state.machine_health.get("is_healthy", False)
     health_icon = "✓" if is_healthy else "✗"
     lines.append(f"  Overall Health:    {health_icon}")
 
-    cpu_ok = state.machine_health.get('cpu_ok', False)
+    cpu_ok = state.machine_health.get("cpu_ok", False)
     cpu_icon = "✓" if cpu_ok else "✗"
     lines.append(f"  CPU OK:            {cpu_icon}")
 
-    memory_ok = state.machine_health.get('memory_ok', False)
+    memory_ok = state.machine_health.get("memory_ok", False)
     memory_icon = "✓" if memory_ok else "✗"
     lines.append(f"  Memory OK:         {memory_icon}")
 
-    disk_ok = state.machine_health.get('disk_ok', False)
+    disk_ok = state.machine_health.get("disk_ok", False)
     disk_icon = "✓" if disk_ok else "✗"
     lines.append(f"  Disk OK:           {disk_icon}")
 
     # Constraints and warnings
-    constraints = state.machine_constraints.get('warnings', [])
+    constraints = state.machine_constraints.get("warnings", [])
     if constraints:
         lines.append("\n⚠️  CONSTRAINTS & WARNINGS")
         lines.append("-" * 70)

@@ -17,6 +17,7 @@ Prune order (lowest Q-Score value first — BURN axiom):
   _KEEP_SNAPSHOTS = F(10) = 55
   _PRUNE_BATCH    = 1000  (max rows per table per run — protect DB)
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,8 +29,8 @@ from cynic.kernel.core.phi import fibonacci
 logger = logging.getLogger("cynic.storage.gc")
 
 # Retention window sizes (Fibonacci)
-_KEEP_SCHOLAR   = fibonacci(11)  # 89
-_KEEP_RESIDUAL  = fibonacci(11)  # 89
+_KEEP_SCHOLAR = fibonacci(11)  # 89
+_KEEP_RESIDUAL = fibonacci(11)  # 89
 _KEEP_SNAPSHOTS = fibonacci(10)  # 55
 
 # Max rows deleted per table per GC run (prevents long-running transactions)
@@ -37,7 +38,7 @@ _PRUNE_BATCH = 1_000
 
 # Time-based retention (days) — φ-derived
 # BARK: F(6)=8 days (old judgments with lowest Q-Scores pruned first)
-_BARK_RETENTION_DAYS = fibonacci(6)   # 8 days
+_BARK_RETENTION_DAYS = fibonacci(6)  # 8 days
 # BENCH: F(9)=34 days (LLM benchmark entries kept longer for trending)
 _BENCH_RETENTION_DAYS = fibonacci(9)  # 34 days
 
@@ -76,7 +77,6 @@ class StorageGarbageCollector:
         results: dict[str, int] = {}
 
         async with pool.acquire() as conn:
-
             # ── 1. judgments — BARK verdicts older than N days ─────────────
             # Lowest Q-Score first (burn the worst first)
             r = await conn.execute(f"""
@@ -161,7 +161,9 @@ class StorageGarbageCollector:
 
         logger.info(
             "StorageGC run #%d: deleted %d rows total in %.1fms — %s",
-            self._runs, total, duration_ms,
+            self._runs,
+            total,
+            duration_ms,
             {k: v for k, v in results.items() if k not in ("total", "duration_ms") and v > 0},
         )
         return results

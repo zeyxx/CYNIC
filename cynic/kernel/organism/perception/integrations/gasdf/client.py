@@ -1,4 +1,5 @@
 """GASdf REST API client using httpx."""
+
 from __future__ import annotations
 
 from typing import Any, cast
@@ -31,14 +32,10 @@ class GASdfClient:
         Raises:
             GASdfError: If the request fails or returns non-200 status
         """
-        async with httpx.AsyncClient(
-            timeout=self.timeout, follow_redirects=True
-        ) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
             response = await client.get(f"{self.base_url}/health")
             if response.status_code != 200:
-                raise GASdfError(
-                    f"Health check failed: {response.status_code} {response.text}"
-                )
+                raise GASdfError(f"Health check failed: {response.status_code} {response.text}")
             return cast(dict[str, Any], response.json())
 
     async def get_tokens(self) -> list[dict[str, Any]]:
@@ -50,22 +47,16 @@ class GASdfClient:
         Raises:
             GASdfError: If the request fails or returns non-200 status
         """
-        async with httpx.AsyncClient(
-            timeout=self.timeout, follow_redirects=True
-        ) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
             response = await client.get(f"{self.base_url}/v1/tokens")
             if response.status_code != 200:
-                raise GASdfError(
-                    f"Get tokens failed: {response.status_code} {response.text}"
-                )
+                raise GASdfError(f"Get tokens failed: {response.status_code} {response.text}")
             data = response.json()
             # Extract tokens array from response
             tokens = data.get("tokens", []) if isinstance(data, dict) else data
             return cast(list[dict[str, Any]], tokens)
 
-    async def get_quote(
-        self, payment_token: str, user_pubkey: str, amount: int
-    ) -> GASdfQuote:
+    async def get_quote(self, payment_token: str, user_pubkey: str, amount: int) -> GASdfQuote:
         """Get a fee quote for a transaction.
 
         Args:
@@ -79,21 +70,15 @@ class GASdfClient:
         Raises:
             GASdfError: If the request fails or returns non-200 status
         """
-        async with httpx.AsyncClient(
-            timeout=self.timeout, follow_redirects=True
-        ) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
             payload = {
                 "paymentToken": payment_token,
                 "userPubkey": user_pubkey,
                 "amount": amount,
             }
-            response = await client.post(
-                f"{self.base_url}/v1/quote", json=payload
-            )
+            response = await client.post(f"{self.base_url}/v1/quote", json=payload)
             if response.status_code != 200:
-                raise GASdfError(
-                    f"Quote request failed: {response.status_code} {response.text}"
-                )
+                raise GASdfError(f"Quote request failed: {response.status_code} {response.text}")
             data = response.json()
             return GASdfQuote(
                 quote_id=data["quote_id"],
@@ -122,21 +107,15 @@ class GASdfClient:
         Raises:
             GASdfError: If the request fails or returns non-200 status
         """
-        async with httpx.AsyncClient(
-            timeout=self.timeout, follow_redirects=True
-        ) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
             payload = {
                 "quote_id": quote_id,
                 "signed_transaction": signed_transaction,
                 "payment_token_account": payment_token_account,
             }
-            response = await client.post(
-                f"{self.base_url}/v1/submit", json=payload
-            )
+            response = await client.post(f"{self.base_url}/v1/submit", json=payload)
             if response.status_code != 200:
-                raise GASdfError(
-                    f"Submit failed: {response.status_code} {response.text}"
-                )
+                raise GASdfError(f"Submit failed: {response.status_code} {response.text}")
             return cast(dict[str, Any], response.json())
 
     async def get_stats(self) -> GASdfStats:
@@ -148,14 +127,10 @@ class GASdfClient:
         Raises:
             GASdfError: If the request fails or returns non-200 status
         """
-        async with httpx.AsyncClient(
-            timeout=self.timeout, follow_redirects=True
-        ) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
             response = await client.get(f"{self.base_url}/v1/stats")
             if response.status_code != 200:
-                raise GASdfError(
-                    f"Stats request failed: {response.status_code} {response.text}"
-                )
+                raise GASdfError(f"Stats request failed: {response.status_code} {response.text}")
             data = response.json()
             return GASdfStats(
                 total_burned=data["totalBurned"],

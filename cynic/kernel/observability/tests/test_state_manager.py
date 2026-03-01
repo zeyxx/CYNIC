@@ -1,4 +1,5 @@
 """Tests for SymbioticStateManager."""
+
 import time
 
 import pytest
@@ -152,11 +153,11 @@ async def test_machine_state_fields_populated():
     state = await manager.get_current_state()
 
     # All machine fields should be present
-    assert 'cpu_percent' in state.machine_resources
-    assert 'memory_percent' in state.machine_resources
-    assert 'disk_percent' in state.machine_resources
+    assert "cpu_percent" in state.machine_resources
+    assert "memory_percent" in state.machine_resources
+    assert "disk_percent" in state.machine_resources
     assert isinstance(state.machine_health, dict)
-    assert 'is_healthy' in state.machine_health
+    assert "is_healthy" in state.machine_health
 
 
 @pytest.mark.asyncio

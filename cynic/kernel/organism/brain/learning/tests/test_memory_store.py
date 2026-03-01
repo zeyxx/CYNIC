@@ -30,7 +30,7 @@ async def test_save_and_load_memory(memory_store):
         user_preferences={"financial": "GROWL"},
         user_style="analytical",
         communication_style={"verbosity": "concise"},
-        learning_rate=0.01
+        learning_rate=0.01,
     )
 
     await memory_store.save_memory(memory)

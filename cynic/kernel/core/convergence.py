@@ -12,6 +12,7 @@ Simple data structure:
 - match: did reality match announcement?
 - latency: time between announcement and verification
 """
+
 from __future__ import annotations
 
 import logging
@@ -69,9 +70,7 @@ class Convergence:
     def __post_init__(self) -> None:
         """Calculate convergence metrics."""
         self.latency_ms = (self.outcome.timestamp - self.announcement.timestamp) * 1000
-        self.match = (
-            self.announcement.announced_verdict == self.outcome.actual_verdict
-        )
+        self.match = self.announcement.announced_verdict == self.outcome.actual_verdict
 
     def __repr__(self) -> str:
         status = "✓ MATCH" if self.match else "✗ DIVERGE"

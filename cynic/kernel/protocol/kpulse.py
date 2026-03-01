@@ -12,15 +12,17 @@ from typing import Any
 
 
 class PulseType(Enum):
-    SOMATIC_SYNC = "SOMATIC_SYNC"   # Heartbeat + Metrics
-    NEURAL_PULSE = "NEURAL_PULSE"   # Thinking + Axioms
-    INTENT_SIGNAL = "INTENT_SIGNAL" # Action proposal
-    SENSORY_INPUT = "SENSORY_INPUT" # Input from CLI/Human
-    SYSTEM_ALERT = "SYSTEM_ALERT"   # Critical errors
+    SOMATIC_SYNC = "SOMATIC_SYNC"  # Heartbeat + Metrics
+    NEURAL_PULSE = "NEURAL_PULSE"  # Thinking + Axioms
+    INTENT_SIGNAL = "INTENT_SIGNAL"  # Action proposal
+    SENSORY_INPUT = "SENSORY_INPUT"  # Input from CLI/Human
+    SYSTEM_ALERT = "SYSTEM_ALERT"  # Critical errors
+
 
 @dataclass
 class PulseMessage:
     """A single packet of data in the κ-NET ecosystem."""
+
     type: PulseType
     organism_id: str = "cynic-core"
     version: str = "1.0"
@@ -39,5 +41,5 @@ class PulseMessage:
             organism_id=data.get("organism_id", "cynic-core"),
             version=data.get("version", "1.0"),
             timestamp=data.get("timestamp", time.time()),
-            data=data.get("data", {})
+            data=data.get("data", {}),
         )

@@ -8,6 +8,7 @@ Provides comprehensive system health monitoring including:
 - Event bus health
 - Overall system status with graceful degradation
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -73,9 +74,7 @@ class HealthChecker:
             db_ok, llm_ok, consciousness_ok, event_bus_ok = results
 
             # Determine overall health based on critical systems
-            overall = self._compute_overall_status(
-                db_ok, llm_ok, consciousness_ok, event_bus_ok
-            )
+            overall = self._compute_overall_status(db_ok, llm_ok, consciousness_ok, event_bus_ok)
 
             # Build response
             uptime_s = self.organism.uptime_s if self.organism else 0.0

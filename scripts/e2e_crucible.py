@@ -22,7 +22,7 @@ async def run_proof():
     
     # 1. AWAKEN
     print("Step 1: Awakening organism...")
-    o = awaken()
+    o = await awaken()
     await o.start()
     
     try:
@@ -50,7 +50,7 @@ async def run_proof():
 
         # 4. ACT (Simulate/Verify action proposal)
         print("Step 4: Verifying Action Proposal...")
-        next_action = o.memory.action_proposer.get_next_action()
+        next_action = await o.memory.action_proposer.get_next_action()
         if next_action:
             print(f"   - SUCCESS: Action Proposed: {next_action.action_prompt[:100]}...")
             

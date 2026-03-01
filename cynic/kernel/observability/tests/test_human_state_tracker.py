@@ -1,4 +1,5 @@
 """Tests for HumanStateTracker."""
+
 import pytest
 
 from cynic.kernel.observability.human_state_tracker import HumanStateTracker
@@ -17,9 +18,9 @@ async def test_get_human_state():
     tracker = HumanStateTracker()
     state = await tracker.get_state()
 
-    assert hasattr(state, 'energy')
-    assert hasattr(state, 'focus')
-    assert hasattr(state, 'intentions')
+    assert hasattr(state, "energy")
+    assert hasattr(state, "focus")
+    assert hasattr(state, "intentions")
     assert 0 <= state.energy <= 10
     assert 0 <= state.focus <= 10
 
@@ -30,9 +31,7 @@ async def test_report_feedback():
     tracker = HumanStateTracker()
 
     await tracker.report_feedback(
-        feedback_type="correction",
-        message="CYNIC was too conservative",
-        confidence=0.8
+        feedback_type="correction", message="CYNIC was too conservative", confidence=0.8
     )
 
     state = await tracker.get_state()

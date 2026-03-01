@@ -1,4 +1,5 @@
 """CYNIC HealthWatcher — CYNIC×PERCEIVE/REFLEX every F(8)=21s."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -22,7 +23,7 @@ class HealthWatcher(PerceiveWorker):
     """
 
     level = ConsciousnessLevel.REFLEX
-    interval_s = float(fibonacci(8))   # 21.0s
+    interval_s = float(fibonacci(8))  # 21.0s
     name = "health_watcher"
 
     def __init__(self, get_consciousness_fn: Optional[Callable] = None) -> None:

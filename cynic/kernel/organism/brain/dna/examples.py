@@ -1,4 +1,5 @@
 """CYNIC DNA Examples — Real usage patterns."""
+
 from __future__ import annotations
 
 import asyncio
@@ -15,6 +16,7 @@ from .primitives import ACT, DECIDE, JUDGE, LEARN, PERCEIVE
 # ============================================================================
 # EXAMPLE 1: Simple Linear Chain
 # ============================================================================
+
 
 async def example_linear_chain():
     """
@@ -54,6 +56,7 @@ async def example_linear_chain():
 # EXAMPLE 2: Using Built-in Workflows
 # ============================================================================
 
+
 async def example_builtin_workflows():
     """
     Use pre-built workflows for common tasks.
@@ -91,6 +94,7 @@ async def example_builtin_workflows():
 # EXAMPLE 3: Custom Workflow (DIY)
 # ============================================================================
 
+
 async def example_custom_workflow():
     """
     Build your own workflow by chaining primitives.
@@ -109,7 +113,6 @@ async def example_custom_workflow():
         .learn(signal="success")  # Learn from result
     )
 
-
     # Execute it
     code = """
     // Hypothetical contract structure
@@ -124,6 +127,7 @@ async def example_custom_workflow():
 # ============================================================================
 # EXAMPLE 4: API Integration Pattern
 # ============================================================================
+
 
 async def example_api_integration():
     """
@@ -168,6 +172,7 @@ async def example_api_integration():
 # EXAMPLE 5: Decorator Pattern (Pythonic)
 # ============================================================================
 
+
 @cynic_workflow("MY_CUSTOM_AUDIT")
 async def my_custom_audit(
     content: str,
@@ -210,6 +215,7 @@ async def example_decorator_usage():
 # RUN ALL EXAMPLES
 # ============================================================================
 
+
 async def main():
     """Run all examples."""
 
@@ -218,7 +224,6 @@ async def main():
     await example_custom_workflow()
     await example_api_integration()
     await example_decorator_usage()
-
 
 
 if __name__ == "__main__":

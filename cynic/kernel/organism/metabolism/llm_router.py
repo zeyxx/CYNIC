@@ -18,6 +18,7 @@ Routing criteria (φ-derived):
 Safety: NEVER route complex/review/unknown tasks automatically.
 Always returns a RoutingDecision — callers decide whether to act on it.
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,8 +36,8 @@ _SIMPLE_TASK_TYPES = frozenset({"debug", "refactor", "test", "explain", "write"}
 _CHEAP_COMPLEXITIES = frozenset({"trivial", "simple"})
 
 # Model tiers
-MODEL_SONNET = "claude-sonnet-4-5-20251001"   # Default: full capability
-MODEL_HAIKU  = "claude-haiku-4-5-20251001"    # Cheap: fast, sufficient for simple tasks
+MODEL_SONNET = "claude-sonnet-4-5-20251001"  # Default: full capability
+MODEL_HAIKU = "claude-haiku-4-5-20251001"  # Cheap: fast, sufficient for simple tasks
 
 # Minimum visits before we trust the Q-Table for routing
 _MIN_VISITS_TO_ROUTE: int = 3
@@ -55,6 +56,7 @@ class RoutingDecision:
         task_type:          Detected task type that influenced decision.
         complexity:         Detected complexity that influenced decision.
     """
+
     recommended_model: str
     route_to_local: bool
     confidence: float
@@ -157,7 +159,10 @@ class LLMRouter:
         self._routes_to_local += 1
         logger.info(
             "LLM_ROUTE: %s/%s → Haiku (conf=%.3f, visits=%d)",
-            task_type, complexity, confidence, visits,
+            task_type,
+            complexity,
+            confidence,
+            visits,
         )
         return RoutingDecision(
             recommended_model=MODEL_HAIKU,

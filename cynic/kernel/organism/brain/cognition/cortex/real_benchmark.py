@@ -28,6 +28,7 @@ Reuses from qtable_benchmark:
   QEntry, TD0Learner, ConvergenceResult, _PHI_ALPHA, _STD_ALPHA, _ALPHA_GRID,
   _CONVERGENCE_EPS, _EWC_CONSOLIDATE_AT
 """
+
 from __future__ import annotations
 
 import random
@@ -50,12 +51,12 @@ from cynic.kernel.organism.brain.cognition.cortex.qtable_benchmark import (
 _EMPIRICAL_Q_SCORES: list[float] = [64.18, 66.39, 0.00, 67.51, 67.39]
 
 # Empirical sigma (mean per-probe std dev) — near-deterministic in heuristic mode
-_EMPIRICAL_SIGMA_Q: float = 1.206   # raw Q-score units
-_Q_SCALE: float = 100.0             # normalize to [0,1]
+_EMPIRICAL_SIGMA_Q: float = 1.206  # raw Q-score units
+_Q_SCALE: float = 100.0  # normalize to [0,1]
 
 # Normalized true_rewards (used by RealKernelTask)
 _EMPIRICAL_TRUE_REWARDS: list[float] = [q / _Q_SCALE for q in _EMPIRICAL_Q_SCORES]
-_SIGMA_REAL: float = _EMPIRICAL_SIGMA_Q / _Q_SCALE   # ~0.012
+_SIGMA_REAL: float = _EMPIRICAL_SIGMA_Q / _Q_SCALE  # ~0.012
 
 # Probe labels — (state_key, action) pairs matching canonical probes
 _REAL_PAIRS: list[tuple[str, str]] = [
@@ -67,12 +68,13 @@ _REAL_PAIRS: list[tuple[str, str]] = [
 ]
 
 # n_pairs = 5 = fibonacci(5) — φ-architecture: 5 canonical probes
-_N_PAIRS_REAL: int = len(_EMPIRICAL_TRUE_REWARDS)   # 5
+_N_PAIRS_REAL: int = len(_EMPIRICAL_TRUE_REWARDS)  # 5
 
 
 # ---------------------------------------------------------------------------
 # RealKernelTask: empirical reward landscape from CYNIC probe runs
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class RealKernelTask:
@@ -88,6 +90,7 @@ class RealKernelTask:
 
     Interface-compatible with SyntheticTask — plugs into TD0Learner as-is.
     """
+
     n_pairs: int = _N_PAIRS_REAL
     sigma: float = _SIGMA_REAL
     rng: random.Random = field(default_factory=random.Random)
@@ -117,6 +120,7 @@ class RealKernelTask:
 # ---------------------------------------------------------------------------
 # RealBenchmark: grid search on real CYNIC probe data
 # ---------------------------------------------------------------------------
+
 
 class RealBenchmark:
     """
@@ -185,11 +189,7 @@ class RealBenchmark:
           dangerous_probe_shift_standard: same for standard config
           phi_protects_dangerous:        bool — phi resists P3 reversal better
         """
-        configs: list[tuple[float, bool]] = [
-            (a, ewc)
-            for a in _ALPHA_GRID
-            for ewc in (True, False)
-        ]
+        configs: list[tuple[float, bool]] = [(a, ewc) for a in _ALPHA_GRID for ewc in (True, False)]
 
         all_results: dict[tuple[float, bool], list[ConvergenceResult]] = {}
         for cfg in configs:
@@ -214,7 +214,9 @@ class RealBenchmark:
                 "converged_rate": sum(r.converged for r in runs) / len(runs),
                 "mean_convergence_step": round(sum(conv_steps) / len(conv_steps), 1),
                 "mean_final_error": round(sum(r.final_mean_error for r in runs) / len(runs), 4),
-                "mean_forgetting_shift": round(sum(r.forgetting_shift for r in runs) / len(runs), 4),
+                "mean_forgetting_shift": round(
+                    sum(r.forgetting_shift for r in runs) / len(runs), 4
+                ),
                 "mean_q_variance": round(sum(r.q_variance for r in runs) / len(runs), 5),
             }
 
@@ -225,26 +227,22 @@ class RealBenchmark:
         phi_agg = agg(all_results[phi_key])
         std_agg = agg(all_results[std_key])
 
-        phi_wins_forgetting = (
-            phi_agg["mean_forgetting_shift"] <= std_agg["mean_forgetting_shift"]
-        )
-        phi_wins_stability = (
-            phi_agg["mean_q_variance"] <= std_agg["mean_q_variance"]
-        )
-        phi_wins_convergence = (
-            phi_agg["mean_final_error"] <= std_agg["mean_final_error"] * 3.0
-        )
+        phi_wins_forgetting = phi_agg["mean_forgetting_shift"] <= std_agg["mean_forgetting_shift"]
+        phi_wins_stability = phi_agg["mean_q_variance"] <= std_agg["mean_q_variance"]
+        phi_wins_convergence = phi_agg["mean_final_error"] <= std_agg["mean_final_error"] * 3.0
 
         # Dangerous probe: measure P3 shift specifically under shock
         # (P3 at 0.0 is the hardest anchor — any shock toward 1.0 is a full reversal)
         phi_p3_shifts = [
-            self._measure_p3_shift(alpha=_PHI_ALPHA, use_ewc=True,
-                                   max_steps=max_steps, seed=base_seed + i)
+            self._measure_p3_shift(
+                alpha=_PHI_ALPHA, use_ewc=True, max_steps=max_steps, seed=base_seed + i
+            )
             for i in range(n_seeds)
         ]
         std_p3_shifts = [
-            self._measure_p3_shift(alpha=_STD_ALPHA, use_ewc=False,
-                                   max_steps=max_steps, seed=base_seed + i)
+            self._measure_p3_shift(
+                alpha=_STD_ALPHA, use_ewc=False, max_steps=max_steps, seed=base_seed + i
+            )
             for i in range(n_seeds)
         ]
         mean_phi_p3 = sum(phi_p3_shifts) / len(phi_p3_shifts)

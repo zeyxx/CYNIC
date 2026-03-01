@@ -27,6 +27,7 @@ phi-derived thresholds:
   energy/focus <  GROWL_MIN (38.2) → organism stressed → cap at MICRO
   energy/focus <  PHI_INV_3 (23.6) → organism exhausted → cap at REFLEX
 """
+
 from __future__ import annotations
 
 import logging
@@ -51,15 +52,17 @@ _REST_RESTORE = 2.0
 @dataclass
 class HumanState:
     """Point-in-time snapshot of the human operator's estimated state."""
-    energy:  float = 75.0   # [0, 100] cognitive energy
-    focus:   float = 65.0   # [0, 100] focus level
-    stress:  float = 20.0   # [0, 100] stress level
-    valence: float = 65.0   # [0, 100] affect / mood tone
+
+    energy: float = 75.0  # [0, 100] cognitive energy
+    focus: float = 65.0  # [0, 100] focus level
+    stress: float = 20.0  # [0, 100] stress level
+    valence: float = 65.0  # [0, 100] affect / mood tone
 
     updated_at: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict[str, Any]:
         from cynic.kernel.core.phi import GROWL_MIN, PHI_INV_3
+
         lod_hint = "FULL"
         effective = min(self.energy, self.focus)
         if effective < PHI_INV_3 * 100:
@@ -67,11 +70,11 @@ class HumanState:
         elif effective < GROWL_MIN:
             lod_hint = "MICRO"
         return {
-            "energy":     round(self.energy, 1),
-            "focus":      round(self.focus, 1),
-            "stress":     round(self.stress, 1),
-            "valence":    round(self.valence, 1),
-            "lod_hint":   lod_hint,
+            "energy": round(self.energy, 1),
+            "focus": round(self.focus, 1),
+            "stress": round(self.stress, 1),
+            "valence": round(self.valence, 1),
+            "lod_hint": lod_hint,
             "updated_at": round(self.updated_at, 3),
         }
 
@@ -97,12 +100,15 @@ class HumanStateModel:
     def on_session_started(self) -> None:
         """New session = human is fresh-ish (mild boost)."""
         self._apply_decay()
-        self._state.energy  = min(100.0, self._state.energy + 5.0)
-        self._state.focus   = min(100.0, self._state.focus  + 5.0)
+        self._state.energy = min(100.0, self._state.energy + 5.0)
+        self._state.focus = min(100.0, self._state.focus + 5.0)
         self._state.updated_at = time.time()
         self._touch()
-        logger.debug("HumanStateModel: session_started → energy=%.1f focus=%.1f",
-                     self._state.energy, self._state.focus)
+        logger.debug(
+            "HumanStateModel: session_started → energy=%.1f focus=%.1f",
+            self._state.energy,
+            self._state.focus,
+        )
 
     def on_feedback(self, rating: float) -> None:
         """User gave a rating (1-5). Positive = valence up; negative = stress up."""
@@ -118,19 +124,26 @@ class HumanStateModel:
         self._state.updated_at = time.time()
         self._touch()
         self._signal_count += 1
-        logger.debug("HumanStateModel: feedback=%.1f → valence=%.1f stress=%.1f",
-                     rating, self._state.valence, self._state.stress)
+        logger.debug(
+            "HumanStateModel: feedback=%.1f → valence=%.1f stress=%.1f",
+            rating,
+            self._state.valence,
+            self._state.stress,
+        )
 
     def on_correction(self) -> None:
         """Human corrected CYNIC (rating=1). Friction = stress signal."""
         self._apply_decay()
         self._state.stress = min(100.0, self._state.stress + 15.0)
         # Corrections also drain focus slightly
-        self._state.focus  = max(0.0, self._state.focus - 5.0)
+        self._state.focus = max(0.0, self._state.focus - 5.0)
         self._state.updated_at = time.time()
         self._touch()
-        logger.debug("HumanStateModel: correction → stress=%.1f focus=%.1f",
-                     self._state.stress, self._state.focus)
+        logger.debug(
+            "HumanStateModel: correction → stress=%.1f focus=%.1f",
+            self._state.stress,
+            self._state.focus,
+        )
 
     def on_activity(self) -> None:
         """Called on any human-triggered activity (judgment request, etc.)."""
@@ -140,10 +153,9 @@ class HumanStateModel:
             # Human was idle → rested → energy restored
             rest_cycles = gap / 60.0
             restore = min(rest_cycles * _REST_RESTORE, 20.0)
-            self._state.energy  = min(100.0, self._state.energy  + restore)
-            self._state.stress  = max(0.0,   self._state.stress  - restore * 0.5)
-            logger.debug("HumanStateModel: rest gap %.0fs → energy restored +%.1f",
-                         gap, restore)
+            self._state.energy = min(100.0, self._state.energy + restore)
+            self._state.stress = max(0.0, self._state.stress - restore * 0.5)
+            logger.debug("HumanStateModel: rest gap %.0fs → energy restored +%.1f", gap, restore)
         else:
             self._apply_decay()
         self._last_activity_ts = now
@@ -181,14 +193,14 @@ class HumanStateModel:
 
     def _apply_decay(self) -> None:
         """Natural fatigue: energy/focus decay 1pt/min, stress decays slightly."""
-        now     = time.time()
+        now = time.time()
         elapsed = now - self._state.updated_at
         if elapsed < 1.0:
             return
         decay = elapsed * _DECAY_RATE_PER_S
-        self._state.energy  = max(0.0, self._state.energy  - decay)
-        self._state.focus   = max(0.0, self._state.focus   - decay)
-        self._state.stress  = max(0.0, self._state.stress  - decay * 0.5)  # stress decays slower
+        self._state.energy = max(0.0, self._state.energy - decay)
+        self._state.focus = max(0.0, self._state.focus - decay)
+        self._state.stress = max(0.0, self._state.stress - decay * 0.5)  # stress decays slower
         self._state.updated_at = now
 
     def _touch(self) -> None:

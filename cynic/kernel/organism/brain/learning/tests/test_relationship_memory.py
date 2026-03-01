@@ -11,7 +11,7 @@ def test_relationship_memory_creation():
         user_preferences={"financial": "GROWL", "governance": "WAG"},
         user_style="analytical",
         communication_style={"verbosity": "concise", "formality": "casual"},
-        learning_rate=0.01
+        learning_rate=0.01,
     )
 
     assert memory.user_values["PHI"] == 0.9
@@ -27,7 +27,7 @@ def test_relationship_memory_immutability():
         user_preferences={},
         user_style="analytical",
         communication_style={},
-        learning_rate=0.01
+        learning_rate=0.01,
     )
 
     with pytest.raises((AttributeError, TypeError)):
@@ -41,7 +41,7 @@ def test_update_from_feedback():
         user_preferences={},
         user_style="balanced",
         communication_style={"verbosity": "balanced"},
-        learning_rate=0.1
+        learning_rate=0.1,
     )
 
     # Simulate feedback: user prefers more caution on financial
@@ -58,7 +58,7 @@ def test_infer_communication_style():
         user_preferences={},
         user_style="analytical",
         communication_style={},
-        learning_rate=0.01
+        learning_rate=0.01,
     )
 
     # Short messages suggest conciseness

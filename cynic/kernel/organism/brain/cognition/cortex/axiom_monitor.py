@@ -5,41 +5,43 @@ Monitors the activation levels of emergent axioms (A6-A9).
 Signals decay over time unless reinforced by system events.
 When all A6-A9 axioms are ACTIVE, TRANSCENDENCE (A11) is achieved.
 """
+
 from __future__ import annotations
 
 import logging
 import time
-import asyncio
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
-from cynic.kernel.core.phi import MAX_Q_SCORE, WAG_MIN, GROWL_MIN
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
 from cynic.kernel.core.formulas import AXIOM_MATURITY_WINDOW_SIZE, SIGNAL_TTL_SEC
+from cynic.kernel.core.phi import GROWL_MIN, MAX_Q_SCORE, WAG_MIN
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.axiom_monitor")
 
 # Valid emergent axioms (A6-A9) — signal-able by external events
-EMERGENT_AXIOMS = frozenset({
-    "AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY",
-    "CONSCIOUSNESS", "TRANSCENDENCE"
-})
+EMERGENT_AXIOMS = frozenset(
+    {"AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY", "CONSCIOUSNESS", "TRANSCENDENCE"}
+)
 
 _CORE_EMERGENT = frozenset({"AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY"})
 
 # Axiom state thresholds
-_STATE_DORMANT  = "DORMANT"
+_STATE_DORMANT = "DORMANT"
 _STATE_STIRRING = "STIRRING"
-_STATE_ACTIVE   = "ACTIVE"
+_STATE_ACTIVE = "ACTIVE"
+
 
 @dataclass
 class AxiomState:
     name: str
-    signal_times: deque[float] = field(default_factory=lambda: deque(maxlen=AXIOM_MATURITY_WINDOW_SIZE))
+    signal_times: deque[float] = field(
+        default_factory=lambda: deque(maxlen=AXIOM_MATURITY_WINDOW_SIZE)
+    )
     activation_count: int = 0
     last_signal: float = 0.0
-    first_activated: Optional[float] = None
+    first_activated: float | None = None
 
     def add_signal(self) -> None:
         now = time.time()
@@ -58,21 +60,27 @@ class AxiomState:
 
     def state(self) -> str:
         m = self.maturity()
-        if m >= WAG_MIN: return _STATE_ACTIVE
-        if m >= GROWL_MIN: return _STATE_STIRRING
+        if m >= WAG_MIN:
+            return _STATE_ACTIVE
+        if m >= GROWL_MIN:
+            return _STATE_STIRRING
         return _STATE_DORMANT
 
     def is_active(self) -> bool:
         return self.state() == _STATE_ACTIVE
 
+
 class AxiomMonitor:
     """Tracks the evolution of CYNIC's emergent philosophy."""
+
     def __init__(self) -> None:
         self._axioms = {name: AxiomState(name=name) for name in EMERGENT_AXIOMS}
         self._total_signals = 0
         self._transcendence_achieved = False
 
-    async def signal(self, axiom: str, source: str = "internal", count: int = 1, **kwargs: Any) -> Optional[str]:
+    async def signal(
+        self, axiom: str, source: str = "internal", count: int = 1, **kwargs: Any
+    ) -> str | None:
         """Record a signal for an emergent axiom."""
         if axiom not in self._axioms:
             return None
@@ -90,13 +98,15 @@ class AxiomMonitor:
                 logger.info(f"AXIOM ACTIVATED: {axiom} triggered by {source}")
                 if axiom in _CORE_EMERGENT:
                     self._maybe_signal_transcendence()
-            
-            await get_core_bus().emit(Event.typed(
-                CoreEvent.AXIOM_ACTIVATED,
-                {"axiom": axiom, "source": source, "new_state": new_state, **kwargs},
-                source="axiom_monitor"
-            ))
-            
+
+            await get_core_bus().emit(
+                Event.typed(
+                    CoreEvent.AXIOM_ACTIVATED,
+                    {"axiom": axiom, "source": source, "new_state": new_state, **kwargs},
+                    source="axiom_monitor",
+                )
+            )
+
         return new_state
 
     def _maybe_signal_transcendence(self) -> None:

@@ -30,6 +30,7 @@ Usage:
   assert grid["phi_wins_forgetting"]   # EWC protects consolidated entries
   assert grid["phi_wins_stability"]    # phi-alpha has lower post-convergence variance
 """
+
 from __future__ import annotations
 
 import math
@@ -47,16 +48,16 @@ from cynic.kernel.core.phi import (
 # Constants
 # ---------------------------------------------------------------------------
 
-_PHI_ALPHA: float = LEARNING_RATE       # ~0.038
-_PHI_ALPHA_LABEL: str = "phi"           # label used in reports
-_STD_ALPHA: float = 0.1                 # standard RL learning rate
+_PHI_ALPHA: float = LEARNING_RATE  # ~0.038
+_PHI_ALPHA_LABEL: str = "phi"  # label used in reports
+_STD_ALPHA: float = 0.1  # standard RL learning rate
 _STD_ALPHA_LABEL: str = "standard"
 
 # Grid: alpha values to test
 _ALPHA_GRID: list[float] = [0.01, _PHI_ALPHA, _STD_ALPHA, 0.2]
 
 # Number of synthetic state-action pairs = F(7) = 13
-_N_PAIRS: int = fibonacci(7)            # 13
+_N_PAIRS: int = fibonacci(7)  # 13
 
 # Noise on reward samples
 _SIGMA: float = 0.1
@@ -65,7 +66,7 @@ _SIGMA: float = 0.1
 _CONVERGENCE_EPS: float = 0.05
 
 # Forgetting injection: after consolidation, inject N_SHOCK surprising rewards
-_N_SHOCK: int = fibonacci(4)            # 3 shocks
+_N_SHOCK: int = fibonacci(4)  # 3 shocks
 
 # EWC fisher consolidation threshold: visits >= F(8) = 21
 _EWC_CONSOLIDATE_AT: int = fibonacci(8)  # 21 visits
@@ -74,6 +75,7 @@ _EWC_CONSOLIDATE_AT: int = fibonacci(8)  # 21 visits
 # ---------------------------------------------------------------------------
 # SyntheticTask: known reward landscape
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class SyntheticTask:
@@ -86,6 +88,7 @@ class SyntheticTask:
     True rewards follow a Fibonacci-weighted landscape:
       pair i: true_reward = phi-weighted function of i
     """
+
     n_pairs: int = _N_PAIRS
     sigma: float = _SIGMA
     rng: random.Random = field(default_factory=random.Random)
@@ -93,9 +96,7 @@ class SyntheticTask:
     def __post_init__(self) -> None:
         # Deterministic true rewards (set once, phi-distributed)
         # Pairs are (state_key, action) tuples -- labels don't matter for convergence
-        self._true_rewards: list[float] = [
-            self._compute_true(i) for i in range(self.n_pairs)
-        ]
+        self._true_rewards: list[float] = [self._compute_true(i) for i in range(self.n_pairs)]
         self._pair_labels: list[tuple[str, str]] = [
             (f"STATE_{i}", _action_label(i)) for i in range(self.n_pairs)
         ]
@@ -133,9 +134,11 @@ def _action_label(i: int) -> str:
 # TD0Learner: pure TD(0) with optional EWC
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class QEntry:
     """One Q-Table entry."""
+
     q_value: float = 0.5
     visits: int = 0
 
@@ -159,6 +162,7 @@ class TD0Learner:
     Each step: pick one pair (cyclic), observe noisy reward, update Q-entry.
     Tracks convergence: first step where ALL entries are within eps of true_reward.
     """
+
     task: SyntheticTask
     alpha: float
     use_ewc: bool = False
@@ -189,17 +193,14 @@ class TD0Learner:
 
     def max_error(self) -> float:
         """Max |Q(s,a) - true_reward| across all pairs."""
-        return max(
-            abs(e.q_value - self.task.true_reward(i))
-            for i, e in enumerate(self._entries)
-        )
+        return max(abs(e.q_value - self.task.true_reward(i)) for i, e in enumerate(self._entries))
 
     def mean_error(self) -> float:
         """Mean |Q(s,a) - true_reward| across all pairs."""
-        return sum(
-            abs(e.q_value - self.task.true_reward(i))
-            for i, e in enumerate(self._entries)
-        ) / self.task.n_pairs
+        return (
+            sum(abs(e.q_value - self.task.true_reward(i)) for i, e in enumerate(self._entries))
+            / self.task.n_pairs
+        )
 
     def q_variance(self) -> float:
         """Variance of Q-values (lower = more stable policy)."""
@@ -233,21 +234,23 @@ class TD0Learner:
 # ConvergenceResult
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ConvergenceResult:
     """
     Result of one (alpha, use_ewc) convergence experiment.
     """
+
     alpha: float
     use_ewc: bool
     seed: int
     max_steps: int
 
-    convergence_step: int | None    # None if did not converge
-    final_mean_error: float            # mean |Q - true| at end
-    final_max_error: float             # max  |Q - true| at end
-    q_variance: float                  # variance of Q-values (stability)
-    forgetting_shift: float            # max Q-shift under shock (forgetting test)
+    convergence_step: int | None  # None if did not converge
+    final_mean_error: float  # mean |Q - true| at end
+    final_max_error: float  # max  |Q - true| at end
+    q_variance: float  # variance of Q-values (stability)
+    forgetting_shift: float  # max Q-shift under shock (forgetting test)
     duration_ms: float
 
     @property
@@ -278,6 +281,7 @@ class ConvergenceResult:
 # ---------------------------------------------------------------------------
 # QTableBenchmark
 # ---------------------------------------------------------------------------
+
 
 class QTableBenchmark:
     """
@@ -360,11 +364,7 @@ class QTableBenchmark:
           phi_wins_stability:   bool — phi has lower Q-variance vs standard
           phi_wins_convergence: bool — phi converges in fewer or equal steps vs standard
         """
-        configs: list[tuple[float, bool]] = [
-            (a, ewc)
-            for a in _ALPHA_GRID
-            for ewc in (True, False)
-        ]
+        configs: list[tuple[float, bool]] = [(a, ewc) for a in _ALPHA_GRID for ewc in (True, False)]
 
         all_results: dict[tuple[float, bool], list[ConvergenceResult]] = {}
         for cfg in configs:
@@ -389,7 +389,9 @@ class QTableBenchmark:
                 "converged_rate": sum(r.converged for r in runs) / len(runs),
                 "mean_convergence_step": round(sum(conv_steps) / len(conv_steps), 1),
                 "mean_final_error": round(sum(r.final_mean_error for r in runs) / len(runs), 4),
-                "mean_forgetting_shift": round(sum(r.forgetting_shift for r in runs) / len(runs), 4),
+                "mean_forgetting_shift": round(
+                    sum(r.forgetting_shift for r in runs) / len(runs), 4
+                ),
                 "mean_q_variance": round(sum(r.q_variance for r in runs) / len(runs), 5),
             }
 
@@ -401,20 +403,14 @@ class QTableBenchmark:
         phi_agg = agg(all_results[phi_key])
         std_agg = agg(all_results[std_key])
 
-        phi_wins_forgetting = (
-            phi_agg["mean_forgetting_shift"] <= std_agg["mean_forgetting_shift"]
-        )
-        phi_wins_stability = (
-            phi_agg["mean_q_variance"] <= std_agg["mean_q_variance"]
-        )
+        phi_wins_forgetting = phi_agg["mean_forgetting_shift"] <= std_agg["mean_forgetting_shift"]
+        phi_wins_stability = phi_agg["mean_q_variance"] <= std_agg["mean_q_variance"]
         # phi is conservative: α=0.038 needs ~3× more steps than α=0.1 to reach same Q.
         # This is by design (resist catastrophic forgetting).
         # We validate convergence quality via final_error, not speed.
         # phi's final_error should eventually be ≤ standard's (verified at 2000 steps).
         # At shorter budgets, allow phi up to 3× higher error (it's still learning).
-        phi_wins_convergence = (
-            phi_agg["mean_final_error"] <= std_agg["mean_final_error"] * 3.0
-        )
+        phi_wins_convergence = phi_agg["mean_final_error"] <= std_agg["mean_final_error"] * 3.0
 
         return {
             "n_seeds": n_seeds,

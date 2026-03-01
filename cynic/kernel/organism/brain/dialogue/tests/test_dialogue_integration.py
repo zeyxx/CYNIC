@@ -19,9 +19,7 @@ async def test_full_dialogue_workflow(tmp_path):
     await storage.initialize()
 
     # Create and save user message
-    user_msg = UserMessage(
-        "question", "Why did you choose WAG?", 0.5, "j123"
-    )
+    user_msg = UserMessage("question", "Why did you choose WAG?", 0.5, "j123")
     msg_id_1 = await storage.save_message(user_msg)
     assert msg_id_1 is not None
 
@@ -31,7 +29,7 @@ async def test_full_dialogue_workflow(tmp_path):
         "I chose WAG because PHI (0.8) and CULTURE (0.75) suggested balance",
         0.5,
         {"PHI": 0.8, "CULTURE": 0.75},
-        "j123"
+        "j123",
     )
     msg_id_2 = await storage.save_message(cynic_msg)
     assert msg_id_2 is not None
@@ -113,18 +111,10 @@ async def test_dialogue_axiom_tracking(tmp_path):
 
     # Multiple CYNIC responses tracking different axioms
     msg1 = CynicMessage(
-        "reasoning",
-        "Prioritizing harmony",
-        0.4,
-        {"PHI": 0.9, "CULTURE": 0.7},
-        "j456"
+        "reasoning", "Prioritizing harmony", 0.4, {"PHI": 0.9, "CULTURE": 0.7}, "j456"
     )
     msg2 = CynicMessage(
-        "reasoning",
-        "Considering skepticism",
-        0.45,
-        {"VERIFY": 0.85, "BURN": 0.6},
-        "j456"
+        "reasoning", "Considering skepticism", 0.45, {"VERIFY": 0.85, "BURN": 0.6}, "j456"
     )
 
     await storage.save_message(msg1)
@@ -183,12 +173,7 @@ async def test_full_integration_dialogue_to_memory(tmp_path):
     await memory_store.initialize()
 
     # Step 1: User asks a question
-    user_question = UserMessage(
-        "question",
-        "Should we prioritize caution or harmony?",
-        0.3,
-        "j789"
-    )
+    user_question = UserMessage("question", "Should we prioritize caution or harmony?", 0.3, "j789")
     await storage.save_message(user_question)
 
     # Step 2: CYNIC responds with reasoning
@@ -197,16 +182,13 @@ async def test_full_integration_dialogue_to_memory(tmp_path):
         "Based on your values, harmony is slightly preferred",
         0.5,
         {"PHI": 0.7, "BURN": 0.4},
-        "j789"
+        "j789",
     )
     await storage.save_message(cynic_response)
 
     # Step 3: User provides feedback
     user_feedback = UserMessage(
-        "feedback",
-        "I actually prefer more caution in this case",
-        0.4,
-        "j789"
+        "feedback", "I actually prefer more caution in this case", 0.4, "j789"
     )
     await storage.save_message(user_feedback)
 
@@ -302,8 +284,18 @@ async def test_communication_style_inference(tmp_path):
 
     # Long messages (average > 100 chars)
     long_messages = [
-        UserMessage("question", "This is a very long detailed question about something important and complex that requires extensive explanation and discussion", 0.5, None),
-        UserMessage("feedback", "I really appreciate the thorough analysis and detailed explanation of your comprehensive reasoning and thinking process", 0.5, None),
+        UserMessage(
+            "question",
+            "This is a very long detailed question about something important and complex that requires extensive explanation and discussion",
+            0.5,
+            None,
+        ),
+        UserMessage(
+            "feedback",
+            "I really appreciate the thorough analysis and detailed explanation of your comprehensive reasoning and thinking process",
+            0.5,
+            None,
+        ),
     ]
 
     inferred_long = memory.infer_communication_style(long_messages)

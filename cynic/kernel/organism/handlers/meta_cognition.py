@@ -25,15 +25,43 @@ class MetaCognitionHandler(HandlerGroup):
         return "meta_cognition"
 
     def dependencies(self) -> frozenset[str]:
-        return frozenset({
-            "axiom_monitor",
-            "lod_controller",
-        })
+        return frozenset(
+            {
+                "axiom_monitor",
+                "lod_controller",
+            }
+        )
 
     def subscriptions(self) -> list[tuple[CoreEvent, callable]]:
         return [
             (CoreEvent.SONA_TICK, self._on_sona_tick),
+            (CoreEvent.CONFIGURATION_MUTATED, self._on_config_mutated),
         ]
+
+    async def _on_config_mutated(self, event: Event) -> None:
+        """Apply a configuration mutation to the live organism."""
+        try:
+            p = event.dict_payload
+            target = p.get("target")
+            parameter = p.get("parameter")
+            new_value = p.get("new_value")
+
+            if target == "DOG_REGISTRY":
+                from cynic.kernel.organism.brain.cognition.neurons.registry import SOULS
+                from cynic.kernel.organism.brain.cognition.neurons.base import DogId
+                
+                # Update the global registry
+                for dog_id in DogId:
+                    soul = SOULS.get(dog_id)
+                    if soul and hasattr(soul, parameter):
+                        setattr(soul, parameter, new_value)
+                        logger.info(f"Meta-Cognition: Mutated {dog_id.name}.{parameter} -> {new_value}")
+                
+                # Note: MasterDog instances share the soul objects in our implementation
+                # so the change is live.
+
+        except Exception as e:
+            logger.error(f"MetaCognition: Mutation failed: {e}")
 
     async def _on_sona_tick(self, event: Event) -> None:
         """
@@ -51,12 +79,13 @@ class MetaCognitionHandler(HandlerGroup):
                 return
 
             # 2. Logique de réglage (en DEBUG pour ne pas polluer)
-            if q_stability < 0.382: # Below PHI_INV_2
-                logger.debug("Meta-Cognition: Q-Stability low (%.3f). Tuning exploration.", q_stability)
+            if q_stability < 0.382:  # Below PHI_INV_2
+                logger.debug(
+                    "Meta-Cognition: Q-Stability low (%.3f). Tuning exploration.", q_stability
+                )
 
-            if axiom_health < 0.618: # Below PHI_INV
+            if axiom_health < 0.618:  # Below PHI_INV
                 logger.debug("Meta-Cognition: Axiom health suboptimal (%.3f).", axiom_health)
 
         except Exception as e:
             logger.debug(f"MetaCognitionHandler error: {e}")
-

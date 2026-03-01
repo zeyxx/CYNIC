@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DogInput:
     """Raw judgment from a dog (input sensor)."""
+
     dog_id: str
     q_score: float
     confidence: float
@@ -40,6 +41,7 @@ class UnifiedJudgment:
 
     NOT a vote. NOT an average. An EXECUTIVE DECISION.
     """
+
     q_score: float
     verdict: str
     confidence: float
@@ -62,10 +64,10 @@ class JudgmentEngine:
     """
 
     # Verdict thresholds (from MEMORY.md critical rules)
-    BARK_MAX = 38.2    # Q < 38.2
-    GROWL_MAX = 61.8   # Q < 61.8
-    WAG_MAX = 82.0     # Q < 82.0
-    HOWL_MIN = 82.0    # Q >= 82.0
+    BARK_MAX = 38.2  # Q < 38.2
+    GROWL_MAX = 61.8  # Q < 61.8
+    WAG_MAX = 82.0  # Q < 82.0
+    HOWL_MIN = 82.0  # Q >= 82.0
 
     def __init__(
         self,

@@ -15,6 +15,7 @@ class FederationPeer:
         last_sync: When we last synced with this peer
         messages_received: Count of messages received from this peer
     """
+
     peer_id: str
     transport: Callable  # (FederationMessage) → None
     last_sync: datetime | None = None

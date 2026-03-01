@@ -32,6 +32,7 @@ EWC (Elastic Weight Consolidation):
   - Effect: New states learn at full α; consolidated states (≥21 visits) learn at 0.382×α
   - Prevents catastrophic forgetting when task distribution shifts (CODE→MARKET→CODE)
 """
+
 from __future__ import annotations
 
 import logging
@@ -42,7 +43,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from cynic.kernel.core.event_bus import Event, EventBus
+    from cynic.kernel.core.event_bus import Event
 
 from cynic.kernel.core.phi import (
     EWC_PENALTY,
@@ -66,6 +67,7 @@ THOMPSON_PRIOR: int = fibonacci(5)  # 5 — neutral prior, not zero
 # DATA STRUCTURES
 # ════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class QEntry:
     """
@@ -77,12 +79,13 @@ class QEntry:
     losses:  Thompson β — negative reward observations (reward ≤ 0.5)
     last_updated: Unix timestamp
     """
+
     state_key: str
     action: str
-    q_value: float = 0.5             # Neutral start (CYNIC doubts itself)
+    q_value: float = 0.5  # Neutral start (CYNIC doubts itself)
     visits: int = 0
-    wins: int = THOMPSON_PRIOR       # F(5)=5 pseudo-wins (balanced prior)
-    losses: int = THOMPSON_PRIOR     # F(5)=5 pseudo-losses (balanced prior)
+    wins: int = THOMPSON_PRIOR  # F(5)=5 pseudo-wins (balanced prior)
+    losses: int = THOMPSON_PRIOR  # F(5)=5 pseudo-losses (balanced prior)
     last_updated: float = field(default_factory=time.time)
 
     def thompson_sample(self) -> float:
@@ -113,9 +116,10 @@ class LearningSignal:
 
     Matches the LEARNING_EVENT payload emitted by JudgeOrchestrator.
     """
-    state_key: str       # cell.state_key() → "CODE:JUDGE:PRESENT:1"
-    action: str          # verdict → "GROWL"
-    reward: float        # q_score / MAX_Q_SCORE → [0, 1]
+
+    state_key: str  # cell.state_key() → "CODE:JUDGE:PRESENT:1"
+    action: str  # verdict → "GROWL"
+    reward: float  # q_score / MAX_Q_SCORE → [0, 1]
     judgment_id: str = ""
     loop_name: str = "JUDGE_ORCHESTRATOR"
     timestamp: float = field(default_factory=time.time)
@@ -130,6 +134,7 @@ class LearningSignal:
 # ════════════════════════════════════════════════════════════════════════════
 # Q-TABLE
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class QTable:
     """
@@ -159,8 +164,8 @@ class QTable:
         discount: float = PHI_INV_2,  # γ = φ⁻² = 0.382 (short-horizon)
         storage: Optional[Any] = None,
     ) -> None:
-        self._alpha = learning_rate       # ≈ 0.038
-        self._gamma = discount            # 0.382 — discount future rewards conservatively
+        self._alpha = learning_rate  # ≈ 0.038
+        self._gamma = discount  # 0.382 — discount future rewards conservatively
         self.storage = storage
         # Nested dict: {state_key: {action: QEntry}}
         self._table: dict[str, dict[str, QEntry]] = defaultdict(dict)
@@ -205,8 +210,12 @@ class QTable:
 
         logger.debug(
             "Q[%s][%s]: %.3f → %.3f (reward=%.3f, visits=%d)",
-            signal.state_key, signal.action, old_q, entry.q_value,
-            signal.reward, entry.visits,
+            signal.state_key,
+            signal.action,
+            old_q,
+            entry.q_value,
+            signal.reward,
+            entry.visits,
         )
 
         return entry
@@ -249,9 +258,7 @@ class QTable:
         where F(8)=21 = "well-seen" threshold.
         Caps at φ⁻¹ = 61.8% (LAW OF DOUBT).
         """
-        total_visits = sum(
-            e.visits for e in self._table.get(state_key, {}).values()
-        )
+        total_visits = sum(e.visits for e in self._table.get(state_key, {}).values())
         raw = total_visits / fibonacci(8)  # F(8) = 21 — "enough data" threshold
         return phi_bound(raw, 0.0, MAX_CONFIDENCE)
 
@@ -296,9 +303,7 @@ class QTable:
         Returns: number of entries loaded.
         """
         async with pool.acquire() as conn:
-            rows = await conn.fetch(
-                "SELECT state_key, action, q_value, visit_count FROM q_table"
-            )
+            rows = await conn.fetch("SELECT state_key, action, q_value, visit_count FROM q_table")
 
         for row in rows:
             entry = self._get_or_create(row["state_key"], row["action"])
@@ -338,11 +343,7 @@ class QTable:
     def stats(self) -> dict[str, Any]:
         """Return learning system health metrics."""
         total_entries = sum(len(v) for v in self._table.values())
-        total_visits = sum(
-            e.visits
-            for actions in self._table.values()
-            for e in actions.values()
-        )
+        total_visits = sum(e.visits for actions in self._table.values() for e in actions.values())
         # Average Q per state
         state_avgs = {}
         for sk, actions in self._table.items():
@@ -352,7 +353,9 @@ class QTable:
         # EWC: average effective learning rate across all entries
         all_entries = [e for v in self._table.values() for e in v.values()]
         if all_entries:
-            avg_fisher = sum(min(e.visits / fibonacci(8), 1.0) for e in all_entries) / len(all_entries)
+            avg_fisher = sum(min(e.visits / fibonacci(8), 1.0) for e in all_entries) / len(
+                all_entries
+            )
             avg_effective_alpha = round(self._alpha * (1.0 - EWC_PENALTY * avg_fisher), 5)
             ewc_consolidated = sum(1 for e in all_entries if e.visits >= fibonacci(8))
         else:
@@ -369,45 +372,45 @@ class QTable:
             "state_averages": state_avgs,
             "pending_flush": len(self._pending_flush),
             "uptime_s": round(time.time() - self._created_at, 1),
-            "ewc_effective_alpha": avg_effective_alpha,   # adaptive learning rate
-            "ewc_consolidated": ewc_consolidated,          # entries with visits ≥ F(8)
+            "ewc_effective_alpha": avg_effective_alpha,  # adaptive learning rate
+            "ewc_consolidated": ewc_consolidated,  # entries with visits ≥ F(8)
         }
 
     def prune(self, max_entries: int = 10000) -> int:
         """
         Active Forgetting (Axiom BURN) to survive infinity.
-        
+
         Removes the least valuable knowledge from RAM to prevent OOM.
         Least valuable = Low visits AND (Q-Value near 0.5 or high Fisher penalty).
-        
+
         Returns: number of entries pruned.
         """
         all_entries = []
         for state_key, actions in self._table.items():
             for action, entry in actions.items():
                 all_entries.append((state_key, action, entry))
-                
+
         if len(all_entries) <= max_entries:
             return 0
-            
+
         # Score entries for survival: High visits = good. Q near 0.5 = boring/useless.
         def survival_score(e: QEntry) -> float:
-            q_variance = abs(e.q_value - 0.5) # How decisive is this knowledge?
+            q_variance = abs(e.q_value - 0.5)  # How decisive is this knowledge?
             return e.visits * q_variance
-            
+
         all_entries.sort(key=lambda item: survival_score(item[2]), reverse=True)
-        
+
         # Keep top max_entries
         survivors = all_entries[:max_entries]
         doomed = all_entries[max_entries:]
-        
+
         # Rebuild table with survivors
         self._table.clear()
         for state_key, action, entry in survivors:
             if state_key not in self._table:
                 self._table[state_key] = {}
             self._table[state_key][action] = entry
-            
+
         logger.info("QTable pruned %d least valuable entries (BURN axiom active)", len(doomed))
         return len(doomed)
 
@@ -417,13 +420,15 @@ class QTable:
         for sk, actions in self._table.items():
             total = sum(e.visits for e in actions.values())
             best_action, best_entry = max(actions.items(), key=lambda kv: kv[1].q_value)
-            state_data.append({
-                "state_key": sk,
-                "visits": total,
-                "best_action": best_action,
-                "best_q": round(best_entry.q_value, 3),
-                "confidence": round(self.confidence(sk), 3),
-            })
+            state_data.append(
+                {
+                    "state_key": sk,
+                    "visits": total,
+                    "best_action": best_action,
+                    "best_q": round(best_entry.q_value, 3),
+                    "confidence": round(self.confidence(sk), 3),
+                }
+            )
         return sorted(state_data, key=lambda d: d["visits"], reverse=True)[:n]
 
     def matrix_stats(self) -> dict:
@@ -458,9 +463,9 @@ class QTable:
             "total_cells": total,
             "matrix_343": 343,
             "coverage_pct": coverage,
-            "by_reality":   by_reality,
-            "by_analysis":  by_analysis,
-            "by_time_dim":  by_time_dim,
+            "by_reality": by_reality,
+            "by_analysis": by_analysis,
+            "by_time_dim": by_time_dim,
         }
 
     def reset(self) -> None:
@@ -491,6 +496,7 @@ class QTable:
 # LEARNING LOOP (Event-driven integration)
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class LearningLoop:
     """
     Connects QTable to the CYNIC event bus.
@@ -517,7 +523,7 @@ class LearningLoop:
     def adjust_learning_rate(self, delta: float) -> None:
         """
         Adjust the learning rate (α) by delta.
-        
+
         Called by MetaCognitionHandler to adapt exploration/exploitation.
         Delta is φ-bounded: max ±0.618 per call.
         """
@@ -567,20 +573,26 @@ class LearningLoop:
         if entry.visits == fibonacci(8):
             from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
             from cynic.kernel.core.events_schema import EwcCheckpointPayload
-            await get_core_bus().emit(Event.typed(
-                CoreEvent.EWC_CHECKPOINT,
-                EwcCheckpointPayload(
-                    q_value=entry.q_value,
-                    state_key=signal.state_key,
-                    action=signal.action,
-                    visits=entry.visits,
-                    loop_name=signal.loop_name,
-                ),
-                source="learning_loop",
-            ))
+
+            await get_core_bus().emit(
+                Event.typed(
+                    CoreEvent.EWC_CHECKPOINT,
+                    EwcCheckpointPayload(
+                        q_value=entry.q_value,
+                        state_key=signal.state_key,
+                        action=signal.action,
+                        visits=entry.visits,
+                        loop_name=signal.loop_name,
+                    ),
+                    source="learning_loop",
+                )
+            )
             logger.info(
                 "EWC_CHECKPOINT: state=%s action=%s consolidated at %d visits (q=%.3f)",
-                signal.state_key, signal.action, entry.visits, entry.q_value,
+                signal.state_key,
+                signal.action,
+                entry.visits,
+                entry.q_value,
             )
 
         # Flush to DB every FLUSH_INTERVAL updates; emit Q_TABLE_UPDATED on success.
@@ -590,13 +602,16 @@ class LearningLoop:
             stats = self.qtable.stats()
             from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
             from cynic.kernel.core.events_schema import QTableUpdatedPayload
-            await get_core_bus().emit(Event.typed(
-                CoreEvent.Q_TABLE_UPDATED,
-                QTableUpdatedPayload(
-                    flushed=flushed,
-                    total_entries=stats["entries"],
-                    ewc_consolidated=stats["ewc_consolidated"],
-                    total_updates=stats["total_updates"],
-                ),
-                source="learning_loop",
-            ))
+
+            await get_core_bus().emit(
+                Event.typed(
+                    CoreEvent.Q_TABLE_UPDATED,
+                    QTableUpdatedPayload(
+                        flushed=flushed,
+                        total_entries=stats["entries"],
+                        ewc_consolidated=stats["ewc_consolidated"],
+                        total_updates=stats["total_updates"],
+                    ),
+                    source="learning_loop",
+                )
+            )

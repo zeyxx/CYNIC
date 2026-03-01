@@ -32,6 +32,7 @@ Discovery:
 - Wired into HandlerRegistry (injectable into OrchestrationController)
 - Similar pattern to LLMRegistry (one pool, multiple adapters)
 """
+
 from __future__ import annotations
 
 from cynic.kernel.organism.brain.cognition.cortex.handlers.act_executor import ActHandler

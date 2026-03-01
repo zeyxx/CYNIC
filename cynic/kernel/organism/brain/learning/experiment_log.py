@@ -47,6 +47,7 @@ class ExperimentLog:
 
     async def append(self, experiment: Experiment) -> int:
         """Append experiment and return line number."""
+
         def _append():
             with open(self.log_path, "a") as f:
                 exp_dict = asdict(experiment)
@@ -61,6 +62,7 @@ class ExperimentLog:
 
     async def get_all(self) -> list[Experiment]:
         """Load all experiments."""
+
         def _load_all():
             if not self.log_path.exists():
                 return []

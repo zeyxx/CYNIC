@@ -8,6 +8,7 @@ Responsibility:
 - Majority vote (no PBFT)
 - Fast path (<10ms)
 """
+
 from __future__ import annotations
 
 import asyncio

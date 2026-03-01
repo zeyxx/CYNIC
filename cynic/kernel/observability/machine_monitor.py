@@ -1,4 +1,5 @@
 """Monitor machine resources: CPU, memory, disk, network, temperature, health."""
+
 from __future__ import annotations
 
 import logging
@@ -102,7 +103,7 @@ class MachineMonitor:
                 f"(threshold: {self.CPU_WARNING_THRESHOLD}%)"
             )
 
-        if not state.health.get('is_healthy', True):
+        if not state.health.get("is_healthy", True):
             constraints.append("Machine health check failed")
 
         return constraints
@@ -138,7 +139,7 @@ class MachineMonitor:
             float: Disk usage [0, 100].
         """
         try:
-            return float(psutil.disk_usage('/').percent)
+            return float(psutil.disk_usage("/").percent)
         except Exception as e:
             logger.warning(f"Failed to get disk percent: {e}")
             return 0.0
@@ -156,10 +157,7 @@ class MachineMonitor:
             current_bytes = net_io.bytes_sent + net_io.bytes_recv
             current_time = time.time()
 
-            if (
-                self._last_network_bytes is not None
-                and self._last_network_time is not None
-            ):
+            if self._last_network_bytes is not None and self._last_network_time is not None:
                 time_delta = current_time - self._last_network_time
                 if time_delta > 0:
                     bandwidth = (current_bytes - self._last_network_bytes) / time_delta
@@ -182,7 +180,7 @@ class MachineMonitor:
         """
         try:
             # Check if sensors_temperatures is available (not on all systems)
-            if not hasattr(psutil, 'sensors_temperatures'):
+            if not hasattr(psutil, "sensors_temperatures"):
                 return 0.0
 
             temps = psutil.sensors_temperatures()
@@ -214,8 +212,8 @@ class MachineMonitor:
         )
 
         return {
-            'is_healthy': is_healthy,
-            'cpu_ok': cpu < self.CPU_WARNING_THRESHOLD,
-            'memory_ok': memory < self.RAM_WARNING_THRESHOLD,
-            'disk_ok': disk < self.DISK_WARNING_THRESHOLD,
+            "is_healthy": is_healthy,
+            "cpu_ok": cpu < self.CPU_WARNING_THRESHOLD,
+            "memory_ok": memory < self.RAM_WARNING_THRESHOLD,
+            "disk_ok": disk < self.DISK_WARNING_THRESHOLD,
         }

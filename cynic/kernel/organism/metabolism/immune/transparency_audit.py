@@ -13,6 +13,7 @@ Tracks:
 
 All records immutable and timestamped for full auditability.
 """
+
 from __future__ import annotations
 
 import json
@@ -34,6 +35,7 @@ _MAX_AUDIT_RECORDS = fibonacci(10)  # 55 records
 @dataclass
 class AuditRecord:
     """Immutable record of a decision's complete lifecycle."""
+
     record_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: float = field(default_factory=time.time)
 
@@ -163,7 +165,9 @@ class TransparencyAuditTrail:
             record.alignment_violations = violations
             record.alignment_approved = not any(v.get("blocking", False) for v in violations)
             self._save_to_disk()
-            logger.debug(f"Alignment check recorded: {record_id} ({'approved' if record.alignment_approved else 'blocked'})")
+            logger.debug(
+                f"Alignment check recorded: {record_id} ({'approved' if record.alignment_approved else 'blocked'})"
+            )
 
     def record_decision_recommendation(
         self,
@@ -231,7 +235,9 @@ class TransparencyAuditTrail:
             record.success = approved  # Human approval determines final success
             record.human_review_notes = notes
             self._save_to_disk()
-            logger.info(f"Human review recorded: {record_id} ({'approved' if approved else 'rejected'})")
+            logger.info(
+                f"Human review recorded: {record_id} ({'approved' if approved else 'rejected'})"
+            )
 
     def get_decision_history(
         self,

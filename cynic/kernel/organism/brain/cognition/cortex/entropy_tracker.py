@@ -29,6 +29,7 @@ Formula:
     - >0: Good (compressed observation → certain decision)
     - ≤0: Bad (observations didn't guide decision)
 """
+
 from __future__ import annotations
 
 import logging
@@ -62,6 +63,7 @@ class EntropyMetrics:
       - verdict: What verdict was reached
       - confidence: How certain about the verdict
     """
+
     dog_id: str
     cell_id: str
     h_input: float  # Entropy of observations
@@ -192,7 +194,9 @@ class EntropyTracker:
     - Alert threshold: if avg_efficiency < 0, system is adding noise
     """
 
-    def __init__(self, max_history: int = CHAT_MESSAGE_CAP) -> None:  # F(11) = 89 (imported from formulas.py)
+    def __init__(
+        self, max_history: int = CHAT_MESSAGE_CAP
+    ) -> None:  # F(11) = 89 (imported from formulas.py)
         self.max_history = max_history
         self.metrics: list[EntropyMetrics] = []
         self.calculator = EntropyCalculator()

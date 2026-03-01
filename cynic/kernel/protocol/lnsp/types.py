@@ -1,4 +1,5 @@
 """LNSP types, enums, and message schema definitions."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
@@ -9,6 +10,7 @@ from typing import Any
 # ============================================================================
 # Layer Enumeration
 # ============================================================================
+
 
 class Layer(Enum):
     """LNSP Protocol layer levels."""
@@ -29,6 +31,7 @@ class Layer(Enum):
 # Verdict Types (Dogs' Outputs)
 # ============================================================================
 
+
 class VerdictType(Enum):
     """Verdict verdicts from CYNIC's 11 Dogs (Sefirot)."""
 
@@ -44,6 +47,7 @@ class VerdictType(Enum):
 # ============================================================================
 # Observation Types (Layer 1 Raw Data)
 # ============================================================================
+
 
 class ObservationType(Enum):
     """Types of raw observations from sensors."""
@@ -63,6 +67,7 @@ class ObservationType(Enum):
 # Aggregation Types (Layer 2 Processed State)
 # ============================================================================
 
+
 class AggregationType(Enum):
     """Types of aggregated state information."""
 
@@ -78,6 +83,7 @@ class AggregationType(Enum):
 # ============================================================================
 # Judgment Types (Layer 3 Verdicts)
 # ============================================================================
+
 
 class JudgmentType(Enum):
     """Types of judgments made by Dogs."""
@@ -95,6 +101,7 @@ class JudgmentType(Enum):
 # Action Types (Layer 4 Handlers)
 # ============================================================================
 
+
 class ActionType(Enum):
     """Types of actions the organism can take."""
 
@@ -110,6 +117,7 @@ class ActionType(Enum):
 # ============================================================================
 # Message Header
 # ============================================================================
+
 
 @dataclass
 class MessageHeader:
@@ -149,6 +157,7 @@ class MessageHeader:
 # Message Metadata
 # ============================================================================
 
+
 @dataclass
 class Metadata:
     """Metadata attached to all LNSP messages.
@@ -175,6 +184,7 @@ class Metadata:
 # ============================================================================
 # LNSP Message (Main Message Type)
 # ============================================================================
+
 
 @dataclass
 class LNSPMessage:

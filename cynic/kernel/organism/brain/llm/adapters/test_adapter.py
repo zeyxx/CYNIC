@@ -4,6 +4,7 @@ CYNIC Deterministic Test Adapter — For reproducible pipeline tests.
 Returns fixed responses based on prompt keywords.
 Avoids real LLM latency and costs during CI.
 """
+
 from __future__ import annotations
 
 import time
@@ -13,7 +14,7 @@ from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRequest, LLMR
 
 class DeterministicLLMAdapter(LLMAdapter):
     """Mocks LLM behavior with predictable outputs for testing."""
-    
+
     def __init__(self, model: str = "test-deterministic"):
         super().__init__(model=model, provider="test")
         self.responses = {
@@ -24,19 +25,19 @@ class DeterministicLLMAdapter(LLMAdapter):
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
         start = time.time()
-        
+
         # Simple keyword matching for deterministic behavior
         content = self.responses["NEUTRAL"]
         for key, resp in self.responses.items():
             if key in request.prompt.upper():
                 content = resp
                 break
-                
+
         return LLMResponse(
             content=content,
             model=self.model,
             provider=self.provider,
-            latency_ms=(time.time() - start) * 1000
+            latency_ms=(time.time() - start) * 1000,
         )
 
     async def check_available(self) -> bool:

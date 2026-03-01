@@ -1,4 +1,5 @@
 """CYNIC MemoryWatcher — CYNIC×PERCEIVE/REFLEX every F(9)=34s."""
+
 from __future__ import annotations
 
 import asyncio
@@ -15,9 +16,9 @@ from cynic.kernel.organism.perception.senses.workers.base import PerceiveWorker
 logger = logging.getLogger("cynic.kernel.organism.perception.senses")
 
 # φ-derived RAM usage thresholds (fraction of RAM used)
-_MEM_WARN      = PHI_INV        # 0.618 — 61.8% used → LOD 1
-_MEM_CRITICAL  = 1 - PHI_INV_3  # 0.764 — 76.4% used → LOD 2
-_MEM_EMERGENCY = 0.90            # 90%   used → LOD 3
+_MEM_WARN = PHI_INV  # 0.618 — 61.8% used → LOD 1
+_MEM_CRITICAL = 1 - PHI_INV_3  # 0.764 — 76.4% used → LOD 2
+_MEM_EMERGENCY = 0.90  # 90%   used → LOD 3
 
 
 class MemoryWatcher(PerceiveWorker):
@@ -38,7 +39,7 @@ class MemoryWatcher(PerceiveWorker):
     """
 
     level = ConsciousnessLevel.REFLEX
-    interval_s = float(fibonacci(9))   # 34.0s
+    interval_s = float(fibonacci(9))  # 34.0s
     name = "memory_watcher"
 
     def __init__(self) -> None:
@@ -49,9 +50,10 @@ class MemoryWatcher(PerceiveWorker):
         try:
             if sys.platform == "win32":
                 result = subprocess.run(
-                    ["wmic", "OS", "get",
-                     "FreePhysicalMemory,TotalVisibleMemorySize", "/Value"],
-                    capture_output=True, text=True, timeout=5.0,
+                    ["wmic", "OS", "get", "FreePhysicalMemory,TotalVisibleMemorySize", "/Value"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5.0,
                 )
                 free_kb = total_kb = 0
                 for line in result.stdout.splitlines():
@@ -63,8 +65,8 @@ class MemoryWatcher(PerceiveWorker):
                 if total_kb <= 0:
                     return None
                 used_pct = 1.0 - (free_kb / total_kb)
-                free_gb  = free_kb  / (1024 ** 2)
-                total_gb = total_kb / (1024 ** 2)
+                free_gb = free_kb / (1024**2)
+                total_gb = total_kb / (1024**2)
             else:
                 # Linux / macOS: /proc/meminfo
                 mem_total = mem_available = 0
@@ -79,8 +81,8 @@ class MemoryWatcher(PerceiveWorker):
                 if mem_total <= 0:
                     return None
                 used_pct = 1.0 - (mem_available / mem_total)
-                free_gb  = mem_available / (1024 ** 2)
-                total_gb = mem_total     / (1024 ** 2)
+                free_gb = mem_available / (1024**2)
+                total_gb = mem_total / (1024**2)
 
             if used_pct >= _MEM_EMERGENCY:
                 pressure = "EMERGENCY"
@@ -93,7 +95,7 @@ class MemoryWatcher(PerceiveWorker):
 
             return {
                 "used_pct": used_pct,
-                "free_gb":  free_gb,
+                "free_gb": free_gb,
                 "total_gb": total_gb,
                 "pressure": pressure,
             }
@@ -111,12 +113,12 @@ class MemoryWatcher(PerceiveWorker):
         pressure = info["pressure"]
 
         from cynic.kernel.core.nerves import SOMATIC
+
         if pressure == "OK":
             if self._last_level is not None:
                 logger.info("MemoryWatcher: RAM pressure cleared (was %s)", self._last_level)
                 await SOMATIC.emit_memory_cleared(
-                    used_pct=round(info["used_pct"], 4),
-                    free_gb=round(info["free_gb"], 2)
+                    used_pct=round(info["used_pct"], 4), free_gb=round(info["free_gb"], 2)
                 )
             self._last_level = None
             return None
@@ -127,18 +129,16 @@ class MemoryWatcher(PerceiveWorker):
         self._last_level = pressure
 
         used_pct = info["used_pct"]
-        free_gb  = info["free_gb"]
+        free_gb = info["free_gb"]
 
         # Emit MEMORY_PRESSURE via nerves
         await SOMATIC.emit_memory_pressure(
-            pressure=pressure,
-            used_pct=round(used_pct, 4),
-            free_gb=round(free_gb, 2)
+            pressure=pressure, used_pct=round(used_pct, 4), free_gb=round(free_gb, 2)
         )
 
         risk = {
-            "WARN":      0.3,
-            "CRITICAL":  0.6,
+            "WARN": 0.3,
+            "CRITICAL": 0.6,
             "EMERGENCY": 0.9,
         }.get(pressure, 0.3)
 
@@ -147,10 +147,10 @@ class MemoryWatcher(PerceiveWorker):
             analysis="PERCEIVE",
             time_dim="PRESENT",
             content={
-                "mem_used_pct":  round(used_pct * 100, 1),
-                "mem_free_gb":   round(free_gb, 2),
-                "mem_total_gb":  round(info["total_gb"], 2),
-                "mem_pressure":  pressure,
+                "mem_used_pct": round(used_pct * 100, 1),
+                "mem_free_gb": round(free_gb, 2),
+                "mem_total_gb": round(info["total_gb"], 2),
+                "mem_pressure": pressure,
             },
             context=(
                 f"Memory watcher: {used_pct * 100:.1f}% RAM used "

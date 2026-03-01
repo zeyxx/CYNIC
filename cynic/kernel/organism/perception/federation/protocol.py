@@ -6,6 +6,7 @@ from types import MappingProxyType
 
 FEDERATION_VERSION = "1.0"
 
+
 @dataclass(frozen=True)
 class FederationMessage:
     sender_id: str

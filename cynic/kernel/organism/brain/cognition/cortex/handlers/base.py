@@ -7,6 +7,7 @@ Defines the contract that all handlers must fulfill:
 - Dependency injection (no god constructor)
 - Standardized metadata (handler_id, version, description)
 """
+
 from __future__ import annotations
 
 import logging

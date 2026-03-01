@@ -11,6 +11,7 @@ deployment by:
 This enables distributed governance where multiple organism instances share a
 unified view of ecosystem state.
 """
+
 from __future__ import annotations
 
 import time
@@ -131,9 +132,7 @@ class RegionalCoordinator:
     )
     _subscribers: list[Callable[[LNSPMessage], None]] = field(default_factory=list)
 
-    async def register_instance(
-        self, instance_id: str, host: str, port: int
-    ) -> None:
+    async def register_instance(self, instance_id: str, host: str, port: int) -> None:
         """Register a new LNSP instance to coordinate with.
 
         Creates an InstanceConnection for the given instance and begins
@@ -231,9 +230,7 @@ class RegionalCoordinator:
 
         # Clean up old cache entries
         self._message_cache = {
-            mid: ts
-            for mid, ts in self._message_cache.items()
-            if now - ts <= self.dedup_window_sec
+            mid: ts for mid, ts in self._message_cache.items() if now - ts <= self.dedup_window_sec
         }
 
         # Check if this message_id is in the cache
@@ -300,12 +297,8 @@ class RegionalCoordinator:
         Returns:
             Dict with coordinator statistics
         """
-        healthy_count = sum(
-            1 for conn in self._instances.values() if conn.is_healthy
-        )
-        total_messages = sum(
-            conn.message_count for conn in self._instances.values()
-        )
+        healthy_count = sum(1 for conn in self._instances.values() if conn.is_healthy)
+        total_messages = sum(conn.message_count for conn in self._instances.values())
 
         return {
             "coordinator_id": self.coordinator_id,

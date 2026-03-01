@@ -3,41 +3,47 @@ CYNIC Organism Factory — The Awakening Logic.
 
 Handles the complex instantiation and wiring of all organism components.
 """
+
 from __future__ import annotations
+
 import logging
 import os
-import time
-from typing import Any, Optional
 
-from cynic.kernel.core.event_bus import get_core_bus
-from cynic.kernel.core.phi import PHI
+from cynic.interfaces.mcp.service import MCPBridge
 from cynic.kernel.core.container import get_container
-from cynic.kernel.organism.anatomy import CognitionCore, MetabolicCore, SensoryCore, ArchiveCore
-from cynic.kernel.organism.state_manager import OrganismState
-from cynic.kernel.organism.brain.cognition.neurons.discovery import discover_dogs
-from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
-from cynic.kernel.organism.brain.cognition.cortex.residual import ResidualDetector
-from cynic.kernel.organism.brain.cognition.cortex.decide import DecideAgent
-from cynic.kernel.organism.brain.cognition.cortex.account import AccountAgent
-from cynic.kernel.organism.brain.cognition.cortex.action_proposer import ActionProposer
-from cynic.kernel.organism.brain.cognition.cortex.lod import LODController
-from cynic.kernel.organism.brain.cognition.cortex.axiom_monitor import AxiomMonitor
-from cynic.kernel.organism.brain.learning.qlearning import QTable, LearningLoop
-from cynic.kernel.organism.metabolism.llm_router import LLMRouter
-from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
-from cynic.kernel.organism.layers.embodiment import HardwareBody
-from cynic.kernel.organism.perception.senses.compressor import ContextCompressor
-from cynic.kernel.core.world_model import WorldModelUpdater
+from cynic.kernel.core.convergence import ConvergenceValidator
+from cynic.kernel.core.escore import EScoreTracker
+from cynic.kernel.core.event_bus import get_core_bus
+from cynic.kernel.core.storage.surreal import init_storage
 from cynic.kernel.core.topology.file_watcher import SourceWatcher
 from cynic.kernel.core.topology.topology_builder import IncrementalTopologyBuilder
-from cynic.interfaces.mcp.service import MCPBridge
-from cynic.kernel.core.convergence import ConvergenceValidator
+from cynic.kernel.core.world_model import WorldModelUpdater
+from cynic.kernel.organism.anatomy import ArchiveCore, CognitionCore, MetabolicCore, SensoryCore
+from cynic.kernel.organism.brain.cognition.cortex.account import AccountAgent
+from cynic.kernel.organism.brain.cognition.cortex.action_proposer import ActionProposer
+from cynic.kernel.organism.brain.cognition.cortex.axiom_monitor import AxiomMonitor
+from cynic.kernel.organism.brain.cognition.cortex.decide import DecideAgent
+from cynic.kernel.organism.brain.cognition.cortex.lod import LODController
+from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
+from cynic.kernel.organism.brain.cognition.cortex.residual import ResidualDetector
+from cynic.kernel.organism.brain.cognition.neurons.discovery import discover_dogs
+from cynic.kernel.organism.brain.learning.qlearning import LearningLoop, QTable
+from cynic.kernel.organism.handlers import (
+    CognitionServices,
+    HandlerRegistry,
+    MetabolicServices,
+    SensoryServices,
+    discover_handler_groups,
+)
+from cynic.kernel.organism.layers.embodiment import HardwareBody
+from cynic.kernel.organism.metabolism.llm_router import LLMRouter
+from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
+from cynic.kernel.organism.perception.senses.compressor import ContextCompressor
 from cynic.kernel.organism.sona_emitter import SonaEmitter
-from cynic.kernel.core.escore import EScoreTracker
-from cynic.kernel.core.storage.surreal import init_storage, get_storage
-from cynic.kernel.organism.handlers import HandlerRegistry, discover_handler_groups, CognitionServices, MetabolicServices, SensoryServices
+from cynic.kernel.organism.state_manager import OrganismState
 
 logger = logging.getLogger("cynic.kernel.organism.factory")
+
 
 class _OrganismAwakener:
     """Internal helper to build the Organism piece by piece."""
@@ -46,13 +52,14 @@ class _OrganismAwakener:
         self.db_pool = db_pool
         self.registry = registry
         from cynic.kernel.core.config import CynicConfig
+
         self.config = get_container().get(CynicConfig)
         self.storage = None
 
     async def build(self):
         """Assembles the 4 cores into a living Organism."""
         from cynic.kernel.organism.brain.cognition.neurons.base import DogId
-        
+
         # 0. STORAGE (SurrealDB)
         try:
             self.storage = await init_storage()
@@ -62,19 +69,20 @@ class _OrganismAwakener:
 
         # 1. BASE STATE
         self.state = OrganismState()
-        
+
         # 2. NEURONS (Dogs)
         self.dogs = discover_dogs()
         cynic_dog = self.dogs.get(DogId.CYNIC.value)
 
         # 3. COGNITION & STRATEGY
         self.qtable = QTable(storage=self.storage.qtable if self.storage else None)
-        
+
         scholar = self.dogs.get(DogId.SCHOLAR.value)
         if scholar and hasattr(scholar, "set_qtable"):
             scholar.set_qtable(self.qtable)
 
         from cynic.kernel.core.axioms import AxiomArchitecture
+
         axiom_arch = AxiomArchitecture()
         axiom_arch.state = self.state
 
@@ -89,6 +97,7 @@ class _OrganismAwakener:
         if hasattr(self.config, "gasdf_enabled") and self.config.gasdf_enabled:
             from cynic.kernel.organism.perception.integrations.gasdf.client import GASdfClient
             from cynic.kernel.organism.perception.integrations.gasdf.executor import GASdfExecutor
+
             client = GASdfClient(base_url=self.config.gasdf_url)
             gasdf_executor = GASdfExecutor(client=client)
 
@@ -97,7 +106,7 @@ class _OrganismAwakener:
             axiom_arch=axiom_arch,
             cynic_dog=cynic_dog,
             residual_detector=self.residual_detector,
-            gasdf_executor=gasdf_executor
+            gasdf_executor=gasdf_executor,
         )
 
         self.decide_agent = DecideAgent(qtable=self.qtable)
@@ -110,24 +119,26 @@ class _OrganismAwakener:
         self.account_agent = AccountAgent()
         self.llm_router = LLMRouter()
         self.lod_controller = LODController()
-        
+
         # E-Score with DB persistence
         self.escore_tracker = EScoreTracker(state_manager=self.state)
-        
+
         self.axiom_monitor = AxiomMonitor()
 
         # 4. METABOLISM (Body & Rhythm)
         self.body = HardwareBody()
         self.scheduler = ConsciousnessRhythm(self.orchestrator)
         self.scheduler.body = self.body
-        
-        from cynic.kernel.organism.metabolism.actuators import UniversalActuator, FileActuator
+
+        from cynic.kernel.organism.metabolism.actuators import FileActuator, UniversalActuator
+
         self.universal_actuator = UniversalActuator()
         self.universal_actuator.register("file_write", FileActuator())
 
         from cynic.kernel.organism.metabolism.claude_sdk import ClaudeCodeRunner
+
         self.runner = ClaudeCodeRunner(bus=get_core_bus(), sessions_registry={})
-        self.telemetry_store = None # Placeholder
+        self.telemetry_store = None  # Placeholder
 
         # 5. SENSES (Perception)
         self.context_compressor = ContextCompressor()
@@ -136,8 +147,9 @@ class _OrganismAwakener:
         self.topology_builder = IncrementalTopologyBuilder()
         self.mcp_bridge = MCPBridge(bus_name="CORE")
         self.convergence_validator = ConvergenceValidator()
-        
+
         from cynic.kernel.organism.perception.senses.internal import InternalSensor
+
         self.internal_sensor = InternalSensor()
         self.internal_sensor.start()
 
@@ -145,6 +157,7 @@ class _OrganismAwakener:
         self.sona_emitter = SonaEmitter(bus=get_core_bus(), db_pool=self.db_pool)
 
         from cynic.kernel.organism.perception.federation.gossip import GossipManager
+
         instance_id = os.environ.get("CYNIC_INSTANCE_ID", os.urandom(4).hex())
         self.gossip_manager = GossipManager(instance_id=instance_id, q_table=self.qtable)
 
@@ -154,18 +167,15 @@ class _OrganismAwakener:
             axiom_monitor=self.axiom_monitor,
             lod_controller=self.lod_controller,
             qtable=self.qtable,
-            health_cache={} # Shared health cache
+            health_cache={},  # Shared health cache
         )
-        meta_svc = MetabolicServices(
-            scheduler=self.scheduler,
-            body=self.body,
-            runner=self.runner
-        )
+        meta_svc = MetabolicServices(scheduler=self.scheduler, body=self.body, runner=self.runner)
         from cynic.nervous.service_registry import get_global_registry
+
         sens_svc = SensoryServices(
             compressor=self.context_compressor,
             service_registry=get_global_registry(),
-            world_model=self.world_model
+            world_model=self.world_model,
         )
 
         self.handler_registry = HandlerRegistry()
@@ -179,13 +189,18 @@ class _OrganismAwakener:
             direct={"universal_actuator": self.universal_actuator, "qtable": self.qtable},
             federation={"gossip_manager": self.gossip_manager},
             health={"storage_gc": None, "db_pool": self.db_pool},
-            intelligence={"orchestrator": self.orchestrator, "scheduler": self.scheduler, "db_pool": self.db_pool, "compressor": self.context_compressor},
-            judgment_executor={"orchestrator": self.orchestrator}
+            intelligence={
+                "orchestrator": self.orchestrator,
+                "scheduler": self.scheduler,
+                "db_pool": self.db_pool,
+                "compressor": self.context_compressor,
+            },
+            judgment_executor={"orchestrator": self.orchestrator},
         )
-        
+
         for group in handlers:
             self.handler_registry.register(group)
-        
+
         self.handler_registry.wire(get_core_bus())
 
         # 8. START AGENTS
@@ -193,6 +208,7 @@ class _OrganismAwakener:
         self.account_agent.start()
 
         from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+
         self.self_prober = SelfProber()
         self.self_prober.set_qtable(self.qtable)
         self.self_prober.set_residual_detector(self.residual_detector)
@@ -208,7 +224,7 @@ class _OrganismAwakener:
             decide_agent=self.decide_agent,
             account_agent=self.account_agent,
             axiom_monitor=self.axiom_monitor,
-            lod_controller=self.lod_controller
+            lod_controller=self.lod_controller,
         )
 
         metabolism = MetabolicCore(
@@ -216,7 +232,7 @@ class _OrganismAwakener:
             body=self.body,
             runner=self.runner,
             llm_router=self.llm_router,
-            telemetry_store=self.telemetry_store
+            telemetry_store=self.telemetry_store,
         )
 
         senses = SensoryCore(
@@ -226,7 +242,7 @@ class _OrganismAwakener:
             topology_builder=self.topology_builder,
             mcp_bridge=self.mcp_bridge,
             convergence_validator=self.convergence_validator,
-            internal_sensor=self.internal_sensor
+            internal_sensor=self.internal_sensor,
         )
 
         memory = ArchiveCore(
@@ -234,10 +250,11 @@ class _OrganismAwakener:
             action_proposer=self.action_proposer,
             self_prober=self.self_prober,
             sona_emitter=self.sona_emitter,
-            gossip_manager=self.gossip_manager
+            gossip_manager=self.gossip_manager,
         )
 
         from cynic.kernel.organism.organism import Organism
+
         return Organism(
             cognition=cognition,
             metabolism=metabolism,
@@ -245,12 +262,14 @@ class _OrganismAwakener:
             memory=memory,
             state=self.state,
             _pool=self.db_pool,
-            container=get_container()
+            container=get_container(),
         )
+
 
 async def awaken(db_pool=None, registry=None):
     """Entry point to wake up CYNIC."""
     return await _OrganismAwakener(db_pool, registry).build()
+
 
 async def create_organism(db_pool=None, registry=None):
     """Alias for awaken() used by tests."""

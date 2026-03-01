@@ -54,15 +54,17 @@ class IntelligenceHandlers(HandlerGroup):
         return "intelligence"
 
     def dependencies(self) -> frozenset[str]:
-        return frozenset({
-            "escore_tracker",
-            "lod_controller",
-            "axiom_monitor",
-            "orchestrator",
-            "scheduler",
-            "db_pool",
-            "compressor",
-        })
+        return frozenset(
+            {
+                "escore_tracker",
+                "lod_controller",
+                "axiom_monitor",
+                "orchestrator",
+                "scheduler",
+                "db_pool",
+                "compressor",
+            }
+        )
 
     def subscriptions(self) -> list[tuple[CoreEvent, callable]]:
         return [
@@ -97,16 +99,16 @@ class IntelligenceHandlers(HandlerGroup):
                 risk=0.1,
                 complexity=0.1,
                 budget_usd=0.01,
-                metadata={"source": event.source}
+                metadata={"source": event.source},
             )
 
             # Submit to scheduler
             self._scheduler.submit(
-                cell,
-                level=ConsciousnessLevel.REFLEX,
-                source=f"perception_{event.source}"
+                cell, level=ConsciousnessLevel.REFLEX, source=f"perception_{event.source}"
             )
-            logger.info("Intelligence: Perception received from %s → Triggered REFLEX cycle", event.source)
+            logger.info(
+                "Intelligence: Perception received from %s → Triggered REFLEX cycle", event.source
+            )
 
         except Exception as e:
             logger.debug("Intelligence: Failed to handle perception: %s", e)
@@ -133,7 +135,7 @@ class IntelligenceHandlers(HandlerGroup):
                 budget_usd=0.1,
                 metadata={
                     "source": "emergence_trigger",
-                }
+                },
             )
             self._scheduler.submit(cell, level=ConsciousnessLevel.META, source="emergence")
         except Exception as e:

@@ -4,6 +4,7 @@ Integration tests for health check endpoints with FastAPI.
 Tests verify that /system-health and /system-health/detailed endpoints
 work correctly when integrated into the API router.
 """
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient

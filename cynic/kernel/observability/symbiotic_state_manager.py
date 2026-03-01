@@ -8,6 +8,7 @@ SymbioticStateManager aggregates observations from:
 Returns a unified, immutable SymbioticState snapshot on demand.
 Uses κ-NET Protocol for real-time synchronization.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -38,12 +39,13 @@ class SymbioticStateManager:
         self.human_tracker = human_tracker
         self.machine_monitor = machine_monitor
         self._last_snapshot: SymbioticState | None = None
-        self._organism = None # Set via set_organism
+        self._organism = None  # Set via set_organism
         self.remote_mode = False
         self.api_url = "http://localhost:58765"
-        
+
         # κ-NET Nerve Client (IPv6 Default)
         from cynic.kernel.protocol.knet_client import KNetClient
+
         self.knet = KNetClient(uri="ws://[::1]:58766")
         self.knet.on_pulse(self._on_knet_pulse)
         self._last_pulse_data: dict[str, Any] = {}
@@ -81,21 +83,39 @@ class SymbioticStateManager:
                 human = await self.human_tracker.get_snapshot()
             except Exception:
                 from cynic.kernel.observability.models import HumanState
-                human = HumanState(energy=0.5, focus=0.5, intentions=[], values=[], feedback=[], growth_areas=[], timestamp=time.time())
-            
+
+                human = HumanState(
+                    energy=0.5,
+                    focus=0.5,
+                    intentions=[],
+                    values=[],
+                    feedback=[],
+                    growth_areas=[],
+                    timestamp=time.time(),
+                )
+
             # 2. Collect machine metrics (Local)
             try:
                 machine = await self.machine_monitor.get_snapshot()
             except Exception:
                 from cynic.kernel.observability.machine_monitor import MachineState
-                machine = MachineState(cpu_percent=0.0, memory_percent=0.0, disk_percent=0.0, network_bandwidth=0.0, temperature=0.0, health={}, timestamp=time.time())
-            
+
+                machine = MachineState(
+                    cpu_percent=0.0,
+                    memory_percent=0.0,
+                    disk_percent=0.0,
+                    network_bandwidth=0.0,
+                    temperature=0.0,
+                    health={},
+                    timestamp=time.time(),
+                )
+
             # 3. Collect CYNIC core metrics
             cynic_thinking = "Idle"
             cynic_planning = []
             cynic_confidence = 0.618
             cynic_e_score = 50.0
-            
+
             # Machine resources defaults to local
             machine_resources = {
                 "cpu": machine.cpu_percent,
@@ -103,7 +123,7 @@ class SymbioticStateManager:
                 "disk": machine.disk_percent,
             }
             machine_health = machine.health
-            
+
             # 3a. Local Instance
             if self._organism:
                 try:
@@ -114,7 +134,7 @@ class SymbioticStateManager:
                         cynic_e_score = self._organism.escore_tracker.get_total_escore()
                 except Exception as e:
                     logger.debug(f"SymbioticState Local fetch error: {e}")
-            
+
             # 3b. Remote Instance via κ-NET (Pulse)
             elif self.remote_mode and self._last_pulse_data:
                 try:
@@ -123,7 +143,7 @@ class SymbioticStateManager:
                     cynic_thinking = mind.get("thinking", "Awake (κ-NET)")
                     cynic_confidence = mind.get("confidence", 0.618)
                     cynic_e_score = mind.get("e_score", 50.0)
-                    
+
                     # Map remote hardware if available in the pulse
                     hw = data.get("hardware", {})
                     if hw:
@@ -160,7 +180,7 @@ class SymbioticStateManager:
                 conflicts=[],
                 mutual_influences=[],
                 shared_objectives=[],
-                timestamp=time.time()
+                timestamp=time.time(),
             )
             self._last_snapshot = snapshot
             return snapshot
@@ -171,6 +191,7 @@ class SymbioticStateManager:
                 return self._last_snapshot
             raise
 
+
 async def get_symbiotic_state_manager() -> SymbioticStateManager:
     """Get or create the global SymbioticStateManager singleton."""
     global _INSTANCE
@@ -179,18 +200,20 @@ async def get_symbiotic_state_manager() -> SymbioticStateManager:
             human = HumanStateTracker()
             machine = MachineMonitor()
             _INSTANCE = SymbioticStateManager(human, machine)
-            
+
             # 1. Try to auto-connect to global organism (In-process)
             try:
                 from cynic.interfaces.api.state import get_state
+
                 local_org = get_state()
                 if local_org:
                     _INSTANCE.set_organism(local_org)
                     return _INSTANCE
             except Exception:
                 pass
-                
+
     return _INSTANCE
+
 
 async def get_current_state() -> SymbioticState:
     """Helper to get the current symbiotic snapshot from the singleton manager."""

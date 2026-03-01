@@ -24,9 +24,9 @@ def sample_state() -> SymbioticState:
     return SymbioticState(
         # CYNIC state
         cynic_observations={
-            'system_health': 'nominal',
-            'attention_level': 'focused',
-            'reasoning_depth': 'deep',
+            "system_health": "nominal",
+            "attention_level": "focused",
+            "reasoning_depth": "deep",
         },
         cynic_thinking="Analyzing symbiotic equilibrium and alignment metrics",
         cynic_planning=[
@@ -45,19 +45,19 @@ def sample_state() -> SymbioticState:
         human_growth_areas={},
         # Machine state
         machine_resources={
-            'cpu_percent': 45.0,
-            'memory_percent': 62.0,
-            'disk_percent': 55.0,
-            'network_bandwidth': 1024.0,
-            'temperature': 55.0,
+            "cpu_percent": 45.0,
+            "memory_percent": 62.0,
+            "disk_percent": 55.0,
+            "network_bandwidth": 1024.0,
+            "temperature": 55.0,
         },
-        machine_constraints={'warnings': []},
+        machine_constraints={"warnings": []},
         machine_capability_delta=[],
         machine_health={
-            'is_healthy': True,
-            'cpu_ok': True,
-            'memory_ok': True,
-            'disk_ok': True,
+            "is_healthy": True,
+            "cpu_ok": True,
+            "memory_ok": True,
+            "disk_ok": True,
         },
         # Symbiotic relationship
         alignment_score=0.82,
@@ -439,17 +439,17 @@ class TestMachineView:
             human_feedback=[],
             human_growth_areas={},
             machine_resources={
-                'cpu_percent': 90.0,
-                'memory_percent': 95.0,
-                'disk_percent': 85.0,
+                "cpu_percent": 90.0,
+                "memory_percent": 95.0,
+                "disk_percent": 85.0,
             },
             machine_constraints={},
             machine_capability_delta=[],
             machine_health={
-                'is_healthy': False,
-                'cpu_ok': False,
-                'memory_ok': False,
-                'disk_ok': False,
+                "is_healthy": False,
+                "cpu_ok": False,
+                "memory_ok": False,
+                "disk_ok": False,
             },
             alignment_score=0.5,
             conflicts=[],
@@ -477,13 +477,13 @@ class TestMachineView:
             human_growth_areas={},
             machine_resources={},
             machine_constraints={
-                'warnings': [
+                "warnings": [
                     "Memory usage critical: 95.0%",
                     "CPU usage high: 85.0%",
                 ]
             },
             machine_capability_delta=[],
-            machine_health={'is_healthy': False},
+            machine_health={"is_healthy": False},
             alignment_score=0.5,
             conflicts=[],
             mutual_influences=[],
@@ -517,7 +517,7 @@ class TestMachineView:
             machine_resources={},
             machine_constraints={},
             machine_capability_delta=["GPU detected"],
-            machine_health={'is_healthy': True},
+            machine_health={"is_healthy": True},
             alignment_score=0.5,
             conflicts=[],
             mutual_influences=[],
@@ -553,22 +553,22 @@ class TestViewsIntegration:
             human_feedback=[],
             human_growth_areas={},
             machine_resources={
-                'cpu_percent': 95.0,
-                'memory_percent': 98.0,
-                'disk_percent': 92.0,
+                "cpu_percent": 95.0,
+                "memory_percent": 98.0,
+                "disk_percent": 92.0,
             },
             machine_constraints={
-                'warnings': [
+                "warnings": [
                     "Memory usage critical",
                     "Disk usage warning",
                 ]
             },
             machine_capability_delta=[],
             machine_health={
-                'is_healthy': False,
-                'cpu_ok': False,
-                'memory_ok': False,
-                'disk_ok': False,
+                "is_healthy": False,
+                "cpu_ok": False,
+                "memory_ok": False,
+                "disk_ok": False,
             },
             alignment_score=0.15,
             conflicts=[

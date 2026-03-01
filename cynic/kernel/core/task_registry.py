@@ -9,6 +9,7 @@ Prevents:
 Pattern: Singleton registry that tracks all active tasks,
 allowing graceful shutdown and error tracking.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -90,7 +91,7 @@ class TaskRegistry:
                     "done": info["task"].done(),
                 }
                 for task_id, info in instance._task_info.items()
-            ]
+            ],
         }
 
     @classmethod
@@ -117,10 +118,7 @@ class TaskRegistry:
 
         # Wait for cancellation with timeout
         try:
-            await asyncio.wait_for(
-                asyncio.gather(*active, return_exceptions=True),
-                timeout=timeout
-            )
+            await asyncio.wait_for(asyncio.gather(*active, return_exceptions=True), timeout=timeout)
             logger.info("All tasks cleaned up successfully")
         except TimeoutError:
             logger.warning(

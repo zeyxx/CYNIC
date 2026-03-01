@@ -14,6 +14,7 @@ from cynic.kernel.protocol.kpulse import PulseMessage, PulseType
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.knet")
 
+
 class KNetHandler(HandlerGroup):
     """Bridges internal consciousness to the distributed κ-NET nerves."""
 
@@ -38,6 +39,7 @@ class KNetHandler(HandlerGroup):
             # 1. Get the knet server (async lazy init)
             if not self._server:
                 from cynic.kernel.protocol.knet_server import get_knet_server
+
                 # Note: This might already be started by FastAPI, but we ensure access
                 self._server = await get_knet_server()
 
@@ -51,13 +53,11 @@ class KNetHandler(HandlerGroup):
             # 3. Build the Pulse
             # We wrap the event payload into a standardized Pulse
             from cynic.interfaces.api.state import get_state
+
             org = get_state()
-            
-            pulse_data = {
-                "event_topic": event.topic,
-                "payload": event.dict_payload
-            }
-            
+
+            pulse_data = {"event_topic": event.topic, "payload": event.dict_payload}
+
             # Enrich with global health if it's a heartbeat
             if p_type == PulseType.SOMATIC_SYNC and org:
                 stats = org.state.get_stats()
@@ -66,7 +66,7 @@ class KNetHandler(HandlerGroup):
                     "thinking": stats.get("current_analysis", ""),
                     "confidence": stats.get("confidence", 0.618),
                     "e_score": stats.get("e_score", 50.0),
-                    "axiom_scores": stats.get("axiom_scores", {})
+                    "axiom_scores": stats.get("axiom_scores", {}),
                 }
                 # Add hardware if available
                 if hasattr(org.metabolism, "body") and org.metabolism.body:
@@ -74,10 +74,7 @@ class KNetHandler(HandlerGroup):
                     if body_state:
                         pulse_data["hardware"] = body_state.to_dict()
 
-            pulse = PulseMessage(
-                type=p_type,
-                data=pulse_data
-            )
+            pulse = PulseMessage(type=p_type, data=pulse_data)
 
             # 4. Broadcast to all connected nerves
             await self._server.broadcast(pulse)

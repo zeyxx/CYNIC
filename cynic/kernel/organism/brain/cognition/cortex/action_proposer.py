@@ -6,19 +6,21 @@ into actionable proposals for the organism's motor system (ActHandlers).
 
 Memory Unification: Now uses SurrealDB ActionProposalRepo instead of JSON files.
 """
+
 from __future__ import annotations
 
 import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
-from cynic.kernel.core.events_schema import DecisionMadePayload, ActionProposedPayload
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.events_schema import ActionProposedPayload, DecisionMadePayload
 from cynic.kernel.core.storage.interface import ActionProposalRepoInterface
 
 logger = logging.getLogger("cynic.kernel.brain.cognition.action_proposer")
+
 
 @dataclass
 class ProposedAction:
@@ -30,7 +32,7 @@ class ProposedAction:
     priority: int = 5
     status: str = "PENDING"  # PENDING, EXECUTING, COMPLETED, FAILED, BLOCKED
     proposed_at: float = field(default_factory=time.time)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -42,14 +44,16 @@ class ProposedAction:
             "priority": self.priority,
             "status": self.status,
             "proposed_at": self.proposed_at,
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
+
 
 class ActionProposer:
     """
     Manages the lifecycle of proposed actions from judgment outcomes.
     Persistence is fully handled by SurrealDB via the injected repository.
     """
+
     def __init__(self, repo: ActionProposalRepoInterface):
         self.repo = repo
         self._last_stats = {"pending": 0, "total": 0}
@@ -64,7 +68,7 @@ class ActionProposer:
         """Handle new decisions from the orchestrator."""
         try:
             payload = event.as_typed(DecisionMadePayload)
-            
+
             # Filter: only propose actions for specific verdicts (e.g., ACT)
             if payload.verdict != "ACT":
                 return
@@ -75,7 +79,7 @@ class ActionProposer:
                 reality=payload.reality,
                 action_prompt=payload.action_prompt,
                 priority=1 if payload.q_value > 80 else 5,
-                metadata={"q_value": payload.q_value, "confidence": payload.confidence}
+                metadata={"q_value": payload.q_value, "confidence": payload.confidence},
             )
 
             await self.add_proposal(action)
@@ -90,31 +94,37 @@ class ActionProposer:
             await self.repo.upsert(action.to_dict())
 
             # Emit ACTION_PROPOSED
-            await get_core_bus().emit(Event.typed(
-                CoreEvent.ACTION_PROPOSED,
-                ActionProposedPayload(
-                    action_id=action.action_id,
-                    judgment_id=action.judgment_id,
-                    reality=action.reality,
-                    priority=action.priority,
-                    action_prompt=action.action_prompt
-                ),
-                source="action_proposer"
-            ))
-            
-            logger.info("ACTION PROPOSED: %s (priority=%d) -> Stored in SurrealDB", action.action_id, action.priority)
+            await get_core_bus().emit(
+                Event.typed(
+                    CoreEvent.ACTION_PROPOSED,
+                    ActionProposedPayload(
+                        action_id=action.action_id,
+                        judgment_id=action.judgment_id,
+                        reality=action.reality,
+                        priority=action.priority,
+                        action_prompt=action.action_prompt,
+                    ),
+                    source="action_proposer",
+                )
+            )
+
+            logger.info(
+                "ACTION PROPOSED: %s (priority=%d) -> Stored in SurrealDB",
+                action.action_id,
+                action.priority,
+            )
             return True
         except Exception as e:
             logger.error(f"ActionProposer: Failed to persist to SurrealDB: {e}")
             return False
 
-    async def get_next_action(self) -> Optional[ProposedAction]:
+    async def get_next_action(self) -> ProposedAction | None:
         """Retrieve the highest priority pending action from SurrealDB."""
         try:
             pending = await self.repo.all_pending()
             if not pending:
                 return None
-            
+
             # Map back to dataclass
             data = pending[0]
             return ProposedAction(**data)
@@ -133,15 +143,12 @@ class ActionProposer:
         try:
             all_actions = await self.repo.all()
             pending = [a for a in all_actions if a["status"] == "PENDING"]
-            self._last_stats = {
-                "pending": len(pending),
-                "total": len(all_actions)
-            }
+            self._last_stats = {"pending": len(pending), "total": len(all_actions)}
         except Exception:
             pass
 
     def stats(self) -> dict:
         return {
             "pending_count": self._last_stats["pending"],
-            "total_count": self._last_stats["total"]
+            "total_count": self._last_stats["total"],
         }

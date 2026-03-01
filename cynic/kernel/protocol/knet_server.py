@@ -17,6 +17,7 @@ from cynic.kernel.protocol.kpulse import PulseMessage, PulseType
 
 logger = logging.getLogger("cynic.kernel.protocol.knet_server")
 
+
 class KNetServer:
     """
     The Brain's Somatic Broadcaster.
@@ -37,7 +38,7 @@ class KNetServer:
                 self._handler,
                 self.host,
                 self.port,
-                family=socket.AF_INET6 if ":" in self.host else socket.AF_INET
+                family=socket.AF_INET6 if ":" in self.host else socket.AF_INET,
             )
             self._running = True
             logger.info(f"K-NET Server active on [{self.host}]:{self.port}")
@@ -59,10 +60,11 @@ class KNetServer:
     async def _handler(self, websocket, path):
         """Handle new nerve connections."""
         self.clients.add(websocket)
-        
+
         # Immediate welcome pulse for instant UI update
         try:
             from cynic.interfaces.api.state import get_state
+
             org = get_state()
             if org:
                 stats = org.state.get_stats()
@@ -72,7 +74,7 @@ class KNetServer:
                         "thinking": stats.get("current_analysis", "Synchronizing..."),
                         "confidence": stats.get("confidence", 0.618),
                         "e_score": stats.get("e_score", 50.0),
-                        "axiom_scores": stats.get("axiom_scores", {})
+                        "axiom_scores": stats.get("axiom_scores", {}),
                     }
                 }
                 # Add hardware
@@ -100,16 +102,16 @@ class KNetServer:
         """Stream a κ-PULSE to all connected nerves."""
         if not self.clients:
             return
-        
+
         payload = json.dumps(pulse.to_dict())
         disconnected = set()
-        
+
         for client in self.clients:
             try:
                 await client.send(payload)
             except Exception:
                 disconnected.add(client)
-        
+
         for client in disconnected:
             self.clients.remove(client)
 
@@ -123,8 +125,10 @@ class KNetServer:
         except Exception as e:
             logger.warning(f"κ-NET: Failed to process message: {e}")
 
+
 # Global instance for the container
 _KNET_SERVER: KNetServer | None = None
+
 
 async def get_knet_server() -> KNetServer:
     global _KNET_SERVER

@@ -15,11 +15,12 @@ Factory support:
 
 φ-Law: BURN — simplest possible DI, not Spring.
 """
+
 from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import Any, TypeVar, Optional
+from typing import Any, TypeVar
 
 from cynic.kernel.core.config import CynicConfig
 
@@ -74,9 +75,7 @@ class DependencyContainer:
         if interface in self._factories:
             if interface in self._resolving:
                 chain = " → ".join(t.__name__ for t in self._resolving)
-                raise RuntimeError(
-                    f"Circular dependency detected: {chain} → {interface.__name__}"
-                )
+                raise RuntimeError(f"Circular dependency detected: {chain} → {interface.__name__}")
             self._resolving.add(interface)
             try:
                 instance = self._factories[interface](self)
@@ -108,8 +107,10 @@ class DependencyContainer:
             "types": self.registered_types,
         }
 
+
 # Global singleton for core kernel access
-_container: Optional[DependencyContainer] = None
+_container: DependencyContainer | None = None
+
 
 def get_container() -> DependencyContainer:
     """Retrieve or initialize global container."""

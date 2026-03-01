@@ -9,6 +9,7 @@ Responsibility:
 - Enumerate all handlers (for discovery, introspection)
 - Provide summary metadata (versions, descriptions) for all handlers
 """
+
 from __future__ import annotations
 
 import logging
@@ -67,9 +68,7 @@ class HandlerRegistry:
         """
         if handler_id not in self.handlers:
             available = ", ".join(self.list_ids())
-            raise KeyError(
-                f"Handler '{handler_id}' not found. Available: {available}"
-            )
+            raise KeyError(f"Handler '{handler_id}' not found. Available: {available}")
         return self.handlers[handler_id]
 
     def all(self) -> dict[str, BaseHandler]:

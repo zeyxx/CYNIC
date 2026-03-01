@@ -11,6 +11,7 @@ Key classes:
 - UnifiedQTable: Q-Learning table with φ-bounded confidence
 - LearningSession: Tracks outcomes and computes learning statistics
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -108,10 +109,7 @@ class UnifiedQTable:
         Returns:
             confidence [0, PHI_INV], φ-bounded to max 0.618
         """
-        matching_qs = [
-            q for (pred, _), q in self.values.items()
-            if pred == verdict
-        ]
+        matching_qs = [q for (pred, _), q in self.values.items() if pred == verdict]
         if not matching_qs:
             return 0.5
 
@@ -162,10 +160,7 @@ class LearningSession:
         if not self.outcomes:
             return 0.0
 
-        correct = sum(
-            1 for o in self.outcomes
-            if o.predicted_verdict == o.actual_verdict
-        )
+        correct = sum(1 for o in self.outcomes if o.predicted_verdict == o.actual_verdict)
         return correct / len(self.outcomes)
 
     def satisfaction_average(self) -> float:
