@@ -37,6 +37,12 @@ from cynic.nervous.service_registry import (
 )
 from cynic.nervous.bus_loop_closure_adapter import BusLoopClosureAdapter
 from cynic.nervous.state_reconstructor import StateReconstructor
+from cynic.nervous.event_metrics import (
+    EventMetricsCollector,
+    EventTypeMetrics,
+    AnomalyRecord,
+)
+from cynic.nervous.bus_metrics_adapter import BusMetricsAdapter
 
 __all__ = [
     "ServiceStateRegistry",
@@ -57,4 +63,8 @@ __all__ = [
     "CyclePhase",
     "BusLoopClosureAdapter",
     "StateReconstructor",
+    "EventMetricsCollector",
+    "EventTypeMetrics",
+    "AnomalyRecord",
+    "BusMetricsAdapter",
 ]

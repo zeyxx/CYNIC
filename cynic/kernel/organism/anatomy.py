@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from cynic.nervous.event_journal import EventJournal
     from cynic.nervous.loop_closure import LoopClosureValidator
     from cynic.nervous.state_reconstructor import StateReconstructor
+    from cynic.nervous.event_metrics import EventMetricsCollector
 
 
 @dataclass(frozen=True)
@@ -99,3 +100,4 @@ class ArchiveCore:
     journal: Optional[EventJournal] = None
     loop_validator: Optional[LoopClosureValidator] = None
     reconstructor: Optional[StateReconstructor] = None
+    metrics_collector: Optional[EventMetricsCollector] = None

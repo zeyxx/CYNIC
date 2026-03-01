@@ -56,6 +56,8 @@ from cynic.nervous.decision_trace import DecisionTracer
 from cynic.nervous.loop_closure import LoopClosureValidator
 from cynic.nervous.bus_loop_closure_adapter import BusLoopClosureAdapter
 from cynic.nervous.state_reconstructor import StateReconstructor
+from cynic.nervous.event_metrics import EventMetricsCollector
+from cynic.nervous.bus_metrics_adapter import BusMetricsAdapter
 
 logger = logging.getLogger("cynic.kernel.organism.factory")
 
@@ -108,6 +110,11 @@ class _OrganismAwakener:
             tracer=self.tracer,
             validator=self.loop_validator,
         )
+
+        # 0f. EVENT METRICS COLLECTOR — rolling rates, histograms, anomaly detection
+        self.metrics_collector = EventMetricsCollector()
+        self._metrics_adapter = BusMetricsAdapter(self.metrics_collector, bus=instance_bus)
+        instance_bus.on("*", self._metrics_adapter.on_event)
 
         # 1. BASE STATE
         self.state = OrganismState(instance_id=instance_id, storage=self.storage, bus=instance_bus)
@@ -352,6 +359,7 @@ class _OrganismAwakener:
             journal=self.journal,
             loop_validator=self.loop_validator,
             reconstructor=self.reconstructor,
+            metrics_collector=self.metrics_collector,
         )
 
         from cynic.kernel.organism.organism import Organism

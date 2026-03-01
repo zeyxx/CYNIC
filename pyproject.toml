@@ -1,134 +1,19 @@
-[tool.poetry]
-name = "cynic"
-version = "0.2.0"
-description = "CYNIC - Living Conscious Organism (κυνικός)"
-authors = ["CYNIC Collective <cynic@asdfasdfa.dog>"]
-readme = "README.md"
-packages = [{include = "cynic"}]
-
-[tool.poetry.dependencies]
-python = "^3.13"
-
-# Core
-pydantic = "^2.6.0"
-pydantic-settings = "^2.2.0"
-httpx = "^0.27.0"
-
-# Database — SurrealDB (primary multi-model store)
-surrealdb = "^0.3.2"
-
-# Database — asyncpg (3.13 wheels available from 0.30.0)
-asyncpg = "^0.30.0"
-
-# API Daemon
-fastapi = "^0.110.0"
-uvicorn = {extras = ["standard"], version = "^0.29.0"}
-websockets = ">=10.4"
-
-# Observability
-prometheus-client = "^0.24.0"
-
-# Model Context Protocol (MCP) — Claude Code bridge
-mcp = "^1.5.0"
-
-# CLI
-typer = {extras = ["all"], version = "^0.12.0"}
-rich = "^13.7.0"
-psutil = "^5.9.0"
-
-# AI / LLM Adapters
-anthropic = "^0.23.0"
-google-generativeai = "^0.8.0"
-ollama = ">=0.4.0"
-llama-cpp-python = {version = "^0.3.0", optional = true}
-
-# Dogs Technologies
-scikit-learn = "^1.5.0"       # GUARDIAN: IsolationForest (3.13 wheels from 1.5)
-z3-solver = "^4.13.0"         # ANALYST: Formal Verification
-networkx = "^3.3"              # CARTOGRAPHER: Graph algorithms
-graphviz = "^0.20.0"           # CARTOGRAPHER: Visualization
-ruff = "^0.4.0"                # JANITOR: AST linting
-
-# Learning Algorithms (numpy 2.0: 3.13 wheels + removed deprecated aliases)
-numpy = "^2.0.0"
-
-# TUI
-textual = "^0.80.0"
-
-# Async utilities
-aiofiles = "^23.2.1"
-aiohttp = "^3.9.0"
-
-# Docker Management (native SDK, no CLI friction)
-docker = "^7.0.0"
-
-[tool.poetry.extras]
-local-inference = ["llama-cpp-python"]
-training = ["unsloth", "transformers", "datasets", "trl", "accelerate", "peft", "torch"]
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.1.0"
-pytest-asyncio = "^0.23.0"
-pytest-cov = "^5.0.0"
-pytest-docker = "^3.1.0"
-pytest-timeout = "^2.3.0"
-mypy = "^1.9.0"
-
-[tool.poetry.group.bots.dependencies]
-"python-telegram-bot" = "^21.0"
-
-[tool.poetry.group.training.dependencies]
-# Fine-tuning Mistral 7B with Unsloth QLoRA (optional, GPU-only)
-unsloth = {version = "^2024.1", optional = true}
-transformers = "^4.40.0"
-datasets = "^2.18.0"
-trl = "^0.9.0"
-accelerate = "^0.30.0"
-peft = "^0.11.0"
-torch = {version = "^2.1.0", optional = true}
-
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
-testpaths = ["tests"]
-python_files = "test_*.py"
-python_classes = "Test*"
-python_functions = "test_*"
-# Default: skip slow integration tests (Ollama + DB required)
-# Run them explicitly: pytest -m integration | pytest -m db_integration
-# Canonical Windows command: PYTHONUTF8=1 python -m pytest tests/
-addopts = "-m 'not integration and not db_integration'"
-log_cli = false   # disable live log capture — avoids CP1252 crash on log emoji
-markers = [
-    "integration: requires real Ollama (gemma2:2b) at localhost:11434",
-    "db_integration: requires real PostgreSQL (cynic_py Docker or CYNIC_DATABASE_URL)",
-]
-
-[tool.mypy]
-python_version = "3.13"
-strict = true
-warn_return_any = true
-warn_unused_configs = true
-
-[tool.ruff]
+# CYNIC Ruff Configuration — Industrial Grade
 target-version = "py313"
 line-length = 100
-select = [
-    "E",   # pycodestyle errors
-    "F",   # pyflakes
-    "I",   # isort
-    "B",   # flake8-bugbear (important for LLM logic bugs)
-    "C4",  # flake8-comprehensions
-    "UP",  # pyupgrade
-    "ASYNC", # flake8-async (crucial for our event loop)
-    "T20", # flake8-print (no prints allowed in kernel)
-]
-ignore = ["E501"] # Line too long (handled by formatter)
 
-[tool.ruff.lint]
-fixable = ["ALL"]
-unfixable = []
+[lint]
+# E: Error, F: Pyflakes, B: Flake8-bugbear, I: Isort, N: Pep8-naming
+# UP: Pyupgrade, PL: Pylint, TID: Tidy-imports
+select = ["E", "F", "B", "I", "N", "UP", "PL", "TID"]
+ignore = ["PLR0913"] # Allow more than 5 arguments in constructor (needed for Factory)
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[lint.isort]
+known-first-party = ["cynic"]
+combine-as-imports = true
+
+[format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "lf"
