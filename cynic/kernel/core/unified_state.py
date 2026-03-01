@@ -48,7 +48,20 @@ class UnifiedJudgment:
     latency_ms: float = 0.0
 
     def __post_init__(self):
-        """Wrap dicts in MappingProxyType for true immutability."""
+        """Validate and wrap dicts in MappingProxyType for true immutability."""
+        # Validate q_score is in [0, 100]
+        if not (0 <= self.q_score <= 100):
+            raise ValueError(f"q_score must be in [0, 100], got {self.q_score}")
+
+        # Validate confidence is in [0, MAX_CONFIDENCE (0.618)]
+        if not (0 <= self.confidence <= MAX_CONFIDENCE):
+            raise ValueError(f"confidence must be in [0, {MAX_CONFIDENCE}], got {self.confidence}")
+
+        # Validate verdict is in {HOWL, WAG, GROWL, BARK}
+        valid_verdicts = {"HOWL", "WAG", "GROWL", "BARK"}
+        if self.verdict not in valid_verdicts:
+            raise ValueError(f"verdict must be in {valid_verdicts}, got {self.verdict}")
+
         # Wrap axiom_scores
         if self.axiom_scores and not isinstance(self.axiom_scores, MappingProxyType):
             object.__setattr__(
