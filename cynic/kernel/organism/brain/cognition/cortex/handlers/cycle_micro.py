@@ -88,12 +88,12 @@ class MicroCycleHandler(BaseHandler):
             # PBFT consensus (only if cynic_dog available)
             consensus = None
             if self.cynic_dog is not None:
-                consensus = await self.cynic_dog.pbft_run(cell, pipeline.dog_judgments)
+                consensus = await self.cynic_dog.phi_bft_run(cell, pipeline.dog_judgments)
                 pipeline.consensus = consensus
 
             # Check if escalation needed
             escalate_to_macro = False
-            if consensus and consensus.confidence < 0.5:  # Low confidence in consensus
+            if consensus and consensus.final_confidence < 0.5:  # Low confidence in consensus
                 remaining_budget = cell.budget_usd * (1.0 - PHI_INV_2)  # ~61.8% left
                 if remaining_budget > 0.0001:  # $0.1 milli minimum
                     # Check LOD cap (if lod_controller available)
@@ -106,11 +106,11 @@ class MicroCycleHandler(BaseHandler):
 
                     if capped == ConsciousnessLevel.MACRO:
                         dog_votes = (
-                            consensus.evidence.get("dog_votes", 0) if consensus.evidence else 0
+                            len(consensus.dog_judgments) if consensus.dog_judgments else 0
                         )
                         logger.info(
                             "L2→L1 escalation: MICRO consensus weak (confidence=%.2f, dogs=%d) for cell %s",
-                            consensus.confidence,
+                            consensus.final_confidence,
                             dog_votes,
                             cell.cell_id,
                         )
@@ -157,7 +157,7 @@ class MicroCycleHandler(BaseHandler):
             consensus_votes = len(pipeline.dog_judgments) if consensus else 0
             consensus_quorum = 7  # Standard quorum for MICRO level
             consensus_reached = (
-                consensus is not None and consensus.confidence >= PHI_INV and not escalate_to_macro
+                consensus is not None and consensus.final_confidence >= PHI_INV and not escalate_to_macro
             )
 
             judgment = Judgment(

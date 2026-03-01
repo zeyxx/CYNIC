@@ -164,6 +164,8 @@ async def get_judgment(judgment_id: str, container: AppContainer = Depends(get_a
         jid = getattr(j, "judgment_id", None) or (j.get("judgment_id") if isinstance(j, dict) else None)
         if jid == judgment_id:
             res = j.to_dict() if hasattr(j, "to_dict") else (j if isinstance(j, dict) else vars(j))
+            # Convert any mappingproxy to dict for Pydantic serialization
+            res = {k: (dict(v) if "mappingproxy" in str(type(v)) else v) for k, v in res.items()}
             res["status"] = "COMPLETED"
             return res
             

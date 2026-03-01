@@ -1,7 +1,0 @@
-    Updating crates.io index
-error: failed to select a version for the requirement `parity-secp256k1 = "^0.7"`
-  version 0.7.0 is yanked
-location searched: crates.io index
-required by package `near-crypto v0.13.0`
-    ... which satisfies dependency `near-crypto = "^0.13"` of package `near-sdk v4.0.0`
-    ... which satisfies dependency `near-sdk = "^4.0"` of package `governance-contract v0.1.0 (C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC-clean\contracts)`

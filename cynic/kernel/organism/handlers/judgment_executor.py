@@ -196,7 +196,7 @@ class JudgmentExecutorHandler(HandlerGroup):
             _orchestrator_breaker.record_failure()
             await self._emit_judgment_failed(
                 judgment_id=judgment_id,
-                cell_id=payload.get("cell_id", ""),
+                cell_id=event.dict_payload.get("cell_id", ""),
                 reason="cynic_error",
                 error_message=str(e),
             )
@@ -210,7 +210,7 @@ class JudgmentExecutorHandler(HandlerGroup):
             _orchestrator_breaker.record_failure()
             await self._emit_judgment_failed(
                 judgment_id=judgment_id,
-                cell_id=payload.get("cell_id", ""),
+                cell_id=event.dict_payload.get("cell_id", ""),
                 reason="exception",
                 error_message=f"{type(e).__name__}: {e}",
             )

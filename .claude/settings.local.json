@@ -161,7 +161,9 @@
       "Bash(read f:*)",
       "Bash(/tmp/final_summary.txt:*)",
       "Bash(gh repo:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(gh auth:*)",
+      "Bash(gh pr:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
