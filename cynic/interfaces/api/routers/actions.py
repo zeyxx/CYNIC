@@ -1,5 +1,5 @@
 """
-CYNIC actions router â€” proposed-actions Â· self-probes
+CYNIC actions router — proposed-actions · self-probes
 """
 from __future__ import annotations
 
@@ -19,12 +19,6 @@ logger = logging.getLogger("cynic.interfaces.api.server")
 router_actions = APIRouter(tags=["actions"])
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# GET /actions â€” list proposed actions
-# POST /actions/{id}/accept â€” approve a proposed action
-# POST /actions/{id}/reject â€” decline a proposed action
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
 @router_actions.get("/actions")
 async def list_actions(
     status: str | None = Query(default=None, description="Filter by status: PENDING/ACCEPTED/REJECTED/AUTO_EXECUTED"),
@@ -32,18 +26,12 @@ async def list_actions(
 ) -> dict[str, Any]:
     """
     List proposed actions from the ActionProposer queue.
-
-    These are the concrete actions CYNIC wants to take after BARK/GROWL judgments.
-    Sorted by priority (1=critical first), then by proposed_at.
-
-    status=PENDING (default)    â†’ actions awaiting human decision
-    status=ACCEPTED             â†’ approved actions
-    status=REJECTED             â†’ declined actions
-    status=AUTO_EXECUTED        â†’ automatically executed by runner
-    status=all                  â†’ full queue
     """
-    state = container.organism
-    proposer = state.action_proposer
+    org = container.organism
+    proposer = org.memory.action_proposer
+
+    if proposer is None:
+        return {"actions": [], "count": 0, "stats": {}, "message": "ActionProposer not active"}
 
     if status is None or status == "PENDING":
         actions = proposer.pending()
@@ -65,32 +53,36 @@ async def accept_action(
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
     """
-    Accept a proposed action â€” marks it ACCEPTED and signals ANTIFRAGILITY axiom.
-
-    After accepting, the human (or another component) can execute the prompt.
-    CYNIC logs the acceptance and uses it to reinforce the Q-Table next cycle.
+    Accept a proposed action — marks it ACCEPTED and signals ANTIFRAGILITY axiom.
     """
-    state = container.organism
-    action = state.action_proposer.accept(action_id)
+    org = container.organism
+    proposer = org.memory.action_proposer
+    if proposer is None:
+        raise HTTPException(status_code=503, detail="ActionProposer not active")
+
+    action = proposer.accept(action_id)
     if action is None:
         raise HTTPException(status_code=404, detail=f"Action {action_id} not found")
 
-    # ANTIFRAGILITY axiom: humanÃ—machine co-decision = adaptive strength
-    try:
-        new_state = state.axiom_monitor.signal("ANTIFRAGILITY")
+    bus = org.cognition.orchestrator.bus
+
+    # ANTIFRAGILITY axiom
+    if org.cognition.axiom_monitor:
+        new_state = org.cognition.axiom_monitor.signal("ANTIFRAGILITY")
         if new_state == "ACTIVE":
-            await get_core_bus("DEFAULT").emit(Event.typed(
+            await bus.emit(Event.typed(
                 CoreEvent.AXIOM_ACTIVATED,
-                AxiomActivatedPayload(axiom="ANTIFRAGILITY", maturity=state.axiom_monitor.get_maturity("ANTIFRAGILITY"), trigger="action_accept"),
+                AxiomActivatedPayload(
+                    axiom="ANTIFRAGILITY", 
+                    maturity=org.cognition.axiom_monitor.get_maturity("ANTIFRAGILITY"), 
+                    trigger="action_accept"
+                ),
                 source="action_accept",
             ))
-    except EventBusError:
-        pass
 
-    # â”€â”€ L1 closure: accepted â†’ fire ACT_REQUESTED â†’ runner executes â”€â”€â”€â”€â”€â”€
-    # This closes the Machineâ†’Actions loop: accept = authorize execution.
+    # L1 closure: fire ACT_REQUESTED
     if action.prompt:
-        await get_core_bus("DEFAULT").emit(Event.typed(
+        await bus.emit(Event.typed(
             CoreEvent.ACT_REQUESTED,
             ActRequestedPayload(
                 action=action.prompt,
@@ -98,18 +90,17 @@ async def accept_action(
             ),
             source="action_accept",
         ))
-        logger.info("*ears perk* Action %s â†’ ACT_REQUESTED fired (L1 auto-execute)", action_id)
+        logger.info("*ears perk* Action %s → ACT_REQUESTED fired", action_id)
 
-    # Social loop: accept = positive humanÃ—machine interaction
+    # Social loop
     _append_social_signal(
         source="cynic_interaction",
         sentiment=0.5,
-        volume=30.0,
         topic=action.action_type or "action",
         signal_type="accept",
     )
 
-    logger.info("*tail wag* Action %s ACCEPTED by human", action_id)
+    logger.info("*tail wag* Action %s ACCEPTED", action_id)
     return {"accepted": True, "action": action.to_dict(), "executing": bool(action.prompt)}
 
 
@@ -119,50 +110,36 @@ async def reject_action(
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
     """
-    Reject a proposed action â€” marks it REJECTED.
-
-    CYNIC learns from rejections: the next Q-Table update for this state_key
-    will have a lower reward signal (indirect â€” via the /feedback loop).
+    Reject a proposed action — marks it REJECTED.
     """
-    state = container.organism
-    action = state.action_proposer.reject(action_id)
+    org = container.organism
+    proposer = org.memory.action_proposer
+    if proposer is None:
+        raise HTTPException(status_code=503, detail="ActionProposer not active")
+
+    action = proposer.reject(action_id)
     if action is None:
         raise HTTPException(status_code=404, detail=f"Action {action_id} not found")
 
-    # â”€â”€ L1 closure: rejection â†’ negative QTable signal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    # Rejection = human says "this decision was wrong" â€” feed it back.
     if action.state_key:
-        state.qtable.update(LearningSignal(
+        org.cognition.learning_loop.qtable.update(LearningSignal(
             state_key=action.state_key,
             action=action.verdict,
-            reward=0.10,  # low reward (near floor) = bad decision signal
+            reward=0.10,
             judgment_id=action.judgment_id,
             loop_name="ACTION_REJECTED",
         ))
-        logger.info(
-            "*head tilt* Action %s REJECTED â†’ Q[%s][%s] penalized",
-            action_id, action.state_key, action.verdict,
-        )
 
-    # Social loop: reject = negative interaction (still valuable â€” CYNIC learns)
     _append_social_signal(
         source="cynic_interaction",
         sentiment=-0.3,
-        volume=20.0,
         topic=action.action_type or "action",
         signal_type="reject",
     )
 
-    logger.info("*head tilt* Action %s REJECTED by human", action_id)
+    logger.info("*head tilt* Action %s REJECTED", action_id)
     return {"rejected": True, "action": action.to_dict()}
 
-
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# GET  /self-probes          â€” list self-improvement proposals (L4)
-# POST /self-probes/analyze  â€” trigger manual analysis
-# POST /self-probes/{probe_id}/dismiss
-# POST /self-probes/{probe_id}/apply
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_actions.get("/self-probes")
 async def list_self_probes(
@@ -170,17 +147,13 @@ async def list_self_probes(
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
     """
-    List SelfProber proposals â€” CYNIC's analysis of its own performance gaps.
-
-    L4 CYNICâ†’CYNIC self-improvement loop. Proposals are generated when
-    ResidualDetector detects SPIKE/RISING/STABLE_HIGH patterns and SelfProber
-    analyzes QTable, EScore, and Config recommendations.
-
-    status=PENDING (default) â†’ proposals awaiting review
-    status=all               â†’ full history
+    List SelfProber proposals — CYNIC's analysis of its own performance gaps.
     """
-    state = container.organism
-    prober = state.self_prober
+    org = container.organism
+    prober = org.memory.self_prober
+
+    if prober is None:
+        return {"proposals": [], "count": 0, "stats": {}, "message": "SelfProber not active"}
 
     if status is None or status == "PENDING":
         proposals = prober.pending()
@@ -204,12 +177,12 @@ async def trigger_self_analysis(
 ) -> dict[str, Any]:
     """
     Trigger a manual self-analysis run.
-
-    Useful for testing or when you want CYNIC to introspect on demand.
-    Returns newly generated proposals.
     """
-    state = container.organism
-    prober = state.self_prober
+    org = container.organism
+    prober = org.memory.self_prober
+    if prober is None:
+        raise HTTPException(status_code=503, detail="SelfProber not active")
+
     new_proposals = prober.analyze(
         trigger="MANUAL",
         pattern_type=pattern_type,
@@ -227,9 +200,12 @@ async def dismiss_probe(
     probe_id: str,
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
-    """Dismiss a self-improvement proposal â€” marks it DISMISSED."""
-    state = container.organism
-    proposal = state.self_prober.dismiss(probe_id)
+    """Dismiss a self-improvement proposal."""
+    org = container.organism
+    if org.memory.self_prober is None:
+        raise HTTPException(status_code=503, detail="SelfProber not active")
+
+    proposal = org.memory.self_prober.dismiss(probe_id)
     if proposal is None:
         raise HTTPException(status_code=404, detail=f"Probe {probe_id} not found")
     return {"dismissed": True, "proposal": proposal.to_dict()}
@@ -241,8 +217,11 @@ async def apply_probe(
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
     """Mark a self-improvement proposal as APPLIED."""
-    state = container.organism
-    proposal = state.self_prober.apply(probe_id)
+    org = container.organism
+    if org.memory.self_prober is None:
+        raise HTTPException(status_code=503, detail="SelfProber not active")
+
+    proposal = org.memory.self_prober.apply(probe_id)
     if proposal is None:
         raise HTTPException(status_code=404, detail=f"Probe {probe_id} not found")
     logger.info("*tail wag* Self-probe %s APPLIED", probe_id)

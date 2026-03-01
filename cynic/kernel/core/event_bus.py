@@ -11,7 +11,7 @@ from collections import defaultdict
 from collections.abc import Callable, Coroutine
 from contextvars import ContextVar
 from enum import Enum
-from typing import Any, Optional, TypeVar, Union
+from typing import Any, TypeVar, Union
 
 logger = logging.getLogger("cynic.kernel.core.event_bus")
 

@@ -1,5 +1,5 @@
 """
-CYNIC act router â€” act/execute Â· act/telemetry
+CYNIC act router — act/execute · act/telemetry
 """
 from __future__ import annotations
 
@@ -17,21 +17,9 @@ logger = logging.getLogger("cynic.interfaces.api.server")
 router_act = APIRouter(tags=["act"])
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# CYNIC â†’ Claude context injection (L2 bidirectional loop)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
 def _enrich_prompt(prompt: str, state) -> str:
     """
-    Inject CYNIC context into Claude's prompt (CYNICâ†’Claude direction of L2).
-
-    Prepends a compact block with:
-    - Compressed session history (â‰¤200 tokens from ContextCompressor)
-    - Best learned action from QTable for this task type
-    - QTable confidence level
-
-    Returns enriched prompt when useful context exists, raw prompt otherwise.
-    Skips enrichment if compressor is empty and QTable has no data (early sessions).
+    Inject CYNIC context into Claude's prompt (CYNIC→Claude direction of L2).
     """
     task_type = classify_task(prompt)
     state_key = f"SDK:default:{task_type}:medium"
@@ -41,7 +29,7 @@ def _enrich_prompt(prompt: str, state) -> str:
 
     try:
         context_summary = state.context_compressor.get_compressed_context(budget=200)
-    except httpx.RequestError:
+    except Exception:
         context_summary = ""
 
     # Skip enrichment if nothing useful yet (cold start)
@@ -61,10 +49,6 @@ def _enrich_prompt(prompt: str, state) -> str:
     return "\n".join(lines) + prompt
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# POST /act/execute  (CYNIC spawns Claude Code autonomously)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
 @router_act.post("/act/execute")
 async def act_execute(
     body: dict[str, Any],
@@ -72,24 +56,13 @@ async def act_execute(
 ) -> dict[str, Any]:
     """
     CYNIC executes a task by spawning Claude Code autonomously.
-
-    Body:
-        {"prompt": "...", "cwd": "/path/to/project", "model": "claude-haiku-4-5",
-         "timeout": 300}
-
-    CYNIC launches `claude --sdk-url ws://localhost:PORT/ws/sdk` as a subprocess.
-    Every tool call Claude makes is intercepted and judged by GUARDIAN.
-    The result is returned when Claude's result message arrives.
-
-    This is the ACT phase of the PERCEIVE â†’ JUDGE â†’ DECIDE â†’ ACT cycle.
-    No human needed â€” CYNIC does it entirely.
     """
     state = container.organism
 
-    if state.runner is None:
+    if state.metabolism.runner is None:
         raise HTTPException(
             status_code=503,
-            detail="ClaudeCodeRunner not initialized â€” kernel not started via lifespan",
+            detail="ClaudeCodeRunner not initialized",
         )
 
     prompt = body.get("prompt", "")
@@ -103,30 +76,15 @@ async def act_execute(
     logger.info("*ears perk* ACT requested: %s...", prompt[:80])
 
     enriched = _enrich_prompt(prompt, state)
-    result = await state.runner.execute(enriched, cwd=cwd, model=model, timeout=timeout)
-
-    if not result.get("success"):
-        # Log failure but return structured response (not HTTP error)
-        logger.warning("*GROWL* ACT failed: %s", result.get("error"))
+    result = await state.metabolism.runner.execute(enriched, cwd=cwd, model=model, timeout=timeout)
 
     return {
         "success": result.get("success", False),
         "session_id": result.get("session_id"),
         "cost_usd": result.get("cost_usd", 0.0),
-        "total_cost_usd": result.get("total_cost_usd", 0.0),
-        "exec_id": result.get("exec_id"),
         "error": result.get("error"),
-        "message": (
-            f"*tail wag* Task executed (cost=${result.get('cost_usd', 0.0):.4f})"
-            if result.get("success")
-            else f"*GROWL* Task failed: {result.get('error')}"
-        ),
     }
 
-
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# GET /act/telemetry  (session telemetry â€” learning measurement layer)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_act.get("/act/telemetry")
 async def act_telemetry(
@@ -135,28 +93,17 @@ async def act_telemetry(
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
     """
-    Session telemetry â€” CYNIC's learning measurement layer.
-
-    Returns aggregate stats + recent sessions for H1-H5 hypothesis testing.
-
-    Query params:
-      n=10       â†’ return last N sessions (max 100)
-      export=true â†’ return all sessions (full JSONL export)
-
-    Stats include:
-      - count, error_rate, mean_cost, mean_reward
-      - verdicts (BARK/GROWL/WAG/HOWL distribution)
-      - task_types (debug/refactor/test/review/write/explain/general)
-      - complexities (trivial/simple/medium/complex)
-
-    Research use: GET /act/telemetry?export=true â†’ download for H1-H5 analysis
+    Session telemetry — CYNIC's learning measurement layer.
     """
     state = container.organism
-    store = state.telemetry_store
+    store = state.metabolism.telemetry_store
+
+    if store is None:
+        return {"stats": {}, "sessions": [], "message": "Telemetry store not initialized"}
 
     result = {
         "stats": store.stats(),
         "sessions": store.export() if export else store.recent(n),
-        "message": f"*sniff* {len(store)} sessions measured â€” Ï† sees all.",
+        "message": f"*sniff* {len(store)} sessions measured",
     }
     return result

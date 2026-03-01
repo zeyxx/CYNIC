@@ -9,13 +9,12 @@ from __future__ import annotations
 import logging
 import os
 import uuid
-from typing import Any
 
 from cynic.interfaces.mcp.service import MCPBridge
 from cynic.kernel.core.container import get_container
 from cynic.kernel.core.convergence import ConvergenceValidator
 from cynic.kernel.core.escore import EScoreTracker
-from cynic.kernel.core.event_bus import CoreEvent, get_core_bus
+from cynic.kernel.core.event_bus import get_core_bus
 from cynic.kernel.core.storage.surreal import SurrealStorage
 from cynic.kernel.core.topology.file_watcher import SourceWatcher
 from cynic.kernel.core.topology.topology_builder import IncrementalTopologyBuilder
@@ -48,7 +47,6 @@ from cynic.kernel.organism.perception.senses.web_eye import WebEye
 from cynic.kernel.organism.metabolism.web_hand import WebHand
 from cynic.kernel.protocol.knet_server import KNetServer
 from cynic.kernel.core.vascular import VascularSystem
-from cynic.kernel.core.storage.surreal import SurrealStorage
 from cynic.kernel.core.config import CynicConfig
 from cynic.nervous.event_journal import EventJournal
 from cynic.nervous.bus_journal_adapter import BusJournalAdapter

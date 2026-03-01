@@ -1,0 +1,127 @@
+"""
+Analyze Python import graph and detect circular dependencies.
+
+Usage: python scripts/analyze_imports.py [--graph]
+"""
+import sys
+import ast
+from pathlib import Path
+from collections import defaultdict, deque
+
+# Ensure stdout uses UTF-8 encoding
+if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
+
+class ImportAnalyzer(ast.NodeVisitor):
+    def __init__(self, filepath: Path):
+        self.filepath = filepath
+        self.module_name = self._path_to_module(filepath)
+        self.imports = set()
+        self.from_imports = defaultdict(set)
+
+    def _path_to_module(self, path: Path) -> str:
+        """Convert file path to module name."""
+        # Convert to string and normalize path separators
+        path_str = str(path).replace("\\", "/")
+        # Remove .py extension and convert to module notation
+        if path_str.endswith(".py"):
+            path_str = path_str[:-3]
+        # Replace slashes with dots
+        module_name = path_str.replace("/", ".")
+        # Remove __init__ from the end if present
+        if module_name.endswith(".__init__"):
+            module_name = module_name[:-9]
+        return module_name
+
+    def visit_Import(self, node):
+        for alias in node.names:
+            self.imports.add(alias.name)
+        self.generic_visit(node)
+
+    def visit_ImportFrom(self, node):
+        if node.module:
+            for alias in node.names:
+                self.from_imports[node.module].add(alias.name)
+        self.generic_visit(node)
+
+
+def build_import_graph():
+    """Build complete import dependency graph."""
+    graph = defaultdict(set)
+
+    for py_file in Path("cynic").rglob("*.py"):
+        try:
+            content = py_file.read_text(encoding='utf-8')
+            tree = ast.parse(content)
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+
+        analyzer = ImportAnalyzer(py_file)
+        analyzer.visit(tree)
+
+        # Map to cynic.* imports only
+        for imp in analyzer.imports:
+            if imp.startswith("cynic"):
+                graph[analyzer.module_name].add(imp)
+
+        for module, names in analyzer.from_imports.items():
+            if module and module.startswith("cynic"):
+                graph[analyzer.module_name].add(module)
+
+    return graph
+
+
+def find_cycles(graph):
+    """Detect circular imports using DFS."""
+    visited = set()
+    rec_stack = set()
+    cycles = []
+
+    def dfs(node, path):
+        visited.add(node)
+        rec_stack.add(node)
+        path.append(node)
+
+        for neighbor in graph.get(node, []):
+            if neighbor not in visited:
+                dfs(neighbor, path.copy())
+            elif neighbor in rec_stack and len(path) > 1:
+                cycle_start = path.index(neighbor)
+                cycle = path[cycle_start:] + [neighbor]
+                cycles.append(cycle)
+
+        rec_stack.discard(node)
+
+    for node in graph:
+        if node not in visited:
+            dfs(node, [])
+
+    return cycles
+
+
+def main():
+    graph = build_import_graph()
+    cycles = find_cycles(graph)
+
+    if cycles:
+        print(f"❌ Found {len(cycles)} circular import chain(s):")
+        for cycle in cycles:
+            print(f"  {' → '.join(cycle)}")
+        sys.exit(1)
+    else:
+        print("✅ No circular imports detected")
+
+    if "--graph" in sys.argv:
+        print("\nImport dependency graph:")
+        for module, deps in sorted(graph.items()):
+            if deps:
+                print(f"  {module}:")
+                for dep in sorted(deps):
+                    print(f"    → {dep}")
+
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()

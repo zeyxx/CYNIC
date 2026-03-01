@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYNIC Cockpit — Somatic Interface</title>
+    <style>
+        :root {
+            --phi: 1.618;
+            --bg: #0a0a0c;
+            --fg: #e0e0e0;
+            --accent: #00ffaa;
+            --danger: #ff4444;
+            --warn: #ffcc00;
+        }
+        body {
+            background: var(--bg);
+            color: var(--fg);
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        header {
+            padding: 20px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            background: var(--danger);
+            margin-right: 10px;
+        }
+        .status-dot.online { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .card {
+            border: 1px solid #333;
+            padding: 20px;
+            background: #111;
+            position: relative;
+        }
+
+        .multiplier {
+            font-size: 8rem;
+            font-weight: bold;
+            text-align: center;
+            color: var(--accent);
+            margin: 40px 0;
+        }
+
+        .vitals-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .vital-label { font-size: 0.8rem; color: #888; }
+        .vital-value { font-size: 1.2rem; margin-bottom: 10px; }
+
+        #log {
+            font-size: 0.7rem;
+            color: #666;
+            height: 200px;
+            overflow-y: auto;
+            border-top: 1px solid #333;
+            padding: 10px;
+        }
+
+        .bar-container {
+            height: 20px;
+            background: #222;
+            width: 100%;
+            margin-top: 5px;
+        }
+        .bar-fill {
+            height: 100%;
+            background: var(--accent);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div>
+            <span id="status-dot" class="status-dot"></span>
+            <strong>CYNIC COCKPIT</strong>
+        </div>
+        <div id="instance-id" style="color: #888;">OFFLINE</div>
+    </header>
+
+    <main>
+        <div class="card">
+            <div class="vital-label">WEB PERCEPTION (CANNON)</div>
+            <div id="multiplier" class="multiplier">1.00x</div>
+            <div class="bar-container">
+                <div id="multiplier-bar" class="bar-fill"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="vital-label">SOVEREIGNTY REPORT</div>
+            <div class="vitals-grid">
+                <div>
+                    <div class="vital-label">PRIORITY</div>
+                    <div id="priority" class="vital-value">-</div>
+                </div>
+                <div>
+                    <div class="vital-label">USD BURN</div>
+                    <div id="burn" class="vital-value">$0.0000</div>
+                </div>
+                <div>
+                    <div class="vital-label">UPTIME</div>
+                    <div id="uptime" class="vital-value">0s</div>
+                </div>
+                <div>
+                    <div class="vital-label">JUDGMENTS</div>
+                    <div id="judgments" class="vital-value">0</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="log"></div>
+
+    <script>
+        const multiplierEl = document.getElementById('multiplier');
+        const multiplierBar = document.getElementById('multiplier-bar');
+        const statusDot = document.getElementById('status-dot');
+        const logEl = document.getElementById('log');
+        const instanceIdEl = document.getElementById('instance-id');
+
+        let socket;
+
+        function connect() {
+            socket = new WebSocket('ws://localhost:58766/somatic');
+
+            socket.onopen = () => {
+                statusDot.classList.add('online');
+                addLog('Connected to Îº-NET');
+            };
+
+            socket.onmessage = (event) => {
+                const pulse = JSON.parse(event.data);
+                handlePulse(pulse);
+            };
+
+            socket.onclose = () => {
+                statusDot.classList.remove('online');
+                addLog('Disconnected from Îº-NET. Retrying...');
+                setTimeout(connect, 3000);
+            };
+        }
+
+        function handlePulse(pulse) {
+            // Log raw pulse for debug
+            addLog(`Pulse: ${pulse.type}`);
+
+            if (pulse.data.mind) {
+                instanceIdEl.innerText = pulse.data.mind.instance_id || 'UNKNOWN';
+                document.getElementById('judgments').innerText = pulse.data.mind.total_judgments || 0;
+            }
+
+            // Handling WebEye Perception
+            if (pulse.type === 'SOMATIC_SYNC' && pulse.data.reputation) {
+                // Example of data from ReputationSync
+                document.getElementById('burn').innerText = `$${pulse.data.reputation.overall_score.toFixed(4)}`;
+            }
+
+            // Mocking the extraction of multiplier from generic somatic data
+            // In a real run, WebEye would emit CoreEvent.PERCEPTION_RECEIVED 
+            // which KNetServer would broadcast.
+            if (pulse.data.multiplier) {
+                const m = pulse.data.multiplier;
+                multiplierEl.innerText = m.toFixed(2) + 'x';
+                multiplierBar.style.width = Math.min((m / 10) * 100, 100) + '%';
+                
+                if (m === 1.0) {
+                    multiplierEl.style.color = 'var(--danger)'; // Crash reset
+                } else {
+                    multiplierEl.style.color = 'var(--accent)';
+                }
+            }
+        }
+
+        function addLog(msg) {
+            const div = document.createElement('div');
+            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logEl.prepend(div);
+            if (logEl.children.length > 50) logEl.lastChild.remove();
+        }
+
+        connect();
+    </script>
+</body>
+</html>
