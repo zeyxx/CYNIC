@@ -7,6 +7,7 @@ work correctly when integrated into the API router.
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
 from cynic.interfaces.api.routers.health import router_health
 
 

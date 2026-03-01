@@ -5,10 +5,11 @@ Returns fixed responses based on prompt keywords.
 Avoids real LLM latency and costs during CI.
 """
 from __future__ import annotations
+
 import time
-from typing import Any, Optional
 
 from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRequest, LLMResponse
+
 
 class DeterministicLLMAdapter(LLMAdapter):
     """Mocks LLM behavior with predictable outputs for testing."""

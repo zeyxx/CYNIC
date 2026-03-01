@@ -4,50 +4,48 @@ CYNIC Organism Factory — The Awakening Logic.
 Handles the complex instantiation and wiring of all organism components.
 """
 from __future__ import annotations
+
 import logging
 import os
-import time
-from typing import Any, Optional
+from typing import Any
 
+from cynic.interfaces.mcp.service import MCPBridge
+from cynic.kernel.core.axioms import AxiomArchitecture
+from cynic.kernel.core.config import CynicConfig
+from cynic.kernel.core.container import DependencyContainer
+from cynic.kernel.core.convergence import ConvergenceValidator
+from cynic.kernel.core.escore import EScoreTracker
 from cynic.kernel.core.event_bus import get_core_bus
-from cynic.kernel.organism.state_manager import OrganismState
-from cynic.kernel.organism.anatomy import CognitionCore, MetabolicCore, SensoryCore, ArchiveCore
+from cynic.kernel.core.topology import IncrementalTopologyBuilder, SourceWatcher
+from cynic.kernel.core.world_model import WorldModelUpdater
+from cynic.kernel.organism.anatomy import ArchiveCore, CognitionCore, MetabolicCore, SensoryCore
+from cynic.kernel.organism.brain.cognition.cortex.account import AccountAgent
+from cynic.kernel.organism.brain.cognition.cortex.action_proposer import ActionProposer
+from cynic.kernel.organism.brain.cognition.cortex.axiom_monitor import AxiomMonitor
+from cynic.kernel.organism.brain.cognition.cortex.decide import DecideAgent
+from cynic.kernel.organism.brain.cognition.cortex.decision_validator import DecisionValidator
+from cynic.kernel.organism.brain.cognition.cortex.lod import LODController
+from cynic.kernel.organism.brain.cognition.cortex.mirror import KernelMirror
+from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
+from cynic.kernel.organism.brain.cognition.cortex.residual import ResidualDetector
+from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
 
 # All component imports
 from cynic.kernel.organism.brain.cognition.neurons.discovery import discover_dogs
-from cynic.kernel.core.axioms import AxiomArchitecture
-from cynic.kernel.organism.brain.learning.qlearning import QTable, LearningLoop
-from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
-from cynic.kernel.organism.brain.cognition.cortex.residual import ResidualDetector
-from cynic.kernel.organism.brain.cognition.cortex.decide import DecideAgent
-from cynic.kernel.organism.brain.cognition.cortex.action_proposer import ActionProposer
-from cynic.kernel.organism.brain.cognition.cortex.account import AccountAgent
-from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
-from cynic.kernel.organism.brain.cognition.cortex.mirror import KernelMirror
-from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
-from cynic.kernel.organism.metabolism.telemetry import TelemetryStore, SessionTelemetry
-from cynic.kernel.organism.metabolism.llm_router import LLMRouter
+from cynic.kernel.organism.brain.learning.qlearning import LearningLoop, QTable
 from cynic.kernel.organism.metabolism.claude_sdk import ClaudeCodeRunner
-from cynic.kernel.core.topology import SourceWatcher, IncrementalTopologyBuilder
-from cynic.kernel.core.world_model import WorldModelUpdater
-from cynic.kernel.core.convergence import ConvergenceValidator
-from cynic.interfaces.mcp.service import MCPBridge
-from cynic.kernel.organism.sona_emitter import SonaEmitter
-from cynic.kernel.core.container import DependencyContainer
-from cynic.kernel.core.config import CynicConfig
-from cynic.kernel.organism.brain.cognition.cortex.lod import LODController
-from cynic.kernel.core.escore import EScoreTracker
-from cynic.kernel.core.consciousness import get_consciousness
-from cynic.kernel.organism.perception.senses.compressor import ContextCompressor
-from cynic.kernel.organism.brain.dialogue.agent import DialogueAgent
+from cynic.kernel.organism.metabolism.immune.alignment_checker import AlignmentSafetyChecker
+from cynic.kernel.organism.metabolism.immune.human_approval_gate import HumanApprovalGate
 
 # Immune System & Guardrails
 from cynic.kernel.organism.metabolism.immune.power_limiter import PowerLimiter
-from cynic.kernel.organism.metabolism.immune.alignment_checker import AlignmentSafetyChecker
-from cynic.kernel.organism.metabolism.immune.human_approval_gate import HumanApprovalGate
 from cynic.kernel.organism.metabolism.immune.transparency_audit import TransparencyAuditTrail
-from cynic.kernel.organism.brain.cognition.cortex.decision_validator import DecisionValidator
-from cynic.kernel.organism.brain.cognition.cortex.axiom_monitor import AxiomMonitor
+from cynic.kernel.organism.metabolism.llm_router import LLMRouter
+from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
+from cynic.kernel.organism.metabolism.telemetry import TelemetryStore
+from cynic.kernel.organism.perception.senses.compressor import ContextCompressor
+from cynic.kernel.organism.sona_emitter import SonaEmitter
+from cynic.kernel.organism.state_manager import OrganismState
 
 logger = logging.getLogger("cynic.kernel.organism.factory")
 
@@ -218,11 +216,14 @@ class _OrganismAwakener:
         )
 
         # 6. HANDLER REGISTRY
-        from cynic.kernel.organism.handlers import (
-            HandlerRegistry, discover_handler_groups, KernelServices, 
-            CognitionServices, MetabolicServices, SensoryServices
-        )
         from cynic.kernel.core.storage.gc import StorageGarbageCollector
+        from cynic.kernel.organism.handlers import (
+            CognitionServices,
+            HandlerRegistry,
+            KernelServices,
+            MetabolicServices,
+            SensoryServices,
+        )
         storage_gc = StorageGarbageCollector() if self.db_pool else None
         
         # Internal Service Mapping
@@ -252,14 +253,14 @@ class _OrganismAwakener:
         handler_registry = HandlerRegistry()
         
         # Explicit Wiring (Rigueur Senior)
-        from cynic.kernel.organism.handlers.intelligence import IntelligenceHandlers
-        from cynic.kernel.organism.handlers.federation import FederationHandler
         from cynic.kernel.organism.handlers.axiom import AxiomHandlers
+        from cynic.kernel.organism.handlers.federation import FederationHandler
         from cynic.kernel.organism.handlers.health import HealthHandlers
-        from cynic.kernel.organism.handlers.sdk import SDKHandlers
+        from cynic.kernel.organism.handlers.intelligence import IntelligenceHandlers
+        from cynic.kernel.organism.handlers.judgment_executor import JudgmentExecutorHandler
         from cynic.kernel.organism.handlers.knet_handler import KNetHandler
         from cynic.kernel.organism.handlers.meta_cognition import MetaCognitionHandlers
-        from cynic.kernel.organism.handlers.judgment_executor import JudgmentExecutorHandler
+        from cynic.kernel.organism.handlers.sdk import SDKHandlers
 
         handler_registry.register(IntelligenceHandlers(services, orchestrator=self.orchestrator, scheduler=self.scheduler, db_pool=self.db_pool, compressor=self.compressor))
         handler_registry.register(FederationHandler(services, gossip_manager=self.gossip_manager))

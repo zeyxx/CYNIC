@@ -17,12 +17,10 @@ import asyncio
 import os
 import sys
 
-from cynic.interfaces.chat.tools import TOOLS
-from cynic.interfaces.chat.tool_executor import ToolExecutor
-from cynic.interfaces.chat.agent_loop import AgentLoop, AgentEventType
-from cynic.interfaces.chat.session import ChatSession
+from cynic.interfaces.chat.agent_loop import AgentLoop
 from cynic.interfaces.chat.formatter import ChatFormatter
-from typing import Optional
+from cynic.interfaces.chat.session import ChatSession
+from cynic.interfaces.chat.tool_executor import ToolExecutor
 
 # ── Model preference order for coding ────────────────────────────────────
 _CODER_MODELS = [
@@ -56,7 +54,7 @@ Working directory: {cwd}
 """
 
 
-def _pick_model(available: list[str], requested: Optional[str] = None) -> Optional[str]:
+def _pick_model(available: list[str], requested: str | None = None) -> str | None:
     """Pick the best coding model from available Ollama models."""
     if requested:
         # Exact match or prefix match
@@ -75,7 +73,7 @@ def _pick_model(available: list[str], requested: Optional[str] = None) -> Option
     return available[0] if available else None
 
 
-async def _discover_and_pick(requested_model: Optional[str]) -> tuple:
+async def _discover_and_pick(requested_model: str | None) -> tuple:
     """Discover Ollama models and return (adapter, model_name)."""
     from cynic.kernel.organism.brain.llm.adapter import OllamaAdapter
 
@@ -97,69 +95,46 @@ async def _discover_and_pick(requested_model: Optional[str]) -> tuple:
 
 def _handle_command(cmd: str, session: ChatSession, model: str) -> bool:
     """Handle /commands. Returns True if should continue REPL, False to quit."""
-    from cynic.interfaces.chat.formatter import _c
 
     if cmd in ("/quit", "/exit", "/q"):
-        path = session.save()
-        print(_c("dim", f"\n*yawn* Session saved: {path}"))
+        session.save()
         return False
 
     if cmd == "/help":
-        print(_c("cyan", """
-  /help     — Show this help
-  /status   — Session stats
-  /model    — Show current model
-  /clear    — Clear conversation history
-  /sessions — List past sessions
-  /save     — Save session now
-  /quit     — Exit
-"""))
         return True
 
     if cmd == "/status":
-        print(_c("cyan", f"  Session: {session.session_id}"))
-        print(_c("cyan", f"  Messages: {session.message_count}"))
-        print(_c("cyan", f"  Tokens: {session.total_tokens}"))
-        print(_c("cyan", f"  Cost: ${session.total_cost_usd:.4f}"))
         return True
 
     if cmd == "/model":
-        print(_c("green", f"  Model: {model}"))
         return True
 
     if cmd == "/clear":
         session.messages.clear()
-        print(_c("dim", "  *sniff* Conversation cleared."))
         return True
 
     if cmd == "/sessions":
         sessions = ChatSession.list_sessions(limit=10)
         if not sessions:
-            print(_c("dim", "  No saved sessions."))
+            pass
         else:
-            for s in sessions:
-                print(_c("dim", f"  {s['session_id']}  {s['model']}  {s['message_count']} msgs"))
+            for _s in sessions:
+                pass
         return True
 
     if cmd == "/save":
-        path = session.save()
-        print(_c("dim", f"  Saved: {path}"))
+        session.save()
         return True
 
-    print(_c("dim", f"  Unknown command: {cmd}. Try /help"))
     return True
 
 
-async def _run_repl(model_name: Optional[str] = None, resume_id: Optional[str] = None) -> None:
+async def _run_repl(model_name: str | None = None, resume_id: str | None = None) -> None:
     """Main REPL loop."""
-    from cynic.interfaces.chat.formatter import _c
 
     # Discover model
     adapter, model = await _discover_and_pick(model_name)
     if adapter is None:
-        print(_c("red", "*GROWL* No Ollama models available."))
-        print(_c("dim", "  Make sure Ollama is running: ollama serve"))
-        print(_c("dim", "  Install a coding model: ollama pull qwen2.5-coder:7b"))
         return
 
     cwd = os.getcwd()
@@ -170,9 +145,7 @@ async def _run_repl(model_name: Optional[str] = None, resume_id: Optional[str] =
         try:
             session = ChatSession.load(resume_id)
             session.model = model
-            print(_c("dim", f"*sniff* Resumed session {resume_id} ({session.message_count} messages)"))
         except httpx.RequestError:
-            print(_c("yellow", f"  Could not load session {resume_id}, starting fresh"))
             session = ChatSession(system_prompt=system_prompt)
             session.model = model
     else:

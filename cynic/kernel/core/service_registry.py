@@ -7,9 +7,10 @@ When a component needs another, it's auto-injected from the registry.
 This is how a TRUE OS works: components discover each other.
 """
 
-from typing import Dict, Type, Any, Optional, Callable, TypeVar
-from dataclasses import dataclass
 import inspect
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any, TypeVar
 
 T = TypeVar('T')
 
@@ -18,9 +19,9 @@ T = TypeVar('T')
 class ServiceDescriptor:
     """Metadata for a registered service."""
     name: str
-    service_type: Type
-    instance: Optional[Any] = None
-    factory: Optional[Callable] = None
+    service_type: type
+    instance: Any | None = None
+    factory: Callable | None = None
     singleton: bool = True
 
 
@@ -38,15 +39,15 @@ class ServiceRegistry:
     """
 
     def __init__(self):
-        self._services: Dict[Type, ServiceDescriptor] = {}
-        self._instances: Dict[Type, Any] = {}
+        self._services: dict[type, ServiceDescriptor] = {}
+        self._instances: dict[type, Any] = {}
 
     def register(
         self,
-        service_type: Type,
-        factory: Optional[Callable] = None,
+        service_type: type,
+        factory: Callable | None = None,
         singleton: bool = True,
-        name: Optional[str] = None,
+        name: str | None = None,
     ):
         """
         Register a service.
@@ -66,7 +67,7 @@ class ServiceRegistry:
             singleton=singleton,
         )
 
-    async def get(self, service_type: Type[T]) -> T:
+    async def get(self, service_type: type[T]) -> T:
         """
         Get or create a service instance.
 
@@ -94,7 +95,7 @@ class ServiceRegistry:
 
         return instance
 
-    async def _create_with_injection(self, service_type: Type[T]) -> T:
+    async def _create_with_injection(self, service_type: type[T]) -> T:
         """
         Create an instance with auto-injected dependencies.
 
@@ -119,7 +120,7 @@ class ServiceRegistry:
 
         return service_type(**kwargs)
 
-    def get_all_registered(self) -> Dict[str, Type]:
+    def get_all_registered(self) -> dict[str, type]:
         """List all registered services."""
         return {desc.name: desc.service_type for desc in self._services.values()}
 
@@ -130,7 +131,7 @@ class ServiceRegistry:
 
 
 # Singleton instance (global registry)
-_global_registry: Optional[ServiceRegistry] = None
+_global_registry: ServiceRegistry | None = None
 
 
 def get_registry() -> ServiceRegistry:

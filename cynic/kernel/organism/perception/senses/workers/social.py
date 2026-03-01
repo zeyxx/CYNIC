@@ -7,7 +7,6 @@ import os
 import time
 from typing import Any
 
-
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.phi import fibonacci

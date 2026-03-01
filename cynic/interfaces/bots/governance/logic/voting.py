@@ -1,9 +1,9 @@
 """Advanced voting mechanisms"""
 
-from typing import Dict, List, Tuple
+import math
 from dataclasses import dataclass
 from enum import Enum
-import math
+
 
 class VotingType(str, Enum):
     """Types of voting mechanisms"""
@@ -25,7 +25,7 @@ class VoteCounter:
     """Count and tally votes with different mechanisms"""
 
     @staticmethod
-    def simple_majority(votes: List[Vote]) -> Tuple[bool, float]:
+    def simple_majority(votes: list[Vote]) -> tuple[bool, float]:
         """Simple majority voting"""
         if not votes:
             return False, 0.5
@@ -37,7 +37,7 @@ class VoteCounter:
         return for_votes > total / 2, approval_rate
 
     @staticmethod
-    def quadratic_voting(votes: List[Vote]) -> Tuple[bool, float]:
+    def quadratic_voting(votes: list[Vote]) -> tuple[bool, float]:
         """Quadratic voting: cost increases as sqrt(votes)"""
         if not votes:
             return False, 0.5
@@ -53,7 +53,7 @@ class VoteCounter:
         return for_votes > total / 2, approval_rate
 
     @staticmethod
-    def weighted_voting(votes: List[Vote]) -> Tuple[bool, float]:
+    def weighted_voting(votes: list[Vote]) -> tuple[bool, float]:
         """Weighted voting: vote weight = reputation"""
         if not votes:
             return False, 0.5
@@ -72,7 +72,7 @@ class DelegationManager:
     """Manage vote delegation"""
 
     def __init__(self):
-        self.delegations: Dict[str, str] = {}  # voter_id -> delegate_id
+        self.delegations: dict[str, str] = {}  # voter_id -> delegate_id
 
     def delegate_vote(self, voter_id: str, delegate_id: str):
         """Delegate vote to another user"""
@@ -83,6 +83,6 @@ class DelegationManager:
         if voter_id in self.delegations:
             del self.delegations[voter_id]
 
-    def get_delegated_votes(self, delegate_id: str) -> List[str]:
+    def get_delegated_votes(self, delegate_id: str) -> list[str]:
         """Get all voters delegated to this user"""
         return [v for v, d in self.delegations.items() if d == delegate_id]

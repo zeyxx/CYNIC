@@ -15,20 +15,20 @@ Events flow:
                                    → TOPOLOGY_ROLLBACK (on failure)
 """
 
-from cynic.kernel.core.topology.file_watcher import SourceWatcher
-from cynic.kernel.core.topology.topology_builder import IncrementalTopologyBuilder
-from cynic.kernel.core.topology.hot_reload import HotReloadCoordinator
-from cynic.kernel.core.topology.topology_mirror import TopologyMirror
-from cynic.kernel.core.topology.change_tracker import ChangeTracker
 from cynic.kernel.core.topology.change_analyzer import ChangeAnalyzer
+from cynic.kernel.core.topology.change_tracker import ChangeTracker
+from cynic.kernel.core.topology.file_watcher import SourceWatcher
+from cynic.kernel.core.topology.hot_reload import HotReloadCoordinator
 from cynic.kernel.core.topology.payloads import (
     SourceChangedPayload,
-    TopologyChangedPayload,
     TopologyAppliedPayload,
+    TopologyChangedPayload,
+    TopologyDelta,
     TopologyRollbackPayload,
     TopologySnapshotPayload,
-    TopologyDelta,
 )
+from cynic.kernel.core.topology.topology_builder import IncrementalTopologyBuilder
+from cynic.kernel.core.topology.topology_mirror import TopologyMirror
 
 __all__ = [
     "SourceWatcher",

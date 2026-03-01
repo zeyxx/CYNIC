@@ -18,19 +18,19 @@ Result: Cost ∝ log(N) instead of N
 """
 from __future__ import annotations
 
-import time
 import logging
+import time
 from dataclasses import dataclass
-from typing import Any, TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from cynic.kernel.organism.brain.cognition.neurons.dog_state import DogState
     from cynic.kernel.core.judgment import Cell, DogJudgment
+    from cynic.kernel.organism.brain.cognition.neurons.dog_state import DogState
 
 from cynic.kernel.core.formulas import (
-    QTABLE_ENTRY_CAP,
     CONFIDENCE_DECAY_FACTOR,
     GOSSIP_THRESHOLD,
+    QTABLE_ENTRY_CAP,
 )
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.dog_cognition")
@@ -60,7 +60,7 @@ class DogCognition:
     When done, dog publishes compressed_context for siblings to learn from.
     """
 
-    def __init__(self, dog_id: str, config: Optional[DogCognitionConfig] = None) -> None:
+    def __init__(self, dog_id: str, config: DogCognitionConfig | None = None) -> None:
         self.dog_id = dog_id
         self.config = config or DogCognitionConfig()
         self._judgment_count = 0
@@ -299,7 +299,7 @@ class DogCognition:
 
     def _detect_residual(
         self, dog_state: DogState, q_score: float, confidence: float
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """RESIDUAL: Detect anomalies that signal learning gaps."""
         # Residual if we're low-confidence about a low-score judgment (uncertain + bad)
         if q_score < 38.2 and confidence < 0.3:

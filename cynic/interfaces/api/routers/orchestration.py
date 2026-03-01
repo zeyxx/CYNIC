@@ -12,12 +12,10 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from cynic.orchestration import DockerManager, VersionManager, HealthMonitor
-from cynic.deployment.docker_manager import ContainerStatus
-from typing import Optional
+from cynic.orchestration import DockerManager, HealthMonitor, VersionManager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/orchestration", tags=["orchestration"])
@@ -31,7 +29,7 @@ router = APIRouter(prefix="/api/orchestration", tags=["orchestration"])
 class BuildRequest(BaseModel):
     """Build request."""
     version: str = "latest"
-    services: Optional[list[str]] = None
+    services: list[str] | None = None
 
 
 class BuildResponse(BaseModel):
@@ -41,7 +39,7 @@ class BuildResponse(BaseModel):
     version: str
     timestamp: str
     output: str
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class DeployRequest(BaseModel):
@@ -56,7 +54,7 @@ class DeployResponse(BaseModel):
     services: list[str]
     timestamp: str
     duration_seconds: float
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class HealthCheckResponse(BaseModel):
@@ -64,8 +62,8 @@ class HealthCheckResponse(BaseModel):
     service: str
     status: str  # healthy, unhealthy, starting
     timestamp: str
-    latency_ms: Optional[float] = None
-    error: Optional[str] = None
+    latency_ms: float | None = None
+    error: str | None = None
 
 
 class OrchestratorStatus(BaseModel):
@@ -73,8 +71,8 @@ class OrchestratorStatus(BaseModel):
     kernel_running: bool
     postgres_running: bool
     ollama_running: bool
-    last_build: Optional[str] = None
-    last_deploy: Optional[str] = None
+    last_build: str | None = None
+    last_deploy: str | None = None
     current_version: str
 
 
@@ -82,7 +80,7 @@ class ReleaseRequest(BaseModel):
     """Release request."""
     notes: str
     bump_type: str = "patch"  # patch, minor, major
-    docker_image: Optional[str] = None
+    docker_image: str | None = None
 
 
 class ReleaseResponse(BaseModel):
@@ -170,7 +168,7 @@ async def deploy_services(
 
 @router.post("/health")
 async def health_check(
-    services: Optional[list[str]] = None,
+    services: list[str] | None = None,
     docker: DockerManager = Depends(get_docker_manager),
 ) -> list[HealthCheckResponse]:
     """

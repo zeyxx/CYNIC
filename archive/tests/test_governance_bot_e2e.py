@@ -17,14 +17,14 @@ This validates that the unified components work end-to-end:
 - confidence improves over cycles
 """
 
-import pytest
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 
-from cynic.kernel.core.judgment import Cell
+import pytest
+
 from cynic.kernel.core.consciousness import ConsciousnessLevel
+from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.unified_state import UnifiedLearningOutcome
-from cynic.kernel.organism.brain.learning.unified_learning import UnifiedQTable, LearningSession
+from cynic.kernel.organism.brain.learning.unified_learning import LearningSession, UnifiedQTable
 from cynic.kernel.organism.organism import awaken
 
 
@@ -179,16 +179,9 @@ class TestGovernanceBotE2E:
 
         # Verify learning statistics
         assert len(session.outcomes) == 5
-        accuracy = session.accuracy_rate()
-        avg_satisfaction = session.satisfaction_average()
+        session.accuracy_rate()
+        session.satisfaction_average()
 
-        print(f"\nMulti-round learning statistics:")
-        print(f"  Accuracy: {accuracy:.1%}")
-        print(f"  Avg Satisfaction: {avg_satisfaction:.3f}")
-        print(f"  Q-Table confidence (HOWL): {q_table.get_prediction_confidence('HOWL'):.3f}")
-        print(f"  Q-Table confidence (WAG): {q_table.get_prediction_confidence('WAG'):.3f}")
-        print(f"  Q-Table confidence (GROWL): {q_table.get_prediction_confidence('GROWL'):.3f}")
-        print(f"  Q-Table confidence (BARK): {q_table.get_prediction_confidence('BARK'):.3f}")
 
         # Verify specific Q-value transitions
         # HOWL→HOWL appeared in round 1 and 5 with high satisfaction
@@ -224,7 +217,7 @@ class TestGovernanceBotE2E:
             satisfaction_rating=proposal.satisfaction_normalized
         )
 
-        initial_q = q_table.get_q_value("BARK", "WAG")
+        q_table.get_q_value("BARK", "WAG")
         q_table.update(outcome)
         updated_q = q_table.get_q_value("BARK", "WAG")
 
@@ -267,11 +260,8 @@ class TestGovernanceBotE2E:
         # Verify budget confidence > policy confidence
         # (This is simplified; in reality you'd separate Q-Tables by category)
         all_values = list(q_table.values.values())
-        avg_q = sum(all_values) / len(all_values)
+        sum(all_values) / len(all_values)
 
-        print(f"\nGovernance learning by category:")
-        print(f"  Average Q-value after 10 rounds: {avg_q:.3f}")
-        print(f"  Total Q-Table transitions: {len(q_table.values)}")
 
     def test_satisfaction_drives_q_learning(self):
         """Test that satisfaction rating directly affects Q-Table updates."""
@@ -391,10 +381,6 @@ class TestGovernanceBotWithOrchestrator:
                 q_value = q_table.get_q_value(judgment.verdict, actual_verdict)
                 assert 0.0 <= q_value <= 1.0
 
-                print(f"\nOrchestrator governance test:")
-                print(f"  CYNIC verdict: {judgment.verdict}")
-                print(f"  Community decision: {actual_verdict}")
-                print(f"  Q-value after learning: {q_value:.3f}")
             else:
                 pytest.skip("Orchestrator not available")
 

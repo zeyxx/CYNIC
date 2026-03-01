@@ -21,19 +21,16 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
 
-
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Footer, Header, RichLog, Static
-from textual.reactive import reactive
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
@@ -76,6 +73,7 @@ IMPACT_EMOJI = {
 }
 
 from cynic.kernel.core.config import CynicConfig as _CynicConfig
+
 _DEFAULT_PORT = _CynicConfig.from_env().port
 
 # Changes file path
@@ -496,7 +494,7 @@ class CYNICApp(App):
         verdict  = guidance.get("verdict", "?")
         q        = guidance.get("q_score", 0.0)
         conf     = guidance.get("confidence", 0.0)
-        reality  = guidance.get("reality", "?")
+        guidance.get("reality", "?")
         state_key = guidance.get("state_key", "")
         ts       = guidance.get("timestamp", 0.0)
 
@@ -516,7 +514,7 @@ class CYNICApp(App):
 
     def _update_header_and_status(self) -> None:
         emoji   = VERDICT_EMOJI.get(self._verdict, "⚪")
-        color   = VERDICT_COLOR.get(self._verdict, "white")
+        VERDICT_COLOR.get(self._verdict, "white")
         conf_pct = min(self._conf * 100, 61.8)
 
         # Subtitle in Header
@@ -529,12 +527,12 @@ class CYNICApp(App):
         # Status bar (bottom, above footer)
         status_bar: Static = self.query_one("#status-bar", Static)
         status_bar.update(
-            f"[dim]*sniff*  "
-            f"1-5 rate judgment  │  "
-            f"j/k ↑↓ nav  │  "
-            f"a accept  r reject  │  "
-            f"ctrl+r refresh  │  "
-            f"q quit[/dim]"
+            "[dim]*sniff*  "
+            "1-5 rate judgment  │  "
+            "j/k ↑↓ nav  │  "
+            "a accept  r reject  │  "
+            "ctrl+r refresh  │  "
+            "q quit[/dim]"
         )
 
     # ── Actions ───────────────────────────────────────────────────────────────

@@ -9,10 +9,9 @@ state.py references StorageInterface, never concrete classes.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
-from cynic.kernel.core.formulas import DECISION_TRACE_CAP, ACT_LOG_CAP
-
+from cynic.kernel.core.formulas import ACT_LOG_CAP, DECISION_TRACE_CAP
 
 # ════════════════════════════════════════════════════════════════════════════
 # REPOSITORY INTERFACES
@@ -23,11 +22,11 @@ class JudgmentRepoInterface(ABC):
     async def save(self, judgment: dict[str, Any]) -> None: ...
 
     @abstractmethod
-    async def get(self, judgment_id: str) -> Optional[dict[str, Any]]: ...
+    async def get(self, judgment_id: str) -> dict[str, Any] | None: ...
 
     @abstractmethod
     async def recent(
-        self, reality: Optional[str] = None, limit: int = DECISION_TRACE_CAP
+        self, reality: str | None = None, limit: int = DECISION_TRACE_CAP
     ) -> list[dict[str, Any]]: ...  # F(10) = 55 (imported from formulas.py)
 
     @abstractmethod
@@ -70,7 +69,7 @@ class BenchmarkRepoInterface(ABC):
     @abstractmethod
     async def best_llm_for(
         self, dog_id: str, task_type: str
-    ) -> Optional[str]: ...
+    ) -> str | None: ...
 
     @abstractmethod
     async def get_all(self) -> list[dict[str, Any]]: ...
@@ -140,7 +139,7 @@ class DogSoulRepoInterface(ABC):
     async def save(self, soul: dict[str, Any]) -> None: ...
 
     @abstractmethod
-    async def get(self, dog_id: str) -> Optional[dict[str, Any]]: ...
+    async def get(self, dog_id: str) -> dict[str, Any] | None: ...
 
     @abstractmethod
     async def all(self) -> list[dict[str, Any]]: ...

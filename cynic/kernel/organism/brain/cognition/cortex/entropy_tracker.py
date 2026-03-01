@@ -31,13 +31,13 @@ Formula:
 """
 from __future__ import annotations
 
-import math
 import logging
+import math
 from dataclasses import dataclass, field
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from cynic.kernel.organism.brain.cognition.neurons.dog_state import DogState
+    pass
 
 from cynic.kernel.core.formulas import CHAT_MESSAGE_CAP
 

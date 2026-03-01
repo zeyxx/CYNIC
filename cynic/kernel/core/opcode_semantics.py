@@ -11,13 +11,11 @@ Each opcode has immutable semantics:
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable
 
-from cynic.kernel.core.phi import PHI_INV, PHI_INV_2, MAX_Q_SCORE
 from cynic.kernel.core.consciousness import ConsciousnessLevel
-
 
 # ════════════════════════════════════════════════════════════════════════════
 # STORAGE TIER ENUM

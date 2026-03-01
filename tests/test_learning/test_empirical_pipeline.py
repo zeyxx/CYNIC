@@ -12,25 +12,22 @@ Four scenarios:
   C: EWC Checkpoint — EWC consolidation triggers at F(8)=21 visits
   D: Full Empirical Cycle — End-to-end pipeline with learning_applied flag
 """
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-import json
 import time
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
+from cynic.kernel.core.consciousness import ConsciousnessLevel
+from cynic.kernel.core.judgment import Cell
+from cynic.kernel.core.phi import MAX_Q_SCORE, fibonacci
+from cynic.kernel.organism.brain.cognition.cortex.judgment_stages import (
+    EmpiricalLearnStage,
+)
+from cynic.kernel.organism.brain.cognition.cortex.pipeline import JudgmentPipeline
+from cynic.kernel.organism.brain.learning.qlearning import LearningSignal, QTable
 from cynic.kernel.organism.brain.llm.adapters.test_adapter import DeterministicLLMAdapter
 from cynic.kernel.organism.perception.senses.empirical_sensor import EmpiricalSensor
 from cynic.kernel.organism.perception.senses.sensor_interface import Observation
-from cynic.kernel.organism.brain.cognition.cortex.judgment_stages import (
-    EmpiricalLearnStage,
-    PerceiveStage,
-    JudgeStage,
-)
-from cynic.kernel.organism.brain.cognition.cortex.pipeline import JudgmentPipeline
-from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.judgment import Cell
-from cynic.kernel.organism.brain.learning.qlearning import QTable, LearningSignal
-from cynic.kernel.core.phi import fibonacci, MAX_Q_SCORE
-
 
 # ════════════════════════════════════════════════════════════════════════════
 # FIXTURES
@@ -90,7 +87,7 @@ async def test_scenario_a_qtable_convergence(mock_orchestrator, test_pipeline):
       - stats["ewc_consolidated"] >= 1 (consolidation fired)
     """
     # Setup
-    adapter = DeterministicLLMAdapter(verdict="WAG", q_hint=75.0)
+    DeterministicLLMAdapter(verdict="WAG", q_hint=75.0)
     qtable = mock_orchestrator.qtable
     state_key = "CODE:JUDGE:PRESENT:0"
 
@@ -133,7 +130,6 @@ async def test_scenario_b_escore_dog_filter(mock_orchestrator, test_pipeline):
     After: BAD_DOG's E-Score should drop below 38.2% (GROWL_MIN).
            On cycle 31+, JudgeStage should skip BAD_DOG due to low E-Score.
     """
-    from cynic.kernel.organism.brain.cognition.neurons.base import DogId
 
     # Create mock dogs
     good_dog = AsyncMock()
@@ -187,7 +183,7 @@ async def test_scenario_b_escore_dog_filter(mock_orchestrator, test_pipeline):
         update_score("agent:BAD_DOG", new_bad_score)
 
     # After 30 cycles: BAD_DOG should be below GROWL_MIN (38.2)
-    GROWL_MIN = fibonacci(4) * 100 / fibonacci(8)  # Approximate 38.2
+    fibonacci(4) * 100 / fibonacci(8)  # Approximate 38.2
     final_bad_score = get_score("agent:BAD_DOG")
 
     assert final_bad_score < 42.0, f"BAD_DOG E-Score should drop, got {final_bad_score}"
@@ -336,7 +332,9 @@ async def test_scenario_d_full_empirical_cycle(mock_orchestrator):
 def test_deterministic_adapter_imports():
     """Verify all Track C imports work."""
     from cynic.kernel.organism.brain.llm.adapters import DeterministicLLMAdapter
-    from cynic.kernel.organism.brain.llm.adapters.test_adapter import DeterministicLLMAdapter as DirectImport
+    from cynic.kernel.organism.brain.llm.adapters.test_adapter import (
+        DeterministicLLMAdapter as DirectImport,
+    )
 
     assert DeterministicLLMAdapter is DirectImport
 
@@ -352,15 +350,14 @@ def test_empirical_sensor_imports():
 
 def test_empirical_learn_stage_imports():
     """Verify EmpiricalLearnStage imports work."""
-    from cynic.kernel.organism.brain.cognition.cortex.judgment_stages import EmpiricalLearnStage
 
     assert EmpiricalLearnStage is not None
 
 
 def test_judgment_pipeline_learning_applied_field():
     """Verify JudgmentPipeline has learning_applied field."""
-    from cynic.kernel.organism.brain.cognition.cortex.pipeline import JudgmentPipeline
     from cynic.kernel.core.judgment import Cell
+    from cynic.kernel.organism.brain.cognition.cortex.pipeline import JudgmentPipeline
 
     cell = Cell(
         cell_id="test",

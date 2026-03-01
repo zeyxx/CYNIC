@@ -2,7 +2,7 @@
 Federation Router — P2P Knowledge Sharing Interface.
 """
 from __future__ import annotations
-from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from cynic.interfaces.api.state import AppContainer, get_app_container

@@ -10,11 +10,7 @@ Tests cover:
 """
 from __future__ import annotations
 
-import asyncio
-import json
 import time
-from typing import Any, AsyncGenerator
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -180,7 +176,7 @@ class TestWatchTelemetryStreaming:
             result = await adapter.stream_telemetry(duration_s=1)
             # Should have error key if connection failed
             assert "error" in result or result["judgments_seen"] == 0
-        except (asyncio.TimeoutError, ConnectionError):
+        except (TimeoutError, ConnectionError):
             # Timeout or connection refused is expected
             pass
 

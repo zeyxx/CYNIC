@@ -27,7 +27,7 @@ What the outside world sees.
 from .identity import OrganismIdentity
 
 # Layer 1: Judgment Engine (IMPLEMENTED ✅)
-from .judgment_engine import JudgmentEngine, DogInput, UnifiedJudgment
+from .judgment_engine import DogInput, JudgmentEngine, UnifiedJudgment
 
 # Future layers (coming Week 3-6)
 # from .judgment_engine import JudgmentEngine

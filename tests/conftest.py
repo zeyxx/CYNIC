@@ -1,11 +1,11 @@
 """Test configuration and fixtures for CYNIC tests."""
 from __future__ import annotations
 
-import pytest
-import pytest_asyncio
-import asyncio
 import uuid
 from unittest.mock import AsyncMock, patch
+
+import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -54,11 +54,12 @@ async def _get_or_create_organism_async():
     """Get cached organism or create new one (async version for test fixture)."""
     global _CACHED_ORGANISM, _CACHED_CONTAINER
 
-    from cynic.kernel.organism.organism import awaken
-    from cynic.interfaces.api.state import AppContainer, set_app_container, restore_state
+    import logging
+
     from cynic.interfaces.api.routers.auto_register import auto_register_routers
     from cynic.interfaces.api.server import app
-    import logging
+    from cynic.interfaces.api.state import AppContainer, restore_state, set_app_container
+    from cynic.kernel.organism.organism import awaken
 
     if _CACHED_ORGANISM is not None:
         logger = logging.getLogger("cynic.tests.conftest")
@@ -106,10 +107,11 @@ def _cleanup_organism():
     if _CACHED_ORGANISM is None:
         return
 
-    from cynic.kernel.core.unified_state import UnifiedConsciousState
-    from cynic.kernel.core.event_bus import get_core_bus, get_automation_bus, get_agent_bus
     import gc
     import logging
+
+    from cynic.kernel.core.event_bus import get_agent_bus, get_automation_bus, get_core_bus
+    from cynic.kernel.core.unified_state import UnifiedConsciousState
 
     logger = logging.getLogger("cynic.tests.conftest")
     logger.info("SESSION END: Running organism cleanup...")
@@ -312,8 +314,8 @@ async def test_bot(mock_discord_client):
     Creates a minimal Discord bot for testing command handlers
     and bot-level functionality. Uses mock Discord client internally.
     """
-    from discord.ext import commands
     import discord
+    from discord.ext import commands
 
     intents = discord.Intents.default()
     bot = commands.Bot(command_prefix="!", intents=intents)

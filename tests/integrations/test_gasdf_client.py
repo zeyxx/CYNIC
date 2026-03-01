@@ -3,11 +3,14 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
 
 from cynic.kernel.organism.perception.integrations.gasdf.client import GASdfClient
-from cynic.kernel.organism.perception.integrations.gasdf.types import GASdfError, GASdfQuote, GASdfStats
+from cynic.kernel.organism.perception.integrations.gasdf.types import (
+    GASdfError,
+    GASdfQuote,
+    GASdfStats,
+)
 
 
 class TestGASdfClient:

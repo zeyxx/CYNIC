@@ -30,8 +30,9 @@ async def ask_cynic(question: str, context: str = "", reality: str = "SOCIAL") -
             "verdict_explanation": str
         }
     """
+
     import aiohttp
-    import time
+
     from cynic.interfaces.bots.governance.core.config import CYNICSettings
     
     settings = CYNICSettings()
@@ -72,7 +73,7 @@ async def ask_cynic(question: str, context: str = "", reality: str = "SOCIAL") -
             max_attempts = 30
             poll_interval = 0.5
             
-            for attempt in range(max_attempts):
+            for _attempt in range(max_attempts):
                 async with session.get(f"{api_url}/judge/{judgment_id}") as resp:
                     if resp.status == 200:
                         judgment_data = await resp.json()
@@ -141,8 +142,9 @@ async def learn_cynic(
     try:
         logger.info(f"Learning from judgment {judgment_id} (verdict={verdict}, approved={approved})...")
 
-        from cynic.interfaces.bots.governance.core.config import CYNIC_MCP_URL
         import aiohttp
+
+        from cynic.interfaces.bots.governance.core.config import CYNIC_MCP_URL
 
         # Normalize rating: 1-5 stars → -1.0 to +1.0
         base = (satisfaction / 5.0) * 2.0 - 1.0  # 1→-0.6, 3→0.2, 5→1.0
@@ -235,7 +237,7 @@ async def observe_cynic(aspect: str = "consciousness", detailed: bool = False) -
             snapshot = str(state_dict)
             observation = f"Full organism snapshot: {snapshot}"
 
-        logger.info(f"CYNIC observation complete")
+        logger.info("CYNIC observation complete")
         return {
             "status": "success",
             "observation": observation

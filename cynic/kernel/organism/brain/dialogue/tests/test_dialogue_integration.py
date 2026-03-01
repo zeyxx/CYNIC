@@ -1,10 +1,14 @@
 """Integration tests for dialogue + learning + classification working together."""
 
 import pytest
-from cynic.kernel.organism.brain.dialogue.models import UserMessage, CynicMessage
+
+from cynic.kernel.organism.brain.collaborative.decision_classifier import (
+    DecisionClass,
+    DecisionClassifier,
+)
+from cynic.kernel.organism.brain.dialogue.models import CynicMessage, UserMessage
 from cynic.kernel.organism.brain.dialogue.storage import DialogueStore
 from cynic.kernel.organism.brain.learning.memory_store import MemoryStore
-from cynic.kernel.organism.brain.collaborative.decision_classifier import DecisionClassifier, DecisionClass
 
 
 @pytest.mark.asyncio

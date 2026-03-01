@@ -10,13 +10,12 @@ Lock timeout: 60 seconds
 Stale detection: Check if PID alive, release if dead
 """
 
+import json
 import logging
 import os
-import json
-import time
 import platform
+import time
 from pathlib import Path
-from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -70,9 +69,9 @@ class KernelLockManager:
         self.lock_file = LOCK_FILE
         self.timeout = LOCK_TIMEOUT
         self.stale_threshold = STALE_THRESHOLD
-        self.owner_pid: Optional[int] = None
-        self.owner_hostname: Optional[str] = None
-        self.acquired_at: Optional[float] = None
+        self.owner_pid: int | None = None
+        self.owner_hostname: str | None = None
+        self.acquired_at: float | None = None
 
     async def acquire(self, timeout: float = LOCK_TIMEOUT) -> bool:
         """
@@ -210,7 +209,7 @@ class KernelLockManager:
         except (json.JSONDecodeError, OSError):
             return False
 
-    async def get_holder(self) -> Optional[Tuple[int, str, float]]:
+    async def get_holder(self) -> tuple[int, str, float] | None:
         """Get lock holder info: (pid, hostname, timestamp)."""
         if not self.lock_file.exists():
             return None
@@ -227,7 +226,7 @@ class KernelLockManager:
 
 
 # Module-level singleton
-_lock_manager: Optional[KernelLockManager] = None
+_lock_manager: KernelLockManager | None = None
 
 
 def get_lock_manager() -> KernelLockManager:

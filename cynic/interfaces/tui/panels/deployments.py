@@ -6,14 +6,10 @@ Shows real-time deployment status, logs, and results.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from rich.panel import Panel
 from rich.table import Table
-from rich.progress import Progress
 from textual.widgets import Static
-
-from cynic.orchestration.docker import BuildResult, DeployResult
 
 
 class DeploymentsPanel(Static):

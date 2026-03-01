@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 from datetime import datetime
 from types import MappingProxyType
 
@@ -15,7 +14,7 @@ class UserMessage:
     message_type: str  # "question", "feedback", "exploration"
     content: str
     user_confidence: float  # [0, 0.618] φ-bounded
-    related_judgment_id: Optional[str] = None
+    related_judgment_id: str | None = None
     timestamp: float = field(default_factory=lambda: datetime.now().timestamp())
 
     def __post_init__(self):
@@ -39,7 +38,7 @@ class CynicMessage:
     content: str
     confidence: float  # [0, 0.618] φ-bounded
     axiom_scores: dict[str, float] = field(default_factory=dict)
-    source_judgment_id: Optional[str] = None
+    source_judgment_id: str | None = None
     timestamp: float = field(default_factory=lambda: datetime.now().timestamp())
 
     def __post_init__(self):

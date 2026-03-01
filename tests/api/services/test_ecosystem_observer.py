@@ -1,10 +1,12 @@
 """Tests for EcosystemObserver — nervous system wrapper for read-only ecosystem queries."""
 
 import asyncio
+
 import pytest
+
 from cynic.interfaces.api.services.ecosystem_observer import EcosystemObserver
-from cynic.nervous.event_journal import EventJournal, EventCategory
-from cynic.nervous.decision_trace import DecisionTracer, TraceNode, DogVote, DogRole
+from cynic.nervous.decision_trace import DecisionTracer
+from cynic.nervous.event_journal import EventCategory, EventJournal
 from cynic.nervous.service_registry import ServiceStateRegistry
 
 
@@ -76,7 +78,7 @@ async def test_perception_sources_query(observer, journal):
 
     assert isinstance(sources, dict)
     assert len(sources) >= 3
-    assert all(isinstance(v, (int, float)) for v in sources.values())
+    assert all(isinstance(v, int | float) for v in sources.values())
 
 
 @pytest.mark.asyncio
@@ -86,7 +88,7 @@ async def test_handler_traces_query(observer, decision_trace):
     trace_id = await decision_trace.start_trace(judgment_id="j_123", initial_phase="PERCEIVE")
 
     # Add nodes using the correct API
-    node1_id = await decision_trace.add_node(
+    await decision_trace.add_node(
         trace_id=trace_id,
         phase="PERCEIVE",
         component="VISUAL",
@@ -96,7 +98,7 @@ async def test_handler_traces_query(observer, decision_trace):
         output_keys=["perception"],
     )
 
-    node2_id = await decision_trace.add_node(
+    await decision_trace.add_node(
         trace_id=trace_id,
         phase="JUDGE",
         component="SAGE",
@@ -136,4 +138,4 @@ async def test_ecosystem_snapshot_aggregator(observer, journal, decision_trace):
     assert 'timestamp' in snapshot
     assert 'event_count' in snapshot
     assert 'recent_judgments' in snapshot
-    assert isinstance(snapshot['event_count'], (int, float))
+    assert isinstance(snapshot['event_count'], int | float)

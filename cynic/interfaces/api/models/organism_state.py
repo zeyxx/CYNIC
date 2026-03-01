@@ -21,9 +21,7 @@ Models:
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
-from pydantic import BaseModel, Field, ConfigDict
-
+from pydantic import BaseModel, ConfigDict, Field
 
 # ════════════════════════════════════════════════════════════════════════════
 # STATE SNAPSHOT
@@ -107,13 +105,13 @@ class DogStatus(BaseModel):
     verdict: str = Field(
         description="Last verdict: BARK|GROWL|WAG|HOWL",
     )
-    confidence: Optional[float] = Field(
+    confidence: float | None = Field(
         default=None,
         ge=0.0,
         le=0.618,
         description="Confidence bound [0, 0.618] (φ⁻¹)",
     )
-    activity: Optional[str] = Field(
+    activity: str | None = Field(
         default=None,
         description="Current activity: idle|judging|learning",
     )
@@ -128,7 +126,7 @@ class DogsResponse(BaseModel):
     Frozen (immutable).
     """
 
-    dogs: Dict[str, DogStatus] = Field(
+    dogs: dict[str, DogStatus] = Field(
         description="Map of dog_id → DogStatus",
     )
     count: int = Field(
@@ -163,7 +161,7 @@ class ProposedAction(BaseModel):
         le=4,
         description="Priority level (1=critical, 4=fyi)",
     )
-    description: Optional[str] = Field(
+    description: str | None = Field(
         default=None,
         description="Human-readable description",
     )
@@ -178,7 +176,7 @@ class ActionsResponse(BaseModel):
     Frozen (immutable).
     """
 
-    actions: List[ProposedAction] = Field(
+    actions: list[ProposedAction] = Field(
         description="List of pending proposed actions",
     )
     count: int = Field(
@@ -309,7 +307,7 @@ class EScoreResponse(BaseModel):
     timestamp: float = Field(
         description="Unix timestamp (seconds) when snapshot was taken",
     )
-    agents: List[AgentScore] = Field(
+    agents: list[AgentScore] = Field(
         description="List of agent E-Scores",
     )
     count: int = Field(
@@ -364,7 +362,7 @@ class PolicyActionsResponse(BaseModel):
     timestamp: float = Field(
         description="Unix timestamp (seconds) when snapshot was taken",
     )
-    actions: List[PolicyAction] = Field(
+    actions: list[PolicyAction] = Field(
         default_factory=list,
         description="List of learned policy actions (state → best action)",
     )

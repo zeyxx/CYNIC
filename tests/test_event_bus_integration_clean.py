@@ -11,17 +11,21 @@ NO MOCKS — pure integration test with real event buses and real ResidualDetect
 """
 
 import asyncio
-import pytest
-from cynic.kernel.core.event_bus import (
-    get_core_bus, get_automation_bus, reset_all_buses,
-    Event, CoreEvent, create_default_bridge,
-)
-from cynic.kernel.core.judgment import Judgment, Cell, new_id
-from cynic.kernel.organism.brain.cognition.cortex.residual import ResidualDetector
-from cynic.kernel.core.events_schema import (
-    JudgmentCreatedPayload, EmergenceDetectedPayload,
-)
 
+import pytest
+
+from cynic.kernel.core.event_bus import (
+    CoreEvent,
+    Event,
+    get_automation_bus,
+    get_core_bus,
+    reset_all_buses,
+)
+from cynic.kernel.core.events_schema import (
+    JudgmentCreatedPayload,
+)
+from cynic.kernel.core.judgment import new_id
+from cynic.kernel.organism.brain.cognition.cortex.residual import ResidualDetector
 
 # ════════════════════════════════════════════════════════════════════════════
 # HELPER FUNCTIONS

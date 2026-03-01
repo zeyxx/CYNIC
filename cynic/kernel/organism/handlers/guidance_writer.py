@@ -9,11 +9,12 @@ import json
 import logging
 import os
 import time
-from typing import Callable, Any
-from cynic.kernel.core.event_bus import Event, CoreEvent
+from collections.abc import Callable
+
+from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.phi import MAX_CONFIDENCE
 from cynic.kernel.organism.handlers.base import HandlerGroup
 from cynic.kernel.organism.handlers.services import KernelServices
-from cynic.kernel.core.phi import MAX_CONFIDENCE
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.guidance_writer")
 

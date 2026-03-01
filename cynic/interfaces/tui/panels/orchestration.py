@@ -11,17 +11,13 @@ This IS the command center for CYNIC self-orchestration.
 """
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime
-
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
-from textual.containers import Container, Vertical, Horizontal
-from textual.widgets import Button, Static, Label, Input
+from textual.containers import Container
 from textual.reactive import reactive
+from textual.widgets import Static
 
-from cynic.orchestration import DockerManager, VersionManager, HealthMonitor
+from cynic.orchestration import DockerManager, HealthMonitor, VersionManager
 
 
 class OrchestrationPanel(Container):

@@ -4,17 +4,15 @@ CYNIC actions router — proposed-actions · self-probes
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
-
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from cynic.interfaces.api.state import get_app_container, AppContainer
-
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.interfaces.api.routers.utils import _append_social_signal
+from cynic.interfaces.api.state import AppContainer, get_app_container
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
 from cynic.kernel.core.events_schema import ActRequestedPayload, AxiomActivatedPayload
 from cynic.kernel.organism.brain.learning.qlearning import LearningSignal
-from cynic.interfaces.api.routers.utils import _append_social_signal
 
 logger = logging.getLogger("cynic.interfaces.api.server")
 
@@ -29,7 +27,7 @@ router_actions = APIRouter(tags=["actions"])
 
 @router_actions.get("/actions")
 async def list_actions(
-    status: Optional[str] = Query(default=None, description="Filter by status: PENDING/ACCEPTED/REJECTED/AUTO_EXECUTED"),
+    status: str | None = Query(default=None, description="Filter by status: PENDING/ACCEPTED/REJECTED/AUTO_EXECUTED"),
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
     """
@@ -168,7 +166,7 @@ async def reject_action(
 
 @router_actions.get("/self-probes")
 async def list_self_probes(
-    status: Optional[str] = Query(default=None, description="Filter by status: PENDING/APPLIED/DISMISSED/all"),
+    status: str | None = Query(default=None, description="Filter by status: PENDING/APPLIED/DISMISSED/all"),
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
     """

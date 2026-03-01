@@ -14,6 +14,7 @@ machine resources, and managing feedback loops.
 
 import asyncio
 import sys
+
 from cynic.kernel.observability.cli.app import CliApp
 
 
@@ -32,10 +33,8 @@ async def main() -> None:
     try:
         await app.run()
     except KeyboardInterrupt:
-        print("\n\nInterrupted. Goodbye!")
         sys.exit(0)
-    except Exception as e:
-        print(f"\nError: {e}")
+    except Exception:
         sys.exit(1)
 
 

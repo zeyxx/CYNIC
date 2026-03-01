@@ -21,11 +21,9 @@ Deterministic (no randomness), handles tie-breakers hierarchically.
 from __future__ import annotations
 
 import logging
-from typing import List
 from collections import Counter
 
 from cynic.kernel.core.unified_state import UnifiedJudgment
-
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +81,7 @@ class PBFTEngine:
             f"fault_tolerance={fault_tolerance}, required_votes={self.required_votes}"
         )
 
-    async def reach_consensus(self, judgments: List[UnifiedJudgment]) -> UnifiedJudgment:
+    async def reach_consensus(self, judgments: list[UnifiedJudgment]) -> UnifiedJudgment:
         """
         Reach Byzantine consensus among Dogs using supermajority voting.
 

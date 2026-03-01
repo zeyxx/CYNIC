@@ -17,14 +17,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import sys
-from typing import Any, Optional
 
 try:
     from mcp.server import Server
-    from mcp.server.stdio import stdio_server
-    from mcp.types import Tool, TextContent, CallToolResult
     from mcp.server.models import InitializationOptions
+    from mcp.server.stdio import stdio_server
+    from mcp.types import CallToolResult, TextContent, Tool
 except ImportError as e:
     raise ImportError(f"Install mcp: pip install mcp (error: {e})")
 

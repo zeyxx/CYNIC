@@ -9,10 +9,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import websockets
-from typing import Optional, Callable, Dict, Any
+from collections.abc import Callable
+from typing import Any
 
-from cynic.kernel.protocol.kpulse import PulseMessage, PulseType
+import websockets
+
+from cynic.kernel.protocol.kpulse import PulseMessage
 
 logger = logging.getLogger("cynic.kernel.protocol.knet_client")
 

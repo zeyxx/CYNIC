@@ -7,14 +7,13 @@ This addresses the MEMORY_MANAGEMENT blue screen issue.
 DEPRECATED: ConsciousState refactored to UnifiedConsciousState in V5.
 """
 
-import asyncio
 import pytest
 
 pytestmark = pytest.mark.skip(reason="ConsciousState refactored to UnifiedConsciousState in V5")
 
 try:
-    from cynic.kernel.core.unified_state import UnifiedConsciousState as ConsciousState
     from cynic.kernel.core.phi import fibonacci
+    from cynic.kernel.core.unified_state import UnifiedConsciousState as ConsciousState
 except ImportError:
     ConsciousState = None
     fibonacci = None
@@ -135,7 +134,7 @@ async def test_memory_footprint_reasonable(conscious_state):
     for i in range(max_size):
         event_payload = {
             "judgment_id": f"test-{i}",
-            "q_score": float(50.0),
+            "q_score": 50.0,
             "verdict": "WAG",
             "confidence": 0.5,
             "dog_votes": {

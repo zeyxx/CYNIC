@@ -7,9 +7,9 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from cynic.kernel.core.event_bus import Event, CoreEvent, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.phi import fibonacci
 from cynic.kernel.core.topology.payloads import TopologySnapshotPayload
 

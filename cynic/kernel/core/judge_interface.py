@@ -40,10 +40,10 @@ Key principles:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any
+from typing import Any
 
+from cynic.kernel.core.phi import MAX_CONFIDENCE
 from cynic.kernel.core.unified_state import UnifiedJudgment
-from cynic.kernel.core.phi import PHI_INV, MAX_CONFIDENCE
 
 
 class JudgeInterface(ABC):
@@ -64,7 +64,7 @@ class JudgeInterface(ABC):
     """
 
     @abstractmethod
-    async def judge(self, proposal_text: str, context: Dict[str, Any]) -> UnifiedJudgment:
+    async def judge(self, proposal_text: str, context: dict[str, Any]) -> UnifiedJudgment:
         """
         Judge a proposal and return structured verdict.
 
@@ -135,7 +135,7 @@ class BaseJudge(JudgeInterface):
         return min(base_confidence, MAX_CONFIDENCE)
 
     @abstractmethod
-    async def judge(self, proposal_text: str, context: Dict[str, Any]) -> UnifiedJudgment:
+    async def judge(self, proposal_text: str, context: dict[str, Any]) -> UnifiedJudgment:
         """
         Judge a proposal (must be implemented by subclass).
 

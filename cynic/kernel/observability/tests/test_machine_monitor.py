@@ -1,5 +1,6 @@
 """Tests for MachineMonitor."""
 import pytest
+
 from cynic.kernel.observability.machine_monitor import MachineMonitor, MachineState
 
 

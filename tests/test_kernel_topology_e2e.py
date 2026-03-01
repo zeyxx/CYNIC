@@ -13,13 +13,12 @@ import asyncio
 import json
 import time
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from cynic.kernel.organism.organism import awaken
-from cynic.kernel.core.event_bus import Event, CoreEvent, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
 from cynic.kernel.core.topology import SourceChangedPayload
+from cynic.kernel.organism.organism import awaken
 
 
 @pytest.mark.asyncio
@@ -40,15 +39,12 @@ async def test_kernel_with_full_topology_system():
     assert state.topology_mirror is not None, "L4 TopologyMirror missing"
     assert state.change_tracker is not None, "L4.5 ChangeTracker missing"
 
-    print("[OK] Full kernel awakened with L0 topology system")
-    print(f"     - {len(state.dogs)} dogs active")
-    print("     - SourceWatcher, TopologyBuilder, HotReloadCoordinator, TopologyMirror, ChangeTracker")
 
 
 @pytest.mark.asyncio
 async def test_source_changed_event_flows_to_change_tracker():
     """Verify SOURCE_CHANGED event reaches ChangeTracker via event bus."""
-    state = awaken(db_pool=None)
+    awaken(db_pool=None)
     bus = get_core_bus()
 
     # Clear old changes
@@ -80,21 +76,17 @@ async def test_source_changed_event_flows_to_change_tracker():
     assert "test_handler.py" in filepaths, "test_handler.py not logged"
     assert "test_judge.py" in filepaths, "test_judge.py not logged"
 
-    print("[OK] SOURCE_CHANGED event flowed to ChangeTracker")
-    print(f"     - {len(records)} records logged")
-    print(f"     - Files: {sorted(filepaths)}")
 
 
 @pytest.mark.asyncio
 async def test_change_tracker_rolling_history():
     """Verify ChangeTracker maintains rolling history with cap at F(13)=233."""
-    state = awaken(db_pool=None)
+    awaken(db_pool=None)
     changes_path = Path.home() / ".cynic" / "changes.jsonl"
 
     if changes_path.exists():
         lines = changes_path.read_text(encoding="utf-8", errors="ignore").splitlines()
         assert len(lines) <= 233, f"Rolling cap violated: {len(lines)} > 233"
-        print(f"[OK] Rolling history enforced: {len(lines)} <= 233 records")
 
         # Show statistics
         categories = {}
@@ -103,13 +95,12 @@ async def test_change_tracker_rolling_history():
             cat = record.get("category", "unknown")
             categories[cat] = categories.get(cat, 0) + 1
 
-        print(f"     - Category breakdown: {dict(sorted(categories.items()))}")
 
 
 @pytest.mark.asyncio
 async def test_change_tracker_visibility_integration():
     """Test that organism has real-time visibility into modifications."""
-    state = awaken(db_pool=None)
+    awaken(db_pool=None)
 
     # The test itself is proof: we have an organism that:
     # 1. Detects file changes (SourceWatcher)
@@ -124,13 +115,9 @@ async def test_change_tracker_visibility_integration():
     # The very existence of this file proves the organism is conscious of its own
     # architecture — it can tell you what changed, when, and how much
 
-    file_size = changes_path.stat().st_size
-    line_count = len(changes_path.read_text(encoding="utf-8", errors="ignore").splitlines())
+    changes_path.stat().st_size
+    len(changes_path.read_text(encoding="utf-8", errors="ignore").splitlines())
 
-    print("[OK] Organism has real-time visibility into modifications")
-    print(f"     - changes.jsonl: {file_size / 1024:.1f} KB, {line_count} records")
-    print(f"     - User can inspect: cat ~/.cynic/changes.jsonl")
-    print(f"     - Each record shows: filepath, category, change_type, timestamps, scope")
 
 
 @pytest.mark.asyncio
@@ -146,23 +133,16 @@ async def test_topology_system_layers_exist_in_sequence():
         "L4.5 ChangeTracker": state.change_tracker,
     }
 
-    print("[OK] Topology system layers:")
     for name, component in layers.items():
         assert component is not None, f"{name} is None"
-        print(f"     - {name}: {type(component).__name__}")
 
     # Event flow verification
-    bus = get_core_bus()
+    get_core_bus()
 
     # SOURCE_CHANGED → L1.5 ChangeTracker + L2 TopologyBuilder
     # TOPOLOGY_CHANGED → L3 HotReloadCoordinator
     # (L4 TopologyMirror runs continuously)
 
-    print("[OK] Event flow:")
-    print("     - SOURCE_CHANGED → ChangeTracker (visibility)")
-    print("     - SOURCE_CHANGED → TopologyBuilder (change detection)")
-    print("     - TOPOLOGY_CHANGED → HotReloadCoordinator (safe application)")
-    print("     - TopologyMirror (continuous snapshots)")
 
 
 if __name__ == "__main__":

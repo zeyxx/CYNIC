@@ -18,13 +18,11 @@ Loops:
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
-from cynic.kernel.core.phi import PHI, PHI_INV, fibonacci
-from cynic.kernel.core.event_bus import EventBus, CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 
 logger = logging.getLogger("cynic.kernel.organism.brain.learning.loops")
 
@@ -65,7 +63,7 @@ class SONA:
     - Coordinates learning updates
     - Emits composite learning events
     """
-    event_bus: Optional[EventBus] = None
+    event_bus: EventBus | None = None
     loops: dict[str, LoopConfig] = field(default_factory=dict)
     active: bool = False
 
@@ -125,7 +123,7 @@ class SONA:
             return
         
         # Get weights from enabled loops
-        total_weight = sum(
+        sum(
             config.priority for config in self.loops.values()
             if config.enabled
         )
@@ -189,7 +187,7 @@ class SONA:
 
 
 # Singleton
-_sona: Optional[SONA] = None
+_sona: SONA | None = None
 
 
 def get_sona() -> SONA:

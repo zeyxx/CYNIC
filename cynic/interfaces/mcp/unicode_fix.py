@@ -3,8 +3,9 @@ Unicode fix for Windows console output.
 
 Add this import at the top of any module that prints to console.
 """
-import sys
 import os
+import sys
+
 
 def fix_unicode_on_windows():
     """Force UTF-8 encoding on Windows console output."""

@@ -6,12 +6,9 @@ This lets the API contract evolve independently from the kernel.
 """
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
-
-from cynic.kernel.core.phi import MAX_Q_SCORE, MAX_CONFIDENCE
-
 
 # ════════════════════════════════════════════════════════════════════════════
 # JUDGE
@@ -29,11 +26,11 @@ class JudgeRequest(BaseModel):
         description="Analysis type: PERCEIVE/JUDGE/DECIDE/ACT/LEARN/ACCOUNT/EMERGE",
     )
     context: str = Field(default="", description="Human-readable context for LLM scoring")
-    time_dim: Optional[str] = Field(
+    time_dim: str | None = Field(
         default=None,
         description="Time dimension: PAST/PRESENT/FUTURE/CYCLE/TREND/EMERGENCE/TRANSCENDENCE (inferred if None)",
     )
-    level: Optional[str] = Field(
+    level: str | None = Field(
         default=None,
         description="Consciousness level: REFLEX/MICRO/MACRO (auto-selected if None)",
     )
@@ -51,7 +48,7 @@ class JudgeRequest(BaseModel):
 
     @field_validator("level")
     @classmethod
-    def validate_level(cls, v: Optional[str]) -> Optional[str]:
+    def validate_level(cls, v: str | None) -> str | None:
         if v is None:
             return None
         valid = {"REFLEX", "MICRO", "MACRO"}
@@ -98,7 +95,7 @@ class PerceiveRequest(BaseModel):
     data: Any = Field(default=None, description="Raw perception data (legacy — now optional)")
     content: Any = Field(default=None, description="Raw perception data (new: Track E clients send 'content')")
     context: str = Field(default="", description="Human-readable context")
-    time_dim: Optional[str] = Field(
+    time_dim: str | None = Field(
         default=None,
         description="Time dimension: PAST/PRESENT/FUTURE/CYCLE/TREND/EMERGENCE/TRANSCENDENCE (inferred if None)",
     )
@@ -106,7 +103,7 @@ class PerceiveRequest(BaseModel):
         default=True,
         description="If True, run full judgment pipeline on this perception",
     )
-    level: Optional[str] = Field(default="REFLEX", description="Judgment level")
+    level: str | None = Field(default="REFLEX", description="Judgment level")
 
 
 class PerceiveResponse(BaseModel):
@@ -116,7 +113,7 @@ class PerceiveResponse(BaseModel):
     reality: str
     judgment_id: str = ""             # new: top-level for polling
     verdict: str = "PENDING"          # new: top-level status
-    judgment: Optional[JudgeResponse] = None
+    judgment: JudgeResponse | None = None
     enqueued: bool = False
     message: str = ""
 
@@ -269,8 +266,8 @@ class DecisionPathStage(BaseModel):
     stage: str = Field(description="Stage name (power_limiter, alignment_checker, etc)")
     verdict: str = Field(description="Verdict at this stage (approve/reject/pending)")
     reason: str = Field(description="Reason for verdict")
-    component: Optional[str] = Field(default=None, description="Component name")
-    duration_ms: Optional[float] = Field(default=None, description="Stage duration in ms")
+    component: str | None = Field(default=None, description="Component name")
+    duration_ms: float | None = Field(default=None, description="Stage duration in ms")
 
 
 class DecisionTraceResponse(BaseModel):

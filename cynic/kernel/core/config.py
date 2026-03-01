@@ -10,13 +10,12 @@ from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 logger = logging.getLogger("cynic.kernel.config")
 
 
-def _opt_int(val: Optional[str]) -> Optional[int]:
+def _opt_int(val: str | None) -> int | None:
     """Parse optional int from env var string."""
     return int(val) if val is not None else None
 
@@ -35,31 +34,31 @@ class CynicConfig:
     """
 
     # ── Storage: SurrealDB (primary) ──────────────────────────────────────
-    surreal_url: Optional[str] = None
+    surreal_url: str | None = None
     surreal_user: str = "root"
     surreal_pass: str = "local_dev_only"
     surreal_ns: str = "cynic"
     surreal_db: str = "cynic"
 
     # ── Storage: PostgreSQL (fallback) ────────────────────────────────────
-    database_url: Optional[str] = None
+    database_url: str | None = None
 
     # ── LLM: Ollama (primary — local, free) ──────────────────────────────
     ollama_url: str = "http://localhost:11434"
 
     # ── LLM: Claude API (MACRO cycle reasoning) ─────────────────────────
-    anthropic_api_key: Optional[str] = None
+    anthropic_api_key: str | None = None
 
     # ── LLM: Gemini API (free tier alternative) ─────────────────────────
-    google_api_key: Optional[str] = None
+    google_api_key: str | None = None
 
     # ── LLM: Local inference (llama.cpp) ─────────────────────────────────
-    models_dir: Optional[str] = None
+    models_dir: str | None = None
     llama_gpu_layers: int = -1
     llama_threads: int = 8
 
     # ── LLM: Ollama tuning ────────────────────────────────────────────────
-    ollama_num_parallel: Optional[int] = None
+    ollama_num_parallel: int | None = None
 
     # ── GASdf: Governance (On-chain execution) ──────────────────────────
     gasdf_url: str = "http://localhost:8766"

@@ -1,7 +1,7 @@
 """CYNIC DNA/Assembly — Low-level primitives for organism operations."""
 
-from .primitives import PERCEIVE, JUDGE, DECIDE, ACT, LEARN
-from .assembly import cynic_workflow, Workflow
+from .assembly import Workflow, cynic_workflow
+from .primitives import ACT, DECIDE, JUDGE, LEARN, PERCEIVE
 
 __all__ = [
     "PERCEIVE",

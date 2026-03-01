@@ -10,10 +10,9 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional, Dict
+from typing import Any
 
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
-from cynic.kernel.core.phi import PHI_INV
+from cynic.kernel.core.event_bus import Event, get_core_bus
 
 logger = logging.getLogger("cynic.kernel.organism.layers.motor")
 
@@ -23,7 +22,7 @@ class MotorSystem:
     Coordinates gestures (actions) with the physical body and energy budget.
     """
 
-    def __init__(self, body: Optional[Any] = None, budget_manager: Optional[Any] = None) -> None:
+    def __init__(self, body: Any | None = None, budget_manager: Any | None = None) -> None:
         self.body = body # HardwareBody
         self.budget_manager = budget_manager
         self._bus = get_core_bus()
@@ -33,9 +32,9 @@ class MotorSystem:
         self, 
         action_type: str, 
         effector: Any, 
-        params: Dict[str, Any],
+        params: dict[str, Any],
         base_cost: float = 0.01 # USD or Joules
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Execute an embodied gesture.
         
@@ -96,7 +95,7 @@ class MotorSystem:
             logger.error("Motor failure: gesture %s failed: %s", action_type, e)
             return {"success": False, "error": str(e)}
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         return {
             "gestures_count": self._gestures_executed,
             "body_linked": self.body is not None,

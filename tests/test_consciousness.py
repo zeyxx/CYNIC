@@ -11,15 +11,19 @@ import pytest
 
 pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - ConsciousnessGradient not exported")
 
-from unittest.mock import patch
 
 from cynic.kernel.core.consciousness import (
-    ConsciousnessLevel, ConsciousnessGradient, CycleTimer,
-    ConsciousnessState, dogs_for_level, get_consciousness, reset_consciousness,
-    REFLEX_DOGS, MICRO_DOGS, MACRO_DOGS, META_DOGS,
+    MACRO_DOGS,
+    REFLEX_DOGS,
+    ConsciousnessGradient,
+    ConsciousnessLevel,
+    CycleTimer,
+    dogs_for_level,
+    get_consciousness,
     gradient_from_budget,
+    reset_consciousness,
 )
-from cynic.kernel.core.phi import fibonacci, PHI_INV, PHI_INV_2
+from cynic.kernel.core.phi import fibonacci
 
 
 class TestConsciousnessLevel:

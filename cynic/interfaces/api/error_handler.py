@@ -17,7 +17,6 @@ Categories:
 import hashlib
 import logging
 from enum import Enum
-from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,7 @@ class ErrorCategory(str, Enum):
 
 
 # Friendly error messages by category
-ERROR_MESSAGES: Dict[ErrorCategory, Dict[str, str]] = {
+ERROR_MESSAGES: dict[ErrorCategory, dict[str, str]] = {
     ErrorCategory.DATABASE: {
         "friendly": "Database connection issue. This is usually temporary.",
         "action": "Try again in a moment. If it persists, we'll investigate.",

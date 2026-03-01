@@ -15,14 +15,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field
-from typing import Any, Optional
+from dataclasses import dataclass
+from typing import Any
 
 from cynic.interfaces.api.state import get_app_container
+from cynic.interfaces.mcp.service import MCPBridge, MCPTool
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
 from cynic.kernel.core.judgment import Cell
-from cynic.interfaces.mcp.service import MCPBridge, MCPTool
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +38,10 @@ class _CallMetadata:
     call_id: int
     tool_name: str
     started_at: float
-    task: Optional[asyncio.Task] = None
+    task: asyncio.Task | None = None
     timeout: float = 30.0
     status: str = "running"  # running, completed, failed, timeout
-    error: Optional[str] = None
+    error: str | None = None
     duration: float = 0.0
 
 

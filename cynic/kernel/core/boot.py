@@ -7,9 +7,9 @@ When AppState needs a service, it's auto-discovered and auto-injected.
 This is what "architecture should make things connect simply at creation" means.
 """
 
+from cynic.kernel.core.human_state import HumanStateModel
 from cynic.kernel.core.service_registry import get_registry
 from cynic.kernel.core.trust_model import TrustModel
-from cynic.kernel.core.human_state import HumanStateModel
 
 
 async def bootstrap_services():

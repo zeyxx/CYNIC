@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import logging
 import os
+
 import httpx
-from typing import Any, Optional
 
 logger = logging.getLogger("cynic.interfaces.telegram")
 
@@ -22,7 +22,7 @@ class TelegramBridge:
     Minimalist Telegram Notifier.
     Uses httpx directly to avoid heavy bot framework dependencies.
     """
-    def __init__(self, token: Optional[str] = None, chat_id: Optional[str] = None):
+    def __init__(self, token: str | None = None, chat_id: str | None = None):
         self.token = token or os.environ.get("TELEGRAM_BOT_TOKEN")
         self.chat_id = chat_id or os.environ.get("TELEGRAM_CHAT_ID")
         self.base_url = f"https://api.telegram.org/bot{self.token}"
@@ -53,7 +53,7 @@ class TelegramBridge:
             logger.error(f"TelegramBridge failed to send message: {e}")
             return False
 
-    async def notify_anomaly(self, source: str, error: str, details: Optional[str] = None):
+    async def notify_anomaly(self, source: str, error: str, details: str | None = None):
         """Standardized format for system errors."""
         msg = (
             f"🚨 <b>CYNIC ANOMALY DETECTED</b>\n\n"

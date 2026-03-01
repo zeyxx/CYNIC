@@ -6,18 +6,24 @@ from __future__ import annotations
 import time
 
 from cynic.interfaces.cli.utils import (
-    _GUIDANCE, _CHECKPOINT, _PENDING,
-    _api_get, _read_json,
-    _c, _bar, _ago, _format_s, _lod_str, _verdict_str, _section,
+    _CHECKPOINT,
+    _GUIDANCE,
     _LOOPS,
+    _PENDING,
+    _ago,
+    _api_get,
+    _bar,
+    _c,
+    _format_s,
+    _lod_str,
+    _read_json,
+    _section,
+    _verdict_str,
 )
 
 
 def cmd_status() -> None:
-    now_str = time.strftime("%Y-%m-%d %H:%M:%S")
-    print()
-    print(_c("bold", f"  ╔══ CYNIC STATUS — {now_str} ══╗"))
-    print()
+    time.strftime("%Y-%m-%d %H:%M:%S")
 
     # ── 1. Guidance (last judgment from files) ─────────────────────────────
     g = _read_json(_GUIDANCE)
@@ -140,5 +146,3 @@ def cmd_status() -> None:
         lines.append(f"   {_c('dim', note)}")
     _section("FEEDBACK LOOPS", lines)
 
-    print(_c("dim", f"  *sniff* Confidence: 55% (φ⁻¹ limit)"))
-    print()

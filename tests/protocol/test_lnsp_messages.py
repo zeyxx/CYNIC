@@ -1,28 +1,29 @@
 """Comprehensive tests for LNSP message types and factories."""
 from __future__ import annotations
 
-import pytest
 import time
-from cynic.kernel.protocol.lnsp.types import (
-    Layer,
-    VerdictType,
-    ObservationType,
-    AggregationType,
-    JudgmentType,
-    ActionType,
-    MessageHeader,
-    Metadata,
-    LNSPMessage,
-)
+
+import pytest
+
 from cynic.kernel.protocol.lnsp.messages import (
-    create_raw_observation,
-    create_aggregated_state,
-    create_judgment,
-    create_action,
     _generate_message_id,
     _get_timestamp,
+    create_action,
+    create_aggregated_state,
+    create_judgment,
+    create_raw_observation,
 )
-
+from cynic.kernel.protocol.lnsp.types import (
+    ActionType,
+    AggregationType,
+    JudgmentType,
+    Layer,
+    LNSPMessage,
+    MessageHeader,
+    Metadata,
+    ObservationType,
+    VerdictType,
+)
 
 # ============================================================================
 # Test Helpers & Fixtures

@@ -7,8 +7,10 @@ This addresses the MEMORY_MANAGEMENT blue screen issue (Leak #3).
 """
 
 import asyncio
+
 import pytest
-from cynic.kernel.core.event_bus import EventBus, Event
+
+from cynic.kernel.core.event_bus import Event, EventBus
 
 
 @pytest.fixture

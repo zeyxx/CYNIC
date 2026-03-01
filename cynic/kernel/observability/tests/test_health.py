@@ -8,8 +8,10 @@ Tests verify:
 - ISO8601 timestamps included
 - Detailed checks with remediation hints
 """
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
 from cynic.kernel.observability.health import HealthChecker
 
 
@@ -106,7 +108,7 @@ class TestHealthChecker:
         status = await health.check()
 
         assert "uptime_s" in status
-        assert isinstance(status["uptime_s"], (int, float))
+        assert isinstance(status["uptime_s"], int | float)
         assert status["uptime_s"] >= 0
 
     @pytest.mark.asyncio

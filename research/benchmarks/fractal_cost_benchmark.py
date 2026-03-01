@@ -40,19 +40,28 @@ from __future__ import annotations
 
 import asyncio
 import math
-import time
-import psutil
 import os
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from cynic.kernel.core.phi import PHI, PHI_INV, PHI_INV_2, fibonacci
-from cynic.kernel.organism.brain.cognition.neurons.dog_state import DogState, DogCognitionState, DogMetabolismState, DogSensoryState, DogMemoryState
-from cynic.kernel.organism.brain.cognition.cortex.dog_cognition import DogCognition, DogCognitionConfig
-from cynic.kernel.organism.brain.cognition.cortex.gossip_protocol import GossipProtocol, GossipMessage
-from cynic.kernel.organism.brain.cognition.cortex.entropy_tracker import EntropyTracker, EntropyMetrics
-from cynic.kernel.core.judgment import Cell
+import psutil
 
+from cynic.kernel.core.judgment import Cell
+from cynic.kernel.organism.brain.cognition.cortex.dog_cognition import (
+    DogCognition,
+    DogCognitionConfig,
+)
+from cynic.kernel.organism.brain.cognition.cortex.entropy_tracker import (
+    EntropyTracker,
+)
+from cynic.kernel.organism.brain.cognition.neurons.dog_state import (
+    DogCognitionState,
+    DogMemoryState,
+    DogMetabolismState,
+    DogSensoryState,
+    DogState,
+)
 
 # ════════════════════════════════════════════════════════════════════════════
 # COST BENCHMARK
@@ -209,7 +218,7 @@ class FractalCostBenchmark:
             judgments = await asyncio.gather(*judgment_tasks)
 
             # Track entropy for each judgment
-            for (dog_id, dog_state, _), judgment in zip(dogs, judgments):
+            for (dog_id, dog_state, _), judgment in zip(dogs, judgments, strict=False):
                 signals = dog_state.senses.observed_signals[-5:] if dog_state.senses.observed_signals else []
                 metrics = await self.entropy_tracker.track_judgment(
                     dog_id=dog_id,
@@ -319,38 +328,23 @@ async def main() -> None:
     """Run full Phase 4 cost benchmark."""
     bench = FractalCostBenchmark()
 
-    print("🐕 CYNIC Phase 4: Fractal Cost Scaling Benchmark\n")
-    print("=" * 70)
 
     # Run scaling benchmark
-    print("Running cost scaling validation...")
-    print("  1 dog (baseline) → 5 dogs → 11 dogs\n")
 
     result = await bench.benchmark_scaling(n_cells=50)
 
     # Display results
     output = result.to_dict()
-    print("BASELINE (1 Dog):")
-    for k, v in output["baseline_1dog"].items():
-        print(f"  {k}: {v}")
+    for _k, _v in output["baseline_1dog"].items():
+        pass
 
-    print("\nMODERATE (5 Dogs):")
-    for k, v in output["moderate_5dog"].items():
-        print(f"  {k}: {v}")
+    for _k, _v in output["moderate_5dog"].items():
+        pass
 
-    print("\nFULL (11 Dogs):")
-    for k, v in output["full_11dog"].items():
-        print(f"  {k}: {v}")
+    for _k, _v in output["full_11dog"].items():
+        pass
 
-    print("\nSCALING ANALYSIS:")
-    print(f"  Ratio 5 vs 1: {output['scaling_ratio_5_vs_1']:.3f}")
-    print(f"  Theoretical log₂(5): {output['theoretical_log2_5']:.3f}")
-    print(f"  Ratio 11 vs 1: {output['scaling_ratio_11_vs_1']:.3f}")
-    print(f"  Theoretical log₂(11): {output['theoretical_log2_11']:.3f}")
-    print(f"\n  Verdict: {output['analysis']['verdict']}")
-    print(f"  Type: {output['analysis']['scaling_type']}")
 
-    print("\n" + "=" * 70)
 
 
 if __name__ == "__main__":

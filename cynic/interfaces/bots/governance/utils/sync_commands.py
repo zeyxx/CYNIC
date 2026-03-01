@@ -8,8 +8,8 @@ Usage:
 """
 
 import asyncio
-import sys
 import logging
+import sys
 
 # Windows event loop compatibility
 if sys.platform == 'win32':
@@ -17,7 +17,8 @@ if sys.platform == 'win32':
 
 import discord
 from discord.ext import commands
-from cynic.interfaces.bots.governance.core.config import DISCORD_TOKEN, DISCORD_PREFIX
+
+from cynic.interfaces.bots.governance.core.config import DISCORD_PREFIX, DISCORD_TOKEN
 
 # Setup logging
 logging.basicConfig(
@@ -38,12 +39,6 @@ async def sync_commands():
     bot = commands.Bot(command_prefix=DISCORD_PREFIX, intents=intents)
 
     # Import all commands (this registers them)
-    from bot import (
-        cmd_propose, cmd_proposal_details, cmd_proposals,
-        cmd_voting_status, cmd_cynic_verdict, cmd_cynic_status,
-        cmd_cynic_stats, cmd_community_info, cmd_governance_stats,
-        cmd_help
-    )
 
     @bot.event
     async def on_ready():
@@ -76,11 +71,5 @@ async def sync_commands():
 
 
 if __name__ == "__main__":
-    print("""
-    ╔═════════════════════════════════════════════════════╗
-    ║  Discord Command Signature Fix                      ║
-    ║  Forcing complete re-synchronization...             ║
-    ╚═════════════════════════════════════════════════════╝
-    """)
 
     asyncio.run(sync_commands())

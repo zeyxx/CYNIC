@@ -19,10 +19,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import subprocess
 import uuid
-from typing import Any, Optional
-
+from typing import Any
 
 from cynic.kernel.core.event_bus import CoreEvent
 
@@ -44,7 +42,7 @@ MODEL_HAIKU = "claude-haiku-4-5-20251001"
 MODEL_DEFAULT = MODEL_HAIKU
 
 
-def _build_claude_cmd(sdk_url: str, resume_session_id: Optional[str] = None) -> list:
+def _build_claude_cmd(sdk_url: str, resume_session_id: str | None = None) -> list:
     """
     Build the claude CLI command as a list (safe — no shell=True).
     sdk_url is always 'ws://localhost:{port}/ws/sdk' — controlled by CYNIC, not user input.
@@ -80,10 +78,10 @@ class ClaudeCodeRunner:
     async def execute(
         self,
         prompt: str,
-        cwd: Optional[str] = None,
-        model: Optional[str] = MODEL_DEFAULT,
+        cwd: str | None = None,
+        model: str | None = MODEL_DEFAULT,
         timeout: float = DEFAULT_TASK_TIMEOUT,
-        resume_session_id: Optional[str] = None,
+        resume_session_id: str | None = None,
     ) -> dict[str, Any]:
         """
         Execute a task via Claude Code --sdk-url.
@@ -102,7 +100,7 @@ class ClaudeCodeRunner:
         session_ready = asyncio.Event()
         loop = asyncio.get_running_loop()
         result_future: asyncio.Future = loop.create_future()
-        target_session_id: Optional[str] = None
+        target_session_id: str | None = None
 
         # ── Register listeners BEFORE spawning ─────────────────────────────
         async def _on_session_started(event) -> None:

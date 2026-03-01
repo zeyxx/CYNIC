@@ -11,13 +11,15 @@ Scaling Law:
 from __future__ import annotations
 
 import math
-from typing import Any, Dict
 
-from cynic.kernel.core.phi import (
-    PHI, PHI_INV, PHI_INV_2, PHI_2, PHI_3,
-    fibonacci, lucas,
-)
 from cynic.kernel.core.consciousness import ConsciousnessLevel
+from cynic.kernel.core.phi import (
+    PHI,
+    PHI_INV,
+    PHI_INV_2,
+    fibonacci,
+    lucas,
+)
 
 # Consciousness Blending Weights (for Task #8)
 CONSCIOUSNESS_BLENDING_WEIGHTS = {

@@ -29,20 +29,13 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
-import sys
 import time
 from collections import deque
 from dataclasses import asdict, dataclass, field
-from enum import Enum
-from typing import Any, Optional
 
 # Python 3.9 compatibility: StrEnum added in Python 3.11
-if sys.version_info >= (3, 11):
-    from enum import StrEnum
-else:
-    class StrEnum(str, Enum):
-        """Polyfill for Python <3.11."""
-        pass
+from enum import StrEnum
+from typing import Any
 
 from cynic.kernel.core.formulas import DECISION_TRACE_CAP
 
@@ -67,7 +60,7 @@ class DogVote:
     role: DogRole
     q_score: float              # Their score (0-100)
     confidence: float           # Their confidence (0-φ⁻¹)
-    reasoning: Optional[str] = None  # Short reasoning summary
+    reasoning: str | None = None  # Short reasoning summary
 
 
 @dataclass
@@ -87,13 +80,13 @@ class TraceNode:
     dog_votes: list[DogVote] = field(default_factory=list)  # If JUDGE phase
 
     # Outputs from this phase
-    output_verdict: Optional[str] = None  # BARK/GROWL/WAG/HOWL
-    output_q_score: Optional[float] = None
+    output_verdict: str | None = None  # BARK/GROWL/WAG/HOWL
+    output_q_score: float | None = None
     output_keys: list[str] = field(default_factory=list)
 
     # Errors
     is_error: bool = False
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -128,9 +121,9 @@ class DecisionTrace:
     branching_factor: float = 0.0  # Avg children per node
 
     # Final verdict (from leaf node)
-    final_verdict: Optional[str] = None
-    final_q_score: Optional[float] = None
-    final_confidence: Optional[float] = None
+    final_verdict: str | None = None
+    final_q_score: float | None = None
+    final_confidence: float | None = None
 
     # Anomalies
     has_errors: bool = False
@@ -227,8 +220,8 @@ class DecisionTracer:
         input_keys: list[str],
         input_sources: list[str],
         output_keys: list[str],
-        output_verdict: Optional[str] = None,
-        output_q_score: Optional[float] = None,
+        output_verdict: str | None = None,
+        output_q_score: float | None = None,
     ) -> str:
         """
         Add a node to the trace DAG.
@@ -285,9 +278,9 @@ class DecisionTracer:
     async def close_trace(
         self,
         trace_id: str,
-        final_verdict: Optional[str] = None,
-        final_q_score: Optional[float] = None,
-        final_confidence: Optional[float] = None,
+        final_verdict: str | None = None,
+        final_q_score: float | None = None,
+        final_confidence: float | None = None,
     ) -> None:
         """
         Finalize a trace (compute metrics, detect anomalies).
@@ -370,7 +363,7 @@ class DecisionTracer:
             return 0.0
 
         children_count = [0] * len(trace.nodes)
-        for src, dst in trace.edges:
+        for src, _dst in trace.edges:
             src_idx = next((i for i, n in enumerate(trace.nodes) if n.node_id == src), -1)
             if src_idx >= 0:
                 children_count[src_idx] += 1
@@ -381,12 +374,12 @@ class DecisionTracer:
 
         return sum(children_count) / non_leaf
 
-    async def get_trace(self, trace_id: str) -> Optional[DecisionTrace]:
+    async def get_trace(self, trace_id: str) -> DecisionTrace | None:
         """Look up single trace."""
         async with self._lock:
             return self._trace_map.get(trace_id)
 
-    async def get_trace_by_judgment(self, judgment_id: str) -> Optional[DecisionTrace]:
+    async def get_trace_by_judgment(self, judgment_id: str) -> DecisionTrace | None:
         """Get trace for a judgment."""
         async with self._lock:
             trace_id = self._judgment_to_trace.get(judgment_id)

@@ -18,20 +18,17 @@ Design: ASCII organism with Sefirot layout (10 dogs as 10 nodes)
 from __future__ import annotations
 
 import asyncio
-import json
 from datetime import datetime
-from typing import Optional, Any
+from typing import Any
 
-from textual.app import ComposeResult, RenderResult
-from textual.containers import Container, Horizontal, Vertical, ScrollableContainer
-from textual.widgets import Header, Footer, Static, Button, Label
-from textual.reactive import reactive
-from textual.worker import Worker, WorkerState
+from rich.console import RenderableType
 from rich.panel import Panel
 from rich.text import Text
-from rich.table import Table
-from rich.live import Live
-from rich.console import Console, RenderableType
+from textual.app import ComposeResult
+from textual.containers import Horizontal, Vertical
+from textual.reactive import reactive
+from textual.widgets import Footer, Header, Static
+from textual.worker import Worker
 
 
 class Heartbeat(Static):
@@ -49,13 +46,13 @@ class Heartbeat(Static):
         heartbeat_text.append("💓 HEARTBEAT ", style="bold cyan")
         heartbeat_text.append(f"[{timestamp}]\n\n", style="dim white")
 
-        heartbeat_text.append(f"Cycles Active: ", style="white")
+        heartbeat_text.append("Cycles Active: ", style="white")
         heartbeat_text.append(f"{self.cycles_active}\n", style="bold green")
 
-        heartbeat_text.append(f"Judgments: ", style="white")
+        heartbeat_text.append("Judgments: ", style="white")
         heartbeat_text.append(f"{self.judgments_made}\n", style="bold yellow")
 
-        heartbeat_text.append(f"Health: ", style="white")
+        heartbeat_text.append("Health: ", style="white")
         if self.health_score > 0.7:
             heartbeat_text.append(f"{self.health_score:.1%}", style="bold green")
         elif self.health_score > 0.4:
@@ -63,7 +60,7 @@ class Heartbeat(Static):
         else:
             heartbeat_text.append(f"{self.health_score:.1%}", style="bold red")
 
-        heartbeat_text.append(f"\nUptime: ", style="white")
+        heartbeat_text.append("\nUptime: ", style="white")
         hours = int(self.uptime_s / 3600)
         mins = int((self.uptime_s % 3600) / 60)
         heartbeat_text.append(f"{hours}h {mins}m\n", style="cyan")
@@ -221,17 +218,17 @@ class Nerves(Static):
         status_color = "green" if is_healthy else "red"
         status_text = "HEALTHY" if is_healthy else "STRESSED"
 
-        nerves_text.append(f"Status: ", style="white")
+        nerves_text.append("Status: ", style="white")
         nerves_text.append(f"{status_text}\n", style=f"bold {status_color}")
 
-        nerves_text.append(f"Completion: ", style="white")
+        nerves_text.append("Completion: ", style="white")
         completion = health.get("completion_rate", 0)
         nerves_text.append(f"{completion:.0f}%\n", style="cyan")
 
-        nerves_text.append(f"Open Cycles: ", style="white")
+        nerves_text.append("Open Cycles: ", style="white")
         nerves_text.append(f"{health.get('open_cycles', 0)}\n", style="yellow")
 
-        nerves_text.append(f"Stalled: ", style="white")
+        nerves_text.append("Stalled: ", style="white")
         stalled = health.get("stalled_phases", 0)
         stalled_color = "red" if stalled > 0 else "green"
         nerves_text.append(f"{stalled}", style=f"bold {stalled_color}")
@@ -250,10 +247,10 @@ class Soul(Static):
         soul_text.append("✨ SOUL ", style="bold magenta")
         soul_text.append("[Consciousness]\n\n", style="dim white")
 
-        soul_text.append(f"Axioms Active: ", style="white")
+        soul_text.append("Axioms Active: ", style="white")
         soul_text.append(f"{self.axioms_active}/4\n", style="bold cyan")
 
-        soul_text.append(f"Transcendence: ", style="white")
+        soul_text.append("Transcendence: ", style="white")
         if self.transcendence_level >= 4:
             soul_text.append("ACHIEVED", style="bold green")
         elif self.transcendence_level >= 2:
@@ -336,7 +333,7 @@ class CynicDashboard(Static):
             return
 
         self._polling_active = True
-        session: Optional[Any] = None
+        session: Any | None = None
 
         try:
             session = await aiohttp.ClientSession().__aenter__()
@@ -371,7 +368,7 @@ class CynicDashboard(Static):
                 except asyncpg.Error:
                     pass
 
-    async def _update_heartbeat(self, session: "aiohttp.ClientSession") -> None:
+    async def _update_heartbeat(self, session: aiohttp.ClientSession) -> None:
         """Update heartbeat (vital signs)."""
         try:
             async with session.get(f"{self.cynic_url}/health/consciousness") as r:
@@ -385,7 +382,7 @@ class CynicDashboard(Static):
         except asyncpg.Error:
             pass
 
-    async def _update_omniscience(self, session: "aiohttp.ClientSession") -> None:
+    async def _update_omniscience(self, session: aiohttp.ClientSession) -> None:
         """Update omniscience (event stream)."""
         try:
             async with session.get(
@@ -405,7 +402,7 @@ class CynicDashboard(Static):
         except httpx.RequestError:
             pass
 
-    async def _update_omnipresence(self, session: "aiohttp.ClientSession") -> None:
+    async def _update_omnipresence(self, session: aiohttp.ClientSession) -> None:
         """Update omnipresence (component status)."""
         try:
             async with session.get(f"{self.cynic_url}/health/stats") as r:
@@ -421,7 +418,7 @@ class CynicDashboard(Static):
         except httpx.RequestError:
             pass
 
-    async def _update_cortex(self, session: "aiohttp.ClientSession") -> None:
+    async def _update_cortex(self, session: aiohttp.ClientSession) -> None:
         """Update cortex (decision traces)."""
         try:
             async with session.get(
@@ -441,7 +438,7 @@ class CynicDashboard(Static):
         except httpx.RequestError:
             pass
 
-    async def _update_memory(self, session: "aiohttp.ClientSession") -> None:
+    async def _update_memory(self, session: aiohttp.ClientSession) -> None:
         """Update memory (learned patterns)."""
         try:
             async with session.get(f"{self.cynic_url}/mcp/learning/patterns?limit=20") as r:
@@ -456,7 +453,7 @@ class CynicDashboard(Static):
         except httpx.RequestError:
             pass
 
-    async def _update_nerves(self, session: "aiohttp.ClientSession") -> None:
+    async def _update_nerves(self, session: aiohttp.ClientSession) -> None:
         """Update nerves (loop validation)."""
         try:
             async with session.get(f"{self.cynic_url}/mcp/loops/status") as r:
@@ -467,7 +464,7 @@ class CynicDashboard(Static):
         except httpx.RequestError:
             pass
 
-    async def _update_soul(self, session: "aiohttp.ClientSession") -> None:
+    async def _update_soul(self, session: aiohttp.ClientSession) -> None:
         """Update soul (consciousness state)."""
         try:
             async with session.get(f"{self.cynic_url}/health/axioms") as r:
@@ -544,8 +541,8 @@ async def run_tui(cynic_url: str = "http://localhost:8000"):
             """Initialize app with CYNIC server URL."""
             super().__init__()
             self.cynic_url = cynic_url
-            self.dashboard: Optional[CynicDashboard] = None
-            self._polling_worker: Optional[Worker] = None
+            self.dashboard: CynicDashboard | None = None
+            self._polling_worker: Worker | None = None
 
         def compose(self) -> ComposeResult:
             self.dashboard = CynicDashboard()

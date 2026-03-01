@@ -1,6 +1,8 @@
-import pytest
-from cynic.kernel.organism.brain.dialogue.llm_bridge import LLMBridge
 from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from cynic.kernel.organism.brain.dialogue.llm_bridge import LLMBridge
 
 
 @pytest.mark.asyncio

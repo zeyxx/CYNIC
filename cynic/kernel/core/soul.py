@@ -33,11 +33,8 @@ from __future__ import annotations
 
 import logging
 import re
-import time
-from datetime import datetime, timezone, UTC
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import List
-
 
 logger = logging.getLogger("cynic.soul")
 

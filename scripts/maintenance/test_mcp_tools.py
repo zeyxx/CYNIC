@@ -9,7 +9,6 @@ import asyncio
 import json
 import logging
 import sys
-from pathlib import Path
 
 logging.basicConfig(
     level=logging.INFO,
@@ -192,7 +191,7 @@ async def test_json_rpc_protocol():
     try:
         from mcp.types import ListToolsRequest
 
-        request = ListToolsRequest()
+        ListToolsRequest()
         result = await server.handle_list_tools()
 
         logger.info(f"tools/list response type: {type(result).__name__}")
@@ -218,7 +217,7 @@ async def main():
     logger.info("")
 
     try:
-        tools = await test_tools_list()
+        await test_tools_list()
         await test_cynic_health()
         await test_cynic_status()
         await test_observe_cynic()

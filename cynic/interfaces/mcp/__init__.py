@@ -16,22 +16,22 @@ Two implementations:
 
 Pure async, Pydantic v2, OpenTelemetry-ready.
 """
-from cynic.interfaces.mcp.server import MCPServer, run_mcp_server
+from cynic.interfaces.mcp.empirical_runner import EmpiricalRunner, JobResult
 from cynic.interfaces.mcp.models import (
-    ObserveRequest,
-    ObserveResponse,
+    ActionProposal,
     ActRequest,
     ActResponse,
+    ComponentHealthSnapshot,
+    ErrorResponse,
+    FeedbackSignal,
     LearnRequest,
     LearnResponse,
-    ErrorResponse,
-    ComponentHealthSnapshot,
+    ObserveRequest,
+    ObserveResponse,
     RegistrySnapshot,
-    ActionProposal,
-    FeedbackSignal,
 )
+from cynic.interfaces.mcp.server import MCPServer, run_mcp_server
 from cynic.interfaces.mcp.utils import setup_logging
-from cynic.interfaces.mcp.empirical_runner import EmpiricalRunner, JobResult
 
 # Optional: stdio_server requires 'mcp' package (pip install mcp)
 try:

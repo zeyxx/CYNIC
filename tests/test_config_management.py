@@ -14,22 +14,22 @@ import pytest
 
 pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - CYNICSettings configuration structure changed")
 
-import tempfile
+import sys
 from pathlib import Path
+
 from pydantic import ValidationError
 
-import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "governance_bot"))
 
 from cynic.interfaces.bots.governance.core.config import (
+    BotSettings,
+    CommunityDefaults,
     Config,
-    DiscordSettings,
     CYNICSettings,
     DatabaseSettings,
-    CommunityDefaults,
+    DiscordSettings,
     Features,
     LoggingSettings,
-    BotSettings,
 )
 
 
@@ -396,9 +396,9 @@ class TestConfigurationBackwardCompatibility:
         """Old-style config exports still work"""
         # These exports should exist for backward compatibility
         from cynic.interfaces.bots.governance.core.config import (
-            DISCORD_TOKEN,
             DATABASE_URL,
             DEFAULT_VOTING_PERIOD_HOURS,
+            DISCORD_TOKEN,
             ENABLE_GASDF,
         )
 

@@ -6,7 +6,7 @@ import json
 import logging
 import os
 import urllib.request
-from typing import Any, Optional
+from typing import Any
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.judgment import Cell
@@ -53,7 +53,7 @@ def _rotate_rpc() -> None:
     logger.debug("Rotated to RPC index %d: %s", _rpc_index, _get_rpc_url())
 
 
-def _rpc_call(method: str, params: list) -> Optional[dict[str, Any]]:
+def _rpc_call(method: str, params: list) -> dict[str, Any] | None:
     """Blocking Solana JSON-RPC call — called via run_in_executor."""
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
     
@@ -116,14 +116,14 @@ class SolanaWatcher(PerceiveWorker):
     interval_s = float(fibonacci(9))   # 34.0s
     name = "solana_watcher"
 
-    def __init__(self, rpc_url: Optional[str] = None) -> None:
+    def __init__(self, rpc_url: str | None = None) -> None:
         # rpc_url param kept for API compatibility but now appends to fallback list
         global _SOLANA_RPC_URLS
         if rpc_url and rpc_url not in _SOLANA_RPC_URLS:
             _SOLANA_RPC_URLS.insert(0, rpc_url)  # User-provided URL takes priority
-        self._last_slot: Optional[int] = None
+        self._last_slot: int | None = None
 
-    def _fetch_chain_state(self) -> Optional[dict[str, Any]]:
+    def _fetch_chain_state(self) -> dict[str, Any] | None:
         """Blocking — calls getSlot + getRecentPerformanceSamples."""
         slot = _rpc_call("getSlot", [])
         if slot is None:
@@ -138,7 +138,7 @@ class SolanaWatcher(PerceiveWorker):
 
         return {"slot": slot, "tps": round(tps, 1)}
 
-    async def sense(self) -> Optional[Cell]:
+    async def sense(self) -> Cell | None:
         loop = asyncio.get_running_loop()
         state = await loop.run_in_executor(None, self._fetch_chain_state)
 

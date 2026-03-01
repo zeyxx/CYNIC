@@ -6,10 +6,11 @@ decisions from the community if they violate core axioms or if
 confidence is too low for the assessed risk.
 """
 from __future__ import annotations
+
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from cynic.kernel.core.unified_state import UnifiedJudgment

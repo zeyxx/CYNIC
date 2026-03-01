@@ -5,10 +5,10 @@ Redirects all database operations to the CYNIC Organism API.
 This eliminates the local SQLite dependency and unifies the memory.
 """
 import logging
-import aiohttp
-import asyncio
-from typing import Any, List, Optional
 from contextlib import asynccontextmanager
+from typing import Any
+
+import aiohttp
 
 from cynic.interfaces.bots.governance.core.config import CYNICSettings
 

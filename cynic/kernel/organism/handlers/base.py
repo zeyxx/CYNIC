@@ -15,18 +15,11 @@ as the primary entry point. For backward compatibility, it's also available here
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Callable
+from collections.abc import Callable
 
-from cynic.kernel.core.event_bus import Event, CoreEvent
+from cynic.kernel.core.event_bus import CoreEvent
 
 # Import the new service architecture
-from cynic.kernel.organism.handlers.services import (
-    KernelServices,
-    CognitionServices,
-    MetabolicServices,
-    SensoryServices,
-)
 
 
 class HandlerGroup(ABC):

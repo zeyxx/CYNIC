@@ -12,10 +12,12 @@ Verify that:
 Integration test (real components, not mocked).
 """
 import asyncio
+
 import pytest
-from cynic.kernel.organism.organism import awaken
-from cynic.kernel.core.event_bus import get_core_bus, CoreEvent
+
+from cynic.kernel.core.event_bus import CoreEvent, get_core_bus
 from cynic.kernel.core.events_schema import SonaTickPayload
+from cynic.kernel.organism.organism import awaken
 
 
 @pytest.mark.asyncio
@@ -37,7 +39,6 @@ async def test_phase1_meta_cognition_responds_to_sona():
 
     # Manually emit a SONA_TICK to test handler response
     bus = get_core_bus()
-    events_captured = []
 
     # (We'd capture handler activity here once logging is integrated)
 
@@ -103,7 +104,9 @@ async def test_phase1_trend_analysis():
     handler = organism.meta_cognition
 
     # Build a trend: increasing judgments
-    from cynic.kernel.organism.brain.cognition.cortex.handlers.meta_cognition import OrganismHealthMetrics
+    from cynic.kernel.organism.brain.cognition.cortex.handlers.meta_cognition import (
+        OrganismHealthMetrics,
+    )
 
     for i in range(10):
         health = OrganismHealthMetrics(
@@ -130,7 +133,9 @@ async def test_phase1_stagnation_detection():
     organism = awaken()
     handler = organism.meta_cognition
 
-    from cynic.kernel.organism.brain.cognition.cortex.handlers.meta_cognition import OrganismHealthMetrics
+    from cynic.kernel.organism.brain.cognition.cortex.handlers.meta_cognition import (
+        OrganismHealthMetrics,
+    )
 
     # Build stagnant trend: same judgments, no Q growth
     for i in range(10):

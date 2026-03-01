@@ -9,16 +9,16 @@ TDD approach:
 """
 from __future__ import annotations
 
-import pytest
 from dataclasses import FrozenInstanceError
-from typing import Dict, Any
+
+import pytest
 
 from cynic.kernel.core.unified_state import (
-    UnifiedJudgment,
-    UnifiedLearningOutcome,
     JudgmentBuffer,
     OutcomeBuffer,
     UnifiedConsciousState,
+    UnifiedJudgment,
+    UnifiedLearningOutcome,
 )
 
 

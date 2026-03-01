@@ -5,10 +5,10 @@ Routes prompts to official CLI tools (claude, gemini, etc).
 Uses subprocess with the '-p' (print) flag for non-interactive reasoning.
 """
 from __future__ import annotations
+
 import asyncio
 import logging
 import time
-from typing import Any, List, Optional
 
 from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRequest, LLMResponse
 

@@ -36,14 +36,12 @@ import math
 import random
 import time
 from dataclasses import dataclass, field
-from typing import Optional
 
 from cynic.kernel.core.phi import (
-    PHI_INV, PHI_INV_2, PHI_2, PHI,
-    MAX_Q_SCORE, fibonacci,
-    EWC_PENALTY, LEARNING_RATE,
+    EWC_PENALTY,
+    LEARNING_RATE,
+    fibonacci,
 )
-
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -168,7 +166,7 @@ class TD0Learner:
     def __post_init__(self) -> None:
         self._entries: list[QEntry] = [QEntry() for _ in range(self.task.n_pairs)]
         self.steps: int = 0
-        self.convergence_step: Optional[int] = None
+        self.convergence_step: int | None = None
 
     def step(self) -> None:
         """One TD(0) update: update one pair (cyclic round-robin)."""
@@ -228,7 +226,7 @@ class TD0Learner:
             self._entries[idx].update(shock_reward, self.alpha, self.use_ewc)
 
         after = [self._entries[i].q_value for i in sorted_idx]
-        return max(abs(a - b) for a, b in zip(before, after))
+        return max(abs(a - b) for a, b in zip(before, after, strict=False))
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +243,7 @@ class ConvergenceResult:
     seed: int
     max_steps: int
 
-    convergence_step: Optional[int]    # None if did not converge
+    convergence_step: int | None    # None if did not converge
     final_mean_error: float            # mean |Q - true| at end
     final_max_error: float             # max  |Q - true| at end
     q_variance: float                  # variance of Q-values (stability)
@@ -297,7 +295,7 @@ class QTableBenchmark:
       phi_wins_stability:  phi q_variance < standard q_variance
     """
 
-    def __init__(self, task: Optional[SyntheticTask] = None) -> None:
+    def __init__(self, task: SyntheticTask | None = None) -> None:
         self.task = task or SyntheticTask()
 
     def run(

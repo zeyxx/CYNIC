@@ -15,24 +15,23 @@ from __future__ import annotations
 import json
 import logging
 import os
-from contextlib import asynccontextmanager
-from typing import Any, List
-
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from typing import Any
 
 import asyncpg
-from asyncpg import Pool, Connection
+from asyncpg import Connection, Pool
 
-from cynic.kernel.core.phi import fibonacci, MAX_Q_SCORE, MAX_CONFIDENCE, PHI_INV
 from cynic.kernel.core.formulas import ACT_LOG_CAP
+from cynic.kernel.core.phi import MAX_CONFIDENCE, MAX_Q_SCORE, fibonacci
 from cynic.kernel.core.storage.interface import (
-    JudgmentRepoInterface,
-    QTableRepoInterface,
-    LearningRepoInterface,
     BenchmarkRepoInterface,
+    JudgmentRepoInterface,
+    LearningRepoInterface,
+    QTableRepoInterface,
     ResidualRepoInterface,
-    SDKSessionRepoInterface,
     ScholarRepoInterface,
+    SDKSessionRepoInterface,
 )
 
 logger = logging.getLogger("cynic.storage.postgres")
@@ -810,7 +809,7 @@ class ScholarRepository(ScholarRepoInterface):
             emb = row["embedding"]
             if not emb or len(emb) != len(query_embedding):
                 continue
-            dot = sum(a * b for a, b in zip(query_embedding, emb))
+            dot = sum(a * b for a, b in zip(query_embedding, emb, strict=False))
             e_norm = math.sqrt(sum(v * v for v in emb))
             if e_norm < 1e-9:
                 continue

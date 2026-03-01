@@ -4,12 +4,10 @@ CYNIC health router — core vitals: health · stats
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
-import pathlib as _pathlib
 import time
-from typing import Any, Optional
+from typing import Any
 
 try:
     import psutil
@@ -20,10 +18,10 @@ except ImportError:
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import ValidationError
 
+from cynic.interfaces.api.models import HealthResponse, StatsResponse
+from cynic.interfaces.api.state import AppContainer, get_app_container
 from cynic.kernel.core.consciousness import get_consciousness
 from cynic.kernel.core.phi import PHI
-from cynic.interfaces.api.models import HealthResponse, StatsResponse
-from cynic.interfaces.api.state import get_app_container, AppContainer
 
 logger = logging.getLogger("cynic.interfaces.api.server")
 

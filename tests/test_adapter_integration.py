@@ -5,24 +5,22 @@ Verifies that the bridge correctly uses the adapter's high-level methods
 instead of making direct HTTP calls.
 """
 
-import asyncio
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 # Skip entire test module if MCP server is not available in test environment
 pytest.importorskip("mcp.server", minversion=None)
 
 from cynic.interfaces.mcp.claude_code_bridge import (
-    get_adapter,
-    _tool_cynic_run_empirical_test,
+    _tool_ask_cynic,
     _tool_cynic_get_job_status,
     _tool_cynic_get_test_results,
-    _tool_cynic_test_axiom_irreducibility,
     _tool_cynic_query_telemetry,
-    _tool_ask_cynic,
+    _tool_cynic_run_empirical_test,
+    _tool_cynic_test_axiom_irreducibility,
     _tool_learn_cynic,
 )
-from cynic.interfaces.mcp.claude_code_adapter import ClaudeCodeAdapter
 
 
 @pytest.mark.asyncio

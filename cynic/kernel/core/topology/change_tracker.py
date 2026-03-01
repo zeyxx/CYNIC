@@ -6,14 +6,12 @@ Writes to ~/.cynic/changes.jsonl for visibility.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
-import time
 from pathlib import Path
 from typing import Any
 
-from cynic.kernel.core.event_bus import Event, CoreEvent, get_core_bus
+from cynic.kernel.core.event_bus import CynicError, Event
 from cynic.kernel.core.topology.payloads import SourceChangedPayload
 
 logger = logging.getLogger("cynic.kernel.core.topology.change_tracker")
@@ -69,12 +67,11 @@ class ChangeTracker:
                     change_type = "UNKNOWN"
 
                 # Get file line count (rough estimate of scope)
+                lines = 0
                 try:
                     if file_path.exists():
                         lines = len(file_path.read_text(encoding="utf-8", errors="ignore").splitlines())
-                    else:
-                        lines = 0
-                except httpx.RequestError:
+                except Exception:
                     lines = 0
 
                 # Build change record
@@ -100,7 +97,7 @@ class ChangeTracker:
                     change_type, filepath, lines, payload.category,
                 )
 
-            except asyncpg.Error as e:
+            except Exception as e:
                 logger.warning("Failed to track change for %s: %s", filepath, e)
 
     async def _append_change(self, record: dict[str, Any]) -> None:

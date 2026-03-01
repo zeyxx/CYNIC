@@ -22,8 +22,8 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Optional, List, Dict
+from datetime import UTC, datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class VoteResult:
     status: str  # "finalized", "local_only", "timeout"
     votes: int = 0
     timestamp: str = ""
-    voted_by: List[str] = field(default_factory=list)
+    voted_by: list[str] = field(default_factory=list)
 
 
 class ConsensusEngine:
@@ -107,11 +107,11 @@ class ConsensusEngine:
             return VoteResult(
                 status="finalized" if is_finalized else "local_only",
                 votes=len(votes),
-                timestamp=datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+                timestamp=datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
                 voted_by=[v.get("dog", "unknown") for v in votes],
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Graceful degradation: local consensus if timeout
             # Judgment is valid even without network consensus
             logger.warning(
@@ -121,7 +121,7 @@ class ConsensusEngine:
             return VoteResult(
                 status="local_only",
                 votes=0,
-                timestamp=datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+                timestamp=datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
             )
 
         except Exception as exc:
@@ -130,12 +130,12 @@ class ConsensusEngine:
             return VoteResult(
                 status="local_only",
                 votes=0,
-                timestamp=datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+                timestamp=datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
             )
 
     async def _simulate_local_votes(
         self, judgment: Any, timeout: float
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Simulate local consensus votes from this instance's Dogs.
 
@@ -160,19 +160,19 @@ class ConsensusEngine:
                     "dog": "guardian",
                     "vote": True,
                     "reason": "security_ok",
-                    "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+                    "timestamp": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
                 },
                 {
                     "dog": "analyst",
                     "vote": True,
                     "reason": "pattern_ok",
-                    "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+                    "timestamp": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
                 },
                 {
                     "dog": "architect",
                     "vote": True,
                     "reason": "structure_ok",
-                    "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+                    "timestamp": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
                 },
             ]
 
@@ -183,7 +183,7 @@ class ConsensusEngine:
             logger.debug(f"Gathered {len(votes)} local votes for consensus")
             return votes
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Network unavailable — return empty votes (graceful degradation)
             logger.warning("Consensus vote timeout")
             raise
@@ -224,7 +224,7 @@ class ConsensusEngine:
 
 
 # Singleton instance (can create new instances for testing)
-_consensus_engine: Optional[ConsensusEngine] = None
+_consensus_engine: ConsensusEngine | None = None
 
 
 def get_consensus_engine() -> ConsensusEngine:

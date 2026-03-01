@@ -25,8 +25,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, List
-
+from typing import Any
 
 from cynic.kernel.core.phi import PHI_INV, PHI_INV_2, fibonacci
 
@@ -69,8 +68,8 @@ def _tfidf_score_sentences(sentences: list[str]) -> list[tuple[str, float]]:
         return []
 
     try:
-        from sklearn.feature_extraction.text import TfidfVectorizer
         import numpy as np
+        from sklearn.feature_extraction.text import TfidfVectorizer
 
         # Fit TF-IDF on all sentences
         vec = TfidfVectorizer(
@@ -94,7 +93,7 @@ def _tfidf_score_sentences(sentences: list[str]) -> list[tuple[str, float]]:
             scores = [1.0 / len(sentences)] * len(sentences)
 
         return sorted(
-            zip(sentences, scores.tolist()),
+            zip(sentences, scores.tolist(), strict=False),
             key=lambda x: x[1],
             reverse=True,
         )
@@ -113,7 +112,7 @@ def _tf_score_sentences(sentences: list[str]) -> list[tuple[str, float]]:
             all_words[word] = all_words.get(word, 0) + 1
 
     # Compute IDF-like inverse frequency weight
-    n = len(sentences)
+    len(sentences)
     idf: dict[str, float] = {
         word: 1.0 / (count + 1) for word, count in all_words.items()
     }

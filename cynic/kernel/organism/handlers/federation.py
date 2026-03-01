@@ -5,8 +5,9 @@ Listens to JUDGMENT_CREATED and RESIDUAL_HIGH events to trigger gossip
 sharing between federated CYNIC instances.
 """
 import logging
-from typing import Callable, Any
-from cynic.kernel.core.event_bus import Event, CoreEvent
+from collections.abc import Callable
+
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.organism.handlers.base import HandlerGroup
 from cynic.kernel.organism.handlers.services import KernelServices
 from cynic.kernel.organism.perception.federation.gossip import GossipManager

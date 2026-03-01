@@ -9,13 +9,12 @@ Tests:
   5. Task supervision and crash recovery
 """
 import asyncio
-import pytest
-import time
-from unittest.mock import AsyncMock, MagicMock, patch
 
-from cynic.kernel.organism.sona_emitter import SonaEmitter, SONA_INTERVAL_S
-from cynic.kernel.core.event_bus import EventBus, Event, CoreEvent
+import pytest
+
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.core.events_schema import SonaTickPayload
+from cynic.kernel.organism.sona_emitter import SONA_INTERVAL_S, SonaEmitter
 
 
 @pytest.fixture

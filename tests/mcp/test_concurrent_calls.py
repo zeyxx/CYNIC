@@ -9,12 +9,12 @@ Validates:
 - Call isolation
 """
 
-import pytest
 import asyncio
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
 
-from cynic.interfaces.mcp.router import MCPRouter, _CallMetadata
+import pytest
+
+from cynic.interfaces.mcp.router import MCPRouter
 
 
 @pytest.fixture
@@ -68,7 +68,6 @@ class TestConcurrentCallsBasic:
     @pytest.mark.asyncio
     async def test_call_ids_are_unique(self, router):
         """Verify that concurrent calls get unique call IDs."""
-        call_ids = []
 
         async def capture_call_id(msg_id: int, prompt: str):
             msg = {
@@ -80,7 +79,7 @@ class TestConcurrentCallsBasic:
                     "arguments": {"prompt": prompt}
                 }
             }
-            result = await router.handle_message_async(msg)
+            await router.handle_message_async(msg)
 
             # Call IDs are tracked in active_calls, but we verify via
             # internal counter incrementing
@@ -178,7 +177,6 @@ class TestConcurrentObserveCalls:
     @pytest.mark.asyncio
     async def test_observe_calls_track_in_active_calls(self, router):
         """Verify active_calls tracking during concurrent execution."""
-        active_snapshots = []
 
         async def observe_and_snapshot():
             # Before calling, snapshot active calls
@@ -255,9 +253,8 @@ class TestCallTracking:
             }
         }
 
-        result1 = await router.handle_message_async(msg1)
+        await router.handle_message_async(msg1)
 
-        counter_after_fail = router._call_id_counter
 
         # Make another call (should succeed or fail gracefully)
         msg2 = {
@@ -270,7 +267,7 @@ class TestCallTracking:
             }
         }
 
-        result2 = await router.handle_message_async(msg2)
+        await router.handle_message_async(msg2)
 
         # Counter should have incremented twice
         assert router._call_id_counter >= counter_before + 2

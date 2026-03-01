@@ -112,10 +112,22 @@ warn_unused_configs = true
 
 [tool.ruff]
 target-version = "py313"
-line-length = 88
+line-length = 100
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear (important for LLM logic bugs)
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "ASYNC", # flake8-async (crucial for our event loop)
+    "T20", # flake8-print (no prints allowed in kernel)
+]
+ignore = ["E501"] # Line too long (handled by formatter)
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP"]
+fixable = ["ALL"]
+unfixable = []
 
 [build-system]
 requires = ["poetry-core"]

@@ -7,17 +7,14 @@ Tests:
   3. HumanApprovalGate: human-in-the-loop
   4. TransparencyAudit: logging compliance
 """
+from dataclasses import dataclass
+
 import pytest
-from dataclasses import dataclass, field
-from unittest.mock import MagicMock
 
-from cynic.kernel.organism.metabolism.immune.alignment_checker import (
-    AlignmentSafetyChecker, AlignmentViolation, _MAX_CONTRADICTIONS_BEFORE_BLOCK,
-    _MIN_CONFIDENCE_FOR_HIGH_IMPACT, _VERDICT_BALANCE_WINDOW,
-)
 from cynic.kernel.organism.brain.learning.qlearning import VERDICTS
-from cynic.kernel.core.phi import fibonacci
-
+from cynic.kernel.organism.metabolism.immune.alignment_checker import (
+    AlignmentSafetyChecker,
+)
 
 # ════════════════════════════════════════════════════════════════════════════
 # FIXTURES

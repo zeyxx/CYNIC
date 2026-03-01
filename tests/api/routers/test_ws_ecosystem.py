@@ -1,8 +1,8 @@
 """Tests for WebSocket /ws/consciousness/ecosystem endpoint."""
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
+
 from cynic.interfaces.api.server import app
 
 

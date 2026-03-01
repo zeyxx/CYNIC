@@ -15,11 +15,10 @@ MCP protocol: text/uri-list + application/json payloads
 """
 from __future__ import annotations
 
-import json
 import logging
 import time
-from typing import Any, Optional
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -207,7 +206,6 @@ class MCPResourceManager:
             # Analyze patterns
             verdict_counts = {}
             dog_scores = {}
-            phase_durations = {}
 
             for trace in all_traces:
                 # Verdict distribution
@@ -257,7 +255,7 @@ class MCPResourceManager:
 
     async def get_event_stream(
         self,
-        since_ms: Optional[float] = None,
+        since_ms: float | None = None,
         limit: int = 50,
     ) -> dict[str, Any]:
         """

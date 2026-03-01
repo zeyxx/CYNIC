@@ -14,8 +14,8 @@ judgment outcomes while maintaining φ-bounded uncertainty constraints.
 """
 from __future__ import annotations
 
-from cynic.kernel.organism.brain.learning.unified_learning import UnifiedQTable
 from cynic.kernel.core.phi import PHI_INV
+from cynic.kernel.organism.brain.learning.unified_learning import UnifiedQTable
 
 __all__ = ["merge_q_tables"]
 
@@ -54,7 +54,7 @@ def merge_q_tables(
     """
     merged_count = 0
 
-    for key_str, remote_data in remote_snapshot.items():
+    for _key_str, remote_data in remote_snapshot.items():
         # Convert key string "DOMAIN:context_hash" to tuple (domain, context_hash)
         # Extract domain and context_hash from the remote data (more reliable)
         domain = remote_data.get("domain", "")
@@ -64,7 +64,7 @@ def merge_q_tables(
         remote_visits = remote_data.get("visits", 0)
         remote_q_score = remote_data.get("q_score", 0.5)
         remote_confidence = remote_data.get("confidence", 0.5)
-        remote_satisfaction_avg = remote_data.get("satisfaction_avg", 0.5)
+        remote_data.get("satisfaction_avg", 0.5)
 
         if key_tuple in local.values:
             # Key exists: weighted merge

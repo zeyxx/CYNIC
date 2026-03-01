@@ -1,11 +1,13 @@
 """Tests for MasterDog — the data-driven unified engine."""
-import pytest
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
+from cynic.kernel.core.judgment import Cell
+from cynic.kernel.organism.brain.cognition.neurons.base import DogId, DogJudgment
 from cynic.kernel.organism.brain.cognition.neurons.master import MasterDog
 from cynic.kernel.organism.brain.cognition.neurons.registry import get_soul
-from cynic.kernel.organism.brain.cognition.neurons.base import DogId, DogJudgment
-from cynic.kernel.core.judgment import Cell
+
 
 @pytest.mark.asyncio
 async def test_master_dog_as_sage():

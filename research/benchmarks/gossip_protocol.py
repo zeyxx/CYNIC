@@ -24,10 +24,10 @@ Instead of sending raw observations to orchestrator:
 """
 from __future__ import annotations
 
-import time
 import logging
+import time
 from dataclasses import dataclass, field
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.brain.cognition.neurons.dog_state import DogState

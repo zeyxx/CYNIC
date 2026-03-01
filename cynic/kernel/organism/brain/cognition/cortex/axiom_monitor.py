@@ -31,19 +31,20 @@ Usage:
 """
 from __future__ import annotations
 
-import time
 import logging
+import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any
 
-
-from cynic.kernel.core.phi import (
-    WAG_MIN, GROWL_MIN, MAX_Q_SCORE,
-    fibonacci, PHI_INV,
-)
 from cynic.kernel.core.formulas import (
-    AXIOM_MATURITY_WINDOW_SIZE, SIGNAL_TTL_SEC,
+    AXIOM_MATURITY_WINDOW_SIZE,
+    SIGNAL_TTL_SEC,
+)
+from cynic.kernel.core.phi import (
+    GROWL_MIN,
+    MAX_Q_SCORE,
+    WAG_MIN,
 )
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.axiom_monitor")

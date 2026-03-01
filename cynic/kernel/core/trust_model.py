@@ -11,11 +11,9 @@ CRITICAL: This is the foundation for all later phases.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, Tuple, List
-from datetime import datetime, timedelta
-import math
+from datetime import datetime
 
-from cynic.kernel.core.phi import PHI_INV_2, MAX_CONFIDENCE, phi_bound_score
+from cynic.kernel.core.phi import MAX_CONFIDENCE, PHI_INV_2, phi_bound_score
 
 
 @dataclass
@@ -46,8 +44,8 @@ class TrustModel:
 
     def __init__(self):
         self.metrics = TrustMetrics()
-        self.accept_history: List[Tuple[datetime, bool, float]] = []  # (time, accepted, human_confidence)
-        self.q_score_history: List[Tuple[datetime, float]] = []  # (time, q_score)
+        self.accept_history: list[tuple[datetime, bool, float]] = []  # (time, accepted, human_confidence)
+        self.q_score_history: list[tuple[datetime, float]] = []  # (time, q_score)
         self.alpha_ema = 0.1  # Exponential moving average smoothing
 
     async def update_from_action_feedback(
@@ -56,7 +54,7 @@ class TrustModel:
         accepted: bool,
         user_confidence: float,
         q_score: float,
-        outcome_success: Optional[bool] = None,
+        outcome_success: bool | None = None,
     ) -> TrustMetrics:
         """
         Learning event: human accepted/rejected an action.
@@ -165,7 +163,7 @@ class TrustModel:
         human_confidence: float,
         cynic_q_score: float,
         action_risk_level: str,  # "low", "medium", "high"
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """
         Should CYNIC escalate instead of co-deciding?
 

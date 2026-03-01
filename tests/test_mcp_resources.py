@@ -1,7 +1,9 @@
 """Tests for MCP Resources — Claude Code bridge."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
 from cynic.interfaces.mcp.resources import MCPResourceManager
 
 

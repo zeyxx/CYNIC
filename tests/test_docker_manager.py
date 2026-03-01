@@ -3,16 +3,21 @@ Tests for DockerManager — native Python Docker SDK management.
 
 Paradigm: Docker = CYNIC capability, no CLI friction.
 """
-import asyncio
 import json
+
 import pytest
 
 pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - cynic.deployment module not found")
 
-from pathlib import Path
-from unittest.mock import Mock, AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
-from cynic.deployment.docker_manager import DockerManager, ContainerStatus, StackStatus, NotFound, docker
+from cynic.deployment.docker_manager import (
+    ContainerStatus,
+    DockerManager,
+    NotFound,
+    StackStatus,
+    docker,
+)
 
 
 class TestDockerManagerInitialize:

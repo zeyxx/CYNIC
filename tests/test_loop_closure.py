@@ -1,13 +1,14 @@
 """Tests for LoopClosureValidator — feedback cycle completeness checking."""
 
 import asyncio
+
 import pytest
+
 from cynic.nervous.loop_closure import (
-    LoopClosureValidator,
-    CyclePhase,
-    STALL_THRESHOLD_MS,
-    ORPHAN_THRESHOLD_MS,
     CLOSURE_CAP,
+    ORPHAN_THRESHOLD_MS,
+    CyclePhase,
+    LoopClosureValidator,
 )
 
 
@@ -128,7 +129,6 @@ async def test_orphan_detection_no_act(validator):
     )
 
     # Artificially age it
-    closure_event = None
     open_cycles = await validator.get_open_cycles()
     if open_cycles:
         open_cycles[0].created_at_ms -= ORPHAN_THRESHOLD_MS + 1000

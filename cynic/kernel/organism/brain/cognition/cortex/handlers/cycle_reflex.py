@@ -13,14 +13,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
-from cynic.kernel.core.judgment import Cell, Judgment
-from cynic.kernel.core.consciousness import ConsciousnessLevel, dogs_for_level
-from cynic.kernel.core.phi import phi_bound_score, PHI_INV_2, MAX_CONFIDENCE, MAX_Q_SCORE
 from cynic.kernel.core.axioms import verdict_from_q_score
+from cynic.kernel.core.consciousness import ConsciousnessLevel, dogs_for_level
 from cynic.kernel.core.exceptions import CynicError
+from cynic.kernel.core.judgment import Judgment
+from cynic.kernel.core.phi import MAX_CONFIDENCE, MAX_Q_SCORE, PHI_INV_2, phi_bound_score
+from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgmentPipeline
@@ -46,7 +46,7 @@ class ReflexCycleHandler(BaseHandler):
         self,
         dogs: dict[str, Any],
         axiom_arch: Any,
-        consciousness_state: Optional[Any] = None,
+        consciousness_state: Any | None = None,
     ) -> None:
         self.dogs = dogs
         self.axiom_arch = axiom_arch

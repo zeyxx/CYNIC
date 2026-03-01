@@ -25,7 +25,6 @@ Example outputs (traced against P1-P5 probe contexts):
 """
 from __future__ import annotations
 
-
 # ── Scoring constants ──────────────────────────────────────────────────────
 
 _BASE = 50.0        # Neutral starting point

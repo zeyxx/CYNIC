@@ -17,11 +17,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
-from cynic.kernel.organism.metabolism.immune.power_limiter import PowerLimiter
 from cynic.kernel.organism.metabolism.immune.alignment_checker import AlignmentSafetyChecker
 from cynic.kernel.organism.metabolism.immune.human_approval_gate import HumanApprovalGate
+from cynic.kernel.organism.metabolism.immune.power_limiter import PowerLimiter
 from cynic.kernel.organism.metabolism.immune.transparency_audit import TransparencyAuditTrail
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.decision_validator")
@@ -53,7 +53,7 @@ class ValidatedDecision:
     confidence: float
     action_prompt: str
     approved_by_human: bool = False
-    audit_record_id: Optional[str] = None
+    audit_record_id: str | None = None
 
 
 class DecisionValidator:

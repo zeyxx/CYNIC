@@ -13,17 +13,13 @@ Displays:
 from __future__ import annotations
 
 import asyncio
-import httpx
-import time
-from typing import Any, Optional
 from dataclasses import dataclass
+from typing import Any
 
-from textual.app import ComposeResult, RenderableType
-from textual.containers import Container, Vertical, Horizontal, ScrollableContainer
-from textual.widgets import Static, Header, Footer, Label, ProgressBar
+import httpx
+from textual.app import RenderableType
 from textual.reactive import reactive
-from textual.binding import Binding
-
+from textual.widgets import Static
 
 # ════════════════════════════════════════════════════════════════════════════
 # DATA MODELS
@@ -51,7 +47,7 @@ class BreathingCheck:
 class BreathingCheckWidget(Static):
     """Single breathing check row."""
 
-    check: reactive[Optional[BreathingCheck]] = reactive(None)
+    check: reactive[BreathingCheck | None] = reactive(None)
 
     def render(self) -> RenderableType:
         if not self.check:
@@ -82,7 +78,7 @@ class BreathingPanel(Static):
 class MatrixPanel(Static):
     """7×7 consciousness matrix snapshot."""
 
-    matrix_data: reactive[Optional[dict[str, Any]]] = reactive(None)
+    matrix_data: reactive[dict[str, Any] | None] = reactive(None)
 
     def render(self) -> RenderableType:
         if not self.matrix_data:
@@ -131,9 +127,9 @@ class DogPanel(Static):
 
         # Show top 5 most active dogs (if available)
         if isinstance(dogs, dict):
-            dogs_list = [(k, v) for k, v in dogs.items()]
+            dogs_list = list(dogs.items())
         else:
-            dogs_list = [(i, d) for i, d in enumerate(dogs)]
+            dogs_list = list(enumerate(dogs))
 
         dogs_list = dogs_list[:5]
         for dog_id, dog_data in dogs_list:
@@ -355,42 +351,23 @@ async def run_dashboard(kernel_url: str = "http://localhost:8000") -> None:
 
         # Print to terminal (for now)
         # Later: integrate with Textual TUI
-        print("\n[CYNIC Health Dashboard]\n")
 
         # Breathing checks
-        print("🫁 8 Breathing Checks:")
         ok_count = 0
         for check in checks:
-            status_sym = "✓" if check.status == "OK" else "⚠" if check.status == "WARN" else "✗"
-            print(f"  {status_sym} {check.name:<20} {check.value:>12} / {check.threshold}")
             if check.status == "OK":
                 ok_count += 1
-        print(f"\nStatus: {ok_count}/8 breathing\n")
 
         # Kernel metrics
-        print("⚙️  Kernel Metrics:")
-        uptime_h = health.get("uptime_s", 0) / 3600
-        print(f"  Uptime:     {uptime_h:.2f}h")
-        print(f"  Judgments:  {health.get('judgments_total', 0)}")
-        print(f"  Dogs:       {len(health.get('dogs', []))}")
-        print(f"  LLM adapters: {len(health.get('llm_adapters', []))}\n")
+        health.get("uptime_s", 0) / 3600
 
         # φ Self-assessment
-        print("🧭 CYNIC Self-Assessment:")
-        phi = introspect.get("φ_self_assessment", {})
-        print(f"  Kernel integrity: {phi.get('kernel_integrity', 0):.3f}")
-        print(f"  Self confidence:  {phi.get('self_confidence', 0):.3f}")
-        print(f"  Verdict:          {phi.get('verdict', 'UNKNOWN')}\n")
+        introspect.get("φ_self_assessment", {})
 
         # Learning
-        learning = health.get("learning", {})
-        print("🧠 Q-Learning:")
-        print(f"  States:         {learning.get('states', 0)}")
-        print(f"  Total updates:  {learning.get('total_updates', 0)}")
-        print(f"  Pending flush:  {learning.get('pending_flush', 0)}\n")
+        health.get("learning", {})
 
         # Matrix summary
-        print("7×7 Matrix: 43% cells functional (target 62% for v1.0)")
 
     finally:
         await dashboard.close()
@@ -398,5 +375,4 @@ async def run_dashboard(kernel_url: str = "http://localhost:8000") -> None:
 
 def cmd_dashboard() -> None:
     """CLI command: python -m cynic.interfaces.cli dashboard"""
-    import asyncio
     asyncio.run(run_dashboard())

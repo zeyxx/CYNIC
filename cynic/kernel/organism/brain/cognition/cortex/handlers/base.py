@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.handlers")
 
@@ -24,7 +24,7 @@ class HandlerResult:
     success: bool
     handler_id: str
     output: Any = None
-    error: Optional[str] = None
+    error: str | None = None
     duration_ms: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
 

@@ -1,8 +1,7 @@
 """Tests for CLI Framework."""
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from io import StringIO
-import sys
 
 from cynic.kernel.observability.cli.app import CliApp
 
@@ -131,7 +130,7 @@ async def test_cli_run_can_start_and_stop():
 
     # Mock the async methods that would be called during run
     with patch.object(app, 'show_menu', new_callable=AsyncMock) as mock_show_menu:
-        with patch.object(app, 'handle_menu_choice', new_callable=AsyncMock) as mock_handle:
+        with patch.object(app, 'handle_menu_choice', new_callable=AsyncMock):
             # Simulate user pressing exit on first menu display
             async def stop_after_first_call(*args, **kwargs):
                 app._running = False

@@ -38,12 +38,10 @@ Key principles:
 from __future__ import annotations
 
 import logging
-import re
-from typing import Dict, Any, Optional, Tuple, List
 import uuid
+from typing import Any
 
-from cynic.interfaces.bots.bot_interface import BotInterface, BotCommand, BotResponse
-from cynic.kernel.core.unified_state import UnifiedConsciousState
+from cynic.interfaces.bots.bot_interface import BotCommand, BotInterface, BotResponse
 
 # Try importing telegram, but don't fail if not available (for testing)
 try:
@@ -190,7 +188,7 @@ class TelegramAdapter(BotInterface):
     # MESSAGE PARSING
     # ════════════════════════════════════════════════════════════════════════════
 
-    def _parse_telegram_message(self, text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
+    def _parse_telegram_message(self, text: str) -> tuple[str, dict[str, Any]] | None:
         """
         Parse Telegram message text for slash command and arguments.
 
@@ -222,7 +220,7 @@ class TelegramAdapter(BotInterface):
         logger.debug(f"Parsed telegram message: command={command}, args={args}")
         return (command, args)
 
-    def _parse_command_args(self, command: str, args_text: str) -> Dict[str, Any]:
+    def _parse_command_args(self, command: str, args_text: str) -> dict[str, Any]:
         """
         Parse command-specific arguments from text.
 
@@ -549,7 +547,7 @@ class TelegramAdapter(BotInterface):
         # Return first page (in production, would send all pages)
         return pages[0] if pages else full_message
 
-    def _paginate_message(self, text: str, max_length: int = TELEGRAM_MAX_LENGTH) -> List[str]:
+    def _paginate_message(self, text: str, max_length: int = TELEGRAM_MAX_LENGTH) -> list[str]:
         """
         Split long message into pages for Telegram.
 

@@ -11,12 +11,12 @@ These tests verify:
 7. Command handling returns proper responses
 """
 
-import pytest
-import asyncio
 import time
-from abc import ABC, abstractmethod
+from abc import ABC
 
-from cynic.interfaces.bots.bot_interface import BotInterface, BotCommand, BotResponse
+import pytest
+
+from cynic.interfaces.bots.bot_interface import BotCommand, BotInterface, BotResponse
 
 
 class TestBotCommand:

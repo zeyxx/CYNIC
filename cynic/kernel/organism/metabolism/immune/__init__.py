@@ -8,8 +8,8 @@ Components:
 - transparency_audit.py: Decision auditing
 """
 from .alignment_checker import AlignmentSafetyChecker, AlignmentViolation
-from .power_limiter import PowerLimiter
 from .human_approval_gate import HumanApprovalGate
+from .power_limiter import PowerLimiter
 from .transparency_audit import TransparencyAuditTrail
 
 __all__ = [

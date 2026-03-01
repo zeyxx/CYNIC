@@ -1,7 +1,8 @@
-import pytest
 import tempfile
-import asyncio
 from pathlib import Path
+
+import pytest
+
 from cynic.kernel.organism.brain.learning.experiment_log import Experiment, ExperimentLog
 
 

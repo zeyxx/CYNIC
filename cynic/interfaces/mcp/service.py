@@ -22,6 +22,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from cynic.interfaces.mcp.metrics import MCPMetrics
 from cynic.kernel.core.event_bus import (
     CoreEvent,
     Event,
@@ -30,7 +31,6 @@ from cynic.kernel.core.event_bus import (
     get_automation_bus,
     get_core_bus,
 )
-from cynic.interfaces.mcp.metrics import MCPMetrics
 
 logger = logging.getLogger(__name__)
 

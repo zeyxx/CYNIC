@@ -1,6 +1,8 @@
-import pytest
 from types import MappingProxyType
-from cynic.kernel.organism.brain.dialogue.models import UserMessage, CynicMessage, DialogueMessage
+
+import pytest
+
+from cynic.kernel.organism.brain.dialogue.models import CynicMessage, UserMessage
 
 
 def test_user_message_creation():

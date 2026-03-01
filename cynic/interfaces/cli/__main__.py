@@ -17,4 +17,5 @@ See Also:
     cynic.interfaces.cli.main: CLI implementation
 """
 from cynic.interfaces.cli import main
+
 main()

@@ -7,16 +7,15 @@ through the 7-step cycle, showing dog votes, consensus, and action execution.
 import asyncio
 import logging
 import sys
-import os
 from pathlib import Path
 
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from cynic.kernel.organism.organism import awaken
-from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.event_bus import get_core_bus, CoreEvent
+from cynic.kernel.core.event_bus import CoreEvent, get_core_bus
+from cynic.kernel.core.judgment import Cell
+from cynic.kernel.organism.organism import awaken
 
 # Setup detailed logging
 logging.basicConfig(
@@ -27,9 +26,6 @@ logging.basicConfig(
 logger = logging.getLogger("cynic.trace")
 
 async def run_trace():
-    print("\n" + "="*60)
-    print("  CYNIC STABILITY PROOF — END-TO-END TRACE")
-    print("="*60 + "\n")
 
     try:
         # 1. Awaken the Organism
@@ -53,8 +49,7 @@ async def run_trace():
         events_captured = []
         async def trace_listener(event):
             events_captured.append(event.type)
-            type_str = event.type.value if hasattr(event.type, "value") else str(event.type)
-            print(f"  [BUS EVENT] {type_str}")
+            event.type.value if hasattr(event.type, "value") else str(event.type)
 
         bus = get_core_bus()
         bus.on(CoreEvent.JUDGMENT_CREATED, trace_listener)
@@ -62,7 +57,6 @@ async def run_trace():
 
         # 4. Run Judgment through the Orchestrator
         logger.info("Step 3: Running full 7-step cycle...")
-        print("\n--- CYCLE START ---")
         
         judgment = await organism.orchestrator.run(
             cell,
@@ -70,27 +64,21 @@ async def run_trace():
             budget_usd=0.05
         )
 
-        print("--- CYCLE COMPLETE ---\n")
 
         # 5. Display the "Black Box" data
         logger.info("Step 4: Decoding the Result")
-        print(f"\nVERDICT: {judgment.verdict}")
-        print(f"Q-SCORE: {judgment.q_score:.2f}")
-        print(f"CONFIDENCE: {judgment.confidence:.2%}")
         
-        print("\n[DOG VOTES]")
         if hasattr(judgment, 'dog_votes') and judgment.dog_votes:
-            for dog, score in judgment.dog_votes.items():
-                print(f"  - {dog:<12}: {score:.2f}")
+            for _dog, _score in judgment.dog_votes.items():
+                pass
         else:
-            print("  (no dog votes found)")
+            pass
 
-        print("\n[AXIOM SCORES]")
         if hasattr(judgment, 'axiom_scores') and judgment.axiom_scores:
-            for axiom, score in judgment.axiom_scores.items():
-                print(f"  - {axiom:<12}: {score:.2f}")
+            for _axiom, _score in judgment.axiom_scores.items():
+                pass
         else:
-            print("  (no axiom scores found)")
+            pass
 
         # 6. Verify State Persistence
         logger.info("Step 5: Verifying State Manager (awaiting memory consolidation)...")
@@ -105,7 +93,7 @@ async def run_trace():
         # 7. Check Guidance File (Feedback Loop)
         guidance_path = Path.home() / ".cynic" / "guidance.json"
         if guidance_path.exists():
-            logger.info(f"✓ Success: Feedback loop closed (guidance.json exists)")
+            logger.info("✓ Success: Feedback loop closed (guidance.json exists)")
         else:
             logger.warning("✗ Failure: guidance.json missing")
 
@@ -115,9 +103,6 @@ async def run_trace():
         if 'organism' in locals():
             await organism.state.stop_processing()
             await asyncio.sleep(0.5)
-        print("\n" + "="*60)
-        print("  TRACE FINISHED")
-        print("="*60 + "\n")
 
 if __name__ == "__main__":
     asyncio.run(run_trace())

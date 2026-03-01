@@ -5,10 +5,10 @@ Directly loads GGUF models on CPU/iGPU via llama-cpp-python.
 The most sovereign muscle: Zero network, Zero cost, 100% Private.
 """
 from __future__ import annotations
+
 import logging
-import time
 import os
-from typing import Any, Optional
+import time
 
 from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRequest, LLMResponse
 

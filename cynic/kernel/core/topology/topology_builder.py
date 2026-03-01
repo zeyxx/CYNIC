@@ -10,8 +10,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from cynic.kernel.core.event_bus import Event, CoreEvent, get_core_bus
-from cynic.kernel.core.topology.payloads import SourceChangedPayload, TopologyChangedPayload, TopologyDelta
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.topology.payloads import (
+    SourceChangedPayload,
+    TopologyChangedPayload,
+    TopologyDelta,
+)
 
 logger = logging.getLogger("cynic.kernel.core.topology.topology_builder")
 

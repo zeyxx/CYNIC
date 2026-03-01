@@ -27,20 +27,13 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
-import sys
 import time
 from collections import deque
-from dataclasses import asdict, dataclass, field
-from enum import Enum
-from typing import Any, Optional
+from dataclasses import dataclass, field
 
 # Python 3.9 compatibility: StrEnum added in Python 3.11
-if sys.version_info >= (3, 11):
-    from enum import StrEnum
-else:
-    class StrEnum(str, Enum):
-        """Polyfill for Python <3.11."""
-        pass
+from enum import StrEnum
+from typing import Any
 
 from cynic.kernel.core.formulas import LOOP_CLOSURE_CAP
 
@@ -104,8 +97,8 @@ class LoopClosureEvent:
     is_orphan: bool = False  # Judgment without action?
 
     # Failure details
-    last_phase: Optional[CyclePhase] = None
-    stalled_at_phase: Optional[CyclePhase] = None
+    last_phase: CyclePhase | None = None
+    stalled_at_phase: CyclePhase | None = None
     stall_duration_ms: float = 0.0
 
     # Metrics
@@ -268,7 +261,7 @@ class LoopClosureValidator:
     async def close_cycle(
         self,
         judgment_id: str,
-    ) -> Optional[LoopClosureEvent]:
+    ) -> LoopClosureEvent | None:
         """
         Close a cycle (mark complete or as orphan/stalled).
 
@@ -319,7 +312,7 @@ class LoopClosureValidator:
 
             return closure
 
-    async def get_open_cycles(self, max_age_ms: Optional[float] = None) -> list[LoopClosureEvent]:
+    async def get_open_cycles(self, max_age_ms: float | None = None) -> list[LoopClosureEvent]:
         """Get cycles still in progress (not yet closed)."""
         async with self._lock:
             if max_age_ms is None:

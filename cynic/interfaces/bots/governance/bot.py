@@ -3,37 +3,59 @@ CYNIC Governance Bot - Main Discord Bot Implementation
 """
 
 # Windows event loop compatibility fix for aiohttp/aiodns
-import sys
 import asyncio
+import sys
+
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 import logging
+
 import discord
 from discord.ext import commands, tasks
-from datetime import datetime, timedelta
-import uuid
 
-from cynic.interfaces.bots.governance.core.config import DISCORD_TOKEN, DISCORD_PREFIX, CYNIC_MCP_ENABLED
-from cynic.interfaces.bots.governance.core.database import (
-    init_db, get_session, session_context, get_community, create_community,
-    create_proposal, get_proposal, list_proposals, update_proposal_status,
-    update_proposal_judgment, create_vote, count_votes, update_vote_counts,
-    is_voting_active, check_voting_closed, get_user_vote,
-    get_proposals_needing_outcome, create_learning_outcome, mark_outcome_determined, get_or_create_e_score,
-    db_health_check, backup_database, restore_database, verify_data_consistency, close_db
+from cynic.interfaces.bots.governance.core.config import (
+    DISCORD_PREFIX,
+    DISCORD_TOKEN,
 )
-from cynic.interfaces.bots.governance.integration.cynic_integration import ask_cynic, learn_cynic, observe_cynic, get_cynic_status
+from cynic.interfaces.bots.governance.core.database import (
+    backup_database,
+    check_voting_closed,
+    close_db,
+    create_learning_outcome,
+    db_health_check,
+    get_community,
+    get_or_create_e_score,
+    get_proposal,
+    get_proposals_needing_outcome,
+    init_db,
+    list_proposals,
+    mark_outcome_determined,
+    session_context,
+    verify_data_consistency,
+)
 from cynic.interfaces.bots.governance.core.error_handler import (
-    with_error_handling, cynic_circuit_breaker, handle_error,
-    log_error_to_discord, health_check, CYNICUnavailableError
+    cynic_circuit_breaker,
+    health_check,
+)
+from cynic.interfaces.bots.governance.integration.cynic_integration import (
+    get_cynic_status,
+    learn_cynic,
 )
 from cynic.interfaces.bots.governance.utils.formatting import (
-    format_proposal_embed, format_voting_status, format_cynic_verdict,
-    format_proposal_created, format_vote_recorded, format_error, format_help,
-    build_proposal_embed, build_outcome_embed
+    build_outcome_embed,
+    build_proposal_embed,
+    format_cynic_verdict,
+    format_error,
+    format_help,
+    format_voting_status,
 )
-from cynic.interfaces.bots.governance.utils.views import ProposalModal, VotingView, ProposalListView, OutcomeRatingView
+from cynic.interfaces.bots.governance.utils.views import (
+    OutcomeRatingView,
+    ProposalListView,
+    ProposalModal,
+    VotingView,
+)
 
 # Setup logging
 logging.basicConfig(
@@ -613,7 +635,7 @@ async def check_voting_status():
                 now = datetime.utcnow()
 
                 # Query all ACTIVE proposals and check if any are past deadline
-                all_active = await list_proposals(session, "", status="ACTIVE") if False else []
+                await list_proposals(session, "", status="ACTIVE") if False else []
                 # Fallback: check all communities from bot.guilds
                 for guild in bot.guilds:
                     community_id = f"discord_{guild.id}"
@@ -670,11 +692,11 @@ async def on_command_error(interaction: discord.Interaction, error: discord.app_
         )
     except discord.errors.NotFound:
         # Interaction no longer valid (expired after 3 seconds)
-        logger.warning(f"Could not send error response: interaction expired")
+        logger.warning("Could not send error response: interaction expired")
     except discord.errors.HTTPException as e:
         # HTTP errors (rate limit, already acknowledged, etc.)
         if "already been acknowledged" in str(e):
-            logger.warning(f"Interaction already acknowledged, cannot send error response")
+            logger.warning("Interaction already acknowledged, cannot send error response")
         else:
             logger.error(f"HTTP error sending error response: {e}")
     except Exception as e:

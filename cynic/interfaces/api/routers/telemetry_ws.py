@@ -18,7 +18,7 @@ from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
 from cynic.kernel.core.phi import PHI
 
 logger = logging.getLogger("cynic.interfaces.api.telemetry_ws")
@@ -132,7 +132,7 @@ async def ws_telemetry(websocket: WebSocket) -> None:
         while True:
             try:
                 # Just consume messages to detect disconnect
-                data = await websocket.receive_json()
+                await websocket.receive_json()
                 # Ignore any client messages (read-only stream)
             except Exception as exc:
                 logger.debug("ws/telemetry receive ended: %s", exc)

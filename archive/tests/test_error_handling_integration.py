@@ -8,20 +8,20 @@ Verifies that:
 - Health check endpoint works correctly
 """
 
-import pytest
-import asyncio
 from datetime import datetime, timedelta
+
+import pytest
 
 from cynic.interfaces.bots.governance.core.error_handler import (
     CircuitBreaker,
-    GovernanceError,
     CYNICUnavailableError,
     DatabaseError,
-    handle_error,
-    retry_with_backoff,
     ErrorMetrics,
+    GovernanceError,
     cynic_circuit_breaker,
     error_metrics,
+    handle_error,
+    retry_with_backoff,
 )
 
 
@@ -180,7 +180,7 @@ class TestErrorHandling:
 
     async def test_handle_error_timeout(self):
         """handle_error handles timeout errors"""
-        error = asyncio.TimeoutError()
+        error = TimeoutError()
         message = await handle_error(error, "test context")
 
         assert "timed out" in message.lower()
@@ -235,7 +235,7 @@ class TestRetryWithBackoff:
             nonlocal call_count
             call_count += 1
             if call_count < 2:
-                raise asyncio.TimeoutError()
+                raise TimeoutError()
             return "success"
 
         result = await retry_with_backoff(
@@ -271,7 +271,7 @@ class TestRetryWithBackoff:
         async def timing_func():
             call_times.append(time.time())
             if len(call_times) < 3:
-                raise asyncio.TimeoutError()
+                raise TimeoutError()
             return "success"
 
         start = time.time()

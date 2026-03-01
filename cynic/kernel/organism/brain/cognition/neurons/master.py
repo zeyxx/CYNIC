@@ -11,14 +11,18 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
-from cynic.kernel.core.phi import PHI_INV, MAX_CONFIDENCE, phi_bound_score
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.judgment import Cell
+from cynic.kernel.core.phi import phi_bound_score
 from cynic.kernel.organism.brain.cognition.neurons.base import (
-    LLMDog, DogCapabilities, DogHealth, DogJudgment,
-    DogId, HealthStatus,
+    DogCapabilities,
+    DogHealth,
+    DogId,
+    DogJudgment,
+    HealthStatus,
+    LLMDog,
 )
 
 logger = logging.getLogger("cynic.kernel.brain.neurons.master")
@@ -29,17 +33,17 @@ class DogSoul:
     dog_id: DogId
     sefirot: str
     task_type: str
-    axioms: List[str]
+    axioms: list[str]
     system_prompt: str
     heuristic_prompt: str
     
     # Behavior tunables
     temperature: float = 0.618
     consciousness_min: ConsciousnessLevel = ConsciousnessLevel.MICRO
-    supported_realities: Set[str] = field(default_factory=lambda: {"CODE", "SOLANA", "MARKET", "SOCIAL", "HUMAN", "CYNIC", "COSMOS"})
+    supported_realities: set[str] = field(default_factory=lambda: {"CODE", "SOLANA", "MARKET", "SOCIAL", "HUMAN", "CYNIC", "COSMOS"})
     
     # Specialized logic (optional plugins)
-    expertise_fn: Optional[str] = None 
+    expertise_fn: str | None = None 
 
 class MasterDog(LLMDog):
     """
@@ -52,7 +56,7 @@ class MasterDog(LLMDog):
         self.soul = soul
         self._lookups = 0
         self._errors = 0
-        self._last_latencies: List[float] = []
+        self._last_latencies: list[float] = []
 
     def get_capabilities(self) -> DogCapabilities:
         return DogCapabilities(
@@ -106,7 +110,9 @@ class MasterDog(LLMDog):
     async def dream_facets(self, axiom: str, reality: str, registry: Any) -> dict[str, str]:
         """Delegate facet dreaming to expertise plugin if available."""
         if self.dog_id == DogId.SAGE:
-            from cynic.kernel.organism.brain.cognition.neurons.expertise import dream_facets_expertise
+            from cynic.kernel.organism.brain.cognition.neurons.expertise import (
+                dream_facets_expertise,
+            )
             adapter = await self.get_llm()
             if adapter:
                 return await dream_facets_expertise(adapter, axiom, reality, registry)
@@ -118,7 +124,7 @@ class MasterDog(LLMDog):
             self._compressor = compressor
             logger.info("MasterDog[SAGE]: ContextCompressor injected.")
 
-    def _create_judgment(self, cell: Cell, start: float, data: Dict[str, Any]) -> DogJudgment:
+    def _create_judgment(self, cell: Cell, start: float, data: dict[str, Any]) -> DogJudgment:
         latency = (time.perf_counter() - start) * 1000
         judgment = DogJudgment(
             dog_id=self.dog_id,
@@ -192,7 +198,7 @@ class MasterDog(LLMDog):
             details=f"Soul: {self.soul.sefirot} | Errors: {self._errors}/{self._lookups}"
         )
 
-    async def pbft_run(self, cell: Cell, dog_judgments: List[DogJudgment]) -> Optional[DogJudgment]:
+    async def pbft_run(self, cell: Cell, dog_judgments: list[DogJudgment]) -> DogJudgment | None:
         """
         Byzantine Fault Tolerant consensus across Dog judgments.
 

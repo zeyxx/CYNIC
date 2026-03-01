@@ -7,9 +7,8 @@ import subprocess
 import sys
 from typing import Any
 
-
 from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
 from cynic.kernel.core.events_schema import MemoryClearedPayload, MemoryPressurePayload
 from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.phi import PHI_INV, PHI_INV_3, fibonacci

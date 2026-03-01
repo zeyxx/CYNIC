@@ -9,18 +9,17 @@ Provides:
 - Secrets management support
 """
 
-import os
 import logging
 from pathlib import Path
-from typing import Optional, Literal
+from typing import Literal
 
 try:
     from pydantic_settings import BaseSettings
 except ImportError:
     from pydantic import BaseSettings
 
-from pydantic import Field, validator, AnyUrl
 from dotenv import load_dotenv
+from pydantic import AnyUrl, Field
 
 # Load .env file from project root
 env_file = Path(__file__).parent.parent.parent.parent.parent / ".env"

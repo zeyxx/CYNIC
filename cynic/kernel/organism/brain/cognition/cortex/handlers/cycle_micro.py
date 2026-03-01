@@ -14,14 +14,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
-from cynic.kernel.core.judgment import Cell, Judgment
-from cynic.kernel.core.consciousness import ConsciousnessLevel, dogs_for_level
-from cynic.kernel.core.phi import PHI_INV, PHI_INV_2, MAX_CONFIDENCE, MAX_Q_SCORE
 from cynic.kernel.core.axioms import verdict_from_q_score
+from cynic.kernel.core.consciousness import ConsciousnessLevel, dogs_for_level
 from cynic.kernel.core.event_bus import EventBusError
+from cynic.kernel.core.judgment import Judgment
+from cynic.kernel.core.phi import MAX_CONFIDENCE, PHI_INV, PHI_INV_2
+from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgmentPipeline
@@ -48,8 +48,8 @@ class MicroCycleHandler(BaseHandler):
         self,
         dogs: dict[str, Any],
         axiom_arch: Any,
-        cynic_dog: Optional[Any] = None,
-        lod_controller: Optional[Any] = None,
+        cynic_dog: Any | None = None,
+        lod_controller: Any | None = None,
     ) -> None:
         self.dogs = dogs
         self.axiom_arch = axiom_arch
@@ -117,7 +117,7 @@ class MicroCycleHandler(BaseHandler):
 
             # Map dog IDs to Axioms they represent (best effort mapping)
             # In a full implementation, this mapping is dynamic
-            axiom_inputs = {
+            {
                 "FIDELITY": raw_scores.get("ANALYST", 50.0),
                 "PHI": raw_scores.get("ARCHITECT", 50.0),
                 "VERIFY": raw_scores.get("GUARDIAN", 50.0),

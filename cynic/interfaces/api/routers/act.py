@@ -6,12 +6,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from cynic.interfaces.api.state import AppContainer, get_app_container
 from cynic.kernel.core.formulas import CONFIDENCE_ENRICHMENT_MIN_THRESHOLD
-from cynic.kernel.organism.metabolism.telemetry import classify_task, compute_reward
-from cynic.interfaces.api.state import get_app_container, AppContainer
+from cynic.kernel.organism.metabolism.telemetry import classify_task
 
 logger = logging.getLogger("cynic.interfaces.api.server")
 

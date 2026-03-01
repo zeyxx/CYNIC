@@ -4,10 +4,11 @@ import pytest
 
 pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - governance_bot module not found")
 
-import os
 import base64
+import os
+
+from governance_bot.near_integration import NonceManager, TransactionSigner
 from governance_bot.near_keys import KeyManager
-from governance_bot.near_integration import TransactionSigner, NonceManager
 
 
 class TestKeyManagement:

@@ -11,7 +11,7 @@ EXCLUDE_DIRS = {'.git', '__pycache__', '.pytest_cache', '.mypy_cache'}
 
 def suture_file(file_path):
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, encoding='utf-8') as f:
             content = f.read()
         
         new_content = content
@@ -25,10 +25,9 @@ def suture_file(file_path):
         if changes > 0:
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(new_content)
-            print(f"✅ Sutured: {file_path} ({changes} patterns updated)")
             return True
-    except Exception as e:
-        print(f"❌ Failed to suture {file_path}: {e}")
+    except Exception:
+        pass
     return False
 
 def run_global_suture():
@@ -39,7 +38,6 @@ def run_global_suture():
             if file.endswith(('.py', '.md', '.toml', '.yml', '.yaml', '.sh')):
                 if suture_file(os.path.join(root, file)):
                     count += 1
-    print(f"\n🎯 Suture complete. {count} files updated.")
 
 if __name__ == "__main__":
     run_global_suture()

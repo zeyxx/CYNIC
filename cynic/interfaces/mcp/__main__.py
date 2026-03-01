@@ -17,7 +17,6 @@ import asyncio
 import logging
 import os
 import sys
-from typing import Optional
 
 # Windows UTF-8 encoding fix
 if sys.platform == "win32":
@@ -46,8 +45,8 @@ async def main() -> None:
 
     # Import here to ensure async context is ready
     try:
-        from cynic.kernel.core.consciousness import get_consciousness
         from cynic.interfaces.mcp.stdio_server import CynicMCPServer
+        from cynic.kernel.core.consciousness import get_consciousness
     except ImportError as e:
         logger.error(f"Import error: {e}")
         sys.exit(1)
@@ -63,7 +62,7 @@ async def main() -> None:
         sys.exit(1)
 
     # Define organism getter for MCP server
-    def get_organism() -> Optional[object]:
+    def get_organism() -> object | None:
         return organism
 
     # Check if stdio-only mode (default for Claude Code)

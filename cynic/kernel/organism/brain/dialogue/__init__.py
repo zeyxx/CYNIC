@@ -4,7 +4,7 @@ Provides immutable message models for structured communication between
 CYNIC organism and human participants.
 """
 
-from cynic.kernel.organism.brain.dialogue.models import UserMessage, CynicMessage, DialogueMessage
+from cynic.kernel.organism.brain.dialogue.models import CynicMessage, DialogueMessage, UserMessage
 
 __all__ = [
     "UserMessage",

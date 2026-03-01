@@ -5,8 +5,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from cynic.kernel.core.event_bus import Event, CoreEvent, get_core_bus
-from cynic.kernel.core.topology.payloads import TopologyChangedPayload, TopologyAppliedPayload, TopologyRollbackPayload
+from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.topology.payloads import (
+    TopologyAppliedPayload,
+    TopologyChangedPayload,
+    TopologyRollbackPayload,
+)
 
 logger = logging.getLogger("cynic.kernel.core.topology.hot_reload")
 

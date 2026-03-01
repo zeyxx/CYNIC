@@ -70,7 +70,7 @@ class CountingAggregator(Aggregator):
         values = []
         for obs in observations:
             for v in obs.payload.values():
-                if isinstance(v, (int, float)) and not isinstance(v, bool):
+                if isinstance(v, int | float) and not isinstance(v, bool):
                     values.append(v)
 
         avg_value = sum(values) / len(values) if values else 0.0
@@ -571,7 +571,7 @@ class TestIntegrationScenarios:
         manager.layer4.register_handler(handler)
 
         # Get initial stats
-        stats_before = manager.stats()
+        manager.stats()
 
         # Run one complete cycle
         await manager.run_cycle()

@@ -30,7 +30,6 @@ except ImportError:
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.phi import fibonacci
-from cynic.kernel.core.event_bus import get_core_bus, CoreEvent, Event
 
 logger = logging.getLogger("cynic.kernel.organism.metabolism.immune.power_limiter")
 

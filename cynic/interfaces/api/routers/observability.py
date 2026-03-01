@@ -11,11 +11,9 @@ Auto-registered by auto_register_routers().
 
 import logging
 import time
-import uuid
-from typing import Optional
-from pydantic import ValidationError
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Response
+from pydantic import ValidationError
 
 from cynic.interfaces.api.metrics import get_metrics_text
 

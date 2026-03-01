@@ -1,6 +1,7 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
-from datetime import datetime, UTC
+from datetime import datetime
 from types import MappingProxyType
 
 FEDERATION_VERSION = "1.0"
@@ -29,7 +30,7 @@ class FederationMessage:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "FederationMessage":
+    def from_dict(cls, data: dict) -> FederationMessage:
         try:
             return cls(
                 sender_id=data["sender_id"],

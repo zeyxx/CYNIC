@@ -14,7 +14,12 @@ pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - OllamaAda
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from cynic.kernel.organism.brain.llm.adapter import OllamaAdapter, OllamaConnectionPool, LLMRequest, LLMResponse
+from cynic.kernel.organism.brain.llm.adapter import (
+    LLMRequest,
+    LLMResponse,
+    OllamaAdapter,
+    OllamaConnectionPool,
+)
 
 
 class TestOllamaAdapter:
@@ -268,7 +273,7 @@ class TestOllamaConnectionPool:
         pool = OllamaConnectionPool()
         
         with patch('cynic.kernel.organism.brain.llm.adapter.ollama') as mock_ollama:
-            client = pool.get_client("http://localhost:11434")
+            pool.get_client("http://localhost:11434")
             
             assert "http://localhost:11434" in pool._clients
             mock_ollama.AsyncClient.assert_called_once()

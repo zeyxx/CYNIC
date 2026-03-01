@@ -4,20 +4,17 @@ Verifies that L0 (SourceWatcher, TopologyBuilder, HotReloadCoordinator,
 TopologyMirror, ChangeTracker) is properly wired and functional.
 """
 
-import asyncio
 import json
-import os
 import time
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 pytestmark = pytest.mark.skip(reason="Old architecture - change_tracker and SOURCE_CHANGED event removed in V5")
 
-from cynic.kernel.organism.organism import awaken
-from cynic.kernel.core.event_bus import Event, CoreEvent, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.topology import ChangeTracker, SourceChangedPayload
+from cynic.kernel.organism.organism import awaken
 
 
 @pytest.mark.asyncio
@@ -27,7 +24,6 @@ async def test_change_tracker_receives_source_changed_event():
 
     assert state.change_tracker is not None
     assert isinstance(state.change_tracker, ChangeTracker)
-    print("[OK] ChangeTracker instantiated")
 
 
 @pytest.mark.asyncio
@@ -65,8 +61,6 @@ async def test_change_tracker_logs_file_changes():
     assert test_change["category"] == "handlers"
     assert test_change["change_type"] in ["ADDED", "MODIFIED", "DELETED", "UNKNOWN"]
 
-    print(f"[OK] ChangeTracker logged {len(lines)} changes to changes.jsonl")
-    print(f"     Sample record: {test_change}")
 
 
 @pytest.mark.asyncio
@@ -81,12 +75,6 @@ async def test_topology_system_awakens_fully():
     assert state.topology_mirror is not None, "TopologyMirror missing"
     assert state.change_tracker is not None, "ChangeTracker missing"
 
-    print("[OK] All topology system layers present:")
-    print("     - L1: SourceWatcher (file monitoring)")
-    print("     - L2: IncrementalTopologyBuilder (change detection)")
-    print("     - L3: HotReloadCoordinator (safe application)")
-    print("     - L4: TopologyMirror (architecture snapshots)")
-    print("     - L4.5: ChangeTracker (modification visibility)")
 
 
 @pytest.mark.asyncio
@@ -117,7 +105,6 @@ async def test_change_tracker_rolling_cap():
     last_record = json.loads(lines[-1])
     assert "file_" in last_record["filepath"], "Recent records not kept"
 
-    print(f"[OK] Rolling cap enforced: {len(lines)} <= 233 records")
 
 
 @pytest.mark.asyncio
@@ -142,7 +129,6 @@ async def test_change_tracker_tracks_change_types():
             record = json.loads(line)
             if record["filepath"] == "new_file.py":
                 assert record["change_type"] == "ADDED", f"Expected ADDED, got {record['change_type']}"
-                print(f"[OK] Correctly classified change: {record['change_type']}")
                 break
 
 

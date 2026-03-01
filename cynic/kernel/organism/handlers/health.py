@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
-from cynic.kernel.core.event_bus import Event, CoreEvent, EventBusError
-
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError
 from cynic.kernel.organism.handlers.base import HandlerGroup, KernelServices
 
 if TYPE_CHECKING:
-    from cynic.kernel.core.storage.gc import StorageGarbageCollector
     from asyncpg import Pool
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.health")
@@ -20,7 +18,7 @@ class HealthHandlers(HandlerGroup):
     """Resource pressure handling — disk/memory → LOD transition."""
 
     def __init__(
-        self, svc: KernelServices, *, storage_gc, db_pool: Optional[Pool]
+        self, svc: KernelServices, *, storage_gc, db_pool: Pool | None
     ) -> None:
         self._svc = svc
         self._storage_gc = storage_gc

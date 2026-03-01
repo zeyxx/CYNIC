@@ -12,16 +12,15 @@ Emits CHANGE_ANALYZED event for each analysis.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from collections import deque
 from typing import Any
 
-from cynic.kernel.core.event_bus import Event, CoreEvent, EventBusError, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError, get_core_bus
 from cynic.kernel.core.events_schema import ChangeAnalyzedPayload
-from cynic.kernel.core.topology.payloads import SourceChangedPayload
 from cynic.kernel.core.phi import fibonacci
+from cynic.kernel.core.topology.payloads import SourceChangedPayload
 
 logger = logging.getLogger("cynic.kernel.core.topology.change_analyzer")
 

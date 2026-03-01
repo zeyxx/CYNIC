@@ -9,7 +9,8 @@ import sys
 from cynic.interfaces.cli.utils import (
     _SDK_SESSIONS_LOG,
     _api_get,
-    _c, _bar, _ago,
+    _bar,
+    _c,
 )
 
 
@@ -51,16 +52,9 @@ def cmd_sdk() -> None:
         stats = {}
         api_ok = False
 
-    print()
-    mode_note = "API mode" if api_ok else _c("orange", "file mode (server offline)")
-    print(_c("bold", f"  CYNIC SDK SESSIONS — last {len(sessions)}"))
-    print(f"  {_c('dim', mode_note)}")
-    print()
+    "API mode" if api_ok else _c("orange", "file mode (server offline)")
 
     if not sessions:
-        print(_c("gray", "  *sniff* No SDK sessions recorded yet."))
-        print(_c("dim", "  Sessions appear after running /act/execute."))
-        print()
         return
 
     _VERDICT_COLOR = {"BARK": "red", "GROWL": "orange", "WAG": "yellow", "HOWL": "green"}
@@ -69,43 +63,22 @@ def cmd_sdk() -> None:
         verdict   = s.get("output_verdict", "?")
         q_score   = float(s.get("output_q_score", 0))
         task      = (s.get("task") or "")[:60]
-        t_type    = s.get("task_type", "?")
-        complexity = s.get("complexity", "?")
-        cost      = float(s.get("total_cost_usd", 0))
-        is_error  = s.get("is_error", False)
-        ts        = float(s.get("timestamp", 0))
-        reward    = float(s.get("reward", 0))
+        s.get("task_type", "?")
+        s.get("complexity", "?")
+        float(s.get("total_cost_usd", 0))
+        s.get("is_error", False)
+        float(s.get("timestamp", 0))
+        float(s.get("reward", 0))
 
-        vc = _VERDICT_COLOR.get(verdict, "white")
-        ec = "red" if is_error else "green"
+        _VERDICT_COLOR.get(verdict, "white")
 
-        q_bar = _bar(q_score, max_score=100.0, width=8)
+        _bar(q_score, max_score=100.0, width=8)
 
-        print(
-            f"  {_c(vc, verdict):<8}"
-            f"  Q={_c(vc, q_bar)}"
-            f"  {_c(ec, 'ERR' if is_error else 'OK ')}"
-            f"  {t_type:<8}"
-            f"  {complexity:<8}"
-            f"  ${cost:.4f}"
-            f"  r={reward:.3f}"
-            f"  {_ago(ts)}"
-        )
         if task:
-            print(f"    {_c('dim', task)}")
-    print()
+            pass
 
     if stats:
-        count = stats.get("count", 0)
-        err_r = stats.get("error_rate", 0)
-        mean_q = stats.get("mean_q_score", 0)
-        total_c = stats.get("total_cost_usd", 0)
-        print(
-            _c("dim",
-               f"  sessions={count}"
-               f"  error_rate={err_r:.1%}"
-               f"  mean_Q={mean_q:.1f}"
-               f"  total_cost=${total_c:.4f}"
-            )
-        )
-        print()
+        stats.get("count", 0)
+        stats.get("error_rate", 0)
+        stats.get("mean_q_score", 0)
+        stats.get("total_cost_usd", 0)

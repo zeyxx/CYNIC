@@ -25,17 +25,13 @@ Usage:
 """
 from __future__ import annotations
 
-import asyncio
 import hashlib
-import json
 import logging
 import struct
-import time
 from abc import ABC, abstractmethod
-from typing import List
-
 
 import aiohttp
+import httpx
 
 logger = logging.getLogger("cynic.embeddings")
 

@@ -16,11 +16,10 @@ import os
 import sys
 import time
 import urllib.request
-from dataclasses import dataclass, asdict, field
-from datetime import datetime, timedelta
-from typing import Any, Optional
+from dataclasses import asdict, dataclass, field
+from typing import Any
 
-from cynic.interfaces.cli.utils import _c, _CYNIC_DIR, _API, _API_TIMEOUT
+from cynic.interfaces.cli.utils import _API, _API_TIMEOUT, _CYNIC_DIR, _c
 
 logger = logging.getLogger("cynic.interfaces.cli.battles")
 logging.basicConfig(
@@ -40,10 +39,10 @@ class BattleRecord:
     action_id: str                  # reference to action
     executed: bool                  # did it actually run?
     outcome: dict[str, Any]         # result data
-    feedback: Optional[float]       # quality score 0-100
+    feedback: float | None       # quality score 0-100
     q_score_before: float           # before judgment
     q_score_after: float            # after judgment
-    verdict: Optional[str]          # HOWL/WAG/GROWL/BARK
+    verdict: str | None          # HOWL/WAG/GROWL/BARK
     learning_signal: float          # reward for Q-learning
     metadata: dict[str, Any] = field(default_factory=dict)
 

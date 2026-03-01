@@ -24,10 +24,10 @@ Example flow:
 
 from __future__ import annotations
 
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional
-import time
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -50,10 +50,10 @@ class BotCommand:
     """
 
     name: str
-    args: Dict[str, Any]
+    args: dict[str, Any]
     user_id: str
     platform: str
-    guild_id: Optional[str] = None
+    guild_id: str | None = None
     timestamp: float = field(default_factory=time.time)
 
     VALID_PLATFORMS = {"discord", "telegram", "cli", "web"}
@@ -86,9 +86,9 @@ class BotResponse:
 
     success: bool
     message: str
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
     ephemeral: bool = False
-    error: Optional[str] = None
+    error: str | None = None
 
     def __post_init__(self):
         """Validate success is boolean."""

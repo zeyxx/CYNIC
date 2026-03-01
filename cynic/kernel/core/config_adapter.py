@@ -15,15 +15,14 @@ Pattern:
 This is how CYNIC becomes smarter over time — learning YOUR machine.
 """
 
-import os
-import sys
-import json
 import asyncio
+import json
 import logging
+import os
 import platform
-from pathlib import Path
-from typing import Any, Optional
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -53,17 +52,9 @@ class ConfigurationAdaptationEngine:
         self._log_discovery(key, detected_value, description)
 
         # Step 3: Ask user (interactive)
-        print(f"\n{'='*70}")
-        print(f"*sniff* CYNIC discovered new configuration")
-        print(f"{'='*70}")
-        print(f"\nKey:       {key}")
-        print(f"Detected:  {detected_value}")
         if description:
-            print(f"Context:   {description}")
+            pass
 
-        print(f"\nHow should I adapt? (press Enter to accept detected value)")
-        print(f"or type custom value:")
-        print()
 
         try:
             # Run blocking I/O in executor thread pool (non-blocking in async context)
@@ -81,14 +72,11 @@ class ConfigurationAdaptationEngine:
         self._save_preference(key, final_value)
 
         # Platform-aware output (Windows cp1252 can't render ✓)
-        ok_symbol = "[OK]" if platform.system() == "Windows" else "✓"
-        print(f"\n{ok_symbol} Adapted: {key} = {final_value}")
-        print(f"  (Saved to ~.cynic/config_preferences.json for future runs)")
-        print()
+        "[OK]" if platform.system() == "Windows" else "✓"
 
         return final_value
 
-    def _get_known_preference(self, key: str) -> Optional[Any]:
+    def _get_known_preference(self, key: str) -> Any | None:
         """Check if we've been told how to handle this before."""
         if not self.preferences_log.exists():
             return None

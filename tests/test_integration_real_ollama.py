@@ -9,9 +9,8 @@ Requires: Ollama running at localhost:11434
   docker-compose up ollama
   ollama pull qwen2.5-coder:7b  # or other model
 """
+
 import pytest
-import os
-from unittest.mock import AsyncMock, patch
 
 # Mark all tests in this module as integration (skip in CI)
 pytestmark = pytest.mark.integration
@@ -43,7 +42,7 @@ class TestOllamaConnection:
         if not has_ollama:
             pytest.skip("Ollama not available")
 
-        from cynic.kernel.organism.brain.llm.adapter import OllamaAdapter, LLMRegistry
+        from cynic.kernel.organism.brain.llm.adapter import LLMRegistry, OllamaAdapter
 
         # Discover available models (CYNIC must know where its LLMs live)
         registry = LLMRegistry()
@@ -79,7 +78,6 @@ class TestOllamaConnection:
         # Ollama returns plain text by default
         assert isinstance(response.raw_message, str), "Should be string"
 
-        print(f"✓ Real Ollama response: {response.raw_message[:100]}...")
 
     @pytest.mark.asyncio
     async def test_dog_judgment_with_real_ollama(self, has_ollama):
@@ -87,10 +85,12 @@ class TestOllamaConnection:
         if not has_ollama:
             pytest.skip("Ollama not available")
 
-        from cynic.kernel.organism.brain.cognition.cortex.dog_cognition import DogCognition, DogCognitionConfig
-        from cynic.kernel.organism.brain.cognition.neurons.dog_state import DogState
         from cynic.kernel.core.judgment import Cell
-        from unittest.mock import patch, AsyncMock
+        from cynic.kernel.organism.brain.cognition.cortex.dog_cognition import (
+            DogCognition,
+            DogCognitionConfig,
+        )
+        from cynic.kernel.organism.brain.cognition.neurons.dog_state import DogState
 
         # Patch heuristic scorer to use real Ollama instead
         # (in production, heuristic_scorer calls real LLM)
@@ -113,7 +113,6 @@ class TestOllamaConnection:
         assert 0 <= judgment.confidence <= 0.618, f"Confidence exceeds φ⁻¹: {judgment.confidence}"
         assert judgment.verdict in ("BARK", "GROWL", "WAG", "HOWL"), f"Invalid verdict: {judgment.verdict}"
 
-        print(f"✓ Real judgment: Q={judgment.q_score:.1f}, confidence={judgment.confidence:.3f}, verdict={judgment.verdict}")
 
     @pytest.mark.asyncio
     async def test_ollama_model_discovery(self, has_ollama):
@@ -133,8 +132,8 @@ class TestOllamaConnection:
         gen_models = registry.get_available_for_generation()
         assert len(gen_models) > 0, f"Should have generation models, got only: {all_models}"
 
-        for adapter in gen_models:
-            print(f"✓ CYNIC found generation model: {adapter.model} ({adapter.provider})")
+        for _adapter in gen_models:
+            pass
 
     @pytest.mark.asyncio
     async def test_temporal_mcts_with_real_ollama(self, has_ollama):
@@ -142,8 +141,8 @@ class TestOllamaConnection:
         if not has_ollama:
             pytest.skip("Ollama not available")
 
-        from cynic.kernel.organism.brain.llm.temporal import temporal_judgment
         from cynic.kernel.organism.brain.llm.adapter import LLMRegistry
+        from cynic.kernel.organism.brain.llm.temporal import temporal_judgment
 
         registry = LLMRegistry()
         # Discover where CYNIC's LLMs are
@@ -172,7 +171,6 @@ class TestOllamaConnection:
         assert 0 <= judgment.confidence <= 0.618, f"Confidence exceeds φ⁻¹: {judgment.confidence}"
         assert len(judgment.perspective_scores) > 0, "Should have perspective scores"
 
-        print(f"✓ Temporal MCTS with {model}: Q={judgment.q_score:.1f}, perspectives={len(judgment.perspective_scores)}")
 
 
 class TestOllamaPerformance:
@@ -185,7 +183,8 @@ class TestOllamaPerformance:
             pytest.skip("Ollama not available")
 
         import time
-        from cynic.kernel.organism.brain.llm.adapter import OllamaAdapter, LLMRequest, LLMRegistry
+
+        from cynic.kernel.organism.brain.llm.adapter import LLMRegistry, LLMRequest, OllamaAdapter
 
         registry = LLMRegistry()
         models = await registry.discover(ollama_url="http://localhost:11434")
@@ -204,10 +203,9 @@ class TestOllamaPerformance:
         )
 
         start = time.perf_counter()
-        response = await adapter.complete(request)
+        await adapter.complete(request)
         elapsed_ms = (time.perf_counter() - start) * 1000
 
-        print(f"✓ Ollama single call ({model_name}): {elapsed_ms:.1f}ms")
         # Ollama on CPU can be slow (1-5s), but should complete
         assert elapsed_ms < 30000, f"Ollama call took too long: {elapsed_ms:.1f}ms"
 
@@ -217,9 +215,10 @@ class TestOllamaPerformance:
         if not has_ollama:
             pytest.skip("Ollama not available")
 
-        import time
         import asyncio
-        from cynic.kernel.organism.brain.llm.adapter import OllamaAdapter, LLMRequest, LLMRegistry
+        import time
+
+        from cynic.kernel.organism.brain.llm.adapter import LLMRegistry, LLMRequest, OllamaAdapter
 
         registry = LLMRegistry()
         models = await registry.discover(ollama_url="http://localhost:11434")
@@ -242,10 +241,9 @@ class TestOllamaPerformance:
             adapter.complete(request)
             for _ in range(7)
         ])
-        elapsed_ms = (time.perf_counter() - start) * 1000
+        (time.perf_counter() - start) * 1000
 
         assert len(responses) == 7, "Should complete all 7 calls"
-        print(f"✓ Ollama 7 parallel calls ({model_name}): {elapsed_ms:.1f}ms ({elapsed_ms/7:.1f}ms per call avg)")
 
 
 if __name__ == "__main__":

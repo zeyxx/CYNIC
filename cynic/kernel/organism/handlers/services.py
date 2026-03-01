@@ -13,25 +13,26 @@ Each can grow independently. Each has focused, domain-specific methods.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
-from cynic.kernel.core.event_bus import Event, CoreEvent, get_core_bus
 from cynic.kernel.core.escore import EScoreTracker
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.events_schema import AxiomActivatedPayload, ConsciousnessChangedPayload
 from cynic.kernel.organism.brain.cognition.cortex.axiom_monitor import AxiomMonitor
 from cynic.kernel.organism.brain.cognition.cortex.lod import LODController
-from cynic.kernel.core.events_schema import AxiomActivatedPayload, ConsciousnessChangedPayload
 
 if TYPE_CHECKING:
-    from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
+    from asyncpg import Pool
+
     from cynic.kernel.organism.brain.cognition.cortex.decide import DecideAgent
+    from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
     from cynic.kernel.organism.brain.cognition.cortex.residual import ResidualDetector
-    from cynic.kernel.organism.brain.learning.qlearning import QTable, LearningLoop
-    from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
+    from cynic.kernel.organism.brain.learning.qlearning import LearningLoop, QTable
     from cynic.kernel.organism.metabolism.claude_sdk import ClaudeCodeRunner
     from cynic.kernel.organism.metabolism.llm_router import LLMRouter
+    from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
     from cynic.kernel.organism.perception.senses.compressor import ContextCompressor
     from cynic.nervous import ServiceStateRegistry
-    from asyncpg import Pool
 
 
 @dataclass
@@ -50,7 +51,7 @@ class CognitionServices:
     qtable: QTable
     learning_loop: LearningLoop
     residual_detector: ResidualDetector
-    decide_agent: Optional[DecideAgent]
+    decide_agent: DecideAgent | None
     axiom_monitor: AxiomMonitor
     lod_controller: LODController
     escore_tracker: EScoreTracker
@@ -125,9 +126,9 @@ class MetabolicServices:
     """
 
     scheduler: ConsciousnessRhythm
-    runner: Optional[ClaudeCodeRunner] = None
-    llm_router: Optional[LLMRouter] = None
-    db_pool: Optional[Pool] = None
+    runner: ClaudeCodeRunner | None = None
+    llm_router: LLMRouter | None = None
+    db_pool: Pool | None = None
 
     def is_runner_available(self) -> bool:
         """Check if autonomous task execution is available."""

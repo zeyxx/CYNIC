@@ -14,20 +14,23 @@ from __future__ import annotations
 import asyncio
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
-from cynic.kernel.core.phi import (
-    MAX_Q_SCORE, MAX_CONFIDENCE, PHI_INV, PHI_INV_2,
-    phi_bound_score, fibonacci,
-)
 from cynic.kernel.core.axioms import verdict_from_q_score
-from cynic.kernel.core.judgment import Cell, Judgment
-from cynic.kernel.core.event_bus import Event, CoreEvent, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
 from cynic.kernel.core.events_schema import (
     PerceptionReceivedPayload,
     ResidualHighPayload,
 )
-from cynic.kernel.core.exceptions import CynicError
+from cynic.kernel.core.judgment import Judgment
+from cynic.kernel.core.phi import (
+    MAX_CONFIDENCE,
+    MAX_Q_SCORE,
+    PHI_INV,
+    PHI_INV_2,
+    fibonacci,
+    phi_bound_score,
+)
 from cynic.kernel.organism.brain.cognition.cortex.pipeline import JudgmentPipeline
 from cynic.kernel.organism.brain.cognition.neurons.base import DogId, DogJudgment
 
@@ -324,7 +327,6 @@ class AccountStage(JudgmentStage):
         if judgment is None:
             return pipeline
 
-        orch = self.orchestrator
         # Cost already tracked in pipeline.total_cost_usd
         # E-Score updates happen in orchestrator post-cycle
 
@@ -372,7 +374,7 @@ class EmergeStage(JudgmentStage):
 async def execute_judgment_pipeline(
     orchestrator: Any,
     pipeline: JudgmentPipeline,
-    stages: Optional[list[type[JudgmentStage]]] = None,
+    stages: list[type[JudgmentStage]] | None = None,
 ) -> JudgmentPipeline:
     """Execute complete 7-step judgment pipeline.
 

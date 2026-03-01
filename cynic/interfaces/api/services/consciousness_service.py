@@ -16,14 +16,15 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any
 
+from cynic.interfaces.api.metrics import ERRORS_TOTAL, REQUESTS_TOTAL, SERVICE_QUERY_DURATION
 from cynic.interfaces.api.services.ecosystem_observer import EcosystemObserver
 from cynic.interfaces.api.state import get_app_container
-from cynic.nervous import EventJournal, DecisionTracer, ServiceStateRegistry
-from cynic.interfaces.api.metrics import SERVICE_QUERY_DURATION, REQUESTS_TOTAL, ERRORS_TOTAL
 from cynic.kernel.core.exceptions import CynicError
+from cynic.nervous import DecisionTracer, EventJournal, ServiceStateRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ class ConsciousnessService:
 
     def __init__(self):
         """Initialize ConsciousnessService (lazy-load components on demand)."""
-        self._ecosystem_observer: Optional[EcosystemObserver] = None
+        self._ecosystem_observer: EcosystemObserver | None = None
 
     async def _safe_query(
         self,
@@ -184,7 +185,7 @@ class ConsciousnessService:
 
         return await self._safe_query(query, fallback, "get_ecosystem_state")
 
-    async def get_decision_trace(self, decision_id: str) -> Optional[dict[str, Any]]:
+    async def get_decision_trace(self, decision_id: str) -> dict[str, Any] | None:
         """
         Get full path of decision through guardrails (Layer 2).
 

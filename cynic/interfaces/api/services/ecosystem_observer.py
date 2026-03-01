@@ -14,11 +14,11 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import asdict
-from typing import Any, Optional
+from typing import Any
 
-from cynic.nervous.event_journal import EventJournal, JournalEntry, EventCategory
-from cynic.nervous.decision_trace import DecisionTracer, TraceNode, DecisionTrace
-from cynic.nervous.service_registry import ServiceStateRegistry, ComponentSnapshot, RegistrySnapshot
+from cynic.nervous.decision_trace import DecisionTracer
+from cynic.nervous.event_journal import EventCategory, EventJournal, JournalEntry
+from cynic.nervous.service_registry import ServiceStateRegistry
 
 logger = logging.getLogger(__name__)
 

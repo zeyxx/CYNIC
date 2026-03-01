@@ -12,13 +12,11 @@ is complete.
 """
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
-import pytest_asyncio
-from datetime import datetime, UTC
-from unittest.mock import Mock, AsyncMock
 
 from cynic.kernel.organism.brain.learning.unified_learning import UnifiedQTable
-
 
 # ════════════════════════════════════════════════════════════════════════════
 # BLOCK A: MergeEngine Unit Tests
@@ -76,7 +74,6 @@ class TestMergeEngine:
         This test validates that Q-values remain in [0, 1] after merging.
         """
         from cynic.kernel.organism.perception.federation.merge import merge_q_tables
-        from cynic.kernel.core.phi import PHI_INV
 
         local = UnifiedQTable()
         local.values[("HOWL", "HOWL")] = 0.6
@@ -256,8 +253,11 @@ async def test_three_organisms_share_learning():
 
     This will be implemented in Task 8.
     """
-    from cynic.kernel.organism.perception.federation import GossipManager, FederationPeer, FederationMessage
     from cynic.kernel.organism.brain.learning.unified_learning import UnifiedQTable
+    from cynic.kernel.organism.perception.federation import (
+        FederationPeer,
+        GossipManager,
+    )
 
     # Create 3 organisms with gossip managers
     def make_organism(instance_id):

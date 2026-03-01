@@ -22,14 +22,16 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
-from cynic.kernel.core.phi import fibonacci
 from cynic.kernel.core.event_bus import (
-    get_core_bus, Event, CoreEvent, EventBus,
+    CoreEvent,
+    Event,
+    EventBus,
+    get_core_bus,
 )
 from cynic.kernel.core.events_schema import SonaTickPayload
-
+from cynic.kernel.core.phi import fibonacci
 
 logger = logging.getLogger("cynic.kernel.organism.sona_emitter")
 
@@ -56,12 +58,12 @@ class SonaEmitter:
     def __init__(self, bus: EventBus | None = None, db_pool: Any = None) -> None:
         self._bus = bus or get_core_bus()
         self._db_pool = db_pool
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
         self._running = False
         self._tick_count = 0
         self._start_time = time.time()
-        self._qtable: Optional[Any] = None
-        self._orchestrator: Optional[Any] = None
+        self._qtable: Any | None = None
+        self._orchestrator: Any | None = None
 
     def set_qtable(self, qtable: Any) -> None:
         """Inject QTable for telemetry. Called by organism.py after construction."""

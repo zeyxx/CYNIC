@@ -16,18 +16,17 @@ SONA_TICK signal path:
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
-from cynic.kernel.core.event_bus import Event, EventBus, CoreEvent, get_core_bus
-from cynic.kernel.core.events_schema import SonaTickPayload
-from cynic.kernel.core.phi import PHI, PHI_INV, fibonacci
-from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
-from cynic.kernel.organism.brain.learning.qlearning import QTable, LearningLoop
 from cynic.kernel.core.escore import EScoreTracker
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
+from cynic.kernel.core.events_schema import SonaTickPayload
+from cynic.kernel.core.phi import PHI_INV, fibonacci
+from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
+from cynic.kernel.organism.brain.learning.qlearning import LearningLoop, QTable
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.meta_cognition")
 
@@ -70,10 +69,10 @@ class MetaCognitionHandler(BaseHandler):
 
     def __init__(
         self,
-        qtable: Optional[QTable] = None,
-        learning_loop: Optional[LearningLoop] = None,
-        escore_tracker: Optional[EScoreTracker] = None,
-        bus: Optional[EventBus] = None,
+        qtable: QTable | None = None,
+        learning_loop: LearningLoop | None = None,
+        escore_tracker: EScoreTracker | None = None,
+        bus: EventBus | None = None,
     ) -> None:
         """
         Initialize meta-cognition handler.
@@ -125,7 +124,7 @@ class MetaCognitionHandler(BaseHandler):
         """
         start_time = time.time()
 
-        sona_tick: Optional[SonaTickPayload] = kwargs.get("sona_tick")
+        sona_tick: SonaTickPayload | None = kwargs.get("sona_tick")
         if not sona_tick:
             return HandlerResult(
                 success=False,

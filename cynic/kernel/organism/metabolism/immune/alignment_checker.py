@@ -81,7 +81,7 @@ class AlignmentSafetyChecker:
 
         verdict = decision.get("verdict", "")
         confidence = float(decision.get("confidence", 0.0))
-        q_value = float(decision.get("q_value", 0.0))
+        float(decision.get("q_value", 0.0))
 
         # FIDELITY: Check for contradictions with past judgments
         fidelity_violations = self._check_fidelity(verdict, recent_judgments)
@@ -176,7 +176,7 @@ class AlignmentSafetyChecker:
         # BARK should be ≤ φ⁻² × window (38.2% of verdicts)
         # Other verdicts should be ≤ φ⁻¹ × window (61.8% of verdicts)
         bark_limit = int(self._window_size * 0.382)
-        other_limit = int(self._window_size * 0.618)
+        int(self._window_size * 0.618)
 
         if verdict == "BARK" and current_count >= bark_limit:
             violations.append(

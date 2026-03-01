@@ -6,11 +6,12 @@ Simulates hardware stress and verifies the Law of Sovereignty:
 2. RAM Stress: System switches to lighter local service (Ollama).
 3. Critical: System falls back to local CLI or Cloud.
 """
-import pytest
-import asyncio
 from unittest.mock import MagicMock, patch
-from cynic.kernel.organism.brain.llm.adapter import LLMRegistry, LLMAdapter
-from cynic.kernel.core.consciousness import ConsciousnessLevel
+
+import pytest
+
+from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRegistry
+
 
 class MockAdapter(LLMAdapter):
     async def complete(self, req): return MagicMock()

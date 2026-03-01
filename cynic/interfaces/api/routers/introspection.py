@@ -10,14 +10,14 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 
+from cynic.interfaces.api.state import AppContainer, get_app_container
 from cynic.kernel.core.consciousness import get_consciousness
-from cynic.kernel.core.phi import PHI, PHI_INV, fibonacci
 from cynic.kernel.core.formulas import (
+    KERNEL_INTEGRITY_GROWL_THRESHOLD,
     KERNEL_INTEGRITY_HOWL_THRESHOLD,
     KERNEL_INTEGRITY_WAG_THRESHOLD,
-    KERNEL_INTEGRITY_GROWL_THRESHOLD,
 )
-from cynic.interfaces.api.state import get_app_container, AppContainer
+from cynic.kernel.core.phi import PHI_INV, fibonacci
 
 logger = logging.getLogger("cynic.interfaces.api.server")
 
@@ -69,7 +69,7 @@ async def introspect(container: AppContainer = Depends(get_app_container)) -> di
     scholar = state.orchestrator.dogs.get(DogId.SCHOLAR)
     scholar_status = {}
     if scholar is not None:
-        scholar_stats = scholar.stats() if hasattr(scholar, 'stats') else {}
+        scholar.stats() if hasattr(scholar, 'stats') else {}
         scholar_status = {
             "buffer_size": len(scholar._buffer),
             "buffer_max": scholar._buffer.maxlen if hasattr(scholar._buffer, 'maxlen') else 89,

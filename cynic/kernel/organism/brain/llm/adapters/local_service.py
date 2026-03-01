@@ -5,10 +5,11 @@ Connects to locally running LLM servers via HTTP API.
 Sovereign but service-based.
 """
 from __future__ import annotations
+
 import logging
 import time
+
 import httpx
-from typing import Any, Optional
 
 from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRequest, LLMResponse
 

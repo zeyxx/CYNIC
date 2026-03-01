@@ -12,12 +12,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import Dict, Any, Optional, TYPE_CHECKING
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from cynic.kernel.organism.organism import Organism
     from cynic.kernel.organism.brain.llm.adapter import LLMRegistry
+    from cynic.kernel.organism.organism import Organism
 
 logger = logging.getLogger("cynic.kernel.observability.health")
 
@@ -27,10 +27,10 @@ class HealthChecker:
 
     def __init__(
         self,
-        organism: Optional[Organism] = None,
-        registry: Optional[LLMRegistry] = None,
-        db_pool: Optional[Any] = None,
-        surreal: Optional[Any] = None,
+        organism: Organism | None = None,
+        registry: LLMRegistry | None = None,
+        db_pool: Any | None = None,
+        surreal: Any | None = None,
     ):
         """
         Initialize health checker with optional system references.
@@ -46,7 +46,7 @@ class HealthChecker:
         self.db_pool = db_pool
         self.surreal = surreal
 
-    async def check(self) -> Dict[str, Any]:
+    async def check(self) -> dict[str, Any]:
         """
         Check all systems in parallel and return comprehensive health status.
 
@@ -81,7 +81,7 @@ class HealthChecker:
             uptime_s = self.organism.uptime_s if self.organism else 0.0
 
             return {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "overall": overall,
                 "database": self._status_str(db_ok),
                 "llm": self._status_str(llm_ok),
@@ -95,13 +95,13 @@ class HealthChecker:
             # Fallback response if health checker itself breaks
             logger.error("Health checker crashed: %s", e, exc_info=True)
             return {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "overall": "critical",
                 "error": str(e),
                 "app": "degraded",
             }
 
-    async def check_detailed(self) -> Dict[str, Any]:
+    async def check_detailed(self) -> dict[str, Any]:
         """
         Detailed health check with remediation hints.
 
@@ -217,7 +217,7 @@ class HealthChecker:
 
         try:
             # Check if event buses exist and are accessible
-            from cynic.kernel.core.event_bus import get_core_bus, get_automation_bus, get_agent_bus
+            from cynic.kernel.core.event_bus import get_agent_bus, get_automation_bus, get_core_bus
 
             core_bus = get_core_bus()
             if core_bus is None:

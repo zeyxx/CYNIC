@@ -1,5 +1,7 @@
-import pytest
-from cynic.kernel.organism.brain.collaborative.decision_classifier import DecisionClassifier, DecisionClass
+from cynic.kernel.organism.brain.collaborative.decision_classifier import (
+    DecisionClass,
+    DecisionClassifier,
+)
 
 
 def test_decision_class_enum():

@@ -3,10 +3,9 @@
 
 from __future__ import annotations
 
-import json
 import asyncio
+import json
 from pathlib import Path
-from typing import Optional
 
 from cynic.kernel.organism.brain.learning.relationship_memory import RelationshipMemory
 
@@ -93,7 +92,7 @@ class MemoryStore:
 
 
 # Global memory store instance
-_memory_store: Optional[MemoryStore] = None
+_memory_store: MemoryStore | None = None
 
 
 async def get_memory_store() -> MemoryStore:

@@ -11,16 +11,12 @@ This tests the complete pipeline for memocoin governance:
 5. NEAR records proposal on-chain
 6. Learning loop updates Q-Table based on burn statistics
 """
-import asyncio
-import json
 from datetime import datetime, timedelta
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
-from cynic.kernel.organism.perception.integrations.gasdf.client import GASdfClient
 from cynic.kernel.organism.perception.integrations.gasdf.executor import GASdfExecutor
 from cynic.kernel.organism.perception.integrations.gasdf.types import (
     GASdfExecutionResult,
@@ -29,7 +25,6 @@ from cynic.kernel.organism.perception.integrations.gasdf.types import (
 )
 from cynic.kernel.organism.perception.integrations.near.executor import NEARExecutor
 from cynic.kernel.organism.perception.integrations.near.types import (
-    NEARExecutionResult,
     NEARGovernanceProposal,
     NEARNetworkConfig,
     TxStatus,
@@ -464,7 +459,6 @@ class TestCompleteGovernanceWorkflow:
 
         assert gasdf_result is not None
         assert gasdf_result.status == "confirmed"
-        initial_fee = gasdf_result.fee_amount
 
         # Step 3: Submit proposal to NEAR
         near_result = await near_executor.submit_proposal(

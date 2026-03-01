@@ -12,8 +12,9 @@ Verify:
 8. Reasoning is present
 """
 
-import pytest
 import asyncio
+
+import pytest
 
 pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - cynic.judges.dog_implementations module not found")
 
@@ -31,8 +32,8 @@ from cynic.judges.dog_implementations import (
     Dog11_EarthGuardian,
     get_all_dogs,
 )
+from cynic.kernel.core.phi import MAX_CONFIDENCE
 from cynic.kernel.core.unified_state import UnifiedJudgment
-from cynic.kernel.core.phi import MAX_CONFIDENCE, HOWL_MIN, WAG_MIN, GROWL_MIN
 
 
 class TestDog1CrownConsciousness:

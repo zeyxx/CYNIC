@@ -11,24 +11,31 @@ Connects to ServiceStateRegistry (Component 1 Tier 1 nervous system).
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import time
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 try:
     from aiohttp import web
 except ImportError:
     web = None  # type: ignore[assignment]
 
-from cynic.kernel.core.event_bus import get_core_bus, CoreEvent, Event
-from cynic.kernel.core.events_schema import UserFeedbackPayload
 from cynic.interfaces.mcp.models import (
-    ObserveRequest, ObserveResponse, ActRequest, ActResponse, LearnRequest, LearnResponse,
-    ErrorResponse, ComponentHealthSnapshot, RegistrySnapshot,
+    ActRequest,
+    ActResponse,
+    ComponentHealthSnapshot,
+    ErrorResponse,
+    LearnRequest,
+    LearnResponse,
+    ObserveRequest,
+    ObserveResponse,
+    RegistrySnapshot,
 )
 from cynic.interfaces.mcp.utils import setup_logging
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.events_schema import UserFeedbackPayload
 
 logger = logging.getLogger("cynic.interfaces.mcp.server")
 
@@ -40,7 +47,7 @@ class MCPServer:
         self,
         port: int = 8766,
         host: str = "127.0.0.1",
-        get_state_fn: Optional[Callable] = None,  # () -> CynicOrganism
+        get_state_fn: Callable | None = None,  # () -> CynicOrganism
     ):
         """
         Initialize MCP server.
@@ -234,7 +241,7 @@ class MCPServer:
                 status="ok" if success else "error",
             )
             return self._json_response(resp)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("act: Claude Code execution timed out")
             return self._json_response(
                 ErrorResponse(
@@ -376,7 +383,7 @@ class MCPServer:
 
 async def run_mcp_server(
     port: int = 8766,
-    get_state_fn: Optional[Callable] = None,
+    get_state_fn: Callable | None = None,
 ) -> MCPServer:
     """
     Start MCP server and return it for lifecycle management.

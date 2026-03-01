@@ -6,24 +6,23 @@ This replaces _OrganismAwakener.build() with a composable, observable sequence.
 from __future__ import annotations
 
 import logging
-from typing import Optional, TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.organism import Organism as CynicOrganism
 
 from cynic.interfaces.api.builders.base import BuilderContext
-from cynic.interfaces.api.builders.component import ComponentBuilder
 from cynic.interfaces.api.builders.cognition import CognitionBuilder
+from cynic.interfaces.api.builders.component import ComponentBuilder
+from cynic.interfaces.api.builders.memory import MemoryBuilder
 from cynic.interfaces.api.builders.metabolic import MetabolicBuilder
 from cynic.interfaces.api.builders.sensory import SensoryBuilder
-from cynic.interfaces.api.builders.memory import MemoryBuilder
 from cynic.interfaces.api.builders.storage import StorageBuilder
 from cynic.interfaces.api.builders.wiring import WiringBuilder
-from cynic.kernel.organism.organism import (
-    CognitionCore, MetabolicCore, SensoryCore, MemoryCore, Organism as CynicOrganism
-)
 from cynic.kernel.organism.brain.cognition.cortex.mirror import KernelMirror
 from cynic.kernel.organism.metabolism.telemetry import TelemetryStore
+from cynic.kernel.organism.organism import CognitionCore, MemoryCore, MetabolicCore, SensoryCore
+from cynic.kernel.organism.organism import Organism as CynicOrganism
 
 logger = logging.getLogger("cynic.interfaces.api.builders.assembler")
 
@@ -44,12 +43,12 @@ class OrganismAssembler:
 
     def __init__(
         self,
-        db_pool: Optional[Any] = None,
-        llm_registry: Optional[Any] = None,
+        db_pool: Any | None = None,
+        llm_registry: Any | None = None,
     ) -> None:
         self.db_pool = db_pool
         self.llm_registry = llm_registry
-        self.context: Optional[BuilderContext] = None
+        self.context: BuilderContext | None = None
         self.builders = [
             ComponentBuilder(),
             StorageBuilder(),
@@ -128,7 +127,7 @@ class OrganismAssembler:
             _handler_registry=context.handler_registry,
         )
 
-    async def assemble(self) -> "CynicOrganism":
+    async def assemble(self) -> CynicOrganism:
         """
         Run all builders in sequence to create CynicOrganism.
 
@@ -167,6 +166,6 @@ class OrganismAssembler:
             context.log(f"assembly: failed — {e}")
             raise RuntimeError(f"Failed to assemble organism: {e}")
 
-    def get_context(self) -> Optional[BuilderContext]:
+    def get_context(self) -> BuilderContext | None:
         """Return the current build context (for introspection/testing)."""
         return self.context

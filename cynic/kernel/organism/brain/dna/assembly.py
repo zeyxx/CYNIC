@@ -1,23 +1,18 @@
 """CYNIC Assembly — Compose primitives into workflows."""
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
 from functools import wraps
-import asyncio
+from typing import Any
 
 from .primitives import (
-    DNA_Cell,
-    DNA_Judgment,
-    DNA_Decision,
-    DNA_Result,
-    PERCEIVE,
-    JUDGE,
-    DECIDE,
     ACT,
+    DECIDE,
+    JUDGE,
     LEARN,
+    PERCEIVE,
 )
-
 
 # ============================================================================
 # WORKFLOW CLASS (Compose primitives)

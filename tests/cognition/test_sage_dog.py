@@ -1,12 +1,12 @@
 """Tests for SageDog — wisdom evaluator and world-maker."""
-import pytest
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
-from cynic.kernel.organism.brain.cognition.neurons.sage import SageDog
-from cynic.kernel.organism.brain.cognition.neurons.base import DogJudgment, DogId
+import pytest
+
 from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.phi import MAX_CONFIDENCE
+from cynic.kernel.organism.brain.cognition.neurons.base import DogId, DogJudgment
+from cynic.kernel.organism.brain.cognition.neurons.sage import SageDog
 
 
 @pytest.fixture

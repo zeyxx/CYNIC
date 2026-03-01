@@ -9,12 +9,13 @@ Provides:
 - Automatic retry with exponential backoff
 """
 
-import logging
 import asyncio
+import logging
 import traceback
+from collections.abc import Callable
+from datetime import datetime
 from functools import wraps
-from typing import Callable, Any, Optional
-from datetime import datetime, timedelta
+from typing import Any
 
 import discord
 
@@ -115,7 +116,7 @@ class DiscordError(GovernanceError):
 async def handle_error(
     error: Exception,
     context: str = "Unknown",
-    interaction: Optional[discord.Interaction] = None,
+    interaction: discord.Interaction | None = None,
 ) -> str:
     """Handle an error gracefully.
 
@@ -210,7 +211,7 @@ async def retry_with_backoff(
         try:
             return await func(*args, **kwargs)
 
-        except (asyncio.TimeoutError, ConnectionError) as e:
+        except (TimeoutError, ConnectionError) as e:
             if attempt == max_retries:
                 raise
 

@@ -2,16 +2,15 @@
 from __future__ import annotations
 
 import asyncio
-from .primitives import PERCEIVE, JUDGE, DECIDE, ACT, LEARN, DNA_Cell
+
 from .assembly import (
-    Workflow,
-    AUDIT_REPO,
     ANALYZE_CODE_SECURITY,
+    AUDIT_REPO,
     FAST_QUALITY_CHECK,
-    CONTINUOUS_LEARNING,
+    Workflow,
     cynic_workflow,
 )
-
+from .primitives import ACT, DECIDE, JUDGE, LEARN, PERCEIVE
 
 # ============================================================================
 # EXAMPLE 1: Simple Linear Chain
@@ -23,7 +22,6 @@ async def example_linear_chain():
 
     This is what you'd do if you have orchestrator + qtable available.
     """
-    print("\n=== EXAMPLE 1: Linear Chain ===")
 
     # Assume orchestrator and qtable are available (from app state)
     orchestrator = None  # Would be injected from FastAPI state
@@ -35,26 +33,21 @@ async def example_linear_chain():
         content="def hello(): print('world')",
         metadata={"file": "hello.py"},
     )
-    print(f"✓ PERCEIVE: {cell.id} ({cell.source})")
 
     # STEP 2: Judge (if orchestrator available)
     if orchestrator:
         judgment = await JUDGE(cell, level="REFLEX", orchestrator=orchestrator)
-        print(f"✓ JUDGE: Q={judgment.q_score:.1f} Verdict={judgment.verdict}")
 
         # STEP 3: Decide
         decision = DECIDE(judgment, axiom="VERIFY")
-        print(f"✓ DECIDE: Action={decision.action_type}")
 
         # STEP 4: Act
         result = await ACT(decision, executor="report")
-        print(f"✓ ACT: {result.status} - {result.output}")
 
         # STEP 5: Learn
-        learn_result = await LEARN(result, signal="success", qtable=qtable)
-        print(f"✓ LEARN: {learn_result}")
+        await LEARN(result, signal="success", qtable=qtable)
     else:
-        print("(Skipping JUDGE-LEARN without orchestrator)")
+        pass
 
 
 # ============================================================================
@@ -66,39 +59,32 @@ async def example_builtin_workflows():
     Use pre-built workflows for common tasks.
     No need to compose primitives manually.
     """
-    print("\n=== EXAMPLE 2: Built-in Workflows ===")
 
     orchestrator = None  # Would be injected
     qtable = None
 
     # Workflow 1: Quick code quality check
-    print("\n1. FAST_QUALITY_CHECK workflow:")
     result = await FAST_QUALITY_CHECK(
         code="def bad( x,y ):  return x+y",
         orchestrator=orchestrator,
         qtable=qtable,
     )
-    print(f"   Cell: {result['cell'].id if result.get('cell') else 'N/A'}")
     if result.get("judgment"):
-        print(f"   Q-Score: {result['judgment'].q_score}")
+        pass
 
     # Workflow 2: Security analysis
-    print("\n2. ANALYZE_CODE_SECURITY workflow:")
     result = await ANALYZE_CODE_SECURITY(
         code="def secure_function(): pass  # Placeholder",
         orchestrator=orchestrator,
         qtable=qtable,
     )
-    print(f"   Action: {result.get('decision').action_type if result.get('decision') else 'N/A'}")
 
     # Workflow 3: Repository audit
-    print("\n3. AUDIT_REPO workflow:")
     result = await AUDIT_REPO(
         repo_path="/path/to/repo",
         orchestrator=orchestrator,
         qtable=qtable,
     )
-    print(f"   Workflow: {result['workflow_name']}")
 
 
 # ============================================================================
@@ -109,7 +95,6 @@ async def example_custom_workflow():
     """
     Build your own workflow by chaining primitives.
     """
-    print("\n=== EXAMPLE 3: Custom Workflow ===")
 
     orchestrator = None  # Would be injected
     qtable = None
@@ -124,8 +109,6 @@ async def example_custom_workflow():
         .learn(signal="success")  # Learn from result
     )
 
-    print(f"Created workflow: {workflow.name}")
-    print(f"Steps: {[s[0] for s in workflow.steps]}")
 
     # Execute it
     code = """
@@ -135,8 +118,7 @@ async def example_custom_workflow():
     }
     """
 
-    result = await workflow.run(code, orchestrator=orchestrator, qtable=qtable)
-    print(f"Result: {result['workflow_name']} completed")
+    await workflow.run(code, orchestrator=orchestrator, qtable=qtable)
 
 
 # ============================================================================
@@ -148,7 +130,6 @@ async def example_api_integration():
     How to use DNA primitives in a FastAPI handler.
     This is what you'd see in a real endpoint.
     """
-    print("\n=== EXAMPLE 4: API Integration ===")
 
     # Simulating FastAPI dependency injection
     orchestrator = None  # Injected from app.state.orchestrator
@@ -180,8 +161,7 @@ async def example_api_integration():
             return {"status": "error", "message": str(e)}
 
     # Simulate API call
-    response = await handle_analyze_code("def hello(): pass")
-    print(f"API Response: {response}")
+    await handle_analyze_code("def hello(): pass")
 
 
 # ============================================================================
@@ -199,20 +179,15 @@ async def my_custom_audit(
     You can now call this like a normal async function.
     """
     cell = await PERCEIVE("code", content, metadata={"type": "audit"})
-    print(f"Perceived: {cell.id}")
 
     if orchestrator:
         judgment = await JUDGE(cell, level="MACRO", orchestrator=orchestrator)
-        print(f"Judged: Q={judgment.q_score}")
 
         decision = DECIDE(judgment, axiom="CULTURE")
-        print(f"Decided: {decision.action_type}")
 
         result = await ACT(decision, executor="report")
-        print(f"Acted: {result.status}")
 
         await LEARN(result, signal="success", qtable=qtable)
-        print(f"Learned")
 
         return result
     return None
@@ -220,17 +195,15 @@ async def my_custom_audit(
 
 async def example_decorator_usage():
     """Use the @cynic_workflow decorated function."""
-    print("\n=== EXAMPLE 5: Decorator Pattern ===")
 
     orchestrator = None
     qtable = None
 
-    result = await my_custom_audit(
+    await my_custom_audit(
         content="def audit_me(): pass",
         orchestrator=orchestrator,
         qtable=qtable,
     )
-    print(f"Decorator workflow result: {result}")
 
 
 # ============================================================================
@@ -239,9 +212,6 @@ async def example_decorator_usage():
 
 async def main():
     """Run all examples."""
-    print("=" * 70)
-    print("CYNIC DNA PRIMITIVES - EXAMPLES")
-    print("=" * 70)
 
     await example_linear_chain()
     await example_builtin_workflows()
@@ -249,9 +219,6 @@ async def main():
     await example_api_integration()
     await example_decorator_usage()
 
-    print("\n" + "=" * 70)
-    print("EXAMPLES COMPLETE")
-    print("=" * 70)
 
 
 if __name__ == "__main__":

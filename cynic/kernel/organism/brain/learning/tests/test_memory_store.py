@@ -1,7 +1,8 @@
-import pytest
 import tempfile
-import asyncio
 from pathlib import Path
+
+import pytest
+
 from cynic.kernel.organism.brain.learning.memory_store import MemoryStore
 from cynic.kernel.organism.brain.learning.relationship_memory import RelationshipMemory
 

@@ -20,12 +20,10 @@ Risk: LOW (read-only validation, no modifications to core path)
 Payoff: IMMEDIATE (catches regressions before they hit production)
 """
 
-import pytest
 import asyncio
-import json
-import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock
+
+import pytest
 
 # Minimal imports to avoid circular deps
 from cynic.interfaces.api.state import (
@@ -33,8 +31,12 @@ from cynic.interfaces.api.state import (
     get_app_container,
     set_app_container,
 )
-from cynic.kernel.organism.organism import awaken, Organism as AppState
-from cynic.kernel.core.event_bus import get_core_bus, get_automation_bus, get_agent_bus, Event, EventBus
+from cynic.kernel.core.event_bus import (
+    Event,
+    EventBus,
+)
+from cynic.kernel.organism.organism import Organism as AppState
+from cynic.kernel.organism.organism import awaken
 
 
 @pytest.mark.integration
@@ -60,7 +62,6 @@ class TestKernelStartupCycle:
             state = awaken()
             assert state is not None
             assert isinstance(state, AppState)
-            print("✓ Kernel startup successful")
         except RuntimeError as e:
             if "AppContainer not initialized" in str(e):
                 pytest.skip("AppContainer requires FastAPI lifespan (test_api_lifespan should run instead)")
@@ -84,7 +85,6 @@ class TestKernelStartupCycle:
             assert state.learning_loop is not None
             assert state.scheduler is not None
 
-            print("✓ All critical components present and initialized")
         except RuntimeError as e:
             if "AppContainer not initialized" in str(e):
                 pytest.skip("AppContainer requires FastAPI lifespan")
@@ -107,7 +107,6 @@ class TestKernelStartupCycle:
             for dog_name, dog in dogs.items():
                 assert hasattr(dog, 'name') or dog_name, f"Dog {dog_name} missing identity"
 
-            print(f"✓ Dogs initialized: {len(dogs)} active")
         except RuntimeError as e:
             if "AppContainer not initialized" in str(e):
                 pytest.skip("AppContainer requires FastAPI lifespan")
@@ -129,8 +128,8 @@ class TestDependencyContainerIsolation:
     @pytest.mark.asyncio
     async def test_app_container_isolation_pattern(self):
         """AppContainer pattern enables per-instance state."""
-        from cynic.interfaces.api.state import AppContainer, get_app_container, set_app_container
-        import threading
+
+        from cynic.interfaces.api.state import get_app_container, set_app_container
 
         # Create two mock organisms
         organism1 = MagicMock()
@@ -165,13 +164,12 @@ class TestDependencyContainerIsolation:
         # Verify isolation (container1 state unchanged)
         assert container1.instance_id == "inst-1"
 
-        print("✓ AppContainer isolation verified")
 
     @pytest.mark.asyncio
     async def test_thread_safe_container_access(self):
         """Thread-safe RLock protects AppContainer."""
-        from cynic.interfaces.api.state import AppContainer, get_app_container, set_app_container
-        import threading
+
+        from cynic.interfaces.api.state import AppContainer
 
         mock_organism = MagicMock()
         mock_organism.instance_id = "main"
@@ -199,7 +197,6 @@ class TestDependencyContainerIsolation:
 
         # All accesses should succeed
         assert all(r == "main" for r in results), f"Some accesses failed: {results}"
-        print(f"✓ Thread-safe concurrent access: {len(results)} successful reads")
 
 
 class TestHandlerEventFlow:
@@ -237,7 +234,6 @@ class TestHandlerEventFlow:
             await bus.emit(test_event)
             # Emission succeeded - this is what we're testing
             assert True
-            print("✓ Event subscription and emission succeeded")
         except EventBusError as e:
             pytest.fail(f"Event emission failed: {e}")
 
@@ -261,7 +257,6 @@ class TestHandlerEventFlow:
                 event = Event(type="ORDERED", payload={"seq": i})
                 await bus.emit(event)
 
-            print("✓ Multiple event emissions succeeded")
             assert True
         except EventBusError as e:
             pytest.fail(f"Event emission sequence failed: {e}")
@@ -300,7 +295,6 @@ class TestConsciousnessLevelTransitions:
         levels = list(level_thresholds.values())
         assert levels == sorted(levels), "Consciousness levels should be ordered"
 
-        print("✓ Consciousness level hierarchy verified")
 
     @pytest.mark.asyncio
     async def test_escalation_decision_structure(self):
@@ -313,7 +307,7 @@ class TestConsciousnessLevelTransitions:
 
             # Orchestrator should have escalation-related methods/attributes
             # Note: This may be partially implemented (TIER 1 work)
-            has_escalation = (
+            (
                 hasattr(orchestrator, 'escalate') or
                 hasattr(orchestrator, '_escalate') or
                 hasattr(orchestrator, 'level') or
@@ -323,7 +317,6 @@ class TestConsciousnessLevelTransitions:
             # For now, just verify orchestrator exists and has basic structure
             assert orchestrator is not None
             assert hasattr(orchestrator, 'dogs'), "Orchestrator should have dogs"
-            print("✓ Orchestrator base structure present (escalation logic in progress)")
 
         except RuntimeError as e:
             if "AppContainer not initialized" in str(e):
@@ -358,7 +351,6 @@ class TestLearningLoopIntegration:
             assert hasattr(qtable, 'exploit') or hasattr(qtable, 'explore'), "Q-table missing query method"
             assert hasattr(qtable, 'update'), "Q-table missing update method"
 
-            print("✓ Q-table present and accessible")
 
         except RuntimeError as e:
             if "AppContainer not initialized" in str(e):
@@ -368,7 +360,7 @@ class TestLearningLoopIntegration:
     @pytest.mark.asyncio
     async def test_learning_signal_flow(self):
         """Learning signals integrate without crashing."""
-        from cynic.kernel.organism.brain.learning.qlearning import QTable, LearningSignal
+        from cynic.kernel.organism.brain.learning.qlearning import LearningSignal, QTable
 
         # Create minimal Q-table with correct parameters
         qtable = QTable(learning_rate=0.1, discount=0.382)
@@ -388,7 +380,6 @@ class TestLearningLoopIntegration:
             # This should succeed
             assert entry is not None, "Update should return entry"
             assert isinstance(entry.q_value, float), "Q-value should be numeric"
-            print("✓ Learning signal flow validated")
         except ValidationError as e:
             pytest.fail(f"Learning signal processing failed: {e}")
 
@@ -411,7 +402,6 @@ class TestLearningLoopIntegration:
                 hasattr(learning_loop, 'qtable')
             ), "Learning loop missing core methods"
 
-            print("✓ Learning loop structure verified")
 
         except RuntimeError as e:
             if "AppContainer not initialized" in str(e):
@@ -445,12 +435,8 @@ class TestKernelIntegrationSummary:
         }
 
         # Print checklist for documentation
-        print("\n" + "="*60)
-        print("INTEGRATION TEST CHECKLIST")
-        print("="*60)
-        for test_name, status in checklist.items():
-            print(f"{test_name}: {status}")
-        print("="*60 + "\n")
+        for _test_name, _status in checklist.items():
+            pass
 
         assert True, "Checklist printed for reference"
 

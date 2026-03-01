@@ -7,16 +7,14 @@ import asyncio
 import json
 import logging
 import os
-import pathlib as _pathlib
 import time
 from typing import Any
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
-from cynic.kernel.core.consciousness import get_consciousness
-from cynic.kernel.observability.health import HealthChecker
+from cynic.interfaces.api.state import AppContainer, get_app_container
 from cynic.kernel.core.phi import MAX_CONFIDENCE
-from cynic.interfaces.api.state import get_app_container, AppContainer
+from cynic.kernel.observability.health import HealthChecker
 
 logger = logging.getLogger("cynic.interfaces.api.server")
 
@@ -294,7 +292,7 @@ async def ecosystem(container: AppContainer = Depends(get_app_container)) -> dic
 
     Returns events from CORE_BUS, AUTOMATION_BUS, and AGENT_BUS.
     """
-    from cynic.kernel.core.event_bus import get_core_bus, get_automation_bus, get_agent_bus
+    from cynic.kernel.core.event_bus import get_agent_bus, get_automation_bus, get_core_bus
 
     core_bus = get_core_bus()
     automation_bus = get_automation_bus()
@@ -344,7 +342,6 @@ async def topology(container: AppContainer = Depends(get_app_container)) -> dict
     """
     GET /api/consciousness/topology returns architecture consciousness.
     """
-    state = container.organism
     return {
         "timestamp": round(time.time(), 3),
         "source_changes_detected": 0,
@@ -358,7 +355,7 @@ async def nervous_system(container: AppContainer = Depends(get_app_container)) -
     """
     GET /api/consciousness/nervous-system returns audit trail.
     """
-    from cynic.kernel.core.event_bus import get_core_bus, get_automation_bus, get_agent_bus
+    from cynic.kernel.core.event_bus import get_agent_bus, get_automation_bus, get_core_bus
 
     core_bus = get_core_bus()
     automation_bus = get_automation_bus()
@@ -385,7 +382,6 @@ async def self_awareness(container: AppContainer = Depends(get_app_container)) -
     """
     GET /api/consciousness/self-awareness returns organism's meta-cognition.
     """
-    state = container.organism
     return {
         "timestamp": round(time.time(), 3),
         "kernel_observations": {

@@ -1,9 +1,9 @@
 """Community treasury management"""
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
+
 
 class TransactionType(str, Enum):
     """Types of treasury transactions"""
@@ -21,7 +21,7 @@ class Transaction:
     description: str
     timestamp: datetime
     approved_by: str
-    proposal_id: Optional[str] = None
+    proposal_id: str | None = None
 
 @dataclass
 class TreasuryBudget:
@@ -50,8 +50,8 @@ class Treasury:
     def __init__(self, name: str, initial_balance: float = 0.0):
         self.name = name
         self.balance = initial_balance
-        self.transactions: List[Transaction] = []
-        self.budgets: Dict[str, TreasuryBudget] = {}
+        self.transactions: list[Transaction] = []
+        self.budgets: dict[str, TreasuryBudget] = {}
 
     def deposit(self, amount: float, description: str, approved_by: str) -> bool:
         """Deposit funds"""
@@ -64,7 +64,7 @@ class Treasury:
             tx_type=TransactionType.DEPOSIT,
             amount=amount,
             description=description,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             approved_by=approved_by
         )
         self.transactions.append(tx)
@@ -81,7 +81,7 @@ class Treasury:
             tx_type=TransactionType.WITHDRAWAL,
             amount=amount,
             description=description,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             approved_by=approved_by,
             proposal_id=proposal_id
         )
@@ -100,7 +100,7 @@ class Treasury:
         """Get current balance"""
         return self.balance
 
-    def get_budget_utilization(self) -> Dict[str, float]:
+    def get_budget_utilization(self) -> dict[str, float]:
         """Get budget utilization rates"""
         return {
             category: budget.spent / budget.total_allocation

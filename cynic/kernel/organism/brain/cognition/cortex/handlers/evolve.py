@@ -15,12 +15,12 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
-from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent, EventBusError
-from cynic.kernel.core.events_schema import MetaCyclePayload
 from cynic.kernel.core.consciousness import ConsciousnessLevel
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError, get_core_bus
+from cynic.kernel.core.events_schema import MetaCyclePayload
+from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.handlers.evolve")
 
@@ -40,9 +40,9 @@ class EvolveHandler(BaseHandler):
 
     def __init__(
         self,
-        orchestrator: Optional[Any] = None,
-        benchmark_registry: Optional[Any] = None,
-        evolve_history: Optional[list[dict]] = None,
+        orchestrator: Any | None = None,
+        benchmark_registry: Any | None = None,
+        evolve_history: list[dict] | None = None,
     ) -> None:
         self.orchestrator = orchestrator
         self.benchmark_registry = benchmark_registry

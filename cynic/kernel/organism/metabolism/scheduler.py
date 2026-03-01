@@ -36,10 +36,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field
-from typing import Any, List
-
 from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any
+
+import httpx
 
 from cynic.kernel.core.consciousness import (
     ConsciousnessLevel,
@@ -48,7 +49,6 @@ from cynic.kernel.core.consciousness import (
 )
 from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.phi import fibonacci
-import httpx
 
 logger = logging.getLogger("cynic.scheduler")
 

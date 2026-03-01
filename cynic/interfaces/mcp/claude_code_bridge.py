@@ -26,18 +26,16 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import sys
 import os
 import subprocess
+import sys
 import time
-from pathlib import Path
-from typing import Any, Optional
 
 import aiohttp
 
 # MCP SDK imports
 from mcp.server import Server
-from mcp.types import Tool, TextContent
+from mcp.types import TextContent, Tool
 
 # CYNIC Adapter — provides high-level access to CYNIC
 from cynic.interfaces.mcp.claude_code_adapter import ClaudeCodeAdapter
@@ -65,7 +63,7 @@ logger = logging.getLogger("cynic.interfaces.mcp.claude_code_bridge")
 _adapter: ClaudeCodeAdapter | None = None
 
 
-async def _spawn_kernel(cynic_url: str = "http://127.0.0.1:8765") -> Optional[subprocess.Popen]:
+async def _spawn_kernel(cynic_url: str = "http://127.0.0.1:8765") -> subprocess.Popen | None:
     """
     Spawn CYNIC kernel as a subprocess.
 
@@ -147,7 +145,7 @@ async def _ensure_kernel_running(
     start_time = time.time()
     attempt = 0
     backoff_delays = [0.5, 1.0, 2.0, 4.0, 8.0]  # Exponential backoff schedule (seconds)
-    process: Optional[subprocess.Popen] = None
+    process: subprocess.Popen | None = None
 
     # Try to reach kernel with exponential backoff
     while time.time() - start_time < timeout:
@@ -170,7 +168,7 @@ async def _ensure_kernel_running(
                         logger.info("Kernel is healthy and responding")
                         return True
 
-        except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as exc:
+        except (TimeoutError, aiohttp.ClientError, OSError) as exc:
             logger.debug("Health check failed (attempt %d): %s", attempt, type(exc).__name__)
 
             # If first attempt fails and we haven't spawned yet, try spawning
@@ -216,7 +214,7 @@ async def _ensure_kernel_running(
                 if resp.status == 200:
                     logger.info("Kernel became healthy on final attempt")
                     return True
-    except (aiohttp.ClientError, asyncio.TimeoutError, OSError):
+    except (TimeoutError, aiohttp.ClientError, OSError):
         pass
 
     logger.error(
@@ -665,7 +663,7 @@ async def _call_cynic(endpoint: str, data: dict) -> dict:
             except:
                 pass
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error(f"Timeout calling {endpoint}")
         return {"error": "Request timeout"}
     except Exception as e:
@@ -945,7 +943,7 @@ async def _tool_cynic_stop(args: dict) -> list[TextContent]:
 
     # CYNIC shutdown is not directly exposed via HTTP
     # Instead, we acknowledge the request and recommend graceful shutdown
-    response = f"""⚠️ CYNIC Shutdown:
+    response = """⚠️ CYNIC Shutdown:
 
 CYNIC services can be stopped via:
 1. Keyboard interrupt (Ctrl+C) on the running process
@@ -1269,7 +1267,7 @@ async def main():
                 logger.info("CYNIC is healthy and ready for Claude Code requests")
             else:
                 logger.warning("CYNIC health check failed (it may not be running yet)")
-        except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+        except (TimeoutError, aiohttp.ClientError) as exc:
             logger.warning("Could not reach CYNIC (it may not be running yet): %s", exc)
 
         logger.info("MCP Server ready. Listening on stdio for Claude Code...")

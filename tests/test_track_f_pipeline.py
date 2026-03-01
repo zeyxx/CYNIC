@@ -8,6 +8,7 @@ Verifies the full async pipeline UUID chain is unbroken:
 """
 
 import asyncio
+
 import pytest
 
 pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - cynic.interfaces.api.handlers module deleted")
@@ -15,14 +16,14 @@ pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - cynic.int
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from cynic.kernel.core.event_bus import Event, CoreEvent
+from cynic.interfaces.api.handlers.judgment_executor import JudgmentExecutorHandler
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.events_schema import (
-    JudgmentRequestedPayload,
     JudgmentCreatedPayload,
     JudgmentFailedPayload,
+    JudgmentRequestedPayload,
 )
 from cynic.kernel.core.judgment import Cell, Judgment
-from cynic.interfaces.api.handlers.judgment_executor import JudgmentExecutorHandler
 
 
 class MockKernelServices:
@@ -277,7 +278,7 @@ class TestJudgmentFailedPropagation:
         # Mock orchestrator to timeout
         async def mock_timeout():
             await asyncio.sleep(1)
-            raise asyncio.TimeoutError()
+            raise TimeoutError()
 
         mock_orchestrator = AsyncMock()
         mock_orchestrator.run = AsyncMock(side_effect=mock_timeout)
@@ -300,7 +301,7 @@ class TestJudgmentFailedPropagation:
              patch("cynic.interfaces.api.handlers.judgment_executor.asyncio.wait_for") as mock_wait_for, \
              patch("cynic.interfaces.api.handlers.judgment_executor._orchestrator_breaker") as mock_breaker:
 
-            mock_wait_for.side_effect = asyncio.TimeoutError()
+            mock_wait_for.side_effect = TimeoutError()
             mock_breaker.allow.return_value = True
             mock_breaker.record_failure = MagicMock()
 

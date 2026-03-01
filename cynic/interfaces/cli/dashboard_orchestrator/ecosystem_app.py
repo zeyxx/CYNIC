@@ -1,16 +1,16 @@
 """Dashboard orchestrator — wires 7 layers + WebSocket client."""
 from __future__ import annotations
 
-from typing import Optional, Any
 import logging
+from typing import Any
 
 from cynic.interfaces.cli.tui_layers import (
     EcosystemLayer,
-    PerceptionLayer,
-    TopologyLayer,
-    NervousLayer,
     GuardrailsLayer,
+    NervousLayer,
+    PerceptionLayer,
     SelfAwareLayer,
+    TopologyLayer,
 )
 
 logger = logging.getLogger(__name__)

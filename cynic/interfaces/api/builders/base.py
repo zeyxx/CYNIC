@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger("cynic.interfaces.api.builders")
 
@@ -25,36 +25,36 @@ class BuilderContext:
     """
 
     # Injected dependencies
-    db_pool: Optional[Any] = None
-    llm_registry: Optional[Any] = None
+    db_pool: Any | None = None
+    llm_registry: Any | None = None
 
     # Created components (filled in by builders)
     dogs: dict[str, Any] = field(default_factory=dict)
-    qtable: Optional[Any] = None
-    axiom_arch: Optional[Any] = None
-    orchestrator: Optional[Any] = None
-    scheduler: Optional[Any] = None
-    learning_loop: Optional[Any] = None
-    residual_detector: Optional[Any] = None
-    decide_agent: Optional[Any] = None
-    account_agent: Optional[Any] = None
-    action_proposer: Optional[Any] = None
-    runner: Optional[Any] = None
-    service_registry: Optional[Any] = None
-    consciousness_scheduler: Optional[Any] = None
-    axiom_monitor: Optional[Any] = None
-    lod_controller: Optional[Any] = None
-    escore_tracker: Optional[Any] = None
-    self_prober: Optional[Any] = None
-    compressor: Optional[Any] = None
-    world_model: Optional[Any] = None
-    storage_gc: Optional[Any] = None
-    surreal_storage: Optional[Any] = None
+    qtable: Any | None = None
+    axiom_arch: Any | None = None
+    orchestrator: Any | None = None
+    scheduler: Any | None = None
+    learning_loop: Any | None = None
+    residual_detector: Any | None = None
+    decide_agent: Any | None = None
+    account_agent: Any | None = None
+    action_proposer: Any | None = None
+    runner: Any | None = None
+    service_registry: Any | None = None
+    consciousness_scheduler: Any | None = None
+    axiom_monitor: Any | None = None
+    lod_controller: Any | None = None
+    escore_tracker: Any | None = None
+    self_prober: Any | None = None
+    compressor: Any | None = None
+    world_model: Any | None = None
+    storage_gc: Any | None = None
+    surreal_storage: Any | None = None
 
     # Services
     services: dict[str, Any] = field(default_factory=dict)
-    handler_registry: Optional[Any] = None
-    container: Optional[Any] = None
+    handler_registry: Any | None = None
+    container: Any | None = None
 
     # Metadata
     build_log: list[str] = field(default_factory=list)

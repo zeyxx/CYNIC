@@ -11,9 +11,10 @@ Monitors kernel health with:
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Callable, Any
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +31,9 @@ class HealthState(Enum):
 class HealthStatus:
     """Current kernel health status."""
     state: HealthState
-    last_check: Optional[float]
+    last_check: float | None
     consecutive_failures: int
-    last_error: Optional[str]
+    last_error: str | None
     check_count: int
 
 
@@ -58,12 +59,12 @@ class KernelHealthMonitor:
         self.max_consecutive_failures = max_consecutive_failures
 
         self.state = HealthState.UNKNOWN
-        self.last_check: Optional[float] = None
+        self.last_check: float | None = None
         self.consecutive_failures = 0
-        self.last_error: Optional[str] = None
+        self.last_error: str | None = None
         self.check_count = 0
 
-        self._monitor_task: Optional[asyncio.Task] = None
+        self._monitor_task: asyncio.Task | None = None
         self._running = False
 
     async def start(self):
@@ -82,7 +83,7 @@ class KernelHealthMonitor:
         if self._monitor_task:
             try:
                 await asyncio.wait_for(self._monitor_task, timeout=5.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self._monitor_task.cancel()
         logger.info("Kernel health monitor stopped")
 
@@ -145,7 +146,7 @@ class KernelHealthMonitor:
                         self.max_consecutive_failures
                     )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self.consecutive_failures += 1
             self.last_error = "Health check timeout (5s)"
 

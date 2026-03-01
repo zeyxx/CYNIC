@@ -6,16 +6,11 @@ Real-time visibility into code changes with semantic analysis.
 
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
 import time
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends
-
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
-from cynic.kernel.core.events_schema import ChangeAnalyzedPayload
 
 if TYPE_CHECKING:
     from cynic.interfaces.api.state import CynicOrganism

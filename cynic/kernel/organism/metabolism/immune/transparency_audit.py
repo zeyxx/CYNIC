@@ -19,9 +19,9 @@ import json
 import logging
 import time
 import uuid
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from cynic.kernel.core.phi import fibonacci
 
@@ -54,7 +54,7 @@ class AuditRecord:
     # ACT→execution
     action_executed: bool = False
     execution_result: dict[str, Any] = field(default_factory=dict)
-    execution_error: Optional[str] = None
+    execution_error: str | None = None
 
     # OUTCOME
     success: bool = False
@@ -190,8 +190,8 @@ class TransparencyAuditTrail:
         self,
         record_id: str,
         success: bool,
-        result: Optional[dict[str, Any]] = None,
-        error: Optional[str] = None,
+        result: dict[str, Any] | None = None,
+        error: str | None = None,
     ) -> None:
         """
         Record action execution result.
@@ -235,7 +235,7 @@ class TransparencyAuditTrail:
 
     def get_decision_history(
         self,
-        verdict: Optional[str] = None,
+        verdict: str | None = None,
         limit: int = 20,
     ) -> list[AuditRecord]:
         """
@@ -287,7 +287,7 @@ class TransparencyAuditTrail:
 
     # ── Private ────────────────────────────────────────────────────────
 
-    def _find_record(self, record_id: str) -> Optional[AuditRecord]:
+    def _find_record(self, record_id: str) -> AuditRecord | None:
         """Find record by ID."""
         for record in self._records:
             if record.record_id == record_id:
@@ -311,7 +311,7 @@ class TransparencyAuditTrail:
             return
 
         try:
-            with open(self._storage_path, "r") as f:
+            with open(self._storage_path) as f:
                 for line in f:
                     if line.strip():
                         data = json.loads(line)

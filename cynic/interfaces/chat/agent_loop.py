@@ -13,24 +13,18 @@ Flow:
 from __future__ import annotations
 
 import logging
-import sys
 import time
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, AsyncGenerator
 
 # Python 3.9 compatibility: StrEnum added in Python 3.11
-if sys.version_info >= (3, 11):
-    from enum import StrEnum
-else:
-    class StrEnum(str, Enum):
-        """Polyfill for Python <3.11."""
-        pass
+from enum import StrEnum
+from typing import Any
 
-from cynic.interfaces.chat.tools import TOOLS, ToolCall, ToolResult
-from cynic.interfaces.chat.tool_executor import ToolExecutor
 from cynic.interfaces.chat.session import ChatSession
-from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRequest, LLMResponse
+from cynic.interfaces.chat.tool_executor import ToolExecutor
+from cynic.interfaces.chat.tools import TOOLS, ToolCall, ToolResult
+from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRequest
 
 logger = logging.getLogger("cynic.interfaces.chat.agent")
 

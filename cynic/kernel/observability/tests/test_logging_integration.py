@@ -6,9 +6,11 @@ Verifies that HTTP requests are logged as JSON with all required fields.
 import json
 import logging
 from io import StringIO
+
 import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
+
 from cynic.kernel.observability.structured_logger import StructuredLogger
 
 

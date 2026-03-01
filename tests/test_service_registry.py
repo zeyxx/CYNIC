@@ -19,9 +19,9 @@ import pytest
 
 from cynic.kernel.core.phi import fibonacci
 from cynic.nervous import (
-    ServiceStateRegistry,
     ComponentType,
     HealthStatus,
+    ServiceStateRegistry,
     get_service_registry,
     reset_service_registry,
 )

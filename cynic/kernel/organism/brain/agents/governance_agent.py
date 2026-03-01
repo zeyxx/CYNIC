@@ -20,11 +20,9 @@ from __future__ import annotations
 
 import logging
 import random
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
-from cynic.kernel.core.unified_state import UnifiedLearningOutcome
-from cynic.kernel.organism.brain.learning.qlearning import QTable, LearningSignal
+from cynic.kernel.organism.brain.learning.qlearning import LearningSignal, QTable
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +186,7 @@ class GovernanceAgent:
             elif cynic_verdict == "BARK":
                 return "NO", 0.7, f"Exploring: CYNIC {cynic_verdict} but questioning"
             else:
-                return "ABSTAIN", 0.3, f"Exploring unknown verdict"
+                return "ABSTAIN", 0.3, "Exploring unknown verdict"
 
     async def _vote_learning(self, proposal) -> tuple[str, float, str]:
         """Learning: Adjust strategy based on past community outcomes."""
@@ -244,7 +242,7 @@ class GovernanceAgent:
         vote = random.choice(choices)
         confidence = random.uniform(0.2, 0.5)
 
-        return vote, confidence, f"Random voting (baseline comparison)"
+        return vote, confidence, "Random voting (baseline comparison)"
 
     async def learn_from_outcome(
         self,
@@ -303,7 +301,6 @@ class GovernanceAgent:
         }
 
         predicted_verdict = vote_to_verdict[agent_vote.vote]
-        actual_verdict = "HOWL" if actual_outcome == "APPROVED" else "BARK"
 
         # Convert outcome to LearningSignal
         state_key = f"AGENT:{self.agent_id}:{self.agent_type}"

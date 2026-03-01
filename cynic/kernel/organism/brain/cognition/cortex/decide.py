@@ -19,7 +19,6 @@ import logging
 import math
 from typing import Any
 
-
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
 from cynic.kernel.core.events_schema import DecisionMadePayload
 from cynic.kernel.core.formulas import MCTS_UCT_C
@@ -289,7 +288,7 @@ class DecideAgent:
         confidence = float(payload.get("confidence", 0.0))
         state_key = payload.get("state_key", "")
         judgment_id = payload.get("judgment_id", "")
-        q_score = payload.get("q_score", 0.0)
+        payload.get("q_score", 0.0)
         # Enriched fields from orchestrator.py (JUDGMENT_CREATED now includes these)
         reality = payload.get("reality", "")
         analysis = payload.get("analysis", "")

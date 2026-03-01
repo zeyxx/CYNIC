@@ -10,9 +10,11 @@ Coverage:
 - Timeout application in adapter
 - Fallback to NORMAL for unknown tools
 """
-import pytest
 import asyncio
-from cynic.interfaces.mcp.timeouts import TimeoutConfig, TimeoutCategory
+
+import pytest
+
+from cynic.interfaces.mcp.timeouts import TimeoutCategory, TimeoutConfig
 
 
 class TestTimeoutCategory:
@@ -107,7 +109,7 @@ class TestTimeoutConfig:
         assert set(summary.keys()) == {"FAST", "NORMAL", "BATCH", "STREAM"}
 
         # Each category should have timeout_s and tools keys
-        for category_name, category_data in summary.items():
+        for _category_name, category_data in summary.items():
             assert "timeout_s" in category_data
             assert "tools" in category_data
             assert isinstance(category_data["tools"], list)

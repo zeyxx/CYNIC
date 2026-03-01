@@ -1,12 +1,12 @@
 """Tests for JudgeOrchestrator — the heart of the judgment cycle."""
-import pytest
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
+import pytest
+
 from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.judgment import Cell, Judgment, ConsensusResult
-from cynic.kernel.core.axioms import Verdict
+from cynic.kernel.core.judgment import Cell, ConsensusResult
+from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
 from cynic.kernel.organism.brain.cognition.neurons.base import DogId, DogJudgment
 
 

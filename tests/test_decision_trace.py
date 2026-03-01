@@ -1,8 +1,10 @@
 """Tests for DecisionTracer — decision path tracing and DAG construction."""
 
 import asyncio
+
 import pytest
-from cynic.nervous.decision_trace import DecisionTracer, DogVote, DogRole, TRACE_CAP
+
+from cynic.nervous.decision_trace import TRACE_CAP, DecisionTracer, DogRole, DogVote
 
 
 @pytest.fixture

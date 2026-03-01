@@ -9,15 +9,16 @@ Tests:
   5. Policy: exploit (greedy), explore (Thompson)
   6. Stats: matrix coverage, top states
 """
+
 import pytest
-import math
-import random
 
+from cynic.kernel.core.phi import LEARNING_RATE, fibonacci
 from cynic.kernel.organism.brain.learning.qlearning import (
-    QTable, QEntry, LearningSignal, VERDICTS, THOMPSON_PRIOR,
+    THOMPSON_PRIOR,
+    VERDICTS,
+    LearningSignal,
+    QTable,
 )
-from cynic.kernel.core.phi import LEARNING_RATE, EWC_PENALTY, fibonacci
-
 
 # ════════════════════════════════════════════════════════════════════════════
 # FIXTURES
@@ -314,7 +315,7 @@ def test_confidence_bounded_by_phi_inv(qtable: QTable) -> None:
     confidence = qtable.confidence(state)
     
     # Should be capped at PHI_INV = 0.618
-    from cynic.kernel.core.phi import PHI_INV, MAX_CONFIDENCE
+    from cynic.kernel.core.phi import MAX_CONFIDENCE, PHI_INV
     assert confidence <= MAX_CONFIDENCE
     assert confidence <= PHI_INV
 

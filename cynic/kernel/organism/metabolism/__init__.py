@@ -10,9 +10,9 @@ Components:
 - llm_router.py: LLM routing based on metabolic cost
 - telemetry.py: Resource usage tracking
 """
-from .scheduler import ConsciousnessRhythm
-from .llm_router import LLMRouter
 from .claude_sdk import ClaudeCodeRunner
+from .llm_router import LLMRouter
+from .scheduler import ConsciousnessRhythm
 from .telemetry import SessionTelemetry, TelemetryStore
 
 __all__ = [

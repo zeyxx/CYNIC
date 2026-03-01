@@ -7,16 +7,14 @@ Detects conflicts (HOWL vs BARK in different realities).
 """
 from __future__ import annotations
 
-import math
 import logging
+import math
 import time
-import httpx
 from dataclasses import dataclass, field
 from typing import Any
 
-
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
 from cynic.kernel.core.phi import phi_bound_score
-from cynic.kernel.core.event_bus import CoreEvent, get_core_bus, Event
 
 logger = logging.getLogger("cynic.kernel.core.world_model")
 

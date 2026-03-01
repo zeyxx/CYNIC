@@ -3,11 +3,12 @@ Phase 0: Persistence Metrics
 Track latency and success/failure of all persistence operations.
 Used to detect bottlenecks and issues before they cause timeouts.
 """
-import time
 import logging
-from dataclasses import dataclass, field
+import time
 from collections import defaultdict
-from datetime import datetime
+from dataclasses import dataclass, field
+
+from cynic.kernel.core.event_bus import CynicError
 
 logger = logging.getLogger(__name__)
 

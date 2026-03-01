@@ -9,10 +9,9 @@ import os
 import re
 import sys
 import time
-import urllib.request
 import urllib.error
+import urllib.request
 from typing import Any
-
 
 # ── Windows UTF-8 fix ──────────────────────────────────────────────────────
 # Windows terminals default to CP1252 which can't render box-drawing chars
@@ -38,6 +37,7 @@ _CONSCIOUSNESS    = os.path.join(_CYNIC_DIR, "consciousness.json")
 
 # Server (default port from CynicConfig — single source of truth)
 from cynic.kernel.core.config import CynicConfig as _CynicConfig
+
 _PORT = _CynicConfig.from_env().port
 _API  = f"http://localhost:{_PORT}"
 _API_TIMEOUT = 2.0   # never block the CLI for more than 2s
@@ -237,20 +237,13 @@ def _disk_bar(used_pct: float) -> str:
 
 def _section(title: str, lines: list) -> None:
     w = 68
-    print(_c("bold", f"┌{'─' * (w - 2)}┐"))
-    label = f"  {title}"
-    print(_c("bold", "│") + _c("cyan", label) + " " * (w - 2 - len(label)) + _c("bold", "│"))
-    print(_c("bold", f"├{'─' * (w - 2)}┤"))
     for line in lines:
         plain = re.sub(r"\033\[[0-9;]*m", "", line)
-        padding = max(0, w - 2 - len(plain))
-        print(_c("bold", "│") + " " + line + " " * padding + _c("bold", "│"))
-    print(_c("bold", f"└{'─' * (w - 2)}┘"))
-    print()
+        max(0, w - 2 - len(plain))
 
 
 def _divider() -> None:
-    print()
+    pass
 
 
 # ── Time formatter ─────────────────────────────────────────────────────────

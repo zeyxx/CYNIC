@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import math
 
-
 # ════════════════════════════════════════════════════════════════════════════
 # PRIMARY CONSTANT (15-decimal precision)
 # ════════════════════════════════════════════════════════════════════════════
@@ -223,7 +222,7 @@ def weighted_geometric_mean(values: list[float], weights: list[float]) -> float:
     if total_weight == 0:
         return 0.0
 
-    log_sum = sum(w * math.log(v) for v, w in zip(values, weights))
+    log_sum = sum(w * math.log(v) for v, w in zip(values, weights, strict=False))
     return math.exp(log_sum / total_weight)
 
 

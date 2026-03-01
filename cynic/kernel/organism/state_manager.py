@@ -14,22 +14,20 @@ import asyncio
 import json
 import logging
 import os
-import time
 import threading
-from collections import deque
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
-from cynic.kernel.core.phi import fibonacci
 from cynic.kernel.core.unified_state import (
-    UnifiedConsciousState, 
-    UnifiedJudgment, 
-    UnifiedLearningOutcome,
     GovernanceCommunity,
     GovernanceProposal,
-    GovernanceVote
+    GovernanceVote,
+    UnifiedConsciousState,
+    UnifiedJudgment,
+    UnifiedLearningOutcome,
 )
 
 logger = logging.getLogger("cynic.kernel.organism.state_manager")
@@ -52,14 +50,14 @@ class OrganismState:
     Manages the organism's memory and persistence.
     Thread-safe implementation for concurrent UI/Kernel access.
     """
-    def __init__(self, storage_dir: Optional[str] = None):
+    def __init__(self, storage_dir: str | None = None):
         self.storage_dir = Path(storage_dir or os.path.join(os.path.expanduser("~"), ".cynic", "organism_state"))
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         
         # Internal State Layers
-        self._memory_state: Dict[str, Any] = {}
-        self._persistent_state: Dict[str, Any] = {}
-        self._checkpoint_state: Dict[str, Any] = {}
+        self._memory_state: dict[str, Any] = {}
+        self._persistent_state: dict[str, Any] = {}
+        self._checkpoint_state: dict[str, Any] = {}
         
         # The Living View (Consciousness)
         self.consciousness = UnifiedConsciousState()
@@ -73,22 +71,22 @@ class OrganismState:
         self.total_cycles = 0
 
         # Axiom state (for AxiomArchitecture)
-        self.active_axioms: List[str] = []
-        self.emergent_states: Dict[str, bool] = {}
-        self.activation_log: List[Dict[str, Any]] = []
-        self.learned_weights: Dict[str, Dict[str, float]] = {}
+        self.active_axioms: list[str] = []
+        self.emergent_states: dict[str, bool] = {}
+        self.activation_log: list[dict[str, Any]] = []
+        self.learned_weights: dict[str, dict[str, float]] = {}
 
         # Async Pipeline
         self._update_queue: asyncio.Queue[StateUpdate] = asyncio.Queue()
         self._processing = False
-        self._loop_task: Optional[asyncio.Task] = None
+        self._loop_task: asyncio.Task | None = None
 
         # Concurrency protection
         self._lock = threading.RLock() # Use threading.RLock for synchronous accessors
 
     # ── LIFECYCLE ───────────────────────────────────────────────────────
 
-    async def start_processing(self, db: Optional[Any] = None) -> None:
+    async def start_processing(self, db: Any | None = None) -> None:
         """Start the background respiration (update loop)."""
         if self._processing:
             return
@@ -155,7 +153,7 @@ class OrganismState:
             self.consciousness.add_judgment(judgment)
             self.total_judgments += 1
             
-        await self.update(f"judg:recent", list(self.consciousness.recent_judgments.buffer), layer=StateLayer.MEMORY)
+        await self.update("judg:recent", list(self.consciousness.recent_judgments.buffer), layer=StateLayer.MEMORY)
         await self.update(f"judg:record:{judgment.judgment_id}", judgment, layer=StateLayer.PERSISTENT)
 
     async def update_consciousness_level(self, level: str) -> None:
@@ -191,7 +189,7 @@ class OrganismState:
         await self.update(key, vote, layer=StateLayer.PERSISTENT, source="governance_bot")
         return True
 
-    def get_proposal(self, proposal_id: str) -> Optional[GovernanceProposal]:
+    def get_proposal(self, proposal_id: str) -> GovernanceProposal | None:
         return self.query(f"gov:proposal:{proposal_id}")
 
     # ── READ ACCESSORS ──────────────────────────────────────────────────
@@ -250,7 +248,7 @@ class OrganismState:
                         self._checkpoint_state[update.key] = update.value
                 
                 self._update_queue.task_done()
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             except Exception as e:
                 logger.error("State Manager update error: %s", e)
@@ -260,7 +258,7 @@ class OrganismState:
         cp_path = self.storage_dir / "state_checkpoint.json"
         if cp_path.exists():
             try:
-                with open(cp_path, "r") as f:
+                with open(cp_path) as f:
                     data = json.load(f)
                     with self._lock:
                         self._checkpoint_state = data

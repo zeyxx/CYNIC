@@ -34,17 +34,22 @@ Discovery:
 """
 from __future__ import annotations
 
-from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
-from cynic.kernel.organism.brain.cognition.cortex.handlers.level_selector import LevelSelector
-from cynic.kernel.organism.brain.cognition.cortex.handlers.cycle_reflex import ReflexCycleHandler
-from cynic.kernel.organism.brain.cognition.cortex.handlers.cycle_micro import MicroCycleHandler
-from cynic.kernel.organism.brain.cognition.cortex.handlers.cycle_macro import MacroCycleHandler
 from cynic.kernel.organism.brain.cognition.cortex.handlers.act_executor import ActHandler
-from cynic.kernel.organism.brain.cognition.cortex.handlers.evolve import EvolveHandler
+from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
 from cynic.kernel.organism.brain.cognition.cortex.handlers.budget_manager import BudgetManager
-from cynic.kernel.organism.brain.cognition.cortex.handlers.meta_cognition import MetaCognitionHandler
+from cynic.kernel.organism.brain.cognition.cortex.handlers.composer import (
+    HandlerComposer,
+    HandlerError,
+)
+from cynic.kernel.organism.brain.cognition.cortex.handlers.cycle_macro import MacroCycleHandler
+from cynic.kernel.organism.brain.cognition.cortex.handlers.cycle_micro import MicroCycleHandler
+from cynic.kernel.organism.brain.cognition.cortex.handlers.cycle_reflex import ReflexCycleHandler
+from cynic.kernel.organism.brain.cognition.cortex.handlers.evolve import EvolveHandler
+from cynic.kernel.organism.brain.cognition.cortex.handlers.level_selector import LevelSelector
+from cynic.kernel.organism.brain.cognition.cortex.handlers.meta_cognition import (
+    MetaCognitionHandler,
+)
 from cynic.kernel.organism.brain.cognition.cortex.handlers.registry import HandlerRegistry
-from cynic.kernel.organism.brain.cognition.cortex.handlers.composer import HandlerComposer, HandlerError
 
 __all__ = [
     "BaseHandler",

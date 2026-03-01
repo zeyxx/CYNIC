@@ -43,6 +43,6 @@ Key principle:
 - Adapters translate: Platform → BotCommand → Logic → BotResponse → Platform
 """
 
-from cynic.interfaces.bots.bot_interface import BotInterface, BotCommand, BotResponse
+from cynic.interfaces.bots.bot_interface import BotCommand, BotInterface, BotResponse
 
 __all__ = ["BotInterface", "BotCommand", "BotResponse"]

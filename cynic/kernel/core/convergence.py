@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from cynic.kernel.core.formulas import ACT_LOG_CAP
 
@@ -32,8 +32,8 @@ class Announcement:
     timestamp: float
     announced_verdict: str  # HOWL, WAG, GROWL, BARK
     announced_q_score: float
-    announced_action: Optional[str] = None
-    cell_id: Optional[str] = None
+    announced_action: str | None = None
+    cell_id: str | None = None
     confidence: float = 0.0
 
     def __repr__(self) -> str:
@@ -49,7 +49,7 @@ class Outcome:
     actual_verdict: str
     actual_q_score: float
     actual_action_executed: bool = False
-    error: Optional[str] = None
+    error: str | None = None
 
     def __repr__(self) -> str:
         return f"Outcome({self.actual_verdict} Q={self.actual_q_score:.1f})"
@@ -102,8 +102,8 @@ class ConvergenceValidator:
         self,
         verdict: str,
         q_score: float,
-        cell_id: Optional[str] = None,
-        action: Optional[str] = None,
+        cell_id: str | None = None,
+        action: str | None = None,
         confidence: float = 0.0,
     ) -> str:
         """
@@ -142,7 +142,7 @@ class ConvergenceValidator:
         actual_verdict: str,
         actual_q_score: float,
         action_executed: bool = False,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> Convergence:
         """
         Record outcome for an announcement.

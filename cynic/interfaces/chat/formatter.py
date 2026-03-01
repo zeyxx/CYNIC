@@ -6,12 +6,11 @@ Uses ANSI escape codes directly (no external dependency like Rich).
 """
 from __future__ import annotations
 
-import sys
 import io
+import sys
 
 from cynic.interfaces.chat.agent_loop import AgentEvent, AgentEventType
 from cynic.interfaces.chat.tools import ToolCall, ToolResult
-from typing import Optional
 
 # ── Windows UTF-8 fix (same as cli/utils.py) ─────────────────────────────
 if sys.platform == "win32":
@@ -74,9 +73,9 @@ class ChatFormatter:
             if self.show_thinking:
                 iteration = event.metadata.get("iteration", 1)
                 if iteration == 1:
-                    print(_c("dim", "*sniff* thinking..."), flush=True)
+                    pass
                 else:
-                    print(_c("dim", f"*sniff* thinking... (iteration {iteration})"), flush=True)
+                    pass
 
         elif t == AgentEventType.TOOL_CALL:
             self._tool_count += 1
@@ -86,59 +85,48 @@ class ChatFormatter:
             self._render_tool_result(event.tool_result)
 
         elif t == AgentEventType.TEXT:
-            print()
-            print(event.content)
+            pass
 
         elif t == AgentEventType.ERROR:
-            print()
-            print(_c("red", f"*GROWL* Error: {event.content}"))
+            pass
 
         elif t == AgentEventType.DONE:
             self._render_done(event)
 
-    def _render_tool_call(self, call: Optional[ToolCall]) -> None:
+    def _render_tool_call(self, call: ToolCall | None) -> None:
         if call is None:
             return
-        name = call.name
-        preview = call.preview(60)
+        call.preview(60)
 
         # Color based on danger level
-        color = "red" if call.is_dangerous else "cyan"
-        icon = "⚡" if call.is_dangerous else "🔧"
 
-        print()
-        print(f"  {icon} {_c(color, _c('bold', name))} {_c('dim', preview)}", flush=True)
 
-    def _render_tool_result(self, result: Optional[ToolResult]) -> None:
+    def _render_tool_result(self, result: ToolResult | None) -> None:
         if result is None:
             return
 
         if result.blocked:
-            sym = _VERDICT_SYMBOL.get(result.verdict, "🔴")
-            print(f"  {sym} {_c('red', 'BLOCKED')} — {result.verdict} Q={result.q_score:.1f}")
+            _VERDICT_SYMBOL.get(result.verdict, "🔴")
             if result.error:
-                print(f"    {_c('dim', result.error)}")
+                pass
         elif result.error:
-            print(f"  {_c('red', '✗')} {_c('dim', result.error[:120])}")
+            pass
         else:
             # Show abbreviated output
             out = result.output
             lines = out.splitlines()
             if len(lines) > 8:
-                shown = "\n".join(lines[:4])
-                print(f"  {_c('green', '✓')} {_c('dim', f'({len(lines)} lines)')}")
-                for line in lines[:4]:
-                    print(f"    {_c('dim', line[:100])}")
-                print(f"    {_c('dim', f'... +{len(lines) - 4} more lines')}")
+                "\n".join(lines[:4])
+                for _line in lines[:4]:
+                    pass
             elif out.strip():
-                print(f"  {_c('green', '✓')} {_c('dim', f'({len(lines)} lines)')}")
-                for line in lines:
-                    print(f"    {_c('dim', line[:100])}")
+                for _line in lines:
+                    pass
             else:
-                print(f"  {_c('green', '✓')}")
+                pass
 
         if result.duration_ms > 0:
-            print(f"    {_c('dim', f'{result.duration_ms:.0f}ms')}")
+            pass
 
     def _render_done(self, event: AgentEvent) -> None:
         parts = []
@@ -155,8 +143,7 @@ class ChatFormatter:
             parts.append(f"{self._tool_count} tools")
 
         if parts:
-            print()
-            print(_c("dim", f"  *yawn* {' · '.join(parts)}"))
+            pass
         self._tool_count = 0
 
     # ── Static helpers ────────────────────────────────────────────────────
@@ -164,16 +151,6 @@ class ChatFormatter:
     @staticmethod
     def welcome(model: str, cwd: str) -> None:
         """Print CYNIC Code welcome banner."""
-        w = 60
-        print()
-        print(_c("cyan", f"┌{'─' * (w - 2)}┐"))
-        print(_c("cyan", "│") + _c("bold", "  CYNIC Code") + _c("dim", f" — κυνικός coding assistant") + " " * 7 + _c("cyan", "│"))
-        print(_c("cyan", f"├{'─' * (w - 2)}┤"))
-        print(_c("cyan", "│") + f"  Model: {_c('green', model)}" + " " * max(0, w - 12 - len(model)) + _c("cyan", "│"))
-        print(_c("cyan", "│") + f"  CWD:   {_c('dim', cwd[:40])}" + " " * max(0, w - 12 - min(len(cwd), 40)) + _c("cyan", "│"))
-        print(_c("cyan", "│") + _c("dim", "  /help /status /model /clear /quit") + " " * 14 + _c("cyan", "│"))
-        print(_c("cyan", f"└{'─' * (w - 2)}┘"))
-        print()
 
     @staticmethod
     def prompt() -> str:

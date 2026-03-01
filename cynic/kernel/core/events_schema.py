@@ -32,7 +32,7 @@ PHILOSOPHY:
 """
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -482,7 +482,7 @@ class McpToolCalledPayload(BaseModel):
     model_config = _BASE
 
     tool_name:  str            = ""
-    arguments:  Dict[str, Any] = Field(default_factory=dict)
+    arguments:  dict[str, Any] = Field(default_factory=dict)
     request_id: Any            = None   # JSON-RPC message id (int or str)
     source:     str            = "websocket"
 

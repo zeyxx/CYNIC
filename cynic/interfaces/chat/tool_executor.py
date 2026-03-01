@@ -20,8 +20,13 @@ import re
 import time
 from typing import Any
 
-from cynic.interfaces.chat.tools import ToolCall, ToolResult, DANGEROUS_TOOLS
-from cynic.kernel.core.formulas import BASH_OUTPUT_CAP, READ_FILE_CAP, GLOB_MATCH_CAP, GREP_OUTPUT_CAP
+from cynic.interfaces.chat.tools import ToolCall, ToolResult
+from cynic.kernel.core.formulas import (
+    BASH_OUTPUT_CAP,
+    GLOB_MATCH_CAP,
+    GREP_OUTPUT_CAP,
+    READ_FILE_CAP,
+)
 
 logger = logging.getLogger("cynic.interfaces.chat.executor")
 
@@ -91,8 +96,8 @@ class ToolExecutor:
     async def _judge_before_execute(self, call: ToolCall) -> Optional[ToolResult]:
         """Run REFLEX judgment on dangerous tools. Returns ToolResult if blocked, None if OK."""
         try:
-            from cynic.kernel.core.judgment import Cell
             from cynic.kernel.core.consciousness import ConsciousnessLevel
+            from cynic.kernel.core.judgment import Cell
 
             content = f"Tool: {call.name}\nArgs: {call.preview(200)}"
             cell = Cell(

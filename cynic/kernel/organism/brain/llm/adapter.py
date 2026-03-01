@@ -7,16 +7,14 @@ Implements hardware-aware discovery and EMA-based benchmarking.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
-import os
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
-from cynic.kernel.core.phi import PHI, PHI_INV, MAX_Q_SCORE, weighted_geometric_mean
 from cynic.kernel.core.formulas import LLM_TIMEOUT_SEC
+from cynic.kernel.core.phi import MAX_Q_SCORE, PHI, PHI_INV, weighted_geometric_mean
 
 logger = logging.getLogger("cynic.kernel.organism.brain.llm.adapter")
 
@@ -40,7 +38,7 @@ class LLMResponse:
     completion_tokens: int = 0
     cost_usd: float = 0.0
     latency_ms: float = 0.0
-    error: Optional[str] = None
+    error: str | None = None
 
     @property
     def is_success(self) -> bool:
@@ -112,9 +110,9 @@ class LLMRegistry:
     async def discover(
         self,
         ollama_url: str = "http://localhost:11434",
-        claude_api_key: Optional[str] = None,
-        google_api_key: Optional[str] = None,
-        models_dir: Optional[str] = None,
+        claude_api_key: str | None = None,
+        google_api_key: str | None = None,
+        models_dir: str | None = None,
     ) -> dict[str, Any]:
         """Hardware-aware discovery of all muscles (V3.5)."""
         from cynic.kernel.organism.metabolism.model_profiler import ModelProfiler
@@ -151,12 +149,11 @@ class LLMRegistry:
                 self._manifest["available"].append(adapter.adapter_id)
 
         # 4. Cloud API (Level 3: External)
-        from cynic.kernel.organism.brain.llm.adapters.cloud_api import AnthropicAdapter, GeminiAdapter
         # ...
 
         return self._manifest
 
-    def get_best_for(self, dog_id: str, task_type: str) -> Optional[LLMAdapter]:
+    def get_best_for(self, dog_id: str, task_type: str) -> LLMAdapter | None:
         """Sovereignty-first routing."""
         avail = self.get_available_for_generation()
         if not avail: return None

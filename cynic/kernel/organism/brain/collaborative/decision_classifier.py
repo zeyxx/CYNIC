@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from enum import Enum
 from typing import Any
-from collections import defaultdict
 
 
 class DecisionClass(Enum):

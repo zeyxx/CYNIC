@@ -18,12 +18,13 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any, Callable, Optional, Dict
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 import aiohttp
 
-from cynic.interfaces.mcp.timeouts import TimeoutConfig, TimeoutCategory
+from cynic.interfaces.mcp.timeouts import TimeoutConfig
 
 logger = logging.getLogger("cynic.interfaces.mcp.claude_code_adapter")
 
@@ -62,11 +63,11 @@ class ClaudeCodeAdapter:
         """
         self.cynic_url = cynic_url
         self.timeout = aiohttp.ClientTimeout(total=timeout_s)
-        self.session: Optional[aiohttp.ClientSession] = None
+        self.session: aiohttp.ClientSession | None = None
 
         # Caches
-        self._state_cache: Optional[CynicState] = None
-        self._judgment_cache: Dict[str, Any] = {}  # judgment_id → result
+        self._state_cache: CynicState | None = None
+        self._judgment_cache: dict[str, Any] = {}  # judgment_id → result
 
         # Progress callbacks
         self._progress_callbacks: list[Callable[[float, str], None]] = []
@@ -92,7 +93,7 @@ class ClaudeCodeAdapter:
     # TIMEOUT HANDLING
     # ════════════════════════════════════════════════════════════════════════════
 
-    def _get_timeout_for_tool(self, tool_name: str) -> Optional[float]:
+    def _get_timeout_for_tool(self, tool_name: str) -> float | None:
         """
         Get context-aware timeout for a tool.
 
@@ -131,7 +132,7 @@ class ClaudeCodeAdapter:
 
         try:
             return await asyncio.wait_for(coro, timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(f"Tool '{tool_name}' timed out after {timeout}s")
             raise
 
@@ -183,10 +184,10 @@ class ClaudeCodeAdapter:
 
             return await self._call_with_timeout("cynic_health", do_health_check())
 
-        except (aiohttp.ClientError, asyncio.TimeoutError):
+        except (TimeoutError, aiohttp.ClientError):
             return False
 
-    async def get_cynic_state(self, force_refresh: bool = False) -> Optional[CynicState]:
+    async def get_cynic_state(self, force_refresh: bool = False) -> CynicState | None:
         """
         Get cached CYNIC organism state.
 
@@ -207,7 +208,7 @@ class ClaudeCodeAdapter:
     # ════════════════════════════════════════════════════════════════════════════
 
     async def ask_cynic(
-        self, question: str, context: Optional[str] = None, reality: str = "CODE"
+        self, question: str, context: str | None = None, reality: str = "CODE"
     ) -> dict[str, Any]:
         """
         Ask CYNIC a question and get judgment.
@@ -242,11 +243,11 @@ class ClaudeCodeAdapter:
 
             return await self._call_with_timeout("ask_cynic", do_ask())
 
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        except (TimeoutError, aiohttp.ClientError) as e:
             return {"error": str(e)}
 
     async def teach_cynic(
-        self, judgment_id: str, rating: float, comment: Optional[str] = None
+        self, judgment_id: str, rating: float, comment: str | None = None
     ) -> dict[str, Any]:
         """
         Teach CYNIC by providing feedback on a judgment.
@@ -277,7 +278,7 @@ class ClaudeCodeAdapter:
 
             return await self._call_with_timeout("learn_cynic", do_teach())
 
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        except (TimeoutError, aiohttp.ClientError) as e:
             return {"error": str(e)}
 
     # ════════════════════════════════════════════════════════════════════════════
@@ -285,7 +286,7 @@ class ClaudeCodeAdapter:
     # ════════════════════════════════════════════════════════════════════════════
 
     async def start_empirical_test(
-        self, count: int = 1000, seed: Optional[int] = None
+        self, count: int = 1000, seed: int | None = None
     ) -> dict[str, Any]:
         """
         Start an empirical test job.
@@ -311,13 +312,13 @@ class ClaudeCodeAdapter:
 
             return await self._call_with_timeout("cynic_run_empirical_test", do_start())
 
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        except (TimeoutError, aiohttp.ClientError) as e:
             return {"error": str(e)}
 
     async def poll_test_progress(
         self,
         job_id: str,
-        callback: Optional[Callable[[float, str], None]] = None,
+        callback: Callable[[float, str], None] | None = None,
         max_wait_s: float = 3600,
         poll_interval_s: float = 5,
     ) -> dict[str, Any]:
@@ -371,7 +372,7 @@ class ClaudeCodeAdapter:
                 # Wait before polling again
                 await asyncio.sleep(poll_interval_s)
 
-            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            except (TimeoutError, aiohttp.ClientError) as e:
                 return {"error": str(e)}
 
         return {"error": f"Test timeout after {max_wait_s}s"}
@@ -400,11 +401,11 @@ class ClaudeCodeAdapter:
 
             return await self._call_with_timeout("cynic_query_telemetry", do_get_results())
 
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        except (TimeoutError, aiohttp.ClientError) as e:
             return {"error": str(e)}
 
     async def test_axiom_irreducibility(
-        self, axiom: Optional[str] = None
+        self, axiom: str | None = None
     ) -> dict[str, Any]:
         """
         Test if axioms are irreducible.
@@ -429,7 +430,7 @@ class ClaudeCodeAdapter:
 
             return await self._call_with_timeout("cynic_test_axiom_irreducibility", do_test())
 
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        except (TimeoutError, aiohttp.ClientError) as e:
             return {"error": str(e)}
 
     # ════════════════════════════════════════════════════════════════════════════
@@ -460,7 +461,7 @@ class ClaudeCodeAdapter:
 
             return await self._call_with_timeout("cynic_query_telemetry", do_query())
 
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        except (TimeoutError, aiohttp.ClientError) as e:
             return {"error": str(e)}
 
     # ════════════════════════════════════════════════════════════════════════════
@@ -470,8 +471,8 @@ class ClaudeCodeAdapter:
     async def run_test_and_wait(
         self,
         count: int = 1000,
-        seed: Optional[int] = None,
-        progress_callback: Optional[Callable[[float, str], None]] = None,
+        seed: int | None = None,
+        progress_callback: Callable[[float, str], None] | None = None,
     ) -> dict[str, Any]:
         """
         High-level operation: Start test, poll until complete, return results.
@@ -518,7 +519,7 @@ class ClaudeCodeAdapter:
     async def stream_telemetry(
         self,
         duration_s: float = 60,
-        on_update: Optional[Callable[[dict], None]] = None,
+        on_update: Callable[[dict], None] | None = None,
     ) -> dict[str, Any]:
         """
         Watch CYNIC telemetry stream for duration_s seconds.
@@ -573,7 +574,7 @@ class ClaudeCodeAdapter:
 
             return await self._call_with_timeout("cynic_watch_telemetry", do_stream())
 
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        except (TimeoutError, aiohttp.ClientError) as e:
             logger.error("Telemetry streaming failed: %s", e)
             return {"error": str(e)}
 

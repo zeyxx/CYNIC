@@ -5,9 +5,9 @@ Verifies that event history buffers are bounded and properly cleanup.
 This addresses the MEMORY_MANAGEMENT blue screen issue (Leak #2).
 """
 
-import asyncio
 import pytest
-from cynic.kernel.core.event_bus import EventBus, Event
+
+from cynic.kernel.core.event_bus import Event, EventBus
 from cynic.kernel.core.phi import fibonacci
 
 
@@ -40,7 +40,7 @@ async def test_event_history_bounded_at_fibonacci_10(event_bus):
 @pytest.mark.asyncio
 async def test_three_buses_total_memory_bounded(event_bus):
     """Combined 3 buses should not hold 3000 events in memory."""
-    from cynic.kernel.core.event_bus import get_core_bus, get_automation_bus, get_agent_bus
+    from cynic.kernel.core.event_bus import get_agent_bus, get_automation_bus, get_core_bus
 
     max_per_bus = fibonacci(10)  # 55
 

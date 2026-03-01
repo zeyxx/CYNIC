@@ -18,19 +18,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import sys
 import time
 from dataclasses import asdict, dataclass, field
-from enum import Enum
-from typing import Any, Optional
 
 # Python 3.9 compatibility: StrEnum added in Python 3.11
-if sys.version_info >= (3, 11):
-    from enum import StrEnum
-else:
-    class StrEnum(str, Enum):
-        """Polyfill for Python <3.11."""
-        pass
+from enum import StrEnum
+from typing import Any
 
 from cynic.kernel.core.formulas import SERVICE_REGISTRY_JUDGMENT_CAP
 
@@ -72,8 +65,8 @@ class ComponentSnapshot:
     metrics: dict[str, Any] = field(default_factory=dict)  # Type-specific metrics
 
     # Judgment-specific (if applicable)
-    last_judgment_id: Optional[str] = None
-    last_judgment_verdict: Optional[str] = None  # BARK/GROWL/WAG/HOWL
+    last_judgment_id: str | None = None
+    last_judgment_verdict: str | None = None  # BARK/GROWL/WAG/HOWL
     last_judgment_q_score: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
@@ -155,7 +148,7 @@ class ServiceStateRegistry:
         self,
         name: str,
         component_type: ComponentType,
-        metrics: Optional[dict[str, Any]] = None,
+        metrics: dict[str, Any] | None = None,
     ) -> None:
         """Register a new component."""
         async with self._lock:
@@ -175,7 +168,7 @@ class ServiceStateRegistry:
         judgment_id: str,
         verdict: str,
         q_score: float,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """
         Record a judgment outcome for a component.
@@ -221,7 +214,7 @@ class ServiceStateRegistry:
         component_name: str,
         key: str,
         value: Any,
-        status: Optional[HealthStatus] = None,
+        status: HealthStatus | None = None,
     ) -> None:
         """
         Update a single metric for a component.
@@ -245,7 +238,7 @@ class ServiceStateRegistry:
             if status:
                 comp.status = status
 
-    async def get_component(self, name: str) -> Optional[ComponentSnapshot]:
+    async def get_component(self, name: str) -> ComponentSnapshot | None:
         """Get snapshot of a single component."""
         async with self._lock:
             return self._components.get(name)
@@ -298,9 +291,9 @@ class ServiceStateRegistry:
 
     async def get_judgment_log(
         self,
-        since_ms: Optional[float] = None,
-        component: Optional[str] = None,
-        verdict: Optional[str] = None,
+        since_ms: float | None = None,
+        component: str | None = None,
+        verdict: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Query judgment log with optional filters.
@@ -352,7 +345,7 @@ class ServiceStateRegistry:
 # SINGLETON ACCESSOR
 # ════════════════════════════════════════════════════════════════════════════
 
-_registry_instance: Optional[ServiceStateRegistry] = None
+_registry_instance: ServiceStateRegistry | None = None
 
 
 def get_service_registry() -> ServiceStateRegistry:

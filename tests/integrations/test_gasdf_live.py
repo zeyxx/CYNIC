@@ -33,7 +33,6 @@ class TestGASdfLiveAPI:
 
         assert result is not None
         assert isinstance(result, dict)
-        print(f"GASdf health: {result}")
 
     @pytest.mark.integration
     async def test_get_tokens_live(self, client: GASdfClient) -> None:
@@ -48,9 +47,8 @@ class TestGASdfLiveAPI:
         assert len(tokens) > 0
 
         # Print token info
-        print("\nAccepted tokens:")
-        for token in tokens:
-            print(f"  - {token.get('symbol', 'UNKNOWN')}: {token.get('address', 'N/A')}")
+        for _token in tokens:
+            pass
 
     @pytest.mark.integration
     async def test_get_stats_live(self, client: GASdfClient) -> None:
@@ -66,11 +64,6 @@ class TestGASdfLiveAPI:
         assert isinstance(stats.burned_formatted, str)
         assert isinstance(stats.treasury, dict)
 
-        print(f"\nGASdf Burn Statistics:")
-        print(f"  Total Burned: {stats.total_burned}")
-        print(f"  Burned (formatted): {stats.burned_formatted}")
-        print(f"  Transactions: {stats.total_transactions}")
-        print(f"  Treasury: {stats.treasury}")
 
     @pytest.mark.integration
     async def test_get_quote_live(self, client: GASdfClient) -> None:
@@ -95,15 +88,9 @@ class TestGASdfLiveAPI:
             assert quote.fee_amount > 0
             assert quote.burn_amount > 0
 
-            print(f"\nFee Quote:")
-            print(f"  Quote ID: {quote.quote_id}")
-            print(f"  Fee Amount: {quote.fee_amount}")
-            print(f"  Burn Amount: {quote.burn_amount}")
-            print(f"  Burn %: {(quote.burn_amount / quote.fee_amount * 100):.1f}%")
 
         except GASdfError as e:
             # Quote might fail with invalid token/pubkey - that's OK for this test
-            print(f"\nQuote failed (expected with test addresses): {e}")
             error_str = str(e).lower()
             assert any(
                 keyword in error_str
@@ -118,7 +105,6 @@ class TestGASdfLiveAPI:
         """
         try:
             result = await client.health()
-            print(f"\n✓ GASdf API is reachable: {client.base_url}")
             assert result is not None
         except GASdfError as e:
             pytest.skip(f"GASdf API unreachable: {e}")
@@ -186,4 +172,3 @@ class TestGASdfExecutorIntegration:
 
         assert result is None  # Should skip REJECT verdict
 
-        print("\n✓ Executor properly skips non-approved verdicts")

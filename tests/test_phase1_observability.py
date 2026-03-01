@@ -12,6 +12,7 @@ Tests verify that:
 
 import pytest
 from fastapi.testclient import TestClient
+
 from cynic.interfaces.api.server import app
 
 

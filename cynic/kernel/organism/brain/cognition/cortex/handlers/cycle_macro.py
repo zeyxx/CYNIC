@@ -16,18 +16,25 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
-from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
-from cynic.kernel.core.judgment import Cell, Judgment
-from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.phi import PHI_INV, PHI_INV_2, MAX_CONFIDENCE, MAX_Q_SCORE, phi_bound_score, fibonacci
 from cynic.kernel.core.axioms import verdict_from_q_score
+from cynic.kernel.core.judgment import Judgment
+from cynic.kernel.core.phi import (
+    MAX_CONFIDENCE,
+    MAX_Q_SCORE,
+    PHI_INV,
+    PHI_INV_2,
+    fibonacci,
+    phi_bound_score,
+)
+from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
 from cynic.kernel.organism.brain.cognition.neurons.base import DogId
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgmentPipeline
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
 from cynic.kernel.core.events_schema import (
     PerceptionReceivedPayload,
     ResidualHighPayload,
@@ -60,12 +67,12 @@ class MacroCycleHandler(BaseHandler):
         self,
         dogs: dict[str, Any],
         axiom_arch: Any,
-        cynic_dog: Optional[Any] = None,
-        escore_tracker: Optional[Any] = None,
-        lod_controller: Optional[Any] = None,
-        axiom_monitor: Optional[Any] = None,
-        context_compressor: Optional[Any] = None,
-        act_phase_fn: Optional[Callable] = None,
+        cynic_dog: Any | None = None,
+        escore_tracker: Any | None = None,
+        lod_controller: Any | None = None,
+        axiom_monitor: Any | None = None,
+        context_compressor: Any | None = None,
+        act_phase_fn: Callable | None = None,
     ) -> None:
         self.dogs = dogs
         self.axiom_arch = axiom_arch

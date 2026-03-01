@@ -13,11 +13,10 @@ This module validates:
 - Error handling and health checks
 """
 
-import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-from discord.ext import commands
-import discord
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 
 class TestBotCommandIntegration:
@@ -51,8 +50,6 @@ class TestBotCommandIntegration:
         ctx.message = MagicMock()
 
         # Create proposal metadata
-        proposal_title = "Test Proposal"
-        proposal_description = "Test Description"
 
         # Verify mock setup works correctly
         assert ctx.author.id == 12345
@@ -226,7 +223,6 @@ class TestBotCommandIntegration:
         """
         db_mock, db_health = mock_database
 
-        proposal_id = "prop_001"
         votes_recorded = []
         lock = asyncio.Lock()
 
@@ -333,16 +329,16 @@ class TestBotCommandIntegration:
         ctx = MagicMock()
         ctx.author = MagicMock()
         ctx.channel = AsyncMock()
-        ctx.channel.send = AsyncMock(side_effect=asyncio.TimeoutError("Discord timeout"))
+        ctx.channel.send = AsyncMock(side_effect=TimeoutError("Discord timeout"))
 
         # Simulate timeout
         try:
             await ctx.channel.send("Test message")
             pytest.fail("Should raise TimeoutError")
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Verify error handling
             error_msg = await handle_error(
-                asyncio.TimeoutError("Discord timeout"),
+                TimeoutError("Discord timeout"),
                 context="discord_command"
             )
             assert error_msg is not None

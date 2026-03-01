@@ -9,13 +9,14 @@ These tests verify:
 5. Confidence is φ-bounded to PHI_INV (0.618)
 """
 
-import pytest
 import asyncio
-from abc import ABC, abstractmethod
+from abc import ABC
 
-from cynic.kernel.core.judge_interface import JudgeInterface, BaseJudge
+import pytest
+
+from cynic.kernel.core.judge_interface import BaseJudge, JudgeInterface
+from cynic.kernel.core.phi import PHI_INV
 from cynic.kernel.core.unified_state import UnifiedJudgment
-from cynic.kernel.core.phi import PHI_INV, MAX_CONFIDENCE
 
 
 class TestJudgeInterface:

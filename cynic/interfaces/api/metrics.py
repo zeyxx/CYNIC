@@ -6,11 +6,11 @@ Tracks: request count, latency, queue depth, active connections.
 """
 
 from prometheus_client import (
+    CONTENT_TYPE_LATEST,
     Counter,
     Gauge,
     Histogram,
     generate_latest,
-    CONTENT_TYPE_LATEST,
 )
 
 # Request counters (by endpoint, method, status)

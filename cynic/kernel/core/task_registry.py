@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Set, Optional, Dict, Any
+from typing import Any
 from weakref import WeakSet
 
 logger = logging.getLogger("cynic.task_registry")
@@ -32,9 +32,9 @@ class TaskRegistry:
         await TaskRegistry.cleanup_all()
     """
 
-    _instance: Optional[TaskRegistry] = None
+    _instance: TaskRegistry | None = None
     _tasks: WeakSet = WeakSet()  # Weak references (auto-cleanup when GC'd)
-    _task_info: Dict[int, Dict[str, Any]] = {}  # Metadata per task
+    _task_info: dict[int, dict[str, Any]] = {}  # Metadata per task
 
     def __new__(cls) -> TaskRegistry:
         if cls._instance is None:
@@ -77,7 +77,7 @@ class TaskRegistry:
         return [t for t in instance._tasks if not t.done()]
 
     @classmethod
-    def get_task_info(cls) -> Dict[str, Any]:
+    def get_task_info(cls) -> dict[str, Any]:
         """Get metadata about all registered tasks."""
         instance = cls()
         return {
@@ -102,7 +102,7 @@ class TaskRegistry:
         2. Wait for cancellation with timeout
         3. Log any tasks that didn't cleanup
         """
-        instance = cls()
+        cls()
         active = cls.get_active_tasks()
 
         if not active:
@@ -122,7 +122,7 @@ class TaskRegistry:
                 timeout=timeout
             )
             logger.info("All tasks cleaned up successfully")
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 f"Task cleanup timeout after {timeout}s. "
                 f"{len(cls.get_active_tasks())} tasks still running."

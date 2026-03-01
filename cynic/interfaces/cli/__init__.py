@@ -38,23 +38,22 @@ from __future__ import annotations
 
 import sys
 
-from cynic.interfaces.cli.status import cmd_status
-from cynic.interfaces.cli.health import cmd_health, cmd_lod, cmd_loops
-from cynic.interfaces.cli.actions import cmd_review, cmd_watch, cmd_feedback
-from cynic.interfaces.cli.probes import cmd_probes
-from cynic.interfaces.cli.execute import cmd_execute
-from cynic.interfaces.cli.sdk import cmd_sdk
-from cynic.interfaces.cli.consciousness import cmd_consciousness
-from cynic.interfaces.cli.tui import cmd_tui
-from cynic.interfaces.cli.chat import cmd_chat
-from cynic.interfaces.cli.perceive_watch import cmd_perceive_watch
-from cynic.interfaces.cli.full_loop import cmd_full_loop
+from cynic.interfaces.cli.actions import cmd_feedback, cmd_review, cmd_watch
 from cynic.interfaces.cli.battles import cmd_battles
+from cynic.interfaces.cli.chat import cmd_chat
+from cynic.interfaces.cli.consciousness import cmd_consciousness
 from cynic.interfaces.cli.dashboard import cmd_dashboard
-from cynic.interfaces.cli.utils import _c
+from cynic.interfaces.cli.execute import cmd_execute
+from cynic.interfaces.cli.full_loop import cmd_full_loop
+from cynic.interfaces.cli.health import cmd_health, cmd_lod, cmd_loops
+from cynic.interfaces.cli.perceive_watch import cmd_perceive_watch
+from cynic.interfaces.cli.probes import cmd_probes
+from cynic.interfaces.cli.sdk import cmd_sdk
+from cynic.interfaces.cli.status import cmd_status
+from cynic.interfaces.cli.tui import cmd_tui
 
 # Re-export PORT/API constants for any consumer that might need them
-from cynic.interfaces.cli.utils import _PORT, _API  # noqa: F401
+from cynic.interfaces.cli.utils import _API, _PORT, _c  # noqa: F401
 
 __all__ = [
     "cmd_status",
@@ -104,8 +103,6 @@ def main() -> None:
 
     fn = dispatch.get(cmd)
     if fn is None:
-        print(f"*head tilt* Unknown command: {cmd}")
-        print(f"  Available: {', '.join(dispatch)}")
         sys.exit(1)
 
     fn()

@@ -1,11 +1,11 @@
 """Layer 6: Self-awareness (kernel mirror)."""
 from __future__ import annotations
 
+from rich.console import RenderableType
 from rich.panel import Panel
 from rich.table import Table
 from textual.reactive import reactive
 from textual.widgets import Static
-from rich.console import RenderableType
 
 
 class SelfAwareLayer(Static):

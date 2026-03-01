@@ -31,11 +31,14 @@ import math
 import random
 import time
 from dataclasses import dataclass, field
-from typing import Optional
 
 from cynic.kernel.core.phi import (
-    PHI, PHI_INV, PHI_INV_2, PHI_2,
-    MAX_Q_SCORE, phi_bound_score, fibonacci,
+    MAX_Q_SCORE,
+    PHI,
+    PHI_2,
+    PHI_INV,
+    PHI_INV_2,
+    phi_bound_score,
 )
 
 # ── Temporal weights (same as temporal.py) ────────────────────────────────────
@@ -148,7 +151,7 @@ class MCTSVariant:
             MCTSNode(action=i) for i in range(self.problem.n_actions)
         ]
         self.total_visits: int = 0
-        self.convergence_iter: Optional[int] = None
+        self.convergence_iter: int | None = None
         self.iteration: int = 0
 
     def _select(self) -> MCTSNode:
@@ -205,13 +208,13 @@ class BenchmarkResult:
     max_iterations: int
 
     # Standard MCTS stats
-    standard_convergence_iter: Optional[int]
+    standard_convergence_iter: int | None
     standard_best_value: float
     standard_best_action: int
     standard_found_optimum: bool
 
     # Temporal MCTS stats
-    temporal_convergence_iter: Optional[int]
+    temporal_convergence_iter: int | None
     temporal_best_value: float
     temporal_best_action: int
     temporal_found_optimum: bool
@@ -254,7 +257,7 @@ class MCTSBenchmark:
     temporal MCTS achieves ≥ φ² speedup (the architectural hypothesis).
     """
 
-    def __init__(self, problem: Optional[SearchProblem] = None) -> None:
+    def __init__(self, problem: SearchProblem | None = None) -> None:
         self.problem = problem or SearchProblem()
 
     def run(

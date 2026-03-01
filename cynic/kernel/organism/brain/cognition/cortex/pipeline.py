@@ -8,7 +8,7 @@ from __future__ import annotations
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.judgment import Cell, Judgment
@@ -29,10 +29,10 @@ class JudgmentPipeline:
 
     # Step results
     dog_judgments: list = field(default_factory=list)
-    consensus: Optional[Any] = None
-    final_judgment: Optional[Judgment] = None
+    consensus: Any | None = None
+    final_judgment: Judgment | None = None
     action_executed: bool = False
-    action_result: Optional[dict] = None
+    action_result: dict | None = None
     learning_applied: bool = False  # Track C: whether learning signal was injected
 
     # Costs

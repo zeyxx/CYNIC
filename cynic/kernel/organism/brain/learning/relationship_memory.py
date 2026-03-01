@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import Optional, Any
+
 from cynic.kernel.organism.brain.dialogue.models import UserMessage
 
 

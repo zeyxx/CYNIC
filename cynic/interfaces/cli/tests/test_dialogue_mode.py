@@ -1,8 +1,10 @@
 """Tests for DialogueMode interactive dialogue."""
 
-import pytest
-from cynic.interfaces.cli.dialogue_mode import DialogueMode
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
+from cynic.interfaces.cli.dialogue_mode import DialogueMode
 
 
 @pytest.mark.asyncio

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 
 class ReasoningEngine:
@@ -32,7 +32,7 @@ class ReasoningEngine:
         axiom_scores = judgment.get("axiom_scores", {})
         if axiom_scores:
             high_axioms = sorted(
-                [(k, v) for k, v in axiom_scores.items()],
+                axiom_scores.items(),
                 key=lambda x: x[1],
                 reverse=True
             )[:3]

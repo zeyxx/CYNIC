@@ -9,7 +9,6 @@ Provides:
 """
 
 from enum import Enum
-from typing import List, Set
 
 
 class UserRole(str, Enum):
@@ -77,7 +76,7 @@ class RoleManager:
         return action in cls.PERMISSIONS.get(role, [])
 
     @classmethod
-    def get_permissions(cls, role: UserRole) -> List[str]:
+    def get_permissions(cls, role: UserRole) -> list[str]:
         """
         Get all permissions for a role.
 
@@ -90,7 +89,7 @@ class RoleManager:
         return cls.PERMISSIONS.get(role, [])
 
     @classmethod
-    def get_user_roles(cls, user_id: str, guild_id: int) -> List[UserRole]:
+    def get_user_roles(cls, user_id: str, guild_id: int) -> list[UserRole]:
         """
         Get user roles from Discord guild.
 
@@ -108,7 +107,7 @@ class RoleManager:
         return [UserRole.MEMBER]
 
     @classmethod
-    def has_any_permission(cls, role: UserRole, actions: List[str]) -> bool:
+    def has_any_permission(cls, role: UserRole, actions: list[str]) -> bool:
         """
         Check if role has any of the listed permissions.
 
@@ -123,7 +122,7 @@ class RoleManager:
         return bool(role_perms.intersection(set(actions)))
 
     @classmethod
-    def has_all_permissions(cls, role: UserRole, actions: List[str]) -> bool:
+    def has_all_permissions(cls, role: UserRole, actions: list[str]) -> bool:
         """
         Check if role has all listed permissions.
 

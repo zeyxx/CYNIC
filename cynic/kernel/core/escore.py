@@ -17,376 +17,174 @@ Formula (same geometric mean as phi_aggregate):
     e_score = phi_bound_score(e_raw)  # clamp to [0, MAX_Q_SCORE=100]
 
 Per-Reality sub-scores:
-  Each entity also tracks how E-Score evolves per reality dimension
-  (CODE, SOLANA, MARKET, SOCIAL, HUMAN, CYNIC, COSMOS). Sub-scores
-  are computed as simple exponential moving averages of dimension scores
-  within each reality context.
-
-Usage:
-    tracker = EScoreTracker()
-    tracker.update("user:alice", dimension="BUILD", value=75.0)
-    tracker.update("user:alice", dimension="BURN",  value=90.0, reality="SOLANA")
-    score = tracker.get_score("user:alice")   # φ-weighted aggregate
-    detail = tracker.get_detail("user:alice") # breakdown per dimension
+  Each entity also tracks how E-Score evolves per reality dimension (CODE, SOLANA).
 """
 from __future__ import annotations
 
+import logging
 import math
 import time
-import logging
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
+import httpx
 
 from cynic.kernel.core.phi import (
-    E_SCORE_WEIGHTS, E_SCORE_TOTAL_WEIGHT,
-    MAX_Q_SCORE, PHI_INV, PHI_INV_2, phi_bound_score,
+    PHI,
+    PHI_2,
+    PHI_3,
+    PHI_INV,
+    PHI_INV_2,
+    PHI_INV_3,
+    phi_bound_score,
 )
 
 logger = logging.getLogger("cynic.kernel.core.escore")
 
-# Valid realities (7 dimensions of reality)
-REALITIES = frozenset({"CODE", "SOLANA", "MARKET", "SOCIAL", "HUMAN", "CYNIC", "COSMOS"})
+# Weights derived from PHI powers
+E_SCORE_WEIGHTS = {
+    "BURN":   PHI_3,      # 4.236
+    "BUILD":  PHI_2,      # 2.618
+    "JUDGE":  PHI,        # 1.618
+    "RUN":    1.0,        # 1.000
+    "SOCIAL": PHI_INV,    # 0.618
+    "GRAPH":  PHI_INV_2,  # 0.382
+    "HOLD":   PHI_INV_3,  # 0.236
+}
 
-# Valid E-Score dimensions
-E_DIMENSIONS = frozenset(E_SCORE_WEIGHTS.keys())
+E_SCORE_TOTAL_WEIGHT = sum(E_SCORE_WEIGHTS.values())
 
-# Exponential moving average α for sub-scores (φ⁻¹ = 0.618)
-# New value weight: α, old value weight: 1-α
-EMA_ALPHA: float = PHI_INV
-
-# Default starting score for a new entity/dimension (middle of scale)
-DEFAULT_DIM_SCORE: float = 50.0
-
-
-# ── DimScore ──────────────────────────────────────────────────────────────
 
 @dataclass
-class DimScore:
-    """Running score for one E-Score dimension of one entity."""
-    dimension: str
-    value: float = DEFAULT_DIM_SCORE   # Current EMA value
-    updates: int = 0
-    last_updated: float = field(default_factory=time.time)
-
-    def apply(self, new_value: float) -> None:
-        """Update via exponential moving average."""
-        new_value = max(0.0, min(new_value, MAX_Q_SCORE))
-        if self.updates == 0:
-            self.value = new_value
-        else:
-            self.value = EMA_ALPHA * new_value + (1 - EMA_ALPHA) * self.value
-        self.updates += 1
-        self.last_updated = time.time()
-
-
-# ── EntityScore ───────────────────────────────────────────────────────────
-
-@dataclass
-class EntityScore:
-    """All E-Score data for one entity."""
+class EScoreProfile:
+    """Reputation snapshot for a single entity (Human, Dog, or Service)."""
     entity_id: str
-    dims: dict[str, DimScore] = field(default_factory=dict)
-    # Per-reality: reality → dimension → DimScore
-    reality_dims: dict[str, dict[str, DimScore]] = field(default_factory=dict)
-    created_at: float = field(default_factory=time.time)
+    overall_score: float = 50.0
+    # Current values for the 7 dimensions [0, 100]
+    dimensions: dict[str, float] = field(default_factory=lambda: {k: 50.0 for k in E_SCORE_WEIGHTS})
+    # Reality-specific scores (e.g. "CODE": 72.5)
+    reality_scores: dict[str, float] = field(default_factory=dict)
+    # Metadata
+    last_updated: float = field(default_factory=time.time)
+    version: int = 1
 
-    def get_dim(self, dimension: str) -> DimScore:
-        if dimension not in self.dims:
-            self.dims[dimension] = DimScore(dimension=dimension)
-        return self.dims[dimension]
+    def to_dict(self) -> dict:
+        return {
+            "entity_id": self.entity_id,
+            "overall_score": round(self.overall_score, 2),
+            "dimensions": {k: round(v, 2) for k, v in self.dimensions.items()},
+            "reality_scores": {k: round(v, 2) for k, v in self.reality_scores.items()},
+            "last_updated": self.last_updated
+        }
 
-    def get_reality_dim(self, reality: str, dimension: str) -> DimScore:
-        if reality not in self.reality_dims:
-            self.reality_dims[reality] = {}
-        if dimension not in self.reality_dims[reality]:
-            self.reality_dims[reality][dimension] = DimScore(dimension=dimension)
-        return self.reality_dims[reality][dimension]
-
-    def aggregate_score(self) -> float:
-        """
-        φ-weighted geometric mean across all 7 dimensions.
-        Dimensions with no updates use DEFAULT_DIM_SCORE.
-        """
-        log_sum = 0.0
-        for dim, weight in E_SCORE_WEIGHTS.items():
-            score = self.dims[dim].value if dim in self.dims else DEFAULT_DIM_SCORE
-            log_sum += weight * math.log(max(score, 0.1))
-        geo_mean = math.exp(log_sum / E_SCORE_TOTAL_WEIGHT)
-        return phi_bound_score(geo_mean)
-
-    def reality_score(self, reality: str) -> float:
-        """
-        φ-weighted geometric mean for a specific reality sub-score.
-        Uses reality-specific DimScores where available, falls back to global.
-        """
-        if reality not in self.reality_dims:
-            return self.aggregate_score()  # No reality-specific data
-
-        log_sum = 0.0
-        for dim, weight in E_SCORE_WEIGHTS.items():
-            r_dims = self.reality_dims.get(reality, {})
-            if dim in r_dims:
-                score = r_dims[dim].value
-            elif dim in self.dims:
-                score = self.dims[dim].value
-            else:
-                score = DEFAULT_DIM_SCORE
-            log_sum += weight * math.log(max(score, 0.1))
-        geo_mean = math.exp(log_sum / E_SCORE_TOTAL_WEIGHT)
-        return phi_bound_score(geo_mean)
-
-
-# ── EScoreTracker ─────────────────────────────────────────────────────────
 
 class EScoreTracker:
     """
-    Tracks E-Score reputation for all entities observed by CYNIC.
-
-    Thread-safe for single-event-loop use (asyncio). In-memory storage.
-    All scores φ-bounded to [0, MAX_Q_SCORE].
-
-    Entities:
-        Any hashable string: "user:alice", "token:abc123", "agent:SAGE"
-
-    Dimensions:
-        BURN, BUILD, JUDGE, RUN, SOCIAL, GRAPH, HOLD
-
-    Realities (optional per-update context):
-        CODE, SOLANA, MARKET, SOCIAL, HUMAN, CYNIC, COSMOS
+    Manages reputation tracking across the CYNIC ecosystem.
+    
+    Persistence is handled via StateManager (StateLayer.PERSISTENT).
     """
 
-    def __init__(self) -> None:
-        self._entities: dict[str, EntityScore] = {}
-        self._total_updates: int = 0
-        self._created_at: float = time.time()
+    def __init__(self, state_manager: Any | None = None):
+        self.state = state_manager
+        self._profiles: dict[str, EScoreProfile] = {}
+        self._external_sync_url: str | None = None # For k-NET reputation sharing
 
-    # ── Mutation ──────────────────────────────────────────────────────────
+    def get_profile(self, entity_id: str) -> EScoreProfile:
+        """Get or create reputation profile for an entity."""
+        if entity_id not in self._profiles:
+            # Try to load from state if available
+            if self.state:
+                saved = self.state.query(f"escore:profile:{entity_id}")
+                if saved:
+                    if isinstance(saved, dict):
+                        self._profiles[entity_id] = EScoreProfile(**saved)
+                    else:
+                        self._profiles[entity_id] = saved
+                    return self._profiles[entity_id]
 
-    def update(
-        self,
-        entity_id: str,
-        dimension: str,
-        value: float,
-        reality: Optional[str] = None,
-    ) -> float:
+            self._profiles[entity_id] = EScoreProfile(entity_id=entity_id)
+        return self._profiles[entity_id]
+
+    def update_dimension(self, entity_id: str, dimension: str, value: float, weight: float = 1.0) -> float:
         """
-        Record a new score observation for an entity.
-
-        Args:
-            entity_id:  Entity identifier (e.g., "user:alice", "agent:SAGE")
-            dimension:  E-Score dimension (BURN/BUILD/JUDGE/RUN/SOCIAL/GRAPH/HOLD)
-            value:      Score [0, MAX_Q_SCORE]
-            reality:    Optional reality context (CODE/SOLANA/etc.)
-
-        Returns:
-            New aggregate E-Score for the entity after update.
-
-        Raises:
-            ValueError: If dimension or reality is invalid.
+        Update a specific reputation dimension for an entity.
+        Value is blended using EMA (Exponential Moving Average).
         """
-        if dimension not in E_DIMENSIONS:
-            raise ValueError(
-                f"Invalid dimension {dimension!r}. "
-                f"Valid: {sorted(E_DIMENSIONS)}"
-            )
-        if reality is not None and reality not in REALITIES:
-            raise ValueError(
-                f"Invalid reality {reality!r}. "
-                f"Valid: {sorted(REALITIES)}"
-            )
+        if dimension not in E_SCORE_WEIGHTS:
+            logger.warning("Invalid E-Score dimension: %s", dimension)
+            return 0.0
 
-        entity = self._get_or_create(entity_id)
+        profile = self.get_profile(entity_id)
+        current = profile.dimensions.get(dimension, 50.0)
+        
+        # EMA blending: alpha = 0.382 (PHI_INV_2) — favors stability
+        alpha = PHI_INV_2 * weight
+        new_val = (alpha * value) + (1.0 - alpha) * current
+        profile.dimensions[dimension] = phi_bound_score(new_val)
+        
+        # Recalculate overall
+        profile.overall_score = self._calculate_aggregate(profile.dimensions)
+        profile.last_updated = time.time()
+        
+        # Persist if state manager is wired
+        if self.state:
+            asyncio.create_task(self.state.update(
+                f"escore:profile:{entity_id}", 
+                profile, 
+                source="escore_tracker"
+            ))
+            
+        return profile.overall_score
 
-        # Update global dimension
-        entity.get_dim(dimension).apply(value)
+    def _calculate_aggregate(self, dimensions: dict[str, float]) -> float:
+        """Geometric mean of all 7 dimensions weighted by PHI."""
+        log_sum = 0.0
+        for dim, val in dimensions.items():
+            w = E_SCORE_WEIGHTS.get(dim, 1.0)
+            log_sum += w * math.log(max(val, 0.1))
+        
+        raw_score = math.exp(log_sum / E_SCORE_TOTAL_WEIGHT)
+        return phi_bound_score(raw_score)
 
-        # Update per-reality dimension if reality provided
-        if reality:
-            entity.get_reality_dim(reality, dimension).apply(value)
+    def get_total_escore(self) -> float:
+        """Return the average reputation of all active entities (System Health)."""
+        if not self._profiles:
+            return 50.0
+        scores = [p.overall_score for p in self._profiles.values()]
+        return sum(scores) / len(scores)
 
-        self._total_updates += 1
-        new_score = entity.aggregate_score()
+    # ── External Integration ──────────────────────────────────────────────
 
-        logger.debug(
-            "EScore update: %s %s=%.1f%s → %.2f",
-            entity_id, dimension, value,
-            f" ({reality})" if reality else "",
-            new_score,
-        )
-        return new_score
-
-    # ── Query ─────────────────────────────────────────────────────────────
-
-    def get_score(self, entity_id: str) -> float:
-        """
-        Get current aggregate E-Score for entity.
-        Returns DEFAULT_DIM_SCORE if entity unknown.
-        """
-        if entity_id not in self._entities:
-            return DEFAULT_DIM_SCORE
-        return self._entities[entity_id].aggregate_score()
-
-    def get_reality_score(self, entity_id: str, reality: str) -> float:
-        """
-        Get E-Score for entity within a specific reality context.
-        Falls back to aggregate score if no reality-specific data.
-        """
-        if entity_id not in self._entities:
-            return DEFAULT_DIM_SCORE
-        return self._entities[entity_id].reality_score(reality)
-
-    def get_detail(self, entity_id: str) -> dict[str, Any]:
-        """
-        Get full E-Score breakdown for entity.
-
-        Returns:
-            {
-                "entity_id": str,
-                "aggregate": float,
-                "dimensions": {dim: {"value": float, "updates": int}},
-                "reality_scores": {reality: float},
-            }
-        """
-        if entity_id not in self._entities:
-            return {
-                "entity_id": entity_id,
-                "aggregate": DEFAULT_DIM_SCORE,
-                "dimensions": {
-                    dim: {"value": DEFAULT_DIM_SCORE, "updates": 0}
-                    for dim in E_SCORE_WEIGHTS
-                },
-                "reality_scores": {},
-            }
-
-        entity = self._entities[entity_id]
-        dims_out = {}
-        for dim in E_SCORE_WEIGHTS:
-            ds = entity.dims.get(dim)
-            dims_out[dim] = {
-                "value": round(ds.value if ds else DEFAULT_DIM_SCORE, 2),
-                "updates": ds.updates if ds else 0,
-                "weight": E_SCORE_WEIGHTS[dim],
-            }
-
-        reality_scores = {
-            r: round(entity.reality_score(r), 2)
-            for r in entity.reality_dims
-        }
-
-        return {
-            "entity_id": entity_id,
-            "aggregate": round(entity.aggregate_score(), 2),
-            "dimensions": dims_out,
-            "reality_scores": reality_scores,
-        }
-
-    def top_entities(self, n: int = 5) -> list[tuple[str, float]]:
-        """
-        Return top-N entities by aggregate E-Score (descending).
-        """
-        scored = [
-            (eid, entity.aggregate_score())
-            for eid, entity in self._entities.items()
-        ]
-        scored.sort(key=lambda x: x[1], reverse=True)
-        return scored[:n]
-
-    def entity_count(self) -> int:
-        return len(self._entities)
-
-    def stats(self) -> dict[str, Any]:
-        return {
-            "entities": len(self._entities),
-            "total_updates": self._total_updates,
-            "uptime_s": round(time.time() - self._created_at, 1),
-        }
-
-    # ── Private ───────────────────────────────────────────────────────────
-
-    # ── Persistence ───────────────────────────────────────────────────────
-
-    async def persist(self, pool) -> int:
-        """
-        Write all entity scores to the e_scores table.
-
-        Uses ON CONFLICT upsert — safe to call repeatedly.
-        Returns number of entities written.
-        """
-        if not self._entities or pool is None:
-            return 0
-
-        written = 0
-        async with pool.acquire() as conn:
-            for entity_id, entity in self._entities.items():
-                dims = entity.dims
-                get_v = lambda d: dims[d].value if d in dims else DEFAULT_DIM_SCORE  # noqa: E731
-                try:
-                    await conn.execute("""
-                        INSERT INTO e_scores
-                            (agent_id, total, burn_score, build_score, judge_score,
-                             run_score, social_score, graph_score, hold_score)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                        ON CONFLICT (agent_id) DO UPDATE SET
-                            total        = EXCLUDED.total,
-                            burn_score   = EXCLUDED.burn_score,
-                            build_score  = EXCLUDED.build_score,
-                            judge_score  = EXCLUDED.judge_score,
-                            run_score    = EXCLUDED.run_score,
-                            social_score = EXCLUDED.social_score,
-                            graph_score  = EXCLUDED.graph_score,
-                            hold_score   = EXCLUDED.hold_score,
-                            updated_at   = NOW()
-                    """,
-                        entity_id,
-                        entity.aggregate_score(),
-                        get_v("BURN"), get_v("BUILD"), get_v("JUDGE"),
-                        get_v("RUN"), get_v("SOCIAL"), get_v("GRAPH"), get_v("HOLD"),
-                    )
-                    written += 1
-                except httpx.RequestError as exc:
-                    logger.debug("EScore persist failed for %s: %s", entity_id, exc)
-
-        logger.info("EScoreTracker: persisted %d entities to DB", written)
-        return written
-
-    async def restore(self, pool) -> int:
-        """
-        Load entity scores from e_scores table on startup.
-
-        Directly sets dimension values (no EMA — recovering exact saved state).
-        Returns number of entities restored.
-        """
-        if pool is None:
-            return 0
+    async def sync_remote_reputation(self, peer_id: str) -> bool:
+        """Fetch reputation score for a peer instance via κ-NET."""
+        if not self._external_sync_url:
+            return False
+            
         try:
-            async with pool.acquire() as conn:
-                rows = await conn.fetch("SELECT * FROM e_scores")
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                resp = await client.get(f"{self._external_sync_url}/reputation/{peer_id}")
+                if resp.status_code == 200:
+                    resp.json()
+                    # We don't overwrite local profile, we just use it for trust decisions
+                    return True
+        except Exception as e:
+            logger.debug("Remote reputation sync failed for %s: %s", peer_id, e)
+        return False
 
-            dim_columns = {
-                "BURN":   "burn_score",
-                "BUILD":  "build_score",
-                "JUDGE":  "judge_score",
-                "RUN":    "run_score",
-                "SOCIAL": "social_score",
-                "GRAPH":  "graph_score",
-                "HOLD":   "hold_score",
-            }
-            for row in rows:
-                entity = self._get_or_create(row["agent_id"])
-                for dim, col in dim_columns.items():
-                    ds = entity.get_dim(dim)
-                    ds.value = float(row[col])
-                    ds.updates = 1  # mark as initialized (not a fresh default)
+    async def broadcast_reputation(self) -> None:
+        """Announce system-wide reputation metrics to the network."""
+        # TODO: Implement κ-NET broadcast
+        pass
 
-            count = len(rows)
-            logger.info("EScoreTracker: restored %d entities from DB", count)
-            return count
-        except httpx.RequestError as exc:
-            logger.warning("EScoreTracker restore failed: %s", exc)
-            return 0
-
-    def _get_or_create(self, entity_id: str) -> EntityScore:
-        if entity_id not in self._entities:
-            self._entities[entity_id] = EntityScore(entity_id=entity_id)
-        return self._entities[entity_id]
+    def stats(self) -> dict:
+        """Reputation engine diagnostics."""
+        return {
+            "entities_tracked": len(self._profiles),
+            "system_avg_score": round(self.get_total_escore(), 2),
+            "top_entities": sorted(
+                [{"id": p.entity_id, "score": p.overall_score} for p in self._profiles.values()],
+                key=lambda x: x["score"],
+                reverse=True
+            )[:5]
+        }

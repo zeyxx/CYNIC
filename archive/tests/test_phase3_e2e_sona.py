@@ -11,11 +11,12 @@ Verify that:
 This is a real integration test (not mocked).
 """
 import asyncio
+
 import pytest
-import time
-from cynic.kernel.organism.organism import awaken
-from cynic.kernel.core.event_bus import get_core_bus, CoreEvent
+
+from cynic.kernel.core.event_bus import CoreEvent, get_core_bus
 from cynic.kernel.core.events_schema import SonaTickPayload
+from cynic.kernel.organism.organism import awaken
 
 
 @pytest.mark.asyncio

@@ -23,12 +23,16 @@ See Also:
     cynic.kernel.organism.brain.cognition.cortex.handlers.registry: HandlerRegistry
 """
 from __future__ import annotations
-import logging, time
-from typing import Any, Optional, TYPE_CHECKING
-from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
-from cynic.kernel.organism.brain.cognition.cortex.handlers.registry import HandlerRegistry
+
+import logging
+import time
+from typing import TYPE_CHECKING
+
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.event_bus import EventBusError
+from cynic.kernel.organism.brain.cognition.cortex.handlers.base import HandlerResult
+from cynic.kernel.organism.brain.cognition.cortex.handlers.registry import HandlerRegistry
+
 if TYPE_CHECKING:
  from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgmentPipeline
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.handlers.composer")
@@ -40,7 +44,7 @@ class HandlerError(Exception):
 class HandlerComposer:
  def __init__(self, registry: HandlerRegistry) -> None:
   self.registry = registry
- async def compose(self, pipeline: JudgmentPipeline, level: Optional[ConsciousnessLevel]=None, budget_usd: float=0.0) -> HandlerResult:
+ async def compose(self, pipeline: JudgmentPipeline, level: ConsciousnessLevel | None=None, budget_usd: float=0.0) -> HandlerResult:
   t0 = time.perf_counter()
   handlers_executed: list[str] = []
   try:

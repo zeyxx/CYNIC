@@ -6,14 +6,13 @@ No manual configuration needed.
 """
 from __future__ import annotations
 
-import logging
 import importlib
+import logging
 import sys
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
-from cynic.kernel.core.exceptions import CynicError
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +69,7 @@ def auto_register_routers(app: FastAPI) -> dict[str, Any]:
             if found_router:
                 logger.debug(f"DEBUG: Registering {module_name} router with prefix {found_router.prefix}")
                 app.include_router(found_router)
-                logger.debug(f"DEBUG: After registration, checking if routes exist in app")
+                logger.debug("DEBUG: After registration, checking if routes exist in app")
                 obs_routes = [r for r in app.routes if "observability" in getattr(r, "path", "")]
                 if obs_routes:
                     logger.debug(f"DEBUG: Found {len(obs_routes)} observability routes in app.routes")

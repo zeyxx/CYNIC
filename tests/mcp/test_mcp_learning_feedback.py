@@ -9,18 +9,15 @@ Verifies that:
 """
 from __future__ import annotations
 
-import asyncio
 import json
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, call
 
+from cynic.interfaces.mcp.router import MCPRouter
 from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.event_bus import Event, CoreEvent, get_core_bus
-from cynic.kernel.core.events_schema import UserFeedbackPayload
+from cynic.kernel.core.event_bus import CoreEvent
 from cynic.kernel.core.judgment import Cell, Judgment
-from cynic.interfaces.mcp.router import MCPRouter, _jsonrpc_result, _INTERNAL_ERROR
-from cynic.interfaces.mcp.models import LearnRequest, FeedbackSignal
-
 
 # ════════════════════════════════════════════════════════════════════════════
 # TEST: ask_cynic generates real Judgment and learning event
@@ -227,7 +224,7 @@ async def test_learn_endpoint_emits_user_feedback_event(monkeypatch):
     })
 
     # Call handler
-    response = await server._handle_learn(request)
+    await server._handle_learn(request)
 
     # Verify USER_FEEDBACK event was emitted
     mock_bus.emit.assert_called()
@@ -321,7 +318,7 @@ async def test_mcp_tool_called_event_emitted_before_handler(monkeypatch):
         },
     }
 
-    response = await router.handle_message_async(message)
+    await router.handle_message_async(message)
 
     # MCP_TOOL_CALLED should have been emitted
     assert len(emitted_events) > 0

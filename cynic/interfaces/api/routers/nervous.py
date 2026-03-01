@@ -14,11 +14,11 @@ POST /nervous/journal/clear         — Clear journal (testing only)
 from __future__ import annotations
 
 import logging
-from fastapi import APIRouter, HTTPException, Depends
 
-from cynic.interfaces.api.state import get_app_container, AppContainer
+from fastapi import APIRouter, Depends, HTTPException
+
+from cynic.interfaces.api.state import AppContainer, get_app_container
 from cynic.nervous import EventCategory
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/nervous", tags=["nervous"])
@@ -161,7 +161,7 @@ async def get_causality_chain(
 
 @router.get("/journal/errors")
 async def get_recent_errors(
-    since_ms: Optional[float] = None,
+    since_ms: float | None = None,
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
     """Get error events since timestamp."""
@@ -370,7 +370,7 @@ async def clear_traces(
 
 @router.get("/closure/open")
 async def get_open_cycles(
-    max_age_ms: Optional[float] = None,
+    max_age_ms: float | None = None,
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
     """Get cycles currently in progress."""

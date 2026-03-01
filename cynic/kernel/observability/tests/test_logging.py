@@ -6,7 +6,7 @@ No raw text output allowed.
 """
 import json
 import logging
-import pytest
+
 from cynic.kernel.observability.structured_logger import StructuredLogger
 
 

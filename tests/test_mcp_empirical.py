@@ -2,9 +2,10 @@
 Tests for MCP Empirical Runner — Job lifecycle and Cline integration.
 """
 import asyncio
+
 import pytest
 
-from cynic.interfaces.mcp.empirical_runner import EmpiricalRunner, JobResult
+from cynic.interfaces.mcp.empirical_runner import EmpiricalRunner
 
 
 @pytest.fixture

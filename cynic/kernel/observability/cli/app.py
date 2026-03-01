@@ -8,13 +8,13 @@ from __future__ import annotations
 
 import asyncio
 
+from cynic.interfaces.cli.dialogue_mode import DialogueMode
 from cynic.kernel.observability.cli.views import (
-    render_observe_view,
     render_cynic_view,
     render_machine_view,
+    render_observe_view,
 )
 from cynic.kernel.observability.symbiotic_state_manager import get_current_state
-from cynic.interfaces.cli.dialogue_mode import DialogueMode
 
 
 class CliApp:
@@ -37,7 +37,9 @@ class CliApp:
             await self._organism.start()
             
             # Connect to symbiotic state manager
-            from cynic.kernel.observability.symbiotic_state_manager import get_symbiotic_state_manager
+            from cynic.kernel.observability.symbiotic_state_manager import (
+                get_symbiotic_state_manager,
+            )
             mgr = await get_symbiotic_state_manager()
             mgr.set_organism(self._organism)
             
@@ -70,15 +72,11 @@ class CliApp:
 
         Prints the menu structure to stdout and prompts for user input.
         """
-        print("\n" + "=" * 60)
-        print(" CYNIC OBSERVABILITY CLI - Main Menu")
-        print("=" * 60)
 
         menu_items = self.get_menu_items()
-        for key, label in menu_items:
-            print(f"  [{key}] {label}")
+        for _key, _label in menu_items:
+            pass
 
-        print("=" * 60)
 
         choice = input("\nEnter choice: ").strip()
         await self.handle_menu_choice(choice)
@@ -94,7 +92,6 @@ class CliApp:
         if choice == '0':
             # Exit
             self._running = False
-            print("\nGoodbye! 👋")
 
         elif choice == '1':
             # OBSERVE
@@ -103,20 +100,16 @@ class CliApp:
         elif choice == '2':
             # CYNIC MIND
             state = await get_current_state()
-            view = render_cynic_view(state)
-            print(view)
+            render_cynic_view(state)
 
         elif choice == '3':
             # YOUR STATE
-            print("\n🧠 YOUR STATE - Energy & Focus")
-            print("-" * 40)
-            print("[Feature not yet implemented]")
+            pass
 
         elif choice == '4':
             # MACHINE
             state = await get_current_state()
-            view = render_machine_view(state)
-            print(view)
+            render_machine_view(state)
 
         elif choice.upper() == 'B':
             # LIVE BODY TUI
@@ -132,26 +125,19 @@ class CliApp:
 
         elif choice == '7':
             # HISTORY
-            print("\n📊 HISTORY - Decisions")
-            print("-" * 40)
-            print("[Feature not yet implemented]")
+            pass
 
         elif choice == '8':
             # FEEDBACK
-            print("\n🎛️  FEEDBACK - Feedback")
-            print("-" * 40)
-            print("[Feature not yet implemented]")
+            pass
 
         elif choice == '9':
             # ACTUATE
-            print("\n🚀 ACTUATE - Actions")
-            print("-" * 40)
-            print("[Feature not yet implemented]")
+            pass
 
         else:
             # Invalid choice
-            print(f"\n⚠️  Invalid choice: {choice}")
-            print("Please enter a number between 0 and 9.")
+            pass
 
     async def show_observe(self) -> None:
         """Show quick observation view of all three streams.
@@ -160,12 +146,10 @@ class CliApp:
         and Machine's resources in one view.
         """
         state = await get_current_state()
-        view = render_observe_view(state)
-        print(view)
+        render_observe_view(state)
 
     async def show_body_tui(self) -> None:
         """Launch the live Embodied TUI."""
-        print("\n🦴 Launching LIVE BODY TUI...")
         
         organism = await self._ensure_organism()
         
@@ -175,7 +159,7 @@ class CliApp:
         try:
             await tui.run()
         except KeyboardInterrupt:
-            print("\nDetached from body.")
+            pass
 
     async def show_federation_status(self) -> None:
         """Show P2P gossip federation status.
@@ -183,24 +167,14 @@ class CliApp:
         Displays GossipManager stats including connected peers,
         sync count, merged Q-Table keys, and gossip batch size.
         """
-        print("\n🤝 FEDERATION - P2P Gossip Status")
-        print("-" * 60)
 
         state = await get_current_state()
         organism = state.organism if hasattr(state, 'organism') else state
 
         if not hasattr(organism, 'gossip_manager') or organism.gossip_manager is None:
-            print("  Federated: No (not configured)")
             return
 
-        stats = organism.gossip_manager.get_stats()
-        print(f"  Federated: {'Yes' if stats['is_federated'] else 'No'}")
-        print(f"  Peers ({stats['peer_count']}): {', '.join(stats['peer_ids']) or 'none'}")
-        print(f"  Sync count: {stats['sync_count']}")
-        print(f"  Last sync: {stats['last_sync'] or 'Never'}")
-        print(f"  Q-Table keys merged: {stats['total_merged_keys']}")
-        print(f"  Sync every: {stats['batch_size']} judgments")
-        print()
+        organism.gossip_manager.get_stats()
 
     async def handle_talk_option(self) -> None:
         """Enter interactive dialogue mode with CYNIC.
@@ -208,8 +182,6 @@ class CliApp:
         Starts a conversation session where the user can ask questions,
         provide feedback, and explore CYNIC's reasoning in real-time.
         """
-        print("\n💬 TALK - Interactive Dialogue")
-        print("-" * 60)
 
         dialogue_mode = DialogueMode()
 
@@ -218,8 +190,7 @@ class CliApp:
             await dialogue_mode.initialize()
 
             # Show greeting
-            greeting = await dialogue_mode.get_greeting()
-            print(f"\n{greeting}\n")
+            await dialogue_mode.get_greeting()
 
             # Main dialogue loop
             while True:
@@ -233,22 +204,18 @@ class CliApp:
                 if not user_input:
                     continue
                 if user_input.lower() in ["back", "exit", "quit", "bye"]:
-                    print("\nCYNIC: Until next time! *wags tail*")
                     break
 
                 # Process message and get response
-                print("\nCYNIC: Thinking...")
                 try:
-                    response = await dialogue_mode.process_message(user_input)
-                    print(f"CYNIC: {response}\n")
-                except Exception as e:
-                    print(f"Error generating response: {e}\n")
+                    await dialogue_mode.process_message(user_input)
+                except Exception:
                     continue
 
         except KeyboardInterrupt:
-            print("\n\nInterrupted. Returning to menu...")
-        except Exception as e:
-            print(f"Error in dialogue mode: {e}")
+            pass
+        except Exception:
+            pass
         finally:
             await dialogue_mode.close()
 
@@ -257,9 +224,6 @@ class CliApp:
 
         Displays past conversations with CYNIC, organized by timestamp.
         """
-        print("\n📊 HISTORY - Past Conversations")
-        print("-" * 60)
-        print("[Feature implementation in progress]")
 
     async def show_feedback(self) -> None:
         """Show feedback management interface.
@@ -267,9 +231,6 @@ class CliApp:
         Allows users to review learning metrics, manage Q-Table entries,
         and provide corrective feedback.
         """
-        print("\n🎛️  FEEDBACK - Learning Management")
-        print("-" * 60)
-        print("[Feature implementation in progress]")
 
     async def run(self) -> None:
         """Main CLI loop.
@@ -277,19 +238,13 @@ class CliApp:
         Continuously displays menu and processes user choices until
         user chooses to exit (sets _running to False).
         """
-        print("\n" + "=" * 60)
-        print(" Welcome to CYNIC Observability CLI")
-        print("=" * 60)
-        print("\nStarting interactive menu...")
 
         try:
             while self._running:
                 await self.show_menu()
         except KeyboardInterrupt:
-            print("\n\nInterrupted by user. Shutting down...")
             self._running = False
         except EOFError:
-            print("\n\nEnd of input. Shutting down...")
             self._running = False
         finally:
             if self._organism:

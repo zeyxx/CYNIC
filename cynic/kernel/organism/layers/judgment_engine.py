@@ -13,13 +13,11 @@ This replaces orchestrator.run() which averaged Q-scores.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
-from math import log, exp
+from math import exp, log
 
-from cynic.kernel.core.phi import MAX_Q_SCORE, MAX_CONFIDENCE, PHI_INV, PHI_INV_2
+from cynic.kernel.core.phi import MAX_CONFIDENCE, MAX_Q_SCORE
 from cynic.kernel.organism.layers.identity import OrganismIdentity
 
 logger = logging.getLogger(__name__)
@@ -229,7 +227,7 @@ class JudgmentEngine:
     async def judge(
         self,
         dog_inputs: list[DogInput],
-        context: Optional[dict] = None,
+        context: dict | None = None,
     ) -> UnifiedJudgment:
         """Compute unified judgment from dog inputs.
 

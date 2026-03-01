@@ -13,12 +13,10 @@ Key classes:
 """
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
 
-from cynic.kernel.core.unified_state import UnifiedLearningOutcome
 from cynic.kernel.core.phi import PHI, PHI_INV
+from cynic.kernel.core.unified_state import UnifiedLearningOutcome
 
 
 @dataclass
@@ -44,7 +42,7 @@ class UnifiedQTable:
     """
 
     # Q-values: Dict[(predicted_verdict, actual_verdict)] → float [0, 1]
-    values: Dict[Tuple[str, str], float] = field(default_factory=dict)
+    values: dict[tuple[str, str], float] = field(default_factory=dict)
 
     # Learning rate (how much feedback affects Q-values)
     learning_rate: float = 0.1
@@ -141,7 +139,7 @@ class LearningSession:
         q_table: Q-Learning table for this session
     """
 
-    outcomes: List[UnifiedLearningOutcome] = field(default_factory=list)
+    outcomes: list[UnifiedLearningOutcome] = field(default_factory=list)
     q_table: UnifiedQTable = field(default_factory=UnifiedQTable)
 
     def add_outcome(self, outcome: UnifiedLearningOutcome) -> None:

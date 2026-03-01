@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import asyncio
-from dataclasses import dataclass, field, asdict
-from pathlib import Path
-from typing import Optional, Any, List
+import json
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -53,7 +53,7 @@ class ExperimentLog:
                 f.write(json.dumps(exp_dict) + "\n")
 
             # Return approximate ID (line count)
-            with open(self.log_path, "r") as f:
+            with open(self.log_path) as f:
                 return len(f.readlines())
 
         loop = asyncio.get_event_loop()
@@ -66,7 +66,7 @@ class ExperimentLog:
                 return []
 
             experiments = []
-            with open(self.log_path, "r") as f:
+            with open(self.log_path) as f:
                 for line in f:
                     if line.strip():
                         data = json.loads(line)

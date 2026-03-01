@@ -11,15 +11,17 @@ import pathlib as _pathlib
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
-
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 
+from cynic.interfaces.api.state import AppContainer, get_app_container
 from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
 from cynic.kernel.core.events_schema import (
     DecisionMadePayload as _DecisionMadePayload,
+)
+from cynic.kernel.core.events_schema import (
     SdkResultReceivedPayload,
     SdkSessionStartedPayload,
     SdkToolJudgedPayload,
@@ -27,11 +29,12 @@ from cynic.kernel.core.events_schema import (
 from cynic.kernel.core.phi import MAX_CONFIDENCE
 from cynic.kernel.organism.metabolism.telemetry import (
     SessionTelemetry as SDKTelemetry,
+)
+from cynic.kernel.organism.metabolism.telemetry import (
     classify_task,
     compute_reward,
     estimate_complexity,
 )
-from cynic.interfaces.api.state import get_app_container, AppContainer
 
 logger = logging.getLogger("cynic.interfaces.api.server")
 
@@ -359,7 +362,8 @@ async def ws_sdk(
                         f"Cost: ${cost:.4f} | Error: {is_error} | Type: {task_type}"
                     )
                     try:
-                        from cynic.kernel.core.judgment import Cell as _Cell, infer_time_dim as _itd
+                        from cynic.kernel.core.judgment import Cell as _Cell
+                        from cynic.kernel.core.judgment import infer_time_dim as _itd
                         quality_cell = _Cell(
                             reality="CODE", analysis="JUDGE",
                             time_dim=_itd(judgment_content, "", "JUDGE"),
@@ -437,7 +441,9 @@ async def ws_sdk(
                         _rec_dict = _dc.asdict(telemetry_record)
                         async def _persist_sdk_session(d=_rec_dict):
                             try:
-                                from cynic.kernel.core.storage.postgres import SDKSessionRepository as _SDKSessionRepo
+                                from cynic.kernel.core.storage.postgres import (
+                                    SDKSessionRepository as _SDKSessionRepo,
+                                )
                                 await _SDKSessionRepo().save(d)
                             except httpx.RequestError as _e:
                                 logger.debug("SDK session persist skipped: %s", _e)
@@ -591,7 +597,7 @@ async def sdk_task(body: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="prompt is required")
 
     # Resolve session
-    session: Optional[SDKSession] = None
+    session: SDKSession | None = None
     if session_id:
         session = _sdk_sessions.get(session_id)
     elif _sdk_sessions:
@@ -601,7 +607,7 @@ async def sdk_task(body: dict[str, Any]) -> dict[str, Any]:
     if session is None:
         raise HTTPException(
             status_code=404,
-            detail=f"No active SDK session. Run: claude --sdk-url ws://HOST:PORT/ws/sdk --print --output-format stream-json --input-format stream-json",
+            detail="No active SDK session. Run: claude --sdk-url ws://HOST:PORT/ws/sdk --print --output-format stream-json --input-format stream-json",
         )
 
     # Optional model routing (e.g. switch to Haiku for cheap tasks)

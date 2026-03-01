@@ -189,7 +189,7 @@ class Layer2:
         This method should be called periodically in the event loop.
         """
         for aggregator_id, aggregator in self.aggregators.items():
-            for window_size, window in self.windows[aggregator_id].items():
+            for _window_size, window in self.windows[aggregator_id].items():
                 if window.should_aggregate():
                     # Call aggregator to synthesize state
                     aggregated_msg = await aggregator.aggregate(window.observations)

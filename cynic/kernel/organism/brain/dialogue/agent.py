@@ -5,11 +5,11 @@ Uses the ReasoningEngine to structure data and the Universal LLM Registry
 to generate the final explanation, prioritizing local hardware.
 """
 from __future__ import annotations
+
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from cynic.kernel.organism.brain.dialogue.reasoning import ReasoningEngine
-from cynic.kernel.core.event_bus import get_core_bus, CoreEvent, Event
 from cynic.kernel.organism.brain.llm.adapter import LLMRequest, get_registry
 
 logger = logging.getLogger("cynic.kernel.organism.brain.dialogue.agent")
@@ -19,7 +19,7 @@ class DialogueAgent:
     The voice of CYNIC.
     """
     
-    def __init__(self, reasoning_engine: Optional[ReasoningEngine] = None):
+    def __init__(self, reasoning_engine: ReasoningEngine | None = None):
         self.reasoning = reasoning_engine or ReasoningEngine()
         self.registry = get_registry()
 

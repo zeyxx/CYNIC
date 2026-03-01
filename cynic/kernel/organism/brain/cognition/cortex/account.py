@@ -24,13 +24,12 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional
-
+from typing import Any
 
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
 from cynic.kernel.core.events_schema import BudgetExhaustedPayload, BudgetWarningPayload
-from cynic.kernel.core.phi import PHI_INV_2, MAX_Q_SCORE
 from cynic.kernel.core.formulas import COST_EFFICIENCY_CAP_USD
+from cynic.kernel.core.phi import PHI_INV_2
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.account")
 
@@ -56,7 +55,7 @@ class AccountAgent:
     def __init__(
         self,
         session_budget_usd: float = _DEFAULT_SESSION_BUDGET_USD,
-        escore_tracker: Optional[Any] = None,
+        escore_tracker: Any | None = None,
     ) -> None:
         self._session_budget_usd = session_budget_usd
         self._escore_tracker = escore_tracker   # Optional[EScoreTracker]
@@ -95,7 +94,7 @@ class AccountAgent:
         try:
             p = event.dict_payload or {}
             cost = float(p.get("cost_usd", 0.0))
-            q_score = float(p.get("q_score", 0.0))
+            float(p.get("q_score", 0.0))
             reality = str(p.get("reality", "UNKNOWN"))
             dog_votes: dict = p.get("dog_votes") or {}
 

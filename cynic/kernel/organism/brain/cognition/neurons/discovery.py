@@ -76,7 +76,7 @@ def discover_dogs(**overrides: Any) -> dict[str, AbstractDog]:
     Legacy Path: Still checks files for custom Dog classes (overrides).
     """
     from cynic.kernel.organism.brain.cognition.neurons.master import MasterDog
-    from cynic.kernel.organism.brain.cognition.neurons.registry import get_soul, SOULS
+    from cynic.kernel.organism.brain.cognition.neurons.registry import get_soul
 
     # 1. Start with the 11 standard Dogs from registry
     dogs: dict[str, AbstractDog] = {}

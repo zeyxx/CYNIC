@@ -4,7 +4,6 @@ CYNIC core router — judge · perceive · learn · feedback · policy
 from __future__ import annotations
 
 import asyncio
-import httpx
 import json
 import logging
 import os
@@ -12,12 +11,24 @@ import time
 import uuid
 from typing import Any
 
-
+import httpx
 from fastapi import APIRouter, HTTPException, Query
 
-from cynic.kernel.core.consciousness import ConsciousnessLevel, get_consciousness
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
-from cynic.kernel.core.event_bus import EventBusError
+from cynic.interfaces.api.models import (
+    FeedbackRequest,
+    FeedbackResponse,
+    JudgeRequest,
+    JudgeResponse,
+    LearnRequest,
+    LearnResponse,
+    PerceiveRequest,
+    PerceiveResponse,
+    PolicyResponse,
+)
+from cynic.interfaces.api.routers.utils import _append_social_signal
+from cynic.interfaces.api.state import get_state
+from cynic.kernel.core.consciousness import ConsciousnessLevel
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError, get_core_bus
 from cynic.kernel.core.events_schema import (
     AxiomActivatedPayload,
     PerceptionReceivedPayload,
@@ -27,17 +38,6 @@ from cynic.kernel.core.events_schema import (
 from cynic.kernel.core.judgment import Cell, Judgment
 from cynic.kernel.core.phi import MAX_CONFIDENCE
 from cynic.kernel.organism.brain.learning.qlearning import LearningSignal
-from cynic.kernel.organism.brain.consensus import get_consensus_engine
-
-from cynic.interfaces.api.models import (
-    JudgeRequest, JudgeResponse,
-    PerceiveRequest, PerceiveResponse,
-    LearnRequest, LearnResponse,
-    FeedbackRequest, FeedbackResponse,
-    PolicyResponse,
-)
-from cynic.interfaces.api.state import get_state
-from cynic.interfaces.api.routers.utils import _append_social_signal
 
 logger = logging.getLogger("cynic.interfaces.api.server")
 
@@ -555,7 +555,7 @@ async def feedback(req: FeedbackRequest) -> FeedbackResponse:
         signal_type="user_rating",
     )
 
-    verdict_emoji = {"HOWL": "🟢", "WAG": "🟡", "GROWL": "🟠", "BARK": "🔴"}.get(last["action"], "⚪")
+    {"HOWL": "🟢", "WAG": "🟡", "GROWL": "🟠", "BARK": "🔴"}.get(last["action"], "⚪")
     msg = f"*tail wag* Feedback: rating={req.rating}/5 → reward={reward:.2f} → Q[{last['state_key']}][{last['action']}]={entry.q_value:.3f}"
 
     return FeedbackResponse(

@@ -13,9 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-import os
-import json
-from typing import Optional, Any, Dict
+from typing import Any
 
 from cynic.kernel.observability.human_state_tracker import HumanStateTracker
 from cynic.kernel.observability.machine_monitor import MachineMonitor
@@ -25,7 +23,7 @@ from cynic.kernel.protocol.kpulse import PulseMessage
 logger = logging.getLogger("cynic.kernel.observability.symbiotic")
 
 # Global singleton instance
-_INSTANCE: Optional[SymbioticStateManager] = None
+_INSTANCE: SymbioticStateManager | None = None
 _LOCK = asyncio.Lock()
 
 
@@ -39,7 +37,7 @@ class SymbioticStateManager:
     ):
         self.human_tracker = human_tracker
         self.machine_monitor = machine_monitor
-        self._last_snapshot: Optional[SymbioticState] = None
+        self._last_snapshot: SymbioticState | None = None
         self._organism = None # Set via set_organism
         self.remote_mode = False
         self.api_url = "http://localhost:58765"
@@ -48,7 +46,7 @@ class SymbioticStateManager:
         from cynic.kernel.protocol.knet_client import KNetClient
         self.knet = KNetClient(uri="ws://[::1]:58766")
         self.knet.on_pulse(self._on_knet_pulse)
-        self._last_pulse_data: Dict[str, Any] = {}
+        self._last_pulse_data: dict[str, Any] = {}
 
     def set_organism(self, organism: Any) -> None:
         """Connect to the CYNIC organism."""

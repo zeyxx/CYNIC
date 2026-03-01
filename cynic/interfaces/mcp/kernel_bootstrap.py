@@ -9,19 +9,15 @@ Handles coordinated kernel startup with:
 """
 
 import asyncio
-import json
 import logging
-import os
 import subprocess
 import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal
 
-import aiohttp
-
-from cynic.interfaces.mcp.kernel_lock import KernelLockManager, KernelLockError, get_lock_manager
+from cynic.interfaces.mcp.kernel_lock import KernelLockError, KernelLockManager, get_lock_manager
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +33,8 @@ class BootstrapResult:
     kernel_running: bool
     startup_type: Literal["docker", "subprocess", "already_running", "error"]
     duration_s: float
-    error: Optional[str] = None
-    owner_info: Optional[tuple] = None  # (pid, hostname, timestamp)
+    error: str | None = None
+    owner_info: tuple | None = None  # (pid, hostname, timestamp)
 
 
 class DockerClient:
@@ -110,8 +106,8 @@ class KernelBootstrap:
         self.cynic_url = cynic_url
         self.timeout = timeout
         self.docker_client = DockerClient()
-        self.lock_manager: Optional[KernelLockManager] = None
-        self.kernel_process: Optional[subprocess.Popen] = None
+        self.lock_manager: KernelLockManager | None = None
+        self.kernel_process: subprocess.Popen | None = None
 
     async def initialize(self) -> BootstrapResult:
         """
@@ -272,7 +268,7 @@ class KernelBootstrap:
 
                 logger.debug("Health check failed (attempt %d, curl exit code %d)", attempt, result.returncode)
 
-            except (OSError, asyncio.TimeoutError, Exception) as e:
+            except (TimeoutError, OSError, Exception) as e:
                 logger.debug("Health check error (attempt %d): %s", attempt, type(e).__name__)
 
             # Backoff before retry
@@ -289,7 +285,7 @@ class KernelBootstrap:
 
 
 # Module-level singleton
-_bootstrap: Optional[KernelBootstrap] = None
+_bootstrap: KernelBootstrap | None = None
 
 
 async def get_bootstrap() -> KernelBootstrap:

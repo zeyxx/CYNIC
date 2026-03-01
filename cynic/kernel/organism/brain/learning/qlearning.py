@@ -34,22 +34,23 @@ EWC (Elastic Weight Consolidation):
 """
 from __future__ import annotations
 
-import asyncio
 import logging
-import math
 import random
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-
 if TYPE_CHECKING:
     from cynic.kernel.core.event_bus import Event, EventBus
 
 from cynic.kernel.core.phi import (
-    EWC_PENALTY, LEARNING_RATE, MAX_CONFIDENCE, MAX_Q_SCORE, PHI_INV,
-    PHI_INV_2, fibonacci, phi_bound,
+    EWC_PENALTY,
+    LEARNING_RATE,
+    MAX_CONFIDENCE,
+    PHI_INV_2,
+    fibonacci,
+    phi_bound,
 )
 
 logger = logging.getLogger("cynic.kernel.organism.brain.learning.qlearning")

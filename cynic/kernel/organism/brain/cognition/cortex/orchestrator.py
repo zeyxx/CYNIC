@@ -20,46 +20,52 @@ This is the HEART of CYNIC. Every judgment flows through here.
 """
 from __future__ import annotations
 
-import httpx
 import logging
 import time
-import uuid
-from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
+import httpx
 
-from cynic.kernel.core.phi import (
-    MAX_Q_SCORE, MAX_CONFIDENCE, PHI_INV, PHI_INV_2, PHI,
-    phi_bound_score, LEARNING_RATE, fibonacci,
-)
-from cynic.kernel.core.formulas import CONSCIOUSNESS_BLENDING_WEIGHTS
+from cynic.kernel.core.axioms import AxiomArchitecture, verdict_from_q_score
 from cynic.kernel.core.consciousness import (
-    ConsciousnessLevel, ConsciousnessState, get_consciousness, dogs_for_level,
+    ConsciousnessLevel,
+    dogs_for_level,
+    get_consciousness,
 )
-from cynic.kernel.core.judgment import Cell, Judgment, ConsensusResult
-from cynic.kernel.core.axioms import AxiomArchitecture, Verdict, verdict_from_q_score
 from cynic.kernel.core.event_bus import (
-    get_core_bus, Event, CoreEvent,
+    CoreEvent,
+    Event,
+    EventBusError,
+    get_core_bus,
 )
-from cynic.kernel.core.event_bus import EventBusError
 from cynic.kernel.core.events_schema import (
-    ConsensusReachedPayload,
     ConsensusFailedPayload,
+    ConsensusReachedPayload,
+    DecisionMadePayload,
     JudgmentCreatedPayload,
     JudgmentFailedPayload,
-    JudgmentRequestedPayload,
     LearningEventPayload,
     MetaCyclePayload,
-    PerceptionReceivedPayload,
-    ResidualHighPayload,
-    DecisionMadePayload,
 )
-from cynic.kernel.organism.brain.cognition.neurons.base import AbstractDog, DogJudgment, DogId
-from cynic.kernel.organism.brain.cognition.cortex.circuit_breaker import CircuitBreaker, CircuitState
-from cynic.kernel.organism.brain.cognition.cortex.decision_validator import DecisionValidator, BlockedDecision
+from cynic.kernel.core.judgment import Cell, Judgment
+from cynic.kernel.core.phi import (
+    MAX_CONFIDENCE,
+    MAX_Q_SCORE,
+    PHI,
+    PHI_INV,
+    PHI_INV_2,
+    phi_bound_score,
+)
+from cynic.kernel.organism.brain.cognition.cortex.circuit_breaker import (
+    CircuitBreaker,
+)
+from cynic.kernel.organism.brain.cognition.cortex.decision_validator import (
+    BlockedDecision,
+)
 from cynic.kernel.organism.brain.cognition.cortex.handlers import HandlerComposer
-from cynic.kernel.organism.brain.cognition.cortex.pipeline import JudgmentPipeline
 from cynic.kernel.organism.brain.cognition.cortex.judgment_stages import execute_judgment_pipeline
+from cynic.kernel.organism.brain.cognition.cortex.pipeline import JudgmentPipeline
+from cynic.kernel.organism.brain.cognition.neurons.base import AbstractDog, DogId, DogJudgment
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex")
 
@@ -150,9 +156,14 @@ class JudgeOrchestrator:
             return  # Already initialized
 
         from cynic.kernel.organism.brain.cognition.cortex.handlers import (
-            HandlerRegistry, HandlerComposer, LevelSelector, ReflexCycleHandler,
-            MicroCycleHandler, MacroCycleHandler, ActHandler, EvolveHandler,
+            ActHandler,
             BudgetManager,
+            EvolveHandler,
+            HandlerRegistry,
+            LevelSelector,
+            MacroCycleHandler,
+            MicroCycleHandler,
+            ReflexCycleHandler,
         )
 
         registry = HandlerRegistry()
@@ -172,8 +183,8 @@ class JudgeOrchestrator:
     async def run(
         self,
         cell: Cell,
-        level: Optional[ConsciousnessLevel] = None,
-        budget_usd: Optional[float] = None,
+        level: ConsciousnessLevel | None = None,
+        budget_usd: float | None = None,
         fractal_depth: int = 1,
     ) -> Judgment:
         """
@@ -219,7 +230,7 @@ class JudgeOrchestrator:
 
             judgment = compose_result.output
             selected_level = pipeline.level or level or ConsciousnessLevel.MACRO
-            elapsed_compose_ms = (time.perf_counter() - t_compose_start) * 1000
+            (time.perf_counter() - t_compose_start) * 1000
 
             # Emit JUDGMENT_CREATED (enriched with cell context for DecideAgent)
             self._judgment_count += 1
@@ -339,7 +350,7 @@ class JudgeOrchestrator:
                     if hasattr(judgment, "model_copy"):
                         judgment = judgment.model_copy(update={"reasoning": explanation})
                     else:
-                        setattr(judgment, "reasoning", explanation)
+                        judgment.reasoning = explanation
                 except Exception as e:
                     logger.warning("Orchestrator: Failed to generate explanation: %s", e)
 
@@ -644,7 +655,7 @@ class JudgeOrchestrator:
 
     # ── STEP 3+4: DECIDE + ACT ────────────────────────────────────────────────
 
-    async def _act_phase(self, judgment: Judgment, pipeline: JudgmentPipeline) -> Optional[dict]:
+    async def _act_phase(self, judgment: Judgment, pipeline: JudgmentPipeline) -> dict | None:
         """
         STEP 3 (DECIDE) + STEP 4 (ACT) — unified action execution with guardrails.
 
@@ -680,7 +691,7 @@ class JudgeOrchestrator:
         decision_validator = getattr(self, 'decision_validator', None)
         if decision_validator:
             try:
-                validated_decision = await decision_validator.validate_decision(
+                await decision_validator.validate_decision(
                     decision=decision,
                     judgment=judgment,
                     recent_judgments=self._recent_judgments[-5:] if hasattr(self, '_recent_judgments') else [],
@@ -813,7 +824,6 @@ class JudgeOrchestrator:
         Returns summary dict:
           pass_rate, pass_count, total, regression, results[]
         """
-        import asyncio as _asyncio
         from cynic.kernel.organism.brain.cognition.cortex.probes import PROBE_CELLS, ProbeResult
 
         results: list[ProbeResult] = []

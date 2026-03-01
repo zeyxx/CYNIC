@@ -1,8 +1,10 @@
 """Tests for CLI App integration with dialogue, history, and feedback systems."""
 
-import pytest
-from cynic.kernel.observability.cli.app import CliApp
 from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from cynic.kernel.observability.cli.app import CliApp
 
 
 @pytest.mark.asyncio

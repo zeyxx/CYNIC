@@ -11,31 +11,31 @@ These 4 components enable CYNIC to observe itself in real-time,
 detect silent failures, and propose self-corrections (L4 meta-improvement).
 """
 
-from cynic.nervous.service_registry import (
-    ServiceStateRegistry,
-    ComponentSnapshot,
-    RegistrySnapshot,
-    ComponentType,
-    HealthStatus,
-    get_service_registry,
-    reset_service_registry,
+from cynic.nervous.decision_trace import (
+    DecisionTrace,
+    DecisionTracer,
+    DogRole,
+    DogVote,
+    TraceNode,
 )
 from cynic.nervous.event_journal import (
-    EventJournal,
     EventCategory,
+    EventJournal,
     JournalEntry,
 )
-from cynic.nervous.decision_trace import (
-    DecisionTracer,
-    DecisionTrace,
-    TraceNode,
-    DogVote,
-    DogRole,
-)
 from cynic.nervous.loop_closure import (
-    LoopClosureValidator,
-    LoopClosureEvent,
     CyclePhase,
+    LoopClosureEvent,
+    LoopClosureValidator,
+)
+from cynic.nervous.service_registry import (
+    ComponentSnapshot,
+    ComponentType,
+    HealthStatus,
+    RegistrySnapshot,
+    ServiceStateRegistry,
+    get_service_registry,
+    reset_service_registry,
 )
 
 __all__ = [

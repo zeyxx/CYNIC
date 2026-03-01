@@ -9,15 +9,22 @@ Tests the QTable and LearningLoop classes for:
 - DB persistence
 - Learning signal handling
 """
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
-from cynic.kernel.organism.brain.learning.qlearning import (
-    QTable, QEntry, LearningSignal, LearningLoop,
-    VERDICTS, THOMPSON_PRIOR,
-)
+import pytest
+
 from cynic.kernel.core.phi import (
-    LEARNING_RATE, EWC_PENALTY, fibonacci, PHI_INV, PHI_INV_2,
+    LEARNING_RATE,
+    PHI_INV_2,
+    fibonacci,
+)
+from cynic.kernel.organism.brain.learning.qlearning import (
+    THOMPSON_PRIOR,
+    VERDICTS,
+    LearningLoop,
+    LearningSignal,
+    QEntry,
+    QTable,
 )
 
 
@@ -148,7 +155,7 @@ class TestQTable:
 
     def test_update_increments_visits(self, qtable):
         """Should increment visits on each update."""
-        for i in range(5):
+        for _i in range(5):
             signal = LearningSignal(
                 state_key="test",
                 action="BARK",
@@ -293,8 +300,7 @@ class TestQTableEWC:
         
         # First visit - full learning rate
         signal1 = LearningSignal(state_key="test", action="BARK", reward=0.9)
-        entry1 = qtable.update(signal1)
-        first_q = entry1.q_value
+        qtable.update(signal1)
         
         # Many more visits
         for _ in range(20):  # Total 21 = F(8)
@@ -302,7 +308,7 @@ class TestQTableEWC:
             qtable.update(signal)
         
         # At F(8)=21 visits, should have EWC penalty
-        final_entry = qtable._table["test"]["BARK"]
+        qtable._table["test"]["BARK"]
         
         # EWC consolidated entries should have visited >= F(8)
         stats = qtable.stats()

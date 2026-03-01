@@ -11,7 +11,8 @@ but don't work via HTTP due to lifecycle timing issues.
 """
 import pytest
 from fastapi.testclient import TestClient
-from cynic.interfaces.api.server import app, _routers_registered
+
+from cynic.interfaces.api.server import _routers_registered, app
 
 
 class TestRouterHTTPRegistration:
@@ -143,4 +144,4 @@ class TestRouterConsistency:
             # Don't assert here - routers might have routes added via decorators
             # Just log for debugging
             if not found:
-                print(f"Warning: Router {router_name} not clearly represented in app.routes")
+                pass

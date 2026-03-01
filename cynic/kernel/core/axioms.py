@@ -30,38 +30,27 @@ Scoring:
 """
 from __future__ import annotations
 
-import sys
 import time
-from dataclasses import dataclass, field
-from enum import Enum
 from collections.abc import Callable
-from typing import Optional, Any
+from dataclasses import dataclass, field
 
 # Python 3.9 compatibility: StrEnum added in Python 3.11
-if sys.version_info >= (3, 11):
-    from enum import StrEnum
-else:
-    class StrEnum(str, Enum):
-        """Polyfill for Python <3.11."""
-        pass
+from enum import StrEnum
+from typing import Any
 
 from cynic.kernel.core.phi import (
-    AXIOMS_CORE,
-    AXIOMS_FACETS,
-    HOWL_MIN,
-    WAG_MIN,
     GROWL_MIN,
-    MAX_Q_SCORE,
+    HOWL_MIN,
     PHI,
-    PHI_INV,
-    PHI_INV_2,
     PHI_2,
     PHI_3,
+    PHI_INV,
+    PHI_INV_2,
+    WAG_MIN,
     geometric_mean,
     phi_bound_score,
     weighted_geometric_mean,
 )
-
 
 # ════════════════════════════════════════════════════════════════════════════
 # AXIOM NAMES & TIER DEFINITIONS
@@ -231,7 +220,7 @@ class FacetRegistry:
     Dynamic registry for Axiom facets.
     Checks SurrealDB first, falls back to static AXIOM_FACETS.
     """
-    def __init__(self, storage: Optional[Any] = None) -> None:
+    def __init__(self, storage: Any | None = None) -> None:
         self.storage = storage
         self._cache: dict[str, dict[str, str]] = {}
 
@@ -374,10 +363,10 @@ class AxiomArchitecture:
     """Fractal-Dynamic-Contextual Axiom System."""
     def __init__(
         self,
-        state: Optional[AxiomArchitectureState] = None,
+        state: AxiomArchitectureState | None = None,
         facet_scorer: Callable[[str, str, str], float] | None = None,
-        registry: Optional[FacetRegistry] = None,
-        on_facets_missing: Optional[Callable[[str, str], Any]] = None,
+        registry: FacetRegistry | None = None,
+        on_facets_missing: Callable[[str, str], Any] | None = None,
     ) -> None:
         self.state = state or AxiomArchitectureState()
         self._facet_scorer = facet_scorer or self._default_facet_scorer
@@ -429,7 +418,7 @@ class AxiomArchitecture:
 
     def _default_facet_scorer(self, a, f, c) -> float: return 50.0
 
-    def compute_q_score(self, domain: str, axiom_scores: dict[str, float], metrics: Optional[dict[str, float]] = None) -> float:
+    def compute_q_score(self, domain: str, axiom_scores: dict[str, float], metrics: dict[str, float] | None = None) -> float:
         if metrics: self.check_emergent_activation(metrics)
         active = self.active_axioms
         vals, weights = [], []
@@ -439,7 +428,7 @@ class AxiomArchitecture:
             weights.append(dw.get(axiom, 1.0))
         return phi_bound_score(weighted_geometric_mean(vals, weights)) if vals else 0.0
 
-    async def score_and_compute(self, domain: str, context: str, fractal_depth: int = 1, metrics: Optional[dict[str, float]] = None, dog_inputs: Optional[dict[str, float]] = None) -> FullAxiomResult:
+    async def score_and_compute(self, domain: str, context: str, fractal_depth: int = 1, metrics: dict[str, float] | None = None, dog_inputs: dict[str, float] | None = None) -> FullAxiomResult:
         axiom_scores, axiom_details = {}, {}
         inputs = dog_inputs or {}
         for name in self.active_axioms:

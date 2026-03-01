@@ -5,11 +5,12 @@ REST API for governance proposals, voting, verdicts, and outcomes.
 Integrates with UnifiedConsciousState for persistent governance records.
 """
 from __future__ import annotations
-from typing import Any, List, Optional
-from pydantic import BaseModel, Field
-from fastapi import APIRouter, Depends, HTTPException
-import uuid
+
 import time
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
 from cynic.interfaces.api.state import AppContainer, get_app_container
 from cynic.kernel.core.unified_state import (
@@ -17,6 +18,7 @@ from cynic.kernel.core.unified_state import (
     GovernanceProposal,
     GovernanceVote,
 )
+
 
 # ── Request Models ──────────────────────────────────────────────────
 class ProposalRequest(BaseModel):
@@ -60,7 +62,7 @@ class VerdictResponse(BaseModel):
     confidence: float = 0.0
     axiom_scores: dict = Field(default_factory=dict)
     dog_votes: dict = Field(default_factory=dict)
-    reasoning: Optional[str] = None
+    reasoning: str | None = None
     timestamp: float = 0.0
 
 class GovernanceStatusResponse(BaseModel):

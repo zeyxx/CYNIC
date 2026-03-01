@@ -14,12 +14,10 @@ Key responsibilities:
 
 import asyncio
 import logging
-import os
-from typing import Optional
 
-from cynic.interfaces.mcp.kernel_bootstrap import KernelBootstrap, BootstrapResult
+from cynic.interfaces.mcp.kernel_bootstrap import BootstrapResult, KernelBootstrap
 from cynic.interfaces.mcp.kernel_health import KernelHealthMonitor
-from cynic.interfaces.mcp.kernel_lock import KernelLockManager, get_lock_manager
+from cynic.interfaces.mcp.kernel_lock import get_lock_manager
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +40,9 @@ class KernelManager:
         self.bootstrap_timeout = bootstrap_timeout
 
         self.lock_manager = get_lock_manager()
-        self.bootstrap: Optional[KernelBootstrap] = None
-        self.health_monitor: Optional[KernelHealthMonitor] = None
-        self.bootstrap_result: Optional[BootstrapResult] = None
+        self.bootstrap: KernelBootstrap | None = None
+        self.health_monitor: KernelHealthMonitor | None = None
+        self.bootstrap_result: BootstrapResult | None = None
         self._initialized = False
         self._initialization_lock = asyncio.Lock()
         self._instance_count_checked = False
@@ -200,7 +198,7 @@ class KernelManager:
 
 
 # Module-level singleton
-_manager: Optional[KernelManager] = None
+_manager: KernelManager | None = None
 
 
 def get_kernel_manager(

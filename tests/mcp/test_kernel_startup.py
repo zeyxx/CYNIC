@@ -9,11 +9,8 @@ Tests the following scenarios:
 5. Detailed logging at each attempt
 """
 
-import asyncio
-import json
 import logging
 import subprocess
-import sys
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -130,14 +127,6 @@ async def test_kernel_startup_spawns_if_down():
     with patch.dict('sys.modules', {'mcp': MagicMock(), 'mcp.server': MagicMock(), 'mcp.types': MagicMock()}):
         from cynic.interfaces.mcp.claude_code_bridge import _ensure_kernel_running
 
-        healthy_response = {
-            "health": {
-                "cynic-kernel": {
-                    "status": "healthy",
-                    "latency_ms": 2.5,
-                }
-            }
-        }
 
         call_count = {"get": 0}
 
@@ -277,14 +266,6 @@ async def test_kernel_startup_logging(caplog):
     with patch.dict('sys.modules', {'mcp': MagicMock(), 'mcp.server': MagicMock(), 'mcp.types': MagicMock()}):
         from cynic.interfaces.mcp.claude_code_bridge import _ensure_kernel_running
 
-        healthy_response = {
-            "health": {
-                "cynic-kernel": {
-                    "status": "healthy",
-                    "latency_ms": 2.5,
-                }
-            }
-        }
 
         with patch("cynic.interfaces.mcp.claude_code_bridge.aiohttp.ClientSession") as mock_session_cls:
             mock_response = AsyncMock()

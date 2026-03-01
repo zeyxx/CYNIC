@@ -5,9 +5,6 @@ from __future__ import annotations
 
 import sys
 
-from cynic.interfaces.cli.utils import _c
-from typing import Optional
-
 
 def cmd_tui() -> None:
     """
@@ -33,7 +30,7 @@ def cmd_tui() -> None:
            python -m cynic.interfaces.cli tui --organism (organism dashboard)
     """
     extra = sys.argv[2:]
-    url: Optional[str] = None
+    url: str | None = None
     use_organism = False
 
     if "--url" in extra:
@@ -46,20 +43,14 @@ def cmd_tui() -> None:
 
     try:
         if use_organism:
-            from cynic.interfaces.cli.tui_dashboard import run_tui
             import asyncio
+
+            from cynic.interfaces.cli.tui_dashboard import run_tui
             asyncio.run(run_tui(cynic_url=url or "http://localhost:8000"))
         else:
             from cynic.interfaces.tui.app import run as tui_run
             tui_run(base_url=url)
-    except ImportError as e:
-        print()
-        print(_c("red", "  *GROWL* textual not installed."))
-        print(_c("dim", "  pip install 'textual>=0.44'"))
-        print()
+    except ImportError:
         sys.exit(1)
-    except httpx.RequestError as e:
-        print()
-        print(_c("red", f"  *GROWL* Error: {e}"))
-        print()
+    except httpx.RequestError:
         sys.exit(1)

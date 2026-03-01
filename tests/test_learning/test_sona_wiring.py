@@ -3,19 +3,19 @@ Track D: SONA Wiring + Infrastructure Fixes
 Test suite for SONA injection, re-entrancy elimination, and snapshot immutability.
 """
 import asyncio
+
 import pytest
 
 pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - StateSnapshot class deleted")
 
-from typing import Any, Dict, List
+from typing import Any
 
-from cynic.kernel.core.event_bus import EventBus, CoreEvent, Event
-from cynic.kernel.organism.sona_emitter import SonaEmitter
-from cynic.kernel.organism.brain.learning.qlearning import LearningLoop
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
+from cynic.kernel.core.events_schema import LearningEventPayload, SonaTickPayload
 from cynic.kernel.organism.brain.learning.loops import SONA
+from cynic.kernel.organism.brain.learning.qlearning import LearningLoop
+from cynic.kernel.organism.sona_emitter import SonaEmitter
 from cynic.kernel.organism.state_manager import StateSnapshot, _FrozenDict
-from cynic.kernel.core.events_schema import SonaTickPayload, LearningEventPayload
-
 
 # ════════════════════════════════════════════════════════════════════════════
 # TEST 1: SONA Emitter carries real QTable stats
@@ -38,7 +38,7 @@ async def test_sona_emitter_carries_real_qtable_stats():
     bus = EventBus(bus_id="test_sona_emitter_1")
     sona = SonaEmitter(bus=bus)
 
-    captured_payloads: List[SonaTickPayload] = []
+    captured_payloads: list[SonaTickPayload] = []
 
     async def capture_tick(event: Event) -> None:
         captured_payloads.append(event.as_typed(SonaTickPayload))
@@ -58,7 +58,7 @@ async def test_sona_emitter_carries_real_qtable_stats():
 
     # Test 1b: Inject mock QTable
     class MockQTable:
-        def stats(self) -> Dict[str, Any]:
+        def stats(self) -> dict[str, Any]:
             return {
                 "entries": 12,
                 "learning_rate": 0.05,
@@ -171,7 +171,7 @@ async def test_sona_aggregated_event_emitted():
     """
     bus = EventBus(bus_id="test_aggregated_event")
 
-    emitted_types: List[str] = []
+    emitted_types: list[str] = []
 
     async def capture_all(event: Event) -> None:
         emitted_types.append(event.type)

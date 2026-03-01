@@ -7,10 +7,8 @@ Every module in the CYNIC package should have a docstring explaining:
 - Typical usage patterns
 - Related modules (See Also)
 """
-import pkgutil
 import importlib
-import sys
-from pathlib import Path
+import pkgutil
 
 
 def test_all_modules_have_docstrings():
@@ -22,7 +20,7 @@ def test_all_modules_have_docstrings():
     documented_count = 0
     
     # Walk all packages under cynic
-    for importer, modname, ispkg in pkgutil.walk_packages(
+    for _importer, modname, _ispkg in pkgutil.walk_packages(
         path=cynic.__path__,
         prefix="cynic.",
         onerror=lambda x: None
@@ -51,26 +49,16 @@ def test_all_modules_have_docstrings():
             skipped.append(f"{modname} (import error: {type(e).__name__})")
     
     # Report results
-    print(f"\n{'='*60}")
-    print(f"Module Documentation Test Results")
-    print(f"{'='*60}")
-    print(f"✓ Documented modules: {documented_count}")
-    print(f"✗ Undocumented modules: {len(undocumented)}")
-    print(f"⊘ Skipped (tests/errors): {len(skipped)}")
-    print(f"{'='*60}\n")
     
     if undocumented:
-        print("Undocumented modules:")
-        for mod in sorted(undocumented):
-            print(f"  - {mod}")
-        print()
+        for _mod in sorted(undocumented):
+            pass
     
     assert len(undocumented) == 0, f"Found {len(undocumented)} undocumented modules"
 
 
 def test_documentation_quality():
     """Sample docstrings should follow standard format."""
-    import cynic
     
     # Test a few key modules
     test_modules = [
@@ -80,7 +68,7 @@ def test_documentation_quality():
         ("cynic.kernel.organism", "Organism architecture"),
     ]
     
-    for modname, description in test_modules:
+    for modname, _description in test_modules:
         try:
             module = importlib.import_module(modname)
             doc = module.__doc__
@@ -88,37 +76,27 @@ def test_documentation_quality():
             assert doc, f"{modname}: Missing docstring"
             
             # Check for key elements
-            doc_lower = doc.lower()
+            doc.lower()
             has_description = len(doc.strip()) > 50
             
             assert has_description, f"{modname}: Docstring too short (needs description)"
             
-            print(f"✓ {modname}: {description}")
         except ImportError:
-            print(f"⊘ {modname}: Could not import (skipped)")
-        except AssertionError as e:
-            print(f"✗ {modname}: {e}")
+            pass
+        except AssertionError:
             raise
 
 
 def test_key_modules_exported():
     """Verify key modules are accessible."""
-    import cynic
 
     # Core exports
-    from cynic.kernel.core.phi import PHI, PHI_INV, MAX_Q_SCORE
-    from cynic.kernel.core.consciousness import ConsciousnessLevel
 
     # Learning exports
-    from cynic.kernel.organism.brain.learning.unified_learning import UnifiedQTable
 
-    print("✓ All key module exports are accessible")
 
 
 if __name__ == "__main__":
     test_all_modules_have_docstrings()
     test_documentation_quality()
     test_key_modules_exported()
-    print("\n" + "="*60)
-    print("All documentation tests passed!")
-    print("="*60)

@@ -9,13 +9,13 @@ Subscribes to VALUE_CREATED events and calculates multidimensional impact:
 This agent turns raw actions into Sovereign Reputation (E-Score).
 """
 from __future__ import annotations
-import logging
-import time
-from typing import Any, Dict, List, Optional
 
-from cynic.kernel.core.event_bus import get_core_bus, CoreEvent, Event
-from cynic.kernel.core.unified_state import ValueCreation, ImpactMeasurement
+import logging
+from typing import Any
+
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
 from cynic.kernel.core.phi import PHI, PHI_INV
+from cynic.kernel.core.unified_state import ImpactMeasurement, ValueCreation
 
 logger = logging.getLogger("cynic.kernel.organism.brain.agents.sovereignty")
 

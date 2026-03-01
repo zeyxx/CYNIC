@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import sqlite3
 import asyncio
 import json
+import sqlite3
 from pathlib import Path
-from typing import Optional, Any
-from dataclasses import asdict
-from datetime import datetime
+from typing import Any
 
-from cynic.kernel.organism.brain.dialogue.models import UserMessage, CynicMessage, DialogueMessage
+from cynic.kernel.organism.brain.dialogue.models import CynicMessage, DialogueMessage, UserMessage
 
 
 class DialogueStore:
@@ -24,7 +22,7 @@ class DialogueStore:
         """
         self.db_path = db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._connection: Optional[sqlite3.Connection] = None
+        self._connection: sqlite3.Connection | None = None
 
     async def initialize(self) -> None:
         """Create tables and initialize database."""
@@ -153,7 +151,7 @@ class DialogueStore:
 
 
 # Global dialogue store instance
-_dialogue_store: Optional[DialogueStore] = None
+_dialogue_store: DialogueStore | None = None
 
 
 async def get_dialogue_store() -> DialogueStore:

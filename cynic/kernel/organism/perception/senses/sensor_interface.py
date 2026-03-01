@@ -8,10 +8,10 @@ This interface lets Track C create:
 
 Without modifying existing workers.
 """
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Any, Optional
 import time
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -52,7 +52,7 @@ class Sensor(ABC):
         ...
 
     @abstractmethod
-    async def perceive(self) -> Optional[Observation]:
+    async def perceive(self) -> Observation | None:
         """Poll sensor for next observation.
 
         Returns:
@@ -79,7 +79,7 @@ class Sensor(ABC):
             import asyncio
             obs = await asyncio.wait_for(self.perceive(), timeout=1.0)
             return obs is not None or True  # availability depends on sensor type
-        except (asyncio.TimeoutError, Exception):
+        except (TimeoutError, Exception):
             return False
 
     def stats(self) -> dict[str, Any]:

@@ -5,7 +5,7 @@ Exposes the LLM manifest and allows dynamic rescanning of the
 Organism's muscles.
 """
 from __future__ import annotations
-from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from cynic.interfaces.api.state import AppContainer, get_app_container

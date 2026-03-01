@@ -16,7 +16,7 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger("cynic.interfaces.mcp.empirical_runner")
 
@@ -35,7 +35,7 @@ class JobResult:
     learning_efficiency: float = 1.0  # ratio of final Q-gain to baseline
     emergences: int = 0  # count of EMERGENCE_DETECTED events
     duration_s: float = 0.0
-    error_message: Optional[str] = None
+    error_message: str | None = None
     timestamp: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict[str, Any]:
@@ -55,7 +55,7 @@ class EmpiricalRunner:
     - query_telemetry(metric: str) → {metric_name: value}
     """
 
-    def __init__(self, organism_getter: callable, results_dir: Optional[str] = None):
+    def __init__(self, organism_getter: callable, results_dir: str | None = None):
         """
         Initialize runner.
 
@@ -71,7 +71,7 @@ class EmpiricalRunner:
         self.jobs: dict[str, JobResult] = {}
         self.running_tasks: dict[str, asyncio.Task] = {}
 
-    async def spawn_test(self, count: int = 1000, seed: Optional[int] = None) -> str:
+    async def spawn_test(self, count: int = 1000, seed: int | None = None) -> str:
         """
         Spawn new empirical test job (async, returns immediately).
 
@@ -93,7 +93,7 @@ class EmpiricalRunner:
         logger.info(f"Spawned test job {job_id}: {count} iterations")
         return job_id
 
-    async def _run_test_loop(self, job_id: str, count: int, seed: Optional[int]) -> None:
+    async def _run_test_loop(self, job_id: str, count: int, seed: int | None) -> None:
         """
         Main test loop. Iterates through N judgments, collects Q-scores.
         """
@@ -187,7 +187,7 @@ class EmpiricalRunner:
             "error_message": result.error_message,
         }
 
-    async def get_results(self, job_id: str) -> Optional[dict[str, Any]]:
+    async def get_results(self, job_id: str) -> dict[str, Any] | None:
         """
         Get complete results (only available when status == "complete").
 
@@ -211,7 +211,7 @@ class EmpiricalRunner:
             "duration_s": result.duration_s,
         }
 
-    async def run_irreducibility_test(self, axiom: Optional[str] = None) -> dict[str, Any]:
+    async def run_irreducibility_test(self, axiom: str | None = None) -> dict[str, Any]:
         """
         Test axiom necessity by running 1000 iterations with axiom disabled.
 
@@ -264,5 +264,5 @@ class EmpiricalRunner:
             # Async file write
             await asyncio.to_thread(filepath.write_text, content)
             logger.info(f"Persisted result to {filepath}")
-        except Exception as e:
+        except Exception:
             logger.exception(f"Failed to persist {job_id}")

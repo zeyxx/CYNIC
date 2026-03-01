@@ -64,7 +64,7 @@ class TestHealthEnhanced:
         assert "event_bus" in components
         assert "consciousness" in components
 
-        for comp_name, comp_data in components.items():
+        for _comp_name, comp_data in components.items():
             assert "status" in comp_data
 
     def test_health_full_dogs_status(self, client):
@@ -168,7 +168,7 @@ class TestHealthEnhanced:
         # Even if some components down, response is valid
         assert "status" in data
         assert "components" in data
-        for comp_name, comp_data in data["components"].items():
+        for _comp_name, comp_data in data["components"].items():
             assert "status" in comp_data
             assert comp_data["status"] in ["healthy", "degraded", "unhealthy"]
 
@@ -218,7 +218,7 @@ class TestHealthIntegration:
 
         start = time.time()
         response = integration_client.get("/health/ready?timeout=2")
-        elapsed = time.time() - start
+        time.time() - start
 
         # Handle both success (200) and timeout (503) responses
         if response.status_code == 200:
@@ -229,7 +229,7 @@ class TestHealthIntegration:
             # When timeout, waited_seconds is in the detail or top-level
             waited = data.get("waited_seconds") or data.get("detail", {}).get("waited_seconds")
         else:
-            assert False, f"Unexpected status code: {response.status_code}"
+            raise AssertionError(f"Unexpected status code: {response.status_code}")
 
         # Should have reasonable polling resolution
         assert waited is not None

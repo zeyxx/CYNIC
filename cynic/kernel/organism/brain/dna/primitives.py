@@ -4,12 +4,11 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 from uuid import uuid4
 
-from cynic.kernel.core.judgment import Cell, Judgment
-from cynic.kernel.core.phi import MAX_Q_SCORE, PHI_INV, MAX_CONFIDENCE
-
+from cynic.kernel.core.judgment import Cell
+from cynic.kernel.core.phi import MAX_CONFIDENCE
 
 # ============================================================================
 # DATA TYPES (What primitives work with)
@@ -196,7 +195,7 @@ def DECIDE(
         "FIDELITY": {"alert": 0.4, "report": 0.4, "learn": 0.2},
     }
 
-    weights = axiom_weights.get(axiom, axiom_weights["PHI"])
+    axiom_weights.get(axiom, axiom_weights["PHI"])
 
     # Choose action based on judgment + axiom
     if judgment.q_score > 80:

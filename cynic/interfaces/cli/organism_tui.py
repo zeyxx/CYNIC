@@ -11,11 +11,12 @@ Features:
 from __future__ import annotations
 
 import asyncio
-import time
 import logging
+import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
+from rich import box
 from rich.console import Console, Group
 from rich.layout import Layout
 from rich.live import Live
@@ -23,9 +24,6 @@ from rich.panel import Panel
 from rich.progress import BarColumn, Progress, TextColumn
 from rich.table import Table
 from rich.text import Text
-from rich import box
-
-from cynic.kernel.core.phi import PHI_INV, PHI
 
 logger = logging.getLogger("cynic.interfaces.cli.tui")
 
@@ -36,7 +34,7 @@ class OrganismTUI:
         self.organism = organism
         self.console = Console()
         self._start_time = time.time()
-        self._recent_events: List[Dict[str, Any]] = []
+        self._recent_events: list[dict[str, Any]] = []
         self._max_events = 10
         self._running = False
 
@@ -81,7 +79,7 @@ class OrganismTUI:
         
         grid.add_row(
             Text.from_markup(f" κυνικός | {conx} "),
-            Text(f"V4.0 INFINITE & PERFECT", style="bold white"),
+            Text("V4.0 INFINITE & PERFECT", style="bold white"),
             Text(f"UPTIME: {uptime} ", style="bold green"),
         )
         return Panel(grid, style="white on blue")
@@ -246,7 +244,9 @@ class OrganismTUI:
                 while self._running:
                     try:
                         # Refresh global state snapshot (triggers remote detection)
-                        from cynic.kernel.observability.symbiotic_state_manager import get_current_state
+                        from cynic.kernel.observability.symbiotic_state_manager import (
+                            get_current_state,
+                        )
                         await get_current_state()
                         
                         # Update the live display with a fresh render

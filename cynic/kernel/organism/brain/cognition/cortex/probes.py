@@ -20,10 +20,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-
 from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.phi import MAX_Q_SCORE
-
 
 # -- Data classes ------------------------------------------------------------
 

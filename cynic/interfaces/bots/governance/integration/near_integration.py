@@ -1,7 +1,8 @@
 """NEAR transaction integration"""
 
+from typing import Any
+
 from governance_bot.near_keys import KeyManager
-from typing import Dict, Any
 
 
 class TransactionSigner:
@@ -21,7 +22,7 @@ class TransactionSigner:
         actions: list,
         nonce: int,
         block_hash: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a signed transaction"""
         # Transaction structure for NEAR
         transaction = {
@@ -40,7 +41,7 @@ class NonceManager:
     """Track account nonces for transactions"""
 
     def __init__(self):
-        self.nonces: Dict[str, int] = {}
+        self.nonces: dict[str, int] = {}
 
     def get_next_nonce(self, account_id: str) -> int:
         """Get next nonce for account"""
@@ -72,7 +73,7 @@ class NearRpcClient:
         if self.session:
             await self.session.close()
 
-    async def _call_rpc(self, method: str, params: Dict[str, Any]) -> Dict:
+    async def _call_rpc(self, method: str, params: dict[str, Any]) -> dict:
         """Call NEAR RPC method"""
         import aiohttp
         if not self.session:
@@ -98,7 +99,7 @@ class NearRpcClient:
 
         return result["result"]["nonce"]
 
-    async def send_transaction(self, transaction: Dict[str, Any]) -> str:
+    async def send_transaction(self, transaction: dict[str, Any]) -> str:
         """Send transaction and return hash"""
         result = await self._call_rpc("broadcast_tx_commit", {
             "signed_tx": transaction
@@ -114,7 +115,7 @@ class NearRpcClient:
         tx_hash: str,
         max_polls: int = 10,
         poll_interval: float = 1.0
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Poll for transaction confirmation"""
         import asyncio
         for attempt in range(max_polls):

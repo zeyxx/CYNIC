@@ -9,12 +9,12 @@ Tests the complete workflow of:
 
 import pytest
 
-from cynic.kernel.observability.symbiotic_state_manager import get_current_state
 from cynic.kernel.observability.cli.views import (
-    render_observe_view,
     render_cynic_view,
     render_machine_view,
+    render_observe_view,
 )
+from cynic.kernel.observability.symbiotic_state_manager import get_current_state
 
 
 @pytest.mark.asyncio

@@ -12,14 +12,14 @@ These tests verify:
 8. Concurrent message handling
 """
 
-import pytest
 import asyncio
-from unittest.mock import Mock, AsyncMock, MagicMock, patch
-from typing import Optional
+from unittest.mock import Mock
 
-from cynic.interfaces.bots.bot_interface import BotInterface, BotCommand, BotResponse
-from cynic.kernel.core.unified_state import UnifiedConsciousState, UnifiedJudgment
+import pytest
+
+from cynic.interfaces.bots.bot_interface import BotCommand, BotInterface, BotResponse
 from cynic.interfaces.bots.governance.adapters.telegram_adapter import TelegramAdapter
+from cynic.kernel.core.unified_state import UnifiedConsciousState
 
 
 class TestTelegramAdapterImplementsInterface:
@@ -507,7 +507,7 @@ class TestTelegramAdapterJudgmentStatus:
             platform="telegram",
         )
 
-        response = await adapter.handle_command(cmd)
+        await adapter.handle_command(cmd)
 
         # Should have called methods on consciousness_state
         mock_state.get_recent_judgments.assert_called()

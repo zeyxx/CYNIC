@@ -1,8 +1,7 @@
 """Tests for ConsciousnessService — 7-layer HUB aggregating all consciousness layers."""
 
-import asyncio
 import pytest
-from datetime import datetime
+
 from cynic.interfaces.api.services.consciousness_service import ConsciousnessService
 
 

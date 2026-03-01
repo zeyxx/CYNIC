@@ -9,10 +9,9 @@ Verifies that:
 - Database health checks
 """
 
-import pytest
+import sys
 from pathlib import Path
 
-import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "governance_bot"))
 
 from cynic.interfaces.bots.governance.core.database import db_health_check
@@ -75,6 +74,7 @@ class TestSessionContextAPI:
     def test_session_context_accepts_auto_commit(self):
         """session_context accepts auto_commit parameter"""
         import inspect
+
         from cynic.interfaces.bots.governance.core.database import session_context
 
         sig = inspect.signature(session_context.__wrapped__)
@@ -84,7 +84,7 @@ class TestSessionContextAPI:
 
     def test_session_context_documented(self):
         """session_context documents auto_commit parameter"""
-        import inspect
+
         from cynic.interfaces.bots.governance.core.database import session_context
 
         doc = session_context.__wrapped__.__doc__
@@ -106,7 +106,7 @@ class TestTransactionContextAPI:
 
     def test_transaction_context_documented(self):
         """transaction_context documents manual control"""
-        import inspect
+
         from cynic.interfaces.bots.governance.core.database import transaction_context
 
         doc = transaction_context.__wrapped__.__doc__
@@ -121,6 +121,7 @@ class TestDataConsistencyChecking:
     def test_verify_data_consistency_is_async(self):
         """verify_data_consistency is an async function"""
         import inspect
+
         from cynic.interfaces.bots.governance.core.database import verify_data_consistency
 
         assert inspect.iscoroutinefunction(verify_data_consistency)
@@ -132,6 +133,7 @@ class TestConnectionPoolConfiguration:
     def test_pool_size_configured_to_five(self):
         """Connection pool is configured with pool_size=5"""
         import inspect
+
         from cynic.interfaces.bots.governance.core.database import init_db
 
         source = inspect.getsource(init_db)
@@ -147,6 +149,7 @@ class TestBackupRestoreFunctions:
     def test_backup_database_is_async(self):
         """backup_database is an async function"""
         import inspect
+
         from cynic.interfaces.bots.governance.core.database import backup_database
 
         assert inspect.iscoroutinefunction(backup_database)
@@ -154,6 +157,7 @@ class TestBackupRestoreFunctions:
     def test_backup_database_has_backup_dir_param(self):
         """backup_database accepts backup_dir parameter"""
         import inspect
+
         from cynic.interfaces.bots.governance.core.database import backup_database
 
         sig = inspect.signature(backup_database)
@@ -164,6 +168,7 @@ class TestBackupRestoreFunctions:
     def test_restore_database_is_async(self):
         """restore_database is an async function"""
         import inspect
+
         from cynic.interfaces.bots.governance.core.database import restore_database
 
         assert inspect.iscoroutinefunction(restore_database)
@@ -171,6 +176,7 @@ class TestBackupRestoreFunctions:
     def test_restore_database_has_backup_file_param(self):
         """restore_database accepts backup_file parameter"""
         import inspect
+
         from cynic.interfaces.bots.governance.core.database import restore_database
 
         sig = inspect.signature(restore_database)
@@ -185,6 +191,7 @@ class TestErrorHandlingInSessionContext:
     def test_session_context_includes_rollback(self):
         """session_context includes rollback on error"""
         import inspect
+
         from cynic.interfaces.bots.governance.core.database import session_context
 
         source = inspect.getsource(session_context.__wrapped__)
@@ -195,6 +202,7 @@ class TestErrorHandlingInSessionContext:
     def test_close_db_has_backup_parameter(self):
         """close_db accepts create_backup parameter"""
         import inspect
+
         from cynic.interfaces.bots.governance.core.database import close_db
 
         sig = inspect.signature(close_db)
@@ -205,6 +213,7 @@ class TestErrorHandlingInSessionContext:
     def test_close_db_backup_default_true(self):
         """close_db creates backup by default"""
         import inspect
+
         from cynic.interfaces.bots.governance.core.database import close_db
 
         sig = inspect.signature(close_db)
@@ -230,7 +239,6 @@ class TestDatabaseReliabilityDocumentation:
 
     def test_database_health_check_class_documented(self):
         """DatabaseHealthCheck class is documented"""
-        from cynic.interfaces.bots.governance.core.database import db_health_check
 
         doc = DatabaseHealthCheck.__doc__
 
@@ -239,7 +247,7 @@ class TestDatabaseReliabilityDocumentation:
 
     def test_backup_function_documented(self):
         """backup_database function is documented"""
-        import inspect
+
         from cynic.interfaces.bots.governance.core.database import backup_database
 
         doc = backup_database.__doc__
@@ -253,21 +261,18 @@ class TestGlobalHealthCheckInstance:
 
     def test_db_health_check_global_exists(self):
         """Global db_health_check instance is created"""
-        from cynic.interfaces.bots.governance.core.database import db_health_check
 
         assert db_health_check is not None
         assert isinstance(db_health_check, DatabaseHealthCheck)
 
     def test_db_health_check_has_check_method(self):
         """db_health_check has check_health method"""
-        from cynic.interfaces.bots.governance.core.database import db_health_check
 
         assert hasattr(db_health_check, "check_health")
         assert callable(db_health_check.check_health)
 
     def test_db_health_check_has_get_status_method(self):
         """db_health_check has get_status method"""
-        from cynic.interfaces.bots.governance.core.database import db_health_check
 
         assert hasattr(db_health_check, "get_status")
         assert callable(db_health_check.get_status)

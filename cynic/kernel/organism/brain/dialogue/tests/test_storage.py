@@ -1,12 +1,13 @@
 """Tests for dialogue storage backend."""
 
-import pytest
 import tempfile
-import asyncio
 import time
 from pathlib import Path
+
+import pytest
+
+from cynic.kernel.organism.brain.dialogue.models import CynicMessage, UserMessage
 from cynic.kernel.organism.brain.dialogue.storage import DialogueStore
-from cynic.kernel.organism.brain.dialogue.models import UserMessage, CynicMessage
 
 
 @pytest.fixture
@@ -67,8 +68,8 @@ async def test_get_conversation_context(dialogue_store):
     msg1 = UserMessage("question", "What do you think?", 0.5, "j123")
     msg2 = CynicMessage("reasoning", "I think...", 0.5, {}, "j123")
 
-    id1 = await dialogue_store.save_message(msg1)
-    id2 = await dialogue_store.save_message(msg2)
+    await dialogue_store.save_message(msg1)
+    await dialogue_store.save_message(msg2)
 
     context = await dialogue_store.get_conversation_context("j123")
     assert len(context) >= 2

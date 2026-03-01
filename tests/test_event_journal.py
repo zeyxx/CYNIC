@@ -1,8 +1,10 @@
 """Tests for EventJournal — sequence recording and causality tracing."""
 
 import asyncio
+
 import pytest
-from cynic.nervous.event_journal import EventJournal, EventCategory, JOURNAL_CAP
+
+from cynic.nervous.event_journal import JOURNAL_CAP, EventCategory, EventJournal
 
 
 @pytest.fixture
@@ -59,14 +61,14 @@ async def test_recent_events(journal):
 async def test_filter_by_type(journal):
     """Test filtering by event type."""
     # Record mixed event types
-    for i in range(3):
+    for _i in range(3):
         await journal.record(
             event_type="JUDGMENT_CREATED",
             category=EventCategory.JUDGMENT,
             source="SAGE",
             payload={},
         )
-    for i in range(2):
+    for _i in range(2):
         await journal.record(
             event_type="DECISION_MADE",
             category=EventCategory.DECISION,
@@ -87,14 +89,14 @@ async def test_filter_by_type(journal):
 @pytest.mark.asyncio
 async def test_filter_by_source(journal):
     """Test filtering by event source (component)."""
-    for i in range(3):
+    for _i in range(3):
         await journal.record(
             event_type="SCORED",
             category=EventCategory.JUDGMENT,
             source="SAGE",
             payload={},
         )
-    for i in range(2):
+    for _i in range(2):
         await journal.record(
             event_type="SCORED",
             category=EventCategory.JUDGMENT,
@@ -116,7 +118,7 @@ async def test_filter_by_category(journal):
     """Test filtering by event category."""
     # Record events in different categories
     for cat in [EventCategory.PERCEPTION, EventCategory.JUDGMENT, EventCategory.ACTION]:
-        for i in range(2):
+        for _i in range(2):
             await journal.record(
                 event_type="TEST",
                 category=cat,
@@ -142,7 +144,7 @@ async def test_time_range(journal):
     start_ms = time.time() * 1000.0
 
     # Record events
-    for i in range(3):
+    for _i in range(3):
         await journal.record(
             event_type="TEST",
             category=EventCategory.SYSTEM,
@@ -446,7 +448,7 @@ async def test_snapshot_preserves_all_entries(journal):
 async def test_clear_journal(journal):
     """Test clearing the journal."""
     # Record 10 events
-    for i in range(10):
+    for _i in range(10):
         await journal.record(
             event_type="TEST",
             category=EventCategory.SYSTEM,
@@ -469,7 +471,6 @@ async def test_clear_journal(journal):
 @pytest.mark.asyncio
 async def test_event_id_deterministic(journal):
     """Test that event IDs are deterministic for same (timestamp, source, type)."""
-    import time
 
     # Can't easily force same timestamp due to system resolution,
     # but we can verify ID format is consistent
@@ -489,7 +490,7 @@ async def test_event_id_deterministic(journal):
 async def test_filter_with_limit(journal):
     """Test that filters respect limit parameter."""
     # Record 20 events of same type
-    for i in range(20):
+    for _i in range(20):
         await journal.record(
             event_type="BULK_TEST",
             category=EventCategory.SYSTEM,

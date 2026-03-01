@@ -1,6 +1,11 @@
 """CYNIC Learning System — Q-Learning + Thompson Sampling + SONA."""
-from cynic.kernel.organism.brain.learning.qlearning import QTable, QEntry, LearningSignal
-from cynic.kernel.organism.brain.learning.loops import SONA, get_sona, create_learning_loops, LEARNING_LOOPS
+from cynic.kernel.organism.brain.learning.loops import (
+    LEARNING_LOOPS,
+    SONA,
+    create_learning_loops,
+    get_sona,
+)
+from cynic.kernel.organism.brain.learning.qlearning import LearningSignal, QEntry, QTable
 from cynic.kernel.organism.brain.learning.relationship_memory import RelationshipMemory
 
 __all__ = [

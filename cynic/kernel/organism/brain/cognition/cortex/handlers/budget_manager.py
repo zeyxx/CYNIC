@@ -13,12 +13,12 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
-from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
 from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.phi import PHI, PHI_INV, PHI_INV_2
 from cynic.kernel.core.event_bus import EventBusError
+from cynic.kernel.core.phi import PHI
+from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.handlers.budget_manager")
 
@@ -38,8 +38,8 @@ class BudgetManager(BaseHandler):
 
     def __init__(
         self,
-        axiom_monitor: Optional[Any] = None,
-        lod_controller: Optional[Any] = None,
+        axiom_monitor: Any | None = None,
+        lod_controller: Any | None = None,
         **kwargs: Any,
     ) -> None:
         self.axiom_monitor = axiom_monitor

@@ -26,26 +26,27 @@ Auth:
 """
 from __future__ import annotations
 
-import httpx
 import logging
 import os
 import time
 import uuid
-from typing import Any, Optional
+from typing import Any
+
+import httpx
 
 from cynic.kernel.core.formulas import ACT_LOG_CAP
 from cynic.kernel.core.storage.interface import (
-    StorageInterface,
-    JudgmentRepoInterface,
-    QTableRepoInterface,
-    LearningRepoInterface,
-    BenchmarkRepoInterface,
-    ResidualRepoInterface,
-    SDKSessionRepoInterface,
-    ScholarRepoInterface,
     ActionProposalRepoInterface,
-    DogSoulRepoInterface,
     AxiomFacetRepoInterface,
+    BenchmarkRepoInterface,
+    DogSoulRepoInterface,
+    JudgmentRepoInterface,
+    LearningRepoInterface,
+    QTableRepoInterface,
+    ResidualRepoInterface,
+    ScholarRepoInterface,
+    SDKSessionRepoInterface,
+    StorageInterface,
 )
 
 logger = logging.getLogger("cynic.storage.surreal")
@@ -127,7 +128,7 @@ class JudgmentRepo(JudgmentRepoInterface):
             "created_at": judgment.get("created_at", time.time()),
         })
 
-    async def get(self, judgment_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, judgment_id: str) -> dict[str, Any] | None:
         result = await self._db.query(
             "SELECT * FROM judgment WHERE judgment_id = $jid LIMIT 1",
             {"jid": judgment_id},
@@ -136,7 +137,7 @@ class JudgmentRepo(JudgmentRepoInterface):
         return rows[0] if rows else None
 
     async def recent(
-        self, reality: Optional[str] = None, limit: int = 55
+        self, reality: str | None = None, limit: int = 55
     ) -> list[dict[str, Any]]:
         if reality:
             result = await self._db.query(
@@ -187,7 +188,7 @@ class QTableRepo(QTableRepoInterface):
     async def update(self, state_key: str, action: str, q_value: float) -> None:
         rec_id = self._rec_id(state_key, action)
         # Fetch existing to increment visit_count
-        existing: Optional[dict] = None
+        existing: dict | None = None
         try:
             existing = await self._db.select(rec_id)
         except (httpx.RequestError, Exception):
@@ -257,7 +258,7 @@ class BenchmarkRepo(BenchmarkRepoInterface):
             "created_at": time.time(),
         })
 
-    async def best_llm_for(self, dog_id: str, task_type: str) -> Optional[str]:
+    async def best_llm_for(self, dog_id: str, task_type: str) -> str | None:
         since = time.time() - 7 * 86400
         result = await self._db.query(
             "SELECT llm_id, math::mean(composite_score) AS avg_score "
@@ -342,7 +343,7 @@ class SDKSessionRepo(SDKSessionRepoInterface):
         rows = _rows(result)
         return rows[0] if rows else {}
 
-    async def get_last_cli_session_id(self, cwd: str = "") -> Optional[str]:
+    async def get_last_cli_session_id(self, cwd: str = "") -> str | None:
         """Return the most recent cli_session_id, optionally filtered by cwd."""
         if cwd:
             result = await self._db.query(
@@ -459,7 +460,7 @@ class DogSoulRepo(DogSoulRepoInterface):
             "updated_at": time.time(),
         })
 
-    async def get(self, dog_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, dog_id: str) -> dict[str, Any] | None:
         """Load a dog's soul by dog_id. Returns None if not found."""
         result = await self._db.query(
             "SELECT * FROM $id",
@@ -558,11 +559,11 @@ class SurrealStorage(StorageInterface):
     @classmethod
     async def create(
         cls,
-        url: Optional[str] = None,
-        user: Optional[str] = None,
-        password: Optional[str] = None,
-        namespace: Optional[str] = None,
-        database: Optional[str] = None,
+        url: str | None = None,
+        user: str | None = None,
+        password: str | None = None,
+        namespace: str | None = None,
+        database: str | None = None,
     ) -> SurrealStorage:
         """Factory: connect + create schema. Call once at startup."""
         storage = cls(
@@ -654,15 +655,15 @@ class SurrealStorage(StorageInterface):
 # MODULE-LEVEL SINGLETON (Phase 1B: Wrapper for server.py bootstrap)
 # ════════════════════════════════════════════════════════════════════════════
 
-_storage: Optional[SurrealStorage] = None
+_storage: SurrealStorage | None = None
 
 
 async def init_storage(
-    url: Optional[str] = None,
-    user: Optional[str] = None,
-    password: Optional[str] = None,
-    namespace: Optional[str] = None,
-    database: Optional[str] = None,
+    url: str | None = None,
+    user: str | None = None,
+    password: str | None = None,
+    namespace: str | None = None,
+    database: str | None = None,
 ) -> SurrealStorage:
     """Initialize module-level storage singleton."""
     global _storage

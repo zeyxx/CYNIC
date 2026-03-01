@@ -8,13 +8,14 @@ Verify:
 4. /health/events shows event pipeline status
 """
 
-import pytest
 import asyncio
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 from uuid import uuid4
 
-from cynic.kernel.core.event_bus import Event, CoreEvent
+import pytest
+
+from cynic.kernel.core.event_bus import CoreEvent, Event
 
 
 class TestJudgmentFailureHandling:
@@ -24,7 +25,6 @@ class TestJudgmentFailureHandling:
     @pytest.mark.asyncio
     async def test_record_judgment_failed_creates_bark_verdict(self):
         """record_judgment_failed creates snapshot with BARK verdict."""
-        from cynic.kernel.core.unified_state import UnifiedConsciousState
 
         cs = ConsciousState()
         judgment_id = str(uuid4())
@@ -41,8 +41,7 @@ class TestJudgmentFailureHandling:
     @pytest.mark.asyncio
     async def test_on_judgment_failed_updates_pending_snapshot(self):
         """_on_judgment_failed updates PENDING snapshot to BARK."""
-        from cynic.kernel.core.unified_state import UnifiedConsciousState
-        from cynic.kernel.core.event_bus import Event, CoreEvent
+        from cynic.kernel.core.event_bus import CoreEvent, Event
 
         cs = ConsciousState()
         judgment_id = str(uuid4())
@@ -82,8 +81,9 @@ class TestPollingTimeout:
         # This is more of a FastAPI schema test
         # Actual timeout behavior tested in integration tests
         # Here we just verify the query parameter signature
-        from cynic.interfaces.api.routers.core import get_judgment_result
         import inspect
+
+        from cynic.interfaces.api.routers.core import get_judgment_result
 
         sig = inspect.signature(get_judgment_result)
         assert "timeout_ms" in sig.parameters
@@ -95,13 +95,12 @@ class TestPollingTimeout:
     @pytest.mark.asyncio
     async def test_get_judgment_returns_bark_verdict_on_failure(self):
         """GET /judge/{id} returns BARK verdict when judgment failed."""
-        from cynic.kernel.core.unified_state import UnifiedConsciousState
 
         cs = ConsciousState()
         judgment_id = str(uuid4())
 
         # Create failed snapshot
-        failed_snapshot = JudgmentSnapshot(
+        JudgmentSnapshot(
             judgment_id=judgment_id,
             timestamp=time.time(),
             q_score=0.0,
@@ -204,8 +203,7 @@ class TestEventBusResilience:
     @pytest.mark.asyncio
     async def test_conscious_state_subscribes_to_judgment_failed(self):
         """UnifiedConsciousState subscribes to JUDGMENT_FAILED on initialize_from_buses."""
-        from cynic.kernel.core.unified_state import UnifiedConsciousState
-        from cynic.kernel.core.event_bus import EventBus, CoreEvent
+        from cynic.kernel.core.event_bus import CoreEvent, EventBus
 
         cs = ConsciousState()
 

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from .rpc_client import NEARRPCClient
 from .types import (
@@ -243,8 +242,8 @@ class NEARExecutor:
         """
         try:
             # Get nonce and block hash
-            nonce = await self.rpc_client.get_nonce(signer_id)
-            block_hash = await self.rpc_client.get_block_hash()
+            await self.rpc_client.get_nonce(signer_id)
+            await self.rpc_client.get_block_hash()
 
             logger.info(
                 "Executing contract call: %s.%s (proposal: %s, verdict: %s)",

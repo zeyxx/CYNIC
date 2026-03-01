@@ -1,6 +1,8 @@
 """Tests for symbiotic observability data models."""
+from dataclasses import fields, is_dataclass
+
 import pytest
-from dataclasses import is_dataclass, fields
+
 from cynic.kernel.observability.models import SymbioticState
 
 

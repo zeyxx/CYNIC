@@ -10,19 +10,25 @@ import asyncio
 import logging
 import time
 from collections import defaultdict
+
 try:
     from enum import StrEnum
 except ImportError:
     from enum import Enum
     class StrEnum(str, Enum): pass
 
-from typing import Any, Callable, Coroutine, Optional, Type, TypeVar, Union
+from collections.abc import Callable, Coroutine
+from typing import Any, TypeVar, Union
 
 logger = logging.getLogger("cynic.kernel.core.event_bus")
 
 T = TypeVar('T')  # Generic type for as_typed() method
 
-class EventBusError(Exception):
+class CynicError(Exception):
+    """Base class for all CYNIC exceptions."""
+    pass
+
+class EventBusError(CynicError):
     """Base class for all event bus errors."""
     pass
 
@@ -202,7 +208,7 @@ class Event:
     def typed(cls, type: CoreEvent, payload: Any = None, source: str = "unknown") -> Event:
         return cls(type.value, payload, source)
 
-    def as_typed(self, payload_type: Type[T]) -> T:
+    def as_typed(self, payload_type: type[T]) -> T:
         """Cast payload to the specified Pydantic model type."""
         if self.payload is None:
             raise EventBusError(f"Event has no payload for type {payload_type.__name__}")
@@ -222,7 +228,7 @@ class Event:
         """Check if this event has already been processed by a bus (genealogy tracking)."""
         return bus_name in self._genealogy
 
-    def with_genealogy(self, bus_name: str) -> "Event":
+    def with_genealogy(self, bus_name: str) -> Event:
         """Return a new event with the bus added to the genealogy path.
 
         This tracks which buses have processed the event to prevent re-forwarding loops.
@@ -256,11 +262,11 @@ class EventBus:
         self._pending_tasks: set[asyncio.Task] = set()
         self._handler_timeout_s = 30.0
 
-    def on(self, event_type: Union[str, CoreEvent], handler: Handler) -> None:
+    def on(self, event_type: str | CoreEvent, handler: Handler) -> None:
         e_type = event_type.value if isinstance(event_type, CoreEvent) else event_type
         self._handlers[e_type].append(handler)
 
-    def off(self, event_type: Union[str, CoreEvent], handler: Handler) -> None:
+    def off(self, event_type: str | CoreEvent, handler: Handler) -> None:
         e_type = event_type.value if isinstance(event_type, CoreEvent) else event_type
         if e_type in self._handlers and handler in self._handlers[e_type]:
             self._handlers[e_type].remove(handler)
@@ -286,7 +292,7 @@ class EventBus:
     async def _run_handler(self, handler: Handler, event: Event) -> None:
         try:
             await asyncio.wait_for(handler(event), timeout=self._handler_timeout_s)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self._error_count += 1
             logger.warning("Handler timeout on bus %s: %s", self.bus_id, event.type)
         except Exception as e:
@@ -303,7 +309,7 @@ class EventBus:
                 asyncio.gather(*self._pending_tasks, return_exceptions=True),
                 timeout=timeout
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("EventBus '%s': drain timed out", self.bus_id)
         finally:
             self._pending_tasks.clear()

@@ -9,6 +9,7 @@ Note: Learning endpoints are in core.py (/api/learn)
 from __future__ import annotations
 
 import logging
+
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 

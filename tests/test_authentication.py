@@ -12,10 +12,9 @@ import pytest
 
 pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - governance_bot module not found")
 
-import os
 from governance_bot.auth import AuthManager
-from governance_bot.roles import RoleManager, UserRole
 from governance_bot.config import Config
+from governance_bot.roles import RoleManager, UserRole
 
 
 class TestAuthenticationSetup:
@@ -40,7 +39,7 @@ class TestAuthenticationSetup:
     def test_auth_defaults(self):
         """Test default auth configuration"""
         config = Config()
-        assert config.auth.enable_auth == False
+        assert config.auth.enable_auth is False
         assert config.auth.jwt_algorithm == "HS256"
         assert config.auth.jwt_expiry_hours == 24
 

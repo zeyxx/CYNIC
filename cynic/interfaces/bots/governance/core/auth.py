@@ -8,10 +8,9 @@ Provides:
 - User authentication flow
 """
 
-import jwt
 from datetime import datetime, timedelta
-from typing import Dict, Optional
-from . import config
+
+import jwt
 
 
 class AuthManager:
@@ -55,7 +54,7 @@ class AuthManager:
 
         return jwt.encode(payload, self.secret, algorithm=self.algorithm)
 
-    def verify_token(self, token: str) -> Optional[Dict]:
+    def verify_token(self, token: str) -> dict | None:
         """
         Verify and decode JWT token.
 
@@ -88,7 +87,7 @@ class AuthManager:
 
         return required_role in payload.get("roles", [])
 
-    def get_user_from_token(self, token: str) -> Optional[str]:
+    def get_user_from_token(self, token: str) -> str | None:
         """
         Extract user ID from token.
 

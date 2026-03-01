@@ -8,9 +8,8 @@ tracking/filtering.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
-from cynic.kernel.organism.perception.senses.sensor_interface import Sensor, Observation
+from cynic.kernel.organism.perception.senses.sensor_interface import Observation, Sensor
 
 logger = logging.getLogger("cynic.kernel.organism.perception.senses.empirical_sensor")
 
@@ -46,7 +45,7 @@ class EmpiricalSensor(Sensor):
         self._index = 0
         logger.debug(f"EmpiricalSensor({self._name}) started: {len(self._observations)} observations queued")
 
-    async def perceive(self) -> Optional[Observation]:
+    async def perceive(self) -> Observation | None:
         """
         Pop next observation from queue.
 

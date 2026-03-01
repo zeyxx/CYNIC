@@ -6,6 +6,7 @@ pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - governanc
 
 from governance_bot.proposal_templates import ProposalTemplates, ProposalType, StructuredProposal
 
+
 class TestProposalTemplates:
     """Test proposal templates"""
 
@@ -51,7 +52,7 @@ class TestStructuredProposal:
 
         valid, errors = proposal.validate()
 
-        assert valid == True
+        assert valid is True
         assert len(errors) == 0
 
     def test_validate_incomplete_proposal(self):
@@ -69,7 +70,7 @@ class TestStructuredProposal:
 
         valid, errors = proposal.validate()
 
-        assert valid == False
+        assert valid is False
         assert len(errors) > 0
 
     def test_render_proposal(self):

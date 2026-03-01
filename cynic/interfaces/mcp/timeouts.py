@@ -15,7 +15,6 @@ See `.claude/KERNEL_GUIDANCE.md` for timeout philosophy.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional, Dict
 
 
 class TimeoutCategory(Enum):
@@ -42,7 +41,7 @@ class TimeoutConfig:
     """
 
     # Tool name → TimeoutCategory
-    TOOL_TIMEOUTS: Dict[str, TimeoutCategory] = {
+    TOOL_TIMEOUTS: dict[str, TimeoutCategory] = {
         # ════════════════════════════════════════════════════════════════
         # FAST TOOLS (2s timeout) — Health checks, status, monitoring
         # ════════════════════════════════════════════════════════════════
@@ -81,7 +80,7 @@ class TimeoutConfig:
     }
 
     @classmethod
-    def get_timeout(cls, tool_name: str) -> Optional[float]:
+    def get_timeout(cls, tool_name: str) -> float | None:
         """
         Get timeout in seconds for a tool.
 

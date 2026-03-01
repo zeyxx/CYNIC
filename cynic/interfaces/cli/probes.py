@@ -8,8 +8,10 @@ import sys
 
 from cynic.interfaces.cli.utils import (
     _CYNIC_DIR,
-    _api_get, _read_json,
-    _c, _bar, _ago,
+    _api_get,
+    _bar,
+    _c,
+    _read_json,
 )
 
 # Probe dimension → color
@@ -35,7 +37,7 @@ def cmd_probes() -> None:
     filter_status = (args[0].upper() if args else "PENDING")
 
     # Try API first
-    path = f"/self-probes" + ("" if filter_status == "PENDING" else f"?status={filter_status}")
+    path = "/self-probes" + ("" if filter_status == "PENDING" else f"?status={filter_status}")
     data = _api_get(path)
 
     if data is None:
@@ -43,10 +45,6 @@ def cmd_probes() -> None:
         _SELF_PROPOSALS = os.path.join(_CYNIC_DIR, "self_proposals.json")
         raw = _read_json(_SELF_PROPOSALS)
         if not isinstance(raw, list):
-            print()
-            print(_c("gray", "  *sniff* No self-improvement proposals yet."))
-            print(_c("dim", "  Run server and trigger a judgment to generate probes."))
-            print()
             return
         all_p = raw
         proposals = (
@@ -60,61 +58,29 @@ def cmd_probes() -> None:
         api_ok = True
 
     if not proposals:
-        print()
-        print(_c("green", f"  *tail wag* No {filter_status.lower()} proposals."))
-        print(_c("dim",  f"  {'API' if api_ok else 'file'} mode — probes generated on EMERGENCE_DETECTED"))
-        print()
         return
 
-    print()
-    mode_note = "API mode" if api_ok else _c("orange", "file mode (server offline)")
-    print(_c("bold", f"  CYNIC SELF-PROBES — {len(proposals)} {filter_status.lower()}"))
-    print(f"  {_c('dim', mode_note)}")
-    print()
+    "API mode" if api_ok else _c("orange", "file mode (server offline)")
 
     for p in proposals:
         dim     = p.get("dimension", "?")
-        target  = p.get("target", "?")
-        rec     = p.get("recommendation", "")
+        p.get("target", "?")
+        p.get("recommendation", "")
         cur     = float(p.get("current_value", 0))
         sug     = float(p.get("suggested_value", 0))
         sev     = float(p.get("severity", 0))
-        ts      = float(p.get("proposed_at", 0))
-        pid     = p.get("probe_id", "?")
-        pattern = p.get("pattern_type", "?")
-        status  = p.get("status", "PENDING")
+        float(p.get("proposed_at", 0))
+        p.get("probe_id", "?")
+        p.get("pattern_type", "?")
+        p.get("status", "PENDING")
 
-        dim_col  = _PROBE_DIM_COLOR.get(dim, "white")
-        sev_col  = "red" if sev >= 0.7 else ("orange" if sev >= 0.4 else "yellow")
-        stat_col = "green" if status == "APPLIED" else ("dim" if status == "DISMISSED" else "yellow")
+        _PROBE_DIM_COLOR.get(dim, "white")
 
-        sev_bar = _bar(sev * 100, max_score=100.0, width=8)
+        _bar(sev * 100, max_score=100.0, width=8)
 
-        print(
-            f"  {_c(dim_col, f'[{dim}]')}"
-            f"  {pid}"
-            f"  {_ago(ts)}"
-            f"  pattern={_c('dim', pattern)}"
-        )
-        print(
-            f"  target={_c('bold', target[:50])}"
-            f"  severity={_c(sev_col, sev_bar)}"
-            f"  status={_c(stat_col, status)}"
-        )
-        print(f"  {rec[:100]}")
         if cur != sug:
-            print(f"  {_c('dim', f'current={cur:.4f} → suggested={sug:.4f}')}")
-        print()
+            pass
 
     # Summary stats
     if data and "stats" in data:
-        s = data["stats"]
-        print(
-            _c("dim",
-               f"  total={s.get('proposed_total',0)}"
-               f"  pending={s.get('pending',0)}"
-               f"  applied={s.get('applied',0)}"
-               f"  dismissed={s.get('dismissed',0)}"
-            )
-        )
-    print()
+        data["stats"]

@@ -8,7 +8,6 @@ Provides:
 - Metric updates and management
 """
 
-from typing import Dict, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -52,7 +51,7 @@ class ReputationScore:
             setattr(self, metric, bounded_value)
             self.last_updated = datetime.utcnow()
 
-    def get_metric(self, metric: str) -> Optional[float]:
+    def get_metric(self, metric: str) -> float | None:
         """
         Get value of a specific metric.
 
@@ -66,7 +65,7 @@ class ReputationScore:
             return getattr(self, metric)
         return None
 
-    def all_metrics(self) -> Dict[str, float]:
+    def all_metrics(self) -> dict[str, float]:
         """
         Get all metrics as dictionary.
 
@@ -101,7 +100,7 @@ class ReputationManager:
 
     def __init__(self):
         """Initialize reputation manager"""
-        self.scores: Dict[str, ReputationScore] = {}
+        self.scores: dict[str, ReputationScore] = {}
 
     def get_reputation(self, user_id: str) -> ReputationScore:
         """
@@ -268,7 +267,7 @@ class ReputationManager:
         """
         self.scores[user_id] = ReputationScore(user_id=user_id)
 
-    def get_all_users(self) -> Dict[str, ReputationScore]:
+    def get_all_users(self) -> dict[str, ReputationScore]:
         """
         Get all user reputation scores.
 

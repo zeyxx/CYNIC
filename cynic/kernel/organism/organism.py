@@ -5,13 +5,14 @@ Coordinates Brain, Body, Nerves and Memory via Event-driven architecture.
 One Organism per process. 
 """
 from __future__ import annotations
+
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from cynic.kernel.core.event_bus import get_core_bus, CoreEvent, Event
-from cynic.kernel.organism.anatomy import CognitionCore, MetabolicCore, SensoryCore, ArchiveCore
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.organism.anatomy import ArchiveCore, CognitionCore, MetabolicCore, SensoryCore
 from cynic.kernel.organism.state_manager import OrganismState
 
 # Aliases for assembler/builders
@@ -31,9 +32,9 @@ class Organism:
     memory: ArchiveCore
     state: OrganismState
     
-    _pool: Optional[Any] = None
+    _pool: Any | None = None
     container: Any = None
-    _handler_registry: Optional[Any] = None
+    _handler_registry: Any | None = None
     started_at: float = field(default_factory=time.time)
 
     def __post_init__(self):

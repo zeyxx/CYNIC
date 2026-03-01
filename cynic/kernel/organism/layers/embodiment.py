@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import logging
 import time
-import psutil
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
-from cynic.kernel.core.event_bus import get_core_bus, CoreEvent, Event
+import psutil
+
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
 from cynic.kernel.core.phi import PHI_INV
 
 logger = logging.getLogger("cynic.kernel.organism.layers.embodiment")
@@ -25,9 +26,9 @@ class SomaticState:
     cpu_percent: float = 0.0
     ram_percent: float = 0.0
     disk_usage: float = 0.0
-    battery_percent: Optional[float] = None
+    battery_percent: float | None = None
     is_charging: bool = True
-    cpu_temp: Optional[float] = None  # May not be available on all OS
+    cpu_temp: float | None = None  # May not be available on all OS
     timestamp: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict[str, Any]:
@@ -50,7 +51,7 @@ class HardwareBody:
     def __init__(self) -> None:
         from cynic.kernel.core.formulas import get_respiration_interval_s
         self.update_interval = get_respiration_interval_s()
-        self._last_state: Optional[SomaticState] = None
+        self._last_state: SomaticState | None = None
         self._start_time = time.time()
         self._bus = get_core_bus()
         # Initial synchronous pulse to seed the state

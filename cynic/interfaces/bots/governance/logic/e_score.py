@@ -13,8 +13,8 @@ Maps CYNIC's core axiomes to reputation dimensions:
 E-Scores are φ-bounded (max 0.618) for natural confidence limits.
 """
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 
 @dataclass
@@ -226,7 +226,7 @@ class EScoreManager:
             user_id: User identifier
             updates: Dictionary of {dimension: value}
         """
-        score = self.get_e_score(user_id)
+        self.get_e_score(user_id)
         for dimension, value in updates.items():
             self.update_dimension(user_id, dimension, value)
 

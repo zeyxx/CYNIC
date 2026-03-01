@@ -1,8 +1,8 @@
 """Proposal templates for standardized governance"""
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 from enum import Enum
+
 
 class ProposalType(str, Enum):
     """Types of proposals"""
@@ -17,7 +17,7 @@ class ProposalTemplate:
     """Template for standardized proposals"""
     title_template: str
     description_template: str
-    required_fields: List[str]
+    required_fields: list[str]
     voting_period_days: int = 3
     approval_threshold_percent: float = 50.0
 
@@ -80,10 +80,10 @@ class StructuredProposal:
     """Structured proposal with validated fields"""
     proposal_id: str
     proposal_type: ProposalType
-    fields: Dict[str, str]
+    fields: dict[str, str]
     template: ProposalTemplate
 
-    def validate(self) -> Tuple[bool, List[str]]:
+    def validate(self) -> tuple[bool, list[str]]:
         """Validate proposal against template"""
         errors = []
 
@@ -95,7 +95,7 @@ class StructuredProposal:
 
         return len(errors) == 0, errors
 
-    def render(self) -> Tuple[str, str]:
+    def render(self) -> tuple[str, str]:
         """Render title and description"""
         try:
             title = self.template.title_template.format(**self.fields)

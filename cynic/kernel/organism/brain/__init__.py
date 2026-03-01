@@ -1,13 +1,6 @@
 """Brain — integrated cognition system."""
 # Import submodules to make them accessible as brain.llm, brain.dialogue, etc.
-from . import llm
-from . import dialogue
-from . import cognition
-from . import learning
-from . import dna
-from . import consensus
-from . import collaborative
-from . import agents
+from . import agents, cognition, collaborative, consensus, dialogue, dna, learning, llm
 
 __all__ = [
     "llm",

@@ -9,10 +9,10 @@ Verifies that:
 - Configuration files are present
 """
 
-import pytest
 from pathlib import Path
+
+import pytest
 import yaml
-import json
 
 
 class TestDockerConfiguration:
@@ -25,7 +25,7 @@ class TestDockerConfiguration:
 
     def test_dockerfile_has_multi_stage_build(self):
         """Dockerfile uses multi-stage build for optimization"""
-        with open("docker/Dockerfile.governance", "r") as f:
+        with open("docker/Dockerfile.governance") as f:
             content = f.read()
 
         # Count FROM statements
@@ -34,14 +34,14 @@ class TestDockerConfiguration:
 
     def test_dockerfile_has_health_check(self):
         """Dockerfile includes HEALTHCHECK"""
-        with open("docker/Dockerfile.governance", "r") as f:
+        with open("docker/Dockerfile.governance") as f:
             content = f.read()
 
         assert "HEALTHCHECK" in content, "Dockerfile missing HEALTHCHECK directive"
 
     def test_dockerfile_creates_non_root_user(self):
         """Dockerfile creates non-root user"""
-        with open("docker/Dockerfile.governance", "r") as f:
+        with open("docker/Dockerfile.governance") as f:
             content = f.read()
 
         assert "useradd" in content, "Dockerfile should create non-root user"
@@ -53,7 +53,7 @@ class TestDockerConfiguration:
 
     def test_entrypoint_validates_token(self):
         """Entrypoint script validates DISCORD_TOKEN"""
-        with open("docker/entrypoint.sh", "r") as f:
+        with open("docker/entrypoint.sh") as f:
             content = f.read()
 
         assert "DISCORD_TOKEN" in content, "Entrypoint should validate DISCORD_TOKEN"
@@ -69,7 +69,7 @@ class TestDockerCompose:
 
     def test_docker_compose_governance_valid_yaml(self):
         """docker-compose.governance.yml is valid YAML"""
-        with open("docker-compose.governance.yml", "r") as f:
+        with open("docker-compose.governance.yml") as f:
             try:
                 yaml.safe_load(f)
             except yaml.YAMLError as e:
@@ -77,7 +77,7 @@ class TestDockerCompose:
 
     def test_docker_compose_has_governance_bot_service(self):
         """docker-compose.governance.yml defines governance-bot service"""
-        with open("docker-compose.governance.yml", "r") as f:
+        with open("docker-compose.governance.yml") as f:
             config = yaml.safe_load(f)
 
         assert "services" in config, "No services defined in docker-compose"
@@ -85,7 +85,7 @@ class TestDockerCompose:
 
     def test_docker_compose_defines_volumes(self):
         """docker-compose.governance.yml defines persistent volumes"""
-        with open("docker-compose.governance.yml", "r") as f:
+        with open("docker-compose.governance.yml") as f:
             config = yaml.safe_load(f)
 
         assert "volumes" in config, "No volumes defined"
@@ -93,7 +93,7 @@ class TestDockerCompose:
 
     def test_docker_compose_defines_networks(self):
         """docker-compose.governance.yml defines networks"""
-        with open("docker-compose.governance.yml", "r") as f:
+        with open("docker-compose.governance.yml") as f:
             config = yaml.safe_load(f)
 
         assert "networks" in config, "No networks defined"
@@ -109,7 +109,7 @@ class TestKubernetesConfiguration:
 
     def test_deployment_yaml_valid(self):
         """kubernetes/deployment.yaml is valid YAML"""
-        with open("kubernetes/deployment.yaml", "r") as f:
+        with open("kubernetes/deployment.yaml") as f:
             try:
                 # Load multiple documents
                 docs = list(yaml.safe_load_all(f))
@@ -119,7 +119,7 @@ class TestKubernetesConfiguration:
 
     def test_deployment_has_namespace(self):
         """deployment.yaml defines namespace"""
-        with open("kubernetes/deployment.yaml", "r") as f:
+        with open("kubernetes/deployment.yaml") as f:
             docs = list(yaml.safe_load_all(f))
 
         namespaces = [d for d in docs if d.get("kind") == "Namespace"]
@@ -127,7 +127,7 @@ class TestKubernetesConfiguration:
 
     def test_deployment_has_configmap(self):
         """deployment.yaml defines ConfigMap"""
-        with open("kubernetes/deployment.yaml", "r") as f:
+        with open("kubernetes/deployment.yaml") as f:
             docs = list(yaml.safe_load_all(f))
 
         configmaps = [d for d in docs if d.get("kind") == "ConfigMap"]
@@ -135,7 +135,7 @@ class TestKubernetesConfiguration:
 
     def test_deployment_has_secret(self):
         """deployment.yaml defines Secret"""
-        with open("kubernetes/deployment.yaml", "r") as f:
+        with open("kubernetes/deployment.yaml") as f:
             docs = list(yaml.safe_load_all(f))
 
         secrets = [d for d in docs if d.get("kind") == "Secret"]
@@ -143,7 +143,7 @@ class TestKubernetesConfiguration:
 
     def test_deployment_has_deployment_resource(self):
         """deployment.yaml defines Deployment resource"""
-        with open("kubernetes/deployment.yaml", "r") as f:
+        with open("kubernetes/deployment.yaml") as f:
             docs = list(yaml.safe_load_all(f))
 
         deployments = [d for d in docs if d.get("kind") == "Deployment"]
@@ -151,7 +151,7 @@ class TestKubernetesConfiguration:
 
     def test_deployment_has_hpa(self):
         """deployment.yaml defines HorizontalPodAutoscaler"""
-        with open("kubernetes/deployment.yaml", "r") as f:
+        with open("kubernetes/deployment.yaml") as f:
             docs = list(yaml.safe_load_all(f))
 
         hpas = [d for d in docs if d.get("kind") == "HorizontalPodAutoscaler"]
@@ -159,7 +159,7 @@ class TestKubernetesConfiguration:
 
     def test_deployment_has_pdb(self):
         """deployment.yaml defines PodDisruptionBudget"""
-        with open("kubernetes/deployment.yaml", "r") as f:
+        with open("kubernetes/deployment.yaml") as f:
             docs = list(yaml.safe_load_all(f))
 
         pdbs = [d for d in docs if d.get("kind") == "PodDisruptionBudget"]
@@ -172,7 +172,7 @@ class TestKubernetesConfiguration:
 
     def test_service_yaml_valid(self):
         """kubernetes/service.yaml is valid YAML"""
-        with open("kubernetes/service.yaml", "r") as f:
+        with open("kubernetes/service.yaml") as f:
             try:
                 docs = list(yaml.safe_load_all(f))
                 assert len(docs) > 0, "No YAML documents in service.yaml"
@@ -181,7 +181,7 @@ class TestKubernetesConfiguration:
 
     def test_service_has_services(self):
         """service.yaml defines Service resources"""
-        with open("kubernetes/service.yaml", "r") as f:
+        with open("kubernetes/service.yaml") as f:
             docs = list(yaml.safe_load_all(f))
 
         services = [d for d in docs if d.get("kind") == "Service"]
@@ -189,7 +189,7 @@ class TestKubernetesConfiguration:
 
     def test_service_has_network_policy(self):
         """service.yaml defines NetworkPolicy"""
-        with open("kubernetes/service.yaml", "r") as f:
+        with open("kubernetes/service.yaml") as f:
             docs = list(yaml.safe_load_all(f))
 
         policies = [d for d in docs if d.get("kind") == "NetworkPolicy"]
@@ -201,7 +201,7 @@ class TestHealthChecks:
 
     def test_deployment_has_liveness_probe(self):
         """Deployment defines liveness probe"""
-        with open("kubernetes/deployment.yaml", "r") as f:
+        with open("kubernetes/deployment.yaml") as f:
             docs = list(yaml.safe_load_all(f))
 
         deployments = [d for d in docs if d.get("kind") == "Deployment"]
@@ -216,7 +216,7 @@ class TestHealthChecks:
 
     def test_deployment_has_readiness_probe(self):
         """Deployment defines readiness probe"""
-        with open("kubernetes/deployment.yaml", "r") as f:
+        with open("kubernetes/deployment.yaml") as f:
             docs = list(yaml.safe_load_all(f))
 
         deployments = [d for d in docs if d.get("kind") == "Deployment"]
@@ -227,7 +227,7 @@ class TestHealthChecks:
 
     def test_deployment_has_startup_probe(self):
         """Deployment defines startup probe"""
-        with open("kubernetes/deployment.yaml", "r") as f:
+        with open("kubernetes/deployment.yaml") as f:
             docs = list(yaml.safe_load_all(f))
 
         deployments = [d for d in docs if d.get("kind") == "Deployment"]
@@ -247,7 +247,7 @@ class TestDocumentation:
 
     def test_deployment_guide_has_docker_section(self):
         """DEPLOYMENT_GUIDE.md covers Docker"""
-        with open("DEPLOYMENT_GUIDE.md", "r") as f:
+        with open("DEPLOYMENT_GUIDE.md") as f:
             content = f.read()
 
         assert "Docker Compose" in content, "No Docker Compose section"
@@ -255,7 +255,7 @@ class TestDocumentation:
 
     def test_deployment_guide_has_kubernetes_section(self):
         """DEPLOYMENT_GUIDE.md covers Kubernetes"""
-        with open("DEPLOYMENT_GUIDE.md", "r") as f:
+        with open("DEPLOYMENT_GUIDE.md") as f:
             content = f.read()
 
         assert "Kubernetes" in content, "No Kubernetes section"
@@ -263,7 +263,7 @@ class TestDocumentation:
 
     def test_deployment_guide_has_troubleshooting(self):
         """DEPLOYMENT_GUIDE.md includes troubleshooting"""
-        with open("DEPLOYMENT_GUIDE.md", "r") as f:
+        with open("DEPLOYMENT_GUIDE.md") as f:
             content = f.read()
 
         assert "Troubleshooting" in content, "No troubleshooting section"
@@ -274,7 +274,7 @@ class TestSecurityConfiguration:
 
     def test_kubernetes_has_rbac(self):
         """Kubernetes manifests define RBAC"""
-        with open("kubernetes/deployment.yaml", "r") as f:
+        with open("kubernetes/deployment.yaml") as f:
             docs = list(yaml.safe_load_all(f))
 
         roles = [d for d in docs if d.get("kind") == "Role"]
@@ -287,7 +287,7 @@ class TestSecurityConfiguration:
 
     def test_kubernetes_has_security_context(self):
         """Kubernetes Deployment includes security context"""
-        with open("kubernetes/deployment.yaml", "r") as f:
+        with open("kubernetes/deployment.yaml") as f:
             docs = list(yaml.safe_load_all(f))
 
         deployments = [d for d in docs if d.get("kind") == "Deployment"]
@@ -298,7 +298,7 @@ class TestSecurityConfiguration:
 
     def test_dockerfile_runs_as_nonroot(self):
         """Dockerfile runs as non-root user"""
-        with open("docker/Dockerfile.governance", "r") as f:
+        with open("docker/Dockerfile.governance") as f:
             content = f.read()
 
         assert "USER " in content, "Dockerfile doesn't specify USER"
@@ -314,7 +314,7 @@ class TestResourceConfiguration:
 
     def test_kubernetes_has_resource_requests(self):
         """Kubernetes Deployment defines resource requests"""
-        with open("kubernetes/deployment.yaml", "r") as f:
+        with open("kubernetes/deployment.yaml") as f:
             docs = list(yaml.safe_load_all(f))
 
         deployments = [d for d in docs if d.get("kind") == "Deployment"]
@@ -326,7 +326,7 @@ class TestResourceConfiguration:
 
     def test_kubernetes_has_resource_limits(self):
         """Kubernetes Deployment defines resource limits"""
-        with open("kubernetes/deployment.yaml", "r") as f:
+        with open("kubernetes/deployment.yaml") as f:
             docs = list(yaml.safe_load_all(f))
 
         deployments = [d for d in docs if d.get("kind") == "Deployment"]

@@ -29,20 +29,13 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
-import sys
 import time
 from collections import deque
 from dataclasses import asdict, dataclass, field
-from enum import Enum
-from typing import Any, Optional
 
 # Python 3.9 compatibility: StrEnum added in Python 3.11
-if sys.version_info >= (3, 11):
-    from enum import StrEnum
-else:
-    class StrEnum(str, Enum):
-        """Polyfill for Python <3.11."""
-        pass
+from enum import StrEnum
+from typing import Any
 
 from cynic.kernel.core.formulas import EVENT_JOURNAL_CAP
 
@@ -77,12 +70,12 @@ class JournalEntry:
     duration_ms: float = 0.0         # How long processing took
 
     # Causality tracking
-    parent_event_id: Optional[str] = None  # Which event triggered this
+    parent_event_id: str | None = None  # Which event triggered this
     child_event_ids: list[str] = field(default_factory=list)  # Events this triggered
 
     # Error tracking
     is_error: bool = False
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -122,10 +115,10 @@ class EventJournal:
         category: EventCategory,
         source: str,
         payload: dict[str, Any],
-        parent_event_id: Optional[str] = None,
+        parent_event_id: str | None = None,
         duration_ms: float = 0.0,
         is_error: bool = False,
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
     ) -> str:
         """
         Record an event in the journal.
@@ -248,7 +241,7 @@ class EventJournal:
             ]
             return entries  # Chronological order
 
-    async def get_event(self, event_id: str) -> Optional[JournalEntry]:
+    async def get_event(self, event_id: str) -> JournalEntry | None:
         """Look up single event by ID."""
         async with self._lock:
             return self._event_map.get(event_id)

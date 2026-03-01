@@ -37,26 +37,17 @@ from __future__ import annotations
 
 import random
 import time
-from dataclasses import dataclass, field
-
-from typing import Optional
+from dataclasses import dataclass
 
 from cynic.kernel.core.phi import fibonacci
 from cynic.kernel.organism.brain.cognition.cortex.qtable_benchmark import (
-    QEntry,
-    TD0Learner,
-    ConvergenceResult,
     _PHI_ALPHA,
     _STD_ALPHA,
-    _ALPHA_GRID,
-    _CONVERGENCE_EPS,
-    _EWC_CONSOLIDATE_AT,
+    TD0Learner,
 )
 from cynic.kernel.organism.brain.cognition.cortex.real_benchmark import (
     RealKernelTask,
-    _N_PAIRS_REAL,
 )
-
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -88,11 +79,11 @@ class WarmStartResult:
 
     # Cold start errors (no prior knowledge)
     cold_final_error: float
-    cold_convergence_step: Optional[int]
+    cold_convergence_step: int | None
 
     # Warm start errors (pre-loaded Q-values)
     warm_final_error: float
-    warm_convergence_step: Optional[int]
+    warm_convergence_step: int | None
 
     # Amplification
     amplification_ratio: float   # cold_error / warm_error (>1 = amplified)
@@ -160,7 +151,7 @@ def _run_warm_cold(
         prior_learner.run(warm_steps)
 
         # Transfer: copy Q-values + visit counts (EWC uses visits for consolidation)
-        for src, dst in zip(prior_learner._entries, warm_learner._entries):
+        for src, dst in zip(prior_learner._entries, warm_learner._entries, strict=False):
             dst.q_value = src.q_value
             dst.visits = src.visits
 
@@ -254,7 +245,7 @@ class AmplificationBenchmark:
 
     def run_grid(
         self,
-        warm_levels: Optional[list[int]] = None,
+        warm_levels: list[int] | None = None,
         test_budget: int = _TEST_BUDGET,
         n_seeds: int = 7,
         base_seed: int = 42,

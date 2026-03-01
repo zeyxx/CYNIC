@@ -1,7 +1,6 @@
 """Monitor machine resources: CPU, memory, disk, network, temperature, health."""
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from dataclasses import dataclass
@@ -189,7 +188,7 @@ class MachineMonitor:
             temps = psutil.sensors_temperatures()
             if temps:
                 # Try to get core temperature (most common sensors)
-                for sensor_name, entries in temps.items():
+                for _sensor_name, entries in temps.items():
                     if entries:
                         # Return first sensor reading
                         return float(entries[0].current)

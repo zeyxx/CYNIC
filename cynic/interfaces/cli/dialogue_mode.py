@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Optional, Any
-from cynic.kernel.organism.brain.dialogue.storage import get_dialogue_store
-from cynic.kernel.organism.brain.dialogue.models import UserMessage, CynicMessage
-from cynic.kernel.organism.brain.dialogue.llm_bridge import LLMBridge
-from cynic.kernel.organism.brain.dialogue.reasoning import ReasoningEngine
-from cynic.kernel.organism.brain.learning.memory_store import get_memory_store
+from typing import Any
+
 from cynic.kernel.observability.symbiotic_state_manager import get_current_state
+from cynic.kernel.organism.brain.dialogue.llm_bridge import LLMBridge
+from cynic.kernel.organism.brain.dialogue.models import CynicMessage, UserMessage
+from cynic.kernel.organism.brain.dialogue.reasoning import ReasoningEngine
+from cynic.kernel.organism.brain.dialogue.storage import get_dialogue_store
+from cynic.kernel.organism.brain.learning.memory_store import get_memory_store
 
 
 class DialogueMode:
@@ -56,7 +57,7 @@ class DialogueMode:
 
         # Get current judgment context
         try:
-            state = await get_current_state()
+            await get_current_state()
             # cynic_thinking is a string, so we create a minimal judgment dict
             judgment = {
                 "verdict": "UNKNOWN",
@@ -113,7 +114,7 @@ class DialogueMode:
 
     def _prepare_context_for_llm(self, user_input: str,
                                  judgment: dict[str, Any],
-                                 memory: Optional[Any] = None) -> dict[str, Any]:
+                                 memory: Any | None = None) -> dict[str, Any]:
         """Prepare structured context for Claude API.
 
         Args:

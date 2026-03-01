@@ -6,13 +6,12 @@ Simple version without unicode emojis (Windows compatibility).
 """
 
 import asyncio
-import os
+import json
 import sys
-import time
 from datetime import datetime, timedelta
 from pathlib import Path
+
 import psutil
-import json
 
 # Configuration
 MONITOR_DURATION_MINUTES = 30  # Run for 30 minutes
@@ -77,14 +76,6 @@ class StabilityMonitor:
 
     async def monitor(self):
         """Run stability monitoring."""
-        print("\n" + "=" * 70)
-        print("GOVERNANCE BOT STABILITY TEST")
-        print("=" * 70)
-        print(f"Start time: {self.start_time}")
-        print(f"Duration: {MONITOR_DURATION_MINUTES} minutes")
-        print(f"Check interval: {CHECK_INTERVAL_SECONDS} seconds")
-        print(f"PID: {self.pid}")
-        print("=" * 70 + "\n")
 
         end_time = self.start_time + timedelta(minutes=MONITOR_DURATION_MINUTES)
         iteration = 0
@@ -97,33 +88,27 @@ class StabilityMonitor:
             mem = self.get_memory_info()
 
             if mem is None:
-                print(f"[{iteration:3d}] Process died! Aborting.")
                 return False
 
             # Set baseline on first iteration
             if self.baseline_memory is None:
                 self.baseline_memory = mem["memory_mb"]
-                print(f"[BASELINE] Memory: {self.baseline_memory:.1f} MB")
-                print()
 
             # Calculate change from baseline
             change_mb = mem["memory_mb"] - self.baseline_memory
             change_pct = (change_mb / self.baseline_memory) * 100
 
             # Format output
-            memory_str = f"{mem['memory_mb']:6.1f} MB"
-            change_str = f"{change_mb:+6.1f} MB ({change_pct:+6.1f}%)"
-            status_str = f"[{elapsed:5.1f} min]"
+            f"{mem['memory_mb']:6.1f} MB"
 
             # Color code based on memory growth
             if change_pct > 50:
-                indicator = "[CRITICAL]"
+                pass
             elif change_pct > 20:
-                indicator = "[GROWING]"
+                pass
             else:
-                indicator = "[STABLE]"
+                pass
 
-            print(f"{status_str} {memory_str} {change_str}  {indicator}")
 
             self.metrics.append(
                 {
@@ -207,7 +192,7 @@ AttributeErrors:     {log_info['attribute_errors']}
         else:
             report += f"[WARN] WARNING: {log_info['error_count']} errors logged (check manually)\n"
 
-        report += f"\nLast 10 log lines:\n"
+        report += "\nLast 10 log lines:\n"
         for line in log_info["last_lines"]:
             report += f"  {line}\n"
 
@@ -230,34 +215,27 @@ async def main():
     """Run stability test."""
     # Check if PID file exists
     if not PID_FILE.exists():
-        print("[ERROR] Bot not running! Start with: cd governance_bot && python bot.py")
         return 1
 
     try:
         with open(PID_FILE) as f:
             pid = int(f.read().strip())
-    except (ValueError, IOError):
-        print("[ERROR] Cannot read PID file")
+    except (OSError, ValueError):
         return 1
 
     # Create monitor and run
     monitor = StabilityMonitor(pid)
 
     try:
-        success = await monitor.monitor()
+        await monitor.monitor()
     except KeyboardInterrupt:
-        print("\n\n[INTERRUPT] Test interrupted by user")
-    except Exception as e:
-        print(f"\n\n[ERROR] Error during monitoring: {e}")
+        pass
+    except Exception:
         return 1
 
     # Generate report
-    print("\n" + "=" * 70)
-    print("Generating report...")
-    print("=" * 70)
 
     report = monitor.generate_report()
-    print(report)
 
     # Save metrics to file
     with open(METRICS_FILE, "w") as f:
@@ -270,13 +248,11 @@ async def main():
             f,
             indent=2,
         )
-    print(f"\n[OK] Metrics saved to {METRICS_FILE}")
 
     # Save report
     report_file = Path("governance_bot/STABILITY_TEST_REPORT.txt")
     with open(report_file, "w") as f:
         f.write(report)
-    print(f"[OK] Report saved to {report_file}")
 
     return 0
 

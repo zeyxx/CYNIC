@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 
-from cynic.interfaces.api.state import get_app_container, AppContainer
+from cynic.interfaces.api.state import AppContainer, get_app_container
 
 logger = logging.getLogger("cynic.interfaces.api.server")
 

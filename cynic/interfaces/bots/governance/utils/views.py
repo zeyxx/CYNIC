@@ -3,19 +3,27 @@ Discord UI Components (Modals, Buttons, Views)
 """
 
 import logging
-import discord
 from datetime import datetime
 
+import discord
+
+from cynic.interfaces.bots.governance.core.config import CYNIC_MCP_ENABLED
 from cynic.interfaces.bots.governance.core.database import (
-    session_context, get_community, create_community, create_proposal,
-    get_proposal, list_proposals, is_voting_active, create_vote,
-    update_vote_counts, get_user_vote
+    create_community,
+    create_proposal,
+    create_vote,
+    get_community,
+    get_proposal,
+    get_user_vote,
+    is_voting_active,
+    session_context,
+    update_vote_counts,
+)
+from cynic.interfaces.bots.governance.core.error_handler import (
+    cynic_circuit_breaker,
 )
 from cynic.interfaces.bots.governance.integration.cynic_integration import ask_cynic, learn_cynic
-from cynic.interfaces.bots.governance.core.error_handler import cynic_circuit_breaker, CYNICUnavailableError, handle_error
-from cynic.interfaces.bots.governance.logic.models import Community
 from cynic.interfaces.bots.governance.utils.formatting import build_proposal_embed
-from cynic.interfaces.bots.governance.core.config import CYNIC_MCP_ENABLED
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +75,8 @@ class ProposalModal(discord.ui.Modal, title="Submit Governance Proposal"):
                     category = "COMMUNITY_DECISION"
 
                 # Create proposal
-                from datetime import timedelta
                 import uuid
+                from datetime import timedelta
                 proposal_id = f"prop_{datetime.utcnow().strftime('%Y%m%d')}_{str(uuid.uuid4())[:8]}"
                 now = datetime.utcnow()
 
@@ -102,7 +110,9 @@ class ProposalModal(discord.ui.Modal, title="Submit Governance Proposal"):
                             )
 
                             if judgment.get("verdict") != "PENDING":
-                                from cynic.interfaces.bots.governance.core.database import update_proposal_judgment
+                                from cynic.interfaces.bots.governance.core.database import (
+                                    update_proposal_judgment,
+                                )
                                 await update_proposal_judgment(session, proposal_id, judgment)
                                 proposal.judgment_verdict = judgment.get("verdict")
                                 proposal.judgment_q_score = judgment.get("q_score")

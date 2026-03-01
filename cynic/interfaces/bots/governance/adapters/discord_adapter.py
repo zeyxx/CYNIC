@@ -34,11 +34,10 @@ Key principles:
 from __future__ import annotations
 
 import logging
-from typing import Dict, Any, Optional
 import uuid
+from typing import Any
 
-from cynic.interfaces.bots.bot_interface import BotInterface, BotCommand, BotResponse
-from cynic.kernel.core.unified_state import UnifiedConsciousState
+from cynic.interfaces.bots.bot_interface import BotCommand, BotInterface, BotResponse
 
 # Try importing discord, but don't fail if not available (for testing)
 try:

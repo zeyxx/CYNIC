@@ -1,6 +1,7 @@
 import pytest
-from cynic.kernel.organism.brain.learning.relationship_memory import RelationshipMemory
+
 from cynic.kernel.organism.brain.dialogue.models import UserMessage
+from cynic.kernel.organism.brain.learning.relationship_memory import RelationshipMemory
 
 
 def test_relationship_memory_creation():

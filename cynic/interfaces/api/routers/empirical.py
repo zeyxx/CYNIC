@@ -17,9 +17,7 @@ Design:
 """
 from __future__ import annotations
 
-import json
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
@@ -28,7 +26,7 @@ from cynic.interfaces.mcp.empirical_runner import EmpiricalRunner
 logger = logging.getLogger("cynic.interfaces.api.routers.empirical")
 
 # Global runner instance (initialized lazily on first API call)
-_runner: Optional[EmpiricalRunner] = None
+_runner: EmpiricalRunner | None = None
 _organism_getter = None
 
 
@@ -64,7 +62,7 @@ router = APIRouter(prefix="/empirical", tags=["empirical"])
 
 
 @router.post("/test/start")
-async def start_empirical_test(count: int = 1000, seed: Optional[int] = None):
+async def start_empirical_test(count: int = 1000, seed: int | None = None):
     """
     Start a new empirical test job.
 
@@ -177,7 +175,7 @@ async def get_test_results(job_id: str):
 
 
 @router.post("/axioms/test")
-async def test_axiom_irreducibility(axiom: Optional[str] = None):
+async def test_axiom_irreducibility(axiom: str | None = None):
     """
     Test if axioms are irreducible (necessary) for CYNIC judgment quality.
 

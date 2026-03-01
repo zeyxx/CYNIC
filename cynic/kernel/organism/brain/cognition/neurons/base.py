@@ -25,31 +25,28 @@ E-Score weights and Dog priority:
 """
 from __future__ import annotations
 
-import sys
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import TYPE_CHECKING, Any
 
 # Python 3.9 compatibility: StrEnum added in Python 3.11
-if sys.version_info >= (3, 11):
-    from enum import StrEnum
-else:
-    class StrEnum(str, Enum):
-        """Polyfill for Python <3.11."""
-        pass
+from enum import StrEnum
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRegistry
 
-from cynic.kernel.core.phi import (
-    PHI, PHI_INV, PHI_INV_2, PHI_INV_3, PHI_2, PHI_3,
-    MAX_CONFIDENCE, phi_bound_score,
-)
+from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.judgment import Cell
-from cynic.kernel.core.consciousness import ConsciousnessLevel, dogs_for_level
-
+from cynic.kernel.core.phi import (
+    MAX_CONFIDENCE,
+    PHI,
+    PHI_2,
+    PHI_3,
+    PHI_INV,
+    PHI_INV_2,
+    phi_bound_score,
+)
 
 # ════════════════════════════════════════════════════════════════════════════
 # DOG REGISTRY (all 11 Dogs with their Sefirot)

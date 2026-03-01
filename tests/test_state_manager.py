@@ -12,12 +12,11 @@ import pytest
 
 pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - StateSnapshot class deleted")
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-from pathlib import Path
 
 from cynic.kernel.organism.state_manager import (
-    OrganismState, StateLayer, StateUpdate, StateSnapshot,
+    OrganismState,
+    StateLayer,
+    StateSnapshot,
 )
 
 

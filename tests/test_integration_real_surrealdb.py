@@ -8,9 +8,8 @@ SKIP in CI (no SurrealDB running). Run locally via:
 Requires: SurrealDB running at localhost:8000
   docker-compose up surrealdb
 """
+
 import pytest
-import asyncio
-import json
 
 pytestmark = pytest.mark.integration
 
@@ -54,7 +53,6 @@ class TestSurrealDBConnection:
             result = await db.query("RETURN 'connected'")
             assert result, "Should get response from SurrealDB"
 
-            print("✓ Real SurrealDB connection successful")
 
     @pytest.mark.asyncio
     async def test_surrealdb_create_and_retrieve(self, has_surrealdb):
@@ -100,7 +98,6 @@ class TestSurrealDBConnection:
             final = await db.select(test_id)
             assert len(final) == 0, "Should be deleted"
 
-            print(f"✓ Real SurrealDB persistence: create/retrieve/delete cycle works")
 
     @pytest.mark.asyncio
     async def test_surrealdb_judgment_table_schema(self, has_surrealdb):
@@ -146,7 +143,6 @@ class TestSurrealDBConnection:
             )
             assert len(query_result) > 0, "Should find HOWL judgments"
 
-            print(f"✓ Real SurrealDB schema and queries work")
 
     @pytest.mark.asyncio
     async def test_surrealdb_vector_search_setup(self, has_surrealdb):
@@ -182,7 +178,6 @@ class TestSurrealDBConnection:
 
             assert result, "Should create embedding"
 
-            print("✓ Real SurrealDB HNSW vector index created")
 
 
 class TestSurrealDBPerformance:
@@ -214,7 +209,6 @@ class TestSurrealDBPerformance:
             })
             write_ms = (time.perf_counter() - start) * 1000
 
-            print(f"✓ SurrealDB write latency: {write_ms:.1f}ms")
             assert write_ms < 100, f"Write too slow: {write_ms:.1f}ms"
 
     @pytest.mark.asyncio
@@ -247,7 +241,6 @@ class TestSurrealDBPerformance:
             read_ms = (time.perf_counter() - start) * 1000
 
             assert len(result) > 0, "Should retrieve record"
-            print(f"✓ SurrealDB read latency: {read_ms:.1f}ms")
             assert read_ms < 100, f"Read too slow: {read_ms:.1f}ms"
 
     @pytest.mark.asyncio
@@ -278,7 +271,6 @@ class TestSurrealDBPerformance:
             batch_ms = (time.perf_counter() - start) * 1000
 
             per_record_ms = batch_ms / 100
-            print(f"✓ SurrealDB batch writes (100 records): {batch_ms:.1f}ms ({per_record_ms:.1f}ms/record)")
             assert per_record_ms < 50, f"Batch write too slow: {per_record_ms:.1f}ms/record"
 
 

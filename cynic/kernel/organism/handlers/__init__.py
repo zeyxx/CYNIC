@@ -20,25 +20,26 @@ import logging
 import pkgutil
 from typing import TYPE_CHECKING
 
+from .introspect import (
+    ArchitectureSnapshot,
+    CouplingGrowth,
+    HandlerAnalysis,
+    HandlerArchitectureIntrospector,
+)
 from .services import (
-    KernelServices,
     CognitionServices,
+    KernelServices,
     MetabolicServices,
     SensoryServices,
 )
-from .introspect import (
-    HandlerAnalysis,
-    ArchitectureSnapshot,
-    CouplingGrowth,
-    HandlerArchitectureIntrospector,
-)
 from .validator import (
-    ValidationIssue,
     HandlerValidator,
+    ValidationIssue,
 )
 
 if TYPE_CHECKING:
     from cynic.kernel.core.event_bus import EventBus
+
     from .base import HandlerGroup
 
 logger = logging.getLogger("cynic.kernel.organism.handlers")

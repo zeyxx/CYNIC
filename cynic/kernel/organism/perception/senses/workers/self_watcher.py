@@ -7,7 +7,6 @@ from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.phi import fibonacci
 from cynic.kernel.organism.perception.senses.workers.base import PerceiveWorker
-from typing import Optional
 
 
 class SelfWatcher(PerceiveWorker):
@@ -25,10 +24,10 @@ class SelfWatcher(PerceiveWorker):
     interval_s = float(fibonacci(10))  # 55.0s
     name = "self_watcher"
 
-    def __init__(self, qtable_getter: Optional[Callable] = None) -> None:
+    def __init__(self, qtable_getter: Callable | None = None) -> None:
         self._qtable_getter = qtable_getter
 
-    async def sense(self) -> Optional[Cell]:
+    async def sense(self) -> Cell | None:
         if self._qtable_getter is None:
             return None
 

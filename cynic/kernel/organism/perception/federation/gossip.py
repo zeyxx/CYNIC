@@ -15,12 +15,13 @@ The gossip protocol enables multiple CYNIC instances to learn collectively from
 each other's judgment outcomes and emergence patterns.
 """
 from __future__ import annotations
-from datetime import datetime, UTC
-from typing import Optional
+
+from datetime import UTC, datetime
+
 from cynic.kernel.organism.brain.learning.unified_learning import UnifiedQTable
+from cynic.kernel.organism.perception.federation.merge import merge_q_tables
 from cynic.kernel.organism.perception.federation.peer import FederationPeer
 from cynic.kernel.organism.perception.federation.protocol import FederationMessage
-from cynic.kernel.organism.perception.federation.merge import merge_q_tables
 
 DEFAULT_K = 3
 DEFAULT_BATCH = 10
@@ -64,7 +65,7 @@ class GossipManager:
         self._unnameable_patterns: list[str] = []
         self._total_merged: int = 0
         self._sync_count: int = 0
-        self._last_sync: Optional[datetime] = None
+        self._last_sync: datetime | None = None
 
     def add_peer(self, peer: FederationPeer) -> None:
         """

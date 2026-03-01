@@ -10,8 +10,8 @@ No raw text output — only JSON. This enables:
 """
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 
 class JSONFormatter(logging.Formatter):
@@ -28,7 +28,7 @@ class JSONFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         """Convert LogRecord to JSON string"""
         log_obj = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -69,7 +69,7 @@ class StructuredLogger:
         self.logger.addHandler(handler)
         self.logger.setLevel(logging.DEBUG)
 
-    def _format_json(self, level: str, message: str, extra: Dict[str, Any]) -> str:
+    def _format_json(self, level: str, message: str, extra: dict[str, Any]) -> str:
         """Format log as JSON (for testing)
 
         Args:
@@ -81,7 +81,7 @@ class StructuredLogger:
             JSON-formatted log string
         """
         log_obj = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": level,
             "logger": self.logger.name,
             "message": message,
@@ -89,7 +89,7 @@ class StructuredLogger:
         log_obj.update(extra)
         return json.dumps(log_obj)
 
-    def info(self, message: str, extra: Optional[Dict[str, Any]] = None):
+    def info(self, message: str, extra: dict[str, Any] | None = None):
         """Log info level
 
         Args:
@@ -98,7 +98,7 @@ class StructuredLogger:
         """
         self._log(logging.INFO, message, extra or {})
 
-    def error(self, message: str, extra: Optional[Dict[str, Any]] = None):
+    def error(self, message: str, extra: dict[str, Any] | None = None):
         """Log error level
 
         Args:
@@ -107,7 +107,7 @@ class StructuredLogger:
         """
         self._log(logging.ERROR, message, extra or {})
 
-    def debug(self, message: str, extra: Optional[Dict[str, Any]] = None):
+    def debug(self, message: str, extra: dict[str, Any] | None = None):
         """Log debug level
 
         Args:
@@ -116,7 +116,7 @@ class StructuredLogger:
         """
         self._log(logging.DEBUG, message, extra or {})
 
-    def warning(self, message: str, extra: Optional[Dict[str, Any]] = None):
+    def warning(self, message: str, extra: dict[str, Any] | None = None):
         """Log warning level
 
         Args:
@@ -125,7 +125,7 @@ class StructuredLogger:
         """
         self._log(logging.WARNING, message, extra or {})
 
-    def _log(self, level: int, message: str, extra: Dict[str, Any]):
+    def _log(self, level: int, message: str, extra: dict[str, Any]):
         """Internal method to add extra fields to LogRecord
 
         Args:

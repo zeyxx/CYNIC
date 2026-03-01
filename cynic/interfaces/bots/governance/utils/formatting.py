@@ -2,10 +2,11 @@
 Discord message formatting helpers
 """
 
+from datetime import datetime
+
 import discord
-from datetime import datetime, timedelta
-from cynic.interfaces.bots.governance.logic.models import Proposal, Vote, Community
-from cynic.interfaces.bots.governance.core.database import count_votes
+
+from cynic.interfaces.bots.governance.logic.models import Community, Proposal
 
 
 async def format_proposal_embed(proposal: Proposal, community: Community = None) -> dict:

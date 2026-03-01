@@ -8,23 +8,44 @@ Tests the core.phi module for:
 - Judgment thresholds
 - UCB formulas
 """
-import pytest
 import math
 
+import pytest
+
 from cynic.kernel.core.phi import (
-    PHI, PHI_INV, PHI_INV_2, PHI_INV_3,
-    PHI_2, PHI_3, PHI_4, PHI_5,
-    MAX_CONFIDENCE, MAX_Q_SCORE, MAX_CONFIDENCE_PCT,
-    HOWL_MIN, WAG_MIN, GROWL_MIN, BARK_MAX,
-    DOGS_TOTAL, DOGS_BYZANTINE, DOGS_QUORUM,
-    LEARNING_RATE, EWC_PENALTY, THOMPSON_CONFIDENCE,
-    fibonacci, lucas, FIBONACCI, LUCAS,
-    AXIOMS_CORE, AXIOMS_FACETS, DOGS_COUNT, REALITY_DIMS,
-    phi_bound, phi_bound_score, phi_classify,
-    geometric_mean, weighted_geometric_mean,
-    phi_ratio_split, phi_ucb, phi_temporal_ucb,
-    E_SCORE_WEIGHTS, E_SCORE_TOTAL_WEIGHT,
-    validate_phi_constants,
+    AXIOMS_CORE,
+    AXIOMS_FACETS,
+    DOGS_BYZANTINE,
+    DOGS_COUNT,
+    DOGS_QUORUM,
+    DOGS_TOTAL,
+    E_SCORE_TOTAL_WEIGHT,
+    E_SCORE_WEIGHTS,
+    EWC_PENALTY,
+    FIBONACCI,
+    GROWL_MIN,
+    HOWL_MIN,
+    LEARNING_RATE,
+    LUCAS,
+    MAX_CONFIDENCE,
+    PHI,
+    PHI_2,
+    PHI_3,
+    PHI_INV,
+    PHI_INV_2,
+    PHI_INV_3,
+    REALITY_DIMS,
+    WAG_MIN,
+    fibonacci,
+    geometric_mean,
+    lucas,
+    phi_bound,
+    phi_bound_score,
+    phi_classify,
+    phi_ratio_split,
+    phi_temporal_ucb,
+    phi_ucb,
+    weighted_geometric_mean,
 )
 
 

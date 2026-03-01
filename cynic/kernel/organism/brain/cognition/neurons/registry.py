@@ -5,13 +5,12 @@ Defines the configuration for each DogId.
 Used by the MasterDog engine to instantiate the Sefirot.
 """
 from __future__ import annotations
-from typing import Dict
 
+from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.organism.brain.cognition.neurons.base import DogId
 from cynic.kernel.organism.brain.cognition.neurons.master import DogSoul
-from cynic.kernel.core.consciousness import ConsciousnessLevel
 
-SOULS: Dict[DogId, DogSoul] = {
+SOULS: dict[DogId, DogSoul] = {
     # ── THE THINKERS (LLM-Driven) ───────────────────────────────────────────
     DogId.SAGE: DogSoul(
         dog_id=DogId.SAGE,

@@ -17,21 +17,22 @@ from __future__ import annotations
 
 import logging
 import time
+
 from fastapi import APIRouter, Depends, HTTPException
 
-from cynic.interfaces.api.state import get_app_container, AppContainer
 from cynic.interfaces.api.models.organism_state import (
-    StateSnapshotResponse,
+    AccountStatusResponse,
+    ActionsResponse,
     ConsciousnessResponse,
     DogsResponse,
     DogStatus,
-    ActionsResponse,
-    ProposedAction,
-    AccountStatusResponse,
     PolicyAction,
     PolicyActionsResponse,
     PolicyStatsResponse,
+    ProposedAction,
+    StateSnapshotResponse,
 )
+from cynic.interfaces.api.state import AppContainer, get_app_container
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +167,7 @@ async def get_organism_dogs(
             for dog_id, dog in organism.cognition.orchestrator.dogs.items():
                 # Extract values with defaults, ensuring types are correct
                 q_score = getattr(dog, "q_score", 50.0)
-                if not isinstance(q_score, (int, float)):
+                if not isinstance(q_score, int | float):
                     q_score = 50.0
 
                 verdict = getattr(dog, "verdict", "WAG")
@@ -174,7 +175,7 @@ async def get_organism_dogs(
                     verdict = "WAG"
 
                 confidence = getattr(dog, "confidence", None)
-                if confidence is not None and not isinstance(confidence, (int, float)):
+                if confidence is not None and not isinstance(confidence, int | float):
                     confidence = None
 
                 activity = getattr(dog, "activity", None)
@@ -419,7 +420,7 @@ async def get_policy_stats(
                     state_with_policy += 1
 
                     # Track max Q-value across all entries
-                    for action_name, entry in actions_dict.items():
+                    for _action_name, entry in actions_dict.items():
                         if hasattr(entry, "q_value"):
                             max_q_value = max(max_q_value, entry.q_value)
 

@@ -5,23 +5,18 @@ Unifies heuristic expertise (AST, ML, Network, Anomaly) into
 reusable functions called by the MasterDog engine.
 """
 from __future__ import annotations
+
+import ast
 import logging
 import re
-import ast
-import asyncio
-import time
-import urllib.request
-import urllib.error
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-import numpy as np
 from cynic.kernel.core.judgment import Cell
-from cynic.kernel.core.phi import fibonacci, PHI_INV_2, MAX_Q_SCORE, phi_bound_score
 
 logger = logging.getLogger("cynic.neurons.expertise")
 
 # --- UTILS ---
-def _extract_code(cell: Cell) -> Optional[str]:
+def _extract_code(cell: Cell) -> str | None:
     """Extract Python code string from cell content."""
     content = cell.content
     if isinstance(content, str) and content.strip():
@@ -36,7 +31,7 @@ def _extract_code(cell: Cell) -> Optional[str]:
 # --- SCOUT EXPERTISE ---
 _URL_PATTERN = re.compile(r'https?://[^\s<>"\'{}|\\^`\[\]]{4,}', re.IGNORECASE)
 
-async def scout_expertise(cell: Cell) -> Dict[str, Any]:
+async def scout_expertise(cell: Cell) -> dict[str, Any]:
     """Expertise for URL reachability and discovery."""
     content = str(cell.content)
     urls = _URL_PATTERN.findall(content)
@@ -55,7 +50,7 @@ async def scout_expertise(cell: Cell) -> Dict[str, Any]:
 MAX_IMPORTS = 13
 MAX_NESTING = 7
 
-async def ast_analysis_expertise(cell: Cell) -> Dict[str, Any]:
+async def ast_analysis_expertise(cell: Cell) -> dict[str, Any]:
     """AST-based structural analysis."""
     code = _extract_code(cell)
     if not code:
@@ -63,7 +58,7 @@ async def ast_analysis_expertise(cell: Cell) -> Dict[str, Any]:
     
     try:
         tree = ast.parse(code)
-        import_count = sum(1 for node in ast.walk(tree) if isinstance(node, (ast.Import, ast.ImportFrom)))
+        import_count = sum(1 for node in ast.walk(tree) if isinstance(node, ast.Import | ast.ImportFrom))
         
         def get_depth(node, depth=0):
             children = list(ast.iter_child_nodes(node))
@@ -84,7 +79,7 @@ async def ast_analysis_expertise(cell: Cell) -> Dict[str, Any]:
         return {"q_score": 20.0, "confidence": 0.8, "reasoning": f"Syntax Error: {e}"}
 
 # --- JANITOR EXPERTISE (Smells) ---
-async def static_analysis_expertise(cell: Cell) -> Dict[str, Any]:
+async def static_analysis_expertise(cell: Cell) -> dict[str, Any]:
     """Heuristic code smell detection."""
     code = _extract_code(cell)
     if not code:
@@ -102,7 +97,7 @@ async def static_analysis_expertise(cell: Cell) -> Dict[str, Any]:
     }
 
 # --- GUARDIAN EXPERTISE (Anomaly) ---
-async def anomaly_detection_expertise(cell: Cell) -> Dict[str, Any]:
+async def anomaly_detection_expertise(cell: Cell) -> dict[str, Any]:
     """IsolationForest-style anomaly detection (Heuristic version)."""
     # Simplified: Higher risk/novelty = Higher anomaly
     score = (cell.risk + cell.novelty) / 2.0
@@ -123,7 +118,7 @@ async def anomaly_detection_expertise(cell: Cell) -> Dict[str, Any]:
     }
 
 # --- ORACLE EXPERTISE (Q-Table) ---
-async def qtable_prediction_expertise(cell: Cell) -> Dict[str, Any]:
+async def qtable_prediction_expertise(cell: Cell) -> dict[str, Any]:
     """Thompson Sampling / Q-Table prediction lookup."""
     # In a real system, we'd inject the qtable instance. 
     # For now, return a placeholder that looks for the state_key.
@@ -165,7 +160,7 @@ EXPERTISE_MAP = {
     "qtable_lookup": qtable_prediction_expertise,
 }
 
-async def call_expertise(expertise_id: str, cell: Cell) -> Optional[Dict[str, Any]]:
+async def call_expertise(expertise_id: str, cell: Cell) -> dict[str, Any] | None:
     """Safe dispatcher for expertise plugins."""
     if expertise_id in EXPERTISE_MAP:
         try:

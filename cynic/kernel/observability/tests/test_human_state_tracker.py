@@ -1,5 +1,6 @@
 """Tests for HumanStateTracker."""
 import pytest
+
 from cynic.kernel.observability.human_state_tracker import HumanStateTracker
 
 

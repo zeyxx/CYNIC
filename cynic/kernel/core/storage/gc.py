@@ -23,7 +23,6 @@ import logging
 import time
 from typing import Any
 
-
 from cynic.kernel.core.phi import fibonacci
 
 logger = logging.getLogger("cynic.storage.gc")

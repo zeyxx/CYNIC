@@ -30,20 +30,24 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
-
-from cynic.kernel.core.phi import (
-    PHI_INV, PHI_INV_2, PHI_INV_3, MAX_Q_SCORE,
-)
-from cynic.kernel.core.judgment import Judgment
 from cynic.kernel.core.event_bus import (
-    get_core_bus, Event, CoreEvent,
+    CoreEvent,
+    Event,
+    get_core_bus,
 )
 from cynic.kernel.core.events_schema import (
     AnomalyDetectedPayload,
     EmergenceDetectedPayload,
 )
 from cynic.kernel.core.formulas import (
-    AXIOM_MATURITY_WINDOW_SIZE, RESIDUAL_MIN_SAMPLES, RESIDUAL_STABLE_HIGH_N,
+    AXIOM_MATURITY_WINDOW_SIZE,
+    RESIDUAL_MIN_SAMPLES,
+    RESIDUAL_STABLE_HIGH_N,
+)
+from cynic.kernel.core.judgment import Judgment
+from cynic.kernel.core.phi import (
+    PHI_INV_2,
+    PHI_INV_3,
 )
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.residual")
@@ -394,7 +398,7 @@ class ResidualDetector:
         xs = list(range(n))
         mean_x = sum(xs) / n
         mean_y = sum(history) / n
-        num = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, history))
+        num = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, history, strict=False))
         den = sum((x - mean_x) ** 2 for x in xs)
 
         if den == 0:

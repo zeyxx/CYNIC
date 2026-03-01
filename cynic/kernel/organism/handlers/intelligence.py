@@ -8,23 +8,19 @@ Handlers: emergence, budget_warning, budget_exhausted, judgment_requested,
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.event_bus import Event, CoreEvent
-from cynic.kernel.core.exceptions import CynicError
-from cynic.kernel.core.phi import GROWL_MIN
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.judgment import Cell
-from cynic.kernel.organism.perception.senses import checkpoint as _session_checkpoint
-from cynic.kernel.organism.perception.senses.checkpoint import CHECKPOINT_EVERY
-
+from cynic.kernel.core.phi import GROWL_MIN
 from cynic.kernel.organism.handlers.base import HandlerGroup, KernelServices
 
 if TYPE_CHECKING:
+    from asyncpg import Pool
+
     from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
     from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
-    from asyncpg import Pool
-    from cynic.kernel.organism.perception.senses.compressor import ContextCompressor
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.intelligence")
 
@@ -40,7 +36,7 @@ class IntelligenceHandlers(HandlerGroup):
         *,
         orchestrator: JudgeOrchestrator,
         scheduler: ConsciousnessRhythm,
-        db_pool: Optional[Pool],
+        db_pool: Pool | None,
         compressor,  # ContextCompressor
     ) -> None:
         self._svc = svc
@@ -120,7 +116,7 @@ class IntelligenceHandlers(HandlerGroup):
         """Compute rolling error rate from outcome window."""
         if not self._outcome_window:
             return
-        errors = sum(1 for ok in self._outcome_window if not ok)
+        sum(1 for ok in self._outcome_window if not ok)
         # Note: health_cache removed - using local state only
 
     async def _on_emergence(self, event: Event) -> None:

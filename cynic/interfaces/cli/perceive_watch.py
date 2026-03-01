@@ -25,23 +25,18 @@ async def cmd_perceive_watch() -> None:
     """Watch git tree for real changes, emit PERCEIVE, score with JUDGE."""
     try:
         # Import kernel components
-        from cynic.kernel.organism.perception.senses.workers.git import GitWatcher
         from cynic.kernel.core.event_bus import get_core_bus, reset_all_buses
         from cynic.kernel.organism.brain.llm.adapter import LLMRegistry
-        from cynic.kernel.organism.brain.cognition.neurons.judge import JudgeOrchestrator
+        from cynic.kernel.organism.perception.senses.workers.git import GitWatcher
 
         # Start fresh
         reset_all_buses()
-        bus = get_core_bus()
+        get_core_bus()
 
         # Create watcher
         watcher = GitWatcher()
-        print("*sniff* PERCEIVE watch started — monitoring git working tree...")
-        print(f"  Working directory: {Path.cwd()}")
-        print(f"  Checking every 5s for real changes...\n")
 
         # Track previous state to detect changes
-        previous_changes = None
         iteration = 0
 
         while iteration < 12:  # F(7) = 13 iterations max
@@ -51,30 +46,24 @@ async def cmd_perceive_watch() -> None:
             changes = await watcher.perceive()
 
             if changes is None or (isinstance(changes, dict) and not changes.get("files")):
-                print(f"[Iter {iteration:2d}] No changes detected (waiting...)")
                 await asyncio.sleep(5)
                 continue
 
             # Real changes found!
-            print(f"\n[Iter {iteration:2d}] *ears perk* CHANGES DETECTED!")
-            print("=" * 60)
 
             if isinstance(changes, dict):
                 files = changes.get("files", [])
-                print(f"  Files affected: {len(files)}")
-                for f in files[:5]:
-                    print(f"    - {f}")
+                for _f in files[:5]:
+                    pass
                 if len(files) > 5:
-                    print(f"    ... and {len(files) - 5} more")
+                    pass
 
             # Now get a JUDGE score on this change
-            print("\n  JUDGE is evaluating...⏳")
             registry = LLMRegistry()
             await registry.discover()
             available = registry.get_available()
 
             if not available:
-                print("  ⚠️  No LLM available (configure Ollama or ANTHROPIC_API_KEY)")
                 await asyncio.sleep(5)
                 continue
 
@@ -118,8 +107,6 @@ Return JSON: {{"score": 0-100, "verdict": "BARK|GROWL|WAG|HOWL", "reason": "brie
                     score = 50 if verdict == "WAG" else (88 if verdict == "HOWL" else 38)
                     reason = response[:50]
 
-                print(f"\n  JUDGE VERDICT: {verdict} (score: {score}/100)")
-                print(f"  Reasoning: {reason}\n")
 
                 # Store this perception + judgment for next phase
                 # Use CYNIC_STATE_DIR env var if available (portable across host/container)
@@ -139,20 +126,15 @@ Return JSON: {{"score": 0-100, "verdict": "BARK|GROWL|WAG|HOWL", "reason": "brie
                     "reason": reason,
                 }, indent=2))
 
-                print(f"  Saved to: {perception_file}")
-                print("=" * 60)
 
-            except asyncpg.Error as e:
+            except asyncpg.Error:
                 logger.exception("JUDGE evaluation error")
-                print(f"  ✗ JUDGE error: {e}")
 
             await asyncio.sleep(5)
 
-        print("\n*yawn* PERCEIVE watch complete (max iterations reached)")
 
-    except asyncio.TimeoutError as e:
+    except TimeoutError:
         logger.exception("PERCEIVE watch error")
-        print(f"*GROWL* PERCEIVE watch failed: {e}")
         sys.exit(1)
 
 

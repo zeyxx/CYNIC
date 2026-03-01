@@ -10,14 +10,14 @@ These tests verify:
 6. Async lifecycle (start/stop) works
 """
 
-import pytest
 import asyncio
-from unittest.mock import Mock, AsyncMock, MagicMock, patch
-from typing import Optional
+from unittest.mock import Mock
 
-from cynic.interfaces.bots.bot_interface import BotInterface, BotCommand, BotResponse
-from cynic.kernel.core.unified_state import UnifiedConsciousState, UnifiedJudgment
+import pytest
+
+from cynic.interfaces.bots.bot_interface import BotCommand, BotInterface, BotResponse
 from cynic.interfaces.bots.governance.adapters.discord_adapter import DiscordAdapter
+from cynic.kernel.core.unified_state import UnifiedConsciousState
 
 
 class TestDiscordAdapterImplementsInterface:
@@ -596,12 +596,13 @@ class TestDiscordAdapterLogging:
     async def test_adapter_has_logger(self):
         """DiscordAdapter has or can use logger."""
         import logging
+
         from cynic.interfaces.bots.governance.adapters import discord_adapter
 
         mock_client = Mock()
         mock_state = Mock(spec=UnifiedConsciousState)
 
-        adapter = DiscordAdapter(client=mock_client, conscious_state=mock_state)
+        DiscordAdapter(client=mock_client, conscious_state=mock_state)
 
         # Should have module-level logger (standard Python logging pattern)
         assert hasattr(discord_adapter, "logger")

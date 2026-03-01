@@ -11,10 +11,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from cynic.kernel.core.event_bus import Event, CoreEvent, get_core_bus, EventBusError
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError, get_core_bus
 from cynic.kernel.core.events_schema import TranscendencePayload
-from cynic.kernel.core.phi import MAX_Q_SCORE, PHI_INV, PHI_INV_2, HOWL_MIN, WAG_MIN, GROWL_MIN
-
+from cynic.kernel.core.phi import GROWL_MIN, HOWL_MIN, MAX_Q_SCORE, PHI_INV, PHI_INV_2, WAG_MIN
 from cynic.kernel.organism.handlers.base import HandlerGroup, KernelServices
 
 if TYPE_CHECKING:

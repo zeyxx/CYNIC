@@ -5,13 +5,12 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from cynic.kernel.core.event_bus import Event, CoreEvent, EventBusError
-
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError
 from cynic.kernel.organism.handlers.base import HandlerGroup, KernelServices
 
 if TYPE_CHECKING:
-    from cynic.kernel.organism.metabolism.universal import UniversalActuator
     from cynic.kernel.organism.brain.learning.qlearning import QTable
+    from cynic.kernel.organism.metabolism.universal import UniversalActuator
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.direct")
 

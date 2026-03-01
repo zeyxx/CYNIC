@@ -4,15 +4,16 @@ Tests rendering functions for OBSERVE, CYNIC, and MACHINE views.
 Verifies formatting, progress bars, and content inclusion.
 """
 
-import pytest
 import time
 
+import pytest
+
 from cynic.kernel.observability.cli.views import (
-    render_observe_view,
+    _format_percentage,
+    _render_progress_bar,
     render_cynic_view,
     render_machine_view,
-    _render_progress_bar,
-    _format_percentage,
+    render_observe_view,
 )
 from cynic.kernel.observability.models import SymbioticState
 

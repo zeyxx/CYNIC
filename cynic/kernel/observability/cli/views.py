@@ -77,7 +77,7 @@ def render_observe_view(state: SymbioticState) -> str:
     lines.append(f"  E-Score:     {_render_progress_bar(state.cynic_e_score, 1.0, 15)} "
                  f"{state.cynic_e_score:.3f}")
     lines.append(f"  Thinking:    {state.cynic_thinking}")
-    lines.append(f"  Planning:")
+    lines.append("  Planning:")
     for item in state.cynic_planning:
         lines.append(f"    • {item}")
 
@@ -89,13 +89,13 @@ def render_observe_view(state: SymbioticState) -> str:
     lines.append(f"  Focus:       {_render_progress_bar(state.human_focus, 10.0, 15)} "
                  f"{state.human_focus:.1f}/10.0")
     if state.human_intentions:
-        lines.append(f"  Intentions:")
+        lines.append("  Intentions:")
         for intent in state.human_intentions:
             lines.append(f"    • {intent}")
     else:
-        lines.append(f"  Intentions:  (none)")
+        lines.append("  Intentions:  (none)")
     if state.human_values:
-        lines.append(f"  Values:")
+        lines.append("  Values:")
         for val in state.human_values:
             lines.append(f"    • {val}")
 
@@ -120,14 +120,14 @@ def render_observe_view(state: SymbioticState) -> str:
                  f"{_format_percentage(state.alignment_score * 100)}")
 
     if state.conflicts:
-        lines.append(f"  Conflicts:")
+        lines.append("  Conflicts:")
         for conflict in state.conflicts:
             lines.append(f"    ⚠️  {conflict}")
     else:
-        lines.append(f"  Conflicts:   (none)")
+        lines.append("  Conflicts:   (none)")
 
     if state.shared_objectives:
-        lines.append(f"  Shared Objectives:")
+        lines.append("  Shared Objectives:")
         for obj in state.shared_objectives:
             lines.append(f"    ✓ {obj}")
 
@@ -170,7 +170,7 @@ def render_cynic_view(state: SymbioticState) -> str:
     lines.append(f"  {state.cynic_thinking}")
 
     # Confidence
-    lines.append(f"\n  Confidence Level:")
+    lines.append("\n  Confidence Level:")
     lines.append(f"    {_render_progress_bar(state.cynic_confidence, 1.0, 30)} "
                  f"{_format_percentage(state.cynic_confidence * 100)}")
 
@@ -223,21 +223,21 @@ def render_machine_view(state: SymbioticState) -> str:
     temp = state.machine_resources.get('temperature', 0.0)
     network = state.machine_resources.get('network_bandwidth', 0.0)
 
-    lines.append(f"  CPU:")
+    lines.append("  CPU:")
     lines.append(f"    {_render_progress_bar(cpu, 100.0, 30)} {_format_percentage(cpu)}")
 
-    lines.append(f"  Memory:")
+    lines.append("  Memory:")
     lines.append(f"    {_render_progress_bar(memory, 100.0, 30)} {_format_percentage(memory)}")
 
-    lines.append(f"  Disk:")
+    lines.append("  Disk:")
     lines.append(f"    {_render_progress_bar(disk, 100.0, 30)} {_format_percentage(disk)}")
 
     if temp > 0:
-        lines.append(f"  Temperature:")
+        lines.append("  Temperature:")
         lines.append(f"    {temp:.1f}°C")
 
     if network > 0:
-        lines.append(f"  Network Bandwidth:")
+        lines.append("  Network Bandwidth:")
         lines.append(f"    {network:.0f} bytes/sec")
 
     # Health indicators

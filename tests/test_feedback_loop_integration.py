@@ -9,15 +9,14 @@ Tests the complete cycle:
 
 This validates that learning actually improves future judgments.
 """
-import asyncio
-import pytest
 from dataclasses import dataclass
 
-from cynic.kernel.core.unified_state import UnifiedLearningOutcome, UnifiedJudgment
-from cynic.kernel.core.judgment import Cell
+import pytest
+
 from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.axioms import AxiomArchitecture, Verdict
-from cynic.kernel.organism.brain.learning.unified_learning import UnifiedQTable, LearningSession
+from cynic.kernel.core.judgment import Cell
+from cynic.kernel.core.unified_state import UnifiedLearningOutcome
+from cynic.kernel.organism.brain.learning.unified_learning import LearningSession, UnifiedQTable
 from cynic.kernel.organism.organism import awaken
 
 

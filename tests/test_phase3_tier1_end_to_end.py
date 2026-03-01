@@ -17,10 +17,11 @@ This validates the user journey:
 5. Result is available (verdict = HOWL/WAG/GROWL/BARK)
 """
 
-import pytest
 import asyncio
 import time
-from httpx import AsyncClient, ASGITransport
+
+import pytest
+from httpx import ASGITransport, AsyncClient
 
 from cynic.interfaces.api.server import app
 

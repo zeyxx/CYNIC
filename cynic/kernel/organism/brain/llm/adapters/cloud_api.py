@@ -5,11 +5,9 @@ Final fallback for maximum complexity.
 Requires API keys and internet connection.
 """
 from __future__ import annotations
+
 import logging
-import time
 import os
-import httpx
-from typing import Any, Optional
 
 from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRequest, LLMResponse
 

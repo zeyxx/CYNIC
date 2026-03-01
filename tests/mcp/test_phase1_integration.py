@@ -23,14 +23,14 @@ Success Criteria (Task 8):
 """
 
 import os
+from unittest.mock import patch
+
 import pytest
-import json
-from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 
 from cynic.interfaces.api.server import app
 from cynic.interfaces.mcp.router import MCPRouter
-from cynic.interfaces.mcp.timeouts import TimeoutConfig, TimeoutCategory
+from cynic.interfaces.mcp.timeouts import TimeoutCategory, TimeoutConfig
 
 
 class TestPhase1AllToolsAvailable:
@@ -376,7 +376,7 @@ class TestPhase1HealthEndpointsAvailable:
 
             data = response.json()
             assert "uptime_s" in data
-            assert isinstance(data["uptime_s"], (int, float))
+            assert isinstance(data["uptime_s"], int | float)
 
     def test_health_full_endpoint_available(self):
         """Verify GET /health/full endpoint returns 200."""

@@ -15,17 +15,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional
 
+from cynic.kernel.core.consciousness import ConsciousnessLevel
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.events_schema import JudgmentCreatedPayload, JudgmentFailedPayload
+from cynic.kernel.core.exceptions import CynicError
+from cynic.kernel.core.judgment import Cell
+from cynic.kernel.organism.brain.cognition.cortex.circuit_breaker import CircuitBreaker
+from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
 from cynic.kernel.organism.handlers.base import HandlerGroup
 from cynic.kernel.organism.handlers.services import KernelServices
-from cynic.kernel.core.event_bus import Event, CoreEvent, get_core_bus
-from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.exceptions import CynicError
-from cynic.kernel.core.events_schema import JudgmentCreatedPayload, JudgmentFailedPayload
-from cynic.kernel.core.judgment import Cell
-from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
-from cynic.kernel.organism.brain.cognition.cortex.circuit_breaker import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +140,7 @@ class JudgmentExecutorHandler(HandlerGroup):
                 # Record success for circuit breaker
                 _orchestrator_breaker.record_success()
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.error(
                     "JudgmentExecutor: Timeout on %s (exceeded 30s)",
                     cell.cell_id,

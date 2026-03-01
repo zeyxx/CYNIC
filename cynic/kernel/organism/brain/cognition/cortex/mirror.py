@@ -24,14 +24,13 @@ Subsystems aggregated:
 """
 from __future__ import annotations
 
-import time
 import logging
+import time
 from math import exp, log
-from typing import Any, Dict
+from typing import Any
 
-
-from cynic.kernel.core.phi import WAG_MIN, GROWL_MIN, MAX_Q_SCORE
 from cynic.kernel.core.formulas import AXIOM_MATURITY_WINDOW_SIZE
+from cynic.kernel.core.phi import GROWL_MIN, MAX_Q_SCORE, WAG_MIN
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.mirror")
 

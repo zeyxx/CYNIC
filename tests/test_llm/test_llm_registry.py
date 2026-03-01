@@ -11,11 +11,14 @@ import pytest
 
 pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - OllamaAdapter not exported from adapter module")
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 from cynic.kernel.organism.brain.llm.adapter import (
-    LLMRegistry, OllamaAdapter, ClaudeAdapter, GeminiAdapter,
-    BenchmarkResult, PREFERRED_MODELS,
+    PREFERRED_MODELS,
+    BenchmarkResult,
+    ClaudeAdapter,
+    LLMRegistry,
+    OllamaAdapter,
 )
 
 

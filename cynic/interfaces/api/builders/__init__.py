@@ -23,15 +23,15 @@ Benefits over monolithic _OrganismAwakener:
 """
 from __future__ import annotations
 
+from cynic.interfaces.api.builders.assembler import OrganismAssembler
 from cynic.interfaces.api.builders.base import BaseBuilder, BuilderContext
-from cynic.interfaces.api.builders.component import ComponentBuilder
 from cynic.interfaces.api.builders.cognition import CognitionBuilder
+from cynic.interfaces.api.builders.component import ComponentBuilder
+from cynic.interfaces.api.builders.memory import MemoryBuilder
 from cynic.interfaces.api.builders.metabolic import MetabolicBuilder
 from cynic.interfaces.api.builders.sensory import SensoryBuilder
-from cynic.interfaces.api.builders.memory import MemoryBuilder
 from cynic.interfaces.api.builders.storage import StorageBuilder
 from cynic.interfaces.api.builders.wiring import WiringBuilder
-from cynic.interfaces.api.builders.assembler import OrganismAssembler
 
 __all__ = [
     "BaseBuilder",

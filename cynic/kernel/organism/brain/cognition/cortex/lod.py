@@ -37,20 +37,23 @@ Usage:
 """
 from __future__ import annotations
 
-import time
 import logging
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-
-from cynic.kernel.core.phi import (
-    PHI_INV, PHI_INV_2, PHI_INV_3,
-    WAG_MIN, GROWL_MIN, fibonacci,
-)
 from cynic.kernel.core.formulas import (
-    LOD_LEVEL0_LATENCY_MS, LOD_LEVEL1_LATENCY_MS,
-    LOD_LEVEL2_LATENCY_MS, LOD_LEVEL3_LATENCY_MS,
+    LOD_LEVEL0_LATENCY_MS,
+    LOD_LEVEL1_LATENCY_MS,
+    LOD_LEVEL2_LATENCY_MS,
+    LOD_LEVEL3_LATENCY_MS,
+)
+from cynic.kernel.core.phi import (
+    PHI_INV,
+    PHI_INV_2,
+    PHI_INV_3,
+    fibonacci,
 )
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.lod")

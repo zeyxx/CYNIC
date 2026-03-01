@@ -10,12 +10,15 @@ Tests the full biological cycle:
 6. API Gateway (HTTP Access to Memory)
 """
 import asyncio
+
 import pytest
 from fastapi.testclient import TestClient
-from cynic.kernel.organism.organism import awaken
+
 from cynic.interfaces.api.server import app
-from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.consciousness import ConsciousnessLevel
+from cynic.kernel.core.judgment import Cell
+from cynic.kernel.organism.organism import awaken
+
 
 @pytest.mark.asyncio
 async def test_organism_holistic_health():

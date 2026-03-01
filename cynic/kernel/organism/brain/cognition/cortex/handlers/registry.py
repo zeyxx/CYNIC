@@ -12,7 +12,7 @@ Responsibility:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler
 

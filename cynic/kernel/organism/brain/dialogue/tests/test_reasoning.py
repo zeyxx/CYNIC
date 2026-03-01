@@ -1,6 +1,8 @@
-import pytest
-from cynic.kernel.organism.brain.dialogue.reasoning import ReasoningEngine
 from unittest.mock import MagicMock
+
+import pytest
+
+from cynic.kernel.organism.brain.dialogue.reasoning import ReasoningEngine
 
 
 @pytest.fixture

@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Optional
+from typing import Any
+
 from anthropic import AsyncAnthropic
 
 
 class LLMBridge:
     """Interface to Claude API for dialogue responses."""
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         self.client = AsyncAnthropic(api_key=self.api_key) if self.api_key else None
         self.model = "claude- opus-4-6"  # Use latest available model

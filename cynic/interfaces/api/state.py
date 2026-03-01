@@ -6,18 +6,15 @@ All routes get this via Depends(get_app_container).
 """
 from __future__ import annotations
 
-import json
+import logging
 import os
 import time
-import logging
 from dataclasses import dataclass, field
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import asyncpg
+    pass
 
-from cynic.kernel.core.phi import MAX_CONFIDENCE
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
 from cynic.kernel.organism.organism import Organism
 
 logger = logging.getLogger("cynic.interfaces.api.state")
@@ -81,7 +78,7 @@ class AppContainer:
 
 
 # Process-level singleton — set during lifespan startup
-_app_container: Optional[AppContainer] = None
+_app_container: AppContainer | None = None
 
 
 def set_app_container(c: AppContainer) -> None:
@@ -104,7 +101,7 @@ def build_kernel(db_pool=None, registry=None) -> Organism:
     return awaken(db_pool, registry)
 
 
-_state: Optional[Organism] = None
+_state: Organism | None = None
 
 
 def set_state(state: Organism) -> None:

@@ -4,7 +4,8 @@ import pytest
 
 pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - governance_bot module not found")
 
-from governance_bot.voting import Vote, VoteCounter, VotingType, DelegationManager
+from governance_bot.voting import DelegationManager, Vote, VoteCounter
+
 
 class TestSimpleVoting:
     """Test simple voting mechanism"""
@@ -19,7 +20,7 @@ class TestSimpleVoting:
 
         approved, rate = VoteCounter.simple_majority(votes)
 
-        assert approved == True
+        assert approved is True
         assert rate == 2/3
 
     def test_simple_majority_reject(self):
@@ -32,7 +33,7 @@ class TestSimpleVoting:
 
         approved, rate = VoteCounter.simple_majority(votes)
 
-        assert approved == False
+        assert approved is False
         assert rate == 1/3
 
 class TestWeightedVoting:
@@ -48,7 +49,7 @@ class TestWeightedVoting:
 
         approved, rate = VoteCounter.weighted_voting(votes)
 
-        assert approved == True
+        assert approved is True
         for_weight = 0.8 + 0.6
         total_weight = 0.8 + 0.6 + 0.5
         assert abs(rate - for_weight/total_weight) < 0.001

@@ -4,10 +4,15 @@ from __future__ import annotations
 
 import logging
 
-from cynic.kernel.core.event_bus import Event, CoreEvent, EventBusError
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError
 from cynic.kernel.core.events_schema import JudgmentCreatedPayload
-from cynic.kernel.core.phi import MAX_CONFIDENCE, MAX_Q_SCORE, HOWL_MIN, WAG_MIN, GROWL_MIN, PHI_INV, PHI_INV_2
-
+from cynic.kernel.core.phi import (
+    GROWL_MIN,
+    HOWL_MIN,
+    MAX_CONFIDENCE,
+    MAX_Q_SCORE,
+    WAG_MIN,
+)
 from cynic.kernel.organism.handlers.base import HandlerGroup, KernelServices
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.escore")

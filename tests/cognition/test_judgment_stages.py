@@ -1,21 +1,21 @@
 """Test judgment stages — verify stage contract and composition."""
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from cynic.kernel.core.consciousness import ConsciousnessLevel
+from cynic.kernel.core.judgment import Cell
 from cynic.kernel.organism.brain.cognition.cortex.judgment_stages import (
-    JudgmentStage,
-    PerceiveStage,
-    JudgeStage,
-    DecideStage,
-    ActStage,
-    LearnStage,
     AccountStage,
+    ActStage,
+    DecideStage,
     EmergeStage,
+    JudgeStage,
+    LearnStage,
+    PerceiveStage,
     execute_judgment_pipeline,
 )
 from cynic.kernel.organism.brain.cognition.cortex.pipeline import JudgmentPipeline
-from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.judgment import Cell
 
 
 @pytest.fixture
@@ -111,7 +111,7 @@ async def test_decide_stage_validates_judgment(mock_orchestrator, test_pipeline)
     mock_orchestrator.decision_validator.validate = MagicMock(return_value=MagicMock(approved=True))
 
     stage = DecideStage(mock_orchestrator)
-    result = await stage.execute(test_pipeline)
+    await stage.execute(test_pipeline)
 
     # Verify validation called
     mock_orchestrator.decision_validator.validate.assert_called_once()
@@ -127,7 +127,7 @@ async def test_act_stage_executes_action(mock_orchestrator, test_pipeline):
 
     # Verify act phase called
     mock_orchestrator._act_phase.assert_called_once()
-    assert result.action_executed == True
+    assert result.action_executed is True
 
 
 @pytest.mark.asyncio
@@ -167,7 +167,7 @@ async def test_emerge_stage_detects_anomaly(mock_orchestrator, test_pipeline):
         mock_bus.return_value = mock_bus_instance
 
         stage = EmergeStage(mock_orchestrator)
-        result = await stage.execute(test_pipeline)
+        await stage.execute(test_pipeline)
 
         # Verify emergence event emitted
         mock_bus_instance.emit.assert_called_once()

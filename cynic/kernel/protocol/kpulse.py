@@ -6,9 +6,10 @@ Defines the structure of the data flowing through the organism's nerves.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
+
 
 class PulseType(Enum):
     SOMATIC_SYNC = "SOMATIC_SYNC"   # Heartbeat + Metrics
@@ -24,15 +25,15 @@ class PulseMessage:
     organism_id: str = "cynic-core"
     version: str = "1.0"
     timestamp: float = field(default_factory=time.time)
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["type"] = self.type.value
         return d
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PulseMessage:
+    def from_dict(cls, data: dict[str, Any]) -> PulseMessage:
         return cls(
             type=PulseType(data["type"]),
             organism_id=data.get("organism_id", "cynic-core"),

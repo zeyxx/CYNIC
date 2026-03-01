@@ -9,11 +9,13 @@ from __future__ import annotations
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
 from types import MappingProxyType
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from typing import Any
 
-from cynic.kernel.core.phi import MAX_CONFIDENCE, PHI_INV, fibonacci
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from cynic.kernel.core.phi import MAX_CONFIDENCE, fibonacci
+
 
 # ── Base Model for Pydantic-based models with flexibility ──
 class UnifiedModel(BaseModel):
@@ -31,8 +33,8 @@ class UnifiedJudgment:
     verdict: str  # HOWL | WAG | GROWL | BARK
     q_score: float
     confidence: float
-    axiom_scores: Dict[str, float] = field(default_factory=dict)
-    dog_votes: Dict[Any, Any] = field(default_factory=dict)
+    axiom_scores: dict[str, float] = field(default_factory=dict)
+    dog_votes: dict[Any, Any] = field(default_factory=dict)
     reality: str = "CODE"
     state_key: str = ""
     analysis: str = "JUDGE"
@@ -102,7 +104,7 @@ class ImpactMeasurement(UnifiedModel):
     """Phase 3: Computed impact metrics."""
     human_id: str
     total_impact: float
-    dimension_scores: Dict[str, float] = Field(default_factory=dict)
+    dimension_scores: dict[str, float] = Field(default_factory=dict)
     governance_weight: float = 0.01
     timestamp: float = Field(default_factory=time.time)
 
@@ -116,7 +118,7 @@ class GovernanceCommunity(UnifiedModel):
     quorum_pct: float = 25.0
     threshold_pct: float = 50.0
     gasdf_enabled: bool = True
-    near_address: Optional[str] = None
+    near_address: str | None = None
     created_at: float = Field(default_factory=time.time)
 
 class GovernanceProposal(UnifiedModel):
@@ -132,8 +134,8 @@ class GovernanceProposal(UnifiedModel):
     voting_end: float = 0.0
     yes_votes: float = 0.0
     no_votes: float = 0.0
-    judgment_id: Optional[str] = None
-    verdict: Optional[str] = None
+    judgment_id: str | None = None
+    verdict: str | None = None
 
 class GovernanceVote(UnifiedModel):
     """Immutable record of a user vote."""
@@ -165,7 +167,7 @@ class ImpactBuffer(BaseModel):
     def add(self, item: ImpactMeasurement): self.buffer.append(item)
 
 class CommunityBuffer(BaseModel):
-    buffer: Dict[str, GovernanceCommunity] = Field(default_factory=dict)
+    buffer: dict[str, GovernanceCommunity] = Field(default_factory=dict)
     def add(self, item: GovernanceCommunity): self.buffer[item.community_id] = item
 
 class ProposalBuffer(BaseModel):
@@ -181,20 +183,20 @@ class UnifiedConsciousState(BaseModel):
     communities: CommunityBuffer = Field(default_factory=CommunityBuffer)
     proposals: ProposalBuffer = Field(default_factory=ProposalBuffer)
     total_judgments: int = 0
-    dog_agreement_scores: Dict[int, float] = Field(default_factory=dict)
+    dog_agreement_scores: dict[int, float] = Field(default_factory=dict)
     consciousness_level: str = "REFLEX"
     active_axioms: list[str] = Field(default_factory=list)
-    emergent_states: Dict[str, bool] = Field(default_factory=dict)
-    activation_log: list[Dict] = Field(default_factory=list)
+    emergent_states: dict[str, bool] = Field(default_factory=dict)
+    activation_log: list[dict] = Field(default_factory=list)
 
     @field_validator("dog_agreement_scores", mode="before")
     @classmethod
-    def validate_dog_agreement_scores(cls, v: Dict[int, float]) -> Dict[int, float]:
+    def validate_dog_agreement_scores(cls, v: dict[int, float]) -> dict[int, float]:
         """Validate that all dog agreement scores are in [0.0, 1.0]."""
         if v is None:
             return {}
         for dog_id, score in v.items():
-            if not isinstance(score, (int, float)):
+            if not isinstance(score, int | float):
                 raise ValueError(f"Dog {dog_id} score must be numeric, got {type(score)}")
             if not (0.0 <= score <= 1.0):
                 raise ValueError(

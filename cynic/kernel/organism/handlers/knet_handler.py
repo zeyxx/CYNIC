@@ -6,9 +6,8 @@ Listens to internal events and broadcasts them as κ-PULSE messages.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
-from cynic.kernel.core.event_bus import Event, CoreEvent
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.organism.handlers.base import HandlerGroup, KernelServices
 from cynic.kernel.protocol.kpulse import PulseMessage, PulseType
 

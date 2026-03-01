@@ -1,7 +1,8 @@
 from __future__ import annotations
+
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, UTC
-from typing import Optional, Callable
+from datetime import UTC, datetime
 
 
 @dataclass
@@ -16,7 +17,7 @@ class FederationPeer:
     """
     peer_id: str
     transport: Callable  # (FederationMessage) → None
-    last_sync: Optional[datetime] = None
+    last_sync: datetime | None = None
     messages_received: int = 0
 
     def send(self, message) -> None:

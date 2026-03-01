@@ -17,13 +17,13 @@ Blocks execution until human:
 """
 from __future__ import annotations
 
-import logging
 import json
+import logging
 import uuid
-from dataclasses import dataclass, field, asdict
-from pathlib import Path
-from typing import Any, Optional
+from dataclasses import asdict, dataclass, field
 from enum import Enum
+from pathlib import Path
+from typing import Any
 
 from cynic.kernel.core.phi import fibonacci
 
@@ -66,7 +66,7 @@ class ApprovalRequest:
     human_reviewer: str = ""  # Who reviewed it
     approval_notes: str = ""
     timestamp_created: float = 0.0
-    timestamp_reviewed: Optional[float] = None
+    timestamp_reviewed: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict."""
@@ -127,7 +127,7 @@ class HumanApprovalGate:
     def requires_approval(
         self,
         decision: dict[str, Any],
-        alignment_violations: list[dict[str, Any] | "AlignmentViolation"],
+        alignment_violations: list[dict[str, Any] | AlignmentViolation],
     ) -> bool:
         """
         Determine if decision requires human approval.
@@ -141,7 +141,7 @@ class HumanApprovalGate:
         """
         verdict = decision.get("verdict", "")
         action_prompt = decision.get("action_prompt", "")
-        confidence = float(decision.get("confidence", 0.0))
+        float(decision.get("confidence", 0.0))
 
         # BARK verdicts always require approval
         if _BARK_VERDICT_REQUIRES_APPROVAL and verdict == "BARK":
@@ -178,7 +178,7 @@ class HumanApprovalGate:
         q_score: float,
         action_prompt: str,
         reason: str,
-        blocking_violations: Optional[list[str]] = None,
+        blocking_violations: list[str] | None = None,
         risk_level: str = "MEDIUM",
     ) -> ApprovalRequest:
         """
@@ -218,7 +218,7 @@ class HumanApprovalGate:
         request_id: str,
         reviewer: str,
         notes: str = "",
-    ) -> Optional[ApprovalRequest]:
+    ) -> ApprovalRequest | None:
         """
         Human approves a decision.
 
@@ -247,7 +247,7 @@ class HumanApprovalGate:
         request_id: str,
         reviewer: str,
         notes: str = "",
-    ) -> Optional[ApprovalRequest]:
+    ) -> ApprovalRequest | None:
         """
         Human rejects a decision.
 
@@ -276,7 +276,7 @@ class HumanApprovalGate:
         self,
         request_id: str,
         reason: str,
-    ) -> Optional[ApprovalRequest]:
+    ) -> ApprovalRequest | None:
         """
         Escalate request to higher-level review.
 
@@ -296,7 +296,7 @@ class HumanApprovalGate:
             return request
         return None
 
-    def get_approval_status(self, request_id: str) -> Optional[ApprovalStatus]:
+    def get_approval_status(self, request_id: str) -> ApprovalStatus | None:
         """Get the current status of an approval request."""
         request = self._find_request(request_id)
         return request.status if request else None
@@ -342,7 +342,7 @@ class HumanApprovalGate:
 
     # ── Private ────────────────────────────────────────────────────────
 
-    def _find_request(self, request_id: str) -> Optional[ApprovalRequest]:
+    def _find_request(self, request_id: str) -> ApprovalRequest | None:
         """Find request by ID."""
         for request in self._requests:
             if request.request_id == request_id:
@@ -366,7 +366,7 @@ class HumanApprovalGate:
             return
 
         try:
-            with open(self._storage_path, "r") as f:
+            with open(self._storage_path) as f:
                 for line in f:
                     if line.strip():
                         data = json.loads(line)

@@ -6,9 +6,8 @@ Listens to SONA_TICK and adjusts internal parameters based on axiom health.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
-from cynic.kernel.core.event_bus import Event, CoreEvent
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.organism.handlers.base import HandlerGroup, KernelServices
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.meta_cognition")

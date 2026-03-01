@@ -34,8 +34,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-
-from cynic.kernel.core.phi import WAG_MIN, GROWL_MIN, PHI_INV_3
+from cynic.kernel.core.phi import GROWL_MIN, PHI_INV_3
 
 logger = logging.getLogger("cynic.kernel.core.human_state")
 
@@ -60,7 +59,7 @@ class HumanState:
     updated_at: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict[str, Any]:
-        from cynic.kernel.core.phi import WAG_MIN, GROWL_MIN, PHI_INV_3
+        from cynic.kernel.core.phi import GROWL_MIN, PHI_INV_3
         lod_hint = "FULL"
         effective = min(self.energy, self.focus)
         if effective < PHI_INV_3 * 100:

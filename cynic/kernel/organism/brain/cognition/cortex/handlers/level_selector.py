@@ -6,11 +6,12 @@ Ensures the organism chooses the highest possible level of detail without
 exhausting metabolic resources.
 """
 from __future__ import annotations
-import logging
-from typing import Any, Callable, Optional
 
-from cynic.kernel.core.event_bus import Event, CoreEvent, get_core_bus
+import logging
+from typing import Any
+
 from cynic.kernel.core.consciousness import ConsciousnessLevel, get_anchor
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
 from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
 from cynic.kernel.organism.metabolism.model_profiler import ModelProfiler
 
@@ -52,7 +53,6 @@ class LevelSelector(BaseHandler):
         pipeline.level = selected_level
         
         # Announce the choice to the bus
-        from cynic.kernel.core.event_bus import get_core_bus
         await get_core_bus().emit(Event.typed(
             CoreEvent.LOD_CHANGED,
             {

@@ -1,7 +1,7 @@
 """NEAR key management"""
 
 import base64
-import os
+
 from nacl.signing import SigningKey
 
 

@@ -33,21 +33,14 @@ from __future__ import annotations
 import random
 import time
 from dataclasses import dataclass, field
-from typing import Optional
 
-from cynic.kernel.core.phi import fibonacci
 from cynic.kernel.organism.brain.cognition.cortex.qtable_benchmark import (
-    QEntry,
-    TD0Learner,
-    ConvergenceResult,
+    _ALPHA_GRID,
     _PHI_ALPHA,
     _STD_ALPHA,
-    _ALPHA_GRID,
-    _CONVERGENCE_EPS,
-    _EWC_CONSOLIDATE_AT,
-    _N_SHOCK,
+    ConvergenceResult,
+    TD0Learner,
 )
-
 
 # ---------------------------------------------------------------------------
 # Empirical constants (measured: measure_probe_variance.py, 200 runs)
@@ -139,7 +132,7 @@ class RealBenchmark:
         (P3 is the strongest anchor — Guardian always scores it 0)
     """
 
-    def __init__(self, task: Optional[RealKernelTask] = None) -> None:
+    def __init__(self, task: RealKernelTask | None = None) -> None:
         self.task = task or RealKernelTask()
 
     def run(

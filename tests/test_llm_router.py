@@ -9,16 +9,19 @@ Tests:
   5. Visit count validation: minimum 3 visits required
   6. Stats tracking: route counts and rates
 """
+
 import pytest
-from unittest.mock import MagicMock
 
-from cynic.kernel.organism.metabolism.llm_router import (
-    LLMRouter, RoutingDecision, MODEL_SONNET, MODEL_HAIKU,
-    _SIMPLE_TASK_TYPES, _CHEAP_COMPLEXITIES, _MIN_VISITS_TO_ROUTE,
-)
-from cynic.kernel.organism.brain.learning.qlearning import QTable, LearningSignal
 from cynic.kernel.core.phi import PHI_INV
-
+from cynic.kernel.organism.brain.learning.qlearning import LearningSignal, QTable
+from cynic.kernel.organism.metabolism.llm_router import (
+    _CHEAP_COMPLEXITIES,
+    _MIN_VISITS_TO_ROUTE,
+    _SIMPLE_TASK_TYPES,
+    MODEL_HAIKU,
+    MODEL_SONNET,
+    LLMRouter,
+)
 
 # ════════════════════════════════════════════════════════════════════════════
 # FIXTURES

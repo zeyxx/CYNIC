@@ -9,24 +9,24 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import sys
 import time
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Optional, Any
 
-from fastapi import FastAPI, Depends, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-# Core imports
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
-from cynic.kernel.core.phi import MAX_CONFIDENCE
-from cynic.kernel.organism.organism import Organism, awaken
 from cynic.interfaces.api.state import (
     AppContainer,
-    set_app_container,
     get_app_container,
+    set_app_container,
     set_instance_id,
 )
+
+# Core imports
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.phi import MAX_CONFIDENCE
+from cynic.kernel.organism.organism import awaken
 
 logger = logging.getLogger("cynic.interfaces.api.server")
 
@@ -115,14 +115,14 @@ app.add_middleware(
 
 # ── Auto-register API Routers ────────────────────────────────────────────
 # We import them here to ensure they are registered with the app
-from cynic.interfaces.api.routers.core import router_core
 from cynic.interfaces.api.routers.consciousness import router_consciousness
-from cynic.interfaces.api.routers.health import router_health
-from cynic.interfaces.api.routers.federation import router as router_federation
-from cynic.interfaces.api.routers.sovereignty import router as router_sovereignty
-from cynic.interfaces.api.routers.governance import router as router_governance
+from cynic.interfaces.api.routers.core import router_core
 from cynic.interfaces.api.routers.dna import router as router_dna
+from cynic.interfaces.api.routers.federation import router as router_federation
+from cynic.interfaces.api.routers.governance import router as router_governance
+from cynic.interfaces.api.routers.health import router_health
 from cynic.interfaces.api.routers.llm import router as router_llm
+from cynic.interfaces.api.routers.sovereignty import router as router_sovereignty
 
 app.include_router(router_core, prefix="/api")
 app.include_router(router_consciousness, prefix="/api/consciousness")
@@ -184,7 +184,6 @@ async def websocket_consciousness_ecosystem(websocket: WebSocket) -> None:
 
     Then periodically sends ecosystem updates.
     """
-    from cynic.kernel.core.phi import MAX_CONFIDENCE
 
     await websocket.accept()
 

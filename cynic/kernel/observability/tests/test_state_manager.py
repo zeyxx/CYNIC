@@ -1,16 +1,16 @@
 """Tests for SymbioticStateManager."""
-import pytest
 import time
-from types import MappingProxyType
 
-from cynic.kernel.observability.symbiotic_state_manager import (
-    SymbioticStateManager,
-    get_state_manager,
-    get_current_state,
-)
-from cynic.kernel.observability.models import SymbioticState
+import pytest
+
 from cynic.kernel.observability.human_state_tracker import HumanStateTracker
 from cynic.kernel.observability.machine_monitor import MachineMonitor
+from cynic.kernel.observability.models import SymbioticState
+from cynic.kernel.observability.symbiotic_state_manager import (
+    SymbioticStateManager,
+    get_current_state,
+    get_state_manager,
+)
 
 
 @pytest.mark.asyncio

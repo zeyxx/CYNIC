@@ -12,17 +12,16 @@ Responsibility:
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
-from cynic.kernel.organism.brain.cognition.cortex.decision_validator import BlockedDecision
-from cynic.kernel.core.judgment import Judgment
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent, EventBusError
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError, get_core_bus
+from cynic.kernel.core.events_schema import ActCompletedPayload, DecisionMadePayload
 from cynic.kernel.core.exceptions import CynicError
-from cynic.kernel.core.events_schema import DecisionMadePayload, ActCompletedPayload
+from cynic.kernel.core.judgment import Judgment
+from cynic.kernel.organism.brain.cognition.cortex.decision_validator import BlockedDecision
+from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgmentPipeline
@@ -46,13 +45,13 @@ class ActHandler(BaseHandler):
 
     def __init__(
         self,
-        decide_agent: Optional[Any] = None,
-        decision_validator: Optional[Any] = None,
-        runner: Optional[Any] = None,
-        gasdf_executor: Optional[Any] = None,
-        agency_manager: Optional[Any] = None,
-        body: Optional[Any] = None,
-        motor_system: Optional[Any] = None,
+        decide_agent: Any | None = None,
+        decision_validator: Any | None = None,
+        runner: Any | None = None,
+        gasdf_executor: Any | None = None,
+        agency_manager: Any | None = None,
+        body: Any | None = None,
+        motor_system: Any | None = None,
         **kwargs: Any,
     ) -> None:
         self.decide_agent = decide_agent
@@ -72,8 +71,8 @@ class ActHandler(BaseHandler):
     async def execute(
         self,
         judgment: Judgment,
-        pipeline: Optional[JudgmentPipeline] = None,
-        recent_judgments: Optional[list[Any]] = None,
+        pipeline: JudgmentPipeline | None = None,
+        recent_judgments: list[Any] | None = None,
         **kwargs: Any,
     ) -> HandlerResult:
         """
@@ -120,9 +119,9 @@ class ActHandler(BaseHandler):
     async def _act_phase(
         self,
         judgment: Judgment,
-        pipeline: Optional[JudgmentPipeline],
-        recent_judgments: Optional[list[Any]],
-    ) -> Optional[dict]:
+        pipeline: JudgmentPipeline | None,
+        recent_judgments: list[Any] | None,
+    ) -> dict | None:
         """
         STEP 3 (DECIDE) + STEP 4 (ACT) — unified action execution with guardrails.
         """
@@ -151,7 +150,7 @@ class ActHandler(BaseHandler):
             return None  # No action needed
 
         # Helper: emit DECISION_MADE for human review (consolidates duplicate emissions)
-        async def emit_decision_made(trigger: str, error: Optional[str] = None) -> None:
+        async def emit_decision_made(trigger: str, error: str | None = None) -> None:
             await get_core_bus().emit(Event.typed(
                 CoreEvent.DECISION_MADE,
                 DecisionMadePayload(

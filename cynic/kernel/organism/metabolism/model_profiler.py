@@ -7,11 +7,10 @@ Inspired by llmfit, optimized for Ryzen 5700G.
 from __future__ import annotations
 
 import logging
-import psutil
 import platform
-import time
-from dataclasses import dataclass, field
-from typing import Dict, Optional
+from dataclasses import dataclass
+
+import psutil
 
 logger = logging.getLogger("cynic.kernel.organism.metabolism.model_profiler")
 

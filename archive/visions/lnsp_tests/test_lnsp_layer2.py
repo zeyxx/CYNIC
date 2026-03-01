@@ -9,7 +9,6 @@ from cynic.kernel.protocol.lnsp.layer2 import Aggregator, Layer2, TemporalWindow
 from cynic.kernel.protocol.lnsp.messages import create_aggregated_state, create_raw_observation
 from cynic.kernel.protocol.lnsp.types import AggregationType, LNSPMessage, ObservationType
 
-
 # ============================================================================
 # Test Fixtures
 # ============================================================================

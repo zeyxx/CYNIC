@@ -18,12 +18,12 @@ Tests validate:
 """
 from __future__ import annotations
 
-import pytest
 import uuid
-from unittest.mock import Mock, patch, AsyncMock
 
+import pytest
+
+from cynic.kernel.core.unified_state import UnifiedConsciousState, UnifiedJudgment
 from cynic.kernel.organism.brain.consensus.pbft_engine import PBFTEngine
-from cynic.kernel.core.unified_state import UnifiedJudgment, UnifiedConsciousState
 
 
 class TestPBFTEngineInitialization:

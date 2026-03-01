@@ -22,16 +22,15 @@ Risk: MEDIUM (modifies endpoint behavior, needs backward compatibility validatio
 Payoff: IMMEDIATE (enables 1000x faster response times for async clients)
 """
 
-import pytest
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
-from fastapi.testclient import TestClient
 from uuid import uuid4
+
+import pytest
+from fastapi.testclient import TestClient
 
 # Must use proper app import
 from cynic.interfaces.api.server import app
-from cynic.kernel.core.event_bus import Event, CoreEvent
-from cynic.kernel.core.judgment import Cell, Judgment
+from cynic.kernel.core.event_bus import CoreEvent, Event
 
 
 @pytest.fixture(scope="class")

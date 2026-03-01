@@ -7,10 +7,9 @@ Now anchored in Reality requirements.
 from __future__ import annotations
 
 import logging
-import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("cynic.kernel.core.consciousness")
 
@@ -72,7 +71,7 @@ def get_anchor(reality: str) -> RealityAnchor:
 class ConsciousnessState:
     """Current state of organism attention."""
     level: ConsciousnessLevel = ConsciousnessLevel.REFLEX
-    active_anchors: List[str] = field(default_factory=list)
+    active_anchors: list[str] = field(default_factory=list)
     cycle_budget: int = 144 # F(12) — Total available cycles per session
     cycles_consumed: int = 0
     timers: dict[str, Any] = field(default_factory=dict)
@@ -124,7 +123,7 @@ class ConsciousnessState:
         }
 
 # Global singleton
-_conscious_state: Optional[ConsciousnessState] = None
+_conscious_state: ConsciousnessState | None = None
 
 def get_consciousness() -> ConsciousnessState:
     """Get the global consciousness state singleton."""

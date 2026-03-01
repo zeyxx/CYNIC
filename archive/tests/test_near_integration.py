@@ -13,19 +13,19 @@ This validates that governance decisions can execute on NEAR blockchain
 with proper fee handling for community treasury.
 """
 
-import pytest
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 
-from cynic.kernel.organism.perception.integrations.near.types import (
-    NEARNetworkConfig,
-    NEARExecutionResult,
-    NEARContractCall,
-    NEARGovernanceProposal,
-    TxStatus,
-    NEARError,
-)
+import pytest
+
 from cynic.kernel.organism.perception.integrations.near.executor import NEARExecutor
+from cynic.kernel.organism.perception.integrations.near.types import (
+    NEARContractCall,
+    NEARError,
+    NEARExecutionResult,
+    NEARGovernanceProposal,
+    NEARNetworkConfig,
+    TxStatus,
+)
 
 
 @dataclass
@@ -320,7 +320,6 @@ class TestGASdfIntegration:
         # GASdf allows paying fees with community token
         # Fees are burned to treasury instead of being extracted
 
-        community_token = "community.near"
         gas_attached = 300_000_000_000_000  # 300 TGas
         fee_in_tokens = 5  # Community tokens instead of NEAR
 

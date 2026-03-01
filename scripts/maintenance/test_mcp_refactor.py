@@ -100,9 +100,9 @@ async def test_lock_file_coordination():
     logger.info("TEST 4: Lock File Coordination")
     logger.info("=" * 60)
 
-    from cynic.interfaces.mcp.kernel_lock import get_lock_manager
-    from pathlib import Path
     import json
+
+    from cynic.interfaces.mcp.kernel_lock import get_lock_manager
 
     lock_manager = get_lock_manager()
     lock_file = Path.home() / ".cynic" / "kernel.lock"

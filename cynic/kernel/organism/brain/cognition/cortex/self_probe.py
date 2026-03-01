@@ -26,7 +26,6 @@ Lifecycle:
 """
 from __future__ import annotations
 
-
 import json
 import logging
 import os
@@ -35,10 +34,9 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-
-from cynic.kernel.core.phi import PHI_INV_2, fibonacci
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
 from cynic.kernel.core.events_schema import SelfImprovementProposedPayload
+from cynic.kernel.core.phi import PHI_INV_2, fibonacci
 
 logger = logging.getLogger("cynic.judge.self_probe")
 
@@ -56,7 +54,7 @@ _MIN_VISITS: int = fibonacci(4)       # 3
 
 
 def _short_id() -> str:
-    return "%08x" % random.getrandbits(32)
+    return f"{random.getrandbits(32):08x}"
 
 
 # ── Dataclass ────────────────────────────────────────────────────────────────

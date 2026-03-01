@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -28,10 +27,10 @@ class Config:
 
     # ── Discord Bot Configuration ──────────────────────────────────────
     discord_token: str
-    discord_guild_id: Optional[str] = None
+    discord_guild_id: str | None = None
 
     # ── Telegram Bot Configuration (Optional) ──────────────────────────
-    telegram_token: Optional[str] = None
+    telegram_token: str | None = None
 
     # ── Database Configuration ─────────────────────────────────────────
     database_url: str = "sqlite:///cynic.db"
@@ -48,7 +47,7 @@ class Config:
     # ── Application Settings ───────────────────────────────────────────
     environment: str = "development"
     log_level: str = "INFO"
-    log_file: Optional[str] = None
+    log_file: str | None = None
     debug: bool = False
 
     # ── Advanced Settings ──────────────────────────────────────────────
@@ -107,7 +106,7 @@ class Config:
 
 
 # ── Singleton pattern for global configuration ─────────────────────────────
-_GLOBAL_CONFIG: Optional[Config] = None
+_GLOBAL_CONFIG: Config | None = None
 
 
 def get_config() -> Config:

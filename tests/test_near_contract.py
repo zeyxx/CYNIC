@@ -1,6 +1,5 @@
 """Tests for NEAR smart contract"""
 
-import pytest
 import os
 
 
@@ -17,7 +16,7 @@ class TestNearContract:
         contract_file = "contracts/governance.rs"
         assert os.path.exists(contract_file)
 
-        with open(contract_file, 'r') as f:
+        with open(contract_file) as f:
             content = f.read()
 
         # Check for required methods
@@ -36,7 +35,7 @@ class TestNearContract:
         cargo_file = "contracts/Cargo.toml"
         assert os.path.exists(cargo_file), f"Cargo.toml not found at {cargo_file}"
 
-        with open(cargo_file, 'r') as f:
+        with open(cargo_file) as f:
             content = f.read()
 
         assert "near-sdk" in content, "near-sdk dependency missing"

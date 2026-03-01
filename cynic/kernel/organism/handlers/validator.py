@@ -14,7 +14,6 @@ This runs at kernel startup and reports issues to assist with architecture gover
 
 from __future__ import annotations
 
-import importlib
 import logging
 import pkgutil
 from dataclasses import dataclass
@@ -24,7 +23,6 @@ from cynic.kernel.core.event_bus import EventBusError
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.handlers.base import HandlerGroup
-    from cynic.kernel.core.event_bus import CoreEvent
 
 logger = logging.getLogger("cynic.kernel.organism.handlers.validator")
 
@@ -128,11 +126,11 @@ class HandlerValidator:
         # Check: all subscribed events are CoreEvent types
         try:
             from cynic.kernel.core.event_bus import CoreEvent
-            valid_events = {e.value for e in CoreEvent}
+            {e.value for e in CoreEvent}
         except EventBusError:
-            valid_events = set()
+            pass
 
-        for event_type, handler_fn in subs:
+        for event_type, _handler_fn in subs:
             try:
                 event_value = event_type.value if hasattr(event_type, "value") else str(event_type)
             except EventBusError:

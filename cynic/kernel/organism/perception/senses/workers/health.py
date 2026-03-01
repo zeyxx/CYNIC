@@ -1,9 +1,8 @@
 """CYNIC HealthWatcher — CYNIC×PERCEIVE/REFLEX every F(8)=21s."""
 from __future__ import annotations
 
-from typing import Any
-
 from collections.abc import Callable
+from typing import Any
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel, get_consciousness
 from cynic.kernel.core.judgment import Cell
