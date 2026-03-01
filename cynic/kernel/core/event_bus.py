@@ -114,9 +114,16 @@ class EventBus:
         self._handlers: dict[str, list[Handler]] = defaultdict(list)
         self._pending_tasks: set[asyncio.Task] = set()
         self._handler_timeout_s: float = 30.0
+        
+        # High-Frequency Metrics (SRE Standard)
         self._emitted_count: int = 0
         self._error_count: int = 0
         self._handler_errors: dict[str, list[str]] = defaultdict(list)
+        self._total_latency_ms: float = 0.0
+        self._peak_pending: int = 0
+        
+        # Backpressure Settings (Lentille : Backend)
+        self.MAX_PENDING = 1000 # Critical threshold for 10k TPS readiness
 
     def on(self, event_type: Union[str, CoreEvent], handler: Handler) -> None:
         name = event_type.value if hasattr(event_type, "value") else str(event_type)
@@ -150,20 +157,38 @@ class EventBus:
             self._handler_errors[event.type].append(error_msg)
 
     async def emit(self, event: Event) -> None:
-        """Emit event to all registered handlers.
-
-        Handlers are invoked concurrently. If a handler fails, it's logged but doesn't
-        prevent other handlers from running. This provides resilience + observability.
-        """
+        """Emit event to all registered handlers with backpressure monitoring."""
         self._emitted_count += 1
+        
+        # Backpressure Monitor (SRE lens)
+        pending_count = len(self._pending_tasks)
+        if pending_count > self._peak_pending:
+            self._peak_pending = pending_count
+            
+        if pending_count > self.MAX_PENDING:
+            logger.warning(
+                f"[{self.instance_id}] BACKPRESSURE: {pending_count} pending tasks. Throttling active.",
+                extra={"bus_id": self.bus_id}
+            )
+            # Mandatory anomaly signal
+            if event.type != CoreEvent.ANOMALY_DETECTED:
+                asyncio.create_task(self.emit(Event.typed(
+                    CoreEvent.ANOMALY_DETECTED, 
+                    {"type": "backpressure", "pending": pending_count},
+                    source="event_bus"
+                )))
+
         handlers = self._handlers.get(event.type, [])
         wildcards = self._handlers.get("*", [])
 
+        t_start = time.perf_counter()
         for i, h in enumerate(handlers + wildcards):
             handler_name = getattr(h, "__name__", f"handler_{i}")
             task = asyncio.create_task(self._safe_handler_wrapper(h, event, handler_name))
             self._pending_tasks.add(task)
             task.add_done_callback(self._pending_tasks.discard)
+        
+        self._total_latency_ms += (time.perf_counter() - t_start) * 1000
 
     async def drain(self, timeout: float = 2.0) -> None:
         """Wait for all pending handler tasks to complete.
@@ -190,14 +215,17 @@ class EventBus:
             self._pending_tasks.clear()
 
     def stats(self) -> dict[str, Any]:
-        """Return observability statistics about the bus."""
+        """Return high-frequency observability statistics."""
         return {
             "bus_id": self.bus_id,
+            "instance_id": self.instance_id,
             "emitted": self._emitted_count,
             "errors": self._error_count,
             "pending_tasks": len(self._pending_tasks),
+            "peak_pending": self._peak_pending,
+            "avg_latency_ms": self._total_latency_ms / max(self._emitted_count, 1),
             "error_rate": self._error_count / max(self._emitted_count, 1),
-            "error_by_event": dict(self._handler_errors),
+            "load_factor": len(self._pending_tasks) / self.MAX_PENDING
         }
 
 def get_bus(bus_id: str, instance_id: str | None = None) -> EventBus:
