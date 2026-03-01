@@ -23,6 +23,7 @@ from cynic.interfaces.api.services.ecosystem_observer import EcosystemObserver
 from cynic.interfaces.api.state import get_app_container
 from cynic.nervous import EventJournal, DecisionTracer, ServiceStateRegistry
 from cynic.interfaces.api.metrics import SERVICE_QUERY_DURATION, REQUESTS_TOTAL, ERRORS_TOTAL
+from cynic.kernel.core.exceptions import CynicError
 
 logger = logging.getLogger(__name__)
 
