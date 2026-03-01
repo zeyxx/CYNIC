@@ -33,24 +33,24 @@ class KNetServer:
     async def start(self):
         """Start the WebSocket server with IPv4 fallback."""
         try:
-            print(f"🧠 κ-NET: Attempting bind on [{self.host}]:{self.port}...")
+            print(f"[BRAIN] K-NET: Attempting bind on [{self.host}]:{self.port}...")
             self._server = await websockets.serve(
-                self._handler, 
-                self.host, 
+                self._handler,
+                self.host,
                 self.port,
                 family=socket.AF_INET6 if ":" in self.host else socket.AF_INET
             )
             self._running = True
-            print(f"📡 κ-NET Server active on [{self.host}]:{self.port}")
-            logger.info(f"κ-NET Server active on [{self.host}]:{self.port}")
+            print(f"[RADIO] K-NET Server active on [{self.host}]:{self.port}")
+            logger.info(f"K-NET Server active on [{self.host}]:{self.port}")
         except Exception as e:
             if self.host == "::":
-                print(f"⚠️ κ-NET: IPv6 bind failed ({e}). Falling back to IPv4 0.0.0.0...")
+                print(f"[WARNING] K-NET: IPv6 bind failed ({e}). Falling back to IPv4 0.0.0.0...")
                 self.host = "0.0.0.0"
                 await self.start()
             else:
-                print(f"❌ κ-NET FATAL: Failed to start server: {e}")
-                logger.error(f"Failed to start κ-NET Server: {e}")
+                print(f"[FATAL] K-NET: Failed to start server: {e}")
+                logger.error(f"Failed to start K-NET Server: {e}")
 
     async def stop(self):
         """Gracefully stop the server."""
@@ -63,7 +63,7 @@ class KNetServer:
     async def _handler(self, websocket, path):
         """Handle new nerve connections."""
         self.clients.add(websocket)
-        print(f"🔌 κ-NET: Nerve connected from {websocket.remote_address}. Syncing...")
+        print(f"[NERVE] K-NET: Nerve connected from {websocket.remote_address}. Syncing...")
         
         # Immediate welcome pulse for instant UI update
         try:

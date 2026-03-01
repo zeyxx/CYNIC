@@ -274,6 +274,18 @@ class EventBus:
         finally:
             self._pending_tasks.clear()
 
+    def stats(self) -> dict:
+        """Return statistics about the event bus."""
+        return {
+            "bus_id": self.bus_id,
+            "pending_tasks": len(self._pending_tasks),
+            "handlers_count": len(self._handlers),
+            "event_types": list(self._handlers.keys()),
+            "total_emitted": self._emitted_count,
+            "total_errors": self._error_count,
+            "history_size": len(self._history),
+        }
+
 # Singletons
 _buses: dict[str, EventBus] = {}
 
@@ -290,3 +302,17 @@ def get_automation_bus() -> EventBus:
 
 def get_agent_bus() -> EventBus:
     return get_bus("AGENT")
+
+def reset_all_buses() -> None:
+    """Reset all global event buses to clean state.
+
+    Useful for test isolation. Clears all handlers and pending tasks.
+    """
+    global _buses
+    for bus in _buses.values():
+        bus._handlers.clear()
+        bus._pending_tasks.clear()
+        bus._history.clear()
+        bus._emitted_count = 0
+        bus._error_count = 0
+    # Note: Don't clear _buses dict itself, just their state

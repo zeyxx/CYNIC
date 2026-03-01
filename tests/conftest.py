@@ -8,6 +8,7 @@ import uuid
 from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
+
 # ════════════════════════════════════════════════════════════════════════════
 # PHASE 3: Session-Scoped Organism Cache (99.1% RAM reduction)
 # ════════════════════════════════════════════════════════════════════════════
@@ -73,13 +74,13 @@ def _cleanup_organism():
     if _CACHED_ORGANISM is None:
         return
 
-    from cynic.kernel.organism.conscious_state import ConsciousState
+    from cynic.kernel.core.unified_state import UnifiedConsciousState
     from cynic.kernel.core.event_bus import get_core_bus, get_automation_bus, get_agent_bus
     import gc
     import logging
 
     logger = logging.getLogger("cynic.tests.conftest")
-    logger.info("🧬 SESSION END: Running organism cleanup...")
+    logger.info("SESSION END: Running organism cleanup...")
 
     try:
         organism = _CACHED_ORGANISM
@@ -115,9 +116,10 @@ def _cleanup_organism():
                         task.cancel()
                 logger.debug(f"Cancelled {len(bus._pending_tasks)} pending tasks on {bus_name}")
 
-        # Reset singletons
-        ConsciousState._instance = None
-        logger.debug("Reset ConsciousState singleton")
+        # Reset singletons (if instance exists)
+        if hasattr(UnifiedConsciousState, '_instance'):
+            UnifiedConsciousState._instance = None
+        logger.debug("Reset UnifiedConsciousState singleton")
 
         from cynic.interfaces.api import state as state_module
         state_module._app_container = None
