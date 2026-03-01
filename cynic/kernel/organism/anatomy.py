@@ -39,6 +39,8 @@ if TYPE_CHECKING:
     from cynic.kernel.organism.sona_emitter import SonaEmitter
     from cynic.kernel.perception.federation.gossip import GossipManager
     from cynic.nervous.event_journal import EventJournal
+    from cynic.nervous.loop_closure import LoopClosureValidator
+    from cynic.nervous.state_reconstructor import StateReconstructor
 
 
 @dataclass(frozen=True)
@@ -76,8 +78,9 @@ class SensoryCore:
     source_watcher: SourceWatcher
     topology_builder: IncrementalTopologyBuilder
     mcp_bridge: MCPBridge
+    market_sensor: Optional[Any] = None
+    internal_sensor: Optional[Any] = None
     convergence_validator: Optional[ConvergenceValidator] = None
-    internal_sensor: Optional[InternalSensor] = None
     knet_server: Optional[KNetServer] = None
 
 
@@ -92,3 +95,5 @@ class ArchiveCore:
     gossip_manager: Optional[Any] = None # GossipManager can have complex cycles
     meta_cognition: Optional[Any] = None
     journal: Optional[EventJournal] = None
+    loop_validator: Optional[LoopClosureValidator] = None
+    reconstructor: Optional[StateReconstructor] = None

@@ -37,7 +37,7 @@ from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import Any
 
-from cynic.kernel.core.formulas import DECISION_TRACE_CAP
+from cynic.kernel.core.formulas import DECISION_TRACE_CAP, HISTORY_REPLAY_BATCH
 
 logger = logging.getLogger("cynic.nervous.decision_trace")
 
@@ -274,6 +274,58 @@ class DecisionTracer:
                 return
 
             trace.nodes[phase_index].dog_votes = dog_votes
+
+    async def replay(self, trace_id: str) -> list[dict]:
+        """
+        Walk the stored DAG in topological order (Kahn's algorithm).
+
+        Returns ordered list of {node_id, phase, component, verdict,
+        q_score, duration_ms, is_error} — one entry per node.
+        """
+        async with self._lock:
+            trace = self._trace_map.get(trace_id)
+            if not trace:
+                return []
+
+            # Build in-degree and adjacency from edge list
+            in_degree: dict[str, int] = {n.node_id: 0 for n in trace.nodes}
+            adjacency: dict[str, list[str]] = {n.node_id: [] for n in trace.nodes}
+            for (u, v) in trace.edges:
+                adjacency[u].append(v)
+                in_degree[v] += 1
+
+            node_map = {n.node_id: n for n in trace.nodes}
+
+            # Kahn's topological sort
+            from collections import deque as _dq
+            queue = _dq(nid for nid, deg in in_degree.items() if deg == 0)
+            ordered = []
+            while queue:
+                nid = queue.popleft()
+                node = node_map.get(nid)
+                if node:
+                    ordered.append({
+                        "node_id": node.node_id,
+                        "phase": node.phase,
+                        "component": node.component,
+                        "verdict": node.output_verdict,
+                        "q_score": node.output_q_score,
+                        "duration_ms": node.duration_ms,
+                        "is_error": node.is_error,
+                    })
+                for neighbor in adjacency.get(nid, []):
+                    in_degree[neighbor] -= 1
+                    if in_degree[neighbor] == 0:
+                        queue.append(neighbor)
+            return ordered
+
+    async def replay_by_judgment(self, judgment_id: str) -> list[dict]:
+        """Convenience: replay by judgment_id instead of trace_id."""
+        async with self._lock:
+            trace_id = self._judgment_to_trace.get(judgment_id)
+        if not trace_id:
+            return []
+        return await self.replay(trace_id)
 
     async def close_trace(
         self,

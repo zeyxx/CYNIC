@@ -35,6 +35,8 @@ from cynic.nervous.service_registry import (
     RegistrySnapshot,
     ServiceStateRegistry,
 )
+from cynic.nervous.bus_loop_closure_adapter import BusLoopClosureAdapter
+from cynic.nervous.state_reconstructor import StateReconstructor
 
 __all__ = [
     "ServiceStateRegistry",
@@ -53,4 +55,6 @@ __all__ = [
     "LoopClosureValidator",
     "LoopClosureEvent",
     "CyclePhase",
+    "BusLoopClosureAdapter",
+    "StateReconstructor",
 ]

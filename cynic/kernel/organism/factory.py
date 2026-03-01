@@ -45,10 +45,15 @@ from cynic.kernel.organism.perception.senses.compressor import ContextCompressor
 from cynic.kernel.organism.sona_emitter import SonaEmitter
 from cynic.kernel.organism.state_manager import OrganismState
 from cynic.kernel.protocol.knet_server import KNetServer
+from cynic.kernel.core.vascular import VascularSystem
 from cynic.kernel.core.storage.surreal import SurrealStorage
 from cynic.kernel.core.config import CynicConfig
 from cynic.nervous.event_journal import EventJournal
 from cynic.nervous.bus_journal_adapter import BusJournalAdapter
+from cynic.nervous.decision_trace import DecisionTracer
+from cynic.nervous.loop_closure import LoopClosureValidator
+from cynic.nervous.bus_loop_closure_adapter import BusLoopClosureAdapter
+from cynic.nervous.state_reconstructor import StateReconstructor
 
 logger = logging.getLogger("cynic.kernel.organism.factory")
 
@@ -86,6 +91,21 @@ class _OrganismAwakener:
         self.journal = EventJournal()
         self._journal_adapter = BusJournalAdapter(self.journal)
         instance_bus.on("*", self._journal_adapter.on_event)
+
+        # 0c. DECISION TRACER — builds reasoning DAGs per judgment
+        self.tracer = DecisionTracer()
+
+        # 0d. LOOP CLOSURE VALIDATOR — detects stalled / orphaned judgment cycles
+        self.loop_validator = LoopClosureValidator()
+        self._loop_adapter = BusLoopClosureAdapter(self.loop_validator)
+        instance_bus.on("*", self._loop_adapter.on_event)
+
+        # 0e. STATE RECONSTRUCTOR — audit journal + traces + loop state
+        self.reconstructor = StateReconstructor(
+            journal=self.journal,
+            tracer=self.tracer,
+            validator=self.loop_validator,
+        )
 
         # 1. BASE STATE
         self.state = OrganismState(instance_id=instance_id, storage=self.storage)
@@ -309,8 +329,9 @@ class _OrganismAwakener:
             source_watcher=self.source_watcher,
             topology_builder=self.topology_builder,
             mcp_bridge=self.mcp_bridge,
-            convergence_validator=self.convergence_validator,
+            market_sensor=self.market_sensor,
             internal_sensor=self.internal_sensor,
+            convergence_validator=self.convergence_validator,
             knet_server=self.knet_server,
         )
 
@@ -321,6 +342,8 @@ class _OrganismAwakener:
             sona_emitter=self.sona_emitter,
             gossip_manager=self.gossip_manager,
             journal=self.journal,
+            loop_validator=self.loop_validator,
+            reconstructor=self.reconstructor,
         )
 
         from cynic.kernel.organism.organism import Organism
