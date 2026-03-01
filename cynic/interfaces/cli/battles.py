@@ -1,12 +1,12 @@
 """
-CYNIC Autonomous Battle Runner — Multi-Agent Learning Arena
+CYNIC Autonomous Battle Runner â€” Multi-Agent Learning Arena
 
 Usage: python -m cynic.interfaces.cli battles [--duration 8h] [--interval 30s] [--dry-run]
 
 This runs continuous "battles" where CYNIC and Claude Code execute proposed actions,
 measure outcomes, and learn from feedback. Both systems improve simultaneously.
 
-Schema: ~/.cynic/battles.jsonl — one JSON object per battle, newline-delimited.
+Schema: ~/.cynic/battles.jsonl â€” one JSON object per battle, newline-delimited.
 """
 import argparse
 import asyncio
@@ -24,13 +24,13 @@ from cynic.interfaces.cli.utils import _API, _API_TIMEOUT, _CYNIC_DIR, _c
 logger = logging.getLogger("cynic.interfaces.cli.battles")
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(name)s] %(levelname)s — %(message)s",
+    format="%(asctime)s [%(name)s] %(levelname)s â€” %(message)s",
 )
 
 
 @dataclass
 class BattleRecord:
-    """One complete battle (propose → execute → measure → log)."""
+    """One complete battle (propose â†’ execute â†’ measure â†’ log)."""
     battle_id: str                  # unique ID
     timestamp_ms: float             # when battle started
     duration_ms: float              # how long execution took
@@ -68,7 +68,7 @@ class BattleRunner:
             interval_s: Pause between battles (default 30s)
         """
         logger.info(
-            _c("cyan", f"🎯 Starting autonomous battle arena ({max_duration_s//3600}h max)")
+            _c("cyan", f"ðŸŽ¯ Starting autonomous battle arena ({max_duration_s//3600}h max)")
         )
         logger.info(f"   Logging to: {self.battles_file}")
         logger.info(f"   Dry-run mode: {self.dry_run}")
@@ -80,7 +80,7 @@ class BattleRunner:
             elapsed = time.time() - self.start_time
             if elapsed > max_duration_s:
                 logger.info(
-                    _c("yellow", f"⏱  Time limit reached ({max_duration_s//3600}h)")
+                    _c("yellow", f"â±  Time limit reached ({max_duration_s//3600}h)")
                 )
                 break
 
@@ -103,7 +103,7 @@ class BattleRunner:
         # Summary
         elapsed = time.time() - self.start_time
         logger.info(
-            _c("green", f"✓ Battle arena completed: {self.battle_count} battles in {elapsed:.0f}s")
+            _c("green", f"âœ“ Battle arena completed: {self.battle_count} battles in {elapsed:.0f}s")
         )
 
     async def _battle_cycle(self, iteration: int) -> None:

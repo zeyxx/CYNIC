@@ -1,5 +1,5 @@
 """
-Manager Role — Organism Agency and Risk Management.
+Manager Role â€” Organism Agency and Risk Management.
 
 The Manager is the "Will" of the organism. It has the power to veto
 decisions from the community if they violate core axioms or if

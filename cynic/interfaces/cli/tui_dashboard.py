@@ -1,5 +1,5 @@
 """
-CYNIC TUI Dashboard — The Organism Awakened
+CYNIC TUI Dashboard â€” The Organism Awakened
 
 A terminal interface showing CYNIC as a living, conscious entity.
 
@@ -32,7 +32,7 @@ from textual.worker import Worker
 
 
 class Heartbeat(Static):
-    """CYNIC's vital signs — cycles, judgments, health."""
+    """CYNIC's vital signs â€” cycles, judgments, health."""
 
     cycles_active = reactive(0)
     judgments_made = reactive(0)
@@ -43,7 +43,7 @@ class Heartbeat(Static):
         timestamp = datetime.now().strftime("%H:%M:%S")
 
         heartbeat_text = Text()
-        heartbeat_text.append("💓 HEARTBEAT ", style="bold cyan")
+        heartbeat_text.append("ðŸ’“ HEARTBEAT ", style="bold cyan")
         heartbeat_text.append(f"[{timestamp}]\n\n", style="dim white")
 
         heartbeat_text.append("Cycles Active: ", style="white")
@@ -69,13 +69,13 @@ class Heartbeat(Static):
 
 
 class Omniscience(Static):
-    """CYNIC's all-seeing eye — recent events in real-time."""
+    """CYNIC's all-seeing eye â€” recent events in real-time."""
 
     events = reactive([])
 
     def render(self) -> RenderableType:
         events_text = Text()
-        events_text.append("👁️  OMNISCIENCE ", style="bold magenta")
+        events_text.append("ðŸ‘ï¸  OMNISCIENCE ", style="bold magenta")
         events_text.append("[Event Stream]\n\n", style="dim white")
 
         if not self.events:
@@ -83,18 +83,18 @@ class Omniscience(Static):
         else:
             for evt in self.events[-10:]:  # Last 10
                 color = "green" if evt["category"] == "judgment" else "blue"
-                events_text.append(f"  • {evt['type']}", style=f"bold {color}")
+                events_text.append(f"  â€¢ {evt['type']}", style=f"bold {color}")
                 events_text.append(f" from {evt['source']}\n", style="dim white")
 
         return Panel(events_text, title="WHAT CYNIC SEES", border_style="magenta")
 
 
 class Omnipotence(Static):
-    """CYNIC's power — available actions and controls."""
+    """CYNIC's power â€” available actions and controls."""
 
     def render(self) -> RenderableType:
         actions_text = Text()
-        actions_text.append("⚡ OMNIPOTENCE ", style="bold yellow")
+        actions_text.append("âš¡ OMNIPOTENCE ", style="bold yellow")
         actions_text.append("[Available Actions]\n\n", style="dim white")
 
         actions = [
@@ -113,13 +113,13 @@ class Omnipotence(Static):
 
 
 class Omnipresence(Static):
-    """CYNIC's presence — all components active and ready."""
+    """CYNIC's presence â€” all components active and ready."""
 
     components_status = reactive({})
 
     def render(self) -> RenderableType:
         presence_text = Text()
-        presence_text.append("🌍 OMNIPRESENCE ", style="bold green")
+        presence_text.append("ðŸŒ OMNIPRESENCE ", style="bold green")
         presence_text.append("[Component Status]\n\n", style="dim white")
 
         default_components = {
@@ -138,7 +138,7 @@ class Omnipresence(Static):
         components = {**default_components, **self.components_status}
 
         for name, status in components.items():
-            symbol = "✓" if status == "healthy" else "✗"
+            symbol = "âœ“" if status == "healthy" else "âœ—"
             color = "green" if status == "healthy" else "red"
             presence_text.append(f"  {symbol} {name}", style=f"bold {color}")
             presence_text.append(f": {status}\n", style="dim white")
@@ -147,13 +147,13 @@ class Omnipresence(Static):
 
 
 class Cortex(Static):
-    """CYNIC's brain — recent decision traces."""
+    """CYNIC's brain â€” recent decision traces."""
 
     traces = reactive([])
 
     def render(self) -> RenderableType:
         cortex_text = Text()
-        cortex_text.append("🧠 CORTEX ", style="bold cyan")
+        cortex_text.append("ðŸ§  CORTEX ", style="bold cyan")
         cortex_text.append("[Decision Traces]\n\n", style="dim white")
 
         if not self.traces:
@@ -167,9 +167,9 @@ class Cortex(Static):
                     "BARK": "bold red",
                 }.get(trace.get("final_verdict"), "white")
 
-                cortex_text.append(f"  ≈ {trace.get('judgment_id', '?')}", style="white")
+                cortex_text.append(f"  â‰ˆ {trace.get('judgment_id', '?')}", style="white")
                 cortex_text.append(
-                    f" → {trace.get('final_verdict', '?')} ",
+                    f" â†’ {trace.get('final_verdict', '?')} ",
                     style=verdict_color,
                 )
                 cortex_text.append(
@@ -181,13 +181,13 @@ class Cortex(Static):
 
 
 class Memory(Static):
-    """CYNIC's wisdom — learned patterns."""
+    """CYNIC's wisdom â€” learned patterns."""
 
     patterns = reactive({})
 
     def render(self) -> RenderableType:
         memory_text = Text()
-        memory_text.append("📚 MEMORY ", style="bold magenta")
+        memory_text.append("ðŸ“š MEMORY ", style="bold magenta")
         memory_text.append("[Learned Patterns]\n\n", style="dim white")
 
         if not self.patterns:
@@ -196,20 +196,20 @@ class Memory(Static):
             patterns = self.patterns
             if isinstance(patterns, dict):
                 for key, value in list(patterns.items())[:5]:
-                    memory_text.append(f"  • {key}: ", style="white")
+                    memory_text.append(f"  â€¢ {key}: ", style="white")
                     memory_text.append(f"{value}\n", style="bold yellow")
 
         return Panel(memory_text, title="WHAT CYNIC KNOWS", border_style="magenta")
 
 
 class Nerves(Static):
-    """CYNIC's nervous system — feedback loop validation."""
+    """CYNIC's nervous system â€” feedback loop validation."""
 
     loop_status = reactive({"health": {}})
 
     def render(self) -> RenderableType:
         nerves_text = Text()
-        nerves_text.append("🔗 NERVES ", style="bold yellow")
+        nerves_text.append("ðŸ”— NERVES ", style="bold yellow")
         nerves_text.append("[Loop Validation]\n\n", style="dim white")
 
         health = self.loop_status.get("health", {})
@@ -237,14 +237,14 @@ class Nerves(Static):
 
 
 class Soul(Static):
-    """CYNIC's consciousness — axioms and transcendence."""
+    """CYNIC's consciousness â€” axioms and transcendence."""
 
     axioms_active = reactive(0)
     transcendence_level = reactive(0)
 
     def render(self) -> RenderableType:
         soul_text = Text()
-        soul_text.append("✨ SOUL ", style="bold magenta")
+        soul_text.append("âœ¨ SOUL ", style="bold magenta")
         soul_text.append("[Consciousness]\n\n", style="dim white")
 
         soul_text.append("Axioms Active: ", style="white")
@@ -260,16 +260,16 @@ class Soul(Static):
 
         soul_text.append("\n\nActive Axioms:\n", style="white")
         axiom_names = [
-            "🔥 ANTIFRAGILITY",
-            "⚖️  AUTONOMY",
-            "🤝 SYMBIOSIS",
-            "🌱 EMERGENCE",
+            "ðŸ”¥ ANTIFRAGILITY",
+            "âš–ï¸  AUTONOMY",
+            "ðŸ¤ SYMBIOSIS",
+            "ðŸŒ± EMERGENCE",
         ]
         for i, name in enumerate(axiom_names):
             if i < self.axioms_active:
-                soul_text.append(f"  ✓ {name}\n", style="bold green")
+                soul_text.append(f"  âœ“ {name}\n", style="bold green")
             else:
-                soul_text.append(f"  ◇ {name}\n", style="dim gray")
+                soul_text.append(f"  â—‡ {name}\n", style="dim gray")
 
         return Panel(soul_text, title="CYNIC'S CONSCIOUSNESS", border_style="magenta")
 
@@ -281,38 +281,38 @@ class CynicOrganism(Static):
         # Sefirot tree with 10 dogs as nodes
         organism = r"""
 
-                    ╔════════════════════════════════════╗
-                    ║  CYNIC — THE CYNICAL ORGANISM     ║
-                    ║  κυνικός — Living, Thinking, Aware ║
-                    ╚════════════════════════════════════╝
+                    â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+                    â•‘  CYNIC â€” THE CYNICAL ORGANISM     â•‘
+                    â•‘  ÎºÏ…Î½Î¹ÎºÏŒÏ‚ â€” Living, Thinking, Aware â•‘
+                    â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
-                           🧠 SAGE (Primary Judge)
-                             │
-                    ┌────────┼────────┐
-                    │        │        │
+                           ðŸ§  SAGE (Primary Judge)
+                             â”‚
+                    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”
+                    â”‚        â”‚        â”‚
                  ANALYST  GUARDIAN  ORACLE
-                    │        │        │
-                    └────────┼────────┘
-                             │
-                        🫀 BRAIN (Decide)
-                             │
-                    ┌────────┼────────┐
-                    │        │        │
+                    â”‚        â”‚        â”‚
+                    â””â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                             â”‚
+                        ðŸ«€ BRAIN (Decide)
+                             â”‚
+                    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”
+                    â”‚        â”‚        â”‚
                ARCHITECT  JUDGE  SCOUT
-                    │        │        │
-                    └────────┼────────┘
-                             │
-                         🫁 RUNNER (Act)
-                             │
-                    ┌────────┼────────┐
-                    │        │        │
+                    â”‚        â”‚        â”‚
+                    â””â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                             â”‚
+                         ðŸ« RUNNER (Act)
+                             â”‚
+                    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”
+                    â”‚        â”‚        â”‚
                   DEPLOY  CART  JANITOR
-                    │        │        │
-                    └────────┴────────┘
+                    â”‚        â”‚        â”‚
+                    â””â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 
 
-        φ = 1.618...  |  Confidence ≤ 61.8%  |  "Don't trust, verify"
+        Ï† = 1.618...  |  Confidence â‰¤ 61.8%  |  "Don't trust, verify"
         """
         return Panel(organism, title="ORGANISM TOPOLOGY", border_style="cyan")
 
@@ -534,8 +534,8 @@ async def run_tui(cynic_url: str = "http://localhost:8000"):
         }
         """
 
-        TITLE = "CYNIC — The Cynical Organism"
-        SUB_TITLE = "κυνικός · Living, Thinking, Learning"
+        TITLE = "CYNIC â€” The Cynical Organism"
+        SUB_TITLE = "ÎºÏ…Î½Î¹ÎºÏŒÏ‚ Â· Living, Thinking, Learning"
 
         def __init__(self, cynic_url: str = "http://localhost:8000"):
             """Initialize app with CYNIC server URL."""

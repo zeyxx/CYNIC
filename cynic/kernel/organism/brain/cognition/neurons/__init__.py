@@ -1,7 +1,7 @@
 """
-CYNIC Dogs — 11 independent judge neurons implementing Sefirot wisdom.
+CYNIC Dogs â€” 11 independent judge neurons implementing Sefirot wisdom.
 
-The 11 Dogs represent the Kabbalistic Sefirot tree — 11 perspectives that judge
+The 11 Dogs represent the Kabbalistic Sefirot tree â€” 11 perspectives that judge
 proposals from complementary angles: wisdom (Chokmah), understanding (Binah),
 justice (Gevurah), mercy (Chesed), beauty (Tiphereth), etc.
 

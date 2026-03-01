@@ -1,4 +1,4 @@
-"""PHASE 5: EScore dimension handlers — 7-dim reputation system."""
+"""PHASE 5: EScore dimension handlers â€” 7-dim reputation system."""
 
 from __future__ import annotations
 
@@ -13,14 +13,14 @@ from cynic.kernel.core.phi import (
     MAX_Q_SCORE,
     WAG_MIN,
 )
-from cynic.kernel.organism.handlers.base import HandlerGroup
-from cynic.kernel.organism.handlers.services import CognitionServices
+from cynic.kernel.organism.reflexes.base import HandlerGroup
+from cynic.kernel.organism.reflexes.services import CognitionServices
 
-logger = logging.getLogger("cynic.kernel.organism.handlers.escore")
+logger = logging.getLogger("cynic.kernel.organism.reflexes.escore")
 
 
 class EScoreHandlers(HandlerGroup):
-    """Most independent group — updates 7 EScore dimensions."""
+    """Most independent group â€” updates 7 EScore dimensions."""
 
     def __init__(self, cognition: CognitionServices, bus: Optional[EventBus] = None) -> None:
         super().__init__(bus=bus)
@@ -49,7 +49,7 @@ class EScoreHandlers(HandlerGroup):
         ]
 
     async def _on_judgment_for_burn(self, event: Event) -> None:
-        """JUDGMENT_CREATED → BURN EScore."""
+        """JUDGMENT_CREATED â†’ BURN EScore."""
         try:
             p = JudgmentCreatedPayload.model_validate(event.dict_payload or {})
             burn_score = min(p.confidence / MAX_CONFIDENCE, 1.0) * MAX_Q_SCORE
@@ -57,7 +57,7 @@ class EScoreHandlers(HandlerGroup):
                 "agent:cynic", "BURN", burn_score, reality=p.reality
             )
             logger.debug(
-                "JUDGMENT_CREATED→BURN: verdict=%s conf=%.3f → BURN=%.1f",
+                "JUDGMENT_CREATEDâ†’BURN: verdict=%s conf=%.3f â†’ BURN=%.1f",
                 p.verdict,
                 p.confidence,
                 burn_score,
@@ -66,7 +66,7 @@ class EScoreHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_learning_event(self, event: Event) -> None:
-        """LEARNING_EVENT → JUDGE EScore + AUTONOMY signal."""
+        """LEARNING_EVENT â†’ JUDGE EScore + AUTONOMY signal."""
         try:
             p = event.dict_payload or {}
             reward = float(p.get("reward", 0.0))
@@ -76,7 +76,7 @@ class EScoreHandlers(HandlerGroup):
                 "AUTONOMY", "learning_event", trigger="LEARNING_EVENT"
             )
             logger.debug(
-                "LEARNING_EVENT: action=%s reward=%.3f → JUDGE=%.1f",
+                "LEARNING_EVENT: action=%s reward=%.3f â†’ JUDGE=%.1f",
                 p.get("action", ""),
                 reward,
                 judge_score,
@@ -85,7 +85,7 @@ class EScoreHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_consciousness_changed(self, event: Event) -> None:
-        """CONSCIOUSNESS_CHANGED → HOLD EScore + ANTIFRAGILITY on recovery."""
+        """CONSCIOUSNESS_CHANGED â†’ HOLD EScore + ANTIFRAGILITY on recovery."""
         try:
             p = event.dict_payload or {}
             direction = p.get("direction", "DOWN")
@@ -96,7 +96,7 @@ class EScoreHandlers(HandlerGroup):
                     "ANTIFRAGILITY", "consciousness_changed", trigger="LOD_RECOVERY"
                 )
             logger.info(
-                "CONSCIOUSNESS_CHANGED: %s → HOLD=%.1f%s",
+                "CONSCIOUSNESS_CHANGED: %s â†’ HOLD=%.1f%s",
                 direction,
                 hold_score,
                 " ANTIFRAGILITY signalled" if direction == "UP" else "",
@@ -105,7 +105,7 @@ class EScoreHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_user_feedback(self, event: Event) -> None:
-        """USER_FEEDBACK → JUDGE + SOCIAL EScore."""
+        """USER_FEEDBACK â†’ JUDGE + SOCIAL EScore."""
         try:
             p = event.dict_payload or {}
             rating = float(p.get("rating", 3.0))
@@ -113,7 +113,7 @@ class EScoreHandlers(HandlerGroup):
             self._cognition.escore_tracker.update_dimension("agent:cynic", "JUDGE", judge_score)
             self._cognition.escore_tracker.update_dimension("agent:cynic", "SOCIAL", WAG_MIN)
             logger.info(
-                "USER_FEEDBACK: rating=%d/5 → JUDGE=%.1f SOCIAL=%.1f",
+                "USER_FEEDBACK: rating=%d/5 â†’ JUDGE=%.1f SOCIAL=%.1f",
                 int(rating),
                 judge_score,
                 WAG_MIN,
@@ -122,7 +122,7 @@ class EScoreHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_perception_received(self, event: Event) -> None:
-        """PERCEPTION_RECEIVED → SOCIAL + HOLD EScore."""
+        """PERCEPTION_RECEIVED â†’ SOCIAL + HOLD EScore."""
         try:
             p = event.dict_payload or {}
             reality = p.get("reality", "CODE")
@@ -135,7 +135,7 @@ class EScoreHandlers(HandlerGroup):
                 "agent:cynic", "HOLD", hold_score, reality=reality
             )
             logger.debug(
-                "PERCEPTION_RECEIVED: reality=%s → SOCIAL=%.1f HOLD=%.1f",
+                "PERCEPTION_RECEIVED: reality=%s â†’ SOCIAL=%.1f HOLD=%.1f",
                 reality,
                 social_score,
                 hold_score,
@@ -144,7 +144,7 @@ class EScoreHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_ewc_checkpoint(self, event: Event) -> None:
-        """EWC_CHECKPOINT → JUDGE EScore + AUTONOMY + CONSCIOUSNESS signals."""
+        """EWC_CHECKPOINT â†’ JUDGE EScore + AUTONOMY + CONSCIOUSNESS signals."""
         try:
             p = event.dict_payload or {}
             q_value = float(p.get("q_value", 0.5))
@@ -160,7 +160,7 @@ class EScoreHandlers(HandlerGroup):
                 q_value=round(q_value, 3),
             )
             logger.info(
-                "EWC_CHECKPOINT: state=%s action=%s q=%.3f → JUDGE=%.1f",
+                "EWC_CHECKPOINT: state=%s action=%s q=%.3f â†’ JUDGE=%.1f",
                 p.get("state_key", ""),
                 p.get("action", ""),
                 q_value,
@@ -170,12 +170,12 @@ class EScoreHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_q_table_updated(self, event: Event) -> None:
-        """Q_TABLE_UPDATED → BUILD + HOLD EScore."""
+        """Q_TABLE_UPDATED â†’ BUILD + HOLD EScore."""
         try:
             self._cognition.escore_tracker.update_dimension("agent:cynic", "BUILD", HOWL_MIN)
             self._cognition.escore_tracker.update_dimension("agent:cynic", "HOLD", WAG_MIN)
             logger.info(
-                "Q_TABLE_UPDATED: flushed=%d → BUILD=%.1f HOLD=%.1f",
+                "Q_TABLE_UPDATED: flushed=%d â†’ BUILD=%.1f HOLD=%.1f",
                 int((event.dict_payload or {}).get("flushed", 0)),
                 HOWL_MIN,
                 WAG_MIN,
@@ -184,7 +184,7 @@ class EScoreHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_consensus_reached(self, event: Event) -> None:
-        """CONSENSUS_REACHED → BUILD EScore + SYMBIOSIS + CONSCIOUSNESS signals."""
+        """CONSENSUS_REACHED â†’ BUILD EScore + SYMBIOSIS + CONSCIOUSNESS signals."""
         try:
             p = event.dict_payload or {}
             q_score = float(p.get("q_score", 0.0))
@@ -200,7 +200,7 @@ class EScoreHandlers(HandlerGroup):
                 q_score=round(q_score, 1),
             )
             logger.debug(
-                "CONSENSUS_REACHED: votes=%d verdict=%s q=%.1f → BUILD=%.1f",
+                "CONSENSUS_REACHED: votes=%d verdict=%s q=%.1f â†’ BUILD=%.1f",
                 int(p.get("votes", 0)),
                 p.get("verdict", ""),
                 q_score,
@@ -210,7 +210,7 @@ class EScoreHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_consensus_failed(self, event: Event) -> None:
-        """CONSENSUS_FAILED → EMERGENCE signal + JUDGE penalty."""
+        """CONSENSUS_FAILED â†’ EMERGENCE signal + JUDGE penalty."""
         try:
             p = event.dict_payload or {}
             votes = int(p.get("votes", 0))
@@ -221,7 +221,7 @@ class EScoreHandlers(HandlerGroup):
                 "EMERGENCE", "consensus_failed", trigger="CONSENSUS_FAILED"
             )
             logger.warning(
-                "CONSENSUS_FAILED: votes=%d quorum=%d → JUDGE=%.1f EMERGENCE signalled",
+                "CONSENSUS_FAILED: votes=%d quorum=%d â†’ JUDGE=%.1f EMERGENCE signalled",
                 votes,
                 quorum,
                 judge_score,
@@ -230,23 +230,23 @@ class EScoreHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_user_correction(self, event: Event) -> None:
-        """USER_CORRECTION → JUDGE EScore (learning from human guidance)."""
+        """USER_CORRECTION â†’ JUDGE EScore (learning from human guidance)."""
         try:
             p = event.dict_payload or {}
             correction_type = p.get("correction_type", "")
             score = HOWL_MIN if correction_type == "CRITICAL" else WAG_MIN
             self._cognition.escore_tracker.update_dimension("agent:cynic", "JUDGE", score)
-            logger.info("USER_CORRECTION: type=%s → JUDGE=%.1f", correction_type, score)
+            logger.info("USER_CORRECTION: type=%s â†’ JUDGE=%.1f", correction_type, score)
         except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_anomaly_detected(self, event: Event) -> None:
-        """ANOMALY_DETECTED → JUDGE EScore penalty."""
+        """ANOMALY_DETECTED â†’ JUDGE EScore penalty."""
         try:
             p = event.dict_payload or {}
             severity = float(p.get("severity", 0.5))
             judge_score = (1.0 - min(severity, 1.0)) * MAX_Q_SCORE
             self._cognition.escore_tracker.update_dimension("agent:cynic", "JUDGE", judge_score)
-            logger.warning("ANOMALY_DETECTED: severity=%.2f → JUDGE=%.1f", severity, judge_score)
+            logger.warning("ANOMALY_DETECTED: severity=%.2f â†’ JUDGE=%.1f", severity, judge_score)
         except EventBusError:
             logger.debug("handler error", exc_info=True)

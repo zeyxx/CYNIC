@@ -1,5 +1,5 @@
 """
-CYNIC Organism TUI — Real-Time Visual Cortex.
+CYNIC Organism TUI â€” Real-Time Visual Cortex.
 
 High-fidelity terminal interface using the unified OrganismState and EventJournal.
 """
@@ -58,7 +58,7 @@ class OrganismTUI:
         grid.add_column(justify="right", ratio=1)
         
         grid.add_row(
-            Text.from_markup(" κυνικός | [bold blue]REALITY CONNECTED[/] "),
+            Text.from_markup(" ÎºÏ…Î½Î¹ÎºÏŒÏ‚ | [bold blue]REALITY CONNECTED[/] "),
             Text("UNIFIED ORGANISM V5.0", style="bold white"),
             Text(f"UPTIME: {uptime} ", style="bold green"),
         )
@@ -158,7 +158,7 @@ class OrganismTUI:
         self._running = True
         
         # Subscribe to ALL events to populate the Nervous Pulse panel
-        from cynic.kernel.core.event_bus import get_core_bus
+        from cynic.kernel.core.event_bus import CoreEvent, Event
         bus = get_core_bus("DEFAULT")
         
         async def _on_any_event(event):

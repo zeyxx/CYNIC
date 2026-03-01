@@ -1,5 +1,5 @@
 """
-MicroCycleHandler — L2 MICRO consciousness cycle (voting dogs, no ACT).
+MicroCycleHandler â€” L2 MICRO consciousness cycle (voting dogs, no ACT).
 
 Extracted from JudgeOrchestrator._cycle_micro().
 
@@ -63,7 +63,7 @@ class MicroCycleHandler(BaseHandler):
         self.escore_tracker = escore_tracker
         self.axiom_monitor = axiom_monitor
         self.context_compressor = context_compressor
-        from cynic.kernel.core.event_bus import get_core_bus
+        from cynic.kernel.core.event_bus import CoreEvent, Event
         self.bus = bus or get_core_bus("DEFAULT")
 
     async def _act_phase(self, judgment: Any, pipeline: Any) -> Any:

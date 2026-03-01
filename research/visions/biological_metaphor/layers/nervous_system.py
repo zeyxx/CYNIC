@@ -1,5 +1,5 @@
 """
-CYNIC Nervous System Layer (Layer 3) — Event distribution and neural communication.
+CYNIC Nervous System Layer (Layer 3) â€” Event distribution and neural communication.
 
 Part of the 10-layer organism architecture, the nervous system is the
 internal communication backbone that coordinates all organism components.

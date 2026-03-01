@@ -1,4 +1,4 @@
-"""HotReloadCoordinator — Apply topology changes safely with rollback."""
+"""HotReloadCoordinator â€” Apply topology changes safely with rollback."""
 
 from __future__ import annotations
 
@@ -92,7 +92,7 @@ class HotReloadCoordinator:
             logger.info("TOPOLOGY_APPLIED: +%d handlers now active", len(payload.added_handlers))
 
         except EventBusError as e:
-            logger.error("Hot-reload failed: %s — rolling back to snapshot", e)
+            logger.error("Hot-reload failed: %s â€” rolling back to snapshot", e)
 
             # 6. Rollback to snapshot
             try:
@@ -101,7 +101,7 @@ class HotReloadCoordinator:
                 logger.debug("Rolled back to previous topology")
             except CynicError as rollback_e:
                 logger.error(
-                    "Rollback FAILED: %s — organism may be in inconsistent state", rollback_e
+                    "Rollback FAILED: %s â€” organism may be in inconsistent state", rollback_e
                 )
 
             # 7. Emit: TOPOLOGY_ROLLBACK

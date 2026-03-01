@@ -1,19 +1,19 @@
 """
-CYNIC E-Score 7D — Reputation Tracker (γ4)
+CYNIC E-Score 7D â€” Reputation Tracker (Î³4)
 
 E-Score = Entity Reputation Score across 7 contribution dimensions.
 
-7 Dimensions (φ-weighted, descending priority):
-  BURN   (φ³=4.236) — Irreversible token burn (commitment signal)
-  BUILD  (φ²=2.618) — Code/artifact quality contributions
-  JUDGE  (φ¹=1.618) — Judgment accuracy (prediction vs reality)
-  RUN    (φ⁰=1.000) — Execution reliability
-  SOCIAL (φ⁻¹=0.618) — Community engagement quality
-  GRAPH  (φ⁻²=0.382) — Network connectivity (trust graph)
-  HOLD   (φ⁻³=0.236) — Long-term commitment
+7 Dimensions (Ï†-weighted, descending priority):
+  BURN   (Ï†Â³=4.236) â€” Irreversible token burn (commitment signal)
+  BUILD  (Ï†Â²=2.618) â€” Code/artifact quality contributions
+  JUDGE  (Ï†Â¹=1.618) â€” Judgment accuracy (prediction vs reality)
+  RUN    (Ï†â°=1.000) â€” Execution reliability
+  SOCIAL (Ï†â»Â¹=0.618) â€” Community engagement quality
+  GRAPH  (Ï†â»Â²=0.382) â€” Network connectivity (trust graph)
+  HOLD   (Ï†â»Â³=0.236) â€” Long-term commitment
 
 Formula (same geometric mean as phi_aggregate):
-    e_raw = exp(Σ w_i × log(max(d_i, 0.1)) / Σ w_i)
+    e_raw = exp(Î£ w_i Ã— log(max(d_i, 0.1)) / Î£ w_i)
     e_score = phi_bound_score(e_raw)  # clamp to [0, MAX_Q_SCORE=100]
 
 Per-Reality sub-scores:
@@ -146,7 +146,7 @@ class EScoreTracker:
         current = profile.dimensions.get(dimension, 50.0)
 
 
-        # EMA blending: alpha = 0.382 (PHI_INV_2) — favors stability
+        # EMA blending: alpha = 0.382 (PHI_INV_2) â€” favors stability
         alpha = PHI_INV_2 * weight
         new_val = (alpha * value) + (1.0 - alpha) * current
         profile.dimensions[dimension] = phi_bound_score(new_val)
@@ -180,10 +180,10 @@ class EScoreTracker:
         scores = [p.overall_score for p in self._profiles.values()]
         return sum(scores) / len(scores)
 
-    # ── External Integration ──────────────────────────────────────────────
+    # â”€â”€ External Integration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def sync_remote_reputation(self, peer_id: str) -> bool:
-        """Fetch reputation score for a peer instance via κ-NET."""
+        """Fetch reputation score for a peer instance via Îº-NET."""
         if not self._external_sync_url:
             return False
 
@@ -200,7 +200,7 @@ class EScoreTracker:
 
     async def broadcast_reputation(self) -> None:
         """Announce system-wide reputation metrics to the network."""
-        # TODO: Implement κ-NET broadcast
+        # TODO: Implement Îº-NET broadcast
         pass
 
     def stats(self) -> dict:

@@ -4,7 +4,7 @@ CYNIC Exception Hierarchy
 All CYNIC-specific exceptions inherit from CynicError.
 Critical paths use specific exceptions instead of bare 'except Exception'.
 
-φ-Law: VERIFY — typed errors, not silent swallowing.
+Ï†-Law: VERIFY â€” typed errors, not silent swallowing.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ class ConfigError(CynicError):
 
 
 class CircuitOpenError(CynicError):
-    """Circuit breaker is open — fast-fail to prevent cascade."""
+    """Circuit breaker is open â€” fast-fail to prevent cascade."""
 
 
 class EventBusError(CynicError):

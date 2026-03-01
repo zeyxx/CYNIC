@@ -1,5 +1,5 @@
 """
-ModelProfiler — Metabolic Resource Awareness.
+ModelProfiler â€” Metabolic Resource Awareness.
 
 Analyzes hardware (CPU/RAM) and estimates cycle capacity.
 Inspired by llmfit, optimized for Ryzen 5700G.

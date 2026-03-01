@@ -1,5 +1,5 @@
 """
-CYNIC DNA Chain Demo — The "Security Gene" Workflow.
+CYNIC DNA Chain Demo â€” The "Security Gene" Workflow.
 
 Demonstrates how atomic DNA primitives are composed into a functional
 thinking chain using the V3.1 unified architecture.

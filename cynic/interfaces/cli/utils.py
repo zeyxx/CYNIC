@@ -1,5 +1,5 @@
 """
-Shared helpers for the CYNIC CLI — colors, HTTP, file I/O, display primitives.
+Shared helpers for the CYNIC CLI â€” colors, HTTP, file I/O, display primitives.
 """
 from __future__ import annotations
 
@@ -13,9 +13,9 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-# ── Windows UTF-8 fix ──────────────────────────────────────────────────────
+# â”€â”€ Windows UTF-8 fix â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Windows terminals default to CP1252 which can't render box-drawing chars
-# or emoji (█, ░, 🟢, etc.). Force UTF-8 output so the dashboard renders.
+# or emoji (â–ˆ, â–‘, ðŸŸ¢, etc.). Force UTF-8 output so the dashboard renders.
 if sys.platform == "win32":
     try:
         # Only wrap if not already wrapped and buffer is actually available
@@ -26,7 +26,7 @@ if sys.platform == "win32":
     except (AttributeError, ValueError, OSError):
         pass  # Already wrapped or buffer unavailable
 
-# ── Paths ── (portable across host/container via CYNIC_STATE_DIR env var) ──
+# â”€â”€ Paths â”€â”€ (portable across host/container via CYNIC_STATE_DIR env var) â”€â”€
 # Use CYNIC_STATE_DIR env var if available (Docker), otherwise fall back to ~/.cynic
 _CYNIC_DIR = os.environ.get("CYNIC_STATE_DIR", os.path.join(os.path.expanduser("~"), ".cynic"))
 _GUIDANCE         = os.path.join(_CYNIC_DIR, "guidance.json")
@@ -35,7 +35,7 @@ _PENDING          = os.path.join(_CYNIC_DIR, "pending_actions.json")
 _SDK_SESSIONS_LOG = os.path.join(_CYNIC_DIR, "sdk_sessions.jsonl")
 _CONSCIOUSNESS    = os.path.join(_CYNIC_DIR, "consciousness.json")
 
-# Server (default port from CynicConfig — single source of truth)
+# Server (default port from CynicConfig â€” single source of truth)
 from cynic.kernel.core.config import CynicConfig as _CynicConfig
 
 _PORT = _CynicConfig.from_env().port
@@ -43,7 +43,7 @@ _API  = f"http://localhost:{_PORT}"
 _API_TIMEOUT = 2.0   # never block the CLI for more than 2s
 
 
-# ── Colors (ANSI) ──────────────────────────────────────────────────────────
+# â”€â”€ Colors (ANSI) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 _C = {
     "reset":  "\033[0m",
     "bold":   "\033[1m",
@@ -65,7 +65,7 @@ def _c(color: str, text: str) -> str:
     return f"{_C.get(color, '')}{text}{_C['reset']}"
 
 
-# ── File helpers ───────────────────────────────────────────────────────────
+# â”€â”€ File helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _read_json(path: str) -> Optional[dict[str, Any]]:
     try:
@@ -141,7 +141,7 @@ def _file_set_status(action_id: str, status: str) -> bool:
         return False
 
 
-# ── Verdict → color ────────────────────────────────────────────────────────
+# â”€â”€ Verdict â†’ color â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 _VERDICT_COLOR = {
     "HOWL":  "green",
@@ -151,28 +151,28 @@ _VERDICT_COLOR = {
 }
 
 _VERDICT_SYMBOL = {
-    "HOWL":  "🟢",
-    "WAG":   "🟡",
-    "GROWL": "🟠",
-    "BARK":  "🔴",
+    "HOWL":  "ðŸŸ¢",
+    "WAG":   "ðŸŸ¡",
+    "GROWL": "ðŸŸ ",
+    "BARK":  "ðŸ”´",
 }
 
 
 def _verdict_str(verdict: str, q: float = 0.0) -> str:
-    sym  = _VERDICT_SYMBOL.get(verdict, "⚪")
+    sym  = _VERDICT_SYMBOL.get(verdict, "âšª")
     col  = _VERDICT_COLOR.get(verdict, "white")
     return f"{sym} {_c(col, verdict)} Q={q:.1f}"
 
 
-# ── Progress bar ───────────────────────────────────────────────────────────
+# â”€â”€ Progress bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _bar(score: float, max_score: float = 100.0, width: int = 10) -> str:
-    """Render a φ-styled bar: [██████░░░░] (10 chars)."""
+    """Render a Ï†-styled bar: [â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–‘â–‘â–‘â–‘] (10 chars)."""
     filled = int(round(min(score / max_score, 1.0) * width))
-    return f"[{'█' * filled}{'░' * (width - filled)}]"
+    return f"[{'â–ˆ' * filled}{'â–‘' * (width - filled)}]"
 
 
-# ── LOD display ────────────────────────────────────────────────────────────
+# â”€â”€ LOD display â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 _LOD_COLOR = {0: "green", 1: "cyan", 2: "orange", 3: "red"}
 _LOD_NAMES = {0: "FULL", 1: "REDUCED", 2: "EMERGENCY", 3: "MINIMAL"}
@@ -184,16 +184,16 @@ def _lod_str(lod_val: int) -> str:
     return _c(col, f"LOD {lod_val} {name}")
 
 
-# ── Loop completion ────────────────────────────────────────────────────────
+# â”€â”€ Loop completion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 _LOOPS = {
-    "L1 Machine→Actions":   (82, "✅  accept→ACT_REQUESTED, reject→QTable, auto_executed linked"),
-    "L2 CYNIC↔Claude Code": (82, "✅  prompt enrichment + JSONL persist + L2→L1 cross-feed"),
-    "L3 Human→CYNIC→Human": (82, "✅  review/watch/feedback commands live"),
-    "L4 CYNIC→CYNIC Self":  (82, "✅  SelfProber: QTable/EScore/Residual analysis live"),
+    "L1 Machineâ†’Actions":   (82, "âœ…  acceptâ†’ACT_REQUESTED, rejectâ†’QTable, auto_executed linked"),
+    "L2 CYNICâ†”Claude Code": (82, "âœ…  prompt enrichment + JSONL persist + L2â†’L1 cross-feed"),
+    "L3 Humanâ†’CYNICâ†’Human": (82, "âœ…  review/watch/feedback commands live"),
+    "L4 CYNICâ†’CYNIC Self":  (82, "âœ…  SelfProber: QTable/EScore/Residual analysis live"),
 }
 
-# Action type → display color
+# Action type â†’ display color
 _ATYPE_COLOR = {
     "INVESTIGATE": "red",
     "REFACTOR":    "orange",
@@ -201,11 +201,11 @@ _ATYPE_COLOR = {
     "MONITOR":     "dim",
 }
 
-# Priority → color
+# Priority â†’ color
 _PRIORITY_COLOR = {1: "red", 2: "orange", 3: "cyan", 4: "dim"}
 
 
-# ── Time ago ───────────────────────────────────────────────────────────────
+# â”€â”€ Time ago â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _ago(ts: float) -> str:
     if ts <= 0:
@@ -218,7 +218,7 @@ def _ago(ts: float) -> str:
     return f"{delta/3600:.1f}h ago"
 
 
-# ── Disk bar ───────────────────────────────────────────────────────────────
+# â”€â”€ Disk bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _disk_bar(used_pct: float) -> str:
     if used_pct >= 0.90:
@@ -233,7 +233,7 @@ def _disk_bar(used_pct: float) -> str:
     return f"{_c(col, bar)} {used_pct * 100:.1f}%"
 
 
-# ── Sections ───────────────────────────────────────────────────────────────
+# â”€â”€ Sections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _section(title: str, lines: list) -> None:
     w = 68
@@ -246,7 +246,7 @@ def _divider() -> None:
     pass
 
 
-# ── Time formatter ─────────────────────────────────────────────────────────
+# â”€â”€ Time formatter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _format_s(s: float) -> str:
     if s < 60:

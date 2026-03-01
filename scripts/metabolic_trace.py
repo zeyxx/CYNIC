@@ -1,5 +1,5 @@
 """
-CYNIC Metabolic Trace — Proof of Reality Anchoring & Hardware Awareness.
+CYNIC Metabolic Trace â€” Proof of Reality Anchoring & Hardware Awareness.
 
 Tests if the Organism intelligently upgrades its consciousness level 
 when facing a high-priority reality (CODE) on your Ryzen 5700G.
@@ -12,7 +12,7 @@ from pathlib import Path
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from cynic.kernel.core.event_bus import CoreEvent, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent
 from cynic.kernel.core.judgment import Cell
 from cynic.kernel.organism.organism import awaken
 

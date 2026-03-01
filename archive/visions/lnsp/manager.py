@@ -3,8 +3,8 @@
 LNSPManager provides a unified interface to the complete Layered Nervous System
 Protocol (LNSP) pipeline, coordinating all 4 layers and their subscriptions.
 
-This enables easy setup and execution of the complete observation → aggregation →
-judgment → action → feedback cycle.
+This enables easy setup and execution of the complete observation â†’ aggregation â†’
+judgment â†’ action â†’ feedback cycle.
 """
 from __future__ import annotations
 
@@ -23,8 +23,8 @@ from .types import LNSPMessage
 class LNSPManager:
     """Unified manager for all LNSP layers.
 
-    Coordinates the complete observation → aggregation → judgment → action
-    → feedback cycle. Manages initialization, subscription wiring, and
+    Coordinates the complete observation â†’ aggregation â†’ judgment â†’ action
+    â†’ feedback cycle. Manages initialization, subscription wiring, and
     execution of the full pipeline.
 
     Attributes:
@@ -76,15 +76,15 @@ class LNSPManager:
         """Wire layers together with subscriptions.
 
         Connects all layers in the LNSP pipeline:
-        - Layer 1 → Layer 2: Observations trigger aggregation
-        - Layer 2 → Layer 3: Aggregated state triggers judgment
-        - Layer 3 → Layer 4: Judgments trigger action execution
-        - Layer 4 → Layer 1: Action results feed back as observations
+        - Layer 1 â†’ Layer 2: Observations trigger aggregation
+        - Layer 2 â†’ Layer 3: Aggregated state triggers judgment
+        - Layer 3 â†’ Layer 4: Judgments trigger action execution
+        - Layer 4 â†’ Layer 1: Action results feed back as observations
 
         After calling wire_layers(), run_cycle() will execute the complete
         pipeline in order.
         """
-        # Layer 1 → Layer 2: Observations trigger aggregation
+        # Layer 1 â†’ Layer 2: Observations trigger aggregation
         def on_observation(msg: LNSPMessage) -> None:
             """Forward Layer 1 observations to Layer 2."""
             # Fire and forget - schedule as background task
@@ -92,21 +92,21 @@ class LNSPManager:
 
         self.layer1.subscribe(on_observation)
 
-        # Layer 2 → Layer 3: Aggregated state triggers judgment
+        # Layer 2 â†’ Layer 3: Aggregated state triggers judgment
         async def on_aggregation(msg: LNSPMessage) -> None:
             """Forward Layer 2 aggregated state to Layer 3 for judgment."""
             await self.layer3.judge(msg)
 
         self.layer2.subscribe(lambda msg: asyncio.create_task(on_aggregation(msg)))
 
-        # Layer 3 → Layer 4: Judgments trigger action execution
+        # Layer 3 â†’ Layer 4: Judgments trigger action execution
         async def on_judgment(msg: LNSPMessage) -> None:
             """Forward Layer 3 judgments to Layer 4 for execution."""
             await self.layer4.execute(msg)
 
         self.layer3.subscribe(lambda msg: asyncio.create_task(on_judgment(msg)))
 
-        # Layer 4 → Layer 1: Feedback observations close the loop
+        # Layer 4 â†’ Layer 1: Feedback observations close the loop
         def on_feedback(msg: LNSPMessage) -> None:
             """Route Layer 4 feedback back to Layer 1."""
             self.layer1.ringbuffer.put(msg)
@@ -114,7 +114,7 @@ class LNSPManager:
         self.layer4.on_feedback(on_feedback)
 
     async def run_cycle(self) -> None:
-        """Run one complete observation → aggregation → judgment → action cycle.
+        """Run one complete observation â†’ aggregation â†’ judgment â†’ action cycle.
 
         Executes the full LNSP pipeline:
         1. Layer 1: Collect observations from all sensors

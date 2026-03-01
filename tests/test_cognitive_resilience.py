@@ -1,5 +1,5 @@
 """
-CYNIC Cognitive Resilience Test — Proving Survival in Finite Hardware.
+CYNIC Cognitive Resilience Test â€” Proving Survival in Finite Hardware.
 
 Simulates hardware stress and verifies the Law of Sovereignty:
 1. Optimal: Ryzen (llama_cpp) is used.

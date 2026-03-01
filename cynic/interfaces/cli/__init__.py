@@ -1,27 +1,27 @@
 """
-CYNIC CLI — Terminal status dashboard + human feedback loop (L3).
+CYNIC CLI â€” Terminal status dashboard + human feedback loop (L3).
 
 Usage:
-  python -m cynic.interfaces.cli            → full status (default)
-  python -m cynic.interfaces.cli status     → same
-  python -m cynic.interfaces.cli health     → quick health check only
-  python -m cynic.interfaces.cli lod        → LOD level only
-  python -m cynic.interfaces.cli loops      → 4 feedback loop completion matrix
-  python -m cynic.interfaces.cli review     → interactive accept/reject pending actions (L3)
-  python -m cynic.interfaces.cli watch      → live poll: notify when new actions arrive (L3)
-  python -m cynic.interfaces.cli feedback N → rate last judgment 1-5 (L3)
-  python -m cynic.interfaces.cli probes    → self-improvement proposals from L4 SelfProber
-  python -m cynic.interfaces.cli execute ID → accept + execute a pending action (L1 closure)
-  python -m cynic.interfaces.cli sdk [N]  → last N SDK sessions (L2 bidirectional loop)
-  python -m cynic.interfaces.cli consciousness → TUI dashboard (Ring 3 unified metathinking)
-  python -m cynic.interfaces.cli dashboard     → Health Dashboard (8 breathing checks + 7×7 matrix)
-  python -m cynic.interfaces.cli chat          → interactive coding assistant (CYNIC Code)
-  python -m cynic.interfaces.cli perceive-watch → real git PERCEIVE + JUDGE loop (Phase 2)
+  python -m cynic.interfaces.cli            â†’ full status (default)
+  python -m cynic.interfaces.cli status     â†’ same
+  python -m cynic.interfaces.cli health     â†’ quick health check only
+  python -m cynic.interfaces.cli lod        â†’ LOD level only
+  python -m cynic.interfaces.cli loops      â†’ 4 feedback loop completion matrix
+  python -m cynic.interfaces.cli review     â†’ interactive accept/reject pending actions (L3)
+  python -m cynic.interfaces.cli watch      â†’ live poll: notify when new actions arrive (L3)
+  python -m cynic.interfaces.cli feedback N â†’ rate last judgment 1-5 (L3)
+  python -m cynic.interfaces.cli probes    â†’ self-improvement proposals from L4 SelfProber
+  python -m cynic.interfaces.cli execute ID â†’ accept + execute a pending action (L1 closure)
+  python -m cynic.interfaces.cli sdk [N]  â†’ last N SDK sessions (L2 bidirectional loop)
+  python -m cynic.interfaces.cli consciousness â†’ TUI dashboard (Ring 3 unified metathinking)
+  python -m cynic.interfaces.cli dashboard     â†’ Health Dashboard (8 breathing checks + 7Ã—7 matrix)
+  python -m cynic.interfaces.cli chat          â†’ interactive coding assistant (CYNIC Code)
+  python -m cynic.interfaces.cli perceive-watch â†’ real git PERCEIVE + JUDGE loop (Phase 2)
 
-Reads from (fastest path — no server needed):
-  ~/.cynic/guidance.json        → last judgment verdict/Q/dogs
-  ~/.cynic/session-latest.json  → session checkpoint info
-  ~/.cynic/pending_actions.json → proposed action queue
+Reads from (fastest path â€” no server needed):
+  ~/.cynic/guidance.json        â†’ last judgment verdict/Q/dogs
+  ~/.cynic/session-latest.json  â†’ session checkpoint info
+  ~/.cynic/pending_actions.json â†’ proposed action queue
 
 Optionally queries (falls back gracefully if server is down):
   http://localhost:PORT/health
@@ -32,7 +32,7 @@ Optionally queries (falls back gracefully if server is down):
   http://localhost:PORT/self-probes
   http://localhost:PORT/act/telemetry
 
-φ-bound: confidence never shown above 61.8%.
+Ï†-bound: confidence never shown above 61.8%.
 """
 from __future__ import annotations
 

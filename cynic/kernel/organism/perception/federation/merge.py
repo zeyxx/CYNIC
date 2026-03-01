@@ -1,5 +1,5 @@
 """
-MergeEngine — Weighted Q-Table Merging for Federation
+MergeEngine â€” Weighted Q-Table Merging for Federation
 
 This module implements the core federation algorithm: merging remote Q-Table
 snapshots into local tables with weighted averaging based on visit counts.
@@ -10,7 +10,7 @@ Key algorithm:
 3. All confidence values clamped to PHI_INV = 0.618 (max trust threshold)
 
 This enables multiple CYNIC instances to learn collectively from each other's
-judgment outcomes while maintaining φ-bounded uncertainty constraints.
+judgment outcomes while maintaining Ï†-bounded uncertainty constraints.
 """
 
 from __future__ import annotations

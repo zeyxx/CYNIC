@@ -1,17 +1,17 @@
 """
-SessionTelemetry — quantification of Claude Code sessions.
+SessionTelemetry â€” quantification of Claude Code sessions.
 
 Every Claude Code session produces a rich telemetry record:
 - Task type classification (7 categories from prompt keywords)
 - Complexity estimation (4 tiers from tool sequence length)
-- Multi-dimensional reward (success × efficiency × cost)
+- Multi-dimensional reward (success Ã— efficiency Ã— cost)
 - CYNIC quality judgment of the session output (q_score, verdict)
 - Full tool sequence with allow/deny rates
 
 This turns binary "success/error" into a 28-state Q-Table
-(7 task types × 4 complexity tiers) enabling task-specific learning.
+(7 task types Ã— 4 complexity tiers) enabling task-specific learning.
 
-For research (H1-H5): export sessions as JSONL → benchmark dataset.
+For research (H1-H5): export sessions as JSONL â†’ benchmark dataset.
 """
 
 from __future__ import annotations
@@ -22,9 +22,9 @@ from collections import Counter, deque
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # TASK CLASSIFIER
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 _TASK_KEYWORDS: dict[str, list[str]] = {
     "debug": [
@@ -113,7 +113,7 @@ def classify_task(prompt: str) -> str:
 
     Returns one of: debug / refactor / test / review / write / explain / general
 
-    Scoring: count keyword matches per category → pick the winner.
+    Scoring: count keyword matches per category â†’ pick the winner.
     Ties broken by category order (debug > refactor > test > ...).
     """
     if not prompt:
@@ -132,16 +132,16 @@ def classify_task(prompt: str) -> str:
     return best_type
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # COMPLEXITY ESTIMATOR
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 def estimate_complexity(tool_sequence: list[str]) -> str:
     """
     Estimate task complexity from tool usage length.
 
-    trivial: ≤2 tools  (echo hello, read a file)
+    trivial: â‰¤2 tools  (echo hello, read a file)
     simple:  3-6 tools (small edit with context reads)
     medium:  7-15 tools (multi-file refactor)
     complex: >15 tools  (large feature implementation)
@@ -157,9 +157,9 @@ def estimate_complexity(tool_sequence: list[str]) -> str:
         return "complex"
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # REWARD FUNCTION
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 def compute_reward(
@@ -171,15 +171,15 @@ def compute_reward(
     Multi-dimensional RL reward for SDK sessions.
 
     Base:           0.70 (success) / 0.20 (error)
-    Efficiency:     ±0.00 to -0.15 (more tools = less efficient)
+    Efficiency:     Â±0.00 to -0.15 (more tools = less efficient)
     Cost penalty:   0.00 to -0.10 (expensive sessions are less desirable)
 
-    Result range: [0.10, 0.75] — φ-aligned, never hits 0 or 1.
+    Result range: [0.10, 0.75] â€” Ï†-aligned, never hits 0 or 1.
 
     Examples:
-      Success, 1 tool,  $0.001 → 0.70 + 0.06 - 0.00 = 0.76 → capped 0.75
-      Success, 8 tools, $0.010 → 0.70 - 0.08 - 0.02 = 0.60
-      Error,   3 tools, $0.005 → 0.20 - 0.02 - 0.01 = 0.17
+      Success, 1 tool,  $0.001 â†’ 0.70 + 0.06 - 0.00 = 0.76 â†’ capped 0.75
+      Success, 8 tools, $0.010 â†’ 0.70 - 0.08 - 0.02 = 0.60
+      Error,   3 tools, $0.005 â†’ 0.20 - 0.02 - 0.01 = 0.17
     """
     base = 0.70 if not is_error else 0.20
 
@@ -193,9 +193,9 @@ def compute_reward(
     return round(max(0.10, min(0.75, reward)), 3)
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # SESSION TELEMETRY RECORD
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 @dataclass
@@ -208,7 +208,7 @@ class SessionTelemetry:
     """
 
     session_id: str
-    task: str  # prompt (≤500 chars)
+    task: str  # prompt (â‰¤500 chars)
     task_type: str  # debug/refactor/test/review/write/explain/general
     complexity: str  # trivial/simple/medium/complex
 
@@ -223,10 +223,10 @@ class SessionTelemetry:
     total_cost_usd: float
     duration_s: float  # from Claude's result.duration_ms
     is_error: bool
-    result_text: str  # Claude's result description (≤500 chars)
+    result_text: str  # Claude's result description (â‰¤500 chars)
 
     # CYNIC quality judgment of the session output (REFLEX level)
-    output_q_score: float  # 0-61.8 (φ-bounded)
+    output_q_score: float  # 0-61.8 (Ï†-bounded)
     output_verdict: str  # BARK/GROWL/WAG/HOWL
     output_confidence: float  # 0-0.618
 
@@ -234,16 +234,16 @@ class SessionTelemetry:
     state_key: str  # "SDK:{model}:{task_type}:{complexity}"
     reward: float  # compute_reward() result
 
-    # Resume identity — Claude Code's internal session ID (from system/init)
+    # Resume identity â€” Claude Code's internal session ID (from system/init)
     # Used with --resume flag to restart long-running sessions after crashes.
     cli_session_id: str = ""
 
     timestamp: float = field(default_factory=time.time)
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # TELEMETRY STORE
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TelemetryStore:
@@ -251,10 +251,10 @@ class TelemetryStore:
     In-memory ring buffer for session telemetry.
 
     Holds up to maxlen records (oldest discarded). Supports:
-    - stats() → aggregate metrics (verdicts, task_types, error_rate, cost)
-    - recent(n) → last N records as dicts
-    - export() → all records as dicts (for benchmark analysis)
-    - save_jsonl(path) → persist to file (one record per line)
+    - stats() â†’ aggregate metrics (verdicts, task_types, error_rate, cost)
+    - recent(n) â†’ last N records as dicts
+    - export() â†’ all records as dicts (for benchmark analysis)
+    - save_jsonl(path) â†’ persist to file (one record per line)
     """
 
     def __init__(self, maxlen: int = 1000):

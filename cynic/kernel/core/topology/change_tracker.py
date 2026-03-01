@@ -1,4 +1,4 @@
-"""ChangeTracker — Real-time visibility into code modifications.
+"""ChangeTracker â€” Real-time visibility into code modifications.
 
 Captures and logs what changes in the organism's source code.
 Writes to ~/.cynic/changes.jsonl for visibility.
@@ -35,7 +35,7 @@ class ChangeTracker:
 
     def __init__(self):
         self._change_count = 0
-        self._last_file_states: dict[str, float] = {}  # filepath → mtime
+        self._last_file_states: dict[str, float] = {}  # filepath â†’ mtime
 
     async def on_source_changed(self, event: Event) -> None:
         """

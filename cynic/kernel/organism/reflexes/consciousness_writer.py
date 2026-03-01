@@ -1,5 +1,5 @@
 """
-ConsciousnessWriter — Periodic persistence of OrganismState to consciousness.json.
+ConsciousnessWriter â€” Periodic persistence of OrganismState to consciousness.json.
 
 This handler ensures the TUI and other external tools have a fresh view of 
 the organism's internal metrics (cycles, health, axioms, reputation).
@@ -16,10 +16,10 @@ import time
 from typing import Any, Optional
 
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
-from cynic.kernel.organism.handlers.base import HandlerGroup
-from cynic.kernel.organism.handlers.services import CognitionServices
+from cynic.kernel.organism.reflexes.base import HandlerGroup
+from cynic.kernel.organism.reflexes.services import CognitionServices
 
-logger = logging.getLogger("cynic.kernel.organism.handlers.consciousness_writer")
+logger = logging.getLogger("cynic.kernel.organism.reflexes.consciousness_writer")
 
 _CONSCIOUSNESS_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "consciousness.json")
 

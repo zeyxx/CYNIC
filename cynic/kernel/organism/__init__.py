@@ -1,11 +1,11 @@
-"""CYNIC Organism — Living System Architecture
+"""CYNIC Organism â€” Living System Architecture
 
 The organism is a unified system with specialized organs coordinating via events.
 
 Structure:
-├── handlers/             Event handlers (Judgment, Senses, etc.)
-├── state_manager.py      Unified state (RAM/DB/File)
-└── organism.py           Central coordinator and factory (awaken)
+â”œâ”€â”€ handlers/             Event handlers (Judgment, Senses, etc.)
+â”œâ”€â”€ state_manager.py      Unified state (RAM/DB/File)
+â””â”€â”€ organism.py           Central coordinator and factory (awaken)
 
 The organism is:
 - SOURCE OF TRUTH for state

@@ -1,5 +1,5 @@
 """
-CYNIC MCP Resources — Expose CYNIC knowledge to Claude Code
+CYNIC MCP Resources â€” Expose CYNIC knowledge to Claude Code
 
 Claude Code (via SDK) can query:
   1. Similar judgments (by pattern)
@@ -9,7 +9,7 @@ Claude Code (via SDK) can query:
   5. Hypergraph edges (7D perception-cognition-action links)
 
 These resources bridge L2 feedback loop:
-  Claude Code → /ws/sdk → MCP resources → CYNIC state queries
+  Claude Code â†’ /ws/sdk â†’ MCP resources â†’ CYNIC state queries
 
 MCP protocol: text/uri-list + application/json payloads
 """
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class HyperEdge:
     """
-    7-dimensional hyper-edge connecting perception → cognition → action.
+    7-dimensional hyper-edge connecting perception â†’ cognition â†’ action.
 
     The 7 dimensions:
     1. signal: Raw perception (event source, timestamp)
@@ -296,7 +296,7 @@ class MCPResourceManager:
 
     async def get_hypergraph_edges(self, limit: int = 50) -> dict[str, Any]:
         """
-        Get recent 7-dimensional hyper-edges linking perception → cognition → action.
+        Get recent 7-dimensional hyper-edges linking perception â†’ cognition â†’ action.
 
         Resource: /mcp/hypergraph/recent?limit=50
         """

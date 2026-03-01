@@ -1,5 +1,5 @@
 """
-MacroCycleHandler — L1 MACRO consciousness cycle (full 7-step PERCEIVE→JUDGE→DECIDE→ACT→LEARN→ACCOUNT→EMERGE).
+MacroCycleHandler â€” L1 MACRO consciousness cycle (full 7-step PERCEIVEâ†’JUDGEâ†’DECIDEâ†’ACTâ†’LEARNâ†’ACCOUNTâ†’EMERGE).
 
 Extracted from JudgeOrchestrator._cycle_macro().
 
@@ -35,12 +35,8 @@ from cynic.kernel.organism.brain.cognition.neurons.base import DogId
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgmentPipeline
-from cynic.kernel.core.event_bus import (
-    CoreEvent,
-    Event,
-    EventBusError,
-    get_core_bus,
-)
+from cynic.kernel.core.event_bus import CoreEvent, Event
+
 from cynic.kernel.core.events_schema import (
     PerceptionReceivedPayload,
     ResidualHighPayload,
@@ -91,7 +87,7 @@ class MacroCycleHandler(BaseHandler):
         self.axiom_monitor = axiom_monitor
         self.context_compressor = context_compressor
         self.act_phase_fn = act_phase_fn
-        from cynic.kernel.core.event_bus import get_core_bus
+        from cynic.kernel.core.event_bus import CoreEvent, Event
         self.bus = bus or get_core_bus("DEFAULT")
 
     async def _act_phase(self, judgment: Any, pipeline: Any) -> Any:

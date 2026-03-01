@@ -1,9 +1,9 @@
 """
-Motor System — CYNIC's Muscles.
+Motor System â€” CYNIC's Muscles.
 Anatomy: Central Nervous System (Motor Cortex) to Effectors.
 
 Coordinates actions with metabolic costs and hardware constraints.
-Axiom Alignment: BURN — gestures must have a measurable physical impact and cost.
+Axiom Alignment: BURN â€” gestures must have a measurable physical impact and cost.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import logging
 import time
 from typing import Any
 
-from cynic.kernel.core.event_bus import Event, get_core_bus
+from cynic.kernel.core.event_bus import Event
 
 logger = logging.getLogger("cynic.kernel.organism.layers.motor")
 
@@ -26,7 +26,7 @@ class MotorSystem:
     def __init__(self, body: Any | None = None, budget_manager: Any | None = None, bus: Optional[EventBus] = None) -> None:
         self.body = body  # HardwareBody
         self.budget_manager = budget_manager
-        from cynic.kernel.core.event_bus import get_core_bus
+        from cynic.kernel.core.event_bus import CoreEvent, Event
         self._bus = bus or get_core_bus("DEFAULT")
         self._gestures_executed = 0
 

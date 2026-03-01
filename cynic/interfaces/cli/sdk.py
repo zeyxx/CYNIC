@@ -1,5 +1,5 @@
 """
-CYNIC CLI — `sdk` command (recent Claude Code SDK sessions, L2).
+CYNIC CLI â€” `sdk` command (recent Claude Code SDK sessions, L2).
 """
 from __future__ import annotations
 

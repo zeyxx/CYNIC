@@ -1,7 +1,7 @@
 """
-κ-NET Server — Somatic WebSocket Broadcaster.
+Îº-NET Server â€” Somatic WebSocket Broadcaster.
 Runs on a dedicated high port (58765) using IPv6.
-Distributes κ-PULSE messages to all connected nerves (CLI, Web, etc.).
+Distributes Îº-PULSE messages to all connected nerves (CLI, Web, etc.).
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ class KNetServer:
         if self._server:
             self._server.close()
             await self._server.wait_closed()
-            logger.info("κ-NET Server detached.")
+            logger.info("Îº-NET Server detached.")
 
     async def _handler(self, websocket, path):
         """Handle new nerve connections."""
@@ -96,10 +96,10 @@ class KNetServer:
             pass
         finally:
             self.clients.remove(websocket)
-            logger.info(f"κ-NET: Nerve detached. Total: {len(self.clients)}")
+            logger.info(f"Îº-NET: Nerve detached. Total: {len(self.clients)}")
 
     async def broadcast(self, pulse: PulseMessage):
-        """Stream a κ-PULSE to all connected nerves."""
+        """Stream a Îº-PULSE to all connected nerves."""
         if not self.clients:
             return
 
@@ -120,10 +120,10 @@ class KNetServer:
         try:
             data = json.loads(raw_message)
             pulse = PulseMessage.from_dict(data)
-            logger.debug(f"κ-NET: Received {pulse.type.value} from body")
+            logger.debug(f"Îº-NET: Received {pulse.type.value} from body")
             # TODO: Dispatch to Organism Event Bus
         except Exception as e:
-            logger.warning(f"κ-NET: Failed to process message: {e}")
+            logger.warning(f"Îº-NET: Failed to process message: {e}")
 
 
 # Global instance for the container

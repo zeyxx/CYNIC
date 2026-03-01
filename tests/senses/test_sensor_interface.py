@@ -1,4 +1,4 @@
-"""Test Sensor interface — contract validation."""
+"""Test Sensor interface â€” contract validation."""
 import asyncio
 
 import pytest
@@ -18,7 +18,7 @@ class MockSensor(Sensor):
         return self._id
 
     async def startup(self) -> None:
-        """Startup — no-op for mock."""
+        """Startup â€” no-op for mock."""
         self._call_count = 0
 
     async def perceive(self) -> Observation | None:
@@ -34,7 +34,7 @@ class MockSensor(Sensor):
         return None
 
     async def shutdown(self) -> None:
-        """Shutdown — no-op for mock."""
+        """Shutdown â€” no-op for mock."""
         pass
 
 

@@ -224,7 +224,7 @@ class TestEScore:
         assert e_score.learning == 0.6
 
     def test_phi_bounding(self):
-        """Test φ-bounding of E-Score"""
+        """Test Ï†-bounding of E-Score"""
         e_score = EScore(
             fidelity=1.0,
             phi=0.5,
@@ -239,7 +239,7 @@ class TestEScore:
         assert e_score.fidelity <= phi_bound
 
     def test_all_dimensions_bounded(self):
-        """Test all dimensions are φ-bounded"""
+        """Test all dimensions are Ï†-bounded"""
         e_score = EScore(
             fidelity=2.0,
             phi=2.0,

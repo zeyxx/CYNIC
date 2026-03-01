@@ -14,7 +14,7 @@ import asyncio
 
 import pytest
 
-from cynic.kernel.core.event_bus import CoreEvent, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent
 from cynic.kernel.core.events_schema import SonaTickPayload
 from cynic.kernel.organism.organism import awaken
 
@@ -59,7 +59,7 @@ async def test_phase3_sona_tick_events():
     await asyncio.sleep(0.1)
 
     # Should have captured the manual emit
-    assert len(events_received) >= 1, f"Expected ≥1 SONA_TICK, got {len(events_received)}"
+    assert len(events_received) >= 1, f"Expected â‰¥1 SONA_TICK, got {len(events_received)}"
 
     event = events_received[0]
     payload = SonaTickPayload.model_validate(event.payload or {})

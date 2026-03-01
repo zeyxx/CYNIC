@@ -1,5 +1,5 @@
 """
-Sovereignty Router — Value Impact Measurement Interface.
+Sovereignty Router â€” Value Impact Measurement Interface.
 """
 from __future__ import annotations
 

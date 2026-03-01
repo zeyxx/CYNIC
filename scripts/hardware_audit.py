@@ -1,5 +1,5 @@
 """
-CYNIC Hardware Audit — Remove the fog of infrastructure.
+CYNIC Hardware Audit â€” Remove the fog of infrastructure.
 
 Detects CPU/iGPU capabilities (optimized for Ryzen 5700G) and 
 recommends LLM inference settings for the V3.1 Organism.

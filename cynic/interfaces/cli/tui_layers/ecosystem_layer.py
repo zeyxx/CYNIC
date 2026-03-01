@@ -22,13 +22,13 @@ class EcosystemLayer(Static):
         table.add_column("Events", justify="right", style="green")
         table.add_column("Status")
 
-        table.add_row("CORE", str(self.core_count), "🟢")
-        table.add_row("AUTOMATION", str(self.automation_count), "🟢")
-        table.add_row("AGENT", str(self.agent_count), "🟢")
+        table.add_row("CORE", str(self.core_count), "ðŸŸ¢")
+        table.add_row("AUTOMATION", str(self.automation_count), "ðŸŸ¢")
+        table.add_row("AGENT", str(self.agent_count), "ðŸŸ¢")
 
         return Panel(
             table,
-            title="🔗 ECOSYSTEM TOPOLOGY",
+            title="ðŸ”— ECOSYSTEM TOPOLOGY",
             border_style="cyan",
             expand=False
         )

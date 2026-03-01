@@ -1,4 +1,4 @@
-"""ComponentBuilder — Create base components (dogs, registries)."""
+"""ComponentBuilder â€” Create base components (dogs, registries)."""
 from __future__ import annotations
 
 import logging
@@ -30,5 +30,5 @@ class ComponentBuilder(BaseBuilder):
             context.axiom_arch = None
             context.log(f"{self.builder_id}: completed")
         except ValidationError as e:
-            logger.error(f"{self.builder_id}: failed — {e}")
+            logger.error(f"{self.builder_id}: failed â€” {e}")
             raise RuntimeError(f"ComponentBuilder failed: {e}")

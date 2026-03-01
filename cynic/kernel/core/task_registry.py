@@ -1,5 +1,5 @@
 """
-CYNIC Task Registry — Track all background tasks for cleanup and monitoring.
+CYNIC Task Registry â€” Track all background tasks for cleanup and monitoring.
 
 Prevents:
 - Resource leaks (forgotten asyncio.create_task calls)

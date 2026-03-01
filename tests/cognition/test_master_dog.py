@@ -1,4 +1,4 @@
-"""Tests for MasterDog — the data-driven unified engine."""
+"""Tests for MasterDog â€” the data-driven unified engine."""
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -16,7 +16,7 @@ async def test_master_dog_as_sage():
     dog = MasterDog(sage_soul)
     
     assert dog.dog_id == DogId.SAGE
-    assert dog.soul.sefirot == "Chokmah — Wisdom"
+    assert dog.soul.sefirot == "Chokmah â€” Wisdom"
     
     cell = Cell(cell_id="c1", reality="CODE", content="print('hello')", analysis="JUDGE")
     

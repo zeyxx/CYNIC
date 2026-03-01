@@ -1,5 +1,5 @@
 """
-CYNIC PerceiveWorker — Abstract base for all autonomous sensory workers.
+CYNIC PerceiveWorker â€” Abstract base for all autonomous sensory workers.
 
 Workers observe their domain at Fibonacci intervals and submit Cells to the
 DogScheduler when something worth judging is detected.
@@ -28,7 +28,7 @@ class PerceiveWorker(ABC):
     CYNIC starts these as background asyncio tasks in DogScheduler.start().
     Each worker:
       1. Calls sense() to observe its domain
-      2. If sense() returns a Cell → calls submit_fn(cell)
+      2. If sense() returns a Cell â†’ calls submit_fn(cell)
       3. Sleeps interval_s seconds
       4. Repeats until task is cancelled
 
@@ -59,7 +59,7 @@ class PerceiveWorker(ABC):
 
     async def run(self, submit_fn: Callable) -> None:
         """
-        Main loop: sense → submit → sleep → repeat.
+        Main loop: sense â†’ submit â†’ sleep â†’ repeat.
 
         submit_fn: DogScheduler.submit (or any callable matching its signature)
         Runs as a background asyncio task; exits cleanly on CancelledError.

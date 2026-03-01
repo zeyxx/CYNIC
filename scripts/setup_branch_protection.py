@@ -33,7 +33,7 @@ def run_gh_api(method: str, endpoint: str, data: dict[str, Any] | None = None) -
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     if result.returncode != 0:
-        print(f"❌ GitHub API error:")
+        print(f"âŒ GitHub API error:")
         print(result.stderr)
         sys.exit(1)
 
@@ -57,7 +57,7 @@ def setup_branch_protection():
         "Security Scan"
     ]
 
-    print("🔐 Setting up branch protection...")
+    print("ðŸ” Setting up branch protection...")
     print(f"   Repository: {repo}")
     print(f"   Branch: {branch}")
     print()
@@ -80,28 +80,28 @@ def setup_branch_protection():
         "restrictions": None
     }
 
-    print("📋 Applying configuration...")
+    print("ðŸ“‹ Applying configuration...")
     print()
     print("   Status Checks:")
     for check in required_checks:
-        print(f"      ✓ {check}")
+        print(f"      âœ“ {check}")
     print()
     print("   Requirements:")
-    print("      ✓ 1 PR approval required")
-    print("      ✓ Strict mode (up to date with base)")
-    print("      ✓ Linear history (no merges)")
-    print("      ✓ Signed commits")
+    print("      âœ“ 1 PR approval required")
+    print("      âœ“ Strict mode (up to date with base)")
+    print("      âœ“ Linear history (no merges)")
+    print("      âœ“ Signed commits")
     print()
     print("   Restrictions:")
-    print("      ✓ Force pushes disabled")
-    print("      ✓ Deletions disabled")
+    print("      âœ“ Force pushes disabled")
+    print("      âœ“ Deletions disabled")
     print()
 
     # Apply the protection
     try:
         result = run_gh_api("PUT", endpoint, protection_config)
 
-        print("✅ Branch protection configured successfully!")
+        print("âœ… Branch protection configured successfully!")
         print()
         print(f"Protected branch: {branch}")
         print(f"Status checks required: {len(required_checks)}")
@@ -112,31 +112,31 @@ def setup_branch_protection():
 
         if verify_result.get("required_status_checks"):
             checks = verify_result["required_status_checks"].get("contexts", [])
-            print(f"✓ Status checks: {len(checks)} required")
+            print(f"âœ“ Status checks: {len(checks)} required")
             for check in checks:
                 print(f"  - {check}")
 
         if verify_result.get("required_pull_request_reviews"):
             reviews = verify_result["required_pull_request_reviews"]
-            print(f"✓ PR reviews: {reviews.get('required_approving_review_count', 0)} required")
+            print(f"âœ“ PR reviews: {reviews.get('required_approving_review_count', 0)} required")
 
         print()
-        print("🎯 Master branch is now protected!")
+        print("ðŸŽ¯ Master branch is now protected!")
         print()
-        print("📋 Rules summary:")
-        print("   • All tests (3.11, 3.12, 3.13) must pass")
-        print("   • Code Quality check must pass")
-        print("   • Coverage must be ≥ 75%")
-        print("   • Security Scan must pass")
-        print("   • At least 1 PR approval required")
-        print("   • Branch must be up to date")
-        print("   • Force pushes blocked")
-        print("   • Deletions blocked")
+        print("ðŸ“‹ Rules summary:")
+        print("   â€¢ All tests (3.11, 3.12, 3.13) must pass")
+        print("   â€¢ Code Quality check must pass")
+        print("   â€¢ Coverage must be â‰¥ 75%")
+        print("   â€¢ Security Scan must pass")
+        print("   â€¢ At least 1 PR approval required")
+        print("   â€¢ Branch must be up to date")
+        print("   â€¢ Force pushes blocked")
+        print("   â€¢ Deletions blocked")
         print()
-        print("🚀 Ready to develop fast with confidence!")
+        print("ðŸš€ Ready to develop fast with confidence!")
 
     except Exception as e:
-        print(f"❌ Error setting up protection: {e}")
+        print(f"âŒ Error setting up protection: {e}")
         sys.exit(1)
 
 
@@ -144,14 +144,14 @@ if __name__ == "__main__":
     # Check for gh CLI
     result = subprocess.run(["gh", "--version"], capture_output=True)
     if result.returncode != 0:
-        print("❌ GitHub CLI (gh) is not installed")
+        print("âŒ GitHub CLI (gh) is not installed")
         print("   Install from: https://cli.github.com/")
         sys.exit(1)
 
     # Check authentication
     result = subprocess.run(["gh", "auth", "status"], capture_output=True)
     if result.returncode != 0:
-        print("❌ Not authenticated with GitHub")
+        print("âŒ Not authenticated with GitHub")
         print("   Run: gh auth login")
         sys.exit(1)
 

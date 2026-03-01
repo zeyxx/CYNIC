@@ -1,5 +1,5 @@
 """
-ResidualDetector — γ1 entropy sensor.
+ResidualDetector â€” Î³1 entropy sensor.
 
 Measures the variance between Dog judgments.
 High variance = High 'Unnameable' content = Emergence potential.
@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import statistics
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.formulas import RESIDUAL_STABLE_HIGH_N
 from cynic.kernel.core.judgment import Judgment
 from cynic.kernel.core.phi import PHI_INV_2
@@ -31,13 +31,13 @@ class ResidualDetector:
         self._history: list[float] = []
         self._high_residual_count = 0
         self._threshold = PHI_INV_2 * 100  # ~38.2
-        from cynic.kernel.core.event_bus import get_core_bus
+        from cynic.kernel.core.event_bus import CoreEvent, Event
         self._bus = bus or get_core_bus("DEFAULT")
 
     def start(self):
         """Subscribe to judgment events."""
         self._bus.on(CoreEvent.JUDGMENT_CREATED, self._on_judgment)
-        logger.info("ResidualDetector started — listening for JUDGMENT_CREATED")
+        logger.info("ResidualDetector started â€” listening for JUDGMENT_CREATED")
 
     def observe(self, judgment: Judgment) -> float:
         """Synchronous observation of judgment variance."""

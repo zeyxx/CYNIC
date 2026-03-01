@@ -1,5 +1,5 @@
 """
-Handler foundation — Living organs with explicit dependency declaration.
+Handler foundation â€” Living organs with explicit dependency declaration.
 
 Every handler group declares:
 - name: unique identifier
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 class HandlerGroup(ABC):
     """
-    Base class for handler groups — like AbstractDog for event handlers.
+    Base class for handler groups â€” like AbstractDog for event handlers.
     """
 
     def __init__(self, bus: Optional[EventBus] = None):

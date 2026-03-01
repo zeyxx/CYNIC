@@ -1,5 +1,5 @@
 """
-CYNIC Kernel Manager — Unified Kernel Lifecycle Coordination
+CYNIC Kernel Manager â€” Unified Kernel Lifecycle Coordination
 
 Coordinates kernel initialization, health monitoring, and instance detection.
 Ensures only one kernel is spawned even with multiple MCP bridges.

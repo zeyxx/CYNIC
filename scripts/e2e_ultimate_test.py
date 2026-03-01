@@ -1,5 +1,5 @@
 """
-CYNIC Ultimate Life Test — Prediction vs Reality.
+CYNIC Ultimate Life Test â€” Prediction vs Reality.
 
 Proves that CYNIC can:
 1. Predict an outcome from code.
@@ -20,7 +20,7 @@ from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 
 async def ultimate_test():
-    print("\n--- 🧬 CYNIC ULTIMATE LIFE TEST ---")
+    print("\n--- ðŸ§¬ CYNIC ULTIMATE LIFE TEST ---")
     
     # 1. AWAKEN
     o = await awaken()
@@ -62,7 +62,7 @@ async def ultimate_test():
         # 5. LEARN (The Delta)
         print("Step 4: Feeding the Prediction Error to the Learning Loop...")
         
-        from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
+        from cynic.kernel.core.event_bus import CoreEvent, Event
         from cynic.kernel.core.events_schema import LearningEventPayload
         
         # We manually emit the learning event to simulate the feedback loop
@@ -86,12 +86,12 @@ async def ultimate_test():
         print(f"   - Q-Table Verification: New Q-Value = {new_q:.3f}")
         
         if new_q < prediction_q or (reality_reward == 1.0 and new_q > prediction_q):
-            print("\n✅ ULTIMATE TEST PASSED: CYNIC has learned from Reality.")
+            print("\nâœ… ULTIMATE TEST PASSED: CYNIC has learned from Reality.")
         else:
-            print("\n❌ ULTIMATE TEST FAILED: Q-Value did not evolve as expected.")
+            print("\nâŒ ULTIMATE TEST FAILED: Q-Value did not evolve as expected.")
 
     except Exception as e:
-        print(f"\n❌ ULTIMATE TEST FAILED: {e}")
+        print(f"\nâŒ ULTIMATE TEST FAILED: {e}")
         import traceback
         traceback.print_exc()
     finally:

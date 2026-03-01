@@ -1,5 +1,5 @@
 """
-CYNIC act router — act/execute · act/telemetry
+CYNIC act router â€” act/execute Â· act/telemetry
 """
 from __future__ import annotations
 
@@ -17,16 +17,16 @@ logger = logging.getLogger("cynic.interfaces.api.server")
 router_act = APIRouter(tags=["act"])
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# CYNIC → Claude context injection (L2 bidirectional loop)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# CYNIC â†’ Claude context injection (L2 bidirectional loop)
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 def _enrich_prompt(prompt: str, state) -> str:
     """
-    Inject CYNIC context into Claude's prompt (CYNIC→Claude direction of L2).
+    Inject CYNIC context into Claude's prompt (CYNICâ†’Claude direction of L2).
 
     Prepends a compact block with:
-    - Compressed session history (≤200 tokens from ContextCompressor)
+    - Compressed session history (â‰¤200 tokens from ContextCompressor)
     - Best learned action from QTable for this task type
     - QTable confidence level
 
@@ -61,9 +61,9 @@ def _enrich_prompt(prompt: str, state) -> str:
     return "\n".join(lines) + prompt
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # POST /act/execute  (CYNIC spawns Claude Code autonomously)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_act.post("/act/execute")
 async def act_execute(
@@ -81,15 +81,15 @@ async def act_execute(
     Every tool call Claude makes is intercepted and judged by GUARDIAN.
     The result is returned when Claude's result message arrives.
 
-    This is the ACT phase of the PERCEIVE → JUDGE → DECIDE → ACT cycle.
-    No human needed — CYNIC does it entirely.
+    This is the ACT phase of the PERCEIVE â†’ JUDGE â†’ DECIDE â†’ ACT cycle.
+    No human needed â€” CYNIC does it entirely.
     """
     state = container.organism
 
     if state.runner is None:
         raise HTTPException(
             status_code=503,
-            detail="ClaudeCodeRunner not initialized — kernel not started via lifespan",
+            detail="ClaudeCodeRunner not initialized â€” kernel not started via lifespan",
         )
 
     prompt = body.get("prompt", "")
@@ -124,9 +124,9 @@ async def act_execute(
     }
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# GET /act/telemetry  (session telemetry — learning measurement layer)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# GET /act/telemetry  (session telemetry â€” learning measurement layer)
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_act.get("/act/telemetry")
 async def act_telemetry(
@@ -135,13 +135,13 @@ async def act_telemetry(
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
     """
-    Session telemetry — CYNIC's learning measurement layer.
+    Session telemetry â€” CYNIC's learning measurement layer.
 
     Returns aggregate stats + recent sessions for H1-H5 hypothesis testing.
 
     Query params:
-      n=10       → return last N sessions (max 100)
-      export=true → return all sessions (full JSONL export)
+      n=10       â†’ return last N sessions (max 100)
+      export=true â†’ return all sessions (full JSONL export)
 
     Stats include:
       - count, error_rate, mean_cost, mean_reward
@@ -149,7 +149,7 @@ async def act_telemetry(
       - task_types (debug/refactor/test/review/write/explain/general)
       - complexities (trivial/simple/medium/complex)
 
-    Research use: GET /act/telemetry?export=true → download for H1-H5 analysis
+    Research use: GET /act/telemetry?export=true â†’ download for H1-H5 analysis
     """
     state = container.organism
     store = state.telemetry_store
@@ -157,6 +157,6 @@ async def act_telemetry(
     result = {
         "stats": store.stats(),
         "sessions": store.export() if export else store.recent(n),
-        "message": f"*sniff* {len(store)} sessions measured — φ sees all.",
+        "message": f"*sniff* {len(store)} sessions measured â€” Ï† sees all.",
     }
     return result

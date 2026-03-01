@@ -1,5 +1,5 @@
 """
-CYNIC Organs Layer (Layer 2) — Specialized judge subsystems and decision organs.
+CYNIC Organs Layer (Layer 2) â€” Specialized judge subsystems and decision organs.
 
 Part of the 10-layer organism architecture, the organs layer houses
 the 11 Dogs (Sefirot judges) that evaluate proposals from complementary angles.

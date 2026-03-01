@@ -1,4 +1,4 @@
-"""Tests for EcosystemObserver — nervous system wrapper for read-only ecosystem queries."""
+"""Tests for EcosystemObserver â€” nervous system wrapper for read-only ecosystem queries."""
 
 import asyncio
 

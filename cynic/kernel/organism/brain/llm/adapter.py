@@ -1,5 +1,5 @@
 """
-CYNIC Universal LLM Adapter — OS-level LLM routing.
+CYNIC Universal LLM Adapter â€” OS-level LLM routing.
 
 Unified format for all AI interactions (Local, CLI, Cloud).
 Implements hardware-aware discovery and EMA-based benchmarking.

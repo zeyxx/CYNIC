@@ -1,5 +1,5 @@
 """
-OrganismAssembler — Orchestrate builder sequence to create CynicOrganism.
+OrganismAssembler â€” Orchestrate builder sequence to create CynicOrganism.
 
 This replaces _OrganismAwakener.build() with a composable, observable sequence.
 """
@@ -163,7 +163,7 @@ class OrganismAssembler:
 
         except asyncio.TimeoutError as e:
             logger.error(f"Organism assembly failed: {e}")
-            context.log(f"assembly: failed — {e}")
+            context.log(f"assembly: failed â€” {e}")
             raise RuntimeError(f"Failed to assemble organism: {e}")
 
     def get_context(self) -> BuilderContext | None:

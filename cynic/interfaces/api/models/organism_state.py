@@ -2,7 +2,7 @@
 Pydantic response models for organism state API endpoints.
 
 These models are READ-ONLY (frozen=True) to prevent external mutations.
-CYNIC's state is observed via HTTP — no direct mutations allowed.
+CYNIC's state is observed via HTTP â€” no direct mutations allowed.
 
 Models:
 - StateSnapshotResponse: Full system snapshot (consciousness level, counts, etc.)
@@ -23,9 +23,9 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # STATE SNAPSHOT
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class StateSnapshotResponse(BaseModel):
@@ -65,9 +65,9 @@ class StateSnapshotResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # CONSCIOUSNESS
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class ConsciousnessResponse(BaseModel):
@@ -84,9 +84,9 @@ class ConsciousnessResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # DOGS
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class DogStatus(BaseModel):
@@ -109,7 +109,7 @@ class DogStatus(BaseModel):
         default=None,
         ge=0.0,
         le=0.618,
-        description="Confidence bound [0, 0.618] (φ⁻¹)",
+        description="Confidence bound [0, 0.618] (Ï†â»Â¹)",
     )
     activity: str | None = Field(
         default=None,
@@ -127,7 +127,7 @@ class DogsResponse(BaseModel):
     """
 
     dogs: dict[str, DogStatus] = Field(
-        description="Map of dog_id → DogStatus",
+        description="Map of dog_id â†’ DogStatus",
     )
     count: int = Field(
         ge=0,
@@ -137,9 +137,9 @@ class DogsResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # ACTIONS
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class ProposedAction(BaseModel):
@@ -187,9 +187,9 @@ class ActionsResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # ACCOUNT
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class AccountStatusResponse(BaseModel):
@@ -217,7 +217,7 @@ class AccountStatusResponse(BaseModel):
     learn_rate: float = Field(
         ge=0.0,
         le=0.618,
-        description="Learning rate [0, φ⁻¹=0.618]",
+        description="Learning rate [0, Ï†â»Â¹=0.618]",
     )
     reputation: float = Field(
         ge=0.0,
@@ -228,9 +228,9 @@ class AccountStatusResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # E-SCORE (REPUTATION)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class AgentScore(BaseModel):
@@ -240,7 +240,7 @@ class AgentScore(BaseModel):
     Nested model used in EScoreResponse.
     Frozen (immutable).
 
-    7 dimensions (φ-weighted):
+    7 dimensions (Ï†-weighted):
       BURN:   Irreversible token burn (commitment signal)
       BUILD:  Code/artifact quality contributions
       JUDGE:  Judgment accuracy (prediction vs reality)
@@ -291,7 +291,7 @@ class AgentScore(BaseModel):
     total: float = Field(
         ge=0.0,
         le=100.0,
-        description="Aggregate E-Score (φ-weighted geometric mean) [0, 100]",
+        description="Aggregate E-Score (Ï†-weighted geometric mean) [0, 100]",
     )
 
     model_config = ConfigDict(frozen=True)
@@ -318,14 +318,14 @@ class EScoreResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # POLICY
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class PolicyAction(BaseModel):
     """
-    One learned policy action — best action for a state in the Q-table.
+    One learned policy action â€” best action for a state in the Q-table.
 
     Nested model used in PolicyActionsResponse.
     Frozen (immutable).
@@ -345,7 +345,7 @@ class PolicyAction(BaseModel):
     confidence: float = Field(
         ge=0.0,
         le=0.618,
-        description="Confidence in prediction [0, φ⁻¹=0.618]",
+        description="Confidence in prediction [0, Ï†â»Â¹=0.618]",
     )
 
     model_config = ConfigDict(frozen=True)
@@ -364,7 +364,7 @@ class PolicyActionsResponse(BaseModel):
     )
     actions: list[PolicyAction] = Field(
         default_factory=list,
-        description="List of learned policy actions (state → best action)",
+        description="List of learned policy actions (state â†’ best action)",
     )
     count: int = Field(
         ge=0,
@@ -401,7 +401,7 @@ class PolicyStatsResponse(BaseModel):
     average_confidence: float = Field(
         ge=0.0,
         le=0.618,
-        description="Mean confidence across all learned actions [0, φ⁻¹=0.618]",
+        description="Mean confidence across all learned actions [0, Ï†â»Â¹=0.618]",
     )
     max_q_value: float = Field(
         ge=0.0,

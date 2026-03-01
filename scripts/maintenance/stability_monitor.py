@@ -164,13 +164,13 @@ STABILITY ANALYSIS
         # Check stability
         max_growth = max(m["change_from_baseline_pct"] for m in self.metrics)
         if max_growth < 10:
-            status = "✅ EXCELLENT - Memory perfectly stable"
+            status = "âœ… EXCELLENT - Memory perfectly stable"
         elif max_growth < 20:
-            status = "✅ GOOD - Minor fluctuations, within acceptable range"
+            status = "âœ… GOOD - Minor fluctuations, within acceptable range"
         elif max_growth < 50:
-            status = "⚠️  WARNING - Memory growing, but not critical"
+            status = "âš ï¸  WARNING - Memory growing, but not critical"
         else:
-            status = "🔴 CRITICAL - Memory leak detected"
+            status = "ðŸ”´ CRITICAL - Memory leak detected"
 
         report += f"{status}\n\nMax growth from baseline: {max_growth:+6.1f}%\n"
 
@@ -185,11 +185,11 @@ AttributeErrors:     {log_info['attribute_errors']}
 """
 
         if log_info["attribute_errors"] > 0:
-            report += "🔴 CRITICAL: AttributeErrors detected - memory leak NOT fixed!\n"
+            report += "ðŸ”´ CRITICAL: AttributeErrors detected - memory leak NOT fixed!\n"
         elif log_info["error_count"] == 0:
-            report += "✅ GOOD: No errors logged\n"
+            report += "âœ… GOOD: No errors logged\n"
         else:
-            report += f"⚠️  WARNING: {log_info['error_count']} errors logged (check manually)\n"
+            report += f"âš ï¸  WARNING: {log_info['error_count']} errors logged (check manually)\n"
 
         report += "\nLast 10 log lines:\n"
         for line in log_info["last_lines"]:
@@ -198,12 +198,12 @@ AttributeErrors:     {log_info['attribute_errors']}
         report += f"\n{'='*70}\nCONCLUSION\n{'='*70}\n"
 
         if log_info["attribute_errors"] == 0 and max_growth < 20:
-            report += "✅ PASS - Bot is stable. Memory leak is FIXED.\n"
+            report += "âœ… PASS - Bot is stable. Memory leak is FIXED.\n"
             report += "   Ready for multi-instance validation and fine-tuning.\n"
         elif log_info["attribute_errors"] == 0 and max_growth < 50:
-            report += "⚠️  PARTIAL PASS - Bot stable but monitor memory growth.\n"
+            report += "âš ï¸  PARTIAL PASS - Bot stable but monitor memory growth.\n"
         else:
-            report += "🔴 FAIL - Memory leak still present or errors detected.\n"
+            report += "ðŸ”´ FAIL - Memory leak still present or errors detected.\n"
 
         report += f"{'='*70}\n"
 

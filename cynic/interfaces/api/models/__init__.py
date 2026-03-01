@@ -1,5 +1,5 @@
 """
-API models subpackage — All Pydantic models for CYNIC HTTP API.
+API models subpackage â€” All Pydantic models for CYNIC HTTP API.
 
 Contains both:
 1. Core judgment/perceive models (from core_models.py)

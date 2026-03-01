@@ -1,5 +1,5 @@
 """
-FederationHandler — P2P Knowledge Sharing Organ.
+FederationHandler â€” P2P Knowledge Sharing Organ.
 
 Listens to JUDGMENT_CREATED and RESIDUAL_HIGH events to trigger gossip
 sharing between federated CYNIC instances.
@@ -10,11 +10,11 @@ from collections.abc import Callable
 from typing import Optional
 
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
-from cynic.kernel.organism.handlers.base import HandlerGroup
-from cynic.kernel.organism.handlers.services import SensoryServices
+from cynic.kernel.organism.reflexes.base import HandlerGroup
+from cynic.kernel.organism.reflexes.services import SensoryServices
 from cynic.kernel.organism.perception.federation.gossip import GossipManager
 
-logger = logging.getLogger("cynic.kernel.organism.handlers.federation")
+logger = logging.getLogger("cynic.kernel.organism.reflexes.federation")
 
 class FederationHandler(HandlerGroup):
     """Handler group that manages P2P knowledge sharing."""
@@ -47,12 +47,12 @@ class FederationHandler(HandlerGroup):
         return frozenset({"gossip_manager"})
 
     async def _on_judgment_created(self, event: Event) -> None:
-        """JUDGMENT_CREATED → increment count and check for gossip trigger."""
+        """JUDGMENT_CREATED â†’ increment count and check for gossip trigger."""
         self._judgment_count += 1
         self.gossip_manager.on_judgment(self._judgment_count)
 
     async def _on_residual_high(self, event: Event) -> None:
-        """RESIDUAL_HIGH → record unnameable pattern for sharing."""
+        """RESIDUAL_HIGH â†’ record unnameable pattern for sharing."""
         try:
             payload = event.dict_payload or {}
             reality = payload.get("reality", "UNKNOWN")

@@ -1,5 +1,5 @@
 """
-CYNIC PerceiveWorkers package — backward-compatible re-exports.
+CYNIC PerceiveWorkers package â€” backward-compatible re-exports.
 
 All imports from `cynic.perceive.workers` continue to work unchanged.
 """

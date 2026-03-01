@@ -1,5 +1,5 @@
 """
-CYNIC Self-Knowledge Layer (Layer 8) — Introspection and metacognition.
+CYNIC Self-Knowledge Layer (Layer 8) â€” Introspection and metacognition.
 
 Part of the 10-layer organism architecture, the self-knowledge layer enables
 CYNIC to understand its own state, capabilities, and limitations.

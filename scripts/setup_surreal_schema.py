@@ -1,5 +1,5 @@
 """
-CYNIC Data Schema — SurrealDB (MLOps/Data Engineering).
+CYNIC Data Schema â€” SurrealDB (MLOps/Data Engineering).
 
 Defines the tables and indexes for the Organism's memory:
 - dog_souls: Identities and weights of the Dogs.

@@ -1,4 +1,4 @@
-"""TopologyMirror — Real-time kernel architecture snapshot."""
+"""TopologyMirror â€” Real-time kernel architecture snapshot."""
 
 from __future__ import annotations
 
@@ -59,12 +59,12 @@ class TopologyMirror:
 
     async def _on_topology_applied(self, event: Event) -> None:
         """Force immediate snapshot on topology change."""
-        logger.debug("TOPOLOGY_APPLIED detected — immediate snapshot")
+        logger.debug("TOPOLOGY_APPLIED detected â€” immediate snapshot")
         self._last_snapshot_time = 0.0  # Force next snapshot immediately
 
     async def _on_topology_rollback(self, event: Event) -> None:
         """Force immediate snapshot on rollback."""
-        logger.debug("TOPOLOGY_ROLLBACK detected — immediate snapshot")
+        logger.debug("TOPOLOGY_ROLLBACK detected â€” immediate snapshot")
         self._last_snapshot_time = 0.0
 
     async def _take_snapshot(
@@ -109,7 +109,7 @@ class TopologyMirror:
         """
         Write current topology to ~/.cynic/topology.json.
 
-        This is the "live" view — humans can inspect organism's current structure.
+        This is the "live" view â€” humans can inspect organism's current structure.
         """
         try:
             path = Path.home() / ".cynic" / "topology.json"

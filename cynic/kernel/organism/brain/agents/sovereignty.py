@@ -1,5 +1,5 @@
 """
-SovereigntyAgent — Amplifying creator impact.
+SovereigntyAgent â€” Amplifying creator impact.
 
 Subscribes to VALUE_CREATED events and calculates multidimensional impact:
 - Direct: Immediate utility of the creation.
@@ -29,13 +29,13 @@ class SovereigntyAgent:
     def __init__(self, state_manager: Any, bus: Optional[EventBus] = None):
         self.state = state_manager
         self._total_value_observed = 0.0
-        from cynic.kernel.core.event_bus import get_core_bus
+        from cynic.kernel.core.event_bus import CoreEvent, Event
         self._bus = bus or get_core_bus("DEFAULT")
 
     def start(self):
         """Subscribe to the nervous system."""
         self._bus.on(CoreEvent.VALUE_CREATED, self._on_value_created)
-        logger.info("SovereigntyAgent active — measuring impact.")
+        logger.info("SovereigntyAgent active â€” measuring impact.")
 
     async def _on_value_created(self, event: Event) -> None:
         """A new creation event has occurred."""

@@ -9,12 +9,13 @@ from __future__ import annotations
 import logging
 import os
 import uuid
+from typing import Any
 
 from cynic.interfaces.mcp.service import MCPBridge
 from cynic.kernel.core.container import get_container
 from cynic.kernel.core.convergence import ConvergenceValidator
 from cynic.kernel.core.escore import EScoreTracker
-from cynic.kernel.core.event_bus import get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, get_core_bus
 from cynic.kernel.core.storage.surreal import init_storage
 from cynic.kernel.core.topology.file_watcher import SourceWatcher
 from cynic.kernel.core.topology.topology_builder import IncrementalTopologyBuilder
@@ -29,7 +30,7 @@ from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrche
 from cynic.kernel.organism.brain.cognition.cortex.residual import ResidualDetector
 from cynic.kernel.organism.brain.cognition.neurons.discovery import discover_dogs
 from cynic.kernel.organism.brain.learning.qlearning import LearningLoop, QTable
-from cynic.kernel.organism.handlers import (
+from cynic.kernel.organism.reflexes import (
     CognitionServices,
     HandlerRegistry,
     MetabolicServices,
@@ -70,6 +71,9 @@ class _OrganismAwakener:
 
         # Generate instance identity (SRE standard)
         instance_id = f"CYNIC-{os.environ.get('NODE_NAME', 'LOCAL')}-{uuid.uuid4().hex[:8]}"
+        
+        # Pre-initialize core bus for injection
+        instance_bus = get_core_bus(instance_id)
 
         # 1. BASE STATE
         self.state = OrganismState(storage=self.storage, instance_id=instance_id)
@@ -82,8 +86,12 @@ class _OrganismAwakener:
         from cynic.nervous.service_registry import ServiceStateRegistry
         self.service_registry = ServiceStateRegistry()
 
+        # 1d. CONSCIOUSNESS (Isolated)
+        from cynic.kernel.core.consciousness import ConsciousnessState
+        self.consciousness = ConsciousnessState()
+
         # 2. NEURONS (Dogs)
-        self.dogs = discover_dogs(instance_id=instance_id, llm_registry=self.llm_registry)
+        self.dogs = discover_dogs(bus=instance_bus, llm_registry=self.llm_registry)
         cynic_dog = self.dogs.get(DogId.CYNIC.value)
 
         # 3. COGNITION & STRATEGY
@@ -99,9 +107,9 @@ class _OrganismAwakener:
         axiom_arch.state = self.state
 
         self.learning_loop = LearningLoop(qtable=self.qtable, pool=self.db_pool, instance_id=instance_id)
-        self.learning_loop.start(event_bus=get_core_bus(instance_id))
+        self.learning_loop.start(event_bus=instance_bus)
 
-        self.residual_detector = ResidualDetector(bus=get_core_bus(instance_id))
+        self.residual_detector = ResidualDetector(bus=instance_bus)
         self.residual_detector.start()
 
         # GASdf Executor
@@ -122,28 +130,33 @@ class _OrganismAwakener:
             state_manager=self.state,
             instance_id=instance_id,
             llm_registry=self.llm_registry,
+            consciousness=self.consciousness,
         )
         self.orchestrator.service_registry = self.service_registry
 
-        self.decide_agent = DecideAgent(qtable=self.qtable, bus=get_core_bus(instance_id))
+        self.decide_agent = DecideAgent(qtable=self.qtable, bus=instance_bus)
         self.decide_agent.start()
 
         action_repo = self.storage.action_proposals if self.storage else None
-        self.action_proposer = ActionProposer(repo=action_repo, bus=get_core_bus(instance_id))
+        self.action_proposer = ActionProposer(repo=action_repo, bus=instance_bus)
         self.action_proposer.start()
 
-        self.account_agent = AccountAgent(bus=get_core_bus(instance_id))
+        self.account_agent = AccountAgent(bus=instance_bus)
         self.llm_router = LLMRouter()
         self.lod_controller = LODController()
 
         # E-Score with DB persistence
         self.escore_tracker = EScoreTracker(state_manager=self.state, instance_id=instance_id)
 
-        self.axiom_monitor = AxiomMonitor(bus=get_core_bus(instance_id))
+        self.axiom_monitor = AxiomMonitor(bus=instance_bus)
 
         # 4. METABOLISM (Body & Rhythm)
-        self.body = HardwareBody(bus=get_core_bus(instance_id))
-        self.scheduler = ConsciousnessRhythm(self.orchestrator, bus=get_core_bus(instance_id))
+        self.body = HardwareBody(bus=instance_bus)
+        self.scheduler = ConsciousnessRhythm(
+            self.orchestrator, 
+            bus=instance_bus,
+            consciousness=self.consciousness
+        )
         self.scheduler.body = self.body
 
         from cynic.kernel.organism.metabolism.actuators import FileActuator, UniversalActuator
@@ -153,28 +166,29 @@ class _OrganismAwakener:
 
         from cynic.kernel.organism.metabolism.claude_sdk import ClaudeCodeRunner
 
-        self.runner = ClaudeCodeRunner(bus=get_core_bus(instance_id), sessions_registry={})
+        from cynic.kernel.core.event_bus import get_agent_bus
+        self.runner = ClaudeCodeRunner(bus=get_agent_bus(instance_id), sessions_registry={})
         self.telemetry_store = None  # Placeholder
 
         # 5. SENSES (Perception)
         self.context_compressor = ContextCompressor()
-        self.world_model = WorldModelUpdater(bus=get_core_bus(instance_id))
+        self.world_model = WorldModelUpdater(bus=instance_bus)
         self.source_watcher = SourceWatcher()
         self.topology_builder = IncrementalTopologyBuilder()
         self.mcp_bridge = MCPBridge(bus_name="CORE")
         self.convergence_validator = ConvergenceValidator()
 
         from cynic.kernel.organism.perception.senses.internal import InternalSensor
-        self.internal_sensor = InternalSensor(bus=get_core_bus(instance_id))
+        self.internal_sensor = InternalSensor(bus=instance_bus)
         self.internal_sensor.start()
 
         from cynic.kernel.organism.perception.senses.market import MarketSensor
-        self.market_sensor = MarketSensor(interval_s=30.0, bus=get_core_bus(instance_id))
+        self.market_sensor = MarketSensor(interval_s=30.0, bus=instance_bus)
         self.market_sensor.start()
 
 
         # 6. REFLECTION (Memory & Self)
-        self.sona_emitter = SonaEmitter(bus=get_core_bus(instance_id), db_pool=self.db_pool, instance_id=instance_id)
+        self.sona_emitter = SonaEmitter(bus=instance_bus, db_pool=self.db_pool, instance_id=instance_id)
 
         from cynic.kernel.organism.perception.federation.gossip import GossipManager
         self.gossip_manager = GossipManager(instance_id=instance_id, q_table=self.qtable)
@@ -199,7 +213,7 @@ class _OrganismAwakener:
             cognition=cog_svc,
             metabolic=meta_svc,
             sensory=sens_svc,
-            bus=get_core_bus(instance_id),
+            bus=instance_bus,
             # Extra kwargs for specific handlers (MUST match module names)
             axiom={"action_proposer": self.action_proposer},
             sdk={"action_proposer": self.action_proposer, "qtable": self.qtable},
@@ -225,7 +239,7 @@ class _OrganismAwakener:
             self.handler_registry.register(group)
 
         # Use the specific instance bus
-        self.handler_registry.wire(get_core_bus(instance_id))
+        self.handler_registry.wire(instance_bus)
 
         # 8. START AGENTS
         self.account_agent.set_escore_tracker(self.escore_tracker)
@@ -233,14 +247,14 @@ class _OrganismAwakener:
 
         from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
 
-        self.self_prober = SelfProber(bus=get_core_bus(instance_id))
+        self.self_prober = SelfProber(bus=instance_bus)
         self.self_prober.set_qtable(self.qtable)
         self.self_prober.set_residual_detector(self.residual_detector)
         self.self_prober.set_escore_tracker(self.escore_tracker)
         self.self_prober.start()
 
         from cynic.kernel.organism.brain.agents.sovereignty import SovereigntyAgent
-        self.sovereignty_agent = SovereigntyAgent(state_manager=self.state, bus=get_core_bus(instance_id))
+        self.sovereignty_agent = SovereigntyAgent(state_manager=self.state, bus=instance_bus)
         self.sovereignty_agent.start()
 
         # Assembly

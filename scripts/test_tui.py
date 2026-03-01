@@ -28,7 +28,7 @@ async def check_tui():
         # We won't start the live loop to avoid messing up the console,
         # but rendering it once proves the data access paths are correct.
     except Exception as e:
-        print(f"❌ TUI render FAILED: {e}")
+        print(f"âŒ TUI render FAILED: {e}")
         import traceback
         traceback.print_exc()
     finally:

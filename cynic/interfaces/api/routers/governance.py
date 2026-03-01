@@ -1,5 +1,5 @@
 """
-Governance Router — Bridge between the Bot and the Organism Memory.
+Governance Router â€” Bridge between the Bot and the Organism Memory.
 
 REST API for governance proposals, voting, verdicts, and outcomes.
 Integrates with UnifiedConsciousState for persistent governance records.
@@ -20,7 +20,7 @@ from cynic.kernel.core.unified_state import (
 )
 
 
-# ── Request Models ──────────────────────────────────────────────────
+# â”€â”€ Request Models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class ProposalRequest(BaseModel):
     """Request to submit a new governance proposal."""
     community_id: str
@@ -53,7 +53,7 @@ class OutcomeRequest(BaseModel):
     outcome: str
     executor_id: str = Field(default="", alias="executor")
 
-# ── Response Models ─────────────────────────────────────────────────
+# â”€â”€ Response Models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class VerdictResponse(BaseModel):
     """CYNIC's verdict for a proposal."""
     proposal_id: str

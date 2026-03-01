@@ -1,5 +1,5 @@
 """
-CYNIC TransparencyAuditTrail — Guardrail 3: Decision transparency
+CYNIC TransparencyAuditTrail â€” Guardrail 3: Decision transparency
 
 Records all decisions end-to-end for human audit and CYNIC self-review.
 
@@ -39,21 +39,21 @@ class AuditRecord:
     record_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: float = field(default_factory=time.time)
 
-    # PERCEIVE→JUDGE inputs
+    # PERCEIVEâ†’JUDGE inputs
     judgment_id: str = ""
     verdict: str = ""
     confidence: float = 0.0
     q_score: float = 0.0
 
-    # DECIDE→alignment check
+    # DECIDEâ†’alignment check
     alignment_violations: list[dict[str, Any]] = field(default_factory=list)
     alignment_approved: bool = True
 
-    # DECIDE→recommendation
+    # DECIDEâ†’recommendation
     recommended_action: str = ""
     action_prompt: str = ""
 
-    # ACT→execution
+    # ACTâ†’execution
     action_executed: bool = False
     execution_result: dict[str, Any] = field(default_factory=dict)
     execution_error: str | None = None
@@ -117,7 +117,7 @@ class TransparencyAuditTrail:
 
     def start(self) -> None:
         """Start audit trail monitoring."""
-        logger.info(f"TransparencyAuditTrail started — recording to {self._storage_path}")
+        logger.info(f"TransparencyAuditTrail started â€” recording to {self._storage_path}")
 
     def record_decision(
         self,
@@ -291,7 +291,7 @@ class TransparencyAuditTrail:
             "rolling_cap": _MAX_AUDIT_RECORDS,
         }
 
-    # ── Private ────────────────────────────────────────────────────────
+    # â”€â”€ Private â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _find_record(self, record_id: str) -> AuditRecord | None:
         """Find record by ID."""

@@ -1,10 +1,10 @@
 """
-CYNIC Core — Foundational constants, axioms, judgment models, and infrastructure.
+CYNIC Core â€” Foundational constants, axioms, judgment models, and infrastructure.
 
 Core modules establish CYNIC's mathematical and architectural foundation:
 
 Constants & Axioms:
-    cynic.kernel.core.phi: Golden ratio φ and mathematical foundations
+    cynic.kernel.core.phi: Golden ratio Ï† and mathematical foundations
     cynic.kernel.core.axioms: 11 immutable axioms (BURN, LOVE, KNOW, etc.)
 
 Judgment & Consciousness:

@@ -71,8 +71,8 @@ logger = logging.getLogger(__name__)
 
 def _find_announcement_channel(guild: discord.Guild) -> discord.TextChannel:
     """Find an appropriate text channel for announcements"""
-    # Priority: français/général, governance, proposals, general
-    channel_names = ["français", "général", "governance", "proposals", "general"]
+    # Priority: franÃ§ais/gÃ©nÃ©ral, governance, proposals, general
+    channel_names = ["franÃ§ais", "gÃ©nÃ©ral", "governance", "proposals", "general"]
 
     for name in channel_names:
         for channel in guild.text_channels:
@@ -276,7 +276,7 @@ async def cmd_proposals(
 
 
 # ============================================================================
-# VOTING COMMANDS (voting via buttons only — slash command /vote removed)
+# VOTING COMMANDS (voting via buttons only â€” slash command /vote removed)
 # ============================================================================
 
 @bot.tree.command(
@@ -361,9 +361,9 @@ async def cmd_cynic_status(interaction: discord.Interaction):
         status = await get_cynic_status()
 
         if status.get("status") == "online":
-            response = f"🧠 **CYNIC STATUS**: Online\n\n{status.get('data', 'No data')}"
+            response = f"ðŸ§  **CYNIC STATUS**: Online\n\n{status.get('data', 'No data')}"
         else:
-            response = "🧠 **CYNIC STATUS**: Offline\n\nCYNIC kernel is not responding."
+            response = "ðŸ§  **CYNIC STATUS**: Offline\n\nCYNIC kernel is not responding."
 
         await interaction.followup.send(response[:2000])  # Discord message limit
 
@@ -404,25 +404,25 @@ async def cmd_cynic_stats(interaction: discord.Interaction):
             accuracy = (e_score.judgment_accuracy or 0.0) * 100
 
             text = f"""
-🧠 **CYNIC LEARNING STATISTICS**
+ðŸ§  **CYNIC LEARNING STATISTICS**
 
 **Proposals:**
-• Total: {total}
-• Closed: {closed}
-• Learned from: {learned}
+â€¢ Total: {total}
+â€¢ Closed: {closed}
+â€¢ Learned from: {learned}
 
 **Outcomes:**
-• Approved: {approved}
-• Rejected: {rejected}
+â€¢ Approved: {approved}
+â€¢ Rejected: {rejected}
 
 **Community Feedback:**
-• Rated: {rated}/{learned} outcomes
-• Average rating: {avg_rating:.1f}/5 ☆
+â€¢ Rated: {rated}/{learned} outcomes
+â€¢ Average rating: {avg_rating:.1f}/5 â˜†
 
 **CYNIC Accuracy:**
-• Total judgments: {e_score.total_judgments or 0}
-• Correct predictions: {e_score.correct_predictions or 0}
-• Accuracy: {accuracy:.1f}%
+â€¢ Total judgments: {e_score.total_judgments or 0}
+â€¢ Correct predictions: {e_score.correct_predictions or 0}
+â€¢ Accuracy: {accuracy:.1f}%
 
 **Learning Signal:**
 Each outcome trains CYNIC via Q-Table TD(0) update through /learn endpoint.
@@ -457,21 +457,21 @@ async def cmd_community_info(interaction: discord.Interaction):
                 return
 
             text = f"""
-🏛️ **GOVERNANCE SETTINGS**
+ðŸ›ï¸ **GOVERNANCE SETTINGS**
 
 **Community:** {community.community_name}
 **Token:** {community.community_token}
 
 **Voting:**
-• Period: {community.voting_period_hours} hours
-• Quorum: {community.quorum_percentage}%
-• Approval Threshold: {community.approval_threshold_percentage}%
-• Method: {community.voting_method}
+â€¢ Period: {community.voting_period_hours} hours
+â€¢ Quorum: {community.quorum_percentage}%
+â€¢ Approval Threshold: {community.approval_threshold_percentage}%
+â€¢ Method: {community.voting_method}
 
 **Integration:**
-• GASdf: {'Enabled' if community.gasdf_enabled else 'Disabled'}
-• NEAR: {'Enabled' if community.near_contract_address else 'Disabled'}
-• CYNIC: {'Enabled' if community.cynic_enabled else 'Disabled'}
+â€¢ GASdf: {'Enabled' if community.gasdf_enabled else 'Disabled'}
+â€¢ NEAR: {'Enabled' if community.near_contract_address else 'Disabled'}
+â€¢ CYNIC: {'Enabled' if community.cynic_enabled else 'Disabled'}
 """
             await interaction.followup.send(text)
 
@@ -499,16 +499,16 @@ async def cmd_governance_stats(interaction: discord.Interaction):
             rejected = len([p for p in proposals if p.approval_status == "REJECTED"])
 
             text = f"""
-📊 **GOVERNANCE STATISTICS**
+ðŸ“Š **GOVERNANCE STATISTICS**
 
 **Proposals:**
-• Total: {total}
-• Approved: {approved}
-• Rejected: {rejected}
-• Approval Rate: {(approved/total*100 if total > 0 else 0):.1f}%
+â€¢ Total: {total}
+â€¢ Approved: {approved}
+â€¢ Rejected: {rejected}
+â€¢ Approval Rate: {(approved/total*100 if total > 0 else 0):.1f}%
 
 **Participation:**
-• Total Votes Cast: {sum(p.yes_votes + p.no_votes for p in proposals):.0f}
+â€¢ Total Votes Cast: {sum(p.yes_votes + p.no_votes for p in proposals):.0f}
 """
             await interaction.followup.send(text)
 
@@ -544,15 +544,15 @@ async def cmd_health(interaction: discord.Interaction):
         health_status = await health_check(bot)
 
         health_text = f"""
-🏥 **SYSTEM HEALTH CHECK**
+ðŸ¥ **SYSTEM HEALTH CHECK**
 
 **Bot Status:** {health_status['bot_status']}
 **Discord Latency:** {health_status['discord_latency_ms']}ms
 **Circuit Breaker:** {health_status['circuit_breaker']}
 
 **Error Metrics:**
-• Total Errors: {health_status['error_metrics']['total_errors']}
-• Last Error: {health_status['error_metrics']['last_error']}
+â€¢ Total Errors: {health_status['error_metrics']['total_errors']}
+â€¢ Last Error: {health_status['error_metrics']['last_error']}
 
 **Timestamp:** {health_status['timestamp']}
 """
@@ -579,14 +579,14 @@ async def cmd_database_status(interaction: discord.Interaction):
         consistency = await verify_data_consistency()
 
         db_text = f"""
-💾 **DATABASE STATUS**
+ðŸ’¾ **DATABASE STATUS**
 
 **Health:** {db_health['status']}
 **Tables Found:** {db_health['tables_found']}
 **Connectivity:** {db_health['connectivity']}
 
 **Consistency Check:** {consistency['status']}
-• Issues Found: {consistency['issue_count']}
+â€¢ Issues Found: {consistency['issue_count']}
 
 **Last Check:** {db_health['timestamp']}
 """
@@ -608,9 +608,9 @@ async def cmd_database_backup(interaction: discord.Interaction):
     try:
         backup_file = await backup_database()
         if backup_file:
-            await interaction.followup.send(f"✅ Database backed up to `{backup_file}`")
+            await interaction.followup.send(f"âœ… Database backed up to `{backup_file}`")
         else:
-            await interaction.followup.send("❌ Backup failed. Check logs for details.")
+            await interaction.followup.send("âŒ Backup failed. Check logs for details.")
 
     except Exception as e:
         logger.error(f"Error creating backup: {e}")

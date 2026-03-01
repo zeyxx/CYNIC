@@ -1,5 +1,5 @@
 """
-LevelSelector — Strategic Consciousness Allocation.
+LevelSelector â€” Strategic Consciousness Allocation.
 
 Arbitrates between Reality requirements (Anchors) and Hardware constraints (Profiler).
 Ensures the organism chooses the highest possible level of detail without
@@ -12,7 +12,7 @@ import logging
 from typing import Any
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel, get_anchor
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
 from cynic.kernel.organism.metabolism.model_profiler import ModelProfiler
 
@@ -28,7 +28,7 @@ class LevelSelector(BaseHandler):
 
     def __init__(self, axiom_monitor: Any = None, lod_controller: Any = None, bus: Optional[EventBus] = None, **kwargs):
         self.profiler = ModelProfiler()
-        from cynic.kernel.core.event_bus import get_core_bus
+        from cynic.kernel.core.event_bus import CoreEvent, Event
         self.bus = bus or get_core_bus("DEFAULT")
         logger.info("LevelSelector active (Hardware-Aware)")
 

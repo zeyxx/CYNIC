@@ -1,5 +1,5 @@
 """
-EmpiricalSensor — Replays fixed observation sequences for Track C testing.
+EmpiricalSensor â€” Replays fixed observation sequences for Track C testing.
 
 Used to inject deterministic test signals without requiring real sensors
 (disk, git, solana, etc.). Observations are marked as synthetic for
@@ -20,7 +20,7 @@ class EmpiricalSensor(Sensor):
     Replays a fixed sequence of Observations.
 
     Used by Track C to inject synthetic observations with controlled
-    quality scores (0.0–1.0 confidence) to test perception → judgment
+    quality scores (0.0â€“1.0 confidence) to test perception â†’ judgment
     pipelines.
     """
 
@@ -42,7 +42,7 @@ class EmpiricalSensor(Sensor):
         return f"synthetic_{self._name}"
 
     async def startup(self) -> None:
-        """No-op — no I/O required."""
+        """No-op â€” no I/O required."""
         self._index = 0
         logger.debug(
             f"EmpiricalSensor({self._name}) started: {len(self._observations)} observations queued"
@@ -63,7 +63,7 @@ class EmpiricalSensor(Sensor):
         return obs
 
     async def shutdown(self) -> None:
-        """No-op — no resources to clean up."""
+        """No-op â€” no resources to clean up."""
         logger.debug(
             f"EmpiricalSensor({self._name}) shutdown: {self._index}/{len(self._observations)} observations replayed"
         )

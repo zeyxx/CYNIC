@@ -1,10 +1,10 @@
 """
-CYNIC Code CLI — Interactive coding assistant REPL.
+CYNIC Code CLI â€” Interactive coding assistant REPL.
 
 Usage:
-    python -m cynic.interfaces.cli chat              → interactive REPL
-    python -m cynic.interfaces.cli chat --model X    → use specific Ollama model
-    python -m cynic.interfaces.cli chat --resume ID  → resume a previous session
+    python -m cynic.interfaces.cli chat              â†’ interactive REPL
+    python -m cynic.interfaces.cli chat --model X    â†’ use specific Ollama model
+    python -m cynic.interfaces.cli chat --resume ID  â†’ resume a previous session
 
 Discovers Ollama models via LLMRegistry, picks the best coder model,
 then runs the AgentLoop with REFLEX judgment on dangerous tools.
@@ -22,7 +22,7 @@ from cynic.interfaces.chat.formatter import ChatFormatter
 from cynic.interfaces.chat.session import ChatSession
 from cynic.interfaces.chat.tool_executor import ToolExecutor
 
-# ── Model preference order for coding ────────────────────────────────────
+# â”€â”€ Model preference order for coding â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 _CODER_MODELS = [
     "qwen2.5-coder:7b",
     "qwen2.5-coder:7b-instruct",

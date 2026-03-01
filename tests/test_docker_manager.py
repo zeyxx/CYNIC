@@ -1,5 +1,5 @@
 """
-Tests for DockerManager — native Python Docker SDK management.
+Tests for DockerManager â€” native Python Docker SDK management.
 
 Paradigm: Docker = CYNIC capability, no CLI friction.
 """
@@ -247,7 +247,7 @@ async def test_container_status_serialization():
         image="kernel:latest",
         status="running",
         health="healthy",
-        ports=["8000→8000"],
+        ports=["8000â†’8000"],
         uptime_s=3600.0,
     )
 

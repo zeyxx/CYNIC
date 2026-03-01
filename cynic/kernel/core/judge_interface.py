@@ -5,32 +5,32 @@ This module defines the abstract interface for all CYNIC judges (Dogs) and provi
 the base class with common functionality.
 
 Architecture:
-┌─────────────────────────────────────────────────────────┐
-│          UNIFIED JUDGE ARCHITECTURE                     │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  JudgeInterface (abstract)                              │
-│  ├─ Defines: judge(proposal_text, context) → Judgment  │
-│  └─ Async requirement                                  │
-│                                                         │
-│  BaseJudge (foundation)                                 │
-│  ├─ Dog ID (1-11)                                       │
-│  ├─ Dog Name (e.g., "Crown Consciousness")             │
-│  ├─ Axiom Focus (FIDELITY, PHI, VERIFY, CULTURE, BURN) │
-│  ├─ Helpers:                                            │
-│  │  ├─ _calculate_phi_bounded_confidence()              │
-│  │  └─ Performance tracking                             │
-│  └─ Abstract judge() method                             │
-│                                                         │
-│  Dog1-Dog11 (specialized implementations)               │
-│  └─ Each implements judge() with axiom-specific logic   │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚          UNIFIED JUDGE ARCHITECTURE                     â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚                                                         â”‚
+â”‚  JudgeInterface (abstract)                              â”‚
+â”‚  â”œâ”€ Defines: judge(proposal_text, context) â†’ Judgment  â”‚
+â”‚  â””â”€ Async requirement                                  â”‚
+â”‚                                                         â”‚
+â”‚  BaseJudge (foundation)                                 â”‚
+â”‚  â”œâ”€ Dog ID (1-11)                                       â”‚
+â”‚  â”œâ”€ Dog Name (e.g., "Crown Consciousness")             â”‚
+â”‚  â”œâ”€ Axiom Focus (FIDELITY, PHI, VERIFY, CULTURE, BURN) â”‚
+â”‚  â”œâ”€ Helpers:                                            â”‚
+â”‚  â”‚  â”œâ”€ _calculate_phi_bounded_confidence()              â”‚
+â”‚  â”‚  â””â”€ Performance tracking                             â”‚
+â”‚  â””â”€ Abstract judge() method                             â”‚
+â”‚                                                         â”‚
+â”‚  Dog1-Dog11 (specialized implementations)               â”‚
+â”‚  â””â”€ Each implements judge() with axiom-specific logic   â”‚
+â”‚                                                         â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 
 Key principles:
 1. All judges are async
 2. All judges return UnifiedJudgment
-3. Confidence is φ-bounded to MAX_CONFIDENCE (0.618)
+3. Confidence is Ï†-bounded to MAX_CONFIDENCE (0.618)
 4. Q-Score is in [0, 100]
 5. Verdict is in {HOWL, WAG, GROWL, BARK}
 6. Each Dog specializes in one axiom
@@ -51,14 +51,14 @@ class JudgeInterface(ABC):
     Abstract interface for all CYNIC judges.
 
     All judges must:
-    1. Implement judge(proposal_text, context) → UnifiedJudgment
+    1. Implement judge(proposal_text, context) â†’ UnifiedJudgment
     2. Be async methods
     3. Return a complete UnifiedJudgment with:
        - verdict: HOWL, WAG, GROWL, or BARK
        - q_score: [0, 100]
        - confidence: [0, MAX_CONFIDENCE] (0.618)
-       - axiom_scores: Dict[axiom] → [0, 100]
-       - dog_votes: Dict[dog_id] → {vote, confidence}
+       - axiom_scores: Dict[axiom] â†’ [0, 100]
+       - dog_votes: Dict[dog_id] â†’ {vote, confidence}
        - reasoning: str (explanation)
        - judgment_id: str (unique)
     """
@@ -76,7 +76,7 @@ class JudgeInterface(ABC):
             UnifiedJudgment: Immutable judgment with all verdict data
 
         Raises:
-            ValueError: If judgment violates φ-bounds or verdict constraints
+            ValueError: If judgment violates Ï†-bounds or verdict constraints
         """
         pass
 
@@ -87,13 +87,13 @@ class BaseJudge(JudgeInterface):
 
     Provides:
     - Dog metadata (id, name, axiom_focus)
-    - φ-bounded confidence calculation
+    - Ï†-bounded confidence calculation
     - Performance tracking (judgments_made, confidence_history)
     - Common validation logic
     - Async enforcement
 
     Subclasses must implement:
-    - judge(proposal_text, context) → UnifiedJudgment
+    - judge(proposal_text, context) â†’ UnifiedJudgment
     """
 
     def __init__(self, dog_id: int, dog_name: str, axiom_focus: str):
@@ -121,10 +121,10 @@ class BaseJudge(JudgeInterface):
 
     def _calculate_phi_bounded_confidence(self, base_confidence: float) -> float:
         """
-        Bound confidence to φ⁻¹ = 0.618 (max).
+        Bound confidence to Ï†â»Â¹ = 0.618 (max).
 
         This implements the "Law of Doubt": even the most confident judgment
-        respects φ's natural maximum (61.8%).
+        respects Ï†'s natural maximum (61.8%).
 
         Args:
             base_confidence: Raw confidence [0, 1]

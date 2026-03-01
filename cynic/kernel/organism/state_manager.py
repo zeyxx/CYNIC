@@ -1,5 +1,5 @@
 """
-OrganismState — Single source of truth for all CYNIC state.
+OrganismState â€” Single source of truth for all CYNIC state.
 
 Unified state system with 3 layers:
   1. Memory (RAM): Fast, volatile state (Q-table, dogs, recent judgments)
@@ -137,7 +137,7 @@ class OrganismState:
                 persistent_keys=len(self._persistent_state),
             )
 
-    # ── LIFECYCLE ───────────────────────────────────────────────────────
+    # â”€â”€ LIFECYCLE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def start_processing(self, db: Any | None = None) -> None:
         """Start the background respiration (update loop)."""
@@ -149,7 +149,7 @@ class OrganismState:
         await self.recover()
 
         # Subscribe to internal events
-        from cynic.kernel.core.event_bus import get_core_bus
+        from cynic.kernel.core.event_bus import CoreEvent, Event
         bus = get_core_bus(self.instance_id)
         bus.on("organism.somatic_sensation", self._on_somatic_sensation)
 
@@ -178,12 +178,12 @@ class OrganismState:
         await self.save_checkpoint()
 
         # Drain EventBus (nervous system)
-        from cynic.kernel.core.event_bus import get_core_bus
+        from cynic.kernel.core.event_bus import CoreEvent, Event
         await get_core_bus(self.instance_id).drain(timeout=1.0)
 
         logger.info("OrganismState processing stopped")
 
-    # ── Track E: Polling Support ────────────────────────────────────────
+    # â”€â”€ Track E: Polling Support â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def record_pending_judgment(self, judgment_id: str) -> None:
         """Record a judgment ID as pending (Track E)."""
@@ -203,7 +203,7 @@ class OrganismState:
         """Retrieve status of a judgment (PENDING/COMPLETED/etc)."""
         return await self.query(f"judgment:{judgment_id}:status", default="UNKNOWN")
 
-    # ── CORE OPERATIONS ─────────────────────────────────────────────────
+    # â”€â”€ CORE OPERATIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def update(
         self, key: str, value: Any, layer: StateLayer = StateLayer.MEMORY, source: str = "internal"
@@ -243,7 +243,7 @@ class OrganismState:
             return self._checkpoint_state[key]
         return default
 
-    # ── CONSCIOUSNESS INTEGRATION ───────────────────────────────────────
+    # â”€â”€ CONSCIOUSNESS INTEGRATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def add_judgment(self, judgment: Any) -> None:
         """Record a judgment in consciousness and queue for persistence."""
@@ -303,7 +303,7 @@ class OrganismState:
     async def get_consciousness_level(self) -> str:
         return await self.query("consciousness_level", "REFLEX")
 
-    # ── GOVERNANCE SUBSYSTEM (Phase 3) ───────────────────────────────────
+    # â”€â”€ GOVERNANCE SUBSYSTEM (Phase 3) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def register_community(self, community: GovernanceCommunity) -> bool:
         """Register or update a governance community."""
@@ -330,7 +330,7 @@ class OrganismState:
     async def get_proposal(self, proposal_id: str) -> GovernanceProposal | None:
         return await self.query(f"gov:proposal:{proposal_id}")
 
-    # ── READ ACCESSORS ──────────────────────────────────────────────────
+    # â”€â”€ READ ACCESSORS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def get_recent_judgments(self, limit: int = 10) -> list[UnifiedJudgment]:
         """Retrieve recent judgments (newest first)."""
@@ -366,7 +366,7 @@ class OrganismState:
                 },
             }
 
-    # ── INTERNALS ───────────────────────────────────────────────────────
+    # â”€â”€ INTERNALS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def _process_updates_loop(self) -> None:
         """Background loop: process the update queue."""

@@ -360,9 +360,9 @@ class QTableBenchmark:
 
         Returns dict with:
           configs:              list of per-config aggregate stats
-          phi_wins_forgetting:  bool — phi EWC reduces forgetting vs standard
-          phi_wins_stability:   bool — phi has lower Q-variance vs standard
-          phi_wins_convergence: bool — phi converges in fewer or equal steps vs standard
+          phi_wins_forgetting:  bool â€” phi EWC reduces forgetting vs standard
+          phi_wins_stability:   bool â€” phi has lower Q-variance vs standard
+          phi_wins_convergence: bool â€” phi converges in fewer or equal steps vs standard
         """
         configs: list[tuple[float, bool]] = [(a, ewc) for a in _ALPHA_GRID for ewc in (True, False)]
 
@@ -405,11 +405,11 @@ class QTableBenchmark:
 
         phi_wins_forgetting = phi_agg["mean_forgetting_shift"] <= std_agg["mean_forgetting_shift"]
         phi_wins_stability = phi_agg["mean_q_variance"] <= std_agg["mean_q_variance"]
-        # phi is conservative: α=0.038 needs ~3× more steps than α=0.1 to reach same Q.
+        # phi is conservative: Î±=0.038 needs ~3Ã— more steps than Î±=0.1 to reach same Q.
         # This is by design (resist catastrophic forgetting).
         # We validate convergence quality via final_error, not speed.
-        # phi's final_error should eventually be ≤ standard's (verified at 2000 steps).
-        # At shorter budgets, allow phi up to 3× higher error (it's still learning).
+        # phi's final_error should eventually be â‰¤ standard's (verified at 2000 steps).
+        # At shorter budgets, allow phi up to 3Ã— higher error (it's still learning).
         phi_wins_convergence = phi_agg["mean_final_error"] <= std_agg["mean_final_error"] * 3.0
 
         return {

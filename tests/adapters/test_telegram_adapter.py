@@ -780,7 +780,7 @@ class TestTelegramAdapterPaginationEdgeCases:
         adapter = TelegramAdapter(client=mock_client, conscious_state=mock_state)
 
         # Create a long line with unicode characters
-        unicode_line = "你好世界" * 200  # 800 chars of unicode
+        unicode_line = "ä½ å¥½ä¸–ç•Œ" * 200  # 800 chars of unicode
         max_length = 100
 
         text = f"Header\n{unicode_line}\nFooter"

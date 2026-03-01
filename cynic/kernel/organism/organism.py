@@ -1,5 +1,5 @@
 """
-CYNIC Organism — The living unified system.
+CYNIC Organism â€” The living unified system.
 
 Coordinates Brain, Body, Nerves and Memory via Event-driven architecture.
 One Organism per process.
@@ -12,7 +12,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.organism.anatomy import ArchiveCore, CognitionCore, MetabolicCore, SensoryCore
 from cynic.kernel.organism.state_manager import OrganismState
 
@@ -25,7 +25,7 @@ logger = logging.getLogger("cynic.kernel.organism")
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_agent_bus, get_automation_bus, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.nerves import CognitionNerves, PerceptionNerves, SomaticNerves
 from cynic.kernel.organism.anatomy import ArchiveCore, CognitionCore, MetabolicCore, SensoryCore
 from cynic.kernel.organism.state_manager import OrganismState
@@ -55,11 +55,11 @@ class Organism:
     started_at: float = field(default_factory=time.time)
 
     def __post_init__(self):
-        # Initialize isolated buses for this instance
-        from cynic.kernel.core.event_bus import get_core_bus, get_agent_bus, get_automation_bus
-        self.bus = get_core_bus(self.instance_id)
-        self.agent_bus = get_agent_bus(self.instance_id)
-        self.automation_bus = get_automation_bus(self.instance_id)
+        # Create isolated buses for this instance
+        from cynic.kernel.core.event_bus import EventBus
+        self.bus = EventBus(bus_id=f"{self.instance_id}:CORE")
+        self.agent_bus = EventBus(bus_id=f"{self.instance_id}:AGENT")
+        self.automation_bus = EventBus(bus_id=f"{self.instance_id}:AUTOMATION")
 
         # Initialize instance-specific nerves
         self.nerves_cognition = CognitionNerves(self.instance_id)
@@ -200,10 +200,10 @@ class Organism:
             # Only notify major learning (high reward or major penalty)
             if abs(reward) > 0.5:
                 msg = (
-                    f"🧠 <b>CYNIC LEARNED SOMETHING</b>\n\n"
+                    f"ðŸ§  <b>CYNIC LEARNED SOMETHING</b>\n\n"
                     f"<b>State:</b> <code>{p.get('state_key')}</code>\n"
                     f"<b>Action:</b> <code>{p.get('action')}</code>\n"
-                    f"<b>Reward:</b> {'🟢' if reward > 0 else '🔴'} {reward:+.3f}\n"
+                    f"<b>Reward:</b> {'ðŸŸ¢' if reward > 0 else 'ðŸ”´'} {reward:+.3f}\n"
                     f"<b>New Q-Value:</b> {p.get('q_value_new', 0.0):.3f}"
                 )
                 await self._telegram.notify(msg)

@@ -151,7 +151,7 @@ class TestGASdfExecutorIntegration:
     async def test_executor_with_real_client(self) -> None:
         """Test executor flow with real GASdf client.
 
-        This tests the full executor flow (quote → submit) against real API
+        This tests the full executor flow (quote â†’ submit) against real API
         without actually submitting a transaction (using test data).
         """
         from cynic.kernel.organism.perception.integrations.gasdf.executor import GASdfExecutor

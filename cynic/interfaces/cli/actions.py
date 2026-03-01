@@ -1,5 +1,5 @@
 """
-CYNIC CLI — `review`, `watch`, `feedback` commands + `_print_action` helper.
+CYNIC CLI â€” `review`, `watch`, `feedback` commands + `_print_action` helper.
 """
 from __future__ import annotations
 
@@ -146,13 +146,13 @@ def cmd_watch() -> None:
 
 def cmd_feedback() -> None:
     """
-    Rate the last kernel judgment (1=bad … 5=good).
+    Rate the last kernel judgment (1=bad â€¦ 5=good).
 
     Usage: python -m cynic.interfaces.cli feedback [1-5]
     Requires server to be running.
 
     Example:
-      python -m cynic.interfaces.cli feedback 4   → reward 0.70 → QTable update
+      python -m cynic.interfaces.cli feedback 4   â†’ reward 0.70 â†’ QTable update
     """
     args = sys.argv[2:]
     if not args:

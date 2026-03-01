@@ -1,5 +1,5 @@
 """
-CYNIC Autonomy Layer (Layer 6) — Independent decision-making and tier-based control.
+CYNIC Autonomy Layer (Layer 6) â€” Independent decision-making and tier-based control.
 
 Part of the 10-layer organism architecture, the autonomy layer governs
 how CYNIC makes independent decisions at different scales and confidence levels.

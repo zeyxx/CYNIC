@@ -1,5 +1,5 @@
 """
-CYNIC Learning Loop Layer (Layer 5) — Feedback and judgment improvement.
+CYNIC Learning Loop Layer (Layer 5) â€” Feedback and judgment improvement.
 
 Part of the 10-layer organism architecture, the learning loop enables
 CYNIC to improve judgment quality through continuous feedback and refinement.

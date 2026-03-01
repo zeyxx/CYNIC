@@ -1,4 +1,4 @@
-"""Tests for DecisionTracer — decision path tracing and DAG construction."""
+"""Tests for DecisionTracer â€” decision path tracing and DAG construction."""
 
 import asyncio
 

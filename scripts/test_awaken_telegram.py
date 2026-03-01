@@ -1,5 +1,5 @@
 """
-CYNIC Vocal Awakening — Telegram Validation Script.
+CYNIC Vocal Awakening â€” Telegram Validation Script.
 
 Checks if Telegram environment variables are correctly loaded and
 sends a test 'HEARTBEAT' signal. Supports .env files.
@@ -20,13 +20,13 @@ except ImportError:
 sys.path.append(os.getcwd())
 
 async def test_telegram():
-    print("\n--- 📣 CYNIC TELEGRAM AWAKENING TEST ---")
+    print("\n--- ðŸ“£ CYNIC TELEGRAM AWAKENING TEST ---")
     
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     
     if not token or not chat_id:
-        print("❌ CONFIG ERROR: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID missing.")
+        print("âŒ CONFIG ERROR: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID missing.")
         print("   Current values: TOKEN=" + ("Set" if token else "MISSING") + ", CHAT_ID=" + ("Set" if chat_id else "MISSING"))
         print("   Please ensure you have a .env file or set your environment variables.")
         return
@@ -37,12 +37,12 @@ async def test_telegram():
     bridge = TelegramBridge(token=token, chat_id=chat_id)
     
     print("Step 2: Sending Heartbeat message...")
-    success = await bridge.notify("❤️ <b>CYNIC HEARTBEAT</b>\n\nI am awake and my voice is connected to your device.")
+    success = await bridge.notify("â¤ï¸ <b>CYNIC HEARTBEAT</b>\n\nI am awake and my voice is connected to your device.")
     
     if success:
-        print("\n✅ SUCCESS: Message sent to Telegram. Check your phone!")
+        print("\nâœ… SUCCESS: Message sent to Telegram. Check your phone!")
     else:
-        print("\n❌ FAILURE: Bridge could not send message. Check network or token validity.")
+        print("\nâŒ FAILURE: Bridge could not send message. Check network or token validity.")
 
 if __name__ == "__main__":
     asyncio.run(test_telegram())

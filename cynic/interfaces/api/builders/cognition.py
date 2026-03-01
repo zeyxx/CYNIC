@@ -1,4 +1,4 @@
-"""CognitionBuilder — Create cognition components (orchestrator, validators, learning)."""
+"""CognitionBuilder â€” Create cognition components (orchestrator, validators, learning)."""
 from __future__ import annotations
 
 import logging
@@ -21,5 +21,5 @@ class CognitionBuilder(BaseBuilder):
             # TODO: Extract cognition creation logic from _create_components
             context.log(f"{self.builder_id}: completed")
         except ValidationError as e:
-            logger.error(f"{self.builder_id}: failed — {e}")
+            logger.error(f"{self.builder_id}: failed â€” {e}")
             raise RuntimeError(f"CognitionBuilder failed: {e}")

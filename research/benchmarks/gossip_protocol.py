@@ -1,9 +1,9 @@
 """
-GossipProtocol — Efficient Inter-Dog Communication
+GossipProtocol â€” Efficient Inter-Dog Communication
 
 Instead of sending raw observations to orchestrator:
-  OLD: Dog → Orchestrator: full state (100+ fields)
-  NEW: Dog → Siblings: compressed summary (4 fields)
+  OLD: Dog â†’ Orchestrator: full state (100+ fields)
+  NEW: Dog â†’ Siblings: compressed summary (4 fields)
 
 **Gossip Message Format**:
   {
@@ -37,9 +37,9 @@ from cynic.kernel.core.formulas import CHAT_MESSAGE_CAP
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.gossip_protocol")
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # GOSSIP MESSAGE
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 @dataclass
@@ -53,13 +53,13 @@ class GossipMessage:
       - compressed_context: TF-IDF summary of observations
       - verdict: What verdict they reached (BARK/GROWL/WAG/HOWL)
       - q_score: Quality confidence [0, 100]
-      - confidence: Certainty about the verdict [0, φ⁻¹]
+      - confidence: Certainty about the verdict [0, Ï†â»Â¹]
       - timestamp: When was this message created
 
-    **Size**: ~200 bytes vs 1000+ bytes for full state → 4-5x compression
+    **Size**: ~200 bytes vs 1000+ bytes for full state â†’ 4-5x compression
     """
     dog_id: str
-    compressed_context: str  # TF-IDF summary (≤500 chars)
+    compressed_context: str  # TF-IDF summary (â‰¤500 chars)
     verdict: str
     q_score: float
     confidence: float
@@ -87,9 +87,9 @@ class GossipMessage:
         return self.age_seconds > max_age_sec
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # GOSSIP PROTOCOL
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class GossipProtocol:
@@ -111,7 +111,7 @@ class GossipProtocol:
     def __init__(self, max_message_history: int = CHAT_MESSAGE_CAP) -> None:  # F(11) = 89 (imported from formulas.py)
         self.max_message_history = max_message_history
         self._gossip_messages: dict[str, list[GossipMessage]] = {}
-        # peer_dog_id → list of recent GossipMessages
+        # peer_dog_id â†’ list of recent GossipMessages
 
         self._gossip_count = 0
         self._rejected_count = 0
@@ -148,7 +148,7 @@ class GossipProtocol:
             q_score=dog_state.cognition.last_q_score,
             confidence=min(
                 avg_confidence, 0.618
-            ),  # φ-bounded
+            ),  # Ï†-bounded
         )
 
         self._gossip_count += 1

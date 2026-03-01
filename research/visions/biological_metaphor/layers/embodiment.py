@@ -1,5 +1,5 @@
 """
-CYNIC Embodiment Layer (Layer 7) — Boundary maintenance and interaction surface.
+CYNIC Embodiment Layer (Layer 7) â€” Boundary maintenance and interaction surface.
 
 Part of the 10-layer organism architecture, the embodiment layer defines
 CYNIC's external interface and boundaries with the environment.

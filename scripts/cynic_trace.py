@@ -1,5 +1,5 @@
 """
-CYNIC End-to-End Trace — Prove stability and peek inside the black box.
+CYNIC End-to-End Trace â€” Prove stability and peek inside the black box.
 
 This script simulates a real governance proposal and traces its path
 through the 7-step cycle, showing dog votes, consensus, and action execution.
@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.event_bus import CoreEvent, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent
 from cynic.kernel.core.judgment import Cell
 from cynic.kernel.organism.organism import awaken
 
@@ -86,16 +86,16 @@ async def run_trace():
         
         recent = organism.state.get_recent_judgments(limit=1)
         if recent and recent[0].judgment_id == judgment.judgment_id:
-            logger.info("✓ Success: Judgment consolidated in OrganismState")
+            logger.info("âœ“ Success: Judgment consolidated in OrganismState")
         else:
-            logger.warning("✗ Failure: Judgment not found in state")
+            logger.warning("âœ— Failure: Judgment not found in state")
 
         # 7. Check Guidance File (Feedback Loop)
         guidance_path = Path.home() / ".cynic" / "guidance.json"
         if guidance_path.exists():
-            logger.info("✓ Success: Feedback loop closed (guidance.json exists)")
+            logger.info("âœ“ Success: Feedback loop closed (guidance.json exists)")
         else:
-            logger.warning("✗ Failure: guidance.json missing")
+            logger.warning("âœ— Failure: guidance.json missing")
 
     except Exception as e:
         logger.error(f"Trace failed with error: {e}", exc_info=True)

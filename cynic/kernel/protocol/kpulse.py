@@ -1,5 +1,5 @@
 """
-κ-PULSE — Unified Message Format for κ-NET Protocol.
+Îº-PULSE â€” Unified Message Format for Îº-NET Protocol.
 Defines the structure of the data flowing through the organism's nerves.
 """
 
@@ -21,7 +21,7 @@ class PulseType(Enum):
 
 @dataclass
 class PulseMessage:
-    """A single packet of data in the κ-NET ecosystem."""
+    """A single packet of data in the Îº-NET ecosystem."""
 
     type: PulseType
     organism_id: str = "cynic-core"

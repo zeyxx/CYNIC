@@ -1,4 +1,4 @@
-"""StorageBuilder — Create storage components (SurrealDB, garbage collector)."""
+"""StorageBuilder â€” Create storage components (SurrealDB, garbage collector)."""
 from __future__ import annotations
 
 import logging
@@ -19,5 +19,5 @@ class StorageBuilder(BaseBuilder):
         try:
             context.log(f"{self.builder_id}: completed")
         except ValidationError as e:
-            logger.error(f"{self.builder_id}: failed — {e}")
+            logger.error(f"{self.builder_id}: failed â€” {e}")
             raise RuntimeError(f"StorageBuilder failed: {e}")

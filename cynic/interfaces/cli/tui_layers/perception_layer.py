@@ -31,7 +31,7 @@ class PerceptionLayer(Static):
 
         return Panel(
             table,
-            title="👁️ PERCEPTION SOURCES",
+            title="ðŸ‘ï¸ PERCEPTION SOURCES",
             border_style="yellow",
             expand=False
         )

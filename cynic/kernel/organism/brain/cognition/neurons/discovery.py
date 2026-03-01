@@ -1,10 +1,10 @@
 """
-CYNIC Dog Auto-Discovery — pkgutil-based registration.
+CYNIC Dog Auto-Discovery â€” pkgutil-based registration.
 
 Scans cynic.kernel.organism.brain.cognition.neurons for all AbstractDog subclasses with a DOG_ID class attribute.
-Replaces manual import lists — adding a new dog = add the file + DOG_ID.
+Replaces manual import lists â€” adding a new dog = add the file + DOG_ID.
 
-φ-Law: BURN — discovery replaces boilerplate.
+Ï†-Law: BURN â€” discovery replaces boilerplate.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ def discover_dog_classes() -> dict[str, type[AbstractDog]]:
     Scan cynic.kernel.organism.brain.cognition.neurons for all concrete AbstractDog subclasses with DOG_ID.
 
     Returns:
-        dict mapping DogId value → Dog class (NOT instances).
+        dict mapping DogId value â†’ Dog class (NOT instances).
 
     Raises:
         ValueError: if a Dog class has a DOG_ID not in DogId enum,
@@ -73,15 +73,12 @@ def discover_dog_classes() -> dict[str, type[AbstractDog]]:
     return found
 
 
-def discover_dogs(instance_id: str = "DEFAULT", llm_registry: Any | None = None, **overrides: Any) -> dict[str, AbstractDog]:
+def discover_dogs(bus: Any, llm_registry: Any | None = None, **overrides: Any) -> dict[str, AbstractDog]:
     """
     Discover and instantiate all dogs.
     """
     from cynic.kernel.organism.brain.cognition.neurons.master import MasterDog
     from cynic.kernel.organism.brain.cognition.neurons.registry import get_soul
-    from cynic.kernel.core.event_bus import get_core_bus
-
-    bus = get_core_bus(instance_id)
 
     # 1. Start with the 11 standard Dogs from registry
     dogs: dict[str, AbstractDog] = {}

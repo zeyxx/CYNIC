@@ -40,12 +40,12 @@ async def test_event_history_bounded_at_fibonacci_10(event_bus):
 @pytest.mark.asyncio
 async def test_three_buses_total_memory_bounded(event_bus):
     """Combined 3 buses should not hold 3000 events in memory."""
-    from cynic.kernel.core.event_bus import get_agent_bus, get_automation_bus, get_core_bus
+    from cynic.kernel.core.event_bus import get_agent_bus
 
     max_per_bus = fibonacci(10)  # 55
 
     # Emit to all three buses
-    buses = [get_core_bus("DEFAULT"), get_automation_bus("DEFAULT"), get_agent_bus("DEFAULT")]
+    buses = [get_core_bus("DEFAULT")("DEFAULT")("DEFAULT")]
 
     for bus_idx, bus in enumerate(buses):
         for i in range(100):
@@ -120,7 +120,7 @@ async def test_event_payload_not_growing_unbounded(event_bus):
         for e in event_bus._history
     )
 
-    # Max ~5MB for F(10)=55 events × 10KB payloads
+    # Max ~5MB for F(10)=55 events Ã— 10KB payloads
     assert total_size < 5_000_000, (
         f"Event history memory {total_size} bytes exceeds reasonable limit"
     )

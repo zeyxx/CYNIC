@@ -1,5 +1,5 @@
 """
-CYNIC root conftest — global pytest fixtures and Windows encoding fix.
+CYNIC root conftest â€” global pytest fixtures and Windows encoding fix.
 
 Must stay at cynic/ (one level above tests/) so it's loaded before
 any test module is imported.
@@ -10,7 +10,7 @@ import io
 import os
 import sys
 
-# ── Windows UTF-8 encoding fix ─────────────────────────────────────────────
+# â”€â”€ Windows UTF-8 encoding fix â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # On Windows, sys.stdout defaults to CP1252 (Code Page 1252).
 # Any character outside CP1252 (emoji, box-drawing chars, pytest symbols)
 # causes a UnicodeEncodeError that propagates back as exit code 1,

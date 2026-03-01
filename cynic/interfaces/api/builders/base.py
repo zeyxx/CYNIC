@@ -1,5 +1,5 @@
 """
-BaseBuilder — Interface for organism builders.
+BaseBuilder â€” Interface for organism builders.
 
 All builders share:
 - BuilderContext (injected state/progress tracker)
@@ -21,7 +21,7 @@ class BuilderContext:
     """
     Shared state passed between builders during assembly.
 
-    Prevents god constructors — builders get exactly what they need.
+    Prevents god constructors â€” builders get exactly what they need.
     """
 
     # Injected dependencies

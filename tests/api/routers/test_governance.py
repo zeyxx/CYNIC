@@ -22,7 +22,7 @@ class TestGovernanceEndpoints:
     """Test governance API endpoints."""
 
     def test_submit_proposal(self, governanceendpoints_client):
-        """POST /api/governance/proposals — submit a new proposal."""
+        """POST /api/governance/proposals â€” submit a new proposal."""
         response = governanceendpoints_client.post(
             "/api/governance/proposals",
             json={
@@ -52,7 +52,7 @@ class TestGovernanceEndpoints:
         assert response.status_code == 422
 
     def test_cast_vote(self, governanceendpoints_client):
-        """POST /api/governance/proposals/{id}/vote — cast a vote."""
+        """POST /api/governance/proposals/{id}/vote â€” cast a vote."""
         # First submit a proposal
         proposal_resp = governanceendpoints_client.post(
             "/api/governance/proposals",
@@ -92,7 +92,7 @@ class TestGovernanceEndpoints:
         assert response.status_code == 422
 
     def test_get_verdict(self, governanceendpoints_client):
-        """GET /api/governance/proposals/{id}/verdict — get CYNIC's verdict."""
+        """GET /api/governance/proposals/{id}/verdict â€” get CYNIC's verdict."""
         # Submit proposal to populate verdict cache
         proposal_resp = governanceendpoints_client.post(
             "/api/governance/proposals",
@@ -117,7 +117,7 @@ class TestGovernanceEndpoints:
         assert "No verdict found" in response.json()["detail"]
 
     def test_record_outcome(self, governanceendpoints_client):
-        """POST /api/governance/proposals/{id}/outcome — record community outcome."""
+        """POST /api/governance/proposals/{id}/outcome â€” record community outcome."""
         # Submit proposal
         proposal_resp = governanceendpoints_client.post(
             "/api/governance/proposals",
@@ -158,7 +158,7 @@ class TestGovernanceEndpoints:
         assert response.status_code in (200, 503)  # 503 if governance not init
 
     def test_governance_status(self, governanceendpoints_client):
-        """GET /api/governance/status — get governance system status."""
+        """GET /api/governance/status â€” get governance system status."""
         response = governanceendpoints_client.get("/api/governance/status")
         assert response.status_code == 200
         data = response.json()
@@ -247,7 +247,7 @@ class TestGovernanceEndpoints:
             assert response.status_code == 200
 
     def test_proposal_lifecycle(self, governanceendpoints_client):
-        """Test full proposal lifecycle: submit → vote → outcome → status."""
+        """Test full proposal lifecycle: submit â†’ vote â†’ outcome â†’ status."""
         # 1. Submit proposal
         proposal_resp = governanceendpoints_client.post(
             "/api/governance/proposals",

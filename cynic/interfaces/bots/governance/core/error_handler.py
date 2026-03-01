@@ -143,30 +143,30 @@ async def handle_error(
     # Categorize error for user message
     if isinstance(error, CYNICUnavailableError):
         user_message = (
-            "❌ CYNIC is currently unavailable. Governance is paused. "
+            "âŒ CYNIC is currently unavailable. Governance is paused. "
             "Try again in a few minutes."
         )
 
     elif isinstance(error, DatabaseError):
         user_message = (
-            "❌ Database error occurred. Please try again. "
+            "âŒ Database error occurred. Please try again. "
             "If this persists, notify the governance administrator."
         )
 
     elif isinstance(error, discord.Forbidden):
         user_message = (
-            "❌ I don't have permission to perform this action. "
+            "âŒ I don't have permission to perform this action. "
             "Please check my Discord permissions."
         )
 
     elif isinstance(error, asyncio.TimeoutError):
         user_message = (
-            "❌ Operation timed out. Please try again."
+            "âŒ Operation timed out. Please try again."
         )
 
     else:
         user_message = (
-            f"❌ An error occurred: {error_message[:100]}. "
+            f"âŒ An error occurred: {error_message[:100]}. "
             "Please try again or contact the administrator."
         )
 

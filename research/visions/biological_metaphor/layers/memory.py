@@ -1,5 +1,5 @@
 """
-CYNIC Memory Layer (Layer 4) — Historical state persistence and recall.
+CYNIC Memory Layer (Layer 4) â€” Historical state persistence and recall.
 
 Part of the 10-layer organism architecture, the memory layer provides
 persistent storage of judgments, decisions, and organism state for learning and accountability.

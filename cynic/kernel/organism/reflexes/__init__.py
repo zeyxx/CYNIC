@@ -1,8 +1,8 @@
 """
-Handler registry and discovery — the nervous system routing table.
+Reflex registry and discovery — the nervous system routing table.
 
-Manages handler lifecycle:
-1. register() — add handler groups
+Manages reflex lifecycle:
+1. register() — add reflex groups
 2. wire() — subscribe all to event bus
 3. introspect() — reveal coupling and topology
 """
@@ -12,7 +12,7 @@ from __future__ import annotations
 import importlib
 import logging
 import pkgutil
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from .introspect import (
     ArchitectureSnapshot,
@@ -32,15 +32,14 @@ from .validator import (
 
 if TYPE_CHECKING:
     from cynic.kernel.core.event_bus import EventBus
-
     from .base import HandlerGroup
 
-logger = logging.getLogger("cynic.kernel.organism.handlers")
+logger = logging.getLogger("cynic.kernel.organism.reflexes")
 
 
 class HandlerRegistry:
     """
-    Handler lifecycle manager — register, wire, introspect.
+    Reflex lifecycle manager — register, wire, introspect.
     """
 
     def __init__(self) -> None:
@@ -48,14 +47,14 @@ class HandlerRegistry:
         self._wired = False
 
     def register(self, group: HandlerGroup) -> None:
-        """Register a handler group."""
+        """Register a reflex group."""
         if self._wired:
             raise RuntimeError(f"Cannot register {group.name} after wire()")
         self._groups.append(group)
-        logger.debug(f"Registered handler group: {group.name}")
+        logger.debug(f"Registered reflex group: {group.name}")
 
     def wire(self, bus: EventBus) -> None:
-        """Subscribe all handler groups to the event bus."""
+        """Subscribe all reflex groups to the event bus."""
         if self._wired:
             logger.warning("HandlerRegistry already wired — skipping")
             return
@@ -66,14 +65,14 @@ class HandlerRegistry:
                 bus.on(event_type, handler_fn)
                 total_handlers += 1
             logger.debug(
-                f"Wired handler group '{group.name}': " f"{len(group.subscriptions())} handlers"
+                f"Wired reflex group '{group.name}': " f"{len(group.subscriptions())} handlers"
             )
 
         self._wired = True
         logger.info(f"HandlerRegistry wired: {len(self._groups)} groups, {total_handlers} handlers")
 
     def introspect(self) -> dict:
-        """Handler topology snapshot."""
+        """Reflex topology snapshot."""
         all_deps = set()
         groups_meta = []
 
@@ -85,7 +84,7 @@ class HandlerRegistry:
                     "name": group.name,
                     "handler_count": len(group.subscriptions()),
                     "dependencies": sorted(deps),
-                    "events": [e.value for e, _ in group.subscriptions()],
+                    "events": [e.value if hasattr(e, 'value') else str(e) for e, _ in group.subscriptions()],
                 }
             )
 
@@ -104,12 +103,12 @@ def discover_handler_groups(
     **kwargs: Any,
 ) -> list[HandlerGroup]:
     """
-    Auto-discover and instantiate handler groups by domain.
+    Auto-discover and instantiate reflex groups by domain.
     """
     from .base import HandlerGroup
 
     groups: list[HandlerGroup] = []
-    from cynic.kernel.organism import handlers as _pkg
+    from cynic.kernel.organism import reflexes as _pkg
 
     # Domain mapping logic
     domain_map = {
@@ -132,9 +131,9 @@ def discover_handler_groups(
             continue
 
         try:
-            mod = importlib.import_module(f"cynic.kernel.organism.handlers.{module_name}")
+            mod = importlib.import_module(f"cynic.kernel.organism.reflexes.{module_name}")
         except ImportError as e:
-            logger.warning(f"Failed to import handler module {module_name}: {e}")
+            logger.warning(f"Failed to import reflex module {module_name}: {e}")
             continue
 
         for attr_name in dir(mod):
@@ -156,9 +155,9 @@ def discover_handler_groups(
 
                     instance = attr(**init_args)
                     groups.append(instance)
-                    logger.debug(f"Discovered handler group: {instance.name}")
+                    logger.debug(f"Discovered reflex group: {instance.name}")
                 except Exception as e:
                     logger.warning(f"Failed to instantiate {attr_name} from {module_name}: {e}")
 
-    logger.info(f"Discovered {len(groups)} handler groups")
+    logger.info(f"Discovered {len(groups)} reflex groups")
     return groups

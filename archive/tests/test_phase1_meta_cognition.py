@@ -15,7 +15,7 @@ import asyncio
 
 import pytest
 
-from cynic.kernel.core.event_bus import CoreEvent, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent
 from cynic.kernel.core.events_schema import SonaTickPayload
 from cynic.kernel.organism.organism import awaken
 
@@ -169,11 +169,11 @@ async def test_phase1_learning_rate_adjustment():
         "judgments_per_second": 0.05,
     }
 
-    adjustment = handler._compute_α_adjustment(trend)
+    adjustment = handler._compute_Î±_adjustment(trend)
 
-    # Should increase α when learning well
+    # Should increase Î± when learning well
     assert adjustment > 0, "Should increase learning rate when system is healthy"
-    assert adjustment <= 0.618, "Should be φ-bounded"
+    assert adjustment <= 0.618, "Should be Ï†-bounded"
 
 
 @pytest.mark.asyncio

@@ -1,18 +1,18 @@
 """
-Meta-Cognition Handler — Organism self-awareness and adaptive learning
+Meta-Cognition Handler -- Organism self-awareness and adaptive learning
 
 Listens to SONA_TICK events and responds by:
-1. Updating Thompson Sampling learning rate (α) based on organism health
+1. Updating Thompson Sampling learning rate (alpha) based on organism health
 2. Adjusting E-Score calculations from SONA telemetry
 3. Detecting stagnation patterns in learning
 4. Triggering meta-level interventions (escalation, restructuring)
 
 SONA_TICK signal path:
   sona_emitter._run_loop() every F(9)=2040s
-  → emit CoreEvent.SONA_TICK with SonaTickPayload
-  → MetaCognitionHandler.execute() reads payload
-  → Update learning rates + E-Score
-  → Organism becomes more self-aware
+  -> emit CoreEvent.SONA_TICK with SonaTickPayload
+  -> MetaCognitionHandler.execute() reads payload
+  -> Update learning rates + E-Score
+  -> Organism becomes more self-aware
 """
 
 from __future__ import annotations
@@ -20,10 +20,10 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 from cynic.kernel.core.escore import EScoreTracker
-from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.core.events_schema import SonaTickPayload
 from cynic.kernel.core.phi import PHI_INV, fibonacci
 from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
@@ -59,7 +59,7 @@ class MetaCognitionHandler(BaseHandler):
 
     Responsibilities:
     1. Monitor organism health trends
-    2. Update Thompson Sampling α (learning_rate) reactively
+    2. Update Thompson Sampling alpha (learning_rate) reactively
     3. Adjust E-Score from health metrics
     4. Detect learning stagnation
     5. Log organism state changes
@@ -81,26 +81,27 @@ class MetaCognitionHandler(BaseHandler):
 
         Args:
             qtable: Q-Learning table (for introspection)
-            learning_loop: Learning loop coordinator (to update α)
+            learning_loop: Learning loop coordinator (to update alpha)
             escore_tracker: E-Score tracker (for reputation adjustment)
             bus: Event bus (for subscription)
         """
+        super().__init__(bus=bus)
         self.qtable = qtable
         self.learning_loop = learning_loop
         self.escore_tracker = escore_tracker
-        self.bus = bus or get_core_bus("DEFAULT")
 
-        # ── Health tracking (rolling window, Fibonacci size) ──
+        # -- Health tracking (rolling window, Fibonacci size) --
         self._health_window: list[OrganismHealthMetrics] = []
         self._window_size = fibonacci(8)  # F(8) = 21 ticks
         self._ticks_processed = 0
-        self._last_α_update = time.time()
-        self._α_update_interval_s = 300  # Update α every 5 minutes
+        self._last_alpha_update = time.time()
+        self._alpha_update_interval_s = 300  # Update alpha every 5 minutes
 
     def start(self) -> None:
         """Subscribe this handler to SONA_TICK events."""
-        self.bus.on(CoreEvent.SONA_TICK, self._on_sona_tick)
-        self._log_execution("started listening to SONA_TICK")
+        if self.bus:
+            self.bus.on(CoreEvent.SONA_TICK, self._on_sona_tick)
+            self._log_execution("started listening to SONA_TICK")
 
     async def _on_sona_tick(self, event: Event) -> None:
         """
@@ -136,7 +137,7 @@ class MetaCognitionHandler(BaseHandler):
             )
 
         try:
-            # ── Phase 1: Extract health snapshot ──────────────────────────
+            # -- Phase 1: Extract health snapshot --------------------------
             health = OrganismHealthMetrics(
                 uptime_s=sona_tick.uptime_s,
                 q_table_entries=sona_tick.q_table_entries,
@@ -151,33 +152,33 @@ class MetaCognitionHandler(BaseHandler):
                 self._health_window.pop(0)
             self._ticks_processed += 1
 
-            # ── Phase 2: Analyze trends ────────────────────────────────────
+            # -- Phase 2: Analyze trends ----------------------------------
             trend_analysis = self._analyze_health_trends()
 
-            # ── Phase 3: Update learning rate (α) if needed ────────────────
+            # -- Phase 3: Update learning rate (alpha) if needed ----------
             actions_taken = []
             if self._should_update_learning_rate():
-                α_adjustment = self._compute_α_adjustment(trend_analysis)
-                if self.learning_loop and α_adjustment != 0.0:
-                    self.learning_loop.adjust_learning_rate(α_adjustment)
-                    actions_taken.append(f"Updated α by {α_adjustment:+.3f}")
-                    self._last_α_update = time.time()
+                alpha_adjustment = self._compute_alpha_adjustment(trend_analysis)
+                if self.learning_loop and alpha_adjustment != 0.0:
+                    self.learning_loop.adjust_learning_rate(alpha_adjustment)
+                    actions_taken.append(f"Updated alpha by {alpha_adjustment:+.3f}")
+                    self._last_alpha_update = time.time()
 
-            # ── Phase 4: Check for stagnation ──────────────────────────────
+            # -- Phase 4: Check for stagnation ----------------------------
             if self._detect_stagnation(trend_analysis):
-                actions_taken.append("STAGNATION_DETECTED — judgment flow low")
+                actions_taken.append("STAGNATION_DETECTED -- judgment flow low")
                 self._log_execution(
                     "stagnation detected", f"JP/m={health.judgments_per_minute:.1f}"
                 )
 
-            # ── Phase 5: Adjust E-Score ───────────────────────────────────
+            # -- Phase 5: Adjust E-Score ----------------------------------
             if self.escore_tracker:
                 escore_delta = self._compute_escore_delta(trend_analysis)
                 # TODO: Wire escore_tracker.adjust(delta) once API defined
                 if escore_delta != 0.0:
                     actions_taken.append(f"E-Score delta: {escore_delta:+.2f}")
 
-            # ── Return result ──────────────────────────────────────────────
+            # -- Return result -------------------------------------------
             return HandlerResult(
                 success=True,
                 handler_id=self.handler_id,
@@ -203,13 +204,13 @@ class MetaCognitionHandler(BaseHandler):
                 duration_ms=(time.time() - start_time) * 1000,
             )
 
-    # ═════════════════════════════════════════════════════════════════════════
+    # -------------------------------------------------------------------------
     # ANALYSIS & DECISION LOGIC
-    # ═════════════════════════════════════════════════════════════════════════
+    # -------------------------------------------------------------------------
 
     def _should_update_learning_rate(self) -> bool:
-        """Check if enough time has passed to update α."""
-        return (time.time() - self._last_α_update) > self._α_update_interval_s
+        """Check if enough time has passed to update alpha."""
+        return (time.time() - self._last_alpha_update) > self._alpha_update_interval_s
 
     def _analyze_health_trends(self) -> dict[str, Any]:
         """
@@ -255,7 +256,7 @@ class MetaCognitionHandler(BaseHandler):
         q_saturation = latest.q_table_saturation
 
         # Learning health (how well is the system learning?)
-        # φ-bounded: max confidence 61.8% in learning quality
+        # phi-bounded: max confidence 61.8% in learning quality
         learning_health = min(
             PHI_INV,  # 61.8% max
             (q_saturation * 0.5)
@@ -272,15 +273,15 @@ class MetaCognitionHandler(BaseHandler):
             "window_size": len(self._health_window),
         }
 
-    def _compute_α_adjustment(self, trend: dict[str, Any]) -> float:
+    def _compute_alpha_adjustment(self, trend: dict[str, Any]) -> float:
         """
-        Compute Thompson Sampling α (learning rate) adjustment.
+        Compute Thompson Sampling alpha (learning rate) adjustment.
 
-        Increase α when:
+        Increase alpha when:
         - System is learning well (rising judgments, high Q-saturation)
         - EWC is consolidated (learned patterns are locked)
 
-        Decrease α when:
+        Decrease alpha when:
         - Learning is stagnant
         - System is overwhelmed
         """
@@ -305,7 +306,7 @@ class MetaCognitionHandler(BaseHandler):
         elif health < 0.3:  # Poor learning
             base_adjustment -= 0.01
 
-        # Cap adjustment φ-bounded
+        # Cap adjustment phi-bounded
         return max(-PHI_INV, min(PHI_INV, base_adjustment))
 
     def _detect_stagnation(self, trend: dict[str, Any]) -> bool:
@@ -363,9 +364,9 @@ class MetaCognitionHandler(BaseHandler):
 
         return max(-1.0, min(1.0, delta))
 
-    # ═════════════════════════════════════════════════════════════════════════
+    # -------------------------------------------------------------------------
     # LOGGING & OBSERVABILITY
-    # ═════════════════════════════════════════════════════════════════════════
+    # -------------------------------------------------------------------------
 
     def stats(self) -> dict[str, Any]:
         """Return meta-cognition statistics."""
@@ -373,5 +374,5 @@ class MetaCognitionHandler(BaseHandler):
             "handler_id": self.handler_id,
             "ticks_processed": self._ticks_processed,
             "health_window_size": len(self._health_window),
-            "last_α_update_s_ago": time.time() - self._last_α_update,
+            "last_alpha_update_s_ago": time.time() - self._last_alpha_update,
         }

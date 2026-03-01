@@ -6,7 +6,7 @@ Verify:
 2. All Dogs are async
 3. All Dogs return UnifiedJudgment
 4. Q-scores are valid [0, 100]
-5. Confidences are φ-bounded
+5. Confidences are Ï†-bounded
 6. Axiom scores are [0, 100]
 7. Judgment IDs are unique
 8. Reasoning is present

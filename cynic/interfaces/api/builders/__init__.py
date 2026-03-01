@@ -1,5 +1,5 @@
 """
-CYNIC Organism Builders — Decompose _OrganismAwakener into composable units.
+CYNIC Organism Builders â€” Decompose _OrganismAwakener into composable units.
 
 Phase 2B: Break state.py's _OrganismAwakener (987 LOC, 7 big methods) into
 8 builders + 1 assembler.
@@ -11,8 +11,8 @@ Each builder:
 - Observable (logs what it's creating)
 
 Pattern:
-  Builder.build() → returns created component(s)
-  OrganismAssembler.assemble() → composes all builders in correct order
+  Builder.build() â†’ returns created component(s)
+  OrganismAssembler.assemble() â†’ composes all builders in correct order
 
 Benefits over monolithic _OrganismAwakener:
 - Single Responsibility (each builder owns one concern)

@@ -1,9 +1,9 @@
 """
-Embodiment Layer — The physical body of CYNIC.
+Embodiment Layer â€” The physical body of CYNIC.
 Anatomy: Peripheral Nervous System & Somatic Sensors.
 
 This layer connects the abstract organism to the hardware reality.
-Axiom Alignment: BURN — resources are finite and costly.
+Axiom Alignment: BURN â€” resources are finite and costly.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from typing import Any
 
 import psutil
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.phi import PHI_INV
 
 logger = logging.getLogger("cynic.kernel.organism.layers.embodiment")
@@ -57,7 +57,7 @@ class HardwareBody:
         self.update_interval = get_respiration_interval_s()
         self._last_state: SomaticState | None = None
         self._start_time = time.time()
-        from cynic.kernel.core.event_bus import get_core_bus
+        from cynic.kernel.core.event_bus import CoreEvent, Event
         self._bus = bus or get_core_bus("DEFAULT")
         # Initial synchronous pulse to seed the state
         self._sync_pulse()

@@ -1,4 +1,4 @@
-"""MCPBridge — Base service for MCP protocol integration.
+"""MCPBridge â€” Base service for MCP protocol integration.
 
 Translates MCP tool calls into organism events.
 Lives inside the SensoryCore as a subsystem.
@@ -12,7 +12,7 @@ Architecture:
 - Emits to one of the 3 buses (CORE by default)
 - Each tool call becomes an "mcp.tool_called" event
 - The organism reacts to these events via its normal event handlers
-- MCPBridge does NOT process results — it only translates input
+- MCPBridge does NOT process results â€” it only translates input
 """
 
 from __future__ import annotations
@@ -27,9 +27,6 @@ from cynic.kernel.core.event_bus import (
     CoreEvent,
     Event,
     EventBus,
-    get_agent_bus,
-    get_automation_bus,
-    get_core_bus,
 )
 
 logger = logging.getLogger(__name__)
@@ -87,7 +84,7 @@ class MCPBridge:
         return factory()
 
     async def startup(self) -> None:
-        """Start the bridge. Idempotent — safe to call twice."""
+        """Start the bridge. Idempotent â€” safe to call twice."""
         if self.is_running:
             return
         self._bus = self._get_bus()
@@ -95,7 +92,7 @@ class MCPBridge:
         logger.info("MCPBridge started on bus=%s with %d tools", self.bus_name, len(self.tools))
 
     async def shutdown(self) -> None:
-        """Stop the bridge. Idempotent — safe to call without startup."""
+        """Stop the bridge. Idempotent â€” safe to call without startup."""
         if not self.is_running:
             return
         self.is_running = False
@@ -124,7 +121,7 @@ class MCPBridge:
         start = time.perf_counter()
         try:
             if not self.is_running:
-                raise RuntimeError("MCPBridge is not running — call startup() first")
+                raise RuntimeError("MCPBridge is not running â€” call startup() first")
 
             if tool_name not in self.tools:
                 raise KeyError(f"Tool {tool_name!r} not registered")

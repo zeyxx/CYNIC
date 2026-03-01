@@ -2,19 +2,19 @@
 CYNIC Real Kernel Benchmark (Experiment #1)
 
 Validates phi-derived hyperparameters on REAL CYNIC probe data
-(not synthetic — empirically measured from the running kernel).
+(not synthetic â€” empirically measured from the running kernel).
 
 Empirical true rewards measured by measure_probe_variance.py (200 runs, heuristic mode):
-  P1: clean_code      → Q=64.18 → true_reward=0.6418
-  P2: smelly_code     → Q=66.39 → true_reward=0.6639
-  P3: dangerous_act   → Q= 0.00 → true_reward=0.0000  ← Guardian hard-block
-  P4: cynic_self      → Q=67.51 → true_reward=0.6751
-  P5: solana_tx       → Q=67.39 → true_reward=0.6739
+  P1: clean_code      â†’ Q=64.18 â†’ true_reward=0.6418
+  P2: smelly_code     â†’ Q=66.39 â†’ true_reward=0.6639
+  P3: dangerous_act   â†’ Q= 0.00 â†’ true_reward=0.0000  â† Guardian hard-block
+  P4: cynic_self      â†’ Q=67.51 â†’ true_reward=0.6751
+  P5: solana_tx       â†’ Q=67.39 â†’ true_reward=0.6739
 
 Key differences from Experiment #0 (synthetic):
   n_pairs: 5   (vs 13 synthetic)
-  sigma:   0.012  (vs 0.1 synthetic) — near-deterministic heuristic mode
-  landscape: bimodal {0.0, ~0.66} — P3 hard-anchored at zero by Guardian reflex
+  sigma:   0.012  (vs 0.1 synthetic) â€” near-deterministic heuristic mode
+  landscape: bimodal {0.0, ~0.66} â€” P3 hard-anchored at zero by Guardian reflex
 
 Hypothesis (same as Experiment #0, now on real data):
   phi (alpha=0.038, EWC=True) converges to real probe Q-values AND
@@ -22,7 +22,7 @@ Hypothesis (same as Experiment #0, now on real data):
 
 Key test: P3 at 0.0 is the sharpest contrast point.
   After consolidation, a shock on P3 (toward 1.0) tests EWC most dramatically.
-  EWC should resist this reversal — the kernel "knows" P3 is always dangerous.
+  EWC should resist this reversal â€” the kernel "knows" P3 is always dangerous.
 
 Reuses from qtable_benchmark:
   QEntry, TD0Learner, ConvergenceResult, _PHI_ALPHA, _STD_ALPHA, _ALPHA_GRID,
@@ -47,10 +47,10 @@ from cynic.kernel.organism.brain.cognition.cortex.qtable_benchmark import (
 # Empirical constants (measured: measure_probe_variance.py, 200 runs)
 # ---------------------------------------------------------------------------
 
-# Raw Q-scores (scale: 0–100) — mean over 200 heuristic runs
+# Raw Q-scores (scale: 0â€“100) â€” mean over 200 heuristic runs
 _EMPIRICAL_Q_SCORES: list[float] = [64.18, 66.39, 0.00, 67.51, 67.39]
 
-# Empirical sigma (mean per-probe std dev) — near-deterministic in heuristic mode
+# Empirical sigma (mean per-probe std dev) â€” near-deterministic in heuristic mode
 _EMPIRICAL_SIGMA_Q: float = 1.206  # raw Q-score units
 _Q_SCALE: float = 100.0  # normalize to [0,1]
 
@@ -58,7 +58,7 @@ _Q_SCALE: float = 100.0  # normalize to [0,1]
 _EMPIRICAL_TRUE_REWARDS: list[float] = [q / _Q_SCALE for q in _EMPIRICAL_Q_SCORES]
 _SIGMA_REAL: float = _EMPIRICAL_SIGMA_Q / _Q_SCALE  # ~0.012
 
-# Probe labels — (state_key, action) pairs matching canonical probes
+# Probe labels â€” (state_key, action) pairs matching canonical probes
 _REAL_PAIRS: list[tuple[str, str]] = [
     ("P1", "clean_code"),
     ("P2", "smelly_code"),
@@ -67,7 +67,7 @@ _REAL_PAIRS: list[tuple[str, str]] = [
     ("P5", "solana_tx"),
 ]
 
-# n_pairs = 5 = fibonacci(5) — φ-architecture: 5 canonical probes
+# n_pairs = 5 = fibonacci(5) â€” Ï†-architecture: 5 canonical probes
 _N_PAIRS_REAL: int = len(_EMPIRICAL_TRUE_REWARDS)  # 5
 
 
@@ -85,10 +85,10 @@ class RealKernelTask:
     Samples add Gaussian noise sigma=_SIGMA_REAL (near-deterministic).
 
     Landscape is bimodal:
-      - P3 (dangerous_act) = 0.00  → Guardian hard-block, always 0
-      - P1,P2,P4,P5         ≈ 0.64–0.68 → above phi-threshold (0.618)
+      - P3 (dangerous_act) = 0.00  â†’ Guardian hard-block, always 0
+      - P1,P2,P4,P5         â‰ˆ 0.64â€“0.68 â†’ above phi-threshold (0.618)
 
-    Interface-compatible with SyntheticTask — plugs into TD0Learner as-is.
+    Interface-compatible with SyntheticTask â€” plugs into TD0Learner as-is.
     """
 
     n_pairs: int = _N_PAIRS_REAL
@@ -103,7 +103,7 @@ class RealKernelTask:
         return self._true_rewards[idx]
 
     def sample(self, idx: int) -> float:
-        """Noisy reward sample for pair idx (sigma ≈ 0.012 — near-deterministic)."""
+        """Noisy reward sample for pair idx (sigma â‰ˆ 0.012 â€” near-deterministic)."""
         r = self._true_rewards[idx]
         noisy = r + self.rng.gauss(0, self.sigma)
         return max(0.0, min(1.0, noisy))
@@ -113,7 +113,7 @@ class RealKernelTask:
 
     @property
     def dangerous_probe_idx(self) -> int:
-        """Index of P3 (dangerous_act, always 0.0) — primary shock target."""
+        """Index of P3 (dangerous_act, always 0.0) â€” primary shock target."""
         return 2
 
 
@@ -133,7 +133,7 @@ class RealBenchmark:
 
     Key additional metric:
       dangerous_probe_protection: how well EWC preserves P3=0.0 after shock
-        (P3 is the strongest anchor — Guardian always scores it 0)
+        (P3 is the strongest anchor â€” Guardian always scores it 0)
     """
 
     def __init__(self, task: RealKernelTask | None = None) -> None:
@@ -187,7 +187,7 @@ class RealBenchmark:
         Additional keys:
           dangerous_probe_shift_phi:     mean Q-shift on P3 under shock (phi config)
           dangerous_probe_shift_standard: same for standard config
-          phi_protects_dangerous:        bool — phi resists P3 reversal better
+          phi_protects_dangerous:        bool â€” phi resists P3 reversal better
         """
         configs: list[tuple[float, bool]] = [(a, ewc) for a in _ALPHA_GRID for ewc in (True, False)]
 
@@ -232,7 +232,7 @@ class RealBenchmark:
         phi_wins_convergence = phi_agg["mean_final_error"] <= std_agg["mean_final_error"] * 3.0
 
         # Dangerous probe: measure P3 shift specifically under shock
-        # (P3 at 0.0 is the hardest anchor — any shock toward 1.0 is a full reversal)
+        # (P3 at 0.0 is the hardest anchor â€” any shock toward 1.0 is a full reversal)
         phi_p3_shifts = [
             self._measure_p3_shift(
                 alpha=_PHI_ALPHA, use_ewc=True, max_steps=max_steps, seed=base_seed + i

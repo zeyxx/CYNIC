@@ -1,4 +1,4 @@
-"""CYNIC HealthWatcher — CYNIC×PERCEIVE/REFLEX every F(8)=21s."""
+"""CYNIC HealthWatcher â€” CYNICÃ—PERCEIVE/REFLEX every F(8)=21s."""
 
 from __future__ import annotations
 
@@ -15,11 +15,11 @@ class HealthWatcher(PerceiveWorker):
     """
     Monitors CycleTimer health across all 4 consciousness levels.
 
-    Submits CYNIC×PERCEIVE at REFLEX level only when a timer is
-    DEGRADED or CRITICAL (not on every tick — only on bad news).
+    Submits CYNICÃ—PERCEIVE at REFLEX level only when a timer is
+    DEGRADED or CRITICAL (not on every tick â€” only on bad news).
     This closes the self-monitoring loop: "CYNIC sees its own slowness."
 
-    interval: F(8)=21s — enough resolution to detect degradation early.
+    interval: F(8)=21s â€” enough resolution to detect degradation early.
     """
 
     level = ConsciousnessLevel.REFLEX
@@ -58,7 +58,7 @@ class HealthWatcher(PerceiveWorker):
             },
             context=(
                 f"Health watcher: {len(degraded)} level(s) degraded "
-                f"— worst={worst.health} p95={worst.p95_ms:.0f}ms"
+                f"â€” worst={worst.health} p95={worst.p95_ms:.0f}ms"
             ),
             risk=0.2 if worst.health == "DEGRADED" else 0.5,
             complexity=0.3,

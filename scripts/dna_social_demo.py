@@ -1,5 +1,5 @@
 """
-CYNIC DNA Assembly — The "Social Governance" Workflow.
+CYNIC DNA Assembly â€” The "Social Governance" Workflow.
 
 Proves the SOCIAL Use Case: DAO moderation and proposal judgment.
 Demonstrates how the organism evaluates human intentions against its Axioms.

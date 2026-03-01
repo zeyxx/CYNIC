@@ -1,4 +1,4 @@
-"""CYNIC SolanaWatcher — SOLANA×PERCEIVE/REFLEX every F(9)=34s."""
+"""CYNIC SolanaWatcher â€” SOLANAÃ—PERCEIVE/REFLEX every F(9)=34s."""
 
 from __future__ import annotations
 
@@ -33,8 +33,8 @@ _SOLANA_RPC_HEADERS = {
     "Content-Type": "application/json",
     "User-Agent": "CYNIC/1.0 SolanaWatcher",
 }
-_TPS_WARNING_THRESHOLD = 1000  # below this → slow network
-_SLOT_LAG_WARNING = 10  # >10 behind tip → lagging
+_TPS_WARNING_THRESHOLD = 1000  # below this â†’ slow network
+_SLOT_LAG_WARNING = 10  # >10 behind tip â†’ lagging
 _HTTP_TIMEOUT = 5.0
 
 # Track current RPC index for round-robin fallback
@@ -55,7 +55,7 @@ def _rotate_rpc() -> None:
 
 
 def _rpc_call(method: str, params: list) -> dict[str, Any] | None:
-    """Blocking Solana JSON-RPC call — called via run_in_executor."""
+    """Blocking Solana JSON-RPC call â€” called via run_in_executor."""
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
 
     # Try each RPC endpoint until one works
@@ -105,12 +105,12 @@ class SolanaWatcher(PerceiveWorker):
     - Current slot (liveness)
     - Recent performance samples (TPS)
 
-    Submits SOLANA×PERCEIVE at REFLEX level on anomalies:
+    Submits SOLANAÃ—PERCEIVE at REFLEX level on anomalies:
     - TPS < 1000 (slow network)
     - Slot appears stuck (same as last check)
 
     Graceful degradation: returns None on RPC errors.
-    interval: F(9)=34s — same cadence as MarketWatcher.
+    interval: F(9)=34s â€” same cadence as MarketWatcher.
     """
 
     level = ConsciousnessLevel.REFLEX
@@ -125,7 +125,7 @@ class SolanaWatcher(PerceiveWorker):
         self._last_slot: int | None = None
 
     def _fetch_chain_state(self) -> dict[str, Any] | None:
-        """Blocking — calls getSlot + getRecentPerformanceSamples."""
+        """Blocking â€” calls getSlot + getRecentPerformanceSamples."""
         slot = _rpc_call("getSlot", [])
         if slot is None:
             return None

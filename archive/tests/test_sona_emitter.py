@@ -1,5 +1,5 @@
 """
-Unit tests for SonaEmitter — organism self-assessment loop
+Unit tests for SonaEmitter â€” organism self-assessment loop
 
 Tests:
   1. Lifecycle (start/stop idempotence)
@@ -74,7 +74,7 @@ async def test_sona_emits_payload(event_bus: EventBus):
     assert sona._tick_count == initial_tick + 1
 
 
-@pytest.mark.skip(reason="Long-running test — would require 68+ minutes (2× F(9))")
+@pytest.mark.skip(reason="Long-running test â€” would require 68+ minutes (2Ã— F(9))")
 @pytest.mark.asyncio
 async def test_sona_tick_counter_increments(event_bus: EventBus):
     """Test that tick_number increments with each emission.

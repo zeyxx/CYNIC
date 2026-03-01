@@ -1,10 +1,10 @@
 """
-CYNIC Nerve Endings — Domain-specific communication facades.
+CYNIC Nerve Endings â€” Domain-specific communication facades.
 
 Reduces coupling to the global event bus by providing typed gateways for
 each functional domain.
 
-φ-Law: VERIFY — only valid, domain-typed events pass through these nerves.
+Ï†-Law: VERIFY â€” only valid, domain-typed events pass through these nerves.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from cynic.kernel.core.judgment import Cell
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.events_schema import DecisionMadePayload, JudgmentCreatedPayload
 
 logger = logging.getLogger("cynic.kernel.nerves")

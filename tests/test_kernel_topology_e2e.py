@@ -1,5 +1,5 @@
 """
-Empirical Topology E2E Test — NO MOCKS.
+Empirical Topology E2E Test â€” NO MOCKS.
 
 Tests the integration between SourceWatcher, TopologyBuilder, and OrganismState.
 """
@@ -7,7 +7,7 @@ import asyncio
 import os
 import pytest
 from pathlib import Path
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.kernel.core.event_bus import CoreEvent, Event
 
 @pytest.mark.asyncio
 async def test_topology_integration_empirical(organism):

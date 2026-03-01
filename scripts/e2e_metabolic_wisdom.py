@@ -1,5 +1,5 @@
 """
-CYNIC Metabolic Wisdom Test — Self-Tuning Evolution.
+CYNIC Metabolic Wisdom Test â€” Self-Tuning Evolution.
 
 Proves that CYNIC can:
 1. Detect resource stress (Latency/CPU).
@@ -16,13 +16,13 @@ from pathlib import Path
 sys.path.append(os.getcwd())
 
 from cynic.kernel.organism.organism import awaken
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.nerves import COGNITION, SOMATIC
 from cynic.kernel.organism.brain.cognition.neurons.registry import get_soul, SOULS
 from cynic.kernel.organism.brain.cognition.neurons.base import DogId
 
 async def metabolic_wisdom_test():
-    print("\n--- 🧠 CYNIC METABOLIC WISDOM TEST ---")
+    print("\n--- ðŸ§  CYNIC METABOLIC WISDOM TEST ---")
     
     # 1. AWAKEN
     o = await awaken()
@@ -56,12 +56,12 @@ async def metabolic_wisdom_test():
         print(f"   - SAGE New Temperature: {updated_temp}")
         
         if updated_temp == 0.0:
-            print("\n✅ METABOLIC WISDOM SUCCESSFUL: CYNIC has mutated its Soul to survive.")
+            print("\nâœ… METABOLIC WISDOM SUCCESSFUL: CYNIC has mutated its Soul to survive.")
         else:
-            print("\n❌ METABOLIC WISDOM FAILED: Soul was not mutated.")
+            print("\nâŒ METABOLIC WISDOM FAILED: Soul was not mutated.")
 
     except Exception as e:
-        print(f"\n❌ TEST CRASHED: {e}")
+        print(f"\nâŒ TEST CRASHED: {e}")
         import traceback
         traceback.print_exc()
     finally:

@@ -1,5 +1,5 @@
 """
-DNA Router — Assembly Language for the CYNIC Organism.
+DNA Router â€” Assembly Language for the CYNIC Organism.
 
 Exposes low-level primitives and high-level workflows via API.
 """

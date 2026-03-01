@@ -1,9 +1,9 @@
 """
-Observability Endpoints — Metrics, Health, Logging
+Observability Endpoints â€” Metrics, Health, Logging
 
 Provides:
-- GET /metrics → Prometheus-formatted metrics
-- GET /health → System health status
+- GET /metrics â†’ Prometheus-formatted metrics
+- GET /health â†’ System health status
 - All requests tracked with correlation IDs
 
 Auto-registered by auto_register_routers().

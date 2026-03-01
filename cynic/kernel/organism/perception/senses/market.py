@@ -1,5 +1,5 @@
 """
-CYNIC Market Sensor — Financial Reality Perception (γ1).
+CYNIC Market Sensor â€” Financial Reality Perception (Î³1).
 
 Polls external market data (Solana, BTC, etc.) and injects it into
 the Organism's nervous system as a MARKET reality.
@@ -12,14 +12,14 @@ import time
 import random
 from typing import Any
 
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.realities import MarketPayload
 from cynic.kernel.core.phi import PHI_INV
 
 logger = logging.getLogger("cynic.senses.market")
 
 from typing import Any, Optional
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent, EventBus
+from cynic.kernel.core.event_bus import CoreEvent, Event
 
 class MarketSensor:
     """

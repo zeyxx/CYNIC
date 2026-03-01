@@ -1,5 +1,5 @@
 """
-CYNIC consciousness router — cognitive state & diagnostics: consciousness · health · agents · convergence
+CYNIC consciousness router â€” cognitive state & diagnostics: consciousness Â· health Â· agents Â· convergence
 """
 from __future__ import annotations
 
@@ -23,14 +23,14 @@ router_consciousness = APIRouter(tags=["consciousness"])
 _CONSCIOUSNESS_FILE = os.path.join(os.path.expanduser("~"), ".cynic", "consciousness.json")
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # GET /consciousness  (unified metathinking output)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_consciousness.get("/consciousness")
 async def consciousness(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
-    Unified metathinking output — the organism's complete cognitive state.
+    Unified metathinking output â€” the organism's complete cognitive state.
 
     Returns the contents of ~/.cynic/consciousness.json if available,
     otherwise falls back to a live mirror snapshot.
@@ -61,9 +61,9 @@ async def consciousness(container: AppContainer = Depends(get_app_container)) ->
     return payload
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# GET /system-health — Comprehensive system health check (Phase 3.3)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# GET /system-health â€” Comprehensive system health check (Phase 3.3)
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_consciousness.get("/system-health")
 async def system_health(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
@@ -135,19 +135,19 @@ async def system_health_detailed(
     return await health_checker.check_detailed()
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # Agent-specific stats
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_consciousness.get("/account/stats")
 async def account_stats(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
-    AccountAgent step-6 ledger — cost tracking + budget enforcement.
+    AccountAgent step-6 ledger â€” cost tracking + budget enforcement.
 
     Returns per-reality and per-dog cost breakdown, budget remaining,
     and BUDGET_WARNING / BUDGET_EXHAUSTED event emission status.
 
-    Step 6 of the 7-step cycle: PERCEIVE → JUDGE → DECIDE → ACT → LEARN → ACCOUNT → EMERGE
+    Step 6 of the 7-step cycle: PERCEIVE â†’ JUDGE â†’ DECIDE â†’ ACT â†’ LEARN â†’ ACCOUNT â†’ EMERGE
     """
     state = container.organism
     if state.account_agent is None:
@@ -158,7 +158,7 @@ async def account_stats(container: AppContainer = Depends(get_app_container)) ->
 @router_consciousness.get("/decide/stats")
 async def decide_stats(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
-    DecideAgent Ring-2 stats — MCTS decision counts.
+    DecideAgent Ring-2 stats â€” MCTS decision counts.
 
     Shows decisions_made (BARK/GROWL auto-decided via NestedMCTS) and
     skipped (WAG/HOWL or low-confidence judgments not escalated).
@@ -175,8 +175,8 @@ async def sage_stats(container: AppContainer = Depends(get_app_container)) -> di
     SAGE Dog temporal MCTS activation stats.
 
     Shows heuristic vs LLM (temporal) judgment counts.
-    llm_activation_rate > 0 → Temporal MCTS is firing (Ollama available).
-    llm_activation_rate == 0 → Heuristic-only mode (Ollama unavailable).
+    llm_activation_rate > 0 â†’ Temporal MCTS is firing (Ollama available).
+    llm_activation_rate == 0 â†’ Heuristic-only mode (Ollama unavailable).
     """
     from cynic.kernel.organism.brain.cognition.neurons.base import DogId
     state = container.organism
@@ -200,11 +200,11 @@ async def sage_stats(container: AppContainer = Depends(get_app_container)) -> di
 @router_consciousness.get("/residual/stats")
 async def residual_stats(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
-    ResidualDetector stats — residual variance history + pattern detection (T04).
+    ResidualDetector stats â€” residual variance history + pattern detection (T04).
 
-    observations > 0  → warm-start succeeded (SurrealDB loaded history on boot)
-    anomaly_rate > 0  → some judgments had high residual variance (>=38.2%)
-    patterns_detected → EMERGENCE patterns found (SPIKE / RISING / STABLE_HIGH)
+    observations > 0  â†’ warm-start succeeded (SurrealDB loaded history on boot)
+    anomaly_rate > 0  â†’ some judgments had high residual variance (>=38.2%)
+    patterns_detected â†’ EMERGENCE patterns found (SPIKE / RISING / STABLE_HIGH)
     """
     state = container.organism
     return state.residual_detector.stats()
@@ -213,11 +213,11 @@ async def residual_stats(container: AppContainer = Depends(get_app_container)) -
 @router_consciousness.get("/llm/benchmarks")
 async def llm_benchmarks() -> dict[str, Any]:
     """
-    LLM Benchmark routing matrix — per-(dog, task_type, llm_id) perf history (T05).
+    LLM Benchmark routing matrix â€” per-(dog, task_type, llm_id) perf history (T05).
 
     Persisted to SurrealDB after each update_benchmark() call.
     Warmed from SurrealDB on boot so routing survives restarts.
-    Used by LLMRouter to select the best LLM for each Dog × Task combination.
+    Used by LLMRouter to select the best LLM for each Dog Ã— Task combination.
     """
     from cynic.kernel.organism.brain.llm.adapter import get_registry as _get_registry
     reg = _get_registry()
@@ -238,14 +238,14 @@ async def llm_benchmarks() -> dict[str, Any]:
     return {"count": len(matrix), "matrix": matrix}
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # GET /convergence/stats  (Phase 3: Observability)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_consciousness.get("/convergence/stats")
 async def convergence_stats(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
-    Phase 3: Convergence Validator — Announcement vs Reality Verification.
+    Phase 3: Convergence Validator â€” Announcement vs Reality Verification.
 
     Tracks what organism announced it would do (verdict, Q-score) vs what actually
     happened. Used for end-to-end validation that announced behavior matches reality.
@@ -281,9 +281,9 @@ async def convergence_stats(container: AppContainer = Depends(get_app_container)
     }
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # 7-Layer Consciousness Ecosystem Endpoints
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_consciousness.get("/ecosystem")
 async def ecosystem(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
@@ -292,7 +292,7 @@ async def ecosystem(container: AppContainer = Depends(get_app_container)) -> dic
 
     Returns events from CORE_BUS, AUTOMATION_BUS, and AGENT_BUS.
     """
-    from cynic.kernel.core.event_bus import get_agent_bus, get_automation_bus, get_core_bus
+    from cynic.kernel.core.event_bus import get_agent_bus
 
     core_bus = get_core_bus("DEFAULT")
     automation_bus = get_automation_bus("DEFAULT")
@@ -355,7 +355,7 @@ async def nervous_system(container: AppContainer = Depends(get_app_container)) -
     """
     GET /api/consciousness/nervous-system returns audit trail.
     """
-    from cynic.kernel.core.event_bus import get_agent_bus, get_automation_bus, get_core_bus
+    from cynic.kernel.core.event_bus import get_agent_bus
 
     core_bus = get_core_bus("DEFAULT")
     automation_bus = get_automation_bus("DEFAULT")
@@ -410,9 +410,9 @@ async def guardrails(container: AppContainer = Depends(get_app_container)) -> li
     return []
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# WebSocket /ws/consciousness/ecosystem — Live Consciousness Stream
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# WebSocket /ws/consciousness/ecosystem â€” Live Consciousness Stream
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_consciousness.websocket("/ws/ecosystem")
 async def websocket_ecosystem(websocket: WebSocket) -> None:
@@ -435,7 +435,7 @@ async def websocket_ecosystem(websocket: WebSocket) -> None:
 
         initial_data = {
             "type": "connected",
-            "phi": float(MAX_CONFIDENCE),  # φ = 0.618...
+            "phi": float(MAX_CONFIDENCE),  # Ï† = 0.618...
             "initial_snapshot": {
                 "timestamp": round(time.time(), 3),
                 "uptime_s": round(state.uptime_s, 1),

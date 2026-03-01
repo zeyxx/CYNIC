@@ -1,5 +1,5 @@
 """
-Metabolism — Resource Accounting, Scheduling and Guardrails
+Metabolism â€” Resource Accounting, Scheduling and Guardrails
 
 Tracks costs, budgets, and executes autonomous tasks.
 

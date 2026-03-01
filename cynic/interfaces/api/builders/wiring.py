@@ -1,4 +1,4 @@
-"""WiringBuilder — Wire event handlers and workers."""
+"""WiringBuilder â€” Wire event handlers and workers."""
 from __future__ import annotations
 
 import logging
@@ -20,5 +20,5 @@ class WiringBuilder(BaseBuilder):
             # TODO: Extract _wire_event_handlers + _wire_perceive_workers
             context.log(f"{self.builder_id}: completed")
         except EventBusError as e:
-            logger.error(f"{self.builder_id}: failed — {e}")
+            logger.error(f"{self.builder_id}: failed â€” {e}")
             raise RuntimeError(f"WiringBuilder failed: {e}")

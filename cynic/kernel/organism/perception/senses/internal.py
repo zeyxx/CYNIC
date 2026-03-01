@@ -1,5 +1,5 @@
 """
-Internal Sensor — The Proprioception of CYNIC.
+Internal Sensor â€” The Proprioception of CYNIC.
 
 Converts system anomalies and hardware stress into internal perceptions.
 This is what allows the organism to 'feel' its own state.
@@ -11,7 +11,7 @@ import logging
 import time
 
 from typing import Optional
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus, EventBus
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.core.judgment import Cell
 
 logger = logging.getLogger("cynic.senses.internal")
@@ -29,7 +29,7 @@ class InternalSensor:
         """Subscribe to anomalies."""
         target_bus = bus or self._bus
         target_bus.on(CoreEvent.ANOMALY_DETECTED, self._on_anomaly)
-        logger.info("InternalSensor: Proprioception active — listening for anomalies")
+        logger.info("InternalSensor: Proprioception active â€” listening for anomalies")
 
     async def _on_anomaly(self, event: Event) -> None:
         """Translate technical anomaly to conscious perception."""

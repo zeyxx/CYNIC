@@ -21,13 +21,13 @@ class GuardrailsLayer(Static):
         table.add_column("Decision", style="red")
         table.add_column("Count", justify="right", style="green")
 
-        table.add_row("Allow ✅", str(self.allow_count))
-        table.add_row("Block 🔴", str(self.block_count))
-        table.add_row("Approval ⏳", str(self.approval_count))
+        table.add_row("Allow âœ…", str(self.allow_count))
+        table.add_row("Block ðŸ”´", str(self.block_count))
+        table.add_row("Approval â³", str(self.approval_count))
 
         return Panel(
             table,
-            title="🛡️ GUARDRAILS (Immune System)",
+            title="ðŸ›¡ï¸ GUARDRAILS (Immune System)",
             border_style="red",
             expand=False
         )

@@ -1,5 +1,5 @@
 """
-CYNIC CLI — `consciousness` command (Ring 3 unified metathinking TUI dashboard).
+CYNIC CLI â€” `consciousness` command (Ring 3 unified metathinking TUI dashboard).
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from cynic.interfaces.cli.utils import (
 
 def cmd_consciousness() -> None:
     """
-    TUI dashboard — unified metathinking output (Ring 3 KernelMirror).
+    TUI dashboard â€” unified metathinking output (Ring 3 KernelMirror).
 
     Reads ~/.cynic/consciousness.json (file) or GET /consciousness (API).
     Displays: overall health tier, subsystem breakdown, LLM routing stats,
@@ -36,20 +36,20 @@ def cmd_consciousness() -> None:
     ts      = float(data.get("timestamp", 0.0))
     time.time() - ts if ts else 0.0
 
-    # ── Header ──────────────────────────────────────────────────────────────
+    # â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     float(mirror.get("overall_health", 50.0))
     tier    = mirror.get("tier", "?")
     _VERDICT_COLOR.get(tier, "white")
 
 
-    # ── QTable ───────────────────────────────────────────────────────────────
+    # â”€â”€ QTable â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     qt = mirror.get("qtable", {})
     if qt and not qt.get("error"):
         float(qt.get("coverage_pct", 0.0))
         int(qt.get("total_cells", 0))
         int(qt.get("total_updates", 0))
 
-    # ── Axioms ───────────────────────────────────────────────────────────────
+    # â”€â”€ Axioms â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     axioms = mirror.get("axioms", {})
     if axioms and not axioms.get("error"):
         atier = axioms.get("tier", "?")
@@ -66,14 +66,14 @@ def cmd_consciousness() -> None:
             ainfo.get("state", "?")
             float(ainfo.get("maturity", 0.0))
 
-    # ── LOD ─────────────────────────────────────────────────────────────────
+    # â”€â”€ LOD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     lod_data = mirror.get("lod", {})
     if lod_data and not lod_data.get("error"):
         lod_lvl = int(lod_data.get("current_lod", 0))
         lod_data.get("level_name", "?")
         _LOD_COLOR.get(lod_lvl, "white")
 
-    # ── SAGE ─────────────────────────────────────────────────────────────────
+    # â”€â”€ SAGE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     sage = mirror.get("sage", {})
     if sage and sage.get("available"):
         float(sage.get("llm_activation_rate", 0.0))
@@ -81,14 +81,14 @@ def cmd_consciousness() -> None:
         int(sage.get("llm_count", 0))
         sage.get("temporal_mcts_active", False)
 
-    # ── LLM Routing ──────────────────────────────────────────────────────────
+    # â”€â”€ LLM Routing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     routing = data.get("llm_routing", {})
     if routing and routing.get("available", True):
         float(routing.get("local_rate", 0.0))
         int(routing.get("total_routes", 0))
         int(routing.get("routes_to_local", 0))
 
-    # ── Diff (what changed since last snapshot) ──────────────────────────────
+    # â”€â”€ Diff (what changed since last snapshot) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     diff = data.get("diff", {})
     if diff:
         for _path, change in list(diff.items())[:8]:

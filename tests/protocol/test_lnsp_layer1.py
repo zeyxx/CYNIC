@@ -64,7 +64,7 @@ def sample_messages(sample_message):
 
 
 # ============================================================================
-# TestRingbuffer — Circular Buffer Tests
+# TestRingbuffer â€” Circular Buffer Tests
 # ============================================================================
 
 
@@ -191,7 +191,7 @@ class TestRingbuffer:
 
 
 # ============================================================================
-# TestSensorInterface — Sensor Abstract Base Class
+# TestSensorInterface â€” Sensor Abstract Base Class
 # ============================================================================
 
 
@@ -232,7 +232,7 @@ class TestSensorInterface:
 
 
 # ============================================================================
-# TestLayer1SensorRegistration — Sensor Registration
+# TestLayer1SensorRegistration â€” Sensor Registration
 # ============================================================================
 
 
@@ -283,7 +283,7 @@ class TestLayer1SensorRegistration:
 
 
 # ============================================================================
-# TestLayer1Observation — Observation Collection
+# TestLayer1Observation â€” Observation Collection
 # ============================================================================
 
 
@@ -376,7 +376,7 @@ class TestLayer1Observation:
 
 
 # ============================================================================
-# TestLayer1Subscription — Subscription Pattern
+# TestLayer1Subscription â€” Subscription Pattern
 # ============================================================================
 
 
@@ -478,7 +478,7 @@ class TestLayer1Subscription:
 
 
 # ============================================================================
-# TestLayer1Overflow — Overflow and Backpressure
+# TestLayer1Overflow â€” Overflow and Backpressure
 # ============================================================================
 
 
@@ -551,7 +551,7 @@ class TestLayer1Overflow:
 
 
 # ============================================================================
-# TestLayer1Stats — Statistics
+# TestLayer1Stats â€” Statistics
 # ============================================================================
 
 

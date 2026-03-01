@@ -1,4 +1,4 @@
-"""IncrementalTopologyBuilder — Compute topology changes from file changes."""
+"""IncrementalTopologyBuilder â€” Compute topology changes from file changes."""
 
 from __future__ import annotations
 
@@ -13,9 +13,9 @@ from typing import TYPE_CHECKING, Any
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError
 
 if TYPE_CHECKING:
-    from cynic.kernel.organism.handlers.base import HandlerGroup
+    from cynic.kernel.organism.reflexes.base import HandlerGroup
 
-from cynic.kernel.core.event_bus import get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.topology.payloads import (
     SourceChangedPayload,
     TopologyChangedPayload,
@@ -70,7 +70,7 @@ class IncrementalTopologyBuilder:
         # Validate delta
         if not self._validate_delta(delta):
             logger.error(
-                "Invalid topology delta: %d added, %d removed, %d modified — SKIPPED",
+                "Invalid topology delta: %d added, %d removed, %d modified â€” SKIPPED",
                 len(delta.added),
                 len(delta.removed),
                 len(delta.modified),
@@ -114,7 +114,7 @@ class IncrementalTopologyBuilder:
         for filepath in files:
             try:
                 # Convert file path to module path
-                # e.g., "cynic/api/handlers/direct.py" → "cynic.interfaces.api.handlers.direct"
+                # e.g., "cynic/api/handlers/direct.py" â†’ "cynic.interfaces.api.handlers.direct"
                 module_path = self._file_to_module_path(filepath)
 
                 # Try to reload existing module, or import new one
@@ -149,8 +149,8 @@ class IncrementalTopologyBuilder:
         Convert file path to module path.
 
         Examples:
-          "cynic/api/handlers/direct.py" → "cynic.interfaces.api.handlers.direct"
-          "cynic/cli/perceive_watch.py" → "cynic.interfaces.cli.perceive_watch"
+          "cynic/api/handlers/direct.py" â†’ "cynic.interfaces.api.handlers.direct"
+          "cynic/cli/perceive_watch.py" â†’ "cynic.interfaces.cli.perceive_watch"
         """
         # Remove .py extension and convert / to .
         path = Path(filepath)

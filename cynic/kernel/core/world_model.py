@@ -1,5 +1,5 @@
 """
-CYNIC WorldModelUpdater — Unified cross-reality state aggregator.
+CYNIC WorldModelUpdater â€” Unified cross-reality state aggregator.
 
 Subscribes to JUDGMENT_CREATED, maintains a live WorldState snapshot
 indexed by reality. Computes composite_risk (phi-weighted geo mean).
@@ -14,7 +14,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.phi import phi_bound_score
 
 logger = logging.getLogger("cynic.kernel.core.world_model")

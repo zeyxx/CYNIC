@@ -1,19 +1,19 @@
 """
-EntropyTracker — Measure Information Density of Judgments
+EntropyTracker â€” Measure Information Density of Judgments
 
 Principle: Every decision should reduce information entropy
   H(input)  = entropy of observations before judgment
   H(output) = entropy of judgment (based on confidence)
   Efficiency = H(input) - H(output) > 0
 
-If efficiency ≤ 0: System is adding noise, not creating knowledge.
+If efficiency â‰¤ 0: System is adding noise, not creating knowledge.
 This detects:
   - Dead judgment paths (judgments that don't compress info)
   - Biased dogs (always output same verdict regardless of input)
   - Learning failures (confidence doesn't correlate with input diversity)
 
 Formula:
-  H(X) = -Σ p(x) log₂(p(x))  [Shannon entropy]
+  H(X) = -Î£ p(x) logâ‚‚(p(x))  [Shannon entropy]
 
   H(input):
     - Count unique signals in observation set
@@ -21,13 +21,13 @@ Formula:
 
   H(output):
     - Binary: verdict or confidence level?
-    - For judgment: H ∝ -confidence*log₂(confidence) - (1-confidence)*log₂(1-confidence)
-    - Low confidence → high entropy (uncertain)
-    - High confidence → low entropy (certain)
+    - For judgment: H âˆ -confidence*logâ‚‚(confidence) - (1-confidence)*logâ‚‚(1-confidence)
+    - Low confidence â†’ high entropy (uncertain)
+    - High confidence â†’ low entropy (certain)
 
   Efficiency = H(input) - H(output)
-    - >0: Good (compressed observation → certain decision)
-    - ≤0: Bad (observations didn't guide decision)
+    - >0: Good (compressed observation â†’ certain decision)
+    - â‰¤0: Bad (observations didn't guide decision)
 """
 
 from __future__ import annotations
@@ -45,9 +45,9 @@ from cynic.kernel.core.formulas import CHAT_MESSAGE_CAP
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.entropy_tracker")
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # ENTROPY MEASUREMENT
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 @dataclass
@@ -71,7 +71,7 @@ class EntropyMetrics:
     efficiency: float  # Compression ratio (input - output)
     signal_count: int  # How many signals observed
     verdict: str  # BARK/GROWL/WAG/HOWL
-    confidence: float  # [0, 0.618] φ-bounded
+    confidence: float  # [0, 0.618] Ï†-bounded
     timestamp: float = field(default_factory=lambda: __import__("time").time())
 
     @property
@@ -94,9 +94,9 @@ class EntropyMetrics:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # ENTROPY CALCULATOR
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class EntropyCalculator:
@@ -107,7 +107,7 @@ class EntropyCalculator:
         """
         Calculate entropy of observation set.
 
-        H(input) = -Σ p(type) * log₂(p(type))
+        H(input) = -Î£ p(type) * logâ‚‚(p(type))
 
         Where p(type) = frequency of each signal type.
 
@@ -141,12 +141,12 @@ class EntropyCalculator:
         """
         Calculate entropy of judgment based on confidence.
 
-        H(output) = -[p*log₂(p) + (1-p)*log₂(1-p)]
+        H(output) = -[p*logâ‚‚(p) + (1-p)*logâ‚‚(1-p)]
 
         Where p = confidence in the verdict.
 
-        High confidence → low entropy (judgment is certain)
-        Low confidence → high entropy (judgment is uncertain)
+        High confidence â†’ low entropy (judgment is certain)
+        Low confidence â†’ high entropy (judgment is uncertain)
 
         **Args**:
           confidence: Certainty in judgment [0, 1]
@@ -178,9 +178,9 @@ class EntropyCalculator:
         return h_input - h_output
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # ENTROPY TRACKER
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class EntropyTracker:

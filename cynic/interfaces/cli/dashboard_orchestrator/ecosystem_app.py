@@ -1,4 +1,4 @@
-"""Dashboard orchestrator — wires 7 layers + WebSocket client."""
+"""Dashboard orchestrator â€” wires 7 layers + WebSocket client."""
 from __future__ import annotations
 
 import logging
@@ -47,7 +47,7 @@ class EcosystemDashboardApp:
             snapshot: Full ecosystem snapshot from WebSocket or HTTP API
 
         Raises:
-            No exceptions — logs errors and continues
+            No exceptions â€” logs errors and continues
         """
         try:
             if self.ecosystem:

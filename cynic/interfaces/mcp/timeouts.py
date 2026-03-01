@@ -40,20 +40,20 @@ class TimeoutConfig:
     adjust timeout policies without changing adapter code.
     """
 
-    # Tool name → TimeoutCategory
+    # Tool name â†’ TimeoutCategory
     TOOL_TIMEOUTS: dict[str, TimeoutCategory] = {
-        # ════════════════════════════════════════════════════════════════
-        # FAST TOOLS (2s timeout) — Health checks, status, monitoring
-        # ════════════════════════════════════════════════════════════════
+        # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        # FAST TOOLS (2s timeout) â€” Health checks, status, monitoring
+        # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         "cynic_health": TimeoutCategory.FAST,
         "cynic_status": TimeoutCategory.FAST,
         "cynic_get_job_status": TimeoutCategory.FAST,
         "cynic_get_kernel_status": TimeoutCategory.FAST,
         "cynic_ping": TimeoutCategory.FAST,
 
-        # ════════════════════════════════════════════════════════════════
-        # NORMAL TOOLS (30s timeout) — Standard cognitive operations
-        # ════════════════════════════════════════════════════════════════
+        # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        # NORMAL TOOLS (30s timeout) â€” Standard cognitive operations
+        # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         "ask_cynic": TimeoutCategory.NORMAL,
         "observe_cynic": TimeoutCategory.NORMAL,
         "learn_cynic": TimeoutCategory.NORMAL,
@@ -63,17 +63,17 @@ class TimeoutConfig:
         "cynic_get_dogs": TimeoutCategory.NORMAL,
         "cynic_get_q_table": TimeoutCategory.NORMAL,
 
-        # ════════════════════════════════════════════════════════════════
-        # BATCH TOOLS (300s timeout) — Long-running empirical tests
-        # ════════════════════════════════════════════════════════════════
+        # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        # BATCH TOOLS (300s timeout) â€” Long-running empirical tests
+        # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         "cynic_run_empirical_test": TimeoutCategory.BATCH,
         "cynic_test_axiom_irreducibility": TimeoutCategory.BATCH,
         "cynic_benchmark_learning_efficiency": TimeoutCategory.BATCH,
         "cynic_run_load_test": TimeoutCategory.BATCH,
 
-        # ════════════════════════════════════════════════════════════════
-        # STREAM TOOLS (∞ timeout) — Indefinite observation
-        # ════════════════════════════════════════════════════════════════
+        # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        # STREAM TOOLS (âˆž timeout) â€” Indefinite observation
+        # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         "cynic_watch_telemetry": TimeoutCategory.STREAM,
         "cynic_watch_source": TimeoutCategory.STREAM,
         "cynic_stream_judgments": TimeoutCategory.STREAM,

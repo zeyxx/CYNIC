@@ -1,4 +1,4 @@
-"""CYNIC SelfWatcher — CYNIC×LEARN/MICRO every F(10)=55s."""
+"""CYNIC SelfWatcher â€” CYNICÃ—LEARN/MICRO every F(10)=55s."""
 
 from __future__ import annotations
 
@@ -14,11 +14,11 @@ class SelfWatcher(PerceiveWorker):
     """
     CYNIC observes its own Q-Table learning health.
 
-    Submits CYNIC×LEARN at MICRO level every ~55s.
+    Submits CYNICÃ—LEARN at MICRO level every ~55s.
     Creates a self-judgment loop: "How well am I learning?"
-    The judgment system judges its own learning state → feeds more Q-Learning.
+    The judgment system judges its own learning state â†’ feeds more Q-Learning.
 
-    interval: F(10)=55s — ~1 minute is the right granularity for learning checks.
+    interval: F(10)=55s â€” ~1 minute is the right granularity for learning checks.
     """
 
     level = ConsciousnessLevel.MICRO

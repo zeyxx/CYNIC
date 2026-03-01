@@ -1,22 +1,22 @@
 """
-CYNIC ContextCompressor — Token Budget Management (γ2)
+CYNIC ContextCompressor â€” Token Budget Management (Î³2)
 
 Manages the context window budget for LLM calls. When accumulated session
 history exceeds the token budget, the compressor ranks and selects the most
 informative content to keep.
 
-Strategy: TF-IDF sentence ranking — sentences with rare, discriminating
+Strategy: TF-IDF sentence ranking â€” sentences with rare, discriminating
 terms score higher. The compressor keeps the top-scored sentences that fit
 within the budget (preserving original order in output).
 
-φ-derived constants:
-  PHI_INV_2 = 0.382 — minimum essential ratio always preserved
-  PHI_INV   = 0.618 — default target compression ratio
+Ï†-derived constants:
+  PHI_INV_2 = 0.382 â€” minimum essential ratio always preserved
+  PHI_INV   = 0.618 â€” default target compression ratio
 
 Usage:
     compressor = ContextCompressor(max_tokens=4096)
     compressor.add("user: def foo(): pass  # What's the quality?")
-    compressor.add("cynic: GROWL Q=38.2 — missing type hints")
+    compressor.add("cynic: GROWL Q=38.2 â€” missing type hints")
     context = compressor.get_compressed_context(budget=1024)
 
 Token estimation: ~1.3 tokens/word (conservative approximation).
@@ -32,7 +32,7 @@ from cynic.kernel.core.phi import PHI_INV, PHI_INV_2, fibonacci
 
 logger = logging.getLogger("cynic.kernel.organism.perception.senses.compressor")
 
-# Default max tokens (F(12) = 144 × 32 ≈ 4096)
+# Default max tokens (F(12) = 144 Ã— 32 â‰ˆ 4096)
 DEFAULT_MAX_TOKENS: int = 4096
 
 # Tokens per word (conservative approximation for average code+prose)
@@ -41,24 +41,24 @@ _TOKENS_PER_WORD: float = 1.3
 # Minimum chunk tokens to consider non-trivial
 _MIN_CHUNK_TOKENS: int = 5
 
-# Attention feedback (SAGE → Compressor bidirectional loop)
-_ATTENTION_ALPHA: float = PHI_INV_2  # EMA α = 0.382 — conservative; past dominates
+# Attention feedback (SAGE â†’ Compressor bidirectional loop)
+_ATTENTION_ALPHA: float = PHI_INV_2  # EMA Î± = 0.382 â€” conservative; past dominates
 _ATTENTION_THRESHOLD: float = 0.05  # Min Jaccard similarity to boost a chunk
 
 
-# ── Token utilities ────────────────────────────────────────────────────────
+# â”€â”€ Token utilities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def estimate_tokens(text: str) -> int:
     """
     Approximate token count for text.
-    Uses word count × 1.3 (conservative; code tends to be token-dense).
+    Uses word count Ã— 1.3 (conservative; code tends to be token-dense).
     """
     words = len(text.split())
     return max(1, int(words * _TOKENS_PER_WORD))
 
 
-# ── TF-IDF scorer ─────────────────────────────────────────────────────────
+# â”€â”€ TF-IDF scorer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def _tfidf_score_sentences(sentences: list[str]) -> list[tuple[str, float]]:
@@ -132,7 +132,7 @@ def _tf_score_sentences(sentences: list[str]) -> list[tuple[str, float]]:
     return sorted(scored, key=lambda x: x[1], reverse=True)
 
 
-# ── ContextCompressor ──────────────────────────────────────────────────────
+# â”€â”€ ContextCompressor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 class ContextCompressor:
@@ -154,10 +154,10 @@ class ContextCompressor:
         self._total_input_tokens: int = 0
         self._total_output_tokens: int = 0
         self._compressions: int = 0
-        # Rolling max chunks (F(11) = 89 — generous history window)
+        # Rolling max chunks (F(11) = 89 â€” generous history window)
         self._max_chunks: int = fibonacci(11)
 
-    # ── Public API ────────────────────────────────────────────────────────
+    # â”€â”€ Public API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def add(self, text: str) -> None:
         """
@@ -173,7 +173,7 @@ class ContextCompressor:
         self._chunk_attention.append(1.0)  # New chunks start with neutral attention
         self._total_input_tokens += estimate_tokens(text)
 
-        # Rolling window — drop oldest when full
+        # Rolling window â€” drop oldest when full
         if len(self._chunks) > self._max_chunks:
             dropped = self._chunks.pop(0)
             if self._chunk_attention:
@@ -191,7 +191,7 @@ class ContextCompressor:
         to query get attention boosted; future compressions will prioritize them.
 
         Called by SageDog after each judgment to close the feedback loop:
-          Compressor → (context) → SAGE → (attention signal) → Compressor
+          Compressor â†’ (context) â†’ SAGE â†’ (attention signal) â†’ Compressor
 
         Args:
             query:  Text that SAGE just judged (cell content + context).
@@ -213,18 +213,18 @@ class ContextCompressor:
             if not chunk_words:
                 continue
 
-            # Jaccard similarity: |A ∩ B| / |A ∪ B|
+            # Jaccard similarity: |A âˆ© B| / |A âˆª B|
             inter = len(query_words & chunk_words)
             union = len(query_words | chunk_words)
             sim = inter / union if union > 0 else 0.0
 
             if sim < _ATTENTION_THRESHOLD:
-                continue  # Below noise floor — skip
+                continue  # Below noise floor â€” skip
 
-            # Attention boost: neutral=1.0, max = 1 + weight×sim×φ⁻¹
+            # Attention boost: neutral=1.0, max = 1 + weightÃ—simÃ—Ï†â»Â¹
             boost_val = 1.0 + weight * sim * PHI_INV
 
-            # EMA update (α = PHI_INV_2 = 0.382 — conservative; past dominates)
+            # EMA update (Î± = PHI_INV_2 = 0.382 â€” conservative; past dominates)
             self._chunk_attention[i] = (1.0 - _ATTENTION_ALPHA) * self._chunk_attention[
                 i
             ] + _ATTENTION_ALPHA * boost_val
@@ -238,7 +238,7 @@ class ContextCompressor:
         """
         Compress chunks to fit within token budget.
 
-        If total tokens ≤ budget, returns full content unchanged.
+        If total tokens â‰¤ budget, returns full content unchanged.
         Otherwise, ranks sentences by TF-IDF and greedily selects the
         highest-scored ones that fit, preserving original order in output.
 
@@ -256,11 +256,11 @@ class ContextCompressor:
         total_tokens = estimate_tokens(full_text)
 
         if total_tokens <= budget:
-            return full_text  # Already fits — no compression needed
+            return full_text  # Already fits â€” no compression needed
 
         self._compressions += 1
         logger.debug(
-            "ContextCompressor: compressing %d→%d tokens (ratio=%.2f)",
+            "ContextCompressor: compressing %dâ†’%d tokens (ratio=%.2f)",
             total_tokens,
             budget,
             budget / total_tokens,
@@ -362,7 +362,7 @@ class ContextCompressor:
         chunks = data.get("chunks", [])
         attns = data.get("chunk_attention", [])
 
-        # Direct restore — skip add() to preserve attention weights
+        # Direct restore â€” skip add() to preserve attention weights
         self._chunks = list(chunks)
         self._chunk_attention = [attns[i] if i < len(attns) else 1.0 for i in range(len(chunks))]
         self._compressions = data.get("compressions", 0)
@@ -402,7 +402,7 @@ class ContextCompressor:
         return len(self._chunks)
 
 
-# ── Sentence splitter ─────────────────────────────────────────────────────
+# â”€â”€ Sentence splitter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def _split_sentences(text: str) -> list[str]:

@@ -105,7 +105,7 @@ class TestPhiEvaluator:
     async def test_phi_two_values_not_golden(self):
         """Test PHI scores lower with non-golden ratio values."""
         evaluator = PhiEvaluator()
-        state = {"a": 1.0, "b": 10.0}  # Large deviation from φ
+        state = {"a": 1.0, "b": 10.0}  # Large deviation from Ï†
         score = await evaluator.score(state)
         assert score < 0.5
 
@@ -356,7 +356,7 @@ class TestLayer3Judge:
 
     @pytest.mark.asyncio
     async def test_judge_confidence_is_phi(self):
-        """Test judgment confidence is set to φ (0.618)."""
+        """Test judgment confidence is set to Ï† (0.618)."""
         judge = Layer3(judge_id="judge:primary")
         judge.register_axiom(FidelityEvaluator())
 
@@ -453,7 +453,7 @@ class TestVerdictMapping:
         """Test GROWL verdict for Q 0.4-0.6."""
         judge = Layer3(judge_id="judge:primary")
 
-        # Create axiom that scores for GROWL after φ-weighting
+        # Create axiom that scores for GROWL after Ï†-weighting
         # Q-score = axiom_score * 0.618, so need ~0.65-0.97 to hit 0.4-0.6 range
         class CautionEvaluator(FidelityEvaluator):
             async def score(self, state: dict) -> float:
@@ -480,7 +480,7 @@ class TestVerdictMapping:
         judge = Layer3(judge_id="judge:primary")
 
         # Create multiple axioms that together produce Q in 0.6-0.8 range
-        # With geometric mean and φ-weighting, max realistic Q-score is ~0.618
+        # With geometric mean and Ï†-weighting, max realistic Q-score is ~0.618
         # For WAG range (0.6-0.8), we need Q >= 0.6
         # Create axioms that average high enough: use mix of high scores
         class HealthyEvaluator1(FidelityEvaluator):
@@ -511,13 +511,13 @@ class TestVerdictMapping:
     async def test_verdict_bark_excellent(self):
         """Test BARK verdict threshold for Q >= 0.8.
 
-        Note: Due to φ-weighting, max Q-score is ~0.618, so BARK is
+        Note: Due to Ï†-weighting, max Q-score is ~0.618, so BARK is
         reserved for future use when Q-scoring might be extended beyond
-        φ-weighting. This test verifies threshold logic is correct.
+        Ï†-weighting. This test verifies threshold logic is correct.
         """
         judge = Layer3(judge_id="judge:primary")
 
-        # The maximum achievable Q-score with φ-weighting is ~0.618
+        # The maximum achievable Q-score with Ï†-weighting is ~0.618
         # which means BARK (Q >= 0.8) threshold is set but unreachable
         # with current scoring. This is acceptable design: reserved for
         # future extensions
@@ -539,9 +539,9 @@ class TestVerdictMapping:
         # With perfect axiom scores, we get WAG (highest achievable verdict)
         assert judgment.payload["verdict"] == VerdictType.WAG.value
         q_score = judgment.payload["q_score"]
-        # Verify Q-score is bounded and within expected range for φ-weighting
+        # Verify Q-score is bounded and within expected range for Ï†-weighting
         assert 0.0 <= q_score <= 1.0
-        # Note: Q-score will be close to 0.618 (φ), showing WAG not BARK
+        # Note: Q-score will be close to 0.618 (Ï†), showing WAG not BARK
 
 
 # ============================================================================

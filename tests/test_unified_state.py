@@ -318,7 +318,7 @@ class TestDataclassTypes:
 
 
 class TestPhiBoundedConfidence:
-    """Test that confidence respects φ-bound (max 0.618)."""
+    """Test that confidence respects Ï†-bound (max 0.618)."""
 
     def test_confidence_bounded(self):
         """Create judgments with valid confidence values."""

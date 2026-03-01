@@ -1,10 +1,10 @@
 """
-Tests for φ (Phi) Constants and Mathematical Functions
+Tests for Ï† (Phi) Constants and Mathematical Functions
 
 Tests the core.phi module for:
-- φ constants (PHI, PHI_INV, PHI_INV_2, etc.)
+- Ï† constants (PHI, PHI_INV, PHI_INV_2, etc.)
 - Fibonacci and Lucas sequences
-- φ-bound functions
+- Ï†-bound functions
 - Judgment thresholds
 - UCB formulas
 """
@@ -50,7 +50,7 @@ from cynic.kernel.core.phi import (
 
 
 class TestPhiConstants:
-    """Test suite for φ constants."""
+    """Test suite for Ï† constants."""
 
     def test_phi_value(self):
         """PHI should equal (1 + sqrt(5)) / 2."""
@@ -63,7 +63,7 @@ class TestPhiConstants:
         assert abs(PHI * PHI_INV - 1.0) < 1e-12
 
     def test_phi_inv_2_relationship(self):
-        """PHI_INV_2 should equal 1/PHI²."""
+        """PHI_INV_2 should equal 1/PHIÂ²."""
         assert abs(PHI_INV_2 - 1/(PHI**2)) < 1e-12
 
     def test_phi_inv_sum(self):
@@ -71,11 +71,11 @@ class TestPhiConstants:
         assert abs(PHI_INV + PHI_INV_2 - 1.0) < 1e-12
 
     def test_phi_squared(self):
-        """PHI² should equal PHI + 1."""
+        """PHIÂ² should equal PHI + 1."""
         assert abs(PHI_2 - (PHI + 1)) < 1e-12
 
     def test_phi_cubed(self):
-        """PHI³ should equal 2*PHI + 1."""
+        """PHIÂ³ should equal 2*PHI + 1."""
         assert abs(PHI_3 - (2 * PHI + 1)) < 1e-12
 
 
@@ -183,11 +183,11 @@ class TestJudgmentThresholds:
         assert GROWL_MIN > 0
 
     def test_wag_equals_phi_inv_percent(self):
-        """WAG threshold should equal φ⁻¹ × 100."""
+        """WAG threshold should equal Ï†â»Â¹ Ã— 100."""
         assert abs(WAG_MIN - PHI_INV * 100) < 1e-10
 
     def test_growl_equals_phi_inv_2_percent(self):
-        """GROWL threshold should equal φ⁻² × 100."""
+        """GROWL threshold should equal Ï†â»Â² Ã— 100."""
         assert abs(GROWL_MIN - PHI_INV_2 * 100) < 1e-10
 
     def test_howl_above_82(self):
@@ -221,7 +221,7 @@ class TestPhiBound:
         assert phi_bound(2.0, 0.0, 1.0) == 1.0
 
     def test_bound_default_max(self):
-        """Default max should be MAX_CONFIDENCE (φ⁻¹)."""
+        """Default max should be MAX_CONFIDENCE (Ï†â»Â¹)."""
         assert phi_bound(1.0) == MAX_CONFIDENCE
         assert phi_bound(0.5) == 0.5
 
@@ -249,24 +249,24 @@ class TestPhiClassify:
     """Test suite for phi_classify function."""
 
     def test_exceptional(self):
-        """Should classify ≥0.82 as EXCEPTIONAL."""
+        """Should classify â‰¥0.82 as EXCEPTIONAL."""
         assert phi_classify(0.82) == "EXCEPTIONAL"
         assert phi_classify(1.0) == "EXCEPTIONAL"
 
     def test_good(self):
-        """Should classify ≥φ⁻¹ as GOOD."""
+        """Should classify â‰¥Ï†â»Â¹ as GOOD."""
         assert phi_classify(PHI_INV) == "GOOD"  # Use actual PHI_INV value
 
     def test_moderate(self):
-        """Should classify ≥φ⁻² as MODERATE."""
+        """Should classify â‰¥Ï†â»Â² as MODERATE."""
         assert phi_classify(0.382) == "MODERATE"
 
     def test_poor(self):
-        """Should classify ≥φ⁻³ as POOR."""
+        """Should classify â‰¥Ï†â»Â³ as POOR."""
         assert phi_classify(PHI_INV_3) == "POOR"  # Use actual PHI_INV_3 value
 
     def test_critical(self):
-        """Should classify <φ⁻³ as CRITICAL."""
+        """Should classify <Ï†â»Â³ as CRITICAL."""
         assert phi_classify(0.1) == "CRITICAL"
         assert phi_classify(0.0) == "CRITICAL"
 
@@ -310,7 +310,7 @@ class TestPhiRatioSplit:
         assert abs(small + large - 100) < 1e-10
 
     def test_split_ratio(self):
-        """Should be φ⁻² and φ⁻¹."""
+        """Should be Ï†â»Â² and Ï†â»Â¹."""
         small, large = phi_ratio_split(1.0)
         assert abs(small - PHI_INV_2) < 1e-10
         assert abs(large - PHI_INV) < 1e-10

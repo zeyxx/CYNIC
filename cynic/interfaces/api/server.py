@@ -1,5 +1,5 @@
 """
-CYNIC Kernel API — FastAPI Gateway.
+CYNIC Kernel API â€” FastAPI Gateway.
 
 Unified entry point for all CYNIC interactions. 
 No logic resides here; it only exposes the Organism via HTTP.
@@ -25,15 +25,15 @@ from cynic.interfaces.api.state import (
 )
 
 # Core imports
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.phi import MAX_CONFIDENCE
 from cynic.kernel.organism.organism import awaken
 
 logger = logging.getLogger("cynic.interfaces.api.server")
 
-# ════════════════════════════════════════════════════════════════════════════
-# LIFESPAN — The Organism's Biological Cycle
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# LIFESPAN â€” The Organism's Biological Cycle
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -44,7 +44,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     instance_id = os.environ.get("CYNIC_INSTANCE_ID", os.urandom(4).hex())
     set_instance_id(instance_id)
     
-    logger.info("🧬 CYNIC Awakening (instance=%s)...", instance_id)
+    logger.info("ðŸ§¬ CYNIC Awakening (instance=%s)...", instance_id)
 
     # 1. AWAKEN the Organism (Load components and wire nervous system)
     organism = await awaken()
@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # 2. START (Launch background processing loops)
     await organism.start(db=None)
     
-    # 2b. AWAKEN κ-NET (Somatic Broadcaster)
+    # 2b. AWAKEN Îº-NET (Somatic Broadcaster)
     from cynic.kernel.protocol.knet_server import get_knet_server
     await get_knet_server()
     logger.info("[KNET] Somatic Broadcaster awakened.")
@@ -69,7 +69,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from cynic.interfaces.api.state import set_state
     set_state(organism)
 
-    logger.info("✅ CYNIC is AWAKE and RESPIRING (ready in %.2fs)", time.perf_counter() - t0)
+    logger.info("âœ… CYNIC is AWAKE and RESPIRING (ready in %.2fs)", time.perf_counter() - t0)
 
     # 3b. SPARK (Initial perception to trigger life)
     await get_core_bus(instance_id).emit(Event.typed(
@@ -81,21 +81,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
     # 4. SLEEP (Graceful shutdown)
-    logger.info("💤 CYNIC falling asleep...")
+    logger.info("ðŸ’¤ CYNIC falling asleep...")
     await organism.state.stop_processing()
     
     # Give event bus tasks a moment to clear their buffers
     await asyncio.sleep(0.5)
-    logger.info("🛑 CYNIC is now dormant.")
+    logger.info("ðŸ›‘ CYNIC is now dormant.")
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # APP INITIALIZATION
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 app = FastAPI(
     title="CYNIC Kernel API",
-    description="Python kernel — φ-bounded judgment + learning",
+    description="Python kernel â€” Ï†-bounded judgment + learning",
     version="3.0.0",
     lifespan=lifespan,
     docs_url="/api/docs",
@@ -121,7 +121,7 @@ async def add_correlation_id(request: Request, call_next):
     response.headers["X-Correlation-ID"] = correlation_id
     return response
 
-# ── Auto-register API Routers ────────────────────────────────────────────
+# â”€â”€ Auto-register API Routers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 from cynic.interfaces.api.routers.consciousness import router_consciousness
 from cynic.interfaces.api.routers.core import router_core
 from cynic.interfaces.api.routers.dna import router as router_dna
@@ -144,9 +144,9 @@ app.include_router(router_dna, prefix="/api/dna")
 app.include_router(router_llm, prefix="/api/llm")
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # WebSocket Endpoints
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @app.websocket("/ws/consciousness/ecosystem")
 async def websocket_consciousness_ecosystem(websocket: WebSocket) -> None:

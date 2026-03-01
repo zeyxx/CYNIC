@@ -1,5 +1,5 @@
 """
-CI/CD Integrity Script — Agent-side validation.
+CI/CD Integrity Script â€” Agent-side validation.
 STRICT VERSION: No silent failures.
 """
 import asyncio
@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger("integrity")
 
 async def validate():
-    print("\n--- 🔍 CYNIC STRICT INTEGRITY AUDIT ---")
+    print("\n--- ðŸ” CYNIC STRICT INTEGRITY AUDIT ---")
     
     try:
         # 1. Module Imports
@@ -38,11 +38,11 @@ async def validate():
         await o.stop()
         print("   - Graceful Stop OK")
 
-        print("\n✅ ALL SYSTEMS NOMINAL")
+        print("\nâœ… ALL SYSTEMS NOMINAL")
         return True
 
     except Exception as e:
-        print("\n❌ CRITICAL INTEGRITY FAILURE")
+        print("\nâŒ CRITICAL INTEGRITY FAILURE")
         print("-" * 40)
         traceback.print_exc()
         print("-" * 40)

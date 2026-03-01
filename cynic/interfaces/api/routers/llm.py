@@ -1,5 +1,5 @@
 """
-LLM Router — Cognitive Inventory Control.
+LLM Router â€” Cognitive Inventory Control.
 
 Exposes the LLM manifest and allows dynamic rescanning of the 
 Organism's muscles.

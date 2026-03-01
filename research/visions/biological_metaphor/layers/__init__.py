@@ -1,4 +1,4 @@
-"""CYNIC Organism — 10-Layer Architecture
+"""CYNIC Organism â€” 10-Layer Architecture
 
 Layers operate in precedence order:
 0. Identity (axioms, immutable DNA)
@@ -23,10 +23,10 @@ This __init__.py is the Organism's PUBLIC API.
 What the outside world sees.
 """
 
-# Layer 0: Identity (IMPLEMENTED ✅)
+# Layer 0: Identity (IMPLEMENTED âœ…)
 from .identity import OrganismIdentity
 
-# Layer 1: Judgment Engine (IMPLEMENTED ✅)
+# Layer 1: Judgment Engine (IMPLEMENTED âœ…)
 from .judgment_engine import DogInput, JudgmentEngine, UnifiedJudgment
 
 # Future layers (coming Week 3-6)

@@ -1,7 +1,7 @@
 """Complete Governance Stack Integration Tests.
 
 Tests the end-to-end workflow:
-Discord → CYNIC API → GASdf → NEAR Protocol
+Discord â†’ CYNIC API â†’ GASdf â†’ NEAR Protocol
 
 This tests the complete pipeline for memocoin governance:
 1. User submits proposal via Discord
@@ -341,7 +341,7 @@ class TestGASdfIntegration:
         expected_burn = int(fee_amount * 0.764)
 
         assert quote.burn_amount == expected_burn
-        # Verify 76.4% ± 1 token (rounding)
+        # Verify 76.4% Â± 1 token (rounding)
         assert abs(quote.burn_amount - (fee_amount * 0.764)) < 1
 
 
@@ -437,7 +437,7 @@ class TestCompleteGovernanceWorkflow:
     async def test_proposal_to_execution_workflow(
         self, gasdf_executor, near_executor
     ):
-        """Test complete workflow: proposal → verdict → execution → learning."""
+        """Test complete workflow: proposal â†’ verdict â†’ execution â†’ learning."""
 
         # Step 1: Simulate CYNIC verdict
         proposal_id = "prop_test_1"
@@ -632,7 +632,7 @@ class TestGovernanceStackIntegration:
     async def test_discord_to_near_proposal_flow(
         self, gasdf_executor, near_executor
     ):
-        """Simulate Discord proposal → CYNIC → GASdf → NEAR flow."""
+        """Simulate Discord proposal â†’ CYNIC â†’ GASdf â†’ NEAR flow."""
 
         # Simulate Discord bot receiving proposal
         proposal_text = "Increase liquidity provision to DEX by 10%"

@@ -1,4 +1,4 @@
-"""Tests for ConsciousnessService — 7-layer HUB aggregating all consciousness layers."""
+"""Tests for ConsciousnessService â€” 7-layer HUB aggregating all consciousness layers."""
 
 import pytest
 

@@ -18,7 +18,7 @@ from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 
 async def run_proof():
-    print("\n--- ⚔️ CYNIC E2E CRUCIBLE ---")
+    print("\n--- âš”ï¸ CYNIC E2E CRUCIBLE ---")
     
     # 1. AWAKEN
     print("Step 1: Awakening organism...")
@@ -68,12 +68,12 @@ async def run_proof():
         print(f"   - Total Judgments in State: {stats['total_judgments']}")
         
         if stats['total_judgments'] > 0:
-            print("\n✅ E2E PROOF SUCCESSFUL: CYNIC is reality-connected.")
+            print("\nâœ… E2E PROOF SUCCESSFUL: CYNIC is reality-connected.")
         else:
-            print("\n❌ E2E PROOF FAILED: State not updated.")
+            print("\nâŒ E2E PROOF FAILED: State not updated.")
 
     except Exception as e:
-        print(f"\n❌ E2E CRUCIBLE CRASHED: {e}")
+        print(f"\nâŒ E2E CRUCIBLE CRASHED: {e}")
         import traceback
         traceback.print_exc()
     finally:

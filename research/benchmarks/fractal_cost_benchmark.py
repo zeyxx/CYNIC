@@ -3,15 +3,15 @@ CYNIC Fractal Cost Benchmark (Phase 4)
 
 Validates sub-linear cost scaling with dog count.
 
-Hypothesis: Cost ∝ log(N), not O(N)
+Hypothesis: Cost âˆ log(N), not O(N)
   - 1 dog (baseline):  reference cost
-  - 5 dogs (moderate): cost ≈ baseline × log₂(5)   ≈ 2.32×
-  - 11 dogs (full):    cost ≈ baseline × log₂(11)  ≈ 3.46×
+  - 5 dogs (moderate): cost â‰ˆ baseline Ã— logâ‚‚(5)   â‰ˆ 2.32Ã—
+  - 11 dogs (full):    cost â‰ˆ baseline Ã— logâ‚‚(11)  â‰ˆ 3.46Ã—
 
-NOT 1 dog cost × 5 or 1 dog cost × 11 (linear growth)
+NOT 1 dog cost Ã— 5 or 1 dog cost Ã— 11 (linear growth)
 
 Key Mechanism:
-  - Dogs judge independently (PERCEIVE → JUDGE → DECIDE → ACT)
+  - Dogs judge independently (PERCEIVE â†’ JUDGE â†’ DECIDE â†’ ACT)
   - Dogs gossip compressed context (~200 bytes) instead of full state (~1000 bytes)
   - Orchestrator = consensus layer (geometric mean aggregation, NO re-judgment)
   - Cost scales with: gossip bandwidth, consensus computation, per-dog storage
@@ -29,12 +29,12 @@ Design:
     - Feed them M identical cells (simulating parallel judgment batch)
     - Measure wall-clock time, memory, gossip bytes
     - Calculate: total cost, per-dog cost, cost scaling factor
-    - Validate: cost_11 / cost_1 ≤ log₂(11) ≈ 3.46
+    - Validate: cost_11 / cost_1 â‰¤ logâ‚‚(11) â‰ˆ 3.46
 
 Usage:
   bench = FractalCostBenchmark()
   result = bench.run(n_dogs=11, n_cells=100)
-  assert result.cost_scaling_ratio <= 3.5  # Logarithmic: log₂(11) ≈ 3.46
+  assert result.cost_scaling_ratio <= 3.5  # Logarithmic: logâ‚‚(11) â‰ˆ 3.46
 """
 from __future__ import annotations
 
@@ -63,9 +63,9 @@ from cynic.kernel.organism.brain.cognition.neurons.dog_state import (
     DogState,
 )
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # COST BENCHMARK
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 @dataclass
@@ -77,7 +77,7 @@ class CostMetrics:
     avg_latency_per_judgment_ms: float  # Per-cell-per-dog latency
     peak_memory_mb: float  # Peak memory usage
     total_gossip_bytes: float  # Total bandwidth for gossip rounds
-    total_judgments: int  # N_dogs × N_cells
+    total_judgments: int  # N_dogs Ã— N_cells
     total_entropy_efficiency: float  # Average efficiency across all judgments
 
     @property
@@ -118,7 +118,7 @@ class CostScalingResult:
     full_11dog: CostMetrics
     scaling_ratio_5_vs_1: float
     scaling_ratio_11_vs_1: float
-    is_logarithmic: bool  # True if ratios ≤ theoretical log₂
+    is_logarithmic: bool  # True if ratios â‰¤ theoretical logâ‚‚
     theoretical_log2_5: float = field(default_factory=lambda: math.log2(5))
     theoretical_log2_11: float = field(default_factory=lambda: math.log2(11))
 
@@ -135,7 +135,7 @@ class CostScalingResult:
             "is_logarithmic": self.is_logarithmic,
             "analysis": {
                 "scaling_type": "LOGARITHMIC (O(log N))" if self.is_logarithmic else "LINEAR or worse (O(N))",
-                "verdict": "PASS ✓" if self.is_logarithmic else "FAIL ✗",
+                "verdict": "PASS âœ“" if self.is_logarithmic else "FAIL âœ—",
             }
         }
 
@@ -272,9 +272,9 @@ class FractalCostBenchmark:
 
     async def benchmark_scaling(self, n_cells: int = 50) -> CostScalingResult:
         """
-        Benchmark cost scaling: 1 dog → 5 dogs → 11 dogs.
+        Benchmark cost scaling: 1 dog â†’ 5 dogs â†’ 11 dogs.
 
-        Validates: cost_11 / cost_1 ≤ log₂(11) ≈ 3.46
+        Validates: cost_11 / cost_1 â‰¤ logâ‚‚(11) â‰ˆ 3.46
         """
         # Run with 1 dog (baseline)
         result_1 = await self.run(n_dogs=1, n_cells=n_cells)
@@ -305,9 +305,9 @@ class FractalCostBenchmark:
         )
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # DUMMY CELL CLASS (for benchmark simulation)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 @dataclass
@@ -319,9 +319,9 @@ class Cell:
     content: str
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # TEST HARNESS
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 async def main() -> None:

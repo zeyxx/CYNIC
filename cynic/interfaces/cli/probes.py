@@ -1,5 +1,5 @@
 """
-CYNIC CLI — `probes` command (L4 SelfProber proposals).
+CYNIC CLI â€” `probes` command (L4 SelfProber proposals).
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from cynic.interfaces.cli.utils import (
     _read_json,
 )
 
-# Probe dimension → color
+# Probe dimension â†’ color
 _PROBE_DIM_COLOR = {
     "QTABLE":   "orange",
     "ESCORE":   "yellow",

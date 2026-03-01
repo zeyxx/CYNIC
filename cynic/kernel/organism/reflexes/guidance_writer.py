@@ -1,5 +1,5 @@
 """
-GuidanceWriter — Writes guidance.json from JUDGMENT_CREATED events.
+GuidanceWriter â€” Writes guidance.json from JUDGMENT_CREATED events.
 
 This handler ensures the feedback loop is maintained by persisting the
 latest judgment to a local JSON file. This file is read by external hooks
@@ -15,10 +15,10 @@ from typing import Optional
 
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.core.phi import MAX_CONFIDENCE
-from cynic.kernel.organism.handlers.base import HandlerGroup
-from cynic.kernel.organism.handlers.services import CognitionServices
+from cynic.kernel.organism.reflexes.base import HandlerGroup
+from cynic.kernel.organism.reflexes.services import CognitionServices
 
-logger = logging.getLogger("cynic.kernel.organism.handlers.guidance_writer")
+logger = logging.getLogger("cynic.kernel.organism.reflexes.guidance_writer")
 
 _GUIDANCE_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "guidance.json")
 
@@ -48,7 +48,7 @@ class GuidanceWriter(HandlerGroup):
 
     async def _on_judgment_created(self, event: Event) -> None:
         """
-        JUDGMENT_CREATED → write guidance.json atomically.
+        JUDGMENT_CREATED â†’ write guidance.json atomically.
         """
         try:
             p = event.dict_payload or {}

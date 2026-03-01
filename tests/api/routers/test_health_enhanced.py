@@ -1,9 +1,9 @@
 """Tests for enhanced health endpoints.
 
 Test-driven development:
-1. GET /health — basic liveness (existing)
-2. GET /health/full — comprehensive status with Dogs, learning, resources
-3. GET /health/ready — blocking endpoint that waits for readiness (timeout 30s)
+1. GET /health â€” basic liveness (existing)
+2. GET /health/full â€” comprehensive status with Dogs, learning, resources
+3. GET /health/ready â€” blocking endpoint that waits for readiness (timeout 30s)
 
 MEMORY FIX (2026-02-27):
   Previous issue: Each test method created TestClient(app), triggering 9 separate
@@ -18,7 +18,7 @@ from cynic.interfaces.api.server import app
 
 @pytest.fixture(scope="class")
 def client():
-    """Class-scoped HTTP client — reuses single organism across all tests.
+    """Class-scoped HTTP client â€” reuses single organism across all tests.
 
     WARNING: Do not create additional TestClient(app) instances in test methods.
     Each TestClient triggers a new organism awakening (expensive operation).

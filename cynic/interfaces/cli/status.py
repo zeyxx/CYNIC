@@ -1,5 +1,5 @@
 """
-CYNIC CLI — `status` command (full judgment dashboard).
+CYNIC CLI â€” `status` command (full judgment dashboard).
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from cynic.interfaces.cli.utils import (
 def cmd_status() -> None:
     time.strftime("%Y-%m-%d %H:%M:%S")
 
-    # ── 1. Guidance (last judgment from files) ─────────────────────────────
+    # â”€â”€ 1. Guidance (last judgment from files) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     g = _read_json(_GUIDANCE)
     if g:
         verdict  = g.get("verdict", "?")
@@ -41,7 +41,7 @@ def cmd_status() -> None:
 
         lines = [
             f"{v_str}  conf={conf*100:.0f}%  {_c('gray', ago_s)}",
-            f"  {_c('dim', reality + '×JUDGE')}  state={_c('dim', sk[:40])}",
+            f"  {_c('dim', reality + 'Ã—JUDGE')}  state={_c('dim', sk[:40])}",
         ]
 
         if dog_votes:
@@ -53,9 +53,9 @@ def cmd_status() -> None:
 
         _section("LAST JUDGMENT", lines)
     else:
-        _section("LAST JUDGMENT", [_c("gray", "  No guidance.json found — server not started?")])
+        _section("LAST JUDGMENT", [_c("gray", "  No guidance.json found â€” server not started?")])
 
-    # ── 2. LOD from API ────────────────────────────────────────────────────
+    # â”€â”€ 2. LOD from API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     lod_data = _api_get("/lod")
     if lod_data:
         lod_val  = lod_data.get("current_lod", 0)
@@ -77,16 +77,16 @@ def cmd_status() -> None:
         if recent:
             last_t = recent[-1]
             lines.append(
-                f"  last: {_c('dim', last_t.get('from','?'))} → {_c('dim', last_t.get('to','?'))}"
+                f"  last: {_c('dim', last_t.get('from','?'))} â†’ {_c('dim', last_t.get('to','?'))}"
                 f"  err={last_t.get('error_rate',0):.2f}"
                 f"  lat={last_t.get('latency_ms',0):.0f}ms"
             )
         _section("SURVIVAL LOD", lines)
     else:
         # Fallback: derive LOD from guidance or disk
-        _section("SURVIVAL LOD", [_c("gray", "  API not reachable — start server to see LOD")])
+        _section("SURVIVAL LOD", [_c("gray", "  API not reachable â€” start server to see LOD")])
 
-    # ── 3. Session checkpoint ──────────────────────────────────────────────
+    # â”€â”€ 3. Session checkpoint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     ck = _read_json(_CHECKPOINT)
     if ck:
         saved_at = float(ck.get("saved_at", 0.0))
@@ -102,7 +102,7 @@ def cmd_status() -> None:
     lines.append(f"pending_actions={_c('yellow' if pending_count else 'dim', str(pending_count))}")
     _section("SESSION", lines)
 
-    # ── 4. Learning from API ───────────────────────────────────────────────
+    # â”€â”€ 4. Learning from API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     health_data = _api_get("/health")
     if health_data:
         learn    = health_data.get("learning", {})
@@ -115,7 +115,7 @@ def cmd_status() -> None:
         judged   = health_data.get("judgments_total", 0)
         lines = [
             f"QTable: {_c('cyan', str(states))} states  {_c('cyan', str(updates))} updates"
-            f"  loop={'✅' if active else '❌'}",
+            f"  loop={'âœ…' if active else 'âŒ'}",
             f"Dogs: {len(dogs)}  LLMs: {len(llms)}  judgments: {judged}",
         ]
         queued = sched.get("queued", 0)
@@ -123,9 +123,9 @@ def cmd_status() -> None:
             lines.append(f"scheduler queue: {_c('yellow', str(queued))} pending")
         _section("LEARNING", lines)
     else:
-        _section("LEARNING", [_c("gray", "  API not reachable — QTable stats unavailable")])
+        _section("LEARNING", [_c("gray", "  API not reachable â€” QTable stats unavailable")])
 
-    # ── 5. Telemetry (SDK sessions) ────────────────────────────────────────
+    # â”€â”€ 5. Telemetry (SDK sessions) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     tel_data = _api_get("/act/telemetry")
     if tel_data and tel_data.get("stats", {}).get("count", 0) > 0:
         s = tel_data["stats"]
@@ -137,7 +137,7 @@ def cmd_status() -> None:
         ]
         _section("SDK TELEMETRY", lines)
 
-    # ── 6. Feedback loops matrix ───────────────────────────────────────────
+    # â”€â”€ 6. Feedback loops matrix â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     lines = []
     for loop_name, (pct, note) in _LOOPS.items():
         bar = _bar(pct, max_score=100.0, width=8)

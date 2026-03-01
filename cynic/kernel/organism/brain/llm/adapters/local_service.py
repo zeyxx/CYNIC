@@ -1,5 +1,5 @@
 """
-CYNIC Local Service Adapter — Ollama / LocalAI.
+CYNIC Local Service Adapter â€” Ollama / LocalAI.
 
 Connects to locally running LLM servers via HTTP API.
 Sovereign but service-based.

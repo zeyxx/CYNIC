@@ -1,4 +1,4 @@
-"""Tests for LoopClosureValidator — feedback cycle completeness checking."""
+"""Tests for LoopClosureValidator â€” feedback cycle completeness checking."""
 
 import asyncio
 

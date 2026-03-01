@@ -1,5 +1,5 @@
 """
-CYNIC Deterministic Test Adapter — For reproducible pipeline tests.
+CYNIC Deterministic Test Adapter â€” For reproducible pipeline tests.
 
 Returns fixed responses based on prompt keywords.
 Avoids real LLM latency and costs during CI.

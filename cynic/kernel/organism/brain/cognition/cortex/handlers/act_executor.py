@@ -1,5 +1,5 @@
 """
-ActHandler — STEP 3 (DECIDE) + STEP 4 (ACT) unified action execution.
+ActHandler â€” STEP 3 (DECIDE) + STEP 4 (ACT) unified action execution.
 
 Extracted from JudgeOrchestrator._act_phase().
 
@@ -17,7 +17,7 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError
 from cynic.kernel.core.events_schema import ActCompletedPayload, DecisionMadePayload
 from cynic.kernel.core.exceptions import CynicError
 from cynic.kernel.core.judgment import Judgment
@@ -35,7 +35,7 @@ class ActHandler(BaseHandler):
     DECIDE + ACT phase handler.
 
     Injects:
-    - decide_agent: DecideAgent (for judgment→decision recommendation)
+    - decide_agent: DecideAgent (for judgmentâ†’decision recommendation)
     - decision_validator: DecisionValidator (optional, for guardrail checks)
     - runner: Runner (for action execution)
     """
@@ -127,7 +127,7 @@ class ActHandler(BaseHandler):
         recent_judgments: list[Any] | None,
     ) -> dict | None:
         """
-        STEP 3 (DECIDE) + STEP 4 (ACT) — unified action execution with guardrails.
+        STEP 3 (DECIDE) + STEP 4 (ACT) â€” unified action execution with guardrails.
         """
         # STEP 0: Agency Veto (Phase 3 Spec)
         if self.agency_manager:
@@ -150,7 +150,7 @@ class ActHandler(BaseHandler):
         if not self.decide_agent:
             return None
 
-        # STEP 3: DECIDE — run DecideAgent synchronously
+        # STEP 3: DECIDE â€” run DecideAgent synchronously
         decision = self.decide_agent.decide_for_judgment(judgment)
         if not decision:
             return None  # No action needed
@@ -176,7 +176,7 @@ class ActHandler(BaseHandler):
                 )
             )
 
-        # GUARDRAIL VALIDATION — DecisionValidator chains all safety checks
+        # GUARDRAIL VALIDATION â€” DecisionValidator chains all safety checks
         if self.decision_validator:
             try:
                 scheduler = getattr(pipeline, "scheduler", None) if pipeline else None
@@ -187,11 +187,11 @@ class ActHandler(BaseHandler):
                     scheduler=scheduler,
                 )
                 # Decision passed all guardrails
-                logger.info(f"Decision validated: {decision['verdict']} → proceeding to ACT")
+                logger.info(f"Decision validated: {decision['verdict']} â†’ proceeding to ACT")
             except BlockedDecision as e:
                 # Decision blocked by guardrail
                 logger.warning(
-                    f"Decision BLOCKED [{e.guardrail}]: {e.reason} " f"→ {e.recommendation}"
+                    f"Decision BLOCKED [{e.guardrail}]: {e.reason} " f"â†’ {e.recommendation}"
                 )
                 await emit_decision_made(trigger="guardrail_blocked")
                 # Return block result without executing
@@ -203,7 +203,7 @@ class ActHandler(BaseHandler):
                     "error": f"[{e.guardrail}] {e.reason}",
                 }
         else:
-            logger.debug("No DecisionValidator available — skipping guardrail checks")
+            logger.debug("No DecisionValidator available â€” skipping guardrail checks")
 
         # Filter: only execute for actionable realities
         from cynic.kernel.organism.brain.cognition.cortex.decide import _ACT_REALITIES
@@ -216,7 +216,7 @@ class ActHandler(BaseHandler):
             await emit_decision_made(trigger="not_actionable_reality")
             return None
 
-        # STEP 4: ACT — execute the action
+        # STEP 4: ACT â€” execute the action
         # 4a: GOVERNANCE ACTION (GASdf)
         if is_governance and self.gasdf_executor:
             t0 = time.perf_counter()
@@ -288,7 +288,7 @@ class ActHandler(BaseHandler):
 
         # 4b: SYSTEM ACTION (Runner)
         if not self.runner:
-            logger.warning("No runner available — cannot execute system action")
+            logger.warning("No runner available â€” cannot execute system action")
             return None
 
         t0 = time.perf_counter()

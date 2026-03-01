@@ -1,5 +1,5 @@
 """
-ActionProposer — The Strategy Layer.
+ActionProposer â€” The Strategy Layer.
 
 Receives DECISION_MADE events from the JudgeOrchestrator and translates them
 into actionable proposals for the organism's motor system (ActHandlers).
@@ -15,7 +15,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.events_schema import ActionProposedPayload, DecisionMadePayload
 from cynic.kernel.core.storage.interface import ActionProposalRepoInterface
 
@@ -57,13 +57,13 @@ class ActionProposer:
     def __init__(self, repo: ActionProposalRepoInterface, bus: Optional[EventBus] = None):
         self.repo = repo
         self._last_stats = {"pending": 0, "total": 0}
-        from cynic.kernel.core.event_bus import get_core_bus
+        from cynic.kernel.core.event_bus import CoreEvent, Event
         self._bus = bus or get_core_bus("DEFAULT")
 
     def start(self):
         """Subscribe to decision events."""
         self._bus.on(CoreEvent.DECISION_MADE, self.on_decision_made)
-        logger.info("ActionProposer started — linked to SurrealDB")
+        logger.info("ActionProposer started â€” linked to SurrealDB")
 
     async def on_decision_made(self, event: Event) -> None:
         """Handle new decisions from the orchestrator."""

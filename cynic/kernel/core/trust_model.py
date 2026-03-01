@@ -1,13 +1,13 @@
 """
-TrustModel: Bidirectional confidence tracking for human↔CYNIC symbiosis.
+TrustModel: Bidirectional confidence tracking for humanâ†”CYNIC symbiosis.
 
 CRITICAL: This is the foundation for all later phases.
 - Measures human trust in CYNIC (accept_rate - reject_rate)
 - Measures CYNIC utility (Q-Score, completion rate)
-- Enables SYMBIOSIS axiom activation (requires both ≥ φ⁻² = 38.2%)
-- Enables co-decision blending (blended_conf = human_conf × cynic_conf)
+- Enables SYMBIOSIS axiom activation (requires both â‰¥ Ï†â»Â² = 38.2%)
+- Enables co-decision blending (blended_conf = human_conf Ã— cynic_conf)
 
-φ-bounded: All confidence values ∈ [0, MAX_CONFIDENCE=0.618]
+Ï†-bounded: All confidence values âˆˆ [0, MAX_CONFIDENCE=0.618]
 """
 
 from dataclasses import dataclass, field
@@ -23,7 +23,7 @@ class TrustMetrics:
     human_accept_count: int = 0
     human_reject_count: int = 0
     human_accept_rate: float = 0.0  # (accepts - rejects) / total
-    human_confidence: float = 0.0  # φ-bounded [0, MAX_CONFIDENCE]
+    human_confidence: float = 0.0  # Ï†-bounded [0, MAX_CONFIDENCE]
 
     machine_q_score_avg: float = 50.0  # Average Q-Score over last N decisions
     machine_completion_rate: float = 0.0  # Actions completed successfully
@@ -31,7 +31,7 @@ class TrustMetrics:
 
     alignment_score: float = 0.0  # Min(human, machine) when both agree
 
-    symbiosis_ready: bool = False  # Both ≥ 38.2%?
+    symbiosis_ready: bool = False  # Both â‰¥ 38.2%?
     last_updated: datetime = field(default_factory=datetime.now)
 
 
@@ -127,7 +127,7 @@ class TrustModel:
             successful / len(self.accept_history[-10:]) if self.accept_history else 0.5
         )
 
-        # Blended utility: average Q × completion rate
+        # Blended utility: average Q Ã— completion rate
         self.metrics.machine_utility = phi_bound_score(
             (avg_q / 100.0) * completion_rate  # Normalize Q to [0, 1]
         )
@@ -146,11 +146,11 @@ class TrustModel:
         """
         Co-decision confidence: both must be confident.
 
-        Blended = human_conf × cynic_conf
+        Blended = human_conf Ã— cynic_conf
         If either unsure, result is very unsure (conservative).
 
         NOTE: We DON'T clamp inputs, we clamp the product.
-        This preserves the uncertainty principle: if 0.8 × 0.8 > MAX_CONFIDENCE,
+        This preserves the uncertainty principle: if 0.8 Ã— 0.8 > MAX_CONFIDENCE,
         the output is clamped, not the inputs.
         """
         # Both confidence values should be in [0, 1]

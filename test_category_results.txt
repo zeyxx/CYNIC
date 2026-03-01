@@ -1,0 +1,73 @@
+........................................................................ [ 93%]
+.....                                                                    [100%]
+============================== warnings summary ===============================
+..\..\..\..\..\Python313\Lib\site-packages\starlette\formparsers.py:12
+  C:\Python313\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+77 passed, 1 warning in 1.34s
+
+============================== warnings summary ===============================
+..\..\..\..\..\Python313\Lib\site-packages\starlette\formparsers.py:12
+  C:\Python313\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+..\..\..\..\..\Python313\Lib\site-packages\pydantic\_internal\_config.py:295
+..\..\..\..\..\Python313\Lib\site-packages\pydantic\_internal\_config.py:295
+  C:\Python313\Lib\site-packages\pydantic\_internal\_config.py:295: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.10/migration/
+    warnings.warn(DEPRECATION_MESSAGE, DeprecationWarning)
+
+..\..\..\..\..\Python313\Lib\site-packages\pydantic\_internal\_config.py:345
+  C:\Python313\Lib\site-packages\pydantic\_internal\_config.py:345: UserWarning: Valid config keys have changed in V2:
+  * 'allow_population_by_field_name' has been renamed to 'populate_by_name'
+    warnings.warn(message, UserWarning)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+ERROR tests/api/routers/test_consciousness_ecosystem.py
+ERROR tests/api/routers/test_governance.py
+ERROR tests/api/routers/test_health_enhanced.py
+ERROR tests/api/routers/test_ws_ecosystem.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 4 errors during collection !!!!!!!!!!!!!!!!!!!
+4 warnings, 4 errors in 1.27s
+FF....FF.....                                                            [100%]
+============================== warnings summary ===============================
+..\..\..\..\..\Python313\Lib\site-packages\starlette\formparsers.py:12
+  C:\Python313\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/cognition/test_judgment_stages.py::test_perceive_stage_emits_event
+FAILED tests/cognition/test_judgment_stages.py::test_judge_stage_creates_judgment
+FAILED tests/cognition/test_judgment_stages.py::test_emerge_stage_detects_anomaly
+FAILED tests/cognition/test_judgment_stages.py::test_execute_judgment_pipeline_full_cycle
+4 failed, 9 passed, 1 warning in 0.72s
+............................                                             [100%]
+============================== warnings summary ===============================
+..\..\..\..\..\Python313\Lib\site-packages\starlette\formparsers.py:12
+  C:\Python313\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+tests/integrations/test_gasdf_integration.py::TestGASdfGovernanceIntegration::test_governance_with_gasdf_executor
+tests/integrations/test_gasdf_integration.py::TestGASdfGovernanceIntegration::test_verdict_execution_called_for_approved
+  C:\Users\zeyxm\Desktop\asdfasdfa\CYNIC-clean\cynic\kernel\protocol\lnsp\governance_integration.py:59: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    self.manager.wire_layers()
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+28 passed, 8 deselected, 3 warnings in 0.92s
+........................................................................ [ 24%]
+........................................................................ [ 48%]
+........................................................................ [ 72%]
+........................................................................ [ 96%]
+..........                                                               [100%]
+============================== warnings summary ===============================
+..\..\..\..\..\Python313\Lib\site-packages\starlette\formparsers.py:12
+  C:\Python313\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+298 passed, 1 warning in 8.33s

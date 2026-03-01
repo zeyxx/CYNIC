@@ -1,0 +1,4 @@
+/usr/bin/bash: line 1: {: command not found
+tail: option used in invalid context -- 5
+tail: option used in invalid context -- 5
+tail: option used in invalid context -- 5

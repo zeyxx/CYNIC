@@ -1,5 +1,5 @@
 """
-Empirical Event Bus Integration Tests — ResidualDetector (NO MOCKS)
+Empirical Event Bus Integration Tests â€” ResidualDetector (NO MOCKS)
 
 Verifies that the ResidualDetector correctly listens to real events
 on the real EventBus and updates its internal state.
@@ -7,7 +7,7 @@ on the real EventBus and updates its internal state.
 
 import asyncio
 import pytest
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.organism.brain.cognition.cortex.residual import ResidualDetector
 
 @pytest.fixture

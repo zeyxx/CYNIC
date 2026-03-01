@@ -1,15 +1,15 @@
 """
-CYNIC Tier 1 Nervous System — Real-Time Service State Registry
+CYNIC Tier 1 Nervous System â€” Real-Time Service State Registry
 
 Component 1 (Foundation): Tracks runtime health and state of all kernel components.
 
 Every Dog, Bus, Worker, and Storage system registers itself. The registry provides:
-  - snapshot() — current state of all components
-  - record_judgment(pipeline_id, judgment) — capture decision state
-  - get_component(name) — query single component
-  - changed_since(snapshot_t) — detect state changes
+  - snapshot() â€” current state of all components
+  - record_judgment(pipeline_id, judgment) â€” capture decision state
+  - get_component(name) â€” query single component
+  - changed_since(snapshot_t) â€” detect state changes
 
-Pattern: Non-blocking (async), φ-bounded queries, rolled indices for efficiency.
+Pattern: Non-blocking (async), Ï†-bounded queries, rolled indices for efficiency.
 Queryable via: GET /internal/registry
 
 This component enables all other Tier 1 components (EventJournal, DecisionTrace, LoopClosureValidator).
@@ -30,9 +30,9 @@ from cynic.kernel.core.formulas import SERVICE_REGISTRY_JUDGMENT_CAP
 logger = logging.getLogger("cynic.nervous.service_registry")
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # DATA STRUCTURES
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class ComponentType(StrEnum):
     """Component types that register with the registry."""
@@ -115,9 +115,9 @@ class RegistrySnapshot:
         return RegistrySnapshot(**{k: v for k, v in d_copy.items() if k in RegistrySnapshot.__dataclass_fields__})
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # SERVICE STATE REGISTRY
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class ServiceStateRegistry:
     """

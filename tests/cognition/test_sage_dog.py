@@ -1,4 +1,4 @@
-"""Tests for SageDog — wisdom evaluator and world-maker."""
+"""Tests for SageDog â€” wisdom evaluator and world-maker."""
 from unittest.mock import AsyncMock, patch
 
 import pytest

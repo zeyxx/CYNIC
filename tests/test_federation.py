@@ -18,9 +18,9 @@ import pytest
 
 from cynic.kernel.organism.brain.learning.unified_learning import UnifiedQTable
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # BLOCK A: MergeEngine Unit Tests
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestMergeEngine:
@@ -60,7 +60,7 @@ class TestMergeEngine:
         merge_q_tables(local, remote_snapshot, peer_total_judgments=9)
 
         # This test validates weight distribution logic
-        # Remote has 9 visits vs local 1 → remote weight should be ~0.9
+        # Remote has 9 visits vs local 1 â†’ remote weight should be ~0.9
         # Expected merged value: 0.1 * 60 + 0.9 * 90 = 87
         # Allow some variance for different weighting strategies
         merged_q = local.values.get(("GOVERNANCE", "abc"), 60.0)
@@ -69,7 +69,7 @@ class TestMergeEngine:
     def test_merge_confidence_clamped_at_phi_inv(self):
         """Merged Q-value stays in valid range after high-confidence merge.
 
-        Note: Confidence clamping at φ⁻¹ (0.618) is enforced internally by
+        Note: Confidence clamping at Ï†â»Â¹ (0.618) is enforced internally by
         the merge implementation and not directly observable from Q-values.
         This test validates that Q-values remain in [0, 1] after merging.
         """
@@ -120,9 +120,9 @@ class TestMergeEngine:
         assert len(local.values) > 0  # Something was merged in
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # BLOCK B: GossipManager Unit Tests
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestGossipManager:
@@ -234,14 +234,14 @@ class TestGossipManager:
         assert len(received) == 1
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # BLOCK C: Integration Tests (3+ organisms)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 @pytest.mark.asyncio
 async def test_three_organisms_share_learning():
-    """A → B → C ring: C learns from A without ever judging.
+    """A â†’ B â†’ C ring: C learns from A without ever judging.
 
     This integration test verifies:
     1. Organism A makes judgments and learns (updates Q-Table)
@@ -270,7 +270,7 @@ async def test_three_organisms_share_learning():
     q_b, mgr_b = make_organism("B")
     q_c, mgr_c = make_organism("C")
 
-    # Wire A → B → C ring topology
+    # Wire A â†’ B â†’ C ring topology
     # A pushes to B, B pushes to C (not all directions, just one-way for this test)
     mgr_a.add_peer(FederationPeer("B", transport=lambda m: mgr_b.receive(m)))
     mgr_b.add_peer(FederationPeer("C", transport=lambda m: mgr_c.receive(m)))

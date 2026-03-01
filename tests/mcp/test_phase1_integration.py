@@ -1,5 +1,5 @@
 """
-PHASE 1 INTEGRATION TESTS — Validation of all 7 tasks working together end-to-end.
+PHASE 1 INTEGRATION TESTS â€” Validation of all 7 tasks working together end-to-end.
 
 This test suite validates that all MCP tools, error handling, streaming,
 kernel startup, port configuration, timeouts, health endpoints, and
@@ -16,7 +16,7 @@ Success Criteria (Task 8):
 - All 13 MCP tools available and listed
 - Error handling returns structured responses (no crashes)
 - Port configuration centralizes CYNIC_KERNEL_PORT env var
-- Timeout categories: FAST (2s), NORMAL (30s), BATCH (300s), STREAM (∞)
+- Timeout categories: FAST (2s), NORMAL (30s), BATCH (300s), STREAM (âˆž)
 - Health endpoints: /health, /health/full, /health/ready available
 - Zero regressions in existing 100+ tests
 - Ready for Phase 2 (Event-First API)
@@ -556,9 +556,9 @@ class TestPhase1IntegrationE2E:
         assert hasattr(router, 'active_calls')
 
 
-# ═══════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # PHASE 1 FINAL VALIDATION
-# ═══════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class TestPhase1FinalValidation:
     """Final validation that Phase 1 is complete and ready for Phase 2."""

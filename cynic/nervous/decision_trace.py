@@ -1,5 +1,5 @@
 """
-CYNIC Tier 1 Nervous System — Decision Trace
+CYNIC Tier 1 Nervous System â€” Decision Trace
 
 Component 3 (Reasoning Path): Converts event sequences into executable DAGs.
 
@@ -13,11 +13,11 @@ Pattern: DAG structure (edges = causality), replayable, auditable.
 Rolling cap: F(10) = 55 traces (oldest dropped when 56th arrives).
 
 Queryable via:
-  - get_trace(judgment_id) — single trace
-  - recent_traces(limit=10) — N most recent
-  - traces_by_verdict(verdict) — filter by HOWL/WAG/GROWL/BARK
-  - trace_stats() — timing/depth/branching metrics
-  - replay(trace_id) — re-execute decision path
+  - get_trace(judgment_id) â€” single trace
+  - recent_traces(limit=10) â€” N most recent
+  - traces_by_verdict(verdict) â€” filter by HOWL/WAG/GROWL/BARK
+  - trace_stats() â€” timing/depth/branching metrics
+  - replay(trace_id) â€” re-execute decision path
 
 Enables:
   - Component 4 (LoopClosureValidator): Detects broken DAGs
@@ -41,7 +41,7 @@ from cynic.kernel.core.formulas import DECISION_TRACE_CAP
 
 logger = logging.getLogger("cynic.nervous.decision_trace")
 
-# φ-derived rolling cap: F(10) = 55 (imported from formulas.py)
+# Ï†-derived rolling cap: F(10) = 55 (imported from formulas.py)
 TRACE_CAP = DECISION_TRACE_CAP
 
 
@@ -59,7 +59,7 @@ class DogVote:
     dog_id: str
     role: DogRole
     q_score: float              # Their score (0-100)
-    confidence: float           # Their confidence (0-φ⁻¹)
+    confidence: float           # Their confidence (0-Ï†â»Â¹)
     reasoning: str | None = None  # Short reasoning summary
 
 
@@ -151,15 +151,15 @@ class DecisionTracer:
     """
     Converts event sequences into executable DAGs.
 
-    Tracks reasoning path for each judgment: inputs → voting → decision → action.
+    Tracks reasoning path for each judgment: inputs â†’ voting â†’ decision â†’ action.
     Thread-safe (asyncio.Lock), rolling buffer with cap F(10)=55.
     """
 
     def __init__(self):
         self._traces: deque = deque(maxlen=TRACE_CAP)  # Auto-drops oldest
         self._lock = asyncio.Lock()
-        self._trace_map: dict[str, DecisionTrace] = {}  # trace_id → trace
-        self._judgment_to_trace: dict[str, str] = {}  # judgment_id → trace_id
+        self._trace_map: dict[str, DecisionTrace] = {}  # trace_id â†’ trace
+        self._judgment_to_trace: dict[str, str] = {}  # judgment_id â†’ trace_id
         self._stats = {
             "total_traced": 0,
             "by_verdict": {},

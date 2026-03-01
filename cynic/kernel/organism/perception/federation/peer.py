@@ -1,5 +1,5 @@
 """
-Federation Peer — Network abstraction for P2P message passing.
+Federation Peer â€” Network abstraction for P2P message passing.
 
 Represents a federation peer with transport abstraction, allowing
 network-agnostic message passing between CYNIC instances.
@@ -18,13 +18,13 @@ class FederationPeer:
 
     Attributes:
         peer_id: Unique identifier for this peer
-        transport: Callable that sends a message to this peer (signature: (FederationMessage) → None)
+        transport: Callable that sends a message to this peer (signature: (FederationMessage) â†’ None)
         last_sync: When we last synced with this peer
         messages_received: Count of messages received from this peer
     """
 
     peer_id: str
-    transport: Callable  # (FederationMessage) → None
+    transport: Callable  # (FederationMessage) â†’ None
     last_sync: datetime | None = None
     messages_received: int = 0
 

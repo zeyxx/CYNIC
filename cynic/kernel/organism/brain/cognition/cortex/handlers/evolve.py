@@ -1,5 +1,5 @@
 """
-EvolveHandler — L4 META cycle (self-benchmark via probe cells).
+EvolveHandler â€” L4 META cycle (self-benchmark via probe cells).
 
 Extracted from JudgeOrchestrator.evolve().
 
@@ -19,7 +19,7 @@ import time
 from typing import Any
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError
 from cynic.kernel.core.events_schema import MetaCyclePayload
 from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
 
@@ -49,7 +49,7 @@ class EvolveHandler(BaseHandler):
         self.orchestrator = orchestrator
         self.benchmark_registry = benchmark_registry
         self._evolve_history = evolve_history or []
-        from cynic.kernel.core.event_bus import get_core_bus
+        from cynic.kernel.core.event_bus import CoreEvent, Event
         self.bus = bus or get_core_bus("DEFAULT")
 
     async def execute(self, **kwargs: Any) -> HandlerResult:

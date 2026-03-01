@@ -41,9 +41,9 @@ async def test_tools_list():
 
     for tool in expected_tools:
         if tool in tool_names:
-            logger.info(f"  ✅ Found {tool}")
+            logger.info(f"  âœ… Found {tool}")
         else:
-            logger.warning(f"  ⚠️  Missing {tool}")
+            logger.warning(f"  âš ï¸  Missing {tool}")
 
     logger.info("TEST 1: PASSED")
     return tools
@@ -230,10 +230,10 @@ async def main():
         logger.info("=" * 60)
         logger.info("")
         logger.info("Summary:")
-        logger.info("✅ tools/list works")
-        logger.info("✅ Tools are callable via MCP bridge")
-        logger.info("✅ JSON-RPC protocol functioning")
-        logger.info("✅ Integration verified")
+        logger.info("âœ… tools/list works")
+        logger.info("âœ… Tools are callable via MCP bridge")
+        logger.info("âœ… JSON-RPC protocol functioning")
+        logger.info("âœ… Integration verified")
         logger.info("")
         logger.info("Status: TOOLS READY")
         logger.info("")

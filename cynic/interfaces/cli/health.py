@@ -1,5 +1,5 @@
 """
-CYNIC CLI — `health`, `lod`, `loops` commands.
+CYNIC CLI â€” `health`, `lod`, `loops` commands.
 """
 from __future__ import annotations
 

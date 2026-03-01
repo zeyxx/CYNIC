@@ -1,5 +1,5 @@
 """
-CYNIC CLI Bridge — Universal binary adapter.
+CYNIC CLI Bridge â€” Universal binary adapter.
 
 Routes prompts to official CLI tools (claude, gemini, etc).
 Uses subprocess with the '-p' (print) flag for non-interactive reasoning.

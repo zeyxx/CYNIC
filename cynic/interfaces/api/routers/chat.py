@@ -1,8 +1,8 @@
 """
-CYNIC chat router — message handling endpoints.
+CYNIC chat router â€” message handling endpoints.
 
 Endpoints:
-  POST /api/chat/message    → Send a chat message and receive response
+  POST /api/chat/message    â†’ Send a chat message and receive response
 
 Note: Learning endpoints are in core.py (/api/learn)
 """
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api", tags=["chat"])
 
 
 class ChatMessageRequest(BaseModel):
-    """POST /api/chat/message — send a chat message."""
+    """POST /api/chat/message â€” send a chat message."""
     text: str = Field(description="User message text")
     session_id: str = Field(description="Session identifier")
 

@@ -93,7 +93,7 @@ class EmptyAggregator(Aggregator):
 
 
 # ============================================================================
-# TestTemporalWindow — Temporal Window Tests
+# TestTemporalWindow â€” Temporal Window Tests
 # ============================================================================
 
 
@@ -183,7 +183,7 @@ class TestTemporalWindow:
 
 
 # ============================================================================
-# TestAggregatorInterface — Aggregator Abstract Base Class
+# TestAggregatorInterface â€” Aggregator Abstract Base Class
 # ============================================================================
 
 
@@ -231,7 +231,7 @@ class TestAggregatorInterface:
 
 
 # ============================================================================
-# TestLayer2Registration — Aggregator Registration
+# TestLayer2Registration â€” Aggregator Registration
 # ============================================================================
 
 
@@ -286,7 +286,7 @@ class TestLayer2Registration:
 
 
 # ============================================================================
-# TestLayer2Subscription — Subscription Pattern
+# TestLayer2Subscription â€” Subscription Pattern
 # ============================================================================
 
 
@@ -323,7 +323,7 @@ class TestLayer2Subscription:
 
 
 # ============================================================================
-# TestLayer2ProcessObservation — Observation Routing
+# TestLayer2ProcessObservation â€” Observation Routing
 # ============================================================================
 
 
@@ -394,7 +394,7 @@ class TestLayer2ProcessObservation:
 
 
 # ============================================================================
-# TestLayer2Aggregation — Aggregation Cycle
+# TestLayer2Aggregation â€” Aggregation Cycle
 # ============================================================================
 
 
@@ -564,7 +564,7 @@ class TestLayer2Aggregation:
 
 
 # ============================================================================
-# TestLayer2Stats — Statistics
+# TestLayer2Stats â€” Statistics
 # ============================================================================
 
 
@@ -634,7 +634,7 @@ class TestLayer2Stats:
 
 
 # ============================================================================
-# TestLayer2Integration — Integration Tests
+# TestLayer2Integration â€” Integration Tests
 # ============================================================================
 
 

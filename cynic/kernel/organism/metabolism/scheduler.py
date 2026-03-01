@@ -1,5 +1,5 @@
 """
-ConsciousnessRhythm — γ2 biological scheduler.
+ConsciousnessRhythm â€” Î³2 biological scheduler.
 
 Manages 4-tier concurrent consciousness loops as N asyncio workers.
 """
@@ -11,27 +11,29 @@ import time
 import random
 from typing import Any, Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.phi import PHI, fibonacci
-from cynic.kernel.core.consciousness import ConsciousnessLevel, get_consciousness
+from cynic.kernel.core.consciousness import ConsciousnessLevel
 
 logger = logging.getLogger("cynic.kernel.organism.metabolism.scheduler")
 
 _QUEUE_CAPACITY = 100
 
 class ConsciousnessRhythm:
-    """γ2 biological scheduler — manages concurrent consciousness loops."""
+    """Î³2 biological scheduler â€” manages concurrent consciousness loops."""
 
-    def __init__(self, orchestrator: Any, body: Optional[Any] = None, bus: Optional[EventBus] = None) -> None:
+    def __init__(self, orchestrator: Any, body: Optional[Any] = None, bus: Optional[EventBus] = None, consciousness: Any | None = None) -> None:
         self._orchestrator = orchestrator
         self.body = body
-        self._consciousness = get_consciousness()
+        self._consciousness = consciousness # Injected
         self._queues = {l: asyncio.Queue(maxsize=_QUEUE_CAPACITY) for l in ConsciousnessLevel}
         self._tasks: list[asyncio.Task] = []
         self._running = False
         
         # Use provided bus or fallback to orchestrator bus if available
-        self.bus = bus or getattr(orchestrator, "bus", get_core_bus("DEFAULT"))
+        self.bus = bus or getattr(orchestrator, "bus", None)
+        if self.bus is None:
+             raise RuntimeError("ConsciousnessRhythm initialized without a bus")
 
     def start(self) -> None:
         """Launch all tier workers."""
@@ -97,7 +99,7 @@ class ConsciousnessRhythm:
                 await asyncio.sleep(1)
 
     async def _meta_pulse(self):
-        """Respiration pulse — check body, axioms, and health."""
+        """Respiration pulse â€” check body, axioms, and health."""
         if self.body:
             await self.body.pulse()
         

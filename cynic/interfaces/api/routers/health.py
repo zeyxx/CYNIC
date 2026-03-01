@@ -1,5 +1,5 @@
 """
-CYNIC health router — core vitals: health · stats
+CYNIC health router â€” core vitals: health Â· stats
 """
 from __future__ import annotations
 
@@ -30,16 +30,16 @@ router_health = APIRouter(tags=["health"])
 _CONSCIOUSNESS_FILE = os.path.join(os.path.expanduser("~"), ".cynic", "consciousness.json")
 
 
-# ── Root route: API alive status ────────────────────────────────────────────
+# â”€â”€ Root route: API alive status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @router_health.get("/", include_in_schema=True)
 async def root(request: Request) -> dict:
     """
-    Root endpoint — CYNIC kernel is alive.
+    Root endpoint â€” CYNIC kernel is alive.
 
     Returns:
         - status: "alive" if all systems nominal
         - name: "CYNIC Kernel"
-        - φ: The golden ratio (for identity)
+        - Ï†: The golden ratio (for identity)
         - routes: List of available API routes
     """
     # Collect available routes from the app
@@ -53,23 +53,23 @@ async def root(request: Request) -> dict:
     return {
         "status": "AWAKE",
         "name": "CYNIC Kernel",
-        "φ": f"{PHI:.6f}",  # The golden ratio
+        "Ï†": f"{PHI:.6f}",  # The golden ratio
         "routes": routes,
     }
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # GET /health
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_health.get("/health", response_model=HealthResponse)
 async def health(container: AppContainer = Depends(get_app_container)) -> HealthResponse:
     """
-    Kernel health — the organism's vital signs.
+    Kernel health â€” the organism's vital signs.
 
-    status=alive    → all systems nominal
-    status=degraded → partial functionality (e.g. no DB, no LLM)
-    status=dead     → kernel not initialized (should never reach this route)
+    status=alive    â†’ all systems nominal
+    status=degraded â†’ partial functionality (e.g. no DB, no LLM)
+    status=dead     â†’ kernel not initialized (should never reach this route)
     """
     state = container.organism
     consciousness = get_consciousness()
@@ -83,7 +83,7 @@ async def health(container: AppContainer = Depends(get_app_container)) -> Health
     if not state.cognition.learning_loop._active:
         status = "degraded"
 
-    # T02: check SurrealDB singleton status (no I/O — just checks if initialized)
+    # T02: check SurrealDB singleton status (no I/O â€” just checks if initialized)
     _storage_status: dict[str, Any] = {}
     try:
         from cynic.kernel.core.storage.surreal import get_storage as _get_storage  # noqa: deferred
@@ -114,13 +114,13 @@ async def health(container: AppContainer = Depends(get_app_container)) -> Health
     )
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # GET /stats
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_health.get("/stats", response_model=StatsResponse)
 async def stats(container: AppContainer = Depends(get_app_container)) -> StatsResponse:
-    """Detailed kernel metrics — everything CYNIC knows about itself."""
+    """Detailed kernel metrics â€” everything CYNIC knows about itself."""
     state = container.organism
     consciousness = get_consciousness()
 
@@ -133,9 +133,9 @@ async def stats(container: AppContainer = Depends(get_app_container)) -> StatsRe
     )
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # GET /health/events (Track G: Event pipeline metrics)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_health.get("/health/events")
 async def health_events(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
@@ -185,9 +185,9 @@ async def health_events(container: AppContainer = Depends(get_app_container)) ->
         }
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # GET /health/full (NEW: Rich health data for Claude Code)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_health.get("/health/full")
 async def health_full(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
@@ -345,9 +345,9 @@ async def health_full(container: AppContainer = Depends(get_app_container)) -> d
         }
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # GET /health/ready (NEW: Blocking endpoint with timeout)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_health.get("/health/ready")
 async def health_ready(

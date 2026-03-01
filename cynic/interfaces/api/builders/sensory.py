@@ -1,4 +1,4 @@
-"""SensoryBuilder — Create sensory components (watchers, compressor, topology)."""
+"""SensoryBuilder â€” Create sensory components (watchers, compressor, topology)."""
 from __future__ import annotations
 
 import logging
@@ -19,5 +19,5 @@ class SensoryBuilder(BaseBuilder):
         try:
             context.log(f"{self.builder_id}: completed")
         except ValidationError as e:
-            logger.error(f"{self.builder_id}: failed — {e}")
+            logger.error(f"{self.builder_id}: failed â€” {e}")
             raise RuntimeError(f"SensoryBuilder failed: {e}")

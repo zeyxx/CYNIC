@@ -140,7 +140,7 @@ class HealthChecker:
 
         return status
 
-    # ── Private helper methods ──
+    # â”€â”€ Private helper methods â”€â”€
 
     async def _check_database(self) -> bool:
         """Test database connectivity (SurrealDB or PostgreSQL)."""
@@ -164,7 +164,7 @@ class HealthChecker:
                 logger.warning("PostgreSQL health check failed: %s", e)
                 raise
 
-        # No database configured — assume ok
+        # No database configured â€” assume ok
         return True
 
     async def _check_llm(self) -> bool:
@@ -216,7 +216,7 @@ class HealthChecker:
 
         try:
             # Check if event buses exist and are accessible
-            from cynic.kernel.core.event_bus import get_agent_bus, get_automation_bus, get_core_bus
+            from cynic.kernel.core.event_bus import get_agent_bus
 
             core_bus = get_core_bus("DEFAULT")
             if core_bus is None:

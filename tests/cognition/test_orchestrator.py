@@ -1,4 +1,4 @@
-"""Tests for JudgeOrchestrator — the heart of the judgment cycle."""
+"""Tests for JudgeOrchestrator â€” the heart of the judgment cycle."""
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 

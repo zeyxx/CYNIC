@@ -1,5 +1,5 @@
 """
-CYNIC Perception Layer (Layer 10) — Environmental state unification and sensing.
+CYNIC Perception Layer (Layer 10) â€” Environmental state unification and sensing.
 
 Part of the 10-layer organism architecture, the perception layer integrates
 sensory input from multiple channels into unified environmental models.

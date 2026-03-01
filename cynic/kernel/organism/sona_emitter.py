@@ -1,13 +1,13 @@
 """
-SONA Emitter — Organism Self-Assessment Loop (Component 10/11)
+SONA Emitter â€” Organism Self-Assessment Loop (Component 10/11)
 
-SONA = φ-scaled organism self-assessment
+SONA = Ï†-scaled organism self-assessment
 Frequency: F(9) = 34 minutes = 2,040 seconds
 Level: META (consciousness level 4)
 
 "Every 34 minutes, the organism checks its own heartbeat."
 
-The SONA_TICK is THE UNNAMEABLE's feedback loop — if judgments are failing
+The SONA_TICK is THE UNNAMEABLE's feedback loop â€” if judgments are failing
 to converge, learning is stagnating, or anomalies spike, SONA_TICK triggers
 meta-cognition to realign.
 
@@ -29,7 +29,6 @@ from cynic.kernel.core.event_bus import (
     CoreEvent,
     Event,
     EventBus,
-    get_core_bus,
 )
 from cynic.kernel.core.events_schema import SonaTickPayload
 from cynic.kernel.core.phi import fibonacci
@@ -79,7 +78,7 @@ class SonaEmitter:
         """
         Begin SONA_TICK emission at F(9)-second intervals.
 
-        Safe to call multiple times — idempotent.
+        Safe to call multiple times â€” idempotent.
         """
         if self._running:
             return
@@ -189,7 +188,7 @@ class SonaEmitter:
         except Exception as exc:
             logger.error(f"SonaEmitter task crashed: {exc}", exc_info=True)
 
-    # ── Stats / Observability ───────────────────────────────────────────────
+    # â”€â”€ Stats / Observability â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def stats(self) -> dict[str, Any]:
         """Return SONA telemetry."""

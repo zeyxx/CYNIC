@@ -1,4 +1,4 @@
-"""PHASE 7: Health/resource pressure handlers — disk/memory → LOD."""
+"""PHASE 7: Health/resource pressure handlers â€” disk/memory â†’ LOD."""
 
 from __future__ import annotations
 
@@ -6,17 +6,17 @@ import logging
 from typing import TYPE_CHECKING, Any, Optional
 
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, EventBusError
-from cynic.kernel.organism.handlers.base import HandlerGroup
-from cynic.kernel.organism.handlers.services import CognitionServices
+from cynic.kernel.organism.reflexes.base import HandlerGroup
+from cynic.kernel.organism.reflexes.services import CognitionServices
 
 if TYPE_CHECKING:
     pass  # Or relevant storage interface
 
-logger = logging.getLogger("cynic.kernel.organism.handlers.health")
+logger = logging.getLogger("cynic.kernel.organism.reflexes.health")
 
 
 class HealthHandlers(HandlerGroup):
-    """Health/resource pressure handlers — disk/memory → LOD."""
+    """Health/resource pressure handlers â€” disk/memory â†’ LOD."""
 
     def __init__(
         self,
@@ -53,14 +53,14 @@ class HealthHandlers(HandlerGroup):
         ]
 
     async def _on_disk_pressure(self, event: Event) -> None:
-        """DISK_PRESSURE → update health cache + assess LOD."""
+        """DISK_PRESSURE â†’ update health cache + assess LOD."""
         try:
             p = event.dict_payload or {}
             disk_pct = float(p.get("disk_pct", 0.0))
             self._cognition.health_cache["disk_pct"] = disk_pct
             await self._cognition.assess_lod()
             logger.warning(
-                "DISK_PRESSURE: %.1f%% → LOD=%s",
+                "DISK_PRESSURE: %.1f%% â†’ LOD=%s",
                 disk_pct,
                 self._cognition.lod_controller.current.name,
             )
@@ -68,7 +68,7 @@ class HealthHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_memory_pressure(self, event: Event) -> None:
-        """MEMORY_PRESSURE → update health cache + prune Q-Table + assess LOD."""
+        """MEMORY_PRESSURE â†’ update health cache + prune Q-Table + assess LOD."""
         try:
             p = event.dict_payload or {}
             memory_pct = float(p.get("memory_pct", 0.0))
@@ -81,13 +81,13 @@ class HealthHandlers(HandlerGroup):
                 pruned_count = self._cognition.qtable.prune(max_entries=2000)
                 if pruned_count > 0:
                     logger.warning(
-                        "MEMORY_PRESSURE (%.1f%%) → BURN AXIOM ACTIVE: Pruned %d low-value Q-Entries to survive.",
+                        "MEMORY_PRESSURE (%.1f%%) â†’ BURN AXIOM ACTIVE: Pruned %d low-value Q-Entries to survive.",
                         memory_pct,
                         pruned_count,
                     )
             else:
                 logger.warning(
-                    "MEMORY_PRESSURE: %.1f%% → LOD=%s",
+                    "MEMORY_PRESSURE: %.1f%% â†’ LOD=%s",
                     memory_pct,
                     self._cognition.lod_controller.current.name,
                 )
@@ -96,14 +96,14 @@ class HealthHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_disk_cleared(self, event: Event) -> None:
-        """DISK_CLEARED → reset health cache + reassess LOD."""
+        """DISK_CLEARED â†’ reset health cache + reassess LOD."""
         try:
             p = event.dict_payload or {}
             freed_mb = float(p.get("freed_mb", 0.0))
             self._cognition.health_cache["disk_pct"] = 0.0
             await self._cognition.assess_lod()
             logger.info(
-                "DISK_CLEARED: freed=%.1f MB → LOD=%s",
+                "DISK_CLEARED: freed=%.1f MB â†’ LOD=%s",
                 freed_mb,
                 self._cognition.lod_controller.current.name,
             )
@@ -111,14 +111,14 @@ class HealthHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_memory_cleared(self, event: Event) -> None:
-        """MEMORY_CLEARED → reset health cache + reassess LOD."""
+        """MEMORY_CLEARED â†’ reset health cache + reassess LOD."""
         try:
             p = event.dict_payload or {}
             freed_mb = float(p.get("freed_mb", 0.0))
             self._cognition.health_cache["memory_pct"] = 0.0
             await self._cognition.assess_lod()
             logger.info(
-                "MEMORY_CLEARED: freed=%.1f MB → LOD=%s",
+                "MEMORY_CLEARED: freed=%.1f MB â†’ LOD=%s",
                 freed_mb,
                 self._cognition.lod_controller.current.name,
             )

@@ -200,7 +200,7 @@ class TestPBFTEngineConsensus:
         """Consensus confidence should be average of agreeing Dogs."""
         engine = PBFTEngine(num_dogs=11)
 
-        # All vote HOWL with different confidence values (respecting φ-bound max 0.618)
+        # All vote HOWL with different confidence values (respecting Ï†-bound max 0.618)
         confidence_values = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6]
         judgments = [
             self._make_judgment(i, "HOWL", confidence=confidence_values[i - 1])

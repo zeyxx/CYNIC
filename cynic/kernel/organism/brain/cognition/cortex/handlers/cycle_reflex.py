@@ -1,5 +1,5 @@
 """
-ReflexCycleHandler — L3 REFLEX consciousness cycle (fast, non-LLM).
+ReflexCycleHandler â€” L3 REFLEX consciousness cycle (fast, non-LLM).
 
 Extracted from JudgeOrchestrator._cycle_reflex().
 
@@ -59,7 +59,7 @@ class ReflexCycleHandler(BaseHandler):
         self.escore_tracker = escore_tracker
         self.axiom_monitor = axiom_monitor
         self.lod_controller = lod_controller
-        from cynic.kernel.core.event_bus import get_core_bus
+        from cynic.kernel.core.event_bus import CoreEvent, Event
         self.bus = bus or get_core_bus("DEFAULT")
 
     async def _act_phase(self, judgment: Any, pipeline: Any) -> Any:

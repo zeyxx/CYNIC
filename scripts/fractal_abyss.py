@@ -1,5 +1,5 @@
 """
-CYNIC Fractal Abyss — Proof of Infinite Recursion Support.
+CYNIC Fractal Abyss â€” Proof of Infinite Recursion Support.
 
 This script demonstrates CYNIC's ability to handle recursive, self-similar 
 judgment structures. It bypasses standard safety limits to show 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Integration Test: MCP Refactor — Shared Kernel Architecture
+Integration Test: MCP Refactor â€” Shared Kernel Architecture
 
 Demonstrates that multiple MCP bridge instances coordinate via file-based locking
 and share a single CYNIC kernel, preventing duplicate spawning.

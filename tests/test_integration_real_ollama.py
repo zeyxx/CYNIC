@@ -110,7 +110,7 @@ class TestOllamaConnection:
 
         # Validate judgment properties
         assert 0 <= judgment.q_score <= 100, f"Q-score out of bounds: {judgment.q_score}"
-        assert 0 <= judgment.confidence <= 0.618, f"Confidence exceeds φ⁻¹: {judgment.confidence}"
+        assert 0 <= judgment.confidence <= 0.618, f"Confidence exceeds Ï†â»Â¹: {judgment.confidence}"
         assert judgment.verdict in ("BARK", "GROWL", "WAG", "HOWL"), f"Invalid verdict: {judgment.verdict}"
 
 
@@ -168,7 +168,7 @@ class TestOllamaConnection:
 
         # Validate temporal judgment
         assert 0 <= judgment.q_score <= 100, f"Q-score out of bounds: {judgment.q_score}"
-        assert 0 <= judgment.confidence <= 0.618, f"Confidence exceeds φ⁻¹: {judgment.confidence}"
+        assert 0 <= judgment.confidence <= 0.618, f"Confidence exceeds Ï†â»Â¹: {judgment.confidence}"
         assert len(judgment.perspective_scores) > 0, "Should have perspective scores"
 
 

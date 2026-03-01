@@ -125,8 +125,8 @@ async def test_memory_footprint_reasonable(conscious_state):
     """
     Full buffer should use reasonable memory.
 
-    F(11)=89 judgments × ~1KB each ≈ 89KB (acceptable)
-    vs 1000 judgments × ~1KB each ≈ 1MB (problematic under load)
+    F(11)=89 judgments Ã— ~1KB each â‰ˆ 89KB (acceptable)
+    vs 1000 judgments Ã— ~1KB each â‰ˆ 1MB (problematic under load)
     """
     max_size = fibonacci(11)  # 89
 

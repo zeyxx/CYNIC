@@ -1,4 +1,4 @@
-"""Test judgment stages — verify stage contract and composition."""
+"""Test judgment stages â€” verify stage contract and composition."""
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -133,7 +133,7 @@ async def test_act_stage_executes_action(mock_orchestrator, test_pipeline):
 
 @pytest.mark.asyncio
 async def test_learn_stage_placeholder(mock_orchestrator, test_pipeline):
-    """LearnStage is placeholder — should pass through unchanged."""
+    """LearnStage is placeholder â€” should pass through unchanged."""
     original_pipeline = test_pipeline
     stage = LearnStage(mock_orchestrator)
     result = await stage.execute(test_pipeline)

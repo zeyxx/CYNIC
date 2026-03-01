@@ -1,5 +1,5 @@
 """
-CYNIC Holistic Organism Test — Validation of the Unified Architecture (V3).
+CYNIC Holistic Organism Test â€” Validation of the Unified Architecture (V3).
 
 Tests the full biological cycle:
 1. Awakening (Components & Wiring)

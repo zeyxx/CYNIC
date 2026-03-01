@@ -1,4 +1,4 @@
-"""Sensory — Raw Input Sensors
+"""Sensory â€” Raw Input Sensors
 
 Sensory systems collect raw data.
 

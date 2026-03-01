@@ -145,22 +145,22 @@ class GovernanceAgent:
         q_score = proposal.q_score / 100.0  # Normalize to 0-1
 
         if cynic_verdict == "HOWL":
-            return "YES", 0.9, f"CYNIC HOWL verdict (q={q_score:.2f}) → strong approval"
+            return "YES", 0.9, f"CYNIC HOWL verdict (q={q_score:.2f}) â†’ strong approval"
 
         elif cynic_verdict == "WAG":
             # WAG: Moderate approval, but could go either way
             vote = "YES" if random.random() < 0.75 else "ABSTAIN"
             conf = 0.7
-            return vote, conf, f"CYNIC WAG verdict (q={q_score:.2f}) → lean approve"
+            return vote, conf, f"CYNIC WAG verdict (q={q_score:.2f}) â†’ lean approve"
 
         elif cynic_verdict == "GROWL":
             # GROWL: Moderate caution
             vote = "ABSTAIN" if random.random() < 0.75 else "NO"
             conf = 0.6
-            return vote, conf, f"CYNIC GROWL verdict (q={q_score:.2f}) → proceed cautiously"
+            return vote, conf, f"CYNIC GROWL verdict (q={q_score:.2f}) â†’ proceed cautiously"
 
         elif cynic_verdict == "BARK":
-            return "NO", 0.9, f"CYNIC BARK verdict (q={q_score:.2f}) → strong rejection"
+            return "NO", 0.9, f"CYNIC BARK verdict (q={q_score:.2f}) â†’ strong rejection"
 
         else:
             return "ABSTAIN", 0.3, f"Unknown CYNIC verdict: {cynic_verdict}"
@@ -201,7 +201,7 @@ class GovernanceAgent:
         cynic_verdict = proposal.cynic_verdict
 
         if self.prediction_accuracy > 0.7:
-            # High confidence in past learning → follow CYNIC closely
+            # High confidence in past learning â†’ follow CYNIC closely
             if cynic_verdict == "HOWL":
                 return (
                     "YES",
@@ -228,7 +228,7 @@ class GovernanceAgent:
                 )
 
         else:
-            # Low confidence → more exploration
+            # Low confidence â†’ more exploration
             return await self._vote_exploration(proposal)
 
     async def _vote_community(self, proposal) -> tuple[str, float, str]:
@@ -243,12 +243,12 @@ class GovernanceAgent:
         if community_approval_rate > 0.6:
             vote = "YES"
             conf = min(community_approval_rate, 0.85)
-            reasoning = f"Community culture: {community_approval_rate:.0%} approval rate → align with community"
+            reasoning = f"Community culture: {community_approval_rate:.0%} approval rate â†’ align with community"
 
         elif community_approval_rate < 0.4:
             vote = "NO"
             conf = min(1 - community_approval_rate, 0.85)
-            reasoning = f"Community culture: {community_approval_rate:.0%} approval rate → skeptical with community"
+            reasoning = f"Community culture: {community_approval_rate:.0%} approval rate â†’ skeptical with community"
 
         else:
             vote = "ABSTAIN"

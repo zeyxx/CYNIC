@@ -1,17 +1,17 @@
 """
-CYNIC organism state endpoints — observation and introspection.
+CYNIC organism state endpoints â€” observation and introspection.
 
 These endpoints expose read-only organism state for external monitoring.
 All responses are immutable (frozen Pydantic models).
 
 Endpoints:
-  GET /api/organism/state/snapshot     → Full organism state snapshot
-  GET /api/organism/consciousness      → Current consciousness level
-  GET /api/organism/dogs               → All dogs and their status
-  GET /api/organism/actions            → Pending proposed actions
-  GET /api/organism/account            → Account and budget status
-  GET /api/organism/policy/actions     → Learned best actions per state
-  GET /api/organism/policy/stats       → Policy coverage and learning metrics
+  GET /api/organism/state/snapshot     â†’ Full organism state snapshot
+  GET /api/organism/consciousness      â†’ Current consciousness level
+  GET /api/organism/dogs               â†’ All dogs and their status
+  GET /api/organism/actions            â†’ Pending proposed actions
+  GET /api/organism/account            â†’ Account and budget status
+  GET /api/organism/policy/actions     â†’ Learned best actions per state
+  GET /api/organism/policy/stats       â†’ Policy coverage and learning metrics
 """
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ async def get_organism_state_snapshot(
     container: AppContainer = Depends(get_app_container),
 ) -> StateSnapshotResponse:
     """
-    GET /api/organism/state/snapshot — Full organism state snapshot.
+    GET /api/organism/state/snapshot â€” Full organism state snapshot.
 
     Returns the complete state of the CYNIC organism including:
     - Current consciousness level (REFLEX/MICRO/MACRO/META)
@@ -112,7 +112,7 @@ async def get_organism_consciousness(
     container: AppContainer = Depends(get_app_container),
 ) -> ConsciousnessResponse:
     """
-    GET /api/organism/consciousness — Current consciousness level.
+    GET /api/organism/consciousness â€” Current consciousness level.
 
     Returns the current consciousness level (REFLEX|MICRO|MACRO|META)
     inferred from the organism's metabolic scheduler.
@@ -151,7 +151,7 @@ async def get_organism_dogs(
     container: AppContainer = Depends(get_app_container),
 ) -> DogsResponse:
     """
-    GET /api/organism/dogs — All dogs and their status.
+    GET /api/organism/dogs â€” All dogs and their status.
 
     Returns the current status of all dogs in the organism's orchestrator,
     including their last verdict, Q-score, confidence, and activity.
@@ -204,7 +204,7 @@ async def get_organism_actions(
     container: AppContainer = Depends(get_app_container),
 ) -> ActionsResponse:
     """
-    GET /api/organism/actions — Pending proposed actions.
+    GET /api/organism/actions â€” Pending proposed actions.
 
     Returns the list of pending proposed actions from the organism's
     memory action proposer, including action ID, type, priority, and description.
@@ -242,13 +242,13 @@ async def get_organism_account(
     container: AppContainer = Depends(get_app_container),
 ) -> AccountStatusResponse:
     """
-    GET /api/organism/account — Account and budget status.
+    GET /api/organism/account â€” Account and budget status.
 
     Returns the organism's account metrics including:
     - Current session budget (balance_usd)
     - Total cumulative spend (spent_usd)
     - Budget remaining (budget_remaining_usd)
-    - Learning rate [0, φ⁻¹=0.618]
+    - Learning rate [0, Ï†â»Â¹=0.618]
     - Reputation score [0, 100]
 
     Response is AccountStatusResponse (frozen, immutable).
@@ -267,7 +267,7 @@ async def get_organism_account(
         spent_usd = float(account_stats.get("total_cost_usd", 0.0))
         budget_remaining_usd = float(account_stats.get("budget_remaining_usd", balance_usd - spent_usd))
 
-        # Learn rate: fixed φ⁻¹ = 0.618 for now (can be dynamic later)
+        # Learn rate: fixed Ï†â»Â¹ = 0.618 for now (can be dynamic later)
         learn_rate = 0.618
 
         # Reputation: compute from E-Score tracker if available
@@ -304,12 +304,12 @@ async def get_policy_actions(
     container: AppContainer = Depends(get_app_container),
 ) -> PolicyActionsResponse:
     """
-    GET /api/organism/policy/actions — Learned best actions per state.
+    GET /api/organism/policy/actions â€” Learned best actions per state.
 
     Returns the learned policy from the Q-table: for each state seen during learning,
     what is the best (highest Q-value) action to take?
 
-    This shows CYNIC's learned behavior pattern — the optimal action for each
+    This shows CYNIC's learned behavior pattern â€” the optimal action for each
     state based on past experience and Q-Learning updates.
 
     Response is PolicyActionsResponse (frozen, immutable).
@@ -376,7 +376,7 @@ async def get_policy_stats(
     container: AppContainer = Depends(get_app_container),
 ) -> PolicyStatsResponse:
     """
-    GET /api/organism/policy/stats — Policy coverage and learning statistics.
+    GET /api/organism/policy/stats â€” Policy coverage and learning statistics.
 
     Returns statistics about CYNIC's learned policy and Q-table:
     - total_states: How many distinct states have been seen

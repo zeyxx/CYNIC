@@ -1,5 +1,5 @@
 """
-CYNIC API Reality Test — The final confrontation with the void.
+CYNIC API Reality Test â€” The final confrontation with the void.
 
 Boots the actual uvicorn server in a separate thread and queries it via HTTP
 to prove the Organism is alive and answering to the outside world.
@@ -36,7 +36,7 @@ def query(path, method="GET", data=None):
         return json.loads(response.read().decode())
 
 if __name__ == "__main__":
-    print("\n--- 🧪 CYNIC LIVE API PROBE ---")
+    print("\n--- ðŸ§ª CYNIC LIVE API PROBE ---")
     
     server_thread = threading.Thread(target=run_server, daemon=True)
     server_thread.start()
@@ -73,9 +73,9 @@ if __name__ == "__main__":
         status = query(f"/api/judge/{jid}")
         print(f"   - Final Status: {status.get('status')}")
         
-        print("\n✅ LIVE API PROBE SUCCESSFUL: The Organism is responsive and processing.")
+        print("\nâœ… LIVE API PROBE SUCCESSFUL: The Organism is responsive and processing.")
         sys.exit(0)
 
     except Exception as e:
-        print(f"\n❌ LIVE API PROBE FAILED: {e}")
+        print(f"\nâŒ LIVE API PROBE FAILED: {e}")
         sys.exit(1)

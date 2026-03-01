@@ -1,9 +1,9 @@
 """
-Unit tests for Q-Learning — TD(0) + Thompson Sampling + EWC
+Unit tests for Q-Learning â€” TD(0) + Thompson Sampling + EWC
 
 Tests:
-  1. TD(0) update: Q(s,a) ← Q(s,a) + α × (r − Q(s,a))
-  2. Thompson Sampling: Beta(α_wins + 1, β_losses + 1) exploration
+  1. TD(0) update: Q(s,a) â† Q(s,a) + Î± Ã— (r âˆ’ Q(s,a))
+  2. Thompson Sampling: Beta(Î±_wins + 1, Î²_losses + 1) exploration
   3. EWC consolidation: fisher_weight = visits / F(8)
   4. Persistence: flush_to_db, load_from_db, load_from_entries
   5. Policy: exploit (greedy), explore (Thompson)
@@ -20,9 +20,9 @@ from cynic.kernel.organism.brain.learning.qlearning import (
     QTable,
 )
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # FIXTURES
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @pytest.fixture
 def qtable() -> QTable:
@@ -42,9 +42,9 @@ def learning_signal() -> LearningSignal:
     )
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # TD(0) UPDATE TESTS
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 def test_qtable_initialization(qtable: QTable) -> None:
     """Test QTable starts empty."""
@@ -67,7 +67,7 @@ def test_qtable_creates_entry_on_first_update(qtable: QTable, learning_signal: L
 
 
 def test_td0_update_exact(qtable: QTable) -> None:
-    """Test TD(0) formula: Q(s,a) ← Q(s,a) + α × (r − Q(s,a))"""
+    """Test TD(0) formula: Q(s,a) â† Q(s,a) + Î± Ã— (r âˆ’ Q(s,a))"""
     signal = LearningSignal(
         state_key="test:state:1",
         action="WAG",
@@ -76,8 +76,8 @@ def test_td0_update_exact(qtable: QTable) -> None:
     
     entry = qtable.update(signal)
     
-    # Q_new = Q_old + α × (r - Q_old)
-    # Q_new = 0.5 + 0.038 × (1.0 - 0.5)
+    # Q_new = Q_old + Î± Ã— (r - Q_old)
+    # Q_new = 0.5 + 0.038 Ã— (1.0 - 0.5)
     # Q_new = 0.5 + 0.019 = 0.519
     expected_q = 0.5 + LEARNING_RATE * (1.0 - 0.5)
     assert abs(entry.q_value - expected_q) < 0.001
@@ -119,9 +119,9 @@ def test_td0_different_actions_same_state(qtable: QTable) -> None:
         assert 0.0 <= actions[action].q_value <= 1.0
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # THOMPSON SAMPLING TESTS
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 def test_thompson_sample_balanced_prior(qtable: QTable) -> None:
     """Test Thompson sampling with balanced prior (THOMPSON_PRIOR wins/losses)."""
@@ -146,7 +146,7 @@ def test_thompson_sample_skewed_toward_wins(qtable: QTable) -> None:
         signal = LearningSignal(
             state_key="skewed:test:1",
             action="HOWL",
-            reward=0.9,  # High reward → win
+            reward=0.9,  # High reward â†’ win
         )
         qtable.update(signal)
     
@@ -170,7 +170,7 @@ def test_thompson_sample_skewed_toward_losses(qtable: QTable) -> None:
         signal = LearningSignal(
             state_key="losing:test:1",
             action="BARK",
-            reward=0.1,  # Low reward → loss
+            reward=0.1,  # Low reward â†’ loss
         )
         qtable.update(signal)
     
@@ -187,9 +187,9 @@ def test_thompson_sample_skewed_toward_losses(qtable: QTable) -> None:
     assert mean < 0.4
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # EWC (ELASTIC WEIGHT CONSOLIDATION) TESTS
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 def test_ewc_fisher_weight_increases_with_visits(qtable: QTable) -> None:
     """Test fisher_weight = min(visits / F(8), 1.0) increases with visits."""
@@ -219,7 +219,7 @@ def test_ewc_fisher_weight_increases_with_visits(qtable: QTable) -> None:
 
 
 def test_ewc_effective_alpha_decreases_with_consolidation(qtable: QTable) -> None:
-    """Test effective_α = α × (1 - λ × fisher) decreases with consolidation."""
+    """Test effective_Î± = Î± Ã— (1 - Î» Ã— fisher) decreases with consolidation."""
     state = "ewc:alpha:test:1"
     action = "GROWL"
     
@@ -232,8 +232,8 @@ def test_ewc_effective_alpha_decreases_with_consolidation(qtable: QTable) -> Non
         entry = qtable._table[state][action]
         q_values.append(entry.q_value)
     
-    # First updates should learn fast (high effective α)
-    # Later updates should learn slow (low effective α)
+    # First updates should learn fast (high effective Î±)
+    # Later updates should learn slow (low effective Î±)
     early_change = q_values[5] - q_values[0]
     late_change = q_values[25] - q_values[20]
     
@@ -242,7 +242,7 @@ def test_ewc_effective_alpha_decreases_with_consolidation(qtable: QTable) -> Non
 
 
 def test_ewc_unvisited_states_learn_fast(qtable: QTable) -> None:
-    """Test unvisited states learn at full α."""
+    """Test unvisited states learn at full Î±."""
     # Update state A 30 times
     for _ in range(30):
         qtable.update(LearningSignal(state_key="visited:a:1", action="WAG", reward=0.8))
@@ -255,14 +255,14 @@ def test_ewc_unvisited_states_learn_fast(qtable: QTable) -> None:
     
     # State A is consolidated, B is fresh
     # Both received same reward, but B should have larger change from initial
-    # because it has higher effective α
+    # because it has higher effective Î±
     assert entry_b.visits == 1
     assert entry_a.visits == 30
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # POLICY TESTS
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 def test_exploit_returns_greedy_action(qtable: QTable) -> None:
     """Test exploit() returns action with highest Q-value."""
@@ -305,7 +305,7 @@ def test_explore_returns_all_verdicts(qtable: QTable) -> None:
 
 
 def test_confidence_bounded_by_phi_inv(qtable: QTable) -> None:
-    """Test confidence = min(visits / F(8), φ⁻¹) caps at 0.618."""
+    """Test confidence = min(visits / F(8), Ï†â»Â¹) caps at 0.618."""
     state = "confidence:test:1"
     
     # Update many times
@@ -320,9 +320,9 @@ def test_confidence_bounded_by_phi_inv(qtable: QTable) -> None:
     assert confidence <= PHI_INV
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # STATS & INTROSPECTION TESTS
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 def test_stats_tracks_updates(qtable: QTable) -> None:
     """Test stats() tracks total_updates."""
@@ -338,7 +338,7 @@ def test_stats_tracks_updates(qtable: QTable) -> None:
 
 
 def test_matrix_stats_coverage(qtable: QTable) -> None:
-    """Test matrix_stats() reports coverage of 7×7×7 hypercube."""
+    """Test matrix_stats() reports coverage of 7Ã—7Ã—7 hypercube."""
     # Add some states
     qtable.update(LearningSignal(state_key="CODE:JUDGE:PRESENT:1", action="WAG", reward=0.5))
     qtable.update(LearningSignal(state_key="CODE:JUDGE:FUTURE:2", action="WAG", reward=0.5))
@@ -387,9 +387,9 @@ def test_reset_clears_state(qtable: QTable) -> None:
     assert stats_after["entries"] == 0
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # PREDICT_Q TESTS
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 def test_predict_q_returns_value_for_known_state(qtable: QTable) -> None:
     """Test predict_q() returns Q-value for known state-action."""
@@ -414,9 +414,9 @@ def test_predict_q_returns_default_for_unknown_action(qtable: QTable) -> None:
     assert q == 0.5
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # LOAD FROM ENTRIES TESTS
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 def test_load_from_entries_warm_start(qtable: QTable) -> None:
     """Test load_from_entries() allows warm start from external source."""
@@ -436,9 +436,9 @@ def test_load_from_entries_warm_start(qtable: QTable) -> None:
     assert qtable.predict_q("load:test:2", "GROWL") == 0.3
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # EDGE CASES
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 def test_reward_clamped_to_0_1(qtable: QTable) -> None:
     """Test reward is clamped to [0, 1]."""

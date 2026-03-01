@@ -2,10 +2,10 @@
 Tests for Phase 2: MCP Learning Feedback.
 
 Verifies that:
-1. ask_cynic → orchestrator.run() returns real Judgment result
-2. learn endpoint → emits USER_FEEDBACK event on CORE bus
+1. ask_cynic â†’ orchestrator.run() returns real Judgment result
+2. learn endpoint â†’ emits USER_FEEDBACK event on CORE bus
 3. Fallback behavior when orchestrator unavailable
-4. observe_cynic → returns state snapshot
+4. observe_cynic â†’ returns state snapshot
 """
 from __future__ import annotations
 
@@ -19,9 +19,9 @@ from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.event_bus import CoreEvent
 from cynic.kernel.core.judgment import Cell, Judgment
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # TEST: ask_cynic generates real Judgment and learning event
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @pytest.mark.asyncio
 async def test_ask_cynic_returns_judgment_result():
@@ -130,9 +130,9 @@ async def test_ask_cynic_requires_prompt():
     assert "prompt required" in response["error"]["message"]
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # TEST: observe_cynic returns health snapshot
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @pytest.mark.asyncio
 async def test_observe_cynic_returns_snapshot():
@@ -187,9 +187,9 @@ async def test_observe_cynic_returns_snapshot():
         assert result["registry"]["healthy"] == 8
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # TEST: learn endpoint emits USER_FEEDBACK event
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @pytest.mark.asyncio
 async def test_learn_endpoint_emits_user_feedback_event(monkeypatch):
@@ -273,7 +273,7 @@ async def test_learn_endpoint_continues_on_event_emission_failure(monkeypatch):
         "update_qtable": True,
     })
 
-    # Call handler — should NOT raise, should return success
+    # Call handler â€” should NOT raise, should return success
     response = await server._handle_learn(request)
 
     # Verify response is still successful (status 200)
@@ -281,9 +281,9 @@ async def test_learn_endpoint_continues_on_event_emission_failure(monkeypatch):
     assert response_json["status"] == "ok"
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # TEST: MCP_TOOL_CALLED event always emitted before handler
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @pytest.mark.asyncio
 async def test_mcp_tool_called_event_emitted_before_handler(monkeypatch):
@@ -326,14 +326,14 @@ async def test_mcp_tool_called_event_emitted_before_handler(monkeypatch):
     assert first_event.type == CoreEvent.MCP_TOOL_CALLED
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# TEST: Integration — ask_cynic + learn flow
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# TEST: Integration â€” ask_cynic + learn flow
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @pytest.mark.asyncio
 async def test_ask_cynic_learn_integration():
     """
-    End-to-end: ask_cynic judgment → user rates → learn endpoint
+    End-to-end: ask_cynic judgment â†’ user rates â†’ learn endpoint
 
     Verifies:
     1. ask_cynic returns judgment

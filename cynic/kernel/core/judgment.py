@@ -1,8 +1,8 @@
 """
-CYNIC Judgment Models — Pydantic v2
+CYNIC Judgment Models â€” Pydantic v2
 
 All Pydantic models for the judgment pipeline.
-φ-bounds enforced at model level (LAW 5: database constraints mirror these).
+Ï†-bounds enforced at model level (LAW 5: database constraints mirror these).
 """
 
 from __future__ import annotations
@@ -15,9 +15,9 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from cynic.kernel.core.phi import MAX_CONFIDENCE, MAX_Q_SCORE, PHI_INV
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # CORE IDENTIFIERS
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 def new_id() -> str:
@@ -25,16 +25,16 @@ def new_id() -> str:
     return str(uuid.uuid4())
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# ∞^N SPACE CELL (A specific state in the infinite hypercube)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# âˆž^N SPACE CELL (A specific state in the infinite hypercube)
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class Cell(BaseModel):
     """
-    A specific point/state in the ∞^N hypercube.
+    A specific point/state in the âˆž^N hypercube.
 
-    7 REALITY × 7 ANALYSIS × 7 TIME + structural dimensions.
+    7 REALITY Ã— 7 ANALYSIS Ã— 7 TIME + structural dimensions.
     Each Cell is what CYNIC judges, navigates, and learns from.
     """
 
@@ -94,9 +94,9 @@ class Cell(BaseModel):
         return f"{self.reality}:{self.analysis}:{self.time_dim}:{self.lod}"
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # LAZY MATERIALIZATION: time_dim inference
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 _TIME_DIM_KEYWORDS: dict = {
     "PAST": {
@@ -182,18 +182,18 @@ def infer_time_dim(content: str, context: str = "", analysis: str = "JUDGE") -> 
     """
     Lazy Materialization of time_dim: infer from content/context keywords.
 
-    7 time dimensions (7×7×7 matrix, 3rd axis):
-      PAST         — historical data, diffs, git history
-      PRESENT      — current state (default)
-      FUTURE       — plans, predictions, roadmaps
-      CYCLE        — recurring patterns, sprints, deployments
-      TREND        — directional changes over time
-      EMERGENCE    — novel/unexpected patterns
-      TRANSCENDENCE— meta-level self-analysis (analysis=EMERGE always maps here)
+    7 time dimensions (7Ã—7Ã—7 matrix, 3rd axis):
+      PAST         â€” historical data, diffs, git history
+      PRESENT      â€” current state (default)
+      FUTURE       â€” plans, predictions, roadmaps
+      CYCLE        â€” recurring patterns, sprints, deployments
+      TREND        â€” directional changes over time
+      EMERGENCE    â€” novel/unexpected patterns
+      TRANSCENDENCEâ€” meta-level self-analysis (analysis=EMERGE always maps here)
 
     This enables Lazy Materialization: Q-Table states are created on-demand
     as CYNIC encounters data in each time dimension, not pre-computed.
-    343 states (7×7×7) materialize progressively from real data.
+    343 states (7Ã—7Ã—7) materialize progressively from real data.
     """
     # TRANSCENDENCE: EMERGE analysis is always meta-level
     if analysis == "EMERGE":
@@ -201,7 +201,7 @@ def infer_time_dim(content: str, context: str = "", analysis: str = "JUDGE") -> 
 
     text = (str(content) + " " + context).lower()
 
-    # Score each time_dim by keyword matches; pick highest (ties → PRESENT)
+    # Score each time_dim by keyword matches; pick highest (ties â†’ PRESENT)
     scores: dict = {dim: 0 for dim in _TIME_DIM_KEYWORDS}
     for dim, keywords in _TIME_DIM_KEYWORDS.items():
         scores[dim] = sum(1 for kw in keywords if kw in text)
@@ -210,18 +210,18 @@ def infer_time_dim(content: str, context: str = "", analysis: str = "JUDGE") -> 
     return best_dim if best_score > 0 else "PRESENT"
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # JUDGMENT OUTPUT
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class Judgment(BaseModel):
     """
     The result of judging a Cell.
 
-    φ-bounds enforced:
-    - q_score ∈ [0, 61.8]  — never exceed φ⁻¹ × 100
-    - confidence ∈ [0, φ⁻¹]  — max 61.8%
+    Ï†-bounds enforced:
+    - q_score âˆˆ [0, 61.8]  â€” never exceed Ï†â»Â¹ Ã— 100
+    - confidence âˆˆ [0, Ï†â»Â¹]  â€” max 61.8%
     """
 
     judgment_id: str = Field(default_factory=new_id)
@@ -237,6 +237,8 @@ class Judgment(BaseModel):
     )
     verdict: str = Field(description="HOWL/WAG/GROWL/BARK")
     confidence: float = Field(ge=0.0, le=MAX_CONFIDENCE, description="Confidence ∈ [0, 0.618]")
+    reasoning: str = Field(default="", description="Human-readable explanation of the judgment")
+
 
     # Breakdown
     axiom_scores: dict[str, float] = Field(default_factory=dict)
@@ -272,9 +274,9 @@ class Judgment(BaseModel):
     @field_validator("q_score")
     @classmethod
     def validate_q_score(cls, v: float) -> float:
-        # φ enforcement (LAW 5)
+        # Ï† enforcement (LAW 5)
         if v > MAX_Q_SCORE:
-            raise ValueError(f"q_score {v} exceeds φ⁻¹ limit of {MAX_Q_SCORE}")
+            raise ValueError(f"q_score {v} exceeds Ï†â»Â¹ limit of {MAX_Q_SCORE}")
         return v
 
     @model_validator(mode="after")
@@ -301,6 +303,7 @@ class Judgment(BaseModel):
             "q_score": round(self.q_score, 3),
             "verdict": self.verdict,
             "confidence": round(self.confidence, 3),
+            "reasoning": self.reasoning,
             "axiom_scores": {k: round(v, 2) for k, v in self.axiom_scores.items()},
             "active_axioms": self.active_axioms,
             "dog_votes": {k: round(v, 3) for k, v in self.dog_votes.items()},
@@ -315,9 +318,9 @@ class Judgment(BaseModel):
         }
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # CONSENSUS RESULT (from PBFT Dogs)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class ConsensusResult(BaseModel):
@@ -343,9 +346,9 @@ class ConsensusResult(BaseModel):
         return self.votes >= self.quorum
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # E-SCORE (Reputation)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class EScoreDimension(BaseModel):
@@ -358,7 +361,7 @@ class EScoreDimension(BaseModel):
 
 
 class EScore(BaseModel):
-    """Agent reputation score across 7 φ-weighted dimensions."""
+    """Agent reputation score across 7 Ï†-weighted dimensions."""
 
     agent_id: str
     total: float = Field(ge=0.0, le=100.0, description="Total E-Score [0, 100]")
@@ -367,13 +370,13 @@ class EScore(BaseModel):
 
     @property
     def trust_weight(self) -> float:
-        """φ-amplified trust weight for consensus voting."""
+        """Ï†-amplified trust weight for consensus voting."""
         return (self.total / 100.0) ** PHI_INV
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # LEARNING EVENTS
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class LearningEvent(BaseModel):

@@ -1,5 +1,5 @@
 """
-CYNIC Chat Tools — 6 coding tools in Ollama/OpenAI JSON Schema format.
+CYNIC Chat Tools â€” 6 coding tools in Ollama/OpenAI JSON Schema format.
 
 These are the hands of CYNIC Code: bash, read, write, edit, glob, grep.
 Matches Claude Code's tool surface but runs 100% local via Ollama.
@@ -9,9 +9,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # TOOL SCHEMAS (Ollama/OpenAI function calling format)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 TOOL_BASH = {
     "type": "function",
@@ -65,7 +65,7 @@ TOOL_WRITE = {
     "type": "function",
     "function": {
         "name": "write",
-        "description": "Write content to a file (creates or overwrites). Use for new files only — prefer edit for existing files.",
+        "description": "Write content to a file (creates or overwrites). Use for new files only â€” prefer edit for existing files.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -168,9 +168,9 @@ DANGEROUS_TOOLS: frozenset[str] = frozenset({"bash", "write", "edit"})
 TOOL_NAMES: frozenset[str] = frozenset(t["function"]["name"] for t in TOOLS)
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # DATACLASSES
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @dataclass
 class ToolCall:
@@ -225,7 +225,7 @@ class ToolResult:
     def to_message_content(self) -> str:
         """Format for inclusion in chat messages back to the LLM."""
         if self.blocked:
-            return f"[BLOCKED by CYNIC Guardian — verdict: {self.verdict} Q={self.q_score:.1f}] {self.error}"
+            return f"[BLOCKED by CYNIC Guardian â€” verdict: {self.verdict} Q={self.q_score:.1f}] {self.error}"
         if self.error:
             return f"[ERROR] {self.error}"
         return self.output

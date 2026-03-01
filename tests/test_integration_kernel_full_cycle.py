@@ -1,5 +1,5 @@
 """
-OPTION C: COMPREHENSIVE INTEGRATION TESTS — Full Kernel Cycle
+OPTION C: COMPREHENSIVE INTEGRATION TESTS â€” Full Kernel Cycle
 
 Tests the complete CYNIC kernel startup, dependency injection, handler wiring,
 consciousness transitions, and learning loop integration.
@@ -9,7 +9,7 @@ by validating:
 1. Kernel startup with all 4 cores properly initialized
 2. Dependency container isolation (no cross-instance pollution)
 3. Handler event flow and subscription integrity
-4. Consciousness level transitions (REFLEX → MICRO → MACRO)
+4. Consciousness level transitions (REFLEX â†’ MICRO â†’ MACRO)
 5. Learning loop integration and Q-table persistence
 
 Run locally via:
@@ -264,7 +264,7 @@ class TestHandlerEventFlow:
 
 class TestConsciousnessLevelTransitions:
     """
-    Test 4: Consciousness level transitions (REFLEX → MICRO → MACRO → META).
+    Test 4: Consciousness level transitions (REFLEX â†’ MICRO â†’ MACRO â†’ META).
 
     Validates:
     - Level activation based on triggers
@@ -279,16 +279,16 @@ class TestConsciousnessLevelTransitions:
         # Minimal validation: consciousness levels should be defined somewhere
         from cynic.kernel.core import phi
 
-        # Verify φ constants are available (used in level thresholds)
+        # Verify Ï† constants are available (used in level thresholds)
         assert hasattr(phi, 'MAX_Q_SCORE')
         assert phi.MAX_Q_SCORE == 100.0
 
-        # Level thresholds (from code, φ-derived)
+        # Level thresholds (from code, Ï†-derived)
         level_thresholds = {
             "REFLEX": 0,          # Always active
-            "MICRO": 0.382,       # φ⁻²
-            "MACRO": 0.618,       # φ⁻¹
-            "META": 0.888,        # φ²
+            "MICRO": 0.382,       # Ï†â»Â²
+            "MACRO": 0.618,       # Ï†â»Â¹
+            "META": 0.888,        # Ï†Â²
         }
 
         # Verify ascending order
@@ -420,18 +420,18 @@ class TestKernelIntegrationSummary:
         # This test documents which tests ARE runnable without external services
 
         checklist = {
-            "✓ Kernel startup": "RUNNABLE",
-            "✓ 4 cores initialized": "RUNNABLE",
-            "✓ Dogs collection": "RUNNABLE (may skip on CI if AppContainer unavailable)",
-            "✓ Container isolation": "RUNNABLE",
-            "✓ Thread-safe access": "RUNNABLE",
-            "✓ Event bus flow": "RUNNABLE",
-            "✓ Event order": "RUNNABLE",
-            "✓ Consciousness levels": "RUNNABLE",
-            "✓ Escalation structure": "RUNNABLE (may skip on CI if AppContainer unavailable)",
-            "✓ Q-table access": "RUNNABLE (may skip on CI if AppContainer unavailable)",
-            "✓ Learning signal": "RUNNABLE",
-            "✓ Learning loop": "RUNNABLE (may skip on CI if AppContainer unavailable)",
+            "âœ“ Kernel startup": "RUNNABLE",
+            "âœ“ 4 cores initialized": "RUNNABLE",
+            "âœ“ Dogs collection": "RUNNABLE (may skip on CI if AppContainer unavailable)",
+            "âœ“ Container isolation": "RUNNABLE",
+            "âœ“ Thread-safe access": "RUNNABLE",
+            "âœ“ Event bus flow": "RUNNABLE",
+            "âœ“ Event order": "RUNNABLE",
+            "âœ“ Consciousness levels": "RUNNABLE",
+            "âœ“ Escalation structure": "RUNNABLE (may skip on CI if AppContainer unavailable)",
+            "âœ“ Q-table access": "RUNNABLE (may skip on CI if AppContainer unavailable)",
+            "âœ“ Learning signal": "RUNNABLE",
+            "âœ“ Learning loop": "RUNNABLE (may skip on CI if AppContainer unavailable)",
         }
 
         # Print checklist for documentation

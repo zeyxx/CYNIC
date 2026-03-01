@@ -1,4 +1,4 @@
-"""PHASE 1: Direct actions — ACT_REQUESTED → UniversalActuator execution."""
+"""PHASE 1: Direct actions â€” ACT_REQUESTED â†’ UniversalActuator execution."""
 
 from __future__ import annotations
 
@@ -6,20 +6,20 @@ import logging
 from typing import TYPE_CHECKING
 
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError
-from cynic.kernel.organism.handlers.base import HandlerGroup
-from cynic.kernel.organism.handlers.services import MetabolicServices
+from cynic.kernel.organism.reflexes.base import HandlerGroup
+from cynic.kernel.organism.reflexes.services import MetabolicServices
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.brain.learning.qlearning import QTable
     from cynic.kernel.organism.metabolism.actuator import UniversalActuator
 
-logger = logging.getLogger("cynic.kernel.organism.handlers.direct")
+logger = logging.getLogger("cynic.kernel.organism.reflexes.direct")
 
 
 class DirectActionsHandler(HandlerGroup):
-    """ACT_REQUESTED → UniversalActuator.dispatch() — real execution, real feedback."""
+    """ACT_REQUESTED â†’ UniversalActuator.dispatch() â€” real execution, real feedback."""
 
-    _EXECUTION_WINDOW = 13  # F(7) — rolling success tracking
+    _EXECUTION_WINDOW = 13  # F(7) â€” rolling success tracking
 
     def __init__(
         self,
@@ -55,7 +55,7 @@ class DirectActionsHandler(HandlerGroup):
         ]
 
     async def _on_act_requested(self, event: Event) -> None:
-        """ACT_REQUESTED → UniversalActuator.dispatch() → real execution."""
+        """ACT_REQUESTED â†’ UniversalActuator.dispatch() â†’ real execution."""
         try:
             p = event.dict_payload or {}
             action_type = p.get("action_type", "unknown")

@@ -1,5 +1,5 @@
 """
-PHASE 3: Event-First API Integration — EMPIRICAL VERSION (NO MOCKS)
+PHASE 3: Event-First API Integration â€” EMPIRICAL VERSION (NO MOCKS)
 
 Tests the complete event-driven pipeline from HTTP request to state update.
 Validates:

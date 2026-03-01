@@ -1,9 +1,9 @@
 """
-Metabolism Immune System — Guardrails and Safety
+Metabolism Immune System â€” Guardrails and Safety
 
 Components:
-- alignment_checker.py: 5 axioms validation (γ2 loop)
-- power_limiter.py: Resource budget enforcement (γ1 loop)
+- alignment_checker.py: 5 axioms validation (Î³2 loop)
+- power_limiter.py: Resource budget enforcement (Î³1 loop)
 - human_approval_gate.py: Human-in-the-loop gating
 - transparency_audit.py: Decision auditing
 """

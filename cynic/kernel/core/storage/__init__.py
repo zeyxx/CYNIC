@@ -1,5 +1,5 @@
 """
-CYNIC Storage Layer — Abstract persistence for organism state.
+CYNIC Storage Layer â€” Abstract persistence for organism state.
 
 Provides pluggable storage backends for CYNIC's data:
 - Judgments, decisions, learning records

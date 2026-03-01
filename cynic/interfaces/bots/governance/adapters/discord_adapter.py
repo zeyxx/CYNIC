@@ -6,21 +6,21 @@ It translates Discord events into platform-agnostic BotCommand objects and conve
 BotResponse objects back to Discord embeds, buttons, and messages.
 
 Architecture:
-┌─────────────────────────────────────────────────────────┐
-│          DISCORD ADAPTER FLOW                            │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  Discord Event (interaction, message, etc)              │
-│  ↓ (Discord adapter translates)                         │
-│  BotCommand(name, args, user_id, platform="discord")   │
-│  ↓ (Core logic routes)                                  │
-│  UnifiedConsciousState.judge/record/query              │
-│  ↓ (Core returns)                                       │
-│  BotResponse(success, message, data, ephemeral)        │
-│  ↓ (Discord adapter converts)                          │
-│  Discord Embed + Buttons + Message                     │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚          DISCORD ADAPTER FLOW                            â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚                                                         â”‚
+â”‚  Discord Event (interaction, message, etc)              â”‚
+â”‚  â†“ (Discord adapter translates)                         â”‚
+â”‚  BotCommand(name, args, user_id, platform="discord")   â”‚
+â”‚  â†“ (Core logic routes)                                  â”‚
+â”‚  UnifiedConsciousState.judge/record/query              â”‚
+â”‚  â†“ (Core returns)                                       â”‚
+â”‚  BotResponse(success, message, data, ephemeral)        â”‚
+â”‚  â†“ (Discord adapter converts)                          â”‚
+â”‚  Discord Embed + Buttons + Message                     â”‚
+â”‚                                                         â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 
 Key principles:
 1. DiscordAdapter implements BotInterface contract
@@ -54,7 +54,7 @@ class DiscordAdapter(BotInterface):
     Discord adapter implementing unified BotInterface.
 
     Bridges Discord interactions to CYNIC consciousness system. Translates
-    Discord events ↔ BotCommand/BotResponse and handles platform-specific
+    Discord events â†” BotCommand/BotResponse and handles platform-specific
     formatting (embeds, buttons, views).
 
     Attributes:
@@ -166,9 +166,9 @@ class DiscordAdapter(BotInterface):
                 ephemeral=True,
             )
 
-    # ════════════════════════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     # COMMAND HANDLERS
-    # ════════════════════════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     async def _handle_propose(self, command: BotCommand) -> BotResponse:
         """

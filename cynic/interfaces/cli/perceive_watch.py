@@ -1,7 +1,7 @@
 """
-PERCEIVE watch — Real git change detection + JUDGE scoring.
+PERCEIVE watch â€” Real git change detection + JUDGE scoring.
 
-Demonstrates the real PERCEIVE → JUDGE loop (Phase 2):
+Demonstrates the real PERCEIVE â†’ JUDGE loop (Phase 2):
   1. Watch git working tree for actual changes
   2. Emit PERCEIVE events with real file deltas
   3. Get real JUDGE scores from Ollama
@@ -25,7 +25,7 @@ async def cmd_perceive_watch() -> None:
     """Watch git tree for real changes, emit PERCEIVE, score with JUDGE."""
     try:
         # Import kernel components
-        from cynic.kernel.core.event_bus import get_core_bus, reset_all_buses
+        from cynic.kernel.core.event_bus import CoreEvent, Event
         from cynic.kernel.organism.brain.llm.adapter import LLMRegistry
         from cynic.kernel.organism.perception.senses.workers.git import GitWatcher
 

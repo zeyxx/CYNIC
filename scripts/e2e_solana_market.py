@@ -1,5 +1,5 @@
 """
-CYNIC Solana Market Stability Test — High Fidelity E2E.
+CYNIC Solana Market Stability Test â€” High Fidelity E2E.
 
 Validates that:
 1. MARKET/SOLANA reality payloads are correctly validated.
@@ -16,11 +16,11 @@ from pathlib import Path
 sys.path.append(os.getcwd())
 
 from cynic.kernel.organism.organism import awaken
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.realities import MarketPayload, SolanaPayload
 
 async def solana_market_test():
-    print("\n--- 🌊 CYNIC SOLANA MARKET STABILITY TEST ---")
+    print("\n--- ðŸŒŠ CYNIC SOLANA MARKET STABILITY TEST ---")
     
     # 1. AWAKEN
     o = await awaken()
@@ -76,12 +76,12 @@ async def solana_market_test():
             print(f"     Reasoning: {j.reasoning[:100]}...")
 
         if stats['total_judgments'] >= 1:
-            print("\n✅ SOLANA MARKET STABILITY SUCCESSFUL: Pipeline is 100% operational.")
+            print("\nâœ… SOLANA MARKET STABILITY SUCCESSFUL: Pipeline is 100% operational.")
         else:
-            print("\n❌ STABILITY FAILED: No judgments recorded.")
+            print("\nâŒ STABILITY FAILED: No judgments recorded.")
 
     except Exception as e:
-        print(f"\n❌ TEST CRASHED: {e}")
+        print(f"\nâŒ TEST CRASHED: {e}")
         import traceback
         traceback.print_exc()
     finally:

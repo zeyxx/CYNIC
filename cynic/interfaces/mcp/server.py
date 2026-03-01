@@ -1,10 +1,10 @@
 """
-MCP Server — Lightweight async bootstrap bridge.
+MCP Server â€” Lightweight async bootstrap bridge.
 
 Exposes CYNIC organism state to Claude Code via three endpoints:
-- POST /observe  — Get current CYNIC state
-- POST /act      — Execute Claude Code action
-- POST /learn    — Human feedback → Q-Table learning
+- POST /observe  â€” Get current CYNIC state
+- POST /act      â€” Execute Claude Code action
+- POST /learn    â€” Human feedback â†’ Q-Table learning
 
 Uses aiohttp (stdlib-adjacent) for minimal dependencies.
 Connects to ServiceStateRegistry (Component 1 Tier 1 nervous system).
@@ -34,14 +34,14 @@ from cynic.interfaces.mcp.models import (
     RegistrySnapshot,
 )
 from cynic.interfaces.mcp.utils import setup_logging
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.events_schema import UserFeedbackPayload
 
 logger = logging.getLogger("cynic.interfaces.mcp.server")
 
 
 class MCPServer:
-    """MCP bootstrap bridge — connects Claude Code ↔ CYNIC organism."""
+    """MCP bootstrap bridge â€” connects Claude Code â†” CYNIC organism."""
 
     def __init__(
         self,
@@ -93,9 +93,9 @@ class MCPServer:
         self.app.router.add_get("/health", self._handle_health)
         logger.info("Routes registered: /observe, /act, /learn, /health")
 
-    # ═══════════════════════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     # ENDPOINT HANDLERS
-    # ═══════════════════════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     async def _handle_observe(self, request: web.Request) -> web.Response:
         """
@@ -119,7 +119,7 @@ class MCPServer:
                     status=503,
                 )
 
-            # Get ServiceStateRegistry snapshot (Component 1) — async call
+            # Get ServiceStateRegistry snapshot (Component 1) â€” async call
             snapshot = await state.service_registry.snapshot()
             registry_snap = RegistrySnapshot(
                 timestamp=snapshot.timestamp_ms / 1000.0,  # Convert ms to seconds
@@ -186,7 +186,7 @@ class MCPServer:
                     status=503,
                 )
 
-            # ── REAL EXECUTION: Use ClaudeCodeRunner ──────────────────────────
+            # â”€â”€ REAL EXECUTION: Use ClaudeCodeRunner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             if not state.runner:
                 return self._json_response(
                     ErrorResponse(
@@ -264,7 +264,7 @@ class MCPServer:
 
     async def _handle_learn(self, request: web.Request) -> web.Response:
         """
-        Human feedback → Q-Table learning (REAL, not mock).
+        Human feedback â†’ Q-Table learning (REAL, not mock).
 
         Takes feedback signal (rating: -1 to +1) and updates Q-Table.
         Rating is normalized to reward [0, 1] for TD(0) update.
@@ -287,7 +287,7 @@ class MCPServer:
                     status=503,
                 )
 
-            # ── REAL Q-TABLE UPDATE ─────────────────────────────────────────
+            # â”€â”€ REAL Q-TABLE UPDATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             if not state.qtable:
                 return self._json_response(
                     ErrorResponse(
@@ -300,7 +300,7 @@ class MCPServer:
 
             # Look up judgment by ID to get state_key and action
             # For now, extract from signal context (will be passed by client)
-            # Rating: -1 to +1 → Reward: 0 to 1 (normalize via (rating + 1) / 2)
+            # Rating: -1 to +1 â†’ Reward: 0 to 1 (normalize via (rating + 1) / 2)
             reward = (req.signal.rating + 1.0) / 2.0
 
             # Build learning signal - use judgment_id as state_key (simplified mapping)
@@ -332,7 +332,7 @@ class MCPServer:
                 ))
             except Exception as event_err:
                 logger.warning("Failed to emit USER_FEEDBACK event: %s", event_err)
-                # Don't fail the whole learn endpoint — continue
+                # Don't fail the whole learn endpoint â€” continue
 
             from cynic.interfaces.mcp.models import LearnResult
             result = LearnResult(
@@ -363,9 +363,9 @@ class MCPServer:
         """Health check endpoint."""
         return self._json_response({"status": "ok", "timestamp": time.time()})
 
-    # ═══════════════════════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     # RESPONSE HELPERS
-    # ═══════════════════════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     def _json_response(
         self,

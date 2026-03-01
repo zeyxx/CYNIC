@@ -1,5 +1,5 @@
 """
-CYNIC Cloud API Adapter — Anthropic & Google.
+CYNIC Cloud API Adapter â€” Anthropic & Google.
 
 Final fallback for maximum complexity.
 Requires API keys and internet connection.

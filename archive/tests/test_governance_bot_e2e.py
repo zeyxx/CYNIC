@@ -3,7 +3,7 @@ End-to-End Governance Bot Integration Test
 
 Tests the complete governance workflow:
 1. Proposal submission (proposal created)
-2. CYNIC judgment (orchestrator.run → verdict + q_score)
+2. CYNIC judgment (orchestrator.run â†’ verdict + q_score)
 3. Community voting (YES/NO/ABSTAIN votes recorded)
 4. Voting closes (approval_status determined)
 5. Community rates satisfaction (1-5 stars)
@@ -71,7 +71,7 @@ class ProposalRound:
     @property
     def satisfaction_normalized(self) -> float:
         """Normalize satisfaction 1-5 to 0-1 for Q-Table."""
-        return (self.satisfaction_rating - 1.0) / 4.0  # 1→0.0, 3→0.5, 5→1.0
+        return (self.satisfaction_rating - 1.0) / 4.0  # 1â†’0.0, 3â†’0.5, 5â†’1.0
 
 
 class TestGovernanceBotE2E:
@@ -97,7 +97,7 @@ class TestGovernanceBotE2E:
 
         # Verify proposal state
         assert proposal.approval_percentage == 75.0  # 15/20 = 75%
-        assert proposal.actual_verdict == "HOWL"  # 75% approval → HOWL (strong consensus)
+        assert proposal.actual_verdict == "HOWL"  # 75% approval â†’ HOWL (strong consensus)
         assert proposal.satisfaction_normalized == pytest.approx(0.875)
 
         # Create learning outcome
@@ -114,7 +114,7 @@ class TestGovernanceBotE2E:
 
         # Verify learning
         assert len(session.outcomes) == 1
-        # HOWL→HOWL: 0.5 + 0.1 * (0.875 - 0.5) = 0.5375
+        # HOWLâ†’HOWL: 0.5 + 0.1 * (0.875 - 0.5) = 0.5375
         assert q_table.get_q_value("HOWL", "HOWL") == pytest.approx(0.5375)
 
     def test_multi_round_proposal_learning(self):
@@ -184,11 +184,11 @@ class TestGovernanceBotE2E:
 
 
         # Verify specific Q-value transitions
-        # HOWL→HOWL appeared in round 1 and 5 with high satisfaction
+        # HOWLâ†’HOWL appeared in round 1 and 5 with high satisfaction
         howl_correct = q_table.get_q_value("HOWL", "HOWL")
         assert howl_correct > 0.5  # Should increase
 
-        # BARK→BARK appeared in round 4 with high satisfaction
+        # BARKâ†’BARK appeared in round 4 with high satisfaction
         bark_correct = q_table.get_q_value("BARK", "BARK")
         assert bark_correct > 0.5
 
@@ -221,7 +221,7 @@ class TestGovernanceBotE2E:
         q_table.update(outcome)
         updated_q = q_table.get_q_value("BARK", "WAG")
 
-        # BARK→WAG should increase slightly (moderate satisfaction 3.0 → 0.5)
+        # BARKâ†’WAG should increase slightly (moderate satisfaction 3.0 â†’ 0.5)
         # Q_new = 0.5 + 0.1 * (0.5 - 0.5) = 0.5
         assert updated_q == pytest.approx(0.5)
 

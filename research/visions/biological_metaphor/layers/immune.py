@@ -1,5 +1,5 @@
 """
-CYNIC Immune System Layer (Layer 9) — Defense and anomaly detection.
+CYNIC Immune System Layer (Layer 9) â€” Defense and anomaly detection.
 
 Part of the 10-layer organism architecture, the immune layer protects CYNIC
 from malicious inputs, corrupted data, and hostile attack vectors.

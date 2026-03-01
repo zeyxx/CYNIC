@@ -230,7 +230,7 @@ class ReputationManager:
             score.expertise_level
         ]
 
-        # Geometric mean for φ-bounded confidence
+        # Geometric mean for Ï†-bounded confidence
         import math
         if all(m > 0 for m in metrics):
             # Avoid taking nth root of 0

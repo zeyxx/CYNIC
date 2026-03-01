@@ -1,5 +1,5 @@
 """
-Federation Router — P2P Knowledge Sharing Interface.
+Federation Router â€” P2P Knowledge Sharing Interface.
 """
 from __future__ import annotations
 

@@ -1,10 +1,10 @@
 """
-CYNIC Storage Interface — One ABC for all storage backends.
+CYNIC Storage Interface â€” One ABC for all storage backends.
 
 Both SurrealDB and PostgreSQL implement this interface.
 state.py references StorageInterface, never concrete classes.
 
-φ-Law: BURN — one interface, not two parallel implementations.
+Ï†-Law: BURN â€” one interface, not two parallel implementations.
 """
 
 from __future__ import annotations
@@ -14,9 +14,9 @@ from typing import Any
 
 from cynic.kernel.core.formulas import ACT_LOG_CAP, DECISION_TRACE_CAP
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # REPOSITORY INTERFACES
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class JudgmentRepoInterface(ABC):
@@ -147,9 +147,9 @@ class AxiomFacetRepoInterface(ABC):
     async def get_all(self, axiom: str, reality: str) -> list[dict[str, Any]]: ...
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# STORAGE INTERFACE — the ONE abstraction
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# STORAGE INTERFACE â€” the ONE abstraction
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class StorageInterface(ABC):
@@ -160,7 +160,7 @@ class StorageInterface(ABC):
     state.py only references StorageInterface, never concrete classes.
     """
 
-    # ── Lifecycle ──────────────────────────────────────────────────────────
+    # â”€â”€ Lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @abstractmethod
     async def connect(self) -> None: ...
@@ -171,7 +171,7 @@ class StorageInterface(ABC):
     @abstractmethod
     async def ping(self) -> bool: ...
 
-    # ── Repository accessors ──────────────────────────────────────────────
+    # â”€â”€ Repository accessors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @property
     @abstractmethod

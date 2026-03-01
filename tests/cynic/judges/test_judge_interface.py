@@ -5,8 +5,8 @@ These tests verify:
 1. JudgeInterface is abstract
 2. All judges return UnifiedJudgment
 3. All judges are async
-4. BaseJudge provides helper methods (φ-bounding, tracking)
-5. Confidence is φ-bounded to PHI_INV (0.618)
+4. BaseJudge provides helper methods (Ï†-bounding, tracking)
+5. Confidence is Ï†-bounded to PHI_INV (0.618)
 """
 
 import asyncio

@@ -1,5 +1,5 @@
 """
-CYNIC ws router — ws/stream · ws/events
+CYNIC ws router â€” ws/stream Â· ws/events
 """
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import time
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.events_schema import ActRequestedPayload
 from cynic.kernel.core.phi import PHI
 
@@ -18,24 +18,24 @@ logger = logging.getLogger("cynic.interfaces.api.server")
 router_ws = APIRouter(tags=["ws"])
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # WS /ws/stream  (real-time event stream)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_ws.websocket("/ws/stream")
 async def ws_stream(websocket: WebSocket) -> None:
     """
-    WebSocket stream — bidirectional real-time kernel events.
+    WebSocket stream â€” bidirectional real-time kernel events.
 
     Events streamed (server -> client):
-      JUDGMENT_CREATED  — every judgment result
-      LEARNING_EVENT    — Q-table updates
-      META_CYCLE        — periodic evolution ticks
+      JUDGMENT_CREATED  â€” every judgment result
+      LEARNING_EVENT    â€” Q-table updates
+      META_CYCLE        â€” periodic evolution ticks
 
     Messages received (client -> server):
-      {"type": "ACT", "action": "...", "target": "..."} — emitted as ACT_REQUESTED
-      {"type": "ping"}  — responds with {"type": "pong", "ts": ...}
-      Any other type    — ignored silently
+      {"type": "ACT", "action": "...", "target": "..."} â€” emitted as ACT_REQUESTED
+      {"type": "ping"}  â€” responds with {"type": "pong", "ts": ...}
+      Any other type    â€” ignored silently
 
     Protocol:
       connect -> {"type": "connected", "phi": 1.618...}
@@ -57,7 +57,7 @@ async def ws_stream(websocket: WebSocket) -> None:
                 "ts": time.time(),
             })
         except asyncio.QueueFull:
-            pass  # Drop silently — client is slow, kernel must not block
+            pass  # Drop silently â€” client is slow, kernel must not block
 
     stream_events = [
         CoreEvent.JUDGMENT_CREATED,
@@ -75,7 +75,7 @@ async def ws_stream(websocket: WebSocket) -> None:
                 msg = await asyncio.wait_for(queue.get(), timeout=30.0)
                 await websocket.send_json(msg)
             except TimeoutError:
-                # Keepalive ping — proves connection is alive
+                # Keepalive ping â€” proves connection is alive
                 try:
                     await websocket.send_json({"type": "ping", "ts": time.time()})
                 except EventBusError as exc:
@@ -117,9 +117,9 @@ async def ws_stream(websocket: WebSocket) -> None:
             bus.off(ev_type, on_event)
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # WS /ws/consciousness/ecosystem  (live ecosystem snapshot stream)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_ws.websocket("/ws/consciousness/ecosystem")
 async def ws_consciousness_ecosystem(websocket: WebSocket) -> None:
@@ -198,7 +198,7 @@ async def ws_consciousness_ecosystem(websocket: WebSocket) -> None:
             "phi": PHI,
             "initial_snapshot": initial,
         })
-        # Run both loops — if either fails, the whole connection closes
+        # Run both loops â€” if either fails, the whole connection closes
         await asyncio.gather(_emit_loop(), _periodic_loop())
     except WebSocketDisconnect:
         pass
@@ -206,33 +206,33 @@ async def ws_consciousness_ecosystem(websocket: WebSocket) -> None:
         logger.error("ws/consciousness/ecosystem error: %s", exc, exc_info=True)
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # WS /ws/events  (read-only all-events stream with client-side filter)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_ws.websocket("/ws/events")
 async def ws_events(websocket: WebSocket) -> None:
     """
-    Read-only WebSocket — streams ALL CoreEvents with client-side filtering.
+    Read-only WebSocket â€” streams ALL CoreEvents with client-side filtering.
 
     Protocol:
-      connect  → {"type": "connected", "ts": ..., "phi": 1.618, "all_events": [...]}
-      subscribe → client sends {"type": "subscribe", "events": ["JUDGMENT_CREATED", ...]}
-                 → server only sends matching events (default: all)
-      event    → {"type": <event_name>, "payload": {...}, "source": str, "ts": float}
-      ping     → client sends {"type": "ping"} → server responds {"type": "pong", "ts": ...}
+      connect  â†’ {"type": "connected", "ts": ..., "phi": 1.618, "all_events": [...]}
+      subscribe â†’ client sends {"type": "subscribe", "events": ["JUDGMENT_CREATED", ...]}
+                 â†’ server only sends matching events (default: all)
+      event    â†’ {"type": <event_name>, "payload": {...}, "source": str, "ts": float}
+      ping     â†’ client sends {"type": "ping"} â†’ server responds {"type": "pong", "ts": ...}
 
-    Client disconnect → clean unsubscribe from all events.
-    Queue overflow (>100 buffered events) → events dropped silently.
+    Client disconnect â†’ clean unsubscribe from all events.
+    Queue overflow (>100 buffered events) â†’ events dropped silently.
     """
     await websocket.accept()
     bus = get_core_bus("DEFAULT")
     queue: asyncio.Queue = asyncio.Queue(maxsize=100)
 
-    # All CoreEvent names → used for connected banner + subscribe validation
+    # All CoreEvent names â†’ used for connected banner + subscribe validation
     all_event_names: list = [e.name for e in CoreEvent]
 
-    # Active filter — None = all events pass; set = only matching names pass
+    # Active filter â€” None = all events pass; set = only matching names pass
     _active_filter: list = []  # mutable cell (empty = all events)
     _filter_lock = asyncio.Lock()
 
@@ -250,7 +250,7 @@ async def ws_events(websocket: WebSocket) -> None:
                 "ts":      time.time(),
             })
         except asyncio.QueueFull:
-            pass  # Drop silently — client is slow, kernel must not block
+            pass  # Drop silently â€” client is slow, kernel must not block
 
     # Subscribe to ALL CoreEvents
     for ev_type in CoreEvent:

@@ -1,4 +1,4 @@
-"""Tests for EventJournal — sequence recording and causality tracing."""
+"""Tests for EventJournal â€” sequence recording and causality tracing."""
 
 import asyncio
 

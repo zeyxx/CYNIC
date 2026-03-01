@@ -168,7 +168,7 @@ class TestErrorHandling:
 
         assert "CYNIC" in message
         assert "unavailable" in message.lower()
-        assert "❌" in message
+        assert "âŒ" in message
 
     async def test_handle_error_database_error(self):
         """handle_error categorizes database errors"""
@@ -176,7 +176,7 @@ class TestErrorHandling:
         message = await handle_error(error, "test context")
 
         assert "Database" in message or "database" in message
-        assert "❌" in message
+        assert "âŒ" in message
 
     async def test_handle_error_timeout(self):
         """handle_error handles timeout errors"""
@@ -184,7 +184,7 @@ class TestErrorHandling:
         message = await handle_error(error, "test context")
 
         assert "timed out" in message.lower()
-        assert "❌" in message
+        assert "âŒ" in message
 
     async def test_handle_error_generic(self):
         """handle_error provides generic error message"""
@@ -192,7 +192,7 @@ class TestErrorHandling:
         message = await handle_error(error, "test context")
 
         assert "error" in message.lower()
-        assert "❌" in message
+        assert "âŒ" in message
 
 
 @pytest.mark.asyncio

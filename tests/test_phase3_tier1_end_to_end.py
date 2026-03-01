@@ -1,5 +1,5 @@
 """
-PHASE 3 Tier 1 End-to-End Tests — EMPIRICAL (NO MOCKS)
+PHASE 3 Tier 1 End-to-End Tests â€” EMPIRICAL (NO MOCKS)
 
 Tests the event-driven judgment pipeline through the HTTP API layer.
 Validates the transition from PENDING to reality-driven state.

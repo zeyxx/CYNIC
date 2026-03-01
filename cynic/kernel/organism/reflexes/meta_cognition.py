@@ -1,5 +1,5 @@
 """
-Meta-Cognition Handler — Organism's self-tuning loop.
+Meta-Cognition Handler â€” Organism's self-tuning loop.
 Listens to SONA_TICK and adjusts internal parameters based on axiom health.
 """
 
@@ -9,10 +9,10 @@ import logging
 from typing import Optional
 
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
-from cynic.kernel.organism.handlers.base import HandlerGroup
-from cynic.kernel.organism.handlers.services import CognitionServices
+from cynic.kernel.organism.reflexes.base import HandlerGroup
+from cynic.kernel.organism.reflexes.services import CognitionServices
 
-logger = logging.getLogger("cynic.kernel.organism.handlers.meta_cognition")
+logger = logging.getLogger("cynic.kernel.organism.reflexes.meta_cognition")
 
 class MetaCognitionHandler(HandlerGroup):
     """Organism self-tuning and parameter adjustment."""
@@ -67,7 +67,7 @@ class MetaCognitionHandler(HandlerGroup):
 
     async def _on_sona_tick(self, event: Event) -> None:
         """
-        SONA_TICK (every 34s) → Analyze organism state and tune.
+        SONA_TICK (every 34s) â†’ Analyze organism state and tune.
         """
         try:
             self._ticks_processed += 1
@@ -75,12 +75,12 @@ class MetaCognitionHandler(HandlerGroup):
             axiom_health = p.get("axiom_health", 0.0)
             q_stability = p.get("q_stability", 0.0)
 
-            # 1. Suppression du spam au démarrage (Rigueur Senior)
+            # 1. Suppression du spam au dÃ©marrage (Rigueur Senior)
             if self._ticks_processed < 5:
                 logger.debug("Meta-Cognition: Warm-up phase (tick %d)", self._ticks_processed)
                 return
 
-            # 2. Logique de réglage (en DEBUG pour ne pas polluer)
+            # 2. Logique de rÃ©glage (en DEBUG pour ne pas polluer)
             if q_stability < 0.382:  # Below PHI_INV_2
                 logger.debug(
                     "Meta-Cognition: Q-Stability low (%.3f). Tuning exploration.", q_stability

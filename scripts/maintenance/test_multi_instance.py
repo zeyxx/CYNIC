@@ -224,7 +224,7 @@ class MultiInstanceTest:
             # In real deployment, would check database for E-Score entries
             # For now, simulate the check
             escore_check = {
-                "community_a_escore": 0.618,  # φ⁻¹
+                "community_a_escore": 0.618,  # Ï†â»Â¹
                 "community_b_escore": 0.618,
                 "global_reputation_synced": True,
                 "last_sync": datetime.now().isoformat(),

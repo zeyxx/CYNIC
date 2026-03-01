@@ -7,9 +7,9 @@ import pytest_asyncio
 import logging
 from fastapi.testclient import TestClient
 
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # PHASE 4A: Old Architecture Test Collection (V5 Migration)
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 collect_ignore = [
     "test_authentication.py",
     "test_near_integration_live.py",
@@ -48,7 +48,7 @@ async def _get_or_create_organism_async():
         return _CACHED_ORGANISM, _CACHED_CONTAINER
 
     logger = logging.getLogger("cynic.tests.conftest")
-    logger.info("🧬 SESSION: Creating shared organism (Empirical)")
+    logger.info("ðŸ§¬ SESSION: Creating shared organism (Empirical)")
 
     # Create organism once
     organism = await awaken(db_pool=None)
