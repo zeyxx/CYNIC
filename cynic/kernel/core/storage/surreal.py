@@ -182,31 +182,25 @@ class QTableRepo(QTableRepoInterface):
             rec = await self._db.select(self._rec_id(state_key, action))
             if rec and isinstance(rec, dict):
                 return float(rec.get("q_value", 0.0))
-        except (httpx.RequestError, Exception):
-            logger.debug("QTable get failed for %s/%s", state_key, action)
+        except Exception as exc:
+            logger.error(f"❌ QTable persistence failure (GET) for {state_key}: {exc}")
         return 0.0
 
-    async def update(self, state_key: str, action: str, q_value: float) -> None:
+    async def update(self, state_key: str, action: str, q_value: float, visits: int = 1) -> None:
         rec_id = self._rec_id(state_key, action)
-        # Fetch existing to increment visit_count
-        existing: dict | None = None
         try:
-            existing = await self._db.select(rec_id)
-        except (httpx.RequestError, Exception):
-            logger.debug("QTable visit fetch failed for %s", rec_id)
-        visits = 1
-        if existing and isinstance(existing, dict):
-            visits = int(existing.get("visit_count", 0)) + 1
-        await self._db.upsert(
-            rec_id,
-            {
-                "state_key": state_key,
-                "action": action,
-                "q_value": q_value,
-                "visit_count": visits,
-                "last_updated": time.time(),
-            },
-        )
+            await self._db.upsert(
+                rec_id,
+                {
+                    "state_key": state_key,
+                    "action": action,
+                    "q_value": q_value,
+                    "visit_count": visits,
+                    "last_updated": time.time(),
+                },
+            )
+        except Exception as exc:
+            logger.error(f"❌ QTable persistence failure (UPDATE) for {rec_id}: {exc}")
 
     async def get_all_actions(self, state_key: str) -> dict[str, float]:
         result = await self._db.query(
@@ -624,8 +618,8 @@ class SurrealStorage(StorageInterface):
         for stmt in _SCHEMA_STATEMENTS:
             try:
                 await self._db.query(stmt)
-            except OSError as exc:
-                logger.debug("Schema stmt skipped (%s): %s", stmt[:40], exc)
+            except Exception as exc:
+                logger.error(f"❌ SurrealDB Schema Error in statement: {stmt[:50]}... | Error: {exc}")
         logger.info("*tail wag* SurrealDB schema ready (%d statements)", len(_SCHEMA_STATEMENTS))
 
     # â”€â”€ Repository accessors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

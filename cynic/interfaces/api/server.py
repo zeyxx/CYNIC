@@ -172,8 +172,10 @@ async def websocket_consciousness_ecosystem(websocket: WebSocket) -> None:
         logger.debug("WebSocket /ws/consciousness/ecosystem disconnected")
     except Exception as e:
         logger.error("WebSocket error: %s", e)
-        try: await websocket.close(code=1011)
-        except Exception: pass
+        try: 
+            await websocket.close(code=1011)
+        except Exception as close_err:
+            logger.warning(f"Failed to close websocket cleanly: {close_err}")
 
 if __name__ == "__main__":
     import uvicorn

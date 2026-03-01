@@ -95,6 +95,10 @@ class EventBus:
         self.bus_id = bus_id
         self._handlers: dict[str, list[Handler]] = defaultdict(list)
         self._pending_tasks: set[asyncio.Task] = set()
+        self._handler_timeout_s: float = 30.0
+        self._emitted_count: int = 0
+        self._error_count: int = 0
+        self._handler_errors: dict[str, list[str]] = defaultdict(list)
 
     def on(self, event_type: Union[str, CoreEvent], handler: Handler) -> None:
         name = event_type.value if hasattr(event_type, "value") else str(event_type)
@@ -105,20 +109,78 @@ class EventBus:
         if name in self._handlers:
             self._handlers[name] = [h for h in self._handlers[name] if h != handler]
 
+    async def _safe_handler_wrapper(self, handler: Handler, event: Event, handler_name: str) -> None:
+        """Wrap handler execution with timeout and error handling.
+
+        Observable error handling: catches exceptions, logs with context, continues.
+        Prevents one failing handler from blocking others.
+        """
+        try:
+            await asyncio.wait_for(handler(event), timeout=self._handler_timeout_s)
+        except asyncio.TimeoutError:
+            error_msg = f"Handler {handler_name} timed out after {self._handler_timeout_s}s for event {event.type}"
+            logger.warning(error_msg, extra={"event_id": event.event_id, "handler": handler_name})
+            self._error_count += 1
+            self._handler_errors[event.type].append(error_msg)
+        except asyncio.CancelledError:
+            # Task was cancelled, this is expected during shutdown
+            logger.debug(f"Handler {handler_name} was cancelled for event {event.type}")
+        except Exception as exc:
+            error_msg = f"Handler {handler_name} failed: {type(exc).__name__}: {str(exc)}"
+            logger.error(error_msg, exc_info=True, extra={"event_id": event.event_id, "handler": handler_name})
+            self._error_count += 1
+            self._handler_errors[event.type].append(error_msg)
+
     async def emit(self, event: Event) -> None:
+        """Emit event to all registered handlers.
+
+        Handlers are invoked concurrently. If a handler fails, it's logged but doesn't
+        prevent other handlers from running. This provides resilience + observability.
+        """
+        self._emitted_count += 1
         handlers = self._handlers.get(event.type, [])
         wildcards = self._handlers.get("*", [])
-        for h in handlers + wildcards:
-            task = asyncio.create_task(h(event))
+
+        for i, h in enumerate(handlers + wildcards):
+            handler_name = getattr(h, "__name__", f"handler_{i}")
+            task = asyncio.create_task(self._safe_handler_wrapper(h, event, handler_name))
             self._pending_tasks.add(task)
             task.add_done_callback(self._pending_tasks.discard)
 
     async def drain(self, timeout: float = 2.0) -> None:
-        if not self._pending_tasks: return
+        """Wait for all pending handler tasks to complete.
+
+        Observable error handling: logs timeout but doesn't raise.
+        Ensures graceful shutdown even if handlers are slow.
+        """
+        if not self._pending_tasks:
+            return
         try:
-            await asyncio.wait_for(asyncio.gather(*self._pending_tasks, return_exceptions=True), timeout=timeout)
-        except Exception: pass
-        finally: self._pending_tasks.clear()
+            await asyncio.wait_for(
+                asyncio.gather(*self._pending_tasks, return_exceptions=True),
+                timeout=timeout
+            )
+        except asyncio.TimeoutError:
+            pending_count = len(self._pending_tasks)
+            logger.warning(
+                f"EventBus drain timed out with {pending_count} pending handler tasks still running",
+                extra={"bus_id": self.bus_id, "timeout_s": timeout}
+            )
+        except Exception as exc:
+            logger.error(f"Unexpected error during drain: {exc}", exc_info=True, extra={"bus_id": self.bus_id})
+        finally:
+            self._pending_tasks.clear()
+
+    def stats(self) -> dict[str, Any]:
+        """Return observability statistics about the bus."""
+        return {
+            "bus_id": self.bus_id,
+            "emitted": self._emitted_count,
+            "errors": self._error_count,
+            "pending_tasks": len(self._pending_tasks),
+            "error_rate": self._error_count / max(self._emitted_count, 1),
+            "error_by_event": dict(self._handler_errors),
+        }
 
 def get_bus(bus_id: str, instance_id: str | None = None) -> EventBus:
     target_id = instance_id or current_instance_id.get()

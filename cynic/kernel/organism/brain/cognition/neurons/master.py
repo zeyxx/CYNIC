@@ -12,7 +12,10 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from cynic.kernel.core.event_bus import EventBus
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.judgment import Cell, ConsensusResult
@@ -70,7 +73,13 @@ class MasterDog(LLMDog):
     Includes PBFT coordination logic for the CYNIC DogId.
     """
 
-    def __init__(self, soul: DogSoul, bus: Optional[Any] = None) -> None:
+    def __init__(self, soul: DogSoul, bus: Optional["EventBus"] = None) -> None:
+        """Initialize MasterDog with a DogSoul configuration.
+
+        Args:
+            soul: DogSoul configuration defining personality, axioms, and prompts
+            bus: Event bus for emitting observations. REQUIRED - no global fallback.
+        """
         super().__init__(soul.dog_id, task_type=soul.task_type, bus=bus)
         self.soul = soul
         self._lookups = 0
