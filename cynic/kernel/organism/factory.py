@@ -236,7 +236,7 @@ class _OrganismAwakener:
         self.internal_sensor.start()
 
         from cynic.kernel.organism.perception.senses.market import MarketSensor
-        self.market_sensor = MarketSensor(interval_s=30.0, bus=instance_bus)
+        self.market_sensor = MarketSensor(interval_s=30.0, bus=instance_bus, vascular=self.vascular)
         self.market_sensor.start()
 
 
