@@ -4,23 +4,19 @@ ActionProposer — The Strategy Layer.
 Receives DECISION_MADE events from the JudgeOrchestrator and translates them
 into actionable proposals for the organism's motor system (ActHandlers).
 
-Responsibility:
-- Maintain a priority queue of pending actions.
-- Enforce deduplication (don't propose the same action twice).
-- Persist proposals to disk/DB (~/.cynic/pending_actions.json).
+Memory Unification: Now uses SurrealDB ActionProposalRepo instead of JSON files.
 """
 from __future__ import annotations
 
-import json
 import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
-from cynic.kernel.core.events_schema import ActionProposedPayload, DecisionMadePayload
+from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.kernel.core.events_schema import DecisionMadePayload, ActionProposedPayload
+from cynic.kernel.core.storage.interface import ActionProposalRepoInterface
 
 logger = logging.getLogger("cynic.kernel.brain.cognition.action_proposer")
 
@@ -30,12 +26,11 @@ class ProposedAction:
     judgment_id: str = ""
     verdict: str = ""
     reality: str = ""
-    state_key: str = ""
     action_prompt: str = ""
     priority: int = 5
     status: str = "PENDING"  # PENDING, EXECUTING, COMPLETED, FAILED, BLOCKED
     proposed_at: float = field(default_factory=time.time)
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -53,19 +48,17 @@ class ProposedAction:
 class ActionProposer:
     """
     Manages the lifecycle of proposed actions from judgment outcomes.
+    Persistence is fully handled by SurrealDB via the injected repository.
     """
-    _STORAGE_PATH = Path.home() / ".cynic" / "pending_actions.json"
-
-    def __init__(self, db_pool: Any | None = None):
-        self.db_pool = db_pool
-        self._pending: dict[str, ProposedAction] = {}
-        self._load_from_disk()
+    def __init__(self, repo: ActionProposalRepoInterface):
+        self.repo = repo
+        self._last_stats = {"pending": 0, "total": 0}
 
     def start(self):
         """Subscribe to decision events."""
         bus = get_core_bus()
         bus.on(CoreEvent.DECISION_MADE, self.on_decision_made)
-        logger.info("ActionProposer started — subscribed to DECISION_MADE")
+        logger.info("ActionProposer started — linked to SurrealDB")
 
     async def on_decision_made(self, event: Event) -> None:
         """Handle new decisions from the orchestrator."""
@@ -91,72 +84,64 @@ class ActionProposer:
             logger.error("ActionProposer failed to process decision: %s", e)
 
     async def add_proposal(self, action: ProposedAction) -> bool:
-        """Add a new proposal to the queue and notify the system."""
-        # Deduplication check
-        if any(p.judgment_id == action.judgment_id for p in self._pending.values()):
+        """Add a new proposal to SurrealDB and notify the system."""
+        try:
+            # Persistence (SurrealDB)
+            await self.repo.upsert(action.to_dict())
+
+            # Emit ACTION_PROPOSED
+            await get_core_bus().emit(Event.typed(
+                CoreEvent.ACTION_PROPOSED,
+                ActionProposedPayload(
+                    action_id=action.action_id,
+                    judgment_id=action.judgment_id,
+                    reality=action.reality,
+                    priority=action.priority,
+                    action_prompt=action.action_prompt
+                ),
+                source="action_proposer"
+            ))
+            
+            logger.info("ACTION PROPOSED: %s (priority=%d) -> Stored in SurrealDB", action.action_id, action.priority)
+            return True
+        except Exception as e:
+            logger.error(f"ActionProposer: Failed to persist to SurrealDB: {e}")
             return False
 
-        self._pending[action.action_id] = action
-        self._save_to_disk()
-
-        # Emit ACTION_PROPOSED
-        await get_core_bus().emit(Event.typed(
-            CoreEvent.ACTION_PROPOSED,
-            ActionProposedPayload(
-                action_id=action.action_id,
-                judgment_id=action.judgment_id,
-                reality=action.reality,
-                priority=action.priority,
-                action_prompt=action.action_prompt
-            ),
-            source="action_proposer"
-        ))
-        
-        logger.info("ACTION PROPOSED: %s (priority=%d)", action.action_id, action.priority)
-        return True
-
-    def get_next_action(self) -> ProposedAction | None:
-        """Retrieve the highest priority pending action."""
-        if not self._pending:
-            return None
-        
-        pending_list = [a for a in self._pending.values() if a.status == "PENDING"]
-        if not pending_list:
-            return None
+    async def get_next_action(self) -> Optional[ProposedAction]:
+        """Retrieve the highest priority pending action from SurrealDB."""
+        try:
+            pending = await self.repo.all_pending()
+            if not pending:
+                return None
             
-        return min(pending_list, key=lambda x: (x.priority, x.proposed_at))
+            # Map back to dataclass
+            data = pending[0]
+            return ProposedAction(**data)
+        except Exception:
+            return None
 
     async def update_status(self, action_id: str, status: str) -> None:
-        """Update action status and persist."""
-        if action_id in self._pending:
-            self._pending[action_id].status = status
-            self._save_to_disk()
-
-    def _save_to_disk(self):
+        """Update action status in SurrealDB."""
         try:
-            self._STORAGE_PATH.parent.mkdir(parents=True, exist_ok=True)
-            data = [a.to_dict() for a in self._pending.values()]
-            with open(self._STORAGE_PATH, "w") as f:
-                json.dump(data, f, indent=2)
+            await self.repo.update_status(action_id, status)
         except Exception as e:
-            logger.warning("ActionProposer failed to save: %s", e)
+            logger.error(f"Failed to update action status in SurrealDB: {e}")
 
-    def _load_from_disk(self):
-        if not self._STORAGE_PATH.exists():
-            return
+    async def refresh_stats(self):
+        """Update cached stats from DB."""
         try:
-            with open(self._STORAGE_PATH) as f:
-                data = json.load(f)
-                for item in data:
-                    action = ProposedAction(**item)
-                    self._pending[action.action_id] = action
-            logger.info("ActionProposer: loaded %d actions from disk", len(self._pending))
-        except Exception as e:
-            logger.warning("ActionProposer failed to load: %s", e)
+            all_actions = await self.repo.all()
+            pending = [a for a in all_actions if a["status"] == "PENDING"]
+            self._last_stats = {
+                "pending": len(pending),
+                "total": len(all_actions)
+            }
+        except Exception:
+            pass
 
     def stats(self) -> dict:
         return {
-            "pending_count": sum(1 for a in self._pending.values() if a.status == "PENDING"),
-            "total_count": len(self._pending),
-            "completed_count": sum(1 for a in self._pending.values() if a.status == "COMPLETED")
+            "pending_count": self._last_stats["pending"],
+            "total_count": self._last_stats["total"]
         }

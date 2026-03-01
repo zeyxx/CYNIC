@@ -1,13 +1,8 @@
 """
-CYNIC DogSoul — Cross-Session Identity Memory (β2)
+CYNIC DogSoul — Cross-Session Identity Memory.
 
-Each Dog maintains a SOUL.md file at:
-    ~/.cynic/dogs/{dog_id}/soul.md
-
-The file uses YAML front matter for structured stats and Markdown body
-for accumulated narrative wisdom. This allows the Dog to "remember" who
-it is across sessions — total judgments, average Q-Score, session count,
-strengths, and watchouts.
+Unified Identity: Now supports SurrealDB as the primary memory, 
+falling back to local JSON for bootstrapping or local dev.
 """
 from __future__ import annotations
 
@@ -16,6 +11,9 @@ import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Optional
+
+from cynic.kernel.core.storage.interface import DogSoulRepoInterface
 
 logger = logging.getLogger("cynic.kernel.core.soul")
 
@@ -28,8 +26,6 @@ class DogSoul:
     confidence_factor: float = 0.382
     accumulated_wisdom: str = ""
     last_seen: float = field(default_factory=time.time)
-    
-    # Heuristic weights (learned from feedback)
     axiom_weights: dict[str, float] = field(default_factory=dict)
     
     def to_dict(self) -> dict:
@@ -39,22 +35,40 @@ class DogSoul:
             "avg_q_score": round(self.avg_q_score, 2),
             "confidence_factor": round(self.confidence_factor, 3),
             "last_seen": self.last_seen,
-            "axiom_weights": self.axiom_weights
+            "axiom_weights": self.axiom_weights,
+            "accumulated_wisdom": self.accumulated_wisdom
         }
 
-    def save(self):
-        """Persist soul to disk."""
+    async def save(self, repo: Optional[DogSoulRepoInterface] = None):
+        """Persist soul to SurrealDB (primary) or Disk (fallback)."""
+        if repo:
+            try:
+                await repo.save(self.to_dict())
+                return
+            except Exception as e:
+                logger.error(f"Failed to save soul to DB: {e}")
+
+        # Fallback to local JSON
         path = Path.home() / ".cynic" / "dogs" / self.dog_id.lower() / "soul.json"
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             with open(path, "w") as f:
                 json.dump(self.to_dict(), f, indent=2)
         except Exception as e:
-            logger.error(f"Failed to save soul for {self.dog_id}: {e}")
+            logger.error(f"Failed to save soul to disk for {self.dog_id}: {e}")
 
     @classmethod
-    def load(cls, dog_id: str) -> DogSoul:
-        """Load soul from disk or return a fresh one."""
+    async def load(cls, dog_id: str, repo: Optional[DogSoulRepoInterface] = None) -> DogSoul:
+        """Load soul from SurrealDB (primary) or Disk (fallback)."""
+        if repo:
+            try:
+                data = await repo.get(dog_id)
+                if data:
+                    return cls(**data)
+            except Exception as e:
+                logger.warning(f"Failed to load soul from DB for {dog_id}: {e}")
+
+        # Fallback to disk
         path = Path.home() / ".cynic" / "dogs" / dog_id.lower() / "soul.json"
         if path.exists():
             try:
@@ -62,5 +76,6 @@ class DogSoul:
                     data = json.load(f)
                     return cls(**data)
             except Exception as e:
-                logger.warning(f"Failed to load soul for {dog_id}, using fresh one: {e}")
+                logger.warning(f"Failed to load soul from disk, using fresh one: {e}")
+        
         return cls(dog_id=dog_id)

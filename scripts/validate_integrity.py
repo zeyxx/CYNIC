@@ -32,7 +32,7 @@ async def validate():
 
         # 3. Life Cycle
         print("Step 3: Organism Life Cycle (Awaken -> Start -> Stop)...", flush=True)
-        o = awaken()
+        o = await awaken()
         await o.start()
         print("   - Respiration Active")
         await o.stop()

@@ -75,6 +75,15 @@ LEARNING_RATE: float = PHI_INV_2 / 10   # ≈ 0.038 (conservative)
 EWC_PENALTY: float = PHI_INV            # λ = 0.618 (forgetting penalty)
 THOMPSON_CONFIDENCE: float = PHI_INV    # β distribution confidence bound
 
+# Dog Priorities (PHI-weighted importance)
+# Higher weight = more influence in weighted_geometric_mean
+DOG_PRIORITY: dict[str, float] = {
+    "SAGE": PHI_2,      # 2.618
+    "ANALYST": PHI,     # 1.618
+    "GUARDIAN": PHI_3,  # 4.236 (Highest priority for security)
+    "CYNIC": 1.0,       # 1.0 (Coordinator)
+}
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # FIBONACCI SEQUENCE (for timing, intervals, counts)

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import Any, TypeVar, Optional
 
 from cynic.kernel.core.config import CynicConfig
 
@@ -107,3 +107,15 @@ class DependencyContainer:
             "factories": len(self._factories),
             "types": self.registered_types,
         }
+
+# Global singleton for core kernel access
+_container: Optional[DependencyContainer] = None
+
+def get_container() -> DependencyContainer:
+    """Retrieve or initialize global container."""
+    global _container
+    if _container is None:
+        _container = DependencyContainer()
+        # Ensure base config is always available
+        _container.register(CynicConfig, CynicConfig())
+    return _container

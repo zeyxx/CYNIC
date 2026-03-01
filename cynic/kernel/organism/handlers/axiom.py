@@ -15,7 +15,7 @@ from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError, get_cor
 from cynic.kernel.core.events_schema import TranscendencePayload
 from cynic.kernel.core.phi import GROWL_MIN, HOWL_MIN, MAX_Q_SCORE, PHI_INV, PHI_INV_2, WAG_MIN
 from cynic.kernel.organism.handlers.base import HandlerGroup
-from cynic.kernel.organism.handlers.services import KernelServices
+from cynic.kernel.organism.handlers.services import CognitionServices
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.brain.cognition.cortex.action_proposer import ActionProposer
@@ -29,8 +29,8 @@ _A6_A9 = {"EMERGENCE", "AUTONOMY", "SYMBIOSIS", "ANTIFRAGILITY"}
 class AxiomHandlers(HandlerGroup):
     """Axiom signaling chain leading to TRANSCENDENCE."""
 
-    def __init__(self, svc: KernelServices, *, action_proposer: ActionProposer) -> None:
-        self._svc = svc
+    def __init__(self, cognition: CognitionServices, *, action_proposer: ActionProposer) -> None:
+        self._cognition = cognition
         self._action_proposer = action_proposer
 
     @property
@@ -64,14 +64,14 @@ class AxiomHandlers(HandlerGroup):
     async def _on_emergence_signal(self, event: Event) -> None:
         """EMERGENCE_DETECTED → signal EMERGENCE axiom."""
         try:
-            await self._svc.signal_axiom("EMERGENCE", "emergence_detector")
+            await self._cognition.signal_axiom("EMERGENCE", "emergence_detector")
         except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_decision_made_for_axiom(self, event: Event) -> None:
         """DECISION_MADE → signal AUTONOMY axiom."""
         try:
-            await self._svc.signal_axiom("AUTONOMY", "decide_agent")
+            await self._cognition.signal_axiom("AUTONOMY", "decide_agent")
         except EventBusError:
             logger.debug("handler error", exc_info=True)
 
@@ -84,12 +84,12 @@ class AxiomHandlers(HandlerGroup):
 
             # RUN EScore — decision quality as execution efficiency
             run_score = q_value * MAX_Q_SCORE
-            self._svc.escore_tracker.update("agent:cynic", "RUN", run_score)
+            self._cognition.escore_tracker.update_dimension("agent:cynic", "RUN", run_score)
 
             # EMERGENCE: confident BARK = organism sure of critical problem
             emergence_signalled = False
             if verdict == "BARK" and q_value >= PHI_INV_2:
-                await self._svc.signal_axiom(
+                await self._cognition.signal_axiom(
                     "EMERGENCE",
                     "decision_made",
                     trigger="CONFIDENT_BARK",
@@ -111,7 +111,7 @@ class AxiomHandlers(HandlerGroup):
         try:
             axiom_name = event.dict_payload.get("axiom", "?")
             maturity = event.dict_payload.get("maturity", 0.0)
-            active = self._svc.axiom_monitor.active_axioms()
+            active = self._cognition.axiom_monitor.active_axioms()
 
             logger.info(
                 "AXIOM_ACTIVATED: %s (maturity=%.1f) — active: %s",
@@ -153,7 +153,7 @@ class AxiomHandlers(HandlerGroup):
                 return
 
             # CONSCIOUSNESS: organism aware of own state
-            await self._svc.signal_axiom(
+            await self._cognition.signal_axiom(
                 "CONSCIOUSNESS",
                 "self_improvement",
                 trigger="SELF_IMPROVEMENT_PROPOSED",
@@ -162,7 +162,7 @@ class AxiomHandlers(HandlerGroup):
 
             # JUDGE EScore: self-analysis quality
             judge_score = severity * MAX_Q_SCORE
-            self._svc.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+            self._cognition.escore_tracker.update_dimension("agent:cynic", "JUDGE", judge_score)
 
             logger.info(
                 "SELF_IMPROVEMENT_PROPOSED: count=%d severity=%.3f → "
@@ -182,7 +182,7 @@ class AxiomHandlers(HandlerGroup):
                 "TRANSCENDENCE — all 4 emergent axioms active: %s",
                 active,
             )
-            self._svc.escore_tracker.update("agent:cynic", "JUDGE", MAX_Q_SCORE)
+            self._cognition.escore_tracker.update_dimension("agent:cynic", "JUDGE", MAX_Q_SCORE)
         except EventBusError:
             logger.debug("handler error", exc_info=True)
 
@@ -194,11 +194,11 @@ class AxiomHandlers(HandlerGroup):
             cell_id = p.get("cell_id", "")
 
             # THE_UNNAMEABLE = EMERGENCE by definition
-            await self._svc.signal_axiom("EMERGENCE", "residual_high")
+            await self._cognition.signal_axiom("EMERGENCE", "residual_high")
 
             # EScore JUDGE penalty
             penalty_score = (1.0 - min(residual, 1.0)) * MAX_Q_SCORE
-            self._svc.escore_tracker.update("agent:cynic", "JUDGE", penalty_score)
+            self._cognition.escore_tracker.update_dimension("agent:cynic", "JUDGE", penalty_score)
 
             logger.warning(
                 "RESIDUAL_HIGH: cell=%s residual=%.3f → EMERGENCE signal, "
@@ -223,7 +223,7 @@ class AxiomHandlers(HandlerGroup):
                 3: WAG_MIN,
             }.get(priority, GROWL_MIN)
 
-            self._svc.escore_tracker.update("agent:cynic", "BUILD", score)
+            self._cognition.escore_tracker.update_dimension("agent:cynic", "BUILD", score)
             logger.info(
                 "ACTION_PROPOSED: type=%s priority=%d → BUILD EScore=%.1f",
                 action_type,
@@ -243,7 +243,7 @@ class AxiomHandlers(HandlerGroup):
 
             # ANTIFRAGILITY: regression = stress signal
             if regression:
-                await self._svc.signal_axiom(
+                await self._cognition.signal_axiom(
                     "ANTIFRAGILITY",
                     "meta_cycle",
                     trigger="META_CYCLE_REGRESSION",
@@ -251,7 +251,7 @@ class AxiomHandlers(HandlerGroup):
 
             # CONSCIOUSNESS: organism knows its state
             if pass_rate >= PHI_INV:
-                await self._svc.signal_axiom(
+                await self._cognition.signal_axiom(
                     "CONSCIOUSNESS",
                     "meta_cycle",
                     trigger="META_CYCLE_HEALTH",
@@ -266,7 +266,7 @@ class AxiomHandlers(HandlerGroup):
             else:
                 judge_score = GROWL_MIN
 
-            self._svc.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+            self._cognition.escore_tracker.update_dimension("agent:cynic", "JUDGE", judge_score)
 
             logger.info(
                 "META_CYCLE: pass_rate=%.1f%% regression=%s → "

@@ -157,9 +157,11 @@ class QTable:
         self,
         learning_rate: float = LEARNING_RATE,
         discount: float = PHI_INV_2,  # γ = φ⁻² = 0.382 (short-horizon)
+        storage: Optional[Any] = None,
     ) -> None:
         self._alpha = learning_rate       # ≈ 0.038
         self._gamma = discount            # 0.382 — discount future rewards conservatively
+        self.storage = storage
         # Nested dict: {state_key: {action: QEntry}}
         self._table: dict[str, dict[str, QEntry]] = defaultdict(dict)
         self._total_updates: int = 0
@@ -526,11 +528,12 @@ class LearningLoop:
         self.qtable._alpha = self._learning_rate
         logger.info("Learning rate α adjusted to %.4f (delta=%.3f)", self._learning_rate, delta)
 
-    def start(self, event_bus: EventBus) -> None:
+    def start(self, event_bus: Optional[Any] = None) -> None:
         """Register LEARNING_EVENT listener on the event bus."""
-        from cynic.kernel.core.event_bus import CoreEvent
+        from cynic.kernel.core.event_bus import CoreEvent, get_core_bus
 
-        event_bus.on(CoreEvent.LEARNING_EVENT, self._on_learning_event)
+        target_bus = event_bus or get_core_bus()
+        target_bus.on(CoreEvent.LEARNING_EVENT, self._on_learning_event)
         self._active = True
         logger.info("LearningLoop started — listening for LEARNING_EVENT")
 

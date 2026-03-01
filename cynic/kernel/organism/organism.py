@@ -186,7 +186,7 @@ class Organism:
             await self.memory.gossip_manager.stop()
         logger.info("Organism: Dormant.")
 
-def awaken(db_pool=None, registry=None) -> Organism:
+async def awaken(db_pool=None, registry=None) -> Organism:
     """Delegates to the factory for awakening."""
     from .factory import _OrganismAwakener
-    return _OrganismAwakener(db_pool, registry).build()
+    return await _OrganismAwakener(db_pool, registry).build()

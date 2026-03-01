@@ -59,10 +59,13 @@ REALITY_SCHEMAS = {
 
 def validate_content(reality: str, content: Any) -> Any:
     """Validate and return typed content for a given reality."""
+    # If content is already a string or something else, pass it through.
+    # We only enforce schema if the source provides a dictionary.
+    if not isinstance(content, dict):
+        return content
+
     schema = REALITY_SCHEMAS.get(reality)
     if not schema:
-        return content # Unknown realities pass through for now
+        return content
     
-    if isinstance(content, dict):
-        return schema.model_validate(content)
-    return content
+    return schema.model_validate(content)

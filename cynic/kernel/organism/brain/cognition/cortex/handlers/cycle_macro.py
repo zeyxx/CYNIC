@@ -34,7 +34,13 @@ from cynic.kernel.organism.brain.cognition.neurons.base import DogId
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgmentPipeline
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.event_bus import (
+    CoreEvent,
+    CynicError,
+    Event,
+    EventBusError,
+    get_core_bus,
+)
 from cynic.kernel.core.events_schema import (
     PerceptionReceivedPayload,
     ResidualHighPayload,

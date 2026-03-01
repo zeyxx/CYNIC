@@ -52,7 +52,7 @@ class EScoreHandlers(HandlerGroup):
         try:
             p = JudgmentCreatedPayload.model_validate(event.dict_payload or {})
             burn_score = min(p.confidence / MAX_CONFIDENCE, 1.0) * MAX_Q_SCORE
-            self._svc.escore_tracker.update("agent:cynic", "BURN", burn_score, reality=p.reality)
+            self._svc.escore_tracker.update_dimension("agent:cynic", "BURN", burn_score, reality=p.reality)
             logger.debug("JUDGMENT_CREATED→BURN: verdict=%s conf=%.3f → BURN=%.1f", p.verdict, p.confidence, burn_score)
         except EventBusError:
             logger.debug("handler error", exc_info=True)
@@ -63,7 +63,7 @@ class EScoreHandlers(HandlerGroup):
             p = event.dict_payload or {}
             reward = float(p.get("reward", 0.0))
             judge_score = reward * MAX_Q_SCORE
-            self._svc.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+            self._svc.escore_tracker.update_dimension("agent:cynic", "JUDGE", judge_score)
             await self._svc.signal_axiom("AUTONOMY", "learning_event", trigger="LEARNING_EVENT")
             logger.debug("LEARNING_EVENT: action=%s reward=%.3f → JUDGE=%.1f", p.get("action", ""), reward, judge_score)
         except EventBusError:
@@ -75,7 +75,7 @@ class EScoreHandlers(HandlerGroup):
             p = event.dict_payload or {}
             direction = p.get("direction", "DOWN")
             hold_score = HOWL_MIN if direction == "UP" else GROWL_MIN
-            self._svc.escore_tracker.update("agent:cynic", "HOLD", hold_score)
+            self._svc.escore_tracker.update_dimension("agent:cynic", "HOLD", hold_score)
             if direction == "UP":
                 await self._svc.signal_axiom("ANTIFRAGILITY", "consciousness_changed", trigger="LOD_RECOVERY")
             logger.info("CONSCIOUSNESS_CHANGED: %s → HOLD=%.1f%s", direction, hold_score, " ANTIFRAGILITY signalled" if direction == "UP" else "")
@@ -88,8 +88,8 @@ class EScoreHandlers(HandlerGroup):
             p = event.dict_payload or {}
             rating = float(p.get("rating", 3.0))
             judge_score = (rating - 1) / 4.0 * MAX_Q_SCORE
-            self._svc.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
-            self._svc.escore_tracker.update("agent:cynic", "SOCIAL", WAG_MIN)
+            self._svc.escore_tracker.update_dimension("agent:cynic", "JUDGE", judge_score)
+            self._svc.escore_tracker.update_dimension("agent:cynic", "SOCIAL", WAG_MIN)
             logger.info("USER_FEEDBACK: rating=%d/5 → JUDGE=%.1f SOCIAL=%.1f", int(rating), judge_score, WAG_MIN)
         except EventBusError:
             logger.debug("handler error", exc_info=True)
@@ -101,8 +101,8 @@ class EScoreHandlers(HandlerGroup):
             reality = p.get("reality", "CODE")
             social_score = WAG_MIN if reality in ("SOCIAL", "HUMAN", "COSMOS") else GROWL_MIN
             hold_score = HOWL_MIN if reality == "CYNIC" else WAG_MIN
-            self._svc.escore_tracker.update("agent:cynic", "SOCIAL", social_score, reality=reality)
-            self._svc.escore_tracker.update("agent:cynic", "HOLD", hold_score, reality=reality)
+            self._svc.escore_tracker.update_dimension("agent:cynic", "SOCIAL", social_score, reality=reality)
+            self._svc.escore_tracker.update_dimension("agent:cynic", "HOLD", hold_score, reality=reality)
             logger.debug("PERCEPTION_RECEIVED: reality=%s → SOCIAL=%.1f HOLD=%.1f", reality, social_score, hold_score)
         except EventBusError:
             logger.debug("handler error", exc_info=True)
@@ -113,7 +113,7 @@ class EScoreHandlers(HandlerGroup):
             p = event.dict_payload or {}
             q_value = float(p.get("q_value", 0.5))
             judge_score = q_value * MAX_Q_SCORE
-            self._svc.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+            self._svc.escore_tracker.update_dimension("agent:cynic", "JUDGE", judge_score)
             await self._svc.signal_axiom("AUTONOMY", "ewc_checkpoint", trigger="EWC_CHECKPOINT")
             await self._svc.signal_axiom("CONSCIOUSNESS", "ewc_checkpoint", trigger="EWC_CHECKPOINT", q_value=round(q_value, 3))
             logger.info("EWC_CHECKPOINT: state=%s action=%s q=%.3f → JUDGE=%.1f", p.get("state_key", ""), p.get("action", ""), q_value, judge_score)
@@ -123,8 +123,8 @@ class EScoreHandlers(HandlerGroup):
     async def _on_q_table_updated(self, event: Event) -> None:
         """Q_TABLE_UPDATED → BUILD + HOLD EScore."""
         try:
-            self._svc.escore_tracker.update("agent:cynic", "BUILD", HOWL_MIN)
-            self._svc.escore_tracker.update("agent:cynic", "HOLD", WAG_MIN)
+            self._svc.escore_tracker.update_dimension("agent:cynic", "BUILD", HOWL_MIN)
+            self._svc.escore_tracker.update_dimension("agent:cynic", "HOLD", WAG_MIN)
             logger.info("Q_TABLE_UPDATED: flushed=%d → BUILD=%.1f HOLD=%.1f", int((event.dict_payload or {}).get("flushed", 0)), HOWL_MIN, WAG_MIN)
         except EventBusError:
             logger.debug("handler error", exc_info=True)
@@ -134,7 +134,7 @@ class EScoreHandlers(HandlerGroup):
         try:
             p = event.dict_payload or {}
             q_score = float(p.get("q_score", 0.0))
-            self._svc.escore_tracker.update("agent:cynic", "BUILD", q_score)
+            self._svc.escore_tracker.update_dimension("agent:cynic", "BUILD", q_score)
             await self._svc.signal_axiom("SYMBIOSIS", "consensus_reached", trigger="CONSENSUS_REACHED")
             await self._svc.signal_axiom("CONSCIOUSNESS", "consensus_reached", trigger="CONSENSUS_REACHED", verdict=p.get("verdict", ""), q_score=round(q_score, 1))
             logger.debug("CONSENSUS_REACHED: votes=%d verdict=%s q=%.1f → BUILD=%.1f", int(p.get("votes", 0)), p.get("verdict", ""), q_score, q_score)
@@ -148,7 +148,7 @@ class EScoreHandlers(HandlerGroup):
             votes = int(p.get("votes", 0))
             quorum = int(p.get("quorum", 7))
             judge_score = (votes / max(quorum, 1)) * MAX_Q_SCORE if votes > 0 else GROWL_MIN
-            self._svc.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+            self._svc.escore_tracker.update_dimension("agent:cynic", "JUDGE", judge_score)
             await self._svc.signal_axiom("EMERGENCE", "consensus_failed", trigger="CONSENSUS_FAILED")
             logger.warning("CONSENSUS_FAILED: votes=%d quorum=%d → JUDGE=%.1f EMERGENCE signalled", votes, quorum, judge_score)
         except EventBusError:
@@ -160,7 +160,7 @@ class EScoreHandlers(HandlerGroup):
             p = event.dict_payload or {}
             correction_type = p.get("correction_type", "")
             score = HOWL_MIN if correction_type == "CRITICAL" else WAG_MIN
-            self._svc.escore_tracker.update("agent:cynic", "JUDGE", score)
+            self._svc.escore_tracker.update_dimension("agent:cynic", "JUDGE", score)
             logger.info("USER_CORRECTION: type=%s → JUDGE=%.1f", correction_type, score)
         except EventBusError:
             logger.debug("handler error", exc_info=True)
@@ -171,7 +171,7 @@ class EScoreHandlers(HandlerGroup):
             p = event.dict_payload or {}
             severity = float(p.get("severity", 0.5))
             judge_score = (1.0 - min(severity, 1.0)) * MAX_Q_SCORE
-            self._svc.escore_tracker.update("agent:cynic", "JUDGE", judge_score)
+            self._svc.escore_tracker.update_dimension("agent:cynic", "JUDGE", judge_score)
             logger.warning("ANOMALY_DETECTED: severity=%.2f → JUDGE=%.1f", severity, judge_score)
         except EventBusError:
             logger.debug("handler error", exc_info=True)
