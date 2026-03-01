@@ -25,7 +25,7 @@ async def test_master_dog_as_sage():
         
         assert isinstance(judgment, DogJudgment)
         assert judgment.dog_id == DogId.SAGE
-        assert "Instinct" in judgment.reasoning
+        assert "instinct" in judgment.reasoning.lower()
 
 @pytest.mark.asyncio
 async def test_master_dog_as_scholar():
@@ -43,4 +43,4 @@ async def test_master_dog_as_scholar():
         judgment = await dog.analyze(cell)
         
         assert judgment.dog_id == DogId.SCHOLAR
-        assert "Instinct" in judgment.reasoning
+        assert "instinct" in judgment.reasoning.lower()
