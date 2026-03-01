@@ -88,10 +88,10 @@ class ConsciousnessService:
 
             return result
 
-        except RuntimeError as e:
-            logger.warning(f"AppContainer not initialized for {operation_name}: {e}")
+        except (RuntimeError, AttributeError) as e:
+            logger.warning(f"AppContainer or component not available for {operation_name}: {e}")
             ERRORS_TOTAL.labels(
-                error_type="AppContainer",
+                error_type=type(e).__name__,
                 endpoint=operation_name
             ).inc()
             return fallback
