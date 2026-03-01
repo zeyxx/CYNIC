@@ -68,85 +68,110 @@ class SymbioticStateManager:
     async def get_current_snapshot(self) -> SymbioticState:
         """
         Produce a unified snapshot of the symbiotic state.
+        Ensures no partial failure crashes the caller.
         """
-        # 0. Ensure nerves are active
-        if not self.knet._running:
-            await self.start_nerves()
+        try:
+            # 0. Ensure nerves are active
+            if not self.knet._running:
+                try:
+                    await asyncio.wait_for(self.start_nerves(), timeout=1.0)
+                except Exception:
+                    pass
 
-        # 1. Collect human metrics (Local)
-        human = await self.human_tracker.get_snapshot()
-        
-        # 2. Collect machine metrics (Local)
-        machine = await self.machine_monitor.get_snapshot()
-        
-        # 3. Collect CYNIC core metrics
-        cynic_thinking = "Idle"
-        cynic_planning = []
-        cynic_confidence = 0.618
-        cynic_e_score = 50.0
-        
-        # Machine resources defaults to local
-        machine_resources = {
-            "cpu": machine.cpu_percent,
-            "ram": machine.memory_percent,
-            "disk": machine.disk_percent,
-        }
-        machine_health = machine.health
-        
-        # 3a. Local Instance
-        if self._organism:
-            stats = self._organism.state.get_stats()
-            cynic_thinking = stats.get("current_analysis", "Processing...")
-            cynic_confidence = stats.get("confidence", 0.618)
-            if hasattr(self._organism, "escore_tracker") and self._organism.escore_tracker:
-                cynic_e_score = self._organism.escore_tracker.get_total_escore()
-        
-        # 3b. Remote Instance via κ-NET (Pulse)
-        elif self.remote_mode and self._last_pulse_data:
-            data = self._last_pulse_data
-            mind = data.get("mind", {})
-            cynic_thinking = mind.get("thinking", "Awake (κ-NET)")
-            cynic_confidence = mind.get("confidence", 0.618)
-            cynic_e_score = mind.get("e_score", 50.0)
+            # 1. Collect human metrics (Local) - Default to safe empty if fails
+            try:
+                human = await self.human_tracker.get_snapshot()
+            except Exception:
+                from cynic.kernel.observability.models import HumanState
+                human = HumanState(energy=0.5, focus=0.5, intentions=[], values=[], feedback=[], growth_areas=[], timestamp=time.time())
             
-            # Map remote hardware if available in the pulse
-            hw = data.get("hardware", {})
-            if hw:
-                machine_resources = {
-                    "cpu": hw.get("cpu", 0.0),
-                    "ram": hw.get("ram", 0.0),
-                    "disk": hw.get("disk", 0.0),
-                }
-                machine_health = {"is_healthy": True, "remote": True}
+            # 2. Collect machine metrics (Local)
+            try:
+                machine = await self.machine_monitor.get_snapshot()
+            except Exception:
+                from cynic.kernel.observability.machine_monitor import MachineState
+                machine = MachineState(cpu_percent=0.0, memory_percent=0.0, disk_percent=0.0, network_bandwidth=0.0, temperature=0.0, health={}, timestamp=time.time())
+            
+            # 3. Collect CYNIC core metrics
+            cynic_thinking = "Idle"
+            cynic_planning = []
+            cynic_confidence = 0.618
+            cynic_e_score = 50.0
+            
+            # Machine resources defaults to local
+            machine_resources = {
+                "cpu": machine.cpu_percent,
+                "ram": machine.memory_percent,
+                "disk": machine.disk_percent,
+            }
+            machine_health = machine.health
+            
+            # 3a. Local Instance
+            if self._organism:
+                try:
+                    stats = self._organism.state.get_stats()
+                    cynic_thinking = stats.get("current_analysis", "Processing...")
+                    cynic_confidence = stats.get("confidence", 0.618)
+                    if hasattr(self._organism, "escore_tracker") and self._organism.escore_tracker:
+                        cynic_e_score = self._organism.escore_tracker.get_total_escore()
+                except Exception as e:
+                    logger.debug(f"SymbioticState Local fetch error: {e}")
+            
+            # 3b. Remote Instance via κ-NET (Pulse)
+            elif self.remote_mode and self._last_pulse_data:
+                try:
+                    data = self._last_pulse_data
+                    mind = data.get("mind", {})
+                    cynic_thinking = mind.get("thinking", "Awake (κ-NET)")
+                    cynic_confidence = mind.get("confidence", 0.618)
+                    cynic_e_score = mind.get("e_score", 50.0)
+                    
+                    # Map remote hardware if available in the pulse
+                    hw = data.get("hardware", {})
+                    if hw:
+                        machine_resources = {
+                            "cpu": hw.get("cpu", 0.0),
+                            "ram": hw.get("ram", 0.0),
+                            "disk": hw.get("disk", 0.0),
+                        }
+                        machine_health = {"is_healthy": True, "remote": True}
+                except Exception:
+                    pass
 
-        snapshot = SymbioticState(
-            # CYNIC
-            cynic_observations={},
-            cynic_thinking=cynic_thinking,
-            cynic_planning=cynic_planning,
-            cynic_confidence=cynic_confidence,
-            cynic_e_score=cynic_e_score,
-            # Human
-            human_energy=human.energy,
-            human_focus=human.focus,
-            human_intentions=human.intentions,
-            human_values=human.values,
-            human_feedback=human.feedback,
-            human_growth_areas=human.growth_areas,
-            # Machine
-            machine_resources=machine_resources,
-            machine_constraints={},
-            machine_capability_delta=[],
-            machine_health=machine_health,
-            # Relationship
-            alignment_score=0.618,
-            conflicts=[],
-            mutual_influences=[],
-            shared_objectives=[],
-            timestamp=time.time()
-        )
-        self._last_snapshot = snapshot
-        return snapshot
+            snapshot = SymbioticState(
+                # CYNIC
+                cynic_observations={},
+                cynic_thinking=cynic_thinking,
+                cynic_planning=cynic_planning,
+                cynic_confidence=cynic_confidence,
+                cynic_e_score=cynic_e_score,
+                # Human
+                human_energy=human.energy,
+                human_focus=human.focus,
+                human_intentions=human.intentions,
+                human_values=human.values,
+                human_feedback=human.feedback,
+                human_growth_areas=human.growth_areas,
+                # Machine
+                machine_resources=machine_resources,
+                machine_constraints={},
+                machine_capability_delta=[],
+                machine_health=machine_health,
+                # Relationship
+                alignment_score=0.618,
+                conflicts=[],
+                mutual_influences=[],
+                shared_objectives=[],
+                timestamp=time.time()
+            )
+            self._last_snapshot = snapshot
+            return snapshot
+        except Exception as e:
+            logger.error(f"Critical error in get_current_snapshot: {e}")
+            # Return last good snapshot if available, or a fallback
+            if self._last_snapshot:
+                return self._last_snapshot
+            raise
 
 async def get_symbiotic_state_manager() -> SymbioticStateManager:
     """Get or create the global SymbioticStateManager singleton."""
